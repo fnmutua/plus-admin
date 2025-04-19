@@ -1,309 +1,239 @@
-import * as turf from 'turf'
 import JSZip from 'jszip';
 import { open } from 'shapefile';
 import proj4 from 'proj4';
-import * as fs from 'fs';
 import { DOMParser } from 'xmldom';
-import * as tj from '@mapbox/togeojson';
-import { KmlToGeojson } from 'kml-to-geojson';
-import { XMLParser } from 'fast-xml-parser';
+import * as togeojson from '@mapbox/togeojson';
 
-
-// Function to read KML and return the GeoJSON
-function readKMLAndConvertToGeoJSON(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-
-    reader.onload = (e) => {
-      const fileContent = e.target.result;
-      const parser = new XMLParser();
-      const json = parser.parse(fileContent);
-
-      const coordinates = json.kml.Document.Placemark.Polygon.outerBoundaryIs.LinearRing.coordinates;
-      const coordinatePairs = coordinates.split(" ");
-
-      const xcoordinates = coordinatePairs.map((pair) => {
-        const [lon, lat] = pair.split(",").map(Number);
-        return [lon, lat];
-      });
-
-      const geom = 
-          {
-            "type": "Feature",
-            "properties": {},
-            "geometry": {
-              "type": "Polygon",
-              "coordinates": [xcoordinates], // Wrap xcoordinates in an array
-            },
-      }
-      
-        // Set the GeoJSON CRS object to GCS WGS84
-        geom.crs = {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326", // GCS WGS84 EPSG code
-          },
-        };
-
-     
-
-      resolve(geom);
-    };
-
-    reader.onerror = (error) => {
-      reject(error);
-    };
-
-    reader.readAsText(file);
-  });
+// Type definitions
+interface GeoJsonFeature {
+  type: string;
+  geometry: { type: string; coordinates: any };
+  properties: Record<string, any>;
+  crs?: { type: string; properties: { name: string } };
 }
 
-async function kmlConvertToGeoJSON(fileContent) {
-  return new Promise((resolve, reject) => {
-
-      const parser = new XMLParser();
-    const json = parser.parse(fileContent);
-    let coordinates
-    
-    if (json.kml.Document.Placemark) {
-      coordinates = json.kml.Document.Placemark.Polygon.outerBoundaryIs.LinearRing.coordinates;
-
-    } else {
-      coordinates = json.kml.Document.Folder.Placemark.MultiGeometry.Polygon.outerBoundaryIs.LinearRing.coordinates;
-
-     }
-
-    
-      const coordinatePairs = coordinates.split(" ");
-
-      const xcoordinates = coordinatePairs.map((pair) => {
-        const [lon, lat] = pair.split(",").map(Number);
-        return [lon, lat];
-      });
-
-      const geom = 
-          {
-            "type": "Feature",
-            "properties": {},
-            "geometry": {
-              "type": "Polygon",
-              "coordinates": [xcoordinates], // Wrap xcoordinates in an array
-            },
-      }
-      
-        // Set the GeoJSON CRS object to GCS WGS84
-        geom.crs = {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326", // GCS WGS84 EPSG code
-          },
-        };
-
-     
-
-      resolve(geom);
- 
- 
-  });
+interface GeoJson {
+  type: string;
+  features: GeoJsonFeature[];
+  crs?: { type: string; properties: { name: string } };
 }
 
+// Common CRS definitions
+const CRS_DEFINITIONS: Record<string, string> = {
+  'EPSG:4326': '+proj=longlat +datum=WGS84 +no_defs',
+  'EPSG:3857': '+proj=merc +a=6378137 +b=6378137 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +wktext +no_defs',
+  'Arc_1960_UTM_Zone_37S': '+proj=utm +zone=37 +south +a=6378249.145 +rf=293.465 +towgs84=-160,-6,-302,0,0,0,0 +units=m +no_defs',
+  'Arc_1960_UTM_Zone_37N': '+proj=utm +zone=37 +north +a=6378249.145 +rf=293.465 +towgs84=-157,-2,-299,0,0,0,0 +units=m +no_defs',
+  'Arc_1960_UTM_Zone_36S': '+proj=utm +zone=36 +south +a=6378249.145 +rf=293.465 +towgs84=-160,-6,-302,0,0,0,0 +units=m +no_defs',
+  'Arc_1960_UTM_Zone_36N': '+proj=utm +zone=36 +north +a=6378249.145 +rf=293.465 +towgs84=-160,-6,-302,0,0,0,0 +units=m +no_defs',
+};
 
-async function readShapefileAndConvertToGeoJSON(file) {
+// Register CRS definitions with proj4
+Object.entries(CRS_DEFINITIONS).forEach(([epsg, def]) => {
+  proj4.defs(epsg, def);
+});
 
-  console.log("File", file)
+/**
+ * Reads a file (shapefile .zip, KML, or KMZ) and converts it to GeoJSON with WGS84 CRS.
+ * @param file - The uploaded file (shapefile .zip, KML, or KMZ)
+ * @returns Promise resolving to a GeoJSON FeatureCollection
+ * @throws Error if file processing or reprojection fails
+ */
+async function readFileAndConvertToGeoJSON(file: File): Promise<GeoJson> {
+  const fileExtension = file.name.split('.').pop()?.toLowerCase();
+  console.log(`Processing file: ${file.name} (Extension: ${fileExtension})`);
 
+  if (fileExtension === 'kml') {
+    // Handle KML file
+    try {
+      const text = await file.text();
+      const kmlDoc = new DOMParser().parseFromString(text, 'application/xml');
 
-
-  // Assuming you have a File object named 'file'
-  const zip = new JSZip();
-
-  let kmlName
-  let  shpName
-
-  const fileExtension = file.name.split('.').pop();
-
-  console.log('fileExtension',fileExtension)
-if (file.name.endsWith('.kml') ) {
-  console.log('This is a KML file.');
-
- // kmlName = file.name;
- const geomfromKML = await readKMLAndConvertToGeoJSON(file)
-    .then((geom) => {
-      // You can use the 'geom' object here
-      console.log(geom);
-      console.log("returning  from KML", geom)
-      return geom 
-    })
-    .catch((error) => {
-      console.error("Error reading and converting KML:", error);
-    });
-  
-  console.log('geomfromKML', geomfromKML)
-  return [geomfromKML]
-  
-} else if(file.name.endsWith('.kmz') ){
-
-  console.log('This is  KMZ file.');
-  await zip.loadAsync(file);
-
-  const keys = Object.keys(zip.files);
-  const  kml_name = keys.find((key) => /\.kml$/.test(key));
-
-  const kml_data = await zip.file(kml_name).async("ArrayBuffer");
-
-// Convert the ArrayBuffer to a Uint8Array
-const uint8Array = new Uint8Array(kml_data);
-
-// Convert the Uint8Array to a string
-const kmlString = new TextDecoder("utf-8").decode(uint8Array);
- 
-
-console.log('kmlString', kmlString)
-
- // kmlConvertToGeoJSON(kmlString)
-  
-  const geomfromKMZ = await kmlConvertToGeoJSON(kmlString)
-    .then((geom) => {
-      // You can use the 'geom' object here
-      console.log(geom);
-      console.log("returning  from KMZ", geom)
-      return geom 
-    })
-    .catch((error) => {
-      console.error("Error reading and converting KML:", error);
-    });
-  
-    return [geomfromKMZ]
-
-}
-
-else {
-  console.log('This is not a KML or KMZ file.');
-  await zip.loadAsync(file);
-  const keys = Object.keys(zip.files);
-    shpName = keys.find((key) => /\.shp$/.test(key));
-
-  
-    if (shpName) {
-      // Handle shapefile
-      const prjName = keys.find((key) => /\.prj$/.test(key));
-  
-      if (!prjName) {
-        return; // if no *.prj is found
+      // Check for parse errors
+      const parseError = kmlDoc.getElementsByTagName('parsererror');
+      if (parseError.length) {
+        throw new Error(`KML Parsing Error: ${parseError[0].textContent}`);
       }
-  
-      const prj = await zip.file(prjName).async("text");
-  
-      const prjText = prj.replace(
-        /DATUM\["D_.*",SPHEROID.*/,
-        '$&,' + 'TOWGS84[-160,-8.66,188,0,0,0,0]]'
-      );
-  
-      const pattern = /"([^"]+)"/; // match anything within double quotes
-  
-      const match = prjText.match(pattern);
-      let crs_name;
-      let sourceProj;
-  
-      if (match && match.length > 1) {
-        crs_name = match[1];
-      } else {
-        console.log("No match found.");
+
+      if (kmlDoc.documentElement.nodeName !== 'kml') {
+        throw new Error('Invalid KML: Not a valid KML document or KML root element missing');
       }
-  
-      if (crs_name == "Arc_1960_UTM_Zone_37S") {
-        // zone 37S
-        sourceProj =
-          "+proj=utm + zone=37 + south + a=6378249.145 + rf=293.465 + towgs84=-160,-6,-302,0,0,0,0 + units=m + no_defs";
-      } else if (crs_name == "Arc_1960_UTM_Zone_37N") {
-        // zone 37 N
-        sourceProj =
-          "+proj=utm + zone=37 + north + a=6378249.145 + rf=293.465 + towgs84=-157,-2,-299,0,0,0,0 + units=m + no_defs";
-      } else if (crs_name == "Arc_1960_UTM_Zone_36S") {
-        // zone 36 S
-        sourceProj =
-          "+proj=utm + zone=36 + south + a=6378249.145 + rf=293.465 + towgs84=-160,-6,-302,0,0,0,0 + units=m + no_defs";
-      } else if (crs_name == "Arc_1960_UTM_Zone_36N") {
-        // zone 36N
-        sourceProj =
-          "+proj=utm + zone=36 + north + a=6378249.145 + rf=293.465 + towgs84=-160,-6,-302,0,0,0,0 + units=m + no_defs";
-      } else {
-        sourceProj = "+proj=longlat +datum=WGS84 +no_defs";
+
+      const geoJson = togeojson.kml(kmlDoc) as GeoJson;
+      if (!geoJson.features || geoJson.features.length === 0) {
+        throw new Error('Invalid KML: No features found. Ensure the file contains valid Placemark geometry.');
       }
-  
-      const wgs84Proj4Def = "+proj=longlat +datum=WGS84 +no_defs";
-  
-      // Define the temporary projections with the proj4 definition strings
-      proj4.defs("SOURCE_CRS", sourceProj);
-      proj4.defs("WGS84", wgs84Proj4Def);
-  
-      let dbfName = keys.find((key) => /\.dbf$/.test(key));
-      if (!dbfName) {
-        dbfName = null;
-      }
-  
-      return new Promise(async (resolve, reject) => {
-        const features = [];
-  
-        const shpData = await zip.file(shpName).async("ArrayBuffer");
-        const dbfData = await zip.file(dbfName).async("ArrayBuffer");
-        try {
-          open(shpData, dbfData)
-            .then(function (source) {
-              source.read().then(function next(result) {
-                if (result.done) {
-                  resolve(features);
-                  return;
-                }
-                const feature = result.value;
-                const geometry = feature.geometry;
-  
-                // Check if the geometry type is "Polygon" or "MultiPolygon"
-                if (geometry.type === "Polygon") {
-                  // If it's a single polygon, project its coordinates
-                  geometry.coordinates[0] = geometry.coordinates[0].map((coordinate) => {
-                    return proj4("SOURCE_CRS", "WGS84", coordinate);
-                  });
-                } else if (geometry.type === "MultiPolygon") {
-                  // If it's a multi-polygon, loop through all polygons and project their coordinates
-                  geometry.coordinates.forEach((polygon) => {
-                    polygon[0] = polygon[0].map((coordinate) => {
-                      return proj4("SOURCE_CRS", "WGS84", coordinate);
-                    });
-                  });
-                }
-                // Set the GeoJSON CRS object to GCS WGS84
-                feature.crs = {
-                  type: "name",
-                  properties: {
-                    name: "EPSG:4326", // GCS WGS84 EPSG code
-                  },
-                };
-  
-                features.push(feature);
-                source.read().then(next);
-              });
-            })
-            .catch(function (error) {
-              console.error(error);
-              reject(error);
-            });
-        } catch (error) {
-          console.error(error);
-          reject(error);
-        }
-      });
-    } else if (kmlName) {
-      console.log('test....')
-    } else {
-      // No shapefile or KML found
-      return;
+
+      console.log(`KML processed: ${geoJson.features.length} features`);
+      geoJson.crs = { type: 'name', properties: { name: 'EPSG:4326' } };
+      return {
+        type: 'FeatureCollection',
+        features: geoJson.features,
+        crs: geoJson.crs,
+      };
+    } catch (error) {
+      console.error('KML processing error:', error);
+      throw new Error(`Failed to process KML: ${error.message || 'Unknown error'}`);
     }
-} 
+  } else if (fileExtension === 'kmz') {
+    // Handle KMZ file
+    try {
+      const zip = new JSZip();
+      await zip.loadAsync(file);
+      const kmlFileName = Object.keys(zip.files).find((key) => /\.kml$/.test(key));
+      if (!kmlFileName) {
+        throw new Error('Invalid KMZ: No .kml file found');
+      }
+      const kmlData = await zip.file(kmlFileName).async('string');
+      const kmlDoc = new DOMParser().parseFromString(kmlData, 'text/xml');
+      if (kmlDoc.documentElement.nodeName !== 'kml') {
+        throw new Error('Invalid KMZ: Not a valid KML document');
+      }
+      const geoJson = togeojson.kml(kmlDoc) as GeoJson;
+      if (!geoJson.features || !geoJson.features.length) {
+        throw new Error('Invalid KMZ: No features found');
+      }
+      console.log(`KMZ processed: ${geoJson.features.length} features`);
+      geoJson.crs = { type: 'name', properties: { name: 'EPSG:4326' } };
+      return {
+        type: 'FeatureCollection',
+        features: geoJson.features,
+        crs: geoJson.crs,
+      };
+    } catch (error) {
+      console.error('KMZ processing error:', error);
+      throw new Error(`Failed to process KMZ: ${error.message || 'Unknown error'}`);
+    }
+  } else if (fileExtension === 'zip') {
+    // Handle zipped shapefile
+    try {
+      const zip = new JSZip();
+      await zip.loadAsync(file);
+      const keys = Object.keys(zip.files);
+      console.log('Zip contents:', keys);
 
+      const shpName = keys.find((key) => /\.shp$/.test(key));
+      const dbfName = keys.find((key) => /\.dbf$/.test(key));
+      const prjName = keys.find((key) => /\.prj$/.test(key));
 
+      if (!shpName) {
+        throw new Error('Invalid shapefile: No .shp file found');
+      }
 
+      let sourceProj = CRS_DEFINITIONS['EPSG:4326'];
+      let crsName = 'EPSG:4326';
+
+      if (prjName) {
+        const prjText = await zip.file(prjName).async('text');
+        const match = prjText.match(/"([^"]+)"/);
+        crsName = match && match[1] ? match[1] : 'EPSG:4326';
+        sourceProj = CRS_DEFINITIONS[crsName] || sourceProj;
+
+        if (!CRS_DEFINITIONS[crsName]) {
+          console.warn(`Unsupported CRS (${crsName}). Assuming WGS84.`);
+        } else {
+          proj4.defs('SOURCE_CRS', sourceProj);
+          console.log(`Detected CRS: ${crsName}`);
+        }
+      } else {
+        console.log('No .prj file found. Assuming WGS84.');
+      }
+
+      const shpData = await zip.file(shpName).async('arraybuffer');
+      const dbfData = dbfName ? await zip.file(dbfName).async('arraybuffer') : null;
+
+      const features: GeoJsonFeature[] = [];
+      const source = await open(shpData, dbfData);
+      let featureCount = 0;
+
+      // Use source.read() for sequential reading
+      while (true) {
+        const result = await source.read();
+        if (result.done) break;
+
+        const feature = result.value as GeoJsonFeature;
+        featureCount++;
+
+        // Validate geometry
+        if (!feature.geometry || !feature.geometry.coordinates) {
+          console.warn(`Skipping feature ${featureCount}: Invalid geometry`);
+          continue;
+        }
+
+        // Reproject coordinates if not WGS84
+        if (crsName !== 'EPSG:4326' && CRS_DEFINITIONS[crsName]) {
+          try {
+            const projectCoordinates = (coords: number[]): number[] => {
+              if (!coords || coords.length < 2) {
+                throw new Error('Invalid coordinates');
+              }
+              return proj4('SOURCE_CRS', 'EPSG:4326', [coords[0], coords[1]]);
+            };
+
+            const transformGeometry = (geometry: any): any => {
+              try {
+                if (geometry.type === 'Point') {
+                  return {
+                    ...geometry,
+                    coordinates: projectCoordinates(geometry.coordinates),
+                  };
+                } else if (geometry.type === 'LineString' || geometry.type === 'MultiPoint') {
+                  return {
+                    ...geometry,
+                    coordinates: geometry.coordinates.map(projectCoordinates),
+                  };
+                } else if (geometry.type === 'Polygon' || geometry.type === 'MultiLineString') {
+                  return {
+                    ...geometry,
+                    coordinates: geometry.coordinates.map((ring: number[][]) =>
+                      ring.map(projectCoordinates)
+                    ),
+                  };
+                } else if (geometry.type === 'MultiPolygon') {
+                  return {
+                    ...geometry,
+                    coordinates: geometry.coordinates.map((polygon: number[][][]) =>
+                      polygon.map((ring: number[][]) => ring.map(projectCoordinates))
+                    ),
+                  };
+                }
+                console.warn(`Unsupported geometry type: ${geometry.type}`);
+                return geometry;
+              } catch (error) {
+                console.warn(`Failed to reproject geometry in feature ${featureCount}: ${error.message}`);
+                return geometry;
+              }
+            };
+
+            feature.geometry = transformGeometry(feature.geometry);
+          } catch (error) {
+            console.warn(`Skipping feature ${featureCount} due to reprojection error: ${error.message}`);
+            continue;
+          }
+        }
+
+        // Set WGS84 CRS
+        feature.crs = { type: 'name', properties: { name: 'EPSG:4326' } };
+        features.push(feature);
+      }
+
+      if (!features.length) {
+        throw new Error('Invalid shapefile: No valid features found');
+      }
+
+      console.log(`Shapefile processed: ${features.length} features`);
+      return {
+        type: 'FeatureCollection',
+        features,
+        crs: { type: 'name', properties: { name: 'EPSG:4326' } },
+      };
+    } catch (error) {
+      console.error('Shapefile processing error:', error);
+      throw new Error(`Failed to process shapefile: ${error.message || 'Unknown error'}`);
+    }
+  } else {
+    throw new Error('Unsupported file type. Please upload a .zip (shapefile), .kml, or .kmz file.');
+  }
 }
 
-
-export default readShapefileAndConvertToGeoJSON
+export default readFileAndConvertToGeoJSON;

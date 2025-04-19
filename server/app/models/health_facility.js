@@ -103,7 +103,7 @@ module.exports = function(sequelize, DataTypes) {
   
     
     services: {
-      type: DataTypes.ARRAY(DataTypes.STRING),
+      type:  DataTypes.STRING ,
       allowNull: true
     },
 

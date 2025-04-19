@@ -1,1406 +1,448 @@
-<!-- eslint-disable prettier/prettier -->
-<!-- eslint-disable vue/no-deprecated-slot-scope-attribute -->
 <script setup lang="ts">
-import { ContentWrap } from '@/components/ContentWrap'
-import { useI18n } from '@/hooks/web/useI18n'
-import { BatchImportUpsert } from '@/api/settlements'
-import { getCountyListApi } from '@/api/counties'
-import { getModelSpecs } from '@/api/fields'
-import { toRaw } from 'vue';
-import {
-  searchByKeyWord
-} from '@/api/settlements'
-
-import {
-  ElButton,
-  ElSelect,
-  ElTable,
-  ElIcon,
-  ElTableColumn,
-  ElInput,
-  ElSkeleton, ElCol, ElRow, ElButtonGroup,
-  ElUpload,
-  ElOption,
-  ElMessage, ElMessageBox, UploadProps, UploadUserFile, ElOptionGroup, ElNotification,
-} from 'element-plus'
-import {
-
-  UploadFilled,
-  Close,
-  Promotion,
-} from '@element-plus/icons-vue'
-
 import { ref } from 'vue'
-
-import readShapefileAndConvertToGeoJSON from '@/utils/readShapefile'
-
+import { ElMessage, ElUpload, ElOption, ElSelect, ElTable, ElTableColumn, ElButton, ElCard, ElSteps, ElStep, ElAlert } from 'element-plus'
+import { getModelSpecs } from '@/api/fields'
+import Fuse from 'fuse.js'
+import { getSettlementListByCounty,BatchImportUpsert  } from '@/api/settlements'
  
-import { useAppStoreWithOut } from '@/store/modules/app'
-import { useCache } from '@/hooks/web/useCache'
-import * as turf from '@turf/turf'
-import proj4 from 'proj4';
-import shortid from 'shortid';
+// State
+const step = ref(0)
+const geoJson = ref(null)
+const geoJsonProperties = ref<string[]>([])
+const targetTable = ref('')
+const dbFields = ref<string[]>([])
+const geoJsonFieldMappings = ref<{ geoField: string; dbField: string }[]>([])
+const remappedGeoJson = ref(null)
+const importing = ref(false)
+const usedDbFields = ref<Set<string>>(new Set())
 
-import { useRouter, useRoute } from 'vue-router'
-
-const route = useRoute()
-const { push } = useRouter()
-
-
-const { wsCache } = useCache()
-const appStore = useAppStoreWithOut()
-const userInfo = wsCache.get(appStore.getUserInfo)
-
-const settlement = ref()
-const settlementOptions = ref([])
-const parentObj = ref([])
-const value_switch = ref(false)
-
-
-//// ------------------parameters -----------------------////
-const model = ref()          // the model 
-const code = ref()  // the parent code as per the imported excel file 
-const parent_key = ref()       // the parent foregin key in the model 
-const parentModel = ref()      // the parent model
-const loadingPosting = ref(false)
-const showUploadinput = ref(false)
-const loadingText = ref()
-
-///---------------------xlsx-
-
-
-//// ------------------parameters -----------------------////
-const matchOptions = ref([])
-const reserveOptions = ref([])
-const uploadObj = ref([])
-const matchedObj = ref([])
-const matchedObjwithparent = ref([])
-const fieldSet = ref([])
-const show = ref(false)
-const showSwitch = ref(false)
-const showSettleementSelect = ref(false)
-const { t } = useI18n()
-
-
-const showErrorMessage = (message) => {
-  ElMessage({
-    showClose: true,
-    message: message,
-    type: 'warning',
-    duration: 10000
-  })
-}
-
-
-const showUploadMessage = (message) => {
-  ElNotification({
-    title: 'Results',
-    message: message,
-    dangerouslyUseHTMLString: true,
-
-    duration: 0,
-    type: 'info',
-
-  })
-}
-
-
-
-
-const uploadOptions = [
-  {
-    label: 'Polygons',
-    options: [
-      {
-        value: 'settlement',
-        label: 'Settlements'
-      },
-      {
-        value: 'parcel',
-        label: 'Parcels'
-      },
-
-      {
-        value: 'structure',
-        label: 'Structures'
-      },
-      // {
-      //   value: 'county',
-      //   label: 'Counties'
-      // },
-      // {
-      //   value: 'subcounty',
-      //   label: 'Constituencies'
-      // },
-      // {
-      //   value: 'ward',
-      //   label: 'Wards'
-      // }
-    ]
-  },
-  {
-    label: 'Points',
-    options: [
-
-      {
-        value: 'health_facility',
-        label: 'Health Care Facility'
-      },
-      {
-        value: 'education_facility',
-        label: 'Schools'
-      },
-
-      {
-        value: 'road_asset',
-        label: 'Road Structures'
-      },
-      {
-        value: 'water_point',
-        label: 'Water Points'
-      },
-
-      {
-        value: 'households',
-        label: 'Households'
-      },
-
-      {
-        value: 'other_facility',
-        label: 'Other Facility'
-      }
-    ]
-  },
-  {
-    label: 'Linear',
-    options: [
-      {
-        value: 'road',
-        label: 'Roads'
-      },
-      {
-        value: 'sewer',
-        label: 'Sewer'
-      },
-
-    ]
-  },
-  {
-    label: 'Other',
-    options: [
-      {
-        value: 'project',
-        label: 'projects'
-      },
-
-
-    ]
-  }
+// Table options
+const tableOptions = [
+  { label: 'Projects', value: 'project' },
+  { label: 'Settlements', value: 'settlement' },
+  { label: 'Facilities', value: 'facilities' },
+  { label: 'Structures', value: 'structure' },
+  { label: 'Roads', value: 'road' }
 ]
 
 
-
-
-const getModeldefinition = async (selModel) => {
-
-  console.log(selModel)
-  var formData = {}
-  formData.model = selModel
-  console.log("gettign fields", selModel)
-
-
-  await getModelSpecs(formData).then((response) => {
-
-    var data = response.data
-
-    var fields = data.filter(function (obj) {
-      return (obj.field !== 'id');
-    });
-
-    var fields2 = fields.filter(function (obj) {
-      return (obj.field !== 'geom');
-    });
-
-    //health_facility_fields.value = response.data
-    fieldSet.value = fields2
-
-    if (selModel == 'project') {
-
-
-      var activities = { field: 'activities', type: 'ARRAY', match: '' }
-      fieldSet.value.push(activities)
-
-      console.log("fields:", fieldSet)
-
-    }
-  })
-
-
-}
-
-
-const getParentOptions = async () => {
-
-  await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: parentModel.value,
-      searchField: 'name',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-
-    //tableDataList.value = response.data
-    const ret = response.data
-    console.log('Received response:', ret)
-
-    parentObj.value = ret.map(elem => {
-      elem[parent_key.value] = elem.id    // add the parent_key as is representd on the child 
-      elem['parent_code'] = elem.code     // add the parent  as is representd on the child 
-      return elem;
-    });
-
-
-    parentObj.value.forEach(function (v) { delete v.geom });  // remove the parent geometry to avoid confusion 
-
-
-    console.log('Received 3:', parentObj.value)
-
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var settOpt = {}
-      settOpt.value = arrayItem.id
-      settOpt.label = arrayItem.name  
-      //  console.log(countyOpt)
-      settlementOptions.value.push(settOpt)
-    })
-
-    console.log('Options', settlementOptions)
-  })
-}
-
-
-
-
-
-const handleSelectType = async (type: any) => {
-  type = type
-  console.log(type)
-  getModeldefinition(type)
-
-  showUploadinput.value = true
-
-
-  if (type != 'settlement' && !value_switch.value) {
-    showSettleementSelect.value = true
-    showSwitch.value = true
-  } else {
-    showSettleementSelect.value = false
-    showSwitch.value = true
-
+// Append parent entity details based on pcode property
+ // Batch process GeoJSON features to append parent entity properties based on unique pcodes
+const appendParentEntityPropertiesBatch = async () => {
+  if (!geoJson.value) {
+    ElMessage.error('GeoJSON is not loaded yet.');
+    return;
   }
 
-  if (type === 'settlement') {
-    model.value = 'settlement'
-    parentModel.value = 'ward'
-    parent_key.value = 'ward_id'
-    code.value = 'pcode'
-    // fieldSet.value = settlement_fields
-
-    getParentOptions()
-    console.log('settlements------>', type)
-  } else if (type === 'parcel') {
-
-    model.value = 'parcel'
-    parentModel.value = 'settlement'
-    parent_key.value = 'settlement_id'
-    code.value = 'pcode'
-    //fieldSet.value = settlement_fields
-    getParentOptions()
-
-    // fieldSet.value = parcel_fields
-    console.log('parcel------>', fieldSet.value)
-
-  }
-
-  else if (type === 'health_facility') {
-    // fieldSet.value = beneficiary_parcels
-    model.value = 'health_facility'
-    parentModel.value = 'settlement'
-    parent_key.value = 'settlement_id'
-    code.value = 'pcode'
-    console.log('health_facility------>', fieldSet.value)
-    getParentOptions()
-  }
-
-  else if (type === 'education_facility') {
-    // fieldSet.value = beneficiary_parcels
-    model.value = 'education_facility'
-    parentModel.value = 'settlement'
-    parent_key.value = 'settlement_id'
-    code.value = 'pcode'
-    console.log('education_facility------>', fieldSet.value)
-    getParentOptions()
-  }
-  else if (type === 'road') {
-    // fieldSet.value = beneficiary_parcels
-    model.value = 'road'
-    parentModel.value = 'settlement'
-    parent_key.value = 'settlement_id'
-    code.value = 'pcode'
-    console.log('Road------>', fieldSet.value)
-    getParentOptions()
-  }
-
-  else if (type === 'water_point') {
-    // fieldSet.value = beneficiary_parcels
-    model.value = 'water_point'
-    parentModel.value = 'settlement'
-    parent_key.value = 'settlement_id'
-    code.value = 'pcode'
-    getParentOptions()
-  }
-
-
-  else if (type === 'other_facility') {
-    // fieldSet.value = beneficiary_parcels
-    model.value = 'other_facility'
-    parentModel.value = 'settlement'
-    parent_key.value = 'settlement_id'
-    code.value = 'pcode'
-    console.log('other_facility------>', fieldSet.value)
-    getParentOptions()
-  }
-
-  else if (type === 'ward') {
-    // fieldSet.value = beneficiary_parcels
-    model.value = 'ward'
-    parentModel.value = 'subcounty'
-    parent_key.value = 'subcounty_id'
-    code.value = 'pcode'
-    console.log('subcounty_id------>', fieldSet.value)
-    getParentOptions()
-  }
-
-  else if (type === 'subcounty') {
-    // fieldSet.value = beneficiary_parcels
-    model.value = 'subcounty'
-    parentModel.value = 'county'
-    parent_key.value = 'county_id'
-    code.value = 'pcode'
-    console.log('county_id------>', fieldSet.value)
-    getParentOptions()
-  }
-
-
-  else if (type === 'project') {
-    // fieldSet.value = beneficiary_parcels
-    model.value = 'project'
-    parentModel.value = 'ward'
-    parent_key.value = 'ward_id'
-    code.value = 'pcode'
-    console.log('county_id------>', fieldSet.value)
-    getParentOptions()
-  }
-
-
-  else if (type === 'structure') {
-    // fieldSet.value = beneficiary_parcels
-    model.value = 'structure'
-    parentModel.value = 'settlement'
-    parent_key.value = 'settlement_id'
-    code.value = 'pcode'
-     getParentOptions()
-  }
-
-
-  else if (type === 'households') {
-    // fieldSet.value = beneficiary_parcels
-    model.value = 'households'
-    parentModel.value = 'settlement'
-    parent_key.value = 'settlement_id'
-    code.value = 'pcode'
-    console.log('county_id------>', fieldSet.value)
-    getParentOptions()
-  }
-
-}
-
-
-
-
-
-const handleProcess = async () => {
-  console.log('upload--->', matchedObjwithparent.value)
-  console.log('FieldSet--->', fieldSet.value)
-  loadingPosting.value = true
-  loadingText.value = 'Saving on the database. Please wait........'
-
-
-
-  matchedObj.value = matchedObjwithparent.value.map((feature) => {
-    let conv_feature = {}
-    console.log(feature)
-
-    for (var prop in feature) {
-      var matched_field = fieldSet.value.filter((obj) => {
-        return obj.match === prop
-      })
-      if (matched_field.length > 0) {
-        conv_feature[matched_field[0].field] = feature[prop]
-      }
-      conv_feature.geom = (feature.geom)
-
-    }
-    console.log(conv_feature)
-    if (!conv_feature.code) {
-      conv_feature.code = shortid.generate()
-
-    }
-    return conv_feature
-  })
-
-
-  console.log('processed:', matchedObj)
-
-
-  // ************** prepare data to server ***************** //
-
-  var formData = {}
-  formData.model = model.value
-  formData.data = matchedObj.value
-
-
-  console.log("importData--->", formData)
-
-
-  // ************** Send data to server ***************** //
-  await BatchImportUpsert(formData)
-    .catch((error) => {
-      console.log('Error------>', error.response.data.message)
-      // ElMessage.error(error.response.data.message)
-      showErrorMessage(error.response.data.message)
-
-    })
-    .then((response: { data: any }) => {
-      loadingPosting.value = false
-      loadingText.value = ''
-    })
-
-
-
-}
-
-
-const makeOptions = (list) => {
-  for (let i = 0; i < list.length; i++) {
-    var opt = {}
-    opt.value = list[i]
-    opt.label = list[i]
-    opt.disabled = false
-    matchOptions.value.push(opt)
-    reserveOptions.value.push(opt)
-
-  }
-
-  selectedValues.value = matchOptions
-
-  console.log(matchOptions, matchOptions)
-  //show.value=true
-}
-
-const handleClear = async () => {
-  console.log('cleared....')
-  settlement.value = ''
-  // clear all the fileters -------
-}
-
-const handleSelectSettlement = async (settlement: any) => {
-  settlement = settlement
-
-}
-
-const fileList = ref<UploadUserFile[]>([])
-
-const handleRemove: UploadProps['onRemove'] = (file, uploadFiles) => {
-  console.log(file, uploadFiles)
-  show.value = false
-  //uploadObj.value = []
-  // matchedObj.value = []
-  fieldSet.value = []
-  // reset()
-
-}
-
-
-
-
-
-const handlePreview: UploadProps['onPreview'] = (uploadFile) => {
-  console.log(uploadFile)
-}
-
-
-
-const handleFileChange = () => {
-  console.log('uploaded...')
-
-  disableProcess.value = false
-
-}
-
-
-
-
-
-const beforeRemove: UploadProps['beforeRemove'] = (uploadFile) => {
-  return ElMessageBox.confirm(`Cancel the transfert of ${uploadFile.name} ?`).then(
-    () => true,
-    () => false
-  )
-}
-
-
-
-
-const disableUploadSubmit = ref(false)
-const disableProcess = ref(true)
-
-const submitFiles = async () => {
-
-  //disable to prevent multiple uplaods/submits
-
-
-  disableUploadSubmit.value = true
-  disableProcess.value = true
-  console.log('on Submit....', fileList.value)
-  loadingPosting.value = true
-  loadingText.value = 'Matching fields.. Please wait.......'
-  if (fileList.value.length == 0) {
-    //  ElMessage.error('Select a  File first!')
-    showErrorMessage('Select a  File first!')
-    reset()
-
-  } else {
-
-
-    const fileType = fileList.value[0].raw.type;
-    const extension = fileList.value[0].raw.name.split('.').pop().toLowerCase();
-
-    console.log('fileType', fileType, extension)
-
-    if (fileType === 'application/x-zip-compressed' || extension === 'zip' || extension === 'rar') {
-      // console.log('Reading Shp file....')
-      // const zip = await JSZip.loadAsync(fileList.value[0].raw);
-      // const shapefileData = await readShapefile(zip);
-      // const geojson = await convertToGeoJSON(shapefileData);
-      // //console.log(geojson)
-      // loadOptions(geojson)
-      var rfile = fileList.value[0].raw
-
-      readShp(rfile)
-
-    }
-    else if (fileType === 'application/json' || extension === 'geojson') {
-      var rfile = fileList.value[0].raw
-
-      console.log("File type", rfile.name.split('.').pop())
-
-      let reader = new FileReader()
-
-      let ftype = rfile.name.split('.').pop()
-
-      console.log('------Json----')
-      reader.onload = readJson
-      reader.readAsText(rfile)
-    }
-
-
-    else {
-      // ElMessage.error('Please select a zipped shapefile or a geojon file')
-      showErrorMessage('Please select a zipped shapefile or a geojon file')
-
-
-      loadingPosting.value = false
-
-      return false;
-    }
-
-
-
-  }
-
-
-}
-
-const reset = async () => {
-
-  console.log('reseting')
-  disableUploadSubmit.value = false
-
-  matchOptions.value = []
-  reserveOptions.value = []
-  uploadObj.value = []
-  matchedObj.value = []
-  matchedObjwithparent.value = []
-  fieldSet.value = []
-  show.value = false
-  showSwitch.value = false
-  showSettleementSelect.value = false
-  fileList.value = []
-
-
-}
-
-const readShp = async (file) => {
-  console.log('Reading Shp file....')
-
-  // await getGeoJSON(file)
-  readShapefileAndConvertToGeoJSON(file)
-    .then((geojson) => {
-
-      console.log("Geo>", geojson)
-      console.log("Geo1>", geojson[0])
-
-      var collection = turf.featureCollection(geojson);
-
-      console.log(collection)
-      loadOptions(collection)
-
-
-
-
-    })
-    .catch((error) => {
-      console.error(error)
-      //ElMessage.error('Invalid shapefiles. Check your zipped file')
-      showErrorMessage('valid shapefiles. Check your zipped file')
-
-
-    })
-
-  //uploadPolygon(feat)
-}
-
-
-const readJson = (event) => {
-  let str = event.target.result
-  let json = JSON.parse(str)
-
-
-  console.log(json)
-
-  loadOptions(json)
-
-}
-
-
-
-
-
-
-
-// Helper function to project coordinates
-function projectCoordinates(coordinates, sourceCRS, targetCRS) {
-  return coordinates.map(coord => proj4(sourceCRS, targetCRS, coord));
-}
-
-// Helper function to project a ring of coordinates (for Polygons and MultiPolygons)
-function projectRing(ring, sourceCRS, targetCRS) {
-  return ring.map(coordinate => projectCoordinates(coordinate, sourceCRS, targetCRS));
-}
-
-// Helper function to project a polygon
-function projectPolygon(polygon, sourceCRS, targetCRS) {
-  return polygon.map(ring => projectRing(ring, sourceCRS, targetCRS));
-}
-
-// Main function to process GeoJSON features
-function projectGeoJSONFeatures(json, userInfo) {
-  const sourceCRS = "SOURCE_CRS";
-  const targetCRS = "WGS84";
-
-  for (let i = 0; i < json.features.length; i++) {
-    const feature = json.features[i];
-
-    // Ensure properties field exists
-    if (!feature.hasOwnProperty('properties')) {
-      feature.properties = {};
-    }
-    console.log('feature before projection:', feature);
-
-    const geometry = feature.geometry;
-
-    // Check and project geometry based on its type
-    if (geometry) {
-      switch (geometry.type) {
-        case "Polygon":
-          geometry.coordinates = projectPolygon(geometry.coordinates, sourceCRS, targetCRS);
-          break;
-
-        case "MultiPolygon":
-          geometry.coordinates = geometry.coordinates.map(polygon => projectPolygon(polygon, sourceCRS, targetCRS));
-          break;
-
-        case "LineString":
-          geometry.coordinates = projectCoordinates(geometry.coordinates, sourceCRS, targetCRS);
-          break;
-
-        case "MultiLineString":
-          geometry.coordinates = geometry.coordinates.map(lineString => projectCoordinates(lineString, sourceCRS, targetCRS));
-          break;
-
-        case "Point":
-          geometry.coordinates = proj4(sourceCRS, targetCRS, geometry.coordinates);
-          break;
-
-        case "MultiPoint":
-          geometry.coordinates = geometry.coordinates.map(coordinate => proj4(sourceCRS, targetCRS, coordinate));
-          break;
-
-        default:
-          continue; // Skip unrecognized geometry types
-      }
-
-      console.log('geometry after projection:', geometry);
-      feature.geometry.crs = { type: 'name', properties: { name: 'EPSG:4326' } };
-      feature.properties['createdBy'] = userInfo.id;
-      uploadObj.value.push(feature); // Push to the temporary holder
-    }
-    console.log(feature);
-  }
-}
-
-
-const loadOptions = (json) => {
-
-  var featureType = json.type
-
-  if (featureType === 'FeatureCollection') {
-    console.log('xFeatureCollection:', json)
-  } else if (featureType === 'Features' || featureType === 'Features') {
-
-    console.log("features:", json)
-
-  } else {
-    console.log("Unknwon Features")
-  }
-
-  console.log('json ---->', json.type)
-
-  const targetProj = "+proj=longlat +datum=WGS84 +no_defs"
-
-  let sourceProj
-  let epsgCode
-  let crsProp = json.crs ? json.crs.properties.name : null;
-
-
-
-  if (crsProp && crsProp.includes('EPSG')) {
-    console.log('The string contains the character "EPSG"');
-    epsgCode = crsProp.match(/EPSG::(\d+)/)[1]
-  } else {
-    epsgCode = 4326
-  }
-
-
-
-  //const epsgCode = crsProp? crsProp.match(/EPSG::(\d+)/)[1]:4326
-
-
-
-
-  if (epsgCode == 21037) {
-    // zone 37S
-    sourceProj = "+proj=utm + zone=37 + south + a=6378249.145 + rf=293.465 + towgs84=-160,-6,-302,0,0,0,0 + units=m + no_defs";
-  }
-  else if (epsgCode == 21097) {
-    // zone 37 N
-    sourceProj = "+proj=utm + zone=37 + north + a=6378249.145 + rf=293.465 + towgs84=-157,-2,-299,0,0,0,0 + units=m + no_defs";
-  }
-  else if (epsgCode == 21036) {
-    // zone 36 S
-    sourceProj = "+proj=utm + zone=36 + south + a=6378249.145 + rf=293.465 + towgs84=-160,-6,-302,0,0,0,0 + units=m + no_defs";
-  }
-  else if (epsgCode == 21096) {
-    // zone 36N
-    sourceProj = "+proj=utm + zone=36 + north + a=6378249.145 + rf=293.465 + towgs84=-160,-6,-302,0,0,0,0 + units=m + no_defs";
-  }
-
-  else {
-    sourceProj = "+proj=longlat +datum=WGS84 +no_defs"
-
-  }
-
-
-  proj4.defs("SOURCE_CRS", sourceProj);
-  proj4.defs("WGS84", targetProj);
-
-
-
-  console.log('json.features', json.features)
-
-  // makeOptions(fields)
-  for (let i = 0; i < json.features.length; i++) {
-
-
-    var feature = json.features[i]
-
-    // Check if the properties field exists
-    if (!feature.hasOwnProperty('properties')) {
-      // Add the properties field
-      Object.assign(feature, { properties: {} });
-    }
-    console.log('feature b4projectoion', feature)
-
-
-    const geometry = json.features[i].geometry;
-
-    // Check if the geometry type is "Polygon" or "MultiPolygon"
-    if (geometry && geometry.type === "Polygon") {
-      // If it's a single polygon, project its coordinates
-      geometry.coordinates = geometry.coordinates.map(ring => {
-        return ring.map(coordinate => {
-          return proj4("SOURCE_CRS", "WGS84", coordinate);
-        });
-      });
-
-    } else if (geometry && geometry.type === "MultiPolygon") {
-      // If it's a MultiPolygon, loop through all polygons and project their coordinates
-      geometry.coordinates = geometry.coordinates.map(polygon => {
-        return polygon.map(ring => {
-          return ring.map(coordinate => {
-            return proj4("SOURCE_CRS", "WGS84", coordinate);
-          });
-        });
-      });
-
-    } else if (geometry && geometry.type === "LineString") {
-      // If it's a single LineString, project its coordinates
-      geometry.coordinates = geometry.coordinates.map(coordinate => {
-        return proj4("SOURCE_CRS", "WGS84", coordinate);
-      });
-
-    } else if (geometry && geometry.type === "MultiLineString") {
-      // If it's a MultiLineString, project the coordinates of each LineString
-      geometry.coordinates = geometry.coordinates.map(lineString => {
-        return lineString.map(coordinate => {
-          return proj4("SOURCE_CRS", "WGS84", coordinate);
-        });
-      });
-
-    } else if (geometry && geometry.type === "Point") {
-      // If it's a single point, project its coordinates
-      geometry.coordinates = proj4("SOURCE_CRS", "WGS84", geometry.coordinates);
-
-    } else if (geometry && geometry.type === "MultiPoint") {
-      // If it's a MultiPoint, project the coordinates of each point
-      geometry.coordinates = geometry.coordinates.map(coordinate => {
-        return proj4("SOURCE_CRS", "WGS84", coordinate);
-      });
-
-    } else {
-      // If geometry type is not recognized, continue to the next feature
-      continue;
-    }
-
-
-    console.log('geometry', geometry)
-    var crs = { type: 'name', properties: { name: 'EPSG:4326' } }
-    feature.geometry.crs = crs
-
-    feature.geometry = geometry
-    console.log(feature)
-
-    feature.properties['createdBy'] = userInfo.id
-    uploadObj.value.push(feature)  // Push to the temporary holder
-
-  }
-
-
-
-
-  console.log('rows-uploadObj------>', uploadObj.value)
-  console.log('rows-parentObj------>', parentObj.value)
-  //console.log('uploadObj.value[0]------>', uploadObj.value[0])
-
-  //console.log('rows-uploadObj---PCODE--->', uploadObj.value[0].properties.pcode)
-
-  let failedCount = 0
-  // uploadObj.value.map((upload, i) => {
-  //   console.log('------------>', i, upload);
-  //   var thisFeature = upload.properties;
-  //   thisFeature.geom =  upload.geometry;
-
-  //   console.log('------matchedObj------>', i, thisFeature);
-
-  //   if (settlement.value) {
-  //     // Show the matching table if only any match is observed
-
-  //     var filterParent = parentObj.value.filter(function (el) {
-  //       return el['id'] === settlement.value;
-  //     });
-
-  //     console.log('------filterParent------>', filterParent);
-
-  //     if (filterParent.length > 0) {
-  //       // Here we add a prefix to the parent details to avoid confusion
-  //       let pre = parentModel.value + '_'; // A prefix to differentiate parent and child
-  //       let pfeature = Object.keys(filterParent[0]).reduce(
-  //         (a, c) => ((a[`${pre}${c}`] = filterParent[0][c]), a),
-  //         {}
-  //       );
-
-  //       const mergedFeature = { ...thisFeature, ...pfeature }; // Merge the feature with the parent details
-  //       matchedObjwithparent.value.push(mergedFeature);
-  //     } else {
-  //       console.log('No match......');
-  //       //ElMessage.error('The selected settlement did not match any records in the database!');
-  //       showErrorMessage('The selected settlement did not match any records in the database!')
-  //       //show.value = false;
-  //       loadingPosting.value = false;
-  //       failedCount = failedCount + 1
-  //       console.log('move away.....');
-  //       return
-  //     }
-  //   }
-
-  //   else {
-  //     if (upload.properties[code.value]) {
-  //       var filterParent = parentObj.value.filter(function (el) {
-  //         return el['code'] === upload.properties[code.value];
-  //       });
-
-  //       console.log('------filterParent------>', filterParent);
-
-  //       if (filterParent.length > 0) {
-  //         // Here we add a prefix to the parent details to avoid confusion
-  //         let pre = parentModel.value + '_'; // A prefix to differentiate parent and child
-  //         let pfeature = Object.keys(filterParent[0]).reduce(
-  //           (a, c) => ((a[`${pre}${c}`] = filterParent[0][c]), a),
-  //           {}
-  //         );
-
-  //         const mergedFeature = { ...thisFeature, ...pfeature }; // Merge the feature with the parent details
-  //         matchedObjwithparent.value.push(mergedFeature);
-  //       } else {
-  //         console.log('No match......');
-  //         push({ name: 'Importgeo' });
-  //         //ElMessage.error('The parent Code ' + uploadObj.value[0].properties.pcode + ' (pcode) did not match any records in the database!');
-  //         showErrorMessage('The parent Code ' + thisFeature.pcode + ' (pcode) did not match any records in the database!')
-  //         loadingPosting.value = false;
-  //         //show.value = false;
-  //         console.log('move away.....');
-  //         failedCount = failedCount + 1
-
-  //         return;
-  //       }
-  //     } else {
-  //       console.log('The parent Code is required');
-  //       //ElMessage.error('The parent Code (pcode) is required in the uploaded File!');
-  //       showErrorMessage('The parent Code (pcode) is required in the uploaded File!')
-
-  //       loadingPosting.value = false;
-  //       return;
-  //     }
-  //   }
-  // });
-
-
-  uploadObj.value.map((upload, i) => {
-    console.log('------------>', i, upload);
-
-    // Convert the geometry to a raw, non-reactive object
-    var thisFeature = upload.properties;
-    thisFeature.geom = toRaw(upload.geometry); // Get the raw geometry
-
-    console.log('------matchedObj------>', i, thisFeature);
-
-    if (settlement.value) {
-      var filterParent = parentObj.value.filter(function (el) {
-        return el['id'] === settlement.value;
-      });
-
-      console.log('------filterParent------>', filterParent);
-
-      if (filterParent.length > 0) {
-        let pre = parentModel.value + '_';
-        let pfeature = Object.keys(filterParent[0]).reduce(
-          (a, c) => ((a[`${pre}${c}`] = filterParent[0][c]), a),
-          {}
-        );
-
-        const mergedFeature = { ...thisFeature, ...pfeature };
-        matchedObjwithparent.value.push(mergedFeature);
-      } else {
-        console.log('No match......');
-        showErrorMessage('The selected settlement did not match any records in the database!');
-        loadingPosting.value = false;
-        failedCount += 1;
-        return;
-      }
-    } else {
-      if (upload.properties[code.value]) {
-        var filterParent = parentObj.value.filter(function (el) {
-          return el['code'] === upload.properties[code.value];
-        });
-
-        console.log('------filterParent------>', filterParent);
-
-        if (filterParent.length > 0) {
-          let pre = parentModel.value + '_';
-          let pfeature = Object.keys(filterParent[0]).reduce(
-            (a, c) => ((a[`${pre}${c}`] = filterParent[0][c]), a),
-            {}
-          );
-
-          const mergedFeature = { ...thisFeature, ...pfeature };
-          matchedObjwithparent.value.push(mergedFeature);
-        } else {
-          console.log('No match......');
-          push({ name: 'Importgeo' });
-          showErrorMessage(`The parent Code ${thisFeature.pcode} (pcode) did not match any records in the database!`);
-          loadingPosting.value = false;
-          failedCount += 1;
-          return;
-        }
-      } else {
-        console.log('The parent Code is required');
-        showErrorMessage('The parent Code (pcode) is required in the uploaded File!');
-        loadingPosting.value = false;
-        return;
-      }
+  // Extract unique pcodes from all features
+  const pcodesSet = new Set<string>();
+  geoJson.value.features.forEach((feature: any) => {
+    if (feature.properties && feature.properties.pcode) {
+      pcodesSet.add(feature.properties.pcode);
     }
   });
 
-
-  console.log('Finished Matching -->', matchedObjwithparent.value)
-  let successCount = 0
-  if (matchedObjwithparent.value.length > 0) {
-    show.value = true;
-    successCount = matchedObjwithparent.value.length
-    //showUploadMessage(matchedObjwithparent.value.length + ' will now be uploaded' + failedCount +'Failed to match')
+  const pcodesArray = Array.from(pcodesSet);
+  if (!pcodesArray.length) {
+    ElMessage.warning('No pcode found in any features.');
+    return;
   }
 
-  const successColor = 'green';
-  const failColor = 'red';
-
-  const result = `
-      <strong style="color: ${successColor}">${successCount}</strong>: Will be uploaded<br>
-      <strong style="color: ${failColor}">${failedCount}</strong>: Failed to match
-  `;
-
-
-  //const result = '<strong>'+ successCount  +'</strong>' + ': will now be uploaded  <br>' + '<strong>'+ failedCount + '</strong>' +': Failed to match '   
-
-  showUploadMessage(result)
-
-
-  console.log('show Match?', show.value)
-  console.log('children', matchedObjwithparent.value)
-  loadingPosting.value = false
-  const mergedfields = (Object.getOwnPropertyNames(matchedObjwithparent.value[0]));  // get properties from first row
-
-  console.log('mergedfields', mergedfields)
-
-  makeOptions(mergedfields)
-
-
-
-
-
-}
-
-
-
-const handleClearField = async (row) => {
-  console.log('Cleared.......', row)
-  //matchOptions.value = reserveOptions.value
-  //fieldSet.value = []
-
-
-}
-
-const selectedValues = ref()
-
-const prevValue = ref()
-
-const disableSubmitMatched = ref(true)
-const updateSelect = async (row, index) => {
-  disableSubmitMatched.value = false
-  // Remove the previously selected value for this row from the selectedValues array
-  prevValue.value = selectedValues.value[index];
-
-
-  if (prevValue.value) {
-    const prevIndex = matchOptions.value.findIndex((option) => option.value === prevValue.value);
-    if (prevIndex !== -1) {
-      matchOptions.value[prevIndex].disabled = false;
-    }
-  }
-
-  // Disable the selected value in the selectOptions array
-  const selectedIndex = matchOptions.value.findIndex((option) => option.value === row.key2);
-  if (selectedIndex !== -1) {
-    matchOptions.value[selectedIndex].disabled = true;
-  }
-
-  // Update the selectedValues array
-  selectedValues.value[index] = row.key2;
-
-  console.log('selectedValues', selectedValues)
-}
-
-
-const parentOptions = ref([])
-const associated_multiple_models = ref(['county', 'subcounty', 'ward'])
-const search_field = ref('name')
-const loading = ref(false)
-
-const remoteMethod = async (keyword) => {
-  console.log(keyword)
-  loading.value = true
-  const formData = {}
-  formData.model = 'settlement', //model 
-    //-Search field--------------------------------------------
-    formData.searchField = search_field.value
-  formData.searchKeyword = keyword
-  formData.excludeGeom = false
-  formData.excludeGeomAssoc = true
-  formData.associated_multiple_models = associated_multiple_models.value
-
+  try {
+    const formData = {}
+ 
+  formData.curUser = 1 // Id for logged in user
+  formData.model = targetTable.value === 'settlement' ? 'ward' : 'settlement';
+  //-Search field--------------------------------------------
+  formData.searchField = 'name'
+  formData.searchKeyword = ''
   //--Single Filter -----------------------------------------
 
-  //formData.assocModel = associated_Model
+  formData.assocModel = ''
 
   // - multiple filters -------------------------------------
-  formData.filters = []
-  formData.filterValues = []
+  formData.filters = ['code']
+  formData.filterValues = [pcodesArray]
+  formData.associated_multiple_models = []
+  
 
-  //formData.cache_key = 'SeacrchByKey_' + search_string.value
+    const response = await getSettlementListByCounty(formData)
 
-  //-------------------------
-  console.log("formData", formData)
-  const res = await searchByKeyWord(formData)
+    console.log('----', response)
+     
 
-  console.log("res.data", res.data)
+    // Assume the response is a mapping of pcode to parent details
+    // e.g., { "pcode1": { countyid: 1, subcountyid: 2, wardid: 3, settlementid: 4 }, ... }
+    const parentData: Record<string, { county_id: any; subcounty_id: any; ward_id: any; settlement_id: any }> = await response.data;
 
-  if (res.data && res.data.length > 0) {
-    parentOptions.value = res.data.map(item => ({
-      value: item.id,
-      settlement_id: item.id,
-      label: item.name || item.title || null,
-      name: item.name || item.title || null,
-      county: item.county?.name || null,
-      subcounty: item.subcounty?.name || null,
-      ward: item.ward?.name || null,
-      ward_id: item.ward?.id || null,
-      subcounty_id: item.subcounty?.id || null,
-      county_id: item.county?.id || null,
-      geom: item.geom || null
-    }));
+    console.log('parentData',parentData)
+
+    // Map over geoJson features and append the parent details where possible
+    const updatedFeatures = geoJson.value.features.map((feature: any) => {
+        const pcode = feature.properties?.pcode;
+
+        if (!pcode) return feature;
+
+        const parent = parentData.find((item: any) => item.code == pcode);
+
+        if (parent) {
+          return {
+            ...feature,
+            properties: {
+              ...feature.properties,
+              county_id: parent.county_id,
+              subcounty_id: parent.subcounty_id,
+              ward_id: targetTable.value === 'settlement' ? parent.id : null,
+              settlement_id: targetTable.value != 'settlement' ? parent.id : null,
+
+              
+            }
+          };
+        }
+
+        return feature;
+      });
+
+
+    // Update the geoJson value with the enriched features
+    geoJson.value = { ...geoJson.value, features: updatedFeatures };
+       console.log('updatedFeatures',geoJson.value)
+      const sampleProps = geoJson.value.features?.[0]?.properties || {}
+      geoJsonProperties.value = Object.keys(sampleProps)
+
+      console.log('geoJsonProperties.value ',geoJsonProperties.value )
+
+
+    console.log(geoJson.value )
+    ElMessage.success('Parent entity details appended successfully!');
+  } catch (err) {
+    console.error('Error appending parent entity details:', err);
+    ElMessage.error('Error fetching parent entity details.');
+  }
+};
+
+
+
+
+const handleGeoJsonUpload = async (uploadFile: any) => {
+  const file = uploadFile.raw || uploadFile.file
+  if (!file) return ElMessage.error('Invalid file')
+
+  // Reset state
+  geoJson.value = null
+  geoJsonProperties.value = []
+  targetTable.value = ''
+  dbFields.value = []
+  geoJsonFieldMappings.value = []
+  remappedGeoJson.value = null
+  importing.value = false
+  usedDbFields.value.clear()
+  step.value = 0
+
+  const reader = new FileReader()
+  reader.onload = async (e: any) => {
+    try {
+      // Step 1: Parse and hold in a local variable
+      const parsedGeoJson = JSON.parse(e.target.result)
+
+      // Step 2: Prepare properties list
+
+      // Step 3: Assign to reactive `geoJson` first so the parent app can access it
+      geoJson.value = parsedGeoJson
+
+      // Step 4: Append parent data using parsedGeoJson
+      // await appendParentEntityPropertiesBatch(parsedGeoJson)
+   
+
+
+
+      // Step 5: Update geoJson again with updated features
+     // geoJson.value = updatedFeatures
+
+      ElMessage.success('GeoJSON loaded successfully!')
+      step.value = 1
+    } catch (err) {
+      ElMessage.error('Invalid GeoJSON format')
+      console.error(err)
+    }
+  }
+  reader.readAsText(file)
+}
+
+
+// Get model fields
+const getModeldefinition = async (selModel: string) => {
+  const formData = { model: selModel }
+  try {
+    const response = await getModelSpecs(formData)
+    const data = response.data
+
+    const fields = data
+      .filter((obj: any) => obj.field !== 'id' && obj.field !== 'geom')
+      .map((obj: any) => obj.field)
+
+    if (selModel === 'project') {
+      fields.push('activities')
+    }
+
+    dbFields.value = fields
+    await appendParentEntityPropertiesBatch()
+    generateFuzzyMappings()
+    step.value++
+  } catch (err) {
+    console.error("Error fetching model specs:", err)
+  }
+}
+
+// Generate best fuzzy mappings (one-to-one)
+const generateFuzzyMappings = () => {
+  const fuse = new Fuse(dbFields.value, {
+    includeScore: true,
+    threshold: 0.5,
+  })
+
+  const matches: Record<string, { geoField: string; dbField: string; score: number }> = {}
+
+  geoJsonProperties.value.forEach((geoField) => {
+    const result = fuse.search(geoField)
+    if (result.length > 0 && result[0].score !== undefined) {
+      const bestMatch = result[0]
+      const existing = matches[bestMatch.item]
+      if (!existing || bestMatch.score < existing.score) {
+        matches[bestMatch.item] = {
+          geoField,
+          dbField: bestMatch.item,
+          score: bestMatch.score
+        }
+      }
+    }
+  })
+
+  // Assign best unique matches
+  geoJsonFieldMappings.value = geoJsonProperties.value.map((geoField) => {
+    const match = Object.values(matches).find((m) => m.geoField === geoField)
+    return {
+      geoField,
+      dbField: match ? match.dbField : ''
+    }
+  })
+
+  usedDbFields.value = new Set(geoJsonFieldMappings.value.map(m => m.dbField).filter(Boolean))
+}
+
+// Helper to avoid multiple usage of same dbField
+const isFieldTaken = (field: string, currentGeoField: string) => {
+  return geoJsonFieldMappings.value.some(
+    (item) => item.dbField === field && item.geoField !== currentGeoField
+  )
+}
+
+ 
+
+
+const handleNextStep = async () => {
+  if (step.value === 2) {
+    // Generate remappedGeoJson when transitioning from Step 2 (matching) to Step 3 (review)
+    const fieldMap: Record<string, string> = Object.fromEntries(
+      geoJsonFieldMappings.value.map(({ geoField, dbField }) => [geoField, dbField])
+    )
+
+    const newGeoJson = {
+      ...geoJson.value,
+      features: geoJson.value.features.map((feat: any) => {
+        const newProps: Record<string, any> = {}
+        for (const key in feat.properties) {
+          const mappedKey = fieldMap[key]
+          if (mappedKey) {
+            newProps[mappedKey] = feat.properties[key]
+          }
+        }
+        return { ...feat, properties: newProps }
+      })
+    }
+
+    remappedGeoJson.value = newGeoJson
+
+    console.log(remappedGeoJson.value)
   }
 
-  loading.value = false
-
+  if (step.value === 3) {
+    await importGeoJson()
+  } else {
+    step.value++
+  }
 }
 
 
 
+// Final import
+const importGeoJson = async () => {
+  importing.value = true
+  const fieldMap: Record<string, string> = Object.fromEntries(
+    geoJsonFieldMappings.value.map(({ geoField, dbField }) => [geoField, dbField])
+  )
+
+  const newGeoJson = {
+    ...geoJson.value,
+    features: geoJson.value.features.map((feat: any) => {
+      const newProps: Record<string, any> = {}
+      for (const key in feat.properties) {
+        const mappedKey = fieldMap[key]
+        if (mappedKey) {
+          newProps[mappedKey] = feat.properties[key]
+        }
+      }
+      return { ...feat, properties: newProps }
+    })
+  }
+
+  remappedGeoJson.value = newGeoJson
+
+  try {
+    // const res = await fetch('/api/import-geojson', {
+    //   method: 'POST',
+    //   headers: { 'Content-Type': 'application/json' },
+    //   body: JSON.stringify({ table: targetTable.value, data: newGeoJson })
+    // })
+
+
+    function stripZ(geometry: any) {
+          if (geometry?.coordinates) {
+            const cleanCoords = (coords: any): any => {
+              if (Array.isArray(coords[0])) {
+                return coords.map(cleanCoords);
+              }
+              // Remove Z if it exists
+              return coords.length === 3 ? coords.slice(0, 2) : coords;
+            };
+
+            return {
+              ...geometry,
+              coordinates: cleanCoords(geometry.coordinates)
+            };
+          }
+          return geometry;
+        }
+
+       
+
+
+
+    console.log('remappedGeoJson.value' ,remappedGeoJson.value.features )
+
+    const features_import = remappedGeoJson.value.features.map(f => ({
+          ...f.properties,
+          geom: JSON.stringify(stripZ(f.geometry))
+        }));
+
+
+        console.log('features_import' ,features_import )
+
+
+    var formData = {}
+    formData.model = targetTable.value
+    formData.data = features_import
+
+    const res = await BatchImportUpsert(formData)
+
+
+
+    if (!res.ok) throw new Error('Failed to import')
+    ElMessage.success('GeoJSON imported successfully!')
+  } catch (err) {
+    console.error(err)
+    ElMessage.error('Error importing GeoJSON')
+  } finally {
+    importing.value = false
+  }
+}
 </script>
 
 <template>
-  <ContentWrap :title="t('Upload Geometry Data')" :message="t('Ensure you have the required fields Geojson ')">
+  <el-card>
+    <el-steps :active="step" finish-status="success" align-center>
+      <el-step title="Upload GeoJSON" />
+      <el-step title="Select Target Table" />
+      <el-step title="Match Fields" />
+      <el-step title="Review & Import" />
+    </el-steps>
+
+    <!-- Step 0 -->
+    <div v-if="step === 0" class="mt-4">
+      <el-upload
+        action=""
+        :auto-upload="false"
+        :show-file-list="true"
+        :on-change="handleGeoJsonUpload"
+        :limit="1"
+      >
+        <el-button type="primary">Upload GeoJSON</el-button>
+      </el-upload>
+    </div>
+
+    <!-- Step 1 -->
+    <div v-if="step === 1" class="mt-4">
+      <el-select v-model="targetTable" placeholder="Select destination table" @change="getModeldefinition">
+        <el-option v-for="table in tableOptions" :key="table.value" :label="table.label" :value="table.value" />
+      </el-select>
+    </div>
+
+    <!-- Step 2 -->
+    <div v-if="step === 2" class="mt-4 max-h-[60vh]  overflow-auto border rounded bg-gray-50 p-2 " >
+      <el-table :data="geoJsonFieldMappings" style="width: 100%">
+        <el-table-column prop="geoField" label="GeoJSON Field" />
+        <el-table-column label="Matched DB Field">
+          <template #default="{ row }">
+            <el-select v-model="row.dbField" clearable  filterable placeholder="Select DB Field">
+              <el-option
+                v-for="field in dbFields"
+                :key="field"
+                :label="field"
+                :value="field"
+                :disabled="isFieldTaken(field, row.geoField)"
+              />
+            </el-select>
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
+
+    <!-- Step 3 -->
+   <div v-if="step === 3" class="mt-4">
+      <el-alert title="Ready to import. Below is the remapped sample data. (first 1 record)" type="success" />
+
+      <div
+        v-if="remappedGeoJson && remappedGeoJson.features?.length"
+        class="mt-2 max-h-60 overflow-auto border rounded bg-gray-50 p-2"
+      >
+        <pre class="text-sm whitespace-pre-wrap">
+          {{ JSON.stringify(remappedGeoJson.features.slice(0, 1).map(f => f.properties), null, 2) }}
+        </pre>
+      </div>
+    </div>
 
 
-    <el-row :gutter="20">
-      <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-
-        <el-select
-v-model="type" :onChange="handleSelectType" :onClear="handleClear"
-          placeholder="Select data to import">
-          <el-option-group v-for=" group in uploadOptions" :key="group.label" :label="group.label">
-            <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
-          </el-option-group>
-        </el-select>
-
-        <!-- <el-select v-if="showSettleementSelect" v-model="settlement" :onChange="handleSelectSettlement"
-          style="margin-top:10px" :onClear="handleClear" clearable filterable collapse-tags
-          placeholder="Select Settlement">
-          <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select> -->
-
-        <el-select
-v-if="showSettleementSelect" id="location-select" v-model="settlement" filterable remote
-          reserve-keyword :loading="loading" placeholder=" Search the settlement for this data"
-          :remote-method="remoteMethod" style="margin-top:10px">
-          <el-option v-for="item in parentOptions" :key="item.id" :label="item.label" :value="item.value">
-            <div style="display: flex; align-items: center;">
-              <span style="flex: 1; text-align: left;">{{ item.label }}</span>
-              <span style=" flex: 2; color: var(--el-text-color-secondary);  font-size: 13px;  text-align: right; ">
-                {{ item.ward }}, {{ item.subcounty }}, {{ item.county }}
-              </span>
-            </div>
-          </el-option>
-        </el-select>
-
-
-
-
-        <div style="margin-top: 20px">
-
-          <el-upload
-class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
-            v-if="showUploadinput" ref="upload" v-model:file-list="fileList" :on-preview="handlePreview"
-            :on-remove="handleRemove" :before-remove="beforeRemove" :on-change="handleFileChange" :auto-upload="false"
-            :accept="'application/zip,.geojson,.json'">
-            <el-icon class="el-icon--upload"><upload-filled /></el-icon>
-            <div class="el-upload__text">
-              Drop file here or <em>click to upload</em>
-            </div>
-            <template #tip>
-              <div class="el-upload__tip">
-                Only zipped shapefile (.zip), json and geojson formats are support
-              </div>
-            </template>
-          </el-upload>
-        </div>
-        <div class="button-group-container" v-if="showUploadinput">
-          <el-button-group class="mt-1" style="width: 100%">
-
-
-            <el-button
-:disabled="disableProcess" @click="submitFiles" type="primary"
-              style="display: inline-block; margin-left: 5px" class="mt-1">
-              Process
-              <el-icon class="el-icon--right">
-                <Promotion />
-              </el-icon>
-            </el-button>
-            <el-button @click="reset" type="warning" class="mt-1" style="display: inline-block; margin-left: 5px">
-              Reset
-              <el-icon class="el-icon--right">
-                <Close />
-              </el-icon>
-            </el-button>
-
-            <el-button
-v-if="showUploadinput && !disableSubmitMatched" class="mt-1" @click="handleProcess"
-              type="primary" style="display: inline-block; margin-left: 5px">
-              Submit Data<el-icon class="el-icon--right">
-                <UploadFilled />
-              </el-icon>
-            </el-button>
-          </el-button-group>
-        </div>
-
-
-
-
-      </el-col>
-
-      <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-
-        <el-skeleton v-if="!show" :rows="10" animated />
-
-
-        <!-- Table Content (only shown when loading is false) -->
-        <el-table
-size="small" v-if="show" :data="fieldSet" stripe="stripe" style="height: 400px; overflow-y: scroll;"
-          border>
-          <el-table-column prop="column" label="Field">
-            <template #default="scope">
-              <el-input v-model="scope.row.field" controls-position="left" disabled />
-            </template>
-          </el-table-column>
-          <el-table-column prop="match" label="Match">
-            <template #default="scope">
-
-
-              <el-select v-model="scope.row.match" @change="updateSelect(scope.row, scope.$index)" filterable clearable>
-                <el-option
-v-for="(option, index) in matchOptions" :key="index" :label="option.label"
-                  :value="option.value" :disabled="option.disabled" />
-              </el-select>
-
-            </template>
-          </el-table-column>
-        </el-table>
-
-
-
-
-
-
-
-
-      </el-col>
-    </el-row>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  </ContentWrap>
+    <!-- Navigation -->
+    <div class="mt-4 flex justify-between">
+      <el-button :disabled="step === 0" @click="step--">Back</el-button>
+      <el-button type="primary" :loading="importing" @click="handleNextStep">
+        {{ step === 3 ? 'Import' : 'Next' }}
+      </el-button>
+    </div>
+  </el-card>
 </template>
 
 <style scoped>
-.my-header {
-  display: flex;
-  flex-direction: row;
-  justify-content: space-between;
+.mt-2 {
+  margin-top: 0.5rem;
 }
-</style>
-
-<style>
-.button-group-container {
-  display: flex;
-  justify-content: space-between;
+.mt-4 {
+  margin-top: 1rem;
 }
-
-
-.table-container {
-  height: 200px;
-  /* Adjust the height as needed */
-  overflow-y: auto;
-}
-
-
-
-.button-group-container {
+.flex {
   display: flex;
-  width: 100%;
 }
-
-.button-group {
-  flex: 1;
-  display: flex;
+.justify-between {
   justify-content: space-between;
 }
 </style>

@@ -1772,12 +1772,7 @@ style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" ty
           </template>
         </el-table-column>
         <el-table-column label="Name" prop="name" sortable />
-        <el-table-column label="Location" sortable>
-          <template #default="scope">
-            <span>{{ scope.row.ward.name }} ward, {{ scope.row.subcounty.name }} subcounty, {{ scope.row.county.name
-              }} County</span>
-          </template>
-        </el-table-column>
+       
 
 
         <el-table-column label="Actions" width="250">
@@ -1816,14 +1811,7 @@ style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" ty
           </template>
         </el-table-column>
         <el-table-column label="Name" prop="name" sortable />
-        <el-table-column label="Location" sortable>
-          <template #default="scope">
-            <span>{{ scope.row.ward.name }} ward, {{ scope.row.subcounty.name }} subcounty, {{ scope.row.county.name
-              }} County</span>
-          </template>
-        </el-table-column>
-
-        <el-table-column label="Actions" width="250">
+         <el-table-column label="Actions" width="250">
           <template #default="{ row }">
             <!-- Example 1: Only Edit and Delete buttons -->
             <TableActions

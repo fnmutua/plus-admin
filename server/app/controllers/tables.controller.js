@@ -1327,17 +1327,19 @@ exports.modelImportDataUpsert_first = async (req, res) => {
       }
     }
 
-    return res.status(200).json({
-      message: 'Import process completed',
+    const hasErrors = errors.length > 0;
+
+    return res.status(hasErrors ? 207 : 200).json({
+      message: hasErrors ? 'Import completed with some errors' : 'Import process completed successfully',
       insertedCount: inserted.length,
       updatedCount: updated.length,
       failedCount: errors.length,
       inserted,
       updated,
       errors,
-      code: '0000',
-
+      code: hasErrors ? '0001' : '0000',
     });
+    
 
   } catch (err) {
     console.error('Fatal upsert error:', err);
@@ -1411,16 +1413,19 @@ exports.bef_eld_modelImportDataUpsert = async (req, res) => {
       }
     }
 
-    return res.status(200).json({
-      message: 'Import process completed',
+    const hasErrors = errors.length > 0;
+
+    return res.status(hasErrors ? 207 : 200).json({
+      message: hasErrors ? 'Import completed with some errors' : 'Import process completed successfully',
       insertedCount: inserted.length,
       updatedCount: updated.length,
       failedCount: errors.length,
       inserted,
       updated,
       errors,
-      code: '0000',
+      code: hasErrors ? '0001' : '0000',
     });
+    
 
   } catch (err) {
     console.error('Fatal upsert error:', err);
@@ -1503,17 +1508,19 @@ exports.modelImportDataUpsert = async (req, res) => {
         });
       }
     }
+    const hasErrors = errors.length > 0;
 
-    return res.status(200).json({
-      message: 'Import process completed',
+    return res.status(hasErrors ? 207 : 200).json({
+      message: hasErrors ? 'Import completed with some errors' : 'Import process completed successfully',
       insertedCount: inserted.length,
       updatedCount: updated.length,
       failedCount: errors.length,
       inserted,
       updated,
       errors,
-      code: '0000',
+      code: hasErrors ? '0001' : '0000',
     });
+    
 
   } catch (err) {
     console.error('Fatal upsert error:', err);

@@ -281,3 +281,10 @@ SET settlement_type = CASE
   WHEN settlement_type = '2' THEN 'Informal Settlement'
   ELSE settlement_type
 END;
+
+
+
+ALTER TABLE health_facility 
+ALTER COLUMN services TYPE TEXT 
+USING array_to_string(services, ', ');
+
