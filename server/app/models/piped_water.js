@@ -7,6 +7,7 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: false,
       primaryKey: true
     },
+
     name: {
       type: DataTypes.STRING,
       allowNull: false
@@ -22,9 +23,13 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true
     },
 
+    name_of_provider: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
 
     length: {
-      type: DataTypes.DOUBLE,
+      type: DataTypes.FLOAT,
       allowNull: true
     },
 
@@ -33,64 +38,75 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true
     },
 
-    settlement_id: {
-      type: DataTypes.INTEGER,
-      allowNull: false
-    },
-
-
-    ward_id: {
-      type: DataTypes.INTEGER,
-      allowNull: false
-    },
-
-   
-    county_id: {
+    number_persons_served: {
       type: DataTypes.INTEGER,
       allowNull: true
     },
 
-
-    subcounty_id: {
-      type: DataTypes.INTEGER,
-      allowNull: true
-    },
-
-
-    createdBy: {
-      type: DataTypes.INTEGER,
-      allowNull: true
-    },
- 
-    isApproved: {
+    condition: {
       type: DataTypes.STRING,
-      defaultValue: 'Pending'
+      allowNull: true
     },
- 
-    geom: {
-      type: DataTypes.GEOMETRY('Geometry', 4326),
+
+    photo: {
+      type: DataTypes.STRING,
       allowNull: true
     },
 
     code: {
       type: DataTypes.STRING,
       allowNull: false,
-      unique:true
+      unique: true
+    },
+
+    isApproved: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      defaultValue: 'Pending'
+    },
+
+    settlement_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false
     },
 
     
+
+    ward_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+
+    county_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+
+    subcounty_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+
+    createdBy: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+
+    geom: {
+      type: DataTypes.GEOMETRY('MULTILINESTRING', 4326),
+      allowNull: true
+    }
   }, {
     sequelize,
     tableName: 'piped_water',
     schema: 'public',
     timestamps: true,
+    underscored: false,
     indexes: [
       {
         name: "piped_water_pkey",
         unique: true,
-        fields: [
-          { name: "id" },
-        ]
+        fields: [{ name: "id" }]
       },
       {
         name: 'piped_code',
