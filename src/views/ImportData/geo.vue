@@ -483,6 +483,8 @@ const handleNextStep = async () => {
     <div v-if="step === 1" class="mt-4">
       <el-select
         v-model="targetTable"
+        filterable
+        clearable
         placeholder="Select destination table"
         @change="getModelDefinition"
         aria-label="Select destination table"
@@ -503,6 +505,7 @@ const handleNextStep = async () => {
         v-model="fieldSearch"
         placeholder="Search fields"
         clearable
+        filterable
         class="mb-2"
         aria-label="Search fields"
       />
