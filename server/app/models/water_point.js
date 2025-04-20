@@ -9,7 +9,7 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.STRING,
       allowNull: true
     },
-    
+
     capacity: {
       type: DataTypes.STRING,
       allowNull: true
@@ -54,13 +54,13 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.STRING,
       allowNull: true
     },
-    
+     
     code: {
       type: DataTypes.STRING,
       allowNull: false,
       unique: true
     },
-    isApproved: {
+    isApproved: { 
       type: DataTypes.STRING,
       defaultValue: 'Pending'
     },
@@ -93,7 +93,7 @@ module.exports = function(sequelize, DataTypes) {
     tableName: 'water_point',
     schema: 'public',
     timestamps: true,
-    underscored: true,
+   // underscored: true,
     indexes: [
       {
         name: "water_facility_pkey",
