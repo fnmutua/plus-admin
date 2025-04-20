@@ -1,5 +1,6 @@
 const Sequelize = require('sequelize');
-module.exports = function(sequelize, DataTypes) {
+
+module.exports = function (sequelize, DataTypes) {
   return sequelize.define('health_facility', {
     id: {
       autoIncrement: true,
@@ -7,64 +8,119 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: false,
       primaryKey: true
     },
+
     name: {
       type: DataTypes.STRING,
       allowNull: true
     },
+
+    code: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true
+    },
+
     facility_number: {
       type: DataTypes.STRING,
       allowNull: true
     },
 
-   
     level: {
-      type: DataTypes.STRING,
+      type: DataTypes.STRING, // e.g. Level 2, Level 4
       allowNull: true
     },
-    reg_status: {
-      type: DataTypes.STRING,
+
+    registration_status: {
+      type: DataTypes.STRING, // e.g. Registered, Unregistered
       allowNull: true
     },
 
     ownership_type: {
-      type: DataTypes.STRING,
+      type: DataTypes.STRING, // e.g. Government, Private
       allowNull: true
     },
+
     owner: {
-      type: DataTypes.STRING,
+      type: DataTypes.STRING, // e.g. Public, Faith-based
       allowNull: true
     },
 
-    
-
-    inpatient: {
-      type: DataTypes.BOOLEAN,
+    land_ownership: {
+      type: DataTypes.STRING, // e.g. Owned, Leased
       allowNull: true
     },
 
-    patients_per_day: {
+    land_title_available: {
+      type: DataTypes.STRING, // e.g. Yes, No
+      allowNull: true
+    },
+
+    land_parcel_size: {
+      type: DataTypes.FLOAT,
+      allowNull: true
+    },
+
+    condition: {
+      type: DataTypes.STRING, // e.g. Good, Fair, Poor
+      allowNull: true
+    },
+
+    num_inpatient: {
       type: DataTypes.INTEGER,
       allowNull: true
     },
 
-    number_beds: {
+    outpatient_visits_per_day: {
       type: DataTypes.INTEGER,
       allowNull: true
     },
-    occupancy: {
+
+    maternity_deliveries_per_day: {
       type: DataTypes.INTEGER,
       allowNull: true
     },
-   
+
+    antenatal_immunizations_per_day: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+
+    general_beds: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+
+    maternity_beds: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+
+    pediatric_beds: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+
+    total_beds: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+
+    occupancy_rate: {
+      type: DataTypes.FLOAT,
+      allowNull: true
+    },
+
     number_doctors: {
       type: DataTypes.INTEGER,
       allowNull: true
     },
+
     number_clinical_officers: {
       type: DataTypes.INTEGER,
       allowNull: true
     },
-    number_pharm: {
+
+    number_pharmacists: {
       type: DataTypes.INTEGER,
       allowNull: true
     },
@@ -74,12 +130,72 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true
     },
 
-    parcel_tenure: {
+    number_midwives: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+
+    number_other_staff: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+
+    services_offered: {
       type: DataTypes.STRING,
       allowNull: true
     },
 
-    tenancy: {
+    referral_destinations: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+
+    referral_distance_km: {
+      type: DataTypes.FLOAT,
+      allowNull: true
+    },
+
+    referrals_per_day: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+
+    has_ambulance: {
+      type: DataTypes.STRING, // Yes, No
+      allowNull: true
+    },
+
+    source_of_drugs: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+
+    common_ailments: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+
+    source_of_patients: {
+      type: DataTypes.STRING, // e.g. Inside Settlement
+      allowNull: true
+    },
+
+    challenges: {
+      type: DataTypes.TEXT,
+      allowNull: true
+    },
+
+    respondent_name: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+
+    respondent_phone: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+
+    photo_filename: {
       type: DataTypes.STRING,
       allowNull: true
     },
@@ -88,55 +204,41 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.INTEGER,
       allowNull: true
     },
-   
-    
+
     county_id: {
       type: DataTypes.INTEGER,
       allowNull: true
     },
 
-
     subcounty_id: {
       type: DataTypes.INTEGER,
       allowNull: true
     },
-  
-    
-    services: {
-      type:  DataTypes.STRING ,
-      allowNull: true
-    },
 
-    
-    referrals: {
-      type:  DataTypes.STRING ,
-      allowNull: true
- 
-    },
-
-
-     isApproved: {
+    settlement_name: {
       type: DataTypes.STRING,
-      defaultValue: 'Pending'
+      allowNull: true
     },
-     
-    createdBy: {
+
+    distance_meters: {
+      type: DataTypes.FLOAT,
+      allowNull: true
+    },
+
+    created_by: {
       type: DataTypes.INTEGER,
       allowNull: true
     },
- 
-    code: {
+
+    isApproved: {
       type: DataTypes.STRING,
-      allowNull: false,
-      unique: true
+      defaultValue: 'Pending'
     },
- 
- 
 
     geom: {
-      type: DataTypes.GEOMETRY('Geometry', 4326),
+      type: DataTypes.GEOMETRY('Point', 4326),
       allowNull: true
-    },
+    }
 
   }, {
     sequelize,
@@ -145,12 +247,10 @@ module.exports = function(sequelize, DataTypes) {
     timestamps: true,
     indexes: [
       {
-        name: "health_facility_pkey",
+        name: 'health_facility_pkey',
         unique: true,
-        fields: [
-          { name: "id" },
-        ]
-      },
+        fields: [{ name: 'id' }]
+      }
     ]
   });
 };

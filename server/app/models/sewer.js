@@ -7,31 +7,43 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: false,
       primaryKey: true
     },
+
+    code: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true
+    },
+
     name: {
       type: DataTypes.STRING,
       allowNull: false
     },
 
-
-    type: {
+    condition: {
       type: DataTypes.STRING,
       allowNull: true
     },
-    
- 
+
+    ownership: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
 
     pipe_type: {
       type: DataTypes.STRING,
       allowNull: true
     },
+
     pipe_size: {
       type: DataTypes.STRING,
       allowNull: true
     },
+
     provider: {
       type: DataTypes.STRING,
       allowNull: true
     },
+
     provider_category: {
       type: DataTypes.STRING,
       allowNull: true
@@ -42,20 +54,38 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true
     },
 
-    number_connections: {
+    number_of_connections: {
       type: DataTypes.INTEGER,
+      allowNull: true
+    },
+
+    number_of_persons_served: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+
+    photo: {
+      type: DataTypes.STRING,
       allowNull: true
     },
 
     settlement_id: {
       type: DataTypes.INTEGER,
-      allowNull: false
+      allowNull: true
     },
 
+    settlement_code: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
 
-   
     county_id: {
       type: DataTypes.INTEGER,
+      allowNull: true
+    },
+
+    county_name: {
+      type: DataTypes.STRING,
       allowNull: true
     },
 
@@ -63,7 +93,6 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.INTEGER,
       allowNull: true
     },
-
 
     subcounty_id: {
       type: DataTypes.INTEGER,
@@ -74,22 +103,17 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.STRING,
       defaultValue: 'Pending'
     },
- 
+
     createdBy: {
       type: DataTypes.INTEGER,
       allowNull: true
     },
 
-    code: {
-      type: DataTypes.STRING,
-      allowNull: false,
-      unique:true
-    }, 
- 
     geom: {
-      type: DataTypes.GEOMETRY('Geometry', 4326),
+      type: DataTypes.GEOMETRY('MultiLineString', 4326),
       allowNull: true
     },
+
   }, {
     sequelize,
     tableName: 'sewer',
@@ -99,9 +123,7 @@ module.exports = function(sequelize, DataTypes) {
       {
         name: "sewer_pkey",
         unique: true,
-        fields: [
-          { name: "id" },
-        ]
+        fields: [{ name: "id" }]
       },
       {
         name: 'sewer_code',
