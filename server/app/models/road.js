@@ -1,5 +1,5 @@
-const Sequelize = require('sequelize');
-module.exports = function(sequelize, DataTypes) {
+ const Sequelize = require('sequelize');
+module.exports = function (sequelize, DataTypes) {
   return sequelize.define('road', {
     id: {
       autoIncrement: true,
@@ -7,77 +7,90 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: false,
       primaryKey: true
     },
-     name: {
-      type: DataTypes.STRING,
-      allowNull: false
-    },
-    rdNum: {
+
+    name: {
       type: DataTypes.STRING,
       allowNull: true
     },
-    rdClass: {
+
+    rd_num: {
       type: DataTypes.STRING,
       allowNull: true
     },
-    width: {
+
+    rd_class: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+
+    rd_width_m: {
       type: DataTypes.DOUBLE,
       allowNull: true
     },
 
-
-    rdReserve: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
-    surfaceType: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
-    surfaceCondition: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
-    traffic: {
+    rd_reserve_encroachment: {
       type: DataTypes.STRING,
       allowNull: true
     },
 
-    direction: {
+    surface_type: {
       type: DataTypes.STRING,
       allowNull: true
     },
 
-    drainage: {
+    surface_condition: {
       type: DataTypes.STRING,
       allowNull: true
     },
-    drainageCondition: {
+
+    rd_traffic: {
       type: DataTypes.STRING,
       allowNull: true
     },
+
+    rd_direction: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+
+    rd_drainage_location: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+
+    rd_drainage_condition: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+
  
-    settlement_id: {
-      type: DataTypes.INTEGER,
-      allowNull: false
-    },
-   
-    
+
     county_id: {
       type: DataTypes.INTEGER,
       allowNull: true
     },
 
-
     subcounty_id: {
       type: DataTypes.INTEGER,
       allowNull: true
     },
- 
-    createdBy: {
+
+    settlement_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false
+    },
+
+    ward_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false
+    },
+
+
+    created_by: {
       type: DataTypes.INTEGER,
       allowNull: true
     },
- 
+
     isApproved: {
       type: DataTypes.STRING,
       defaultValue: 'Pending'
@@ -85,20 +98,24 @@ module.exports = function(sequelize, DataTypes) {
 
     length: {
       type: DataTypes.DOUBLE,
-      allowNull: false,
-     },
+      allowNull: false
+    },
 
     code: {
       type: DataTypes.STRING,
       allowNull: false,
-      unique:true
+      unique: true
     },
 
-    geom: {
-      type: DataTypes.GEOMETRY('Geometry', 4326),
+    photo: {
+      type: DataTypes.STRING,
       allowNull: true
     },
 
+    geom: {
+      type: DataTypes.GEOMETRY('MultiLineString', 4326),
+      allowNull: true
+    }
 
   }, {
     sequelize,
@@ -107,11 +124,9 @@ module.exports = function(sequelize, DataTypes) {
     timestamps: true,
     indexes: [
       {
-        name: "road_pkey",
+        name: 'road_pkey',
         unique: true,
-        fields: [
-          { name: "id" },
-        ]
+        fields: [{ name: 'id' }]
       },
       {
         name: 'road_code',

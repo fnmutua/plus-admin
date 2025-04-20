@@ -1778,8 +1778,8 @@ style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" ty
           </template>
         </el-table-column>
         <el-table-column label="Name" prop="name" sortable :formatter="row => row.name || 'Unknown'" />
-          <el-table-column label="Surface" prop="surfaceType" sortable />
-         <el-table-column label="Drainage Condition" prop="drainageCondition" sortable />
+          <el-table-column label="Surface" prop="surface_type" sortable />
+         <el-table-column label="Drainage Condition" prop="rd_drainage_condition" sortable />
        
 
 
@@ -1819,8 +1819,8 @@ style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" ty
           </template>
         </el-table-column>
         <el-table-column label="Name" prop="name" sortable :formatter="row => row.name || 'Unknown'" />
-          <el-table-column label="Surface" prop="surfaceType" sortable />
-         <el-table-column label="Drainage Condition" prop="drainageCondition" sortable />
+          <el-table-column label="Surface" prop="surface_type" sortable />
+         <el-table-column label="Drainage Condition" prop="rd_drainage_condition" sortable />
        
 
         <el-table-column label="Actions" width="250">
@@ -1860,8 +1860,8 @@ style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" ty
           </template>
         </el-table-column>
         <el-table-column label="Name" prop="name" sortable :formatter="row => row.name || 'Unknown'" />
-          <el-table-column label="Surface" prop="surfaceType" sortable />
-         <el-table-column label="Drainage Condition" prop="drainageCondition" sortable />
+          <el-table-column label="Surface" prop="surface_type" sortable />
+         <el-table-column label="Drainage Condition" prop="rd_drainage_condition" sortable />
        
 
         <el-table-column label="Actions" width="250">
