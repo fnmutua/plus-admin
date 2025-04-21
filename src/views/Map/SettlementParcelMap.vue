@@ -546,10 +546,15 @@ onMounted(() => {
       if (ready) {
         mapReady.value = true
         loadSelectedLayers(['settlement', 'parcels', 'roads', 'hospitals', 'schools', 'water_points', 'structures'])
+        setupMapTypeControl() // Add this line
       }
     }
   )
 })
+
+
+
+
 
 // Computed property to determine available layers
 const availableLayers = computed(() => {
@@ -630,6 +635,83 @@ const StructureVisible = ref(true)
 const toggleStructure = (visible: boolean) => {
   StructureVisible.value = visible
 }
+
+
+
+
+const setupMapTypeControl = () => {
+  if (!mapReady.value || !mapRef.value?.map) return;
+
+
+  // Define grayscale map style
+  const grayscaleStyle = [
+    {
+      stylers: [{ saturation: -100 }]
+    }
+  ];
+
+  // Create grayscale StyledMapType
+  const grayscaleMapType = new google.maps.StyledMapType(grayscaleStyle, {
+    name: 'Grayscale'
+  });
+
+  // Register grayscale map type
+  mapRef.value.map.mapTypes.set('grayscale', grayscaleMapType);
+
+
+
+  // Create the select element
+  const controlDiv = document.createElement('div');
+  const controlSelect = document.createElement('select');
+
+  // Style the select element (similar to Google example)
+  controlDiv.style.padding = '5px';
+  controlDiv.style.backgroundColor = 'white';
+  controlDiv.style.border = '1px solid #ccc';
+  controlDiv.style.borderRadius = '2px';
+  controlDiv.style.boxShadow = '0 1px 4px rgba(0,0,0,0.3)';
+  controlSelect.style.fontSize = '14px';
+  controlSelect.style.padding = '2px';
+  controlSelect.style.margin = '5px';
+
+  // Define map type options
+  const mapTypes = [
+    { id: 'roadmap', label: 'Map' },
+    { id: 'satellite', label: 'Satellite' },
+    { id: 'hybrid', label: 'Hybrid' },
+    { id: 'terrain', label: 'Terrain' },
+    { id: 'grayscale', label: 'Grayscale' }
+  ];
+
+  // Add options to the select element
+  mapTypes.forEach((type) => {
+    const option = document.createElement('option');
+    option.value = type.id;
+    option.text = type.label;
+    if (type.id === mapRef.value.map.getMapTypeId()) {
+      option.selected = true;
+    }
+    controlSelect.appendChild(option);
+  });
+
+  // Event listener to change map type
+  controlSelect.addEventListener('change', () => {
+    mapRef.value.map.setMapTypeId(controlSelect.value);
+  });
+
+  // Append select to div
+  controlDiv.appendChild(controlSelect);
+
+  // Add control to map (TOP_RIGHT position)
+  mapRef.value.map.controls[google.maps.ControlPosition.TOP_LEFT].push(controlDiv);
+}
+
+
+
+
+
+
+
 </script>
 
 <template>
@@ -651,14 +733,14 @@ const toggleStructure = (visible: boolean) => {
 
     <div class="map-container">
       <GoogleMap ref="mapRef" :api-key="googleMapsApiKey" style="width: 100%; height: 75vh" :center="gmapCenter"
-        :zoom="8" map-type-id="roadmap">
+        :zoom="8" map-type-id="grayscale"  :map-type-control="false">
 
         <div v-if="StructureVisible">
           <Polygon v-for="structure in structures" :key="structure.id" :options="structure" />
         </div>
 
 
-        
+
         <div v-if="settVisibile">
           <Polygon v-for="polygon in polygons" :key="polygon.id" :options="polygon" @click="onPolygonClick(polygon)" />
         </div>
