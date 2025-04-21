@@ -69,7 +69,7 @@ mapboxgl.accessToken = MapBoxToken;
 
 
 const filters = ref(['settlement_type', 'isApproved', 'isActive'])
-const filterValues = ref([[1, 2], ['Approved'], ['true']]) // make sure the inner array is array
+const filterValues = ref([['Slum', 'Informal Settlement'], ['Approved'], ['true']]) // make sure the inner array is array
 
 
 
@@ -486,14 +486,14 @@ const onPageChange = async (selPage: any) => {
 
   if (activeSegment.value == 'Approved') {
     filters.value = ['settlement_type', 'isApproved', 'isActive']
-    filterValues.value = [[1, 2], ['Approved'], ['true']]  // make sure the inner array is array
+    filterValues.value = [['Slum', 'Informal Settlement'], ['Approved'], ['true']]  // make sure the inner array is array
   } else if (activeSegment.value == 'New') {
     filters.value = ['settlement_type', 'isApproved', 'isActive']
-    filterValues.value = [[1, 2], ['Pending'], ['true']]  // make sure the inner array is array
+    filterValues.value = [['Slum', 'Informal Settlement'], ['Pending'], ['true']]  // make sure the inner array is array
   }
   else if (activeSegment.value == 'Rejected') {
     filters.value = ['settlement_type', 'isApproved', 'isActive']
-    filterValues.value = [[1, 2], ['Rejected'], ['true']]  // make sure the inner array is array
+    filterValues.value = [['Slum', 'Informal Settlement'], ['Rejected'], ['true']]  // make sure the inner array is array
   }
 
   console.log("Where are we?", activeSegment.value, filters.value, filterValues.value)
@@ -514,15 +514,15 @@ const onPageSizeChange = async (size: any) => {
   console.log(activeSegment.value)
   if (activeSegment.value === 'Approved') {
     filters.value = ['settlement_type', 'isApproved', 'isActive']
-    filterValues.value = [[1, 2], ['Approved'], ['true']]  // make sure the inner array is array
+    filterValues.value = [['Slum', 'Informal Settlement'], ['Approved'], ['true']]  // make sure the inner array is array
   } else if (activeSegment.value === 'New') {
     filters.value = ['settlement_type', 'isApproved', 'isActive']
-    filterValues.value = [[1, 2], ['Pending'], ['true']]  // make sure the inner array is array
+    filterValues.value = [['Slum', 'Informal Settlement'], ['Pending'], ['true']]  // make sure the inner array is array
 
   }
   else if (activeSegment.value === 'Rejected') {
     filters.value = ['settlement_type', 'isApproved', 'isActive']
-    filterValues.value = [[1, 2], ['Rejected'], ['true']]  // make sure the inner array is array
+    filterValues.value = [['Slum', 'Informal Settlement'], ['Rejected'], ['true']]  // make sure the inner array is array
   }
   
 
@@ -2520,7 +2520,7 @@ const Statuses = ref([
     value: 'Duplicates',
     icon: Warning,
     count: duplicateTotal,
-    hidden: false,    
+ 
     hidden: !showAdminButtons.value
 
 

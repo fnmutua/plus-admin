@@ -1,14 +1,12 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElCard, ElButton, ElTable, ElTableColumn, ElMessage, ElCollapse, ElCollapseItem, ElCheckbox, ElCheckboxGroup } from 'element-plus'
 import { Back, Download } from '@element-plus/icons-vue'
 import { GoogleMap, Polygon, InfoWindow, Marker, CustomMarker, MarkerCluster, Polyline } from 'vue3-google-map'
 import { centroid } from '@turf/turf';
-
 import * as turf from '@turf/turf'
 import { getOneGeo, getfilteredParcelGeo, getfilteredGeo } from '@/api/settlements'
-
 import { Icon } from '@iconify/vue'
 
 const googleMapsApiKey = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
@@ -17,24 +15,40 @@ const route = useRoute()
 const router = useRouter()
 const mapRef = ref<any>(null)
 const title = ref('')
+const mapReady = ref(false)
 
-
-// the gedata 
+// the geodata 
 const features = ref([])
 const parcelGeoData = ref<any[]>([])
 const roadGeoData = ref<any[]>([])
- const hospitalGeoData  = ref<any[]>([])
- const schoolGeoData  = ref<any[]>([])
+const hospitalGeoData = ref<any[]>([])
+const schoolGeoData = ref<any[]>([])
+  const wpGeoData = ref<any[]>([])
+    const structureGeoData = ref<any[]>([])
 
 // to hold paths
 const polygons = ref<any[]>([])
 const parcels = ref<any[]>([])
 const parcelLabels = ref<any[]>([])
 const roads = ref<any[]>([])
-  const hospitals = ref<any[]>([])
-    const schools = ref<any[]>([])
+const hospitals = ref<any[]>([])
+const schools = ref<any[]>([])
+  const water_points = ref<any[]>([])
+    const structures = ref<any[]>([])
 
 const isLoading = ref(false)
+
+// Track feature counts for each layer
+const layerFeatureCounts = ref({
+  settlement: 0,
+  parcels: 0,
+  parcelLabels: 0,
+  roads: 0,
+  hospitals: 0,
+  schools: 0,
+  water_points: 0,
+  structures :0
+})
 
 const legendItems = [
   { label: 'Residential', color: '#8C675D' },
@@ -49,9 +63,6 @@ const legendItems = [
   { label: 'Agricultural', color: '#FDFD96' }
 ]
 
-
-
-
 const fetchSettlementData = async () => {
   isLoading.value = true
   try {
@@ -62,21 +73,16 @@ const fetchSettlementData = async () => {
       throw new Error('No settlement features found')
     }
     title.value = res.data[0].json_build_object.features[0].properties.name
-
     features.value = res.data[0].json_build_object.features
-
-
-
-
+    return turf.featureCollection(res.data[0].json_build_object.features)
   } catch (error) {
     console.error('Error fetching settlement data:', error)
     ElMessage({ message: 'Failed to load settlement data', type: 'error' })
-    polygons.value = []
+    return null
   } finally {
     isLoading.value = false
   }
 }
-
 
 const fetchParcels = async () => {
   try {
@@ -93,7 +99,6 @@ const fetchParcels = async () => {
     return null
   }
 }
-
 
 const fetchRoads = async () => {
   try {
@@ -121,12 +126,11 @@ const fetchHospitals = async () => {
     }
     return null
   } catch (error) {
-    console.error('Error fetching road data:', error)
-    ElMessage({ message: 'Failed to load road data', type: 'error' })
+    console.error('Error fetching hospital data:', error)
+    ElMessage({ message: 'Failed to load hospital data', type: 'error' })
     return null
   }
 }
-
 
 const fetchSchools = async () => {
   try {
@@ -138,16 +142,54 @@ const fetchSchools = async () => {
     }
     return null
   } catch (error) {
-    console.error('Error fetching road data:', error)
-    ElMessage({ message: 'Failed to load road data', type: 'error' })
+    console.error('Error fetching school data:', error)
+    ElMessage({ message: 'Failed to load school data', type: 'error' })
+    return null
+  }
+}
+
+const fetchWaterpoints = async () => {
+  try {
+    const id = route.params.id
+    const formData = { model: 'water_point', columnFilterField: 'settlement_id', selectedParents: id, filtredGeoIds: [id] }
+    const res = await getfilteredParcelGeo(formData)
+    console.log('WPS.....')
+    if (res.data[0]?.json_build_object?.features) {
+      return turf.featureCollection(res.data[0].json_build_object.features)
+    }
+    return null
+  } catch (error) {
+    console.error('Error fetching water_point data:', error)
+    ElMessage({ message: 'Failed to load water_point data', type: 'error' })
     return null
   }
 }
 
 
+const fetchStructures = async () => {
+  try {
+    const id = route.params.id
+    const formData = { model: 'structure', columnFilterField: 'settlement_id', selectedParents: id, filtredGeoIds: [id] }
+    const res = await getfilteredParcelGeo(formData)
+    console.log('WPS.....')
+    if (res.data[0]?.json_build_object?.features) {
+      return turf.featureCollection(res.data[0].json_build_object.features)
+    }
+    return null
+  } catch (error) {
+    console.error('Error fetching structure data:', error)
+    ElMessage({ message: 'Failed to load structure data', type: 'error' })
+    return null
+  }
+}
+
+
+
+
+
+
 const downloadGeoJSON = () => {
   ElMessage({ message: 'Downloading GeoJSON...', type: 'warning' })
-  // Reconstruct GeoJSON features from polygons
   const features = polygons.value.map((polygon) => ({
     type: 'Feature',
     geometry: {
@@ -173,85 +215,102 @@ const editSettlement = () => {
   router.push({ name: 'AddSettlementX', query: { id: route.params.id } })
 }
 
+const loadSelectedLayers = async (layers: string[]) => {
+  if (!mapReady.value || !window.google?.maps) {
+    console.error('Google Maps API not ready')
+    return
+  }
 
-onMounted(async () => {
-  await fetchSettlementData()
+  const bounds = new google.maps.LatLngBounds()
 
-  parcelGeoData.value = await fetchParcels()
-  roadGeoData.value = await fetchRoads()
-  hospitalGeoData.value = await fetchHospitals()
-  schoolGeoData.value = await fetchSchools()
+  // Clear all layer data
+  polygons.value = []
+  parcels.value = []
+  parcelLabels.value = []
+  roads.value = []
+  hospitals.value = []
+  schools.value = []
+  water_points.value = []
+  structures.value = []
   
-  console.log( 'schoolGeoData.value ', schoolGeoData.value )
-  setTimeout(() => {
-    loadGoogleMap(); // Load map after a brief delay
-  }, 500); // Delay in milliseconds (500 ms = 0.5 seconds)
+  // Reset feature counts
+  layerFeatureCounts.value = {
+    settlement: 0,
+    parcels: 0,
+    parcelLabels: 0,
+    roads: 0,
+    hospitals: 0,
+    schools: 0,
+    water_points: 0,
+    structures: 0
+  }
 
-})
+  // Map layer names to their fetch functions and data refs
+  const layerConfig = {
+    settlement: { fetch: fetchSettlementData, dataRef: features },
+    parcels: { fetch: fetchParcels, dataRef: parcelGeoData },
+    roads: { fetch: fetchRoads, dataRef: roadGeoData },
+    hospitals: { fetch: fetchHospitals, dataRef: hospitalGeoData },
+    schools: { fetch: fetchSchools, dataRef: schoolGeoData },
+    water_points: { fetch: fetchWaterpoints, dataRef: wpGeoData },
+    structures: { fetch: fetchStructures, dataRef: structureGeoData }
+  }
 
-
-
-const loadGoogleMap = () => {
-  console.log("Google <Map>");
-
-  // Create a FeatureCollection from the array of features
-  const featureCollection = {
-    type: "FeatureCollection",
-    features: features.value,
-  };
-
-  // Clear the arrays
-  polygons.value = [];
-
-
-  // Initialize bounds
-  const bounds = new google.maps.LatLngBounds();
-
-  // Loop through each feature and extract geometry
-  featureCollection.features.forEach((feature, index) => {
-    const { geometry, properties } = feature;
-    console.log('feature', feature);
-
-    if (geometry.type === "Polygon" || geometry.type === "MultiPolygon") {
-      let coordinates = geometry.coordinates;
-
-      // If it's a MultiPolygon, iterate over each polygon inside the MultiPolygon
-      if (geometry.type === "MultiPolygon") {
-        coordinates = coordinates.flat(); // Flatten the array to process each polygon
+  // Fetch data for each specified layer
+  for (const layer of layers) {
+    if (layerConfig[layer]) {
+      const { fetch, dataRef } = layerConfig[layer]
+      const data = await fetch()
+      if (data?.features?.length) {
+        dataRef.value = data
+        layerFeatureCounts.value[layer] = data.features.length
+      } else {
+        console.log(`No data for layer: ${layer}`)
+        dataRef.value = null
+        layerFeatureCounts.value[layer] = 0
       }
-
-      coordinates.forEach((polygonCoordinates) => {
-        // Convert GeoJSON coordinates to Google Maps format
-        const paths = polygonCoordinates.map(([lng, lat]) => {
-          const point = { lat, lng };
-          bounds.extend(point); // Add to bounds
-          return point;
-        });
-
-        //console.log('paths', paths);
-
-        // Append polygon to the polygons array
-        polygons.value.push({
-          id: properties?.id || index,
-          paths,
-          strokeColor: "purple",
-          strokeOpacity: 1,
-          strokeWeight: 2,
-          fillColor: "#FF0000",
-          fillOpacity: 0,
-          properties: { ...properties }, // Clone properties
-        });
-      });
     }
-  });
+  }
 
+  // Set parcelLabels count (same as parcels)
+  if (layerFeatureCounts.value.parcels > 0) {
+    layerFeatureCounts.value.parcelLabels = layerFeatureCounts.value.parcels
+  }
 
+  // Process settlement data
+  if (layerConfig.settlement.dataRef.value?.features?.length) {
+    const featureCollection = layerConfig.settlement.dataRef.value
+    featureCollection.features.forEach((feature: any, index: number) => {
+      const { geometry, properties } = feature
+      if (geometry.type === 'Polygon' || geometry.type === 'MultiPolygon') {
+        let coordinates = geometry.coordinates
+        if (geometry.type === 'MultiPolygon') {
+          coordinates = coordinates.flat()
+        }
+        coordinates.forEach((polygonCoordinates: number[][]) => {
+          const paths = polygonCoordinates.map(([lng, lat]) => {
+            const point = { lat, lng }
+            bounds.extend(point)
+            return point
+          })
+          polygons.value.push({
+            id: properties?.id || index,
+            paths,
+            strokeColor: 'purple',
+            strokeOpacity: 1,
+            strokeWeight: 2,
+            fillColor: '#FF0000',
+            fillOpacity: 0,
+            properties: { ...properties }
+          })
+        })
+      }
+    })
+  }
 
   // Process parcels
-  if (parcelGeoData.value) {
-    parcels.value = []
-    parcelLabels.value = []
-    parcelGeoData.value.features.forEach((feature: any, index: number) => {
+  if (layerConfig.parcels.dataRef.value?.features?.length) {
+    layerConfig.parcels.dataRef.value.features.forEach((feature: any, index: number) => {
       const { geometry, properties } = feature
       if (geometry.type === 'Polygon' || geometry.type === 'MultiPolygon') {
         let coordinates = geometry.coordinates
@@ -267,14 +326,14 @@ const loadGoogleMap = () => {
           const landuseId = properties.landuse_id ?? -1
           const fillColor = landuseId === 0 ? '#8C675D' :
             landuseId === 1 ? '#800080' :
-              landuseId === 2 ? '#F6C567' :
-                landuseId === 3 ? '#6FDC6E' :
-                  landuseId === 4 ? '#FFFF00' :
-                    landuseId === 5 ? '#FF1D1E' :
-                      landuseId === 6 ? '#73B2FF' :
-                        landuseId === 7 ? '#DCDCDC' :
-                          landuseId === 8 ? '#FDFD96' :
-                            landuseId === 9 ? '#FDFD96' : 'white'
+            landuseId === 2 ? '#F6C567' :
+            landuseId === 3 ? '#6FDC6E' :
+            landuseId === 4 ? '#FFFF00' :
+            landuseId === 5 ? '#FF1D1E' :
+            landuseId === 6 ? '#73B2FF' :
+            landuseId === 7 ? '#DCDCDC' :
+            landuseId === 8 ? '#FDFD96' :
+            landuseId === 9 ? '#FDFD96' : 'white'
           parcels.value.push({
             id: `parcel-${properties?.id || index}`,
             paths,
@@ -285,54 +344,39 @@ const loadGoogleMap = () => {
             fillOpacity: 0.8,
             properties: { ...properties }
           })
-          // Add label marker
-          const centroid = turf.centroid(feature)
-          const [lng, lat] = centroid.geometry.coordinates
+          const centroidPoint = turf.centroid(feature)
+          const [lng, lat] = centroidPoint.geometry.coordinates
           parcelLabels.value.push({
             id: `label-${properties?.id || index}`,
             position: { lat, lng },
             label: properties.parcel_no || '',
             properties: { ...properties }
           })
-
-          console.log('parcelLabels.value',parcelLabels.value)
         })
       }
     })
   }
 
-
-  // Process parcels
-  if (roadGeoData.value) {
-
-    console.log('roadGeoData.value', roadGeoData.value)
-    roads.value = []
-
-    roadGeoData.value.features.forEach((feature: any, index: number) => {
+  // Process roads
+  if (layerConfig.roads.dataRef.value?.features?.length) {
+    layerConfig.roads.dataRef.value.features.forEach((feature: any, index: number) => {
       const { geometry, properties } = feature
-
       if (geometry.type === 'LineString' || geometry.type === 'MultiLineString') {
         let coordinates: number[][] = geometry.coordinates
         if (geometry.type === 'MultiLineString') {
           coordinates = coordinates.flat()
         }
-
         const path = coordinates.map(([lng, lat]) => {
           const point = { lat, lng }
           bounds.extend(point)
           return point
         }).filter((path: { lng: number; lat: number }) => isFinite(path.lng) && isFinite(path.lat))
-
         const surfaceType = properties.surface_type ?? ''
-        const strokeColor = surfaceType == 'earth' ? '#A0522D' :
-          surfaceType == 'Asphalt' ? 'red' :
-            surfaceType == 'gravel' ? '#B87333' :
-              surfaceType == 'track' ? '#B87333' :
-                surfaceType == 'concrete' ? '#A9A9A9' :
-                  'black' // default blue
-
-
-
+        const strokeColor = surfaceType === 'earth' ? '#A0522D' :
+          surfaceType === 'Asphalt' ? 'red' :
+          surfaceType === 'gravel' ? '#B87333' :
+          surfaceType === 'track' ? '#B87333' :
+          surfaceType === 'concrete' ? '#A9A9A9' : 'black'
         roads.value.push({
           id: `road-${properties?.id || index}`,
           path,
@@ -345,159 +389,205 @@ const loadGoogleMap = () => {
     })
   }
 
-
-   // Process Hospiltas
-  if (hospitalGeoData.value) {
-  hospitalGeoData.value.features.forEach((feature: any, index: number) => {
-    const { geometry, properties } = feature;
-
-    if (geometry.type === 'Point') {
-      const [lng, lat] = geometry.coordinates;
-      const point = { lat, lng };
-      bounds.extend(point);
-
-      // Simple category detection
-      const category = (properties.registration_status || '').toLowerCase();
-
-      let iconUrl = 'https://maps.google.com/mapfiles/kml/shapes/hospitals.png'; // default
-
-      if (category.includes('1')) {
-        iconUrl = 'https://maps.google.com/mapfiles/ms/icons/green-dot.png';
-      } else if (category.includes('2')) {
-        iconUrl = 'https://maps.google.com/mapfiles/ms/icons/orange-dot.png';
-      } else if (category.includes('3')) {
-        iconUrl = 'https://maps.google.com/mapfiles/ms/icons/red-dot.png';
-      } else if (category.includes('4')) {
-        iconUrl = 'https://maps.google.com/mapfiles/ms/icons/purple-dot.png';
-      } else if (category.includes('5')) {
-        iconUrl = 'https://maps.google.com/mapfiles/ms/icons/yellow-dot.png';
-      } else if (category.includes('mission')) {
-        iconUrl = 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png';
-      } else if (category.includes('private')) {
-        iconUrl = 'https://maps.google.com/mapfiles/ms/icons/pink-dot.png';
+  // Process hospitals
+  if (layerConfig.hospitals.dataRef.value?.features?.length) {
+    layerConfig.hospitals.dataRef.value.features.forEach((feature: any, index: number) => {
+      const { geometry, properties } = feature
+      if (geometry.type === 'Point') {
+        const [lng, lat] = geometry.coordinates
+        const point = { lat, lng }
+        bounds.extend(point)
+        const category = (properties.registration_status || '').toLowerCase()
+        let iconUrl = 'https://maps.google.com/mapfiles/kml/shapes/hospitals.png'
+        if (category.includes('1')) {
+          iconUrl = 'https://maps.google.com/mapfiles/ms/icons/green-dot.png'
+        } else if (category.includes('2')) {
+          iconUrl = 'https://maps.google.com/mapfiles/ms/icons/orange-dot.png'
+        } else if (category.includes('3')) {
+          iconUrl = 'https://maps.google.com/mapfiles/ms/icons/red-dot.png'
+        } else if (category.includes('4')) {
+          iconUrl = 'https://maps.google.com/mapfiles/ms/icons/purple-dot.png'
+        } else if (category.includes('5')) {
+          iconUrl = 'https://maps.google.com/mapfiles/ms/icons/yellow-dot.png'
+        } else if (category.includes('mission')) {
+          iconUrl = 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png'
+        } else if (category.includes('private')) {
+          iconUrl = 'https://maps.google.com/mapfiles/ms/icons/pink-dot.png'
+        }
+        hospitals.value.push({
+          id: `hospital-${properties?.id || index}`,
+          position: point,
+          icon: {
+            url: iconUrl,
+            scaledSize: new google.maps.Size(30, 30),
+            anchor: new google.maps.Point(15, 15)
+          },
+          properties: { ...properties }
+        })
       }
+    })
+  }
 
-      hospitals.value.push({
-        id: `hospital-${properties?.id || index}`,
-        position: point,
-        icon: {
-          url: iconUrl,
-          scaledSize: new google.maps.Size(30, 30),
-          anchor: new google.maps.Point(15, 15)
-        },
-        properties: { ...properties }
-      });
-
-
-      console.log( 'hospitals.value', hospitals.value)
-    }
-  });
-}
-
-
-
-if (schoolGeoData.value) {
-  schoolGeoData.value.features.forEach((feature: any, index: number) => {
-    const { geometry, properties } = feature;
-
-    if (geometry.type === 'Point') {
-      const [lng, lat] = geometry.coordinates;
-      const point = { lat, lng };
-      bounds.extend(point);
-
-      // Simple category detection based on school level/type
-      const category = (properties.education_category  ).toLowerCase();
-
-      let iconUrl = 'https://maps.google.com/mapfiles/kml/shapes/schools.png'; // default school icon
-
-      if (category.includes('primary')) {
-        iconUrl = 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png';
-      } else if (category.includes('secondary') || category.includes('high')) {
-        iconUrl = 'https://maps.google.com/mapfiles/ms/icons/green-dot.png';
-      } else if (category.includes('university') || category.includes('college')) {
-        iconUrl = 'https://maps.google.com/mapfiles/ms/icons/purple-dot.png';
-      } else if (category.includes('private')) {
-        iconUrl = 'https://maps.google.com/mapfiles/ms/icons/pink-dot.png';
-      } else if (category.includes('special')) {
-        iconUrl = 'https://maps.google.com/mapfiles/ms/icons/yellow-dot.png';
+  // Process schools
+  if (layerConfig.schools.dataRef.value?.features?.length) {
+    layerConfig.schools.dataRef.value.features.forEach((feature: any, index: number) => {
+      const { geometry, properties } = feature
+      if (geometry.type === 'Point') {
+        const [lng, lat] = geometry.coordinates
+        const point = { lat, lng }
+        bounds.extend(point)
+        const category = (properties.education_category || '').toLowerCase()
+        let iconUrl = 'https://maps.google.com/mapfiles/kml/shapes/schools.png'
+        if (category.includes('primary')) {
+          iconUrl = 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png'
+        } else if (category.includes('secondary') || category.includes('high')) {
+          iconUrl = 'https://maps.google.com/mapfiles/ms/icons/green-dot.png'
+        } else if (category.includes('university') || category.includes('college')) {
+          iconUrl = 'https://maps.google.com/mapfiles/ms/icons/purple-dot.png'
+        } else if (category.includes('private')) {
+          iconUrl = 'https://maps.google.com/mapfiles/ms/icons/pink-dot.png'
+        } else if (category.includes('special')) {
+          iconUrl = 'https://maps.google.com/mapfiles/ms/icons/yellow-dot.png'
+        }
+        schools.value.push({
+          id: `school-${properties?.id || index}`,
+          position: point,
+          icon: {
+            url: iconUrl,
+            scaledSize: new google.maps.Size(30, 30),
+            anchor: new google.maps.Point(15, 15)
+          },
+          properties: { ...properties }
+        })
       }
+    })
+  }
 
-      schools.value.push({
-        id: `school-${properties?.id || index}`,
-        position: point,
-        icon: {
-          url: iconUrl,
-          scaledSize: new google.maps.Size(30, 30),
-          anchor: new google.maps.Point(15, 15)
-        },
-        properties: { ...properties }
-      });
+  // Process Water Points
+  if (layerConfig.water_points.dataRef.value?.features?.length) {
+    layerConfig.water_points.dataRef.value.features.forEach((feature: any, index: number) => {
+      const { geometry, properties } = feature
+      console.log(feature)
+      if (geometry.type === 'Point') {
+        const [lng, lat] = geometry.coordinates
+        const point = { lat, lng }
+        bounds.extend(point)
+        const category = (properties.type || '').toLowerCase()
+        let iconUrl = 'https://maps.google.com/mapfiles/kml/shapes/water.png'
+        if (category.includes('public_tap')) {
+          iconUrl = 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png'
+        } else if (category.includes('borehole')) {
+          iconUrl = 'https://maps.google.com/mapfiles/ms/icons/green-dot.png'
+        } else if (category.includes('spring')) {
+          iconUrl = 'https://maps.google.com/mapfiles/ms/icons/purple-dot.png'
+        } else if (category.includes('well')) {
+          iconUrl = 'https://maps.google.com/mapfiles/ms/icons/pink-dot.png'
+        }
+        water_points.value.push({
+          id: `wp-${properties?.id || index}`,
+          position: point,
+          icon: {
+            url: iconUrl,
+            scaledSize: new google.maps.Size(30, 30),
+            anchor: new google.maps.Point(15, 15)
+          },
+          properties: { ...properties }
+        })
+      }
+    })
+  }
 
-      console.log('schools.value', schools.value);
-    }
-  });
-}
 
+   // Process structures
+   if (layerConfig.structures.dataRef.value?.features?.length) {
+    layerConfig.structures.dataRef.value.features.forEach((feature: any, index: number) => {
+      const { geometry, properties } = feature
+      if (geometry.type === 'Polygon' || geometry.type === 'MultiPolygon') {
+        let coordinates = geometry.coordinates
+        if (geometry.type === 'MultiPolygon') {
+          coordinates = coordinates.flat()
+        }
+        coordinates.forEach((polygonCoordinates: number[][]) => {
+          const paths = polygonCoordinates.map(([lng, lat]) => {
+            const point = { lat, lng }
+            bounds.extend(point)
+            return point
+          }).filter((path: { lng: number; lat: number }) => isFinite(path.lng) && isFinite(path.lat))
+         
+          const fillColor = 'red'  
+          structures.value.push({
+            id: `parcel-${properties?.structure_id || index}`,
+            paths,
+            strokeColor: 'white',
+            strokeOpacity: 1,
+            strokeWeight: 1,
+            fillColor,
+            fillOpacity: 0.8,
+            properties: { ...properties }
+          })
+        
+        })
+      }
+    })
+  }
 
 
   // Fit the map to all features
-  if (polygons.value.length) {
-    mapRef.value?.map.fitBounds(bounds);
+  if (polygons.value.length || parcels.value.length || roads.value.length || hospitals.value.length || schools.value.length || water_points.value.length || structures.value.length) {
+    mapRef.value?.map.fitBounds(bounds)
   }
+}
 
-  console.log({ polygons: polygons.value });
+onMounted(() => {
+  // Wait for the GoogleMap component to be ready
+  watch(
+    () => mapRef.value?.ready,
+    (ready) => {
+      if (ready) {
+        mapReady.value = true
+        loadSelectedLayers(['settlement', 'parcels', 'roads', 'hospitals', 'schools', 'water_points', 'structures'])
+      }
+    }
+  )
+})
 
+// Computed property to determine available layers
+const availableLayers = computed(() => {
+  const layers = []
+  if (layerFeatureCounts.value.settlement > 0) layers.push('settlement')
+  if (layerFeatureCounts.value.parcels > 0) layers.push('parcels')
+  if (layerFeatureCounts.value.parcelLabels > 0) layers.push('parcelLabels')
+  if (layerFeatureCounts.value.roads > 0) layers.push('roads')
+  if (layerFeatureCounts.value.hospitals > 0) layers.push('hospitals')
+  if (layerFeatureCounts.value.schools > 0) layers.push('schools')
+  if (layerFeatureCounts.value.water_points > 0) layers.push('water_points')
+  if (layerFeatureCounts.value.structures > 0) layers.push('structures')
+  return layers
+})
 
+const infowindow = ref(false)
+const selectedFeature = ref(null)
+const gmapCenter = ref()
 
-
-
-
-
-};
-
-
-
-const infowindow = ref(false); // Will be open when mounted
-const selectedFeature = ref(null);
-const gmapCenter = ref();
-
-// Function to handle polygon click
 const onPolygonClick = (feature) => {
-  console.log('onPolygonClick', feature);
-
-  infowindow.value = true;
-
-  // Set the InfoWindow position based on feature type
+  console.log('onPolygonClick', feature)
+  infowindow.value = true
   gmapCenter.value = feature.paths
-    ? feature.paths[0] // If Polygon, use the first coordinate
+    ? feature.paths[0]
     : feature.path
-      ? feature.path[Math.floor(feature.path.length / 2)] // If LineString, use midpoint
-      : feature.position || { lat: 0, lng: 0 }; // If Point, use its position, fallback to default
-
-
-
-
-
-
-  selectedFeature.value = feature;
-
+      ? feature.path[Math.floor(feature.path.length / 2)]
+      : feature.position || { lat: 0, lng: 0 }
   selectedFeature.value = {
     ...feature,
     properties: Object.fromEntries(
       Object.entries(feature.properties).filter(([_, value]) => value)
     )
-  };
-
-
-
-};
-
-
+  }
+}
 
 const closePopup = () => {
   console.log('close popup')
   infowindow.value = false
-
 }
 
 const parcelsVisible = ref(true)
@@ -505,7 +595,7 @@ const toggleParcels = (visible: boolean) => {
   parcelsVisible.value = visible
 }
 
-const parcelLabelsVisible = ref(true)
+const parcelLabelsVisible = ref(false)
 const toggleParcelLabels = (visible: boolean) => {
   parcelLabelsVisible.value = visible
 }
@@ -515,27 +605,31 @@ const toggleRoads = (visible: boolean) => {
   roadsVisible.value = visible
 }
 
-
 const settVisibile = ref(true)
 const toggleSettlement = (visible: boolean) => {
   settVisibile.value = visible
 }
 
-
-
 const hospitalVisible = ref(true)
 const toggleHospital = (visible: boolean) => {
   hospitalVisible.value = visible
 }
- 
-
 
 const schoolVisible = ref(true)
-const toggleSchool= (visible: boolean) => {
+const toggleSchool = (visible: boolean) => {
   schoolVisible.value = visible
 }
 
+const WPVisible = ref(true)
+const toggleWP = (visible: boolean) => {
+  WPVisible.value = visible
+}
 
+
+const StructureVisible = ref(true)
+const toggleStructure = (visible: boolean) => {
+  StructureVisible.value = visible
+}
 </script>
 
 <template>
@@ -559,6 +653,12 @@ const toggleSchool= (visible: boolean) => {
       <GoogleMap ref="mapRef" :api-key="googleMapsApiKey" style="width: 100%; height: 75vh" :center="gmapCenter"
         :zoom="8" map-type-id="roadmap">
 
+        <div v-if="StructureVisible">
+          <Polygon v-for="structure in structures" :key="structure.id" :options="structure" />
+        </div>
+
+
+        
         <div v-if="settVisibile">
           <Polygon v-for="polygon in polygons" :key="polygon.id" :options="polygon" @click="onPolygonClick(polygon)" />
         </div>
@@ -567,7 +667,7 @@ const toggleSchool= (visible: boolean) => {
         </div>
 
         <div v-if="parcelLabelsVisible">
-          <Polygon v-for="label in parcelLabels" :key="label.id" :options="label" />
+          <Marker v-for="label in parcelLabels" :key="label.id" :options="label" />
         </div>
 
         <div v-if="roadsVisible">
@@ -578,30 +678,38 @@ const toggleSchool= (visible: boolean) => {
           <Marker v-for="hospital in hospitals" :key="hospital.id" :options="hospital" />
         </div>
 
-
         <div v-if="schoolVisible">
           <Marker v-for="school in schools" :key="school.id" :options="school" />
         </div>
 
+        <div v-if="WPVisible">
+          <Marker v-for="wp in water_points" :key="wp.id" :options="wp" />
+        </div>
+
+
+      
 
         <InfoWindow v-if="infowindow" @closeclick="closePopup" :options="{ position: gmapCenter }">
           <div style="max-width: 400px; height:250px">
-            <el-table :data="Object.entries(selectedFeature?.properties || {})" border style="width: 100%;">
+            <el-table :data="Object.entries(selectedFeature?.properties || {})" border style="width: 100;">
               <el-table-column prop="0" label="Property" width="150" />
               <el-table-column prop="1" label="Value" width="250" />
             </el-table>
           </div>
         </InfoWindow>
-
       </GoogleMap>
 
       <div id="floating-div">
-        <ElCollapse  accordion>
-          <ElCollapseItem title="Parcels">
+        <ElCollapse accordion>
+          <ElCollapseItem title="Parcels" v-if="availableLayers.includes('parcels') || availableLayers.includes('parcelLabels')">
             <div style="display: flex; flex-direction: column; gap: 2px;">
-            <ElCheckbox v-model="parcelsVisible" @change="toggleParcels">Parcels</ElCheckbox>
-            <ElCheckbox v-model="parcelLabelsVisible" @change="toggleParcelLabels">Labels</ElCheckbox>   
-          </div>      
+              <ElCheckbox v-if="availableLayers.includes('parcels')" v-model="parcelsVisible" @change="toggleParcels">
+                Parcels ({{ layerFeatureCounts.parcels }})
+              </ElCheckbox>
+              <ElCheckbox v-if="availableLayers.includes('parcelLabels')" v-model="parcelLabelsVisible" @change="toggleParcelLabels">
+                Labels ({{ layerFeatureCounts.parcelLabels }})
+              </ElCheckbox>
+            </div>
             <div v-for="item in legendItems" :key="item.label" class="legend-item">
               <div class="legend-color" :style="{ backgroundColor: item.color }"></div>
               <div class="legend-label">{{ item.label }}</div>
@@ -609,20 +717,33 @@ const toggleSchool= (visible: boolean) => {
           </ElCollapseItem>
           <ElCollapseItem title="Layers">
             <div style="display: flex; flex-direction: column; gap: 2px;">
-                    <ElCheckbox v-model="roadsVisible" @change="toggleRoads">Roads</ElCheckbox>
-                    <ElCheckbox v-model="hospitalVisible" @change="toggleHospital">Hospitals</ElCheckbox>
-                    <ElCheckbox v-model="schoolVisible" @change="toggleSchool">Schools</ElCheckbox>
-                  </div>
-           </ElCollapseItem>
+              <ElCheckbox v-if="availableLayers.includes('roads')" v-model="roadsVisible" @change="toggleRoads">
+                Roads ({{ layerFeatureCounts.roads }})
+              </ElCheckbox>
+              <ElCheckbox v-if="availableLayers.includes('hospitals')" v-model="hospitalVisible" @change="toggleHospital">
+                Hospitals ({{ layerFeatureCounts.hospitals }})
+              </ElCheckbox>
+              <ElCheckbox v-if="availableLayers.includes('schools')" v-model="schoolVisible" @change="toggleSchool">
+                Schools ({{ layerFeatureCounts.schools }})
+              </ElCheckbox>
+              <ElCheckbox v-if="availableLayers.includes('water_points')" v-model="WPVisible" @change="toggleWP">
+                Water Points ({{ layerFeatureCounts.water_points }})
+              </ElCheckbox>
 
-          <ElCollapseItem title="Settlement">
-            <ElCheckbox v-model="settVisibile" @change="toggleSettlement">Boundary</ElCheckbox>
+              <ElCheckbox v-if="availableLayers.includes('structures')" v-model="StructureVisible" @change="toggleStructure">
+                Structures ({{ layerFeatureCounts.structures }})
+              </ElCheckbox>
+              
 
+            </div>
+          </ElCollapseItem>
+          <ElCollapseItem title="Settlement" v-if="availableLayers.includes('settlement')">
+            <ElCheckbox v-model="settVisibile" @change="toggleSettlement">
+              Boundary ({{ layerFeatureCounts.settlement }})
+            </ElCheckbox>
           </ElCollapseItem>
         </ElCollapse>
       </div>
-
-
     </div>
   </ElCard>
 </template>
@@ -634,8 +755,6 @@ const toggleSchool= (visible: boolean) => {
   align-items: center;
 }
 
- 
- 
 .map-container {
   position: relative;
 }
@@ -650,7 +769,18 @@ const toggleSchool= (visible: boolean) => {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
   z-index: 10;
   height: fit-content;
-  max-width: 100vw;
+  max-width: 500vw;
 }
 
+.legend-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 5px;
+}
+
+.legend-color {
+  width: 20px;
+  height: 20px;
+  margin-right: 10px;
+}
 </style>
