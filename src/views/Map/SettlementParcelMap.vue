@@ -552,7 +552,11 @@ onMounted(async () => {
         mapReady.value = true
         await loadSelectedLayers(['settlement', 'parcels', 'roads', 'hospitals', 'schools', 'water_points', 'structures'])
         await setupMapTypeControl()
-        await toggleImagery(true)
+        await addWmsLayer()
+         // Optional: preload everything on first load
+          selectedImageryLayers.value = [...availableImageryLayers.value];
+          toggleImageryGroup(selectedImageryLayers.value);
+
       }
     }
   )
@@ -740,6 +744,7 @@ const getSettlementBbox = () => {
  
 
 
+const xgeoserverUrl = 'http://localhost:8080/geoserver'
 const geoserverUrl = 'https://kesmis.go.ke/geoserver'
 
 const getWmsUrl = async (bbox: {
@@ -816,91 +821,187 @@ const getWmsUrl = async (bbox: {
 
 
 // Add refs for imagery layer
-const imageryVisible = ref(true);
-const imageryLayer = ref<google.maps.ImageMapType | null>(null);
+// const imageryVisible = ref(true);
+// const imageryLayer = ref<google.maps.ImageMapType | null>(null);
+// const imageryLayers = ref<google.maps.ImageMapType[]>([]);
 
-// Function to add WMS layer
+// // Function to add WMS layer
+// const addWmsLayer = async () => {
+//   imageryLayers.value = []; // clear existing references if needed
+
+
+//   const bbox = getSettlementBbox();
+//   const layerString = await getWmsUrl(bbox); // could be "kicheko" or "kicheko,kambi_moto"
+
+//   console.log('layerString',layerString)
+
+//   if (!layerString || !mapRef.value?.map) return;
+
+//   const layers = layerString.includes(',') ? layerString.split(',').map(l => l.trim()) : [layerString];
+//   const wmsBaseUrl = geoserverUrl + '/kisip/wms';
+
+//   layers.forEach(layerName => {
+//     const wmsLayer = new google.maps.ImageMapType({
+//       getTileUrl: function (coord, zoom) {
+//         const tileSize = 256;
+//         const proj = mapRef.value.map.getProjection();
+//         const scale = 1 << zoom;
+
+//         const nwPoint = new google.maps.Point(coord.x * tileSize / scale, coord.y * tileSize / scale);
+//         const sePoint = new google.maps.Point((coord.x + 1) * tileSize / scale, (coord.y + 1) * tileSize / scale);
+
+//         const nw = proj.fromPointToLatLng(nwPoint);
+//         const se = proj.fromPointToLatLng(sePoint);
+
+//         const bbox = [
+//           nw.lng(),
+//           se.lat(),
+//           se.lng(),
+//           nw.lat()
+//         ].join(',');
+
+//         const params = new URLSearchParams({
+//           service: 'WMS',
+//           version: '1.1.0',
+//           request: 'GetMap',
+//           layers: layerName,
+//           styles: '',
+//           bbox: bbox,
+//           width: '512',
+//           height: '512',
+//           srs: 'EPSG:4326',
+//           format: 'image/png',
+//           transparent: 'true'
+//         });
+
+//         return `${wmsBaseUrl}?${params.toString()}`;
+//       },
+//       tileSize: new google.maps.Size(256, 256),
+//       maxZoom: 22,
+//       minZoom: 0,
+//       name: `Drone: ${layerName}`,
+//       opacity: 0.8
+//     });
+
+//     console.log(wmsLayer)
+//     mapRef.value.map.overlayMapTypes.push(wmsLayer);
+//     imageryLayers.value.push(wmsLayer); // store reference
+//   });
+// };
+ 
+
+// const toggleImagery = (visible: boolean) => {
+//   imageryVisible.value = visible;
+//   const map = mapRef.value?.map;
+//   if (!map) return;
+
+//   const overlays = map.overlayMapTypes;
+
+//   if (visible) {
+//     if (imageryLayers.value.length === 0) {
+//       addWmsLayer(); // load and add layers
+//     } else {
+//       // re-add any layers that were removed
+//       imageryLayers.value.forEach(layer => {
+//         overlays.push(layer);
+//       });
+//     }
+//   } else {
+//     // remove all imagery layers
+//     for (let i = overlays.getLength() - 1; i >= 0; i--) {
+//       const layer = overlays.getAt(i);
+//       if (imageryLayers.value.includes(layer)) {
+//         overlays.removeAt(i);
+//       }
+//     }
+//   }
+// };
+
+ 
+// Layer handling
+const availableImageryLayers = ref<string[]>([]);
+const selectedImageryLayers = ref<string[]>([]);
+const imageryLayerObjects = ref<Record<string, google.maps.ImageMapType>>({});
+
+// Add WMS layers (but don't add them to map yet)
 const addWmsLayer = async () => {
- const bbox = getSettlementBbox();
+  const bbox = getSettlementBbox();
+  const layerList = await getWmsUrl(bbox);
 
+  if (!layerList || !mapRef.value?.map) return;
 
+  availableImageryLayers.value = layerList;
+  imageryLayerObjects.value = {};
 
- const intersectingLayer= await getWmsUrl(bbox)
- console.log('intersectingLayer',intersectingLayer)
+  const wmsBaseUrl = geoserverUrl + '/kisip/wms';
 
- const layerName = intersectingLayer; // fully qualified layer name
-const wmsBaseUrl = geoserverUrl + '/kisip/wms';
+  layerList.forEach(layerName => {
+    const wmsLayer = new google.maps.ImageMapType({
+      getTileUrl(coord, zoom) {
+        const tileSize = 256;
+        const proj = mapRef.value!.map.getProjection();
+        const scale = 1 << zoom;
 
-imageryLayer.value = new google.maps.ImageMapType({
-  getTileUrl: function (coord, zoom) {
-    const tileSize = 256;
+        const nwPoint = new google.maps.Point(coord.x * tileSize / scale, coord.y * tileSize / scale);
+        const sePoint = new google.maps.Point((coord.x + 1) * tileSize / scale, (coord.y + 1) * tileSize / scale);
 
-    const proj = mapRef.value.map.getProjection();
-    const scale = 1 << zoom;
+        const nw = proj.fromPointToLatLng(nwPoint);
+        const se = proj.fromPointToLatLng(sePoint);
 
-    const tileX = coord.x;
-    const tileY = coord.y;
+        const bbox = [nw.lng(), se.lat(), se.lng(), nw.lat()].join(',');
 
-    const nwPoint = new google.maps.Point(tileX * tileSize / scale, tileY * tileSize / scale);
-    const sePoint = new google.maps.Point((tileX + 1) * tileSize / scale, (tileY + 1) * tileSize / scale);
+        const params = new URLSearchParams({
+          service: 'WMS',
+          version: '1.1.0',
+          request: 'GetMap',
+          layers: layerName,
+          styles: '',
+          bbox,
+          width: '512',
+          height: '512',
+          srs: 'EPSG:4326',
+          format: 'image/png',
+          transparent: 'true'
+        });
 
-    const nw = proj.fromPointToLatLng(nwPoint);
-    const se = proj.fromPointToLatLng(sePoint);
-
-    // WMS expects bbox in (minx, miny, maxx, maxy)
-    const bbox = [
-      nw.lng(),
-      se.lat(),
-      se.lng(),
-      nw.lat()
-    ].join(',');
-
-    const params = new URLSearchParams({
-      service: 'WMS',
-      version: '1.1.0',
-      request: 'GetMap',
-      layers: layerName,
-      styles: '',
-      bbox: bbox,
-      width: '256',
-      height: '256',
-      srs: 'EPSG:4326',
-      format: 'image/png',
-      transparent: 'true'
+        return `${wmsBaseUrl}?${params.toString()}`;
+      },
+      tileSize: new google.maps.Size(256, 256),
+      maxZoom: 22,
+      minZoom: 0,
+      name: `Drone: ${layerName}`,
+      opacity: 0.8
     });
 
-    return `${wmsBaseUrl}?${params.toString()}`;
-  },
-  tileSize: new google.maps.Size(256, 256),
-  maxZoom: 22,
-  minZoom: 0,
-  name: 'Drone Imagery',
-  opacity: 0.8
-});
-
-mapRef.value.map.overlayMapTypes.push(imageryLayer.value);
-
+    imageryLayerObjects.value[layerName] = wmsLayer;
+  });
 };
 
-// Function to toggle imagery layer
-const toggleImagery = (visible: boolean) => {
+// Toggle visibility of a single layer
+const toggleImagery = (layerName: string, visible: boolean) => {
+  const map = mapRef.value?.map;
+  if (!map) return;
 
-  
-  imageryVisible.value = visible;
-  if (visible) {
-    if (!imageryLayer.value) {
-      console.log('toggleImagery')
-      addWmsLayer();
-    }
-  } else {
-    if (imageryLayer.value && mapRef.value?.map) {
-      const index = mapRef.value.map.overlayMapTypes.getArray().indexOf(imageryLayer.value);
-      if (index !== -1) {
-        mapRef.value.map.overlayMapTypes.removeAt(index);
-      }
-      imageryLayer.value = null;
-    }
+  const layerObj = imageryLayerObjects.value[layerName];
+  if (!layerObj) return;
+
+  const layers = map.overlayMapTypes;
+  const currentLayers = layers.getArray();
+  const index = currentLayers.indexOf(layerObj);
+
+  if (visible && index === -1) {
+    layers.push(layerObj);
+  } else if (!visible && index !== -1) {
+    layers.removeAt(index);
   }
+};
+
+// Toggle all visible layers from checkbox group
+const toggleImageryGroup = (selected: string[]) => {
+  availableImageryLayers.value.forEach(layer => {
+    const isSelected = selected.includes(layer);
+    toggleImagery(layer, isSelected);
+  });
 };
 
 
@@ -1010,12 +1111,32 @@ const toggleImagery = (visible: boolean) => {
                 Structures ({{ layerFeatureCounts.structures }})
               </ElCheckbox>
               
-              <ElCheckbox v-model="imageryVisible" @change="toggleImagery">
-                Drone Imagery
-              </ElCheckbox>
+             
+
+          
+       
+
+
+
 
             </div>
           </ElCollapseItem>
+
+          <ElCollapseItem title="Imagery" >
+            <ElCheckboxGroup v-model="selectedImageryLayers" @change="toggleImageryGroup">
+                <div style="display: flex; flex-direction: column; gap: 2px;">
+                    <ElCheckbox
+                      v-for="layer in availableImageryLayers"
+                      :key="layer"
+                      :label="layer"
+                    >
+                      {{ layer.replace('kisip:', '') }}
+                    </ElCheckbox>
+                  </div>
+            </ElCheckboxGroup>
+          </ElCollapseItem>
+
+
           <ElCollapseItem title="Settlement" v-if="availableLayers.includes('settlement')">
             <ElCheckbox v-model="settVisibile" @change="toggleSettlement">
               Boundary ({{ layerFeatureCounts.settlement }})
