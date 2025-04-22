@@ -28,8 +28,8 @@ const parcelGeoData = ref<any[]>([])
 const roadGeoData = ref<any[]>([])
 const hospitalGeoData = ref<any[]>([])
 const schoolGeoData = ref<any[]>([])
-  const wpGeoData = ref<any[]>([])
-    const structureGeoData = ref<any[]>([])
+const wpGeoData = ref<any[]>([])
+const structureGeoData = ref<any[]>([])
 
 // to hold paths
 const polygons = ref<any[]>([])
@@ -38,8 +38,8 @@ const parcelLabels = ref<any[]>([])
 const roads = ref<any[]>([])
 const hospitals = ref<any[]>([])
 const schools = ref<any[]>([])
-  const water_points = ref<any[]>([])
-    const structures = ref<any[]>([])
+const water_points = ref<any[]>([])
+const structures = ref<any[]>([])
 
 const isLoading = ref(false)
 
@@ -228,6 +228,8 @@ const loadSelectedLayers = async (layers: string[]) => {
 
   const bounds = new google.maps.LatLngBounds()
 
+  console.log('bounds',bounds)
+
   // Clear all layer data
   polygons.value = []
   parcels.value = []
@@ -284,34 +286,58 @@ const loadSelectedLayers = async (layers: string[]) => {
 
   // Process settlement data
   if (layerConfig.settlement.dataRef.value?.features?.length) {
-    const featureCollection = layerConfig.settlement.dataRef.value
-    featureCollection.features.forEach((feature: any, index: number) => {
-      const { geometry, properties } = feature
-      if (geometry.type === 'Polygon' || geometry.type === 'MultiPolygon') {
-        let coordinates = geometry.coordinates
-        if (geometry.type === 'MultiPolygon') {
-          coordinates = coordinates.flat()
-        }
-        coordinates.forEach((polygonCoordinates: number[][]) => {
-          const paths = polygonCoordinates.map(([lng, lat]) => {
-            const point = { lat, lng }
-            bounds.extend(point)
-            return point
-          })
-          polygons.value.push({
-            id: properties?.id || index,
-            paths,
-            strokeColor: 'purple',
-            strokeOpacity: 1,
-            strokeWeight: 2,
-            fillColor: '#FF0000',
-            fillOpacity: 0,
-            properties: { ...properties }
-          })
-        })
+  const featureCollection = layerConfig.settlement.dataRef.value;
+  featureCollection.features.forEach((feature: any, index: number) => {
+    const { geometry, properties } = feature;
+    
+    // Handle Polygon and MultiPolygon
+    if (geometry.type === 'Polygon' || geometry.type === 'MultiPolygon') {
+      let coordinates = geometry.coordinates;
+      if (geometry.type === 'MultiPolygon') {
+        coordinates = coordinates.flat();
       }
-    })
-  }
+      coordinates.forEach((polygonCoordinates: number[][]) => {
+        const paths = polygonCoordinates.map(([lng, lat]) => {
+          const point = { lat, lng };
+          bounds.extend(point);
+          return point;
+        });
+        polygons.value.push({
+          id: properties?.id || index,
+          paths,
+          strokeColor: 'purple',
+          strokeOpacity: 1,
+          strokeWeight: 2,
+          fillColor: '#FF0000',
+          fillOpacity: 0,
+          properties: { ...properties },
+        });
+      });
+    }
+    
+    // Handle Point
+    if (geometry.type === 'Point') {
+      const [lng, lat] = geometry.coordinates
+      const point = { lat, lng }
+      bounds.extend(point)
+       let iconUrl = 'https://maps.google.com/mapfiles/kml/paddle/grn-circle.png'
+     
+      polygons.value.push({
+        id: `sett-${properties?.id || index}`,
+        position: point,
+        icon: {
+          url: iconUrl,
+          scaledSize: new google.maps.Size(30, 30),
+          anchor: new google.maps.Point(15, 15)
+        },
+        properties: { ...properties }
+      })
+    }
+
+    console.log('polygons.value', polygons.value)
+  });
+}
+
 
   // Process parcels
   if (layerConfig.parcels.dataRef.value?.features?.length) {
@@ -744,8 +770,8 @@ const getSettlementBbox = () => {
  
 
 
-const xgeoserverUrl = 'http://localhost:8080/geoserver'
-const geoserverUrl = 'https://kesmis.go.ke/geoserver'
+const geoserverUrl = 'http://localhost:8080/geoserver'
+const xgeoserverUrl = 'https://kesmis.go.ke/geoserver'
 
 const getWmsUrl = async (bbox: {
   minLng: number;
@@ -818,104 +844,7 @@ const getWmsUrl = async (bbox: {
 
 
 
-
-
-// Add refs for imagery layer
-// const imageryVisible = ref(true);
-// const imageryLayer = ref<google.maps.ImageMapType | null>(null);
-// const imageryLayers = ref<google.maps.ImageMapType[]>([]);
-
-// // Function to add WMS layer
-// const addWmsLayer = async () => {
-//   imageryLayers.value = []; // clear existing references if needed
-
-
-//   const bbox = getSettlementBbox();
-//   const layerString = await getWmsUrl(bbox); // could be "kicheko" or "kicheko,kambi_moto"
-
-//   console.log('layerString',layerString)
-
-//   if (!layerString || !mapRef.value?.map) return;
-
-//   const layers = layerString.includes(',') ? layerString.split(',').map(l => l.trim()) : [layerString];
-//   const wmsBaseUrl = geoserverUrl + '/kisip/wms';
-
-//   layers.forEach(layerName => {
-//     const wmsLayer = new google.maps.ImageMapType({
-//       getTileUrl: function (coord, zoom) {
-//         const tileSize = 256;
-//         const proj = mapRef.value.map.getProjection();
-//         const scale = 1 << zoom;
-
-//         const nwPoint = new google.maps.Point(coord.x * tileSize / scale, coord.y * tileSize / scale);
-//         const sePoint = new google.maps.Point((coord.x + 1) * tileSize / scale, (coord.y + 1) * tileSize / scale);
-
-//         const nw = proj.fromPointToLatLng(nwPoint);
-//         const se = proj.fromPointToLatLng(sePoint);
-
-//         const bbox = [
-//           nw.lng(),
-//           se.lat(),
-//           se.lng(),
-//           nw.lat()
-//         ].join(',');
-
-//         const params = new URLSearchParams({
-//           service: 'WMS',
-//           version: '1.1.0',
-//           request: 'GetMap',
-//           layers: layerName,
-//           styles: '',
-//           bbox: bbox,
-//           width: '512',
-//           height: '512',
-//           srs: 'EPSG:4326',
-//           format: 'image/png',
-//           transparent: 'true'
-//         });
-
-//         return `${wmsBaseUrl}?${params.toString()}`;
-//       },
-//       tileSize: new google.maps.Size(256, 256),
-//       maxZoom: 22,
-//       minZoom: 0,
-//       name: `Drone: ${layerName}`,
-//       opacity: 0.8
-//     });
-
-//     console.log(wmsLayer)
-//     mapRef.value.map.overlayMapTypes.push(wmsLayer);
-//     imageryLayers.value.push(wmsLayer); // store reference
-//   });
-// };
  
-
-// const toggleImagery = (visible: boolean) => {
-//   imageryVisible.value = visible;
-//   const map = mapRef.value?.map;
-//   if (!map) return;
-
-//   const overlays = map.overlayMapTypes;
-
-//   if (visible) {
-//     if (imageryLayers.value.length === 0) {
-//       addWmsLayer(); // load and add layers
-//     } else {
-//       // re-add any layers that were removed
-//       imageryLayers.value.forEach(layer => {
-//         overlays.push(layer);
-//       });
-//     }
-//   } else {
-//     // remove all imagery layers
-//     for (let i = overlays.getLength() - 1; i >= 0; i--) {
-//       const layer = overlays.getAt(i);
-//       if (imageryLayers.value.includes(layer)) {
-//         overlays.removeAt(i);
-//       }
-//     }
-//   }
-// };
 
  
 // Layer handling
@@ -1039,6 +968,13 @@ const toggleImageryGroup = (selected: string[]) => {
         <div v-if="settVisibile">
           <Polygon v-for="polygon in polygons" :key="polygon.id" :options="polygon" @click="onPolygonClick(polygon)" />
         </div>
+
+        <div v-if="settVisibile">
+          <Marker v-for="polygon in polygons" :key="polygon.id" :options="polygon" @click="onPolygonClick(polygon)" />
+          
+        </div>
+        
+        
         <div v-if="parcelsVisible">
           <Polygon v-for="parcel in parcels" :key="parcel.id" :options="parcel" />
         </div>
