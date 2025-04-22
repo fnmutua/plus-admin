@@ -1733,5 +1733,90 @@ db.models.project.hasMany(db.models.disbursement, {
 
 
 
+
+
+
+
+
+
+
+
+
+/// Powerline   
+db.models.powerline.belongsTo(db.models.settlement, {
+  foreignKey: 'settlement_id'
+})
+
+db.models.settlement.hasMany(db.models.powerline, {
+  foreignKey: 'settlement_id'
+})
+
+db.models.powerline.belongsTo(db.models.county, {
+  foreignKey: 'county_id'
+})
+
+db.models.county.hasMany(db.models.powerline, {
+  foreignKey: 'county_id'
+})
+
+
+db.models.powerline.belongsTo(db.models.subcounty, {
+  foreignKey: 'subcounty_id'
+})
+
+db.models.subcounty.hasMany(db.models.powerline, {
+  foreignKey: 'subcounty_id'
+})
+
+
+db.models.powerline.belongsTo(db.models.ward, {
+  foreignKey: 'ward_id'
+})
+
+db.models.ward.hasMany(db.models.powerline, {
+  foreignKey: 'ward_id'
+})
+
+
+
+
+/// Railway   
+db.models.railway.belongsTo(db.models.settlement, {
+  foreignKey: 'settlement_id'
+})
+
+db.models.settlement.hasMany(db.models.railway, {
+  foreignKey: 'settlement_id'
+})
+
+db.models.railway.belongsTo(db.models.county, {
+  foreignKey: 'county_id'
+})
+
+db.models.county.hasMany(db.models.railway, {
+  foreignKey: 'county_id'
+})
+
+
+db.models.railway.belongsTo(db.models.subcounty, {
+  foreignKey: 'subcounty_id'
+})
+
+db.models.subcounty.hasMany(db.models.railway, {
+  foreignKey: 'subcounty_id'
+})
+
+
+db.models.railway.belongsTo(db.models.ward, {
+  foreignKey: 'ward_id'
+})
+
+db.models.ward.hasMany(db.models.railway, {
+  foreignKey: 'ward_id'
+})
+
+
+
+
 //db.ROLES = ["user", "admin", "editor",  "moderator"];
 module.exports = db

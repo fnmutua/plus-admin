@@ -89,6 +89,11 @@ var _project_contractor= require('./project_contractor')
 var _project_team= require('./project_team')
 
 
+
+var _powerline= require('./powerline')
+var _railway= require('./railway')
+
+
 function initModels(sequelize) {
   var beneficiary = _beneficiary(sequelize, DataTypes)
   var beneficiary_parcel = _beneficiary_parcel(sequelize, DataTypes)
@@ -177,13 +182,17 @@ function initModels(sequelize) {
   var project_contractor = _project_contractor(sequelize, DataTypes)
   var project_team = _project_team(sequelize, DataTypes)
 
+
+  var railway = _railway(sequelize, DataTypes)
+  var powerline = _powerline(sequelize, DataTypes)
+
   
-  
+ 
   
   
   return {
     beneficiary,otp,
-    
+    powerline,railway,
     beneficiary_parcel,
     county,
     facility_type,
