@@ -71,6 +71,20 @@ const legendItems = [
   { label: 'Agricultural', color: '#FDFD96' }
 ]
 
+
+const PolyLineItems = [
+  { label: 'Road', color: 'red' },
+  { label: 'Powerline', color: 'black' },
+  { label: 'Sewer', color: 'yellow' },
+  { label: 'Piped Water', color: 'blue' },
+ 
+]
+
+
+
+ 
+
+
 const fetchSettlementData = async () => {
   isLoading.value = true
   try {
@@ -738,7 +752,7 @@ onMounted(async () => {
     async (ready) => {
       if (ready) {
         mapReady.value = true
-        await loadSelectedLayers(['settlement', 'parcels', 'roads', 'hospitals', 'schools','other_points',   'water_points', 'structures'])
+        await loadSelectedLayers(['settlement', 'parcels',  'hospitals', 'schools','other_points', 'water_points', 'structures'])
           setupMapTypeControl()
         await addWmsLayer()
          // Optional: preload everything on first load
@@ -1220,9 +1234,13 @@ const toggleImageryGroup = (selected: string[]) => {
             <div style="display: flex; flex-direction: column; gap: 2px;">
 
               <ElCheckbox v-if="availableLayers.includes('other_points')" v-model="OtherPointVisible" @change="toggleOtherPoint">
-                Other ({{ layerFeatureCounts.other_points }})
+                Facilities ({{ layerFeatureCounts.other_points }})
               </ElCheckbox>
-              
+
+              <div v-for="item in PolyLineItems" :key="item.label" class="line-item">
+                <div class="line-color" :style="{ backgroundColor: item.color }"></div>
+                <div class="legend-label">{{ item.label }}</div>
+            </div>
               
               <ElCheckbox v-if="availableLayers.includes('roads')" v-model="roadsVisible" @change="toggleRoads">
                 Roads ({{ layerFeatureCounts.roads }})
@@ -1311,4 +1329,18 @@ const toggleImageryGroup = (selected: string[]) => {
   height: 20px;
   margin-right: 10px;
 }
+
+.line-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 5px;
+}
+
+.line-color {
+  width: 20px;
+  height: 5px;
+  margin-right: 10px;
+}
+
+
 </style>
