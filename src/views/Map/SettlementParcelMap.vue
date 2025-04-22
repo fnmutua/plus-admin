@@ -30,6 +30,7 @@ const hospitalGeoData = ref<any[]>([])
 const schoolGeoData = ref<any[]>([])
 const wpGeoData = ref<any[]>([])
 const structureGeoData = ref<any[]>([])
+const otherPointsGeoData = ref<any[]>([])
 
 // to hold paths
 const polygons = ref<any[]>([])
@@ -40,6 +41,7 @@ const hospitals = ref<any[]>([])
 const schools = ref<any[]>([])
 const water_points = ref<any[]>([])
 const structures = ref<any[]>([])
+const other_points = ref<any[]>([])
 
 const isLoading = ref(false)
 
@@ -52,7 +54,8 @@ const layerFeatureCounts = ref({
   hospitals: 0,
   schools: 0,
   water_points: 0,
-  structures :0
+  structures :0,
+  other_points :0,
 })
 
 const legendItems = [
@@ -176,7 +179,7 @@ const fetchStructures = async () => {
     const id = route.params.id
     const formData = { model: 'structure', columnFilterField: 'settlement_id', selectedParents: id, filtredGeoIds: [id] }
     const res = await getfilteredParcelGeo(formData)
-    console.log('WPS.....')
+   
     if (res.data[0]?.json_build_object?.features) {
       return turf.featureCollection(res.data[0].json_build_object.features)
     }
@@ -184,6 +187,53 @@ const fetchStructures = async () => {
   } catch (error) {
     console.error('Error fetching structure data:', error)
     ElMessage({ message: 'Failed to load structure data', type: 'error' })
+    return null
+  }
+}
+
+
+
+const fetchPointGeoFeatures = async () => {
+  const id = route.params.id
+  const models = ['streetlight', 'crime_hotspot','community_project', 'sewer','piped_water', 'powerline', 'community_hall', 'police_station', 'mast','dumping_site','hazard_zone','road',] // Add more models as needed
+  const allFeatures = []
+
+  try {
+    for (const model of models) {
+      const formData = {
+        model,
+        columnFilterField: 'settlement_id',
+        selectedParents: id
+      }
+
+      const res = await getfilteredGeo(formData)
+
+      console.log('fetch data.....', model, res.data)
+
+      const features =
+        res?.data?.[0]?.json_build_object?.features ??
+        res?.data?.[0]?.[0]?.json_build_object?.features ??
+        []
+
+      console.log('fetch features.....', model, features)
+
+      const taggedFeatures = features.map((feature) => ({
+        ...feature,
+        properties: {
+          ...feature.properties,
+          featureType: model
+        }
+      }))
+
+      allFeatures.push(...taggedFeatures)
+    }
+
+    console.log('allFeatures:', allFeatures)
+
+    return turf.featureCollection(allFeatures)
+  } catch (error) {
+    console.error('Error fetching geo data:', error)
+    ElMessage({ message: 'Failed to load geo features', type: 'error' })
     return null
   }
 }
@@ -239,7 +289,7 @@ const loadSelectedLayers = async (layers: string[]) => {
   schools.value = []
   water_points.value = []
   structures.value = []
-  
+  other_points.value=[]
   // Reset feature counts
   layerFeatureCounts.value = {
     settlement: 0,
@@ -249,7 +299,8 @@ const loadSelectedLayers = async (layers: string[]) => {
     hospitals: 0,
     schools: 0,
     water_points: 0,
-    structures: 0
+    structures: 0,
+    other_points:0,
   }
 
   // Map layer names to their fetch functions and data refs
@@ -260,7 +311,8 @@ const loadSelectedLayers = async (layers: string[]) => {
     hospitals: { fetch: fetchHospitals, dataRef: hospitalGeoData },
     schools: { fetch: fetchSchools, dataRef: schoolGeoData },
     water_points: { fetch: fetchWaterpoints, dataRef: wpGeoData },
-    structures: { fetch: fetchStructures, dataRef: structureGeoData }
+    structures: { fetch: fetchStructures, dataRef: structureGeoData },
+    other_points: { fetch: fetchPointGeoFeatures, dataRef: otherPointsGeoData },
   }
 
   // Fetch data for each specified layer
@@ -468,17 +520,17 @@ const loadSelectedLayers = async (layers: string[]) => {
         const point = { lat, lng }
         bounds.extend(point)
         const category = (properties.education_category || '').toLowerCase()
-        let iconUrl = 'https://maps.google.com/mapfiles/kml/shapes/schools.png'
+        let iconUrl ='public/icons/school.png' 
         if (category.includes('primary')) {
-          iconUrl = 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png'
+          iconUrl = 'public/icons/school.png' 
         } else if (category.includes('secondary') || category.includes('high')) {
-          iconUrl = 'https://maps.google.com/mapfiles/ms/icons/green-dot.png'
+          iconUrl = 'public/icons/school.png' 
         } else if (category.includes('university') || category.includes('college')) {
-          iconUrl = 'https://maps.google.com/mapfiles/ms/icons/purple-dot.png'
+          iconUrl = 'public/icons/university.png' 
         } else if (category.includes('private')) {
-          iconUrl = 'https://maps.google.com/mapfiles/ms/icons/pink-dot.png'
+          iconUrl ='public/icons/school.png' 
         } else if (category.includes('special')) {
-          iconUrl = 'https://maps.google.com/mapfiles/ms/icons/yellow-dot.png'
+          iconUrl = 'public/icons/disability.png' 
         }
         schools.value.push({
           id: `school-${properties?.id || index}`,
@@ -504,16 +556,21 @@ const loadSelectedLayers = async (layers: string[]) => {
         const point = { lat, lng }
         bounds.extend(point)
         const category = (properties.type || '').toLowerCase()
-        let iconUrl = 'https://maps.google.com/mapfiles/kml/shapes/water.png'
+        let iconUrl = 'public/icons/waterdrop.png'
         if (category.includes('public_tap')) {
-          iconUrl = 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png'
+          iconUrl = 'public/icons/waterwellpump.png'
         } else if (category.includes('borehole')) {
-          iconUrl = 'https://maps.google.com/mapfiles/ms/icons/green-dot.png'
+          iconUrl = 'public/icons/watertower.png'
         } else if (category.includes('spring')) {
-          iconUrl = 'https://maps.google.com/mapfiles/ms/icons/purple-dot.png'
+          iconUrl = 'public/icons/watermill-2.png'
         } else if (category.includes('well')) {
-          iconUrl = 'https://maps.google.com/mapfiles/ms/icons/pink-dot.png'
+          iconUrl = 'public/icons/waterwell.png'
         }
+
+
+        
+
+
         water_points.value.push({
           id: `wp-${properties?.id || index}`,
           position: point,
@@ -563,8 +620,113 @@ const loadSelectedLayers = async (layers: string[]) => {
   }
 
 
+
+  // Process facilities otherPoints
+  if (layerConfig.other_points.dataRef.value?.features?.length) {
+  layerConfig.other_points.dataRef.value.features.forEach((feature: any, index: number) => {
+    const { geometry, properties } = feature
+    const featureType = (properties.featureType || '').toLowerCase()
+
+    console.log('featureType',featureType)
+    const iconMap: Record<string, string> = {
+      water_point: 'icons/water.png',
+      mast: 'icons/lighthouse-2.png',
+      streetlight: 'icons/lighthouse-2.png',
+      dumping_site: 'icons/waste-basket.png',
+      hazard_zone: 'icons/caution.png',
+      police_station: 'icons/caution.png',
+    }
+
+    const iconUrl = iconMap[featureType] || 'icons/amphitheater.png'
+
+    // Handle Point
+    if (geometry.type === 'Point') {
+      const [lng, lat] = geometry.coordinates
+      const point = { lat, lng }
+      bounds.extend(point)
+
+      other_points.value.push({
+        id: `op-${properties?.id || index}`,
+        type: 'marker',
+        position: point,
+        icon: {
+          url: iconUrl,
+          scaledSize: new google.maps.Size(30, 30),
+          anchor: new google.maps.Point(15, 15),
+        },
+        properties: { ...properties },
+      })
+    }
+
+    // Handle LineString & MultiLineString
+    else if (geometry.type === 'LineString' || geometry.type === 'MultiLineString') {
+      const lines = geometry.type === 'LineString' ? [geometry.coordinates] : geometry.coordinates
+
+      const lineColorMap = {
+          'road': '#007BFF',
+          'powerline': '#28a745',
+          'sewer': '#dc3545',
+          'piped_water': '#ffc107'
+        }
+
+
+      lines.forEach((line, lineIndex) => {
+        const path = line.map(([lng, lat]) => {
+          const point = { lat, lng }
+          bounds.extend(point)
+          return point
+        })
+
+        other_points.value.push({
+          id: `line-${properties?.id || index}-${lineIndex}`,
+          type: 'polyline',
+          path,
+          options: {
+            strokeColor:  lineColorMap[featureType] || '#999999', // fallback color
+            strokeOpacity: 0.8,
+            strokeWeight: 3,
+          },
+          properties: { ...properties },
+        })
+      })
+    }
+
+    // Handle Polygon
+    else if (geometry.type === 'Polygon') {
+      const paths = geometry.coordinates.map((ring) =>
+        ring.map(([lng, lat]) => {
+          const point = { lat, lng }
+          bounds.extend(point)
+          return point
+        })
+      )
+
+      other_points.value.push({
+        id: `poly-${properties?.id || index}`,
+        type: 'polygon',
+        paths,
+        options: {
+          strokeColor: '#FF0000',
+          strokeOpacity: 0.8,
+          strokeWeight: 2,
+          fillColor: '#FF0000',
+          fillOpacity: 0.35,
+        },
+        properties: { ...properties },
+      })
+    }
+  })
+
+  console.log('other_points (all features) >>', other_points.value)
+}
+
+
+
+
+
+
   // Fit the map to all features
-  if (polygons.value.length || parcels.value.length || roads.value.length || hospitals.value.length || schools.value.length || water_points.value.length || structures.value.length) {
+  if (polygons.value.length || parcels.value.length || roads.value.length || hospitals.value.length || schools.value.length || water_points.value.length || structures.value.length || other_points.value.length) {
     mapRef.value?.map.fitBounds(bounds)
   }
 }
@@ -576,8 +738,8 @@ onMounted(async () => {
     async (ready) => {
       if (ready) {
         mapReady.value = true
-        await loadSelectedLayers(['settlement', 'parcels', 'roads', 'hospitals', 'schools', 'water_points', 'structures'])
-        await setupMapTypeControl()
+        await loadSelectedLayers(['settlement', 'parcels', 'roads', 'hospitals', 'schools','other_points',   'water_points', 'structures'])
+          setupMapTypeControl()
         await addWmsLayer()
          // Optional: preload everything on first load
           selectedImageryLayers.value = [...availableImageryLayers.value];
@@ -604,8 +766,12 @@ const availableLayers = computed(() => {
   if (layerFeatureCounts.value.schools > 0) layers.push('schools')
   if (layerFeatureCounts.value.water_points > 0) layers.push('water_points')
   if (layerFeatureCounts.value.structures > 0) layers.push('structures')
+  if (layerFeatureCounts.value.other_points > 0) layers.push('other_points')
+
+  
   return layers
 })
+
 
 const infowindow = ref(false)
 const selectedFeature = ref(null)
@@ -671,6 +837,12 @@ const toggleWP = (visible: boolean) => {
 const StructureVisible = ref(true)
 const toggleStructure = (visible: boolean) => {
   StructureVisible.value = visible
+}
+
+
+const OtherPointVisible = ref(true)
+const toggleOtherPoint = (visible: boolean) => {
+  OtherPointVisible.value = visible
 }
 
 
@@ -770,7 +942,7 @@ const getSettlementBbox = () => {
   
 
 
-const xgeoserverUrl = 'http://localhost:8080/geoserver'
+//const xgeoserverUrl = 'http://localhost:8080/geoserver'
 const geoserverUrl = 'https://kesmis.go.ke/geoserver'
 
 const getWmsUrl = async (bbox: {
@@ -959,6 +1131,22 @@ const toggleImageryGroup = (selected: string[]) => {
       <GoogleMap ref="mapRef" :api-key="googleMapsApiKey" style="width: 100%; height: 75vh" :center="gmapCenter"
         :zoom="8" map-type-id="grayscale"  :map-type-control="false">
 
+
+        
+      
+
+
+        <template v-if="OtherPointVisible">
+          <template v-for="pnt in other_points" :key="pnt.id">
+            <Marker v-if="pnt.type === 'marker'" :options="pnt"  />
+            <Polyline v-else-if="pnt.type === 'polyline'" :options="pnt" />
+            <Polygon v-else-if="pnt.type === 'polygon'" :options="pnt" />
+          </template>
+        </template>
+
+
+ 
+
         <div v-if="StructureVisible">
           <Polygon v-for="structure in structures" :key="structure.id" :options="structure" />
         </div>
@@ -1000,7 +1188,7 @@ const toggleImageryGroup = (selected: string[]) => {
         </div>
 
 
-      
+
 
         <InfoWindow v-if="infowindow" @closeclick="closePopup" :options="{ position: gmapCenter }">
           <div style="max-width: 400px; height:250px">
@@ -1030,6 +1218,12 @@ const toggleImageryGroup = (selected: string[]) => {
           </ElCollapseItem>
           <ElCollapseItem title="Layers">
             <div style="display: flex; flex-direction: column; gap: 2px;">
+
+              <ElCheckbox v-if="availableLayers.includes('other_points')" v-model="OtherPointVisible" @change="toggleOtherPoint">
+                Other ({{ layerFeatureCounts.other_points }})
+              </ElCheckbox>
+              
+              
               <ElCheckbox v-if="availableLayers.includes('roads')" v-model="roadsVisible" @change="toggleRoads">
                 Roads ({{ layerFeatureCounts.roads }})
               </ElCheckbox>
@@ -1047,10 +1241,8 @@ const toggleImageryGroup = (selected: string[]) => {
                 Structures ({{ layerFeatureCounts.structures }})
               </ElCheckbox>
               
-             
-
-          
-       
+                      
+        
 
 
 

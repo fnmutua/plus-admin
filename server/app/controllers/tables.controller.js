@@ -2203,7 +2203,7 @@ exports.modelOneGeo = async (req, res) => {
  
  
 
-exports.modelSelectGeo = async (req, res) => {
+exports.xmodelSelectGeo = async (req, res) => {
   const reg_model = req.body.model;
   const columnFilterField = req.body.columnFilterField;
   let arr;
@@ -2267,7 +2267,108 @@ exports.modelSelectGeo = async (req, res) => {
   });
 };
 
- 
+exports.modelSelectGeo = async (req, res) => {
+  try {
+    const reg_model = req.body.model;
+    const columnFilterField = req.body.columnFilterField;
+    let arr;
+
+    // Validate required inputs
+    if (!reg_model || !columnFilterField) {
+      return res.status(400).send({
+        status: 'error',
+        code: 'INVALID_INPUT',
+        message: 'Missing required fields: model or columnFilterField',
+        data: null,
+        meta: {}
+      });
+    }
+
+    // Determine the array of identifiers based on the request body
+    if (req.body.selectedParents?.length > 0) {
+      arr = req.body.selectedParents;
+    } else if (req.body.filtredGeoIds?.length > 0) {
+      arr = [req.body.filtredGeoIds];
+    } else if (req.body.id) {
+      arr = [req.body.id];
+    } else {
+      return res.status(400).send({
+        status: 'error',
+        code: 'INVALID_IDENTIFIERS',
+        message: 'No valid identifiers provided (selectedParents, filtredGeoIds, or id)',
+        data: null,
+        meta: {}
+      });
+    }
+
+    let qry2;
+
+    // Build the query based on whether identifiers are present
+    if (!arr[0] || arr[0].length === 0) {
+      qry2 = `
+        SELECT row_to_json(fc) AS json_build_object
+        FROM (
+          SELECT 'FeatureCollection' AS type,
+                 array_to_json(array_agg(f)) AS features
+          FROM (
+            SELECT 'Feature' AS type,
+                   ST_AsGeoJSON(geom, 5)::json AS geometry,
+                   json_strip_nulls(row_to_json(${reg_model}.*)) AS properties
+            FROM ${reg_model}
+            WHERE geom IS NOT NULL
+          ) AS f
+        ) AS fc`;
+    } else {
+      const filterValues = Array.isArray(columnFilterField) ? columnFilterField : [columnFilterField];
+      const filterClause = filterValues.map((value) => `(${value} IN (${arr}))`).join(' OR ');
+
+      qry2 = `
+        SELECT row_to_json(fc) AS json_build_object
+        FROM (
+          SELECT 'FeatureCollection' AS type,
+                 array_to_json(array_agg(f)) AS features
+          FROM (
+            SELECT 'Feature' AS type,
+                   ST_AsGeoJSON(geom, 5)::json AS geometry,
+                   json_strip_nulls(row_to_json(${reg_model}.*)) AS properties
+            FROM ${reg_model}
+            WHERE geom IS NOT NULL
+              AND (${filterClause})
+          ) AS f
+        ) AS fc`;
+    }
+
+    // Execute the query
+    const result_geo = await sequelize.query(qry2, {
+      model: db.models[reg_model],
+      mapToModel: false
+    });
+
+    // Send standardized success response
+    res.status(200).send({
+      status: 'success',
+      code: '0000',
+      message: 'Geospatial data retrieved successfully',
+      data: result_geo,
+      meta: {
+        timestamp: new Date().toISOString(),
+        recordCount: result_geo.length
+      }
+    });
+  } catch (error) {
+    // Send standardized error response
+    res.status(500).send({
+      status: 'error',
+      code: 'SERVER_ERROR',
+      message: 'An error occurred while processing the request',
+      data: null,
+      meta: {
+        errorDetails: error.message
+      }
+    });
+  }
+};
+
 exports.modelSelectParcelGeo = async (req, res) => {
   const reg_model = req.body.model;
   const columnFilterField = req.body.columnFilterField;
