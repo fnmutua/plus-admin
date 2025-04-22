@@ -4,10 +4,15 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElCard, ElButton, ElTable, ElTableColumn, ElMessage, ElCollapse, ElCollapseItem, ElCheckbox, ElCheckboxGroup } from 'element-plus'
 import { Back, Download } from '@element-plus/icons-vue'
 import { GoogleMap, Polygon, InfoWindow, Marker, CustomMarker, MarkerCluster, Polyline } from 'vue3-google-map'
-import { centroid } from '@turf/turf';
+ 
 import * as turf from '@turf/turf'
 import { getOneGeo, getfilteredParcelGeo, getfilteredGeo } from '@/api/settlements'
 import { Icon } from '@iconify/vue'
+import axios from 'axios';
+
+import { XMLParser } from 'fast-xml-parser';
+
+
 
 const googleMapsApiKey = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
 
@@ -538,19 +543,21 @@ const loadSelectedLayers = async (layers: string[]) => {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   // Wait for the GoogleMap component to be ready
   watch(
     () => mapRef.value?.ready,
-    (ready) => {
+    async (ready) => {
       if (ready) {
         mapReady.value = true
-        loadSelectedLayers(['settlement', 'parcels', 'roads', 'hospitals', 'schools', 'water_points', 'structures'])
-        setupMapTypeControl() // Add this line
+        await loadSelectedLayers(['settlement', 'parcels', 'roads', 'hospitals', 'schools', 'water_points', 'structures'])
+        await setupMapTypeControl()
+        await toggleImagery(true)
       }
     }
   )
 })
+
 
 
 
@@ -709,6 +716,193 @@ const setupMapTypeControl = () => {
 
 
 
+ 
+ 
+const getSettlementBbox = () => {
+
+  console.log(features.value)
+  if (!features.value?.features?.length) return null;
+
+  const featureCollection = turf.featureCollection(features.value.features);
+  const bbox = turf.bbox(featureCollection);
+
+  console.log('bbox',bbox)
+
+  return {
+    minLng: bbox[0],
+    minLat: bbox[1],
+    maxLng: bbox[2],
+    maxLat: bbox[3]
+  };
+};
+
+
+ 
+
+
+const geoserverUrl = 'https://kesmis.go.ke/geoserver'
+
+const getWmsUrl = async (bbox: {
+  minLng: number;
+  minLat: number;
+  maxLng: number;
+  maxLat: number;
+}) => {
+  console.log('inside getWmsUrl');
+
+  
+  const capabilitiesUrl = geoserverUrl + '/kisip/ows?service=wms&request=GetCapabilities';
+
+  // Fetch WMS capabilities
+  const response = await axios.get(capabilitiesUrl);
+  const xml = response.data;
+
+  const parser = new XMLParser();
+  const json = parser.parse(xml);
+
+  // Extract layer info
+  console.log(json.WMS_Capabilities.Capability)
+  const glayers = json.WMS_Capabilities.Capability.Layer.Layer.map((layer: any) => ({
+    name: layer.Name,
+    title: layer.Title,
+    label: layer.Name,
+    value: layer.Name,
+    bbox: {
+      minx: parseFloat(layer.EX_GeographicBoundingBox.westBoundLongitude),
+      miny: parseFloat(layer.EX_GeographicBoundingBox.southBoundLatitude),
+      maxx: parseFloat(layer.EX_GeographicBoundingBox.eastBoundLongitude),
+      maxy: parseFloat(layer.EX_GeographicBoundingBox.northBoundLatitude),
+    }
+  }));
+
+  console.log('Parsed layers:', glayers);
+
+  const imageUrls: string[] = [];
+
+  for (const layer of glayers) {
+    const { name, bbox: layerBbox } = layer;
+
+    // Check if layer intersects with given bbox
+    const intersects =
+      bbox.minLng < layerBbox.maxx &&
+      bbox.maxLng > layerBbox.minx &&
+      bbox.minLat < layerBbox.maxy &&
+      bbox.maxLat > layerBbox.miny;
+
+    if (intersects) {
+      const params = new URLSearchParams({
+        service: 'WMS',
+        version: '1.1.0',
+        request: 'GetMap',
+        layers: name,
+        styles: '',
+        bbox: `${bbox.minLng},${bbox.minLat},${bbox.maxLng},${bbox.maxLat}`,
+        width: '1024',
+        height: '1024',
+        srs: 'EPSG:4326',
+        format: 'image/png',
+        transparent: 'true'
+      });
+
+      imageUrls.push( 'kisip:'+name);
+    }
+  }
+
+  return imageUrls;
+};
+
+
+
+
+
+// Add refs for imagery layer
+const imageryVisible = ref(true);
+const imageryLayer = ref<google.maps.ImageMapType | null>(null);
+
+// Function to add WMS layer
+const addWmsLayer = async () => {
+ const bbox = getSettlementBbox();
+
+
+
+ const intersectingLayer= await getWmsUrl(bbox)
+ console.log('intersectingLayer',intersectingLayer)
+
+ const layerName = intersectingLayer; // fully qualified layer name
+const wmsBaseUrl = geoserverUrl + '/kisip/wms';
+
+imageryLayer.value = new google.maps.ImageMapType({
+  getTileUrl: function (coord, zoom) {
+    const tileSize = 256;
+
+    const proj = mapRef.value.map.getProjection();
+    const scale = 1 << zoom;
+
+    const tileX = coord.x;
+    const tileY = coord.y;
+
+    const nwPoint = new google.maps.Point(tileX * tileSize / scale, tileY * tileSize / scale);
+    const sePoint = new google.maps.Point((tileX + 1) * tileSize / scale, (tileY + 1) * tileSize / scale);
+
+    const nw = proj.fromPointToLatLng(nwPoint);
+    const se = proj.fromPointToLatLng(sePoint);
+
+    // WMS expects bbox in (minx, miny, maxx, maxy)
+    const bbox = [
+      nw.lng(),
+      se.lat(),
+      se.lng(),
+      nw.lat()
+    ].join(',');
+
+    const params = new URLSearchParams({
+      service: 'WMS',
+      version: '1.1.0',
+      request: 'GetMap',
+      layers: layerName,
+      styles: '',
+      bbox: bbox,
+      width: '256',
+      height: '256',
+      srs: 'EPSG:4326',
+      format: 'image/png',
+      transparent: 'true'
+    });
+
+    return `${wmsBaseUrl}?${params.toString()}`;
+  },
+  tileSize: new google.maps.Size(256, 256),
+  maxZoom: 22,
+  minZoom: 0,
+  name: 'Drone Imagery',
+  opacity: 0.8
+});
+
+mapRef.value.map.overlayMapTypes.push(imageryLayer.value);
+
+};
+
+// Function to toggle imagery layer
+const toggleImagery = (visible: boolean) => {
+
+  
+  imageryVisible.value = visible;
+  if (visible) {
+    if (!imageryLayer.value) {
+      console.log('toggleImagery')
+      addWmsLayer();
+    }
+  } else {
+    if (imageryLayer.value && mapRef.value?.map) {
+      const index = mapRef.value.map.overlayMapTypes.getArray().indexOf(imageryLayer.value);
+      if (index !== -1) {
+        mapRef.value.map.overlayMapTypes.removeAt(index);
+      }
+      imageryLayer.value = null;
+    }
+  }
+};
+
 
 
 
@@ -816,6 +1010,9 @@ const setupMapTypeControl = () => {
                 Structures ({{ layerFeatureCounts.structures }})
               </ElCheckbox>
               
+              <ElCheckbox v-model="imageryVisible" @change="toggleImagery">
+                Drone Imagery
+              </ElCheckbox>
 
             </div>
           </ElCollapseItem>
