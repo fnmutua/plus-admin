@@ -616,7 +616,7 @@ const loadSelectedLayers = async (layers: string[]) => {
             return point
           }).filter((path: { lng: number; lat: number }) => isFinite(path.lng) && isFinite(path.lat))
          
-          const fillColor = 'pink'  
+          const fillColor = 'black'  
           structures.value.push({
             id: `parcel-${properties?.structure_id || index}`,
             paths,
