@@ -602,7 +602,7 @@ const loadSelectedLayers = async (layers: string[]) => {
             return point
           }).filter((path: { lng: number; lat: number }) => isFinite(path.lng) && isFinite(path.lat))
          
-          const fillColor = 'red'  
+          const fillColor = 'pink'  
           structures.value.push({
             id: `parcel-${properties?.structure_id || index}`,
             paths,
@@ -663,10 +663,10 @@ const loadSelectedLayers = async (layers: string[]) => {
       const lines = geometry.type === 'LineString' ? [geometry.coordinates] : geometry.coordinates
 
       const lineColorMap = {
-          'road': '#007BFF',
-          'powerline': '#28a745',
-          'sewer': '#dc3545',
-          'piped_water': '#ffc107'
+          'road': 'red',
+          'powerline': 'black',
+          'sewer': 'yellow',
+          'piped_water': 'blue'
         }
 
 
