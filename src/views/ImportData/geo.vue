@@ -46,10 +46,24 @@ const TABLE_OPTIONS = [
   { label: 'Health Facility', value: 'health_facility' },
   { label: 'School', value: 'education_facility' },
   { label: 'Water Point', value: 'water_point' },
-  { label: 'Public Facility', value: 'public_facility' },
-  { label: 'Other Facility', value: 'other_facility' },
 
-   
+
+  { label: 'Police Station', value: 'police_station' },
+  { label: 'Crime Hotspots', value: 'crime_hotspot' },
+  { label: 'Floodlights', value: 'floodlight' },
+  { label: 'Railway', value: 'railway' },
+  { label: 'Powerline', value: 'powerline' },
+
+    
+  { label: 'Hazard Zones', value: 'hazard_zone' },
+  { label: 'Community Hall', value: 'community_hall' },
+  { label: 'Community Project', value: 'community_project' },
+  { label: 'Telcom Mast', value: 'mast' },
+  { label: 'Streetlight', value: 'street_light' },
+  { label: 'Dumping', value: 'dumping_site' },
+
+
+ 
 
 
 

@@ -88,10 +88,24 @@ var _disbursement= require('./disbursements')
 var _project_contractor= require('./project_contractor')
 var _project_team= require('./project_team')
 
-
-
+ 
 var _powerline= require('./powerline')
 var _railway= require('./railway')
+var _police_station= require('./police')
+var _crime_hotspot= require('./crime_hotspot')
+var _floodlight= require('./floodlight')
+
+
+
+var _hazard_zone= require('./hazard_zone')
+var _community_hall= require('./community_hall')
+var _community_project= require('./community_project')
+var _mast= require('./mast')
+var _street_light= require('./street_light')
+var _dumping_site= require('./dumping_site')
+
+
+
 
 
 function initModels(sequelize) {
@@ -183,16 +197,33 @@ function initModels(sequelize) {
   var project_team = _project_team(sequelize, DataTypes)
 
 
+  // Round 1 
   var railway = _railway(sequelize, DataTypes)
   var powerline = _powerline(sequelize, DataTypes)
+  var floodlight = _floodlight(sequelize, DataTypes)
+  var crime_hotspot = _crime_hotspot(sequelize, DataTypes)
+  var police_station = _police_station(sequelize, DataTypes)
 
   
  
+
+  
+
+
+
+var hazard_zone = _hazard_zone(sequelize, DataTypes)
+var community_hall = _community_hall(sequelize, DataTypes)
+var community_project = _community_project(sequelize, DataTypes)
+var mast = _mast(sequelize, DataTypes)
+var street_light = _street_light(sequelize, DataTypes)
+var dumping_site = _dumping_site(sequelize, DataTypes)
+
+
   
   
   return {
-    beneficiary,otp,
-    powerline,railway,
+    beneficiary,otp,hazard_zone,community_hall,community_project,mast,street_light,dumping_site,
+    powerline,railway,floodlight,crime_hotspot,floodlight,police_station,
     beneficiary_parcel,
     county,
     facility_type,

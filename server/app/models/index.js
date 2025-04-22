@@ -1784,36 +1784,279 @@ db.models.ward.hasMany(db.models.powerline, {
 db.models.railway.belongsTo(db.models.settlement, {
   foreignKey: 'settlement_id'
 })
-
 db.models.settlement.hasMany(db.models.railway, {
   foreignKey: 'settlement_id'
 })
-
 db.models.railway.belongsTo(db.models.county, {
   foreignKey: 'county_id'
 })
-
 db.models.county.hasMany(db.models.railway, {
   foreignKey: 'county_id'
 })
-
-
 db.models.railway.belongsTo(db.models.subcounty, {
   foreignKey: 'subcounty_id'
 })
-
 db.models.subcounty.hasMany(db.models.railway, {
   foreignKey: 'subcounty_id'
 })
-
-
 db.models.railway.belongsTo(db.models.ward, {
   foreignKey: 'ward_id'
 })
-
 db.models.ward.hasMany(db.models.railway, {
   foreignKey: 'ward_id'
 })
+
+
+/// police   
+db.models.police_station.belongsTo(db.models.settlement, {
+  foreignKey: 'settlement_id'
+})
+db.models.settlement.hasMany(db.models.police_station, {
+  foreignKey: 'settlement_id'
+})
+db.models.police_station.belongsTo(db.models.county, {
+  foreignKey: 'county_id'
+})
+db.models.county.hasMany(db.models.police_station, {
+  foreignKey: 'county_id'
+})
+db.models.police_station.belongsTo(db.models.subcounty, {
+  foreignKey: 'subcounty_id'
+})
+db.models.subcounty.hasMany(db.models.police_station, {
+  foreignKey: 'subcounty_id'
+})
+db.models.police_station.belongsTo(db.models.ward, {
+  foreignKey: 'ward_id'
+})
+db.models.ward.hasMany(db.models.police_station, {
+  foreignKey: 'ward_id'
+})
+
+ 
+
+/// floodlight   
+db.models.floodlight.belongsTo(db.models.settlement, {
+  foreignKey: 'settlement_id'
+})
+db.models.settlement.hasMany(db.models.floodlight, {
+  foreignKey: 'settlement_id'
+})
+db.models.floodlight.belongsTo(db.models.county, {
+  foreignKey: 'county_id'
+})
+db.models.county.hasMany(db.models.floodlight, {
+  foreignKey: 'county_id'
+})
+db.models.floodlight.belongsTo(db.models.subcounty, {
+  foreignKey: 'subcounty_id'
+})
+db.models.subcounty.hasMany(db.models.floodlight, {
+  foreignKey: 'subcounty_id'
+})
+db.models.floodlight.belongsTo(db.models.ward, {
+  foreignKey: 'ward_id'
+})
+db.models.ward.hasMany(db.models.floodlight, {
+  foreignKey: 'ward_id'
+})
+
+
+
+/// crime_hotspot   
+db.models.crime_hotspot.belongsTo(db.models.settlement, {
+  foreignKey: 'settlement_id'
+})
+db.models.settlement.hasMany(db.models.crime_hotspot, {
+  foreignKey: 'settlement_id'
+})
+db.models.crime_hotspot.belongsTo(db.models.county, {
+  foreignKey: 'county_id'
+})
+db.models.county.hasMany(db.models.crime_hotspot, {
+  foreignKey: 'county_id'
+})
+db.models.crime_hotspot.belongsTo(db.models.subcounty, {
+  foreignKey: 'subcounty_id'
+})
+db.models.subcounty.hasMany(db.models.crime_hotspot, {
+  foreignKey: 'subcounty_id'
+})
+db.models.crime_hotspot.belongsTo(db.models.ward, {
+  foreignKey: 'ward_id'
+})
+db.models.ward.hasMany(db.models.crime_hotspot, {
+  foreignKey: 'ward_id'
+})
+
+
+/// hazard_zone   
+db.models.hazard_zone.belongsTo(db.models.settlement, {
+  foreignKey: 'settlement_id'
+})
+db.models.settlement.hasMany(db.models.hazard_zone, {
+  foreignKey: 'settlement_id'
+})
+db.models.hazard_zone.belongsTo(db.models.county, {
+  foreignKey: 'county_id'
+})
+db.models.county.hasMany(db.models.hazard_zone, {
+  foreignKey: 'county_id'
+})
+db.models.hazard_zone.belongsTo(db.models.subcounty, {
+  foreignKey: 'subcounty_id'
+})
+db.models.subcounty.hasMany(db.models.hazard_zone, {
+  foreignKey: 'subcounty_id'
+})
+db.models.hazard_zone.belongsTo(db.models.ward, {
+  foreignKey: 'ward_id'
+})
+db.models.ward.hasMany(db.models.hazard_zone, {
+  foreignKey: 'ward_id'
+})
+
+
+/// community_hall   
+db.models.community_hall.belongsTo(db.models.settlement, {
+  foreignKey: 'settlement_id'
+})
+db.models.settlement.hasMany(db.models.community_hall, {
+  foreignKey: 'settlement_id'
+})
+db.models.community_hall.belongsTo(db.models.county, {
+  foreignKey: 'county_id'
+})
+db.models.county.hasMany(db.models.community_hall, {
+  foreignKey: 'county_id'
+})
+db.models.community_hall.belongsTo(db.models.subcounty, {
+  foreignKey: 'subcounty_id'
+})
+db.models.subcounty.hasMany(db.models.community_hall, {
+  foreignKey: 'subcounty_id'
+})
+db.models.community_hall.belongsTo(db.models.ward, {
+  foreignKey: 'ward_id'
+})
+db.models.ward.hasMany(db.models.community_hall, {
+  foreignKey: 'ward_id'
+})
+
+
+
+
+/// community_project   
+db.models.community_project.belongsTo(db.models.settlement, {
+  foreignKey: 'settlement_id'
+})
+db.models.settlement.hasMany(db.models.community_project, {
+  foreignKey: 'settlement_id'
+})
+db.models.community_project.belongsTo(db.models.county, {
+  foreignKey: 'county_id'
+})
+db.models.county.hasMany(db.models.community_project, {
+  foreignKey: 'county_id'
+})
+db.models.community_project.belongsTo(db.models.subcounty, {
+  foreignKey: 'subcounty_id'
+})
+db.models.subcounty.hasMany(db.models.community_project, {
+  foreignKey: 'subcounty_id'
+})
+db.models.community_project.belongsTo(db.models.ward, {
+  foreignKey: 'ward_id'
+})
+db.models.ward.hasMany(db.models.community_project, {
+  foreignKey: 'ward_id'
+})
+
+/// mast   
+db.models.mast.belongsTo(db.models.settlement, {
+  foreignKey: 'settlement_id'
+})
+db.models.settlement.hasMany(db.models.mast, {
+  foreignKey: 'settlement_id'
+})
+db.models.mast.belongsTo(db.models.county, {
+  foreignKey: 'county_id'
+})
+db.models.county.hasMany(db.models.mast, {
+  foreignKey: 'county_id'
+})
+db.models.mast.belongsTo(db.models.subcounty, {
+  foreignKey: 'subcounty_id'
+})
+db.models.subcounty.hasMany(db.models.mast, {
+  foreignKey: 'subcounty_id'
+})
+db.models.mast.belongsTo(db.models.ward, {
+  foreignKey: 'ward_id'
+})
+db.models.ward.hasMany(db.models.mast, {
+  foreignKey: 'ward_id'
+})
+
+
+
+
+
+
+/// street_light   
+db.models.street_light.belongsTo(db.models.settlement, {
+  foreignKey: 'settlement_id'
+})
+db.models.settlement.hasMany(db.models.street_light, {
+  foreignKey: 'settlement_id'
+})
+db.models.street_light.belongsTo(db.models.county, {
+  foreignKey: 'county_id'
+})
+db.models.county.hasMany(db.models.street_light, {
+  foreignKey: 'county_id'
+})
+db.models.street_light.belongsTo(db.models.subcounty, {
+  foreignKey: 'subcounty_id'
+})
+db.models.subcounty.hasMany(db.models.street_light, {
+  foreignKey: 'subcounty_id'
+})
+db.models.street_light.belongsTo(db.models.ward, {
+  foreignKey: 'ward_id'
+})
+db.models.ward.hasMany(db.models.street_light, {
+  foreignKey: 'ward_id'
+})
+
+
+
+/// dumping_site   
+db.models.dumping_site.belongsTo(db.models.settlement, {
+  foreignKey: 'settlement_id'
+})
+db.models.settlement.hasMany(db.models.dumping_site, {
+  foreignKey: 'settlement_id'
+})
+db.models.dumping_site.belongsTo(db.models.county, {
+  foreignKey: 'county_id'
+})
+db.models.county.hasMany(db.models.dumping_site, {
+  foreignKey: 'county_id'
+})
+db.models.dumping_site.belongsTo(db.models.subcounty, {
+  foreignKey: 'subcounty_id'
+})
+db.models.subcounty.hasMany(db.models.dumping_site, {
+  foreignKey: 'subcounty_id'
+})
+db.models.dumping_site.belongsTo(db.models.ward, {
+  foreignKey: 'ward_id'
+})
+db.models.ward.hasMany(db.models.dumping_site, {
+  foreignKey: 'ward_id'
+})
+
 
 
 
