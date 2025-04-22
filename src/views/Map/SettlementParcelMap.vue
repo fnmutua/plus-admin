@@ -770,8 +770,8 @@ const getSettlementBbox = () => {
  
 
 
-const geoserverUrl = 'http://localhost:8080/geoserver'
-const xgeoserverUrl = 'https://kesmis.go.ke/geoserver'
+const xgeoserverUrl = 'http://localhost:8080/geoserver'
+const geoserverUrl = 'https://kesmis.go.ke/geoserver'
 
 const getWmsUrl = async (bbox: {
   minLng: number;
