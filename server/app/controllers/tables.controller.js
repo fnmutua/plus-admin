@@ -6036,7 +6036,7 @@ exports.DeleteRawDocuments = async (req, res) => {
 
 
  
-exports.getAllListforDownload = async (req, res) => {
+exports.xgetAllListforDownload = async (req, res) => {
   console.log('Req-body:', req.body);
 
   const reg_model = req.body.model;
@@ -6129,6 +6129,148 @@ exports.getAllListforDownload = async (req, res) => {
   console.log('Final Query:', qry);
 
   // Fetch data without pagination or limits
+  try {
+    const response = await db.models[reg_model].findAll(qry);
+    res.status(200).send({
+      fromCache: false,
+      data: response,
+      total: response.length,
+      code: '0000'
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).send({
+      message: 'Internal server error',
+      code: 'SERVER_ERROR'
+    });
+  }
+};
+
+
+ 
+exports.getAllListforDownload = async (req, res) => {
+  console.log('Req-body:', req.body);
+
+  const reg_model = req.body.model;
+
+  // Base query with conditional decryption
+  const baseQuery = {
+    where: {},
+    attributes: reg_model === 'grievance'
+      ? {
+          include: [
+            [
+              sequelize.fn(
+                'PGP_SYM_DECRYPT',
+                sequelize.cast(sequelize.col(`${reg_model}.name`), 'bytea'),
+                '***REDACTED***'
+              ),
+              'name'
+            ],
+            [
+              sequelize.fn(
+                'PGP_SYM_DECRYPT',
+                sequelize.cast(sequelize.col(`${reg_model}.national_id`), 'bytea'),
+                '***REDACTED***'
+              ),
+              'national_id'
+            ]
+          ],
+          exclude: ['latitude', 'longitude', 'coordinates', 'name'] // exclude encrypted name
+        }
+      : {
+          exclude: ['latitude', 'longitude', 'coordinates']
+        }
+  };
+
+  // Filtering
+  if (
+    req.body.filters &&
+    req.body.filters.length > 0 &&
+    req.body.filterValues.length > 0 &&
+    req.body.filterValues.length === req.body.filters.length
+  ) {
+    const lstQueries = req.body.filters.map((filter, i) => ({
+      [filter]: req.body.filterValues[i]
+    }));
+    baseQuery.where = { [Op.and]: lstQueries };
+  }
+
+  // Associated Models
+  const associated_multiple_models = req.body.associated_multiple_models || [];
+
+  // Nested Models
+  const nested_models = req.body.nested_models || [];
+  const nestedQuery = req.body.nested_filter
+    ? { [req.body.nested_filter[0]]: req.body.nested_filter[1] }
+    : {};
+
+  const includeModels = [];
+
+  // Handle associated models
+  if (associated_multiple_models.length > 0) {
+    for (const modelName of associated_multiple_models) {
+      const model = db.models[modelName];
+      const attributes = model.rawAttributes;
+
+      const modelAttributes = ['id'];
+      for (const attributeKey in attributes) {
+        if (attributeKey.toLowerCase().includes('name')) {
+          modelAttributes.push(attributeKey);
+        }
+        if (attributeKey.toLowerCase().includes('title')) {
+          modelAttributes.push(attributeKey);
+        }
+      }
+
+      includeModels.push({
+        model: model,
+        attributes: modelAttributes,
+        raw: true,
+        nested: true
+      });
+    }
+  }
+
+  // Handle nested models
+  if (nested_models.length > 0) {
+    const child_model = db.models[nested_models[0]];
+    const grand_child_model = db.models[nested_models[1]];
+
+    const childAttributes = ['id'];
+    if (child_model.rawAttributes.name) childAttributes.push('name');
+    if (child_model.rawAttributes.title) childAttributes.push('title');
+
+    const grandChildAttributes = ['id'];
+    if (grand_child_model.rawAttributes.name) grandChildAttributes.push('name');
+    if (grand_child_model.rawAttributes.title) grandChildAttributes.push('title');
+
+    const nestedModels = {
+      model: child_model,
+      include: [
+        {
+          model: grand_child_model,
+          where: nestedQuery,
+          attributes: grandChildAttributes,
+          raw: true,
+          nested: true
+        }
+      ],
+      attributes: childAttributes
+    };
+
+    includeModels.push(nestedModels);
+  }
+
+  // Final query
+  const qry = {
+    ...baseQuery,
+    include: includeModels.length > 0 ? includeModels : undefined,
+    order: [['createdAt', 'DESC']]
+  };
+
+  console.log('Final Query:', qry);
+
   try {
     const response = await db.models[reg_model].findAll(qry);
     res.status(200).send({
