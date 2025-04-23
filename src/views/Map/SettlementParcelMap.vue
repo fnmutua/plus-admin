@@ -44,6 +44,7 @@ const structures = ref<any[]>([])
 const other_points = ref<any[]>([])
 
 const isLoading = ref(false)
+const mapLoading = ref(true)
 
 // Track feature counts for each layer
 const layerFeatureCounts = ref({
@@ -376,6 +377,7 @@ const loadSelectedLayers = async (layers: string[]) => {
           strokeWeight: 2,
           fillColor: '#FF0000',
           fillOpacity: 0,
+          type:"poly",
           properties: { ...properties },
         });
       });
@@ -391,6 +393,7 @@ const loadSelectedLayers = async (layers: string[]) => {
       polygons.value.push({
         id: `sett-${properties?.id || index}`,
         position: point,
+        type:"point",
         icon: {
           url: iconUrl,
           scaledSize: new google.maps.Size(30, 30),
@@ -743,6 +746,22 @@ const loadSelectedLayers = async (layers: string[]) => {
   if (polygons.value.length || parcels.value.length || roads.value.length || hospitals.value.length || schools.value.length || water_points.value.length || structures.value.length || other_points.value.length) {
     mapRef.value?.map.fitBounds(bounds)
   }
+
+  // After fitting to bounds, check if there's exactly one settlement
+if (polygons.value.length === 1 && polygons.value[0].type=='point') {
+  // Get the first settlement's coordinates (adjust this based on your feature structure)
+  const settlement = polygons.value[0]; // Adjust this if your settlement data has a different structure
+  const zoomLevel = 15; // Adjust zoom level as needed
+
+  // Assuming your settlement has latitude and longitude properties:
+  const latLng = { lat: settlement.lat, lng: settlement.lng };
+
+  // Set the zoom and center the map on the settlement
+  mapRef.value?.map.setZoom(zoomLevel);
+  mapRef.value?.map.setCenter(latLng);
+}
+
+
 }
 
 onMounted(async () => {
@@ -752,9 +771,12 @@ onMounted(async () => {
     async (ready) => {
       if (ready) {
         mapReady.value = true
+        
         await loadSelectedLayers(['settlement', 'parcels',  'hospitals', 'schools','other_points', 'water_points', 'structures'])
           setupMapTypeControl()
+          
         await addWmsLayer()
+        
          // Optional: preload everything on first load
           selectedImageryLayers.value = [...availableImageryLayers.value];
           toggleImageryGroup(selectedImageryLayers.value);
@@ -959,7 +981,7 @@ const getSettlementBbox = () => {
 //const xgeoserverUrl = 'http://localhost:8080/geoserver'
 const geoserverUrl = 'https://kesmis.go.ke/geoserver'
 
-const getWmsUrl = async (bbox: {
+const xgetWmsUrl = async (bbox: {
   minLng: number;
   minLat: number;
   maxLng: number;
@@ -1029,6 +1051,80 @@ const getWmsUrl = async (bbox: {
 };
 
 
+const getWmsUrl = async (bbox: {
+  minLng: number;
+  minLat: number;
+  maxLng: number;
+  maxLat: number;
+}) => {
+  console.log('inside getWmsUrl');
+
+  try {
+    const capabilitiesUrl = geoserverUrl + '/kisip/ows?service=wms&request=GetCapabilities';
+
+    // Fetch WMS capabilities
+    const response = await axios.get(capabilitiesUrl);
+    const xml = response.data;
+
+    const parser = new XMLParser();
+    const json = parser.parse(xml);
+
+    // Extract layer info
+    console.log(json.WMS_Capabilities.Capability);
+    const glayers = json.WMS_Capabilities.Capability.Layer.Layer.map((layer: any) => ({
+      name: layer.Name,
+      title: layer.Title,
+      label: layer.Name,
+      value: layer.Name,
+      bbox: {
+        minx: parseFloat(layer.EX_GeographicBoundingBox.westBoundLongitude),
+        miny: parseFloat(layer.EX_GeographicBoundingBox.southBoundLatitude),
+        maxx: parseFloat(layer.EX_GeographicBoundingBox.eastBoundLongitude),
+        maxy: parseFloat(layer.EX_GeographicBoundingBox.northBoundLatitude),
+      }
+    }));
+
+    console.log('Parsed layers:', glayers);
+
+    const imageUrls: string[] = [];
+
+    for (const layer of glayers) {
+      const { name, bbox: layerBbox } = layer;
+
+      // Check if layer intersects with given bbox
+      const intersects =
+        bbox.minLng < layerBbox.maxx &&
+        bbox.maxLng > layerBbox.minx &&
+        bbox.minLat < layerBbox.maxy &&
+        bbox.maxLat > layerBbox.miny;
+
+      if (intersects) {
+        const params = new URLSearchParams({
+          service: 'WMS',
+          version: '1.1.0',
+          request: 'GetMap',
+          layers: name,
+          styles: '',
+          bbox: `${bbox.minLng},${bbox.minLat},${bbox.maxLng},${bbox.maxLat}`,
+          width: '1024',
+          height: '1024',
+          srs: 'EPSG:4326',
+          format: 'image/png',
+          transparent: 'true'
+        });
+
+        imageUrls.push('kisip:' + name);
+      }
+    }
+
+    return imageUrls;
+
+  } catch (error) {
+    // Log the error to the console
+    console.error('Error occurred while fetching WMS URL:', error);
+    return []; // Return an empty array in case of error
+  }
+};
 
  
 
@@ -1090,6 +1186,9 @@ const addWmsLayer = async () => {
 
     imageryLayerObjects.value[layerName] = wmsLayer;
   });
+
+  mapLoading.value=false
+  
 };
 
 // Toggle visibility of a single layer
@@ -1141,7 +1240,7 @@ const toggleImageryGroup = (selected: string[]) => {
       </div>
     </template>
 
-    <div class="map-container">
+    <div class="map-container" v-loading="mapLoading">
       <GoogleMap ref="mapRef" :api-key="googleMapsApiKey" style="width: 100%; height: 75vh" :center="gmapCenter"
         :zoom="8" map-type-id="grayscale"  :map-type-control="false">
 
@@ -1200,9 +1299,7 @@ const toggleImageryGroup = (selected: string[]) => {
         <div v-if="WPVisible">
           <Marker v-for="wp in water_points" :key="wp.id" :options="wp" />
         </div>
-
-
-
+ 
 
         <InfoWindow v-if="infowindow" @closeclick="closePopup" :options="{ position: gmapCenter }">
           <div style="max-width: 400px; height:250px">

@@ -288,3 +288,24 @@ ALTER TABLE health_facility
 ALTER COLUMN services TYPE TEXT 
 USING array_to_string(services, ', ');
 
+
+
+
+UPDATE dashboard_section_chart
+SET filters = (
+  SELECT array_agg(
+    CASE
+      WHEN elem->>'field' = 'settlement_type' THEN
+        jsonb_set(elem, '{value}', '["Slum"]'::jsonb)
+      ELSE
+        elem
+    END
+  )::jsonb[]
+  FROM unnest(filters) AS elem
+)
+WHERE EXISTS (
+  SELECT 1
+  FROM unnest(filters) AS elem
+  WHERE elem->>'field' = 'settlement_type' AND elem->>'value' = '[1]'
+);
+

@@ -48,17 +48,28 @@ const loginOut = () => {
       if (res) {
         wsCache.clear()
         tagsViewStore.delAllViews()
+        localStorage.clear();
+        sessionStorage.clear();
         resetRouter() // 重置静态路由表
+
+
+
+            // Clear Cache storage (browser Cache API)
+        if ('caches' in window) {
+          const cacheNames = await caches.keys();
+          await Promise.all(cacheNames.map(name => caches.delete(name)));
+        }
+
+        window.location.href = '/login';
+
+
         replace('/')
       }
     })
     .catch(() => { })
 }
 
-const toDocument = () => {
-  window.open('https://element-plus-admin-doc.cn/')
-}
-
+ 
 
 const viewProfile = () => {
 
