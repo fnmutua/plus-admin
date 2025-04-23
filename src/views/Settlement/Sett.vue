@@ -2886,8 +2886,8 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
 
 
     <div v-if="activeSegment === 'Approved'">
-      <el-table
-:data="tableDataList" @row-dblclick="handleRowDblClick" :show-overflow-tooltip="true"
+      <el-table  table-layout="auto" 
+:data="tableDataList" @row-dblclick="handleRowDblClick" :show-overflow-tooltip="true" fit 
         style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName" @expand-change="handleExpand" row-key="id"   :expand-row-keys="expandedRowKeys">
 
         <el-table-column type="expand">
@@ -2939,7 +2939,7 @@ type="primary" v-show="isCopyIconVisible(row)" size="small" :icon="Clock" circle
         </el-table-column>
 
         <el-table-column label="Population" prop="population" sortable />
-        <el-table-column label="Area(HA)" prop="area" sortable />
+        <el-table-column label="Area(HA)" prop="area" sortable :formatter="row => Number(row.area).toFixed(2)" />
         <el-table-column label="Created" prop="createdAt" sortable :formatter="formatDate" />
         <el-table-column label="Code" prop="code" sortable>
           <template #default="{ row }">
@@ -3010,7 +3010,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="page"
           </template>
         </el-table-column>
         <el-table-column label="Population" prop="population" sortable />
-        <el-table-column label="Area(HA)" prop="area" sortable />
+        <el-table-column label="Area(HA)" prop="area" sortable :formatter="row => Number(row.area).toFixed(2)" />
         <el-table-column label="Created" prop="createdAt" sortable :formatter="formatDate" />
 
         <el-table-column label="Code" prop="code" sortable>
@@ -3081,7 +3081,7 @@ style="margin-left: 10px; margin-top: 5px" size="small" v-if="showAdminButtons" 
           </template>
         </el-table-column>
         <el-table-column label="Population" prop="population" sortable />
-        <el-table-column label="Area(HA)" prop="area" sortable />
+        <el-table-column label="Area(HA)" prop="area" sortable :formatter="row => Number(row.area).toFixed(2)" />
         <el-table-column label="Created" prop="createdAt" sortable :formatter="formatDate" />
 
         <el-table-column label="Code" prop="code" sortable>
@@ -3153,7 +3153,7 @@ style="margin-left: 10px; margin-top: 5px" size="small" v-if="showAdminButtons" 
             </template>
           </el-table-column>
           <el-table-column label="Population" prop="population" sortable />
-          <el-table-column label="Area(HA)" prop="area" sortable />
+          <el-table-column label="Area(HA)" prop="area" sortable :formatter="row => Number(row.area).toFixed(2)" />
           <el-table-column label="Created" prop="createdAt" sortable :formatter="formatDate" />
 
           <el-table-column label="Code" prop="code" sortable>
@@ -3193,11 +3193,11 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="page"
 
 
     <div v-if="activeSegment === 'Deleted'">
-      <el-table :data="deletedSettlements" :show-overflow-tooltip="true" style="width: 100% ; margin-top: 10px;"  border  >
+      <el-table table-layout="auto"  :data="deletedSettlements" :show-overflow-tooltip="true" style="width: 100% ; margin-top: 10px;"  border  >
         <el-table-column type="index" width="50" />
         <el-table-column label="Name" width="200" prop="name" sortable />     
         <el-table-column label="Population" prop="population" sortable />
-        <el-table-column label="Area(HA)" prop="area" sortable />
+        <el-table-column label="Area(HA)" prop="area" sortable :formatter="row => Number(row.area).toFixed(2)" />
         <el-table-column label="Created" prop="createdAt" sortable :formatter="formatDate" />
         <el-table-column label="Code" prop="code" sortable>
           <template #default="{ row }">
@@ -3236,7 +3236,7 @@ type="primary" size="small" :icon="View" @click="DeleteReview(row)"
 
     <div v-if="activeSegment === 'Duplicates'">
       <!-- Table with pagination -->
-      <el-table :data="paginatedData" @expand-change="onExpand" style="width: 100% ; margin-top: 10px;">
+      <el-table table-layout="auto"  :data="paginatedData" @expand-change="onExpand" style="width: 100% ; margin-top: 10px;">
         <el-table-column type="expand">
           <template #default="props">
             <div m="4" style="margin-left:20px">
@@ -3260,12 +3260,12 @@ plain @click="mergeRecords" v-if="props.row.duplicates.length > 1"
                 </div>
               </div>
 
-              <el-table :data="props.row.duplicates" @selection-change="handleSelection" border>
+              <el-table  table-layout="auto" :data="props.row.duplicates" @selection-change="handleSelection" border>
                 <el-table-column type="selection" />
                 <el-table-column label="Id" prop="id" />
                 <el-table-column label="Name" prop="name" sortable />
                 <el-table-column label="Population" prop="population" />
-                <el-table-column label="Area(HA)" prop="area" />
+                <el-table-column label="Area(HA)" prop="area" sortable :formatter="row => Number(row.area).toFixed(2)" />
                 <el-table-column label="Code" prop="code" />
                 <el-table-column label="Created" prop="createdAt" sortable :formatter="formatDate" />
                 <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
