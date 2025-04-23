@@ -267,13 +267,23 @@ const downloadCSV = async () => {
 
   // Clean up the field names and prepare column headers
   const columns = selectedFields.value.map((field) => {
-    const cleanedField = field.replace(/^.*?_/, ''); // Remove prefix
-    return {
-      column: cleanedField.replace(/\./g, ' ').replace(/\b\w/g, (char) => char.toUpperCase()),
-      type: String,
-    };
-  });
+  // Step 1: Remove all special characters (underscore, dot, etc.)
+  let cleanedField = field.replace(/[^a-zA-Z0-9]/g, ' ');  // Replace non-alphanumeric characters with space
 
+  // Step 2: Split by spaces, filter out empty strings, and capitalize each word
+  const words = cleanedField.split(/\s+/).filter(word => word);
+
+  // Step 3: Capitalize the first letter of each word and join without spaces
+  const formattedField = words
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join('');  // Join the words without spaces (e.g., FirstName)
+
+  return {
+    column: formattedField,
+    type: String,
+  };
+});
+ 
   // Create rows for the data, with each cell wrapped and in italic
   const rows = extractedData.map((row) =>
     selectedFields.value.map((field) => ({
@@ -343,14 +353,24 @@ const downloadAll = async () => {
 
  
 
-  // Clean up the field names and prepare column headers
   const columns = selectedFields.value.map((field) => {
-    const cleanedField = field.replace(/^.*?_/, ''); // Remove prefix
-    return {
-      column: cleanedField.replace(/\./g, ' ').replace(/\b\w/g, (char) => char.toUpperCase()),
-      type: String,
-    };
-  });
+  // Step 1: Remove all special characters (underscore, dot, etc.)
+  let cleanedField = field.replace(/[^a-zA-Z0-9]/g, ' ');  // Replace non-alphanumeric characters with space
+
+  // Step 2: Split by spaces, filter out empty strings, and capitalize each word
+  const words = cleanedField.split(/\s+/).filter(word => word);
+
+  // Step 3: Capitalize the first letter of each word and join without spaces
+  const formattedField = words
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join('');  // Join the words without spaces (e.g., FirstName)
+
+  return {
+    column: formattedField,
+    type: String,
+  };
+});
+
 
 
   // Create rows for the data, with each cell wrapped and in italic
