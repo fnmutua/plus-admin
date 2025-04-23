@@ -695,18 +695,7 @@ const handleExceed = () => {
 
 
 
-const validateFileUploads = (rule: any, value: any, callback: any) => {
-  if (value === '') {
-    callback(new Error('Please input the password'))
-  } else {
-    if (form.value.fileList.length == 0) {
-      console.log("Error,", form.value)
-      callback(new Error('Please upload at least one document'));
-    }
-    callback()
-  }
-}
-
+ 
 
 
 
@@ -1272,13 +1261,13 @@ const rules = computed(() => ({
   filer_present: [{ required: true, message: "This is required", trigger: "blur" }],
   resolution_date: [{ required: true, message: "Resolution date is required", trigger: "blur" }],
 
-  fileList: [
-    {
-      required: form.value.new_status === "Resolved",
-      message: "Please upload supporting documents",
-      trigger: "change"
-    }
-  ]
+  // fileList: [
+  //   {
+  //     required: form.value.new_status === "Resolved",
+  //     message: "Please upload supporting documents",
+  //     trigger: "change"
+  //   }
+  // ]
 }));
 
 
@@ -1648,7 +1637,7 @@ type="textarea" :rows="2" placeholder="Provide details of the resolution  here"
         </el-form-item> 
 
 
-      <el-form-item label="Upload Documentation" label-position="top" prop="fileList">
+      <el-form-item label="Upload Documentation" label-position="top"  >
         <el-upload
 class="upload-demo" action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
           :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove" :limit="3"
