@@ -309,3 +309,7 @@ WHERE EXISTS (
   WHERE elem->>'field' = 'settlement_type' AND elem->>'value' = '[1]'
 );
 
+
+
+
+DROP TABLE road CASCADE;

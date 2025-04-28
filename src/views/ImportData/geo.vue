@@ -461,6 +461,13 @@ const handleNextStep = async () => {
     step.value++;
   }
 };
+
+const handleReset = async () => {
+  step.value = 0; // Reset to the first step
+
+};
+
+
 </script>
 
 <template>
@@ -575,25 +582,45 @@ const handleNextStep = async () => {
         </pre>
       </div>
     </div>
+  <!-- Navigation -->
+<div class="mt-4 flex justify-between items-center">
+  <!-- Left side -->
+  <div>
+    <el-button
+      :disabled="step === 0 || loading.appendParent || loading.import"
+      @click="step--"
+      aria-label="Go to previous step"
+    >
+      Back
+    </el-button>
+  </div>
 
-    <!-- Navigation -->
-    <div class="mt-4 flex justify-between">
-      <el-button
-        :disabled="step === 0 || loading.appendParent || loading.import"
-        @click="step--"
-        aria-label="Go to previous step"
-      >
-        Back
-      </el-button>
-      <el-button
-        type="primary"
-        :loading="importing || loading.appendParent || loading.import"
-        @click="handleNextStep"
-        aria-label="Proceed to next step or import"
-      >
-        {{ step === 3 ? 'Import' : 'Next' }}
-      </el-button>
-    </div>
+  <!-- Right side -->
+  <div class="flex items-center gap-2">
+
+    <el-button
+      v-if="step === 3"
+      type="warning"
+      plain
+      @click="handleReset"
+      aria-label="Reset"
+    >
+      Reset
+    </el-button>
+
+    <el-button
+      type="primary"
+      :loading="importing || loading.appendParent || loading.import"
+      @click="handleNextStep"
+      aria-label="Proceed to next step or import"
+    >
+      {{ step === 3 ? 'Import' : 'Next' }}
+    </el-button>
+
+   
+  </div>
+</div>
+
   </el-card>
 </template>
 
