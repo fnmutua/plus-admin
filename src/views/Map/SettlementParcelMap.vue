@@ -26,9 +26,7 @@ const mapReady = ref(false)
 const features = ref([])
 const parcelGeoData = ref<any[]>([])
 const roadGeoData = ref<any[]>([])
-const hospitalGeoData = ref<any[]>([])
-const schoolGeoData = ref<any[]>([])
-const wpGeoData = ref<any[]>([])
+ const wpGeoData = ref<any[]>([])
 const structureGeoData = ref<any[]>([])
 const otherPointsGeoData = ref<any[]>([])
 
@@ -37,7 +35,6 @@ const polygons = ref<any[]>([])
 const parcels = ref<any[]>([])
 const parcelLabels = ref<any[]>([])
 const roads = ref<any[]>([])
-const hospitals = ref<any[]>([])
 const schools = ref<any[]>([])
 const water_points = ref<any[]>([])
 const structures = ref<any[]>([])
@@ -60,26 +57,86 @@ const layerFeatureCounts = ref({
 })
 
 const legendItems = [
-  { label: 'Residential', color: '#8C675D' },
-  { label: 'Industrial', color: '#800080' },
-  { label: 'Education', color: '#F6C567' },
-  { label: 'Recreation', color: '#6FDC6E' },
-  { label: 'Public Purpose', color: '#FFFF00' },
-  { label: 'Commercial', color: '#FF1D1E' },
-  { label: 'Public Utility', color: '#73B2FF' },
-  { label: 'Transportation', color: '#DCDCDC' },
-  { label: 'Undeveloped', color: '#FDFD96' },
-  { label: 'Agricultural', color: '#FDFD96' }
+  { label: 'Residential', color: '#8C675D',landuseId: 0, show: false },
+  { label: 'Industrial', color: '#800080', landuseId: 1, show: false },
+  { label: 'Education', color: '#F6C567', landuseId: 2, show: false },
+  { label: 'Recreation', color: '#6FDC6E', landuseId: 3, show: false },
+  { label: 'Public Purpose', color: '#FFFF00', landuseId: 4, show: false },
+  { label: 'Commercial', color: '#FF1D1E', landuseId: 5, show: false },
+  { label: 'Public Utility', color: '#73B2FF', landuseId: 6, show: false },
+  { label: 'Transportation', color: '#DCDCDC', landuseId: 7, show: false },
+  { label: 'Undeveloped', color: '#FDFD96', landuseId: 8, show: false },
+  { label: 'Agricultural', color: '#FDFD96', landuseId: 9, show: false }
 ]
 
 
-const PolyLineItems = [
-  { label: 'Road', color: 'red' },
-  { label: 'Powerline', color: 'black' },
-  { label: 'Sewer', color: 'yellow' },
-  { label: 'Piped Water', color: 'blue' },
+
+// Modify PointLegendItems to include show flag
+const PointLegendItems = ref([
+  { layer: 'crime_hotspot', label: 'Crime Hotspot', icon: 'icons/theft.png', show: false },
+  { layer: 'community_project', label: 'Community Project', icon: 'icons/country.png', show: false },
+  { layer: 'community_hall', label: 'Community Hall', icon: 'icons/communitycentre.png', show: false },
+  { layer: 'police_station', label: 'Police Station', icon: 'icons/police.png', show: false },
+  { layer: 'dumping_site', label: 'Dumping Site', icon: 'icons/landfill.png', show: false },
+  { layer: 'hazard_zone', label: 'Hazard Zone', icon: 'icons/caution.png', show: false },
+  { layer: 'health_facility', label: 'Health Facility', icon: 'icons/hospital-2.png', show: false },
+  { layer: 'education_facility', label: 'School', icon: 'icons/school.png', show: false },
+  { layer: 'water_point', label: 'Water Point', icon: 'icons/waterdrop.png', show: false },
+  { layer: 'streetlight', label: 'Streetlight', icon: 'icons/lighthouse-2.png', show: false },
+  { layer: 'mast', label: 'Mast', icon: 'icons/tower.png', show: false },
  
-]
+])
+ 
+
+
+
+const PolyLineItems = ref([
+  { 
+    layer: 'road', 
+    label: 'Road', 
+    color: 'red', // Asphalt gray
+    style: {
+      borderTop: '4px solid #A9A9A9', // Solid for road
+      width: '40px',
+      height: '0',
+    },
+    show: false
+  },
+  { 
+    layer: 'powerline', 
+    label: 'Powerline', 
+    color: '#FFD700', // Gold
+    style: {
+      borderTop: '2px dashed #FFD700', // Dashed for powerline
+      width: '40px',
+      height: '0',
+    },
+    show: false
+  },
+  { 
+    layer: 'sewer', 
+    label: 'Sewer', 
+    color: '#4B0082', // Dark Indigo
+    style: {
+      borderTop: '2px dotted #4B0082', // Dotted for sewer
+      width: '40px',
+      height: '0',
+    },
+    show: false
+  },
+  { 
+    layer: 'piped_water', 
+    label: 'Piped Water', 
+    color: '#00BFFF', // Light Sky Blue
+    style: {
+      borderTop: '2px dotted #00BFFF', // Dotted for piped water
+      width: '40px',
+      height: '0',
+    },
+    show: false
+  },
+])
+
 
 
 
@@ -110,10 +167,33 @@ const fetchSettlementData = async () => {
 const fetchParcels = async () => {
   try {
     const id = route.params.id
-    const formData = { model: 'parcel', columnFilterField: 'settlement_id', selectedParents: id, filtredGeoIds: [id] }
+    const formData = {
+      model: 'parcel',
+      columnFilterField: 'settlement_id',
+      selectedParents: id,
+      filtredGeoIds: [id]
+    }
     const res = await getfilteredParcelGeo(formData)
+
     if (res.data[0]?.json_build_object?.features) {
-      return turf.featureCollection(res.data[0].json_build_object.features)
+      const features = res.data[0].json_build_object.features
+      const featureCollection = turf.featureCollection(features)
+
+      console.log('featureCollection',featureCollection)
+
+      // Extract all unique landuseId from features
+      const landuseIdsFound = new Set(
+        features.map(f => f.properties?.landuse_id).filter(id => id !== null && id !== undefined)
+      )
+
+      // Update legendItems based on found landuseIds
+      legendItems.forEach(item => {
+        item.show = landuseIdsFound.has(item.landuseId)
+      })
+
+      console.log('landuseIdsFound',landuseIdsFound)
+
+      return featureCollection
     }
     return null
   } catch (error) {
@@ -122,6 +202,7 @@ const fetchParcels = async () => {
     return null
   }
 }
+
 
 const fetchRoads = async () => {
   try {
@@ -139,54 +220,10 @@ const fetchRoads = async () => {
   }
 }
 
-const fetchHospitals = async () => {
-  try {
-    const id = route.params.id
-    const formData = { model: 'health_facility', columnFilterField: 'settlement_id', selectedParents: id, filtredGeoIds: [id] }
-    const res = await getfilteredParcelGeo(formData)
-    if (res.data[0]?.json_build_object?.features) {
-      return turf.featureCollection(res.data[0].json_build_object.features)
-    }
-    return null
-  } catch (error) {
-    console.error('Error fetching hospital data:', error)
-    ElMessage({ message: 'Failed to load hospital data', type: 'error' })
-    return null
-  }
-}
+ 
 
-const fetchSchools = async () => {
-  try {
-    const id = route.params.id
-    const formData = { model: 'education_facility', columnFilterField: 'settlement_id', selectedParents: id, filtredGeoIds: [id] }
-    const res = await getfilteredParcelGeo(formData)
-    if (res.data[0]?.json_build_object?.features) {
-      return turf.featureCollection(res.data[0].json_build_object.features)
-    }
-    return null
-  } catch (error) {
-    console.error('Error fetching school data:', error)
-    ElMessage({ message: 'Failed to load school data', type: 'error' })
-    return null
-  }
-}
-
-const fetchWaterpoints = async () => {
-  try {
-    const id = route.params.id
-    const formData = { model: 'water_point', columnFilterField: 'settlement_id', selectedParents: id, filtredGeoIds: [id] }
-    const res = await getfilteredParcelGeo(formData)
-    console.log('WPS.....')
-    if (res.data[0]?.json_build_object?.features) {
-      return turf.featureCollection(res.data[0].json_build_object.features)
-    }
-    return null
-  } catch (error) {
-    console.error('Error fetching water_point data:', error)
-    ElMessage({ message: 'Failed to load water_point data', type: 'error' })
-    return null
-  }
-}
+ 
+ 
 
 
 const fetchStructures = async () => {
@@ -210,7 +247,7 @@ const fetchStructures = async () => {
 
 const fetchPointGeoFeatures = async () => {
   const id = route.params.id
-  const models = ['streetlight', 'crime_hotspot','community_project', 'sewer','piped_water', 'powerline', 'community_hall', 'police_station', 'mast','dumping_site','hazard_zone','road',] // Add more models as needed
+  const models = ['streetlight', 'crime_hotspot','community_project', 'health_facility', 'education_facility', 'water_point',  'sewer','piped_water', 'powerline', 'community_hall', 'police_station', 'mast','dumping_site','hazard_zone','road',] // Add more models as needed
   const allFeatures = []
 
   try {
@@ -230,7 +267,21 @@ const fetchPointGeoFeatures = async () => {
         res?.data?.[0]?.[0]?.json_build_object?.features ??
         []
 
-      console.log('fetch features.....', model, features)
+
+        const legendItem = PointLegendItems.value.find(item => item.layer == model && features.length>0 );
+            if (legendItem) {
+            legendItem.show = true;
+            }
+
+
+            const legendLineItem = PolyLineItems.value.find(item => item.layer == model && features.length>0 );
+            if (legendLineItem) {
+              legendLineItem.show = true;
+            }
+
+
+
+         console.log('fetch features.....', model, features)
 
       const taggedFeatures = features.map((feature) => ({
         ...feature,
@@ -300,9 +351,7 @@ const loadSelectedLayers = async (layers: string[]) => {
   parcels.value = []
   parcelLabels.value = []
   roads.value = []
-  hospitals.value = []
-  schools.value = []
-  water_points.value = []
+   water_points.value = []
   structures.value = []
   other_points.value=[]
   // Reset feature counts
@@ -311,9 +360,7 @@ const loadSelectedLayers = async (layers: string[]) => {
     parcels: 0,
     parcelLabels: 0,
     roads: 0,
-    hospitals: 0,
-    schools: 0,
-    water_points: 0,
+     water_points: 0,
     structures: 0,
     other_points:0,
   }
@@ -323,10 +370,7 @@ const loadSelectedLayers = async (layers: string[]) => {
     settlement: { fetch: fetchSettlementData, dataRef: features },
     parcels: { fetch: fetchParcels, dataRef: parcelGeoData },
     roads: { fetch: fetchRoads, dataRef: roadGeoData },
-    hospitals: { fetch: fetchHospitals, dataRef: hospitalGeoData },
-    schools: { fetch: fetchSchools, dataRef: schoolGeoData },
-    water_points: { fetch: fetchWaterpoints, dataRef: wpGeoData },
-    structures: { fetch: fetchStructures, dataRef: structureGeoData },
+     structures: { fetch: fetchStructures, dataRef: structureGeoData },
     other_points: { fetch: fetchPointGeoFeatures, dataRef: otherPointsGeoData },
   }
 
@@ -338,8 +382,11 @@ const loadSelectedLayers = async (layers: string[]) => {
       if (data?.features?.length) {
         dataRef.value = data
         layerFeatureCounts.value[layer] = data.features.length
+ 
       } else {
         console.log(`No data for layer: ${layer}`)
+
+
         dataRef.value = null
         layerFeatureCounts.value[layer] = 0
       }
@@ -457,150 +504,12 @@ const loadSelectedLayers = async (layers: string[]) => {
     })
   }
 
-  // Process roads
-  if (layerConfig.roads.dataRef.value?.features?.length) {
-    layerConfig.roads.dataRef.value.features.forEach((feature: any, index: number) => {
-      const { geometry, properties } = feature
-      if (geometry.type === 'LineString' || geometry.type === 'MultiLineString') {
-        let coordinates: number[][] = geometry.coordinates
-        if (geometry.type === 'MultiLineString') {
-          coordinates = coordinates.flat()
-        }
-        const path = coordinates.map(([lng, lat]) => {
-          const point = { lat, lng }
-          bounds.extend(point)
-          return point
-        }).filter((path: { lng: number; lat: number }) => isFinite(path.lng) && isFinite(path.lat))
-        const surfaceType = properties.surface_type ?? ''
-        const strokeColor = surfaceType === 'earth' ? '#A0522D' :
-          surfaceType === 'Asphalt' ? 'red' :
-          surfaceType === 'gravel' ? '#B87333' :
-          surfaceType === 'track' ? '#B87333' :
-          surfaceType === 'concrete' ? '#A9A9A9' : 'black'
-        roads.value.push({
-          id: `road-${properties?.id || index}`,
-          path,
-          strokeColor,
-          strokeOpacity: 1,
-          strokeWeight: 2,
-          properties: { ...properties }
-        })
-      }
-    })
-  }
 
-  // Process hospitals
-  if (layerConfig.hospitals.dataRef.value?.features?.length) {
-    layerConfig.hospitals.dataRef.value.features.forEach((feature: any, index: number) => {
-      const { geometry, properties } = feature
-      if (geometry.type === 'Point') {
-        const [lng, lat] = geometry.coordinates
-        const point = { lat, lng }
-        bounds.extend(point)
-        const category = (properties.registration_status || '').toLowerCase()
-        let iconUrl = 'https://maps.google.com/mapfiles/kml/shapes/hospitals.png'
-        if (category.includes('1')) {
-          iconUrl = 'https://maps.google.com/mapfiles/ms/icons/green-dot.png'
-        } else if (category.includes('2')) {
-          iconUrl = 'https://maps.google.com/mapfiles/ms/icons/orange-dot.png'
-        } else if (category.includes('3')) {
-          iconUrl = 'https://maps.google.com/mapfiles/ms/icons/red-dot.png'
-        } else if (category.includes('4')) {
-          iconUrl = 'https://maps.google.com/mapfiles/ms/icons/purple-dot.png'
-        } else if (category.includes('5')) {
-          iconUrl = 'https://maps.google.com/mapfiles/ms/icons/yellow-dot.png'
-        } else if (category.includes('mission')) {
-          iconUrl = 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png'
-        } else if (category.includes('private')) {
-          iconUrl = 'https://maps.google.com/mapfiles/ms/icons/pink-dot.png'
-        }
-        hospitals.value.push({
-          id: `hospital-${properties?.id || index}`,
-          position: point,
-          icon: {
-            url: iconUrl,
-            scaledSize: new google.maps.Size(30, 30),
-            anchor: new google.maps.Point(15, 15)
-          },
-          properties: { ...properties }
-        })
-      }
-    })
-  }
+ 
+  
 
-  // Process schools
-  if (layerConfig.schools.dataRef.value?.features?.length) {
-    layerConfig.schools.dataRef.value.features.forEach((feature: any, index: number) => {
-      const { geometry, properties } = feature
-      if (geometry.type === 'Point') {
-        const [lng, lat] = geometry.coordinates
-        const point = { lat, lng }
-        bounds.extend(point)
-        const category = (properties.education_category || '').toLowerCase()
-        let iconUrl ='public/icons/school.png' 
-        if (category.includes('primary')) {
-          iconUrl = 'public/icons/school.png' 
-        } else if (category.includes('secondary') || category.includes('high')) {
-          iconUrl = 'public/icons/school.png' 
-        } else if (category.includes('university') || category.includes('college')) {
-          iconUrl = 'public/icons/university.png' 
-        } else if (category.includes('private')) {
-          iconUrl ='public/icons/school.png' 
-        } else if (category.includes('special')) {
-          iconUrl = 'public/icons/disability.png' 
-        }
-        schools.value.push({
-          id: `school-${properties?.id || index}`,
-          position: point,
-          icon: {
-            url: iconUrl,
-            scaledSize: new google.maps.Size(30, 30),
-            anchor: new google.maps.Point(15, 15)
-          },
-          properties: { ...properties }
-        })
-      }
-    })
-  }
-
-  // Process Water Points
-  if (layerConfig.water_points.dataRef.value?.features?.length) {
-    layerConfig.water_points.dataRef.value.features.forEach((feature: any, index: number) => {
-      const { geometry, properties } = feature
-      console.log(feature)
-      if (geometry.type === 'Point') {
-        const [lng, lat] = geometry.coordinates
-        const point = { lat, lng }
-        bounds.extend(point)
-        const category = (properties.type || '').toLowerCase()
-        let iconUrl = 'public/icons/waterdrop.png'
-        if (category.includes('public_tap')) {
-          iconUrl = 'public/icons/waterwellpump.png'
-        } else if (category.includes('borehole')) {
-          iconUrl = 'public/icons/watertower.png'
-        } else if (category.includes('spring')) {
-          iconUrl = 'public/icons/watermill-2.png'
-        } else if (category.includes('well')) {
-          iconUrl = 'public/icons/waterwell.png'
-        }
-
-
-        
-
-
-        water_points.value.push({
-          id: `wp-${properties?.id || index}`,
-          position: point,
-          icon: {
-            url: iconUrl,
-            scaledSize: new google.maps.Size(30, 30),
-            anchor: new google.maps.Point(15, 15)
-          },
-          properties: { ...properties }
-        })
-      }
-    })
-  }
+ 
+ 
 
 
    // Process structures
@@ -627,7 +536,7 @@ const loadSelectedLayers = async (layers: string[]) => {
             strokeOpacity: 1,
             strokeWeight: 1,
             fillColor,
-            fillOpacity: 0.8,
+            fillOpacity: 0.7,
             properties: { ...properties }
           })
         
@@ -638,23 +547,87 @@ const loadSelectedLayers = async (layers: string[]) => {
 
 
 
-  // Process facilities otherPoints
-  if (layerConfig.other_points.dataRef.value?.features?.length) {
+// Process facilities otherPoints
+if (layerConfig.other_points.dataRef.value?.features?.length) {
   layerConfig.other_points.dataRef.value.features.forEach((feature: any, index: number) => {
     const { geometry, properties } = feature
     const featureType = (properties.featureType || '').toLowerCase()
 
-    console.log('featureType',featureType)
+    console.log('featureType', featureType)
+
     const iconMap: Record<string, string> = {
-      water_point: 'icons/water.png',
-      mast: 'icons/lighthouse-2.png',
+      water_point: 'icons/waterdrop.png',
+      mast: 'icons/tower.png',
       streetlight: 'icons/lighthouse-2.png',
-      dumping_site: 'icons/waste-basket.png',
+      dumping_site: 'icons/landfill.png',
       hazard_zone: 'icons/caution.png',
-      police_station: 'icons/caution.png',
+      community_project: 'icons/country.png',
+      community_hall: 'icons/communitycentre.png',
+      police_station: 'icons/police.png',
+      crime_hotspot: 'icons/theft.png',
+      health_facility: 'icons/hospital-2.png',
+      education_facility: 'icons/school.png',
     }
 
     const iconUrl = iconMap[featureType] || 'icons/amphitheater.png'
+
+    // Symbol styles
+    const lineStyles: Record<string, any> = {
+      road: {
+        strokeColor: "red", // Asphalt gray
+        strokeOpacity: 1,
+        strokeWeight: 4,
+       },
+      powerline: {
+        strokeOpacity: 0,
+        icons: [{
+          icon: {
+            path: "M 0,-1 0,1",
+            strokeOpacity: 1,
+            scale: 2,
+            strokeWeight: 4,  
+            strokeColor: "yellow", // Yellow
+          },
+          offset: "0",
+          repeat: "20px"
+        }]
+      },
+      sewer: {
+        strokeOpacity: 0,
+        icons: [{
+          icon: {
+            path: "M 0,-1 0,1",
+            strokeOpacity: 1,
+            scale: 2,
+            strokeWeight: 3,
+            strokeColor: "#4B0082", // Dark Indigo
+          },
+          offset: "0",
+          repeat: "15px"
+        }]
+      },
+      piped_water: {
+        strokeOpacity: 0,
+        icons: [{
+          icon: {
+            path: "M 0,-1 0,1",
+            strokeOpacity: 1,
+            scale: 2,
+            strokeWeight: 3,
+            strokeColor: "#00BFFF", // Light Sky Blue
+          },
+          offset: "0",
+          repeat: "15px"
+        }]
+      }
+    }
+
+    // Default fallback for unknown lines
+    const defaultLineStyle = {
+      strokeColor: "#999999",
+      strokeOpacity: 0.8,
+      strokeWeight: 3,
+    }
 
     // Handle Point
     if (geometry.type === 'Point') {
@@ -679,14 +652,6 @@ const loadSelectedLayers = async (layers: string[]) => {
     else if (geometry.type === 'LineString' || geometry.type === 'MultiLineString') {
       const lines = geometry.type === 'LineString' ? [geometry.coordinates] : geometry.coordinates
 
-      const lineColorMap = {
-          'road': 'red',
-          'powerline': 'black',
-          'sewer': 'yellow',
-          'piped_water': 'blue'
-        }
-
-
       lines.forEach((line, lineIndex) => {
         const path = line.map(([lng, lat]) => {
           const point = { lat, lng }
@@ -694,15 +659,13 @@ const loadSelectedLayers = async (layers: string[]) => {
           return point
         })
 
+        const style = lineStyles[featureType] || defaultLineStyle
+
         other_points.value.push({
           id: `line-${properties?.id || index}-${lineIndex}`,
           type: 'polyline',
           path,
-          options: {
-            strokeColor:  lineColorMap[featureType] || '#999999', // fallback color
-            strokeOpacity: 0.8,
-            strokeWeight: 3,
-          },
+          options: style,
           properties: { ...properties },
         })
       })
@@ -743,7 +706,7 @@ const loadSelectedLayers = async (layers: string[]) => {
 
 
   // Fit the map to all features
-  if (polygons.value.length || parcels.value.length || roads.value.length || hospitals.value.length || schools.value.length || water_points.value.length || structures.value.length || other_points.value.length) {
+  if (polygons.value.length || parcels.value.length || roads.value.length  || schools.value.length || water_points.value.length || structures.value.length || other_points.value.length) {
     mapRef.value?.map.fitBounds(bounds)
   }
 
@@ -772,7 +735,7 @@ onMounted(async () => {
       if (ready) {
         mapReady.value = true
         
-        await loadSelectedLayers(['settlement', 'parcels',  'hospitals', 'schools','other_points', 'water_points', 'structures'])
+        await loadSelectedLayers(['settlement', 'parcels'    ,'other_points',  'structures'])
           setupMapTypeControl()
           
         await addWmsLayer()
@@ -798,8 +761,7 @@ const availableLayers = computed(() => {
   if (layerFeatureCounts.value.parcels > 0) layers.push('parcels')
   if (layerFeatureCounts.value.parcelLabels > 0) layers.push('parcelLabels')
   if (layerFeatureCounts.value.roads > 0) layers.push('roads')
-  if (layerFeatureCounts.value.hospitals > 0) layers.push('hospitals')
-  if (layerFeatureCounts.value.schools > 0) layers.push('schools')
+   if (layerFeatureCounts.value.schools > 0) layers.push('schools')
   if (layerFeatureCounts.value.water_points > 0) layers.push('water_points')
   if (layerFeatureCounts.value.structures > 0) layers.push('structures')
   if (layerFeatureCounts.value.other_points > 0) layers.push('other_points')
@@ -829,9 +791,40 @@ const onPolygonClick = (feature) => {
   }
 }
 
+
+
+const PointInfowindow = ref(false)
+
+
+const filteredProperties = computed(() => {
+  // Filter out properties where the value is an object
+  return Object.entries(selectedFeature.value?.properties || {}).filter(([key, value]) => {
+    return typeof value !== 'object' || value === null // Exclude objects (also handles null values)
+  })
+})
+
+
+const onPointClick = (feature) => {
+  console.log('onPointClick', feature)
+  PointInfowindow.value = true
+  gmapCenter.value = feature.paths
+    ? feature.paths[0]
+    : feature.path
+      ? feature.path[Math.floor(feature.path.length / 2)]
+      : feature.position || { lat: 0, lng: 0 }
+  selectedFeature.value = {
+    ...feature,
+    properties: Object.fromEntries(
+      Object.entries(feature.properties).filter(([_, value]) => value)
+    )
+  }
+}
+
+
 const closePopup = () => {
   console.log('close popup')
   infowindow.value = false
+  PointInfowindow.value = false
 }
 
 const parcelsVisible = ref(true)
@@ -854,15 +847,9 @@ const toggleSettlement = (visible: boolean) => {
   settVisibile.value = visible
 }
 
-const hospitalVisible = ref(true)
-const toggleHospital = (visible: boolean) => {
-  hospitalVisible.value = visible
-}
+ 
 
-const schoolVisible = ref(true)
-const toggleSchool = (visible: boolean) => {
-  schoolVisible.value = visible
-}
+ 
 
 const WPVisible = ref(true)
 const toggleWP = (visible: boolean) => {
@@ -1244,16 +1231,13 @@ const toggleImageryGroup = (selected: string[]) => {
       <GoogleMap ref="mapRef" :api-key="googleMapsApiKey" style="width: 100%; height: 75vh" :center="gmapCenter"
         :zoom="8" map-type-id="grayscale"  :map-type-control="false">
 
-
-        
-      
-
+ 
 
         <template v-if="OtherPointVisible">
           <template v-for="pnt in other_points" :key="pnt.id">
-            <Marker v-if="pnt.type === 'marker'" :options="pnt"  />
-            <Polyline v-else-if="pnt.type === 'polyline'" :options="pnt" />
-            <Polygon v-else-if="pnt.type === 'polygon'" :options="pnt" />
+            <Marker v-if="pnt.type === 'marker'" :options="pnt"  @click="onPointClick(pnt)"  />
+            <Polyline v-else-if="pnt.type === 'polyline'" :options="pnt" @click="onPointClick(pnt)" />
+            <Polygon v-else-if="pnt.type === 'polygon'" :options="pnt"  @click="onPointClick(pnt)"/>
           </template>
         </template>
 
@@ -1283,22 +1267,8 @@ const toggleImageryGroup = (selected: string[]) => {
         <div v-if="parcelLabelsVisible">
           <Marker v-for="label in parcelLabels" :key="label.id" :options="label" />
         </div>
-
-        <div v-if="roadsVisible">
-          <Polyline v-for="road in roads" :key="road.id" :options="road" />
-        </div>
-
-        <div v-if="hospitalVisible">
-          <Marker v-for="hospital in hospitals" :key="hospital.id" :options="hospital" />
-        </div>
-
-        <div v-if="schoolVisible">
-          <Marker v-for="school in schools" :key="school.id" :options="school" />
-        </div>
-
-        <div v-if="WPVisible">
-          <Marker v-for="wp in water_points" :key="wp.id" :options="wp" />
-        </div>
+ 
+ 
  
 
         <InfoWindow v-if="infowindow" @closeclick="closePopup" :options="{ position: gmapCenter }">
@@ -1309,6 +1279,29 @@ const toggleImageryGroup = (selected: string[]) => {
             </el-table>
           </div>
         </InfoWindow>
+
+
+        <InfoWindow v-if="PointInfowindow" @closeclick="closePopup" :options="{ position: gmapCenter }">
+            <div style="max-width: 400px; height:250px">
+              <!-- Centered and Uppercased Header -->
+              <div style="font-size: 16px; font-weight: bold; margin-bottom: 10px; text-align: center; text-transform: uppercase;">
+                {{ selectedFeature?.properties?.featureType || 'Unknown Feature' }}
+              </div>
+
+              <!-- Table displaying the properties -->
+              <el-table :data="filteredProperties" border style="width: 100%;">
+                <el-table-column prop="0" label="Property" width="150" />
+                <el-table-column prop="1" label="Value" width="250" />
+              </el-table>
+            </div>
+          </InfoWindow>
+
+
+        
+
+
+
+
       </GoogleMap>
 
       <div id="floating-div">
@@ -1322,7 +1315,7 @@ const toggleImageryGroup = (selected: string[]) => {
                 Labels ({{ layerFeatureCounts.parcelLabels }})
               </ElCheckbox>
             </div>
-            <div v-for="item in legendItems" :key="item.label" class="legend-item">
+            <div v-for="item in legendItems.filter(item => item.show)" :key="item.label" class="legend-item">
               <div class="legend-color" :style="{ backgroundColor: item.color }"></div>
               <div class="legend-label">{{ item.label }}</div>
             </div>
@@ -1334,23 +1327,23 @@ const toggleImageryGroup = (selected: string[]) => {
                 Facilities ({{ layerFeatureCounts.other_points }})
               </ElCheckbox>
 
-              <div v-for="item in PolyLineItems" :key="item.label" class="line-item">
+              <div v-for="item in PolyLineItems.filter(item => item.show)" :key="item.label" class="line-item">
                 <div class="line-color" :style="{ backgroundColor: item.color }"></div>
                 <div class="legend-label">{{ item.label }}</div>
             </div>
               
+            <!-- Point Features Legend -->
+            <div v-for="item in PointLegendItems.filter(item => item.show)" :key="item.label" class="line-item">
+               <img :src="item.icon" class="legend-icon" />
+              <div class="legend-label">{{ item.label }}</div>
+            </div>
+
+
               <ElCheckbox v-if="availableLayers.includes('roads')" v-model="roadsVisible" @change="toggleRoads">
                 Roads ({{ layerFeatureCounts.roads }})
               </ElCheckbox>
-              <ElCheckbox v-if="availableLayers.includes('hospitals')" v-model="hospitalVisible" @change="toggleHospital">
-                Hospitals ({{ layerFeatureCounts.hospitals }})
-              </ElCheckbox>
-              <ElCheckbox v-if="availableLayers.includes('schools')" v-model="schoolVisible" @change="toggleSchool">
-                Schools ({{ layerFeatureCounts.schools }})
-              </ElCheckbox>
-              <ElCheckbox v-if="availableLayers.includes('water_points')" v-model="WPVisible" @change="toggleWP">
-                Water Points ({{ layerFeatureCounts.water_points }})
-              </ElCheckbox>
+           
+             
 
               <ElCheckbox v-if="availableLayers.includes('structures')" v-model="StructureVisible" @change="toggleStructure">
                 Structures ({{ layerFeatureCounts.structures }})
@@ -1437,6 +1430,20 @@ const toggleImageryGroup = (selected: string[]) => {
   width: 20px;
   height: 5px;
   margin-right: 10px;
+}
+
+
+.point-legend-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 5px;
+}
+
+.legend-icon {
+  width: 30px;
+  height: 30px;
+  margin-right: 10px;
+  object-fit: contain;
 }
 
 
