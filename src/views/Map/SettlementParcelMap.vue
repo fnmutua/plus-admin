@@ -1479,10 +1479,12 @@ const toggleImageryGroup = (selected: string[]) => {
 </template>
 
 <style scoped>
+/* Light mode styles */
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  color: #333;
 }
 
 .map-container {
@@ -1499,7 +1501,7 @@ const toggleImageryGroup = (selected: string[]) => {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
   z-index: 10;
   height: fit-content;
-  max-width: 500vw;
+  max-width: 500px;
 }
 
 .legend-item {
@@ -1526,7 +1528,6 @@ const toggleImageryGroup = (selected: string[]) => {
   margin-right: 10px;
 }
 
-
 .point-legend-item {
   display: flex;
   align-items: center;
@@ -1540,5 +1541,59 @@ const toggleImageryGroup = (selected: string[]) => {
   object-fit: contain;
 }
 
+/* Dark mode styles */
+.dark .card-header {
+  color: #e0e0e0;
+}
 
+.dark #floating-div {
+  background-color: #333;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.dark .legend-label {
+  color: #e0e0e0;
+}
+
+.dark .el-collapse {
+  background-color: #333;
+  color: #e0e0e0;
+}
+
+.dark .el-collapse-item__header {
+  background-color: #444;
+  color: #e0e0e0;
+}
+
+.dark .el-collapse-item__content {
+  background-color: #333;
+  color: #e0e0e0;
+}
+
+.dark .el-checkbox__label {
+  color: #e0e0e0;
+}
+
+.dark .el-table {
+  background-color: #333;
+  color: #e0e0e0;
+}
+
+.dark .el-table th {
+  background-color: #444;
+  color: #e0e0e0;
+}
+
+.dark .el-table td {
+  background-color: #333;
+  color: #e0e0e0;
+}
+
+.dark .el-table--border, .dark .el-table--group {
+  border-color: #555;
+}
+
+.dark .el-table th, .dark .el-table td {
+  border-color: #555;
+}
 </style>
