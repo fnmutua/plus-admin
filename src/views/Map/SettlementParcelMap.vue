@@ -12,8 +12,8 @@ import axios from 'axios';
 
 import { XMLParser } from 'fast-xml-parser';
 
-
-
+import { useAppStore } from '@/store/modules/app'
+const appStore = useAppStore()
 const googleMapsApiKey = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
 
 const route = useRoute()
@@ -744,6 +744,25 @@ onMounted(async () => {
           selectedImageryLayers.value = [...availableImageryLayers.value];
           toggleImageryGroup(selectedImageryLayers.value);
 
+          const isDark = computed(() => appStore.getIsDark)
+            // Watch for changes in isDarkMode
+            watch(
+              isDark,
+              (isDarkValue) => {
+                if (mapReady.value && mapRef.value?.map) {
+                  const newMapType = isDarkValue ? 'dark' : 'grayscale'
+                  mapRef.value.map.setMapTypeId(newMapType)
+                  // Sync dropdown
+                  const controlSelect = mapRef.value.map.controls[google.maps.ControlPosition.TOP_LEFT][0]?.querySelector('select')
+                  if (controlSelect) {
+                    controlSelect.value = newMapType
+                  }
+                }
+              }
+            )
+
+
+
       }
     }
   )
@@ -870,10 +889,8 @@ const toggleOtherPoint = (visible: boolean) => {
 
 
 
-
 const setupMapTypeControl = () => {
   if (!mapReady.value || !mapRef.value?.map) return;
-
 
   // Define grayscale map style
   const grayscaleStyle = [
@@ -882,21 +899,97 @@ const setupMapTypeControl = () => {
     }
   ];
 
+  // Define dark mode map style
+  const darkModeStyle = [
+    { elementType: 'geometry', stylers: [{ color: '#212121' }] }, // Dark background
+    { elementType: 'labels.text.fill', stylers: [{ color: '#757575' }] }, // Light gray labels
+    { elementType: 'labels.text.stroke', stylers: [{ color: '#212121' }] }, // Dark stroke for contrast
+    {
+      featureType: 'administrative',
+      elementType: 'geometry',
+      stylers: [{ color: '#757575' }]
+    },
+    {
+      featureType: 'administrative.country',
+      elementType: 'labels.text.fill',
+      stylers: [{ color: '#9e9e9e' }]
+    },
+    {
+      featureType: 'administrative.locality',
+      elementType: 'labels.text.fill',
+      stylers: [{ color: '#bdbdbd' }]
+    },
+    {
+      featureType: 'poi',
+      elementType: 'labels.text.fill',
+      stylers: [{ color: '#757575' }]
+    },
+    {
+      featureType: 'poi.park',
+      elementType: 'geometry',
+      stylers: [{ color: '#181818' }]
+    },
+    {
+      featureType: 'poi.park',
+      elementType: 'labels.text.fill',
+      stylers: [{ color: '#616161' }]
+    },
+    {
+      featureType: 'road',
+      elementType: 'geometry.fill',
+      stylers: [{ color: '#2c2c2c' }]
+    },
+    {
+      featureType: 'road',
+      elementType: 'labels.text.fill',
+      stylers: [{ color: '#8a8a8a' }]
+    },
+    {
+      featureType: 'road.arterial',
+      elementType: 'geometry',
+      stylers: [{ color: '#373737' }]
+    },
+    {
+      featureType: 'road.highway',
+      elementType: 'geometry',
+      stylers: [{ color: '#3c3c3c' }]
+    },
+    {
+      featureType: 'road.highway.controlled_access',
+      elementType: 'geometry',
+      stylers: [{ color: '#4e4e4e' }]
+    },
+    {
+      featureType: 'water',
+      elementType: 'geometry',
+      stylers: [{ color: '#0e1626' }]
+    },
+    {
+      featureType: 'water',
+      elementType: 'labels.text.fill',
+      stylers: [{ color: '#3d3d3d' }]
+    }
+  ];
+
   // Create grayscale StyledMapType
   const grayscaleMapType = new google.maps.StyledMapType(grayscaleStyle, {
     name: 'Grayscale'
   });
 
-  // Register grayscale map type
+  // Create dark mode StyledMapType
+  const darkModeMapType = new google.maps.StyledMapType(darkModeStyle, {
+    name: 'Dark Mode'
+  });
+
+  // Register map types
   mapRef.value.map.mapTypes.set('grayscale', grayscaleMapType);
-
-
+  mapRef.value.map.mapTypes.set('dark', darkModeMapType);
 
   // Create the select element
   const controlDiv = document.createElement('div');
   const controlSelect = document.createElement('select');
 
-  // Style the select element (similar to Google example)
+  // Style the select element
   controlDiv.style.padding = '5px';
   controlDiv.style.backgroundColor = 'white';
   controlDiv.style.border = '1px solid #ccc';
@@ -912,7 +1005,8 @@ const setupMapTypeControl = () => {
     { id: 'satellite', label: 'Satellite' },
     { id: 'hybrid', label: 'Hybrid' },
     { id: 'terrain', label: 'Terrain' },
-    { id: 'grayscale', label: 'Grayscale' }
+    { id: 'grayscale', label: 'Grayscale' },
+    { id: 'dark', label: 'Dark Mode' }
   ];
 
   // Add options to the select element
@@ -934,7 +1028,7 @@ const setupMapTypeControl = () => {
   // Append select to div
   controlDiv.appendChild(controlSelect);
 
-  // Add control to map (TOP_RIGHT position)
+  // Add control to map (TOP_LEFT position)
   mapRef.value.map.controls[google.maps.ControlPosition.TOP_LEFT].push(controlDiv);
 }
 
