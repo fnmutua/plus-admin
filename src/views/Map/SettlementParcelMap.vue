@@ -1290,7 +1290,7 @@ const toggleImageryGroup = (selected: string[]) => {
 
               <!-- Table displaying the properties -->
               <el-table :data="filteredProperties" border style="width: 100%;">
-                <el-table-column prop="0" label="Property" width="150" />
+                <el-table-column prop="0" label="Field" width="150" />
                 <el-table-column prop="1" label="Value" width="250" />
               </el-table>
             </div>
