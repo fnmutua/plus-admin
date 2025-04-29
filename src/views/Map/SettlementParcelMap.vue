@@ -255,7 +255,7 @@ const fetchPointGeoFeatures = async () => {
       const formData = {
         model,
         columnFilterField: 'settlement_id',
-        selectedParents: id
+        selectedParents: [id]
       }
 
       const res = await getfilteredGeo(formData)

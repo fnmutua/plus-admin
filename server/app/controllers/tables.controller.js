@@ -1828,162 +1828,6 @@ exports.modelAllGeo = async (req, res) => {
 const { Readable } = require('stream');
 
  
-exports.xstreamAllGeo = async (req, res) => {
-  const reg_model = req.query.model;
-
-  const qry2 =
-  "SELECT row_to_json(fc) AS json_build_object FROM (SELECT 'FeatureCollection' AS type, array_to_json(array_agg(f)) AS features FROM (SELECT 'Feature' AS type, ST_AsGeoJSON(ST_ConvexHull(geom))::json AS geometry, (SELECT json_strip_nulls(row_to_json(" +
-  reg_model +
-  ")) FROM (SELECT id) t) AS properties FROM  " +
-  reg_model +
-  ' WHERE ST_IsEmpty(geom) = false AND geom IS NOT NULL) AS f) AS fc';
-
-  
- 
-  if (req.query.cache_key && req.query.cache_key !== '') {
-    const cache_key = req.query.cache_key;
-    const cacheDuration = 3600; // Cache duration in seconds
-
-    const lastRow = await db.models[reg_model].findOne({
-      attributes: ['updatedAt'],
-      order: [['updatedAt', 'DESC']],
-    });
-
-    const lastModified = lastRow ? lastRow.updatedAt : Date.now();
-
-    console.log(lastModified, req.query.cache_key);
-    console.log("Caching>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>....");
-
-    try {
-      const cacheResults = await redisClient.get(cache_key);
-
-      if (cacheResults) {
-        console.log("Returning from cache...");
-
-        const result = JSON.parse(cacheResults);
-
-        if (lastModified && lastModified > result.lastModified) {
-          const response = await sequelize.query(qry2, {
-            model: db.models[reg_model],
-            mapToModel: false,
-          });
-
-          await redisClient.set(
-            cache_key,
-            JSON.stringify({
-              data: response,
-              lastModified: Date.now(),
-            }),
-            {
-              EX: cacheDuration,
-              NX: true,
-            }
-          );
-
-          res.status(200);
-          console.log('piping the results 1.......')
-
-          // Create a readable stream from the response data
-          const readableStream = new Readable();
-          readableStream.push(JSON.stringify({
-            fromCache: false,
-            cache_key: cache_key,
-            data: response,
-            code: '0000',
-          }));
-          readableStream.push(null);
-
-          // Pipe the stream to the response
-          readableStream.pipe(res);
-        } 
-        else {
-          res.status(200);
-          console.log('piping the results 2x.......')
-
- 
-          // Create a readable stream from the cached data
-          const readableStream = new Readable();
-          readableStream.push(JSON.stringify({
-            fromCache: true,
-            cache_key: cache_key,
-            data: result.data,
-            code: '0000',
-          }));
-          readableStream.push(null);
-
-          // Pipe the stream to the response
-          readableStream.pipe(res);
-        }
-      } 
-      else {
-        const response = await sequelize.query(qry2, {
-          model: db.models[reg_model],
-          mapToModel: false,
-        });
-
-        await redisClient.set(
-          cache_key,
-          JSON.stringify({
-            data: response,
-            lastModified: Date.now(),
-          }),
-          {
-            EX: cacheDuration,
-            NX: true,
-          }
-        );
-
-        res.status(200);
-        
-        // Create a readable stream from the response data
-        const readableStream = new Readable();
-        readableStream.push(JSON.stringify({
-          fromCache: false,
-          cache_key: cache_key,
-          data: response,
-          code: '0000',
-        }));
-        readableStream.push(null);
-
-        // Pipe the stream to the response
-        readableStream.pipe(res);
-      }
-    } catch (error) {
-      res.status(500);
-      
-      // Create a readable stream from the error message
-      const readableStream = new Readable();
-      readableStream.push(JSON.stringify({
-        message: 'Internal server error',
-        code: 'SERVER_ERROR',
-      }));
-      readableStream.push(null);
-
-      // Pipe the stream to the response
-      readableStream.pipe(res);
-    }
-  } else {
-    console.log("No Caching>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>....");
-
-    const result_geo = await sequelize.query(qry2, {
-      model: db.models[reg_model],
-      mapToModel: false,
-    });
-
-    res.status(200);
-    
-    // Create a readable stream from the response data
-    const readableStream = new Readable();
-    readableStream.push(JSON.stringify({
-      data: result_geo,
-      code: '0000',
-    }));
-    readableStream.push(null);
-
-    // Pipe the stream to the response
-    readableStream.pipe(res);
-  }
-};
  
 
 
@@ -2267,28 +2111,29 @@ exports.xmodelSelectGeo = async (req, res) => {
   });
 };
 
+const { QueryTypes } = require('sequelize');
+
 exports.modelSelectGeo = async (req, res) => {
+  console.log('modelSelectGeo--------->');
   try {
     const reg_model = req.body.model;
     const columnFilterField = req.body.columnFilterField;
-    let arr;
 
-    // Validate required inputs
     if (!reg_model || !columnFilterField) {
       return res.status(400).send({
         status: 'error',
         code: 'INVALID_INPUT',
         message: 'Missing required fields: model or columnFilterField',
         data: null,
-        meta: {}
+        meta: {},
       });
     }
 
-    // Determine the array of identifiers based on the request body
+    let arr;
     if (req.body.selectedParents?.length > 0) {
       arr = req.body.selectedParents;
     } else if (req.body.filtredGeoIds?.length > 0) {
-      arr = [req.body.filtredGeoIds];
+      arr = Array.isArray(req.body.filtredGeoIds) ? req.body.filtredGeoIds : [req.body.filtredGeoIds];
     } else if (req.body.id) {
       arr = [req.body.id];
     } else {
@@ -2297,54 +2142,63 @@ exports.modelSelectGeo = async (req, res) => {
         code: 'INVALID_IDENTIFIERS',
         message: 'No valid identifiers provided (selectedParents, filtredGeoIds, or id)',
         data: null,
-        meta: {}
+        meta: {},
       });
     }
 
-    let qry2;
-
-    // Build the query based on whether identifiers are present
-    if (!arr[0] || arr[0].length === 0) {
-      qry2 = `
-        SELECT row_to_json(fc) AS json_build_object
-        FROM (
-          SELECT 'FeatureCollection' AS type,
-                 array_to_json(array_agg(f)) AS features
-          FROM (
-            SELECT 'Feature' AS type,
-                   ST_AsGeoJSON(geom, 5)::json AS geometry,
-                   json_strip_nulls(row_to_json(${reg_model}.*)) AS properties
-            FROM ${reg_model}
-            WHERE geom IS NOT NULL
-          ) AS f
-        ) AS fc`;
-    } else {
-      const filterValues = Array.isArray(columnFilterField) ? columnFilterField : [columnFilterField];
-      const filterClause = filterValues.map((value) => `(${value} IN (${arr}))`).join(' OR ');
-
-      qry2 = `
-        SELECT row_to_json(fc) AS json_build_object
-        FROM (
-          SELECT 'FeatureCollection' AS type,
-                 array_to_json(array_agg(f)) AS features
-          FROM (
-            SELECT 'Feature' AS type,
-                   ST_AsGeoJSON(geom, 5)::json AS geometry,
-                   json_strip_nulls(row_to_json(${reg_model}.*)) AS properties
-            FROM ${reg_model}
-            WHERE geom IS NOT NULL
-              AND (${filterClause})
-          ) AS f
-        ) AS fc`;
-    }
-
-    // Execute the query
-    const result_geo = await sequelize.query(qry2, {
-      model: db.models[reg_model],
-      mapToModel: false
+    // Get column names excluding 'geom'
+    const columnsQuery = `
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = :table
+        AND column_name != 'geom'
+    `;
+    const columnResults = await sequelize.query(columnsQuery, {
+      replacements: { table: reg_model },
+      type: QueryTypes.SELECT,
     });
 
-    // Send standardized success response
+    const columns = columnResults.map(row => row.column_name);
+    const selectedColumns = columns.map(col => `"${col}"`).join(', ');
+
+    const propertiesClause = `
+      json_strip_nulls(
+        row_to_json((SELECT x FROM (SELECT ${selectedColumns}) x))
+      ) AS properties
+    `;
+
+    // Base query template with dynamic WHERE clause
+    let whereClause = 'WHERE geom IS NOT NULL';
+
+    if (arr[0] && arr.length > 0) {
+      const filterValues = Array.isArray(columnFilterField) ? columnFilterField : [columnFilterField];
+      const escapedArr = arr.map(val => `'${val}'`).join(', ');
+      const filterClause = filterValues
+        .map(value => `"${value}" IN (${escapedArr})`)
+        .join(' OR ');
+
+      whereClause += ` AND (${filterClause})`;
+    }
+
+    const fullQuery = `
+      SELECT row_to_json(fc) AS json_build_object
+      FROM (
+        SELECT 'FeatureCollection' AS type,
+               array_to_json(array_agg(f)) AS features
+        FROM (
+          SELECT 'Feature' AS type,
+                 ST_AsGeoJSON(geom, 8)::json AS geometry,
+                 ${propertiesClause}
+          FROM ${reg_model}
+          ${whereClause}
+        ) AS f
+      ) AS fc
+    `;
+
+    const result_geo = await sequelize.query(fullQuery, {
+      mapToModel: false,
+    });
+
     res.status(200).send({
       status: 'success',
       code: '0000',
@@ -2352,24 +2206,119 @@ exports.modelSelectGeo = async (req, res) => {
       data: result_geo,
       meta: {
         timestamp: new Date().toISOString(),
-        recordCount: result_geo.length
-      }
+        recordCount: result_geo.length,
+      },
     });
   } catch (error) {
-    // Send standardized error response
+    console.error('Error in modelSelectGeo:', error);
     res.status(500).send({
       status: 'error',
       code: 'SERVER_ERROR',
       message: 'An error occurred while processing the request',
       data: null,
-      meta: {
-        errorDetails: error.message
-      }
+      meta: { errorDetails: error.message },
     });
   }
 };
 
+
+
+ 
 exports.modelSelectParcelGeo = async (req, res) => {
+  try {
+    const reg_model = req.body.model;
+    const columnFilterField = req.body.columnFilterField;
+
+    if (!reg_model || !columnFilterField) {
+      return res.status(400).send({
+        code: 'INVALID_INPUT',
+        message: 'Model and columnFilterField are required.',
+      });
+    }
+
+    // Determine the array of identifiers
+    let arr = [];
+    if (req.body.selectedParents?.length > 0) {
+      arr = req.body.selectedParents;
+    } else if (req.body.filtredGeoIds?.length > 0) {
+      arr = Array.isArray(req.body.filtredGeoIds)
+        ? req.body.filtredGeoIds
+        : [req.body.filtredGeoIds];
+    } else if (req.body.id) {
+      arr = [req.body.id];
+    }
+
+    // Fetch column names except 'geom'
+    const columnQuery = `
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = :table 
+        AND column_name != 'geom'
+    `;
+    const columns = await sequelize.query(columnQuery, {
+      replacements: { table: reg_model },
+      type: QueryTypes.SELECT,
+    });
+
+    const columnList = columns.map(col => `"${col.column_name}"`).join(', ');
+
+    const propertiesClause = `
+      json_strip_nulls(
+        row_to_json((
+          SELECT x FROM (
+            SELECT ${columnList}
+          ) x
+        ))
+      ) AS properties
+    `;
+
+    // Build filter clause
+    let filterClause = '';
+    if (arr.length > 0) {
+      const fields = Array.isArray(columnFilterField) ? columnFilterField : [columnFilterField];
+      const clauses = fields.map(field => `"${field}" IN (:values)`);
+      filterClause = `AND (${clauses.join(' OR ')})`;
+    }
+
+    const qry2 = `
+      SELECT row_to_json(fc) AS json_build_object
+      FROM (
+        SELECT 'FeatureCollection' AS type,
+               array_to_json(array_agg(f)) AS features
+        FROM (
+          SELECT 'Feature' AS type,
+                 ST_AsGeoJSON(geom, 8)::json AS geometry,
+                 ${propertiesClause}
+          FROM ${reg_model}
+          WHERE geom IS NOT NULL
+          ${filterClause}
+        ) AS f
+      ) AS fc
+    `;
+
+    const result_geo = await sequelize.query(qry2, {
+      replacements: { values: arr },
+      type: QueryTypes.SELECT,
+    });
+
+    res.status(200).send({
+      data: result_geo,
+      code: '0000',
+    });
+  } catch (error) {
+    console.error('Error in modelSelectParcelGeo:', error);
+    res.status(500).send({
+      code: 'SERVER_ERROR',
+      message: error.message,
+    });
+  }
+};
+
+
+
+
+
+exports.xmodelSelectParcelGeo = async (req, res) => {
   const reg_model = req.body.model;
   const columnFilterField = req.body.columnFilterField;
   let arr;

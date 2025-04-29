@@ -720,143 +720,10 @@ exports._modelImportDataUpsert = async (req, res) => {
   }
 };
 
-
-exports.odl_modelImportDataUpsert = async (req, res) => {
-  const reg_model = req.body.model;
-  const data = req.body.data;
-  const insertedDocuments = [];
-  const errors = [];
-
-  console.log('req.body.data', data);
-
-  try {
-    if (reg_model === 'project_task') {
-      // Step 1: First ensure all parent tasks are created
-      const parentTasks = {};
-      await Promise.all(
-        data.map(async (item) => {
-          try {
-            // Check if it's a parent task (has a unique code and no parentTaskId)
-            if (!item.parentTaskId && item.parent_task_code) {
-              // Only handle this if we haven't already processed this parent task code
-              if (!parentTasks[item.parent_task_code]) {
-                // Find or create the parent task based on task code
-                let parentTask = await db.models.project_task.findOne({
-                  where: { code: item.parent_task_code }, // Identify parent by code
-                });
-
-           // If parent task doesn't exist, create it
-                if (!parentTask) {
-                  console.log(`Parent task with code ${item.parent_task_code} not found in the database.`);
-
-                  // Try to find the parent task in the submitted array of data by matching the parent task code
-                  const parentTaskFromArray = data.find((parentItem) => parentItem.code === item.parent_task_code);
-
-                  if (parentTaskFromArray) {
-                    console.log(`Parent task found in submitted data with code ${item.parent_task_code}. Creating parent task from submitted data.`);
-                    
-                      
-                    // Create the parent task in the database using the data from the submitted array
-                    parentTask = await db.models.project_task.create(parentTaskFromArray);
-                  } else {
-                    console.log(`Parent task with code ${item.parent_task_code} not found in submitted data. Skipping task creation.`);
-                    throw new Error(`Parent task with code ${item.parent_task_code} not found in submitted data.`);
-                  }
-                }
+ 
 
 
-                // Store the parent task reference for reuse
-                parentTasks[item.parent_task_code] = parentTask;
-              }
-            }
-          } catch (err) {
-            errors.push(err.original || err.message);
-            console.log('Error while processing parent tasks:', err);
-          }
-        })
-      );
-
-      // Step 2: Now handle inserting/updating tasks (including subtasks)
-      await Promise.all(
-        data.map(async (item) => {
-          item.createdBy = req.thisUser.id;
-
-          try {
-            // If item is a subtask and references a parent task, set parentTaskId
-            if (!item.parentTaskId && item.parent_task_code) {
-              const parentTask = parentTasks[item.parent_task_code];
-              if (parentTask) {
-                item.parentTaskId = parentTask.id;
-              }
-            }
-
-            // Use upsert to insert or update the task based on task_code
-            const [insertedData, created] = await db.models[reg_model].upsert(item, {
-              where: { code: item.code }, // Identify task by task_code for upsert
-              returning: true, // Get the inserted/updated data
-            });
-
-            if (created) {
-              insertedDocuments.push(insertedData); // Add the inserted document to the array if it was created
-            }
-          } catch (err) {
-            errors.push(err.original || err.message);
-            console.log('Error while processing tasks:', err);
-          }
-        })
-      );
-    } else {
-      // Handle other models
-      await Promise.all(
-        data.map(async (item) => {
-          item.createdBy = req.thisUser.id;
-
-          try {
-            // Use upsert to insert or update depending on conflicts
-            const [insertedData, created] = await db.models[reg_model].upsert(item, {
-              returning: true, // Get the inserted/updated data
-            });
-
-            if (created) {
-              insertedDocuments.push(insertedData); // Add the inserted document to the array if it was created
-            }
-          } catch (err) {
-            errors.push(err.original || err.message);
-            console.log('Error while processing other models:', err);
-          }
-        })
-      );
-    }
-
-    // Check for errors and respond accordingly
-    if (errors.length > 0) {
-      let errorCodes = [...new Set(errors.map(error => error.code))];
-      let errorMsg = 'Import/Update failed for ' + errors.length + ' Records.';
-
-      if (errorCodes.includes("42P10")) {
-        errorMsg = 'There are one or more duplicate records';
-      }
-
-      res.status(500).send({ message: errorMsg });
-    } else {
-
-      updateStatus()
-      
-      res.status(200).send({
-        message: 'Import/Update Successful',
-        code: '0000',
-        insertedDocuments: insertedDocuments, // Add the inserted documents to the response
-      });
-    }
-  } catch (err) {
-    console.error('Unexpected error:', err);
-    res.status(500).send({ message: 'Internal Server Error', error: err.message });
-  }
-};
-
-
-
-exports.modelImportDataUpsert = async (req, res) => {
+exports.oldmodelImportDataUpsert = async (req, res) => {
   const reg_model = req.body.model;
   const data = req.body.data;
   const insertedDocuments = [];
@@ -941,6 +808,135 @@ exports.modelImportDataUpsert = async (req, res) => {
     // Response handling
     if (errors.length > 0) {
       const errorCodes = [...new Set(errors.map(e => e?.code || 'UNKNOWN'))];
+      const message = errorCodes.includes('42P10')
+        ? 'There are one or more duplicate records'
+        : `Import/Update failed for ${errors.length} records.`;
+
+      return res.status(500).send({ message, errors });
+    }
+
+    // Optional post-processing function
+    if (typeof updateStatus === 'function') updateStatus();
+
+    return res.status(200).send({
+      message: 'Import/Update Successful',
+      code: '0000',
+      insertedDocuments,
+    });
+
+  } catch (err) {
+    console.error('Unexpected error:', err);
+    return res.status(500).send({
+      message: 'Internal Server Error',
+      error: err.message,
+    });
+  }
+};
+
+
+exports.modelImportDataUpsert = async (req, res) => {
+  const reg_model = req.body.model;
+  const data = req.body.data;
+  const insertedDocuments = [];
+  const errors = [];
+  const BATCH_SIZE = 500; // Configurable batch size
+
+  try {
+    const currentUserId = req.thisUser.id;
+
+    if (reg_model === 'project_task') {
+      const taskMapByCode = {};
+      const parentCodes = new Set();
+
+      // Build a quick lookup map and collect parent codes
+      data.forEach((item) => {
+        if (item.code) taskMapByCode[item.code] = item;
+        if (item.parent_task_code) parentCodes.add(item.parent_task_code);
+      });
+
+      // Preload existing parent tasks in a single query
+      const existingParentTasks = await db.models.project_task.findAll({
+        where: { code: Array.from(parentCodes) },
+      });
+
+      const parentTasks = {};
+      existingParentTasks.forEach((task) => {
+        parentTasks[task.code] = task;
+      });
+
+      // Create missing parent tasks in batches
+      const parentCodesToCreate = Array.from(parentCodes).filter(
+        (code) => !parentTasks[code] && taskMapByCode[code]
+      );
+
+      for (let i = 0; i < parentCodesToCreate.length; i += BATCH_SIZE) {
+        const batch = parentCodesToCreate.slice(i, i + BATCH_SIZE);
+        await Promise.all(
+          batch.map(async (code) => {
+            try {
+              const parentData = { ...taskMapByCode[code], createdBy: currentUserId };
+              const newParent = await db.models.project_task.create(parentData);
+              parentTasks[code] = newParent;
+            } catch (err) {
+              console.error(`Error creating parent task for code: ${code}`, err);
+              errors.push(err.original || err.message);
+            }
+          })
+        );
+      }
+
+      // Handle insert/update for all tasks in batches
+      for (let i = 0; i < data.length; i += BATCH_SIZE) {
+        const batch = data.slice(i, i + BATCH_SIZE);
+        await Promise.all(
+          batch.map(async (item) => {
+            try {
+              item.createdBy = currentUserId;
+
+              if (!item.parentTaskId && item.parent_task_code && parentTasks[item.parent_task_code]) {
+                item.parentTaskId = parentTasks[item.parent_task_code].id;
+              }
+
+              const [inserted, created] = await db.models.project_task.upsert(item, {
+                returning: true,
+                conflictFields: ['code'], // Ensures upsert behavior
+              });
+
+              insertedDocuments.push(inserted);
+            } catch (err) {
+              console.error('Task upsert error:', err);
+              errors.push(err.original || err.message);
+            }
+          })
+        );
+      }
+
+    } else {
+      // Generic model handling in batches
+      for (let i = 0; i < data.length; i += BATCH_SIZE) {
+        const batch = data.slice(i, i + BATCH_SIZE);
+        await Promise.all(
+          batch.map(async (item) => {
+            try {
+              item.createdBy = currentUserId;
+
+              const [inserted, created] = await db.models[reg_model].upsert(item, {
+                returning: true,
+              });
+
+              insertedDocuments.push(inserted);
+            } catch (err) {
+              console.error(`Error in ${reg_model} upsert:`, err);
+              errors.push(err.original || err.message);
+            }
+          })
+        );
+      }
+    }
+
+    // Response handling
+    if (errors.length > 0) {
+      const errorCodes = [...new Set(errors.map((e) => e?.code || 'UNKNOWN'))];
       const message = errorCodes.includes('42P10')
         ? 'There are one or more duplicate records'
         : `Import/Update failed for ${errors.length} records.`;
