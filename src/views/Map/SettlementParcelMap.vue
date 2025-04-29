@@ -311,11 +311,12 @@ const fetchPointGeoFeatures = async () => {
 
 const downloadGeoJSON = () => {
   ElMessage({ message: 'Downloading GeoJSON...', type: 'warning' })
+  console.log(polygons.value)
   const features = polygons.value.map((polygon) => ({
     type: 'Feature',
     geometry: {
       type: 'Polygon',
-      coordinates: [polygon.paths[0].map((p: { lat: number; lng: number }) => [p.lng, p.lat])]
+      coordinates: [polygon.paths.map((p: { lat: number; lng: number }) => [p.lng, p.lat])]
     },
     properties: polygon.properties
   }))
