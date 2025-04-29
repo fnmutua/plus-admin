@@ -1379,8 +1379,9 @@ const toggleImageryGroup = (selected: string[]) => {
             <div style="max-width: 400px; height:250px">
               <!-- Centered and Uppercased Header -->
               <div style="font-size: 16px; font-weight: bold; margin-bottom: 10px; text-align: center; text-transform: uppercase;">
-                {{ selectedFeature?.properties?.featureType || 'Unknown Feature' }}
+                {{ (selectedFeature?.properties?.featureType || 'Unknown Feature').replace(/_/g, ' ') }}
               </div>
+
 
               <!-- Table displaying the properties -->
               <el-table :data="filteredProperties" border style="width: 100%;">
@@ -1399,7 +1400,10 @@ const toggleImageryGroup = (selected: string[]) => {
       </GoogleMap>
 
       <div id="floating-div">
-        <ElCollapse accordion>
+        <div style="text-align: center; font-weight: bold;">
+          <h1 style="margin: 0; font-weight: bold;">KEY</h1>
+        </div>
+          <ElCollapse accordion>
           <ElCollapseItem title="Parcels" v-if="availableLayers.includes('parcels') || availableLayers.includes('parcelLabels')">
             <div style="display: flex; flex-direction: column; gap: 2px;">
               <ElCheckbox v-if="availableLayers.includes('parcels')" v-model="parcelsVisible" @change="toggleParcels">
@@ -1452,7 +1456,7 @@ const toggleImageryGroup = (selected: string[]) => {
             </div>
           </ElCollapseItem>
 
-          <ElCollapseItem title="Imagery" >
+          <ElCollapseItem  v-if="selectedImageryLayers.length>0"  title="Imagery" >
             <ElCheckboxGroup v-model="selectedImageryLayers" @change="toggleImageryGroup">
                 <div style="display: flex; flex-direction: column; gap: 2px;">
                     <ElCheckbox
@@ -1489,6 +1493,8 @@ const toggleImageryGroup = (selected: string[]) => {
 
 .map-container {
   position: relative;
+  height: 75vh;
+
 }
 
 #floating-div {
