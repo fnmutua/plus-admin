@@ -170,7 +170,7 @@ const fetchParcels = async () => {
     const formData = {
       model: 'parcel',
       columnFilterField: 'settlement_id',
-      selectedParents: id,
+      selectedParents: [id],
       filtredGeoIds: [id]
     }
     const res = await getfilteredParcelGeo(formData)
@@ -207,7 +207,7 @@ const fetchParcels = async () => {
 const fetchRoads = async () => {
   try {
     const id = route.params.id
-    const formData = { model: 'road', columnFilterField: 'settlement_id', selectedParents: id, filtredGeoIds: [id] }
+    const formData = { model: 'road', columnFilterField: 'settlement_id', selectedParents: [id], filtredGeoIds: [id] }
     const res = await getfilteredParcelGeo(formData)
     if (res.data[0]?.json_build_object?.features) {
       return turf.featureCollection(res.data[0].json_build_object.features)
@@ -229,7 +229,7 @@ const fetchRoads = async () => {
 const fetchStructures = async () => {
   try {
     const id = route.params.id
-    const formData = { model: 'structure', columnFilterField: 'settlement_id', selectedParents: id, filtredGeoIds: [id] }
+    const formData = { model: 'structure', columnFilterField: 'settlement_id', selectedParents: [id], filtredGeoIds: [id] }
     const res = await getfilteredParcelGeo(formData)
    
     if (res.data[0]?.json_build_object?.features) {
