@@ -98,6 +98,10 @@ module.exports = function (sequelize, DataTypes) {
         allowNull: true
       }, 
 
+      reffered_to_officer: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      }, 
 
       field_investigations: {
         type: DataTypes.STRING,

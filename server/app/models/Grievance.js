@@ -130,6 +130,13 @@ module.exports = function (sequelize) {
         type: DataTypes.DATE,
         allowNull: true
       },
+
+      reffered_to_officer: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      }, 
+
+      
       code: {
         type: DataTypes.STRING,
         allowNull: false,

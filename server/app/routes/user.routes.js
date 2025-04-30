@@ -16,6 +16,11 @@ module.exports = function(app) {
   app.post("/api/v1/user/all", [authJwt.verifyToken, authJwt.isStaffOrAdmin],controller.modelAllUsers);
   app.post("/api/v1/user/county", [authJwt.verifyToken, authJwt.isAdminOrCountyAdmin],controller.modelCountyUsers);
   app.post("/api/v1/user/grm", [authJwt.verifyToken, authJwt.isAdminOrCountyAdmin],controller.modelGRMUsers);
+  app.post("/api/v1/user/grm/location", [authJwt.verifyToken, authJwt.isAdminOrCountyAdmin],controller.getGRMUsersByLocation);
+
+  
+
+
   app.post("/api/v1/user/admin", [authJwt.verifyToken, authJwt.isAdminOrCountyAdmin],controller.modelAdminUsers);
 
   

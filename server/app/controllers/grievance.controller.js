@@ -2556,6 +2556,10 @@ exports.modelImportGrievances = async (req, res) => {
         // Update the grievance status
         grievance.status = newStatus;
         grievance.current_level = current_level;
+        grievance.reffered_to_officer = req.body.reffered_to_officer;
+
+ 
+
         await grievance.save(); // Save the updated grievance
 
         let msg_obj = {}

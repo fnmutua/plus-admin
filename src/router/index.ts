@@ -1300,14 +1300,27 @@ export const adminRoutes: AppRouteRecordRaw[] = [
        {
         path: 'grv',
         component: () => import('@/views/Grievances/Open.vue'),
-       name: 'OpenGrievances',
-       meta: {
-         title: 'Grievances',
-         icon:'oui:security-signal',
-         role: ['root_admin',  'super_admin', 'grm' ] ,
-         locationLevel:['national','county','settlement'],
+        name: 'OpenGrievances',
+        meta: {
+          title: 'Grievances',
+          icon:'oui:security-signal',
+          role: ['root_admin',  'super_admin', 'grm' ] ,
+          locationLevel:['national','county','settlement'],
 
-       }
+        }
+       },
+
+       {
+        path: 'referred',
+        component: () => import('@/views/Grievances/Referred.vue'),
+        name: 'ReferredGrievances',
+        meta: {
+          title: 'Referred Grievances',
+          icon:'oui:security-signal',
+          role: ['root_admin',  'super_admin', 'grm' ] ,
+          locationLevel:['national','county' ],
+
+        }
        },
 
        {

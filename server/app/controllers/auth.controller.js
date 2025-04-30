@@ -1570,25 +1570,53 @@ exports.signupGRC = async (req, res) => {
       const location_id = req.body.location_id;
       const location_field = req.body.location_field;
 
-      // Check if all required fields are present
-      if (location_level && location_id && location_field) {
-        return db.models.user_roles.update(
-          {
-            location_level: location_level,
-            [location_field]: location_id,
-          },
-          { where: { userid: user.id, roleid: role.id } }
-        );
-      } else {
-        console.log(`Skipping role update for role ${role.name} due to missing fields.`);
-        return db.models.user_roles.update(
-          {
-            location_level: null,
-            [location_field]: null,
-          },
-          { where: { userid: user.id, roleid: role.id } }
-        );
-      }
+      // // Check if all required fields are present
+      // if (location_level && location_id && location_field) {
+      //   return db.models.user_roles.update(
+      //     {
+      //       location_level: location_level,
+      //       [location_field]: location_id,
+      //     },
+      //     { where: { userid: user.id, roleid: role.id } }
+      //   );
+      // } else {
+      //   console.log(`Skipping role update for role ${role.name} due to missing fields.`);
+      //   return db.models.user_roles.update(
+      //     {
+      //       location_level: null,
+      //       [location_field]: null,
+      //     },
+      //     { where: { userid: user.id, roleid: role.id } }
+      //   );
+      // }
+
+              // Check if all required fields are present or if it's a national level
+        if (location_level === 'national') {
+          return db.models.user_roles.update(
+            {
+              location_level: 'national',
+              [location_field]: null, // Explicitly set to null for national level
+            },
+            { where: { userid: user.id, roleid: role.id } }
+          );
+        } else if (location_level && location_id && location_field) {
+          return db.models.user_roles.update(
+            {
+              location_level: location_level,
+              [location_field]: location_id,
+            },
+            { where: { userid: user.id, roleid: role.id } }
+          );
+        } else {
+          console.log(`Skipping role update for role ${role.name} due to missing fields.`);
+          return db.models.user_roles.update(
+            {
+              location_level: null,
+              [location_field]: null,
+            },
+            { where: { userid: user.id, roleid: role.id } }
+          );
+        }
     });
 
     // Execute all location updates
@@ -1631,6 +1659,7 @@ exports.signupGRC = async (req, res) => {
       message: 'User registered successfully!',
       code: '0000',
       data: otpCode,
+      user:user
     });
 
   } catch (error) {

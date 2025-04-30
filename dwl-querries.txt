@@ -313,3 +313,25 @@ WHERE EXISTS (
 
 
 DROP TABLE road CASCADE;
+
+
+
+
+ALTER TABLE user_roles 
+ ALTER COLUMN location_id TYPE INTEGER USING (CAST(location_id AS INTEGER)) ;
+
+ ALTER TABLE user_roles 
+ALTER COLUMN settlement_id TYPE INTEGER USING (CAST(settlement_id AS INTEGER)) ;
+
+ALTER TABLE user_roles 
+ ALTER COLUMN county_id TYPE INTEGER USING (CAST(county_id AS INTEGER));
+
+
+ ALTER TABLE grievance_log 
+ADD COLUMN reffered_to_officer INTEGER  
+
+
+
+ ALTER TABLE grievance 
+ADD COLUMN reffered_to_officer INTEGER  
+

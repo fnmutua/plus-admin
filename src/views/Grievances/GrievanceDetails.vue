@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, computed } from 'vue'
 import {
-  ElButton, ElTimeline, ElTimelineItem, ElCol, ElRow, ElForm, ElFormItem, ElInput, ElUpload, ElMessage,ElPopconfirm,
+  ElButton, ElTimeline, ElTimelineItem, ElCol, ElRow, ElForm, ElFormItem, ElInput, ElUpload, ElMessage,ElPopconfirm, 
   ElCard, ElTabs, ElTabPane, ElTable, ElTableColumn, ElTooltip, ElDialog, ElSelect, ElOption, ElIcon, ElCollapse, ElCollapseItem, ElSwitch, ElDatePicker,
 } from 'element-plus'
 // Locally
@@ -26,6 +26,7 @@ import {
 import { getCountyAuth, getSettlementByCountyAuth } from '@/api/register'
 import type { UploadUserFile } from 'element-plus'
 
+import {   getGRMStaffByLocation } from '@/api/users'
 
 
 import { ref } from 'vue'
@@ -38,6 +39,9 @@ import { useRouter } from 'vue-router'
 import { useCache } from '@/hooks/web/useCache'
 import { useAppStoreWithOut } from '@/store/modules/app'
 
+import {
+  signupGRC
+} from '@/api/register'
 
 
 const { wsCache } = useCache()
@@ -143,7 +147,10 @@ const StatusOptions = ref([
     value: 'Investigation',
     label: 'Investigate Grievance',
   },
-
+  {
+    value: 'Under Review',
+    label: 'Under Review (in progress)',
+  },
   {
     value: 'Escalated',
     label: 'Escalate/Refer Grievance',
@@ -228,8 +235,6 @@ const processGrievance = async() => {
     button_disabled.value = true
   } 
 
-  //'Sorting', 'Investigation', 'Rejected', 'Resolved', 'Escalated','Referred', 'Closed'
-
   if (Grievance.value.status == 'Sorting') {
     button_label.value = 'Review and Sort';
     button_color.value = 'primary';
@@ -245,10 +250,17 @@ const processGrievance = async() => {
         label: 'Investigating Grievance',
       },
 
-
+      {
+    value: 'Under Review',
+    label: 'Under Review (in progress)',
+    },
       {
         value: 'Escalated',
-        label: 'Escalate/Refer Grievance',
+        label: 'Escalate',
+      },
+      {
+        value: 'Referred',
+        label: 'Refer Grievance',
       },
       {
         value: 'Resolved',
@@ -276,12 +288,45 @@ const processGrievance = async() => {
       },
       {
         value: 'Escalated',
-        label: 'Escalate/Refer Grievance',
+        label: 'Escalate',
       },
-
+      {
+    value: 'Under Review',
+        label: 'Under Review (in progress)',
+      },
       {
         value: 'Referred',
-        label: 'Refer to Court',
+        label: 'Refer Grievance',
+      },
+      {
+        value: 'Rejected',
+        label: 'Reject Grievance',
+      },
+    ]
+  }
+
+  else if (Grievance.value.status == 'Under Review') {
+    button_label.value = 'Review Status';
+    button_color.value = 'warning';
+    button_icon.value = 'icon-park-solid:preview-open';
+
+    StatusOptions.value = [
+    {
+    value: 'Under Review',
+    label: 'Under Review (in progress)',
+  },
+      {
+        value: 'Resolved',
+        label: 'Resolve Grievance',
+      },
+      {
+        value: 'Escalated',
+        label: 'Escalate',
+      },
+     
+      {
+        value: 'Referred',
+        label: 'Refer Grievance',
       },
       {
         value: 'Rejected',
@@ -304,15 +349,18 @@ const processGrievance = async() => {
         value: 'Investigation',
         label: 'Investigating Grievance',
       },
-
+      {
+    value: 'Under Review',
+        label: 'Under Review (in progress)',
+      },
       {
         value: 'Escalated',
-        label: 'Escalate/Refer Grievance',
+        label: 'Escalate',
       },
 
       {
         value: 'Referred',
-        label: 'Refer to Court',
+        label: 'Refer Grievance',
       },
       {
         value: 'Rejected',
@@ -346,8 +394,66 @@ const processGrievance = async() => {
     }
   }
 
+  else if (Grievance.value.status == 'Referred') {
+    button_label.value = 'Review Status';
+    button_color.value = 'warning';
+    button_icon.value = 'icon-park-solid:preview-open';
 
-  else if (Grievance.value.status == 'Referred' || Grievance.value.status == 'ExternalReferral'  ) {
+    StatusOptions.value = [
+      {
+        value: 'Resolved',
+        label: 'Resolve Grievance',
+      },
+      {
+        value: 'Investigation',
+        label: 'Investigating Grievance',
+      },
+      {
+    value: 'Under Review',
+        label: 'Under Review (in progress)',
+      },
+      {
+        value: 'Escalated',
+        label: 'Escalate',
+      },
+
+      {
+        value: 'Referred',
+        label: 'Refer Grievance',
+      },
+      {
+        value: 'Rejected',
+        label: 'Reject Grievance',
+      },
+    ]
+
+
+
+     // If grievance is at national level, remove some options
+     if (Grievance.value.current_level === 'national') {
+        StatusOptions.value = StatusOptions.value.filter(option => 
+          option.value !== 'Escalated' && option.value !== 'Referred'
+        );
+
+           // Add option to send back to county
+     StatusOptions.value.push({
+          value: 'Returned',
+          label: 'Send Back to County',
+        });
+    }
+  
+
+       // If grievance is at county level
+       if (Grievance.value.current_level === 'county') {
+        // Add option to send back to settlement
+        StatusOptions.value.push({
+          value: 'Returned',
+          label: 'Send Back to Settlement',
+        });
+    }
+  }
+
+  else if (  Grievance.value.status == 'ExternalReferral'  ) {
     button_label.value = 'Review Status';
     button_color.value = 'warning';
     button_icon.value = 'icon-park-solid:preview-open';
@@ -360,8 +466,6 @@ const processGrievance = async() => {
       }
     ]
   }
-
-
 
   else if (Grievance.value.status == 'In Court') {
     button_label.value = 'Review Status';
@@ -375,12 +479,7 @@ const processGrievance = async() => {
       }
     ]
   }
-
-
-
-
-
-
+ 
   else if (Grievance.value.status == 'Closed') {
     button_label.value = 'Review Status';
     button_color.value = 'warning';
@@ -393,7 +492,6 @@ const processGrievance = async() => {
       }
 
     ]
-
 
 
   }
@@ -418,7 +516,7 @@ const processGrievance = async() => {
 
   }
 
-  // current status = rejected
+ 
   else {
     button_label.value = 'Review Status';
     button_color.value = 'warning';
@@ -582,9 +680,49 @@ editHistory.value = rawHistory.map((record) => {
 
 }
 
+const grmUsers=ref([])
+const getGRMUsers = async () => {
+ 
+  const formData = {}
+ 
+  formData.model = 'users'
+ 
+  // - multiple filters -------------------------------------
+  formData.filters = []
+  formData.filterValues = []
+  formData.associated_multiple_models = ['settlement']
+  formData.currentUser = currentUser
+  formData.county_id = FullGrievanceData.value.county_id
+  formData.settlement_id = FullGrievanceData.value.settlement_id
+  formData.currentUser = currentUser
+  formData.limit = 10000
+  
+  
+
+  //-------------------------
+  console.log('gettign getGRMStaff users --->', formData)
+  const res = await getGRMStaffByLocation(formData)
+
+  console.log('After getting getGRMStaff users', res)
+   
+
+  // Assuming res.data is an array of objects with name and phone
+    grmUsers.value = res.data.map(user => ({
+    label: user.name  + ' (' + user.phone  + ')' ,
+    value: user.id,
+  }));
+
+ 
+ 
+}
+const currentUser = wsCache.get(appStore.getUserInfo)
+
+
 onMounted(async () => {
   await processGrievance()
+  await getGRMUsers()
   await getGrievanceHistory(route.params.id)
+
 })
 
 
@@ -658,6 +796,7 @@ const form = ref({
   action_by: null,
   action: null,
   reffered_to: null,
+  reffered_to_officer: null,
   date_actioned: null,
   prev_status: null,
   new_status: null,
@@ -815,17 +954,16 @@ const submitResolutionForm = async () => {
         new_status: form.value.new_status,
         recipient: Grievance.value.phone,
         grievance_id: Grievance.value.id,
-        //action: form.value.action,
         action: msg,
         current_level: form.value.current_level,
         current_status_date: new Date(),
-        status_expiry_date: new Date() + getStageDuration(form.value.new_status), 
+        status_expiry_date: new Date(Date.now() + getStageDuration(form.value.new_status)),
         action_by: userInfo.id,
         action_level: current_user_roles[0] ? current_user_roles[0] : 'settlement',
-
+        reffered_to_officer: form.value.reffered_to_officer , // Extract id or set to null
       };
 
-
+      console.log('Udpate GRVs',formData)
       /// udpate the status
       const updatedGrievance = await updateGrievanceStatus(formData)
 
@@ -1254,6 +1392,12 @@ const RevertEdits = async (data: TableSlotDefault) => {
 const rules = computed(() => ({
   action: [{ required: true, message: "Action is required", trigger: "blur" }],
   reffered_to: [{ required: true, message: "Name of organization is required", trigger: "blur" }],
+  reffered_to_officer: [{ required: true, message: "The officer is required", trigger: "blur" }],
+
+
+  
+
+
   new_status: [{ required: true, message: "Status is required", trigger: "blur" }],
   field_investigations: [{ required: true, message: "This is required", trigger: "blur" }],
   agreement_reached: [{ required: true, message: "This is required", trigger: "blur" }],
@@ -1300,6 +1444,73 @@ const sendReminder =async (row) => {
 };
 
 
+function convertPhoneNumber(number) {
+  // Remove leading plus sign (+) and any spaces
+  number = number.replace(/\+/g, '').trim();
+
+  // Check if the number starts with "254" or "+254"
+  if (number.startsWith('254')) {
+      // Replace "254" with "0"
+      number = '0' + number.substring(3);
+  }
+
+  return number;
+}
+
+
+const isAdding = ref(false)
+const optionName = ref('')
+const optionPhone = ref('')
+const onAddOption = () => {
+  isAdding.value = true
+}
+
+const onConfirm = () => {
+
+  console.log('Submit to create account')
+  if (optionName.value &&  optionPhone.value) {
+     
+    const formData = {
+    username: optionPhone.value,
+    name: optionName.value,
+    phone: optionPhone.value,
+    password: "User@2025",
+    role: ["grm"],
+    location_level: "national",
+    location_id: optionPhone.value,
+    location_field: "national",
+
+   
+  };
+
+  console.log()
+  signupGRC(formData).then((response) => {
+    console.log(response);
+    if (optionName.value && optionPhone.value) {
+      grmUsers.value.push({
+        label: optionName.value + '(' + optionPhone.value + ')',
+        value: response.user.id,
+      })
+     // clear()
+    }
+
+  });
+
+  
+ 
+  }
+
+  
+
+
+
+
+}
+
+const clear = () => {
+  optionName.value = ''
+  isAdding.value = false
+}
 
 </script>
 
@@ -1403,8 +1614,8 @@ class="notification-custom-card" shadow="hover" :class="log.action_type === 'Res
                 log.action_type === 'Closed' ? 'closed-background' :
                   'info-background'">
                   <div class="notification-container">
-                    <el-row align="middle" :gutter="20">
-                      <el-col :xs="24" :sm="24" :md="14" :lg="14" :xl="14" :gutter="10">
+                    <el-row align="middle" :gutter="10">
+                      <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" :gutter="10">
                         <!-- <p class="action-header">{{log.action_type}} </p> -->
                         <p class="action-body"> Comments: {{ log.action ? log.action : 'None' }}</p>
                         <p class="action-footer">By: {{ log.user ? log.user.name : 'System' }}</p>
@@ -1544,6 +1755,48 @@ width="340"
       </el-form-item>
 
 
+      <el-form-item label="Select Officer" label-position="top" prop="reffered_to_officer"  v-if="form.new_status == 'Referred'" >
+     
+
+
+        <el-select v-model="form.reffered_to_officer"  clearable filterable   placeholder="Select Officer"  style="width: 100%">
+                <el-option
+                  v-for="item in grmUsers"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                />
+                <template #footer>
+                  <el-button v-if="!isAdding" text bg size="small" @click="onAddOption">
+                    Add Officer
+                  </el-button>
+                  <template v-else>
+                    <el-input
+                      v-model="optionName"
+                      class="option-input"
+                      placeholder="Name"
+                      size="small"
+                    />
+                    <el-input
+                      v-model="optionPhone"
+                      class="option-input"
+                      placeholder="Phone"
+                      size="small"
+                    />
+                    <el-button type="primary" size="small" @click="onConfirm">
+                      confirm
+                    </el-button>
+                    <el-button size="small" @click="clear">cancel</el-button>
+                  </template>
+                </template>
+              </el-select>
+
+
+      </el-form-item>
+
+
+
+
       <el-row :gutter="2" v-if="form.new_status == 'Resolved'">
         <el-col :xs="8" :sm="8" :md="8" :lg="8" :xl="8">
           <el-form-item label="Was Filer Present? " label-position="top" prop="filer_present">
@@ -1660,7 +1913,6 @@ class="upload-demo" action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80
       <el-button type="primary" @click="submitResolutionForm">Submit</el-button>
     </div>
   </el-dialog>
-
 
 
 
@@ -1887,7 +2139,7 @@ class="upload-demo" action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80
                  </div>
               </div>
             </template>
-            </el-dialog>
+ </el-dialog>
 
 
 </template>
@@ -2242,5 +2494,10 @@ class="upload-demo" action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80
   border-radius: 5px;
   /* Round the corners */
 
+}
+
+.option-input {
+  width: 100%;
+  margin-bottom: 8px;
 }
 </style>
