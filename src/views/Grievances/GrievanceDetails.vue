@@ -153,7 +153,7 @@ const StatusOptions = ref([
   },
   {
     value: 'Escalated',
-    label: 'Escalate/Refer Grievance',
+    label: 'Escalate ',
   },
   {
     value: 'Resolved',
@@ -170,7 +170,7 @@ const StatusOptions = ref([
 
   {
     value: 'Referred',
-    label: 'Refer to Court',
+    label: 'Refer Grievance',
   },
   {
     value: 'Closed',
@@ -267,10 +267,7 @@ const processGrievance = async() => {
         label: 'Resolve Grievance',
       },
 
-      {
-        value: 'Referred',
-        label: 'Refer to Court',
-      },
+      
 
     ]
 
@@ -506,11 +503,7 @@ const processGrievance = async() => {
         value: 'Closed',
         label: 'Close Grievance',
       },
-      {
-        value: 'Referred',
-        label: 'Refer to Court',
-      }
-
+    
     ]
 
 
@@ -543,7 +536,7 @@ const processGrievance = async() => {
 
       {
         value: 'Referred',
-        label: 'Refer to Court',
+        label: 'Refer Grievance',
       },
       {
         value: 'Closed',
