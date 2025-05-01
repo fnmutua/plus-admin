@@ -1513,6 +1513,25 @@ db.models.settlement.hasMany(db.models.grievance, {
   foreignKey: 'settlement_id'
 })
 
+
+
+
+
+db.models.grievance.belongsTo(db.models.users, {
+  foreignKey: 'reffered_to_officer',
+})
+
+db.models.users.hasMany(db.models.grievance, {
+  foreignKey: 'reffered_to_officer'
+})
+
+
+
+
+
+
+
+
  
 // Grievance Actions belongs to Grievance
 db.models.grievance_log.belongsTo(db.models.grievance, {

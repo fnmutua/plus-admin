@@ -354,9 +354,9 @@ const  filterValues=ref([['Referred'],[userInfo.id]])
 const  filterFunction=ref(['in'])
 
 
-var tblData = []
+ 
 const associated_Model = ''
-const associated_multiple_models = ['county', 'settlement', 'grievance_document']
+const associated_multiple_models = ['county', 'settlement', 'grievance_document', 'users']
 const model = 'grievance'
 //// ------------------parameters -----------------------////
 
@@ -2012,12 +2012,19 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
 
  
 
-  
-        <el-table
-v-loading="loading"
-:data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"  show-overflow-tooltip
-          :max-height="pageHeight" @row-click="handleRowDblClick" border :row-class-name="tableRowClassName">
-          <el-table-column label="#" width="80" prop="id" sortable>
+      
+      <el-table
+          v-loading="loading"
+          :data="tableDataList"
+          style="width: 100%; margin-top: 10px;"
+          show-overflow-tooltip
+          :max-height="pageHeight"
+          @row-click="handleRowDblClick"
+          border
+          :row-class-name="tableRowClassName"
+          :table-layout="'auto'"
+        >
+          <el-table-column label="#" min-width="60" prop="id" sortable  v-if="!isMobile">
             <template #default="scope">
               <div v-if="scope.row.grievance_documents.length > 0" style="display: inline-flex; align-items: center;">
                 <span>{{ scope.row.id }}</span>
@@ -2025,41 +2032,41 @@ v-loading="loading"
               </div>
             </template>
           </el-table-column>
-          <el-table-column prop="date" label="Date Reported" sortable width="150">
-            <!-- Use a scoped slot to customize the rendering of the date column -->
+          <el-table-column prop="date" label="Date" sortable min-width="100" v-if="!isMobile">
             <template #default="scope">
               <span>{{ formatDate(scope.row.date_reported) }}</span>
             </template>
           </el-table-column>
-
-          <el-table-column prop="status" label="Status" width="100" sortable>
+          <el-table-column prop="status" label="Status" min-width="80" sortable>
             <template #default="scope">
               <el-tag
-:type="scope.row.status == 'Closed' ? 'info'
-            : scope.row.status == 'Escalated' ? 'secondary'
-              : scope.row.status == 'Referred' ? 'warning'
-                : scope.row.status == 'Rejected' ? 'danger'
-                  : 'success'" disable-transitions>{{ scope.row.status }}
+                :type="scope.row.status == 'Closed' ? 'info'
+                  : scope.row.status == 'Escalated' ? 'secondary'
+                  : scope.row.status == 'Referred' ? 'warning'
+                  : scope.row.status == 'Rejected' ? 'danger'
+                  : 'success'"
+                disable-transitions
+              >
+                {{ scope.row.status }}
               </el-tag>
             </template>
           </el-table-column>
-          
-          <el-table-column label="Code" prop="code" sortable width="150" />
-          <el-table-column label="Level" prop="current_level" sortable width="150" />
-          <el-table-column label="Complainant" prop="name" sortable width="150" />
-          <el-table-column label="Reported By" width="150">
+          <el-table-column label="Code" prop="code" sortable min-width="100" />
+          <el-table-column label="Complainant" prop="name" sortable min-width="100" />
+          <el-table-column label="Reported By" min-width="100" v-if="!isMobile">
             <template #default="scope">
               <span v-if="scope.row.self_reported === true">Self</span>
               <span v-else>{{ scope.row.reporter_name }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="Description" prop="description" sortable width="350" />
-          <el-table-column label="Location" sortable width="350">
+          <el-table-column label="Referred to" prop="user.name" min-width="100" v-if="!isMobile" />
+          <el-table-column label="Description" prop="description" sortable min-width="150" v-if="!isMobile" />
+          <el-table-column label="Location" sortable min-width="150" v-if="!isMobile">
             <template #default="scope">
               <span>{{ scope.row.settlement.name }}, {{ scope.row.county.name }}</span>
             </template>
           </el-table-column>
-          <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
+          <el-table-column fixed="right" label="Actions" :min-width="isMobile ? 80 : 120">
             <template #default="scope">
               <el-dropdown v-if="isMobile">
                 <span class="el-dropdown-link">
@@ -2068,24 +2075,39 @@ v-loading="loading"
                 <template #dropdown>
                   <el-dropdown-menu>
                     <el-dropdown-item
-v-if="showEditButtons" @click="editIndicator(scope as TableSlotDefault)"
-                      :icon="Edit" color="green">Edit</el-dropdown-item>
+                      v-if="showEditButtons"
+                      @click="editIndicator(scope as TableSlotDefault)"
+                      :icon="Edit"
+                      color="green"
+                    >
+                      Edit
+                    </el-dropdown-item>
                     <el-dropdown-item
-v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
-                      :icon="Delete" color="red">Delete</el-dropdown-item>
+                      v-if="showAdminButtons"
+                      @click="DeleteIndicator(scope.row as TableSlotDefault)"
+                      :icon="Delete"
+                      color="red"
+                    >
+                      Delete
+                    </el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
               <div v-else>
-                <el-button size="small" type="primary" plain :icon="Position" @click="getGrievanceDetails(scope)">
+                <el-button
+                  size="small"
+                  type="primary"
+                  plain
+                  :icon="Position"
+                  @click="getGrievanceDetails(scope)"
+                >
                   More
                 </el-button>
               </div>
             </template>
           </el-table-column>
         </el-table>
-        <ElPagination
-:layout="paginationLayout" v-model:currentPage="currentPage" :pager-count="pagerCount"
+          <ElPagination :layout="paginationLayout" v-model:currentPage="currentPage" :pager-count="pagerCount"
           v-model:page-size="pageSize" :page-sizes="[5, 8, 10, 20, 50, 200, 10000]" :total="total" :background="true"
           @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
   

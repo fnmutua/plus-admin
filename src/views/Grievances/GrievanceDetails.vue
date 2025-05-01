@@ -903,6 +903,7 @@ const submitResolutionForm = async () => {
       form.value.date_actioned = new Date();
       form.value.prev_status = Grievance.value.status
       form.value.action_level = current_user_roles[0] ? current_user_roles[0] : 'settlement'
+      form.value.action =  'testing referral'
 
       let msg = ''
       if (form.value.new_status == 'Escalated') {
@@ -923,16 +924,21 @@ const submitResolutionForm = async () => {
           msg = "Your grievance has been referred to the county team for resolution.";
         }
       } 
+ 
       else {
         form.value.current_level = Grievance.value.current_level;
         msg = form.value.action;
       }
 
 
-      console.log("checking issue.............")
+      
       console.log(form.value.new_status)
       console.log(form.value.current_level)
       console.log(Grievance.value.current_level)
+
+      form.value.action = 'Referred to ' + officerLabel.value +' : ' + form.value.action;
+
+      console.log("checking issue.............",form.value)
       // Log the action 
 
       const res = await logGrievanceAction(form.value)
@@ -1505,6 +1511,14 @@ const clear = () => {
   isAdding.value = false
 }
 
+
+const officerLabel=ref()
+const handleOfficerChange = (value) => {
+    const selected = grmUsers.value.find(opt => opt.value === value);
+    officerLabel.value = selected ? selected.label : '';
+  };
+
+
 </script>
 
 <template>
@@ -1523,35 +1537,51 @@ const clear = () => {
     <el-tabs v-model="activeName" type="border-card" class="demo-tabs">
       <el-tab-pane label="Grievance Details" name="details">
 
-        <el-card>
-          <el-table :data="grievanceData" style="width: 100%" size="small">
-            <el-table-column prop="label" label="" width="150">
-              <template #default="{ row }">
-                <span style="font-weight: bold">{{ row.label }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column prop="value" label="" />
-          </el-table>
+        <el-card class="responsive-card">
+  <el-table
+    :data="grievanceData"
+    style="width: 100%"
+    size="small"
+    :table-layout="'auto'"
+    show-overflow-tooltip
+  >
+    <el-table-column prop="label" label="" min-width="100">
+      <template #default="{ row }">
+        <span style="font-weight: bold">{{ row.label }}</span>
+      </template>
+    </el-table-column>
+    <el-table-column prop="value" label="" />
+  </el-table>
 
-          <template #header v-if="showActionButton" >
-            <div  class="dialog-footer">
-              <el-tooltip
-content="Close the grievance if all issues have been resolved and complainant satisfied"
-                placement="top">
-                <el-button :disabled="button_disabled" :type="button_color" @click="dialogFormVisible = true">
-                  <Icon :icon="button_icon" /> {{ button_label }}
-                </el-button>
-              </el-tooltip>
-              <el-button 
-                v-if="shouldShowReminder"
-                   type="warning" 
-                   plain 
-                  @click="sendReminder(FullGrievanceData)">
-                  <Icon :icon="'icon-park-outline:remind'" style="margin-right: 10px;"/>  Send Reminder
-                </el-button>
-            </div>
-          </template>
-        </el-card>
+  <template #header v-if="showActionButton">
+    <div class="dialog-footer">
+      <el-tooltip
+        content="Close the grievance if all issues have been resolved and complainant satisfied"
+        placement="top"
+      >
+        <el-button
+          :disabled="button_disabled"
+          :type="button_color"
+          @click="dialogFormVisible = true"
+          size="small"
+          class="responsive-button"
+        >
+          <Icon :icon="button_icon" /> {{ button_label }}
+        </el-button>
+      </el-tooltip>
+      <el-button
+        v-if="shouldShowReminder"
+        type="warning"
+        plain
+        @click="sendReminder(FullGrievanceData)"
+        size="small"
+        class="responsive-button"
+      >
+        <Icon :icon="'icon-park-outline:remind'" style="margin-right: 10px;" /> Send Reminder
+      </el-button>
+    </div>
+  </template>
+</el-card>
 
 
       </el-tab-pane>
@@ -1748,11 +1778,11 @@ width="340"
       </el-form-item>
 
 
-      <el-form-item label="Select Officer" label-position="top" prop="reffered_to_officer"  v-if="form.new_status == 'Referred'" >
+      <el-form-item label="Select Officer" label-position="top" prop="reffered_to_officer"   v-if="form.new_status == 'Referred'" >
      
 
 
-        <el-select v-model="form.reffered_to_officer"  clearable filterable   placeholder="Select Officer"  style="width: 100%">
+        <el-select v-model="form.reffered_to_officer"  clearable filterable   placeholder="Select Officer"   @change="handleOfficerChange"  style="width: 100%">
                 <el-option
                   v-for="item in grmUsers"
                   :key="item.value"
@@ -1870,7 +1900,7 @@ type="textarea" :rows="2" placeholder="Provide details of the resolution  here"
 
       <el-form-item label="Describe the Action Taken" label-position="top" prop="action">
         <el-input
-type="textarea" :rows="2" placeholder="Provide details of the resolution  here"
+type="textarea" :rows="2" placeholder="Provide details of the resolution here"
           v-model="form.action" />
       </el-form-item>
 
