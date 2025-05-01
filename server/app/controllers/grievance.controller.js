@@ -2553,6 +2553,57 @@ exports.modelImportGrievances = async (req, res) => {
         }
         
     
+        if (newStatus == 'Referred') {
+          const grm_officials = [];
+          const grm_officials_names = [];
+        
+          try {
+            
+
+            const whereConditions = {
+              userid: req.body.reffered_to_officer, // GRM Role
+            };
+            
+            const grms = await Users.findAll({
+              include: [
+                {
+                  model: UserRoles,
+                  where: whereConditions,
+                },
+              ],
+            });
+            
+            console.log('grms',grms)
+
+            for (const grm of grms) {
+              if (grm.name) {
+                grm_officials_names.push(grm.name);
+              }
+
+              console.log('grm_officials_names',grm_officials_names)
+          
+              if (grm.phone) {
+                const msg = ` Has been referred to you  level for review and  action. Please address accordingly.`;
+                
+                const msg_obj = {
+                  message: action,
+                  phone: grm.phone,
+                  grievance_id: grievance.id,
+                  grv_code: grievance.code,
+                  status: grievance.status
+                };
+          
+                // Send SMS notification
+                await sendNotificationSMS(msg_obj);
+              }
+            }
+        
+            console.log('GRM Officials:', grm_officials_names, grm_officials);
+        
+          } catch (error) {
+            console.error('Failed to return grievance:', error);
+          }
+        }
         // Update the grievance status
         grievance.status = newStatus;
         grievance.current_level = current_level;
@@ -2574,7 +2625,11 @@ exports.modelImportGrievances = async (req, res) => {
 
         console.log('Grievance ---->',msg_obj)
  
-        sendNotificationSMS(msg_obj)
+        if (newStatus != 'Referred') {
+      // Dont infrom the complainant that the grevance has been referred to an offcer
+          sendNotificationSMS(msg_obj)
+         }
+      
 
         // Return success message
         return res.status(200).send({

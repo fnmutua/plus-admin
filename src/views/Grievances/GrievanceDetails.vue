@@ -1424,7 +1424,7 @@ const sendReminder =async (row) => {
  formData.prev_status = row.status;
  formData.new_status = row.status;
  formData.status = row.status;
- formData.action = "This is a reminder that grievance " + row.code + " is pending sorting and requires your attention. Kindly review and take the necessary action at your earliest convenience to ensure timely resolution.";
+ formData.action = "This is a reminder that grievance " + row.code + " is pending resolution and requires your attention. Kindly review and take the necessary action at your earliest convenience to ensure timely resolution.";
  
  formData.current_level = row.current_level;
 
