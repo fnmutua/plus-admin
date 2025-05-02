@@ -844,9 +844,9 @@ exports.getGRMUsersByLocation = async (req, res) => {
               settlement_id ? { settlement_id: settlement_id } : null,
               // Always include national-level users
               { location_level: 'national' },
-              { roleid: 1 }, // Include rleid: 1 Admin
-              { roleid: 2 }, // Include rleid: 2 Staff
-              { roleid: 8 }, // Include rleid: 8 GBV
+           //   { roleid: 1 }, // Include rleid: 1 Admin
+           //   { roleid: 2 }, // Include rleid: 2 Staff
+             // { roleid: 8 }, // Include rleid: 8 GBV
               { roleid: 4 }, // Include rleid: 8 GBV
 
             ].filter(Boolean) // Remove null conditions
