@@ -1837,7 +1837,7 @@ width="340"
      
 
 
-        <el-select v-model="form.reffered_to_officer"  clearable filterable   placeholder="Select Officer" :disabled="grmUsersLoading"   @change="handleOfficerChange"  style="width: 100%">
+        <el-select v-model="form.reffered_to_officer"  clearable filterable   placeholder="Select Officer" :loading="grmUsersLoading" :disabled="grmUsersLoading"   @change="handleOfficerChange"  style="width: 100%">
                 <el-option
                   v-for="item in grmUsers"
                   :key="item.value"
