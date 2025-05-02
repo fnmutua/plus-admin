@@ -1503,6 +1503,7 @@ const onConfirm = () => {
         phone: formOfficer.optionPhone,
         password: "User@2025",
         role: ["grm"],
+        isactive:true,
         location_level: "national",
         location_id: formOfficer.optionPhone,
         location_field: "national"

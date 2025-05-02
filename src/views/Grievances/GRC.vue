@@ -658,6 +658,7 @@ const getSelectedRows = () => {
           phone: row.mobile,
           password: "User@2024",
           role: ["grm"],
+          isactive:true,
           location_level: "settlement",
           location_id: res.data.id,
           location_field: "settlement_id",

@@ -1548,6 +1548,7 @@ exports.signupGRC = async (req, res) => {
       username: phone,
       name: name,
       phone: phone,
+      isactive:true,
       password: hashedPassword // Set to null if password is null
     });
 
