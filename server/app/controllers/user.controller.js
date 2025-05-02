@@ -836,14 +836,19 @@ exports.getGRMUsersByLocation = async (req, res) => {
           model: db.models.user_roles,
           required: true,
           where: {
-            roleid: 4, // GRM role
+         //   roleid: 4, // GRM role
             [Op.or]: [
               // Match county_id if provided and no settlement_id
               (!settlement_id && county_id) ? { county_id: county_id } : null,
               // Match settlement_id if provided
               settlement_id ? { settlement_id: settlement_id } : null,
               // Always include national-level users
-              { location_level: 'national' }
+              { location_level: 'national' },
+              { roleid: 1 }, // Include rleid: 1 Admin
+              { roleid: 2 }, // Include rleid: 2 Staff
+              { roleid: 8 }, // Include rleid: 8 GBV
+              { roleid: 4 }, // Include rleid: 8 GBV
+
             ].filter(Boolean) // Remove null conditions
           }
         }
