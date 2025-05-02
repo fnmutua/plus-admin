@@ -40,7 +40,7 @@ import { useCache } from '@/hooks/web/useCache'
 import { useAppStoreWithOut } from '@/store/modules/app'
 
 import {
-  signupGRC
+  signupGRM
 } from '@/api/register'
 
 
@@ -1509,7 +1509,7 @@ const onConfirm = () => {
         location_field: "national"
       };
 
-      signupGRC(formData).then((response) => {
+      signupGRM(formData).then((response) => {
         console.log(response);
         grmUsers.value.push({
           label: `${formOfficer.optionName} (${formOfficer.optionPhone})`,
