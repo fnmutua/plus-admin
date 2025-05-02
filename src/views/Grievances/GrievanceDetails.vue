@@ -1538,20 +1538,28 @@ const handleOfficerChange = (value) => {
       <el-tab-pane label="Grievance Details" name="details">
 
         <el-card class="responsive-card">
-  <el-table
-    :data="grievanceData"
-    style="width: 100%"
-    size="small"
-    :table-layout="'auto'"
-    show-overflow-tooltip
-  >
-    <el-table-column prop="label" label="" min-width="100">
-      <template #default="{ row }">
-        <span style="font-weight: bold">{{ row.label }}</span>
-      </template>
-    </el-table-column>
-    <el-table-column prop="value" label="" />
-  </el-table>
+          <el-table
+              :data="grievanceData"
+              style="width: 100%"
+              size="small"
+              :table-layout="'auto'"
+              show-overflow-tooltip
+            >
+              <el-table-column prop="label" label="" width="150">
+                <template #default="{ row }">
+                  <span style="font-weight: bold">{{ row.label }}</span>
+                </template>
+              </el-table-column>
+              
+              <el-table-column prop="value" label="">
+                <template #default="{ row }">
+                  <div style="white-space: normal; word-break: break-word;">
+                    {{ row.value }}
+                  </div>
+                </template>
+              </el-table-column>
+            </el-table>
+
 
   <template #header v-if="showActionButton">
     <div class="dialog-footer">
