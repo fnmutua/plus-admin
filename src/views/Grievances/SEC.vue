@@ -166,7 +166,6 @@ const extractData = async (dataArray) => {
       returning_officer: data.grp_certification?.returning_officer || "N/A",
       npct_representative: data.grp_certification?.npct_representative || "N/A",
       date: data.date || "N/A",
-      settlement: data.settlement_name || "N/A",
       submitter: data.meta.submitterName || "N/A",
     };
 

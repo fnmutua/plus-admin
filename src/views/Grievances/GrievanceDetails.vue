@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, computed } from 'vue'
+import { onMounted, reactive, computed } from 'vue'
 import {
   ElButton, ElTimeline, ElTimelineItem, ElCol, ElRow, ElForm, ElFormItem, ElInput, ElUpload, ElMessage,ElPopconfirm, 
   ElCard, ElTabs, ElTabPane, ElTable, ElTableColumn, ElTooltip, ElDialog, ElSelect, ElOption, ElIcon, ElCollapse, ElCollapseItem, ElSwitch, ElDatePicker,
@@ -1443,6 +1443,24 @@ const sendReminder =async (row) => {
 };
 
 
+function convertPhoneNumberX(phoneNumber: string | undefined) {
+
+// console.log(phoneNumber)
+let trimmedPhoneNumber = phoneNumber.replace(/\s+/g, '').trim();
+console.log(trimmedPhoneNumber.startsWith('0'))
+
+
+if (trimmedPhoneNumber.startsWith('0')) {
+  trimmedPhoneNumber = '254' + trimmedPhoneNumber.slice(1);
+}
+
+console.log(trimmedPhoneNumber)
+// return trimmedPhoneNumber;
+formOfficer.optionPhone = trimmedPhoneNumber
+
+}
+
+
 function convertPhoneNumber(number) {
   // Remove leading plus sign (+) and any spaces
   number = number.replace(/\+/g, '').trim();
@@ -1452,62 +1470,63 @@ function convertPhoneNumber(number) {
       // Replace "254" with "0"
       number = '0' + number.substring(3);
   }
+  console.log(number)
 
   return number;
 }
 
 
 const isAdding = ref(false)
-const optionName = ref('')
-const optionPhone = ref('')
+
 const onAddOption = () => {
   isAdding.value = true
 }
 
-const onConfirm = () => {
-
-  console.log('Submit to create account')
-  if (optionName.value &&  optionPhone.value) {
-     
-    const formData = {
-    username: optionPhone.value,
-    name: optionName.value,
-    phone: optionPhone.value,
-    password: "User@2025",
-    role: ["grm"],
-    location_level: "national",
-    location_id: optionPhone.value,
-    location_field: "national",
-
-   
-  };
-
-  console.log()
-  signupGRC(formData).then((response) => {
-    console.log(response);
-    if (optionName.value && optionPhone.value) {
-      grmUsers.value.push({
-        label: optionName.value + '(' + optionPhone.value + ')',
-        value: response.user.id,
-      })
-     // clear()
-    }
-
-  });
-
-  
  
-  }
-
-  
 
 
+const formOfficer = reactive({
+  optionName: '',
+  optionPhone: ''
+});
+
+const formRef = ref(null);
+
+const onConfirm = () => {
+  formRef.value.validate((valid) => {
+    if (valid) {
+      console.log('Submit to create account');
+
+      const formData = {
+        username: formOfficer.optionPhone,
+        name: formOfficer.optionName,
+        phone: formOfficer.optionPhone,
+        password: "User@2025",
+        role: ["grm"],
+        location_level: "national",
+        location_id: formOfficer.optionPhone,
+        location_field: "national"
+      };
+
+      signupGRC(formData).then((response) => {
+        console.log(response);
+        grmUsers.value.push({
+          label: `${formOfficer.optionName} (${formOfficer.optionPhone})`,
+          value: response.user.id,
+        });
+        // clear();
+      });
+    } else {
+      console.log("Form validation failed");
+    }
+  });
+};
 
 
-}
+
 
 const clear = () => {
-  optionName.value = ''
+//  optionName.value = ''
   isAdding.value = false
 }
 
@@ -1517,6 +1536,29 @@ const handleOfficerChange = (value) => {
     const selected = grmUsers.value.find(opt => opt.value === value);
     officerLabel.value = selected ? selected.label : '';
   };
+
+
+  const validateKenyaPhone = (rule, value, callback) => {
+        const cleaned = value.replace(/\s+/g, '');
+        const pattern = /^(?:\+254|254|0)?(7\d{8}|1\d{8})$/;
+        if (!value) {
+          callback(new Error("Phone is required"));
+        } else if (!pattern.test(cleaned)) {
+          callback(new Error("Invalid Kenyan phone number"));
+        } else {
+          callback();
+        }
+      };
+
+const OfficerRules = computed(() => ({
+  optionName: [
+    { required: true, message: "Name is required", trigger: "blur" }
+  ],
+  optionPhone: [
+    { required: true, validator: validateKenyaPhone, trigger: "blur" }
+  ]
+}));
+
 
 
 </script>
@@ -1802,23 +1844,37 @@ width="340"
                     Add Officer
                   </el-button>
                   <template v-else>
-                    <el-input
-                      v-model="optionName"
-                      class="option-input"
-                      placeholder="Name"
-                      size="small"
-                    />
-                    <el-input
-                      v-model="optionPhone"
-                      class="option-input"
-                      placeholder="Phone"
-                      size="small"
-                    />
-                    <el-button type="primary" size="small" @click="onConfirm">
-                      confirm
-                    </el-button>
-                    <el-button size="small" @click="clear">cancel</el-button>
-                  </template>
+                      <el-form :model="formOfficer" label-width="0" :rules="OfficerRules" ref="formRef">
+                        <el-form-item prop="optionName" >
+                          <el-input
+                            v-model="formOfficer.optionName"
+                            class="option-input"
+                            placeholder="Name"
+                            size="small"
+                          />
+                        </el-form-item>
+
+                        <el-form-item prop="optionPhone">
+                          <el-input
+                            v-model="formOfficer.optionPhone"
+                            class="option-input"
+                            placeholder="Enter phone number (254.....)" 
+                            size="small"
+                            :onChange="convertPhoneNumberX" 
+                          />
+                        </el-form-item>
+
+                        <el-form-item>
+                          <el-button type="primary" size="small" @click="onConfirm">
+                            Confirm
+                          </el-button>
+                          <el-button size="small" @click="clear">
+                            Cancel
+                          </el-button>
+                        </el-form-item>
+                      </el-form>
+                    </template>
+
                 </template>
               </el-select>
 
