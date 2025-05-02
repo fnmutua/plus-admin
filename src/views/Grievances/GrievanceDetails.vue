@@ -903,7 +903,7 @@ const submitResolutionForm = async () => {
       form.value.date_actioned = new Date();
       form.value.prev_status = Grievance.value.status
       form.value.action_level = current_user_roles[0] ? current_user_roles[0] : 'settlement'
-      form.value.action =  'testing referral'
+      //form.value.action =  'testing referral'
 
       let msg = ''
       if (form.value.new_status == 'Escalated') {
