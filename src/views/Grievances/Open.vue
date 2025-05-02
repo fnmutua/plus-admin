@@ -2320,6 +2320,10 @@ v-loading="loading"
             </div>
           </template>
         </el-table-column>
+        <el-table-column label="Code" prop="code" sortable width="150" />
+
+        <el-table-column label="Category" prop="nature" sortable width="150" />
+
         <el-table-column prop="date" label="Date Reported" sortable  width="150">
           <!-- Use a scoped slot to customize the rendering of the date column -->
           <template #default="scope">
@@ -2348,20 +2352,12 @@ v-loading="loading"
             {{ getDaysToExpiry(scope.row.status_expiry_date) }}
           </span>
 
-          <!-- <el-button 
-            v-if="shouldShowReminder(scope.row.status_expiry_date)" 
-            type="warning" 
-            size="small"
-            plain 
-            @click="sendReminder(scope.row)">
-            Send Reminder
-          </el-button> -->
+      
         </template>
       </el-table-column>
 
+      
 
-
-        <el-table-column label="Code" prop="code" sortable width="150" />
         <el-table-column label="Level" prop="current_level" sortable width="150" />
         <el-table-column label="Complainant" prop="name" sortable width="150" />
         <el-table-column label="Reported By" width="150">
@@ -2404,6 +2400,10 @@ v-loading="loading"
             </div>
           </template>
         </el-table-column>
+        <el-table-column label="Code" prop="code" sortable width="150" />
+
+        <el-table-column label="Category" prop="nature" sortable width="150" />
+
         <el-table-column prop="date" label="Date Reported" sortable  width="150">
           <!-- Use a scoped slot to customize the rendering of the date column -->
           <template #default="scope">
@@ -2433,7 +2433,6 @@ v-loading="loading"
  
         </template>
       </el-table-column>
-        <el-table-column label="Code" prop="code" sortable width="150" />
         <el-table-column label="Level" prop="current_level" sortable width="150" />
         <el-table-column label="Complainant" prop="name" sortable width="150" />
         <el-table-column label="Reported By" width="150">
@@ -2471,7 +2470,11 @@ v-loading="loading" :data="tableDataList" :loading="loading" style="width: 100% 
               <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
             </div>
           </template>
-        </el-table-column> 
+        </el-table-column>
+        <el-table-column label="Code" prop="code" sortable width="150" />
+
+        <el-table-column label="Category" prop="nature" sortable width="150" />
+ 
         <el-table-column prop="date" label="Date Reported"  sortable width="150">
           <!-- Use a scoped slot to customize the rendering of the date column -->
           <template #default="scope">
@@ -2497,7 +2500,6 @@ v-loading="loading" :data="tableDataList" :loading="loading" style="width: 100% 
             </span>
           </template>
         </el-table-column> -->
-        <el-table-column label="Code" prop="code" sortable width="150" />
         <el-table-column label="Level" prop="current_level" sortable width="150" />
         <el-table-column label="Complainant" prop="name" sortable width="150" />
         <el-table-column label="Reported By" width="150">
@@ -2556,6 +2558,10 @@ v-loading="loading"
             </div>
           </template>
         </el-table-column>
+        <el-table-column label="Code" prop="code" sortable width="150" />
+
+        <el-table-column label="Category" prop="nature" sortable width="150" />
+
         <el-table-column prop="date" label="Date Reported" sortable width="150">
           <!-- Use a scoped slot to customize the rendering of the date column -->
           <template #default="scope">
@@ -2581,7 +2587,6 @@ v-loading="loading"
             </span>
           </template>
         </el-table-column>
-        <el-table-column label="Code" prop="code" sortable width="150" />
         <el-table-column label="Level" prop="current_level" sortable width="150" />
         <el-table-column label="Complainant" prop="name" sortable width="150" />
         <el-table-column label="Reported By" width="150">
@@ -2640,7 +2645,10 @@ v-loading="loading"
               </div>
             </template>
           </el-table-column>
-          
+          <el-table-column label="Code" prop="code" sortable width="150" />
+
+          <el-table-column label="Category" prop="nature" sortable width="150" />
+
           <el-table-column prop="date" label="Date Reported" sortable  width="150">
             <!-- Use a scoped slot to customize the rendering of the date column -->
             <template #default="scope">
@@ -2667,7 +2675,6 @@ v-loading="loading"
             </span>
           </template>
         </el-table-column>
-          <el-table-column label="Code" prop="code" sortable width="150" />
           <el-table-column label="Level" prop="current_level" sortable width="150" />
           <el-table-column label="Complainant" prop="name" sortable width="150" />
           <el-table-column label="Reported By" width="150">
@@ -2726,6 +2733,10 @@ v-loading="loading"
               </div>
             </template>
           </el-table-column>
+          <el-table-column label="Code" prop="code" sortable width="150" />
+
+          <el-table-column label="Category" prop="nature" sortable width="150" />
+
           <el-table-column prop="date" label="Date Reported" sortable width="150">
             <!-- Use a scoped slot to customize the rendering of the date column -->
             <template #default="scope">
@@ -2745,7 +2756,6 @@ v-loading="loading"
             </template>
           </el-table-column>
          
-          <el-table-column label="Code" prop="code" sortable width="150" />
           <el-table-column label="Level" prop="current_level" sortable width="150" />
           <el-table-column label="Complainant" prop="name" sortable width="150" />
           <el-table-column label="Reported By" width="150">
@@ -2805,6 +2815,10 @@ v-loading="loading"
               </div>
             </template>
           </el-table-column>
+          <el-table-column label="Code" prop="code" sortable width="150" />
+
+          <el-table-column label="Category" prop="nature" sortable width="150" />
+
           <el-table-column prop="date" label="Date Reported" sortable width="150">
             <!-- Use a scoped slot to customize the rendering of the date column -->
             <template #default="scope">
@@ -2824,7 +2838,6 @@ v-loading="loading"
             </template>
           </el-table-column>
           
-          <el-table-column label="Code" prop="code" sortable width="150" />
           <el-table-column label="Level" prop="current_level" sortable width="150" />
           <el-table-column label="Complainant" prop="name" sortable width="150" />
           <el-table-column label="Reported By" width="150">
@@ -2883,6 +2896,10 @@ v-loading="loading"
               </div>
             </template>
           </el-table-column>
+          <el-table-column label="Code" prop="code" sortable width="150" />
+
+          <el-table-column label="Category" prop="nature" sortable width="150" />
+
           <el-table-column prop="date" label="Date Reported" sortable  width="150">
             <!-- Use a scoped slot to customize the rendering of the date column -->
             <template #default="scope">
@@ -2901,7 +2918,6 @@ v-loading="loading"
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="Code" prop="code" sortable width="150" />
           <el-table-column label="Level" prop="current_level" sortable width="150" />
           <el-table-column label="Complainant" prop="name" sortable width="150" />
           <el-table-column label="Reported By" width="150">
@@ -2946,8 +2962,6 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
           v-model:page-size="pageSize" :page-sizes="[5, 8, 10, 20, 50, 200, 10000]" :total="total" :background="true"
           @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
      </div>
-
-
 
      <div v-if="activeSegment === 'Deleted'" >
       <el-table :data="deletedGrievances" :show-overflow-tooltip="true" style="width: 100% ; margin-top: 10px;"  border  >

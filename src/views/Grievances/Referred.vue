@@ -2032,6 +2032,10 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
               </div>
             </template>
           </el-table-column>
+          <el-table-column label="Code" prop="code" sortable width="150" />
+          <el-table-column label="Category" prop="nature" sortable width="150" />
+
+
           <el-table-column prop="date" label="Date" sortable min-width="100" v-if="!isMobile">
             <template #default="scope">
               <span>{{ formatDate(scope.row.date_reported) }}</span>
@@ -2051,8 +2055,7 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="Code" prop="code" sortable min-width="100" />
-          <el-table-column label="Complainant" prop="name" sortable min-width="100" />
+           <el-table-column label="Complainant" prop="name" sortable min-width="100" />
           <el-table-column label="Reported By" min-width="100" v-if="!isMobile">
             <template #default="scope">
               <span v-if="scope.row.self_reported === true">Self</span>

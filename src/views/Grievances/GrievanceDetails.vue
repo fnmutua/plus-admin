@@ -674,7 +674,10 @@ editHistory.value = rawHistory.map((record) => {
 }
 
 const grmUsers=ref([])
+const grmUsersLoading=ref(false)
 const getGRMUsers = async () => {
+
+  grmUsersLoading.value=true
  
   const formData = {}
  
@@ -698,6 +701,7 @@ const getGRMUsers = async () => {
 
   console.log('After getting getGRMStaff users', res)
    
+  grmUsersLoading.value=false
 
   // Assuming res.data is an array of objects with name and phone
     grmUsers.value = res.data.map(user => ({
@@ -1833,7 +1837,7 @@ width="340"
      
 
 
-        <el-select v-model="form.reffered_to_officer"  clearable filterable   placeholder="Select Officer"   @change="handleOfficerChange"  style="width: 100%">
+        <el-select v-model="form.reffered_to_officer"  clearable filterable   placeholder="Select Officer" :disabled="grmUsersLoading"   @change="handleOfficerChange"  style="width: 100%">
                 <el-option
                   v-for="item in grmUsers"
                   :key="item.value"
