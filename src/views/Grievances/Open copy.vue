@@ -2711,7 +2711,7 @@ if (search_string.value) {
     <el-row
   type="flex"
   justify="start"
-  :gutter="10"
+  :gutter="20"
   style="flex-wrap: wrap; align-items: center; margin-bottom: 10px"
 >
   <!-- Back Button -->
@@ -2870,672 +2870,97 @@ if (search_string.value) {
     />
   </el-col>
 
-    <div v-if="activeSegment === 'Sorting'">
-
-      <el-table
-row-key="id" v-loading="loading" :data="tableDataList" :loading="loading"
-        @selection-change="handleSelectionChange" style="width: 100% ; margin-top: 10px; " show-overflow-tooltip
-        :max-height="pageHeight" @row-click="handleRowDblClick" border :row-class-name="tableRowClassName">
-         <el-table-column
-v-if="isRowSelectable"
-            type="selection"
-            width="55"
-            :selectable="isRowSelectable"
-          />
-        <el-table-column label="#" width="80" prop="id" sortable>
-          <template #default="scope">
-            <div v-if="scope.row.grievance_documents.length > 0" style="display: inline-flex; align-items: center;">
-              <span>{{ scope.row.id }}</span>
-              <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="Code" prop="code" sortable width="100"  />
-
-        <el-table-column label="Category" prop="nature" sortable width="150" />
-        <el-table-column label="Description" prop="description" sortable  width="350"/>
-        <el-table-column label="Location" sortable width="350">
-          <template #default="scope">
-            <span>{{ scope.row.settlement.name }}, {{ scope.row.county.name }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="date" label="Date Reported" sortable width="100">
-          <!-- Use a scoped slot to customize the rendering of the date column -->
-          <template #default="scope">
-            <span>{{ formatDate(scope.row.date_reported) }}</span>
-          </template>
-        </el-table-column>
-  
-
-        <!-- <el-table-column label="Level" prop="current_level" sortable width="150" /> -->
-        <el-table-column label="Complainant" prop="name" sortable width="150" />
-        <el-table-column label="Reported By" width="150">
-          <template #default="scope">
-            <span v-if="scope.row.self_reported === true">Self</span>
-            <span v-else>{{ scope.row.reporter_name }}</span>
-          </template>
-        </el-table-column>
-   
-        <el-table-column label="Days to Stage Expiry" width="200">
-          <template #default="scope">
-            <span :class="getExpiryClass(scope.row.status_expiry_date)" style="margin-right: 5px;">
-              {{ getDaysToExpiry(scope.row.status_expiry_date) }}
-            </span>
-          </template>
-        </el-table-column>
-
-      </el-table>
-      <div v-if="selectedRows.length > 0" style="margin-top: 10px;">
-        <el-button type="primary" plain @click="handleBulkAction">Refer Selected {{ selectedRows.length }} Grievances
-        </el-button>
-      </div>
-      <ElPagination
-:layout="paginationLayout" v-model:currentPage="currentPage" :pager-count="pagerCount"
-        v-model:page-size="pageSize" :page-sizes="[5, 8, 10, 20, 50, 200, 10000]" :total="total" :background="true"
-        @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
-    </div>
-
+     
+ 
  
 
-    <div v-if="activeSegment === 'Under Review'">
-      <el-table
-v-loading="loading" :data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px; "
-        show-overflow-tooltip :max-height="pageHeight" @row-click="handleRowDblClick" border
-        :row-class-name="tableRowClassName">
-        <el-table-column label="#" width="80" prop="id" sortable>
-          <template #default="scope">
-            <div v-if="scope.row.grievance_documents.length > 0" style="display: inline-flex; align-items: center;">
-              <span>{{ scope.row.id }}</span>
-              <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="Code" prop="code" sortable width="150" />
+  <div v-for="segment in filteredSegments" :key="segment.label" v-show="activeSegment === segment.label">
+    <el-table
+      v-loading="loading"
+      :data="tableDataList"
+      :row-key="segment.rowKey || 'id'"
+      :max-height="pageHeight"
+      border
+      show-overflow-tooltip
+      @selection-change="handleSelectionChange"
+      @row-click="handleRowDblClick"
+       style="width: 100%; margin-top: 10px;"
+    >
+      <!-- Optional Selection Column for 'Sorting' -->
+      <el-table-column
+        v-if="segment.label !='Closed' &&  segment.label !='Resolved' &&  segment.label !='In Court' &&  segment.label !='Deleted' &&  segment.label !='Rejected'"
+        type="selection"
+        width="55"
+        :selectable="isRowSelectable"
+      />
 
-        <el-table-column label="Category" prop="nature" sortable width="150" />
+      <!-- Common Columns -->
+      <el-table-column label="#" width="80" prop="id" sortable>
+        <template #default="scope">
+          <div v-if="scope.row.grievance_documents.length > 0" style="display: inline-flex; align-items: center;">
+            <span>{{ scope.row.id }}</span>
+            <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
+          </div>
+        </template>
+      </el-table-column>
 
-        <el-table-column prop="date" label="Date Reported" sortable width="150">
-          <!-- Use a scoped slot to customize the rendering of the date column -->
-          <template #default="scope">
-            <span>{{ formatDate(scope.row.date_reported) }}</span>
-          </template>
-        </el-table-column>
+      <el-table-column label="Code" prop="code" sortable width="150" />
+      <el-table-column label="Category" prop="nature" sortable width="150" />
+       <el-table-column label="Description" prop="description" sortable  width="350"/>
+ 
+      <el-table-column   label="Location" sortable width="350">
+        <template #default="scope">
+          <span>{{ scope.row.settlement.name }}, {{ scope.row.county.name }}</span>
+        </template>
+      </el-table-column>
 
-        <el-table-column prop="status" label="Status" width="100" sortable>
-          <template #default="scope">
-            <el-tag
-:type="scope.row.status == 'Closed' ? 'info'
-                            : scope.row.status == 'Escalated' ? 'secondary'
-                            : scope.row.status == 'Returned' ? 'danger'
-                            : scope.row.status == 'Referred' ? 'warning'
-                            : scope.row.status == 'Sorting' ? 'warning'
-                                : scope.row.status == 'Rejected' ? 'danger'
-                                  : 'success'" disable-transitions>{{ scope.row.status }}
-            </el-tag>
-          </template>
-        </el-table-column>
+      <el-table-column prop="date" label="Date Reported" sortable width="150">
+        <template #default="scope">
+          <span>{{ formatDate(scope.row.date_reported) }}</span>
+        </template>
+      </el-table-column>
 
-        <el-table-column label="Days to Stage Expiry" width="200">
-          <template #default="scope">
-            <span :class="getExpiryClass(scope.row.status_expiry_date)" style="margin-right: 5px;">
-              {{ getDaysToExpiry(scope.row.status_expiry_date) }}
-            </span>
+      
 
-          </template>
-        </el-table-column>
-        <el-table-column label="Level" prop="current_level" sortable width="150" />
-        <el-table-column label="Complainant" prop="name" sortable width="150" />
-        <el-table-column label="Reported By" width="150">
-          <template #default="scope">
-            <span v-if="scope.row.self_reported === true">Self</span>
-            <span v-else>{{ scope.row.reporter_name }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="Description" prop="description" sortable />
-        <el-table-column label="Location" sortable width="350">
-          <template #default="scope">
-            <span>{{ scope.row.settlement.name }}, {{ scope.row.county.name }}</span>
-          </template>
-        </el-table-column>
+      <el-table-column label="Complainant" prop="name" sortable width="150" v-if="segment.label === 'Sorting'" />
+      <el-table-column label="Reported By" width="150" v-if="segment.label === 'Sorting'">
+        <template #default="scope">
+          <span v-if="scope.row.self_reported">Self</span>
+          <span v-else>{{ scope.row.reporter_name }}</span>
+        </template>
+      </el-table-column>
 
-      </el-table>
-      <ElPagination
-:layout="paginationLayout" v-model:currentPage="currentPage" :pager-count="pagerCount"
-        v-model:page-size="pageSize" :page-sizes="[5,8, 10, 20, 50, 200, 10000]" :total="total" :background="true"
-        @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+      <!-- Shared Expiry Column -->
+      <el-table-column label=" Expiry" width="200">
+        <template #default="scope">
+          <span :class="getExpiryClass(scope.row.status_expiry_date)" style="margin-right: 5px;">
+            {{ getDaysToExpiry(scope.row.status_expiry_date) }}
+          </span>
+        </template>
+      </el-table-column>
+    </el-table>
+
+    <!-- Bulk Action & Pagination for Sorting -->
+    <div v-if="selectedRows.length > 0" style="margin-top: 10px;">
+      <el-button type="primary" plain @click="handleBulkAction">
+        Refer Selected {{ selectedRows.length }} Grievances
+      </el-button>
     </div>
 
-    <div v-if="activeSegment === 'Closed'">
-      <el-table
-v-loading="loading" :data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"
-        show-overflow-tooltip :max-height="pageHeight" @row-click="handleRowDblClick" border
-        :row-class-name="tableRowClassName">
-        <el-table-column label="#" width="80" prop="id" sortable>
-          <template #default="scope">
-            <div v-if="scope.row.grievance_documents.length > 0" style="display: inline-flex; align-items: center;">
-              <span>{{ scope.row.id }}</span>
-              <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="Code" prop="code" sortable width="150" />
-
-        <el-table-column label="Category" prop="nature" sortable width="150" />
-
-        <el-table-column prop="date" label="Date Reported" sortable width="150">
-          <!-- Use a scoped slot to customize the rendering of the date column -->
-          <template #default="scope">
-            <span>{{ formatDate(scope.row.date_reported) }}</span>
-          </template>
-        </el-table-column>
-
-        <el-table-column prop="status" label="Status" width="100" sortable>
-          <template #default="scope">
-            <el-tag
-:type="scope.row.status == 'Closed' ? 'info'
-            : scope.row.status == 'Escalated' ? 'secondary'
-              : scope.row.status == 'Referred' ? 'warning'
-                : scope.row.status == 'Rejected' ? 'danger'
-                  : 'success'" disable-transitions>{{ scope.row.status }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <!-- <el-table-column label="Days to Stage Expiry" width="150">
-          <template #default="scope">
-            <span :class="getExpiryClass(scope.row.status_expiry_date)">
-              {{ getDaysToExpiry(scope.row.status_expiry_date) }}
-            </span>
-          </template>
-        </el-table-column> -->
-        <el-table-column label="Level" prop="current_level" sortable width="150" />
-        <el-table-column label="Complainant" prop="name" sortable width="150" />
-        <el-table-column label="Reported By" width="150">
-          <template #default="scope">
-            <span v-if="scope.row.self_reported === true">Self</span>
-            <span v-else>{{ scope.row.reporter_name }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="Description" prop="description" sortable width="350" />
-        <el-table-column label="Location" sortable width="350">
-          <template #default="scope">
-            <span>{{ scope.row.settlement.name }}, {{ scope.row.county.name }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
-          <template #default="scope">
-            <el-dropdown v-if="isMobile">
-              <span class="el-dropdown-link">
-                <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
-              </span>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item
-v-if="showEditButtons" @click="editIndicator(scope as TableSlotDefault)"
-                    :icon="Edit" color="green">Edit</el-dropdown-item>
-                  <el-dropdown-item
-v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
-                    :icon="Delete" color="red">Delete</el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
-            <div v-else>
-              <el-button size="small" type="primary" plain :icon="Position" @click="getGrievanceDetails(scope)">
-                More
-              </el-button>
-            </div>
-          </template>
-        </el-table-column>
-      </el-table>
-      <ElPagination
-:layout="paginationLayout" v-model:currentPage="currentPage" :pager-count="pagerCount"
-        v-model:page-size="pageSize" :page-sizes="[5,8, 10, 20, 50, 200, 10000]" :total="total" :background="true"
-        @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
-    </div>
-
-    <div v-if="activeSegment === 'Resolved'">
-      <el-table
-v-loading="loading" :data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"
-        show-overflow-tooltip :max-height="pageHeight" @row-click="handleRowDblClick" border
-        :row-class-name="tableRowClassName">
-        <el-table-column label="#" width="80" prop="id" sortable>
-          <template #default="scope">
-            <div v-if="scope.row.grievance_documents.length > 0" style="display: inline-flex; align-items: center;">
-              <span>{{ scope.row.id }}</span>
-              <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="Code" prop="code" sortable width="150" />
-
-        <el-table-column label="Category" prop="nature" sortable width="150" />
-
-        <el-table-column prop="date" label="Date Reported" sortable width="150">
-          <!-- Use a scoped slot to customize the rendering of the date column -->
-          <template #default="scope">
-            <span>{{ formatDate(scope.row.date_reported) }}</span>
-          </template>
-        </el-table-column>
-
-        <el-table-column prop="status" label="Status" width="100" sortable>
-          <template #default="scope">
-            <el-tag
-:type="scope.row.status == 'Closed' ? 'info'
-            : scope.row.status == 'Escalated' ? 'secondary'
-              : scope.row.status == 'Referred' ? 'warning'
-                : scope.row.status == 'Rejected' ? 'danger'
-                  : 'success'" disable-transitions>{{ scope.row.status }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="Days to Stage Expiry" width="150">
-          <template #default="scope">
-            <span :class="getExpiryClass(scope.row.status_expiry_date)">
-              {{ getDaysToExpiry(scope.row.status_expiry_date) }}
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column label="Level" prop="current_level" sortable width="150" />
-        <el-table-column label="Complainant" prop="name" sortable width="150" />
-        <el-table-column label="Reported By" width="150">
-          <template #default="scope">
-            <span v-if="scope.row.self_reported === true">Self</span>
-            <span v-else>{{ scope.row.reporter_name }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="Description" prop="description" sortable width="350" />
-        <el-table-column label="Location" sortable width="350">
-          <template #default="scope">
-            <span>{{ scope.row.settlement.name }}, {{ scope.row.county.name }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
-          <template #default="scope">
-            <el-dropdown v-if="isMobile">
-              <span class="el-dropdown-link">
-                <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
-              </span>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item
-v-if="showEditButtons" @click="editIndicator(scope as TableSlotDefault)"
-                    :icon="Edit" color="green">Edit</el-dropdown-item>
-                  <el-dropdown-item
-v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
-                    :icon="Delete" color="red">Delete</el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
-            <div v-else>
-              <el-button size="small" type="primary" plain :icon="Position" @click="getGrievanceDetails(scope)">
-                More
-              </el-button>
-            </div>
-          </template>
-        </el-table-column>
-      </el-table>
-      <ElPagination
-:layout="paginationLayout" v-model:currentPage="currentPage" :pager-count="pagerCount"
-        v-model:page-size="pageSize" :page-sizes="[5,8, 10, 20, 50, 200, 10000]" :total="total" :background="true"
-        @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
-    </div>
-
-    <div v-if="activeSegment === 'Escalated'">
-      <el-table
-v-loading="loading" :data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"
-        show-overflow-tooltip :max-height="pageHeight" @row-click="handleRowDblClick" border
-        :row-class-name="tableRowClassName">
-        <el-table-column label="#" width="80" prop="id" sortable>
-          <template #default="scope">
-            <div v-if="scope.row.grievance_documents.length > 0" style="display: inline-flex; align-items: center;">
-              <span>{{ scope.row.id }}</span>
-              <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="Code" prop="code" sortable width="150" />
-
-        <el-table-column label="Category" prop="nature" sortable width="150" />
-
-        <el-table-column prop="date" label="Date Reported" sortable width="150">
-          <!-- Use a scoped slot to customize the rendering of the date column -->
-          <template #default="scope">
-            <span>{{ formatDate(scope.row.date_reported) }}</span>
-          </template>
-        </el-table-column>
-
-        <el-table-column prop="status" label="Status" width="100" sortable>
-          <template #default="scope">
-            <el-tag
-:type="scope.row.status == 'Closed' ? 'info'
-            : scope.row.status == 'Escalated' ? 'secondary'
-            : scope.row.status == 'Returned' ? 'danger'
-              : scope.row.status == 'Referred' ? 'warning'
-                : scope.row.status == 'Rejected' ? 'danger'
-                  : 'success'" disable-transitions>{{ scope.row.status }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="Days to Stage Expiry" width="150">
-          <template #default="scope">
-            <span :class="getExpiryClass(scope.row.status_expiry_date)">
-              {{ getDaysToExpiry(scope.row.status_expiry_date) }}
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column label="Level" prop="current_level" sortable width="150" />
-        <el-table-column label="Complainant" prop="name" sortable width="150" />
-        <el-table-column label="Reported By" width="150">
-          <template #default="scope">
-            <span v-if="scope.row.self_reported === true">Self</span>
-            <span v-else>{{ scope.row.reporter_name }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="Description" prop="description" sortable width="350" />
-        <el-table-column label="Location" sortable width="350">
-          <template #default="scope">
-            <span>{{ scope.row.settlement.name }}, {{ scope.row.county.name }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
-          <template #default="scope">
-            <el-dropdown v-if="isMobile">
-              <span class="el-dropdown-link">
-                <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
-              </span>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item
-v-if="showEditButtons" @click="editIndicator(scope as TableSlotDefault)"
-                    :icon="Edit" color="green">Edit</el-dropdown-item>
-                  <el-dropdown-item
-v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
-                    :icon="Delete" color="red">Delete</el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
-            <div v-else>
-              <el-button size="small" type="primary" plain :icon="Position" @click="getGrievanceDetails(scope)">
-                More
-              </el-button>
-            </div>
-          </template>
-        </el-table-column>
-      </el-table>
-      <ElPagination
-:layout="paginationLayout" v-model:currentPage="currentPage" :pager-count="pagerCount"
-        v-model:page-size="pageSize" :page-sizes="[5, 8, 10, 20, 50, 200, 10000]" :total="total" :background="true"
-        @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
-    </div>
-
-    <div v-if="activeSegment === 'In Court'">
-      <el-table
-v-loading="loading" :data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"
-        show-overflow-tooltip :max-height="pageHeight" @row-click="handleRowDblClick" border
-        :row-class-name="tableRowClassName">
-        <el-table-column label="#" width="80" prop="id" sortable>
-          <template #default="scope">
-            <div v-if="scope.row.grievance_documents.length > 0" style="display: inline-flex; align-items: center;">
-              <span>{{ scope.row.id }}</span>
-              <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="Code" prop="code" sortable width="150" />
-
-        <el-table-column label="Category" prop="nature" sortable width="150" />
-
-        <el-table-column prop="date" label="Date Reported" sortable width="150">
-          <!-- Use a scoped slot to customize the rendering of the date column -->
-          <template #default="scope">
-            <span>{{ formatDate(scope.row.date_reported) }}</span>
-          </template>
-        </el-table-column>
-
-        <el-table-column prop="status" label="Status" width="100" sortable>
-          <template #default="scope">
-            <el-tag
-:type="scope.row.status == 'Closed' ? 'info'
-            : scope.row.status == 'Escalated' ? 'secondary'
-              : scope.row.status == 'Referred' ? 'warning'
-                : scope.row.status == 'Rejected' ? 'danger'
-                  : 'success'" disable-transitions>{{ scope.row.status }}
-            </el-tag>
-          </template>
-        </el-table-column>
-
-        <el-table-column label="Level" prop="current_level" sortable width="150" />
-        <el-table-column label="Complainant" prop="name" sortable width="150" />
-        <el-table-column label="Reported By" width="150">
-          <template #default="scope">
-            <span v-if="scope.row.self_reported === true">Self</span>
-            <span v-else>{{ scope.row.reporter_name }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="Description" prop="description" sortable width="350" />
-        <el-table-column label="Location" sortable width="350">
-          <template #default="scope">
-            <span>{{ scope.row.settlement.name }}, {{ scope.row.county.name }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
-          <template #default="scope">
-            <el-dropdown v-if="isMobile">
-              <span class="el-dropdown-link">
-                <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
-              </span>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item
-v-if="showEditButtons" @click="editIndicator(scope as TableSlotDefault)"
-                    :icon="Edit" color="green">Edit</el-dropdown-item>
-                  <el-dropdown-item
-v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
-                    :icon="Delete" color="red">Delete</el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
-            <div v-else>
-              <el-button size="small" type="primary" plain :icon="Position" @click="getGrievanceDetails(scope)">
-                More
-              </el-button>
-            </div>
-          </template>
-        </el-table-column>
-      </el-table>
-      <ElPagination
-:layout="paginationLayout" v-model:currentPage="currentPage" :pager-count="pagerCount"
-        v-model:page-size="pageSize" :page-sizes="[5, 8, 10, 20, 50, 200, 10000]" :total="total" :background="true"
-        @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
-    </div>
-
-
-    <div v-if="activeSegment === 'Referred'">
-      <el-table
-v-loading="loading" :data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"
-        show-overflow-tooltip :max-height="pageHeight" @row-click="handleRowDblClick" border
-        :row-class-name="tableRowClassName">
-        <el-table-column label="#" width="80" prop="id" sortable>
-          <template #default="scope">
-            <div v-if="scope.row.grievance_documents.length > 0" style="display: inline-flex; align-items: center;">
-              <span>{{ scope.row.id }}</span>
-              <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="Code" prop="code" sortable width="150" />
-
-        <el-table-column label="Category" prop="nature" sortable width="150" />
-
-        <el-table-column prop="date" label="Date Reported" sortable width="150">
-          <!-- Use a scoped slot to customize the rendering of the date column -->
-          <template #default="scope">
-            <span>{{ formatDate(scope.row.date_reported) }}</span>
-          </template>
-        </el-table-column>
-
-        <el-table-column prop="status" label="Status" width="100" sortable>
-          <template #default="scope">
-            <el-tag
-:type="scope.row.status == 'Closed' ? 'info'
-            : scope.row.status == 'Escalated' ? 'secondary'
-              : scope.row.status == 'Referred' ? 'warning'
-                : scope.row.status == 'Rejected' ? 'danger'
-                  : 'success'" disable-transitions>{{ scope.row.status }}
-            </el-tag>
-          </template>
-        </el-table-column>
-
-        <el-table-column label="Level" prop="current_level" sortable width="150" />
-        <el-table-column label="Complainant" prop="name" sortable width="150" />
-        <el-table-column label="Reported By" width="150">
-          <template #default="scope">
-            <span v-if="scope.row.self_reported === true">Self</span>
-            <span v-else>{{ scope.row.reporter_name }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="Description" prop="description" sortable width="350" />
-        <el-table-column label="Location" sortable width="350">
-          <template #default="scope">
-            <span>{{ scope.row.settlement.name }}, {{ scope.row.county.name }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
-          <template #default="scope">
-            <el-dropdown v-if="isMobile">
-              <span class="el-dropdown-link">
-                <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
-              </span>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item
-v-if="showEditButtons" @click="editIndicator(scope as TableSlotDefault)"
-                    :icon="Edit" color="green">Edit</el-dropdown-item>
-                  <el-dropdown-item
-v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
-                    :icon="Delete" color="red">Delete</el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
-            <div v-else>
-              <el-button size="small" type="primary" plain :icon="Position" @click="getGrievanceDetails(scope)">
-                More
-              </el-button>
-            </div>
-          </template>
-        </el-table-column>
-      </el-table>
-      <ElPagination
-:layout="paginationLayout" v-model:currentPage="currentPage" :pager-count="pagerCount"
-        v-model:page-size="pageSize" :page-sizes="[5, 8, 10, 20, 50, 200, 10000]" :total="total" :background="true"
-        @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
-    </div>
-
-    <div v-if="activeSegment === 'Rejected'">
-      <el-table
-v-loading="loading" :data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"
-        show-overflow-tooltip :max-height="pageHeight" @row-click="handleRowDblClick" border
-        :row-class-name="tableRowClassName">
-        <el-table-column label="#" width="80" prop="id" sortable>
-          <template #default="scope">
-            <div v-if="scope.row.grievance_documents.length > 0" style="display: inline-flex; align-items: center;">
-              <span>{{ scope.row.id }}</span>
-              <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="Code" prop="code" sortable width="150" />
-
-        <el-table-column label="Category" prop="nature" sortable width="150" />
-
-        <el-table-column prop="date" label="Date Reported" sortable width="150">
-          <!-- Use a scoped slot to customize the rendering of the date column -->
-          <template #default="scope">
-            <span>{{ formatDate(scope.row.date_reported) }}</span>
-          </template>
-        </el-table-column>
-
-        <el-table-column prop="status" label="Status" width="100" sortable>
-          <template #default="scope">
-            <el-tag
-:type="scope.row.status == 'Closed' ? 'info'
-            : scope.row.status == 'Escalated' ? 'secondary'
-              : scope.row.status == 'Referred' ? 'warning'
-                : scope.row.status == 'Rejected' ? 'danger'
-                  : 'success'" disable-transitions>{{ scope.row.status }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="Level" prop="current_level" sortable width="150" />
-        <el-table-column label="Complainant" prop="name" sortable width="150" />
-        <el-table-column label="Reported By" width="150">
-          <template #default="scope">
-            <span v-if="scope.row.self_reported === true">Self</span>
-            <span v-else>{{ scope.row.reporter_name }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="Description" prop="description" sortable width="350" />
-        <el-table-column label="Location" sortable width="350">
-          <template #default="scope">
-            <span>{{ scope.row.settlement.name }}, {{ scope.row.county.name }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
-          <template #default="scope">
-            <el-dropdown v-if="isMobile">
-              <span class="el-dropdown-link">
-                <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
-              </span>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item
-v-if="showEditButtons" @click="editIndicator(scope as TableSlotDefault)"
-                    :icon="Edit" color="green">Edit</el-dropdown-item>
-                  <el-dropdown-item
-v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
-                    :icon="Delete" color="red">Delete</el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
-            <div v-else>
-              <el-button size="small" type="primary" plain :icon="Position" @click="getGrievanceDetails(scope)">
-                More
-              </el-button>
-            </div>
-          </template>
-        </el-table-column>
-      </el-table>
-      <ElPagination
-:layout="paginationLayout" v-model:currentPage="currentPage" :pager-count="pagerCount"
-        v-model:page-size="pageSize" :page-sizes="[5, 8, 10, 20, 50, 200, 10000]" :total="total" :background="true"
-        @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
-    </div>
-
-    <div v-if="activeSegment === 'Deleted'">
-      <el-table :data="deletedGrievances" :show-overflow-tooltip="true" style="width: 100% ; margin-top: 10px;" border>
-        <el-table-column type="index" width="50" />
-        <el-table-column label="code" width="200" prop="code" sortable />
-        <el-table-column label="Description" prop="description" sortable />
-        <el-table-column label="Date Deleted" prop="delete_date" sortable :formatter="formatDate2" />
-        <el-table-column label="Deleted By" prop="deleted_by" sortable />
-
-        <el-table-column fixed="right" label="Operations" min-width="120">
-          <template #default="{ row }">
-            <el-tooltip content="Review" placement="top">
-              <el-button type="primary" size="small" :icon="View" @click="DeleteReview(row)" plain />
-            </el-tooltip>
-            <el-tooltip content="Restore" placement="top">
-              <el-button type="warning" size="small" :icon="RefreshLeft" @click="RevertEdits(row)" />
-            </el-tooltip>
-          </template>
-        </el-table-column>
-
-      </el-table>
-
-
-
-    </div>
-
-
+    <el-pagination
+       
+      v-model:currentPage="currentPage"
+      v-model:page-size="pageSize"
+      :pager-count="pagerCount"
+      :page-sizes="[5, 10, 20, 50, 200, 10000]"
+      :total="total"
+      :layout="paginationLayout"
+      :background="true"
+      class="mt-4"
+      @size-change="onPageSizeChange"
+      @current-change="onPageChange"
+    />
+  </div>
 
 
 
@@ -3930,69 +3355,50 @@ type="textarea" :rows="2" placeholder="Provide details of the resolution here"
 
 
 
-
 <style scoped>
+/* Upload area */
 .upload-demo {
   width: 300px;
 }
 
+/* Template download link */
 .template-link {
   text-decoration: underline;
   color: #409EFF;
-  /* Optional: change link color */
 }
 
-
-
-
+/* Margin utility */
 .mt-4 {
   margin-top: 16px;
 }
 
+/* Responsive pagination styles */
 @media (max-width: 768px) {
   .el-pagination {
     font-size: 12px;
-    /* Adjust font size for small screens */
   }
 
-  .el-pagination .el-pagination__sizes {
-    display: none;
-    /* Hide size selector on small screens */
-  }
-
+  .el-pagination .el-pagination__sizes,
   .el-pagination .el-pagination__total {
     display: none;
-    /* Hide total count on small screens */
   }
-
-
-
-}
-</style>
-
-
-<style>
-/* Customize the tooltip style */
-.el-tooltip__popper {
-  max-width: 300px; /* Set max width for the tooltip */
-  background-color: #e00909; /* Dark background */
-  color: #fff; /* White text */
-  font-size: 14px; /* Adjust font size */
-  border-radius: 4px; /* Rounded corners */
-  padding: 8px 12px; /* Padding inside the tooltip */
 }
 
-/* Optional: Style the arrow of the tooltip */
-.el-tooltip__popper[x-placement^="top"] .popper__arrow {
+/* Tooltip customization (non-scoped styles like tooltips may not respond to scoped unless deep selectors used) */
+:deep(.el-tooltip__popper) {
+  max-width: 300px;
+  background-color: #e00909;
+  color: #fff;
+  font-size: 14px;
+  border-radius: 4px;
+  padding: 8px 12px;
+}
+
+:deep(.el-tooltip__popper[x-placement^="top"] .popper__arrow) {
   border-top-color: #333;
 }
-</style>
 
-
-<style>
- 
-
-
+/* Table row status styles */
 .el-table .danger-row {
   --el-table-tr-bg-color: var(--el-color-danger-light-9);
   --el-table-tr-text-color: var(--el-color-danger);
@@ -4038,51 +3444,44 @@ type="textarea" :rows="2" placeholder="Provide details of the resolution here"
   color: var(--el-table-tr-text-color);
 }
 
+/* General item spacing */
 .item {
   margin-top: 10px;
   margin-right: 40px;
 }
-</style>
 
-
-<style scoped>
+ /* Custom styles for Elementor segmented control */
 .custom-style .el-segmented {
-  --el-border-radius-base: 5px;
+  --el-segmented-item-selected-color: var(--el-text-color-primary);
+  --el-segmented-item-selected-bg-color: #ffd100;
+  --el-border-radius-base: 16px;
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  width: 100%;
 }
 
-.segment-label {
-  white-space: nowrap;
-  /* Prevent text from wrapping */
-  overflow: hidden;
-  /* Hide overflowing text */
-  text-overflow: ellipsis;
-  /* Add ellipsis for truncated text */
+/* Ensure segmented items are styled appropriately */
+.custom-style .el-segmented .el-segmented-item {
+  font-size: 16px;
+  padding: 10px 20px;
+  min-height: 44px; /* Touch-friendly height */
+  text-align: center;
+  border-radius: var(--el-border-radius-base);
 }
 
-@media (max-width: 600px) {
+/* Responsive styles for mobile */
+@media (max-width: 767px) {
   .custom-style .el-segmented {
-    font-size: 10px;
-    /* Adjust font size on mobile */
-    padding: 5px;
-    /* Adjust padding for smaller screens */
+    flex-direction: column; /* Stack segments vertically */
+    gap: 8px; /* Smaller gap for mobile */
   }
 
-  .segment-label {
-    font-size: 12px;
-    /* Smaller font size for labels */
-    text-align: center;
-    /* Center align text */
-    padding: 0 5px;
-    /* Add some padding for spacing */
-    white-space: normal;
-    /* Allow wrapping on smaller screens */
-    overflow: visible;
-    /* Allow the text to flow properly */
+  .custom-style .el-segmented .el-segmented-item {
+    font-size: 12px; /* Smaller font for mobile */
+    padding: 8px 15px; /* Adjust padding for smaller screens */
+    min-height: 40px; /* Slightly smaller but still touch-friendly */
+    width: 100%; /* Full-width segments */
   }
 }
-
-
-
-
-
 </style>

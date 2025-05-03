@@ -10,7 +10,7 @@ import {
   signupGRM
 } from '@/api/register'
 
-import { ElButton, ElSelect, ElCheckbox, ElCol, ElIcon, ElTag } from 'element-plus'
+import { ElButton, ElSelect, ElCheckbox, ElCol, ElIcon, ElTag , ElTabPane,ElTabs} from 'element-plus'
 import {
   Plus, ArrowLeft, ArrowRight, UploadFilled,RefreshLeft,
   Edit,
@@ -337,7 +337,7 @@ const total = ref(0)
 
 
 const mobileBreakpoint = 768;
-const defaultPageSize = 8;
+const defaultPageSize = 5;
 const mobilePageSize = 5;
 const pageSize = ref(defaultPageSize);
 const pageHeight = ref(600);
@@ -526,8 +526,8 @@ onMounted(async () => {
  await getUserRoles()
   await   getDeletedCounts()
     await getCounts()
-  // window.addEventListener('resize', updatePageSize);
-  // updatePageSize(); // Initial check
+    window.addEventListener('resize', updatePageSize);
+   updatePageSize(); // Initial check
 
    await getInterventionsAll()
 })
@@ -2709,152 +2709,147 @@ if (search_string.value) {
 <template>
   <el-card>
     <el-row
-  type="flex"
-  justify="start"
-  :gutter="20"
-  style="flex-wrap: wrap; align-items: center; margin-bottom: 10px"
->
-  <!-- Back Button -->
-  <el-col :xs="24" :sm="4" :md="4" :lg="3">
-    <el-button type="primary" plain :icon="Back" @click="goBack" style="width: 100%;">
-      Back
-    </el-button>
-  </el-col>
-
-  <!-- Category -->
-<el-col :xs="24" :sm="24" :md="24" :lg="6">
-    <el-select
-      size="default"
-      v-model="selectedCategories"
-      :onChange="filterByCategory"
-      multiple
-      clearable
-      filterable
-      collapse-tags
-   
-      placeholder="Filter By Category"
-      style="width: 100%;"
+      type="flex"
+      justify="start"
+      :gutter="10"
+      style="flex-wrap: wrap; align-items: center; margin-bottom: 10px"
     >
-      <el-option
-        v-for="item in grievanceOptions"
-        :key="item.value"
-        :label="item.label"
-        :value="item.value"
-      />
-    </el-select>
-  </el-col>
+      <!-- Back Button -->
+      <el-col :xs="24" :sm="4" :md="4" :lg="2">
+        <el-button type="primary" plain :icon="Back" @click="goBack" style="width: 100%;">
+          Back
+        </el-button>
+      </el-col>
 
-  <!-- County -->
-  <el-col  v-if="isNationalStaff" :xs="24" :sm="12" :md="6" :lg="3">
-    <el-select
-      size="default"
-      v-model="selectedCounty"
-      :onChange="filterByCounty"
-      :onClear="handleClear"
-      multiple
-      clearable
-      filterable
-      collapse-tags
-      placeholder="Filter By County"
-      style="width: 100%;"
-    >
-      <el-option
-        v-for="item in countiesOptions"
-        :key="item.value"
-        :label="item.label"
-        :value="item.value"
-      />
-    </el-select>
-  </el-col>
+      <!-- Category -->
+      <el-col :xs="24" :sm="24" :md="24" :lg="6">
+        <el-select
+          size="default"
+          v-model="selectedCategories"
+          :onChange="filterByCategory"
+          multiple
+          clearable
+          filterable
+          collapse-tags
+          placeholder="Filter By Category"
+          style="width: 100%;"
+        >
+          <el-option
+            v-for="item in grievanceOptions"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </el-col>
 
-  <!-- Subcounty -->
-  <el-col :xs="24" :sm="12" :md="6" :lg="3">
-    <el-select
-      :disabled="!enableSubcounty"
-      size="default"
-      v-model="selectedSubCounty"
-      :onChange="filterBySubCounty"
-      multiple
-      clearable
-      filterable
-      collapse-tags
-      placeholder="Filter By Subcounty"
-      style="width: 100%;"
-    >
-      <el-option
-        v-for="item in subcountiesOptions"
-        :key="item.value"
-        :label="item.label"
-        :value="item.value"
-      />
-    </el-select>
-  </el-col>
+      <!-- County -->
+      <el-col v-if="isNationalStaff" :xs="24" :sm="12" :md="6" :lg="4">
+        <el-select
+          size="default"
+          v-model="selectedCounty"
+          :onChange="filterByCounty"
+          :onClear="handleClear"
+          multiple
+          clearable
+          filterable
+          collapse-tags
+          placeholder="Filter By County"
+          style="width: 100%;"
+        >
+          <el-option
+            v-for="item in countiesOptions"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </el-col>
 
-  <!-- Ward -->
-  <el-col :xs="24" :sm="24" :md="24" :lg="3">
-    <el-select
-      :disabled="!enableSubcounty"
-      size="default"
-      v-model="selectedWard"
-      :onChange="filterByWard"
-      multiple
-      clearable
-      filterable
-      collapse-tags
-      placeholder="Filter By Ward"
-      style="width: 100%;"
-    >
-      <el-option
-        v-for="item in wardOptions"
-        :key="item.value"
-        :label="item.label"
-        :value="item.value"
-      />
-    </el-select>
-  </el-col>
+      <!-- Subcounty -->
+      <el-col :xs="24" :sm="12" :md="6" :lg="4">
+        <el-select
+          :disabled="!enableSubcounty"
+          size="default"
+          v-model="selectedSubCounty"
+          :onChange="filterBySubCounty"
+          multiple
+          clearable
+          filterable
+          collapse-tags
+          placeholder="Filter By Subcounty"
+          style="width: 100%;"
+        >
+          <el-option
+            v-for="item in subcountiesOptions"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </el-col>
 
+      <!-- Ward -->
+      <el-col :xs="24" :sm="24" :md="24" :lg="4">
+        <el-select
+          :disabled="!enableSubcounty"
+          size="default"
+          v-model="selectedWard"
+          :onChange="filterByWard"
+          multiple
+          clearable
+          filterable
+          collapse-tags
+          placeholder="Filter By Ward"
+          style="width: 100%;"
+        >
+          <el-option
+            v-for="item in wardOptions"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </el-col>
 
+      <!-- Action Buttons -->
+      <el-col :xs="24" :sm="24" :md="12" :lg="4">
+        <div style="  gap: 5px;  ">
+          <el-tooltip v-if="isNationalStaff || isSuperAdmin" content="Import Data" placement="top">
+            <el-button @click="uploadData" type="primary" :icon="UploadFilled" />
+          </el-tooltip>
+          <el-tooltip content="Add Grievance" placement="top">
+            <el-button :onClick="AddComponent" type="primary" :icon="Plus" />
+          </el-tooltip>
+          <DownloadCustom
+            v-if="showEditButtons"
+            :data="tableDataList"
+            :model="model"
+            :associated_models="associated_multiple_models"
+          />
+        </div>
+      </el-col>
+    </el-row>
 
-
-  <!-- Action Buttons -->
-  <el-col :xs="24" :sm="24" :md="12" :lg="4">
-    <div style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-start;">
-      <el-tooltip v-if="isNationalStaff || isSuperAdmin" content="Import Data" placement="top">
-        <el-button @click="uploadData" type="primary" :icon="UploadFilled" />
-      </el-tooltip>
-      <el-tooltip content="Add Grievance" placement="top">
-        <el-button :onClick="AddComponent" type="primary" :icon="Plus" />
-      </el-tooltip>
-      <DownloadCustom
-        v-if="showEditButtons"
-        :data="tableDataList"
-        :model="model"
-        :associated_models="associated_multiple_models"
-      />
-    </div>
-  </el-col>
-</el-row>
-
-
-
-
-    <div class="custom-style">
-
-      <el-segmented v-model="activeSegment" :options="filteredSegments" block :onChange="onSegmentClick">
-        <template #default="{ item }">
-          <div class="flex flex-col items-center gap-2 p-2">
-            <el-icon size="18" :class="item.label === 'Deleted' ? 'text-red-600' : ''">
-              <component :is="item.icon" />
+    <div >
+  <el-tabs v-model="activeSegment" @tab-click="onSegmentClick"  type="border-card">
+     <el-tab-pane
+        v-for="segment in filteredSegments"
+        :key="segment.value"
+        :name="segment.value"
+      >
+        <template #label>
+          <div class="flex flex-col items-center p-1  ">
+            <el-icon size="18"  >
+              <component :is="segment.icon" />
             </el-icon>
-            <div>{{ item.label }} ({{ item.count }})</div>
+            <div style="font-weight: 500; font-size: 13px; ">
+                {{ segment.label }} ({{ segment.count }})
+              </div>
           </div>
+          
         </template>
-      </el-segmented>
-
-
-    </div>
-
-
+    
   <!-- Search Grievance -->
   <el-col :xs="24" :sm="24" :md="24" :lg="24"  >
     <el-select
@@ -2870,85 +2865,80 @@ if (search_string.value) {
     />
   </el-col>
 
-     
- 
- 
 
-  <div v-for="segment in filteredSegments" :key="segment.label" v-show="activeSegment === segment.label">
-    <el-table
-      v-loading="loading"
-      :data="tableDataList"
-      :row-key="segment.rowKey || 'id'"
-      :max-height="pageHeight"
-      border
-      show-overflow-tooltip
-      @selection-change="handleSelectionChange"
-      @row-click="handleRowDblClick"
-       style="width: 100%; margin-top: 10px;"
-    >
-      <!-- Optional Selection Column for 'Sorting' -->
-      <el-table-column
-        v-if="segment.label !='Closed' &&  segment.label !='Resolved' &&  segment.label !='In Court' &&  segment.label !='Deleted' &&  segment.label !='Rejected'"
-        type="selection"
-        width="55"
-        :selectable="isRowSelectable"
-      />
+        <el-table
+          v-loading="loading"
+          :data="tableDataList"
+          :row-key="segment.rowKey || 'id'"
+          :max-height="pageHeight"
+          border
+          show-overflow-tooltip
+          @selection-change="handleSelectionChange"
+          @row-click="handleRowDblClick"
+          style="width: 100%; margin-top: 10px;"
+        >
+          <!-- Optional Selection Column for Non-Final Statuses -->
+          <el-table-column
+            v-if="!['Closed', 'Resolved', 'In Court', 'Deleted', 'Rejected'].includes(segment.label)"
+            type="selection"
+            width="55"
+            :selectable="isRowSelectable"
+          />
 
-      <!-- Common Columns -->
-      <el-table-column label="#" width="80" prop="id" sortable>
-        <template #default="scope">
-          <div v-if="scope.row.grievance_documents.length > 0" style="display: inline-flex; align-items: center;">
-            <span>{{ scope.row.id }}</span>
-            <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
-          </div>
-        </template>
-      </el-table-column>
+          <el-table-column label="#" width="80" prop="id" sortable>
+            <template #default="scope">
+              <div v-if="scope.row.grievance_documents?.length > 0" style="display: inline-flex; align-items: center;">
+                <span>{{ scope.row.id }}</span>
+                <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
+              </div>
+              <span v-else>{{ scope.row.id }}</span>
+            </template>
+          </el-table-column>
 
-      <el-table-column label="Code" prop="code" sortable width="150" />
-      <el-table-column label="Category" prop="nature" sortable width="150" />
-       <el-table-column label="Description" prop="description" sortable  width="350"/>
- 
-      <el-table-column   label="Location" sortable width="350">
-        <template #default="scope">
-          <span>{{ scope.row.settlement.name }}, {{ scope.row.county.name }}</span>
-        </template>
-      </el-table-column>
+          <el-table-column label="Code" prop="code" sortable width="150" />
+          <el-table-column label="Category" prop="nature" sortable width="150" />
+          <el-table-column label="Description" prop="description" sortable width="350" />
 
-      <el-table-column prop="date" label="Date Reported" sortable width="150">
-        <template #default="scope">
-          <span>{{ formatDate(scope.row.date_reported) }}</span>
-        </template>
-      </el-table-column>
+          <el-table-column label="Location" sortable width="350">
+            <template #default="scope">
+              <span>{{ scope.row.settlement?.name }}, {{ scope.row.county?.name }}</span>
+            </template>
+          </el-table-column>
 
-      
+          <el-table-column prop="date" label="Date Reported" sortable width="150">
+            <template #default="scope">
+              <span>{{ formatDate(scope.row.date_reported) }}</span>
+            </template>
+          </el-table-column>
 
-      <el-table-column label="Complainant" prop="name" sortable width="150" v-if="segment.label === 'Sorting'" />
-      <el-table-column label="Reported By" width="150" v-if="segment.label === 'Sorting'">
-        <template #default="scope">
-          <span v-if="scope.row.self_reported">Self</span>
-          <span v-else>{{ scope.row.reporter_name }}</span>
-        </template>
-      </el-table-column>
+          <!-- Show only in 'Sorting' tab -->
+          <el-table-column label="Complainant" prop="name" sortable width="150" v-if="segment.label === 'Sorting'" />
+          <el-table-column label="Reported By" width="150" v-if="segment.label === 'Sorting'">
+            <template #default="scope">
+              <span v-if="scope.row.self_reported">Self</span>
+              <span v-else>{{ scope.row.reporter_name }}</span>
+            </template>
+          </el-table-column>
 
-      <!-- Shared Expiry Column -->
-      <el-table-column label=" Expiry" width="200">
-        <template #default="scope">
-          <span :class="getExpiryClass(scope.row.status_expiry_date)" style="margin-right: 5px;">
-            {{ getDaysToExpiry(scope.row.status_expiry_date) }}
-          </span>
-        </template>
-      </el-table-column>
-    </el-table>
+          <!-- Expiry Column -->
+          <el-table-column label="Expiry" width="200">
+            <template #default="scope">
+              <span :class="getExpiryClass(scope.row.status_expiry_date)" style="margin-right: 5px;">
+                {{ getDaysToExpiry(scope.row.status_expiry_date) }}
+              </span>
+            </template>
+          </el-table-column>
+        </el-table>
 
-    <!-- Bulk Action & Pagination for Sorting -->
-    <div v-if="selectedRows.length > 0" style="margin-top: 10px;">
+    <!-- Bulk Action (only if applicable) -->
+    <div v-if="selectedRows.length > 0  " style="margin-top: 10px;">
       <el-button type="primary" plain @click="handleBulkAction">
         Refer Selected {{ selectedRows.length }} Grievances
       </el-button>
     </div>
 
+    <!-- Pagination -->
     <el-pagination
-       
       v-model:currentPage="currentPage"
       v-model:page-size="pageSize"
       :pager-count="pagerCount"
@@ -2960,18 +2950,35 @@ if (search_string.value) {
       @size-change="onPageSizeChange"
       @current-change="onPageChange"
     />
-  </div>
+  </el-tab-pane>
+</el-tabs>
 
+    </div>
 
+    <!-- Search Grievance -->
+    <el-col :xs="24" :sm="24" :md="24" :lg="24">
+      <el-select
+        v-model="grv_name"
+        multiple
+        clearable
+        filterable
+        remote
+        :remote-method="searchByName"
+        reserve-keyword
+        placeholder="Search Grievance by code, description or name of complainant"
+        style="width: 100%; margin-top:10px;"
+      />
+    </el-col>
 
-
+  
   </el-card>
 
-  <el-dialog title="Select Fields" v-model="showDownloadDialog" width="60%">
+  <!-- Download Fields Dialog -->
+  <el-dialog title="Select Fields" v-model="showDownloadDialog" :width="isMobile ? '90%' : '60%'">
     <el-form>
       <el-form-item>
-        <el-row :gutter="20"> <!-- Add gutter for spacing between columns -->
-          <el-col v-for="(field) in availableFields" :key="field" :span="6">
+        <el-row :gutter="20">
+          <el-col v-for="field in availableFields" :key="field" :span="isMobile ? 12 : 6">
             <el-checkbox :label="field" v-model="selectedFields">
               {{ field }}
             </el-checkbox>
@@ -2985,10 +2992,14 @@ if (search_string.value) {
     </div>
   </el-dialog>
 
-
-
-  <el-dialog v-model="AddDialogVisible" @close="handleCloseDialog" title="File a grievance" width="65%" draggable>
-
+  <!-- Add Grievance Dialog -->
+  <el-dialog
+    v-model="AddDialogVisible"
+    @close="handleCloseDialog"
+    title="File a Grievance"
+    :width="isMobile ? '90%' : '65%'"
+    draggable
+  >
     <el-steps :active="active" finish-status="success">
       <el-step title="Complainant Details" />
       <el-step title="Grievance Details" />
@@ -2996,293 +3007,200 @@ if (search_string.value) {
     </el-steps>
 
     <el-form
-:model="grmForm" class="demo-form-inline" label-position="top" :rules="currentStepRules"
-      ref="dynamicFormRef">
+      :model="grmForm"
+      class="demo-form-inline"
+      label-position="top"
+      :rules="currentStepRules"
+      ref="dynamicFormRef"
+    >
       <el-card shadow="hover">
+        <!-- Step 1: Complainant Details -->
         <el-row v-if="active === 0" :gutter="10">
-          <!-- Step 1: Personal Details -->
-          <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+          <el-col :xs="24" :sm="12" :md="12" :lg="12">
             <el-form-item id="btn1" label="Name of Complainant" prop="name">
-              <el-input v-model="grmForm.name" placeholder="Enter name" style="width:90%" />
+              <el-input v-model="grmForm.name" placeholder="Enter name" />
             </el-form-item>
-
+          </el-col>
+          <el-col :xs="24" :sm="12" :md="12" :lg="12">
             <el-form-item id="btn2" label="Gender" prop="gender">
-              <el-select v-model="grmForm.gender" placeholder="Select" style="width:90%">
-                <el-option label="Female" value="female" />
+              <el-select v-model="grmForm.gender" placeholder="Select gender" style="width: 100%;">
                 <el-option label="Male" value="male" />
-                <el-option label="Unspecified" value="unspecified" />
+                <el-option label="Female" value="female" />
+                <el-option label="Other" value="other" />
               </el-select>
             </el-form-item>
-
-            <el-form-item id="btn3" label="Age" prop="age">
-              <el-select v-model="grmForm.age" placeholder="Select" style="width:90%">
-                <el-option v-for="item in ageRanges" :key="item.value" :label="item.label" :value="item.value" />
-              </el-select>
-            </el-form-item>
-
-
           </el-col>
-
-
-          <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+          <el-col :xs="24" :sm="12" :md="12" :lg="12">
+            <el-form-item id="btn3" label="Age Bracket" prop="age">
+              <el-select v-model="grmForm.age" placeholder="Select age bracket" style="width: 100%;">
+                <el-option v-for="range in ageRanges" :key="range.value" :label="range.label" :value="range.value" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24" :sm="12" :md="12" :lg="12">
             <el-form-item id="btn4" label="National ID" prop="national_id">
-              <el-input v-model="grmForm.national_id" placeholder="Enter ID number" style="width:90%" />
-            </el-form-item>
-
-            <el-form-item id="btn5" label="Phone" prop="phone">
-              <el-input
-v-model="grmForm.phone" placeholder="Enter phone number" style="width:90%"
-                :onChange="convertPhoneNumber" />
-            </el-form-item>
-
-            <el-form-item id="btn6" label="Email" prop="email">
-              <el-input v-model="grmForm.email" placeholder="Enter Email" style="width:90%" />
+              <el-input v-model="grmForm.national_id" placeholder="Enter national ID" />
             </el-form-item>
           </el-col>
-
-
+          <el-col :xs="24" :sm="12" :md="12" :lg="12">
+            <el-form-item id="btn5" label="Phone Number" prop="phone">
+              <el-input
+                v-model="grmForm.phone"
+                placeholder="Enter phone number"
+                @input="convertPhoneNumber(grmForm.phone)"
+              />
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24" :sm="12" :md="12" :lg="12">
+            <el-form-item id="btn6" label="Email (Optional)" prop="email">
+              <el-input v-model="grmForm.email" placeholder="Enter email" />
+            </el-form-item>
+          </el-col>
         </el-row>
 
-
-
+        <!-- Step 2: Grievance Details -->
         <el-row v-if="active === 1" :gutter="10">
-          <!-- Step 2: Grievance Details -->
-          <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+          <el-col :xs="24" :sm="12" :md="12" :lg="12">
             <el-form-item id="btn10" label="County" prop="county_id">
               <el-select
-filterable v-model="grmForm.county_id" placeholder="County" @change="getSettlementByCounty"
-                style="width:90%">
-                <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
+                v-model="grmForm.county_id"
+                placeholder="Select county"
+                style="width: 100%;"
+                @change="getSettlementByCounty(grmForm.county_id)"
+              >
+                <el-option
+                  v-for="item in countiesOptions"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                />
               </el-select>
             </el-form-item>
-
+          </el-col>
+          <el-col :xs="24" :sm="12" :md="12" :lg="12">
             <el-form-item id="btn11" label="Settlement" prop="settlement_id">
               <el-select
-filterable v-model="grmForm.settlement_id" placeholder="Settlement"
-                @change="handleSelectSettlement" style="width:90%">
+                v-model="grmForm.settlement_id"
+                placeholder="Select settlement"
+                style="width: 100%;"
+                @change="handleSelectSettlement(grmForm.settlement_id)"
+              >
                 <el-option
-v-for="item in settlementOptions" :key="item.value" :label="item.label"
-                  :value="item.value" />
+                  v-for="item in settlementOptions"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                />
               </el-select>
             </el-form-item>
-
-            <el-form-item id="btn12" label="Address" prop="address">
-              <el-input v-model="grmForm.address" placeholder="Enter address" style="width:90%" />
-            </el-form-item>
-
-
-
-            <el-checkbox
-id="btn13" v-model="grmForm.isgbv" label="Is this complaint related to Gender-Based Violence?"
-              size="large" style="margin-bottom:5px" />
-
-
-
-
           </el-col>
-          <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-
-            <el-checkbox
-id="btn13" v-model="grmForm.isInCourt" label="Is this complaint currently in court?"
-              size="large" style="margin-bottom:5px" />
-
-
-
-
-            <el-form-item v-if="!grmForm.isgbv" id="btn14" label="Nature of Complaint" prop="nature">
-              <el-select filterable v-model="grmForm.nature" placeholder="Select category" style="width:90%">
-                <!-- <el-option label="Land Ownership Disputes" value="land_ownership" />
-                <el-option label="Evictions and Displacement" value="evictions" />
-                <el-option label="Compensation Concerns" value="compensation" />
-                <el-option label="Labour Wage Disputes" value="labour_wages" />
-                <el-option label="Unfair Dismissal or Termination" value="unfair_dismissal" />
-                <el-option label="Workplace Harassment" value="workplace_harassment" />
-                <el-option label="Unsafe Working Conditions" value="unsafe_conditions" />
-                <el-option label="Poor Road Conditions" value="poor_roads" />
-                <el-option label="Water and Sanitation Issues" value="water_sanitation" />
-                <el-option label="Electricity and Power Supply Concerns" value="electricity" />
-                <el-option label="Inadequate Public Transport" value="public_transport" />
-                <el-option label="Pollution Complaints" value="pollution" />
-                <el-option label="Waste Management Issues" value="waste_management" />
-                <el-option label="Public Health Hazards" value="public_health" />
-                <el-option label="Deforestation or Land Degradation" value="deforestation" />
-                <el-option label="Discrimination and Exclusion" value="discrimination" />
-                <el-option label="Corruption and Mismanagement" value="corruption" />
-                <el-option label="Others" value="others" /> -->
+          <el-col :xs="24" :sm="24" :md="24" :lg="24">
+            <el-form-item id="btn12" label="Address" prop="address">
+              <el-input v-model="grmForm.address" placeholder="Enter address (e.g., near XXX Primary School)" />
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24" :sm="12" :md="12" :lg="12">
+            <el-form-item id="btn13" label="Is this a GBV-related complaint?">
+              <el-switch v-model="grmForm.isgbv" />
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24" :sm="12" :md="12" :lg="12">
+            <el-form-item id="btn14" label="Nature of Complaint" prop="nature">
+              <el-select v-model="grmForm.nature" placeholder="Select nature" style="width: 100%;">
                 <el-option
-                    v-for="item in grievanceOptions"
-                    :key="item.value"
-                    :label="item.label"
-                    :value="item.value"
-                  />
+                  v-for="item in grievanceOptions"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                />
               </el-select>
             </el-form-item>
-
-
-
-            <el-form-item id="btn15" label="Complaint Description" prop="description">
+          </el-col>
+          <el-col :xs="24" :sm="24" :md="24" :lg="24">
+            <el-form-item id="btn15" label="Description" prop="description">
               <el-input
-v-model="grmForm.description" type="textarea" rows="2" placeholder="Describe your complaint"
-                style="width:90%" />
+                type="textarea"
+                v-model="grmForm.description"
+                placeholder="Provide a detailed description"
+                :rows="4"
+              />
             </el-form-item>
-
+          </el-col>
+          <el-col :xs="24" :sm="24" :md="24" :lg="24">
             <el-form-item id="btn16" label="Plea/Request" prop="plea">
               <el-input
-v-model="grmForm.plea" type="textarea" rows="2" placeholder="Enter your plea/request"
-                style="width:90%" />
+                type="textarea"
+                v-model="grmForm.plea"
+                placeholder="Enter the complainant's plea or request"
+                :rows="4"
+              />
             </el-form-item>
           </el-col>
-
-
         </el-row>
 
+        <!-- Step 3: Review & Submit -->
         <el-row v-if="active === 2" :gutter="10">
-          <!-- Step 3: Review & Submit -->
-          <el-col :xs="12" :sm="21" :md="12" :lg="12" :xl="12">
-            <el-form-item id="btn17" label="Witness Name" prop="witness">
-              <el-input v-model="grmForm.witness" placeholder="Enter witness name" style="width:90%" />
-            </el-form-item>
-
-            <el-form-item id="btn18" label="Witness Phone" prop="witness_phone">
-              <el-input v-model="grmForm.witness_phone" placeholder="Enter witness phone" style="width:90%" />
-            </el-form-item>
-
-            <el-form-item id="btn19" label="Witness Statement" prop="witness_statement">
-              <el-input
-v-model="grmForm.witness_statement" type="textarea" placeholder="Enter witness statement"
-                style="width:90%" />
+          <el-col :xs="24" :sm="12" :md="12" :lg="12">
+            <el-form-item id="btn17" label="Witness Name (Optional)" prop="witness">
+              <el-input v-model="grmForm.witness" placeholder="Enter witness name" />
             </el-form-item>
           </el-col>
-
-
-          <el-col :xs="12" :sm="12" :md="12" :lg="12" :xl="12">
-
-            <el-form-item id="btn17" label="Are you the complainant?" prop="witness">
-
-              <el-switch
-disabled v-model="grmForm.self_reported" class="ml-2" inline-prompt
-                style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949" active-text="Yes"
-                inactive-text="No" />
-
-            </el-form-item>
-
-            <el-form-item v-if="!grmForm.self_reported" id="btn18" label="Your Name" prop="reporter_name">
-              <el-input disabled v-model="grmForm.reporter_name" placeholder="Your Name" style="width:90%" />
-            </el-form-item>
-
-            <el-form-item v-if="!grmForm.self_reported" id="btn19" label="Your Phone" prop="reporter_phone">
+          <el-col :xs="24" :sm="12" :md="12" :lg="12">
+            <el-form-item id="btn18" label="Witness Phone (Optional)" prop="witness_phone">
               <el-input
-disabled v-model="grmForm.reporter_phone" type="text" placeholder="Your Phone"
-                style="width:90%" />
+                v-model="grmForm.witness_phone"
+                placeholder="Enter witness phone"
+                @input="convertPhoneNumber(grmForm.witness_phone)"
+              />
             </el-form-item>
-
-
-
-            <el-upload
-id="btn20" class="upload-demo"
-              action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :on-preview="handlePreview"
-              :on-remove="handleRemove" :before-remove="beforeRemove" :limit="3" v-model:file-list="fileList"
-              :auto-upload="false" :on-exceed="handleExceed">
-              <el-button type="primary">Upload Supporting Documentation</el-button>
-              <template #tip>
-                <div class="el-upload__tip">pdf/jpg/png files with a size less than 500KB.</div>
-              </template>
-            </el-upload>
-
-
-
-
-
           </el-col>
-
+          <el-col :xs="24" :sm="24" :md="24" :lg="24">
+            <el-form-item id="btn19" label="Witness Statement (Optional)" prop="witness_statement">
+              <el-input
+                type="textarea"
+                v-model="grmForm.witness_statement"
+                placeholder="Enter witness statement"
+                :rows="4"
+              />
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24" :sm="24" :md="24" :lg="24">
+            <el-form-item id="btn20" label="Supporting Documentation (Optional)">
+              <el-upload
+                v-model:file-list="fileList"
+                :auto-upload="false"
+                :on-preview="handlePreview"
+                :on-remove="handleRemove"
+                :before-remove="beforeRemove"
+                :on-exceed="handleExceed"
+                :limit="3"
+                accept=".pdf,.jpg,.png"
+              >
+                <el-button type="primary">Click to upload</el-button>
+                <template #tip>
+                  <div class="el-upload__tip">
+                    Only pdf/jpg/png files with a size less than 10MB
+                  </div>
+                </template>
+              </el-upload>
+            </el-form-item>
+          </el-col>
         </el-row>
       </el-card>
     </el-form>
 
-    <template #footer>
-      <div
-class="steps-navigation"
-        style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
-        <div>
-          <el-tooltip content="Help" placement="top">
-            <el-button color="#626aef" type="info" @click="showTour" :icon="InfoFilled" plain />
-          </el-tooltip>
-
-          <el-button id="btn9" v-if="active > 0" @click="prev" type="primary" :icon="ArrowLeft">Previous </el-button>
-        </div>
-        <div>
-          <el-button id="btn7" v-if="active < 2" type="primary" @click="next">
-            Next <el-icon class="el-icon--right">
-              <ArrowRight />
-            </el-icon>
-          </el-button>
-
-          <el-button
-id="btn2" v-if="active === 2" type="primary" @click="submitForm"
-            style="margin-left: 10px;">Submit</el-button>
-          <el-button id="btn8" @click="resetForm" style="margin-left: 10px;">Reset</el-button>
-        </div>
-      </div>
-    </template>
+    <!-- Dialog Footer -->
+    <div class="dialog-footer" style="margin-top: 20px; text-align: right;">
+      <el-button id="btn8" v-if="active === 0" @click="resetForm">Clear Form</el-button>
+      <el-button id="btn9" v-if="active > 0" @click="prev">Previous</el-button>
+      <el-button id="btn7" v-if="active < 2" type="primary" @click="next">Next</el-button>
+      <el-button id="btn21" v-if="active === 2" type="primary" @click="submitForm">Submit</el-button>
+      <el-button @click="AddDialogVisible = false">Cancel</el-button>
+    </div>
   </el-dialog>
 
-  <el-dialog v-model="uploadDialog" title="Import Document" width="400" @close="uploadDialog = false">
-    <span>
-      To upload data on projects, use this
-      <button @click="DownloadTemplate" class="template-link">template</button>
-      , then upload it below.
-    </span>
-
-
-    <el-upload
-class="upload-demo" :on-change="handleCsvUpload" drag :auto-upload="false"
-      action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15">
-      <div class="el-upload__text">
-        Drop file here or <em>click to upload</em>
-      </div>
-
-    </el-upload>
-
-    <template #footer>
-      <div class="dialog-footer">
-        <el-button @click="uploadDialog = false">Cancel</el-button>
-        <el-button type="primary" @click="uploadData">
-          Confirm
-        </el-button>
-      </div>
-    </template>
-  </el-dialog>
-
-
-
-
-
-  <el-dialog v-model="reviewDialog" title="Review Deleted Data" width="50%" @close="reviewDialog = false">
-
-    <el-table :data="grievanceData" style="width: 100%" height="300px" max-height="400px">
-
-      <el-table-column prop="label" label="" width="150">
-        <template #default="{ row }">
-          <span style="font-weight: bold">{{ row.label }}</span>
-        </template>
-      </el-table-column>
-
-      <el-table-column prop="value" label="" />
-    </el-table>
-
-
-  </el-dialog>
-
-
-
-  <el-tour v-model="isTourVisible" :z-index="100000" :on-close="endTour">
-    <el-tour-step
-v-for="(step, index) in filteredTourSteps" :key="index" :target="step.target" :title="step.title"
-      :description="step.content" />
-  </el-tour>
-
-
-
+  <!-- Referral Dialog -->
+ 
   <el-dialog title="Refer Grievance(s)" v-model="showReferralDialog" width="60%" draggable>
     <el-form   v-loading="grmUsersLoading" :model="form" label-width="auto" ref="ReferralRef" :rules="rules">
       <el-form-item
@@ -3340,84 +3258,103 @@ type="textarea" :rows="2" placeholder="Provide details of the resolution here"
   </el-dialog>
 
 
+  <!-- Review Deleted Grievance Dialog -->
+  <el-dialog
+    v-model="ShowReviewDialog"
+    :title="formHeader"
+    :width="isMobile ? '90%' : '50%'"
+    draggable
+  >
+    <el-descriptions :column="isMobile ? 1 : 2" border>
+      <el-descriptions-item
+        v-for="item in grievanceData"
+        :key="item.label"
+        :label="item.label"
+      >
+        {{ item.value }}
+      </el-descriptions-item>
+    </el-descriptions>
+    <div class="dialog-footer">
+      <el-button @click="ShowReviewDialog = false">Cancel</el-button>
+      <el-button type="primary" @click="RevertEdits(DeletedGrievance)">Revert Deletion</el-button>
+    </div>
+  </el-dialog>
 
+  <!-- Upload Dialog -->
+  <el-dialog
+    v-model="uploadDialog"
+    title="Upload Grievances"
+    :width="isMobile ? '90%' : '50%'"
+    draggable
+  >
+    <el-upload
+      :auto-upload="false"
+      :on-change="handleCsvUpload"
+      accept=".csv"
+    >
+      <el-button type="primary">Click to upload CSV</el-button>
+      <template #tip>
+        <div class="el-upload__tip">
+          Please upload a CSV file with grievance data.
+        </div>
+      </template>
+    </el-upload>
+    <el-button type="primary" @click="DownloadTemplate" style="margin-top: 20px;">
+      Download Template
+    </el-button>
+    <div class="dialog-footer">
+      <el-button @click="uploadDialog = false">Cancel</el-button>
+    </div>
+  </el-dialog>
 
-
-
-
-
-
-
-
-
-
+  <!-- Tour -->
+  <el-tour v-model="isTourVisible" :steps="filteredTourSteps" />
 </template>
 
-
-
-
 <style scoped>
+/* Upload area */
 .upload-demo {
   width: 300px;
 }
 
+/* Template download link */
 .template-link {
   text-decoration: underline;
   color: #409EFF;
-  /* Optional: change link color */
 }
 
-
-
-
+/* Margin utility */
 .mt-4 {
   margin-top: 16px;
 }
 
+/* Responsive pagination styles */
 @media (max-width: 768px) {
   .el-pagination {
     font-size: 12px;
-    /* Adjust font size for small screens */
   }
 
-  .el-pagination .el-pagination__sizes {
-    display: none;
-    /* Hide size selector on small screens */
-  }
-
+  .el-pagination .el-pagination__sizes,
   .el-pagination .el-pagination__total {
     display: none;
-    /* Hide total count on small screens */
   }
-
-
-
-}
-</style>
-
-
-<style>
-/* Customize the tooltip style */
-.el-tooltip__popper {
-  max-width: 300px; /* Set max width for the tooltip */
-  background-color: #e00909; /* Dark background */
-  color: #fff; /* White text */
-  font-size: 14px; /* Adjust font size */
-  border-radius: 4px; /* Rounded corners */
-  padding: 8px 12px; /* Padding inside the tooltip */
 }
 
-/* Optional: Style the arrow of the tooltip */
-.el-tooltip__popper[x-placement^="top"] .popper__arrow {
+/* Tooltip customization (non-scoped styles like tooltips may not respond to scoped unless deep selectors used) */
+:deep(.el-tooltip__popper) {
+  max-width: 300px;
+  background-color: #e00909;
+  color: #fff;
+  font-size: 14px;
+  border-radius: 4px;
+  padding: 8px 12px;
+}
+
+:deep(.el-tooltip__popper[x-placement^="top"] .popper__arrow) {
   border-top-color: #333;
 }
-</style>
 
-
-<style>
- 
-
-
+/* Table row status styles */
 .el-table .danger-row {
   --el-table-tr-bg-color: var(--el-color-danger-light-9);
   --el-table-tr-text-color: var(--el-color-danger);
@@ -3463,51 +3400,51 @@ type="textarea" :rows="2" placeholder="Provide details of the resolution here"
   color: var(--el-table-tr-text-color);
 }
 
+/* General item spacing */
 .item {
   margin-top: 10px;
   margin-right: 40px;
 }
-</style>
 
-
-<style scoped>
+ /* Custom styles for Elementor segmented control */
 .custom-style .el-segmented {
-  --el-border-radius-base: 5px;
+  --el-segmented-item-selected-color: var(--el-text-color-primary);
+  --el-segmented-item-selected-bg-color: #ffd100;
+  --el-border-radius-base: 16px;
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  width: 100%;
 }
 
-.segment-label {
-  white-space: nowrap;
-  /* Prevent text from wrapping */
-  overflow: hidden;
-  /* Hide overflowing text */
-  text-overflow: ellipsis;
-  /* Add ellipsis for truncated text */
+/* Ensure segmented items are styled appropriately */
+.custom-style .el-segmented .el-segmented-item {
+  font-size: 16px;
+  padding: 10px 20px;
+  min-height: 44px; /* Touch-friendly height */
+  text-align: center;
+  border-radius: var(--el-border-radius-base);
 }
 
-@media (max-width: 600px) {
+/* Responsive styles for mobile */
+@media (max-width: 767px) {
   .custom-style .el-segmented {
-    font-size: 10px;
-    /* Adjust font size on mobile */
-    padding: 5px;
-    /* Adjust padding for smaller screens */
+    flex-direction: column; /* Stack segments vertically */
+    gap: 8px; /* Smaller gap for mobile */
   }
 
-  .segment-label {
-    font-size: 12px;
-    /* Smaller font size for labels */
-    text-align: center;
-    /* Center align text */
-    padding: 0 5px;
-    /* Add some padding for spacing */
-    white-space: normal;
-    /* Allow wrapping on smaller screens */
-    overflow: visible;
-    /* Allow the text to flow properly */
+  .custom-style .el-segmented .el-segmented-item {
+    font-size: 12px; /* Smaller font for mobile */
+    padding: 8px 15px; /* Adjust padding for smaller screens */
+    min-height: 40px; /* Slightly smaller but still touch-friendly */
+    width: 100%; /* Full-width segments */
   }
 }
 
-
-
-
-
+.demo-tabs > .el-tabs__content {
+  padding: 40px;
+  color: #6b778c;
+  font-size: 16px;
+  font-weight: 600;
+}
 </style>
