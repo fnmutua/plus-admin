@@ -60,6 +60,7 @@ const settlementOptions = ref([])
 const isSuperAdmin = ref(userInfo.roles.some(role => role.name === "super_admin"));
 
 console.log("userInfo--->", userInfo)
+const selectedCounty=ref()
 
  
 const filters=ref([])
@@ -213,6 +214,8 @@ const getGRMUsers = async (countyIds) => {
 
 
 const isNationalStaff = ref(false)
+const isCountyStaff = ref(false)
+ 
 let  roles_filters = [];
 
 const getUserRoles = async () => {
@@ -222,7 +225,7 @@ const getUserRoles = async () => {
   filterValues.value = [];
 
   const grmRole = userInfo.roles.map(role => {
-    if (role.name === "grm" || role.name === "admin" || role.name === "staff") {
+    if (role.name === "grm" || role.name === "admin" || role.name === "root_admin"|| role.name === "super_admin" || role.name === "staff") {
       let field = null;
       let fieldvalue = null;
 
@@ -232,6 +235,14 @@ const getUserRoles = async () => {
         isNationalStaff.value = false;
         field = "county_id";
         fieldvalue = role.user_roles.county_id;
+        isCountyStaff.value=true 
+        console.log ('isCountyStaff.value',isCountyStaff.value)
+        //CountyId.value =role.user_roles.county_id;
+        selectedCounty.value =role.user_roles.county_id;
+        console.log('selectedCounty.value',selectedCounty.value)
+          getSubCountyNames()
+        filterByCounty(selectedCounty.value)
+
       } else if (level === "settlement") {
         isNationalStaff.value = false;
         field = "settlement_id";
@@ -1719,9 +1730,10 @@ const getFilteredBySearchData = async (searchKey) => {
 
 
 const searchByName = async (filterString: any) => {
-
-  getFilteredBySearchData(filterString)
-}
+  if (filterString && filterString.trim() !== '') {
+    await getFilteredBySearchData(filterString);
+  }
+};
 
  
 
@@ -2041,7 +2053,6 @@ console.log('filters.value', filters.value)
 const wardOptions = ref([])
 const selectedSubCounty=ref()
 const enableSubcounty=ref(false)
-const selectedCounty=ref()
  
 const value5=ref()
 const value6=ref()
@@ -2051,14 +2062,64 @@ const search_string=ref()
 
 const subcountiesOptions = ref([])
 
+ 
 const getSubCountyNames = async () => {
+  const res = await getListWithoutGeo({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'subcounty',
+      searchField: 'county_id',
+      searchKeyword: selectedCounty.value,
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received subcounties response:', response)
+    var ret = response.data
+    subcountiesOptions.value = []
+    loading.value = false
+
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var subcountyOpt = {}
+      subcountyOpt.value = arrayItem.id
+      subcountyOpt.county_id = arrayItem.county_id
+      subcountyOpt.label = arrayItem.name
+      //  console.log(countyOpt)
+      subcountiesOptions.value.push(subcountyOpt)
+    })
+    console.log('got subcountes')
+  })
 }
 
-
-
+ 
 const getWardNames = async () => {
-}
+  const res = await getListWithoutGeo({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'ward',
+      searchField: 'subcounty_id',
+      searchKeyword: selectedSubCounty.value,
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received wards response:', response)
+    var ret = response.data
+    wardOptions.value = []
+    loading.value = false
 
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var opt = {}
+      opt.value = arrayItem.id
+      opt.subcounty_id = arrayItem.subcounty_id
+      opt.label = arrayItem.name
+      //  console.log(countyOpt)
+      wardOptions.value.push(opt)
+    })
+  })
+}
 
 const filterByCounty = async (county_id: any) => {
 
@@ -2684,7 +2745,7 @@ if (search_string.value) {
   </el-col>
 
   <!-- County -->
-  <el-col :xs="24" :sm="12" :md="6" :lg="3">
+  <el-col  v-if="isNationalStaff" :xs="24" :sm="12" :md="6" :lg="3">
     <el-select
       size="default"
       v-model="selectedCounty"

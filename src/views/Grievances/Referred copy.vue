@@ -1,7 +1,7 @@
+<!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
 import { useI18n } from '@/hooks/web/useI18n'
 import { getListWithoutGeo} from '@/api/counties'
-import { toRaw } from 'vue';
 
 import { getGrievances } from '@/api/grievance'
 
@@ -70,16 +70,12 @@ const Statuses = ref([
 
 
 const isNationalStaff = ref(false)
-const isCountyStaff = ref(false)
-const selectedCounty=ref()
-
-
 let  roles_filters = [];
 
-const getUserRoles =  async () => { 
+const getUserRoles =   () => { 
   // Check for the "grm" role and get its level, field, and field value
 const grmRole = userInfo.roles.map(role => {
-  if (role.name === "grm" || role.name === "admin" || role.name === "root_admin"|| role.name === "super_admin" || role.name === "staff") {
+  if (role.name === "grm") {
     let field = null;
     let fieldvalue = null;
 
@@ -88,16 +84,6 @@ const grmRole = userInfo.roles.map(role => {
       isNationalStaff.value = false
       field = "county_id";
       fieldvalue = role.user_roles.county_id;
-
-      isCountyStaff.value=true 
-        console.log ('isCountyStaff.value',isCountyStaff.value)
-        //CountyId.value =role.user_roles.county_id;
-        selectedCounty.value =role.user_roles.county_id;
-        console.log('selectedCounty.value',selectedCounty.value)
-          getSubCountyNames()
-        filterByCounty(selectedCounty.value)
-
-
     } else if (role.user_roles.location_level === "settlement") {
       isNationalStaff.value = false
       field = "settlement_id";
@@ -241,66 +227,64 @@ const updatePageSize = () => {
 
 
 
+const getCounts =async  () => { 
+
+console.log('counts')
+
+const formData = {}
+  formData.model = 'grievance'
+  formData.summaryField = 'status'  // Remove ambiguous fields 
+  formData.summaryFunction = 'count'
+  formData.groupFields = ['status'] //['county.name','indicator_category.category_title']
  
- 
-const getCounts = async () => {
-  console.log('Fetching grievance counts...', filterValues.value, filters.value);
 
-  const rawFilterValues = toRaw(filterValues.value);
-  const rawFilters = toRaw(filters.value);
+  console.log(roles_filters.length)
+  if(roles_filters.length>0) {
 
-  const filterField = [];
-  const filterValue = [];
-  const filterOperator = [];
-
-  if (rawFilters.length === rawFilterValues.length) {
-    for (let i = 0; i < rawFilters.length; i++) {
-      const field = rawFilters[i];
-      const value = rawFilterValues[i];
-
-      if (field && value !== undefined && value !== null) {
-        filterField.push(field);
-
-        if (Array.isArray(value)) {
-          filterValue.push(value);
-          filterOperator.push('eq');
-        } else {
-          filterValue.push([value]);
-          filterOperator.push('eq');
-        }
-      }
-    }
+    formData.filterField =[filters.value[1]]
+  formData.filterValue =[[filterValues.value[1]]] 
+  formData.filterOperator = ['eq']
   }
+  
 
-  const formData = {
-    model: 'grievance',
-    summaryField: 'status',
-    summaryFunction: 'count',
-    groupFields: ['status'],
-    filterField,
-    filterValue,
-    filterOperator
-  };
 
-  console.log('Constructed formData:', formData);
+
+  // added for unique couts 
+ 
+  console.log('filters.value', filters.value[1])
+  console.log('filterValues.value', filterValues.value[1])
+
+
+  console.log('form-Data',formData)
 
   try {
     const response = await getSummarybyFieldFromMultipleIncludes(formData);
-    const summary = response?.Total || [];
+    const amount = response.Total;
+    console.log('status.count Summary', amount)
 
-    console.log('Grievance status counts:', summary);
 
-    Statuses.value.forEach((status) => {
-      const match = summary.find(item => item.status === status.value);
-      status.count = match ? parseInt(match.count, 10) : 0;
-    });
+
+    // Update Statuses count dynamically
+        Statuses.value.forEach((status) => {
+          const match = amount.find((item) => item.status === status.value);
+          if (match) {
+            status.count = parseInt(match.count, 10);
+          }
+        });
+
+
+ 
+ 
   } catch (error) {
-    console.error('Error fetching status counts:', error);
-    Statuses.value.forEach((status) => {
-      status.count = 0;
-    });
+    // Handle any errors that occur during the asynchronous operation
+    console.error(error);
+    //return null; // or any default value you prefer
+    return []; // or any default value you prefer
   }
-};
+
+
+}
+
 
 const getDeletedCounts = async () => {
   console.log('Fetching deleted grievance count...');
@@ -340,12 +324,12 @@ const getDeletedCounts = async () => {
 
 
 onMounted(async () => {
-  await getUserRoles()
-  await getDeletedCounts()
-  await getCounts()
+  getUserRoles()
+  getDeletedCounts()
+  getCounts()
   window.addEventListener('resize', updatePageSize);
   updatePageSize(); // Initial check
-  await getInterventionsAll()
+
 
 })
 
@@ -436,75 +420,52 @@ const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
 
 
 const getFilteredData = async (selFilters, selfilterValues) => {
+  const formData = {}
+  formData.limit = pageSize.value
+  formData.page = page.value
+  formData.curUser = 1 // Id for logged in user
+  formData.model = model
+  //-Search field--------------------------------------------
+  formData.searchField = 'name'
+  formData.searchKeyword = ''
+  //--Single Filter -----------------------------------------
 
+  formData.assocModel = associated_Model
 
-console.log('selFilters',selFilters, selfilterValues)
-const formData = {}
-formData.limit = pageSize.value
-formData.page = page.value
-formData.curUser = 1 // Id for logged in user
-formData.model = model
-//-Search field--------------------------------------------
-formData.searchField = 'name'
-formData.searchKeyword = ''
-//--Single Filter -----------------------------------------
+  // - multiple filters -------------------------------------
+  formData.filters = selFilters
+  formData.filterValues = selfilterValues
+  formData.filterFunctions = filterFunction.value
 
-formData.assocModel = associated_Model
+  formData.associated_multiple_models = associated_multiple_models
 
-// - multiple filters -------------------------------------
-formData.filters = selFilters
-formData.filterValues = selfilterValues
-formData.filterFunctions = filterFunction.value
+  //-------------------------
+  //console.log(formData)
+  const res = await getGrievances(formData)
 
-formData.associated_multiple_models = associated_multiple_models
-
-
-formData.filterFunctions = [];
-
-// Loop to determine the correct operator (eq or in) per filter
-for (let i = 0; i < selfilterValues.length; i++) {
-const val = selfilterValues[i];
-
-if (Array.isArray(val)) {
-  formData.filterFunctions.push('in');
-} else {
-  formData.filterFunctions.push('eq');
-  // Optional: wrap scalar in array if your backend expects array
-  formData.filterValues[i] = [val];
-}
-}
-
-
-//-------------------------
-//console.log(formData)
-const res = await getGrievances(formData)
-
-console.log('After Querry', res)
-console.log('After Querry - selFilters', selFilters)
-console.log('After Querry - selfilterValues', selfilterValues)
+  console.log('After Querry', res)
 
 
 
-tableDataList.value = res.data
+  tableDataList.value = res.data
 
-availableFields.value = extractFields(tableDataList.value);
+  availableFields.value = extractFields(tableDataList.value);
 
 
 
-total.value = res.total
+  total.value = res.total
 
-Statuses.value.forEach(status => {
-if (status.label === activeSegment.value) {
-  status.count = res.total; // Update this count dynamically
-}
+  Statuses.value.forEach(status => {
+  if (status.label === activeSegment.value) {
+    status.count = res.total; // Update this count dynamically
+  }
 });
 
 
 loading.value = false
 
-console.log('segment', activeSegment.value)
+  console.log('segment', activeSegment.value)
 }
- 
 
 
 
@@ -770,14 +731,12 @@ console.log('grmForm.value',grmForm.value)
 
 
 
-//getIndicatorOptions()
+getIndicatorOptions()
 
 if (userInfo) {
   getInterventionsAll()
 
 }
-
-
 
 
 
@@ -1645,6 +1604,7 @@ console.log(' deletedGrievancesCount.value . ', deletedGrievances.value )
 const wardOptions = ref([])
 const selectedSubCounty=ref()
 const enableSubcounty=ref(false)
+const selectedCounty=ref()
  
 const value5=ref()
 const value6=ref()
@@ -1655,68 +1615,15 @@ const search_string=ref()
 const subcountiesOptions = ref([])
 
 const getSubCountyNames = async () => {
-  const res = await getListWithoutGeo({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'subcounty',
-      searchField: 'county_id',
-      searchKeyword: selectedCounty.value,
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received subcounties response:', response)
-    var ret = response.data
-    subcountiesOptions.value = []
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var subcountyOpt = {}
-      subcountyOpt.value = arrayItem.id
-      subcountyOpt.county_id = arrayItem.county_id
-      subcountyOpt.label = arrayItem.name
-      //  console.log(countyOpt)
-      subcountiesOptions.value.push(subcountyOpt)
-    })
-    console.log('got subcountes')
-  })
 }
 
 
 
 const getWardNames = async () => {
-  const res = await getListWithoutGeo({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'ward',
-      searchField: 'subcounty_id',
-      searchKeyword: selectedSubCounty.value,
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received wards response:', response)
-    var ret = response.data
-    wardOptions.value = []
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var opt = {}
-      opt.value = arrayItem.id
-      opt.subcounty_id = arrayItem.subcounty_id
-      opt.label = arrayItem.name
-      //  console.log(countyOpt)
-      wardOptions.value.push(opt)
-    })
-  })
 }
 
 
 const filterByCounty = async (county_id: any) => {
-
-  console.log('filterByCounty',county_id)
 
 if (county_id) {
   enableSubcounty.value = true   // allow selection of subcounty 
@@ -2126,7 +2033,7 @@ if (search_string.value) {
   </el-col>
 
   <!-- County -->
-  <el-col v-if="isNationalStaff" :xs="24" :sm="12" :md="6" :lg="3">
+  <el-col :xs="24" :sm="12" :md="6" :lg="3">
     <el-select
       size="default"
       v-model="selectedCounty"

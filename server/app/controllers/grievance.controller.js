@@ -607,7 +607,7 @@ exports.getGrievances = async (req, res) => {
 
   // Role checks
   const hasSuperAdminRole = currentUserRoles.some(role => ['super_admin', 'root_admin','admin','staff'].includes(role.name));
-  const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv' || role.name === 'admin');
+  const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv' || role.name === 'admin' || role.name === 'staff');
   const hasNationalRole = currentUserRoles.some(role => role.user_roles.location_level === 'national');
   const countyAdminRole = currentUserRoles.find(role => role.user_roles.location_level === 'county');
   const settlementGCRRole = currentUserRoles.find(role => role.user_roles.location_level === 'settlement');
@@ -1002,7 +1002,7 @@ exports.batchDocumentsUploadByGrievanceCode = async (req, res) => {
         );
 
         
-        const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv');
+        const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv' || role.name === 'staff' || role.name === 'admin');
     
         // Initialize attributes, including all fields from grievance and sensitive fields with conditional redaction
         let attributes = Object.keys(db.models.grievance.rawAttributes).filter(attr => attr !== 'password'); // Exclude sensitive fields like password if any
@@ -1180,7 +1180,8 @@ exports.batchDocumentsUploadByGrievanceCode = async (req, res) => {
 
     // Check if the current user has the 'super_admin' role or 'grm/gbv' roles
     const hasSuperAdminRole = currentUserRoles.some(role => role.name === 'super_admin');
-    const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv');
+    //const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv');
+    const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv' || role.name === 'staff' || role.name === 'admin');
 
     // Initialize attributes, including all fields from grievance and sensitive fields with conditional redaction
     let attributes = Object.keys(db.models.grievance.rawAttributes).filter(attr => attr !== 'password'); // Exclude sensitive fields like password if any
@@ -1640,7 +1641,7 @@ exports.modelImportGrievances = async (req, res) => {
       //  const hasSuperAdminRole = currentUserRoles.some(role => role.name === 'super_admin');
         const hasSuperAdminRole = currentUserRoles.some(role => ['super_admin', 'root_admin','admin','staff'].includes(role.name));
 
-        const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv');
+        const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv' || role.name === 'admin' || role.name === 'staff');
       
         let settlement_id;
         let county_id;
@@ -1976,7 +1977,7 @@ exports.modelImportGrievances = async (req, res) => {
         const user = req.thisUser;
         const currentUserRoles = await user.getRoles();
         const hasSuperAdminRole = currentUserRoles.some(role => role.name === 'super_admin');
-        const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv');
+        const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv' || role.name === 'admin' || role.name === 'staff');
     
         if (!hasGRMRole && !hasSuperAdminRole) {
           return res.status(403).send({
@@ -2064,7 +2065,7 @@ exports.modelImportGrievances = async (req, res) => {
         const user = req.thisUser;
         const currentUserRoles = await user.getRoles();
         const hasSuperAdminRole = currentUserRoles.some(role => role.name === 'super_admin');
-        const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv');
+        const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv' || role.name === 'admin' || role.name === 'staff');
     
         if (!hasGRMRole && !hasSuperAdminRole) {
           return res.status(403).send({
@@ -2123,7 +2124,7 @@ exports.bulkUpdateReferredToOfficer = async (req, res) => {
         const user = req.thisUser;
         const currentUserRoles = await user.getRoles();
         const hasSuperAdminRole = currentUserRoles.some(role => role.name === 'super_admin');
-        const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv');
+        const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv' || role.name === 'admin' || role.name === 'staff');
     
         if (!hasGRMRole && !hasSuperAdminRole) {
           return res.status(403).send({
@@ -2274,8 +2275,9 @@ exports.bulkUpdateReferredToOfficer = async (req, res) => {
      // const hasSuperAdminRole = currentUserRoles.some(role => role.name === 'super_admin');
       const hasSuperAdminRole = currentUserRoles.some(role => ['super_admin', 'root_admin','admin','staff'].includes(role.name));
 
-      const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv');
-    
+      //const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv');
+      const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv' || role.name === 'staff' || role.name === 'admin');
+
       if (!hasGRMRole && !hasSuperAdminRole) {
         return res.status(200).send({
           data: [],
@@ -3485,7 +3487,8 @@ exports.sendReminder = async (req, res) => {
     const user = req.thisUser;
     const currentUserRoles = await user.getRoles();
     const hasSuperAdminRole = currentUserRoles.some((role) => role.name === "super_admin");
-    const hasGRMRole = currentUserRoles.some((role) => role.name === "grm" || role.name === "gbv");
+   // const hasGRMRole = currentUserRoles.some((role) => role.name === "grm" || role.name === "gbv");
+    const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv' || role.name === 'staff' || role.name === 'admin');
 
     if (!hasGRMRole && !hasSuperAdminRole) {
       return res.status(403).send({ code: "9999", message: "Unauthorized access to grievances denied" });
