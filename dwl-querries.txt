@@ -335,3 +335,20 @@ ADD COLUMN reffered_to_officer INTEGER
  ALTER TABLE grievance 
 ADD COLUMN reffered_to_officer INTEGER  
 
+
+
+-- Standardizing grievance category values
+UPDATE grievance SET nature  = 'environmental_issues' WHERE nature   IN ('nature', 'deforestation');
+UPDATE grievance SET nature  = 'health_safety' WHERE nature  = 'public_health';
+UPDATE grievance SET nature  = 'other' WHERE LOWER(nature  ) IN ('others', 'other');
+UPDATE grievance SET nature  = 'compensation' WHERE nature  = 'compensation';
+UPDATE grievance SET nature  = 'infrastructure' WHERE LOWER(nature  ) = 'infrastructure';
+UPDATE grievance SET nature  = 'poor_roads' WHERE nature  = 'poor_roads';
+UPDATE grievance SET nature  = 'electricity_lighting' WHERE nature  = 'electricity';
+UPDATE grievance SET nature  = 'labour_issues' WHERE nature   IN ('labour_wages', 'labour');
+UPDATE grievance SET nature  = 'land_ownership' WHERE nature   IN ('land', 'land_ownership');
+UPDATE grievance SET nature  = 'water_supply' WHERE nature  = 'water_sanitation';
+UPDATE grievance SET nature  = 'waste_management' WHERE nature  = 'waste_management';
+UPDATE grievance SET nature  = 'corruption' WHERE nature  = 'corruption';
+UPDATE grievance SET nature  = 'gbv' WHERE LOWER(nature  ) = 'gbv';
+UPDATE grievance SET nature  = 'other' WHERE LOWER(nature  ) = '';

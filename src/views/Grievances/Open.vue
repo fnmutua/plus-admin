@@ -2567,8 +2567,80 @@ const submitResolutionForm = async () => {
 };
 
 
+ 
+
+const grievanceOptions = [
+  { label: 'Land Ownership or Title Disputes', value: 'land_ownership' },
+  { label: 'Evictions or Displacement', value: 'evictions' },
+  { label: 'Compensation or Resettlement Issues', value: 'compensation' },
+  { label: 'Poor Road or Pathway Conditions', value: 'poor_roads' },
+  { label: 'Infrastructure related ', value: 'infrastructure' },
+  { label: 'Drainage and Flooding Problems', value: 'drainage_flooding' },
+  { label: 'Water Access and Supply Issues', value: 'water_supply' },
+  { label: 'Sanitation and Hygiene Concerns', value: 'sanitation' },
+  { label: 'Electricity or Street Lighting Issues', value: 'electricity_lighting' },
+  { label: 'Waste Collection and Management', value: 'waste_management' },
+  { label: 'Environmental Degradation ', value: 'environmental_issues' },
+  { label: 'Health and Safety Hazards', value: 'health_safety' },
+  { label: 'Corruption, Mismanagement, or Bribery', value: 'corruption' },
+  { label: 'Discrimination, Exclusion or Favoritism', value: 'discrimination' },
+  { label: 'Gender-Based Violence or Harassment', value: 'gbv' },
+  { label: 'Labour Issues (e.g. unpaid wages, poor conditions)', value: 'labour_issues' },
+  { label: 'Lack of Information or Consultation', value: 'information_gap' },
+  { label: 'Project Implementation Delays or Inactivity', value: 'delays' },
+  { label: 'Other', value: 'other' }
+];
 
 
+
+
+const selectedCategories =ref([])
+const filterByCategory = async (categories: any) => {
+
+//value6.value = null   // clear the ward sr
+
+
+if (categories) {
+  selectedCategories.value = categories
+ 
+}
+
+
+if (selectedCategories.value ) {
+  const selectOption = 'nature';
+
+  // Ensure the filter key exists
+  if (!filters.value.includes(selectOption)) {
+    filters.value.push(selectOption);
+      filterFunction.value.push('in')
+
+  }
+
+  const index = filters.value.indexOf(selectOption);
+
+  // Clear previously selected county filter values
+  filterValues.value[index] = [];
+
+  // Insert new county filter value if it's not empty
+  if (selectedCategories.value.length  > 0) {
+    filterValues.value[index] = [...selectedCategories.value];
+  }
+
+  // Remove filter key if no values are selected
+  if (selectedCategories.value.length === 0) {
+    filters.value.splice(index, 1);
+    filterValues.value.splice(index, 1);
+  }
+}
+
+
+
+if (search_string.value) {
+  getFilteredBySearchData(search_string.value)
+} else {
+  getFilteredData(filters.value, filterValues.value)
+}
+}
 
 
 </script>
@@ -2576,74 +2648,132 @@ const submitResolutionForm = async () => {
 <template>
   <el-card>
     <el-row
-type="flex" justify="start" gutter="10"
-      style="display: flex; flex-wrap: nowrap; align-items: center; margin-bottom:10px">
+  type="flex"
+  justify="start"
+  :gutter="10"
+  style="flex-wrap: wrap; align-items: center; margin-bottom: 10px"
+>
+  <!-- Back Button -->
+  <el-col :xs="24" :sm="4" :md="4" :lg="3">
+    <el-button type="primary" plain :icon="Back" @click="goBack" style="width: 100%;">
+      Back
+    </el-button>
+  </el-col>
 
-      <div class="max-w-200px">
-        <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
-          Back
-        </el-button>
-      </div>
+  <!-- Category -->
+<el-col :xs="24" :sm="24" :md="24" :lg="6">
+    <el-select
+      size="default"
+      v-model="selectedCategories"
+      :onChange="filterByCategory"
+      multiple
+      clearable
+      filterable
+      collapse-tags
+   
+      placeholder="Filter By Category"
+      style="width: 100%;"
+    >
+      <el-option
+        v-for="item in grievanceOptions"
+        :key="item.value"
+        :label="item.label"
+        :value="item.value"
+      />
+    </el-select>
+  </el-col>
+
+  <!-- County -->
+  <el-col :xs="24" :sm="12" :md="6" :lg="3">
+    <el-select
+      size="default"
+      v-model="selectedCounty"
+      :onChange="filterByCounty"
+      :onClear="handleClear"
+      multiple
+      clearable
+      filterable
+      collapse-tags
+      placeholder="Filter By County"
+      style="width: 100%;"
+    >
+      <el-option
+        v-for="item in countiesOptions"
+        :key="item.value"
+        :label="item.label"
+        :value="item.value"
+      />
+    </el-select>
+  </el-col>
+
+  <!-- Subcounty -->
+  <el-col :xs="24" :sm="12" :md="6" :lg="3">
+    <el-select
+      :disabled="!enableSubcounty"
+      size="default"
+      v-model="selectedSubCounty"
+      :onChange="filterBySubCounty"
+      multiple
+      clearable
+      filterable
+      collapse-tags
+      placeholder="Filter By Subcounty"
+      style="width: 100%;"
+    >
+      <el-option
+        v-for="item in subcountiesOptions"
+        :key="item.value"
+        :label="item.label"
+        :value="item.value"
+      />
+    </el-select>
+  </el-col>
+
+  <!-- Ward -->
+  <el-col :xs="24" :sm="24" :md="24" :lg="3">
+    <el-select
+      :disabled="!enableSubcounty"
+      size="default"
+      v-model="selectedWard"
+      :onChange="filterByWard"
+      multiple
+      clearable
+      filterable
+      collapse-tags
+      placeholder="Filter By Ward"
+      style="width: 100%;"
+    >
+      <el-option
+        v-for="item in wardOptions"
+        :key="item.value"
+        :label="item.label"
+        :value="item.value"
+      />
+    </el-select>
+  </el-col>
 
 
 
-      <el-col :xs="24" :sm="24" :md="12" :lg="5">
-        <el-select
-size="default" v-model="selectedCounty" :onChange="filterByCounty" :onClear="handleClear" multiple
-          clearable filterable collapse-tags placeholder="By County" style=" margin-right: 5px;">
-          <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-      </el-col>
 
-      <el-col :xs="24" :sm="24" :md="12" :lg="4">
-        <el-select
-:disabled="!enableSubcounty" size="default" v-model="selectedSubCounty" :onChange="filterBySubCounty"
-          multiple clearable filterable collapse-tags placeholder="By Subcounty" style=" margin-right: 5px;">
-          <el-option v-for="item in subcountiesOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-      </el-col>
+  <!-- Action Buttons -->
+  <el-col :xs="24" :sm="24" :md="12" :lg="4">
+    <div style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-start;">
+      <el-tooltip v-if="isNationalStaff || isSuperAdmin" content="Import Data" placement="top">
+        <el-button @click="uploadData" type="primary" :icon="UploadFilled" />
+      </el-tooltip>
+      <el-tooltip content="Add Grievance" placement="top">
+        <el-button :onClick="AddComponent" type="primary" :icon="Plus" />
+      </el-tooltip>
+      <DownloadCustom
+        v-if="showEditButtons"
+        :data="tableDataList"
+        :model="model"
+        :associated_models="associated_multiple_models"
+      />
+    </div>
+  </el-col>
+</el-row>
 
-      <el-col :xs="24" :sm="24" :md="12" :lg="4">
-        <el-select
-:disabled="!enableSubcounty" size="default" v-model="selectedWard" :onChange="filterByWard" multiple
-          clearable filterable collapse-tags placeholder="By Ward" style=" margin-right: 5px;">
-          <el-option v-for="item in wardOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-      </el-col>
-
-
-
-
-      <el-select
-v-model="grv_name" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
-        placeholder="Search by Grievance" style=" margin-right: 5px;" />
-
-
-
-
-      <!-- Action Buttons -->
-      <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px; ">
-
-
-        <el-tooltip v-if="isNationalStaff || isSuperAdmin" content="Import Data" placement="top">
-          <el-button @click="uploadData" type="primary" :icon="UploadFilled" />
-        </el-tooltip>
-
-        <el-tooltip content="Add Grievance" placement="top">
-          <el-button :onClick="AddComponent" type="primary" :icon="Plus" />
-        </el-tooltip>
- 
-
-        <DownloadCustom
-v-if="showEditButtons" :data="tableDataList" :model="model"
-          :associated_models="associated_multiple_models" />
-
-
-
-      </div>
-
-      <!-- Download All Component -->
-    </el-row>
 
 
 
@@ -2664,7 +2794,20 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
     </div>
 
 
-
+  <!-- Search Grievance -->
+  <el-col :xs="24" :sm="24" :md="24" :lg="24"  >
+    <el-select
+      v-model="grv_name"
+      multiple
+      clearable
+      filterable
+      remote
+      :remote-method="searchByName"
+      reserve-keyword
+      placeholder="Search Grievance by code, description of name of complainant"
+      style="width: 100%; margin-top:10px;"
+    />
+  </el-col>
 
     <div v-if="activeSegment === 'Sorting'">
 
@@ -2686,45 +2829,24 @@ v-if="isRowSelectable"
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="Code" prop="code" sortable width="150" />
+        <el-table-column label="Code" prop="code" sortable width="100"  />
 
         <el-table-column label="Category" prop="nature" sortable width="150" />
-
-        <el-table-column prop="date" label="Date Reported" sortable width="150">
+        <el-table-column label="Description" prop="description" sortable  width="350"/>
+        <el-table-column label="Location" sortable width="350">
+          <template #default="scope">
+            <span>{{ scope.row.settlement.name }}, {{ scope.row.county.name }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="date" label="Date Reported" sortable width="100">
           <!-- Use a scoped slot to customize the rendering of the date column -->
           <template #default="scope">
             <span>{{ formatDate(scope.row.date_reported) }}</span>
           </template>
         </el-table-column>
+  
 
-        <el-table-column prop="status" label="Status" width="100" sortable>
-          <template #default="scope">
-            <el-tag
-:type="scope.row.status == 'Closed' ? 'info'
-              : scope.row.status == 'Escalated' ? 'secondary'
-                : scope.row.status == 'Returned' ? 'danger'
-                  : scope.row.status == 'Referred' ? 'warning'
-                    : scope.row.status == 'Sorting' ? 'warning'
-                      : scope.row.status == 'Rejected' ? 'danger'
-                        : 'success'" disable-transitions>{{ scope.row.status }}
-            </el-tag>
-          </template>
-        </el-table-column>
-
-
-        <el-table-column label="Days to Stage Expiry" width="200">
-          <template #default="scope">
-            <span :class="getExpiryClass(scope.row.status_expiry_date)" style="margin-right: 5px;">
-              {{ getDaysToExpiry(scope.row.status_expiry_date) }}
-            </span>
-
-
-          </template>
-        </el-table-column>
-
-
-
-        <el-table-column label="Level" prop="current_level" sortable width="150" />
+        <!-- <el-table-column label="Level" prop="current_level" sortable width="150" /> -->
         <el-table-column label="Complainant" prop="name" sortable width="150" />
         <el-table-column label="Reported By" width="150">
           <template #default="scope">
@@ -2732,13 +2854,14 @@ v-if="isRowSelectable"
             <span v-else>{{ scope.row.reporter_name }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="Description" prop="description" sortable />
-        <el-table-column label="Location" sortable width="350">
+   
+        <el-table-column label="Days to Stage Expiry" width="200">
           <template #default="scope">
-            <span>{{ scope.row.settlement.name }}, {{ scope.row.county.name }}</span>
+            <span :class="getExpiryClass(scope.row.status_expiry_date)" style="margin-right: 5px;">
+              {{ getDaysToExpiry(scope.row.status_expiry_date) }}
+            </span>
           </template>
         </el-table-column>
-
 
       </el-table>
       <div v-if="selectedRows.length > 0" style="margin-top: 10px;">
@@ -3490,7 +3613,7 @@ id="btn13" v-model="grmForm.isInCourt" label="Is this complaint currently in cou
 
             <el-form-item v-if="!grmForm.isgbv" id="btn14" label="Nature of Complaint" prop="nature">
               <el-select filterable v-model="grmForm.nature" placeholder="Select category" style="width:90%">
-                <el-option label="Land Ownership Disputes" value="land_ownership" />
+                <!-- <el-option label="Land Ownership Disputes" value="land_ownership" />
                 <el-option label="Evictions and Displacement" value="evictions" />
                 <el-option label="Compensation Concerns" value="compensation" />
                 <el-option label="Labour Wage Disputes" value="labour_wages" />
@@ -3507,7 +3630,13 @@ id="btn13" v-model="grmForm.isInCourt" label="Is this complaint currently in cou
                 <el-option label="Deforestation or Land Degradation" value="deforestation" />
                 <el-option label="Discrimination and Exclusion" value="discrimination" />
                 <el-option label="Corruption and Mismanagement" value="corruption" />
-                <el-option label="Others" value="others" />
+                <el-option label="Others" value="others" /> -->
+                <el-option
+                    v-for="item in grievanceOptions"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
               </el-select>
             </el-form-item>
 
