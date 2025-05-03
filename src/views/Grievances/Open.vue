@@ -3866,8 +3866,8 @@ v-for="(step, index) in filteredTourSteps" :key="index" :target="step.target" :t
 
 
 
-  <el-dialog title="Reffer Grievance(s)" v-model="showReferralDialog" width="60%" draggable>
-    <el-form :model="form" label-width="auto" ref="ReferralRef" :rules="rules">
+  <el-dialog title="Refer Grievance(s)" v-model="showReferralDialog" width="60%" draggable>
+    <el-form   v-loading="grmUsersLoading" :model="form" label-width="auto" ref="ReferralRef" :rules="rules">
       <el-form-item
 label="Select Officer" label-position="top" prop="reffered_to_officer" >
         <el-select

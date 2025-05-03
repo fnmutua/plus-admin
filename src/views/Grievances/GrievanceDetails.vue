@@ -1833,7 +1833,7 @@ width="340"
       </el-form-item>
 
 
-      <el-form-item label="Select Officer" label-position="top" prop="reffered_to_officer"   v-if="form.new_status == 'Referred'" >
+      <el-form-item  v-loading="grmUsersLoading"  label="Select Officer" label-position="top" prop="reffered_to_officer"   v-if="form.new_status == 'Referred'" >
      
 
 
