@@ -821,7 +821,7 @@ exports.xgetGRMUsersByLocation = async (req, res) => {
 };
 
 
-exports.getGRMUsersByLocation = async (req, res) => {
+exports._getGRMUsersByLocation = async (req, res) => {
   try {
     console.log('Getting GRM Users by Location (Including National)', req.body);
     const { currentUser, county_id, settlement_id, filters = [], filterValues = [], limit = 10000, page = 1 } = req.body;
@@ -926,6 +926,111 @@ exports.getGRMUsersByLocation = async (req, res) => {
     res.status(500).send({ message: 'Unable to retrieve GRM users by location. Please try again later.' });
   }
 };
+
+
+
+exports.getGRMUsersByLocation = async (req, res) => {
+  try {
+    console.log('Getting GRM Users by Location (Including National)', req.body);
+    let { currentUser, county_id, settlement_id, filters = [], filterValues = [], limit = 10000, page = 1 } = req.body;
+    const { county_id: userCounty } = currentUser;
+
+    // Normalize county_id and settlement_id to arrays
+    if (county_id && !Array.isArray(county_id)) county_id = [county_id];
+    if (settlement_id && !Array.isArray(settlement_id)) settlement_id = [settlement_id];
+
+    console.log('Requested County IDs:', county_id);
+    console.log('Requested Settlement IDs:', settlement_id);
+
+    // Validation
+    if ((!county_id || county_id.length === 0) && (!settlement_id || settlement_id.length === 0)) {
+      return res.status(400).send({
+        message: 'At least one of county_id or settlement_id must be provided.'
+      });
+    }
+
+    const findAndCountOptions = {
+      include: [
+        {
+          model: db.models.user_roles,
+          required: true,
+          where: {
+            [Op.or]: [
+              // Match any county_id if provided and no settlement_id
+              (!settlement_id?.length && county_id?.length) ? { county_id: { [Op.in]: county_id } } : null,
+              // Match any settlement_id if provided
+              settlement_id?.length ? { settlement_id: { [Op.in]: settlement_id } } : null,
+              // Always include national-level users
+              { location_level: 'national' },
+              // Only include GRM role (roleid: 4)
+              { roleid: 4 },
+            ].filter(Boolean)
+          }
+        }
+      ],
+      where: {},
+      limit,
+      offset: (page - 1) * limit,
+      order: [['id', 'DESC']]
+    };
+
+    // Normalize and cast filter values based on the column type
+    const normalizeAndCastFilter = (filter, value) => {
+      if (typeof value === 'string') {
+        if (value === 'true' || value === 'false') {
+          return Sequelize.cast(value === 'true', 'BOOLEAN');
+        }
+        if (!isNaN(value)) {
+          return Sequelize.cast(value, 'INTEGER');
+        }
+      }
+      return value;
+    };
+
+    // Add filters
+    if (filters.length === filterValues.length) {
+      let adjustedFilters = filters;
+      let adjustedFilterValues = filterValues;
+
+      if (settlement_id?.length) {
+        const countyFilterIndex = filters.indexOf('county_id');
+        if (countyFilterIndex !== -1) {
+          adjustedFilters = filters.filter((_, index) => index !== countyFilterIndex);
+          adjustedFilterValues = filterValues.filter((_, index) => index !== countyFilterIndex);
+        }
+      }
+
+      findAndCountOptions.where[Op.and] = adjustedFilters.map((filter, index) => ({
+        [filter]: { [Op.eq]: normalizeAndCastFilter(filter, adjustedFilterValues[index]) }
+      }));
+    }
+
+    console.log('Final Query Options for GRM Users by Location:', findAndCountOptions);
+
+    const { count, rows: grmUsers } = await Users.findAndCountAll(findAndCountOptions);
+
+    const usersWithPhotos = grmUsers.map(user => {
+      if (user.photo) {
+        user.photo = 'data:image/png;base64,' + user.photo.toString('base64');
+      } else {
+        user.photo = '';
+      }
+      return user;
+    });
+
+    res.status(200).send({
+      data: usersWithPhotos,
+      total: count,
+      code: '0000',
+      message: 'GRM users by location (including national) retrieved successfully',
+    });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).send({ message: 'Unable to retrieve GRM users by location. Please try again later.' });
+  }
+};
+
+
 
 exports.modelAdminUsers = async (req, res) => {
   try {

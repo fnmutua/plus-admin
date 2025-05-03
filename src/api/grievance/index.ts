@@ -35,6 +35,9 @@ export const logGrievanceAction = (data: any): Promise<IResponse> => {
 }
 
 
+export const logGrievanceActionBulk = (data: any): Promise<IResponse> => {
+  return request.post({ url: prod + '/api/v1/grv/log/bulk', data })
+}
 
 export const getGrievanceStatus = (data: any): Promise<IResponse> => {
    return request.post({ url: prod + '/api/v1/grv/status', data })
@@ -52,6 +55,10 @@ export const getGrievanceStatus = (data: any): Promise<IResponse> => {
    return request.post({ url: prod + '/api/v1/grv/update', data })
  }
 
+
+ export const updateBulkGrievance  = (data: any): Promise<IResponse> => {
+  return request.post({ url: prod + '/api/v1/grv/update/bulk', data })
+}
  export const batchImportGrievances = (data: any): Promise<IResponse> => {
    return request.post({ url: prod + '/api/v1/grv/upsert', data })
  }

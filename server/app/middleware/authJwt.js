@@ -385,7 +385,7 @@ isAdminOrCountyAdmin = (req, res, next) => {
       //   return next();
       // }
       if (
-        (role.name === "grm" || role.name === "gbv") &&
+        (role.name === "grm" || role.name === "gbv"  || role.name === "staff" || role.name === "admin") &&
         ["national", "county", "settlement"].includes(role.user_roles?.location_level)
       ) {
         return next();
