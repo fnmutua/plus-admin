@@ -1,5 +1,4 @@
 import { reactive, unref, ref } from "vue";
-import { ref, reactive, computed, Ref } from "vue";
 
 import {
   countyOptions,
@@ -10,17 +9,18 @@ import {
 } from "./index.ts";
 
 const steps = [
-  { title: "Profile" },
-  { title: "Location" },
- 
+  { title: "Basic Information" },
+  { title: "Physical & Structural" },
+  { title: "Socio-Economic & Environmental" },
+  { title: "Geolocation" },
 ];
 
 interface Field {
   name: string;
   label: string;
   type: string;
-  multiselect: string; // Use boolean type instead of string
-  options: Array<any>; // Specify the array type of options
+  multiselect: string;
+  options: Array<any>;
   adminUnit: boolean;
 }
 
@@ -39,249 +39,187 @@ interface FormData {
   [key: string]: any;
 }
 
-const yes_no = [
+const yes_no = ref([
   { label: "Yes", value: "yes" },
   { label: "No", value: "no" },
-];
-const residence = [
-  { label: "In this village", value: "within_village" },
-  { label: "Inside this settlement", value: "inside_settlement" },
-  { label: "Outside this settlement", value: "outside_settlement" },
-  { label: "Not sure where he/she stays", value: "not_sure" },
-];
+]);
 
-const moneyRange = [
-  { label: "0-5000", value: "0-5000" },
-  { label: "5,001- 10,000 ", value: "5,001- 10,000" },
-  { label: "10,001- 15,000 ", value: "10,001- 15,000" },
-  { label: "15,001- 20,000", value: "15,001- 20,000" },
-  { label: "20,001-30,000 ", value: "20,001-30,000" },
-  { label: "30,001-50,000", value: "30,001-50,000" },
-  { label: "Above 50,000", value: "Above 50,000" },
-];
-const material = [
-  { label: "Stone", value: "stone" },
-  { label: "Iron sheets", value: "ironsheets" },
-  { label: "Wooden", value: "wooden" },
-  { label: "PolytheneCarton", value: "polythene" },
-  { label: "Earth", value: "earth" },
-];
-const water = [
-  { label: "No water", value: "none" },
-  { label: "Piped water", value: "piped_water" },
-  { label: "Shallow well", value: "shallow_well" },
-  { label: "Rainwater", value: "rain" },
-  { label: "River/stream", value: "river" },
-  { label: "Mobile vendors", value: "mobile_vendors" },
-  { label: "Other", value: "other" },
-];
+const yesNoUnknown = ref([
+  { label: "Yes", value: "yes" },
+  { label: "No", value: "no" },
+  { label: "Unknown", value: "Unknown" },
+]);
 
-const bathroom = [
-  { label: "No bathroom", value: "no_bathroom" },
-  { label: "Bathroom in the structure", value: "bathroom_within_structure" },
-  {
-    label: "Bathroom outside the structure",
-    value: "bathroom_outside_structure",
-  },
-];
+const parcel_ownership = ref([
+  { label: "Public", value: "public" },
+  { label: "Private", value: "private" },
+  { label: "Community", value: "community" },
+]);
 
-const toilet = [
-  { label: "No Toilet", value: "no_toilet" },
-  { label: "Latrine", value: "pit_latrine" },
-  { label: "VIP latrine", value: "vip_latrine" },
-  { label: "WC/Sewer", value: "flush_toilet" },
-  { label: "Septic Tank", value: "septic_tank" },
-  { label: "Other", value: "other" },
-];
+const structureTypes = ref([
+  { label: "Temporary", value: "temporary" },
+  { label: "Semi Permanent", value: "semi_permanent" },
+  { label: "Permanent", value: "permanent" },
+]);
 
-const disposal = [
-  { label: "private", value: "private" },
-  { label: "dump", value: "dumpsite" },
-  { label: "bins", value: "bins" },
-  { label: "road", value: "road" },
-  { label: "river", value: "river" },
-  { label: "Outside", value: "outside" },
-  { label: "Open", value: "open_sewer" },
-  { label: "Other ", value: "other" },
-];
+const levelDevt = ref([
+  { label: "Single Storey", value: "singleStorey" },
+  { label: "Multi Storey", value: "multiStorey" },
+]);
 
-const parcel_ownership =ref([
-    { label: 'Public', value: 'public' },
-    { label: 'Private', value: 'private' },
-    { label: 'Community', value: 'community' },
-]) 
+const buildingMaterials = ref([
+  { label: "Mud", value: "mud" },
+  { label: "Timber", value: "timber" },
+  { label: "Iron Sheet", value: "iron_sheet" },
+  { label: "Blocks/Stone", value: "blocks_stone" },
+]);
 
+const landStatusOptions = ref([
+  { label: "Registered", value: "registered" },
+  { label: "Unregistered", value: "unregistered" },
+  { label: "Disputed", value: "disputed" },
+]);
 
-const yesNoUnknown =ref([
-  { label: 'Yes', value: 'yes' },
-  { label: 'No', value: 'no' },
-  { label: 'Unknown', value: 'Unknown' },
-]) 
+const parcelOwnerTypeOptions = ref([
+  { label: "Individual", value: "individual" },
+  { label: "Government", value: "government" },
+  { label: "Community", value: "community" },
+  { label: "Corporate", value: "corporate" },
+]);
 
-const yesNo =ref([
-  { label: 'Yes', value: 'yes' },
-  { label: 'No', value: 'no' },
-]) 
+const approvalStatusOptions = ref([
+  { label: "Pending", value: "Pending" },
+  { label: "Approved", value: "Approved" },
+  { label: "Rejected", value: "Rejected" },
+]);
 
-const levelDevt =ref([
-  { label: 'Single Storey', value: 'singleStorey' },
-  { label: 'Multi Storey', value: 'multiStorey' },
-]) 
-  
-const structureTypes =ref([
-  { label: 'Temporary', value: 'temporary' },
-  { label: 'Semi Permanent', value: 'semi_permanent' },
-  { label: 'Permanent', value: 'permanent' },
-]) 
-
-const buildingMaterials =ref([
-  { label: 'Mud', value: 'mud' },
-  { label: 'Timber', value: 'timber' },
-  { label: 'Iron Sheet', value: 'iron_sheet' },
-  { label: 'Blocks/Stone', value: 'blocks_stone' },
-]) 
- 
-
-
- 
-    
 const formFields: Field[][] = [
-  // Fields for 1 Profile
-
+  // Step 1: Basic Information
   [
-  
-
-    { id: "btn1", name: "county_id", label: "County", type: "select", multiselect: 'false', adminUnit: true, options: countyOptions.value },
-    { id: "btn2", name: "subcounty_id", label: "Constituency", type: "select", multiselect: 'false', adminUnit: true, options: [] },
-    { id: "btn3", name: "ward_id", label: "Ward", type: "select", multiselect: 'false', adminUnit: true, options: [] },
-    { id: "btn4", name: "name", label: "Name", type: "text", multiselect: 'false', adminUnit: false, options: [] },
+    { id: "btn1", name: "county_id", label: "County", type: "select", multiselect: "false", adminUnit: true, options: countyOptions.value },
+    { id: "btn2", name: "subcounty_id", label: "Constituency", type: "select", multiselect: "false", adminUnit: true, options: [] },
+    { id: "btn3", name: "ward_id", label: "Ward", type: "select", multiselect: "false", adminUnit: true, options: [] },
+    { id: "btn4", name: "name", label: "Name", type: "text", multiselect: "false", adminUnit: false, options: [] },
     {
-      id: "btn5", name: "settlement_type", label: "Type", type: "select", multiselect: 'false', adminUnit: false,
+      id: "btn5",
+      name: "settlement_type",
+      label: "Type",
+      type: "select",
+      multiselect: "false",
+      adminUnit: false,
       options: [
-        { label: 'Slum', value: 1 },
-        { label: 'Informal', value: 2 }
-      ]
+        { label: "Slum", value: "slum" },
+        { label: "Informal", value: "informal" },
+      ],
     },
-    { id: "btn6", name: "parcel_number", label: "Parcel No.", type: "text", multiselect: 'false', adminUnit: false, options: []},
+    { id: "btn6", name: "parcel_no", label: "Parcel No.", type: "text", multiselect: "false", adminUnit: false, options: [] },
     {
-      id: "btn7", name: "parcel_ownership", label: "Parcel Ownership", type: "select", multiselect: 'false', adminUnit: false, 
-      options: [
-        { label: 'Public', value: 'public' },
-        { label: 'Private', value: 'private' }
-      ]
+      id: "btn7",
+      name: "parcel_owner",
+      label: "Parcel Ownership",
+      type: "select",
+      multiselect: "false",
+      adminUnit: false,
+      options: parcel_ownership.value,
     },
-    { id: "btn8", name: "map_number", label: "RIM/Survey Plan", type: "text", multiselect: 'false', adminUnit: false, options: [] },
-    { id: "btn9", name: "area", label: "Area (Ha)", type: "number", multiselect: 'false', adminUnit: false, options: [] },
-    { id: "btn10", name: "population", label: "Population", type: "number", multiselect: 'false', adminUnit: false, options: [] },
-    { id: "btn11", name: "surveyed", label: "Is parcel Surveyed?", type: "select", multiselect: 'false', adminUnit: false, options: yesNoUnknown.value },
-    { id: "btn12", name: "landuse", label: "Pre-Dorminant Landuse", type: "text", multiselect: 'false', adminUnit: false, options: [] },
-    { id: "btn13", name: "near_river", label: "Near River?", type: "select", multiselect: 'false', adminUnit: false, options: yesNo.value },
-    { id: "btn14", name: "on_wayleave", label: "On a utility way-leave?", type: "select", multiselect: 'false', adminUnit: false, options: yesNo.value },
-    { id: "btn15", name: "on_road_reserve", label: "On a road reserve?", type: "select", multiselect: 'false', adminUnit: false, options: yesNo.value },
-    { id: "btn16", name: "structure_types", label: "Types of Structures", type: "text", multiselect: 'true', adminUnit: false, options: structureTypes.value },
-    { id: "btn17", name: "development", label: "Level of Development", type: "text", multiselect: 'true', adminUnit: false, options: levelDevt.value },
-    { id: "btn18", name: "typical_building_materials", label: "Typical Building Materials", type: "text", multiselect: 'true', adminUnit: false, options: buildingMaterials.value },
-    { id: "btn19", name: "avg_dist_between", label: "Dist. between structures (M)", type: "number", multiselect: 'true', adminUnit: false, options: [] },
-    { id: "btn20", name: "dist_town", label: "Distance to Urban Center (Km)", type: "number", adminUnit: false, multiselect: 'false', options: [] },
-    { id: "btn21", name: "dist_trunk", label: "Distance to Trunk Road (Km)", type: "number", adminUnit: false, multiselect: 'false', options: [] },
-    { id: "btn22", name: "encumbrance", label: "Are there any court cases/claims?", type: "select", multiselect: 'false', adminUnit: false, options: yesNoUnknown.value },
+    { id: "btn8", name: "rim_no", label: "RIM/Survey Plan", type: "text", multiselect: "false", adminUnit: false, options: [] },
+    { id: "btn9", name: "surveyed", label: "Is Parcel Surveyed?", type: "select", multiselect: "false", adminUnit: false, options: yesNoUnknown.value },
+     {
+      id: "btn11",
+      name: "land_status",
+      label: "Land Status",
+      type: "select",
+      multiselect: "false",
+      adminUnit: false,
+      options: landStatusOptions.value,
+    },
     {
-      id: "btn23", name: "isActive", label: "Status", type: "select", multiselect: 'false', adminUnit: false,
-      options: [
-        { value: 'true', label: 'Active' },
-        { value: 'false', label: 'Decommissioned' }
-      ]
+      id: "btn12",
+      name: "parcel_owner_type",
+      label: "Parcel Owner Type",
+      type: "select",
+      multiselect: "false",
+      adminUnit: false,
+      options: parcelOwnerTypeOptions.value,
     },
-    { id: "btn24", name: "description", label: "Description", type: "textarea", multiselect: 'false', adminUnit: false, options: [] },
-    { id: "btn24x", name: "comments", label: "Comments/Remarks", type: "textarea", multiselect: 'false', adminUnit: false, options: [] }
-
   ],
-
-
+  // Step 2: Physical & Structural Characteristics
   [
-   // This is left empty for the  map 
-    // {
-    //   name: "location_option", label: "Location Option", type: "select", multiselect: 'false',aadminUnit: false,
-    //   options: [
-    //     { label: 'Digitize', value: 'digitize' },
-    //     { label: 'Upload', value: 'upload' },
-    //   ]
-    // },
-    // {
-    //   name: "upload", label: "", type: "upload", visible: 'false',
-    //   options: [ ]
-    // },
+    { id: "btn13", name: "area", label: "Area (Ha)", type: "number", multiselect: "false", adminUnit: false, options: [] },
+    { id: "btn14", name: "population", label: "Population", type: "number", multiselect: "false", adminUnit: false, options: [] },
+    { id: "btn15", name: "pop_density", label: "Population Density", type: "number", multiselect: "false", adminUnit: false, options: [] },
+    { id: "btn16", name: "landuse", label: "Pre-Dominant Landuse", type: "text", multiselect: "false", adminUnit: false, options: [] },
+    { id: "btn17", name: "near_river", label: "Near River?", type: "select", multiselect: "false", adminUnit: false, options: yes_no.value },
+    { id: "btn18", name: "on_wayleave", label: "On a Utility Way-leave?", type: "select", multiselect: "false", adminUnit: false, options: yes_no.value },
+    { id: "btn19", name: "on_road_reserve", label: "On a Road Reserve?", type: "select", multiselect: "false", adminUnit: false, options: yes_no.value },
+    { id: "btn20", name: "structure_types", label: "Types of Structures", type: "text", multiselect: "true", adminUnit: false, options: structureTypes.value },
+    { id: "btn21", name: "development", label: "Level of Development", type: "text", multiselect: "true", adminUnit: false, options: levelDevt.value },
+    { id: "btn22", name: "typical_building_materials", label: "Typical Building Materials", type: "text", multiselect: "true", adminUnit: false, options: buildingMaterials.value },
+    { id: "btn23", name: "avg_dist_between", label: "Dist. Between Structures (M)", type: "number", multiselect: "false", adminUnit: false, options: [] },
+    { id: "btn24", name: "dist_town", label: "Distance to Urban Center (Km)", type: "number", multiselect: "false", adminUnit: false, options: [] },
+    { id: "btn25", name: "dist_trunk", label: "Distance to Trunk Road (Km)", type: "number", multiselect: "false", adminUnit: false, options: [] },
+    { id: "btn26", name: "electricity_availability", label: "Electricity Availability", type: "select", multiselect: "false", adminUnit: false, options: yes_no.value },
+    { id: "btn27", name: "piped_water_availability", label: "Piped Water Availability", type: "select", multiselect: "false", adminUnit: false, options: yes_no.value },
   ],
-   
+  // Step 3: Socio-Economic & Environmental Details
+  [
+    { id: "btn28", name: "encumbrance", label: "Are There Any Court Cases/Claims?", type: "select", multiselect: "false", adminUnit: false, options: yesNoUnknown.value },
+    {
+      id: "btn29",
+      name: "isActive",
+      label: "Status",
+      type: "select",
+      multiselect: "false",
+      adminUnit: false,
+      options: [
+        { value: "true", label: "Active" },
+        { value: "false", label: "Decommissioned" },
+      ],
+    },
+    {
+      id: "btn30",
+      name: "isApproved",
+      label: "Approval Status",
+      type: "select",
+      multiselect: "false",
+      adminUnit: false,
+      options: approvalStatusOptions.value,
+    },
+    { id: "btn31", name: "num_households", label: "Number of Households", type: "number", multiselect: "false", adminUnit: false, options: [] },
+    { id: "btn32", name: "avg_household_size", label: "Average Household Size", type: "number", multiselect: "false", adminUnit: false, options: [] },
+    { id: "btn33", name: "median_household_income", label: "Median Household Income", type: "number", multiselect: "false", adminUnit: false, options: [] },
+    { id: "btn34", name: "plot_ownership_ratio", label: "Plot Ownership Ratio", type: "number", multiselect: "false", adminUnit: false, options: [] },
+    { id: "btn35", name: "plot_tenant_ratio", label: "Plot Tenant Ratio", type: "number", multiselect: "false", adminUnit: false, options: [] },
+    { id: "btn36", name: "avg_rent", label: "Average Rent", type: "number", multiselect: "false", adminUnit: false, options: [] },
+    { id: "btn37", name: "main_env_hazards", label: "Main Environmental Hazards", type: "textarea", multiselect: "false", adminUnit: false, options: [] },
+    { id: "btn38", name: "general_location", label: "General Location", type: "text", multiselect: "false", adminUnit: false, options: [] },
+     { id: "btn40", name: "description", label: "Description", type: "textarea", multiselect: "false", adminUnit: false, options: [] },
+    { id: "btn41", name: "comments", label: "Comments/Remarks", type: "textarea", multiselect: "false", adminUnit: false, options: [] },
+  ],
+  // Step 4: Geolocation
+  [
+     
+  ],
 ];
 
 const formData: FormData = reactive({});
+
 const formRules: FormRules = reactive({
-  // Validation rules for each step
   step1: {
-    name: [
-        { required: true, message: 'Name is required', trigger: 'blur' }
-    ],
-    // // age: [
-    //     { required: true, message: 'Age is required', trigger: 'blur' },
-    //     { type: 'number', message: 'Age must be a number', trigger: 'blur' }
-    // ],
-    // location: [
-    //   { required: true, message: 'Location is required', trigger: 'blur' },
-    //   {
-    //     validator: (rule, value, callback) => {
-    //       if (Array.isArray(value) && value.length === 3) {
-    //         callback();
-    //       } else {
-    //         callback(new Error('Location must include Ward'));
-    //       }
-    //     }, 
-    //     trigger: 'blur'
-    //   }
-    // ],
-    
-    county_id: [
-      { required: true, message: 'County is required', trigger: 'blur' },
-       
-    ],
-    
-    subcounty_id: [
-      { required: true, message: 'Constituency is required', trigger: 'blur' },
-       
-    ],
-
-    settlement_type: [
-      { required: true, message: 'Type is required', trigger: 'blur' },
-    ],
-
-    ward_id: [
-      { required: true, message: 'Ward is required', trigger: 'blur' },
-    ],
+    name: [{ required: true, message: "Name is required", trigger: "blur" }],
+    county_id: [{ required: true, message: "County is required", trigger: "blur" }],
+    subcounty_id: [{ required: true, message: "Constituency is required", trigger: "blur" }],
+    ward_id: [{ required: true, message: "Ward is required", trigger: "blur" }],
+    settlement_type: [{ required: true, message: "Type is required", trigger: "blur" }],
   },
-
   step2: {
-    // tenancy_agreement: [
-    //     { required: true, message: 'Date of Birth is required', trigger: 'change' }
-    // ]
+    area: [{ required: false, message: "Area is recommended", trigger: "blur" }],
+    population: [{ required: false, message: "Population is recommended", trigger: "blur" }],
   },
   step3: {
-    // tenancy_agreement: [
-    //     { required: true, message: 'Date of Birth is required', trigger: 'change' }
-    // ]
+    num_households: [{ required: false, message: "Number of households is recommended", trigger: "blur" }],
   },
-
-  step4: {
-    // tenancy_agreement: [
-    //     { required: true, message: 'Date of Birth is required', trigger: 'change' }
-    // ]
-  },
-
-  step5: {
-    // tenancy_agreement: [
-    //     { required: true, message: 'Date of Birth is required', trigger: 'change' }
-    // ]
-  },
-   
+  step4: {},
 });
 
 export { formFields, countyOptions, formData, steps, formRules };

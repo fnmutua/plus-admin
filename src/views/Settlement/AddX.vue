@@ -20,7 +20,7 @@ v-for="(step, index) in steps" :key="index" :title="isMobile ? '' : step.title"
         ref="dynamicFormRef">
         <el-row :gutter="16">
           <el-col
-v-for="(field, index) in currentStepFields" :key="index" :span="24" :xs="24" :sm="24" :md="12" :lg="8"
+v-for="(field, index) in currentStepFields" :key="index" :span="24" :xs="24" :sm="24" :md="12" :lg="24"
             :xl="8">
             <el-form-item :id="field.id" :label="field.label" :prop="field.name">
               <el-input v-if="field.type === 'text'" v-model="formData[field.name]" />
@@ -370,7 +370,7 @@ const props = {
 
 };
 
-const labelPosition = ref('left')
+const labelPosition = ref('top')
 if (isMobile.value) {
   labelPosition.value = 'top'
 
@@ -1037,14 +1037,16 @@ const loadMap = async () => {
         'source': 'scope',
         'layout': {},
         'paint': {
-          'line-color': '#000',
+          'line-color': 'red',
           'line-width': 3
         }
       });
 
     }
+    else {
 
-    map.value.addLayer({
+
+      map.value.addLayer({
       'id': 'draw-layer',
       'type': 'fill',
       'source': {
@@ -1055,11 +1057,13 @@ const loadMap = async () => {
         }
       },
       'paint': {
-        'fill-color': 'red',
-        'fill-opacity': 0.5
+        'fill-color': '#0080ff', // blue color fill
+         'fill-opacity': 1
       },
       'layout': {}
     });
+    }
+
 
     // switch it off until the user selects to
     map.value.setLayoutProperty('Satellite', 'visibility', 'none')
@@ -1125,7 +1129,7 @@ const loadMap = async () => {
 
 }
 
-
+ 
 
 
 const draw = new MapboxDraw({
@@ -1176,15 +1180,7 @@ const submitForm = async () => {
       formData.model = model
       formData.component_id = component_id.value
 
-
-      // // Calculate the area using Turf.js
-      // const areaSquareMeters = turf.area(geomScope.value);
-
-      // // Convert square meters to hectares
-      // const areaHectares = areaSquareMeters / 10000;
-      // formData.area = areaHectares.toFixed(4)
-
-      // console.log('formData.value', formData.value)
+ 
 
 
 
@@ -1368,196 +1364,311 @@ const endTour = () => {
 
 }
 
-
+// Tour steps configuration
 const tourSteps = ref([
+  // Step 0: Basic Information
   {
     step: 0,
     target: '#btn1',
-    title: 'County Selection',
-    content: 'Start by selecting the county where the settlement is located.',
-    visible: true
+    title: 'County',
+    content: 'Select the county where the settlement is located.',
+    visible: true,
   },
   {
     step: 0,
     target: '#btn2',
-    title: 'Constituency Selection',
-    content: 'Now, choose the constituency that falls within the selected county.',
-    visible: true
+    title: 'Constituency',
+    content: 'Choose the constituency within the selected county.',
+    visible: true,
   },
   {
     step: 0,
     target: '#btn3',
-    title: 'Ward Selection',
-    content: 'Next, pick the ward that corresponds to the selected constituency.',
-    visible: true
+    title: 'Ward',
+    content: 'Select the ward within the chosen constituency.',
+    visible: true,
   },
   {
     step: 0,
     target: '#btn4',
-    title: 'Settlement Name',
-    content: 'Type the settlements name',
-    visible: true
+    title: 'Name',
+    content: 'Enter the name of the settlement.',
+    visible: true,
   },
   {
     step: 0,
     target: '#btn5',
     title: 'Settlement Type',
-    content: 'Indicate whether the settlement is a Slum or an Informal Settlement.',
-    visible: true
+    content: 'Specify if the settlement is a slum or informal settlement.',
+    visible: true,
   },
   {
     step: 0,
     target: '#btn6',
     title: 'Parcel Number',
-    content: 'Enter the parcel number for the where the settlement is located.',
-    visible: true
+    content: 'Provide the parcel number for the settlement.',
+    visible: true,
   },
   {
     step: 0,
     target: '#btn7',
     title: 'Parcel Ownership',
-    content: 'Specify whether the parcel is publicly or privately owned.',
-    visible: true
+    content: 'Indicate whether the parcel is public, private, or community-owned.',
+    visible: true,
   },
   {
     step: 0,
     target: '#btn8',
-    title: 'Survey Plan (RIM)',
-    content: 'Provide the RIM or survey plan number associated with this settlement.',
-    visible: true
+    title: 'RIM/Survey Plan',
+    content: 'Enter the RIM or survey plan number for the parcel.',
+    visible: true,
   },
   {
     step: 0,
     target: '#btn9',
-    title: 'Area (Ha)',
-    content: 'Enter the total area of the parcel in hectares.',
-    visible: true
+    title: 'Survey Status',
+    content: 'Specify if the parcel has been surveyed (Yes, No, or Unknown).',
+    visible: true,
   },
-  {
-    step: 0,
-    target: '#btn10',
-    title: 'Population',
-    content: 'Estimate the population residing within the settlement.',
-    visible: true
-  },
+ 
   {
     step: 0,
     target: '#btn11',
-    title: 'Survey Status',
-    content: 'Indicate whether the parcel has been officially surveyed.',
-    visible: true
+    title: 'Land Status',
+    content: 'Select the land status (Registered, Unregistered, or Disputed).',
+    visible: true,
   },
   {
     step: 0,
     target: '#btn12',
-    title: 'Land Use',
-    content: 'Describe the predominant land use within the settleemnt.',
-    visible: true
+    title: 'Parcel Owner Type',
+    content: 'Choose the type of parcel owner (Individual, Government, Community, or Corporate).',
+    visible: true,
   },
+  // Step 1: Physical & Structural Characteristics
   {
-    step: 0,
+    step: 1,
     target: '#btn13',
-    title: 'Proximity to River',
-    content: 'Specify if the parcel is located near a river.',
-    visible: true
+    title: 'Area (Ha)',
+    content: 'Enter the area of the settlement in hectares.',
+    visible: true,
   },
   {
-    step: 0,
+    step: 1,
     target: '#btn14',
-    title: 'Utility Way-leave',
-    content: 'Indicate if the parcel lies on a utility way-leave.',
-    visible: true
+    title: 'Population',
+    content: 'Provide the estimated population of the settlement.',
+    visible: true,
   },
   {
-    step: 0,
+    step: 1,
     target: '#btn15',
-    title: 'Road Reserve',
-    content: 'Specify if the parcel is on a road reserve.',
-    visible: true
+    title: 'Population Density',
+    content: 'Enter the population density of the settlement.',
+    visible: true,
   },
   {
-    step: 0,
+    step: 1,
     target: '#btn16',
-    title: 'Structure Types',
-    content: 'Select the types of structures found in the settlement.',
-    visible: true
+    title: 'Land Use',
+    content: 'Describe the predominant land use in the settlement.',
+    visible: true,
   },
   {
-    step: 0,
+    step: 1,
     target: '#btn17',
-    title: 'Development Level',
-    content: 'Choose the level of development within the settlement.',
-    visible: true
+    title: 'Near River',
+    content: 'Indicate if the settlement is near a river.',
+    visible: true,
   },
   {
-    step: 0,
+    step: 1,
     target: '#btn18',
-    title: 'Building Materials',
-    content: 'Identify the typical building materials used in the area.',
-    visible: true
+    title: 'Utility Way-leave',
+    content: 'Specify if the settlement is on a utility way-leave.',
+    visible: true,
   },
   {
-    step: 0,
+    step: 1,
     target: '#btn19',
+    title: 'Road Reserve',
+    content: 'Indicate if the settlement is on a road reserve.',
+    visible: true,
+  },
+  {
+    step: 1,
+    target: '#btn20',
+    title: 'Structure Types',
+    content: 'Select the types of structures in the settlement (e.g., Temporary, Permanent).',
+    visible: true,
+  },
+  {
+    step: 1,
+    target: '#btn21',
+    title: 'Development Level',
+    content: 'Choose the development level (Single Storey or Multi Storey).',
+    visible: true,
+  },
+  {
+    step: 1,
+    target: '#btn22',
+    title: 'Building Materials',
+    content: 'Select typical building materials used in the settlement.',
+    visible: true,
+  },
+  {
+    step: 1,
+    target: '#btn23',
     title: 'Structure Spacing',
     content: 'Enter the average distance between structures in meters.',
-    visible: true
+    visible: true,
   },
   {
-    step: 0,
-    target: '#btn20',
-    title: 'Urban Center Proximity',
-    content: 'Specify the distance from the parcel to the nearest urban center.',
-    visible: true
-  },
-  {
-    step: 0,
-    target: '#btn21',
-    title: 'Trunk Road Proximity',
-    content: 'Enter the distance from the settlement to the nearest trunk road.',
-    visible: true
-  },
-  {
-    step: 0,
-    target: '#btn22',
-    title: 'Encumbrances',
-    content: 'Indicate if there are any court cases or claims related to the parcel.',
-    visible: true
-  },
-  {
-    step: 0,
-    target: '#btn23',
-    title: 'Status',
-    content: 'Set the current status of the settlement as Active or Decommissioned.',
-    visible: true
-  },
-  {
-    step: 0,
+    step: 1,
     target: '#btn24',
+    title: 'Urban Center Proximity',
+    content: 'Provide the distance to the nearest urban center in kilometers.',
+    visible: true,
+  },
+  {
+    step: 1,
+    target: '#btn25',
+    title: 'Trunk Road Proximity',
+    content: 'Enter the distance to the nearest trunk road in kilometers.',
+    visible: true,
+  },
+  {
+    step: 1,
+    target: '#btn26',
+    title: 'Electricity Availability',
+    content: 'Indicate if electricity is available in the settlement.',
+    visible: true,
+  },
+  {
+    step: 1,
+    target: '#btn27',
+    title: 'Piped Water Availability',
+    content: 'Specify if piped water is available in the settlement.',
+    visible: true,
+  },
+  // Step 2: Socio-Economic & Environmental Details
+  {
+    step: 2,
+    target: '#btn28',
+    title: 'Court Cases/Claims',
+    content: 'Indicate if there are any court cases or claims related to the settlement.',
+    visible: true,
+  },
+  {
+    step: 2,
+    target: '#btn29',
+    title: 'Status',
+    content: 'Set the settlement status as Active or Decommissioned.',
+    visible: true,
+  },
+  {
+    step: 2,
+    target: '#btn30',
+    title: 'Approval Status',
+    content: 'Select the approval status (Pending, Approved, or Rejected).',
+    visible: true,
+  },
+  {
+    step: 2,
+    target: '#btn31',
+    title: 'Number of Households',
+    content: 'Enter the number of households in the settlement.',
+    visible: true,
+  },
+  {
+    step: 2,
+    target: '#btn32',
+    title: 'Average Household Size',
+    content: 'Provide the average household size in the settlement.',
+    visible: true,
+  },
+  {
+    step: 2,
+    target: '#btn33',
+    title: 'Median Household Income',
+    content: 'Enter the median household income for the settlement.',
+    visible: true,
+  },
+  {
+    step: 2,
+    target: '#btn34',
+    title: 'Plot Ownership Ratio',
+    content: 'Provide the ratio of plots owned in the settlement.',
+    visible: true,
+  },
+  {
+    step: 2,
+    target: '#btn35',
+    title: 'Plot Tenant Ratio',
+    content: 'Enter the ratio of plots rented in the settlement.',
+    visible: true,
+  },
+  {
+    step: 2,
+    target: '#btn36',
+    title: 'Average Rent',
+    content: 'Provide the average rent for plots in the settlement.',
+    visible: true,
+  },
+  {
+    step: 2,
+    target: '#btn37',
+    title: 'Environmental Hazards',
+    content: 'Describe the main environmental hazards affecting the settlement.',
+    visible: true,
+  },
+  {
+    step: 2,
+    target: '#btn38',
+    title: 'General Location',
+    content: 'Enter a general description of the settlement’s location.',
+    visible: true,
+  },
+ 
+  {
+    step: 2,
+    target: '#btn40',
+    title: 'Description',
+    content: 'Provide a detailed description of the settlement.',
+    visible: true,
+  },
+  {
+    step: 2,
+    target: '#btn41',
     title: 'Comments/Remarks',
     content: 'Add any additional comments or remarks about the settlement.',
-    visible: true
+    visible: true,
   },
-
+  // Step 3: Geolocation
   {
-    step: 1,
+    step: 3,
+    target: '#btn42',
+    title: 'Geometry',
+    content: 'Define the settlement’s geometry by drawing on the map or uploading a file.',
+    visible: true,
+  },
+  {
+    step: 3,
     target: '#mapContainer',
     title: 'Map',
-    content: 'The Map displays the settlement location based on the selected ward. Zoom in to the settlement location',
-    visible: true
+    content: 'View and edit the settlement’s location on the map. Zoom in to refine the boundaries.',
+    visible: true,
   },
   {
-    step: 1,
+    step: 3,
     target: '#upload',
-    title: 'Upload Location geometry',
-    content: 'Upload geojson/shapefile. Current supports .shp (zipped), .json and .geojson ',
-    visible: true
-  }
-
-
-
+    title: 'Upload Geometry',
+    content: 'Upload a GeoJSON, shapefile, KML, or KMZ file to define the settlement’s geometry.',
+    visible: true,
+  },
 ]);
 
+ 
 
 // Watch dependencies and log changes (or trigger additional actions)
 watch(
