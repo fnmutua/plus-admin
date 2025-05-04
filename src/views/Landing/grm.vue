@@ -123,7 +123,7 @@ id="btn13" v-model="grmForm.isInCourt"
 
                       <el-form-item v-if="!grmForm.isgbv" id="btn14" label="Nature of Complaint" prop="nature">
                           <el-select filterable  v-model="grmForm.nature" placeholder="Select category" style="width:90%">
-                            <el-option label="Land Ownership Disputes" value="land_ownership" />
+                            <!-- <el-option label="Land Ownership Disputes" value="land_ownership" />
                             <el-option label="Evictions and Displacement" value="evictions" />
                             <el-option label="Compensation Concerns" value="compensation" />
                             <el-option label="Labour Wage Disputes" value="labour_wages" />
@@ -140,7 +140,13 @@ id="btn13" v-model="grmForm.isInCourt"
                             <el-option label="Deforestation or Land Degradation" value="deforestation" />
                             <el-option label="Discrimination and Exclusion" value="discrimination" />
                             <el-option label="Corruption and Mismanagement" value="corruption" />
-                            <el-option label="Others" value="others" />
+                            <el-option label="Others" value="others" /> -->
+                            <el-option
+                                    v-for="item in grievanceOptions"
+                                    :key="item.value"
+                                    :label="item.label"
+                                    :value="item.value"
+                                  />
                           </el-select>
                         </el-form-item>
 
@@ -370,6 +376,29 @@ import { ElInput } from 'element-plus';
 
 const activeName = ref('file');
 const active = ref(0);
+
+const grievanceOptions = [
+  { label: 'Land Ownership or Title Disputes', value: 'land_ownership' },
+  { label: 'Evictions or Displacement', value: 'evictions' },
+  { label: 'Compensation or Resettlement Issues', value: 'compensation' },
+  { label: 'Poor Road or Pathway Conditions', value: 'poor_roads' },
+  { label: 'Infrastructure related ', value: 'infrastructure' },
+  { label: 'Drainage and Flooding Problems', value: 'drainage_flooding' },
+  { label: 'Water Access and Supply Issues', value: 'water_supply' },
+  { label: 'Sanitation and Hygiene Concerns', value: 'sanitation' },
+  { label: 'Electricity or Street Lighting Issues', value: 'electricity_lighting' },
+  { label: 'Waste Collection and Management', value: 'waste_management' },
+  { label: 'Environmental Degradation ', value: 'environmental_issues' },
+  { label: 'Health and Safety Hazards', value: 'health_safety' },
+  { label: 'Corruption, Mismanagement, or Bribery', value: 'corruption' },
+  { label: 'Discrimination, Exclusion or Favoritism', value: 'discrimination' },
+  { label: 'Gender-Based Violence or Harassment', value: 'gbv' },
+  { label: 'Labour Issues (e.g. unpaid wages, poor conditions)', value: 'labour_issues' },
+  { label: 'Lack of Information or Consultation', value: 'information_gap' },
+  { label: 'Project Implementation Delays or Inactivity', value: 'delays' },
+  { label: 'Other', value: 'other' }
+];
+
 
 const grmForm = ref({
   name: '',

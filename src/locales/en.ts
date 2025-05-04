@@ -95,7 +95,7 @@ export default {
     remember: 'Remember me',
     hasUser: 'Existing account? Go to login',
     forgetPassword: 'Forget password',
-    usernamePlaceholder: 'Please input username',
+    usernamePlaceholder: 'Username, email or phone (254...)',
     passwordPlaceholder: 'Please input password',
     code: 'Verification code',
     codePlaceholder: 'Please input verification code'

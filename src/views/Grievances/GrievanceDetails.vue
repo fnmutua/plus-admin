@@ -40,7 +40,7 @@ import { useCache } from '@/hooks/web/useCache'
 import { useAppStoreWithOut } from '@/store/modules/app'
 
 import {
-  signupGRC
+  signupGRM
 } from '@/api/register'
 
 
@@ -674,7 +674,10 @@ editHistory.value = rawHistory.map((record) => {
 }
 
 const grmUsers=ref([])
+const grmUsersLoading=ref(false)
 const getGRMUsers = async () => {
+
+  grmUsersLoading.value=true
  
   const formData = {}
  
@@ -698,6 +701,7 @@ const getGRMUsers = async () => {
 
   console.log('After getting getGRMStaff users', res)
    
+  grmUsersLoading.value=false
 
   // Assuming res.data is an array of objects with name and phone
     grmUsers.value = res.data.map(user => ({
@@ -1509,7 +1513,7 @@ const onConfirm = () => {
         location_field: "national"
       };
 
-      signupGRC(formData).then((response) => {
+      signupGRM(formData).then((response) => {
         console.log(response);
         grmUsers.value.push({
           label: `${formOfficer.optionName} (${formOfficer.optionPhone})`,
@@ -1829,11 +1833,11 @@ width="340"
       </el-form-item>
 
 
-      <el-form-item label="Select Officer" label-position="top" prop="reffered_to_officer"   v-if="form.new_status == 'Referred'" >
+      <el-form-item  v-loading="grmUsersLoading"  label="Select Officer" label-position="top" prop="reffered_to_officer"   v-if="form.new_status == 'Referred'" >
      
 
 
-        <el-select v-model="form.reffered_to_officer"  clearable filterable   placeholder="Select Officer"   @change="handleOfficerChange"  style="width: 100%">
+        <el-select v-model="form.reffered_to_officer"  clearable filterable   placeholder="Select Officer" :loading="grmUsersLoading" :disabled="grmUsersLoading"   @change="handleOfficerChange"  style="width: 100%">
                 <el-option
                   v-for="item in grmUsers"
                   :key="item.value"

@@ -100,7 +100,7 @@ isAdmin = (req, res, next) => {
         return res.status(404).send({ message: "User not found!" });
       }
       user.getRoles().then(roles => {
-        const acceptedRoles = ["admin", "super_admin", "staff", "grm"];
+        const acceptedRoles = ["admin","root_admin",  "super_admin", "staff", "grm"];
 
         for (let i = 0; i < roles.length; i++) {
           if (acceptedRoles.includes(roles[i].name) || roles[i].user_roles?.location_level === "national") {
@@ -127,7 +127,7 @@ isSuperAdmin = (req, res, next) => {
   User.findByPk(req.userid).then(user => {
     user.getRoles().then(roles => {
       for (let i = 0; i < roles.length; i++) {
-        if (roles[i].name === "super_admin") {
+        if (roles[i].name === "super_admin" || roles[i].name === "root_admin") {
           next();
           return;
         }
@@ -184,10 +184,7 @@ isStaffOrAdmin = (req, res, next) => {
     user.getRoles({raw:true}).then(roles => {
       for (let i = 0; i < roles.length; i++) {
           console.log(roles[i].name)
-        if (roles[i].name === "staff") {
-          next();
-          return;
-        }
+        
         if (roles[i].name === "super_admin") {
           next();
           return;
@@ -200,6 +197,11 @@ isStaffOrAdmin = (req, res, next) => {
           next();
           return;
         }     
+
+        if (roles[i].name === "root_admin") {
+          next();
+          return;
+        }  
         // if (roles[i].name === "consultant") {
         //   next();
         //   return;
@@ -233,6 +235,11 @@ isStaffOrAdmin = (req, res, next) => {
            next();
            return;
          }   
+
+         if (roles[i].name === "root_admin") {
+          next();
+          return;
+        }  
          if (roles[i].name === "staff") {
            next();
            return;
@@ -273,7 +280,10 @@ isAdminOrCountyAdmin = (req, res, next) => {
           next();
           return;
          }  
-             
+         if (roles[i].name === "grm") {
+          next();
+          return;
+         }    
          if (roles[i].name === "super_admin") {
           next();
           return;
@@ -282,6 +292,12 @@ isAdminOrCountyAdmin = (req, res, next) => {
            next();
            return;
          }
+
+
+         if (roles[i].name === "grm") {
+          next();
+          return;
+        }  
        }
        res.status(403).send({
          message: "You require a Staff or Admin Role to perform this function"
@@ -369,7 +385,7 @@ isAdminOrCountyAdmin = (req, res, next) => {
       //   return next();
       // }
       if (
-        (role.name === "grm" || role.name === "gbv") &&
+        (role.name === "grm" || role.name === "gbv"  || role.name === "staff" || role.name === "admin") &&
         ["national", "county", "settlement"].includes(role.user_roles?.location_level)
       ) {
         return next();

@@ -35,3 +35,9 @@ export const signupGRC = (data: UserType): Promise<IResponse<UserType>> => {
   console.log('regs....', data)
   return request.post({ url: prod + '/api/app/signup/grc', data })
 }
+
+
+export const signupGRM = (data: UserType): Promise<IResponse<UserType>> => {
+  console.log('regs....', data)
+  return request.post({ url: prod + '/api/app/signup/grm', data })
+}

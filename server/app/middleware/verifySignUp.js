@@ -1,7 +1,7 @@
 const db = require("../models");
 const ROLES = db.role;
 const User = db.user;
-checkDuplicateUsernameOrEmail = (req, res, next) => {
+xcheckDuplicateUsernameOrEmail = (req, res, next) => {
   // Username
   User.findOne({
     where: {
@@ -29,6 +29,62 @@ checkDuplicateUsernameOrEmail = (req, res, next) => {
       next();
     });
   });
+};
+
+
+
+const normalizePhone = (phone) => {
+  if (!phone) return null;
+  // Remove non-digits
+  phone = phone.replace(/\D/g, '');
+  // Normalize to 254 format
+  if (phone.startsWith('0')) {
+    return '254' + phone.substring(1);
+  } else if (phone.startsWith('254')) {
+    return phone;
+  } else if (phone.startsWith('7') || phone.startsWith('1') || phone.startsWith('0')) {
+    return '254' + phone;
+  }
+  return phone;
+};
+
+checkDuplicateUsernameOrEmail = async (req, res, next) => {
+  try {
+    const { username, email, phone } = req.body;
+
+    console.log( username, email, phone )
+
+    const existingUsername = await User.findOne({ where: { username } });
+    if (existingUsername) {
+      return res.status(400).send({ message: "Failed! Username is already in use!" });
+    }
+
+    if (email) {
+      const existingEmail = await User.findOne({ where: { email } });
+        if(existingEmail) {
+          return res.status(400).send({ message: "Failed! Email is already in use!" });
+
+        }
+    }
+
+    const normalizedPhone = normalizePhone(phone);
+
+    // Fetch all users and check phone match
+    const usersWithPhone = await User.findAll({ attributes: ['phone'] });
+
+    const isPhoneTaken = usersWithPhone.some(u => {
+      const userPhone = normalizePhone(u.phone);
+      return userPhone && normalizedPhone === userPhone;
+    });
+
+    if (isPhoneTaken) {
+      return res.status(400).send({ message: "Failed! Phone number is already in use!" });
+    }
+
+    next();
+  } catch (err) {
+    res.status(500).send({ message: "Server error while checking duplicates." });
+  }
 };
 
 

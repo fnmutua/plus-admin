@@ -60,7 +60,7 @@ const loginOut = () => {
           await Promise.all(cacheNames.map(name => caches.delete(name)));
         }
 
-        window.location.href = '/login';
+    //    window.location.href = '/';
 
 
         replace('/')

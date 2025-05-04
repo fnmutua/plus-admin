@@ -1291,7 +1291,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
     meta: {
       title: 'GRM',
       icon: 'hugeicons:complaint',
-      role: [ 'root_admin','super_admin', 'grm','gbv' ] ,
+      role: [ 'root_admin','super_admin', 'grm','gbv','admin', 'staff'] ,
       locationLevel:['national','county','settlement'],
       alwaysShow: false
     },
@@ -1304,7 +1304,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         meta: {
           title: 'Grievances',
           icon:'oui:security-signal',
-          role: ['root_admin',  'super_admin', 'grm' ] ,
+          role: [ 'root_admin','super_admin', 'grm','gbv','admin', 'staff'] ,
           locationLevel:['national','county','settlement'],
 
         }
@@ -1317,8 +1317,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         meta: {
           title: 'Referred Grievances',
           icon:'oui:security-signal',
-          role: ['root_admin',  'super_admin', 'grm' ] ,
-          locationLevel:['national','county' ],
+          role: [ 'root_admin','super_admin', 'grm','gbv','admin', 'staff'] ,
+          locationLevel:['national','county','settlement'],
 
         }
        },
@@ -1375,7 +1375,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           hidden: true,
           title: 'Grievance Details',
           icon:'ion:document-attach',
-          role: [ 'root_admin', 'super_admin', 'grm' ] ,
+          role: [ 'root_admin','super_admin', 'grm','gbv','admin', 'staff'] ,
           locationLevel:['national','county','settlement'],
 
           noCache: true

@@ -1,7 +1,7 @@
-<!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
 import { useI18n } from '@/hooks/web/useI18n'
 import { getListWithoutGeo} from '@/api/counties'
+import { toRaw } from 'vue';
 
 import { getGrievances } from '@/api/grievance'
 
@@ -70,12 +70,16 @@ const Statuses = ref([
 
 
 const isNationalStaff = ref(false)
+const isCountyStaff = ref(false)
+const selectedCounty=ref()
+
+
 let  roles_filters = [];
 
-const getUserRoles =   () => { 
+const getUserRoles =  async () => { 
   // Check for the "grm" role and get its level, field, and field value
 const grmRole = userInfo.roles.map(role => {
-  if (role.name === "grm") {
+  if (role.name === "grm" || role.name === "admin" || role.name === "root_admin"|| role.name === "super_admin" || role.name === "staff") {
     let field = null;
     let fieldvalue = null;
 
@@ -84,6 +88,16 @@ const grmRole = userInfo.roles.map(role => {
       isNationalStaff.value = false
       field = "county_id";
       fieldvalue = role.user_roles.county_id;
+
+      isCountyStaff.value=true 
+        console.log ('isCountyStaff.value',isCountyStaff.value)
+        //CountyId.value =role.user_roles.county_id;
+        selectedCounty.value =role.user_roles.county_id;
+        console.log('selectedCounty.value',selectedCounty.value)
+          getSubCountyNames()
+        filterByCounty(selectedCounty.value)
+
+
     } else if (role.user_roles.location_level === "settlement") {
       isNationalStaff.value = false
       field = "settlement_id";
@@ -227,64 +241,66 @@ const updatePageSize = () => {
 
 
 
-const getCounts =async  () => { 
-
-console.log('counts')
-
-const formData = {}
-  formData.model = 'grievance'
-  formData.summaryField = 'status'  // Remove ambiguous fields 
-  formData.summaryFunction = 'count'
-  formData.groupFields = ['status'] //['county.name','indicator_category.category_title']
  
+ 
+const getCounts = async () => {
+  console.log('Fetching grievance counts...', filterValues.value, filters.value);
 
-  console.log(roles_filters.length)
-  if(roles_filters.length>0) {
+  const rawFilterValues = toRaw(filterValues.value);
+  const rawFilters = toRaw(filters.value);
 
-    formData.filterField =[filters.value[1]]
-  formData.filterValue =[[filterValues.value[1]]] 
-  formData.filterOperator = ['eq']
+  const filterField = [];
+  const filterValue = [];
+  const filterOperator = [];
+
+  if (rawFilters.length === rawFilterValues.length) {
+    for (let i = 0; i < rawFilters.length; i++) {
+      const field = rawFilters[i];
+      const value = rawFilterValues[i];
+
+      if (field && value !== undefined && value !== null) {
+        filterField.push(field);
+
+        if (Array.isArray(value)) {
+          filterValue.push(value);
+          filterOperator.push('eq');
+        } else {
+          filterValue.push([value]);
+          filterOperator.push('eq');
+        }
+      }
+    }
   }
-  
 
+  const formData = {
+    model: 'grievance',
+    summaryField: 'status',
+    summaryFunction: 'count',
+    groupFields: ['status'],
+    filterField,
+    filterValue,
+    filterOperator
+  };
 
-
-  // added for unique couts 
- 
-  console.log('filters.value', filters.value[1])
-  console.log('filterValues.value', filterValues.value[1])
-
-
-  console.log('form-Data',formData)
+  console.log('Constructed formData:', formData);
 
   try {
     const response = await getSummarybyFieldFromMultipleIncludes(formData);
-    const amount = response.Total;
-    console.log('status.count Summary', amount)
+    const summary = response?.Total || [];
 
+    console.log('Grievance status counts:', summary);
 
-
-    // Update Statuses count dynamically
-        Statuses.value.forEach((status) => {
-          const match = amount.find((item) => item.status === status.value);
-          if (match) {
-            status.count = parseInt(match.count, 10);
-          }
-        });
-
-
- 
- 
+    Statuses.value.forEach((status) => {
+      const match = summary.find(item => item.status === status.value);
+      status.count = match ? parseInt(match.count, 10) : 0;
+    });
   } catch (error) {
-    // Handle any errors that occur during the asynchronous operation
-    console.error(error);
-    //return null; // or any default value you prefer
-    return []; // or any default value you prefer
+    console.error('Error fetching status counts:', error);
+    Statuses.value.forEach((status) => {
+      status.count = 0;
+    });
   }
-
-
-}
-
+};
 
 const getDeletedCounts = async () => {
   console.log('Fetching deleted grievance count...');
@@ -324,12 +340,12 @@ const getDeletedCounts = async () => {
 
 
 onMounted(async () => {
-  getUserRoles()
-  getDeletedCounts()
-  getCounts()
+  await getUserRoles()
+  await getDeletedCounts()
+  await getCounts()
   window.addEventListener('resize', updatePageSize);
   updatePageSize(); // Initial check
-
+  await getInterventionsAll()
 
 })
 
@@ -420,52 +436,75 @@ const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
 
 
 const getFilteredData = async (selFilters, selfilterValues) => {
-  const formData = {}
-  formData.limit = pageSize.value
-  formData.page = page.value
-  formData.curUser = 1 // Id for logged in user
-  formData.model = model
-  //-Search field--------------------------------------------
-  formData.searchField = 'name'
-  formData.searchKeyword = ''
-  //--Single Filter -----------------------------------------
-
-  formData.assocModel = associated_Model
-
-  // - multiple filters -------------------------------------
-  formData.filters = selFilters
-  formData.filterValues = selfilterValues
-  formData.filterFunctions = filterFunction.value
-
-  formData.associated_multiple_models = associated_multiple_models
-
-  //-------------------------
-  //console.log(formData)
-  const res = await getGrievances(formData)
-
-  console.log('After Querry', res)
 
 
+console.log('selFilters',selFilters, selfilterValues)
+const formData = {}
+formData.limit = pageSize.value
+formData.page = page.value
+formData.curUser = 1 // Id for logged in user
+formData.model = model
+//-Search field--------------------------------------------
+formData.searchField = 'name'
+formData.searchKeyword = ''
+//--Single Filter -----------------------------------------
 
-  tableDataList.value = res.data
+formData.assocModel = associated_Model
 
-  availableFields.value = extractFields(tableDataList.value);
+// - multiple filters -------------------------------------
+formData.filters = selFilters
+formData.filterValues = selfilterValues
+formData.filterFunctions = filterFunction.value
+
+formData.associated_multiple_models = associated_multiple_models
+
+
+formData.filterFunctions = [];
+
+// Loop to determine the correct operator (eq or in) per filter
+for (let i = 0; i < selfilterValues.length; i++) {
+const val = selfilterValues[i];
+
+if (Array.isArray(val)) {
+  formData.filterFunctions.push('in');
+} else {
+  formData.filterFunctions.push('eq');
+  // Optional: wrap scalar in array if your backend expects array
+  formData.filterValues[i] = [val];
+}
+}
+
+
+//-------------------------
+//console.log(formData)
+const res = await getGrievances(formData)
+
+console.log('After Querry', res)
+console.log('After Querry - selFilters', selFilters)
+console.log('After Querry - selfilterValues', selfilterValues)
 
 
 
-  total.value = res.total
+tableDataList.value = res.data
 
-  Statuses.value.forEach(status => {
-  if (status.label === activeSegment.value) {
-    status.count = res.total; // Update this count dynamically
-  }
+availableFields.value = extractFields(tableDataList.value);
+
+
+
+total.value = res.total
+
+Statuses.value.forEach(status => {
+if (status.label === activeSegment.value) {
+  status.count = res.total; // Update this count dynamically
+}
 });
 
 
 loading.value = false
 
-  console.log('segment', activeSegment.value)
+console.log('segment', activeSegment.value)
 }
+ 
 
 
 
@@ -731,12 +770,14 @@ console.log('grmForm.value',grmForm.value)
 
 
 
-getIndicatorOptions()
+//getIndicatorOptions()
 
 if (userInfo) {
   getInterventionsAll()
 
 }
+
+
 
 
 
@@ -1504,20 +1545,14 @@ const getFilteredBySearchData = async (searchKey) => {
 
 
 }
-
-
-
  
 
 
-
-
-
 const searchByName = async (filterString: any) => {
-
-  getFilteredBySearchData(filterString)
-}
-
+  if (filterString && filterString.trim() !== '') {
+    await getFilteredBySearchData(filterString);
+  }
+};
  
 
 
@@ -1610,7 +1645,6 @@ console.log(' deletedGrievancesCount.value . ', deletedGrievances.value )
 const wardOptions = ref([])
 const selectedSubCounty=ref()
 const enableSubcounty=ref(false)
-const selectedCounty=ref()
  
 const value5=ref()
 const value6=ref()
@@ -1621,15 +1655,68 @@ const search_string=ref()
 const subcountiesOptions = ref([])
 
 const getSubCountyNames = async () => {
+  const res = await getListWithoutGeo({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'subcounty',
+      searchField: 'county_id',
+      searchKeyword: selectedCounty.value,
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received subcounties response:', response)
+    var ret = response.data
+    subcountiesOptions.value = []
+    loading.value = false
+
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var subcountyOpt = {}
+      subcountyOpt.value = arrayItem.id
+      subcountyOpt.county_id = arrayItem.county_id
+      subcountyOpt.label = arrayItem.name
+      //  console.log(countyOpt)
+      subcountiesOptions.value.push(subcountyOpt)
+    })
+    console.log('got subcountes')
+  })
 }
 
 
 
 const getWardNames = async () => {
+  const res = await getListWithoutGeo({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'ward',
+      searchField: 'subcounty_id',
+      searchKeyword: selectedSubCounty.value,
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received wards response:', response)
+    var ret = response.data
+    wardOptions.value = []
+    loading.value = false
+
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var opt = {}
+      opt.value = arrayItem.id
+      opt.subcounty_id = arrayItem.subcounty_id
+      opt.label = arrayItem.name
+      //  console.log(countyOpt)
+      wardOptions.value.push(opt)
+    })
+  })
 }
 
 
 const filterByCounty = async (county_id: any) => {
+
+  console.log('filterByCounty',county_id)
 
 if (county_id) {
   enableSubcounty.value = true   // allow selection of subcounty 
@@ -1926,7 +2013,76 @@ return formattedText;
 
 
 
+ const grievanceOptions = [
+  { label: 'Land Ownership or Title Disputes', value: 'land_ownership' },
+  { label: 'Evictions or Displacement', value: 'evictions' },
+  { label: 'Compensation or Resettlement Issues', value: 'compensation' },
+  { label: 'Poor Road or Pathway Conditions', value: 'poor_roads' },
+  { label: 'Infrastructure related ', value: 'infrastructure' },
+  { label: 'Drainage and Flooding Problems', value: 'drainage_flooding' },
+  { label: 'Water Access and Supply Issues', value: 'water_supply' },
+  { label: 'Sanitation and Hygiene Concerns', value: 'sanitation' },
+  { label: 'Electricity or Street Lighting Issues', value: 'electricity_lighting' },
+  { label: 'Waste Collection and Management', value: 'waste_management' },
+  { label: 'Environmental Degradation ', value: 'environmental_issues' },
+  { label: 'Health and Safety Hazards', value: 'health_safety' },
+  { label: 'Corruption, Mismanagement, or Bribery', value: 'corruption' },
+  { label: 'Discrimination, Exclusion or Favoritism', value: 'discrimination' },
+  { label: 'Gender-Based Violence or Harassment', value: 'gbv' },
+  { label: 'Labour Issues (e.g. unpaid wages, poor conditions)', value: 'labour_issues' },
+  { label: 'Lack of Information or Consultation', value: 'information_gap' },
+  { label: 'Project Implementation Delays or Inactivity', value: 'delays' },
+  { label: 'Other', value: 'other' }
+];
 
+
+const selectedCategories =ref([])
+const filterByCategory = async (categories: any) => {
+
+//value6.value = null   // clear the ward sr
+
+
+if (categories) {
+  selectedCategories.value = categories
+ 
+}
+
+
+if (selectedCategories.value ) {
+  const selectOption = 'nature';
+
+  // Ensure the filter key exists
+  if (!filters.value.includes(selectOption)) {
+    filters.value.push(selectOption);
+      filterFunction.value.push('in')
+
+  }
+
+  const index = filters.value.indexOf(selectOption);
+
+  // Clear previously selected county filter values
+  filterValues.value[index] = [];
+
+  // Insert new county filter value if it's not empty
+  if (selectedCategories.value.length  > 0) {
+    filterValues.value[index] = [...selectedCategories.value];
+  }
+
+  // Remove filter key if no values are selected
+  if (selectedCategories.value.length === 0) {
+    filters.value.splice(index, 1);
+    filterValues.value.splice(index, 1);
+  }
+}
+
+
+
+if (search_string.value) {
+  getFilteredBySearchData(search_string.value)
+} else {
+  getFilteredData(filters.value, filterValues.value)
+}
+}
 
 
 </script>
@@ -1934,79 +2090,146 @@ return formattedText;
 <template>
   <el-card>
     <el-row
-type="flex" justify="start" gutter="10"
-      style="display: flex; flex-wrap: nowrap; align-items: center; margin-bottom:10px">
+  type="flex"
+  justify="start"
+  :gutter="10"
+  style="flex-wrap: wrap; align-items: center; margin-bottom: 10px"
+>
+  <!-- Back Button -->
+  <el-col :xs="24" :sm="4" :md="4" :lg="3">
+    <el-button type="primary" plain :icon="Back" @click="goBack" style="width: 100%;">
+      Back
+    </el-button>
+  </el-col>
 
-      <div class="max-w-200px">
-        <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
-          Back
-        </el-button>
-      </div>
+  <!-- Category -->
+<el-col :xs="24" :sm="24" :md="24" :lg="6">
+    <el-select
+      size="default"
+      v-model="selectedCategories"
+      :onChange="filterByCategory"
+      multiple
+      clearable
+      filterable
+      collapse-tags
+   
+      placeholder="Filter By Category"
+      style="width: 100%;"
+    >
+      <el-option
+        v-for="item in grievanceOptions"
+        :key="item.value"
+        :label="item.label"
+        :value="item.value"
+      />
+    </el-select>
+  </el-col>
+
+  <!-- County -->
+  <el-col v-if="isNationalStaff" :xs="24" :sm="12" :md="6" :lg="3">
+    <el-select
+      size="default"
+      v-model="selectedCounty"
+      :onChange="filterByCounty"
+      :onClear="handleClear"
+      multiple
+      clearable
+      filterable
+      collapse-tags
+      placeholder="Filter By County"
+      style="width: 100%;"
+    >
+      <el-option
+        v-for="item in countiesOptions"
+        :key="item.value"
+        :label="item.label"
+        :value="item.value"
+      />
+    </el-select>
+  </el-col>
+
+  <!-- Subcounty -->
+  <el-col :xs="24" :sm="12" :md="6" :lg="3">
+    <el-select
+      :disabled="!enableSubcounty"
+      size="default"
+      v-model="selectedSubCounty"
+      :onChange="filterBySubCounty"
+      multiple
+      clearable
+      filterable
+      collapse-tags
+      placeholder="Filter By Subcounty"
+      style="width: 100%;"
+    >
+      <el-option
+        v-for="item in subcountiesOptions"
+        :key="item.value"
+        :label="item.label"
+        :value="item.value"
+      />
+    </el-select>
+  </el-col>
+
+  <!-- Ward -->
+  <el-col :xs="24" :sm="24" :md="24" :lg="3">
+    <el-select
+      :disabled="!enableSubcounty"
+      size="default"
+      v-model="selectedWard"
+      :onChange="filterByWard"
+      multiple
+      clearable
+      filterable
+      collapse-tags
+      placeholder="Filter By Ward"
+      style="width: 100%;"
+    >
+      <el-option
+        v-for="item in wardOptions"
+        :key="item.value"
+        :label="item.label"
+        :value="item.value"
+      />
+    </el-select>
+  </el-col>
 
 
 
-      <el-col :xs="24" :sm="24" :md="12" :lg="5">
-        <el-select
-size="default" v-model="selectedCounty" :onChange="filterByCounty" :onClear="handleClear" multiple clearable
-          filterable collapse-tags placeholder="By County" style=" margin-right: 5px;">
-          <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-      </el-col>
 
-      <el-col :xs="24" :sm="24" :md="12" :lg="4">
-        <el-select
-:disabled="!enableSubcounty" size="default" v-model="selectedSubCounty" :onChange="filterBySubCounty" multiple
-          clearable filterable collapse-tags placeholder="By Subcounty" style=" margin-right: 5px;">
-          <el-option v-for="item in subcountiesOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-      </el-col>
+  <!-- Action Buttons -->
+  <el-col :xs="24" :sm="24" :md="12" :lg="4">
+    <div style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-start;">
+      <el-tooltip v-if="isNationalStaff || isSuperAdmin" content="Import Data" placement="top">
+        <el-button @click="uploadData" type="primary" :icon="UploadFilled" />
+      </el-tooltip>
+      <el-tooltip content="Add Grievance" placement="top">
+        <el-button :onClick="AddComponent" type="primary" :icon="Plus" />
+      </el-tooltip>
+      <DownloadCustom
+        v-if="showEditButtons"
+        :data="tableDataList"
+        :model="model"
+        :associated_models="associated_multiple_models"
+      />
+    </div>
+  </el-col>
+</el-row>
 
-      <el-col :xs="24" :sm="24" :md="12" :lg="4">
-        <el-select 
-:disabled="!enableSubcounty" size="default" v-model="selectedWard" :onChange="filterByWard" multiple
-          clearable filterable collapse-tags placeholder="By Ward" style=" margin-right: 5px;">
-          <el-option v-for="item in wardOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-      </el-col>
-
-     
-
-
-      <el-select
-v-model="grv_name" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
-        placeholder="Search by Grievance" style=" margin-right: 5px;" />
-
-      
-
-
-      <!-- Action Buttons -->
-      <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px; ">
-
-
-        <el-tooltip v-if="isNationalStaff || isSuperAdmin" content="Import Data" placement="top">
-          <el-button @click="uploadData" type="primary" :icon="UploadFilled" />
-        </el-tooltip>
-
-        <el-tooltip content="Add Grievance" placement="top">
-          <el-button :onClick="AddComponent" type="primary" :icon="Plus" />
-        </el-tooltip>
-
-        <!-- <el-tooltip content="Clear" placement="top">
-          <el-button :onClick="handleClear" type="primary" :icon="Filter" />
-        </el-tooltip> -->
- 
-
-        <DownloadCustom
-v-if="showEditButtons" :data="tableDataList" :model="model"
-          :associated_models="associated_multiple_models" />
-
-
-
-      </div>
-
-      <!-- Download All Component -->
-    </el-row>
-
+ <!-- Search Grievance -->
+ <el-col :xs="24" :sm="24" :md="24" :lg="24"  >
+    <el-select
+      v-model="grv_name"
+      multiple
+      clearable
+      filterable
+      remote
+      :remote-method="searchByName"
+      reserve-keyword
+      placeholder="Search Grievance by code, description of name of complainant"
+      style="width: 100%; margin-top:10px;"
+    />
+  </el-col>
  
  
 
@@ -2032,6 +2255,10 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
               </div>
             </template>
           </el-table-column>
+          <el-table-column label="Code" prop="code" sortable width="150" />
+          <el-table-column label="Category" prop="nature" sortable width="150" />
+
+
           <el-table-column prop="date" label="Date" sortable min-width="100" v-if="!isMobile">
             <template #default="scope">
               <span>{{ formatDate(scope.row.date_reported) }}</span>
@@ -2051,8 +2278,7 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="Code" prop="code" sortable min-width="100" />
-          <el-table-column label="Complainant" prop="name" sortable min-width="100" />
+           <el-table-column label="Complainant" prop="name" sortable min-width="100" />
           <el-table-column label="Reported By" min-width="100" v-if="!isMobile">
             <template #default="scope">
               <span v-if="scope.row.self_reported === true">Self</span>
@@ -2107,7 +2333,8 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
             </template>
           </el-table-column>
         </el-table>
-          <ElPagination :layout="paginationLayout" v-model:currentPage="currentPage" :pager-count="pagerCount"
+          <ElPagination
+:layout="paginationLayout" v-model:currentPage="currentPage" :pager-count="pagerCount"
           v-model:page-size="pageSize" :page-sizes="[5, 8, 10, 20, 50, 200, 10000]" :total="total" :background="true"
           @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
   

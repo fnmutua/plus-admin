@@ -1081,6 +1081,7 @@ if (req.body.filterField && req.body.filterValue &&req.body.filterOperator && re
   console.log('-----------------------------y--------------------------------',req.body.filterField)
   console.log(   'filter values',filterValues )
   console.log('  filterCols',filterCols )
+  console.log('  filterOperators',filterOperators )
 
 
 
