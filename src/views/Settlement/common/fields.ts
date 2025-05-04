@@ -109,7 +109,7 @@ const formFields: Field[][] = [
       adminUnit: false,
       options: [
         { label: "Slum", value: "slum" },
-        { label: "Informal", value: "informal" },
+        { label: "Informal Settlement", value: "Informal Settlement" },
       ],
     },
     { id: "btn6", name: "parcel_no", label: "Parcel No.", type: "text", multiselect: "false", adminUnit: false, options: [] },
