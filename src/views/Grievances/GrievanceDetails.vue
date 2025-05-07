@@ -1629,17 +1629,25 @@ const OfficerRules = computed(() => ({
 const handleDownlaod = async () => { 
  
   //const { events = [], grievance_id, type } = req.body;
+  console.log (FullGrievanceData.value)
 
+  const logEvents = sortedGrievanceLogs.value.map(log => ({
+   date: log.date_actioned,
+   settlement: log.action_type,
+   event: log.action_type,
+   description: (log.action || 'N/A') + (log.user?.name ? ' By: ' + log.user.name : '')
+}));
+
+ console.log('logEvents',logEvents)
 
 const formData = {}
-  formData.grievance_id = 'GRM-2025-001'
+  formData.grievance_id = FullGrievanceData.value.code
   formData.type = "timeline"
-  formData.status = "Resolved"
-  formData.details = "I am among the few landowners in Kisumu ndogo who have not received their title deed through the KISIP2. This is due to my absence during meetings by the Kenya Informal Settlement improvement project organized by our village elders due to difficulties in getting permission from my workplace. As the project is coming to an end, I fear that I might be left out."
-   formData.events = kisipEvents
+  formData.status = FullGrievanceData.value.status
+  formData.details = FullGrievanceData.value.description
+   formData.events = logEvents
    formData.responseType = 'blob';
-
-
+ 
   
   try {
     const response = await getTimelineReport(formData);
@@ -1650,7 +1658,7 @@ const formData = {}
 
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', 'grievance-timeline-123.pdf');
+    link.setAttribute('download',  FullGrievanceData.value.code+'.pdf');
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -1768,7 +1776,7 @@ const formData = {}
       </el-tab-pane>
       <el-tab-pane label="Action Logs" name="timeline">
         <div class="mb-4">
-               <el-button type="primary" @click="handleDownlaod">Download</el-button>  
+                <el-button @click="handleDownlaod"  type="primary" :icon="Download"   plain>Download Timeline</el-button>
             </div>
      
         <el-timeline style="max-width: 100%;">
