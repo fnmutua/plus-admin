@@ -1,15 +1,19 @@
  
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue'
+import { onMounted, ref, computed ,onUnmounted} from 'vue'
+ 
 import { ElButton, ElDescriptions, ElDescriptionsItem, ElCard, ElMessage, ElEmpty } from 'element-plus'
 import { getOneGrievance,getOnePublicGrievance, getTimelineReport } from '@/api/grievance'
 import { useRoute, useRouter } from 'vue-router'
 import { Download, ArrowRight, Back } from '@element-plus/icons-vue'
 import { Icon } from '@iconify/vue'
+import { useAppStore } from '@/store/modules/app'
 
+const appStore = useAppStore()
 const route = useRoute()
 const router = useRouter()
 const { push } = useRouter()
+const isMobile = computed(() => appStore.getMobile)
 
 const grievance = ref({
   id: null,
@@ -155,12 +159,7 @@ const handleDownload = async () => {
   }
 }
 
-const xhandleForward = async () => {
-  push({
-    name: 'GrievanceDetails',
-    params: { id: grievance.value.id }
-  })
-}
+ 
 
 const handleForward = () => {
   const targetPath = `/grm/${grievance.value.id}`
@@ -181,25 +180,45 @@ const goBack = () => {
   router.back()
 }
 
-onMounted(fetchGrievance)
+//onMounted(fetchGrievance)
+
+const columns = ref(1)
+const descriptionDirection = ref('horizontal')
+
+const updateColumns = () => {
+  columns.value =  window.innerWidth >= 640 ? 2 : 1
+  descriptionDirection.value = window.innerWidth >= 640 ? 'horizontal'  :  'vertical'
+}
+
+onMounted(() => {
+  fetchGrievance()
+  updateColumns()
+  window.addEventListener('resize', updateColumns)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', updateColumns)
+})
+
+
 </script>
 
-<template>
-  <div class="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white transition-colors duration-300">
+ <template>
+<div class="  bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white transition-colors duration-300 px-4 sm:px-6 overflow-y-auto">
     <Transition name="fade">
-      <el-card class="container mx-auto my-8 p-6 max-w-4xl">
+      <el-card class="container mx-auto my-6 sm:my-8 p-4 sm:p-6 max-w-full sm:max-w-4xl">
         <template #header>
-          <div class="flex items-center justify-between">
-            <div class="flex items-center">
-              <img src="/gok.png" alt="Plus Admin Logo" class="w-12 h-12 mr-4" />
-              <h2 v-if="grievanceFound" class="text-2xl font-bold">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+            <div class="flex items-center space-x-4">
+              <img src="/gok.png" alt="Plus Admin Logo" class="w-10 h-10 sm:w-12 sm:h-12" />
+              <h2 v-if="grievanceFound" class="text-xl sm:text-2xl font-bold">
                 {{ grievance.code }}: {{ grievance.complainant }}
               </h2>
-              <h2 v-else class="text-2xl font-bold">
+              <h2 v-else class="text-xl sm:text-2xl font-bold">
                 Grievance Not Found
               </h2>
             </div>
-            <el-button type="primary" plain :icon="Back" @click="goBack">
+            <el-button type="primary" plain :icon="Back" @click="goBack" class="w-full sm:w-auto">
               Back
             </el-button>
           </div>
@@ -209,7 +228,9 @@ onMounted(fetchGrievance)
           <el-descriptions
             title="Grievance Details"
             :column="2"
-            border
+             border
+             :direction="descriptionDirection"
+
             class="mt-6"
           >
             <el-descriptions-item label="Code">
@@ -248,28 +269,54 @@ onMounted(fetchGrievance)
             <el-descriptions-item label="Last Action" :span="2">
               {{ grievance.last_action || 'N/A' }}
             </el-descriptions-item>
+
+            <el-descriptions-item label="Action" :span="2">
+              <div v-if="isMobile" class="flex space-x-2">
+                <el-button  type="primary"
+                  plain
+                  :icon="Download"
+                  @click="handleDownload"
+                  class="w-full sm:w-auto" > 
+                  Download
+                </el-button>
+                <el-button type="success"
+                  plain
+                  :icon="ArrowRight"
+                  @click="handleForward"
+                  class="w-full sm:w-auto"> 
+                  
+                  Review  
+                </el-button>
+                
+              </div>
+              <div v-else class="flex space-x-2">
+                <el-button
+                  type="primary"
+                  plain
+                  :icon="Download"
+                  @click="handleDownload"
+                  class="w-full sm:w-auto"
+                >
+                  Download Timeline
+                </el-button>
+                <el-button
+                  type="success"
+                  plain
+                  :icon="ArrowRight"
+                  @click="handleForward"
+                  class="w-full sm:w-auto"
+                >
+                  Review Grievance
+                </el-button>
+              </div>
+            </el-descriptions-item>
+
+
+
           </el-descriptions>
 
-         
-            <div class="mt-6 flex justify-end space-x-4">
-              <el-button
-                type="primary"
-                plain
-                :icon="Download"
-                @click="handleDownload"
-              >
-                Download Timeline
-              </el-button>
-              <el-button
-                type="success"
-                plain
-                :icon="ArrowRight"
-                @click="handleForward"
-              >
-                Review Grievance
-              </el-button>
-            </div>
-     
+  
+
         </div>
 
         <el-empty
@@ -328,5 +375,21 @@ onMounted(fetchGrievance)
     @apply w-full;
   }
 }
+
+
+.el-descriptions :deep(.el-descriptions__body) {
+  @apply bg-white dark:bg-gray-800 rounded-lg shadow-md;
+}
+
+@media (max-width: 640px) {
+  .el-descriptions :deep(.el-descriptions__body) {
+    max-height: 60vh; /* or whatever fits your layout */
+    overflow-y: auto;
+    padding: 1rem;
+  }
+}
+
+
+
 </style>
  
