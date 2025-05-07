@@ -1636,14 +1636,32 @@ const formData = {}
   formData.type = "timeline"
   formData.status = "Resolved"
   formData.details = "I am among the few landowners in Kisumu ndogo who have not received their title deed through the KISIP2. This is due to my absence during meetings by the Kenya Informal Settlement improvement project organized by our village elders due to difficulties in getting permission from my workplace. As the project is coming to an end, I fear that I might be left out."
- 
+   formData.events = kisipEvents
+   formData.responseType = 'blob';
 
-  formData.events = kisipEvents
-
-  const response = await getTimelineReport(formData);
 
   
-  console.log(response)
+  try {
+    const response = await getTimelineReport(formData);
+    console.log(response)
+
+    const blob = new Blob([response.data], { type: 'application/pdf' });
+    const url = window.URL.createObjectURL(blob);
+
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'grievance-timeline-123.pdf');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error('Failed to download PDF', error);
+  }
+   
+  
+
+
 
 }
 

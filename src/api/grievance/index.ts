@@ -113,8 +113,10 @@ export const sendOverdueReminder = (data: any): Promise<IResponse<any>> => {
 
 
 
-  
-export const getTimelineReport= (data: any) => {
-  // console.log('filters....', data)
-   return request.post({ url: prod + '/api/v1/pdf/timeline',  data })
-}
+export const getTimelineReport = (data: any) => {
+  return request.post({
+    url: prod + '/api/v1/pdf/timeline',
+    data,
+    responseType: 'blob', // 👈 necessary for PDF
+  });
+};
