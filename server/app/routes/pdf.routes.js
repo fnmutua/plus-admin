@@ -13,7 +13,8 @@ module.exports = function(app) {
     //app.post('/api/v1/user/all',  [authJwt.verifyToken],controller.modelAllUsers) // retrired 
 
 
-  app.post("/api/v1/pdf", controller.generatePDF);
+    app.post("/api/v1/pdf", controller.generatePDF);
+    app.post("/api/v1/pdf/timeline", controller.generateTimelinePDF);
  
  
 

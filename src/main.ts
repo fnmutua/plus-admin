@@ -35,7 +35,6 @@ import App from './App.vue'
 import './permission'
 import VueApexCharts from "vue3-apexcharts";
  
- 
 /* import specific icons */
  
 /* add icons to the library */
@@ -61,7 +60,7 @@ const setupAll = async () => {
   app.use(VueApexCharts);
  
   // Excel dowload 
- 
+
 
   app.mount('#app')
 }

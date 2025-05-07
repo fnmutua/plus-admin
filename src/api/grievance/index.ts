@@ -109,3 +109,12 @@ export const sendOverdueReminder = (data: any): Promise<IResponse<any>> => {
   // console.log('....', data)
   return request.post({ url: prod + '/api/v1/grv/reminder', data })
 }
+
+
+
+
+  
+export const getTimelineReport= (data: any) => {
+  // console.log('filters....', data)
+   return request.post({ url: prod + '/api/v1/pdf/timeline',  data })
+}

@@ -44,6 +44,68 @@ import {
 } from '@/api/register'
 
 
+import {
+  getTimelineReport
+} from '@/api/grievance'
+
+
+const kisipEvents = [
+  {
+    date: "2025-04-12",
+    event: "Grievance Submitted",
+    description: "Complainant reported exclusion from beneficiary list during sensitization in Bondeni Settlement.",
+  },
+  {
+    date: "2025-04-13",
+    event: "Grievance Logged",
+    description: "Grievance formally recorded in the digital GRM system and assigned tracking ID GRM-4521.",
+  },
+  {
+    date: "2025-04-14",
+    event: "Initial Review by Community GRM Committee",
+    description: "Committee conducted a preliminary review and verified the complainant’s details.",
+  },
+  {
+    date: "2025-04-15",
+    event: "Site Visit Conducted",
+    description: "GRM focal persons and settlement team visited complainant’s homestead to validate claims.",
+  },
+  {
+    date: "2025-04-16",
+    event: "Hearing Session Held",
+    description: "The complainant and settlement committee appeared before the local GRM Committee for a hearing.",
+  },
+  {
+    date: "2025-04-17",
+    event: "Escalation to County Level",
+    description: "Due to conflicting records, the case was referred to the County Grievance Redress Panel.",
+  },
+  {
+    date: "2025-04-20",
+    event: "County Panel Review",
+    description: "The County team cross-checked the household listing registers and approved the complainant's eligibility.",
+  },
+  {
+    date: "2025-04-22",
+    event: "Resolution Communicated",
+    description: "Formal resolution issued — complainant reinstated to beneficiary list and notified via SMS and letter.",
+  },
+  {
+    date: "2025-04-24",
+    event: "Case Closed",
+    description: "Case GRM-4521 marked as resolved in the system; signed closure form archived digitally.",
+  },
+  {
+    date: "2025-05-01",
+    event: "Satisfaction Follow-Up",
+    description: "Post-resolution follow-up confirmed that the complainant was satisfied with the outcome.",
+  }
+];
+
+
+
+
+
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
@@ -1564,7 +1626,26 @@ const OfficerRules = computed(() => ({
   ]
 }));
 
+const handleDownlaod = async () => { 
+ 
+  //const { events = [], grievance_id, type } = req.body;
 
+
+const formData = {}
+  formData.grievance_id = 'GRM-2025-001'
+  formData.type = "timeline"
+  formData.status = "Resolved"
+  formData.details = "I am among the few landowners in Kisumu ndogo who have not received their title deed through the KISIP2. This is due to my absence during meetings by the Kenya Informal Settlement improvement project organized by our village elders due to difficulties in getting permission from my workplace. As the project is coming to an end, I fear that I might be left out."
+ 
+
+  formData.events = kisipEvents
+
+  const response = await getTimelineReport(formData);
+
+  
+  console.log(response)
+
+}
 
 </script>
 
@@ -1579,7 +1660,11 @@ const OfficerRules = computed(() => ({
 
         {{ Grievance.code }} : {{ Grievance.complainant }}
       </div>
+
+
     </template>
+
+
 
     <el-tabs v-model="activeName" type="border-card" class="demo-tabs">
       <el-tab-pane label="Grievance Details" name="details">
@@ -1664,7 +1749,10 @@ const OfficerRules = computed(() => ({
 
       </el-tab-pane>
       <el-tab-pane label="Action Logs" name="timeline">
-
+        <div class="mb-4">
+               <el-button type="primary" @click="handleDownlaod">Download</el-button>  
+            </div>
+     
         <el-timeline style="max-width: 100%;">
           <el-timeline-item
 v-for="(log, index) in sortedGrievanceLogs" :key="index" placement="top" color="green"
