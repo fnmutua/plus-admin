@@ -1157,6 +1157,154 @@ exports.batchDocumentsUploadByGrievanceCode = async (req, res) => {
       }
  };
 
+
+exports.getGrievanceByPublicId = async (req, res) => {
+  try {
+    const grievanceId = req.body.id; // Retrieve grievance ID from the request body
+
+    if (!grievanceId) {
+      return res.status(400).send({
+        data: null,
+        message: 'Grievance ID is required',
+      });
+    }
+
+    let redactedFields;
+
+    redactedFields = [
+      // Redact name if the case is GBV
+      [
+        Sequelize.literal(`
+          CASE 
+            WHEN "grievance"."isgbv" = false THEN 
+              PGP_SYM_DECRYPT(CAST("grievance"."name" AS bytea), '***REDACTED***')
+            ELSE 
+              '[REDACTED]'
+          END
+        `),
+        'name'
+      ],
+      [
+        Sequelize.literal(`
+          CASE 
+            WHEN "grievance"."isgbv" = false THEN 
+              PGP_SYM_DECRYPT(CAST("grievance"."national_id" AS bytea), '***REDACTED***')
+            ELSE 
+              '[REDACTED]'
+          END
+        `),
+        'national_id'
+      ],
+
+      // Redact phone if the case is GBV
+      [
+        Sequelize.literal(`
+          CASE 
+            WHEN "grievance"."isgbv" = false THEN "grievance"."phone"
+            ELSE '[REDACTED]'
+          END
+        `),
+        'phone'
+      ]
+    ];
+    let attributes = Object.keys(db.models.grievance.rawAttributes).filter(attr => attr !== 'password'); // Exclude sensitive fields like password if any
+
+
+    attributes.push(...redactedFields);
+    // Initialize findOptions with required attributes
+    const xfindOptions = {
+      where: { id: grievanceId },
+      attributes: [
+        'code',
+        // Redact name if GBV
+        [
+          Sequelize.literal(`
+            CASE 
+              WHEN "grievance"."isgbv" = false THEN "grievance"."name"
+              ELSE '[REDACTED]'
+            END
+          `),
+          'name'
+        ],
+        // Redact phone if GBV
+        [
+          Sequelize.literal(`
+            CASE 
+              WHEN "grievance"."isgbv" = false THEN "grievance"."phone"
+              ELSE '[REDACTED]'
+            END
+          `),
+          'phone'
+        ],
+        'nature',
+        'isgbv',
+        'description',
+        'status',
+        'plea',
+        'date_reported',
+        'county_id',
+        'settlement_id'
+      ],
+    };
+
+    // Initialize findOptions with common properties
+    const findOptions = {
+      where: { id: grievanceId }, // Filter by the specific grievance ID
+    };
+
+    findOptions.attributes = attributes;
+    
+    // Include associated models if specified
+    const associatedModels = req.body.associated_multiple_models || [];
+    if (associatedModels.length > 0) {
+      findOptions.include = associatedModels.map(model => {
+        if (typeof model === 'string') {
+          if (model === 'county' || model === 'settlement') {
+            return { model: db.models[model], attributes: ['name'] };
+          }
+          return null; // Exclude unused models like grievance_document, grievance_notification
+        } else if (typeof model === 'object' && model.name === 'grievance_log' && model.nestedAssociations) {
+          return {
+            model: db.models[model.name],
+            attributes: ['action_type', 'date_actioned'],
+            include: model.nestedAssociations
+              .filter(nestedModel => nestedModel === 'users')
+              .map(() => ({
+                model: db.models.users,
+                attributes: ['name']
+              }))
+          };
+        }
+        return null;
+      }).filter(model => model !== null); // Remove null entries
+    }
+
+    // Fetch the grievance
+    const grievance = await db.models.grievance.findOne(findOptions);
+
+    if (!grievance) {
+      return res.status(404).send({
+        data: null,
+        message: 'Grievance not found',
+      });
+    }
+
+    // Send the grievance data
+        res.status(200).send({
+          data: grievance,
+          code: '0000',
+          message: 'Grievance retrieved successfully',
+        });
+
+  } catch (error) {
+    console.error('Error fetching Grievance:', error);
+    res.status(500).send({
+      data: null,
+      message: 'Unable to retrieve Grievance. Please try again later.',
+    });
+  }
+};
+
  exports.getGrievanceByUserPhone = async (req, res) => {
   try {
     const user = req.thisUser;

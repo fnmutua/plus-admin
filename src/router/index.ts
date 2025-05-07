@@ -70,7 +70,7 @@ export const constantRouterMap: AppRouteRecordRaw[] = [
  
   {
     path: '/status/:id',
-    component: () => import('@/views/Landing/status.vue'),
+    component: () => import('@/views/Grievances/GrievanceDetailsPublic.vue'),
     name: 'GrievanceStatus',
     meta: {
       hidden: true,
@@ -1396,7 +1396,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         }
       },
       
-
+   
 
 
     ]
