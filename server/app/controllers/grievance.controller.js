@@ -2315,12 +2315,19 @@ exports.bulkUpdateReferredToOfficer = async (req, res) => {
           if (!officerId) officerId = reffered_to_officer;
         }
     
-        // SMS Notification
+        //Send Notii
         if (officerId && grievanceCodes.length > 0) {
           const officer = await Users.findByPk(officerId);
           if (officer && officer.phone) {
-            const message = `You have been referred these ${grievanceCodes.length} grievance(s) for your action.`;
-    
+            // Build links for each grievance
+            const baseUrl = 'https://kesmis.go.ke/#/status';
+            const grievanceLinks = updatedGrievances.map(grv =>
+              `${grv.code}: ${baseUrl}/${grv.id}`
+            ).join('\n');
+        
+            const message = `You have been referred these grievance(s) for review and action:\n${grievanceLinks}`;
+        
+            // Send SMS
             sendNotificationSMS({
               grievance_id: updatedGrievances[0].id,
               phone: officer.phone,
@@ -2332,6 +2339,7 @@ exports.bulkUpdateReferredToOfficer = async (req, res) => {
             });
           }
         }
+        
     
         return res.status(200).send({
           code: '0000',
