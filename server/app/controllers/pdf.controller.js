@@ -607,7 +607,7 @@ exports.xgenerateTimelinePDF = async (req, res) => {
 exports.generateTimelinePDF = async (req, res) => {
   try {
     // Get the form data and events array from the request body
-    const { events = [], grievance_id, type, details = '', status = '', settlement = '' } = req.body;
+    const { events = [], grievance_id, grievance_code, type, details = '', status = '', settlement = '' } = req.body;
 
     console.log(req.body);
 
@@ -615,8 +615,8 @@ exports.generateTimelinePDF = async (req, res) => {
     if (!Array.isArray(events) || events.length === 0) {
       return res.status(400).send({ message: 'Events array is required and cannot be empty' });
     }
-    if (!grievance_id || !type) {
-      return res.status(400).send({ message: 'grievance_id and type are required' });
+    if (!grievance_code || !type) {
+      return res.status(400).send({ message: 'grievance_code and type are required' });
     }
 
     // Sort events by date in descending order (latest first)
@@ -724,7 +724,7 @@ exports.generateTimelinePDF = async (req, res) => {
     currentY -= headerLineCount * lineHeight + 40; // Add spacing after header
 
     // Draw title
-    const titleText = `Grievance: ${grievance_id}`;
+    const titleText = `Grievance: ${grievance_code}`;
     const titleWidth = width - 2 * margin;
     let lines = [];
     let currentLine = '';
@@ -1092,7 +1092,7 @@ exports.generateTimelinePDF = async (req, res) => {
 
     // Set headers for browser download
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="grievance-timeline-${grievance_id}.pdf"`);
+    res.setHeader('Content-Disposition', `attachment; filename="grievance-timeline-${grievance_code}.pdf"`);
     res.setHeader('Content-Length', pdfBytes.length);
 
     // Send the PDF bytes to the browser

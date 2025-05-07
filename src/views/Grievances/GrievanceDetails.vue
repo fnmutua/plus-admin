@@ -1641,7 +1641,8 @@ const handleDownlaod = async () => {
  console.log('logEvents',logEvents)
 
 const formData = {}
-  formData.grievance_id = FullGrievanceData.value.code
+ formData.grievance_id = FullGrievanceData.value.id
+ formData.grievance_code = FullGrievanceData.value.code
   formData.type = "timeline"
   formData.status = FullGrievanceData.value.status
   formData.details = FullGrievanceData.value.description

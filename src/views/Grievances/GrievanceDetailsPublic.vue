@@ -136,7 +136,8 @@ const handleDownload = async () => {
       description: (log.action || 'N/A') + (log.user?.name ? ' By: ' + log.user.name : ''),
     }))
     const formData = {
-      grievance_id: fullGrievanceData.value.code,
+      grievance_id: fullGrievanceData.value.id,
+      grievance_code: fullGrievanceData.value.code,
       type: 'timeline',
       status: fullGrievanceData.value.status,
       details: fullGrievanceData.value.description,
