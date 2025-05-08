@@ -2439,6 +2439,7 @@ async function handleBulkAction() {
 const form = ref({
   grievance_id: null,
   reffered_to_officer: null,
+  reffered_to_support_staff: [],
  
 });
 
@@ -2451,10 +2452,27 @@ const formOfficer = reactive({
 
 
 const officerLabel=ref()
+
+const removedUsers = ref([]); // Store removed users for potential restoration
+
 const handleOfficerChange = (value) => {
-    const selected = grmUsers.value.find(opt => opt.value === value);
-    officerLabel.value = selected ? selected.label : '';
-  };
+  if (value) {
+    // Remove from list
+    const index = grmUsers.value.findIndex(opt => opt.value === value);
+    if (index !== -1) {
+      officerLabel.value = grmUsers.value[index].label;
+      removedUsers.value.push(grmUsers.value[index]); // Store for restoration
+      grmUsers.value.splice(index, 1);
+    }
+  } else {
+    // Value cleared, restore all removed users
+    grmUsers.value.push(...removedUsers.value);
+    removedUsers.value.length = 0;
+    officerLabel.value = '';
+  }
+};
+
+
 
 
   const validateKenyaPhone = (rule, value, callback) => {
@@ -2478,6 +2496,15 @@ const OfficerRules = computed(() => ({
   ]
 }));
 
+
+const ReferRules = computed(() => ({
+  reffered_to_officer: [
+    { required: true, message: "This is required", trigger: "blur" }
+  ],
+  action: [
+  { required: true, message: "This is required", trigger: "blur" }
+  ]
+}));
 
 function convertPhoneNumberX(phoneNumber: string | undefined) {
 
@@ -2598,6 +2625,9 @@ const submitResolutionForm = async () => {
       action_by: userInfo.id,
       action_level: current_user_roles[0] || 'settlement',
       reffered_to_officer: form.value.reffered_to_officer || null,
+      reffered_to_support_staff: form.value.reffered_to_support_staff || [],
+   
+
       date_actioned:  new Date(Date.now()),
       current_level: grievance.current_level,
       prev_status: grievance.status,
@@ -3202,9 +3232,8 @@ if (search_string.value) {
   <!-- Referral Dialog -->
  
   <el-dialog title="Refer Grievance(s)" v-model="showReferralDialog" width="60%" draggable>
-    <el-form   v-loading="grmUsersLoading" :model="form" label-width="auto" ref="ReferralRef" :rules="rules">
-      <el-form-item
-label="Select Officer" label-position="top" prop="reffered_to_officer" >
+    <el-form   v-loading="grmUsersLoading" :model="form" label-width="auto" ref="ReferralRef" :rules="ReferRules">
+      <el-form-item label="Select Officer" label-position="top" prop="reffered_to_officer" >
         <el-select
           v-model="form.reffered_to_officer" clearable filterable placeholder="Select Officer"
           :loading="grmUsersLoading" :disabled="grmUsersLoading" @change="handleOfficerChange" style="width: 100%">
@@ -3238,13 +3267,47 @@ label="Select Officer" label-position="top" prop="reffered_to_officer" >
 
           </template>
         </el-select>
+      </el-form-item>
 
+      <el-form-item label="Select Supporting Officers" label-position="top" prop="reffered_to_support_staff" >
+        <el-select
+          v-model="form.reffered_to_support_staff" multiple clearable filterable placeholder="Select"
+          :loading="grmUsersLoading" :disabled="grmUsersLoading"   style="width: 100%">
+          <el-option v-for="item in grmUsers" :key="item.value" :label="item.label" :value="item.value" />
+          <template #footer>
+            <el-button v-if="!isAdding" text bg size="small" @click="onAddOption">
+              Add Officer
+            </el-button>
+            <template v-else>
+              <el-form :model="formOfficer" label-width="0" :rules="OfficerRules" ref="formRef">
+                <el-form-item prop="optionName">
+                  <el-input v-model="formOfficer.optionName" class="option-input" placeholder="Name" size="small" />
+                </el-form-item>
 
+                <el-form-item prop="optionPhone">
+                  <el-input
+                 v-model="formOfficer.optionPhone" class="option-input"
+                    placeholder="Enter phone number (254.....)" size="small" :onChange="convertPhoneNumberX" />
+                </el-form-item>
+
+                <el-form-item>
+                  <el-button type="primary" size="small" @click="onConfirm">
+                    Confirm
+                  </el-button>
+                  <el-button size="small" @click="clear">
+                    Cancel
+                  </el-button>
+                </el-form-item>
+              </el-form>
+            </template>
+
+          </template>
+        </el-select>
       </el-form-item>
 
       <el-form-item label="Describe the Action Taken" label-position="top" prop="action">
         <el-input
-type="textarea" :rows="2" placeholder="Provide details of the resolution here"
+type="textarea" :rows="2" placeholder="Provide instructions here..."
           v-model="form.action" />
       </el-form-item>
 

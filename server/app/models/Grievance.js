@@ -136,7 +136,11 @@ module.exports = function (sequelize) {
         allowNull: true
       }, 
 
-      
+      reffered_to_support_staff: {
+        type: DataTypes.ARRAY(DataTypes.INTEGER),
+        allowNull: true
+      },
+
       code: {
         type: DataTypes.STRING,
         allowNull: false,

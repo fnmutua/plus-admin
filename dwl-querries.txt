@@ -337,6 +337,13 @@ ADD COLUMN reffered_to_officer INTEGER
 
 
 
+ALTER TABLE public.grievance
+ADD COLUMN reffered_to_support_staff INTEGER[] DEFAULT NULL;
+
+
+
+
+
 -- Standardizing grievance category values
 UPDATE grievance SET nature  = 'environmental_issues' WHERE nature   IN ('nature', 'deforestation');
 UPDATE grievance SET nature  = 'health_safety' WHERE nature  = 'public_health';

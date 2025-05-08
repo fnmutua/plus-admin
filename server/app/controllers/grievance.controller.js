@@ -2267,7 +2267,7 @@ exports.modelImportGrievances = async (req, res) => {
       }
     };
 
-exports.bulkUpdateReferredToOfficer = async (req, res) => {
+exports._bulkUpdateReferredToOfficer = async (req, res) => {
       try {
         const user = req.thisUser;
         const currentUserRoles = await user.getRoles();
@@ -2295,7 +2295,7 @@ exports.bulkUpdateReferredToOfficer = async (req, res) => {
         let officerId = null;
     
         for (const update of updates) {
-          const { grievance_id, reffered_to_officer, new_status } = update;
+          const { grievance_id, reffered_to_officer,reffered_to_support_staff, new_status } = update;
     
           if (!grievance_id || !reffered_to_officer) continue;
     
@@ -2303,6 +2303,7 @@ exports.bulkUpdateReferredToOfficer = async (req, res) => {
           if (!grievance) continue;
     
           grievance.reffered_to_officer = reffered_to_officer;
+          grievance.reffered_to_support_staff = reffered_to_support_staff;
           grievance.status = new_status;
           await grievance.save();
     
@@ -2356,8 +2357,139 @@ exports.bulkUpdateReferredToOfficer = async (req, res) => {
       }
     };
     
+    exports.bulkUpdateReferredToOfficer = async (req, res) => {
+      try {
+        const user = req.thisUser;
+        const currentUserRoles = await user.getRoles();
+        const hasSuperAdminRole = currentUserRoles.some(r => r.name === 'super_admin');
+        const hasGRMRole = currentUserRoles.some(r =>
+          ['grm', 'gbv', 'admin', 'staff'].includes(r.name)
+        );
+        if (!hasGRMRole && !hasSuperAdminRole) {
+          return res.status(403).send({
+            code: '9999',
+            message: 'Unauthorized access denied for updating grievances',
+          });
+        }
     
-
+        const { updates } = req.body;
+        if (!Array.isArray(updates) || updates.length === 0) {
+          return res.status(400).send({
+            code: '1001',
+            message: 'An array of updates is required',
+          });
+        }
+    
+        const updatedGrievances = [];
+        const grievanceCodes      = [];
+        const officerIds          = new Set();
+        const supportStaffIds     = new Set();
+    
+        // 1) Apply all updates
+        for (const u of updates) {
+          const {
+            grievance_id,
+            reffered_to_officer,
+            reffered_to_support_staff,
+            new_status
+          } = u;
+    
+          if (!grievance_id || !reffered_to_officer) continue;
+    
+          const grv = await Grievance.findByPk(grievance_id);
+          if (!grv) continue;
+    
+          grv.reffered_to_officer         = reffered_to_officer;
+          grv.reffered_to_support_staff   = reffered_to_support_staff;
+          grv.status                      = new_status;
+          await grv.save();
+    
+          const full = await Grievance.findByPk(grievance_id);
+          await updateGrievanceHistory(
+            grievance_id,
+            full.toJSON(),
+            user.id,
+            'Referred'
+          );
+    
+          updatedGrievances.push(full);
+          grievanceCodes.push(full.code);
+    
+          officerIds.add(reffered_to_officer);
+    
+          // — flatten support-staff array if needed —
+          if (Array.isArray(reffered_to_support_staff)) {
+            reffered_to_support_staff.forEach(id => supportStaffIds.add(id));
+          } else if (reffered_to_support_staff) {
+            supportStaffIds.add(reffered_to_support_staff);
+          }
+        }
+    
+        // 2) Build common message
+        if (grievanceCodes.length > 0) {
+          const baseUrl = 'https://kesmis.go.ke/#/status';
+          const links   = updatedGrievances
+            .map(g => `${g.code}: ${baseUrl}/${g.id}`)
+            .join('\n');
+    
+          const commonMessage = 
+            `You have been referred these grievance(s) for review and action:\n${links}`;
+    
+          // 3) Send to each main officer
+          let mainofficerName
+          for (let oid of officerIds) {
+            const off = await Users.findByPk(oid);
+            mainofficerName=off.name
+            if (off?.phone) {
+              await sendNotificationSMS({
+                grievance_id: updatedGrievances[0].id,
+                phone       : off.phone,
+                grv_code    : grievanceCodes.join(', '),
+                message     : commonMessage,
+                sender_id   : user.id,
+                type        : 'Referral',
+                status      : 'Pending',
+              });
+            }
+          }
+    
+          // 4) Send to each support staff by ID
+          for (let sid of supportStaffIds) {
+            const staff = await Users.findByPk(sid);
+            if (staff?.phone) {
+              const supportMessage =
+                `Hello ${staff.name},\n` +
+                `You are requested to support  ${mainofficerName}  in resolution these grievance(s):\n${links}`;
+    
+              await sendNotificationSMS({
+                grievance_id: updatedGrievances[0].id,
+                phone       : staff.phone,
+                grv_code    : grievanceCodes.join(', '),
+                message     : supportMessage,
+                sender_id   : user.id,
+                type        : 'Support Referral',
+                status      : 'Pending',
+              });
+            }
+          }
+        }
+    
+        return res.status(200).send({
+          code   : '0000',
+          message: `${updatedGrievances.length} grievance(s) referred successfully`,
+          data   : updatedGrievances,
+        });
+    
+      } catch (error) {
+        console.error('Bulk referral error:', error);
+        return res.status(500).send({
+          code   : '9999',
+          message: 'An error occurred while updating referrals',
+        });
+      }
+    };
+    
+    
  exports.getGrievancesByKeyword = async (req, res) => {
       console.log('--------------------------------------------getGrievancesByKeyword');
       const user = req.thisUser;
