@@ -2392,7 +2392,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
                 v-if="userLocation"
                 :options="{
                   center: userLocation,
-                  radius: 20,
+                  radius: 1,
                   fillColor: '#4285F4',
                   fillOpacity: 0.5,
                   strokeColor: '#4285F4',

@@ -1340,7 +1340,7 @@ const userLocationMarker = computed(() => ({
 
 // Add refs for animation
 const circleOpacity = ref(0.5); // Initial opacity
-const circleRadius = ref(20); // Initial radius
+const circleRadius = ref(4); // Initial radius
 
 // Function to start the blinking animation
 const startBlinking = () => {
@@ -1406,7 +1406,7 @@ ref="mapRef" :api-key="googleMapsApiKey" style="width: 100%; height: 75vh" :cent
           v-if="userLocation"
           :options="{
             center: userLocation,
-            radius: 20,
+            radius: 4,
             fillColor: '#4285F4',
             fillOpacity: 0.5,
             strokeColor: '#4285F4',
