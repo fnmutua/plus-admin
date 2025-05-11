@@ -51,7 +51,7 @@ import {
 import VChart from 'vue-echarts';
 
 
-import { GoogleMap,Polygon ,InfoWindow, Marker,CustomMarker ,MarkerCluster,Polyline   } from 'vue3-google-map'
+import { GoogleMap,Polygon ,InfoWindow, Marker,CustomMarker ,MarkerCluster,Polyline,Circle   } from 'vue3-google-map'
 
 
 
@@ -2168,7 +2168,75 @@ const closePopup = () => {
 }
  
  
+const userLocation = ref(null)
 
+const locateMe = () => {
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const lat = position.coords.latitude
+        const lng = position.coords.longitude
+
+        const pos = { lat, lng }
+        gmapCenter.value = pos
+        userLocation.value = pos
+
+        mapRef.value?.panTo(pos)
+      },
+      () => {
+        ElMessage.error('Geolocation permission denied or unavailable.')
+      }
+    )
+  } else {
+    ElMessage.warning('Geolocation is not supported in this browser.')
+  }
+}
+
+const userLocationMarker = computed(() => ({
+  position: userLocation.value,
+  icon: {
+    path: google.maps.SymbolPath.CIRCLE,
+    scale: 8,
+    fillColor: '#4285F4',
+    fillOpacity: 1,
+    strokeColor: '#ffffff',
+    strokeWeight: 2,
+  }
+}))
+
+
+// Add refs for animation
+const circleOpacity = ref(0.5); // Initial opacity
+const circleRadius = ref(20); // Initial radius
+
+// Function to start the blinking animation
+const startBlinking = () => {
+  let increasing = true;
+  const interval = setInterval(() => {
+    if (increasing) {
+      circleOpacity.value = Math.min(circleOpacity.value + 0.1, 0.8); // Increase opacity
+      circleRadius.value = Math.min(circleRadius.value + 2, 30); // Slightly increase radius
+    } else {
+      circleOpacity.value = Math.max(circleOpacity.value - 0.1, 0.3); // Decrease opacity
+      circleRadius.value = Math.max(circleRadius.value - 2, 20); // Decrease radius
+    }
+    increasing = !increasing;
+  }, 500); // Adjust timing (500ms for each phase)
+
+  // Optional: Stop after 10 seconds
+  setTimeout(() => {
+    clearInterval(interval);
+    circleOpacity.value = 0.5; // Reset to default
+    circleRadius.value = 20; // Reset to default
+  }, 10000); // Stop after 10 seconds
+};
+
+// Start blinking when user location is set
+watch(userLocation, (newLocation) => {
+  if (newLocation) {
+    startBlinking();
+  }
+});
 
 </script>
 
@@ -2320,7 +2388,20 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
               />
             </MarkerCluster>
 
+            <Circle
+                v-if="userLocation"
+                :options="{
+                  center: userLocation,
+                  radius: 20,
+                  fillColor: '#4285F4',
+                  fillOpacity: 0.5,
+                  strokeColor: '#4285F4',
+                  strokeOpacity: 1,
+                  strokeWeight: 2
+                }"
+              />
 
+        <Marker v-if="userLocation" :options="userLocationMarker" />
 
               <InfoWindow v-if="infowindow" @closeclick="closePopup" :options="{ position: gmapCenter }">
               <div style="max-width: 400px; height:250px">
@@ -2333,7 +2414,10 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
 
 
             </GoogleMap>
-  
+        
+            <ElButton  circle  title="Locate Me"   class="geolocate-btn" plain  @click="locateMe">
+            <Icon   icon= "mage:location-fill"/>
+          </ElButton>
 
         </div>
       </el-tab-pane>
@@ -2430,6 +2514,16 @@ v-model="computationMethod"   placeholder="Computation Method"
   width: 100%;
   height: 65vh;
 }
+
+.geolocate-btn {
+  position: absolute;
+  top: 30px;
+  right: 70px;
+  z-index: 1000;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+
 </style>
 
 
