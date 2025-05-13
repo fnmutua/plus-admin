@@ -533,11 +533,11 @@ const loadSelectedLayers = async (layers: string[]) => {
           structures.value.push({
             id: `parcel-${properties?.structure_id || index}`,
             paths,
-            strokeColor: 'red',
+            strokeColor: 'white',
             strokeOpacity: 1,
             strokeWeight: 0.5,
             fillColor,
-            fillOpacity: 0.47,
+            fillOpacity: 0.7,
             properties: { ...properties }
           })
         
