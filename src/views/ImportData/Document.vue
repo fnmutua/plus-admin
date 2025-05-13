@@ -235,7 +235,9 @@ const beforeUpload: UploadProps['beforeUpload'] = (file) => {
   return true;
 };
 
-const handleFileUpload = async (uploadFile: any) => {
+const xhandleFileUpload = async (uploadFile: any) => {
+
+   
   const file = uploadFile.raw || uploadFile.file;
   if (!file || !beforeUpload(file)) return;
 
@@ -252,6 +254,58 @@ const handleFileUpload = async (uploadFile: any) => {
     }];
     fieldMappings.value = [{ fileIndex: 0, type: '', field_id: '' }];
     ElMessage.success(`File ${file.name} loaded successfully!`);
+      console.log('uploadFile',uploadFile)
+    step.value = 1;
+  
+
+
+  } catch (err) {
+    console.error('File upload error:', err);
+    ElMessage.error('Error processing file');
+  } finally {
+    loading.value.upload = false;
+  }
+};
+
+ const handleFileUpload = async (uploadFile: any) => {
+  const file = uploadFile.raw || uploadFile.file;
+  if (!file || !beforeUpload(file)) return;
+
+  // Prevent duplicates based on name + size
+  const exists = fileList.value.some(f => f.name === file.name && f.size === file.size);
+  if (exists) {
+    ElMessage.warning(`File ${file.name} already uploaded.`);
+    return;
+  }
+
+  loading.value.upload = true;
+  try {
+    const currentIndex = fileList.value.length;
+
+    console.log( 'fileList.value', fileList.value)
+    fileList.value.push({
+      ...uploadFile,
+      protected: false,
+      type: '',
+      field_id: ''
+    });
+
+    fileMetadata.value.push({
+      name: file.name,
+      type: '',
+      format: file.name.split('.').pop() || '',
+      size: (file.size / 1024 / 1024).toFixed(2),
+      protected: false,
+      field_id: ''
+    });
+
+    fieldMappings.value.push({
+      fileIndex: currentIndex,
+      type: '',
+      field_id: ''
+    });
+
+    ElMessage.success(`File ${file.name} loaded successfully!`);
     step.value = 1;
   } catch (err) {
     console.error('File upload error:', err);
@@ -260,6 +314,7 @@ const handleFileUpload = async (uploadFile: any) => {
     loading.value.upload = false;
   }
 };
+
 
 // Handle model selection
 const handleSelectModel = async (model: string) => {
@@ -408,8 +463,8 @@ const handleReset = () => {
           :auto-upload="false"
           :show-file-list="true"
           :on-change="handleFileUpload"
-          :limit="1"
-          multiple
+          :limit="2"
+          :multiple="true"
           :before-upload="beforeUpload"
           accept=".xls,.xlsx,.pdf,.zip,.doc,.docx,.png,.jpg,.csv,.json,.geojson,.ppt,.pptx,.rar,.tif,.txt"
           aria-label="Upload documents"

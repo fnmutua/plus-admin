@@ -112,12 +112,14 @@ const fieldSearch = ref('');
 const previewCount = ref(1);
 
 // Computed properties
-const filteredFieldMappings = computed(() =>
-  fieldMappings.value.filter((mapping) =>
-    fileList.value[mapping.fileIndex].name.toLowerCase().includes(fieldSearch.value.toLowerCase())
-  )
-);
+ 
 
+const filteredFieldMappings = computed(() =>
+  fieldMappings.value.filter((mapping) => {
+    const file = fileList.value?.[mapping.fileIndex];
+    return file?.name?.toLowerCase?.().includes(fieldSearch.value.toLowerCase());
+  })
+);
  
 
 // Fetch document types
@@ -197,69 +199,131 @@ getDocumentTypes();
 };
 
 // Handle file upload
+// For per-file validation (Element Plus default behavior)
 const beforeUpload: UploadProps['beforeUpload'] = (file) => {
- const types = [
-  'application/vnd.ms-excel', // .xls
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
-  'application/pdf', // .pdf
-  'application/zip', // .zip
-  'application/x-rar-compressed', // .rar
-  'application/x-zip-compressed',
-  'application/vnd.rar', // .rar (alternative)
-  'application/msword', // .doc
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
-  'image/png', // .png
-  'image/jpeg', // .jpg/.jpeg
-  'image/tiff', // .tiff
-  'text/csv', // .csv
-  'text/plain', // .txt
-  'application/json', // .json
-  'application/vnd.geo+json', // .geojson
-  'application/vnd.google-earth.kml+xml', // .kml
-  'application/vnd.google-earth.kmz', // .kmz
-  'application/vnd.ms-powerpoint', // .ppt
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx
-];
+  const types = [
+    'application/vnd.ms-excel', // .xls
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+    'application/pdf', // .pdf
+    'application/zip', // .zip
+    'application/x-rar-compressed', // .rar
+    'application/x-zip-compressed',
+    'application/vnd.rar', // .rar
+    'application/msword', // .doc
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+    'image/png', // .png
+    'image/jpeg', // .jpg/.jpeg
+    'image/tiff', // .tiff
+    'text/csv', // .csv
+    'text/plain', // .txt
+    'application/json', // .json
+    'application/vnd.geo+json', // .geojson
+    'application/vnd.google-earth.kml+xml', // .kml
+    'application/vnd.google-earth.kmz', // .kmz
+    'application/vnd.ms-powerpoint', // .ppt
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx
+  ];
 
   const isValidType = types.includes(file.type);
-  const isLt50M = file.size / 1024 / 1024 < 5000;
+  const isLt5GB = file.size / 1024 / 1024 < 5000;
 
   if (!isValidType) {
-    ElMessage.error(`${file.type} file type is not allowed`);
+    ElMessage.error(`${file.name} type (${file.type}) is not allowed`);
     return false;
   }
-  if (!isLt50M) {
-    ElMessage.error('File size should not exceed 5GB');
+  if (!isLt5GB) {
+    ElMessage.error(`${file.name} exceeds size limit (5GB)`);
     return false;
   }
   return true;
 };
+ 
 
-const handleFileUpload = async (uploadFile: any) => {
-  const file = uploadFile.raw || uploadFile.file;
-  if (!file || !beforeUpload(file)) return;
+ 
+
+const handleFileUpload = async (uploadEvent: any) => {
+  const files = uploadEvent?.raw || uploadEvent?.file || uploadEvent;
+  const fileArray = Array.isArray(files) ? files : [files];
+
+  const allowedTypes = [
+    'application/vnd.ms-excel', // .xls
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+    'application/pdf', // .pdf
+    'application/zip', // .zip
+    'application/x-rar-compressed', // .rar
+    'application/x-zip-compressed',
+    'application/vnd.rar', // .rar
+    'application/msword', // .doc
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+    'image/png', // .png
+    'image/jpeg', // .jpg/.jpeg
+    'image/tiff', // .tiff
+    'text/csv', // .csv
+    'text/plain', // .txt
+    'application/json', // .json
+    'application/vnd.geo+json', // .geojson
+    'application/vnd.google-earth.kml+xml', // .kml
+    'application/vnd.google-earth.kmz', // .kmz
+    'application/vnd.ms-powerpoint', // .ppt
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx
+  ];
+
+  // Validate files directly here
+  const validFiles = fileArray.filter(file => {
+    const isValidType = allowedTypes.includes(file.type);
+    const isLt5GB = file.size / 1024 / 1024 < 5000;
+
+    if (!isValidType) {
+      ElMessage.error(`${file.name} type (${file.type}) is not allowed`);
+      return false;
+    }
+    if (!isLt5GB) {
+      ElMessage.error(`${file.name} exceeds size limit (5GB)`);
+      return false;
+    }
+    return true;
+  });
+
+  console.log('validFiles >>',validFiles)
+
+  if (!validFiles.length) return;
 
   loading.value.upload = true;
   try {
-    fileList.value = [{ ...uploadFile, protected: false, type: '', field_id: '' }];
-    fileMetadata.value = [{
-      name: file.name,
-      type: '',
-      format: file.name.split('.').pop() || '',
-      size: (file.size / 1024 / 1024).toFixed(2),
-      protected: false,
-      field_id: '',
-    }];
-    fieldMappings.value = [{ fileIndex: 0, type: '', field_id: '' }];
-    ElMessage.success(`File ${file.name} loaded successfully!`);
+    fileList.value = [];
+    fileMetadata.value = [];
+    fieldMappings.value = [];
+
+    validFiles.forEach((file: File, index: number) => {
+      fileList.value.push({ ...file, protected: false, type: '', field_id: '' });
+
+      fileMetadata.value.push({
+        name: file.name,
+        type: '',
+        format: file.name.split('.').pop() || '',
+        size: (file.size / 1024 / 1024).toFixed(2),
+        protected: false,
+        field_id: '',
+      });
+
+      fieldMappings.value.push({
+        fileIndex: index,
+        type: '',
+        field_id: '',
+      });
+    });
+
+    ElMessage.success(`${validFiles.length} file(s) loaded successfully!`);
+    console.log('validFiles:', fileList.value);
     step.value = 1;
   } catch (err) {
     console.error('File upload error:', err);
-    ElMessage.error('Error processing file');
+    ElMessage.error('Error processing files');
   } finally {
     loading.value.upload = false;
   }
 };
+
 
 // Handle model selection
 const handleSelectModel = async (model: string) => {
@@ -299,6 +363,8 @@ const remapFileMetadata = () => {
     }
     return metadata;
   });
+
+  console.log( 'fileMetadata.value', fileMetadata.value)
 };
 
 // Import files
@@ -368,8 +434,14 @@ const importFiles = async () => {
 
 // Navigation handlers
 const handleNextStep = async () => {
+    console.log('step.value',step.value)
+  if (step.value === 0) {
+     console.log('uploadFiles.value',uploadFiles.value)
+   // handleFileUpload(uploadFiles.value)
+   }
+
   if (step.value === 2) {
-    remapFileMetadata();
+     remapFileMetadata();
   }
   if (step.value === 3) {
     await importFiles();
@@ -389,6 +461,15 @@ const handleReset = () => {
   fieldSearch.value = '';
   previewCount.value = 1;
 };
+
+
+ 
+
+const uploadFiles = ref([]);
+ const onFileChange = (file, fileList) => {
+  uploadFiles.value = fileList.map(f => f.raw || f);
+};
+
 </script>
 
 <template>
@@ -402,22 +483,33 @@ const handleReset = () => {
       </el-steps>
 
       <!-- Step 0: Upload Files -->
-      <div v-if="step === 0" class="mt-4">
-        <el-upload
-          action=""
-          :auto-upload="false"
-          :show-file-list="true"
-          :on-change="handleFileUpload"
-          :limit="1"
-          multiple
-          :before-upload="beforeUpload"
-          accept=".xls,.xlsx,.pdf,.zip,.doc,.docx,.png,.jpg,.csv,.json,.geojson,.ppt,.pptx,.rar,.tif,.txt"
-          aria-label="Upload documents"
-        >
-          <el-button type="primary" :loading="loading.upload">Upload Files</el-button>
-        </el-upload>
-        <p class="text-sm text-gray-500 mt-2">Supported formats: .xls, .xlsx, .pdf, .zip, .doc, .docx, .png, .jpg, .csv, .json, .geojson, .ppt, .pptx, .rar, .tif, .txt</p>
-      </div>
+  <div v-if="step === 0" class="mt-4">
+    <el-upload
+      ref="uploadRef"
+      action=""
+      :auto-upload="false"
+      :show-file-list="true"
+      :limit="5"
+      :file-list="uploadFiles"
+      :on-change="onFileChange"
+      accept=".xls,.xlsx,.pdf,.zip,.doc,.docx,.png,.jpg,.csv,.json,.geojson,.ppt,.pptx,.rar,.tif,.txt"
+      multiple
+    >
+      <el-button type="primary">Select Files</el-button>
+    </el-upload>
+    <!-- <el-button
+      class="mt-2"
+      type="success"
+      :loading="loading.upload"
+      :disabled="!uploadFiles.length"
+      @click="handleFileUpload(uploadFiles)"
+    >
+      Upload Selected Files
+    </el-button> -->
+    <p class="text-sm text-gray-500 mt-2">
+      Supported formats: .xls, .xlsx, .pdf, .zip, .doc, .docx, .png, .jpg, .csv, .json, .geojson, .ppt, .pptx, .rar, .tif, .txt
+    </p>
+  </div>
 
       <!-- Step 1: Select Target Model -->
       <div v-if="step === 1" class="mt-4">
