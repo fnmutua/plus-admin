@@ -1,954 +1,570 @@
-<!-- eslint-disable prettier/prettier -->
-<!-- eslint-disable vue/no-deprecated-slot-scope-attribute -->
+  
 <script setup lang="ts">
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { uploadFilesBatch } from '@/api/settlements'
-import { getCountyListApi } from '@/api/counties'
-
-import { getListWithoutGeo } from '@/api/counties'
-import { getFilteredHouseholdsByColumn } from '@/api/households'
+import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
+import { getFilteredHouseholdsByColumn,   } from '@/api/households'
 import { uuid } from 'vue-uuid'
+
 import {
     searchByKeyWord
-} from '@/api/settlements'
-
+} from '@/api/settlements' 
 import {
-    ElButton,
-    ElSelect,
-    ElTable,
-    ElIcon,
-    ElTableColumn,
-    ElSwitch,
-    ElOptionGroup,
-    ElRow,
-    ElCol,
-    ElSkeleton,
-    ElOption
+  ElButton, ElSelect, ElOptionGroup, ElOption, ElUpload, ElSteps, ElStep, ElAlert, ElTable, ElTableColumn, ElSwitch, ElInput, ElNotification,ElMessage
 } from 'element-plus'
-import { ElUpload } from 'element-plus'
-import {
-    Upload,
-    RefreshLeft,
-    Promotion,
-    CircleCloseFilled
-} from '@element-plus/icons-vue'
-
-import { ref } from 'vue'
-import { ElDivider } from 'element-plus'
-import { ElMessage } from 'element-plus'
-
+import { Upload, RefreshLeft, Promotion, CircleCloseFilled } from '@element-plus/icons-vue'
+import { ref, computed } from 'vue'
 import type { UploadProps, UploadUserFile } from 'element-plus'
 import { useRouter } from 'vue-router'
-
-
-const { push } = useRouter()
-
-
-
-
-
-//// ------------------parameters -----------------------////
-const type = ref()      // the parent model
-
-
-///---------------------xlsx-
-
-
-//// ------------------parameters -----------------------////
-const uploadObj = ref([])
-const theParentModel = ref() // default is settlement for projects
-const theParentModelField = ref()
-
-const { t } = useI18n()
-const parentOptions = ref([])
-const showTable = ref(false)
-
-const showUploadSpace = ref(false)
-const showUploadButton = ref(false)
-const disableDoubeUpload = ref(false)
-
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 
-
+const { push } = useRouter()
+const { t } = useI18n()
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
 
-
-
-function toTitleCase(str) {
-    return str.replace(
-        /\w\S*/g,
-        function (txt) {
-            return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
-        }
-    );
+// Type definitions
+interface FileMetadata {
+  name: string;
+  type: string;
+  format: string;
+  size: string;
+  protected: boolean;
+  field_id?: string;
+  [key: string]: any;
 }
 
+// Constants
+const xUPLOAD_OPTIONS = [
+  { value: 'settlement', label: 'Settlements' },
+  { value: 'project', label: 'Projects' },
+  { value: 'health_facility', label: 'Health Facilities' },
+  { value: 'education_facility', label: 'Education Facilities' },
+  { value: 'road', label: 'Roads' },
+  { value: 'road_asset', label: 'Road Assets' },
+  { value: 'water_point', label: 'Water points' },
+  { value: 'piped_water', label: 'Water points' },
+  { value: 'sewer', label: 'Sewer' },
+
+  { value: 'other_documents', label: 'Other Documents' },
+];
 
 
+const UPLOAD_OPTIONS = [
+  { value: 'settlement', label: 'Settlements' },
+  { value: 'project', label: 'Projects' },
+  { value: 'health_facility', label: 'Health Facilities' },
+  { value: 'education_facility', label: 'Education Facilities' },
+  { value: 'road', label: 'Roads' },
+  { value: 'road_asset', label: 'Road Assets' },
+  { value: 'water_point', label: 'Water Points' },
+  { value: 'piped_water', label: 'Piped Water' },
+  { value: 'sewer', label: 'Sewer' },
+  { value: 'powerline', label: 'Powerlines' },
+  { value: 'railway', label: 'Railways' },
+  { value: 'floodlight', label: 'Floodlights' },
+  { value: 'crime_hotspot', label: 'Crime Hotspots' },
+  { value: 'police_station', label: 'Police Stations' },
+  { value: 'hazard_zone', label: 'Hazard Zones' },
+  { value: 'community_hall', label: 'Community Halls' },
+  { value: 'community_project', label: 'Community Projects' },
+  { value: 'mast', label: 'Masts' },
+  { value: 'streetlight', label: 'Streetlights' },
+  { value: 'dumping_site', label: 'Dumping Sites' },
+  { value: 'other_facility', label: 'Other Facilities' },
+  { value: 'other_documents', label: 'Other Documents' },
+];
 
-//// ------------------------------------ -------------------------------------//
 
-//id","name","county_id","settlement_type","geom","area","population","code","description"
-const DocTypes = ref([])
+//Parent Mapping 
+const MODEL_MAPPINGS = {
+  settlement: 'settlement',
+  project: 'settlement',
+  project: 'settlement',
+  education_facility: 'settlement',
+  road: 'settlement',
+  road_asset: 'road',
+  water_point: 'settlement',
+  sewer: 'settlement',
+  other_facility: 'settlement',
+ 
+  other_documents: null, // No parent for other_documents
+};
+
+// State
+const step = ref(0);
+const fileList = ref<UploadUserFile[]>([]);
+const targetModel = ref('');
+const docTypes = ref<any[]>([]);
+const parentOptions = ref<any[]>([]);
+const fileMetadata = ref<FileMetadata[]>([]);
+const fieldMappings = ref<{ fileIndex: number; type: string; field_id?: string; parent_id?: number }[]>([]);
+const usedParentIds = ref<Set<number>>(new Set());
+const loading = ref({
+  upload: false,
+  fetchParents: false,
+  import: false,
+});
+const fieldSearch = ref('');
+const previewCount = ref(1);
+
+// Computed properties
+const filteredFieldMappings = computed(() =>
+  fieldMappings.value.filter((mapping) =>
+    fileList.value[mapping.fileIndex].name.toLowerCase().includes(fieldSearch.value.toLowerCase())
+  )
+);
+
+ 
+
+// Fetch document types
 const getDocumentTypes = async () => {
+  try {
     const res = await getCountyListApi({
-        params: {
-            pageIndex: 1,
-            limit: 100,
-            curUser: 1, // Id for logged in user
-            model: 'document_type',
-            searchField: 'name',
-            searchKeyword: '',
-            sort: 'ASC'
-        }
-    }).then((response: { data: any }) => {
-        console.log('Document Typest:', response)
-        //tableDataList.value = response.data
-        var ret = response.data
+      params: {
+        pageIndex: 1,
+        limit: 100,
+        curUser: 1,
+        model: 'document_type',
+        searchField: 'name',
+        searchKeyword: '',
+        sort: 'ASC',
+      },
+    });
+    const nestedData = res.data.reduce((acc: any, cur: any) => {
+      const group = cur.group || 'Other';
+      if (!acc[group]) acc[group] = [];
+      acc[group].push({ value: cur.id, label: cur.type });
+      return acc;
+    }, {});
+    docTypes.value = Object.entries(nestedData).map(([label, options]) => ({ label, options }));
+  } catch (err) {
+    console.error('Error fetching document types:', err);
+    ElMessage.error('Failed to load document types');
+  }
+};
+getDocumentTypes();
 
+ const getParentOptions = async (model: string, keyword = '') => {
+  loading.value.fetchParents = true;
+  try {
+    const associatedModels = model === 'settlement' ? ['county', 'subcounty','ward'] : 
+                            ['project', 'contractor', 'road', 'road_asset'].includes(model) ? [] : 
+                            ['county', 'subcounty', 'ward'];
+     
+    const formData = {
+      curUser: 1,
+      model: model,
+      searchField: model === 'project' ? 'title' : 'name',
+      searchKeyword: keyword,
+      excludeGeom: false,
+      excludeGeomAssoc: true,
+      associated_multiple_models: associatedModels,
+      filters: [],
+      filterValues: [],
+    };
 
-        const nestedData = ret.reduce((acc, cur) => {
-            const group = cur.group;
-            if (!acc[group]) {
-                acc[group] = [];
-            }
-            acc[group].push(cur);
-            return acc;
-        }, {});
+    const response = model === 'households' 
+      ? await getFilteredHouseholdsByColumn(formData)
+      : await searchByKeyWord(formData);
 
-        console.log(nestedData.Map)
-        for (let property in nestedData) {
-            let opts = nestedData[property];
-            var doc = {}
-            doc.label = property
-            doc.options = []
-
-            opts.forEach(function (arrayItem) {
-                let opt = {}
-                opt.value = arrayItem.id
-                opt.label = arrayItem.type
-                doc.options.push(opt)
-
-            })
-            DocTypes.value.push(doc)
-
-        }
-        console.log(DocTypes)
-
-    })
-}
-
-getDocumentTypes()
-
-
-
-const getparentOptions = async () => {
-    const res = await getListWithoutGeo({
-        params: {
-            pageIndex: 1,
-            limit: 1000,
-            curUser: 1, // Id for logged in user
-            model: theParentModel.value, //model 
-            searchField: search_field.value,
-            searchKeyword: '',
-            sort: 'ASC'
-        }
-    }).then((response: { data: any }) => {
-        console.log('Received response:', response)
-        //tableDataList.value = response.data
-        var ret = response.data
-
-
-        ret.forEach(function (arrayItem: { id: string; type: string }) {
-            var countyOpt = {}
-            countyOpt.value = arrayItem.id
-            console.log(arrayItem)
-
-            if (arrayItem.contract_number) {
-                countyOpt.label = arrayItem.contract_number
-            }
-            else if (arrayItem.name) {
-                countyOpt.label = arrayItem.name  
-            }
-
-            else {
-                countyOpt.label = arrayItem.title  
-
-            }
-            console.log(countyOpt)
-            parentOptions.value.push(countyOpt)
-        })
-    })
-}
-
-
-const getparentHouseholdOptions = async () => {
-    const formData = {}
-
-    formData.curUser = 1 // Id for logged in user
-    formData.model = 'household'
-    //-Search field--------------------------------------------
-    formData.searchField = ''
-    formData.searchKeyword = ''
-    //--Single Filter -----------------------------------------
-
-    //formData.assocModel = associated_Model
-
-
-    formData.associated_multiple_models = []
-
-    //-------------------------
-    //console.log(formData)
-
-    // const res = await getHHsByCounty(formData)
-
-    console.log("gettign HHS.........")
-    await getFilteredHouseholdsByColumn(formData)
-        .then((response) => {
-            console.log('Received HHS:', response)
-            response.data.forEach(function (arrayItem) {
-                console.log('arrayItem ----->', arrayItem)
-
-                //  generate the filter options
-                var opt = {}
-                opt.value = arrayItem.id
-                opt.label = arrayItem.name  
-                //  console.log(countyOpt)
-                parentOptions.value.push(opt)
-            });
-        })
-        .catch(function (error) {
-            console.log('error', error.response.data.message);
-
-        })
-
-
-
-
-
-}
-
-const uploadOptions = [
-    {
-        label: 'Settlement',
-        options: [
-            {
-                value: 'settlement',
-                label: 'Settlements'
-            },
-
-            {
-                value: 'project',
-                label: 'Projects'
-            }
-        ]
-    },
-    // {
-    //     label: 'Households',
-    //     options: [
-    //         {
-    //             value: 'households',
-    //             label: 'Households'
-    //         },
-    //         {
-    //             value: 'beneficiary',
-    //             label: 'Beneficiaries'
-    //         },
-    //         {
-    //             value: 'parcel',
-    //             label: 'Parcels'
-    //         },
-    //     ]
-    // },
-
-    {
-        label: 'Facilities',
-        options: [
-            {
-                value: 'health',
-                label: 'Health'
-            },
-            {
-                value: 'education',
-                label: 'Education'
-            },
-            {
-                value: 'roads',
-                label: 'Roads'
-            },
-            {
-                value: 'road_assets',
-                label: 'Structures(roads)'
-            },
-            {
-                value: 'water_point',
-                label: 'Water'
-            },
-            {
-                value: 'sewer',
-                label: 'Sewer'
-            },
-
-            {
-                value: 'other',
-                label: 'Other'
-            },
-
-        ]
-    },
-
-    // {
-    //     label: 'Indicators',
-    //     options: [
-
-    //         {
-    //             value: 'indicator_category_report',
-    //             label: 'M&E Reports'
-    //         },
-    //     ]
-    // },
-    {
-        label: 'Contracts',
-        options: [
-
-            {
-                value: 'contractor',
-                label: 'Contract Documents'
-            },
-        ]
-    },
-    {
-        label: 'Others',
-        options: [
-
-            {
-                value: 'other_documents',
-                label: 'Other Documents'
-            },
-        ]
-    }
-]
-
-const loading = ref(false)
-
-
-const remoteMethod = async (keyword) => {
-    console.log(keyword)
-    loading.value = true
-    const formData = {}
-    formData.model = theParentModel.value, //model 
-        //-Search field--------------------------------------------
-        formData.searchField = search_field.value
-    formData.searchKeyword = keyword
-    formData.excludeGeom = false
-    formData.excludeGeomAssoc = true
-    formData.associated_multiple_models = associated_multiple_models.value
-
-    //--Single Filter -----------------------------------------
-
-    //formData.assocModel = associated_Model
-
-    // - multiple filters -------------------------------------
-    formData.filters = []
-    formData.filterValues = []
-
-    //formData.cache_key = 'SeacrchByKey_' + search_string.value
-
-    //-------------------------
-    console.log("formData", formData)
-    const res = await searchByKeyWord(formData)
-
-    console.log("res.data", res.data)
-
-    if (res.data && res.data.length > 0) {
-        parentOptions.value = res.data.map(item => ({
-            value: item.id,
-            settlement_id: item.id,
-            label: item.name || item.title || null,
-            name: item.name || item.title || null,
-            county: item.county?.name || null,
-            subcounty: item.subcounty?.name || null,
-            ward: item.ward?.name || null,
-            ward_id: item.ward?.id || null,
-            subcounty_id: item.subcounty?.id || null,
-            county_id: item.county?.id || null,
-            geom: item.geom || null
-        }));
+    if (!response.data || response.data.length === 0) {
+      throw new Error('No parent options found for the provided criteria');
     }
 
-    loading.value = false
+    console.log('response.data',response.data)
+    parentOptions.value = response.data
+      .filter((item: any) => item.id !== userInfo.id || model !== 'settlement')
+      .map((item: any) => ({
+        value: item.id,
+        label: item.name || item.title || item.contract_number || 'Unknown',
+        county: item.county?.name,
+        subcounty: item.subcounty?.name,
+        ward: item.ward?.name,
+        ward_id: item.ward?.id,
+        subcounty_id: item.subcounty?.id,
+        county_id: item.county?.id,
+      }));
+  } catch (err) {
+    console.error('Error fetching parent options:', err);
+    ElMessage.error(err.message || 'Failed to load parent options');
+  } finally {
+    loading.value.fetchParents = false;
+  }
+};
 
-}
+// Handle file upload
+const beforeUpload: UploadProps['beforeUpload'] = (file) => {
+ const types = [
+  'application/vnd.ms-excel', // .xls
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+  'application/pdf', // .pdf
+  'application/zip', // .zip
+  'application/x-rar-compressed', // .rar
+  'application/x-zip-compressed',
+  'application/vnd.rar', // .rar (alternative)
+  'application/msword', // .doc
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+  'image/png', // .png
+  'image/jpeg', // .jpg/.jpeg
+  'image/tiff', // .tiff
+  'text/csv', // .csv
+  'text/plain', // .txt
+  'application/json', // .json
+  'application/vnd.geo+json', // .geojson
+  'application/vnd.google-earth.kml+xml', // .kml
+  'application/vnd.google-earth.kmz', // .kmz
+  'application/vnd.ms-powerpoint', // .ppt
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx
+];
 
+  const isValidType = types.includes(file.type);
+  const isLt50M = file.size / 1024 / 1024 < 5000;
 
-const associated_multiple_models = ref([])
-const search_field = ref('name')
-const document_field = ref()
-const hide_parent = ref(false)
+  if (!isValidType) {
+    ElMessage.error(`${file.type} file type is not allowed`);
+    return false;
+  }
+  if (!isLt50M) {
+    ElMessage.error('File size should not exceed 5GB');
+    return false;
+  }
+  return true;
+};
 
-const handleSelectType = async (type: string) => {
-    theParentModel.value = type
-    console.log('Selected.....>', type)
-    parentOptions.value = []
-    showUploadSpace.value = true
+const handleFileUpload = async (uploadFile: any) => {
+  const file = uploadFile.raw || uploadFile.file;
+  if (!file || !beforeUpload(file)) return;
 
+  loading.value.upload = true;
+  try {
+    fileList.value = [{ ...uploadFile, protected: false, type: '', field_id: '' }];
+    fileMetadata.value = [{
+      name: file.name,
+      type: '',
+      format: file.name.split('.').pop() || '',
+      size: (file.size / 1024 / 1024).toFixed(2),
+      protected: false,
+      field_id: '',
+    }];
+    fieldMappings.value = [{ fileIndex: 0, type: '', field_id: '' }];
+    ElMessage.success(`File ${file.name} loaded successfully!`);
+    step.value = 1;
+  } catch (err) {
+    console.error('File upload error:', err);
+    ElMessage.error('Error processing file');
+  } finally {
+    loading.value.upload = false;
+  }
+};
 
-    if (type === 'settlement') {
-        document_field.value = 'settlement_id'
-        associated_multiple_models.value = ['county', 'subcounty', 'ward']
-        getparentOptions()
+// Handle model selection
+const handleSelectModel = async (model: string) => {
+  targetModel.value = model;
+  parentOptions.value = [];
+  fieldMappings.value = fileList.value.map((_, index) => ({
+    fileIndex: index,
+    type: '',
+    field_id: model === 'other_documents' ? undefined : MODEL_MAPPINGS[model] ? 'parent_id' : undefined,
+  }));
+  if (MODEL_MAPPINGS[model]) {
+    await getParentOptions(model);
+  }
+  step.value++;
+};
+
+// Check if parent ID is taken
+const isParentIdTaken = (parentId: number, currentFileIndex: number) => {
+  return fieldMappings.value.some(
+    (item) => item.field_id === 'parent_id' && item.parent_id === parentId && item.fileIndex !== currentFileIndex
+  );
+};
+
+// Remap file metadata
+const remapFileMetadata = () => {
+  fileMetadata.value = fileList.value.map((file, index) => {
+    const mapping = fieldMappings.value[index];
+    const metadata: FileMetadata = {
+      name: file.name,
+      type: mapping.type,
+      format: file.name.split('.').pop() || '',
+      size: (file.size / 1024 / 1024).toFixed(2),
+      protected: file.protected || false,
+    };
+    if (mapping.field_id && mapping.parent_id) {
+      metadata[mapping.field_id] = mapping.parent_id;
     }
-    else if (type === 'households') {
-        document_field.value = 'hh_id'
-        associated_multiple_models.value = ['county', 'subcounty', 'ward']
-
-        getparentHouseholdOptions()
-    }
-
-    else if (type === 'beneficiary') {
-        document_field.value = 'beneficiary_id'
-        associated_multiple_models.value = ['county', 'subcounty', 'ward']
-
-        getparentOptions()
-    }
-
-    else if (type === 'project') {
-        document_field.value = 'project_id'
-        search_field.value = 'title'
-        associated_multiple_models.value = []
-
-        getparentOptions()
-
-    }
-
-    else if (type === 'contractor') {
-        document_field.value = 'contractor_id'
-        associated_multiple_models.value = []
-
-        getparentOptions()
-
-    }
-
-    else if (type === 'health_facility') {
-        document_field.value = 'health_facility_id'
-        associated_multiple_models.value = ['county', 'subcounty', 'ward']
-
-        getparentOptions()
-
-    }
-
-    else if (type === 'education_facility') {
-        document_field.value = 'education_facility_id'
-        associated_multiple_models.value = ['county', 'subcounty', 'ward']
-
-        getparentOptions()
-
-    }
-
-
-
-    else if (type === 'road') {
-        document_field.value = 'road_id'
-        associated_multiple_models.value = []
-
-        getparentOptions()
-
-    }
-
-    else if (type === 'road_asset') {
-        document_field.value = 'road_asset_id'
-        associated_multiple_models.value = []
-
-        getparentOptions()
-
-    }
-
-    else if (type === 'water_point') {
-        document_field.value = 'water_point_id'
-        associated_multiple_models.value = ['county', 'subcounty', 'ward']
-
-        getparentOptions()
-
-    }
-
-    else if (type === 'sewer') {
-        document_field.value = 'sewer_id'
-        associated_multiple_models.value = ['county', 'subcounty', 'ward']
-
-        getparentOptions()
-
-    }
-
-    else if (type === 'other_facility') {
-        document_field.value = 'other_facility_id'
-        associated_multiple_models.value = ['county', 'subcounty', 'ward']
-
-        getparentOptions()
-
-    }
-
-    else if (type === 'indicator_category_report') {
-        document_field.value = 'indicator_category_report'
-        associated_multiple_models.value = []
-
-        getparentOptions()
-
-    }
-    else if (type === 'other_documents') {
-        //document_field.value = 'indicator_category_report'
-        //getparentOptions()
-        hide_parent.value = true
-
-
-
-    }
-
-
-    console.log(theParentModel.value)
-
-
-
-
-
-
-
-
-
-
-}
-
-
-const fileList = ref<UploadUserFile[]>([])
-
-
-
-
-
-// Handler for file upload
-
-
-const tableData = ref()
-const selectOptions = ref()
-
-
-const selectedValues = ref()
-
-
-
-
-
-
-
-
-const handleReset = async () => {
-    selectedValues.value = []
-    fileList.value = []
-    selectOptions.value = []
-    tableData.value = []
-    uploadObj.value = []
-    theParentModel.value = null
-    theParentModelField.value = null
-    showUploadButton.value = true
-    showUploadSpace.value = false
-    showTable.value = false
-    console.log('resetting.....')
-}
-const loadingPosting = ref(false)
-
-const DisablePostSubmit = ref(false)
-const handleSubmitData = async () => {
-    console.log(fileList)
-    loadingPosting.value = true
-
-    // const formData = new FormData()
-    // for (var i = 0; i < fileList.value.length; i++) {
-    //     console.log('------>file', fileList.value[i])
-    //     var column = fileList.value[i].field_id
-
-
-    //     console.log('------>Field_ID', fileList.value[i].field_id)
-
-    //     formData.append('files', fileList.value[i].raw)
-    //     formData.append('format', fileList.value[i].name.split('.').pop())
-    //     formData.append('category', fileList.value[i].type)
-    //     // do not append if file not tagged with sett/proj id
-    //     if(!hide_parent.value) {
-    //         formData.append('field_id', fileList.value[i].field_id)
-    //         formData.append(column, fileList.value[i][column])
-    //     }
-
-    //     formData.append('size', (fileList.value[i].raw.size / 1024 / 1024).toFixed(2))
-    //     formData.append('createdBy', userInfo.id)
-    //     formData.append('protected', fileList.value[i].protected?fileList.value[i].protected:false)
-
-    // }
-
-    // formData.append('code', uuid.v4())
-
-
-
-    // console.log('Befoer submit', formData)
-    // await uploadFilesBatch(formData)
-    //     .then((response: { data: any }) => {
-    //         loadingPosting.value = false
-    //         if (response.code === "0000") {
-    //     // code 0000 is successfule
-    //                 push({
-    //             path: '/repository/docs',
-    //             name: 'RepositoryTagged'
-    //             })
-    //             }
-
-    //     })
-
-    const formData = new FormData()
-
-    for (var i = 0; i < fileList.value.length; i++) {
-        console.log('------>file', fileList.value[i])
-        //var format = fileList.value[i].name.split('.').pop() // get file extension
-        //  formData.append("file",this.multipleFiles[i],this.fileNames[i]+"_"+dateVar+"."+this.fileTypes[i]);
-        // fileTypes.push(format)
-        // formData.append('files', fileList.value[i])
-        // formData.file = fileList.value[i]
-        var column = fileList.value[i].field_id
-        formData.append('model', theParentModel.value)
-        formData.append('createdBy', userInfo.id)
-
-        formData.append('files', fileList.value[i].raw)
-        formData.append('format', fileList.value[i].name.split('.').pop())
-        formData.append('category', fileList.value[i].type)
-        // formData.append('field_id', props.field)
-        if (!hide_parent.value) {
-            formData.append('field_id', fileList.value[i].field_id)
-            formData.append(column, fileList.value[i][column])
-        }
-
-        formData.append('protected', fileList.value[i].protected ? fileList.value[i].protected : false)
-
-        formData.append('size', (fileList.value[i].raw.size / 1024 / 1024).toFixed(2))
-        formData.append('code', uuid.v4())
-        //formData.append(props.field, props.data.id)
-
-        // console.log('formData',props.field)
-
+    return metadata;
+  });
+};
+
+// Import files
+const importFiles = async () => {
+  loading.value.import = true;
+  try {
+    const formData = new FormData();
+    fileList.value.forEach((file, index) => {
+      const metadata = fileMetadata.value[index];
+      formData.append('files', file.raw);
+      formData.append('model', targetModel.value);
+      formData.append('createdBy', userInfo.id.toString());
+      formData.append('format', metadata.format);
+      formData.append('category', metadata.type);
+      if (metadata.field_id && metadata[metadata.field_id]) {
+        formData.append('field_id', metadata.field_id);
+        formData.append(metadata.field_id, metadata[metadata.field_id].toString());
+      }
+      formData.append('protected', metadata.protected.toString());
+      formData.append('size', metadata.size);
+      formData.append('code', uuid.v4());
+    });
+
+    const response = await uploadFilesBatch(formData);
+    const resData = response.data || response;
+
+    if (Array.isArray(resData.errors) && resData.errors.length > 0) {
+      const errorDetails = resData.errors.map((err: any, index: number) => {
+        const fileIndex = err.index ?? index;
+        const reason = err.detail ?? 'Unknown error';
+        return `File ${fileList.value[fileIndex].name}: ${reason}`;
+      }).join('<br>');
+
+      ElNotification({
+        title: 'Import Completed with Errors',
+        message: `
+          <div style="max-height: 65vh; overflow-y: auto; font-size: 13px; line-height: 1.4;">
+            Failed to import ${resData.errors.length} of ${fileList.value.length} files:<br>
+            ${errorDetails}
+          </div>
+        `,
+        type: 'error',
+        duration: 0,
+        dangerouslyUseHTMLString: true,
+      });
+      return;
     }
 
-    // addMoreDocuments.value = false
-    console.log('formData', formData)
-    //const res = await uploadFilesBatch(formData)
-
-    console.log('Befoer submit', formData)
-    await uploadFilesBatch(formData)
-        .then((response: { data: any }) => {
-            loadingPosting.value = false
-            if (response.code === "0000") {
-
-                push({
-                    path: '/repository/docs',
-                    name: 'RepositoryTagged'
-                })
-            }
-            else {
-                loadingPosting.value = false
-            }
-
-        })
-    loadingPosting.value = false
-
-}
-
-//const beforeUpload = async (file) => {
-const beforeUpload: UploadProps['beforeUpload'] = (files) => {
-
-
-    for (var i = 0; i < files.length; i++) {
-
-        console.log("before uplaod.............", files[i])
-        console.log("before uplaod.............", files[i].raw.type)
-
-        const isXls = files[i].raw.type === 'application/vnd.ms-excel'
-        const isXlsx = files[i].raw.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        const isPdf = files[i].raw.type === 'application/pdf'
-        const isZip = files[i].raw.type === 'application/zip'
-        const isDoc = files[i].raw.type === 'application/msword'
-        const isDocx = files[i].raw.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-        const isPng = files[i].raw.type === 'image/png'
-        const isJPG = files[i].raw.type === 'image/jpeg'
-        // additionall 
-        const isCSV = files[i].raw.type === 'text/csv'
-        // const isJSON = files[i].raw.type === 'application/json'
-        const isJSON = files[i].raw.type === 'application/json' || files[i].raw.type === 'application/vnd.geo+json';
-
-        const isPPT = files[i].raw.type === ' application/vnd.ms-powerpoint'
-        const isPPTX = files[i].raw.type === 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
-        const isRAR = files[i].raw.type === 'application/vnd.rar'
-        const isTIF = files[i].raw.type === 'image/tiff'
-        const isTEXT = files[i].raw.type === 'text/plain'
-
-
-
-        const isLt5M = files[i].raw.size / 1024 / 1024 < 50
-
-        if (!isXls && !isXlsx && !isPdf && !isZip && !isDoc && !isDocx && !isPng && !isJPG
-            && !isCSV && !isJSON && !isPPT && !isPPTX && !isRAR && !isTIF && !isTEXT
-        ) {
-            //this.$message.error('Upload only Excel files')
-            ElMessage.error(files[i].raw.type + ' file type is not allowed')
-
-        }
-        if (!isLt5M) {
-            // this.$message.error('File size should not exceed 5MB')
-            ElMessage.error('File size should not exceed 50MB')
-        }
-        return (isXls || isXlsx || isPdf || isZip || isDoc || isDocx || isPng || isJPG || isCSV || isJSON || isPPT ||
-            isPPTX || isRAR || isTIF || isTEXT)
+    if (resData.code === '0000') {
+      ElMessage.success(`Files imported successfully! ${fileList.value.length} files imported.`);
+      push({ path: '/repository/docs', name: 'RepositoryTagged' });
+    } else {
+      ElMessage.warning(`Imported ${fileList.value.length - (resData.failedCount || 0)} of ${fileList.value.length} files successfully.`);
     }
-}
+  } catch (err) {
+    console.error('Import error:', err);
+    ElNotification({
+      title: 'Import Error',
+      message: err.message || 'Error importing files. Please check the data and try again.',
+      type: 'error',
+      duration: 0,
+    });
+  } finally {
+    loading.value.import = false;
+  }
+};
 
+// Navigation handlers
+const handleNextStep = async () => {
+  if (step.value === 2) {
+    remapFileMetadata();
+  }
+  if (step.value === 3) {
+    await importFiles();
+  } else {
+    step.value++;
+  }
+};
 
-
-const handleFileUpload = async () => {
-    // disableDoubeUpload.value = true   // Disable the button to prevent double upload
-    const proceed = beforeUpload(fileList.value)
-
-    console.log(proceed)
-    if (fileList.value.length == 0) {
-        ElMessage.error('Select atleast one file!')
-    }
-
-
-    if (proceed) {
-
-
-        if (!hide_parent.value) {
-            showTable.value = true
-            fileList.value.map(file => {
-                file['model'] = theParentModel.value // add the model column
-                file[document_field.value] = null // add the column to hold selected parent ID
-                file['field_id'] = document_field.value // add the column to hold selected parent ID
-
-                return file;
-            });
-        }
-        else {
-            showTable.value = true
-            fileList.value.map(file => {
-                file['model'] = theParentModel.value // add the model column
-                // file[document_field.value] = null // add the column to hold selected parent ID
-                // file['field_id'] = document_field.value // add the column to hold selected parent ID
-
-                return file;
-            });
-        }
-
-
-
-    }
-
-
-
-
-
-}
-
-
-
-
-
+const handleReset = () => {
+  step.value = 0;
+  fileList.value = [];
+  targetModel.value = '';
+  fileMetadata.value = [];
+  fieldMappings.value = [];
+  parentOptions.value = [];
+  usedParentIds.value.clear();
+  fieldSearch.value = '';
+  previewCount.value = 1;
+};
 </script>
 
 <template>
-    <ContentWrap
-:title="t('Batch Upload Documents')" v-loading="loadingPosting"
-        element-loading-text="Saving the data.. Please wait.......">
+  <ContentWrap :title="t('Batch Upload Documents')" v-loading="loading.import" element-loading-text="Saving the data... Please wait...">
+    <el-card>
+      <el-steps :active="step" finish-status="success" align-center aria-label="File import steps">
+        <el-step title="Upload Files" aria-label="Step 1: Upload documents" />
+        <el-step title="Select Target Model" aria-label="Step 2: Select target model" />
+        <el-step title="Match Fields" aria-label="Step 3: Match metadata fields" />
+        <el-step title="Review & Import" aria-label="Step 4: Review and import data" />
+      </el-steps>
 
-        <el-row :gutter="10" style=" margin-bottom:10px;">
-            <el-col :xs="24" :sm="24" :md="6" :lg="6" class="max-w-200px">
+      <!-- Step 0: Upload Files -->
+      <div v-if="step === 0" class="mt-4">
+        <el-upload
+          action=""
+          :auto-upload="false"
+          :show-file-list="true"
+          :on-change="handleFileUpload"
+          :limit="1"
+          multiple
+          :before-upload="beforeUpload"
+          accept=".xls,.xlsx,.pdf,.zip,.doc,.docx,.png,.jpg,.csv,.json,.geojson,.ppt,.pptx,.rar,.tif,.txt"
+          aria-label="Upload documents"
+        >
+          <el-button type="primary" :loading="loading.upload">Upload Files</el-button>
+        </el-upload>
+        <p class="text-sm text-gray-500 mt-2">Supported formats: .xls, .xlsx, .pdf, .zip, .doc, .docx, .png, .jpg, .csv, .json, .geojson, .ppt, .pptx, .rar, .tif, .txt</p>
+      </div>
 
-                <el-select
-v-model="type" :onChange="handleSelectType" placeholder="Select Model"
-                    style="  margin-right: 10px;" filterable clearable>
-                    <el-option-group v-for=" group in uploadOptions" :key="group.label" :label="group.label">
-                        <el-option
-v-for="item in group.options" :key="item.value" :label="item.label"
-                            :value="item.value" />
-                    </el-option-group>
+      <!-- Step 1: Select Target Model -->
+      <div v-if="step === 1" class="mt-4">
+        <el-select
+          v-model="targetModel"
+          filterable
+          clearable
+          placeholder="Select entity to attach the documents to"
+          @change="handleSelectModel"
+          aria-label="Select entity to attach the documents to"
+          :disabled="loading.fetchParents"
+        >
+             <el-option v-for="item in UPLOAD_OPTIONS" :key="item.value" :label="item.label" :value="item.value" />
+           
+        </el-select>
+      </div>
+
+      <!-- Step 2: Match Fields -->
+      <div v-if="step === 2" class="mt-4">
+        <el-input
+          v-model="fieldSearch"
+          placeholder="Search files"
+          clearable
+          class="mb-2"
+          aria-label="Search files"
+        />
+        <div class="max-h-[60vh] overflow-auto border rounded bg-gray-50 p-2">
+          <el-table :data="filteredFieldMappings" style="width: 100%">
+            <el-table-column label="File Name">
+              <template #default="{ row }">
+                {{ fileList[row.fileIndex].name }}
+              </template>
+            </el-table-column>
+            <el-table-column label="Document Type">
+              <template #default="{ row }">
+                <el-select v-model="row.type" placeholder="Select Type" clearable filterable>
+                  <el-option-group v-for="group in docTypes" :key="group.label" :label="group.label">
+                    <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
+                  </el-option-group>
                 </el-select>
+              </template>
+            </el-table-column>
+            <el-table-column v-if="targetModel !== 'other_documents'" label="Parent Entity">
+              <template #default="{ row }">
+                <el-select
+                  v-model="row.parent_id"
+                  filterable
+                  remote
+                  :remote-method="getParentOptions.bind(null, targetModel)"
+                  :loading="loading.fetchParents"
+                  placeholder="Search parent entity"
+                  aria-label="Select parent entity"
+                >
+                  <el-option
+                    v-for="item in parentOptions"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                    :disabled="isParentIdTaken(item.value, row.fileIndex)"
+                  >
+                    <div style="display: flex; align-items: center;">
+                      <span style="flex: 1; text-align: left;">{{ item.label }}</span>
+                      <span style="flex: 2; color: var(--el-text-color-secondary); font-size: 13px; text-align: right;">
+                        {{ item.ward }}, {{ item.subcounty }}, {{ item.county }}
+                      </span>
+                    </div>
+                    </el-option>
+                  </el-select>
+                </template>
+              </el-table-column>
+              <el-table-column label="Protected">
+                <template #default="{ row }">
+                  <el-switch v-model="fileList[row.fileIndex].protected" />
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+        </div>
 
+        <!-- Step 3: Review & Import -->
+        <div v-if="step === 3" class="mt-4">
+          <el-alert
+            title="Ready to import. Below is the remapped file metadata."
+            type="success"
+            aria-label="Import ready"
+          />
+          <el-select
+            v-model="previewCount"
+            placeholder="Select number of records to preview"
+            class="mt-2"
+            aria-label="Select number of records to preview"
+          >
+            <el-option label="1" :value="1" />
+            <el-option label="5" :value="5" />
+            <el-option label="10" :value="10" />
+          </el-select>
+          <div
+            v-if="fileMetadata && fileMetadata.length"
+            class="mt-2 max-h-60 overflow-auto border rounded bg-gray-50 p-2"
+          >
+            <pre class="text-sm whitespace-pre-wrap">
+              {{ JSON.stringify(fileMetadata.slice(0, previewCount), null, 2) }}
+            </pre>
+          </div>
+        </div>
 
-            </el-col>
-
-            <el-col :xs="24" :sm="24" :md="12" :lg="5">
-
-                <el-button :onClick="handleReset" type="primary" :icon="RefreshLeft" />
-
-            </el-col>
-
-
-
-
-
-
-
-        </el-row>
-
-
-
-
-        <el-row :gutter="10">
-            <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
-
-
-
-
-
-
-
-
-
-
-                <el-upload
-v-if="showUploadSpace" class="upload-demo" drag :auto-upload="false"
-                    action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
-                    v-model:file-list="fileList">
-                    <div class="el-upload__text"> Drop files here or <em>click to upload</em> </div>
-                </el-upload>
-
-                <el-button
-v-if="showUploadSpace" class="mt-4" style="width: 100%" @click="handleFileUpload"
-                    type="primary" :disabled="disableDoubeUpload">
-                    Upload<el-icon class="el-icon--right">
-                        <Upload />
-                    </el-icon>
-                </el-button>
-            </el-col>
-            <el-col :xs="24" :sm="24" :md="16" :lg="16" :xl="16">
-
-                <el-skeleton v-if="!showTable" :rows="10" animated />
-
-                <el-table v-if="showTable" :data="fileList" class="tblMatch" border>
-                    <el-table-column prop="name" label="Name" />
-                    <el-table-column prop="type" label="Type">
-                        <template #default="{ row }">
-                            <el-select v-model="row.type" placeholder="Select Type" clearable filterable>
-
-                                <el-option-group v-for="group in DocTypes" :key="group.label" :label="group.label">
-                                    <template #label>
-                                        <span style="font-weight: bold">{{ group.label }}</span>
-                                    </template>
-                                    <el-option
-v-for="item in group.options" :key="item.value" :label="item.label"
-                                        :value="item.value" />
-                                </el-option-group>
-
-
-                            </el-select>
-
-
-                        </template>
-                    </el-table-column>
-
-                    <el-table-column v-if="!hide_parent" prop="type" :label="toTitleCase(theParentModel)">
-                        <template #default="{ row }">
-                            <!-- <el-select v-model="row[document_field]" placeholder="Select" clearable filterable>
-                        <el-option
-v-for="item in parentOptions" :key="item.value" :label="item.label"
-                            :value="item.value" />
-                    </el-select> -->
-
-                            <el-select
-id="location-select" v-model="row[document_field]" filterable remote
-                                reserve-keyword :loading="loading" placeholder=" Search ..."
-                                :remote-method="remoteMethod" style="width: 75%">
-                                <el-option
-v-for="item in parentOptions" :key="item.id" :label="item.label"
-                                    :value="item.value">
-                                    <div style="display: flex; align-items: center;">
-                                        <span style="flex: 1; text-align: left;">{{ item.label }}</span>
-                                        <span
-                                            style=" flex: 2; color: var(--el-text-color-secondary);  font-size: 13px;  text-align: right; ">
-                                            {{ item.ward }}, {{ item.subcounty }}, {{ item.county }}
-                                        </span>
-                                    </div>
-                                </el-option>
-                            </el-select>
-
-
-
-                        </template>
-                    </el-table-column>
-                    <el-table-column label="Protected">
-                        <template #default="{ row }">
-                            <el-switch v-model="row.protected" />
-                        </template>
-                    </el-table-column>
-
-                </el-table>
-                <!-- <el-button v-if="showTable" class="mb-4 mt-4" style="width: 20%" @click="handleSubmitData" type="success" :disabled="DisablePostSubmit">
-        Submit
-        <el-icon class="el-icon--right">
-            <CaretRight />
-        </el-icon>
-    </el-button> -->
-                <div v-if="showTable" class="flex mt-4" style="justify-content: flex-end;">
-                    <el-button
-type="primary" :icon="Promotion" @click="handleSubmitData"
-                        :disabled="DisablePostSubmit">Submit</el-button>
-                    <el-button type="danger" :onClick="handleReset">
-                        Cancel<el-icon class="el-icon--right">
-                            <CircleCloseFilled />
-                        </el-icon>
-                    </el-button>
-                </div>
-
-
-
-            </el-col>
-
-        </el-row>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        <!-- Navigation -->
+        <div class="mt-4 flex justify-between items-center">
+          <div>
+            <el-button
+              :disabled="step === 0 || loading.fetchParents || loading.import"
+              @click="step--"
+              aria-label="Go to previous step"
+            >
+              Back
+            </el-button>
+          </div>
+          <div class="flex items-center gap-2">
+            <el-button
+              v-if="step === 3"
+              type="warning"
+              plain
+              @click="handleReset"
+              aria-label="Reset"
+            >
+              Reset
+            </el-button>
+            <el-button
+              type="primary"
+              :loading="loading.import || loading.fetchParents"
+              @click="handleNextStep"
+              aria-label="Proceed to next step or import"
+            >
+              {{ step === 3 ? 'Import' : 'Next' }}
+            </el-button>
+          </div>
+        </div>
+      </el-card>
     </ContentWrap>
-</template>
+  </template>
 
-<style scoped>
-.my-header {
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-}
-
-.custom-icon {
-    font-size: 2rem;
-}
-
-.table-container {
-    height: 400px;
-    /* Adjust the height as needed */
-    overflow-y: auto;
-}
-</style>
-
-
-<style scoped>
-.tblMatch {
-    width: 100%;
-    height: 45vh;
-}
+  <style scoped>
+  .mt-2 { margin-top: 0.5rem; }
+  .mt-4 { margin-top: 1rem; }
+  .mb-2 { margin-bottom: 0.5rem; }
+  .flex { display: flex; }
+  .justify-between { justify-content: space-between; }
+  .text-sm { font-size: 0.875rem; }
+  .text-gray-500 { color: #6b7280; }
 </style>
