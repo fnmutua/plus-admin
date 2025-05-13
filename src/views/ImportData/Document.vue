@@ -81,15 +81,14 @@ const UPLOAD_OPTIONS = [
 
 //Parent Mapping 
 const MODEL_MAPPINGS = {
-  settlement: 'settlement',
-  project: 'settlement',
-  project: 'settlement',
-  education_facility: 'settlement',
-  road: 'settlement',
-  road_asset: 'road',
-  water_point: 'settlement',
-  sewer: 'settlement',
-  other_facility: 'settlement',
+  settlement: 'settlement_id',
+  project: 'project_id',
+   education_facility: 'education_facility_id',
+  road: 'road_id',
+  road_asset: 'road_asset_id',
+  water_point: 'water_point_id',
+  sewer: 'sewer_id',
+  other_facility: 'other_facility_id',
  
   other_documents: null, // No parent for other_documents
 };
@@ -235,37 +234,7 @@ const beforeUpload: UploadProps['beforeUpload'] = (file) => {
   return true;
 };
 
-const xhandleFileUpload = async (uploadFile: any) => {
-
-   
-  const file = uploadFile.raw || uploadFile.file;
-  if (!file || !beforeUpload(file)) return;
-
-  loading.value.upload = true;
-  try {
-    fileList.value = [{ ...uploadFile, protected: false, type: '', field_id: '' }];
-    fileMetadata.value = [{
-      name: file.name,
-      type: '',
-      format: file.name.split('.').pop() || '',
-      size: (file.size / 1024 / 1024).toFixed(2),
-      protected: false,
-      field_id: '',
-    }];
-    fieldMappings.value = [{ fileIndex: 0, type: '', field_id: '' }];
-    ElMessage.success(`File ${file.name} loaded successfully!`);
-      console.log('uploadFile',uploadFile)
-    step.value = 1;
-  
-
-
-  } catch (err) {
-    console.error('File upload error:', err);
-    ElMessage.error('Error processing file');
-  } finally {
-    loading.value.upload = false;
-  }
-};
+ 
 
  const handleFileUpload = async (uploadFile: any) => {
   const file = uploadFile.raw || uploadFile.file;
@@ -317,7 +286,7 @@ const xhandleFileUpload = async (uploadFile: any) => {
 
 
 // Handle model selection
-const handleSelectModel = async (model: string) => {
+const xhandleSelectModel = async (model: string) => {
   targetModel.value = model;
   parentOptions.value = [];
   fieldMappings.value = fileList.value.map((_, index) => ({
@@ -328,15 +297,30 @@ const handleSelectModel = async (model: string) => {
   if (MODEL_MAPPINGS[model]) {
     await getParentOptions(model);
   }
+  console.log('fieldMappings.value ',fieldMappings.value )
   step.value++;
 };
 
-// Check if parent ID is taken
-const isParentIdTaken = (parentId: number, currentFileIndex: number) => {
-  return fieldMappings.value.some(
-    (item) => item.field_id === 'parent_id' && item.parent_id === parentId && item.fileIndex !== currentFileIndex
-  );
+ const handleSelectModel = async (model: string) => {
+  targetModel.value = model;
+  parentOptions.value = [];
+
+  const mappedFieldId = MODEL_MAPPINGS[model] || undefined;
+
+  fieldMappings.value = fileList.value.map((_, index) => ({
+    fileIndex: index,
+    type: '',
+    field_id: mappedFieldId,
+  }));
+
+  if (mappedFieldId) {
+    await getParentOptions(model);
+  }
+
+  console.log('fieldMappings.value', fieldMappings.value);
+  step.value++;
 };
+
 
 // Remap file metadata
 const remapFileMetadata = () => {
@@ -348,6 +332,7 @@ const remapFileMetadata = () => {
       format: file.name.split('.').pop() || '',
       size: (file.size / 1024 / 1024).toFixed(2),
       protected: file.protected || false,
+      field_id: mapping.field_id,
     };
     if (mapping.field_id && mapping.parent_id) {
       metadata[mapping.field_id] = mapping.parent_id;
@@ -364,7 +349,7 @@ const importFiles = async () => {
     fileList.value.forEach((file, index) => {
       const metadata = fileMetadata.value[index];
       formData.append('files', file.raw);
-      formData.append('model', targetModel.value);
+      formData.append('model', 'document');
       formData.append('createdBy', userInfo.id.toString());
       formData.append('format', metadata.format);
       formData.append('category', metadata.type);
@@ -463,7 +448,7 @@ const handleReset = () => {
           :auto-upload="false"
           :show-file-list="true"
           :on-change="handleFileUpload"
-          :limit="2"
+          :limit="20"
           :multiple="true"
           :before-upload="beforeUpload"
           accept=".xls,.xlsx,.pdf,.zip,.doc,.docx,.png,.jpg,.csv,.json,.geojson,.ppt,.pptx,.rar,.tif,.txt"
@@ -531,7 +516,7 @@ const handleReset = () => {
                     :key="item.value"
                     :label="item.label"
                     :value="item.value"
-                    :disabled="isParentIdTaken(item.value, row.fileIndex)"
+                 
                   >
                     <div style="display: flex; align-items: center;">
                       <span style="flex: 1; text-align: left;">{{ item.label }}</span>
