@@ -533,11 +533,11 @@ const loadSelectedLayers = async (layers: string[]) => {
           structures.value.push({
             id: `parcel-${properties?.structure_id || index}`,
             paths,
-            strokeColor: 'white',
+            strokeColor: 'red',
             strokeOpacity: 1,
-            strokeWeight: 1,
+            strokeWeight: 0.5,
             fillColor,
-            fillOpacity: 0.7,
+            fillOpacity: 0.47,
             properties: { ...properties }
           })
         
@@ -575,7 +575,7 @@ if (layerConfig.other_points.dataRef.value?.features?.length) {
     // Symbol styles
     const lineStyles: Record<string, any> = {
       road: {
-        strokeColor: "red", // Asphalt gray
+        strokeColor: "#FF0000", // Asphalt gray
         strokeOpacity: 1,
         strokeWeight: 4,
        },
@@ -585,12 +585,12 @@ if (layerConfig.other_points.dataRef.value?.features?.length) {
           icon: {
             path: "M 0,-1 0,1",
             strokeOpacity: 1,
-            scale: 2,
-            strokeWeight: 4,  
-            strokeColor: "yellow", // Yellow
+            scale: 1,
+            strokeWeight: 3,  
+            strokeColor: "green", // Yellow
           },
           offset: "0",
-          repeat: "20px"
+          repeat: "10px"
         }]
       },
       sewer: {
@@ -613,7 +613,7 @@ if (layerConfig.other_points.dataRef.value?.features?.length) {
           icon: {
             path: "M 0,-1 0,1",
             strokeOpacity: 1,
-            scale: 2,
+            scale: 1,
             strokeWeight: 3,
             strokeColor: "#00BFFF", // Light Sky Blue
           },
@@ -689,7 +689,7 @@ if (layerConfig.other_points.dataRef.value?.features?.length) {
         options: {
           strokeColor: '#FF0000',
           strokeOpacity: 0.8,
-          strokeWeight: 2,
+          strokeWeight: 1,
           fillColor: '#FF0000',
           fillOpacity: 0.35,
         },

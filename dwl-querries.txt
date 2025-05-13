@@ -359,3 +359,27 @@ UPDATE grievance SET nature  = 'waste_management' WHERE nature  = 'waste_managem
 UPDATE grievance SET nature  = 'corruption' WHERE nature  = 'corruption';
 UPDATE grievance SET nature  = 'gbv' WHERE LOWER(nature  ) = 'gbv';
 UPDATE grievance SET nature  = 'other' WHERE LOWER(nature  ) = '';
+
+
+
+TRUNCATE TABLE 
+    public.water_point,
+    public.powerline,
+    public.railway,
+    public.floodlight,
+    public.crime_hotspot,
+    public.police_station,
+    public.road,
+    public.sewer,
+    public.hazard_zone,
+    public.community_hall,
+    public.community_project,
+    public.mast,
+    public.streetlight,
+    public.dumping_site,
+    public.health_facility,
+    public.education_facility,
+    public.road_asset,
+    public.other_facility,
+    public.piped_water
+RESTART IDENTITY CASCADE;
