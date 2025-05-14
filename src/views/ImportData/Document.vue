@@ -10,7 +10,7 @@ import { uuid } from 'vue-uuid'
 import {
     searchByKeyWord
 } from '@/api/settlements' 
-import {
+import {ElCard,
   ElButton, ElSelect, ElOptionGroup, ElOption, ElUpload, ElSteps, ElStep, ElAlert, ElTable, ElTableColumn, ElSwitch, ElInput, ElNotification,ElMessage
 } from 'element-plus'
 import { Upload, RefreshLeft, Promotion, CircleCloseFilled } from '@element-plus/icons-vue'
@@ -275,7 +275,7 @@ const beforeUpload: UploadProps['beforeUpload'] = (file) => {
     });
 
     ElMessage.success(`File ${file.name} loaded successfully!`);
-    step.value = 1;
+   // step.value = 1;
   } catch (err) {
     console.error('File upload error:', err);
     ElMessage.error('Error processing file');
@@ -285,21 +285,16 @@ const beforeUpload: UploadProps['beforeUpload'] = (file) => {
 };
 
 
+const handleExceed: UploadProps['onExceed'] = (files, uploadFiles) => {
+  ElMessage.warning(
+    `The limit is 20, you selected ${files.length} files this time, add up to ${
+      files.length + uploadFiles.length
+    } totally`
+  )
+}
+
 // Handle model selection
-const xhandleSelectModel = async (model: string) => {
-  targetModel.value = model;
-  parentOptions.value = [];
-  fieldMappings.value = fileList.value.map((_, index) => ({
-    fileIndex: index,
-    type: '',
-    field_id: model === 'other_documents' ? undefined : MODEL_MAPPINGS[model] ? 'parent_id' : undefined,
-  }));
-  if (MODEL_MAPPINGS[model]) {
-    await getParentOptions(model);
-  }
-  console.log('fieldMappings.value ',fieldMappings.value )
-  step.value++;
-};
+ 
 
  const handleSelectModel = async (model: string) => {
   targetModel.value = model;
@@ -448,6 +443,7 @@ const handleReset = () => {
           :auto-upload="false"
           :show-file-list="true"
           :on-change="handleFileUpload"
+          :on-exceed="handleExceed"
           :limit="20"
           :multiple="true"
           :before-upload="beforeUpload"

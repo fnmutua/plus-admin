@@ -954,7 +954,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             component: () => import('@/views/ImportData/geo.vue'),
             name: 'Importgeo',
             meta: {
-              title: 'GIS',
+              title: 'Import GIS Data',
               icon: 'mdi:file-location-outline',
             }
           },
@@ -964,7 +964,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             component: () => import('@/views/ImportData/Document.vue'),
             name: 'ImportDocuments',
             meta: {
-              title: 'Documents',
+              title: 'Import Documents',
               icon: 'mdi:file-upload-outline',
             }
           },
