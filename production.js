@@ -40,8 +40,8 @@ app.use(cors(corsOptions));
 // app.use(cors()) 
 
 // middle ware
-app.use(bodyParser.json({ limit: '1gb' }));
-app.use(bodyParser.urlencoded({ limit: '1gb', extended: true }));
+app.use(bodyParser.json({ limit: '10gb' }));
+app.use(bodyParser.urlencoded({ limit: '10gb', extended: true }));
 
 // simple route
 app.use(express.static(path.join(__dirname, '/dist-pro')));
