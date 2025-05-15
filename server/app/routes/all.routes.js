@@ -119,6 +119,7 @@ module.exports = function (app) {
   // sum filtreed
   app.post('/api/v1/upload', [authJwt.verifyToken], controller.modelUpload)
   app.post('/api/v1/upload/batch', [authJwt.verifyToken], controller.batchDocumentsUpload)
+  app.post('/api/v1/upload/check', [authJwt.verifyToken], controller.checkDocuments)
   app.post('/api/v1/upload/cover', [authJwt.verifyToken], controller.batchDocumentsUploadCover)
 
 

@@ -6,7 +6,7 @@ import { getListWithoutGeo } from '@/api/counties'
 import {
   ElButton, ElSelect, FormInstance, ElTabs, ElTabPane, ElDialog, ElInputNumber,
   ElInput, ElBadge, ElForm, ElDescriptions, ElDescriptionsItem, ElFormItem, ElUpload, ElCard, ElPopconfirm, ElTable, ElCol, ElRow,
-  ElTableColumn, UploadUserFile, ElDropdown, ElDropdownMenu, ElDropdownItem, ElStep, ElSteps, ElCheckbox, ElIcon,
+  ElTableColumn, UploadUserFile, ElDropdown, ElDropdownMenu, ElDropdownItem, ElStep, ElSteps, ElCheckbox, ElIcon,ElDatePicker,
 } from 'element-plus'
 import { ElMessage, ElSegmented } from 'element-plus'
 import { Position, Plus, Delete, Edit, Filter, InfoFilled, CopyDocument, Clock, Search, Setting, Back, Loading, CircleCheck, Message, CircleClose, Warning,View,RefreshLeft } from '@element-plus/icons-vue'
@@ -593,9 +593,7 @@ const selectedWard = ref()
 const getNewOrRejectedSettlements = async (tab) => {
 
   loadingGetData.value = true
- 
-
-  if (tab === 'New') {
+   if (tab === 'New') {
     filters.value = ['isApproved', 'isActive']
     filterValues.value = [['Pending'], ['true']]  // make sure the inner array is array
 
@@ -612,8 +610,6 @@ const getNewOrRejectedSettlements = async (tab) => {
     filters.value = ['isApproved', 'isActive']
     filterValues.value = [['Approved'], ['true']]  // make sure the inner array is array
   }
-
-
   if (selectedCounty.value) {
     var selectOption = 'county_id'
     if (!filters.value.includes(selectOption)) {
@@ -637,8 +633,6 @@ const getNewOrRejectedSettlements = async (tab) => {
     }
 
   }
-
-
 
   // Filter by subcounty  
   if (selectedSubCounty.value) {
@@ -664,8 +658,6 @@ const getNewOrRejectedSettlements = async (tab) => {
     }
 
   }
-
-
   // Filter by ward  
   if (selectedWard.value) {
     var selectOption = 'ward_id'
@@ -688,12 +680,10 @@ const getNewOrRejectedSettlements = async (tab) => {
     if (selectedWard.value.length === 0) {
       filters.value.splice(index, 1)
     }
-
   }
 
 
   pushRoleFilters()
-
 
 
   const formData = {}
@@ -2781,6 +2771,20 @@ const RevertEdits = async (data: TableSlotDefault) => {
 };
 
 
+const DateDialogVisible =ref(false)
+const dateRange=ref()
+
+
+const handleDateChange = async () => {
+  console.log('dateRange.....', dateRange.value)
+
+   
+
+
+};
+
+
+
 
 </script>
 
@@ -2794,7 +2798,7 @@ const RevertEdits = async (data: TableSlotDefault) => {
 
 
 
-    <el-row :gutter="10" style=" margin-bottom:10px;">
+    <el-row :gutter="5" style=" margin-bottom:10px;">
       <el-col :xs="24" :sm="24" :md="2" :lg="2" class="max-w-200px">
 
         <div class="max-w-200px">
@@ -2804,7 +2808,7 @@ const RevertEdits = async (data: TableSlotDefault) => {
         </div>
       </el-col>
 
-      <el-col :xs="24" :sm="24" :md="12" :lg="5">
+      <el-col :xs="24" :sm="24" :md="12" :lg="4">
         <el-select
 size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear" multiple clearable
           filterable collapse-tags placeholder="By County" style=" margin-right: 5px;">
@@ -2840,11 +2844,20 @@ v-model="search_string" clearable :onClear="handleClear"
         </el-input>
       </el-col>
 
+       
 
 
       <el-col :xs="24" :sm="24" :md="12" :lg="4">
 
-        <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px;">
+        <div style="display: flex; align-items: left; gap: 5px;  ">
+
+          <el-tooltip content="Filter By Date" placement="top">
+          <el-button @click="DateDialogVisible=true">
+            <Icon icon="solar:calendar-line-duotone" style="margin-left: 4px;" />
+          </el-button>
+        </el-tooltip>
+
+
 
           <el-tooltip content="Add Settlement" placement="top">
             <el-button v-if="showAdminButtons" :onClick="AddSettlement" type="primary" :icon="Plus" />
@@ -2886,7 +2899,8 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
 
 
     <div v-if="activeSegment === 'Approved'">
-      <el-table  table-layout="auto" 
+      <el-table
+table-layout="auto" 
 :data="tableDataList" @row-dblclick="handleRowDblClick" :show-overflow-tooltip="true" fit 
         style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName" @expand-change="handleExpand" row-key="id"   :expand-row-keys="expandedRowKeys">
 
@@ -3512,7 +3526,34 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
     </el-button>
   </el-dialog>
 
-
+  <el-dialog
+  title="Select Date Range"
+  v-model="DateDialogVisible"
+  width="30%"
+   
+>
+  <el-form   ref="dateFormRef">
+    <el-form-item label="Date Range">
+      <el-date-picker
+        v-model="dateRange"
+        type="daterange"
+        unlink-panels
+        range-separator="To"
+        start-placeholder="Start date"
+        end-placeholder="End date"
+        size="default"
+        style="width: 100%;"
+        @change="handleDateChange"
+      />
+    </el-form-item>
+  </el-form>
+  <template #footer>
+    <span class="dialog-footer">
+      <el-button @click="DateDialogVisible=false">Cancel</el-button>
+      <el-button type="primary" @click="handleDateChange">Confirm</el-button>
+    </span>
+  </template>
+    </el-dialog>
 
 </template>
 

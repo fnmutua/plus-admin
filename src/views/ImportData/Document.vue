@@ -2,7 +2,7 @@
 <script setup lang="ts">
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
-import { uploadFilesBatch } from '@/api/settlements'
+import { uploadFilesBatch,checkFilesExist } from '@/api/settlements'
 import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
 import { getFilteredHouseholdsByColumn,   } from '@/api/households'
 import { uuid } from 'vue-uuid'
@@ -337,7 +337,7 @@ const remapFileMetadata = () => {
 };
 
 // Import files
-const importFiles = async () => {
+const ximportFiles = async () => {
   loading.value.import = true;
   try {
     const formData = new FormData();
@@ -400,6 +400,116 @@ const importFiles = async () => {
     loading.value.import = false;
   }
 };
+
+
+const importFiles = async () => {
+  loading.value.import = true;
+  try {
+    // Step 1: Prepare documents for pre-check
+    const documents = fileList.value.map((file) => ({
+      name: file.name
+      // Optional: Add hash if you implement client-side hashing
+      // hash: await computeFileHash(file.raw)
+    }));
+
+    console.log('documents',documents)
+
+    // Step 2: Check for existing documents
+     const checkformData = {};
+     checkformData.documents = [{name:'test'},{name:'test2'}];
+     
+    const checkResponse = await checkFilesExist(checkformData);
+
+    const checkData = checkResponse.data || checkResponse;
+
+    console.log('checkData',checkData)
+
+    if (checkData.code !== '0000') {
+      throw new Error(checkData.message || 'Failed to check documents');
+    }
+
+    // Step 3: Check if any documents exist
+    const existingDocs = checkData.results.filter(result => result.exists).map(result => result.name);
+    if (existingDocs.length > 0) {
+      ElNotification({
+        title: 'Import Stopped',
+        message: `
+          <div style="max-height: 65vh; overflow-y: auto; font-size: 13px; line-height: 1.4;">
+            Cannot import because the following documents already exist:<br>
+            ${existingDocs.join('<br>')}
+          </div>
+        `,
+        type: 'warning',
+        duration: 0,
+        dangerouslyUseHTMLString: true
+      });
+      return;
+    }
+
+    // Step 4: Proceed with upload if no documents exist
+    const formData = new FormData();
+    fileList.value.forEach((file, index) => {
+      const metadata = fileMetadata.value[index];
+      formData.append('files', file.raw);
+      formData.append('model', 'document');
+      formData.append('createdBy', userInfo.id.toString());
+      formData.append('format', metadata.format);
+      formData.append('category', metadata.type);
+      if (metadata.field_id && metadata[metadata.field_id]) {
+        formData.append('field_id', metadata.field_id);
+        formData.append(metadata.field_id, metadata[metadata.field_id].toString());
+      }
+      formData.append('protected', metadata.protected.toString());
+      formData.append('size', metadata.size);
+      formData.append('code', uuid.v4());
+    });
+
+    const response = await uploadFilesBatch(formData);
+    const resData = response.data || response;
+
+    if (Array.isArray(resData.errors) && resData.errors.length > 0) {
+      const errorDetails = resData.errors.map((err, index) => {
+        const fileIndex = err.index ?? index;
+        const reason = err.detail ?? 'Unknown error';
+        return `File ${fileList.value[fileIndex].name}: ${reason}`;
+      }).join('<br>');
+
+      ElNotification({
+        title: 'Import Completed with Errors',
+        message: `
+          <div style="max-height: 65vh; overflow-y: auto; font-size: 13px; line-height: 1.4;">
+            Failed to import ${resData.errors.length} of ${fileList.value.length} files:<br>
+            ${errorDetails}
+          </div>
+        `,
+        type: 'error',
+        duration: 0,
+        dangerouslyUseHTMLString: true
+      });
+      return;
+    }
+
+    if (resData.code === '0000') {
+      ElMessage.success(`Files imported successfully! ${fileList.value.length} files imported.`);
+      push({ path: '/repository/docs', name: 'RepositoryTagged' });
+    } else {
+      ElMessage.warning(`Imported ${fileList.value.length - (resData.failedCount || 0)} of ${fileList.value.length} files successfully.`);
+    }
+  } catch (err) {
+    console.error('Import error:', err);
+    ElNotification({
+      title: 'Import Error',
+      message: err.message || 'Error importing files. Please check the data and try again.',
+      type: 'error',
+      duration: 0
+    });
+  } finally {
+    loading.value.import = false;
+  }
+};
+
+ 
+
 
 // Navigation handlers
 const handleNextStep = async () => {

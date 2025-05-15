@@ -228,14 +228,37 @@ export const uploadDocuments = (data: SettlementType): Promise<IResponse<Settlem
 
 export const uploadFilesBatch = (data: SettlementType): Promise<IResponse<SettlementType>> => {
   console.log('1Upload uploadFilesBatch:', state.uploadPercentage);
-
   return request.post({
     url: prod + '/api/v1/upload/batch',
     data    
   });
-  
-
 };
+
+// Define interfaces for type safety
+interface DocumentCheck {
+  name: string;
+ }
+
+interface DocumentCheckResult {
+  name: string | null;
+  exists: boolean;
+  message: string;
+}
+
+interface IResponse<T> {
+  message: string;
+  code: string;
+  results: T;
+}
+
+export const checkFilesExist = async (documents: DocumentCheck[]): Promise<IResponse<DocumentCheckResult[]>> => {
+//export const checkFilesExist = (data: SettlementType): Promise<IResponse<SettlementType>> => {
+  return request.post({
+    url: prod + '/api/v1/upload/check',
+    documents    
+  });
+};
+
 
 
 export const uploadCoverPhoto = (data: SettlementType): Promise<IResponse<SettlementType>> => {

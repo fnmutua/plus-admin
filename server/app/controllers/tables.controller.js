@@ -4513,7 +4513,7 @@ exports.xbatchDocumentsUpload = (req, res) => {
 };
 
 
-exports.batchDocumentsUpload = (req, res) => {
+exports._newbatchDocumentsUpload = (req, res) => {
   // The uploaded files can be accessed using `req.files`
 // Use `upload.array('files')` middleware to handle multiple file uploads
 // 'files' should match the name attribute of the file input(s) in your form
@@ -4663,8 +4663,201 @@ res.status(500).send({
 });
 };
 
+exports.batchDocumentsUpload = (req, res) => {
+  upload.array('files')(req, res, async (err) => {
+    if (err) {
+      console.log(err);
+      return res.status(500).send({
+        message: 'Upload failed.',
+        code: '0000'
+      });
+    }
+
+    var reg_model = 'document';
+    let myFiles = req.files;
+    let objs = [];
+    let uploadStats = {
+      uploaded: 0,
+      skipped: 0,
+      failed: 0
+    };
+
+    if (!Array.isArray(myFiles)) {
+      myFiles = [myFiles];
+    }
+
+    for (let i = 0; i < myFiles.length; i++) {
+      var obj = {};
+      
+      if (req.body.field_id) {
+        var column = Array.isArray(req.body.field_id) ? req.body.field_id[i] : req.body.field_id;
+        if (myFiles.length > 1) {
+          obj[column] = req.body[column][i];
+          obj.category = req.body.category[i];
+          obj.format = req.body.format[i];
+          obj.size = req.body.size[i];
+          obj.createdBy = req.body.createdBy[i];
+          obj.protectedFile = req.body.protected[i];
+          obj.name = myFiles[i].originalname;
+          obj.location = myFiles[i].path;
+          obj.code = crypto.randomUUID();
+        } else {
+          obj[column] = req.body[column];
+          obj.format = req.body.format;
+          obj.size = req.body.size;
+          obj.createdBy = req.body.createdBy[i];
+          obj.protectedFile = req.body.protected[i];
+          obj.name = myFiles[i].originalname;
+          obj.location = myFiles[i].path;
+          obj.code = crypto.randomUUID();
+          obj.category = req.body.category;
+        }
+      } else {
+        if (myFiles.length > 1) {
+          obj.category = req.body.category[i];
+          obj.format = req.body.format[i];
+          obj.size = req.body.size[i];
+          obj.createdBy = req.body.createdBy[i];
+          obj.protectedFile = req.body.protected[i];
+          obj.name = myFiles[i].originalname;
+          obj.location = myFiles[i].path;
+          obj.code = crypto.randomUUID();
+        } else {
+          obj.format = req.body.format;
+          obj.size = req.body.size;
+          obj.createdBy = req.body.createdBy[i];
+          obj.protectedFile = req.body.protected[i];
+          obj.name = myFiles[i].originalname;
+          obj.location = myFiles[i].path;
+          obj.code = crypto.randomUUID();
+          obj.category = req.body.category;
+        }
+      }
+
+      objs.push(obj);
+    }
+
+    try {
+      for (const nobj of objs) {
+        const existingDoc = await db.models[reg_model].findOne({
+          where: {
+            name: nobj.name,
+            location: nobj.location
+          }
+        });
+
+        if (existingDoc) {
+          console.log(`Skipping existing document: ${nobj.name}`);
+          uploadStats.skipped++;
+          continue;
+        }
+
+        try {
+          await db.models[reg_model].create(nobj);
+          uploadStats.uploaded++;
+          console.log(`Inserted document: ${nobj.name}`);
+        } catch (error) {
+          console.log(`Failed to insert document: ${nobj.name}`, error);
+          uploadStats.failed++;
+        }
+      }
+
+      res.status(200).send({
+        message: `Batch Upload Completed: ${uploadStats.uploaded} uploaded, ${uploadStats.skipped} skipped, ${uploadStats.failed} failed`,
+        code: '0000',
+        stats: {
+          uploaded: uploadStats.uploaded,
+          skipped: uploadStats.skipped,
+          failed: uploadStats.failed
+        }
+      });
+    } catch (error) {
+      console.log(error);
+      res.status(500).send({
+        message: `Upload process failed: ${uploadStats.uploaded} uploaded, ${uploadStats.skipped} skipped, ${uploadStats.failed} failed. Error: ${error.message}`,
+        code: '0000',
+        stats: uploadStats
+      });
+    }
+  });
+};
+
  
 
+exports.checkDocuments = async (req, res) => {
+
+  console.log('---------------------check Docs ------------------------', req.body)
+  try {
+    const { documents } = req.body;
+    const reg_model = 'document';
+
+    console.log(req.body)
+
+    // Validate input
+    if (!Array.isArray(documents) || documents.length === 0) {
+      return res.status(400).send({
+        message: 'Documents array is required and must not be empty',
+        code: '0001'
+      });
+    }
+
+    // Prepare results
+    const results = [];
+
+    // Check each document
+    for (const doc of documents) {
+      const { name, hash } = doc;
+
+      // Validate document name
+      if (!name) {
+        results.push({
+          name: null,
+          exists: false,
+          message: 'Document name is required'
+        });
+        continue;
+      }
+
+      // Build query conditions
+      const conditions = { name };
+      if (hash) {
+        conditions.hash = hash; // Assumes document model has a hash field
+      }
+
+      // Check if document exists
+      const existingDoc = await db.models[reg_model].findOne({
+        where: conditions
+      });
+
+      results.push({
+        name,
+        exists: !!existingDoc,
+        message: existingDoc ? 'Document already exists' : 'Document does not exist'
+      });
+    }
+
+    // Check for existing documents and build message
+    const existingDocs = results.filter(result => result.exists).map(result => result.name);
+    let message = `Checked ${documents.length} documents`;
+    if (existingDocs.length > 0) {
+      message = `The following documents already exist: ${existingDocs.join(', ')}`;
+    }
+
+    // Respond with results
+    res.status(200).send({
+      message,
+      code: '0000',
+      results
+    });
+  } catch (error) {
+    console.error('Error in document pre-check:', error);
+    res.status(500).send({
+      message: 'Failed to check documents: ' + error.message,
+      code: '0002',
+      results: []
+    });
+  }
+};
 
 
 exports.ReportDocumentationUpload = async (req, res) => {
