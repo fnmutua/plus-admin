@@ -237,6 +237,8 @@ const beforeUpload: UploadProps['beforeUpload'] = (file) => {
  
 
  const handleFileUpload = async (uploadFile: any) => {
+
+
   const file = uploadFile.raw || uploadFile.file;
   if (!file || !beforeUpload(file)) return;
 
@@ -319,6 +321,9 @@ const handleExceed: UploadProps['onExceed'] = (files, uploadFiles) => {
 
 // Remap file metadata
 const remapFileMetadata = () => {
+
+  canImport.value = fileList.value.length > 0;
+
   fileMetadata.value = fileList.value.map((file, index) => {
     const mapping = fieldMappings.value[index];
     const metadata: FileMetadata = {
@@ -402,7 +407,7 @@ const ximportFiles = async () => {
 };
 
 
-const importFiles = async () => {
+const xximportFiles = async () => {
   loading.value.import = true;
   try {
     // Step 1: Prepare documents for pre-check
@@ -416,7 +421,7 @@ const importFiles = async () => {
 
     // Step 2: Check for existing documents
      const checkformData = {};
-     checkformData.documents = [{name:'test'},{name:'test2'}];
+     checkformData.documents = documents;
      
     const checkResponse = await checkFilesExist(checkformData);
 
@@ -508,7 +513,142 @@ const importFiles = async () => {
   }
 };
 
- 
+const canImport = ref(true);
+
+
+
+const importFiles = async () => {
+  loading.value.import = true;
+
+  if (fileList.value.length === 0) {
+  canImport.value = false; // Disable import if no files remain
+  return;
+}
+
+
+  try {
+    // Step 1: Prepare documents for pre-check
+    const documents = fileList.value.map((file) => ({
+      name: file.name
+      // Optional: Add hash if you implement client-side hashing
+      // hash: await computeFileHash(file.raw)
+    }));
+
+    console.log('documents', documents);
+
+    // Step 2: Check for existing documents
+    const checkformData = { documents };
+    const checkResponse = await checkFilesExist(checkformData);
+    const checkData = checkResponse.data || checkResponse;
+
+    console.log('checkData', checkData);
+
+    if (checkData.code !== '0000') {
+      throw new Error(checkData.message || 'Failed to check documents');
+    }
+
+    // Step 3: Find existing documents
+    const existingDocs = checkData.results
+      .filter(result => result.exists)
+      .map(result => result.name);
+
+    if (existingDocs.length > 0) {
+      // Warn user about existing docs
+      ElNotification({
+        title: 'Warning: Some Documents Already Exist',
+        message: `
+          <div style="max-height: 65vh; overflow-y: auto; font-size: 13px; line-height: 1.4;">
+            The following documents already exist and will be skipped:<br>
+            ${existingDocs.join('<br>')}
+          </div>
+        `,
+        type: 'warning',
+        duration: 0,
+        dangerouslyUseHTMLString: true
+      });
+
+      // Remove existing documents from fileList and fileMetadata
+      const filteredFiles = [];
+      const filteredMetadata = [];
+      fileList.value.forEach((file, idx) => {
+        if (!existingDocs.includes(file.name)) {
+          filteredFiles.push(file);
+          filteredMetadata.push(fileMetadata.value[idx]);
+        }
+      });
+
+      // Update reactive references with filtered files and metadata
+      fileList.value = filteredFiles;
+      fileMetadata.value = filteredMetadata;
+
+      if (fileList.value.length === 0) {
+        // Nothing left to upload, so stop
+        return;
+      }
+    }
+
+    // Step 4: Proceed with upload for filtered files
+    const formData = new FormData();
+    fileList.value.forEach((file, index) => {
+      const metadata = fileMetadata.value[index];
+      formData.append('files', file.raw);
+      formData.append('model', 'document');
+      formData.append('createdBy', userInfo.id.toString());
+      formData.append('format', metadata.format);
+      formData.append('category', metadata.type);
+      if (metadata.field_id && metadata[metadata.field_id]) {
+        formData.append('field_id', metadata.field_id);
+        formData.append(metadata.field_id, metadata[metadata.field_id].toString());
+      }
+      formData.append('protected', metadata.protected.toString());
+      formData.append('size', metadata.size);
+      formData.append('code', uuid.v4());
+    });
+
+    const response = await uploadFilesBatch(formData);
+    const resData = response.data || response;
+
+    if (Array.isArray(resData.errors) && resData.errors.length > 0) {
+      const errorDetails = resData.errors.map((err, index) => {
+        const fileIndex = err.index ?? index;
+        const reason = err.detail ?? 'Unknown error';
+        return `File ${fileList.value[fileIndex].name}: ${reason}`;
+      }).join('<br>');
+
+      ElNotification({
+        title: 'Import Completed with Errors',
+        message: `
+          <div style="max-height: 65vh; overflow-y: auto; font-size: 13px; line-height: 1.4;">
+            Failed to import ${resData.errors.length} of ${fileList.value.length} files:<br>
+            ${errorDetails}
+          </div>
+        `,
+        type: 'error',
+        duration: 0,
+        dangerouslyUseHTMLString: true
+      });
+      return;
+    }
+
+    if (resData.code === '0000') {
+      ElMessage.success(`Files imported successfully! ${fileList.value.length} files imported.`);
+      push({ path: '/repository/docs', name: 'RepositoryTagged' });
+    } else {
+      ElMessage.warning(`Imported ${fileList.value.length - (resData.failedCount || 0)} of ${fileList.value.length} files successfully.`);
+    }
+  } catch (err) {
+    console.error('Import error:', err);
+    ElNotification({
+      title: 'Import Error',
+      message: err.message || 'Error importing files. Please check the data and try again.',
+      type: 'error',
+      duration: 0
+    });
+  } finally {
+    loading.value.import = false;
+  }
+};
+
 
 
 // Navigation handlers
@@ -517,6 +657,7 @@ const handleNextStep = async () => {
     remapFileMetadata();
   }
   if (step.value === 3) {
+    
     await importFiles();
   } else {
     step.value++;
@@ -694,11 +835,13 @@ const handleReset = () => {
             <el-button
               type="primary"
               :loading="loading.import || loading.fetchParents"
+              :disabled="step === 3 && (!canImport || fileList.length === 0)"
               @click="handleNextStep"
               aria-label="Proceed to next step or import"
             >
               {{ step === 3 ? 'Import' : 'Next' }}
             </el-button>
+
           </div>
         </div>
       </el-card>

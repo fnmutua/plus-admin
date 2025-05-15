@@ -4796,7 +4796,7 @@ exports.checkDocuments = async (req, res) => {
     // Validate input
     if (!Array.isArray(documents) || documents.length === 0) {
       return res.status(400).send({
-        message: 'Documents array is required and must not be empty',
+        message: 'No documents provided. Refresh your page to start again',
         code: '0001'
       });
     }
@@ -4838,7 +4838,7 @@ exports.checkDocuments = async (req, res) => {
 
     // Check for existing documents and build message
     const existingDocs = results.filter(result => result.exists).map(result => result.name);
-    let message = `Checked ${documents.length} documents`;
+    let message = `Checked ${documents.length} documents. Preparing to upload...`;
     if (existingDocs.length > 0) {
       message = `The following documents already exist: ${existingDocs.join(', ')}`;
     }

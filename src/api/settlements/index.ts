@@ -251,14 +251,17 @@ interface IResponse<T> {
   results: T;
 }
 
-export const checkFilesExist = async (documents: DocumentCheck[]): Promise<IResponse<DocumentCheckResult[]>> => {
-//export const checkFilesExist = (data: SettlementType): Promise<IResponse<SettlementType>> => {
+ 
+
+export const checkFilesExist = (data: SettlementType): Promise<IResponse<SettlementType>> => {
+ 
   return request.post({
     url: prod + '/api/v1/upload/check',
-    documents    
+    data    
   });
-};
+  
 
+};
 
 
 export const uploadCoverPhoto = (data: SettlementType): Promise<IResponse<SettlementType>> => {
