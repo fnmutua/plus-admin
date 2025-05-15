@@ -105,9 +105,9 @@ const PolyLineItems = ref([
   { 
     layer: 'powerline', 
     label: 'Powerline', 
-    color: '#FFD700', // Gold
+    color: 'green', // Gold
     style: {
-      borderTop: '2px dashed #FFD700', // Dashed for powerline
+      borderTop: '2px dashed green', // Dashed for powerline
       width: '40px',
       height: '0',
     },
