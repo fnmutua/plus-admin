@@ -6,15 +6,19 @@ import { getListWithoutGeo } from '@/api/counties'
 import {
   ElButton, ElSelect, FormInstance, ElTabs, ElTabPane, ElDialog, ElInputNumber,
   ElInput, ElBadge, ElForm, ElDescriptions, ElDescriptionsItem, ElFormItem, ElUpload, ElCard, ElPopconfirm, ElTable, ElCol, ElRow,
-  ElTableColumn, UploadUserFile, ElDropdown, ElDropdownMenu, ElDropdownItem, ElStep, ElSteps, ElCheckbox
+  ElTableColumn, UploadUserFile, ElDropdown, ElDropdownMenu, ElDropdownItem, ElStep, ElSteps, ElCheckbox, ElIcon,ElDatePicker,
 } from 'element-plus'
-import { ElMessage, } from 'element-plus'
-import { Position, Plus, Delete, Edit, Filter, InfoFilled, CopyDocument, Clock, Search, Setting, Back, Loading } from '@element-plus/icons-vue'
+import { ElMessage, ElSegmented } from 'element-plus'
+import { Position, Plus, Delete, Edit, Filter, InfoFilled, CopyDocument, Clock, Search, Setting, Back, Loading, CircleCheck, Message, CircleClose, Warning,View,RefreshLeft } from '@element-plus/icons-vue'
+
+import {
+  ArrowLeft, ArrowRight, UploadFilled,Postcard,TopRight,Lock,Guide,TakeawayBox
+} from '@element-plus/icons-vue'
 
 import { ref, reactive, computed } from 'vue'
 import { ElPagination, ElTooltip, ElOption } from 'element-plus'
 import { useRouter } from 'vue-router'
-import { DeleteRecord, updateOneRecord, deleteDocument } from '@/api/settlements'
+import { DeleteRecord, updateOneRecord,revertHistory, deleteDocument } from '@/api/settlements'
 
 import { useAppStore } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
@@ -53,6 +57,7 @@ import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 import TableActions from '@/views/Components/TableActions.vue';
 
 
+import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
 
 
 const MapBoxToken =
@@ -64,7 +69,7 @@ mapboxgl.accessToken = MapBoxToken;
 
 
 const filters = ref(['settlement_type', 'isApproved', 'isActive'])
-const filterValues = ref([[1, 2], ['Approved'], ['true']]) // make sure the inner array is array
+const filterValues = ref([['Slum', 'Informal Settlement'], ['Approved'], ['true']]) // make sure the inner array is array
 
 
 
@@ -73,24 +78,33 @@ const appStore = useAppStore()
 const userInfo = wsCache.get(appStore.getUserInfo)
 const showAdminButtons = ref(appStore.getAdminButtons)
 const showEditButtons = ref(appStore.getEditButtons)
+const isSuperAdmin = ref(
+  userInfo.roles.some(role => role.name === "super_admin" || role.name === "root_admin")
+);
 
-const action_buttons = ref([])
-if (showAdminButtons.value) {
-  action_buttons.value = ['edit', 'viewOnMap', 'delete']
-} else if (showEditButtons.value) {
+const thisHistory =ref()
 
-  action_buttons.value = ['edit', 'viewOnMap']
-}
-else {
-  action_buttons.value = ['viewOnMap']
+console.log('userInfo.roles',userInfo.roles)
+console.log('isSuperAdmin',isSuperAdmin.value)
 
-}
+const action_buttons = computed(() => {
+  let buttons = [];
 
-console.log('action_buttons', action_buttons.value)
+  if (showAdminButtons.value) {
+    buttons = ['edit', 'viewOnMap', 'delete'];
+  } else if (showEditButtons.value) {
+    buttons = ['edit', 'viewOnMap'];
+  } else {
+    buttons = ['viewOnMap'];
+  }
 
+  // Add 'review' if the active segment is 'New'
+  if (activeSegment.value === 'New' || activeSegment.value === 'Rejected') {
+    buttons.push('review');
+  }
 
-
-console.log('userInfo', userInfo)
+  return buttons;
+});
 
 
 
@@ -132,15 +146,29 @@ const processedRoles = userInfo.roles.map(role => {
 
 console.log('processedRole >>>s', processedRoles)
 
-const isSuperAdmin = userInfo.roles.some(role => role.name === "super_admin");
-
+ 
 // Determine roles_filters generically
 let roles_filters = [];
+let userType ;
 
-if (isSuperAdmin) {
+if (isSuperAdmin.value) {
   // If the user is a super_admin, no filters are applied
   roles_filters = [];
-} else {
+  userType = "superadmin";
+  showAdminButtons.value=true
+} 
+  else if (processedRoles.some(role => role.role === "admin")) {
+  userType = "admin";
+  showAdminButtons.value=true
+
+} else if (processedRoles.some(role => role.role === "staff")) {
+  userType = "staff";
+  showAdminButtons.value=true
+
+}
+
+
+else {
   // Process filters for all roles with location levels
   const applicableRoles = processedRoles.filter(role => role.model !== "national");
 
@@ -150,27 +178,16 @@ if (isSuperAdmin) {
     field: role.field === 'settlement_id' ? 'id' : role.field,  // Ternary operation to adjust 'settlement_id'
     value: role.fieldvalue // Field value
   }));
+
+  showAdminButtons.value=false
 }
 
 console.log('roles_filters >>>>>>', roles_filters)
+console.log('showAdminButtons.value >>>>>>', showAdminButtons.value)
 
 
 
 // Push Role FIlters ---- ////
-const xpushRoleFilters = () => {
-  if (roles_filters.length > 0) {
-    filters.value.push(roles_filters[0].field);  // Add the field to filters if roles_filters is not empty
-  }
-
-  // Prepare filterValues array
-  if (roles_filters.length > 0) {
-    filterValues.value.push([roles_filters[0].value]);  // Add the value to filterValues if roles_filters is not empty
-  }
-
-  console.log('With Role filters', filters.value);
-  console.log('With Role  filterValues', filterValues.value);
-
-}
 
 const pushRoleFilters = () => {
   if (roles_filters.length > 0) {
@@ -206,6 +223,10 @@ const pushRoleFilters = () => {
 
 
 //*****************************Create**************************** */
+
+
+
+
 
 ///----------------------------------------------------------------------------------
 const ruleFormRef = ref<FormInstance>()
@@ -255,9 +276,72 @@ const updatePageSize = () => {
 
 
 
+const getCounts =async  () => { 
+
+console.log('counts')
+
+const formData = {}
+  formData.model = 'settlement'
+  formData.summaryField = 'isApproved'  // Remove ambiguous fields 
+  formData.summaryFunction = 'count'
+  formData.groupFields = ['isApproved'] //['county.name','indicator_category.category_title']
+ 
+
+  console.log(roles_filters.length)
+  if(roles_filters.length>0) {
+
+  formData.filterField =[filters.value[1]]
+  formData.filterValue =[[filterValues.value[1]]] 
+  formData.filterOperator = ['eq']
+  }
+  
+
+  // added for unique couts 
+ 
+  console.log('filters.value', filters.value[1])
+  console.log('filterValues.value', filterValues.value[1])
+
+
+  console.log('form-Data',formData)
+
+  try {
+    const response = await getSummarybyFieldFromMultipleIncludes(formData);
+    const amount = response.Total;
+    console.log('status.count Summary', amount)
+
+
+
+    // Update Statuses count dynamically
+      Statuses.value.forEach((status) => {
+          let keyToCompare = status.value;  // Default comparison key
+
+          if (status.value === 'New') {
+            keyToCompare = 'Pending';  // Compare 'New' with 'Pending' in amount
+          }
+
+          const match = amount.find((item) => item.isApproved === keyToCompare);
+          if (match) {
+            status.count = parseInt(match.count, 10);
+          }
+        });
+
+
+
+ 
+ 
+  } catch (error) {
+    // Handle any errors that occur during the asynchronous operation
+    console.error(error);
+    //return null; // or any default value you prefer
+    return []; // or any default value you prefer
+  }
+
+
+}
+
+
 console.log('window.innerHeight1', window.innerHeight)
 
-const activeName = ref('list')
 
 onMounted(async () => {
 
@@ -279,8 +363,8 @@ onMounted(async () => {
   //   clickTab(obj)
   // }
 
-
-
+  getCounts()
+  getSettlmentHistory()
 })
 
 // onActivated(async () => {
@@ -294,7 +378,7 @@ onMounted(async () => {
 //       }
 //     }
 
-//     clickTab(obj)
+ 
 //   }
 
 // })
@@ -302,9 +386,7 @@ onMounted(async () => {
 
 
 const { push } = useRouter()
-const value1 = ref([])
-const value2 = ref([])
-const value3 = ref()
+ 
 var value4 = ref([])
 var value5 = ref([])
 var value6 = ref([])
@@ -320,7 +402,6 @@ const page = ref(1)
 const loading = ref(true)
 
 const currentPage = ref(1)
-const activeTab = ref('list')
 const enableSubcounty = ref(false)
 
 const total = ref(0)
@@ -332,8 +413,12 @@ const showAddSaveButton = ref(true)
 const formheader = ref('Edit Settlement')
 const duplicateRecords = ref([])
 const duplicateTotal = ref(0)
+const deletedSettlements=ref([])
+const deletedSettlementsCount=ref(0)
 
 
+const decommSettlements=ref([])
+const decommSettlementsCount=ref(0)
 //let tableDataList = ref<UserType[]>([])
 const tableDataList = ref([])
 let tableDataListNew = ref<UserType[]>([])
@@ -372,20 +457,19 @@ const handleClear = async () => {
   console.log('cleared....')
   enableSubcounty.value = false
   search_string.value = ''
+  selectedCounty.value =[]
   // clear all the fileters -------
   filterValues.value = []
   filters.value = []
-  value1.value = ''
-  value2.value = ''
-  value3.value = ''
-  value4.value = ''
-  value5.value = ''
-
+  
+  value4.value =[]
+  value5.value =[]
+  value6.value =[]
 
   currentPage.value = 1
-  tblData.value = []
+  
   //----run the get data--------
-  getAllSetllementsInitially()
+  getAllSetllementsInitially(activeSegment.value)
 }
 
 
@@ -400,25 +484,24 @@ const addMoreDocuments = ref(false)
 const onPageChange = async (selPage: any) => {
   page.value = selPage
 
-  //console.log('', activeTab.value)
-  if (activeTab.value == 'list') {
+  if (activeSegment.value == 'Approved') {
     filters.value = ['settlement_type', 'isApproved', 'isActive']
-    filterValues.value = [[1, 2], ['Approved'], ['true']]  // make sure the inner array is array
-  } else if (activeTab.value == 'New') {
+    filterValues.value = [['Slum', 'Informal Settlement'], ['Approved'], ['true']]  // make sure the inner array is array
+  } else if (activeSegment.value == 'New') {
     filters.value = ['settlement_type', 'isApproved', 'isActive']
-    filterValues.value = [[1, 2], ['Pending'], ['true']]  // make sure the inner array is array
+    filterValues.value = [['Slum', 'Informal Settlement'], ['Pending'], ['true']]  // make sure the inner array is array
   }
-  else if (activeTab.value == 'Rejected') {
+  else if (activeSegment.value == 'Rejected') {
     filters.value = ['settlement_type', 'isApproved', 'isActive']
-    filterValues.value = [[1, 2], ['Rejected'], ['true']]  // make sure the inner array is array
+    filterValues.value = [['Slum', 'Informal Settlement'], ['Rejected'], ['true']]  // make sure the inner array is array
   }
 
-  console.log("Where are we?", activeTab.value, filters.value, filterValues.value)
+  console.log("Where are we?", activeSegment.value, filters.value, filterValues.value)
 
   if (search_string.value) {
-    getFilteredBySearchData(activeTab.value, search_string.value)
+    getFilteredBySearchData(activeSegment.value, search_string.value)
   } else {
-    getNewOrRejectedSettlements(activeTab.value)
+    getNewOrRejectedSettlements(activeSegment.value)
   }
 
 
@@ -428,25 +511,25 @@ const onPageSizeChange = async (size: any) => {
   pageSize.value = size
   //getFilteredData(filters, filterValues)
 
-  console.log(activeTab.value)
-  if (activeTab.value === 'list') {
+  console.log(activeSegment.value)
+  if (activeSegment.value === 'Approved') {
     filters.value = ['settlement_type', 'isApproved', 'isActive']
-    filterValues.value = [[1, 2], ['Approved'], ['true']]  // make sure the inner array is array
-  } else if (activeTab.value === 'New') {
+    filterValues.value = [['Slum', 'Informal Settlement'], ['Approved'], ['true']]  // make sure the inner array is array
+  } else if (activeSegment.value === 'New') {
     filters.value = ['settlement_type', 'isApproved', 'isActive']
-    filterValues.value = [[1, 2], ['Pending'], ['true']]  // make sure the inner array is array
+    filterValues.value = [['Slum', 'Informal Settlement'], ['Pending'], ['true']]  // make sure the inner array is array
 
   }
-  else if (activeTab.value === 'Rejected') {
+  else if (activeSegment.value === 'Rejected') {
     filters.value = ['settlement_type', 'isApproved', 'isActive']
-    filterValues.value = [[1, 2], ['Rejected'], ['true']]  // make sure the inner array is array
+    filterValues.value = [['Slum', 'Informal Settlement'], ['Rejected'], ['true']]  // make sure the inner array is array
   }
-
+  
 
   if (search_string.value) {
-    getFilteredBySearchData(activeTab.value, search_string.value)
+    getFilteredBySearchData(activeSegment.value, search_string.value)
   } else {
-    getNewOrRejectedSettlements(activeTab.value)
+    getNewOrRejectedSettlements(activeSegment.value)
   }
 
 
@@ -455,60 +538,12 @@ const onPageSizeChange = async (size: any) => {
 
 
 
-const clickTab = async (obj) => {
-
-  page.value = 1
-  activeTab.value = obj.props.name
-  localStorage.setItem('activeTab', obj.props.name);
-
-
-  console.log("Loading tabs.............", obj.props.label)
-  console.log("Loading activeTab.............", activeTab.value)
-  console.log("Loading search_string.............", search_string.value)
-  dynamicDocumentComponent.value = null
-
-  if (obj.props.name === 'list') {
-    filters.value = ['settlement_type', 'isApproved', 'isActive']
-    filterValues.value = [[1, 2], ['Approved'], ['true']]  // make sure the inner array is array
-
-  } else if (obj.props.name === "New") {
-    filters.value = ['settlement_type', 'isApproved', 'isActive']
-    filterValues.value = [[1, 2], ['Pending'], ['true']]  // make sure the inner array is array
-
-  }
-  else if (obj.props.name === "Rejected") {
-    filters.value = ['settlement_type', 'isApproved', 'isActive']
-    filterValues.value = [[1, 2], ['Rejected'], ['true']]  // make sure the inner array is array
-  }
-
-
-  if (obj.props.name === "Duplicates") {
-    getPotentialDuplicates()
-    showPagination.value = false
-
-  }
-
-  else {
-
-    if (search_string.value) {
-      getFilteredBySearchData(obj.props.name, search_string.value)
-      showPagination.value = true
-    } else {
-      getNewOrRejectedSettlements(obj.props.name)
-      showPagination.value = true
-
-    }
-
-  }
-
-
-}
 
 
 
-const getAllSetllementsInitially = async () => {
+const getAllSetllementsInitially = async (tab) => {
   // getFilteredData(filters, filterValues)
-  await getNewOrRejectedSettlements('list')
+  await getNewOrRejectedSettlements(tab)
   getSettlementCount()  // This gets the approved/new/rejecetd counts
 
   //getPotentialDuplicates()
@@ -543,9 +578,9 @@ const getSettlementCount = async () => {
   console.log(approved)
   console.log(rejected)
 
-  totalPending.value = pending.length > 0 ? parseInt(pending[0].count) : 0
-  totalApproved.value = approved.length > 0 ? parseInt(approved[0].count) : 0
-  totalRejected.value = rejected.length > 0 ? parseInt(rejected[0].count) : 0
+  // totalPending.value = pending.length > 0 ? parseInt(pending[0].count) : 0
+  // totalApproved.value = approved.length > 0 ? parseInt(approved[0].count) : 0
+  // totalRejected.value = rejected.length > 0 ? parseInt(rejected[0].count) : 0
 
   console.log('New:', totalPending.value)
   console.log('Approved:', totalApproved.value)
@@ -558,11 +593,7 @@ const selectedWard = ref()
 const getNewOrRejectedSettlements = async (tab) => {
 
   loadingGetData.value = true
-
-
-
-
-  if (tab === 'New') {
+   if (tab === 'New') {
     filters.value = ['isApproved', 'isActive']
     filterValues.value = [['Pending'], ['true']]  // make sure the inner array is array
 
@@ -570,13 +601,15 @@ const getNewOrRejectedSettlements = async (tab) => {
     filters.value = ['isApproved', 'isActive']
     filterValues.value = [['Rejected'], ['true']]  // make sure the inner array is array
   }
+  else if (tab === 'Decommissioned') {
+    filters.value = ['isApproved', 'isActive']
+    filterValues.value = [['Decommissioned'], ['true']]  // make sure the inner array is array
+  }
 
   else {
     filters.value = ['isApproved', 'isActive']
     filterValues.value = [['Approved'], ['true']]  // make sure the inner array is array
   }
-
-
   if (selectedCounty.value) {
     var selectOption = 'county_id'
     if (!filters.value.includes(selectOption)) {
@@ -600,8 +633,6 @@ const getNewOrRejectedSettlements = async (tab) => {
     }
 
   }
-
-
 
   // Filter by subcounty  
   if (selectedSubCounty.value) {
@@ -627,8 +658,6 @@ const getNewOrRejectedSettlements = async (tab) => {
     }
 
   }
-
-
   // Filter by ward  
   if (selectedWard.value) {
     var selectOption = 'ward_id'
@@ -651,12 +680,10 @@ const getNewOrRejectedSettlements = async (tab) => {
     if (selectedWard.value.length === 0) {
       filters.value.splice(index, 1)
     }
-
   }
 
 
   pushRoleFilters()
-
 
 
   const formData = {}
@@ -686,25 +713,24 @@ const getNewOrRejectedSettlements = async (tab) => {
   loadingGetData.value = false
   console.log('found data..', res)
   total.value = res.total
-  if (tab === 'New') {
+  if (tab == 'New') {
     tableDataListNew.value = res.data
     console.log('New', res.data)
-    //  total.value = totalPending.value
-    //  console.log('total ---',total.value)
+    totalPending.value = res.total
 
-    //tableDataListNew.value = addLatLonToData(tableDataListNew.value);
-
-
-  } else if (tab === 'Rejected') {
+  } else if (tab == 'Rejected') {
     tableDataListRejected.value = res.data
-    //tableDataListRejected.value = addLatLonToData(tableDataListRejected.value);
+    totalRejected.value = res.total
+  }
+  else if (tab == 'Decommissioned') {
+    decommSettlements.value = res.data
+    decommSettlementsCount.value = res.total
+  }
+ 
 
-    //   total.value = totalRejected.value
-
-  } else {
+  else {
     tableDataList.value = res.data
-    // tableDataList.value = addLatLonToData(tableDataList.value);
-
+    totalApproved.value = res.total
 
     console.log('>>>> ---', tableDataList.value)
 
@@ -933,16 +959,6 @@ function getLatLonFromGeom(geom) {
 
 
 // Function to process the res.data and add latitude/longitude using turf
-function addLatLonToData(data) {
-  data.forEach(item => {
-    const geometry = item.geom; // Assuming the geometry is in `item.geometry`
-    const { latitude, longitude } = getLatLonFromGeom(geometry);
-    item.latitude = latitude;
-    item.longitude = longitude;
-  });
-
-  return data; // Return the modified data with lat/lon added
-}
 
 
 
@@ -999,14 +1015,6 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
 
 
-const viewHHs = (data: TableSlotDefault) => {
-  console.log('On Click.....', data.row.id)
-  push({
-    path: '/settlement/hh/:id',
-    name: 'Households',
-    params: { id: data.row.id }
-  })
-}
 
 const ShowReviewDialog = ref(false)
 const RejectDialog = ref(false)
@@ -1014,7 +1022,7 @@ const settlement_raw = ref({})
 
 
 const Review = (data: TableSlotDefault) => {
-  console.log('On Click.....', data.id)
+  console.log('Review .....', data.id)
   ShowReviewDialog.value = true
 
   // make the descriptions dataset 
@@ -1041,6 +1049,46 @@ const Review = (data: TableSlotDefault) => {
 
 
   formHeader.value = "Review Settlement"
+
+}
+
+
+const DeleteReview = async (data: TableSlotDefault) => {
+  console.log('Review .....', data  )
+  ShowReviewDialog.value = true
+ 
+  // Get user who deleted 
+ await getThisHistory(data.history_id)
+
+  console.log('thisHistory',thisHistory.value)
+
+  // make the descriptions dataset 
+  settlement_raw.value.name = data.name
+  settlement_raw.value.area = data.area
+  settlement_raw.value.population = data.population
+  settlement_raw.value.description = data.description
+  settlement_raw.value.date = data.createdAt
+
+
+  settlement_raw.value.user = thisHistory.value[0].user.name  
+  settlement_raw.value.delete_date = thisHistory.value[0].createdAt
+
+  //
+  ruleForm.id = data.id
+  ruleForm.name = data.name
+  ruleForm.county_id = data.county_id
+  ruleForm.subcounty_id = data.subcounty_id
+  ruleForm.ward_id = data.ward_id
+  ruleForm.settlement_type = data.settlement_type
+  ruleForm.population = data.population
+  ruleForm.area = data.area
+  ruleForm.description = data.description
+  ruleForm.code = data.code
+  ruleForm.geom = data.geom
+  fileUploadList.value = data.documents
+
+
+  formHeader.value = "Review Deleted Settlement"
 
 }
 
@@ -1193,6 +1241,7 @@ const getFilteredBySearchData = async (tab, searchKey) => {
   formData.searchField = 'name'
   formData.searchKeyword = searchKey
   //--Single Filter -----------------------------------------
+  formData.returnAll = true
 
   //formData.assocModel = associated_Model
 
@@ -1205,37 +1254,37 @@ const getFilteredBySearchData = async (tab, searchKey) => {
 
   //-------------------------
   console.log(formData)
-  console.log('activeTab', tab)
+  console.log('activeSegment', tab)
   const res = await searchByKeyWord(formData)
   searchLoading.value = false
-  if (tab === 'list') {
 
+  if (tab === 'Approved') {
     tableDataList.value = res.data
-
-
-
-
+    totalApproved.value=res.Total
 
   } else if (tab === 'New') {
     tableDataListNew.value = res.data
+    totalPending.value= res.Total
+
+  }
+  else if (tab === 'Decommissioned') {
+    decommSettlements.value = res.data
+    decommSettlementsCount.value = res.Total
 
   }
   else {
     tableDataListRejected.value = res.data
-
-
+    totalRejected.value= res.Total
   }
 
   // Process and add lat/lon fields to the tableDataList using Turf
   //tableDataList.value = addLatLonToData(tableDataList.value);
-
 
   total.value = res.total
 
 
   console.log('tableDataList.value', tableDataList.value)
   loading.value = false
-
 
 }
 
@@ -1252,8 +1301,10 @@ const searchByNewName = async () => {
     filters.value.push('isActive')
     filterValues.value.push(['true'])  // make sure the inner array is array
     searchLoading.value = true
-    getFilteredBySearchData(activeTab.value, search_string.value)
+    getFilteredBySearchData(activeSegment.value, search_string.value)
 
+  } else {
+    handleClear()
   }
 
 }
@@ -1262,6 +1313,7 @@ const searchByNewName = async () => {
 
 
 const countiesOptions = ref([])
+
 
 
 
@@ -1308,8 +1360,8 @@ const wardOptions = ref([])
 
 
 const subcountiesOptions = ref([])
-const subcountyfilteredOptions = ref([])
 
+ 
 const getSubCountyNames = async () => {
   const res = await getListWithoutGeo({
     params: {
@@ -1379,17 +1431,17 @@ const filterByCounty = async (county_id: any) => {
     getSubCountyNames()
   }
 
-  value5.value = null // clear the subcounty 
-  value6.value = null   // clear the ward sr
+  value5.value = [] // clear the subcounty 
+  value6.value = []   // clear the ward sr
 
 
 
   console.log(filters.value)
 
   if (search_string.value) {
-    getFilteredBySearchData(activeTab.value, search_string.value)
+    getFilteredBySearchData(activeSegment.value, search_string.value)
   } else {
-    getNewOrRejectedSettlements(activeTab.value)
+    getNewOrRejectedSettlements(activeSegment.value)
   }
 
 
@@ -1398,7 +1450,7 @@ const filterByCounty = async (county_id: any) => {
 
 const filterBySubCounty = async (subcounty_id: any) => {
 
-  value6.value = null   // clear the ward sr
+  value6.value = []   // clear the ward sr
 
 
   if (subcounty_id) {
@@ -1407,9 +1459,9 @@ const filterBySubCounty = async (subcounty_id: any) => {
   }
 
   if (search_string.value) {
-    getFilteredBySearchData(activeTab.value, search_string.value)
+    getFilteredBySearchData(activeSegment.value, search_string.value)
   } else {
-    getNewOrRejectedSettlements(activeTab.value)
+    getNewOrRejectedSettlements(activeSegment.value)
   }
 }
 
@@ -1421,16 +1473,16 @@ const filterByWard = async (ward_id: any) => {
   }
 
   if (search_string.value) {
-    getFilteredBySearchData(activeTab.value, search_string.value)
+    getFilteredBySearchData(activeSegment.value, search_string.value)
   } else {
-    getNewOrRejectedSettlements(activeTab.value)
+    getNewOrRejectedSettlements(activeSegment.value)
   }
 }
 
 
 
 //getSettlementsOptions()
-getAllSetllementsInitially()
+getAllSetllementsInitially('Approved')
 
 
 getSubCountyNames()
@@ -1463,12 +1515,12 @@ const editForm = async (formEl: FormInstance | undefined) => {
       ruleForm.model = model
       const result = await updateOneRecord(ruleForm)
       console.log(result.data)
-      console.log(activeTab.value)
+      console.log(activeSegment.value)
 
       var updatedObject = result.data
 
 
-      if (activeTab.value === 'list') {
+      if (activeSegment.value === 'Approved') {
         // get the index of the updated object
         const index = tableDataList.value.findIndex(obj => obj.id === updatedObject.id);
 
@@ -1479,7 +1531,7 @@ const editForm = async (formEl: FormInstance | undefined) => {
           //   tableDataListNew.value[index_new][key] = updatedObject[key];
           //  tableDataListRejected.value[index_rej][key] = updatedObject[key];
         }
-      } else if (activeTab.value === 'New') {
+      } else if (activeSegment.value === 'New') {
 
         // get the index of the updated object
         const index = tableDataListNew.value.findIndex(obj => obj.id === updatedObject.id);
@@ -1491,7 +1543,7 @@ const editForm = async (formEl: FormInstance | undefined) => {
         }
       }
 
-      else if (activeTab.value === 'Rejected') {
+      else if (activeSegment.value === 'Rejected') {
         const index = tableDataListRejected.value.findIndex(obj => obj.id === updatedObject.id);
 
         const updatedKeys = Object.keys(updatedObject);
@@ -1629,8 +1681,7 @@ const handleEdit = (data) => {
   selectedSubCounty.value = data.row.subcounty_id
   selectedWard.value = data.row.ward_id
   getSubCountyNames()
-  //filterByCounty(selectedCounty.value)
-  getWardNames()
+   getWardNames()
 
 
 
@@ -1708,74 +1759,6 @@ const handleDelete = (data: TableSlotDefault) => {
 
 
 
-const decommisionSettlement = async (data: TableSlotDefault) => {
-
-  console.log(data)
-  ruleForm.id = data.id
-  ruleForm.name = data.name
-  ruleForm.county_id = data.county_id
-  ruleForm.settlement_type = data.settlement_type
-  ruleForm.population = data.population
-  ruleForm.area = data.area
-  ruleForm.description = data.description
-  ruleForm.code = data.code
-  ruleForm.dist_town = data.dist_town
-  ruleForm.dist_trunk = data.dist_trunk
-  ruleForm.parcel_no = data.parcel_no
-  ruleForm.parcel_owner = data.parcel_owner
-  ruleForm.rim_no = data.rim_no
-  ruleForm.isApproved = data.isApproved
-  ruleForm.subcounty_id = data.subcounty_id
-  ruleForm.ward_id = data.ward_id
-  ruleForm.isApproved = data.isApproved
-  ruleForm.geom = data.geom
-
-  // keep  decommision here !
-  ruleForm.isActive = 'false'
-
-  ruleForm.model = model
-  const result = await updateOneRecord(ruleForm)
-  console.log('archving data', result.data)
-  console.log(activeTab.value)
-
-  var updatedObject = result.data
-
-
-  if (activeTab.value === 'list') {
-    // get the index of the updated object
-    const index = tableDataList.value.findIndex(obj => obj.id === updatedObject.id);
-
-    // Get the updatedobjetc keys and updated the old data 
-    const updatedKeys = Object.keys(updatedObject);
-    for (const key of updatedKeys) {
-      tableDataList.value[index][key] = updatedObject[key];
-      //   tableDataListNew.value[index_new][key] = updatedObject[key];
-      //  tableDataListRejected.value[index_rej][key] = updatedObject[key];
-    }
-  } else if (activeTab.value === 'New') {
-
-    // get the index of the updated object
-    const index = tableDataListNew.value.findIndex(obj => obj.id === updatedObject.id);
-
-    const updatedKeys = Object.keys(updatedObject);
-    for (const key of updatedKeys) {
-      tableDataListNew.value[index][key] = updatedObject[key];
-
-    }
-  }
-
-  else if (activeTab.value === 'Rejected') {
-    const index = tableDataListRejected.value.findIndex(obj => obj.id === updatedObject.id);
-
-    const updatedKeys = Object.keys(updatedObject);
-    for (const key of updatedKeys) {
-      tableDataListRejected.value[index][key] = updatedObject[key];
-
-    }
-
-  }
-
-}
 
 const showSelectFields = ref(false)
 const selectedFields = ref([])
@@ -1925,7 +1908,6 @@ if (isMobile.value) {
 
 }
 
-const DocTypes = ref([])
 const getDocumentTypes = async () => {
 }
 getDocumentTypes()
@@ -2191,14 +2173,24 @@ const DocumentComponentProps = ref({
 
 });
 
+const expandedRowKeys = ref([])
 
-function handleExpand(row) {
+
+function handleExpand(row,expandedRows) {
   dynamicDocumentComponent.value = null; // Unload the component
   rowData.value = row
   DocumentComponentProps.value.data = row
   setTimeout(() => {
     dynamicDocumentComponent.value = documentComponent; // Load the component
   }, 100); // 0.1 seconds
+
+  if (expandedRows.includes(row)) {
+    expandedRowKeys.value = [row.id] // Only keep one expanded
+  } else {
+    expandedRowKeys.value = []
+  }
+
+  
 }
 
 
@@ -2248,28 +2240,6 @@ const selectedDuplicate = ref(null);
 const map = ref();
 const mapContainer = ref(null);
 
-const xshowDuplicateMap = (duplicate) => {
-  console.log(duplicate.row)
-  selectedDuplicate.value = duplicate.row;
-  console.log(selectedDuplicate.value)
-  duplicateDialogShow.value = true;
-
-  nextTick(() => {
-    if (!map.value) {
-      mapboxgl.accessToken = 'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg';
-      map.value = new mapboxgl.Map({
-        container: mapContainer.value,
-        style: 'mapbox://styles/mapbox/streets-v11',
-        center: [37.9062, -0.0236], // Set center based on first point
-        zoom: 12,
-      });
-
-      map.value.on('load', () => {
-        addDuplicatesToMap(duplicate.row.duplicates);
-      });
-    }
-  });
-};
 
 
 
@@ -2316,7 +2286,7 @@ const showDuplicateMap = (duplicate) => {
 };
 
 // Toggle between the layers
-const toggleLayer = (layerId) => {
+const toggleLayer = () => {
   const streetsLayerVisibility = map.value.getLayoutProperty('satellite-layer', 'visibility');
 
   if (streetsLayerVisibility === 'none') {
@@ -2346,15 +2316,8 @@ const addDuplicatesToMap = (duplicates) => {
 
       if (geometryType === 'Point') {
         // Add a point for Point geometries
-        const marker = new mapboxgl.Marker()
-          .setLngLat(duplicate.geom.coordinates)
-          .addTo(map.value);
 
         // Add a popup to the marker
-        const popup = new mapboxgl.Popup({ offset: 25 })
-          .setText(duplicate.name + ": ID -" + duplicate.id)
-          .setLngLat(duplicate.geom.coordinates)
-          .addTo(map.value);
 
         // Extend bounds to include the point
         bounds.extend(duplicate.geom.coordinates);
@@ -2365,15 +2328,8 @@ const addDuplicatesToMap = (duplicates) => {
         const centroid = turf.centroid(polygon);
 
         // Add a marker for the centroid
-        const centroidMarker = new mapboxgl.Marker({ color: 'red' })
-          .setLngLat(centroid.geometry.coordinates)
-          .addTo(map.value);
 
         // Add a popup to the centroid marker
-        const centroidPopup = new mapboxgl.Popup({ offset: 25 })
-          .setText(duplicate.name + ": ID - " + duplicate.id + " (Centroid)")
-          .setLngLat(centroid.geometry.coordinates)
-          .addTo(map.value);
 
         // Add a polygon for Polygon geometries
         map.value.addSource(`duplicate-${duplicate.id}`, {
@@ -2525,14 +2481,316 @@ const handleRowDblClick = (row) => {
   })
 
 }
+const activeSegment = ref('Approved')
+
+const Statuses = ref([
+  {
+    label: 'Approved',
+    value: 'Approved',
+    icon: CircleCheck,
+    count: totalApproved,
+    hidden: false,
+  },
+  {
+    label: 'New',
+    value: 'New',
+    icon: Message,
+    count: totalPending,
+    hidden: !showAdminButtons.value
+  },
+  {
+    label: 'Rejected',
+    value: 'Rejected',
+    icon: CircleClose,
+    count: totalRejected,
+    hidden: !showAdminButtons.value
+  },
+  {
+    label: 'Duplicates',
+    value: 'Duplicates',
+    icon: Warning,
+    count: duplicateTotal,
+ 
+    hidden: !showAdminButtons.value
+
+
+  },
+  {
+    label: 'Decommissioned',
+    value: 'Decommissioned',
+    icon: Delete,
+    count: decommSettlementsCount,
+    hidden: !isSuperAdmin.value
+  },
+  {
+    label: 'Deleted',
+    value: 'Deleted',
+    icon: Delete,
+    count: deletedSettlementsCount,
+    hidden: !isSuperAdmin.value
+  },
+])
+
+
+
+ 
+
+const filteredSegments = computed(() => {
+  return Statuses.value.filter(option => !option.hidden);
+});
+
+
+const getThisHistory = async (sett_id) => {
+  try {
+    const model = 'settlement_history';
+
+    const formData = {
+      model, 
+      searchField: 'name', 
+      excludeGeom: false,
+      associated_multiple_models: ['users'],
+      filters: [ 'id'],
+      filterValues: [ [sett_id]]
+    };
+
+    console.log("formData", formData);
+
+    // Fetch the history data
+    const res = await getSettlementListByCounty(formData);
+
+    // Check if the response is valid and contains data
+    if (res && res.data) {
+      console.log('History collected........', res.data);
+     
+      thisHistory.value = res.data
+    } else {
+      console.warn("No data found in response.");
+      thisHistory.value = []; // Return an empty array if no data is found
+    }
+  } catch (error) {
+    console.error("Error fetching history:", error.message);
+    throw new Error("Failed to fetch history. Please try again later."); // Rethrow the error for higher-level handling
+  }
+};
+
+
+
+const onSegmentClick = async () => {
+  
+console.log('activeSegment.value' ,activeSegment.value )
+
+  if (activeSegment.value === "Approved") {
+
+    var selectOption = 'isApproved'
+    if (!filters.value.includes(selectOption)) {
+      filters.value.push(selectOption)
+    }
+
+    var index = filters.value.indexOf(selectOption) // 1
+
+    // clear previously selected
+    if (filterValues.value[index]) {
+      // filterValues[index].length = 0
+      filterValues.value.splice(index, 1)
+    }
+
+    if (!filterValues.value.includes('Approved')) {
+      filterValues.value.splice(index, 0, 'Approved') //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+    }
+
+  }
+
+
+  else if (activeSegment.value === "New") {
+
+    var selectOption = 'isApproved'
+    if (!filters.value.includes(selectOption)) {
+      filters.value.push(selectOption)
+    }
+
+    var index = filters.value.indexOf(selectOption) // 1
+
+    // clear previously selected
+    if (filterValues.value[index]) {
+      // filterValues[index].length = 0
+      filterValues.value.splice(index, 1)
+    }
+
+    if (!filterValues.value.includes('Pending')) {
+      filterValues.value.splice(index, 0, 'Pending') //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+    }
+
+  }
+
+
+  else if (activeSegment.value === "Rejected") {
+
+    var selectOption = 'isApproved'
+    if (!filters.value.includes(selectOption)) {
+      filters.value.push(selectOption)
+    }
+
+    var index = filters.value.indexOf(selectOption) // 1
+
+    // clear previously selected
+    if (filterValues.value[index]) {
+      // filterValues[index].length = 0
+      filterValues.value.splice(index, 1)
+    }
+
+    if (!filterValues.value.includes('Rejected')) {
+      filterValues.value.splice(index, 0, 'Rejected') //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+    }
+
+  }
+
+  
+ else if (activeSegment.value === "Decommissioned") {
+
+      var selectOption = 'isApproved'
+      if (!filters.value.includes(selectOption)) {
+        filters.value.push(selectOption)
+      }
+
+      var index = filters.value.indexOf(selectOption) // 1
+      // clear previously selected
+      if (filterValues.value[index]) {
+        // filterValues[index].length = 0
+        filterValues.value.splice(index, 1)
+      }
+
+      if (!filterValues.value.includes('Decommissioned')) {
+        filterValues.value.splice(index, 0, 'Decommissioned') //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+      }
+
+
+      
+
+}
+
+
+
+  if (activeSegment.value != "Duplicates" && activeSegment.value != "Deleted" )  {
+
+    console.log(activeSegment.value);
+
+  console.log('filterValues---filters.value->', filterValues.value, filters.value)
+  showPagination.value = true
+  //getFilteredData(filters.value, filterValues.value)
+  await getNewOrRejectedSettlements(activeSegment.value)
+}
+
+
+    if (activeSegment.value === "Duplicates") {
+    getPotentialDuplicates()
+    showPagination.value = false
+
+  } 
+    
+   
+     if (activeSegment.value === "Deleted") {
+    
+    console.log("Deleted settlements.....")
+     showPagination.value = false
+
+   await getSettlmentHistory()
+
+  }
+  
+
+
+};
+getSettlementListByCounty
+
+
+const getSettlmentHistory = async () => {
+  deletedSettlements.value=[] // EMpty the  deletedSettlements.value first
+const model = 'settlement_history'
+
+const formData = {}
+formData.model = model
+//-Search field--------------------------------------------
+formData.searchField = 'name'
+formData.excludeGeom = false
+formData.associated_multiple_models = ['users']
+
+//--Single Filter -----------------------------------------
+
+
+// - multiple filters -------------------------------------
+formData.filters = ['change_type','status' ]
+formData.filterValues = [['Delete'],['Open']]
+
+//formData.cache_key = 'SeacrchByKey_' + search_string.value
+
+//-------------------------
+console.log("formData", formData)
+//console.log(formData)
+const res = await getSettlementListByCounty(formData)
+
+console.log('History collected........', res.data)
+ // Initialize deleted settlements
+ 
+// Process each element in the response
+res.data.forEach((item) => {
+  const beforeObject = item.changes?.before; // Extract the "before" object if it exists
+  if (beforeObject) {
+    // Add the history_id to the beforeObject
+    beforeObject.history_id = item.id;
+    
+    // Push the updated beforeObject to deletedSettlements
+    deletedSettlements.value.push(beforeObject);
+  }
+});
+
+ 
+deletedSettlementsCount.value = deletedSettlements.value.length;
+
+console.log(' deletedSettlementsCount.value . ', deletedSettlementsCount.value )
+console.log(' tableDataList. ', tableDataList.value)
+
+
+}
+
+
+
+
+
+const RevertEdits = async (data: TableSlotDefault) => {
+  console.log('Reverts.....', data)
+
+  const formData = {
+    model: 'settlement',
+    history_id: data.history_id,
+  };
+
+ const res = await revertHistory(formData);
+ console.log('Reverts success.....', res.data)
+
+
+};
+
+
+const DateDialogVisible =ref(false)
+const dateRange=ref()
+
+
+const handleDateChange = async () => {
+  console.log('dateRange.....', dateRange.value)
+
+   
+
+
+};
+
+
+
 
 </script>
 
 <template>
   <el-card v-loading="loadingGetData" :element-loading-text="loadingGetDataMsg">
-
-
-
+ 
     <div v-if="dynamicComponent">
       <upload-component :is="dynamicComponent" v-bind="componentProps" />
     </div>
@@ -2540,7 +2798,7 @@ const handleRowDblClick = (row) => {
 
 
 
-    <el-row :gutter="10" style=" margin-bottom:10px;">
+    <el-row :gutter="5" style=" margin-bottom:10px;">
       <el-col :xs="24" :sm="24" :md="2" :lg="2" class="max-w-200px">
 
         <div class="max-w-200px">
@@ -2550,13 +2808,12 @@ const handleRowDblClick = (row) => {
         </div>
       </el-col>
 
-      <el-col :xs="24" :sm="24" :md="12" :lg="5">
+      <el-col :xs="24" :sm="24" :md="12" :lg="4">
         <el-select
 size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear" multiple clearable
           filterable collapse-tags placeholder="By County" style=" margin-right: 5px;">
           <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
-
       </el-col>
 
       <el-col :xs="24" :sm="24" :md="12" :lg="4">
@@ -2587,11 +2844,20 @@ v-model="search_string" clearable :onClear="handleClear"
         </el-input>
       </el-col>
 
+       
 
 
       <el-col :xs="24" :sm="24" :md="12" :lg="4">
 
-        <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px;">
+        <div style="display: flex; align-items: left; gap: 5px;  ">
+
+          <el-tooltip content="Filter By Date" placement="top">
+          <el-button @click="DateDialogVisible=true">
+            <Icon icon="solar:calendar-line-duotone" style="margin-left: 4px;" />
+          </el-button>
+        </el-tooltip>
+
+
 
           <el-tooltip content="Add Settlement" placement="top">
             <el-button v-if="showAdminButtons" :onClick="AddSettlement" type="primary" :icon="Plus" />
@@ -2614,207 +2880,263 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
     </el-row>
 
 
+    <div class="custom-style">
 
-    <el-tabs @tab-click="clickTab" v-model="activeName" class="custom-tab">
-      <el-tab-pane name="list">
-        <template #label>
-          <span class="custom-tabs-label">
-            <el-badge type="primary" :value="totalApproved" class="item" :offset="[10, 5]">
-              <el-button link>List</el-button>
-            </el-badge>
-          </span>
+      <el-segmented v-model="activeSegment" :options="filteredSegments" block :onChange="onSegmentClick">
+        <template #default="{ item }">
+          <div class="flex flex-col items-center gap-2 p-2">
+            <el-icon size="18">
+              <component :is="item.icon" />
+            </el-icon>
+            <div>{{ item.label }} ({{ item.count }}) </div>
+          </div>
         </template>
+      </el-segmented>
 
-        <el-table
-:data="tableDataList" @row-dblclick="handleRowDblClick" :show-overflow-tooltip="true"
-          style="width: 100%" border :row-class-name="tableRowClassName" @expand-change="handleExpand">
+    </div>
 
-          <el-table-column type="expand">
-            <template #default="props">
 
-              <div>
-                <list-documents
+
+
+    <div v-if="activeSegment === 'Approved'">
+      <el-table
+table-layout="auto" 
+:data="tableDataList" @row-dblclick="handleRowDblClick" :show-overflow-tooltip="true" fit 
+        style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName" @expand-change="handleExpand" row-key="id"   :expand-row-keys="expandedRowKeys">
+
+        <el-table-column type="expand">
+          <template #default="props">
+
+            <div>
+              <list-documents
 :is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
-                  @open-dialog="toggleComponent(props.row)" />
-              </div>
+                @open-dialog="toggleComponent(props.row)" />
+            </div>
 
-            </template>
-          </el-table-column>
+          </template>
+        </el-table-column>
 
-          <el-table-column label="Id" width="80" prop="id" sortable>
-            <template #default="scope">
-              <div v-if="scope.row.documents.length > 0" style="display: inline-flex; align-items: center;">
-                <span>{{ scope.row.id }}</span>
-                <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
-              </div>
-            </template>
-          </el-table-column>
+        <el-table-column label="Id" width="80" prop="id" sortable>
+          <template #default="scope">
+            <div v-if="scope.row.documents.length > 0" style="display: inline-flex; align-items: center;">
+              <span>{{ scope.row.id }}</span>
+              <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
+            </div>
+          </template>
+        </el-table-column>
 
 
-          <el-table-column label="Name" prop="name" sortable>
-            <template #default="{ row }">
-              <div style="position: relative;" @mouseenter="showCopyIcon(row)" @mouseleave="hideCopyIcon(row)">
-                <span>{{ row.name }}</span>
+        <el-table-column label="Name" prop="name" sortable>
+          <template #default="{ row }">
+            <div style="position: relative;" @mouseenter="showCopyIcon(row)" @mouseleave="hideCopyIcon(row)">
+              <span>{{ row.name }}</span>
 
-                <el-tooltip class="item" effect="dark" content="History" placement="top">
-                  <el-button
+              <el-tooltip class="item" effect="dark" content="History" placement="top">
+                <el-button
 type="primary" v-show="isCopyIconVisible(row)" size="small" :icon="Clock" circle
-                    style="position: absolute; top: 55%; right: 0; transform: translateY(-50%); margin-left: 5px;"
-                    @click="handleRowDblClick(row)" />
+                  style="position: absolute; top: 55%; right: 0; transform: translateY(-50%); margin-left: 5px;"
+                  @click="handleRowDblClick(row)" />
 
-                </el-tooltip>
+              </el-tooltip>
 
-              </div>
-
-
-            </template>
-          </el-table-column>
+            </div>
 
 
+          </template>
+        </el-table-column>
 
+        <el-table-column label="Location" sortable width="400">
+          <template #default="scope">
+            <span>{{ scope.row.ward.name }} ward, {{ scope.row.subcounty.name }} subcounty, {{ scope.row.county.name
+              }}</span>
+          </template>
+        </el-table-column>
 
-          <el-table-column label="Location" sortable width="400">
-            <template #default="scope">
-              <span>{{ scope.row.ward.name }} ward, {{ scope.row.subcounty.name }} subcounty, {{ scope.row.county.name
-                }}</span>
-            </template>
-          </el-table-column>
-
-
-
-          <el-table-column label="Population" prop="population" sortable />
-          <el-table-column label="Area(HA)" prop="area" sortable />
-          <el-table-column label="Created" prop="createdAt" sortable :formatter="formatDate" />
-
-          <el-table-column label="Code" prop="code" sortable>
-            <template #default="{ row }">
-              <div style="position: relative;" @mouseenter="showCopyIcon(row)" @mouseleave="hideCopyIcon(row)">
-                <span>{{ row.code }}</span>
-                <el-tooltip class="item" effect="dark" content="Copy" placement="top">
-                  <el-button
+        <el-table-column label="Population" prop="population" sortable />
+        <el-table-column label="Area(HA)" prop="area" sortable :formatter="row => Number(row.area).toFixed(2)" />
+        <el-table-column label="Created" prop="createdAt" sortable :formatter="formatDate" />
+        <el-table-column label="Code" prop="code" sortable>
+          <template #default="{ row }">
+            <div style="position: relative;" @mouseenter="showCopyIcon(row)" @mouseleave="hideCopyIcon(row)">
+              <span>{{ row.code }}</span>
+              <el-tooltip class="item" effect="dark" content="Copy" placement="top">
+                <el-button
 v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocument" circle
-                    plain
-                    style="position: absolute; left: 50%;  top: 50%;  transform: translateY(-50%); margin-right: 5px;"
-                    @click="copyToClipboard(row.code)" />
+                  plain
+                  style="position: absolute; left: 50%;  top: 50%;  transform: translateY(-50%); margin-right: 5px;"
+                  @click="copyToClipboard(row.code)" />
+              </el-tooltip>
 
-                </el-tooltip>
-               
+            </div>
 
-              </div>
+          </template>
+        </el-table-column>
 
-
-            </template>
-          </el-table-column>
-
-          <el-table-column label="Actions" width="250">
-            <template #default="{ row }">
-              <!-- Example 1: Only Edit and Delete buttons -->
-              <TableActions
+        <el-table-column label="Actions" width="250">
+          <template #default="{ row }">
+            <!-- Example 1: Only Edit and Delete buttons -->
+            <TableActions
 :item="row" :buttons="action_buttons" @view-on-map="handleViewOnMap" @edit="handleEdit"
-                @review="Review" @delete="handleDelete" />
+              @review="Review" @delete="handleDelete" />
 
-            </template>
-          </el-table-column>
+          </template>
+        </el-table-column>
 
-        </el-table>
+      </el-table>
 
+      <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="page"
+      v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100]" :total="totalApproved" :background="true"
+      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
 
-      </el-tab-pane>
-
-      <el-tab-pane name="New" v-if=showAdminButtons>
-        <template #label>
-          <span class="custom-tabs-label">
-            <el-badge type="success" :value="totalPending" class="item" :offset="[10, 5]">
-              <el-button link>New</el-button>
-            </el-badge>
-          </span>
-        </template>
-
-        <el-table
-:data="tableDataListNew" :show-overflow-tooltip="true" style="width: 100%" border
-          :row-class-name="tableRowClassName" @expand-change="handleExpand">
+    </div>
 
 
+    <div v-if="activeSegment === 'New'">
+      <el-table
+:data="tableDataListNew" :show-overflow-tooltip="true" style="width: 100% ; margin-top: 10px;" border
+        :row-class-name="tableRowClassName" @expand-change="handleExpand" row-key="id"   :expand-row-keys="expandedRowKeys">
+        <el-table-column type="expand">
+          <template #default="props">
 
-          <el-table-column type="expand">
-            <template #default="props">
-
-              <div> <list-documents
+            <div> <list-documents
 :is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
-                  @open-dialog="toggleComponent(props.row)" />
-              </div>
+                @open-dialog="toggleComponent(props.row)" />
+            </div>
 
-            </template>
-          </el-table-column>
+          </template>
+        </el-table-column>
 
-          <el-table-column label="Id" width="80" prop="id" sortable>
-            <template #default="scope">
-              <div v-if="scope.row.documents.length > 0" style="display: inline-flex; align-items: center;">
-                <span>{{ scope.row.id }}</span>
-                <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
-              </div>
-            </template>
-          </el-table-column>
-          <el-table-column label="Name" width="200" prop="name" sortable />
+        <el-table-column label="Id" width="80" prop="id" sortable>
+          <template #default="scope">
+            <div v-if="scope.row.documents.length > 0" style="display: inline-flex; align-items: center;">
+              <span>{{ scope.row.id }}</span>
+              <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="Name" width="200" prop="name" sortable />
 
-          <el-table-column label="Location" sortable width="400">
-            <template #default="scope">
-              <span>{{ scope.row.ward.name }} ward, {{ scope.row.subcounty.name }} subcounty, {{ scope.row.county.name
-                }}</span>
-            </template>
-          </el-table-column>
+        <el-table-column label="Location" sortable width="400">
+          <template #default="scope">
+            <span>{{ scope.row.ward.name }} ward, {{ scope.row.subcounty.name }} subcounty, {{ scope.row.county.name
+              }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="Population" prop="population" sortable />
+        <el-table-column label="Area(HA)" prop="area" sortable :formatter="row => Number(row.area).toFixed(2)" />
+        <el-table-column label="Created" prop="createdAt" sortable :formatter="formatDate" />
 
-
-
-
-          <el-table-column label="Population" prop="population" sortable />
-          <el-table-column label="Area(HA)" prop="area" sortable />
-          <el-table-column label="Created" prop="createdAt" sortable :formatter="formatDate" />
-
-          <el-table-column label="Code" prop="code" sortable>
-            <template #default="{ row }">
-              <div style="position: relative;" @mouseenter="showCopyIcon(row)" @mouseleave="hideCopyIcon(row)">
-                <span>{{ row.code }}</span>
-                <el-tooltip class="item" effect="dark" content="Copy" placement="top">
-                  <el-button
+        <el-table-column label="Code" prop="code" sortable>
+          <template #default="{ row }">
+            <div style="position: relative;" @mouseenter="showCopyIcon(row)" @mouseleave="hideCopyIcon(row)">
+              <span>{{ row.code }}</span>
+              <el-tooltip class="item" effect="dark" content="Copy" placement="top">
+                <el-button
 v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocument" circle
-                    plain
-                    style="position: absolute; top: 50%; right: 0; transform: translateY(-50%); margin-right: 5px;"
-                    @click="copyToClipboard(row.code)" />
+                  plain style="position: absolute; top: 50%; right: 0; transform: translateY(-50%); margin-right: 5px;"
+                  @click="copyToClipboard(row.code)" />
 
-                </el-tooltip>
-              </div>
-            </template>
-          </el-table-column>
+              </el-tooltip>
+            </div>
+          </template>
+        </el-table-column>
 
 
-          <el-table-column label="Actions" width="300">
-            <template #default="{ row }">
-              <!-- Example 1: Only Edit and Delete buttons -->
-              <TableActions
+        <el-table-column label="Actions" width="300">
+          <template #default="{ row }">
+            <!-- Example 1: Only Edit and Delete buttons -->
+            <TableActions
 :item="row" :buttons="action_buttons" @edit="handleEdit" @review="Review"
-                @delete="handleDelete" @view-on-map="handleViewOnMap" />
+              @delete="handleDelete" @view-on-map="handleViewOnMap" />
 
-            </template>
-          </el-table-column>
+          </template>
+        </el-table-column>
+
+      </el-table>
+      <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="page"
+      v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100]" :total="totalPending" :background="true"
+      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+    </div>
+
+    <div v-if="activeSegment === 'Rejected'">
+
+      <el-table
+:data="tableDataListRejected" :show-overflow-tooltip="true" style="width: 100% ; margin-top: 10px;"
+        border :row-class-name="tableRowClassName" @expand-change="handleExpand" row-key="id"   :expand-row-keys="expandedRowKeys">
+        <el-table-column type="expand">
+          <template #default="props">
+            <div m="4">
+              <h3>Documents</h3>
+              <div>
+                <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
+              </div>
+              <el-button
+style="margin-left: 10px; margin-top: 5px" size="small" v-if="showAdminButtons" type="success"
+                :icon="Plus" circle @click="toggleComponent(props.row)" />
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="Id" width="80" prop="id" sortable>
+          <template #default="scope">
+            <div v-if="scope.row.documents.length > 0" style="display: inline-flex; align-items: center;">
+              <span>{{ scope.row.id }}</span>
+              <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="Name" width="200" prop="name" sortable />
+
+        <el-table-column label="Location" sortable width="400">
+          <template #default="scope">
+            <span>{{ scope.row.ward.name }} ward, {{ scope.row.subcounty.name }} subcounty, {{ scope.row.county.name
+              }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="Population" prop="population" sortable />
+        <el-table-column label="Area(HA)" prop="area" sortable :formatter="row => Number(row.area).toFixed(2)" />
+        <el-table-column label="Created" prop="createdAt" sortable :formatter="formatDate" />
+
+        <el-table-column label="Code" prop="code" sortable>
+          <template #default="{ row }">
+            <div style="position: relative;" @mouseenter="showCopyIcon(row)" @mouseleave="hideCopyIcon(row)">
+              <span>{{ row.code }}</span>
+              <el-tooltip class="item" effect="dark" content="Copy" placement="top">
+                <el-button
+v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" circle plain
+                  style="position: absolute; top: 50%; right: 0; transform: translateY(-50%); margin-right: 5px;"
+                  @click="copyToClipboard(row.code)" />
+              </el-tooltip>
+            </div>
+          </template>
+        </el-table-column>
+
+        <el-table-column label="Actions" width="300">
+          <template #default="{ row }">
+            <!-- Example 1: Only Edit and Delete buttons -->
+            <TableActions
+:item="row" :buttons="action_buttons" @edit="handleEdit" @review="Review"
+              @delete="handleDelete" @view-on-map="handleViewOnMap" />
+
+          </template>
+        </el-table-column>
+
+      </el-table>
 
 
-        </el-table>
+      <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="page"
+      v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100]" :total="totalRejected" :background="true"
+      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+    </div>
 
 
-      </el-tab-pane>
+    <div v-if="activeSegment === 'Decommissioned'">
 
-      <el-tab-pane name="Rejected" v-if=showAdminButtons :badge="5">
-        <template #label>
-          <span class="custom-tabs-label">
-            <el-badge :value="totalRejected" class="item" :offset="[10, 5]">
-              <el-button link>Rejected</el-button>
-            </el-badge>
-          </span>
-        </template>
         <el-table
-:data="tableDataListRejected" :show-overflow-tooltip="true" style="width: 100%" border
-          :row-class-name="tableRowClassName" @expand-change="handleExpand">
+:data="decommSettlements" :show-overflow-tooltip="true" style="width: 100% ; margin-top: 10px;"
+          border :row-class-name="tableRowClassName" @expand-change="handleExpand" row-key="id"  :expand-row-keys="expandedRowKeys">
           <el-table-column type="expand">
             <template #default="props">
               <div m="4">
@@ -2823,8 +3145,8 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
                   <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
                 </div>
                 <el-button
-style="margin-left: 10px; margin-top: 5px" size="small" v-if="showAdminButtons"
-                  type="success" :icon="Plus" circle @click="toggleComponent(props.row)" />
+style="margin-left: 10px; margin-top: 5px" size="small" v-if="showAdminButtons" type="success"
+                  :icon="Plus" circle @click="toggleComponent(props.row)" />
               </div>
             </template>
           </el-table-column>
@@ -2845,7 +3167,7 @@ style="margin-left: 10px; margin-top: 5px" size="small" v-if="showAdminButtons"
             </template>
           </el-table-column>
           <el-table-column label="Population" prop="population" sortable />
-          <el-table-column label="Area(HA)" prop="area" sortable />
+          <el-table-column label="Area(HA)" prop="area" sortable :formatter="row => Number(row.area).toFixed(2)" />
           <el-table-column label="Created" prop="createdAt" sortable :formatter="formatDate" />
 
           <el-table-column label="Code" prop="code" sortable>
@@ -2857,15 +3179,10 @@ style="margin-left: 10px; margin-top: 5px" size="small" v-if="showAdminButtons"
 v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" circle plain
                     style="position: absolute; top: 50%; right: 0; transform: translateY(-50%); margin-right: 5px;"
                     @click="copyToClipboard(row.code)" />
-
                 </el-tooltip>
-
-
               </div>
             </template>
           </el-table-column>
-
-
 
           <el-table-column label="Actions" width="300">
             <template #default="{ row }">
@@ -2878,112 +3195,152 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" ci
           </el-table-column>
 
         </el-table>
-      </el-tab-pane>
 
 
-      <el-tab-pane name="Duplicates" v-if="showAdminButtons" :badge="5">
-        <template #label>
-          <span class="custom-tabs-label">
-            <el-badge type="warning" :value="duplicateTotal" :offset="[10, 5]">
-              <el-button link>Duplicates</el-button>
-            </el-badge>
-          </span>
-        </template>
-
-        <!-- Table with pagination -->
-        <el-table :data="paginatedData" @expand-change="onExpand">
-          <el-table-column type="expand">
-            <template #default="props">
-              <div m="4" style="margin-left:20px">
-                <div class="mb-4 d-flex align-items-center">
-                  <div v-if="selectedRecords.length > 0">
-                    <el-button plain @click="showDuplicateMap(props as TableSlotDefault)" :icon="Position">
-                      Compare Location
-                    </el-button>
-                    <el-select
-v-model="primaryRecord" placeholder="Select record to merge to"
-                      :onChange="handleSelectPrimary" style="width: 290px; margin-left: 10px;">
-                      <el-option
-v-for="option in primaryOptions" :key="option.value" :label="option.label"
-                        :value="option.value" />
-                    </el-select>
-                    <el-button
-plain @click="mergeRecords" v-if="props.row.duplicates.length > 1"
-                      style="margin-left: 10px;">
-                      <Icon icon="flowbite:merge-cells-outline" style="margin-left: 4px;" /> Merge
-                    </el-button>
-                  </div>
-                </div>
-
-                <el-table :data="props.row.duplicates" @selection-change="handleSelection" border>
-                  <el-table-column type="selection" />
-                  <el-table-column label="Id" prop="id" />
-                  <el-table-column label="Name" prop="name" sortable />
-                  <el-table-column label="Population" prop="population" />
-                  <el-table-column label="Area(HA)" prop="area" />
-                  <el-table-column label="Code" prop="code" />
-                  <el-table-column label="Created" prop="createdAt" sortable :formatter="formatDate" />
-                  <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
-                    <template #default="scope">
-                      <el-dropdown v-if="isMobile">
-                        <span class="el-dropdown-link">
-                          <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
-                        </span>
-                        <template #dropdown>
-                          <el-dropdown-menu>
-                            <el-dropdown-item
-v-if="showAdminButtons" @click="editSettlement(scope as TableSlotDefault)"
-                              :icon="Edit">Edit</el-dropdown-item>
-                            <el-dropdown-item
-@click="viewOnMap(scope as TableSlotDefault)"
-                              :icon="Position">Map</el-dropdown-item>
-                            <el-dropdown-item
-v-if="showAdminButtons"
-                              @click="DeleteSettlement(scope.row as TableSlotDefault)" :icon="Delete"
-                              color="red">Delete</el-dropdown-item>
-                          </el-dropdown-menu>
-                        </template>
-                      </el-dropdown>
-                      <div v-else>
-                        <el-tooltip content="View on Map" placement="top">
-                          <el-button
-type="warning" size="small" :icon="Position"
-                            @click="viewOnMap(scope as TableSlotDefault)" circle :disabled="!scope.row.geom" />
-                        </el-tooltip>
-                        <el-tooltip content="Delete" placement="top">
-                          <el-popconfirm
-width="300" confirm-button-text="Yes" cancel-button-text="No"
-                            :icon="InfoFilled" icon-color="#626AEF" title="Are you sure to delete this settlement?"
-                            @confirm="DeleteSettlement(scope.row as TableSlotDefault)">
-                            <template #reference>
-                              <el-button v-if="showAdminButtons" type="danger" size="small" :icon="Delete" circle />
-                            </template>
-                          </el-popconfirm>
-                        </el-tooltip>
-                      </div>
-                    </template>
-                  </el-table-column>
-                </el-table>
-              </div>
-            </template>
-          </el-table-column>
-
-          <el-table-column label="County" prop="parent" sortable />
-        </el-table>
-
-        <!-- Pagination -->
-        <el-pagination
-background class="mt-4" layout="prev, pager, next, jumper" :total="duplicateRecords.length"
-          :page-size="pageSize" @current-change="handlePageChange" />
-      </el-tab-pane>
-
-
-
-      <ElPagination
-v-if="showPagination" layout="sizes, prev, pager, next, total" v-model:currentPage="page"
-        v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100]" :total="total" :background="true"
+        <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="page"
+        v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100]" :total="decommSettlementsCount" :background="true"
         @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
-    </el-tabs>
+    </div>
+
+
+
+
+    <div v-if="activeSegment === 'Deleted'">
+      <el-table table-layout="auto"  :data="deletedSettlements" :show-overflow-tooltip="true" style="width: 100% ; margin-top: 10px;"  border  >
+        <el-table-column type="index" width="50" />
+        <el-table-column label="Name" width="200" prop="name" sortable />     
+        <el-table-column label="Population" prop="population" sortable />
+        <el-table-column label="Area(HA)" prop="area" sortable :formatter="row => Number(row.area).toFixed(2)" />
+        <el-table-column label="Created" prop="createdAt" sortable :formatter="formatDate" />
+        <el-table-column label="Code" prop="code" sortable>
+          <template #default="{ row }">
+            <div style="position: relative;" @mouseenter="showCopyIcon(row)" @mouseleave="hideCopyIcon(row)">
+              <span>{{ row.code }}</span>
+              <el-tooltip class="item" effect="dark" content="Copy" placement="top">
+                <el-button
+v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" circle plain
+                  style="position: absolute; top: 50%; right: 0; transform: translateY(-50%); margin-right: 5px;"
+                  @click="copyToClipboard(row.code)" />
+              </el-tooltip>
+            </div>
+          </template>
+        </el-table-column>
+
+        <el-table-column fixed="right" label="Operations" min-width="120">
+          <template  #default="{ row }">
+            <el-tooltip content="Review" placement="top">
+              <el-button
+type="primary" size="small" :icon="View" @click="DeleteReview(row)"
+                plain />
+            </el-tooltip> 
+            <el-tooltip content="Restore" placement="top">
+            <el-button type="warning"  size="small" :icon="RefreshLeft" @click="RevertEdits(row)" />
+          </el-tooltip> 
+          </template>
+    </el-table-column>
+
+      </el-table>
+
+     
+
+    </div>
+
+ 
+
+    <div v-if="activeSegment === 'Duplicates'">
+      <!-- Table with pagination -->
+      <el-table table-layout="auto"  :data="paginatedData" @expand-change="onExpand" style="width: 100% ; margin-top: 10px;">
+        <el-table-column type="expand">
+          <template #default="props">
+            <div m="4" style="margin-left:20px">
+              <div class="mb-4 d-flex align-items-center">
+                <div v-if="selectedRecords.length > 0">
+                  <el-button plain @click="showDuplicateMap(props as TableSlotDefault)" :icon="Position">
+                    Compare Location
+                  </el-button>
+                  <el-select
+v-model="primaryRecord" placeholder="Select record to merge to"
+                    :onChange="handleSelectPrimary" style="width: 290px; margin-left: 10px;">
+                    <el-option
+v-for="option in primaryOptions" :key="option.value" :label="option.label"
+                      :value="option.value" />
+                  </el-select>
+                  <el-button
+plain @click="mergeRecords" v-if="props.row.duplicates.length > 1"
+                    style="margin-left: 10px;">
+                    <Icon icon="flowbite:merge-cells-outline" style="margin-left: 4px;" /> Merge
+                  </el-button>
+                </div>
+              </div>
+
+              <el-table  table-layout="auto" :data="props.row.duplicates" @selection-change="handleSelection" border>
+                <el-table-column type="selection" />
+                <el-table-column label="Id" prop="id" />
+                <el-table-column label="Name" prop="name" sortable />
+                <el-table-column label="Population" prop="population" />
+                <el-table-column label="Area(HA)" prop="area" sortable :formatter="row => Number(row.area).toFixed(2)" />
+                <el-table-column label="Code" prop="code" />
+                <el-table-column label="Created" prop="createdAt" sortable :formatter="formatDate" />
+                <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
+                  <template #default="scope">
+                    <el-dropdown v-if="isMobile">
+                      <span class="el-dropdown-link">
+                        <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
+                      </span>
+                      <template #dropdown>
+                        <el-dropdown-menu>
+                          <el-dropdown-item
+v-if="showAdminButtons" @click="editSettlement(scope as TableSlotDefault)"
+                            :icon="Edit">Edit</el-dropdown-item>
+                          <el-dropdown-item
+@click="viewOnMap(scope as TableSlotDefault)"
+                            :icon="Position">Map</el-dropdown-item>
+                          <el-dropdown-item
+v-if="showAdminButtons"
+                            @click="DeleteSettlement(scope.row as TableSlotDefault)" :icon="Delete"
+                            color="red">Delete</el-dropdown-item>
+                        </el-dropdown-menu>
+                      </template>
+                    </el-dropdown>
+                    <div v-else>
+                      <el-tooltip content="View on Map" placement="top">
+                        <el-button
+type="warning" size="small" :icon="Position"
+                          @click="viewOnMap(scope as TableSlotDefault)" circle :disabled="!scope.row.geom" />
+                      </el-tooltip>
+                      <el-tooltip content="Delete" placement="top">
+                        <el-popconfirm
+width="300" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
+                          icon-color="#626AEF" title="Are you sure to delete this settlement?"
+                          @confirm="DeleteSettlement(scope.row as TableSlotDefault)">
+                          <template #reference>
+                            <el-button v-if="showAdminButtons" type="danger" size="small" :icon="Delete" circle />
+                          </template>
+                        </el-popconfirm>
+                      </el-tooltip>
+                    </div>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </div>
+          </template>
+        </el-table-column>
+
+        <el-table-column label="County" prop="parent" sortable />
+      </el-table>
+
+      <!-- Pagination -->
+      <el-pagination
+background class="mt-4" layout="prev, pager, next, jumper" :total="duplicateRecords.length"
+        :page-size="pageSize" @current-change="handlePageChange" />
+
+
+
+
+
+    </div>
+ 
 
 
 
@@ -3109,12 +3466,6 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
       </template>
     </el-dialog>
 
-    <!-- <el-dialog v-model="showSelectFields" title="Select Fields" width="50%">
-      <el-checkbox-group   v-model="selectedFields">
-    <el-checkbox v-for="field in model_fields" :key="field" :name="field" :label="field">{{ field }}</el-checkbox>
-    </el-checkbox-group>
-      <el-button type="secondary" @click="handleDownloadSelectFields()">Submit</el-button>
-    </el-dialog>   -->
 
 
     <el-dialog v-model="showSelectFields" title="Select Fields" width="50%">
@@ -3136,9 +3487,14 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
         <el-descriptions-item label="Description"> {{ settlement_raw.description }} </el-descriptions-item>
         <el-descriptions-item label="Submitted By"> {{ settlement_raw.user }} </el-descriptions-item>
         <el-descriptions-item label="Date"> {{ settlement_raw.date }} </el-descriptions-item>
+
+        <el-descriptions-item   v-if="activeSegment === 'Deleted'"  label="Deleted By"> {{ settlement_raw.user }} </el-descriptions-item>
+        <el-descriptions-item   v-if="activeSegment === 'Deleted'"  label="Date Deleted"> {{ settlement_raw.delete_date }} </el-descriptions-item>
+ 
+
       </el-descriptions>
       <template #footer>
-        <span v-if="showAdminButtons" class="dialog-footer">
+        <span v-if="showAdminButtons &&  activeSegment != 'Deleted'" class="dialog-footer">
           <el-button type="success" @click="approve">Approve</el-button>
           <el-button type="danger" @click="reject">Reject</el-button>
         </span>
@@ -3170,12 +3526,34 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
     </el-button>
   </el-dialog>
 
-
-
-
-
-
-
+  <el-dialog
+  title="Select Date Range"
+  v-model="DateDialogVisible"
+  width="30%"
+   
+>
+  <el-form   ref="dateFormRef">
+    <el-form-item label="Date Range">
+      <el-date-picker
+        v-model="dateRange"
+        type="daterange"
+        unlink-panels
+        range-separator="To"
+        start-placeholder="Start date"
+        end-placeholder="End date"
+        size="default"
+        style="width: 100%;"
+        @change="handleDateChange"
+      />
+    </el-form-item>
+  </el-form>
+  <template #footer>
+    <span class="dialog-footer">
+      <el-button @click="DateDialogVisible=false">Cancel</el-button>
+      <el-button type="primary" @click="handleDateChange">Confirm</el-button>
+    </span>
+  </template>
+    </el-dialog>
 
 </template>
 
@@ -3270,5 +3648,42 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
 .item {
   margin-top: 10px;
   margin-right: 40px;
+}
+</style>
+
+<style scoped>
+.custom-style .el-segmented {
+  --el-border-radius-base: 5px;
+}
+
+.segment-label {
+  white-space: nowrap;
+  /* Prevent text from wrapping */
+  overflow: hidden;
+  /* Hide overflowing text */
+  text-overflow: ellipsis;
+  /* Add ellipsis for truncated text */
+}
+
+@media (max-width: 600px) {
+  .custom-style .el-segmented {
+    font-size: 10px;
+    /* Adjust font size on mobile */
+    padding: 5px;
+    /* Adjust padding for smaller screens */
+  }
+
+  .segment-label {
+    font-size: 12px;
+    /* Smaller font size for labels */
+    text-align: center;
+    /* Center align text */
+    padding: 0 5px;
+    /* Add some padding for spacing */
+    white-space: normal;
+    /* Allow wrapping on smaller screens */
+    overflow: visible;
+    /* Allow the text to flow properly */
+  }
 }
 </style>

@@ -944,499 +944,17 @@ exports.modelImportData = async (req, res) => {
 }
 
  
+ 
 
-exports.old_modelImportDataUpsert = async (req, res) => {
-
-  console.log('req.body', req.body);
-
-  const reg_model = req.body.model;
-  //const data = req.body.data;
-  let data = req.body.data;
-
-    // Check if data is a JSON string and parse it if so
-    if (typeof data === 'string') {
-      try {
-        data = JSON.parse(data);
-      } catch (error) {
-        return res.status(400).json({ message: 'Invalid JSON format for data' });
-      }
-    }
-
-
-  const insertedDocuments = [];
-  const errors = [];
 
  
 
-  try {
-    if (reg_model === 'project') {
-      // Handle projects with associated activities
-      await Promise.all(
-        data.map(async (item) => {
-          item.createdBy = req.thisUser.id;
-
-          item.sourceFunding = Array.isArray(item.sourceFunding) ? item.sourceFunding : [item.sourceFunding];
-          item.activities = Array.isArray(item.activities) ? item.activities : [item.activities];
-
-          try {
-            const prj = await db.models[reg_model].create(item);
-
-            const list_activities = item.activities;
-            const activities = await db.models.activity.findAll({
-              where: {
-                id: list_activities,
-              },
-            });
-
-            await prj.addActivities(activities);
-
-            insertedDocuments.push(prj); // Add the inserted document to the array
-          } catch (err) {
-            errors.push(err.original);
-            console.log('Error while processing project:', err);
-          }
-        })
-      );
-    } else {
-      // Handle other models
-      await Promise.all(
-        data.map(async (item) => {
-          item.createdBy = req.thisUser.id;
-
-          console.log(item)
-
-          try {
-            // Use upsert to insert or update depending on conflicts
-            const [insertedData, created] = await db.models[reg_model].upsert(item, {
-              returning: true, // Get the inserted/updated data
-            });
-
-            if (reg_model === 'settlement') {
-              sendSettDataToODK([item]);
-            }
-
-            if (created) {
-              insertedDocuments.push(insertedData); // Add the inserted document to the array if it was created
-            }
-          } catch (err) {
-            errors.push(err.original);
-            console.log('Error while processing other models:', err);
-          }
-        })
-      );
-    }
-    
-    // Check for errors and respond accordingly
-    if (errors.length > 0) {
-      let errorCodes = [...new Set(errors.map(error => error.code))];
-      let errorMsg = 'Import/Update failed for ' + errors.length + ' Records.';
-
-      if (errorCodes.includes("42P10")) {
-        errorMsg = 'There are one or more duplicate records';
-      }
-
-      res.status(500).send({ message: errorMsg });
-    } else {
-      res.status(200).send({
-        message: 'Import/Update Successful',
-        code: '0000',
-        insertedDocuments: insertedDocuments, // Add the inserted documents to the response
-      });
-    }
-  } catch (err) {
-    console.error('Unexpected error:', err);
-    res.status(500).send({ message: 'Internal Server Error', error: err.message });
-  }
-};
-
-
-exports.oxld_modelImportDataUpsert = async (req, res) => {
-  try {
-    console.log('req.body', req.body);
-    
-    const { model: reg_model, data: rawData } = req.body;
-    let data = rawData;
-
-    // Parse JSON if data is string
-    if (typeof data === 'string') {
-      try {
-        data = JSON.parse(data);
-      } catch (error) {
-        return res.status(400).json({ message: 'Invalid JSON format for data' });
-      }
-    }
-
-    // Validate data is array
-    if (!Array.isArray(data)) {
-      return res.status(400).json({ message: 'Data must be an array' });
-    }
-
-    const results = [];
-    const errors = [];
-    const currentUser = req.thisUser.id;
-
-    // Common processing for all items
-    const processItem = async (item) => {
-      try {
-        item.createdBy = currentUser;
-
-        // Model-specific processing
-        if (reg_model === 'project') {
-          item.sourceFunding = Array.isArray(item.sourceFunding) 
-            ? item.sourceFunding 
-            : [item.sourceFunding];
-          item.activities = Array.isArray(item.activities) 
-            ? item.activities 
-            : [item.activities];
-        }
-
-        // Upsert with conflict handling
-        console.log('Upsert with conflict handling')
-        const [document, created] = await db.models[reg_model].upsert(item, {
-          returning: true,
-          // conflictFields: ['code'], // Specify conflict fields (ensure this exists or adjust it as necessary)
-          // updateOnDuplicate: Object.keys(item).filter(key => key !== 'code' && item[key] !== undefined) // Exclude 'code' and any undefined fields
-        });
-        
-
-        // Handle project activities
-        if (reg_model === 'project' && item.activities?.length) {
-          const activities = await db.models.activity.findAll({
-            where: { id: item.activities },
-          });
-          await document.addActivities(activities);
-        }
-
-        // Send settlement data if applicable
-        if (reg_model === 'settlement' && created) {
-          sendSettDataToODK([item]);
-        }
-
-        results.push({ document, created });
-      } catch (err) {
-        console.error(`Error processing ${reg_model} item:`, err);
-        errors.push({
-          item,
-          error: err.original || err.message
-        });
-      }
-    };
-
-    // Process all items in parallel
-    await Promise.all(data.map(processItem));
-
-    // Handle response
-    if (errors.length > 0) {
-      const errorCodes = [...new Set(errors.map(e => e.error?.code))];
-      let errorMsg = `Import/Update completed with ${errors.length} errors`;
-
-      if (errorCodes.includes("42P10") || errorCodes.includes("23505")) {
-        errorMsg = 'Duplicate records detected. Non-duplicates were processed successfully.';
-      }
-
-      return res.status(207).json({ // 207 Multi-Status
-        message: errorMsg,
-        successCount: results.length,
-        errorCount: errors.length,
-        errors: errors.slice(0, 10), // Return first 10 errors to avoid huge response
-        code: 'PARTIAL_SUCCESS'
-      });
-    }
-
-    return res.status(200).json({
-      message: 'Import/Update Successful',
-      insertedCount: results.filter(r => r.created).length,
-      updatedCount: results.filter(r => !r.created).length,
-      code: '0000'
-    });
-
-  } catch (err) {
-    console.error('Unexpected error:', err);
-    return res.status(500).json({ 
-      message: 'Internal Server Error', 
-      error: err.message 
-    });
-  }
-};
-
-
-exports.new_modelImportDataUpsert = async (req, res) => {
-  try {
-    const { model: reg_model, data: rawData } = req.body;
-    if (!reg_model || !rawData) {
-      return res.status(400).json({ message: 'Model and data are required' });
-    }
-
-    const Model = db.models[reg_model];
-    if (!Model) {
-      return res.status(400).json({ message: `Model "${reg_model}" not found` });
-    }
-
-    let data = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
-    if (!Array.isArray(data)) {
-      return res.status(400).json({ message: 'Data must be an array' });
-    }
-
-    const currentUser = req.thisUser?.id;
-    const timestamp = new Date();
-
-    // Filter out invalid entries
-    const validData = data
-      .filter(item => item?.code)
-      .map(item => ({
-        ...item,
-        createdBy: currentUser,
-        updatedAt: timestamp,
-      }));
-
-    if (validData.length === 0) {
-      return res.status(400).json({ message: 'No valid records to process' });
-    }
-
-    let successCount = 0;
-    let errorCount = 0;
-    let errorDetails = [];
-
-    for (const item of validData) {
-      try {
-        await Model.upsert(item); // upsert handles insert or update based on primary/unique keys
-        successCount++;
-      } catch (err) {
-        errorCount++;
-        console.error(`Failed to upsert item with code ${item.code}:`, err.message);
-        errorDetails.push({
-          code: item.code,
-          error: err.message,
-        });
-      }
-    }
-
-    return res.status(200).json({
-      message: 'Import/Upsert completed',
-      processed: successCount,
-      failed: errorCount,
-      errors: errorDetails.length > 0 ? errorDetails : undefined,
-      code: '0000',
-    });
-
-  } catch (err) {
-    console.error('Upsert error:', err);
-    return res.status(500).json({
-      message: 'Internal Server Error',
-      error: err.message,
-    });
-  }
-};
-
-
-exports.modelImportDataUpsert_first = async (req, res) => {
-  try {
-    const { model: reg_model, data: rawData } = req.body;
-    if (!reg_model || !rawData) {
-      return res.status(400).json({ message: 'Model and data are required' });
-    }
-
-    const Model = db.models[reg_model];
-    if (!Model) {
-      return res.status(400).json({ message: `Model "${reg_model}" not found` });
-    }
-
-    let data = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
-    if (!Array.isArray(data)) {
-      return res.status(400).json({ message: 'Data must be an array' });
-    }
-
-    const currentUser = req.thisUser?.id;
-    const timestamp = new Date();
-
-    const validData = data
-      .filter(item => typeof item === 'object' && item.code)
-      .map(item => ({
-        ...item,
-        createdBy: currentUser,
-        updatedAt: timestamp,
-      }));
-
-    if (validData.length === 0) {
-      return res.status(400).json({ message: 'No valid records to process' });
-    }
-
-    // Get unique indexes
-    const uniqueIndexes = (Model.options.indexes || [])
-      .filter(index => index.unique)
-      .map(index => index.fields.map(f => typeof f === 'string' ? f : f.name));
-
-    if (!uniqueIndexes.some(idx => idx.includes('code'))) {
-      uniqueIndexes.push(['code']);
-    }
-
-    const inserted = [];
-    const updated = [];
-    const errors = [];
-
-    for (const item of validData) {
-      let matched = false;
-
-      for (const uniqueFields of uniqueIndexes) {
-        const where = {};
-        let allPresent = true;
-
-        for (const field of uniqueFields) {
-          if (item[field] === undefined || item[field] === null) {
-            allPresent = false;
-            break;
-          }
-          where[field] = item[field];
-        }
-
-        if (!allPresent) continue;
-
-        try {
-          const existing = await Model.findOne({ where });
-
-          if (existing) {
-            const updateData = { ...item };
-            // Always remove unique keys and `code` from being updated
-            uniqueFields.forEach(field => delete updateData[field]);
-            delete updateData.code;
+ 
 
  
-            await existing.update(updateData);
-            updated.push(item.code);
-            matched = true;
-            break;
-          }
-        } catch (err) {
-          errors.push({ item, error: err.message });
-          matched = true;
-          break;
-        }
-      }
+ 
 
-      if (!matched) {
-        try {
-          await Model.create(item);
-          inserted.push(item.code);
-        } catch (err) {
-          errors.push({
-            item,
-            error: err.message,
-            detail: err?.original?.detail,
-          });
-        }
-      }
-    }
-
-    const hasErrors = errors.length > 0;
-
-    return res.status(hasErrors ? 207 : 200).json({
-      message: hasErrors ? 'Import completed with some errors' : 'Import process completed successfully',
-      insertedCount: inserted.length,
-      updatedCount: updated.length,
-      failedCount: errors.length,
-      inserted,
-      updated,
-      errors,
-      code: hasErrors ? '0001' : '0000',
-    });
-    
-
-  } catch (err) {
-    console.error('Fatal upsert error:', err);
-    return res.status(500).json({
-      message: 'Internal Server Error',
-      error: err.message,
-    });
-  }
-};
-
-exports.bef_eld_modelImportDataUpsert = async (req, res) => {
-  try {
-    const { model: reg_model, data: rawData } = req.body;
-    if (!reg_model || !rawData) {
-      return res.status(400).json({ message: 'Model and data are required' });
-    }
-
-    const Model = db.models[reg_model];
-    if (!Model) {
-      return res.status(400).json({ message: `Model "${reg_model}" not found` });
-    }
-
-    let data = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
-    if (!Array.isArray(data)) {
-      return res.status(400).json({ message: 'Data must be an array' });
-    }
-
-    const currentUser = req.thisUser?.id;
-    const timestamp = new Date();
-
-    const validData = data
-      .filter(item => typeof item === 'object' && item.code)
-      .map(item => ({
-        ...item,
-        createdBy: currentUser,
-        updatedAt: timestamp,
-      }));
-
-    if (validData.length === 0) {
-      return res.status(400).json({ message: 'No valid records to process' });
-    }
-
-    const inserted = [];
-    const updated = [];
-    const errors = [];
-
-    for (const item of validData) {
-      const code = item.code;
-
-      try {
-        const existing = await Model.findOne({ where: { code } });
-
-        if (existing) {
-          // Don't update 'code'
-          const updateData = { ...item };
-          delete updateData.code;
-
-          await existing.update(updateData);
-          updated.push(code);
-        } else {
-          await Model.create(item);
-          inserted.push(code);
-        }
-
-      } catch (err) {
-        errors.push({
-          item,
-          error: err.message,
-          detail: err?.original?.detail,
-        });
-      }
-    }
-
-    const hasErrors = errors.length > 0;
-
-    return res.status(hasErrors ? 207 : 200).json({
-      message: hasErrors ? 'Import completed with some errors' : 'Import process completed successfully',
-      insertedCount: inserted.length,
-      updatedCount: updated.length,
-      failedCount: errors.length,
-      inserted,
-      updated,
-      errors,
-      code: hasErrors ? '0001' : '0000',
-    });
-    
-
-  } catch (err) {
-    console.error('Fatal upsert error:', err);
-    return res.status(500).json({
-      message: 'Internal Server Error',
-      error: err.message,
-    });
-  }
-};
-
-exports.modelImportDataUpsert = async (req, res) => {
+exports._modelImportDataUpsert = async (req, res) => {
   try {
     const { model: reg_model, data: rawData } = req.body;
     if (!reg_model || !rawData) {
@@ -1532,8 +1050,149 @@ exports.modelImportDataUpsert = async (req, res) => {
 };
 
 
+exports.modelImportDataUpsert = async (req, res) => {
+  try {
+    // Validate request body
+    const { model: modelName, data: rawData } = req.body;
+    if (!modelName || !rawData) {
+      return res.status(400).json({ message: 'Model name and data are required' });
+    }
 
- 
+    // Validate model existence
+    const Model = db.models[modelName];
+    if (!Model) {
+      return res.status(400).json({ message: `Model "${modelName}" not found` });
+    }
+
+    // Parse and validate data
+    let data = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
+    if (!Array.isArray(data)) {
+      return res.status(400).json({ message: 'Data must be an array' });
+    }
+
+    // Prepare data with metadata
+    const currentUser = req.thisUser?.id;
+    const timestamp = new Date();
+    const validData = data
+      .filter(item => item && typeof item === 'object')
+      .map(item => ({
+        ...item,
+        createdBy: currentUser,
+        updatedAt: timestamp,
+        createdAt: item.createdAt || timestamp, // Preserve existing createdAt if provided
+      }));
+
+    if (validData.length === 0) {
+      return res.status(400).json({ message: 'No valid records to process' });
+    }
+
+    // Process records
+    const inserted = [];
+    const updated = [];
+    const errors = [];
+
+    for (const item of validData) {
+      try {
+        // Determine unique fields for the model
+        const uniqueFields = Object.keys(Model.rawAttributes).filter(attr => 
+          Model.rawAttributes[attr].unique || 
+          (Model.rawAttributes[attr].primaryKey && attr !== 'id')
+        );
+
+        // Check if item has at least one unique field value
+        const hasUniqueValues = uniqueFields.some(field => item[field] !== undefined && item[field] !== null);
+
+        if (!hasUniqueValues) {
+          // No unique fields provided, create new record
+          const newRecord = await Model.create(item);
+          inserted.push(newRecord.id);
+          continue;
+        }
+
+        // Build where clause for unique fields
+        const whereClause = {};
+        uniqueFields.forEach(field => {
+          if (item[field] !== undefined && item[field] !== null) {
+            whereClause[field] = item[field];
+          }
+        });
+
+        // Attempt to find existing record
+        const existing = await Model.findOne({ where: whereClause });
+
+        if (existing) {
+          // Update existing record
+          const updateData = { ...item };
+          // Remove unique fields to prevent constraint issues
+          uniqueFields.forEach(field => delete updateData[field]);
+          await existing.update(updateData);
+          updated.push(item.code || existing.id);
+        } else {
+          // Create new record
+          const newRecord = await Model.create(item);
+          inserted.push(newRecord.id);
+        }
+      } catch (err) {
+        if (err.name === 'SequelizeUniqueConstraintError') {
+          try {
+            // Build where clause from error fields
+            const whereClause = {};
+            Object.keys(err.fields).forEach(field => {
+              whereClause[field] = item[field];
+            });
+
+            // Find and update existing record
+            const existing = await Model.findOne({ where: whereClause });
+            if (existing) {
+              const updateData = { ...item };
+              Object.keys(whereClause).forEach(field => delete updateData[field]);
+              await existing.update(updateData);
+              updated.push(item.code || existing.id);
+            } else {
+              errors.push({
+                item,
+                error: 'Unique constraint violation, but no existing record found',
+                detail: err.message,
+              });
+            }
+          } catch (updateErr) {
+            errors.push({
+              item,
+              error: 'Failed to update on unique constraint violation',
+              detail: updateErr.message,
+            });
+          }
+        } else {
+          errors.push({
+            item,
+            error: err.message,
+            detail: err?.original?.detail || 'No additional details',
+          });
+        }
+      }
+    }
+
+    // Prepare response
+    const hasErrors = errors.length > 0;
+    return res.status(hasErrors ? 207 : 200).json({
+      message: hasErrors ? 'Import completed with some errors' : 'Import process completed successfully',
+      insertedCount: inserted.length,
+      updatedCount: updated.length,
+      failedCount: errors.length,
+      inserted,
+      updated,
+      errors,
+      code: hasErrors ? '0001' : '0000',
+    });
+
+  } catch (err) {
+    console.error('Fatal upsert error:', err);
+    return res.status(500).json({
+      message: 'Internal Server Error',
+      error: err.message,
+    });
+  }
+};
 
 async function logEvents(log_object) {
   console.log(log_object)
@@ -3225,199 +2884,9 @@ exports.modelPaginatedData = (req, res) => {
     })
   })
 }
-exports._modelPaginatedDatafilterByColumn = async (req, res) => {
-  console.log('Req-body 002', req.body);
+ 
 
-  var reg_model = req.body.model;
-
-  // Base count query without nested models and includes
-  var baseCountQuery = {
-    where: {}
-  };
-
-  if (req.body.filters && req.body.filters.length > 0 && req.body.filterValues.length > 0 && req.body.filterValues.length === req.body.filters.length) {
-    var lstQuerries = [];
-    for (let i = 0; i < req.body.filters.length; i++) {
-      var lstValues = req.body.filterValues[i];
-      lstQuerries.push({ [req.body.filters[i]]: lstValues });
-    }
-    baseCountQuery.where = { [Op.and]: lstQuerries };
-  }
-
-  // Count records without nested models and includes
-
-  console.log('reg_model',reg_model)
-  let count = await db.models[reg_model].count(baseCountQuery);
-  console.log('Base count:', count);
-
-  // Associated Models
-  var associated_multiple_models = req.body.associated_multiple_models;
-  //console.log('associated_multiple_models', associated_multiple_models.length);
-
-  // Nested Models
-  var nested_models = req.body.nested_models;
-  var nestedQuery = {};
-
-  if (req.body.nested_models) {
-    var child_model = db.models[req.body.nested_models[0]];
-    var grand_child_model = db.models[req.body.nested_models[1]];
-
-    if (req.body.nested_filter) {
-      nestedQuery[req.body.nested_filter[0]] = req.body.nested_filter[1];
-    }
-  }
-
-  var qry = {};
-  var includeModels = [];
-
-  // Loop through the include models
-  for (let i = 0; i < associated_multiple_models.length; i++) {
-    var modelIncl = { model: db.models[associated_multiple_models[i]] };
-
-    if (associated_multiple_models[i] === 'users') {
-      modelIncl.raw = true;
-      modelIncl.nested = true;
-      modelIncl.attributes = ['name', 'email', 'phone'];
-    }
-
-    includeModels.push(modelIncl);
-  }
-
-  if (associated_multiple_models) {
-    if (nested_models) {
-      var nestedModels;
-      if (req.body.nested_filter) {
-        nestedModels = { model: child_model, include: [{ model: grand_child_model, where: nestedQuery }], raw: true, nested: true };
-      } else {
-        nestedModels = { model: child_model, include: [grand_child_model], raw: true, nested: true };
-      }
-      includeModels.push(nestedModels);
-      qry.include = includeModels;
-    } else {
-      qry.include = includeModels;
-    }
-  }
-
-  // Pagination and sorting
-  if (req.body.limit) {
-    qry.limit = req.body.limit;
-  }
-  if (req.body.page) {
-    qry.offset = (req.body.page - 1) * req.body.limit;
-  }
-
-  // Filtering
-  if (req.body.filters) {
-    if (req.body.filters.length > 0 && req.body.filterValues.length > 0 && req.body.filterValues.length === req.body.filters.length) {
-      var lstQuerries = [];
-      for (let i = 0; i < req.body.filters.length; i++) {
-        var lstValues = req.body.filterValues[i];
-        lstQuerries.push({ [req.body.filters[i]]: lstValues });
-      }
-      qry.where = { [Op.and]: lstQuerries };
-    }
-  }
-
-  // Order by createdAt in descending order
-  qry.order = [['createdAt', 'DESC']];
-
-  console.log('Final Query:', qry);
-
-  
-
-  // Cache handling
-  if (req.body.cache_key && req.body.cache_key !== '') {
-    const cache_key = req.body.cache_key;
-    const cacheDuration = 3600; // Cache duration in seconds
-
-    // Get last time it was modified
-    const lastRow = await db.models[reg_model].findOne({
-      attributes: ['updatedAt'],
-      order: [['updatedAt', 'DESC']]
-    });
-
-    const lastModified = lastRow ? lastRow.updatedAt : Date.now();
-
-    try {
-      const cacheResults = await redisClient.get(cache_key);
-      if (cacheResults) {
-        const result = JSON.parse(cacheResults);
-        if (lastModified && lastModified > result.lastModified) {
-          // If the database was updated after the cached data was generated, update the cache
-          const response = await db.models[reg_model].findAndCountAll(qry);
-          await redisClient.set(cache_key, JSON.stringify({
-            data: response.rows,
-            total: count,
-            lastModified: Date.now()
-          }), {
-            EX: cacheDuration,
-            NX: true,
-          });
-          res.status(200).send({
-            fromCache: false,
-            cache_key: cache_key,
-            data: response.rows,
-            total: count,
-            code: '0000'
-          });
-        } else {
-          // If the cached data is still valid, return it from the cache
-          res.status(200).send({
-            fromCache: true,
-            cache_key: cache_key,
-            data: result.data,
-            total: count,
-            code: '0000'
-          });
-        }
-      } else {
-        // If no cache data exists, generate new data and store it in the cache
-        const response = await db.models[reg_model].findAndCountAll(qry);
-        await redisClient.set(cache_key, JSON.stringify({
-          data: response.rows,
-          total: count,
-          lastModified: Date.now()
-        }), {
-          EX: cacheDuration,
-          NX: true,
-        });
-        res.status(200).send({
-          fromCache: false,
-          cache_key: cache_key,
-          data: response.rows,
-          total: count,
-          code: '0000'
-        });
-      }
-    } catch (error) {
-
-      console.log(error)
-      res.status(500).send({
-        message: 'Internal server error 1',
-        code: 'SERVER_ERROR'
-      });
-    }
-  } else {
-    // No cache
-    try {
-      const response = await db.models[reg_model].findAndCountAll(qry);
-      res.status(200).send({
-        fromCache: false,
-        data: response.rows,
-        total: count,
-        code: '0000'
-      });
-    } catch (error) {
-      console.log(error)
-      res.status(500).send({
-        message: 'Internal server error 2',
-        code: 'SERVER_ERROR'
-      });
-    }
-  }
-};
-
-exports.modelPaginatedDatafilterByColumn = async (req, res) => {
+exports.xmodelPaginatedDatafilterByColumn = async (req, res) => {
   const { model: reg_model, filters, filterValues, associated_multiple_models = [], nested_models, nested_filter, limit, page, cache_key } = req.body;
 
   console.log('Req-body 002', req.body);
@@ -3566,6 +3035,181 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
 };
 
 
+
+ 
+exports.modelPaginatedDatafilterByColumn = async (req, res) => {
+  try {
+    // Validate request body
+    const {
+      model: modelName,
+      filters = [],
+      filterValues = [],
+      associated_multiple_models = [],
+      nested_models = [],
+      nested_filter = [],
+      limit = 10,
+      page = 1,
+      cache_key,
+    } = req.body;
+
+    if (!modelName) {
+      return res.status(400).json({ message: 'Model name is required', code: 'INVALID_INPUT' });
+    }
+
+    // Validate model existence
+    const Model = db.models[modelName];
+    if (!Model) {
+      return res.status(400).json({ message: `Model "${modelName}" not found`, code: 'MODEL_NOT_FOUND' });
+    }
+
+    // Validate pagination parameters
+    const parsedLimit = parseInt(limit, 10);
+    const parsedPage = parseInt(page, 10);
+    if (isNaN(parsedLimit) || parsedLimit < 1 || isNaN(parsedPage) || parsedPage < 1) {
+      return res.status(400).json({ message: 'Invalid limit or page number', code: 'INVALID_PAGINATION' });
+    }
+
+    // Build base query
+    const baseQuery = { where: {} };
+
+    // Sanitize and apply filters
+    if (filters.length > 0 && filterValues.length === filters.length) {
+      const modelAttributes = Object.keys(Model.rawAttributes);
+      const validFilters = filters
+        .map((filter, i) => ({
+          field: filter,
+          value: filterValues[i],
+        }))
+        .filter(({ field }) => modelAttributes.includes(field)); // Only include valid model fields
+
+      if (validFilters.length === 0) {
+        return res.status(400).json({ message: 'No valid filter fields provided', code: 'INVALID_FILTERS' });
+      }
+
+      baseQuery.where = {
+        [Op.and]: validFilters.map(({ field, value }) => ({ [field]: value })),
+      };
+    }
+
+    // Count total records
+    const total = await Model.count(baseQuery);
+
+    // Build include array for associations
+    const includeModels = [];
+
+    // Handle associated models
+    for (const assocModel of associated_multiple_models) {
+      const RelatedModel = db.models[assocModel];
+      if (!RelatedModel) {
+        return res.status(400).json({ message: `Associated model "${assocModel}" not found`, code: 'INVALID_ASSOCIATION' });
+      }
+
+      const modelIncl = { model: RelatedModel };
+      if (assocModel === 'users') {
+        modelIncl.attributes = ['name', 'email', 'phone']; // Select specific attributes
+      }
+      includeModels.push(modelIncl);
+    }
+
+    // Handle nested models
+    if (nested_models.length >= 2) {
+      const childModel = db.models[nested_models[0]];
+      const grandChildModel = db.models[nested_models[1]];
+      if (!childModel || !grandChildModel) {
+        return res.status(400).json({ message: 'Invalid nested model names', code: 'INVALID_NESTED_MODELS' });
+      }
+
+      const nestedQuery = nested_filter.length === 2 ? { [nested_filter[0]]: nested_filter[1] } : null;
+      includeModels.push({
+        model: childModel,
+        include: [{
+          model: grandChildModel,
+          ...(nestedQuery && { where: nestedQuery }),
+        }],
+      });
+    }
+
+    // Handle self-recursive relationships safely
+    if (Model.associations.children && Model.associations.parent) {
+      includeModels.push(
+        { model: Model, as: 'children', attributes: ['id', 'name'], required: false }, // Select minimal attributes
+        { model: Model, as: 'parent', attributes: ['id', 'name'], required: false }
+      );
+    }
+
+    // Build final query
+    const query = {
+      where: baseQuery.where,
+      include: includeModels,
+      order: [['createdAt', 'DESC']],
+      limit: parsedLimit,
+      offset: (parsedPage - 1) * parsedLimit,
+      distinct: true, // Ensure correct count with includes
+    };
+
+    // Handle caching
+    if (cache_key) {
+      const cacheDuration = 3600; // 1 hour
+      const lastRow = await Model.findOne({
+        attributes: ['updatedAt'],
+        order: [['updatedAt', 'DESC']],
+      });
+      const lastModified = lastRow?.updatedAt?.getTime() ?? Date.now();
+
+      const cacheResults = await redisClient.get(cache_key);
+      if (cacheResults) {
+        const result = JSON.parse(cacheResults);
+        if (lastModified <= result.lastModified) {
+          return res.status(200).json({
+            fromCache: true,
+            cache_key,
+            data: result.data,
+            total,
+            code: '0000',
+          });
+        }
+      }
+
+      // Fetch fresh data
+      const response = await Model.findAndCountAll(query);
+      const cacheData = {
+        data: response.rows,
+        total,
+        lastModified: Date.now(),
+      };
+      await redisClient.set(cache_key, JSON.stringify(cacheData), { EX: cacheDuration });
+
+      return res.status(200).json({
+        fromCache: false,
+        cache_key,
+        data: response.rows,
+        total,
+        code: '0000',
+      });
+    }
+
+    // No cache
+    const response = await Model.findAndCountAll(query);
+    return res.status(200).json({
+      fromCache: false,
+      data: response.rows,
+      total,
+      code: '0000',
+    });
+
+  } catch (error) {
+    console.error('Error in modelPaginatedDatafilterByColumn:', {
+      message: error.message,
+      stack: error.stack,
+      body: req.body,
+    });
+    return res.status(500).json({
+      message: 'Internal server error',
+      error: error.message,
+      code: 'SERVER_ERROR',
+    });
+  }
+};
 
 exports.modelPaginatedDatafilterByColumnNoGeo = async (req, res) => {
   console.log('Req-body 002 - ', req.body)

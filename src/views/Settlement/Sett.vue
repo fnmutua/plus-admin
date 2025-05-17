@@ -1,78 +1,88 @@
 <script setup lang="ts">
 import { useI18n } from '@/hooks/web/useI18n'
-
 import { getSettlementListByCounty, getDuplicates, mergeDuplicates } from '@/api/settlements'
 import { getListWithoutGeo } from '@/api/counties'
 import {
   ElButton, ElSelect, FormInstance, ElTabs, ElTabPane, ElDialog, ElInputNumber,
   ElInput, ElBadge, ElForm, ElDescriptions, ElDescriptionsItem, ElFormItem, ElUpload, ElCard, ElPopconfirm, ElTable, ElCol, ElRow,
-  ElTableColumn, UploadUserFile, ElDropdown, ElDropdownMenu, ElDropdownItem, ElStep, ElSteps, ElCheckbox, ElIcon,ElDatePicker,
+  ElTableColumn, UploadUserFile, ElDropdown, ElDropdownMenu, ElDropdownItem, ElStep, ElSteps, ElCheckbox, ElIcon, ElDatePicker,
 } from 'element-plus'
 import { ElMessage, ElSegmented } from 'element-plus'
-import { Position, Plus, Delete, Edit, Filter, InfoFilled, CopyDocument, Clock, Search, Setting, Back, Loading, CircleCheck, Message, CircleClose, Warning,View,RefreshLeft } from '@element-plus/icons-vue'
-
-import {
-  ArrowLeft, ArrowRight, UploadFilled,Postcard,TopRight,Lock,Guide,TakeawayBox
-} from '@element-plus/icons-vue'
-
+import { Position, Plus, Delete, Edit, Filter, InfoFilled, CopyDocument, Clock, Search, Setting, Back, Loading, CircleCheck, Message, CircleClose, Warning, View, RefreshLeft } from '@element-plus/icons-vue'
+import { ArrowLeft, ArrowRight, UploadFilled, Postcard, TopRight, Lock, Guide, TakeawayBox } from '@element-plus/icons-vue'
 import { ref, reactive, computed } from 'vue'
 import { ElPagination, ElTooltip, ElOption } from 'element-plus'
 import { useRouter } from 'vue-router'
-import { DeleteRecord, updateOneRecord,revertHistory, deleteDocument } from '@/api/settlements'
-
+import { DeleteRecord, updateOneRecord, revertHistory, deleteDocument } from '@/api/settlements'
 import { useAppStore } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import { defineAsyncComponent, onMounted, nextTick } from 'vue';
-
 import xlsx from "json-as-xlsx"
-import {
-  searchByKeyWord
-} from '@/api/settlements'
-
+import { searchByKeyWord } from '@/api/settlements'
 import readShapefileAndConvertToGeoJSON from '@/utils/readShapefile'
-
 import filterDataByKeys from '@/utils/filterArrays'
-
 import { getSummarybyField } from '@/api/summary'
 import * as turf from '@turf/turf'
-
-
-
-import 'element-plus/theme-chalk/display.css'
-
-////////////*************Map Imports***************////////
-
 import '@mapbox/mapbox-gl-geocoder/lib/mapbox-gl-geocoder.css';
 import { Icon } from '@iconify/vue';
-
-
 import mapboxgl from "mapbox-gl";
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { UserType } from '@/api/register/types'
-
 import proj4 from 'proj4';
 import UploadComponent from '@/views/Components/UploadComponent.vue';
 import ListDocuments from '@/views/Components/ListDocuments.vue';
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 import TableActions from '@/views/Components/TableActions.vue';
-
-
 import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
 
-
-const MapBoxToken =
-  'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg'
+const MapBoxToken = 'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg'
 mapboxgl.accessToken = MapBoxToken;
 
-
-//// ------------------parameters -----------------------////
-
-
+// Filter variables
 const filters = ref(['settlement_type', 'isApproved', 'isActive'])
-const filterValues = ref([['Slum', 'Informal Settlement'], ['Approved'], ['true']]) // make sure the inner array is array
+const filterValues = ref([['Slum', 'Informal Settlement'], ['Approved'], ['true']])
+const selectedCounty = ref([])
+const selectedSubCounty = ref([])
+const selectedWard = ref([])
+const search_string = ref('')
+const value4 = ref([]) // County select
+const value5 = ref([]) // Subcounty select
+const value6 = ref([]) // Ward select
 
+// Save filters to localStorage
+const saveFiltersToStorage = () => {
+  const filterState = {
+    selectedCounty: selectedCounty.value,
+    selectedSubCounty: selectedSubCounty.value,
+    selectedWard: selectedWard.value,
+    search_string: search_string.value,
+    filters: filters.value,
+    filterValues: filterValues.value,
+    value4: value4.value,
+    value5: value5.value,
+    value6: value6.value,
+  }
+  localStorage.setItem('settlementFilters', JSON.stringify(filterState))
+}
 
+// Load filters from localStorage
+const loadFiltersFromStorage = () => {
+  const savedFilters = localStorage.getItem('settlementFilters')
+  if (savedFilters) {
+    const filterState = JSON.parse(savedFilters)
+    selectedCounty.value = filterState.selectedCounty || []
+    selectedSubCounty.value = filterState.selectedSubCounty || []
+    selectedWard.value = filterState.selectedWard || []
+    search_string.value = filterState.search_string || ''
+    filters.value = filterState.filters || ['settlement_type', 'isApproved', 'isActive']
+    filterValues.value = filterState.filterValues || [['Slum', 'Informal Settlement'], ['Approved'], ['true']]
+    value4.value = filterState.value4 || []
+    value5.value = filterState.value5 || []
+    value6.value = filterState.value6 || []
+  }
+}
 
+// User and role setup
 const { wsCache } = useCache()
 const appStore = useAppStore()
 const userInfo = wsCache.get(appStore.getUserInfo)
@@ -81,15 +91,10 @@ const showEditButtons = ref(appStore.getEditButtons)
 const isSuperAdmin = ref(
   userInfo.roles.some(role => role.name === "super_admin" || role.name === "root_admin")
 );
-
-const thisHistory =ref()
-
-console.log('userInfo.roles',userInfo.roles)
-console.log('isSuperAdmin',isSuperAdmin.value)
+const thisHistory = ref()
 
 const action_buttons = computed(() => {
   let buttons = [];
-
   if (showAdminButtons.value) {
     buttons = ['edit', 'viewOnMap', 'delete'];
   } else if (showEditButtons.value) {
@@ -97,25 +102,16 @@ const action_buttons = computed(() => {
   } else {
     buttons = ['viewOnMap'];
   }
-
-  // Add 'review' if the active segment is 'New'
   if (activeSegment.value === 'New' || activeSegment.value === 'Rejected') {
     buttons.push('review');
   }
-
   return buttons;
 });
 
-
-
-/// ------------------------------Get User Roles - ----------------------
-
+// Process user roles
 const processedRoles = userInfo.roles.map(role => {
-  // Default values for the role processing
   let field = null;
   let fieldvalue = null;
-
-  // Check the location level and assign values accordingly
   if (role.user_roles.location_level === "county") {
     field = "county_id";
     fieldvalue = role.user_roles.county_id;
@@ -124,114 +120,69 @@ const processedRoles = userInfo.roles.map(role => {
     fieldvalue = role.user_roles.settlement_id;
   } else if (role.user_roles.location_level === "national" || role.user_roles.location_level === null) {
     return {
-      role: role.name,        // Role type (e.g., grm, consultant, staff)
+      role: role.name,
       model: "national",
       field: null,
       fieldvalue: null
     };
   } else {
-    // Fallback case for other location levels
     field = "location_id";
     fieldvalue = role.user_roles.location_id;
   }
-
   return {
-    role: role.name,           // Role type (e.g., grm, consultant, staff)
-    model: role.user_roles.location_level,  // The level (county/settlement)
-    field: field,              // Field name (county_id/settlement_id/location_id)
-    fieldvalue: fieldvalue     // Actual value of the ID
+    role: role.name,
+    model: role.user_roles.location_level,
+    field: field,
+    fieldvalue: fieldvalue
   };
 }).filter(role => role !== null);
 
-
-console.log('processedRole >>>s', processedRoles)
-
- 
-// Determine roles_filters generically
 let roles_filters = [];
-let userType ;
-
+let userType;
 if (isSuperAdmin.value) {
-  // If the user is a super_admin, no filters are applied
   roles_filters = [];
   userType = "superadmin";
-  showAdminButtons.value=true
-} 
-  else if (processedRoles.some(role => role.role === "admin")) {
+  showAdminButtons.value = true
+} else if (processedRoles.some(role => role.role === "admin")) {
   userType = "admin";
-  showAdminButtons.value=true
-
+  showAdminButtons.value = true
 } else if (processedRoles.some(role => role.role === "staff")) {
   userType = "staff";
-  showAdminButtons.value=true
-
-}
-
-
-else {
-  // Process filters for all roles with location levels
+  showAdminButtons.value = true
+} else {
   const applicableRoles = processedRoles.filter(role => role.model !== "national");
-
   roles_filters = applicableRoles.map(role => ({
-    role: role.role,       // Include the role name for context
-    //field: role.field,     // Field name (county_id/settlement_id/location_id)
-    field: role.field === 'settlement_id' ? 'id' : role.field,  // Ternary operation to adjust 'settlement_id'
-    value: role.fieldvalue // Field value
+    role: role.role,
+    field: role.field === 'settlement_id' ? 'id' : role.field,
+    value: role.fieldvalue
   }));
-
-  showAdminButtons.value=false
+  showAdminButtons.value = false
 }
-
-console.log('roles_filters >>>>>>', roles_filters)
-console.log('showAdminButtons.value >>>>>>', showAdminButtons.value)
-
-
-
-// Push Role FIlters ---- ////
 
 const pushRoleFilters = () => {
   if (roles_filters.length > 0) {
-    // Create an object to collect fields with multiple values
     const filterMap = {};
-
-    // Iterate through all role filters and group by field
     roles_filters.forEach(roleFilter => {
       const { field, value } = roleFilter;
-
-      // If field already exists in the map, push the new value
       if (filterMap[field]) {
-        // Ensure the value is unique and added only once
         if (!filterMap[field].includes(value)) {
           filterMap[field].push(value);
         }
       } else {
-        // Otherwise, initialize the field with its value
         filterMap[field] = [value];
       }
     });
-
-    // Now add the field-value pairs to filters and filterValues arrays
     Object.keys(filterMap).forEach(field => {
       filters.value.push(field);
       filterValues.value.push(filterMap[field]);
     });
   }
-
-  console.log('With Role filters', filters.value);
-  console.log('With Role filterValues', filterValues.value);
+  saveFiltersToStorage(); // Save after updating filters
 };
 
-
-//*****************************Create**************************** */
-
-
-
-
-
-///----------------------------------------------------------------------------------
+// Form setup
 const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
-
   name: '',
   county_id: '',
   subcounty_id: '',
@@ -252,20 +203,12 @@ const ruleForm = reactive({
   code: ''
 })
 
-
-const selectedCounty = ref()
-const selectedSubCounty = ref(null)
-
-
-const search_string = ref()
-
-
+// Pagination and table setup
 const mobileBreakpoint = 768;
 const defaultPageSize = 10;
 const mobilePageSize = 5;
 const pageSize = ref(defaultPageSize);
 
-// Function to update pageSize based on window width
 const updatePageSize = () => {
   if (window.innerWidth <= mobileBreakpoint) {
     pageSize.value = mobilePageSize;
@@ -274,136 +217,75 @@ const updatePageSize = () => {
   }
 };
 
-
-
-const getCounts =async  () => { 
-
-console.log('counts')
-
-const formData = {}
+const getCounts = async () => {
+  const formData = {}
   formData.model = 'settlement'
-  formData.summaryField = 'isApproved'  // Remove ambiguous fields 
+  formData.summaryField = 'isApproved'
   formData.summaryFunction = 'count'
-  formData.groupFields = ['isApproved'] //['county.name','indicator_category.category_title']
- 
-
-  console.log(roles_filters.length)
-  if(roles_filters.length>0) {
-
-  formData.filterField =[filters.value[1]]
-  formData.filterValue =[[filterValues.value[1]]] 
-  formData.filterOperator = ['eq']
+  formData.groupFields = ['isApproved']
+  if (roles_filters.length > 0) {
+    formData.filterField = [filters.value[1]]
+    formData.filterValue = [[filterValues.value[1]]]
+    formData.filterOperator = ['eq']
   }
-  
-
-  // added for unique couts 
- 
-  console.log('filters.value', filters.value[1])
-  console.log('filterValues.value', filterValues.value[1])
-
-
-  console.log('form-Data',formData)
-
   try {
     const response = await getSummarybyFieldFromMultipleIncludes(formData);
     const amount = response.Total;
-    console.log('status.count Summary', amount)
-
-
-
-    // Update Statuses count dynamically
-      Statuses.value.forEach((status) => {
-          let keyToCompare = status.value;  // Default comparison key
-
-          if (status.value === 'New') {
-            keyToCompare = 'Pending';  // Compare 'New' with 'Pending' in amount
-          }
-
-          const match = amount.find((item) => item.isApproved === keyToCompare);
-          if (match) {
-            status.count = parseInt(match.count, 10);
-          }
-        });
-
-
-
- 
- 
+    Statuses.value.forEach((status) => {
+      let keyToCompare = status.value;
+      if (status.value === 'New') {
+        keyToCompare = 'Pending';
+      }
+      const match = amount.find((item) => item.isApproved === keyToCompare);
+      if (match) {
+        status.count = parseInt(match.count, 10);
+      }
+    });
   } catch (error) {
-    // Handle any errors that occur during the asynchronous operation
     console.error(error);
-    //return null; // or any default value you prefer
-    return []; // or any default value you prefer
+    return [];
   }
-
-
 }
 
-
-console.log('window.innerHeight1', window.innerHeight)
-
-
-onMounted(async () => {
-
-
-  window.addEventListener('resize', updatePageSize);
-  updatePageSize(); // Initial check
-
-
-  // get current Tab 
-  // const savedTab = localStorage.getItem('activeTab');
-  // if (savedTab) {
-  //   activeName.value = savedTab;
-  //   let obj = {
-  //     "props": {
-  //       "name": savedTab
-  //     }
-  //   }
-
-  //   clickTab(obj)
-  // }
-
-  getCounts()
-  getSettlmentHistory()
-})
-
-// onActivated(async () => {
-//   // get current Tab 
-//   const savedTab = localStorage.getItem('activeTab');
-//   if (savedTab) {
-//     activeName.value = savedTab;
-//     let obj = {
-//       "props": {
-//         "name": savedTab
-//       }
-//     }
-
  
-//   }
+onMounted(async () => {
+  window.addEventListener('resize', updatePageSize);
+  updatePageSize();
+  await loadFiltersFromStorage(); // Restore filters
+  getCounts();
+  getSettlmentHistory();
 
-// })
+  // Check if any filters were restored from storage
+  const hasRestoredFilters =
+    selectedCounty.value.length > 0 ||
+    selectedSubCounty.value.length > 0 ||
+    selectedWard.value.length > 0 ||
+    search_string.value ||
+    filters.value.length > 0;
+
+  // Apply restored filters if they exist
+  if (hasRestoredFilters) {
+    if (selectedCounty.value.length > 0) {
+      await getSubCountyNames();
+      if (selectedSubCounty.value.length > 0) {
+        await getWardNames();
+      }
+    }
+    // Fetch data based on restored filters
+    await getNewOrRejectedSettlements(activeSegment.value);
+  } else {
+    // No filters restored, fetch initial settlements
+    await getAllSetllementsInitially(activeSegment.value);
+  }
+});
 
 
 
 const { push } = useRouter()
- 
-var value4 = ref([])
-var value5 = ref([])
-var value6 = ref([])
-
-const loadingGetData = ref(false)
-const loadingGetDataMsg = ref('Loading the data.. Please wait.......')
-
-const interVentionTypeOptions = ref([])
-
-
 const page = ref(1)
-
 const loading = ref(true)
-
 const currentPage = ref(1)
 const enableSubcounty = ref(false)
-
 const total = ref(0)
 const totalRejected = ref(0)
 const totalApproved = ref(0)
@@ -413,146 +295,85 @@ const showAddSaveButton = ref(true)
 const formheader = ref('Edit Settlement')
 const duplicateRecords = ref([])
 const duplicateTotal = ref(0)
-const deletedSettlements=ref([])
-const deletedSettlementsCount=ref(0)
-
-
-const decommSettlements=ref([])
-const decommSettlementsCount=ref(0)
-//let tableDataList = ref<UserType[]>([])
+const deletedSettlements = ref([])
+const deletedSettlementsCount = ref(0)
+const decommSettlements = ref([])
+const decommSettlementsCount = ref(0)
 const tableDataList = ref([])
-let tableDataListNew = ref<UserType[]>([])
-let tableDataListRejected = ref<UserType[]>([])
-
-
-
-
-
-var tblData = []
-
+const tableDataListNew = ref<UserType[]>([])
+const tableDataListRejected = ref<UserType[]>([])
 const associated_Model = ''
 const associated_multiple_models = ['county', 'subcounty', 'ward', 'users']
-const nested_models = ['document', 'document_type'] // The mother, then followed by the child
-
+const nested_models = ['document', 'document_type']
 const model = 'settlement'
-//// ------------------parameters -----------------------////
 const fileUploadList = ref<UploadUserFile[]>([])
-
-
-
 const { t } = useI18n()
-
 const isMobile = computed(() => appStore.getMobile)
-
-const reviewWindowWidth = ref('40%')
-
-if (isMobile.value) {
-  reviewWindowWidth.value = "100%"
-}
-
-
-
+const reviewWindowWidth = ref(isMobile.value ? "100%" : "40%")
 
 const handleClear = async () => {
-  console.log('cleared....')
   enableSubcounty.value = false
   search_string.value = ''
-  selectedCounty.value =[]
-  // clear all the fileters -------
+  selectedCounty.value = []
+  selectedSubCounty.value = []
+  selectedWard.value = []
   filterValues.value = []
   filters.value = []
-  
-  value4.value =[]
-  value5.value =[]
-  value6.value =[]
-
+  value4.value = []
+  value5.value = []
+  value6.value = []
   currentPage.value = 1
-  
-  //----run the get data--------
-  getAllSetllementsInitially(activeSegment.value)
+  localStorage.removeItem('settlementFilters'); // Clear stored filters
+  await getAllSetllementsInitially(activeSegment.value)
 }
-
-
-
 
 const currentRow = ref()
 const addMoreDocuments = ref(false)
 
-
-
-
 const onPageChange = async (selPage: any) => {
   page.value = selPage
-
   if (activeSegment.value == 'Approved') {
     filters.value = ['settlement_type', 'isApproved', 'isActive']
-    filterValues.value = [['Slum', 'Informal Settlement'], ['Approved'], ['true']]  // make sure the inner array is array
+    filterValues.value = [['Slum', 'Informal Settlement'], ['Approved'], ['true']]
   } else if (activeSegment.value == 'New') {
     filters.value = ['settlement_type', 'isApproved', 'isActive']
-    filterValues.value = [['Slum', 'Informal Settlement'], ['Pending'], ['true']]  // make sure the inner array is array
-  }
-  else if (activeSegment.value == 'Rejected') {
+    filterValues.value = [['Slum', 'Informal Settlement'], ['Pending'], ['true']]
+  } else if (activeSegment.value == 'Rejected') {
     filters.value = ['settlement_type', 'isApproved', 'isActive']
-    filterValues.value = [['Slum', 'Informal Settlement'], ['Rejected'], ['true']]  // make sure the inner array is array
+    filterValues.value = [['Slum', 'Informal Settlement'], ['Rejected'], ['true']]
   }
-
-  console.log("Where are we?", activeSegment.value, filters.value, filterValues.value)
-
+  saveFiltersToStorage();
   if (search_string.value) {
     getFilteredBySearchData(activeSegment.value, search_string.value)
   } else {
     getNewOrRejectedSettlements(activeSegment.value)
   }
-
-
 }
 
 const onPageSizeChange = async (size: any) => {
   pageSize.value = size
-  //getFilteredData(filters, filterValues)
-
-  console.log(activeSegment.value)
   if (activeSegment.value === 'Approved') {
     filters.value = ['settlement_type', 'isApproved', 'isActive']
-    filterValues.value = [['Slum', 'Informal Settlement'], ['Approved'], ['true']]  // make sure the inner array is array
+    filterValues.value = [['Slum', 'Informal Settlement'], ['Approved'], ['true']]
   } else if (activeSegment.value === 'New') {
     filters.value = ['settlement_type', 'isApproved', 'isActive']
-    filterValues.value = [['Slum', 'Informal Settlement'], ['Pending'], ['true']]  // make sure the inner array is array
-
-  }
-  else if (activeSegment.value === 'Rejected') {
+    filterValues.value = [['Slum', 'Informal Settlement'], ['Pending'], ['true']]
+  } else if (activeSegment.value === 'Rejected') {
     filters.value = ['settlement_type', 'isApproved', 'isActive']
-    filterValues.value = [['Slum', 'Informal Settlement'], ['Rejected'], ['true']]  // make sure the inner array is array
+    filterValues.value = [['Slum', 'Informal Settlement'], ['Rejected'], ['true']]
   }
-  
-
+  saveFiltersToStorage();
   if (search_string.value) {
     getFilteredBySearchData(activeSegment.value, search_string.value)
   } else {
     getNewOrRejectedSettlements(activeSegment.value)
   }
-
-
-
 }
-
-
-
-
-
 
 const getAllSetllementsInitially = async (tab) => {
-  // getFilteredData(filters, filterValues)
   await getNewOrRejectedSettlements(tab)
-  getSettlementCount()  // This gets the approved/new/rejecetd counts
-
-  //getPotentialDuplicates()
-
+  getSettlementCount()
 }
-
-
-
-
 
 const getSettlementCount = async () => {
   const formData = {}
@@ -560,331 +381,191 @@ const getSettlementCount = async () => {
   formData.summaryField = 'isApproved'
   formData.summaryFunction = 'count'
   formData.groupField = ['isApproved']
-
   formData.filterColumn = 'isActive'
   formData.filterValue = 'true'
-
-
-
-
   const newSettCount = await getSummarybyField(formData)
-  console.log('Settleemnt Count---->', newSettCount)
-
   let pending = await filterDataByKeys(newSettCount.Total, ['isApproved'], ['Pending']);
   let approved = await filterDataByKeys(newSettCount.Total, ['isApproved'], ['Approved']);
   let rejected = await filterDataByKeys(newSettCount.Total, ['isApproved'], ['Rejected']);
-
-  console.log(pending)
-  console.log(approved)
-  console.log(rejected)
-
-  // totalPending.value = pending.length > 0 ? parseInt(pending[0].count) : 0
-  // totalApproved.value = approved.length > 0 ? parseInt(approved[0].count) : 0
-  // totalRejected.value = rejected.length > 0 ? parseInt(rejected[0].count) : 0
-
-  console.log('New:', totalPending.value)
-  console.log('Approved:', totalApproved.value)
-  console.log('Rejecetd:', totalRejected.value)
-
+  totalPending.value = pending.length > 0 ? parseInt(pending[0].count) : 0
+  totalApproved.value = approved.length > 0 ? parseInt(approved[0].count) : 0
+  totalRejected.value = rejected.length > 0 ? parseInt(rejected[0].count) : 0
 }
 
-
-const selectedWard = ref()
 const getNewOrRejectedSettlements = async (tab) => {
-
   loadingGetData.value = true
-   if (tab === 'New') {
+  if (tab === 'New') {
     filters.value = ['isApproved', 'isActive']
-    filterValues.value = [['Pending'], ['true']]  // make sure the inner array is array
-
+    filterValues.value = [['Pending'], ['true']]
   } else if (tab === 'Rejected') {
     filters.value = ['isApproved', 'isActive']
-    filterValues.value = [['Rejected'], ['true']]  // make sure the inner array is array
-  }
-  else if (tab === 'Decommissioned') {
+    filterValues.value = [['Rejected'], ['true']]
+  } else if (tab === 'Decommissioned') {
     filters.value = ['isApproved', 'isActive']
-    filterValues.value = [['Decommissioned'], ['true']]  // make sure the inner array is array
-  }
-
-  else {
+    filterValues.value = [['Decommissioned'], ['true']]
+  } else {
     filters.value = ['isApproved', 'isActive']
-    filterValues.value = [['Approved'], ['true']]  // make sure the inner array is array
+    filterValues.value = [['Approved'], ['true']]
   }
-  if (selectedCounty.value) {
+  if (selectedCounty.value.length > 0) {
     var selectOption = 'county_id'
     if (!filters.value.includes(selectOption)) {
       filters.value.push(selectOption)
     }
-    var index = filters.value.indexOf(selectOption) // 1
-
-    // clear previously selected
+    var index = filters.value.indexOf(selectOption)
     if (filterValues[index]) {
-      // filterValues[index].length = 0
       filterValues.value.splice(index, 1)
     }
-
-    if (!filterValues.value.includes(selectedCounty.value) && selectedCounty.value.length > 0) {
-      filterValues.value.splice(index, 0, selectedCounty.value) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+    if (!filterValues.value.includes(selectedCounty.value)) {
+      filterValues.value.splice(index, 0, selectedCounty.value)
     }
-
-    // expunge the filter if the filter values are null
     if (selectedCounty.value.length === 0) {
       filters.value.splice(index, 1)
     }
-
   }
-
-  // Filter by subcounty  
-  if (selectedSubCounty.value) {
+  if (selectedSubCounty.value.length > 0) {
     var selectOption = 'subcounty_id'
     if (!filters.value.includes(selectOption)) {
       filters.value.push(selectOption)
     }
-    var index = filters.value.indexOf(selectOption) // 1
-
-    // clear previously selected
+    var index = filters.value.indexOf(selectOption)
     if (filterValues[index]) {
-      // filterValues[index].length = 0
       filterValues.value.splice(index, 1)
     }
-
-    if (!filterValues.value.includes(selectedSubCounty.value) && selectedSubCounty.value.length > 0) {
-      filterValues.value.splice(index, 0, selectedSubCounty.value) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+    if (!filterValues.value.includes(selectedSubCounty.value)) {
+      filterValues.value.splice(index, 0, selectedSubCounty.value)
     }
-
-    // expunge the filter if the filter values are null
     if (selectedSubCounty.value.length === 0) {
       filters.value.splice(index, 1)
     }
-
   }
-  // Filter by ward  
-  if (selectedWard.value) {
+  if (selectedWard.value.length > 0) {
     var selectOption = 'ward_id'
     if (!filters.value.includes(selectOption)) {
       filters.value.push(selectOption)
     }
-    var index = filters.value.indexOf(selectOption) // 1
-
-    // clear previously selected
+    var index = filters.value.indexOf(selectOption)
     if (filterValues[index]) {
-      // filterValues[index].length = 0
       filterValues.value.splice(index, 1)
     }
-
-    if (!filterValues.value.includes(selectedWard.value) && selectedWard.value.length > 0) {
-      filterValues.value.splice(index, 0, selectedWard.value) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+    if (!filterValues.value.includes(selectedWard.value)) {
+      filterValues.value.splice(index, 0, selectedWard.value)
     }
-
-    // expunge the filter if the filter values are null
     if (selectedWard.value.length === 0) {
       filters.value.splice(index, 1)
     }
   }
-
-
   pushRoleFilters()
-
-
   const formData = {}
   formData.limit = pageSize.value
   formData.page = page.value
-  formData.curUser = 1 // Id for logged in user
+  formData.curUser = 1
   formData.model = model
-  //-Search field--------------------------------------------
   formData.searchField = 'name'
   formData.searchKeyword = ''
-  //--Single Filter -----------------------------------------
-
   formData.assocModel = associated_Model
-
-  // - multiple filters -------------------------------------
   formData.filters = filters.value
   formData.filterValues = filterValues.value
   formData.associated_multiple_models = associated_multiple_models
   formData.nested_models = nested_models
-  //formData.cache_key = key
-
-  //-------------------------
-  console.log(formData)
   const res = await getSettlementListByCounty(formData)
-  //const res = await getListWithoutGeo(formData)
-
   loadingGetData.value = false
-  console.log('found data..', res)
   total.value = res.total
   if (tab == 'New') {
     tableDataListNew.value = res.data
-    console.log('New', res.data)
     totalPending.value = res.total
-
   } else if (tab == 'Rejected') {
     tableDataListRejected.value = res.data
     totalRejected.value = res.total
-  }
-  else if (tab == 'Decommissioned') {
+  } else if (tab == 'Decommissioned') {
     decommSettlements.value = res.data
     decommSettlementsCount.value = res.total
-  }
- 
-
-  else {
+  } else {
     tableDataList.value = res.data
     totalApproved.value = res.total
-
-    console.log('>>>> ---', tableDataList.value)
-
     res.data.forEach(function (arrayItem) {
       var dd = flattenJSON(arrayItem)
-
       flattenedData.value.push(dd)
     })
-
-
-
     var obj = flattenJSON(res.data[0])
-
-    console.log('flatteda', obj)
     model_fields.value = Object.keys(obj);
-
-
   }
-
-
-
 }
 
 const getPotentialDuplicates = async () => {
   loadingGetData.value = true
-
   loadingGetDataMsg.value = 'Checking for duplicate data.. Please wait.......'
-
-
-  if (selectedCounty.value) {
+  if (selectedCounty.value.length > 0) {
     var selectOption = 'county_id'
     if (!filters.value.includes(selectOption)) {
       filters.value.push(selectOption)
     }
-    var index = filters.value.indexOf(selectOption) // 1
-
-    // clear previously selected
+    var index = filters.value.indexOf(selectOption)
     if (filterValues[index]) {
-      // filterValues[index].length = 0
       filterValues.value.splice(index, 1)
     }
-
-    if (!filterValues.value.includes(selectedCounty.value) && selectedCounty.value.length > 0) {
-      filterValues.value.splice(index, 0, selectedCounty.value) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+    if (!filterValues.value.includes(selectedCounty.value)) {
+      filterValues.value.splice(index, 0, selectedCounty.value)
     }
-
-    // expunge the filter if the filter values are null
     if (selectedCounty.value.length === 0) {
       filters.value.splice(index, 1)
     }
-
   }
-
-
-
-  // Filter by subcounty  
-  if (selectedSubCounty.value) {
+  if (selectedSubCounty.value.length > 0) {
     var selectOption = 'subcounty_id'
     if (!filters.value.includes(selectOption)) {
       filters.value.push(selectOption)
     }
-    var index = filters.value.indexOf(selectOption) // 1
-
-    // clear previously selected
+    var index = filters.value.indexOf(selectOption)
     if (filterValues[index]) {
-      // filterValues[index].length = 0
       filterValues.value.splice(index, 1)
     }
-
-    if (!filterValues.value.includes(selectedSubCounty.value) && selectedSubCounty.value.length > 0) {
-      filterValues.value.splice(index, 0, selectedSubCounty.value) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+    if (!filterValues.value.includes(selectedSubCounty.value)) {
+      filterValues.value.splice(index, 0, selectedSubCounty.value)
     }
-
-    // expunge the filter if the filter values are null
     if (selectedSubCounty.value.length === 0) {
       filters.value.splice(index, 1)
     }
-
   }
-
-
-  // Filter by ward  
-  if (selectedWard.value) {
+  if (selectedWard.value.length > 0) {
     var selectOption = 'ward_id'
     if (!filters.value.includes(selectOption)) {
       filters.value.push(selectOption)
     }
-    var index = filters.value.indexOf(selectOption) // 1
-
-    // clear previously selected
+    var index = filters.value.indexOf(selectOption)
     if (filterValues[index]) {
-      // filterValues[index].length = 0
       filterValues.value.splice(index, 1)
     }
-
-    if (!filterValues.value.includes(selectedWard.value) && selectedWard.value.length > 0) {
-      filterValues.value.splice(index, 0, selectedWard.value) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+    if (!filterValues.value.includes(selectedWard.value)) {
+      filterValues.value.splice(index, 0, selectedWard.value)
     }
-
-    // expunge the filter if the filter values are null
     if (selectedWard.value.length === 0) {
       filters.value.splice(index, 1)
     }
-
   }
-
-
   pushRoleFilters()
-
   const formData = {}
   formData.limit = pageSize.value
   formData.page = page.value
-  formData.curUser = 1 // Id for logged in user
+  formData.curUser = 1
   formData.model = model
-  //-Search field--------------------------------------------
   formData.searchField = 'name'
   formData.searchKeyword = ''
-  //--Single Filter -----------------------------------------
-
   formData.assocModel = associated_Model
   formData.fields = ['name', 'county_id']
   formData.associated_multiple_models = associated_multiple_models
-  // - multiple filters -------------------------------------
   formData.filters = filters.value
   formData.filterValues = filterValues.value
-  formData.associated_multiple_models = associated_multiple_models
-  formData.nested_models = nested_models
-  //formData.cache_key = key
-
   formData.associated_model = "county"
   formData.foreignKey = "county_id"
   formData.displayField = "name"
-
-
-
-  //-------------------------
-  console.log(formData)
   const res = await getDuplicates(formData)
-  //const res = await getListWithoutGeo(formData)
   duplicateRecords.value = res.data
   duplicateTotal.value = res.data.length
   total.value = res.data.length
-  console.log('Duplciate Data..', res)
-
   loadingGetData.value = false
   loadingGetDataMsg.value = 'Loading the data.. Please wait.......'
-
 }
-
-
-
-
-
-
 
 const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
   for (let key in obj) {
@@ -903,28 +584,20 @@ const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
   return res;
 };
 
-
-
 const model_fields = ref([])
 const flattenedData = ref([])
 
-
-// Function to extract latitude and longitude using turf for centroid or first point
 function getLatLonFromGeom(geom) {
   if (!geom || !geom.type || !geom.coordinates) {
     return { latitude: null, longitude: null };
   }
-
   switch (geom.type) {
     case 'Point':
-      // If geometry is a Point, return the coordinates directly
       return {
         latitude: geom.coordinates[1].toFixed(5),
         longitude: geom.coordinates[0].toFixed(5)
       };
-
     case 'MultiPoint':
-      // For MultiPoint, return the first point's coordinates
       if (geom.coordinates.length > 0) {
         return {
           latitude: geom.coordinates[0][1].toFixed(5),
@@ -932,108 +605,58 @@ function getLatLonFromGeom(geom) {
         };
       }
       return { latitude: null, longitude: null };
-
     case 'Polygon':
     case 'MultiPolygon':
-      // Use turf to calculate the centroid for Polygon and MultiPolygon
       const polygonCentroid = turf.centroid(geom);
       return {
         latitude: polygonCentroid.geometry.coordinates[1].toFixed(5),
         longitude: polygonCentroid.geometry.coordinates[0].toFixed(5)
       };
-
     case 'LineString':
     case 'MultiLineString':
-      // Use turf to calculate the centroid for LineString and MultiLineString
       const lineCentroid = turf.centroid(geom);
       return {
         latitude: lineCentroid.geometry.coordinates[1].toFixed(5),
         longitude: lineCentroid.geometry.coordinates[0].toFixed(5)
       };
-
     default:
-      // For unsupported types, return null
       return { latitude: null, longitude: null };
   }
 }
 
-
-// Function to process the res.data and add latitude/longitude using turf
-
-
-
 const getFilteredData = async (selFilters, selfilterValues) => {
   loadingGetData.value = true
-
-  console.log("loadingGetData", loadingGetData.value)
-
   pushRoleFilters()
-
   const formData = {}
   formData.limit = pageSize.value
   formData.page = page.value
-  formData.curUser = 1 // Id for logged in user
+  formData.curUser = 1
   formData.model = model
-  //-Search field--------------------------------------------
   formData.searchField = 'name'
   formData.searchKeyword = ''
-  //--Single Filter -----------------------------------------
-
   formData.assocModel = associated_Model
-
-  // - multiple filters -------------------------------------
   formData.filters = selFilters
   formData.filterValues = selfilterValues
   formData.associated_multiple_models = associated_multiple_models
   formData.nested_models = nested_models
-
-
-  //-------------------------
-  console.log('FormSubmitted', formData)
   const res = await getSettlementListByCounty(formData)
-  // const res = await getListWithoutGeo(formData)
-
-  console.log('After Querry - associated_multiple_models', res)
   tableDataList.value = res.data
-
-
-
-  // Process and add lat/lon fields to the tableDataList using Turf
-  //tableDataList.value = addLatLonToData(tableDataList.value);
-
-
   total.value = res.total
   loadingGetData.value = false
-
-
-
-
 }
-
-
-
-
-
-
 
 const ShowReviewDialog = ref(false)
 const RejectDialog = ref(false)
 const settlement_raw = ref({})
 
-
 const Review = (data: TableSlotDefault) => {
-  console.log('Review .....', data.id)
   ShowReviewDialog.value = true
-
-  // make the descriptions dataset 
   settlement_raw.value.name = data.name
   settlement_raw.value.area = data.area
   settlement_raw.value.population = data.population
   settlement_raw.value.description = data.description
   settlement_raw.value.user = data.user.name + ' | ' + data.user.email
   settlement_raw.value.date = data.createdAt
-
-  //
   ruleForm.id = data.id
   ruleForm.name = data.name
   ruleForm.county_id = data.county_id
@@ -1046,34 +669,19 @@ const Review = (data: TableSlotDefault) => {
   ruleForm.code = data.code
   ruleForm.geom = data.geom
   fileUploadList.value = data.documents
-
-
   formHeader.value = "Review Settlement"
-
 }
 
-
 const DeleteReview = async (data: TableSlotDefault) => {
-  console.log('Review .....', data  )
   ShowReviewDialog.value = true
- 
-  // Get user who deleted 
- await getThisHistory(data.history_id)
-
-  console.log('thisHistory',thisHistory.value)
-
-  // make the descriptions dataset 
+  await getThisHistory(data.history_id)
   settlement_raw.value.name = data.name
   settlement_raw.value.area = data.area
   settlement_raw.value.population = data.population
   settlement_raw.value.description = data.description
   settlement_raw.value.date = data.createdAt
-
-
-  settlement_raw.value.user = thisHistory.value[0].user.name  
+  settlement_raw.value.user = thisHistory.value[0].user.name
   settlement_raw.value.delete_date = thisHistory.value[0].createdAt
-
-  //
   ruleForm.id = data.id
   ruleForm.name = data.name
   ruleForm.county_id = data.county_id
@@ -1086,25 +694,17 @@ const DeleteReview = async (data: TableSlotDefault) => {
   ruleForm.code = data.code
   ruleForm.geom = data.geom
   fileUploadList.value = data.documents
-
-
   formHeader.value = "Review Deleted Settlement"
-
 }
 
 const approve = async () => {
-  console.log("Appprove")
   ruleForm.isApproved = 'Approved'
   ruleForm.reviewerId = userInfo.id
-
-  console.log(ruleForm)
   ruleForm.model = 'settlement'
-  console.log(ruleForm)
   await updateOneRecord(ruleForm).then(() => { })
   ShowReviewDialog.value = false
   getFilteredData(filters, filterValues)
 }
-
 
 const reject = async () => {
   RejectDialog.value = true
@@ -1112,27 +712,17 @@ const reject = async () => {
 
 const rejectReason = ref('')
 const confirmReject = async () => {
-  console.log('Reject Msg', rejectReason.value)
   ruleForm.reject_msg = rejectReason.value
   ruleForm.isApproved = 'Rejected'
-
-  console.log(ruleForm)
   ruleForm.model = 'settlement'
   ruleForm.reviewerId = userInfo.id
-  console.log(ruleForm)
   await updateOneRecord(ruleForm).then(() => { })
   RejectDialog.value = false
   ShowReviewDialog.value = false
-
   getFilteredData(filters, filterValues)
-
 }
 
-
-
-
 const viewOnMap = (data: TableSlotDefault) => {
-  console.log('On map.....', data.row)
   if (data.row.geom) {
     push({
       path: '/settlement/map/:id',
@@ -1140,21 +730,14 @@ const viewOnMap = (data: TableSlotDefault) => {
       params: { id: data.row.id }
     })
   } else {
-    // var msg = 'This Settlement does not have the boundary defined in the database!'
-    // open(msg)
     ElMessage({
       message: 'This Settlement does not have the boundary defined in the database!',
       type: 'warning',
     })
-    //    ElMessage("No Shapes")
   }
 }
 
-
-
-
 const handleViewOnMap = (data) => {
-  console.log('On map.....', data)
   if (data.geom) {
     push({
       path: '/settlement/map/:id',
@@ -1162,351 +745,232 @@ const handleViewOnMap = (data) => {
       params: { id: data.id }
     })
   } else {
-    // var msg = 'This Settlement does not have the boundary defined in the database!'
-    // open(msg)
     ElMessage({
       message: 'This Settlement does not have the boundary defined in the database!',
       type: 'warning',
     })
-    //    ElMessage("No Shapes")
   }
 }
 
-
-
 const showPagination = ref(true)
 
-
-
 const getFilteredBySearchData = async (tab, searchKey) => {
-  if (selectedCounty.value) {
+  if (selectedCounty.value.length > 0) {
     var selectOption = 'county_id'
     if (!filters.value.includes(selectOption)) {
       filters.value.push(selectOption)
     }
-    var index = filters.value.indexOf(selectOption) // 1
-
-    // clear previously selected
+    var index = filters.value.indexOf(selectOption)
     if (filterValues[index]) {
-      // filterValues[index].length = 0
       filterValues.value.splice(index, 1)
     }
-
-    if (!filterValues.value.includes(selectedCounty.value) && selectedCounty.value.length > 0) {
-      filterValues.value.splice(index, 0, selectedCounty.value) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+    if (!filterValues.value.includes(selectedCounty.value)) {
+      filterValues.value.splice(index, 0, selectedCounty.value)
     }
-
-    // expunge the filter if the filter values are null
     if (selectedCounty.value.length === 0) {
       filters.value.splice(index, 1)
     }
-
   }
-
-  // Filter by subcounty  
-  if (selectedSubCounty.value) {
+  if (selectedSubCounty.value.length > 0) {
     var selectOption = 'subcounty_id'
     if (!filters.value.includes(selectOption)) {
       filters.value.push(selectOption)
     }
-    var index = filters.value.indexOf(selectOption) // 1
-
-    // clear previously selected
+    var index = filters.value.indexOf(selectOption)
     if (filterValues[index]) {
-      // filterValues[index].length = 0
       filterValues.value.splice(index, 1)
     }
-
-    if (!filterValues.value.includes(selectedSubCounty.value) && selectedSubCounty.value.length > 0) {
-      filterValues.value.splice(index, 0, selectedSubCounty.value) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+    if (!filterValues.value.includes(selectedSubCounty.value)) {
+      filterValues.value.splice(index, 0, selectedSubCounty.value)
     }
-
-    // expunge the filter if the filter values are null
     if (selectedSubCounty.value.length === 0) {
       filters.value.splice(index, 1)
     }
-
   }
-
   pushRoleFilters()
-
-
   const formData = {}
   formData.limit = pageSize.value
   formData.page = page.value
-  formData.curUser = 1 // Id for logged in user
+  formData.curUser = 1
   formData.model = model
-
-  //-Search field--------------------------------------------
   formData.searchField = 'name'
   formData.searchKeyword = searchKey
-  //--Single Filter -----------------------------------------
   formData.returnAll = true
-
-  //formData.assocModel = associated_Model
-
-  // - multiple filters -------------------------------------
   formData.filters = filters.value
   formData.filterValues = filterValues.value
   formData.associated_multiple_models = associated_multiple_models
   formData.nested_models = nested_models
-  //formData.cache_key = 'SeacrchByKey_' + search_string.value
-
-  //-------------------------
-  console.log(formData)
-  console.log('activeSegment', tab)
   const res = await searchByKeyWord(formData)
   searchLoading.value = false
-
   if (tab === 'Approved') {
     tableDataList.value = res.data
-    totalApproved.value=res.Total
-
+    totalApproved.value = res.Total
   } else if (tab === 'New') {
     tableDataListNew.value = res.data
-    totalPending.value= res.Total
-
-  }
-  else if (tab === 'Decommissioned') {
+    totalPending.value = res.Total
+  } else if (tab === 'Decommissioned') {
     decommSettlements.value = res.data
     decommSettlementsCount.value = res.Total
-
-  }
-  else {
+  } else {
     tableDataListRejected.value = res.data
-    totalRejected.value= res.Total
+    totalRejected.value = res.Total
   }
-
-  // Process and add lat/lon fields to the tableDataList using Turf
-  //tableDataList.value = addLatLonToData(tableDataList.value);
-
   total.value = res.total
-
-
-  console.log('tableDataList.value', tableDataList.value)
   loading.value = false
-
 }
-
 
 const searchLoading = ref(false)
 const searchByNewName = async () => {
-
-  console.log('filterString', search_string.value)
-  //value3.value = filterString
-  //search_string.value = filterString
-
-
   if (search_string.value) {
     filters.value.push('isActive')
-    filterValues.value.push(['true'])  // make sure the inner array is array
+    filterValues.value.push(['true'])
     searchLoading.value = true
-    getFilteredBySearchData(activeSegment.value, search_string.value)
-
+    await getFilteredBySearchData(activeSegment.value, search_string.value)
   } else {
-    handleClear()
+    await handleClear()
   }
-
+  saveFiltersToStorage();
 }
 
-
-
-
 const countiesOptions = ref([])
-
-
-
-
 
 const getCountyNames = async () => {
   const res = await getListWithoutGeo({
     params: {
       pageIndex: 1,
       limit: 100,
-      curUser: 1, // Id for logged in user
+      curUser: 1,
       model: 'county',
       searchField: '',
       searchKeyword: '',
       sort: 'ASC'
     }
   }).then((response: { data: any }) => {
-    console.log('Received countiess:', response)
-    //tableDataList.value = response.data
     var ret = response.data
-
     loading.value = false
-
     ret.forEach(function (arrayItem: { id: string; type: string }) {
       var countyOpt = {}
       countyOpt.value = arrayItem.id
       countyOpt.label = arrayItem.name
-      //  console.log(countyOpt)
       countiesOptions.value.push(countyOpt)
     })
   })
 }
 
-
 getCountyNames()
 
-
-
-
 const wardOptions = ref([])
-
-
-
-
-
-
 const subcountiesOptions = ref([])
 
- 
 const getSubCountyNames = async () => {
   const res = await getListWithoutGeo({
     params: {
       pageIndex: 1,
       limit: 100,
-      curUser: 1, // Id for logged in user
+      curUser: 1,
       model: 'subcounty',
       searchField: 'county_id',
       searchKeyword: selectedCounty.value,
       sort: 'ASC'
     }
   }).then((response: { data: any }) => {
-    console.log('Received subcounties response:', response)
-    //tableDataList.value = response.data
     var ret = response.data
     subcountiesOptions.value = []
     loading.value = false
-
     ret.forEach(function (arrayItem: { id: string; type: string }) {
       var subcountyOpt = {}
       subcountyOpt.value = arrayItem.id
       subcountyOpt.county_id = arrayItem.county_id
       subcountyOpt.label = arrayItem.name
-      //  console.log(countyOpt)
       subcountiesOptions.value.push(subcountyOpt)
     })
   })
 }
-
-
 
 const getWardNames = async () => {
   const res = await getListWithoutGeo({
     params: {
       pageIndex: 1,
       limit: 100,
-      curUser: 1, // Id for logged in user
+      curUser: 1,
       model: 'ward',
       searchField: 'subcounty_id',
       searchKeyword: selectedSubCounty.value,
       sort: 'ASC'
     }
   }).then((response: { data: any }) => {
-    console.log('Received Wards:', response)
-    //tableDataList.value = response.data
     var ret = response.data
     wardOptions.value = []
-
     loading.value = false
-
     ret.forEach(function (arrayItem: { id: string; type: string }) {
       var opt = {}
       opt.value = arrayItem.id
       opt.label = arrayItem.name
-      //  console.log(countyOpt)
       wardOptions.value.push(opt)
     })
   })
 }
 
-
 const filterByCounty = async (county_id: any) => {
-
   if (county_id) {
-    enableSubcounty.value = true   // allow selection of subcounty 
+    enableSubcounty.value = true
     selectedCounty.value = county_id
-    getSubCountyNames()
-  }
-
-  value5.value = [] // clear the subcounty 
-  value6.value = []   // clear the ward sr
-
-
-
-  console.log(filters.value)
-
-  if (search_string.value) {
-    getFilteredBySearchData(activeSegment.value, search_string.value)
+    value4.value = county_id
+    await getSubCountyNames()
   } else {
-    getNewOrRejectedSettlements(activeSegment.value)
+    selectedCounty.value = []
+    value4.value = []
   }
-
-
+  value5.value = []
+  value6.value = []
+  saveFiltersToStorage();
+  if (search_string.value) {
+    await getFilteredBySearchData(activeSegment.value, search_string.value)
+  } else {
+    await getNewOrRejectedSettlements(activeSegment.value)
+  }
 }
-
 
 const filterBySubCounty = async (subcounty_id: any) => {
-
-  value6.value = []   // clear the ward sr
-
-
   if (subcounty_id) {
     selectedSubCounty.value = subcounty_id
-    getWardNames()
-  }
-
-  if (search_string.value) {
-    getFilteredBySearchData(activeSegment.value, search_string.value)
+    value5.value = subcounty_id
+    await getWardNames()
   } else {
-    getNewOrRejectedSettlements(activeSegment.value)
+    selectedSubCounty.value = []
+    value5.value = []
+  }
+  value6.value = []
+  saveFiltersToStorage();
+  if (search_string.value) {
+    await getFilteredBySearchData(activeSegment.value, search_string.value)
+  } else {
+    await getNewOrRejectedSettlements(activeSegment.value)
   }
 }
-
 
 const filterByWard = async (ward_id: any) => {
-
   if (ward_id) {
     selectedWard.value = ward_id
-  }
-
-  if (search_string.value) {
-    getFilteredBySearchData(activeSegment.value, search_string.value)
+    value6.value = ward_id
   } else {
-    getNewOrRejectedSettlements(activeSegment.value)
+    selectedWard.value = []
+    value6.value = []
+  }
+  saveFiltersToStorage();
+  if (search_string.value) {
+    await getFilteredBySearchData(activeSegment.value, search_string.value)
+  } else {
+    await getNewOrRejectedSettlements(activeSegment.value)
   }
 }
 
-
-
-//getSettlementsOptions()
 getAllSetllementsInitially('Approved')
 
-
-getSubCountyNames()
-
-
-console.log('Options---->', interVentionTypeOptions)
-
-
-
-
-
 const typeOptions = [
-  {
-    value: 1,
-    label: 'Slum'
-  },
-  {
-    value: 2,
-    label: 'Informal Settlement'
-  },
-
+  { value: 1, label: 'Slum' },
+  { value: 2, label: 'Informal Settlement' },
 ]
-
-
 
 const editForm = async (formEl: FormInstance | undefined) => {
   if (!formEl) return
@@ -1514,101 +978,57 @@ const editForm = async (formEl: FormInstance | undefined) => {
     if (valid) {
       ruleForm.model = model
       const result = await updateOneRecord(ruleForm)
-      console.log(result.data)
-      console.log(activeSegment.value)
-
       var updatedObject = result.data
-
-
       if (activeSegment.value === 'Approved') {
-        // get the index of the updated object
         const index = tableDataList.value.findIndex(obj => obj.id === updatedObject.id);
-
-        // Get the updatedobjetc keys and updated the old data 
         const updatedKeys = Object.keys(updatedObject);
         for (const key of updatedKeys) {
           tableDataList.value[index][key] = updatedObject[key];
-          //   tableDataListNew.value[index_new][key] = updatedObject[key];
-          //  tableDataListRejected.value[index_rej][key] = updatedObject[key];
         }
       } else if (activeSegment.value === 'New') {
-
-        // get the index of the updated object
         const index = tableDataListNew.value.findIndex(obj => obj.id === updatedObject.id);
-
         const updatedKeys = Object.keys(updatedObject);
         for (const key of updatedKeys) {
           tableDataListNew.value[index][key] = updatedObject[key];
-
         }
-      }
-
-      else if (activeSegment.value === 'Rejected') {
+      } else if (activeSegment.value === 'Rejected') {
         const index = tableDataListRejected.value.findIndex(obj => obj.id === updatedObject.id);
-
         const updatedKeys = Object.keys(updatedObject);
         for (const key of updatedKeys) {
           tableDataListRejected.value[index][key] = updatedObject[key];
-
         }
-
       }
-
-
-
-
-
     } else {
-      console.log('error in editiinh!', fields)
+      console.log('error in editing!', fields)
     }
   })
 }
 
 const handleClose = () => {
-
-  console.log("Closing the dialoig")
   showAddSaveButton.value = true
   showEditSaveButton.value = false
-
   ruleForm.name = null
   ruleForm.county_id = null
   ruleForm.population = null
   ruleForm.area = null
   ruleForm.description = null
-
-
-
   formheader.value = 'Add Settlement'
   AddDialogVisible.value = false
-
 }
 
-
-
-
-
-
 const AddSettlement = () => {
-  push({
-    name: 'AddSettlementX'
-  })
+  push({ name: 'AddSettlementX' })
 }
 
 const AddDialogVisible = ref(false)
 const formHeader = ref('Edit Settlement')
 
 const editSettlement = (data: TableSlotDefault) => {
-
   push({
     name: 'AddSettlementX',
     query: { id: data.row.id }
-
   });
-
-
   showEditSaveButton.value = true
-
-  console.log(data)
   ruleForm.id = data.row.id
   ruleForm.name = data.row.name
   ruleForm.county_id = data.row.county_id
@@ -1625,458 +1045,239 @@ const editSettlement = (data: TableSlotDefault) => {
   ruleForm.isApproved = data.row.isApproved
   ruleForm.subcounty_id = data.row.subcounty_id
   ruleForm.ward_id = data.row.ward_id
-  ruleForm.isApproved = data.row.isApproved
   ruleForm.geom = data.row.geom
   fileUploadList.value = data.row.documents
-
-  //  poulate the selected fields 
   selectedCounty.value = data.row.county_id
   selectedSubCounty.value = data.row.subcounty_id
   selectedWard.value = data.row.ward_id
+  value4.value = data.row.county_id
+  value5.value = data.row.subcounty_id
+  value6.value = data.row.ward_id
+  saveFiltersToStorage();
   getSubCountyNames()
-  //filterByCounty(selectedCounty.value)
   getWardNames()
-
-
-
-  //AddDialogVisible.value = true
 }
 
 const handleEdit = (data) => {
-
-  console.log(data)
-
   push({
     name: 'AddSettlementX',
     query: { id: data.id }
-
   });
-
-
   showEditSaveButton.value = true
-
-  console.log(data)
-  ruleForm.id = data.row.id
-  ruleForm.name = data.row.name
-  ruleForm.county_id = data.row.county_id
-  ruleForm.settlement_type = data.row.settlement_type
-  ruleForm.population = data.row.population
-  ruleForm.area = data.row.area
-  ruleForm.description = data.row.description
-  ruleForm.code = data.row.code
-  ruleForm.dist_town = data.row.dist_town
-  ruleForm.dist_trunk = data.row.dist_trunk
-  ruleForm.parcel_no = data.row.parcel_no
-  ruleForm.parcel_owner = data.row.parcel_owner
-  ruleForm.rim_no = data.row.rim_no
-  ruleForm.isApproved = data.row.isApproved
-  ruleForm.subcounty_id = data.row.subcounty_id
-  ruleForm.ward_id = data.row.ward_id
-  ruleForm.isApproved = data.row.isApproved
-  ruleForm.geom = data.row.geom
-  fileUploadList.value = data.row.documents
-
-  //  poulate the selected fields 
-  selectedCounty.value = data.row.county_id
-  selectedSubCounty.value = data.row.subcounty_id
-  selectedWard.value = data.row.ward_id
+  ruleForm.id = data.id
+  ruleForm.name = data.name
+  ruleForm.county_id = data.county_id
+  ruleForm.settlement_type = data.settlement_type
+  ruleForm.population = data.population
+  ruleForm.area = data.area
+  ruleForm.description = data.description
+  ruleForm.code = data.code
+  ruleForm.dist_town = data.dist_town
+  ruleForm.dist_trunk = data.dist_trunk
+  ruleForm.parcel_no = data.parcel_no
+  ruleForm.parcel_owner = data.parcel_owner
+  ruleForm.rim_no = data.rim_no
+  ruleForm.isApproved = data.isApproved
+  ruleForm.subcounty_id = data.subcounty_id
+  ruleForm.ward_id = data.ward_id
+  ruleForm.geom = data.geom
+  fileUploadList.value = data.documents
+  selectedCounty.value = data.county_id
+  selectedSubCounty.value = data.subcounty_id
+  selectedWard.value = data.ward_id
+  value4.value = data.county_id
+  value5.value = data.subcounty_id
+  value6.value = data.ward_id
+  saveFiltersToStorage();
   getSubCountyNames()
-   getWardNames()
-
-
-
-  //AddDialogVisible.value = true
+  getWardNames()
 }
-
 
 const DeleteSettlement = (data: TableSlotDefault) => {
-  console.log('----->', data)
   let formData = {}
   formData.id = data.id
   formData.model = model
-
   DeleteRecord(formData).then(response => {
-    console.log(response)
-    // remove the deleted object from array list 
     let index = tableDataList.value.indexOf(data);
     if (index !== -1) {
       tableDataList.value.splice(index, 1);
     }
-
-  })
-    .catch(error => {
-      console.log(error)
-
-    });
-
-  console.log(tableDataList.value)
-
-  // Delete docuemnts only if there's any docuemnt to delete 
+  }).catch(error => {
+    console.log(error)
+  });
   if (data.documents.length > 0) {
     formData.filesToDelete = data.documents
-
     deleteDocument(formData)
-
   }
-
-
 }
-
 
 const handleDelete = (data: TableSlotDefault) => {
-  console.log('----->', data)
   let formData = {}
   formData.id = data.id
   formData.model = model
-
   DeleteRecord(formData).then(response => {
-    console.log(response)
-    // remove the deleted object from array list 
     let index = tableDataList.value.indexOf(data);
     if (index !== -1) {
       tableDataList.value.splice(index, 1);
     }
-
-  })
-    .catch(error => {
-      console.log(error)
-
-    });
-
-  console.log(tableDataList.value)
-
-  // Delete docuemnts only if there's any docuemnt to delete 
+  }).catch(error => {
+    console.log(error)
+  });
   if (data.documents.length > 0) {
     formData.filesToDelete = data.documents
-
     deleteDocument(formData)
-
   }
-
-
 }
-
-
-
-
 
 const showSelectFields = ref(false)
 const selectedFields = ref([])
 
-
-
-
-
-
 const getFilteredDownloadData = async (selFilters, selfilterValues) => {
-
   const formData = {}
-  // formData.limit = 100
-  // formData.page = page.value
-  // formData.curUser = 1 // Id for logged in user
   formData.model = model
-  //-Search field--------------------------------------------
   formData.searchField = 'name'
   formData.searchKeyword = ''
-  //--Single Filter -----------------------------------------
-
   formData.assocModel = associated_Model
-
-  // - multiple filters -------------------------------------
   formData.filters = selFilters
   formData.filterValues = selfilterValues
   formData.associated_multiple_models = associated_multiple_models
   formData.nested_models = nested_models
-
-
-  //-------------------------
-  console.log('FormSubmitted', formData)
   const res = await getSettlementListByCounty(formData)
-  // const res = await getListWithoutGeo(formData)
-
-  console.log('After Querry - associated_multiple_models', res)
   return res.data
-
-
-
 }
 
 const handleDownloadSelectFields = async () => {
-  console.log('selectedFields ---', selectedFields.value)
-
-  let dataToDownload = []
-
   if (selectedFields.value.length < 1) {
     ElMessage.warning('Specify the fields you want on the exported file')
     return
-
   }
+  let dataToDownload = []
   if (filters.value.length > 2 && filterValues.value.length > 1) {
-    console.log(filters.value)
-    console.log('get all filtered data ')
-
     const downData = await getFilteredDownloadData(filters.value, filterValues.value)
-    console.log('downData ', downData)
-
     downData.forEach(function (arrayItem) {
       var dd = flattenJSON(arrayItem)
       dataToDownload.push(dd)
     })
-
-
-  }
-  else {
+  } else {
     dataToDownload.push(...flattenedData.value)
-
   }
-
-
-  console.log('dataToDownload ---', flattenedData.value)
-
-
   let fields = []
-
   for (let i = 0; i < selectedFields.value.length; i++) {
     var fld = {}
     fld.label = selectedFields.value[i]
     fld.value = selectedFields.value[i]
     fields.push(fld)
   }
-
-  console.log(fields)
-
-
-
-
-  // Preprae the data object 
   var dataObj = {}
   dataObj.sheet = 'data'
   dataObj.columns = fields
-
   let dataHolder = []
-  // loop through the table data and sort the data 
-  // change here !
   for (let i = 0; i < dataToDownload.length; i++) {
     let thisRecord = {}
-
-    //   console.log('flattened ??',i,  flattenedData.value[i])
-
     thisRecord.index = i + 1
-
     for (let j = 0; j < fields.length; j++) {
       var fld = fields[j].label
       thisRecord[fld] = dataToDownload[i][fld]
-
-      // console.log('fld',thisRecord)
-
-
     }
-
-
     dataHolder.push(thisRecord)
   }
   dataObj.content = dataHolder
-
-
-
-
   let settings = {
-    fileName: model, // Name of the resulting spreadsheet
-    writeMode: "writeFile", // The available parameters are 'WriteFile' and 'write'. This setting is optional. Useful in such cases https://docs.sheetjs.com/docs/solutions/output#example-remote-file
-    writeOptions: {}, // Style options from https://docs.sheetjs.com/docs/api/write-options
+    fileName: model,
+    writeMode: "writeFile",
+    writeOptions: {},
   }
-
-  // Enclose in array since the fucntion expects an array of sheets
-  xlsx([dataObj], settings) //  download the excel file
-
+  xlsx([dataObj], settings)
 }
 
+const dialogWidth = ref(isMobile.value ? "90%" : "25%")
+const actionColumnWidth = ref(isMobile.value ? "80px" : "200px")
 
-
-
-console.log('IsMobile', isMobile)
-
-const dialogWidth = ref()
-const actionColumnWidth = ref()
-
-if (isMobile.value) {
-  dialogWidth.value = "90%"
-  actionColumnWidth.value = "80px"
-} else {
-  dialogWidth.value = "25%"
-  actionColumnWidth.value = "200px"
-
-}
-
-const getDocumentTypes = async () => {
-}
+const getDocumentTypes = async () => {}
 getDocumentTypes()
 
-
-
-
 const readShp = async (file) => {
-  console.log('Reading Shp file....')
-
-  // await getGeoJSON(file)
   readShapefileAndConvertToGeoJSON(file)
     .then((geojson) => {
-
-      console.log("Geo>", geojson.length)
-      console.log("Geo1>", geojson[0])
-
-
       if (geojson.length != 1) {
-        ElMessage.warning('Please uplaod a file with only one feature. This one has ' + geojson.length + ' features')
-
-      }
-      else {
-        console.log('ok>>', geojson[0])
+        ElMessage.warning('Please upload a file with only one feature. This one has ' + geojson.length + ' features')
+      } else {
         let geom = {
           type: geojson[0].geometry.type,
           coordinates: geojson[0].geometry.coordinates
         }
-        console.log(geom)
         ruleForm.geom = geom
-
-        console.log(ruleForm)
       }
-
-
     })
     .catch((error) => {
       console.error(error)
       ElMessage.error('Invalid shapefiles. Check your zipped file')
-
-
     })
-
-  //uploadPolygon(feat)
 }
 
 const readJson = (event) => {
-  console.log('Reading Josn file....', event)
   let str = event.target.result
-
-
   let json = JSON.parse(str)
-  console.log('parsed', json.crs)
-
   const targetProj = "+proj=longlat +datum=WGS84 +no_defs"
-
-
-  // const sourceProj = '+proj=utm +zone=37 +ellps=WGS84 +datum=WGS84 +units=m +no_defs';
   let sourceProj
   let epsgCode
   let crsProp = json.crs ? json.crs.properties.name : null;
-
   if (crsProp && crsProp.includes('EPSG')) {
-    console.log('The string contains the character "EPSG"');
     epsgCode = crsProp.match(/EPSG::(\d+)/)[1]
   } else {
     epsgCode = 4326
   }
-
-
-  console.log(epsgCode)
-
-
-  console.log(epsgCode)
-
   if (epsgCode == 21037) {
-    // zone 37S
     sourceProj = "+proj=utm + zone=37 + south + a=6378249.145 + rf=293.465 + towgs84=-160,-6,-302,0,0,0,0 + units=m + no_defs";
-  }
-  else if (epsgCode == 21097) {
-    // zone 37 N
+  } else if (epsgCode == 21097) {
     sourceProj = "+proj=utm + zone=37 + north + a=6378249.145 + rf=293.465 + towgs84=-157,-2,-299,0,0,0,0 + units=m + no_defs";
-  }
-  else if (epsgCode == 21036) {
-    // zone 36 S
+  } else if (epsgCode == 21036) {
     sourceProj = "+proj=utm + zone=36 + south + a=6378249.145 + rf=293.465 + towgs84=-160,-6,-302,0,0,0,0 + units=m + no_defs";
-  }
-  else if (epsgCode == 21096) {
-    // zone 36N
+  } else if (epsgCode == 21096) {
     sourceProj = "+proj=utm + zone=36 + north + a=6378249.145 + rf=293.465 + towgs84=-160,-6,-302,0,0,0,0 + units=m + no_defs";
-  }
-
-  else {
+  } else {
     sourceProj = "+proj=longlat +datum=WGS84 +no_defs"
-
   }
-
-
   proj4.defs("SOURCE_CRS", sourceProj);
   proj4.defs("WGS84", targetProj);
-
-
   if (json.features.length != 1) {
-    ElMessage.warning('Please uplaod a file with only one feature. This one has ' + json.features.length + ' features')
-
-  }
-  else {
-    console.log('ok>>', json.features)
-
+    ElMessage.warning('Please upload a file with only one feature. This one has ' + json.features.length + ' features')
+  } else {
     const geometry = json.features[0].geometry;
-    console.log(geometry)
-    // Check if the geometry type is "Polygon" or "MultiPolygon"
     if (geometry.type === "Polygon") {
-      // If it's a single polygon, project its coordinates
       geometry.coordinates[0] = geometry.coordinates[0].map(coordinate => {
         return proj4("SOURCE_CRS", "WGS84", coordinate);
       });
     } else if (geometry.type === "MultiPolygon") {
-      // If it's a multi-polygon, loop through all polygons and project their coordinates
       geometry.coordinates.forEach(polygon => {
         polygon[0] = polygon[0].map(coordinate => {
           return proj4("SOURCE_CRS", "WGS84", coordinate);
         });
       });
     }
-
-    console.log('geometry', geometry)
     let geom = {
       type: json.features[0].geometry.type,
       coordinates: geometry.coordinates
     }
-    console.log(geom)
     ruleForm.geom = geom
   }
-
 }
 
 const handleUploadGeo = async (uploadFile) => {
-  console.log('Upload>>>', uploadFile)
-  //  uploadRef.value!.submit()
-
-  console.log("File type", uploadFile.name.split('.').pop())
   var fileType = uploadFile.name.split('.').pop()
   var rfile = uploadFile.raw
-
   let reader = new FileReader()
-  console.log(reader)
-
-  //var mydata = JSON.parse(uploadFile);
-
   if (fileType === 'geojson' || fileType === 'json') {
     reader.onload = readJson
     reader.readAsText(rfile)
-  }
-  else if (fileType === 'zip') {
+  } else if (fileType === 'zip') {
     readShp(rfile)
-
-    // reader.readAsArrayBuffer(rfile)
   } else {
     ElMessage.error('Only geojson or zipped shapefiles are supported at the moment')
-
-
   }
-
-
 }
 
 const tableRowClassName = (data) => {
-  // console.log('Row Styling --------->', data.row)
   if (data.row.documents.length > 0) {
     return 'warning-row'
   }
@@ -2116,24 +1317,21 @@ const isCopyIconVisible = (row) => {
   return hoveredRow.value === row;
 }
 
-
-
 const handleSelectCounty = async (county_id: any) => {
   selectedCounty.value = county_id
   ruleForm.subcounty_id = ''
   ruleForm.ward_id = ''
-  getSubCountyNames()
-
+  await getSubCountyNames()
+  saveFiltersToStorage();
 }
 
 const handleSelectSubCounty = async (subcounty_id: any) => {
   selectedSubCounty.value = subcounty_id
   ruleForm.ward_id = ''
-  getWardNames()
-
+  await getWardNames()
+  saveFiltersToStorage();
 }
 
-/// Uplaod docuemnts from a central component 
 const mfield = 'settlement_id'
 const ChildComponent = defineAsyncComponent(() => import('@/views/Components/UploadComponent.vue'));
 const dynamicComponent = ref();
@@ -2145,24 +1343,15 @@ const componentProps = ref({
   field: mfield
 });
 
-
-
 function toggleComponent(row) {
-  console.log('Compnnent data', row)
   componentProps.value.data = row
-  dynamicComponent.value = null; // Unload the component
-  addMoreDocuments.value = true; // Set any additional props
-
+  dynamicComponent.value = null;
+  addMoreDocuments.value = true;
   setTimeout(() => {
-    dynamicComponent.value = ChildComponent; // Load the component
-  }, 100); // 0.1 seconds
-
-
+    dynamicComponent.value = ChildComponent;
+  }, 100);
 }
 
-
-
-// component for docuemnts 
 const rowData = ref()
 const documentComponent = defineAsyncComponent(() => import('@/views/Components/ListDocuments.vue'));
 const dynamicDocumentComponent = ref();
@@ -2170,114 +1359,70 @@ const DocumentComponentProps = ref({
   message: 'documents',
   data: rowData.value,
   docmodel: model,
-
 });
 
 const expandedRowKeys = ref([])
 
-
-function handleExpand(row,expandedRows) {
-  dynamicDocumentComponent.value = null; // Unload the component
+function handleExpand(row, expandedRows) {
+  dynamicDocumentComponent.value = null;
   rowData.value = row
   DocumentComponentProps.value.data = row
   setTimeout(() => {
-    dynamicDocumentComponent.value = documentComponent; // Load the component
-  }, 100); // 0.1 seconds
-
+    dynamicDocumentComponent.value = documentComponent;
+  }, 100);
   if (expandedRows.includes(row)) {
-    expandedRowKeys.value = [row.id] // Only keep one expanded
+    expandedRowKeys.value = [row.id]
   } else {
     expandedRowKeys.value = []
   }
-
-  
 }
-
-
-
-
-// Revised molde for downlaod
-
-
-
-// get model fields 
-
-//  getModeldefinition()
-
-console.log('model_fields.value', model_fields.value)
 
 const router = useRouter()
 
-
 const goBack = () => {
-  // Add your logic to handle the back action
-  // For example, you can use Vue Router to navigate back
   if (router) {
-    // Use router.back() to navigate back
     router.back()
   } else {
     console.warn('Router instance not available.')
   }
-
 }
-
-
 
 function formatDate(row, column, cellValue) {
-  if (!cellValue) return '';  // Handle null or undefined values
-
-  // Format the date (you can use libraries like moment.js or Day.js, or use native Date methods)
+  if (!cellValue) return '';
   const date = new Date(cellValue);
-  return date.toLocaleDateString();  // Format to local date string
+  return date.toLocaleDateString();
 }
 
-
 const duplicateDialogShow = ref(false)
-
-
-
 const selectedDuplicate = ref(null);
 const map = ref();
 const mapContainer = ref(null);
 
-
-
-
-
-
 const showDuplicateMap = (duplicate) => {
-  console.log(duplicate.row);
   selectedDuplicate.value = duplicate.row;
-  console.log(selectedDuplicate.value);
   duplicateDialogShow.value = true;
-
   nextTick(() => {
     if (!map.value) {
       mapboxgl.accessToken = 'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg';
       map.value = new mapboxgl.Map({
         container: mapContainer.value,
-        style: 'mapbox://styles/mapbox/streets-v11', // Initial style
-        center: [37.9062, -0.0236], // Set center based on the first point
+        style: 'mapbox://styles/mapbox/streets-v11',
+        center: [37.9062, -0.0236],
         zoom: 12,
       });
-
-      // When the map loads, add the duplicates and the satellite layer
       map.value.on('load', () => {
         addDuplicatesToMap(duplicate.row.duplicates);
-
-        // Add the satellite layer
         map.value.addSource('satellite', {
           type: 'raster',
           url: 'mapbox://mapbox.satellite',
           tileSize: 256
         });
-
         map.value.addLayer({
           id: 'satellite-layer',
           type: 'raster',
           source: 'satellite',
           layout: {
-            visibility: 'none', // Initially hidden, only streets are shown
+            visibility: 'none',
           },
         });
       });
@@ -2285,53 +1430,27 @@ const showDuplicateMap = (duplicate) => {
   });
 };
 
-// Toggle between the layers
 const toggleLayer = () => {
   const streetsLayerVisibility = map.value.getLayoutProperty('satellite-layer', 'visibility');
-
   if (streetsLayerVisibility === 'none') {
-    // Show satellite and hide streets
     map.value.setLayoutProperty('satellite-layer', 'visibility', 'visible');
     map.value.setStyle('mapbox://styles/mapbox/satellite-streets-v11');
   } else {
-    // Show streets and hide satellite
     map.value.setLayoutProperty('satellite-layer', 'visibility', 'none');
     map.value.setStyle('mapbox://styles/mapbox/streets-v11');
   }
 };
 
-
-
-
-
-
-
 const addDuplicatesToMap = (duplicates) => {
-  // Create a bounds object to hold the extents
   const bounds = new mapboxgl.LngLatBounds();
-
   duplicates.forEach(duplicate => {
     if (duplicate.geom) {
       const geometryType = duplicate.geom.type;
-
       if (geometryType === 'Point') {
-        // Add a point for Point geometries
-
-        // Add a popup to the marker
-
-        // Extend bounds to include the point
         bounds.extend(duplicate.geom.coordinates);
-
       } else if (geometryType === 'Polygon') {
-        // Compute the centroid of the polygon using Turf.js
         const polygon = turf.polygon(duplicate.geom.coordinates);
         const centroid = turf.centroid(polygon);
-
-        // Add a marker for the centroid
-
-        // Add a popup to the centroid marker
-
-        // Add a polygon for Polygon geometries
         map.value.addSource(`duplicate-${duplicate.id}`, {
           type: 'geojson',
           data: {
@@ -2349,8 +1468,6 @@ const addDuplicatesToMap = (duplicates) => {
             'fill-opacity': 0.5,
           },
         });
-
-        // Get the coordinates of the polygon to extend the bounds
         if (duplicate.geom.coordinates) {
           duplicate.geom.coordinates.forEach(ring => {
             ring.forEach(coord => {
@@ -2358,14 +1475,10 @@ const addDuplicatesToMap = (duplicates) => {
             });
           });
         }
-
-        // Extend bounds to include the centroid
         bounds.extend(centroid.geometry.coordinates);
       }
     }
   });
-
-  // Zoom to the bounds after adding all duplicates
   if (!bounds.isEmpty()) {
     map.value.fitBounds(bounds, {
       padding: { top: 50, bottom: 50, left: 50, right: 50 }
@@ -2373,64 +1486,44 @@ const addDuplicatesToMap = (duplicates) => {
   }
 };
 
-
-
-
 const resetDialogData = () => {
-
   mapContainer.value = null
   map.value = null
   selectedDuplicate.value = null
   duplicateDialogShow.value = false
 }
 
-
-
 const primaryRecord = ref()
 const selectedRecords = ref([])
 const toMergeRecords = ref([])
 const primaryOptions = ref([]);
-
 
 const mergeRecords = async () => {
   const formData = {}
   formData.model = 'settlement'
   formData.primaryId = primaryRecord.value
   formData.duplicateIds = toMergeRecords.value
-
   const res = await mergeDuplicates(formData)
-  console.log('res------>', res)
-
   if (res.code == '0000') {
-    // Find the index of the expanded row object within duplicates and remove it
     const rowIndex = duplicateRecords.value.indexOf(expandedRow.value);
     if (rowIndex !== -1) {
-      duplicateRecords.value.splice(rowIndex, 1); // Remove the expanded row from duplicates
+      duplicateRecords.value.splice(rowIndex, 1);
     }
   }
-
   primaryRecord.value = null;
   selectedRecords.value = [];
   primaryOptions.value = [];
-
 }
+
 const handleSelectPrimary = () => {
-  console.log(primaryRecord.value)
   toMergeRecords.value = selectedRecords.value.map((record) => record.id).filter((id) => id !== primaryRecord.value);
-  console.log('toMergeRecords.value', toMergeRecords.value)
 }
 
 const handleSelection = (selection) => {
-  console.log('selection....');
-
   if (selection.length > 0) {
-    //primaryRecord.value = selection[0];
-    //selectedRecords.value = selection.map((record) => record.id).filter((id) => id !== primaryRecord.value.id);
     selectedRecords.value = selection;
-
-    // Create options from selectedRecords for later use
     primaryOptions.value = selection.map((record) => ({
-      label: record.name + `( Id:${record.id})`, // Use a name or a unique identifier
+      label: record.name + `( Id:${record.id})`,
       value: record.id
     }));
   } else {
@@ -2438,49 +1531,32 @@ const handleSelection = (selection) => {
     selectedRecords.value = [];
     primaryOptions.value = [];
   }
-
-  console.log('selectedRecords.value', selectedRecords.value);
-  console.log('primaryOptions', primaryOptions.value);
 };
 
 const expandedRow = ref()
 const onExpand = (row, expandedRows) => {
-
-  console.log('rows', row)
   if (expandedRows.includes(row)) {
-    console.log("Row expanded:", row);
     expandedRow.value = row
-    // Perform actions like fetching additional data or initializing state
-  } else {
-    console.log("Row collapsed:", row);
   }
 }
 
-
-
-// Computed property for paginated data
 const paginatedData = computed(() => {
   const start = (currentPage.value - 1) * pageSize.value;
   const end = start + pageSize.value;
   return duplicateRecords.value.slice(start, end);
 });
 
-// Handle page change
 function handlePageChange(page) {
   currentPage.value = page;
 }
 
 const handleRowDblClick = (row) => {
-
-  console.log('Double clicked row:', row);
-
-
   push({
     name: 'SettlementDetails',
     params: { id: row.id }
   })
-
 }
+
 const activeSegment = ref('Approved')
 
 const Statuses = ref([
@@ -2510,10 +1586,7 @@ const Statuses = ref([
     value: 'Duplicates',
     icon: Warning,
     count: duplicateTotal,
- 
     hidden: !showAdminButtons.value
-
-
   },
   {
     label: 'Decommissioned',
@@ -2531,258 +1604,138 @@ const Statuses = ref([
   },
 ])
 
-
-
- 
-
 const filteredSegments = computed(() => {
   return Statuses.value.filter(option => !option.hidden);
 });
 
-
 const getThisHistory = async (sett_id) => {
   try {
     const model = 'settlement_history';
-
     const formData = {
-      model, 
-      searchField: 'name', 
+      model,
+      searchField: 'name',
       excludeGeom: false,
       associated_multiple_models: ['users'],
-      filters: [ 'id'],
-      filterValues: [ [sett_id]]
+      filters: ['id'],
+      filterValues: [[sett_id]]
     };
-
-    console.log("formData", formData);
-
-    // Fetch the history data
     const res = await getSettlementListByCounty(formData);
-
-    // Check if the response is valid and contains data
     if (res && res.data) {
-      console.log('History collected........', res.data);
-     
       thisHistory.value = res.data
     } else {
-      console.warn("No data found in response.");
-      thisHistory.value = []; // Return an empty array if no data is found
+      thisHistory.value = [];
     }
   } catch (error) {
     console.error("Error fetching history:", error.message);
-    throw new Error("Failed to fetch history. Please try again later."); // Rethrow the error for higher-level handling
+    throw new Error("Failed to fetch history. Please try again later.");
   }
 };
-
-
 
 const onSegmentClick = async () => {
-  
-console.log('activeSegment.value' ,activeSegment.value )
-
   if (activeSegment.value === "Approved") {
-
     var selectOption = 'isApproved'
     if (!filters.value.includes(selectOption)) {
       filters.value.push(selectOption)
     }
-
-    var index = filters.value.indexOf(selectOption) // 1
-
-    // clear previously selected
+    var index = filters.value.indexOf(selectOption)
     if (filterValues.value[index]) {
-      // filterValues[index].length = 0
       filterValues.value.splice(index, 1)
     }
-
     if (!filterValues.value.includes('Approved')) {
-      filterValues.value.splice(index, 0, 'Approved') //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+      filterValues.value.splice(index, 0, 'Approved')
     }
-
-  }
-
-
-  else if (activeSegment.value === "New") {
-
+  } else if (activeSegment.value === "New") {
     var selectOption = 'isApproved'
     if (!filters.value.includes(selectOption)) {
       filters.value.push(selectOption)
     }
-
-    var index = filters.value.indexOf(selectOption) // 1
-
-    // clear previously selected
+    var index = filters.value.indexOf(selectOption)
     if (filterValues.value[index]) {
-      // filterValues[index].length = 0
       filterValues.value.splice(index, 1)
     }
-
     if (!filterValues.value.includes('Pending')) {
-      filterValues.value.splice(index, 0, 'Pending') //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+      filterValues.value.splice(index, 0, 'Pending')
     }
-
-  }
-
-
-  else if (activeSegment.value === "Rejected") {
-
+  } else if (activeSegment.value === "Rejected") {
     var selectOption = 'isApproved'
     if (!filters.value.includes(selectOption)) {
       filters.value.push(selectOption)
     }
-
-    var index = filters.value.indexOf(selectOption) // 1
-
-    // clear previously selected
+    var index = filters.value.indexOf(selectOption)
     if (filterValues.value[index]) {
-      // filterValues[index].length = 0
       filterValues.value.splice(index, 1)
     }
-
     if (!filterValues.value.includes('Rejected')) {
-      filterValues.value.splice(index, 0, 'Rejected') //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+      filterValues.value.splice(index, 0, 'Rejected')
     }
-
+  } else if (activeSegment.value === "Decommissioned") {
+    var selectOption = 'isApproved'
+    if (!filters.value.includes(selectOption)) {
+      filters.value.push(selectOption)
+    }
+    var index = filters.value.indexOf(selectOption)
+    if (filterValues.value[index]) {
+      filterValues.value.splice(index, 1)
+    }
+    if (!filterValues.value.includes('Decommissioned')) {
+      filterValues.value.splice(index, 0, 'Decommissioned')
+    }
   }
-
-  
- else if (activeSegment.value === "Decommissioned") {
-
-      var selectOption = 'isApproved'
-      if (!filters.value.includes(selectOption)) {
-        filters.value.push(selectOption)
-      }
-
-      var index = filters.value.indexOf(selectOption) // 1
-      // clear previously selected
-      if (filterValues.value[index]) {
-        // filterValues[index].length = 0
-        filterValues.value.splice(index, 1)
-      }
-
-      if (!filterValues.value.includes('Decommissioned')) {
-        filterValues.value.splice(index, 0, 'Decommissioned') //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
-      }
-
-
-      
-
-}
-
-
-
-  if (activeSegment.value != "Duplicates" && activeSegment.value != "Deleted" )  {
-
-    console.log(activeSegment.value);
-
-  console.log('filterValues---filters.value->', filterValues.value, filters.value)
-  showPagination.value = true
-  //getFilteredData(filters.value, filterValues.value)
-  await getNewOrRejectedSettlements(activeSegment.value)
-}
-
-
-    if (activeSegment.value === "Duplicates") {
-    getPotentialDuplicates()
+  saveFiltersToStorage();
+  if (activeSegment.value != "Duplicates" && activeSegment.value != "Deleted") {
+    showPagination.value = true
+    await getNewOrRejectedSettlements(activeSegment.value)
+  }
+  if (activeSegment.value === "Duplicates") {
     showPagination.value = false
-
-  } 
-    
-   
-     if (activeSegment.value === "Deleted") {
-    
-    console.log("Deleted settlements.....")
-     showPagination.value = false
-
-   await getSettlmentHistory()
-
+    await getPotentialDuplicates()
   }
-  
-
-
+  if (activeSegment.value === "Deleted") {
+    showPagination.value = false
+    await getSettlmentHistory()
+  }
 };
-getSettlementListByCounty
-
 
 const getSettlmentHistory = async () => {
-  deletedSettlements.value=[] // EMpty the  deletedSettlements.value first
-const model = 'settlement_history'
-
-const formData = {}
-formData.model = model
-//-Search field--------------------------------------------
-formData.searchField = 'name'
-formData.excludeGeom = false
-formData.associated_multiple_models = ['users']
-
-//--Single Filter -----------------------------------------
-
-
-// - multiple filters -------------------------------------
-formData.filters = ['change_type','status' ]
-formData.filterValues = [['Delete'],['Open']]
-
-//formData.cache_key = 'SeacrchByKey_' + search_string.value
-
-//-------------------------
-console.log("formData", formData)
-//console.log(formData)
-const res = await getSettlementListByCounty(formData)
-
-console.log('History collected........', res.data)
- // Initialize deleted settlements
- 
-// Process each element in the response
-res.data.forEach((item) => {
-  const beforeObject = item.changes?.before; // Extract the "before" object if it exists
-  if (beforeObject) {
-    // Add the history_id to the beforeObject
-    beforeObject.history_id = item.id;
-    
-    // Push the updated beforeObject to deletedSettlements
-    deletedSettlements.value.push(beforeObject);
-  }
-});
-
- 
-deletedSettlementsCount.value = deletedSettlements.value.length;
-
-console.log(' deletedSettlementsCount.value . ', deletedSettlementsCount.value )
-console.log(' tableDataList. ', tableDataList.value)
-
-
+  deletedSettlements.value = []
+  const model = 'settlement_history'
+  const formData = {}
+  formData.model = model
+  formData.searchField = 'name'
+  formData.excludeGeom = false
+  formData.associated_multiple_models = ['users']
+  formData.filters = ['change_type', 'status']
+  formData.filterValues = [['Delete'], ['Open']]
+  const res = await getSettlementListByCounty(formData)
+  res.data.forEach((item) => {
+    const beforeObject = item.changes?.before;
+    if (beforeObject) {
+      beforeObject.history_id = item.id;
+      deletedSettlements.value.push(beforeObject);
+    }
+  });
+  deletedSettlementsCount.value = deletedSettlements.value.length;
 }
 
-
-
-
-
 const RevertEdits = async (data: TableSlotDefault) => {
-  console.log('Reverts.....', data)
-
   const formData = {
     model: 'settlement',
     history_id: data.history_id,
   };
-
- const res = await revertHistory(formData);
- console.log('Reverts success.....', res.data)
-
-
+  const res = await revertHistory(formData);
 };
 
-
-const DateDialogVisible =ref(false)
-const dateRange=ref()
-
+const DateDialogVisible = ref(false)
+const dateRange = ref()
 
 const handleDateChange = async () => {
-  console.log('dateRange.....', dateRange.value)
-
-   
-
-
+  // Add date range filtering logic if needed
+  saveFiltersToStorage();
 };
 
+
+const loadingGetData = ref(false)
+const loadingGetDataMsg = ref('Loading the data.. Please wait.......')
 
 
 
@@ -2818,15 +1771,14 @@ size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear
 
       <el-col :xs="24" :sm="24" :md="12" :lg="4">
         <el-select
-:disabled="!enableSubcounty" size="default" v-model="value5" :onChange="filterBySubCounty" multiple
+:disabled="!value5" size="default" v-model="value5" :onChange="filterBySubCounty" multiple
           clearable filterable collapse-tags placeholder="By Subcounty" style=" margin-right: 5px;">
           <el-option v-for="item in subcountiesOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </el-col>
 
       <el-col :xs="24" :sm="24" :md="12" :lg="4">
-        <el-select
-:disabled="!enableSubcounty" size="default" v-model="value6" :onChange="filterByWard" multiple
+        <el-select  :disabled="!value6" size="default" v-model="value6" :onChange="filterByWard" multiple
           clearable filterable collapse-tags placeholder="By Ward" style=" margin-right: 5px;">
           <el-option v-for="item in wardOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
@@ -2862,9 +1814,11 @@ v-model="search_string" clearable :onClear="handleClear"
           <el-tooltip content="Add Settlement" placement="top">
             <el-button v-if="showAdminButtons" :onClick="AddSettlement" type="primary" :icon="Plus" />
           </el-tooltip>
-
+          
           <el-tooltip content="Clear" placement="top">
-            <el-button :onClick="handleClear" type="primary" :icon="Filter" />
+            <el-button @click="handleClear" type="primary">
+              <Icon icon="mdi:filter-remove" />
+            </el-button>
           </el-tooltip>
 
           <DownloadCustom

@@ -383,3 +383,11 @@ TRUNCATE TABLE
     public.other_facility,
     public.piped_water
 RESTART IDENTITY CASCADE;
+
+
+
+BEGIN
+  DELETE FROM parcel
+  WHERE settlement_id IN (124,126,274,273,873,874,115,257);  
+  COMMIT;
+END;
