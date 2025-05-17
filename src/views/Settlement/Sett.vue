@@ -738,7 +738,8 @@ const viewOnMap = (data: TableSlotDefault) => {
 }
 
 const handleViewOnMap = (data) => {
-  if (data.geom) {
+  console.log(data)
+  if (data.geom || data.hasGeom) {
     push({
       path: '/settlement/map/:id',
       name: 'SettlementMap',

@@ -20,6 +20,7 @@ import { getListWithoutGeo } from '@/api/counties'
 
 import {  getSummarybyFieldFromMultipleIncludes  } from '@/api/summary'
 
+import {   getOneGeo  } from '@/api/settlements'
 
 import {
   Position,
@@ -869,21 +870,47 @@ const viewProfile = (data: TableSlotDefault) => {
 
 const activeTab = ref('list')
 
-const flyTo = (data: TableSlotDefault) => {
-  if (!data.geom || !data.geom.coordinates || data.geom.coordinates.length < 2) {
-    console.error('Error: Geometry is missing or incomplete.');
-    ElMessage.error('Error: Geometry is missing or incomplete.')
-    return;
+
+const flyTo = async (data: TableSlotDefault) => {
+  try {
+    const geoForm: any = {
+      model,
+      id: data.id
+    };
+
+    console.log("Requesting geometry for:", geoForm);
+
+    const res = await getOneGeo(geoForm);
+
+    const features = res?.data?.[0]?.json_build_object?.features;
+    if (!features || features.length === 0) {
+      ElMessage.error("No geometry found for this location.");
+      return;
+    }
+
+    const geometry = features[0]?.geometry;
+    const coordinates = geometry?.coordinates;
+
+    if (!coordinates || coordinates.length < 2) {
+      ElMessage.error("Invalid geometry data.");
+      return;
+    }
+
+    console.log("Coordinates:", coordinates);
+
+    activeTab.value = 'map';
+    activeSegment.value = 'Map';
+
+    setTimeout(() => {
+      loadMap([coordinates[0], coordinates[1], data.name]);
+    }, 100);
+
+  } catch (error) {
+    console.error("Error loading geometry:", error);
+    ElMessage.error("Failed to load geometry. Please try again.");
   }
-
-  console.log('On Click.....', data.geom.coordinates);
-  activeTab.value = 'map';
-  activeSegment.value = 'Map';
-
-  setTimeout(() => {
-    loadMap([data.geom.coordinates[0], data.geom.coordinates[1], data.name]);
-  }, 100); // Adjust delay time as needed
 };
+
 
 
 

@@ -2886,158 +2886,10 @@ exports.modelPaginatedData = (req, res) => {
 }
  
 
-exports.xmodelPaginatedDatafilterByColumn = async (req, res) => {
-  const { model: reg_model, filters, filterValues, associated_multiple_models = [], nested_models, nested_filter, limit, page, cache_key } = req.body;
-
-  console.log('Req-body 002', req.body);
-
-  const baseCountQuery = { where: {} };
-
-  // Filtering logic
-  if (filters?.length > 0 && filterValues?.length === filters.length) {
-    const lstQuerries = filters.map((filter, i) => ({ [filter]: filterValues[i] }));
-    baseCountQuery.where = { [Op.and]: lstQuerries };
-  }
-
-  // Count query
-  const count = await db.models[reg_model].count(baseCountQuery);
-  console.log('Base count:', count);
-
-  const includeModels = [];
-
-  // Include associated models
-  for (let i = 0; i < associated_multiple_models.length; i++) {
-    const assocModel = associated_multiple_models[i];
-    const modelIncl = { model: db.models[assocModel] };
-
-    if (assocModel === 'users') {
-      modelIncl.raw = true;
-      modelIncl.nested = true;
-      modelIncl.attributes = ['name', 'email', 'phone'];
-    }
-
-    includeModels.push(modelIncl);
-  }
-
-  // Include nested models if applicable
-  if (nested_models?.length) {
-    const child_model = db.models[nested_models[0]];
-    const grand_child_model = db.models[nested_models[1]];
-    const nestedQuery = nested_filter ? { [nested_filter[0]]: nested_filter[1] } : null;
-
-    const nestedModels = {
-      model: child_model,
-      include: [{
-        model: grand_child_model,
-        ...(nestedQuery && { where: nestedQuery })
-      }],
-      raw: true,
-      nested: true
-    };
-
-    includeModels.push(nestedModels);
-  }
-
-  // 👇 Handle self-recursive relationship (e.g., Programme -> Programme)
-  const modelDefinition = db.models[reg_model];
-  if (
-    modelDefinition?.associations?.children &&
-    modelDefinition?.associations?.parent
-  ) {
-    includeModels.push(
-      { model: modelDefinition, as: 'children' },
-      { model: modelDefinition, as: 'parent' }
-    );
-  }
-
-  // Final query
-  const qry = {
-    include: includeModels,
-    order: [['createdAt', 'DESC']],
-    ...(limit && { limit }),
-    ...(page && { offset: (page - 1) * limit }),
-    ...(baseCountQuery.where && { where: baseCountQuery.where })
-  };
-
-  console.log('Final Query:', qry);
-
-  try {
-    if (cache_key) {
-      const cacheDuration = 3600;
-
-      const lastRow = await modelDefinition.findOne({
-        attributes: ['updatedAt'],
-        order: [['updatedAt', 'DESC']]
-      });
-
-      const lastModified = lastRow?.updatedAt ?? Date.now();
-      const cacheResults = await redisClient.get(cache_key);
-
-      if (cacheResults) {
-        const result = JSON.parse(cacheResults);
-        if (lastModified > result.lastModified) {
-          const response = await modelDefinition.findAndCountAll(qry);
-          await redisClient.set(cache_key, JSON.stringify({
-            data: response.rows,
-            total: count,
-            lastModified: Date.now()
-          }), { EX: cacheDuration, NX: true });
-
-          return res.status(200).send({
-            fromCache: false,
-            cache_key,
-            data: response.rows,
-            total: count,
-            code: '0000'
-          });
-        } else {
-          return res.status(200).send({
-            fromCache: true,
-            cache_key,
-            data: result.data,
-            total: count,
-            code: '0000'
-          });
-        }
-      } else {
-        const response = await modelDefinition.findAndCountAll(qry);
-        await redisClient.set(cache_key, JSON.stringify({
-          data: response.rows,
-          total: count,
-          lastModified: Date.now()
-        }), { EX: cacheDuration, NX: true });
-
-        return res.status(200).send({
-          fromCache: false,
-          cache_key,
-          data: response.rows,
-          total: count,
-          code: '0000'
-        });
-      }
-    } else {
-      // No cache
-      const response = await modelDefinition.findAndCountAll(qry);
-      return res.status(200).send({
-        fromCache: false,
-        data: response.rows,
-        total: count,
-        code: '0000'
-      });
-    }
-  } catch (error) {
-    console.error(error);
-    return res.status(500).send({
-      message: 'Internal server error',
-      code: 'SERVER_ERROR'
-    });
-  }
-};
-
 
 
  
-exports.modelPaginatedDatafilterByColumn = async (req, res) => {
+exports.xmodelPaginatedDatafilterByColumn = async (req, res) => {
   try {
     // Validate request body
     const {
@@ -3210,6 +3062,196 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
     });
   }
 };
+
+
+exports.modelPaginatedDatafilterByColumn = async (req, res) => {
+  try {
+    const {
+      model: modelName,
+      filters = [],
+      filterValues = [],
+      associated_multiple_models = [],
+      nested_models = [],
+      nested_filter = [],
+      limit = 10,
+      page = 1,
+      cache_key,
+    } = req.body;
+
+    if (!modelName) {
+      return res.status(400).json({ message: 'Model name is required', code: 'INVALID_INPUT' });
+    }
+
+    const Model = db.models[modelName];
+    if (!Model) {
+      return res.status(400).json({ message: `Model "${modelName}" not found`, code: 'MODEL_NOT_FOUND' });
+    }
+
+    const parsedLimit = parseInt(limit, 10);
+    const parsedPage = parseInt(page, 10);
+    if (isNaN(parsedLimit) || parsedLimit < 1 || isNaN(parsedPage) || parsedPage < 1) {
+      return res.status(400).json({ message: 'Invalid limit or page number', code: 'INVALID_PAGINATION' });
+    }
+
+    const baseQuery = { where: {} };
+
+    const hasGeomColumn = Object.keys(Model.rawAttributes).includes('geom');
+
+    if (filters.length > 0 && filterValues.length === filters.length) {
+      const modelAttributes = Object.keys(Model.rawAttributes).filter(attr => !hasGeomColumn || attr !== 'geom');
+      const validFilters = filters
+        .map((filter, i) => ({
+          field: filter,
+          value: filterValues[i],
+        }))
+        .filter(({ field }) => modelAttributes.includes(field));
+
+      if (validFilters.length === 0) {
+        return res.status(400).json({ message: 'No valid filter fields provided', code: 'INVALID_FILTERS' });
+      }
+
+      baseQuery.where = {
+        [Op.and]: validFilters.map(({ field, value }) => ({ [field]: value })),
+      };
+    }
+
+    const total = await Model.count(baseQuery);
+
+    const includeModels = [];
+
+    for (const assocModel of associated_multiple_models) {
+      const RelatedModel = db.models[assocModel];
+      if (!RelatedModel) {
+        return res.status(400).json({ message: `Associated model "${assocModel}" not found`, code: 'INVALID_ASSOCIATION' });
+      }
+
+      const relatedHasGeom = Object.keys(RelatedModel.rawAttributes).includes('geom');
+      const modelIncl = { 
+        model: RelatedModel,
+        attributes: relatedHasGeom ? { exclude: ['geom'] } : undefined
+      };
+      if (assocModel === 'users') {
+        modelIncl.attributes = ['name', 'email', 'phone'];
+      }
+      includeModels.push(modelIncl);
+    }
+
+    if (nested_models.length >= 2) {
+      const childModel = db.models[nested_models[0]];
+      const grandChildModel = db.models[nested_models[1]];
+      if (!childModel || !grandChildModel) {
+        return res.status(400).json({ message: 'Invalid nested model names', code: 'INVALID_NESTED_MODELS' });
+      }
+
+      const childHasGeom = Object.keys(childModel.rawAttributes).includes('geom');
+      const grandChildHasGeom = Object.keys(grandChildModel.rawAttributes).includes('geom');
+      const nestedQuery = nested_filter.length === 2 ? { [nested_filter[0]]: nested_filter[1] } : null;
+      includeModels.push({
+        model: childModel,
+        attributes: childHasGeom ? { exclude: ['geom'] } : undefined,
+        include: [{
+          model: grandChildModel,
+          attributes: grandChildHasGeom ? { exclude: ['geom'] } : undefined,
+          ...(nestedQuery && { where: nestedQuery }),
+        }],
+      });
+    }
+
+    if (Model.associations.children && Model.associations.parent) {
+      includeModels.push(
+        { 
+          model: Model, 
+          as: 'children', 
+          attributes: ['id', 'name'], 
+          required: false 
+        },
+        { 
+          model: Model, 
+          as: 'parent', 
+          attributes: ['id', 'name'], 
+          required: false 
+        }
+      );
+    }
+
+    const query = {
+      where: baseQuery.where,
+      include: includeModels,
+      order: [['createdAt', 'DESC']],
+      limit: parsedLimit,
+      offset: (parsedPage - 1) * parsedLimit,
+      distinct: true,
+      attributes: hasGeomColumn ? {
+        exclude: ['geom'],
+        include: [
+          [db.sequelize.literal(`CASE WHEN "${Model.tableName}"."geom" IS NOT NULL THEN true ELSE false END`), 'hasGeom']
+        ]
+      } : undefined
+    };
+
+    if (cache_key) {
+      const cacheDuration = 3600;
+      const lastRow = await Model.findOne({
+        attributes: ['updatedAt'],
+        order: [['updatedAt', 'DESC']],
+      });
+      const lastModified = lastRow?.updatedAt?.getTime() ?? Date.now();
+
+      const cacheResults = await redisClient.get(cache_key);
+      if (cacheResults) {
+        const result = JSON.parse(cacheResults);
+        if (lastModified <= result.lastModified) {
+          return res.status(200).json({
+            fromCache: true,
+            cache_key,
+            data: result.data,
+            total,
+            code: '0000',
+          });
+        }
+      }
+
+      const response = await Model.findAndCountAll(query);
+      const cacheData = {
+        data: response.rows,
+        total,
+        lastModified: Date.now(),
+      };
+      await redisClient.set(cache_key, JSON.stringify(cacheData), { EX: cacheDuration });
+
+      return res.status(200).json({
+        fromCache: false,
+        cache_key,
+        data: response.rows,
+        total,
+        code: '0000',
+      });
+    }
+
+    const response = await Model.findAndCountAll(query);
+    return res.status(200).json({
+      fromCache: false,
+      data: response.rows,
+      total,
+      code: '0000',
+    });
+
+  } catch (error) {
+    console.error('Error in modelPaginatedDatafilterByColumn:', {
+      message: error.message,
+      stack: error.stack,
+      body: req.body,
+    });
+    return res.status(500).json({
+      message: 'Internal server error',
+      error: error.message,
+      code: 'SERVER_ERROR',
+    });
+  }
+};
+
+
+
 
 exports.modelPaginatedDatafilterByColumnNoGeo = async (req, res) => {
   console.log('Req-body 002 - ', req.body)

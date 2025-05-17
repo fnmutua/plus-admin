@@ -1,7 +1,7 @@
 <!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
 
-import { getSettlementListByCounty } from '@/api/settlements'
+import { getSettlementListByCounty,getOneGeo } from '@/api/settlements'
 import { DeleteRecord, updateOneRecord, deleteDocument } from '@/api/settlements'
 
 import { getCountyListApi } from '@/api/counties'
@@ -820,24 +820,39 @@ const viewProfile = (data: TableSlotDefault) => {
 
 const activeTab = ref('list')
 
-const flyTo = (data: TableSlotDefault) => {
-  if (!data.geom || !data.geom.coordinates || data.geom.coordinates.length < 2) {
-    console.error('Error: Geometry is missing or incomplete.');
-    ElMessage.error('Error: Geometry is missing or incomplete.')
+ 
+
+const flyTo = async (data: TableSlotDefault) => {
+
+
+const geoForm: any = {
+    model,
+    id: data.id
+  };
+
+const res = await getOneGeo(geoForm);
+
+  const features = res?.data?.[0]?.json_build_object
+  if (!features ) {
+    ElMessage.error("No geometry found for this location.");
     return;
   }
 
-  console.log('On Click.....', data.geom.coordinates);
-  activeTab.value = 'map';
-  activeSegment.value = 'Map';
 
-  setTimeout(() => {
-    // loadMap([data.geom.coordinates[0], data.geom.coordinates[1], data.name]);
-    loadMap([data.geom, data.name])
-  }, 100); // Adjust delay time as needed
+
+console.log(features)
+
+
+
+console.log('On Click.....',features  );
+activeTab.value = 'map';
+activeSegment.value = 'Map';
+
+setTimeout(() => {
+  // loadMap([data.geom.coordinates[0], data.geom.coordinates[1], data.name]);
+  loadMap([features, data.name])
+}, 100); // Adjust delay time as needed
 };
-
-
 
 
 

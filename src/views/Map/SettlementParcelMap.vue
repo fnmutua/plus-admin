@@ -738,6 +738,8 @@ onMounted(async () => {
         
         await loadSelectedLayers(['settlement', 'parcels'    ,'other_points',  'structures'])
           setupMapTypeControl()
+
+          mapLoading.value=false
           
         await addWmsLayer()
         
@@ -1063,74 +1065,7 @@ const getSettlementBbox = () => {
 //const xgeoserverUrl = 'http://localhost:8080/geoserver'
 const geoserverUrl = 'https://kesmis.go.ke/geoserver'
 
-const xgetWmsUrl = async (bbox: {
-  minLng: number;
-  minLat: number;
-  maxLng: number;
-  maxLat: number;
-}) => {
-  console.log('inside getWmsUrl');
-
-  
-  const capabilitiesUrl = geoserverUrl + '/kisip/ows?service=wms&request=GetCapabilities';
-
-  // Fetch WMS capabilities
-  const response = await axios.get(capabilitiesUrl);
-  const xml = response.data;
-
-  const parser = new XMLParser();
-  const json = parser.parse(xml);
-
-  // Extract layer info
-  console.log(json.WMS_Capabilities.Capability)
-  const glayers = json.WMS_Capabilities.Capability.Layer.Layer.map((layer: any) => ({
-    name: layer.Name,
-    title: layer.Title,
-    label: layer.Name,
-    value: layer.Name,
-    bbox: {
-      minx: parseFloat(layer.EX_GeographicBoundingBox.westBoundLongitude),
-      miny: parseFloat(layer.EX_GeographicBoundingBox.southBoundLatitude),
-      maxx: parseFloat(layer.EX_GeographicBoundingBox.eastBoundLongitude),
-      maxy: parseFloat(layer.EX_GeographicBoundingBox.northBoundLatitude),
-    }
-  }));
-
-  console.log('Parsed layers:', glayers);
-
-  const imageUrls: string[] = [];
-
-  for (const layer of glayers) {
-    const { name, bbox: layerBbox } = layer;
-
-    // Check if layer intersects with given bbox
-    const intersects =
-      bbox.minLng < layerBbox.maxx &&
-      bbox.maxLng > layerBbox.minx &&
-      bbox.minLat < layerBbox.maxy &&
-      bbox.maxLat > layerBbox.miny;
-
-    if (intersects) {
-      const params = new URLSearchParams({
-        service: 'WMS',
-        version: '1.1.0',
-        request: 'GetMap',
-        layers: name,
-        styles: '',
-        bbox: `${bbox.minLng},${bbox.minLat},${bbox.maxLng},${bbox.maxLat}`,
-        width: '1024',
-        height: '1024',
-        srs: 'EPSG:4326',
-        format: 'image/png',
-        transparent: 'true'
-      });
-
-      imageUrls.push( 'kisip:'+name);
-    }
-  }
-
-  return imageUrls;
-};
+ 
 
 
 const getWmsUrl = async (bbox: {
@@ -1269,7 +1204,7 @@ const addWmsLayer = async () => {
     imageryLayerObjects.value[layerName] = wmsLayer;
   });
 
-  mapLoading.value=false
+ 
   
 };
 
