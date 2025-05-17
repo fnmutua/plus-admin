@@ -821,17 +821,24 @@ const getFilteredBySearchData = async (tab, searchKey) => {
 }
 
 const searchLoading = ref(false)
+
 const searchByNewName = async () => {
-  if (search_string.value) {
-    filters.value.push('isActive')
-    filterValues.value.push(['true'])
-    searchLoading.value = true
-    await getFilteredBySearchData(activeSegment.value, search_string.value)
-  } else {
-    await handleClear()
+  const query = search_string.value?.trim();
+
+  if (!query || query.length < 4) {
+    ElMessage.warning("Please enter at least 4 characters to search.");
+    return;
   }
+
+  filters.value.push('isActive');
+  filterValues.value.push(['true']);
+  searchLoading.value = true;
+
+  await getFilteredBySearchData(activeSegment.value, query);
+
   saveFiltersToStorage();
-}
+};
+
 
 const countiesOptions = ref([])
 

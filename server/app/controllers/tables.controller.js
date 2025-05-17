@@ -3719,109 +3719,10 @@ exports.modelPaginatedDatafilterByColumnM2M = (req, res) => {
  
 
 
-
-exports.xxxmodelPaginatedDatafilterBykeyWord = async (req, res) => {
-  try {
-    console.log('/api/v1/data/paginated/filter --- Keyword', req.body);
-
-    // Extract request body properties
-    const {
-      model: reg_model,
-      searchField: field,
-      excludeGeom,
-      excludeGeomAssoc,
-      searchKeyword,
-      associated_multiple_models: associatedModels = [],
-      nested_models: nestedModels = [],
-      filters = [],
-      filterValues = [],
-      limit = 20,
-      page = 1,
-    } = req.body;
-
-    // Initialize variables
-    const includeModels = [];
-    const queryCondition = {};
-
-    // Set nested models if available
-    const [childModel, grandChildModel] = nestedModels.map(nested => db.models[nested]);
-
-    // Prepare associated models for inclusion
-    if (associatedModels.length > 0) {
-      associatedModels.forEach(modelName => {
-        const model = db.models[modelName];
-        includeModels.push({
-          model: model,
-          raw: true,
-          nested: true,
-          attributes: excludeGeomAssoc ? { exclude: ['geom'] } : undefined,
-        });
-      });
-
-      // Add nested models to the include list if they are present
-      if (childModel && grandChildModel) {
-        includeModels.push({
-          model: childModel,
-          include: [{
-            model: grandChildModel,
-            raw: true,
-            nested: true,
-            attributes: excludeGeomAssoc ? { exclude: ['geom'] } : undefined,
-          }],
-          raw: true,
-          nested: true,
-          attributes: excludeGeomAssoc ? { exclude: ['geom'] } : undefined,
-        });
-      }
-    }
-
-    // Build query
-    const qry = {
-      include: includeModels,
-      attributes: excludeGeom ? { exclude: ['geom'] } : undefined,
-    };
-
-    // Add multiple filters if provided
-    if (filters.length > 0 && filterValues.length > 0) {
-      filters.forEach((filter, index) => {
-        queryCondition[filter] = filterValues[index];
-      });
-    }
-
-    // Add search condition if searchField and searchKeyword are provided
-    if (field && searchKeyword) {
-      queryCondition[field] = {
-        [Op.iLike]: `%${searchKeyword.toLowerCase()}%`,
-      };
-    }
-
-    // Apply pagination
-    qry.limit = parseInt(limit);
-    qry.offset = (parseInt(page) - 1) * parseInt(limit);
-
-    qry.where = queryCondition;
-
-    console.log('The xQuery----->', qry);
-
-    // Execute the query
-    const list = await db.models[reg_model].findAndCountAll(qry);
-
-    res.status(200).send({
-      data: list.rows,
-      total: list.count,
-      code: '0000',
-    });
-  } catch (error) {
-    console.error('Error in modelPaginatedDatafilterBykeyWord:', error);
-    res.status(500).send({
-      error: 'Internal Server Error',
-      code: '9999',
-    });
-  }
-};
+ 
 
 
-exports.modelPaginatedDatafilterBykeyWord = async (req, res) => {
+exports.xmodelPaginatedDatafilterBykeyWord = async (req, res) => {
   try {
     console.log('/api/v1/data/paginated/filter --- Keyword', req.body);
 
@@ -3914,7 +3815,147 @@ exports.modelPaginatedDatafilterBykeyWord = async (req, res) => {
   }
 };
 
+exports.modelPaginatedDatafilterBykeyWord = async (req, res) => {
+  try {
+    console.log('/api/v1/data/paginated/filter --- Keyword', req.body);
 
+    const {
+      model: reg_model,
+      searchField: field,
+      searchKeyword,
+      associated_multiple_models: associatedModels = [],
+      nested_models: nestedModels = [],
+      filters = [],
+      filterValues = [],
+      limit = 20,
+      page = 1,
+      returnAll = false,
+    } = req.body;
+
+    // Validate model existence
+    const Model = db.models[reg_model];
+    if (!Model) {
+      return res.status(400).json({ message: `Model "${reg_model}" not found`, code: 'MODEL_NOT_FOUND' });
+    }
+
+    // Check if geom exists in the main model
+    const hasGeomColumn = Object.keys(Model.rawAttributes).includes('geom');
+
+    // Build include array for associations
+    const includeModels = [];
+
+    // Handle associated models
+    if (associatedModels.length > 0) {
+      associatedModels.forEach(modelName => {
+        const model = db.models[modelName];
+        if (!model) {
+          return res.status(400).json({ message: `Associated model "${modelName}" not found`, code: 'INVALID_ASSOCIATION' });
+        }
+        const relatedHasGeom = Object.keys(model.rawAttributes).includes('geom');
+        includeModels.push({
+          model: model,
+          raw: true,
+          nested: true,
+          attributes: relatedHasGeom ? { exclude: ['geom'] } : undefined,
+        });
+      });
+    }
+
+    // Handle nested models
+    const [childModel, grandChildModel] = nestedModels.map(nested => db.models[nested]);
+    if (childModel && grandChildModel) {
+      const childHasGeom = Object.keys(childModel.rawAttributes).includes('geom');
+      const grandChildHasGeom = Object.keys(grandChildModel.rawAttributes).includes('geom');
+      includeModels.push({
+        model: childModel,
+        include: [{
+          model: grandChildModel,
+          raw: true,
+          nested: true,
+          attributes: grandChildHasGeom ? { exclude: ['geom'] } : undefined,
+        }],
+        raw: true,
+        nested: true,
+        attributes: childHasGeom ? { exclude: ['geom'] } : undefined,
+      });
+    }
+
+    // Build query
+    const queryCondition = {};
+
+    // Sanitize and apply filters
+    if (filters.length > 0 && filterValues.length === filters.length) {
+      const modelAttributes = Object.keys(Model.rawAttributes).filter(attr => !hasGeomColumn || attr !== 'geom');
+      const validFilters = filters
+        .map((filter, i) => ({
+          field: filter,
+          value: filterValues[i],
+        }))
+        .filter(({ field }) => modelAttributes.includes(field));
+
+      if (validFilters.length === 0) {
+        return res.status(400).json({ message: 'No valid filter fields provided', code: 'INVALID_FILTERS' });
+      }
+
+      validFilters.forEach(({ field, value }) => {
+        queryCondition[field] = value;
+      });
+    }
+
+    // Apply keyword search
+    if (field && searchKeyword) {
+      if (!Object.keys(Model.rawAttributes).includes(field)) {
+        return res.status(400).json({ message: `Search field "${field}" not found in model`, code: 'INVALID_SEARCH_FIELD' });
+      }
+      queryCondition[field] = {
+        [Op.iLike]: `%${searchKeyword.toLowerCase()}%`,
+      };
+    }
+
+    const qry = {
+      where: queryCondition,
+      include: includeModels,
+      attributes: hasGeomColumn ? {
+        exclude: ['geom'],
+        include: [
+          [db.sequelize.literal(`CASE WHEN "${Model.tableName}"."geom" IS NOT NULL THEN true ELSE false END`), 'hasGeom']
+        ]
+      } : undefined,
+    };
+
+    // Only add pagination if returnAll is NOT true
+    if (!returnAll) {
+      const parsedLimit = parseInt(limit, 10);
+      const parsedPage = parseInt(page, 10);
+      if (isNaN(parsedLimit) || parsedLimit < 1 || isNaN(parsedPage) || parsedPage < 1) {
+        return res.status(400).json({ message: 'Invalid limit or page number', code: 'INVALID_PAGINATION' });
+      }
+      qry.limit = parsedLimit;
+      qry.offset = (parsedPage - 1) * parsedLimit;
+    }
+
+    console.log('The xQuery----->', qry);
+
+    const list = await Model.findAndCountAll(qry);
+
+    res.status(200).send({
+      data: list.rows,
+      total: list.count,
+      code: '0000',
+    });
+  } catch (error) {
+    console.error('Error in modelPaginatedDatafilterBykeyWord:', {
+      message: error.message,
+      stack: error.stack,
+      body: req.body,
+    });
+    res.status(500).send({
+      error: 'Internal Server Error',
+      code: '9999',
+    });
+  }
+};
+ 
 
 
 
