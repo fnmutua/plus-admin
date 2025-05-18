@@ -2885,186 +2885,10 @@ exports.modelPaginatedData = (req, res) => {
   })
 }
  
-
-
-
  
+
+// Main get list code 
 exports.xmodelPaginatedDatafilterByColumn = async (req, res) => {
-  try {
-    // Validate request body
-    const {
-      model: modelName,
-      filters = [],
-      filterValues = [],
-      associated_multiple_models = [],
-      nested_models = [],
-      nested_filter = [],
-      limit = 10,
-      page = 1,
-      cache_key,
-    } = req.body;
-
-    if (!modelName) {
-      return res.status(400).json({ message: 'Model name is required', code: 'INVALID_INPUT' });
-    }
-
-    // Validate model existence
-    const Model = db.models[modelName];
-    if (!Model) {
-      return res.status(400).json({ message: `Model "${modelName}" not found`, code: 'MODEL_NOT_FOUND' });
-    }
-
-    // Validate pagination parameters
-    const parsedLimit = parseInt(limit, 10);
-    const parsedPage = parseInt(page, 10);
-    if (isNaN(parsedLimit) || parsedLimit < 1 || isNaN(parsedPage) || parsedPage < 1) {
-      return res.status(400).json({ message: 'Invalid limit or page number', code: 'INVALID_PAGINATION' });
-    }
-
-    // Build base query
-    const baseQuery = { where: {} };
-
-    // Sanitize and apply filters
-    if (filters.length > 0 && filterValues.length === filters.length) {
-      const modelAttributes = Object.keys(Model.rawAttributes);
-      const validFilters = filters
-        .map((filter, i) => ({
-          field: filter,
-          value: filterValues[i],
-        }))
-        .filter(({ field }) => modelAttributes.includes(field)); // Only include valid model fields
-
-      if (validFilters.length === 0) {
-        return res.status(400).json({ message: 'No valid filter fields provided', code: 'INVALID_FILTERS' });
-      }
-
-      baseQuery.where = {
-        [Op.and]: validFilters.map(({ field, value }) => ({ [field]: value })),
-      };
-    }
-
-    // Count total records
-    const total = await Model.count(baseQuery);
-
-    // Build include array for associations
-    const includeModels = [];
-
-    // Handle associated models
-    for (const assocModel of associated_multiple_models) {
-      const RelatedModel = db.models[assocModel];
-      if (!RelatedModel) {
-        return res.status(400).json({ message: `Associated model "${assocModel}" not found`, code: 'INVALID_ASSOCIATION' });
-      }
-
-      const modelIncl = { model: RelatedModel };
-      if (assocModel === 'users') {
-        modelIncl.attributes = ['name', 'email', 'phone']; // Select specific attributes
-      }
-      includeModels.push(modelIncl);
-    }
-
-    // Handle nested models
-    if (nested_models.length >= 2) {
-      const childModel = db.models[nested_models[0]];
-      const grandChildModel = db.models[nested_models[1]];
-      if (!childModel || !grandChildModel) {
-        return res.status(400).json({ message: 'Invalid nested model names', code: 'INVALID_NESTED_MODELS' });
-      }
-
-      const nestedQuery = nested_filter.length === 2 ? { [nested_filter[0]]: nested_filter[1] } : null;
-      includeModels.push({
-        model: childModel,
-        include: [{
-          model: grandChildModel,
-          ...(nestedQuery && { where: nestedQuery }),
-        }],
-      });
-    }
-
-    // Handle self-recursive relationships safely
-    if (Model.associations.children && Model.associations.parent) {
-      includeModels.push(
-        { model: Model, as: 'children', attributes: ['id', 'name'], required: false }, // Select minimal attributes
-        { model: Model, as: 'parent', attributes: ['id', 'name'], required: false }
-      );
-    }
-
-    // Build final query
-    const query = {
-      where: baseQuery.where,
-      include: includeModels,
-      order: [['createdAt', 'DESC']],
-      limit: parsedLimit,
-      offset: (parsedPage - 1) * parsedLimit,
-      distinct: true, // Ensure correct count with includes
-    };
-
-    // Handle caching
-    if (cache_key) {
-      const cacheDuration = 3600; // 1 hour
-      const lastRow = await Model.findOne({
-        attributes: ['updatedAt'],
-        order: [['updatedAt', 'DESC']],
-      });
-      const lastModified = lastRow?.updatedAt?.getTime() ?? Date.now();
-
-      const cacheResults = await redisClient.get(cache_key);
-      if (cacheResults) {
-        const result = JSON.parse(cacheResults);
-        if (lastModified <= result.lastModified) {
-          return res.status(200).json({
-            fromCache: true,
-            cache_key,
-            data: result.data,
-            total,
-            code: '0000',
-          });
-        }
-      }
-
-      // Fetch fresh data
-      const response = await Model.findAndCountAll(query);
-      const cacheData = {
-        data: response.rows,
-        total,
-        lastModified: Date.now(),
-      };
-      await redisClient.set(cache_key, JSON.stringify(cacheData), { EX: cacheDuration });
-
-      return res.status(200).json({
-        fromCache: false,
-        cache_key,
-        data: response.rows,
-        total,
-        code: '0000',
-      });
-    }
-
-    // No cache
-    const response = await Model.findAndCountAll(query);
-    return res.status(200).json({
-      fromCache: false,
-      data: response.rows,
-      total,
-      code: '0000',
-    });
-
-  } catch (error) {
-    console.error('Error in modelPaginatedDatafilterByColumn:', {
-      message: error.message,
-      stack: error.stack,
-      body: req.body,
-    });
-    return res.status(500).json({
-      message: 'Internal server error',
-      error: error.message,
-      code: 'SERVER_ERROR',
-    });
-  }
-};
-
-
-exports.modelPaginatedDatafilterByColumn = async (req, res) => {
   try {
     const {
       model: modelName,
@@ -3249,6 +3073,244 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
     });
   }
 };
+
+
+exports.modelPaginatedDatafilterByColumn = async (req, res) => {
+  try {
+    const {
+      model: modelName,
+      filters = [],
+      filterValues = [],
+      associated_multiple_models = [],
+      nested_models = [],
+      nested_filter = [],
+      dateRange = [], // Changed to expect array [date1, date2]
+      limit = 10,
+      page = 1,
+      cache_key,
+    } = req.body;
+
+    if (!modelName) {
+      return res.status(400).json({ message: 'Model name is required', code: 'INVALID_INPUT' });
+    }
+
+    const Model = db.models[modelName];
+    if (!Model) {
+      return res.status(400).json({ message: `Model "${modelName}" not found`, code: 'MODEL_NOT_FOUND' });
+    }
+
+    const parsedLimit = parseInt(limit, 10);
+    const parsedPage = parseInt(page, 10);
+    if (isNaN(parsedLimit) || parsedLimit < 1 || isNaN(parsedPage) || parsedPage < 1) {
+      return res.status(400).json({ message: 'Invalid limit or page number', code: 'INVALID_PAGINATION' });
+    }
+
+    const baseQuery = { where: {} };
+
+    const hasGeomColumn = Object.keys(Model.rawAttributes).includes('geom');
+
+    // Handle column filters
+    if (filters.length > 0 && filterValues.length === filters.length) {
+      const modelAttributes = Object.keys(Model.rawAttributes).filter(attr => !hasGeomColumn || attr !== 'geom');
+      const validFilters = filters
+        .map((filter, i) => ({
+          field: filter,
+          value: filterValues[i],
+        }))
+        .filter(({ field }) => modelAttributes.includes(field));
+
+      if (validFilters.length === 0) {
+        return res.status(400).json({ message: 'No valid filter fields provided', code: 'INVALID_FILTERS' });
+      }
+
+      baseQuery.where = {
+        [Op.and]: validFilters.map(({ field, value }) => ({ [field]: value })),
+      };
+    }
+
+    // Handle date range filter for createdAt
+    if (Array.isArray(dateRange) && dateRange.length === 2) {
+      const [startDate, endDate] = dateRange.map(date => new Date(date));
+
+      // Validate dates
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        return res.status(400).json({ message: 'Invalid date format in dateRange', code: 'INVALID_DATE_RANGE' });
+      }
+
+      if (startDate > endDate) {
+        return res.status(400).json({ message: 'First date must be before second date', code: 'INVALID_DATE_RANGE' });
+      }
+
+      // Add date range to where clause
+      baseQuery.where.createdAt = {
+        [Op.between]: [startDate, endDate],
+      };
+    } else if (dateRange.length !== 0) {
+      return res.status(400).json({ message: 'dateRange must be an array with two dates', code: 'INVALID_DATE_RANGE' });
+    }
+
+    const total = await Model.count(baseQuery);
+
+    const includeModels = [];
+
+    for (const assocModel of associated_multiple_models) {
+      const RelatedModel = db.models[assocModel];
+      if (!RelatedModel) {
+       
+
+ return res.status(400).json({ message: `Associated model "${assocModel}" not found`, code: 'INVALID_ASSOCIATION' });
+      }
+
+      const relatedHasGeom = Object.keys(RelatedModel.rawAttributes).includes('geom');
+      const modelIncl = { 
+        model: RelatedModel,
+        attributes: relatedHasGeom ? { exclude: ['geom'] } : undefined
+      };
+      if (assocModel === 'users') {
+        modelIncl.attributes = ['name', 'email', 'phone'];
+      }
+      includeModels.push(modelIncl);
+    }
+
+    if (nested_models.length >= 2) {
+      const childModel = db.models[nested_models[0]];
+      const grandChildModel = db.models[nested_models[1]];
+      if (!childModel || !grandChildModel) {
+        return res.status(400).json({ message: 'Invalid nested model names', code: 'INVALID_NESTED_MODELS' });
+      }
+
+      const childHasGeom = Object.keys(childModel.rawAttributes).includes('geom');
+      const grandChildHasGeom = Object.keys(grandChildModel.rawAttributes).includes('geom');
+      const nestedQuery = nested_filter.length === 2 ? { [nested_filter[0]]: nested_filter[1] } : null;
+      includeModels.push({
+        model: childModel,
+        attributes: childHasGeom ? { exclude: ['geom'] } : undefined,
+        include: [{
+          model: grandChildModel,
+          attributes: grandChildHasGeom ? { exclude: ['geom'] } : undefined,
+          ...(nestedQuery && { where: nestedQuery }),
+        }],
+      });
+    }
+
+    if (Model.associations.children && Model.associations.parent) {
+      includeModels.push(
+        { 
+          model: Model, 
+          as: 'children', 
+          attributes: ['id', 'name'], 
+          required: false 
+        },
+        { 
+          model: Model, 
+          as: 'parent', 
+          attributes: ['id', 'name'], 
+          required: false 
+        }
+      );
+    }
+
+    const query = {
+      where: baseQuery.where,
+      include: includeModels,
+      order: [['createdAt', 'DESC']],
+      limit: parsedLimit,
+      offset: (parsedPage - 1) * parsedLimit,
+      distinct: true,
+      attributes: hasGeomColumn ? {
+        exclude: ['geom'],
+        include: [
+          [db.sequelize.literal(`CASE WHEN "${Model.tableName}"."geom" IS NOT NULL THEN true ELSE false END`), 'hasGeom']
+        ]
+      } : undefined
+    };
+
+    if (cache_key) {
+      const cacheDuration = 3600;
+      const lastRow = await Model.findOne({
+        attributes: ['updatedAt'],
+        order: [['updatedAt', 'DESC']],
+      });
+      const lastModified = lastRow?.updatedAt?.getTime() ?? Date.now();
+
+      const cacheResults = await redisClient.get(cache_key);
+      if (cacheResults) {
+        const result = JSON.parse(cacheResults);
+        if (lastModified <= result.lastModified) {
+          return res.status(200).json({
+            fromCache: true,
+            cache_key,
+            data: result.data,
+            total,
+            code: '0000',
+          });
+        }
+      }
+
+      const response = await Model.findAndCountAll(query);
+      const cacheData = {
+        data: response.rows,
+        total,
+        lastModified: Date.now(),
+      };
+      await redisClient.set(cache_key, JSON.stringify(cacheData), { EX: cacheDuration });
+
+      return res.status(200).json({
+        fromCache: false,
+        cache_key,
+        data: response.rows,
+        total,
+        code: '0000',
+      });
+    }
+
+    const response = await Model.findAndCountAll(query);
+    return res.status(200).json({
+      fromCache: false,
+      data: response.rows,
+      total,
+      code: '0000',
+    });
+
+  } catch (error) {
+    console.error('Error in modelPaginatedDatafilterByColumn:', {
+      message: error.message,
+      stack: error.stack,
+      body: req.body,
+    });
+    return res.status(500).json({
+      message: 'Internal server error',
+      error: error.message,
+      code: 'SERVER_ERROR',
+    });
+  }
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -3721,99 +3783,7 @@ exports.modelPaginatedDatafilterByColumnM2M = (req, res) => {
 
  
 
-
-exports.xmodelPaginatedDatafilterBykeyWord = async (req, res) => {
-  try {
-    console.log('/api/v1/data/paginated/filter --- Keyword', req.body);
-
-    const {
-      model: reg_model,
-      searchField: field,
-      excludeGeom,
-      excludeGeomAssoc,
-      searchKeyword,
-      associated_multiple_models: associatedModels = [],
-      nested_models: nestedModels = [],
-      filters = [],
-      filterValues = [],
-      limit = 20,
-      page = 1,
-      returnAll = false, // 👈 new flag
-    } = req.body;
-
-    const includeModels = [];
-    const queryCondition = {};
-    const [childModel, grandChildModel] = nestedModels.map(nested => db.models[nested]);
-
-    if (associatedModels.length > 0) {
-      associatedModels.forEach(modelName => {
-        const model = db.models[modelName];
-        includeModels.push({
-          model: model,
-          raw: true,
-          nested: true,
-          attributes: excludeGeomAssoc ? { exclude: ['geom'] } : undefined,
-        });
-      });
-
-      if (childModel && grandChildModel) {
-        includeModels.push({
-          model: childModel,
-          include: [{
-            model: grandChildModel,
-            raw: true,
-            nested: true,
-            attributes: excludeGeomAssoc ? { exclude: ['geom'] } : undefined,
-          }],
-          raw: true,
-          nested: true,
-          attributes: excludeGeomAssoc ? { exclude: ['geom'] } : undefined,
-        });
-      }
-    }
-
-    const qry = {
-      include: includeModels,
-      attributes: excludeGeom ? { exclude: ['geom'] } : undefined,
-    };
-
-    if (filters.length > 0 && filterValues.length > 0) {
-      filters.forEach((filter, index) => {
-        queryCondition[filter] = filterValues[index];
-      });
-    }
-
-    if (field && searchKeyword) {
-      queryCondition[field] = {
-        [Op.iLike]: `%${searchKeyword.toLowerCase()}%`,
-      };
-    }
-
-    qry.where = queryCondition;
-
-    // ✅ Only add pagination if returnAll is NOT true
-    if (!returnAll) {
-      qry.limit = parseInt(limit);
-      qry.offset = (parseInt(page) - 1) * parseInt(limit);
-    }
-
-    console.log('The xQuery----->', qry);
-
-    const list = await db.models[reg_model].findAndCountAll(qry);
-
-    res.status(200).send({
-      data: list.rows,
-      total: list.count,
-      code: '0000',
-    });
-  } catch (error) {
-    console.error('Error in modelPaginatedDatafilterBykeyWord:', error);
-    res.status(500).send({
-      error: 'Internal Server Error',
-      code: '9999',
-    });
-  }
-};
+ 
 
 exports.modelPaginatedDatafilterBykeyWord = async (req, res) => {
   try {
@@ -3956,14 +3926,7 @@ exports.modelPaginatedDatafilterBykeyWord = async (req, res) => {
   }
 };
  
-
-
-
-
-
-
-
-
+ 
 
 
 

@@ -5,6 +5,7 @@ import { useAppStore } from '@/store/modules/app'
 import { computed, ref, watch } from 'vue'
 import { setCssVar } from '@/utils'
 import { useDesign } from '@/hooks/web/useDesign'
+import { ThemeSwitch } from '@/components/ThemeSwitch'
 
 const { getPrefixCls } = useDesign()
 
@@ -144,10 +145,17 @@ watch(
       <ElSwitch v-model="hamburger" @change="hamburgerChange" />
     </div>
 
+  
+   
+
     <div class="flex justify-between items-center">
       <span class="text-14px">{{ t('setting.screenfullIcon') }}</span>
       <ElSwitch v-model="screenfull" @change="screenfullChange" />
     </div>
+
+
+
+
 
     <div class="flex justify-between items-center">
       <span class="text-14px">{{ t('setting.sizeIcon') }}</span>

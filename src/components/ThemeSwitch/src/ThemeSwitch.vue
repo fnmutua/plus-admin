@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useAppStore } from '@/store/modules/app'
-import { ElSwitch } from 'element-plus'
+import { ElSwitch,ElButton } from 'element-plus'
 import { useIcon } from '@/hooks/web/useIcon'
 import { useDesign } from '@/hooks/web/useDesign'
 
@@ -14,7 +14,7 @@ const Sun = useIcon({ icon: 'emojione-monotone:sun', color: '#fde047' })
 const CrescentMoon = useIcon({ icon: 'emojione-monotone:crescent-moon', color: '#fde047' })
 
 const appStore = useAppStore()
-
+import { Icon } from '@iconify/vue';
 // 初始化获取是否是暗黑主题
 const isDark = ref(appStore.getIsDark)
 
@@ -38,4 +38,12 @@ const themeChange = (val: boolean) => {
     :inactive-icon="CrescentMoon"
     @change="themeChange"
   />
+
+ 
+
+
+ 
 </template>
+
+
+ 

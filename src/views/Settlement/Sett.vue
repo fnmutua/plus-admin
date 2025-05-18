@@ -322,6 +322,7 @@ const handleClear = async () => {
   value4.value = []
   value5.value = []
   value6.value = []
+  dateRange.value = []
   currentPage.value = 1
   localStorage.removeItem('settlementFilters'); // Clear stored filters
   await getAllSetllementsInitially(activeSegment.value)
@@ -468,6 +469,11 @@ const getNewOrRejectedSettlements = async (tab) => {
   formData.filterValues = filterValues.value
   formData.associated_multiple_models = associated_multiple_models
   formData.nested_models = nested_models
+  formData.nested_models = nested_models
+  formData.dateRange = dateRange.value
+  
+
+
   const res = await getSettlementListByCounty(formData)
   loadingGetData.value = false
   total.value = res.total
@@ -639,6 +645,9 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   formData.filterValues = selfilterValues
   formData.associated_multiple_models = associated_multiple_models
   formData.nested_models = nested_models
+  formData.dateRange = dateRange.value
+
+
   const res = await getSettlementListByCounty(formData)
   tableDataList.value = res.data
   total.value = res.total
@@ -837,7 +846,7 @@ const searchByNewName = async () => {
   await getFilteredBySearchData(activeSegment.value, query);
 
   saveFiltersToStorage();
-};
+}; 
 
 
 const countiesOptions = ref([])
@@ -1150,6 +1159,9 @@ const getFilteredDownloadData = async (selFilters, selfilterValues) => {
   formData.filterValues = selfilterValues
   formData.associated_multiple_models = associated_multiple_models
   formData.nested_models = nested_models
+  formData.dateRange = dateRange.value
+
+
   const res = await getSettlementListByCounty(formData)
   return res.data
 }
@@ -1738,7 +1750,27 @@ const dateRange = ref()
 
 const handleDateChange = async () => {
   // Add date range filtering logic if needed
+  console.log(dateRange.value)
+  if (activeSegment.value === 'Approved') {
+    filters.value = ['settlement_type', 'isApproved', 'isActive']
+    filterValues.value = [['Slum', 'Informal Settlement'], ['Approved'], ['true']]
+  } else if (activeSegment.value === 'New') {
+    filters.value = ['settlement_type', 'isApproved', 'isActive']
+    filterValues.value = [['Slum', 'Informal Settlement'], ['Pending'], ['true']]
+  } else if (activeSegment.value === 'Rejected') {
+    filters.value = ['settlement_type', 'isApproved', 'isActive']
+    filterValues.value = [['Slum', 'Informal Settlement'], ['Rejected'], ['true']]
+  }
   saveFiltersToStorage();
+  if (search_string.value) {
+    getFilteredBySearchData(activeSegment.value, search_string.value)
+  } else {
+    getNewOrRejectedSettlements(activeSegment.value)
+  }
+  
+  saveFiltersToStorage();
+  DateDialogVisible.value=false
+
 };
 
 
@@ -1812,9 +1844,19 @@ v-model="search_string" clearable :onClear="handleClear"
         <div style="display: flex; align-items: left; gap: 5px;  ">
 
           <el-tooltip content="Filter By Date" placement="top">
-          <el-button @click="DateDialogVisible=true">
-            <Icon icon="solar:calendar-line-duotone" style="margin-left: 4px;" />
+            <el-button @click="DateDialogVisible = true">
+            <Icon
+              :icon="(dateRange && dateRange.length > 0)
+                ? 'ph:calendar-fill'
+                : 'solar:calendar-bold'"
+              width="24"
+              height="24"
+              style="margin-left: 4px;"
+            />
           </el-button>
+
+
+
         </el-tooltip>
 
 
@@ -2489,32 +2531,30 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
   </el-dialog>
 
   <el-dialog
-  title="Select Date Range"
-  v-model="DateDialogVisible"
-  width="30%"
-   
->
-  <el-form   ref="dateFormRef">
-    <el-form-item label="Date Range">
-      <el-date-picker
-        v-model="dateRange"
-        type="daterange"
-        unlink-panels
-        range-separator="To"
-        start-placeholder="Start date"
-        end-placeholder="End date"
-        size="default"
-        style="width: 100%;"
-        @change="handleDateChange"
-      />
-    </el-form-item>
-  </el-form>
-  <template #footer>
-    <span class="dialog-footer">
-      <el-button @click="DateDialogVisible=false">Cancel</el-button>
-      <el-button type="primary" @click="handleDateChange">Confirm</el-button>
-    </span>
-  </template>
+        title="Filter by Create Date"
+        v-model="DateDialogVisible"
+        width="30%" >
+        <el-form   ref="dateFormRef">
+          <el-form-item label="Date Range">
+            <el-date-picker
+              v-model="dateRange"
+              type="daterange"
+              unlink-panels
+              range-separator="To"
+              start-placeholder="Start date"
+              end-placeholder="End date"
+              size="default"
+              style="width: 100%;"
+              @change="handleDateChange"
+            />
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <span class="dialog-footer">
+            <el-button @click="DateDialogVisible=false">Cancel</el-button>
+            <el-button type="primary" @click="handleDateChange">Confirm</el-button>
+          </span>
+        </template>
     </el-dialog>
 
 </template>
