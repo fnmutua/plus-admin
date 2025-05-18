@@ -39,8 +39,8 @@ const MapBoxToken = 'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1
 mapboxgl.accessToken = MapBoxToken;
 
 // Filter variables
-const filters = ref(['settlement_type', 'isApproved', 'isActive'])
-const filterValues = ref([['Slum', 'Informal Settlement'], ['Approved'], ['true']])
+const filters = ref([  'isActive'])
+const filterValues = ref([  ['Approved'], ['true']])
 const selectedCounty = ref([])
 const selectedSubCounty = ref([])
 const selectedWard = ref([])
@@ -74,8 +74,8 @@ const loadFiltersFromStorage = () => {
     selectedSubCounty.value = filterState.selectedSubCounty || []
     selectedWard.value = filterState.selectedWard || []
     search_string.value = filterState.search_string || ''
-    filters.value = filterState.filters || ['settlement_type', 'isApproved', 'isActive']
-    filterValues.value = filterState.filterValues || [['Slum', 'Informal Settlement'], ['Approved'], ['true']]
+    filters.value = filterState.filters || [ 'isApproved', 'isActive']
+    filterValues.value = filterState.filterValues || [  ['Approved'], ['true']]
     value4.value = filterState.value4 || []
     value5.value = filterState.value5 || []
     value6.value = filterState.value6 || []
@@ -334,14 +334,14 @@ const addMoreDocuments = ref(false)
 const onPageChange = async (selPage: any) => {
   page.value = selPage
   if (activeSegment.value == 'Approved') {
-    filters.value = ['settlement_type', 'isApproved', 'isActive']
-    filterValues.value = [['Slum', 'Informal Settlement'], ['Approved'], ['true']]
+    filters.value = [  'isApproved', 'isActive']
+    filterValues.value = [ ['Approved'], ['true']]
   } else if (activeSegment.value == 'New') {
-    filters.value = ['settlement_type', 'isApproved', 'isActive']
-    filterValues.value = [['Slum', 'Informal Settlement'], ['Pending'], ['true']]
+    filters.value = [  'isApproved', 'isActive']
+    filterValues.value = [ ['Pending'], ['true']]
   } else if (activeSegment.value == 'Rejected') {
-    filters.value = ['settlement_type', 'isApproved', 'isActive']
-    filterValues.value = [['Slum', 'Informal Settlement'], ['Rejected'], ['true']]
+    filters.value = [  'isApproved', 'isActive']
+    filterValues.value = [ ['Rejected'], ['true']]
   }
   saveFiltersToStorage();
   if (search_string.value) {
@@ -354,14 +354,14 @@ const onPageChange = async (selPage: any) => {
 const onPageSizeChange = async (size: any) => {
   pageSize.value = size
   if (activeSegment.value === 'Approved') {
-    filters.value = ['settlement_type', 'isApproved', 'isActive']
-    filterValues.value = [['Slum', 'Informal Settlement'], ['Approved'], ['true']]
+    filters.value = [  'isApproved', 'isActive']
+    filterValues.value = [ ['Approved'], ['true']]
   } else if (activeSegment.value === 'New') {
-    filters.value = ['settlement_type', 'isApproved', 'isActive']
-    filterValues.value = [['Slum', 'Informal Settlement'], ['Pending'], ['true']]
+    filters.value = [  'isApproved', 'isActive']
+    filterValues.value = [ ['Pending'], ['true']]
   } else if (activeSegment.value === 'Rejected') {
-    filters.value = ['settlement_type', 'isApproved', 'isActive']
-    filterValues.value = [['Slum', 'Informal Settlement'], ['Rejected'], ['true']]
+    filters.value = [  'isApproved', 'isActive']
+    filterValues.value = [ ['Rejected'], ['true']]
   }
   saveFiltersToStorage();
   if (search_string.value) {
@@ -1752,14 +1752,14 @@ const handleDateChange = async () => {
   // Add date range filtering logic if needed
   console.log(dateRange.value)
   if (activeSegment.value === 'Approved') {
-    filters.value = ['settlement_type', 'isApproved', 'isActive']
-    filterValues.value = [['Slum', 'Informal Settlement'], ['Approved'], ['true']]
+    filters.value = [  'isApproved', 'isActive']
+    filterValues.value = [ ['Approved'], ['true']]
   } else if (activeSegment.value === 'New') {
-    filters.value = ['settlement_type', 'isApproved', 'isActive']
-    filterValues.value = [['Slum', 'Informal Settlement'], ['Pending'], ['true']]
+    filters.value = [  'isApproved', 'isActive']
+    filterValues.value = [ ['Pending'], ['true']]
   } else if (activeSegment.value === 'Rejected') {
-    filters.value = ['settlement_type', 'isApproved', 'isActive']
-    filterValues.value = [['Slum', 'Informal Settlement'], ['Rejected'], ['true']]
+    filters.value = [ 'isApproved', 'isActive']
+    filterValues.value = [ ['Rejected'], ['true']]
   }
   saveFiltersToStorage();
   if (search_string.value) {
@@ -1818,7 +1818,8 @@ size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear
       </el-col>
 
       <el-col :xs="24" :sm="24" :md="12" :lg="4">
-        <el-select  :disabled="!value6" size="default" v-model="value6" :onChange="filterByWard" multiple
+        <el-select
+:disabled="!value6" size="default" v-model="value6" :onChange="filterByWard" multiple
           clearable filterable collapse-tags placeholder="By Ward" style=" margin-right: 5px;">
           <el-option v-for="item in wardOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
