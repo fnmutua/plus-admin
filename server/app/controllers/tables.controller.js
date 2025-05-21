@@ -6895,63 +6895,9 @@ exports.listModels = async (req, res) => {
 };
 
 
- exports.old_intersectGeometryWithModel = async (req, res) => {
-  try {
-    const { model, geometry, srid = 4326 } = req.body;
-
-    if (!model || !geometry) {
-      return res.status(400).json({ message: 'Model name and geometry are required' });
-    }
-
-    // Validate model existence
-    const Model = db.models[model];
-    if (!Model) {
-      return res.status(400).json({ message: `Model "${model}" not found` });
-    }
-
-    const geojsonStr = JSON.stringify(geometry);
-
-    // Define the expected target SRID of the geometry column (default to 4326)
-    const targetSRID = 4326; // You can make this dynamic by querying information_schema if needed
-
-    const query = `
-      SELECT * FROM "${Model.tableName}"
-      WHERE ST_Intersects(
-        "geom",
-        ST_Transform(
-          ST_SetSRID(ST_GeomFromGeoJSON(:geojson), :inputSrid),
-          :targetSrid
-        )
-      )
-    `;
-
-    const records = await db.sequelize.query(query, {
-      replacements: {
-        geojson: geojsonStr,
-        inputSrid: srid,        // SRID of the input geometry (optional)
-        targetSrid: targetSRID  // SRID of model's geometry column
-      },
-      type: db.Sequelize.QueryTypes.SELECT,
-    });
-
-    return res.status(200).json({
-      message: `Found ${records.length} intersecting records.`,
-      count: records.length,
-      data: records,
-      code: '0000',
-    });
-
-  } catch (err) {
-    console.error('Intersection error:', err);
-    return res.status(500).json({
-      message: 'Failed to perform geometry intersection',
-      error: err.message,
-      code: '0002',
-    });
-  }
-};
  
- exports.intersectGeometryWithModel = async (req, res) => {
+ 
+ exports.xintersectGeometryWithModel = async (req, res) => {
   try {
     const { model, geometry, srid = 4326 } = req.body;
 
@@ -6993,6 +6939,66 @@ exports.listModels = async (req, res) => {
       });
       totalCount += records.length;
     }
+
+    return res.status(200).json({
+      message: `Found ${totalCount} intersecting records.`,
+      count: totalCount,
+      data,
+      code: '0000',
+    });
+
+  } catch (err) {
+    console.error('Intersection error:', err);
+    return res.status(500).json({
+      message: 'Failed to perform geometry intersection',
+      error: err.message,
+      code: '0002',
+    });
+  }
+};
+
+ exports.intersectGeometryWithModel = async (req, res) => {
+  try {
+    const { model, geometry, srid = 4326 } = req.body;
+
+    if (!model || !Array.isArray(geometry) || geometry.length === 0) {
+      return res.status(400).json({ message: 'Model name and an array of geometries are required' });
+    }
+
+    const Model = db.models[model];
+    if (!Model) {
+      return res.status(400).json({ message: `Model "${model}" not found` });
+    }
+
+    const targetSrid = srid || 4326;
+
+    const intersectionQuery = `
+      SELECT *
+      FROM "${Model.tableName}"
+      WHERE ST_Intersects(
+        geom,
+        ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON(:geojson), 4326), :targetSrid)
+      )
+    `;
+
+    const data = await Promise.all(
+      geometry.map(async (geom, i) => {
+        const geojson = JSON.stringify(geom);
+        const records = await db.sequelize.query(
+          intersectionQuery,
+          {
+            replacements: { geojson, targetSrid },
+            type: db.sequelize.QueryTypes.SELECT,
+          }
+        );
+        return {
+          geometry_index: i,
+          records: records || [],
+        };
+      })
+    );
+
+    const totalCount = data.reduce((sum, d) => sum + d.records.length, 0);
 
     return res.status(200).json({
       message: `Found ${totalCount} intersecting records.`,
