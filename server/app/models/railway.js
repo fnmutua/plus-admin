@@ -9,7 +9,7 @@ module.exports = (sequelize) => {
     },
     Name_Place_name: {
       type: DataTypes.STRING,
-      allowNull: true,
+      allowNull: false,
     },
     Number_of_Tracks: {
       type: DataTypes.INTEGER,
@@ -75,6 +75,13 @@ module.exports = (sequelize) => {
   }, {
     tableName: 'railway',
     timestamps: false,
+     indexes: [
+       {
+        name: 'unique_railway_key',
+        unique: true,
+        fields: ['Name_Place_name', 'settlement_id', 'ward_id']
+      },
+     ]
   });
 
   return Railway;

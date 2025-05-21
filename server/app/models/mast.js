@@ -5,7 +5,7 @@ module.exports = (sequelize) => {
     
     TC_Name: {
       type: DataTypes.STRING,
-      allowNull: true,
+      allowNull: false,
     },
     TC_Type: {
       type: DataTypes.STRING,
@@ -38,6 +38,15 @@ module.exports = (sequelize) => {
   }, {
     tableName: 'mast',
     timestamps: false,
+     indexes: [
+       {
+        name: 'unique_mast_key',
+        unique: true,
+        fields: ['TC_Name' ]
+      },
+     ]
+
+
   });
 
   return Mast;

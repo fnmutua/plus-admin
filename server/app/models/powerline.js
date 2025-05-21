@@ -84,6 +84,14 @@ module.exports = function(sequelize, DataTypes) {
         unique: true,
         fields: [{ name: "id" }]
       },
+
+      {
+        name: 'unique_power_key',
+        unique: true,
+        fields: ['PL_Name', 'settlement_id', 'ward_id']
+      },
+
+
       {
         name: 'powerline_code',
         unique: true,

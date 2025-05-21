@@ -397,3 +397,38 @@ UPDATE public.document
 SET category = 21
 WHERE category = 11
   AND "createdAt"::date = CURRENT_DATE;
+
+
+
+
+
+DELETE FROM health_facility WHERE county_id = 16;
+DELETE FROM hazard_zone WHERE county_id = 16;
+DELETE FROM community_hall WHERE county_id = 16;
+DELETE FROM community_project WHERE county_id = 16;
+DELETE FROM streetlight WHERE county_id = 16;
+DELETE FROM mast WHERE county_id = 16;
+DELETE FROM dumping_site WHERE county_id = 16;
+DELETE FROM powerline WHERE county_id = 16;
+DELETE FROM railway WHERE county_id = 16;
+DELETE FROM floodlight WHERE county_id = 16;
+DELETE FROM crime_hotspot WHERE county_id = 16;
+DELETE FROM police_station WHERE county_id = 16;
+ DELETE FROM sewer WHERE county_id = 16;
+ 
+DELETE FROM road WHERE county_id = 16;
+DELETE FROM water_point WHERE county_id = 16;
+ DELETE FROM education_facility WHERE county_id = 16;
+ DELETE FROM piped_water WHERE county_id = 16;
+ DELETE FROM education_facility WHERE county_id = 16;
+
+
+
+// MKS 
+
+DELETE FROM powerline WHERE county_id = 16;
+DELETE FROM railway WHERE county_id = 16;
+DELETE FROM sewer WHERE county_id = 16;
+DELETE FROM road WHERE county_id = 16;
+DELETE FROM piped_water WHERE county_id = 16;
+ 

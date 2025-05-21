@@ -11,7 +11,7 @@ module.exports = function (sequelize, DataTypes) {
 
     name: {
       type: DataTypes.STRING,
-      allowNull: true
+      allowNull: false
     },
 
     code: {
@@ -250,7 +250,13 @@ module.exports = function (sequelize, DataTypes) {
         name: 'health_facility_pkey',
         unique: true,
         fields: [{ name: 'id' }]
-      }
+      },
+      {
+        name: 'unique_HP_key',
+        unique: true,
+        fields: ['name', 'settlement_id', 'ward_id']
+      },
+
     ]
   });
 };

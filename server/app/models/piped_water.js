@@ -108,6 +108,14 @@ module.exports = function(sequelize, DataTypes) {
         unique: true,
         fields: [{ name: "id" }]
       },
+
+     {
+        name: 'piped_water_key',
+        unique: true,
+        fields: ['name', 'settlement_id', 'ward_id']
+      },
+
+
       {
         name: 'piped_code',
         unique: true,

@@ -6,7 +6,7 @@ module.exports = (sequelize) => {
    
     PC_Name: {
       type: DataTypes.STRING,
-      allowNull: true,
+      allowNull: false,
     },
     PC_Type: {
       type: DataTypes.STRING,
@@ -50,6 +50,18 @@ module.exports = (sequelize) => {
   }, {
     tableName: 'police_station',
     timestamps: true,
+     indexes: [
+       
+       {
+        name: 'unique_policestn_key',
+        unique: true,
+        fields: ['PC_Name', 'settlement_id', 'ward_id']
+      },
+      // Kee
+
+    ]
+
+
   });
 
   return Police;

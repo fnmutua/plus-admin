@@ -125,6 +125,13 @@ module.exports = function(sequelize, DataTypes) {
         unique: true,
         fields: [{ name: "id" }]
       },
+       {
+        name: 'unique_sewer_key',
+        unique: true,
+        fields: ['name', 'settlement_id', 'ward_id']
+      },
+      // Kee
+
       {
         name: 'sewer_code',
         unique: true,

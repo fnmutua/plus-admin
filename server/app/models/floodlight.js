@@ -9,7 +9,7 @@ module.exports = (sequelize) => {
     },
      Place_name: {
       type: DataTypes.STRING,
-      allowNull: true,
+      allowNull: false,
     },
     Rating_Watts: {
       type: DataTypes.FLOAT,
@@ -53,6 +53,16 @@ module.exports = (sequelize) => {
   }, {
     tableName: 'floodlight',
     timestamps: false,
+      indexes: [
+       {
+        name: 'unique_foodlight_key',
+        unique: true,
+        fields: ['Place_name', 'settlement_id', 'ward_id']
+      },
+
+    ]
+
+
   });
 
   return Floodlight;

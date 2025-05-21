@@ -9,7 +9,7 @@ module.exports = (sequelize) => {
     },
     place_name: {
       type: DataTypes.STRING,  // Matches 'Name_of_Place_Location'
-      allowNull: true,
+      allowNull: false,
     },
     hazard_type: {
       type: DataTypes.STRING,  // Matches 'Type_of_Hazard'
@@ -55,6 +55,18 @@ module.exports = (sequelize) => {
   }, {
     tableName: 'hazard_zone',
     timestamps: false,
+
+
+     indexes: [
+       
+       {
+        name: 'unique_hazard_key',
+        unique: true,
+        fields: ['place_name', 'settlement_id', 'ward_id']
+      },
+      // Kee
+
+    ]
   });
 
   return HazardZone;

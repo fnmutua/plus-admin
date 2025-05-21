@@ -99,7 +99,14 @@ module.exports = function(sequelize, DataTypes) {
         name: "water_facility_pkey",
         unique: true,
         fields: [{ name: "id" }]
-      }
+      },
+       {
+        name: 'unique_wp_key',
+        unique: true,
+        fields: ['name', 'settlement_id', 'ward_id']
+      },
+      // Kee
+
     ]
   });
 };

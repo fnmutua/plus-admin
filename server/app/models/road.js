@@ -1,4 +1,5 @@
- const Sequelize = require('sequelize');
+const Sequelize = require('sequelize');
+
 module.exports = function (sequelize, DataTypes) {
   return sequelize.define('road', {
     id: {
@@ -63,8 +64,6 @@ module.exports = function (sequelize, DataTypes) {
       allowNull: true
     },
 
- 
-
     county_id: {
       type: DataTypes.INTEGER,
       allowNull: true
@@ -85,7 +84,6 @@ module.exports = function (sequelize, DataTypes) {
       allowNull: false
     },
 
-
     created_by: {
       type: DataTypes.INTEGER,
       allowNull: true
@@ -103,8 +101,7 @@ module.exports = function (sequelize, DataTypes) {
 
     code: {
       type: DataTypes.STRING,
-      allowNull: false,
-      unique: true
+      allowNull: true // Now optional
     },
 
     photo: {
@@ -126,12 +123,18 @@ module.exports = function (sequelize, DataTypes) {
       {
         name: 'road_pkey',
         unique: true,
-        fields: [{ name: 'id' }]
+        fields: ['id']
       },
+      {
+        name: 'unique_road_natural_key',
+        unique: true,
+        fields: ['name', 'settlement_id', 'ward_id']
+      },
+      // Keep code index if needed for external referencing
       {
         name: 'road_code',
         unique: true,
-        fields: [{ name: 'code' }]
+        fields: ['code']
       }
     ]
   });
