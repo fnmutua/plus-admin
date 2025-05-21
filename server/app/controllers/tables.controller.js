@@ -6895,7 +6895,7 @@ exports.listModels = async (req, res) => {
 };
 
 
- exports.intersectGeometryWithModel = async (req, res) => {
+ exports.old_intersectGeometryWithModel = async (req, res) => {
   try {
     const { model, geometry, srid = 4326 } = req.body;
 
@@ -6938,6 +6938,66 @@ exports.listModels = async (req, res) => {
       message: `Found ${records.length} intersecting records.`,
       count: records.length,
       data: records,
+      code: '0000',
+    });
+
+  } catch (err) {
+    console.error('Intersection error:', err);
+    return res.status(500).json({
+      message: 'Failed to perform geometry intersection',
+      error: err.message,
+      code: '0002',
+    });
+  }
+};
+ 
+ exports.intersectGeometryWithModel = async (req, res) => {
+  try {
+    const { model, geometry, srid = 4326 } = req.body;
+
+    // Validate inputs
+    if (!model || !geometry || !Array.isArray(geometry) || geometry.length === 0) {
+      return res.status(400).json({ message: 'Model name and an array of geometries are required' });
+    }
+
+    const Model = db.models[model];
+    if (!Model) {
+      return res.status(400).json({ message: `Model "${model}" not found` });
+    }
+
+    const targetSrid = 4326;
+    const data = [];
+    let totalCount = 0;
+
+    // Process each geometry
+    for (let i = 0; i < geometry.length; i++) {
+      const geojson = JSON.stringify(geometry[i]);
+      const records = await db.sequelize.query(
+        `
+        SELECT *
+        FROM "${Model.tableName}"
+        WHERE ST_Intersects(
+          geom,
+          ST_Transform(ST_GeomFromGeoJSON(:geojson), :targetSrid)
+        )
+        `,
+        {
+          replacements: { geojson, targetSrid },
+          type: db.sequelize.QueryTypes.SELECT,
+        }
+      );
+
+      data.push({
+        geometry_index: i,
+        records: records || [],
+      });
+      totalCount += records.length;
+    }
+
+    return res.status(200).json({
+      message: `Found ${totalCount} intersecting records.`,
+      count: totalCount,
+      data,
       code: '0000',
     });
 
