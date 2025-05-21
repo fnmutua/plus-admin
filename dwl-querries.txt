@@ -391,3 +391,9 @@ BEGIN
   WHERE settlement_id IN (124,126,274,273,873,874,115,257);  
   COMMIT;
 END;
+
+
+UPDATE public.document
+SET category = 21
+WHERE category = 11
+  AND "createdAt"::date = CURRENT_DATE;

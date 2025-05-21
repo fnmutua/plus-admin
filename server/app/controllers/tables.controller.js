@@ -6852,3 +6852,98 @@ exports.deleteCascade = async (req, res) => {
     });
   }
 };
+
+
+exports.listModels = async (req, res) => {
+  try {
+    const modelsInfo = [];
+
+    for (const [modelName, model] of Object.entries(db.models)) {
+      const attributes = model.rawAttributes;
+      const fields = [];
+
+      for (const [attrName, attrDetails] of Object.entries(attributes)) {
+        fields.push({
+          name: attrName,
+          type: attrDetails.type.key || attrDetails.type.toSql()
+        });
+      }
+
+      modelsInfo.push({
+        model: modelName,
+        attributes: fields
+      });
+    }
+
+    res.status(200).send({
+      message: 'Models and their attributes fetched successfully',
+      code: '0000',
+      models: modelsInfo
+    });
+
+  } catch (error) {
+    console.error('Error listing models:', error);
+    res.status(500).send({
+      message: 'Failed to list models: ' + error.message,
+      code: '0001',
+      models: []
+    });
+  }
+};
+
+
+ exports.intersectGeometryWithModel = async (req, res) => {
+  try {
+    const { model, geometry, srid = 4326 } = req.body;
+
+    if (!model || !geometry) {
+      return res.status(400).json({ message: 'Model name and geometry are required' });
+    }
+
+    // Validate model existence
+    const Model = db.models[model];
+    if (!Model) {
+      return res.status(400).json({ message: `Model "${model}" not found` });
+    }
+
+    const geojsonStr = JSON.stringify(geometry);
+
+    // Define the expected target SRID of the geometry column (default to 4326)
+    const targetSRID = 4326; // You can make this dynamic by querying information_schema if needed
+
+    const query = `
+      SELECT * FROM "${Model.tableName}"
+      WHERE ST_Intersects(
+        "geom",
+        ST_Transform(
+          ST_SetSRID(ST_GeomFromGeoJSON(:geojson), :inputSrid),
+          :targetSrid
+        )
+      )
+    `;
+
+    const records = await db.sequelize.query(query, {
+      replacements: {
+        geojson: geojsonStr,
+        inputSrid: srid,        // SRID of the input geometry (optional)
+        targetSrid: targetSRID  // SRID of model's geometry column
+      },
+      type: db.Sequelize.QueryTypes.SELECT,
+    });
+
+    return res.status(200).json({
+      message: `Found ${records.length} intersecting records.`,
+      count: records.length,
+      data: records,
+      code: '0000',
+    });
+
+  } catch (err) {
+    console.error('Intersection error:', err);
+    return res.status(500).json({
+      message: 'Failed to perform geometry intersection',
+      error: err.message,
+      code: '0002',
+    });
+  }
+};

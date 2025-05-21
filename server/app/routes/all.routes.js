@@ -164,6 +164,13 @@ module.exports = function (app) {
 
 
   
+  app.get('/api/v1/models/list', controller.listModels)
+
+  app.post('/api/v1/data/intersect', [authJwt.verifyToken], controller.intersectGeometryWithModel)
+
+
+  
+
 
 }
 
