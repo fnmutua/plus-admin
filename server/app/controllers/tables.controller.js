@@ -6970,14 +6970,15 @@ exports.listModels = async (req, res) => {
       return res.status(400).json({ message: `Model "${model}" not found` });
     }
 
-    const targetSrid = srid || 4326;
+    const targetSrid =  4326;
+ 
 
     const intersectionQuery = `
       SELECT *
       FROM "${Model.tableName}"
       WHERE ST_Intersects(
         geom,
-        ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON(:geojson), 4326), :targetSrid)
+        ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON(:geojson), ${srid}), :targetSrid)
       )
     `;
 
