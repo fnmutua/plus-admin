@@ -4,21 +4,19 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { getListWithoutGeo} from '@/api/counties'
 
 import { getGrievances,updateBulkGrievance } from '@/api/grievance'
-import { toRaw } from 'vue';
+import { toRaw,watch } from 'vue';
 
 import {
   signupGRM
 } from '@/api/register'
 
-import { ElButton, ElSelect, ElCheckbox, ElCol, ElIcon, ElTag , ElTabPane,ElTabs} from 'element-plus'
+import { ElButton, ElSelect, ElCheckbox, ElCol, ElIcon, ElTabPane,ElTabs} from 'element-plus'
 import {
-  Plus, ArrowLeft, ArrowRight, UploadFilled,RefreshLeft,
-  Edit,
+  Plus, UploadFilled,
   Back,Postcard,TopRight,Lock,Guide,TakeawayBox,
-  InfoFilled, Position,CircleCheck, Warning,View,
+  CircleCheck, Warning,View,
   Delete
 } from '@element-plus/icons-vue'
-import {   ElSegmented } from 'element-plus'
 
 import { getSettlementListByCounty } from '@/api/settlements'
 import {   getGRMStaffByLocation } from '@/api/users'
@@ -26,16 +24,15 @@ import {   getGRMStaffByLocation } from '@/api/users'
 
 import { ref, reactive, onMounted, computed } from 'vue'
 import {
-  ElPagination, ElTooltip, ElOption, ElDialog, ElForm, ElDropdown, ElDropdownItem, ElDropdownMenu, ElTour, ElTourStep, ElUpload,
-  ElFormItem, ElRow, ElInput, FormRules, ElStep, ElSteps, ElTable, ElTableColumn, ElCard, ElMessage, ElSwitch
+  ElPagination, ElTooltip, ElOption, ElDialog, ElForm, ElTour, ElUpload,
+  ElFormItem, ElRow, ElInput, ElStep, ElSteps, ElTable, ElTableColumn, ElCard, ElMessage, ElSwitch
 } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
-import { DeleteRecord, updateOneRecord } from '@/api/settlements'
+import { DeleteRecord } from '@/api/settlements'
 import { uuid } from 'vue-uuid'
 import type { FormInstance } from 'element-plus'
-import xlsx from "json-as-xlsx"
 
 import writeXlsxFile from 'write-excel-file';
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
@@ -66,6 +63,25 @@ const selectedCounty=ref()
 const filters=ref([])
 const filterValues=ref([[]])
 const filterFunction=ref(['in'])
+
+const wardOptions = ref([])
+const selectedSubCounty=ref()
+const enableSubcounty=ref(false)
+ 
+const value5=ref()
+const value6=ref()
+const search_string=ref()
+
+
+
+const subcountiesOptions = ref([])
+const selectedWard=ref()
+const selectedCategories =ref([])
+const activeSegment = ref('Sorting')
+
+
+
+
 
 function getLocationLevels(user) {
   // Check if the 'roles' array exists and has data
@@ -366,60 +382,6 @@ const updatePageSize = () => {
 
 
 
-const xgetCounts = async () => {
-  console.log('Fetching grievance counts...',filterValues.value,filters.value);
-
-  const formData = {
-    model: 'grievance',
-    summaryField: 'status',
-    summaryFunction: 'count',
-    groupFields: ['status'],
-    filterField: [],
-    filterValue: [],
-    filterOperator: []
-  };
-
-  // Build filters dynamically
-  if (roles_filters.length > 0 && filters.value.length === filterValues.value.length) {
-    for (let i = 0; i < filters.value.length; i++) {
-      const field = filters.value[i];
-      const value = filterValues.value[i];
-
-      if (field && value !== undefined && value !== null) {
-        formData.filterField.push(field);
-
-        if (Array.isArray(value)) {
-          formData.filterValue.push(value);
-          formData.filterOperator.push('in');
-        } else {
-          formData.filterValue.push([value]);
-          formData.filterOperator.push('eq');
-        }
-      }
-    }
-  }
-
-  console.log('Constructed formData:', formData);
-
-  try {
-    const response = await getSummarybyFieldFromMultipleIncludes(formData);
-    const summary = response.Total || [];
-
-    console.log('Grievance status counts:', summary);
-
-    // Update Statuses count dynamically
-    Statuses.value.forEach((status) => {
-      const match = summary.find((item) => item.status === status.value);
-      status.count = match ? parseInt(match.count, 10) : 0;
-    });
-  } catch (error) {
-    console.error('Error fetching status counts:', error);
-    // Optionally reset counts on failure
-    Statuses.value.forEach((status) => {
-      status.count = 0;
-    });
-  }
-};
 
  
 const getCounts = async () => {
@@ -522,15 +484,171 @@ const getDeletedCounts = async () => {
 
 
 
+
+
+
+
+
+// Save filters to localStorage
+const saveFiltersToLocalStorage = () => {
+  console.log('savgn flters')
+  localStorage.setItem('grievanceFilters', JSON.stringify({
+    filters: filters.value,
+    filterValues: filterValues.value,
+    filterFunction: filterFunction.value,
+    selectedCounty: selectedCounty.value,
+    selectedSubCounty: selectedSubCounty.value,
+    selectedWard: selectedWard.value,
+    selectedCategories: selectedCategories.value,
+    activeSegment: activeSegment.value,
+  }));
+};
+
+// Load filters from localStorage
+const loadFiltersFromLocalStorage = async () => {
+
+
+  const savedFilters = localStorage.getItem('grievanceFilters');
+
+
+  if (savedFilters) {
+    try {
+      const parsed = JSON.parse(savedFilters);
+      filters.value = parsed.filters || [];
+      filterValues.value = parsed.filterValues || [[]];
+      filterFunction.value = parsed.filterFunction || ['in'];
+      selectedCounty.value = parsed.selectedCounty || null;
+      selectedSubCounty.value = parsed.selectedSubCounty || null;
+      selectedWard.value = parsed.selectedWard || null;
+      selectedCategories.value = parsed.selectedCategories || [];
+      activeSegment.value = parsed.activeSegment || 'Sorting';
+
+      console.log('Mounting gettign',filters.value )
+
+
+      if (selectedCategories.value ) {
+            const selectOption = 'nature';
+
+            // Ensure the filter key exists
+            if (!filters.value.includes(selectOption)) {
+              filters.value.push(selectOption);
+                filterFunction.value.push('in')
+
+            }
+
+            const index = filters.value.indexOf(selectOption);
+
+            // Clear previously selected county filter values
+            filterValues.value[index] = [];
+
+            // Insert new county filter value if it's not empty
+            if (selectedCategories.value.length  > 0) {
+              filterValues.value[index] = [...selectedCategories.value];
+            }
+
+            // Remove filter key if no values are selected
+            if (selectedCategories.value.length === 0) {
+              filters.value.splice(index, 1);
+              filterValues.value.splice(index, 1);
+            }
+
+       
+          }
+
+        if(selectedCounty.value)  {
+            filterByCounty(selectedCounty.value)
+        }
+
+      if(selectedSubCounty.value)  {
+                filterByCounty(selectedSubCounty.value)
+            }
+
+
+            
+
+        if (search_string.value) {
+          await getFilteredBySearchData(search_string.value)
+        } else {
+        // getNewOrRejectedSettlements(activeSegment.value)
+
+        console.log('Using prelaoded filetrs.....................')
+        console.log('selectedCategories filters', filters.value)
+            console.log('selectedCategories filterValues', filterValues.value)
+   console.log('selectedCategories  filterFunction.value',  filterFunction.value)
+
+          await getFilteredData(filters.value, filterValues.value)
+
+        }
+
+
+
+    } catch (error) {
+      console.error('Error parsing saved filters from localStorage:', error);
+      // Reset to defaults if parsing fails
+      filters.value = [];
+      filterValues.value = [[]];
+      filterFunction.value = ['in'];
+      selectedCounty.value = null;
+      selectedSubCounty.value = null;
+      selectedWard.value = null;
+      selectedCategories.value = [];
+      activeSegment.value = 'Sorting';
+    }
+  }
+};
+
+
+
+
 onMounted(async () => {
+
+  // Load filters from localStorage
+
+
  await getUserRoles()
   await   getDeletedCounts()
     await getCounts()
     window.addEventListener('resize', updatePageSize);
    updatePageSize(); // Initial check
 
+    await  loadFiltersFromLocalStorage();
+
+
+
    await getInterventionsAll()
 })
+
+
+
+
+
+ 
+// Watch for changes in filters and related variables
+watch(
+  [
+   // filters,
+   // filterValues,
+    //filterFunction,
+       selectedCounty,
+     selectedSubCounty,
+    selectedWard,
+    selectedCategories,
+      activeSegment,
+  ],
+  () => {
+    saveFiltersToLocalStorage();
+  },
+  { deep: true } // Ensure deep watching for arrays and objects
+);
+
+
+
+
+
+
+
+
+
 
 
 const showAdminButtons = ref(appStore.getAdminButtons)
@@ -573,7 +691,17 @@ const handleClear = async () => {
   value3.value = ''
   pageSize.value = 5
   currentPage.value = 1
-  tblData = []
+ 
+
+  selectedCounty.value=[]
+  selectedSubCounty.value=[]
+  selectedWard.value=[]
+  selectedCategories.value=[]
+
+
+  localStorage.removeItem('grievanceFilters');
+
+
   //----run the get data--------
   getInterventionsAll()
 }
@@ -616,7 +744,7 @@ const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
 const getFilteredData = async (selFilters, selfilterValues) => {
 
 
-  console.log('selFilters',selFilters, selfilterValues)
+
   const formData = {}
   formData.limit = pageSize.value
   formData.page = page.value
@@ -637,7 +765,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   formData.associated_multiple_models = associated_multiple_models
 
 
-  formData.filterFunctions = [];
+ // formData.filterFunctions = [];
 
 // Loop to determine the correct operator (eq or in) per filter
 for (let i = 0; i < selfilterValues.length; i++) {
@@ -1755,7 +1883,6 @@ const grv_name =ref()
 
 
 
-const activeSegment = ref('Sorting')
 
 
 
@@ -2050,17 +2177,7 @@ console.log('filters.value', filters.value)
 
 
 
-const wardOptions = ref([])
-const selectedSubCounty=ref()
-const enableSubcounty=ref(false)
- 
-const value5=ref()
-const value6=ref()
-const search_string=ref()
 
-
-
-const subcountiesOptions = ref([])
 
  
 const getSubCountyNames = async () => {
@@ -2228,7 +2345,7 @@ if (search_string.value) {
 
 
 
-const selectedWard=ref()
+
  
 
 
@@ -2685,7 +2802,7 @@ const grievanceOptions = [
 
 
 
-const selectedCategories =ref([])
+
 const filterByCategory = async (categories: any) => {
 
 //value6.value = null   // clear the ward sr
@@ -2799,7 +2916,7 @@ if (search_string.value) {
       <!-- Subcounty -->
       <el-col :xs="24" :sm="12" :md="6" :lg="4">
         <el-select
-          :disabled="!enableSubcounty"
+          :disabled="!selectedCounty"
           size="default"
           v-model="selectedSubCounty"
           :onChange="filterBySubCounty"
@@ -2822,7 +2939,7 @@ if (search_string.value) {
       <!-- Ward -->
       <el-col :xs="24" :sm="24" :md="24" :lg="4">
         <el-select
-          :disabled="!enableSubcounty"
+          :disabled="!selectedSubCounty"
           size="default"
           v-model="selectedWard"
           :onChange="filterByWard"
@@ -2845,12 +2962,19 @@ if (search_string.value) {
       <!-- Action Buttons -->
       <el-col :xs="24" :sm="24" :md="12" :lg="4">
         <div style="  gap: 5px;  ">
-          <el-tooltip v-if="isNationalStaff || isSuperAdmin" content="Import Data" placement="top">
+          <!-- <el-tooltip v-if="isNationalStaff || isSuperAdmin" content="Import Data" placement="top">
             <el-button @click="uploadData" type="primary" :icon="UploadFilled" />
-          </el-tooltip>
+          </el-tooltip> -->
           <el-tooltip content="Add Grievance" placement="top">
             <el-button :onClick="AddComponent" type="primary" :icon="Plus" />
           </el-tooltip>
+              <el-tooltip content="Clear" placement="top">
+            <el-button @click="handleClear" type="primary">
+              <Icon icon="mdi:filter-remove" />
+            </el-button>
+          </el-tooltip>
+
+
           <DownloadCustom
             v-if="showEditButtons"
             :data="tableDataList"
