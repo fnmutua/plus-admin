@@ -6,14 +6,14 @@ import { Back } from '@element-plus/icons-vue'
 
 import { ref, computed } from 'vue'
 import {
-    ElInput, ElSelect, ElOption, ElButton, ElDialog,ElTable,ElTableColumn,ElPagination,ElCol,ElStatistic,ElIcon,
+    ElInput, ElSelect, ElOption, ElButton, ElDialog,ElTable,ElTableColumn,ElPagination,ElCol,ElStatistic,ElIcon,ElMessage,
   ElRow, ElCard,ElDivider
 } from 'element-plus'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import {
   loginCollector, editSubmissions,
-  getSubmissions
+  getSubmissions,getCSVSubmissions,getGeoSubmissions
 } from '@/api/collector'
 
 import { useTransition } from '@vueuse/core'
@@ -572,7 +572,152 @@ push({
 }
 
 
+  // Define the formData object with necessary fields
+
+
  
+const loadingStates = ref({});
+ 
+// Function to handle download
+const handleDownload = async (row) => {
+  try {
+    // Send the row ID to the endpoint
+ 
+
+    console.log(row)
+
+
+    const formData = {
+      project:   row.projectId,
+      form: row.xmlFormId,
+      token: localStorage.getItem('collectorToken')
+    };
+
+  //downloading.value=true
+
+   loadingStates.value[row.id] = true;
+    // Await the response from getSubmissions
+    const response = await getCSVSubmissions(formData);
+   loadingStates.value[row.id] = false;
+    console.log(response)
+
+    // Extract CSV string from response.data.data
+    const csvData = response.data;
+    if (!csvData) {
+          loadingStates.value[row.id] = false;
+      throw new Error('No CSV data received');
+    }
+
+    // Create a Blob from the CSV string
+    const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8' });
+
+    // Create a URL for the Blob
+    const fileUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = fileUrl;
+
+    // Set the filename (use Content-Disposition if provided, else default)
+    const fileName = response.headers['content-disposition']
+      ? response.headers['content-disposition'].split('filename=')[1]?.replace(/"/g, '')
+      : `submissions_${row.xmlFormId}_${Date.now()}.csv`;
+    link.setAttribute('download', fileName);
+
+    // Trigger the download
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(fileUrl);
+
+
+
+
+    // const response = await axios.post('/api/download', {
+    //   id: row.id,
+    // }, {
+    //   responseType: 'blob', // Important for handling file downloads
+    // });
+
+    // Create a URL for the file blob
+    // const fileUrl = window.URL.createObjectURL(new Blob([response.data]));
+    // const link = document.createElement('a');
+    // link.href = fileUrl;
+
+    // // Optional: Set a filename from response headers or default
+    // const fileName = response.headers['content-disposition']
+    //   ? response.headers['content-disposition'].split('filename=')[1]?.replace(/"/g, '')
+    //   : `download_${row.id}.pdf`; // Adjust extension as needed
+    // link.setAttribute('download', fileName);
+
+    // // Trigger the download
+    // document.body.appendChild(link);
+    // link.click();
+    // document.body.removeChild(link);
+    // window.URL.revokeObjectURL(fileUrl); // Clean up
+
+    ElMessage.success('Download started');
+  } catch (error) {
+ 
+      loadingStates.value[row.id] = false;
+    console.error('Download error:', error);
+    ElMessage.error('Failed to download file');
+  }
+};
+ 
+ const handleDownloadGeo = async (row) => {
+  try {
+    // Initialize loading state for this row
+       loadingStates.value[row.id] = true;
+
+    // Prepare form data
+    const formData = {
+      project: row.projectId,
+      form: row.xmlFormId,
+      token: localStorage.getItem('collectorToken'),
+    };
+
+    console.log('Requesting GeoJSON for:', formData);
+
+    // Await the response from getGeoSubmissions
+    const response = await getGeoSubmissions(formData);
+      loadingStates.value[row.id] = false;
+    // Extract GeoJSON data (FeatureCollection)
+    const geojsonData = response.data;
+    if (!geojsonData || geojsonData.type !== 'FeatureCollection') {
+      throw new Error('Invalid GeoJSON data received');
+    }
+
+    // Stringify the GeoJSON object
+    const data = JSON.stringify(geojsonData);
+
+    // Create a Blob from the GeoJSON string
+    const blob = new Blob([data], { type: 'application/geo+json' });
+
+    // Create a URL for the Blob
+    const fileUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = fileUrl;
+
+    // Set the filename
+    const fileName = response.headers['content-disposition']
+      ? response.headers['content-disposition'].split('filename=')[1]?.replace(/"/g, '')
+      : `submissions_${row.xmlFormId}_${Date.now()}.geojson`;
+    link.setAttribute('download', fileName);
+
+    // Trigger the download
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(fileUrl);
+
+    ElMessage.success('GeoJSON download started');
+  } catch (error) {
+    console.error('GeoJSON download error:', error);
+    ElMessage.error('Failed to download GeoJSON file');
+  } finally {
+    // Clear loading state
+       loadingStates.value[row.id] = false;
+  }
+};
 
 </script>
 
@@ -665,12 +810,41 @@ clearable v-model="search" placeholder="Search by project name"
                     stripe
                     style="width: 100%;"
                     row-class-name="clickable-row"
-                    @row-click="handleRowDblClick"
+                    @row-dblclick="handleRowDblClick"
                 >
                     <el-table-column label="Name" prop="name" />
                     <el-table-column label="Status" prop="state" />
                     <el-table-column label="Submissions" prop="submissions" />
                     <el-table-column label="Last Submission" prop="lastSubmission" />
+
+                    
+                    <el-table-column label="Download" width="250" >
+                      <!-- Scoped slot for the download button -->
+                      <template #default="scope">
+                        <el-button
+                          type="primary"
+                          size="small"
+                          @click="handleDownload(scope.row)"
+                           v-loading="loadingStates[scope.row.id]"
+                        >
+                          CSV
+                        </el-button>
+
+                        <el-button
+                        type="success"
+                        size="small"
+                        @click="handleDownloadGeo(scope.row )"
+                        v-loading="loadingStates[scope.row.id]"
+                        style="margin-left: 8px;"
+                      >
+                        GeoJSON
+                      </el-button>
+
+
+                      </template>
+                    </el-table-column>
+
+
                 </el-table>
                 </div>
             </template>
@@ -690,7 +864,6 @@ clearable v-model="search" placeholder="Search by project name"
           <span>{{ formatDateAgo(scope.row.lastSubmission) }}</span>
         </template>
       </el-table-column>
-
 
 
 

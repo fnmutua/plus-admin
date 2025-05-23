@@ -1102,6 +1102,219 @@ const url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}
 };
 
 
+
+
+ 
+// Function to get CSV submissions and send as a downloadable file
+exports.modelGetCsvSubmissions = (req, res) => {
+  // Extract project, form, and token from req.body
+  const { project, form, token } = req.body;
+
+  // Validate required fields
+  if (!project || !form || !token) {
+    return res.status(400).send({
+      error: 'Missing required fields: project, form, or token',
+    });
+  }
+
+  // Construct the CSV export URL
+  const url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions.csv`;
+ //POST /v1/projects/{projectId}/forms/{xmlFormId}/submissions.csv
+
+
+  // Make the request to the CSV endpoint
+  request({
+    method: 'POST',
+    url: url,
+    headers: {
+      'Content-Type': 'text/csv',
+      'Authorization': `Bearer ${token}`,
+    },
+  }, (error, response, body) => {
+    if (!error && response.statusCode === 200) {
+      try {
+        // Parse CSV data if needed (optional, depending on your needs)
+        // For simplicity, we'll assume the body is raw CSV text
+        const csvData = body;
+ 
+
+        // Optional: Filter out rejected submissions
+        // Note: CSV parsing is complex; if filtering is needed, use a library like 'csv-parse'
+        // Here, we'll assume the API handles filtering or you accept all submissions
+        // If you need to filter, you can parse CSV with 'csv-parse' and filter rows
+
+        // Set headers for file download
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename="submissions_${form}_${Date.now()}.csv"`);
+
+        // Send the CSV data as the response
+        res.status(200).send(csvData);
+
+      } catch (parseError) {
+        console.error('Error processing CSV:', parseError);
+        res.status(500).send({
+          error: 'Failed to process CSV data',
+        });
+      }
+    } else {
+      // Handle API errors
+      console.error('Error fetching CSV:', error || `Status code: ${response.statusCode}`);
+      res.status(500).send({
+        error: 'Failed to retrieve CSV submissions',
+      });
+    }
+  });
+};
+
+
+
+
+ 
+
+ 
+exports.modelGetGeoJsonSubmissions = (req, res) => {
+  // Extract project, form, and token from req.body
+  const { project, form, token } = req.body;
+
+  // Validate required fields
+  if (!project || !form || !token) {
+    return res.status(400).send({
+      error: 'Missing required fields: project, form, or token',
+    });
+  }
+
+  // Construct the OData endpoint URL for ODK Central API
+  const url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}.svc/Submissions?%24expand=*`;
+
+  // Make the request to the OData endpoint
+  request(
+    {
+      method: 'GET',
+      url: url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+    },
+    (error, response, body) => {
+      if (!error && response.statusCode === 200) {
+        try {
+          // Parse the OData JSON response
+          const data = JSON.parse(body);
+          const submissions = data.value;
+
+          // Filter out rejected submissions
+          const filteredSubmissions = submissions.filter(sub => {
+            const reviewState = sub.__system?.reviewState?.toLowerCase();
+            return reviewState !== 'rejected';
+          });
+
+          // Convert to GeoJSON
+          const geojsonData = convertToGeoJSON(filteredSubmissions);
+
+          // Validate GeoJSON structure
+          if (!geojsonData || geojsonData.type !== 'FeatureCollection') {
+            throw new Error('Failed to generate valid GeoJSON');
+          }
+
+          // Set headers for GeoJSON file download
+          res.setHeader('Content-Type', 'application/geo+json');
+          res.setHeader('Content-Disposition', `attachment; filename="submissions_${form}_${Date.now()}.geojson"`);
+
+          // Send the GeoJSON data as the response
+          res.status(200).send(geojsonData);
+        } catch (parseError) {
+          console.error('Error processing GeoJSON:', parseError);
+          res.status(500).send({
+            error: 'Failed to process GeoJSON data',
+          });
+        }
+      } else {
+        console.error('Error fetching submissions:', error || `Status code: ${response.statusCode}`);
+        res.status(500).send({
+          error: 'Failed to retrieve GeoJSON submissions',
+        });
+      }
+    }
+  );
+};
+
+
+
+function convertToGeoJSON(submissions) {
+  return {
+    type: 'FeatureCollection',
+    features: submissions
+      .filter(sub => sub.location?.coordinates?.length >= 2) // Ensure coordinates exist
+      .map(sub => {
+        // Initialize properties object
+        const properties = {};
+
+        // Define reserved keys to exclude as top-level or nested objects
+        const reservedKeys = ['location', 'meta', '__system', 'photos'];
+
+        // Dynamically include all top-level properties (non-objects or non-reserved)
+        Object.keys(sub).forEach(key => {
+          if (!reservedKeys.includes(key) && (typeof sub[key] !== 'object' || sub[key] === null)) {
+            properties[key] = sub[key];
+          }
+        });
+
+        // Dynamically flatten all nested objects (excluding reserved keys)
+        Object.keys(sub).forEach(key => {
+          if (
+            !reservedKeys.includes(key) &&
+            sub[key] &&
+            typeof sub[key] === 'object' &&
+            !Array.isArray(sub[key])
+          ) {
+            Object.assign(properties, sub[key]);
+          }
+        });
+
+        // Include relevant fields from meta
+        if (sub.meta && typeof sub.meta === 'object') {
+          properties.instanceID = sub.meta.instanceID;
+        }
+
+        // Include relevant fields from __system
+        if (sub.__system && typeof sub.__system === 'object') {
+          Object.assign(properties, {
+            submissionDate: sub.__system.submissionDate,
+            submitterId: sub.__system.submitterId,
+            submitterName: sub.__system.submitterName,
+            attachmentsPresent: sub.__system.attachmentsPresent,
+            attachmentsExpected: sub.__system.attachmentsExpected,
+            status: sub.__system.status,
+            reviewState: sub.__system.reviewState,
+            deviceId: sub.__system.deviceId,
+            edits: sub.__system.edits,
+            formVersion: sub.__system.formVersion,
+          });
+        }
+
+        // Include photos as an array of photo names (if needed)
+        if (sub.photos && Array.isArray(sub.photos)) {
+          properties.photos = sub.photos.map(photo => photo.photo);
+        }
+
+        return {
+          type: 'Feature',
+          geometry: {
+            type: 'Point',
+            coordinates: [
+              parseFloat(sub.location.coordinates[0]), // longitude
+              parseFloat(sub.location.coordinates[1]), // latitude
+            ],
+          },
+          properties,
+        };
+      }),
+  };
+}
+
+
+
  exports.xmodelDeleteSubmission = (req, res) => {
   // Extract necessary fields from the request body
   const { project, form, token, submissionId } = req.body;

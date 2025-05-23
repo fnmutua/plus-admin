@@ -89,6 +89,23 @@ export const getSubmissions = (data)  => {
  });
 };
 
+export const getCSVSubmissions = (data)  => {
+  return request.post({
+   url: prod + '/api/v1/collector/submissions/csv',
+   data    
+ });
+};
+
+
+export const getGeoSubmissions = (data)  => {
+  return request.post({
+   url: prod + '/api/v1/collector/submissions/geo',
+   data    
+ });
+};
+
+
+
 export const getAllSubmissions = (data)  => {
   return request.post({
    url: prod + '/api/v1/collector/submissions/all',
