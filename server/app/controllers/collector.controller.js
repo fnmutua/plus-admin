@@ -1209,8 +1209,9 @@ exports.modelGetGeoJsonSubmissions = (req, res) => {
             return reviewState !== 'rejected';
           });
 
+          console.log(submissions)
           // Convert to GeoJSON
-          const geojsonData = convertToGeoJSON(filteredSubmissions);
+          const geojsonData = convertToGeoJSON2(filteredSubmissions);
 
           // Validate GeoJSON structure
           if (!geojsonData || geojsonData.type !== 'FeatureCollection') {
@@ -1239,19 +1240,49 @@ exports.modelGetGeoJsonSubmissions = (req, res) => {
   );
 };
 
+ // Convert OData submissions to GeoJSON, dynamically detecting GeoJSON geometry field and type
+function convertToGeoJSON2(submissions) {
+  // Valid GeoJSON geometry types
+  const validGeometryTypes = [
+    'Point',
+    'LineString',
+    'Polygon',
+    'MultiPoint',
+    'MultiLineString',
+    'MultiPolygon',
+  ];
 
-
-function convertToGeoJSON(submissions) {
   return {
     type: 'FeatureCollection',
     features: submissions
-      .filter(sub => sub.location?.coordinates?.length >= 2) // Ensure coordinates exist
+      .filter(sub => {
+        // Find the GeoJSON geometry field (e.g., location, geopoint, etc.)
+        const geometryField = Object.keys(sub).find(
+          key =>
+            sub[key] &&
+            typeof sub[key] === 'object' &&
+            validGeometryTypes.includes(sub[key].type) &&
+            Array.isArray(sub[key].coordinates) &&
+            isValidCoordinates(sub[key].type, sub[key].coordinates)
+        );
+        return !!geometryField; // Only include submissions with a valid GeoJSON geometry
+      })
       .map(sub => {
         // Initialize properties object
         const properties = {};
 
-        // Define reserved keys to exclude as top-level or nested objects
-        const reservedKeys = ['location', 'meta', '__system', 'photos'];
+        // Find the GeoJSON geometry field
+        const geometryField = Object.keys(sub).find(
+          key =>
+            sub[key] &&
+            typeof sub[key] === 'object' &&
+            validGeometryTypes.includes(sub[key].type) &&
+            Array.isArray(sub[key].coordinates) &&
+            isValidCoordinates(sub[key].type, sub[key].coordinates)
+        );
+
+        // Define reserved keys to exclude (include the geometry field dynamically)
+        const reservedKeys = ['meta', '__system', 'photos', geometryField].filter(Boolean);
 
         // Dynamically include all top-level properties (non-objects or non-reserved)
         Object.keys(sub).forEach(key => {
@@ -1298,21 +1329,44 @@ function convertToGeoJSON(submissions) {
           properties.photos = sub.photos.map(photo => photo.photo);
         }
 
+        // Include geometry properties (e.g., accuracy)
+        if (sub[geometryField]?.properties?.accuracy) {
+          properties.location_accuracy = sub[geometryField].properties.accuracy;
+        }
+
         return {
           type: 'Feature',
-          geometry: {
-            type: 'Point',
-            coordinates: [
-              parseFloat(sub.location.coordinates[0]), // longitude
-              parseFloat(sub.location.coordinates[1]), // latitude
-            ],
-          },
+          geometry: sub[geometryField], // Use the detected GeoJSON geometry
           properties,
         };
       }),
   };
 }
 
+// Validate coordinates based on geometry type
+function isValidCoordinates(type, coordinates) {
+  if (!Array.isArray(coordinates)) return false;
+
+  switch (type) {
+    case 'Point':
+      return coordinates.length >= 2 && coordinates.every(c => typeof c === 'number');
+    case 'LineString':
+      return coordinates.length >= 2 && coordinates.every(c => Array.isArray(c) && c.length >= 2);
+    case 'Polygon':
+      return (
+        Array.isArray(coordinates) &&
+        coordinates.every(ring => Array.isArray(ring) && ring.length >= 4 && ring[0][0] === ring[ring.length - 1][0] && ring[0][1] === ring[ring.length - 1][1])
+      );
+    case 'MultiPoint':
+      return coordinates.every(c => Array.isArray(c) && c.length >= 2);
+    case 'MultiLineString':
+      return coordinates.every(line => Array.isArray(line) && line.length >= 2 && line.every(c => Array.isArray(c) && c.length >= 2));
+    case 'MultiPolygon':
+      return coordinates.every(polygon => Array.isArray(polygon) && polygon.every(ring => Array.isArray(ring) && ring.length >= 4));
+    default:
+      return false;
+  }
+}
 
 
  exports.xmodelDeleteSubmission = (req, res) => {

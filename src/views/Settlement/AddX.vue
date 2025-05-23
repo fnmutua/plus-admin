@@ -20,8 +20,7 @@ v-for="(step, index) in steps" :key="index" :title="isMobile ? '' : step.title"
         ref="dynamicFormRef">
         <el-row :gutter="16">
           <el-col
-v-for="(field, index) in currentStepFields" :key="index" :span="24" :xs="24" :sm="24" :md="12" :lg="24"
-            :xl="8">
+v-for="(field, index) in currentStepFields" :key="index" :span="24" :xs="24" :sm="24" :md="12" :lg="24" :xl="24">
             <el-form-item :id="field.id" :label="field.label" :prop="field.name">
               <el-input v-if="field.type === 'text'" v-model="formData[field.name]" />
               <el-input v-else-if="field.type === 'textarea'" type="textarea" v-model="formData[field.name]" />
@@ -206,7 +205,7 @@ v-for="(step, index) in filteredTourSteps" :key="index" :target="step.target" :t
 import { ref, reactive, onMounted, computed, watch } from 'vue';
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
-import { ElCard, ElPopconfirm, ElCascader, ElCascaderPanel, ElTooltip, ElTour, ElTourStep, ElDialog, ElUpload, ElSwitch } from 'element-plus'
+import { ElCard, ElPopconfirm, ElCascader, ElCascaderPanel, ElTooltip, ElTour, ElTourStep, ElDialog, ElUpload,   } from 'element-plus'
 import { useRouter } from 'vue-router'
 
 import { steps, formFields, formData, formRules } from './common/fields.ts'

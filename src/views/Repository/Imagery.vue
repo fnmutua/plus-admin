@@ -1,154 +1,227 @@
 <!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
-import { useI18n } from '@/hooks/web/useI18n'
-import { getCountyListApi } from '@/api/counties'
-
-import { getGrievances } from '@/api/grievance'
-
-import { ElButton, ElSelect, ElCheckbox, ElCol, ElIcon, ElTag } from 'element-plus'
+import { ref, computed, onMounted, nextTick } from 'vue';
 import {
-  Plus, Download, Filter, More, ArrowLeft, ArrowRight, Upload, UploadFilled,
+  ElButton,
+  ElSelect,
+  ElPagination,
+  ElTooltip,
+  ElOption,
+  ElDialog,
+  ElForm,
+  ElUpload,
+  ElFormItem,
+  ElRow,
+  ElInput,
+  ElTable,
+  ElTableColumn,
+  ElCard,
+  ElMessage,
+} from 'element-plus';
+import {
+  Plus,
+  Download,
   Edit,
   Back,
-  InfoFilled, Position,
-  Delete
-} from '@element-plus/icons-vue'
-
-import { ref, computed, onMounted } from 'vue'
-import {
-  ElPagination, ElTooltip, ElOption, ElDialog, ElForm, ElDropdown, ElDropdownItem, ElDropdownMenu, ElTour, ElTourStep, ElUpload,
-  ElFormItem, ElRow, ElInput, FormRules, ElStep, ElSteps, ElTable, ElTableColumn, ElCard, ElDrawer, ElMessage, ElTabPane, ElSwitch
-} from 'element-plus'
-import { useRouter } from 'vue-router'
-import { useAppStoreWithOut } from '@/store/modules/app'
-import { useCache } from '@/hooks/web/useCache'
-import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
-import { uuid } from 'vue-uuid'
-import type { FormInstance } from 'element-plus'
-import xlsx from "json-as-xlsx"
-import { uploadToGeoServer, deleteLayer, EditLayerDetails } from '@/api/geoserver'
-
-import writeXlsxFile from 'write-excel-file';
+  Position,
+  Delete,
+} from '@element-plus/icons-vue';
+import { useAppStoreWithOut } from '@/store/modules/app';
+import { useCache } from '@/hooks/web/useCache';
+import { uploadToGeoServer, deleteLayer, EditLayerDetails } from '@/api/geoserver';
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
-import type { UploadProps, UploadUserFile } from 'element-plus'
-
-import { getCountyAuth, getSettlementByCountyAuth } from '@/api/register'
-import { uploadGrievanceDocuments, generateGrievance, logGrievanceAction, batchImportGrievances, getByKeyword } from '@/api/grievance'
-import { getModelSpecs } from '@/api/fields'
-import exportFromJSON from 'export-from-json'
-import Papa from 'papaparse';
 import axios from 'axios';
-
 import { XMLParser } from 'fast-xml-parser';
-
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
 import '@mapbox/mapbox-gl-geocoder/lib/mapbox-gl-geocoder.css';
-import mapboxgl from "mapbox-gl";
-import 'mapbox-gl/dist/mapbox-gl.css'
 
+// Interfaces for type safety
+interface Layer {
+  name: string;
+  title: string;
+  crs: string[];
+  bbox: {
+    westBoundLongitude: number;
+    eastBoundLongitude: number;
+    southBoundLatitude: number;
+    northBoundLatitude: number;
+  };
+}
 
-const { wsCache } = useCache()
-const appStore = useAppStoreWithOut()
+interface FormData {
+  geoserverUrl: string;
+  workspace: string;
+  username: string;
+  password: string;
+  crs: string;
+  name: string | null;
+  storeName?: string;
+  oldLayerName?: string;
+  newLayerName?: string;
+  newCrs?: string;
+  layer?: Layer;
+}
 
+interface SelectOption {
+  value: string;
+  label: string;
+  bbox?: Layer['bbox'];
+}
+
+// Environment and configuration
+const { wsCache } = useCache();
 const MapBoxToken =
-  'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg'
+  'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg';
 mapboxgl.accessToken = MapBoxToken;
 
+const envt = import.meta.env.VITE_APP_DB_HOST;
+const serverUrl = envt === 'localhost' ? '/imagery/geoserver/kisip' : 'https://kesmis.go.ke/geoserver/kisip';
 
+// Reactive refs
+const selOptions = ref<SelectOption[]>([]);
+const tableDataList = ref<Layer[]>([]);
+const layerName = ref<string>();
+const bounds = ref<Layer['bbox']>();
+const AddDialogVisible = ref(false);
+const UploadDialogVisible = ref(false);
+const EditDialogVisible = ref(false);
+const DialogTitle = ref('Imagery');
+const loading = ref(false);
+const loadingUploads = ref(false);
+const map = ref<mapboxgl.Map | null>(null);
+const ruleFormRef = ref();
+const showEditButtons = ref(false);
+const model = ref(null);
+const associated_multiple_models = ref([]);
+const oldLayer = ref<Layer>();
 
-
-const layers = ref([])
-const selOptions = ref([])
-const tableDataList = ref([])
-
-const layerName = ref()
-const lyr = ref()
-
-const bounds = ref()
-const AddDialogVisible = ref(false)
-const UploadDialogVisible = ref(false)
-const EditDialogVisible = ref(false)
-const DialogTitle = ref('Imagery')
-
-const handleSelectLayer = async (lyr: any) => {
-  console.log('Layer', lyr)
-  layerName.value = lyr;
-  DialogTitle.value = lyr
-  AddDialogVisible.value = true
-  // console.log(layers)
-
-  var filteredLayers = tableDataList.value.filter(function (layer) {
-    return layer.name === lyr;
-  });
-
-  console.log('filteredLayers', tableDataList.value)
-
-
-  bounds.value = filteredLayers[0].bbox
-  // console.log('filteredLayerss', filteredLayers[0].bbox)
-
-  //loadMap()
-  setTimeout(loadMap, 100); // delay for the dialog to fully load
-
-}
-
-const loadMap = () => {
-  var map = new mapboxgl.Map({
-    container: "mapContainer",
-    style: "mapbox://styles/mapbox/streets-v12",
-    center: [37.137343, 1.137451], // starting position
-    zoom: 6,
-
-  })
-
-  map.addControl(new mapboxgl.NavigationControl());
-
-
-  map.on('load', () => {
-
-    map.resize()
-
-
-    var xserver = 'http://159.223.109.100:8080/geoserver/kisip/wms'
-    var server = 'https://kesmis.go.ke/geoserver/kisip/wms'
-
-    var local_server = 'http://localhost:8080/geoserver/kisip/wms'
-
-    map.addLayer({
-      'id': 'geoserver-wms-layer',
-      'type': 'raster',
-      'source': {
-        'type': 'raster',
-        'tiles': [server + '?&bbox={bbox-epsg-3857}&format=image/png&service=WMS&version=1.1.1&request=GetMap&srs=EPSG:3857&transparent=true&width=256&height=256&layers=' + layerName.value],
-        'tileSize': 256
-      },
-      'paint': {}
-    });
-
-    //  console.log(bounds.value)
-    map.fitBounds([[bounds.value.westBoundLongitude, bounds.value.southBoundLatitude], [bounds.value.eastBoundLongitude
-      , bounds.value.northBoundLatitude]]);
-
-
-  })
-
-
-}
-
-
-
-
+// Pagination
 const mobileBreakpoint = 768;
 const defaultPageSize = 10;
 const mobilePageSize = 5;
-const pageSize = ref(10);
+const pageSize = ref(defaultPageSize);
 const currentPage = ref(1);
-const width = ref(1080);
-const totalItems = ref(6)
-// Function to update pageSize based on window width
-const updatePageSize = () => {
+const totalItems = ref(0);
 
-  console.log('window.innerWidth', window.innerWidth)
-  width.value = window.innerWidth - 400
+// Form data
+const form = ref<FormData>({
+  geoserverUrl: import.meta.env.VITE_GEOSERVER_URL || 'https://kesmis.go.ke/geoserver',
+  workspace: 'kisip',
+  // username: import.meta.env.VITE_GEOSERVER_USERNAME || '',
+  // password: import.meta.env.VITE_GEOSERVER_PASSWORD || '',
+    username: 'admin',
+  password: '***REDACTED***',
+  
+  crs: 'EPSG:21037',
+  name: null,
+});
+
+// Form validation rules
+const formRules = {
+  crs: [{ required: true, message: 'Please select a coordinate system', trigger: 'change' }],
+};
+
+// CRS options
+const crsOptions = ref([
+  { value: 'EPSG:21036', label: 'Arc 1960 / UTM Zone 36S (EPSG:21036)', description: 'UTM projection for parts of Kenya.' },
+  { value: 'EPSG:21096', label: 'Arc 1960 / UTM Zone 36N (EPSG:21096)', description: 'UTM projection for parts of Kenya.' },
+  { value: 'EPSG:21037', label: 'Arc 1960 / UTM Zone 37S (EPSG:21037)', description: 'UTM projection for East Africa, including Kenya.' },
+  { value: 'EPSG:21097', label: 'Arc 1960 / UTM Zone 37N (EPSG:21097)', description: 'UTM projection for East Africa, including Kenya.' },
+  { value: 'EPSG:32637', label: 'WGS 84 / UTM zone 37N (EPSG:32637)', description: 'UTM projection for East Africa, including Kenya.' },
+  { value: 'EPSG:32636', label: 'WGS 84 / UTM zone 36N (EPSG:32636)', description: 'UTM projection for East Africa, including Kenya.' },
+  { value: 'EPSG:32737', label: 'WGS 84 / UTM zone 37S (EPSG:32737)', description: 'UTM projection for East Africa, including Kenya.' },
+  { value: 'EPSG:32736', label: 'WGS 84 / UTM zone 36S (EPSG:32736)', description: 'UTM projection for East Africa, including Kenya.' },
+  { value: 'EPSG:4326', label: 'WGS 84 (EPSG:4326)', description: 'A global geographic coordinate system.' },
+  { value: 'EPSG:3857', label: 'WGS 84 / Pseudo-Mercator (EPSG:3857)', description: 'Web Mercator projection for mapping applications.' },
+  { value: 'Invalid', label: 'Invalid Projection', description: 'Invalid projection.' },
+]);
+
+// Map initialization
+const loadMap = () => {
+  if (map.value) return;
+  map.value = new mapboxgl.Map({
+    container: 'mapContainer',
+    style: 'mapbox://styles/mapbox/streets-v12',
+    center: [37.137343, 1.137451],
+    zoom: 6,
+  });
+  map.value.addControl(new mapboxgl.NavigationControl());
+};
+
+ 
+
+
+ const updateMapLayer = () => {
+  if (!map.value || !layerName.value || !bounds.value) return;
+
+  const addLayer = () => {
+    // Remove existing layer and source if they exist
+    if (map.value!.getLayer('geoserver-wms-layer')) {
+      map.value!.removeLayer('geoserver-wms-layer');
+    }
+    if (map.value!.getSource('geoserver-wms-source')) {
+      map.value!.removeSource('geoserver-wms-source');
+    }
+
+    // Add new layer
+    map.value!.addSource('geoserver-wms-source', {
+      type: 'raster',
+      tiles: [
+        `${serverUrl}/wms?&bbox={bbox-epsg-3857}&format=image/png&service=WMS&version=1.1.1&request=GetMap&srs=EPSG:3857&transparent=true&width=256&height=256&layers=${layerName.value}`,
+      ],
+      tileSize: 256,
+    });
+    map.value!.addLayer({
+      id: 'geoserver-wms-layer',
+      type: 'raster',
+      source: 'geoserver-wms-source',
+      paint: {},
+    });
+
+    // Fit map to bounds
+    map.value!.fitBounds([
+      [bounds.value.westBoundLongitude, bounds.value.southBoundLatitude],
+      [bounds.value.eastBoundLongitude, bounds.value.northBoundLatitude],
+    ]);
+
+    // Resize map to ensure proper rendering
+    map.value!.resize();
+  };
+
+  // Check if the map's style is loaded
+  if (map.value.isStyleLoaded()) {
+    addLayer();
+  } else {
+    // Wait for the map to load
+    map.value.once('load', addLayer);
+  }
+};
+
+
+
+
+// Handle layer selection
+const handleSelectLayer = async (lyr: string) => {
+  AddDialogVisible.value = true;
+
+  layerName.value = lyr;
+  DialogTitle.value = lyr;
+
+  const filteredLayers = tableDataList.value.filter((layer) => layer.name === lyr);
+  bounds.value = filteredLayers[0]?.bbox;
+  await nextTick();
+    loadMap();
+  updateMapLayer();
+};
+
+// Handle row double-click
+const handleRowDblClick = (row: Layer) => {
+  handleSelectLayer(row.name);
+};
+
+// Update page size based on window width
+const updatePageSize = () => {
   if (window.innerWidth <= mobileBreakpoint) {
     pageSize.value = mobilePageSize;
   } else {
@@ -156,539 +229,396 @@ const updatePageSize = () => {
   }
 };
 
-
-
-
-const loading = ref(false)
-onMounted(() => {
-
-
-
-
-  window.addEventListener('resize', updatePageSize);
-  updatePageSize(); // Initial check
-
-
-
-
-  loading.value = true
-  let server;
-  const envt = import.meta.env.VITE_APP_DB_HOST // remove the port for production
-  console.log('Environment >>>', envt)
-
-  if (envt == 'localhost') {
-    server = '/imagery/geoserver/kisip/ows/?SERVICE=WMS&REQUEST=GetCapabilities'
-
-  } else {
-    server = 'https://kesmis.go.ke/geoserver/kisip/ows/?SERVICE=WMS&REQUEST=GetCapabilities'
-
-  }
-
-  axios.get(server)
-    // Remember to revert to below 
-
-    // axios.get('https://kesmis.go.ke/geoserver/kisip/ows/?SERVICE=WMS&REQUEST=GetCapabilities')
-    // .get('https://kesmis.go.ke/geoserver/kisip/wms?service=wms&version=1.1.1&request=GetCapabilities')
-    .then((response) => {
-      const xml = response.data;
-      console.log(xml)
-
-      const parser = new XMLParser();
-      const json = parser.parse(xml);
-
-      console.log('json', json)
-
-      const glayers = json.WMS_Capabilities.Capability.Layer.Layer.map(layer => ({
-        name: layer.Name,
-        title: layer.Title,
-        label: layer.Name,
-        value: layer.Name,
-        crs: layer.CRS,
-        bbox: layer.EX_GeographicBoundingBox
-
-      }));
-
-      // console.log(glayers)
-
-
-
-      tableDataList.value = glayers;
-      totalItems.value = tableDataList.value.length
-      loading.value = false
-
-
-      console.log('tableDataList.value', tableDataList.value)
-      for (let i = 0; i < glayers.length; i++) {
-        var opt = {}
-        opt.value = glayers[i].name
-        opt.label = glayers[i].name
-        opt.bbox = glayers[i].bbox
-        // console.log(glayers[i])
-        selOptions.value.push(opt)
-      }
-
-
-
-      //   console.log(selOptions)
-      lyr.value = selOptions.value[0].value
-      // handleSelectLayer(selOptions.value[0].value)
-      //  loadMap()
-
-
-    })
-    .catch((error) => {
-      console.error(error);
-    });
-
-
-})
-
-const handleRowDblClick = (row) => {
-
-  console.log('Double clicked row:', row);
-  handleSelectLayer(row.name)
-
-
-}
-
-
-// Reactive form data
-const form = ref({
-  geoserverUrl: 'https://kesmis.go.ke/geoserver',
-  workspace: 'kisip',
-  username: 'admin',
-  password: '***REDACTED***',
-  crs: 'EPSG:21037',
-  name: null,
-
-});
-
-
-
-
-
-
-const selectedFiles = ref([false])
-
-
-
-const handleFiles = (file, fileList) => {
-
+// Handle file uploads
+const selectedFiles = ref<any[]>([]);
+const handleFiles = (file: any, fileList: any[]) => {
   selectedFiles.value = fileList;
-
-}
-
-const loadingUploads = ref(false)
+};
 
 const uploadFiles = async () => {
-
-  loadingUploads.value = true
-  console.log('Upload files...', loadingUploads.value)
-
-  // Loop through each selected file and process/upload
-  for (const file of selectedFiles.value) {
-    try {
-      // Extract store name from file name
-      const store = file.name.replace(/ /g, '_').replace(/\.[^/.]+$/, '');
-
-      // Upload file to GeoServer
-      await uploadImageToGeoServer(file, store);
-      loadingUploads.value = false
-      // Process and publish the image to GeoServer
-      // You would need to handle the rest of the workflow like in the Python script
-      console.log(`Successfully uploaded and published ${file.name}`);
-    } catch (error) {
-      console.error(`Error processing ${file.name}: ${error.message}`);
+  ruleFormRef.value.validate(async (valid: boolean) => {
+    if (!valid) return;
+    if (!selectedFiles.value.length) {
+      ElMessage.error('Please select at least one ECW file');
+      return;
     }
-  }
-}
+    loadingUploads.value = true;
+    for (const file of selectedFiles.value) {
+      if (!file.name.endsWith('.ecw')) {
+        ElMessage.error('Only ECW files are supported');
+        continue;
+      }
+      try {
+        const store = file.name.replace(/ /g, '_').replace(/\.[^/.]+$/, '');
+        await uploadImageToGeoServer(file, store);
+      } catch (error) {
+        ElMessage.error(`Error processing ${file.name}`);
+      }
+    }
+    loadingUploads.value = false;
+  });
+};
 
-const uploadImageToGeoServer = async (file, store) => {
-  const url = `${form.value.geoserverUrl}/rest/workspaces/${form.value.workspace}/coveragestores/${store}/file.ecw`;
-
-  console.log('Upload URL:', url);
-  console.log('File:', file);
-
-  // Create a sanitized file name by removing or replacing spaces
-  const sanitizedFileName = file.name.replace(/\s+/g, '_'); // Replaces spaces with underscores
-  console.log('Sanitized File Name:', sanitizedFileName);
-
+const uploadImageToGeoServer = async (file: any, store: string) => {
+  const url = `${serverUrl}/rest/workspaces/${form.value.workspace}/coveragestores/${store}/file.ecw`;
+  const sanitizedFileName = file.name.replace(/\s+/g, '_');
   const formData = new FormData();
-  formData.append('files', file.raw, sanitizedFileName); // Use sanitized file name
-  formData.append('crs', form.value.crs); // Use a valid CRS instead of 'tests'
-
-  console.log('Form Data:', formData); // For debugging, check the contents of FormData
+  formData.append('files', file.raw, sanitizedFileName);
+  formData.append('crs', form.value.crs);
 
   try {
     const res = await uploadToGeoServer(formData);
-    console.log(res);
-
-    if (res.code == '0000') {
+    if (res.code === '0000') {
       UploadDialogVisible.value = false;
-    }
-  } catch (error) {
-    console.error(`Error uploading file ${sanitizedFileName}:`, error.response ? error.response.data : error.message);
-  }
-};
-
-
-
-const deleteLayerStore = async (layer) => {
-  try {
-    console.log('Delete row:', layer);
-    form.value.storeName = layer;
-
-    // Call the deleteLayer function
-    const res = await deleteLayer(form.value);
-
-    // Check if the deletion was successful (assuming `res` contains a success flag)
-    if (res && res.code === '0000') {
-      console.log('Deletion successful:');
-
-      // Find and remove the item from `tableDataList`
-      tableDataList.value = tableDataList.value.filter(item => item.name !== layer);
-      console.log('Updated tableDataList:', tableDataList.value);
+      ElMessage.success('File uploaded successfully');
     } else {
-      console.error('Deletion failed');
+      ElMessage.error('Upload failed');
     }
   } catch (error) {
-    console.error('Error deleting layer:', error);
+    ElMessage.error(`Error uploading file: ${error.message}`);
+    throw error;
   }
 };
 
+// Delete layer
+const deleteLayerStore = async (layer: string) => {
+  try {
+    form.value.storeName = layer;
+    const res = await deleteLayer(form.value);
+    if (res && res.code === '0000') {
+      tableDataList.value = tableDataList.value.filter((item) => item.name !== layer);
+      totalItems.value = tableDataList.value.length;
+      ElMessage.success('Layer deleted successfully');
+    } else {
+      ElMessage.error('Deletion failed');
+    }
+  } catch (error) {
+    ElMessage.error('Error deleting layer');
+  }
+};
 
-
-const crsOptions = ref([
-
-// Arc 1960
-  { value: 'EPSG:21036', label: "Arc 1960 / UTM Zone 36S (EPSG:21036)", description: "UTM projection for parts of Kenya." },
-  { value: 'EPSG:21096', label: "Arc 1960 / UTM Zone 36N (EPSG:21096)", description: "UTM projection for parts of Kenya." },
-  { value: 'EPSG:21037', label: "Arc 1960 / UTM Zone 37S (EPSG:21037)", description: "UTM projection for East Africa, including Kenya." },
-  { value: 'EPSG:21097', label: "Arc 1960 / UTM Zone 37N (EPSG:21097)", description: "UTM projection for East Africa, including Kenya." },
-
-//  WGS 84 
-{ value: 'EPSG:32637', label: "WGS 84 / UTM zone 37N (EPSG:32637)", description: "UTM projection for East Africa, including Kenya." },
-{ value: 'EPSG:32636', label: "WGS 84 / UTM zone 36N (EPSG:32636)", description: "UTM projection for East Africa, including Kenya." },
-{ value: 'EPSG:32737', label: "WGS 84 / UTM zone 37S(EPSG:32737)", description: "UTM projection for East Africa, including Kenya." },
-{ value: 'EPSG:32736', label: "WGS 84 / UTM zone 36S  (EPSG:32736)", description: "UTM projection for East Africa, including Kenya." },
-
-  { value: 'EPSG:4326', label: "WGS 84 (EPSG:4326)", description: "A global geographic coordinate system." },
-  { value: 'EPSG:3857', label: "WGS 84 / Pseudo-Mercator (EPSG:3857)", description: "Web Mercator projection for mapping applications." },
-  { value: 'Invalid', label: "Invalid Projection", description: "Web Mercator projection for mapping applications." }
-
-])
-
-
- 
-
-const oldLayer = ref()
-const editLayer = async (lyr: any) => {
-  console.log('Layer', lyr)
-  oldLayer.value = lyr
-  EditDialogVisible.value = true
-  form.value.name = lyr.name
-  // Check if the CRS exists in the options list, otherwise set it to 'Invalid'
+// Edit layer
+const editLayer = async (lyr: Layer) => {
+  oldLayer.value = lyr;
+  EditDialogVisible.value = true;
+  form.value.name = lyr.name;
   const selectedCrs = lyr.crs && lyr.crs.length > 0 ? lyr.crs[0] : 'Invalid';
-  const isValidCrs = crsOptions.value.some(option => option.value === selectedCrs);
+  const isValidCrs = crsOptions.value.some((option) => option.value === selectedCrs);
   form.value.crs = isValidCrs ? selectedCrs : 'Invalid';
-  form.value.name = lyr.name
-
-
-}
-
+};
 
 const saveEdits = async () => {
-  console.log('Upload files...')
-  form.value.oldLayerName = oldLayer.value.name
-  form.value.newLayerName = form.value.name
-  form.value.workspace = form.value.workspace
-  form.value.newCrs = form.value.crs
-  form.value.layer = oldLayer.value
-
-
-
   try {
-
-
-    // Call the deleteLayer function
+    form.value.oldLayerName = oldLayer.value?.name;
+    form.value.newLayerName = form.value.name;
+    form.value.newCrs = form.value.crs;
     const res = await EditLayerDetails(form.value);
-
-    // Check if the deletion was successful (assuming `res` contains a success flag)
     if (res && res.code === '0000') {
-      console.log('EditLayerDetails successful:');
-
-
+      ElMessage.success('Layer details updated successfully');
+      EditDialogVisible.value = false;
     } else {
-      console.error('Edits failed');
+      ElMessage.error('Failed to update layer details');
     }
   } catch (error) {
-    console.error('Error deleting layer:', error);
+    ElMessage.error('Error updating layer details');
   }
+};
 
+// Get CRS label
+const getCrsLabel = (value: string) => {
+  const crs = crsOptions.value.find((option) => option.value === value);
+  return crs ? crs.label : `Invalid CRS: ${value}`;
+};
 
-
-}
-
-const getCrsLabel = (value) => {
-
-  const crs = crsOptions.value.find(option => option.value === value);
-  return crs ? crs.label : 'Invalid CRS :' + value;
-}
-
-
-const handlePageChange = (page) => {
+// Pagination handlers
+const handlePageChange = (page: number) => {
   currentPage.value = page;
 };
 
-
-const handlePageSizeChange = (newSize) => {
+const handlePageSizeChange = (newSize: number) => {
   pageSize.value = newSize;
-  currentPage.value = 1; // Reset to first page when changing page size
+  currentPage.value = 1;
 };
 
-
-
-// Computed Property for Paginated Data
+// Computed paginated data
 const paginatedData = computed(() => {
+  if (!tableDataList.value.length) return [];
   const startIndex = (currentPage.value - 1) * pageSize.value;
   const endIndex = startIndex + pageSize.value;
   return tableDataList.value.slice(startIndex, endIndex);
 });
 
+// Navigation
+const goBack = () => {
+  window.history.back();
+};
 
+const selectDownload = () => {
+  ElMessage.info('Download functionality not implemented');
+};
+
+// On mounted
+onMounted(() => {
+  window.addEventListener('resize', updatePageSize);
+  updatePageSize();
+ 
+
+  // Resize observer for dialog
+  const dialog = document.querySelector('.el-dialog');
+  if (dialog) {
+    const resizeObserver = new ResizeObserver(() => {
+      map.value?.resize();
+    });
+    resizeObserver.observe(dialog);
+  }
+
+  // Fetch layers
+  loading.value = true;
+  axios.get(`${serverUrl}/ows/?SERVICE=WMS&REQUEST=GetCapabilities`).then((response) => {
+    const xml = response.data;
+    const parser = new XMLParser();
+    const json = parser.parse(xml);
+    const glayers = json.WMS_Capabilities.Capability.Layer.Layer.map((layer: any) => ({
+      name: layer.Name,
+      title: layer.Title,
+      crs: layer.CRS,
+      bbox: layer.EX_GeographicBoundingBox,
+    }));
+
+    tableDataList.value = glayers;
+    totalItems.value = glayers.length;
+    loading.value = false;
+
+    selOptions.value = glayers.map((layer: any) => ({
+      value: layer.name,
+      label: layer.name,
+      bbox: layer.bbox,
+    }));
+  }).catch((error) => {
+    ElMessage.error('Error fetching layers');
+    loading.value = false;
+  });
+});
 </script>
 
 <template>
   <el-card>
     <el-row
-type="flex" justify="start" gutter="10"
-      style="display: flex; flex-wrap: nowrap; align-items: center; margin-bottom:10px">
-
+      type="flex"
+      justify="start"
+      :gutter="10"
+      style="display: flex; flex-wrap: nowrap; align-items: center; margin-bottom: 10px"
+    >
       <div class="max-w-200px">
-        <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
+        <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px">
           Back
         </el-button>
       </div>
 
-
-      <!-- Title Search -->
       <el-select
-v-model="value3" :onChange="handleSelectLayer" clearable filterable collapse-tags
-        placeholder="Select Imagery " style=" margin-right: 5px;">
+        v-model="layerName"
+        @change="handleSelectLayer"
+        clearable
+        filterable
+        collapse-tags
+        placeholder="Select Imagery"
+        style="margin-right: 5px"
+      >
         <el-option v-for="item in selOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
 
-
-
-      <!-- Action Buttons -->
-      <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px; ">
-
+      <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px">
         <el-tooltip content="Upload Imagery" placement="top">
           <el-button @click="UploadDialogVisible = true" type="primary" :icon="Plus" />
         </el-tooltip>
-
-
-
-
         <el-tooltip content="Download" placement="top">
           <el-button @click="selectDownload" type="primary" :icon="Download" />
         </el-tooltip>
         <DownloadCustom
-v-if="showEditButtons" :data="tableDataList" :model="model"
-          :associated_models="associated_multiple_models" />
-
-
-
+          v-if="showEditButtons"
+          :data="tableDataList"
+          :model="model"
+          :associated_models="associated_multiple_models"
+        />
       </div>
-
-      <!-- Download All Component -->
     </el-row>
 
-
-    <el-table :data="paginatedData" :loading="loading" style="width: 100%" @row-dblclick="handleRowDblClick">
+    <el-table
+      :data="paginatedData"
+      :loading="loading"
+      style="width: 100%"
+      @row-dblclick="handleRowDblClick"
+    >
       <el-table-column label="Name" prop="name" sortable />
       <el-table-column label="Title" prop="title" sortable />
-      <!-- CRS Column with value lookup -->
       <el-table-column label="CRS" prop="crs" sortable width="350">
         <template #default="scope">
-          <!-- Use the method to get the display label -->
           {{ getCrsLabel(scope.row.crs[0]) }}
         </template>
       </el-table-column>
-
       <el-table-column fixed="right" label="Actions" width="350">
         <template #default="scope">
-
-          <el-button size="small" type="primary" plain :icon="Position" @click="handleSelectLayer(scope.row.name)">
+          <el-button
+            size="small"
+            type="primary"
+            plain
+            :icon="Position"
+            @click="handleSelectLayer(scope.row.name)"
+          >
             View
           </el-button>
           <el-button size="small" type="success" plain :icon="Edit" @click="editLayer(scope.row)">
             Edit
           </el-button>
-
-          <el-button size="small" type="danger" plain :icon="Delete" @click="deleteLayerStore(scope.row.name)">
+          <el-button
+            size="small"
+            type="danger"
+            plain
+            :icon="Delete"
+            @click="deleteLayerStore(scope.row.name)"
+          >
             Delete
           </el-button>
         </template>
-
       </el-table-column>
     </el-table>
 
     <el-pagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-      v-model:page-size="pageSize" :page-sizes="[2, 5, 10, 15, 20, 50, 100]" :total="totalItems" :background="true"
-      @size-change="handlePageSizeChange" @current-change="handlePageChange" class="mt-4" />
-
-
+      layout="sizes, prev, pager, next, total"
+      v-model:current-page="currentPage"
+      v-model:page-size="pageSize"
+      :page-sizes="[2, 5, 10, 15, 20, 50, 100]"
+      :total="totalItems"
+      :background="true"
+      @size-change="handlePageSizeChange"
+      @current-change="handlePageChange"
+      class="mt-4"
+    />
   </el-card>
 
-
-
-
   <el-dialog v-model="AddDialogVisible" :title="DialogTitle" width="75%" draggable>
-
     <div id="mapContainer" class="basemap"></div>
-
-
   </el-dialog>
 
-
   <el-dialog v-model="UploadDialogVisible" title="Upload Imagery to Geoserver" width="500">
-
     <div v-loading="loadingUploads">
-      <el-form ref="ruleFormRef" :model="form" label-position="left">
+      <el-form ref="ruleFormRef" :model="form" :rules="formRules" label-position="left">
         <el-form-item label="Name">
           <el-input disabled v-model="form.geoserverUrl" />
         </el-form-item>
-
         <el-form-item label="Username">
           <el-input disabled v-model="form.username" />
         </el-form-item>
-
         <el-form-item label="Password">
           <el-input disabled v-model="form.password" type="password" />
         </el-form-item>
-
         <el-form-item label="Workspace">
           <el-input disabled v-model="form.workspace" />
         </el-form-item>
-
-
-
-        <el-form-item label="Coordinate System">
+        <el-form-item label="Coordinate System" prop="crs">
           <el-select
-v-model="form.crs" clearable filterable collapse-tags placeholder="Select Coordinate System "
-            style=" margin-right: 5px;">
+            v-model="form.crs"
+            clearable
+            filterable
+            collapse-tags
+            placeholder="Select Coordinate System"
+            style="margin-right: 5px"
+          >
             <el-option v-for="item in crsOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
-
         </el-form-item>
-
-        <el-form-item label="Select Files" style="width: 100%;">
-          <el-upload multiple drag :auto-upload="false" :on-change="handleFiles" action="" style="width: 100%;">
+        <el-form-item label="Select Files" style="width: 100%">
+          <el-upload
+            multiple
+            drag
+            :auto-upload="false"
+            :on-change="handleFiles"
+            accept=".ecw"
+            action=""
+            style="width: 100%"
+          >
             <i class="el-icon-upload"></i>
             <div class="el-upload__text">Drop ECW files here or click to upload</div>
           </el-upload>
         </el-form-item>
-
-
       </el-form>
     </div>
     <template #footer>
       <div class="dialog-footer">
-        <el-button @click="dialogVisible = false">Cancel</el-button>
-        <el-button type="primary" @click="uploadFiles">
-          Confirm
-        </el-button>
+        <el-button @click="UploadDialogVisible = false">Cancel</el-button>
+        <el-button type="primary" @click="uploadFiles">Confirm</el-button>
       </div>
     </template>
   </el-dialog>
 
-
-
-  <el-dialog v-model="EditDialogVisible" title="Edit  Imagery Details" width="500">
+  <el-dialog v-model="EditDialogVisible" title="Edit Imagery Details" width="500">
     <el-form ref="ruleFormRef" :model="form" label-position="left">
       <el-form-item label="Name">
         <el-input disabled v-model="form.geoserverUrl" />
       </el-form-item>
-
-
-
       <el-form-item label="Workspace">
         <el-input disabled v-model="form.workspace" />
       </el-form-item>
-
       <el-form-item label="Layer Name">
         <el-input v-model="form.name" />
       </el-form-item>
-
       <el-form-item label="Coordinate System">
         <el-select
-v-model="form.crs" clearable filterable collapse-tags placeholder="Select Coordinate System "
-          style=" margin-right: 5px;">
+          v-model="form.crs"
+          clearable
+          filterable
+          collapse-tags
+          placeholder="Select Coordinate System"
+          style="margin-right: 5px"
+        >
           <el-option v-for="item in crsOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
-
-
-
       </el-form-item>
-
-
     </el-form>
     <template #footer>
       <div class="dialog-footer">
         <el-button @click="EditDialogVisible = false">Cancel</el-button>
-        <el-button type="primary" @click="saveEdits">
-          Confirm
-        </el-button>
+        <el-button type="primary" @click="saveEdits">Confirm</el-button>
       </div>
     </template>
   </el-dialog>
-
 </template>
 
-
-
 <style scoped>
-.upload-demo {
-  width: 300px;
+.el-card {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
-
-.template-link {
-  text-decoration: underline;
-  color: #409EFF;
-  /* Optional: change link color */
-}
-
-
-
 
 .mt-4 {
   margin-top: 16px;
 }
 
+.basemap {
+  width: 100%;
+  height: 65vh;
+}
+
 @media (max-width: 768px) {
+  .el-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .el-select,
+  .el-button {
+    width: 100%;
+    margin-bottom: 10px;
+  }
   .el-pagination {
     font-size: 12px;
-    /* Adjust font size for small screens */
   }
-
-  .el-pagination .el-pagination__sizes {
-    display: none;
-    /* Hide size selector on small screens */
-  }
-
+  .el-pagination .el-pagination__sizes,
   .el-pagination .el-pagination__total {
     display: none;
-    /* Hide total count on small screens */
   }
-
-
-
 }
 </style>
-
-
 
 <style>
 .el-table .danger-row {
@@ -739,11 +669,5 @@ v-model="form.crs" clearable filterable collapse-tags placeholder="Select Coordi
 .item {
   margin-top: 10px;
   margin-right: 40px;
-}
-
-
-.basemap {
-  width: 100%;
-  height: 65vh;
 }
 </style>
