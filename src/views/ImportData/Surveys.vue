@@ -657,7 +657,7 @@ const handleDownload = async (row) => {
     ElMessage.success('Download started');
   } catch (error) {
  
-      loadingStates.value[row.id] = false;
+      loadingStates.value[row.xmlFormId] = false;
     console.error('Download error:', error);
     ElMessage.error('Failed to download file');
   }
@@ -666,7 +666,10 @@ const handleDownload = async (row) => {
  const handleDownloadGeo = async (row) => {
   try {
     // Initialize loading state for this row
-       loadingStates.value[row.id] = true;
+       loadingStates.value[row.xmlFormId] = true;
+
+
+       console.log('loadingStates',row)
 
     // Prepare form data
     const formData = {
@@ -679,7 +682,7 @@ const handleDownload = async (row) => {
 
     // Await the response from getGeoSubmissions
     const response = await getGeoSubmissions(formData);
-      loadingStates.value[row.id] = false;
+      loadingStates.value[row.xmlFormId] = false;
     // Extract GeoJSON data (FeatureCollection)
     const geojsonData = response.data;
     if (!geojsonData || geojsonData.type !== 'FeatureCollection') {
@@ -715,7 +718,7 @@ const handleDownload = async (row) => {
     ElMessage.error('Failed to download GeoJSON file');
   } finally {
     // Clear loading state
-       loadingStates.value[row.id] = false;
+       loadingStates.value[row.xmlFormId] = false;
   }
 };
 
@@ -825,7 +828,7 @@ clearable v-model="search" placeholder="Search by project name"
                           type="primary"
                           size="small"
                           @click="handleDownload(scope.row)"
-                           v-loading="loadingStates[scope.row.id]"
+                           v-loading="loadingStates[scope.row.xmlFormId]"
                         >
                           CSV
                         </el-button>
@@ -834,7 +837,7 @@ clearable v-model="search" placeholder="Search by project name"
                         type="success"
                         size="small"
                         @click="handleDownloadGeo(scope.row )"
-                        v-loading="loadingStates[scope.row.id]"
+                        v-loading="loadingStates[scope.row.xmlFormId]"
                         style="margin-left: 8px;"
                       >
                         GeoJSON

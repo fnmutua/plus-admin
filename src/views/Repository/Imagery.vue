@@ -404,12 +404,16 @@ onMounted(() => {
 });
 
 
+const loadingStates = ref({});
 
 // Download raw imagery for a selected layer
 const downloadImagery = (layerName) => {
 
   console.log(layerName)
-  loading.value = true;
+ // loading.value = true;
+
+  loadingStates.value[layerName.name] = true;
+
 
   // Construct WCS GetCoverage URL
   const wcsUrl = `${serverUrl}/wcs?` +
@@ -435,12 +439,16 @@ const downloadImagery = (layerName) => {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
-      loading.value = false;
+      //loading.value = false;
+        loadingStates.value[layerName.name] = false;
+
       ElMessage.success('Imagery downloaded successfully');
     })
     .catch((error) => {
       ElMessage.error('Error downloading imagery');
-      loading.value = false;
+     // loading.value = false;
+       loadingStates.value[layerName.name] = false;
+
     });
 };
 
@@ -517,7 +525,7 @@ const downloadImagery = (layerName) => {
           <el-button size="small" type="success" plain :icon="Edit" @click="editLayer(scope.row)">
             Edit
           </el-button>
-          <el-button  v-loading="loading" size="small" type="success" plain :icon="Download" @click="downloadImagery(scope.row)">
+          <el-button  v-loading="loadingStates[scope.row.name]" size="small" type="success" plain :icon="Download" @click="downloadImagery(scope.row)">
             Download
           </el-button>
 
