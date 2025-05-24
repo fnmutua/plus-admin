@@ -595,16 +595,16 @@ const handleDownload = async (row) => {
 
   //downloading.value=true
 
-   loadingStates.value[row.id] = true;
+   loadingStates.value[row.xmlFormId] = true;
     // Await the response from getSubmissions
     const response = await getCSVSubmissions(formData);
-   loadingStates.value[row.id] = false;
+   loadingStates.value[row.xmlFormId] = false;
     console.log(response)
 
     // Extract CSV string from response.data.data
     const csvData = response.data;
     if (!csvData) {
-          loadingStates.value[row.id] = false;
+          loadingStates.value[row.xmlFormId] = false;
       throw new Error('No CSV data received');
     }
 
@@ -629,30 +629,7 @@ const handleDownload = async (row) => {
     window.URL.revokeObjectURL(fileUrl);
 
 
-
-
-    // const response = await axios.post('/api/download', {
-    //   id: row.id,
-    // }, {
-    //   responseType: 'blob', // Important for handling file downloads
-    // });
-
-    // Create a URL for the file blob
-    // const fileUrl = window.URL.createObjectURL(new Blob([response.data]));
-    // const link = document.createElement('a');
-    // link.href = fileUrl;
-
-    // // Optional: Set a filename from response headers or default
-    // const fileName = response.headers['content-disposition']
-    //   ? response.headers['content-disposition'].split('filename=')[1]?.replace(/"/g, '')
-    //   : `download_${row.id}.pdf`; // Adjust extension as needed
-    // link.setAttribute('download', fileName);
-
-    // // Trigger the download
-    // document.body.appendChild(link);
-    // link.click();
-    // document.body.removeChild(link);
-    // window.URL.revokeObjectURL(fileUrl); // Clean up
+    
 
     ElMessage.success('Download started');
   } catch (error) {
