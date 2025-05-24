@@ -410,8 +410,7 @@ const loadingStates = ref({});
 const downloadImagery = (layerName) => {
 
   console.log(layerName)
- // loading.value = true;
-
+ 
   loadingStates.value[layerName.name] = true;
 
 
@@ -439,14 +438,12 @@ const downloadImagery = (layerName) => {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
-      //loading.value = false;
         loadingStates.value[layerName.name] = false;
 
       ElMessage.success('Imagery downloaded successfully');
     })
     .catch((error) => {
       ElMessage.error('Error downloading imagery');
-     // loading.value = false;
        loadingStates.value[layerName.name] = false;
 
     });
@@ -457,7 +454,7 @@ const downloadImagery = (layerName) => {
 </script>
 
 <template>
-  <el-card>
+  <el-card v-loading="loading">
     <el-row
       type="flex"
       justify="start"
@@ -500,7 +497,7 @@ const downloadImagery = (layerName) => {
 
     <el-table
       :data="paginatedData"
-      :v-loading="loading"
+      
       style="width: 100%"
       @row-dblclick="handleRowDblClick"
     >
