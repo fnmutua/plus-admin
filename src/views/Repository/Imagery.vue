@@ -75,12 +75,12 @@ const MapBoxToken =
   'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg';
 mapboxgl.accessToken = MapBoxToken;
 
-const envt = import.meta.env.VUE_APP_HOST;
-const serverUrl = envt === 'localhost' ? 'http://localhost:8080/geoserver/kisip' : 'https://kesmis.go.ke/geoserver/kisip';
+const envt = import.meta.env.VITE_APP_HOST;
+const serverUrl = envt === 'http://localhost' ? 'http://localhost:8080/geoserver/kisip' : 'https://kesmis.go.ke/geoserver/kisip';
 //const serverUrl =  'http://localhost:8080/geoserver/kisip';
 
 
-console.log('serverUrl',envt)
+console.log('serverUrl',serverUrl)
 // Reactive refs
 const selOptions = ref<SelectOption[]>([]);
 const tableDataList = ref<Layer[]>([]);
