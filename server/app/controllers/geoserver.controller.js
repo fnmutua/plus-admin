@@ -497,6 +497,8 @@ exports.editLayerDetails = async (req, res) => {
     res.status(200).send({
       message: `Layer ${oldLayerName} updated successfully.`,
       code: '0000',
+              data: layerResponse.data.layer
+
     });
   } catch (error) {
     console.error('Error updating layer details:', error.message);

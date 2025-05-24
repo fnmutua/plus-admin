@@ -310,25 +310,81 @@ const editLayer = async (lyr: Layer) => {
   form.value.crs = isValidCrs ? selectedCrs : 'Invalid';
 };
 
+const EditLoading=ref(false)
+const xsaveEdits = async () => {
+  try {
+    form.value.oldLayerName = oldLayer.value?.name;
+    form.value.newLayerName = form.value.name;
+    form.value.newCrs = form.value.crs;
+        EditLoading.value=true
+
+    const res = await EditLayerDetails(form.value);
+
+    console.log('Sfter Edits',res)
+    EditLoading.value=false
+    if (res && res.code === '0000') {
+      ElMessage.success('Layer details updated successfully');
+      EditDialogVisible.value = false;
+          EditLoading.value=false
+
+    } else {
+      ElMessage.error('Failed to update layer details');
+          EditLoading.value=false
+
+    }
+  } catch (error) {
+    ElMessage.error('Error updating layer details');
+        EditLoading.value=false
+
+  }
+};
+
 const saveEdits = async () => {
   try {
     form.value.oldLayerName = oldLayer.value?.name;
     form.value.newLayerName = form.value.name;
     form.value.newCrs = form.value.crs;
+    EditLoading.value = true;
+
     const res = await EditLayerDetails(form.value);
+
+    console.log('After Edits', res);
+    EditLoading.value = false;
+
     if (res && res.code === '0000') {
       ElMessage.success('Layer details updated successfully');
       EditDialogVisible.value = false;
+
+      // Find and update the layer in tableData
+      const index = tableDataList.value.findIndex(
+        (layer) => layer.name === form.value.oldLayerName
+      );
+      if (index !== -1) {
+        // Replace the old layer with the updated data
+        console.log('form.value',form.value.newCrs)
+        tableDataList.value[index] = {
+          ...tableDataList.value[index], // Preserve other properties
+          name: form.value.newLayerName,
+          crs: [form.value.newCrs],
+          // Add other updated fields from form.value or res.data as needed
+        };
+        console.log('tableDataList.value[index]',tableDataList.value[index])
+
+
+      } else {
+        console.warn('Layer not found in tableData:', form.value.oldLayerName);
+      }
     } else {
       ElMessage.error('Failed to update layer details');
     }
   } catch (error) {
     ElMessage.error('Error updating layer details');
+    EditLoading.value = false;
   }
 };
-
 // Get CRS label
 const getCrsLabel = (value: string) => {
+  console.log('CRS:',value)
   const crs = crsOptions.value.find((option) => option.value === value);
   return crs ? crs.label : `Invalid CRS: ${value}`;
 };
@@ -443,13 +499,76 @@ const downloadImagery = (layerName) => {
       ElMessage.success('Imagery downloaded successfully');
     })
     .catch((error) => {
-      ElMessage.error('Error downloading imagery');
+      console.log(error)
+      ElMessage.error('Imagery is too big for download. Consult Systems admin');
        loadingStates.value[layerName.name] = false;
 
     });
 };
 
 
+const xdownloadImagery = (layerName) => {
+  console.log(layerName);
+  loadingStates.value[layerName.name] = true;
+
+  // Optional: Fetch layer metadata to check size
+  const describeCoverageUrl =
+    `${serverUrl}/wcs?` +
+    `SERVICE=WCS&` +
+    `VERSION=2.0.1&` +
+    `REQUEST=DescribeCoverage&` +
+    `COVERAGEID=${layerName.name}`;
+
+  axios
+    .get(describeCoverageUrl)
+    .then((response) => {
+      // Parse raster size from DescribeCoverage response
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(response.data, 'text/xml');
+      // const width = parseInt(xmlDoc.querySelector('domainSet > RectifiedGrid > limits > GridEnvelope > high > *[1]')?.textContent);
+      // const height = parseInt(xmlDoc.querySelector('domainSet > RectifiedGrid > limits > GridEnvelope > high > *[2]')?.textContent);
+
+      // if (width * height > 100000000) { // Threshold: 100M pixels
+      //   ElMessage.error('Raster too large. Please select a smaller region or reduce resolution.');
+      //   loadingStates.value[layerName.name] = false;
+      //   return;
+      // }
+
+      // Construct WCS GetCoverage URL with optimizations
+      const wcsUrl =
+        `${serverUrl}/wcs?` +
+        `SERVICE=WCS&` +
+        `VERSION=2.0.1&` +
+        `REQUEST=GetCoverage&` +
+        `COVERAGEID=${layerName.name}&` +
+        `FORMAT=application/tiff&`  ; // Downsample to 1000x1000
+
+      return axios({
+        method: 'get',
+        url: wcsUrl,
+        responseType: 'blob',
+      });
+    })
+    .then((response) => {
+      if (!response) return;
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${layerName.name}.tif`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      loadingStates.value[layerName.name] = false;
+      ElMessage.success('Imagery downloaded successfully');
+    })
+    .catch((error) => {
+      console.error('Download error:', error);
+      ElMessage.error('Error downloading imagery: ' + (error.response?.statusText || error.message));
+      loadingStates.value[layerName.name] = false;
+    });
+};
 
 </script>
 
@@ -522,7 +641,7 @@ const downloadImagery = (layerName) => {
           <el-button size="small" type="success" plain :icon="Edit" @click="editLayer(scope.row)">
             Edit
           </el-button>
-          <el-button  v-loading="loadingStates[scope.row.name]" size="small" type="success" plain :icon="Download" @click="downloadImagery(scope.row)">
+          <el-button  v-loading="loadingStates[scope.row.name]" disabled size="small" type="success" plain :icon="Download" @click="downloadImagery(scope.row)">
             Download
           </el-button>
 
@@ -607,7 +726,7 @@ const downloadImagery = (layerName) => {
     </template>
   </el-dialog>
 
-  <el-dialog v-model="EditDialogVisible" title="Edit Imagery Details" width="500">
+  <el-dialog  v-loading="EditLoading"  v-model="EditDialogVisible" title="Edit Imagery Details" width="500">
     <el-form ref="ruleFormRef" :model="form" label-position="left">
       <el-form-item label="Name">
         <el-input disabled v-model="form.geoserverUrl" />
@@ -632,9 +751,9 @@ const downloadImagery = (layerName) => {
       </el-form-item>
     </el-form>
     <template #footer>
-      <div class="dialog-footer">
+      <div v-loading="EditLoading" class="dialog-footer">
         <el-button @click="EditDialogVisible = false">Cancel</el-button>
-        <el-button type="primary" @click="saveEdits">Confirm</el-button>
+        <el-button  type="primary" @click="saveEdits">Confirm</el-button>
       </div>
     </template>
   </el-dialog>
