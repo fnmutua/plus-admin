@@ -500,7 +500,7 @@ const downloadImagery = (layerName) => {
 
     <el-table
       :data="paginatedData"
-      :loading="loading"
+      :v-loading="loading"
       style="width: 100%"
       @row-dblclick="handleRowDblClick"
     >
