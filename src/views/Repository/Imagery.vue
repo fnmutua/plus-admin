@@ -70,17 +70,17 @@ interface SelectOption {
 }
 
 // Environment and configuration
-const { wsCache } = useCache();
+
 const MapBoxToken =
   'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg';
 mapboxgl.accessToken = MapBoxToken;
 
-const envt = import.meta.env.VITE_APP_DB_HOST;
-//const serverUrl = envt === 'localhost' ? '/imagery/geoserver/kisip' : 'https://kesmis.go.ke/geoserver/kisip';
-const serverUrl =  'http://localhost:8080/geoserver/kisip';
+const envt = import.meta.env.VUE_APP_HOST;
+const serverUrl = envt === 'localhost' ? 'http://localhost:8080/geoserver/kisip' : 'https://kesmis.go.ke/geoserver/kisip';
+//const serverUrl =  'http://localhost:8080/geoserver/kisip';
 
 
-console.log('serverUrl',serverUrl)
+console.log('serverUrl',envt)
 // Reactive refs
 const selOptions = ref<SelectOption[]>([]);
 const tableDataList = ref<Layer[]>([]);
