@@ -76,8 +76,11 @@ const MapBoxToken =
 mapboxgl.accessToken = MapBoxToken;
 
 const envt = import.meta.env.VITE_APP_DB_HOST;
-const serverUrl = envt === 'localhost' ? '/imagery/geoserver/kisip' : 'https://kesmis.go.ke/geoserver/kisip';
+//const serverUrl = envt === 'localhost' ? '/imagery/geoserver/kisip' : 'https://kesmis.go.ke/geoserver/kisip';
+const serverUrl =  'http://localhost:8080/geoserver/kisip';
 
+
+console.log('serverUrl',serverUrl)
 // Reactive refs
 const selOptions = ref<SelectOption[]>([]);
 const tableDataList = ref<Layer[]>([]);
@@ -399,6 +402,50 @@ onMounted(() => {
     loading.value = false;
   });
 });
+
+
+
+// Download raw imagery for a selected layer
+const downloadImagery = (layerName) => {
+
+  console.log(layerName)
+  loading.value = true;
+
+  // Construct WCS GetCoverage URL
+  const wcsUrl = `${serverUrl}/wcs?` +
+    `SERVICE=WCS&` +
+    `VERSION=2.0.1&` +
+    `REQUEST=GetCoverage&` +
+    `COVERAGEID=${layerName.name}&` +
+    `FORMAT=image/tiff&`; // West, East
+
+  axios({
+    method: 'get',
+    url: wcsUrl,
+    responseType: 'blob', // Important for handling binary data (e.g., GeoTIFF)
+  })
+    .then((response) => {
+      // Create a temporary link to trigger download
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${layerName.name}.tif`); // Set filename
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      loading.value = false;
+      ElMessage.success('Imagery downloaded successfully');
+    })
+    .catch((error) => {
+      ElMessage.error('Error downloading imagery');
+      loading.value = false;
+    });
+};
+
+
+
 </script>
 
 <template>
@@ -456,7 +503,7 @@ onMounted(() => {
           {{ getCrsLabel(scope.row.crs[0]) }}
         </template>
       </el-table-column>
-      <el-table-column fixed="right" label="Actions" width="350">
+      <el-table-column fixed="right" label="Actions" width="450">
         <template #default="scope">
           <el-button
             size="small"
@@ -470,6 +517,10 @@ onMounted(() => {
           <el-button size="small" type="success" plain :icon="Edit" @click="editLayer(scope.row)">
             Edit
           </el-button>
+          <el-button  v-loading="loading" size="small" type="success" plain :icon="Download" @click="downloadImagery(scope.row)">
+            Download
+          </el-button>
+
           <el-button
             size="small"
             type="danger"
