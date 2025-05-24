@@ -49,58 +49,6 @@ import {
 } from '@/api/grievance'
 
 
-const kisipEvents = [
-  {
-    date: "2025-04-12",
-    event: "Grievance Submitted",
-    description: "Complainant reported exclusion from beneficiary list during sensitization in Bondeni Settlement.",
-  },
-  {
-    date: "2025-04-13",
-    event: "Grievance Logged",
-    description: "Grievance formally recorded in the digital GRM system and assigned tracking ID GRM-4521.",
-  },
-  {
-    date: "2025-04-14",
-    event: "Initial Review by Community GRM Committee",
-    description: "Committee conducted a preliminary review and verified the complainant’s details.",
-  },
-  {
-    date: "2025-04-15",
-    event: "Site Visit Conducted",
-    description: "GRM focal persons and settlement team visited complainant’s homestead to validate claims.",
-  },
-  {
-    date: "2025-04-16",
-    event: "Hearing Session Held",
-    description: "The complainant and settlement committee appeared before the local GRM Committee for a hearing.",
-  },
-  {
-    date: "2025-04-17",
-    event: "Escalation to County Level",
-    description: "Due to conflicting records, the case was referred to the County Grievance Redress Panel.",
-  },
-  {
-    date: "2025-04-20",
-    event: "County Panel Review",
-    description: "The County team cross-checked the household listing registers and approved the complainant's eligibility.",
-  },
-  {
-    date: "2025-04-22",
-    event: "Resolution Communicated",
-    description: "Formal resolution issued — complainant reinstated to beneficiary list and notified via SMS and letter.",
-  },
-  {
-    date: "2025-04-24",
-    event: "Case Closed",
-    description: "Case GRM-4521 marked as resolved in the system; signed closure form archived digitally.",
-  },
-  {
-    date: "2025-05-01",
-    event: "Satisfaction Follow-Up",
-    description: "Post-resolution follow-up confirmed that the complainant was satisfied with the outcome.",
-  }
-];
 
 
 
@@ -257,6 +205,8 @@ const processGrievance = async() => {
 
   const res = await getOneGrievance(formData)
   console.log('FullGrievanceData', res.data)
+    loading.value=false
+
   FullGrievanceData.value=res.data
   shouldShowReminder.value= new Date(res.data.status_expiry_date) < new Date();
   console.log(  'shouldShowReminder.value', getStageDuration(res.data.status))
@@ -776,11 +726,13 @@ const getGRMUsers = async () => {
 }
 const currentUser = wsCache.get(appStore.getUserInfo)
 
-
+const loading =ref(false)
 onMounted(async () => {
+  loading.value=true
   await processGrievance()
   await getGRMUsers()
   await getGrievanceHistory(route.params.id)
+  loading.value=false
 
 })
 
@@ -1677,7 +1629,7 @@ const formData = {}
 </script>
 
 <template>
-  <el-card>
+  <el-card v-loading="loading">
  
     <template #header>
       <div class="card-header">

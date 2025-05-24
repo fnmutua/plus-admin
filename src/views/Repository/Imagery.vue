@@ -76,8 +76,8 @@ const MapBoxToken =
 mapboxgl.accessToken = MapBoxToken;
 
 const envt = import.meta.env.VITE_APP_HOST;
-const serverUrl = envt === 'http://localhost' ? 'http://localhost:8080/geoserver/kisip' : 'https://kesmis.go.ke/geoserver/kisip';
-//const serverUrl =  'http://localhost:8080/geoserver/kisip';
+//const serverUrl = envt === 'http://localhost' ? 'http://localhost:8080/geoserver/kisip' : 'https://kesmis.go.ke/geoserver/kisip';
+const serverUrl =  'https://kesmis.go.ke/geoserver/kisip';
 
 
 console.log('serverUrl',serverUrl)
