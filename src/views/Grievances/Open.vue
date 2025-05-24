@@ -491,7 +491,7 @@ const getDeletedCounts = async () => {
 
 // Save filters to localStorage
 const saveFiltersToLocalStorage = () => {
-  console.log('savgn flters')
+  console.log('savingn flters')
   localStorage.setItem('grievanceFilters', JSON.stringify({
     filters: filters.value,
     filterValues: filterValues.value,
@@ -510,10 +510,11 @@ const loadFiltersFromLocalStorage = async () => {
 
   const savedFilters = localStorage.getItem('grievanceFilters');
 
-
+ console.log('loading savedFilters')
   if (savedFilters) {
     try {
       const parsed = JSON.parse(savedFilters);
+      console.log(parsed)
       filters.value = parsed.filters || [];
       filterValues.value = parsed.filterValues || [[]];
       filterFunction.value = parsed.filterFunction || ['in'];
@@ -523,7 +524,7 @@ const loadFiltersFromLocalStorage = async () => {
       selectedCategories.value = parsed.selectedCategories || [];
       activeSegment.value = parsed.activeSegment || 'Sorting';
 
-      console.log('Mounting gettign',filters.value )
+      console.log('Mounting gettign',selectedCounty.value )
 
 
       if (selectedCategories.value ) {
@@ -2242,7 +2243,7 @@ const filterByCounty = async (county_id: any) => {
 
 if (county_id) {
   enableSubcounty.value = true   // allow selection of subcounty 
-  selectedCounty.value = county_id
+ // selectedCounty.value = county_id
   getSubCountyNames()
 }
 
