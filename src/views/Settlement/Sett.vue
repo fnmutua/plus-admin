@@ -33,6 +33,9 @@ import UploadComponent from '@/views/Components/UploadComponent.vue';
 import ListDocuments from '@/views/Components/ListDocuments.vue';
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 import TableActions from '@/views/Components/TableActions.vue';
+
+
+
 import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
 
 const MapBoxToken = 'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg'

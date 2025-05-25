@@ -25,6 +25,7 @@ import '@dafcoe/vue-collapsible-panel/dist/vue-collapsible-panel.css'
 import UploadComponent from '@/views/Components/UploadComponent.vue';
 import type { UploadProps, UploadUserFile } from 'element-plus'
 import type { FormInstance } from 'element-plus'
+import SettlementMap from '@/views/Components/SettlementMap.vue';
 
 
 import { ElCollapseTransition, ElDescriptions, ElDescriptionsItem, ElTooltip } from 'element-plus'
@@ -357,6 +358,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   utilities.prop_elec = res.data[0].settlement_statuses[latestReportIndex].prop_elec + '%'
 }
 
+const settlementId=ref(route.params.id)
 onMounted(async () => {
 
 
@@ -749,12 +751,12 @@ const clickTab = (tab) => {
   console.log('Tab clicked:', tab.props);
   localStorage.setItem('activeTab', tab.props.name);
 
-  if (tab.props.name === 'map') {
-    // Delay the loadMap function
-    setTimeout(() => {
-      loadMap(); // Load map after a brief delay
-    }, 500); // Delay in milliseconds (500 ms = 0.5 seconds)
-  }
+  // if (tab.props.name === 'map') {
+  //   // Delay the loadMap function
+  //   setTimeout(() => {
+  //     loadMap(); // Load map after a brief delay
+  //   }, 500); // Delay in milliseconds (500 ms = 0.5 seconds)
+  // }
 
 
 };
@@ -1158,7 +1160,14 @@ const editSettlement = () => {
 
 
       <el-tab-pane label="Location" name="map">
-        <div id="mapContainer" class="basemap"></div>
+        <!-- <div id="mapContainer" class="basemap"></div> -->
+         
+
+        <SettlementMap
+          :settlementId="settlementId"
+  
+        />  
+
       </el-tab-pane>
 
 
