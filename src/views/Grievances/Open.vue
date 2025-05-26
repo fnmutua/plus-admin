@@ -353,7 +353,7 @@ const total = ref(0)
 
 
 const mobileBreakpoint = 768;
-const defaultPageSize = 5;
+const defaultPageSize = 8;
 const mobilePageSize = 5;
 const pageSize = ref(defaultPageSize);
 const pageHeight = ref(600);
@@ -1861,6 +1861,10 @@ const getFilteredBySearchData = async (searchKey) => {
 const searchByName = async (filterString: any) => {
   if (filterString && filterString.trim() !== '') {
     await getFilteredBySearchData(filterString);
+  }else {
+
+ 
+    handleClear()
   }
 };
 
@@ -3014,6 +3018,7 @@ if (search_string.value) {
       filterable
       remote
       :remote-method="searchByName"
+      :onClear="handleClear"
       reserve-keyword
       placeholder="Search Grievance by code, description of name of complainant"
       style="width: 100%; margin-top:10px;"
@@ -3097,7 +3102,7 @@ if (search_string.value) {
       v-model:currentPage="currentPage"
       v-model:page-size="pageSize"
       :pager-count="pagerCount"
-      :page-sizes="[5, 10, 20, 50, 200, 10000]"
+      :page-sizes="[5,8, 10, 20, 50, 200, 10000]"
       :total="total"
       :layout="paginationLayout"
       :background="true"
@@ -3111,7 +3116,7 @@ if (search_string.value) {
     </div>
 
     <!-- Search Grievance -->
-    <el-col :xs="24" :sm="24" :md="24" :lg="24">
+    <!-- <el-col :xs="24" :sm="24" :md="24" :lg="24">
       <el-select
         v-model="grv_name"
         multiple
@@ -3123,7 +3128,7 @@ if (search_string.value) {
         placeholder="Search Grievance by code, description or name of complainant"
         style="width: 100%; margin-top:10px;"
       />
-    </el-col>
+    </el-col> -->
 
   
   </el-card>

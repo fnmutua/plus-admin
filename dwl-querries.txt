@@ -425,10 +425,18 @@ DELETE FROM water_point WHERE county_id = 16;
 
 
 // MKS 
-
 DELETE FROM powerline WHERE county_id = 16;
 DELETE FROM railway WHERE county_id = 16;
 DELETE FROM sewer WHERE county_id = 16;
 DELETE FROM road WHERE county_id = 16;
 DELETE FROM piped_water WHERE county_id = 16;
+ 
+
+
+// NBO 
+DELETE FROM powerline WHERE county_id = 47;
+DELETE FROM railway WHERE county_id = 47;
+DELETE FROM sewer WHERE county_id = 47;
+DELETE FROM road WHERE county_id = 47;
+DELETE FROM piped_water WHERE county_id = 47;
  
