@@ -85,7 +85,33 @@ for (const phone of admins_phones) {
 }
 
 
+async function sendNotification(phone_number, message) {
+  // URL for the SMS service
+  const url = "https://quicksms.advantasms.com/api/services/sendotp/";
 
+  // Check if phone number and message are valid
+  if (!phone_number || !message) {
+    console.warn("Invalid input: phone_number or message is missing.");
+    return;
+  }
+
+  const requestData = {
+    apikey: "***REDACTED***", // Replace with your actual API key
+    partnerID: "12108", // Replace with your actual partner ID
+    shortcode: "KISIP",
+    message: message,
+    mobile: formatPhoneNumber(phone_number), // Format the phone number
+  };
+
+  try {
+    const response = await axios.post(url, requestData);
+    console.log(`Message sent to ${phone_number}:`, response.data);
+    return response.data; // Return response for further handling if needed
+  } catch (error) {
+    console.error(`Error sending message to ${phone_number}:`, error);
+    throw error; // Rethrow error for caller to handle
+  }
+}
 
 exports.signup = (req, res) => {
 
@@ -647,7 +673,54 @@ exports.updateUser = async (req, res) => {
   }
 };
 
+exports.modelActivateUser = async (req, res) => {
+  try {
+    const { model } = req.query;
+    const { id, isactive } = req.body;
 
+    // Find the user by ID
+    const user = await db.models[model].findOne({ where: { id } });
+
+    if (!user) {
+      return res.status(404).send({
+        message: 'User not found',
+        code: '0001'
+      });
+    }
+
+    // Update the status field
+    user.isactive = isactive;
+
+    // Save the updated record
+    await user.save();
+
+    // Send SMS notification to the user's phone number
+    if (user.phone) {
+      const statusText = isactive ? 'activated' : 'deactivated';
+      const message = `Dear ${user.name || 'User'}, your KeSMIS account has been ${statusText}.`;
+      try {
+        await sendNotification(user.phone, message);
+      } catch (error) {
+        // Log SMS error but don't affect the response
+        console.error(`Failed to send SMS to ${user.phone}:`, smsError.message);
+      }
+    } else {
+      console.warn(`No phone number found for user ID ${user.id}`);
+    }
+
+    res.status(200).send({
+      message: 'User status updated successfully',
+      data: user,
+      code: '0000'
+    });
+  } catch (error) {
+    console.error('Error updating user status:', error);
+    res.status(500).send({
+      message: 'Unable to update user status. Please try again later.',
+      code: '9999'
+    });
+  }
+};
  
 
 

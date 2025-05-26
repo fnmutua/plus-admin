@@ -2246,40 +2246,6 @@ exports.modelEditOneRecord = (req, res) => {
 };
 
 
-exports.modelActivateUser = async (req, res) => {
-  try {
-    const { model } = req.query;
-    const { id, isactive } = req.body;
-
-    // Find the user by ID
-    const user = await db.models[model].findOne({ where: { id } });
-
-    if (!user) {
-      return res.status(404).send({
-        message: 'User not found',
-        code: '0001'
-      });
-    }
-
-    // Update the status field
-    user.isactive = isactive;
-
-    // Save the updated record
-    await user.save();
-
-    res.status(200).send({
-      message: 'User status updated successfully',
-      data: user,
-      code: '0000'
-    });
-  } catch (error) {
-    console.error('Error updating user status:', error);
-    res.status(500).send({
-      message: 'Unable to update user status. Please try again later.',
-      code: '9999'
-    });
-  }
-};
 
 
 

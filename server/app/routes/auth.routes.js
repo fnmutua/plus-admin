@@ -24,6 +24,7 @@ module.exports = function (app) {
   //app.post("/api/v1/user/county", [authJwt.verifyToken, authJwt.isAdminOrCountyAdmin],controller.modelCountyUsers);
 
   app.post('/api/auth/profile/update', [authJwt.verifyToken], controller.updateByUser)
+  app.post('/api/v1/user/activate', [authJwt.verifyToken], controller.modelActivateUser)
 
   app.post('/api/auth/signin', controller.signin)
   app.post('/api/auth/reset', controller.reset)
