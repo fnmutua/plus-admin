@@ -100,7 +100,6 @@ module.exports = function (app) {
 
   // count Distinct records
   app.post('/api/v1/data/count/distinct', [authJwt.verifyToken], controller.modelCountDistinct)
-  app.post('/api/v1/user/activate', [authJwt.verifyToken], controller.modelActivateUser)
 
  
   // Gets all users
