@@ -623,11 +623,30 @@ exports.getNestedTasksByProjectId = (req, res) => {
 
  
 
- 
+function sanitizeJson(obj) {
+  if (Array.isArray(obj)) {
+    return obj.map(sanitizeJson);
+  } else if (obj && typeof obj === 'object') {
+    return Object.fromEntries(
+      Object.entries(obj).map(([key, value]) => [key, sanitizeJson(value)])
+    );
+  } else if (
+    typeof obj === 'undefined' ||
+    obj === null ||
+    (typeof obj === 'number' && !isFinite(obj)) ||
+    Number.isNaN(obj)
+  ) {
+    return null;
+  }
+  return obj;
+}
 
 exports.modelImportDataUpsert = async (req, res) => {
   const reg_model = req.body.model;
-  const data = req.body.data;
+  //const data = req.body.data;
+
+  const data =  sanitizeJson(req.body.data);
+
   const insertedDocuments = [];
   const errors = [];
   const BATCH_SIZE = 500; // Configurable batch size

@@ -1,4 +1,5 @@
-const Sequelize = require('sequelize')
+const Sequelize = require('sequelize');
+
 module.exports = function (sequelize, DataTypes) {
   return sequelize.define(
     'households',
@@ -7,476 +8,176 @@ module.exports = function (sequelize, DataTypes) {
         autoIncrement: true,
         type: DataTypes.INTEGER,
         allowNull: false,
-        primaryKey: true
-      },
-   
-    
-      county_id: {
-        type: DataTypes.INTEGER,
-        allowNull: false
-      },
-  
-        subcounty_id: {
-        type: DataTypes.INTEGER,
-        allowNull: false
-      }, 
-        
-      ward_id: {
-        type: DataTypes.INTEGER,
-        allowNull: false
+        primaryKey: true,
       },
 
+      // Location references
+      county_id: { type: DataTypes.INTEGER, allowNull: false },
+      subcounty_id: { type: DataTypes.INTEGER, allowNull: false },
+      ward_id: { type: DataTypes.INTEGER, allowNull: false },
+      settlement_id: { type: DataTypes.INTEGER, allowNull: false },
 
-      settlement_id: {
-        type: DataTypes.INTEGER,
-        allowNull: false
-      },
-
-
-      name: {
-        type: DataTypes.STRING,
-        allowNull: false,
-      },
-      national_id: {
-        type: DataTypes.STRING,
-        allowNull: false,
-      },
-      gender: {
-        type: DataTypes.STRING,
-        allowNull: false,
-      },
-
- 
-
-      owner_tenant: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      owner_type: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      mode_acquisition: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      ownership_doc: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      number_male_owners: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      number_female_owners: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      household_head_age: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      nationality: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      marital_status: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      disability: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      education_level: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      tenancy_agreement: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      migration_reason: {
-        type: DataTypes.ARRAY(DataTypes.STRING),
-        allowNull: true,
-      },
-      occupation: {
-        type: DataTypes.STRING,
+      // Geometry
+      geom: {
+        type: DataTypes.GEOMETRY('POINT', 4326), // adjust to appropriate type
         allowNull: true,
       },
 
-
-      place_work: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-
-      income_monthly: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-
-      food_expenses: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-
-      clothing_expenses: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-
-
-      monthly_rent: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-
-
-
-
-      years_in_settlement: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      prev_residence: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      age_00_04f: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      age_00_04m: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      age_05_09f: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      age_05_09m: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      age_10_14f: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      age_10_14m: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      age_15_19f: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      age_15_19m: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      age_20_24f: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      age_20_24m: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      age_25_29f: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      age_25_29m: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      age_30_34f: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      age_30_34m: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      age_35_39f: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      age_35_39m: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      age_40_44f: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      age_40_44m: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      age_45_49f: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      age_45_49m: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      age_50_54f: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      age_50_54m: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      age_55_59f: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      age_55_59m: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      age_60_64f: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      age_60_64m: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      age_65_69f: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      age_65_69m: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      age_gt_70f: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      age_gt_70m: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      
-      structure_use: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      structure_nature: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      structure_floor_material: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      structure_wall_material: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      structure_roof_material: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      structure_width: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      structure_length: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      water_main: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      water_cost_20l: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      water_usage_day: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      access_bathroom: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      access_toilet: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      toilet_fee_use: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      access_handwashing: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      waste_disposal: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      solid_waste_type: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      type_solid_waste_sorted: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      type_sorted_waste_reused: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      solid_waste_storage: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      solid_waste_disposal: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      distance_receptacles: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      freq_receptacles_emptying: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      type_waste_collector: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      freq_receptacles_emptying_private: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      waste_to_collection: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      waste_destination: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      waste_cost_payer: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      waste_cost_per_month: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      ability_to_pay_waste: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      desirable_waste_cost_per_month: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      num_waste_bags: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      rate_waste_management: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      cost_electricity_per_mon: {
-        type: DataTypes.FLOAT, // Assuming cost is a decimal number
-        allowNull: true // Modify as per your requirements
-      },
-      energy_lighting: {
-        type: DataTypes.STRING, // Assuming lighting source is a string
-        allowNull: true
-      },
-      energy_provider: {
-        type: DataTypes.STRING, // Assuming provider is a string
-        allowNull: true
-      },
-      source_cooking_energy: {
-        type: DataTypes.STRING, // Assuming cooking energy source is a string
-        allowNull: true
-      },
-      transport_mode: {
-        type: DataTypes.STRING, // Assuming transport mode is a string
-        allowNull: true
-      },
-      communication_mode: {
-        type: DataTypes.STRING, // Assuming communication mode is a string
-        allowNull: true
-      },
-      access_health: {
-        type: DataTypes.STRING, // Assuming access to health care is a string
-        allowNull: true
-      },
-      main_health_facility: {
-        type: DataTypes.STRING, // Assuming main health facility is a string
-        allowNull: true
-      },
-      main_health_fac_loc: {
-        type: DataTypes.STRING, // Assuming location of main health facility is a string
-        allowNull: true
-      },
-      common_ailments: {
-        type: DataTypes.STRING, // Assuming common ailments is a string
-        allowNull: true
-      },
-      dist_main_health_fac: {
-        type: DataTypes.FLOAT, // Assuming distance to the facility is a decimal number
-        allowNull: true
-      },
-      access_public_sch: {
-        type: DataTypes.STRING, // Assuming access to public school is a string
-        allowNull: true
-      },
-      dist_school: {
-        type: DataTypes.FLOAT, // Assuming distance to the school is a decimal number
-        allowNull: true
-      },
-      upgrade_priority: {
-        type: DataTypes.STRING, // Assuming upgrade priority is a string
-        allowNull: true
-      },
-
-      hh_size: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-        defaultValue: 0, 
-      },
-
-      hh_size_female: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-        defaultValue: 0, 
-      },
-
-      hh_size_male: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-        defaultValue: 0, 
-      },
-    
-      createdBy: {
-        type: DataTypes.INTEGER,
-        allowNull: true
-      },
-   
-      code: {
-        type: DataTypes.STRING,
-        allowNull: true,
-        unique:true
-      },
+      // Survey Fields
+      date_survey: DataTypes.DATE,
+      code: DataTypes.STRING,
+      respondents_name: DataTypes.STRING,
+      telephone: DataTypes.STRING,
+      nationality: DataTypes.STRING,
+      age: DataTypes.STRING,
+      gender: DataTypes.STRING,
+      educational_level_highest: DataTypes.STRING,
+      marital_status: DataTypes.STRING,
+      live_within_settlement: DataTypes.STRING,
+      reasons_live_outside: DataTypes.STRING,
+      born_in_settlement: DataTypes.STRING,
+      lived_before: DataTypes.STRING,
+      reason_move: DataTypes.STRING,
+      years_in_settlement: DataTypes.INTEGER,
+      hh_size: DataTypes.INTEGER,
+      age_group_0_5m: DataTypes.INTEGER,
+      age_group_0_5f: DataTypes.INTEGER,
+      age_group_6_17m: DataTypes.INTEGER,
+      age_group_6_17f: DataTypes.INTEGER,
+      age_group_18_35m: DataTypes.INTEGER,
+      age_group_18_35f: DataTypes.INTEGER,
+      age_group_36_64m: DataTypes.INTEGER,
+      age_group_36_64f: DataTypes.INTEGER,
+      age_group_65m: DataTypes.INTEGER,
+      age_group_65f: DataTypes.INTEGER,
+      cbo_member: DataTypes.STRING,
+      cbo_type: DataTypes.STRING,
+      cultural_activities_active: DataTypes.STRING,
+      welfare_member: DataTypes.STRING,
+      welfare_purpose: DataTypes.STRING,
+      biz_network_member: DataTypes.STRING,
+      biz_network_member_active: DataTypes.STRING,
+      member_orgin_grp: DataTypes.STRING,
+      occupation: DataTypes.STRING,
+      place_of_work: DataTypes.STRING,
+      monthly_income: DataTypes.STRING,
+      food_cost: DataTypes.STRING,
+      rent_cost: DataTypes.STRING,
+      water_cost: DataTypes.STRING,
+      electricity_cost: DataTypes.STRING,
+      cooking_energy_cost: DataTypes.STRING,
+      health_cost: DataTypes.STRING,
+      clothing_cost: DataTypes.STRING,
+      education_cost: DataTypes.STRING,
+      transport_cost: DataTypes.STRING,
+      total_cost: DataTypes.STRING,
+      total_note: DataTypes.STRING,
+      disability: DataTypes.STRING,
+      disability_type: DataTypes.STRING,
+      pwd_registered: DataTypes.STRING,
+      pwd_receives_support: DataTypes.STRING,
+      pwd_support_organization: DataTypes.STRING,
+      vulnerable_persons: DataTypes.STRING,
+      vulnerbility_type: DataTypes.STRING,
+      vulnerable_registered: DataTypes.STRING,
+      vulnerable_receives_support: DataTypes.STRING,
+      vulnerable_support_organization: DataTypes.STRING,
+      type_respondent: DataTypes.STRING,
+      num_structures_owned: DataTypes.INTEGER,
+      structure_use: DataTypes.STRING,
+      roof_material: DataTypes.STRING,
+      wall_material: DataTypes.STRING,
+      floor_material: DataTypes.STRING,
+      repair_freq: DataTypes.STRING,
+      structure_nature: DataTypes.STRING,
+      mode_acquisition: DataTypes.STRING,
+      proof_ownership: DataTypes.STRING,
+      ownership_type: DataTypes.STRING,
+      ownership_proportion: DataTypes.STRING,
+      under_dispute: DataTypes.STRING,
+      dispute_details: DataTypes.STRING,
+      type_rental_agreement: DataTypes.STRING,
+      avg_monthly_rent: DataTypes.STRING,
+      what_is_the_main_source_of_water: DataTypes.STRING,
+      average_amount_of_water_used_per_day: DataTypes.STRING,
+      access_to_bathroom: DataTypes.STRING,
+      nature_bathroom: DataTypes.STRING,
+      alternative_bathroom: DataTypes.STRING,
+      access_to_toilet: DataTypes.STRING,
+      type_of_toilet: DataTypes.STRING,
+      alternative_toilet: DataTypes.STRING,
+      pay_toilet: DataTypes.STRING,
+      average_cost_of_toilet_use: DataTypes.STRING,
+      access_handwashing_equipment: DataTypes.STRING,
+      handwashing: DataTypes.STRING,
+      major_types_solid_waste: DataTypes.STRING,
+      solid_waste_sorted: DataTypes.STRING,
+      solid_waste_sold: DataTypes.STRING,
+      solid_waste_reuse: DataTypes.STRING,
+      solid_waste_uses: DataTypes.STRING,
+      solid_waste_disposal: DataTypes.STRING,
+      waste_collector: DataTypes.STRING,
+      freq_collection: DataTypes.STRING,
+      waste_transportation: DataTypes.STRING,
+      pay_waste_collection: DataTypes.STRING,
+      waste_collection_cost: DataTypes.STRING,
+      reason_not_pay_swm: DataTypes.STRING,
+      waste_collection_willing_cost: DataTypes.STRING,
+      satisfied_waste_management: DataTypes.STRING,
+      connected_to_main_elec: DataTypes.STRING,
+      lighting_energy_source: DataTypes.STRING,
+      reason_not_connected: DataTypes.STRING,
+      electricity_use: DataTypes.STRING,
+      cooking_energy: DataTypes.STRING,
+      means_of_transport: DataTypes.STRING,
+      access_to_info: DataTypes.STRING,
+      own_mobile_phone: DataTypes.STRING,
+      mobile_money_user: DataTypes.STRING,
+      own_computer: DataTypes.STRING,
+      own_tv: DataTypes.STRING,
+      own_radio: DataTypes.STRING,
+      social_media: DataTypes.STRING,
+      num_school_going_children: DataTypes.INTEGER,
+      all_children_in_school: DataTypes.STRING,
+      reason_not_going_school: DataTypes.STRING,
+      school_type_attended: DataTypes.STRING,
+      school_name: DataTypes.STRING,
+      dist_school: DataTypes.FLOAT,
+      num_pre_primary: DataTypes.INTEGER,
+      num_lower_primary: DataTypes.INTEGER,
+      num_upper_primary: DataTypes.INTEGER,
+      num_junior_school: DataTypes.INTEGER,
+      num_senior_school: DataTypes.INTEGER,
+      num_tvet: DataTypes.INTEGER,
+      validation_check_sch: DataTypes.STRING,
+      check_sch: DataTypes.STRING,
+      medical_treatment: DataTypes.STRING,
+      name_medical_facility: DataTypes.STRING,
+      medical_facility_location: DataTypes.STRING,
+      dist_medical_facility: DataTypes.FLOAT,
+      visit_facility_last_six_months: DataTypes.STRING,
+      perception_med_facility: DataTypes.STRING,
+      reason_perception_med_facility: DataTypes.STRING,
+      safety_perception_day: DataTypes.STRING,
+      safety_perception_night: DataTypes.STRING,
+      crime_level: DataTypes.STRING,
+      prevalent_crime: DataTypes.STRING,
+      police_stn_dist: DataTypes.FLOAT,
+      report_crimes: DataTypes.STRING,
+      reason_not_report: DataTypes.STRING,
+      police_response_time: DataTypes.STRING,
+      community_security_progs: DataTypes.STRING,
+      community_security_progs_member: DataTypes.STRING,
+      security_recommendations: DataTypes.STRING,
+      disasters: DataTypes.STRING,
+      disaster_rank1: DataTypes.STRING,
+      disaster_rank2: DataTypes.STRING,
+      disaster_rank3: DataTypes.STRING,
+      disaster_mitigation_present: DataTypes.STRING,
+      climate_mitigation_present: DataTypes.STRING,
+      climate_mitigation_measures: DataTypes.STRING,
+      disaster_mitigation_actors: DataTypes.STRING,
+      community_priority: DataTypes.STRING,
     },
     {
       sequelize,
@@ -484,16 +185,15 @@ module.exports = function (sequelize, DataTypes) {
       schema: 'public',
       timestamps: true,
       indexes: [
+        
         {
-          name: 'household_pkey',
+          name: 'household_key',
           unique: true,
-          fields: [{ name: 'id' }]
+          fields: ['respondents_name','gender', 'settlement_id', 'ward_id']
         },
-        {
-          unique: true,
-          fields: ['national_id' ]
-        },
+  
       ]
+
     }
-  )
-}
+  );
+};

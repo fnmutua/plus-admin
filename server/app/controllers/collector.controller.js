@@ -1118,7 +1118,7 @@ exports.modelGetCsvSubmissions = (req, res) => {
   }
 
   // Construct the CSV export URL
-  const url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions.csv`;
+  const url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions.csv?groupPaths=false`;
  //POST /v1/projects/{projectId}/forms/{xmlFormId}/submissions.csv
 
 

@@ -1050,10 +1050,30 @@ exports._modelImportDataUpsert = async (req, res) => {
 };
 
 
+function safeParseAndSanitize(jsonStr) {
+  try {
+    const parsed = JSON.parse(jsonStr, (key, value) => {
+      if (typeof value === 'number' && !isFinite(value)) return null;
+      if (value === 'NaN' || value === 'Infinity') return null;
+      return value;
+    });
+    return parsed;
+  } catch (err) {
+    throw new Error('Malformed JSON payload');
+  }
+}
+
+
+
 exports.modelImportDataUpsert = async (req, res) => {
   try {
     // Validate request body
-    const { model: modelName, data: rawData } = req.body;
+    console.log('Validate request body')
+    const body = typeof req.body === 'string' ? safeParseAndSanitize(req.body) : req.body;
+
+    const { model: modelName, data: rawData } = body;
+
+    //const { model: modelName, data: rawData } = req.body;
     if (!modelName || !rawData) {
       return res.status(400).json({ message: 'Model name and data are required' });
     }
@@ -1069,6 +1089,8 @@ exports.modelImportDataUpsert = async (req, res) => {
     if (!Array.isArray(data)) {
       return res.status(400).json({ message: 'Data must be an array' });
     }
+
+ 
 
     // Prepare data with metadata
     const currentUser = req.thisUser?.id;
@@ -6896,66 +6918,7 @@ exports.listModels = async (req, res) => {
 
 
  
- 
- exports.xintersectGeometryWithModel = async (req, res) => {
-  try {
-    const { model, geometry, srid = 4326 } = req.body;
 
-    // Validate inputs
-    if (!model || !geometry || !Array.isArray(geometry) || geometry.length === 0) {
-      return res.status(400).json({ message: 'Model name and an array of geometries are required' });
-    }
-
-    const Model = db.models[model];
-    if (!Model) {
-      return res.status(400).json({ message: `Model "${model}" not found` });
-    }
-
-    const targetSrid = 4326;
-    const data = [];
-    let totalCount = 0;
-
-    // Process each geometry
-    for (let i = 0; i < geometry.length; i++) {
-      const geojson = JSON.stringify(geometry[i]);
-      const records = await db.sequelize.query(
-        `
-        SELECT *
-        FROM "${Model.tableName}"
-        WHERE ST_Intersects(
-          geom,
-          ST_Transform(ST_GeomFromGeoJSON(:geojson), :targetSrid)
-        )
-        `,
-        {
-          replacements: { geojson, targetSrid },
-          type: db.sequelize.QueryTypes.SELECT,
-        }
-      );
-
-      data.push({
-        geometry_index: i,
-        records: records || [],
-      });
-      totalCount += records.length;
-    }
-
-    return res.status(200).json({
-      message: `Found ${totalCount} intersecting records.`,
-      count: totalCount,
-      data,
-      code: '0000',
-    });
-
-  } catch (err) {
-    console.error('Intersection error:', err);
-    return res.status(500).json({
-      message: 'Failed to perform geometry intersection',
-      error: err.message,
-      code: '0002',
-    });
-  }
-};
 
  exports.intersectGeometryWithModel = async (req, res) => {
   try {
