@@ -5,7 +5,7 @@ import { onMounted, defineAsyncComponent, ref, reactive, unref, computed } from 
 import { Form } from '@/components/Form'
 import {
   ElInput, ElButton, ElTabPane, ElTabs, ElCard, ElTable, ElTableColumn, ElMessage, ElSteps, ElInputNumber,
-  ElIcon, ElPopconfirm, ElDialog, ElForm, ElFormItem, ElSelectV2, ElText, ElDatePicker, ElStep,
+  ElIcon, ElPopconfirm, ElDialog, ElForm, ElFormItem, ElSelectV2, ElText, ElDatePicker, ElStep,ElPagination,
 } from 'element-plus'
 import { useValidator } from '@/hooks/web/useValidator'
 import { useForm } from '@/hooks/web/useForm'
@@ -27,6 +27,7 @@ import type { UploadProps, UploadUserFile } from 'element-plus'
 import type { FormInstance } from 'element-plus'
 import SettlementMap from '@/views/Components/SettlementMap.vue';
 
+import { getCountyListApi } from '@/api/counties'
 
 import { ElCollapseTransition, ElDescriptions, ElDescriptionsItem, ElTooltip } from 'element-plus'
 
@@ -739,14 +740,55 @@ const loadMap = () => {
     nmap.value.addControl(lryButton, "top-right");
   }
   addInfo(nmap)
-
-
-
 };
 
+const households =ref([])
+const total_hh =ref(0)
+//const handleCurrentChange = (page) => {
+  const handleCurrentChange = async (selPage: any) => {
+  page.value = selPage
+  console.log(selPage)
+ // page.value = page
+ getHouseholds()
+}
+
+//const handleSizeChange = (size) => {
+const handleSizeChange = async (size: any) => {
+  pSize.value = size
+  page.value = 1 // reset to first page
+}
+ 
 
 
+const getHouseholds = async () => {
+  const formData = {}
+  formData.limit = pSize.value
+  formData.page = page.value
+  formData.curUser = 1 // Id for logged in user
+  formData.model = 'households'
+  //-Search field--------------------------------------------
+  formData.searchField = 'name'
+  formData.searchKeyword = ''
+ 
+  // - multiple filters -------------------------------------
+  formData.filters = ['settlement_id']
+  formData.filterValues = [[route.params.id]]
+  formData.associated_multiple_models = []
+  formData.nested_models = []
+  //-------------------------
+  //console.log(formData)
+  const res = await getSettlementListByCounty(formData)
+  console.log(res)
+  total_hh.value=res.total
 
+  households.value=res.data
+
+  // 
+
+   
+}
+
+ 
 const clickTab = (tab) => {
   console.log('Tab clicked:', tab.props);
   localStorage.setItem('activeTab', tab.props.name);
@@ -757,7 +799,11 @@ const clickTab = (tab) => {
   //     loadMap(); // Load map after a brief delay
   //   }, 500); // Delay in milliseconds (500 ms = 0.5 seconds)
   // }
-
+ if (tab.props.name === 'Households') {
+    // Delay the loadMap function
+    console.log('get households...')
+    getHouseholds()
+  }
 
 };
 
@@ -1265,6 +1311,38 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
 
       </el-tab-pane>
 
+    <el-tab-pane label="Households" name="Households">
+        <el-card>
+          <el-table :data="households" border  >
+            <el-table-column type="index" width="50" />
+            <el-table-column label="Name" prop="respondents_name" width="350" sortable />
+             <el-table-column label="Gender" prop="gender" sortable />
+            <el-table-column label="Age" prop="age" sortable />
+            <el-table-column label="Household Size" prop="hh_size" sortable />
+            <el-table-column fixed="right" label="Actions">
+              <template #default="scope">
+                <el-tooltip content="More Details" placement="top">
+                  <el-button
+type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefault)"
+                    plain />
+                </el-tooltip>
+              </template>
+            </el-table-column>
+          </el-table>
+            <el-pagination
+                class="mt-4"
+                background
+                layout="prev, pager, next, sizes, total"
+                :total="total_hh"
+                :page-size="pSize"
+                :current-page="page"
+                @size-change="handleSizeChange"
+                @current-change="handleCurrentChange"
+                :page-sizes="[5,10, 20, 50, 100]"
+    />
+        </el-card>
+
+      </el-tab-pane>
 
       <el-tab-pane label="Indicators" name="Indicator">
         <el-card>

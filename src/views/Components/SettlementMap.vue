@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { ElCard, ElButton, ElTable, ElTableColumn, ElMessage, ElCollapse, ElCollapseItem, ElCheckbox, ElCheckboxGroup } from 'element-plus'
-import { Back, Download } from '@element-plus/icons-vue'
+import { ElButton, ElTable, ElTableColumn, ElMessage, ElCollapse, ElCollapseItem, ElCheckbox, ElCheckboxGroup } from 'element-plus'
 import { GoogleMap, Polygon, InfoWindow, Marker, Polyline, Circle } from 'vue3-google-map'
 import * as turf from '@turf/turf'
 import { getOneGeo, getfilteredParcelGeo, getfilteredGeo } from '@/api/settlements'
@@ -10,20 +8,18 @@ import { Icon } from '@iconify/vue'
 import axios from 'axios'
 import { XMLParser } from 'fast-xml-parser'
 import { useAppStore } from '@/store/modules/app'
+import JSZip from 'jszip'
+import { saveAs } from 'file-saver'
 
 const props = defineProps<{
   settlementId: string
 }>()
 
-const emit = defineEmits<{
-  (e: 'go-back'): void
-  (e: 'edit-settlement', id: string): void
-}>()
+ 
 
 const appStore = useAppStore()
 const googleMapsApiKey = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
 
-const router = useRouter()
 const mapRef = ref<any>(null)
 const title = ref('')
 const mapReady = ref(false)
@@ -32,7 +28,6 @@ const mapReady = ref(false)
 const features = ref([])
 const parcelGeoData = ref<any[]>([])
 const roadGeoData = ref<any[]>([])
-const wpGeoData = ref<any[]>([])
 const structureGeoData = ref<any[]>([])
 const otherPointsGeoData = ref<any[]>([])
 
@@ -294,6 +289,8 @@ const loadSelectedLayers = async (layers: string[]) => {
     roads: { fetch: fetchRoads, dataRef: roadGeoData },
      structures: { fetch: fetchStructures, dataRef: structureGeoData },
     other_points: { fetch: fetchPointGeoFeatures, dataRef: otherPointsGeoData },
+    roadGeoData
+    
   }
 
   // Fetch data for each specified layer
@@ -650,26 +647,6 @@ if (polygons.value.length === 1 && polygons.value[0].type=='point') {
 }
 
 
-const downloadGeoJSON = () => {
-  ElMessage({ message: 'Downloading GeoJSON...', type: 'warning' })
-  const features = polygons.value.map((polygon) => ({
-    type: 'Feature',
-    geometry: {
-      type: 'Polygon',
-      coordinates: [polygon.paths.map((p: { lat: number; lng: number }) => [p.lng, p.lat])],
-    },
-    properties: polygon.properties,
-  }))
-  const collection = turf.featureCollection(features)
-  const jsonString = JSON.stringify(collection, null, 2)
-  const blob = new Blob([jsonString], { type: 'application/json' })
-  const link = document.createElement('a')
-  link.download = `${title.value}.geojson`
-  link.href = window.URL.createObjectURL(blob)
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-}
 
  
 
@@ -747,10 +724,6 @@ const toggleSettlement = (visible: boolean) => {
   settVisibile.value = visible
 }
 
-const WPVisible = ref(true)
-const toggleWP = (visible: boolean) => {
-  WPVisible.value = visible
-}
 
 const StructureVisible = ref(true)
 const toggleStructure = (visible: boolean) => {
@@ -919,19 +892,6 @@ const getWmsUrl = async (bbox: { minLng: number; minLat: number; maxLng: number;
         bbox.minLat < layerBbox.maxy &&
         bbox.maxLat > layerBbox.miny
       if (intersects) {
-        const params = new URLSearchParams({
-          service: 'WMS',
-          version: '1.1.0',
-          request: 'GetMap',
-          layers: name,
-          styles: '',
-          bbox: `${bbox.minLng},${bbox.minLat},${bbox.maxLng},${bbox.maxLat}`,
-          width: '1024',
-          height: '1024',
-          srs: 'EPSG:4326',
-          format: 'image/png',
-          transparent: 'true'
-        })
         imageUrls.push('kisip:' + name)
       }
     }
@@ -1104,6 +1064,58 @@ onMounted(async () => {
   )
 })
 
+
+ 
+ const downloadGeo = async () => {
+  try {
+    const zip = new JSZip()
+    const models = ['streetlight', 'crime_hotspot', 'community_project', 'health_facility', 'education_facility', 'water_point', 'sewer', 'piped_water', 'powerline', 'community_hall', 'police_station', 'mast', 'dumping_site', 'hazard_zone', 'road']
+
+    // Fetch and process settlement data
+    const settlementData = await fetchSettlementData()
+    if (settlementData?.features?.length) {
+      const geojson = { type: 'FeatureCollection', features: settlementData.features }
+      zip.file(`settlement_${props.settlementId}_settlement.geojson`, JSON.stringify(geojson, null, 2))
+    }
+
+    // Fetch and process parcels data
+    const parcelData = await fetchParcels()
+    if (parcelData?.features?.length) {
+      const geojson = { type: 'FeatureCollection', features: parcelData.features }
+      zip.file(`settlement_${props.settlementId}_parcels.geojson`, JSON.stringify(geojson, null, 2))
+    }
+
+    // Fetch and process structures data
+    const structureData = await fetchStructures()
+    if (structureData?.features?.length) {
+      const geojson = { type: 'FeatureCollection', features: structureData.features }
+      zip.file(`settlement_${props.settlementId}_structures.geojson`, JSON.stringify(geojson, null, 2))
+    }
+
+    // Fetch and process each model in the models array
+    for (const model of models) {
+      const formData = { model, columnFilterField: 'settlement_id', selectedParents: [props.settlementId] }
+      const res = await getfilteredGeo(formData)
+      const features = res?.data?.[0]?.json_build_object?.features ?? res?.data?.[0]?.[0]?.json_build_object?.features ?? []
+      if (features.length) {
+        const geojson = { type: 'FeatureCollection', features }
+        const fileName = `${title.value}_${model}.geojson`
+        zip.file(fileName, JSON.stringify(geojson, null, 2))
+      }
+    }
+
+    // Generate and download zip
+    const content = await zip.generateAsync({ type: 'blob' })
+    saveAs(content, `${title.value}_layers.zip`)
+    ElMessage.success('Download started successfully')
+  } catch (error) {
+    console.error('Error during download:', error)
+    ElMessage.error('Failed to generate and download layers')
+  }
+}
+
+
+
 </script>
 
 
@@ -1247,6 +1259,9 @@ onMounted(async () => {
       <ElButton circle title="Locate Me" class="geolocate-btn" plain @click="locateMe">
         <Icon icon="mage:location-fill" />
       </ElButton>
+        <ElButton  title="Download" class="download-btn" plain @click="downloadGeo">
+        <Icon icon="solar:download-bold" style="size: 40px;" />
+      </ElButton>
     </div>
  
 </template>
@@ -1380,4 +1395,14 @@ onMounted(async () => {
   z-index: 1000;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
 }
+
+
+.download-btn {
+  position: absolute;
+  top: 15px;
+  right: 120px;
+  z-index: 1000;
+  box-shadow: 0 2px 6px rgba(222, 26, 26, 0.3);
+}
+
 </style>
