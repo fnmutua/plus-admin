@@ -1,44 +1,33 @@
 <script setup lang="ts">
 import { Descriptions } from '@/components/Descriptions'
 import { useI18n } from '@/hooks/web/useI18n'
-import { onMounted, defineAsyncComponent, ref, reactive, unref, computed } from 'vue'
-import { Form } from '@/components/Form'
+import { onMounted, defineAsyncComponent, ref, reactive, computed } from 'vue'
 import {
-  ElInput, ElButton, ElTabPane, ElTabs, ElCard, ElTable, ElTableColumn, ElMessage, ElSteps, ElInputNumber,
-  ElIcon, ElPopconfirm, ElDialog, ElForm, ElFormItem, ElSelectV2, ElText, ElDatePicker, ElStep,ElPagination,
+  ElInput, ElButton, ElTabPane, ElTabs, ElCard, ElTable, ElTableColumn, ElMessage, ElDrawer,
+  ElIcon, ElPopconfirm, ElPagination,
 } from 'element-plus'
-import { useValidator } from '@/hooks/web/useValidator'
-import { useForm } from '@/hooks/web/useForm'
 import { useRoute } from 'vue-router'
 import {
-  getOneGeo,
-  getOneSettlement,
-  getSettlementListByCounty,
-  getfilteredGeo
-} from '@/api/settlements'
-import { Back, Upload, Search, View, Edit, More, RefreshLeft } from '@element-plus/icons-vue'
+  getSettlementListByCounty} from '@/api/settlements'
+import { Back, Upload, Search, Edit, More, RefreshLeft } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { getFile } from '@/api/summary'
 
 // Locally
 import '@dafcoe/vue-collapsible-panel/dist/vue-collapsible-panel.css'
 import UploadComponent from '@/views/Components/UploadComponent.vue';
-import type { UploadProps, UploadUserFile } from 'element-plus'
-import type { FormInstance } from 'element-plus'
 import SettlementMap from '@/views/Components/SettlementMap.vue';
 
-import { getCountyListApi } from '@/api/counties'
 
-import { ElCollapseTransition, ElDescriptions, ElDescriptionsItem, ElTooltip } from 'element-plus'
+import { ElCollapseTransition, ElTooltip } from 'element-plus'
 
+import { CircleCloseFilled } from '@element-plus/icons-vue'
 
 import { useDesign } from '@/hooks/web/useDesign'
-import { propTypes } from '@/utils/propTypes'
 
 
 import "mapbox-layer-switcher/styles.css";
 import * as turf from '@turf/turf'
-import MapboxDraw from '@mapbox/mapbox-gl-draw';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css'
 
 
@@ -48,8 +37,7 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 
 import { useCache } from '@/hooks/web/useCache'
 import { useAppStoreWithOut } from '@/store/modules/app'
-import { uuid } from 'vue-uuid'
-import { CreateRecord, DeleteRecord, revertHistory } from '@/api/settlements'
+import { revertHistory } from '@/api/settlements'
 const { push } = useRouter()
 
 
@@ -224,6 +212,7 @@ const schemaUtilities = reactive<DescriptionsSchema[]>([
 
 const page = ref(1)
 const pSize = ref(5)
+const drawer = ref(false)
 ////Configurations //////////////
 
 //// ------------------parameters -----------------------////
@@ -1068,30 +1057,73 @@ const AddReport = () => {
 
 
 
+// Fields you don’t want to show
+const excludeFields = ref([
+  'id',
+  'county_id',
+  'settlement_id',
+  'subcounty_id',
+  'ward_id',
+  'code',
+  'validation_check_sch',
+  // add any other keys you want omitted
+]);
+const priorityFields = ['respondents_name', 'telephone'];
+
+// Helpers
+const humanize = key =>
+  key
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, l => l.toUpperCase());
+
+
+// Computed: build table rows
+const filteredData = computed(() => {
+  // 1. All valid entries
+  const entries = Object.entries(raw.value).filter(
+    ([key, val]) =>
+      val !== null &&
+      val !== '' &&
+      !excludeFields.value.includes(key)
+  );
+
+  // 2. Extract priority rows (in order), if present
+  const priorityRows = priorityFields
+    .map(key => entries.find(([k]) => k === key))
+    .filter(Boolean);
+
+  // 3. The rest, excluding priority, sorted by humanized field
+  const otherRows = entries
+    .filter(([k]) => !priorityFields.includes(k))
+    .sort(([a], [b]) =>
+      humanize(a).localeCompare(humanize(b))
+    );
+
+  // 4. Map to { field, value } and combine
+  return [
+    ...priorityRows,
+    ...otherRows
+  ].map(([key, val]) => ({
+    field: humanize(key),
+    value: val
+  }));
+});
+
+const raw=ref()
 const Review = (data: TableSlotDefault) => {
 
   // /add/27?id=85
+  raw.value=data.row 
+
+  console.log(data.row )
+
+ 
 
 
-  // push({
-  //   name: 'AddInterventionProjectsV2',
-  //   params: { domain: data.row.id }
-  // })
 
+  drawer.value=true 
 
-  // push({
-  //   path: '/interventions/add/:domain',
-  //   name: 'AddInterventionProjectsV2',
-  //   params: { domain: data.row.id }
-  // })
-
-  push({
-    path: '/interventions/add/:domain',
-    name: 'AddInterventionProjectsV2',
-    query: { id: data.row.id },
-    params: { id: data.row.id, domain: data.row.component_id }
-  })
-
+ 
 
 }
 
@@ -1332,7 +1364,7 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
             <el-pagination
                 class="mt-4"
                 background
-                layout="prev, pager, next, sizes, total"
+                layout="sizes, prev, pager, next, total"
                 :total="total_hh"
                 :page-size="pSize"
                 :current-page="page"
@@ -1392,11 +1424,6 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
                 </div>
               </template>
             </el-table-column>
-
-
-
-
-
           </el-table>
         </el-card>
 
@@ -1449,13 +1476,38 @@ width="300" title="Are you sure to delete this project?"
 
       </el-tab-pane>
     </el-tabs>
-
-
-
-
-
-
+ 
   </el-card>
+
+
+  <el-drawer v-model="drawer" :show-close="false">
+
+     <template #header="{ close, titleId, titleClass }">
+      <h4 :id="titleId" :class="titleClass">Household Record</h4>
+      <el-button type="danger" @click="close">
+        <el-icon class="el-icon--left"><CircleCloseFilled /></el-icon>
+        Close
+      </el-button>
+    </template>
+
+
+
+      <el-table
+      :data="filteredData"
+      stripe
+      style="width: 100%">
+      
+      <el-table-column
+        prop="field"
+        label=""
+        width="200"/>
+      
+      
+      <el-table-column
+        prop="value"
+        label=""/>
+     </el-table>
+  </el-drawer>
 
 </template>
 

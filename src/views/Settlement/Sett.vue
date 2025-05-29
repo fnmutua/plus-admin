@@ -52,6 +52,12 @@ const value4 = ref([]) // County select
 const value5 = ref([]) // Subcounty select
 const value6 = ref([]) // Ward select
 
+const loadingGetData = ref(false)
+const loadingGetDataMsg = ref('Loading the data.. Please wait.......')
+
+const DateDialogVisible = ref(false)
+const dateRange = ref()
+
 // Save filters to localStorage
 const saveFiltersToStorage = () => {
   const filterState = {
@@ -1748,8 +1754,6 @@ const RevertEdits = async (data: TableSlotDefault) => {
   const res = await revertHistory(formData);
 };
 
-const DateDialogVisible = ref(false)
-const dateRange = ref()
 
 const handleDateChange = async () => {
   // Add date range filtering logic if needed
@@ -1777,8 +1781,6 @@ const handleDateChange = async () => {
 };
 
 
-const loadingGetData = ref(false)
-const loadingGetDataMsg = ref('Loading the data.. Please wait.......')
 
 
 

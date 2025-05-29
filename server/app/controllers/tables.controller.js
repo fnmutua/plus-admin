@@ -1065,15 +1065,14 @@ function safeParseAndSanitize(jsonStr) {
 
 
 
-exports.modelImportDataUpsert = async (req, res) => {
+ 
+ exports.cmodelImportDataUpsert = async (req, res) => {
   try {
     // Validate request body
-    console.log('Validate request body')
+    console.log('Validate request body');
     const body = typeof req.body === 'string' ? safeParseAndSanitize(req.body) : req.body;
-
     const { model: modelName, data: rawData } = body;
 
-    //const { model: modelName, data: rawData } = req.body;
     if (!modelName || !rawData) {
       return res.status(400).json({ message: 'Model name and data are required' });
     }
@@ -1084,138 +1083,319 @@ exports.modelImportDataUpsert = async (req, res) => {
       return res.status(400).json({ message: `Model "${modelName}" not found` });
     }
 
-    // Parse and validate data
+    // Parse data array
     let data = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
     if (!Array.isArray(data)) {
       return res.status(400).json({ message: 'Data must be an array' });
     }
 
- 
-
-    // Prepare data with metadata
-    const currentUser = req.thisUser?.id;
-    const timestamp = new Date();
-    const validData = data
-      .filter(item => item && typeof item === 'object')
-      .map(item => ({
-        ...item,
-        createdBy: currentUser,
-        updatedAt: timestamp,
-        createdAt: item.createdAt || timestamp, // Preserve existing createdAt if provided
-      }));
-
-    if (validData.length === 0) {
-      return res.status(400).json({ message: 'No valid records to process' });
-    }
-
-    // Process records
+    // Prepare result containers
     const inserted = [];
     const updated = [];
     const errors = [];
 
-    for (const item of validData) {
-      try {
-        // Determine unique fields for the model
-        const uniqueFields = Object.keys(Model.rawAttributes).filter(attr => 
-          Model.rawAttributes[attr].unique || 
-          (Model.rawAttributes[attr].primaryKey && attr !== 'id')
-        );
+    // Determine model attributes
+    const attributes = Model.rawAttributes;
 
-        // Check if item has at least one unique field value
-        const hasUniqueValues = uniqueFields.some(field => item[field] !== undefined && item[field] !== null);
-
-        if (!hasUniqueValues) {
-          // No unique fields provided, create new record
-          const newRecord = await Model.create(item);
-          inserted.push(newRecord.id);
-          continue;
-        }
-
-        // Build where clause for unique fields
-        const whereClause = {};
-        uniqueFields.forEach(field => {
-          if (item[field] !== undefined && item[field] !== null) {
-            whereClause[field] = item[field];
-          }
+    // Pre-validate records: filter out undefined fields & check hard type mismatches
+    const validRecords = [];
+    data.forEach((origItem, index) => {
+      if (!origItem || typeof origItem !== 'object') {
+        errors.push({
+          item: origItem,
+          error: 'Invalid record format',
+          detail: `Record at index ${index} is not an object.`
         });
+        return;
+      }
 
-        // Attempt to find existing record
-        const existing = await Model.findOne({ where: whereClause });
+      // Keep only attributes defined on the model
+      const item = {};
+      Object.keys(origItem).forEach(key => {
+        if (attributes[key]) item[key] = origItem[key];
+      });
+
+      // Check non-string type mismatches
+      Object.entries(attributes).forEach(([key, attrDef]) => {
+        if (!(key in item)) return;
+        const val = item[key];
+        if (val == null) return;
+        const expType = attrDef.type.key;
+        let mismatch = false;
+        switch (expType) {
+          case 'INTEGER': case 'BIGINT': case 'FLOAT': case 'DOUBLE': case 'DECIMAL':
+            if (typeof val !== 'number') mismatch = true;
+            break;
+          case 'BOOLEAN':
+            if (typeof val !== 'boolean') mismatch = true;
+            break;
+          case 'DATE':
+            if (isNaN(Date.parse(val))) mismatch = true;
+            break;
+          case 'JSON':
+            if (typeof val !== 'object') mismatch = true;
+            break;
+          default:
+            return;
+        }
+        if (mismatch) {
+          errors.push({
+            item,
+            field: key,
+            error: 'Type mismatch',
+            detail: `Expected ${expType} for '${key}', got ${typeof val}`
+          });
+        }
+      });
+
+      if (!errors.some(e => e.item === origItem || e.item === item)) validRecords.push(item);
+    });
+
+    if (!validRecords.length) {
+      return res.status(400).json({ message: 'No valid records to process', failedCount: errors.length, errors });
+    }
+
+    // Add metadata
+    const currentUser = req.thisUser?.id;
+    const timestamp = new Date();
+    const validData = validRecords.map(item => ({
+      ...item,
+      createdBy: currentUser,
+      updatedAt: timestamp,
+      createdAt: item.createdAt || timestamp,
+    }));
+
+    // Upsert logic with unique constraint handling
+    for (const item of validData) {
+      // Identify unique fields
+      const uniqueFields = Object.keys(attributes).filter(attr =>
+        attributes[attr].unique || (attributes[attr].primaryKey && attr !== 'id')
+      );
+      // Build where clause
+      const where = {};
+      uniqueFields.forEach(f => { if (item[f] != null) where[f] = item[f]; });
+
+      try {
+        let existing = Object.keys(where).length ? await Model.findOne({ where }) : null;
 
         if (existing) {
-          // Update existing record
+          // Update existing
           const updateData = { ...item };
-          // Remove unique fields to prevent constraint issues
-          uniqueFields.forEach(field => delete updateData[field]);
+          uniqueFields.forEach(f => delete updateData[f]);
           await existing.update(updateData);
           updated.push(item.code || existing.id);
         } else {
-          // Create new record
-          const newRecord = await Model.create(item);
-          inserted.push(newRecord.id);
+          // Try create, fallback to update on unique error
+          try {
+            const rec = await Model.create(item);
+            inserted.push(rec.id);
+          } catch (createErr) {
+            if (createErr.name === 'SequelizeUniqueConstraintError') {
+              // On unique violation, find record by violated fields and update
+              const vioWhere = {};
+              Object.keys(createErr.fields).forEach(f => vioWhere[f] = item[f]);
+              const rec = await Model.findOne({ where: vioWhere });
+              if (rec) {
+                const upd = { ...item };
+                uniqueFields.forEach(f => delete upd[f]);
+                await rec.update(upd);
+                updated.push(item.code || rec.id);
+              } else {
+                errors.push({ item, error: createErr.name, detail: createErr.message });
+              }
+            } else {
+              throw createErr;
+            }
+          }
         }
       } catch (err) {
-        if (err.name === 'SequelizeUniqueConstraintError') {
-          try {
-            // Build where clause from error fields
-            const whereClause = {};
-            Object.keys(err.fields).forEach(field => {
-              whereClause[field] = item[field];
-            });
-
-            // Find and update existing record
-            const existing = await Model.findOne({ where: whereClause });
-            if (existing) {
-              const updateData = { ...item };
-              Object.keys(whereClause).forEach(field => delete updateData[field]);
-              await existing.update(updateData);
-              updated.push(item.code || existing.id);
-            } else {
-              errors.push({
-                item,
-                error: 'Unique constraint violation, but no existing record found',
-                detail: err.message,
-              });
-            }
-          } catch (updateErr) {
-            errors.push({
-              item,
-              error: 'Failed to update on unique constraint violation',
-              detail: updateErr.message,
-            });
-          }
-        } else {
-          errors.push({
-            item,
-            error: err.message,
-            detail: err?.original?.detail || 'No additional details',
-          });
-        }
+        errors.push({ item, error: err.name || 'UpsertError', detail: err.message });
       }
     }
 
-    // Prepare response
+    // Final response
     const hasErrors = errors.length > 0;
     return res.status(hasErrors ? 207 : 200).json({
       message: hasErrors ? 'Import completed with some errors' : 'Import process completed successfully',
       insertedCount: inserted.length,
       updatedCount: updated.length,
       failedCount: errors.length,
-      inserted,
-      updated,
       errors,
       code: hasErrors ? '0001' : '0000',
     });
-
-  } catch (err) {
-    console.error('Fatal upsert error:', err);
+  } catch (fatalErr) {
+    console.error('Fatal upsert error:', fatalErr);
     return res.status(500).json({
       message: 'Internal Server Error',
-      error: err.message,
+      failedCount: 1,
+      error: fatalErr.message,
     });
   }
 };
 
+
+exports.modelImportDataUpsert = async (req, res) => {
+  try {
+    // Validate request body
+    console.log('Validate request body');
+    const body = typeof req.body === 'string' ? safeParseAndSanitize(req.body) : req.body;
+    const { model: modelName, data: rawData } = body;
+
+    if (!modelName || !rawData) {
+      return res.status(400).json({ message: 'Model name and data are required' });
+    }
+
+    // Validate model existence
+    const Model = db.models[modelName];
+    if (!Model) {
+      return res.status(400).json({ message: `Model "${modelName}" not found` });
+    }
+
+    // Parse data array
+    let data = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
+    if (!Array.isArray(data)) {
+      return res.status(400).json({ message: 'Data must be an array' });
+    }
+
+    // Prepare result containers
+    const inserted = [];
+    const updated = [];
+    const errors = [];
+
+    // Encryption passphrase for households
+    const passphrase = '***REDACTED***';
+    const sequelizeFn = db.sequelize.fn;
+    const sequelizeCol = db.sequelize.col;
+
+    // Determine model attributes
+    const attributes = Model.rawAttributes;
+
+    // Pre-validate records: filter undefined fields & check hard type mismatches
+    const validRecords = [];
+    data.forEach((origItem, index) => {
+      if (!origItem || typeof origItem !== 'object') {
+        errors.push({ item: origItem, error: 'Invalid record format', detail: `Record at index ${index} is not an object.` });
+        return;
+      }
+      // Keep only defined attributes
+      const item = {};
+      Object.keys(origItem).forEach(key => { if (attributes[key]) item[key] = origItem[key]; });
+      // Type checks
+      Object.entries(attributes).forEach(([key, attrDef]) => {
+        if (!(key in item)) return;
+        const val = item[key]; if (val == null) return;
+        const expType = attrDef.type.key;
+        let mismatch = false;
+        switch (expType) {
+          case 'INTEGER': case 'BIGINT': case 'FLOAT': case 'DOUBLE': case 'DECIMAL':
+            if (typeof val !== 'number') mismatch = true; break;
+          case 'BOOLEAN':
+            if (typeof val !== 'boolean') mismatch = true; break;
+          case 'DATE':
+            if (isNaN(Date.parse(val))) mismatch = true; break;
+          case 'JSON':
+            if (typeof val !== 'object') mismatch = true; break;
+          default: return;
+        }
+        if (mismatch) {
+          errors.push({ item, field: key, error: 'Type mismatch', detail: `Expected ${expType} for '${key}', got ${typeof val}` });
+        }
+      });
+      if (!errors.some(e => e.item === origItem || e.item === item)) validRecords.push(item);
+    });
+
+    if (!validRecords.length) {
+      return res.status(400).json({ message: 'No valid records to process', failedCount: errors.length, errors });
+    }
+
+    // Add metadata and perform field-level encryption for households
+    const currentUser = req.thisUser?.id;
+    const timestamp = new Date();
+    const validData = validRecords.map(item => {
+      let record = {
+        ...item,
+        createdBy: currentUser,
+        updatedAt: timestamp,
+        createdAt: item.createdAt || timestamp,
+      };
+      // if (modelName === 'households') {
+      //   if (record.respondents_name) {
+      //     record.respondents_name = sequelizeFn('PGP_SYM_ENCRYPT', record.respondents_name, passphrase);
+      //   }
+      //   if (record.telephone) {
+      //     record.telephone = sequelizeFn('PGP_SYM_ENCRYPT', record.telephone, passphrase);
+      //   }
+      // }
+              if (modelName === 'households') {
+                // --- RESPONDENT NAME ---
+                let name = record.respondents_name || '';
+                name = name.trim();
+                if (name.length > 0) {
+                  record.respondents_name =  name
+                } else {
+                  record.respondents_name = 'unspecified';
+                }
+              }
+
+
+      
+      return record;
+    });
+
+    // Upsert logic with unique constraint handling
+    for (const item of validData) {
+      const uniqueFields = Object.keys(attributes).filter(attr =>
+        attributes[attr].unique || (attributes[attr].primaryKey && attr !== 'id')
+      );
+      const where = {};
+      uniqueFields.forEach(f => { if (item[f] != null) where[f] = item[f]; });
+      try {
+        let existing = Object.keys(where).length ? await Model.findOne({ where }) : null;
+        if (existing) {
+          const updateData = { ...item };
+          uniqueFields.forEach(f => delete updateData[f]);
+          await existing.update(updateData);
+          updated.push(item.code || existing.id);
+        } else {
+          try {
+            const rec = await Model.create(item);
+            inserted.push(rec.id);
+          } catch (createErr) {
+            if (createErr.name === 'SequelizeUniqueConstraintError') {
+              const vioWhere = {};
+              Object.keys(createErr.fields).forEach(f => vioWhere[f] = item[f]);
+              const rec = await Model.findOne({ where: vioWhere });
+              if (rec) {
+                const upd = { ...item };
+                uniqueFields.forEach(f => delete upd[f]);
+                await rec.update(upd);
+                updated.push(item.code || rec.id);
+              } else {
+                errors.push({ item, error: createErr.name, detail: createErr.message });
+              }
+            } else throw createErr;
+          }
+        }
+      } catch (err) {
+        errors.push({ item, error: err.name || 'UpsertError', detail: err.message });
+      }
+    }
+
+    // Final response
+    const hasErrors = errors.length > 0;
+    return res.status(hasErrors ? 207 : 200).json({
+      message: hasErrors ? 'Import completed with some errors' : 'Import process completed successfully',
+      insertedCount: inserted.length,
+      updatedCount: updated.length,
+      failedCount: errors.length,
+      errors,
+      code: hasErrors ? '0001' : '0000',
+    });
+  } catch (fatalErr) {
+    console.error('Fatal upsert error:', fatalErr);
+    return res.status(500).json({ message: 'Internal Server Error', failedCount: 1, error: fatalErr.message });
+  }
+};
 
 
 
@@ -3090,6 +3270,11 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
       return res.status(400).json({ message: `Model "${modelName}" not found`, code: 'MODEL_NOT_FOUND' });
     }
 
+     // Decryption setup for households model
+    const isHouseholdsModel = modelName === 'households';
+    const decryptKey = '***REDACTED***';
+
+
     const parsedLimit = parseInt(limit, 10);
     const parsedPage = parseInt(page, 10);
     if (isNaN(parsedLimit) || parsedLimit < 1 || isNaN(parsedPage) || parsedPage < 1) {
@@ -3216,6 +3401,46 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
       } : undefined
     };
 
+
+  // Handle attribute selection (no decryption)
+if (isHouseholdsModel) {
+  query.attributes = {
+    exclude: hasGeomColumn ? ['geom'] : [],
+    include: [
+      // just pull the raw column values
+      'respondents_name',
+      'telephone',
+      // if you still want the hasGeom flag:
+      ...(hasGeomColumn
+        ? [[
+            db.sequelize.literal(
+              `CASE WHEN "${Model.tableName}"."geom" IS NOT NULL THEN true ELSE false END`
+            ),
+            'hasGeom',
+          ]]
+        : []),
+    ],
+  };
+} else if (hasGeomColumn) {
+  // Default: exclude geom and include hasGeom flag
+  query.attributes = {
+    exclude: ['geom'],
+    include: [
+      [
+        db.sequelize.literal(
+          `CASE WHEN "${Model.tableName}"."geom" IS NOT NULL THEN true ELSE false END`
+        ),
+        'hasGeom',
+      ],
+    ],
+  };
+}
+
+
+
+
+
+
     if (cache_key) {
       const cacheDuration = 3600;
       const lastRow = await Model.findOne({
@@ -3279,10 +3504,7 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
 
 
 
-
-
-
-
+ 
 
 
 

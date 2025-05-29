@@ -23,11 +23,14 @@ module.exports = function (sequelize, DataTypes) {
         allowNull: true,
       },
 
+            respondents_name: { type: DataTypes.STRING, allowNull: false },
+
+
+
       // Survey Fields
       date_survey: DataTypes.DATE,
       code: DataTypes.STRING,
-      respondents_name: DataTypes.STRING,
-      telephone: DataTypes.STRING,
+       telephone: DataTypes.STRING,
       nationality: DataTypes.STRING,
       age: DataTypes.STRING,
       gender: DataTypes.STRING,
@@ -189,7 +192,7 @@ module.exports = function (sequelize, DataTypes) {
         {
           name: 'household_key',
           unique: true,
-          fields: ['respondents_name','gender', 'settlement_id', 'ward_id']
+          fields: ['respondents_name',  'age', 'gender',   'settlement_id', 'ward_id']
         },
   
       ]
