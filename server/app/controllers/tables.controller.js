@@ -7108,7 +7108,7 @@ exports.listModels = async (req, res) => {
  
 
 
- exports.intersectGeometryWithModel = async (req, res) => {
+ exports._intersectGeometryWithModel = async (req, res) => {
   try {
     const { model, geometry, srid = 4326 } = req.body;
 
@@ -7168,3 +7168,124 @@ exports.listModels = async (req, res) => {
     });
   }
 };
+
+exports.intersectGeometryWithModel = async (req, res) => {
+  try {
+    const { model, geometry, srid = 4326 } = req.body;
+    if (!model || !Array.isArray(geometry) || geometry.length === 0) {
+      return res.status(400).json({ message: 'Model name and an array of geometries are required' });
+    }
+
+    const Model = db.models[model];
+    if (!Model) {
+      return res.status(400).json({ message: `Model "${model}" not found` });
+    }
+
+    // stringify the array once
+    const geometriesJson = JSON.stringify(geometry);
+    const targetSrid = 4326;
+
+    const intersectionQuery = `
+      WITH input_geoms AS (
+        SELECT
+          row_number() OVER () - 1 AS geometry_index,
+          value::json AS geom_json
+        FROM jsonb_array_elements(:geometries::jsonb)
+      )
+      SELECT
+        ig.geometry_index,
+        t.*
+      FROM input_geoms ig
+      JOIN "${Model.tableName}" t
+        ON ST_Intersects(
+             t.geom,
+             ST_Transform(
+               ST_SetSRID(
+                 ST_GeomFromGeoJSON(ig.geom_json),
+                 ${srid}
+               ),
+               :targetSrid
+             )
+           );
+    `;
+
+    // run one big query
+    const flatResults = await db.sequelize.query(
+      intersectionQuery,
+      {
+        replacements: { geometries: geometriesJson, targetSrid },
+        type: db.sequelize.QueryTypes.SELECT,
+      }
+    );
+
+    // regroup by geometry_index
+    const buckets = {};
+    for (const row of flatResults) {
+      const idx = row.geometry_index;
+      if (!buckets[idx]) buckets[idx] = [];
+      buckets[idx].push(row);
+    }
+
+    // turn into the same shape as before
+    const data = Object.entries(buckets).map(([geometry_index, records]) => ({
+      geometry_index: Number(geometry_index),
+      records,
+    }));
+
+    const totalCount = flatResults.length;
+
+    return res.status(200).json({
+      message: `Found ${totalCount} intersecting records.`,
+      count: totalCount,
+      data,
+      code: '0000',
+    });
+  } catch (err) {
+    console.error('Intersection error:', err);
+    return res.status(500).json({
+      message: 'Failed to perform geometry intersection',
+      error: err.message,
+      code: '0002',
+    });
+  }
+};
+
+
+ 
+
+ 
+exports.modelManyRecordsByCodes = (req, res) => {
+  const reg_model   = req.body.model;
+  const assocModel  = req.body.assocModel;
+  const codes       = req.body.codes;   // expect an array of codes
+
+  if (!Array.isArray(codes) || codes.length === 0) {
+    return res.status(400).json({
+      message: '`codes` must be a non‐empty array',
+      code: '00001'
+    });
+  }
+
+  const Assoc = db.models[assocModel];
+  const qry = {
+    where: { code: { [Op.in]: codes } },
+    include: Assoc ? [{ model: Assoc }] : []
+  };
+
+  db.models[reg_model]
+    .findAll(qry)
+    .then(records => {
+      res.status(200).json({
+        data: records,     // your array of matching records
+        code: '00000'      // success code
+      });
+    })
+    .catch(err => {
+      console.error(err);
+      res.status(500).json({
+        message: err.message,
+        code: '00002'
+      });
+    });
+};
+
