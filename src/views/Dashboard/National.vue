@@ -45,9 +45,9 @@ import VChart, { THEME_KEY } from 'vue-echarts';
 import { provide } from 'vue';
 import { getRoutesList } from '@/api/settlements'
 
-import {
-  FullScreen,
-} from '@element-plus/icons-vue'
+ 
+import { inject } from 'vue'
+ 
 
 
 const colorPalette = ['#ff007f', '#0000ff'];  // Male-Female
@@ -68,7 +68,15 @@ use([
   GridComponent
 ]);
 
-provide(THEME_KEY, 'light');
+ 
+const theme = inject(THEME_KEY)
+
+console.log('ECharts Theme in use:', theme)
+
+ 
+
+
+
 
 const { t } = useI18n()
 
@@ -379,9 +387,9 @@ function xtransformData(data, chartType, aggregationMethod, cfield) {
     uniqueNames.map(name => {
       const filteredData = data.filter(item => item[cfield] === category && item.name === name);
 
-      console.log("Filtred", filteredData)
+  //    console.log("Filtred", filteredData)
       let arr = filteredData.length > 0 ? filteredData.map(item => (item[aggregationMethod] ? parseInt(item[aggregationMethod]) : 0)) : [0]
-      console.log("arr", arr)
+    //  console.log("arr", arr)
       dataArr.push(arr[0])
 
 
@@ -2029,8 +2037,8 @@ const getChartType =   (typeId) => {
           <div class="charts-container">
             <el-card>
               <ElSkeleton :loading="loading" animated>
-                <!-- <v-chart :id="card.id" class="chart" :option="card.chart" autoresize /> -->
-                <v-chart  v-if="card.type==7 ||card.type==8 "  :id="card.id"  class="chart" :option="card.chart" height="350"  autoresize /> 
+              
+                <v-chart  v-if="card.type==7 ||card.type==8 "  :id="card.id"  class="chart" :option="card.chart" height="350"  autoresize  /> 
                   <apexchart v-if="card.type!=7 && card.type!=8" :options="card.chart" :series="card.chart.series" :type="getChartType(card.type)" height="350"  autoresize/>
  
               </ElSkeleton>

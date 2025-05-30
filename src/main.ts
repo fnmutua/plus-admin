@@ -29,38 +29,41 @@ import { setupRouter } from './router'
 import { setupPermission } from './directives'
 
 import { createApp } from 'vue'
+import * as echarts from 'echarts'
+import { registerTheme } from 'echarts/core'
+
+import VueApexCharts from 'vue3-apexcharts'
+import VChart, { THEME_KEY } from 'vue-echarts'
 
 import App from './App.vue'
-
 import './permission'
-import VueApexCharts from "vue3-apexcharts";
- 
-/* import specific icons */
- 
-/* add icons to the library */
- 
- 
+
+import romaTheme from './theme.json' // ✅ Ensure path and tsconfig.json support this
+
+// ✅ Register the ECharts theme
+//echarts.registerTheme('roma', romaTheme)
+registerTheme('roma', romaTheme)
+
 // 创建实例
 const setupAll = async () => {
   const app = createApp(App)
 
-
   await setupI18n(app)
 
   setupStore(app)
-
   setupGlobCom(app)
-
   setupElementPlus(app)
-
   setupRouter(app)
-
   setupPermission(app)
- 
-  app.use(VueApexCharts);
- 
-  // Excel dowload 
 
+  // ✅ Register vue-echarts component
+  app.component('v-chart', VChart)
+
+  // ✅ Provide the theme globally to v-chart
+  app.provide(THEME_KEY, 'roma')
+
+  // ✅ Optional: Register ApexCharts
+  app.use(VueApexCharts)
 
   app.mount('#app')
 }

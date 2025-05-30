@@ -1,41 +1,55 @@
 import { EChartsOption } from 'echarts'
-import { EChartsOption as EChartsWordOption } from 'echarts-wordcloud'
 import { useI18n } from '@/hooks/web/useI18n'
 import 'echarts/lib/component/toolbox'
-import { reactive } from 'vue';
 import { ref } from 'vue'
-
-import {
-  FullScreen,
-} from '@element-plus/icons-vue'
-
-import VueApexCharts from 'vue3-apexcharts';
 import { useAppStore } from '@/store/modules/app'
 
+// Import the 100-color palette (assumed to be in src/charts/colorPalette.ts)
+import customColorPalette from './colors'
 
 const appStore = useAppStore()
-
-
-
 const isDark = ref(appStore.getIsDark)
-
-
-
 const { t } = useI18n()
 
-const colorPalette = ['#ff007f', '#0000ff'];  // Male-Female
+const colorPalette = ['#ff007f', '#0000ff']  // Male-Female, retained for barMaleFemaleOptions
 const maleIcon = 'path://m 146.41936,238.8034 c -5.21101,-1.43402 -7.51545,-6.79358 -6.6619,-11.76943 -0.0588,-45.10952 -0.11757,-90.21905 -0.17635,-135.328563 -5.3022,-1.61412 -3.06375,4.34199 -3.52464,7.58816 -0.0576,14.697923 -0.11511,29.395843 -0.17266,44.093773 -1.72718,6.61806 -12.15586,7.45944 -14.19605,0.88682 -1.42909,-4.98857 -0.22146,-10.60033 -0.62062,-15.83232 0.10773,-15.18837 -0.21551,-30.437173 0.16059,-45.587893 1.91842,-11.228608 12.80383,-20.22421 24.26927,-18.689786 10.60777,1.558898 0.0755,-3.65768 -0.79236,-8.596161 -4.23852,-8.688715 0.80002,-20.073014 9.72708,-23.421847 8.82591,-4.162774 20.30103,1.001172 23.52581,10.108188 2.28945,5.67583 1.4368,12.853955 -2.76118,17.571486 -5.15831,4.024926 -3.94241,5.010805 1.85043,4.362909 13.58742,-1.603119 25.03585,11.840701 23.9554,24.967141 -0.0691,18.213333 -0.13818,36.426673 -0.20726,54.640013 -1.5351,4.55905 -7.30638,6.71543 -11.30858,3.96578 -4.81473,-2.8888 -2.73019,-9.20279 -3.19227,-13.88869 -0.0523,-14.05586 -0.10469,-28.11173 -0.15704,-42.167583 -4.85271,-1.54237 -3.37467,3.24601 -3.51022,6.4208 V 231.02616 c -1.3114,6.77368 -9.29063,10.3384 -15.13544,6.61747 -6.62075,-3.7866 -4.17124,-12.04397 -4.62011,-18.29166 v -70.84935 c -4.85175,-1.54283 -3.39102,3.24111 -3.53094,6.42079 -0.0578,25.5528 -0.11553,51.1056 -0.17329,76.65839 -1.7387,5.48439 -7.13811,8.77105 -12.74767,7.2216 z'
 const femaleIcon = 'path://m 39.7122,238.0264 c -5.604205,-1.49359 -5.822698,-7.32898 -5.431108,-11.96235 -0.05932,-18.97406 -0.118632,-37.94813 -0.177948,-56.92219 -7.401109,0.0507 -14.802279,0.16954 -22.203547,0.1438 8.050221,-26.97466 15.83106,-54.03787 24.0791,-80.948455 -6.246873,-1.537447 -5.103818,6.332986 -7.12857,10.198179 -4.203419,12.783656 -7.28462,25.995046 -12.31951,38.467156 C 6.215777,147.43407 -0.93895389,129.58252 6.2279437,121.52707 11.709639,105.71684 15.006783,88.999576 22.521999,73.9779 25.487431,65.143259 38.425956,64.174487 43.879817,63.247984 35.242261,58.307767 32.195248,46.181151 37.843175,37.985287 c 5.35176,-7.73122 16.727442,-10.988636 24.757146,-5.16531 11.321083,6.562216 10.452089,25.024381 -1.135269,30.670395 9.830628,-0.28155 20.086569,3.623662 24.845207,12.765524 3.87086,7.45858 5.12438,16.169298 8.137928,24.037484 2.906124,10.26421 6.922833,20.35157 9.297803,30.70045 1.06345,4.17564 -1.66552,9.02385 -6.181687,9.2796 -7.686885,1.11419 -8.783192,-8.80355 -10.70406,-14.18732 -3.87502,-12.5653 -7.681429,-25.15172 -11.575988,-37.711005 -8.798872,-0.113812 1.949333,13.898795 1.781574,19.941085 6.048408,20.20812 12.13493,40.40517 18.089502,60.64114 -7.392371,0.35953 -14.803078,0.14681 -22.203496,0.20388 -0.06597,21.22546 -0.131933,42.45093 -0.1979,63.67639 -2.103142,7.13406 -13.415648,7.74398 -15.969932,0.84281 -1.418088,-4.77754 -0.245017,-10.18282 -0.655178,-15.20454 l -0.156843,-49.31466 c -4.44248,-1.05339 -5.844521,0.93365 -4.913879,5.25338 -0.162881,19.18788 0.325808,38.44483 -0.244801,57.58947 -0.334387,5.03435 -6.719798,7.8699 -11.101102,6.02234 z'
- 
 
 
- 
+const romaColors = [
+  // palette1
+  '#008FFB', '#00E396', '#FEB019', '#FF4560', '#775DD0',
+  // palette2
+  '#3f51b5', '#03a9f4', '#4caf50', '#f9ce1d', '#FF9800',
+  // palette3
+  '#33b2df', '#546E7A', '#d4526e', '#13d8aa', '#A5978B',
+  // palette4
+  '#4ecdc4', '#c7f464', '#81D4FA', '#546E7A', '#fd6a6a',
+  // palette5
+  '#2b908f', '#f9a3a4', '#90ee7e', '#fa4443', '#69d2e7',
+  // palette6
+  '#449DD1', '#F86624', '#EA3546', '#662E9B', '#C5D86D',
+  // palette7
+  '#D7263D', '#1B998B', '#2E294E', '#F46036', '#E2C044',
+  // palette8
+  '#662E9B', '#F86624', '#F9C80E', '#EA3546', '#43BCCD',
+  // palette9
+  '#5C4742', '#A5978B', '#8D5B4C', '#5A2A27', '#C4BBAF',
+  // palette10
+  '#A300D6', '#7D02EB', '#5653FE', '#2983FF', '#00B1F2'
+];
+
+
+
+
+
 
 
 export const stacklineOptions: EChartsOption = {
+  colors: romaColors, // Use Roma theme colors
   title: {
     text: 'stacked line',
-        subtext: `National Slum Database, ${new Date().getFullYear()}`, // Get the current year dynamically
+    subtext: `National Slum Database, ${new Date().getFullYear()}`,
     left: 'left',
     textStyle: {
       fontSize: 14
@@ -45,46 +59,36 @@ export const stacklineOptions: EChartsOption = {
     }
   },
   legend: {
-    //  show: ShowLegend,
-      orient: 'horizontal',
-      type: 'scroll',
-      center: 'center',
-      itemWidth: 20,
+    orient: 'horizontal',
+    type: 'scroll',
+    center: 'center',
+    itemWidth: 20,
     itemHeight: 20,
-      bottom:'20'
-   
-    },
-    toolbox: {
-      show: true,
-            feature: {
-          myFullScreenButton: {
-            show: true,
-            title: 'Full Screen',
-                //icon: 'image://https://echarts.apache.org/en/images/favicon.png',
-              
-               icon: 'image://https://cdn.svgapi.com/vector/166027/full-screen.svg',
-   
-                onclick: function () {
-              
-              const chart = this.api; // Get the chart instance
-              const chartName = chart.getOption().title[0].text; // Get the chart title
-      
-              console.log('Chart Name:', chartName);
-      
-              const containerDiv = chart.getDom(); // Get the container div element
-              const containerId = containerDiv.id; // Get the container ID
-      
-              console.log('Container ID:', containerId);
-              toggleFullScreen(containerId);
-            }
-          },
-  
-        mark: { show: true },
-        dataView: { show: true, readOnly: false },
-        restore: { show: true },
-        saveAsImage: { show: true, pixelRatio: 4 }
-      }
-    },
+    bottom: '20'
+  },
+  toolbox: {
+    show: true,
+    feature: {
+      myFullScreenButton: {
+        show: true,
+        title: 'Full Screen',
+        icon: 'image://https://cdn.svgapi.com/vector/166027/full-screen.svg',
+        onclick: function () {
+          const chart = this.api;
+          const chartName = chart.getOption().title[0].text;
+          console.log('Chart Name:', chartName);
+          const containerDiv = chart.getDom();
+          const containerId = containerDiv.id;
+          console.log('Container ID:', containerId);
+          toggleFullScreen(containerId);
+        }
+      },
+      mark: { show: true },
+      dataView: { show: true, readOnly: false },
+      restore: { show: true },
+      saveAsImage: { show: true, pixelRatio: 4 }
+    }
+  },
   tooltip: {
     trigger: 'item',
     formatter: '{a} <br/>{b} : {c} ({d}%)'
@@ -96,8 +100,7 @@ export const stacklineOptions: EChartsOption = {
   },
   yAxis: {
     type: 'value',
-    name:'Number',
-
+    name: 'Number'
   },
   series: [
     {
@@ -105,186 +108,74 @@ export const stacklineOptions: EChartsOption = {
       type: 'line',
       data: [
         [0, 150], [1, 230], [2, 224], [3, 218], [4, 135], [5, 147], [6, 260]
-      ],
+      ]
     },
     {
       name: 'ewn',
       type: 'line',
       data: [
         [0, 32], [1, 145], [2, 123], [5, 116], [6, 123], [8, 116]
-      ],
+      ]
     }
   ]
-};
-
- 
-
-// Takes a data URI and returns the Data URI corresponding to the resized image at the wanted size.
-function resizedataURL(datas, wantedWidth, wantedHeight){
-  return new Promise(async function(resolve,reject){
-      // We create an image to receive the Data URI
-      const img = document.createElement('img');
-      // When the event "onload" is triggered we can resize the image.
-      img.onload = function()
-      {        
-          // We create a canvas and get its context.
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d');
-          // We set the dimensions at the wanted size.
-          canvas.width = wantedWidth;
-          canvas.height = wantedHeight;
-          // We resize the image with the canvas method drawImage();
-          ctx.drawImage(this, 0, 0, wantedWidth, wantedHeight);
-          const dataURI = canvas.toDataURL();
-          // This is the return of the Promise
-          resolve(dataURI);
-      };
-      // We put the Data URI in the image's src attribute
-      img.src = datas;
-  })
-}// Use it like : var newDataURI = await resizedataURL('yourDataURIHere', 50, 50);
-
+}
 
 export const toggleFullScreen = (cardId) => {
-
   console.log('Card ID', cardId)
   const chartContainer = document.getElementById(`${cardId}`);
   console.log(chartContainer)
-    const fullscreenElement =
-      chartContainer.requestFullscreen ||
-      chartContainer.mozRequestFullScreen ||
-      chartContainer.webkitRequestFullscreen ||
-      chartContainer.msRequestFullscreen;
-
-    if (fullscreenElement) {
-      fullscreenElement.call(chartContainer);
-    }
+  const fullscreenElement =
+    chartContainer.requestFullscreen ||
+    chartContainer.mozRequestFullScreen ||
+    chartContainer.webkitRequestFullscreen ||
+    chartContainer.msRequestFullscreen;
+  if (fullscreenElement) {
+    fullscreenElement.call(chartContainer);
+  }
 }
 
- 
+// Takes a data URI and returns the Data URI corresponding to the resized image at the wanted size.
+function resizedataURL(datas, wantedWidth, wantedHeight) {
+  return new Promise(async function(resolve, reject) {
+    const img = document.createElement('img');
+    img.onload = function() {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = wantedWidth;
+      canvas.height = wantedHeight;
+      ctx.drawImage(this, 0, 0, wantedWidth, wantedHeight);
+      const dataURI = canvas.toDataURL();
+      resolve(dataURI);
+    };
+    img.src = datas;
+  })
+}
 
-// Apache options 27/11/2023
-
-export const xsimpleBarChart = {
-  title: {
-    text: '',
-     left: 'center',
-    textStyle: {
-      fontSize: 14,
-    },
-    subtextStyle: {
-      fontSize: 12,
-    },
-  },
-  subtitle: {
-    text:  `National Slum Database, ${new Date().getFullYear()}`, // Get the current year dynamically
-    align: 'left',
- 
-    style: {
-      fontSize:  '12px',
-      fontWeight:  'normal',
-       color:  '#9699a2'
-    },
-},
-plotOptions: {
-  bar: {
-    borderRadius: 4,
-    horizontal: true,
-  }
-},
-
-dataLabels: {
-  enabled: true,
-  textAnchor: 'start',
-  style: {
-    colors: ['black']
-  },
-  formatter: function (val, opt) {
-    return opt.w.globals.labels[opt.dataPointIndex] + ":  " + val
-  },
-  offsetX: 0,
-  dropShadow: {
-    enabled: false
-  }
-},
-toolbar: {
-  show: true,
-  tools: {
-    download: true,
-    selection: true,
-    zoom: true,
-    zoomin: true,
-    zoomout: true,
-    pan: true,
-    
-    
-  },
-},
-  responsive: [
-    {
-      breakpoint: 600,
-      options: {
-        legend: {
-          show: false,
-        },
-        xaxis: {
-          labels: {
-            show: false,
-            rotateAlways: true,
-            rotate: 0,
-            trim: true,
-            hideOverlappingLabels: true,
-            style: {
-              colors: [],
-              fontSize: '8px',
-              fontFamily: 'Helvetica, Arial, sans-serif',
-              fontWeight: 400,
-              cssClass: 'apexcharts-xaxis-label',
-            },
-          },
-        },
-      },
-    },
-  ],
-
-  xaxis: {
-     categories: [],
-    tickPlacement:'on'
-  },
-  yaxis: {
-    labels: {
-      show: false
-    }
-  },
-  fill: {
-    opacity: 1,
-  },
-};
-
+// ApexCharts options (unchanged, as customTheme is for ECharts)
 export const simpleBarChart = {
   title: {
     text: '',
-     left: 'center',
+    left: 'center',
     textStyle: {
       fontSize: 14,
-      color: isDark.value ? '#ffffff' : '#000000', // White if dark mode, black if light mode
-
+      color: isDark.value ? '#ffffff' : '#000000'
     },
     subtextStyle: {
-      fontSize: 12,
-    },
+      fontSize: 12
+    }
   },
+  colors: romaColors, // Use Roma theme colors
+
   darkMode: isDark.value,
   subtitle: {
-    text:  `National Slum Database, ${new Date().getFullYear()}`, // Get the current year dynamically
+    text: `National Slum Database, ${new Date().getFullYear()}`,
     align: 'left',
- 
     style: {
-      fontSize:  '12px',
-      fontWeight:  'normal',
-       color:  '#9699a2'
-    },
-},
+      fontSize: '12px',
+      fontWeight: 'normal',
+      color: '#9699a2'
+    }
+  },
   chart: {
     type: 'bar',
     height: 350,
@@ -298,44 +189,10 @@ export const simpleBarChart = {
         zoom: true,
         zoomin: true,
         zoomout: true,
-        pan: true,
-        
-        // customIcons: [
-        //   {
-        //     icon: '<img src="https://cdn.svgapi.com/vector/12060/download.svg" class="ico-download" width="20">',
-        //     index: 0,
-        //     title: '',
-        //     class: 'custom-icon',
-             
-        //     click: function (chart, options, e) {
-        //       console.log('got it', chart);
-        
-        //       // Use .then to handle the asynchronous operation
-        //       chart.dataURI().then(({ imgURI, blob }) => {
-        //         // Resize the data URI
-        //         resizedataURL(imgURI, 1920, 1080).then((newDataUri) => {
-        //           // Create a download link
-        //           const link = document.createElement('a');
-        //           link.href = newDataUri;
-        //           link.download = 'xchart.png';
-        
-        //           // Append the link to the document and trigger the download
-        //           document.body.appendChild(link);
-        //           link.click();
-        
-        //           // Remove the link from the document
-        //           document.body.removeChild(link);
-        //         });
-        //       });
-        //     }
-
-        //   }
-        // ]
-      },
-    },
-    
+        pan: true
+      }
+    }
   },
-  
   responsive: [{
     breakpoint: 600,
     options: {
@@ -354,48 +211,46 @@ export const simpleBarChart = {
             fontSize: '8px',
             fontFamily: 'Helvetica, Arial, sans-serif',
             fontWeight: 400,
-            cssClass: 'apexcharts-xaxis-label',
-          },
+            cssClass: 'apexcharts-xaxis-label'
+          }
         }
       }
     }
   }],
-
   xaxis: {
     type: 'category',
     categories: [],
-    tickPlacement:'on'
+    tickPlacement: 'on'
   },
-
   fill: {
     opacity: 1
   }
-} 
+}
 
 export const stackedbarOptions = {
   title: {
     text: '',
-     left: 'center',
+    left: 'center',
     textStyle: {
       fontSize: 14,
-      color: isDark.value ? '#ffffff' : '#000000', // White if dark mode, black if light mode
+      color: isDark.value ? '#ffffff' : '#000000'
     },
     subtextStyle: {
-      fontSize: 12,
-    },
-  },  
+      fontSize: 12
+    }
+  },
   darkMode: isDark.value,
+  colors: romaColors, // Use Roma theme colors
 
   subtitle: {
-    text:  `National Slum Database, ${new Date().getFullYear()}`, // Get the current year dynamically
+    text: `National Slum Database, ${new Date().getFullYear()}`,
     align: 'left',
- 
     style: {
-      fontSize:  '12px',
-      fontWeight:  'normal',
-       color:  '#9699a2'
-    },
-},
+      fontSize: '12px',
+      fontWeight: 'normal',
+      color: '#9699a2'
+    }
+  },
   chart: {
     type: 'bar',
     height: 350,
@@ -409,14 +264,10 @@ export const stackedbarOptions = {
         zoom: true,
         zoomin: true,
         zoomout: true,
-        pan: true,
-        
-       
-      },
-    },
-    
+        pan: true
+      }
+    }
   },
-  
   responsive: [{
     breakpoint: 600,
     options: {
@@ -435,50 +286,46 @@ export const stackedbarOptions = {
             fontSize: '8px',
             fontFamily: 'Helvetica, Arial, sans-serif',
             fontWeight: 400,
-            cssClass: 'apexcharts-xaxis-label',
-          },
+            cssClass: 'apexcharts-xaxis-label'
+          }
         }
       }
     }
   }],
-
   xaxis: {
     type: 'category',
     categories: [],
-    tickPlacement:'on'
+    tickPlacement: 'on'
   },
-
   fill: {
     opacity: 1
   }
-} 
-
+}
 
 export const stackedbarOptionsAbs = {
   title: {
     text: '',
-     left: 'center',
+    left: 'center',
     textStyle: {
       fontSize: 14,
-      color: isDark.value ? '#ffffff' : '#000000', // White if dark mode, black if light mode
-
+      color: isDark.value ? '#ffffff' : '#000000'
     },
     subtextStyle: {
-      fontSize: 12,
-    },
+      fontSize: 12
+    }
   },
   darkMode: isDark.value,
+  colors: romaColors, // Use Roma theme colors
 
   subtitle: {
-    text:  `National Slum Database, ${new Date().getFullYear()}`, // Get the current year dynamically
+    text: `National Slum Database, ${new Date().getFullYear()}`,
     align: 'left',
- 
     style: {
-      fontSize:  '12px',
-      fontWeight:  'normal',
-       color:  '#9699a2'
-    },
-},
+      fontSize: '12px',
+      fontWeight: 'normal',
+      color: '#9699a2'
+    }
+  },
   chart: {
     type: 'bar',
     height: 350,
@@ -508,63 +355,61 @@ export const stackedbarOptionsAbs = {
             fontSize: '8px',
             fontFamily: 'Helvetica, Arial, sans-serif',
             fontWeight: 400,
-            cssClass: 'apexcharts-xaxis-label',
-          },
+            cssClass: 'apexcharts-xaxis-label'
+          }
         }
       }
     }
   }],
-
   xaxis: {
     type: 'category',
     categories: [],
-    tickPlacement:'on'
+    tickPlacement: 'on'
   },
-
   fill: {
     opacity: 1
   }
-} 
-
+}
 
 export const multipleBarChart = {
   title: {
     text: '',
     left: 'center',
     textStyle: {
-      fontSize: 14,
+      fontSize: 14
     },
     subtextStyle: {
-      fontSize: 12,
-    },
+      fontSize: 12
+    }
   },
   darkMode: isDark.value,
+  colors: romaColors, // Use Roma theme colors
 
   subtitle: {
-    text:  `National Slum Database, ${new Date().getFullYear()}`, // Get the current year dynamically
+    text: `National Slum Database, ${new Date().getFullYear()}`,
     align: 'left',
     style: {
       fontSize: '12px',
       fontWeight: 'normal',
-      color: '#9699a2',
-    },
+      color: '#9699a2'
+    }
   },
   chart: {
     type: 'bar',
     height: 350,
     toolbar: {
-      show: true,
+      show: true
     },
     zoom: {
-      enabled: true,
-    },
+      enabled: true
+    }
   },
   responsive: [
     {
       breakpoint: 600,
       options: {
         legend: {
-          show: false,
+          show: false
         },
         xaxis: {
           labels: {
@@ -578,36 +423,31 @@ export const multipleBarChart = {
               fontSize: '8px',
               fontFamily: 'Helvetica, Arial, sans-serif',
               fontWeight: 400,
-              cssClass: 'apexcharts-xaxis-label',
-            },
-          },
-        },
-      },
-    },
+              cssClass: 'apexcharts-xaxis-label'
+            }
+          }
+        }
+      }
+    }
   ],
-
   plotOptions: {
     bar: {
-      horizontal: false, // Set this to true if you want horizontal bars
-      columnWidth: '50%', // Adjust the width of the bars
-      endingShape: 'rounded', // Change the shape of the bars
-    },
+      horizontal: false,
+      columnWidth: '50%',
+      endingShape: 'rounded'
+    }
   },
-
   xaxis: {
     type: 'category',
     categories: [],
-    tickPlacement:'on'
+    tickPlacement: 'on'
   },
-
   fill: {
-    opacity: 1,
-  },
-};
+    opacity: 1
+  }
+}
 
 export const lineOptions = {
-  
-   
   chart: {
     type: 'area',
     stacked: false,
@@ -621,57 +461,55 @@ export const lineOptions = {
       autoSelected: 'zoom'
     }
   },
- 
   dataLabels: {
     enabled: false
   },
   markers: {
-    size: 0,
+    size: 0
   },
   darkMode: isDark.value,
+  colors: romaColors, // Use Roma theme colors
 
   subtitle: {
-    text:  `National Slum Database, ${new Date().getFullYear()}`, // Get the current year dynamically
+    text: `National Slum Database, ${new Date().getFullYear()}`,
     align: 'left',
     style: {
       fontSize: '12px',
       fontWeight: 'normal',
-      color: '#9699a2',
-    },
+      color: '#9699a2'
+    }
   },
   xaxis: {
-    categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep'],
+    categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep']
   },
-
-  
   series: [{
     name: "Desktops",
     data: [10, 41, 35, 51, 49, 62, 69, 91, 148]
-}],
-};
+  }]
+}
 
 export const pieOptions = {
-   
   chart: {
     height: 350,
     type: 'pie',
     toolbar: {
-      show: true,
+      show: true
     },
     zoom: {
-      enabled: true,
-    },
-
+      enabled: true
+    }
   },
   darkMode: isDark.value,
+  colors: romaColors, // Use Roma theme colors
+
   title: {
-    text: 'National Slum Database', // Set the title text
+    text: 'National Slum Database',
     align: 'center',
     style: {
       fontSize: '16px',
       fontWeight: 'bold',
-      color: isDark.value ? '#ffffff' : '#000000', // White if dark mode, black if light mode
-    },
+      color: isDark.value ? '#ffffff' : '#000000'
+    }
   },
   plotOptions: {
     pie: {
@@ -680,13 +518,13 @@ export const pieOptions = {
     }
   },
   subtitle: {
-    text:  `National Slum Database, ${new Date().getFullYear()}`, // Get the current year dynamically
+    text: `National Slum Database, ${new Date().getFullYear()}`,
     align: 'left',
     style: {
       fontSize: '12px',
       fontWeight: 'normal',
-      color: '#9699a2',
-    },
+      color: '#9699a2'
+    }
   },
   labels: [],
   series: [],
@@ -701,16 +539,17 @@ export const pieOptions = {
       }
     }
   }]
-};
+}
 
-
-//---------------------------
+// ECharts options with 100-color palette
 export const barOptions: EChartsOption = {
+  color: customColorPalette, // Apply 100-color palette
   title: {
     text: 'barchart',
     left: 'center'
   },
   darkMode: isDark.value,
+  colors: romaColors, // Use Roma theme colors
 
   tooltip: {
     trigger: 'axis',
@@ -725,33 +564,29 @@ export const barOptions: EChartsOption = {
   },
   xAxis: {
     type: 'category',
-    data: ['Monday', 'Tuesday','Wednesday'
-       
-    ],
+    data: ['Monday', 'Tuesday', 'Wednesday'],
     axisTick: {
       alignWithLabel: true
     }
   },
   yAxis: {
     type: 'value',
-    name:'Number',
-
+    name: 'Number'
   },
   series: [
     {
       name: 'chart title',
-      data: [ ],
-      type: 'bar',
+      data: [],
+      type: 'bar'
     }
   ]
 }
 
-
-
 export const xmultipleBarChart: EChartsOption = {
+  color: customColorPalette, // Apply 100-color palette
   title: {
     text: '',
-        subtext: `National Slum Database, ${new Date().getFullYear()}`, // Get the current year dynamically
+    subtext: `National Slum Database, ${new Date().getFullYear()}`,
     left: 'center',
     textStyle: {
       fontSize: 14
@@ -761,51 +596,37 @@ export const xmultipleBarChart: EChartsOption = {
     }
   },
   darkMode: isDark.value,
-
   toolbox: {
     show: true,
-          feature: {
-        myFullScreenButton: {
-          show: true,
-          title: 'Fullx Screen',
-              //icon: 'image://https://echarts.apache.org/en/images/favicon.png',
-            
-             icon: 'image://https://cdn.svgapi.com/vector/166027/full-screen.svg',
- 
-              onclick: function () {
-            
-            const chart = this.api; // Get the chart instance
-            const chartName = chart.getOption().title[0].text; // Get the chart title
-    
-            console.log('Chart Name:', chartName);
-    
-            const containerDiv = chart.getDom(); // Get the container div element
-            const containerId = containerDiv.id; // Get the container ID
-    
-            console.log('Container ID:', containerId);
-            toggleFullScreen(containerId);
-          }
-        },
-        myFullScreenButton2: {
-          show: true,
-          title: 'Toggle Legend',
-              //icon: 'image://https://echarts.apache.org/en/images/favicon.png',
-            
-             icon: 'image://https://cdn.svgapi.com/vector/22674/switch.svg',
- 
-          onclick: function () {
-            let chartInstance
-                chartInstance = this.api; // Get the chart instance using _model.api
-               const option = chartInstance.getOption();
-               console.log(chartInstance)
-              option.legend[0].show = !option.legend[0].show; // Toggle legend visibility
-                 chartInstance = option;
-                        // Force a redraw of the chart
-                  chartInstance.resize();
-            }
-        },
-      // Add a custom feature to toggle legend visibility
-   
+    feature: {
+      myFullScreenButton: {
+        show: true,
+        title: 'Fullx Screen',
+        icon: 'image://https://cdn.svgapi.com/vector/166027/full-screen.svg',
+        onclick: function () {
+          const chart = this.api;
+          const chartName = chart.getOption().title[0].text;
+          console.log('Chart Name:', chartName);
+          const containerDiv = chart.getDom();
+          const containerId = containerDiv.id;
+          console.log('Container ID:', containerId);
+          toggleFullScreen(containerId);
+        }
+      },
+      myFullScreenButton2: {
+        show: true,
+        title: 'Toggle Legend',
+        icon: 'image://https://cdn.svgapi.com/vector/22674/switch.svg',
+        onclick: function () {
+          let chartInstance
+          chartInstance = this.api;
+          const option = chartInstance.getOption();
+          console.log(chartInstance)
+          option.legend[0].show = !option.legend[0].show;
+          chartInstance = option;
+          chartInstance.resize();
+        }
+      },
       mark: { show: true },
       dataView: { show: true, readOnly: false },
       restore: { show: true },
@@ -818,20 +639,10 @@ export const xmultipleBarChart: EChartsOption = {
       type: 'shadow'
     }
   },
-//   legend: {
-//     type: 'scroll',
-//     orient: 'vertical',
-//     left: 10,
-//     top: 20,
-//     bottom: 20,
-//  },
-  
-legend: {
-  top: 'bottom',
-  type: 'scroll',
-  
-},
-
+  legend: {
+    top: 'bottom',
+    type: 'scroll'
+  },
   grid: {
     left: '3%',
     right: '4%',
@@ -844,21 +655,14 @@ legend: {
   },
   xAxis: {
     type: 'category',
-    name:'Number',
-    data: [],
-    // axisLabel: {
-    //   inside: true,
-    //   color: '#fff'
-    // },
+    name: 'Number',
+    data: []
   },
-  series: [
-    
-  ]
-};
-
+  series: []
+}
 
 export const barOptionsMultiple: EChartsOption = {
-
+  color: customColorPalette, // Apply 100-color palette
   title: {
     text: 'World Population'
   },
@@ -869,15 +673,16 @@ export const barOptionsMultiple: EChartsOption = {
     }
   },
   darkMode: isDark.value,
+  colors: romaColors, // Use Roma theme colors
 
   legend: {
     type: 'scroll',
     orient: 'vertical',
     left: 10,
     top: 20,
-    bottom: 20,
- },
-   grid: {
+    bottom: 20
+  },
+  grid: {
     left: '3%',
     right: '4%',
     bottom: '3%',
@@ -885,8 +690,7 @@ export const barOptionsMultiple: EChartsOption = {
   },
   yAxis: {
     type: 'value',
-    name:'Number',
-
+    name: 'Number',
     boundaryGap: [0, 0.01]
   },
   xAxis: {
@@ -894,17 +698,13 @@ export const barOptionsMultiple: EChartsOption = {
     data: []
   },
   series: []
-
 }
 
-
-
-
- 
-export const  barMaleFemaleOptions: EChartsOption = {
+export const barMaleFemaleOptions: EChartsOption = {
+  color: customColorPalette, // Apply 100-color palette
   title: {
     text: '',
-        subtext: `National Slum Database, ${new Date().getFullYear()}`, // Get the current year dynamically
+    subtext: `National Slum Database, ${new Date().getFullYear()}`,
     left: 'center',
     textStyle: {
       fontSize: 14
@@ -914,32 +714,25 @@ export const  barMaleFemaleOptions: EChartsOption = {
     }
   },
   darkMode: isDark.value,
+  colors: romaColors, // Use Roma theme colors
 
   toolbox: {
     show: true,
-          feature: {
-        myFullScreenButton: {
-          show: true,
-          title: 'Full Screen',
-              //icon: 'image://https://echarts.apache.org/en/images/favicon.png',
-            
-             icon: 'image://https://cdn.svgapi.com/vector/166027/full-screen.svg',
- 
-              onclick: function () {
-            
-            const chart = this.api; // Get the chart instance
-            const chartName = chart.getOption().title[0].text; // Get the chart title
-    
-            console.log('Chart Name:', chartName);
-    
-            const containerDiv = chart.getDom(); // Get the container div element
-            const containerId = containerDiv.id; // Get the container ID
-    
-            console.log('Container ID:', containerId);
-            toggleFullScreen(containerId);
-          }
-        },
-
+    feature: {
+      myFullScreenButton: {
+        show: true,
+        title: 'Full Screen',
+        icon: 'image://https://cdn.svgapi.com/vector/166027/full-screen.svg',
+        onclick: function () {
+          const chart = this.api;
+          const chartName = chart.getOption().title[0].text;
+          console.log('Chart Name:', chartName);
+          const containerDiv = chart.getDom();
+          const containerId = containerDiv.id;
+          console.log('Container ID:', containerId);
+          toggleFullScreen(containerId);
+        }
+      },
       mark: { show: true },
       dataView: { show: true, readOnly: false },
       restore: { show: true },
@@ -953,7 +746,7 @@ export const  barMaleFemaleOptions: EChartsOption = {
   },
   xAxis: {
     type: 'category',
-    data: [ ],
+    data: [],
     axisTick: {
       alignWithLabel: true
     }
@@ -962,7 +755,6 @@ export const  barMaleFemaleOptions: EChartsOption = {
     type: 'value'
   },
   legend: {
-  //  show: ShowLegend,
     orient: 'horizontal',
     type: 'scroll',
     left: 'left',
@@ -979,8 +771,6 @@ export const  barMaleFemaleOptions: EChartsOption = {
       }
     ]
   },
- 
-
   series: [
     {
       name: 'Male',
@@ -992,15 +782,14 @@ export const  barMaleFemaleOptions: EChartsOption = {
       emphasis: {
         focus: 'series'
       },
-      color: colorPalette[1],
+      color: colorPalette[1], // Retain original color for consistency
       data: []
     },
     {
       name: 'Female',
       type: 'bar',
       stack: 'total',
-      color: colorPalette[0],
-
+      color: colorPalette[0], // Retain original color for consistency
       label: {
         show: false
       },
@@ -1008,19 +797,15 @@ export const  barMaleFemaleOptions: EChartsOption = {
         focus: 'series'
       },
       data: []
-    },
-
+    }
   ]
 }
- 
 
-
- 
-
-export const  xstackedbarOptions: EChartsOption = {
+export const xstackedbarOptions: EChartsOption = {
+  color: customColorPalette, // Apply 100-color palette
   title: {
     text: '',
-        subtext: `National Slum Database, ${new Date().getFullYear()}`, // Get the current year dynamically
+    subtext: `National Slum Database, ${new Date().getFullYear()}`,
     left: 'center',
     textStyle: {
       fontSize: 14
@@ -1030,11 +815,12 @@ export const  xstackedbarOptions: EChartsOption = {
     }
   },
   darkMode: isDark.value,
+  colors: romaColors, // Use Roma theme colors
 
   toolbox: {
     show: true,
-          feature: {
-            mark: { show: true },
+    feature: {
+      mark: { show: true },
       dataView: { show: true, readOnly: false },
       restore: { show: true },
       saveAsImage: { show: true, pixelRatio: 4 }
@@ -1054,42 +840,37 @@ export const  xstackedbarOptions: EChartsOption = {
   },
   yAxis: {
     type: 'value',
-    position: 'right', // Position the y-axis labels on the right
-
+    position: 'right'
   },
   legend: {
-    show:false,
+    show: false,
     type: 'scroll',
     orient: 'vertical',
     left: 10,
     top: 20,
-    bottom: 20,
- },
- tooltip: {
-  trigger: 'axis',
-  axisPointer: {
-    type: 'shadow'
-  }
-},
-
-  series: [
-     
-  ]
+    bottom: 20
+  },
+  tooltip: {
+    trigger: 'axis',
+    axisPointer: {
+      type: 'shadow'
+    }
+  },
+  series: []
 }
 
-
-
-export const  mapChartOptions: EChartsOption = {
+export const mapChartOptions: EChartsOption = {
+  color: customColorPalette, // Apply 100-color palette
   title: {
     text: 'map',
-        subtext: `National Slum Database, ${new Date().getFullYear()}`, // Get the current year dynamically
-     left: 'left',
+    subtext: `National Slum Database, ${new Date().getFullYear()}`,
+    left: 'left',
     textStyle: {
-      fontSize: 14,
-      
-    },
+      fontSize: 14
+    }
   },
   darkMode: isDark.value,
+  colors: romaColors, // Use Roma theme colors
 
   tooltip: {
     trigger: 'item',
@@ -1098,7 +879,7 @@ export const  mapChartOptions: EChartsOption = {
   },
   visualMap: {
     left: 'right',
-    min: 0,  // remeber to adjust max and min
+    min: 0,
     max: 1000,
     inRange: {
       color: [
@@ -1120,31 +901,21 @@ export const  mapChartOptions: EChartsOption = {
   },
   toolbox: {
     show: true,
-          feature: {
-        myFullScreenButton: {
-          show: true,
-          title: 'Full Screen',
-              //icon: 'image://https://echarts.apache.org/en/images/favicon.png',
-            
-             icon: 'image://https://cdn.svgapi.com/vector/166027/full-screen.svg',
- 
-              onclick: function () {
-            
-            const chart = this.api; // Get the chart instance
-            const chartName = chart.getOption().title[0].text; // Get the chart title
-    
-            console.log('Chart Name:', chartName);
-    
-            const containerDiv = chart.getDom(); // Get the container div element
-            const containerId = containerDiv.id; // Get the container ID
-    
-            console.log('Container ID:', containerId);
-            toggleFullScreen(containerId);
-          }
-        },
-
-
-
+    feature: {
+      myFullScreenButton: {
+        show: true,
+        title: 'Full Screen',
+        icon: 'image://https://cdn.svgapi.com/vector/166027/full-screen.svg',
+        onclick: function () {
+          const chart = this.api;
+          const chartName = chart.getOption().title[0].text;
+          console.log('Chart Name:', chartName);
+          const containerDiv = chart.getDom();
+          const containerId = containerDiv.id;
+          console.log('Container ID:', containerId);
+          toggleFullScreen(containerId);
+        }
+      },
       mark: { show: true },
       dataView: { show: true, readOnly: false },
       restore: { show: true },
@@ -1157,7 +928,7 @@ export const  mapChartOptions: EChartsOption = {
       type: 'map',
       roam: true,
       map: 'KE',
-      aspectScale: 0.999, 
+      aspectScale: 0.999,
       emphasis: {
         label: {
           show: true
@@ -1166,7 +937,4 @@ export const  mapChartOptions: EChartsOption = {
       data: []
     }
   ]
-};
-
- 
-
+}
