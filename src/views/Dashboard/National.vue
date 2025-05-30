@@ -12,7 +12,7 @@ import { use } from "echarts/core";
 import { Icon } from '@iconify/vue';
 
 import {
-  pieOptions,  multipleBarChart, stacklineOptions, mapChartOptions,
+  pieOptions,  multipleBarChart, stacklineOptions, mapChartOptions,treemapOptions,
   lineOptions, stackedbarOptions, barMaleFemaleOptions, simpleBarChart,stackedbarOptionsAbs
 } from './chart-types'
 import { EChartsOption, registerMap } from 'echarts'
@@ -657,6 +657,24 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
 
     }
 
+    else if (chartType == 11) {
+      console.log('treemap chart--- ', amount);
+      // For treemaps, series is [{ data: [{ x: label, y: value }, ...] }]
+      const keys = Object.keys(amount[0]);
+      const extractedData = keys.map((key) => amount.map((item) => item[key]));
+      console.log('extractedData', extractedData);
+      // Combine labels and values into treemap format
+      seriesData = [
+        {
+          data: extractedData[0].map((label, index) => ({
+            x: label,
+            y: convertStringsToNumbers([extractedData[1][index]])[0],
+          })),
+        },
+      ];
+      categoryArray = extractedData[0]; // Still return labels for compatibility
+    } 
+    
 
     else if (chartType == 7) {
       console.log('Map chart ', amount)
@@ -901,6 +919,68 @@ const getCharts = async (section_id) => {
       }
     } catch (error) {
       console.error('Error in processPieChart:', error);
+    }
+  }];
+
+  await promises[0]();
+  console.log('Loop completed');
+
+  charts.push(thisChart);
+}
+
+
+// Function to process treemap charts
+async function processTreemapChart() {
+  const promises = [async function () {
+    console.log('processTreemapRequests:', thisChart.card_model, thisChart.card_model_field, thisChart.aggregation);
+
+    try {
+      const cdata = await xgetSummaryMultipleParentsGrouped(thisChart);
+      console.log('treemap - cdata', thisChart);
+
+      const UpdatedTreemapOptions = {
+        ...treemapOptions,
+        chart: {
+          ...treemapOptions.chart,
+          type: 'treemap', // Ensure type is treemap
+        },
+        title: {
+          ...treemapOptions.title,
+          text: thisChart.title,
+        },
+        series: [{ data: cdata[0].map((label, index) => ({ x: label, y: cdata[1][index] })) }], // Combine labels and series into treemap format
+        plotOptions: {
+          treemap: {
+            distributed: true,
+            enableShades: false,
+          },
+        },
+        legend: {
+          show: false,
+        },
+      };
+
+      console.log('UpdatedTreemapOptions', UpdatedTreemapOptions);
+      console.log('cdata', cdata[1]);
+
+      thisChart.chart = UpdatedTreemapOptions;
+
+      // Show "No data" message if data is empty
+      if (!cdata[1] || cdata[1].length === 0) {
+        thisChart.chart.graphic = [{
+          type: 'text',
+          left: 'center',
+          top: 'middle',
+          style: {
+            text: 'No data available',
+            fill: '#999',
+            fontSize: 16,
+          },
+          z: 100,
+        }];
+      }
+    } catch (error) {
+      console.error('Error in processTreemapChart:', error);
     }
   }];
 
@@ -1682,6 +1762,12 @@ const getCharts = async (section_id) => {
 
       }
 
+    else if (thisChart.type == 11) {
+        processTreemapChart();
+
+      }
+      
+
       else if (thisChart.type == 4  ) {
         processStackedBarChart();
       }
@@ -1949,6 +2035,10 @@ const getChartType =   (typeId) => {
       return 'bar';
     }
     else if (typeId==3) {
+      return 'pie';
+    }
+
+        else if (typeId==10) {
       return 'donut';
     }
     else if (typeId==5) {

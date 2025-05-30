@@ -539,9 +539,14 @@ const editIndicator = (data: TableSlotDefault) => {
           value: 3,
           label: 'Pie'
         },
-{
+      {
         value: 10,
         label: 'Donut'
+      },
+
+         {
+        value: 11,
+        label: 'Word Map'
       },
         {
           value: 4,
@@ -584,6 +589,10 @@ const editIndicator = (data: TableSlotDefault) => {
 {
         value: 10,
         label: 'Donut'
+      },
+       {
+        value: 11,
+        label: 'Word Map'
       },
         {
           value: 4,
@@ -730,7 +739,10 @@ const CloneChart = (data: TableSlotDefault) => {
         value: 10,
         label: 'Donut'
       },
-
+ {
+        value: 11,
+        label: 'Word Map'
+      },
       {
         value: 4,
         label: 'Stacked Bar(100%)'
@@ -773,6 +785,10 @@ const CloneChart = (data: TableSlotDefault) => {
 {
         value: 10,
         label: 'Donut'
+      },
+       {
+        value: 11,
+        label: 'Word Map'
       },
       {
         value: 4,
@@ -1144,6 +1160,10 @@ chartOptions.value = [
     value: 10,
     label: 'Donut'
   },
+   {
+        value: 11,
+        label: 'Word Map'
+      },
 ]
 
 const hideCategorize = ref(true)
@@ -1173,6 +1193,10 @@ const handleSelectModel = async (selModel) => {
 {
         value: 10,
         label: 'Donut'
+      },
+       {
+        value: 11,
+        label: 'Word Map'
       },
       {
         value: 4,
@@ -1218,7 +1242,10 @@ const handleSelectModel = async (selModel) => {
         value: 10,
         label: 'Donut'
       },
-
+ {
+        value: 11,
+        label: 'Word Map'
+      },
       {
         value: 4,
         label: 'Stacked Bar(100%)'
@@ -1918,6 +1945,7 @@ v-for="item in DashBoardSectionFilterdOptions" :key="item.value" :label="item.la
           <Icon v-if="scope.row.type === 8" width="24" icon="carbon:chart-population" />
           <Icon v-if="scope.row.type === 9" width="24" icon="ic:baseline-stacked-bar-chart" />
           <Icon v-if="scope.row.type === 10" width="24" icon="ic:sharp-donut-large" />
+          <Icon v-if="scope.row.type === 11" width="24" icon="ic:sharp-donut-large" />
         </template>
       </el-table-column>
 

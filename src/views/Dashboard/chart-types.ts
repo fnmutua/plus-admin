@@ -597,7 +597,61 @@ export const pieOptions = {
 }
 
 
-
+export const treemapOptions = {
+  chart: {
+    height: 350,
+    type: 'treemap',
+    toolbar: {
+      show: true,
+    },
+    zoom: {
+      enabled: true,
+    },
+  },
+  darkMode: false, // Replace with isDark.value if using reactive dark mode
+  colors: [  ],
+  title: {
+    text: 'National Slum Database',
+    align: 'center',
+    style: {
+      fontSize: '16px',
+      fontWeight: 'bold',
+      color: '#000000', // Adjust dynamically if using darkMode
+    },
+  },
+  subtitle: {
+    text: `National Slum Database, ${new Date().getFullYear()}`,
+    align: 'left',
+    style: {
+      fontSize: '12px',
+      fontWeight: 'normal',
+      color: '#9699a2',
+    },
+  },
+  plotOptions: {
+    treemap: {
+      distributed: true,
+      enableShades: false,
+    },
+  },
+  legend: {
+    show: false,
+  },
+  series: [], // To be injected later
+  responsive: [
+    {
+      breakpoint: 600,
+      options: {
+        chart: {
+          width: 200,
+        },
+        legend: {
+          position: 'bottom',
+        },
+      },
+    },
+  ],
+};
 // ECharts options with 100-color palette
 export const barOptions: EChartsOption = {
   //color: customColorPalette, // Apply 100-color palette
