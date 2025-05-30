@@ -26,6 +26,7 @@ SET filters = ARRAY[jsonb_build_object(
 
 DROP TABLE settlement_history CASCADE;
 DROP TABLE grievance CASCADE;
+DROP TABLE households CASCADE;
 
 
 
@@ -35,8 +36,7 @@ psql -U username -d database_name -c "\copy table_name(column1, column2, ...) FR
 
 
 
-DELETE FROM public.dashboard_section_chart
-	WHERE dashboard_section_id in (1,2,3,4,5)
+DELETE FROM public.dashboard_section_chart  	WHERE dashboard_section_id in (1,2,3,4,5)
 
  
 DROP TABLE grievance CASCADE;
@@ -443,3 +443,18 @@ DELETE FROM sewer WHERE county_id = 47;
 DELETE FROM road WHERE county_id = 47;
 DELETE FROM piped_water WHERE county_id = 47;
  
+
+
+
+UPDATE households
+SET monthly_income = 
+  CASE 
+    WHEN monthly_income::int <= 5000 THEN '0_5000'
+    WHEN monthly_income::int BETWEEN 5001 AND 10000 THEN '5001_10000'
+    WHEN monthly_income::int BETWEEN 10001 AND 15000 THEN '10001_15000'
+    WHEN monthly_income::int BETWEEN 15001 AND 20000 THEN '15001_20001'
+    WHEN monthly_income::int BETWEEN 20001 AND 30000 THEN '20001_30000'
+    WHEN monthly_income::int BETWEEN 30001 AND 50000 THEN '30001_50000'
+    WHEN monthly_income::int > 50000 THEN 'above_50000'
+  END
+WHERE monthly_income ~ '^\d+$';
