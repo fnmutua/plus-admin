@@ -207,7 +207,7 @@ export const simpleBarChart = {
           trim: true,
           hideOverlappingLabels: true,
           style: {
-            colors: [],
+            //colors: [],
             fontSize: '8px',
             fontFamily: 'Helvetica, Arial, sans-serif',
             fontWeight: 400,
@@ -282,7 +282,7 @@ export const stackedbarOptions = {
           trim: true,
           hideOverlappingLabels: true,
           style: {
-            colors: [],
+           // colors: [],
             fontSize: '8px',
             fontFamily: 'Helvetica, Arial, sans-serif',
             fontWeight: 400,
@@ -351,7 +351,7 @@ export const stackedbarOptionsAbs = {
           trim: true,
           hideOverlappingLabels: true,
           style: {
-            colors: [],
+           // colors: [],
             fontSize: '8px',
             fontFamily: 'Helvetica, Arial, sans-serif',
             fontWeight: 400,
@@ -419,7 +419,7 @@ export const multipleBarChart = {
             trim: true,
             hideOverlappingLabels: true,
             style: {
-              colors: [],
+             // colors: [],
               fontSize: '8px',
               fontFamily: 'Helvetica, Arial, sans-serif',
               fontWeight: 400,
@@ -543,7 +543,7 @@ export const pieOptions = {
 
 // ECharts options with 100-color palette
 export const barOptions: EChartsOption = {
-  color: customColorPalette, // Apply 100-color palette
+  //color: customColorPalette, // Apply 100-color palette
   title: {
     text: 'barchart',
     left: 'center'
@@ -662,7 +662,7 @@ export const xmultipleBarChart: EChartsOption = {
 }
 
 export const barOptionsMultiple: EChartsOption = {
-  color: customColorPalette, // Apply 100-color palette
+ // color: customColorPalette, // Apply 100-color palette
   title: {
     text: 'World Population'
   },
