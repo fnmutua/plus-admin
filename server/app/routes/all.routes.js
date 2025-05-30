@@ -60,6 +60,7 @@ module.exports = function (app) {
   // Gets the  All dataes
   app.post('/api/v1/data/all/geo',  controller.modelAllGeo)
   app.get('/api/v1/data/stream/geo',  controller.streamAllGeo)
+  app.get('/api/v1/data/geo/minimal',  controller.streamMinimalGeo)
 
   // Gets the  All dataes
   app.post('/api/v1/data/one/geo', [authJwt.verifyToken], controller.modelOneGeo)

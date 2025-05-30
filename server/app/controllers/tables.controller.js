@@ -1213,6 +1213,9 @@ function safeParseAndSanitize(jsonStr) {
       }
     }
 
+
+
+
     // Final response
     const hasErrors = errors.length > 0;
     return res.status(hasErrors ? 207 : 200).json({
@@ -1234,7 +1237,7 @@ function safeParseAndSanitize(jsonStr) {
 };
 
 
-exports.modelImportDataUpsert = async (req, res) => {
+exports._xmodelImportDataUpsert = async (req, res) => {
   try {
     // Validate request body
     console.log('Validate request body');
@@ -1396,6 +1399,173 @@ exports.modelImportDataUpsert = async (req, res) => {
     return res.status(500).json({ message: 'Internal Server Error', failedCount: 1, error: fatalErr.message });
   }
 };
+
+
+exports.modelImportDataUpsert = async (req, res) => {
+  try {
+    // Validate request body
+    console.log('Validate request body');
+    const body = typeof req.body === 'string' ? safeParseAndSanitize(req.body) : req.body;
+    const { model: modelName, data: rawData } = body;
+
+    if (!modelName || !rawData) {
+      return res.status(400).json({ message: 'Model name and data are required' });
+    }
+
+    // Validate model existence
+    const Model = db.models[modelName];
+    if (!Model) {
+      return res.status(400).json({ message: `Model "${modelName}" not found` });
+    }
+
+    // Parse data array
+    let data = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
+    if (!Array.isArray(data)) {
+      return res.status(400).json({ message: 'Data must be an array' });
+    }
+
+    // Prepare result containers
+    const inserted = [];
+    const updated = [];
+    const errors = [];
+
+    // Encryption passphrase for households
+    const passphrase = '***REDACTED***';
+    const sequelizeFn = db.sequelize.fn;
+    const sequelizeCol = db.sequelize.col;
+
+    // Determine model attributes
+    const attributes = Model.rawAttributes;
+
+    // Pre-validate records: filter undefined fields & check hard type mismatches
+    const validRecords = [];
+    data.forEach((origItem, index) => {
+      if (!origItem || typeof origItem !== 'object') {
+        errors.push({ item: origItem, error: 'Invalid record format', detail: `Record at index ${index} is not an object.` });
+        return;
+      }
+      // Keep only defined attributes
+      const item = {};
+      Object.keys(origItem).forEach(key => { if (attributes[key]) item[key] = origItem[key]; });
+      // Type checks
+      Object.entries(attributes).forEach(([key, attrDef]) => {
+        if (!(key in item)) return;
+        const val = item[key]; if (val == null) return;
+        const expType = attrDef.type.key;
+        let mismatch = false;
+        switch (expType) {
+          case 'INTEGER': case 'BIGINT': case 'FLOAT': case 'DOUBLE': case 'DECIMAL':
+            if (typeof val !== 'number') mismatch = true; break;
+          case 'BOOLEAN':
+            if (typeof val !== 'boolean') mismatch = true; break;
+          case 'DATE':
+            if (isNaN(Date.parse(val))) mismatch = true; break;
+          case 'JSON':
+            if (typeof val !== 'object') mismatch = true; break;
+          default: return;
+        }
+        if (mismatch) {
+          errors.push({ item, field: key, error: 'Type mismatch', detail: `Expected ${expType} for '${key}', got ${typeof val}` });
+        }
+      });
+      if (!errors.some(e => e.item === origItem || e.item === item)) validRecords.push(item);
+    });
+
+    if (!validRecords.length) {
+      return res.status(400).json({ message: 'No valid records to process', failedCount: errors.length, errors });
+    }
+
+    // Add metadata and perform field-level encryption/sanitization for households
+    const currentUser = req.thisUser?.id;
+    const timestamp = new Date();
+    const validData = validRecords.map(item => {
+      const record = {
+        ...item,
+        createdBy: currentUser,
+        updatedAt: timestamp,
+        createdAt: item.createdAt || timestamp,
+      };
+      if (modelName === 'households') {
+        // --- RESPONDENT NAME ---
+        let name = record.respondents_name || '';
+        name = name.trim();
+        record.respondents_name = name.length > 0 ? name : 'unspecified';
+      }
+      return record;
+    });
+
+    // Upsert logic with unique constraint handling
+    for (const item of validData) {
+      const uniqueFields = Object.keys(attributes).filter(attr =>
+        attributes[attr].unique || (attributes[attr].primaryKey && attr !== 'id')
+      );
+      const where = {};
+      uniqueFields.forEach(f => { if (item[f] != null) where[f] = item[f]; });
+      try {
+        let existing = Object.keys(where).length ? await Model.findOne({ where }) : null;
+        if (existing) {
+          const updateData = { ...item };
+          uniqueFields.forEach(f => delete updateData[f]);
+          await existing.update(updateData);
+          updated.push(item.code || existing.id);
+        } else {
+          try {
+            const rec = await Model.create(item);
+            inserted.push(rec.id);
+          } catch (createErr) {
+            if (createErr.name === 'SequelizeUniqueConstraintError') {
+              const vioWhere = {};
+              Object.keys(createErr.fields).forEach(f => vioWhere[f] = item[f]);
+              const rec = await Model.findOne({ where: vioWhere });
+              if (rec) {
+                const upd = { ...item };
+                uniqueFields.forEach(f => delete upd[f]);
+                await rec.update(upd);
+                updated.push(item.code || rec.id);
+              } else {
+                errors.push({ item, error: createErr.name, detail: createErr.message });
+              }
+            } else throw createErr;
+          }
+        }
+      } catch (err) {
+        errors.push({ item, error: err.name || 'UpsertError', detail: err.message });
+      }
+    }
+
+    // If importing households, recategorize monthly_income via raw SQL
+    if (modelName === 'households') {
+      await db.sequelize.query(
+        `UPDATE "households"
+         SET monthly_income = CASE
+           WHEN monthly_income::int <= 5000 THEN '0_5000'
+           WHEN monthly_income::int BETWEEN 5001 AND 10000 THEN '5001_10000'
+           WHEN monthly_income::int BETWEEN 10001 AND 15000 THEN '10001_15000'
+           WHEN monthly_income::int BETWEEN 15001 AND 20000 THEN '15001_20001'
+           WHEN monthly_income::int BETWEEN 20001 AND 30000 THEN '20001_30000'
+           WHEN monthly_income::int BETWEEN 30001 AND 50000 THEN '30001_50000'
+           WHEN monthly_income::int > 50000 THEN 'above_50000'
+         END
+         WHERE monthly_income ~ '^[0-9]+$';`
+      );
+    }
+
+    // Final response
+    const hasErrors = errors.length > 0;
+    return res.status(hasErrors ? 207 : 200).json({
+      message: hasErrors ? 'Import completed with some errors' : 'Import process completed successfully',
+      insertedCount: inserted.length,
+      updatedCount: updated.length,
+      failedCount: errors.length,
+      errors,
+      code: hasErrors ? '0001' : '0000',
+    });
+  } catch (fatalErr) {
+    console.error('Fatal upsert error:', fatalErr);
+    return res.status(500).json({ message: 'Internal Server Error', failedCount: 1, error: fatalErr.message });
+  }
+};
+
 
 
 
@@ -1866,11 +2036,97 @@ exports.streamAllGeo = async (req, res) => {
 };
 
 
+exports.streamMinimalGeo = async (req, res) => {
+  console.log('Minimal GEO', req.query.model);
+  try {
+    const reg_model = req.query.model;
 
+    // Validate model parameter
+    if (!reg_model || typeof reg_model !== 'string') {
+      res.status(400);
+      const readableStream = new Readable();
+      readableStream.push(JSON.stringify({
+        message: 'Model parameter is required and must be a string',
+        code: 'INVALID_MODEL'
+      }));
+      readableStream.push(null);
+      readableStream.pipe(res);
+      return;
+    }
 
+    // Check if the model exists
+    if (!db.models[reg_model]) {
+      res.status(404);
+      const readableStream = new Readable();
+      readableStream.push(JSON.stringify({
+        message: `Model ${reg_model} not found`,
+        code: 'MODEL_NOT_FOUND'
+      }));
+      readableStream.push(null);
+      readableStream.pipe(res);
+      return;
+    }
 
- 
+    // Dynamically build attributes based on model schema
+    const modelAttributes = db.models[reg_model].rawAttributes;
+    const attributes = [
+      'id',
+      [db.sequelize.fn('ST_AsGeoJSON', db.sequelize.col('geom')), 'geometry']
+    ];
+    const optionalFields = ['ward_id', 'subcounty_id', 'county_id'];
+    optionalFields.forEach(field => {
+      if (modelAttributes[field]) {
+        attributes.push([db.sequelize.col(field), field]);
+      }
+    });
 
+    // Query the model for id, geometry, and available admin IDs
+    const records = await db.models[reg_model].findAll({
+      attributes: attributes,
+      where: {
+        geom: { [db.Sequelize.Op.ne]: null },
+        [db.Sequelize.Op.and]: db.sequelize.literal('ST_IsEmpty(geom) = false')
+      }
+    });
+
+    // Convert to GeoJSON FeatureCollection
+    const geojson = {
+      type: 'FeatureCollection',
+      features: records.map(record => {
+        const properties = { id: record.id };
+        optionalFields.forEach(field => {
+          if (modelAttributes[field]) {
+            properties[field] = record.get(field);
+          }
+        });
+        return {
+          type: 'Feature',
+          geometry: JSON.parse(record.get('geometry')),
+          properties: properties
+        };
+      })
+    };
+
+    // Stream the GeoJSON FeatureCollection directly
+    res.status(200);
+    res.setHeader('Content-Type', 'application/json');
+    const readableStream = new Readable();
+    readableStream.push(JSON.stringify(geojson));
+    readableStream.push(null);
+    readableStream.pipe(res);
+
+  } catch (error) {
+    console.error('Error in streamMinimalGeo:', error);
+    res.status(500);
+    const readableStream = new Readable();
+    readableStream.push(JSON.stringify({
+      message: 'Internal server error',
+      code: 'SERVER_ERROR'
+    }));
+    readableStream.push(null);
+    readableStream.pipe(res);
+  }
+};
 
 
 exports.modelOneGeo = async (req, res) => {
