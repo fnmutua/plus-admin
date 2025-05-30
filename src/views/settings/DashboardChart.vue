@@ -539,7 +539,10 @@ const editIndicator = (data: TableSlotDefault) => {
           value: 3,
           label: 'Pie'
         },
-
+{
+        value: 10,
+        label: 'Donut'
+      },
         {
           value: 4,
           label: 'Stacked Bar(100%)'
@@ -578,7 +581,10 @@ const editIndicator = (data: TableSlotDefault) => {
           value: 3,
           label: 'Pie'
         },
-
+{
+        value: 10,
+        label: 'Donut'
+      },
         {
           value: 4,
           label: 'Stacked Bar(100%)'
@@ -720,6 +726,10 @@ const CloneChart = (data: TableSlotDefault) => {
         value: 3,
         label: 'Pie'
       },
+      {
+        value: 10,
+        label: 'Donut'
+      },
 
       {
         value: 4,
@@ -760,7 +770,10 @@ const CloneChart = (data: TableSlotDefault) => {
         value: 3,
         label: 'Pie'
       },
-
+{
+        value: 10,
+        label: 'Donut'
+      },
       {
         value: 4,
         label: 'Stacked Bar(100%)'
@@ -1127,7 +1140,10 @@ chartOptions.value = [
     value: 8,
     label: 'Population Pyramid'
   },
-
+  {
+    value: 10,
+    label: 'Donut'
+  },
 ]
 
 const hideCategorize = ref(true)
@@ -1154,7 +1170,10 @@ const handleSelectModel = async (selModel) => {
         value: 3,
         label: 'Pie'
       },
-
+{
+        value: 10,
+        label: 'Donut'
+      },
       {
         value: 4,
         label: 'Stacked Bar(100%)'
@@ -1193,6 +1212,11 @@ const handleSelectModel = async (selModel) => {
       {
         value: 3,
         label: 'Pie'
+      },
+
+      {
+        value: 10,
+        label: 'Donut'
       },
 
       {
@@ -1893,6 +1917,7 @@ v-for="item in DashBoardSectionFilterdOptions" :key="item.value" :label="item.la
           <Icon v-if="scope.row.type === 7" width="24" icon="foundation:map" />
           <Icon v-if="scope.row.type === 8" width="24" icon="carbon:chart-population" />
           <Icon v-if="scope.row.type === 9" width="24" icon="ic:baseline-stacked-bar-chart" />
+          <Icon v-if="scope.row.type === 10" width="24" icon="ic:sharp-donut-large" />
         </template>
       </el-table-column>
 

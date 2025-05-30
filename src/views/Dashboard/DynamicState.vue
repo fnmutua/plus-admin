@@ -468,7 +468,7 @@ function xtransformData(data, chartType, aggregationMethod, cfield) {
         show: true
       }
     }
-    else if (chartType == 3) { //3 pie bar chart
+    else if (chartType == 3||chartType ==10) { //3 pie bar chart
       objChart.value = dataArr
       objChart.name = category
 
@@ -554,7 +554,7 @@ for (const item of filters ) {
      filterValues.push(selectedCounties.value)
     filterOperators.push('or')
 
-    if(chartType!=3) { 
+    if(chartType!=3 &&chartType!=10 ) { 
       groupFields.push('subcounty.name')
     }
 
@@ -575,7 +575,7 @@ for (const item of filters ) {
     filterOperators.push('or')
 
 
-    if(chartType!=3) { 
+    if(chartType!=3&&chartType!=10) { 
       groupFields.push('ward.name')
     }
   }
@@ -587,13 +587,13 @@ for (const item of filters ) {
     associated_Models.push('county')
 
 
-     if(chartType!=3) { 
+     if(chartType!=3&&chartType!=10) { 
       groupFields.push('county.name')
     }
 
   }
 
-  if(chartType==3) { 
+  if(chartType==3 ||chartType==10 ) { 
       groupFields.push(cmodel + '.' + cfield )
     }
 
@@ -694,7 +694,7 @@ for (const item of filters ) {
 
     }
 
-    else if (chartType == 3) {
+    else if (chartType == 3 || chartType ==10) {
       console.log('thisChart--- ', thisChart)
       console.log('piechart--- ', amount)
   
@@ -870,7 +870,7 @@ const getSummaryChartIIntervention = async (indicator_categories,thisChart) => {
     filterOperators.push('or')
 
  
-    if(chartType!=3) {
+    if(chartType!=3&&chartType!=10) {
       // dont add groups for a piechart
       groupFields.push('subcounty.name')
     }
@@ -886,7 +886,7 @@ const getSummaryChartIIntervention = async (indicator_categories,thisChart) => {
     filterFields.push('subcounty_id')
  
   
-    if(chartType!=3) {
+    if(chartType!=3&&chartType!=10) {
       // dont add groups for a piechart
       groupFields.push('ward.name')
     }
@@ -899,7 +899,7 @@ const getSummaryChartIIntervention = async (indicator_categories,thisChart) => {
     associated_Models.push('county')
 
     
-    if(chartType!=3) {
+    if(chartType!=3&&chartType!=10) {
       // dont add groups for a piechart
       groupFields.push('county.name')
     }
@@ -910,7 +910,7 @@ const getSummaryChartIIntervention = async (indicator_categories,thisChart) => {
 
 
   
-  if(chartType==3) {
+  if(chartType==3||chartType==10) {
       // dont add groups for a piechart
       groupFields.push(cmodel + '.' + cfield )
     }
@@ -1009,7 +1009,7 @@ const getSummaryChartIIntervention = async (indicator_categories,thisChart) => {
 
     }
 
-    else if (chartType == 3) {
+    else if (chartType == 3 || chartType ==10) {
       console.log('piechart--- ', amount)
   
 
@@ -1227,84 +1227,70 @@ const getCharts = async (section_id) => {
 
 
        
+ 
 
-      // function to process processMultiBarChart charts 
-      async function processPieChart() {
-        const promises = [async function () {
-          console.log('pie  1-chart details:', thisChart.card_model, thisChart.card_model_field, thisChart.aggregation);
+ async function processPieChart() {
+  const promises = [async function () {
+    console.log('processPieChart:', thisChart.card_model, thisChart.card_model_field, thisChart.aggregation);
 
-          try {
+    try {
+      const cdata = await xgetSummaryMultipleParentsGrouped(thisChart);
+      console.log('piechart - cdata', thisChart);
 
-            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart ); // first array is the categories // second is the data
-            console.log('piechart - cdata',cdata);
+      const isDonut = thisChart.type == '10'; // Custom flag you can define
+       console.log('isDonut',isDonut)
 
-
-            const UpdatedPieOptionsMultiple = {
-              ...pieOptions,
-              title: {
-                ...pieOptions.title,
-                text: thisChart.title
-              },
-
-              // series: {
-              //   ...pieOptions.series[0],
-              //   data: cdata[1]    // data 
-              // },
-
-              labels:cdata[0],
-              series:cdata[1] 
-
-
-            };
-
-            console.log('UpdatedPieOptionsMultiple', UpdatedPieOptionsMultiple)
-            console.log('cdata', cdata[1][0].data)
-
-            
-
-            thisChart.chart = UpdatedPieOptionsMultiple
-
-
-
-
-            // show no data 
-            if (cdata[1].length === 0) {
-              thisChart.chart.graphic = [{
-                type: 'text',
-                left: 'center',
-                top: 'middle',
-                style: {
-                  text: 'No data  available',
-                  fill: '#999',
-                  fontSize: 16
-                },
-                z: 100 // Higher z value to place it on top
-
-              }]
+        const UpdatedPieOptionsMultiple = {
+          ...pieOptions,
+          chart: {
+            ...pieOptions.chart,
+            //type: 'pie'
+          },
+          title: {
+            ...pieOptions.title,
+            text: thisChart.title
+          },
+          labels: cdata[0],
+          series: cdata[1],
+          plotOptions: {
+            pie: {
+              donut: {
+                ...(isDonut ? { size: '50%' } : {size: '0%'})  // Only include size if donut
+              }
             }
-
-
-
-
-
-          } catch (error) {
-            // Handle any errors that occurred during the process
           }
+        };
+
+
+      console.log('UpdatedPieOptionsMultiple', UpdatedPieOptionsMultiple);
+      console.log('cdata', cdata[1][0]?.data);
+
+      thisChart.chart = UpdatedPieOptionsMultiple;
+
+      // Show "No data" message if data is empty
+      if (!cdata[1] || cdata[1].length === 0) {
+        thisChart.chart.graphic = [{
+          type: 'text',
+          left: 'center',
+          top: 'middle',
+          style: {
+            text: 'No data available',
+            fill: '#999',
+            fontSize: 16
+          },
+          z: 100
         }];
-
-        //     await Promise.all(promises);
-        await promises[0]();
-
-        // The loop has completed and all promises have been resolved/rejected
-        console.log('Loop completed');
-
-
-
-
-
-        charts.push(thisChart)
-        // Continue with the rest of your code here
       }
+    } catch (error) {
+      console.error('Error in processPieChart:', error);
+    }
+  }];
+
+  await promises[0]();
+  console.log('Loop completed');
+
+  charts.push(thisChart);
+}
 
 
       // function to process processMultiBarChart charts 
@@ -2599,7 +2585,7 @@ const getCharts = async (section_id) => {
         processMultiBarChart();
       }
 
-      else if (thisChart.type == 3 && thisChart.category=="Status") {
+      else if ((thisChart.type == 3 || thisChart.type == 10) && thisChart.category=="Status") {
         processPieChart();
       }
 
@@ -2644,7 +2630,7 @@ const getCharts = async (section_id) => {
         processMultiBarChart2();
       }
 
-      else if (thisChart.type == 3 && thisChart.category=="Intervention") {
+      else if ((thisChart.type == 3 || thisChart.type == 10 )&& thisChart.category=="Intervention") {
         processPieChart2();
       }
 
@@ -2956,6 +2942,10 @@ const formatNumber =   (value) => {
       return 'bar';
     }
     else if (typeId==3) {
+      return 'pie';
+    }
+
+      else if ( typeId==10) {
       return 'donut';
     }
     else if (typeId==5) {

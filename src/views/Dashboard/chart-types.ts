@@ -488,10 +488,10 @@ export const lineOptions = {
   }]
 }
 
-export const pieOptions = {
+export const pieDonutOptions = {
   chart: {
     height: 350,
-    type: 'pie',
+    type: 'donut',
     toolbar: {
       show: true
     },
@@ -540,6 +540,63 @@ export const pieOptions = {
     }
   }]
 }
+
+
+export const pieOptions = {
+  chart: {
+    height: 350,
+    type: 'donut',
+    toolbar: {
+      show: true
+    },
+    zoom: {
+      enabled: true
+    }
+  },
+  darkMode: isDark.value,
+  colors: romaColors, // Use Roma theme colors
+
+  title: {
+    text: 'National Slum Database',
+    align: 'center',
+    style: {
+      fontSize: '16px',
+      fontWeight: 'bold',
+      color: isDark.value ? '#ffffff' : '#000000'
+    }
+  },
+  plotOptions: {
+   pie: {
+    donut: {
+      size: '50%' // force it to have no donut hole
+    }
+  }
+  },
+  subtitle: {
+    text: `National Slum Database, ${new Date().getFullYear()}`,
+    align: 'left',
+    style: {
+      fontSize: '12px',
+      fontWeight: 'normal',
+      color: '#9699a2'
+    }
+  },
+  labels: [],
+  series: [],
+  responsive: [{
+    breakpoint: 600,
+    options: {
+      chart: {
+        width: 200
+      },
+      legend: {
+        position: 'bottom'
+      }
+    }
+  }]
+}
+
+
 
 // ECharts options with 100-color palette
 export const barOptions: EChartsOption = {
