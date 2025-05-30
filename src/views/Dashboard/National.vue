@@ -672,9 +672,9 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
           })),
         },
       ];
+      console.log('seriesData-tree',seriesData)
       categoryArray = extractedData[0]; // Still return labels for compatibility
     } 
-    
 
     else if (chartType == 7) {
       console.log('Map chart ', amount)
@@ -936,7 +936,7 @@ async function processTreemapChart() {
 
     try {
       const cdata = await xgetSummaryMultipleParentsGrouped(thisChart);
-      console.log('treemap - cdata', thisChart);
+      console.log('treemap - cdata', cdata);
 
       const UpdatedTreemapOptions = {
         ...treemapOptions,
@@ -948,7 +948,8 @@ async function processTreemapChart() {
           ...treemapOptions.title,
           text: thisChart.title,
         },
-        series: [{ data: cdata[0].map((label, index) => ({ x: label, y: cdata[1][index] })) }], // Combine labels and series into treemap format
+        //series: [{ data: cdata[0].map((label, index) => ({ x: label, y: cdata[1][index] })) }], // Combine labels and series into treemap format
+        series:cdata[1],
         plotOptions: {
           treemap: {
             distributed: true,
