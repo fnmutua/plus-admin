@@ -2,15 +2,9 @@
 import {
   ElRow, ElCol, ElCard, ElDivider, ElTabs, ElTabPane, ElSkeleton, ElCascader, ElCascaderPanel, ElCascaderPanelContext, ElSelect, ElOption
 } from 'element-plus'
-
 import { ref, reactive, watch, onBeforeMount, onMounted } from 'vue'
-
-
 import { use } from "echarts/core";
-
-
 import { Icon } from '@iconify/vue';
-
 import {
   pieOptions,  multipleBarChart, stacklineOptions, mapChartOptions,treemapOptions,
   lineOptions, stackedbarOptions, barMaleFemaleOptions, simpleBarChart,stackedbarOptionsAbs
@@ -22,15 +16,11 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
 import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
 import { getfilteredGeo } from '@/api/settlements'
-
 import {  getSummaryGroupByMultipleFields, getSummarybyFieldNested } from '@/api/summary'
-
 import * as turf from '@turf/turf'
 import { getAllGeo } from '@/api/settlements'
 import { useRoute } from 'vue-router'
-
 import VueApexCharts from "vue3-apexcharts"
-
 import { CanvasRenderer } from 'echarts/renderers';
 import { PieChart, GaugeChart, BarChart, LineChart, } from 'echarts/charts';
 import {
@@ -44,16 +34,12 @@ import {
 import VChart, { THEME_KEY } from 'vue-echarts';
 import { provide } from 'vue';
 import { getRoutesList } from '@/api/settlements'
-
- 
 import { inject } from 'vue'
+import { useRouter } from 'vue-router'
+
+const { push } = useRouter()
+
  
-
-
-const colorPalette = ['#ff007f', '#0000ff'];  // Male-Female
-const maleIcon = 'path://m 146.41936,238.8034 c -5.21101,-1.43402 -7.51545,-6.79358 -6.6619,-11.76943 -0.0588,-45.10952 -0.11757,-90.21905 -0.17635,-135.328563 -5.3022,-1.61412 -3.06375,4.34199 -3.52464,7.58816 -0.0576,14.697923 -0.11511,29.395843 -0.17266,44.093773 -1.72718,6.61806 -12.15586,7.45944 -14.19605,0.88682 -1.42909,-4.98857 -0.22146,-10.60033 -0.62062,-15.83232 0.10773,-15.18837 -0.21551,-30.437173 0.16059,-45.587893 1.91842,-11.228608 12.80383,-20.22421 24.26927,-18.689786 10.60777,1.558898 0.0755,-3.65768 -0.79236,-8.596161 -4.23852,-8.688715 0.80002,-20.073014 9.72708,-23.421847 8.82591,-4.162774 20.30103,1.001172 23.52581,10.108188 2.28945,5.67583 1.4368,12.853955 -2.76118,17.571486 -5.15831,4.024926 -3.94241,5.010805 1.85043,4.362909 13.58742,-1.603119 25.03585,11.840701 23.9554,24.967141 -0.0691,18.213333 -0.13818,36.426673 -0.20726,54.640013 -1.5351,4.55905 -7.30638,6.71543 -11.30858,3.96578 -4.81473,-2.8888 -2.73019,-9.20279 -3.19227,-13.88869 -0.0523,-14.05586 -0.10469,-28.11173 -0.15704,-42.167583 -4.85271,-1.54237 -3.37467,3.24601 -3.51022,6.4208 V 231.02616 c -1.3114,6.77368 -9.29063,10.3384 -15.13544,6.61747 -6.62075,-3.7866 -4.17124,-12.04397 -4.62011,-18.29166 v -70.84935 c -4.85175,-1.54283 -3.39102,3.24111 -3.53094,6.42079 -0.0578,25.5528 -0.11553,51.1056 -0.17329,76.65839 -1.7387,5.48439 -7.13811,8.77105 -12.74767,7.2216 z'
-const femaleIcon = 'path://m 39.7122,238.0264 c -5.604205,-1.49359 -5.822698,-7.32898 -5.431108,-11.96235 -0.05932,-18.97406 -0.118632,-37.94813 -0.177948,-56.92219 -7.401109,0.0507 -14.802279,0.16954 -22.203547,0.1438 8.050221,-26.97466 15.83106,-54.03787 24.0791,-80.948455 -6.246873,-1.537447 -5.103818,6.332986 -7.12857,10.198179 -4.203419,12.783656 -7.28462,25.995046 -12.31951,38.467156 C 6.215777,147.43407 -0.93895389,129.58252 6.2279437,121.52707 11.709639,105.71684 15.006783,88.999576 22.521999,73.9779 25.487431,65.143259 38.425956,64.174487 43.879817,63.247984 35.242261,58.307767 32.195248,46.181151 37.843175,37.985287 c 5.35176,-7.73122 16.727442,-10.988636 24.757146,-5.16531 11.321083,6.562216 10.452089,25.024381 -1.135269,30.670395 9.830628,-0.28155 20.086569,3.623662 24.845207,12.765524 3.87086,7.45858 5.12438,16.169298 8.137928,24.037484 2.906124,10.26421 6.922833,20.35157 9.297803,30.70045 1.06345,4.17564 -1.66552,9.02385 -6.181687,9.2796 -7.686885,1.11419 -8.783192,-8.80355 -10.70406,-14.18732 -3.87502,-12.5653 -7.681429,-25.15172 -11.575988,-37.711005 -8.798872,-0.113812 1.949333,13.898795 1.781574,19.941085 6.048408,20.20812 12.13493,40.40517 18.089502,60.64114 -7.392371,0.35953 -14.803078,0.14681 -22.203496,0.20388 -0.06597,21.22546 -0.131933,42.45093 -0.1979,63.67639 -2.103142,7.13406 -13.415648,7.74398 -15.969932,0.84281 -1.418088,-4.77754 -0.245017,-10.18282 -0.655178,-15.20454 l -0.156843,-49.31466 c -4.44248,-1.05339 -5.844521,0.93365 -4.913879,5.25338 -0.162881,19.18788 0.325808,38.44483 -0.244801,57.58947 -0.334387,5.03435 -6.719798,7.8699 -11.101102,6.02234 z'
-
 
 use([
   GaugeChart,
@@ -131,7 +117,7 @@ const getDynamicDashboards = async () => {
 onBeforeMount( async () => {
     console.log("Before mount");
       //dashboard_id.value = 1;
-    // page_title.value = this.$route.meta.title;
+    // page_title.value = route.meta.title;
   await getDynamicDashboards();
     getCountyGeo()
     getCards()
@@ -2047,8 +2033,154 @@ const getChartType =   (typeId) => {
       return 'pyramid';
     } 
 }
+
+const xhandleCardClick = async (card) => {
+ 
+      // Route based on card.entity
+      switch (card.card_model) {
+        case 'settlement':
+        push({name: 'Settlements'})
+          break;
+        case 'Grievance':
+        push({name: 'Grievances'})
+          break;
+        case 'households':
+        push({name: 'AllHouseholds'})
+          break;
+        case 'PastReports':
+              push({name: 'PastReports'})
+          break;
+          case 'Articles':
+              push({name: 'Articles'})
+          break;
+          case 'Committees':
+              push({name: 'Committees'})
+          break;
+          case 'Education':
+              push({name: 'Education'})
+          break;
+
+          case 'Health':
+              push({name: 'Health'})
+          break;
+          case 'Media':
+              push({name: 'Media'})
+          break;
+          case 'Parcel':
+              push({name: 'Parcel'})
+          break;
+         
+          case 'PipedWater':
+              push({name: 'PipedWater'})
+          break;
+
+          case 'Repository':
+              push({name: 'Repository'})
+          break;
+ 
+          case 'Sewer':
+              push({name: 'Sewer'})
+          break;
+          case 'Surveys':
+              push({name: 'Surveys'})
+          break;
   
-  
+ 
+          case 'WaterPoint':
+              push({name: 'WaterPoint'})
+          break;
+ 
+
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+        default:
+          // Fallback route or no action
+        
+          break;
+      }
+    }
+
+
+    const handleCardClick = async (card) => {
+  // Route based on card.card_model
+  switch (card.card_model) {
+    case 'settlement':
+      push({ name: 'List' });
+      break;
+    case 'grievance':
+      push({ name: 'OpenGrievances' });
+      break;
+    // case 'households':
+    //   push({ name: 'AllHouseholds' });
+    //   break;
+    case 'indicator_category_report':
+      push({ name: 'PastReports' });
+      break;
+    case 'article':
+      push({ name: 'Articles' });
+      break;
+    case 'community':
+      push({ name: 'Committees' });
+      break;
+    case 'education_facility':
+      push({ name: 'Education' });
+      break;
+    case 'health_facility':
+      push({ name: 'Health' });
+      break;
+    case 'media':
+      push({ name: 'Media' });
+      break;
+    case 'parcel':
+      push({ name: 'Parcel' });
+      break;
+    case 'piped_water':
+      push({ name: 'PipedWater' });
+      break;
+    case 'document':
+      push({ name: 'RepositoryTagged' });
+      break;
+    case 'sewer':
+      push({ name: 'Sewer' });
+      break;
+    case 'survey':
+      push({ name: 'Surveys' });
+      break;
+    case 'water_point':
+      push({ name: 'WaterPoint' });
+      break;
+    case 'beneficiary':
+      push({ name: 'InterventionBeneficiary' });
+      break;
+    case 'project':
+      push({ name: 'ProjectMap' });
+      break;
+    case 'road':
+      push({ name: 'Road' });
+      break;
+    case 'indicator':
+      push({ name: 'Indicators' });
+      break;
+    case 'users':
+      push({ name: 'staff' });
+      break;
+    default:
+      
+      break;
+  }
+};
 
 </script>
 
@@ -2061,37 +2193,35 @@ const getChartType =   (typeId) => {
     <el-option v-for="item in filteredSubCountyList" :key="item.value" :label="item.label" :value="item.value" />
   </el-select>
 
-
-  <!-- <el-cascader
-:style="{ width: '100% ' }" v-model="selectedAdminId" placeholder="Filter by County/Constituency"
-    :options="options" :props="props" @change="handleChange" />
-  -->
-
   <el-row :gutter="20">
     <el-col v-for="(card) in cards" :key="card.id" :span="24 / cards.length" :xs="24" :sm="12" :md="8" :lg="6">
       <div class="tabs-container">
         <ElSkeleton :loading="cardLoading" animated>
-
           <el-card shadow="always">
             <div class="card-content">
               <div class="icon-container">
-                <Icon :icon=card.icon width="60" :color=card.iconColor />
+                <Icon :icon="card.icon" width="60" :color="card.iconColor" />
               </div>
-
               <el-divider direction="vertical" />
               <div class="card-value">
-                <p class="value-text">{{ formatNumber(card.value) }}{{ card.symbol }}</p>
+                <p
+                  class="value-text"
+                  @click="handleCardClick(card)"
+                  role="link"
+                  tabindex="0"
+                  @keydown.enter="handleCardClick(card)"
+                >
+                  {{ formatNumber(card.value) }}{{ card.symbol }}
+                </p>
                 <p class="value-label">{{ card.description }}</p>
               </div>
-
             </div>
           </el-card>
         </ElSkeleton>
-
       </div>
-
     </el-col>
   </el-row>
+
   <div class="tabs-container">
   <el-tabs v-model="activeTab">
     <el-tab-pane v-for="(tab) in tabs" :name="tab.name" :key="tab.id" :label="tab.label">
@@ -2126,60 +2256,73 @@ const getChartType =   (typeId) => {
 </template>
  
 <style scoped>
-.chart {
-  height: 40vh;
+.tabs-container {
+  margin-bottom: 5px; /* Reduced from 20px for tighter layout */
+  margin-top: 5px; /* Reduced from 20px for tighter layout */
 }
-
+.el-card {
+  border-radius: 8px; /* Smaller radius for a more compact look */
+  background-color: #ffffff;
+  transición: all 0.3s ease;
+}
+.el-card:hover {
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15); /* Softer shadow for smaller size */
+  transform: translateY(-1px); /* Subtle lift, reduced from 2px */
+}
 .card-content {
   display: flex;
   align-items: center;
+  padding: 10px; /* Reduced from 15px for a smaller card */
 }
-
-.card-icon {
-  margin-right: 10px;
-}
-
-.card-divider {
-  width: 1px;
-  height: 80%;
-  background-color: #e4e7ed;
-  margin: 0 10px;
-}
-
-.card-value {
-  flex-grow: 1;
-}
-
-.value-text {
-  font-size: 24px;
-  font-weight: bold;
-}
-
-.value-label {
-  font-size: 14px;
-  color: #999999;
-}
-
-.tabs-container {
-  margin-top: 10px;
-}
-
-
-.charts-container {
-  margin-top: 10px;
-}
-.cards-container {
-  margin-top: 5px;
-}
-
-
 .icon-container {
-  display: inline-block;
-  position: relative;
-  box-shadow: 0 2px 4px rgba(34, 35, 35, 0.2);
-  padding: 5px;
-  /* optional padding around the icon */
-  border-radius: 10%;
-  /* optional border radius for circular icon */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 60px; /* Reduced from 80px for compactness */
+  height: 60px; /* Reduced from 80px */
+  background-color: #f5f7fa;
+  border-radius: 50%;
+  margin-right: 10px; /* Reduced from 15px */
+}
+.el-divider--vertical {
+  height: 40px; /* Reduced from 60px to match smaller content */
+  background-color: #dcdfe6;
+  margin: 0 10px; /* Reduced from 15px for tighter spacing */
+}
+.card-value {
+  flex: 1;
+  text-align: left;
+}
+.value-text {
+  font-size: 29px; /* Reduced from 24px for smaller appearance */
+  font-weight: 900;
+  color: #303133;
+  margin: 0;
+  cursor: pointer;
+  text-decoration: none;
+}
+.value-text:hover {
+  color: #409eff;
+  text-decoration: underline;
+}
+.value-label {
+  font-size: 12px; /* Reduced from 14px for proportionality */
+  color: #909399;
+  margin: 3px 0 0 0; /* Reduced from 5px for tighter spacing */
+}
+@media (max-width: 768px) {
+  .card-content {
+    padding: 8px; /* Further reduced from 10px for small screens */
+  }
+  .value-text {
+    font-size: 16px; /* Reduced from 20px */
+  }
+  .icon-container {
+    width: 40px; /* Reduced from 60px */
+    height: 40px;
+  }
+  .el-divider--vertical {
+    height: 30px; /* Reduced from 50px */
+  }
 }
 </style>
