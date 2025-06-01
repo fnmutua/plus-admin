@@ -3,8 +3,8 @@ import { Descriptions } from '@/components/Descriptions'
 import { useI18n } from '@/hooks/web/useI18n'
 import { onMounted, defineAsyncComponent, ref, reactive, computed } from 'vue'
 import {
-  ElInput, ElButton, ElTabPane, ElTabs, ElCard, ElTable, ElTableColumn, ElMessage, ElDrawer,
-  ElIcon, ElPopconfirm, ElPagination,
+  ElInput, ElButton, ElTabPane, ElTabs, ElCard, ElTable, ElTableColumn, ElMessage, ElDrawer,   ElSelect,
+  ElIcon, ElPopconfirm, ElPagination,ElRow,ElCol,
 } from 'element-plus'
 import { useRoute } from 'vue-router'
 import {
@@ -17,6 +17,10 @@ import { getFile } from '@/api/summary'
 import '@dafcoe/vue-collapsible-panel/dist/vue-collapsible-panel.css'
 import UploadComponent from '@/views/Components/UploadComponent.vue';
 import SettlementMap from '@/views/Components/SettlementMap.vue';
+import DownloadCustom from '@/views/Components/DownloadCustom.vue';
+import {
+  searchByKeyWord
+} from '@/api/settlements'
 
 
 import { ElCollapseTransition, ElTooltip } from 'element-plus'
@@ -743,8 +747,10 @@ const total_hh =ref(0)
 
 //const handleSizeChange = (size) => {
 const handleSizeChange = async (size: any) => {
+  console.log(size)
   pSize.value = size
   page.value = 1 // reset to first page
+  getHouseholds()
 }
  
 
@@ -1186,6 +1192,40 @@ const editSettlement = () => {
 
 }
 
+ 
+const searchName =ref('')
+
+const searcHouseholds = async () => {
+
+  console.log(searchName.value)
+  const formData = {}
+  formData.limit = pSize.value
+  formData.page = page.value
+  formData.curUser = 1 // Id for logged in user
+  formData.model = 'households'
+  //-Search field--------------------------------------------
+  formData.searchField = 'respondents_name'
+  formData.searchKeyword = searchName.value
+ 
+  // - multiple filters -------------------------------------
+  formData.filters = ['settlement_id']
+  formData.filterValues = [[route.params.id]]
+  formData.associated_multiple_models = []
+  formData.nested_models = []
+  //-------------------------
+  //console.log(formData)
+  const res = await searchByKeyWord(formData)
+  console.log(res)
+  total_hh.value=res.total
+
+  households.value=res.data
+
+  // 
+
+   
+}
+
+
 </script>
 
 <template>
@@ -1344,7 +1384,28 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
       </el-tab-pane>
 
     <el-tab-pane label="Households" name="Households">
+   
         <el-card>
+          <el-row :gutter="10" style="margin-bottom:10px">
+              <el-col :span="23">
+                <el-input
+                  v-model="searchName"
+                  placeholder="Search by name"
+                  remote
+                  :onInput="searcHouseholds"
+                  clearable
+                  style="width: 100%"
+                />
+              </el-col>
+              <el-col :span="1">
+                <DownloadCustom
+                  :data="households"
+                  model="households" 
+                  style="width: 100%"
+                />
+              </el-col>
+            </el-row>
+  
           <el-table :data="households" border  >
             <el-table-column type="index" width="50" />
             <el-table-column label="Name" prop="respondents_name" width="350" sortable />
