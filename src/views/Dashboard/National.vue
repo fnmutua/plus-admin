@@ -1728,7 +1728,7 @@ async function processTreemapChart() {
         charts.push(thisChart)
         // Continue with the rest of your code here
       }
-
+ 
       // Run the approriate funtion 
       if (thisChart.type == 1) {
         console.log('processSimpleBarChart')
