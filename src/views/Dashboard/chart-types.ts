@@ -1050,10 +1050,14 @@ export const mapChartOptions: EChartsOption = {
   ]
 }
 
- 
+
+
+
+
+
+
+
 export const pyramidOptions  = {
- 
- 
     series: [{
       name: 'Males',
       data: [0.4, 0.65, 0.76, 0.88, 1.5, 2.1, 2.9, 3.8, 3.9, 4.2, 4, 4.3, 4.1, 4.2, 4.5,
@@ -1083,7 +1087,47 @@ export const pyramidOptions  = {
         autoSelected: 'zoom'
       }
     },
+     
+ 
+
+    legend: {
+      show: true,
+      position: 'top',
+      markers: {
+        size: 10,
+        width: 10,
+        height: 10,
+          customHTML: [
+          // Series 0 → Males
+          () => `
+          <svg fill="#008FFB" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" stroke="#008FFB"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"><path d="M9.5,7H15a1,1,0,0,1,.949.684l2,6a1,1,0,0,1-1.9.632L14.5,9.662V22a1,1,0,0,1-2,0V16h-1v6a1,1,0,0,1-2,0V9.662L7.949,14.316a1,1,0,0,1-1.9-.632l2-6A1,1,0,0,1,9,7Zm0-3.5A2.5,2.5,0,1,0,12,1,2.5,2.5,0,0,0,9.5,3.5Z"></path></g></svg> `,
+          // Series 1 → Females
+          () => `
+          <svg fill="#FF4560" viewBox="-128 0 512 512" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"><path d="M128 0c35.346 0 64 28.654 64 64s-28.654 64-64 64c-35.346 0-64-28.654-64-64S92.654 0 128 0m119.283 354.179l-48-192A24 24 0 0 0 176 144h-11.36c-22.711 10.443-49.59 10.894-73.28 0H80a24 24 0 0 0-23.283 18.179l-48 192C4.935 369.305 16.383 384 32 384h56v104c0 13.255 10.745 24 24 24h32c13.255 0 24-10.745 24-24V384h56c15.591 0 27.071-14.671 23.283-29.821z"></path></g></svg>
+          `
+        ],
    
+        offsetX: 0,
+        offsetY: 0
+    },
+   
+      itemMargin: {
+        horizontal: 5,
+        vertical: 0
+      },
+      onItemClick: {
+        toggleDataSeries: true
+      },
+      onItemHover: {
+        highlightDataSeries: true
+      }
+
+
+
+    },
+
+
+
 
     colors: ['#008FFB', '#FF4560'],
     plotOptions: {
@@ -1152,3 +1196,7 @@ export const pyramidOptions  = {
     },
   },
 };
+
+
+
+ 
