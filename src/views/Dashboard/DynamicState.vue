@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
-  ElRow, ElCol, ElCard, ElDivider, ElTabs, ElTabPane, ElSkeleton, ElCascader, ElCascaderPanel, ElCascaderPanelContext, ElSelect, ElOption
+  ElRow, ElCol, ElCard, ElDivider, ElTabs, ElTabPane, ElSkeleton, ElCascader, ElCascaderPanel, 
+  ElCascaderPanelContext, ElSelect, ElOption,ElEmpty,
 } from 'element-plus'
 
 import { ref,computed, reactive, watch, onMounted } from 'vue'
@@ -1891,11 +1892,11 @@ const getCharts = async (section_id) => {
                         // 1) Override the series array with your computed data
                         series: [
                           {
-                            ...pyramidOptions.series[0], // “Males” template
+                            ...pyramidOptions.series[0], // "Males" template
                             data: males                  // your new males array
                           },
                           {
-                            ...pyramidOptions.series[1], // “Females” template
+                            ...pyramidOptions.series[1], // "Females" template
                             data: females                // your new females array
                           }
                         ],
@@ -1905,7 +1906,7 @@ const getCharts = async (section_id) => {
                           ...pyramidOptions.chartOptions,
                           title: {
                             ...pyramidOptions.chartOptions.title,
-                            text: thisChart.title      // replace “Mauritius population pyramid 2011”
+                            text: thisChart.title      // replace "Mauritius population pyramid 2011"
                           }
                         }
                       };
@@ -2925,149 +2926,316 @@ const handleCardClick = async (card) => {
 </script>
 
 <template>
-  <el-select :style="{ width: '25% ', marginRight: '10px' }"   @change="filterCounty"   :onClear="handleClear"  multiple v-model="selectCounty"    clearable filterable collapse-tags placeholder="Select County">
-    <el-option v-for="item in countyList" :key="item.value" :label="item.label" :value="item.value" />
-  </el-select>
+  <div class="dashboard-container">
+    <div class="filters-wrapper">
+      <div class="filters-container">
+        <div class="filter-group">
+          <label class="filter-label">County</label>
+          <el-select 
+            class="filter-select"
+            @change="filterCounty" 
+            :onClear="handleClear" 
+            v-model="selectCounty" 
+            multiple 
+            clearable 
+            filterable 
+            collapse-tags 
+            placeholder="Select County">
+            <el-option v-for="item in countyList" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </div>
 
-  <el-select :style="{ width: '25% ' }"  @change="filterSubCounty"  :onClear="handleClear"  v-model="selectSubCounty" multiple clearable   filterable collapse-tags placeholder="Select Constituency">
-    <el-option v-for="item in filteredSubCountyList" :key="item.value" :label="item.label" :value="item.value" />
-  </el-select>
-
-
-  <!-- <el-cascader
-:style="{ width: '100% ' }" v-model="selectedAdminId" placeholder="Filter by County/Constituency"
-    :options="options" :props="props" @change="handleChange" />
-  -->
-
-  <el-row :gutter="20">
-    <el-col v-for="(card) in cards" :key="card.id" :span="24 / cards.length" :xs="24" :sm="12" :md="8" :lg="6">
-      <div class="tabs-container">
-        <ElSkeleton :loading="cardLoading" animated>
-          <el-card shadow="always">
-            <div class="card-content">
-              <div class="icon-container">
-                <Icon :icon="card.icon" width="60" :color="card.iconColor" />
-              </div>
-              <el-divider direction="vertical" />
-              <div class="card-value">
-                <p
-                  class="value-text"
-                  @click="handleCardClick(card)"
-                  role="link"
-                  tabindex="0"
-                  @keydown.enter="handleCardClick(card)"
-                >
-                  {{ formatNumber(card.value) }}{{ card.symbol }}
-                </p>
-                <p class="value-label">{{ card.description }}</p>
-              </div>
-            </div>
-          </el-card>
-        </ElSkeleton>
+        <div class="filter-group">
+          <label class="filter-label">Constituency</label>
+          <el-select 
+            class="filter-select"
+            @change="filterSubCounty" 
+            :onClear="handleClear" 
+            v-model="selectSubCounty" 
+            clearable 
+            multiple 
+            filterable 
+            collapse-tags 
+            placeholder="Select Constituency">
+            <el-option v-for="item in filteredSubCountyList" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </div>
       </div>
-    </el-col>
-  </el-row>
-  <div class="tabs-container">
-  <el-tabs v-model="activeTab">
-    <el-tab-pane v-for="(tab) in tabs" :name="tab.name" :key="tab.id" :label="tab.label">
-      <el-row :gutter="20">
-        <el-col
-          v-for="(chart) in tab.cards"
-          :key="chart.id"
-          
-          :span="12"
-          :xl="12"
-          :lg="12"
-          :md="12"
-          :sm="24"
-          :xs="24"
-        >
-          <div class="charts-container">
-            <el-card>
-              <ElSkeleton :loading="loading" animated>
-              
-                <v-chart  v-if="chart.type==7  "  :id="chart.id"  class="chart" :option="chart.chart" height="400"  autoresize  /> 
-                <apexchart v-if="chart.type!=7 && chart.type!=8 " :options="chart.chart" :series="chart.chart.series" :type="getChartType(chart.type)" height="350"  autoresize/>
-                <apexchart  v-if="chart.type==8" type="bar"   :options="chart.chart.chartOptions" :series="chart.chart.series" height="350"  autoresize />
+    </div>
 
-              </ElSkeleton>
+    <el-row :gutter="16" class="cards-row">
+      <el-col v-for="(card) in cards" :key="card.id" :span="24 / cards.length" :xs="24" :sm="12" :md="8" :lg="6">
+        <div class="tabs-container">
+          <ElSkeleton :loading="cardLoading" animated>
+            <el-card shadow="hover" class="stat-card" :body-style="{ padding: '0' }">
+              <div class="card-content">
+                <div class="icon-container" :style="{ backgroundColor: card.iconColor + '15' }">
+                  <Icon :icon="card.icon" width="32" :color="card.iconColor" />
+                </div>
+                <div class="card-value">
+                  <p class="value-text" @click="handleCardClick(card)" role="link" tabindex="0" @keydown.enter="handleCardClick(card)">
+                    {{ formatNumber(card.value) }}{{ card.symbol }}
+                  </p>
+                  <p class="value-label">{{ card.description }}</p>
+                </div>
+              </div>
             </el-card>
-          </div>
-        </el-col>
-      </el-row>
-    </el-tab-pane>
-  </el-tabs>
+          </ElSkeleton>
+        </div>
+      </el-col>
+    </el-row>
+
+  <div class="tabs-container">
+    <el-tabs v-model="activeTab"  class="dashboard-tabs">
+      <el-tab-pane v-for="(tab) in tabs" :name="tab.name" :key="tab.id" :label="tab.label">
+        <div class="tab-content-scrollable">
+          <el-row :gutter="20">
+            <template v-if="tab.cards && tab.cards.length > 0">
+              <el-col
+                v-for="(chart) in tab.cards"
+                :key="chart.id"
+                :span="12"
+                :xl="12"
+                :lg="12"
+                :md="12"
+                :sm="24"
+                :xs="24"
+              >
+                <div class="charts-container">
+                  <el-card class="chart-card">
+                    <ElSkeleton :loading="loading" animated>
+                      <template v-if="chart.chart">
+                        <v-chart v-if="chart.type==7" :id="chart.id" class="chart" :option="chart.chart" height="400" autoresize /> 
+                        <apexchart v-if="chart.type!=7 && chart.type!=8" :options="chart.chart" :series="chart.chart.series" :type="getChartType(chart.type)" height="350" autoresize/>
+                        <apexchart v-if="chart.type==8" type="bar" :options="chart.chart.chartOptions" :series="chart.chart.series" height="350" autoresize />
+                      </template>
+                      <template v-else>
+                        <div class="empty-state-content">
+                          <el-empty description="No data available for this chart" />
+                        </div>
+                      </template>
+                    </ElSkeleton>
+                  </el-card>
+                </div>
+              </el-col>
+            </template>
+            <el-col v-else :span="24">
+              <div class="charts-container">
+                <el-card class="chart-card empty-state">
+                  <div class="empty-state-content">
+                    <el-empty description="No charts configured yet for this tab" />
+                  </div>
+                </el-card>
+              </div>
+            </el-col>
+          </el-row>
+        </div>
+      </el-tab-pane>
+    </el-tabs>
+  </div>
+ 
+
+ 
+    
 </div>
 </template>
  
 <style scoped>
+.dashboard-container {
+  padding: 15px;
+  background-color: #f5f7fa;
+  min-height: 100vh;
+}
+
+.filters-wrapper {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+}
+
+.filters-container {
+  display: flex;
+  gap: 24px;
+  align-items: flex-end;
+}
+
+.filter-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.filter-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #606266;
+}
+
+.filter-select {
+  width: 100% !important;
+}
+
+@media (max-width: 768px) {
+  .filters-wrapper {
+    padding: 16px;
+  }
+
+  .filters-container {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .filter-group {
+    width: 100%;
+  }
+}
+
+.cards-row {
+  margin-bottom:  10px;
+}
+
 .tabs-container {
-  margin-bottom: 5px; /* Reduced from 20px for tighter layout */
-  margin-top: 5px; /* Reduced from 20px for tighter layout */
+  margin-bottom: 1px;
+  margin-top: 1px;
 }
-.el-card {
-  border-radius: 8px; /* Smaller radius for a more compact look */
+
+.main-tabs {
+  background: white;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+}
+
+.dashboard-tabs :deep(.el-tabs__header) {
+  margin-bottom: 10px;
+  border-bottom: 1px solid #e4e7ed;
+}
+
+.dashboard-tabs :deep(.el-tabs__nav-wrap::after) {
+  height: 1px;
+  background-color: #e4e7ed;
+}
+
+.dashboard-tabs :deep(.el-tabs__item) {
+  font-size: 14px;
+  padding: 0 20px;
+  height: 40px;
+  line-height: 40px;
+  transition: all 0.3s ease;
+}
+
+.dashboard-tabs :deep(.el-tabs__item.is-active) {
+  color: #409eff;
+  font-weight: 600;
+}
+
+.dashboard-tabs :deep(.el-tabs__active-bar) {
+  background-color: #409eff;
+  height: 3px;
+  border-radius: 3px;
+}
+
+.stat-card {
+  border-radius: 12px;
   background-color: #ffffff;
-  transición: all 0.3s ease;
+  transition: all 0.3s ease;
+  height: 100%;
+  border: none;
+  overflow: hidden;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
 }
-.el-card:hover {
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15); /* Softer shadow for smaller size */
-  transform: translateY(-1px); /* Subtle lift, reduced from 2px */
+
+.stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
+
 .card-content {
   display: flex;
   align-items: center;
-  padding: 10px; /* Reduced from 15px for a smaller card */
+  padding: 20px;
+  gap: 16px;
 }
+
 .icon-container {
   display: flex;
   justify-content: center;
   align-items: center;
-  width: 60px; /* Reduced from 80px for compactness */
-  height: 60px; /* Reduced from 80px */
-  background-color: #f5f7fa;
-  border-radius: 50%;
-  margin-right: 10px; /* Reduced from 15px */
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  transition: all 0.3s ease;
 }
-.el-divider--vertical {
-  height: 40px; /* Reduced from 60px to match smaller content */
-  background-color: #dcdfe6;
-  margin: 0 10px; /* Reduced from 15px for tighter spacing */
-}
+
 .card-value {
   flex: 1;
   text-align: left;
 }
+
 .value-text {
-  font-size: 29px; /* Reduced from 24px for smaller appearance */
-  font-weight: 900;
-  color: #303133;
+  font-size: 28px;
+  font-weight: 700;
+  color: #1a1a1a;
   margin: 0;
   cursor: pointer;
-  text-decoration: none;
+  transition: color 0.2s ease;
+  line-height: 1.2;
 }
+
 .value-text:hover {
   color: #409eff;
-  text-decoration: underline;
 }
+
 .value-label {
-  font-size: 12px; /* Reduced from 14px for proportionality */
-  color: #909399;
-  margin: 3px 0 0 0; /* Reduced from 5px for tighter spacing */
+  font-size: 14px;
+  color: #606266;
+  margin: 8px 0 0 0;
+  line-height: 1.4;
 }
-@media (max-width: 768px) {
-  .card-content {
-    padding: 8px; /* Further reduced from 10px for small screens */
-  }
-  .value-text {
-    font-size: 16px; /* Reduced from 20px */
-  }
-  .icon-container {
-    width: 40px; /* Reduced from 60px */
-    height: 40px;
-  }
-  .el-divider--vertical {
-    height: 30px; /* Reduced from 50px */
-  }
+
+.charts-container {
+  padding: 8px;
+}
+
+.chart {
+  width: 100%;
+  height: 100%;
+}
+
+.chart-card {
+  border-radius: 12px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+}
+
+.chart-card:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.tab-content-scrollable {
+  max-height: calc(100vh - 300px);
+  overflow-y: auto;
+  padding: 10px;
+}
+
+.tab-content-scrollable::-webkit-scrollbar {
+  width: 8px;
+}
+
+.tab-content-scrollable::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.tab-content-scrollable::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.tab-content-scrollable::-webkit-scrollbar-thumb:hover {
+  background: #555;
 }
 </style>

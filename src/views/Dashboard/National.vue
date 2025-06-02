@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {
-  ElRow, ElCol, ElCard, ElDivider, ElTabs, ElTabPane, ElSkeleton, ElCascader, ElCascaderPanel, ElCascaderPanelContext, ElSelect, ElOption
+  ElRow, ElCol, ElCard, ElEmpty, ElTabs, ElTabPane, ElSkeleton, ElCascader, ElCascaderPanel, ElCascaderPanelContext, ElSelect, ElOption
 } from 'element-plus'
 import { ref, reactive, watch, onBeforeMount, onMounted } from 'vue'
 import { use } from "echarts/core";
@@ -2179,19 +2179,32 @@ const xhandleCardClick = async (card) => {
     <div class="tabs-container main-tabs">
       <el-tabs v-model="activeTab" class="dashboard-tabs">
         <el-tab-pane v-for="(tab) in tabs" :name="tab.name" :key="tab.id" :label="tab.label">
-          <el-row :gutter="20">
-            <el-col v-for="(chart) in tab.charts" :key="chart.id" :span="12" :xl="12" :lg="12" :md="12" :sm="24" :xs="24">
-              <div class="charts-container">
-                <el-card class="chart-card">
-                  <ElSkeleton :loading="loading" animated>
-                    <v-chart v-if="chart.type==7" :id="chart.id" class="chart" :option="chart.chart" height="400" autoresize /> 
-                    <apexchart v-if="chart.type!=7 && chart.type!=8" :options="chart.chart" :series="chart.chart.series" :type="getChartType(chart.type)" height="350" autoresize/>
-                    <apexchart v-if="chart.type==8" type="bar" :options="chart.chart.chartOptions" :series="chart.chart.series" height="350" autoresize />
-                  </ElSkeleton>
-                </el-card>
-              </div>
-            </el-col>
-          </el-row>
+          <div class="tab-content-scrollable">
+            <el-row :gutter="20">
+              <template v-if="tab.charts && tab.charts.length > 0">
+                <el-col v-for="(chart) in tab.charts" :key="chart.id" :span="12" :xl="12" :lg="12" :md="12" :sm="24" :xs="24">
+                  <div class="charts-container">
+                    <el-card class="chart-card">
+                      <ElSkeleton :loading="loading" animated>
+                        <v-chart v-if="chart.type==7" :id="chart.id" class="chart" :option="chart.chart" height="400" autoresize /> 
+                        <apexchart v-if="chart.type!=7 && chart.type!=8" :options="chart.chart" :series="chart.chart.series" :type="getChartType(chart.type)" height="350" autoresize/>
+                        <apexchart v-if="chart.type==8" type="bar" :options="chart.chart.chartOptions" :series="chart.chart.series" height="350" autoresize />
+                      </ElSkeleton>
+                    </el-card>
+                  </div>
+                </el-col>
+              </template>
+              <el-col v-else :span="24">
+                <div class="charts-container">
+                  <el-card class="chart-card empty-state">
+                    <div class="empty-state-content">
+                      <el-empty description="No charts configured yet for this tab" />
+                    </div>
+                  </el-card>
+                </div>
+              </el-col>
+            </el-row>
+          </div>
         </el-tab-pane>
       </el-tabs>
     </div>
@@ -2200,22 +2213,22 @@ const xhandleCardClick = async (card) => {
 
 <style scoped>
 .dashboard-container {
-  padding: 8px;
+  padding: 15px;
   background-color: #f5f7fa;
   min-height: 100vh;
 }
 
 .filters-wrapper {
   background: white;
-  border-radius: 8px;
-  padding: 12px;
+  border-radius: 12px;
+  padding: 20px;
   margin-bottom: 12px;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
 }
 
 .filters-container {
   display: flex;
-  gap: 16px;
+  gap: 24px;
   align-items: flex-end;
 }
 
@@ -2227,7 +2240,7 @@ const xhandleCardClick = async (card) => {
 }
 
 .filter-label {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   color: #606266;
 }
@@ -2238,12 +2251,12 @@ const xhandleCardClick = async (card) => {
 
 @media (max-width: 768px) {
   .filters-wrapper {
-    padding: 12px;
+    padding: 16px;
   }
 
   .filters-container {
     flex-direction: column;
-    gap: 12px;
+    gap: 16px;
   }
 
   .filter-group {
@@ -2252,23 +2265,23 @@ const xhandleCardClick = async (card) => {
 }
 
 .cards-row {
-  margin-bottom: 12px;
+  margin-bottom:  10px;
 }
 
 .tabs-container {
-  margin-bottom: 2px;
-  margin-top: 2px;
+  margin-bottom: 1px;
+  margin-top: 1px;
 }
 
 .main-tabs {
   background: white;
   border-radius: 8px;
-  padding: 12px;
+  padding: 16px;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
 }
 
 .dashboard-tabs :deep(.el-tabs__header) {
-  margin-bottom: 12px;
+  margin-bottom: 10px;
   border-bottom: 1px solid #e4e7ed;
 }
 
@@ -2278,10 +2291,11 @@ const xhandleCardClick = async (card) => {
 }
 
 .dashboard-tabs :deep(.el-tabs__item) {
-  font-size: 13px;
-  padding: 0 16px;
-  height: 36px;
-  line-height: 36px;
+  font-size: 14px;
+  padding: 0 20px;
+  height: 40px;
+  line-height: 40px;
+  transition: all 0.3s ease;
 }
 
 .dashboard-tabs :deep(.el-tabs__item.is-active) {
@@ -2296,52 +2310,103 @@ const xhandleCardClick = async (card) => {
 }
 
 .stat-card {
-  border-radius: 8px;
+  border-radius: 12px;
+  background-color: #ffffff;
+  transition: all 0.3s ease;
   height: 100%;
   border: none;
   overflow: hidden;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
 }
 
+.stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
 .card-content {
   display: flex;
   align-items: center;
-  padding: 16px;
+  padding: 20px;
   gap: 16px;
 }
 
 .icon-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
   width: 56px;
   height: 56px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  border-radius: 16px;
+  transition: all 0.3s ease;
+}
+
+.card-value {
+  flex: 1;
+  text-align: left;
 }
 
 .value-text {
-  font-size: 32px;
+  font-size: 28px;
   font-weight: 700;
-  line-height: 1.1;
-  color: #303133;
+  color: #1a1a1a;
   margin: 0;
   cursor: pointer;
+  transition: color 0.2s ease;
+  line-height: 1.2;
+}
+
+.value-text:hover {
+  color: #409eff;
 }
 
 .value-label {
   font-size: 14px;
-  font-weight: 500;
-  margin: 4px 0 0 0;
-  line-height: 1.3;
   color: #606266;
+  margin: 8px 0 0 0;
+  line-height: 1.4;
 }
 
 .charts-container {
-  padding: 4px;
+  padding: 8px;
+}
+
+.chart {
+  width: 100%;
+  height: 100%;
 }
 
 .chart-card {
-  border-radius: 8px;
+  border-radius: 12px;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+}
+
+.chart-card:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.tab-content-scrollable {
+  max-height: calc(100vh - 300px);
+  overflow-y: auto;
+  padding: 10px;
+}
+
+.tab-content-scrollable::-webkit-scrollbar {
+  width: 8px;
+}
+
+.tab-content-scrollable::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.tab-content-scrollable::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.tab-content-scrollable::-webkit-scrollbar-thumb:hover {
+  background: #555;
 }
 </style>
