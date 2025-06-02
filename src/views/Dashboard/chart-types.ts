@@ -1073,8 +1073,18 @@ export const pyramidOptions  = {
     chart: {
       type: 'bar',
       height: 440,
-      stacked: true
+      stacked: true,
+      zoom: {
+        type: 'x',
+        enabled: true,
+        autoScaleYaxis: true
+      },
+      toolbar: {
+        autoSelected: 'zoom'
+      }
     },
+   
+
     colors: ['#008FFB', '#FF4560'],
     plotOptions: {
       bar: {
@@ -1112,13 +1122,23 @@ export const pyramidOptions  = {
       },
       y: {
         formatter: function (val) {
-          return Math.abs(val) 
+          return Math.abs(val)  +'%'
         }
       }
     },
     title: {
-      text: 'Mauritius population pyramid 2011'
+      text: ''
     },
+     
+  subtitle: {
+    text: `National Slum Database, ${new Date().getFullYear()}`,
+    align: 'left',
+    style: {
+      fontSize: '12px',
+      fontWeight: 'normal',
+      color: '#9699a2'
+    }
+  },
     xaxis: {
       categories: [ '65+','35-64','18-35','6-17', '0-5'  ],
       title: {
@@ -1126,7 +1146,7 @@ export const pyramidOptions  = {
       },
       labels: {
         formatter: function (val) {
-          return Math.abs(Math.round(val))
+          return Math.abs(Math.round(val)) +'%'
         }
       }
     },

@@ -1543,31 +1543,58 @@ async function processTreemapChart() {
             formData.filterValues = filterValues
 
 
- 
-
+  
             await getSummaryGroupByMultipleFields(formData)
               .then(response => {
                 if (response.Total) {
-                  var results = response.Total
-                  let keys = Object.keys(results[0]);
+                  const results = response.Total[0];
+                    const keys = Object.keys(results);
 
-                  // Males
-                  let maleKeys = keys.filter(key => key.includes("m"));
-                  let males = maleKeys.map(key => parseInt(results[0][key]))
-                  // console.log('pyramid---m-->', males)
+                     
+                      let Total = 0;
+                      for (const key in results) {
+                        const value = parseFloat(results[key]);
+                        if (!isNaN(value)) {
+                          Total += value;
+                        }
+                      }
 
-                  mArray.value.push(males)
+                    // 1) Extract raw counts (positive numbers) for male and female:
+                    const maleKeys = keys.filter(key => key.endsWith('m'));
+                    const rawMale = maleKeys.map(key => parseInt(results[key], 10));
 
+                    const femaleKeys = keys.filter(key => key.endsWith('f'));
+                    const rawFemale = femaleKeys.map(key => parseInt(results[key], 10));
 
-                  // females
-                  let femaleKeys = keys.filter(key => key.includes("f"));
-                  let females = femaleKeys.map(key => -1*parseInt(results[0][key])) // We put Female left (Negative) 
-                  fArray.value.push(females)
+                    // 2) Compute percentages for each age bracket:
+                    //    malePct[i]   =  (rawMale[i]   / (rawMale[i] + rawFemale[i])) * 100
+                    //    femalePct[i] = -(rawFemale[i] / (rawMale[i] + rawFemale[i])) * 100
+                    //   (note the negation on femalePct so it shows on the “left” side of a horizontal pyramid)
+                    const malePct = [];
+                    const femalePct = [];
 
+                    for (let i = 0; i < rawMale.length; i++) {
+                        const m = rawMale[i];
+                        const f = rawFemale[i];
+                        //const total = m + f;
 
-                  console.log('pyramid---f-->', femaleKeys, females)
+                        if (Total === 0) {
+                          // if there’s no one in that bracket, show 0%
+                          malePct.push(0);
+                          femalePct.push(0);
+                        } else {
+                          // percent of that age group
+                          malePct.push(parseFloat(((m / Total) * 100).toFixed(2)));
+                          // negative so it appears on the left
+                          femalePct.push(-parseFloat(((f / Total) * 100).toFixed(2)));
+                        }
+                      }
 
+                    // 3) Push into your reactive arrays (or wherever you need them):
+                    //mArray.value.push(malePct);
+                 //   fArray.value.push(femalePct);
 
+                            console.log(response)
 
                   const UpdatedpyramidOptions = {
                         // copy everything from the original
@@ -1577,11 +1604,11 @@ async function processTreemapChart() {
                         series: [
                           {
                             ...pyramidOptions.series[0], // “Males” template
-                            data: males                  // your new males array
+                            data: malePct                  // your new males array
                           },
                           {
                             ...pyramidOptions.series[1], // “Females” template
-                            data: females                // your new females array
+                            data: femalePct                // your new females array
                           }
                         ],
 
@@ -1595,7 +1622,7 @@ async function processTreemapChart() {
                         }
                       };
 
-
+                      console.log('UpdatedpyramidOptions',UpdatedpyramidOptions)
 
                  thisChart.chart = UpdatedpyramidOptions
                 // thisChart.chart = UpdatedBarOptionsMultiple;
