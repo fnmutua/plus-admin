@@ -1,5 +1,5 @@
 <template>
-    <div class="form-container">
+    <div class="form-container" :class="{ 'dark-mode': isDarkMode }">
   <BaseLayout>
 
 
@@ -49,7 +49,25 @@ import { onMounted, ref } from 'vue';
 import { ElMain, ElButton,  ElTabPane,ElTabs } from 'element-plus';
 import BaseLayout from './BaseLayout.vue';
 
- 
+const isDarkMode = ref(false);
+
+// Function to check system dark mode preference
+const checkDarkMode = () => {
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const savedTheme = localStorage.getItem('theme');
+  isDarkMode.value = savedTheme ? savedTheme === 'dark' : prefersDark;
+};
+
+// Watch for system theme changes
+onMounted(() => {
+  checkDarkMode();
+  
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+    if (!localStorage.getItem('theme')) {
+      isDarkMode.value = e.matches;
+    }
+  });
+});
 
 const grmForm = ref({
   settlement: '',
@@ -152,6 +170,104 @@ const labelPosition = ref('left');
   --el-select-width: 220px;
 }
 
- 
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f5f7fa;
+  --text-primary: #2c3e50;
+  --text-secondary: #606266;
+  --border-color: #dcdfe6;
+  --accent-color: #409eff;
+  --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --card-bg: #ffffff;
+  --hover-bg: #f5f7fa;
+  --disabled-bg: #f5f7fa;
+  --disabled-text: #c0c4cc;
+}
+
+.dark-mode {
+  --bg-primary: #1a1a1a;
+  --bg-secondary: #2c2c2c;
+  --text-primary: #ffffff;
+  --text-secondary: #a0a0a0;
+  --border-color: #3a3a3a;
+  --accent-color: #4a9eff;
+  --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --card-bg: #2c2c2c;
+  --hover-bg: #363636;
+  --disabled-bg: #2c2c2c;
+  --disabled-text: #666666;
+}
+
+.faqs-container {
+  min-height: 100vh;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: all 0.3s ease;
+  padding: 2rem;
+}
+
+.faqs-content {
+  background-color: var(--card-bg);
+  border-radius: 12px;
+  box-shadow: var(--card-shadow);
+  padding: 2rem;
+  margin: 0 auto;
+  max-width: 1200px;
+}
+
+.faq-item {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  transition: all 0.3s ease;
+}
+
+.faq-item:hover {
+  border-color: var(--accent-color);
+  box-shadow: var(--card-shadow);
+}
+
+.faq-question {
+  color: var(--text-primary);
+  font-weight: 600;
+  padding: 1rem;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.faq-answer {
+  color: var(--text-secondary);
+  padding: 1rem;
+  border-top: 1px solid var(--border-color);
+}
+
+:deep(.el-collapse-item__header) {
+  background-color: var(--card-bg);
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+:deep(.el-collapse-item__content) {
+  background-color: var(--card-bg);
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+:deep(.el-collapse-item__header:hover) {
+  background-color: var(--hover-bg);
+}
+
+@media (max-width: 768px) {
+  .faqs-container {
+    padding: 1rem;
+  }
+  
+  .faqs-content {
+    padding: 1rem;
+  }
+}
 
 </style>

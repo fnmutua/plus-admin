@@ -1,88 +1,99 @@
 <template>
- 
-  <div class="landing-page">
-   
-    <el-container>
-      <el-header>
-        <div class="header-content">
-          <div v-if="!isSmallScreen || menuOpen" class="logo">
-            <img src="@/assets/imgs/1logo.png" alt="KISIP" />
-          </div>
-          <nav>
-            <!-- Hamburger icon for small screens -->
-            <div class="hamburger" @click="menuOpen = !menuOpen">
-              <Icon icon="mdi:menu" class="hamburger-icon" />
+  <div class="base-layout" :class="{ 'dark-mode': isDark }">
+    <div class="landing-page">
+      <el-container>
+        <el-header>
+          <div class="header-content">
+            <div v-if="!isSmallScreen || menuOpen" class="logo">
+              <img src="@/assets/imgs/1logo.png" alt="KISIP" />
             </div>
-            <!-- Menu -->
-            <el-menu
-              :class="{ open: isSmallScreen && menuOpen }"
-              mode="horizontal"
-              active-text-color="#684035"
-              class="el-menu-demo"
-              :default-active="activeIndex"
-              @select="handleSelect"
-              :ellipsis="false"
-            >
-              <el-menu-item index="1">Home</el-menu-item>
-              <el-menu-item index="3">Grievances</el-menu-item>
-              <el-menu-item index="5">Contact</el-menu-item>
-              <el-menu-item index="4">About</el-menu-item>
-              <el-menu-item index="6">FAQs</el-menu-item>
-              <el-menu-item index="2">Login</el-menu-item>
-               <el-menu-item index="7">
-                <Icon :icon="isDark ? 'carbon:moon' : 'carbon:sun'" inline />
-              </el-menu-item>
-            </el-menu>
-          </nav>
-        </div>
-      </el-header>
-
-      <el-main>
-        <!-- Slot for page-specific content -->
-        <slot></slot>
-      </el-main>
-
-      <el-footer>
-        <div class="footer-content">
-          <div class="left-content">
-            <p>&copy; 2024 KISIP. All rights reserved.</p>
-          </div>
-          <div class="right-content">
             <nav>
-              <ul>
-                <li><router-link to="/privacy">Privacy Policy</router-link></li>
-                <li><router-link to="/contact">Contact Us</router-link></li>
-              </ul>
+              <!-- Hamburger icon for small screens -->
+              <div class="hamburger" @click="menuOpen = !menuOpen">
+                <Icon icon="mdi:menu" class="hamburger-icon" />
+              </div>
+              <!-- Menu -->
+              <el-menu
+                :class="{ open: isSmallScreen && menuOpen }"
+                mode="horizontal"
+                active-text-color="#684035"
+                class="el-menu-demo"
+                :default-active="activeIndex"
+                @select="handleSelect"
+                :ellipsis="false"
+              >
+                <el-menu-item index="1">Home</el-menu-item>
+                <el-menu-item index="3">Grievances</el-menu-item>
+                <el-menu-item index="5">Contact</el-menu-item>
+                <el-menu-item index="4">About</el-menu-item>
+                <el-menu-item index="6">FAQs</el-menu-item>
+                <el-menu-item index="2">Login</el-menu-item>
+                <el-menu-item index="7" @click="toggleDark">
+                  <Icon :icon="isDark ? 'carbon:moon' : 'carbon:sun'" inline />
+                </el-menu-item>
+              </el-menu>
             </nav>
           </div>
-        </div>
-      </el-footer>
-    </el-container>
+        </el-header>
+
+        <el-main>
+          <!-- Slot for page-specific content -->
+          <slot></slot>
+        </el-main>
+
+        <el-footer>
+          <div class="footer-content">
+            <div class="left-content">
+              <p>&copy; 2024 KISIP. All rights reserved.</p>
+            </div>
+            <div class="right-content">
+              <nav>
+                <ul>
+                  <li><router-link to="/privacy">Privacy Policy</router-link></li>
+                  <li><router-link to="/contact">Contact Us</router-link></li>
+                </ul>
+              </nav>
+            </div>
+          </div>
+        </el-footer>
+      </el-container>
+    </div>
   </div>
 </template>
 
- 
-
 <script setup lang="ts">
-import { ref ,onMounted, onBeforeUnmount} from 'vue';
+import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { ElMessage, ElMain, ElMenu, ElMenuItem, ElContainer, ElFooter ,ElHeader} from 'element-plus';
-
-import { useDark, useToggle } from "@vueuse/core";
+import { ElMessage, ElMain, ElMenu, ElMenuItem, ElContainer, ElFooter, ElHeader } from 'element-plus';
 import { Icon } from '@iconify/vue';
 
-import { computed } from 'vue'
-
-;
 const isSmallScreen = computed(() => window.innerWidth <= 768);
-
 const menuOpen = ref(false);
- 
-const isDark = useDark();
-  const toggleDark = useToggle(isDark);
+const isDark = ref(false);
 
+// Function to check system dark mode preference
+const checkDarkMode = () => {
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const savedTheme = localStorage.getItem('theme');
+  isDark.value = savedTheme ? savedTheme === 'dark' : prefersDark;
+};
 
+// Function to toggle dark mode
+const toggleDark = () => {
+  isDark.value = !isDark.value;
+  localStorage.setItem('theme', isDark.value ? 'dark' : 'light');
+};
+
+// Watch for system theme changes
 onMounted(() => {
+  checkDarkMode();
+  
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+    if (!localStorage.getItem('theme')) {
+      isDark.value = e.matches;
+    }
+  });
+
   window.addEventListener('resize', handleResize);
 });
 
@@ -96,13 +107,12 @@ function handleResize() {
   }
 }
 
-
 const activeIndex = ref('1');
 const router = useRouter();
 
 const handleSelect = (index: string) => {
   activeIndex.value = index;
-  console.log("Index", activeIndex.value  )
+  console.log("Index", activeIndex.value);
   switch (index) {
     case '1':
       router.push('/landing');
@@ -116,19 +126,12 @@ const handleSelect = (index: string) => {
     case '4':
       router.push('/about');
       break;
-     
     case '5':
       router.push('/contact');
       break;
-
-      case '6':
+    case '6':
       router.push('/privacy');
-      break;  
-      
-      case '7':
-      toggleDark()
       break;
-
     default:
       ElMessage.warning('Page not found.');
   }
@@ -136,6 +139,84 @@ const handleSelect = (index: string) => {
 </script>
 
 <style scoped>
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f5f7fa;
+  --text-primary: #2c3e50;
+  --text-secondary: #606266;
+  --border-color: #dcdfe6;
+  --accent-color: #409eff;
+  --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --card-bg: #ffffff;
+  --hover-bg: #f5f7fa;
+  --disabled-bg: #f5f7fa;
+  --disabled-text: #c0c4cc;
+}
+
+.dark-mode {
+  --bg-primary: #1a1a1a;
+  --bg-secondary: #2c2c2c;
+  --text-primary: #ffffff;
+  --text-secondary: #a0a0a0;
+  --border-color: #3a3a3a;
+  --accent-color: #4a9eff;
+  --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --card-bg: #2c2c2c;
+  --hover-bg: #363636;
+  --disabled-bg: #2c2c2c;
+  --disabled-text: #666666;
+}
+
+.base-layout {
+  min-height: 100vh;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: all 0.3s ease;
+}
+
+.el-header {
+  background-color: var(--card-bg);
+  border-bottom: 1px solid var(--border-color);
+  box-shadow: var(--card-shadow);
+}
+
+.el-footer {
+  background-color: var(--card-bg);
+  border-top: 1px solid var(--border-color);
+  color: var(--text-secondary);
+}
+
+.el-menu {
+  background-color: var(--card-bg);
+  border-right: 1px solid var(--border-color);
+}
+
+.el-menu-item {
+  color: var(--text-primary);
+}
+
+.el-menu-item:hover {
+  background-color: var(--hover-bg);
+}
+
+.el-menu-item.is-active {
+  color: var(--accent-color);
+  background-color: var(--hover-bg);
+}
+
+.el-sub-menu__title {
+  color: var(--text-primary);
+}
+
+.el-sub-menu__title:hover {
+  background-color: var(--hover-bg);
+}
+
+.el-main {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
 /* Header styles */
 .header-content {
   max-width: 100%;
@@ -164,14 +245,15 @@ const handleSelect = (index: string) => {
 .hamburger {
   display: none;
   cursor: pointer;
-  position: absolute; /* Absolute positioning */
-  right: 20px; /* Adjust as needed */
-  top: 20px; /* Adjust as needed */
-  z-index: 1100; /* Ensure it is above other content */
+  position: absolute;
+  right: 20px;
+  top: 20px;
+  z-index: 1100;
 }
 
 .hamburger-icon {
   font-size: 24px;
+  color: var(--text-primary);
 }
 
 /* Small screen styles */
@@ -189,7 +271,6 @@ const handleSelect = (index: string) => {
     display: block;
   }
 
-  /* Fullscreen overlay for the menu */
   .el-menu-demo {
     display: none;
     position: fixed;
@@ -197,7 +278,7 @@ const handleSelect = (index: string) => {
     right: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(255, 255, 255, 0.95); /* White background with slight transparency */
+    background-color: var(--card-bg);
     flex-direction: column;
     align-items: center;
     justify-content: center;
@@ -209,16 +290,15 @@ const handleSelect = (index: string) => {
   }
 
   .el-menu-item {
-    color: #000; /* Black text for better visibility on white background */
+    color: var(--text-primary);
     padding: 20px 0;
     font-size: 18px;
-    text-align: center; /* Center-align text */
+    text-align: center;
   }
 
-  /* Additional styles for hover effect */
   .el-menu-item:hover {
-    background-color: #f0f0f0; /* Light gray background on hover */
-    border-radius: 8px; /* Rounded corners */
+    background-color: var(--hover-bg);
+    border-radius: 8px;
   }
 }
 
@@ -231,8 +311,8 @@ const handleSelect = (index: string) => {
   margin: 0 auto;
   padding: 20px;
   font-family: 'Helvetica Neue', Arial, sans-serif;
-  color: #666;
-  border-top: 1px solid #e5e5e5;
+  color: var(--text-secondary);
+  border-top: 1px solid var(--border-color);
 }
 
 .left-content {
@@ -257,12 +337,12 @@ const handleSelect = (index: string) => {
 }
 
 .footer-content ul li a {
-  color: #666;
+  color: var(--text-secondary);
   text-decoration: none;
 }
 
 .footer-content ul li a:hover {
-  color: #409eff;
+  color: var(--accent-color);
 }
 
 /* Responsive styles */
@@ -323,48 +403,10 @@ const handleSelect = (index: string) => {
   }
 }
 
-/* Dark mode styles */
-.dark-mode .header-content {
-  background-color: #333;
-  color: #fff;
-}
-
-.dark-mode .el-menu-demo {
-  background-color: rgba(0, 0, 0, 0.95); /* Dark background with slight transparency */
-}
-
-.dark-mode .el-menu-item {
-  color: #fff;
-}
-
-.dark-mode .el-menu-item:hover {
-  background-color: #444; /* Darker gray background on hover */
-}
-
-.dark-mode .footer-content {
-  background-color: #333;
-  color: #fff;
-  border-top: 1px solid #555;
-}
-
-.dark-mode .footer-content ul li a {
-  color: #fff;
-}
-
-.dark-mode .footer-content ul li a:hover {
-  color: #409eff;
-}
-
-.dark-mode .hamburger-icon {
-  color: #fff;
-}
-
 .dark-mode .logo img {
-  filter: brightness(0) invert(1); /* Invert logo color for dark mode */
+  filter: brightness(0) invert(1);
 }
 
-
- 
 .hero {
   position: relative;
   display: flex;
@@ -384,18 +426,16 @@ const handleSelect = (index: string) => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(45deg, transparent 49%, #ececec 49% 51%, transparent 51%), 
-              linear-gradient(-45deg, transparent 49%, #ececec 49% 51%, transparent 51%);
-  background-color: #ffffff;
-  background-image: url('@/assets/imgs/background.png'); /* Correct syntax for background image */
-
+  background: linear-gradient(45deg, transparent 49%, var(--text-secondary) 49% 51%, transparent 51%), 
+              linear-gradient(-45deg, transparent 49%, var(--text-secondary) 49% 51%, transparent 51%);
+  background-color: var(--bg-primary);
+  background-image: url('@/assets/imgs/background.png');
   opacity: 0.1;
-  z-index: -1; /* Ensure the background is behind the content */
+  z-index: -1;
 }
 
 .hero > * {
   position: relative;
-  z-index: 1; /* Ensure content is above the background */
+  z-index: 1;
 }
-
 </style>

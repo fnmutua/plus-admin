@@ -1,5 +1,5 @@
 <template>
-  <div class="form-container">
+  <div class="form-container" :class="{ 'dark-mode': isDarkMode }">
     <BaseLayout>
       <el-main>
         <el-card>
@@ -354,7 +354,7 @@ v-for="(step, index) in filteredTourSteps" :key="index" :target="step.target" :t
 </template>
 
 <script setup lang="ts">
-import { ref,watch, computed } from 'vue';
+import { ref,watch, computed, onMounted } from 'vue';
 import {
   ElMain, ElButton, ElCard, ElForm, ElFormItem,  ElUpload, ElCheckbox, ElTour, ElTourStep, ElSwitch,
   ElTabPane, ElTabs, ElSelect, ElOption, ElRow, ElCol, ElMessage, ElStep, ElSteps, ElIcon, ElTooltip,ElDialog, 
@@ -372,6 +372,7 @@ import type { UploadUserFile } from 'element-plus'
 import { uuid } from 'vue-uuid'
 import { useRouter } from 'vue-router';
 import { ElInput } from 'element-plus';
+import type { FormInstance, FormRules } from 'element-plus';
 
 
 const activeName = ref('file');
@@ -400,7 +401,61 @@ const grievanceOptions = [
 ];
 
 
-const grmForm = ref({
+interface GrievanceForm {
+  name: string;
+  gender: string;
+  age: string;
+  national_id: string;
+  phone: string;
+  email: string;
+  county_id: string;
+  settlement_id: string;
+  address: string;
+  nature: string;
+  isgbv: boolean;
+  isInCourt: boolean;
+  description: string;
+  plea: string;
+  witness: string;
+  witness_phone: string;
+  witness_statement: string;
+  self_reported: boolean;
+  reporter_name: string;
+  reporter_phone: string;
+  date_reported?: Date;
+  status?: string;
+  model?: string;
+  current_status_date?: Date;
+  status_expiry_date?: Date;
+  current_level?: string;
+  subcounty_id?: string;
+  ward_id?: string;
+}
+
+interface StatusResult {
+  code: string;
+  id: string;
+  date_reported: string;
+  status: string;
+  daysToExpiryDate: number;
+  current_level: string;
+  escalateLabel: string;
+}
+
+interface CountyOption {
+  value: number;
+  label: string;
+}
+
+interface SettlementOption {
+  value: number;
+  label: string;
+  county_id: number;
+  subcounty_id: number;
+  ward_id: number;
+}
+
+const grmForm = ref<GrievanceForm>({
   name: '',
   gender: '',
   age: '',
@@ -421,8 +476,6 @@ const grmForm = ref({
   self_reported: true,
   reporter_name: '',
   reporter_phone: '',
-
-
 });
 
 
@@ -450,14 +503,10 @@ const validationRules = ({
     plea: [{ required: true, message: 'Plea/request is required', trigger: 'blur' }],
   },
 
-
   step3: {
     reporter_name: [{ required: true, message: 'Name is required', trigger: 'change' }],
     reporter_phone: [{ required: true, message: 'Phone is required', trigger: 'change' }],
-
   },
-
-
 });
 
 
@@ -474,7 +523,15 @@ const statusForm = ref({
   phoneNumber: '',
 });
 
-const statusResult = ref({ current_level: 'settlement' }); // Example reactive object
+const statusResult = ref<StatusResult>({
+  code: '',
+  id: '',
+  date_reported: '',
+  status: '',
+  daysToExpiryDate: 0,
+  current_level: '',
+  escalateLabel: ''
+});
 
 
 const ageRanges = [
@@ -486,8 +543,8 @@ const ageRanges = [
   { value: '65+', label: '65+' },
 ];
 
-const countiesOptions = ref([])
-const settlementOptions = ref([])
+const countiesOptions = ref<CountyOption[]>([])
+const settlementOptions = ref<SettlementOption[]>([])
 
 const getCounties = async () => {
 
@@ -592,8 +649,19 @@ const znext = async () => {
 
 };
 
-const next = () => {
-  active.value++
+const next = async () => {
+  const formInstance = dynamicFormRef.value;
+  if (!formInstance) return;
+
+  try {
+    await formInstance.validate();
+    active.value++;
+  } catch (error) {
+    ElMessage({
+      message: 'Please fill in all required fields correctly',
+      type: 'error'
+    });
+  }
 };
 
 const prev = () => {
@@ -1194,7 +1262,31 @@ try {
 
  }
 
+const isDarkMode = ref(false);
 
+// Function to check system dark mode preference
+const checkDarkMode = () => {
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const savedTheme = localStorage.getItem('theme');
+  isDarkMode.value = savedTheme ? savedTheme === 'dark' : prefersDark;
+};
+
+// Function to toggle dark mode
+const toggleDarkMode = () => {
+  isDarkMode.value = !isDarkMode.value;
+  localStorage.setItem('theme', isDarkMode.value ? 'dark' : 'light');
+};
+
+// Watch for system theme changes
+onMounted(() => {
+  checkDarkMode();
+  
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+    if (!localStorage.getItem('theme')) {
+      isDarkMode.value = e.matches;
+    }
+  });
+});
  
 </script>
 
@@ -1204,20 +1296,325 @@ try {
 <style>
 .form-container {
   max-height: 100vh;
-  /* Set a maximum height for the scrollable area */
   overflow-y: auto;
-  /* Enable vertical scrolling */
+  background-color: var(--bg-primary);
+  transition: all 0.3s ease;
+  padding: 2rem 0;
 }
 
-.three-column-form .el-form-item {
-  margin-bottom: 20px;
-  /* Adjust spacing between form items if needed */
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f5f7fa;
+  --text-primary: #2c3e50;
+  --text-secondary: #606266;
+  --border-color: #dcdfe6;
+  --accent-color: #409eff;
+  --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --success-color: #67c23a;
+  --warning-color: #e6a23c;
+  --danger-color: #f56c6c;
+  --gradient-start: #409eff;
+  --gradient-end: #66b1ff;
+  --input-bg: #ffffff;
+  --input-border: #dcdfe6;
+  --input-text: #2c3e50;
+  --step-bg: #ffffff;
+  --step-border: #dcdfe6;
+  --step-text: #2c3e50;
+  --step-active: #409eff;
+  --step-completed: #67c23a;
+  --card-bg: #ffffff;
+  --hover-bg: #f5f7fa;
+  --disabled-bg: #f5f7fa;
+  --disabled-text: #c0c4cc;
 }
 
-.grm-header {
-  padding: 100px 20px;
-  text-align: center;
-  color: #030303;
+.dark-mode {
+  --bg-primary: #1a1a1a;
+  --bg-secondary: #2c2c2c;
+  --text-primary: #ffffff;
+  --text-secondary: #a0a0a0;
+  --border-color: #3a3a3a;
+  --accent-color: #4a9eff;
+  --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --input-bg: #2c2c2c;
+  --input-border: #3a3a3a;
+  --input-text: #ffffff;
+  --step-bg: #2c2c2c;
+  --step-border: #3a3a3a;
+  --step-text: #ffffff;
+  --step-active: #4a9eff;
+  --step-completed: #67c23a;
+  --card-bg: #2c2c2c;
+  --hover-bg: #363636;
+  --disabled-bg: #2c2c2c;
+  --disabled-text: #666666;
+}
+
+.el-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: var(--card-shadow);
+  transition: all 0.3s ease;
+  margin-bottom: 2rem;
+}
+
+.el-card:hover {
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.el-steps {
+  margin-bottom: 2rem;
+  padding: 1rem;
+  background: var(--step-bg);
+  border-radius: 8px;
+  box-shadow: var(--card-shadow);
+}
+
+:deep(.el-step__title) {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--step-text);
+}
+
+:deep(.el-step__head.is-process) {
+  color: var(--step-active);
+  border-color: var(--step-active);
+}
+
+:deep(.el-step__head.is-finish) {
+  color: var(--step-completed);
+  border-color: var(--step-completed);
+}
+
+.el-form-item {
+  margin-bottom: 1.5rem;
+}
+
+:deep(.el-form-item__label) {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 0.95rem;
+  margin-bottom: 0.5rem;
+}
+
+:deep(.el-input__wrapper) {
+  background: var(--input-bg);
+  box-shadow: none;
+  border: 1px solid var(--input-border);
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  padding: 0.5rem 1rem;
+}
+
+:deep(.el-input__wrapper:hover),
+:deep(.el-input__wrapper.is-focus) {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.2);
+}
+
+:deep(.el-input__inner) {
+  color: var(--input-text);
+  background: var(--input-bg);
+}
+
+:deep(.el-textarea__inner) {
+  background: var(--input-bg);
+  color: var(--input-text);
+  border: 1px solid var(--input-border);
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  padding: 1rem;
+  font-size: 1rem;
+  resize: none;
+}
+
+:deep(.el-textarea__inner:hover),
+:deep(.el-textarea__inner:focus) {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.2);
+}
+
+:deep(.el-select .el-input__wrapper) {
+  background: var(--input-bg);
+}
+
+:deep(.el-select-dropdown) {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--card-shadow);
+}
+
+:deep(.el-select-dropdown__item) {
+  color: var(--text-primary);
+}
+
+:deep(.el-select-dropdown__item.hover),
+:deep(.el-select-dropdown__item:hover) {
+  background: var(--hover-bg);
+}
+
+:deep(.el-select-dropdown__item.selected) {
+  color: var(--accent-color);
+  background: var(--hover-bg);
+}
+
+:deep(.el-checkbox__label) {
+  color: var(--text-primary);
+}
+
+:deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
+  background-color: var(--accent-color);
+  border-color: var(--accent-color);
+}
+
+.steps-navigation {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 2rem;
+  padding: 1rem;
+  background: var(--bg-primary);
+  border-radius: 8px;
+  box-shadow: var(--card-shadow);
+}
+
+.el-button {
+  padding: 0.8rem 1.5rem;
+  font-weight: 600;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.el-button--primary {
+  background: linear-gradient(to right, var(--gradient-start), var(--gradient-end));
+  border: none;
+  color: white;
+}
+
+.el-button--primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(74, 158, 255, 0.3);
+  opacity: 0.9;
+}
+
+.el-button--info {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.el-button--info:hover {
+  background: var(--hover-bg);
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}
+
+:deep(.el-upload) {
+  width: 100%;
+}
+
+:deep(.el-upload-dragger) {
+  width: 100%;
+  background: var(--input-bg);
+  border: 2px dashed var(--border-color);
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+:deep(.el-upload-dragger:hover) {
+  border-color: var(--accent-color);
+  background: var(--hover-bg);
+}
+
+:deep(.el-upload__tip) {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+}
+
+.status-result {
+  margin-top: 1.5rem;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.status-result .el-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+}
+
+.status-result p {
+  color: var(--text-primary);
+  margin: 0.5rem 0;
+  font-size: 1rem;
+}
+
+.status-result strong {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 768px) {
+  .form-container {
+    padding: 1rem;
+  }
+
+  .el-card {
+    margin-bottom: 1rem;
+  }
+
+  .steps-navigation {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .steps-navigation > div {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+
+  .el-button {
+    width: 100%;
+    margin: 0;
+  }
+
+  :deep(.el-step__title) {
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .form-container {
+    padding: 0.5rem;
+  }
+
+  .el-form-item {
+    margin-bottom: 1rem;
+  }
+
+  :deep(.el-input__wrapper),
+  :deep(.el-textarea__inner) {
+    padding: 0.5rem;
+  }
+
+  .el-button {
+    padding: 0.7rem 1rem;
+    font-size: 0.9rem;
+  }
 }
 </style>
 
