@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {
-  ElRow, ElCol, ElCard, ElEmpty, ElTabs, ElTabPane, ElSkeleton, ElCascader, ElCascaderPanel, ElCascaderPanelContext, ElSelect, ElOption
+  ElRow, ElCol, ElCard, ElEmpty, ElTabs, ElTabPane, ElSkeleton, ElCascader, ElCascaderPanel, ElCascaderPanelContext, ElSelect, ElOption, ElCollapse, ElCollapseItem
 } from 'element-plus'
 import { ref, reactive, watch, onBeforeMount, onMounted } from 'vue'
 import { use } from "echarts/core";
@@ -127,22 +127,13 @@ onBeforeMount( async () => {
    console.log(dashboard_id.value)
   });
 
-//  watch(
-//   route,
-//     () => {
-//     console.log("Watching...............................", route.meta);
-     
-//     // Proceed with other operations or page loading
-//       dashboard_id.value = 1
-//     // page_title.value = route.meta.title
-//   },
-//   { deep: true, immediate: true }
-// );
+ 
 
 
 const activeTab = ref();
 const loading = ref(true)
 const cardLoading = ref(true)
+const activeCollapse = ref([ ])
 
 
 const cards = ref([])
@@ -2118,41 +2109,51 @@ const xhandleCardClick = async (card) => {
 
 <template>
   <div class="dashboard-container">
-    <div class="filters-wrapper">
-      <div class="filters-container">
-        <div class="filter-group">
-          <label class="filter-label">County</label>
-          <el-select 
-            class="filter-select"
-            @change="filterCounty" 
-            :onClear="handleClear" 
-            v-model="selectCounty" 
-            multiple 
-            clearable 
-            filterable 
-            collapse-tags 
-            placeholder="Select County">
-            <el-option v-for="item in countyList" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </div>
+    <el-collapse v-model="activeCollapse">
+      <el-collapse-item name="filters">
+        <template #title>
+          <div class="filter-header">
+            <Icon icon="mdi:filter-variant" width="20" class="filter-icon" />
+            <span>Filters</span>
+          </div>
+        </template>
+        <div class="filters-wrapper">
+          <div class="filters-container">
+            <div class="filter-group">
+              <label class="filter-label">County</label>
+              <el-select 
+                class="filter-select"
+                @change="filterCounty" 
+                :onClear="handleClear" 
+                v-model="selectCounty" 
+                multiple 
+                clearable 
+                filterable 
+                collapse-tags 
+                placeholder="Select County">
+                <el-option v-for="item in countyList" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </div>
 
-        <div class="filter-group">
-          <label class="filter-label">Constituency</label>
-          <el-select 
-            class="filter-select"
-            @change="filterSubCounty" 
-            :onClear="handleClear" 
-            v-model="selectSubCounty" 
-            clearable 
-            multiple 
-            filterable 
-            collapse-tags 
-            placeholder="Select Constituency">
-            <el-option v-for="item in filteredSubCountyList" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
+            <div class="filter-group">
+              <label class="filter-label">Constituency</label>
+              <el-select 
+                class="filter-select"
+                @change="filterSubCounty" 
+                :onClear="handleClear" 
+                v-model="selectSubCounty" 
+                clearable 
+                multiple 
+                filterable 
+                collapse-tags 
+                placeholder="Select Constituency">
+                <el-option v-for="item in filteredSubCountyList" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
+      </el-collapse-item>
+    </el-collapse>
 
     <el-row :gutter="16" class="cards-row">
       <el-col v-for="(card) in cards" :key="card.id" :span="24 / cards.length" :xs="24" :sm="12" :md="8" :lg="6">
@@ -2213,22 +2214,48 @@ const xhandleCardClick = async (card) => {
 
 <style scoped>
 .dashboard-container {
-  padding: 15px;
+  padding: 5px;
   background-color: #f5f7fa;
   min-height: 100vh;
+}
+
+:deep(.el-collapse) {
+  border: none;
+  margin-bottom: 12px;
+}
+
+:deep(.el-collapse-item__header) {
+  background: white;
+  border-radius: 2px;
+  padding: 0 16px;
+  font-size: 16px;
+  font-weight: 500;
+  color: #303133;
+  border: none;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+  height: 48px;
+  line-height: 48px;
+}
+
+:deep(.el-collapse-item__wrap) {
+  border: none;
+}
+
+:deep(.el-collapse-item__content) {
+  padding: 0;
+  margin-top: 12px;
 }
 
 .filters-wrapper {
   background: white;
   border-radius: 12px;
   padding: 20px;
-  margin-bottom: 12px;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
 }
 
 .filters-container {
   display: flex;
-  gap: 24px;
+  gap: 20px;
   align-items: flex-end;
 }
 
@@ -2236,17 +2263,26 @@ const xhandleCardClick = async (card) => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
 }
 
 .filter-label {
   font-size: 14px;
   font-weight: 500;
   color: #606266;
+  margin-bottom: 4px;
 }
 
 .filter-select {
   width: 100% !important;
+}
+
+:deep(.el-select) {
+  width: 100%;
+}
+
+:deep(.el-select__tags) {
+  margin: 4px 0;
 }
 
 @media (max-width: 768px) {
@@ -2265,7 +2301,7 @@ const xhandleCardClick = async (card) => {
 }
 
 .cards-row {
-  margin-bottom:  10px;
+  margin-bottom:  8px;
 }
 
 .tabs-container {
@@ -2276,7 +2312,7 @@ const xhandleCardClick = async (card) => {
 .main-tabs {
   background: white;
   border-radius: 8px;
-  padding: 16px;
+  padding: 10px;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
 }
 
@@ -2408,5 +2444,15 @@ const xhandleCardClick = async (card) => {
 
 .tab-content-scrollable::-webkit-scrollbar-thumb:hover {
   background: #555;
+}
+
+.filter-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-icon {
+  color: #606266;
 }
 </style>
