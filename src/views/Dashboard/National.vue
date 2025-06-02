@@ -2215,8 +2215,7 @@ const xhandleCardClick = async (card) => {
 <style scoped>
 .dashboard-container {
   padding: 5px;
-  background-color: #f5f7fa;
-  min-height: 100vh;
+   min-height: 100vh;
 }
 
 :deep(.el-collapse) {
@@ -2225,8 +2224,7 @@ const xhandleCardClick = async (card) => {
 }
 
 :deep(.el-collapse-item__header) {
-  background: white;
-  border-radius: 2px;
+   border-radius: 2px;
   padding: 0 16px;
   font-size: 16px;
   font-weight: 500;
@@ -2247,8 +2245,7 @@ const xhandleCardClick = async (card) => {
 }
 
 .filters-wrapper {
-  background: white;
-  border-radius: 12px;
+   border-radius: 12px;
   padding: 20px;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
 }
@@ -2310,8 +2307,7 @@ const xhandleCardClick = async (card) => {
 }
 
 .main-tabs {
-  background: white;
-  border-radius: 8px;
+   border-radius: 8px;
   padding: 10px;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
 }
@@ -2347,8 +2343,7 @@ const xhandleCardClick = async (card) => {
 
 .stat-card {
   border-radius: 12px;
-  background-color: #ffffff;
-  transition: all 0.3s ease;
+   transition: all 0.3s ease;
   height: 100%;
   border: none;
   overflow: hidden;
@@ -2385,7 +2380,7 @@ const xhandleCardClick = async (card) => {
 .value-text {
   font-size: 28px;
   font-weight: 700;
-  color: #1a1a1a;
+  color: #d61515;
   margin: 0;
   cursor: pointer;
   transition: color 0.2s ease;
@@ -2438,7 +2433,6 @@ const xhandleCardClick = async (card) => {
 }
 
 .tab-content-scrollable::-webkit-scrollbar-thumb {
-  background: #888;
   border-radius: 4px;
 }
 
@@ -2455,4 +2449,15 @@ const xhandleCardClick = async (card) => {
 .filter-icon {
   color: #606266;
 }
+
+
+/* When the OS/browser is in Dark mode, switch to this: */
+@media (prefers-color-scheme: dark) {
+  .value-text {
+    color: #66aaff;
+  }
+}
+
+
+ 
 </style>
