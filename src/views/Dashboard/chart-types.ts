@@ -1049,3 +1049,86 @@ export const mapChartOptions: EChartsOption = {
     }
   ]
 }
+
+ 
+export const pyramidOptions  = {
+ 
+ 
+    series: [{
+      name: 'Males',
+      data: [0.4, 0.65, 0.76, 0.88, 1.5, 2.1, 2.9, 3.8, 3.9, 4.2, 4, 4.3, 4.1, 4.2, 4.5,
+        3.9, 3.5, 3
+      ]
+    },
+    {
+      name: 'Females',
+      data: [-0.8, -1.05, -1.06, -1.18, -1.4, -2.2, -2.85, -3.7, -3.96, -4.22, -4.3, -4.4,
+        -4.1, -4, -4.1, -3.4, -3.1, -2.8
+      ]
+    }
+    ],
+ 
+  
+  chartOptions: {
+    chart: {
+      type: 'bar',
+      height: 440,
+      stacked: true
+    },
+    colors: ['#008FFB', '#FF4560'],
+    plotOptions: {
+      bar: {
+        borderRadius: 5,
+        borderRadiusApplication: 'end', // 'around', 'end'
+        borderRadiusWhenStacked: 'all', // 'all', 'last'
+        horizontal: true,
+        barHeight: '80%',
+      },
+    },
+    dataLabels: {
+      enabled: false
+    },
+    stroke: {
+      width: 1,
+      colors: ["#fff"]
+    },
+    
+    grid: {
+      xaxis: {
+        lines: {
+          show: false
+        }
+      }
+    },
+    yaxis: {
+      stepSize: 1
+    },
+    tooltip: {
+      shared: false,
+      x: {
+        formatter: function (val) {
+          return val
+        }
+      },
+      y: {
+        formatter: function (val) {
+          return Math.abs(val) 
+        }
+      }
+    },
+    title: {
+      text: 'Mauritius population pyramid 2011'
+    },
+    xaxis: {
+      categories: [ '65+','35-64','18-35','6-17', '0-5'  ],
+      title: {
+        text: 'Percent'
+      },
+      labels: {
+        formatter: function (val) {
+          return Math.abs(Math.round(val))
+        }
+      }
+    },
+  },
+};
