@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, watch ,computed} from 'vue'
+import { onMounted, onUnmounted, ref, watch ,computed, h} from 'vue'
 import {
-  ElButton, ElTabPane, ElTabs, ElCard, ElTable, ElTableColumn, ElSelect,ElOption,ElPagination,ElRow,ElSkeleton,ElCol,ElTableV2,ElAutoResizer,ElMessage,
+  ElButton, ElTabPane, ElTabs, ElCard, ElTable, ElTableColumn, ElSelect,ElOption,ElPagination,ElRow,ElCol,ElTableV2,ElMessage,
 } from 'element-plus'
-import { toRaw } from "vue"; // Import toRaw
 
 import { useRoute } from 'vue-router'
 import { useRouter } from 'vue-router'
@@ -29,12 +28,9 @@ import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css'
 
 import mapboxgl from "mapbox-gl";
 import 'mapbox-gl/dist/mapbox-gl.css'
-import { Position, Plus, Download, Delete, Edit, InfoFilled, UploadFilled, Back,Upload } from '@element-plus/icons-vue'
+import { Back,Upload } from '@element-plus/icons-vue'
 
 
-import { simpleBarChart, multipleBarChart, stacklineOptions, mapChartOptions,
-  lineOptions, stackedbarOptions, barMaleFemaleOptions,stackedbarOptionsAbs
-} from './chart-types'
  
 import { useCache } from '@/hooks/web/useCache'
 
@@ -200,6 +196,9 @@ const getFormData = async () => {
             row[key] = properties[key] || "-"; // Set "-" if the property is missing or undefined
           });
 
+          // Add attachments column
+          row.attachments = properties._uuid ? getAttachments(properties._uuid) : [];
+          
           return row;
         });
 
@@ -2119,7 +2118,7 @@ const infowindow = ref(false); // Will be open when mounted
 const selectedFeature = ref(null);
 
  // Function to handle polygon click
- const onPolygonClick = (feature) => {
+ const xonPolygonClick = (feature) => {
   console.log('onPolygonClick', feature);
   vertices.value=[]
   infowindow.value = true;
@@ -2238,6 +2237,119 @@ watch(userLocation, (newLocation) => {
   }
 });
 
+// Add new function to handle attachment downloads
+const downloadAttachment = async (submissionId, attachmentName) => {
+  try {
+    const response = await fetch(`https://collector.kesmis.go.ke/v1/projects/${projectId}/forms/${formId}/submissions/${submissionId}/attachments/${attachmentName}`);
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = attachmentName;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  } catch (error) {
+    console.error('Error downloading attachment:', error);
+    ElMessage.error('Failed to download attachment');
+  }
+};
+
+ 
+
+// Add loading state for attachments
+const loadingAttachments = ref({});
+
+// Modify getAttachments to handle loading state
+const getAttachments = async (submissionId) => {
+  if (loadingAttachments.value[submissionId]) {
+    return loadingAttachments.value[submissionId];
+  }
+  
+  loadingAttachments.value[submissionId] = [];
+  try {
+    const response = await fetch(`https://collector.kesmis.go.ke/v1/projects/${projectId}/forms/${formId}/submissions/${submissionId}/attachments`);
+    const data = await response.json();
+   // const data = [{"name":"1746772406712.jpg","exists":true}]
+    loadingAttachments.value[submissionId] = data;
+    return data;
+  } catch (error) {
+    console.error('Error fetching attachments:', error);
+    loadingAttachments.value[submissionId] = [];
+    return [];
+  }
+};
+
+// Add interface for table row
+interface TableRow {
+  [key: string]: any;
+  attachments: Array<{ name: string; exists: boolean }>;
+}
+
+// Modify the table data mapping with proper typing
+tableData.value = features.value.map((feature) => {
+  const properties = feature.properties ? feature.properties : feature;
+  const row: TableRow = {
+    attachments: []
+  };
+  
+  // Loop through the selected fields and assign values from properties
+  selectedFields.value.forEach((key) => {
+    row[key] = properties[key] || "-";
+  });
+
+  // Add attachments column with loading state
+  if (properties._uuid) {
+    row.attachments = loadingAttachments.value[properties._uuid] || [];
+    // Fetch attachments if not already loaded
+    if (!loadingAttachments.value[properties._uuid]) {
+      getAttachments(properties._uuid);
+    }
+  }
+  
+  return row;
+});
+// Handle polygon click event
+const onPolygonClick = async (feature) => {
+  console.log('handlePolygonClick', feature);
+  vertices.value = [];
+  infowindow.value = true;
+
+  gmapCenter.value = feature.paths
+    ? feature.paths[0]
+    : feature.path
+    ? feature.path[Math.floor(feature.path.length / 2)]
+    : feature.position || { lat: 0, lng: 0 };
+
+  selectedFeature.value = feature;
+  selectedFeature.value = { 
+    ...feature, 
+    properties: Object.fromEntries(
+      Object.entries(feature.properties).filter(([_, value]) => value)
+    ) 
+  };
+
+  // Load attachments if available
+  if (selectedFeature.value.properties.__id) {
+    selectedFeature.value.properties.attachments = await getAttachments( selectedFeature.value.properties.__id);
+  }
+
+  console.log('selectedFeature.value,',selectedFeature.value)
+  // Clear previous vertices
+
+  vertices.value = [];
+
+  if (feature.paths) {
+    feature.paths.forEach(coord => {
+      vertices.value.push({
+        lat: coord.lat,
+        lng: coord.lng
+      });
+    });
+  }
+};
+
 </script>
 
 <template>
@@ -2310,7 +2422,29 @@ v-for="(option, index) in uploadOptions"
      
         
             <el-table-v2
-              :columns="tableColumns"
+              :columns="[...tableColumns, {
+                key: 'attachments',
+                dataKey: 'attachments',
+                title: 'Attachments',
+                width: 150,
+                align: 'left',
+                cellRenderer: ({ rowData }) => {
+                  if (rowData.attachments && rowData.attachments.length > 0) {
+                    return h('div', [
+                      h('el-button', {
+                        type: 'primary',
+                        size: 'small',
+                        onClick: () => {
+                          rowData.attachments.forEach(attachment => {
+                            downloadAttachment(rowData.__id, attachment.name);
+                          });
+                        }
+                      }, 'Download All')
+                    ]);
+                  }
+                  return '-';
+                }
+              }]"
               :data="paginatedData"
               :width="tableWidth"            
               :height=400
@@ -2409,6 +2543,20 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
                   <el-table-column prop="0" label="Property" width="120" />
                   <el-table-column prop="1" label="Value"  width="250"/>
                 </el-table>
+                
+                <!-- Add attachments section -->
+                <div   style="margin-top: 10px;">
+                  <h4>Attachments</h4>
+                  <div v-for="attachment in selectedFeature.properties.attachments" :key="attachment.name" style="margin: 5px 0;">
+                    <el-button 
+                      type="primary" 
+                      size="small" 
+                      @click="downloadAttachment(selectedFeature.properties.__id, attachment.name)"
+                    >
+                      Download {{ attachment.name }}
+                    </el-button>
+                  </div>
+                </div>
               </div>
             </InfoWindow>
 
