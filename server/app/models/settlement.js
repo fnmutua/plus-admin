@@ -231,7 +231,7 @@ module.exports = function (sequelize, DataTypes) {
         },
         {
           unique: true,
-          fields: ['name', 'ward_id','subcounty_id', 'county_id']
+          fields: ['name', 'subcounty_id', 'county_id']
         },
   
       ]
