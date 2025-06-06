@@ -9,12 +9,10 @@
                 <div class="hero-content">
                   <div class="hero-text">
                     <h1 class="main-title">Welcome to KeSMIS</h1>
-                    <h2 class="subtitle">Kenya Slum Management Information System</h2>
+                    <h3 class="subtitle">Kenya Slum Management Information System</h3>
 
                     <p class="description">
-                      This is the national geodatabase for slums and informal settlements across Kenya. It provides a centralized
-                      platform for real-time data collection, storage, and visualization, supporting evidence-based
-                      decision-making in urban planning, policy formulation, and development initiatives.
+                      This is the national geodatabase for slums and informal settlements across Kenya. It provides a centralized platform for real-time data collection, storage, and visualization.
                     </p>
 
                     <div class="cta-buttons">
@@ -272,10 +270,10 @@ AvgHHSize();
 }
 
 .main-title {
-  font-size: 4rem;
+  font-size: 3rem;
   font-weight: 800;
   color: var(--el-color-primary);
-  margin-bottom: 1rem;
+  margin-bottom: 0.5rem;
   line-height: 1.2;
   animation: slideUp 0.8s ease-out;
 }
@@ -283,7 +281,7 @@ AvgHHSize();
 .subtitle {
   font-size: 2rem;
   color: var(--el-text-color-primary);
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
   font-weight: 500;
   animation: slideUp 0.8s ease-out 0.2s backwards;
 }
@@ -292,7 +290,7 @@ AvgHHSize();
   font-size: 1.2rem;
   line-height: 1.8;
   color: var(--el-text-color-regular);
-  margin-bottom: 3rem;
+  margin-bottom: 2rem;
   max-width: 1200px;
   margin-left: auto;
   margin-right: auto;
@@ -303,7 +301,7 @@ AvgHHSize();
   display: flex;
   gap: 1.5rem;
   justify-content: center;
-  margin-bottom: 3rem;
+  margin-bottom: 1rem;
   animation: slideUp 0.8s ease-out 0.6s backwards;
 }
 
@@ -334,13 +332,13 @@ AvgHHSize();
 
 /* 4. STATS GRID (using Element Row/Col) */
 .stats-grid {
-  margin: 2rem 0;
+  margin: 1rem 0;
   animation: slideUp 0.8s ease-out 0.8s backwards;
   max-width: 1400px;
 }
 
 .stat-card {
-  height: 100%;
+  height: 90%;
   text-align: center;
   transition: all 0.3s ease;
   border: 1px solid var(--el-border-color-lighter);
@@ -351,8 +349,8 @@ AvgHHSize();
 }
 
 .stat-icon {
-  font-size: 2.5rem;
-  margin-bottom: 1rem;
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
   color: var(--el-color-primary);
   display: flex;
   justify-content: center;
@@ -361,7 +359,7 @@ AvgHHSize();
 }
 
 .stat-value {
-  font-size: 2.5rem;
+  font-size: 2rem;
   font-weight: 700;
   color: var(--el-color-primary);
   margin-bottom: 0.5rem;
@@ -377,13 +375,12 @@ AvgHHSize();
 
 /* 5. GRIEVANCE SECTION */
 .grievance-section {
-  margin-top: 0.5rem;
-  animation: slideUp 0.8s ease-out 1s backwards;
+   animation: slideUp 0.8s ease-out 1s backwards;
   background: transparent;
   border: 1px solid var(--el-border-color-lighter);
   box-shadow: none !important;
   border-radius: 8px;
-  padding: 1.5rem;
+  padding: 0.1rem;
 }
 
 .grievance-section:hover {
