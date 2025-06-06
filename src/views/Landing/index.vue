@@ -66,23 +66,24 @@
                       </el-card>
                     </el-col>
                   </el-row>
-                  
-                  <el-card class="grievance-section" shadow="hover">
-                    <div class="grievance-content">
-                      <div class="grievance-icon">
-                        <Icon icon="mdi:file-document-edit" />
-                      </div>
-                      <p class="grievance-message">
-                        If you have a grievance against the KISIP project or its actors, you can
-                        <el-button plain link class="grievance-link" @click="navigateTo('grm')">file a grievance</el-button>, or call our toll free helpline at
-                        <a href="tel:0800724349" class="grievance-link">0800 724 349 </a> (no charges).
-                      </p>
-                    </div>
-                  </el-card>
                 </div>
               </el-col>
             </el-row>
           </div>
+
+          <el-row justify="center">
+            <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
+              <div class="grievance-section">
+                <div class="grievance-content">
+                  <p class="grievance-message">
+                    If you have a grievance against the KISIP project or its actors, you can
+                    <el-button plain link class="grievance-link" @click="navigateTo('grm')">file a grievance</el-button>, or call our toll free helpline at
+                    <a href="tel:0800724349" class="grievance-link">0800 724 349 </a> (no charges).
+                  </p>
+                </div>
+              </div>
+            </el-col>
+          </el-row>
         </el-main>
       </el-container>
     </div>
@@ -229,7 +230,7 @@ AvgHHSize();
 /* 1. Make entire page scrollable, but remove horizontal overflow */
 .landing-container {
   width: 100%;
-  max-height: 100vh;
+  min-height: 90vh;
   overflow-x: hidden;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch; /* smooth scrolling on iOS */
@@ -238,10 +239,9 @@ AvgHHSize();
 /* 2. Ensure the Element container also scrolls vertically if needed */
 .main-container {
   width: 100%;
-  max-height: 100vh;
+  min-height: 90vh;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 }
 
 .main-content {
@@ -249,6 +249,8 @@ AvgHHSize();
   padding: 1rem 2rem;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
 }
 
 /* 3. HERO SECTION LAYOUT */
@@ -257,7 +259,7 @@ AvgHHSize();
   max-width: 1400px;
   margin: 0 auto;
   animation: fadeIn 0.8s ease-out;
-  padding-bottom: 2rem;
+   flex-shrink: 0;
 }
 
 .hero-content {
@@ -275,13 +277,13 @@ AvgHHSize();
   font-size: 3rem;
   font-weight: 800;
   color: var(--el-color-primary);
-  margin-bottom: 0.5rem;
+  margin-bottom: 1.7rem;
   line-height: 1.2;
   animation: slideUp 0.8s ease-out;
 }
 
 .subtitle {
-  font-size: 2rem;
+  font-size: 1.5rem;
   color: var(--el-text-color-primary);
   margin-bottom: 1rem;
   font-weight: 500;
@@ -373,48 +375,23 @@ AvgHHSize();
 /* 5. GRIEVANCE SECTION */
 .grievance-section {
   animation: slideUp 0.8s ease-out 1s backwards;
-  background: transparent;
-  border: 1px solid var(--el-border-color-lighter);
-  box-shadow: none !important;
-  border-radius: 8px;
-  transition: all 0.3s ease;
-}
-
-.grievance-section:hover {
-  transform: translateY(-3px);
-  border-color: var(--el-color-success-light-5);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1) !important;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 1rem 0;
 }
 
 .grievance-content {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  max-width: 1200px;
-  margin: 0 auto;
-  flex-wrap: nowrap;
-}
-
-.grievance-icon {
-  font-size: 3rem;
-  flex-shrink: 0;
-  color: var(--el-color-primary);
-  display: flex;
   justify-content: center;
-  align-items: center;
-  opacity: 0.9;
-}
-
-.grievance-icon .iconify {
-  width: 3rem;
-  height: 3rem;
 }
 
 .grievance-message {
-  font-size: 1.1rem;
-  color: var(--el-text-color-regular);
-  line-height: 1;
+  font-size: 0.9rem;
+  color: var(--el-text-color-primary);
   margin: 0;
+  font-weight: 500;
+  text-align: center;
 }
 
 .grievance-link {
@@ -422,6 +399,7 @@ AvgHHSize();
   text-decoration: none;
   font-weight: 500;
   transition: color 0.3s ease;
+  white-space: nowrap;
 }
 
 .grievance-link:hover {
@@ -454,21 +432,11 @@ AvgHHSize();
 /* Up to 768px wide (tablets & small desktops) */
 @media (max-width: 768px) {
   .main-content {
-    padding: 2rem 2rem;
+    padding: 1rem;
   }
 
   .hero {
     padding-bottom: 2rem;
-  }
-
-  .main-title {
-    font-size: 2.5rem;
-    margin-bottom: 0.75rem;
-  }
-
-  .subtitle {
-    font-size: 1.5rem;
-    margin-bottom: 1rem;
   }
 
   .description {
@@ -507,23 +475,11 @@ AvgHHSize();
   }
 
   .grievance-section {
-    margin-top: 2rem;
-  }
-
-  .grievance-content {
-    flex-direction: column;
-    text-align: center;
-    gap: 1rem;
-    padding: 0 0.5rem;
-  }
-
-  .grievance-icon {
-    font-size: 2.5rem;
+    padding: 0.75rem 0;
   }
 
   .grievance-message {
-    font-size: 1rem;
-    line-height: 1;
+    font-size: 1.1rem;
   }
 }
 
@@ -532,23 +488,19 @@ AvgHHSize();
   /* Force the landing-container & main-container to fill viewport */
   .landing-container,
   .main-container {
-    max-height: 100vh;
+    max-height: 90vh;
   }
 
   /* Cap main-content at viewport height so overflow can scroll */
   .main-content {
-    padding: 1rem 1.5rem;
-    max-height: 100vh;
+    padding: 0.75rem;
+    max-height: 90vh;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
   }
 
   .main-title {
     font-size: 2rem;
-  }
-
-  .subtitle {
-    font-size: 1.1rem;
   }
 
   .description {
@@ -570,15 +522,11 @@ AvgHHSize();
 
   /* Make grievance-section scrollable within phone viewport too */
   .grievance-section {
-    padding: 0.5rem;
-    max-height: 10vh; /* or adjust as needed */
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+    padding: 0.5rem 0;
   }
 
   .grievance-message {
-    font-size: 0.95rem;
-    line-height: 1;
+    font-size: 1.1rem;
   }
 }
 </style>
