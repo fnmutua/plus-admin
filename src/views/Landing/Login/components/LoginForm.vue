@@ -318,7 +318,7 @@ const guestLogin = async () => {
     formData.username = 'guest';
     formData.password = 'Guest@123';
 
-    // Step 3: Submit using the existing signIn function
+    // Step 3: Submit using the existing signIn function which will handle routing
     await signIn();
   } finally {
     loading.value = false;

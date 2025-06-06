@@ -11,10 +11,18 @@ import { Icon } from '@iconify/vue'
 import axios from 'axios';
 
 import { XMLParser } from 'fast-xml-parser';
+import { useCache } from '@/hooks/web/useCache'
 
 import { useAppStore } from '@/store/modules/app'
 const appStore = useAppStore()
 const googleMapsApiKey = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
+
+
+const { wsCache } = useCache()
+const userInfo = wsCache.get(appStore.getUserInfo)
+const showAdminButtons = ref(appStore.getAdminButtons)
+const showEditButtons = ref(appStore.getEditButtons)
+
 
 const route = useRoute()
 const router = useRouter()
@@ -1310,12 +1318,12 @@ watch(userLocation, (newLocation) => {
     <template #header>
       <div class="card-header">
         <ElButton type="primary" plain :icon="Back" @click="goBack">Back</ElButton>
-        <h1>{{ title.replace('_', ' ') }} Settlement</h1>
-        <div>
-          <ElButton type="success" @click="editSettlement">
+        <h1 style="font-weight: 700;">{{ title.replace('_', ' ') }} Settlement</h1>
+        <div >
+          <ElButton v-if="showAdminButtons ||showEditButtons " type="success" @click="editSettlement"/>
             <Icon :size="24" icon="uil:edit" />
           </ElButton>
-          <ElButton type="primary" @click="downloadGeoJSON">
+          <ElButton v-if="showAdminButtons ||showEditButtons "  type="primary" @click="downloadGeoJSON">
             <Icon :size="24" icon="ic:sharp-file-download" />
           </ElButton>
         </div>
@@ -1512,10 +1520,14 @@ ref="mapRef" :api-key="googleMapsApiKey" style="width: 100%; height: 75vh" :cent
   color: #333;
 }
 
+.card-header h1 {
+  font-weight: 700;
+  margin: 0;
+}
+
 .map-container {
   position: relative;
   height: 75vh;
-
 }
 
 #floating-div {
