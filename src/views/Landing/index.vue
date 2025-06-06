@@ -83,10 +83,7 @@
                       </div>
                       <p class="grievance-message">
                         If you have a grievance against the KISIP project or its actors, you can
-                        <el-button plain link class="grievance-link" @click="navigateTo('grm')">file a grievance</el-button>,
-                        send us an email at
-                        <a href="mailto:kisip2info@housingandurban.go.ke" class="grievance-link">kisip2info@housingandurban.go.ke</a>,
-                        or call our helpline at
+                        <el-button plain link class="grievance-link" @click="navigateTo('grm')">file a grievance</el-button>, or call our helpline at
                         <a href="tel:0800724349" class="grievance-link">0800 724 349</a>.
                       </p>
                     </div>
@@ -130,7 +127,10 @@ const navigateTo = (page: string) => {
     case 'about':
       router.push('/about');
       break;
-    default:
+    case 'faq':
+      router.push('/faq');
+      break;
+     default:
       router.push('/');
       break;
   }
@@ -338,19 +338,25 @@ AvgHHSize();
 }
 
 .stat-card {
-  height: 90%;
+  height: 89%;
   text-align: center;
   transition: all 0.3s ease;
   border: 1px solid var(--el-border-color-lighter);
   background: transparent;
   box-shadow: none !important;
   border-radius: 8px;
-  padding: 1.5rem;
+  padding: 0.5rem;
+}
+
+.stat-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--el-color-primary-light-5);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1) !important;
 }
 
 .stat-icon {
   font-size: 2rem;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.25rem;
   color: var(--el-color-primary);
   display: flex;
   justify-content: center;
@@ -359,10 +365,10 @@ AvgHHSize();
 }
 
 .stat-value {
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: 700;
   color: var(--el-color-primary);
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.2rem;
   opacity: 0.95;
 }
 
@@ -375,22 +381,24 @@ AvgHHSize();
 
 /* 5. GRIEVANCE SECTION */
 .grievance-section {
-   animation: slideUp 0.8s ease-out 1s backwards;
+  animation: slideUp 0.8s ease-out 1s backwards;
   background: transparent;
   border: 1px solid var(--el-border-color-lighter);
   box-shadow: none !important;
   border-radius: 8px;
-  padding: 0.1rem;
+  transition: all 0.3s ease;
 }
 
 .grievance-section:hover {
+  transform: translateY(-3px);
   border-color: var(--el-color-success-light-5);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1) !important;
 }
 
 .grievance-content {
   display: flex;
   align-items: center;
-  gap: 2rem;
+  gap: 1rem;
   max-width: 1200px;
   margin: 0 auto;
   flex-wrap: nowrap;
@@ -399,7 +407,7 @@ AvgHHSize();
 .grievance-icon {
   font-size: 3rem;
   flex-shrink: 0;
-  color: var(--el-color-success);
+  color: var(--el-color-primary);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -414,7 +422,7 @@ AvgHHSize();
 .grievance-message {
   font-size: 1.1rem;
   color: var(--el-text-color-regular);
-  line-height: 1.8;
+  line-height: 1;
   margin: 0;
 }
 
@@ -525,7 +533,7 @@ AvgHHSize();
 
   .grievance-message {
     font-size: 1rem;
-    line-height: 1.6;
+    line-height: 1;
   }
 }
 
@@ -572,15 +580,15 @@ AvgHHSize();
 
   /* Make grievance-section scrollable within phone viewport too */
   .grievance-section {
-    padding: 1rem;
-    max-height: 50vh; /* or adjust as needed */
+    padding: 0.5rem;
+    max-height: 10vh; /* or adjust as needed */
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
   }
 
   .grievance-message {
     font-size: 0.95rem;
-    line-height: 1.4;
+    line-height: 1;
   }
 }
 </style>

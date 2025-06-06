@@ -130,7 +130,7 @@ const handleSelect = (index: string) => {
       router.push('/contact');
       break;
     case '6':
-      router.push('/privacy');
+      router.push('/faqs');
       break;
     default:
       //ElMessage.warning('Page not found.');
@@ -193,6 +193,7 @@ const handleSelect = (index: string) => {
 
 .el-menu-item {
   color: var(--text-primary);
+  font-weight: 700;
 }
 
 .el-menu-item:hover {
@@ -202,6 +203,7 @@ const handleSelect = (index: string) => {
 .el-menu-item.is-active {
   color: var(--accent-color);
   background-color: var(--hover-bg);
+  font-weight: 700;
 }
 
 .el-sub-menu__title {
