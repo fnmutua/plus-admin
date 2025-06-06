@@ -263,7 +263,7 @@ const subcountyGeo = ref([])
 
 
 const map = ref()
-var isDarkMode  = appStore.getIsDark 
+var isDarkMode = appStore.getIsDark 
 
 onMounted(async () => {
   if (isMobile.value) {
@@ -275,33 +275,27 @@ onMounted(async () => {
   await initializeMap()
 })
 
+// Initialize map
+map.value = new mapboxgl.Map({
+  container: 'map',
+  style: appStore.getIsDark 
+    ? 'mapbox://styles/agspatial/clqcfzcoa00bt01nwhmf465f7' 
+    : 'mapbox://styles/mapbox/light-v11',
+  center: [36.799473, -1.264257],
+  zoom: 14
+});
 
- 
+map.value.addControl(new mapboxgl.NavigationControl());
 
-
-
-  map.value = new mapboxgl.Map({
-    container: 'map',
-   // style: 'mapbox://styles/mapbox/streets-v12',
-    //style: 'mapbox://styles/mapbox/light-v11',
-    style:mapStyle,
-    // style: 'mapbox://styles/agspatial/clamkcjwx000b14mmgzyx86vv',
-    center: [36.799473, -1.264257],
-    zoom: 14
-  });
-
-  map.value.addControl(new mapboxgl.NavigationControl());
-
-  map.value.addControl(
-        new mapboxgl.GeolocateControl({
-        positionOptions: {
-        enableHighAccuracy: true
-        },
-        // When active the map will receive updates to the device's location as it changes.
-        trackUserLocation: true,
-        // Draw an arrow next to the location dot to indicate which direction the device is heading.
-        showUserHeading: true
-        }))
+map.value.addControl(
+  new mapboxgl.GeolocateControl({
+    positionOptions: {
+      enableHighAccuracy: true
+    },
+    trackUserLocation: true,
+    showUserHeading: true
+  })
+);
 
    
    
