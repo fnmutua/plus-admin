@@ -377,7 +377,7 @@ AvgHHSize();
   animation: slideUp 0.8s ease-out 1s backwards;
   max-width: 1400px;
   margin: 0 auto;
-  padding: 1rem 0;
+  padding: 0.6rem 0;
 }
 
 .grievance-content {
@@ -390,7 +390,7 @@ AvgHHSize();
   font-size: 0.9rem;
   color: var(--el-text-color-primary);
   margin: 0;
-  font-weight: 500;
+  font-weight: 400;
   text-align: center;
 }
 
