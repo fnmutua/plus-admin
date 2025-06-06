@@ -2454,7 +2454,7 @@ const xhandleCardClick = async (card) => {
 /* When the OS/browser is in Dark mode, switch to this: */
 @media (prefers-color-scheme: dark) {
   .value-text {
-    color: #66aaff;
+    color: #ffffff;
   }
 }
 

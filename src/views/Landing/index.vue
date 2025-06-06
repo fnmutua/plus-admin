@@ -5,7 +5,7 @@
         <el-main class="main-content">
           <div class="hero">
             <el-row justify="center">
-              <el-col :xs="24" :sm="22" :md="20" :lg="18" :xl="16">
+              <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
                 <div class="hero-content">
                   <div class="hero-text">
                     <h1 class="main-title">Welcome to KeSMIS</h1>
@@ -40,39 +40,49 @@
                   </div>
 
                   <el-row :gutter="20" class="stats-grid">
-                    <el-col :xs="24" :sm="12" :md="6">
+                    <el-col :xs="24" :sm="12" :md="8" :lg="6">
                       <el-card shadow="hover" class="stat-card">
-                        <div class="stat-icon">🏘️</div>
+                        <div class="stat-icon">
+                          <Icon icon="tabler:map-2" />
+                        </div>
                         <div class="stat-value">{{ NumSettlements }}</div>
-                        <div class="stat-label">Total Settlements</div>
+                        <div class="stat-label">Settlements</div>
                       </el-card>
                     </el-col>
-                    <el-col :xs="24" :sm="12" :md="6">
+                    <el-col :xs="24" :sm="12" :md="8" :lg="6">
                       <el-card shadow="hover" class="stat-card">
-                        <div class="stat-icon">📏</div>
+                        <div class="stat-icon">
+                          <Icon icon="mdi:account-group" />
+                        </div>
                         <div class="stat-value">{{ AvgSize }}</div>
-                        <div class="stat-label">Avg. Settlement Size</div>
+                        <div class="stat-label">People living in Slums</div>
                       </el-card>
                     </el-col>
-                    <el-col :xs="24" :sm="12" :md="6">
+                    <el-col :xs="24" :sm="12" :md="8" :lg="6">
                       <el-card shadow="hover" class="stat-card">
-                        <div class="stat-icon">🏗️</div>
+                        <div class="stat-icon">
+                          <Icon icon="fa-solid:road" />
+                        </div>
                         <div class="stat-value">{{ TotalProjs }}</div>
-                        <div class="stat-label">Active Projects</div>
+                        <div class="stat-label">Intervention Projects</div>
                       </el-card>
                     </el-col>
-                    <el-col :xs="24" :sm="12" :md="6">
+                    <el-col :xs="24" :sm="12" :md="8" :lg="6">
                       <el-card shadow="hover" class="stat-card">
-                        <div class="stat-icon">👥</div>
+                        <div class="stat-icon">
+                          <Icon icon="vaadin:family" />
+                        </div>
                         <div class="stat-value">{{ avgHHSize }}</div>
                         <div class="stat-label">Avg. Household Size</div>
                       </el-card>
                     </el-col>
                   </el-row>
-
+                  
                   <el-card class="grievance-section" shadow="hover">
                     <div class="grievance-content">
-                      <div class="grievance-icon">📝</div>
+                      <div class="grievance-icon">
+                        <Icon icon="mdi:file-document-edit" />
+                      </div>
                       <p class="grievance-message">
                         If you have a grievance against the KISIP project or its actors, you can
                         <el-button plain link class="grievance-link" @click="navigateTo('grm')">file a grievance</el-button>,
@@ -106,6 +116,7 @@ import {
 } from 'element-plus';
 import BaseLayout from './BaseLayout.vue';
 import { Lock, More } from '@element-plus/icons-vue';
+import { Icon } from '@iconify/vue';
 import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary';
 
 const router = useRouter();
@@ -235,7 +246,7 @@ AvgHHSize();
 
 .main-content {
   flex: 1;
-  padding: 3rem 2rem;
+  padding: 1rem 2rem;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
@@ -243,21 +254,21 @@ AvgHHSize();
 /* 3. HERO SECTION LAYOUT */
 .hero {
   width: 100%;
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
   animation: fadeIn 0.8s ease-out;
-  padding-bottom: 4rem;
+  padding-bottom: 2rem;
 }
 
 .hero-content {
-  max-width: 1000px;
+  max-width: 1300px;
   margin: 0 auto;
 }
 
 /* HERO TEXT */
 .hero-text {
   text-align: center;
-  margin-bottom: 4rem;
+  margin-bottom: 2rem;
 }
 
 .main-title {
@@ -282,7 +293,7 @@ AvgHHSize();
   line-height: 1.8;
   color: var(--el-text-color-regular);
   margin-bottom: 3rem;
-  max-width: 800px;
+  max-width: 1200px;
   margin-left: auto;
   margin-right: auto;
   animation: slideUp 0.8s ease-out 0.4s backwards;
@@ -323,25 +334,30 @@ AvgHHSize();
 
 /* 4. STATS GRID (using Element Row/Col) */
 .stats-grid {
-  margin: 4rem 0;
+  margin: 2rem 0;
   animation: slideUp 0.8s ease-out 0.8s backwards;
+  max-width: 1400px;
 }
 
 .stat-card {
   height: 100%;
   text-align: center;
   transition: all 0.3s ease;
-  border: 1px solid rgba(0, 0, 0, 0.05);
-}
-
-.stat-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--el-border-color-lighter);
+  background: transparent;
+  box-shadow: none !important;
+  border-radius: 8px;
+  padding: 1.5rem;
 }
 
 .stat-icon {
   font-size: 2.5rem;
   margin-bottom: 1rem;
+  color: var(--el-color-primary);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  opacity: 0.9;
 }
 
 .stat-value {
@@ -349,32 +365,53 @@ AvgHHSize();
   font-weight: 700;
   color: var(--el-color-primary);
   margin-bottom: 0.5rem;
+  opacity: 0.95;
 }
 
 .stat-label {
   font-size: 1.1rem;
   color: var(--el-text-color-regular);
   font-weight: 500;
+  opacity: 0.85;
 }
 
 /* 5. GRIEVANCE SECTION */
 .grievance-section {
-  margin-top: 3rem;
+  margin-top: 0.5rem;
   animation: slideUp 0.8s ease-out 1s backwards;
+  background: transparent;
+  border: 1px solid var(--el-border-color-lighter);
+  box-shadow: none !important;
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+.grievance-section:hover {
+  border-color: var(--el-color-success-light-5);
 }
 
 .grievance-content {
   display: flex;
   align-items: center;
   gap: 2rem;
-  max-width: 800px;
+  max-width: 1200px;
   margin: 0 auto;
-  flex-wrap: nowrap; /* allow wrapping on small screens */
+  flex-wrap: nowrap;
 }
 
 .grievance-icon {
   font-size: 3rem;
   flex-shrink: 0;
+  color: var(--el-color-success);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  opacity: 0.9;
+}
+
+.grievance-icon .iconify {
+  width: 3rem;
+  height: 3rem;
 }
 
 .grievance-message {
@@ -421,7 +458,7 @@ AvgHHSize();
 /* Up to 768px wide (tablets & small desktops) */
 @media (max-width: 768px) {
   .main-content {
-    padding: 2rem 1rem;
+    padding: 2rem 2rem;
   }
 
   .hero {
@@ -505,7 +542,7 @@ AvgHHSize();
 
   /* Cap main-content at viewport height so overflow can scroll */
   .main-content {
-    padding: 1rem 0.5rem;
+    padding: 1rem 1.5rem;
     max-height: 100vh;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;

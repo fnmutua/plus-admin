@@ -63,7 +63,7 @@
         router.push('/about');
         break;
       default:
-        ElMessage.warning('Page not found.');
+        //ElMessage.warning('Page not found.');
     }
   };
   </script>
