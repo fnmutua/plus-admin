@@ -35,7 +35,7 @@
                           <Icon icon="tabler:map-2" />
                         </div>
                         <div class="stat-value">{{ NumSettlements }}</div>
-                        <div class="stat-label">Settlements</div>
+                        <div class="stat-label">Slums/Informal settlements</div>
                       </el-card>
                     </el-col>
                     <el-col :xs="24" :sm="12" :md="8" :lg="6">
@@ -78,7 +78,7 @@
                   <p class="grievance-message">
                     If you have a grievance against the KISIP project or its actors, you can
                     <el-button plain link class="grievance-link" @click="navigateTo('grm')">file a grievance</el-button>, or call our toll free helpline at
-                    <a href="tel:0800724349" class="grievance-link">0800 724 349 </a> (no charges).
+                    <a href="tel:0800724349" class="grievance-link">0800 724 349 </a> free of charge.
                   </p>
                 </div>
               </div>
