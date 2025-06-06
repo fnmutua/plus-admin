@@ -2853,6 +2853,9 @@ const formatNumber =   (value) => {
     else if (typeId==8) {
       return 'pyramid';
     } 
+    else if (typeId==12) {
+      return 'treemap';
+    }
 }
 
 const handleCardClick = async (card) => {

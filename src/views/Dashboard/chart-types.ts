@@ -598,60 +598,67 @@ export const pieOptions = {
 
 
 export const treemapOptions = {
-  chart: {
-    height: 350,
-    type: 'treemap',
-    toolbar: {
-      show: true,
-    },
-    zoom: {
-      enabled: true,
-    },
-  },
-  darkMode: false, // Replace with isDark.value if using reactive dark mode
-  colors: [  ],
   title: {
-    text: 'National Slum Database',
-    align: 'center',
-    style: {
-      fontSize: '16px',
-      fontWeight: 'bold',
-      color: '#000000', // Adjust dynamically if using darkMode
+    text: '',
+    left: 'center',
+    textStyle: {
+      fontSize: 14,
+      color: isDark.value ? '#ffffff' : '#000000'
     },
+    subtextStyle: {
+      fontSize: 12
+    }
   },
-  subtitle: {
-    text: `National Slum Database, ${new Date().getFullYear()}`,
-    align: 'left',
-    style: {
-      fontSize: '12px',
-      fontWeight: 'normal',
-      color: '#9699a2',
+  darkMode: isDark.value,
+  colors: romaColors,
+  tooltip: {
+    formatter: function (info) {
+      return [
+        '<div style="font-size:14px;color:#666;font-weight:400;line-height:1;">' + info.name + '</div>',
+        '<div style="margin:3px 0;line-height:1;">' + info.value + '</div>'
+      ].join('');
+    }
+  },
+  series: [{
+    type: 'treemap',
+    data: [],
+    label: {
+      show: true,
+      formatter: '{b}'
     },
-  },
-  plotOptions: {
-    treemap: {
-      distributed: true,
-      enableShades: false,
+    upperLabel: {
+      show: true,
+      height: 30
     },
-  },
-  legend: {
-    show: false,
-  },
-  series: [], // To be injected later
-  responsive: [
-    {
-      breakpoint: 600,
-      options: {
-        chart: {
-          width: 200,
-        },
-        legend: {
-          position: 'bottom',
-        },
+    itemStyle: {
+      borderColor: '#fff'
+    },
+    levels: [
+      {
+        itemStyle: {
+          borderColor: '#555',
+          borderWidth: 4,
+          gapWidth: 4
+        }
       },
-    },
-  ],
-};
+      {
+        itemStyle: {
+          borderColor: '#555',
+          borderWidth: 2,
+          gapWidth: 2
+        }
+      },
+      {
+        itemStyle: {
+          borderColor: '#555',
+          borderWidth: 1,
+          gapWidth: 1
+        }
+      }
+    ]
+  }]
+}
+
 // ECharts options with 100-color palette
 export const barOptions: EChartsOption = {
   //color: customColorPalette, // Apply 100-color palette

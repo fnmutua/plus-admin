@@ -1945,7 +1945,7 @@ v-for="item in DashBoardSectionFilterdOptions" :key="item.value" :label="item.la
           <Icon v-if="scope.row.type === 8" width="24" icon="carbon:chart-population" />
           <Icon v-if="scope.row.type === 9" width="24" icon="ic:baseline-stacked-bar-chart" />
           <Icon v-if="scope.row.type === 10" width="24" icon="ic:sharp-donut-large" />
-          <Icon v-if="scope.row.type === 11" width="24" icon="ic:sharp-donut-large" />
+          <Icon v-if="scope.row.type === 11" width="24" icon="oi:grid-three-up" />
         </template>
       </el-table-column>
 
