@@ -23,16 +23,7 @@
                         class="login-btn"
                         @click="navigateTo('get-started')"
                       >
-                        Login
-                      </el-button>
-                      <el-button
-                        type="info"
-                        size="large"
-                        :icon="More"
-                        class="more-btn"
-                        @click="navigateTo('about')"
-                      >
-                        Learn More
+                        Get Started..
                       </el-button>
                     </div>
                   </div>
@@ -52,7 +43,7 @@
                         <div class="stat-icon">
                           <Icon icon="mdi:account-group" />
                         </div>
-                        <div class="stat-value">{{ AvgSize }}</div>
+                        <div class="stat-value">{{ Population }}</div>
                         <div class="stat-label">People living in Slums</div>
                       </el-card>
                     </el-col>
@@ -116,6 +107,17 @@ import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary';
 
 const router = useRouter();
 
+// Function to format numbers with K, M notation
+const formatNumber = (num: number): string => {
+  if (num >= 1000000) {
+    return (num / 1000000).toFixed(1) + 'M';
+  }
+  if (num >= 1000) {
+    return (num / 1000).toFixed(1) + 'K';
+  }
+  return num.toString();
+};
+
 const navigateTo = (page: string) => {
   switch (page) {
     case 'get-started':
@@ -136,10 +138,10 @@ const navigateTo = (page: string) => {
   }
 };
 
-const NumSettlements = ref(0);
-const AvgSize = ref(0);
-const TotalProjs = ref(0);
-const avgHHSize = ref(0);
+const NumSettlements = ref('0');
+const Population = ref('0');
+const TotalProjs = ref('0');
+const avgHHSize = ref('0');
 
 const getNumberOFSettlements = async () => {
   const formData = {
@@ -154,17 +156,17 @@ const getNumberOFSettlements = async () => {
   try {
     const response = await getSummarybyFieldFromMultipleIncludes(formData);
     const summary = response.Total;
-    NumSettlements.value = summary[0].count;
+    NumSettlements.value = formatNumber(summary[0].count);
   } catch (error) {
     console.error('Error fetching settlement count:', error);
   }
 };
 
-const avgSizeSettlements = async () => {
+const PopulationSettlements = async () => {
   const formData = {
     model: 'settlement',
-    summaryField: 'area',
-    summaryFunction: 'AVG',
+    summaryField: 'population',
+    summaryFunction: 'SUM',
     groupFields: [],
     filters: [],
     filterValues: [],
@@ -173,9 +175,9 @@ const avgSizeSettlements = async () => {
   try {
     const response = await getSummarybyFieldFromMultipleIncludes(formData);
     const summary = response.Total;
-    AvgSize.value = summary[0].AVG.toFixed(0);
+    Population.value = formatNumber(summary[0].SUM);
   } catch (error) {
-    console.error('Error fetching average area:', error);
+    console.error('Error fetching population:', error);
   }
 };
 
@@ -192,7 +194,7 @@ const NumOfProjects = async () => {
   try {
     const response = await getSummarybyFieldFromMultipleIncludes(formData);
     const summary = response.Total;
-    TotalProjs.value = summary[0].count;
+    TotalProjs.value = formatNumber(summary[0].count);
   } catch (error) {
     console.error('Error fetching project count:', error);
   }
@@ -211,14 +213,14 @@ const AvgHHSize = async () => {
   try {
     const response = await getSummarybyFieldFromMultipleIncludes(formData);
     const summary = response.Total;
-    avgHHSize.value = parseFloat(summary[0].AVG).toFixed(0);
+    avgHHSize.value = parseFloat(summary[0].AVG).toFixed(1);
   } catch (error) {
     console.error('Error fetching average household size:', error);
   }
 };
 
 getNumberOFSettlements();
-avgSizeSettlements();
+PopulationSettlements();
 NumOfProjects();
 AvgHHSize();
 </script>
@@ -299,35 +301,24 @@ AvgHHSize();
 
 .cta-buttons {
   display: flex;
-  gap: 1.5rem;
   justify-content: center;
   margin-bottom: 1rem;
   animation: slideUp 0.8s ease-out 0.6s backwards;
 }
 
 .login-btn {
-  padding: 1rem 2.5rem;
-  font-size: 1.1rem;
+  padding: 1rem 3.5rem;
+  font-size: 1.2rem;
   border-radius: 8px;
   transition: all 0.3s ease;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  font-weight: 600;
 }
 
 .login-btn:hover {
   transform: translateY(-3px);
   box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
-}
-
-.more-btn {
-  padding: 1rem 2.5rem;
-  font-size: 1.1rem;
-  border-radius: 8px;
-  transition: all 0.3s ease;
-}
-
-.more-btn:hover {
-  transform: translateY(-3px);
-  background-color: var(--el-color-info-light-9);
+  background-color: var(--el-color-primary-dark-2);
 }
 
 /* 4. STATS GRID (using Element Row/Col) */
@@ -493,8 +484,7 @@ AvgHHSize();
     padding: 0 1rem;
   }
 
-  .login-btn,
-  .more-btn {
+  .login-btn {
     width: 100%;
     padding: 0.8rem;
     font-size: 1rem;

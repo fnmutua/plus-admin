@@ -94,7 +94,6 @@ const schema = reactive<FormSchema[]>([
       placeholder: t('login.passwordPlaceholder')
     }
   },
-
   {
     field: 'login',
     colProps: {
@@ -110,7 +109,7 @@ const schema = reactive<FormSchema[]>([
 ])
 
 const dialogFeedback = ref()
-const { register, elFormRef, methods } = useForm()
+const { register, elFormRef, methods, setFieldsValue } = useForm()
 
 const loading = ref(false)
 
@@ -179,44 +178,7 @@ const signIn = async () => {
   })
 }
  
-const xgetRole = async (authenticatedUser) => {
-  const { getFormData } = methods;
-  const formData = await getFormData<UserType>();
-  console.log('authenticatedUser roles', authenticatedUser);
-
-  // Set default permissions
-  formData.permissions = ['*.*.*'];
-
-  // Extract the role and level from authenticatedUser
-  const roleObj = authenticatedUser.roles.find((roleObj) => roleObj);
-  console.log('roleObj',roleObj)
-  
-  if (roleObj) {
-    formData.role = roleObj.name;
-    formData.level = roleObj.user_roles.location_level; // Assuming each role object has a level property
-  } else {
-    formData.role = 'others';
-    formData.level = 'default'; // Assign a default level if not found
-  }
-
-  let routers = [];
-  const { wsCache } = useCache();
-  wsCache.set('roleRouters', routers);
-  console.log("formData.role >>", formData.role);
-  console.log("formData.level >>", formData.level);
-
-  // Generate routes based on role and level
-  await permissionStore.generateRoutes(formData.role, formData.level).catch(() => {});
-
-  // Dynamically add accessible routes
-  permissionStore.getAddRouters.forEach((route) => {
-    addRoute(route as RouteRecordRaw);
-  });
-  
-  permissionStore.setIsAddRouters(true);
-  push({ path: redirect.value || permissionStore.addRouters[0].path });
-};
-
+ 
 
 const getRole = async (authenticatedUser) => {
   const { getFormData } = methods;
@@ -329,7 +291,39 @@ const getRole = async (authenticatedUser) => {
   push({ path: redirect.value || routers[0].path });
 };
 
+// Add guest login function
+const guestLogin = async () => {
+  loading.value = true;
+  try {
+    // Step 1: Update the schema values
+    const usernameField = schema.find(item => item.field === 'username');
+    const passwordField = schema.find(item => item.field === 'password');
+    
+    if (usernameField && passwordField) {
+      usernameField.value = 'guest';
+      passwordField.value = 'Guest@123';
+      
+      // Disable the input fields
+      if (usernameField.componentProps) {
+        usernameField.componentProps.disabled = true;
+      }
+      if (passwordField.componentProps) {
+        passwordField.componentProps.disabled = true;
+      }
+    }
 
+    // Step 2: Update the form model directly
+    const { getFormData } = methods;
+    const formData = await getFormData<UserType>();
+    formData.username = 'guest';
+    formData.password = 'Guest@123';
+
+    // Step 3: Submit using the existing signIn function
+    await signIn();
+  } finally {
+    loading.value = false;
+  }
+};
 
 const toRegister = () => {
   emit('to-register')
@@ -391,121 +385,115 @@ const feedbackRules =  {
 
 <template>
   <el-card>
+    <Form
+      :schema="schema"
+      :rules="rules"
+      label-position="top"
+      hide-required-asterisk
+      size="large"
+      class="border-solid"
+      @register="register"
+    >
+      <template #title>
+        <h2 class="text-2xl font-bold text-center w-[100%]">{{ t('login.login') }}</h2>
+      </template>
 
-  <Form
-:schema="schema" :rules="rules" label-position="top" hide-required-asterisk size="large"
-    class=" border-solid)" @register="register">
-    <template #title>
-      <h2 class="text-2xl font-bold text-center w-[100%]">{{ t('login.login') }}</h2>
-    </template>
+      <template #login>
+        <div class="w-[100%] flex gap-2">
+          <ElButton :loading="loading" type="primary" class="flex-1" @click="signIn">
+            {{ t('login.login') }}
+          </ElButton>
+          <ElButton :loading="loading" type="info" class="flex-1" @click="guestLogin">
+            Login as Guest
+          </ElButton>
+        </div>
+        <div class="w-[100%] mt-15px">
+          <ElButton class="w-[100%]" @click="toRegister">
+            {{ t('login.register') }}
+          </ElButton>
+        </div>
+      </template>
 
+      <template #tool>
+        <div class="flex justify-between items-center w-[100%]">
+          <div>
+            <ElLink @click="dialogFormVisible = true" :underline="false">{{ t('Forgot Password') }}</ElLink>
+          </div>
+          
+          <el-row>
+            <el-tooltip content="leave us a message" placement="top">
+              <el-button type="secondary" @click="dialogFeedback = true">
+                <Icon icon="fluent:person-feedback-32-regular" />
+              </el-button>
+            </el-tooltip>
 
-
-    <template #login>
-      <div class="w-[100%]">
-        <ElButton :loading="loading" type="primary" class="w-[100%]" @click="signIn">
-          {{ t('login.login') }}
-        </ElButton>
-      </div>
-      <div class="w-[100%] mt-15px">
-        <ElButton class="w-[100%]" @click="toRegister">
-          {{ t('login.register') }}
-        </ElButton>
-      </div>
-    </template>
-    <template #tool>
-  <div class="flex justify-between items-center w-[100%]">
-    <div>
-      <ElLink @click="dialogFormVisible = true" :underline="false">{{ t('Forgot Password') }}</ElLink>
-    </div>
-  
-       
-
-      <el-row>
-        <el-tooltip content="leave us a message" placement="top">
-          <el-button type="secondary" @click="dialogFeedback = true">
-            <Icon icon="fluent:person-feedback-32-regular" />
-          </el-button>
-        </el-tooltip>
-
-        <el-tooltip content="Our privacy policy" placement="top">
-         <el-button type="secondary" @click="toPrivacy">
-          <Icon icon="material-symbols:privacy-tip-outline" />
-        </el-button>
-      </el-tooltip>
-
-  </el-row>
-
-
-  </div>
-</template>
-
-  </Form>
-
-</el-card>
+            <el-tooltip content="Our privacy policy" placement="top">
+              <el-button type="secondary" @click="toPrivacy">
+                <Icon icon="material-symbols:privacy-tip-outline" />
+              </el-button>
+            </el-tooltip>
+          </el-row>
+        </div>
+      </template>
+    </Form>
+  </el-card>
 
   <el-dialog
-  title="Please Enter your Email"
-  v-model="dialogFormVisible"
-  width="25%"
-  :center="true"
->
-  <el-form :model="form">
-    <el-row>
-      <el-col :xs="24" :sm="12">
-        <el-form-item label="Email" prop="email">
-          <el-input v-model="form.email"/>
-        </el-form-item>
-      </el-col>
-    </el-row>
-  </el-form>
-  <div style="text-align: center">
-    <el-button @click="dialogFormVisible = false">Cancel</el-button>
-    <el-button type="primary" @click="reset">Submit</el-button>
-  </div>
-</el-dialog>
-
-
-<el-dialog
-  title="Send us a message"
-  v-model="dialogFeedback"
-  width="25%"
-  :center="true"
->
-  <el-form :model="feedback" :rules="feedbackRules" ref="ruleFormRef"> 
-    <el-row>
-      <el-col :xs="24" :sm="12">
-        <el-form-item label="Name" prop="name">
-          <el-input v-model="feedback.name"/>
-        </el-form-item>
-      </el-col>
-    </el-row>
-    <el-row>
-      <el-col :xs="24" :sm="12">
-        <el-form-item label="Email" prop="email">
-          <el-input v-model="feedback.email"/>
-        </el-form-item>
-      </el-col>
-    </el-row>
-    
-    <el-row>
-      <el-col :xs="24" :sm="12">
-        <el-form-item label="Message" prop="message">
-          <el-input v-model="feedback.message" type="textarea"/>
-        </el-form-item>
-      </el-col>
-    </el-row>
-
-  </el-form>
-  <div style="text-align: center">
-    <el-button @click="dialogFeedback = false">Cancel</el-button>
-    <el-button type="primary" @click="sendFeedback(ruleFormRef)">Submit</el-button>
-  </div>
-
+    title="Please Enter your Email"
+    v-model="dialogFormVisible"
+    width="25%"
+    :center="true"
+  >
+    <el-form :model="form">
+      <el-row>
+        <el-col :xs="24" :sm="12">
+          <el-form-item label="Email" prop="email">
+            <el-input v-model="form.email"/>
+          </el-form-item>
+        </el-col>
+      </el-row>
+    </el-form>
+    <div style="text-align: center">
+      <el-button @click="dialogFormVisible = false">Cancel</el-button>
+      <el-button type="primary" @click="reset">Submit</el-button>
+    </div>
   </el-dialog>
 
-
-
+  <el-dialog
+    title="Send us a message"
+    v-model="dialogFeedback"
+    width="25%"
+    :center="true"
+  >
+    <el-form :model="feedback" :rules="feedbackRules" ref="ruleFormRef"> 
+      <el-row>
+        <el-col :xs="24" :sm="12">
+          <el-form-item label="Name" prop="name">
+            <el-input v-model="feedback.name"/>
+          </el-form-item>
+        </el-col>
+      </el-row>
+      <el-row>
+        <el-col :xs="24" :sm="12">
+          <el-form-item label="Email" prop="email">
+            <el-input v-model="feedback.email"/>
+          </el-form-item>
+        </el-col>
+      </el-row>
+      
+      <el-row>
+        <el-col :xs="24" :sm="12">
+          <el-form-item label="Message" prop="message">
+            <el-input v-model="feedback.message" type="textarea"/>
+          </el-form-item>
+        </el-col>
+      </el-row>
+    </el-form>
+    <div style="text-align: center">
+      <el-button @click="dialogFeedback = false">Cancel</el-button>
+      <el-button type="primary" @click="sendFeedback(ruleFormRef)">Submit</el-button>
+    </div>
+  </el-dialog>
 </template>
 
 <style lang="less" scoped>

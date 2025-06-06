@@ -2,50 +2,38 @@
   <style>
     .st3067 {
       fill: none;
-      stroke-width: 4pt;
+      stroke-width: 6pt; /* Increased from 4pt to 6pt for static rings */
       stroke-miterlimit: 10;
     }
 
     .st3067--xlarge {
       stroke-linecap: square;
       stroke-dasharray: 2000, 513;
-      stroke-width: 20;
+      stroke-width: 40; /* Increased from 20 to 30 */
       stroke: #FF0000; /* Red for ring 1 */
     }
 
     .st3067--large {
       stroke-linecap: square;
       stroke-dasharray: 1500, 1013;
-      stroke-width: 20;
+      stroke-width: 40; /* Increased from 20 to 30 */
       stroke: #006600; /* Green for ring 2 */
-    }
-
-    .st3067--medium {
-      stroke-linecap: square;
-      stroke-dasharray: 1000, 1513;
-      stroke-width: 20;
-      stroke: #FFFFFF; /* White for ring 4 */
-    }
-
-    .st3067--small {
-      stroke-linecap: square;
-      stroke-dasharray: 500, 2013;
-      stroke-width: 20;
-      stroke: #006600; /* Green for ring 5 */
     }
 
     .st3067--three {
       stroke-linecap: square;
       stroke-dasharray: 320, 320;
-      stroke-width: 20;
+      stroke-width: 40; /* Increased from 20 to 30 */
       stroke: #000000; /* Black for ring 3 */
     }
+
+    .st3067--medium {
+      stroke-linecap: square;
+      stroke-dasharray: 1000, 1513;
+      stroke-width: 40; /* Increased from 20 to 30 */
+      stroke: #FFFFFF; /* White for ring 4 */
+    }
   </style>
-  <!--ring 5-->
-  <circle class="st3067" stroke="#006600" cx="500" cy="500" r="160"/>
-  <circle class="st3067 st3067--small" cx="500" cy="500" r="160" transform="rotate(0 500 500)">
-    <animateTransform attributeType="xml" attributeName="transform" type="rotate" from="0 500 500" to="-360 500 500" dur="5s" repeatCount="indefinite"/>
-  </circle>
   <!--ring 4-->
   <circle class="st3067" stroke="#FFFFFF" cx="500" cy="500" r="240"/>
   <circle class="st3067 st3067--medium" cx="500" cy="500" r="240" transform="rotate(0 500 500)">
