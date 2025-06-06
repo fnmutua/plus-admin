@@ -83,8 +83,8 @@
                       </div>
                       <p class="grievance-message">
                         If you have a grievance against the KISIP project or its actors, you can
-                        <el-button plain link class="grievance-link" @click="navigateTo('grm')">file a grievance</el-button>, or call our helpline at
-                        <a href="tel:0800724349" class="grievance-link">0800 724 349</a>.
+                        <el-button plain link class="grievance-link" @click="navigateTo('grm')">file a grievance</el-button>, or call our toll free helpline at
+                        <a href="tel:0800724349" class="grievance-link">0800 724 349 </a> (no charges).
                       </p>
                     </div>
                   </el-card>
