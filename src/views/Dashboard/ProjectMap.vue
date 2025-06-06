@@ -1,3 +1,4 @@
+
 <template>
   <div class="floating-collapse">
     <el-select v-model="county"   placeholder="Filter by County"   @change="handleChangeCounty" filterable clearable :onClear="ResetFilters">
@@ -31,16 +32,13 @@ clearable filterable v-model="implementer"  placeholder="Filter by Implementer"
 import { useRouter } from 'vue-router'
 import { ref, reactive,watch, onMounted } from 'vue'
 import {
-  ElButton, ElMenu, ElMenuItem, ElDialog, ElSelect, ElOption, ElDivider, ElRow, ElCol, ElText, ElCard, ElTable, ElTableColumn,
-  ElForm, ElFormItem, ElInput, ElCarousel, ElCarouselItem, ElCollapse, ElCollapseItem, ElRate, ElMessage
+  ElButton, ElSelect, ElOption, 
+  ElMessage
 
 } from 'element-plus'
-import { InfoFilled } from '@element-plus/icons-vue'
 
 import { CanvasRenderer } from 'echarts/renderers';
-import VChart, { THEME_KEY } from 'vue-echarts';
-import { EChartsOption, registerMap } from 'echarts'
-import { Icon } from '@iconify/vue';
+import { EChartsOption } from 'echarts'
 import { use } from "echarts/core";
 import { PieChart, GaugeChart, BarChart, LineChart, } from 'echarts/charts';
 import {
@@ -51,7 +49,6 @@ import {
   GridComponent,
 
 } from 'echarts/components';
-import { getSettlementListByCounty, getHHsByCounty, uploadFilesBatch } from '@/api/settlements'
 
 import * as echarts from 'echarts';
 
@@ -62,21 +59,21 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 
 import * as turf from '@turf/turf'
 import { useAppStoreWithOut } from '@/store/modules/app'
-import { computed,nextTick, render } from 'vue'
+import { computed } from 'vue'
 
-import type { FormInstance, FormRules } from 'element-plus'
-import { getAllGeo, getOneGeo ,streamAllGeo,streamGeo} from '@/api/settlements'
-import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
-import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
+import type { FormInstance } from 'element-plus'
+import { getOneGeo ,streamGeo} from '@/api/settlements'
+import { getListWithoutGeo } from '@/api/counties'
 
-import {  setUserFeedback } from '@/api/users'
-import { uuid } from 'vue-uuid'
-import { getfilteredGeo } from '@/api/settlements'
 
 import {   getOneSettlement  } from '@/api/settlements'
 
-// Add permission checks
-const appStore = useAppStoreWithOut()
+import { useCache } from '@/hooks/web/useCache'
+import { useAppStore } from '@/store/modules/app'
+
+// User and role setup
+const { wsCache } = useCache()
+const appStore = useAppStore()
 const showAdminButtons = ref(appStore.getAdminButtons)
 const showEditButtons = ref(appStore.getEditButtons)
 
@@ -100,17 +97,10 @@ const ruleForm = reactive({
 
 const tableData = ref([])
  
-const mapLoading = ref(false)
-const mapLoadingText = ref('Loading map....')
-const isLoadingData = ref(false)
+const mapLoading =ref(false)
+const mapLoadingText =ref('Loading map....')
 
-// Add loading states for different operations
-const loadingStates = reactive({
-  counties: false,
-  subcounties: false,
-  implementers: false,
-  geoData: false
-})
+
 
 const filterFields =ref([])
 const filterValues =ref([])
@@ -242,6 +232,7 @@ const MapBoxToken =
   'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg'
 mapboxgl.accessToken = MapBoxToken;
 
+
 const isMobile = computed(() => appStore.getMobile)
 
 console.log('isMobile', isMobile.value)
@@ -263,39 +254,85 @@ const subcountyGeo = ref([])
 
 
 const map = ref()
-var isDarkMode = appStore.getIsDark 
+var isDarkMode  = appStore.getIsDark 
+
+
 
 onMounted(async () => {
+
   if (isMobile.value) {
     dialogWidth.value = "70%"
   } else {
     dialogWidth.value = "20%"
   }
 
-  await initializeMap()
-})
 
-// Initialize map
-map.value = new mapboxgl.Map({
-  container: 'map',
-  style: appStore.getIsDark 
-    ? 'mapbox://styles/agspatial/clqcfzcoa00bt01nwhmf465f7' 
-    : 'mapbox://styles/mapbox/light-v11',
-  center: [36.799473, -1.264257],
-  zoom: 14
-});
 
-map.value.addControl(new mapboxgl.NavigationControl());
 
-map.value.addControl(
-  new mapboxgl.GeolocateControl({
-    positionOptions: {
-      enableHighAccuracy: true
-    },
-    trackUserLocation: true,
-    showUserHeading: true
-  })
+
+
+
+
+
+
+
+  
+ 
+  console.log("isDark",appStore.getIsDark)
+
+  var mapStyle = appStore.getIsDark ? 'mapbox://styles/agspatial/clqcfzcoa00bt01nwhmf465f7' : 'mapbox://styles/mapbox/light-v11';
+
+
+  watch(
+  () => appStore.getIsDark,
+  async (newVal) => {
+    const isDarkMode = newVal;
+
+    const mapStyle = isDarkMode
+      ? 'mapbox://styles/agspatial/clqcfzcoa00bt01nwhmf465f7'
+      : 'mapbox://styles/mapbox/light-v11';
+
+    if (map.value) {
+      map.value.setStyle(mapStyle);
+
+      // Wait until the style has finished loading before adding layers
+      map.value.once('styledata', async () => {
+       // await removeSettlementLayers();
+        await addSettlementLayers();
+      });
+    }
+  },
+  { immediate: true }
 );
+
+
+
+ 
+
+
+
+  map.value = new mapboxgl.Map({
+    container: 'map',
+   // style: 'mapbox://styles/mapbox/streets-v12',
+    //style: 'mapbox://styles/mapbox/light-v11',
+    style:mapStyle,
+    // style: 'mapbox://styles/agspatial/clamkcjwx000b14mmgzyx86vv',
+    center: [36.799473, -1.264257],
+    zoom: 14
+  });
+
+  map.value.addControl(new mapboxgl.NavigationControl());
+
+  map.value.addControl(
+        new mapboxgl.GeolocateControl({
+        positionOptions: {
+        enableHighAccuracy: true
+        },
+        // When active the map will receive updates to the device's location as it changes.
+        trackUserLocation: true,
+        // Draw an arrow next to the location dot to indicate which direction the device is heading.
+        showUserHeading: true
+        }))
 
    
    
@@ -410,27 +447,38 @@ map.value.addControl(
     }
     addHomeButton(map)
 
-    
+   
+
+ 
+
+
+
+
+ 
     function addDownload(map) {
       class HomeButton {
         onAdd(map) {
           const div = document.createElement("div");
           div.className = "mapboxgl-ctrl mapboxgl-ctrl-group";
-          // Only show download button if user has edit or admin permissions
-          if (showAdminButtons.value || showEditButtons.value) {
-            div.innerHTML =
-              `<button>
-                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M12.5535 16.5061C12.4114 16.6615 12.2106 16.75 12 16.75C11.7894 16.75 11.5886 16.6615 11.4465 16.5061L7.44648 12.1311C7.16698 11.8254 7.18822 11.351 7.49392 11.0715C7.79963 10.792 8.27402 10.8132 8.55352 11.1189L11.25 14.0682V3C11.25 2.58579 11.5858 2.25 12 2.25C12.4142 2.25 12.75 2.58579 12.75 3V14.0682L15.4465 11.1189C15.726 10.8132 16.2004 10.792 16.5061 11.0715C16.8118 11.351 16.833 11.8254 16.5535 12.1311L12.5535 16.5061Z" fill="#07ed2a"></path> <path d="M3.75 15C3.75 14.5858 3.41422 14.25 3 14.25C2.58579 14.25 2.25 14.5858 2.25 15V15.0549C2.24998 16.4225 2.24996 17.5248 2.36652 18.3918C2.48754 19.2919 2.74643 20.0497 3.34835 20.6516C3.95027 21.2536 4.70814 21.5125 5.60825 21.6335C6.47522 21.75 7.57754 21.75 8.94513 21.75H15.0549C16.4225 21.75 17.5248 21.75 18.3918 21.6335C19.2919 21.5125 20.0497 21.2536 20.6517 20.6516C21.2536 20.0497 21.5125 19.2919 21.6335 18.3918C21.75 17.5248 21.75 16.4225 21.75 15.0549V15C21.75 14.5858 21.4142 14.25 21 14.25C20.5858 14.25 20.25 14.5858 20.25 15C20.25 16.4354 20.2484 17.4365 20.1469 18.1919C20.0482 18.9257 19.8678 19.3142 19.591 19.591C19.3142 19.8678 18.9257 20.0482 18.1919 20.1469C17.4365 20.2484 16.4354 20.25 15 20.25H9C7.56459 20.25 6.56347 20.2484 5.80812 20.1469C5.07435 20.0482 4.68577 19.8678 4.40901 19.591C4.13225 19.3142 3.9518 18.9257 3.85315 18.1919C3.75159 17.4365 3.75 16.4354 3.75 15Z" fill="#07ed2a"></path> </g></svg>   </button>`;
-            div.addEventListener("contextmenu", (e) => e.preventDefault());
-            div.addEventListener("click", () => downloadGeoJSON());
-          }
+          div.innerHTML =
+            `<button>
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M12.5535 16.5061C12.4114 16.6615 12.2106 16.75 12 16.75C11.7894 16.75 11.5886 16.6615 11.4465 16.5061L7.44648 12.1311C7.16698 11.8254 7.18822 11.351 7.49392 11.0715C7.79963 10.792 8.27402 10.8132 8.55352 11.1189L11.25 14.0682V3C11.25 2.58579 11.5858 2.25 12 2.25C12.4142 2.25 12.75 2.58579 12.75 3V14.0682L15.4465 11.1189C15.726 10.8132 16.2004 10.792 16.5061 11.0715C16.8118 11.351 16.833 11.8254 16.5535 12.1311L12.5535 16.5061Z" fill="#07ed2a"></path> <path d="M3.75 15C3.75 14.5858 3.41422 14.25 3 14.25C2.58579 14.25 2.25 14.5858 2.25 15V15.0549C2.24998 16.4225 2.24996 17.5248 2.36652 18.3918C2.48754 19.2919 2.74643 20.0497 3.34835 20.6516C3.95027 21.2536 4.70814 21.5125 5.60825 21.6335C6.47522 21.75 7.57754 21.75 8.94513 21.75H15.0549C16.4225 21.75 17.5248 21.75 18.3918 21.6335C19.2919 21.5125 20.0497 21.2536 20.6517 20.6516C21.2536 20.0497 21.5125 19.2919 21.6335 18.3918C21.75 17.5248 21.75 16.4225 21.75 15.0549V15C21.75 14.5858 21.4142 14.25 21 14.25C20.5858 14.25 20.25 14.5858 20.25 15C20.25 16.4354 20.2484 17.4365 20.1469 18.1919C20.0482 18.9257 19.8678 19.3142 19.591 19.591C19.3142 19.8678 18.9257 20.0482 18.1919 20.1469C17.4365 20.2484 16.4354 20.25 15 20.25H9C7.56459 20.25 6.56347 20.2484 5.80812 20.1469C5.07435 20.0482 4.68577 19.8678 4.40901 19.591C4.13225 19.3142 3.9518 18.9257 3.85315 18.1919C3.75159 17.4365 3.75 16.4354 3.75 15Z" fill="#07ed2a"></path> </g></svg>   </button>`;
+          div.addEventListener("contextmenu", (e) => e.preventDefault());
+          div.addEventListener("click", () => downloadGeoJSON());
+
           return div;
         }
       }
       const homeButton = new HomeButton();
       map.value.addControl(homeButton, "top-right");
     }
-    addDownload(map)
+
+
+    if (showAdminButtons.value || showEditButtons.value){
+
+      addDownload(map)
+
+    }
 
 
 
@@ -1279,122 +1327,6 @@ const handleChangeImplementer = async (implementer) => {
 };
 
  
-
-// Optimize initial data loading
-const initializeMap = async () => {
-  try {
-    mapLoading.value = true
-    mapLoadingText.value = 'Initializing map...'
-    
-    // Initialize map first
-    map.value = new mapboxgl.Map({
-      container: 'map',
-      style: appStore.getIsDark 
-        ? 'mapbox://styles/agspatial/clqcfzcoa00bt01nwhmf465f7' 
-        : 'mapbox://styles/mapbox/light-v11',
-      center: [36.799473, -1.264257],
-      zoom: 14
-    });
-
-    // Add controls
-    map.value.addControl(new mapboxgl.NavigationControl());
-    map.value.addControl(
-      new mapboxgl.GeolocateControl({
-        positionOptions: { enableHighAccuracy: true },
-        trackUserLocation: true,
-        showUserHeading: true
-      })
-    );
-
-    // Load data in parallel
-    await Promise.all([
-      loadGeoData(),
-      loadCountyData(),
-      loadImplementerData()
-    ]);
-
-    // Add map controls after data is loaded
-    addInfo(map)
-    addHomeButton(map)
-    addDownload(map)
-
-  } catch (error) {
-    console.error('Error initializing map:', error)
-    ElMessage.error('Failed to initialize map')
-  } finally {
-    mapLoading.value = false
-  }
-}
-
-// Separate data loading functions
-const loadGeoData = async () => {
-  try {
-    loadingStates.geoData = true
-    const params = {
-      model: 'project_location',
-      associatedModels: 'project',
-      excludeGeoFromAssociations: 'true'
-    }
-    const response = await streamGeo({ params })
-    geojson.value = await computeCentroids(response.data.data)
-    allProjectsGeo.value = JSON.parse(JSON.stringify(geojson.value))
-  } catch (error) {
-    console.error('Error loading geo data:', error)
-    ElMessage.error('Failed to load project data')
-  } finally {
-    loadingStates.geoData = false
-  }
-}
-
-const loadCountyData = async () => {
-  try {
-    loadingStates.counties = true
-    const response = await getListWithoutGeo({
-      params: {
-        curUser: 1,
-        model: 'county',
-        searchField: 'name',
-        searchKeyword: '',
-        sort: 'ASC',
-        cache_key: 'new_list_no_geo'
-      }
-    })
-    countyOptions.value = response.data.map(data => ({
-      value: data.id,
-      label: data.name
-    }))
-  } catch (error) {
-    console.error('Error loading county data:', error)
-    ElMessage.error('Failed to load county data')
-  } finally {
-    loadingStates.counties = false
-  }
-}
-
-const loadImplementerData = async () => {
-  try {
-    loadingStates.implementers = true
-    const response = await getListWithoutGeo({
-      params: {
-        curUser: 1,
-        model: 'programme_implementation',
-        searchField: 'title',
-        searchKeyword: '',
-        sort: 'ASC'
-      }
-    })
-    implementerOptions.value = response.data.map(data => ({
-      value: data.id,
-      title: data.title,
-      label: data.acronym
-    }))
-  } catch (error) {
-    console.error('Error loading implementer data:', error)
-    ElMessage.error('Failed to load implementer data')
-  } finally {
-    loadingStates.implementers = false
-  }
-}
 
 </script>
 
