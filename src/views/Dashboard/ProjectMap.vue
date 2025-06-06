@@ -100,10 +100,17 @@ const ruleForm = reactive({
 
 const tableData = ref([])
  
-const mapLoading =ref(false)
-const mapLoadingText =ref('Loading map....')
+const mapLoading = ref(false)
+const mapLoadingText = ref('Loading map....')
+const isLoadingData = ref(false)
 
-
+// Add loading states for different operations
+const loadingStates = reactive({
+  counties: false,
+  subcounties: false,
+  implementers: false,
+  geoData: false
+})
 
 const filterFields =ref([])
 const filterValues =ref([])
@@ -259,52 +266,14 @@ const map = ref()
 var isDarkMode  = appStore.getIsDark 
 
 onMounted(async () => {
-
   if (isMobile.value) {
     dialogWidth.value = "70%"
   } else {
     dialogWidth.value = "20%"
   }
 
-
-
-
-
-
-
-
-
-
-
-  
- 
-  console.log("isDark",appStore.getIsDark)
-
-  var mapStyle = appStore.getIsDark ? 'mapbox://styles/agspatial/clqcfzcoa00bt01nwhmf465f7' : 'mapbox://styles/mapbox/light-v11';
-
-
-  watch(
-  () => appStore.getIsDark,
-  async (newVal) => {
-    const isDarkMode = newVal;
-
-    const mapStyle = isDarkMode
-      ? 'mapbox://styles/agspatial/clqcfzcoa00bt01nwhmf465f7'
-      : 'mapbox://styles/mapbox/light-v11';
-
-    if (map.value) {
-      map.value.setStyle(mapStyle);
-
-      // Wait until the style has finished loading before adding layers
-      map.value.once('styledata', async () => {
-       // await removeSettlementLayers();
-        await addSettlementLayers();
-      });
-    }
-  },
-  { immediate: true }
-);
-
+  await initializeMap()
+})
 
 
  
@@ -1316,6 +1285,122 @@ const handleChangeImplementer = async (implementer) => {
 };
 
  
+
+// Optimize initial data loading
+const initializeMap = async () => {
+  try {
+    mapLoading.value = true
+    mapLoadingText.value = 'Initializing map...'
+    
+    // Initialize map first
+    map.value = new mapboxgl.Map({
+      container: 'map',
+      style: appStore.getIsDark 
+        ? 'mapbox://styles/agspatial/clqcfzcoa00bt01nwhmf465f7' 
+        : 'mapbox://styles/mapbox/light-v11',
+      center: [36.799473, -1.264257],
+      zoom: 14
+    });
+
+    // Add controls
+    map.value.addControl(new mapboxgl.NavigationControl());
+    map.value.addControl(
+      new mapboxgl.GeolocateControl({
+        positionOptions: { enableHighAccuracy: true },
+        trackUserLocation: true,
+        showUserHeading: true
+      })
+    );
+
+    // Load data in parallel
+    await Promise.all([
+      loadGeoData(),
+      loadCountyData(),
+      loadImplementerData()
+    ]);
+
+    // Add map controls after data is loaded
+    addInfo(map)
+    addHomeButton(map)
+    addDownload(map)
+
+  } catch (error) {
+    console.error('Error initializing map:', error)
+    ElMessage.error('Failed to initialize map')
+  } finally {
+    mapLoading.value = false
+  }
+}
+
+// Separate data loading functions
+const loadGeoData = async () => {
+  try {
+    loadingStates.geoData = true
+    const params = {
+      model: 'project_location',
+      associatedModels: 'project',
+      excludeGeoFromAssociations: 'true'
+    }
+    const response = await streamGeo({ params })
+    geojson.value = await computeCentroids(response.data.data)
+    allProjectsGeo.value = JSON.parse(JSON.stringify(geojson.value))
+  } catch (error) {
+    console.error('Error loading geo data:', error)
+    ElMessage.error('Failed to load project data')
+  } finally {
+    loadingStates.geoData = false
+  }
+}
+
+const loadCountyData = async () => {
+  try {
+    loadingStates.counties = true
+    const response = await getListWithoutGeo({
+      params: {
+        curUser: 1,
+        model: 'county',
+        searchField: 'name',
+        searchKeyword: '',
+        sort: 'ASC',
+        cache_key: 'new_list_no_geo'
+      }
+    })
+    countyOptions.value = response.data.map(data => ({
+      value: data.id,
+      label: data.name
+    }))
+  } catch (error) {
+    console.error('Error loading county data:', error)
+    ElMessage.error('Failed to load county data')
+  } finally {
+    loadingStates.counties = false
+  }
+}
+
+const loadImplementerData = async () => {
+  try {
+    loadingStates.implementers = true
+    const response = await getListWithoutGeo({
+      params: {
+        curUser: 1,
+        model: 'programme_implementation',
+        searchField: 'title',
+        searchKeyword: '',
+        sort: 'ASC'
+      }
+    })
+    implementerOptions.value = response.data.map(data => ({
+      value: data.id,
+      title: data.title,
+      label: data.acronym
+    }))
+  } catch (error) {
+    console.error('Error loading implementer data:', error)
+    ElMessage.error('Failed to load implementer data')
+  } finally {
+    loadingStates.implementers = false
+  }
+}
 
 </script>
 

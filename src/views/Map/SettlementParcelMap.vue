@@ -1320,7 +1320,7 @@ watch(userLocation, (newLocation) => {
         <ElButton type="primary" plain :icon="Back" @click="goBack">Back</ElButton>
         <h1 style="font-weight: 700;">{{ title.replace('_', ' ') }} Settlement</h1>
         <div >
-          <ElButton v-if="showAdminButtons ||showEditButtons " type="success" @click="editSettlement"/>
+          <ElButton v-if="showAdminButtons ||showEditButtons " type="success" @click="editSettlement">
             <Icon :size="24" icon="uil:edit" />
           </ElButton>
           <ElButton v-if="showAdminButtons ||showEditButtons "  type="primary" @click="downloadGeoJSON">

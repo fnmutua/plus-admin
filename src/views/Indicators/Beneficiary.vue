@@ -66,6 +66,479 @@ const adminButtons = computed(() => appStore.getAdminButtons);
 
 const action_buttons = ref([])
 if (showAdminButtons.value) {
+  action_buttons.value = ['edit', 'delete', 'preview', 'download']
+} else if (showEditButtons.value) {
+  action_buttons.value = ['edit', 'preview', 'download']
+} else {
+  action_buttons.value = ['preview', 'download']
+}
+
+
+
+console.log("Compare adminButtons :", adminButtons.value)
+
+
+
+const mobileBreakpoint = 768;
+const defaultPageSize = 10;
+const mobilePageSize = 5;
+const pageSize = ref(defaultPageSize);
+
+// Function to update pageSize based on window width
+const updatePageSize = () => {
+  if (window.innerWidth <= mobileBreakpoint) {
+    pageSize.value = mobilePageSize;
+  } else {
+    pageSize.value = defaultPageSize;
+  }
+};
+
+onMounted(async () => {
+
+  window.addEventListener('resize', updatePageSize);
+  updatePageSize(); // Initial check
+
+})
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// Function to empty all fields in ruleForm
+function emptyRuleForm() {
+  for (const key in ruleForm) {
+    ruleForm[key] = null;
+  }
+}
+
+const ruleFormRef = ref<FormInstance>()
+const ruleForm = reactive({
+  project_location_id: null,
+  project_id: null,
+  ward_id: null,
+  settlement_id: null,
+  subcounty_id: null,
+  county_id: '',
+  location_name: '',
+  actual_male_ben: null,
+  actual_female_ben: null,
+  target_male_ben: null,
+  target_female_ben: null,
+  code: null,
+  comments: null
+})
+
+const rules = reactive<FormRules>({
+  project_id: [
+    { required: true, message: 'Required', trigger: 'blur' },
+  ],
+
+  project_location_id: [
+    { required: true, message: 'Required', trigger: 'blur' },
+  ],
+
+  actual_male_ben: [
+    { required: true, message: 'Required', trigger: 'blur' },
+  ],
+  actual_female_ben: [
+    { required: true, message: 'Required', trigger: 'blur' },
+  ],
+  target_male_ben: [
+    { required: true, message: 'Required', trigger: 'blur' },
+  ],
+
+  target_female_ben: [
+    { required: true, message: 'Required', trigger: 'blur' },
+  ],
+
+
+})
+
+
+const AddDialogVisible = ref(false)
+
+const formHeader = ref('Add Beneficiary Report')
+const showSubmitBtn = ref(false)
+const showProcessBtn = ref(true)
+const addMoreDocuments = ref(false)
+
+
+
+const showEditSaveButton = ref(false)
+
+let tableDataList = ref<UserType[]>([])
+//// ------------------parameters -----------------------////
+//const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
+var filters = []
+var filterValues = []  // remember to change here!
+var tblData = []
+const associated_Model = null
+const model = 'project_beneficiary'
+const associated_multiple_models = ['project_location', 'document', 'project']
+const nested_models = [] // The mother, then followed by the child
+
+//// ------------------parameters -----------------------////
+
+const fileUploadList = ref<UploadUserFile[]>([])
+
+
+const fieldSet = ref([])
+const show = ref(false)
+
+
+const { t } = useI18n()
+
+
+
+const handleClear = async () => {
+  //console.log('cleared....')
+
+  // clear all the fileters -------
+  filterValues = []
+  filters = []
+  value1.value = ''
+  value2.value = ''
+  value3.value = ''
+  pageSize.value = 5
+  currentPage.value = 1
+  tblData = []
+  //----run the get data--------
+  getInterventionsAll()
+}
+
+const handleSelectProject = async (project_id: any) => {
+  var selectOption = 'project_id'
+  if (!filters.includes(selectOption)) {
+    filters.push(selectOption)
+  }
+  var index = filters.indexOf(selectOption) // 1
+  //console.log('county : index--->', index)
+
+  // clear previously selected
+  if (filterValues[index]) {
+    // filterValues[index].length = 0
+    filterValues.splice(index, 1)
+  }
+
+  if (!filterValues.includes(project_id) && project_id.length > 0) {
+    filterValues.splice(index, 0, project_id) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+  }
+
+  // expunge the filter if the filter values are null
+  if (project_id.length === 0) {
+    filters.splice(index, 1)
+  }
+
+
+
+
+  getFilteredData(filters, filterValues)
+}
+
+
+const onPageChange = async (selPage: any) => {
+  //console.log('on change change: selected counties ', selCounties)
+  page.value = selPage
+  getFilteredData(filters, filterValues)
+}
+
+const onPageSizeChange = async (size: any) => {
+  pageSize.value = size
+  getFilteredData(filters, filterValues)
+}
+
+const getInterventionsAll = async () => {
+  getFilteredData(filters, filterValues)
+}
+
+const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
+  for (let key in obj) {
+    if (key != 'geom') {
+
+      if (typeof obj[key] !== 'object') {
+        res[extraKey + key] = obj[key];
+      } else {
+        flattenJSON(obj[key], res, `${extraKey}${key}.`);
+      };
+    };
+  }
+  return res;
+};
+
+
+const getModeldefinition = async (selModel) => {
+
+  //console.log(selModel)
+  var formData = {}
+  formData.model = selModel
+  //console.log("gettign fields")
+
+
+  await getModelSpecs(formData).then((response) => {
+
+    var data = response.data
+
+    var fields = data.filter(function (obj) {
+      return (obj.field !== 'id');
+    });
+
+    var fields2 = fields.filter(function (obj) {
+      return (obj.field !== 'geom');
+    });
+
+    //console.log("fields:", fields2)
+    //health_facility_fields.value = response.data
+    fieldSet.value = fields2
+  })
+
+
+}
+
+const getFilteredData = async (selFilters, selfilterValues) => {
+  const formData = {}
+  formData.limit = pageSize.value
+  formData.page = page.value
+  formData.curUser = 1 // Id for logged in user
+  formData.model = model
+  //-Search field--------------------------------------------
+  formData.searchField = 'name'
+  formData.searchKeyword = ''
+  //--Single Filter -----------------------------------------
+
+  formData.assocModel = associated_Model
+
+  // - multiple filters -------------------------------------
+  formData.filters = selFilters
+  formData.filterValues = selfilterValues
+  formData.associated_multiple_models = associated_multiple_models
+  //formData.nested_models = nested_models
+
+  //-------------------------
+  //console.log(formData)
+  const res = await getSettlementListByCounty(formData)
+
+  console.log('Reports collected........', res)
+  tableDataList.value = res.data;
+
+  //tableDataList.value = res.data
+  total.value = res.total
+
+
+}
+
+
+const indicatorsOptions = ref([])
+const indicatorsOptionsFiltered = ref([])
+
+const getIndicatorNames = async () => {
+  const formData = {}
+
+  formData.curUser = 1 // Id for logged in user
+  formData.model = 'indicator_category'
+  //-Search field--------------------------------------------
+  formData.searchField = 'name'
+  formData.searchKeyword = ''
+  //--Single Filter -----------------------------------------
+
+  formData.assocModel = ''
+
+  // - multiple filters -------------------------------------
+  formData.filters = []
+  formData.filterValues = []
+  formData.associated_multiple_models = ['project', 'category', 'activity', 'indicator']
+  //-------------------------
+  //console.log(formData)
+  const res = await getSettlementListByCounty(formData)
+  //console.log('indicator_category Re', res)
+
+  res.data.forEach(function (arrayItem: { id: string; type: string }) {
+    var opt = {}
+    //console.log(arrayItem)
+    opt.value = arrayItem.id
+    opt.label = arrayItem.indicator_name + ' | ' + arrayItem.category.category
+    opt.title = arrayItem.category.title
+    opt.project_id = arrayItem.project.id
+    opt.activity_id = arrayItem.activity.id
+    opt.programme_implementation_id = arrayItem.programme_implementation_id
+
+    opt.county_id = arrayItem.project.county_id
+    opt.subcounty_id = arrayItem.project.subcounty_id
+    opt.settlement_id = arrayItem.project.settlement_id
+    opt.ward_id = arrayItem.project.ward_id
+    opt.unit = arrayItem.indicator.unit
+    opt.baseline = arrayItem.baseline
+    opt.target = arrayItem.target
+
+    // Here we collect Output indicators ONLY
+    if (arrayItem.indicator.type == 'output') {
+      indicatorsOptions.value.push(opt)
+      indicatorsOptionsFiltered.value.push(opt)
+    }
+
+  })
+
+  //console.log('indicatorsOptions.value', indicatorsOptions.value)
+}
+
+const projectOptions = ref([])
+const activityOptions = ref([])
+const activityOptionsFiltered = ref([])
+
+const getProjects = async () => {
+  const formData = {}
+
+  formData.curUser = 1 // Id for logged in user
+  formData.model = 'project'
+  //-Search field--------------------------------------------
+  formData.searchField = 'title'
+  formData.searchKeyword = ''
+  //--Single Filter -----------------------------------------
+
+  formData.assocModel = ''
+
+  // - multiple filters -------------------------------------
+  formData.filters = []
+  formData.filterValues = []
+  formData.associated_multiple_models = ['activity']
+  //-------------------------
+  //console.log(formData)
+  const res = await getSettlementListByCounty(formData)
+  // //console.log('project', res)
+
+  res.data.forEach(function (arrayItem: { id: string; type: string }) {
+    var opt = {}
+    //console.log(arrayItem)
+    opt.value = arrayItem.id
+    opt.label = arrayItem.title
+    opt.programme_implementation_id = arrayItem.implementation_id
+    projectOptions.value.push(opt)
+
+
+    arrayItem.activities.forEach(function (activity: any) {
+      //   //console.log('activity--->', activity)
+
+      var act = {}
+      //console.log(activity)
+      act.value = activity.id
+      act.label = activity.title
+      act.project_id = arrayItem.id
+      activityOptions.value.push(act)
+      activityOptionsFiltered.value.push(act)
+
+    })
+  })
+
+}
+
+
+
+const editReport = async (data: TableSlotDefault) => {
+  showSubmitBtn.value = false
+
+  await getProjectLocations(data.project_id)
+
+  showEditSaveButton.value = true
+  //console.log('editReport',data)
+  ruleForm.id = data.id
+  ruleForm.county_id = data.county_id
+  ruleForm.subcounty_id = data.subcounty_id
+  ruleForm.settlement_id = data.settlement_id
+  ruleForm.ward_id = data.ward_id
+  ruleForm.project_location_id = data.project_location_id
+
+
+
+  ruleForm.project_id = data.project_id
+  ruleForm.actual_female_ben = data.actual_female_ben
+  ruleForm.actual_male_ben = data.actual_male_ben
+  ruleForm.target_female_ben = data.target_female_ben
+  ruleForm.target_male_ben = data.target_male_ben
+  ruleForm.comments = data.comments
+
+
+  formHeader.value = 'Edit Beneficiary'
+  fileUploadList.value = data.documents
+
+
+
+<!-- eslint-disable prettier/prettier -->
+<script setup lang="ts">
+import { useI18n } from '@/hooks/web/useI18n'
+import { getSettlementListByCounty, uploadFilesBatch } from '@/api/settlements'
+import { ElButton, ElMessageBox, ElSelect, ElSelectV2, ElStep, ElSteps, FormInstance, ElCard } from 'element-plus'
+import { ElMessage } from 'element-plus'
+import {
+  Plus,
+  Edit,
+  Download,
+  Filter,
+  Delete,
+  UploadFilled,
+  Back,
+  InfoFilled
+} from '@element-plus/icons-vue'
+
+import { ref, reactive, computed, onMounted, watch } from 'vue'
+import {
+  ElPagination, ElInputNumber, ElTable, ElTour, ElTourStep,
+  ElTableColumn, ElDropdown, ElDropdownItem, ElDropdownMenu,
+  ElTooltip, ElOption, ElDialog, ElForm, ElFormItem, ElUpload, ElInput, FormRules, ElPopconfirm, ElCol, ElRow
+} from 'element-plus'
+
+import { useRouter } from 'vue-router'
+import { useAppStoreWithOut } from '@/store/modules/app'
+import { useCache } from '@/hooks/web/useCache'
+import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument } from '@/api/settlements'
+import { uuid } from 'vue-uuid'
+import type { UploadProps, UploadUserFile } from 'element-plus'
+import readXlsxFile from 'read-excel-file'
+import { getModelSpecs } from '@/api/fields'
+import { UserType } from '@/api/register/types'
+import { Icon } from '@iconify/vue';
+
+
+import UploadComponent from '@/views/Components/UploadComponent.vue';
+import { defineAsyncComponent } from 'vue';
+import ListDocuments from '@/views/Components/ListDocuments.vue';
+import TableActions from '@/views/Components/TableActions.vue';
+
+
+const appStore = useAppStoreWithOut();
+
+
+const { wsCache } = useCache()
+const userInfo = wsCache.get(appStore.getUserInfo)
+
+
+const { push } = useRouter()
+const value1 = ref([])
+const value2 = ref([])
+var value3 = ref([])
+
+
+
+const page = ref(1)
+
+const currentPage = ref(1)
+const total = ref(0)
+const showAdminButtons = ref(appStore.getAdminButtons)
+const showEditButtons = ref(appStore.getEditButtons)
+
+const adminButtons = computed(() => appStore.getAdminButtons);
+
+
+const action_buttons = ref([])
+if (showAdminButtons.value) {
   action_buttons.value = ['edit', 'delete']
 } else if (showEditButtons.value) {
 
