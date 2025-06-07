@@ -36,6 +36,7 @@ import { provide } from 'vue';
 import { getRoutesList } from '@/api/settlements'
 import { inject } from 'vue'
 import { useRouter } from 'vue-router'
+import { FullScreen } from '@element-plus/icons-vue'
 
 const { push } = useRouter()
 
@@ -2105,6 +2106,17 @@ const xhandleCardClick = async (card) => {
   }
 };
 
+const toggleFullscreen = (event: Event, chartId: string) => {
+  const chartContainer = document.getElementById(chartId)?.closest('.chart-wrapper');
+  if (chartContainer) {
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      chartContainer.requestFullscreen();
+    }
+  }
+};
+
 </script>
 
 <template>
@@ -2188,8 +2200,42 @@ const xhandleCardClick = async (card) => {
                     <el-card class="chart-card">
                       <ElSkeleton :loading="loading" animated>
                         <v-chart v-if="chart.type==7" :id="chart.id" class="chart" :option="chart.chart" height="400" autoresize /> 
-                        <apexchart v-if="chart.type!=7 && chart.type!=8" :options="chart.chart" :series="chart.chart.series" :type="getChartType(chart.type)" height="300" autoresize/>
-                        <apexchart v-if="chart.type==8" type="bar" :options="chart.chart.chartOptions" :series="chart.chart.series" height="300" autoresize />
+                        <div v-if="chart.type!=7 && chart.type!=8" class="chart-wrapper">
+                          <div class="chart-actions">
+                            <el-button 
+                              class="fullscreen-btn" 
+                              @click="toggleFullscreen($event, chart.id)"
+                              :icon="FullScreen"
+                              circle
+                            />
+                          </div>
+                          <apexchart 
+                            :id="chart.id"
+                            :options="chart.chart" 
+                            :series="chart.chart.series" 
+                            :type="getChartType(chart.type)" 
+                            height="300" 
+                            autoresize
+                          />
+                        </div>
+                        <div v-if="chart.type==8" class="chart-wrapper">
+                          <div class="chart-actions">
+                            <el-button 
+                              class="fullscreen-btn" 
+                              @click="toggleFullscreen($event, chart.id)"
+                              :icon="FullScreen"
+                              circle
+                            />
+                          </div>
+                          <apexchart 
+                            :id="chart.id"
+                            type="bar" 
+                            :options="chart.chart.chartOptions" 
+                            :series="chart.chart.series" 
+                            height="300" 
+                            autoresize 
+                          />
+                        </div>
                       </ElSkeleton>
                     </el-card>
                   </div>
@@ -2466,11 +2512,35 @@ const xhandleCardClick = async (card) => {
   color: #606266;
 }
 
+.chart-wrapper {
+  position: relative;
+  width: 100%;
+}
 
-/* When the OS/browser is in Dark mode, switch to this: */
+.chart-actions {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 10;
+  display: flex;
+  gap: 8px;
+}
+
+.fullscreen-btn {
+  background: rgba(255, 255, 255, 0.9);
+  border: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.fullscreen-btn:hover {
+  background: rgba(255, 255, 255, 1);
+  transform: scale(1.05);
+}
+
+/* Dark mode styles */
 @media (prefers-color-scheme: dark) {
   .value-text {
-    color: #ffffff;
+    color: #d11d1d;
   }
   
   .filters-wrapper {
@@ -2489,6 +2559,15 @@ const xhandleCardClick = async (card) => {
   
   .filter-label {
     color: var(--el-text-color-regular);
+  }
+  
+  .fullscreen-btn {
+    background: rgba(30, 30, 30, 0.9);
+    color: #fff;
+  }
+  
+  .fullscreen-btn:hover {
+    background: rgba(40, 40, 40, 1);
   }
 }
 
