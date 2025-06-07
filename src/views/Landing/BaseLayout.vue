@@ -193,7 +193,7 @@ const handleSelect = (index: string) => {
 
 .el-menu-item {
   color: var(--text-primary);
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .el-menu-item:hover {

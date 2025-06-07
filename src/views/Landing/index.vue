@@ -436,19 +436,19 @@ AvgHHSize();
   }
 
   .hero {
-    padding-bottom: 2rem;
+    padding-bottom: 1rem;
   }
 
   .description {
-    font-size: 1rem;
+    font-size: 1.4rem;
     line-height: 1.6;
-    margin-bottom: 2rem;
+    margin-bottom: 0.4rem;
     padding: 0 0.5rem;
   }
 
   .cta-buttons {
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.5rem;
     padding: 0 1rem;
   }
 
@@ -459,15 +459,15 @@ AvgHHSize();
   }
 
   .stats-grid {
-    margin: 2rem 0;
+    margin: 1rem 0;
   }
 
   .stat-icon {
-    font-size: 2rem;
+    font-size: 1.3rem;
   }
 
   .stat-value {
-    font-size: 2rem;
+    font-size: 1.5rem;
   }
 
   .stat-label {
@@ -476,10 +476,13 @@ AvgHHSize();
 
   .grievance-section {
     padding: 0.75rem 0;
+     position: relative;
+    z-index: 1;
   }
 
   .grievance-message {
-    font-size: 1.1rem;
+    font-size: 0.9rem;
+    line-height: 1.4;
   }
 }
 
@@ -488,7 +491,7 @@ AvgHHSize();
   /* Force the landing-container & main-container to fill viewport */
   .landing-container,
   .main-container {
-    max-height: 90vh;
+    max-height: 100vh;
   }
 
   /* Cap main-content at viewport height so overflow can scroll */
@@ -504,12 +507,12 @@ AvgHHSize();
   }
 
   .description {
-    font-size: 0.95rem;
+    font-size: 1rem;
     padding: 0;
   }
 
   .stat-card {
-    padding: 1rem;
+    padding: 0.4rem;
   }
 
   .stat-value {
@@ -519,14 +522,11 @@ AvgHHSize();
   .stat-label {
     font-size: 0.9rem;
   }
-
-  /* Make grievance-section scrollable within phone viewport too */
-  .grievance-section {
-    padding: 0.5rem 0;
-  }
+ 
 
   .grievance-message {
-    font-size: 1.1rem;
+    font-size: 0.9rem;
+    line-height: 1.3;
   }
 }
 </style>

@@ -360,9 +360,9 @@ v-if="
       </ElScrollbar>
     </div>
 
-    <div style="margin-right:5px">
+    <!-- <div style="margin-right:5px">
     <ThemeSwitch/> 
-   </div>
+   </div> -->
 
     <span
 :class="`${prefixCls}__tool`"

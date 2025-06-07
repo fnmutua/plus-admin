@@ -9,6 +9,7 @@ import { Breadcrumb } from '@/components/Breadcrumb'
 import { useAppStore } from '@/store/modules/app'
 import { useDesign } from '@/hooks/web/useDesign'
 import { NotificationBadge } from '@/components/NotificationBadge'
+import { ThemeSwitch } from '@/components/ThemeSwitch'
 
 const { getPrefixCls, variables } = useDesign()
 
@@ -55,6 +56,8 @@ export default defineComponent({
           </div>
         ) : undefined}
         <div class="h-full flex items-center">
+          <ThemeSwitch/> 
+
           {screenfull.value ? (
             <Screenfull class="hover-tigger" color="var(--top-header-text-color)"></Screenfull>
           ) : undefined}
