@@ -2997,10 +2997,10 @@ const activeCollapse = ref([])
                   <Icon :icon="card.icon" width="32" :color="card.iconColor" />
                 </div>
                 <div class="card-value">
-                  <p class="value-text" @click="handleCardClick(card)" role="link" tabindex="0" @keydown.enter="handleCardClick(card)">
+                  <p class="value-text" @click="handleCardClick(card)" role="link" tabindex="0" @keydown.enter="handleCardClick(card)" :title="formatNumber(card.value) + card.symbol">
                     {{ formatNumber(card.value) }}{{ card.symbol }}
                   </p>
-                  <p class="value-label">{{ card.description }}</p>
+                  <p class="value-label" :title="card.description">{{ card.description }}</p>
                 </div>
               </div>
             </el-card>
@@ -3064,19 +3064,23 @@ const activeCollapse = ref([])
 </div>
 </template>
  
+ 
 <style scoped>
 .dashboard-container {
-  padding: 5px;
-   min-height: 100vh;
+  padding: px;
+  min-height: 100vh;
+  position: relative;
 }
 
 :deep(.el-collapse) {
   border: none;
-  margin-bottom: 12px;
+  margin-bottom: 6px;
+  position: relative;
+  z-index: 10;
 }
 
 :deep(.el-collapse-item__header) {
-   border-radius: 2px;
+  border-radius: 2px;
   padding: 0 16px;
   font-size: 16px;
   font-weight: 500;
@@ -3089,17 +3093,28 @@ const activeCollapse = ref([])
 
 :deep(.el-collapse-item__wrap) {
   border: none;
+  position: absolute;
+  width: 100%;
+  z-index: 100;
+   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 :deep(.el-collapse-item__content) {
   padding: 0;
-  margin-top: 12px;
+  margin-top: 6px;
+}
+
+.cards-row {
+  margin-top: 1rem;
+  position: relative;
+  z-index: 1;
 }
 
 .filters-wrapper {
-   border-radius: 12px;
+  border-radius: 12px;
   padding: 20px;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+  background: var(--el-bg-color);
 }
 
 .filters-container {
@@ -3147,10 +3162,6 @@ const activeCollapse = ref([])
   .filter-group {
     width: 100%;
   }
-}
-
-.cards-row {
-  margin-bottom:  8px;
 }
 
 .tabs-container {
@@ -3237,6 +3248,9 @@ const activeCollapse = ref([])
   cursor: pointer;
   transition: color 0.2s ease;
   line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .value-text:hover {
@@ -3248,6 +3262,9 @@ const activeCollapse = ref([])
   color: #606266;
   margin: 8px 0 0 0;
   line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .charts-container {
@@ -3308,8 +3325,27 @@ const activeCollapse = ref([])
   .value-text {
     color: #ffffff;
   }
+  
+  .filters-wrapper {
+    background: var(--el-bg-color-overlay);
+    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.2);
+  }
+  
+  :deep(.el-collapse-item__header) {
+    background: var(--el-bg-color-overlay);
+    color: var(--el-text-color-primary);
+  }
+  
+  :deep(.el-collapse-item__wrap) {
+    background: var(--el-bg-color-overlay);
+  }
+  
+  .filter-label {
+    color: var(--el-text-color-regular);
+  }
 }
 
 
  
 </style>
+

@@ -2165,10 +2165,10 @@ const xhandleCardClick = async (card) => {
                   <Icon :icon="card.icon" width="32" :color="card.iconColor" />
                 </div>
                 <div class="card-value">
-                  <p class="value-text" @click="handleCardClick(card)" role="link" tabindex="0" @keydown.enter="handleCardClick(card)">
+                  <p class="value-text" @click="handleCardClick(card)" role="link" tabindex="0" @keydown.enter="handleCardClick(card)" :title="formatNumber(card.value) + card.symbol">
                     {{ formatNumber(card.value) }}{{ card.symbol }}
                   </p>
-                  <p class="value-label">{{ card.description }}</p>
+                  <p class="value-label" :title="card.description">{{ card.description }}</p>
                 </div>
               </div>
             </el-card>
@@ -2178,7 +2178,7 @@ const xhandleCardClick = async (card) => {
     </el-row>
 
     <div class="tabs-container main-tabs">
-      <el-tabs v-model="activeTab" class="dashboard-tabs">
+      <el-tabs v-model="activeTab" class="dashboard-tabs" tab-position="top">
         <el-tab-pane v-for="(tab) in tabs" :name="tab.name" :key="tab.id" :label="tab.label">
           <div class="tab-content-scrollable">
             <el-row :gutter="20">
@@ -2188,8 +2188,8 @@ const xhandleCardClick = async (card) => {
                     <el-card class="chart-card">
                       <ElSkeleton :loading="loading" animated>
                         <v-chart v-if="chart.type==7" :id="chart.id" class="chart" :option="chart.chart" height="400" autoresize /> 
-                        <apexchart v-if="chart.type!=7 && chart.type!=8" :options="chart.chart" :series="chart.chart.series" :type="getChartType(chart.type)" height="350" autoresize/>
-                        <apexchart v-if="chart.type==8" type="bar" :options="chart.chart.chartOptions" :series="chart.chart.series" height="350" autoresize />
+                        <apexchart v-if="chart.type!=7 && chart.type!=8" :options="chart.chart" :series="chart.chart.series" :type="getChartType(chart.type)" height="300" autoresize/>
+                        <apexchart v-if="chart.type==8" type="bar" :options="chart.chart.chartOptions" :series="chart.chart.series" height="300" autoresize />
                       </ElSkeleton>
                     </el-card>
                   </div>
@@ -2214,17 +2214,20 @@ const xhandleCardClick = async (card) => {
 
 <style scoped>
 .dashboard-container {
-  padding: 5px;
-   min-height: 100vh;
+  padding: px;
+  min-height: 100vh;
+  position: relative;
 }
 
 :deep(.el-collapse) {
   border: none;
-  margin-bottom: 12px;
+  margin-bottom: 6px;
+  position: relative;
+  z-index: 10;
 }
 
 :deep(.el-collapse-item__header) {
-   border-radius: 2px;
+  border-radius: 2px;
   padding: 0 16px;
   font-size: 16px;
   font-weight: 500;
@@ -2237,17 +2240,28 @@ const xhandleCardClick = async (card) => {
 
 :deep(.el-collapse-item__wrap) {
   border: none;
+  position: absolute;
+  width: 100%;
+  z-index: 100;
+   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 :deep(.el-collapse-item__content) {
   padding: 0;
-  margin-top: 12px;
+  margin-top: 6px;
+}
+
+.cards-row {
+  margin-top: 1rem;
+  position: relative;
+  z-index: 1;
 }
 
 .filters-wrapper {
-   border-radius: 12px;
+  border-radius: 12px;
   padding: 20px;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+  background: var(--el-bg-color);
 }
 
 .filters-container {
@@ -2295,10 +2309,6 @@ const xhandleCardClick = async (card) => {
   .filter-group {
     width: 100%;
   }
-}
-
-.cards-row {
-  margin-bottom:  8px;
 }
 
 .tabs-container {
@@ -2385,6 +2395,9 @@ const xhandleCardClick = async (card) => {
   cursor: pointer;
   transition: color 0.2s ease;
   line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .value-text:hover {
@@ -2396,6 +2409,9 @@ const xhandleCardClick = async (card) => {
   color: #606266;
   margin: 8px 0 0 0;
   line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .charts-container {
@@ -2455,6 +2471,24 @@ const xhandleCardClick = async (card) => {
 @media (prefers-color-scheme: dark) {
   .value-text {
     color: #ffffff;
+  }
+  
+  .filters-wrapper {
+    background: var(--el-bg-color-overlay);
+    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.2);
+  }
+  
+  :deep(.el-collapse-item__header) {
+    background: var(--el-bg-color-overlay);
+    color: var(--el-text-color-primary);
+  }
+  
+  :deep(.el-collapse-item__wrap) {
+    background: var(--el-bg-color-overlay);
+  }
+  
+  .filter-label {
+    color: var(--el-text-color-regular);
   }
 }
 
