@@ -382,25 +382,15 @@ const goBack = () => {
 const activeName = ref('profile')
 
 const viewLoading = ref(false)
+const loadingStates = ref({}) // Add this line to track loading state per document
 
 const downloadFile = async (data) => {
   console.log(data);
-  viewLoading.value = true;
+  loadingStates.value[data.id] = true; // Set loading state for this specific document
   const formData = {};
   formData.filename = data.name;
   formData.doc_id = data.id;
   formData.responseType = 'blob';
-
-  // Add a flag to track if the download has started
-
-
-  // Attach a 'beforeunload' event listener to the window
-  window.addEventListener('beforeunload', () => {
-    if (viewLoading.value) {
-      console.log('Download has started.');
-      viewLoading.value = false;
-    }
-  });
 
   try {
     const response = await getFile(formData);
@@ -412,10 +402,10 @@ const downloadFile = async (data) => {
     link.setAttribute('download', data.name);
     document.body.appendChild(link);
     link.click();
-    viewLoading.value = false;
   } catch (error) {
     ElMessage.error('Failed');
-    viewLoading.value = false;
+  } finally {
+    loadingStates.value[data.id] = false; // Clear loading state for this document
   }
 };
 
@@ -1063,7 +1053,7 @@ const AddReport = () => {
 
 
 
-// Fields you don’t want to show
+// Fields you don't want to show
 const excludeFields = ref([
   'id',
   'county_id',
@@ -1305,9 +1295,9 @@ v-for="(docs, type) in filteredGroupedDocuments" :key="type"
             <div
               :class="[`${prefixCls}-header`, 'h-50px flex justify-between items-center mb-10px border-bottom-1 border-solid border-[var(--tags-view-border-color)] px-10px cursor-pointer dark:border-[var(--el-border-color)]']"
               @click="toggleCollapse(type)">
-              <div :class="[`${prefixCls}-header__title`, 'relative font-12px font-bold ml-10px']">
+              <div :class="[`${prefixCls}-header__title`, 'relative text-base font-medium ml-10px']">
                 <div class="flex items-center">
-                  {{ makePlural(type) }} ({{ docs.length }})
+                  {{ makePlural(type) }} <span class="text-gray-500 ml-2 text-sm">({{ docs.length }})</span>
                 </div>
               </div>
               <Icon :icon="collapsedSections[type] ? 'ep:arrow-down' : 'ep:arrow-up'" />
@@ -1322,12 +1312,10 @@ v-for="(docs, type) in filteredGroupedDocuments" :key="type"
                   <el-table-column prop="createdAt" label="Uploaded" />
                   <el-table-column fixed="right" label="">
                     <template #default="scope">
-                      <el-button plain @click="downloadFile(scope.row)">
-                        <Icon icon="fa-solid:download" style="  margin-right: 5px;" />
+                      <el-button plain :loading="loadingStates[scope.row.id]" @click="downloadFile(scope.row)">
+                        <Icon icon="fa-solid:download" style="margin-right: 5px;" />
                         Download
                       </el-button>
-
-
                     </template>
                   </el-table-column>
                 </el-table>
