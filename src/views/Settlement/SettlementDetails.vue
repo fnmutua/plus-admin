@@ -60,40 +60,51 @@ const route = useRoute()
 
 const { t } = useI18n()
 
+const profile = reactive({
+  name: '',
+  settlement_type: '',
+  county: '',
+  subcounty: '',
+  ward: '',
+  population: '',
+  area: '',
+  num_households: '',
+  avg_household_size: '',
+  land_status: '',
+  parcel_owner: '',
+  parcel_owner_type: '',
+  landuse: '',
+  development: '',
+  structure_types: '',
+  typical_building_materials: '',
+  dist_town: '',
+  dist_trunk: '',
+  main_env_hazards: '',
+  general_location: ''
+})
+
 const housing = reactive({
-  no_dwelling: '45',
-  pop_density: '10',
-  ave_hh_size: '6',
-  ave_room_occupancy: '4',
-  prop_permanent: '45%',
-  prop_semi: '20%',
-  prop_temp: '35%',
-  avg_cost_perm: '2500',
-  avg_cost_semi: '1500',
-  avg_cost_temp: '1000'
+  num_households: '',
+  avg_household_size: '',
+  structure_types: '',
+  development: '',
+  typical_building_materials: '',
+  avg_rent: '',
+  plot_ownership_ratio: '',
+  plot_tenant_ratio: ''
 })
 
 const utilities = reactive({
-  prop_avail_piped_water: '25%',
-  prop_other_water: '75%',
-  prop_conn_elec: '45%',
-  prop_conn_other_elec: '55%',
-  prop_lpg: '20%',
-  prop_firewood: '25%',
-  prop_kerosene: '45%',
-  prop_biogas: '10%',
-  prop_elec: '0%'
+  electricity_availability: false,
+  piped_water_availability: false,
+  median_household_income: '',
+  on_wayleave: false,
+  on_road_reserve: false,
+  near_river: false,
+  encumbrance: ''
 })
 
 const schemaProfile = reactive<DescriptionsSchema[]>([
-  {
-    field: 'name',
-    label: t('Name')
-  },
-  {
-    field: 'type',
-    label: t('Type')
-  },
   {
     field: 'county',
     label: t('County')
@@ -102,114 +113,144 @@ const schemaProfile = reactive<DescriptionsSchema[]>([
     field: 'subcounty',
     label: t('SubCounty')
   },
-
+  {
+    field: 'ward',
+    label: t('Ward')
+  },
+  {
+    field: 'general_location',
+    label: t('General Location'),
+    span: 24
+  },
+  {
+    field: 'name',
+    label: t('Name')
+  },
+  {
+    field: 'settlement_type',
+    label: t('Type')
+  },
   {
     field: 'population',
     label: t('Population')
   },
   {
-    field: 'area_ha',
+    field: 'area',
     label: t('Area(Ha.)')
   },
-
   {
-    field: 'description',
-    label: t('Description'),
-    span: 40
+    field: 'num_households',
+    label: t('Number of Households')
+  },
+  {
+    field: 'avg_household_size',
+    label: t('Average Household Size')
+  },
+  {
+    field: 'land_status',
+    label: t('Land Status')
+  },
+  {
+    field: 'parcel_owner',
+    label: t('Parcel Owner')
+  },
+  {
+    field: 'parcel_owner_type',
+    label: t('Parcel Owner Type')
+  },
+  {
+    field: 'landuse',
+    label: t('Land Use')
+  },
+  {
+    field: 'development',
+    label: t('Development Type')
+  },
+  {
+    field: 'structure_types',
+    label: t('Structure Types')
+  },
+  {
+    field: 'typical_building_materials',
+    label: t('Building Materials')
+  },
+  {
+    field: 'dist_town',
+    label: t('Distance to Town (km)')
+  },
+  {
+    field: 'dist_trunk',
+    label: t('Distance to Trunk Road (km)')
+  },
+  {
+    field: 'main_env_hazards',
+    label: t('Environmental Hazards')
   }
 ])
 
 const schemaHousing = reactive<DescriptionsSchema[]>([
   {
-    field: 'no_dwelling',
-    label: t('Number of Dwellings')
+    field: 'num_households',
+    label: t('Number of Households')
   },
-
   {
-    field: 'pop_density',
-    label: t('Population Density')
-  },
-
-  {
-    field: 'ave_hh_size',
+    field: 'avg_household_size',
     label: t('Average Household Size')
   },
-
   {
-    field: 'ave_room_occupancy',
-    label: t('Average Room Occupancy')
-  },
-
-  {
-    field: 'prop_permanent',
-    label: t('Proportion of Permanent Structures')
+    field: 'structure_types',
+    label: t('Structure Types')
   },
   {
-    field: 'prop_semi',
-    label: t('Proportion of Semi-Permanent Structures')
+    field: 'development',
+    label: t('Development Type')
   },
   {
-    field: 'prop_temp',
-    label: t('Proportion of Temporary Structures')
+    field: 'typical_building_materials',
+    label: t('Building Materials')
   },
   {
-    field: 'avg_cost_perm',
-    label: t('Average Monthly Rent for Permanent Structures')
+    field: 'avg_rent',
+    label: t('Average Rent')
   },
-
   {
-    field: 'avg_cost_semi',
-    label: t('Average Monthly Rent for Semi-Permanent Structures')
+    field: 'plot_ownership_ratio',
+    label: t('Plot Ownership Ratio')
   },
-
   {
-    field: 'avg_cost_temp',
-    label: t('Average Monthly Rent for Temporary Structures')
+    field: 'plot_tenant_ratio',
+    label: t('Plot Tenant Ratio')
   }
 ])
 
 const schemaUtilities = reactive<DescriptionsSchema[]>([
   {
-    field: 'prop_avail_piped_water',
-    label: t('Proportion of Residents with access to Piped Water')
+    field: 'electricity_availability',
+    label: t('Electricity Available')
   },
   {
-    field: 'prop_other_water',
-    label: t('Proportion of Residents without access to Piped Water')
+    field: 'piped_water_availability',
+    label: t('Piped Water Available')
   },
   {
-    field: 'prop_conn_elec',
-    label: t('Proportion of Residents with access to Electricity')
+    field: 'median_household_income',
+    label: t('Median Household Income')
   },
-
   {
-    field: 'prop_conn_other_elec',
-    label: t('Proportion of Residents without access to Electricity')
+    field: 'on_wayleave',
+    label: t('On Wayleave')
   },
-
   {
-    field: 'prop_lpg',
-    label: t('Proportion of Residents using LPG gas')
+    field: 'on_road_reserve',
+    label: t('On Road Reserve')
   },
-
   {
-    field: 'prop_firewood',
-    label: t('Proportion of Residents using Firewood')
+    field: 'near_river',
+    label: t('Near River')
   },
-
   {
-    field: 'prop_biogas',
-    label: t('Proportion of Residents using Biogas')
-  },
-
-  {
-    field: 'prop_kerosene',
-    label: t('Number of Dwellings')
-  },
-
-  {
-    field: 'prop_elec',
-    label: 'Proportion of Residents using Electricity(Cooking)'
+    field: 'encumbrance',
+    label: t('Encumbrance')
   }
 ])
 
@@ -244,17 +285,6 @@ let settlement = reactive({
 })
 ////////////
 
-const profile = reactive({
-  name: '',
-  county: '',
-  subcounty: '',
-  type: 'Slum',
-  description:
-    'Kibera (Kinubi: Forest or Jungle[1]) is a division of Nairobi Area, Kenya, and neighborhood of the city of Nairobi, 6.6 kilometres (4.1 mi) from the city centre.[2] Kibera is the largest slum in Nairobi, and the largest urban slum in Africa.[3][4][5] The 2009 Kenya Population and Housing Census reports Kiberas population as 170,070, contrary to previous estimates of one or two million people.[6] ',
-  area_ha: '',
-  population: ''
-})
-
 function flattenObject(obj, parentKey = '', separator = '.') {
   return Object.keys(obj).reduce((acc, key) => {
     const fullKey = parentKey ? `${parentKey}${separator}${key}` : key;
@@ -269,88 +299,90 @@ function flattenObject(obj, parentKey = '', separator = '.') {
 
 
 const editHistory = ref([])
-const getFilteredData = async (selFilters, selfilterValues) => {
-  const formData = {}
-  formData.limit = pSize.value
-  formData.page = page.value
-  formData.curUser = 1 // Id for logged in user
-  formData.model = model
-  //-Search field--------------------------------------------
-  formData.searchField = 'name'
-  formData.searchKeyword = ''
-  //--Single Filter -----------------------------------------
 
-  //formData.assocModel = associated_Model
-
-  // - multiple filters -------------------------------------
-  formData.filters = selFilters
-  formData.filterValues = selfilterValues
-  formData.associated_multiple_models = associated_multiple_models
-  formData.nested_models = nested_models
-  //-------------------------
-  //console.log(formData)
-  const res = await getSettlementListByCounty(formData)
-
-  // set the settlement details ------------------------------------
-
-  console.log('After Querry', res)
-
-  // set the settlement profile  details ------------------------------------
-  profile.id = res.data[0].id
-  profile.name = res.data[0].name
-  profile.county = res.data[0].county.name
-  profile.subcounty = res.data[0].subcounty.name
-  profile.area_ha = res.data[0].area
-  profile.population = res.data[0].population
-  profile.description = res.data[0].description
-  settGeom.value = res.data[0].geom
-
-  //
-
-  //settlementDocuments.value = flattenObject(res.data.documents)
-
-  // Assuming your array is res.data[0].documents
-  const nestedArray = res.data[0].documents;
-
-  // Edit History 
-
-  //editHistory.value = res.data[0].settlement_histories
-
-
-  // Flatten each object in the array
-  settlementDocuments.value = nestedArray.map(doc => flattenObject(doc));
-
-  console.log('settlementDocuments.value', settlementDocuments.value)
-  // set the settlement hosuing  details ------------------------------------
-  var latestReportIndex = res.data[0].settlement_statuses.length - 1 // We get the number of reports so that we can pick the most recent
-
-  housing.no_dwelling = res.data[0].settlement_statuses[latestReportIndex].no_dwelling
-  housing.pop_density = res.data[0].settlement_statuses[latestReportIndex].pop_density
-  housing.ave_room_occupancy = res.data[0].settlement_statuses[latestReportIndex].ave_room_occupancy
-  housing.ave_hh_size = res.data[0].settlement_statuses[latestReportIndex].ave_hh_size
-  housing.prop_permanent = res.data[0].settlement_statuses[latestReportIndex].prop_permanent + '%'
-  housing.prop_semi = res.data[0].settlement_statuses[latestReportIndex].prop_semi + '%'
-  housing.prop_temp = res.data[0].settlement_statuses[latestReportIndex].prop_temp
-  housing.avg_cost_perm = res.data[0].settlement_statuses[latestReportIndex].avg_cost_perm
-  housing.avg_cost_semi = res.data[0].settlement_statuses[latestReportIndex].avg_cost_semi
-  housing.avg_cost_temp = res.data[0].settlement_statuses[latestReportIndex].avg_cost_temp
-
-  // set the utilities  details ------------------------------------
-  utilities.prop_avail_piped_water =
-    res.data[0].settlement_statuses[latestReportIndex].prop_other_water + '%'
-  utilities.prop_other_water =
-    res.data[0].settlement_statuses[latestReportIndex].prop_other_water + '%'
-  utilities.prop_conn_elec = res.data[0].settlement_statuses[latestReportIndex].prop_conn_elec + '%'
-  utilities.prop_lpg = res.data[0].settlement_statuses[latestReportIndex].prop_lpg + '%'
-  utilities.prop_other_water =
-    res.data[0].settlement_statuses[latestReportIndex].prop_other_water + '%'
-  utilities.prop_conn_elec = res.data[0].settlement_statuses[latestReportIndex].prop_conn_elec + '%'
-  utilities.prop_lpg = res.data[0].settlement_statuses[latestReportIndex].prop_lpg + '%'
-  utilities.prop_firewood = res.data[0].settlement_statuses[latestReportIndex].prop_firewood + '%'
-  utilities.prop_kerosene = res.data[0].settlement_statuses[latestReportIndex].prop_kerosene + '%'
-  utilities.prop_biogas = res.data[0].settlement_statuses[latestReportIndex].prop_biogas + '%'
-  utilities.prop_elec = res.data[0].settlement_statuses[latestReportIndex].prop_elec + '%'
+interface FormData {
+  limit?: number;
+  page?: number;
+  curUser?: number;
+  model?: string;
+  searchField?: string;
+  searchKeyword?: string;
+  filters?: string[];
+  filterValues?: any[][];
+  associated_multiple_models?: string[];
+  nested_models?: string[];
+  excludeGeom?: boolean;
 }
+
+const getFilteredData = async (selFilters: string[], selfilterValues: any[][]) => {
+  const formData: FormData = {
+    limit: pSize.value,
+    page: page.value,
+    curUser: 1,
+    model: model,
+    searchField: 'name',
+    searchKeyword: '',
+    filters: selFilters,
+    filterValues: selfilterValues,
+    associated_multiple_models: associated_multiple_models,
+    nested_models: nested_models
+  };
+
+  const res = await getSettlementListByCounty(formData);
+
+  if (res?.data?.[0]) {
+    const settlementData = res.data[0];
+    
+    // Set profile data
+    profile.name = settlementData.name || '';
+    profile.settlement_type = settlementData.settlement_type || '';
+    profile.county = settlementData.county?.name || '';
+    profile.subcounty = settlementData.subcounty?.name || '';
+    profile.ward = settlementData.ward?.name || '';
+    profile.population = settlementData.population || '';
+    profile.area = settlementData.area || '';
+    profile.num_households = settlementData.num_households || '';
+    profile.avg_household_size = settlementData.avg_household_size || '';
+    profile.land_status = settlementData.land_status || '';
+    profile.parcel_owner = settlementData.parcel_owner || '';
+    profile.parcel_owner_type = settlementData.parcel_owner_type || '';
+    profile.landuse = settlementData.landuse || '';
+    profile.development = settlementData.development || '';
+    profile.structure_types = settlementData.structure_types || '';
+    profile.typical_building_materials = settlementData.typical_building_materials || '';
+    profile.dist_town = settlementData.dist_town || '';
+    profile.dist_trunk = settlementData.dist_trunk || '';
+    profile.main_env_hazards = settlementData.main_env_hazards || '';
+    profile.general_location = settlementData.general_location || '';
+
+    // Set housing data
+    housing.num_households = settlementData.num_households || '';
+    housing.avg_household_size = settlementData.avg_household_size || '';
+    housing.structure_types = settlementData.structure_types || '';
+    housing.development = settlementData.development || '';
+    housing.typical_building_materials = settlementData.typical_building_materials || '';
+    housing.avg_rent = settlementData.avg_rent || '';
+    housing.plot_ownership_ratio = settlementData.plot_ownership_ratio || '';
+    housing.plot_tenant_ratio = settlementData.plot_tenant_ratio || '';
+
+    // Set utilities data
+    utilities.electricity_availability = settlementData.electricity_availability || false;
+    utilities.piped_water_availability = settlementData.piped_water_availability || false;
+    utilities.median_household_income = settlementData.median_household_income || '';
+    utilities.on_wayleave = settlementData.on_wayleave || false;
+    utilities.on_road_reserve = settlementData.on_road_reserve || false;
+    utilities.near_river = settlementData.near_river || false;
+    utilities.encumbrance = settlementData.encumbrance || '';
+
+    // Set documents
+    if (settlementData.documents) {
+      const nestedArray = settlementData.documents;
+      settlementDocuments.value = nestedArray.map(doc => flattenObject(doc));
+    }
+
+    settGeom.value = settlementData.geom;
+  }
+};
 
 const settlementId=ref(route.params.id)
 onMounted(async () => {
@@ -558,7 +590,7 @@ const loadMap = () => {
                 coordinates: centroid.value, // Replace with initial coordinates
               },
               properties: {
-                title: profile.area_ha + " Ha.", // Initialize with an empty string
+                title: profile.area + " Ha.", // Initialize with an empty string
               },
             },
           ],
@@ -1246,24 +1278,44 @@ const searcHouseholds = async () => {
 
     <el-tabs v-model="activeName" class="demo-tabs" type="border-card" @tab-click="clickTab">
       <el-tab-pane label="Profile" name="profile">
+        <div :class="[prefixCls, 'bg-[var(--el-color-white)] dark:(bg-[var(--el-bg-color)] border-[var(--el-border-color)] border-1px)']">
+          <div :class="[`${prefixCls}-header`, 'h-50px flex justify-between items-center mb-10px border-bottom-1 border-solid border-[var(--tags-view-border-color)] px-10px dark:border-[var(--el-border-color)]']">
+            <div :class="[`${prefixCls}-header__title`, 'relative text-base font-medium ml-10px']">
+              <div class="flex items-center">
+                {{ t('Profile') }} <span class="text-gray-500 ml-2 text-sm">({{ t('Settlement Profile') }})</span>
+              </div>
+            </div>
+          </div>
+          <div :class="[`${prefixCls}-content`, 'p-10px']">
+            <Descriptions :data="profile" :schema="schemaProfile" />
+          </div>
+        </div>
 
-        <Descriptions
-:title="t('Profile')" :message="t('Settlement Profile')" :data="profile"
-          :schema="schemaProfile" />
+        <div :class="[prefixCls, 'bg-[var(--el-color-white)] dark:(bg-[var(--el-bg-color)] border-[var(--el-border-color)] border-1px)']">
+          <div :class="[`${prefixCls}-header`, 'h-50px flex justify-between items-center mb-10px border-bottom-1 border-solid border-[var(--tags-view-border-color)] px-10px dark:border-[var(--el-border-color)]']">
+            <div :class="[`${prefixCls}-header__title`, 'relative text-base font-medium ml-10px']">
+              <div class="flex items-center">
+                {{ t('Housing') }} <span class="text-gray-500 ml-2 text-sm">({{ t('Settlement Housing') }})</span>
+              </div>
+            </div>
+          </div>
+          <div :class="[`${prefixCls}-content`, 'p-10px']">
+            <Descriptions :data="housing" :schema="schemaHousing" />
+          </div>
+        </div>
 
-
-        <Descriptions
-:title="t('Housing')" :message="t('Settlement Housing')" :data="housing"
-          :schema="schemaHousing" />
-
-
-
-        <Descriptions
-:title="t('Utilities')" :message="t('Access to Utilities')" :data="utilities"
-          :schema="schemaUtilities" />
-
-
-
+        <div :class="[prefixCls, 'bg-[var(--el-color-white)] dark:(bg-[var(--el-bg-color)] border-[var(--el-border-color)] border-1px)']">
+          <div :class="[`${prefixCls}-header`, 'h-50px flex justify-between items-center mb-10px border-bottom-1 border-solid border-[var(--tags-view-border-color)] px-10px dark:border-[var(--el-border-color)]']">
+            <div :class="[`${prefixCls}-header__title`, 'relative text-base font-medium ml-10px']">
+              <div class="flex items-center">
+                {{ t('Utilities') }} <span class="text-gray-500 ml-2 text-sm">({{ t('Access to Utilities') }})</span>
+              </div>
+            </div>
+          </div>
+          <div :class="[`${prefixCls}-content`, 'p-10px']">
+            <Descriptions :data="utilities" :schema="schemaUtilities" />
+          </div>
+        </div>
       </el-tab-pane>
 
 
