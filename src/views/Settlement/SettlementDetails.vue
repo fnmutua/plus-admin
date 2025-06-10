@@ -831,7 +831,12 @@ const { getPrefixCls } = useDesign()
 const prefixCls = getPrefixCls('descriptions')
 
 
-const collapsedSections = ref({}); // Track collapse state for each type
+const collapsedSections = reactive({
+  location: false,
+  profile: false,
+  housing: false,
+  utilities: false
+})
 
 // Group documents by `document_type.type`
 const groupedDocuments = computed(() => {
@@ -1278,43 +1283,76 @@ const searcHouseholds = async () => {
 
     <el-tabs v-model="activeName" class="demo-tabs" type="border-card" @tab-click="clickTab">
       <el-tab-pane label="Profile" name="profile">
+        <!-- Location Section -->
         <div :class="[prefixCls, 'bg-[var(--el-color-white)] dark:(bg-[var(--el-bg-color)] border-[var(--el-border-color)] border-1px)']">
-          <div :class="[`${prefixCls}-header`, 'h-50px flex justify-between items-center mb-10px border-bottom-1 border-solid border-[var(--tags-view-border-color)] px-10px dark:border-[var(--el-border-color)]']">
+          <div :class="[`${prefixCls}-header`, 'h-50px flex justify-between items-center mb-10px border-bottom-1 border-solid border-[var(--tags-view-border-color)] px-10px cursor-pointer dark:border-[var(--el-border-color)]']"
+               @click="collapsedSections.location = !collapsedSections.location">
+            <div :class="[`${prefixCls}-header__title`, 'relative text-base font-medium ml-10px']">
+              <div class="flex items-center">
+                {{ t('Location') }} <span class="text-gray-500 ml-2 text-sm">({{ t('Settlement Location') }})</span>
+              </div>
+            </div>
+            <Icon :icon="collapsedSections.location ? 'ep:arrow-down' : 'ep:arrow-up'" />
+          </div>
+          <ElCollapseTransition>
+            <div v-show="!collapsedSections.location" :class="[`${prefixCls}-content`, 'p-10px']">
+              <Descriptions :data="profile" :schema="schemaProfile.slice(0, 4)" />
+            </div>
+          </ElCollapseTransition>
+        </div>
+
+        <!-- Profile Section -->
+        <div :class="[prefixCls, 'bg-[var(--el-color-white)] dark:(bg-[var(--el-bg-color)] border-[var(--el-border-color)] border-1px)']">
+          <div :class="[`${prefixCls}-header`, 'h-50px flex justify-between items-center mb-10px border-bottom-1 border-solid border-[var(--tags-view-border-color)] px-10px cursor-pointer dark:border-[var(--el-border-color)]']"
+               @click="collapsedSections.profile = !collapsedSections.profile">
             <div :class="[`${prefixCls}-header__title`, 'relative text-base font-medium ml-10px']">
               <div class="flex items-center">
                 {{ t('Profile') }} <span class="text-gray-500 ml-2 text-sm">({{ t('Settlement Profile') }})</span>
               </div>
             </div>
+            <Icon :icon="collapsedSections.profile ? 'ep:arrow-down' : 'ep:arrow-up'" />
           </div>
-          <div :class="[`${prefixCls}-content`, 'p-10px']">
-            <Descriptions :data="profile" :schema="schemaProfile" />
-          </div>
+          <ElCollapseTransition>
+            <div v-show="!collapsedSections.profile" :class="[`${prefixCls}-content`, 'p-10px']">
+              <Descriptions :data="profile" :schema="schemaProfile.slice(4)" />
+            </div>
+          </ElCollapseTransition>
         </div>
 
+        <!-- Housing Section -->
         <div :class="[prefixCls, 'bg-[var(--el-color-white)] dark:(bg-[var(--el-bg-color)] border-[var(--el-border-color)] border-1px)']">
-          <div :class="[`${prefixCls}-header`, 'h-50px flex justify-between items-center mb-10px border-bottom-1 border-solid border-[var(--tags-view-border-color)] px-10px dark:border-[var(--el-border-color)]']">
+          <div :class="[`${prefixCls}-header`, 'h-50px flex justify-between items-center mb-10px border-bottom-1 border-solid border-[var(--tags-view-border-color)] px-10px cursor-pointer dark:border-[var(--el-border-color)]']"
+               @click="collapsedSections.housing = !collapsedSections.housing">
             <div :class="[`${prefixCls}-header__title`, 'relative text-base font-medium ml-10px']">
               <div class="flex items-center">
                 {{ t('Housing') }} <span class="text-gray-500 ml-2 text-sm">({{ t('Settlement Housing') }})</span>
               </div>
             </div>
+            <Icon :icon="collapsedSections.housing ? 'ep:arrow-down' : 'ep:arrow-up'" />
           </div>
-          <div :class="[`${prefixCls}-content`, 'p-10px']">
-            <Descriptions :data="housing" :schema="schemaHousing" />
-          </div>
+          <ElCollapseTransition>
+            <div v-show="!collapsedSections.housing" :class="[`${prefixCls}-content`, 'p-10px']">
+              <Descriptions :data="housing" :schema="schemaHousing" />
+            </div>
+          </ElCollapseTransition>
         </div>
 
+        <!-- Utilities Section -->
         <div :class="[prefixCls, 'bg-[var(--el-color-white)] dark:(bg-[var(--el-bg-color)] border-[var(--el-border-color)] border-1px)']">
-          <div :class="[`${prefixCls}-header`, 'h-50px flex justify-between items-center mb-10px border-bottom-1 border-solid border-[var(--tags-view-border-color)] px-10px dark:border-[var(--el-border-color)]']">
+          <div :class="[`${prefixCls}-header`, 'h-50px flex justify-between items-center mb-10px border-bottom-1 border-solid border-[var(--tags-view-border-color)] px-10px cursor-pointer dark:border-[var(--el-border-color)]']"
+               @click="collapsedSections.utilities = !collapsedSections.utilities">
             <div :class="[`${prefixCls}-header__title`, 'relative text-base font-medium ml-10px']">
               <div class="flex items-center">
                 {{ t('Utilities') }} <span class="text-gray-500 ml-2 text-sm">({{ t('Access to Utilities') }})</span>
               </div>
             </div>
+            <Icon :icon="collapsedSections.utilities ? 'ep:arrow-down' : 'ep:arrow-up'" />
           </div>
-          <div :class="[`${prefixCls}-content`, 'p-10px']">
-            <Descriptions :data="utilities" :schema="schemaUtilities" />
-          </div>
+          <ElCollapseTransition>
+            <div v-show="!collapsedSections.utilities" :class="[`${prefixCls}-content`, 'p-10px']">
+              <Descriptions :data="utilities" :schema="schemaUtilities" />
+            </div>
+          </ElCollapseTransition>
         </div>
       </el-tab-pane>
 
