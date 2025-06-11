@@ -263,10 +263,12 @@ export const useAppStore = defineStore({
 
     setAdminButtons(showAdminButtons: boolean) {
       this.showAdminButtons = showAdminButtons
+      wsCache.set('showAdminButtons', showAdminButtons)
     },
 
     setEditButtons(showEditButtons: boolean) {
       this.showEditButtons = showEditButtons
+      wsCache.set('showEditButtons', showEditButtons)
     },
  
      

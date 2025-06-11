@@ -39,25 +39,36 @@ const props = defineProps({
  
 const { wsCache } = useCache()
 const appStore = useAppStore()
- 
-//const userInfo = wsCache.get(appStore.getUserInfo)
-//const isAdmin = (wsCache.get(XappStore.getAdminButtons));
 
+const isAdmin = computed(() => appStore.getAdminButtons)
+const isEdit = computed(() => appStore.getEditButtons)
 
-const xappStore = useAppStoreWithOut()
-
-const isAdmin = computed(() => xappStore.getAdminButtons)
-
-
- console.log('getAdmin >-----',isAdmin.value)
- 
-
+console.log('getAdmin >-----', isAdmin.value)
+console.log('getEdit >-----', isEdit.value)
 
 // lifecycle hooks
 onMounted(() => {
- 
- 
-
+  // Force a refresh of the store values
+  const userInfo = wsCache.get(appStore.getUserInfo)
+  if (userInfo) {
+    const roles = userInfo.roles
+    const adminRoles = ['root_admin', 'super_admin', 'admin', 'staff']
+    const editRoles = ['grm', 'consultant']
+    
+    const hasAdminRole = roles.some(role => adminRoles.includes(role.name))
+    const hasEditRole = roles.some(role => editRoles.includes(role.name))
+    
+    if (hasAdminRole) {
+      appStore.setAdminButtons(true)
+      appStore.setEditButtons(true)
+    } else if (hasEditRole) {
+      appStore.setEditButtons(true)
+      appStore.setAdminButtons(false)
+    } else {
+      appStore.setAdminButtons(false)
+      appStore.setEditButtons(false)
+    }
+  }
 })
 
 

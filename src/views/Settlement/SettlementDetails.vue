@@ -42,14 +42,21 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 import { useCache } from '@/hooks/web/useCache'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { revertHistory } from '@/api/settlements'
+import { useAppStore } from '@/store/modules/app'
+
+
 const { push } = useRouter()
 
-
-
+ 
+ 
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
+ 
+const showAdminButtons = ref(appStore.getAdminButtons)
+const showEditButtons = ref(appStore.getEditButtons)
 
+console.log('showAdminButtons',showAdminButtons.value)
 
 const MapBoxToken = 'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg'
 mapboxgl.accessToken = MapBoxToken;
@@ -838,6 +845,8 @@ const collapsedSections = reactive({
   utilities: false
 })
 
+const collapsedDocumentSections = reactive({})
+
 // Group documents by `document_type.type`
 const groupedDocuments = computed(() => {
   return settlementDocuments.value.reduce((groups, doc) => {
@@ -878,7 +887,7 @@ const filteredGroupedDocuments = computed(() => {
 
 // Toggle collapse state for a specific type
 const toggleCollapse = (type) => {
-  collapsedSections.value[type] = !collapsedSections.value[type];
+  collapsedDocumentSections[type] = !collapsedDocumentSections[type];
 };
 
 function makePlural(word) {
@@ -1289,7 +1298,7 @@ const searcHouseholds = async () => {
                @click="collapsedSections.location = !collapsedSections.location">
             <div :class="[`${prefixCls}-header__title`, 'relative text-base font-medium ml-10px']">
               <div class="flex items-center">
-                {{ t('Location') }} <span class="text-gray-500 ml-2 text-sm">({{ t('Settlement Location') }})</span>
+                {{ t('Administrative Location') }}  
               </div>
             </div>
             <Icon :icon="collapsedSections.location ? 'ep:arrow-down' : 'ep:arrow-up'" />
@@ -1307,7 +1316,7 @@ const searcHouseholds = async () => {
                @click="collapsedSections.profile = !collapsedSections.profile">
             <div :class="[`${prefixCls}-header__title`, 'relative text-base font-medium ml-10px']">
               <div class="flex items-center">
-                {{ t('Profile') }} <span class="text-gray-500 ml-2 text-sm">({{ t('Settlement Profile') }})</span>
+                {{ t('Profile') }}  
               </div>
             </div>
             <Icon :icon="collapsedSections.profile ? 'ep:arrow-down' : 'ep:arrow-up'" />
@@ -1325,7 +1334,7 @@ const searcHouseholds = async () => {
                @click="collapsedSections.housing = !collapsedSections.housing">
             <div :class="[`${prefixCls}-header__title`, 'relative text-base font-medium ml-10px']">
               <div class="flex items-center">
-                {{ t('Housing') }} <span class="text-gray-500 ml-2 text-sm">({{ t('Settlement Housing') }})</span>
+                {{ t('Housing') }}  
               </div>
             </div>
             <Icon :icon="collapsedSections.housing ? 'ep:arrow-down' : 'ep:arrow-up'" />
@@ -1343,7 +1352,7 @@ const searcHouseholds = async () => {
                @click="collapsedSections.utilities = !collapsedSections.utilities">
             <div :class="[`${prefixCls}-header__title`, 'relative text-base font-medium ml-10px']">
               <div class="flex items-center">
-                {{ t('Utilities') }} <span class="text-gray-500 ml-2 text-sm">({{ t('Access to Utilities') }})</span>
+                {{ t('Utilities') }} 
               </div>
             </div>
             <Icon :icon="collapsedSections.utilities ? 'ep:arrow-down' : 'ep:arrow-up'" />
@@ -1370,7 +1379,7 @@ const searcHouseholds = async () => {
 
 
 
-      <el-tab-pane label="Documents" name="documents">
+      <el-tab-pane  v-if="showAdminButtons||showEditButtons" label="Documents" name="documents">
 
         <div>
           <!-- Filter Input -->
@@ -1378,8 +1387,7 @@ const searcHouseholds = async () => {
 v-model="searchQuery" type="text" placeholder="Search documents..." style="width: 100%"
             :prefix-icon="Search" clearable />
 
-          <div
-v-for="(docs, type) in filteredGroupedDocuments" :key="type"
+          <div v-for="(docs, type) in filteredGroupedDocuments" :key="type"
             :class="[prefixCls, 'bg-[var(--el-color-white)] dark:(bg-[var(--el-bg-color)] border-[var(--el-border-color)] border-1px)']">
             <!-- Collapsible Header -->
             <div
@@ -1390,12 +1398,12 @@ v-for="(docs, type) in filteredGroupedDocuments" :key="type"
                   {{ makePlural(type) }} <span class="text-gray-500 ml-2 text-sm">({{ docs.length }})</span>
                 </div>
               </div>
-              <Icon :icon="collapsedSections[type] ? 'ep:arrow-down' : 'ep:arrow-up'" />
+              <Icon :icon="collapsedDocumentSections[type] ? 'ep:arrow-down' : 'ep:arrow-up'" />
             </div>
 
             <!-- Collapsible Content -->
             <ElCollapseTransition>
-              <div v-show="collapsedSections[type]" :class="[`${prefixCls}-content`, 'p-10px']">
+              <div v-show="!collapsedDocumentSections[type]" :class="[`${prefixCls}-content`, 'p-10px']">
                 <el-table :data="docs" style="width: 100%">
                   <el-table-column type="index" width="50" />
                   <el-table-column prop="name" label="Name" />
@@ -1409,19 +1417,7 @@ v-for="(docs, type) in filteredGroupedDocuments" :key="type"
                     </template>
                   </el-table-column>
                 </el-table>
-
-                <!-- <el-button @click="toggleComponent()" style="margin-top:10px">Upload</el-button> -->
-
-                <el-button @click="toggleComponent()" style="margin-top:10px">
-                  Upload<el-icon class="el-icon--right">
-                    <Upload />
-                  </el-icon>
-                </el-button>
-
-
-
               </div>
-
             </ElCollapseTransition>
           </div>
         </div>
@@ -1461,7 +1457,7 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
 
       </el-tab-pane>
 
-    <el-tab-pane label="Households" name="Households">
+    <el-tab-pane  v-if="showAdminButtons||showEditButtons" label="Households" name="Households">
    
         <el-card>
           <el-row :gutter="10" style="margin-bottom:10px">
@@ -1569,7 +1565,7 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
       </el-tab-pane>
 
 
-      <el-tab-pane label="History" name="History">
+      <el-tab-pane  v-if="showAdminButtons||showEditButtons" label="History" name="History">
 
 
         <el-table :data="editHistory" border ref="tableEditRef" >
@@ -1602,7 +1598,7 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
         </el-table>
       </el-tab-pane>
 
-      <el-tab-pane label="Settings" name="Settings">
+      <el-tab-pane  v-if="showAdminButtons||showEditButtons" label="Settings" name="Settings">
         <el-popconfirm
 width="300" title="Are you sure to delete this project?"
           @confirm="DeleteProject(projectFullData.id)">

@@ -44,6 +44,10 @@ export interface AppState {
   mobile: boolean
   footer: boolean
   theme: ThemeTypes
+  showAdminButtons: boolean
+  showEditButtons: boolean
+  isAdmin: boolean
+  isStaff: boolean
 }
 
 export const appModules: AppState = {
@@ -52,6 +56,10 @@ export const appModules: AppState = {
   mobile: false, // 是否是移动端
   title: import.meta.env.VITE_APP_TITLE, // 标题
   pageLoading: false, // 路由跳转loading
+  showAdminButtons: wsCache.get('showAdminButtons') || false,
+  showEditButtons: wsCache.get('showEditButtons') || false,
+  isAdmin: wsCache.get('isAdmin') || false,
+  isStaff: wsCache.get('isStaff') || false,
 
   breadcrumb: true, // 面包屑
   breadcrumbIcon: true, // 面包屑图标
