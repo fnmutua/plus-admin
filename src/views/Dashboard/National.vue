@@ -2189,7 +2189,6 @@ const toggleFullscreen = (event: Event, chartId: string) => {
       </el-col>
     </el-row>
     
-
     <div class="tabs-container main-tabs">
       <el-tabs v-model="activeTab" class="dashboard-tabs" tab-position="top">
         <el-tab-pane v-for="(tab) in tabs" :name="tab.name" :key="tab.id" :label="tab.label">

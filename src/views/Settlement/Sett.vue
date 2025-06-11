@@ -77,6 +77,7 @@ const saveFiltersToStorage = () => {
 // Load filters from localStorage
 const loadFiltersFromStorage = () => {
   const savedFilters = localStorage.getItem('settlementFilters')
+
   if (savedFilters) {
     const filterState = JSON.parse(savedFilters)
     selectedCounty.value = filterState.selectedCounty || []
@@ -186,7 +187,7 @@ const pushRoleFilters = () => {
       filterValues.value.push(filterMap[field]);
     });
   }
-  saveFiltersToStorage(); // Save after updating filters
+ // saveFiltersToStorage(); // Save after updating filters
 };
 
 // Form setup
@@ -280,14 +281,23 @@ onMounted(async () => {
         await getWardNames();
       }
     }
+
+
+    if (search_string.value) {
+    await getFilteredBySearchData(activeSegment.value, search_string.value)
+  } else {
+    await getNewOrRejectedSettlements(activeSegment.value)
+  }
+
     // Fetch data based on restored filters
-    await getNewOrRejectedSettlements(activeSegment.value);
+  //  await getNewOrRejectedSettlements(activeSegment.value);
   } else {
     // No filters restored, fetch initial settlements
     await getAllSetllementsInitially(activeSegment.value);
   }
 });
 
+ 
 
 
 const { push } = useRouter()
@@ -841,21 +851,24 @@ const getFilteredBySearchData = async (tab, searchKey) => {
 const searchLoading = ref(false)
 
 const searchByNewName = async () => {
-  const query = search_string.value?.trim();
+  const query = search_string.value?.trim()
 
   if (!query || query.length < 4) {
-    ElMessage.warning("Please enter at least 4 characters to search.");
-    return;
+    ElMessage.warning("Please enter at least 4 characters to search.")
+    return
   }
 
-  filters.value.push('isActive');
-  filterValues.value.push(['true']);
-  searchLoading.value = true;
+  if (!filters.value.includes('isActive')) {
+    filters.value.push('isActive')
+    filterValues.value.push(['true'])
+  }
 
-  await getFilteredBySearchData(activeSegment.value, query);
+  searchLoading.value = true
+  await getFilteredBySearchData(activeSegment.value, query)
 
-  saveFiltersToStorage();
-}; 
+  saveFiltersToStorage()
+}
+
 
 
 const countiesOptions = ref([])
@@ -947,9 +960,13 @@ const filterByCounty = async (county_id: any) => {
     selectedCounty.value = []
     value4.value = []
   }
+  selectedSubCounty.value = []
+  selectedWard.value = []
   value5.value = []
   value6.value = []
-  saveFiltersToStorage();
+
+  saveFiltersToStorage()
+
   if (search_string.value) {
     await getFilteredBySearchData(activeSegment.value, search_string.value)
   } else {
@@ -966,14 +983,18 @@ const filterBySubCounty = async (subcounty_id: any) => {
     selectedSubCounty.value = []
     value5.value = []
   }
+  selectedWard.value = []
   value6.value = []
-  saveFiltersToStorage();
+
+  saveFiltersToStorage()
+
   if (search_string.value) {
     await getFilteredBySearchData(activeSegment.value, search_string.value)
   } else {
     await getNewOrRejectedSettlements(activeSegment.value)
   }
 }
+
 
 const filterByWard = async (ward_id: any) => {
   if (ward_id) {
@@ -983,13 +1004,16 @@ const filterByWard = async (ward_id: any) => {
     selectedWard.value = []
     value6.value = []
   }
-  saveFiltersToStorage();
+
+  saveFiltersToStorage()
+
   if (search_string.value) {
     await getFilteredBySearchData(activeSegment.value, search_string.value)
   } else {
     await getNewOrRejectedSettlements(activeSegment.value)
   }
 }
+
 
 getAllSetllementsInitially('Approved')
 
@@ -1659,71 +1683,36 @@ const getThisHistory = async (sett_id) => {
     throw new Error("Failed to fetch history. Please try again later.");
   }
 };
+ 
 
 const onSegmentClick = async () => {
-  if (activeSegment.value === "Approved") {
-    var selectOption = 'isApproved'
-    if (!filters.value.includes(selectOption)) {
-      filters.value.push(selectOption)
-    }
-    var index = filters.value.indexOf(selectOption)
-    if (filterValues.value[index]) {
-      filterValues.value.splice(index, 1)
-    }
-    if (!filterValues.value.includes('Approved')) {
-      filterValues.value.splice(index, 0, 'Approved')
-    }
-  } else if (activeSegment.value === "New") {
-    var selectOption = 'isApproved'
-    if (!filters.value.includes(selectOption)) {
-      filters.value.push(selectOption)
-    }
-    var index = filters.value.indexOf(selectOption)
-    if (filterValues.value[index]) {
-      filterValues.value.splice(index, 1)
-    }
-    if (!filterValues.value.includes('Pending')) {
-      filterValues.value.splice(index, 0, 'Pending')
-    }
-  } else if (activeSegment.value === "Rejected") {
-    var selectOption = 'isApproved'
-    if (!filters.value.includes(selectOption)) {
-      filters.value.push(selectOption)
-    }
-    var index = filters.value.indexOf(selectOption)
-    if (filterValues.value[index]) {
-      filterValues.value.splice(index, 1)
-    }
-    if (!filterValues.value.includes('Rejected')) {
-      filterValues.value.splice(index, 0, 'Rejected')
-    }
-  } else if (activeSegment.value === "Decommissioned") {
-    var selectOption = 'isApproved'
-    if (!filters.value.includes(selectOption)) {
-      filters.value.push(selectOption)
-    }
-    var index = filters.value.indexOf(selectOption)
-    if (filterValues.value[index]) {
-      filterValues.value.splice(index, 1)
-    }
-    if (!filterValues.value.includes('Decommissioned')) {
-      filterValues.value.splice(index, 0, 'Decommissioned')
-    }
+  const statusMap = {
+    'Approved': 'Approved',
+    'New': 'Pending',
+    'Rejected': 'Rejected',
+    'Decommissioned': 'Decommissioned',
   }
-  saveFiltersToStorage();
-  if (activeSegment.value != "Duplicates" && activeSegment.value != "Deleted") {
+
+  const selected = statusMap[activeSegment.value]
+  if (selected) {
+    filters.value = ['isApproved', 'isActive']
+    filterValues.value = [[selected], ['true']]
+  }
+
+  saveFiltersToStorage()
+
+  if (activeSegment.value === 'Duplicates') {
+    showPagination.value = false
+    await getPotentialDuplicates()
+  } else if (activeSegment.value === 'Deleted') {
+    showPagination.value = false
+    await getSettlmentHistory()
+  } else {
     showPagination.value = true
     await getNewOrRejectedSettlements(activeSegment.value)
   }
-  if (activeSegment.value === "Duplicates") {
-    showPagination.value = false
-    await getPotentialDuplicates()
-  }
-  if (activeSegment.value === "Deleted") {
-    showPagination.value = false
-    await getSettlmentHistory()
-  }
-};
+}
+
 
 const getSettlmentHistory = async () => {
   deletedSettlements.value = []
@@ -1756,29 +1745,28 @@ const RevertEdits = async (data: TableSlotDefault) => {
 
 
 const handleDateChange = async () => {
-  // Add date range filtering logic if needed
   console.log(dateRange.value)
-  if (activeSegment.value === 'Approved') {
-    filters.value = [  'isApproved', 'isActive']
-    filterValues.value = [ ['Approved'], ['true']]
-  } else if (activeSegment.value === 'New') {
-    filters.value = [  'isApproved', 'isActive']
-    filterValues.value = [ ['Pending'], ['true']]
-  } else if (activeSegment.value === 'Rejected') {
-    filters.value = [ 'isApproved', 'isActive']
-    filterValues.value = [ ['Rejected'], ['true']]
-  }
-  saveFiltersToStorage();
-  if (search_string.value) {
-    getFilteredBySearchData(activeSegment.value, search_string.value)
-  } else {
-    getNewOrRejectedSettlements(activeSegment.value)
-  }
-  
-  saveFiltersToStorage();
-  DateDialogVisible.value=false
 
-};
+  if (activeSegment.value === 'Approved') {
+    filters.value = ['isApproved', 'isActive']
+    filterValues.value = [['Approved'], ['true']]
+  } else if (activeSegment.value === 'New') {
+    filters.value = ['isApproved', 'isActive']
+    filterValues.value = [['Pending'], ['true']]
+  } else if (activeSegment.value === 'Rejected') {
+    filters.value = ['isApproved', 'isActive']
+    filterValues.value = [['Rejected'], ['true']]
+  }
+
+  saveFiltersToStorage()
+  DateDialogVisible.value = false
+
+  if (search_string.value) {
+    await getFilteredBySearchData(activeSegment.value, search_string.value)
+  } else {
+    await getNewOrRejectedSettlements(activeSegment.value)
+  }
+}
 
 
 
