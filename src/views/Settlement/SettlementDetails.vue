@@ -12,6 +12,9 @@ import {
 import { Back, Upload, Search, Edit, More, RefreshLeft } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { getFile } from '@/api/summary'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
+import html2canvas from 'html2canvas'
 
 // Locally
 import '@dafcoe/vue-collapsible-panel/dist/vue-collapsible-panel.css'
@@ -1261,6 +1264,119 @@ const searcHouseholds = async () => {
    
 }
 
+const generatePDFReport = () => {
+  const doc = new jsPDF()
+  
+  // Add logos
+  doc.addImage('/gok.png', 'PNG', 20, 10, 30, 30)
+  doc.addImage('/logo.png', 'PNG', 160, 10, 30, 30)
+  
+  // Title
+  doc.setFontSize(16)
+  doc.text('Settlement Facts & Overview', 105, 20, { align: 'center' })
+  
+  // Settlement info
+  doc.setFontSize(12)
+  doc.text(`${profile.name} Settlement`, 105, 30, { align: 'center' })
+  doc.text(`${profile.subcounty} Subcounty, ${profile.county} County`, 105, 37, { align: 'center' })
+  
+  // Date
+  doc.setFontSize(8)
+  doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 105, 44, { align: 'center' })
+  
+  // Separator
+  doc.setDrawColor(200)
+  doc.line(20, 50, 190, 50)
+
+  // Key Facts
+  doc.setFontSize(12)
+  doc.setTextColor(41, 128, 185)
+  doc.text('Key Facts', 20, 60)
+  doc.setTextColor(0)
+
+  autoTable(doc, {
+    startY: 65,
+    head: [['Field', 'Value']],
+    body: [
+      ['County', profile.county],
+      ['SubCounty', profile.subcounty],
+      ['Ward', profile.ward],
+      ['Location', profile.general_location]
+    ],
+    theme: 'grid',
+    headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+    styles: { fontSize: 10 },
+    margin: { left: 20 }
+  })
+
+  // Settlement Overview
+  doc.setFontSize(12)
+  doc.setTextColor(41, 128, 185)
+  doc.text('Settlement Overview', 20, doc.lastAutoTable.finalY + 15)
+  doc.setTextColor(0)
+
+  autoTable(doc, {
+    startY: doc.lastAutoTable.finalY + 20,
+    head: [['Field', 'Value']],
+    body: [
+      ['Name', profile.name],
+      ['Type', profile.settlement_type],
+      ['Population', profile.population],
+      ['Area (Ha.)', profile.area],
+      ['Households', profile.num_households],
+      ['HH Size', profile.avg_household_size],
+      ['Land Status', profile.land_status],
+      ['Owner', profile.parcel_owner],
+      ['Owner Type', profile.parcel_owner_type],
+      ['Land Use', profile.landuse],
+      ['Development', profile.development],
+      ['Structures', profile.structure_types],
+      ['Materials', profile.typical_building_materials],
+      ['Dist Town', profile.dist_town],
+      ['Dist Road', profile.dist_trunk],
+      ['Hazards', profile.main_env_hazards]
+    ],
+    theme: 'grid',
+    headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+    styles: { fontSize: 10 },
+    margin: { left: 20 }
+  })
+
+  // Housing & Utilities
+  doc.setFontSize(12)
+  doc.setTextColor(41, 128, 185)
+  doc.text('Housing & Utilities', 20, doc.lastAutoTable.finalY + 15)
+  doc.setTextColor(0)
+
+  autoTable(doc, {
+    startY: doc.lastAutoTable.finalY + 20,
+    head: [['Field', 'Value']],
+    body: [
+      ['HH Count', housing.num_households],
+      ['HH Size', housing.avg_household_size],
+      ['Structures', housing.structure_types],
+      ['Development', housing.development],
+      ['Materials', housing.typical_building_materials],
+      ['Avg Rent', housing.avg_rent],
+      ['Ownership', housing.plot_ownership_ratio],
+      ['Tenancy', housing.plot_tenant_ratio],
+      ['Electricity', utilities.electricity_availability],
+      ['Water', utilities.piped_water_availability],
+      ['Income', utilities.median_household_income],
+      ['Wayleave', utilities.on_wayleave],
+      ['Road Reserve', utilities.on_road_reserve],
+      ['Near River', utilities.near_river],
+      ['Encumbrance', utilities.encumbrance]
+    ],
+    theme: 'grid',
+    headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+    styles: { fontSize: 10 },
+    margin: { left: 20 }
+  })
+
+  // Save the PDF
+  doc.save(`${profile.name}_Settlement_Facts.pdf`)
+}
 
 </script>
 
@@ -1293,6 +1409,12 @@ const searcHouseholds = async () => {
     <el-tabs v-model="activeName" class="demo-tabs" type="border-card" @tab-click="clickTab">
       <el-tab-pane label="Profile" name="profile">
         <!-- Location Section -->
+        <div class="flex justify-end mb-4">
+          <el-button type="primary" @click="generatePDFReport">
+            <Icon icon="material-symbols:download" style="margin-right: 5px;" />
+            Download Facts
+          </el-button>
+        </div>
         <div :class="[prefixCls, 'bg-[var(--el-color-white)] dark:(bg-[var(--el-bg-color)] border-[var(--el-border-color)] border-1px)']">
           <div :class="[`${prefixCls}-header`, 'h-50px flex justify-between items-center mb-10px border-bottom-1 border-solid border-[var(--tags-view-border-color)] px-10px cursor-pointer dark:border-[var(--el-border-color)]']"
                @click="collapsedSections.location = !collapsedSections.location">
