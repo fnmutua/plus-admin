@@ -1281,15 +1281,15 @@ const generatePDFReport = () => {
     
     // Wait for images to load before adding to PDF
     Promise.all([
-      new Promise((resolve) => {
-        gokLogo.onload = resolve
+      new Promise<void>((resolve) => {
+        gokLogo.onload = () => resolve()
         gokLogo.onerror = () => {
           console.warn('GOK logo failed to load')
           resolve()
         }
       }),
-      new Promise((resolve) => {
-        plusLogo.onload = resolve
+      new Promise<void>((resolve) => {
+        plusLogo.onload = () => resolve()
         plusLogo.onerror = () => {
           console.warn('PLUS logo failed to load')
           resolve()
@@ -1297,42 +1297,51 @@ const generatePDFReport = () => {
       })
     ]).then(() => {
       try {
+        let startY = 10 // Default starting Y position
+        
         // Add logos if they loaded successfully
         if (gokLogo.complete && gokLogo.naturalWidth !== 0) {
-          doc.addImage(gokLogo, 'PNG', 15, 10, 25, 25)
+          doc.addImage(gokLogo, 'PNG', 15, startY, 25, 25)
         }
         if (plusLogo.complete && plusLogo.naturalWidth !== 0) {
-          doc.addImage(plusLogo, 'PNG', 170, 10, 25, 25)
+          doc.addImage(plusLogo, 'PNG', 170, startY, 25, 25)
+        }
+        
+        // If both logos failed, start content from top
+        if (!gokLogo.complete && !plusLogo.complete) {
+          startY = 10
+        } else {
+          startY = 40 // Move content down if logos are present
         }
         
         // Title with better styling
         doc.setFontSize(18)
         doc.setTextColor(41, 128, 185)
-        doc.text('Settlement Facts & Overview', 105, 20, { align: 'center' })
+        doc.text('Settlement Facts & Overview', 105, startY, { align: 'center' })
         
         // Settlement info with better formatting
         doc.setFontSize(12)
         doc.setTextColor(0)
-        doc.text(`${profile.name} Settlement`, 105, 30, { align: 'center' })
-        doc.text(`${profile.subcounty} Subcounty, ${profile.county} County`, 105, 37, { align: 'center' })
+        doc.text(`${profile.name} Settlement`, 105, startY + 10, { align: 'center' })
+        doc.text(`${profile.subcounty} Subcounty, ${profile.county} County`, 105, startY + 17, { align: 'center' })
         
         // Date with subtle styling
         doc.setFontSize(8)
         doc.setTextColor(100)
-        doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 105, 44, { align: 'center' })
+        doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 105, startY + 24, { align: 'center' })
         
         // Separator with better color
         doc.setDrawColor(41, 128, 185)
-        doc.line(15, 50, 195, 50)
+        doc.line(15, startY + 30, 195, startY + 30)
 
         // Key Metrics Summary
         doc.setFontSize(14)
         doc.setTextColor(41, 128, 185)
-        doc.text('Key Metrics', 15, 60)
+        doc.text('Key Metrics', 15, startY + 40)
         doc.setTextColor(0)
 
         autoTable(doc, {
-          startY: 65,
+          startY: startY + 45,
           head: [['Metric', 'Value']],
           body: [
             ['Population', profile.population],
@@ -1344,10 +1353,10 @@ const generatePDFReport = () => {
           headStyles: { fillColor: [41, 128, 185], textColor: 255 },
           styles: { fontSize: 10 },
           columnStyles: {
-            0: { cellWidth: 60 },
-            1: { cellWidth: 40 }
+            0: { cellWidth: 50 },
+            1: { cellWidth: 30 }
           },
-          margin: { left: 15 }
+          margin: { left: 15, right: 15 }
         })
 
         // Settlement Details in two columns
@@ -1376,10 +1385,10 @@ const generatePDFReport = () => {
           headStyles: { fillColor: [41, 128, 185], textColor: 255 },
           styles: { fontSize: 9 },
           columnStyles: {
-            0: { cellWidth: 60 },
-            1: { cellWidth: 110 }
+            0: { cellWidth: 50 },
+            1: { cellWidth: 100 }
           },
-          margin: { left: 15 }
+          margin: { left: 15, right: 15 }
         })
 
         // Housing & Utilities in two columns
@@ -1412,10 +1421,10 @@ const generatePDFReport = () => {
           headStyles: { fillColor: [41, 128, 185], textColor: 255 },
           styles: { fontSize: 9 },
           columnStyles: {
-            0: { cellWidth: 60 },
-            1: { cellWidth: 110 }
+            0: { cellWidth: 50 },
+            1: { cellWidth: 100 }
           },
-          margin: { left: 15 }
+          margin: { left: 15, right: 15 }
         })
 
         // Add footer
