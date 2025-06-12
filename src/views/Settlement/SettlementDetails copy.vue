@@ -1271,132 +1271,177 @@ const generatePDFReport = () => {
   try {
     const doc = new jsPDF()
     
-    // Start content from top of page
-    const startY = 10
+    // Add logos with proper error handling
+    const gokLogo = new Image()
+    const plusLogo = new Image()
     
-    // Title with better styling
-    doc.setFontSize(18)
-    doc.setTextColor(41, 128, 185)
-    doc.text('Settlement Facts & Overview', 105, startY, { align: 'center' })
+    // Use base64 encoded images or absolute paths
+    gokLogo.src = '/gok.png'
+    plusLogo.src = '/logo.png'
     
-    // Settlement info with better formatting
-    doc.setFontSize(12)
-    doc.setTextColor(0)
-    doc.text(`${profile.name} Settlement`, 105, startY + 10, { align: 'center' })
-    doc.text(`${profile.subcounty} Subcounty, ${profile.county} County`, 105, startY + 17, { align: 'center' })
-    
-    // Date with subtle styling
-    doc.setFontSize(8)
-    doc.setTextColor(100)
-    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 105, startY + 24, { align: 'center' })
-    
-    // Separator with better color
-    doc.setDrawColor(41, 128, 185)
-    doc.line(15, startY + 30, 195, startY + 30)
+    // Wait for images to load before adding to PDF
+    Promise.all([
+      new Promise<void>((resolve) => {
+        gokLogo.onload = () => resolve()
+        gokLogo.onerror = () => {
+          console.warn('GOK logo failed to load')
+          resolve()
+        }
+      }),
+      new Promise<void>((resolve) => {
+        plusLogo.onload = () => resolve()
+        plusLogo.onerror = () => {
+          console.warn('PLUS logo failed to load')
+          resolve()
+        }
+      })
+    ]).then(() => {
+      try {
+        let startY = 10 // Default starting Y position
+        
+        // Add logos if they loaded successfully
+        if (gokLogo.complete && gokLogo.naturalWidth !== 0) {
+          doc.addImage(gokLogo, 'PNG', 15, startY, 25, 25)
+        }
+        if (plusLogo.complete && plusLogo.naturalWidth !== 0) {
+          doc.addImage(plusLogo, 'PNG', 170, startY, 25, 25)
+        }
+        
+        // If both logos failed, start content from top
+        if (!gokLogo.complete && !plusLogo.complete) {
+          startY = 10
+        } else {
+          startY = 40 // Move content down if logos are present
+        }
+        
+        // Title with better styling
+        doc.setFontSize(18)
+        doc.setTextColor(41, 128, 185)
+        doc.text('Settlement Facts & Overview', 105, startY, { align: 'center' })
+        
+        // Settlement info with better formatting
+        doc.setFontSize(12)
+        doc.setTextColor(0)
+        doc.text(`${profile.name} Settlement`, 105, startY + 10, { align: 'center' })
+        doc.text(`${profile.subcounty} Subcounty, ${profile.county} County`, 105, startY + 17, { align: 'center' })
+        
+        // Date with subtle styling
+        doc.setFontSize(8)
+        doc.setTextColor(100)
+        doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 105, startY + 24, { align: 'center' })
+        
+        // Separator with better color
+        doc.setDrawColor(41, 128, 185)
+        doc.line(15, startY + 30, 195, startY + 30)
 
-    // Key Metrics Summary
-    doc.setFontSize(14)
-    doc.setTextColor(41, 128, 185)
-    doc.text('Key Metrics', 15, startY + 40)
-    doc.setTextColor(0)
+        // Key Metrics Summary
+        doc.setFontSize(14)
+        doc.setTextColor(41, 128, 185)
+        doc.text('Key Metrics', 15, startY + 40)
+        doc.setTextColor(0)
 
-    autoTable(doc, {
-      startY: startY + 45,
-      head: [['Metric', 'Value']],
-      body: [
-        ['Population', profile.population],
-        ['Area', `${Number(profile.area).toFixed(2)} Ha.`],
-        ['Households', profile.num_households],
-        ['Avg. HH Size', profile.avg_household_size]
-      ],
-      theme: 'grid',
-      headStyles: { fillColor: [41, 128, 185], textColor: 255 },
-      styles: { fontSize: 10 },
-      columnStyles: {
-        0: { cellWidth: 50 },
-        1: { cellWidth: 30 }
-      },
-      margin: { left: 15, right: 15 }
+        autoTable(doc, {
+          startY: startY + 45,
+          head: [['Metric', 'Value']],
+          body: [
+            ['Population', profile.population],
+            ['Area', `${Number(profile.area).toFixed(2)} Ha.`],
+            ['Households', profile.num_households],
+            ['Avg. HH Size', profile.avg_household_size]
+          ],
+          theme: 'grid',
+          headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+          styles: { fontSize: 10 },
+          columnStyles: {
+            0: { cellWidth: 50 },
+            1: { cellWidth: 30 }
+          },
+          margin: { left: 15, right: 15 }
+        })
+
+        // Settlement Details in two columns
+        doc.setFontSize(14)
+        doc.setTextColor(41, 128, 185)
+        doc.text('Settlement Details', 15, doc.lastAutoTable.finalY + 15)
+        doc.setTextColor(0)
+
+        autoTable(doc, {
+          startY: doc.lastAutoTable.finalY + 20,
+          head: [['Field', 'Value']],
+          body: [
+            ['Type', profile.settlement_type],
+            ['Land Status', profile.land_status],
+            ['Owner', profile.parcel_owner],
+            ['Owner Type', profile.parcel_owner_type],
+            ['Land Use', profile.landuse],
+            ['Development', profile.development],
+            ['Structures', profile.structure_types],
+            ['Materials', profile.typical_building_materials],
+            ['Dist to Town', `${profile.dist_town} km`],
+            ['Dist to Road', `${profile.dist_trunk} km`],
+            ['Hazards', profile.main_env_hazards]
+          ],
+          theme: 'grid',
+          headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+          styles: { fontSize: 9 },
+          columnStyles: {
+            0: { cellWidth: 50 },
+            1: { cellWidth: 100 }
+          },
+          margin: { left: 15, right: 15 }
+        })
+
+        // Housing & Utilities in two columns
+        doc.setFontSize(14)
+        doc.setTextColor(41, 128, 185)
+        doc.text('Housing & Utilities', 15, doc.lastAutoTable.finalY + 15)
+        doc.setTextColor(0)
+
+        autoTable(doc, {
+          startY: doc.lastAutoTable.finalY + 20,
+          head: [['Field', 'Value']],
+          body: [
+            ['HH Count', housing.num_households],
+            ['HH Size', housing.avg_household_size],
+            ['Structures', housing.structure_types],
+            ['Development', housing.development],
+            ['Materials', housing.typical_building_materials],
+            ['Avg Rent', housing.avg_rent],
+            ['Ownership', housing.plot_ownership_ratio],
+            ['Tenancy', housing.plot_tenant_ratio],
+            ['Electricity', utilities.electricity_availability ? 'Yes' : 'No'],
+            ['Water', utilities.piped_water_availability ? 'Yes' : 'No'],
+            ['Income', utilities.median_household_income],
+            ['Wayleave', utilities.on_wayleave ? 'Yes' : 'No'],
+            ['Road Reserve', utilities.on_road_reserve ? 'Yes' : 'No'],
+            ['Near River', utilities.near_river ? 'Yes' : 'No'],
+            ['Encumbrance', utilities.encumbrance]
+          ],
+          theme: 'grid',
+          headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+          styles: { fontSize: 9 },
+          columnStyles: {
+            0: { cellWidth: 50 },
+            1: { cellWidth: 100 }
+          },
+          margin: { left: 15, right: 15 }
+        })
+
+        // Add footer
+        doc.setFontSize(8)
+        doc.setTextColor(100)
+        doc.text('source: www.kesmis.go.ke', 105, 280, { align: 'center' })
+
+        // Save the PDF
+        doc.save(`${profile.name}_Settlement_Facts.pdf`)
+      } catch (error) {
+        console.log('Error generating PDF:', error)
+        ElMessage.error('Failed to generate PDF report: ' + error)
+      }
     })
-
-    // Settlement Details in two columns
-    doc.setFontSize(14)
-    doc.setTextColor(41, 128, 185)
-    doc.text('Settlement Details', 15, doc.lastAutoTable.finalY + 15)
-    doc.setTextColor(0)
-
-    autoTable(doc, {
-      startY: doc.lastAutoTable.finalY + 20,
-      head: [['Field', 'Value']],
-      body: [
-        ['Type', profile.settlement_type],
-        ['Land Status', profile.land_status],
-        ['Owner', profile.parcel_owner],
-        ['Owner Type', profile.parcel_owner_type],
-        ['Land Use', profile.landuse],
-        ['Development', profile.development],
-        ['Structures', profile.structure_types],
-        ['Materials', profile.typical_building_materials],
-        ['Dist to Town', `${profile.dist_town} km`],
-        ['Dist to Road', `${profile.dist_trunk} km`],
-        ['Hazards', profile.main_env_hazards]
-      ],
-      theme: 'grid',
-      headStyles: { fillColor: [41, 128, 185], textColor: 255 },
-      styles: { fontSize: 9 },
-      columnStyles: {
-        0: { cellWidth: 50 },
-        1: { cellWidth: 100 }
-      },
-      margin: { left: 15, right: 15 }
-    })
-
-    // Housing & Utilities in two columns
-    doc.setFontSize(14)
-    doc.setTextColor(41, 128, 185)
-    doc.text('Housing & Utilities', 15, doc.lastAutoTable.finalY + 15)
-    doc.setTextColor(0)
-
-    autoTable(doc, {
-      startY: doc.lastAutoTable.finalY + 20,
-      head: [['Field', 'Value']],
-      body: [
-        ['HH Count', housing.num_households],
-        ['HH Size', housing.avg_household_size],
-        ['Structures', housing.structure_types],
-        ['Development', housing.development],
-        ['Materials', housing.typical_building_materials],
-        ['Avg Rent', housing.avg_rent],
-        ['Ownership', housing.plot_ownership_ratio],
-        ['Tenancy', housing.plot_tenant_ratio],
-        ['Electricity', utilities.electricity_availability ? 'Yes' : 'No'],
-        ['Water', utilities.piped_water_availability ? 'Yes' : 'No'],
-        ['Income', utilities.median_household_income],
-        ['Wayleave', utilities.on_wayleave ? 'Yes' : 'No'],
-        ['Road Reserve', utilities.on_road_reserve ? 'Yes' : 'No'],
-        ['Near River', utilities.near_river ? 'Yes' : 'No'],
-        ['Encumbrance', utilities.encumbrance]
-      ],
-      theme: 'grid',
-      headStyles: { fillColor: [41, 128, 185], textColor: 255 },
-      styles: { fontSize: 9 },
-      columnStyles: {
-        0: { cellWidth: 50 },
-        1: { cellWidth: 100 }
-      },
-      margin: { left: 15, right: 15 }
-    })
-
-    // Add footer
-    doc.setFontSize(8)
-    doc.setTextColor(100)
-    doc.text('source: www.kesmis.go.ke', 105, 280, { align: 'center' })
-
-    // Save the PDF
-    doc.save(`${profile.name}_Settlement_Facts.pdf`)
   } catch (error) {
-    console.error('Error generating PDF:', error)
-    ElMessage.error('Failed to generate PDF report: ' + error)
+    console.error('Error initializing PDF:', error)
+    ElMessage.error('Failed to initialize PDF generation: ' + error)
   }
 }
 
