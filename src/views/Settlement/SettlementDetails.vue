@@ -608,13 +608,16 @@ const loadMap = () => {
       },
       layout: {
         'text-field': ['get', 'title'],
-        'text-size': 16,
+        'text-size': 12,
         'text-anchor': 'top',
+        'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
+        'text-offset': [0, 1.5]
       },
       paint: {
-        'text-color': '#FF0000', // Red text color
-        'text-halo-color': '#FFFFFF', // White halo color
-        'text-halo-width': 2, // Adjust the halo width as needed    
+        'text-color': '#333333',
+        'text-halo-color': '#FFFFFF',
+        'text-halo-width': 2,
+        'text-opacity': 0.9
       },
 
 
@@ -1267,64 +1270,66 @@ const searcHouseholds = async () => {
 const generatePDFReport = () => {
   const doc = new jsPDF()
   
-  // Add logos
-  doc.addImage('/gok.png', 'PNG', 20, 10, 30, 30)
-  doc.addImage('/logo.png', 'PNG', 160, 10, 30, 30)
+  // Add logos with better positioning
+  doc.addImage('/gok.png', 'PNG', 15, 10, 25, 25)
+  doc.addImage('/logo.png', 'PNG', 170, 10, 25, 25)
   
-  // Title
-  doc.setFontSize(16)
+  // Title with better styling
+  doc.setFontSize(18)
+  doc.setTextColor(41, 128, 185)
   doc.text('Settlement Facts & Overview', 105, 20, { align: 'center' })
   
-  // Settlement info
+  // Settlement info with better formatting
   doc.setFontSize(12)
+  doc.setTextColor(0)
   doc.text(`${profile.name} Settlement`, 105, 30, { align: 'center' })
   doc.text(`${profile.subcounty} Subcounty, ${profile.county} County`, 105, 37, { align: 'center' })
   
-  // Date
+  // Date with subtle styling
   doc.setFontSize(8)
+  doc.setTextColor(100)
   doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 105, 44, { align: 'center' })
   
-  // Separator
-  doc.setDrawColor(200)
-  doc.line(20, 50, 190, 50)
+  // Separator with better color
+  doc.setDrawColor(41, 128, 185)
+  doc.line(15, 50, 195, 50)
 
-  // Key Facts
-  doc.setFontSize(12)
+  // Key Metrics Summary
+  doc.setFontSize(14)
   doc.setTextColor(41, 128, 185)
-  doc.text('Key Facts', 20, 60)
+  doc.text('Key Metrics', 15, 60)
   doc.setTextColor(0)
 
   autoTable(doc, {
     startY: 65,
-    head: [['Field', 'Value']],
+    head: [['Metric', 'Value']],
     body: [
-      ['County', profile.county],
-      ['SubCounty', profile.subcounty],
-      ['Ward', profile.ward],
-      ['Location', profile.general_location]
+      ['Population', profile.population],
+      ['Area', `${Number(profile.area).toFixed(2)} Ha.`],
+      ['Households', profile.num_households],
+      ['Avg. HH Size', profile.avg_household_size]
     ],
     theme: 'grid',
     headStyles: { fillColor: [41, 128, 185], textColor: 255 },
     styles: { fontSize: 10 },
-    margin: { left: 20 }
+    columnStyles: {
+      0: { cellWidth: 60 },
+      1: { cellWidth: 40 }
+    },
+    margin: { left: 15 }
   })
 
-  // Settlement Overview
-  doc.setFontSize(12)
+  // Settlement Details in two columns
+  doc.setFontSize(14)
   doc.setTextColor(41, 128, 185)
-  doc.text('Settlement Overview', 20, doc.lastAutoTable.finalY + 15)
+  doc.text('Settlement Details', 15, doc.lastAutoTable.finalY + 15)
   doc.setTextColor(0)
 
   autoTable(doc, {
     startY: doc.lastAutoTable.finalY + 20,
     head: [['Field', 'Value']],
     body: [
-      ['Name', profile.name],
       ['Type', profile.settlement_type],
-      ['Population', profile.population],
-      ['Area (Ha.)', profile.area],
-      ['Households', profile.num_households],
-      ['HH Size', profile.avg_household_size],
       ['Land Status', profile.land_status],
       ['Owner', profile.parcel_owner],
       ['Owner Type', profile.parcel_owner_type],
@@ -1332,20 +1337,24 @@ const generatePDFReport = () => {
       ['Development', profile.development],
       ['Structures', profile.structure_types],
       ['Materials', profile.typical_building_materials],
-      ['Dist Town', profile.dist_town],
-      ['Dist Road', profile.dist_trunk],
+      ['Dist to Town', `${profile.dist_town} km`],
+      ['Dist to Road', `${profile.dist_trunk} km`],
       ['Hazards', profile.main_env_hazards]
     ],
     theme: 'grid',
     headStyles: { fillColor: [41, 128, 185], textColor: 255 },
-    styles: { fontSize: 10 },
-    margin: { left: 20 }
+    styles: { fontSize: 9 },
+    columnStyles: {
+      0: { cellWidth: 60 },
+      1: { cellWidth: 110 }
+    },
+    margin: { left: 15 }
   })
 
-  // Housing & Utilities
-  doc.setFontSize(12)
+  // Housing & Utilities in two columns
+  doc.setFontSize(14)
   doc.setTextColor(41, 128, 185)
-  doc.text('Housing & Utilities', 20, doc.lastAutoTable.finalY + 15)
+  doc.text('Housing & Utilities', 15, doc.lastAutoTable.finalY + 15)
   doc.setTextColor(0)
 
   autoTable(doc, {
@@ -1360,19 +1369,28 @@ const generatePDFReport = () => {
       ['Avg Rent', housing.avg_rent],
       ['Ownership', housing.plot_ownership_ratio],
       ['Tenancy', housing.plot_tenant_ratio],
-      ['Electricity', utilities.electricity_availability],
-      ['Water', utilities.piped_water_availability],
+      ['Electricity', utilities.electricity_availability ? 'Yes' : 'No'],
+      ['Water', utilities.piped_water_availability ? 'Yes' : 'No'],
       ['Income', utilities.median_household_income],
-      ['Wayleave', utilities.on_wayleave],
-      ['Road Reserve', utilities.on_road_reserve],
-      ['Near River', utilities.near_river],
+      ['Wayleave', utilities.on_wayleave ? 'Yes' : 'No'],
+      ['Road Reserve', utilities.on_road_reserve ? 'Yes' : 'No'],
+      ['Near River', utilities.near_river ? 'Yes' : 'No'],
       ['Encumbrance', utilities.encumbrance]
     ],
     theme: 'grid',
     headStyles: { fillColor: [41, 128, 185], textColor: 255 },
-    styles: { fontSize: 10 },
-    margin: { left: 20 }
+    styles: { fontSize: 9 },
+    columnStyles: {
+      0: { cellWidth: 60 },
+      1: { cellWidth: 110 }
+    },
+    margin: { left: 15 }
   })
+
+  // Add footer
+  doc.setFontSize(8)
+  doc.setTextColor(100)
+  doc.text('source: www.kesmis.go.ke', 105, 280, { align: 'center' })
 
   // Save the PDF
   doc.save(`${profile.name}_Settlement_Facts.pdf`)
