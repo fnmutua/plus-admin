@@ -1425,8 +1425,8 @@ const generatePDFReport = () => {
         // Save the PDF
         doc.save(`${profile.name}_Settlement_Facts.pdf`)
       } catch (error) {
-        console.error('Error generating PDF:', error)
-        ElMessage.error('Failed to generate PDF report')
+        console.log('Error generating PDF:', error)
+        ElMessage.error('Failed to generate PDF report' + error)
       }
     })
   } catch (error) {
