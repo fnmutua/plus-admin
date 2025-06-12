@@ -4,42 +4,16 @@ const cors = require('cors');
 const app = express();
 const fs = require('fs');
 const https = require('https');
-const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
-const xss = require('xss-clean');
-const hpp = require('hpp');
-
-// Security middleware
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", "https://kesmis.go.ke"]
-    }
-  },
-  crossOriginEmbedderPolicy: false,
-  crossOriginResourcePolicy: false
-}));
-
-app.use(xss()); // Sanitizes user input
-app.use(hpp()); // Prevents HTTP Parameter Pollution
-
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.'
-});
-app.use(limiter);
 
 // ... Your other code ...
 
 const corsOptions = {
+  //origin: ['http://localhost', 'http://localhost:4000', 'http://localhost:3000', 'http://localhost:8100', 'http://localhost:8080', '*']
   origin: ['capacitor://localhost', 'http://localhost','https://localhost','http://localhost:4000', 'http://localhost:3000','http://localhost:8100','http://localhost:8080','https://localhost:8100', '*']
+
 };
+
+
 
 const path = require('path');
 const fileUpload = require('express-fileupload');
@@ -69,29 +43,11 @@ app.use(cors(corsOptions));
 app.use(bodyParser.json({ limit: '10gb' }));
 app.use(bodyParser.urlencoded({ limit: '10gb', extended: true }));
 
-// Update static file serving with better error handling
-app.use(express.static(path.join(__dirname, '/dist-pro'), {
-  dotfiles: 'deny',
-  index: false,
-  fallthrough: false
-}));
+// simple route
+app.use(express.static(path.join(__dirname, '/dist-pro')));
 
-// Add error handling middleware
-app.use((err, req, res, next) => {
-  if (err.status === 404) {
-    res.status(404).send('Not Found');
-  } else {
-    res.status(500).send('Internal Server Error');
-  }
-});
-
-// Update the root route handler
 app.get('/', (req, res) => {
-  try {
-    res.sendFile(path.join(__dirname, 'dist-pro', 'index.html'));
-  } catch (error) {
-    res.status(500).send('Internal Server Error');
-  }
+  res.sendFile(path.join(__dirname + '/dist-pro/index.html'));
 });
 
 app.use(express.static('public'));

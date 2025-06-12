@@ -60,10 +60,13 @@
     "export-from-json": "^1.7.3",
     "express": "^4.18.1",
     "express-fileupload": "^1.4.0",
+    "express-rate-limit": "^7.5.0",
     "fast-xml-parser": "^4.2.7",
     "fuse.js": "^6.6.2",
     "fuzzball": "^2.1.3",
     "geojson-validation": "^1.0.2",
+    "helmet": "^8.1.0",
+    "hpp": "^0.2.3",
     "html2canvas": "^1.4.1",
     "install": "^0.13.0",
     "intro.js": "^6.0.0",
@@ -124,7 +127,8 @@
     "web-storage-cache": "^1.1.1",
     "write-excel-file": "^1.4.27",
     "xlsx": "^0.18.5",
-    "xmldom": "^0.6.0"
+    "xmldom": "^0.6.0",
+    "xss-clean": "^0.1.4"
   },
   "devDependencies": {
     "@commitlint/cli": "^17.1.2",
