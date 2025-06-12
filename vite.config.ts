@@ -111,12 +111,25 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
     build: {
       minify: 'terser',
        outDir: env.VITE_OUT_DIR || 'dist',
-      sourcemap: env.VITE_SOURCEMAP === 'true' ? 'inline' : false,
+      sourcemap: false,
       // brotliSize: false,
       terserOptions: {
         compress: {
-          drop_debugger: env.VITE_DROP_DEBUGGER === 'true',
-          drop_console: env.VITE_DROP_CONSOLE === 'true'
+          drop_debugger: true,
+          drop_console: true,
+          pure_funcs: ['console.log', 'console.info'],
+          dead_code: true
+        },
+        format: {
+          comments: false
+        }
+      },
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            vendor: ['vue', 'vue-router', 'element-plus'],
+            utils: ['axios', 'lodash']
+          }
         }
       },
       // rollupOptions: {
@@ -134,6 +147,7 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
               '/imagery': {
           target: 'https://kesmis.go.ke',
           changeOrigin: true,
+          secure: true,
           rewrite: (path) => path.replace(/^\/imagery/, '')
         },
 

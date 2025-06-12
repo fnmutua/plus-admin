@@ -63,7 +63,12 @@ app.use(bodyParser.urlencoded({ limit: '200mb', extended: true }))
 //   res.json({ message: "Welcome to bezkoder application." });
 // });
 
-app.use(express.static(path.join(__dirname, '/dist')))
+app.use(express.static(path.join(__dirname, '/dist'), {
+  dotfiles: 'deny',
+  index: false,
+  fallthrough: false
+}));
+
 // app.use(express.static('files'))
 app.use(express.static('public'))
 
@@ -71,9 +76,12 @@ app.use(express.static('public'))
 
 // Handles any requests that don't match the ones above
 app.get('/', (req, res) => {
-  // eslint-disable-next-line no-path-concat
-  res.sendFile(path.join(__dirname + '/dist/index.html'))
-})
+  try {
+    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+  } catch (error) {
+    res.status(500).send('Internal Server Error');
+  }
+});
 
 // For the puposes of uolaoding documents to the platform
 
@@ -114,3 +122,12 @@ require('./server/app/routes/geoserver.routes')(app)
 require('./server/app/routes/project.routes')(app)
 
 // set port, listen for requests
+
+// Add error handling middleware
+app.use((err, req, res, next) => {
+  if (err.status === 404) {
+    res.status(404).send('Not Found');
+  } else {
+    res.status(500).send('Internal Server Error');
+  }
+});

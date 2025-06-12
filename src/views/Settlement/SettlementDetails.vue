@@ -1271,10 +1271,11 @@ const generatePDFReport = () => {
   try {
     const doc = new jsPDF()
     
-    // Add logos with proper public paths and error handling
+    // Add logos with proper error handling
     const gokLogo = new Image()
     const plusLogo = new Image()
     
+    // Use base64 encoded images or absolute paths
     gokLogo.src = '/gok.png'
     plusLogo.src = '/logo.png'
     
@@ -1297,10 +1298,10 @@ const generatePDFReport = () => {
     ]).then(() => {
       try {
         // Add logos if they loaded successfully
-        if (gokLogo.complete) {
+        if (gokLogo.complete && gokLogo.naturalWidth !== 0) {
           doc.addImage(gokLogo, 'PNG', 15, 10, 25, 25)
         }
-        if (plusLogo.complete) {
+        if (plusLogo.complete && plusLogo.naturalWidth !== 0) {
           doc.addImage(plusLogo, 'PNG', 170, 10, 25, 25)
         }
         
@@ -1426,12 +1427,12 @@ const generatePDFReport = () => {
         doc.save(`${profile.name}_Settlement_Facts.pdf`)
       } catch (error) {
         console.log('Error generating PDF:', error)
-        ElMessage.error('Failed to generate PDF report' + error)
+        ElMessage.error('Failed to generate PDF report: ' + error)
       }
     })
   } catch (error) {
     console.error('Error initializing PDF:', error)
-    ElMessage.error('Failed to initialize PDF generation')
+    ElMessage.error('Failed to initialize PDF generation: ' + error)
   }
 }
 
