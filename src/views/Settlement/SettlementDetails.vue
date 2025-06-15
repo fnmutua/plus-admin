@@ -50,12 +50,12 @@ import { useAppStore } from '@/store/modules/app'
 
 const { push } = useRouter()
 
- 
- 
+
+
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
- 
+
 const showAdminButtons = ref(appStore.getAdminButtons)
 const showEditButtons = ref(appStore.getEditButtons)
 
@@ -387,7 +387,7 @@ const getFilteredData = async (selFilters: string[], selfilterValues: any[][]) =
     // Set documents
     if (settlementData.documents) {
       const nestedArray = settlementData.documents;
-      settlementDocuments.value = nestedArray.map(doc => flattenObject(doc));
+  settlementDocuments.value = nestedArray.map(doc => flattenObject(doc));
     }
 
     settGeom.value = settlementData.geom;
@@ -1420,7 +1420,7 @@ const generatePDFReport = () => {
           </el-button>
           {{ profile.name }} Settlement, {{ profile.subcounty }} Subcounty, {{ profile.county }} County
         </div>
-        <el-button type="success" :icon="Edit" @click="editSettlement">
+        <el-button v-if="showAdminButtons" type="success" :icon="Edit" @click="editSettlement">
           Edit
         </el-button>
       </div>
@@ -1438,7 +1438,8 @@ const generatePDFReport = () => {
           </el-button>
         </div>
         <div :class="[prefixCls, 'bg-[var(--el-color-white)] dark:(bg-[var(--el-bg-color)] border-[var(--el-border-color)] border-1px)']">
-          <div :class="[`${prefixCls}-header`, 'h-50px flex justify-between items-center mb-10px border-bottom-1 border-solid border-[var(--tags-view-border-color)] px-10px cursor-pointer dark:border-[var(--el-border-color)]']"
+          <div
+:class="[`${prefixCls}-header`, 'h-50px flex justify-between items-center mb-10px border-bottom-1 border-solid border-[var(--tags-view-border-color)] px-10px cursor-pointer dark:border-[var(--el-border-color)]']"
                @click="collapsedSections.location = !collapsedSections.location">
             <div :class="[`${prefixCls}-header__title`, 'relative text-base font-medium ml-10px']">
               <div class="flex items-center">
@@ -1456,7 +1457,8 @@ const generatePDFReport = () => {
 
         <!-- Profile Section -->
         <div :class="[prefixCls, 'bg-[var(--el-color-white)] dark:(bg-[var(--el-bg-color)] border-[var(--el-border-color)] border-1px)']">
-          <div :class="[`${prefixCls}-header`, 'h-50px flex justify-between items-center mb-10px border-bottom-1 border-solid border-[var(--tags-view-border-color)] px-10px cursor-pointer dark:border-[var(--el-border-color)]']"
+          <div
+:class="[`${prefixCls}-header`, 'h-50px flex justify-between items-center mb-10px border-bottom-1 border-solid border-[var(--tags-view-border-color)] px-10px cursor-pointer dark:border-[var(--el-border-color)]']"
                @click="collapsedSections.profile = !collapsedSections.profile">
             <div :class="[`${prefixCls}-header__title`, 'relative text-base font-medium ml-10px']">
               <div class="flex items-center">
@@ -1474,7 +1476,8 @@ const generatePDFReport = () => {
 
         <!-- Housing Section -->
         <div :class="[prefixCls, 'bg-[var(--el-color-white)] dark:(bg-[var(--el-bg-color)] border-[var(--el-border-color)] border-1px)']">
-          <div :class="[`${prefixCls}-header`, 'h-50px flex justify-between items-center mb-10px border-bottom-1 border-solid border-[var(--tags-view-border-color)] px-10px cursor-pointer dark:border-[var(--el-border-color)]']"
+          <div
+:class="[`${prefixCls}-header`, 'h-50px flex justify-between items-center mb-10px border-bottom-1 border-solid border-[var(--tags-view-border-color)] px-10px cursor-pointer dark:border-[var(--el-border-color)]']"
                @click="collapsedSections.housing = !collapsedSections.housing">
             <div :class="[`${prefixCls}-header__title`, 'relative text-base font-medium ml-10px']">
               <div class="flex items-center">
@@ -1492,7 +1495,8 @@ const generatePDFReport = () => {
 
         <!-- Utilities Section -->
         <div :class="[prefixCls, 'bg-[var(--el-color-white)] dark:(bg-[var(--el-bg-color)] border-[var(--el-border-color)] border-1px)']">
-          <div :class="[`${prefixCls}-header`, 'h-50px flex justify-between items-center mb-10px border-bottom-1 border-solid border-[var(--tags-view-border-color)] px-10px cursor-pointer dark:border-[var(--el-border-color)]']"
+          <div
+:class="[`${prefixCls}-header`, 'h-50px flex justify-between items-center mb-10px border-bottom-1 border-solid border-[var(--tags-view-border-color)] px-10px cursor-pointer dark:border-[var(--el-border-color)]']"
                @click="collapsedSections.utilities = !collapsedSections.utilities">
             <div :class="[`${prefixCls}-header__title`, 'relative text-base font-medium ml-10px']">
               <div class="flex items-center">
@@ -1531,7 +1535,8 @@ const generatePDFReport = () => {
 v-model="searchQuery" type="text" placeholder="Search documents..." style="width: 100%"
             :prefix-icon="Search" clearable />
 
-          <div v-for="(docs, type) in filteredGroupedDocuments" :key="type"
+          <div
+v-for="(docs, type) in filteredGroupedDocuments" :key="type"
             :class="[prefixCls, 'bg-[var(--el-color-white)] dark:(bg-[var(--el-bg-color)] border-[var(--el-border-color)] border-1px)']">
             <!-- Collapsible Header -->
             <div

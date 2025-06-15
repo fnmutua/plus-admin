@@ -13,11 +13,11 @@
               </div>
               <div class="contact-item">
                 <i class="el-icon-message"></i>
-                <span>info@kemsis.org</span>
+                <span>kisip2info@gmail.com</span>
               </div>
               <div class="contact-item">
                 <i class="el-icon-phone"></i>
-                <span>+254 123 456 789</span>
+                <span>0800 724 349 </span>
               </div>
             </div>
           </div>
