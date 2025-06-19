@@ -13,5 +13,5 @@ export type UserType = {
   avatar: string
   phone: string
   isactive: boolean
-  permissions: string | string[]
+  permissions: string | string[] | number[]
 }

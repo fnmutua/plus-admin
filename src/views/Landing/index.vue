@@ -3,10 +3,10 @@
     <div class="landing-container">
       <el-container class="main-container">
         <el-main class="main-content">
-          <div class="hero">
+      <div class="hero">
             <el-row justify="center">
               <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
-                <div class="hero-content">
+        <div class="hero-content">
                   <div class="hero-text">
                     <h1 class="main-title">Welcome to KeSMIS</h1>
                     <h3 class="subtitle">Kenya Slum Management Information System</h3>
@@ -24,7 +24,7 @@
                         @click="navigateTo('get-started')"
                       >
                         Get Started..
-                      </el-button>
+          </el-button>
                     </div>
                   </div>
 
@@ -46,7 +46,7 @@
                         <div class="stat-value">{{ Population }}</div>
                         <div class="stat-label">People living in Slums</div>
                       </el-card>
-                    </el-col>
+              </el-col>
                     <el-col :xs="24" :sm="12" :md="8" :lg="6">
                       <el-card shadow="hover" class="stat-card">
                         <div class="stat-icon">
@@ -55,7 +55,7 @@
                         <div class="stat-value">{{ TotalProjs }}</div>
                         <div class="stat-label">Intervention Projects</div>
                       </el-card>
-                    </el-col>
+              </el-col>
                     <el-col :xs="24" :sm="12" :md="8" :lg="6">
                       <el-card shadow="hover" class="stat-card">
                         <div class="stat-icon">
@@ -64,12 +64,12 @@
                         <div class="stat-value">{{ avgHHSize }}</div>
                         <div class="stat-label">Avg. Household Size</div>
                       </el-card>
-                    </el-col>
+              </el-col>
                   </el-row>
                 </div>
               </el-col>
             </el-row>
-          </div>
+        </div>
 
           <el-row justify="center">
             <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
@@ -80,8 +80,8 @@
                     <el-button plain link class="grievance-link" @click="navigateTo('grm')">file a grievance</el-button>, or call our toll free helpline at
                     <a href="tel:0800724349" class="grievance-link">0800 724 349 </a> free of charge.
                   </p>
-                </div>
-              </div>
+        </div>
+      </div>
             </el-col>
           </el-row>
         </el-main>
@@ -133,7 +133,7 @@ const navigateTo = (page: string) => {
     case 'faq':
       router.push('/faq');
       break;
-     default:
+    default:
       router.push('/');
       break;
   }
@@ -240,7 +240,7 @@ AvgHHSize();
 .main-container {
   width: 100%;
   min-height: 90vh;
-  display: flex;
+ display: flex;
   flex-direction: column;
 }
 
@@ -285,7 +285,7 @@ AvgHHSize();
 .subtitle {
   font-size: 1.5rem;
   color: var(--el-text-color-primary);
-  margin-bottom: 1rem;
+ margin-bottom: 1rem;
   font-weight: 500;
   animation: slideUp 0.8s ease-out 0.2s backwards;
 }
@@ -294,7 +294,7 @@ AvgHHSize();
   font-size: 1.2rem;
   line-height: 1.8;
   color: var(--el-text-color-regular);
-  margin-bottom: 2rem;
+ margin-bottom: 2rem;
   max-width: 1200px;
   margin-left: auto;
   margin-right: auto;
@@ -507,7 +507,7 @@ AvgHHSize();
   }
 
   .description {
-    font-size: 1rem;
+  font-size: 1rem;
     padding: 0;
   }
 

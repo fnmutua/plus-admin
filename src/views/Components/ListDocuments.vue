@@ -141,20 +141,20 @@ const downloadFile = async (data) => {
   formData.doc_id = data.id;
   formData.responseType = 'blob';
 
-  // Add a flag to track if the download has started
-
-
-  // Attach a 'beforeunload' event listener to the window
-  window.addEventListener('beforeunload', () => {
-    if (viewLoading.value) {
-      console.log('Download has started.');
-      viewLoading.value = false;
-    }
-  });
-
   try {
     const response = await getFile(formData);
-    console.log(response);
+    
+    // Check if the response is an error message
+    if (response.data instanceof Blob && response.data.type === 'application/json') {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const errorData = JSON.parse(reader.result);
+        ElMessage.error(errorData.message || 'Download failed');
+        viewLoading.value = false;
+      };
+      reader.readAsText(response.data);
+      return;
+    }
 
     const url = window.URL.createObjectURL(new Blob([response.data]));
     const link = document.createElement('a');
@@ -164,7 +164,8 @@ const downloadFile = async (data) => {
     link.click();
     viewLoading.value = false;
   } catch (error) {
-    ElMessage.error('Failed');
+    console.error('Error downloading file:', error);
+    ElMessage.error(error.response?.data?.message || 'Download failed');
     viewLoading.value = false;
   }
 };

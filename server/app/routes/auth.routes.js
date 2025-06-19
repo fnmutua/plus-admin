@@ -1,6 +1,7 @@
 const { verifySignUp } = require('../middleware')
 const controller = require('../controllers/auth.controller')
 const { authJwt } = require('../middleware')
+const { hasPermission } = require('../middleware/permission')
 
 module.exports = function (app) {
   app.use(function (req, res, next) {
@@ -19,7 +20,7 @@ module.exports = function (app) {
   // )
 
 
-  app.post('/api/auth/update', [authJwt.verifyToken,authJwt.isAdminOrCountyAdmin], controller.updateUser)
+  app.post('/api/auth/update', [authJwt.verifyToken, hasPermission('user:update')], controller.updateUser)
 
   //app.post("/api/v1/user/county", [authJwt.verifyToken, authJwt.isAdminOrCountyAdmin],controller.modelCountyUsers);
 

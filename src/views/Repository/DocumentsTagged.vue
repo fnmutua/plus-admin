@@ -642,61 +642,45 @@ const handleInputChange = async (keyword) => {
 
 
 const downloadFile = async (data) => {
-  downloading.value = true
-  console.log(data)
-  console.log(data.name)
- 
-
-  const formData = {}
-
-  let fname 
-  const filename = data.name;
-      // Check if the filename has an extension
-      if (!/\.\w+$/.test(filename)) {
-         fname=filename + '.'+data.format
-      } else {
-        fname = filename
-
-      }
-
-  formData.filename =fname
-  console.log("file name:", formData)
-
-
-  formData.responseType = 'blob'
-  await getFile(formData)
-    .then(response => {
-      console.log(response)
-      downloading.value = false
-      const url = window.URL.createObjectURL(new Blob([response.data]))
-      const link = document.createElement('a')
-      link.href = url
-      //link.setAttribute('download', data.name + data.format )
-      const filename = data.name;
-      // Check if the filename has an extension
-      if (!/\.\w+$/.test(filename)) {
-        link.setAttribute('download', `${filename}.${data.format}`);
-        console.log("file name has no extension")
-      } else {
-        link.setAttribute('download', filename);
-        console.log("file name has   extension")
-
-      }
-
-      document.body.appendChild(link)
-      link.click()
-      downloading.value = false
-
-    })
-    .catch(error => {
-      console.error('Error downloading file2:', error);
-      ElMessage.error('Download failed.');
-
-      downloading.value = false
-
-    });
-
-}
+  downloading.value = true;
+  const formData = {};
+  formData.filename = data.name;
+  formData.doc_id = data.id;
+  formData.responseType = 'blob';
+  
+  try {
+    const response = await getFile(formData);
+    
+    // Check if the response is an error message
+    if (response.data instanceof Blob && response.data.type === 'application/json') {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const errorData = JSON.parse(reader.result);
+        ElMessage.error(errorData.message || 'Download failed');
+        downloading.value = false;
+      };
+      reader.readAsText(response.data);
+      return;
+    }
+    
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    const filename = data.name;
+    if (!/\.\w+$/.test(filename)) {
+      link.setAttribute('download', `${filename}.${data.format}`);
+    } else {
+      link.setAttribute('download', filename);
+    }
+    document.body.appendChild(link);
+    link.click();
+    downloading.value = false;
+  } catch (error) {
+    console.error('Error downloading file:', error);
+    ElMessage.error(error.response?.data?.message || 'Download failed');
+    downloading.value = false;
+  }
+};
 
 const viewDocument = async (data) => {
   downloading.value=true

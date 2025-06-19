@@ -14,38 +14,54 @@ const turf = require('@turf/turf');
 
  
  
-exports.createRole = (req, res) => {
-  console.log('creating......')
-  var obj = req.body
- 
-  console.log('One record... ----', obj)
+exports.createRole = async (req, res) => {
+  try {
+    let { name, description, subordinates, isactive } = req.body;
 
-  // insert
-  db.models.roles
-    .create(obj)
-    .then(function (item) {
-      res.status(200).send({
-        message: 'Role created successfully',
-        data: item,
-        code: '0000'
-      })
-    })
-    .catch(function (err) {
-      // handle error;
-      console.log('error0---------->', err)
+    // Validate required fields
+    if (!name) {
+      return res.status(400).json({ message: 'Role name is required' });
+    }
 
-      if (err.name == 'SequelizeUniqueConstraintError') {
-        var message = 'xOne or more table constraints are violated. Check your id columns'
-      } else {
-        var message = 'The uploaded file does not match the required fields'
+    // Ensure subordinates is an array of integers if provided, or null
+    if (subordinates === undefined || subordinates === null || subordinates === '') {
+      subordinates = null;
+    } else if (!Array.isArray(subordinates)) {
+      try {
+        subordinates = JSON.parse(subordinates);
+      } catch (e) {
+        subordinates = null;
       }
-      return res.status(500).send({ message: message })
-    })
-}
+    }
+    if (Array.isArray(subordinates)) {
+      subordinates = subordinates.map(Number);
+    }
+
+    const newRole = await db.models.roles.create({
+      name,
+      description,
+      subordinates,
+      isactive
+    });
+
+    res.status(200).send({
+      message: 'Role created successfully',
+      data: newRole,
+      code: '0000'
+    });
+  } catch (err) {
+    console.log('error0---------->', err);
+    let message = 'The uploaded data does not match the required fields';
+    if (err.name === 'SequelizeUniqueConstraintError') {
+      message = 'One or more table constraints are violated. Check your id columns';
+    }
+    return res.status(500).send({ message });
+  }
+};
 
 exports.editRole = (req, res) => {
-  console.log('editing......');
-  var roleId = req.body.roleId; // Assuming the role ID is passed as a URL parameter
+  console.log('editing......',req.body);
+  var roleId = req.body.id; // Assuming the role ID is passed as a URL parameter
   var updatedData = req.body; // Assuming the updated data is present in the request body
 
   // Update the role record with the new data
@@ -74,7 +90,7 @@ exports.editRole = (req, res) => {
       // handle error;
       console.log('error---------->', err);
       return res.status(500).send({
-        message: 'An error occurred while updating the role',
+        message: 'An error occurred while updating thex role',
         code: '0002',
       });
     });
@@ -173,70 +189,21 @@ exports.getAllRoles = (req, res) => {
       });
     });
 };
-
-exports.xgetSubordinateRoles = (req, res) => {
-  console.log('getting getSubordinateRoles roles......',req.body.currentUser);
-
-  var user = req.body.currentUser
-  console.log(user.roles)
-  var tmpRoles = user.roles
-  // Assuming currentUserRoles is provided in the request body
-  var currentUserRoles = tmpRoles;
-  //var currentUserRoles = ["super_admin"]
-
-  // Retrieve all role records
-  db.models.roles
-    .findAll()
-    .then(function (roles) {
-      // Filter roles based on currentUserRoles
-      const filteredRoles = roles.filter((role) =>
-        currentUserRoles.includes(role.name)
-      );
-
-      // Extract the 'subordinates' column and merge into one array
-      const allSubordinates = filteredRoles.reduce((subordinates, role) => {
-        if (role.subordinates && role.subordinates.length > 0) {
-          subordinates.push(...role.subordinates);
-        }
-        return subordinates;
-      }, []);
-
-      // Remove duplicates from allSubordinates using Set
-      const uniqueSubordinates = [...new Set(allSubordinates)];
-
-      // Use the filtered subordinates to find the roles associated with these subordinates
-      const subordinateRoles = roles.filter((role) =>
-        uniqueSubordinates.includes(role.id)
-      );
-
-      // Send the subordinate roles array in the response
-      res.status(200).send({
-        message: 'Subordinate roles retrieved successfully',
-        data: subordinateRoles,
-        code: '0000',
-      });
-    })
-    .catch(function (err) {
-      // Handle errors, e.g., database errors
-      console.log('error---------->', err);
-      return res.status(500).send({
-        message: 'An error occurred while retrieving roles',
-        code: '0001',
-      });
-    });
-};
-
+ 
 exports.getSubordinateRoles = async (req, res) => {
   try {
     console.log('Getting getSubordinateRoles roles.2.....');
 
-    const user = req.body.currentUser;
-    const currentUserRoles = user.roles || [];
+    const user = req.body.roles;
+
+
+    
+    const currentUserRoles =req.body.roles;
 
     console.log('Current User Roles:', currentUserRoles);
 
     // Retrieve all role records
-    const roles = await db.models.roles.findAll();
+    const roles = await db.role.findAll();
 
     // Extract subordinate IDs from the current user's roles
     const uniqueSubordinates = [
@@ -263,5 +230,81 @@ exports.getSubordinateRoles = async (req, res) => {
       message: 'An error occurred while retrieving roles',
       code: '0001',
     });
+  }
+};
+
+// Add RESTful role-permission management methods
+exports.getRolePermissions = async (req, res) => {
+  console.log('----------------------------------------------------,',req.body.roleId  )
+  try {
+    let roleId = req.body.roleId  
+
+    if (!roleId) return res.status(400).json({ message: 'No roleId(s) provided' });
+
+    // Single role
+    // Find all role_permissions for this roleId
+    const rolePerms = await db.models.role_permissions.findAll({ where: { roleid: roleId } });
+    if (!rolePerms || rolePerms.length === 0) return res.status(404).json({ message: 'Role not found or no permissions' });
+    // Get permission ids
+    const permIds = rolePerms.map(rp => rp.permissionid);
+    // Fetch permission details
+    const permissions = await db.models.permissions.findAll({ where: { id: permIds } });
+    return res.json({ data: permissions });
+  } catch (err) {
+    res.status(500).json({ message: 'Error fetching role permissions', error: err });
+  }
+};
+
+exports.setRolePermissions = async (req, res) => {
+  console.log('settign roles ------------------>')
+ 
+    const roleId = req.body.roleId;
+    const permissions = req.body.permissions; // array of permission ids or names
+    // const role = await db.models.role.findByPk(roleId);
+   // const role = await db.role.findOne({ where: { id: roleId } });
+   const role = await db.role.findOne({ where: { id: roleId } });
+
+    console.log(role)
+    if (!role) return res.status(404).json({ message: 'Role not found' });
+    // Find permission records
+    const perms = await db.permission.findAll({
+      where: { id: permissions }
+    });
+   // console.log(perms)
+    await role.setPermissions(perms);
+    res.json({ message: 'Permissions updated' });
+  
+};
+
+exports.addRolePermission = async (req, res) => {
+  console.log('add role')
+  try {
+    const roleId = req.params.roleId;
+    const { permission } = req.body; // permission id or name
+    const role = await db.models.roles.findByPk(roleId);
+    if (!role) return res.status(404).json({ message: 'Role not found' });
+    const perm = await db.models.permissions.findOne({ where: { name: permission } });
+    if (!perm) return res.status(404).json({ message: 'Permission not found' });
+    await role.addPermission(perm);
+    res.json({ message: 'Permission added' });
+  } catch (err) {
+    res.status(500).json({ message: 'Error adding permission', error: err });
+  }
+};
+
+exports.removeRolePermission = async (req, res) => {
+  console.log('add role')
+
+  try {
+    const roleId = req.params.roleId;
+    const permissionId = req.params.permissionId;
+    const role = await db.models.roles.findByPk(roleId);
+    if (!role) return res.status(404).json({ message: 'Role not found' });
+    const perm = await db.models.permissions.findByPk(permissionId);
+    if (!perm) return res.status(404).json({ message: 'Permission not found' });
+    await role.removePermission(perm);
+    res.json({ message: 'Permission removed' });
+  } catch (err) {
+    res.status(500).json({ message: 'Error removing permission', error: err });
   }
 };

@@ -749,14 +749,26 @@ exports.signin = async (req, res) => {
       var token = jwt.sign({ id: user.id }, config.secret, {
         expiresIn: 86400 // 24 hours
       })
-      var authorities = []
-      user.getRoles().then((roles) => {
-        for (let i = 0; i < roles.length; i++) {
-          //authorities.push(roles[i].name)
-          authorities.push(roles[i])
-        }
 
-        console.log('Logged User:', user)
+      // Fetch all user_roles with location and role name
+      const userRoles = await db.models.user_roles.findAll({
+        where: { userid: user.id },
+        include: [{ model: db.role, attributes: ['name'] }]
+      });
+      const formattedUserRoles = userRoles.map(ur => ({
+        role: ur.role ? ur.role.name : null,
+        county_id: ur.county_id,
+        subcounty_id: ur.subcounty_id,
+        ward_id: ur.ward_id,
+        settlement_id: ur.settlement_id
+      }));
+
+      // Get authorities as before
+      user.getRoles().then((roles) => {
+        let authorities = [];
+        for (let i = 0; i < roles.length; i++) {
+          authorities.push(roles[i]);
+        }
         res.status(200).send({
           id: user.id,
           username: user.username,
@@ -764,16 +776,13 @@ exports.signin = async (req, res) => {
           name: user.name,
           email: user.email,
           roles: authorities,
-          user_roles: user.user_roles,
-          phone: user.phone,
+          user_roles: formattedUserRoles,
           county_id: user.county_id,
           accessToken: token,
           code: '0000',
           user: user,
           photo: user.avatar,
-          //avatar: user.avatar,
-          avatar : user.photo ? 'data:image/png;base64,' + user.photo.toString('base64') : user.avatar, 
-          //avatar : user.avatar, 
+          avatar : user.photo ? 'data:image/png;base64,' + user.photo.toString('base64') : user.avatar,
           data: token,
           message: 'Login Successful'
         })

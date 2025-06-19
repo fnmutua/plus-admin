@@ -22,6 +22,8 @@ db.Sequelize = Sequelize
 db.sequelize = sequelize
 db.user = require('../models/user.js')(sequelize, Sequelize)
 db.role = require('../models/role.js')(sequelize, Sequelize)
+db.permission = require('../models/permission.js')(sequelize, Sequelize)
+db.role_permission = require('../models/role_permissions.js')(sequelize, Sequelize)
 
 var initModels = require('../models/init-models.js')
 db.models = initModels(sequelize)
@@ -34,6 +36,18 @@ db.role.belongsToMany(db.user, {
 db.user.belongsToMany(db.role, {
   through: 'user_roles',
   foreignKey: 'userid',
+  otherKey: 'roleid'
+})
+
+// Role <-> Permission (many-to-many)
+db.role.belongsToMany(db.permission, {
+  through: 'role_permissions',
+  foreignKey: 'roleid',
+  otherKey: 'permissionid'
+})
+db.permission.belongsToMany(db.role, {
+  through: 'role_permissions',
+  foreignKey: 'permissionid',
   otherKey: 'roleid'
 })
  

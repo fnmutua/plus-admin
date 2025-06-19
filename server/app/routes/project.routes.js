@@ -1,5 +1,7 @@
 const { authJwt } = require("../middleware");
 const controller = require("../controllers/project.controller");
+const { hasPermission } = require('../middleware/permission');
+
 module.exports = function(app) {
 
   app.use(function(req, res, next) {
@@ -13,11 +15,11 @@ module.exports = function(app) {
     //app.post('/api/v1/user/all',  [authJwt.verifyToken],controller.modelAllUsers) // retrired 
 
 
-    app.post("/api/v1/project/task/add", [authJwt.verifyToken], controller.modelCreateOneRecord);
-    app.post("/api/v1/project/task/del", [authJwt.verifyToken], controller.modelDeleteOneRecord);
-    app.post("/api/v1/project/task/get", [authJwt.verifyToken], controller.getTasksByProjectId);
-    app.post("/api/v1/project/task/get/nested", [authJwt.verifyToken], controller.getNestedTasksByProjectId);
-    app.post("/api/v1/project/task/import", [authJwt.verifyToken], controller.modelImportDataUpsert);
+    app.post("/api/v1/project/task/add", [authJwt.verifyToken, hasPermission('project:create')], controller.modelCreateOneRecord);
+    app.post("/api/v1/project/task/del", [authJwt.verifyToken, hasPermission('project:delete')], controller.modelDeleteOneRecord);
+    app.post("/api/v1/project/task/get", [authJwt.verifyToken, hasPermission('project:read')], controller.getTasksByProjectId);
+    app.post("/api/v1/project/task/get/nested", [authJwt.verifyToken, hasPermission('project:read')], controller.getNestedTasksByProjectId);
+    app.post("/api/v1/project/task/import", [authJwt.verifyToken, hasPermission('project:import')], controller.modelImportDataUpsert);
  
     
 

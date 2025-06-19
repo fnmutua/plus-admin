@@ -1,6 +1,5 @@
 import request from '@/config/axios'
 import type { UserType } from '../register/types'
-import axios from 'axios';
 
 interface RoleParams {
   roleName: string
@@ -142,5 +141,69 @@ export const deleteAccount = (data: UserType): Promise<IResponse<UserType>> => {
   console.log('....', data)
   return request.post({ url: prod + '/api/v1/user/delete', data })
 }
+
+//export const getRoles = (params) => request.get({ url: prod + '/api/v1/roles', params })
+//export const getRole = (roleId, params) => request.get({ url: prod + `/api/v1/roles/${roleId}`, params })
+//export const createRole = (data) => request.post({ url: prod + '/api/v1/roles', data })
+//export const updateRole = (roleId, data) => request.put({ url: prod + `/api/v1/roles/${roleId}`, data })
+//export const deleteRole = (roleId) => request.delete({ url: prod + `/api/v1/roles/${roleId}` })
+
+
+export const getRoles = (data: UserType): Promise<IResponse<UserType>> => {
+  console.log('....', data)
+  return request.post({ url: prod + '/api/v1/roles/all', data })
+}
+
+
+
+export const getRole = (data: UserType): Promise<IResponse<UserType>> => {
+  console.log('....', data)
+  return request.post({ url: prod + '/api/v1/roles/one', data })
+}
+
+
+export const updateRole = (data: UserType): Promise<IResponse<UserType>> => {
+  console.log('....', data)
+  return request.post({ url: prod + '/api/v1/roles/update', data })
+}
+
+export const deleteRole = (data: UserType): Promise<IResponse<UserType>> => {
+  console.log('....', data)
+  return request.post({ url: prod + '/api/v1/roles/delete', data })
+}
+
+
+export const createRole = (data: UserType): Promise<IResponse<UserType>> => {
+  console.log('....', data)
+  return request.post({ url: prod + '/api/v1/roles/add', data })
+}
+
+
+
+
+export const getAllPermissions = () => request.get({ url: prod + '/api/v1/permissions' })
+
+export const getRolePermissions = (data: UserType): Promise<IResponse<UserType>> => {
+  console.log('....', data)
+  return request.post({ url: prod + '/api/v1/roles/permissions', data })
+}
+export const setRolePermissions = (data: UserType): Promise<IResponse<UserType>> => {
+  console.log('....', data)
+  return request.post({ url: prod + '/api/v1/roles/permissions/update', data })
+}
  
- 
+export const addRolePermission = (data: UserType): Promise<IResponse<UserType>> => {
+  console.log('....', data)
+  return request.post({ url: prod + '/api/v1/roles/permissions/add', data })
+}
+
+
+export const removeRolePermission = (data: UserType): Promise<IResponse<UserType>> => {
+  console.log('....', data)
+  return request.post({ url: prod + '/api/v1/roles/permissions/remove', data })
+}
+
+
+//export const setRolePermissions = (roleId, permissions) => request.put({ url: prod + `/api/v1/roles/${roleId}/permissions`, data: { permissions } })
+//export const addRolePermission = (roleId, permission) => request.post({ url: prod + `/api/v1/roles/${roleId}/permissions`, data: { permission } })
+//export const removeRolePermission = (roleId, permissionId) => request.delete({ url: prod + `/api/v1/roles/${roleId}/permissions/${permissionId}` })

@@ -1,5 +1,6 @@
  const controller = require('../controllers/grievance.controller')
   const { authJwt } = require('../middleware')
+  const { hasPermission } = require('../middleware/permission')
 
 module.exports = function (app) {
   app.use(function (req, res, next) {
@@ -18,8 +19,8 @@ module.exports = function (app) {
   
 
 
-  app.post('/api/v1/grv/list', [authJwt.verifyToken, authJwt.isGrmOfficerNational], controller.getGrievances)
-  app.post('/api/v1/grv/one', [authJwt.verifyToken,authJwt.isGrmOfficerNational], controller.getGrievanceById)
+  app.post('/api/v1/grv/list', [authJwt.verifyToken, hasPermission('grievance:read')], controller.getGrievances)
+  app.post('/api/v1/grv/one', [authJwt.verifyToken, hasPermission('grievance:read')], controller.getGrievanceById)
   app.post('/api/v1/grv/public',   controller.getGrievanceByPublicId)
   app.post('/api/v1/grv/upload',   controller.uploadGrievanceDocument)
   app.post('/api/v1/grv/upload/pcode',   controller.batchDocumentsUploadByGrievanceCode)
@@ -28,26 +29,26 @@ module.exports = function (app) {
 
   
   app.post('/api/v1/grv/status',   controller.getGrievanceStatus)
-  app.post('/api/v1/grv/status/update', [authJwt.verifyToken],  controller.updateGrievanceStatus)
+  app.post('/api/v1/grv/status/update', [authJwt.verifyToken, hasPermission('grievance:update')],  controller.updateGrievanceStatus)
  
-  app.post('/api/v1/grv/update', [authJwt.verifyToken],  controller.updateGrievance)
-  app.post('/api/v1/grv/update/bulk', [authJwt.verifyToken],  controller.bulkUpdateReferredToOfficer)
+  app.post('/api/v1/grv/update', [authJwt.verifyToken, hasPermission('grievance:update')],  controller.updateGrievance)
+  app.post('/api/v1/grv/update/bulk', [authJwt.verifyToken, hasPermission('grievance:update')],  controller.bulkUpdateReferredToOfficer)
 
  
   
   app.post('/api/v1/grv/upsert',   controller.modelImportGrievances)
-  app.post('/api/v1/grv/keyword',[authJwt.verifyToken, authJwt.isGrmOfficerNational],   controller.getGrievancesByKeyword)
-  app.post('/api/v1/grv/phone', [authJwt.verifyToken],  controller.getGrievanceByUserPhone)
-  app.post('/api/v1/grv/history', [authJwt.verifyToken],  controller.getGrievanceHistoryByGrievanceId)
+  app.post('/api/v1/grv/keyword',[authJwt.verifyToken, hasPermission('grievance:read')],   controller.getGrievancesByKeyword)
+  app.post('/api/v1/grv/phone', [authJwt.verifyToken, hasPermission('grievance:read')],  controller.getGrievanceByUserPhone)
+  app.post('/api/v1/grv/history', [authJwt.verifyToken, hasPermission('grievance:read')],  controller.getGrievanceHistoryByGrievanceId)
   app.post('/api/v1/grv/self/escalate',   controller.updateGrievanceStatusByComplainant)
-  app.post('/api/v1/grv/reminder', [authJwt.verifyToken],   controller.sendReminder)
+  app.post('/api/v1/grv/reminder', [authJwt.verifyToken, hasPermission('grievance:read')],   controller.sendReminder)
 
   
   
 
-  app.post('/api/v1/grv/delete', [authJwt.verifyToken,authJwt.isGrmOfficerNational],  controller.deleteCascadeGrievance)
+  app.post('/api/v1/grv/delete', [authJwt.verifyToken, hasPermission('grievance:delete')],  controller.deleteCascadeGrievance)
 
-  app.post('/api/v1/grv/revert', [authJwt.verifyToken,authJwt.isGrmOfficerNational, authJwt.isStaffOrAdmin],  controller.revertEdits)
+  app.post('/api/v1/grv/revert', [authJwt.verifyToken, hasPermission('grievance:update')],  controller.revertEdits)
 
   
   app.post(

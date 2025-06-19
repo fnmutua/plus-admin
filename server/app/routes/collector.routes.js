@@ -1,5 +1,7 @@
 const { authJwt } = require("../middleware");
 const controller = require("../controllers/collector.controller");
+const { hasPermission } = require('../middleware/permission');
+
 module.exports = function(app) {
 
   app.use(function(req, res, next) {

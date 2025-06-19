@@ -105,6 +105,9 @@ var _street_light= require('./street_light')
 var _dumping_site= require('./dumping_site')
 
 
+var _permission= require('./permission')
+var _role_permissions= require('./role_permissions')
+var _role= require('./role')
 
 
 
@@ -217,9 +220,12 @@ var community_project = _community_project(sequelize, DataTypes)
 var mast = _mast(sequelize, DataTypes)
 var street_light = _street_light(sequelize, DataTypes)
 var dumping_site = _dumping_site(sequelize, DataTypes)
+var permissions = _permission(sequelize, DataTypes)
+var role_permissions = _role_permissions(sequelize, DataTypes)
+var role = _role(sequelize, DataTypes)
 
 
-  
+
   
   return {
     beneficiary,otp,hazard_zone,community_hall,community_project,mast,street_light,dumping_site,
@@ -291,7 +297,8 @@ var dumping_site = _dumping_site(sequelize, DataTypes)
     project_beneficiary,grievance_resolution_level,
     grievance,
     grievance_log,disbursement,project_contractor,project_team,
-     grievance_resolution,grievance_escalation,grievance_document, grievance_notification,article,settlement_history,grievance_history, programme,
+     grievance_resolution,grievance_escalation,grievance_document, grievance_notification,article,
+     settlement_history,grievance_history, programme,permissions,role_permissions,role
 
   }
 }
