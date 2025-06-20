@@ -111,9 +111,8 @@ const schema = reactive<FormSchema[]>([
 const dialogFeedback = ref()
 const { register, elFormRef, methods } = useForm()
 
-const loading = ref(false)
-
-
+const loginLoading = ref(false)
+const guestLoading = ref(false)
 
 const redirect = ref<string>('')
 
@@ -129,18 +128,13 @@ watch(
 
 // 登录
 const signIn = async () => {
-
-  appStore.dynamicRouter = true    // felix to edit 
-  console.log("Dynamic router--->", appStore.getDynamicRouter)
-
-
+  appStore.dynamicRouter = true
   const formRef = unref(elFormRef)
   await formRef?.validate(async (isValid) => {
     if (isValid) {
-      loading.value = true
+      loginLoading.value = true
       const { getFormData } = methods
       const formData = await getFormData<UserType>()
-
       try {
         const res = await loginApi(formData)
         console.log('After Login', res)
@@ -166,15 +160,21 @@ const signIn = async () => {
           }
         }
       } finally {
-        loading.value = false
+        loginLoading.value = false
       }
     }
   })
 }
 
- 
-//}
- 
+const guestLogin = async () => {
+  guestLoading.value = true;
+  try {
+    await signIn();
+  } finally {
+    guestLoading.value = false;
+  }
+};
+
 const getRole = async (authenticatedUser) => {
   const { getFormData } = methods;
   const formData = await getFormData<UserType>();
@@ -324,9 +324,12 @@ const feedbackRules =  {
 
 
     <template #login>
-      <div class="w-[100%]">
-        <ElButton :loading="loading" type="primary" class="w-[100%]" @click="signIn">
+      <div class="w-[100%] flex gap-2">
+        <ElButton :loading="loginLoading" type="primary" class="flex-1" @click="signIn">
           {{ t('login.login') }}
+        </ElButton>
+        <ElButton :loading="guestLoading" type="info" class="flex-1" @click="guestLogin">
+          Login as Guest
         </ElButton>
       </div>
       <div class="w-[100%] mt-15px">

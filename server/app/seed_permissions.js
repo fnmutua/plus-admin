@@ -591,91 +591,30 @@ async function seedPermissions() {
     }
     console.log('All permissions created/verified');
 
-    // Define role-permission mappings
+    // Define role-permission mappings based on new requirements
+    const allPermissionNames = permissions.map(p => p.name);
+    const logsPermissions = allPermissionNames.filter(p => p.startsWith('logs:'));
+    const rolesPermissions = allPermissionNames.filter(p => p.startsWith('roles:') || p.startsWith('permission:'));
+    const userPermissions = allPermissionNames.filter(p => p.startsWith('user:'));
+    const grievancePermissions = allPermissionNames.filter(p => p.startsWith('grievance:'));
+    const gbvPermissions = allPermissionNames.filter(p => p.startsWith('gbv:'));
+
+    const adminExcludes = [...rolesPermissions, ...allPermissionNames.filter(p => p.startsWith('permission:'))];
+    const staffExcludes = [...adminExcludes, ...userPermissions];
+    const consultantExcludes = userPermissions;
+    const grmExcludes = [...userPermissions, ...rolesPermissions, ...allPermissionNames.filter(p => p.startsWith('permission:'))];
+
     const rolePermissions = {
-      'root_admin': ['system:all'], // Will automatically get all permissions including logs
-
-      'super_admin': [
-        'admin:all',
-        'roles:assign',
-        'permission:assign',
-        ...permissions.map(p => p.name).filter(p => !p.startsWith('logs:') && p !== 'system:all')
-      ],
-
-      'admin': [
-        // Document Category permissions
-        'document_category:manage',
-        'document_category:create',
-        'document_category:read',
-        'document_category:update',
-        'document_category:delete',
-
-        // Programme permissions
-        'programme:manage',
-        'programme:create',
-        'programme:read',
-        'programme:update',
-        'programme:delete',
-
-        // Dashboard permissions
-        'dashboard:view',
-        'dashboard_card:create',
-        'dashboard_card:read',
-        'dashboard_card:update',
-        'dashboard_card:delete',
-        'dashboard_section:create',
-        'dashboard_section:read',
-        'dashboard_section:update',
-        'dashboard_section:delete',
-        'dashboard_section_chart:create',
-        'dashboard_section_chart:read',
-        'dashboard_section_chart:update',
-        'dashboard_section_chart:delete'
-      ],
-
-      'staff': [
-        // Document Category permissions
-        'document_category:read',
-        'document_category:create',
-
-        // Programme permissions
-        'programme:read',
-        'programme:create',
-
-        // Dashboard permissions
-        'dashboard:view',
-        'dashboard_card:read',
-        'dashboard_section:read',
-        'dashboard_section_chart:read'
-      ],
-
-      'grm': [
-        // Document Category permissions
-        'document_category:read',
-
-        // Programme permissions
-        'programme:read',
-
-        // Dashboard permissions
-        'dashboard:view',
-        'dashboard_card:read',
-        'dashboard_section:read',
-        'dashboard_section_chart:read'
-      ],
-
-      'gbv': [
-        // Document Category permissions
-        'document_category:read',
-
-        // Programme permissions
-        'programme:read',
-
-        // Dashboard permissions
-        'dashboard:view',
-        'dashboard_card:read',
-        'dashboard_section:read',
-        'dashboard_section_chart:read'
-      ]
+      'root_admin': allPermissionNames, // Everything
+      'super_admin': allPermissionNames, // Everything (including logs)
+      'admin': allPermissionNames.filter(p => !adminExcludes.includes(p)), // Everything except roles/permissions management
+      'staff': allPermissionNames.filter(p => !staffExcludes.includes(p)), // Everything except roles/permissions and user management
+      'consultant': allPermissionNames.filter(p => !consultantExcludes.includes(p)), // Everything except user management
+      'gbv': [...gbvPermissions, ...grievancePermissions], // Only GBV and grievance management
+      'grm': grievancePermissions, // Only grievance management
+      'support': allPermissionNames.filter(p => !adminExcludes.includes(p)), // Like admin
+      'public': [], // Minimal or view-only, can be expanded as needed
+      'monitoring': [], // Minimal or view-only, can be expanded as needed
     };
 
     console.log('Assigning permissions to roles...');
@@ -684,31 +623,9 @@ async function seedPermissions() {
       console.log(`Processing role: ${roleName}`);
       const role = await db.role.findOne({ where: { name: roleName } });
       if (role) {
-        console.log(`Found role ${roleName}`);
-        let permsToAssign;
-        
-        if (permissions.includes('system:all')) {
-          console.log(`${roleName} gets all permissions (system:all)`);
-          permsToAssign = await db.permission.findAll();
-        } else if (permissions.includes('admin:all')) {
-          console.log(`${roleName} gets admin permissions (admin:all)`);
-          permsToAssign = await db.permission.findAll({
-            where: {
-              name: { [db.Sequelize.Op.ne]: 'system:all' }
-            }
-          });
-        } else {
-          console.log(`${roleName} gets specific permissions`);
-          permsToAssign = await db.permission.findAll({
-            where: {
-              name: { [db.Sequelize.Op.in]: permissions }
-            }
-          });
-        }
-        
-        console.log(`Assigning ${permsToAssign.length} permissions to ${roleName}`);
+        let permsToAssign = await db.permission.findAll({ where: { name: permissions } });
         await role.setPermissions(permsToAssign);
-        console.log(`Completed permission assignment for ${roleName}`);
+        console.log(`Assigned ${permsToAssign.length} permissions to ${roleName}`);
       } else {
         console.log(`Warning: Role ${roleName} not found in database`);
       }

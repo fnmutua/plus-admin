@@ -215,19 +215,26 @@ exports.getSubordinateRoles = async (req, res) => {
     
     const currentUserRoles =req.body.roles;
 
-    //console.log('Current User Roles:', currentUserRoles);
+    console.log('Current User Roles:', currentUserRoles);
 
-    // Retrieve all role records
+    // Step 1: Get the current user's role IDs
+    const userRoleIds = currentUserRoles.map(role => role.id);
+
+    // Step 2: Retrieve all role records
     const roles = await db.role.findAll();
 
-    // Extract subordinate IDs from the current user's roles
-    const uniqueSubordinates = [
-      ...new Set(
-        currentUserRoles.flatMap(role => role.subordinates || [])
-      )
-    ];
+    // Step 3: For each user role ID, collect all subordinate IDs from the corresponding role
+    let allSubordinateIds = [];
+    for (const roleId of userRoleIds) {
+      const roleObj = roles.find(r => r.id === roleId);
+      if (roleObj && Array.isArray(roleObj.subordinates)) {
+        allSubordinateIds.push(...roleObj.subordinates);
+      }
+    }
+    // Step 4: Collect all unique subordinate IDs
+    const uniqueSubordinates = [...new Set(allSubordinateIds)];
 
-    // Find roles corresponding to these subordinate IDs
+    // Step 5: Find roles corresponding to these subordinate IDs
     const subordinateRoles = roles.filter(role =>
       uniqueSubordinates.includes(role.id) && role.name !== 'root_admin'
     );

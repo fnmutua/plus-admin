@@ -111,9 +111,8 @@ const schema = reactive<FormSchema[]>([
 const dialogFeedback = ref()
 const { register, elFormRef, methods, setFieldsValue } = useForm()
 
-const loading = ref(false)
-
-
+const loginLoading = ref(false)
+const guestLoading = ref(false)
 
 const redirect = ref<string>('')
 
@@ -129,20 +128,13 @@ watch(
 
 // 登录
 const signIn = async () => {
-
-  appStore.dynamicRouter = true    // felix to edit 
-          console.log("Dynamic router--->", appStore.getDynamicRouter)
-
-
-
-          
+  appStore.dynamicRouter = true
   const formRef = unref(elFormRef)
   await formRef?.validate(async (isValid) => {
     if (isValid) {
-      loading.value = true
+      loginLoading.value = true
       const { getFormData } = methods
       const formData = await getFormData<UserType>()
-
       try {
         const res = await loginApi(formData)
         console.log('After Login', res)
@@ -172,7 +164,7 @@ const signIn = async () => {
           }
         }
       } finally {
-        loading.value = false
+        loginLoading.value = false
       }
     }
   })
@@ -293,7 +285,7 @@ const getRole = async (authenticatedUser) => {
 
 // Add guest login function
 const guestLogin = async () => {
-  loading.value = true;
+  guestLoading.value = true;
   try {
     // Step 1: Update the schema values
     const usernameField = schema.find(item => item.field === 'username');
@@ -321,7 +313,7 @@ const guestLogin = async () => {
     // Step 3: Submit using the existing signIn function which will handle routing
     await signIn();
   } finally {
-    loading.value = false;
+    guestLoading.value = false;
   }
 };
 
@@ -400,10 +392,10 @@ const feedbackRules =  {
 
       <template #login>
         <div class="w-[100%] flex gap-2">
-          <ElButton :loading="loading" type="primary" class="flex-1" @click="signIn">
+          <ElButton :loading="loginLoading" type="primary" class="flex-1" @click="signIn">
             {{ t('login.login') }}
           </ElButton>
-          <ElButton :loading="loading" type="info" class="flex-1" @click="guestLogin">
+          <ElButton :loading="guestLoading" type="info" class="flex-1" @click="guestLogin">
             Login as Guest
           </ElButton>
         </div>

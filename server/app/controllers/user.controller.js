@@ -458,104 +458,12 @@ exports.modelPaginatedUsersfilterBykeyWord = (req, res) => {
 
 
 
-exports.xmodelCountyUsers = async (req, res) => {
-  try {
-    console.log('Request Body:', req.body);
-    const { currentUser, filters = [], filterValues = [], limit = 10, page = 1 } = req.body;
-    const { roles: currentUserRoles = [], county_id: userCounty } = currentUser;
-
-    console.log('Current User Roles:', currentUserRoles);
-
-    // Extract unique subordinate role IDs from the current user roles
-    const uniqueSubordinates = [
-      ...new Set(
-        currentUserRoles.flatMap(role => role.subordinates || [])
-      )
-    ];
-
-    // Define query options
-    const findAndCountOptions = {
-      include: [
-        {
-          model: db.models.user_roles,
-          // as: 'roles', // Alias as defined in your User model associations
-          // through: {
-          //   model: db.models.user_roles,
-          //   as: 'user_roles', // Alias for the user_roles join table
-          //   attributes: ['roleid', 'location_level', 'location_id', 'county_id', 'settlement_id'], // Select specific fields from user_roles
-          // },
-          required: true,
-          where: {
-            roleid: uniqueSubordinates,
-            roleid: { [Op.ne]: 0 } // Exclude super_admin roles from the results
-          }
-        }
-      ],
-      where: {},
-      limit,
-      offset: (page - 1) * limit,
-      order: [['id', 'DESC']] // Add this line to sort by ID in descending order
-
-    };
-
-    // Normalize and cast filter values based on the column type
-    const normalizeAndCastFilter = (filter, value) => {
-      if (typeof value === 'string') {
-        // Cast value for boolean columns
-        if (value === 'true' || value === 'false') {
-          return Sequelize.cast(value === 'true', 'BOOLEAN');
-        }
-        // Cast value for integer columns
-        if (!isNaN(value)) {
-          return Sequelize.cast(value, 'INTEGER');
-        }
-      }
-      return value; // Default case
-    };
-
-    // Add filter conditions if filters and values are provided
-    if (filters.length === filterValues.length) {
-      findAndCountOptions.where[Op.and] = filters.map((filter, index) => ({
-        [filter]: { [Op.eq]: normalizeAndCastFilter(filter, filterValues[index]) }
-      }));
-    }
-
-    console.log('Final Query Options:', JSON.stringify(findAndCountOptions, null, 2));
-
-    // Query users and include their roles with user_roles details
-    const { count, rows: usersWithSubordinates } = await Users.findAndCountAll(findAndCountOptions);
-
-
-    
-    // Convert photo binary data to base64 URL
-    const usersWithPhotos = usersWithSubordinates.map(user => {
-      if (user.photo) {
-        user.photo = 'data:image/png;base64,' + user.photo.toString('base64');
-      } else {
-        user.photo = ''; // Assign empty string if no photo
-      }
-      return user;
-    });
-
-
-    res.status(200).send({
-      data: usersWithPhotos,
-      total: count,
-      code: '0000',
-      message: 'All Users retrieved successfully',
-    });
-  } catch (error) {
-    console.error('Error:', error);
-    res.status(500).send({ message: 'Unable to retrieve users. Please try again later.' });
-  }
-};
-
  
 
  
 exports.modelCountyUsers = async (req, res) => {
   try {
-    console.log('Request Body:', req.body);
+  //  console.log('Request Body:', req.body);
 
     const { 
       currentUser, 
