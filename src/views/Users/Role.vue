@@ -77,8 +77,7 @@ const { t } = useI18n()
  
 
 const getAllRoles = async () => {
-  const res = await getRoles()
-  console.log('res',res)
+  const res = await getRoles({} as any);
   tableDataList.value = res.data.data || res.data || []
   loading.value = false
 }
@@ -121,22 +120,19 @@ const showEditSaveButton = ref(false)
 
 
 const AddDialogVisible=ref(false)
-const permissions = ref<{ id: number; name: string; description?: string }[]>([])
+const permissions = ref<any[]>([])
 const selectedPermissions = ref<number[]>([])
 
 // Fetch all permissions
 const fetchPermissions = async () => {
-  console.log( 'getAllPermissions()')
-
-  const res = await getAllPermissions()
+  const res = await getAllPermissions();
   permissions.value = res.data.data || res.data || []
 }
 
 // Fetch permissions for a role
-const fetchRolePermissions = async (roleId) => {
-  const res = await getRolePermissions({ roleId: roleId })
-  // Backend returns an array of permissions in res.data.data
-  selectedPermissions.value = (res.data.data || []).map(p => p.id)
+const fetchRolePermissions = async (roleId: any) => {
+  const res = await getRolePermissions({ roleId } as any);
+  selectedPermissions.value = (res.data.data || []).map((p: any) => p.id)
 }
  
  
@@ -267,7 +263,8 @@ const activeTab = ref('details')
 const groupedPermissions = computed(() => {
   const groups = {};
   for (const perm of permissions.value) {
-    const [category] = perm.name.split(':');
+    if (!perm.category) continue;
+    const category = perm.category;
     if (!groups[category]) groups[category] = [];
     groups[category].push(perm);
   }
@@ -276,11 +273,10 @@ const groupedPermissions = computed(() => {
 
 const transferPermissions = computed(() => {
   return permissions.value.map(perm => {
-    const [category] = perm.name.split(':');
     return {
       key: perm.id,
       label: perm.name + (perm.description ? ' - ' + perm.description : ''),
-      category: category.charAt(0).toUpperCase() + category.slice(1),
+      category: perm.category,
       ...perm
     };
   });
@@ -291,7 +287,8 @@ const openGroups = ref<string[]>([])
 const groupedPermissionOptions = computed(() => {
   const groups = {};
   for (const perm of permissions.value) {
-    const [category] = perm.name.split(':');
+    if (!perm.category) continue;
+    const category = perm.category;
     if (!groups[category]) groups[category] = [];
     groups[category].push(perm);
   }
