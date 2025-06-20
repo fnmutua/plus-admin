@@ -40,7 +40,9 @@ module.exports = function(app) {
 
 
   // RESTful Role Endpoints
-  app.get('/api/v1/roles/all', [authJwt.verifyToken, hasPermission('roles:read')], controller.getAllRoles);
+  //app.get('/api/v1/roles/all', [authJwt.verifyToken, hasPermission('roles:read')], controller.getAllRoles);
+  app.post("/api/v1/roles/all", [authJwt.verifyToken, hasPermission('role:assign')], controller.getAllRoles);
+
   app.post('/api/v1/roles/one', [authJwt.verifyToken, hasPermission('roles:read')], controller.getRoleById);
   app.post('/api/v1/roles/add', [authJwt.verifyToken, hasPermission('roles:create')], controller.createRole);
   app.post('/api/v1/roles/update', [authJwt.verifyToken, hasPermission('roles:update')], controller.editRole);

@@ -3,12 +3,12 @@
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
-import { ElButton, ElSwitch, ElSelect, ElDialog, ElForm, ElFormItem, ElInput, ElTabs, 
+import { ElButton, ElSwitch, ElSelect, ElDialog, ElForm, ElFormItem, ElInput, ElTabs, ElCard,ElTable,ElTableColumn,ElRow,
   ElTabPane, ElTransfer, ElDrawer,ElCheckTag,ElCheckbox,ElCollapse,ElCollapseItem,ElCheckboxButton,ElCheckboxGroup
  } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
-  Plus,Edit, Check} from '@element-plus/icons-vue'
+  Plus,Edit, Back, Check} from '@element-plus/icons-vue'
 
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
@@ -72,65 +72,13 @@ const searchString = ref()
 
 const { t } = useI18n()
 
-const columns: TableColumn[] = [
-  {
-    field: 'id',
-    label: t('Id'),
- 
-  },
-
-  {
-    field: 'name',
-    label: t('Name')
-  },
- 
-  {
-    field: 'description',
-    label: t('Description')
-  },
- 
-  {
-    field: 'action',
-    label: t('Active')
-  }
-]
-const handleClear = async () => {
-  console.log('cleared....')
-
-  // clear all the fileters -------
-  filterValues = []
-  filters = []
-  value1.value = ''
-  value2.value = ''
-  value3.value = ''
-  pSize.value = 5
-  currentPage.value = 1
-  tblData = []
-  //----run the get data--------
-  getAllRoles()
-}
  
  
-
-const onPageChange = async (selPage: any) => {
-  console.log('on change change: selected counties ', selCounties)
-  page.value = selPage
-
-  
-    getFilteredData(filters, filterValues)
-   
-}
-
-const onPageSizeChange = async (size: any) => {
-  pSize.value = size
-
-  
-    getFilteredData(filters, filterValues)
  
-}
 
 const getAllRoles = async () => {
   const res = await getRoles()
+  console.log('res',res)
   tableDataList.value = res.data.data || res.data || []
   loading.value = false
 }
@@ -387,50 +335,69 @@ function toggleGroupSelection(group, checked) {
   }
 }
 
+
+const router = useRouter()
+
+const goBack = () => {
+  // Add your logic to handle the back action
+  // For example, you can use Vue Router to navigate back
+  if (router) {
+    // Use router.back() to navigate back
+    router.back()
+  } else {
+    console.warn('Router instance not available.')
+  }
+}
+
 </script>
 
 <template>
-  <ContentWrap
-    :title="t('Users')"
-    :message="t('Use the filters to subset')"
-  >
+   <el-card>
+   
+
+    
+    <el-row type="flex" justify="start" gutter="10" style="display: flex; flex-wrap: nowrap; align-items: center;">
+
+<div class="max-w-200px">
+  <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
+    Back
+  </el-button>
+</div>
+ 
+<!-- Action Buttons -->
+<div style="display: flex; justify-content: flex-end; align-items: center; ">
+  <el-tooltip content="Add Role " placement="top">
+    <el-button :onClick="AddRole" type="primary" :icon="Plus" />
+  </el-tooltip>
+</div>
+
+</el-row>
+
   
-    <div style="display: inline-block; margin-right: 20px;">
-      <el-tooltip content="Create Role" placement="top">
-        <el-button :onClick="AddRole" type="primary" :icon="Plus" />
+
+
+    <el-table :data="tableDataList" style="width: 100% ; "  v-loading="loading">
+
+<el-table-column prop="id" label="#" width="50" />
+ 
+<el-table-column label="Role" prop="name" width="200" sortable />
+<el-table-column label="Description" prop="description" sortable />
+ <el-table-column fixed="right"  label="Actions"  width="220">
+  <template #default="scope">
+    <div style="display: flex; gap: 12px; align-items: center; justify-content: center;">
+      <el-tooltip content="Activate/Deactivate" placement="top" v-if="scope.row.name !== 'root_admin' && scope.row.name !== 'super_admin'">
+        <el-switch v-model="scope.row.isactive" @click="activateDeactivate(scope as TableSlotDefault)" active-color="#13ce66" inactive-color="#ff4949" />
+      </el-tooltip>
+      <el-tooltip content="Edit" placement="top" v-if="scope.row.name !== 'root_admin' && scope.row.name !== 'super_admin'">
+        <el-button type="primary" :icon="Edit" @click="editRole(scope as TableSlotDefault)"   size="small" />
       </el-tooltip>
     </div>
+  </template>
+</el-table-column>
 
-    <el-divider border-style="dashed" content-position="left">Roles</el-divider>
+</el-table>
 
-    <Table
-      :columns="columns"
-      :data="tableDataList"
-      :loading="loading"
-      :selection="true"
-      :pageSize="pageSize"
-      :currentPage="currentPage"
-    >
-    <template #action="data">
-          <div class="action-buttons">
-            <el-tooltip content="Activate/Deactivate User" placement="top" v-if="data.row.name !== 'super_admin'">
-              <ElSwitch v-model="data.row.isactive" @click="activateDeactivate(data as TableSlotDefault)">
-              {{ t('tableDemo.action') }}
-              </ElSwitch>
-            </el-tooltip>
-
-            <!-- Add space here -->
-            <div class="button-space"></div>
-
-         <!-- Conditionally render the Edit button based on the role -->
-          <el-tooltip content="Edit" placement="top" v-if="data.row.name !== 'super_admin'">
-            <el-button type="success" :icon="Edit" @click="editRole(data as TableSlotDefault)" circle />
-          </el-tooltip>
-          </div>
-        </template>
-
-    </Table>
-    <ElPagination
+<ElPagination
       layout="sizes, prev, pager, next, total"
       v-model:currentPage="currentPage"
       v-model:page-size="pageSize"
@@ -441,8 +408,6 @@ function toggleGroupSelection(group, checked) {
       @current-change="onPageChange"
       class="mt-4"
     />
-
-
     <el-drawer
       v-model="AddDialogVisible"
       :title="formHeader"
@@ -547,7 +512,7 @@ function toggleGroupSelection(group, checked) {
     </el-drawer>
 
 
-  </ContentWrap>
+  </el-card>
 </template>
  
 <style>

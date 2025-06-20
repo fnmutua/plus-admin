@@ -36,7 +36,7 @@ module.exports = function(app) {
 
 
 
-  app.post("/api/v1/roles/all", [authJwt.verifyToken, hasPermission('role:assign')], controller.rolesController);
+  //app.post("/api/v1/roles/all", [authJwt.verifyToken, hasPermission('role:assign')], controller.rolesController);
 
   app.post("/api/v1/feedback/add", controller.sendFeedback);
   app.post("/api/v1/feedback/all", [authJwt.verifyToken, hasPermission('feedback:read')], controller.getFeedback);

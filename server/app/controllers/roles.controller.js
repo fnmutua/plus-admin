@@ -60,6 +60,10 @@ exports.createRole = async (req, res) => {
 };
 
 exports.editRole = (req, res) => {
+  // Prevent editing root_admin
+  if (req.body.name === 'root_admin' || req.body.id === 1) {
+    return res.status(403).send({ message: 'Editing root_admin is not allowed', code: '9999' });
+  }
   console.log('editing......',req.body);
   var roleId = req.body.id; // Assuming the role ID is passed as a URL parameter
   var updatedData = req.body; // Assuming the updated data is present in the request body
@@ -97,6 +101,10 @@ exports.editRole = (req, res) => {
 };
 
 exports.deleteRole = (req, res) => {
+  // Prevent deleting root_admin
+  if (req.body.name === 'root_admin' || req.body.roleId === 1) {
+    return res.status(403).send({ message: 'Deleting root_admin is not allowed', code: '9999' });
+  }
   console.log('deleting......');
   var roleId = req.body.roleId; // Assuming the role ID is passed as a URL parameter
 
@@ -134,6 +142,10 @@ exports.deleteRole = (req, res) => {
 
 
 exports.getRoleById = (req, res) => {
+  // Prevent returning root_admin
+  if (req.params.roleId == 1 || req.body.name === 'root_admin') {
+    return res.status(403).send({ message: 'Access to root_admin is not allowed', code: '9999' });
+  }
   console.log('getting one role......');
   var roleId = req.params.roleId; // Assuming the role ID is passed as a URL parameter
 
@@ -173,10 +185,13 @@ exports.getAllRoles = (req, res) => {
   db.models.roles
     .findAll()
     .then(function (roles) {
-      // Send the roles array in the response
+      // Filter out root_admin
+      const filteredRoles = roles.filter(role => role.name !== 'root_admin');
+
+      console.log('filteredRoles ------------->',filteredRoles)
       res.status(200).send({
         message: 'Roles retrieved successfully',
-        data: roles,
+        data: filteredRoles,
         code: '0000',
       });
     })
@@ -200,7 +215,7 @@ exports.getSubordinateRoles = async (req, res) => {
     
     const currentUserRoles =req.body.roles;
 
-    console.log('Current User Roles:', currentUserRoles);
+    //console.log('Current User Roles:', currentUserRoles);
 
     // Retrieve all role records
     const roles = await db.role.findAll();
@@ -214,7 +229,7 @@ exports.getSubordinateRoles = async (req, res) => {
 
     // Find roles corresponding to these subordinate IDs
     const subordinateRoles = roles.filter(role =>
-      uniqueSubordinates.includes(role.id)
+      uniqueSubordinates.includes(role.id) && role.name !== 'root_admin'
     );
 
     // Send the subordinate roles array in the response
