@@ -209,11 +209,10 @@ exports.getSubordinateRoles = async (req, res) => {
   try {
     console.log('Getting getSubordinateRoles roles.2.....');
 
-    const user = req.body.roles;
-
-
-    
-    const currentUserRoles =req.body.roles;
+    // Support both req.body.currentUser.roles and req.body.roles
+    const currentUserRoles = req.body.currentUser && req.body.currentUser.roles
+      ? req.body.currentUser.roles
+      : req.body.roles;
 
     console.log('Current User Roles:', currentUserRoles);
 

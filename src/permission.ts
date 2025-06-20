@@ -23,7 +23,7 @@ router.beforeEach(async (to, from, next) => {
   loadStart();
 
   const userInfo = wsCache.get(appStore.getUserInfo);
-  
+  console.log(userInfo)
 
   if (userInfo) {
     if (to.path === '/login') {
@@ -44,6 +44,8 @@ router.beforeEach(async (to, from, next) => {
       }
 
       const roles = userInfo.roles; // Get all roles for the user
+
+ 
         const adminRoles = ['root_admin', 'super_admin', 'admin', 'staff', 'monitoring'];
         const nonAdminRoles = ['grm', 'consultant'];
 

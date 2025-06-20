@@ -533,31 +533,22 @@ export const usePermissionStore = defineStore('permission', {
           const filteredRoutes = routes.filter((route) => {
             // Check if route has 'meta' and if the 'role' and 'locationLevel' match
             if (!route.meta || (!route.meta.role && !route.meta.locationLevel)) return true;
-            
             const matchesRole = route.meta.role ? route.meta.role.includes(type) : true;
             const matchesLocation = route.meta.locationLevel ? route.meta.locationLevel.includes(locationLevel) : true;
-  
             return matchesRole && matchesLocation;
           });
-  
           // Recursively filter the children of each route
           filteredRoutes.forEach((route) => {
             if (route.children) {
               route.children = filterRoutes(route.children);
             }
           });
-  
           return filteredRoutes;
         };
-  
         // Filter routes based on role and location level
         const filteredRoutes = filterRoutes(adminRoutes);
-  
         // Clone the filtered routes to avoid modifying the original routes
         const newRouterMap = cloneDeep(filteredRoutes);
-  
-        console.log("Newly Filtered Routes: ", newRouterMap);
-  
         // Check if this.addRouters is empty (first call) or if it contains already added routes
         if (this.addRouters && this.addRouters.length > 0) {
           // If addRouters already contains routes, merge the new filtered routes with the existing ones
@@ -568,12 +559,8 @@ export const usePermissionStore = defineStore('permission', {
           // If no routes have been added yet, initialize addRouters with new filtered routes
           this.addRouters = newRouterMap;
         }
-  
         // Combine constantRouterMap with the updated set of added routes
         this.routers = cloneDeep(constantRouterMap).concat(this.addRouters);
-  
-        console.log("Combined RouterMap Routes: ", this.routers);
-  
         resolve();
       });
     },

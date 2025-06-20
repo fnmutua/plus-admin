@@ -200,7 +200,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           title: t('Home'),
           noCache: true,
           icon:'ion:home',
-          affix: true,
+          affix: false,
           hidden: true,
 
         }
@@ -1884,8 +1884,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           icon:'ic:round-bubble-chart',
           affix: false,
           hidden: false,
-          role: ['root_admin','super_admin'] 
-
+          role: ['root_admin','super_admin'],
+          permissions: ['roles:manage']
         }
       },
       
@@ -1898,9 +1898,9 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           title: 'Feedback',
           hidden: false,
           icon: 'fluent:person-feedback-48-filled',
-         role: ['root_admin','admin', 'super_admin'  ] ,
+         role: ['root_admin','admin', 'super_admin'],
      locationLevel:['national'],
-
+          permissions: ['feedback:manage']
         }
       }, 
 
@@ -1914,8 +1914,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           hidden: false,
           icon: 'arcticons:auditor',
      //     role: [ 'super_admin'   ] 
-          role: [ 'root_admin','super_admin'  ] 
-
+          role: [ 'root_admin','super_admin'],
+          permissions: ['logs:read']
         }
       }, 
     ]

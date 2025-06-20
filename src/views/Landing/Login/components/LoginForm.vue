@@ -280,6 +280,11 @@ const getRole = async (authenticatedUser) => {
   });
 
   permissionStore.setIsAddRouters(true);
+  // Redirect guest/public users to /dashboard/national
+  if (highestRole === 'public') {
+    push({ path: '/dashboard/national' });
+    return;
+  }
   push({ path: redirect.value || routers[0].path });
 };
 

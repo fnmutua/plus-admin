@@ -37,6 +37,7 @@ import TableActions from '@/views/Components/TableActions.vue';
 
 
 import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
+import PermissionWrapper from '@/components/PermissionWrapper.vue'
 
 const MapBoxToken = 'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg'
 mapboxgl.accessToken = MapBoxToken;
@@ -1856,7 +1857,9 @@ v-model="search_string" clearable :onClear="handleClear"
 
 
           <el-tooltip content="Add Settlement" placement="top">
-            <el-button v-if="showAdminButtons" :onClick="AddSettlement" type="primary" :icon="Plus" />
+            <PermissionWrapper :permissions="'settlement:create'">
+              <el-button v-if="showAdminButtons" :onClick="AddSettlement" type="primary" :icon="Plus" />
+            </PermissionWrapper>
           </el-tooltip>
           
           <el-tooltip content="Clear" placement="top">
@@ -1972,11 +1975,11 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
 
         <el-table-column label="Actions" width="250">
           <template #default="{ row }">
-            <!-- Example 1: Only Edit and Delete buttons -->
-            <TableActions
-:item="row" :buttons="action_buttons" @view-on-map="handleViewOnMap" @edit="handleEdit"
-              @review="Review" @delete="handleDelete" />
-
+            <PermissionWrapper :permissions="['settlement:update', 'settlement:delete']">
+              <TableActions
+                :item="row" :buttons="action_buttons" @view-on-map="handleViewOnMap" @edit="handleEdit"
+                @review="Review" @delete="handleDelete" />
+            </PermissionWrapper>
           </template>
         </el-table-column>
 

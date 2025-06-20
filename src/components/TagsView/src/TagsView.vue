@@ -181,6 +181,9 @@ const moveToTarget = (currentTag: RouteLocationNormalizedLoaded) => {
     const prevTag = tgsRefs[currentIndex - 1] as HTMLElement
     const nextTag = tgsRefs[currentIndex + 1] as HTMLElement
 
+    // Add null checks to prevent errors
+    if (!prevTag || !nextTag || !wrap$) return;
+
     // the tag's offsetLeft after of nextTag
     const afterNextTagOffsetLeft = nextTag.offsetLeft + nextTag.offsetWidth + 4
 
