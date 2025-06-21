@@ -2034,11 +2034,13 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
         <el-button class="drawer-close" icon="el-icon-close" type="text" @click="AddDialogVisible = false" />
       </div>
     </template>
-    <el-steps class="gradient-steps" :active="activeStep" align-center finish-status="success" style="margin:20px 0;">
-      <el-step title="Details" description="Basic chart info" />
-      <el-step title="Chart Settings" description="Configure visualization" />
-      <el-step title="Filters" description="Add data filters" />
-    </el-steps>
+    <div class="steps-wrapper">
+      <el-steps :active="activeStep" align-center finish-status="success">
+        <el-step title="Details" description="Basic chart info" />
+        <el-step title="Chart Settings" description="Configure visualization" />
+        <el-step title="Filters" description="Add data filters" />
+      </el-steps>
+    </div>
 
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="100px" label-position="top">
       <el-row v-if="activeStep == 0" :gutter="20">
@@ -2295,7 +2297,7 @@ v-for="(step, index) in filteredTourSteps" :key="index" :target="step.target" :t
 }
 
 .gradient-steps .el-step__head {
-  background: linear-gradient(135deg, #00c6ff, #005bea) !important;
+  background: linear-gradient(135deg, var(--el-color-primary-dark-2), var(--el-color-primary)) !important;
   color: white !important;
 }
 .gradient-steps .el-step__title {
@@ -2310,8 +2312,8 @@ v-for="(step, index) in filteredTourSteps" :key="index" :target="step.target" :t
   justify-content: space-between;
   align-items: center;
   padding: 16px 24px;
-  background: linear-gradient(135deg, var(--el-color-primary), var(--el-color-primary-light-9));
-  color: white;
+  background: linear-gradient(135deg, var(--el-color-primary-dark-2), var(--el-color-primary)) !important;
+  color: rgb(189, 57, 57);
   position: sticky;
   top: 0;
   z-index: 10;
@@ -2319,9 +2321,11 @@ v-for="(step, index) in filteredTourSteps" :key="index" :target="step.target" :t
 .drawer-title {
   font-size: 20px;
   font-weight: 600;
+  color: white;
 }
 .drawer-close {
   color: white;
+  border-radius: 4px;
 }
 .drawer-close:hover {
   background: rgba(255, 255, 255, 0.1);
@@ -2334,5 +2338,14 @@ v-for="(step, index) in filteredTourSteps" :key="index" :target="step.target" :t
   display: flex;
   justify-content: center;
   align-items: center;
+}
+</style>
+
+<style>
+.steps-wrapper {
+  background: linear-gradient(135deg, var(--el-color-primary), var(--el-color-primary-light-8));
+  padding: 16px;
+  border-radius: 4px;
+  margin: 20px 0;
 }
 </style>
