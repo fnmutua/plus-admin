@@ -33,7 +33,7 @@ import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import xlsx from "json-as-xlsx"
 import DownloadAll from '@/views/Components/DownloadAll.vue'
-import PermissionWrapper from '@/components/PermissionWrapper'
+import PermissionWrapper from '@/components/PermissionWrapper.vue';
 
 import { searchByKeyWord } from '@/api/settlements'
 interface Params {
