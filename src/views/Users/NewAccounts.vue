@@ -932,15 +932,13 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
                       :disabled="userLoadingStates[scope.row.id]"
                       :icon="Edit" />
                   </PermissionWrapper>
-                  <template v-else>
-                    <el-switch
-                      v-model="scope.row.isactive" 
-                      disabled
-                      :icon="Edit" />
-                  </template>
                 </el-dropdown-item>
-
-                <el-dropdown-item />
+                <el-dropdown-item v-else>
+                  <el-switch
+                    v-model="scope.row.isactive" 
+                    disabled
+                    :icon="Edit" />
+                </el-dropdown-item>
                 <PermissionWrapper :permissions="['user:update']">
                   <el-dropdown-item @click="EditUser(scope as TableSlotDefault)" :icon="Position">Edit</el-dropdown-item>
                 </PermissionWrapper>
@@ -960,14 +958,12 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
                   class="my-switch" />
               </el-tooltip>
             </PermissionWrapper>
-            <template v-else>
-              <el-tooltip content="No permission to activate" placement="top">
-                <el-switch
-                  v-model="scope.row.isactive" 
-                  disabled
-                  class="my-switch" />
-              </el-tooltip>
-            </template>
+            <el-tooltip content="No permission to activate" placement="top">
+              <el-switch
+                v-model="scope.row.isactive" 
+                disabled
+                class="my-switch" />
+            </el-tooltip>
             <PermissionWrapper :permissions="['user:update']">
               <el-tooltip content="Edit" placement="top">
                 <ElButton type="primary" :icon="Edit" size="small" @click="EditUser(scope as TableSlotDefault)" circle />
