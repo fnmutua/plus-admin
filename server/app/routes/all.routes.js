@@ -144,5 +144,11 @@ module.exports = function (app) {
   // Add model fields endpoint
   app.post('/api/v1/model/fields', [authJwt.verifyToken], controller.modelBoard)
 
+
+  app.post(
+    "/api/v1/fields/options",   controller.getFieldQUnique
+  );
+
+  
 }
 

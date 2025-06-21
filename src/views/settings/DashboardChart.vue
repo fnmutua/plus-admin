@@ -1,5 +1,6 @@
 <!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
+// @ts-nocheck
 import { useI18n } from '@/hooks/web/useI18n'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
@@ -14,10 +15,10 @@ import {
   Delete
 } from '@element-plus/icons-vue'
 
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import {
   ElPagination, ElTooltip, ElOption, ElDivider, ElSwitch, ElTable, ElTableColumn, ElRow, ElCol, ElTour, ElTourStep,
-  ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElCheckbox, ElPopconfirm, ElCard, ElStep, ElSteps
+  ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElCheckbox, ElPopconfirm, ElCard, ElStep, ElSteps, ElDrawer, ElMessageBox, ElMessage,
 } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
@@ -30,7 +31,6 @@ import { getModelSpecs } from '@/api/fields'
 
 import { getListWithoutGeo } from '@/api/counties'
 import { getUniqueFieldValues } from '@/api/households'
-import { computed, onMounted, watch } from 'vue'
 
 import { Icon } from '@iconify/vue';
 import DownloadAll from '@/views/Components/DownloadAll.vue';
@@ -90,8 +90,8 @@ onMounted(() => {
 
 
 
-let filters = []
-let filterValues = []
+let filters: string[] = []
+let filterValues: any[][] = []
 
 //const showAdminButtons =  ref(appStore.getAdminButtons)
 const showAdminButtons = true
@@ -178,7 +178,7 @@ aggregationOptionsFiltered.value = aggregationOptions
 
 
 
-let tableDataList = ref<UserType[]>([])
+let tableDataList = ref<any[]>([])
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
 
@@ -892,15 +892,39 @@ const ruleForm = reactive({
 
 })
 const handleClose = () => {
-
-  console.log("Clsoing the dialoig")
+  console.log("Closing the dialog")
   showSubmitBtn.value = true
   showEditSaveButton.value = false
-
-
   formHeader.value = 'Add Section'
-
   activeStep.value = 0
+}
+
+const initialFormJson = ref('')
+const isFormDirty = computed(() => JSON.stringify(ruleForm) !== initialFormJson.value)
+watch(AddDialogVisible, (visible) => {
+  if (visible) {
+    initialFormJson.value = JSON.stringify(ruleForm)
+  }
+})
+
+const handleDrawerBeforeClose = (done) => {
+  if (isFormDirty.value) {
+    ElMessageBox.confirm(
+      'You have unsaved changes. Do you really want to discard them and close?',
+      'Unsaved Changes',
+      { type: 'warning' }
+    )
+      .then(() => {
+        handleClose()
+        done()
+      })
+      .catch(() => {
+        // user cancelled, do nothing
+      })
+  } else {
+    handleClose()
+    done()
+  }
 }
 
 
@@ -979,7 +1003,11 @@ const submitForm = async (formEl: FormInstance | undefined) => {
       // }
 
 
-      const res = CreateRecord(ruleForm)
+      CreateRecord(ruleForm).then(() => {
+        ElMessage.success('Chart created');
+        handleClose();
+        AddDialogVisible.value = false;
+      })
 
     } else {
       console.log('error submit!', fields)
@@ -994,7 +1022,11 @@ const editForm = async (formEl: FormInstance | undefined) => {
     if (valid) {
       ruleForm.model = model
 
-      updateOneRecord(ruleForm).then(() => { })
+      updateOneRecord(ruleForm).then(() => {
+        ElMessage.success('Chart saved');
+        handleClose();
+        AddDialogVisible.value = false;
+      })
 
       // dialogFormVisible.value = false
 
@@ -1633,19 +1665,11 @@ const infoDialog = ref(false)
 const tableData = ref([])
 
 const saveFilter = () => {
-
   const nonNullItems = tableData.value.filter(item => item.field !== null && item.operation !== null);
-
-  // Convert the Vue.js proxies to plain JavaScript objects
   const plainObjects = nonNullItems.map(item => JSON.parse(JSON.stringify(item)));
-
   ruleForm.filters = plainObjects;
-
-
+  ElMessage.success('Filters saved');
   console.log('ruleForm', ruleForm)
-
-
-
 }
 
 const onAddItem = () => {
@@ -1800,7 +1824,7 @@ const tourSteps = ref([
     target: '#btn6',
     title: 'Select Entity',
     content: 'Select an entity to summarize.',
-    visible: showStatusExtras
+    visible: ruleForm.category === 'Status'
 
   },
   {
@@ -1808,7 +1832,7 @@ const tourSteps = ref([
     target: '#btn7',
     title: 'Select Field',
     content: 'Select the field to summarize if the category is "Status".',
-    visible: showStatusExtras
+    visible: ruleForm.category === 'Status' && ruleForm.card_model
 
   },
 
@@ -1818,7 +1842,7 @@ const tourSteps = ref([
     target: '#btn8',
     title: 'Indicator',
     content: 'Select the Indicator(s) to summarize',
-    visible: InterventionChart
+    visible: ruleForm.category === 'Intervention'
 
 
   },
@@ -1828,7 +1852,7 @@ const tourSteps = ref([
     target: '#btn9',
     title: 'Categorization',
     content: 'Categorized by selected field',
-    visible: () => showStatusExtras.value && !hideCategorize.value
+    visible: ruleForm.category === 'Status' && ruleForm.card_model && !hideCategorize.value
 
   },
 
@@ -1853,7 +1877,7 @@ const tourSteps = ref([
     target: '#btn12',
     title: 'Select Aggregation',
     content: 'Choose how to aggregate your data.',
-    visible: true
+    visible: ruleForm.category
   },
   // Steps for activeStep 2
 
@@ -1876,9 +1900,6 @@ watch(
   },
   { immediate: true }
 );
-
-
-
 
 </script>
 
@@ -2000,15 +2021,23 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
   </el-card>
 
 
-
-
-
-
-  <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" width="40%">
-    <el-steps :active="activeStep" align-center finish-status="success" style="margin-bottom: 20px;">
-      <el-step title="Details" />
-      <el-step title="Computation" />
-      <el-step title="Filters" />
+  <el-drawer
+    v-model="AddDialogVisible"
+    direction="rtl"
+    size="40%"
+    :with-header="false"
+    :before-close="handleDrawerBeforeClose"
+  >
+    <template #header>
+      <div class="drawer-header">
+        <span class="drawer-title">{{ formHeader }}</span>
+        <el-button class="drawer-close" icon="el-icon-close" type="text" @click="AddDialogVisible = false" />
+      </div>
+    </template>
+    <el-steps class="gradient-steps" :active="activeStep" align-center finish-status="success" style="margin:20px 0;">
+      <el-step title="Details" description="Basic chart info" />
+      <el-step title="Chart Settings" description="Configure visualization" />
+      <el-step title="Filters" description="Add data filters" />
     </el-steps>
 
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="100px" label-position="top">
@@ -2049,7 +2078,7 @@ v-for="item in DashBoardSectionFilterdOptions" :key="item.value" :label="item.la
               <el-option v-for="item in categoryOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
           </el-form-item>
-          <el-form-item id="btn6" label="Entity" v-if="showStatusExtras" prop="card_model">
+          <el-form-item id="btn6" label="Entity" v-if="ruleForm.category === 'Status'" prop="card_model">
             <el-select
 v-model="ruleForm.card_model" :onClear="handleClear" clearable filterable collapse-tags
               :onChange="handleSelectModel" placeholder="Select Entity to summarize" style="width: 100%;">
@@ -2057,7 +2086,7 @@ v-model="ruleForm.card_model" :onClear="handleClear" clearable filterable collap
             </el-select>
           </el-form-item>
 
-          <el-form-item id="btn7" v-if="ruleForm.category == 'Status'" label="Field" prop="card_model_field">
+          <el-form-item id="btn7" v-if="ruleForm.category === 'Status' && ruleForm.card_model" label="Field" prop="card_model_field">
             <el-select
 v-model="ruleForm.card_model_field" :onClear="handleClear" clearable filterable collapse-tags
               placeholder="Field to summarize">
@@ -2066,7 +2095,7 @@ v-model="ruleForm.card_model_field" :onClear="handleClear" clearable filterable 
           </el-form-item>
 
 
-          <el-form-item id="btn8" label="Indicators" v-if="!showStatusExtras" prop="indicator_id">
+          <el-form-item id="btn8" label="Indicators" v-if="ruleForm.category === 'Intervention'" prop="indicator_id">
             <el-select
 v-model="ruleForm.indicator_id" filterable multiple placeholder="Select" collapse-tags
               style="width: 100%;">
@@ -2076,7 +2105,7 @@ v-for="item in IndicatorCategoryOptions" :key="item.value" :label="item.label"
             </el-select>
           </el-form-item>
 
-          <el-form-item id="btn9" v-if="showStatusExtras && !hideCategorize" prop="categorized">
+          <el-form-item id="btn9" v-if="ruleForm.category === 'Status' && ruleForm.card_model && !hideCategorize" prop="categorized">
             <el-checkbox v-model="ruleForm.categorized">Categorized by selected field</el-checkbox>
           </el-form-item>
 
@@ -2086,7 +2115,7 @@ v-for="item in IndicatorCategoryOptions" :key="item.value" :label="item.label"
         </el-col>
 
         <el-col :span="12">
-          <el-form-item id="btn11" label="Chart Type" prop="type">
+          <el-form-item id="btn11" v-if="ruleForm.category" label="Chart Type" prop="type">
             <el-select
 style="width: 100%;" v-model="ruleForm.type" :onClear="handleClear" clearable filterable
               collapse-tags :onChange="handleSelectChart" placeholder="Select Type of Chart">
@@ -2095,7 +2124,7 @@ style="width: 100%;" v-model="ruleForm.type" :onClear="handleClear" clearable fi
           </el-form-item>
 
 
-          <el-form-item id="btn12" label="Aggregation" prop="aggregation">
+          <el-form-item id="btn12" v-if="ruleForm.category" label="Aggregation" prop="aggregation">
             <el-select
 size="default" v-model="ruleForm.aggregation" :onClear="handleClear" clearable filterable
               collapse-tags placeholder="Select">
@@ -2169,7 +2198,7 @@ v-model="scope.row.value" placeholder="Select Value" filterable allow-create mul
               <el-button v-if="ruleForm.filtered" class="mt-4" style="width: 45%" @click="onAddItem" size="small">
                 Add Filter
               </el-button>
-              <el-button v-if="ruleForm.filtered" class="mt-4" style="width: 45%" @click="onAddFilter" size="small">
+              <el-button v-if="ruleForm.filtered" class="mt-4" style="width: 45%" @click="saveFilter" size="small">
                 Save Filters
               </el-button>
             </el-button-group>
@@ -2184,30 +2213,21 @@ v-model="scope.row.value" placeholder="Select Value" filterable allow-create mul
 
     </el-form>
     <template #footer>
-      <span class="dialog-footer">
-        <el-row :gutter="5">
-          <el-col :span="24">
-            <el-tooltip content="Help" placement="top">
-              <el-button color="#626aef" type="info" @click="showTour" :icon="InfoFilled" plain />
-            </el-tooltip>
-
-            <el-button @click="prevStep" :disabled="activeStep === 0">Previous</el-button>
-
-            <el-button @click="nextStep" v-if="activeStep < 2">Next</el-button>
-            <el-button @click="AddDialogVisible = false">Cancel</el-button>
-            <PermissionWrapper :permissions="'dashboard:create'">
-              <el-button v-if="showSubmitBtn && activeStep === 2" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
-            </PermissionWrapper>
-            <PermissionWrapper :permissions="'dashboard:update'">
-              <el-button v-if="showEditSaveButton && activeStep === 2" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
-            </PermissionWrapper>
-          </el-col>
-        </el-row>
-      </span>
+      <div style="padding:12px 20px; border-top:1px solid #ebeef5; text-align:right;">
+        <el-button @click="AddDialogVisible = false">Cancel</el-button>
+        <el-button @click="prevStep" :disabled="activeStep===0" style="margin:0 8px;">Previous</el-button>
+        <el-button @click="nextStep" v-if="activeStep<2" type="primary" style="margin-right:8px;">Next</el-button>
+        <PermissionWrapper :permissions="'dashboard:create'">
+          <el-button v-if="showSubmitBtn&&activeStep===2" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
+        </PermissionWrapper>
+        <PermissionWrapper :permissions="'dashboard:update'">
+          <el-button v-if="showEditSaveButton&&activeStep===2" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
+        </PermissionWrapper>
+      </div>
     </template>
 
 
-  </el-dialog>
+  </el-drawer>
 
 
 
@@ -2272,6 +2292,39 @@ v-for="(step, index) in filteredTourSteps" :key="index" :target="step.target" :t
   font-size: 1.2em;
   font-weight: bold;
   margin-bottom: 10px;
+}
+
+.gradient-steps .el-step__head {
+  background: linear-gradient(135deg, #00c6ff, #005bea) !important;
+  color: white !important;
+}
+.gradient-steps .el-step__title {
+  font-weight: bold;
+  color: #003366;
+}
+.gradient-steps .el-step__description {
+  color: #004c99;
+}
+.drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  background: linear-gradient(135deg, var(--el-color-primary), var(--el-color-primary-light-9));
+  color: white;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.drawer-title {
+  font-size: 20px;
+  font-weight: 600;
+}
+.drawer-close {
+  color: white;
+}
+.drawer-close:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 </style>
 
