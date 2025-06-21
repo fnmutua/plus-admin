@@ -1,915 +1,539 @@
-<!-- eslint-disable prettier/prettier -->
-<!-- eslint-disable vue/no-deprecated-slot-scope-attribute -->
 <script setup lang="ts">
-import { ContentWrap } from '@/components/ContentWrap'
-import { useI18n } from '@/hooks/web/useI18n'
-import { BatchImportUpsert } from '@/api/settlements'
-import { getCountyListApi } from '@/api/counties'
-import { getModelSpecs, getModelRelatives } from '@/api/fields'
-import { postBatchHouseholds } from '@/api/households'
+import { ref, computed } from 'vue';
+import { ElMessage, ElUpload, ElOption, ElSelect, ElTable, ElTableColumn, ElButton, ElCard, ElSteps, ElStep, ElAlert, ElInput, ElNotification } from 'element-plus';
+import { getModelSpecs, getModelRelatives } from '@/api/fields';
+import { BatchImportUpsert } from '@/api/settlements';
+import { postBatchHouseholds } from '@/api/households';
+import { getCountyListApi } from '@/api/counties';
 
-import {
-  ElButton,
-  ElSelect,
-  ElTable,
-  ElIcon,
-  ElTableColumn,
-  ElInput,
-  ElSwitch,
-  ElOption
-} from 'element-plus'
-import { ElUpload } from 'element-plus'
-import {
-  Upload,
-  Tools
-} from '@element-plus/icons-vue'
+import Fuse from 'fuse.js';
+import readXlsxFile from 'read-excel-file';
+import PermissionWrapper from '@/components/PermissionWrapper.vue';
 
-import { ref } from 'vue'
-import { ElDivider } from 'element-plus'
-import { ElMessage, ElMessageBox } from 'element-plus'
-
-import type { UploadProps, UploadUserFile } from 'element-plus'
-import readXlsxFile from 'read-excel-file'
-
-const settlement = ref()
-const settlementOptions = ref([])
-const parentObj = ref([])
-const value_switch = ref(false)
-
-
-//// ------------------parameters -----------------------////
-const model = ref()          // the model 
-const code = ref()  // the parent code as per the imported excel file 
-const parent_key = ref()       // the parent foregin key in the model 
-const parentModel = ref()      // the parent model
-const parent = ref()      // the parent model
-
-
-///---------------------xlsx-
-const file = ref()
-
-
-//// ------------------parameters -----------------------////
-const matchOptions = ref([])
-const uploadObj = ref([])
-const matchedObj = ref([])
-const theParentModel = ref() // default is settlement for projects
-const theParentModelField = ref()
-
-const matchedObjwithparent = ref([])
-const fieldSet = ref([])
-const show = ref(false)
-const showSwitch = ref(false)
-const showSettleementSelect = ref(false)
-const { t } = useI18n()
-const parentOptions = ref([])
-
-
-
-const hh_fields = [
-  {
-    field: 'name',
-    match: ''
-  },
-
-  {
-    field: 'national_id',
-    match: ''
-  },
-  {
-    field: 'gender',
-    match: ''
-  },
-  {
-    field: 'code',
-    match: ''
-  },
-  {
-    field: 'settlement_id',
-    match: ''
-  },
-  {
-    field: 'hh_size_03',
-    match: ''
-  },
-  {
-    field: 'hh_size_414',
-    match: ''
-  },
-  {
-    field: 'hh_size_1520',
-    match: ''
-  },
-  {
-    field: 'hh_size_2125',
-    match: ''
-  },
-  {
-    field: 'hh_size_2655',
-    match: ''
-  },
-  {
-    field: 'hh_size_gt55',
-    match: ''
-  },
-  {
-    field: 'over_80',
-    match: ''
-  }
-
-
-
-
-]
-
-
-
-const parcel_fields = [
-  {
-    field: 'parcel_no',
-    match: ''
-  },
-
-  {
-    field: 'landuse_id',
-    match: ''
-  },
-  {
-    field: 'area_ha',
-    match: ''
-  },
-
-  {
-    field: 'code',
-    match: ''
-  }
-]
-
-
-const interventions_fields = [
-  {
-    field: 'intervention_type_id',
-    match: ''
-  },
-  {
-    field: 'year',
-    match: ''
-  },
-  {
-    field: 'intervention_phase',
-    match: ''
-  },
-  {
-    field: 'settlement_id',
-    match: ''
-  },
-  {
-    field: 'code',
-    match: ''
-  },
-  {
-    field: 'cluster_id',
-    match: ''
-  },
-]
-
-
-const beneficiary_fields = [
-  {
-    field: 'hh_id',
-    match: ''
-  },
-  {
-    field: 'intervention_id',
-    match: ''
-  },
-  {
-    field: 'settlement_id',
-    match: ''
-  },
-
-  {
-    field: 'intervention_phase',
-    match: ''
-  },
-  {
-    field: 'benefit_type_id',
-    match: ''
-  },
-  {
-    field: 'code',
-    match: ''
-  },
-
-
-
-
-]
-
-
-const uploadOptions = [
-  {
-    label: 'Settlement',
-    options: [
-      {
-        value: 'settlement',
-        label: 'Settlements'
-      },
-      {
-        value: 'parcel',
-        label: 'Parcels'
-      },
-      {
-        value: 'project',
-        label: 'Projects'
-      },
-      {
-        value: 'intervention',
-        label: 'Interventions'
-      }
-    ]
-  },
-  {
-    label: 'Households',
-    options: [
-      {
-        value: 'households',
-        label: 'Households'
-      },
-      {
-        value: 'beneficiary',
-        label: 'Beneficiaries'
-      },
-      {
-        value: 'beneficiary_parcel',
-        label: 'Parcel Owners'
-      }
-    ]
-  },
-  {
-    label: 'Facilities',
-    options: [
-      {
-        value: 'health_facility',
-        label: 'Health Facilities'
-      },
-      {
-        value: 'road',
-        label: 'Roads'
-      },
-      {
-        value: 'path',
-        label: 'Paths'
-      }
-    ]
-  },
-  {
-    label: 'Indicators',
-    options: [
-      {
-        value: 'category',
-        label: 'Categories'
-      },
-      {
-        value: 'indicator',
-        label: 'Indicators'
-      },
-      {
-        value: 'indicator_category',
-        label: 'Indicator Configurations'
-      },
-    ]
-  }
-]
-
-function toTitleCase(str) {
-  return str.replace(
-    /\w\S*/g,
-    function (txt) {
-      return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
-    }
-  );
-}
-const getModeldefinition = async (selModel) => {
-
-  console.log(selModel)
-  var formData = {}
-  formData.model = selModel
-  console.log("gettign fields")
-
-
-  await getModelSpecs(formData).then((response) => {
-
-    var data = response.data
-
-    var fields = data.filter(function (obj) {
-      return (obj.field !== 'id');
-    });
-
-    var fields2 = fields.filter(function (obj) {
-      return (obj.field !== 'geom');
-    });
-
-    console.log("fields:", fields2)
-    //health_facility_fields.value = response.data
-    fieldSet.value = fields2
-  })
-
-  await getModelRelatives(formData).then((response) => {
-    console.log(response)
-    response.models.forEach(function (relative) {
-      var parentOpt = {}
-      parentOpt.value = relative.model
-      parentOpt.label = toTitleCase(relative.model)
-      parentOpt.key = relative.key
-
-      parentOptions.value.push(parentOpt)
-    })
-
-    //parentKeys.value.push(response.keys)
-
-    // console.log("keys---->", parentKeys.value)
-  })
-
+// Type definitions
+interface ExcelRow {
+  [key: string]: any;
 }
 
-
-const getParentOptions = async () => {
-
-  console.log("parent --Model", theParentModel.value)
-
-  await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: theParentModel.value,
-      searchField: 'name',
-      assocModel: '',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-
-    //tableDataList.value = response.data
-    const ret = response.data
-    console.log('Received response:', ret)
-
-
-    parentObj.value = ret.map(elem => {
-      elem[parent_key.value] = elem.id    // add the parent_key as is representd on the child 
-      elem['parent_code'] = elem.code     // add the parent  as is representd on the child 
-      return elem;
-    });
-
-
-
-    console.log('Received 3:', parentObj.value)
-
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var settOpt = {}
-      settOpt.value = arrayItem.id
-      settOpt.label = arrayItem.name  
-      //  console.log(countyOpt)
-      settlementOptions.value.push(settOpt)
-    })
-
-    console.log('Options', settlementOptions)
-  })
+interface FieldMapping {
+  excelField: string;
+  dbField: string;
 }
 
-
-
-const handleSelectType = async (type: any) => {
-  type = type
-  console.log('Selected.....>', type)
-  parentOptions.value = []
-  getModeldefinition(type)
-
-  if (type != 'settlement' && !value_switch.value) {
-    showSettleementSelect.value = true
-    showSwitch.value = true
-  } else {
-    showSettleementSelect.value = false
-    showSwitch.value = false
-
-  }
-
-
-  if (type === 'settlement') {
-    model.value = 'settlement'
-    parentModel.value = 'county'
-    parent_key.value = 'county_id'
-    code.value = 'county_code'
-    // fieldSet.value = settlement_fields
-    // getParentOptions()
-
-    console.log('settlements------>', type)
-  } else if (type === 'parcel') {
-
-    model.value = 'parcel'
-    parentModel.value = 'settlement'
-    parent_key.value = 'settlement_id'
-    code.value = 'pcode'
-    // fieldSet.value = settlement_fields
-    //  getParentOptions()
-
-
-    //fieldSet.value = parcel_fields
-    console.log('parcel------>', parcel_fields)
-
-  }
-  else if (type === 'households') {
-    model.value = 'households'
-    parentModel.value = 'settlement'
-    parent_key.value = 'settlement_id'
-    code.value = 'pcode'
-    //getParentOptions()
-    // fieldSet.value = hh_fields
-    console.log('households------>', hh_fields)
-
-  }
-
-  else if (type === 'beneficiary') {
-    // fieldSet.value = beneficiary_fields
-    console.log('beneficiary_fields------>', beneficiary_fields)
-    model.value = 'beneficiary'
-    parentModel.value = 'households'
-    parent_key.value = 'hh_id'
-
-    code.value = 'pcode'
-    //assocModel.value = 'settlement'
-    //   getParentOptions()
-  }
-
-
-
-  else if (type === 'intervention') {
-    //fieldSet.value = interventions_fields
-    model.value = 'intervention'
-    parentModel.value = 'settlement'
-    parent_key.value = 'settlement_id'
-    code.value = 'pcode'
-    console.log('interventions_fields------>', interventions_fields)
-    //   getParentOptions()
-  }
-
-
-  else if (type === 'project') {
-    //fieldSet.value = interventions_fields
-    model.value = 'project'
-    parentModel.value = theParentModel.value
-    parent_key.value = theParentModelField.value
-    code.value = 'pcode'
-    //  getParentOptions()
-  }
-
-
-  else if (type === 'beneficiary_parcel') {
-    // fieldSet.value = beneficiary_parcels
-    model.value = 'beneficiary_parcel'
-    parentModel.value = 'beneficiary'
-    parent_key.value = 'beneficiary_id'
-    code.value = 'pcode'
-    console.log('beneficiary_parcels------>', interventions_fields)
-    //   getParentOptions()
-  }
-
-
-
-  else if (type === 'health_facility') {
-    // fieldSet.value = beneficiary_parcels
-    model.value = 'health_facility'
-    parentModel.value = 'settlement'
-    parent_key.value = 'settlement_id'
-    code.value = 'pcode'
-    console.log('health_facility------>', interventions_fields)
-    // getParentOptions()
-  }
-
-  else if (type === 'category') {
-    model.value = 'category'
-    code.value = 'code'
-  }
-
-
-  else if (type === 'indicator') {
-    model.value = 'indicator'
-    code.value = 'code'
-  }
-
-
-
-
-
-
-}
-
-
-const handleMutlipleSettlements = async () => {
-
-  console.log(value_switch)
-  showSettleementSelect.value = !value_switch.value
-
-}
-
-
-
-const handleProcess = async () => {
-  console.log('upload--->', matchedObjwithparent.value)
-  for (let i = 0; i < matchedObjwithparent.value.length; i++) {
-
-    let feature = matchedObjwithparent.value[i]
-    let conv_feature = {}
-    for (var prop in feature) {
-      var matched_field = fieldSet.value.filter((obj) => {
-        // console.log('+++++', obj)
-        return obj.match === prop
-      })
-      //  console.log(i, matched_field)
-      if (matched_field.length > 0) {
-        conv_feature[matched_field[0].field] = feature[prop]  // Assign Field Vlue 
-      }
-
-      //console.log(conv_feature)
-    }
-    matchedObj.value.push(conv_feature)
-  }
-  console.log('processed:', matchedObj)
-
-
-  // ************** prepare data to server ***************** //
-
-  var formData = {}
-  formData.model = model.value
-  formData.data = matchedObj.value
-
-
-  console.log("importData--->", formData)
-
-
-  // ************** Send data to server ***************** //
-  if (model.value == 'households') {
-    await postBatchHouseholds(formData)
-      .catch((error) => {
-        console.log('Error------>', error.response.data.message)
-        ElMessage.error(error.response.data.message)
-      })
-
-  } else {
-
-    await BatchImportUpsert(formData)
-      .catch((error) => {
-        console.log('Error------>', error.response.data.message)
-        ElMessage.error(error.response.data.message)
-      })
-
-  }
-
-
-
-
-}
-
-
-const makeOptions = (list) => {
-  for (let i = 0; i < list.length; i++) {
-    var opt = {}
-    opt.value = list[i]
-    opt.label = list[i]
-    matchOptions.value.push(opt)
-  }
-}
-
-const handleClear = async () => {
-  console.log('cleared....')
-  settlement.value = ''
-  // clear all the fileters -------
-}
-
-const handleSelectSettlement = async (settlement: any) => {
-  settlement = settlement
-
-}
-
-
-
-
-
-
-
-
-const fileList = ref<UploadUserFile[]>([])
-
-const handleRemove: UploadProps['onRemove'] = (file, uploadFiles) => {
-  console.log(file, uploadFiles)
-  show.value = false
-  uploadObj.value = []
-  matchedObj.value = []
-  fieldSet.value = []
-
-}
-
-const handlePreview: UploadProps['onPreview'] = (uploadFile) => {
-  console.log(uploadFile)
-}
-
-const handleExceed: UploadProps['onExceed'] = (files, uploadFiles) => {
-  ElMessage.warning(
-    `The limit is 1, you selected ${files.length} files this time, add up to ${files.length + uploadFiles.length
-    } totally`
+// Constants
+const TABLE_OPTIONS = [
+  { label: 'Projects', value: 'project' },
+  { label: 'Settlements', value: 'settlement' },
+  { label: 'Parcels', value: 'parcel' },
+  { label: 'Structures', value: 'structure' },
+  { label: 'Roads', value: 'road' },
+  { label: 'Road Assets', value: 'road_asset' },
+  { label: 'Sewer', value: 'sewer' },
+  { label: 'Piped Water', value: 'piped_water' },
+  { label: 'Health Facility', value: 'health_facility' },
+  { label: 'School', value: 'education_facility' },
+  { label: 'Water Point', value: 'water_point' },
+  { label: 'Police Station', value: 'police_station' },
+  { label: 'Crime Hotspots', value: 'crime_hotspot' },
+  { label: 'Floodlights', value: 'floodlight' },
+  { label: 'Railway', value: 'railway' },
+  { label: 'Powerline', value: 'powerline' },
+  { label: 'Hazard Zones', value: 'hazard_zone' },
+  { label: 'Community Hall', value: 'community_hall' },
+  { label: 'Community Project', value: 'community_project' },
+  { label: 'Telcom Mast', value: 'mast' },
+  { label: 'Streetlight', value: 'street_light' },
+  { label: 'Dumping', value: 'dumping_site' },
+  { label: 'Households', value: 'households' },
+  { label: 'Beneficiaries', value: 'beneficiary' },
+  { label: 'Parcel Owners', value: 'beneficiary_parcel' },
+  { label: 'Interventions', value: 'intervention' },
+  { label: 'Categories', value: 'category' },
+  { label: 'Indicators', value: 'indicator' },
+  { label: 'Indicator Configurations', value: 'indicator_category' },
+];
+
+const MODEL_MAPPINGS = {
+  settlement: 'ward',
+  default: 'settlement',
+};
+
+// State
+const step = ref(0);
+const excelData = ref<ExcelRow[]>([]);
+const excelFields = ref<string[]>([]);
+const targetTable = ref('');
+const dbFields = ref<string[]>([]);
+const fieldMappings = ref<FieldMapping[]>([]);
+const remappedData = ref<ExcelRow[]>([]);
+const importing = ref(false);
+const usedDbFields = ref<Set<string>>(new Set());
+const loading = ref({
+  upload: false,
+  appendParent: false,
+  import: false,
+});
+const fieldSearch = ref('');
+const previewCount = ref(1);
+
+// Computed properties
+const filteredFieldMappings = computed(() =>
+  fieldMappings.value.filter((mapping) =>
+    mapping.excelField.toLowerCase().includes(fieldSearch.value.toLowerCase())
   )
-}
+);
 
-const beforeRemove: UploadProps['beforeRemove'] = (uploadFile) => {
-  return ElMessageBox.confirm(`Cancel the transfert of ${uploadFile.name} ?`).then(
-    () => true,
-    () => false
-  )
-}
-
-const submitFiles = async () => {
-  console.log('on Submit....', fileList.value.length)
-  if (fileList.value.length == 0) {
-    ElMessage.error('Select a  File first!')
-  } else {
-    var rfile = fileList.value[0].raw
-
-    console.log("File type", rfile.name.split('.').pop())
-
-    let reader = new FileReader()
-
-    let ftype = rfile.name.split('.').pop()
-    if (ftype == 'json') {
-      console.log('------Json----')
-      reader.onload = readJson
-    } else if (ftype == 'xlsx') {
-
-      reader.onload = readXLSX(rfile)
-    }
-
-
-    else {
-      console.log('------csv----')
-
-      reader.onload = readCsv
-
-
-    }
-
-
-    reader.readAsText(rfile)
-  }
-}
-
-const readJson = (event) => {
-  let str = event.target.result
-  //console.log("file type", str)
-  let json = JSON.parse(str)
-
-  console.log('json', json)
-
-  const fields = Object.keys(json[0]) //  get all proterit4s of the first feature
-  console.log("fields-->", fields)
-  makeOptions(fields)
-  uploadObj.value.push(json) // Push to the temporary holder
-  show.value = true
-
-  if (value_switch.value) {
-    console.log("=====Multiple settlemes")
-    fieldSet.value.push({ field: 'settlement_id', match: '' })
-
-  }
-}
-
-const readCsv = (event) => {
-  let str = event.target.result
-
-  const lines = str.split('\n') // 1️⃣
-  const header = lines[0].split(',') // 2️⃣
-  const csv = lines.slice(1).map(line => {
-    const fields = line.split(',') // 3️⃣
-    return Object.fromEntries(header.map((h, i) => [h, fields[i]])) // 4️⃣
-  })
-
-
-
-  const fields = Object.keys(csv[0]) //  get all proterit4s of the first feature
-  console.log("fields-->", fields)
-  makeOptions(fields)
-
-  var newArray = csv.filter((obj) => { return obj.name !== '' }) // remove any empty rows
-  var newArray = newArray.filter((obj) => { return obj.name !== 'name' })  // remove header row 
-
-
-
-  for (let j = 1; j < newArray.length; j++) {
-    uploadObj.value.push(newArray[j]) // Push each record to the temporary holder
-
-
+/**
+ * Handles file upload (CSV or XLSX) and validation.
+ * @param uploadFile - The uploaded file object
+ */
+const handleFileUpload = async (uploadFile: any) => {
+  const file = uploadFile.raw || uploadFile.file;
+  if (!file) {
+    ElMessage.error('Invalid file');
+    return;
   }
 
+  // Reset state
+  excelData.value = [];
+  excelFields.value = [];
+  targetTable.value = '';
+  dbFields.value = [];
+  fieldMappings.value = [];
+  remappedData.value = [];
+  importing.value = false;
+  usedDbFields.value.clear();
+  step.value = 0;
+  loading.value.upload = true;
 
-  show.value = true
-  console.log('csv----newr--->', newArray)
+  try {
+    const fileExtension = file.name.split('.').pop()?.toLowerCase();
+    console.log(`Uploading file: ${file.name} (Extension: ${fileExtension})`);
 
-
-  if (value_switch.value) {
-    console.log("=====Multiple settleemtns")
-    fieldSet.value.push({ field: 'settlement_id', match: '' })
-
-  }
-}
-
-const readXLSX = async (event) => {
-  console.log('on file change.......', event)
-  //file.value = event.target.files ? event.target.files[0] : null;   // Direct upload 
-  file.value = event   // called from the uplaod funtion 
-
-  console.log('The file---->', file)
-
-  readXlsxFile(file.value).then((rows) => {
-    const fields = Object.values(rows[0]) //  get all proterit4s of the first feature
-    console.log("fields-->", fields)
-
-
-    for (let j = 1; j < rows.length; j++) {
-      var record = {}
-      for (let i = 0; i < fields.length; i++) {
-        var f = fields[i]
-        var v = rows[j][i]
-        record[f] = v
-        //  console.log(record)
+    if (fileExtension === 'xlsx' || fileExtension === 'xls') {
+      ElMessage.info('Processing Excel file...');
+      const rows = await readXlsxFile(file);
+      
+      if (!rows || rows.length < 2) {
+        throw new Error('Excel file must have at least a header row and one data row');
       }
 
-      uploadObj.value.push(record) // Push to the temporary holder
-    }  // remove header row
+      const headers = rows[0] as string[];
+      const dataRows = rows.slice(1) as any[][];
 
-    console.log('rows-uploadObj------>', uploadObj)
-    console.log('rows-parentObj------>', parentObj)
-
-
-    if (parentObj.value.length > 0) {
-      console.log("Those nested... with parents")
-
-      for (let i = 0; i < uploadObj.value.length; i++) {
-        console.log('------------>', i, uploadObj.value[i])
-        var thisFeature = uploadObj.value[i]
-        // console.log('------matchedObj------>', i, thisFeature)
-        var filterParent = parentObj.value.filter(function (el) {
-          return el['code'] === uploadObj.value[i][code.value]
+      excelFields.value = headers;
+      excelData.value = dataRows.map(row => {
+        const obj: ExcelRow = {};
+        headers.forEach((header, index) => {
+          obj[header] = row[index] || '';
         });
-        // here we add a prefix to the parent detaisl to avoid confusion 
-        //let pre = `parent_`;
-        let pre = theParentModel.value + '_'
-        let pfeature = Object.keys(filterParent[0]).reduce((a, c) => (a[`${pre}${c}`] = filterParent[0][c], a), {});
-        const mergedFeature = { ...thisFeature, ...pfeature }; //  merge the feature with the parent details 
-        console.log("merged fearture", mergedFeature)
-        matchedObjwithparent.value.push(mergedFeature)
+        return obj;
+      });
+
+      ElMessage.success(`Excel file loaded successfully! ${excelData.value.length} rows found.`);
+    } else if (fileExtension === 'csv') {
+      ElMessage.info('Processing CSV file...');
+      const text = await file.text();
+      const lines = text.split('\n').filter(line => line.trim());
+      
+      if (lines.length < 2) {
+        throw new Error('CSV file must have at least a header row and one data row');
       }
 
-      console.log('children', matchedObjwithparent.value)
-      const mergedfields = (Object.getOwnPropertyNames(matchedObjwithparent.value[0]));  // get properties from first row
+      const headers = lines[0].split(',').map(h => h.trim());
+      const dataRows = lines.slice(1).map(line => {
+        const values = line.split(',').map(v => v.trim());
+        const obj: ExcelRow = {};
+        headers.forEach((header, index) => {
+          obj[header] = values[index] || '';
+        });
+        return obj;
+      });
 
-      makeOptions(mergedfields)
+      excelFields.value = headers;
+      excelData.value = dataRows;
 
+      ElMessage.success(`CSV file loaded successfully! ${excelData.value.length} rows found.`);
     } else {
-      console.log("Those without parents")
-
-      for (let i = 0; i < uploadObj.value.length; i++) {
-        console.log('------without------>', i, uploadObj.value[i])
-        var thisFeature = uploadObj.value[i]
-
-        matchedObjwithparent.value.push(thisFeature)
-      }
-
-
-
-
-      const withoutParentFields = (Object.getOwnPropertyNames(uploadObj.value[0]));  // get properties from first row
-
-      makeOptions(withoutParentFields)
-
+      throw new Error('Unsupported file type. Please upload a .csv, .xlsx, or .xls file.');
     }
 
-    show.value = true
-
-  })
-
-
-}
-
-
-
-
-const handleSelectParentModel = async (parent: any) => {
-
-  var filtered = parentOptions.value.filter(function (item) {
-    return item.value === parent;
+    step.value = 1;
+  } catch (err) {
+    console.error('File upload error:', err);
+    ElMessage.error(err instanceof Error ? err.message : 'Error processing file');
+  } finally {
+    loading.value.upload = false;
   }
+};
+
+/**
+ * Fetches model fields from the API and generates fuzzy field mappings.
+ * @param selModel - Selected model (e.g., 'settlement')
+ */
+const getModelDefinition = async (selModel: string) => {
+  const formData = { model: selModel };
+  loading.value.appendParent = true;
+  try {
+    const response = await getModelSpecs(formData);
+    const data = response.data;
+
+    const fields = data
+      .filter((obj: any) => obj.field !== 'id' && obj.field !== 'geom')
+      .map((obj: any) => obj.field);
+
+    if (selModel === 'project') {
+      fields.push('activities');
+    }
+
+    dbFields.value = fields;
+    generateFuzzyMappings();
+    step.value++;
+  } catch (err) {
+    console.error('Model definition error:', err);
+    ElMessage.error('Error fetching model specs');
+  } finally {
+    loading.value.appendParent = false;
+  }
+};
+
+/**
+ * Generates fuzzy mappings between Excel fields and database fields.
+ */
+const generateFuzzyMappings = () => {
+  const fuse = new Fuse(dbFields.value, { includeScore: true, threshold: 0.5 });
+  const matches: Record<string, { excelField: string; dbField: string; score: number }> = {};
+
+  excelFields.value.forEach((excelField) => {
+    const result = fuse.search(excelField);
+    if (result.length > 0 && result[0].score !== undefined) {
+      const bestMatch = result[0];
+      const existing = matches[bestMatch.item];
+      if (!existing || (bestMatch.score && bestMatch.score < existing.score)) {
+        matches[bestMatch.item] = {
+          excelField,
+          dbField: bestMatch.item,
+          score: bestMatch.score || 0,
+        };
+      }
+    }
+  });
+
+  fieldMappings.value = excelFields.value.map((excelField) => {
+    const match = Object.values(matches).find((m) => m.excelField === excelField);
+    return {
+      excelField,
+      dbField: match ? match.dbField : '',
+    };
+  });
+
+  usedDbFields.value = new Set(fieldMappings.value.map((m) => m.dbField).filter(Boolean));
+};
+
+/**
+ * Checks if a database field is already mapped to another Excel field.
+ * @param field - Database field to check
+ * @param currentExcelField - Current Excel field being mapped
+ * @returns True if the field is taken
+ */
+const isFieldTaken = (field: string, currentExcelField: string) => {
+  return fieldMappings.value.some(
+    (item) => item.dbField === field && item.excelField !== currentExcelField
+  );
+};
+
+/**
+ * Remaps Excel data based on field mappings.
+ */
+const remapExcelData = () => {
+  if (!excelData.value.length) return;
+
+  const fieldMap: Record<string, string> = Object.fromEntries(
+    fieldMappings.value.map(({ excelField, dbField }) => [excelField, dbField])
   );
 
-  console.log('newArray', filtered[0].key)
+  remappedData.value = excelData.value.map((row) => {
+    const newRow: ExcelRow = {};
+    for (const key in row) {
+      const mappedKey = fieldMap[key];
+      if (mappedKey) {
+        newRow[mappedKey] = row[key];
+      }
+    }
+    return newRow;
+  });
+};
 
-  theParentModel.value = parent
-  theParentModelField.value = filtered[0].key
-  // if (parent === 'county') {
-  //   theParentModelField.value = "county_id"
+/**
+ * Imports the remapped Excel data to the database.
+ */
+const importExcelData = async () => {
+  if (!remappedData.value.length) return;
 
-  // }
-  // else if (parent === 'settlement') {
-  //   theParentModelField.value = "settlement_id"
-  // }
+  loading.value.import = true;
 
-  // console.log(theParentModel.value)
-  // console.log(theParentModelField.value)
+  try {
+    const formData = {
+      model: targetTable.value,
+      data: remappedData.value,
+    };
 
-  getParentOptions()
-}
+    let response;
+    if (targetTable.value === 'households') {
+      response = await postBatchHouseholds(formData);
+    } else {
+      response = await BatchImportUpsert(formData);
+    }
 
+    const resData = response.data || response;
+
+    console.log('Import response:', resData);
+
+    if (Array.isArray(resData.errors) && resData.errors.length > 0) {
+      const errorDetails = resData.errors.map((err: any, index: number) => {
+        const rowIndex = err.index ?? index;
+        const reason = err.detail ?? 'Unknown error';
+        return `Row ${rowIndex + 1}: ${reason}`;
+      }).join('<br>');
+
+      ElNotification({
+        title: 'Import Completed with Errors',
+        message: `
+          <div style="max-height: 65vh; overflow-y: auto; font-size: 13px; line-height: 1.4;">
+            Failed to import ${resData.failedCount} of ${remappedData.value.length} rows:<br>
+            ${errorDetails}
+          </div>
+        `,
+        type: 'error',
+        duration: 0,
+        dangerouslyUseHTMLString: true,
+      });
+
+      return;
+    }
+
+    if (resData.failedCount > 0) {
+      ElMessage.warning(`Imported ${remappedData.value.length - resData.failedCount} of ${remappedData.value.length} rows successfully, but ${resData.failedCount} failed. Check logs for details.`);
+    } else {
+      ElMessage.success(`Excel data imported successfully! ${remappedData.value.length} rows imported.`);
+    }
+
+  } catch (err) {
+    console.error('Import error:', err);
+    ElNotification({
+      title: 'Import Error',
+      message: err instanceof Error ? err.message : 'Error importing Excel data. Please check the data and try again.',
+      type: 'error',
+      duration: 0,
+    });
+  } finally {
+    loading.value.import = false;
+  }
+};
+
+/**
+ * Handles navigation between steps and triggers import.
+ */
+const handleNextStep = async () => {
+  if (step.value === 2) {
+    remapExcelData();
+  }
+  if (step.value === 3) {
+    await importExcelData();
+  } else {
+    step.value++;
+  }
+};
+
+const handleReset = () => {
+  step.value = 0;
+  excelData.value = [];
+  excelFields.value = [];
+  targetTable.value = '';
+  dbFields.value = [];
+  fieldMappings.value = [];
+  remappedData.value = [];
+  usedDbFields.value.clear();
+  fieldSearch.value = '';
+  previewCount.value = 1;
+};
 </script>
 
 <template>
-  <ContentWrap :title="t('Upload Excel Data')" :message="t('Ensure you have column codes ')">
-    <el-divider border-style="dashed" content-position="left">Data</el-divider>
+  <el-card>
+    <el-steps
+      :active="step"
+      finish-status="success"
+      align-center
+      aria-label="Excel import steps"
+    >
+      <el-step title="Upload File" aria-label="Step 1: Upload CSV or Excel file" />
+      <el-step title="Select Target Table" aria-label="Step 2: Select target table" />
+      <el-step title="Match Fields" aria-label="Step 3: Match fields to database fields" />
+      <el-step title="Review & Import" aria-label="Step 4: Review and import data" />
+    </el-steps>
 
-    <div style="display: inline-block; margin-left: 20px">
-      <el-select v-model="type" :onChange="handleSelectType" :onClear="handleClear" placeholder="Select data to import">
-        <el-option-group v-for="group in uploadOptions" :key="group.label" :label="group.label">
-          <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
-        </el-option-group>
-      </el-select>
+    <!-- Step 0: Upload File -->
+    <div v-if="step === 0" class="mt-4">
+      <PermissionWrapper :permissions="['settlement:create',  'project:create', 'parcel:create', 'structure:create', 'road:create', 'road_asset:create', 'sewer:create', 'piped_water:create', 'health_facility:create', 'education_facility:create', 'water_point:create', 'police_station:create', 'crime_hotspot:create', 'floodlight:create', 'railway:create', 'powerline:create', 'hazard_zone:create', 'community_hall:create', 'community_project:create', 'mast:create', 'street_light:create', 'dumping_site:create', 'households:create', 'beneficiary:create', 'beneficiary_parcel:create', 'intervention:create', 'category:create', 'indicator:create', 'indicator_category:create']">
+        <el-upload
+          action=""
+          :auto-upload="false"
+          :show-file-list="true"
+          :on-change="handleFileUpload"
+          :limit="1"
+          accept=".csv,.xlsx,.xls"
+          aria-label="Upload CSV or Excel file"
+        >
+          <el-button type="primary" :loading="loading.upload">Upload File</el-button>
+        </el-upload>
+      </PermissionWrapper>
+      <p class="text-sm text-gray-500 mt-2">Supported formats: .csv, .xlsx, .xls</p>
+    </div>
 
+    <!-- Step 1: Select Target Table -->
+    <div v-if="step === 1" class="mt-4">
       <el-select
-v-model="parent" :onChange="handleSelectParentModel" :onClear="handleClear"
-        placeholder="Select Parent Model">
-        <el-option v-for="item in parentOptions" :key="item.value" :label="item.label" :value="item.value" />
+        v-model="targetTable"
+        filterable
+        clearable
+        placeholder="Select destination table"
+        @change="getModelDefinition"
+        aria-label="Select destination table"
+        :disabled="loading.appendParent"
+      >
+        <el-option
+          v-for="table in TABLE_OPTIONS"
+          :key="table.value"
+          :label="table.label"
+          :value="table.value"
+        />
       </el-select>
     </div>
 
-
-    <div style="display: inline-block; margin-left: 20px">
-      <el-switch
-v-model="value_switch" v-if="showSwitch" size="large" @click="handleMutlipleSettlements"
-        active-text="Multiple Settlements" />
-
+    <!-- Step 2: Match Fields -->
+    <div v-if="step === 2" class="mt-4">
+      <el-input
+        v-model="fieldSearch"
+        placeholder="Search fields"
+        clearable
+        filterable
+        class="mb-2"
+        aria-label="Search fields"
+      />
+      <div class="max-h-[60vh] overflow-auto border rounded bg-gray-50 p-2">
+        <el-table :data="filteredFieldMappings" style="width: 100%">
+          <el-table-column prop="excelField" label="Source Field" />
+          <el-table-column label="Matched DB Field">
+            <template #default="{ row }">
+              <el-select
+                v-model="row.dbField"
+                clearable
+                filterable
+                placeholder="Select DB Field"
+                aria-label="Select database field for mapping"
+              >
+                <el-option
+                  v-for="field in dbFields"
+                  :key="field"
+                  :label="field"
+                  :value="field"
+                  :disabled="isFieldTaken(field, row.excelField)"
+                />
+              </el-select>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
     </div>
 
-
-    <div style="display: inline-block; margin-left: 20px">
+    <!-- Step 3: Review & Import -->
+    <div v-if="step === 3" class="mt-4">
+      <el-alert
+        title="Ready to import. Below is the remapped sample data."
+        type="success"
+        aria-label="Import ready"
+      />
       <el-select
-v-if="showSettleementSelect" v-model="settlement" :onChange="handleSelectSettlement"
-        :onClear="handleClear" clearable filterable collapse-tags placeholder="Filter by Settlement">
-        <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
+        v-model="previewCount"
+        placeholder="Select number of records to preview"
+        class="mt-2"
+        aria-label="Select number of records to preview"
+      >
+        <el-option label="1" :value="1" />
+        <el-option label="5" :value="5" />
+        <el-option label="10" :value="10" />
       </el-select>
+      <div
+        v-if="remappedData && remappedData.length"
+        class="mt-2 max-h-60 overflow-auto border rounded bg-gray-50 p-2"
+      >
+        <pre class="text-sm whitespace-pre-wrap">
+          {{ JSON.stringify(remappedData.slice(0, previewCount), null, 2) }}
+        </pre>
+      </div>
     </div>
 
+    <!-- Navigation -->
+    <div class="mt-4 flex justify-between items-center">
+      <!-- Left side -->
+      <div>
+        <el-button
+          :disabled="step === 0 || loading.appendParent || loading.import"
+          @click="step--"
+          aria-label="Go to previous step"
+        >
+          Back
+        </el-button>
+      </div>
 
+      <!-- Right side -->
+      <div class="flex items-center gap-2">
+        <el-button
+          v-if="step === 3"
+          type="warning"
+          plain
+          @click="handleReset"
+          aria-label="Reset"
+        >
+          Reset
+        </el-button>
 
-    <el-divider border-style="dashed" content-position="left">Upload</el-divider>
-    <el-upload
-class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
-      v-model:file-list="fileList" :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove"
-      :limit="1" :on-exceed="handleExceed" :auto-upload="false">
-      <div class="el-upload__text"> Drop file here or <em>click to upload</em> </div>
-    </el-upload>
-
-    <el-button class="mt-4" style="width: 100%" @click="submitFiles" type="primary">
-      Upload<el-icon class="el-icon--right">
-        <Upload />
-      </el-icon>
-    </el-button>
-    <el-table size="small" v-if="show" :data="fieldSet" stripe="stripe">
-      <el-table-column prop="column" label="Field">
-        <template #default="scope">
-          <el-input v-model="scope.row.field" controls-position="left" disabled />
-        </template>
-      </el-table-column>
-      <el-table-column prop="match" label="Match">
-        <template #default="scope">
-          <el-select v-model="scope.row.match" filterable placeholder="Select">
-            <el-option v-for="item in matchOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </template>
-      </el-table-column>
-    </el-table>
-    <el-button v-if="show" class="mt-4" style="width: 100%" @click="handleProcess" type="link">
-      Process<el-icon class="el-icon--right">
-        <Tools />
-      </el-icon>
-    </el-button>
-
-
-  </ContentWrap>
+        <PermissionWrapper :permissions="['settlement:create', 'project:create', 'parcel:create', 'structure:create', 'road:create', 'road_asset:create', 'sewer:create', 'piped_water:create', 'health_facility:create', 'education_facility:create', 'water_point:create', 'police_station:create', 'crime_hotspot:create', 'floodlight:create', 'railway:create', 'powerline:create', 'hazard_zone:create', 'community_hall:create', 'community_project:create', 'mast:create', 'street_light:create', 'dumping_site:create', 'households:create', 'beneficiary:create', 'beneficiary_parcel:create', 'intervention:create', 'category:create', 'indicator:create', 'indicator_category:create']">
+          <el-button
+            type="primary"
+            :loading="importing || loading.appendParent || loading.import"
+            @click="handleNextStep"
+            aria-label="Proceed to next step or import"
+          >
+            {{ step === 3 ? 'Import' : 'Next' }}
+          </el-button>
+        </PermissionWrapper>
+      </div>
+    </div>
+  </el-card>
 </template>
 
 <style scoped>
-.my-header {
+.mt-2 {
+  margin-top: 0.5rem;
+}
+.mt-4 {
+  margin-top: 1rem;
+}
+.mb-2 {
+  margin-bottom: 0.5rem;
+}
+.flex {
   display: flex;
-  flex-direction: row;
+}
+.justify-between {
   justify-content: space-between;
 }
-</style>
-
-.custom-icon { font-size: 2rem; }
+.text-sm {
+  font-size: 0.875rem;
+}
+.text-gray-500 {
+  color: #6b7280;
+}
+</style> 

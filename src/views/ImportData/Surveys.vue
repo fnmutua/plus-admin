@@ -7,7 +7,7 @@ import { Back } from '@element-plus/icons-vue'
 import { ref, computed } from 'vue'
 import {
     ElInput, ElSelect, ElOption, ElButton, ElDialog,ElTable,ElTableColumn,ElPagination,ElCol,ElStatistic,ElIcon,ElMessage,
-  ElRow, ElCard,ElDivider
+  ElRow, ElCard,ElDivider, ElEmpty
 } from 'element-plus'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
@@ -29,6 +29,7 @@ import {
 import { watch, onMounted } from 'vue';
 
 import DownloadCustom from '@/views/Components/DownloadCustomFields.vue';
+import PermissionWrapper from '@/components/PermissionWrapper.vue';
 import { useRouter } from 'vue-router'
 
 
@@ -778,7 +779,7 @@ clearable v-model="search" placeholder="Search by project name"
 
     <div>
 
-     <el-table :data="paginatedData"  border  style="width: 100%"   >
+     <el-table :data="paginatedData"  border  style="width: 100%" v-if="paginatedData.length > 0"  >
       <el-table-column type="index" width="50" />
 
       <el-table-column type="expand">
@@ -801,24 +802,28 @@ clearable v-model="search" placeholder="Search by project name"
                     <el-table-column label="Download" width="250" >
                       <!-- Scoped slot for the download button -->
                       <template #default="scope">
-                        <el-button
-                          type="primary"
-                          size="small"
-                          @click="handleDownload(scope.row)"
-                           v-loading="loadingStates[scope.row.xmlFormId]"
-                        >
-                          CSV
-                        </el-button>
+                        <PermissionWrapper :permissions="'survey:export'">
+                          <el-button
+                            type="primary"
+                            size="small"
+                            @click="handleDownload(scope.row)"
+                             v-loading="loadingStates[scope.row.xmlFormId]"
+                          >
+                            CSV
+                          </el-button>
+                        </PermissionWrapper>
 
-                        <el-button
-                        type="success"
-                        size="small"
-                        @click="handleDownloadGeo(scope.row )"
-                        v-loading="loadingStates[scope.row.xmlFormId]"
-                        style="margin-left: 8px;"
-                      >
-                        GeoJSON
-                      </el-button>
+                        <PermissionWrapper :permissions="'survey:export'">
+                          <el-button
+                          type="success"
+                          size="small"
+                          @click="handleDownloadGeo(scope.row )"
+                          v-loading="loadingStates[scope.row.xmlFormId]"
+                          style="margin-left: 8px;"
+                        >
+                          GeoJSON
+                        </el-button>
+                        </PermissionWrapper>
 
 
                       </template>
@@ -850,7 +855,12 @@ clearable v-model="search" placeholder="Search by project name"
 
   </el-table>
 
-  <div style="margin-top: 20px;">
+  <!-- Show message when no data -->
+  <div v-else class="no-data-message">
+    <el-empty description="No survey data available" />
+  </div>
+
+  <div style="margin-top: 20px;" v-if="paginatedData.length > 0">
  
  <el-pagination
 layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
@@ -954,5 +964,13 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
 }
 .red {
   color: var(--el-color-error);
+}
+
+.no-data-message {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+  margin: 20px 0;
 }
 </style>

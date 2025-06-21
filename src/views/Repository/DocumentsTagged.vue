@@ -36,6 +36,7 @@ import { useAppStore } from '@/store/modules/app'
 
 import UploadComponent from '@/views/Components/UploadComponent.vue';
 import TableActions from '@/views/Components/TableActions.vue';
+import PermissionWrapper from '@/components/PermissionWrapper.vue';
 
 
 const { wsCache } = useCache()
@@ -1204,7 +1205,9 @@ v-model="searchTerm" placeholder="Search documents by name/settlement/county/for
               
         <el-table-column label="Actions" width="250">
           <template #default="{ row }">
-            <TableActions :item="row" :buttons="action_buttons" @edit="editDocument" @delete="removeDocument"   @preview="viewDocument"  @download="downloadFile" />
+            <PermissionWrapper :permissions="['document:update', 'document:delete', 'document:read']">
+              <TableActions :item="row" :buttons="action_buttons" @edit="editDocument" @delete="removeDocument"   @preview="viewDocument"  @download="downloadFile" />
+            </PermissionWrapper>
           </template>
         </el-table-column>
 
@@ -1223,7 +1226,9 @@ v-model="searchTerm" placeholder="Search documents by name/settlement/county/for
           </el-collapse-item>
          
 
-          <el-button  v-if="showAdminButtons" class="full-width"   style="margin-left: 10px;margin-bottom: 5px ;margin-top: 5px"  type="success"   size="small"   @click="toggleComponent(groupName)" :icon="UploadFilled"> Upload {{ groupName }} files </el-button>
+          <PermissionWrapper :permissions="['document:create']">
+            <el-button  class="full-width"   style="margin-left: 10px;margin-bottom: 5px ;margin-top: 5px"  type="success"   size="small"   @click="toggleComponent(groupName)" :icon="UploadFilled"> Upload {{ groupName }} files </el-button>
+          </PermissionWrapper>
 
         </el-collapse>
 

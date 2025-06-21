@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, watch ,computed, h} from 'vue'
 import {
-  ElButton, ElTabPane, ElTabs, ElCard, ElTable, ElTableColumn, ElSelect,ElOption,ElPagination,ElRow,ElCol,ElTableV2,ElMessage,
+  ElButton, ElTabPane, ElTabs, ElCard, ElTable, ElTableColumn, ElSelect,ElOption,ElPagination,ElRow,ElCol,ElTableV2,ElMessage,ElEmpty,
 } from 'element-plus'
 
 import { useRoute } from 'vue-router'
@@ -12,6 +12,7 @@ import { getModelSpecs, getModelRelatives } from '@/api/fields'
 import '@dafcoe/vue-collapsible-panel/dist/vue-collapsible-panel.css'
 import { useAppStore } from '@/store/modules/app'
 import DownloadCustom from '@/views/Components/DownloadCustomFields.vue';
+import PermissionWrapper from '@/components/PermissionWrapper.vue';
 
 import '@mapbox/mapbox-gl-geocoder/lib/mapbox-gl-geocoder.css';
 import * as turf from '@turf/turf'
@@ -2412,9 +2413,13 @@ v-for="(option, index) in uploadOptions"
               </el-select>
 
               <el-tooltip content="Add Project" placement="top">
-                <el-button v-if="uploadModel" @click="getModeldefinition" type="success" :icon="Upload" />
+                <PermissionWrapper :permissions="'survey:import'">
+                  <el-button v-if="uploadModel" @click="getModeldefinition" type="success" :icon="Upload" />
+                </PermissionWrapper>
               </el-tooltip>
-             <DownloadCustom :data="paginatedData" :all="tableData" style="margin-bottom: 10px; margin-right: 10px; width: 15%;"  /> 
+             <PermissionWrapper :permissions="'survey:export'">
+               <DownloadCustom :data="paginatedData" :all="tableData" style="margin-bottom: 10px; margin-right: 10px; width: 15%;"  /> 
+             </PermissionWrapper>
 
 
 
@@ -2422,6 +2427,7 @@ v-for="(option, index) in uploadOptions"
      
         
             <el-table-v2
+              v-if="paginatedData.length > 0"
               :columns="[...tableColumns, {
                 key: 'attachments',
                 dataKey: 'attachments',
@@ -2431,15 +2437,17 @@ v-for="(option, index) in uploadOptions"
                 cellRenderer: ({ rowData }) => {
                   if (rowData.attachments && rowData.attachments.length > 0) {
                     return h('div', [
-                      h('el-button', {
-                        type: 'primary',
-                        size: 'small',
-                        onClick: () => {
-                          rowData.attachments.forEach(attachment => {
-                            downloadAttachment(rowData.__id, attachment.name);
-                          });
-                        }
-                      }, 'Download All')
+                      h(PermissionWrapper, { permissions: 'survey:export' }, () => 
+                        h('el-button', {
+                          type: 'primary',
+                          size: 'small',
+                          onClick: () => {
+                            rowData.attachments.forEach(attachment => {
+                              downloadAttachment(rowData.__id, attachment.name);
+                            });
+                          }
+                        }, 'Download All')
+                      )
                     ]);
                   }
                   return '-';
@@ -2452,11 +2460,16 @@ v-for="(option, index) in uploadOptions"
               :bordered="true"
               :stripe="true"
             />
+
+            <!-- Show message when no data -->
+            <div v-else class="no-data-message">
+              <el-empty description="No survey data available" />
+            </div>
       
        
     
 
-          <div style="margin-top: 20px;">
+          <div style="margin-top: 20px;" v-if="paginatedData.length > 0">
             <!-- Pagination component -->
             <el-pagination
 layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
@@ -2547,15 +2560,17 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
                 <!-- Add attachments section -->
                 <div   style="margin-top: 10px;">
                   <h4>Attachments</h4>
-                  <div v-for="attachment in selectedFeature.properties.attachments" :key="attachment.name" style="margin: 5px 0;">
-                    <el-button 
-                      type="primary" 
-                      size="small" 
-                      @click="downloadAttachment(selectedFeature.properties.__id, attachment.name)"
-                    >
-                      Download {{ attachment.name }}
-                    </el-button>
-                  </div>
+                  <PermissionWrapper :permissions="'survey:export'">
+                    <div v-for="attachment in selectedFeature.properties.attachments" :key="attachment.name" style="margin: 5px 0;">
+                      <el-button 
+                        type="primary" 
+                        size="small" 
+                        @click="downloadAttachment(selectedFeature.properties.__id, attachment.name)"
+                      >
+                        Download {{ attachment.name }}
+                      </el-button>
+                    </div>
+                  </PermissionWrapper>
                 </div>
               </div>
             </InfoWindow>
@@ -2629,6 +2644,14 @@ v-model="computationMethod"   placeholder="Computation Method"
 <style scoped>
 .chart {
   height: 40vh;
+}
+
+.no-data-message {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+  margin: 20px 0;
 }
 </style >
 

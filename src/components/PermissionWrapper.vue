@@ -16,6 +16,9 @@ const all_permission = ['*.*.*']
 
 const userPermissions = computed(() => {
   const info = wsCache.get(appStore.getUserInfo)
+  console.log('userPermissions',info)
+
+  
   return info && info.permissions ? info.permissions : []
 })
 
@@ -30,6 +33,7 @@ const hasPermission = computed(() => {
   }
 })
 </script>
+
 <template>
   <slot v-if="hasPermission" ></slot>
 </template> 

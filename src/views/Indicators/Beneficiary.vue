@@ -38,6 +38,7 @@ import UploadComponent from '@/views/Components/UploadComponent.vue';
 import { defineAsyncComponent } from 'vue';
 import ListDocuments from '@/views/Components/ListDocuments.vue';
 import TableActions from '@/views/Components/TableActions.vue';
+import PermissionWrapper from '@/components/PermissionWrapper.vue';
 
 
 const appStore = useAppStoreWithOut();
@@ -1235,9 +1236,11 @@ v-model="value2" :onChange="handleSelectProject" :onClear="handleClear" multiple
 
       <!-- Action Buttons -->
       <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px;">
-        <el-tooltip content="Add Beneficiary " placement="top">
-          <el-button v-if="showEditButtons" :onClick="AddReport" type="primary" :icon="Plus" />
-        </el-tooltip>
+        <PermissionWrapper :permissions="['beneficiary:create']">
+          <el-tooltip content="Add Beneficiary" placement="top">
+            <el-button v-if="showEditButtons" :onClick="AddReport" type="primary" :icon="Plus" />
+          </el-tooltip>
+        </PermissionWrapper>
         <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
         <el-button :onClick="handleClear" type="primary" :icon="Filter" />
 
@@ -1323,7 +1326,9 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
 
       <el-table-column label="Actions" width="250">
         <template #default="{ row }">
-          <TableActions :item="row" :buttons="action_buttons" @edit="editReport" @delete="DeleteReport" />
+          <PermissionWrapper :permissions="['beneficiary:update', 'beneficiary:delete']">
+            <TableActions :item="row" :buttons="action_buttons" @edit="editReport" @delete="DeleteReport" />
+          </PermissionWrapper>
         </template>
       </el-table-column>
 

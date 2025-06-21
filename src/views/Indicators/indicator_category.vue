@@ -32,6 +32,7 @@ import DownloadAll from '@/views/Components/DownloadAll.vue';
 import type { ButtonInstance } from 'element-plus'
 import { v5 } from 'uuid'
 import TableActions from '@/views/Components/TableActions.vue';
+import PermissionWrapper from '@/components/PermissionWrapper.vue';
 
 
 const { wsCache } = useCache()

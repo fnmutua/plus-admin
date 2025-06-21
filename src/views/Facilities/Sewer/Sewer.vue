@@ -48,7 +48,7 @@ import {
 import { ref, reactive, nextTick } from 'vue'
 import {
   ElPagination, ElTooltip, ElTabPane, ElTabs, ElTable, ElTableColumn, ElDialog, ElUpload, ElIcon,
-  ElPopconfirm, ElDivider, ElDropdown, ElDropdownItem, ElDropdownMenu, ElForm, ElFormItem
+  ElPopconfirm, ElDivider, ElDropdown, ElDropdownItem, ElDropdownMenu, ElForm, ElFormItem, ElEmpty
 } from 'element-plus'
 
 import { useRouter, useRoute } from 'vue-router'
@@ -85,7 +85,7 @@ import { MapboxLayerSwitcherControl, MapboxLayerDefinition } from "mapbox-layer-
 
 import "mapbox-layer-switcher/styles.css";
 
-import { countyOptions, subcountyOptions, settlementOptionsV2, LevelOptions, ownsershipOptions, regOptions, HCFTypeOptions } from './../common/index.ts'
+import { countyOptions, subcountyOptions, settlementOptionsV2, LevelOptions, ownsershipOptions, regOptions, HCFTypeOptions } from './../common/index'
 
 import UploadComponent from '@/views/Components/UploadComponent.vue';
 import { defineAsyncComponent } from 'vue';
@@ -100,6 +100,7 @@ import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 import { useAppStore } from '@/store/modules/app'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
+import PermissionWrapper from '@/components/PermissionWrapper.vue'
 
 
 
@@ -112,7 +113,7 @@ const showAdminButtons = ref(appStore.getAdminButtons)
 const showEditButtons = ref(appStore.getEditButtons)
 
 
-const action_buttons = ref([]);
+const action_buttons = ref<string[]>([])
 
 if (showAdminButtons.value) {
   action_buttons.value = ['edit', 'viewOnMap', 'delete'];
@@ -141,7 +142,7 @@ const MapBoxToken =
   'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg'
 mapboxgl.accessToken = MapBoxToken;
 
-const morefileList = ref<UploadUserFile[]>([])
+const morefileList = ref<any[]>([])
 
 
 
@@ -977,33 +978,32 @@ const legendItems = [
 ]
 
 
-const DeleteFacility = (data: TableSlotDefault) => {
-  console.log('----->', data)
-  let index = tableDataList.value.indexOf(data);
+const DeleteFacility = async (data: TableSlotDefault) => {
+  console.log('-----> Deleting Facility:', data)
+  
+  try {
+    const formData: Record<string, any> = {
+      id: data.id,
+      model: model,
+    }
 
-  console.log('index', index)
-  // remove the deleted object from array list 
-  if (index !== -1) {
-    tableDataList.value.splice(index, 1);
+    // Delete the record from backend
+    await DeleteRecord(formData)
+
+    // Delete documents if any
+    if (Array.isArray(data.documents) && data.documents.length > 0) {
+      formData.filesToDelete = data.documents
+      await deleteDocument(formData)
+    }
+
+    // Refresh the data after successful deletion
+    await getFilteredData(filters.value, filterValues.value)
+    
+    ElMessage.success('Record deleted successfully')
+  } catch (error) {
+    console.error('Error deleting record:', error)
+    ElMessage.error('Failed to delete record')
   }
-
-
-  let formData = {}
-  formData.id = data.id
-  formData.model = model
-
-  DeleteRecord(formData)
-
-
-
-  // Delete docuemnts only if there's any docuemnt to delete 
-  if (data.documents.length > 0) {
-    formData.filesToDelete = data.documents
-    deleteDocument(formData)
-
-  }
-
-
 }
 
 
@@ -1279,54 +1279,9 @@ const getFilteredBySearchData = async (searchKey) => {
       filters.value.splice(index, 1)
     }
 
-  }
-
-
-
-  searchLoading.value = true
-  const formData = {}
-  formData.limit = pageSize.value
-  formData.page = page.value
-  formData.curUser = 1 // Id for logged in user
-  formData.model = model
-
-  //-Search field--------------------------------------------
-  formData.searchField = 'name'
-  formData.searchKeyword = searchKey
-  //--Single Filter -----------------------------------------
-
-  //formData.assocModel = associated_Model
-
-  // - multiple filters -------------------------------------
-  formData.filters = filters.value
-  formData.filterValues = filterValues.value
-  formData.associated_multiple_models = associated_multiple_models
-  formData.nested_models = []
-  //formData.cache_key = 'SeacrchByKey_' + search_string.value
-
-  //-------------------------
-
-
-  const res = await searchByKeyWord(formData)
-  searchLoading.value = false
-
-  console.log('activeSegment.value', activeSegment.value)
-  if (activeSegment.value == 'Approved') {
-    tableDataList.value = res.data
-
-  } else if (activeSegment.value == 'New') {
-    tableDataListNew.value = res.data
+    getFilteredData(filters.value, filterValues.value)
 
   }
-  else {
-    tableDataListRejected.value = res.data
-
-  }
-
-
-
-
-  loading.value = false
 
 
 }
@@ -1648,7 +1603,9 @@ v-model="search_string" clearable :onClear="handleClear"
         <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px;">
 
           <el-tooltip content="Add Facility" placement="top">
-            <el-button v-if="showAdminButtons" :onClick="AddFacility" type="primary" :icon="Plus" />
+            <PermissionWrapper :permissions="'sewer:create'">
+              <el-button :onClick="AddFacility" type="primary" :icon="Plus" />
+            </PermissionWrapper>
           </el-tooltip>
 
           <el-tooltip content="Clear" placement="top">
@@ -1711,20 +1668,31 @@ style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" ty
 
         <el-table-column label="Actions" width="250">
           <template #default="{ row }">
-            <!-- Example 1: Only Edit and Delete buttons -->
-            <TableActions
-:item="row" :buttons="action_buttons" @view-on-map="flyTo" @edit="editFacility"
-              @delete="DeleteFacility" />
-
+            <PermissionWrapper :permissions="['sewer:update', 'sewer:delete']">
+              <TableActions
+                :item="row" :buttons="action_buttons" @view-on-map="flyTo" @edit="editFacility"
+                @delete="DeleteFacility" />
+            </PermissionWrapper>
           </template>
         </el-table-column>
 
       </el-table>
 
+      <div v-if="!tableDataList || tableDataList.length === 0" class="no-data-message">
+        <el-empty description="No approved sewer facilities found" />
+      </div>
+
       <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-        v-model:page-size="pageSize" :page-sizes="[6, 20, 50, 200, 1000]" :total="total" :background="true"
-        @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+        v-if="tableDataList && tableDataList.length > 0"
+        layout="sizes, prev, pager, next, total" 
+        v-model:currentPage="currentPage"
+        v-model:page-size="pageSize" 
+        :page-sizes="[6, 20, 50, 200, 1000]" 
+        :total="total" 
+        :background="true"
+        @size-change="onPageSizeChange" 
+        @current-change="onPageChange" 
+        class="mt-4" />
 
     </div>
 
@@ -1754,26 +1722,37 @@ style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" ty
 
         <el-table-column label="Actions" width="250">
           <template #default="{ row }">
-            <!-- Example 1: Only Edit and Delete buttons -->
-            <TableActions
-:item="row" :buttons="action_buttons" @view-on-map="flyTo" @edit="editFacility" @review="Review"
-              @delete="DeleteFacility" />
-
+            <PermissionWrapper :permissions="['sewer:update', 'sewer:delete', 'sewer:review']">
+              <TableActions
+                :item="row" :buttons="action_buttons" @view-on-map="flyTo" @edit="editFacility" @review="Review"
+                @delete="DeleteFacility" />
+            </PermissionWrapper>
           </template>
         </el-table-column>
 
       </el-table>
 
+      <div v-if="!tableDataListNew || tableDataListNew.length === 0" class="no-data-message">
+        <el-empty description="No new sewer facilities found" />
+      </div>
+
       <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-        v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 100]" :total="totalNew" :background="true"
-        @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+        v-if="tableDataListNew && tableDataListNew.length > 0"
+        layout="sizes, prev, pager, next, total" 
+        v-model:currentPage="currentPage"
+        v-model:page-size="pageSize" 
+        :page-sizes="[5, 10, 20, 50, 100]" 
+        :total="totalNew" 
+        :background="true"
+        @size-change="onPageSizeChange" 
+        @current-change="onPageChange" 
+        class="mt-4" />
     </div>
 
     <div v-if="activeSegment === 'Rejected'">
 
       <el-table
-:data="tableDataListRejected" style="width: 100%; margin-top: 10px;" border
+        :data="tableDataListRejected" style="width: 100%; margin-top: 10px;" border
         @expand-change="handleExpand">
         <el-table-column type="expand">
           <template #default="props">
@@ -1798,22 +1777,31 @@ style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" ty
 
         <el-table-column label="Actions" width="250">
           <template #default="{ row }">
-            <!-- Example 1: Only Edit and Delete buttons -->
-            <TableActions
-:item="row" :buttons="action_buttons" @view-on-map="flyTo" @edit="editFacility"
-              @delete="DeleteFacility" />
-
+            <PermissionWrapper :permissions="['sewer:update', 'sewer:delete']">
+              <TableActions
+                :item="row" :buttons="action_buttons" @view-on-map="flyTo" @edit="editFacility"
+                @delete="DeleteFacility" />
+            </PermissionWrapper>
           </template>
         </el-table-column>
 
-
-
       </el-table>
 
+      <div v-if="!tableDataListRejected || tableDataListRejected.length === 0" class="no-data-message">
+        <el-empty description="No rejected sewer facilities found" />
+      </div>
+
       <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-        v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 100]" :total="totalRejected" :background="true"
-        @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+        v-if="tableDataListRejected && tableDataListRejected.length > 0"
+        layout="sizes, prev, pager, next, total" 
+        v-model:currentPage="currentPage"
+        v-model:page-size="pageSize" 
+        :page-sizes="[5, 10, 20, 50, 100]" 
+        :total="totalRejected" 
+        :background="true"
+        @size-change="onPageSizeChange" 
+        @current-change="onPageChange" 
+        class="mt-4" />
 
     </div>
 
@@ -1953,6 +1941,14 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
   width: 100%;
   height: 65vh;
   /* Set the height to 75% of the viewport height */
+}
+
+.no-data-message {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+  margin: 20px 0;
 }
 </style>
 

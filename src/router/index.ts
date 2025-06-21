@@ -939,7 +939,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           {
             path: 'fuzzy',
         //    component: 'views/ImportData/excel',
-            component: () => import('@/views/ImportData/Fuzzy.vue'),
+            component: () => import('@/views/ImportData/excel.vue'),
     
             name: 'Fuzzy',
             meta: {
@@ -976,6 +976,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             name: 'Integration',
             meta: {
               title: 'Integration',
+              hidden:  true,
               icon: 'icon-park-solid:api',
               role: ['root_admin','admin', 'super_admin',  'staff' ]
 

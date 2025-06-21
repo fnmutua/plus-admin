@@ -19,7 +19,8 @@ import { watch,onMounted } from 'vue';
  import writeXlsxFile from 'write-excel-file';
 
 
-// import DownloadCustom from '@/views/Components/DownloadCustomFields.vue';
+import DownloadCustom from '@/views/Components/DownloadCustomFields.vue';
+import PermissionWrapper from '@/components/PermissionWrapper.vue';
 import { useRouter } from 'vue-router'
  
 const { wsCache } = useCache()
@@ -633,7 +634,7 @@ const getFieldChangeHandler = async () => {
     console.log(url)
 
 
-    //  https://collector.kesmis.go.ke/-/edit/1OsFcLEnpbbg5bP32nd9x2MDEOcYyP7?instance_id=uuid:7800ad58-a9a9-40c6-9a8a-a10706e47fc3&return_url=https%3A%2F%2Fcollector.kesmis.go.ke%2F%23%2Fprojects%2F1%2Fforms%2Fsec_officials%2Fsubmissions%2Fuuid%3A7800ad58-a9a9-40c6-9a8a-a10706e47fc3
+    //  https://collector.kesmis.go.ke/-/edit/1OsFcLEnpbbg5bP32nd9x2MDEOcYyP7?instance_id=uuid:7800ad58-a9a9-40c6-9a8a-a10706e47fc3
  
 
 

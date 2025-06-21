@@ -35,6 +35,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import type { UploadProps, UploadUserFile } from 'element-plus'
 import type { XlsxRead, XlsxTable, XlsxSheets, XlsxJson, XlsxWorkbook, XlsxSheet, XlsxDownload } from 'vue3-xlsx'
 import readXlsxFile from 'read-excel-file'
+import PermissionWrapper from '@/components/PermissionWrapper.vue'
 
 
 
@@ -657,18 +658,20 @@ v-if="showSettleementSelect" v-model="settlement" :onChange="handleSelectSettlem
 
 
     <el-divider border-style="dashed" content-position="left">Upload</el-divider>
-    <el-upload
+    <PermissionWrapper :permissions="['settlement:create', 'households:create', 'road:create', 'parcel:create', 'intervention:create']">
+      <el-upload
 class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
-      v-model:file-list="fileList" :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove"
-      :limit="1" :on-exceed="handleExceed" :auto-upload="false">
-      <div class="el-upload__text"> Drop file here or <em>click to upload</em> </div>
-    </el-upload>
+        v-model:file-list="fileList" :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove"
+        :limit="1" :on-exceed="handleExceed" :auto-upload="false">
+        <div class="el-upload__text"> Drop file here or <em>click to upload</em> </div>
+      </el-upload>
 
-    <el-button class="mt-4" style="width: 100%" @click="submitFiles" type="primary">
-      Upload<el-icon class="el-icon--right">
-        <Upload />
-      </el-icon>
-    </el-button>
+      <el-button class="mt-4" style="width: 100%" @click="submitFiles" type="primary">
+        Upload<el-icon class="el-icon--right">
+          <Upload />
+        </el-icon>
+      </el-button>
+    </PermissionWrapper>
     <el-table size="small" v-if="show" :data="fieldSet" stripe="stripe">
       <el-table-column prop="column" label="Field">
         <template #default="scope">
@@ -683,11 +686,13 @@ class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d
         </template>
       </el-table-column>
     </el-table>
-    <el-button v-if="show" class="mt-4" style="width: 100%" @click="handleProcess" type="link">
-      Process<el-icon class="el-icon--right">
-        <Tools />
-      </el-icon>
-    </el-button>
+    <PermissionWrapper :permissions="['settlement:create', 'households:create', 'road:create', 'parcel:create', 'intervention:create']">
+      <el-button v-if="show" class="mt-4" style="width: 100%" @click="handleProcess" type="link">
+        Process<el-icon class="el-icon--right">
+          <Tools />
+        </el-icon>
+      </el-button>
+    </PermissionWrapper>
     <!-- <section>
       <input type="file" @change="readXLSX" />
     </section> -->

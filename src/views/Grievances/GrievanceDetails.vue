@@ -2,7 +2,7 @@
 import { onMounted, reactive, computed } from 'vue'
 import {
   ElButton, ElTimeline, ElTimelineItem, ElCol, ElRow, ElForm, ElFormItem, ElInput, ElUpload, ElMessage,ElPopconfirm, 
-  ElCard, ElTabs, ElTabPane, ElTable, ElTableColumn, ElTooltip, ElDialog, ElSelect, ElOption, ElIcon, ElCollapse, ElCollapseItem, ElSwitch, ElDatePicker,
+  ElCard, ElTabs, ElTabPane, ElTable, ElTableColumn, ElTooltip, ElDialog, ElSelect, ElOption, ElIcon, ElCollapse, ElCollapseItem, ElSwitch, ElDatePicker, ElDrawer, ElMessageBox,
 } from 'element-plus'
 // Locally
 import { getOneGrievance } from '@/api/grievance'
@@ -12,6 +12,7 @@ import { uuid } from 'vue-uuid'
 
 
 import { Icon } from '@iconify/vue';
+import PermissionWrapper from '@/components/PermissionWrapper.vue';
 import {
   Download, CaretRight, Check, Close, Lock, Notification, Microphone,Delete,Edit,ArrowLeft,RefreshLeft,
   ArrowRight,
@@ -588,10 +589,9 @@ if (res.data.current_level  == 'county' || res.data.current_level  == 'national'
 
   console.log('formattedLabels.value', formattedLabels)
   // Get the Greivance Documents 
-
-  GrievanceDocuments.value = res.data.grievance_documents
-  GrievanceLogs.value = res.data.grievance_logs
-  GrievanceNotifications.value = res.data.grievance_notifications
+  GrievanceDocuments.value = res.data.grievance_documents || []
+  GrievanceLogs.value = res.data.grievance_logs || []
+  GrievanceNotifications.value = res.data.grievance_notifications || []
 
   console.log('Grievance.value', Grievance.value)
   console.log('GrievanceDocuments.value', GrievanceDocuments.value)
@@ -604,13 +604,18 @@ if (res.data.current_level  == 'county' || res.data.current_level  == 'national'
 function getDifferences(before, after, parentKey = '') {
   const differences = [];
 
+  // Handle null or undefined inputs
+  if (!before || !after) {
+    return differences;
+  }
+
   for (const key in before) {
     const currentKey = parentKey ? `${parentKey}.${key}` : key;
 
     if (typeof before[key] === 'object' && before[key] !== null) {
       if (Array.isArray(before[key])) {
         // Compare arrays deeply
-        if (JSON.stringify(before[key]) !== JSON.stringify(after[key])) {
+        if (JSON.stringify(before[key]) !== JSON.stringify(after[key] || [])) {
           differences.push({
             field: currentKey,
             before: before[key].join(', '),
@@ -640,49 +645,47 @@ function getDifferences(before, after, parentKey = '') {
 
 const editHistory = ref([])
 const getGrievanceHistory = async (grievance_id) => {
+  try {
+    const model = 'grievance_history'
 
-const model = 'grievance_history'
+    const formData = {}
+    formData.model = model
+    formData.grievance_id = grievance_id
 
-const formData = {}
-formData.model = model
-formData.grievance_id = grievance_id
+    //-Search field--------------------------------------------
+    formData.searchField = 'name'
+    formData.excludeGeom = false
+    formData.associated_multiple_models = ['users']
 
+    //--Single Filter -----------------------------------------
 
+    // - multiple filters -------------------------------------
+    formData.filters = ['grievance_id']
+    formData.filterValues = [[grievance_id]]
 
-//-Search field--------------------------------------------
-formData.searchField = 'name'
-formData.excludeGeom = false
-formData.associated_multiple_models = ['users']
+    //formData.cache_key = 'SeacrchByKey_' + search_string.value
 
-//--Single Filter -----------------------------------------
+    //-------------------------
+    console.log("formData", formData)
+    //console.log(formData)
+    const res = await getGrievanceHistoryByGrievanceId(formData)
 
+    console.log('Greivance History collected........', res.data)
+    const rawHistory = res.data || [];
 
-// - multiple filters -------------------------------------
-formData.filters = ['grievance_id']
-formData.filterValues = [[grievance_id]]
-
-//formData.cache_key = 'SeacrchByKey_' + search_string.value
-
-//-------------------------
-console.log("formData", formData)
-//console.log(formData)
-const res = await getGrievanceHistoryByGrievanceId(formData)
-
-console.log('Greivance History collected........', res.data)
-const rawHistory = res.data;
-
-// Process the differences for nested properties
-editHistory.value = rawHistory.map((record) => {
-  const changes = record.changes;
-  const differences = getDifferences(changes.before, changes.after);
-  return {
-    ...record,
-    differences,
-  };
-});
-
-
-
+    // Process the differences for nested properties
+    editHistory.value = rawHistory.map((record) => {
+      const changes = record.changes || {};
+      const differences = getDifferences(changes.before || {}, changes.after || {});
+      return {
+        ...record,
+        differences,
+      };
+    });
+  } catch (error) {
+    console.warn('No grievance history found or error occurred:', error);
+    editHistory.value = [];
+  }
 }
 
 const grmUsers=ref([])
@@ -749,6 +752,10 @@ const grievanceData = computed(() => {
  
 
 const sortedGrievanceLogs = computed(() => {
+  if (!GrievanceLogs.value || !Array.isArray(GrievanceLogs.value)) {
+    return [];
+  }
+  
   return GrievanceLogs.value
     .map(log => ({
       ...log,
@@ -781,6 +788,10 @@ console.log('sortedGrievanceLogs',sortedGrievanceLogs)
 
  
 const sortedGrievanceNotifications = computed(() => {
+  if (!GrievanceNotifications.value || !Array.isArray(GrievanceNotifications.value)) {
+    return [];
+  }
+  
   return GrievanceNotifications.value.slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 });
 
@@ -1549,6 +1560,46 @@ const clear = () => {
   isAdding.value = false
 }
 
+const handleDrawerClose = (done) => {
+  // Check if there are unsaved changes
+  const hasChanges = form.value.new_status || form.value.action || (form.value.fileList && form.value.fileList.length > 0);
+  
+  if (hasChanges) {
+    ElMessageBox.confirm('You have unsaved changes. Are you sure you want to close?', 'Warning', {
+      confirmButtonText: 'Yes, Close',
+      cancelButtonText: 'Cancel',
+      type: 'warning',
+    }).then(() => {
+      // Reset form
+      form.value = {
+        grievance_id: null,
+        action_type: null,
+        action_by: null,
+        action: null,
+        reffered_to: null,
+        reffered_to_officer: null,
+        date_actioned: null,
+        prev_status: null,
+        new_status: null,
+        fileList: [],
+        filer_present: null,
+        field_verification_conducted: null,
+        resolution_date: null,
+        agreement_reached: null,
+        agreement: null,
+        field_investigations: null,
+        point_disagreement: null,
+        issues: null,
+      };
+      done();
+    }).catch(() => {
+      // User cancelled, don't close
+    });
+  } else {
+    done();
+  }
+}
+
 
 const officerLabel=ref()
 const handleOfficerChange = (value) => {
@@ -1674,20 +1725,22 @@ const formData = {}
 
   <template #header v-if="showActionButton">
     <div class="dialog-footer">
-      <el-tooltip
-        content="Close the grievance if all issues have been resolved and complainant satisfied"
-        placement="top"
-      >
-        <el-button
-          :disabled="button_disabled"
-          :type="button_color"
-          @click="dialogFormVisible = true"
-          size="small"
-          class="responsive-button"
+      <PermissionWrapper :permissions="['grievance:update']">
+        <el-tooltip
+          content="Close the grievance if all issues have been resolved and complainant satisfied"
+          placement="top"
         >
-          <Icon :icon="button_icon" /> {{ button_label }}
-        </el-button>
-      </el-tooltip>
+          <el-button
+            :disabled="button_disabled"
+            :type="button_color"
+            @click="dialogFormVisible = true"
+            size="small"
+            class="responsive-button"
+          >
+            <Icon :icon="button_icon" /> {{ button_label }}
+          </el-button>
+        </el-tooltip>
+      </PermissionWrapper>
       <el-button
         v-if="shouldShowReminder"
         type="warning"
@@ -1712,12 +1765,12 @@ const formData = {}
             <el-table-column prop="createdAt" label="Uploaded" />
             <el-table-column fixed="right" label="">
               <template #default="scope">
-                <el-button type="primary" @click="downloadFile(scope.row)">
-                  <Icon icon="fa-solid:download" style="  margin-right: 5px;" />
-                  Download
-                </el-button>
-
-
+                <PermissionWrapper :permissions="['grievance:read']">
+                  <el-button type="primary" @click="downloadFile(scope.row)">
+                    <Icon icon="fa-solid:download" style="  margin-right: 5px;" />
+                    Download
+                  </el-button>
+                </PermissionWrapper>
               </template>
             </el-table-column>
           </el-table>
@@ -1729,8 +1782,10 @@ const formData = {}
       </el-tab-pane>
       <el-tab-pane label="Action Logs" name="timeline">
         <div class="mb-4">
-                <el-button @click="handleDownlaod"  type="primary" :icon="Download"   plain>Download Timeline</el-button>
-            </div>
+          <PermissionWrapper :permissions="['grievance:read']">
+            <el-button @click="handleDownlaod"  type="primary" :icon="Download"   plain>Download Timeline</el-button>
+          </PermissionWrapper>
+        </div>
      
         <el-timeline style="max-width: 100%;">
           <el-timeline-item
@@ -1766,14 +1821,14 @@ class="notification-custom-card" shadow="hover" :class="log.action_type === 'Res
                         <p class="action-footer">By: {{ log.user ? log.user.name : 'System' }}</p>
                       </el-col>
 
-                      <el-col v-if="log.grievance_documents.length > 0" :xs="24" :sm="24" :md="6" :lg="6" :xl="6">
+                      <el-col v-if="log.grievance_documents && log.grievance_documents.length > 0" :xs="24" :sm="24" :md="6" :lg="6" :xl="6">
                         <p class="documents-header">Documentation </p>
 
                         <p v-for="(doc, docIndex) in log.grievance_documents" :key="docIndex">
-
-                          <el-button @click="downloadFile(doc)" link type="primary" size="small" :icon="Download">{{
+                          <PermissionWrapper :permissions="['grievance:read']">
+                            <el-button @click="downloadFile(doc)" link type="primary" size="small" :icon="Download">{{
           doc.name }}</el-button>
-
+                          </PermissionWrapper>
                         </p>
                       </el-col>
                     </el-row>
@@ -1844,20 +1899,23 @@ class="notification-custom-card" shadow="hover"
       <el-tab-pane label="Settings" name="settings" v-if="isSuperAdmin">
  
         <div class="flex justify-end p-4">
-        <el-button @click="clickEdit"  type="success" :icon="Edit"   plain>Edit</el-button>
-          <el-popconfirm
+          <PermissionWrapper :permissions="['grievance:update']">
+            <el-button @click="clickEdit"  type="success" :icon="Edit"   plain>Edit</el-button>
+          </PermissionWrapper>
+          <PermissionWrapper :permissions="['grievance:delete']">
+            <el-popconfirm
 width="340"
-            title="Are you sure you want to delete this grievance?" 
-            confirm-button-text="Yes" 
-            cancel-button-text="No"
-            @confirm="handleDelete"  >
-            <template #reference>
-              <el-button type="danger" :icon="Delete"   plain>Delete</el-button>
-            </template>
-          </el-popconfirm>
-
+              title="Are you sure you want to delete this grievance?" 
+              confirm-button-text="Yes" 
+              cancel-button-text="No"
+              @confirm="handleDelete"  >
+              <template #reference>
+                <el-button type="danger" :icon="Delete"   plain>Delete</el-button>
+              </template>
+            </el-popconfirm>
+          </PermissionWrapper>
        </div>
-       <el-table :data="editHistory" border ref="tableEditRef" >
+       <el-table v-if="editHistory.length > 0" :data="editHistory" border ref="tableEditRef" >
               <el-table-column label="" type="expand" >
                 <template #default="{ row }">
                   <el-table :data="row.differences" style="margin: 10px 0;" border >
@@ -1877,12 +1935,16 @@ width="340"
               <el-table-column label="Edited By" prop="user.name" sortable  class-name="td-bold"/>
               <el-table-column fixed="right" label="Actions" width="100">
                 <template #default="scope">
-                  <el-tooltip content="Revert " placement="top">
-                    <el-button type="warning" :icon="RefreshLeft" @click="RevertEdits(scope as TableSlotDefault)" />
-                  </el-tooltip>
+                  <PermissionWrapper :permissions="['grievance:update']">
+                    <el-tooltip content="Revert " placement="top">
+                      <el-button type="warning" :icon="RefreshLeft" @click="RevertEdits(scope as TableSlotDefault)" />
+                    </el-tooltip>
+                  </PermissionWrapper>
                 </template>
               </el-table-column>
               </el-table>
+              
+       <el-empty v-else description="No edit history found for this grievance" />
 
       </el-tab-pane>
 
@@ -1890,188 +1952,172 @@ width="340"
   </el-card>
 
 
-  <el-dialog title="Grievance Status Update" v-model="dialogFormVisible" width="60%" draggable>
-    <el-form :model="form" label-width="auto" ref="dynamicFormRef" :rules="rules">
+  <el-drawer 
+    v-model="dialogFormVisible" 
+    direction="rtl" 
+    size="40%"
+    :with-header="false"
+    :before-close="handleDrawerClose"
+  >
+    <!-- Custom Header -->
+    <div class="drawer-header">
+      <div class="header-content">
+        <div class="header-icon">
+          <Icon icon="mdi:file-document-edit" size="24" />
+        </div>
+        <div class="header-text">
+          <h3>Grievance Status Update</h3>
+          <p>Update the status and details of grievance #{{ Grievance.code }}</p>
+        </div>
+      </div>
+      <el-button 
+        type="text" 
+        @click="dialogFormVisible = false"
+        class="close-button"
+      >
+        <Icon icon="mdi:close" size="20" />
+      </el-button>
+    </div>
 
-      <el-form-item label="Update Grievance Status" label-position="top" prop="new_status">
-        <el-select v-model="form.new_status" placeholder="Select" style="width: 100%">
-          <el-option v-for="item in StatusOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-      </el-form-item>
+    <div class="drawer-content">
+      <el-form :model="form" label-width="auto" ref="dynamicFormRef" :rules="rules" class="grievance-form">
 
+        <el-form-item label="Update Grievance Status" label-position="top" prop="new_status">
+          <el-select v-model="form.new_status" placeholder="Select" style="width: 100%">
+            <el-option v-for="item in StatusOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
 
-      <el-form-item  v-loading="grmUsersLoading"  label="Select Officer" label-position="top" prop="reffered_to_officer"   v-if="form.new_status == 'Referred'" >
-     
+        <el-form-item v-loading="grmUsersLoading" label="Select Officer" label-position="top" prop="reffered_to_officer" v-if="form.new_status == 'Referred'">
+          <el-select v-model="form.reffered_to_officer" clearable filterable placeholder="Select Officer" :loading="grmUsersLoading" :disabled="grmUsersLoading" @change="handleOfficerChange" style="width: 100%">
+            <el-option
+              v-for="item in grmUsers"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+            <template #footer>
+              <el-button v-if="!isAdding" text bg size="small" @click="onAddOption">
+                Add Officer
+              </el-button>
+              <template v-else>
+                <el-form :model="formOfficer" label-width="0" :rules="OfficerRules" ref="formRef">
+                  <el-form-item prop="optionName">
+                    <el-input
+                      v-model="formOfficer.optionName"
+                      class="option-input"
+                      placeholder="Name"
+                      size="small"
+                    />
+                  </el-form-item>
 
+                  <el-form-item prop="optionPhone">
+                    <el-input
+                      v-model="formOfficer.optionPhone"
+                      class="option-input"
+                      placeholder="Enter phone number (254.....)" 
+                      size="small"
+                      :onChange="convertPhoneNumberX" 
+                    />
+                  </el-form-item>
 
-        <el-select v-model="form.reffered_to_officer"  clearable filterable   placeholder="Select Officer" :loading="grmUsersLoading" :disabled="grmUsersLoading"   @change="handleOfficerChange"  style="width: 100%">
-                <el-option
-                  v-for="item in grmUsers"
-                  :key="item.value"
-                  :label="item.label"
-                  :value="item.value"
-                />
-                <template #footer>
-                  <el-button v-if="!isAdding" text bg size="small" @click="onAddOption">
-                    Add Officer
-                  </el-button>
-                  <template v-else>
-                      <el-form :model="formOfficer" label-width="0" :rules="OfficerRules" ref="formRef">
-                        <el-form-item prop="optionName" >
-                          <el-input
-                            v-model="formOfficer.optionName"
-                            class="option-input"
-                            placeholder="Name"
-                            size="small"
-                          />
-                        </el-form-item>
+                  <el-form-item>
+                    <el-button type="primary" size="small" @click="onConfirm">
+                      Confirm
+                    </el-button>
+                    <el-button size="small" @click="clear">
+                      Cancel
+                    </el-button>
+                  </el-form-item>
+                </el-form>
+              </template>
+            </template>
+          </el-select>
+        </el-form-item>
 
-                        <el-form-item prop="optionPhone">
-                          <el-input
-                            v-model="formOfficer.optionPhone"
-                            class="option-input"
-                            placeholder="Enter phone number (254.....)" 
-                            size="small"
-                            :onChange="convertPhoneNumberX" 
-                          />
-                        </el-form-item>
+        <el-row :gutter="2" v-if="form.new_status == 'Resolved'">
+          <el-col :xs="8" :sm="8" :md="8" :lg="8" :xl="8">
+            <el-form-item label="Was Filer Present? " label-position="top" prop="filer_present">
+              <el-switch v-model="form.filer_present" />
+            </el-form-item>
+          </el-col>
 
-                        <el-form-item>
-                          <el-button type="primary" size="small" @click="onConfirm">
-                            Confirm
-                          </el-button>
-                          <el-button size="small" @click="clear">
-                            Cancel
-                          </el-button>
-                        </el-form-item>
-                      </el-form>
-                    </template>
+          <el-col :xs="8" :sm="8" :md="8" :lg="8" :xl="8">
+            <el-form-item label="Was field verification of complaint conducted?  " label-position="top" prop="field_verification_conducted">
+              <el-switch v-model="form.field_verification_conducted" />
+            </el-form-item>
+          </el-col>
 
-                </template>
-              </el-select>
+          <el-col :xs="8" :sm="8" :md="8" :lg="8" :xl="8">
+            <el-form-item label="Date of Resolution" label-position="top" prop="resolution_date">
+              <el-date-picker v-model="form.resolution_date" type="date" placeholder="Select" />
+            </el-form-item>
+          </el-col>
+        </el-row>
 
+        <el-form-item v-if="form.new_status == 'Resolved'" label="Findings of field investigation" label-position="top" prop="field_investigations">
+          <el-input type="textarea" :rows="2" placeholder="Provide details of the resolution here" v-model="form.field_investigations" />
+        </el-form-item>
 
-      </el-form-item>
+        <el-row :gutter="2" v-if="form.new_status == 'Resolved'">
+          <el-col :xs="8" :sm="8" :md="8" :lg="8" :xl="8">
+            <el-form-item label="Was agreement reached on the issues?	" label-position="top" prop="agreement_reached">
+              <el-switch v-model="form.agreement_reached" />
+            </el-form-item>
+          </el-col>
+          <el-col :xs="16" :sm="16" :md="16" :lg="16" :xl="16">
+            <el-form-item v-if="form.agreement_reached" label="If agreement was reached, detail the agreement below:" label-position="top" prop="agreement">
+              <el-input type="textarea" :rows="2" placeholder="Provide details of agreement here" v-model="form.agreement" />
+            </el-form-item>
 
+            <el-form-item v-if="!form.agreement_reached" label="If agreement was not reached, specify the points of disagreement below" label-position="top" prop="point_disagreement">
+              <el-input type="textarea" :rows="2" placeholder="Provide details of disagreement here" v-model="form.point_disagreement" />
+            </el-form-item>
+          </el-col>
+        </el-row>
 
+        <el-form-item v-if="form.new_status == 'Resolved'" label="Issues" label-position="top" prop="issues">
+          <el-input type="textarea" :rows="2" placeholder="Provide details of the resolution here" v-model="form.issues" />
+        </el-form-item>
 
+        <el-form-item label="Describe the Action Taken" label-position="top" prop="action">
+          <el-input type="textarea" :rows="2" placeholder="Provide details of the resolution here" v-model="form.action" />
+        </el-form-item>
 
-      <el-row :gutter="2" v-if="form.new_status == 'Resolved'">
-        <el-col :xs="8" :sm="8" :md="8" :lg="8" :xl="8">
-          <el-form-item label="Was Filer Present? " label-position="top" prop="filer_present">
-            <el-switch v-model="form.filer_present" />
-          </el-form-item>
-        </el-col>
-
-        <el-col :xs="8" :sm="8" :md="8" :lg="8" :xl="8">
-          <el-form-item
-label="Was field verification of complaint conducted?  " label-position="top"
-            prop="field_verification_conducted">
-            <el-switch v-model="form.field_verification_conducted" />
-          </el-form-item>
-        </el-col>
-
-        <el-col :xs="8" :sm="8" :md="8" :lg="8" :xl="8">
-          <el-form-item label="Date of Resolution" label-position="top" prop="resolution_date">
-            <el-date-picker v-model="form.resolution_date" type="date" placeholder="Select" />
-
-          </el-form-item>
-        </el-col>
-
-
-
-      </el-row>
-
-      <el-form-item
-v-if="form.new_status == 'Resolved'" label="Findings of field investigation" label-position="top"
-        prop="field_investigations">
-        <el-input
-type="textarea" :rows="2" placeholder="Provide details of the resolution  here"
-          v-model="form.field_investigations" />
-      </el-form-item>
-
-
-
-      <el-row :gutter="2" v-if="form.new_status == 'Resolved'">
-        <el-col :xs="8" :sm="8" :md="8" :lg="8" :xl="8">
-          <el-form-item label="Was agreement reached on the issues?	" label-position="top" prop="agreement_reached">
-            <el-switch v-model="form.agreement_reached" />
-          </el-form-item>
-        </el-col>
-        <el-col :xs="16" :sm="16" :md="16" :lg="16" :xl="16">
-          <el-form-item
-v-if="form.agreement_reached" label="If agreement was reached, detail the agreement below:"
-            label-position="top" prop="agreement">
-            <el-input type="textarea" :rows="2" placeholder="Provide details of  here" v-model="form.agreement" />
-          </el-form-item>
-
-          <el-form-item
-v-if="!form.agreement_reached"
-            label="If agreement was not reached, specify the points of disagreement below" label-position="top"
-            prop="point_disagreement">
-            <el-input
-type="textarea" :rows="2" placeholder="Provide details of  here"
-              v-model="form.point_disagreement" />
-          </el-form-item>
-
-
-        </el-col>
-
-      </el-row>
-
-
-
-
-      <el-form-item v-if="form.new_status == 'Resolved'" label="Issues" label-position="top" prop="issues">
-        <el-input
-type="textarea" :rows="2" placeholder="Provide details of the resolution  here"
-          v-model="form.issues" />
-      </el-form-item>
-
-
-
-
-
-
-
-      <el-form-item label="Describe the Action Taken" label-position="top" prop="action">
-        <el-input
-type="textarea" :rows="2" placeholder="Provide details of the resolution here"
-          v-model="form.action" />
-      </el-form-item>
-
-
-
-      <el-form-item  v-if="form.new_status == 'ExternalReferral'"  label="Name of organization case reffered to" label-position="top" prop="reffered_to">
-          <el-input
-  type="textarea" :rows="2" placeholder="Name of organization "
-            v-model="form.reffered_to" />
+        <el-form-item v-if="form.new_status == 'ExternalReferral'" label="Name of organization case reffered to" label-position="top" prop="reffered_to">
+          <el-input type="textarea" :rows="2" placeholder="Name of organization" v-model="form.reffered_to" />
         </el-form-item> 
 
+        <el-form-item label="Upload Documentation" label-position="top">
+          <el-upload
+            class="upload-demo" 
+            action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" 
+            multiple
+            :on-preview="handlePreview" 
+            :on-remove="handleRemove" 
+            :before-remove="beforeRemove" 
+            :limit="3"
+            v-model:file-list="form.fileList" 
+            :auto-upload="false" 
+            :on-exceed="handleExceed"
+          >
+            <el-button type="primary" plain>
+              <Icon icon="basil:file-upload-outline" width="24" /> Upload Documentation
+            </el-button>
+            <template #tip>
+              <p>E.g Minutes, forms, e.t.c. These should be pdf/jpg/png files with a size less than 10MB.</p>
+            </template>
+          </el-upload>
+        </el-form-item>
 
-      <el-form-item label="Upload Documentation" label-position="top"  >
-        <el-upload
-class="upload-demo" action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
-          :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove" :limit="3"
-          v-model:file-list="form.fileList" :auto-upload="false" :on-exceed="handleExceed">
+      </el-form>
 
-          <el-button type="primary" plain>
-            <Icon icon="basil:file-upload-outline" width="24" /> Upload Documentation
-          </el-button>
-          <template #tip>
-            <p>E.g Minutes, forms, e.t.c. These should be pdf/jpg/png files with a size less than 10MB.</p>
-          </template>
-        </el-upload>
-      </el-form-item>
-
-    </el-form>
-
-
-    <div style="display: flex; justify-content: end; align-items: center; margin-top: 20px;">
-      <el-button @click="dialogFormVisible = false">Cancel</el-button>
-      <el-button type="primary" @click="submitResolutionForm">Submit</el-button>
+      <div class="form-actions">
+        <el-button @click="dialogFormVisible = false">Cancel</el-button>
+        <el-button type="primary" @click="submitResolutionForm">Submit</el-button>
+      </div>
     </div>
-  </el-dialog>
+  </el-drawer>
 
 
 
@@ -2658,5 +2704,130 @@ class="upload-demo" action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80
 .option-input {
   width: 100%;
   margin-bottom: 8px;
+}
+
+/* Drawer Header Styles */
+.drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 16px 24px;
+  border-bottom: 1px solid #e4e7ed;
+  background: linear-gradient(135deg, var(--el-color-primary) 0%, var(--el-color-primary-dark-2) 100%);
+  color: white;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.header-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+}
+
+.header-text h3 {
+  margin: 0 0 4px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: white;
+}
+
+.header-text p {
+  margin: 0;
+  font-size: 14px;
+  opacity: 0.9;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.close-button {
+  color: white !important;
+  padding: 8px;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.close-button:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: scale(1.05);
+}
+
+/* Drawer Content Styles */
+.drawer-content {
+  padding: 20px 24px;
+  height: calc(100% - 84px);
+  overflow-y: auto;
+}
+
+.grievance-form {
+  margin-top: 0;
+}
+
+.grievance-form .el-form-item {
+  margin-bottom: 16px;
+}
+
+.grievance-form .el-form-item__label {
+  font-weight: 500;
+  color: #606266;
+  margin-bottom: 6px;
+}
+
+.grievance-form .el-input,
+.grievance-form .el-select,
+.grievance-form .el-date-picker {
+  margin-bottom: 0;
+}
+
+/* Form Actions */
+.form-actions {
+  position: sticky;
+  bottom: 0;
+  background: white;
+  padding: 16px 0;
+  border-top: 1px solid #e4e7ed;
+  margin-top: 24px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .drawer-header {
+    padding: 16px 20px 12px 20px;
+  }
+  
+  .header-content {
+    gap: 10px;
+  }
+  
+  .header-icon {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .header-text h3 {
+    font-size: 16px;
+  }
+  
+  .header-text p {
+    font-size: 13px;
+  }
+  
+  .drawer-content {
+    padding: 16px 20px;
+  }
 }
 </style>

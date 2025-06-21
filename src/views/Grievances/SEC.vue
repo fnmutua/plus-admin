@@ -20,6 +20,7 @@ import {
 import { watch, onMounted } from 'vue';
 
 import DownloadCustom from '@/views/Components/DownloadCustomFields.vue';
+import PermissionWrapper from '@/components/PermissionWrapper.vue';
 import { useRouter } from 'vue-router'
 
 const { wsCache } = useCache()

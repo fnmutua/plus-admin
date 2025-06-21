@@ -4,7 +4,8 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getUserRoles, getByName } from '@/api/users'
 import { getCountyListApi } from '@/api/counties'
-
+import PermissionWrapper from '@/components/PermissionWrapper.vue';
+import DownloadAll from '@/views/Components/DownloadAll.vue';
 
 import {
   ElButton, ElSwitch, ElSelect, ElDialog, ElDropdown, ElDropdownItem, ElMessage,
@@ -71,6 +72,9 @@ const currentPage = ref(1)
 const total = ref(0)
 
 const tmp_roles = ref([])
+
+// Add loading state for individual user actions
+const userLoadingStates = ref<Record<string, boolean>>({})
 
 
 
@@ -313,10 +317,34 @@ const makeSettlementOptions = (list) => {
   })
 }
 
-const activateDeactivate = (data: TableSlotDefault) => {
-  console.log('Activating user.....', data.row)
-  // data.mode = 'users'
-  activateUserApi(data.row, { model: 'users' }).then(() => { })
+const activateDeactivate = async (data: TableSlotDefault) => {
+  const userId = data.row.id
+  
+  // Check if user has permission to activate/deactivate
+  const currentUserInfo = wsCache.get(appStore.getUserInfo)
+  const userPermissions = currentUserInfo && currentUserInfo.permissions ? currentUserInfo.permissions : []
+  
+  if (!userPermissions.includes('user:activate')) {
+    ElMessage.error('You do not have permission to activate/deactivate users')
+    return
+  }
+  
+  // Set loading state for this specific user
+  userLoadingStates.value[userId] = true
+  
+  try {
+    console.log('Activating user.....', data.row)
+    await activateUserApi(data.row, { model: 'users' })
+    ElMessage.success('User status updated successfully')
+  } catch (error) {
+    console.error('Error updating user status:', error)
+    ElMessage.error('Failed to update user status')
+    // Revert the switch state on error
+    data.row.isactive = !data.row.isactive
+  } finally {
+    // Clear loading state for this user
+    userLoadingStates.value[userId] = false
+  }
 }
 
 
@@ -719,16 +747,20 @@ style="  margin-right: 10px;" v-model="value2" :onChange="handleSelectCounty" :o
 
       <el-select
 v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
-        placeholder="Search by Name" />
+        placeholder="Search by name, username, email or phone" />
 
 
       <!-- Action Buttons -->
       <div style="display: flex; align-items: center; gap: 10px; margin-left: 10px;">
-        <el-tooltip content="Add User " placement="top">
-          <el-button :onClick="AddUser" type="primary" :icon="Plus" />
-        </el-tooltip>
+        <PermissionWrapper :permissions="['user:create']">
+          <el-tooltip content="Add User " placement="top">
+            <el-button :onClick="AddUser" type="primary" :icon="Plus" />
+          </el-tooltip>
+        </PermissionWrapper>
 
-
+        <PermissionWrapper :permissions="['user:download']">
+          <DownloadAll :model="model" :associated_models="associated_multiple_models"/>
+        </PermissionWrapper>
 
       </div>
 
@@ -766,15 +798,19 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item v-if="showAdminButtons">
-                  <el-switch
+                  <PermissionWrapper :permissions="['user:activate']">
+                    <el-switch
 v-model="scope.row.isactive" @click="activateDeactivate(scope as TableSlotDefault)"
-                    :icon="Edit" />
+                      :icon="Edit" />
+                  </PermissionWrapper>
 
 
                 </el-dropdown-item>
 
                 <el-dropdown-item />
-                <el-dropdown-item @click="EditUser(scope as TableSlotDefault)" :icon="Position">Edit</el-dropdown-item>
+                <PermissionWrapper :permissions="['user:update']">
+                  <el-dropdown-item @click="EditUser(scope as TableSlotDefault)" :icon="Position">Edit</el-dropdown-item>
+                </PermissionWrapper>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -782,14 +818,18 @@ v-model="scope.row.isactive" @click="activateDeactivate(scope as TableSlotDefaul
 
           <div v-else>
 
-            <el-tooltip content="Activate" placement="top">
-              <el-switch
+            <PermissionWrapper :permissions="['user:activate']">
+              <el-tooltip content="Activate" placement="top">
+                <el-switch
 v-model="scope.row.isactive" @click="activateDeactivate(scope as TableSlotDefault)"
-                class="my-switch" />
-            </el-tooltip>
-            <el-tooltip content="Edit" placement="top">
-              <ElButton type="primary" :icon="Edit" size="small" @click="EditUser(scope as TableSlotDefault)" circle />
-            </el-tooltip>
+                  class="my-switch" />
+              </el-tooltip>
+            </PermissionWrapper>
+            <PermissionWrapper :permissions="['user:update']">
+              <el-tooltip content="Edit" placement="top">
+                <ElButton type="primary" :icon="Edit" size="small" @click="EditUser(scope as TableSlotDefault)" circle />
+              </el-tooltip>
+            </PermissionWrapper>
 
 
 

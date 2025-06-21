@@ -294,6 +294,13 @@ exports.modelAllUsers = async (req, res) => {
       findAndCountOptions.include.push({ model: db.models[modelName], raw: true, nested: true });
     });
 
+    // Always include county information
+    findAndCountOptions.include.push({
+      model: db.models.county,
+      attributes: ['id', 'name', 'code'],
+      required: false
+    });
+
     // Include role-based filtering
     findAndCountOptions.include.push({
       model: db.models.user_roles,
@@ -493,6 +500,11 @@ exports.modelCountyUsers = async (req, res) => {
           where: {
             roleid: { [Op.in]: uniqueSubordinates } // No more exclusion of roleid = 0
           }
+        },
+        {
+          model: db.models.county,
+          attributes: ['id', 'name', 'code'],
+          required: false
         }
       ],
       where: {
@@ -579,6 +591,11 @@ exports.modelGRMUsers = async (req, res) => {
             roleid: uniqueSubordinates,
             roleid: 4 // GRM
           }
+        },
+        {
+          model: db.models.county,
+          attributes: ['id', 'name', 'code'],
+          required: false
         }
       ],
       where: {},
@@ -759,6 +776,11 @@ exports._getGRMUsersByLocation = async (req, res) => {
 
             ].filter(Boolean) // Remove null conditions
           }
+        },
+        {
+          model: db.models.county,
+          attributes: ['id', 'name', 'code'],
+          required: false
         }
       ],
       where: {},
@@ -874,6 +896,11 @@ exports.getGRMUsersByLocation = async (req, res) => {
               { roleid: 4 },
             ].filter(Boolean)
           }
+        },
+        {
+          model: db.models.county,
+          attributes: ['id', 'name', 'code'],
+          required: false
         }
       ],
       where: {},
@@ -972,6 +999,11 @@ exports.modelAdminUsers = async (req, res) => {
             roleid: uniqueSubordinates,
             roleid: 1 // ADMIN
           }
+        },
+        {
+          model: db.models.county,
+          attributes: ['id', 'name', 'code'],
+          required: false
         }
       ],
       where: {
@@ -1078,6 +1110,11 @@ exports.modelUserByName = async (req, res) => {
             userid: { [Op.ne]: user.id }, // Exclude current user
           },
         },
+        {
+          model: db.models.county,
+          attributes: ['id', 'name', 'code'],
+          required: false
+        }
       ],
       where: {
         id: {
@@ -1097,9 +1134,12 @@ exports.modelUserByName = async (req, res) => {
 
     // Apply search string condition
     if (searchString) {
-      findAndCountOptions.where.name = {
-        [Op.iLike]: `%${searchString}%`,
-      };
+      findAndCountOptions.where[Op.or] = [
+        { name: { [Op.iLike]: `%${searchString}%` } },
+        { username: { [Op.iLike]: `%${searchString}%` } },
+        { email: { [Op.iLike]: `%${searchString}%` } },
+        { phone: { [Op.iLike]: `%${searchString}%` } }
+      ];
     }
 
     // Apply additional filters
@@ -1469,4 +1509,47 @@ exports.getFeedback = (req, res) => {
   }
 };
 
+// Add function to get user permissions
+exports.getUserPermissions = async (req, res) => {
+  try {
+    const userId = req.body.userId;
+    
+    if (!userId) {
+      return res.status(400).json({ message: 'User ID is required' });
+    }
+
+    // Find user with roles and permissions
+    const user = await User.findByPk(userId, {
+      include: [{
+        model: Role,
+        include: [db.permission]
+      }]
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Flatten all permissions from all roles
+    const userPermissions = user.roles.flatMap(role => 
+      role.permissions.map(p => p.name)
+    );
+
+    // Remove duplicates
+    const uniquePermissions = [...new Set(userPermissions)];
+
+    res.status(200).json({
+      message: 'User permissions retrieved successfully',
+      data: uniquePermissions,
+      code: '0000'
+    });
+  } catch (err) {
+    console.error('Error fetching user permissions:', err);
+    res.status(500).json({ 
+      message: 'Error fetching user permissions', 
+      error: err.message,
+      code: '0001'
+    });
+  }
+};
  

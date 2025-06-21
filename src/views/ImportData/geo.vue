@@ -1,4 +1,3 @@
- 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { ElMessage, ElUpload, ElOption, ElSelect, ElTable, ElTableColumn, ElButton, ElCard, ElSteps, ElStep, ElAlert, ElInput,ElNotification } from 'element-plus';
@@ -8,6 +7,7 @@ import { getSettlementListByCounty,BatchImportUpsert  } from '@/api/settlements'
 import Fuse from 'fuse.js';
 import * as GeoJsonValidation from 'geojson-validation';
 import readFileAndConvertToGeoJSON from '@/utils/readShapefile'; // Adjust path as needed
+import PermissionWrapper from '@/components/PermissionWrapper.vue'
 
 // Type definitions
 interface GeoJsonFeature {
@@ -486,17 +486,19 @@ const handleReset = async () => {
 
     <!-- Step 0: Upload File -->
     <div v-if="step === 0" class="mt-4">
-      <el-upload
-        action=""
-        :auto-upload="false"
-        :show-file-list="true"
-        :on-change="handleGeoJsonUpload"
-        :limit="1"
-        accept=".json,.geojson,.zip,.kml,.kmz"
-        aria-label="Upload GeoJSON, zipped shapefile, KML, or KMZ"
-      >
-        <el-button type="primary" :loading="loading.upload">Upload File</el-button>
-      </el-upload>
+      <PermissionWrapper :permissions="['settlement:create', 'project:create', 'parcel:create', 'structure:create', 'road:create', 'road_asset:create', 'sewer:create', 'piped_water:create', 'health_facility:create', 'education_facility:create', 'water_point:create', 'police_station:create', 'crime_hotspot:create', 'floodlight:create', 'railway:create', 'powerline:create', 'hazard_zone:create', 'community_hall:create', 'community_project:create', 'mast:create', 'street_light:create', 'dumping_site:create']">
+        <el-upload
+          action=""
+          :auto-upload="false"
+          :show-file-list="true"
+          :on-change="handleGeoJsonUpload"
+          :limit="1"
+          accept=".json,.geojson,.zip,.kml,.kmz"
+          aria-label="Upload GeoJSON, zipped shapefile, KML, or KMZ"
+        >
+          <el-button type="primary" :loading="loading.upload">Upload File</el-button>
+        </el-upload>
+      </PermissionWrapper>
       <p class="text-sm text-gray-500 mt-2">Supported formats: .json, .geojson, .zip (shapefile), .kml, .kmz</p>
     </div>
 
@@ -608,14 +610,16 @@ const handleReset = async () => {
       Reset
     </el-button>
 
-    <el-button
-      type="primary"
-      :loading="importing || loading.appendParent || loading.import"
-      @click="handleNextStep"
-      aria-label="Proceed to next step or import"
-    >
-      {{ step === 3 ? 'Import' : 'Next' }}
-    </el-button>
+    <PermissionWrapper :permissions="['settlement:create', 'project:create', 'parcel:create', 'structure:create', 'road:create', 'road_asset:create', 'sewer:create', 'piped_water:create', 'health_facility:create', 'education_facility:create', 'water_point:create', 'police_station:create', 'crime_hotspot:create', 'floodlight:create', 'railway:create', 'powerline:create', 'hazard_zone:create', 'community_hall:create', 'community_project:create', 'mast:create', 'street_light:create', 'dumping_site:create']">
+      <el-button
+        type="primary"
+        :loading="importing || loading.appendParent || loading.import"
+        @click="handleNextStep"
+        aria-label="Proceed to next step or import"
+      >
+        {{ step === 3 ? 'Import' : 'Next' }}
+      </el-button>
+    </PermissionWrapper>
 
    
   </div>

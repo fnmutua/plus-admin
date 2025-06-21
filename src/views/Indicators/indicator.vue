@@ -31,6 +31,7 @@ import type { FormInstance } from 'element-plus'
 import xlsx from "json-as-xlsx"
 import DownloadAll from '@/views/Components/DownloadAll.vue';
 import TableActions from '@/views/Components/TableActions.vue';
+import PermissionWrapper from '@/components/PermissionWrapper.vue';
 
 
 const { wsCache } = useCache()
@@ -634,11 +635,13 @@ v-model="value3" :onChange="handleSelectIndicator" :onClear="handleClear" multip
 
       <!-- Action Buttons -->
       <div style="display: flex; align-items: center; gap: 10px; margin-left: 10px;">
-        <el-tooltip content="Add Indicator" placement="top">
-          <el-button v-if="showAdminButtons" :onClick="AddIndicator" type="primary" :icon="Plus" />
-        </el-tooltip>
+        <PermissionWrapper :permissions="['indicator:create']">
+          <el-tooltip content="Add Indicator" placement="top">
+            <el-button :onClick="AddIndicator" type="primary" :icon="Plus" />
+          </el-tooltip>
+        </PermissionWrapper>
         <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
-        <DownloadAll v-if="showEditButtons" :model="model" :associated_models="associated_multiple_models" />
+        <DownloadAll :model="model" :associated_models="associated_multiple_models" />
         <el-button :onClick="handleClear" type="primary" :icon="Filter" />
 
       </div>
@@ -657,51 +660,12 @@ v-model="value3" :onChange="handleSelectIndicator" :onClear="handleClear" multip
       <el-table-column label="Title" prop="name" sortable />
       <el-table-column label="Activity" prop="activity.title" sortable />
       <el-table-column label="Type" prop="type" sortable />
-      <!-- <el-table-column fixed="right" label="Actions" :width="actionColumnWidth" sortable>
-        <template #default="scope">
-          <el-dropdown v-if="isMobile">
-            <span class="el-dropdown-link">
-              <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
-            </span>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item
-v-if="showEditButtons" @click="editIndicator(scope as TableSlotDefault)" :icon="Edit"
-                  color="green">Edit</el-dropdown-item>
-                <el-dropdown-item
-v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
-                  :icon="Delete" color="red">Delete</el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
-          <div v-else>
-
-            <el-tooltip v-if="showEditButtons" content="Edit" placement="top">
-              <el-button
-type="success" size="small" :icon="Edit" @click="editIndicator(scope as TableSlotDefault)"
-                circle />
-            </el-tooltip>
-
-
-            <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
-              <el-popconfirm
-confirm-button-text="Yes" cancel-button-text="No"  :icon="InfoFilled" icon-color="#626AEF"
-                title="Are you sure to delete this record?" width="300"
-                @confirm="DeleteIndicator(scope.row as TableSlotDefault)">
-                <template #reference>
-                  <el-button type="danger" size="small" :icon=Delete circle />
-                </template>
-              </el-popconfirm>
-            </el-tooltip>
-
-          </div>
-        </template>
-
-      </el-table-column> -->
     
       <el-table-column label="Actions" width="250">
         <template #default="{ row }">
-          <TableActions :item="row" :buttons="action_buttons" @edit="editIndicator" @delete="DeleteIndicator" />
+          <PermissionWrapper :permissions="['indicator:update', 'indicator:delete']">
+            <TableActions :item="row" :buttons="action_buttons" @edit="editIndicator" @delete="DeleteIndicator" />
+          </PermissionWrapper>
         </template>
       </el-table-column>
     

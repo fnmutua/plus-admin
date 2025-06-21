@@ -1,4 +1,3 @@
-  
 <script setup lang="ts">
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
@@ -19,6 +18,7 @@ import type { UploadProps, UploadUserFile } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
+import PermissionWrapper from '@/components/PermissionWrapper.vue'
 
 const { push } = useRouter()
 const { t } = useI18n()
@@ -689,20 +689,22 @@ const handleReset = () => {
 
       <!-- Step 0: Upload Files -->
       <div v-if="step === 0" class="mt-4">
-        <el-upload
-          action=""
-          :auto-upload="false"
-          :show-file-list="true"
-          :on-change="handleFileUpload"
-          :on-exceed="handleExceed"
-          :limit="20"
-          :multiple="true"
-          :before-upload="beforeUpload"
-          accept=".xls,.xlsx,.pdf,.zip,.doc,.docx,.png,.jpg,.csv,.json,.geojson,.ppt,.pptx,.rar,.tif,.txt"
-          aria-label="Upload documents"
-        >
-          <el-button type="primary" :loading="loading.upload">Upload Files</el-button>
-        </el-upload>
+        <PermissionWrapper :permissions="'document:create'">
+          <el-upload
+            action=""
+            :auto-upload="false"
+            :show-file-list="true"
+            :on-change="handleFileUpload"
+            :on-exceed="handleExceed"
+            :limit="20"
+            :multiple="true"
+            :before-upload="beforeUpload"
+            accept=".xls,.xlsx,.pdf,.zip,.doc,.docx,.png,.jpg,.csv,.json,.geojson,.ppt,.pptx,.rar,.tif,.txt"
+            aria-label="Upload documents"
+          >
+            <el-button type="primary" :loading="loading.upload">Upload Files</el-button>
+          </el-upload>
+        </PermissionWrapper>
         <p class="text-sm text-gray-500 mt-2">Supported formats: .xls, .xlsx, .pdf, .zip, .doc, .docx, .png, .jpg, .csv, .json, .geojson, .ppt, .pptx, .rar, .tif, .txt</p>
       </div>
 
@@ -832,15 +834,17 @@ const handleReset = () => {
             >
               Reset
             </el-button>
-            <el-button
-              type="primary"
-              :loading="loading.import || loading.fetchParents"
-              :disabled="step === 3 && (!canImport || fileList.length === 0)"
-              @click="handleNextStep"
-              aria-label="Proceed to next step or import"
-            >
-              {{ step === 3 ? 'Import' : 'Next' }}
-            </el-button>
+            <PermissionWrapper :permissions="'document:create'">
+              <el-button
+                type="primary"
+                :loading="loading.import || loading.fetchParents"
+                :disabled="step === 3 && (!canImport || fileList.length === 0)"
+                @click="handleNextStep"
+                aria-label="Proceed to next step or import"
+              >
+                {{ step === 3 ? 'Import' : 'Next' }}
+              </el-button>
+            </PermissionWrapper>
 
           </div>
         </div>

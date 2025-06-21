@@ -32,9 +32,7 @@ module.exports = function(app) {
   app.post("/api/v1/user/multiple",  controller.checkUsers);
   app.post("/api/v1/user/delete", [authJwt.verifyToken, hasPermission('user:delete')], controller.deleteUserCascade);
 
-
-
-
+  app.post("/api/v1/user/permissions", [authJwt.verifyToken], controller.getUserPermissions);
 
   //app.post("/api/v1/roles/all", [authJwt.verifyToken, hasPermission('role:assign')], controller.rolesController);
 

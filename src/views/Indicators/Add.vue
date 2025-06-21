@@ -19,6 +19,7 @@ import {
   ElRadioGroup,
   FormRules
 } from 'element-plus'
+import PermissionWrapper from '@/components/PermissionWrapper.vue'
 
 // import {
 //   MapboxMap,

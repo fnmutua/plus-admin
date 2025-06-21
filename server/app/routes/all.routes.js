@@ -141,9 +141,8 @@ module.exports = function (app) {
   app.post('/api/v1/data/intersect', [authJwt.verifyToken, hasDynamicPermission('read')], controller.intersectGeometryWithModel)
   app.post('/api/v1/data/many/code', [authJwt.verifyToken, hasDynamicPermission('read')], controller.modelManyRecordsByCodes)
 
-
-  
-
+  // Add model fields endpoint
+  app.post('/api/v1/model/fields', [authJwt.verifyToken], controller.modelBoard)
 
 }
 

@@ -32,7 +32,8 @@ import { useCache } from '@/hooks/web/useCache'
 import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
 import { uuid } from 'vue-uuid'
 import type { FormInstance } from 'element-plus'
- 
+import DownloadAll from '@/views/Components/DownloadAll.vue';
+import PermissionWrapper from '@/components/PermissionWrapper.vue';
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
@@ -379,7 +380,9 @@ const goBack = () => {
 v-model="value1" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
         placeholder="Search by Name" />
 
- 
+<PermissionWrapper :permissions="['user:download']">
+  <DownloadAll :model="model" :associated_models="associated_multiple_models"/>
+</PermissionWrapper>
 
 </el-row>
 

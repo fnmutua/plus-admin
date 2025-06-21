@@ -28,8 +28,8 @@ import {
 } from '@/api/users'
 
 import { useAppStoreWithOut } from '@/store/modules/app'
-
-
+import PermissionWrapper from '@/components/PermissionWrapper.vue'
+import DownloadAll from '@/views/Components/DownloadAll.vue'
 
 interface Params {
   pageIndex?: number
@@ -363,9 +363,15 @@ const goBack = () => {
  
 <!-- Action Buttons -->
 <div style="display: flex; justify-content: flex-end; align-items: center; ">
-  <el-tooltip content="Add Role " placement="top">
-    <el-button :onClick="AddRole" type="primary" :icon="Plus" />
-  </el-tooltip>
+  <PermissionWrapper :permissions="'roles:create'">
+    <el-tooltip content="Add Role " placement="top">
+      <el-button :onClick="AddRole" type="primary" :icon="Plus" />
+    </el-tooltip>
+  </PermissionWrapper>
+  
+  <PermissionWrapper :permissions="['user:download']">
+    <DownloadAll :model="model" :associated_models="associated_multiple_models"/>
+  </PermissionWrapper>
 </div>
 
 </el-row>
@@ -382,12 +388,14 @@ const goBack = () => {
  <el-table-column fixed="right"  label="Actions"  width="220">
   <template #default="scope">
     <div style="display: flex; gap: 12px; align-items: center; justify-content: center;">
-      <el-tooltip content="Activate/Deactivate" placement="top" v-if="scope.row.name !== 'root_admin' && scope.row.name !== 'super_admin'">
-        <el-switch v-model="scope.row.isactive" @click="activateDeactivate(scope as TableSlotDefault)" active-color="#13ce66" inactive-color="#ff4949" />
-      </el-tooltip>
-      <el-tooltip content="Edit" placement="top" v-if="scope.row.name !== 'root_admin' && scope.row.name !== 'super_admin'">
-        <el-button type="primary" :icon="Edit" @click="editRole(scope as TableSlotDefault)"   size="small" />
-      </el-tooltip>
+      <PermissionWrapper :permissions="['roles:update', 'roles:delete']">
+        <el-tooltip content="Activate/Deactivate" placement="top" v-if="scope.row.name !== 'root_admin' && scope.row.name !== 'super_admin'">
+          <el-switch v-model="scope.row.isactive" @click="activateDeactivate(scope as TableSlotDefault)" active-color="#13ce66" inactive-color="#ff4949" />
+        </el-tooltip>
+        <el-tooltip content="Edit" placement="top" v-if="scope.row.name !== 'root_admin' && scope.row.name !== 'super_admin'">
+          <el-button type="primary" :icon="Edit" @click="editRole(scope as TableSlotDefault)"   size="small" />
+        </el-tooltip>
+      </PermissionWrapper>
     </div>
   </template>
 </el-table-column>

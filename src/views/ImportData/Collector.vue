@@ -68,6 +68,7 @@ import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import { useRouter } from 'vue-router'
 import shortid from 'shortid';
+import PermissionWrapper from '@/components/PermissionWrapper.vue'
 
 import { PieChart, GaugeChart, BarChart, LineChart, } from 'echarts/charts';
 import {

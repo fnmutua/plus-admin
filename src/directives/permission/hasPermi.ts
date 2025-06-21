@@ -24,6 +24,7 @@ const hasPermission = (value: string | string[]): boolean => {
   }
   return (intersection(value, permissions) as string[]).length > 0
 }
+
 function hasPermi(el: Element, binding: DirectiveBinding) {
   const value = binding.value
 

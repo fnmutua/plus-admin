@@ -36,6 +36,7 @@ import type { FormInstance } from 'element-plus'
 
 import writeXlsxFile from 'write-excel-file';
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
+import PermissionWrapper from '@/components/PermissionWrapper.vue';
 import type { UploadUserFile } from 'element-plus'
 
 import { getCountyAuth, getSettlementByCountyAuth } from '@/api/register'
@@ -2971,7 +2972,9 @@ if (search_string.value) {
             <el-button @click="uploadData" type="primary" :icon="UploadFilled" />
           </el-tooltip> -->
           <el-tooltip content="Add Grievance" placement="top">
-            <el-button :onClick="AddComponent" type="primary" :icon="Plus" />
+            <PermissionWrapper :permissions="['grievance:create']">
+              <el-button :onClick="AddComponent" type="primary" :icon="Plus" />
+            </PermissionWrapper>
           </el-tooltip>
               <el-tooltip content="Clear" placement="top">
             <el-button @click="handleClear" type="primary">
@@ -2980,12 +2983,13 @@ if (search_string.value) {
           </el-tooltip>
 
 
-          <DownloadCustom
-            v-if="showEditButtons"
-            :data="tableDataList"
-            :model="model"
-            :associated_models="associated_multiple_models"
-          />
+          <PermissionWrapper v-if="showEditButtons" :model="model" :associated_models="associated_multiple_models">
+            <DownloadCustom
+              :data="tableDataList"
+              :model="model"
+              :associated_models="associated_multiple_models"
+            />
+          </PermissionWrapper>
         </div>
       </el-col>
     </el-row>

@@ -1858,7 +1858,7 @@ v-model="search_string" clearable :onClear="handleClear"
 
           <el-tooltip content="Add Settlement" placement="top">
             <PermissionWrapper :permissions="'settlement:create'">
-              <el-button v-if="showAdminButtons" :onClick="AddSettlement" type="primary" :icon="Plus" />
+              <el-button :onClick="AddSettlement" type="primary" :icon="Plus" />
             </PermissionWrapper>
           </el-tooltip>
           

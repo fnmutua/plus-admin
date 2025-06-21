@@ -48,7 +48,7 @@ import {
 import { ref, reactive, nextTick } from 'vue'
 import {
   ElPagination, ElTooltip, ElTabPane, ElTabs, ElTable, ElTableColumn, ElDialog, ElUpload, ElIcon,
-  ElPopconfirm, ElDivider, ElDropdown, ElDropdownItem, ElDropdownMenu, ElForm, ElFormItem
+  ElPopconfirm, ElDivider, ElDropdown, ElDropdownItem, ElDropdownMenu, ElForm, ElFormItem, ElEmpty
 } from 'element-plus'
 
 import { useRouter, useRoute } from 'vue-router'
@@ -100,6 +100,7 @@ import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 import { useAppStore } from '@/store/modules/app'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
+import PermissionWrapper from '@/components/PermissionWrapper.vue'
 
 
 
@@ -1053,33 +1054,31 @@ const legendItems = [
 ]
 
 
-const DeleteFacility = (data: TableSlotDefault) => {
+const DeleteFacility = async (data: TableSlotDefault) => {
   console.log('----->', data)
-  let index = tableDataList.value.indexOf(data);
+  
+  try {
+    let formData = {}
+    formData.id = data.id
+    formData.model = model
 
-  console.log('index', index)
-  // remove the deleted object from array list 
-  if (index !== -1) {
-    tableDataList.value.splice(index, 1);
+    // Delete the record from backend
+    await DeleteRecord(formData)
+
+    // Delete documents only if there's any document to delete 
+    if (data.documents && data.documents.length > 0) {
+      formData.filesToDelete = data.documents
+      await deleteDocument(formData)
+    }
+
+    // Refresh the data after successful deletion
+    await getFilteredData(filters.value, filterValues.value)
+    
+    ElMessage.success('Record deleted successfully')
+  } catch (error) {
+    console.error('Error deleting record:', error)
+    ElMessage.error('Failed to delete record')
   }
-
-
-  let formData = {}
-  formData.id = data.id
-  formData.model = model
-
-  DeleteRecord(formData)
-
-
-
-  // Delete docuemnts only if there's any docuemnt to delete 
-  if (data.documents.length > 0) {
-    formData.filesToDelete = data.documents
-    deleteDocument(formData)
-
-  }
-
-
 }
 
 
@@ -1714,7 +1713,9 @@ v-model="search_string" clearable :onClear="handleClear"
         <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px;">
 
           <el-tooltip content="Add Facility" placement="top">
-            <el-button v-if="showAdminButtons" :onClick="AddFacility" type="primary" :icon="Plus" />
+            <PermissionWrapper :permissions="'other_facility:create'">
+              <el-button :onClick="AddFacility" type="primary" :icon="Plus" />
+            </PermissionWrapper>
           </el-tooltip>
 
           <el-tooltip content="Clear" placement="top">
@@ -1777,11 +1778,11 @@ style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" ty
 
         <el-table-column label="Actions" width="250">
           <template #default="{ row }">
-            <!-- Example 1: Only Edit and Delete buttons -->
-            <TableActions
-:item="row" :buttons="action_buttons" @view-on-map="flyTo" @edit="editFacility"
-              @delete="DeleteFacility" />
-
+            <PermissionWrapper :permissions="['other_facility:update', 'other_facility:delete']">
+              <TableActions
+                :item="row" :buttons="action_buttons" @view-on-map="flyTo" @edit="editFacility"
+                @delete="DeleteFacility" />
+            </PermissionWrapper>
           </template>
         </el-table-column>
 
@@ -1820,11 +1821,11 @@ style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" ty
 
         <el-table-column label="Actions" width="250">
           <template #default="{ row }">
-            <!-- Example 1: Only Edit and Delete buttons -->
-            <TableActions
-:item="row" :buttons="action_buttons" @view-on-map="flyTo" @edit="editFacility" @review="Review"
-              @delete="DeleteFacility" />
-
+            <PermissionWrapper :permissions="['other_facility:update', 'other_facility:delete']">
+              <TableActions
+                :item="row" :buttons="action_buttons" @view-on-map="flyTo" @edit="editFacility" @review="Review"
+                @delete="DeleteFacility" />
+            </PermissionWrapper>
           </template>
         </el-table-column>
 
@@ -1864,11 +1865,11 @@ style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" ty
 
         <el-table-column label="Actions" width="250">
           <template #default="{ row }">
-            <!-- Example 1: Only Edit and Delete buttons -->
-            <TableActions
-:item="row" :buttons="action_buttons" @view-on-map="flyTo" @edit="editFacility"
-              @delete="DeleteFacility" />
-
+            <PermissionWrapper :permissions="['other_facility:update', 'other_facility:delete']">
+              <TableActions
+                :item="row" :buttons="action_buttons" @view-on-map="flyTo" @edit="editFacility"
+                @delete="DeleteFacility" />
+            </PermissionWrapper>
           </template>
         </el-table-column>
 

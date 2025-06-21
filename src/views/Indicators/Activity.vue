@@ -37,6 +37,7 @@ import shortid from 'shortid';
 import type { FormInstance } from 'element-plus'
 import xlsx from "json-as-xlsx"
 import TableActions from '@/views/Components/TableActions.vue';
+import PermissionWrapper from '@/components/PermissionWrapper.vue';
 
 
 const { wsCache } = useCache()
@@ -554,9 +555,11 @@ v-model="value3" :onChange="handleSelectActivity" :onClear="handleClear" multipl
       <!-- Action Buttons -->
       <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px; margin-bottom: 10px;">
 
-        <el-tooltip content="Add Activity" placement="top">
-          <el-button v-if="showAdminButtons" :onClick="AddComponent" type="primary" :icon="Plus" />
-        </el-tooltip>
+        <PermissionWrapper :permissions="['activity:create']">
+          <el-tooltip content="Add Activity" placement="top">
+            <el-button :onClick="AddComponent" type="primary" :icon="Plus" />
+          </el-tooltip>
+        </PermissionWrapper>
 
         <el-tooltip content="Clear" placement="top">
           <el-button :onClick="handleClear" type="primary" :icon="Filter" />
@@ -568,7 +571,9 @@ v-model="value3" :onChange="handleSelectActivity" :onClear="handleClear" multipl
       </div>
 
       <!-- Download All Component -->
-      <DownloadAll v-if="showAdminButtons" :model="model" :associated_models="associated_multiple_models" />
+      <PermissionWrapper :permissions="['activity:read']">
+        <DownloadAll :model="model" :associated_models="associated_multiple_models" />
+      </PermissionWrapper>
     </el-row>
 
 
@@ -631,7 +636,9 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
 
       <el-table-column label="Actions" width="250">
         <template #default="{ row }">
-          <TableActions :item="row" :buttons="action_buttons" @edit="editIndicator" @delete="DeleteIndicator" />
+          <PermissionWrapper :permissions="['activity:update', 'activity:delete']">
+            <TableActions :item="row" :buttons="action_buttons" @edit="editIndicator" @delete="DeleteIndicator" />
+          </PermissionWrapper>
         </template>
       </el-table-column>
 

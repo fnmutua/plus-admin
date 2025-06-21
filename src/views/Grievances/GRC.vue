@@ -37,7 +37,12 @@ import type { FunctionalComponent } from 'vue'
 
 import { getOneByCode } from '@/api/settlements'
 
-
+import { Icon } from '@iconify/vue';
+import PermissionWrapper from '@/components/PermissionWrapper.vue';
+import {
+  Download, CaretRight, Check, Close, Lock, Notification, Microphone,Delete,Edit,ArrowLeft,RefreshLeft,
+  ArrowRight,
+} from '@element-plus/icons-vue'
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()

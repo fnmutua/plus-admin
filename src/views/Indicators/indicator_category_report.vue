@@ -11,7 +11,9 @@ import {
   Delete, CircleCloseFilled,
   UploadFilled,
   Position, Back,
-  InfoFilled
+  InfoFilled,
+  Filter,
+  Download
 } from '@element-plus/icons-vue'
 
 import { ref, reactive, onMounted, computed } from 'vue'
@@ -40,6 +42,7 @@ import ListDocuments from '@/views/Components/ListDocuments.vue';
 
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 import TableActions from '@/views/Components/TableActions.vue';
+import DownloadAll from '@/views/Components/DownloadAll.vue';
 
 
 //import downloadForOfflineRounded from '@iconify-icons/material-symbols/download-for-offline-rounded';
@@ -48,6 +51,7 @@ import { MapboxLayerSwitcherControl } from "mapbox-layer-switcher";
 import "mapbox-layer-switcher/styles.css";
 import * as turf from '@turf/turf'
 import { useAppStore } from '@/store/modules/app'
+import PermissionWrapper from '@/components/PermissionWrapper.vue';
 
 
 const MapBoxToken =
@@ -2063,134 +2067,43 @@ function handleIndicatorsChange(selectedIds) {
 
 <template>
   <el-card>
-
-
-    <el-row type="flex" justify="start" gutter="10" style=" margin-bottom: 10px; display: flex; flex-wrap: nowrap; align-items: center;">
-
+    <el-row type="flex" justify="start" gutter="10" style="display: flex; flex-wrap: nowrap; align-items: center;">
       <div class="max-w-200px">
         <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
           Back
         </el-button>
       </div>
-
       <!-- Title Search -->
       <el-select
-v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear" multiple clearable
-        filterable collapse-tags placeholder="Filter by Indicator" style="width: 85%; margin-right: 10px;">
-        <el-option v-for="item in indicatorsOptions" :key="item.value" :label="item.label" :value="item.value" />
+        v-model="value3" :onChange="handleSelectIndicatorCategory" :onClear="handleClear" multiple clearable filterable
+        collapse-tags placeholder="Search Indicator Report">
+        <el-option v-for="item in categories" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
-
-
       <!-- Action Buttons -->
-      <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px;">
-        <el-tooltip content="Add Report " placement="top">
-          <el-button v-if="showEditButtons" :onClick="AddReport" type="primary" :icon="Plus" />
-        </el-tooltip>
-
+      <div style="display: flex; align-items: center; gap: 10px; margin-left: 10px;">
+        <PermissionWrapper :permissions="['indicator_category_report:create']">
+          <el-tooltip content="Add Indicator Category Report" placement="top">
+            <el-button :onClick="AddReport" type="primary" :icon="Plus" />
+          </el-tooltip>
+        </PermissionWrapper>
+        <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
+        <DownloadAll :model="model" :associated_models="associated_multiple_models" />
+        <el-button :onClick="handleClear" type="primary" :icon="Filter" />
       </div>
-
-
-
-      <!-- Download All Component -->
-      <!-- <DownloadToCSV v-if="showEditButtons && tableDataList.length >0" :model="model"  />  -->
-      <DownloadCustom
-v-if="showEditButtons" :data="tableDataList" :model="model"
-        :associated_models="associated_multiple_models" />
-
     </el-row>
-
-
-
-    <div v-if="dynamicComponent">
-      <upload-component :is="dynamicComponent" v-bind="componentProps" />
-    </div>
-
-
-
-
-    <el-table
-:data="tableDataList" row-key="id"  border :row-class-name="tableRowClassName" @expand-change="handleExpand" :expand-row-keys="expandedRowKeys"
-          ref="tableRef" v-loading="loading">
-
-          <el-table-column type="expand">
-            <template #default="props">
-              <div>
-                <list-documents
-:is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
-                  @open-dialog="toggleComponent(props.row)" />
-              </div>
-            </template>
-          </el-table-column>
-
-          <el-table-column label="#" prop="id" sortable width="70">
-            <template #default="scope">
-              <div v-if="scope.row.documents.length > 0" style="display: inline-flex; align-items: center;">
-                <span>{{ scope.row.id }}</span>
-                <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
-              </div>
-            </template>
-          </el-table-column>
-
-          <!-- ✅ Combined Indicator + Settlement Column -->
-          <el-table-column label="Indicator / Settlement" sortable width="400">
-            <template #default="scope">
-              <div>
-                <div> {{ scope.row.indicator_category?.indicator_name }}-{{scope.row.indicator_category.category_title}},  {{ scope.row.settlement?.name }} </div>
-              </div>
-            </template>
-          </el-table-column>
-
-          <el-table-column label="Date" prop="date" sortable>
-            <template #default="scope">
-              {{ formatDate(scope.row.date) }}
-            </template>
-          </el-table-column>
-        
-        <!-- <el-table-column label="Qty" prop="amount" sortable /> -->
-
-        
-        <el-table-column label="Qty/Status" sortable>
-            <template #default="{ row }">
-              <span v-if="row.qualitative !== null">
-                {{ row.qualitative === 'Yes' ? 'Yes' : 'No' }}
-              </span>
-              <span v-else>
-                {{ row.amount }}
-              </span>
-            </template>
-          </el-table-column>
-
-
-
-          <el-table-column label="Status" prop="status" sortable>
-            <template #default="scope">
-              <div v-if="scope.row.status === 'Rejected'">
-                <el-tooltip :content="scope.row.reject_msg" placement="top">
-                  <span>{{ scope.row.status }}</span>
-                </el-tooltip>
-              </div>
-              <div v-else>
-                <span>{{ scope.row.status }}</span>
-              </div>
-            </template>
-          </el-table-column>
-
-          <el-table-column label="Actions">
-            <template #default="{ row }">
-              <TableActions
-                :item="row"
-                :buttons="action_buttons"
-                @view-on-map="showMap"
-                @edit="editReport"
-                @delete="DeleteReport"
-              />
-            </template>
-          </el-table-column>
-</el-table>
-
-
+    <el-table :data="tableDataList" :loading="loading" border style="width: 100%; margin-top: 10px;">
+      <el-table-column label="Indicator" prop="indicator.name" sortable />
+      <el-table-column label="Category" prop="category_title" sortable />
+      <el-table-column label="Actions" width="250">
+        <template #default="{ row }">
+          <PermissionWrapper :permissions="['indicator_category_report:update', 'indicator_category_report:delete']">
+            <TableActions :item="row" :buttons="action_buttons" @edit="editReport" @delete="DeleteReport" />
+          </PermissionWrapper>
+        </template>
+      </el-table-column>
+    </el-table>
     <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+      layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
   </el-card>

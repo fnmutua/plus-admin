@@ -12,7 +12,7 @@ import { useRouter } from 'vue-router'
 import type { RouteLocationNormalizedLoaded, RouteRecordRaw } from 'vue-router'
 import { UserType } from '@/api/login/types'
 import { useValidator } from '@/hooks/web/useValidator'
-import { resetUserPassword,setUserFeedback } from '@/api/users'
+import { resetUserPassword,setUserFeedback, getUserPermissions } from '@/api/users'
 import { uuid } from 'vue-uuid'
 import { Icon } from '@iconify/vue';
 
@@ -177,8 +177,33 @@ const getRole = async (authenticatedUser) => {
   const formData = await getFormData<UserType>();
   console.log('authenticatedUser roles', authenticatedUser);
 
-  // Set default permissions
-  formData.permissions = ['*.*.*'];
+  // Get wsCache at the top of the function
+  const { wsCache } = useCache();
+
+  // Fetch user permissions from backend
+  try {
+    const permissionsRes = await getUserPermissions(authenticatedUser.id);
+    if (permissionsRes.data && Array.isArray(permissionsRes.data)) {
+      formData.permissions = permissionsRes.data;
+      // Update cached user info with permissions
+      const updatedUserInfo = { ...authenticatedUser, permissions: permissionsRes.data };
+      wsCache.set(appStore.getUserInfo, updatedUserInfo);
+      console.log('User permissions fetched and stored:', permissionsRes.data);
+    } else {
+      // Fallback to default permissions if API fails
+      formData.permissions = ['*.*.*'];
+      const updatedUserInfo = { ...authenticatedUser, permissions: ['*.*.*'] };
+      wsCache.set(appStore.getUserInfo, updatedUserInfo);
+      console.log('Using fallback permissions');
+    }
+  } catch (error) {
+    console.error('Error fetching user permissions:', error);
+    // Fallback to default permissions if API fails
+    formData.permissions = ['*.*.*'];
+    const updatedUserInfo = { ...authenticatedUser, permissions: ['*.*.*'] };
+    wsCache.set(appStore.getUserInfo, updatedUserInfo);
+    console.log('Using fallback permissions due to error');
+  }
 
   // Define the role hierarchy (lower index means higher priority)
   const roleHierarchy = {
@@ -267,8 +292,7 @@ const getRole = async (authenticatedUser) => {
   await permissionStore.generateRoutes(formData.role, formData.level).catch(() => {});
   routers = [...new Set(permissionStore.getAddRouters.map(route => route as RouteRecordRaw))];
 
-  // Cache the role's routers
-  const { wsCache } = useCache();
+  // Cache the role's routers (wsCache already declared at top)
   wsCache.set('roleRouters', routers);
 
   console.log("formData.role >>", formData.role);

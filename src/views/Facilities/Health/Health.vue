@@ -1,119 +1,64 @@
 <!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
 
-import { getSettlementListByCounty } from '@/api/settlements'
-import { DeleteRecord, updateOneRecord,getOneGeo, deleteDocument } from '@/api/settlements'
- 
-import { getCountyListApi } from '@/api/counties'
+import { getSettlementListByCounty, DeleteRecord, updateOneRecord, getOneGeo, deleteDocument, searchByKeyWord, getAllGeo } from '@/api/settlements'
+import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
+import { getFile, getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
+
 import {
   ElButton, ElSelect, MessageParamsWithType, UploadProps, ElDescriptions, ElDescriptionsItem, ElCol, ElRow, ElCard,
-  ElOptionGroup, ElOption, FormInstance
-} from 'element-plus'
-import { ElMessage, ElCollapse, ElCollapseItem, ElInput, ElBadge, ElSegmented } from 'element-plus'
-import { computed, onMounted } from 'vue'
-import xlsx from "json-as-xlsx"
-import { getFile } from '@/api/summary'
-import {
-  searchByKeyWord
-} from '@/api/settlements'
-import { getListWithoutGeo } from '@/api/counties'
-
-import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
-
-import bbox from '@turf/bbox';
-
-import {
-  Position,
-  TopRight,
-  User,
-  Plus,
-  Edit,
-  Delete,
-  View,
-  Download,
-  Filter,
-  InfoFilled, Back, Search,
-  MessageBox
-} from '@element-plus/icons-vue'
-
-import {
-  Apple,
-  Cherry,
-  Grape,
-  Orange,
-  Pear,
-  Watermelon, CircleClose, Message, CircleCheck,
-} from '@element-plus/icons-vue'
-
-
-import { ref, reactive, nextTick } from 'vue'
-import {
+  ElOptionGroup, ElOption, FormInstance, ElMessage, ElCollapse, ElCollapseItem, ElInput, ElBadge, ElSegmented,
   ElPagination, ElTooltip, ElTabPane, ElTabs, ElTable, ElTableColumn, ElDialog, ElUpload, ElIcon,
-  ElPopconfirm, ElDivider, ElDropdown, ElDropdownItem, ElDropdownMenu, ElForm, ElFormItem
+  ElPopconfirm, ElDivider, ElDropdown, ElDropdownItem, ElDropdownMenu, ElForm, ElFormItem, ElEmpty
 } from 'element-plus'
 
+import {
+  Position, TopRight, User, Plus, Edit, Delete, View, Download, Filter, InfoFilled, Back, Search,
+  MessageBox, Apple, Cherry, Grape, Orange, Pear, Watermelon, CircleClose, Message, CircleCheck, StarFilled
+} from '@element-plus/icons-vue'
+
+import { computed, onMounted, ref, reactive, nextTick, defineAsyncComponent } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+
+import xlsx from "json-as-xlsx"
 import exportFromJSON from 'export-from-json'
-
-
-
 import { featureGroup } from 'leaflet'
-
-import { getAllGeo } from '@/api/settlements'
-
-import { StarFilled } from '@element-plus/icons-vue'
-//import { MapboxMap, MapboxNavigationControl, MapboxMarker, MapboxGeolocateControl, MapboxGeocoder } from '@studiometa/vue-mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
-
-
-
-import '@mapbox/mapbox-gl-geocoder/lib/mapbox-gl-geocoder.css';
+import bbox from '@turf/bbox'
 import * as turf from '@turf/turf'
-import { uuid } from 'vue-uuid'
-
-import FontawesomeMarker from "mapbox-gl-fontawesome-markers";
-
-
-import mapboxgl from "mapbox-gl";
-import 'mapbox-gl/dist/mapbox-gl.css'
 import { feature } from '@turf/turf'
+import { uuid } from 'vue-uuid'
+import FontawesomeMarker from "mapbox-gl-fontawesome-markers"
+import mapboxgl from "mapbox-gl"
+import { Icon } from '@iconify/vue'
+import * as Iconify from '@iconify/iconify'
+import IconifyIcon from '@iconify/vue'
+import { MapboxLayerSwitcherControl, MapboxLayerDefinition } from "mapbox-layer-switcher"
 
-import { Icon } from '@iconify/vue';
-import * as Iconify from '@iconify/iconify';
-import IconifyIcon from '@iconify/vue';
+// CSS imports
+import 'mapbox-gl/dist/mapbox-gl.css'
+import '@mapbox/mapbox-gl-geocoder/lib/mapbox-gl-geocoder.css'
+import "mapbox-layer-switcher/styles.css"
 
-import { MapboxLayerSwitcherControl, MapboxLayerDefinition } from "mapbox-layer-switcher";
+import { countyOptions, subcountyOptions, settlementOptionsV2, LevelOptions, ownsershipOptions, regOptions, HCFTypeOptions } from './../common/index'
 
-import "mapbox-layer-switcher/styles.css";
+import UploadComponent from '@/views/Components/UploadComponent.vue'
+import TableActions from '@/views/Components/TableActions.vue'
+import ListDocuments from '@/views/Components/ListDocuments.vue'
+import DownloadAll from '@/views/Components/DownloadAll.vue'
+import DownloadCustom from '@/views/Components/DownloadCustom.vue'
 
-import { countyOptions, subcountyOptions, settlementOptionsV2, LevelOptions, ownsershipOptions, regOptions, HCFTypeOptions } from './../common/index.ts'
-
-import UploadComponent from '@/views/Components/UploadComponent.vue';
-import { defineAsyncComponent } from 'vue';
-
-import TableActions from '@/views/Components/TableActions.vue';
-
-import ListDocuments from '@/views/Components/ListDocuments.vue';
-import DownloadAll from '@/views/Components/DownloadAll.vue';
-import DownloadCustom from '@/views/Components/DownloadCustom.vue';
-
-
-import { useAppStore } from '@/store/modules/app'
-import { useAppStoreWithOut } from '@/store/modules/app'
+import { useAppStore, useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
-
-
+import PermissionWrapper from '@/components/PermissionWrapper.vue'
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
 
-
 const showAdminButtons = ref(appStore.getAdminButtons)
 const showEditButtons = ref(appStore.getEditButtons)
 
-
-const action_buttons = ref([]);
+const action_buttons = ref<string[]>([]);
 
 if (showAdminButtons.value) {
   action_buttons.value = ['edit', 'viewOnMap', 'delete'];
@@ -123,37 +68,22 @@ if (showAdminButtons.value) {
   action_buttons.value = ['viewOnMap'];
 }
 
-
-
 console.log('action_buttons', action_buttons.value);
-
-
-
-
-
-
 
 console.log("userInfo--->", userInfo)
 console.log("showAdminButtons--->", showAdminButtons.value)
-
-
 
 const MapBoxToken =
   'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg'
 mapboxgl.accessToken = MapBoxToken;
 
-const morefileList = ref<UploadUserFile[]>([])
-
-
-
+const morefileList = ref<any[]>([])
 
 const tableDataListNew = ref([])
 const tableDataListRejected = ref([])
 const totalRejected = ref(0)
 const totalNew = ref(0)
 const total = ref(0)
-
-
 
 const activeSegment = ref('Approved')
 
@@ -190,13 +120,7 @@ const options = ref([
   },
 ])
 
-
-
-
-
-
-// Map 
-const polygons = ref([]) as Ref<[number, number][][]>
+const polygons = ref<[number, number][][]>([])
 const shp = []
 const geoLoaded = ref(false)
 
@@ -206,8 +130,6 @@ const markerProperties = ref([])
 const markers = ref()
 
 const { push } = useRouter()
-
-
 
 const countiesOptions = ref([])
 const settlementOptions = ref([])
@@ -221,16 +143,9 @@ const pageSize = ref(6)
 const currentPage = ref(1)
 const downloadLoading = ref(false)
 
-
 const tableDataList = ref([])
-//// ------------------parameters -----------------------////
-//const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
-// var filters = []
-// var filterValues = []
-
 const filters = ref(['isApproved'])
 const filterValues = ref([['Approved']])  // make sure the inner array is array
-
 
 var tblData = []
 const associated_Model = ''
@@ -238,26 +153,15 @@ const associated_multiple_models = ['settlement', 'users', 'county', 'subcounty'
 
 const model = 'health_facility'
 const model_parent_key = 'settlement_id'
-//// ------------------parameters -----------------------////
 
 const currentRoute = useRoute(); // Access current route using useRoute
-
-
-
 
 const mapHeight = '450px'
 const countries = 'ke'
 const facilityGeo = ref([])
 
-
-
-//// ------------------Map -----------------------////
-
-
 const subcountyfilteredOptions = ref([])
 const settlementfilteredOptions = ref([])
-
-
 
 const handleSelectCounty = async (county_id: any) => {
   console.log(county_id)
@@ -281,11 +185,8 @@ const handleSelectCounty = async (county_id: any) => {
   console.log("Subset Setts", subset_settlements)
   settlementfilteredOptions.value = subset_settlements
 
-
   // Get the select subcoites GEO
 }
-
-
 
 const statuses = ref([])
 const getSummaryStatus = async () => {
@@ -305,15 +206,8 @@ const getSummaryStatus = async () => {
   totalNew.value = statuses.value.Pending !== undefined ? statuses.value.Pending : 0;
   total.value = statuses.value.Approved !== undefined ? statuses.value.Approved : 0;
 
-
 }
 getSummaryStatus()
-
-
-
-
-
-
 
 const handleClear = async () => {
   console.log('cleared....', filters.value, filterValues.value)
@@ -329,8 +223,6 @@ const handleClear = async () => {
   filterValues.value = filterValues.value.slice(0, 1);
   getFilteredData(filters.value, filterValues.value)
 }
-
-
 
 const onPageChange = async (selPage: any) => {
   console.log('on change change: selected   ', selCounties)
@@ -361,7 +253,6 @@ const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
   return res;
 };
 
-
 const removeReviewButton = () => {
   const reviewIndex = action_buttons.value.indexOf('review');
   if (reviewIndex !== -1) {
@@ -369,8 +260,6 @@ const removeReviewButton = () => {
   }
   console.log('action_buttons after removing review:', action_buttons.value);
 };
-
-
 
 const getFilteredData = async (selFilters, selfilterValues) => {
   const formData = {}
@@ -390,13 +279,10 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   formData.filterValues = selfilterValues
   formData.associated_multiple_models = associated_multiple_models
 
-
-
   const res = await getSettlementListByCounty(formData)
 
   console.log('After Querry', res)
   //tableDataList.value = res.data
-
 
   console.log('activeSegment.value', activeSegment.value)
   if (activeSegment.value == 'Approved') {
@@ -420,11 +306,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
   }
 
-
-
-
 }
-
 
 const getCountyNames = async () => {
   const res = await getListWithoutGeo({
@@ -453,9 +335,7 @@ const getCountyNames = async () => {
   })
 }
 
-
 getCountyNames()
-
 
 const getParentNames = async () => {
   const res = await getCountyListApi({
@@ -523,37 +403,21 @@ const makeSettlementOptions = (list) => {
   })
 }
 
-
-
-
-
-
-
-
-
 const getGeo = async () => {
 
   const formData = {}
   formData.model = model
 
-
   console.log(formData)
   const res = await getAllGeo(formData)
 
-
-
   if (res.data[0].json_build_object) {
-
 
     facilityGeo.value = res.data[0].json_build_object
     console.log('Geo Returns---', res.data[0].json_build_object.features[0].geometry.coordinates)
     console.log("Facility Geo", facilityGeo)
 
-
-
-    //markerLatlon.value = res.data[0].json_build_object.features[0].geometry.coordinates
     geoLoaded.value = true
-
 
     for (let i in res.data[0].json_build_object.features) {
 
@@ -564,24 +428,17 @@ const getGeo = async () => {
       markProp.name = res.data[0].json_build_object.features[i].properties.name
       markerProperties.value.push(markProp)
 
-
     }
     console.log(markerProperties)
 
   }
 
-
-
 }
 
-
-//getParentNames()
 getCountyNames()
-
 getModelOptions()
 getInterventionsAll()
 getGeo()
-
 
 const loadMap = (mapCenter) => {
 
@@ -599,8 +456,6 @@ const loadMap = (mapCenter) => {
     zoom: zoom,
 
   })
-
-
 
   console.log("resizing....")
 
@@ -1056,32 +911,28 @@ const legendItems = [
 const DeleteFacility = async (data: TableSlotDefault) => {
   console.log('-----> Deleting Facility:', data);
 
-  // Remove from local list
-  const index = tableDataList.value.findIndex(item => item.id === data.id);
-  if (index !== -1) {
-    tableDataList.value.splice(index, 1);
-  }
-
-  const formData: Record<string, any> = {
-    id: data.id,
-    model: model,
-  };
-
   try {
-    await DeleteRecord(formData); // Ensure delete is complete
-  } catch (err) {
-    console.error('Failed to delete record:', err);
-  }
+    const formData: Record<string, any> = {
+      id: data.id,
+      model: model,
+    };
 
-  // Delete documents if any
-  if (Array.isArray(data.documents) && data.documents.length > 0) {
-    formData.filesToDelete = data.documents;
+    // Delete the record from backend
+    await DeleteRecord(formData);
 
-    try {
+    // Delete documents if any
+    if (Array.isArray(data.documents) && data.documents.length > 0) {
+      formData.filesToDelete = data.documents;
       await deleteDocument(formData);
-    } catch (err) {
-      console.error('Failed to delete documents:', err);
     }
+
+    // Refresh the data after successful deletion
+    await getFilteredData(filters.value, filterValues.value);
+    
+    ElMessage.success('Record deleted successfully');
+  } catch (error) {
+    console.error('Error deleting record:', error);
+    ElMessage.error('Failed to delete record');
   }
 };
 
@@ -1804,7 +1655,9 @@ v-model="search_string" clearable :onClear="handleClear"
         <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px;">
 
           <el-tooltip content="Add Facility" placement="top">
-            <el-button v-if="showAdminButtons" :onClick="AddFacility" type="primary" :icon="Plus" />
+            <PermissionWrapper :permissions="'health_facility:create'">
+              <el-button :onClick="AddFacility" type="primary" :icon="Plus" />
+            </PermissionWrapper>
           </el-tooltip>
 
           <el-tooltip content="Clear" placement="top">
@@ -1867,24 +1720,33 @@ style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" ty
 
         <el-table-column label="Actions" width="250">
           <template #default="{ row }">
-            <!-- Example 1: Only Edit and Delete buttons -->
-            <TableActions
-:item="row" :buttons="action_buttons" @view-on-map="flyTo" @edit="editFacility"
-              @delete="DeleteFacility" />
-
+            <PermissionWrapper :permissions="['health_facility:update', 'health_facility:delete']">
+              <TableActions
+                :item="row" :buttons="action_buttons" @view-on-map="flyTo" @edit="editFacility"
+                @delete="DeleteFacility" />
+            </PermissionWrapper>
           </template>
         </el-table-column>
 
       </el-table>
 
+      <div v-if="!tableDataList || tableDataList.length === 0" class="no-data-message">
+        <el-empty description="No approved health facilities found" />
+      </div>
+
       <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-        v-model:page-size="pageSize" :page-sizes="[6, 20, 50, 200, 1000]" :total="total" :background="true"
-        @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+        v-if="tableDataList && tableDataList.length > 0"
+        layout="sizes, prev, pager, next, total" 
+        v-model:currentPage="currentPage"
+        v-model:page-size="pageSize" 
+        :page-sizes="[6, 20, 50, 200, 1000]" 
+        :total="total" 
+        :background="true"
+        @size-change="onPageSizeChange" 
+        @current-change="onPageChange" 
+        class="mt-4" />
 
     </div>
-
- 
 
     <div v-if="activeSegment === 'New'">
     <!-- Bulk action buttons shown only if something is selected -->
@@ -1968,14 +1830,16 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
 
         <template #default="{ row }">
           <div v-if="selectedRows.length === 0">
-            <TableActions
-              :item="row"
-              :buttons="action_buttons"
-              @view-on-map="flyTo"
-              @edit="editFacility"
-              @review="Review"
-              @delete="DeleteFacility"
-            />
+            <PermissionWrapper :permissions="['health_facility:update', 'health_facility:delete']">
+              <TableActions
+                :item="row"
+                :buttons="action_buttons"
+                @view-on-map="flyTo"
+                @edit="editFacility"
+                @review="Review"
+                @delete="DeleteFacility"
+              />
+            </PermissionWrapper>
           </div>
         </template>
       </el-table-column>
@@ -2024,11 +1888,11 @@ style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" ty
 
         <el-table-column label="Actions" width="250">
           <template #default="{ row }">
-            <!-- Example 1: Only Edit and Delete buttons -->
-            <TableActions
-:item="row" :buttons="action_buttons" @view-on-map="flyTo" @edit="editFacility"
-              @delete="DeleteFacility" />
-
+            <PermissionWrapper :permissions="['health_facility:update', 'health_facility:delete']">
+              <TableActions
+                :item="row" :buttons="action_buttons" @view-on-map="flyTo" @edit="editFacility"
+                @delete="DeleteFacility" />
+            </PermissionWrapper>
           </template>
         </el-table-column>
 
@@ -2312,6 +2176,14 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
   /* Hide overflowing text */
   text-overflow: ellipsis;
   /* Add ellipsis for truncated text */
+}
+
+.no-data-message {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+  margin: 20px 0;
 }
 
 @media (max-width: 600px) {

@@ -203,6 +203,10 @@ export const removeRolePermission = (data: UserType): Promise<IResponse<UserType
   return request.post({ url: prod + '/api/v1/roles/permissions/remove', data })
 }
 
+// Function to get user permissions
+export const getUserPermissions = (userId: number): Promise<IResponse<any>> => {
+  return request.post({ url: prod + '/api/v1/user/permissions', data: { userId } })
+}
 
 //export const setRolePermissions = (roleId, permissions) => request.put({ url: prod + `/api/v1/roles/${roleId}/permissions`, data: { permissions } })
 //export const addRolePermission = (roleId, permission) => request.post({ url: prod + `/api/v1/roles/${roleId}/permissions`, data: { permission } })

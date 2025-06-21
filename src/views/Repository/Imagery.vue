@@ -30,6 +30,7 @@ import { useAppStoreWithOut } from '@/store/modules/app';
 import { useCache } from '@/hooks/web/useCache';
 import { uploadToGeoServer, deleteLayer, EditLayerDetails } from '@/api/geoserver';
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
+import PermissionWrapper from '@/components/PermissionWrapper.vue';
 import axios from 'axios';
 import { XMLParser } from 'fast-xml-parser';
 import mapboxgl from 'mapbox-gl';
@@ -565,7 +566,7 @@ const xdownloadImagery = (layerName) => {
     })
     .catch((error) => {
       console.error('Download error:', error);
-      ElMessage.error('Error downloading imagery: ' + (error.response?.statusText || error.message));
+      ElMessage.error('Error downloading geoserver: ' + (error.response?.statusText || error.message));
       loadingStates.value[layerName.name] = false;
     });
 };
@@ -599,18 +600,21 @@ const xdownloadImagery = (layerName) => {
       </el-select>
 
       <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px">
-        <el-tooltip content="Upload Imagery" placement="top">
-          <el-button @click="UploadDialogVisible = true" type="primary" :icon="Plus" />
-        </el-tooltip>
+        <PermissionWrapper :permissions="['geoserver:create']">
+          <el-tooltip content="Upload Imagery" placement="top">
+            <el-button @click="UploadDialogVisible = true" type="primary" :icon="Plus" />
+          </el-tooltip>
+        </PermissionWrapper>
         <el-tooltip content="Download" placement="top">
           <el-button @click="selectDownload" type="primary" :icon="Download" />
         </el-tooltip>
-        <DownloadCustom
-          v-if="showEditButtons"
-          :data="tableDataList"
-          :model="model"
-          :associated_models="associated_multiple_models"
-        />
+        <PermissionWrapper :permissions="['geoserver:read']">
+          <DownloadCustom
+            :data="tableDataList"
+            :model="model"
+            :associated_models="associated_multiple_models"
+          />
+        </PermissionWrapper>
       </div>
     </el-row>
 
@@ -629,31 +633,38 @@ const xdownloadImagery = (layerName) => {
       </el-table-column>
       <el-table-column fixed="right" label="Actions" width="450">
         <template #default="scope">
-          <el-button
-            size="small"
-            type="primary"
-            plain
-            :icon="Position"
-            @click="handleSelectLayer(scope.row.name)"
-          >
-            View
-          </el-button>
-          <el-button size="small" type="success" plain :icon="Edit" @click="editLayer(scope.row)">
-            Edit
-          </el-button>
-          <el-button  v-loading="loadingStates[scope.row.name]" disabled size="small" type="success" plain :icon="Download" @click="downloadImagery(scope.row)">
-            Download
-          </el-button>
-
-          <el-button
-            size="small"
-            type="danger"
-            plain
-            :icon="Delete"
-            @click="deleteLayerStore(scope.row.name)"
-          >
-            Delete
-          </el-button>
+          <PermissionWrapper :permissions="['geoserver:read']">
+            <el-button
+              size="small"
+              type="primary"
+              plain
+              :icon="Position"
+              @click="handleSelectLayer(scope.row.name)"
+            >
+              View
+            </el-button>
+          </PermissionWrapper>
+          <PermissionWrapper :permissions="['geoserver:update']">
+            <el-button size="small" type="success" plain :icon="Edit" @click="editLayer(scope.row)">
+              Edit
+            </el-button>
+          </PermissionWrapper>
+          <PermissionWrapper :permissions="['geoserver:read']">
+            <el-button  v-loading="loadingStates[scope.row.name]" disabled size="small" type="success" plain :icon="Download" @click="downloadImagery(scope.row)">
+              Download
+            </el-button>
+          </PermissionWrapper>
+          <PermissionWrapper :permissions="['geoserver:delete']">
+            <el-button
+              size="small"
+              type="danger"
+              plain
+              :icon="Delete"
+              @click="deleteLayerStore(scope.row.name)"
+            >
+              Delete
+            </el-button>
+          </PermissionWrapper>
         </template>
       </el-table-column>
     </el-table>

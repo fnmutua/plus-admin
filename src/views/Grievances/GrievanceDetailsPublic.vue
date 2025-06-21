@@ -1,4 +1,3 @@
- 
 <script setup lang="ts">
 import { onMounted, ref, computed ,onUnmounted} from 'vue'
  
@@ -8,6 +7,10 @@ import { useRoute, useRouter } from 'vue-router'
 import { Download, ArrowRight, Back } from '@element-plus/icons-vue'
 import { Icon } from '@iconify/vue'
 import { useAppStore } from '@/store/modules/app'
+import PermissionWrapper from '@/components/PermissionWrapper.vue'
+import {
+  CaretRight, Check, Close, Lock, Notification, Microphone,Delete,Edit,ArrowLeft,RefreshLeft,
+} from '@element-plus/icons-vue'
 
 const appStore = useAppStore()
 const route = useRoute()
@@ -160,8 +163,6 @@ const handleDownload = async () => {
   }
 }
 
- 
-
 const handleForward = () => {
   const targetPath = `/grm/${grievance.value.id}`
 
@@ -172,10 +173,6 @@ const handleForward = () => {
     })
   })
 }
-
-
-
-
 
 const goBack = () => {
   router.back()
@@ -201,10 +198,9 @@ onUnmounted(() => {
   window.removeEventListener('resize', updateColumns)
 })
 
-
 </script>
 
- <template>
+<template>
 <div class="  bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white transition-colors duration-300 px-4 sm:px-6 overflow-y-auto">
     <Transition name="fade">
       <el-card class="container mx-auto my-6 sm:my-8 p-4 sm:p-6 max-w-full sm:max-w-4xl">
@@ -273,14 +269,16 @@ onUnmounted(() => {
 
             <el-descriptions-item label="Action" :span="2">
               <div v-if="isMobile" class="flex space-x-2">
-                <el-button  type="primary"
+                <el-button
+type="primary"
                   plain
                   :icon="Download"
                   @click="handleDownload"
                   class="w-full sm:w-auto" > 
                   Download
                 </el-button>
-                <el-button type="success"
+                <el-button
+type="success"
                   plain
                   :icon="ArrowRight"
                   @click="handleForward"

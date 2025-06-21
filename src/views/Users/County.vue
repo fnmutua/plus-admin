@@ -32,6 +32,8 @@ import { activateUserApi, updateUserApi, getCountyStaff } from '@/api/users'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import xlsx from "json-as-xlsx"
+import DownloadAll from '@/views/Components/DownloadAll.vue'
+import PermissionWrapper from '@/components/PermissionWrapper'
 
 import { searchByKeyWord } from '@/api/settlements'
 interface Params {
@@ -635,6 +637,11 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
     </div>
     <div style="display: inline-block; margin-left: 20px">
       <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
+    </div>
+    <div style="display: inline-block; margin-left: 20px">
+      <PermissionWrapper :permissions="['user:download']">
+        <DownloadAll :model="model" :associated_models="associated_multiple_models"/>
+      </PermissionWrapper>
     </div>
     <div style="display: inline-block; margin-left: 20px">
       <el-button :onClick="handleClear" type="primary" :icon="Filter" />

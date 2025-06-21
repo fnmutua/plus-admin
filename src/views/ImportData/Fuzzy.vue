@@ -49,7 +49,7 @@ import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import { useRouter } from 'vue-router'
 import shortid from 'shortid';
-
+import PermissionWrapper from '@/components/PermissionWrapper.vue'
 
 import { readSheetNames } from 'read-excel-file'
 
@@ -1235,23 +1235,23 @@ class="ml-3" v-if="showUploadButton" v-model="selectedSheet" placeholder="Select
  </el-upload> -->
 
 
-                <el-upload
-                    v-if="showUploadButton" 
-                    class="upload-demo"
-                    drag
-                    :limit="1"  
-                    :on-change="handleFileUpload" 
-                    :auto-upload="false"
-                    :on-remove="handleRemove"
-                    :accept="'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'" 
-
-
-                >
-                    <el-icon class="el-icon--upload"><upload-filled /></el-icon>
-                    <div class="el-upload__text">
-                    Drop XLSX file here or <em>click to upload</em>
-                    </div>
-                </el-upload>
+                <PermissionWrapper :permissions="['settlement:create', 'households:create', 'road:create', 'health_facility:create', 'education_facility:create']">
+                  <el-upload
+                      v-if="showUploadButton" 
+                      class="upload-demo"
+                      drag
+                      :limit="1"  
+                      :on-change="handleFileUpload" 
+                      :auto-upload="false"
+                      :on-remove="handleRemove"
+                      :accept="'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'" 
+                  >
+                      <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+                      <div class="el-upload__text">
+                      Drop XLSX file here or <em>click to upload</em>
+                      </div>
+                  </el-upload>
+                </PermissionWrapper>
 
                 <el-select
                     class="mb-3" v-if="showUploadButton" v-model="selectedSheet" placeholder="Select Sheet"
@@ -1289,7 +1289,9 @@ class="ml-3" v-if="showUploadButton" v-model="selectedSheet" placeholder="Select
                 <div class="button-container"> <!-- Wrap the buttons in a div -->
                         <span class="dialog-footer">
                             <el-button v-if="showTable" @click="showTable = false">Cancel</el-button>
-                            <el-button v-if="showTable" type="primary" @click="handleSubmitData">Submit Data</el-button>
+                            <PermissionWrapper :permissions="['settlement:create', 'households:create', 'road:create', 'health_facility:create', 'education_facility:create']">
+                              <el-button v-if="showTable" type="primary" @click="handleSubmitData">Submit Data</el-button>
+                            </PermissionWrapper>
                         </span>
                         </div>
 

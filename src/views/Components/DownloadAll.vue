@@ -1,7 +1,7 @@
 <template>
   <div   v-loading="downloading"  style="display: inline-block; margin-left: 5px">
     <el-tooltip content="Download All" placement="top">
-      <el-button    :onClick="DownloadViaComponent" type="primary" :icon="Finished" />
+      <el-button    :onClick="DownloadViaComponent" type="primary" :icon="Finished" :disabled="downloading" :loading="downloading" />
     </el-tooltip>
   </div>
 
@@ -23,7 +23,7 @@
       No data to Download.
     </div>
   </div>
-  <el-button  v-if="model_fields && model_fields.length > 0"   type="success" @click="handleDownloadSelectFields()">Download</el-button>
+  <el-button  v-if="model_fields && model_fields.length > 0"   type="success" @click="handleDownloadSelectFields()" :loading="downloading" :disabled="downloading">Download</el-button>
 </el-dialog>
 
 
@@ -114,7 +114,8 @@ const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
 
 const DownloadViaComponent = async () => {
   flattenedData.value = [];
-  downloading.value=true
+  downloading.value = true
+  
   try {
     const response = await getListWithoutGeo({
       params: {
@@ -127,100 +128,85 @@ const DownloadViaComponent = async () => {
       }
     });
 
+    if (!response.data || response.data.length === 0) {
+      ElMessage.warning('No data available to download')
+      return
+    }
+
     response.data.forEach(arrayItem => {
       const dd = flattenJSON(arrayItem);
       flattenedData.value.push(dd);
-
-      model_fields.value  = Object.keys(dd);
-
-
-  console.log(dd);
+      model_fields.value = Object.keys(dd);
+      console.log(dd);
     });
-    downloading.value=false
 
     showSelectFields.value = true;
   } catch (error) {
     console.error('Error fetching data:', error);
+    ElMessage.error('Failed to fetch data for download. Please try again.')
+  } finally {
+    downloading.value = false
   }
 };
 
  
 const handleDownloadSelectFields = async () => {
- //  console.log('selectedFields ---', selectedFields.value)
-
   if (selectedFields.value.length < 1) {
     ElMessage.warning('Specify the fields you want on the exported file')
     return 
-    
-   }
-
- 
-
-  let fields =[]
-
-  for (let i = 0; i < selectedFields.value.length; i++) { 
-    var fld = {}
-    fld.label=selectedFields.value[i]
-    fld.value = selectedFields.value[i]
-    fields.push(fld)
   }
 
- // console.log(fields)
+  downloading.value = true
 
-   
+  try {
+    let fields = []
 
-
-  // Preprae the data object 
-  var dataObj = {}
-  dataObj.sheet = 'data'
-  dataObj.columns = fields
-
-  let dataHolder = []
-  // loop through the table data and sort the data 
-  // change here !
-  for (let i = 0; i < flattenedData.value.length; i++) {
-    let thisRecord = {}
-
- //   console.log('flattened ??',i,  flattenedData.value[i])
-     
-    thisRecord.index = i + 1
-
-    for (let j = 0; j < fields.length; j++) {
-      var fld = fields[j].label
-      thisRecord[fld] = flattenedData.value[i][fld]
-
-   //   console.log('fld',thisRecord)
-
-
+    for (let i = 0; i < selectedFields.value.length; i++) { 
+      var fld = {}
+      fld.label = selectedFields.value[i]
+      fld.value = selectedFields.value[i]
+      fields.push(fld)
     }
-   
 
-    dataHolder.push(thisRecord)
+    // Prepare the data object 
+    var dataObj = {}
+    dataObj.sheet = 'data'
+    dataObj.columns = fields
+
+    let dataHolder = []
+    // loop through the table data and sort the data 
+    for (let i = 0; i < flattenedData.value.length; i++) {
+      let thisRecord = {}
+      thisRecord.index = i + 1
+
+      for (let j = 0; j < fields.length; j++) {
+        var fld = fields[j].label
+        thisRecord[fld] = flattenedData.value[i][fld]
+      }
+
+      dataHolder.push(thisRecord)
+    }
+    dataObj.content = dataHolder
+
+    let settings = {
+      fileName: model.value, // Name of the resulting spreadsheet
+      extraLength: 3, // A bigger number means that columns will be wider
+      writeMode: "writeFile", // The available parameters are 'WriteFile' and 'write'. This setting is optional. Useful in such cases https://docs.sheetjs.com/docs/solutions/output#example-remote-file
+      writeOptions: {}, // Style options from https://docs.sheetjs.com/docs/api/write-options
+      RTL: true, // Display the columns from right-to-left (the default value is false)
+    }
+
+    // Enclose in array since the function expects an array of sheets
+    xlsx([dataObj], settings) // download the excel file
+    
+    ElMessage.success('Download completed successfully')
+    showSelectFields.value = false
+  } catch (error) {
+    console.error('Error during download:', error)
+    ElMessage.error('Failed to download file. Please try again.')
+  } finally {
+    downloading.value = false
   }
-  dataObj.content = dataHolder
-
-
-
-
-  let xsettings = {
-    fileName: model.value, // Name of the resulting spreadsheet
-    writeMode: "write", // The available parameters are 'WriteFile' and 'write'. This setting is optional. Useful in such cases https://docs.sheetjs.com/docs/solutions/output#example-remote-file
-    writeOptions: {}, // Style options from https://docs.sheetjs.com/docs/api/write-options
-  }
-
-  let settings = {
-  fileName: "MySpreadsheet", // Name of the resulting spreadsheet
-  extraLength: 3, // A bigger number means that columns will be wider
-  writeMode: "writeFile", // The available parameters are 'WriteFile' and 'write'. This setting is optional. Useful in such cases https://docs.sheetjs.com/docs/solutions/output#example-remote-file
-  writeOptions: {}, // Style options from https://docs.sheetjs.com/docs/api/write-options
-  RTL: true, // Display the columns from right-to-left (the default value is false)
-}
-
-
-
-  // Enclose in array since the fucntion expects an array of sheets
-  xlsx([dataObj], settings) //  download the excel file
-
 }
 
 </script>

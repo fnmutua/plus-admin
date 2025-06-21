@@ -7212,3 +7212,28 @@ exports.modelManyRecordsByCodes = (req, res) => {
     });
 };
 
+// Returns the fields for a given model
+exports.getModelFields = (req, res) => {
+  try {
+    const { model } = req.body;
+    if (!model) {
+      return res.status(400).json({ error: 'Model name is required.' });
+    }
+    // Try to require the model file
+    let modelFile;
+    try {
+      modelFile = require(`../models/${model}.js`);
+    } catch (e) {
+      return res.status(404).json({ error: `Model file for '${model}' not found.` });
+    }
+    // Try to get fields
+    const fields = modelFile.fields || (modelFile.default && modelFile.default.fields);
+    if (!fields) {
+      return res.status(404).json({ error: `Fields not found for model '${model}'.` });
+    }
+    return res.json({ fields });
+  } catch (err) {
+    return res.status(500).json({ error: 'Internal server error', details: err.message });
+  }
+};
+

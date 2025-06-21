@@ -22,6 +22,7 @@ import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import { uuid } from 'vue-uuid'
 import { getFile } from '@/api/summary'
+import PermissionWrapper from '@/components/PermissionWrapper.vue'
 
 import xlsx from "json-as-xlsx"
 import { getAllGeo } from '@/api/settlements'
@@ -1021,9 +1022,11 @@ size="default" v-model="value3" multiple clearable filterable remote :remote-met
           </div>
 
           <div v-if="showAdminButtons" style="display: inline-block; margin-left: 20px">
-            <el-tooltip content="Add Household" placement="top">
-              <el-button :onClick="AddHH" type="primary" :icon="Plus" />
-            </el-tooltip>
+            <PermissionWrapper :permissions="'households:create'">
+              <el-tooltip content="Add Household" placement="top">
+                <el-button :onClick="AddHH" type="primary" :icon="Plus" />
+              </el-tooltip>
+            </PermissionWrapper>
           </div>
 
           <div style="display: inline-block; margin-left: 20px">
