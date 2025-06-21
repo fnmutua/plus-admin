@@ -154,7 +154,7 @@ const handleFileUpload = async (uploadFile: any) => {
       excelData.value = dataRows;
 
       ElMessage.success(`CSV file loaded successfully! ${excelData.value.length} rows found.`);
-    } else {
+  } else {
       throw new Error('Unsupported file type. Please upload a .csv, .xlsx, or .xls file.');
     }
 
@@ -281,7 +281,7 @@ const importExcelData = async () => {
     let response;
     if (targetTable.value === 'households') {
       response = await postBatchHouseholds(formData);
-    } else {
+  } else {
       response = await BatchImportUpsert(formData);
     }
 
@@ -484,7 +484,7 @@ const handleReset = () => {
           aria-label="Go to previous step"
         >
           Back
-        </el-button>
+    </el-button>
       </div>
 
       <!-- Right side -->
@@ -497,7 +497,7 @@ const handleReset = () => {
           aria-label="Reset"
         >
           Reset
-        </el-button>
+    </el-button>
 
         <PermissionWrapper :permissions="['settlement:create', 'project:create', 'parcel:create', 'structure:create', 'road:create', 'road_asset:create', 'sewer:create', 'piped_water:create', 'health_facility:create', 'education_facility:create', 'water_point:create', 'police_station:create', 'crime_hotspot:create', 'floodlight:create', 'railway:create', 'powerline:create', 'hazard_zone:create', 'community_hall:create', 'community_project:create', 'mast:create', 'street_light:create', 'dumping_site:create', 'households:create', 'beneficiary:create', 'beneficiary_parcel:create', 'intervention:create', 'category:create', 'indicator:create', 'indicator_category:create']">
           <el-button
@@ -536,4 +536,4 @@ const handleReset = () => {
 .text-gray-500 {
   color: #6b7280;
 }
-</style> 
+</style>

@@ -3076,17 +3076,21 @@ exports.xmodelPaginatedDatafilterByColumn = async (req, res) => {
     }
 
     if (Model.associations.children && Model.associations.parent) {
+      // Get the actual field names from the model attributes
+      const nameField = Object.keys(Model.rawAttributes).includes('name') ? 'name' : 
+                       Object.keys(Model.rawAttributes).includes('title') ? 'title' : 'id';
+      
       includeModels.push(
         { 
           model: Model, 
           as: 'children', 
-          attributes: ['id', 'name'], 
+          attributes: ['id', nameField], 
           required: false 
         },
         { 
           model: Model, 
           as: 'parent', 
-          attributes: ['id', 'name'], 
+          attributes: ['id', nameField], 
           required: false 
         }
       );
@@ -3293,17 +3297,21 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
     }
 
     if (Model.associations.children && Model.associations.parent) {
+      // Get the actual field names from the model attributes
+      const nameField = Object.keys(Model.rawAttributes).includes('name') ? 'name' : 
+                       Object.keys(Model.rawAttributes).includes('title') ? 'title' : 'id';
+      
       includeModels.push(
         { 
           model: Model, 
           as: 'children', 
-          attributes: ['id', 'name'], 
+          attributes: ['id', nameField], 
           required: false 
         },
         { 
           model: Model, 
           as: 'parent', 
-          attributes: ['id', 'name'], 
+          attributes: ['id', nameField], 
           required: false 
         }
       );
@@ -3482,16 +3490,6 @@ exports.modelPaginatedDatafilterByColumnNoGeo = async (req, res) => {
    // loop through the include models
    for (let i = 0; i < req.body.associated_multiple_models.length; i++) {
      var modelIncl = {}
-     modelIncl.model = db.models[req.body.associated_multiple_models[i]]
- 
-     if (req.body.associated_multiple_models[i] === 'users') {
-          modelIncl.raw = true
-          modelIncl.nested = true
-          modelIncl.attributes = ['name', 'email', 'phone'];
- 
-     }
- 
-     includeModels.push(modelIncl)
  
  
    }

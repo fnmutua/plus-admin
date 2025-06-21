@@ -15,6 +15,7 @@ import {
   CopyDocument,
   Delete
 } from '@element-plus/icons-vue'
+import PermissionWrapper from '@/components/PermissionWrapper.vue'
 
 import { ref, reactive, onMounted, computed } from 'vue'
 import {
@@ -1208,13 +1209,17 @@ const remoteMethod = async (keyword) => {
     />
   </el-select>
 
-  <el-tooltip content="Add Card" placement="top">
-    <el-button :onClick="AddCard" type="primary" :icon="Plus" />
-  </el-tooltip>
+  <PermissionWrapper :permissions="'dashboard:create'">
+    <el-tooltip content="Add Card" placement="top">
+      <el-button :onClick="AddCard" type="primary" :icon="Plus" />
+    </el-tooltip>
+  </PermissionWrapper>
 
-  <el-tooltip content="Download" placement="top">
-    <el-button :onClick="handleDownload" type="primary" :icon="Download" />
-  </el-tooltip>
+  <PermissionWrapper :permissions="'dashboard:read'">
+    <el-tooltip content="Download" placement="top">
+      <el-button :onClick="handleDownload" type="primary" :icon="Download" />
+    </el-tooltip>
+  </PermissionWrapper>
 
   <el-tooltip content="Clear" placement="top">
     <el-button :onClick="handleClear" type="primary" :icon="Filter" />
@@ -1240,26 +1245,30 @@ v-model="searchKey" size="small" :onChange="remoteMethod" :onBlur="remoteMethod"
 
         </template>
         <template #default="scope">
-          <el-tooltip content="Edit" placement="top">
-            <el-button
+          <PermissionWrapper :permissions="'dashboard:update'">
+            <el-tooltip content="Edit" placement="top">
+              <el-button
 size="small" type="success" :icon="Edit" @click="editIndicator(scope as TableSlotDefault)"
-              plain />
-          </el-tooltip>
+                plain />
+            </el-tooltip>
+          </PermissionWrapper>
           <el-tooltip content="Clone" placement="top">
             <el-button
 size="small" type="warning" :icon="CopyDocument" @click="CloneCard(scope as TableSlotDefault)"
               plain />
           </el-tooltip>
-          <el-tooltip content="Delete" placement="top">
-            <el-popconfirm
+          <PermissionWrapper :permissions="'dashboard:delete'">
+            <el-tooltip content="Delete" placement="top">
+              <el-popconfirm
 confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
-              icon-color="#626AEF" title="Are you sure to delete this card?"
-              @confirm="DeleteIndicator(scope as TableSlotDefault)">
-              <template #reference>
-                <el-button size="small" v-if="showAdminButtons" type="danger" :icon=Delete plain />
-              </template>
-            </el-popconfirm>
-          </el-tooltip>
+                icon-color="#626AEF" title="Are you sure to delete this card?"
+                @confirm="DeleteIndicator(scope as TableSlotDefault)">
+                <template #reference>
+                  <el-button size="small" v-if="showAdminButtons" type="danger" :icon=Delete plain />
+                </template>
+              </el-popconfirm>
+            </el-tooltip>
+          </PermissionWrapper>
         </template>
       </el-table-column>
     </el-table>
@@ -1437,12 +1446,12 @@ size="small" v-model="scope.row.value" placeholder="Select Value" multiple
 
             <el-button @click="nextStep" v-if="activeStep < 3">Next</el-button>
             <el-button @click="AddDialogVisible = false">Cancel</el-button>
-            <el-button
-v-if="showSubmitBtn && activeStep === 3" type="primary"
-              @click="submitForm(ruleFormRef)">Submit</el-button>
-            <el-button
-v-if="showEditSaveButton && activeStep === 3" type="primary"
-              @click="editForm(ruleFormRef)">Save</el-button>
+            <PermissionWrapper :permissions="'dashboard:create'">
+              <el-button v-if="showSubmitBtn && activeStep === 3" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
+            </PermissionWrapper>
+            <PermissionWrapper :permissions="'dashboard:update'">
+              <el-button v-if="showEditSaveButton && activeStep === 3" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
+            </PermissionWrapper>
           </el-col>
         </el-row>
       </span>

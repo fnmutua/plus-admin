@@ -19,6 +19,7 @@ import {
   InfoFilled,
   Delete
 } from '@element-plus/icons-vue'
+import PermissionWrapper from '@/components/PermissionWrapper.vue'
 
 import { ref, reactive } from 'vue'
 import { ElPagination, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElPopconfirm } from 'element-plus'
@@ -537,7 +538,8 @@ const goBack = () => {
             </div>
 
             <!-- Title Search -->
-            <el-select     v-model="value3" :onChange="handleSeleectDashboard" :onClear="handleClear" multiple clearable filterable
+            <el-select
+v-model="value3" :onChange="handleSeleectDashboard" :onClear="handleClear" multiple clearable filterable
                     collapse-tags placeholder="Search Dashboard" style="margin-right: 10px;">
                     <el-option v-for="item in DashBoardOptions" :key="item.value" :label="item.label" :value="item.value" />
                   </el-select>
@@ -547,9 +549,11 @@ const goBack = () => {
             <!-- Action Buttons -->
             <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px;">
 
-              <el-tooltip content="Add Tab" placement="top">
-                <el-button :onClick="AddCard" type="primary" :icon="Plus" />
-              </el-tooltip>
+              <PermissionWrapper :permissions="'dashboard:create'">
+                <el-tooltip content="Add Tab" placement="top">
+                  <el-button :onClick="AddCard" type="primary" :icon="Plus" />
+                </el-tooltip>
+              </PermissionWrapper>
  
 
               <el-tooltip content="Clear" placement="top">
@@ -574,20 +578,22 @@ const goBack = () => {
 :columns="columns" :data="tableDataList" :loading="loading" :selection="false" :pageSize="pageSize"
       :currentPage="currentPage">
       <template #action="data">
-        <el-tooltip content="Edit" placement="top">
-          <el-button type="success" size="small" :icon="Edit" @click="editIndicator(data as TableSlotDefault)" plain />
-        </el-tooltip>
-
-        <el-tooltip content="Delete" placement="top">
-          <el-popconfirm
+        <PermissionWrapper :permissions="'dashboard:update'">
+          <el-tooltip content="Edit" placement="top">
+            <el-button type="success" size="small" :icon="Edit" @click="editIndicator(data as TableSlotDefault)" plain />
+          </el-tooltip>
+        </PermissionWrapper>
+        <PermissionWrapper :permissions="'dashboard:delete'">
+          <el-tooltip content="Delete" placement="top">
+            <el-popconfirm
 confirm-button-text="Yes"  width="340" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-            title="Are you sure to delete this section/tab?" @confirm="DeleteIndicator(data as TableSlotDefault)">
-            <template #reference>
-              <el-button v-if="showAdminButtons" type="danger"  size="small" :icon="Delete" plain />
-            </template>
-          </el-popconfirm>
-        </el-tooltip>
-
+              title="Are you sure to delete this section/tab?" @confirm="DeleteIndicator(data as TableSlotDefault)">
+              <template #reference>
+                <el-button v-if="showAdminButtons" type="danger"  size="small" :icon="Delete" plain />
+              </template>
+            </el-popconfirm>
+          </el-tooltip>
+        </PermissionWrapper>
       </template>
     </Table>
     <ElPagination
@@ -646,8 +652,12 @@ v-model="ruleForm.programme_id" :onClear="handleClear"   clearable
 
       <span class="dialog-footer">
         <el-button @click="AddDialogVisible = false">Cancel</el-button>
-        <el-button v-if="showSubmitBtn" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
-        <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
+        <PermissionWrapper :permissions="'dashboard:create'">
+          <el-button v-if="showSubmitBtn" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
+        </PermissionWrapper>
+        <PermissionWrapper :permissions="'dashboard:update'">
+          <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
+        </PermissionWrapper>
       </span>
     </template>
   </el-dialog>

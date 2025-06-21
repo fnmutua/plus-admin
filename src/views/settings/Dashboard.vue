@@ -15,7 +15,7 @@ import {
   InfoFilled,
   Delete
 } from '@element-plus/icons-vue'
-
+import PermissionWrapper from '@/components/PermissionWrapper.vue'
 import { ref, reactive, onMounted } from 'vue'
 import {
   ElPagination, ElTooltip, ElOption, ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElCol, ElRow, ElCheckbox,
@@ -546,9 +546,21 @@ const openHelp = ref(false)
       <!-- Action Buttons -->
       <div style="display: flex; align-items: right  ; gap: 10px; margin-right: 10px;">
 
-        <el-tooltip content="Add Dashboard" placement="top">
-          <el-button :onClick="AddIndicator" type="primary" :icon="Plus" />
-        </el-tooltip>
+        <PermissionWrapper :permissions="'dashboard:create'">
+          <el-tooltip content="Add Dashboard" placement="top">
+            <el-button :onClick="AddIndicator" type="primary" :icon="Plus" />
+          </el-tooltip>
+        </PermissionWrapper>
+
+        <PermissionWrapper :permissions="'dashboard:read'">
+          <DownloadAll 
+            :data="tblData" 
+            :filename="'dashboard_data'" 
+            :loading="downloadLoading"
+            @download-start="downloadLoading = true"
+            @download-complete="downloadLoading = false"
+          />
+        </PermissionWrapper>
 
         
 
@@ -571,22 +583,26 @@ v-model="searchKeyword" size="small" :onChange="remoteMethod" :onBlur="remoteMet
         </template>
         <template #default="scope">
          
-          <el-tooltip content="Edit" placement="top">
-            <el-button
+          <PermissionWrapper :permissions="'dashboard:update'">
+            <el-tooltip content="Edit" placement="top">
+              <el-button
 size="small" type="success" :icon="Edit" @click="editIndicator(scope as TableSlotDefault)"
-              plain />
-          </el-tooltip>
+                plain />
+            </el-tooltip>
+          </PermissionWrapper>
 
-          <el-tooltip content="Delete" placement="top">
-            <el-popconfirm
+          <PermissionWrapper :permissions="'dashboard:delete'">
+            <el-tooltip content="Delete" placement="top">
+              <el-popconfirm
 confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
-              icon-color="#626AEF" title="Are you sure to delete this card?"
-              @confirm="DeleteIndicator(scope as TableSlotDefault)">
-              <template #reference>
-                <el-button size="small" v-if="showAdminButtons" type="danger" :icon=Delete plain />
-              </template>
-            </el-popconfirm>
-          </el-tooltip>
+                icon-color="#626AEF" title="Are you sure to delete this card?"
+                @confirm="DeleteIndicator(scope as TableSlotDefault)">
+                <template #reference>
+                  <el-button size="small" v-if="showAdminButtons" type="danger" :icon=Delete plain />
+                </template>
+              </el-popconfirm>
+            </el-tooltip>
+          </PermissionWrapper>
 
 
 
@@ -660,8 +676,12 @@ v-if="ruleForm.icon" :href="'https://icnoffydesign.com/icons/' + ruleForm.icon" 
       <span class="dialog-footer">
         <el-button type="primary" plain @click="openHelp = true">Help</el-button>
         <el-button @click="AddDialogVisible = false">Cancel</el-button>
-        <el-button v-if="showSubmitBtn" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
-        <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
+        <PermissionWrapper :permissions="'dashboard:create'">
+          <el-button v-if="showSubmitBtn" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
+        </PermissionWrapper>
+        <PermissionWrapper :permissions="'dashboard:update'">
+          <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
+        </PermissionWrapper>
       </span>
     </template>
   </el-dialog>
