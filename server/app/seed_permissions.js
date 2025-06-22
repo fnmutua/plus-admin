@@ -294,6 +294,10 @@ async function seedPermissions() {
       // Infrastructure Permissions
       { name: 'hazard_zone:manage', description: 'Manage hazard zones' },
       { name: 'community_hall:manage', description: 'Manage community halls' },
+      { name: 'community_hall:create', description: 'Create community hall' },
+      { name: 'community_hall:read', description: 'Read community hall data' },
+      { name: 'community_hall:update', description: 'Update community hall' },
+      { name: 'community_hall:delete', description: 'Delete community hall' },
       { name: 'community_project:manage', description: 'Manage community projects' },
       { name: 'mast:manage', description: 'Manage masts' },
       { name: 'street_light:manage', description: 'Manage street lights' },
@@ -303,6 +307,10 @@ async function seedPermissions() {
       { name: 'floodlight:manage', description: 'Manage floodlights' },
       { name: 'crime_hotspot:manage', description: 'Manage crime hotspots' },
       { name: 'police_station:manage', description: 'Manage police stations' },
+      { name: 'police_station:create', description: 'Create police station' },
+      { name: 'police_station:read', description: 'Read police station data' },
+      { name: 'police_station:update', description: 'Update police station' },
+      { name: 'police_station:delete', description: 'Delete police station' },
 
       // Type Management Permissions
       { name: 'facility_type:manage', description: 'Manage facility types' },
