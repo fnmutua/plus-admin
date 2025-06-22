@@ -4,6 +4,51 @@ process.env.VUE_APP_PASSWORD = '***REDACTED***';
 process.env.VUE_APP_DB = 'kisip';
 process.env.VUE_APP_DB_PORT = '5432';
 
+// Support both kisip and kesmis database names
+const { Sequelize } = require('sequelize');
+
+// Function to test database connection
+async function testDatabaseConnection(databaseName) {
+  const testSequelize = new Sequelize(databaseName, process.env.VUE_APP_USER, process.env.VUE_APP_PASSWORD, {
+    host: process.env.VUE_APP_DB_HOST,
+    port: process.env.VUE_APP_DB_PORT,
+    dialect: 'postgres',
+    logging: false
+  });
+  
+  try {
+    await testSequelize.authenticate();
+    await testSequelize.close();
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
+// Function to determine which database to use
+async function determineDatabase() {
+  console.log('Checking available databases...');
+  
+  // Try kisip first
+  if (await testDatabaseConnection('kisip')) {
+    console.log('Using kisip database');
+    process.env.VUE_APP_DB = 'kisip';
+    return 'kisip';
+  }
+  
+  // Try kesmis if kisip is not available
+  if (await testDatabaseConnection('kesmis')) {
+    console.log('Using kesmis database');
+    process.env.VUE_APP_DB = 'kesmis';
+    return 'kesmis';
+  }
+  
+  // If neither is available, default to kisip
+  console.log('Neither kisip nor kesmis database found, defaulting to kisip');
+  process.env.VUE_APP_DB = 'kisip';
+  return 'kisip';
+}
+
 console.log('Starting permission seeding process...');
 console.log('DB ENV:', process.env.VUE_APP_DB_HOST, process.env.VUE_APP_USER, process.env.VUE_APP_PASSWORD, process.env.VUE_APP_DB, process.env.VUE_APP_DB_PORT);
 
@@ -11,6 +56,10 @@ const db = require('./models');
 
 async function seedPermissions() {
   try {
+    // Determine which database to use
+    const databaseName = await determineDatabase();
+    console.log(`Using database: ${databaseName}`);
+    
     console.log('Syncing database...');
     await db.sequelize.sync(); // Ensure tables exist
     console.log('Database synced successfully');
