@@ -1,5 +1,6 @@
 <!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
+// @ts-nocheck
 import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
 import { getSettlementListByCounty,searchByKeyWord } from '@/api/settlements'
@@ -17,10 +18,10 @@ import {
 } from '@element-plus/icons-vue'
 import PermissionWrapper from '@/components/PermissionWrapper.vue'
 
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive,watch, onMounted, computed } from 'vue'
 import {
-  ElPagination, ElCol, ElTooltip, ElOption, ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElRow,
-  ElTable, ElSwitch, ElTableColumn, ElStep, ElSteps, ElSelectV2
+  ElPagination, ElCol, ElTooltip, ElOption, ElDrawer, ElForm, ElFormItem, ElInput, FormRules, ElRow,
+  ElTable, ElSwitch, ElTableColumn, ElStep, ElSteps, ElSelectV2, ElMessageBox, ElMessage
 } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
@@ -36,6 +37,7 @@ import { getModelSpecs, } from '@/api/fields'
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
+const isMobile = computed(() => appStore.getMobile)
 
 
 console.log("userInfo--->", userInfo)
@@ -1171,6 +1173,37 @@ const remoteMethod = async (keyword) => {
 
 }
 
+ 
+
+const initialFormJson = ref('')
+const isFormDirty = computed(() => JSON.stringify(ruleForm) !== initialFormJson.value)
+watch(AddDialogVisible, (visible) => {
+  if (visible) {
+    initialFormJson.value = JSON.stringify(ruleForm)
+  }
+})
+
+
+const handleDrawerBeforeClose = (done) => {
+  if (isFormDirty.value) {
+    ElMessageBox.confirm(
+      'You have unsaved changes. Do you really want to discard them and close?',
+      'Unsaved Changes',
+      { type: 'warning' }
+    )
+      .then(() => {
+        handleClose()
+        done()
+      })
+      .catch(() => {
+        // user cancelled, do nothing
+      })
+  } else {
+    handleClose()
+    done()
+  }
+}
+
 </script>
 
 <template>
@@ -1280,12 +1313,27 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
       @current-change="onPageChange" class="mt-4" />
   </el-card>
 
-  <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" width="40%">
-    <el-steps :active="activeStep" align-center finish-status="success" style="margin-bottom: 20px;">
-      <el-step title="Details" />
-      <el-step title="Icons" />
-      <el-step title="Computation" />
-    </el-steps>
+  <el-drawer
+    v-model="AddDialogVisible"
+    direction="rtl"
+    :size="isMobile ? '100%' : '40%'"
+    :with-header="false"
+    :before-close="handleDrawerBeforeClose"
+  >
+    <template #header>
+      <div class="drawer-header">
+        <span class="drawer-title">{{ formHeader }}</span>
+        <el-button class="drawer-close" icon="el-icon-close" type="text" @click="handleDrawerBeforeClose(() => { AddDialogVisible = false })" />
+      </div>
+    </template>
+
+    <div class="steps-wrapper">
+      <el-steps :active="activeStep" align-center finish-status="success">
+        <el-step title="Details" />
+        <el-step title="Icons" />
+        <el-step title="Computation" />
+      </el-steps>
+    </div>
 
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="100px" label-position="top">
       <el-row v-if="activeStep == 0" :gutter="20">
@@ -1458,7 +1506,7 @@ size="small" v-model="scope.row.value" placeholder="Select Value" multiple
     </template>
 
 
-  </el-dialog>
+  </el-drawer>
 
 
 
@@ -1525,5 +1573,32 @@ target="#btn11" title="Filters"
   display: flex;
   justify-content: center;
   align-items: center;
+}
+</style>
+
+<style>
+.drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  background: linear-gradient(135deg, var(--el-color-primary-dark-2), var(--el-color-primary));
+  color: white;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.drawer-title {
+  font-size: 20px;
+  font-weight: 600;
+}
+.drawer-close {
+  color: white;
+}
+.steps-wrapper {
+  background: linear-gradient(135deg, var(--el-color-primary), var(--el-color-primary-light-8));
+  padding: 16px;
+  border-radius: 4px;
+  margin: 20px 0;
 }
 </style>

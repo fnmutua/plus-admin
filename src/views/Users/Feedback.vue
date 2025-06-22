@@ -1,12 +1,13 @@
 <!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
+// @ts-nocheck
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
 import { getSettlementListByCounty, searchByKeyWord } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
 import { ElButton, ElSelect, MessageParamsWithType } from 'element-plus'
-import { ElMessage } from 'element-plus'
+import { ElMessage,ElCard } from 'element-plus'
 import {
   Position,
   TopRight,
@@ -20,9 +21,9 @@ import {
   Delete
 } from '@element-plus/icons-vue'
 
-import { ref, reactive,onMounted } from 'vue'
+import { ref, reactive,onMounted, computed, watch } from 'vue'
 import {
-  ElPagination, ElTable, ElTableColumn, ElTooltip, ElOption, ElDivider ,
+  ElPagination, ElTable, ElTableColumn, ElTooltip, ElOption, ElDivider ,ElTabPane,ElTabs,
   ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElDatePicker, ElPopconfirm
 } from 'element-plus'
 import { useRouter } from 'vue-router'
@@ -34,6 +35,7 @@ import { uuid } from 'vue-uuid'
 import type { FormInstance } from 'element-plus'
 import DownloadAll from '@/views/Components/DownloadAll.vue';
 import PermissionWrapper from '@/components/PermissionWrapper.vue';
+import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
@@ -121,74 +123,52 @@ const model = 'feedback'
 
 const { t } = useI18n()
 
+const statusOptions = [
+  { value: '', label: 'All' },
+  { value: 'Pending', label: 'Pending' },
+  { value: 'Resolved', label: 'Resolved' }
+]
+const selectedStatus = ref('')
 
-
-
-
-
-const onPageChange = async (selPage: any) => {
-  console.log('on change change: selected counties ', selCounties)
-  page.value = selPage
-  getFilteredData(filters, filterValues)
-}
-
-const onPageSizeChange = async (size: any) => {
-  pageSize.value = size
-  getFilteredData(filters, filterValues)
-}
-
-const getInterventionsAll = async () => {
-  getFilteredData(filters, filterValues)
-}
-
-const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
-  for (let key in obj) {
-    if (key != 'geom') {
-
-      if (typeof obj[key] !== 'object') {
-        res[extraKey + key] = obj[key];
-      } else {
-        flattenJSON(obj[key], res, `${extraKey}${key}.`);
-      };
-    };
+const handleStatusFilter = () => {
+  // Remove any existing status filter
+  const statusIndex = filters.indexOf('status')
+  if (statusIndex !== -1) {
+    filters.splice(statusIndex, 1)
+    filterValues.splice(statusIndex, 1)
   }
-  return res;
-};
+  // Add new status filter if not empty
+  if (selectedStatus.value) {
+    filters.push('status')
+    filterValues.push(selectedStatus.value)
+  }
+  currentPage.value = 1
+  getFilteredData(filters, filterValues)
+}
 
+const handleClear = () => {
+  filters = []
+  filterValues = []
+  selectedStatus.value = ''
+  currentPage.value = 1
+  getFilteredData(filters, filterValues)
+}
 
 const getFilteredData = async (selFilters, selfilterValues) => {
   const formData = {}
   formData.limit = pageSize.value
-  formData.page = page.value
-  formData.curUser = 1 // Id for logged in user
+  formData.page = currentPage.value
   formData.model = model
-  //-Search field--------------------------------------------
-  formData.searchField = 'name'
-  formData.searchKeyword = ''
-  //--Single Filter -----------------------------------------
-
-
-  // - multiple filters -------------------------------------
-  formData.filters = []
-  formData.filterValues = []
+  formData.filters = selFilters
+  formData.filterValues = selfilterValues
   formData.associated_multiple_models = ['users']
-
-  //-------------------------
-  //console.log(formData)
   const res = await getSettlementListByCounty(formData)
-var result = res.data 
-result.sort((a, b) => (a.id > b.id) ? -1 : 1);
-
-  console.log(result);
-
-
-  console.log('After Querry', res)
   tableDataList.value = res.data
   total.value = res.total
-
   loading.value = false
 }
 
+watch(selectedStatus, handleStatusFilter)
 
 const searchString = ref()
 
@@ -237,7 +217,7 @@ const searchByName = async (filterString: any) => {
 
 
 
-getInterventionsAll()
+getFilteredData(filters, filterValues)
 
 
 
@@ -360,39 +340,67 @@ const goBack = () => {
   }
 }
 
+// On mount, load all feedback
+onMounted(() => {
+  getFilteredData(filters, filterValues)
+  window.addEventListener('resize', updatePageSize)
+  updatePageSize()
+})
+
+// When paginating, re-fetch all feedback
+const onPageChange = (page) => {
+  currentPage.value = page
+  getFilteredData(filters, filterValues)
+}
+const onPageSizeChange = (size) => {
+  pageSize.value = size
+  getFilteredData(filters, filterValues)
+}
+
 </script>
 
 <template>
-  <el-card >
+  <el-card>
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; width: 100%;">
+      <!-- Back Button -->
  
- 
- 
-    <el-row type="flex" justify="start" gutter="10" style="display: flex; flex-wrap: nowrap; align-items: center;">
+      <div class="max-w-200px">
+          <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
+            Back
+          </el-button>
+        </div>
 
-<div class="max-w-200px">
-  <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
-    Back
-  </el-button>
-</div>
-
-<!-- Title Search -->
-<el-select
-v-model="value1" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
-        placeholder="Search by Name" />
-
-<PermissionWrapper :permissions="['user:download']">
-  <DownloadAll :model="model" :associated_models="associated_multiple_models"/>
-</PermissionWrapper>
-
-</el-row>
-
- 
- 
+      <!-- User Name Search Select with remote-method, full width between left and right -->
+      <el-select
+        v-model="value1"
+        multiple
+        clearable
+        filterable
+        remote
+        :remote-method="searchByName"
+        reserve-keyword
+        placeholder="Search by Name"
+        style="flex: 1; min-width: 200px; max-width: 1000px; margin-right: 10px;"
+      />
+      <!-- Right side: status select and buttons -->
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <el-select v-model="selectedStatus" placeholder="Filter by Status" style="width: 220px;">
+          <el-option v-for="item in statusOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+        <el-tooltip content="Clear" placement="top">
+          <el-button @click="handleClear" type="primary" :icon="Filter" />
+        </el-tooltip>
+        <PermissionWrapper :permissions="['feedback:read']">
+          <DownloadCustom
+            :data="tableDataList" :model="model"
+            :associated_models="associated_multiple_models" />
+        </PermissionWrapper>
+      </div>
+    </div>
 
     <el-table 
-:data="tableDataList" :loading="loading" :pageSize="pageSize" :currentPage="currentPage" border
+      :data="tableDataList" :loading="loading" :pageSize="pageSize" :currentPage="currentPage" border
       style="width: 100%;  margin-top: 10px" :row-class-name="tableRowClassName">
-
       <el-table-column sortable label="S/No" prop="id" />
       <el-table-column sortable label="Date" prop="createdAt" />
       <el-table-column sortable label="Name" prop="name" />
@@ -400,25 +408,25 @@ v-model="value1" multiple clearable filterable remote :remote-method="searchByNa
       <el-table-column sortable label="Message" prop="message" />
       <el-table-column sortable label="Status" prop="status" />
       <el-table-column sortable label="Staff" prop="user.name" />
-
       <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
-            <template #default="scope">
- 
-                   <el-button
-v-if="showAdminButtons" type="success" :icon="Edit"
-                    @click="reviewFeedback(scope as TableSlotDefault)" circle />
- 
-              
-               
-            </template>
-          </el-table-column>
-
+        <template #default="scope">
+          <el-button
+            v-if="showAdminButtons" type="success" :icon="Edit"
+            @click="reviewFeedback(scope as TableSlotDefault)" circle />
+        </template>
+      </el-table-column>
     </el-table>
 
     <ElPagination
-layout="sizes,prev,pager,next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
-      :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true" @size-change="onPageSizeChange"
-      @current-change="onPageChange" class="mt-4" />
+      layout="sizes,prev,pager,next, total"
+      v-model:currentPage="currentPage"
+      v-model:page-size="pageSize"
+      :page-sizes="[5, 10, 20, 50, 200, 10000]"
+      :total="total"
+      :background="true"
+      @size-change="onPageSizeChange"
+      @current-change="onPageChange"
+      class="mt-4" />
 
 
 

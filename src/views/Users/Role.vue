@@ -36,6 +36,9 @@ interface Params {
   xpageSize?: number
 }
 
+const isMobile = computed(() => appStore.getMobile)
+
+
 const { push } = useRouter()
 const value1 = ref([])
 const value2 = ref([])
@@ -416,7 +419,7 @@ const goBack = () => {
     <el-drawer
       v-model="AddDialogVisible"
       :title="formHeader"
-      size="600px"
+      :size="isMobile ? '100%' : '600px'"
       direction="rtl"
       class="role-drawer"
       :with-header="true"

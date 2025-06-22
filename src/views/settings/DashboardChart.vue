@@ -41,7 +41,7 @@ const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
 
-
+ 
 console.log("userInfo--->", userInfo)
 
 
@@ -2024,7 +2024,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
   <el-drawer
     v-model="AddDialogVisible"
     direction="rtl"
-    size="40%"
+    :size="isMobile ? '100%' : '40%'"
     :with-header="false"
     :before-close="handleDrawerBeforeClose"
   >

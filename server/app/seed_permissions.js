@@ -155,6 +155,9 @@ async function seedPermissions() {
       // Feedback
       { name: 'feedback:read', description: 'Read feedback' },
       { name: 'feedback:action', description: 'Action on feedback' },
+      { name: 'feedback:create', description: 'Create feedback' },
+      { name: 'feedback:update', description: 'Update feedback' },
+      { name: 'feedback:delete', description: 'Delete feedback' },
 
       // Documents
       { name: 'document:upload', description: 'Upload documents' },
@@ -643,6 +646,9 @@ async function seedPermissions() {
       // Feedback
       { name: 'feedback:read', description: 'Read feedback' },
       { name: 'feedback:action', description: 'Action on feedback' },
+      { name: 'feedback:create', description: 'Create feedback' },
+      { name: 'feedback:update', description: 'Update feedback' },
+      { name: 'feedback:delete', description: 'Delete feedback' },
     ].filter(p => !p.name.endsWith(':manage')).map(p => {
       const [prefix] = p.name.split(':');
       // Convert snake_case to Title Case for category
@@ -793,6 +799,9 @@ async function seedPermissions() {
     "facility:update",
     "feedback:action",
     "feedback:read",
+    "feedback:create",
+    "feedback:update",
+    "feedback:delete",
     "floodlight:create",
     "floodlight:delete",
     "floodlight:read",
@@ -1161,6 +1170,9 @@ async function seedPermissions() {
     "facility:update",
     "feedback:action",
     "feedback:read",
+    "feedback:create",
+    "feedback:update",
+    "feedback:delete",
     "floodlight:create",
     "floodlight:delete",
     "floodlight:read",
