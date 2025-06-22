@@ -6,7 +6,7 @@ import {
   ElInput, ElBadge, ElUpload, ElDropdown, ElDropdownItem, ElDropdownMenu, ElPopconfirm, ElTable, ElTableColumn
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
-import { Position, Plus, Download, Delete, Edit, InfoFilled, UploadFilled, Back } from '@element-plus/icons-vue'
+import { Position, Plus, Download, Edit, InfoFilled, UploadFilled, Back, View, Delete, Document, Paperclip } from '@element-plus/icons-vue'
 
 import { ref, reactive, } from 'vue'
 import { ElPagination, ElTooltip, ElOption, } from 'element-plus'
@@ -27,9 +27,7 @@ import readShapefileAndConvertToGeoJSON from '@/utils/readShapefile'
 import proj4 from 'proj4';
 import { getModelSpecs } from '@/api/fields'
 
-import {
-  implementationOptions
-} from './common/index.ts'
+import { implementationOptions } from './common/index'
 
 
 import TableActions from '@/views/Components/TableActions.vue';
@@ -37,6 +35,8 @@ import TableActions from '@/views/Components/TableActions.vue';
 import exportFromJSON from 'export-from-json'
 import Papa from 'papaparse';
 import { onMounted } from 'vue';
+import PermissionWrapper from '@/components/PermissionWrapper.vue';
+import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 
 
 ////////////*************Map Imports***************////////
@@ -142,12 +142,12 @@ if (userInfo.roles.includes("staff") || userInfo.roles.includes("admin")
 }
 
 const { push } = useRouter()
-const value1 = ref([])
-const value2 = ref([])
-var value3 = ref([])
-var value4 = ref([])
-var value5 = ref([])
-var value40 = ref([])
+const value1 = ref<any[]>([])
+const value2 = ref<any[]>([])
+const value3 = ref<any[]>([])
+const value4 = ref<any[]>([])
+const value5 = ref<any[]>([])
+const value40 = ref<any[]>([])
 
 
 const component_id = ref()
@@ -194,9 +194,9 @@ let tableDataList_orig = ref<UserType[]>([])
 
 // - -----Model configs ------------
 const model = 'project'
-let filters = ['component_id']
-let filterValues = [[component_id.value]]   // make sure the inner array is array
-var tblData = []
+let filters: any[] = ['component_id']
+let filterValues: any[] = [[component_id.value]]   // make sure the inner array is array
+let tblData = ref<any[]>([])
 const associated_Model = ''
 //const associated_multiple_models = ['settlement', 'county', 'subcounty', 'component', 'document']
 const associated_multiple_models = ['component', 'activity', 'programme_implementation', 'document']
@@ -221,12 +221,12 @@ const handleClear = async () => {
   // clear all the fileters -------
   filterValues.value = []
   filters.value = []
-  value1.value = ''
-  value2.value = ''
-  value3.value = ''
-  value4.value = ''
-  value5.value = ''
-  value40.value = ''
+  value1.value = []
+  value2.value = []
+  value3.value = []
+  value4.value = []
+  value5.value = []
+  value40.value = []
 
   pageSize.value = 5
   currentPage.value = 1
@@ -759,7 +759,7 @@ const filterValuesBen = ref([[], [[component_id.value]]])
 
 
 
-const beneficiaryList = ref([])
+const beneficiaryList = ref<any[]>([])
 
 const loadingBeneficiaries = ref(true)
 
@@ -794,7 +794,7 @@ const getBeneficiaries = async (selfilters, selfilterValues) => {
 
 
 //// ------------------------------------ -------------------------------------//
-const componentOptions = ref([])
+const componentOptions = ref<any[]>([])
 const getInterventionComponents = async () => {
 
   const formData = {}
@@ -1169,7 +1169,7 @@ const getDocumentTypes = async () => {
 
 
 //id","name","county_id","settlement_type","geom","area","population","code","description"
-const activityOptions = ref([])
+const activityOptions = ref<any[]>([])
 
 getDocumentTypes()
 
@@ -1459,7 +1459,7 @@ const DocumentComponentProps = ref({
 });
 
 const locations_loading = ref(false)
-const project_locations = ref([])
+const project_locations = ref<any[]>([])
 
 const getProjectLocations = async (project_id) => {
   console.log('project_id', project_id);
@@ -1630,11 +1630,11 @@ const UpdateLocationGeom = async () => {
 
 }
 
-const fileList = ref([])
+const fileList = ref<any[]>([])
 
 
-const sett_options = ref([])
-const extra_locations = ref()
+const sett_options = ref<any[]>([])
+const extra_locations = ref<any[]>([])
 
 
 
@@ -1814,7 +1814,7 @@ const AddActivity = async () => {
 
 const ShowLocationAddDialog = ref(false)
 const ShowActivityAddDialog = ref(false)
-const extra_activities = ref([])
+const extra_activities = ref<any[]>([])
 
 
 const handleCloseAdd = () => {
@@ -1900,7 +1900,7 @@ const handleCsvUpload = async (file) => {
   }
 }
 
-const parsedData = ref([])
+const parsedData = ref<any[]>([])
 
 const parseCSV = async (file) => {
   Papa.parse(file, {
@@ -1983,7 +1983,20 @@ const handleRowDblClick = (row) => {
 })
 }
 
+function viewProject(row: any) {
+  // Stub for future drawer/dialog view
+  console.log('View project details:', row)
+}
 
+// Remove expand column and add hover logic
+const hoveredRow = ref(null);
+
+function handleRowMouseEnter(row) {
+  hoveredRow.value = row.id;
+}
+function handleRowMouseLeave() {
+  hoveredRow.value = null;
+}
 
 </script>
 
@@ -1995,186 +2008,123 @@ const handleRowDblClick = (row) => {
       <upload-component :is="dynamicComponent" v-bind="componentProps" />
     </div>
 
-    <el-row type="flex" justify="start" gutter="10" style="display: flex; flex-wrap: nowrap; align-items: center;">
-
+    <el-row type="flex" justify="start" gutter="10" style="display: flex; flex-wrap: nowrap; align-items: center; width: 100%;">
       <div class="max-w-200px">
         <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
           Back
         </el-button>
       </div>
-
       <!-- Title Search -->
       <el-select
-v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
-        placeholder="Search by Title" style="width: 150px; margin-right: 10px;" />
-
+        v-model="value3"
+        multiple
+        clearable
+        filterable
+        remote
+        :remote-method="searchByName"
+        reserve-keyword
+        placeholder="Search by Title"
+        style="flex: 1; min-width: 220px; margin-right: 10px;"
+      />
       <el-select
-size="default" v-model="value40" @change="filterByProgramme" @clear="handleClear" multiple clearable
-        filterable collapse-tags placeholder="By Programme" style="width: 150px; margin-right: 10px;">
+        size="default"
+        v-model="value40"
+        @change="filterByProgramme"
+        @clear="handleClear"
+        multiple
+        clearable
+        filterable
+        collapse-tags
+        placeholder="By Programme"
+        style="width: 180px; margin-right: 10px;"
+      >
         <el-option v-for="item in implementationOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
-
-
       <!-- Action Buttons -->
-      <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px;">
-
-        <el-tooltip content="Import Data" placement="top">
-          <el-button @click="uploadData" type="primary" :icon="UploadFilled" />
-        </el-tooltip>
-
-        <el-tooltip content="Add Project" placement="top">
-          <el-button @click="AddProject" type="primary" :icon="Plus" />
-        </el-tooltip>
-
-        <el-tooltip content="Download" placement="top">
-          <el-button @click="DownloadXlsx" type="primary" :icon="Download" />
-        </el-tooltip>
+      <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
+          <PermissionWrapper :permissions="['project:create']">
+          <el-tooltip content="Add Project" placement="top">
+            <el-button @click="AddProject" type="primary" :icon="Plus" />
+          </el-tooltip>
+        </PermissionWrapper>
+        <PermissionWrapper :permissions="['project:create']">
+          <el-tooltip content="Import Data" placement="top">
+            <el-button @click="uploadData" type="primary" :icon="UploadFilled" />
+          </el-tooltip>
+            <!-- Download All Component -->
+            <DownloadCustom
+:data="tableDataList" :model="model"
+            :associated_models="associated_multiple_models" />
+            
+        </PermissionWrapper>
+    
       </div>
-
-      <!-- Download All Component -->
-      <DownloadAll v-if="showEditButtons" :model="model" :associated_models="associated_multiple_models" />
+ 
+ 
     </el-row>
 
 
-    <el-table  ref="tableRef" row-key="id" :data="tableDataList" style="width: 100%; margin-top: 10px;" border
-      :row-class-name="tableRowClassName" flexible  @row-click="handleRowDblClick" >
-
-
-      <el-table-column label="ID" width="80" prop="id" sortable>
-        <template #default="scope">
-          <div v-if="scope.row.documents.length > 0" style="display: inline-flex; align-items: center;">
-            <span>{{ scope.row.id }}</span>
-            <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
-          </div>
+    <el-table
+ref="tableRef" row-key="id" :data="tableDataList" style="width: 100%; margin-top: 10px;" border
+      :row-class-name="tableRowClassName" :row-style="{ height: '56px' }"
+      @row-click="handleRowDblClick"
+    >
+      <el-table-column type="index" label="#" width="50" align="center">
+        <template #default="{ row, $index }">
+          <span>{{$index + 1}}
+            <el-tooltip v-if="row.documents && row.documents.length > 0" content="Has Documents" placement="left">
+              <el-icon style="margin-left: 4px; color: #909399; font-size: 10px; vertical-align: left;">
+                <Paperclip />
+              </el-icon>
+            </el-tooltip>
+          </span>
         </template>
       </el-table-column>
-
-<!-- 
-      <el-table-column type="expand">
-        <template #default="props">
-          <div m="4">
-            <el-tabs tab-position="top" class="demo-tabs">
-              <el-tab-pane>
-                <template #label>
-                  <el-badge
-style="margin-left: 10px;" :value="project_locations_filtered.length" type="warning"
-                    class="item" :offset="[10, 5]">
-                    Locations
-                  </el-badge>
-                </template>
-
-                <el-table :data="project_locations_filtered" height="250" v-loading="locations_loading" stripe>
-                  <el-table-column type="index" />
-                  <el-table-column prop="county" label="County" />
-                  <el-table-column prop="subcounty" label="Subcounty" />
-                  <el-table-column prop="settlementName" label="Settlement" />
-                  <el-table-column width="50">
-                    <template #header>
-                      <el-tooltip content="Add Location" placement="top">
-                        <el-button
-size="small" @click="ShowLocationAddDialog = true" type="secondary" :icon="Plus"
-                          circle />
-                      </el-tooltip>
-                    </template>
-                  </el-table-column>
-                  <el-table-column label="Operations">
-                    <template #header>
-                      <el-input v-model="searchKey" size="small" placeholder="Filter" />
-                    </template>
-                    <template #default="scope">
-                      <el-tooltip content="View on Map" placement="top">
-                        <el-button
-type="secondary" size="small" :icon="Position"
-                          @click="flyTo(scope as TableSlotDefault)" circle />
-                      </el-tooltip>
-                      <el-tooltip content="Delete" placement="top">
-                        <el-popconfirm
-confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
-                          icon-color="#626AEF" title="Are you sure to delete this project location?"
-                          @confirm="DeleteProjectLocation(scope.row as TableSlotDefault)">
-                          <template #reference>
-                            <el-button size="small" v-if="showAdminButtons" type="danger" :icon=Delete plain />
-                          </template>
-                        </el-popconfirm>
-                      </el-tooltip>
-                    </template>
-                  </el-table-column>
-                </el-table>
-
-              </el-tab-pane>
-              <el-tab-pane label="Activities">
-                <el-table :data="project_activities_filtered" height="250" stripe>
-                  <el-table-column type="index" />
-                  <el-table-column prop="title" label="Activity" />
-
-                  <el-table-column width="50">
-                    <template #header>
-                      <el-tooltip content="Add Activity" placement="top">
-                        <el-button
-size="small" @click="ShowActivityAddDialog = true" type="secondary" :icon="Plus"
-                          circle />
-                      </el-tooltip>
-                    </template>
-                  </el-table-column>
-                  <el-table-column label="Operations">
-                    <template #header>
-                      <el-input v-model="searchKeyActivity" size="small" placeholder="Filter" />
-                    </template>
-                    <template #default="scope">
-                      <el-tooltip content="Delete" placement="top">
-                        <el-popconfirm
-confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
-                          icon-color="#626AEF" title="Are you sure to delete this project activity?"
-                          @confirm="DeleteProjectActivity(scope.row as TableSlotDefault)">
-                          <template #reference>
-                            <el-button size="small" v-if="showAdminButtons" type="danger" :icon=Delete plain />
-                          </template>
-                        </el-popconfirm>
-                      </el-tooltip>
-                    </template>
-                  </el-table-column>
-                </el-table>
-              </el-tab-pane>
-              <el-tab-pane>
-
-                <template #label>
-                  <el-badge :value="props.row.documents.length" class="item" :offset="[10, 5]">
-                    Documents
-                  </el-badge>
-                </template>
-                <div>
-
-
-                  <div>
-                    <list-documents
-:is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
-                      @open-dialog="toggleComponent(props.row)" />
-                  </div>
-                </div>
-
-              </el-tab-pane>
-            </el-tabs>
-
-
-
-          </div>
-        </template>
-      </el-table-column> -->
-
-
-      <el-table-column label="Project Title" prop="title"  resizable sortable />
-
-      <el-table-column label="Programme" prop="programme.acronym" sortable />
-      <el-table-column label="Status" prop="status" sortable />
-      <el-table-column label="Start" prop="start_date" :formatter="formatStartDate" sortable />
-      <el-table-column label="End" prop="end_date" :formatter="formatEndDate" sortable />
- 
-      <el-table-column label="Actions"  >
+      <el-table-column
+        label="Project Title"
+        prop="title"
+        min-width="250"
+        show-overflow-tooltip
+      >
         <template #default="{ row }">
-           <TableActions :item="row" :buttons="action_buttons" @edit="editProject" @delete="DeleteProject" />
+          <el-tooltip placement="top" effect="dark">
+            <template #content>
+              <div style="min-width: 260px; max-width: 340px;">
+                <strong>{{ row.title }}</strong><br />
+                <span>Status: <b>{{ row.status }}</b></span><br />
+                <span>Start: {{ row.start_date }}</span><br />
+                <span>End: {{ row.end_date }}</span><br />
+              </div>
+            </template>
+            <span class="project-title">{{ row.title }}
+             
+            </span>
+          </el-tooltip>
         </template>
       </el-table-column>
-
+      <el-table-column
+        label="Programme"
+        prop="programme.acronym"
+        max-width="100"
+        show-overflow-tooltip
+      >
+        <template #default="{ row }">
+          <span class="programme">{{ row.programme?.acronym }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="Actions" width="200" align="right">
+        <template #default="{ row }">
+          <el-tooltip content="View" placement="top">
+            <el-button @click="viewProject(row)" type="info" :icon="View" circle />
+          </el-tooltip>
+          <el-tooltip content="Edit" placement="top">
+            <el-button @click="editProject(row)" type="success" :icon="Edit" circle />
+          </el-tooltip>
+          <el-tooltip content="Delete" placement="top">
+            <el-button @click="DeleteProject(row)" type="danger" :icon="Delete" circle />
+          </el-tooltip>
+        </template>
+      </el-table-column>
     </el-table>
     <ElPagination
 layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
@@ -2316,5 +2266,43 @@ class="upload-demo" :on-change="handleCsvUpload" drag :auto-upload="false"
   text-decoration: underline;
   color: #409EFF;
   /* Optional: change link color */
+}
+
+.project-title {
+  font-weight: 400;
+  font-size: 0.95em;
+}
+.programme {
+  color: #888;
+  font-size: 0.98em;
+}
+.el-table__row:hover {
+  background: #f7fafd !important;
+}
+.expand-details {
+  background: #f9f9fb;
+  padding: 18px 24px 12px 24px;
+  border-radius: 8px;
+  margin: 0 0 8px 0;
+}
+.hover-details-card-row {
+  position: absolute;
+  left: 0;
+  top: 110%;
+  background: #f9f9fb;
+  padding: 18px 24px 12px 24px;
+  border-radius: 8px;
+  margin: 0 0 8px 0;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.10);
+  min-width: 480px;
+  max-width: 90vw;
+  z-index: 1000;
+  pointer-events: none;
+}
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.2s;
+}
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
 }
 </style>
