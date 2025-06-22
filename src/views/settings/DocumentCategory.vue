@@ -17,11 +17,12 @@ import {
   MessageBox,
   Edit,
   InfoFilled,
-  Delete
+  Delete,
+  Back
 } from '@element-plus/icons-vue'
 
 import { ref, reactive } from 'vue'
-import { ElPagination, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElPopconfirm } from 'element-plus'
+import { ElPagination, ElTooltip, ElOption, ElCard, ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElPopconfirm } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 import { useAppStoreWithOut } from '@/store/modules/app'
@@ -30,19 +31,14 @@ import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
 import { uuid } from 'vue-uuid'
 import type { FormInstance } from 'element-plus'
 import DownloadAll from '@/views/Components/DownloadAll.vue';
-
+import DownloadCustom from '@/views/Components/DownloadCustom.vue'
+import PermissionWrapper from '@/components/PermissionWrapper.vue'
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
 
-
 console.log("userInfo--->", userInfo)
-
- 
-
-
-
 
 const { push } = useRouter()
 const value1 = ref([])
@@ -60,14 +56,11 @@ const pageSize = ref(5)
 const currentPage = ref(1)
 const total = ref(0)
 const downloadLoading = ref(false)
- 
+
 const showAdminButtons =  ref(appStore.getAdminButtons)
 const showEditButtons =  ref(appStore.getEditButtons)
 
-
 console.log("Show Buttons -->", showAdminButtons)
-
-
 
 let tableDataList = ref<UserType[]>([])
 //// ------------------parameters -----------------------////
@@ -86,8 +79,6 @@ const formHeader = ref('Add Document Category')
 const showSubmitBtn = ref(true)
 const showEditSaveButton = ref(false)
 
-
-
 const columns: TableColumn[] = [
   {
     field: 'index',
@@ -100,8 +91,6 @@ const columns: TableColumn[] = [
     label: t('Title')
   },
 
-
- 
   {
     field: 'action',
     label: t('Actions')
@@ -123,7 +112,6 @@ const handleClear = async () => {
   //----run the get data--------
   getInterventionsAll()
 }
-
 
 const handleSelectIndicator = async (indicator: any) => {
   var selectOption = 'component_id'
@@ -182,7 +170,6 @@ const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
   return res;
 };
 
-
 const getFilteredData = async (selFilters, selfilterValues) => {
   const formData = {}
   formData.limit = pSize.value
@@ -223,8 +210,6 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   console.log('TBL-4f', tblData)
 }
 
-
-
 const getIndicatorOptions = async () => {
   const res = await getCountyListApi({
     params: {
@@ -249,8 +234,6 @@ const getIndicatorOptions = async () => {
   })
 }
 
-
-
 const makeOptions = (list) => {
   console.log('making the options..............', list)
   categoryOptions.value = []
@@ -271,7 +254,6 @@ const handleDownload = () => {
   if (data) exportFromJSON({ data, fileName, exportType })
 }
 
-
 getIndicatorOptions()
 getInterventionsAll()
 
@@ -289,7 +271,6 @@ const editIndicator = (data: TableSlotDefault) => {
 
   AddDialogVisible.value = true
 }
-
 
 const DeleteIndicator = (data: TableSlotDefault) => {
   console.log('----->', data.row.id)
@@ -326,9 +307,6 @@ const handleClose = () => {
 
 }
 
-
-
-
 const rules = reactive<FormRules>({
   title: [
     { required: true, message: 'Please select a group', trigger: 'blur' },
@@ -341,7 +319,6 @@ const rules = reactive<FormRules>({
 const AddIndicator = () => {
   AddDialogVisible.value = true
 }
-
 
 const submitForm = async (formEl: FormInstance | undefined) => {
   if (!formEl) return
@@ -356,7 +333,6 @@ const submitForm = async (formEl: FormInstance | undefined) => {
     }
   })
 }
-
 
 const editForm = async (formEl: FormInstance | undefined) => {
   if (!formEl) return
@@ -380,96 +356,71 @@ const editForm = async (formEl: FormInstance | undefined) => {
   })
 }
 
+const router = useRouter();
+const goBack = () => {
+  if (router) {
+    router.back()
+  } else {
+    console.warn('Router instance not available.')
+  }
+}
 
- 
 </script>
 
 <template>
-  <ContentWrap :title="t('Document Categories')" :message="t('Use the filters to subset')">
- 
-   
-        
-          <div style="display: flex; justify-content: flex-end; align-items: center; gap: 20px;">
-            <!-- Download Button -->
-            <el-button
-              :onClick="handleDownload"
-              type="primary"
-              :icon="Download"
-            />
-
-            <!-- DownloadAll Component -->
-            <DownloadAll
-              v-if="showEditButtons"
-              :model="model"
-              :associated_models="associated_multiple_models"
-            />
-
-            <!-- Clear Button -->
-            <el-button
-              :onClick="handleClear"
-              type="primary"
-              :icon="Filter"
-            />
-
-            <!-- Add Indicator Button with Tooltip -->
-            <el-tooltip content="Add Indicator" placement="top">
-              <el-button
-                :onClick="AddIndicator"
-                type="primary"
-                :icon="Plus"
-              />
-            </el-tooltip>
-          </div>
-        
-
-
-
-
+  <el-card>
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 20px;">
+      <div class="max-w-200px">
+        <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
+          Back
+        </el-button>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <PermissionWrapper :permissions="['document_category:create']">
+          <el-tooltip content="Add Document Category" placement="top">
+            <el-button :onClick="AddIndicator" type="primary" :icon="Plus" />
+          </el-tooltip>
+        </PermissionWrapper>
+        <PermissionWrapper :permissions="['document_category:read']">
+          <DownloadCustom :data="tableDataList" :model="model" :associated_models="associated_multiple_models" />
+         </PermissionWrapper>
+      </div>
+    </div>
     <Table
-:columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
+      :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
       :currentPage="currentPage">
       <template #action="data">
         <el-tooltip content="Edit" placement="top">
           <el-button type="success" :icon="Edit" @click="editIndicator(data as TableSlotDefault)" circle />
         </el-tooltip>
-
         <el-tooltip content="Delete" placement="top">
           <el-popconfirm
-confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+            confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
             title="Are you sure to delete this indicator?" @confirm="DeleteIndicator(data as TableSlotDefault)">
             <template #reference>
-              <el-button v-if="showEditButtons"   type="danger" :icon="Delete" circle />
+              <el-button v-if="showEditButtons" type="danger" :icon="Delete" circle />
             </template>
           </el-popconfirm>
         </el-tooltip>
-
       </template>
-
-
     </Table>
     <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
+      layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
       :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true" @size-change="onPageSizeChange"
       @current-change="onPageChange" class="mt-4" />
-  </ContentWrap>
-
-  <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" width="30%" draggable>
-    <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
-       
-      <el-form-item label="Title" prop="title">
-        <el-input v-model="ruleForm.title" />
-      </el-form-item>
-
- 
-
-    </el-form>
-    <template #footer>
-
-      <span class="dialog-footer">
-        <el-button @click="AddDialogVisible = false">Cancel</el-button>
-        <el-button v-if="showSubmitBtn" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
-        <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
-      </span>
-    </template>
-  </el-dialog>
+    <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" width="30%" draggable>
+      <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
+        <el-form-item label="Title" prop="title">
+          <el-input v-model="ruleForm.title" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="AddDialogVisible = false">Cancel</el-button>
+          <el-button v-if="showSubmitBtn" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
+          <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
+        </span>
+      </template>
+    </el-dialog>
+  </el-card>
 </template>

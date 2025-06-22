@@ -21,7 +21,7 @@ import {
 } from '@element-plus/icons-vue'
 
 import { ref, reactive,onMounted } from 'vue'
-import { ElPagination, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElDatePicker, ElPopconfirm } from 'element-plus'
+import { ElPagination, ElTooltip, ElOption, ElCard, ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElDatePicker, ElPopconfirm } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 import { useAppStoreWithOut } from '@/store/modules/app'
@@ -30,6 +30,8 @@ import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
 import { uuid } from 'vue-uuid'
 import type { FormInstance } from 'element-plus'
 import DownloadAll from '@/views/Components/DownloadAll.vue';
+import PermissionWrapper from '@/components/PermissionWrapper.vue';
+import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 
 
 const { wsCache } = useCache()
@@ -477,7 +479,7 @@ const goBack = () => {
 </script>
 
 <template>
-  <el-card :title="t('Programmes/Projects')" :message="t('Use the filters to subset')">
+  <el-card  >
  
 
 
@@ -493,7 +495,7 @@ const goBack = () => {
 <!-- Title Search -->
 <el-select
 v-model="value3" :onChange="handleSelectIndicator" :onClear="handleClear" multiple clearable filterable
-        collapse-tags placeholder="Search Programme">
+        collapse-tags placeholder="Search Implementation">
         <el-option v-for="item in categoryOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
 
@@ -502,15 +504,16 @@ v-model="value3" :onChange="handleSelectIndicator" :onClear="handleClear" multip
 
 <!-- Action Buttons -->
 <div style="display: flex; align-items: center; gap: 10px; margin-left: 10px;">
-  <el-tooltip content="Add Programme" placement="top">
-    <el-button :onClick="AddIndicator" type="primary" :icon="Plus" />
-  </el-tooltip>
-  <el-button :onClick="handleDownload" type="primary" :icon="Download" />
-
-  <DownloadAll v-if="showEditButtons" :model="model" :associated_models="associated_multiple_models" />
-
-  <el-button :onClick="handleClear" type="primary" :icon="Filter" />
-
+  <PermissionWrapper :permissions="['programme_implementation:create']">
+    <el-tooltip content="Add Programme" placement="top">
+      <el-button :onClick="AddIndicator" type="primary" :icon="Plus" />
+    </el-tooltip>
+  </PermissionWrapper>
+  <PermissionWrapper :permissions="['programme_implementation:read']">
+    <DownloadCustom
+      :data="tableDataList" :model="model"
+      :associated_models="associated_multiple_models" />
+   </PermissionWrapper>
 </div>
 
 </el-row>

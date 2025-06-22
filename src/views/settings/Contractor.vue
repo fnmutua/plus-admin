@@ -17,11 +17,12 @@ import {
   MessageBox,
   Edit,
   InfoFilled,
-  Delete
+  Delete,
+  Back
 } from '@element-plus/icons-vue'
 
 import { ref, reactive } from 'vue'
-import { ElPagination, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElPopconfirm } from 'element-plus'
+import { ElPagination, ElTooltip, ElOption, ElCard, ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElPopconfirm } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 import { useAppStoreWithOut } from '@/store/modules/app'
@@ -30,6 +31,8 @@ import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
 import { uuid } from 'vue-uuid'
 import type { FormInstance } from 'element-plus'
 import DownloadAll from '@/views/Components/DownloadAll.vue';
+import DownloadCustom from '@/views/Components/DownloadCustom.vue'
+import PermissionWrapper from '@/components/PermissionWrapper.vue'
 
 
 const { wsCache } = useCache()
@@ -399,87 +402,81 @@ const editForm = async (formEl: FormInstance | undefined) => {
   })
 }
 
-
+const router = useRouter();
+const goBack = () => {
+  if (router) {
+    router.back()
+  } else {
+    console.warn('Router instance not available.')
+  }
+}
 
 
 </script>
 
 <template>
-  <ContentWrap :title="t('Contractor List')" :message="t('Use the filters to subset')">
-    <el-divider border-style="dashed" content-position="left">Filters</el-divider>
-
-    <div style="display: inline-block; margin-left: 20px">
-      <el-select
-v-model="value3" :onChange="handleSelectIndicator" :onClear="handleClear" multiple clearable filterable
-        collapse-tags placeholder="Search Category">
-        <el-option v-for="item in categoryOptions" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
+  <el-card>
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 20px;">
+      <div class="max-w-200px">
+        <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
+          Back
+        </el-button>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <PermissionWrapper :permissions="['contractor:create']">
+          <el-tooltip content="Add Contractor" placement="top">
+            <el-button :onClick="AddIndicator" type="primary" :icon="Plus" />
+          </el-tooltip>
+        </PermissionWrapper>
+        <PermissionWrapper :permissions="['contractor:read']">
+          <DownloadCustom :data="tableDataList" :model="model" :associated_models="associated_multiple_models" />
+         </PermissionWrapper>
+      </div>
     </div>
-    <div style="display: inline-block; margin-left: 20px">
-      <el-button :onClick="handleDownload" type="primary" :icon="Download" />
-    </div>
-    <DownloadAll  v-if="showEditButtons"   :model="model" :associated_models="associated_multiple_models"/>
-
-    <div style="display: inline-block; margin-left: 20px">
-      <el-button :onClick="handleClear" type="primary" :icon="Filter" />
-    </div>
-    <div style="display: inline-block; margin-left: 20px">
-      <el-tooltip content="Add Indicator" placement="top">
-        <el-button :onClick="AddIndicator" type="primary" :icon="Plus" />
-      </el-tooltip>
-    </div>
-
-    <el-divider border-style="dashed" content-position="left">Results</el-divider>
-
+    <!-- Main content area -->
     <Table
-:columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
+      :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
       :currentPage="currentPage">
       <template #action="data">
         <el-tooltip content="Edit" placement="top">
           <el-button type="success" :icon="Edit" @click="editIndicator(data as TableSlotDefault)" circle />
         </el-tooltip>
-
         <el-tooltip content="Delete" placement="top">
           <el-popconfirm
-confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+            confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
             title="Are you sure to delete this indicator?" @confirm="DeleteIndicator(data as TableSlotDefault)">
             <template #reference>
               <el-button v-if="showAdminButtons" type="danger" :icon="Delete" circle />
             </template>
           </el-popconfirm>
         </el-tooltip>
-
       </template>
     </Table>
     <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+      layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
-  </ContentWrap>
-
-  <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" width="30%" draggable>
-    <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
-      <el-form-item label="Contractor">
-        <el-input v-model="ruleForm.name" />
-      </el-form-item>
-      <el-form-item label="Contract">
-        <el-input v-model="ruleForm.contract_number" />
-      </el-form-item>
-
-      <el-form-item label="Phone">
-        <el-input v-model="ruleForm.phone" />
-      </el-form-item>
-    </el-form>
-    <template #footer>
-
-      <span class="dialog-footer">
-        <el-button @click="AddDialogVisible = false">Cancel</el-button>
-        <el-button v-if="showSubmitBtn" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
-        <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
-      </span>
-    </template>
-  </el-dialog>
-
+    <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" width="30%" draggable>
+      <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
+        <el-form-item label="Contractor">
+          <el-input v-model="ruleForm.name" />
+        </el-form-item>
+        <el-form-item label="Contract">
+          <el-input v-model="ruleForm.contract_number" />
+        </el-form-item>
+        <el-form-item label="Phone">
+          <el-input v-model="ruleForm.phone" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="AddDialogVisible = false">Cancel</el-button>
+          <el-button v-if="showSubmitBtn" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
+          <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
+        </span>
+      </template>
+    </el-dialog>
+  </el-card>
 
 </template>
  

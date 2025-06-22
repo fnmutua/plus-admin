@@ -593,12 +593,28 @@ const ruleForm = reactive({
 
 })
 const handleClose = () => {
-
   console.log("Clsoing the dialoig")
   showSubmitBtn.value = true
   showEditSaveButton.value = false
-
+  AddDialogVisible.value = false
+  // Reset all fields in ruleForm to their initial state
   ruleForm.id = ''
+  ruleForm.title = ''
+  ruleForm.dashboard_id = ''
+  ruleForm.description = ''
+  ruleForm.iconColor = ''
+  ruleForm.icon = ''
+  ruleForm.aggregation = ''
+  ruleForm.indicator_id = null
+  ruleForm.card_model_field = ''
+  ruleForm.filter_value = null
+  ruleForm.computation = null
+  ruleForm.filter_function = null
+  ruleForm.filter_field = null
+  ruleForm.filtered = null
+  ruleForm.card_model = ''
+  ruleForm.unique = false
+  ruleForm.filters = null
   ruleForm.category = ''
   formHeader.value = 'Add Card'
   activeStep.value = 0
@@ -1208,60 +1224,53 @@ const handleDrawerBeforeClose = (done) => {
 
 <template>
   <el-card>
-    <el-row type="flex" justify="space-between" gutter="10" style="display: flex; flex-wrap: nowrap; align-items: center;">
-
-      <div class="max-w-200px">
-        <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
-          Back
-        </el-button>
+    <div class="filter-bar">
+      <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
+        Back
+      </el-button>
+      <el-input
+        v-model="searchKey"
+        placeholder="Search by card title"
+        prefix-icon="el-icon-search"
+        clearable
+        @clear="handleClear"
+        @input="remoteMethod"
+        style="max-width: 220px;"
+      />
+      <el-select
+        v-model="value3"
+        :onChange="handleSelectDashboard"
+        :onClear="handleClear"
+        multiple
+        clearable
+        filterable
+        collapse-tags
+        placeholder="Filter by Dashboard"
+        style="min-width: 200px; max-width: 320px;"
+      >
+        <el-option
+          v-for="item in DashboardOptions"
+          :key="item.value"
+          :label="item.label"
+          :value="item.value"
+        />
+      </el-select>
+      <div class="filter-actions">
+        <PermissionWrapper :permissions="'dashboard:create'">
+          <el-tooltip content="Add Card" placement="top">
+            <el-button :onClick="AddCard" type="primary" :icon="Plus" />
+          </el-tooltip>
+        </PermissionWrapper>
+        <PermissionWrapper :permissions="'dashboard:read'">
+          <el-tooltip content="Download" placement="top">
+            <el-button :onClick="handleDownload" type="primary" :icon="Download" />
+          </el-tooltip>
+        </PermissionWrapper>
+        <el-tooltip content="Clear Filters" placement="top">
+          <el-button :onClick="handleClear" type="primary" :icon="Filter" />
+        </el-tooltip>
       </div>
-
-      <!-- Title Search -->
- 
-
-
-
-      <!-- Action Buttons -->
-      <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px;">
-  <el-select
-    v-model="value3"
-    :onChange="handleSelectDashboard"
-    :onClear="handleClear"
-    multiple
-    clearable
-    filterable
-    collapse-tags
-    placeholder="Filter by Dashboard"
-    style="flex: 1; min-width: 200px;"
-  >
-    <el-option
-      v-for="item in DashboardOptions"
-      :key="item.value"
-      :label="item.label"
-      :value="item.value"
-    />
-  </el-select>
-
-  <PermissionWrapper :permissions="'dashboard:create'">
-    <el-tooltip content="Add Card" placement="top">
-      <el-button :onClick="AddCard" type="primary" :icon="Plus" />
-    </el-tooltip>
-  </PermissionWrapper>
-
-  <PermissionWrapper :permissions="'dashboard:read'">
-    <el-tooltip content="Download" placement="top">
-      <el-button :onClick="handleDownload" type="primary" :icon="Download" />
-    </el-tooltip>
-  </PermissionWrapper>
-
-  <el-tooltip content="Clear" placement="top">
-    <el-button :onClick="handleClear" type="primary" :icon="Filter" />
-  </el-tooltip>
-</div>
-
-      <!-- Download All Component -->
-    </el-row>
-
+    </div>
 
     <el-table :data="cards_filtered" stripe>
       <el-table-column type="index" />
@@ -1600,5 +1609,22 @@ target="#btn11" title="Filters"
   padding: 16px;
   border-radius: 4px;
   margin: 20px 0;
+}
+</style>
+
+<style>
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  /* background: #fafbfc; */
+  padding: 14px 18px;
+  border-radius: 6px;
+  margin-bottom: 18px;
+}
+.filter-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
 }
 </style>

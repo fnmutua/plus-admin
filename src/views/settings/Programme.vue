@@ -30,6 +30,9 @@ import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
 import { uuid } from 'vue-uuid'
 import type { FormInstance } from 'element-plus'
 import DownloadAll from '@/views/Components/DownloadAll.vue';
+import PermissionWrapper from '@/components/PermissionWrapper.vue';
+import DownloadCustom from '@/views/Components/DownloadCustom.vue';
+
 const isMobile = computed(() => appStore.getMobile)
 
 
@@ -562,15 +565,17 @@ v-model="value3" :onChange="handleSelectIndicator" :onClear="handleClear" multip
 
   <!-- Action Buttons -->
   <div style="display: flex; align-items: center; gap: 10px; margin-left: 10px;">
-    <el-tooltip content="Add Programme" placement="top">
-      <el-button :onClick="AddIndicator" type="primary" :icon="Plus" />
-    </el-tooltip>
-    <el-button :onClick="handleDownload" type="primary" :icon="Download" />
-
-    <DownloadAll v-if="showEditButtons" :model="model" :associated_models="associated_multiple_models" />
-
-    <el-button :onClick="handleClear" type="primary" :icon="Filter" />
-
+    <PermissionWrapper :permissions="['programme:create']">
+      <el-tooltip content="Add Programme" placement="top">
+        <el-button :onClick="AddIndicator" type="primary" :icon="Plus" />
+      </el-tooltip>
+    </PermissionWrapper>
+    <PermissionWrapper :permissions="['programme:read']">
+       <DownloadCustom
+            :data="tableDataList" :model="model"
+            :associated_models="associated_multiple_models" />
+                  <el-button :onClick="handleClear" type="primary" :icon="Filter" />
+    </PermissionWrapper>
   </div>
 
 </el-row>
@@ -579,7 +584,8 @@ v-model="value3" :onChange="handleSelectIndicator" :onClear="handleClear" multip
  
   
     
-<el-table  ref="tableRef"  :tree-props="{children: 'children'}" row-key="id" :data="tableDataList" style="width: 100%; margin-top: 10px;" border
+<el-table
+ref="tableRef"  :tree-props="{children: 'children'}" row-key="id" :data="tableDataList" style="width: 100%; margin-top: 10px;" border
        flexible >
 
  

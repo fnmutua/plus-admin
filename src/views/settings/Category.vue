@@ -12,7 +12,7 @@ import {
   TopRight,
   User,
   Plus,
-  Download,
+  Download,Back,
   Filter,
   MessageBox,
   Edit,
@@ -21,7 +21,7 @@ import {
 } from '@element-plus/icons-vue'
 
 import { ref, reactive } from 'vue'
-import { ElPagination, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElPopconfirm } from 'element-plus'
+import { ElPagination, ElTooltip, ElOption, ElCard, ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElPopconfirm } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 import { useAppStoreWithOut } from '@/store/modules/app'
@@ -29,6 +29,8 @@ import { useCache } from '@/hooks/web/useCache'
 import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
 import { uuid } from 'vue-uuid'
 import type { FormInstance } from 'element-plus'
+import DownloadCustom from '@/views/Components/DownloadCustom.vue'
+import PermissionWrapper from '@/components/PermissionWrapper.vue'
 
 
 const { wsCache } = useCache()
@@ -45,11 +47,11 @@ console.log("userInfo--->", userInfo)
 
 
 const { push } = useRouter()
-const value1 = ref([])
-const value2 = ref([])
-var value3 = ref([])
+const value1 = ref<any[]>([])
+const value2 = ref<any[]>([])
+let value3 = ref<any[]>([])
 const indicatorsOptions = ref([])
-const categoryOptions = ref([])
+const categoryOptions = ref<any[]>([])
 const categories = ref([])
 const filteredIndicators = ref([])
 const page = ref(1)
@@ -70,14 +72,13 @@ console.log("Show Buttons -->", showAdminButtons)
 
 
 
-let tableDataList = ref<UserType[]>([])
+let tableDataList = ref<any[]>([])
 //// ------------------parameters -----------------------////
-//const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
-var filters = []
-var filterValues = []
-var tblData = []
+let filters: any[] = []
+let filterValues: any[] = []
+let tblData: any[] = []
 const associated_Model = ''
-const associated_multiple_models = []
+const associated_multiple_models: any[] = []
 const model = 'category'
 //// ------------------parameters -----------------------////
 
@@ -118,9 +119,9 @@ const handleClear = async () => {
   // clear all the fileters -------
   filterValues = []
   filters = []
-  value1.value = ''
-  value2.value = ''
-  value3.value = ''
+  value1.value = []
+  value2.value = []
+  value3.value = []
   pSize.value = 5
   currentPage.value = 1
   tblData = []
@@ -188,7 +189,7 @@ const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
 
 
 const getFilteredData = async (selFilters, selfilterValues) => {
-  const formData = {}
+  const formData: any = {}
   formData.limit = pSize.value
   formData.page = page.value
   formData.curUser = 1 // Id for logged in user
@@ -207,7 +208,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
   //-------------------------
   //console.log(formData)
-  const res = await getSettlementListByCounty(formData)
+  const res: any = await getSettlementListByCounty(formData)
 
   console.log('After Querry', res)
   tableDataList.value = res.data
@@ -255,16 +256,17 @@ const getIndicatorOptions = async () => {
 
 
 
-const makeOptions = (list) => {
+const makeOptions = (list: any) => {
   console.log('making the options..............', list)
   categoryOptions.value = []
-  list.value.forEach(function (arrayItem: { id: string; type: string }) {
-    var countyOpt = {}
-    countyOpt.value = arrayItem.id
-    countyOpt.label = arrayItem.category  
-    //  console.log(countyOpt)
-    categoryOptions.value.push(countyOpt)
-  })
+  if (Array.isArray(list.value)) {
+    list.value.forEach(function (arrayItem: any) {
+      var countyOpt: any = {}
+      countyOpt.value = arrayItem.id
+      countyOpt.label = arrayItem.category  
+      categoryOptions.value.push(countyOpt)
+    })
+  }
 }
 
 const handleDownload = () => {
@@ -295,24 +297,21 @@ const editIndicator = (data: TableSlotDefault) => {
 }
 
 
-const DeleteIndicator = async (data: TableSlotDefault) => {
-  console.log('----->', data.row.id)
-  let formData = {}
-  formData.id = data.row.id
+const DeleteIndicator = async (data: any) => {
+  console.log('----->', (data.row as any).id)
+  let formData: any = {}
+  formData.id = (data.row as any).id
   formData.model = model
- 
   await DeleteRecord(formData).then(response => {
     console.log(response)
     // remove the deleted object from array list 
-    let index = tableDataList.value.indexOf(data);
+    let index = tableDataList.value.indexOf(data)
     if (index !== -1) {
-      tableDataList.value.splice(index, 1);
+      tableDataList.value.splice(index, 1)
     }
-
   })
     .catch(error => {
       console.log(error)
-
     });
   getFilteredData(filters, filterValues)
 }
@@ -384,33 +383,43 @@ const editForm = async (formEl: FormInstance | undefined) => {
 
 
 
+const router = useRouter();
+const goBack = () => {
+  // Add your logic to handle the back action
+  // For example, you can use Vue Router to navigate back
+  if (router) {
+    // Use router.back() to navigate back
+    router.back()
+  } else {
+    console.warn('Router instance not available.')
+  }
+}
 
 </script>
 
 <template>
-  <ContentWrap :title="t('Categogry List')" :message="t('Use the filters to subset')">
-    <el-divider border-style="dashed" content-position="left">Filters</el-divider>
+  <el-card >
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 20px;">
 
-    <div style="display: inline-block; margin-left: 20px">
-      <el-select
-v-model="value3" :onChange="handleSelectIndicator" :onClear="handleClear" multiple clearable filterable
-        collapse-tags placeholder="Search Category">
-        <el-option v-for="item in categoryOptions" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
-    </div>
-    <div style="display: inline-block; margin-left: 20px">
-      <el-button :onClick="handleDownload" type="primary" :icon="Download" />
-    </div>
-    <div style="display: inline-block; margin-left: 20px">
-      <el-button :onClick="handleClear" type="primary" :icon="Filter" />
-    </div>
-    <div style="display: inline-block; margin-left: 20px">
-      <el-tooltip content="Add Indicator" placement="top">
-        <el-button :onClick="AddIndicator" type="primary" :icon="Plus" />
-      </el-tooltip>
-    </div>
 
-    <el-divider border-style="dashed" content-position="left">Results</el-divider>
+      <div class="max-w-200px">
+    <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
+      Back
+    </el-button>
+  </div>
+  <div style="display: flex; align-items: center; gap: 10px;">
+        <PermissionWrapper :permissions="['category:create']">
+          <el-tooltip content="Add Indicator" placement="top">
+            <el-button :onClick="AddIndicator" type="primary" :icon="Plus" />
+          </el-tooltip>
+        </PermissionWrapper>
+        <PermissionWrapper :permissions="['category:read']">
+          <DownloadCustom :data="tableDataList" :model="model" :associated_models="associated_multiple_models" />
+         </PermissionWrapper>
+      </div>
+  </div>
+
+
 
     <Table
 :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
@@ -436,7 +445,7 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
 layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
-  </ContentWrap>
+  </el-card>
 
   <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" width="30%" draggable>
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">

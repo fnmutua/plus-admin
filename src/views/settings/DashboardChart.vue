@@ -897,6 +897,27 @@ const handleClose = () => {
   showEditSaveButton.value = false
   formHeader.value = 'Add Section'
   activeStep.value = 0
+  // Reset all fields in ruleForm to their initial state
+  ruleForm.title = ''
+  ruleForm.dashboard_section_id = ''
+  ruleForm.dashboard_id = ''
+  ruleForm.description = ''
+  ruleForm.iconColor = ''
+  ruleForm.icon = ''
+  ruleForm.aggregation = ''
+  ruleForm.type = ''
+  ruleForm.indicator_id = null
+  ruleForm.card_model_field = null
+  ruleForm.card_model = ''
+  ruleForm.categorized = false
+  ruleForm.filter_value = []
+  ruleForm.filter_function = ''
+  ruleForm.filter_option = ''
+  ruleForm.filtered = false
+  ruleForm.filter_field = ''
+  ruleForm.ignore_empty = true
+  ruleForm.category = ''
+  ruleForm.filters = null
 }
 
 const initialFormJson = ref('')

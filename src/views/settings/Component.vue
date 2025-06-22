@@ -30,6 +30,7 @@ import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
 import { uuid } from 'vue-uuid'
 import type { FormInstance } from 'element-plus'
 import DownloadAll from '@/views/Components/DownloadAll.vue';
+import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 
 
 const { wsCache } = useCache()
@@ -542,11 +543,7 @@ const goBack = () => {
 </script>
 
 <template>
-  <el-card  >
- 
-
-
-
+  <el-card  > 
 
 
     <el-row type="flex" justify="start" gutter="10" style="display: flex; flex-wrap: nowrap; align-items: center;">
@@ -558,27 +555,29 @@ const goBack = () => {
 </div>
 
 <!-- Title Search -->
-<el-select
+ 
+ 
+      <el-select
 v-model="value3" :onChange="handleSelectProgramme" :onClear="handleClear" multiple clearable filterable
-        collapse-tags placeholder="Search Programme">
+        collapse-tags placeholder="Search Component">
         <el-option v-for="item in programmeOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
 
 
+<div style="display: flex; align-items: center; gap: 10px; margin-left: 5px;">
+    <PermissionWrapper :permissions="['component:create']">
+      <el-tooltip content="Add Component" placement="top">
+        <el-button :onClick="AddComponent" type="primary" :icon="Plus" />
+      </el-tooltip>
+    </PermissionWrapper>
+    <PermissionWrapper :permissions="['component:read']">
+       <DownloadCustom
+            :data="tableDataList" :model="model"
+            :associated_models="associated_multiple_models" />
+     </PermissionWrapper>
+  </div>
 
 
-<!-- Action Buttons -->
-<div style="display: flex; align-items: center; gap: 10px; margin-left: 10px;">
-  <el-tooltip content="Add Programme" placement="top">
-    <el-button :onClick="AddComponent" type="primary" :icon="Plus" />
-  </el-tooltip>
-  <el-button :onClick="handleDownload" type="primary" :icon="Download" />
-
-  <DownloadAll v-if="showEditButtons" :model="model" :associated_models="associated_multiple_models" />
-
-  <el-button :onClick="handleClear" type="primary" :icon="Filter" />
-
-</div>
 
 </el-row>
 
