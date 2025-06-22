@@ -1311,7 +1311,7 @@ exports.modelCreateOneRecord = (req, res) => {
     console.log('temI', item)
   
     
-    event.status= 'successful'
+    event.status= 'Successful'
  
     logEvents(event)
 
