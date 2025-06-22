@@ -1515,14 +1515,11 @@ const generatePDFReport = () => {
 
 
       <el-tab-pane label="Location" name="map">
-        <!-- <div id="mapContainer" class="basemap"></div> -->
-         
-
-        <SettlementMap
-          :settlementId="settlementId"
-  
-        />  
-
+        <div class="map-container-wrapper">
+          <SettlementMap
+            :settlementId="settlementId"
+          />  
+        </div>
       </el-tab-pane>
 
 
@@ -1832,6 +1829,13 @@ width="300" title="Are you sure to delete this project?"
 .basemap {
   width: 100%;
   height: 65vh;
+}
+
+.map-container-wrapper {
+  width: 100%;
+  height: 60vh;
+  min-height: 400px;
+  position: relative;
 }
 </style>
 

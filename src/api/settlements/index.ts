@@ -331,3 +331,7 @@ export const revertHistory = (data: SettlementType): Promise<IResponse<Settlemen
   // console.log('....', data)
   return request.post({ url: prod + '/api/v1/edit/revert', data })
 }
+
+export const getSettlementMapData = (data: { settlementId: string }): Promise<IResponse<any>> => {
+  return request.post({ url: prod + '/api/v1/data/geo/multiple', data })
+}

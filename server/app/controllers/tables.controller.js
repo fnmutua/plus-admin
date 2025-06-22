@@ -953,101 +953,7 @@ exports.modelImportData = async (req, res) => {
 
  
  
-
-exports._modelImportDataUpsert = async (req, res) => {
-  try {
-    const { model: reg_model, data: rawData } = req.body;
-    if (!reg_model || !rawData) {
-      return res.status(400).json({ message: 'Model and data are required' });
-    }
-
-    const Model = db.models[reg_model];
-    if (!Model) {
-      return res.status(400).json({ message: `Model "${reg_model}" not found` });
-    }
-
-    let data = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
-    if (!Array.isArray(data)) {
-      return res.status(400).json({ message: 'Data must be an array' });
-    }
-
-    const currentUser = req.thisUser?.id;
-    const timestamp = new Date();
-
-    const validData = data
-      .filter(item => typeof item === 'object')
-      .map(item => ({
-        ...item,
-        createdBy: currentUser,
-        updatedAt: timestamp,
-      }));
-
-    if (validData.length === 0) {
-      return res.status(400).json({ message: 'No valid records to process' });
-    }
-
-    const modelHasCodeField = Model.rawAttributes.hasOwnProperty('code');
-
-    const inserted = [];
-    const updated = [];
-    const errors = [];
-
-    for (const item of validData) {
-      try {
-        if (modelHasCodeField) {
-          if (item.code) {
-            // SCENARIO 3: Model has `code`, and item has `code`
-            const existing = await Model.findOne({ where: { code: item.code } });
-
-            if (existing) {
-              const updateData = { ...item };
-              delete updateData.code;
-              await existing.update(updateData);
-              updated.push(item.code);
-            } else {
-              const newRecord = await Model.create(item);
-              inserted.push(newRecord.code || newRecord.id);
-            }
-          } else {
-            // SCENARIO 2: Model has `code`, but item does not
-            const newRecord = await Model.create(item);
-            inserted.push(newRecord.code || newRecord.id);
-          }
-        } else {
-          // SCENARIO 1: Model has NO `code` field → just insert
-          const newRecord = await Model.create(item);
-          inserted.push(newRecord.id);
-        }
-      } catch (err) {
-        errors.push({
-          item,
-          error: err.message,
-          detail: err?.original?.detail,
-        });
-      }
-    }
-    const hasErrors = errors.length > 0;
-
-    return res.status(hasErrors ? 207 : 200).json({
-      message: hasErrors ? 'Import completed with some errors' : 'Import process completed successfully',
-      insertedCount: inserted.length,
-      updatedCount: updated.length,
-      failedCount: errors.length,
-      inserted,
-      updated,
-      errors,
-      code: hasErrors ? '0001' : '0000',
-    });
-    
-
-  } catch (err) {
-    console.error('Fatal upsert error:', err);
-    return res.status(500).json({
-      message: 'Internal Server Error',
-      error: err.message,
-    });
-  }
-};
+ 
 
 
 function safeParseAndSanitize(jsonStr) {
@@ -1071,7 +977,7 @@ function safeParseAndSanitize(jsonStr) {
 exports.modelImportDataUpsert = async (req, res) => {
   try {
     // Validate request body
-    console.log('Validate request body');
+    console.log('Validate request body', req.body);
     const body = typeof req.body === 'string' ? safeParseAndSanitize(req.body) : req.body;
     const { model: modelName, data: rawData } = body;
 
@@ -1114,6 +1020,15 @@ exports.modelImportDataUpsert = async (req, res) => {
       // Keep only defined attributes
       const item = {};
       Object.keys(origItem).forEach(key => { if (attributes[key]) item[key] = origItem[key]; });
+      
+      // Auto-convert string IDs to integers for common ID fields
+      const idFields = ['project_id', 'county_id', 'subcounty_id', 'ward_id', 'settlement_id', 'implementer'];
+      idFields.forEach(field => {
+        if (item[field] && typeof item[field] === 'string' && !isNaN(parseInt(item[field]))) {
+          item[field] = parseInt(item[field]);
+        }
+      });
+      
       // Type checks
       Object.entries(attributes).forEach(([key, attrDef]) => {
         if (!(key in item)) return;
@@ -2981,196 +2896,7 @@ exports.modelPaginatedData = (req, res) => {
  
  
 
-// Main get list code 
-exports.xmodelPaginatedDatafilterByColumn = async (req, res) => {
-  try {
-    const {
-      model: modelName,
-      filters = [],
-      filterValues = [],
-      associated_multiple_models = [],
-      nested_models = [],
-      nested_filter = [],
-      limit = 10,
-      page = 1,
-      cache_key,
-    } = req.body;
-
-    if (!modelName) {
-      return res.status(400).json({ message: 'Model name is required', code: 'INVALID_INPUT' });
-    }
-
-    const Model = db.models[modelName];
-    if (!Model) {
-      return res.status(400).json({ message: `Model "${modelName}" not found`, code: 'MODEL_NOT_FOUND' });
-    }
-
-    const parsedLimit = parseInt(limit, 10);
-    const parsedPage = parseInt(page, 10);
-    if (isNaN(parsedLimit) || parsedLimit < 1 || isNaN(parsedPage) || parsedPage < 1) {
-      return res.status(400).json({ message: 'Invalid limit or page number', code: 'INVALID_PAGINATION' });
-    }
-
-    const baseQuery = { where: {} };
-
-    const hasGeomColumn = Object.keys(Model.rawAttributes).includes('geom');
-
-    if (filters.length > 0 && filterValues.length === filters.length) {
-      const modelAttributes = Object.keys(Model.rawAttributes).filter(attr => !hasGeomColumn || attr !== 'geom');
-      const validFilters = filters
-        .map((filter, i) => ({
-          field: filter,
-          value: filterValues[i],
-        }))
-        .filter(({ field }) => modelAttributes.includes(field));
-
-      if (validFilters.length === 0) {
-        return res.status(400).json({ message: 'No valid filter fields provided', code: 'INVALID_FILTERS' });
-      }
-
-      baseQuery.where = {
-        [Op.and]: validFilters.map(({ field, value }) => ({ [field]: value })),
-      };
-    }
-
-    const total = await Model.count(baseQuery);
-
-    const includeModels = [];
-
-    for (const assocModel of associated_multiple_models) {
-      const RelatedModel = db.models[assocModel];
-      if (!RelatedModel) {
-        return res.status(400).json({ message: `Associated model "${assocModel}" not found`, code: 'INVALID_ASSOCIATION' });
-      }
-
-      const relatedHasGeom = Object.keys(RelatedModel.rawAttributes).includes('geom');
-      const modelIncl = { 
-        model: RelatedModel,
-        attributes: relatedHasGeom ? { exclude: ['geom'] } : undefined
-      };
-      if (assocModel === 'users') {
-        modelIncl.attributes = ['name', 'email', 'phone'];
-      }
-      includeModels.push(modelIncl);
-    }
-
-    if (nested_models.length >= 2) {
-      const childModel = db.models[nested_models[0]];
-      const grandChildModel = db.models[nested_models[1]];
-      if (!childModel || !grandChildModel) {
-        return res.status(400).json({ message: 'Invalid nested model names', code: 'INVALID_NESTED_MODELS' });
-      }
-
-      const childHasGeom = Object.keys(childModel.rawAttributes).includes('geom');
-      const grandChildHasGeom = Object.keys(grandChildModel.rawAttributes).includes('geom');
-      const nestedQuery = nested_filter.length === 2 ? { [nested_filter[0]]: nested_filter[1] } : null;
-      includeModels.push({
-        model: childModel,
-        attributes: childHasGeom ? { exclude: ['geom'] } : undefined,
-        include: [{
-          model: grandChildModel,
-          attributes: grandChildHasGeom ? { exclude: ['geom'] } : undefined,
-          ...(nestedQuery && { where: nestedQuery }),
-        }],
-      });
-    }
-
-    if (Model.associations.children && Model.associations.parent) {
-      // Get the actual field names from the model attributes
-      const nameField = Object.keys(Model.rawAttributes).includes('name') ? 'name' : 
-                       Object.keys(Model.rawAttributes).includes('title') ? 'title' : 'id';
-      
-      includeModels.push(
-        { 
-          model: Model, 
-          as: 'children', 
-          attributes: ['id', nameField], 
-          required: false 
-        },
-        { 
-          model: Model, 
-          as: 'parent', 
-          attributes: ['id', nameField], 
-          required: false 
-        }
-      );
-    }
-
-    const query = {
-      where: baseQuery.where,
-      include: includeModels,
-      order: [['createdAt', 'DESC']],
-      limit: parsedLimit,
-      offset: (parsedPage - 1) * parsedLimit,
-      distinct: true,
-      attributes: hasGeomColumn ? {
-        exclude: ['geom'],
-        include: [
-          [db.sequelize.literal(`CASE WHEN "${Model.tableName}"."geom" IS NOT NULL THEN true ELSE false END`), 'hasGeom']
-        ]
-      } : undefined
-    };
-
-    if (cache_key) {
-      const cacheDuration = 3600;
-      const lastRow = await Model.findOne({
-        attributes: ['updatedAt'],
-        order: [['updatedAt', 'DESC']],
-      });
-      const lastModified = lastRow?.updatedAt?.getTime() ?? Date.now();
-
-      const cacheResults = await redisClient.get(cache_key);
-      if (cacheResults) {
-        const result = JSON.parse(cacheResults);
-        if (lastModified <= result.lastModified) {
-          return res.status(200).json({
-            fromCache: true,
-            cache_key,
-            data: result.data,
-            total,
-            code: '0000',
-          });
-        }
-      }
-
-      const response = await Model.findAndCountAll(query);
-      const cacheData = {
-        data: response.rows,
-        total,
-        lastModified: Date.now(),
-      };
-      await redisClient.set(cache_key, JSON.stringify(cacheData), { EX: cacheDuration });
-
-      return res.status(200).json({
-        fromCache: false,
-        cache_key,
-        data: response.rows,
-        total,
-        code: '0000',
-      });
-    }
-
-    const response = await Model.findAndCountAll(query);
-    return res.status(200).json({
-      fromCache: false,
-      data: response.rows,
-      total,
-      code: '0000',
-    });
-
-  } catch (error) {
-    console.error('Error in modelPaginatedDatafilterByColumn:', {
-      message: error.message,
-      stack: error.stack,
-      body: req.body,
-    });
-    return res.status(500).json({
-      message: 'Internal server error',
-      error: error.message,
-      code: 'SERVER_ERROR',
-    });
-  }
-};
+ 
 
 
 exports.modelPaginatedDatafilterByColumn = async (req, res) => {
@@ -3325,7 +3051,7 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
       offset: (parsedPage - 1) * parsedLimit,
       distinct: true,
       attributes: hasGeomColumn ? {
-        exclude: ['geom'],
+      //  exclude: ['geom'],
         include: [
           [db.sequelize.literal(`CASE WHEN "${Model.tableName}"."geom" IS NOT NULL THEN true ELSE false END`), 'hasGeom']
         ]
@@ -3355,7 +3081,7 @@ if (isHouseholdsModel) {
 } else if (hasGeomColumn) {
   // Default: exclude geom and include hasGeom flag
   query.attributes = {
-    exclude: ['geom'],
+  //  exclude: ['geom'],
     include: [
       [
         db.sequelize.literal(
@@ -3989,7 +3715,7 @@ exports.modelPaginatedDatafilterBykeyWord = async (req, res) => {
 
     // Sanitize and apply filters
     if (filters.length > 0 && filterValues.length === filters.length) {
-      const modelAttributes = Object.keys(Model.rawAttributes).filter(attr => !hasGeomColumn || attr !== 'geom');
+      const modelAttributes = Object.keys(Model.rawAttributes) ;
       const validFilters = filters
         .map((filter, i) => ({
           field: filter,
@@ -4020,7 +3746,7 @@ exports.modelPaginatedDatafilterBykeyWord = async (req, res) => {
       where: queryCondition,
       include: includeModels,
       attributes: hasGeomColumn ? {
-        exclude: ['geom'],
+       // exclude: ['geom'],
         include: [
           [db.sequelize.literal(`CASE WHEN "${Model.tableName}"."geom" IS NOT NULL THEN true ELSE false END`), 'hasGeom']
         ]
@@ -7232,6 +6958,136 @@ exports.getModelFields = (req, res) => {
     return res.json({ fields });
   } catch (err) {
     return res.status(500).json({ error: 'Internal server error', details: err.message });
+  }
+};
+
+// Consolidated settlement map data endpoint
+exports.getSettlementMapData = async (req, res) => {
+  try {
+    const { settlementId } = req.body;
+    
+    if (!settlementId) {
+      return res.status(400).json({
+        message: 'Settlement ID is required',
+        code: 'MISSING_SETTLEMENT_ID'
+      });
+    }
+
+    console.log('🔄 Fetching consolidated map data for settlement:', settlementId);
+
+    // Define all the models we need to fetch data for
+    const models = [
+      'settlement',
+      'parcel', 
+      'structure',
+      'road',
+      'streetlight',
+      'crime_hotspot',
+      'community_project',
+      'health_facility',
+      'education_facility',
+      'water_point',
+      'sewer',
+      'piped_water',
+      'powerline',
+      'community_hall',
+      'police_station',
+      'mast',
+      'dumping_site',
+      'hazard_zone'
+    ];
+
+    // Fetch all data in parallel
+    const dataPromises = models.map(async (model) => {
+      try {
+        let query;
+        
+        if (model === 'settlement') {
+          // For settlement, get the specific settlement
+          query = `
+            SELECT row_to_json(fc) AS json_build_object
+            FROM (
+              SELECT 'FeatureCollection' AS type,
+                     array_to_json(array_agg(f)) AS features
+              FROM (
+                SELECT 'Feature' AS type,
+                       ST_AsGeoJSON(geom, 8)::json AS geometry,
+                       json_strip_nulls(row_to_json(${model}.*)) AS properties
+                FROM ${model}
+                WHERE geom IS NOT NULL AND id = :settlementId
+              ) AS f
+            ) AS fc
+          `;
+        } else {
+          // For other models, get all features for this settlement
+          query = `
+            SELECT row_to_json(fc) AS json_build_object
+            FROM (
+              SELECT 'FeatureCollection' AS type,
+                     array_to_json(array_agg(f)) AS features
+              FROM (
+                SELECT 'Feature' AS type,
+                       ST_AsGeoJSON(geom, 8)::json AS geometry,
+                       json_strip_nulls(row_to_json(${model}.*)) AS properties
+                FROM ${model}
+                WHERE geom IS NOT NULL AND settlement_id = :settlementId
+              ) AS f
+            ) AS fc
+          `;
+        }
+
+        const result = await db.sequelize.query(query, {
+          replacements: { settlementId },
+          type: db.sequelize.QueryTypes.SELECT,
+        });
+
+        return {
+          model,
+          data: result[0]?.json_build_object || { type: 'FeatureCollection', features: [] },
+          success: true
+        };
+      } catch (error) {
+        console.error(`❌ Error fetching ${model}:`, error);
+        return {
+          model,
+          data: { type: 'FeatureCollection', features: [] },
+          success: false,
+          error: error.message
+        };
+      }
+    });
+
+    // Wait for all queries to complete
+    const results = await Promise.all(dataPromises);
+    
+    // Organize the results
+    const mapData = {};
+    const errors = [];
+    
+    results.forEach(result => {
+      if (result.success) {
+        mapData[result.model] = result.data;
+      } else {
+        errors.push(`${result.model}: ${result.error}`);
+      }
+    });
+
+    console.log(`✅ Successfully fetched data for ${results.filter(r => r.success).length}/${models.length} models`);
+
+    return res.status(200).json({
+      message: 'Settlement map data fetched successfully',
+      data: mapData,
+      errors: errors.length > 0 ? errors : undefined,
+      code: '0000'
+    });
+
+  } catch (error) {
+    console.error('❌ Error in getSettlementMapData:', error);
+    return res.status(500).json({
+      message: 'Failed to fetch settlement map data',
+      error: error.message,
+      code: 'SERVER_ERROR'
+    });
   }
 };
 

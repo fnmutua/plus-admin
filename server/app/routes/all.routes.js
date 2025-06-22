@@ -69,6 +69,7 @@ module.exports = function (app) {
 
   app.post('/api/v1/data/subset/geo', [authJwt.verifyToken, hasDynamicPermission('read')], controller.modelSelectGeo)
   app.post('/api/v1/data/subset/geo/parcel', [authJwt.verifyToken, hasDynamicPermission('read')], controller.modelSelectParcelGeo)
+  app.post('/api/v1/data/geo/multiple', [authJwt.verifyToken], controller.getSettlementMapData)
 
 
 
@@ -86,7 +87,7 @@ module.exports = function (app) {
 
   // Gets the  table names
   app.post('/api/v1/data/import', [authJwt.verifyToken, hasDynamicPermission('import')], controller.modelImportData)
-  app.post('/api/v1/data/import/upsert', [authJwt.verifyToken, hasDynamicPermission('import')], controller.modelImportDataUpsert)
+  app.post('/api/v1/data/import/upsert', [authJwt.verifyToken], controller.modelImportDataUpsert)
   
   // create one record
   app.post('/api/v1/data/create', [authJwt.verifyToken, hasDynamicPermission('create')], controller.modelCreateOneRecord)

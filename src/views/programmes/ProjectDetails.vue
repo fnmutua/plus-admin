@@ -1098,6 +1098,8 @@ const toggleFloatingDiv = async (nmap) => {
 }
 
 function toFeatureCollection(array) {
+
+  console.log(array)
   return {
     type: "FeatureCollection",
     features: array.map(item => ({
@@ -1119,11 +1121,12 @@ const handleTabClick = (tab) => {
   console.log('Tab clicked:', tab.props);
   localStorage.setItem('activeTab', tab.props.name);
 
-  console.log(toFeatureCollection(projectLocations.value))
+  console.log('projectLocations.value',projectLocations.value)
 
   if (tab.props.name === 'map') {
     // Delay the loadMap function
     locationsGeometry.value = toFeatureCollection(projectLocations.value)
+
     setTimeout(() => {
       loadAllLocationsMap(locationsGeometry.value); // Load map after a brief delay
     }, 500); // Delay in milliseconds (500 ms = 0.5 seconds)
@@ -3467,7 +3470,8 @@ function formatLocation(item) {
                   Edit Project
                 </el-button>
 
-                <el-popconfirm width="300" title="Are you sure to delete this project?"
+                <el-popconfirm
+width="300" title="Are you sure to delete this project?"
                   @confirm="DeleteProject(projectFullData.id)">
                   <template #reference>
                     <el-button type="danger" plain>
@@ -3479,7 +3483,8 @@ function formatLocation(item) {
               </div>
             </template>
 
-            <el-descriptions-item v-for="item in projectDescription" :key="item.property"
+            <el-descriptions-item
+v-for="item in projectDescription" :key="item.property"
               :label="formatSentence(item.property)">
               {{ formatSentence(item.value) }}
             </el-descriptions-item>
@@ -3517,9 +3522,11 @@ function formatLocation(item) {
         </el-table>
 
    
-        <el-dialog v-model="ShowLocationAddDialog" title="Add Project Location" width="500"
+        <el-dialog
+v-model="ShowLocationAddDialog" title="Add Project Location" width="500"
           :before-close="handleCloseAdd">
-          <el-select id="location-select" v-model="extra_locations" multiple filterable remote reserve-keyword
+          <el-select
+id="location-select" v-model="extra_locations" multiple filterable remote reserve-keyword
             :loading="loading" :placeholder="'Search '+ implementation_scope" :remote-method="remoteMethod" style="width: 85%">
             <el-option v-for="item in locationOptions" :key="item.id" :label="item.label" :value="item">
               <div style="display: flex; align-items: center;">
@@ -3579,7 +3586,8 @@ function formatLocation(item) {
 
           <el-row :gutter="10">
             <el-col v-for="(activity) in activityOptions" :key="activity.id" :sm="24" :md="24" :lg="24" :xl="12">
-              <el-checkbox v-model="projectScopeChecked" :label="activity.id" @change="toggleActivity()"
+              <el-checkbox
+v-model="projectScopeChecked" :label="activity.id" @change="toggleActivity()"
                 style="max-width: 100%;">
                 <span
                   style="display: inline-block; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;"
@@ -3771,9 +3779,11 @@ function formatLocation(item) {
       <el-tab-pane label="Timeline" name="timeline">
 
         <el-timeline style="max-width: 100%;">
-          <el-timeline-item v-for="(log, index) in sortedprojectLogs" :key="index" placement="top"
+          <el-timeline-item
+v-for="(log, index) in sortedprojectLogs" :key="index" placement="top"
             :timestamp="log.date_actioned" timestamp-class="timestamp-class">
-            <el-card class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'success-background' :
+            <el-card
+class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'success-background' :
           log.action_type == 'Escalated' ? 'warning-background' :
             log.action_type == 'Closed' ? 'closed-background' :
               log.action_type == 'Referred' ? 'referred-background' :
@@ -3826,7 +3836,8 @@ function formatLocation(item) {
 
 
   <el-dialog v-model="addMoreDocuments" title="Upload Documents" width="25%">
-    <el-select class="dialog-select" v-model="documentCategory" placeholder="Select Type" clearable filterable
+    <el-select
+class="dialog-select" v-model="documentCategory" placeholder="Select Type" clearable filterable
       style="margin-bottom:10px" :onChange="handleSelect">
       <el-option-group v-for="group in DocTypes" :key="group.label" :label="group.label">
         <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
@@ -3834,7 +3845,8 @@ function formatLocation(item) {
     </el-select>
 
     <div class="dialog-upload">
-      <el-upload ref="upload" v-if="showUpload" v-model:file-list="morefileList" multiple :limit="10"
+      <el-upload
+ref="upload" v-if="showUpload" v-model:file-list="morefileList" multiple :limit="10"
         :on-exceed="onExceeed" :auto-upload="false">
         <el-button class="full-width" type="primary" :icon="UploadFilled"> Select File(s) </el-button>
 
@@ -3842,13 +3854,15 @@ function formatLocation(item) {
     </div>
 
 
-    <el-tooltip class="box-item" effect="dark" content="Only the Owner and Admin can view Private documents"
+    <el-tooltip
+class="box-item" effect="dark" content="Only the Owner and Admin can view Private documents"
       placement="right-end">
       <el-checkbox v-model="protectedFile">Private File</el-checkbox>
     </el-tooltip>
 
     <div class="dialog-progress">
-      <el-progress :stroke-width="20" :show-text="false" :percentage="loadingPosting ? '50' : ''" :format="format"
+      <el-progress
+:stroke-width="20" :show-text="false" :percentage="loadingPosting ? '50' : ''" :format="format"
         :indeterminate="true" />
     </div>
 
@@ -3870,7 +3884,8 @@ function formatLocation(item) {
 
 
   <el-dialog v-model="AddTeamDialog" title="Add Project Team" width="500">
-    <el-form :model="teamForm" label-width="auto" style="max-width: 600px" label-position="top" ref="ruleFormRef"
+    <el-form
+:model="teamForm" label-width="auto" style="max-width: 600px" label-position="top" ref="ruleFormRef"
       :rules="rules">
       <el-form-item label="Role" prop='role'>
         <el-select v-model="teamForm.role" placeholder="Select  Role">
@@ -3903,10 +3918,12 @@ function formatLocation(item) {
 
 
   <el-dialog v-model="AddContractorTeamDialog" title="Add Project Contractors" width="500">
-    <el-form :model="contractorForm" label-width="auto" style="max-width: 600px" label-position="top"
+    <el-form
+:model="contractorForm" label-width="auto" style="max-width: 600px" label-position="top"
       ref="contractorFormRef" :rules="contractorRules">
       <el-form-item label="Contractor" prop='contractor'>
-        <el-select v-model="contractorForm.contractor_id" placeholder="Select " filterable
+        <el-select
+v-model="contractorForm.contractor_id" placeholder="Select " filterable
           :onChange="handleSelectContractor">
           <el-option v-for="cont in contractorOptions" :key="cont" :label="cont.label" :value="cont.id" />
           <template #footer>
@@ -3947,7 +3964,8 @@ function formatLocation(item) {
 
 
   <el-dialog v-model="showAddNewContractor" title="Register New Contractors" width="500">
-    <el-form :model="NewContractorForm" label-width="auto" style="max-width: 600px" label-position="top"
+    <el-form
+:model="NewContractorForm" label-width="auto" style="max-width: 600px" label-position="top"
       ref="NewContractorRef" :rules="ruleFormRules">
 
 
@@ -3997,7 +4015,8 @@ function formatLocation(item) {
       , then upload it below.
     </span>
 
-    <el-upload class="upload-demo" :on-change="handleCsvUpload" drag :auto-upload="false"
+    <el-upload
+class="upload-demo" :on-change="handleCsvUpload" drag :auto-upload="false"
       action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15">
       <div class="el-upload__text">
         Drop file here or <em>click to upload</em>
@@ -4164,7 +4183,8 @@ function formatLocation(item) {
 
 
   <el-dialog v-model="AddDisbursementTeamDialog" title="Add Disbursement/Payemnt" width="500">
-    <el-form :model="DisbursementForm" label-width="auto" style="max-width: 600px" label-position="top"
+    <el-form
+:model="DisbursementForm" label-width="auto" style="max-width: 600px" label-position="top"
       ref="DisbursementFormRef" :rules="DisbursementRules">
 
       <el-form-item label="IPC " prop='certificate'>
@@ -4183,7 +4203,8 @@ function formatLocation(item) {
 
 
       <el-form-item label="Date" prop='disbursement_date'>
-        <el-date-picker v-model="DisbursementForm.disbursement_date" :disabled-date="disabledFutureDates"
+        <el-date-picker
+v-model="DisbursementForm.disbursement_date" :disabled-date="disabledFutureDates"
           style="max-width: 100%" />
       </el-form-item>
 
