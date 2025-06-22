@@ -1,68 +1,43 @@
+// Database configuration - supports both kisip and kesmis
 process.env.VUE_APP_DB_HOST = 'localhost';
 process.env.VUE_APP_USER = 'postgres';
 process.env.VUE_APP_PASSWORD = '***REDACTED***';
-process.env.VUE_APP_DB = 'kisip';
 process.env.VUE_APP_DB_PORT = '5432';
 
-// Support both kisip and kesmis database names
-const { Sequelize } = require('sequelize');
+// Check for database name from command line argument or environment variable
+const databaseName = process.argv[2] || process.env.DATABASE_NAME || 'kisip';
 
-// Function to test database connection
-async function testDatabaseConnection(databaseName) {
-  const testSequelize = new Sequelize(databaseName, process.env.VUE_APP_USER, process.env.VUE_APP_PASSWORD, {
-    host: process.env.VUE_APP_DB_HOST,
-    port: process.env.VUE_APP_DB_PORT,
-    dialect: 'postgres',
-    logging: false
-  });
-  
-  try {
-    await testSequelize.authenticate();
-    await testSequelize.close();
-    return true;
-  } catch (error) {
-    return false;
-  }
+// Validate database name
+if (databaseName !== 'kisip' && databaseName !== 'kesmis') {
+  console.error('❌ Invalid database name. Must be either "kisip" or "kesmis"');
+  console.error('Usage: node seed_permissions.js [kisip|kesmis]');
+  console.error('Or set DATABASE_NAME environment variable');
+  process.exit(1);
 }
 
-// Function to determine which database to use
-async function determineDatabase() {
-  console.log('Checking available databases...');
-  
-  // Try kisip first
-  if (await testDatabaseConnection('kisip')) {
-    console.log('Using kisip database');
-    process.env.VUE_APP_DB = 'kisip';
-    return 'kisip';
-  }
-  
-  // Try kesmis if kisip is not available
-  if (await testDatabaseConnection('kesmis')) {
-    console.log('Using kesmis database');
-    process.env.VUE_APP_DB = 'kesmis';
-    return 'kesmis';
-  }
-  
-  // If neither is available, default to kisip
-  console.log('Neither kisip nor kesmis database found, defaulting to kisip');
-  process.env.VUE_APP_DB = 'kisip';
-  return 'kisip';
-}
+// Set the database name
+process.env.VUE_APP_DB = databaseName;
 
-console.log('Starting permission seeding process...');
-console.log('DB ENV:', process.env.VUE_APP_DB_HOST, process.env.VUE_APP_USER, process.env.VUE_APP_PASSWORD, process.env.VUE_APP_DB, process.env.VUE_APP_DB_PORT);
+console.log('🚀 Starting permission seeding process...');
+console.log(`📊 Using database: ${databaseName}`);
+console.log('🔧 DB Config:', {
+  host: process.env.VUE_APP_DB_HOST,
+  user: process.env.VUE_APP_USER,
+  database: process.env.VUE_APP_DB,
+  port: process.env.VUE_APP_DB_PORT
+});
 
 const db = require('./models');
 
 async function seedPermissions() {
   try {
-    // Determine which database to use
-    const databaseName = await determineDatabase();
-    console.log(`Using database: ${databaseName}`);
+    console.log('🔄 Testing database connection...');
+    await db.sequelize.authenticate();
+    console.log('✅ Database connection successful');
     
-    console.log('Syncing database...');
+    console.log('🔄 Syncing database...');
     await db.sequelize.sync(); // Ensure tables exist
-    console.log('Database synced successfully');
+    console.log('✅ Database synced successfully');
 
     // Remove all existing ':manage' permissions from the database
     await db.permission.destroy({ where: { name: { [db.Sequelize.Op.like]: '%:manage' } } });
@@ -4087,29 +4062,43 @@ async function seedPermissions() {
 };
 
 
-    console.log('Assigning permissions to roles...');
+    console.log('✅ Assigning permissions to roles...');
     // Assign permissions to roles
     for (const [roleName, permissions] of Object.entries(rolePermissions)) {
-      console.log(`Processing role: ${roleName}`);
+      console.log(`🔄 Processing role: ${roleName}`);
       const role = await db.role.findOne({ where: { name: roleName } });
       if (role) {
         let permsToAssign = await db.permission.findAll({ where: { name: permissions } });
         await role.setPermissions(permsToAssign);
-        console.log(`Assigned ${permsToAssign.length} permissions to ${roleName}`);
+        console.log(`✅ Assigned ${permsToAssign.length} permissions to ${roleName}`);
       } else {
-        console.log(`Warning: Role ${roleName} not found in database`);
+        console.log(`⚠️  Warning: Role ${roleName} not found in database`);
       }
     }
 
-    console.log('Permissions and role-permissions seeded successfully!');
+    console.log('🎉 Permissions and role-permissions seeded successfully!');
+    console.log(`📊 Database used: ${databaseName}`);
     process.exit(0);
   } catch (error) {
-    console.error('Error during seeding:', error);
+    console.error('❌ Error during seeding:', error.message);
+    console.error('🔧 Database connection details:', {
+      host: process.env.VUE_APP_DB_HOST,
+      user: process.env.VUE_APP_USER,
+      database: process.env.VUE_APP_DB,
+      port: process.env.VUE_APP_DB_PORT
+    });
+    console.error('💡 Make sure the database exists and is accessible');
     process.exit(1);
   }
 }
 
 seedPermissions().catch(err => {
-  console.error('Fatal seeding error:', err);
+  console.error('💥 Fatal seeding error:', err.message);
+  console.error('🔧 Database connection details:', {
+    host: process.env.VUE_APP_DB_HOST,
+    user: process.env.VUE_APP_USER,
+    database: process.env.VUE_APP_DB,
+    port: process.env.VUE_APP_DB_PORT
+  });
   process.exit(1);
 }); 
