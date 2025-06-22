@@ -49,6 +49,12 @@ module.exports = function(sequelize, DataTypes) {
           { name: "id" },
         ]
       },
+
+      {
+        name: 'unique_name_key',
+        unique: true,
+        fields: ['name' ]
+      },
     ]
   });
 };
