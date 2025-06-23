@@ -144,6 +144,7 @@ module.exports = function (app) {
 
   // Add model fields endpoint
   app.post('/api/v1/model/fields', [authJwt.verifyToken], controller.modelBoard)
+  app.post('/api/v1/docs/search',  controller.filterRepository)
 
 
   app.post(
