@@ -1,12 +1,13 @@
 <script setup>
-import { ref, toRefs, onMounted } from 'vue'
-import { ElButton, ElProgress, ElDialog, ElUpload, ElSelect, ElTooltip, ElOption, ElOptionGroup, ElCheckbox  } from 'element-plus';
+import { ref, toRefs, onMounted, computed, watch } from 'vue'
+import { ElButton, ElProgress, ElDialog, ElUpload, ElSelect, ElTooltip, ElOption, ElOptionGroup, ElCheckbox, ElTag, ElIcon, ElDivider } from 'element-plus';
 import {
   Position, View, Plus, User, Download, Briefcase, Delete, Edit,
   Filter, InfoFilled, CopyDocument, Search, Setting, Loading, UploadFilled, CircleCloseFilled,
+  Document, Picture, FolderOpened, Close
 } from '@element-plus/icons-vue'
 import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
-import { ElMessage,  } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { uuid } from 'vue-uuid'
 import { getSettlementListByCounty, getHHsByCounty, uploadFilesBatch } from '@/api/settlements'
 
@@ -15,16 +16,14 @@ import { useCache } from '@/hooks/web/useCache'
 import axios from 'axios';
 import state from '@/config/axios'
 
-const prod = import.meta.env.VITE_APP_HOST // remove the port for production
-
- 
+const prod = import.meta.env.VITE_APP_HOST
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
 
-const showAdminButtons =  ref(appStore.getAdminButtons)
-const showEditButtons =  ref(appStore.getEditButtons)
+const showAdminButtons = ref(appStore.getAdminButtons)
+const showEditButtons = ref(appStore.getEditButtons)
 
 const props = defineProps({
   message: String,
@@ -32,54 +31,80 @@ const props = defineProps({
   data: Array,
   umodel: String,
   field: String,
-  filterOptions:String
-
+  filterOptions: String
 })
-const { show } = toRefs(props)
 
+const emit = defineEmits(['upload-complete', 'upload-error'])
 
-
-// reactive state
-const count = ref(0)
-const morefileList = ref([])
+// Reactive state
+const dialogVisible = ref(false)
+const fileList = ref([])
 const documentCategory = ref()
-// functions that mutate state and trigger updates
- 
+const protectedFile = ref(false)
+const uploadProgress = ref(0)
+const isUploading = ref(false)
+const uploadStatus = ref('idle') // idle, uploading, success, error
+const selectedFiles = ref([])
+const dragActive = ref(false)
 
-// lifecycle hooks
-onMounted(() => {
- 
-  console.log(props.message)
-  console.log(props.showDialog)
-  console.log('data----x', props.data)
- 
-  console.log('filterOptions----x', props.filterOptions)
-  console.log('DocTypes----x', DocTypes.value)
-
-
-})
-
-
+// Document types
 const DocTypes = ref([])
 const DocTypesFiltered = ref([])
 const DocTypesAll = ref([])
+
+// File validation
+const maxFileSize = 50 * 1024 * 1024 // 50MB
+const maxFiles = 10
+const allowedTypes = {
+  images: ['image/png', 'image/jpeg', 'image/jpg'],
+  documents: [
+    'application/pdf',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/zip',
+    'application/x-zip-compressed'
+  ]
+}
+
+// Computed properties
+const isPhotoCategory = computed(() => {
+  return documentCategory.value === 21
+})
+
+const allowedMimeTypes = computed(() => {
+  return isPhotoCategory.value ? allowedTypes.images : allowedTypes.documents
+})
+
+const totalFileSize = computed(() => {
+  return selectedFiles.value.reduce((total, file) => total + file.size, 0)
+})
+
+const formattedTotalSize = computed(() => {
+  return (totalFileSize.value / 1024 / 1024).toFixed(2)
+})
+
+const canUpload = computed(() => {
+  return selectedFiles.value.length > 0 && documentCategory.value && !isUploading.value
+})
+
+// Methods
 const getDocumentTypes = async () => {
-  const res = await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'document_type',
-      searchField: 'name',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response) => {
-     //tableDataList.value = response.data
-    var ret = response.data
-    console.log('filterOptions---Docypes-x', response.data)
+  try {
+    const res = await getCountyListApi({
+      params: {
+        pageIndex: 1,
+        limit: 100,
+        curUser: 1,
+        model: 'document_type',
+        searchField: 'name',
+        searchKeyword: '',
+        sort: 'ASC'
+      }
+    })
 
-
+    const ret = res.data
     const nestedData = ret.reduce((acc, cur) => {
       const group = cur.group;
       if (!acc[group]) {
@@ -89,310 +114,549 @@ const getDocumentTypes = async () => {
       return acc;
     }, {});
 
-    //console.log(nestedData.Map)
     for (let property in nestedData) {
       let opts = nestedData[property];
-      var doc = {}
-      doc.label = property
-      doc.options = []
+      var doc = {
+        label: property,
+        options: []
+      }
 
       opts.forEach(function (arrayItem) {
-        let opt = {}
-        opt.value = arrayItem.id
-        opt.label = arrayItem.type
-        doc.options.push(opt)
-
+        doc.options.push({
+          value: arrayItem.id,
+          label: arrayItem.type
+        })
       })
-      console.log('doc, ',doc)
       
       DocTypes.value.push(doc)
 
-      if (props.filterOptions &&  doc.label == props.filterOptions) {
-        console.log("Filtred", props.filterOptions)
+      if (props.filterOptions && doc.label == props.filterOptions) {
         DocTypesFiltered.value.push(doc)
-
       } else {
-        console.log("Not Filtred", props.filterOptions)
         DocTypesAll.value.push(doc)
-
-        //
       }
-
     }
-    console.log(DocTypes)
 
+    if (props.filterOptions) {
+      DocTypes.value = DocTypesFiltered.value
+    }
+  } catch (error) {
+    console.error('Error fetching document types:', error)
+    ElMessage.error('Failed to load document types')
+  }
+}
+
+const validateFile = (file) => {
+  const errors = []
+  
+  // Check file size
+  if (file.size > maxFileSize) {
+    errors.push(`File size exceeds 50MB limit`)
+  }
+  
+  // Check file type
+  if (!allowedMimeTypes.value.includes(file.type)) {
+    const expectedTypes = isPhotoCategory.value ? 'PNG, JPG' : 'PDF, Excel, Word, ZIP'
+    errors.push(`File type not allowed. Expected: ${expectedTypes}`)
+  }
+  
+  return errors
+}
+
+const handleFileSelect = (files) => {
+  const newFiles = Array.from(files)
+  const validFiles = []
+  const invalidFiles = []
+  
+  newFiles.forEach(file => {
+    const errors = validateFile(file)
+    if (errors.length === 0) {
+      validFiles.push(file)
+    } else {
+      invalidFiles.push({ file, errors })
+    }
   })
-
-  if (props.filterOptions  ) {
-    DocTypes.value = DocTypesFiltered.value
+  
+  // Add valid files
+  selectedFiles.value.push(...validFiles)
+  
+  // Show errors for invalid files
+  invalidFiles.forEach(({ file, errors }) => {
+    ElMessage.error(`${file.name}: ${errors.join(', ')}`)
+  })
+  
+  // Check total file count
+  if (selectedFiles.value.length > maxFiles) {
+    ElMessage.warning(`Maximum ${maxFiles} files allowed. Only first ${maxFiles} files will be uploaded.`)
+    selectedFiles.value = selectedFiles.value.slice(0, maxFiles)
   }
 }
-getDocumentTypes()
 
-
- 
-const addMoreDocuments = ref(false)
-if ( showAdminButtons.value) {
-
-    addMoreDocuments.value = true
-
-} else {
-  addMoreDocuments.value = false
-}
- 
-
-
-
-const addMoreDocs = () => {
-   addMoreDocuments.value = true
- 
-}
-const loadingPosting = ref(false)
-
-
-const beforeUpload = (files) => {
-
-
-for (var i = 0; i < files.length; i++) {
-
-
-  var isPng = false;
-  var isJPG = false;
-  var isXls = false;
-  var isXlsx = false;
-  var isPdf = false;
-  var isDoc = false;
-  var isZip = false;
-  var isDocx = false;
-  if (documentCategory.value === 21) {   // Photos
-    console.log('Photos', documentCategory.value, files[i].raw.type)
-    isPng = files[i].raw.type === 'image/png'
-    isJPG = files[i].raw.type === 'image/jpeg'
-
-    if (!isPng && !isJPG) {
-      //this.$message.error('Upload only Excel files')
-      ElMessage.error('Use png/jpg  formats for photos')
-
-    }
-
-  }
-  else {
-
-    isXls = files[i].raw.type === 'application/vnd.ms-excel'
-    isXlsx = files[i].raw.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    isPdf = files[i].raw.type === 'application/pdf'
-    isZip = files[i].raw.type === 'application/zip'
-    isZip = files[i].raw.type === 'application/x-zip-compressed'
-    isDoc = files[i].raw.type === 'application/msword'
-    isDocx = files[i].raw.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-
-    if (!isXls && !isXlsx && !isPdf && !isZip && !isDoc && !isDocx) {
-      //this.$message.error('Upload only Excel files')
-      ElMessage.error('Upload only pdf/xls/xlsx/zip/doc/docx files')
-
-    }
-
-  }
-
-
-  const isLt50M = files[i].raw.size / 1024 / 1024 < 50;
-
-
-  if (!isLt50M) {
-    // this.$message.error('File size should not exceed 5MB')
-    ElMessage.error('File size should not exceed 50MB')
-  }
-  return (isXls || isXlsx || isPdf || isZip || isDoc || isDocx || isPng || isJPG) && isLt50M
-}
+const removeFile = (index) => {
+  selectedFiles.value.splice(index, 1)
 }
 
-const protectedFile =ref(false)
+const getFileIcon = (file) => {
+  if (file.type.startsWith('image/')) return Picture
+  if (file.type.includes('pdf')) return Document
+  if (file.type.includes('excel') || file.type.includes('spreadsheet')) return Document
+  if (file.type.includes('word') || file.type.includes('document')) return Document
+  if (file.type.includes('zip')) return FolderOpened
+  return Document
+}
 
-const uploadProgress = ref()
+const formatFileSize = (bytes) => {
+  if (bytes === 0) return '0 Bytes'
+  const k = 1024
+  const sizes = ['Bytes', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+}
 
-const submitMoreDocuments = async () => {
- 
-console.log('loadingPosting.value.......', morefileList.value.length)
- 
- 
-  if (morefileList.value.length == 0) {
-    ElMessage.error('Select at least one file!')
-  }
+const handleDragEnter = (e) => {
+  e.preventDefault()
+  dragActive.value = true
+}
 
- 
-  else {
-  // uploading the documents 
-  loadingPosting.value=true
+const handleDragLeave = (e) => {
+  e.preventDefault()
+  dragActive.value = false
+}
 
-    const fileTypes = []
-  const formData = new FormData()
-  let files = []
-  for (var i = 0; i < morefileList.value.length; i++) {
-    console.log('------>file', morefileList.value[i])
-    var format = morefileList.value[i].name.split('.').pop() // get file extension
-    //  formData.append("file",this.multipleFiles[i],this.fileNames[i]+"_"+dateVar+"."+this.fileTypes[i]);
-    fileTypes.push(format)
-    // formData.append('files', fileList.value[i])
-    // formData.file = fileList.value[i]
+const handleDrop = (e) => {
+  e.preventDefault()
+  dragActive.value = false
+  const files = e.dataTransfer.files
+  handleFileSelect(files)
+}
 
-    formData.append('model', props.umodel)
+const uploadFiles = async () => {
+  if (!canUpload.value) return
+  
+  isUploading.value = true
+  uploadStatus.value = 'uploading'
+  uploadProgress.value = 0
+  
+  try {
+    const formData = new FormData()
+    
+    // Add common fields
+    formData.append('model', props.umodel || 'document')
     formData.append('createdBy', userInfo.id)
-
-    formData.append('files', morefileList.value[i].raw)
-    formData.append('format', morefileList.value[i].name.split('.').pop())
     formData.append('category', documentCategory.value)
-    formData.append('field_id', props.field)
+    formData.append('field_id', props.field || '')
     formData.append('protected', protectedFile.value)
-
-    formData.append('size', (morefileList.value[i].raw.size / 1024 / 1024).toFixed(2))
     formData.append('code', uuid.v4())
-    formData.append(props.field, props.data.id)
-
-    console.log('formData',props.field)
-
-  }
-
- // addMoreDocuments.value = false
-
- const res = await uploadFilesBatch(formData)
-
- 
- 
-
- if (res.code === "0000") {
-   loadingPosting.value = false
-   addMoreDocuments.value = false
-      }
-
-  }
-
-
-
-}
-
-const onExceeed = async () => {
- ElMessage.warning("Maximum number of files (10) exceeded!")
-}
-
-const trackFileAvailability = async (progress) => {
-       console.log('prgress', progress)
-}
-
-const handleFileChange = async (file, fileList) => {
-      // Handle the file change event
-      console.log('File selected:', file);
-      console.log('File list:', fileList[0].status);
-
-      // Start tracking the file availability
-      trackFileAvailability();
-}
-
-const showUpload = ref(false)
-
-const handleSelect = async (selected) => {
-  showUpload.value=true 
+    
+    if (props.field && props.data?.id) {
+      formData.append(props.field, props.data.id)
     }
+    
+    // Add files
+    selectedFiles.value.forEach((file, index) => {
+      const format = file.name.split('.').pop()
+      formData.append('files', file)
+      formData.append('format', format)
+      formData.append('size', (file.size / 1024 / 1024).toFixed(2))
+    })
+    
+    // Simulate progress (since we don't have real progress from the API)
+    const progressInterval = setInterval(() => {
+      if (uploadProgress.value < 90) {
+        uploadProgress.value += Math.random() * 10
+      }
+    }, 200)
+    
+    const response = await uploadFilesBatch(formData)
+    
+    clearInterval(progressInterval)
+    uploadProgress.value = 100
+    
+    if (response.code === "0000") {
+      uploadStatus.value = 'success'
+      ElMessage.success(`Successfully uploaded ${selectedFiles.value.length} file(s)`)
+      emit('upload-complete', response)
+      
+      // Reset form
+      setTimeout(() => {
+        resetForm()
+        dialogVisible.value = false
+      }, 1500)
+    } else {
+      throw new Error(response.message || 'Upload failed')
+    }
+    
+  } catch (error) {
+    console.error('Upload error:', error)
+    uploadStatus.value = 'error'
+    ElMessage.error(error.message || 'Upload failed')
+    emit('upload-error', error)
+  } finally {
+    isUploading.value = false
+  }
+}
 
-    const dialogWidth = '30%'
+const resetForm = () => {
+  selectedFiles.value = []
+  documentCategory.value = null
+  protectedFile.value = false
+  uploadProgress.value = 0
+  uploadStatus.value = 'idle'
+  dragActive.value = false
+}
 
+const openDialog = () => {
+  dialogVisible.value = true
+  resetForm()
+}
+
+const closeDialog = () => {
+  if (!isUploading.value) {
+    dialogVisible.value = false
+    resetForm()
+  }
+}
+
+// Watch for prop changes
+watch(() => props.showDialog, (newVal, oldVal) => {
+  console.log('UploadComponent: showDialog prop changed', { newVal, oldVal })
+  if (newVal) {
+    console.log('Opening upload dialog...')
+    openDialog()
+  }
+}, { immediate: true })
+
+// Lifecycle
+onMounted(() => {
+  getDocumentTypes()
+})
 </script>
 
 <template>
-  <div class="responsive-container">
-    <el-col  :xs="24" :sm="24" :md="8" :lg="6" :xl="6"> 
+  <div class="upload-component">
+    <!-- Upload Dialog -->
+    <el-dialog 
+      v-model="dialogVisible" 
+      title="Upload Documents" 
+      width="600px"
+      :close-on-click-modal="false"
+      :close-on-press-escape="!isUploading"
+      :show-close="!isUploading"
+      @close="closeDialog"
+    >
+      <div class="upload-container">
+        <!-- Step 1: Document Type Selection -->
+        <div class="upload-step">
+          <h4>1. Select Document Type</h4>
+          <el-select
+            v-model="documentCategory"
+            placeholder="Choose document type"
+            class="full-width"
+            clearable
+            filterable
+            :disabled="isUploading"
+          >
+            <el-option-group v-for="group in DocTypes" :key="group.label" :label="group.label">
+              <el-option 
+                v-for="item in group.options" 
+                :key="item.value" 
+                :label="item.label" 
+                :value="item.value" 
+              />
+            </el-option-group>
+          </el-select>
+        </div>
 
-    <el-dialog v-model="addMoreDocuments" title="Upload Documents"   >
-      <el-select
-        class="dialog-select"
-        v-model="documentCategory"
-        placeholder="Select Type"
-        clearable
-        filterable
-        :onChange="handleSelect"
-      >
-        <el-option-group v-for="group in DocTypes" :key="group.label" :label="group.label">
-          <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
-        </el-option-group>
-      </el-select>
+        <!-- Step 2: File Selection -->
+        <div class="upload-step" v-if="documentCategory">
+          <h4>2. Select Files</h4>
+          
+          <!-- Drag & Drop Zone -->
+          <div 
+            class="drop-zone"
+            :class="{ 'drag-active': dragActive, 'has-files': selectedFiles.length > 0 }"
+            @dragenter="handleDragEnter"
+            @dragover.prevent
+            @dragleave="handleDragLeave"
+            @drop="handleDrop"
+          >
+            <div v-if="selectedFiles.length === 0" class="drop-zone-content">
+              <el-icon size="48" color="#909399"><UploadFilled /></el-icon>
+              <p>Drag and drop files here, or</p>
+              <el-button type="primary" @click="$refs.fileInput.click()" :disabled="isUploading">
+                Browse Files
+              </el-button>
+              <p class="file-limits">
+                Max {{ maxFiles }} files, {{ formatFileSize(maxFileSize) }} each
+                <br />
+                {{ isPhotoCategory ? 'PNG, JPG' : 'PDF, Excel, Word, ZIP' }}
+              </p>
+            </div>
+            
+            <!-- File List -->
+            <div v-else class="file-list">
+              <div class="file-list-header">
+                <span>Selected Files ({{ selectedFiles.length }}/{{ maxFiles }})</span>
+                <el-button 
+                  type="text" 
+                  size="small" 
+                  @click="selectedFiles = []"
+                  :disabled="isUploading"
+                >
+                  Clear All
+                </el-button>
+              </div>
+              
+              <div class="file-items">
+                <div 
+                  v-for="(file, index) in selectedFiles" 
+                  :key="index"
+                  class="file-item"
+                >
+                  <el-icon><component :is="getFileIcon(file)" /></el-icon>
+                  <div class="file-info">
+                    <div class="file-name">{{ file.name }}</div>
+                    <div class="file-size">{{ formatFileSize(file.size) }}</div>
+                  </div>
+                  <el-button 
+                    type="text" 
+                    size="small" 
+                    @click="removeFile(index)"
+                    :disabled="isUploading"
+                  >
+                    <el-icon><Close /></el-icon>
+                  </el-button>
+                </div>
+              </div>
+              
+              <div class="file-summary">
+                <el-tag type="info">
+                  Total: {{ selectedFiles.length }} files, {{ formattedTotalSize }} MB
+                </el-tag>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Hidden file input -->
+          <input 
+            ref="fileInput"
+            type="file"
+            multiple
+            :accept="isPhotoCategory ? 'image/*' : '.pdf,.xls,.xlsx,.doc,.docx,.zip'"
+            @change="handleFileSelect($event.target.files)"
+            style="display: none"
+          />
+        </div>
 
-      <div class="dialog-upload">
-        <el-upload
-          ref="upload"
-          v-if="showUpload"
-          v-model:file-list="morefileList"
-           multiple
-          :limit="10"
-          :on-exceed="onExceeed"
-          :auto-upload="false"
-        >
-           <el-button class="full-width"  type="primary" :icon="UploadFilled"> Select File(s)  </el-button>
+        <!-- Step 3: Options -->
+        <div class="upload-step" v-if="documentCategory && selectedFiles.length > 0">
+          <h4>3. Options</h4>
+          <el-tooltip
+            content="Only the Owner and Admin can view Private documents"
+            placement="top"
+          >
+            <el-checkbox v-model="protectedFile" :disabled="isUploading">
+              Make files private
+            </el-checkbox>
+          </el-tooltip>
+        </div>
 
-        </el-upload>
+        <!-- Upload Progress -->
+        <div v-if="isUploading" class="upload-progress">
+          <el-progress 
+            :percentage="uploadProgress" 
+            :status="uploadStatus === 'error' ? 'exception' : uploadStatus === 'success' ? 'success' : ''"
+            :stroke-width="8"
+          />
+          <p class="progress-text">
+            {{ uploadStatus === 'uploading' ? 'Uploading files...' : 
+               uploadStatus === 'success' ? 'Upload completed!' : 
+               uploadStatus === 'error' ? 'Upload failed' : '' }}
+          </p>
+        </div>
       </div>
 
-
-      <el-tooltip
-        class="box-item"
-        effect="dark"
-        content="Only the Owner and Admin can view Private documents"
-        placement="right-end"
-      >
-      <el-checkbox v-model="protectedFile">Private File</el-checkbox>
-      </el-tooltip>
-
-      <div class="dialog-progress">
-        <el-progress
-          :stroke-width="20"
-          :show-text="false"
-          :percentage="loadingPosting ? '50' : ''"
-          :format="format"
-          :indeterminate="true"
-        />
-      </div>
-
+      <!-- Dialog Footer -->
       <template #footer>
-        <span class="dialog-footer">
-    
-          <el-row class="mb-4">
-
-          <el-tooltip content="Cancel" placement="top">
-          <el-button type="danger"   :icon="CircleCloseFilled"  @click="addMoreDocuments = false"  circle />
-        </el-tooltip>
- 
-          <el-tooltip content="Submit" placement="top">
-          <el-button type="success"   :icon="UploadFilled" @click="submitMoreDocuments()"   circle />
-        </el-tooltip>
-      </el-row >
-    </span>
+        <div class="dialog-footer">
+          <el-button 
+            @click="closeDialog" 
+            :disabled="isUploading"
+          >
+            Cancel
+          </el-button>
+          <el-button 
+            type="primary" 
+            @click="uploadFiles"
+            :loading="isUploading"
+            :disabled="!canUpload"
+          >
+            {{ isUploading ? 'Uploading...' : `Upload ${selectedFiles.length} File${selectedFiles.length !== 1 ? 's' : ''}` }}
+          </el-button>
+        </div>
       </template>
     </el-dialog>
-  </el-col>
-
   </div>
 </template>
 
 <style scoped>
-.responsive-container {
-  max-width: 30%;
-  padding: 10px;
-}
-
-.dialog-select {
+.upload-component {
   width: 100%;
-  margin-bottom: 10px;
 }
 
-.dialog-upload {
-  margin-bottom: 10px;
+.upload-container {
+  padding: 0;
 }
 
-.dialog-progress {
-  margin-top: 10px;
+.upload-step {
+  margin-bottom: 24px;
 }
 
+.upload-step h4 {
+  margin: 0 0 12px 0;
+  color: #303133;
+  font-weight: 600;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.drop-zone {
+  border: 2px dashed #dcdfe6;
+  border-radius: 8px;
+  padding: 32px;
+  text-align: center;
+  transition: all 0.3s ease;
+  background: #fafafa;
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.drop-zone.drag-active {
+  border-color: #409eff;
+  background: #f0f9ff;
+}
+
+.drop-zone.has-files {
+  padding: 16px;
+  min-height: auto;
+}
+
+.drop-zone-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.drop-zone-content p {
+  margin: 0;
+  color: #606266;
+}
+
+.file-limits {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 8px;
+}
+
+.file-list {
+  width: 100%;
+}
+
+.file-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.file-items {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid #ebeef5;
+  border-radius: 4px;
+  background: white;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid #f0f0f0;
+  gap: 8px;
+}
+
+.file-item:last-child {
+  border-bottom: none;
+}
+
+.file-item .el-icon {
+  color: #409eff;
+  font-size: 16px;
+}
+
+.file-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.file-name {
+  font-weight: 500;
+  color: #303133;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-size {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 2px;
+}
+
+.file-summary {
+  margin-top: 12px;
+  text-align: center;
+}
+
+.upload-progress {
+  margin-top: 16px;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 4px;
+}
+
+.progress-text {
+  margin: 8px 0 0 0;
+  text-align: center;
+  color: #606266;
+  font-size: 14px;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+/* Responsive */
 @media (max-width: 768px) {
-  .dialog-select {
-    width: 100% !important;
+  .drop-zone {
+    padding: 24px 16px;
+  }
+  
+  .file-item {
+    padding: 6px 8px;
+  }
+  
+  .file-name {
+    font-size: 14px;
   }
 }
 </style>

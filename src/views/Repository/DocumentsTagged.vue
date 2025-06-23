@@ -201,7 +201,6 @@ const totalDocs = ref()
 
 const searchTerm = ref('')
 const currentlyFiltered = ref(false)
-const downloading = ref(false)
 
 
 
@@ -643,91 +642,91 @@ const handleInputChange = async (keyword) => {
 
 
 const downloadFile = async (data) => {
-  downloading.value = true;
+  // Show immediate success message and start download in background
+  ElMessage.success(`Starting download: ${data.name}`);
+  
   const formData = {};
   formData.filename = data.name;
   formData.doc_id = data.id;
   formData.responseType = 'blob';
   
-  try {
-    const response = await getFile(formData);
-    
-    // Check if the response is an error message
-    if (response.data instanceof Blob && response.data.type === 'application/json') {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const errorData = JSON.parse(reader.result);
-        ElMessage.error(errorData.message || 'Download failed');
-        downloading.value = false;
-      };
-      reader.readAsText(response.data);
-      return;
-    }
-    
-    const url = window.URL.createObjectURL(new Blob([response.data]));
-    const link = document.createElement('a');
-    link.href = url;
-    const filename = data.name;
-    if (!/\.\w+$/.test(filename)) {
-      link.setAttribute('download', `${filename}.${data.format}`);
-    } else {
-      link.setAttribute('download', filename);
-    }
-    document.body.appendChild(link);
-    link.click();
-    downloading.value = false;
-  } catch (error) {
-    console.error('Error downloading file:', error);
-    ElMessage.error(error.response?.data?.message || 'Download failed');
-    downloading.value = false;
-  }
+  // Start download in background without blocking UI
+  getFile(formData)
+    .then(response => {
+      // Check if the response is an error message
+      if (response.data instanceof Blob && response.data.type === 'application/json') {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const errorData = JSON.parse(reader.result);
+          ElMessage.error(errorData.message || 'Download failed');
+        };
+        reader.readAsText(response.data);
+        return;
+      }
+      
+      // Create download link and trigger download
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      const filename = data.name;
+      if (!/\.\w+$/.test(filename)) {
+        link.setAttribute('download', `${filename}.${data.format}`);
+      } else {
+        link.setAttribute('download', filename);
+      }
+      document.body.appendChild(link);
+      link.click();
+      
+      // Clean up
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      // Optional: Show completion message
+      ElMessage.success(`Download completed: ${data.name}`);
+    })
+    .catch(error => {
+      console.error('Error downloading file:', error);
+      ElMessage.error(error.response?.data?.message || 'Download failed');
+    });
 };
 
 const viewDocument = async (data) => {
-  downloading.value=true
- 
+  // Show immediate feedback
+  ElMessage.info(`Opening document: ${data.name}`);
+  
   const formData = {};
- 
-
   
   let fname 
   const filename = data.name;
-      // Check if the filename has an extension
-      if (!/\.\w+$/.test(filename)) {
-         fname=filename + '.'+data.format
-      } else {
-        fname = filename
-
-      }
-      formData.filename =fname
-
-
+  // Check if the filename has an extension
+  if (!/\.\w+$/.test(filename)) {
+    fname = filename + '.' + data.format
+  } else {
+    fname = filename
+  }
+  formData.filename = fname
   formData.doc_id = data.id;
   formData.responseType = 'blob';
 
-  try {
-    const response = await getFile(formData);
-    const blobData = new Blob([response.data], { type: response.headers['content-type'] });
-    const url = window.URL.createObjectURL(blobData);
-    const newTab = window.open(url, '_blank');
+  // Start document loading in background
+  getFile(formData)
+    .then(response => {
+      const blobData = new Blob([response.data], { type: response.headers['content-type'] });
+      const url = window.URL.createObjectURL(blobData);
+      const newTab = window.open(url, '_blank');
 
-    if (newTab) {
-      // Attach a load event listener to the new tab's window object
-      newTab.addEventListener('load', () => {
-        // The new tab has fully loaded
-        console.log('New tab has fully loaded.');
-        downloading.value=false
-      });
-    } else {
-      console.error('Failed to open a new tab.');
-      ElMessage.error('Failed to open the document.');
-      downloading.value=false
-    }
-  } catch (error) {
-    console.error(error);
-    ElMessage.error('Failed to load the document.');
-    downloading.value=false
-  }
+      if (newTab) {
+        // Optional: Show success message when tab opens
+        ElMessage.success(`Document opened in new tab: ${data.name}`);
+      } else {
+        console.error('Failed to open a new tab.');
+        ElMessage.error('Failed to open the document. Please check your popup blocker settings.');
+      }
+    })
+    .catch(error => {
+      console.error(error);
+      ElMessage.error('Failed to load the document.');
+    });
 };
 
 
@@ -1103,44 +1102,34 @@ const handleSubmitData = async () => {
 
 
 
-/// Uplaod docuemnts from a central component 
+/// Upload documents from a central component 
 
-const currentRow = ref()
-const addMoreDocuments = ref(false)
+const showUploadDialog = ref(false)
+const currentGroupName = ref('')
 
+function toggleComponent(groupName) {
+  console.log('Opening upload for group:', groupName)
+  console.log('Current showUploadDialog value:', showUploadDialog.value)
+  currentGroupName.value = groupName
+  showUploadDialog.value = true
+  console.log('New showUploadDialog value:', showUploadDialog.value)
+}
 
+// Handle upload completion
+const handleUploadComplete = (response) => {
+  console.log('Upload completed:', response);
+  // Refresh the document list
+  getFilteredDataV2();
+  getCategoryCounts();
+  ElMessage.success('Documents uploaded successfully!');
+  showUploadDialog.value = false;
+}
 
-
-const mfield = null
-const ChildComponent = defineAsyncComponent(() => import('@/views/Components/UploadComponent.vue'));
-const selectedRow = ref([])
-const dynamicComponent = ref();
- const componentProps = ref({
-      message: 'Hello from parent',
-      showDialog:addMoreDocuments,
-      data:currentRow.value,
-      umodel:null,
-      field:mfield,
-      filterOptions:null
-    });
-
-
-    function toggleComponent(groupName) {
-  console.log('Compnnent data', [])
-      componentProps.value.data=[];
-      componentProps.value.filterOptions=groupName;
-      dynamicComponent.value = null; // Unload the component
-      addMoreDocuments.value = true; // Set any additional props
- 
-      setTimeout(() => {
-        dynamicComponent.value = ChildComponent; // Load the component
-  }, 100); // 0.1 seconds
-
-
-    }
-
-
-
+// Handle upload errors
+const handleUploadError = (error) => {
+  console.error('Upload error:', error);
+  ElMessage.error('Failed to upload documents. Please try again.');
+}
 
 getDocumentTypes()
 
@@ -1154,9 +1143,6 @@ getDocumentTypes()
 :title="t('Document Repository')" :message="t('Use the filters to subset')" v-loading="loading"
     element-loading-text="Getting the documents.......">
 
-    <div v-if="dynamicComponent">
-      <upload-component :is="dynamicComponent" v-bind="componentProps"/>
-    </div>
     <el-input
 v-model="searchTerm" placeholder="Search documents by name/settlement/county/format/uploader name" class="search-input"
       clearable @change="handleInputChange" @clear="getCategoryCounts" />
@@ -1176,7 +1162,7 @@ v-model="searchTerm" placeholder="Search documents by name/settlement/county/for
               <el-badge :value="typeCount" class="collapsible-header-badge" />
             </template>
 
-            <el-table :data="filterLiveDocs" v-loading="downloading" style="width: 100%; margin-left: 30px" size="small" class="thin-rows-table" border >
+            <el-table :data="filterLiveDocs" style="width: 100%; margin-left: 30px" size="small" class="thin-rows-table" border >
               <el-table-column label="#" type="index" width="50">
                 <template #default="{ $index }">
                   <span>{{ ($index + 1) + ((currentPage - 1) * pageSize) }}</span>
@@ -1283,6 +1269,18 @@ v-model="searchTerm" placeholder="Search documents by name/settlement/county/for
         </span>
       </template>
     </el-dialog>
+
+    <!-- Upload Component -->
+    <UploadComponent 
+      v-if="showUploadDialog"
+      :showDialog="showUploadDialog"
+      :filterOptions="currentGroupName"
+      :umodel="'document'"
+      :field="null"
+      :data="[]"
+      @upload-complete="handleUploadComplete"
+      @upload-error="handleUploadError"
+    />
 
   </ContentWrap>
 </template>
