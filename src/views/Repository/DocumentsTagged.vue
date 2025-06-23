@@ -202,7 +202,16 @@ const totalDocs = ref()
 const searchTerm = ref('')
 const currentlyFiltered = ref(false)
 
+// Most common document types (these will be the cards)
+const commonDocTypes = ref([
+  { id: 'reports', name: 'Reports', icon: 'Document', color: '#409eff', count: 0 },
+  { id: 'maps', name: 'Maps', icon: 'Picture', color: '#67c23a', count: 0 },
+  { id: 'plans', name: 'Plans', icon: 'Document', color: '#e6a23c', count: 0 },
+  { id: 'data', name: 'Data', icon: 'Document', color: '#f56c6c', count: 0 }
+])
 
+// Other document types (these will be in collapsible sections)
+const otherDocTypes = ref([])
 
 
 
@@ -287,7 +296,6 @@ const getCategoryCounts = async () => {
   formData.model = 'document'
   formData.summaryField = 'document_type.group'
   formData.summaryFunction = 'count'
-  //formData.assoc_models = ['county']
   formData.assoc_models = associated_multiple_models
   formData.groupFields = ['document_type.category_id', 'document_type.type']
 
@@ -298,35 +306,56 @@ const getCategoryCounts = async () => {
   console.log('Filter FormData : ', formData)
   const response = await getSummarybyFieldFromMultipleIncludes(formData);
   console.log('getCategoryCounts...', response)
- 
- 
- 
 
   let joinedArray = response.Total.map(item => {
     let matchInAnotherArray = docGroups.value.find(entry => entry.id == item.category_id);
 
     if (matchInAnotherArray) {
-        return {
-             count: item.count,
-            type: item.type,
-            group: matchInAnotherArray.title,
-         };
+      return {
+        count: item.count,
+        type: item.type,
+        group: matchInAnotherArray.title,
+      };
     }
-});
+  });
 
-// Remove undefined entries if any
-joinedArray = joinedArray.filter(item => item !== undefined);
+  // Remove undefined entries if any
+  joinedArray = joinedArray.filter(item => item !== undefined);
 
-// Sort the array by the 'group' property
-joinedArray.sort((a, b) => a.group.localeCompare(b.group));
+  // Sort the array by the 'group' property
+  joinedArray.sort((a, b) => a.group.localeCompare(b.group));
 
+  console.log('joinedArray', joinedArray)
 
-console.log('joinedArray',joinedArray)
+  // Update common document types with actual counts
+  commonDocTypes.value.forEach(commonType => {
+    const matchingItem = joinedArray.find(item => 
+      item.group.toLowerCase() === commonType.name.toLowerCase()
+    );
+    if (matchingItem) {
+      commonType.count = matchingItem.count;
+    }
+  });
 
+  // Separate common types from others
+  const commonGroupNames = commonDocTypes.value.map(type => type.name.toLowerCase());
+  const otherGroups = joinedArray.filter(item => 
+    !commonGroupNames.includes(item.group.toLowerCase())
+  );
 
-  groups_v2.value = reformatData(joinedArray)
+  // Group other types by their group
+  const otherGroupsMap = {};
+  otherGroups.forEach(item => {
+    if (!otherGroupsMap[item.group]) {
+      otherGroupsMap[item.group] = {};
+    }
+    otherGroupsMap[item.group][item.type] = item.count;
+  });
 
-  
+  // Update the groups_v2 for the collapsible sections
+  groups_v2.value = otherGroupsMap;
+
+  loading.value = false
 }
 
 
@@ -1131,6 +1160,32 @@ const handleUploadError = (error) => {
   ElMessage.error('Failed to upload documents. Please try again.');
 }
 
+// Handle clicking on common document type cards
+const handleCommonTypeClick = (commonType) => {
+  console.log('Clicked on common type:', commonType.name)
+  // Filter documents by this type
+  currentlyFiltered.value = true
+  filters.value = ['document_type.group']
+  filterValues.value = [[commonType.name]]
+  getFilteredDataV2()
+}
+
+// Handle uploading to common document type
+const handleCommonTypeUpload = (commonType) => {
+  console.log('Uploading to common type:', commonType.name)
+  currentGroupName.value = commonType.name
+  showUploadDialog.value = true
+}
+
+// Get icon component for common types
+const getCommonTypeIcon = (iconName) => {
+  switch (iconName) {
+    case 'Document': return CopyDocument
+    case 'Picture': return CopyDocument
+    default: return CopyDocument
+  }
+}
+
 getDocumentTypes()
 
 
@@ -1140,86 +1195,168 @@ getDocumentTypes()
 
 <template>
   <ContentWrap
-:title="t('Document Repository')" :message="t('Use the filters to subset')" v-loading="loading"
-    element-loading-text="Getting the documents.......">
+    :title="t('Document Repository')" 
+    :message="t('Use the filters to subset')" 
+    v-loading="loading"
+    element-loading-text="Getting the documents......."
+  >
 
-    <el-input
-v-model="searchTerm" placeholder="Search documents by name/settlement/county/format/uploader name" class="search-input"
-      clearable @change="handleInputChange" @clear="getCategoryCounts" />
-    <el-collapse accordion>
-      <el-collapse-item v-for="(group, groupName) in groups_v2" :key="groupName">
+    <el-row>
+    <el-col :span="6">
+      <el-statistic title="Daily active users" :value="268500" />
+    </el-col>
+    <el-col :span="6">
+      <el-statistic :value="138">
         <template #title>
-          <Icon icon="material-symbols:folder-open-outline" class="collapsible-header-icon  " width="48" />
-          <span class="collapsible-header-text">{{ formatText(groupName) }}</span>
+          <div style="display: inline-flex; align-items: center">
+            Ratio of men to women
+            <el-icon style="margin-left: 4px" :size="12">
+              <Male />
+            </el-icon>
+          </div>
         </template>
-        <el-collapse accordion>
-          <el-collapse-item v-for="(typeCount, type) in group" :key="type">
-            <template #title>
-              <el-button class="collapsible-nested-header-button" type="" link @click="handleItemCollapse(type)">
-                <Icon :icon="getIconForGroup(groupName)" color="gray" class="collapsible-nested-header-icon" width="36" />
-                {{ formatText(type) }}
-              </el-button>
-              <el-badge :value="typeCount" class="collapsible-header-badge" />
-            </template>
+        <template #suffix>/100</template>
+      </el-statistic>
+    </el-col>
+    <el-col :span="6">
+      <el-statistic title="Total Transactions" :value="outputValue" />
+    </el-col>
+    <el-col :span="6">
+      <el-statistic title="Feedback number" :value="562">
+        <template #suffix>
+          <el-icon style="vertical-align: -0.125em">
+            <ChatLineRound />
+          </el-icon>
+        </template>
+      </el-statistic>
+    </el-col>
+  </el-row>
+  
+    <!-- Search Bar -->
+    <div class="search-section">
+      <el-input
+        v-model="searchTerm" 
+        placeholder="Search documents by name/settlement/county/format/uploader name" 
+        class="search-input"
+        clearable 
+        @change="handleInputChange" 
+      />
+    </div>
 
-            <el-table :data="filterLiveDocs" style="width: 100%; margin-left: 30px" size="small" class="thin-rows-table" border >
-              <el-table-column label="#" type="index" width="50">
-                <template #default="{ $index }">
-                  <span>{{ ($index + 1) + ((currentPage - 1) * pageSize) }}</span>
-                </template>
-              </el-table-column>
-              <el-table-column prop="name" label="Title" />
-              <el-table-column prop="settlement.name" label="Settlement" />
-              <!-- <el-table-column prop="settlement.county.name" label="County" /> -->
-              <el-table-column prop="date" label="Date" :formatter="formatEndDate" />
-               <el-table-column prop="user.name" label="User" />
-              <el-table-column prop="size" label="Size(Mb)" />
-              <!-- <el-table-column label="Action">
-                <template #default="scope">
-                   <el-button  size="small"  v-if="scope.row.deletable" type="success" @click="editDocument(scope)" :icon="Edit" circle />
-                  <el-button type="warning" size="small" @click="downloadFile(scope)" :icon="Download" circle />
-
-                  <el-button type="primary" size="small"  @click="viewDocument(scope.row)"  :icon="TopRight" circle />
-
-                  <el-button  size="small" v-if="scope.row.deletable" type="danger" @click="removeDocument(scope)" :icon="Delete"
-                    circle /> 
-                </template>
-              </el-table-column> -->
-
-
-
-              
-        <el-table-column label="Actions" width="250">
-          <template #default="{ row }">
-            <PermissionWrapper :permissions="['document:update', 'document:delete', 'document:read']">
-              <TableActions :item="row" :buttons="action_buttons" @edit="editDocument" @delete="removeDocument"   @preview="viewDocument"  @download="downloadFile" />
-            </PermissionWrapper>
-          </template>
-        </el-table-column>
-
-
-
-            </el-table>
-
-
-            <div class="pagination-wrapper" v-if="totalDocs > 10">
-              <el-pagination
-:page-size="10" background small layout="prev, pager, next" :total="totalDocs"
-                @current-change="handlePageChange" />
-
+    <!-- Common Document Types Cards -->
+    <div class="common-types-section">
+      <h3 class="section-title">Most Common Document Types</h3>
+      <div class="common-types-grid">
+        <div 
+          v-for="commonType in commonDocTypes" 
+          :key="commonType.id"
+          class="common-type-card"
+          :class="{ 'active-filter': currentlyFiltered && filters.includes('category') && filterValues.some(values => values.some(v => docTypes.find(dt => dt.id === v && dt.group?.toLowerCase() === commonType.name.toLowerCase()))) }"
+          :style="{ borderColor: commonType.color }"
+          @click="handleCommonTypeClick(commonType)"
+        >
+          <div class="card-header">
+            <el-icon :size="32" :color="commonType.color">
+              <component :is="getCommonTypeIcon(commonType.icon)" />
+            </el-icon>
+            <div class="card-count">
+              <span class="count-number">{{ commonType.count }}</span>
+              <span class="count-label">documents</span>
             </div>
-    
-          </el-collapse-item>
-         
+          </div>
+          <div class="card-content">
+            <h4 class="card-title">{{ commonType.name }}</h4>
+            <p class="card-description">View and manage {{ commonType.name.toLowerCase() }} documents</p>
+          </div>
+          <div class="card-actions">
+            <el-button 
+              type="primary" 
+              size="small" 
+              @click.stop="handleCommonTypeUpload(commonType)"
+              :icon="UploadFilled"
+            >
+              Upload
+            </el-button>
+            <el-button 
+              type="default" 
+              size="small" 
+              @click.stop="handleCommonTypeClick(commonType)"
+            >
+              View All
+            </el-button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Other Document Types -->
+    <div class="other-types-section" v-if="Object.keys(groups_v2).length > 0">
+      <h3 class="section-title">Other Document Types</h3>
+      <el-collapse accordion>
+        <el-collapse-item v-for="(group, groupName) in groups_v2" :key="groupName">
+          <template #title>
+            <Icon icon="material-symbols:folder-open-outline" class="collapsible-header-icon" width="48" />
+            <span class="collapsible-header-text">{{ formatText(groupName) }}</span>
+          </template>
+          <el-collapse accordion>
+            <el-collapse-item v-for="(typeCount, type) in group" :key="type">
+              <template #title>
+                <el-button class="collapsible-nested-header-button" type="" link @click="handleItemCollapse(type)">
+                  <Icon :icon="getIconForGroup(groupName)" color="gray" class="collapsible-nested-header-icon" width="36" />
+                  {{ formatText(type) }}
+                </el-button>
+                <el-badge :value="typeCount" class="collapsible-header-badge" />
+              </template>
+
+              <el-table :data="filterLiveDocs" style="width: 100%; margin-left: 30px" size="small" class="thin-rows-table" border >
+                <el-table-column label="#" type="index" width="50">
+                  <template #default="{ $index }">
+                    <span>{{ ($index + 1) + ((currentPage - 1) * pageSize) }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="name" label="Title" />
+                <el-table-column prop="settlement.name" label="Settlement" />
+                <el-table-column prop="date" label="Date" :formatter="formatEndDate" />
+                <el-table-column prop="user.name" label="User" />
+                <el-table-column prop="size" label="Size(Mb)" />
+                
+                <el-table-column label="Actions" width="250">
+                  <template #default="{ row }">
+                    <PermissionWrapper :permissions="['document:update', 'document:delete', 'document:read']">
+                      <TableActions :item="row" :buttons="action_buttons" @edit="editDocument" @delete="removeDocument" @preview="viewDocument" @download="downloadFile" />
+                    </PermissionWrapper>
+                  </template>
+                </el-table-column>
+              </el-table>
+
+              <div class="pagination-wrapper" v-if="totalDocs > 10">
+                <el-pagination
+                  :page-size="10" 
+                  background 
+                  small 
+                  layout="prev, pager, next" 
+                  :total="totalDocs"
+                  @current-change="handlePageChange" 
+                />
+              </div>
+            </el-collapse-item>
+          </el-collapse>
 
           <PermissionWrapper :permissions="['document:create']">
-            <el-button  class="full-width"   style="margin-left: 10px;margin-bottom: 5px ;margin-top: 5px"  type="success"   size="small"   @click="toggleComponent(groupName)" :icon="UploadFilled"> Upload {{ groupName }} files </el-button>
+            <el-button 
+              class="full-width" 
+              style="margin-left: 10px;margin-bottom: 5px;margin-top: 5px" 
+              type="success" 
+              size="small" 
+              @click="toggleComponent(groupName)" 
+              :icon="UploadFilled"
+            > 
+              Upload {{ groupName }} files 
+            </el-button>
           </PermissionWrapper>
-
-        </el-collapse>
-
-      </el-collapse-item>
-    </el-collapse>
+        </el-collapse-item>
+      </el-collapse>
+    </div>
 
     <el-dialog v-model="dialogVisible" :title="documentName" width="25%" :before-close="handleClose">
 
@@ -1285,6 +1422,116 @@ v-model="searchTerm" placeholder="Search documents by name/settlement/county/for
   </ContentWrap>
 </template>
 <style scoped>
+/* Common Document Types Cards */
+.common-types-section {
+  margin: 24px 0;
+}
+
+.section-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #303133;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+.common-types-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+  margin-bottom: 32px;
+}
+
+.common-type-card {
+  background: white;
+  border: 2px solid #e4e7ed;
+  border-radius: 12px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.common-type-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  border-color: #409eff;
+}
+
+.common-type-card.active-filter {
+  border-color: #67c23a !important;
+  background-color: #f0f9ff;
+  box-shadow: 0 4px 16px rgba(103, 194, 58, 0.2);
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.card-count {
+  text-align: right;
+}
+
+.count-number {
+  display: block;
+  font-size: 24px;
+  font-weight: 700;
+  color: #303133;
+  line-height: 1;
+}
+
+.count-label {
+  display: block;
+  font-size: 12px;
+  color: #909399;
+  margin-top: 2px;
+}
+
+.card-content {
+  margin-bottom: 16px;
+}
+
+.card-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #303133;
+  margin: 0 0 8px 0;
+}
+
+.card-description {
+  font-size: 14px;
+  color: #606266;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.card-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Other Document Types Section */
+.other-types-section {
+  margin-top: 32px;
+}
+
+/* Search Input */
+.search-section {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.search-input {
+  flex: 1;
+}
+
+/* Existing Styles */
 .collapsible-header-icon {
   margin-right: 8px;
 }
@@ -1297,7 +1544,6 @@ v-model="searchTerm" placeholder="Search documents by name/settlement/county/for
 .collapsible-header-text {
   vertical-align: middle;
   font-size: 16px;
-
 }
 
 .collapsible-header-style {
@@ -1307,7 +1553,6 @@ v-model="searchTerm" placeholder="Search documents by name/settlement/county/for
 .format-header-text {
   vertical-align: middle;
   font-size: 14px;
-
 }
 
 .doc-list {
@@ -1348,6 +1593,36 @@ v-model="searchTerm" placeholder="Search documents by name/settlement/county/for
   margin-top: 5px;
   display: flex;
   justify-content: center;
+}
+
+.thin-rows-table .el-table__body tr {
+  height: 10px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .common-types-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .common-type-card {
+    padding: 16px;
+  }
+  
+  .card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .card-count {
+    text-align: left;
+  }
+  
+  .card-actions {
+    flex-direction: column;
+  }
 }
 </style>
 

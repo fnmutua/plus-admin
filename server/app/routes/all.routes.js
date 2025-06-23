@@ -137,7 +137,7 @@ module.exports = function (app) {
   app.post('/api/v1/delete/cascade', [authJwt.verifyToken, hasDynamicPermission('delete')], controller.deleteCascade)
 
   
-  app.get('/api/v1/models/list', [authJwt.verifyToken, hasDynamicPermission('read')], controller.listModels)
+  app.get('/api/v1/models/list', [authJwt.verifyToken], controller.listModels)
 
   app.post('/api/v1/data/intersect', [authJwt.verifyToken, hasDynamicPermission('read')], controller.intersectGeometryWithModel)
   app.post('/api/v1/data/many/code', [authJwt.verifyToken, hasDynamicPermission('read')], controller.modelManyRecordsByCodes)

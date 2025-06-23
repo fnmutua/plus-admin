@@ -92,16 +92,16 @@ const canUpload = computed(() => {
 // Methods
 const getDocumentTypes = async () => {
   try {
-    const res = await getCountyListApi({
-      params: {
-        pageIndex: 1,
-        limit: 100,
+  const res = await getCountyListApi({
+    params: {
+      pageIndex: 1,
+      limit: 100,
         curUser: 1,
-        model: 'document_type',
-        searchField: 'name',
-        searchKeyword: '',
-        sort: 'ASC'
-      }
+      model: 'document_type',
+      searchField: 'name',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
     })
 
     const ret = res.data
@@ -138,7 +138,7 @@ const getDocumentTypes = async () => {
     }
 
     if (props.filterOptions) {
-      DocTypes.value = DocTypesFiltered.value
+    DocTypes.value = DocTypesFiltered.value
     }
   } catch (error) {
     console.error('Error fetching document types:', error)
@@ -238,7 +238,7 @@ const uploadFiles = async () => {
   uploadProgress.value = 0
   
   try {
-    const formData = new FormData()
+  const formData = new FormData()
     
     // Add common fields
     formData.append('model', props.umodel || 'document')
@@ -249,7 +249,7 @@ const uploadFiles = async () => {
     formData.append('code', uuid.v4())
     
     if (props.field && props.data?.id) {
-      formData.append(props.field, props.data.id)
+    formData.append(props.field, props.data.id)
     }
     
     // Add files
@@ -348,23 +348,23 @@ onMounted(() => {
         <!-- Step 1: Document Type Selection -->
         <div class="upload-step">
           <h4>1. Select Document Type</h4>
-          <el-select
-            v-model="documentCategory"
+      <el-select
+        v-model="documentCategory"
             placeholder="Choose document type"
             class="full-width"
-            clearable
-            filterable
+        clearable
+        filterable
             :disabled="isUploading"
-          >
-            <el-option-group v-for="group in DocTypes" :key="group.label" :label="group.label">
+      >
+        <el-option-group v-for="group in DocTypes" :key="group.label" :label="group.label">
               <el-option 
                 v-for="item in group.options" 
                 :key="item.value" 
                 :label="item.label" 
                 :value="item.value" 
               />
-            </el-option-group>
-          </el-select>
+        </el-option-group>
+      </el-select>
         </div>
 
         <!-- Step 2: File Selection -->
@@ -427,8 +427,8 @@ onMounted(() => {
                     <el-icon><Close /></el-icon>
                   </el-button>
                 </div>
-              </div>
-              
+      </div>
+
               <div class="file-summary">
                 <el-tag type="info">
                   Total: {{ selectedFiles.length }} files, {{ formattedTotalSize }} MB
@@ -451,19 +451,19 @@ onMounted(() => {
         <!-- Step 3: Options -->
         <div class="upload-step" v-if="documentCategory && selectedFiles.length > 0">
           <h4>3. Options</h4>
-          <el-tooltip
-            content="Only the Owner and Admin can view Private documents"
+      <el-tooltip
+        content="Only the Owner and Admin can view Private documents"
             placement="top"
-          >
+      >
             <el-checkbox v-model="protectedFile" :disabled="isUploading">
               Make files private
             </el-checkbox>
-          </el-tooltip>
+      </el-tooltip>
         </div>
 
         <!-- Upload Progress -->
         <div v-if="isUploading" class="upload-progress">
-          <el-progress 
+        <el-progress
             :percentage="uploadProgress" 
             :status="uploadStatus === 'error' ? 'exception' : uploadStatus === 'success' ? 'success' : ''"
             :stroke-width="8"
