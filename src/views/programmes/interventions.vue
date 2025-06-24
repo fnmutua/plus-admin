@@ -2,11 +2,11 @@
 import { getSettlementListByCounty, getRoutesList } from '@/api/settlements'
 
 import {
-  ElButton, ElSelect, ElTabs, ElTabPane, ElDialog, ElCard,
-  ElInput, ElBadge, ElUpload, ElDropdown, ElDropdownItem, ElDropdownMenu, ElPopconfirm, ElTable, ElTableColumn
+  ElButton, ElSelect, ElDialog, ElCard,
+  ElUpload, ElTable, ElTableColumn
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
-import { Position, Plus, Download, Edit, InfoFilled, UploadFilled, Back, View, Delete, Document, Paperclip } from '@element-plus/icons-vue'
+import { Plus, Edit, UploadFilled, Back, View, Delete, Paperclip, Download } from '@element-plus/icons-vue'
 
 import { ref, reactive, } from 'vue'
 import { ElPagination, ElTooltip, ElOption, } from 'element-plus'
@@ -18,6 +18,7 @@ import { useCache } from '@/hooks/web/useCache'
 import { Icon } from '@iconify/vue';
 
 import xlsx from "json-as-xlsx"
+import writeXlsxFile from 'write-excel-file'
 import {
   searchByKeyWord
 } from '@/api/settlements'
@@ -30,7 +31,6 @@ import { getModelSpecs } from '@/api/fields'
 import { implementationOptions } from './common/index'
 
 
-import TableActions from '@/views/Components/TableActions.vue';
 
 import exportFromJSON from 'export-from-json'
 import Papa from 'papaparse';
@@ -52,8 +52,6 @@ import { UserType } from '@/api/register/types'
 
 import UploadComponent from '@/views/Components/UploadComponent.vue';
 import { defineAsyncComponent } from 'vue';
-import ListDocuments from '@/views/Components/ListDocuments.vue';
-import DownloadAll from '@/views/Components/DownloadAll.vue';
 
 import { MapboxLayerSwitcherControl, MapboxLayerDefinition } from "mapbox-layer-switcher";
 import "mapbox-layer-switcher/styles.css";
@@ -180,9 +178,6 @@ const pSizeBen = ref(5)
 
 const total = ref(0)
 const totalBen = ref(0)
-const showEditSaveButton = ref(false)
-const showAddSaveButton = ref(true)
-const formheader = ref('Edit Project')
 
 
 const uploadDialog = ref(false)
@@ -199,9 +194,9 @@ let filterValues: any[] = [[component_id.value]]   // make sure the inner array 
 let tblData = ref<any[]>([])
 const associated_Model = ''
 //const associated_multiple_models = ['settlement', 'county', 'subcounty', 'component', 'document']
-const associated_multiple_models = ['component', 'activity', 'programme_implementation', 'document']
+const associated_multiple_models = ['component', 'activity', 'programme_implementation', 'document', 'project_contractor', 'project_location']
 //const nested_models = ['component', 'programme'] // The mother, then followed by the child
-const nested_models = ['document', 'document_type'] // The mother, then followed by the child
+const nested_models = ['document', 'document_type', 'project_location', 'settlement', 'county', 'subcounty', 'ward'] // The mother, then followed by the child
 
 
 //// ------------------parameters -----------------------////
@@ -418,51 +413,6 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
 
 
-const flyTo = (data: TableSlotDefault) => {
-  console.log('On Click.....', data.row.geom)
-
-  if (data.row.geom === null) {
-    ElMessage({
-      message: 'This Project does not have the boundary defined in the database!',
-      type: 'warning',
-      duration: 5000
-    })
-
-  } else {
-
-    var shp = data.row.geom.type
-    //   facilityGeo.value=data.row.geom
-
-    if (shp == 'MultiPolygon' || shp == 'Polygon') {
-      facilityGeoPolygons.value = data.row.geom
-      //  var bounds = turf.bbox((data.row.geom));
-      bounds.value = turf.bbox((data.row.geom));
-    } else if (shp == 'Point') {
-      bounds.value = turf.bbox((data.row.geom));
-    }
-
-    projectScopeGeo.value = data.row.geom
-    ruleForm.id = data.row.id
-    console.log(bounds.value)
-
-
-
-
-
-
-
-    activeName.value = 'Map' // Navigate to Beneficiary Tab
-
-    loadMap()
-
-
-
-  }
-
-
-
-
-}
 
 const nmap = ref()
 const loadMap = () => {
@@ -749,10 +699,7 @@ const searchByName = async (filterString: any) => {
 const beneficiaryTabTitle = ref('Beneficiaries')
 const beneficiaryTabDisabled = ref(true)
 
-const selected_project = ref()
 
-const filtersBen = ref(['project_id', 'component_id'])
-const filterValuesBen = ref([[], [[component_id.value]]])
 
 
 
@@ -763,33 +710,6 @@ const beneficiaryList = ref<any[]>([])
 
 const loadingBeneficiaries = ref(true)
 
-const getBeneficiaries = async (selfilters, selfilterValues) => {
-  const formData = {}
-  formData.limit = pSizeBen.value
-  formData.page = pageBen.value
-  formData.curUser = 1 // Id for logged in user
-  formData.model = 'beneficiary'
-  //-Search field--------------------------------------------
-  formData.searchField = 'name'
-  formData.searchKeyword = ''
-  //--Single Filter -----------------------------------------
-
-  //formData.assocModel = associated_Model
-
-  // - multiple filters -------------------------------------
-  formData.filters = selfilters.value
-  formData.filterValues = selfilterValues.value
-  formData.associated_multiple_models = [ ]
-
-  //------------------------- 
-  //console.log(formData)
-  const res = await getSettlementListByCounty(formData)
-  totalBen.value = res.total
-  //console.log('Get Beneficiaires', res)
-
-  beneficiaryList.value = res.data // back for post filter
-  loadingBeneficiaries.value = false
-}
 
 
 
@@ -968,45 +888,10 @@ const editProject = async (data: TableSlotDefault) => {
 
 
 
-const AddDialogVisible = ref(false)
 
 
-const DeleteProjectLocation = (data: TableSlotDefault) => {
-  console.log('----->', data)
-  let formData = {}
-  formData.id = data.id
-  formData.model = 'project_location'
-
-  DeleteRecord(formData)
 
 
-  // remove the deleted object from array list 
-  let index = project_locations.value.indexOf(data);
-  if (index !== -1) {
-    project_locations.value.splice(index, 1);
-  }
-
-}
-
-
-const DeleteProjectActivity = (data: TableSlotDefault) => {
-  console.log('--DeleteProjectActivity--->', data)
-  let formData = {}
-  formData.criteria = data.project_activity
-  formData.model = 'project_activity'
-
-  console.log(formData)
-
-  DeleteRecordByCriteria(formData)
-
-
-  // remove the deleted object from array list 
-  let index = project_activities.value.indexOf(data);
-  if (index !== -1) {
-    project_activities.value.splice(index, 1);
-  }
-
-}
 
 
 
@@ -1044,102 +929,301 @@ const tableRowClassName = (data) => {
 }
 
 
+/**
+ * Enhanced Project Data Download Function
+ * 
+ * This function downloads comprehensive project data including:
+ * - Project basic information (title, status, cost, dates)
+ * - Contractor details (name, phone, address)
+ * - Project locations with full administrative hierarchy (county, subcounty, ward, settlement)
+ * - Programme and component information
+ * - Beneficiary counts
+ * 
+ * The data is exported to Excel format with proper formatting and includes
+ * all project locations as separate rows for projects with multiple locations.
+ */
 const DownloadXlsx = async () => {
-  console.log(tableDataList.value)
+  try {
+    console.log('Downloading enhanced project data...')
+    console.log('tableDataList.value:', tableDataList.value)
+    
+    if (!tableDataList.value || tableDataList.value.length === 0) {
+      ElMessage.warning('No project data available to download')
+      return
+    }
 
-  // change here !
-  let fields = [
-    { label: "S/No", value: "index" }, // Top level data
-    { label: "Title", value: "title" }, // Top level data
-    { label: "County", value: "county" }, // Custom format
-    { label: "Settlement", value: "settlement" }, // Custom format
-    { label: "Programme", value: "programme" }, // Run functions
-    { label: "Component", value: "component" }, // Run functions
-    { label: "Status", value: "status" }, // Run functions
-    { label: "Beneficiaries(#Male)", value: "male_beneficiaries" }, // Run functions
-    { label: "Beneficiaries(#Female)", value: "female_beneficiaries" }, // Run functions
-    { label: "Cost", value: "cost" }, // Run functions
-  ]
+    ElMessage.info('Preparing enhanced project data for download...')
 
+    let dataHolder: any[] = []
+    let rowIndex = 1 // Sequential counter for Excel rows
+    
+    // Process each project to get enhanced data
+    for (let i = 0; i < tableDataList.value.length; i++) {
+      const project = tableDataList.value[i] as any
+      console.log(`Processing project ${i + 1}:`, project)
+      
+      // Get contractor information
+      let contractorName = ''
+      let contractorPhone = ''
+      let contractorAddress = ''
+      
+      if (project.project_contractor) {
+        contractorName = project.project_contractor.name || ''
+        contractorPhone = project.project_contractor.phone || ''
+        contractorAddress = project.project_contractor.address || ''
+        console.log('Contractor found:', { contractorName, contractorPhone, contractorAddress })
+      } else {
+        console.log('No contractor found for project:', project.title)
+      }
+      
+      // Always fetch project locations separately to ensure we get the location hierarchy
+      let projectLocations: any[] = []
+      try {
+        const locationFormData: any = {
+          model: 'project_location',
+          searchField: 'name',
+          searchKeyword: '',
+          filters: ['project_id'],
+          filterValues: [[project.id]],
+          associated_multiple_models: ['settlement', 'county', 'subcounty', 'ward']
+        }
+        
+        const locationRes = await getSettlementListByCounty(locationFormData)
+        projectLocations = (locationRes as any).data || []
+        console.log(`Fetched ${projectLocations.length} project locations for project ${project.id}`)
+      } catch (error) {
+        console.error('Error fetching project locations:', error)
+        projectLocations = []
+      }
+      
+      console.log('Project locations data:', projectLocations)
 
-  // Preprae the data object 
-  var dataObj = {}
-  dataObj.sheet = 'data'
-  dataObj.columns = fields
+      // If no locations found, create a single record with basic project info
+      if (projectLocations.length === 0) {
+        let thisRecord = {
+          index: rowIndex++,
+          title: project.title || '',
+          contractor_name: contractorName,
+          contractor_phone: contractorPhone,
+          contractor_address: contractorAddress,
+          status: project.status || '',
+          cost: project.cost || '',
+          start_date: project.start_date ? moment(project.start_date).format("YYYY-MM-DD") : '',
+          end_date: project.end_date ? moment(project.end_date).format("YYYY-MM-DD") : '',
+          county: '', // No location data available
+          subcounty: '', // No location data available
+          ward: '', // No location data available
+          settlement: '', // No location data available
+          latitude: '', // No geometry available
+          longitude: '', // No geometry available
+          programme: project.programme ? project.programme.acronym : '',
+          component: project.component ? project.component.title : '',
+          male_beneficiaries: project.male_beneficiaries || '',
+          female_beneficiaries: project.female_beneficiaries || ''
+        }
+        dataHolder.push(thisRecord)
+      } else {
+        // Create a record for each project location with proper location hierarchy
+        projectLocations.forEach((location: any) => {
+          console.log('Processing location:', location)
+          
+          // Extract location hierarchy from the project_location data
+          let countyName = ''
+          let subcountyName = ''
+          let wardName = ''
+          let settlementName = ''
+          
+          // Check if location has direct county/subcounty/ward data
+          if (location.county) {
+            countyName = location.county.name || ''
+          }
+          if (location.subcounty) {
+            subcountyName = location.subcounty.name || ''
+          }
+          if (location.ward) {
+            wardName = location.ward.name || ''
+          }
+          if (location.settlement) {
+            settlementName = location.settlement.name || ''
+            // If settlement exists, also get county/subcounty/ward from settlement
+            if (location.settlement.county) {
+              countyName = location.settlement.county.name || countyName
+            }
+            if (location.settlement.subcounty) {
+              subcountyName = location.settlement.subcounty.name || subcountyName
+            }
+            if (location.settlement.ward) {
+              wardName = location.settlement.ward.name || wardName
+            }
+          }
+          
+          // Fallback to location_name if no settlement name
+          if (!settlementName && location.location_name) {
+            settlementName = location.location_name
+          }
+          
+          // Calculate latitude and longitude from geometry using Turf.js
+          let latitude = ''
+          let longitude = ''
+          
+          if (location.geom) {
+            try {
+              // Create a GeoJSON feature from the geometry
+              const feature = turf.feature(location.geom)
+              
+              // Calculate centroid
+              const centroid = turf.centroid(feature)
+              
+              // Extract coordinates [longitude, latitude]
+              const coordinates = centroid.geometry.coordinates
+              longitude = coordinates[0].toFixed(6) // 6 decimal places for precision
+              latitude = coordinates[1].toFixed(6)  // 6 decimal places for precision
+              
+              console.log(`Calculated coordinates for location: ${latitude}, ${longitude}`)
+            } catch (error) {
+              console.error('Error calculating centroid for location:', error)
+              latitude = ''
+              longitude = ''
+            }
+          } else {
+            console.log('No geometry found for location')
+          }
+          
+          console.log('Extracted location data:', { countyName, subcountyName, wardName, settlementName, latitude, longitude })
+          
+          let thisRecord = {
+            index: rowIndex++,
+            title: project.title || '',
+            contractor_name: contractorName,
+            contractor_phone: contractorPhone,
+            contractor_address: contractorAddress,
+            status: project.status || '',
+            cost: project.cost || '',
+            start_date: project.start_date ? moment(project.start_date).format("YYYY-MM-DD") : '',
+            end_date: project.end_date ? moment(project.end_date).format("YYYY-MM-DD") : '',
+            county: countyName,
+            subcounty: subcountyName,
+            ward: wardName,
+            settlement: settlementName,
+            latitude: latitude,
+            longitude: longitude,
+            programme: project.programme ? project.programme.acronym : '',
+            component: project.component ? project.component.title : '',
+            male_beneficiaries: project.male_beneficiaries || '',
+            female_beneficiaries: project.female_beneficiaries || ''
+          }
+          dataHolder.push(thisRecord)
+        })
+      }
+    }
+    
+    console.log('Final dataHolder:', dataHolder)
 
-  let dataHolder = []
-  // loop through the table data and sort the data 
-  // change here !
-  for (let i = 0; i < tableDataList.value.length; i++) {
-    let thisRecord = {}
-    console.log(tableDataList.value[i])
-    thisRecord.index = i + 1
-    thisRecord.title = tableDataList.value[i].title
-    thisRecord.settlement = tableDataList.value[i].settlement ? tableDataList.value[i].settlement.name : ''
-    thisRecord.county = tableDataList.value[i].county ? tableDataList.value[i].county.name : ''
-    thisRecord.component = tableDataList.value[i].component.title
-    thisRecord.female_beneficiaries = tableDataList.value[i].female_beneficiaries
-    thisRecord.male_beneficiaries = tableDataList.value[i].male_beneficiaries
-    thisRecord.cost = tableDataList.value[i].cost
-    thisRecord.status = tableDataList.value[i].status
+    if (dataHolder.length === 0) {
+      ElMessage.warning('No data to export. Please check if projects have the required information.')
+      return
+    }
 
-    dataHolder.push(thisRecord)
+    // Define the fields we want to export (same as DownloadCustom approach)
+    const selectedFields = [
+      'index',
+      'title', 
+      'contractor_name',
+      'contractor_phone',
+      'contractor_address',
+      'status',
+      'cost',
+      'start_date',
+      'end_date',
+      'county',
+      'subcounty',
+      'ward',
+      'settlement',
+      'latitude',
+      'longitude',
+      'programme',
+      'component',
+      'male_beneficiaries',
+      'female_beneficiaries'
+    ]
+
+    // Clean up the field names and prepare column headers (same as DownloadCustom)
+    const columns = selectedFields.map((field) => {
+      // Step 1: Remove all special characters (underscore, dot, etc.)
+      let cleanedField = field.replace(/[^a-zA-Z0-9]/g, ' ');  // Replace non-alphanumeric characters with space
+
+      // Step 2: Split by spaces, filter out empty strings, and capitalize each word
+      const words = cleanedField.split(/\s+/).filter(word => word);
+
+      // Step 3: Capitalize the first letter of each word and join without spaces
+      const formattedField = words
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join('');  // Join the words without spaces (e.g., FirstName)
+
+      return {
+        column: formattedField,
+        type: String,
+      };
+    });
+
+    // Create rows for the data, with each cell wrapped (same as DownloadCustom)
+    const rows = dataHolder.map((row) =>
+      selectedFields.map((field) => ({
+        type: String,
+        wrap: true,
+        value: row[field] ? String(row[field]) : '',
+      }))
+    );
+
+    // Add headers as the first row
+    rows.unshift(columns.map((col) => ({ 
+      type: String,
+      wrap: true,
+      value: col.column,
+      fontWeight: 'bold' 
+    })));
+
+    // Calculate column widths based on the maximum length of data in each column
+    const columnWidths = columns.map((col, index) => {
+      // Get the column header length
+      let maxLength = col.column.length;
+
+      // Check each row's value in this column
+      dataHolder.forEach((row) => {
+        const cellValue = row[selectedFields[index]] ? String(row[selectedFields[index]]) : '';
+        if (cellValue.length > maxLength) {
+          maxLength = cellValue.length;
+        }
+      });
+
+      // Return width (you can scale it by a factor, e.g., multiplying by a constant for better spacing)
+      return maxLength + 5; // Add padding for better readability
+    });
+
+    console.log('Rows prepared for Excel:', rows)
+    console.log('Number of rows to export:', rows.length)
+
+    // Export the file with calculated column widths (same as DownloadCustom)
+    await writeXlsxFile(rows, {
+      fileName: `Projects_${component_id.value}_${moment().format('YYYY-MM-DD')}.xlsx`,
+      columns: columnWidths.map((width) => ({ width })),
+    });
+
+    console.log('Excel file created successfully')
+    ElMessage.success(`Successfully downloaded ${dataHolder.length} project records with contractor and location information!`)
+  } catch (error) {
+    console.error('Error during download:', error)
+    ElMessage.error('Failed to download project data. Please try again.')
   }
-  dataObj.content = dataHolder
-
-
-
-
-  let settings = {
-    fileName: model, // Name of the resulting spreadsheet
-    writeMode: "writeFile", // The available parameters are 'WriteFile' and 'write'. This setting is optional. Useful in such cases https://docs.sheetjs.com/docs/solutions/output#example-remote-file
-    writeOptions: {}, // Style options from https://docs.sheetjs.com/docs/api/write-options
-  }
-
-  // Enclose in array since the fucntion expects an array of sheets
-  xlsx([dataObj], settings) //  download the excel file
-
 }
 
 
 
 
-const showCounty = ref(false)
-const showCountySettlement = ref(false)
 
 
-const formatStartDate = (data) => {
-
-  return moment(data.start_date).format("YYYY-MM-DD");
-
-}
-const formatEndDate = (data) => {
-
-  return moment(data.end_date).format("YYYY-MM-DD");
-
-}
 const search = ref('')
 
-const filterTableData = () => {
-
-  console.log("filtering data")
-
-  if (search.value) {
-    console.log(search.value)
-    tableDataList.value = tableDataList.value.filter(
-      (data) =>
-        !search.value ||
-        data.title.toLowerCase().includes(search.value.toLowerCase())
-    )
-    console.log(tableDataList.value)
-
-  } else {
-    console.log("Clear search", search.value)
-    console.log("Clear search", tableDataList_orig.value)
-
-    tableDataList.value = tableDataList_orig.value
-  }
-}
 
 
 
@@ -1354,29 +1438,22 @@ const readShp = async (file) => {
   //uploadPolygon(feat)
 }
 
-const subcountyfilteredOptions = ref([])
-const settlementfilteredOptions = ref([])
-
-
-
-
-
-const wardFilteredOptions = ref([])
 
 
 
 
 
 
-const selectedSubCounty = ref(null)
 
 
 
 
-const wardOptions = ref([])
 
-const getWardNames = async () => {
-}
+
+
+
+
+
 
 
 
@@ -1433,18 +1510,6 @@ const componentProps = ref({
 
 
 
-function toggleComponent(row) {
-  console.log('Compnnent data', row)
-  componentProps.value.data = row
-  dynamicComponent.value = null; // Unload the component
-  addMoreDocuments.value = true; // Set any additional props
-
-  setTimeout(() => {
-    dynamicComponent.value = ChildComponent; // Load the component
-  }, 100); // 0.1 seconds
-
-
-}
 
 
 // component for docuemnts 
@@ -1526,64 +1591,19 @@ const project_activities = ref(null);
 
 
 
-async function handleExpand(row) {
-
-  console.log("On Expand : Project ID", row.id)
-  // get the locations 
-  // locations_loading.value=true
-  // project_locations.value=[]   // Emoty current locations first
-
-
-  getProjectLocations(row.id)
-  project_id.value = row.id
-
-  project_activities.value = row.activities
-
-  // toggle collapes
-  if (expandedRow.value) {
-    tableRef.value.toggleRowExpansion(expandedRow.value, false); // Collapse the previously expanded row
-    console.log('tableRef.value.value', expandedRow.value)
-    expandedRow.value = row; // Update the expanded row
-
-  }
-  else {
-    tableRef.value.toggleRowExpansion(row, true); // Expand the current row
-    expandedRow.value = row; // Update the expanded row
-  }
-
-
-  /// Documents
-  dynamicDocumentComponent.value = null; // Unload the component
-  rowData.value = row
-  DocumentComponentProps.value.data = row
-  setTimeout(() => {
-    dynamicDocumentComponent.value = documentComponent; // Load the component
-  }, 100); // 0.1 seconds
-}
 
 
 
 //// Module foe adding benefiicair
 
-const AddBeneficiaryDialogVisible = ref(false)
-
-const BeneficaryForm = reactive({
-  hh_id: '',
-  project_id: '',
-  settlement_id: '',
-  county_id: '',
-  component_id: component_id.value,
-  code: '',
-})
-
-
-const projectOptions = ref([])
 
 
 
 
 
-const thisProject = ref([])
+
+
+
 
 
 const loadPreview = async () => {
@@ -1828,35 +1848,11 @@ const tableRef = ref(null);
 const searchKey = ref('')
 
 // Define the computed property
-const project_locations_filtered = computed(() => {
-  const searchValue = searchKey.value.toLowerCase();
-
-  // Log current project_locations value
-  console.log(project_locations.value);
-
-  return project_locations.value.filter(data => {
-    // Ensure all fields are checked and filtered
-    const matchesSettlementName = data.settlementName.toLowerCase().includes(searchValue);
-    const matchesCounty = data.county.toLowerCase().includes(searchValue);
-    const matchesSubcounty = data.subcounty.toLowerCase().includes(searchValue);
-
-    return !searchValue || matchesSettlementName || matchesCounty || matchesSubcounty;
-  });
-});
 
 const searchKeyActivity = ref('')
 
 
 // Define the computed property
-const project_activities_filtered = computed(() => {
-  const searchValue = searchKeyActivity.value.toLowerCase();
-  // Log current project_locations value
-  return project_activities.value.filter(data => {
-    // Ensure all fields are checked and filtered
-    const matchesTitle = data.title.toLowerCase().includes(searchValue);
-    return !searchValue || matchesTitle;
-  });
-});
 
 
 
@@ -1991,12 +1987,6 @@ function viewProject(row: any) {
 // Remove expand column and add hover logic
 const hoveredRow = ref(null);
 
-function handleRowMouseEnter(row) {
-  hoveredRow.value = row.id;
-}
-function handleRowMouseLeave() {
-  hoveredRow.value = null;
-}
 
 </script>
 
@@ -2055,6 +2045,11 @@ function handleRowMouseLeave() {
             <DownloadCustom
 :data="tableDataList" :model="model"
             :associated_models="associated_multiple_models" />
+            
+            <!-- Enhanced Project Data Download -->
+            <el-tooltip content="Download Enhanced Project Data (with Contractor & Locations)" placement="top">
+              <el-button @click="DownloadXlsx" type="success" :icon="Download" />
+            </el-tooltip>
             
         </PermissionWrapper>
     
