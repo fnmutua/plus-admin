@@ -802,86 +802,7 @@ const editProject = async (data: TableSlotDefault) => {
     params: { id: data.id, domain: component_id.value }
   })
 
-
-  // const formData = {}
-
-  // formData.curUser = 1 // Id for logged in user
-  // formData.model = 'project'
-  // //-Search field--------------------------------------------
-  // formData.searchField = 'name'
-  // formData.searchKeyword = ''
-  // //--Single Filter -----------------------------------------
-
-  // //formData.assocModel = associated_Model
-
-  // // - multiple filters -------------------------------------
-  // formData.filters = ['id']
-  // formData.filterValues = [[data.row.id]]
-  // formData.associated_multiple_models = ['activity',]
-
-  // //------------------------- 
-  // //console.log(formData)
-  // const res = await getSettlementListByCounty(formData)
-  // console.log(res.data)
-  // var project = res.data[0]
-
-
-  // handleSelectCounty(project.county_id)
-  // handleSelectSubCounty(project.subcounty_id)
-  // handleSelectWard(project.ward_id)
-
-
-  // showEditSaveButton.value = true
-
-  // console.log(data)
-  // ruleForm.id = project.id
-
-  // ruleForm.location_level = project.location_level
-
-  // ruleForm.title = project.title
-  // ruleForm.programme_id = project.programme_id
-  // ruleForm.status = project.status
-  // ruleForm.domain_id = project.domain_id
-  // ruleForm.category_id = project.category_id
-  // tmp_domain.value = [project.component_id, project.category_id]
-  // ruleForm.male_beneficiaries = project.male_beneficiaries
-  // ruleForm.female_beneficiaries = project.female_beneficiaries
-  // ruleForm.cost = project.cost
-  // ruleForm.settlement_id = project.settlement_id
-  // ruleForm.county_id = project.county_id
-  // ruleForm.code = project.code
-  // ruleForm.geom = project.geom
-  // ruleForm.start_date = project.start_date
-  // ruleForm.end_date = project.end_date
-
-  // ruleForm.component_id = project.component_id
-  // ruleForm.subcounty_id = project.subcounty_id
-  // ruleForm.ward_id = project.ward_id
-
-
-  // let activities = []
-  // project.activities.forEach(function (arrayItem) {
-  //   activities.push(arrayItem.id)
-  // })
-
-  // ruleForm.activities = activities
-
-
-
-  // fileUploadList.value = project.documents
-
-
-  // if (project.settlement_id) {
-  //   showCountySettlement.value = true
-  // }
-  // if (project.county_id) {
-  //   showCounty.value = true
-
-  // }
-
-  // console.log(project.domain_id)
-
-  // AddDialogVisible.value = true
+ 
 
 
 }
@@ -952,7 +873,7 @@ const DownloadXlsx = async () => {
       return
     }
 
-    ElMessage.info('Preparing enhanced project data for download...')
+    ElMessage.info('Preparing  project data for download...')
 
     let dataHolder: any[] = []
     let rowIndex = 1 // Sequential counter for Excel rows
@@ -2038,16 +1959,16 @@ const hoveredRow = ref(null);
           </el-tooltip>
         </PermissionWrapper>
         <PermissionWrapper :permissions="['project:create']">
-          <el-tooltip content="Import Data" placement="top">
+          <!-- <el-tooltip content="Import Data" placement="top">
             <el-button @click="uploadData" type="primary" :icon="UploadFilled" />
-          </el-tooltip>
+          </el-tooltip> -->
             <!-- Download All Component -->
-            <DownloadCustom
+            <!-- <DownloadCustom
 :data="tableDataList" :model="model"
-            :associated_models="associated_multiple_models" />
+            :associated_models="associated_multiple_models" /> -->
             
             <!-- Enhanced Project Data Download -->
-            <el-tooltip content="Download Enhanced Project Data (with Contractor & Locations)" placement="top">
+            <el-tooltip content="Download Project Data" placement="top">
               <el-button @click="DownloadXlsx" type="success" :icon="Download" />
             </el-tooltip>
             
