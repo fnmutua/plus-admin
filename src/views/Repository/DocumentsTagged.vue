@@ -6,7 +6,9 @@ import { getSettlementListByCounty } from '@/api/settlements'
 import { ElButton, ElBadge, ElRow, ElCol, ElCard,ElTable, ElTableColumn, ElCollapse, ElCollapseItem, ElPagination, ElDialog,
   ElFormItem, ElInput, ElMessage, ElSelect, ElOption, ElForm, ElOptionGroup  } from 'element-plus'
 import {
-    UploadFilled
+    UploadFilled,
+    Loading,
+    Document
 } from '@element-plus/icons-vue'
 
 import { ref, reactive, computed } from 'vue'
@@ -150,6 +152,8 @@ console.log("userInfo--->", userInfo)
 const pageSize = ref(5)
 const currentPage = ref(1)
 const loading = ref(false)
+const loadingText = ref('Loading documents...')
+const canCancel = ref(false)
 
 const isMobile = computed(() => appStore.getMobile)
 
@@ -373,7 +377,9 @@ groups_v2.value = reformatData(joinedArray)
 
 
 const getFilteredDataV2 = async () => {
-  //loading.value = true
+  loading.value = true
+  loadingText.value = 'Fetching documents from server...'
+  canCancel.value = true
   const formData = {}
   formData.limit = 10
   formData.page = currentPage.value
@@ -435,11 +441,15 @@ const getFilteredDataV2 = async () => {
 
 
 
-    });
-
-
-
-
+    })
+    .catch(error => {
+      console.error('Error fetching data:', error)
+      ElMessage.error('Failed to load documents')
+    })
+    .finally(() => {
+      loading.value = false
+      canCancel.value = false
+    })
 
 }
 
@@ -504,6 +514,8 @@ const handlePageChange = async (newPage) => {
 
 const handleItemCollapse = async (type) => {
   loading.value = true
+  loadingText.value = `Loading ${type} documents...`
+  canCancel.value = true
   console.log('type', type)
 
   console.log('currentlyFiltered', currentlyFiltered)
@@ -524,15 +536,33 @@ const handleItemCollapse = async (type) => {
 
     await getFilteredDataV2()
     loading.value = false
+    canCancel.value = false
   }
   else {
+    // Add loading state for filtered data
+    filterLiveDocs.value = []
+    // Simulate a small delay to show loading state
+    await new Promise(resolve => setTimeout(resolve, 100))
     filterLiveDocs.value = filterLiveDocsBackup.value.filter(obj => obj['document_type.type'] === type);
     loading.value = false
+    canCancel.value = false
 
   }
 }
 
-
+// Handle collapse state changes to clear data when collapsed
+const handleCollapseChange = (activeNames) => {
+  console.log('Collapse changed:', activeNames)
+  
+  // If no collapse items are active, clear the data
+  if (!activeNames || activeNames.length === 0) {
+    filterLiveDocs.value = []
+    filterLiveDocsBackup.value = []
+    totalDocs.value = 0
+    currentPage.value = 1
+    currentlyFiltered.value = false
+  }
+}
 
 function getIconForGroup(groupName) {
   switch (groupName) {
@@ -558,6 +588,8 @@ function getIconForGroup(groupName) {
 
 const handleInputChange = async (keyword) => {
   loading.value = true
+  loadingText.value = 'Searching documents...'
+  canCancel.value = true
 
 
   if (keyword) {
@@ -587,6 +619,7 @@ const handleInputChange = async (keyword) => {
           ElMessage.error('Too Many Results (>150). Refine your search keyword');
 
           loading.value = false
+          canCancel.value = false
         } else {
           var flattenedObj = flattenArrayOfJSON(response.data);
           //create the subcategories 
@@ -619,17 +652,26 @@ const handleInputChange = async (keyword) => {
           filterLiveDocsBackup.value = filteredObjs
           totalDocs.value = response.total
           loading.value = false
+          canCancel.value = false
         }
 
 
 
 
+      })
+      .catch(error => {
+        console.error('Error searching documents:', error)
+        ElMessage.error('Search failed')
+        loading.value = false
+        canCancel.value = false
       });
 
   }
 
   else {
     getCategoryCounts()
+    loading.value = false
+    canCancel.value = false
   }
 
 
@@ -1305,6 +1347,62 @@ const getStarRating = (groupName) => {
   return position > 0 ? 4 - position : 0;
 }
 
+// Custom loading component with cancel option
+const CustomLoading = {
+  name: 'CustomLoading',
+  props: {
+    text: {
+      type: String,
+      default: 'Loading...'
+    },
+    canCancel: {
+      type: Boolean,
+      default: false
+    }
+  },
+  emits: ['cancel'],
+  setup(props, { emit }) {
+    const handleCancel = () => {
+      emit('cancel')
+    }
+    
+    return {
+      handleCancel
+    }
+  },
+  template: `
+    <div style="text-align: center; padding: 20px;">
+      <el-icon class="is-loading" style="font-size: 24px; color: #409eff; margin-bottom: 16px;">
+        <Loading />
+      </el-icon>
+      <p style="margin: 16px 0; color: #606266;">{{ text }}</p>
+      <el-button 
+        v-if="canCancel" 
+        @click="handleCancel" 
+        size="small" 
+        type="danger"
+        style="margin-top: 8px;"
+      >
+        Cancel
+      </el-button>
+    </div>
+  `
+}
+
+// Handle loading cancel
+const handleLoadingCancel = () => {
+  loading.value = false
+  loadingText.value = 'Loading documents...'
+  canCancel.value = false
+  // Clear any ongoing operations
+  filterLiveDocs.value = []
+  filterLiveDocsBackup.value = []
+  totalDocs.value = 0
+  currentPage.value = 1
+  currentlyFiltered.value = false
+  ElMessage.info('Operation cancelled')
+}
+
 </script>
 
 <template>
@@ -1355,7 +1453,7 @@ v-model="searchTerm" placeholder="Search documents by name/settlement/county/for
       <span class="showing-text">Showing: <strong>{{ formatText(selectedGroup) }}</strong></span>
     </div>
     
-    <el-collapse v-model="activeCollapse" accordion>
+    <el-collapse v-model="activeCollapse" accordion @change="handleCollapseChange">
       <el-collapse-item v-for="(group, groupName) in groups_v2" :key="groupName" v-show="!selectedGroup || groupName === selectedGroup" :name="groupName">
         <template #title>
           <Icon icon="material-symbols:folder-open-outline" class="collapsible-header-icon" width="30" />
@@ -1371,39 +1469,65 @@ v-model="searchTerm" placeholder="Search documents by name/settlement/county/for
               <el-badge :value="typeCount" class="collapsible-header-badge" />
             </template>
 
-            <el-table :data="filterLiveDocs" v-loading="downloading" style="width: 100%; margin-left: 30px" size="small" class="thin-rows-table" border >
-              <el-table-column label="#" type="index" width="50">
-                <template #default="{ $index }">
-                  <span>{{ ($index + 1) + ((currentPage - 1) * pageSize) }}</span>
-                </template>
-              </el-table-column>
-              <el-table-column prop="name" label="Title" />
-              <el-table-column prop="settlement.name" label="Settlement" />
-              <!-- <el-table-column prop="settlement.county.name" label="County" /> -->
-              <el-table-column prop="date" label="Date" :formatter="formatEndDate" />
-               <el-table-column prop="user.name" label="User" />
-              <el-table-column prop="size" label="Size(Mb)" />
-            
+            <!-- Content area with loading state -->
+            <div style="position: relative; min-height: 100px;">
+              <!-- Loading overlay -->
+              <div v-if="loading" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.9); z-index: 10; display: flex; align-items: center; justify-content: center;">
+                <CustomLoading 
+                  :text="loadingText" 
+                  :can-cancel="canCancel"
+                  @cancel="handleLoadingCancel"
+                />
+              </div>
 
-
-
+              <!-- Table with data -->
+              <el-table 
+                v-if="filterLiveDocs.length > 0"
+                :data="filterLiveDocs" 
+                v-loading="downloading" 
+                style="width: 100%; margin-left: 30px" 
+                size="small" 
+                class="thin-rows-table" 
+                border 
+              >
+                <el-table-column label="#" type="index" width="50">
+                  <template #default="{ $index }">
+                    <span>{{ ($index + 1) + ((currentPage - 1) * pageSize) }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="name" label="Title" />
+                <el-table-column prop="settlement.name" label="Settlement" />
+                <!-- <el-table-column prop="settlement.county.name" label="County" /> -->
+                <el-table-column prop="date" label="Date" :formatter="formatEndDate" />
+                 <el-table-column prop="user.name" label="User" />
+                <el-table-column prop="size" label="Size(Mb)" />
               
-        <el-table-column label="Actions" width="250">
-          <template #default="{ row }">
-            <TableActions :item="row" :buttons="action_buttons" @edit="editDocument" @delete="removeDocument"   @preview="viewDocument"  @download="downloadFile" />
-          </template>
-        </el-table-column>
 
 
 
-            </el-table>
+                
+          <el-table-column label="Actions" width="250">
+            <template #default="{ row }">
+              <TableActions :item="row" :buttons="action_buttons" @edit="editDocument" @delete="removeDocument"   @preview="viewDocument"  @download="downloadFile" />
+            </template>
+          </el-table-column>
 
 
-            <div class="pagination-wrapper" v-if="totalDocs > 10">
-              <el-pagination
+
+              </el-table>
+
+              <!-- No data message -->
+              <div v-else-if="!loading && filterLiveDocs.length === 0" style="text-align: center; padding: 20px; color: #909399;">
+                <p>No documents found for this category</p>
+              </div>
+
+
+              <div class="pagination-wrapper" v-if="totalDocs > 10 && filterLiveDocs.length > 0 && !loading">
+                <el-pagination
 :page-size="10" background small layout="prev, pager, next" :total="totalDocs"
-                @current-change="handlePageChange" />
+                  @current-change="handlePageChange" />
 
+              </div>
             </div>
     
           </el-collapse-item>
