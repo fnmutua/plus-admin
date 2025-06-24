@@ -3,32 +3,25 @@
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { getSettlementListByCounty } from '@/api/settlements'
-import { ElButton, ElBadge } from 'element-plus'
+import { ElButton, ElBadge, ElRow, ElCol, ElCard,ElTable, ElTableColumn, ElCollapse, ElCollapseItem, ElPagination, ElDialog,
+  ElFormItem, ElInput, ElMessage, ElSelect, ElOption, ElForm, ElOptionGroup  } from 'element-plus'
 import {
-  Position, View, Plus, User, TopRight, Briefcase, Download, Delete, Edit,
-  Filter, InfoFilled, CopyDocument, Search, Setting, Loading,UploadFilled
+    UploadFilled
 } from '@element-plus/icons-vue'
 
-import { ref, reactive, watch, computed } from 'vue'
-import {
-  ElTable, ElTableColumn, ElCollapse, ElCollapseItem, ElPagination, ElDialog,
-  ElFormItem, ElInput, ElMessage, ElSelect, ElOption, ElForm, ElOptionGroup
-} from 'element-plus'
-import { useRouter } from 'vue-router'
-import { useAppStoreWithOut } from '@/store/modules/app'
+import { ref, reactive, computed } from 'vue'
+ 
 import { useCache } from '@/hooks/web/useCache'
-import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument, getDocumentsBySearch } from '@/api/settlements'
-import xlsx from "json-as-xlsx"
+import { updateOneRecord, deleteDocument, getDocumentsBySearch } from '@/api/settlements'
 
-import { getSummarybyField, getSummarybyFieldNested, getSummarybyFieldFromInclude, getSummarybyFieldSimple } from '@/api/summary'
 
 import moment from "moment";
-import { defineAsyncComponent,onMounted } from 'vue';
+import { defineAsyncComponent } from 'vue';
 
 
 
 import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
-import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
+import { getListWithoutGeo } from '@/api/counties'
 import { getFile } from '@/api/summary'
 
 import { useAppStore } from '@/store/modules/app'
@@ -36,8 +29,7 @@ import { useAppStore } from '@/store/modules/app'
 
 import UploadComponent from '@/views/Components/UploadComponent.vue';
 import TableActions from '@/views/Components/TableActions.vue';
-import PermissionWrapper from '@/components/PermissionWrapper.vue';
-
+import { Icon } from '@iconify/vue';
 
 const { wsCache } = useCache()
 const appStore = useAppStore()
@@ -201,17 +193,11 @@ const totalDocs = ref()
 
 const searchTerm = ref('')
 const currentlyFiltered = ref(false)
+const downloading = ref(false)
+const selectedGroup = ref('') // Track which group is selected from card click
+const activeCollapse = ref('') // Track which collapse item is active
 
-// Most common document types (these will be the cards)
-const commonDocTypes = ref([
-  { id: 'reports', name: 'Reports', icon: 'Document', color: '#409eff', count: 0 },
-  { id: 'maps', name: 'Maps', icon: 'Picture', color: '#67c23a', count: 0 },
-  { id: 'plans', name: 'Plans', icon: 'Document', color: '#e6a23c', count: 0 },
-  { id: 'data', name: 'Data', icon: 'Document', color: '#f56c6c', count: 0 }
-])
 
-// Other document types (these will be in collapsible sections)
-const otherDocTypes = ref([])
 
 
 
@@ -296,6 +282,7 @@ const getCategoryCounts = async () => {
   formData.model = 'document'
   formData.summaryField = 'document_type.group'
   formData.summaryFunction = 'count'
+  //formData.assoc_models = ['county']
   formData.assoc_models = associated_multiple_models
   formData.groupFields = ['document_type.category_id', 'document_type.type']
 
@@ -306,56 +293,35 @@ const getCategoryCounts = async () => {
   console.log('Filter FormData : ', formData)
   const response = await getSummarybyFieldFromMultipleIncludes(formData);
   console.log('getCategoryCounts...', response)
+ 
+ 
+ 
 
   let joinedArray = response.Total.map(item => {
     let matchInAnotherArray = docGroups.value.find(entry => entry.id == item.category_id);
 
     if (matchInAnotherArray) {
-      return {
-        count: item.count,
-        type: item.type,
-        group: matchInAnotherArray.title,
-      };
+        return {
+             count: item.count,
+            type: item.type,
+            group: matchInAnotherArray.title,
+         };
     }
-  });
+});
 
-  // Remove undefined entries if any
-  joinedArray = joinedArray.filter(item => item !== undefined);
+// Remove undefined entries if any
+joinedArray = joinedArray.filter(item => item !== undefined);
 
-  // Sort the array by the 'group' property
-  joinedArray.sort((a, b) => a.group.localeCompare(b.group));
+// Sort the array by the 'group' property
+joinedArray.sort((a, b) => a.group.localeCompare(b.group));
 
-  console.log('joinedArray', joinedArray)
 
-  // Update common document types with actual counts
-  commonDocTypes.value.forEach(commonType => {
-    const matchingItem = joinedArray.find(item => 
-      item.group.toLowerCase() === commonType.name.toLowerCase()
-    );
-    if (matchingItem) {
-      commonType.count = matchingItem.count;
-    }
-  });
+console.log('joinedArray',joinedArray)
 
-  // Separate common types from others
-  const commonGroupNames = commonDocTypes.value.map(type => type.name.toLowerCase());
-  const otherGroups = joinedArray.filter(item => 
-    !commonGroupNames.includes(item.group.toLowerCase())
-  );
 
-  // Group other types by their group
-  const otherGroupsMap = {};
-  otherGroups.forEach(item => {
-    if (!otherGroupsMap[item.group]) {
-      otherGroupsMap[item.group] = {};
-    }
-    otherGroupsMap[item.group][item.type] = item.count;
-  });
+  groups_v2.value = reformatData(joinedArray)
 
-  // Update the groups_v2 for the collapsible sections
-  groups_v2.value = otherGroupsMap;
-
-  loading.value = false
+  
 }
 
 
@@ -418,6 +384,9 @@ const getFilteredDataV2 = async () => {
   formData.searchKeyword = ''
   //--Single Filter -----------------------------------------
 
+  // Add sorting parameters - sort by creation date descending (latest first)
+  formData.sortField = 'createdAt'
+  formData.sortOrder = 'DESC'
 
   // - multiple filters -------------------------------------
   formData.filters = filters.value
@@ -567,6 +536,8 @@ const handleItemCollapse = async (type) => {
 
 function getIconForGroup(groupName) {
   switch (groupName) {
+    case 'Total Documents':
+      return 'material-symbols:folder-special';
     case 'Reports':
       return 'ion:document-outline';
     case 'Checklists':
@@ -671,91 +642,107 @@ const handleInputChange = async (keyword) => {
 
 
 const downloadFile = async (data) => {
-  // Show immediate success message and start download in background
-  ElMessage.success(`Starting download: ${data.name}`);
-  
-  const formData = {};
-  formData.filename = data.name;
-  formData.doc_id = data.id;
-  formData.responseType = 'blob';
-  
-  // Start download in background without blocking UI
-  getFile(formData)
-    .then(response => {
-      // Check if the response is an error message
-      if (response.data instanceof Blob && response.data.type === 'application/json') {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const errorData = JSON.parse(reader.result);
-          ElMessage.error(errorData.message || 'Download failed');
-        };
-        reader.readAsText(response.data);
-        return;
+  downloading.value = true
+  console.log(data)
+  console.log(data.name)
+ 
+
+  const formData = {}
+
+  let fname 
+  const filename = data.name;
+      // Check if the filename has an extension
+      if (!/\.\w+$/.test(filename)) {
+         fname=filename + '.'+data.format
+      } else {
+        fname = filename
+
       }
-      
-      // Create download link and trigger download
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
+
+  formData.filename =fname
+  console.log("file name:", formData)
+
+
+  formData.responseType = 'blob'
+  await getFile(formData)
+    .then(response => {
+      console.log(response)
+      downloading.value = false
+      const url = window.URL.createObjectURL(new Blob([response.data]))
+      const link = document.createElement('a')
+      link.href = url
+      //link.setAttribute('download', data.name + data.format )
       const filename = data.name;
+      // Check if the filename has an extension
       if (!/\.\w+$/.test(filename)) {
         link.setAttribute('download', `${filename}.${data.format}`);
+        console.log("file name has no extension")
       } else {
         link.setAttribute('download', filename);
+        console.log("file name has   extension")
+
       }
-      document.body.appendChild(link);
-      link.click();
-      
-      // Clean up
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-      
-      // Optional: Show completion message
-      ElMessage.success(`Download completed: ${data.name}`);
+
+      document.body.appendChild(link)
+      link.click()
+      downloading.value = false
+
     })
     .catch(error => {
-      console.error('Error downloading file:', error);
-      ElMessage.error(error.response?.data?.message || 'Download failed');
+      console.error('Error downloading file2:', error);
+      ElMessage.error('Download failed.');
+
+      downloading.value = false
+
     });
-};
+
+}
 
 const viewDocument = async (data) => {
-  // Show immediate feedback
-  ElMessage.info(`Opening document: ${data.name}`);
-  
+  downloading.value=true
+ 
   const formData = {};
+ 
+
   
   let fname 
   const filename = data.name;
-  // Check if the filename has an extension
-  if (!/\.\w+$/.test(filename)) {
-    fname = filename + '.' + data.format
-  } else {
-    fname = filename
-  }
-  formData.filename = fname
+      // Check if the filename has an extension
+      if (!/\.\w+$/.test(filename)) {
+         fname=filename + '.'+data.format
+      } else {
+        fname = filename
+
+      }
+      formData.filename =fname
+
+
   formData.doc_id = data.id;
   formData.responseType = 'blob';
 
-  // Start document loading in background
-  getFile(formData)
-    .then(response => {
-      const blobData = new Blob([response.data], { type: response.headers['content-type'] });
-      const url = window.URL.createObjectURL(blobData);
-      const newTab = window.open(url, '_blank');
+  try {
+    const response = await getFile(formData);
+    const blobData = new Blob([response.data], { type: response.headers['content-type'] });
+    const url = window.URL.createObjectURL(blobData);
+    const newTab = window.open(url, '_blank');
 
-      if (newTab) {
-        // Optional: Show success message when tab opens
-        ElMessage.success(`Document opened in new tab: ${data.name}`);
-      } else {
-        console.error('Failed to open a new tab.');
-        ElMessage.error('Failed to open the document. Please check your popup blocker settings.');
-      }
-    })
-    .catch(error => {
-      console.error(error);
-      ElMessage.error('Failed to load the document.');
-    });
+    if (newTab) {
+      // Attach a load event listener to the new tab's window object
+      newTab.addEventListener('load', () => {
+        // The new tab has fully loaded
+        console.log('New tab has fully loaded.');
+        downloading.value=false
+      });
+    } else {
+      console.error('Failed to open a new tab.');
+      ElMessage.error('Failed to open the document.');
+      downloading.value=false
+    }
+  } catch (error) {
+    console.error(error);
+    ElMessage.error('Failed to load the document.');
+    downloading.value=false
+  }
 };
 
 
@@ -1131,232 +1118,303 @@ const handleSubmitData = async () => {
 
 
 
-/// Upload documents from a central component 
+/// Uplaod docuemnts from a central component 
 
-const showUploadDialog = ref(false)
-const currentGroupName = ref('')
+const currentRow = ref()
+const addMoreDocuments = ref(false)
 
-function toggleComponent(groupName) {
-  console.log('Opening upload for group:', groupName)
-  console.log('Current showUploadDialog value:', showUploadDialog.value)
-  currentGroupName.value = groupName
-  showUploadDialog.value = true
-  console.log('New showUploadDialog value:', showUploadDialog.value)
-}
 
-// Handle upload completion
-const handleUploadComplete = (response) => {
-  console.log('Upload completed:', response);
-  // Refresh the document list
-  getFilteredDataV2();
-  getCategoryCounts();
-  ElMessage.success('Documents uploaded successfully!');
-  showUploadDialog.value = false;
-}
 
-// Handle upload errors
-const handleUploadError = (error) => {
-  console.error('Upload error:', error);
-  ElMessage.error('Failed to upload documents. Please try again.');
-}
 
-// Handle clicking on common document type cards
-const handleCommonTypeClick = (commonType) => {
-  console.log('Clicked on common type:', commonType.name)
-  // Filter documents by this type
-  currentlyFiltered.value = true
-  filters.value = ['document_type.group']
-  filterValues.value = [[commonType.name]]
-  getFilteredDataV2()
-}
+const mfield = null
+const ChildComponent = defineAsyncComponent(() => import('@/views/Components/UploadComponent.vue'));
+const selectedRow = ref([])
+const dynamicComponent = ref();
+ const componentProps = ref({
+      message: 'Hello from parent',
+      showDialog:addMoreDocuments,
+      data:currentRow.value,
+      umodel:null,
+      field:mfield,
+      filterOptions:null
+    });
 
-// Handle uploading to common document type
-const handleCommonTypeUpload = (commonType) => {
-  console.log('Uploading to common type:', commonType.name)
-  currentGroupName.value = commonType.name
-  showUploadDialog.value = true
-}
 
-// Get icon component for common types
-const getCommonTypeIcon = (iconName) => {
-  switch (iconName) {
-    case 'Document': return CopyDocument
-    case 'Picture': return CopyDocument
-    default: return CopyDocument
-  }
-}
+    function toggleComponent(groupName) {
+  console.log('Compnnent data', [])
+      componentProps.value.data=[];
+      componentProps.value.filterOptions=groupName;
+      dynamicComponent.value = null; // Unload the component
+      addMoreDocuments.value = true; // Set any additional props
+ 
+      setTimeout(() => {
+        dynamicComponent.value = ChildComponent; // Load the component
+  }, 100); // 0.1 seconds
+
+
+    }
+
+
+
 
 getDocumentTypes()
 
+// Add computed property for top 4 groups
+const top4Groups = computed(() => {
+  if (!groups_v2.value || Object.keys(groups_v2.value).length === 0) {
+    return [];
+  }
+  
+  // Convert groups_v2 to array and calculate total count for each group
+  const groupsArray = Object.entries(groups_v2.value).map(([groupName, types]) => {
+    // Properly sum all document type counts within this group
+    const totalCount = Object.values(types).reduce((sum, count) => {
+      // Ensure count is a number and add it to sum
+      const numericCount = typeof count === 'number' ? count : parseInt(count) || 0;
+      return sum + numericCount;
+    }, 0);
+    
+    return {
+      name: groupName,
+      count: totalCount,
+      types: types
+    };
+  });
+  
+  // Calculate total documents across all groups
+  const totalDocuments = groupsArray.reduce((sum, group) => sum + group.count, 0);
+  
+  // Sort by count descending and take top 3 categories
+  const top3Categories = groupsArray
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 3);
+  
+  // Create the result array: [Total, Top3 Categories]
+  const result = [
+    {
+      name: 'Total Documents',
+      count: totalDocuments,
+      types: {},
+      isTotal: true
+    },
+    ...top3Categories
+  ];
+  
+  return result;
+});
 
+// Handle card click to filter by group
+const handleCardClick = async (groupName) => {
+  loading.value = true;
+  console.log('Card clicked for group:', groupName);
+  
+  // Set the selected group and active collapse
+  selectedGroup.value = groupName;
+  activeCollapse.value = groupName;
+  
+  // Clear current data and filters
+  filterLiveDocs.value = [];
+  filterLiveDocsBackup.value = [];
+  filters.value = [];
+  filterValues.value = [];
+  
+  // If "Total Documents" is clicked, show all documents without filtering
+  if (groupName === 'Total Documents') {
+    await getFilteredDataV2();
+    currentlyFiltered.value = true;
+    loading.value = false;
+    return;
+  }
+  
+  // Get all document types for this group
+  const groupTypes = groups_v2.value[groupName];
+  const typeIds = [];
+  
+  // Find the document type IDs for all types in this group
+  Object.keys(groupTypes).forEach(typeName => {
+    const docType = docTypes.value.find(dt => dt.type === typeName);
+    if (docType) {
+      typeIds.push(docType.id);
+    }
+  });
+  
+  if (typeIds.length > 0) {
+    // Set filters to show documents from this group
+    filters.value = ['category'];
+    filterValues.value = [typeIds];
+    
+    await getFilteredDataV2();
+    
+    // Set currentlyFiltered to true so the data shows in the table
+    currentlyFiltered.value = true;
+  }
+  
+  loading.value = false;
+};
 
+// Show All button when a group is selected
+const showAllGroups = () => {
+  selectedGroup.value = '';
+  activeCollapse.value = '';
+  getCategoryCounts();
+};
+
+// Get color for group
+const getColorForGroup = (groupName) => {
+  switch (groupName.toLowerCase()) {
+    case 'total documents':
+      return '#f11634'; // Red color for total documents
+    case 'reports':
+      return '#409eff';
+    case 'checklists':
+      return '#67c23a';
+    case 'maps':
+      return '#e6a23c';
+    case 'data':
+      return '#f56c6c';
+    case 'engineering':
+      return '#909399';
+    case 'plans':
+      return '#9c27b0';
+    default:
+      return '#409eff';
+  }
+}
+
+// Get star rating for category cards (1-3 stars based on ranking)
+const getStarRating = (groupName) => {
+  if (groupName === 'Total Documents') return 5; // 5 stars for total documents
+  
+  // Get the top 3 categories
+  const groupsArray = Object.entries(groups_v2.value || {}).map(([name, types]) => {
+    const totalCount = Object.values(types).reduce((sum, count) => {
+      const numericCount = typeof count === 'number' ? count : parseInt(count) || 0;
+      return sum + numericCount;
+    }, 0);
+    return { name, count: totalCount };
+  });
+  
+  const top3Categories = groupsArray
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 3);
+  
+  // Find the position of this category (1-based)
+  const position = top3Categories.findIndex(cat => cat.name === groupName) + 1;
+  
+  // Return stars based on position (3 stars for 1st, 2 for 2nd, 1 for 3rd)
+  return position > 0 ? 4 - position : 0;
+}
 
 </script>
 
 <template>
   <ContentWrap
-    :title="t('Document Repository')" 
-    :message="t('Use the filters to subset')" 
-    v-loading="loading"
-    element-loading-text="Getting the documents......."
-  >
+:title="t('Document Repository')" :message="t('Use the filters to subset')" v-loading="loading"
+    element-loading-text="Getting the documents.......">
 
-    <el-row>
-    <el-col :span="6">
-      <el-statistic title="Daily active users" :value="268500" />
-    </el-col>
-    <el-col :span="6">
-      <el-statistic :value="138">
-        <template #title>
-          <div style="display: inline-flex; align-items: center">
-            Ratio of men to women
-            <el-icon style="margin-left: 4px" :size="12">
-              <Male />
-            </el-icon>
-          </div>
-        </template>
-        <template #suffix>/100</template>
-      </el-statistic>
-    </el-col>
-    <el-col :span="6">
-      <el-statistic title="Total Transactions" :value="outputValue" />
-    </el-col>
-    <el-col :span="6">
-      <el-statistic title="Feedback number" :value="562">
-        <template #suffix>
-          <el-icon style="vertical-align: -0.125em">
-            <ChatLineRound />
-          </el-icon>
-        </template>
-      </el-statistic>
-    </el-col>
-  </el-row>
-  
-    <!-- Search Bar -->
-    <div class="search-section">
-      <el-input
-        v-model="searchTerm" 
-        placeholder="Search documents by name/settlement/county/format/uploader name" 
-        class="search-input"
-        clearable 
-        @change="handleInputChange" 
-      />
-    </div>
-
-    <!-- Common Document Types Cards -->
-    <div class="common-types-section">
-      <h3 class="section-title">Most Common Document Types</h3>
-      <div class="common-types-grid">
-        <div 
-          v-for="commonType in commonDocTypes" 
-          :key="commonType.id"
-          class="common-type-card"
-          :class="{ 'active-filter': currentlyFiltered && filters.includes('category') && filterValues.some(values => values.some(v => docTypes.find(dt => dt.id === v && dt.group?.toLowerCase() === commonType.name.toLowerCase()))) }"
-          :style="{ borderColor: commonType.color }"
-          @click="handleCommonTypeClick(commonType)"
-        >
-          <div class="card-header">
-            <el-icon :size="32" :color="commonType.color">
-              <component :is="getCommonTypeIcon(commonType.icon)" />
-            </el-icon>
-            <div class="card-count">
-              <span class="count-number">{{ commonType.count }}</span>
-              <span class="count-label">documents</span>
-            </div>
-          </div>
+    <!-- Top 4 Groups Cards -->
+    <el-row :gutter="16" class="cards-row" v-if="top4Groups.length > 0">
+      <el-col v-for="group in top4Groups" :key="group.name" :xs="24" :sm="12" :md="6" :lg="6">
+        <el-card shadow="hover" class="stat-card" :body-style="{ padding: '0' }" @click="handleCardClick(group.name)">
           <div class="card-content">
-            <h4 class="card-title">{{ commonType.name }}</h4>
-            <p class="card-description">View and manage {{ commonType.name.toLowerCase() }} documents</p>
-          </div>
-          <div class="card-actions">
-            <el-button 
-              type="primary" 
-              size="small" 
-              @click.stop="handleCommonTypeUpload(commonType)"
-              :icon="UploadFilled"
-            >
-              Upload
-            </el-button>
-            <el-button 
-              type="default" 
-              size="small" 
-              @click.stop="handleCommonTypeClick(commonType)"
-            >
-              View All
-            </el-button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Other Document Types -->
-    <div class="other-types-section" v-if="Object.keys(groups_v2).length > 0">
-      <h3 class="section-title">Other Document Types</h3>
-      <el-collapse accordion>
-        <el-collapse-item v-for="(group, groupName) in groups_v2" :key="groupName">
-          <template #title>
-            <Icon icon="material-symbols:folder-open-outline" class="collapsible-header-icon" width="48" />
-            <span class="collapsible-header-text">{{ formatText(groupName) }}</span>
-          </template>
-          <el-collapse accordion>
-            <el-collapse-item v-for="(typeCount, type) in group" :key="type">
-              <template #title>
-                <el-button class="collapsible-nested-header-button" type="" link @click="handleItemCollapse(type)">
-                  <Icon :icon="getIconForGroup(groupName)" color="gray" class="collapsible-nested-header-icon" width="36" />
-                  {{ formatText(type) }}
-                </el-button>
-                <el-badge :value="typeCount" class="collapsible-header-badge" />
-              </template>
-
-              <el-table :data="filterLiveDocs" style="width: 100%; margin-left: 30px" size="small" class="thin-rows-table" border >
-                <el-table-column label="#" type="index" width="50">
-                  <template #default="{ $index }">
-                    <span>{{ ($index + 1) + ((currentPage - 1) * pageSize) }}</span>
-                  </template>
-                </el-table-column>
-                <el-table-column prop="name" label="Title" />
-                <el-table-column prop="settlement.name" label="Settlement" />
-                <el-table-column prop="date" label="Date" :formatter="formatEndDate" />
-                <el-table-column prop="user.name" label="User" />
-                <el-table-column prop="size" label="Size(Mb)" />
-                
-                <el-table-column label="Actions" width="250">
-                  <template #default="{ row }">
-                    <PermissionWrapper :permissions="['document:update', 'document:delete', 'document:read']">
-                      <TableActions :item="row" :buttons="action_buttons" @edit="editDocument" @delete="removeDocument" @preview="viewDocument" @download="downloadFile" />
-                    </PermissionWrapper>
-                  </template>
-                </el-table-column>
-              </el-table>
-
-              <div class="pagination-wrapper" v-if="totalDocs > 10">
-                <el-pagination
-                  :page-size="10" 
-                  background 
-                  small 
-                  layout="prev, pager, next" 
-                  :total="totalDocs"
-                  @current-change="handlePageChange" 
+            <div class="icon-container" :style="{ backgroundColor: getColorForGroup(group.name) + '15' }">
+              <Icon :icon="getIconForGroup(group.name)" width="32" :color="getColorForGroup(group.name)" />
+            </div>
+            <div class="card-value">
+              <p class="value-text">{{ group.count }}</p>
+              <p class="value-label">{{ formatText(group.name) }}</p>
+              <!-- Star rating for all cards -->
+              <div v-if="getStarRating(group.name) > 0" class="star-rating">
+                <Icon 
+                  v-for="star in getStarRating(group.name)" 
+                  :key="star" 
+                  icon="material-symbols:star" 
+                  width="16" 
+                  :color="group.name === 'Total Documents' ? '#ff6b35' : '#ffd700'"
                 />
               </div>
-            </el-collapse-item>
-          </el-collapse>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
 
-          <PermissionWrapper :permissions="['document:create']">
-            <el-button 
-              class="full-width" 
-              style="margin-left: 10px;margin-bottom: 5px;margin-top: 5px" 
-              type="success" 
-              size="small" 
-              @click="toggleComponent(groupName)" 
-              :icon="UploadFilled"
-            > 
-              Upload {{ groupName }} files 
-            </el-button>
-          </PermissionWrapper>
-        </el-collapse-item>
-      </el-collapse>
+    <div v-if="dynamicComponent">
+      <upload-component :is="dynamicComponent" v-bind="componentProps"/>
     </div>
+    <el-input
+v-model="searchTerm" placeholder="Search documents by name/settlement/county/format/uploader name" class="search-input"
+      clearable @change="handleInputChange" @clear="getCategoryCounts" />
+    
+    <!-- Show All button when a group is selected -->
+    <div v-if="selectedGroup" style="margin-bottom: 16px;margin-top: 16px;">
+      <el-button @click="showAllGroups" type="primary" plain>
+        <Icon icon="material-symbols:arrow-back" width="16" style="margin-right: 4px;" />
+        Show All Groups
+      </el-button>
+      <span class="showing-text">Showing: <strong>{{ formatText(selectedGroup) }}</strong></span>
+    </div>
+    
+    <el-collapse v-model="activeCollapse" accordion>
+      <el-collapse-item v-for="(group, groupName) in groups_v2" :key="groupName" v-show="!selectedGroup || groupName === selectedGroup" :name="groupName">
+        <template #title>
+          <Icon icon="material-symbols:folder-open-outline" class="collapsible-header-icon" width="30" />
+          <span class="collapsible-header-text">{{ formatText(groupName) }}</span>
+        </template>
+        <el-collapse accordion>
+          <el-collapse-item v-for="(typeCount, type) in group" :key="type">
+            <template #title>
+              <el-button class="collapsible-nested-header-button" type="" link @click="handleItemCollapse(type)">
+                <Icon :icon="getIconForGroup(groupName)" color="gray" class="collapsible-nested-header-icon" width="24" />
+                {{ formatText(type) }}
+              </el-button>
+              <el-badge :value="typeCount" class="collapsible-header-badge" />
+            </template>
+
+            <el-table :data="filterLiveDocs" v-loading="downloading" style="width: 100%; margin-left: 30px" size="small" class="thin-rows-table" border >
+              <el-table-column label="#" type="index" width="50">
+                <template #default="{ $index }">
+                  <span>{{ ($index + 1) + ((currentPage - 1) * pageSize) }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column prop="name" label="Title" />
+              <el-table-column prop="settlement.name" label="Settlement" />
+              <!-- <el-table-column prop="settlement.county.name" label="County" /> -->
+              <el-table-column prop="date" label="Date" :formatter="formatEndDate" />
+               <el-table-column prop="user.name" label="User" />
+              <el-table-column prop="size" label="Size(Mb)" />
+            
+
+
+
+              
+        <el-table-column label="Actions" width="250">
+          <template #default="{ row }">
+            <TableActions :item="row" :buttons="action_buttons" @edit="editDocument" @delete="removeDocument"   @preview="viewDocument"  @download="downloadFile" />
+          </template>
+        </el-table-column>
+
+
+
+            </el-table>
+
+
+            <div class="pagination-wrapper" v-if="totalDocs > 10">
+              <el-pagination
+:page-size="10" background small layout="prev, pager, next" :total="totalDocs"
+                @current-change="handlePageChange" />
+
+            </div>
+    
+          </el-collapse-item>
+         
+
+          <el-button  v-if="showAdminButtons" class="full-width"   style="margin-left: 10px;margin-bottom: 5px ;margin-top: 5px"  type="success"   size="small"   @click="toggleComponent(groupName)" :icon="UploadFilled"> Upload {{ groupName }} files </el-button>
+
+        </el-collapse>
+
+      </el-collapse-item>
+    </el-collapse>
 
     <el-dialog v-model="dialogVisible" :title="documentName" width="25%" :before-close="handleClose">
 
@@ -1407,131 +1465,9 @@ getDocumentTypes()
       </template>
     </el-dialog>
 
-    <!-- Upload Component -->
-    <UploadComponent 
-      v-if="showUploadDialog"
-      :showDialog="showUploadDialog"
-      :filterOptions="currentGroupName"
-      :umodel="'document'"
-      :field="null"
-      :data="[]"
-      @upload-complete="handleUploadComplete"
-      @upload-error="handleUploadError"
-    />
-
   </ContentWrap>
 </template>
 <style scoped>
-/* Common Document Types Cards */
-.common-types-section {
-  margin: 24px 0;
-}
-
-.section-title {
-  font-size: 20px;
-  font-weight: 600;
-  color: #303133;
-  margin-bottom: 16px;
-  padding-bottom: 8px;
-  border-bottom: 2px solid #f0f0f0;
-}
-
-.common-types-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 20px;
-  margin-bottom: 32px;
-}
-
-.common-type-card {
-  background: white;
-  border: 2px solid #e4e7ed;
-  border-radius: 12px;
-  padding: 20px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.common-type-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-  border-color: #409eff;
-}
-
-.common-type-card.active-filter {
-  border-color: #67c23a !important;
-  background-color: #f0f9ff;
-  box-shadow: 0 4px 16px rgba(103, 194, 58, 0.2);
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.card-count {
-  text-align: right;
-}
-
-.count-number {
-  display: block;
-  font-size: 24px;
-  font-weight: 700;
-  color: #303133;
-  line-height: 1;
-}
-
-.count-label {
-  display: block;
-  font-size: 12px;
-  color: #909399;
-  margin-top: 2px;
-}
-
-.card-content {
-  margin-bottom: 16px;
-}
-
-.card-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: #303133;
-  margin: 0 0 8px 0;
-}
-
-.card-description {
-  font-size: 14px;
-  color: #606266;
-  margin: 0;
-  line-height: 1.4;
-}
-
-.card-actions {
-  display: flex;
-  gap: 8px;
-}
-
-/* Other Document Types Section */
-.other-types-section {
-  margin-top: 32px;
-}
-
-/* Search Input */
-.search-section {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  margin-bottom: 24px;
-}
-
-.search-input {
-  flex: 1;
-}
-
-/* Existing Styles */
 .collapsible-header-icon {
   margin-right: 8px;
 }
@@ -1544,6 +1480,7 @@ getDocumentTypes()
 .collapsible-header-text {
   vertical-align: middle;
   font-size: 16px;
+
 }
 
 .collapsible-header-style {
@@ -1553,6 +1490,7 @@ getDocumentTypes()
 .format-header-text {
   vertical-align: middle;
   font-size: 14px;
+
 }
 
 .doc-list {
@@ -1595,34 +1533,118 @@ getDocumentTypes()
   justify-content: center;
 }
 
-.thin-rows-table .el-table__body tr {
-  height: 10px;
+/* Cards Styles */
+.cards-row {
+  margin-bottom: 24px;
+  overflow-x: hidden;
 }
 
-/* Responsive Design */
+.stat-card {
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  max-width: 100%;
+  cursor: pointer;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.card-content {
+  display: flex;
+  align-items: center;
+  padding: 20px;
+  gap: 16px;
+  min-width: 0;
+}
+
+.icon-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+
+.card-value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.value-text {
+  font-size: 28px;
+  font-weight: 700;
+  color: #f11634;
+  margin: 0 0 4px 0;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.value-label {
+  font-size: 14px;
+  color: #606266;
+  margin: 0;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.star-rating {
+  display: flex;
+  align-items: center;
+  margin-top: 4px;
+  justify-content: flex-start;
+  flex-direction: row;
+  gap: 2px;
+}
+
+.showing-text {
+  margin-left: 16px;
+  color: #606266;
+  font-size: 14px;
+  padding: 8px 12px;
+  background-color: var(--el-color-primary-light-9);
+  border-radius: 6px;
+  border-left: 3px solid var(--el-color-primary);
+  color: var(--el-color-primary);
+}
+
 @media (max-width: 768px) {
-  .common-types-grid {
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
-  
-  .common-type-card {
+  .card-content {
     padding: 16px;
-  }
-  
-  .card-header {
-    flex-direction: column;
-    align-items: flex-start;
     gap: 12px;
   }
   
-  .card-count {
-    text-align: left;
+  .icon-container {
+    width: 48px;
+    height: 48px;
   }
   
-  .card-actions {
-    flex-direction: column;
+  .value-text {
+    font-size: 24px;
   }
+  
+  .value-label {
+    font-size: 12px;
+  }
+}
+
+/* Prevent horizontal scrolling globally */
+:deep(.el-row) {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+:deep(.el-col) {
+  padding-left: 8px !important;
+  padding-right: 8px !important;
 }
 </style>
 
