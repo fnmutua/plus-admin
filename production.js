@@ -7,15 +7,34 @@ const https = require('https');
 
 // ... Your other code ...
 
+ // CORS configuration
 const corsOptions = {
-  //origin: ['http://localhost', 'http://localhost:4000', 'http://localhost:3000', 'http://localhost:8100', 'http://localhost:8080', '*']
-  origin: ['capacitor://localhost', 'http://localhost','https://localhost','http://localhost:4000', 'http://localhost:3000','http://localhost:8100','http://localhost:8080','https://localhost:8100', '*']
-
+  origin: function (origin, callback) {
+    // Allow specific origins or all origins based on environment
+    const allowedOrigins = [
+      'http://localhost',
+      'http://localhost:4000',
+      'http://localhost:3000',
+      'http://localhost:8100',
+      'http://localhost:8080',
+      'https://localhost',
+      'https://localhost:8100',
+      'capacitor://localhost',
+      // Add production domain, e.g., 'https://kesmis.go.ke'
+    ];
+    
+    // Allow requests with no origin (e.g., mobile apps or Postman)
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, origin || '*');
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  optionsSuccessStatus: 200 // For legacy browsers
 };
 
 app.use(cors(corsOptions));
-// app.use(cors()) 
-//app.use(cors()) 
+
 
 //app.use(cors(corsOptions));
 
