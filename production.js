@@ -8,7 +8,7 @@ const https = require('https');
 // ... Your other code ...
 
 const corsOptions = {
-  origin: '*', // or specific domains if you prefer
+  origin: ['*'], // or specific domains if you prefer
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-access-token'],
   exposedHeaders: ['x-access-token'] // optional, if you want client to read it from responses
