@@ -7,20 +7,16 @@ const https = require('https');
 
 // ... Your other code ...
  
-
+var corsOptions = {
+  origin: ['http://localhost','http://localhost:4000', 'capacitor://localhost',   'http://localhost:3000','http://localhost:8100','http://localhost:8080', '*',
+     'https://collector.kesmis.go.ke','https://kesmis.go.ke:8080', 'http://kesmis.go.ke:8080']
+};
 
 //app.use(cors());
 
+app.use(cors(corsOptions))
 
-app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*'); // ✅ only once
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-access-token');
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(200); // handle preflight
-  }
-  next();
-});
+ 
 
 
 
