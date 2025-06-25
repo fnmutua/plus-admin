@@ -8,10 +8,13 @@ const https = require('https');
 // ... Your other code ...
 
 const corsOptions = {
-  origin: ['*']
-  //origin: ['capacitor://localhost', 'http://localhost','https://localhost','http://localhost:4000', 'http://localhost:3000','http://localhost:8100','http://localhost:8080','https://localhost:8100']
-
+  origin: '*', // or specific domains if you prefer
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-access-token'],
+  exposedHeaders: ['x-access-token'] // optional, if you want client to read it from responses
 };
+
+//app.use(cors(corsOptions));
 
 
 
