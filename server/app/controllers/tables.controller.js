@@ -6964,7 +6964,7 @@ exports.getModelFields = (req, res) => {
 
 // Consolidated settlement map data endpoint
  // Consolidated settlement map data endpoint
-exports.getSettlementMapData = async (req, res) => {
+exports.xxgetSettlementMapData = async (req, res) => {
   try {
     const { settlementId } = req.body;
 
@@ -7118,3 +7118,157 @@ exports.getSettlementMapData = async (req, res) => {
   }
 };
 
+
+exports.getSettlementMapData = async (req, res) => {
+  try {
+    const { settlementId } = req.body;
+
+    if (!settlementId) {
+      return res.status(400).json({
+        message: 'Settlement ID is required',
+        code: 'MISSING_SETTLEMENT_ID',
+      });
+    }
+
+    console.log('🔄 Fetching consolidated map data for settlement:', settlementId);
+
+    const models = [
+      'settlement',
+      'parcel',
+      'structure',
+      'road',
+      'streetlight',
+      'crime_hotspot',
+      'community_project',
+      'health_facility',
+      'education_facility',
+      'water_point',
+      'sewer',
+      'piped_water',
+      'powerline',
+      'community_hall',
+      'police_station',
+      'mast',
+      'dumping_site',
+      'hazard_zone',
+    ];
+
+    const dataPromises = models.map(async (model) => {
+      try {
+        let result;
+
+        if (model === 'structure') {
+          // Fetch raw geometry as text, post-process into GeoJSON manually
+          const rows = await db.sequelize.query(
+            `
+              SELECT ST_AsGeoJSON(geom, 8) AS geometry
+              FROM structure
+              WHERE geom IS NOT NULL AND settlement_id = :settlementId
+            `,
+            {
+              replacements: { settlementId },
+              type: db.sequelize.QueryTypes.SELECT,
+            }
+          );
+
+          const geojson = {
+            type: 'FeatureCollection',
+            features: rows.map(row => ({
+              type: 'Feature',
+              geometry: JSON.parse(row.geometry),
+              properties: {} // intentionally empty
+            }))
+          };
+
+          return {
+            model,
+            data: geojson,
+            success: true,
+          };
+        }
+
+        // Use SQL-based GeoJSON for other models
+        let query;
+        if (model === 'settlement') {
+          query = `
+            SELECT row_to_json(fc) AS json_build_object
+            FROM (
+              SELECT 'FeatureCollection' AS type,
+                     array_to_json(array_agg(f)) AS features
+              FROM (
+                SELECT 'Feature' AS type,
+                       ST_AsGeoJSON(s.geom, 8)::json AS geometry,
+                       json_strip_nulls(row_to_json(s)) AS properties
+                FROM ${model} s
+                WHERE s.geom IS NOT NULL AND s.id = :settlementId
+              ) AS f
+            ) AS fc
+          `;
+        } else {
+          query = `
+            SELECT row_to_json(fc) AS json_build_object
+            FROM (
+              SELECT 'FeatureCollection' AS type,
+                     array_to_json(array_agg(f)) AS features
+              FROM (
+                SELECT 'Feature' AS type,
+                       ST_AsGeoJSON(s.geom, 8)::json AS geometry,
+                       json_strip_nulls(row_to_json(s)) AS properties
+                FROM ${model} s
+                WHERE s.geom IS NOT NULL AND s.settlement_id = :settlementId
+              ) AS f
+            ) AS fc
+          `;
+        }
+
+        const queryResult = await db.sequelize.query(query, {
+          replacements: { settlementId },
+          type: db.sequelize.QueryTypes.SELECT,
+        });
+
+        return {
+          model,
+          data: queryResult[0]?.json_build_object || { type: 'FeatureCollection', features: [] },
+          success: true,
+        };
+      } catch (error) {
+        console.error(`❌ Error fetching ${model}:`, error.message);
+        return {
+          model,
+          data: { type: 'FeatureCollection', features: [] },
+          success: false,
+          error: error.message,
+        };
+      }
+    });
+
+    const results = await Promise.all(dataPromises);
+
+    const mapData = {};
+    const errors = [];
+
+    results.forEach(result => {
+      if (result.success) {
+        mapData[result.model] = result.data;
+      } else {
+        errors.push(`${result.model}: ${result.error}`);
+      }
+    });
+
+    console.log(`✅ Successfully fetched data for ${results.filter(r => r.success).length}/${models.length} models`);
+
+    return res.status(200).json({
+      message: 'Settlement map data fetched successfully',
+      data: mapData,
+      errors: errors.length > 0 ? errors : undefined,
+      code: '0000',
+    });
+  } catch (error) {
+    console.error('❌ Error in getSettlementMapData:', error);
+    return res.status(500).json({
+      message: 'Failed to fetch settlement map data',
+      error: error.message,
+      code: 'SERVER_ERROR',
+    });
+  }
+};
