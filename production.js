@@ -36,8 +36,8 @@ if (envt === 'DEV') {
   dotenv.config();
 }
 
-app.use(cors(corsOptions));
-// app.use(cors()) 
+//app.use(cors(corsOptions));
+app.use(cors()) 
 
 // middle ware
 app.use(bodyParser.json({ limit: '10gb' }));
