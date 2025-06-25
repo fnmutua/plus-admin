@@ -6,40 +6,13 @@ const fs = require('fs');
 const https = require('https');
 
 // ... Your other code ...
-
-const corsOptions = {
-  origin: function (origin, callback) {
-    const allowedOrigins = [
-      'http://localhost',
-      'http://localhost:3000',
-      'http://localhost:4000',
-      'http://localhost:8100', // Your client origin
-      'http://localhost:8080',
-      'https://localhost',
-      'https://localhost:8100',
-      'capacitor://localhost',
-      // Add production domain, e.g., 'https://kesmis.go.ke'
-    ];
-
-    // Allow requests with no origin (e.g., mobile apps, Postman) or from allowed origins
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, origin || 'http://localhost:8100'); // Return specific origin or fallback
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true, // If your app uses cookies or auth headers
-  optionsSuccessStatus: 200
-};
+ 
 
 
-app.use(cors(corsOptions));
+app.use(cors());
 
 
-//app.use(cors(corsOptions));
-
+ 
 
 
 const path = require('path');
