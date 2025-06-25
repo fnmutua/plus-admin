@@ -14,6 +14,11 @@ const corsOptions = {
   exposedHeaders: ['x-access-token'] // optional, if you want client to read it from responses
 };
 
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions)); // enable preflight across all routes
+
+//app.use(cors()) 
+
 //app.use(cors(corsOptions));
 
 
@@ -39,8 +44,7 @@ if (envt === 'DEV') {
   dotenv.config();
 }
 
-app.use(cors(corsOptions));
-//app.use(cors()) 
+
 
 // middle ware
 app.use(bodyParser.json({ limit: '10gb' }));
