@@ -6963,6 +6963,7 @@ exports.getModelFields = (req, res) => {
 
 
 // Consolidated settlement map data endpoint
+ // Consolidated settlement map data endpoint
 exports.getSettlementMapData = async (req, res) => {
   try {
     const { settlementId } = req.body;
@@ -6999,10 +7000,42 @@ exports.getSettlementMapData = async (req, res) => {
 
     const dataPromises = models.map(async (model) => {
       try {
-        // Use table alias 's' in all queries
-        const query =
-          model === 'settlement'
-            ? `
+        let query;
+
+        if (model === 'structure') {
+          // Explicitly list structure fields to avoid composite type error
+          query = `
+            SELECT row_to_json(fc) AS json_build_object
+            FROM (
+              SELECT 'FeatureCollection' AS type,
+                     array_to_json(array_agg(f)) AS features
+              FROM (
+                SELECT 'Feature' AS type,
+                       ST_AsGeoJSON(s.geom, 8)::json AS geometry,
+                       json_strip_nulls(json_build_object(
+                         'id', s.id,
+                         'structure_id', s.structure_id,
+                         'owner', s.owner,
+                         'settlement_id', s.settlement_id,
+                         'structure_typology', s.structure_typology,
+                         'type_of_structure', s.type_of_structure,
+                         'wall_material', s.wall_material,
+                         'roof_material', s.roof_material,
+                         'floor_material', s.floor_material,
+                         'number_floors', s.number_floors,
+                         'structure_room_use', s.structure_room_use,
+                         'number_owners', s.number_owners,
+                         'number_tenants', s.number_tenants,
+                         'createdAt', s."createdAt",
+                         'updatedAt', s."updatedAt"
+                       )) AS properties
+                FROM structure s
+                WHERE s.geom IS NOT NULL AND s.settlement_id = :settlementId
+              ) AS f
+            ) AS fc
+          `;
+        } else if (model === 'settlement') {
+          query = `
             SELECT row_to_json(fc) AS json_build_object
             FROM (
               SELECT 'FeatureCollection' AS type,
@@ -7015,8 +7048,9 @@ exports.getSettlementMapData = async (req, res) => {
                 WHERE s.geom IS NOT NULL AND s.id = :settlementId
               ) AS f
             ) AS fc
-          `
-            : `
+          `;
+        } else {
+          query = `
             SELECT row_to_json(fc) AS json_build_object
             FROM (
               SELECT 'FeatureCollection' AS type,
@@ -7030,6 +7064,7 @@ exports.getSettlementMapData = async (req, res) => {
               ) AS f
             ) AS fc
           `;
+        }
 
         const result = await db.sequelize.query(query, {
           replacements: { settlementId },
@@ -7042,7 +7077,7 @@ exports.getSettlementMapData = async (req, res) => {
           success: true,
         };
       } catch (error) {
-        console.error(`❌ Error fetching ${model}:`, error);
+        console.error(`❌ Error fetching ${model}:`, error.message);
         return {
           model,
           data: { type: 'FeatureCollection', features: [] },
@@ -7065,7 +7100,7 @@ exports.getSettlementMapData = async (req, res) => {
       }
     });
 
-    console.log(`✅ Successfully fetched data for ${results.filter(r => r.success).length}/${models.length} models`);
+    console.log(`✅ Successfully fetched data for ${results.filter((r) => r.success).length}/${models.length} models`);
 
     return res.status(200).json({
       message: 'Settlement map data fetched successfully',
@@ -7082,3 +7117,4 @@ exports.getSettlementMapData = async (req, res) => {
     });
   }
 };
+
