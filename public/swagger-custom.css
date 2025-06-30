@@ -1,0 +1,214 @@
+/* Custom Swagger UI Styling */
+
+/* Hide default auth wrapper */
+.swagger-ui .auth-wrapper { 
+  display: none !important; 
+}
+
+/* Hide Swagger UI logo and default branding */
+.swagger-ui .topbar .link {
+  display: none !important;
+}
+
+.swagger-ui .topbar .download-url-wrapper .select-label {
+  display: none !important;
+}
+
+.swagger-ui .topbar .download-url-wrapper .select {
+  display: none !important;
+}
+
+/* Hide the default Swagger UI title */
+.swagger-ui .topbar .download-url-wrapper .servers-title {
+  display: none !important;
+}
+
+/* Hide the default Swagger UI link */
+.swagger-ui .topbar .download-url-wrapper .servers {
+  display: none !important;
+}
+
+/* Custom header styling */
+.swagger-ui .topbar {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  padding: 25px 0 !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+}
+
+/* Hide download URL wrapper */
+.swagger-ui .topbar .download-url-wrapper {
+  display: none !important;
+}
+
+/* Custom title styling */
+.swagger-ui .info .title {
+  color: #2c3e50 !important;
+  font-size: 42px !important;
+  font-weight: 700 !important;
+  margin-bottom: 15px !important;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+}
+
+.swagger-ui .info .title small {
+  color: #7f8c8d !important;
+  font-size: 18px !important;
+  font-weight: 400 !important;
+  margin-left: 10px !important;
+}
+
+/* Enhanced description */
+.swagger-ui .info .description {
+  font-size: 18px !important;
+  line-height: 1.8 !important;
+  color: #34495e !important;
+  margin-bottom: 20px !important;
+  padding: 20px !important;
+  background: #f8f9fa !important;
+  border-radius: 8px !important;
+  border-left: 4px solid #667eea !important;
+}
+
+/* Contact information styling */
+.swagger-ui .info .contact {
+  margin-top: 20px !important;
+  padding: 15px !important;
+  background: #ecf0f1 !important;
+  border-radius: 6px !important;
+}
+
+.swagger-ui .info .contact a {
+  color: #667eea !important;
+  text-decoration: none !important;
+  font-weight: 500 !important;
+}
+
+.swagger-ui .info .contact a:hover {
+  text-decoration: underline !important;
+  color: #5a6fd8 !important;
+}
+
+/* License styling */
+.swagger-ui .info .license {
+  margin-top: 15px !important;
+}
+
+.swagger-ui .info .license a {
+  color: #27ae60 !important;
+  text-decoration: none !important;
+}
+
+/* Custom branding in topbar */
+.swagger-ui .topbar::before {
+  content: "🚀 KeSMIS API Documentation";
+  color: white;
+  font-size: 28px;
+  font-weight: bold;
+  display: block;
+  text-align: center;
+  margin-bottom: 15px;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+/* Add subtitle */
+.swagger-ui .topbar::after {
+  content: "Kenya Slum Management System (KeSMIS)";
+  color: rgba(255,255,255,0.9);
+  font-size: 16px;
+  display: block;
+  text-align: center;
+  font-weight: 300;
+}
+
+/* Enhanced operation styling */
+.swagger-ui .opblock.opblock-get {
+  border-color: #61affe !important;
+  background: rgba(97, 175, 254, 0.1) !important;
+}
+
+.swagger-ui .opblock.opblock-post {
+  border-color: #49cc90 !important;
+  background: rgba(73, 204, 144, 0.1) !important;
+}
+
+.swagger-ui .opblock.opblock-put {
+  border-color: #fca130 !important;
+  background: rgba(252, 161, 48, 0.1) !important;
+}
+
+.swagger-ui .opblock.opblock-delete {
+  border-color: #f93e3e !important;
+  background: rgba(249, 62, 62, 0.1) !important;
+}
+
+/* Model styling */
+.swagger-ui .model {
+  background: #f8f9fa !important;
+  border-radius: 6px !important;
+  padding: 15px !important;
+  margin: 10px 0 !important;
+}
+
+/* Response styling */
+.swagger-ui .responses-table .response {
+  border-radius: 4px !important;
+}
+
+/* Try it out button styling */
+.swagger-ui .try-out__btn {
+  background: #667eea !important;
+  border-color: #667eea !important;
+}
+
+.swagger-ui .try-out__btn:hover {
+  background: #5a6fd8 !important;
+  border-color: #5a6fd8 !important;
+}
+
+/* Execute button styling */
+.swagger-ui .execute-wrapper .btn.execute {
+  background: #27ae60 !important;
+  border-color: #27ae60 !important;
+}
+
+.swagger-ui .execute-wrapper .btn.execute:hover {
+  background: #229954 !important;
+  border-color: #229954 !important;
+}
+
+/* Authorize button styling */
+.swagger-ui .auth-wrapper .authorize {
+  background: #e74c3c !important;
+  border-color: #e74c3c !important;
+}
+
+.swagger-ui .auth-wrapper .authorize:hover {
+  background: #c0392b !important;
+  border-color: #c0392b !important;
+}
+
+/* Tag styling */
+.swagger-ui .opblock-tag {
+  border-bottom: 2px solid #667eea !important;
+  margin-bottom: 20px !important;
+}
+
+.swagger-ui .opblock-tag-section h3 {
+  color: #2c3e50 !important;
+  font-weight: 600 !important;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .swagger-ui .info .title {
+    font-size: 28px !important;
+  }
+  
+  .swagger-ui .topbar::before {
+    font-size: 20px !important;
+  }
+  
+  .swagger-ui .info .description {
+    font-size: 16px !important;
+    padding: 15px !important;
+  }
+} 
