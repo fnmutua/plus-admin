@@ -25,7 +25,8 @@
     "lint:lint-staged": "lint-staged -c ./.husky/lintstagedrc.js",
     "prepare": "husky install",
     "install-all": "node install-dependencies.js",
-    "p": "plop"
+    "p": "plop",
+    "swagger:generate": "node swagger-generate.js"
   },
   "dependencies": {
     "@dafcoe/vue-collapsible-panel": "^0.2.0",

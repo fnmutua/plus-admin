@@ -1,2119 +1,1722 @@
 {
-  "swagger": "2.0",
-  "paths": {
-    "/": {
-      "get": {
-        "summary": "/",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Plus Admin API",
+    "description": "API documentation for Plus Admin application",
+    "version": "1.0.0",
+    "contact": {
+      "name": "API Support",
+      "email": "support@example.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:80",
+      "description": "Development server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "apiKey",
+        "name": "x-access-token",
+        "in": "header",
+        "description": "JWT token for authentication"
       }
     },
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 1
+          },
+          "username": {
+            "type": "string",
+            "example": "john_doe"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "john@example.com"
+          },
+          "name": {
+            "type": "string",
+            "example": "John Doe"
+          },
+          "phone": {
+            "type": "string",
+            "example": "254712345678"
+          },
+          "isactive": {
+            "type": "boolean",
+            "example": true
+          },
+          "county_id": {
+            "type": "integer",
+            "example": 1
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "admin"
+            ]
+          },
+          "user_roles": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "role": {
+                  "type": "string",
+                  "example": "admin"
+                },
+                "county_id": {
+                  "type": "integer",
+                  "example": 1
+                },
+                "subcounty_id": {
+                  "type": "integer",
+                  "nullable": true
+                },
+                "ward_id": {
+                  "type": "integer",
+                  "nullable": true
+                },
+                "settlement_id": {
+                  "type": "integer",
+                  "nullable": true
+                }
+              }
+            }
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": [
+          "username",
+          "password"
+        ],
+        "properties": {
+          "username": {
+            "type": "string",
+            "example": "john_doe"
+          },
+          "password": {
+            "type": "string",
+            "example": "password123"
+          }
+        }
+      },
+      "SignupRequest": {
+        "type": "object",
+        "required": [
+          "username",
+          "email",
+          "password",
+          "name",
+          "phone"
+        ],
+        "properties": {
+          "username": {
+            "type": "string",
+            "example": "new_user"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "newuser@example.com"
+          },
+          "password": {
+            "type": "string",
+            "example": "password123"
+          },
+          "name": {
+            "type": "string",
+            "example": "New User"
+          },
+          "phone": {
+            "type": "string",
+            "example": "254712345678"
+          }
+        }
+      },
+      "LoginResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 1
+          },
+          "username": {
+            "type": "string",
+            "example": "john_doe"
+          },
+          "name": {
+            "type": "string",
+            "example": "John Doe"
+          },
+          "email": {
+            "type": "string",
+            "example": "john@example.com"
+          },
+          "phone": {
+            "type": "string",
+            "example": "254712345678"
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "admin"
+            ]
+          },
+          "user_roles": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "county_id": {
+            "type": "integer",
+            "example": 1
+          },
+          "accessToken": {
+            "type": "string",
+            "example": "jwt_token_here"
+          },
+          "code": {
+            "type": "string",
+            "example": "0000"
+          },
+          "message": {
+            "type": "string",
+            "example": "Login Successful"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "example": "Error description"
+          },
+          "code": {
+            "type": "string",
+            "example": "ERROR_CODE"
+          }
+        }
+      },
+      "SuccessResponse": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "example": "Success message"
+          },
+          "code": {
+            "type": "string",
+            "example": "0000"
+          },
+          "data": {
+            "type": "object"
+          }
+        }
+      },
+      "County": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 1
+          },
+          "name": {
+            "type": "string",
+            "example": "Nairobi County"
+          },
+          "code": {
+            "type": "string",
+            "example": "NBI"
+          },
+          "geom": {
+            "type": "string",
+            "example": "POLYGON((...))"
+          }
+        }
+      },
+      "Subcounty": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 1
+          },
+          "name": {
+            "type": "string",
+            "example": "Westlands Subcounty"
+          },
+          "code": {
+            "type": "string",
+            "example": "WEST"
+          },
+          "county_id": {
+            "type": "integer",
+            "example": 1
+          },
+          "geom": {
+            "type": "string",
+            "example": "POLYGON((...))"
+          }
+        }
+      },
+      "Ward": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 1
+          },
+          "name": {
+            "type": "string",
+            "example": "Westlands Ward"
+          },
+          "code": {
+            "type": "string",
+            "example": "WEST01"
+          },
+          "subcounty_id": {
+            "type": "integer",
+            "example": 1
+          },
+          "county_id": {
+            "type": "integer",
+            "example": 1
+          },
+          "geom": {
+            "type": "string",
+            "example": "POLYGON((...))"
+          }
+        }
+      },
+      "Settlement": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 1
+          },
+          "name": {
+            "type": "string",
+            "example": "Westlands Settlement"
+          },
+          "code": {
+            "type": "string",
+            "example": "WEST001"
+          },
+          "ward_id": {
+            "type": "integer",
+            "example": 1
+          },
+          "subcounty_id": {
+            "type": "integer",
+            "example": 1
+          },
+          "county_id": {
+            "type": "integer",
+            "example": 1
+          },
+          "geom": {
+            "type": "string",
+            "example": "POLYGON((...))"
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Authentication",
+      "description": "Authentication endpoints"
+    },
+    {
+      "name": "Users",
+      "description": "User management endpoints"
+    },
+    {
+      "name": "Roles",
+      "description": "Role management endpoints"
+    },
+    {
+      "name": "Data",
+      "description": "Data management endpoints"
+    },
+    {
+      "name": "Grievances",
+      "description": "Grievance management endpoints"
+    },
+    {
+      "name": "PDF",
+      "description": "PDF generation endpoints"
+    },
+    {
+      "name": "GeoServer",
+      "description": "GeoServer management endpoints"
+    }
+  ],
+  "paths": {
     "/api/auth/signup": {
       "post": {
-        "summary": "/api/auth/signup",
-        "consumes": [
-          "application/json"
+        "tags": [
+          "Authentication"
         ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
+        "summary": "Register a new user",
+        "description": "Create a new user account with validation for duplicate username/email and roles",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignupRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User registered successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - validation error"
+          },
+          "409": {
+            "description": "Conflict - username or email already exists"
+          }
+        }
       }
     },
     "/api/auth/update": {
       "post": {
-        "summary": "/api/auth/update",
-        "consumes": [
-          "application/json"
+        "tags": [
+          "Authentication"
         ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
+        "summary": "Update user information",
+        "description": "Update user details (requires authentication and user:update permission)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "userId": {
+                    "type": "integer",
+                    "description": "ID of the user to update"
+                  },
+                  "name": {
+                    "type": "string",
+                    "description": "User's full name"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "description": "User's email address"
+                  },
+                  "phone": {
+                    "type": "string",
+                    "description": "User's phone number"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - invalid token"
+          },
+          "403": {
+            "description": "Forbidden - insufficient permissions"
+          },
+          "404": {
+            "description": "User not found"
+          }
+        }
       }
     },
     "/api/auth/profile/update": {
       "post": {
-        "summary": "/api/auth/profile/update",
-        "consumes": [
-          "application/json"
+        "tags": [
+          "Authentication"
         ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
+        "summary": "Update current user's profile",
+        "description": "Update the authenticated user's own profile information",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "User's full name"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "description": "User's email address"
+                  },
+                  "phone": {
+                    "type": "string",
+                    "description": "User's phone number"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Profile updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - invalid token"
+          }
+        }
       }
     },
     "/api/v1/user/activate": {
       "post": {
-        "summary": "/api/v1/user/activate",
-        "consumes": [
-          "application/json"
+        "tags": [
+          "Authentication"
         ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
+        "summary": "Activate a user account",
+        "description": "Activate a user account (requires authentication)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "userId": {
+                    "type": "integer",
+                    "description": "ID of the user to activate"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User activated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - invalid token"
+          },
+          "404": {
+            "description": "User not found"
+          }
+        }
       }
     },
     "/api/auth/signin": {
       "post": {
-        "summary": "/api/auth/signin",
-        "consumes": [
-          "application/json"
+        "tags": [
+          "Authentication"
         ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
+        "summary": "User login",
+        "description": "Authenticate user and return JWT token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials or inactive account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/auth/reset": {
       "post": {
-        "summary": "/api/auth/reset",
-        "consumes": [
-          "application/json"
+        "tags": [
+          "Authentication"
         ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
+        "summary": "Reset password",
+        "description": "Send password reset email/SMS",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "description": "User's email address"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password reset email sent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/auth/set": {
       "post": {
-        "summary": "/api/auth/set",
-        "consumes": [
-          "application/json"
+        "tags": [
+          "Authentication"
         ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
+        "summary": "Update password",
+        "description": "Update user password",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "userId": {
+                    "type": "integer",
+                    "description": "User ID"
+                  },
+                  "newPassword": {
+                    "type": "string",
+                    "description": "New password"
+                  },
+                  "resetToken": {
+                    "type": "string",
+                    "description": "Password reset token"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid reset token"
+          },
+          "404": {
+            "description": "User not found"
+          }
+        }
       }
     },
     "/api/auth/county": {
       "get": {
-        "summary": "/api/auth/county",
-        "consumes": [
-          "application/json"
+        "tags": [
+          "Authentication"
         ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
+        "summary": "Get counties",
+        "description": "Retrieve list of counties",
+        "responses": {
+          "200": {
+            "description": "Counties retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "example": "0000"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/auth/county/one": {
       "post": {
-        "summary": "/api/auth/county/one",
-        "consumes": [
-          "application/json"
+        "tags": [
+          "Authentication"
         ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
+        "summary": "Get single county",
+        "description": "Retrieve a specific county by ID",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "countyId": {
+                    "type": "integer",
+                    "description": "County ID"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "County retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "example": "0000"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/County"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "County not found"
+          }
+        }
       }
     },
     "/api/auth/county/location": {
       "post": {
-        "summary": "/api/auth/county/location",
-        "consumes": [
-          "application/json"
+        "tags": [
+          "Authentication"
         ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
+        "summary": "Get county by location",
+        "description": "Retrieve county information based on geographic coordinates",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "latitude": {
+                    "type": "number",
+                    "description": "Latitude coordinate"
+                  },
+                  "longitude": {
+                    "type": "number",
+                    "description": "Longitude coordinate"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "County found for location",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "example": "0000"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/County"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No county found for location"
+          }
+        }
       }
     },
     "/api/auth/ward/location": {
       "post": {
-        "summary": "/api/auth/ward/location",
-        "consumes": [
-          "application/json"
+        "tags": [
+          "Authentication"
         ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
+        "summary": "Get ward by location",
+        "description": "Retrieve ward information based on geographic coordinates",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "latitude": {
+                    "type": "number",
+                    "description": "Latitude coordinate"
+                  },
+                  "longitude": {
+                    "type": "number",
+                    "description": "Longitude coordinate"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Ward found for location",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "example": "0000"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Ward"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No ward found for location"
+          }
+        }
       }
     },
     "/api/auth/county/post": {
       "post": {
-        "summary": "/api/auth/county/post",
-        "consumes": [
-          "application/json"
+        "tags": [
+          "Authentication"
         ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
+        "summary": "Create county",
+        "description": "Create a new county (requires authentication)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "County name"
+                  },
+                  "code": {
+                    "type": "string",
+                    "description": "County code"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "County created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - invalid token"
+          }
+        }
       }
     },
     "/api/auth/subcounty": {
       "post": {
-        "summary": "/api/auth/subcounty",
-        "consumes": [
-          "application/json"
+        "tags": [
+          "Authentication"
         ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
+        "summary": "Get subcounties",
+        "description": "Retrieve list of subcounties",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "countyId": {
+                    "type": "integer",
+                    "description": "County ID to filter subcounties"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Subcounties retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "example": "0000"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Subcounty"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/auth/settlement": {
       "post": {
-        "summary": "/api/auth/settlement",
-        "consumes": [
-          "application/json"
+        "tags": [
+          "Authentication"
         ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
+        "summary": "Get settlements",
+        "description": "Retrieve list of settlements",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "wardId": {
+                    "type": "integer",
+                    "description": "Ward ID to filter settlements"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Settlements retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "example": "0000"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Settlement"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/auth/ward": {
       "post": {
-        "summary": "/api/auth/ward",
-        "consumes": [
-          "application/json"
+        "tags": [
+          "Authentication"
         ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
+        "summary": "Get wards",
+        "description": "Retrieve list of wards",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "subcountyId": {
+                    "type": "integer",
+                    "description": "Subcounty ID to filter wards"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Wards retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "example": "0000"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Ward"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/auth/profile": {
       "post": {
-        "summary": "/api/auth/profile",
-        "consumes": [
-          "application/json"
+        "tags": [
+          "Authentication"
         ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
+        "summary": "Get user profile",
+        "description": "Retrieve current user's profile information",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Profile retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - invalid token"
+          }
+        }
       }
     },
     "/api/auth/county/all": {
       "post": {
-        "summary": "/api/auth/county/all",
-        "consumes": [
-          "application/json"
+        "tags": [
+          "Authentication"
         ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
+        "summary": "Get all counties",
+        "description": "Retrieve all counties with pagination",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "page": {
+                    "type": "integer",
+                    "description": "Page number"
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "description": "Number of items per page"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Counties retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "example": "0000"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/County"
+                      }
+                    },
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of counties"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/auth/subcounty/all": {
       "post": {
-        "summary": "/api/auth/subcounty/all",
-        "consumes": [
-          "application/json"
+        "tags": [
+          "Authentication"
         ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
+        "summary": "Get all subcounties",
+        "description": "Retrieve all subcounties with pagination",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "page": {
+                    "type": "integer",
+                    "description": "Page number"
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "description": "Number of items per page"
+                  },
+                  "countyId": {
+                    "type": "integer",
+                    "description": "Filter by county ID"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Subcounties retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "example": "0000"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Subcounty"
+                      }
+                    },
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of subcounties"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/auth/ward/all": {
       "post": {
-        "summary": "/api/auth/ward/all",
-        "consumes": [
-          "application/json"
+        "tags": [
+          "Authentication"
         ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
+        "summary": "Get all wards",
+        "description": "Retrieve all wards with pagination",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "page": {
+                    "type": "integer",
+                    "description": "Page number"
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "description": "Number of items per page"
+                  },
+                  "subcountyId": {
+                    "type": "integer",
+                    "description": "Filter by subcounty ID"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Wards retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "example": "0000"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Ward"
+                      }
+                    },
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of wards"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/auth/settlement/all": {
       "post": {
-        "summary": "/api/auth/settlement/all",
-        "consumes": [
-          "application/json"
+        "tags": [
+          "Authentication"
         ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
+        "summary": "Get all settlements",
+        "description": "Retrieve all settlements with pagination",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "page": {
+                    "type": "integer",
+                    "description": "Page number"
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "description": "Number of items per page"
+                  },
+                  "wardId": {
+                    "type": "integer",
+                    "description": "Filter by ward ID"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Settlements retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "example": "0000"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Settlement"
+                      }
+                    },
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of settlements"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/auth/settlement/bycounty": {
       "post": {
-        "summary": "/api/auth/settlement/bycounty",
-        "consumes": [
-          "application/json"
+        "tags": [
+          "Authentication"
         ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
+        "summary": "Get settlements by county",
+        "description": "Retrieve all settlements within a specific county",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "countyId": {
+                    "type": "integer",
+                    "description": "County ID"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Settlements retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "example": "0000"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Settlement"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/app/signup": {
       "post": {
-        "summary": "/api/app/signup",
-        "consumes": [
-          "application/json"
+        "tags": [
+          "Authentication"
         ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
+        "summary": "Mobile app user registration",
+        "description": "Register a new user via mobile app with phone validation",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "username": {
+                    "type": "string",
+                    "description": "Username"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "description": "Email address"
+                  },
+                  "phone": {
+                    "type": "string",
+                    "description": "Phone number"
+                  },
+                  "password": {
+                    "type": "string",
+                    "description": "Password"
+                  },
+                  "name": {
+                    "type": "string",
+                    "description": "Full name"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User registered successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - validation error"
+          },
+          "409": {
+            "description": "Conflict - phone or email already exists"
+          }
+        }
       }
     },
     "/api/app/signup/grc": {
       "post": {
-        "summary": "/api/app/signup/grc",
-        "consumes": [
-          "application/json"
+        "tags": [
+          "Authentication"
         ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
+        "summary": "GRC user registration",
+        "description": "Register a new GRC (Grievance Redress Committee) user",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "username": {
+                    "type": "string",
+                    "description": "Username"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "description": "Email address"
+                  },
+                  "phone": {
+                    "type": "string",
+                    "description": "Phone number"
+                  },
+                  "password": {
+                    "type": "string",
+                    "description": "Password"
+                  },
+                  "name": {
+                    "type": "string",
+                    "description": "Full name"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "GRC user registered successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - validation error"
+          },
+          "409": {
+            "description": "Conflict - phone or email already exists"
+          }
+        }
       }
     },
     "/api/app/signup/grm": {
       "post": {
-        "summary": "/api/app/signup/grm",
-        "consumes": [
-          "application/json"
+        "tags": [
+          "Authentication"
         ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
+        "summary": "GRM user registration",
+        "description": "Register a new GRM (Grievance Redress Mechanism) user",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "username": {
+                    "type": "string",
+                    "description": "Username"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "description": "Email address"
+                  },
+                  "phone": {
+                    "type": "string",
+                    "description": "Phone number"
+                  },
+                  "password": {
+                    "type": "string",
+                    "description": "Password"
+                  },
+                  "name": {
+                    "type": "string",
+                    "description": "Full name"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "GRM user registered successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - validation error"
+          },
+          "409": {
+            "description": "Conflict - phone or email already exists"
+          }
+        }
       }
     },
     "/api/app/signin": {
       "post": {
-        "summary": "/api/app/signin",
-        "consumes": [
-          "application/json"
+        "tags": [
+          "Authentication"
         ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
+        "summary": "Mobile app user login",
+        "description": "Authenticate user via mobile app using phone number",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "phone": {
+                    "type": "string",
+                    "description": "Phone number"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OTP sent successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Check your phone for login verification SMS!"
+                    },
+                    "code": {
+                      "type": "string",
+                      "example": "0000"
+                    },
+                    "data": {
+                      "type": "integer",
+                      "description": "OTP code (for testing)"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Account deactivated"
+          },
+          "404": {
+            "description": "No account associated with phone number"
+          }
+        }
       }
     },
     "/api/app/verify": {
       "post": {
-        "summary": "/api/app/verify",
-        "consumes": [
-          "application/json"
+        "tags": [
+          "Authentication"
         ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/user/all": {
-      "post": {
-        "summary": "/api/v1/user/all",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/user/county": {
-      "post": {
-        "summary": "/api/v1/user/county",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/user/grm": {
-      "post": {
-        "summary": "/api/v1/user/grm",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/user/grm/location": {
-      "post": {
-        "summary": "/api/v1/user/grm/location",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/user/admin": {
-      "post": {
-        "summary": "/api/v1/user/admin",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/user/keyword": {
-      "post": {
-        "summary": "/api/v1/user/keyword",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/user/name": {
-      "post": {
-        "summary": "/api/v1/user/name",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/user/check": {
-      "post": {
-        "summary": "/api/v1/user/check",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/user/multiple": {
-      "post": {
-        "summary": "/api/v1/user/multiple",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/user/delete": {
-      "post": {
-        "summary": "/api/v1/user/delete",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/user/permissions": {
-      "post": {
-        "summary": "/api/v1/user/permissions",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/feedback/add": {
-      "post": {
-        "summary": "/api/v1/feedback/add",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/feedback/all": {
-      "post": {
-        "summary": "/api/v1/feedback/all",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/user": {
-      "get": {
-        "summary": "/api/v1/user",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/mod": {
-      "get": {
-        "summary": "/api/v1/mod",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/admin": {
-      "get": {
-        "summary": "/api/v1/admin",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/user/logout": {
-      "post": {
-        "summary": "/api/v1/user/logout",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/tables": {
-      "post": {
-        "summary": "/api/v1/tables",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/routes": {
-      "post": {
-        "summary": "/api/v1/routes",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "fromCache": {
-                  "type": "boolean",
-                  "example": false
-                },
-                "data": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "id": {
-                        "type": "number"
-                      },
-                      "title": {
-                        "type": "string"
-                      },
-                      "programme_id": {
-                        "type": "number"
-                      },
-                      "domain_id": {
-                        "type": "number"
-                      },
-                      "acronym": {
-                        "type": "string"
-                      },
-                      "icon": {
-                        "type": "string"
-                      },
-                      "createdBy": {
-                        "type": "number"
-                      },
-                      "code": {
-                        "type": "string"
-                      },
-                      "createdAt": {
-                        "type": "string"
-                      },
-                      "updatedAt": {
-                        "type": "string"
-                      }
-                    },
-                    "required": [
-                      "id",
-                      "title",
-                      "programme_id",
-                      "domain_id",
-                      "acronym",
-                      "icon",
-                      "createdBy",
-                      "code",
-                      "createdAt",
-                      "updatedAt"
-                    ]
-                  },
-                  "example": [
-                    {
-                      "id": 37,
-                      "title": "Health_sud",
-                      "programme_id": 21,
-                      "domain_id": 1,
-                      "acronym": "Health_sud",
-                      "icon": "tabler:hospital",
-                      "createdBy": 1,
-                      "code": "5bcbb78a-77ab-41a2-8ef3-c96599b124b8",
-                      "createdAt": "2025-04-10T08:12:16.263Z",
-                      "updatedAt": "2025-06-22T04:38:49.987Z"
-                    }
-                  ]
-                },
-                "total": {
-                  "type": "number",
-                  "example": 12
-                },
-                "code": {
-                  "type": "string",
-                  "example": "0000"
+        "summary": "Verify OTP code",
+        "description": "Verify OTP code sent to user's phone for mobile app login",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "otp": {
+                    "type": "string",
+                    "description": "4-digit OTP code"
+                  }
                 }
               }
             }
           }
         },
-        "tags": [],
-        "produces": [
-          "application/json"
-        ]
-      }
-    },
-    "/api/v1/data": {
-      "get": {
-        "summary": "/api/v1/data",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/data/all": {
-      "get": {
-        "summary": "/api/v1/data/all",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/data/all/nogeo": {
-      "get": {
-        "summary": "/api/v1/data/all/nogeo",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/data/code": {
-      "get": {
-        "summary": "/api/v1/data/code",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/data/filter": {
-      "get": {
-        "summary": "/api/v1/data/filter",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/data/paginated/filter": {
-      "post": {
-        "summary": "/api/v1/data/paginated/filter",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/data/lookup": {
-      "post": {
-        "summary": "/api/v1/data/lookup",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/data/paginated": {
-      "get": {
-        "summary": "/api/v1/data/paginated",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/data/column/paginated": {
-      "post": {
-        "summary": "/api/v1/data/column/paginated",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/data/column/paginated/nogeo": {
-      "post": {
-        "summary": "/api/v1/data/column/paginated/nogeo",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/data/column/duplicate": {
-      "post": {
-        "summary": "/api/v1/data/column/duplicate",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/data/merge": {
-      "post": {
-        "summary": "/api/v1/data/merge",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/data/download/all": {
-      "post": {
-        "summary": "/api/v1/data/download/all",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/data/column/mm": {
-      "post": {
-        "summary": "/api/v1/data/column/mm",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/hh/column/paginated": {
-      "post": {
-        "summary": "/api/v1/hh/column/paginated",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/data/all/geo": {
-      "post": {
-        "summary": "/api/v1/data/all/geo",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/data/stream/geo": {
-      "get": {
-        "summary": "/api/v1/data/stream/geo",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/data/geo/minimal": {
-      "get": {
-        "summary": "/api/v1/data/geo/minimal",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/data/one/geo": {
-      "post": {
-        "summary": "/api/v1/data/one/geo",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/data/subset/geo": {
-      "post": {
-        "summary": "/api/v1/data/subset/geo",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/data/subset/geo/parcel": {
-      "post": {
-        "summary": "/api/v1/data/subset/geo/parcel",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/data/geo/multiple": {
-      "post": {
-        "summary": "/api/v1/data/geo/multiple",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/data/one": {
-      "post": {
-        "summary": "/api/v1/data/one",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/data/one/code": {
-      "post": {
-        "summary": "/api/v1/data/one/code",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/data/edit": {
-      "post": {
-        "summary": "/api/v1/data/edit",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/data/import": {
-      "post": {
-        "summary": "/api/v1/data/import",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/data/import/upsert": {
-      "post": {
-        "summary": "/api/v1/data/import/upsert",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/data/create": {
-      "post": {
-        "summary": "/api/v1/data/create",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/data/create/check": {
-      "post": {
-        "summary": "/api/v1/data/create/check",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/data/delete": {
-      "post": {
-        "summary": "/api/v1/data/delete",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/data/delete/many": {
-      "post": {
-        "summary": "/api/v1/data/delete/many",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/data/delete/keys": {
-      "post": {
-        "summary": "/api/v1/data/delete/keys",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/data/count": {
-      "post": {
-        "summary": "/api/v1/data/count",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/data/count/distinct": {
-      "post": {
-        "summary": "/api/v1/data/count/distinct",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/data/count/filter": {
-      "post": {
-        "summary": "/api/v1/data/count/filter",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/data/sum": {
-      "post": {
-        "summary": "/api/v1/data/sum",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/data/sum/filter": {
-      "post": {
-        "summary": "/api/v1/data/sum/filter",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/upload": {
-      "post": {
-        "summary": "/api/v1/upload",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/upload/batch": {
-      "post": {
-        "summary": "/api/v1/upload/batch",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/upload/check": {
-      "post": {
-        "summary": "/api/v1/upload/check",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/upload/cover": {
-      "post": {
-        "summary": "/api/v1/upload/cover",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/upload/batch/pcode": {
-      "post": {
-        "summary": "/api/v1/upload/batch/pcode",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/upload/documentation": {
-      "post": {
-        "summary": "/api/v1/upload/documentation",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/upload/delete": {
-      "post": {
-        "summary": "/api/v1/upload/delete",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/documents/raw": {
-      "post": {
-        "summary": "/api/v1/documents/raw",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/documents/raw/delete": {
-      "post": {
-        "summary": "/api/v1/documents/raw/delete",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/download": {
-      "post": {
-        "summary": "/api/v1/download",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/edit/revert": {
-      "post": {
-        "summary": "/api/v1/edit/revert",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/delete/cascade": {
-      "post": {
-        "summary": "/api/v1/delete/cascade",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/models/list": {
-      "get": {
-        "summary": "/api/v1/models/list",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/data/intersect": {
-      "post": {
-        "summary": "/api/v1/data/intersect",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/data/many/code": {
-      "post": {
-        "summary": "/api/v1/data/many/code",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/model/fields": {
-      "post": {
-        "summary": "/api/v1/model/fields",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/docs/search": {
-      "post": {
-        "summary": "/api/v1/docs/search",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/fields/options": {
-      "post": {
-        "summary": "/api/v1/fields/options",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/summary/byfield": {
-      "post": {
-        "summary": "/api/v1/summary/byfield",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/summary/byfield/simple": {
-      "post": {
-        "summary": "/api/v1/summary/byfield/simple",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/summary/byfield/nested": {
-      "post": {
-        "summary": "/api/v1/summary/byfield/nested",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/summary/byfield/include": {
-      "post": {
-        "summary": "/api/v1/summary/byfield/include",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/summary/byfield/multiple": {
-      "post": {
-        "summary": "/api/v1/summary/byfield/multiple",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
         "responses": {
           "200": {
-            "description": "OK",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "Total": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "count": {
-                        "type": "string"
-                      }
-                    }
-                  },
-                  "example": [
-                    {
-                      "count": "974"
-                    }
-                  ]
-                },
-                "fromCache": {
-                  "type": "boolean",
-                  "example": false
-                },
-                "code": {
-                  "type": "string",
-                  "example": "0000"
+            "description": "OTP verified successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
                 }
               }
             }
+          },
+          "401": {
+            "description": "Invalid or expired OTP code"
+          },
+          "404": {
+            "description": "OTP not found"
           }
-        },
-        "tags": [],
-        "produces": [
-          "application/json"
-        ]
-      }
-    },
-    "/api/v1/summary/group/multiple": {
-      "post": {
-        "summary": "/api/v1/summary/group/multiple",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/summary/group/app": {
-      "post": {
-        "summary": "/api/v1/summary/group/app",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/hh/add": {
-      "post": {
-        "summary": "/api/v1/hh/add",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/hh/update": {
-      "post": {
-        "summary": "/api/v1/hh/update",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/hh/delete": {
-      "post": {
-        "summary": "/api/v1/hh/delete",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/hh/viewAll": {
-      "post": {
-        "summary": "/api/v1/hh/viewAll",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/hh/viewOne": {
-      "post": {
-        "summary": "/api/v1/hh/viewOne",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/hh/filter/column": {
-      "post": {
-        "summary": "/api/v1/hh/filter/column",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/hh/filter/keyword": {
-      "post": {
-        "summary": "/api/v1/hh/filter/keyword",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/hh/batch": {
-      "post": {
-        "summary": "/api/v1/hh/batch",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/role/add": {
-      "post": {
-        "summary": "/api/v1/role/add",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/role/all": {
-      "post": {
-        "summary": "/api/v1/role/all",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/role/one": {
-      "post": {
-        "summary": "/api/v1/role/one",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/role/subordinate": {
-      "post": {
-        "summary": "/api/v1/role/subordinate",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/role/delete": {
-      "post": {
-        "summary": "/api/v1/role/delete",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/roles/permissions": {
-      "post": {
-        "summary": "/api/v1/roles/permissions",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/roles/permissions/update": {
-      "post": {
-        "summary": "/api/v1/roles/permissions/update",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/roles/permissions/add": {
-      "post": {
-        "summary": "/api/v1/roles/permissions/add",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/roles/permissions/remove": {
-      "post": {
-        "summary": "/api/v1/roles/permissions/remove",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/roles/all": {
-      "post": {
-        "summary": "/api/v1/roles/all",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/roles/one": {
-      "post": {
-        "summary": "/api/v1/roles/one",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/roles/add": {
-      "post": {
-        "summary": "/api/v1/roles/add",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/roles/update": {
-      "post": {
-        "summary": "/api/v1/roles/update",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/roles/delete": {
-      "post": {
-        "summary": "/api/v1/roles/delete",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/permissions": {
-      "get": {
-        "summary": "/api/v1/permissions",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/collector/project": {
-      "get": {
-        "summary": "/api/v1/collector/project",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/collector": {
-      "post": {
-        "summary": "/api/v1/collector",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/collector/project/data": {
-      "post": {
-        "summary": "/api/v1/collector/project/data",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/collector/project/csv": {
-      "post": {
-        "summary": "/api/v1/collector/project/csv",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/collector/project/flat": {
-      "post": {
-        "summary": "/api/v1/collector/project/flat",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/collector/project/submitter": {
-      "post": {
-        "summary": "/api/v1/collector/project/submitter",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/collector/project/geo": {
-      "post": {
-        "summary": "/api/v1/collector/project/geo",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/collector/project/media": {
-      "post": {
-        "summary": "/api/v1/collector/project/media",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/collector/submissions": {
-      "post": {
-        "summary": "/api/v1/collector/submissions",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/collector/submissions/all": {
-      "post": {
-        "summary": "/api/v1/collector/submissions/all",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/collector/submissions/delete": {
-      "post": {
-        "summary": "/api/v1/collector/submissions/delete",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/collector/submissions/edit": {
-      "post": {
-        "summary": "/api/v1/collector/submissions/edit",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/collector/submissions/docs": {
-      "post": {
-        "summary": "/api/v1/collector/submissions/docs",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/collector/submissions/download": {
-      "post": {
-        "summary": "/api/v1/collector/submissions/download",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/collector/submissions/csv": {
-      "post": {
-        "summary": "/api/v1/collector/submissions/csv",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/collector/submissions/geo": {
-      "post": {
-        "summary": "/api/v1/collector/submissions/geo",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/grv/code": {
-      "post": {
-        "summary": "/api/v1/grv/code",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/grv/create": {
-      "post": {
-        "summary": "/api/v1/grv/create",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/grv/create/batch": {
-      "post": {
-        "summary": "/api/v1/grv/create/batch",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/grv/list": {
-      "post": {
-        "summary": "/api/v1/grv/list",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/grv/one": {
-      "post": {
-        "summary": "/api/v1/grv/one",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/grv/public": {
-      "post": {
-        "summary": "/api/v1/grv/public",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/grv/upload": {
-      "post": {
-        "summary": "/api/v1/grv/upload",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/grv/upload/pcode": {
-      "post": {
-        "summary": "/api/v1/grv/upload/pcode",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/grv/log": {
-      "post": {
-        "summary": "/api/v1/grv/log",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/grv/log/bulk": {
-      "post": {
-        "summary": "/api/v1/grv/log/bulk",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/grv/status": {
-      "post": {
-        "summary": "/api/v1/grv/status",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/grv/status/update": {
-      "post": {
-        "summary": "/api/v1/grv/status/update",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/grv/update": {
-      "post": {
-        "summary": "/api/v1/grv/update",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/grv/update/bulk": {
-      "post": {
-        "summary": "/api/v1/grv/update/bulk",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/grv/upsert": {
-      "post": {
-        "summary": "/api/v1/grv/upsert",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/grv/keyword": {
-      "post": {
-        "summary": "/api/v1/grv/keyword",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/grv/phone": {
-      "post": {
-        "summary": "/api/v1/grv/phone",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/grv/history": {
-      "post": {
-        "summary": "/api/v1/grv/history",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/grv/self/escalate": {
-      "post": {
-        "summary": "/api/v1/grv/self/escalate",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/grv/reminder": {
-      "post": {
-        "summary": "/api/v1/grv/reminder",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/grv/delete": {
-      "post": {
-        "summary": "/api/v1/grv/delete",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/grv/revert": {
-      "post": {
-        "summary": "/api/v1/grv/revert",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/grv/download": {
-      "post": {
-        "summary": "/api/v1/grv/download",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/pdf": {
-      "post": {
-        "summary": "/api/v1/pdf",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/pdf/timeline": {
-      "post": {
-        "summary": "/api/v1/pdf/timeline",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/geoserver/upload": {
-      "post": {
-        "summary": "/api/v1/geoserver/upload",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/geoserver/delete": {
-      "post": {
-        "summary": "/api/v1/geoserver/delete",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/geoserver/edit": {
-      "post": {
-        "summary": "/api/v1/geoserver/edit",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/project/task/add": {
-      "post": {
-        "summary": "/api/v1/project/task/add",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/project/task/del": {
-      "post": {
-        "summary": "/api/v1/project/task/del",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/project/task/get": {
-      "post": {
-        "summary": "/api/v1/project/task/get",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/project/task/get/nested": {
-      "post": {
-        "summary": "/api/v1/project/task/get/nested",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
-      }
-    },
-    "/api/v1/project/task/import": {
-      "post": {
-        "summary": "/api/v1/project/task/import",
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {},
-        "tags": []
+        }
       }
     }
-  },
-  "tags": [],
-  "definitions": {},
-  "info": {
-    "title": "vue-element-plus-admin",
-    "version": "1.6.3",
-    "license": {
-      "name": "MIT"
-    },
-    "description": "Specification JSONs: [v2](/api-spec/v2), [v3](/api-spec/v3).\n\n一套基于vue3、element-plus、typesScript、vite3的后台集成方案。"
   }
 }
