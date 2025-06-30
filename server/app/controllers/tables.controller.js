@@ -6967,7 +6967,7 @@ exports.getModelFields = (req, res) => {
 exports.xxgetSettlementMapData = async (req, res) => {
   try {
     const { settlementId } = req.body;
-
+    
     if (!settlementId) {
       return res.status(400).json({
         message: 'Settlement ID is required',
@@ -6979,7 +6979,7 @@ exports.xxgetSettlementMapData = async (req, res) => {
 
     const models = [
       'settlement',
-      'parcel',
+      'parcel', 
       'structure',
       'road',
       'streetlight',
@@ -7001,7 +7001,7 @@ exports.xxgetSettlementMapData = async (req, res) => {
     const dataPromises = models.map(async (model) => {
       try {
         let query;
-
+        
         if (model === 'structure') {
           // Explicitly list structure fields to avoid composite type error
           query = `
@@ -7088,7 +7088,7 @@ exports.xxgetSettlementMapData = async (req, res) => {
     });
 
     const results = await Promise.all(dataPromises);
-
+    
     const mapData = {};
     const errors = [];
 
@@ -7246,7 +7246,7 @@ exports.getSettlementMapData = async (req, res) => {
 
     const mapData = {};
     const errors = [];
-
+    
     results.forEach(result => {
       if (result.success) {
         mapData[result.model] = result.data;

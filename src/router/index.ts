@@ -697,11 +697,9 @@ export const adminRoutes: AppRouteRecordRaw[] = [
            },
            {
             path: 'wp/add',
-          //  component: 'views/Facilities/Water/Add',
             component: () => import('@/views/Facilities/Water/AddX.vue'),
             name: 'AddWaterPoint',
-            icon: 'ant-design:plus-square-filled',
-            meta: { hidden: true, title: 'Add', noCache: true }
+            meta: { hidden: true, title: 'Add', noCache: true, icon: 'ant-design:plus-square-filled' }
            },
     
            {
@@ -786,26 +784,15 @@ export const adminRoutes: AppRouteRecordRaw[] = [
                 },
                 {
                   path: 'sewer/add',
-                 // component: 'views/Facilities/Sewer/Add',
                   component: () => import('@/views/Facilities/Sewer/AddX.vue'),
-    
                   name: 'AddSewer',
-                  icon: 'ant-design:plus-square-filled',
-                  meta: { hidden: true, title: 'Add', noCache: true }
+                  meta: { hidden: true, title: 'Add', noCache: true, icon: 'ant-design:plus-square-filled' }
                 },
                 {
                   path: 'sewer/map/:id',
-                //  component: 'views/Facilities/Sewer/SewerMap',
                   component: () => import('@/views/Facilities/Sewer/SewerMap.vue'),
-    
                   name: 'SewerMap',
-                  icon: 'ant-design:plus-square-filled',
-    
-                  meta: {
-                    hidden: true,
-                    props: true,
-                    title: 'Road Map'
-                  }
+                  meta: { hidden: true, props: true, title: 'Road Map', icon: 'ant-design:plus-square-filled' }
                 },
                 {
                   path: 'sewer/details/:id',
@@ -1969,6 +1956,16 @@ const router = createRouter({
   routes: constantRouterMap as RouteRecordRaw[],
   scrollBehavior: () => ({ left: 0, top: 0 })
 })
+
+// Add router guard to handle /api-docs route
+router.beforeEach((to, from, next) => {
+  if (to.path === '/api-docs') {
+    // Force a full page reload so the backend serves Swagger UI
+    window.location.href = '/api-docs';
+  } else {
+    next();
+  }
+});
 
 export const resetRouter = (): void => {
   const resetWhiteNameList = ['Redirect', 'Login', 'NoFind', 'Root', 'Reset', 'Logoff', 

@@ -16,7 +16,7 @@ const { wsCache } = useCache();
 const { start, done } = useNProgress();
 const { loadStart, loadDone } = usePageLoading();
 
-const whiteList = ['/login', '/logoff', '/privacy','/status','/status/:id',  '/grm',  '/landing', '/about', '/contact',  '/faqs','/delete']; // Whitelisted routes
+const whiteList = [ '/api-docs', '/login', '/logoff', '/privacy','/status','/status/:id',  '/grm',  '/landing', '/about', '/contact',  '/faqs','/delete']; // Whitelisted routes
 
 router.beforeEach(async (to, from, next) => {
   start();

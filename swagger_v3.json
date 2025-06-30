@@ -1,0 +1,1400 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/": {
+      "get": {
+        "summary": "/",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/auth/signup": {
+      "post": {
+        "summary": "/api/auth/signup",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/auth/update": {
+      "post": {
+        "summary": "/api/auth/update",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/auth/profile/update": {
+      "post": {
+        "summary": "/api/auth/profile/update",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/user/activate": {
+      "post": {
+        "summary": "/api/v1/user/activate",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/auth/signin": {
+      "post": {
+        "summary": "/api/auth/signin",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/auth/reset": {
+      "post": {
+        "summary": "/api/auth/reset",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/auth/set": {
+      "post": {
+        "summary": "/api/auth/set",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/auth/county": {
+      "get": {
+        "summary": "/api/auth/county",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/auth/county/one": {
+      "post": {
+        "summary": "/api/auth/county/one",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/auth/county/location": {
+      "post": {
+        "summary": "/api/auth/county/location",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/auth/ward/location": {
+      "post": {
+        "summary": "/api/auth/ward/location",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/auth/county/post": {
+      "post": {
+        "summary": "/api/auth/county/post",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/auth/subcounty": {
+      "post": {
+        "summary": "/api/auth/subcounty",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/auth/settlement": {
+      "post": {
+        "summary": "/api/auth/settlement",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/auth/ward": {
+      "post": {
+        "summary": "/api/auth/ward",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/auth/profile": {
+      "post": {
+        "summary": "/api/auth/profile",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/auth/county/all": {
+      "post": {
+        "summary": "/api/auth/county/all",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/auth/subcounty/all": {
+      "post": {
+        "summary": "/api/auth/subcounty/all",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/auth/ward/all": {
+      "post": {
+        "summary": "/api/auth/ward/all",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/auth/settlement/all": {
+      "post": {
+        "summary": "/api/auth/settlement/all",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/auth/settlement/bycounty": {
+      "post": {
+        "summary": "/api/auth/settlement/bycounty",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/app/signup": {
+      "post": {
+        "summary": "/api/app/signup",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/app/signup/grc": {
+      "post": {
+        "summary": "/api/app/signup/grc",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/app/signup/grm": {
+      "post": {
+        "summary": "/api/app/signup/grm",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/app/signin": {
+      "post": {
+        "summary": "/api/app/signin",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/app/verify": {
+      "post": {
+        "summary": "/api/app/verify",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/user/all": {
+      "post": {
+        "summary": "/api/v1/user/all",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/user/county": {
+      "post": {
+        "summary": "/api/v1/user/county",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/user/grm": {
+      "post": {
+        "summary": "/api/v1/user/grm",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/user/grm/location": {
+      "post": {
+        "summary": "/api/v1/user/grm/location",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/user/admin": {
+      "post": {
+        "summary": "/api/v1/user/admin",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/user/keyword": {
+      "post": {
+        "summary": "/api/v1/user/keyword",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/user/name": {
+      "post": {
+        "summary": "/api/v1/user/name",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/user/check": {
+      "post": {
+        "summary": "/api/v1/user/check",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/user/multiple": {
+      "post": {
+        "summary": "/api/v1/user/multiple",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/user/delete": {
+      "post": {
+        "summary": "/api/v1/user/delete",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/user/permissions": {
+      "post": {
+        "summary": "/api/v1/user/permissions",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/feedback/add": {
+      "post": {
+        "summary": "/api/v1/feedback/add",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/feedback/all": {
+      "post": {
+        "summary": "/api/v1/feedback/all",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/user": {
+      "get": {
+        "summary": "/api/v1/user",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/mod": {
+      "get": {
+        "summary": "/api/v1/mod",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/admin": {
+      "get": {
+        "summary": "/api/v1/admin",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/user/logout": {
+      "post": {
+        "summary": "/api/v1/user/logout",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/tables": {
+      "post": {
+        "summary": "/api/v1/tables",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/routes": {
+      "post": {
+        "summary": "/api/v1/routes",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "fromCache": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "number"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "programme_id": {
+                            "type": "number"
+                          },
+                          "domain_id": {
+                            "type": "number"
+                          },
+                          "acronym": {
+                            "type": "string"
+                          },
+                          "icon": {
+                            "type": "string"
+                          },
+                          "createdBy": {
+                            "type": "number"
+                          },
+                          "code": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "title",
+                          "programme_id",
+                          "domain_id",
+                          "acronym",
+                          "icon",
+                          "createdBy",
+                          "code",
+                          "createdAt",
+                          "updatedAt"
+                        ]
+                      },
+                      "example": [
+                        {
+                          "id": 37,
+                          "title": "Health_sud",
+                          "programme_id": 21,
+                          "domain_id": 1,
+                          "acronym": "Health_sud",
+                          "icon": "tabler:hospital",
+                          "createdBy": 1,
+                          "code": "5bcbb78a-77ab-41a2-8ef3-c96599b124b8",
+                          "createdAt": "2025-04-10T08:12:16.263Z",
+                          "updatedAt": "2025-06-22T04:38:49.987Z"
+                        }
+                      ]
+                    },
+                    "total": {
+                      "type": "number",
+                      "example": 12
+                    },
+                    "code": {
+                      "type": "string",
+                      "example": "0000"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": []
+      }
+    },
+    "/api/v1/data": {
+      "get": {
+        "summary": "/api/v1/data",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/data/all": {
+      "get": {
+        "summary": "/api/v1/data/all",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/data/all/nogeo": {
+      "get": {
+        "summary": "/api/v1/data/all/nogeo",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/data/code": {
+      "get": {
+        "summary": "/api/v1/data/code",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/data/filter": {
+      "get": {
+        "summary": "/api/v1/data/filter",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/data/paginated/filter": {
+      "post": {
+        "summary": "/api/v1/data/paginated/filter",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/data/lookup": {
+      "post": {
+        "summary": "/api/v1/data/lookup",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/data/paginated": {
+      "get": {
+        "summary": "/api/v1/data/paginated",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/data/column/paginated": {
+      "post": {
+        "summary": "/api/v1/data/column/paginated",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/data/column/paginated/nogeo": {
+      "post": {
+        "summary": "/api/v1/data/column/paginated/nogeo",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/data/column/duplicate": {
+      "post": {
+        "summary": "/api/v1/data/column/duplicate",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/data/merge": {
+      "post": {
+        "summary": "/api/v1/data/merge",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/data/download/all": {
+      "post": {
+        "summary": "/api/v1/data/download/all",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/data/column/mm": {
+      "post": {
+        "summary": "/api/v1/data/column/mm",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/hh/column/paginated": {
+      "post": {
+        "summary": "/api/v1/hh/column/paginated",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/data/all/geo": {
+      "post": {
+        "summary": "/api/v1/data/all/geo",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/data/stream/geo": {
+      "get": {
+        "summary": "/api/v1/data/stream/geo",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/data/geo/minimal": {
+      "get": {
+        "summary": "/api/v1/data/geo/minimal",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/data/one/geo": {
+      "post": {
+        "summary": "/api/v1/data/one/geo",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/data/subset/geo": {
+      "post": {
+        "summary": "/api/v1/data/subset/geo",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/data/subset/geo/parcel": {
+      "post": {
+        "summary": "/api/v1/data/subset/geo/parcel",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/data/geo/multiple": {
+      "post": {
+        "summary": "/api/v1/data/geo/multiple",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/data/one": {
+      "post": {
+        "summary": "/api/v1/data/one",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/data/one/code": {
+      "post": {
+        "summary": "/api/v1/data/one/code",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/data/edit": {
+      "post": {
+        "summary": "/api/v1/data/edit",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/data/import": {
+      "post": {
+        "summary": "/api/v1/data/import",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/data/import/upsert": {
+      "post": {
+        "summary": "/api/v1/data/import/upsert",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/data/create": {
+      "post": {
+        "summary": "/api/v1/data/create",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/data/create/check": {
+      "post": {
+        "summary": "/api/v1/data/create/check",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/data/delete": {
+      "post": {
+        "summary": "/api/v1/data/delete",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/data/delete/many": {
+      "post": {
+        "summary": "/api/v1/data/delete/many",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/data/delete/keys": {
+      "post": {
+        "summary": "/api/v1/data/delete/keys",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/data/count": {
+      "post": {
+        "summary": "/api/v1/data/count",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/data/count/distinct": {
+      "post": {
+        "summary": "/api/v1/data/count/distinct",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/data/count/filter": {
+      "post": {
+        "summary": "/api/v1/data/count/filter",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/data/sum": {
+      "post": {
+        "summary": "/api/v1/data/sum",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/data/sum/filter": {
+      "post": {
+        "summary": "/api/v1/data/sum/filter",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/upload": {
+      "post": {
+        "summary": "/api/v1/upload",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/upload/batch": {
+      "post": {
+        "summary": "/api/v1/upload/batch",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/upload/check": {
+      "post": {
+        "summary": "/api/v1/upload/check",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/upload/cover": {
+      "post": {
+        "summary": "/api/v1/upload/cover",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/upload/batch/pcode": {
+      "post": {
+        "summary": "/api/v1/upload/batch/pcode",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/upload/documentation": {
+      "post": {
+        "summary": "/api/v1/upload/documentation",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/upload/delete": {
+      "post": {
+        "summary": "/api/v1/upload/delete",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/documents/raw": {
+      "post": {
+        "summary": "/api/v1/documents/raw",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/documents/raw/delete": {
+      "post": {
+        "summary": "/api/v1/documents/raw/delete",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/download": {
+      "post": {
+        "summary": "/api/v1/download",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/edit/revert": {
+      "post": {
+        "summary": "/api/v1/edit/revert",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/delete/cascade": {
+      "post": {
+        "summary": "/api/v1/delete/cascade",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/models/list": {
+      "get": {
+        "summary": "/api/v1/models/list",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/data/intersect": {
+      "post": {
+        "summary": "/api/v1/data/intersect",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/data/many/code": {
+      "post": {
+        "summary": "/api/v1/data/many/code",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/model/fields": {
+      "post": {
+        "summary": "/api/v1/model/fields",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/docs/search": {
+      "post": {
+        "summary": "/api/v1/docs/search",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/fields/options": {
+      "post": {
+        "summary": "/api/v1/fields/options",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/summary/byfield": {
+      "post": {
+        "summary": "/api/v1/summary/byfield",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/summary/byfield/simple": {
+      "post": {
+        "summary": "/api/v1/summary/byfield/simple",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/summary/byfield/nested": {
+      "post": {
+        "summary": "/api/v1/summary/byfield/nested",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/summary/byfield/include": {
+      "post": {
+        "summary": "/api/v1/summary/byfield/include",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/summary/byfield/multiple": {
+      "post": {
+        "summary": "/api/v1/summary/byfield/multiple",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "Total": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "count": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "example": [
+                        {
+                          "count": "974"
+                        }
+                      ]
+                    },
+                    "fromCache": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "code": {
+                      "type": "string",
+                      "example": "0000"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": []
+      }
+    },
+    "/api/v1/summary/group/multiple": {
+      "post": {
+        "summary": "/api/v1/summary/group/multiple",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/summary/group/app": {
+      "post": {
+        "summary": "/api/v1/summary/group/app",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/hh/add": {
+      "post": {
+        "summary": "/api/v1/hh/add",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/hh/update": {
+      "post": {
+        "summary": "/api/v1/hh/update",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/hh/delete": {
+      "post": {
+        "summary": "/api/v1/hh/delete",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/hh/viewAll": {
+      "post": {
+        "summary": "/api/v1/hh/viewAll",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/hh/viewOne": {
+      "post": {
+        "summary": "/api/v1/hh/viewOne",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/hh/filter/column": {
+      "post": {
+        "summary": "/api/v1/hh/filter/column",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/hh/filter/keyword": {
+      "post": {
+        "summary": "/api/v1/hh/filter/keyword",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/hh/batch": {
+      "post": {
+        "summary": "/api/v1/hh/batch",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/role/add": {
+      "post": {
+        "summary": "/api/v1/role/add",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/role/all": {
+      "post": {
+        "summary": "/api/v1/role/all",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/role/one": {
+      "post": {
+        "summary": "/api/v1/role/one",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/role/subordinate": {
+      "post": {
+        "summary": "/api/v1/role/subordinate",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/role/delete": {
+      "post": {
+        "summary": "/api/v1/role/delete",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/roles/permissions": {
+      "post": {
+        "summary": "/api/v1/roles/permissions",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/roles/permissions/update": {
+      "post": {
+        "summary": "/api/v1/roles/permissions/update",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/roles/permissions/add": {
+      "post": {
+        "summary": "/api/v1/roles/permissions/add",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/roles/permissions/remove": {
+      "post": {
+        "summary": "/api/v1/roles/permissions/remove",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/roles/all": {
+      "post": {
+        "summary": "/api/v1/roles/all",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/roles/one": {
+      "post": {
+        "summary": "/api/v1/roles/one",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/roles/add": {
+      "post": {
+        "summary": "/api/v1/roles/add",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/roles/update": {
+      "post": {
+        "summary": "/api/v1/roles/update",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/roles/delete": {
+      "post": {
+        "summary": "/api/v1/roles/delete",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/permissions": {
+      "get": {
+        "summary": "/api/v1/permissions",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/collector/project": {
+      "get": {
+        "summary": "/api/v1/collector/project",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/collector": {
+      "post": {
+        "summary": "/api/v1/collector",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/collector/project/data": {
+      "post": {
+        "summary": "/api/v1/collector/project/data",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/collector/project/csv": {
+      "post": {
+        "summary": "/api/v1/collector/project/csv",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/collector/project/flat": {
+      "post": {
+        "summary": "/api/v1/collector/project/flat",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/collector/project/submitter": {
+      "post": {
+        "summary": "/api/v1/collector/project/submitter",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/collector/project/geo": {
+      "post": {
+        "summary": "/api/v1/collector/project/geo",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/collector/project/media": {
+      "post": {
+        "summary": "/api/v1/collector/project/media",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/collector/submissions": {
+      "post": {
+        "summary": "/api/v1/collector/submissions",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/collector/submissions/all": {
+      "post": {
+        "summary": "/api/v1/collector/submissions/all",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/collector/submissions/delete": {
+      "post": {
+        "summary": "/api/v1/collector/submissions/delete",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/collector/submissions/edit": {
+      "post": {
+        "summary": "/api/v1/collector/submissions/edit",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/collector/submissions/docs": {
+      "post": {
+        "summary": "/api/v1/collector/submissions/docs",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/collector/submissions/download": {
+      "post": {
+        "summary": "/api/v1/collector/submissions/download",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/collector/submissions/csv": {
+      "post": {
+        "summary": "/api/v1/collector/submissions/csv",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/collector/submissions/geo": {
+      "post": {
+        "summary": "/api/v1/collector/submissions/geo",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/grv/code": {
+      "post": {
+        "summary": "/api/v1/grv/code",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/grv/create": {
+      "post": {
+        "summary": "/api/v1/grv/create",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/grv/create/batch": {
+      "post": {
+        "summary": "/api/v1/grv/create/batch",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/grv/list": {
+      "post": {
+        "summary": "/api/v1/grv/list",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/grv/one": {
+      "post": {
+        "summary": "/api/v1/grv/one",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/grv/public": {
+      "post": {
+        "summary": "/api/v1/grv/public",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/grv/upload": {
+      "post": {
+        "summary": "/api/v1/grv/upload",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/grv/upload/pcode": {
+      "post": {
+        "summary": "/api/v1/grv/upload/pcode",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/grv/log": {
+      "post": {
+        "summary": "/api/v1/grv/log",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/grv/log/bulk": {
+      "post": {
+        "summary": "/api/v1/grv/log/bulk",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/grv/status": {
+      "post": {
+        "summary": "/api/v1/grv/status",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/grv/status/update": {
+      "post": {
+        "summary": "/api/v1/grv/status/update",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/grv/update": {
+      "post": {
+        "summary": "/api/v1/grv/update",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/grv/update/bulk": {
+      "post": {
+        "summary": "/api/v1/grv/update/bulk",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/grv/upsert": {
+      "post": {
+        "summary": "/api/v1/grv/upsert",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/grv/keyword": {
+      "post": {
+        "summary": "/api/v1/grv/keyword",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/grv/phone": {
+      "post": {
+        "summary": "/api/v1/grv/phone",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/grv/history": {
+      "post": {
+        "summary": "/api/v1/grv/history",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/grv/self/escalate": {
+      "post": {
+        "summary": "/api/v1/grv/self/escalate",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/grv/reminder": {
+      "post": {
+        "summary": "/api/v1/grv/reminder",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/grv/delete": {
+      "post": {
+        "summary": "/api/v1/grv/delete",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/grv/revert": {
+      "post": {
+        "summary": "/api/v1/grv/revert",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/grv/download": {
+      "post": {
+        "summary": "/api/v1/grv/download",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/pdf": {
+      "post": {
+        "summary": "/api/v1/pdf",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/pdf/timeline": {
+      "post": {
+        "summary": "/api/v1/pdf/timeline",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/geoserver/upload": {
+      "post": {
+        "summary": "/api/v1/geoserver/upload",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/geoserver/delete": {
+      "post": {
+        "summary": "/api/v1/geoserver/delete",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/geoserver/edit": {
+      "post": {
+        "summary": "/api/v1/geoserver/edit",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/project/task/add": {
+      "post": {
+        "summary": "/api/v1/project/task/add",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/project/task/del": {
+      "post": {
+        "summary": "/api/v1/project/task/del",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/project/task/get": {
+      "post": {
+        "summary": "/api/v1/project/task/get",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/project/task/get/nested": {
+      "post": {
+        "summary": "/api/v1/project/task/get/nested",
+        "responses": {},
+        "tags": []
+      }
+    },
+    "/api/v1/project/task/import": {
+      "post": {
+        "summary": "/api/v1/project/task/import",
+        "responses": {},
+        "tags": []
+      }
+    }
+  },
+  "tags": [],
+  "info": {
+    "title": "vue-element-plus-admin",
+    "version": "1.6.3",
+    "license": {
+      "name": "MIT"
+    },
+    "description": "Specification JSONs: [v2](/api-spec/v2), [v3](/api-spec/v3).\n\n一套基于vue3、element-plus、typesScript、vite3的后台集成方案。"
+  }
+}
