@@ -3,10 +3,10 @@
     <div class="landing-container">
       <el-container class="main-container">
         <el-main class="main-content">
-      <div class="hero">
+          <div class="hero">
             <el-row justify="center">
               <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
-        <div class="hero-content">
+                <div class="hero-content">
                   <div class="hero-text">
                     <h1 class="main-title">Welcome to KeSMIS</h1>
                     <h3 class="subtitle">Kenya Slum Management Information System</h3>
@@ -23,8 +23,9 @@
                         class="login-btn"
                         @click="navigateTo('get-started')"
                       >
-                        Get Started..
-          </el-button>
+                        Get Started
+                      </el-button>
+                    
                     </div>
                   </div>
 
@@ -46,7 +47,7 @@
                         <div class="stat-value">{{ Population }}</div>
                         <div class="stat-label">People living in Slums</div>
                       </el-card>
-              </el-col>
+                    </el-col>
                     <el-col :xs="24" :sm="12" :md="8" :lg="6">
                       <el-card shadow="hover" class="stat-card">
                         <div class="stat-icon">
@@ -55,7 +56,7 @@
                         <div class="stat-value">{{ TotalProjs }}</div>
                         <div class="stat-label">Intervention Projects</div>
                       </el-card>
-              </el-col>
+                    </el-col>
                     <el-col :xs="24" :sm="12" :md="8" :lg="6">
                       <el-card shadow="hover" class="stat-card">
                         <div class="stat-icon">
@@ -64,12 +65,12 @@
                         <div class="stat-value">{{ avgHHSize }}</div>
                         <div class="stat-label">Avg. Household Size</div>
                       </el-card>
-              </el-col>
+                    </el-col>
                   </el-row>
                 </div>
               </el-col>
             </el-row>
-        </div>
+          </div>
 
           <el-row justify="center">
             <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
@@ -80,8 +81,8 @@
                     <el-button plain link class="grievance-link" @click="navigateTo('grm')">file a grievance</el-button>, or call our toll free helpline at
                     <a href="tel:0800724349" class="grievance-link">0800 724 349 </a> free of charge.
                   </p>
-        </div>
-      </div>
+                </div>
+              </div>
             </el-col>
           </el-row>
         </el-main>
@@ -102,11 +103,17 @@ import {
   ElCard,
 } from 'element-plus';
 import BaseLayout from './BaseLayout.vue';
-import { Lock, More } from '@element-plus/icons-vue';
+import { Lock, More, Document } from '@element-plus/icons-vue';
 import { Icon } from '@iconify/vue';
 import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary';
 
 const router = useRouter();
+
+// Function to open API documentation
+const openApiDocs = () => {
+  const apiUrl = window.location.origin + '/api-docs';
+  window.open(apiUrl, '_blank');
+};
 
 // Function to format numbers with K, M notation
 const formatNumber = (num: number): string => {
@@ -259,12 +266,61 @@ AvgHHSize();
   max-width: 1400px;
   margin: 0 auto;
   animation: fadeIn 0.8s ease-out;
-   flex-shrink: 0;
+  flex-shrink: 0;
+  padding: 2rem 0;
 }
 
 .hero-content {
   max-width: 1300px;
   margin: 0 auto;
+}
+
+.hero-visual {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.image-carousel {
+  width: 100%;
+  max-width: 500px;
+}
+
+.carousel-image {
+  position: relative;
+  height: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.carousel-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 12px;
+}
+
+.image-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+  color: white;
+  padding: 2rem 1rem 1rem;
+  text-align: center;
+}
+
+.image-overlay h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.image-overlay p {
+  margin: 0;
+  font-size: 0.9rem;
+  opacity: 0.9;
 }
 
 /* HERO TEXT */
@@ -277,7 +333,7 @@ AvgHHSize();
   font-size: 3rem;
   font-weight: 800;
   color: var(--el-color-primary);
-  margin-bottom: 1.7rem;
+  margin-bottom: 3rem;
   line-height: 1.2;
   animation: slideUp 0.8s ease-out;
 }
@@ -285,7 +341,7 @@ AvgHHSize();
 .subtitle {
   font-size: 1.5rem;
   color: var(--el-text-color-primary);
- margin-bottom: 1rem;
+ margin-bottom: 3rem;
   font-weight: 500;
   animation: slideUp 0.8s ease-out 0.2s backwards;
 }
@@ -304,7 +360,7 @@ AvgHHSize();
 .cta-buttons {
   display: flex;
   justify-content: center;
-  margin-bottom: 1rem;
+  margin-bottom: 3rem;
   animation: slideUp 0.8s ease-out 0.6s backwards;
 }
 
@@ -321,6 +377,21 @@ AvgHHSize();
   transform: translateY(-3px);
   box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
   background-color: var(--el-color-primary-dark-2);
+}
+
+.api-btn {
+  margin-left: 1rem;
+  padding: 1rem 2rem;
+  font-size: 1.1rem;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  font-weight: 600;
+}
+
+.api-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
 }
 
 /* 4. STATS GRID (using Element Row/Col) */
@@ -372,9 +443,156 @@ AvgHHSize();
   opacity: 0.85;
 }
 
-/* 5. GRIEVANCE SECTION */
-.grievance-section {
+/* 5. STATS SECTION */
+.stats-section {
+  margin: 3rem 0;
+  animation: slideUp 0.8s ease-out 0.8s backwards;
+}
+
+/* 6. FEATURES SECTION */
+.features-section {
+  margin: 4rem 0;
   animation: slideUp 0.8s ease-out 1s backwards;
+}
+
+.section-header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.section-header h2 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--el-color-primary);
+  margin-bottom: 1rem;
+}
+
+.section-header p {
+  font-size: 1.2rem;
+  color: var(--el-text-color-regular);
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.feature-card {
+  text-align: center;
+  padding: 2rem 1.5rem;
+  height: 100%;
+  transition: all 0.3s ease;
+  border: 1px solid var(--el-border-color-lighter);
+  background: transparent;
+  box-shadow: none !important;
+  border-radius: 12px;
+}
+
+.feature-card:hover {
+  transform: translateY(-5px);
+  border-color: var(--el-color-primary-light-5);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1) !important;
+}
+
+.feature-icon {
+  font-size: 3rem;
+  margin-bottom: 1.5rem;
+  color: var(--el-color-primary);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.feature-card h3 {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  margin-bottom: 1rem;
+}
+
+.feature-card p {
+  font-size: 1rem;
+  color: var(--el-text-color-regular);
+  line-height: 1.6;
+}
+
+/* 7. API SECTION */
+.api-section {
+  margin: 4rem 0;
+  animation: slideUp 0.8s ease-out 1.2s backwards;
+}
+
+.api-card {
+  background: linear-gradient(135deg, var(--el-color-primary-light-9), var(--el-color-primary-light-8));
+  border: none;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.api-content {
+  display: flex;
+  align-items: center;
+  gap: 3rem;
+  padding: 2rem;
+}
+
+.api-text {
+  flex: 1;
+}
+
+.api-text h2 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--el-color-primary);
+  margin-bottom: 1rem;
+}
+
+.api-text p {
+  font-size: 1.1rem;
+  color: var(--el-text-color-regular);
+  margin-bottom: 1.5rem;
+  line-height: 1.6;
+}
+
+.api-features {
+  list-style: none;
+  padding: 0;
+  margin-bottom: 2rem;
+}
+
+.api-features li {
+  font-size: 1rem;
+  color: var(--el-text-color-regular);
+  margin-bottom: 0.5rem;
+  padding-left: 0;
+}
+
+.api-docs-btn {
+  padding: 1rem 2rem;
+  font-size: 1.1rem;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  font-weight: 600;
+}
+
+.api-docs-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
+}
+
+.api-visual {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.api-code-icon {
+  font-size: 8rem;
+  color: var(--el-color-primary);
+  opacity: 0.3;
+}
+
+/* 8. GRIEVANCE SECTION */
+.grievance-section {
+  animation: slideUp 0.8s ease-out 1.4s backwards;
   max-width: 1400px;
   margin: 0 auto;
   padding: 0.6rem 0;
@@ -439,6 +657,14 @@ AvgHHSize();
     padding-bottom: 1rem;
   }
 
+  .hero-visual {
+    margin-top: 2rem;
+  }
+
+  .image-carousel {
+    max-width: 100%;
+  }
+
   .description {
     font-size: 1.4rem;
     line-height: 1.6;
@@ -452,10 +678,11 @@ AvgHHSize();
     padding: 0 1rem;
   }
 
-  .login-btn {
+  .login-btn, .api-btn {
     width: 100%;
     padding: 0.8rem;
     font-size: 1rem;
+    margin-left: 0;
   }
 
   .stats-grid {
@@ -474,9 +701,31 @@ AvgHHSize();
     font-size: 1rem;
   }
 
+  .section-header h2 {
+    font-size: 2rem;
+  }
+
+  .section-header p {
+    font-size: 1.1rem;
+  }
+
+  .feature-card {
+    margin-bottom: 1rem;
+  }
+
+  .api-content {
+    flex-direction: column;
+    text-align: center;
+    gap: 2rem;
+  }
+
+  .api-code-icon {
+    font-size: 6rem;
+  }
+
   .grievance-section {
     padding: 0.75rem 0;
-     position: relative;
+    position: relative;
     z-index: 1;
   }
 

@@ -1896,7 +1896,7 @@ class="notification-custom-card" shadow="hover"
       </el-tab-pane>
 
 
-      <el-tab-pane label="Settings" name="settings" v-if="isSuperAdmin">
+      <el-tab-pane label="Settings" name="settings"  >
  
         <div class="flex justify-end p-4">
           <PermissionWrapper :permissions="['grievance:update']">

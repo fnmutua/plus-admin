@@ -27,6 +27,7 @@
                 <el-menu-item index="5">Contact</el-menu-item>
                 <el-menu-item index="4">About</el-menu-item>
                 <el-menu-item index="6">FAQs</el-menu-item>
+                <el-menu-item index="8" @click="openApiDocs">API Docs</el-menu-item>
                 <el-menu-item index="2">Login</el-menu-item>
                 <el-menu-item index="7" @click="toggleDark">
                   <Icon :icon="isDark ? 'carbon:moon' : 'carbon:sun'" inline />
@@ -110,6 +111,12 @@ function handleResize() {
 const activeIndex = ref('1');
 const router = useRouter();
 
+// Function to open API documentation
+const openApiDocs = () => {
+  const apiUrl = window.location.origin + '/api-docs';
+  window.open(apiUrl, '_blank');
+};
+
 const handleSelect = (index: string) => {
   activeIndex.value = index;
   console.log("Index", activeIndex.value);
@@ -131,6 +138,9 @@ const handleSelect = (index: string) => {
       break;
     case '6':
       router.push('/faqs');
+      break;
+    case '8':
+      openApiDocs();
       break;
     default:
       //ElMessage.warning('Page not found.');

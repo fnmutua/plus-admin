@@ -2983,7 +2983,7 @@ if (search_string.value) {
           </el-tooltip>
 
 
-          <PermissionWrapper v-if="showEditButtons" :model="model" :associated_models="associated_multiple_models">
+          <PermissionWrapper  :model="model" :associated_models="associated_multiple_models">
             <DownloadCustom
               :data="tableDataList"
               :model="model"
