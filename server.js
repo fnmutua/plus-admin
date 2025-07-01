@@ -104,7 +104,36 @@ try {
 
 // Custom CSS for Swagger UI header styling
 const customCss = `
-  .swagger-ui .auth-wrapper { display: none !important; }
+  /* Show auth wrapper for token input */
+  .swagger-ui .auth-wrapper { 
+    display: block !important; 
+    margin: 20px 0 !important;
+    padding: 15px !important;
+    background: #f8f9fa !important;
+    border: 1px solid #e9ecef !important;
+    border-radius: 5px !important;
+  }
+  
+  .swagger-ui .auth-wrapper .authorize {
+    background: #667eea !important;
+    color: white !important;
+    border: none !important;
+    padding: 8px 16px !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+  }
+  
+  .swagger-ui .auth-wrapper .authorize:hover {
+    background: #5a6fd8 !important;
+  }
+  
+  .swagger-ui .auth-wrapper input[type="text"] {
+    border: 1px solid #ced4da !important;
+    border-radius: 4px !important;
+    padding: 8px 12px !important;
+    width: 100% !important;
+    margin: 5px 0 !important;
+  }
   
   /* Hide Swagger UI logo and default branding */
   .swagger-ui .topbar .link { display: none !important; }
