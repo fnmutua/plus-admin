@@ -18,6 +18,14 @@
     {
       "url": "http://localhost:80",
       "description": "Development server"
+    },
+    {
+      "url": "https://api.kesmis.go.ke",
+      "description": "Production server"
+    },
+    {
+      "url": "https://kesmis-api.go.ke",
+      "description": "Production server (alternative)"
     }
   ],
   "components": {

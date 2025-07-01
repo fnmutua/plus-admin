@@ -164,7 +164,7 @@ module.exports = function (app) {
    *       500:
    *         description: Internal server error
    */
-  // app.post('/api/v1/summary/byfield/simple',[authJwt.verifyToken],   controller.SimpleSumModelByColumn)
+  app.post('/api/v1/summary/byfield/simple',[authJwt.verifyToken],   controller.SimpleSumModelByColumn)
 
   /**
    * @swagger
@@ -240,7 +240,7 @@ module.exports = function (app) {
    *       500:
    *         description: Internal server error
    */
-  // app.post('/api/v1/summary/byfield/nested', [authJwt.verifyToken],  controller.sumModelByColumnAssociated)
+   app.post('/api/v1/summary/byfield/nested', [authJwt.verifyToken],  controller.sumModelByColumnAssociated)
 
   /**
    * @swagger
@@ -316,7 +316,7 @@ module.exports = function (app) {
    *       500:
    *         description: Internal server error
    */
-  // app.post('/api/v1/summary/byfield/include',  [authJwt.verifyToken], controller.nestedSumModelByColumn)
+   app.post('/api/v1/summary/byfield/include',  [authJwt.verifyToken], controller.nestedSumModelByColumn)
 
   /**
    * @swagger
@@ -384,7 +384,7 @@ module.exports = function (app) {
    *       500:
    *         description: Internal server error
    */
-  // app.post('/api/v1/summary/byfield/multiple', controller.sumModelAssociatedMultipleModels)
+  app.post('/api/v1/summary/byfield/multiple', controller.sumModelAssociatedMultipleModels)
 
   /**
    * @swagger
@@ -459,7 +459,7 @@ module.exports = function (app) {
    *       500:
    *         description: Internal server error
    */
-  // app.post('/api/v1/summary/group/multiple',  [authJwt.verifyToken],controller.sumGroupByMultipleColumns)
+   app.post('/api/v1/summary/group/multiple',  [authJwt.verifyToken],controller.sumGroupByMultipleColumns)
 
   /**
    * @swagger
@@ -534,7 +534,7 @@ module.exports = function (app) {
    *       500:
    *         description: Internal server error
    */
-  // app.post('/api/v1/summary/group/app',  [authJwt.verifyToken], controller.appGetSummaryCombined)
+   app.post('/api/v1/summary/group/app',  [authJwt.verifyToken], controller.appGetSummaryCombined)
 
  
   
