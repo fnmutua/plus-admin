@@ -10,13 +10,12 @@ import {
   signupGRM
 } from '@/api/register'
 
-import { ElButton, ElSelect, ElCheckbox, ElCol, ElIcon, ElTabPane,ElTabs} from 'element-plus'
+import { ElButton, ElSelect, ElCheckbox, ElCol,ElCollapse,ElDrawer,   ElIcon} from 'element-plus'
 import {
-  Plus, UploadFilled,
+  Plus, 
   Back,Postcard,TopRight,Lock,Guide,TakeawayBox,
   CircleCheck, Warning,View,
-  Delete
-} from '@element-plus/icons-vue'
+  Delete, Search, Refresh, Download, More, Share, Paperclip, Upload, QuestionFilled, Close} from '@element-plus/icons-vue'
 
 import { getSettlementListByCounty } from '@/api/settlements'
 import {   getGRMStaffByLocation } from '@/api/users'
@@ -24,8 +23,9 @@ import {   getGRMStaffByLocation } from '@/api/users'
 
 import { ref, reactive, onMounted, computed } from 'vue'
 import {
-  ElPagination, ElTooltip, ElOption, ElDialog, ElForm, ElTour, ElUpload,
-  ElFormItem, ElRow, ElInput, ElStep, ElSteps, ElTable, ElTableColumn, ElCard, ElMessage, ElSwitch
+  ElPagination, ElOption, ElDialog, ElForm, ElTour, ElUpload,
+  ElFormItem, ElRow, ElInput, ElStep, ElSteps, ElTable, ElTableColumn, ElCard, ElMessage, ElSwitch,
+  ElDropdown, ElDropdownMenu, ElDropdownItem, ElTag
 } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { useAppStoreWithOut } from '@/store/modules/app'
@@ -35,7 +35,6 @@ import { uuid } from 'vue-uuid'
 import type { FormInstance } from 'element-plus'
 
 import writeXlsxFile from 'write-excel-file';
-import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 import PermissionWrapper from '@/components/PermissionWrapper.vue';
 import type { UploadUserFile } from 'element-plus'
 
@@ -46,14 +45,43 @@ import exportFromJSON from 'export-from-json'
 import Papa from 'papaparse';
 
 import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
+import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 
+// Type definitions
+interface UserType {
+  id: string
+  name: string
+  phone: string
+  email: string
+  roles: any[]
+  [key: string]: any
+}
+
+interface GrievanceType {
+  id: string
+  code: string
+  name: string
+  description: string
+  nature: string
+  status: string
+  date_reported: string
+  status_expiry_date: string
+  settlement?: { name: string }
+  county?: { name: string }
+  grievance_documents?: any[]
+  self_reported: boolean
+  reporter_name: string
+  phone: string
+  current_level: string
+  [key: string]: any
+}
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
 
-const countiesOptions = ref([])
-const settlementOptions = ref([])
+const countiesOptions = ref<Array<{value: string, label: string}>>([])
+const settlementOptions = ref<Array<{value: string, label: string, county_id?: string, subcounty_id?: string, ward_id?: string}>>([])
 
 const isSuperAdmin = ref(userInfo.roles.some(role => role.name === "super_admin"));
 
@@ -61,9 +89,17 @@ console.log("userInfo--->", userInfo)
 const selectedCounty=ref()
 
  
-const filters=ref([])
-const filterValues=ref([[]])
-const filterFunction=ref(['in'])
+const filters = ref<string[]>([])
+const filterValues = ref<any[][]>([[]])
+const filterFunction = ref<string[]>(['in'])
+
+// Type definitions for role filters
+interface RoleFilter {
+  field: string
+  value: any
+}
+
+let roles_filters: RoleFilter[] = []
 
 const wardOptions = ref([])
 const selectedSubCounty=ref()
@@ -78,7 +114,7 @@ const search_string=ref()
 const subcountiesOptions = ref([])
 const selectedWard=ref()
 const selectedCategories =ref([])
-const activeSegment = ref('Sorting')
+const activeSegment = ref('All')
 
 
 
@@ -107,6 +143,13 @@ const isCountyOrNational = computed(() =>
 
 
 const Statuses = ref([
+  {
+    label: 'All Grievances',
+    value: 'All',
+    icon: Postcard,
+    count: 0,
+    hidden: false,
+  },
   {
     label: 'Sorting',
     value: 'Sorting',
@@ -190,11 +233,11 @@ const currentUser = wsCache.get(appStore.getUserInfo)
 const grmUsers=ref([])
 const grmUsersLoading=ref(false)
 
-const getGRMUsers = async (countyIds) => {
+const getGRMUsers = async (countyIds: any) => {
 
   grmUsersLoading.value=true
  
-  const formData = {}
+  const formData: any = {}
  
   formData.model = 'users'
  
@@ -232,8 +275,6 @@ const getGRMUsers = async (countyIds) => {
 
 const isNationalStaff = ref(false)
 const isCountyStaff = ref(false)
- 
-let  roles_filters = [];
 
 const getUserRoles = async () => {
   // Clear existing filters
@@ -414,7 +455,18 @@ const getCounts = async () => {
     }
   }
 
-  const formData = {
+  // Get total count for "All Grievances"
+  const totalFormData = {
+    model: 'grievance',
+    summaryField: 'id',
+    summaryFunction: 'count',
+    filterField,
+    filterValue,
+    filterOperator
+  };
+
+  // Get status-specific counts
+  const statusFormData = {
     model: 'grievance',
     summaryField: 'status',
     summaryFunction: 'count',
@@ -424,17 +476,27 @@ const getCounts = async () => {
     filterOperator
   };
 
-  console.log('Constructed formData:', formData);
+  console.log('Constructed formData:', statusFormData);
 
   try {
-    const response = await getSummarybyFieldFromMultipleIncludes(formData);
+    // Get total count
+    const totalResponse = await getSummarybyFieldFromMultipleIncludes(totalFormData);
+    const totalCount = totalResponse?.Total?.[0]?.count || 0;
+
+    // Get status-specific counts
+    const response = await getSummarybyFieldFromMultipleIncludes(statusFormData);
     const summary = response?.Total || [];
 
     console.log('Grievance status counts:', summary);
+    console.log('Total count:', totalCount);
 
     Statuses.value.forEach((status) => {
-      const match = summary.find(item => item.status === status.value);
-      status.count = match ? parseInt(match.count, 10) : 0;
+      if (status.value === 'All') {
+        status.count = parseInt(totalCount, 10);
+      } else {
+        const match = summary.find(item => item.status === status.value);
+        status.count = match ? parseInt(match.count, 10) : 0;
+      }
     });
   } catch (error) {
     console.error('Error fetching status counts:', error);
@@ -523,7 +585,7 @@ const loadFiltersFromLocalStorage = async () => {
       selectedSubCounty.value = parsed.selectedSubCounty || null;
       selectedWard.value = parsed.selectedWard || null;
       selectedCategories.value = parsed.selectedCategories || [];
-      activeSegment.value = parsed.activeSegment || 'Sorting';
+      activeSegment.value = parsed.activeSegment || 'All';
 
       console.log('Mounting gettign',selectedCounty.value )
 
@@ -659,7 +721,7 @@ const showEditButtons = ref(appStore.getEditButtons)
 
 
 
-let tableDataList = ref<UserType[]>([])
+let tableDataList = ref<GrievanceType[]>([])
 //// ------------------parameters -----------------------////
 
 
@@ -722,9 +784,7 @@ const onPageSizeChange = async (size: any) => {
 }
 
 const getInterventionsAll = async () => {
-  filters.value.push('status')
-  filterValues.value.push(['Sorting'])
-
+  // Don't add any status filter for "All" grievances
   getFilteredData(filters.value, filterValues.value)
 }
 
@@ -743,11 +803,9 @@ const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
 };
 
 
-const getFilteredData = async (selFilters, selfilterValues) => {
+const getFilteredData = async (selFilters: string[], selfilterValues: any[][]) => {
 
-
-
-  const formData = {}
+  const formData: any = {}
   formData.limit = pageSize.value
   formData.page = page.value
   formData.curUser = 1 // Id for logged in user
@@ -793,19 +851,18 @@ for (let i = 0; i < selfilterValues.length; i++) {
 
 
 
-  tableDataList.value = res.data
+    tableDataList.value = res.data
 
   availableFields.value = extractFields(tableDataList.value);
 
-
-
   total.value = res.total
 
+  // Update the count for the current active segment
   Statuses.value.forEach(status => {
-  if (status.label === activeSegment.value) {
-    status.count = res.total; // Update this count dynamically
-  }
-});
+    if (status.value === activeSegment.value) {
+      status.count = res.total; // Update this count dynamically
+    }
+  });
 
 
 loading.value = false
@@ -1955,229 +2012,104 @@ console.log(' deletedGrievancesCount.value . ', deletedGrievances.value )
 
 }
 
-const onSegmentClick = async () => {
+const onSegmentClick = async (statusValue?: string) => {
+  if (statusValue) {
+    activeSegment.value = statusValue
+  }
   console.log(activeSegment.value)
   tableDataList.value=[]
-  currentPage.value=1 // change paignation page to first every time
+  currentPage.value=1 // change pagination page to first every time
 
-  if (activeSegment.value === "Sorting") {
+  // Clear existing status filters
+  const statusIndex = filters.value.indexOf('status')
+  if (statusIndex !== -1) {
+    filters.value.splice(statusIndex, 1)
+    filterValues.value.splice(statusIndex, 1)
+    filterFunction.value.splice(statusIndex, 1)
+  }
 
+  if (activeSegment.value === "All") {
+    // For "All" grievances, don't add any status filter
+    console.log('Showing all grievances')
+  } else if (activeSegment.value === "Sorting") {
     var selectOption = 'status'
     if (!filters.value.includes(selectOption)) {
       filters.value.push(selectOption)
+      filterFunction.value.push('in')
     }
+    var index = filters.value.indexOf(selectOption)
+    filterValues.value[index] = ['Sorting']
 
-    var index = filters.value.indexOf(selectOption) // 1
-
-    // clear previously selected
-    if (filterValues.value[index]) {
-      // filterValues[index].length = 0
-      filterValues.value.splice(index, 1)
-    }
-
-    if (!filterValues.value.includes('Sorting')) {
-      filterValues.value.splice(index, 0, ['Sorting']) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
-    } 
-
-
-    console.log('filters.value',filters.value)
-    console.log('filterValues.value',filterValues.value)
-
-  }
-
-  if (activeSegment.value === "Under Review") {
-      var selectOption = 'status'
-      if (!filters.value.includes(selectOption)) {
-        filters.value.push(selectOption)
-      }
-
-      var index = filters.value.indexOf(selectOption) // 1
-
-      // clear previously selected
-      if (filterValues.value[index]) {
-        // filterValues[index].length = 0
-        filterValues.value.splice(index, 1)
-      }
-
-      if (!filterValues.value.includes('Under Review')) {
-        filterValues.value.splice(index, 0, ['Under Review','Investigation']) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
-      }
-
-
-
-
-  }
-
-
-
-  if (activeSegment.value === "Resolved") {
-
+  } else if (activeSegment.value === "Under Review") {
     var selectOption = 'status'
     if (!filters.value.includes(selectOption)) {
       filters.value.push(selectOption)
+      filterFunction.value.push('in')
     }
+    var index = filters.value.indexOf(selectOption)
+    filterValues.value[index] = ['Under Review', 'Investigation']
 
-    var index = filters.value.indexOf(selectOption) // 1
-
-    // clear previously selected
-    if (filterValues.value[index]) {
-      // filterValues[index].length = 0
-      filterValues.value.splice(index, 1)
-    }
-
-    if (!filterValues.value.includes('Resolved')) {
-      filterValues.value.splice(index, 0, ['Resolved']) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
-    }
-
-   }
-
-  if (activeSegment.value === "Escalated") {
-
+  } else if (activeSegment.value === "Resolved") {
     var selectOption = 'status'
     if (!filters.value.includes(selectOption)) {
       filters.value.push(selectOption)
+      filterFunction.value.push('in')
     }
+    var index = filters.value.indexOf(selectOption)
+    filterValues.value[index] = ['Resolved']
 
-    var index = filters.value.indexOf(selectOption) // 1
-
-    // clear previously selected
-    if (filterValues.value[index]) {
-      // filterValues[index].length = 0
-      filterValues.value.splice(index, 1)
+  } else if (activeSegment.value === "Escalated") {
+    var selectOption = 'status'
+    if (!filters.value.includes(selectOption)) {
+      filters.value.push(selectOption)
+      filterFunction.value.push('in')
     }
+    var index = filters.value.indexOf(selectOption)
+    filterValues.value[index] = ['Escalated', 'Returned']
 
-    if (!filterValues.value.includes('Escalated')) {
-      filterValues.value.splice(index, 0, ['Escalated','Returned']) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+  } else if (activeSegment.value === "Closed") {
+    var selectOption = 'status'
+    if (!filters.value.includes(selectOption)) {
+      filters.value.push(selectOption)
+      filterFunction.value.push('in')
     }
-   
-   }
+    var index = filters.value.indexOf(selectOption)
+    filterValues.value[index] = ['Closed']
 
-  if (activeSegment.value === "Closed") {
-      var selectOption = 'status'
-      if (!filters.value.includes(selectOption)) {
-        filters.value.push(selectOption)
-      }
+  } else if (activeSegment.value === "Referred") {
+    var selectOption = 'status'
+    if (!filters.value.includes(selectOption)) {
+      filters.value.push(selectOption)
+      filterFunction.value.push('in')
+    }
+    var index = filters.value.indexOf(selectOption)
+    filterValues.value[index] = ['Referred', 'ExternalReferral']
 
-      var index = filters.value.indexOf(selectOption) // 1
+  } else if (activeSegment.value === "In Court") {
+    var selectOption = 'status'
+    if (!filters.value.includes(selectOption)) {
+      filters.value.push(selectOption)
+      filterFunction.value.push('in')
+    }
+    var index = filters.value.indexOf(selectOption)
+    filterValues.value[index] = ['In Court']
 
-      // clear previously selected
-      if (filterValues.value[index]) {
-        // filterValues[index].length = 0
-        filterValues.value.splice(index, 1)
-      }
+  } else if (activeSegment.value === "Rejected") {
+    var selectOption = 'status'
+    if (!filters.value.includes(selectOption)) {
+      filters.value.push(selectOption)
+      filterFunction.value.push('in')
+    }
+    var index = filters.value.indexOf(selectOption)
+    filterValues.value[index] = ['Rejected']
 
-      if (!filterValues.value.includes('Closed')) {
-        filterValues.value.splice(index, 0, ['Closed']) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
-      }
-
-   }
-
- if (activeSegment.value === "Referred") {
-      var selectOption = 'status'
-      if (!filters.value.includes(selectOption)) {
-        filters.value.push(selectOption)
-      }
-
-      var index = filters.value.indexOf(selectOption) // 1
-
-      // clear previously selected
-      if (filterValues.value[index]) {
-        // filterValues[index].length = 0
-        filterValues.value.splice(index, 1)
-      }
-
-      if (!filterValues.value.includes('Referred')) {
-        filterValues.value.splice(index, 0, ['Referred','ExternalReferral']) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
-      }
-
-
-
-
+  } else if (activeSegment.value === "Deleted") {
+    console.log("Deleted grievances.....")
+    getGrievanceDeleted()
+    return
   }
 
-  
- if (activeSegment.value === "In Court") {
-      var selectOption = 'status'
-      if (!filters.value.includes(selectOption)) {
-        filters.value.push(selectOption)
-      }
-
-      var index = filters.value.indexOf(selectOption) // 1
-
-      // clear previously selected
-      if (filterValues.value[index]) {
-        // filterValues[index].length = 0
-        filterValues.value.splice(index, 1)
-      }
-
-      if (!filterValues.value.includes('In Court')) {
-        filterValues.value.splice(index, 0, ['In Court']) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
-      }
-
-  }
-
-
-
-  if (activeSegment.value === "Rejected") {
-      var selectOption = 'status'
-      if (!filters.value.includes(selectOption)) {
-        filters.value.push(selectOption)
-      }
-
-      var index = filters.value.indexOf(selectOption) // 1
-
-      // clear previously selected
-      if (filterValues.value[index]) {
-        // filterValues[index].length = 0
-        filterValues.value.splice(index, 1)
-      }
-
-      if (!filterValues.value.includes('Rejected')) {
-        filterValues.value.splice(index, 0, ['Rejected']) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
-      }
-
-  }
-
-
-  
-  if (activeSegment.value === "Deleted") {
-    
-    console.log("Deleted settlements.....")
- 
-   await getGrievanceDeleted()
-
-  }
-    // if (roles_filters.length > 0) {
-    //     filters.value.push(roles_filters[0].field);  // Add the field to filters if roles_filters is not empty
-    //   }
-
-    //   // Prepare filterValues array
-    //   if (roles_filters.length > 0) {
-    //     filterValues.value.push([roles_filters[0].value]);  // Add the value to filterValues if roles_filters is not empty
-    //   }
-
-    // Prepare filters and filterValues arrays dynamically
-      roles_filters.forEach((role_filter) => {
-        const index = filters.value.indexOf(role_filter.field); // Check if the field already exists in filters
-
-        if (index === -1) {
-          // If the field is not in filters, add it
-          filters.value.push(role_filter.field);
-          filterValues.value.push([role_filter.value]); // Create a new array with the value
-        } else {
-          // If the field already exists, append the value to the corresponding filterValues entry
-          if (!filterValues.value[index].includes(role_filter.value)) {
-            filterValues.value[index].push(role_filter.value);
-          }
-        }
-      });
-
-      loading.value=true
-
-console.log('filters.value', filters.value)
-  console.log('filterValues.value', filterValues.value)
-
-  getFilteredData(filters.value, filterValues.value)
+  await getFilteredData(filters.value, filterValues.value)
 }
 
 
@@ -2280,22 +2212,15 @@ if (selectedCounty.value) {
     filters.value.splice(index, 1);
     filterValues.value.splice(index, 1);
   }
+
 }
-
-
-console.log(filters.value)
 
 if (search_string.value) {
   getFilteredBySearchData(search_string.value)
 } else {
- // getNewOrRejectedSettlements(activeSegment.value)
-
-
   getFilteredData(filters.value, filterValues.value)
-
+  getCounts()
 }
-
-
 }
 
 
@@ -2338,11 +2263,11 @@ if (selectedSubCounty.value ) {
 }
 
 
-
 if (search_string.value) {
   getFilteredBySearchData(search_string.value)
 } else {
   getFilteredData(filters.value, filterValues.value)
+  getCounts()
 }
 }
 
@@ -2400,6 +2325,7 @@ if (search_string.value) {
   getFilteredBySearchData(search_string.value)
 } else {
   getFilteredData(filters.value, filterValues.value)
+  getCounts()
 }
 }
 
@@ -2853,289 +2779,399 @@ if (search_string.value) {
   getFilteredBySearchData(search_string.value)
 } else {
   getFilteredData(filters.value, filterValues.value)
+  getCounts()
 }
 }
 
+
+// New reactive variables for improved UX
+const isFiltersOpen = ref(false)
+const searchQuery = ref('')
+const isSearching = ref(false)
+
+// Debounced search function
+let searchTimeout: NodeJS.Timeout | null = null
+const debouncedSearch = (value: string) => {
+  if (searchTimeout) {
+    clearTimeout(searchTimeout)
+  }
+  searchTimeout = setTimeout(() => {
+    performSearch(value)
+  }, 300)
+}
+
+const performSearch = async (query: string) => {
+  if (!query.trim()) {
+    await handleClear()
+    return
+  }
+  
+  isSearching.value = true
+  try {
+    await getFilteredBySearchData(query)
+    // Refresh counts after search
+    await getCounts()
+  } finally {
+    isSearching.value = false
+  }
+}
+
+const toggleFilters = () => {
+  isFiltersOpen.value = !isFiltersOpen.value
+}
+
+// Enhanced status type mapping
+const getStatusType = (status: string) => {
+  const statusMap: Record<string, string> = {
+    'Sorting': 'warning',
+    'Under Review': 'info',
+    'Investigation': 'info',
+    'Resolved': 'success',
+    'Escalated': 'danger',
+    'Returned': 'danger',
+    'Closed': 'info',
+    'Referred': 'warning',
+    'ExternalReferral': 'warning',
+    'In Court': 'danger',
+    'Rejected': 'danger',
+    'Deleted': 'info'
+  }
+  return statusMap[status] || 'info'
+}
+
+// Enhanced row class name function
+const getRowClassName = ({ row }: { row: any }) => {
+  const status = row.status
+  const baseClass = 'grievance-row'
+  
+  if (status === 'Sorting') return `${baseClass} status-sorting`
+  if (status === 'Resolved') return `${baseClass} status-resolved`
+  if (status === 'Rejected') return `${baseClass} status-rejected`
+  if (status === 'Escalated' || status === 'Returned') return `${baseClass} status-escalated`
+  if (status === 'Closed') return `${baseClass} status-closed`
+  if (status === 'Referred' || status === 'ExternalReferral') return `${baseClass} status-referred`
+  
+  return baseClass
+}
+
+// Enhanced row click handler
+const handleRowClick = (row: any) => {
+  push({
+    name: 'GrievanceDetails',
+    params: { id: row.id }
+  })
+}
 
 </script>
 
 <template>
-  <el-card>
-    <el-row
-      type="flex"
-      justify="start"
-      :gutter="10"
-      style="flex-wrap: wrap; align-items: center; margin-bottom: 10px"
-    >
-      <!-- Back Button -->
-      <el-col :xs="24" :sm="4" :md="4" :lg="2">
-        <el-button type="primary" plain :icon="Back" @click="goBack" style="width: 100%;">
-          Back
-        </el-button>
-      </el-col>
-
-      <!-- Category -->
-      <el-col :xs="24" :sm="24" :md="24" :lg="6">
-        <el-select
-          size="default"
-          v-model="selectedCategories"
-          :onChange="filterByCategory"
-          multiple
-          clearable
-          filterable
-          collapse-tags
-          placeholder="Filter By Category"
-          style="width: 100%;"
-        >
-          <el-option
-            v-for="item in grievanceOptions"
-            :key="item.value"
-            :label="item.label"
-            :value="item.value"
-          />
-        </el-select>
-      </el-col>
-
-      <!-- County -->
-      <el-col v-if="isNationalStaff" :xs="24" :sm="12" :md="6" :lg="4">
-        <el-select
-          size="default"
-          v-model="selectedCounty"
-          :onChange="filterByCounty"
-          :onClear="handleClear"
-          multiple
-          clearable
-          filterable
-          collapse-tags
-          placeholder="Filter By County"
-          style="width: 100%;"
-        >
-          <el-option
-            v-for="item in countiesOptions"
-            :key="item.value"
-            :label="item.label"
-            :value="item.value"
-          />
-        </el-select>
-      </el-col>
-
-      <!-- Subcounty -->
-      <el-col :xs="24" :sm="12" :md="6" :lg="4">
-        <el-select
-          :disabled="!selectedCounty"
-          size="default"
-          v-model="selectedSubCounty"
-          :onChange="filterBySubCounty"
-          multiple
-          clearable
-          filterable
-          collapse-tags
-          placeholder="Filter By Subcounty"
-          style="width: 100%;"
-        >
-          <el-option
-            v-for="item in subcountiesOptions"
-            :key="item.value"
-            :label="item.label"
-            :value="item.value"
-          />
-        </el-select>
-      </el-col>
-
-      <!-- Ward -->
-      <el-col :xs="24" :sm="24" :md="24" :lg="4">
-        <el-select
-          :disabled="!selectedSubCounty"
-          size="default"
-          v-model="selectedWard"
-          :onChange="filterByWard"
-          multiple
-          clearable
-          filterable
-          collapse-tags
-          placeholder="Filter By Ward"
-          style="width: 100%;"
-        >
-          <el-option
-            v-for="item in wardOptions"
-            :key="item.value"
-            :label="item.label"
-            :value="item.value"
-          />
-        </el-select>
-      </el-col>
-
-      <!-- Action Buttons -->
-      <el-col :xs="24" :sm="24" :md="12" :lg="4">
-        <div style="  gap: 5px;  ">
-          <!-- <el-tooltip v-if="isNationalStaff || isSuperAdmin" content="Import Data" placement="top">
-            <el-button @click="uploadData" type="primary" :icon="UploadFilled" />
-          </el-tooltip> -->
-          <el-tooltip content="Add Grievance" placement="top">
-            <PermissionWrapper :permissions="['grievance:create']">
-              <el-button :onClick="AddComponent" type="primary" :icon="Plus" />
-            </PermissionWrapper>
-          </el-tooltip>
-              <el-tooltip content="Clear" placement="top">
-            <el-button @click="handleClear" type="primary">
-              <Icon icon="mdi:filter-remove" />
-            </el-button>
-          </el-tooltip>
-
-
-          <PermissionWrapper  :model="model" :associated_models="associated_multiple_models">
-            <DownloadCustom
-              :data="tableDataList"
-              :model="model"
-              :associated_models="associated_multiple_models"
-            />
-          </PermissionWrapper>
-        </div>
-      </el-col>
-    </el-row>
-
-    <div >
-  <el-tabs v-model="activeSegment" @tab-click="onSegmentClick"  type="border-card">
-     <el-tab-pane
-        v-for="segment in filteredSegments"
-        :key="segment.value"
-        :name="segment.value"
-      >
-        <template #label>
-          <div class="flex flex-col items-center p-1  ">
-            <el-icon size="18"  >
-              <component :is="segment.icon" />
-            </el-icon>
-            <div style="font-weight: 500; font-size: 13px; ">
-                {{ segment.label }} ({{ segment.count }})
-              </div>
-          </div>
-          
-        </template>
-    
-  <!-- Search Grievance -->
-  <el-col :xs="24" :sm="24" :md="24" :lg="24"  >
-    <el-select
-      v-model="grv_name"
-      multiple
-      clearable
-      filterable
-      remote
-      :remote-method="searchByName"
-      :onClear="handleClear"
-      reserve-keyword
-      placeholder="Search Grievance by code, description of name of complainant"
-      style="width: 100%; margin-top:10px;"
-    />
-  </el-col>
-
-
-        <el-table
-          v-loading="loading"
-          :data="tableDataList"
-          :row-key="segment.rowKey || 'id'"
-          :max-height="pageHeight"
-          border
-          show-overflow-tooltip
-          @selection-change="handleSelectionChange"
-          @row-click="handleRowDblClick"
-          style="width: 100%; margin-top: 10px;"
-        >
-          <!-- Optional Selection Column for Non-Final Statuses -->
-          <el-table-column
-            v-if="!['Closed', 'Resolved', 'In Court', 'Deleted', 'Rejected'].includes(segment.label)"
-            type="selection"
-            width="55"
-            :selectable="isRowSelectable"
-          />
-
-          <el-table-column label="#" width="80" prop="id" sortable>
-            <template #default="scope">
-              <div v-if="scope.row.grievance_documents?.length > 0" style="display: inline-flex; align-items: center;">
-                <span>{{ scope.row.id }}</span>
-                <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
-              </div>
-              <span v-else>{{ scope.row.id }}</span>
-            </template>
-          </el-table-column>
-
-          <el-table-column label="Code" prop="code" sortable width="150" />
-          <el-table-column label="Category" prop="nature" sortable width="150" />
-          <el-table-column label="Description" prop="description" sortable width="350" />
-
-          <el-table-column label="Location" sortable width="350">
-            <template #default="scope">
-              <span>{{ scope.row.settlement?.name }}, {{ scope.row.county?.name }}</span>
-            </template>
-          </el-table-column>
-
-          <el-table-column prop="date" label="Date Reported" sortable width="150">
-            <template #default="scope">
-              <span>{{ formatDate(scope.row.date_reported) }}</span>
-            </template>
-          </el-table-column>
-
-          <!-- Show only in 'Sorting' tab -->
-          <el-table-column label="Complainant" prop="name" sortable width="150" v-if="segment.label === 'Sorting'" />
-          <el-table-column label="Reported By" width="150" v-if="segment.label === 'Sorting'">
-            <template #default="scope">
-              <span v-if="scope.row.self_reported">Self</span>
-              <span v-else>{{ scope.row.reporter_name }}</span>
-            </template>
-          </el-table-column>
-
-          <!-- Expiry Column -->
-          <el-table-column label="Expiry" width="200">
-            <template #default="scope">
-              <span :class="getExpiryClass(scope.row.status_expiry_date)" style="margin-right: 5px;">
-                {{ getDaysToExpiry(scope.row.status_expiry_date) }}
-              </span>
-            </template>
-          </el-table-column>
-        </el-table>
-
-    <!-- Bulk Action (only if applicable) -->
-    <div v-if="selectedRows.length > 0  " style="margin-top: 10px;">
-      <el-button type="primary" plain @click="handleBulkAction">
-        Refer Selected {{ selectedRows.length }} Grievances
-      </el-button>
-    </div>
-
-    <!-- Pagination -->
-    <el-pagination
-      v-model:currentPage="currentPage"
-      v-model:page-size="pageSize"
-      :pager-count="pagerCount"
-      :page-sizes="[5,8, 10, 20, 50, 200, 10000]"
-      :total="total"
-      :layout="paginationLayout"
-      :background="true"
-      class="mt-4"
-      @size-change="onPageSizeChange"
-      @current-change="onPageChange"
-    />
-  </el-tab-pane>
-</el-tabs>
-
-    </div>
-
-    <!-- Search Grievance -->
-    <!-- <el-col :xs="24" :sm="24" :md="24" :lg="24">
-      <el-select
-        v-model="grv_name"
-        multiple
-        clearable
-        filterable
-        remote
-        :remote-method="searchByName"
-        reserve-keyword
-        placeholder="Search Grievance by code, description or name of complainant"
-        style="width: 100%; margin-top:10px;"
-      />
-    </el-col> -->
-
+  <div class="grievance-dashboard">
   
-  </el-card>
+    <!-- Main Content Card -->
+    <el-card class="main-content-card">
+
+      <template #header>
+      <div class="card-header">
+        <div class="header-content">
+          <div class="header-icon">
+            <el-icon :size="24">
+              <Postcard />
+            </el-icon>
+          </div>
+          <div class="header-text">
+            <h3>Grievance Management</h3>
+            <p>Manage and track grievance complaints</p>
+          </div>
+        </div>
+        
+        <div class="header-actions">
+          <el-button type="primary" plain :icon="Back" @click="goBack">
+            Back
+          </el-button>
+          
+          <div class="header-search">
+            <el-input
+              v-model="searchQuery"
+              placeholder="Search grievances by code, description, or complainant name..."
+              :prefix-icon="Search"
+              clearable
+              @input="debouncedSearch"
+              class="header-search-input"
+              v-loading="isSearching"
+            >
+              <template #append>
+                <el-button :icon="Search" @click="performSearch(searchQuery)" />
+              </template>
+            </el-input>
+          </div>
+        </div>
+      </div>
+      </template>
+
+    
+      <!-- Status Dashboard -->
+      <div class="status-dashboard">
+        <div class="status-cards">
+          <template v-for="status in Statuses" :key="status.value">
+            <!-- Regular status cards -->
+            <div 
+              v-if="!['Deleted', 'Rejected'].includes(status.value)"
+              :class="['status-card', { active: activeSegment === status.value }]"
+              @click="onSegmentClick(status.value)"
+            >
+              <div class="status-icon">
+                <el-icon :size="18">
+                  <component :is="status.icon" />
+                </el-icon>
+              </div>
+              <div class="status-info">
+                <div class="status-label">{{ status.label }}</div>
+                <div class="status-count">{{ status.count }}</div>
+              </div>
+            </div>
+            
+            <!-- Permission-wrapped status cards -->
+            <PermissionWrapper 
+              v-else-if="['Deleted', 'Rejected'].includes(status.value)"
+              :permissions="['grievance:viewDeleted']"
+            >
+              <div 
+                :class="['status-card', { active: activeSegment === status.value }]"
+                @click="onSegmentClick(status.value)"
+              >
+                <div class="status-icon">
+                  <el-icon :size="18">
+                    <component :is="status.icon" />
+                  </el-icon>
+                </div>
+                <div class="status-info">
+                  <div class="status-label">{{ status.label }}</div>
+                  <div class="status-count">{{ status.count }}</div>
+                </div>
+              </div>
+            </PermissionWrapper>
+          </template>
+        </div>
+      </div>
+
+                        <!-- Filters Bar -->
+      <div class="filters-bar">
+        <el-row :gutter="12" align="middle">
+          <el-col :xs="24" :sm="12" :md="6" :lg="6">
+            <el-select
+              v-model="selectedCategories"
+              multiple
+              clearable
+              filterable
+              collapse-tags
+              placeholder="Category"
+              @change="filterByCategory"
+              class="quick-filter"
+            >
+              <el-option
+                v-for="item in grievanceOptions"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
+          </el-col>
+
+          <el-col :xs="24" :sm="12" :md="3" :lg="3" v-if="isNationalStaff">
+            <el-select
+              v-model="selectedCounty"
+              clearable
+              filterable
+              collapse-tags
+              placeholder="County"
+              @change="filterByCounty"
+              class="quick-filter"
+            >
+              <el-option
+                v-for="item in countiesOptions"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
+          </el-col>
+
+          <el-col :xs="24" :sm="12" :md="3" :lg="3">
+            <el-select
+              v-model="selectedSubCounty"
+              :disabled="!selectedCounty"
+              clearable
+              filterable
+              collapse-tags
+              placeholder="Subcounty"
+              @change="filterBySubCounty"
+              class="quick-filter"
+            >
+              <el-option
+                v-for="item in subcountiesOptions"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
+          </el-col>
+
+          <el-col :xs="24" :sm="12" :md="3" :lg="3">
+            <el-select
+              v-model="selectedWard"
+              :disabled="!selectedSubCounty"
+              clearable
+              filterable
+              collapse-tags
+              placeholder="Ward"
+              @change="filterByWard"
+              class="quick-filter"
+            >
+              <el-option
+                v-for="item in wardOptions"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
+          </el-col>
+
+          <el-col :xs="24" :sm="12" :md="2" :lg="2">
+            <PermissionWrapper :permissions="['grievance:create']">
+              <el-button type="primary" :icon="Plus" @click="AddComponent" class="action-button">
+                New Grievance
+              </el-button>
+            </PermissionWrapper>
+          </el-col>
+
+          <el-col :xs="24" :sm="12" :md="2" :lg="2">
+            <el-button 
+              v-if="selectedRows.length > 0" 
+              type="success" 
+              :icon="Share"
+              @click="handleBulkAction"
+              class="action-button"
+            >
+              Refer Selected ({{ selectedRows.length }})
+            </el-button>
+          </el-col>
+
+          <el-col :xs="24" :sm="12" :md="2" :lg="2">
+            <el-button @click="handleClear" :icon="Refresh" class="action-button">
+              Clear Filters
+            </el-button>
+          </el-col>
+
+          <el-col :xs="24" :sm="12" :md="2" :lg="2" >
+            <DownloadCustom 
+              :data="tableDataList" 
+              :model="model"
+              :associated_models="associated_multiple_models" 
+              class="action-button"
+            />
+          </el-col>
+        </el-row>
+      </div>
+
+      <!-- Enhanced Table -->
+      <el-table
+        v-loading="loading"
+        :data="tableDataList"
+        :row-class-name="getRowClassName"
+        @row-click="handleRowClick"
+        class="grievance-table"
+        border
+        show-overflow-tooltip
+        @selection-change="handleSelectionChange"
+      >
+        <!-- Optional Selection Column for Non-Final Statuses -->
+        <el-table-column
+          v-if="!['Closed', 'Resolved', 'In Court', 'Deleted', 'Rejected'].includes(activeSegment)"
+          type="selection"
+          width="50"
+          :selectable="isRowSelectable"
+        />
+
+        <el-table-column label="ID" width="80" prop="id">
+          <template #default="{ row }">
+            <div class="grievance-id">
+              <span class="id-number">#{{ row.id }}</span>
+              <el-tag v-if="row.grievance_documents?.length" size="small" type="info">
+                <el-icon><Paperclip /></el-icon>
+                {{ row.grievance_documents.length }}
+              </el-tag>
+            </div>
+          </template>
+        </el-table-column>
+
+        <el-table-column label="Grievance" min-width="300">
+          <template #default="{ row }">
+            <div class="grievance-info">
+              <div class="grievance-code">{{ row.code }}</div>
+              <div class="grievance-description">{{ row.description }}</div>
+              <div class="grievance-category">
+                <el-tag size="small">{{ row.nature }}</el-tag>
+              </div>
+            </div>
+          </template>
+        </el-table-column>
+
+        <el-table-column label="Location" width="200">
+          <template #default="{ row }">
+            <div class="location-info">
+              <div class="settlement">{{ row.settlement?.name }}</div>
+              <div class="county">{{ row.county?.name }}</div>
+            </div>
+          </template>
+        </el-table-column>
+
+        <el-table-column label="Status" width="120">
+          <template #default="{ row }">
+            <el-tag :type="getStatusType(row.status)" size="small">
+              {{ row.status }}
+            </el-tag>
+          </template>
+        </el-table-column>
+
+        <el-table-column prop="date_reported" label="Date Reported" width="150">
+          <template #default="{ row }">
+            <span>{{ formatDate(row.date_reported) }}</span>
+          </template>
+        </el-table-column>
+
+        <!-- Show only in 'Sorting' tab -->
+        <el-table-column label="Complainant" prop="name" width="150" v-if="activeSegment === 'Sorting'" />
+        <el-table-column label="Reported By" width="150" v-if="activeSegment === 'Sorting'">
+          <template #default="{ row }">
+            <span v-if="row.self_reported">Self</span>
+            <span v-else>{{ row.reporter_name }}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column label="Expiry" width="120">
+          <template #default="{ row }">
+            <div :class="getExpiryClass(row.status_expiry_date)">
+              {{ getDaysToExpiry(row.status_expiry_date) }}
+            </div>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <!-- Pagination -->
+      <el-pagination
+        v-model:currentPage="currentPage"
+        v-model:page-size="pageSize"
+        :pager-count="pagerCount"
+        :page-sizes="[5, 8, 10, 20, 50, 200, 10000]"
+        :total="total"
+        :layout="paginationLayout"
+        :background="true"
+        class="pagination"
+        @size-change="onPageSizeChange"
+        @current-change="onPageChange"
+      />
+    </el-card>
+  </div>
 
   <!-- Download Fields Dialog -->
   <el-dialog title="Select Fields" v-model="showDownloadDialog" :width="isMobile ? '90%' : '60%'">
@@ -3156,212 +3192,242 @@ if (search_string.value) {
     </div>
   </el-dialog>
 
-  <!-- Add Grievance Dialog -->
-  <el-dialog
-    v-model="AddDialogVisible"
-    @close="handleCloseDialog"
-    title="File a Grievance"
-    :width="isMobile ? '90%' : '65%'"
-    draggable
+  <!-- Add Grievance Drawer -->
+  <el-drawer 
+    v-model="AddDialogVisible" 
+    direction="rtl" 
+    :size="isMobile ? '100%' : '50%'"
+    :with-header="false"
+    :before-close="handleCloseDialog"
   >
-    <el-steps :active="active" finish-status="success">
-      <el-step title="Complainant Details" />
-      <el-step title="Grievance Details" />
-      <el-step title="Review & Submit" />
-    </el-steps>
+    <!-- Custom Header -->
+    <div class="drawer-header">
+      <div class="header-content">
+        <div class="header-icon">
+          <el-icon :size="24">
+            <Plus />
+          </el-icon>
+        </div>
+        <div class="header-text">
+          <h3>File a Grievance</h3>
+          <p>Create a new grievance complaint</p>
+        </div>
+      </div>
+      <el-button 
+        type="text" 
+        @click="AddDialogVisible = false"
+        class="close-button"
+      >
+        <el-icon :size="20">
+          <Close />
+        </el-icon>
+      </el-button>
+    </div>
 
-    <el-form
-      :model="grmForm"
-      class="demo-form-inline"
-      label-position="top"
-      :rules="currentStepRules"
-      ref="dynamicFormRef"
-    >
-      <el-card shadow="hover">
+    <div class="drawer-content">
+      <el-steps :active="active" finish-status="success" class="drawer-steps">
+        <el-step title="Complainant Details" />
+        <el-step title="Grievance Details" />
+        <el-step title="Review & Submit" />
+      </el-steps>
+
+      <el-form
+        :model="grmForm"
+        class="grievance-form"
+        label-position="top"
+        :rules="currentStepRules"
+        ref="dynamicFormRef"
+      >
         <!-- Step 1: Complainant Details -->
-        <el-row v-if="active === 0" :gutter="10">
-          <el-col :xs="24" :sm="12" :md="12" :lg="12">
-            <el-form-item id="btn1" label="Name of Complainant" prop="name">
-              <el-input v-model="grmForm.name" placeholder="Enter name" />
-            </el-form-item>
-          </el-col>
-          <el-col :xs="24" :sm="12" :md="12" :lg="12">
-            <el-form-item id="btn2" label="Gender" prop="gender">
-              <el-select v-model="grmForm.gender" placeholder="Select gender" style="width: 100%;">
-                <el-option label="Male" value="male" />
-                <el-option label="Female" value="female" />
-                <el-option label="Other" value="other" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :xs="24" :sm="12" :md="12" :lg="12">
-            <el-form-item id="btn3" label="Age Bracket" prop="age">
-              <el-select v-model="grmForm.age" placeholder="Select age bracket" style="width: 100%;">
-                <el-option v-for="range in ageRanges" :key="range.value" :label="range.label" :value="range.value" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :xs="24" :sm="12" :md="12" :lg="12">
-            <el-form-item id="btn4" label="National ID" prop="national_id">
-              <el-input v-model="grmForm.national_id" placeholder="Enter national ID" />
-            </el-form-item>
-          </el-col>
-          <el-col :xs="24" :sm="12" :md="12" :lg="12">
-            <el-form-item id="btn5" label="Phone Number" prop="phone">
-              <el-input
-                v-model="grmForm.phone"
-                placeholder="Enter phone number"
-                @input="convertPhoneNumber(grmForm.phone)"
-              />
-            </el-form-item>
-          </el-col>
-          <el-col :xs="24" :sm="12" :md="12" :lg="12">
-            <el-form-item id="btn6" label="Email (Optional)" prop="email">
-              <el-input v-model="grmForm.email" placeholder="Enter email" />
-            </el-form-item>
-          </el-col>
-        </el-row>
+        <div v-if="active === 0" class="form-step">
+          <el-row :gutter="16">
+            <el-col :xs="24" :sm="24" :md="24" :lg="24">
+              <el-form-item id="btn1" label="Name of Complainant" prop="name">
+                <el-input v-model="grmForm.name" placeholder="Enter name" />
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="24" :md="24" :lg="24">
+              <el-form-item id="btn2" label="Gender" prop="gender">
+                <el-select v-model="grmForm.gender" placeholder="Select gender" style="width: 100%;">
+                  <el-option label="Male" value="male" />
+                  <el-option label="Female" value="female" />
+                  <el-option label="Other" value="other" />
+                </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="24" :md="24" :lg="24">
+              <el-form-item id="btn3" label="Age Bracket" prop="age">
+                <el-select v-model="grmForm.age" placeholder="Select age bracket" style="width: 100%;">
+                  <el-option v-for="range in ageRanges" :key="range.value" :label="range.label" :value="range.value" />
+                </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="24" :md="24" :lg="24">
+              <el-form-item id="btn4" label="National ID" prop="national_id">
+                <el-input v-model="grmForm.national_id" placeholder="Enter national ID" />
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="24" :md="24" :lg="24">
+              <el-form-item id="btn5" label="Phone Number" prop="phone">
+                <el-input
+                  v-model="grmForm.phone"
+                  placeholder="Enter phone number"
+                  @input="convertPhoneNumber(grmForm.phone)"
+                />
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="24" :md="24" :lg="24">
+              <el-form-item id="btn6" label="Email (Optional)" prop="email">
+                <el-input v-model="grmForm.email" placeholder="Enter email" />
+              </el-form-item>
+            </el-col>
+          </el-row>
+        </div>
 
         <!-- Step 2: Grievance Details -->
-        <el-row v-if="active === 1" :gutter="10">
-          <el-col :xs="24" :sm="12" :md="12" :lg="12">
-            <el-form-item id="btn10" label="County" prop="county_id">
-              <el-select
-                v-model="grmForm.county_id"
-                placeholder="Select county"
-                style="width: 100%;"
-                @change="getSettlementByCounty(grmForm.county_id)"
-              >
-                <el-option
-                  v-for="item in countiesOptions"
-                  :key="item.value"
-                  :label="item.label"
-                  :value="item.value"
+        <div v-if="active === 1" class="form-step">
+          <el-row :gutter="16">
+            <el-col :xs="24" :sm="24" :md="24" :lg="24">
+              <el-form-item id="btn10" label="County" prop="county_id">
+                <el-select
+                  v-model="grmForm.county_id"
+                  placeholder="Select county"
+                  style="width: 100%;"
+                  @change="getSettlementByCounty(grmForm.county_id)"
+                >
+                  <el-option
+                    v-for="item in countiesOptions"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="24" :md="24" :lg="24">
+              <el-form-item id="btn11" label="Settlement" prop="settlement_id">
+                <el-select
+                  v-model="grmForm.settlement_id"
+                  placeholder="Select settlement"
+                  style="width: 100%;"
+                  @change="handleSelectSettlement(grmForm.settlement_id)"
+                >
+                  <el-option
+                    v-for="item in settlementOptions"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="24" :md="24" :lg="24">
+              <el-form-item id="btn12" label="Address" prop="address">
+                <el-input v-model="grmForm.address" placeholder="Enter address (e.g., near XXX Primary School)" />
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="24" :md="24" :lg="24">
+              <el-form-item id="btn13" label="Is this a GBV-related complaint?">
+                <el-switch v-model="grmForm.isgbv" />
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="24" :md="24" :lg="24">
+              <el-form-item id="btn14" label="Nature of Complaint" prop="nature">
+                <el-select v-model="grmForm.nature" placeholder="Select nature" style="width: 100%;">
+                  <el-option
+                    v-for="item in grievanceOptions"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="24" :md="24" :lg="24">
+              <el-form-item id="btn15" label="Description" prop="description">
+                <el-input
+                  type="textarea"
+                  v-model="grmForm.description"
+                  placeholder="Provide a detailed description"
+                  :rows="4"
                 />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :xs="24" :sm="12" :md="12" :lg="12">
-            <el-form-item id="btn11" label="Settlement" prop="settlement_id">
-              <el-select
-                v-model="grmForm.settlement_id"
-                placeholder="Select settlement"
-                style="width: 100%;"
-                @change="handleSelectSettlement(grmForm.settlement_id)"
-              >
-                <el-option
-                  v-for="item in settlementOptions"
-                  :key="item.value"
-                  :label="item.label"
-                  :value="item.value"
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="24" :md="24" :lg="24">
+              <el-form-item id="btn16" label="Plea/Request" prop="plea">
+                <el-input
+                  type="textarea"
+                  v-model="grmForm.plea"
+                  placeholder="Enter the complainant's plea or request"
+                  :rows="4"
                 />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :xs="24" :sm="24" :md="24" :lg="24">
-            <el-form-item id="btn12" label="Address" prop="address">
-              <el-input v-model="grmForm.address" placeholder="Enter address (e.g., near XXX Primary School)" />
-            </el-form-item>
-          </el-col>
-          <el-col :xs="24" :sm="12" :md="12" :lg="12">
-            <el-form-item id="btn13" label="Is this a GBV-related complaint?">
-              <el-switch v-model="grmForm.isgbv" />
-            </el-form-item>
-          </el-col>
-          <el-col :xs="24" :sm="12" :md="12" :lg="12">
-            <el-form-item id="btn14" label="Nature of Complaint" prop="nature">
-              <el-select v-model="grmForm.nature" placeholder="Select nature" style="width: 100%;">
-                <el-option
-                  v-for="item in grievanceOptions"
-                  :key="item.value"
-                  :label="item.label"
-                  :value="item.value"
-                />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :xs="24" :sm="24" :md="24" :lg="24">
-            <el-form-item id="btn15" label="Description" prop="description">
-              <el-input
-                type="textarea"
-                v-model="grmForm.description"
-                placeholder="Provide a detailed description"
-                :rows="4"
-              />
-            </el-form-item>
-          </el-col>
-          <el-col :xs="24" :sm="24" :md="24" :lg="24">
-            <el-form-item id="btn16" label="Plea/Request" prop="plea">
-              <el-input
-                type="textarea"
-                v-model="grmForm.plea"
-                placeholder="Enter the complainant's plea or request"
-                :rows="4"
-              />
-            </el-form-item>
-          </el-col>
-        </el-row>
+              </el-form-item>
+            </el-col>
+          </el-row>
+        </div>
 
         <!-- Step 3: Review & Submit -->
-        <el-row v-if="active === 2" :gutter="10">
-          <el-col :xs="24" :sm="12" :md="12" :lg="12">
-            <el-form-item id="btn17" label="Witness Name (Optional)" prop="witness">
-              <el-input v-model="grmForm.witness" placeholder="Enter witness name" />
-            </el-form-item>
-          </el-col>
-          <el-col :xs="24" :sm="12" :md="12" :lg="12">
-            <el-form-item id="btn18" label="Witness Phone (Optional)" prop="witness_phone">
-              <el-input
-                v-model="grmForm.witness_phone"
-                placeholder="Enter witness phone"
-                @input="convertPhoneNumber(grmForm.witness_phone)"
-              />
-            </el-form-item>
-          </el-col>
-          <el-col :xs="24" :sm="24" :md="24" :lg="24">
-            <el-form-item id="btn19" label="Witness Statement (Optional)" prop="witness_statement">
-              <el-input
-                type="textarea"
-                v-model="grmForm.witness_statement"
-                placeholder="Enter witness statement"
-                :rows="4"
-              />
-            </el-form-item>
-          </el-col>
-          <el-col :xs="24" :sm="24" :md="24" :lg="24">
-            <el-form-item id="btn20" label="Supporting Documentation (Optional)">
-              <el-upload
-                v-model:file-list="fileList"
-                :auto-upload="false"
-                :on-preview="handlePreview"
-                :on-remove="handleRemove"
-                :before-remove="beforeRemove"
-                :on-exceed="handleExceed"
-                :limit="3"
-                accept=".pdf,.jpg,.png"
-              >
-                <el-button type="primary">Click to upload</el-button>
-                <template #tip>
-                  <div class="el-upload__tip">
-                    Only pdf/jpg/png files with a size less than 10MB
-                  </div>
-                </template>
-              </el-upload>
-            </el-form-item>
-          </el-col>
-        </el-row>
-      </el-card>
-    </el-form>
+        <div v-if="active === 2" class="form-step">
+          <el-row :gutter="16">
+            <el-col :xs="24" :sm="24" :md="24" :lg="24">
+              <el-form-item id="btn17" label="Witness Name (Optional)" prop="witness">
+                <el-input v-model="grmForm.witness" placeholder="Enter witness name" />
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="24" :md="24" :lg="24">
+              <el-form-item id="btn18" label="Witness Phone (Optional)" prop="witness_phone">
+                <el-input
+                  v-model="grmForm.witness_phone"
+                  placeholder="Enter witness phone"
+                  @input="convertPhoneNumber(grmForm.witness_phone)"
+                />
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="24" :md="24" :lg="24">
+              <el-form-item id="btn19" label="Witness Statement (Optional)" prop="witness_statement">
+                <el-input
+                  type="textarea"
+                  v-model="grmForm.witness_statement"
+                  placeholder="Enter witness statement"
+                  :rows="4"
+                />
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="24" :md="24" :lg="24">
+              <el-form-item id="btn20" label="Supporting Documentation (Optional)">
+                <el-upload
+                  v-model:file-list="fileList"
+                  :auto-upload="false"
+                  :on-preview="handlePreview"
+                  :on-remove="handleRemove"
+                  :before-remove="beforeRemove"
+                  :on-exceed="handleExceed"
+                  :limit="3"
+                  accept=".pdf,.jpg,.png"
+                >
+                  <el-button type="primary">Click to upload</el-button>
+                  <template #tip>
+                    <div class="el-upload__tip">
+                      Only pdf/jpg/png files with a size less than 10MB
+                    </div>
+                  </template>
+                </el-upload>
+              </el-form-item>
+            </el-col>
+          </el-row>
+        </div>
+      </el-form>
 
-    <!-- Dialog Footer -->
-    <div class="dialog-footer" style="margin-top: 20px; text-align: right;">
-      <el-button id="btn8" v-if="active === 0" @click="resetForm">Clear Form</el-button>
-      <el-button id="btn9" v-if="active > 0" @click="prev">Previous</el-button>
-      <el-button id="btn7" v-if="active < 2" type="primary" @click="next">Next</el-button>
-      <el-button id="btn21" v-if="active === 2" type="primary" @click="submitForm">Submit</el-button>
-      <el-button @click="AddDialogVisible = false">Cancel</el-button>
+      <!-- Drawer Footer -->
+      <div class="drawer-footer">
+        <el-button id="btn8" v-if="active === 0" @click="resetForm">Clear Form</el-button>
+        <el-button id="btn9" v-if="active > 0" @click="prev">Previous</el-button>
+        <el-button id="btn7" v-if="active < 2" type="primary" @click="next">Next</el-button>
+        <el-button id="btn21" v-if="active === 2" type="primary" @click="submitForm">Submit</el-button>
+        <el-button @click="AddDialogVisible = false">Cancel</el-button>
+      </div>
     </div>
-  </el-dialog>
+  </el-drawer>
 
   <!-- Referral Dialog -->
  
@@ -3509,139 +3575,379 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
 </template>
 
 <style scoped>
-/* Upload area */
-.upload-demo {
-  width: 300px;
+/* Dashboard Layout */
+.grievance-dashboard {
+  padding: 20px;
+   min-height: 100vh;
 }
 
-/* Template download link */
-.template-link {
-  text-decoration: underline;
-  color: #409EFF;
-}
-
-/* Margin utility */
-.mt-4 {
-  margin-top: 16px;
-}
-
-/* Responsive pagination styles */
-@media (max-width: 768px) {
-  .el-pagination {
-    font-size: 12px;
-  }
-
-  .el-pagination .el-pagination__sizes,
-  .el-pagination .el-pagination__total {
-    display: none;
-  }
-}
-
-/* Tooltip customization (non-scoped styles like tooltips may not respond to scoped unless deep selectors used) */
-:deep(.el-tooltip__popper) {
-  max-width: 300px;
-  background-color: #e00909;
-  color: #fff;
-  font-size: 14px;
-  border-radius: 4px;
-  padding: 8px 12px;
-}
-
-:deep(.el-tooltip__popper[x-placement^="top"] .popper__arrow) {
-  border-top-color: #333;
-}
-
-/* Table row status styles */
-.el-table .danger-row {
-  --el-table-tr-bg-color: var(--el-color-danger-light-9);
-  --el-table-tr-text-color: var(--el-color-danger);
-  color: var(--el-table-tr-text-color);
-}
-
-.el-table .success-row {
-  --el-table-tr-text-color: var(--el-color-success);
-  color: var(--el-table-tr-text-color);
-}
-
-.el-table .warning-row {
-  --el-table-tr-bg-color: var(--el-color-warning-light-9);
-}
-
-.el-table .rejected-row {
-  --el-table-tr-bg-color: var(--el-color-danger-light-9);
-  --el-table-tr-text-color: var(--el-color-danger);
-  color: var(--el-table-tr-text-color);
-}
-
-.el-table .referred-row {
-  --el-table-tr-bg-color: var(--el-color-warning-light-9);
-  --el-table-tr-text-color: var(--el-color-warning);
-  color: var(--el-table-tr-text-color);
-}
-
-.el-table .escalated-row {
-  --el-table-tr-bg-color: var(--el-color-secondary);
-  --el-table-tr-text-color: var(--el-color-secondary);
-  color: var(--el-table-tr-text-color);
-}
-
-.el-table .resolved-row {
-  --el-table-tr-bg-color: var(--el-color-success-light-9);
-  --el-table-tr-text-color: var(--el-color-success);
-  color: var(--el-table-tr-text-color);
-}
-
-.el-table .closed-row {
-  --el-table-tr-bg-color: var(--el-color-info-light-9);
-  --el-table-tr-text-color: var(--el-color-info);
-  color: var(--el-table-tr-text-color);
-}
-
-/* General item spacing */
-.item {
-  margin-top: 10px;
-  margin-right: 40px;
-}
-
- /* Custom styles for Elementor segmented control */
-.custom-style .el-segmented {
-  --el-segmented-item-selected-color: var(--el-text-color-primary);
-  --el-segmented-item-selected-bg-color: #ffd100;
-  --el-border-radius-base: 16px;
+/* Header */
+.dashboard-header {
   display: flex;
-  flex-direction: row;
-  gap: 10px;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 4px;
+  padding: 20px;
+   border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.back-button {
+  min-width: 80px;
+}
+
+.dashboard-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+  color: #303133;
+}
+
+/* Filter Panel */
+.filter-panel {
+  margin-bottom: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.filter-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.filter-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.filter-content {
+  padding: 20px;
+}
+
+/* Status Dashboard */
+.status-dashboard {
+  margin-bottom: 6px;
+}
+
+.status-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.status-card {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.status-card:hover {
+  border-color: #409eff;
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.15);
+  transform: translateY(-2px);
+}
+
+.status-card.active {
+  border-color: #d8144f;
+   box-shadow: 0 4px 12px rgba(64, 158, 255, 0.2);
+}
+
+.status-icon {
+  margin-right: 8px;
+  color: #409eff;
+}
+
+.status-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.status-label {
+  font-weight: 500;
+  margin-bottom: 2px;
+  color: #303133;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status-count {
+  font-size: 18px;
+  font-weight: bold;
+  color: #409eff;
+}
+
+/* Card Header */
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e9ecef;
+ }
+
+.card-header .header-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.card-header .header-icon {
+  color: #409eff;
+}
+
+.card-header .header-text h3 {
+  margin: 0 0 4px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.card-header .header-text p {
+  margin: 0;
+  font-size: 14px;
+  color: #606266;
+}
+
+.card-header .header-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.header-search {
+  min-width: 500px;
+}
+
+.header-search-input {
   width: 100%;
 }
 
-/* Ensure segmented items are styled appropriately */
-.custom-style .el-segmented .el-segmented-item {
-  font-size: 16px;
-  padding: 10px 20px;
-  min-height: 44px; /* Touch-friendly height */
-  text-align: center;
-  border-radius: var(--el-border-radius-base);
+/* Filters Bar */
+.filters-bar {
+  margin-bottom: 20px;
+  padding: 16px 0;
 }
 
-/* Responsive styles for mobile */
-@media (max-width: 767px) {
-  .custom-style .el-segmented {
-    flex-direction: column; /* Stack segments vertically */
-    gap: 8px; /* Smaller gap for mobile */
-  }
-
-  .custom-style .el-segmented .el-segmented-item {
-    font-size: 12px; /* Smaller font for mobile */
-    padding: 8px 15px; /* Adjust padding for smaller screens */
-    min-height: 40px; /* Slightly smaller but still touch-friendly */
-    width: 100%; /* Full-width segments */
-  }
+.quick-filter {
+  width: 100%;
 }
 
-.demo-tabs > .el-tabs__content {
-  padding: 40px;
-  color: #6b778c;
-  font-size: 16px;
+.action-button {
+  width: 100%;
+  font-size: 12px;
+  padding: 6px 12px;
+  min-width: auto;
+}
+
+/* Table Styles */
+.grievance-table {
+  margin-bottom: 20px;
+}
+
+.grievance-id {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.id-number {
   font-weight: 600;
+  color: #409eff;
+}
+
+.grievance-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.grievance-code {
+  font-weight: 600;
+  color: #303133;
+}
+
+.grievance-description {
+  color: #606266;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.grievance-category {
+  margin-top: 4px;
+}
+
+.location-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settlement {
+  font-weight: 500;
+  color: #303133;
+}
+
+.county {
+  font-size: 12px;
+  color: #909399;
+}
+
+/* Row Status Classes */
+.grievance-row.status-sorting {
+  background-color: #fdf6ec;
+}
+
+.grievance-row.status-resolved {
+  background-color: #f0f9ff;
+}
+
+.grievance-row.status-rejected {
+  background-color: #fef0f0;
+}
+
+.grievance-row.status-escalated {
+  background-color: #fef0f0;
+}
+
+.grievance-row.status-closed {
+  background-color: #f5f7fa;
+}
+
+.grievance-row.status-referred {
+  background-color: #fdf6ec;
+}
+
+/* Pagination */
+.pagination {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+/* Drawer Styles */
+.drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e9ecef;
+ }
+
+.drawer-header .header-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.drawer-header .header-icon {
+  color: #409eff;
+}
+
+.drawer-header .header-text h3 {
+  margin: 0 0 4px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.drawer-header .header-text p {
+  margin: 0;
+  font-size: 14px;
+  color: #606266;
+}
+
+.close-button {
+  color: #909399;
+}
+
+.close-button:hover {
+  color: #409eff;
+}
+
+.drawer-content {
+  padding: 24px;
+  height: calc(100vh - 80px);
+  overflow-y: auto;
+}
+
+.drawer-steps {
+  margin-bottom: 24px;
+}
+
+.grievance-form {
+  margin-bottom: 24px;
+}
+
+.form-step {
+  margin-bottom: 24px;
+}
+
+.drawer-footer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 16px 24px;
+   border-top: 1px solid #e9ecef;
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .status-cards {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 8px;
+  }
+  
+  .status-card {
+    padding: 8px;
+  }
+  
+  .status-label {
+    font-size: 11px;
+  }
+  
+  .status-count {
+    font-size: 16px;
+  }
+  
+  .header-search {
+    min-width: 200px;
+  }
+  
+  .drawer-content {
+    padding: 16px;
+  }
+  
+  .drawer-footer {
+    padding: 12px 16px;
+  }
+}
+
+/* Dialog Styles */
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.option-input {
+  margin-bottom: 8px;
 }
 </style>
+
