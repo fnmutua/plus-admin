@@ -3151,92 +3151,7 @@ exports._bulkUpdateReferredToOfficer = async (req, res) => {
  
 
       
-      exports.xdeleteCascadeGrievance = async (req, res) => {
-        try {
-          const { model, id } = req.body;
-      
-          console.log("Deleting", model, "with ID", id);
-      
-          // Validate input
-          if (!model || !id) {
-            return res.status(400).send({
-              message: "Model name and record ID are required.",
-            });
-          }
-      
-          // Get the model dynamically
-          const Model = db.models[model];
-      
-          if (!Model) {
-            return res.status(404).send({
-              message: "Invalid model name.",
-            });
-          }
-      
-          // Find the record by ID
-          const record = await Model.findByPk(id);
-      
-          if (!record) {
-            return res.status(404).send({
-              message: `${model} record not found.`,
-            });
-          }
-      
-          // Get all associations for the model
-          const associations = Model.associations;
-      
-          // Delete all associated records iteratively
-          for (const assocName in associations) {
-            const association = associations[assocName];
-      
-            if (association.target) {
-              const relatedModel = association.target;
-      
-              switch (association.associationType) {
-                case "HasMany":
-                case "HasOne":
-                  await relatedModel.destroy({
-                    where: { [association.foreignKey]: id },
-                  });
-                  break;
-                case "BelongsToMany":
-                  const throughTable = association.throughModel || association.through;
-                  await throughTable.destroy({
-                    where: { [association.foreignKey]: id },
-                  });
-                  break;
-                case "BelongsTo":
-                  await relatedModel.update(
-                    { [association.foreignKey]: null },
-                    { where: { [association.foreignKey]: id } }
-                  );
-                  break;
-                default:
-                  console.log(`Unhandled association type: ${association.associationType}`);
-              }
-            }
-          }
-      
-          updateGrievanceHistory(record.id, record, req.thisUser.id, 'Delete');
-
-          // Delete the main record
-          await record.destroy();
-      
-      
-          res.status(200).send({
-            message: `${model} record and associated records deleted successfully.`,
-            data: record,
-            code: "0000",
-          });
-        } catch (error) {
-          console.error("Error deleting record:", error);
-          res.status(500).send({
-            message: "An error occurred while deleting the record.",
-            error: error.message,
-          });
-        }
-      };
-
+  
 
       exports.deleteCascadeGrievance = async (req, res) => {
         try {
@@ -3269,52 +3184,67 @@ exports._bulkUpdateReferredToOfficer = async (req, res) => {
                 });
             }
     
-            // Log grievance deletion before deleting the record
-            await updateGrievanceHistory(record.id, record, req.thisUser.id, "Delete");
-    
-            const associations = Model.associations;
-     
-          // Delete all associated records iteratively
-          for (const assocName in associations) {
-            const association = associations[assocName];
-
-            console.log('assocName',assocName)
-            if (assocName === "grievance_histories") continue; // Skip grievance_history association
-            if (assocName === "grievance_documents") continue; // Skip grievance_history association
-            if (assocName === "grievance_notifications") continue; // Skip grievance_history association
-            if (assocName === "grievance_logs") continue; // Skip grievance_history association
-
-      
-            if (association.target) {
-              const relatedModel = association.target;
-      
-              switch (association.associationType) {
-                case "HasMany":
-                case "HasOne":
-                  await relatedModel.destroy({
-                    where: { [association.foreignKey]: id },
-                  });
-                  break;
-                case "BelongsToMany":
-                  const throughTable = association.throughModel || association.through;
-                  await throughTable.destroy({
-                    where: { [association.foreignKey]: id },
-                  });
-                  break;
-                case "BelongsTo":
-                  await relatedModel.update(
-                    { [association.foreignKey]: null },
-                    { where: { [association.foreignKey]: id } }
-                  );
-                  break;
-                default:
-                  console.log(`Unhandled association type: ${association.associationType}`);
+            // For grievance model, implement soft delete instead of hard delete
+            if (model === 'grievance') {
+              console.log('Performing soft delete for grievance...');
+              
+              // Log the deletion action before updating the record
+              await updateGrievanceHistory(record.id, record, req.thisUser.id, "Delete");
+              
+              // Update the grievance record to mark it as deleted
+              await record.update({
+                status: 'Deleted',
+                current_status_date: new Date(),
+                status_expiry_date: new Date(Date.now() + (30 * 24 * 60 * 60 * 1000)) // 30 days from now
+              });
+              
+              console.log('Grievance marked as deleted (soft delete)');
+              
+              // Note: All related records are preserved for audit purposes
+              // grievance_histories, grievance_logs, grievance_documents, etc. remain intact
+            } else {
+              // For other models, use the association-based approach
+              const associations = Model.associations;
+              
+              // Delete all associated records iteratively
+              for (const assocName in associations) {
+                const association = associations[assocName];
+                
+                console.log('Processing association:', assocName);
+                
+                if (association.target) {
+                  const relatedModel = association.target;
+                  
+                  switch (association.associationType) {
+                    case "HasMany":
+                    case "HasOne":
+                      await relatedModel.destroy({
+                        where: { [association.foreignKey]: id },
+                      });
+                      break;
+                    case "BelongsToMany":
+                      const throughTable = association.throughModel || association.through;
+                      await throughTable.destroy({
+                        where: { [association.foreignKey]: id },
+                      });
+                      break;
+                    case "BelongsTo":
+                      await relatedModel.update(
+                        { [association.foreignKey]: null },
+                        { where: { [association.foreignKey]: id } }
+                      );
+                      break;
+                    default:
+                      console.log(`Unhandled association type: ${association.associationType}`);
+                  }
+                }
               }
             }
-          }
 
-            // Delete only the main record (without affecting associations)
-            await record.destroy();
+            // For non-grievance models, perform hard delete
+            if (model !== 'grievance') {
+              await record.destroy();
+            }
     
 
             // Get GRM officials based on grievance location
@@ -3347,7 +3277,9 @@ exports._bulkUpdateReferredToOfficer = async (req, res) => {
           }
 
             res.status(200).send({
-                message: `${model} record deleted successfully.`,
+                message: model === 'grievance' 
+                  ? `${model} record soft deleted successfully.` 
+                  : `${model} record deleted successfully.`,
                 data: record,
                 code: "0000",
             });

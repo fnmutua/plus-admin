@@ -460,14 +460,12 @@ const getCounts = async () => {
     const statusCounts = await Promise.all(
       Statuses.value.map(async (status) => {
         if (status.value === 'All') {
-          // For "All", get the total count excluding deleted grievances
+          // For "All", always get the total unfiltered count (no filters applied)
           const formData = {
             model: 'grievance',
             summaryField: 'id',
-            summaryFunction: 'count',
-            filterField: [...filterField, 'status'],
-            filterValue: [...filterValue, ['Deleted']],
-            filterOperator: [...filterOperator, 'ne'] // 'ne' means not equal
+            summaryFunction: 'count'
+            // No filters applied for total count
           };
           
           const response = await getSummarybyFieldFromMultipleIncludes(formData);
@@ -476,20 +474,21 @@ const getCounts = async () => {
             count: parseInt(response?.Total?.[0]?.count || '0', 10)
           };
         } else if (status.value === 'Deleted') {
-          // For deleted grievances, count records with status = 'Deleted'
+          // Special handling for deleted grievances
           const formData = {
-            model: 'grievance',
-            summaryField: 'id',
+            model: 'grievance_history',
+            summaryField: 'change_type',
             summaryFunction: 'count',
-            filterField: [...filterField, 'status'],
-            filterValue: [...filterValue, ['Deleted']],
-            filterOperator: [...filterOperator, 'eq']
+            filterField: ['change_type', 'status'],
+            filterValue: [['Delete'], ['Open']],
+            filterOperator: ['eq', 'eq']
           };
           
           const response = await getSummarybyFieldFromMultipleIncludes(formData);
+          const deletedCount = response?.Total?.find((item: any) => item.change_type === 'Delete')?.count || 0;
           return {
             status: status.value,
-            count: parseInt(response?.Total?.[0]?.count || '0', 10)
+            count: parseInt(deletedCount, 10)
           };
         } else {
           // For specific statuses, add status filter
@@ -533,7 +532,38 @@ const getCounts = async () => {
 
 
 
+const getDeletedCounts = async () => {
+  console.log('Fetching deleted grievance count...');
 
+  const formData = {
+    model: 'grievance_history',
+    summaryField: 'change_type',
+    summaryFunction: 'count',
+    groupFields: ['change_type'],
+    filterField: ['change_type','status'],
+    filterValue: [['Delete'],['Open']],
+    filterOperator: ['eq','eq']
+  };
+
+  try {
+    const response = await getSummarybyFieldFromMultipleIncludes(formData);
+    const deletedCount = response.Total.find(item => item.change_type === 'Delete')?.count || 0;
+
+    console.log('Deleted grievance count:', response.Total);
+    
+          // Update only the 'Deleted' status count
+      Statuses.value.forEach((status) => {
+        if (status.value === 'Deleted') {
+          status.count = deletedCount; // Use deletedCount directly
+        }
+      });
+
+   
+  } catch (error) {
+    console.error('Error fetching deleted grievance count:', error);
+    return 0;
+  }
+};
 
 
 
@@ -662,6 +692,7 @@ onMounted(async () => {
 
 
  await getUserRoles()
+  await   getDeletedCounts()
     await getCounts()
     window.addEventListener('resize', updatePageSize);
    updatePageSize(); // Initial check
@@ -1959,7 +1990,56 @@ const totalGrievanceCount = computed(() => {
 const deletedGrievances =ref([])
 const deletedGrievancesCount =ref()
 
+const getGrievanceDeleted = async () => {
+  deletedGrievances.value=[] // EMpty the  deletedSettlements.value first
+const model = 'grievance_history'
 
+const formData = {}
+formData.model = model
+//-Search field--------------------------------------------
+formData.searchField = 'name'
+formData.excludeGeom = false
+formData.associated_multiple_models = ['users']
+
+//--Single Filter -----------------------------------------
+
+
+// - multiple filters -------------------------------------
+formData.filters = ['change_type','status' ]
+formData.filterValues = [['Delete'],['Open']]
+
+//formData.cache_key = 'SeacrchByKey_' + search_string.value
+
+//-------------------------
+console.log("formData", formData)
+//console.log(formData)
+const res = await getSettlementListByCounty(formData)
+
+console.log('History collected........', res.data)
+ // Initialize deleted settlements
+ 
+// Process each element in the response
+res.data.forEach((item) => {
+  const beforeObject = item.changes?.before; // Extract the "before" object if it exists
+  if (beforeObject) {
+    // Add the history_id to the beforeObject
+    beforeObject.history_id = item.id;
+    beforeObject.deleted_by = item.user.name;
+    beforeObject.delete_date = item.updatedAt;
+    
+    
+    // Push the updated beforeObject to deletedSettlements
+    deletedGrievances.value.push(beforeObject);
+  }
+});
+
+ 
+deletedGrievancesCount.value = deletedGrievances.value.length;
+
+console.log(' deletedGrievancesCount.value . ', deletedGrievances.value )
+ 
+
+}
 
 const onSegmentClick = async (statusValue?: string) => {
   if (statusValue) {
@@ -2053,13 +2133,9 @@ const onSegmentClick = async (statusValue?: string) => {
     filterValues.value[index] = ['Rejected']
 
   } else if (activeSegment.value === "Deleted") {
-    var selectOption = 'status'
-    if (!filters.value.includes(selectOption)) {
-      filters.value.push(selectOption)
-      filterFunction.value.push('in')
-    }
-    var index = filters.value.indexOf(selectOption)
-    filterValues.value[index] = ['Deleted']
+    console.log("Deleted grievances.....")
+    getGrievanceDeleted()
+    return
   }
 
   await getFilteredData(filters.value, filterValues.value)
@@ -2825,21 +2901,25 @@ const handleRowClick = (row: any) => {
 
       <template #header>
       <div class="card-header">
-        <!-- Header Top Row: Title and Actions -->
-        <div class="header-top">
-          <div class="header-content">
-            <div class="total-count-badge">
-              <div class="count-number">{{ totalGrievanceCount }}</div>
-              <div class="count-label">Total Grievances</div>
-            </div>
-            
-            <div class="header-text">
-              <h3>Grievance Management</h3>
-              <p>Manage and track grievance complaints</p>
-            </div>
+        <div class="header-content">
+         <div class="total-count-badge">
+            <div class="count-number">{{ totalGrievanceCount }}</div>
+            <div class="count-label">Total Grievances</div>
+          </div>
+ 
+          <div class="header-text">
+            <h3>Grievance Management</h3>
+            <p>Manage and track grievance complaints</p>
           </div>
           
+         
+        </div>
+        
         <div class="header-actions">
+          <el-button type="primary" plain :icon="Back" @click="goBack">
+            Back
+          </el-button>
+          
           <div class="header-search">
             <el-input
               v-model="searchQuery"
@@ -2855,20 +2935,38 @@ const handleRowClick = (row: any) => {
               </template>
             </el-input>
           </div>
-          
-          <el-button type="primary" plain :icon="Back" @click="goBack">
-            Back
-          </el-button>
         </div>
-        </div>
+      </div>
+      </template>
 
-        <!-- Header Bottom Row: Status Cards -->
-        <div class="status-cards-container">
-          <div class="status-cards">
-            <template v-for="status in Statuses" :key="status.value">
-              <!-- Regular status cards (excluding All) -->
+    
+      <!-- Status Dashboard -->
+      <div class="status-dashboard">
+        <div class="status-cards">
+          <template v-for="status in Statuses" :key="status.value">
+            <!-- Regular status cards (excluding All) -->
+            <div 
+              v-if="!['All', 'Deleted', 'Rejected'].includes(status.value)"
+              :class="['status-card', { active: activeSegment === status.value }]"
+              @click="onSegmentClick(status.value)"
+            >
+              <div class="status-icon">
+                <el-icon :size="18">
+                  <component :is="status.icon" />
+                </el-icon>
+              </div>
+              <div class="status-info">
+                <div class="status-label">{{ status.label }}</div>
+                <div class="status-count">{{ status.count }}</div>
+              </div>
+            </div>
+            
+            <!-- Permission-wrapped status cards -->
+            <PermissionWrapper 
+              v-else-if="['Deleted', 'Rejected'].includes(status.value)"
+              :permissions="['grievance:viewDeleted']"
+            >
               <div 
-                v-if="!['All', 'Deleted', 'Rejected'].includes(status.value)"
                 :class="['status-card', { active: activeSegment === status.value }]"
                 @click="onSegmentClick(status.value)"
               >
@@ -2882,38 +2980,15 @@ const handleRowClick = (row: any) => {
                   <div class="status-count">{{ status.count }}</div>
                 </div>
               </div>
-              
-              <!-- Permission-wrapped status cards -->
-              <PermissionWrapper 
-                v-else-if="['Deleted', 'Rejected'].includes(status.value)"
-                :permissions="['grievance:viewDeleted']"
-              >
-                <div 
-                  :class="['status-card', { active: activeSegment === status.value }]"
-                  @click="onSegmentClick(status.value)"
-                >
-                  <div class="status-icon">
-                    <el-icon :size="18">
-                      <component :is="status.icon" />
-                    </el-icon>
-                  </div>
-                  <div class="status-info">
-                    <div class="status-label">{{ status.label }}</div>
-                    <div class="status-count">{{ status.count }}</div>
-                  </div>
-                </div>
-              </PermissionWrapper>
-            </template>
-          </div>
+            </PermissionWrapper>
+          </template>
         </div>
       </div>
-      </template>
 
-      <!-- Filters Bar -->
+                        <!-- Filters Bar -->
       <div class="filters-bar">
         <el-row :gutter="12" align="middle">
-          <!-- Filters Columns -->
-          <el-col :xs="24" :sm="12" :md="4" :lg="4">
+          <el-col :xs="24" :sm="12" :md="6" :lg="6">
             <el-select
               v-model="selectedCategories"
               multiple
@@ -2992,7 +3067,6 @@ const handleRowClick = (row: any) => {
             </el-select>
           </el-col>
 
-          <!-- Action Buttons -->
           <el-col :xs="24" :sm="12" :md="2" :lg="2">
             <PermissionWrapper :permissions="['grievance:create']">
               <el-button type="primary" :icon="Plus" @click="AddComponent" class="action-button">
@@ -3543,7 +3617,7 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
   display: flex;
   align-items: center;
   gap: 16px;
-  margin-bottom: 2px;
+  margin-bottom: 4px;
   padding: 20px;
    border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -3562,7 +3636,7 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
 
 /* Filter Panel */
 .filter-panel {
-  margin-bottom: 5px;
+  margin-bottom: 20px;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
@@ -3586,11 +3660,15 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
   padding: 20px;
 }
 
-/* Status Cards in Header */
+/* Status Dashboard */
+.status-dashboard {
+  margin-bottom: 6px;
+}
+
 .status-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
 }
 
 .status-card {
@@ -3643,16 +3721,12 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
 
 /* Card Header */
 .card-header {
-  padding: 20px 24px;
-  border-bottom: 1px solid #e9ecef;
-}
-
-.card-header .header-top {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 10px;
-}
+  padding: 20px 24px;
+  border-bottom: 1px solid #e9ecef;
+ }
 
 .card-header .header-content {
   display: flex;
@@ -3682,10 +3756,6 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
   display: flex;
   align-items: center;
   gap: 16px;
-}
-
-.card-header .status-cards-container {
-  margin-top: 8px;
 }
 
 /* Total Count Badge */
@@ -3722,7 +3792,7 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
 }
 
 .header-search {
-  min-width: 400px;
+  min-width: 500px;
 }
 
 .header-search-input {
@@ -3731,14 +3801,8 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
 
 /* Filters Bar */
 .filters-bar {
-  margin-bottom: 3px;
-  margin-top: 2px;
-  padding: 12px 0;
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.quick-filter {
-  width: 100%;
+  margin-bottom: 20px;
+  padding: 16px 0;
 }
 
 .quick-filter {
@@ -3754,7 +3818,7 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
 
 /* Table Styles */
 .grievance-table {
-  margin-bottom: 10px;
+  margin-bottom: 20px;
 }
 
 .grievance-id {
@@ -3909,7 +3973,7 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
 
 /* Responsive Design */
 @media (max-width: 768px) {
-  .card-header .header-top {
+  .card-header {
     flex-direction: column;
     gap: 16px;
     align-items: stretch;
@@ -3940,28 +4004,24 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
   }
   
   .status-cards {
-    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-    gap: 6px;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 8px;
   }
   
   .status-card {
-    padding: 6px;
+    padding: 8px;
   }
   
   .status-label {
-    font-size: 10px;
+    font-size: 11px;
   }
   
   .status-count {
-    font-size: 14px;
+    font-size: 16px;
   }
   
   .header-search {
     min-width: 200px;
-  }
-  
-  .filters-bar {
-    padding: 12px 0;
   }
   
   .drawer-content {
