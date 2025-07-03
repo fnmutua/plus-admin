@@ -460,14 +460,12 @@ const getCounts = async () => {
     const statusCounts = await Promise.all(
       Statuses.value.map(async (status) => {
         if (status.value === 'All') {
-          // For "All", use current filters without status
+          // For "All", always get the total unfiltered count (no filters applied)
           const formData = {
             model: 'grievance',
             summaryField: 'id',
-            summaryFunction: 'count',
-            filterField,
-            filterValue,
-            filterOperator
+            summaryFunction: 'count'
+            // No filters applied for total count
           };
           
           const response = await getSummarybyFieldFromMultipleIncludes(formData);
@@ -1982,11 +1980,11 @@ const filteredSegments = computed(() => {
   return Statuses.value.filter(option => !option.hidden);
 });
 
-// Computed property for total count
+// Computed property for total count (unfiltered)
 const totalGrievanceCount = computed(() => {
-  return Statuses.value
-    .filter(status => status.value !== 'All' && status.value !== 'Deleted')
-    .reduce((sum, status) => sum + status.count, 0);
+  // Get the "All" count which represents the total unfiltered count
+  const allStatus = Statuses.value.find(status => status.value === 'All');
+  return allStatus ? allStatus.count : 0;
 });
 
 const deletedGrievances =ref([])
