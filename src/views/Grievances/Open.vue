@@ -395,7 +395,7 @@ const total = ref(0)
 
 
 const mobileBreakpoint = 768;
-const defaultPageSize = 8;
+const defaultPageSize = 5;
 const mobilePageSize = 5;
 const pageSize = ref(defaultPageSize);
 const pageHeight = ref(600);
@@ -429,77 +429,101 @@ const updatePageSize = () => {
 const getCounts = async () => {
   console.log('Fetching grievance counts...', filterValues.value, filters.value);
 
-  const rawFilterValues = toRaw(filterValues.value);
-  const rawFilters = toRaw(filters.value);
+  try {
+    // Build filter parameters
+    const filterField: string[] = [];
+    const filterValue: any[][] = [];
+    const filterOperator: string[] = [];
 
-  const filterField = [];
-  const filterValue = [];
-  const filterOperator = [];
+    // Process current filters (excluding status filter for individual counts)
+    for (let i = 0; i < filters.value.length; i++) {
+      const field = filters.value[i];
+      const value = filterValues.value[i];
 
-  if (rawFilters.length === rawFilterValues.length) {
-    for (let i = 0; i < rawFilters.length; i++) {
-      const field = rawFilters[i];
-      const value = rawFilterValues[i];
+      // Skip status filter when getting individual status counts
+      if (field === 'status') continue;
 
       if (field && value !== undefined && value !== null) {
         filterField.push(field);
-
+        
         if (Array.isArray(value)) {
           filterValue.push(value);
-          filterOperator.push('eq');
+          filterOperator.push('in');
         } else {
           filterValue.push([value]);
           filterOperator.push('eq');
         }
       }
     }
-  }
 
-  // Get total count for "All Grievances"
-  const totalFormData = {
-    model: 'grievance',
-    summaryField: 'id',
-    summaryFunction: 'count',
-    filterField,
-    filterValue,
-    filterOperator
-  };
+    // Get counts for each status
+    const statusCounts = await Promise.all(
+      Statuses.value.map(async (status) => {
+        if (status.value === 'All') {
+          // For "All", use current filters without status
+          const formData = {
+            model: 'grievance',
+            summaryField: 'id',
+            summaryFunction: 'count',
+            filterField,
+            filterValue,
+            filterOperator
+          };
+          
+          const response = await getSummarybyFieldFromMultipleIncludes(formData);
+          return {
+            status: status.value,
+            count: parseInt(response?.Total?.[0]?.count || '0', 10)
+          };
+        } else if (status.value === 'Deleted') {
+          // Special handling for deleted grievances
+          const formData = {
+            model: 'grievance_history',
+            summaryField: 'change_type',
+            summaryFunction: 'count',
+            filterField: ['change_type', 'status'],
+            filterValue: [['Delete'], ['Open']],
+            filterOperator: ['eq', 'eq']
+          };
+          
+          const response = await getSummarybyFieldFromMultipleIncludes(formData);
+          const deletedCount = response?.Total?.find((item: any) => item.change_type === 'Delete')?.count || 0;
+          return {
+            status: status.value,
+            count: parseInt(deletedCount, 10)
+          };
+        } else {
+          // For specific statuses, add status filter
+          const statusFormData = {
+            model: 'grievance',
+            summaryField: 'id',
+            summaryFunction: 'count',
+            filterField: [...filterField, 'status'],
+            filterValue: [...filterValue, [status.value]],
+            filterOperator: [...filterOperator, 'eq']
+          };
+          
+          const response = await getSummarybyFieldFromMultipleIncludes(statusFormData);
+          return {
+            status: status.value,
+            count: parseInt(response?.Total?.[0]?.count || '0', 10)
+          };
+        }
+      })
+    );
 
-  // Get status-specific counts
-  const statusFormData = {
-    model: 'grievance',
-    summaryField: 'status',
-    summaryFunction: 'count',
-    groupFields: ['status'],
-    filterField,
-    filterValue,
-    filterOperator
-  };
-
-  console.log('Constructed formData:', statusFormData);
-
-  try {
-    // Get total count
-    const totalResponse = await getSummarybyFieldFromMultipleIncludes(totalFormData);
-    const totalCount = totalResponse?.Total?.[0]?.count || 0;
-
-    // Get status-specific counts
-    const response = await getSummarybyFieldFromMultipleIncludes(statusFormData);
-    const summary = response?.Total || [];
-
-    console.log('Grievance status counts:', summary);
-    console.log('Total count:', totalCount);
-
-    Statuses.value.forEach((status) => {
-      if (status.value === 'All') {
-        status.count = parseInt(totalCount, 10);
-      } else {
-        const match = summary.find(item => item.status === status.value);
-        status.count = match ? parseInt(match.count, 10) : 0;
+    // Update status counts
+    statusCounts.forEach(({ status, count }) => {
+      const statusObj = Statuses.value.find(s => s.value === status);
+      if (statusObj) {
+        statusObj.count = count;
       }
     });
+
+    console.log('Updated status counts:', statusCounts);
   } catch (error) {
     console.error('Error fetching status counts:', error);
+    // Reset all counts to 0 on error
     Statuses.value.forEach((status) => {
       status.count = 0;
     });
@@ -1958,6 +1982,13 @@ const filteredSegments = computed(() => {
   return Statuses.value.filter(option => !option.hidden);
 });
 
+// Computed property for total count
+const totalGrievanceCount = computed(() => {
+  return Statuses.value
+    .filter(status => status.value !== 'All' && status.value !== 'Deleted')
+    .reduce((sum, status) => sum + status.count, 0);
+});
+
 const deletedGrievances =ref([])
 const deletedGrievancesCount =ref()
 
@@ -2873,15 +2904,17 @@ const handleRowClick = (row: any) => {
       <template #header>
       <div class="card-header">
         <div class="header-content">
-          <div class="header-icon">
-            <el-icon :size="24">
-              <Postcard />
-            </el-icon>
+         <div class="total-count-badge">
+            <div class="count-number">{{ totalGrievanceCount }}</div>
+            <div class="count-label">Total Grievances</div>
           </div>
+ 
           <div class="header-text">
             <h3>Grievance Management</h3>
             <p>Manage and track grievance complaints</p>
           </div>
+          
+         
         </div>
         
         <div class="header-actions">
@@ -2913,9 +2946,9 @@ const handleRowClick = (row: any) => {
       <div class="status-dashboard">
         <div class="status-cards">
           <template v-for="status in Statuses" :key="status.value">
-            <!-- Regular status cards -->
+            <!-- Regular status cards (excluding All) -->
             <div 
-              v-if="!['Deleted', 'Rejected'].includes(status.value)"
+              v-if="!['All', 'Deleted', 'Rejected'].includes(status.value)"
               :class="['status-card', { active: activeSegment === status.value }]"
               @click="onSegmentClick(status.value)"
             >
@@ -3162,7 +3195,7 @@ const handleRowClick = (row: any) => {
         v-model:currentPage="currentPage"
         v-model:page-size="pageSize"
         :pager-count="pagerCount"
-        :page-sizes="[5, 8, 10, 20, 50, 200, 10000]"
+        :page-sizes="[5, 10, 20, 50, 200, 10000]"
         :total="total"
         :layout="paginationLayout"
         :background="true"
@@ -3700,7 +3733,8 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
 .card-header .header-content {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
+  flex: 1;
 }
 
 .card-header .header-icon {
@@ -3724,6 +3758,39 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
   display: flex;
   align-items: center;
   gap: 16px;
+}
+
+/* Total Count Badge */
+.total-count-badge {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 8px;
+  padding: 8px 16px;
+  color: white;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+  transition: all 0.3s ease;
+  min-width: 100px;
+}
+
+.total-count-badge:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.count-number {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: 2px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.count-label {
+  font-size: 10px;
+  font-weight: 500;
+  opacity: 0.9;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
 .header-search {
@@ -3908,6 +3975,36 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
 
 /* Responsive Design */
 @media (max-width: 768px) {
+  .card-header {
+    flex-direction: column;
+    gap: 16px;
+    align-items: stretch;
+  }
+  
+  .card-header .header-content {
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+  }
+  
+  .card-header .header-actions {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .total-count-badge {
+    min-width: 80px;
+    padding: 6px 12px;
+  }
+  
+  .count-number {
+    font-size: 18px;
+  }
+  
+  .count-label {
+    font-size: 9px;
+  }
+  
   .status-cards {
     grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
     gap: 8px;
