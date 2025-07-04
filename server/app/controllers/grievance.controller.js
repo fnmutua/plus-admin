@@ -690,7 +690,49 @@ exports.getGrievances = async (req, res) => {
       lte: op.lte
     };
 
-    findAndCountOptions.where[filter] = { [operatorMap[functionType] || op.eq]: value };
+    // Handle nested field filters (e.g., $users.name$)
+    if (filter.includes('$') && filter.includes('.')) {
+      // Extract the association name and field from the filter
+      const match = filter.match(/\$([^.]+)\.([^$]+)\$/);
+      if (match) {
+        const [, associationName, fieldName] = match;
+        
+        // Ensure the association is included
+        if (!findAndCountOptions.include) {
+          findAndCountOptions.include = [];
+        }
+        
+        // Check if association is already included
+        const existingInclude = findAndCountOptions.include.find(inc => 
+          inc.model === db.models[associationName] || inc.as === associationName
+        );
+        
+        if (!existingInclude) {
+          let includeModel;
+          if (associationName === 'users') {
+            includeModel = { 
+              model: db.models[associationName],
+              as: 'users',
+              required: false
+            };
+          } else {
+            includeModel = { model: db.models[associationName] };
+          }
+          
+          if (db.models[associationName] && db.models[associationName].rawAttributes && db.models[associationName].rawAttributes.geom) {
+            includeModel.attributes = { exclude: ['geom'] };
+          }
+          
+          findAndCountOptions.include.push(includeModel);
+        }
+        
+        // Apply the filter using the nested field syntax
+        findAndCountOptions.where[filter] = { [operatorMap[functionType] || op.eq]: value };
+      }
+    } else {
+      // Regular field filter
+      findAndCountOptions.where[filter] = { [operatorMap[functionType] || op.eq]: value };
+    }
   });
 
   console.log('findAndCountOptions:', findAndCountOptions);
@@ -698,14 +740,37 @@ exports.getGrievances = async (req, res) => {
   // Include associated models and exclude geometry fields
   const associatedModels = req.body.associated_multiple_models || [];
   if (associatedModels.length > 0) {
-    findAndCountOptions.include = associatedModels.map(model => {
-      const includeModel = { model: db.models[model] };
+    // Initialize includes array if not already set by filters
+    if (!findAndCountOptions.include) {
+      findAndCountOptions.include = [];
+    }
+    
+    associatedModels.forEach(model => {
+      // Check if this model is already included (e.g., by nested filters)
+      const existingInclude = findAndCountOptions.include.find(inc => 
+        inc.model === db.models[model] || inc.as === model
+      );
       
-      if (db.models[model].rawAttributes.geom) {
-        includeModel.attributes = { exclude: ['geom'] };
-      }
+      if (!existingInclude) {
+        let includeModel;
+        
+        if (model === 'users') {
+          // Special handling for users association with referred officer
+          includeModel = { 
+            model: db.models[model],
+            as: 'users',
+            required: false // Left join to include grievances without referred officers
+          };
+        } else {
+          includeModel = { model: db.models[model] };
+        }
+        
+        if (db.models[model] && db.models[model].rawAttributes && db.models[model].rawAttributes.geom) {
+          includeModel.attributes = { exclude: ['geom'] };
+        }
 
-      return includeModel;
+        findAndCountOptions.include.push(includeModel);
+      }
     });
   }
 

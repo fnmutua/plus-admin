@@ -1552,4 +1552,51 @@ exports.getUserPermissions = async (req, res) => {
     });
   }
 };
+
+// Get users by IDs and fields
+exports.getUsersByIds = async (req, res) => {
+  try {
+    const { userIds, fields } = req.body;
+
+    // Validate input
+    if (!Array.isArray(userIds) || userIds.length === 0) {
+      return res.status(400).json({ 
+        message: 'User IDs must be a non-empty array',
+        code: '0001'
+      });
+    }
+
+    // Default fields if none provided
+    const selectedFields = fields && Array.isArray(fields) && fields.length > 0 
+      ? fields 
+      : ['id', 'name', 'phone', 'email', 'username'];
+
+    // Build query
+    const query = {
+      where: {
+        id: { [Op.in]: userIds }
+      },
+      attributes: selectedFields,
+      raw: true
+    };
+
+    // Execute query
+    const users = await User.findAll(query);
+
+    res.status(200).json({
+      message: 'Users retrieved successfully',
+      data: users,
+      total: users.length,
+      code: '0000'
+    });
+
+  } catch (err) {
+    console.error('Error fetching users by IDs:', err);
+    res.status(500).json({ 
+      message: 'Error fetching users by IDs', 
+      error: err.message,
+      code: '0001'
+    });
+  }
+};
  

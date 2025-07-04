@@ -5915,12 +5915,20 @@ exports.getAllListforDownload = async (req, res) => {
         }
       }
 
-      includeModels.push({
+      // Check if this is the users model and we're dealing with grievance
+      const includeConfig = {
         model: model,
         attributes: modelAttributes,
         raw: true,
         nested: true
-      });
+      };
+
+      // Add alias for users association in grievance model
+      if (reg_model === 'grievance' && modelName === 'users') {
+        includeConfig.as = 'users';
+      }
+
+      includeModels.push(includeConfig);
     }
   }
 

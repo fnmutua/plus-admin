@@ -1552,10 +1552,12 @@ db.models.settlement.hasMany(db.models.grievance, {
 
 db.models.grievance.belongsTo(db.models.users, {
   foreignKey: 'reffered_to_officer',
+  as: 'users'
 })
 
 db.models.users.hasMany(db.models.grievance, {
-  foreignKey: 'reffered_to_officer'
+  foreignKey: 'reffered_to_officer',
+  as: 'grievances'
 })
 
 

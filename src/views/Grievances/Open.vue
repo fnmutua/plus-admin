@@ -4,18 +4,18 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { getListWithoutGeo} from '@/api/counties'
 
 import { getGrievances,updateBulkGrievance } from '@/api/grievance'
-import { toRaw,watch } from 'vue';
+import { watch } from 'vue';
 
 import {
   signupGRM
 } from '@/api/register'
 
-import { ElButton, ElSelect, ElCheckbox, ElCol,ElCollapse,ElDrawer,   ElIcon} from 'element-plus'
+import { ElButton, ElSelect, ElCheckbox, ElCol,ElDrawer,  ElIcon} from 'element-plus'
 import {
   Plus, 
   Back,Postcard,TopRight,Lock,Guide,TakeawayBox,
   CircleCheck, Warning,View,
-  Delete, Search, Refresh, Download, More, Share, Paperclip, Upload, QuestionFilled, Close} from '@element-plus/icons-vue'
+  Delete, Search, Refresh, Share, Paperclip, Close, Phone} from '@element-plus/icons-vue'
 
 import { getSettlementListByCounty } from '@/api/settlements'
 import {   getGRMStaffByLocation } from '@/api/users'
@@ -25,7 +25,7 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import {
   ElPagination, ElOption, ElDialog, ElForm, ElTour, ElUpload,
   ElFormItem, ElRow, ElInput, ElStep, ElSteps, ElTable, ElTableColumn, ElCard, ElMessage, ElSwitch,
-  ElDropdown, ElDropdownMenu, ElDropdownItem, ElTag
+  ElTag
 } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { useAppStoreWithOut } from '@/store/modules/app'
@@ -44,7 +44,8 @@ import { getModelSpecs } from '@/api/fields'
 import exportFromJSON from 'export-from-json'
 import Papa from 'papaparse';
 
-import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
+import { getSummarybyFieldFromMultipleIncludes, getSummaryGroupByMultipleFields } from '@/api/summary'
+import { getUserListApi, getUsersByIds } from '@/api/users'
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 
 // Type definitions
@@ -73,6 +74,9 @@ interface GrievanceType {
   reporter_name: string
   phone: string
   current_level: string
+  reffered_to_officer?: number
+  reffered_to_support_staff?: number[]
+  users?: { name: string; phone: string; id: number }
   [key: string]: any
 }
 
@@ -720,7 +724,7 @@ let tableDataList = ref<GrievanceType[]>([])
 
  
 const associated_Model = ''
-const associated_multiple_models = ['county', 'settlement', 'grievance_document']
+const associated_multiple_models = ['county', 'settlement', 'grievance_document', 'users']
 const model = 'grievance'
 //// ------------------parameters -----------------------////
 
@@ -738,12 +742,12 @@ const showEditSaveButton = ref(false)
 const handleClear = async () => {
   console.log('cleared....')
 
-  // clear all the fileters -------
+  // clear all the filters -------
   filterValues.value = []
   filters.value  = []
-  value1.value = ''
-  value2.value = ''
-  value3.value = ''
+  value1.value = []
+  value2.value = []
+  value3.value = []
   pageSize.value = 5
   currentPage.value = 1
  
@@ -752,13 +756,17 @@ const handleClear = async () => {
   selectedSubCounty.value=[]
   selectedWard.value=[]
   selectedCategories.value=[]
+  referredOfficerSearch.value = ''
 
 
   localStorage.removeItem('grievanceFilters');
 
 
   //----run the get data--------
-  getInterventionsAll()
+  await getInterventionsAll()
+  
+  // Refresh counts after clearing
+  await getCounts()
 }
 
 
@@ -855,6 +863,8 @@ for (let i = 0; i < selfilterValues.length; i++) {
     }
   });
 
+  // Refresh counts after getting filtered data
+  await getCounts()
 
 loading.value = false
 
@@ -1890,10 +1900,11 @@ const getFilteredBySearchData = async (searchKey) => {
 
   tableDataList.value = res.data
 
-
-
-
   total.value = res.total
+  
+  // Refresh counts after search
+  await getCounts()
+  
   loading.value = false
 
 
@@ -1968,6 +1979,12 @@ const onSegmentClick = async (statusValue?: string) => {
   console.log(activeSegment.value)
   tableDataList.value=[]
   currentPage.value=1 // change pagination page to first every time
+  
+  // Clear referred officer search when switching segments
+  referredOfficerSearch.value = ''
+  
+  // Clear original data when switching segments
+  originalTableData.value = []
 
   // Clear existing status filters
   const statusIndex = filters.value.indexOf('status')
@@ -2741,6 +2758,7 @@ if (search_string.value) {
 const isFiltersOpen = ref(false)
 const searchQuery = ref('')
 const isSearching = ref(false)
+const referredOfficerSearch = ref('')
 
 // Debounced search function
 let searchTimeout: NodeJS.Timeout | null = null
@@ -2750,6 +2768,17 @@ const debouncedSearch = (value: string) => {
   }
   searchTimeout = setTimeout(() => {
     performSearch(value)
+  }, 300)
+}
+
+// Debounced referred officer search function
+let referredOfficerSearchTimeout: NodeJS.Timeout | null = null
+const debouncedReferredOfficerSearch = () => {
+  if (referredOfficerSearchTimeout) {
+    clearTimeout(referredOfficerSearchTimeout)
+  }
+  referredOfficerSearchTimeout = setTimeout(() => {
+    filterByReferredOfficer()
   }, 300)
 }
 
@@ -2767,6 +2796,156 @@ const performSearch = async (query: string) => {
   } finally {
     isSearching.value = false
   }
+}
+
+// Store original data for restoration
+const originalTableData = ref<GrievanceType[]>([])
+
+// Summary dialog state
+const showSummaryDialog = ref(false)
+const summaryData = ref<any[]>([])
+const summaryLoading = ref(false)
+
+// Get summary of grievances by referred officer
+const getReferredOfficerSummary = async () => {
+  summaryLoading.value = true
+  try {
+    // Build filter parameters similar to getCounts
+    const filterField: string[] = [];
+    const filterValue: any[][] = [];
+    const filterOperator: string[] = [];
+
+    // Process current filters (excluding status filter for summary)
+    for (let i = 0; i < filters.value.length; i++) {
+      const field = filters.value[i];
+      const value = filterValues.value[i];
+
+      // Skip status filter when getting summary
+      if (field === 'status') continue;
+
+      if (field && value !== undefined && value !== null) {
+        filterField.push(field);
+        
+        // Ensure value is always an array
+        if (Array.isArray(value)) {
+          filterValue.push([...value]); // Create a copy of the array
+          filterOperator.push('in');
+        } else {
+          filterValue.push([value]);
+          filterOperator.push('eq');
+        }
+      }
+    }
+
+    // Add status filter for referred grievances
+    filterField.push('status');
+    filterValue.push(['Referred', 'ExternalReferral']);
+    filterOperator.push('in');
+
+    console.log('Summary filterField:', filterField);
+    console.log('Summary filterValue:', filterValue);
+    console.log('Summary filterOperator:', filterOperator);
+
+    const formData = {
+      model: 'grievance',
+      summaryField: 'id',
+      summaryFunction: 'count',
+      groupFields: ['reffered_to_officer'],
+      filterField: filterField,
+      filterValue: [filterValue],
+      filterOperator: filterOperator
+    }
+    
+    const response = await getSummarybyFieldFromMultipleIncludes(formData)
+    console.log('Summary response:', response)
+    
+    if (response && response.Total) {
+      // Since the backend doesn't include associated model data in grouped results,
+      // we need to fetch user details separately
+      const officerIds = response.Total.map((item: any) => item.reffered_to_officer).filter(id => id)
+      
+      if (officerIds.length > 0) {
+        // Fetch user details for the officer IDs using the new getUsersByIds API
+        const userResponse = await getUsersByIds(officerIds, ['id', 'name', 'phone', 'email'])
+
+        console.log('User response:', userResponse)
+        const usersMap = new Map()
+        
+        if (userResponse.data) {
+          userResponse.data.forEach((user: any) => {
+            usersMap.set(user.id, user)
+          })
+        }
+        
+        // Combine summary data with user details
+        summaryData.value = response.Total.map((item: any) => {
+          const user = usersMap.get(item.reffered_to_officer)
+          return {
+            officer_id: item.reffered_to_officer,
+            officer_name: user?.name || 'Unknown Officer',
+            officer_phone: user?.phone || 'No Phone',
+            grievance_count: item.count
+          }
+        })
+      } else {
+        summaryData.value = []
+      }
+    } else {
+      summaryData.value = []
+    }
+    
+    showSummaryDialog.value = true
+  } catch (error) {
+    console.error('Error fetching summary:', error)
+    ElMessage({
+      message: 'Failed to fetch summary data',
+      type: 'error'
+    })
+  } finally {
+    summaryLoading.value = false
+  }
+}
+
+
+ 
+
+
+
+// Filter by referred officer (client-side filtering)
+const filterByReferredOfficer = async () => {
+  if (!referredOfficerSearch.value.trim()) {
+    // If search is empty, restore original data
+    if (originalTableData.value.length > 0) {
+      tableDataList.value = [...originalTableData.value]
+      total.value = originalTableData.value.length
+    } else {
+      // If no original data stored, get fresh data from server
+      await getFilteredData(filters.value, filterValues.value)
+    }
+    return
+  }
+  
+  // Store original data if not already stored
+  if (originalTableData.value.length === 0) {
+    originalTableData.value = [...tableDataList.value]
+  }
+  
+  // Client-side filtering for referred officer search
+  const search = referredOfficerSearch.value.trim().toLowerCase()
+  
+  // Filter the current table data
+  const filteredData = originalTableData.value.filter(grievance => {
+    if (grievance.users && grievance.reffered_to_officer) {
+      const officerName = grievance.users.name?.toLowerCase() || ''
+      const officerPhone = grievance.users.phone?.toLowerCase() || ''
+      return officerName.includes(search) || officerPhone.includes(search)
+    }
+    return false
+  })
+  
+  // Update the table data with filtered results
+  tableDataList.value = filteredData
+  total.value = filteredData.length
 }
 
 const toggleFilters = () => {
@@ -2815,6 +2994,63 @@ const handleRowClick = (row: any) => {
   })
 }
 
+// Check if currently filtered by a specific officer
+const isFilteredByOfficer = computed(() => {
+  const officerFilterIndex = filters.value.indexOf('reffered_to_officer')
+  if (officerFilterIndex !== -1) {
+    const officerValues = filterValues.value[officerFilterIndex]
+    // If we have a specific officer filter (not empty array), disable summary
+    return officerValues && officerValues.length > 0
+  }
+  return false
+})
+
+// Summary table row class name
+const getSummaryRowClassName = ({ row }: { row: any }) => {
+  return 'summary-table-row'
+}
+
+// Summary table row click handler
+const handleSummaryRowClick = (row: any) => {
+  // Optional: Add any row click behavior here
+  console.log('Summary row clicked:', row)
+}
+
+// Filter grievances by specific officer
+const filterByOfficer = async (officerId: number, officerName: string) => {
+  // Close the summary dialog
+  showSummaryDialog.value = false
+  
+  // Switch to Referred tab if not already there
+  if (activeSegment.value !== 'Referred') {
+    await onSegmentClick('Referred')
+  }
+  
+  // Add filter for the specific officer
+  const selectOption = 'reffered_to_officer'
+  
+  // Ensure the filter key exists
+  if (!filters.value.includes(selectOption)) {
+    filters.value.push(selectOption)
+    filterFunction.value.push('eq')
+  }
+  
+  const index = filters.value.indexOf(selectOption)
+  filterValues.value[index] = [officerId]
+  
+  // Update the referred officer search to show the officer name
+  referredOfficerSearch.value = officerName
+  
+  // Get filtered data
+  await getFilteredData(filters.value, filterValues.value)
+  
+  // Show success message
+  ElMessage({
+    message: `Showing grievances referred to ${officerName}`,
+    type: 'success'
+  })
+}
+
 </script>
 
 <template>
@@ -2828,6 +3064,9 @@ const handleRowClick = (row: any) => {
         <!-- Header Top Row: Title and Actions -->
         <div class="header-top">
           <div class="header-content">
+            <el-button type="primary" plain :icon="Back" @click="goBack">
+            Back
+          </el-button>
             <div class="total-count-badge">
               <div class="count-number">{{ totalGrievanceCount }}</div>
               <div class="count-label">Total Grievances</div>
@@ -2856,9 +3095,13 @@ const handleRowClick = (row: any) => {
             </el-input>
           </div>
           
-          <el-button type="primary" plain :icon="Back" @click="goBack">
-            Back
-          </el-button>
+      
+          <DownloadCustom 
+              :data="tableDataList" 
+              :model="model"
+              :associated_models="['users']" 
+              class="action-button"
+            />
         </div>
         </div>
 
@@ -2992,6 +3235,32 @@ const handleRowClick = (row: any) => {
             </el-select>
           </el-col>
 
+          <!-- Referred Officer Search - Only show in Referred tab -->
+          <el-col :xs="24" :sm="12" :md="3" :lg="3" v-if="activeSegment === 'Referred'">
+            <el-input
+              v-model="referredOfficerSearch"
+              placeholder="Search by officer name or phone..."
+              :prefix-icon="Search"
+              clearable
+              @input="debouncedReferredOfficerSearch"
+              class="quick-filter"
+              v-loading="isSearching"
+            />
+          </el-col>
+          
+          <!-- Summary Button - Only show in Referred tab -->
+          <el-col :xs="24" :sm="12" :md="2" :lg="2" v-if="activeSegment === 'Referred'">
+            <el-button 
+              type="info" 
+              :icon="View"
+              @click="getReferredOfficerSummary"
+              :loading="summaryLoading"
+              :disabled="isFilteredByOfficer"
+              class="action-button"
+            >
+              Summary
+            </el-button>
+          </el-col>
           <!-- Action Buttons -->
           <el-col :xs="24" :sm="12" :md="2" :lg="2">
             <PermissionWrapper :permissions="['grievance:create']">
@@ -3019,14 +3288,8 @@ const handleRowClick = (row: any) => {
             </el-button>
           </el-col>
 
-          <el-col :xs="24" :sm="12" :md="2" :lg="2" >
-            <DownloadCustom 
-              :data="tableDataList" 
-              :model="model"
-              :associated_models="associated_multiple_models" 
-              class="action-button"
-            />
-          </el-col>
+          
+
         </el-row>
       </div>
 
@@ -3087,6 +3350,21 @@ const handleRowClick = (row: any) => {
             <el-tag :type="getStatusType(row.status)" size="small">
               {{ row.status }}
             </el-tag>
+          </template>
+        </el-table-column>
+
+        <!-- Show only in 'Referred' tab -->
+        <el-table-column label="Referred To" width="200" v-if="activeSegment === 'Referred'">
+          <template #default="{ row }">
+            <div class="referred-officer">
+              <div v-if="row.reffered_to_officer && row.users" class="officer-info" style="flex-direction:column;align-items:flex-start;gap:0;">
+                <span class="officer-name">{{ row.users.name }}</span>
+                <span v-if="row.users.phone" class="officer-phone">{{ row.users.phone }}</span>
+              </div>
+              <div v-else class="no-officer">
+                <el-tag size="small" type="info">Not assigned</el-tag>
+              </div>
+            </div>
           </template>
         </el-table-column>
 
@@ -3527,6 +3805,64 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
     </div>
   </el-dialog>
 
+  <!-- Summary Dialog -->
+  <el-dialog
+    v-model="showSummaryDialog"
+    title="Grievances by Referred Officer"
+    :width="isMobile ? '100%' : '40%'"
+    draggable
+    class="summary-dialog"
+  >
+    <div v-loading="summaryLoading">
+      <el-table
+        :data="summaryData"
+        border
+        stripe
+        :row-class-name="getSummaryRowClassName"
+        @row-click="handleSummaryRowClick"
+      >
+        <el-table-column label="Officer Name" prop="officer_name" width="300">
+          <template #default="{ row }">
+            <div class="officer-info">
+              <div class="officer-name">{{ row.officer_name }}</div>
+              <div v-if="row.officer_phone" class="officer-phone">
+                <el-icon><Phone /></el-icon>
+                {{ row.officer_phone }}
+              </div>
+            </div>
+          </template>
+        </el-table-column>
+        
+        <el-table-column label="Grievance Count" prop="grievance_count" width="150" align="center"/>
+      
+
+        <el-table-column label="Actions" width="200" align="center">
+          <template #default="{ row }">
+            <el-button 
+              type="primary" 
+              size="small" 
+              @click.stop="filterByOfficer(row.officer_id, row.officer_name)"
+              class="view-grievances-btn"
+            >
+              <el-icon><View /></el-icon>
+              View Grievances
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      
+      <div v-if="summaryData.length === 0 && !summaryLoading" class="no-data">
+        <el-empty description="No referred grievances found" />
+      </div>
+    </div>
+    
+    <template #footer>
+      <div class="dialog-footer">
+        <el-button @click="showSummaryDialog = false">Close</el-button>
+      </div>
+    </template>
+  </el-dialog>
+
   <!-- Tour -->
   <el-tour v-model="isTourVisible" :steps="filteredTourSteps" />
 </template>
@@ -3805,6 +4141,42 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
   color: #909399;
 }
 
+/* Referred Officer Column */
+.referred-officer {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.officer-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.officer-icon {
+  color: #409eff;
+  font-size: 14px;
+}
+
+.officer-name {
+  font-weight: 500;
+  color: #303133;
+  font-size: 14px;
+}
+
+.officer-phone {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 2px;
+}
+
+.no-officer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* Row Status Classes */
 .grievance-row.status-sorting {
   background-color: #fdf6ec;
@@ -3964,6 +4336,15 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
     padding: 12px 0;
   }
   
+  /* Mobile spacing for filter columns */
+  .filters-bar .el-col {
+    margin-bottom: 12px;
+  }
+  
+  .filters-bar .el-col:last-child {
+    margin-bottom: 0;
+  }
+  
   .drawer-content {
     padding: 16px;
   }
@@ -3983,6 +4364,120 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
 
 .option-input {
   margin-bottom: 8px;
+}
+
+/* Summary Dialog Styles */
+.summary-dialog .el-dialog__body {
+  padding: 20px 24px;
+}
+
+.summary-table {
+  margin-bottom: 20px;
+}
+
+.summary-table-row {
+  cursor: pointer;
+}
+
+.summary-table-row:hover {
+  background-color: #f5f7fa;
+}
+
+.summary-table .officer-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.summary-table .officer-name {
+  font-weight: 500;
+  color: #303133;
+  font-size: 14px;
+}
+
+.summary-table .officer-phone {
+  font-size: 12px;
+  color: #606266;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.summary-table .officer-phone .el-icon {
+  font-size: 12px;
+  color: #909399;
+}
+
+.count-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 10px;
+  background-color: #409eff;
+  border-radius: 4px;
+  color: white;
+  min-width: 60px;
+}
+
+.count-number {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.count-label {
+  font-size: 10px;
+  font-weight: 400;
+  opacity: 0.9;
+}
+
+.view-grievances-btn {
+  font-size: 12px;
+  padding: 6px 12px;
+}
+
+.view-grievances-btn .el-icon {
+  margin-right: 4px;
+  font-size: 12px;
+}
+
+.no-data {
+  text-align: center;
+  padding: 40px 0;
+}
+
+/* Responsive adjustments for summary table */
+@media (max-width: 768px) {
+  .summary-table .officer-info {
+    gap: 3px;
+  }
+  
+  .summary-table .officer-name {
+    font-size: 13px;
+  }
+  
+  .summary-table .officer-phone {
+    font-size: 11px;
+  }
+  
+  .count-badge {
+    min-width: 50px;
+    padding: 4px 8px;
+  }
+  
+  .count-number {
+    font-size: 14px;
+  }
+  
+  .count-label {
+    font-size: 9px;
+  }
+  
+  .view-grievances-btn {
+    font-size: 11px;
+    padding: 4px 8px;
+  }
 }
 </style>
 

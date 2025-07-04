@@ -232,6 +232,52 @@ module.exports = function(app) {
 
   /**
    * @swagger
+   * /api/v1/user/by-ids:
+   *   post:
+   *     tags: [Users]
+   *     summary: Get users by IDs and fields
+   *     description: Retrieve specific users by their IDs and return only specified fields.
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               userIds:
+   *                 type: array
+   *                 items: { type: integer }
+   *                 description: Array of user IDs to retrieve
+   *               fields:
+   *                 type: array
+   *                 items: { type: string }
+   *                 description: Array of field names to return (optional, defaults to id, name, phone, email, username)
+   *     responses:
+   *       200:
+   *         description: Users retrieved successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 data:
+   *                   type: array
+   *                   items: { type: object }
+   *                 total:
+   *                   type: integer
+   *                 code:
+   *                   type: string
+   *                   example: "0000"
+   *                 message:
+   *                   type: string
+   *                   example: "Users retrieved successfully"
+   */
+  app.post("/api/v1/user/by-ids", [authJwt.verifyToken, hasPermission('user:read')], controller.getUsersByIds);
+
+  /**
+   * @swagger
    * /api/v1/user/admin:
    *   post:
    *     tags: [Users]

@@ -208,6 +208,12 @@ export const getUserPermissions = (userId: number): Promise<IResponse<any>> => {
   return request.post({ url: prod + '/api/v1/user/permissions', data: { userId } })
 }
 
+// Function to get users by IDs and fields
+export const getUsersByIds = (userIds: number[], fields?: string[]): Promise<IResponse<any>> => {
+  console.log('Getting users by IDs:', userIds, 'with fields:', fields)
+  return request.post({ url: prod + '/api/v1/user/by-ids', data: { userIds, fields } })
+}
+
 //export const setRolePermissions = (roleId, permissions) => request.put({ url: prod + `/api/v1/roles/${roleId}/permissions`, data: { permissions } })
 //export const addRolePermission = (roleId, permission) => request.post({ url: prod + `/api/v1/roles/${roleId}/permissions`, data: { permission } })
 //export const removeRolePermission = (roleId, permissionId) => request.delete({ url: prod + `/api/v1/roles/${roleId}/permissions/${permissionId}` })
