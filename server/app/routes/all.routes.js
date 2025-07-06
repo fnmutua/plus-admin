@@ -2605,5 +2605,486 @@ module.exports = function (app) {
   app.post(
     "/api/v1/fields/options",   controller.getFieldQUnique
   );
+
+  // Document AI Processing Routes
+  /**
+   * @swagger
+   * /api/v1/documents/ai/process:
+   *   post:
+   *     tags: [Document AI]
+   *     summary: Process existing documents with AI
+   *     description: Manually trigger AI processing for existing documents that were uploaded before AI integration.
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               documentIds:
+   *                 type: array
+   *                 items:
+   *                   type: string
+   *                 description: Array of specific document IDs to process
+   *                 example: ["123e4567-e89b-12d3-a456-426614174000", "987fcdeb-51a2-43d1-b789-123456789abc"]
+   *               processAll:
+   *                 type: boolean
+   *                 description: Process all unprocessed documents
+   *                 example: false
+   *     responses:
+   *       200:
+   *         description: AI processing initiated successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 message:
+   *                   type: string
+   *                   example: "AI processing completed: 5 processed, 0 failed, 0 skipped"
+   *                 code:
+   *                   type: string
+   *                   example: "0000"
+   *                 stats:
+   *                   type: object
+   *                   properties:
+   *                     processed:
+   *                       type: integer
+   *                       description: Number of documents successfully processed
+   *                       example: 5
+   *                     failed:
+   *                       type: integer
+   *                       description: Number of documents that failed processing
+   *                       example: 0
+   *                     skipped:
+   *                       type: integer
+   *                       description: Number of documents skipped
+   *                       example: 0
+   *       400:
+   *         description: Bad request - invalid parameters
+   *       401:
+   *         description: Unauthorized - invalid token
+   *       403:
+   *         description: Forbidden - insufficient permissions
+   *       500:
+   *         description: Internal server error during processing
+   */
+  app.post('/api/v1/documents/ai/process', [authJwt.verifyToken, hasPermission('document:update')], controller.processExistingDocumentsWithAI)
+
+  /**
+   * @swagger
+   * /api/v1/documents/{documentId}/ai/status:
+   *   get:
+   *     tags: [Document AI]
+   *     summary: Get AI processing status for a document
+   *     description: Check the AI processing status and details for a specific document.
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: documentId
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: ID of the document to check
+   *         example: "123e4567-e89b-12d3-a456-426614174000"
+   *     responses:
+   *       200:
+   *         description: AI status retrieved successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 message:
+   *                   type: string
+   *                   example: "AI status retrieved successfully"
+   *                 code:
+   *                   type: string
+   *                   example: "0000"
+   *                 documentId:
+   *                   type: string
+   *                   description: ID of the document
+   *                   example: "123e4567-e89b-12d3-a456-426614174000"
+   *                 documentName:
+   *                   type: string
+   *                   description: Name of the document
+   *                   example: "sample.pdf"
+   *                 aiStatus:
+   *                   type: object
+   *                   properties:
+   *                     processed:
+   *                       type: boolean
+   *                       description: Whether the document has been processed with AI
+   *                       example: true
+   *                     chunks:
+   *                       type: integer
+   *                       description: Number of text chunks created
+   *                       example: 15
+   *                     documentId:
+   *                       type: string
+   *                       description: AI document ID
+   *                       example: "987fcdeb-51a2-43d1-b789-123456789abc"
+   *                     warning:
+   *                       type: string
+   *                       description: Any warnings during processing
+   *                       example: "Embeddings disabled"
+   *                     processedAt:
+   *                       type: string
+   *                       format: date-time
+   *                       description: When the document was processed
+   *                       example: "2024-01-15T10:30:00Z"
+   *       400:
+   *         description: Bad request - missing document ID
+   *       401:
+   *         description: Unauthorized - invalid token
+   *       403:
+   *         description: Forbidden - insufficient permissions
+   *       404:
+   *         description: Document not found
+   *       500:
+   *         description: Internal server error
+   */
+  app.get('/api/v1/documents/:documentId/ai/status', [authJwt.verifyToken, hasPermission('document:read')], controller.getDocumentAIStatus)
+
+  /**
+   * @swagger
+   * /api/v1/documents/ai/stats:
+   *   get:
+   *     tags: [Document AI]
+   *     summary: Get AI processing statistics
+   *     description: Get overall statistics about document AI processing across the system.
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: AI statistics retrieved successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 message:
+   *                   type: string
+   *                   example: "AI processing statistics retrieved successfully"
+   *                 code:
+   *                   type: string
+   *                   example: "0000"
+   *                 stats:
+   *                   type: object
+   *                   properties:
+   *                     total:
+   *                       type: integer
+   *                       description: Total number of documents
+   *                       example: 100
+   *                     processed:
+   *                       type: integer
+   *                       description: Number of documents processed with AI
+   *                       example: 75
+   *                     unprocessed:
+   *                       type: integer
+   *                       description: Number of documents not yet processed
+   *                       example: 25
+   *                     processingRate:
+   *                       type: string
+   *                       description: Percentage of documents processed
+   *                       example: "75.00"
+   *                 recentActivity:
+   *                   type: array
+   *                   items:
+   *                     type: object
+   *                   description: Recent AI processing activity
+   *       401:
+   *         description: Unauthorized - invalid token
+   *       403:
+   *         description: Forbidden - insufficient permissions
+   *       500:
+   *         description: Internal server error
+   */
+  app.get('/api/v1/documents/ai/stats', [authJwt.verifyToken, hasPermission('document:read')], controller.getAIProcessingStats)
+
+  // AI Configuration and Provider Management Routes
+  /**
+   * @swagger
+   * /api/ai/health:
+   *   get:
+   *     tags: [AI Configuration]
+   *     summary: Check AI service health
+   *     description: Check if the AI service is running and healthy.
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: AI service is healthy
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 message:
+   *                   type: string
+   *                   example: "AI service is healthy"
+   *                 data:
+   *                   type: object
+   *                   properties:
+   *                     status:
+   *                       type: string
+   *                       example: "healthy"
+   *                     timestamp:
+   *                       type: string
+   *                       format: date-time
+   *                       example: "2024-01-15T10:30:00Z"
+   *       500:
+   *         description: AI service is unhealthy
+   */
+  app.get('/api/ai/health', [authJwt.verifyToken], controller.getAIHealth)
+
+  /**
+   * @swagger
+   * /api/ai/providers:
+   *   get:
+   *     tags: [AI Configuration]
+   *     summary: Get available AI providers
+   *     description: Retrieve list of available AI providers and their configurations.
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: AI providers retrieved successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 data:
+   *                   type: array
+   *                   items:
+   *                     type: object
+   *                     properties:
+   *                       id:
+   *                         type: string
+   *                         example: "openai"
+   *                       name:
+   *                         type: string
+   *                         example: "OpenAI"
+   *                       description:
+   *                         type: string
+   *                         example: "OpenAI GPT models"
+   *                       isAvailable:
+   *                         type: boolean
+   *                         example: true
+   *       401:
+   *         description: Unauthorized - invalid token
+   *       500:
+   *         description: Internal server error
+   */
+  app.get('/api/ai/providers', [authJwt.verifyToken], controller.getAIProviders)
+
+  /**
+   * @swagger
+   * /api/ai/models:
+   *   get:
+   *     tags: [AI Configuration]
+   *     summary: Get available AI models
+   *     description: Retrieve list of available AI models for all providers.
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: AI models retrieved successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 data:
+   *                   type: array
+   *                   items:
+   *                     type: object
+   *                     properties:
+   *                       id:
+   *                         type: string
+   *                         example: "gpt-3.5-turbo"
+   *                       name:
+   *                         type: string
+   *                         example: "GPT-3.5 Turbo"
+   *                       provider:
+   *                         type: string
+   *                         example: "openai"
+   *                       maxTokens:
+   *                         type: integer
+   *                         example: 4096
+   *                       isAvailable:
+   *                         type: boolean
+   *                         example: true
+   *                       costPerToken:
+   *                         type: number
+   *                         example: 0.000002
+   *       401:
+   *         description: Unauthorized - invalid token
+   *       500:
+   *         description: Internal server error
+   */
+  app.get('/api/ai/models', [authJwt.verifyToken], controller.getAIModels)
+
+  /**
+   * @swagger
+   * /api/ai/provider:
+   *   post:
+   *     tags: [AI Configuration]
+   *     summary: Set active AI provider
+   *     description: Set the active AI provider for the system.
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - provider
+   *             properties:
+   *               provider:
+   *                 type: string
+   *                 description: ID of the AI provider to set as active
+   *                 example: "openai"
+   *     responses:
+   *       200:
+   *         description: AI provider set successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 message:
+   *                   type: string
+   *                   example: "AI provider set to OpenAI"
+   *                 data:
+   *                   type: object
+   *                   properties:
+   *                     id:
+   *                       type: string
+   *                       example: "openai"
+   *                     name:
+   *                       type: string
+   *                       example: "OpenAI"
+   *       400:
+   *         description: Bad request - invalid provider
+   *       401:
+   *         description: Unauthorized - invalid token
+   *       500:
+   *         description: Internal server error
+   */
+  app.post('/api/ai/provider', [authJwt.verifyToken], controller.setAIProvider)
+
+  /**
+   * @swagger
+   * /api/ai/ask:
+   *   post:
+   *     tags: [AI Chat]
+   *     summary: Ask AI about documents
+   *     description: Send a question to the AI about documents and get a response with sources.
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - question
+   *             properties:
+   *               question:
+   *                 type: string
+   *                 description: The question to ask about documents
+   *                 example: "What are the main findings in the project reports?"
+   *               sessionId:
+   *                 type: string
+   *                 description: Session ID for conversation continuity
+   *                 example: "session_123"
+   *               provider:
+   *                 type: string
+   *                 description: AI provider to use
+   *                 example: "openai"
+   *               model:
+   *                 type: string
+   *                 description: AI model to use
+   *                 example: "gpt-3.5-turbo"
+   *               documentIds:
+   *                 type: array
+   *                 items:
+   *                   type: string
+   *                 description: Specific document IDs to search in
+   *                 example: ["123", "456"]
+   *     responses:
+   *       200:
+   *         description: AI response generated successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 data:
+   *                   type: object
+   *                   properties:
+   *                     answer:
+   *                       type: string
+   *                       example: "Based on the project reports, the main findings include..."
+   *                     sources:
+   *                       type: array
+   *                       items:
+   *                         type: object
+   *                         properties:
+   *                           filename:
+   *                             type: string
+   *                             example: "project_report_2024.pdf"
+   *                           chunk:
+   *                             type: string
+   *                             example: "The project achieved 85% completion..."
+   *                           similarity:
+   *                             type: number
+   *                             example: 0.92
+   *                           documentId:
+   *                             type: string
+   *                             example: "123"
+   *                     tokens:
+   *                       type: integer
+   *                       example: 1500
+   *                     processingTime:
+   *                       type: number
+   *                       example: 2.5
+   *                     confidence:
+   *                       type: number
+   *                       example: 0.85
+   *                     sessionId:
+   *                       type: string
+   *                       example: "session_123"
+   *       400:
+   *         description: Bad request - missing question
+   *       401:
+   *         description: Unauthorized - invalid token
+   *       500:
+   *         description: Internal server error
+   */
+  app.post('/api/ai/ask', [authJwt.verifyToken], controller.askAIDocument)
 }
 

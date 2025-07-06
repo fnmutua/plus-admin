@@ -1,14 +1,14 @@
 <!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
-import { ContentWrap } from '@/components/ContentWrap'
-import { useI18n } from '@/hooks/web/useI18n'
+ import { useI18n } from '@/hooks/web/useI18n'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { ElButton, ElBadge, ElRow, ElCol, ElCard,ElTable, ElTableColumn, ElCollapse, ElCollapseItem, ElPagination, ElDialog,
-  ElFormItem, ElInput, ElMessage, ElSelect, ElOption, ElForm, ElOptionGroup  } from 'element-plus'
+  ElFormItem, ElInput, ElMessage, ElSelect, ElOption, ElForm, ElOptionGroup, ElDrawer, ElDivider, ElSwitch, ElSlider, ElInputNumber } from 'element-plus'
 import {
     UploadFilled,
     Loading,
-    Document
+    Document,
+    Setting
 } from '@element-plus/icons-vue'
 
 import { ref, reactive, computed } from 'vue'
@@ -25,6 +25,7 @@ import { defineAsyncComponent } from 'vue';
 import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
 import { getListWithoutGeo } from '@/api/counties'
 import { getFile } from '@/api/summary'
+import { askAIDocument, getAIProviders, getAIModels, processExistingDocumentsWithAI } from '@/api/ai'
 
 import { useAppStore } from '@/store/modules/app'
 
@@ -279,6 +280,28 @@ function reformatData(data) {
 
 const docTypes = ref([])
 const docGroups = ref([])
+
+const loadAIConfig = () => {
+  const saved = localStorage.getItem('aiConfig')
+  if (saved) {
+    try {
+      const config = JSON.parse(saved)
+      Object.assign(aiConfig, config)
+    } catch (error) {
+      console.error('Error loading AI config:', error)
+    }
+  }
+  // Fetch providers and models from backend
+  fetchAIProviders()
+}
+
+const saveAIConfig = () => {
+  try {
+    localStorage.setItem('aiConfig', JSON.stringify(aiConfig))
+  } catch (error) {
+    console.error('Error saving AI config:', error)
+  }
+}
 
 const getCategoryCounts = async () => {
   loading.value = true
@@ -1165,8 +1188,128 @@ const handleSubmitData = async () => {
 const currentRow = ref()
 const addMoreDocuments = ref(false)
 
+// AI Configuration Drawer
+const aiConfigDrawer = ref(false)
+const aiConfig = reactive({
+  provider: 'openai',
+  model: 'gpt-3.5-turbo'
+})
 
+const aiProviders = ref([])
+const availableModels = ref([])
 
+// Fetch providers and models from backend
+const fetchAIProviders = async () => {
+  try {
+    const response = await getAIProviders()
+    if (response.success && response.data) {
+      aiProviders.value = response.data
+      // Set default provider if available
+      if (aiProviders.value.length > 0 && !aiProviders.value.find(p => p.id === aiConfig.provider)) {
+        aiConfig.provider = aiProviders.value[0].id
+      }
+      await fetchAIModels()
+    } else {
+      // Fallback to default providers if API fails
+      aiProviders.value = [
+        { id: 'xai', name: 'X-AI', description: 'Grok GPT models', isAvailable: true },
+        { id: 'openai', name: 'OpenAI', description: 'OpenAI GPT models', isAvailable: true },
+        { id: 'ollama', name: 'Ollama (Local)', description: 'Local AI models', isAvailable: true }
+      ]
+      setDefaultModels()
+    }
+  } catch (error) {
+    console.error('Error fetching AI providers:', error)
+    // Fallback to default providers
+    aiProviders.value = [
+      { id: 'xai', name: 'X-AI', description: 'Grok GPT models', isAvailable: true },
+      { id: 'openai', name: 'OpenAI', description: 'OpenAI GPT models', isAvailable: true },
+      { id: 'ollama', name: 'Ollama (Local)', description: 'Local AI models', isAvailable: true }
+    ]
+    setDefaultModels()
+  }
+}
+
+const fetchAIModels = async () => {
+  try {
+    const response = await getAIModels()
+    if (response.success && response.data) {
+      // Filter models for current provider
+      availableModels.value = response.data.filter(model => model.provider === aiConfig.provider)
+      // Set default model if current one is not available
+      if (availableModels.value.length > 0 && !availableModels.value.find(m => m.id === aiConfig.model)) {
+        aiConfig.model = availableModels.value[0].id
+      }
+    } else {
+      setDefaultModels()
+    }
+  } catch (error) {
+    console.error('Error fetching AI models:', error)
+    setDefaultModels()
+  }
+}
+
+const setDefaultModels = () => {
+  const defaultModels = {
+    openai: ['gpt-3.5-turbo', 'gpt-4', 'gpt-4-turbo'],
+    anthropic: ['claude-3-sonnet', 'claude-3-opus', 'claude-3-haiku'],
+    ollama: ['llama2', 'mistral', 'codellama', 'neural-chat'],
+    xai: ['grok-3-mini-fast', 'grok-3-mini', 'grok-3', 'grok-beta', 'grok-pro']
+  }
+  availableModels.value = (defaultModels[aiConfig.provider] || []).map(model => ({
+    id: model,
+    name: model,
+    provider: aiConfig.provider,
+    maxTokens: 4000,
+    isAvailable: true
+  }))
+  
+  // Set default model if current one is not available
+  if (availableModels.value.length > 0 && !availableModels.value.find(m => m.id === aiConfig.model)) {
+    aiConfig.model = availableModels.value[0].id
+  }
+}
+
+const handleProviderChange = () => {
+  fetchAIModels()
+  saveAIConfig()
+}
+
+const handleModelChange = () => {
+  saveAIConfig()
+}
+
+// Chat functionality
+const chatMessages = ref([])
+const currentQuestion = ref('')
+const isProcessing = ref(false)
+const sessionId = ref('default')
+const expandedSources = ref(new Set()) // Track which message sources are expanded
+
+// Process existing documents functionality
+const isProcessingExisting = ref(false)
+const processExistingDocuments = async () => {
+  isProcessingExisting.value = true
+  try {
+    const response = await processExistingDocumentsWithAI({ processAll: true })
+    if (response.success) {
+      ElMessage.success(response.message || 'AI processing started!')
+    } else {
+      ElMessage.error(response.message || 'Failed to start AI processing')
+    }
+      
+    const result = await response.json()
+    if (result && result.code === '0000') {
+      ElMessage.success(result.message || 'AI processing started!')
+    } else {
+      ElMessage.error(result.message || 'Failed to start AI processing')
+    }
+  } catch (error) {
+    ElMessage.error('Error: ' + (error.message || error))
+  } finally {
+    isProcessingExisting.value = false
+  }
+}
 
 const mfield = null
 const ChildComponent = defineAsyncComponent(() => import('@/views/Components/UploadComponent.vue'));
@@ -1200,6 +1343,9 @@ const dynamicComponent = ref();
 
 
 getDocumentTypes()
+
+// Load AI configuration on component mount
+loadAIConfig()
 
 // Add computed property for top 4 groups
 const top4Groups = computed(() => {
@@ -1403,12 +1549,123 @@ const handleLoadingCancel = () => {
   ElMessage.info('Operation cancelled')
 }
 
+// AI Configuration Functions
+const openAIConfig = () => {
+  aiConfigDrawer.value = true
+}
+
+// Chat Functions
+const sendQuestion = async () => {
+  if (!currentQuestion.value.trim() || isProcessing.value) return
+  
+  const question = currentQuestion.value.trim()
+  
+  // Add user message
+  chatMessages.value.push({
+    type: 'user',
+    content: question,
+    timestamp: new Date()
+  })
+  
+  currentQuestion.value = ''
+  isProcessing.value = true
+  
+  try {
+    // Use the actual AI API
+    const response = await askAIDocument({
+      question,
+      sessionId: sessionId.value,
+      provider: aiConfig.provider,
+      model: aiConfig.model
+    })
+    
+    // Check if response is successful and has the expected structure
+    if (response.success && response.answer) {
+
+      console.log('Response', response)
+      chatMessages.value.push({
+        type: 'ai',
+        content: response.answer || 'No response received from AI',
+        sources: response.sources || [],
+        tokens: response.tokens || 0,
+        timestamp: new Date()
+      })
+    } else if (response.success && response.data && response.data.answer) {
+      // Handle case where response is wrapped in data property
+      chatMessages.value.push({
+        type: 'ai',
+        content: response.data.answer || 'No response received from AI',
+        sources: response.data.sources || [],
+        tokens: response.data.tokens || 0,
+        timestamp: new Date()
+      })
+    } else {
+      // Handle API error response
+      const errorMessage = response.message || response.error || 'Unknown error occurred'
+      chatMessages.value.push({
+        type: 'ai',
+        content: `Error: ${errorMessage}`,
+        timestamp: new Date()
+      })
+    }
+  } catch (error) {
+    console.error('Error in sendQuestion:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Network error occurred'
+    chatMessages.value.push({
+      type: 'ai',
+      content: `Error: ${errorMessage}`,
+      timestamp: new Date()
+    })
+  } finally {
+    isProcessing.value = false
+  }
+}
+
+const clearChatHistory = () => {
+  chatMessages.value = []
+  ElMessage.success('Chat history cleared')
+}
+
+const formatTimestamp = (timestamp) => {
+  return new Date(timestamp).toLocaleTimeString()
+}
+
+const formatFileSize = (bytes) => {
+  if (bytes === 0) return '0 Bytes'
+  const k = 1024
+  const sizes = ['Bytes', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+}
+
+const toggleSources = (messageIndex) => {
+  if (expandedSources.value.has(messageIndex)) {
+    expandedSources.value.delete(messageIndex)
+  } else {
+    expandedSources.value.add(messageIndex)
+  }
+}
+
 </script>
 
 <template>
-  <ContentWrap
-:title="t('Document Repository')" :message="t('Use the filters to subset')" v-loading="loading"
+  <el-card
+ v-loading="loading"
     element-loading-text="Getting the documents.......">
+
+    <!-- Card Header with Title and AI Configuration Button -->
+    <template #header>
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h3 style="margin: 0; color: #303133;">{{ t('Document Repository') }}</h3>
+          <p style="margin: 4px 0 0 0; color: #909399; font-size: 14px;">{{ t('Use the filters to subset') }}</p>
+        </div>
+        <el-button @click="openAIConfig" type="primary" plain size="small">
+          <Icon icon="material-symbols:smart-toy" width="16" style="margin-right: 4px;" />
+          AI Configuration
+        </el-button>
+      </div>
+    </template>
 
     <!-- Top 4 Groups Cards -->
     <el-row :gutter="16" class="cards-row" v-if="top4Groups.length > 0">
@@ -1589,7 +1846,188 @@ v-model="searchTerm" placeholder="Search documents by name/settlement/county/for
       </template>
     </el-dialog>
 
-  </ContentWrap>
+    <!-- AI Configuration Drawer -->
+    <el-drawer
+      v-model="aiConfigDrawer"
+      direction="rtl"
+      size="50%"
+      :before-close="() => aiConfigDrawer = false"
+    >
+      <!-- Custom Header with Provider & Model Selection -->
+      <template #header>
+        <div style="width: 100%;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h3 style="margin: 0; color: #303133;">🤖 AI Document Assistant</h3>
+            <el-button @click="clearChatHistory" type="info" plain size="small">
+              Clear History
+            </el-button>
+          </div>
+          <!-- Admin-only: Process Existing Documents Button -->
+          <div v-if="showAdminButtons" style="margin-bottom: 10px; text-align: right;">
+            <el-button 
+              type="warning" 
+              size="small" 
+              :loading="isProcessingExisting"
+              @click="processExistingDocuments"
+            >
+              <Icon icon="material-symbols:bolt" width="18" style="margin-right: 4px;" />
+              Process All Existing Documents with AI
+            </el-button>
+          </div>
+          <!-- Provider & Model Selection in Header -->
+          <div style="display: flex; gap: 10px; align-items: center;">
+            <el-select 
+              v-model="aiConfig.provider" 
+              placeholder="Provider" 
+              style="width: 120px" 
+              size="small"
+              @change="handleProviderChange"
+            >
+              <el-option
+                v-for="provider in aiProviders"
+                :key="provider.id"
+                :label="provider.name"
+                :value="provider.id"
+              />
+            </el-select>
+            
+            <el-select 
+              v-model="aiConfig.model" 
+              placeholder="Model" 
+              style="width: 180px" 
+              size="small"
+              @change="handleModelChange"
+            >
+              <el-option
+                v-for="model in availableModels"
+                :key="model.id"
+                :label="model.name"
+                :value="model.id"
+              />
+            </el-select>
+          </div>
+        </div>
+      </template>
+      
+      <div style="padding: 20px; height: 100%; display: flex; flex-direction: column;">
+        
+        <!-- Chat Section - Now takes full available space -->
+        <div style="flex: 1; display: flex; flex-direction: column;">
+          
+          <!-- Chat Messages -->
+          <div style="flex: 1; overflow-y: auto; background: #f8f9fa; border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+            <div v-if="chatMessages.length === 0" style="text-align: center; color: #909399; font-style: italic; padding: 40px 20px;">
+              💡 Ask me anything about your documents! I'll use semantic search to find the most relevant information.
+            </div>
+            
+            <div v-for="(message, index) in chatMessages" :key="index" style="margin-bottom: 15px;">
+              <div
+                :style="{
+                  padding: '10px 15px',
+                  borderRadius: '8px',
+                  maxWidth: '85%',
+                  marginLeft: message.type === 'user' ? 'auto' : '0',
+                  background: message.type === 'user' ? '#409eff' : 'white',
+                  color: message.type === 'user' ? 'white' : '#303133',
+                  border: message.type === 'ai' ? '1px solid #e9ecef' : 'none'
+                }">
+                <div style="font-size: 12px; opacity: 0.7; margin-bottom: 5px;">
+                  {{ message.type === 'user' ? 'You' : 'AI Assistant' }} • {{ formatTimestamp(message.timestamp) }}
+                  <span v-if="message.tokens"> • {{ message.tokens }} tokens</span>
+                </div>
+                <div style="line-height: 1.5;">{{ message.content }}</div>
+                
+                <!-- Sources Toggle Button -->
+                <div v-if="message.sources && message.sources.length > 0" style="margin-top: 10px;">
+                  <el-button 
+                    @click="toggleSources(index)" 
+                    type="text" 
+                    size="small"
+                    style="padding: 4px 8px; color: #409eff; font-size: 12px;"
+                  >
+                    <Icon 
+                      :icon="expandedSources.has(index) ? 'material-symbols:expand-less' : 'material-symbols:expand-more'" 
+                      width="16" 
+                      style="margin-right: 4px;"
+                    />
+                    📚 Sources ({{ new Set(message.sources.map(s => s.filename)).size }} documents)
+                  </el-button>
+                </div>
+                
+                <!-- Sources Content (Collapsible) -->
+                <div v-if="message.sources && message.sources.length > 0 && expandedSources.has(index)" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e9ecef; font-size: 12px;">
+                  <div
+v-for="document in Object.values(message.sources.reduce((acc, source) => {
+                    if (!acc[source.filename]) {
+                      acc[source.filename] = {
+                        filename: source.filename,
+                        chunks: [],
+                        maxSimilarity: 0,
+                        fileSize: source.fileSize,
+                        fileType: source.fileType
+                      };
+                    }
+                    acc[source.filename].chunks.push(source);
+                    if (source.similarity && parseFloat(source.similarity) > acc[source.filename].maxSimilarity) {
+                      acc[source.filename].maxSimilarity = parseFloat(source.similarity);
+                    }
+                    return acc;
+                  }, {}))" :key="document.filename" style="background: #f8f9fa; padding: 8px; margin: 5px 0; border-radius: 4px; border-left: 3px solid #409eff;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
+                      <strong style="color: #303133;">{{ document.filename }}</strong>
+                      <div style="display: flex; gap: 5px; align-items: center;">
+                        <span v-if="document.maxSimilarity > 0" style="padding: 2px 6px; border-radius: 10px; font-size: 10px; background: #e9ecef; color: #606266;">
+                          {{ (document.maxSimilarity * 100).toFixed(1) }}% match
+                        </span>
+                        <span style="padding: 2px 6px; border-radius: 10px; font-size: 10px; background: #f0f9ff; color: #0369a1;">
+                          {{ document.chunks.length }} chunks
+                        </span>
+                      </div>
+                    </div>
+                    <div v-if="document.chunks[0].preview" style="color: #606266; font-size: 11px; line-height: 1.4; margin-top: 3px;">
+                      {{ document.chunks[0].preview }}
+                    </div>
+                    <div style="margin-top: 3px; font-size: 10px; color: #909399;">
+                      <span v-if="document.fileSize">Size: {{ formatFileSize(parseInt(document.fileSize)) }}</span>
+                      <span v-if="document.fileType"> • Type: {{ document.fileType.toUpperCase() }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Loading indicator -->
+            <div v-if="isProcessing" style="text-align: center; padding: 20px; color: #409eff;">
+              <div style="border: 2px solid #f3f3f3; border-top: 2px solid #409eff; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; margin: 0 auto 10px;"></div>
+              Analyzing documents...
+            </div>
+          </div>
+          
+          <!-- Input Area -->
+          <div style="display: flex; gap: 10px;">
+            <el-input
+              v-model="currentQuestion"
+              placeholder="Ask a question about your documents..."
+              type="textarea"
+              :rows="2"
+              @keydown.enter.prevent="sendQuestion"
+              :disabled="isProcessing"
+            />
+            <el-button 
+              @click="sendQuestion" 
+              type="primary" 
+              :disabled="!currentQuestion.trim() || isProcessing"
+              style="align-self: flex-end;"
+            >
+              Send
+            </el-button>
+          </div>
+        </div>
+        
+      </div>
+    </el-drawer>
+
+  </el-card>
 </template>
 <style scoped>
 .collapsible-header-icon {
@@ -1769,6 +2207,12 @@ v-model="searchTerm" placeholder="Search documents by name/settlement/county/for
 :deep(.el-col) {
   padding-left: 8px !important;
   padding-right: 8px !important;
+}
+
+/* Spinner animation for AI processing */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 </style>
 

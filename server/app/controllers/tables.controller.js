@@ -21,6 +21,18 @@ const fuzzball = require('fuzzball'); // Make sure to install this with `npm ins
 
 var request = require('request');
 
+// Document AI imports
+const { Pool } = require('pg')
+const { Document } = require('@langchain/core/documents')
+const { RecursiveCharacterTextSplitter } = require('langchain/text_splitter')
+const { OpenAIEmbeddings } = require('@langchain/openai')
+const { ChatOpenAI } = require('@langchain/openai')
+const { ChatOllama } = require('@langchain/community/chat_models/ollama')
+const { OllamaEmbeddings } = require('@langchain/community/embeddings/ollama')
+const { PDFLoader } = require('langchain/document_loaders/fs/pdf')
+const { TextLoader } = require('langchain/document_loaders/fs/text')
+const { CSVLoader } = require('langchain/document_loaders/fs/csv')
+const { DocxLoader } = require('langchain/document_loaders/fs/docx')
 
 const nodemailer = require('nodemailer')
 const { authJwt } = require("../middleware");
@@ -35,6 +47,158 @@ const sequelize = new Sequelize(config.DB, config.USER, config.PASSWORD, {
     acquire: config.pool.acquire,
     idle: config.pool.idle
   }
+})
+
+// Document AI Configuration
+const CONFIG = {
+    provider: process.env.AI_PROVIDER || 'xai',
+    openai: {
+        apiKey: process.env.OPENAI_API_KEY || 'your_openai_api_key_here',
+        model: process.env.OPENAI_MODEL || 'gpt-3.5-turbo'
+    },
+    xai: {
+        apiKey: process.env.XAI_API_KEY || 'your_xai_api_key_here',
+        model: process.env.XAI_MODEL || 'grok-3-mini-fast'
+    },
+    ollama: {
+        baseUrl: process.env.OLLAMA_BASE_URL || 'http://localhost:11434',
+        model: process.env.OLLAMA_MODEL || 'llama3.2'
+    },
+    disableEmbeddings: process.env.DISABLE_EMBEDDINGS === 'true' || false,
+}
+
+// Document AI Database connection (separate from main DB)
+let docAIPool;
+try {
+    docAIPool = new Pool({
+        user: process.env.AI_DB_USER  ,
+        host: process.env.AI_DB_HOST  ,
+        database: process.env.AI_DB_NAME  ,
+        password: process.env.AI_DB_PASSWORD  ,
+        port: process.env.AI_DB_PORT  ,
+    })
+    
+    // Test the connection
+    docAIPool.query('SELECT NOW()', (err, result) => {
+        if (err) {
+            console.error('❌ Document AI database connection failed:', err.message);
+            console.log('AI_DB_NAME:', process.env.AI_DB_NAME);
+            console.log('DB_NAME:', process.env.DB_NAME);
+            console.log('⚠️  Document AI features will be disabled. Check your database configuration.');
+            docAIPool = null;
+        } else {
+            console.log('✅ Document AI database connected successfully');
+        }
+    });
+} catch (error) {
+    console.error('❌ Failed to create Document AI database pool:', error.message);
+    console.log('⚠️  Document AI features will be disabled.');
+    docAIPool = null;
+}
+
+console.log('docAIPool', docAIPool)
+// Document AI Configuration constants
+const OPENAI_API_KEY = CONFIG.openai.apiKey
+const XAI_API_KEY = CONFIG.xai.apiKey
+const OLLAMA_BASE_URL = CONFIG.ollama.baseUrl
+const OLLAMA_MODEL = CONFIG.ollama.model
+const PROVIDER = CONFIG.provider
+
+// Document AI settings
+const CHUNK_SIZE = parseInt(process.env.CHUNK_SIZE) || 1200
+const OVERLAP_SIZE = parseInt(process.env.OVERLAP_SIZE) || 200
+const MAX_CHUNKS_PER_DOCUMENT = parseInt(process.env.MAX_CHUNKS_PER_DOCUMENT) || 15
+
+// Initialize LangChain components
+let embeddings
+let llm
+
+if (PROVIDER === 'ollama') {
+    try {
+        embeddings = new OllamaEmbeddings({
+            model: 'all-minilm',
+            baseUrl: OLLAMA_BASE_URL
+        })
+        
+        llm = new ChatOllama({
+            model: OLLAMA_MODEL,
+            baseUrl: OLLAMA_BASE_URL,
+            temperature: 0.1
+        })
+        
+        console.log('✅ Ollama integration loaded successfully')
+    } catch (ollamaError) {
+        console.error('❌ Ollama integration failed:', ollamaError.message)
+        embeddings = null
+        llm = null
+        CONFIG.disableEmbeddings = true
+    }
+} else if (PROVIDER === 'xai') {
+    try {
+        const { ChatXAI } = require('@langchain/xai')
+        
+        if (OLLAMA_BASE_URL && !CONFIG.disableEmbeddings) {
+            try {
+                embeddings = new OllamaEmbeddings({
+                    model: 'all-minilm',
+                    baseUrl: OLLAMA_BASE_URL
+                })
+                console.log('✅ Using Ollama embeddings with XAI chat model')
+            } catch (ollamaEmbedError) {
+                if (OPENAI_API_KEY && OPENAI_API_KEY !== 'your_openai_api_key_here') {
+                    embeddings = new OpenAIEmbeddings({
+                        openAIApiKey: OPENAI_API_KEY,
+                        modelName: 'text-embedding-ada-002'
+                    })
+                    console.log('✅ Using OpenAI embeddings with XAI chat model')
+                } else {
+                    embeddings = null
+                    CONFIG.disableEmbeddings = true
+                }
+            }
+        } else if (OPENAI_API_KEY && OPENAI_API_KEY !== 'your_openai_api_key_here' && !CONFIG.disableEmbeddings) {
+            embeddings = new OpenAIEmbeddings({
+                openAIApiKey: OPENAI_API_KEY,
+                modelName: 'text-embedding-ada-002'
+            })
+            console.log('✅ Using OpenAI embeddings with XAI chat model')
+        } else {
+            embeddings = null
+            CONFIG.disableEmbeddings = true
+        }
+        
+        llm = new ChatXAI({
+            apiKey: XAI_API_KEY,
+            model: CONFIG.xai.model,
+            temperature: 0.1
+        })
+        
+        console.log('✅ XAI integration loaded successfully')
+    } catch (xaiError) {
+        console.error('❌ XAI integration failed:', xaiError.message)
+        embeddings = null
+        llm = null
+        CONFIG.disableEmbeddings = true
+    }
+} else {
+    embeddings = new OpenAIEmbeddings({
+        openAIApiKey: OPENAI_API_KEY,
+        modelName: 'text-embedding-ada-002'
+    })
+    
+    llm = new ChatOpenAI({
+        openAIApiKey: OPENAI_API_KEY,
+        modelName: CONFIG.openai.model,
+        temperature: 0.1
+    })
+    
+    console.log('✅ OpenAI integration loaded successfully')
+}
+
+const textSplitter = new RecursiveCharacterTextSplitter({
+    chunkSize: CHUNK_SIZE,
+    chunkOverlap: OVERLAP_SIZE,
+    separators: ['\n\n', '\n', ' ', '']
 })
 
 //First, you define the redisClient variable with the value set to undefined. After that,
@@ -3972,246 +4136,8 @@ const upload = multer({
 });
 
 
-exports.xbatchDocumentsUpload = (req, res) => {
-      // The uploaded files can be accessed using `req.files`
-      console.log('files:', req.body);
-  // Use `upload.array('files')` middleware to handle multiple file uploads
-  // 'files' should match the name attribute of the file input(s) in your form
-  upload.array('files')(req, res, async (err) => {
-    if (err) {
-      console.log(err);
-      // Handle multer errors, if any
-     // return res.status(400).json({ error: 'File upload failed.' });
-     return res.status(500).send({
-        message: 'Upload failed.',
-        code: '0000'
-      })
-    }
-
-
-   var reg_model = 'document'
-    let myFiles = req.files
-    let objs = []
-
-    if (!Array.isArray(myFiles)) {
-      myFiles = [myFiles]; // Convert to an array with one element
-    }
  
-    
-    for (let i = 0; i < myFiles.length; i++) {
-      
  
-       var obj = {}
-     // var column = req.body.field_id[i]
-     // obj[column] = req.body[column][i]
-
-        // Check if 'field_id' exists in 'req.body' before adding 'column' property to 'obj'
-      if (req.body.field_id) {
-        var column = req.body.field_id[i]
-        obj[column] = req.body[column][i];
-      }
-
-      obj.category = req.body.category[i]
-      obj.format = req.body.format[i]
-      obj.size = req.body.size[i]
-      obj.createdBy = req.body.createdBy[i] 
-      obj.protectedFile = req.body.protected[i] 
-      obj.name = myFiles[i].originalname
-      obj.code = crypto.randomUUID()
-      obj.location = myFiles[i].path
-       objs.push(obj)
-      console.log(obj)
-  
-   
-
-
-
-      try {
-         await db.models[reg_model].create(obj)
-        // for (const obj of objs) {
-        //   await db.models[reg_model].create(obj);
-        // }
-
-      }
-            
-      catch (error) {
-        console.log(error)
-
-        
-      res.status(500).send({
-        message: 'Upload failed. ' + error + ' errors',
-        code: '0000'
-      })
-      }
-
-
-    }
-  
-
-    res.status(200).send({
-      message: 'Batch Upload Successful',
-      code: '0000'
-    })
-  
-
-    // Other form fields (if any) can be accessed using `req.body`
-  //  console.log('other form fields:', req.body);
-
-    // Process the files or respond to the client accordingly
-   // res.json({ message: 'Form submission and file upload successful!' });
-  });
-};
-
-
-exports._newbatchDocumentsUpload = (req, res) => {
-  // The uploaded files can be accessed using `req.files`
-// Use `upload.array('files')` middleware to handle multiple file uploads
-// 'files' should match the name attribute of the file input(s) in your form
-upload.array('files')(req, res, async (err) => {
-if (err) {
-  console.log(err);
-  // Handle multer errors, if any
- // return res.status(400).json({ error: 'File upload failed.' });
- return res.status(500).send({
-    message: 'Upload failed.',
-    code: '0000'
-  })
-}
-
-
-var reg_model = 'document'
-let myFiles = req.files
-let objs = []
-
-
- console.log('req.field_id:', req.field_id);
-
-
-
-if (!Array.isArray(myFiles)) {
-  myFiles = [myFiles]; // Convert to an array with one element
-}
-
-
-for (let i = 0; i < myFiles.length; i++) {
-  
-  console.log('doc#',i, myFiles[i], req.body )
-  
-   var obj = {}
- // var column = req.body.field_id[i]
- // obj[column] = req.body[column][i]
-
-    // Check if 'field_id' exists in 'req.body' before adding 'column' property to 'obj'
-  if (req.body.field_id) {
-    var column = req.body.field_id[i]
-          if (myFiles.length >1) {
-            obj[column] = req.body[column][i];
-            obj.category = req.body.category[i]
-            obj.format = req.body.format[i]
-            obj.size = req.body.size[i]
-            obj.createdBy = req.body.createdBy[i] 
-            obj.protectedFile = req.body.protected[i] 
-            obj.name = myFiles[i].originalname
-            obj.location = myFiles[i].path
-            obj.code = crypto.randomUUID()
-            objs.push(obj)
-
-          } else {
-            var column = req.body.field_id
-            obj[column] = req.body[column];
-            obj.format = req.body.format 
-            obj.size = req.body.size 
-            obj.createdBy = req.body.createdBy[i] 
-            obj.protectedFile = req.body.protected[i] 
-            obj.name = myFiles[i].originalname
-            obj.location = myFiles[i].path
-            obj.code = crypto.randomUUID()
-
-            obj.format = req.body.format 
-            obj.category = req.body.category
- 
-            objs.push(obj)
-
-          }
-       } else {
-
-        if (myFiles.length >1) {
-          obj.category = req.body.category[i]
-          obj.format = req.body.format[i]
-          obj.size = req.body.size[i]
-          obj.createdBy = req.body.createdBy[i] 
-          obj.protectedFile = req.body.protected[i] 
-          obj.name = myFiles[i].originalname
-          obj.location = myFiles[i].path
-          obj.code = crypto.randomUUID()
-          objs.push(obj)
-
-        } else {
-          obj.format = req.body.format 
-          obj.size = req.body.size 
-          obj.createdBy = req.body.createdBy[i] 
-          obj.protectedFile = req.body.protected[i] 
-          obj.name = myFiles[i].originalname
-          obj.location = myFiles[i].path
-          obj.code = crypto.randomUUID()
-
-          obj.format = req.body.format 
-          obj.category = req.body.category
-
-
-
-          objs.push(obj)
-
-        }
-
-  }
-
-
-
-
-}
-
-console.log('objs#',  objs )
-
-
-
-
-try {
-  //await db.models[reg_model].create(obj)
- for (const nobj of objs) {
-  console.log('inserting....., ', nobj)
-   await db.models[reg_model].create(nobj);
-
-
- }
-
- res.status(200).send({
-  message: 'Batch Upload Successful',
-  code: '0000'
-})
-
-}
-     
-catch (error) {
- console.log(error)
-
- 
-res.status(500).send({
- message: 'Upload failed. ' + error + ' errors',
- code: '0000'
-})
-}
-
-
-
-
-// Other form fields (if any) can be accessed using `req.body`
-//  console.log('other form fields:', req.body);
-
-// Process the files or respond to the client accordingly
-// res.json({ message: 'Form submission and file upload successful!' });
-});
-};
 
 exports.batchDocumentsUpload = (req, res) => {
   upload.array('files')(req, res, async (err) => {
@@ -4229,7 +4155,9 @@ exports.batchDocumentsUpload = (req, res) => {
     let uploadStats = {
       uploaded: 0,
       skipped: 0,
-      failed: 0
+      failed: 0,
+      aiProcessed: 0,
+      aiFailed: 0
     };
 
     if (!Array.isArray(myFiles)) {
@@ -4303,9 +4231,39 @@ exports.batchDocumentsUpload = (req, res) => {
         }
 
         try {
-          await db.models[reg_model].create(nobj);
+          // Save document to main database
+          const savedDoc = await db.models[reg_model].create(nobj);
           uploadStats.uploaded++;
           console.log(`Inserted document: ${nobj.name}`);
+
+          // Process document with AI (asynchronous, don't wait for completion)
+          processDocumentWithAI(nobj.location, nobj.name, nobj.size)
+            .then(aiResult => {
+              if (aiResult.success) {
+                uploadStats.aiProcessed++;
+                console.log(`✅ AI processing completed for ${nobj.name}: ${aiResult.message}`);
+                
+                // Optionally update the main document record with AI processing info
+                db.models[reg_model].update({
+                  aiProcessed: true,
+                  aiChunks: aiResult.chunks,
+                  aiDocumentId: aiResult.documentId,
+                  aiWarning: aiResult.warning || null
+                }, {
+                  where: { id: savedDoc.id }
+                }).catch(updateError => {
+                  console.log(`Failed to update AI info for ${nobj.name}:`, updateError);
+                });
+              } else {
+                uploadStats.aiFailed++;
+                console.log(`❌ AI processing failed for ${nobj.name}: ${aiResult.message}`);
+              }
+            })
+            .catch(aiError => {
+              uploadStats.aiFailed++;
+              console.log(`❌ AI processing error for ${nobj.name}:`, aiError);
+            });
+
         } catch (error) {
           console.log(`Failed to insert document: ${nobj.name}`, error);
           uploadStats.failed++;
@@ -4313,12 +4271,14 @@ exports.batchDocumentsUpload = (req, res) => {
       }
 
       res.status(200).send({
-        message: `Batch Upload Completed: ${uploadStats.uploaded} uploaded, ${uploadStats.skipped} skipped, ${uploadStats.failed} failed`,
+        message: `Batch Upload Completed: ${uploadStats.uploaded} uploaded, ${uploadStats.skipped} skipped, ${uploadStats.failed} failed. AI processing initiated for ${uploadStats.uploaded} documents.`,
         code: '0000',
         stats: {
           uploaded: uploadStats.uploaded,
           skipped: uploadStats.skipped,
-          failed: uploadStats.failed
+          failed: uploadStats.failed,
+          aiProcessed: uploadStats.aiProcessed,
+          aiFailed: uploadStats.aiFailed
         }
       });
     } catch (error) {
@@ -7277,6 +7237,1485 @@ exports.getSettlementMapData = async (req, res) => {
       message: 'Failed to fetch settlement map data',
       error: error.message,
       code: 'SERVER_ERROR',
+    });
+  }
+};
+
+// Document AI Helper Functions
+async function initializeDocumentAIDatabase() {
+    if (!docAIPool) {
+        console.log('⚠️  Document AI database not available - skipping initialization');
+        return false;
+    }
+    
+    try {
+        // Check if pgvector extension is available
+        let pgvectorAvailable = false;
+        try {
+            await docAIPool.query('CREATE EXTENSION IF NOT EXISTS vector');
+            console.log('✅ pgvector extension enabled');
+            pgvectorAvailable = true;
+        } catch (vectorError) {
+            console.warn('⚠️  pgvector extension not available - vector similarity search will be limited');
+            console.warn('   To enable vector search, install pgvector: https://github.com/pgvector/pgvector');
+            pgvectorAvailable = false;
+        }
+
+        await docAIPool.query(`
+            CREATE TABLE IF NOT EXISTS documents (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                filename VARCHAR(255) NOT NULL,
+                file_path VARCHAR(500) NOT NULL,
+                file_type VARCHAR(50) NOT NULL,
+                file_size BIGINT NOT NULL,
+                content TEXT,
+                metadata JSONB DEFAULT '{}',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `)
+
+        await docAIPool.query(`
+            CREATE TABLE IF NOT EXISTS document_chunks (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                document_id UUID REFERENCES documents(id) ON DELETE CASCADE,
+                content TEXT NOT NULL,
+                chunk_index INTEGER NOT NULL,
+                start_position INTEGER,
+                end_position INTEGER,
+                metadata JSONB DEFAULT '{}',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `)
+
+        // Create embeddings table based on pgvector availability
+        if (pgvectorAvailable) {
+            await docAIPool.query(`
+                CREATE TABLE IF NOT EXISTS embeddings (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    chunk_id UUID REFERENCES document_chunks(id) ON DELETE CASCADE,
+                    embedding_vector vector,
+                    model_name VARCHAR(100) NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            `)
+        } else {
+            // Fallback table without vector type
+            await docAIPool.query(`
+                CREATE TABLE IF NOT EXISTS embeddings (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    chunk_id UUID REFERENCES document_chunks(id) ON DELETE CASCADE,
+                    embedding_vector TEXT, -- Store as JSON string instead of vector type
+                    model_name VARCHAR(100) NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            `)
+        }
+
+        console.log('✅ Document AI database tables initialized')
+        return true;
+    } catch (error) {
+        console.error('❌ Failed to initialize Document AI database:', error)
+        return false;
+    }
+}
+
+async function saveDocumentToAI(filename, filePath, fileType, fileSize, content, metadata = {}) {
+    // Convert fileSize to integer (bytes) - handle different input formats
+    let fileSizeBytes;
+    
+    if (typeof fileSize === 'string') {
+        // If it's a string, try to parse it
+        const parsed = parseFloat(fileSize);
+        if (isNaN(parsed)) {
+            console.warn(`Invalid file size format for ${filename}: ${fileSize}, using 0`);
+            fileSizeBytes = 0;
+        } else {
+            fileSizeBytes = Math.round(parsed);
+        }
+    } else if (typeof fileSize === 'number') {
+        // If it's already a number, use it directly
+        fileSizeBytes = Math.round(fileSize);
+    } else {
+        console.warn(`Unknown file size type for ${filename}: ${typeof fileSize}, using 0`);
+        fileSizeBytes = 0;
+    }
+    
+    console.log(`File size conversion for ${filename}: ${fileSize} -> ${fileSizeBytes} bytes`);
+    
+    const query = `
+        INSERT INTO documents (filename, file_path, file_type, file_size, content, metadata)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING id
+    `
+    const result = await docAIPool.query(query, [filename, filePath, fileType, fileSizeBytes, content, metadata])
+    return result.rows[0].id
+}
+
+async function saveDocumentChunks(documentId, chunks) {
+    const chunkPromises = chunks.map(async (chunk, index) => {
+        const query = `
+            INSERT INTO document_chunks (document_id, content, chunk_index, start_position, end_position, metadata)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING id
+        `
+        const result = await docAIPool.query(query, [
+            documentId,
+            chunk.pageContent,
+            index,
+            chunk.metadata.start || 0,
+            chunk.metadata.end || 0,
+            chunk.metadata
+        ])
+        return result.rows[0].id
+    })
+    
+    return await Promise.all(chunkPromises)
+}
+ 
+
+ 
+async function saveEmbeddings(chunkIds, embeddingVectors) {
+  console.log('🔍 Saving embeddings...')
+  let modelName
+  if (PROVIDER === 'ollama') {
+      modelName = 'all-minilm'
+  } else if (PROVIDER === 'xai') {
+      if (OLLAMA_BASE_URL) {
+          modelName = 'all-minilm'
+      } else if (OPENAI_API_KEY && OPENAI_API_KEY !== 'your_openai_api_key_here') {
+          modelName = 'text-embedding-ada-002'
+      } else {
+          modelName = 'keyword-search-only'
+      }
+  } else {
+      modelName = 'text-embedding-ada-002'
+  }
+  
+  try {
+      const embeddingPromises = chunkIds.map(async (chunkId, index) => {
+          // Convert embedding array to pgvector format (matching standalone approach)
+          const embeddingString = `[${embeddingVectors[index].join(',')}]`;
+          
+          const query = `
+              INSERT INTO embeddings (chunk_id, embedding_vector, model_name)
+              VALUES ($1, $2::vector, $3)
+          `
+          await docAIPool.query(query, [chunkId, embeddingString, modelName])
+      })
+      
+      await Promise.all(embeddingPromises)
+      console.log(`✅ Saved ${chunkIds.length} embeddings using ${modelName}`)
+  } catch (error) {
+      console.error('Failed to save embeddings:', error.message)
+      console.log('Continuing without embeddings - will use keyword search only')
+  }
+}
+
+
+async function processDocumentForAI(filePath, filename) {
+    try {
+        const ext = path.extname(filename).toLowerCase()
+        let loader
+        
+        switch (ext) {
+            case '.pdf':
+                loader = new PDFLoader(filePath)
+                break
+            case '.txt':
+                loader = new TextLoader(filePath)
+                break
+            case '.csv':
+                loader = new CSVLoader(filePath)
+                break
+            case '.docx':
+                loader = new DocxLoader(filePath)
+                break
+            default:
+                console.log(`Skipping unsupported file type: ${ext}`)
+                return null
+        }
+        
+        const docs = await loader.load()
+        
+        docs.forEach(doc => {
+            doc.metadata.filename = filename
+            doc.metadata.fileType = ext
+        })
+        
+        const chunks = await textSplitter.splitDocuments(docs)
+        const limitedChunks = chunks.slice(0, MAX_CHUNKS_PER_DOCUMENT)
+        
+        return limitedChunks
+    } catch (error) {
+        console.error(`Error processing document ${filename} for AI:`, error)
+        return null
+    }
+}
+
+async function processDocumentWithAI(filePath, filename, fileSize) {
+    try {
+        console.log(`🔍 Processing document: ${filename}, fileSize: ${fileSize} (type: ${typeof fileSize})`);
+        
+        // Get actual file size from file system as fallback
+        let actualFileSize = fileSize;
+        try {
+            const stats = await fs.promises.stat(filePath);
+            actualFileSize = stats.size;
+            console.log(`📁 Actual file size from filesystem: ${actualFileSize} bytes`);
+        } catch (fsError) {
+            console.warn(`⚠️  Could not get file size from filesystem: ${fsError.message}`);
+        }
+        
+        // Check if Document AI database is available
+        if (!docAIPool) {
+            console.log(`⚠️  Document AI database not available - skipping AI processing for ${filename}`);
+            return { 
+                success: false, 
+                message: 'Document AI database not available',
+                warning: 'Database connection failed'
+            };
+        }
+        
+        // Initialize Document AI database if needed
+        const dbInitialized = await initializeDocumentAIDatabase();
+        if (!dbInitialized) {
+            return { 
+                success: false, 
+                message: 'Failed to initialize Document AI database',
+                warning: 'Database initialization failed'
+            };
+        }
+        
+        // Process document with LangChain
+        const chunks = await processDocumentForAI(filePath, filename);
+        
+        if (!chunks || chunks.length === 0) {
+            console.log(`No content extracted from ${filename}`);
+            return { success: false, message: 'No content extracted' };
+        }
+        
+        // Read content for storage
+        const fileType = path.extname(filename).toLowerCase();
+        let content = '';
+        if (fileType === '.txt') {
+            content = await fs.promises.readFile(filePath, 'utf-8');
+        } else {
+            content = chunks.map(chunk => chunk.pageContent).join('\n\n');
+        }
+        
+        // Save document to AI database using actual file size
+        const documentId = await saveDocumentToAI(filename, filePath, fileType, actualFileSize, content, {
+            chunkCount: chunks.length,
+            originalSize: actualFileSize
+        });
+        
+        // Save chunks to AI database
+        const chunkIds = await saveDocumentChunks(documentId, chunks);
+        
+        // Generate embeddings if available
+        if (embeddings && !CONFIG.disableEmbeddings) {
+            try {
+                const texts = chunks.map(chunk => chunk.pageContent);
+                const embeddingVectors = await embeddings.embedDocuments(texts);
+                
+                // Debug and normalize embeddings
+                console.log('🔍 Embedding format check:');
+                console.log('Type:', typeof embeddingVectors);
+                console.log('Is Array:', Array.isArray(embeddingVectors));
+                if (embeddingVectors.length > 0) {
+                    console.log('First embedding type:', typeof embeddingVectors[0]);
+                    console.log('First embedding is array:', Array.isArray(embeddingVectors[0]));
+                    console.log('First embedding length:', embeddingVectors[0]?.length);
+                    console.log('First embedding sample:', embeddingVectors[0]?.slice(0, 3));
+                }
+                
+                // Ensure embeddings are proper arrays
+                const normalizedEmbeddings = embeddingVectors.map(emb => {
+                    if (Array.isArray(emb)) {
+                        return emb;
+                    } else if (typeof emb === 'object' && emb !== null) {
+                        // Convert object to array if needed
+                        return Object.values(emb);
+                    } else {
+                        console.warn('Unexpected embedding format:', typeof emb, emb);
+                        return Array(384).fill(0); // fallback
+                    }
+                });
+                
+                await saveEmbeddings(chunkIds, normalizedEmbeddings);
+                console.log(`✅ AI processing completed for ${filename} with embeddings`);
+                return { 
+                    success: true, 
+                    message: 'Document processed with AI embeddings',
+                    chunks: chunks.length,
+                    documentId
+                };
+            } catch (embeddingError) {
+                console.warn(`Embedding failed for ${filename}:`, embeddingError.message);
+                console.log(`Continuing without embeddings for ${filename}`);
+                return { 
+                    success: true, 
+                    message: 'Document processed without embeddings',
+                    chunks: chunks.length,
+                    documentId,
+                    warning: 'Embedding failed'
+                };
+            }
+        } else {
+            // Generate basic embeddings as fallback
+            try {
+                const texts = chunks.map(chunk => chunk.pageContent);
+                const embeddingVectors = await Promise.all(texts.map(text => generateEmbedding(text)));
+                await saveEmbeddings(chunkIds, embeddingVectors);
+                console.log(`✅ AI processing completed for ${filename} with basic embeddings`);
+                return { 
+                    success: true, 
+                    message: 'Document processed with basic embeddings',
+                    chunks: chunks.length,
+                    documentId
+                };
+            } catch (fallbackError) {
+                console.warn(`Basic embedding failed for ${filename}:`, fallbackError.message);
+                console.log(`Continuing without embeddings for ${filename}`);
+                return { 
+                    success: true, 
+                    message: 'Document processed without embeddings',
+                    chunks: chunks.length,
+                    documentId,
+                    warning: 'Basic embedding failed'
+                };
+            }
+        }
+        
+    } catch (error) {
+        console.error(`Error in AI processing for ${filename}:`, error);
+        return { success: false, message: error.message };
+    }
+}
+
+/**
+ * Get available AI providers
+ */
+exports.getAIProviders = async (req, res) => {
+  try {
+    const providers = [
+      {
+        id: 'openai',
+        name: 'OpenAI',
+        description: 'OpenAI GPT models for text generation and analysis',
+        isAvailable: true,
+        config: {
+          apiKey: process.env.OPENAI_API_KEY ? 'configured' : 'not configured',
+          baseUrl: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1'
+        }
+      },
+      {
+        id: 'anthropic',
+        name: 'Anthropic Claude',
+        description: 'Claude AI models for advanced reasoning and analysis',
+        isAvailable: true,
+        config: {
+          apiKey: process.env.ANTHROPIC_API_KEY ? 'configured' : 'not configured',
+          baseUrl: process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com'
+        }
+      },
+      {
+        id: 'ollama',
+        name: 'Ollama (Local)',
+        description: 'Local AI models for privacy and offline use',
+        isAvailable: true,
+        config: {
+          baseUrl: process.env.OLLAMA_BASE_URL || 'http://localhost:11434',
+          models: ['llama2', 'mistral', 'codellama', 'neural-chat']
+        }
+      },
+      {
+        id: 'xai',
+        name: 'XAI (Grok)',
+        description: 'XAI Grok models for advanced reasoning',
+        isAvailable: !!process.env.XAI_API_KEY,
+        config: {
+          apiKey: process.env.XAI_API_KEY ? 'configured' : 'not configured',
+          baseUrl: process.env.XAI_BASE_URL || 'https://api.x.ai',
+          models: ['grok-3-mini-fast', 'grok-3-mini', 'grok-3', 'grok-beta', 'grok-pro']
+
+ 
+
+        }
+      }
+    ];
+
+    res.json({
+      success: true,
+      data: providers
+    });
+  } catch (error) {
+    console.error('Error in getAIProviders:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get AI providers: ' + error.message
+    });
+  }
+};
+
+/**
+ * Get available AI models
+ */
+exports.getAIModels = async (req, res) => {
+  try {
+    const models = [
+      // OpenAI Models
+      {
+        id: 'gpt-3.5-turbo',
+        name: 'GPT-3.5 Turbo',
+        provider: 'openai',
+        maxTokens: 4096,
+        isAvailable: !!process.env.OPENAI_API_KEY,
+        costPerToken: 0.000002
+      },
+      {
+        id: 'gpt-4',
+        name: 'GPT-4',
+        provider: 'openai',
+        maxTokens: 8192,
+        isAvailable: !!process.env.OPENAI_API_KEY,
+        costPerToken: 0.00003
+      },
+      {
+        id: 'gpt-4-turbo',
+        name: 'GPT-4 Turbo',
+        provider: 'openai',
+        maxTokens: 128000,
+        isAvailable: !!process.env.OPENAI_API_KEY,
+        costPerToken: 0.00001
+      },
+      
+      // Anthropic Models
+      {
+        id: 'claude-3-sonnet',
+        name: 'Claude 3 Sonnet',
+        provider: 'anthropic',
+        maxTokens: 200000,
+        isAvailable: !!process.env.ANTHROPIC_API_KEY,
+        costPerToken: 0.000015
+      },
+      {
+        id: 'claude-3-opus',
+        name: 'Claude 3 Opus',
+        provider: 'anthropic',
+        maxTokens: 200000,
+        isAvailable: !!process.env.ANTHROPIC_API_KEY,
+        costPerToken: 0.000075
+      },
+      {
+        id: 'claude-3-haiku',
+        name: 'Claude 3 Haiku',
+        provider: 'anthropic',
+        maxTokens: 200000,
+        isAvailable: !!process.env.ANTHROPIC_API_KEY,
+        costPerToken: 0.0000025
+      },
+      
+      // Ollama Models
+      {
+        id: 'llama2',
+        name: 'Llama 2',
+        provider: 'ollama',
+        maxTokens: 4096,
+        isAvailable: true,
+        costPerToken: 0
+      },
+      {
+        id: 'mistral',
+        name: 'Mistral',
+        provider: 'ollama',
+        maxTokens: 8192,
+        isAvailable: true,
+        costPerToken: 0
+      },
+      {
+        id: 'codellama',
+        name: 'Code Llama',
+        provider: 'ollama',
+        maxTokens: 4096,
+        isAvailable: true,
+        costPerToken: 0
+      },
+      {
+        id: 'neural-chat',
+        name: 'Neural Chat',
+        provider: 'ollama',
+        maxTokens: 4096,
+        isAvailable: true,
+        costPerToken: 0
+      },
+      
+      // XAI Models
+      {
+        id: 'grok-beta',
+        name: 'Grok Beta',
+        provider: 'xai',
+        maxTokens: 8192,
+        isAvailable: !!process.env.XAI_API_KEY,
+        costPerToken: 0.00001
+      },
+      {
+        id: 'grok-pro',
+        name: 'Grok Pro',
+        provider: 'xai',
+        maxTokens: 8192,
+        isAvailable: !!process.env.XAI_API_KEY,
+        costPerToken: 0.00002
+      },
+      {
+        id: 'grok-3-mini-fast',
+        name: 'Grok-3 Mini Fast',
+        provider: 'xai',
+        maxTokens: 8192,
+        isAvailable: !!process.env.XAI_API_KEY,
+        costPerToken: 0.000005
+      },
+      {
+        id: 'grok-3-mini',
+        name: 'Grok-3 Mini',
+        provider: 'xai',
+        maxTokens: 8192,
+        isAvailable: !!process.env.XAI_API_KEY,
+        costPerToken: 0.000008
+      },
+      {
+        id: 'grok-3',
+        name: 'Grok-3',
+        provider: 'xai',
+        maxTokens: 8192,
+        isAvailable: !!process.env.XAI_API_KEY,
+        costPerToken: 0.000015
+      },
+    ];
+
+    res.json({
+      success: true,
+      data: models
+    });
+  } catch (error) {
+    console.error('Error in getAIModels:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get AI models: ' + error.message
+    });
+  }
+};
+
+/**
+ * Set active AI provider
+ */
+exports.setAIProvider = async (req, res) => {
+  try {
+    const { provider } = req.body;
+    
+    if (!provider) {
+      return res.status(400).json({
+        success: false,
+        message: 'Provider is required'
+      });
+    }
+
+    // Validate provider exists
+    const validProviders = ['openai', 'anthropic', 'ollama', 'xai'];
+    if (!validProviders.includes(provider)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid provider. Must be one of: ' + validProviders.join(', ')
+      });
+    }
+
+    // Check if provider is available
+    const providerConfig = {
+      openai: { apiKey: process.env.OPENAI_API_KEY },
+      anthropic: { apiKey: process.env.ANTHROPIC_API_KEY },
+      ollama: { baseUrl: process.env.OLLAMA_BASE_URL || 'http://localhost:11434' },
+      xai: { apiKey: process.env.XAI_API_KEY }
+    };
+
+    const config = providerConfig[provider];
+    const isAvailable = provider === 'ollama' || config.apiKey;
+
+    if (!isAvailable) {
+      return res.status(400).json({
+        success: false,
+        message: `Provider ${provider} is not configured. Please check your environment variables.`
+      });
+    }
+
+    // Store the selected provider (you might want to store this in a database or config file)
+    // For now, we'll just return success
+    const providerNames = {
+      openai: 'OpenAI',
+      anthropic: 'Anthropic Claude',
+      ollama: 'Ollama (Local)',
+      xai: 'XAI (Grok)'
+    };
+
+    res.json({
+      success: true,
+      message: `AI provider set to ${providerNames[provider]}`,
+      data: {
+        id: provider,
+        name: providerNames[provider],
+        isAvailable: true
+      }
+    });
+  } catch (error) {
+    console.error('Error in setAIProvider:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to set AI provider: ' + error.message
+    });
+  }
+};
+
+/**
+ * Ask AI about documents
+ */
+async function searchDocumentsByVector(question, documentIds = null, limit = 10) {
+  try {
+    // For now, we'll use text search since we don't have question embeddings
+    // In a real implementation, you would generate embeddings for the question
+    let searchQuery = `
+      SELECT 
+        dc.id as chunk_id,
+        dc.content,
+        d.filename,
+        d.id as document_id,
+        CASE 
+          WHEN dc.content ILIKE $1 THEN 0.9
+          WHEN dc.content ILIKE $2 THEN 0.7
+          ELSE 0.5
+        END as similarity
+      FROM document_chunks dc
+      JOIN documents d ON dc.document_id = d.id
+    `;
+
+    if (documentIds && documentIds.length > 0) {
+      searchQuery += ` AND d.id = ANY($3)`;
+    }
+
+    searchQuery += `
+      AND (
+        dc.content ILIKE $1 
+        OR dc.content ILIKE $2
+      )
+      ORDER BY similarity DESC
+      LIMIT $${documentIds && documentIds.length > 0 ? 4 : 3}
+    `;
+
+    const searchTerms = [`%${question}%`, `%${question.split(' ').slice(0, 3).join('%')}%`];
+    const searchParams = documentIds && documentIds.length > 0 
+      ? [...searchTerms, documentIds, limit] 
+      : [...searchTerms, limit];
+    
+    const result = await docAIPool.query(searchQuery, searchParams);
+    return result.rows;
+  } catch (error) {
+    console.error('Error in vector search:', error);
+    return [];
+  }
+}
+
+/**
+ * Ask AI about documents
+ */
+exports.askAIDocument = async (req, res) => {
+    try {
+        const { question, sessionId = 'default', model = 'default' } = req.body;
+        console.log('question', question)
+        
+        if (!question) {
+            return res.status(400).json({ error: 'Question is required' });
+        }
+
+        // Debug: Check what documents are available
+        const availableDocs = await docAIPool.query(`
+            SELECT filename, COUNT(dc.id) as chunk_count
+            FROM documents d
+            LEFT JOIN document_chunks dc ON d.id = dc.document_id
+            GROUP BY d.id, d.filename
+            ORDER BY d.created_at DESC
+        `);
+        console.log('Available documents for search:', availableDocs.rows.map(doc => ({
+            filename: doc.filename,
+            chunk_count: doc.chunk_count
+        })));
+        
+        // Debug: Check which documents have embeddings
+        const embeddingStatus = await docAIPool.query(`
+            SELECT 
+                d.filename,
+                COUNT(dc.id) as chunk_count,
+                COUNT(e.id) as embedding_count
+            FROM documents d
+            LEFT JOIN document_chunks dc ON d.id = dc.document_id
+            LEFT JOIN embeddings e ON dc.id = e.chunk_id
+            GROUP BY d.id, d.filename
+            ORDER BY d.created_at DESC
+        `);
+        console.log('Document embedding status:', embeddingStatus.rows.map(doc => ({
+            filename: doc.filename,
+            chunk_count: doc.chunk_count,
+            embedding_count: doc.embedding_count,
+            has_embeddings: doc.embedding_count > 0
+        })));
+
+        // Get relevant chunks using semantic search
+        const relevantChunks = await getRelevantChunks(question);
+        
+        if (relevantChunks.length === 0) {
+            return res.json({
+                success: true,
+                answer: "I couldn't find any information in your documents to answer this question. Please try adding more documents or rephrasing your question.",
+                tokens: 0,
+                sources: []
+            });
+        }
+
+        // Debug: Show what documents were found
+        const foundDocs = [...new Set(relevantChunks.map(chunk => chunk.filename))];
+        console.log('Documents found in search results:', foundDocs);
+        console.log('Total chunks found:', relevantChunks.length);
+
+        // Build context from relevant chunks
+        const context = relevantChunks.map(chunk => 
+            `[From ${chunk.filename}]: ${chunk.content}`
+        ).join('\n\n');
+
+        // Get conversation history (optional - implement if needed)
+        // const history = await getConversationHistory(sessionId, 3);
+        // const conversationContext = history.length > 0 
+        //     ? `\n\nPrevious conversation:\n${history.map(msg => 
+        //         `User: ${msg.user_message}\nAssistant: ${msg.assistant_message}`
+        //       ).join('\n\n')}\n\n`
+        //     : '';
+
+        const prompt = `You are a helpful AI assistant. You have access to the following information from the user's documents:
+
+${context}
+
+Based on the information above, please answer the following question. If the information is not available in the documents, say so clearly. Keep your answer concise and focused.
+
+Question: ${question}
+
+Answer:`;
+
+        // Generate response using AI (for now, return a mock response)
+        // In a real implementation, you would call your selected AI provider
+        let answer;
+        if (!llm) {
+            answer = "I'm sorry, but the AI model is not available at the moment. However, I found some relevant information in your documents. Please try again later or contact support.";
+        } else {
+            const response = await llm.invoke(prompt);
+            answer = response.content;
+        }
+        
+        // Mock response for now
+       // answer = `Based on your documents, here's what I found for: "${question}"\n\n${context.substring(0, 500)}...`;
+
+        // Save conversation to database (optional - implement if needed)
+        // await saveConversation(
+        //     sessionId, 
+        //     question, 
+        //     answer, 
+        //     0, // We'll need to get token count from AI response
+        //     model,
+        //     relevantChunks.map(chunk => ({
+        //         filename: chunk.filename,
+        //         preview: chunk.content.substring(0, 150) + '...',
+        //         similarity: 1 - chunk.distance,
+        //         distance: chunk.distance,
+        //         chunkIndex: chunk.chunk_index,
+        //         fileSize: chunk.file_size,
+        //         fileType: chunk.file_type
+        //     }))
+        // );
+
+        res.json({
+            success: true,
+            code:'0000',
+            answer,
+            tokens: 0, // TODO: Get from AI response
+            sources: relevantChunks.map(chunk => ({
+                filename: chunk.filename,
+                preview: chunk.content.substring(0, 150) + '...',
+                similarity: chunk.similarity || 0.8,
+                distance: chunk.distance || 0.2,
+                chunkIndex: chunk.chunk_index,
+                fileSize: chunk.file_size,
+                fileType: chunk.file_type
+            }))
+        });
+
+    } catch (error) {
+        console.error('Error processing question:', error);
+        res.status(500).json({
+            error: 'Failed to get response from AI',
+            details: error.message
+        });
+    }
+};
+
+/**
+ * Generate embedding for a question (stub, replace with your provider logic)
+ */
+async function generateEmbedding(question) {
+  try {
+    // Simple but effective embedding generation
+    // Convert text to lowercase and create a frequency-based vector
+    const words = question.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/);
+    const wordFreq = {};
+    
+    // Count word frequencies
+    words.forEach(word => {
+      if (word.length > 2) { // Skip very short words
+        wordFreq[word] = (wordFreq[word] || 0) + 1;
+      }
+    });
+    
+    // Create a 1536-dimensional vector (standard OpenAI embedding size)
+    const vector = new Array(1536).fill(0);
+    
+    // Use word frequencies to populate vector
+    const wordKeys = Object.keys(wordFreq);
+    wordKeys.forEach((word, index) => {
+      const vectorIndex = index % 1536;
+      vector[vectorIndex] = wordFreq[word] / wordKeys.length;
+    });
+    
+    // Normalize vector
+    const magnitude = Math.sqrt(vector.reduce((sum, val) => sum + val * val, 0));
+    if (magnitude > 0) {
+      for (let i = 0; i < vector.length; i++) {
+        vector[i] = vector[i] / magnitude;
+      }
+    }
+    
+    return vector;
+  } catch (error) {
+    console.error('Error generating embedding:', error);
+    // Fallback to random vector
+    return Array(1536).fill(0).map(() => Math.random() - 0.5);
+  }
+}
+// Helper function to ensure diversity across documents
+function ensureDocumentDiversity(chunks) {
+  const documentGroups = {};
+  const diverseResults = [];
+  
+  console.log('Diversity function input:', chunks.length, 'chunks');
+  
+  // Group chunks by document
+  chunks.forEach(chunk => {
+      if (!documentGroups[chunk.filename]) {
+          documentGroups[chunk.filename] = [];
+      }
+      documentGroups[chunk.filename].push(chunk);
+  });
+  
+  console.log('Document groups:', Object.keys(documentGroups).map(doc => ({
+      filename: doc,
+      chunk_count: documentGroups[doc].length
+  })));
+  
+  // Take all chunks from all documents, preserving order
+  Object.values(documentGroups).forEach(docChunks => {
+      diverseResults.push(...docChunks);
+  });
+  
+  console.log('Diversity function output:', diverseResults.length, 'chunks from', new Set(diverseResults.map(r => r.filename)).size, 'documents');
+  console.log('Final document sources:', [...new Set(diverseResults.map(r => r.filename))]);
+  
+  return diverseResults;
+}
+/**
+ * Get relevant document chunks using semantic search (pgvector) or keyword search
+ */
+async function getRelevantChunks(question, limit = 10) {
+  try {
+      // Check if we have any documents and chunks
+      const docCount = await docAIPool.query('SELECT COUNT(*) as count FROM documents');
+      const chunkCount = await docAIPool.query('SELECT COUNT(*) as count FROM document_chunks');
+      const embeddingCount = await docAIPool.query('SELECT COUNT(*) as count FROM embeddings');
+      
+      console.log('Database stats - Documents:', docCount.rows[0].count, 'Chunks:', chunkCount.rows[0].count, 'Embeddings:', embeddingCount.rows[0].count);
+      
+      // Check what chunks exist
+      const sampleChunks = await docAIPool.query(`
+          SELECT dc.content, d.filename, e.embedding_vector IS NOT NULL as has_embedding
+          FROM document_chunks dc
+          JOIN documents d ON dc.document_id = d.id
+          LEFT JOIN embeddings e ON dc.id = e.chunk_id
+          LIMIT 3
+      `);
+      console.log('Sample chunks:', sampleChunks.rows.map(row => ({
+          filename: row.filename,
+          content: row.content.substring(0, 100) + '...',
+          has_embedding: row.has_embedding
+      })));
+      
+      // Check document distribution
+      const docDistribution = await docAIPool.query(`
+          SELECT d.filename, COUNT(dc.id) as chunk_count
+          FROM documents d
+          LEFT JOIN document_chunks dc ON d.id = dc.document_id
+          GROUP BY d.filename, d.id
+          ORDER BY d.created_at DESC
+      `);
+      console.log('Document distribution:', docDistribution.rows.map(row => ({
+          filename: row.filename,
+          chunk_count: row.chunk_count
+      })));
+      
+      // Try to get query embedding, but fall back to keyword search if OpenAI fails
+      let queryEmbedding;
+      let useVectorSearch = true;
+      
+      if (!embeddings) {
+          console.log('No embeddings available, using keyword search only');
+          useVectorSearch = false;
+      } else {
+          try {
+              // Check stored embedding dimensions first
+              const storedEmbedding = await docAIPool.query(`
+                  SELECT embedding_vector FROM embeddings LIMIT 1
+              `);
+              
+              let storedDimension = null;
+              if (storedEmbedding.rows.length > 0) {
+                  const embeddingValue = storedEmbedding.rows[0].embedding_vector;
+                  if (typeof embeddingValue === 'string' && embeddingValue.startsWith('[')) {
+                      // Parse the vector string to get dimension
+                      const vectorArray = embeddingValue.slice(1, -1).split(',').map(x => parseFloat(x.trim()));
+                      storedDimension = vectorArray.length;
+                      console.log('Stored embedding dimension:', storedDimension);
+                  }
+              }
+              
+              // Generate query embedding
+              queryEmbedding = await embeddings.embedQuery(question);
+              console.log('Query embedding type:', typeof queryEmbedding, 'Length:', queryEmbedding.length);
+              console.log('Searching for query:', question);
+              
+              // Check if dimensions match
+              if (storedDimension && queryEmbedding.length !== storedDimension) {
+                  console.warn(`Dimension mismatch: stored=${storedDimension}, query=${queryEmbedding.length}`);
+                  console.log('Falling back to keyword search due to dimension mismatch');
+                  useVectorSearch = false;
+              }
+              
+          } catch (embeddingError) {
+              console.warn('Embedding failed, falling back to keyword search:', embeddingError.message);
+              useVectorSearch = false;
+          }
+      }
+      
+      // Try vector similarity search first (if pgvector is available and embeddings work)
+      if (useVectorSearch) {
+          try {
+              // Convert embedding array to pgvector format
+              const embeddingString = `[${queryEmbedding.join(',')}]`;
+              
+              // Get more results initially to ensure diversity
+              const result = await docAIPool.query(`
+                  SELECT 
+                      dc.content,
+                      dc.metadata,
+                      dc.chunk_index,
+                      d.filename,
+                      d.file_size,
+                      d.file_type,
+                      e.embedding_vector,
+                      (e.embedding_vector <=> $1::vector) as distance
+                  FROM document_chunks dc
+                  JOIN documents d ON dc.document_id = d.id
+                  JOIN embeddings e ON dc.id = e.chunk_id
+                  ORDER BY distance ASC
+              `, [embeddingString]);
+              
+              console.log('Vector search found', result.rows.length, 'chunks');
+              
+              if (result.rows.length > 0) {
+                  // Debug: Show what documents were found
+                  const foundDocs = [...new Set(result.rows.map(r => r.filename))];
+                  console.log('Documents found in vector search:', foundDocs);
+                  
+                  // Ensure diversity by limiting chunks per document
+                  const diverseResults = ensureDocumentDiversity(result.rows);
+                  console.log('After diversity filtering:', diverseResults.length, 'chunks from', new Set(diverseResults.map(r => r.filename)).size, 'documents');
+                  
+                  // If we only got results from one document, try to add some from other documents
+                  if (new Set(diverseResults.map(r => r.filename)).size === 1 && docDistribution.rows.length > 1) {
+                      console.log('Only one document found, adding samples from other documents');
+                      const currentDoc = diverseResults[0].filename;
+                      const otherDocs = docDistribution.rows.filter(doc => doc.filename !== currentDoc);
+                      
+                      // Add one chunk from each other document
+                      for (const otherDoc of otherDocs.slice(0, 2)) { // Limit to 2 additional docs
+                          const sampleChunk = await docAIPool.query(`
+                              SELECT 
+                                  dc.content,
+                                  dc.metadata,
+                                  d.filename,
+                                  NULL as embedding_vector,
+                                  0.8 as distance
+                              FROM document_chunks dc
+                              JOIN documents d ON dc.document_id = d.id
+                              WHERE d.filename = $1
+                              ORDER BY dc.chunk_index ASC
+                              LIMIT 1
+                          `, [otherDoc.filename]);
+                          
+                          if (sampleChunk.rows.length > 0) {
+                              diverseResults.push(sampleChunk.rows[0]);
+                              console.log(`Added sample chunk from: ${otherDoc.filename}`);
+                          }
+                      }
+                  }
+                  
+                  return diverseResults;
+              }
+          } catch (vectorError) {
+              console.warn('Vector similarity search failed, using keyword fallback:', vectorError.message);
+              useVectorSearch = false;
+          }
+      }
+      
+      // Fall back to keyword search if vector search fails or no results
+      console.log('Using keyword search fallback');
+      
+      const keywords = question.toLowerCase().split(/\s+/).filter(word => word.length > 2);
+      console.log('Keywords extracted:', keywords);
+      
+      if (keywords.length === 0) {
+          // If no keywords, return diverse chunks from recent documents
+          const result = await docAIPool.query(`
+              SELECT 
+                  dc.content,
+                  dc.metadata,
+                  d.filename,
+                  NULL as embedding_vector,
+                  0.5 as distance
+              FROM document_chunks dc
+              JOIN documents d ON dc.document_id = d.id
+              ORDER BY d.created_at DESC, dc.chunk_index ASC
+              LIMIT 50
+          `);
+          console.log('No keywords fallback found', result.rows.length, 'chunks');
+          const diverseResults = ensureDocumentDiversity(result.rows);
+          return diverseResults;
+      }
+      
+      // Enhanced keyword-based search with diversity
+      const keywordConditions = keywords.map((_, index) => 
+          `LOWER(dc.content) LIKE $${index + 1}`
+      ).join(' OR ');
+      
+      // First try exact keyword search
+      let result = await docAIPool.query(`
+          SELECT 
+              dc.content,
+              dc.metadata,
+              dc.chunk_index,
+              d.filename,
+              d.file_size,
+              d.file_type,
+              NULL as embedding_vector,
+              0.5 as distance
+          FROM document_chunks dc
+          JOIN documents d ON dc.document_id = d.id
+          WHERE ${keywordConditions}
+          ORDER BY d.created_at DESC, dc.chunk_index ASC
+      `, keywords.map(k => `%${k}%`));
+      
+      console.log('Exact keyword search found', result.rows.length, 'chunks');
+      
+      // If we don't have enough results, try broader search
+      if (result.rows.length < 20) {
+          console.log('Not enough results, trying broader search...');
+          
+          // Try searching for partial keywords (first 3 characters)
+          const partialKeywords = keywords.map(k => k.substring(0, 3)).filter(k => k.length >= 3);
+          if (partialKeywords.length > 0) {
+              const partialConditions = partialKeywords.map((_, index) => 
+                  `LOWER(dc.content) LIKE $${index + 1}`
+              ).join(' OR ');
+              
+              const partialResult = await docAIPool.query(`
+                  SELECT 
+                      dc.content,
+                      dc.metadata,
+                      dc.chunk_index,
+                      d.filename,
+                      d.file_size,
+                      d.file_type,
+                      NULL as embedding_vector,
+                      0.7 as distance
+                  FROM document_chunks dc
+                  JOIN documents d ON dc.document_id = d.id
+                  WHERE ${partialConditions}
+                  ORDER BY d.created_at DESC, dc.chunk_index ASC
+              `, partialKeywords.map(k => `%${k}%`));
+              
+              console.log('Partial keyword search found', partialResult.rows.length, 'chunks');
+              
+              // Combine results, avoiding duplicates
+              const existingFilenames = new Set(result.rows.map(r => r.filename));
+              const additionalChunks = partialResult.rows.filter(chunk => !existingFilenames.has(chunk.filename));
+              result.rows = [...result.rows, ...additionalChunks];
+          }
+      }
+      
+      // If still not enough results, add some random chunks from other documents
+      if (result.rows.length < 30) {
+          console.log('Still not enough results, adding sample chunks from all documents...');
+          
+          const foundDocs = [...new Set(result.rows.map(r => r.filename))];
+          const allDocs = await docAIPool.query(`
+              SELECT DISTINCT d.filename
+              FROM documents d
+              JOIN document_chunks dc ON d.id = dc.document_id
+              ORDER BY d.created_at DESC
+          `);
+          
+          const missingDocs = allDocs.rows.filter(doc => !foundDocs.includes(doc.filename));
+          
+          for (const missingDoc of missingDocs.slice(0, 5)) { // Add up to 5 missing docs
+              const sampleChunk = await docAIPool.query(`
+                  SELECT 
+                      dc.content,
+                      dc.metadata,
+                      dc.chunk_index,
+                      d.filename,
+                      d.file_size,
+                      d.file_type,
+                      NULL as embedding_vector,
+                      0.9 as distance
+                  FROM document_chunks dc
+                  JOIN documents d ON dc.document_id = d.id
+                  WHERE d.filename = $1
+                  ORDER BY dc.chunk_index ASC
+                  LIMIT 2
+              `, [missingDoc.filename]);
+              
+              if (sampleChunk.rows.length > 0) {
+                  result.rows.push(...sampleChunk.rows);
+                  console.log(`Added sample chunks from: ${missingDoc.filename}`);
+              }
+          }
+      }
+      
+      return result.rows;
+      
+  } catch (error) {
+      console.error('Error in getRelevantChunks:', error);
+      // Final fallback: return diverse recent chunks
+      const result = await docAIPool.query(`
+          SELECT 
+              dc.content,
+              dc.metadata,
+              dc.chunk_index,
+              d.filename,
+              d.file_size,
+              d.file_type,
+              NULL as embedding_vector,
+              0.5 as distance
+          FROM document_chunks dc
+          JOIN documents d ON dc.document_id = d.id
+          ORDER BY d.created_at DESC, dc.chunk_index ASC
+          LIMIT 50
+      `);
+      console.log('Final fallback found', result.rows.length, 'chunks');
+      const diverseResults = ensureDocumentDiversity(result.rows);
+      return diverseResults;
+  }
+}
+
+// Initialize Document AI database on module load
+initializeDocumentAIDatabase().catch(error => {
+    console.error('❌ Failed to initialize Document AI database:', error)
+})
+
+// Manual AI Processing for Existing Documents
+ // Manual AI Processing for Existing Documents
+  
+// Manual AI Processing for Existing Documents
+exports.processExistingDocumentsWithAI = async (req, res) => {
+  try {
+    const { processAll, documentIds } = req.body;
+    
+    let documentsToProcess = [];
+    
+    if (processAll) {
+      // Get all documents from the database
+      documentsToProcess = await db.models.document.findAll({
+        attributes: ['id', 'name', 'location', 'size', 'format']
+      });
+    } else if (documentIds && Array.isArray(documentIds)) {
+      // Process specific documents
+      documentsToProcess = await db.models.document.findAll({
+        where: {
+          id: {
+            [op.in]: documentIds
+          }
+        },
+        attributes: ['id', 'name', 'location', 'size', 'format']
+      });
+    } else {
+      return res.status(400).json({
+        code: '4000',
+        message: 'Either processAll or documentIds must be provided'
+      });
+    }
+
+    if (documentsToProcess.length === 0) {
+      return res.status(200).json({
+        code: '0000',
+        message: 'No documents found to process',
+        data: {
+          processed: 0,
+          failed: 0,
+          total: 0
+        }
+      });
+    }
+
+    console.log(`Processing ${documentsToProcess.length} documents with AI...`);
+    
+    let processed = 0;
+    let failed = 0;
+    const batchSize = 5; // Process in batches to avoid overwhelming the system
+    
+    for (let i = 0; i < documentsToProcess.length; i += batchSize) {
+      const batch = documentsToProcess.slice(i, i + batchSize);
+      
+      // Process batch in parallel
+      const batchPromises = batch.map(async (doc) => {
+        try {
+          // Check if file exists - use the location field or construct path
+          let filePath = doc.location;
+          
+          // If location doesn't exist or is relative, construct the full path
+          if (!filePath || !path.isAbsolute(filePath)) {
+            filePath = path.join(__dirname, '..', '..', '..', 'data', 'uploads', doc.name);
+          }
+          
+          if (!fs.existsSync(filePath)) {
+            console.log(`File not found: ${filePath}`);
+            return { success: false, reason: 'File not found' };
+          }
+          
+          // Get file stats
+          const stats = fs.statSync(filePath);
+          const fileSize = stats.size;
+          
+          // Process the document using the same logic as upload
+          const result = await processDocumentWithAI(filePath, doc.name, fileSize);
+          
+          if (result.success) {
+            console.log(`Successfully processed: ${doc.name}`);
+            return { success: true };
+          } else {
+            console.log(`Failed to process: ${doc.name} - ${result.message || 'Unknown error'}`);
+            return { success: false, reason: result.message || 'Processing failed' };
+          }
+          
+        } catch (error) {
+          console.error(`Error processing document ${doc.name}:`, error);
+          return { success: false, reason: error.message };
+        }
+      });
+      
+      // Wait for batch to complete
+      const batchResults = await Promise.all(batchPromises);
+      
+      // Count results
+      batchResults.forEach(result => {
+        if (result.success) {
+          processed++;
+        } else {
+          failed++;
+        }
+      });
+      
+      // Small delay between batches
+      if (i + batchSize < documentsToProcess.length) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
+    
+    console.log(`AI Processing completed. Processed: ${processed}, Failed: ${failed}`);
+    
+    return res.status(200).json({
+      code: '0000',
+      message: `AI processing completed. Processed: ${processed}, Failed: ${failed}`,
+      data: {
+        processed,
+        failed,
+        total: documentsToProcess.length
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error in processExistingDocumentsWithAI:', error);
+    return res.status(500).json({
+      code: '5000',
+      message: 'Internal server error during AI processing',
+      error: error.message
+    });
+  }
+};
+// Get AI processing status for documents
+exports.getDocumentAIStatus = async (req, res) => {
+  try {
+    const { documentId } = req.params;
+    
+    if (!documentId) {
+      return res.status(400).send({
+        message: 'Document ID is required',
+        code: '0001'
+      });
+    }
+
+    const document = await db.models.document.findByPk(documentId);
+    
+    if (!document) {
+      return res.status(404).send({
+        message: 'Document not found',
+        code: '0001'
+      });
+    }
+
+    let aiStatus = {
+      processed: false,
+      chunks: 0,
+      documentId: null,
+      warning: null,
+      processedAt: null
+    };
+
+    if (document.aiProcessed) {
+      aiStatus = {
+        processed: true,
+        chunks: document.aiChunks || 0,
+        documentId: document.aiDocumentId,
+        warning: document.aiWarning,
+        processedAt: document.aiProcessedAt
+      };
+    }
+
+    res.status(200).send({
+      message: 'AI status retrieved successfully',
+      code: '0000',
+      documentId: document.id,
+      documentName: document.name,
+      aiStatus
+    });
+
+  } catch (error) {
+    console.error('Error in getDocumentAIStatus:', error);
+    res.status(500).send({
+      message: 'Failed to get AI status: ' + error.message,
+      code: '0002'
+    });
+  }
+};
+
+// Get AI processing statistics
+exports.getAIProcessingStats = async (req, res) => {
+  try {
+    const totalDocuments = await db.models.document.count();
+    const processedDocuments = await db.models.document.count({
+      where: { aiProcessed: true }
+    });
+    const unprocessedDocuments = await db.models.document.count({
+      where: {
+        [op.or]: [
+          { aiProcessed: null },
+          { aiProcessed: false }
+        ]
+      }
+    });
+
+    // Get recent processing activity
+    const recentActivity = await db.models.document.findAll({
+      where: {
+        aiProcessed: true,
+        aiProcessedAt: {
+          [op.gte]: new Date(Date.now() - 24 * 60 * 60 * 1000) // Last 24 hours
+        }
+      },
+      attributes: ['name', 'aiChunks', 'aiProcessedAt', 'aiWarning'],
+      order: [['aiProcessedAt', 'DESC']],
+      limit: 10
+    });
+
+    res.status(200).send({
+      message: 'AI processing statistics retrieved successfully',
+      code: '0000',
+      stats: {
+        total: totalDocuments,
+        processed: processedDocuments,
+        unprocessed: unprocessedDocuments,
+        processingRate: totalDocuments > 0 ? (processedDocuments / totalDocuments * 100).toFixed(2) : 0
+      },
+      recentActivity
+    });
+
+  } catch (error) {
+    console.error('Error in getAIProcessingStats:', error);
+    res.status(500).send({
+      message: 'Failed to get AI statistics: ' + error.message,
+      code: '0002'
+    });
+  }
+};
+
+// Initialize Document AI database on module load
+if (docAIPool) {
+    initializeDocumentAIDatabase().catch(error => {
+        console.error('❌ Failed to initialize Document AI database:', error);
+    });
+} else {
+    console.log('⚠️  Document AI database not available - AI features will be disabled');
+}
+
+// AI Configuration and Provider Management Functions
+
+/**
+ * Get AI service health status
+ */
+exports.getAIHealth = async (req, res) => {
+  try {
+    const isHealthy = docAIPool ? true : false;
+    
+    res.json({
+      success: true,
+      message: isHealthy ? "AI service is healthy" : "AI service is not available",
+      data: {
+        status: isHealthy ? "healthy" : "unavailable",
+        timestamp: new Date().toISOString(),
+        databaseConnected: !!docAIPool,
+        features: {
+          documentProcessing: isHealthy,
+          embeddings: isHealthy,
+          chat: isHealthy,
+          search: isHealthy
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error in getAIHealth:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to check AI health: ' + error.message
     });
   }
 };

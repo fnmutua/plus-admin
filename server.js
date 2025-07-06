@@ -32,6 +32,41 @@ const dotenv = require('dotenv')
 const envFilePath = path.resolve(__dirname, '.env.kisip');
 dotenv.config({ path: envFilePath });
 
+// Log environment variables on load
+console.log('=== ENVIRONMENT VARIABLES LOADED ===');
+console.log('Env file path:', envFilePath);
+console.log('File exists:', require('fs').existsSync(envFilePath));
+
+// Main Database Variables
+console.log('Main DB - HOST:', process.env.VUE_APP_DB_HOST);
+console.log('Main DB - USER:', process.env.VUE_APP_USER);
+console.log('Main DB - DB:', process.env.VUE_APP_DB);
+console.log('Main DB - PORT:', process.env.VUE_APP_DB_PORT);
+console.log('Main DB - PASSWORD:', process.env.VUE_APP_PASSWORD ? '***SET***' : 'NOT SET');
+
+// AI Database Variables
+console.log('AI DB - HOST:', process.env.AI_DB_HOST);
+console.log('AI DB - USER:', process.env.AI_DB_USER);
+console.log('AI DB - NAME:', process.env.AI_DB_NAME);
+console.log('AI DB - PORT:', process.env.AI_DB_PORT);
+console.log('AI DB - PASSWORD:', process.env.AI_DB_PASSWORD ? '***SET***' : 'NOT SET');
+
+// AI Configuration Variables
+console.log('AI Provider:', process.env.AI_PROVIDER);
+console.log('AI Chunk Size:', process.env.CHUNK_SIZE);
+console.log('AI Overlap Size:', process.env.OVERLAP_SIZE);
+console.log('AI Max Chunks:', process.env.MAX_CHUNKS_PER_DOCUMENT);
+console.log('AI Disable Embeddings:', process.env.DISABLE_EMBEDDINGS);
+
+// API Keys (only show if configured)
+console.log('OpenAI API Key:', process.env.OPENAI_API_KEY ? '***CONFIGURED***' : 'NOT CONFIGURED');
+console.log('XAI API Key:', process.env.XAI_API_KEY ? '***CONFIGURED***' : 'NOT CONFIGURED');
+console.log('Ollama Base URL:', process.env.OLLAMA_BASE_URL);
+
+// Server Configuration
+console.log('Server PORT:', process.env.PORT);
+console.log('=====================================');
+
  }
  
 app.use(cors(corsOptions))
@@ -222,3 +257,43 @@ app.get('/api-docs-custom', (req, res) => {
 app.get('/swagger.json', (req, res) => {
   res.json(swaggerFile);
 });
+
+ 
+
+async function saveEmbeddings(chunkIds, embeddingVectors) {
+  let modelName;
+  if (PROVIDER === 'ollama') {
+      modelName = 'all-minilm';
+  } else if (PROVIDER === 'xai') {
+      // XAI uses either Ollama or OpenAI embeddings
+      if (OLLAMA_BASE_URL) {
+          modelName = 'all-minilm'; // Using Ollama embeddings with XAI
+      } else if (OPENAI_API_KEY && OPENAI_API_KEY !== 'your_openai_api_key_here') {
+          modelName = 'text-embedding-ada-002'; // Using OpenAI embeddings with XAI
+      } else {
+          modelName = 'keyword-search-only'; // No embeddings
+      }
+  } else {
+      modelName = 'text-embedding-ada-002'; // OpenAI
+  }
+  
+  try {
+      const embeddingPromises = chunkIds.map(async (chunkId, index) => {
+          // Convert embedding array to pgvector format
+          const embeddingString = `[${embeddingVectors[index].join(',')}]`;
+          
+          const query = `
+              INSERT INTO embeddings (chunk_id, embedding_vector, model_name)
+              VALUES ($1, $2::vector, $3)
+          `;
+          await pool.query(query, [chunkId, embeddingString, modelName]);
+      });
+      
+      await Promise.all(embeddingPromises);
+      console.log(`✅ Saved ${chunkIds.length} embeddings using ${modelName}`);
+  } catch (error) {
+      console.error('Failed to save embeddings:', error.message);
+      // Don't throw error, just log it and continue without embeddings
+      console.log('Continuing without embeddings - will use keyword search only');
+  }
+}
