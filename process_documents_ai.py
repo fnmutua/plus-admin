@@ -243,7 +243,7 @@ class DocumentAIProcessor:
             logger.error(f"Error generating embedding with Ollama: {e}")
             return []
     
-    def generate_embeddings_batch(self, texts: List[str], model_name: str = "nomic-embed-text") -> List[List[float]]:
+    def generate_embeddings_batch(self, texts: List[str], model_name: str = "all-minilm") -> List[List[float]]:
         """Generate embeddings for multiple texts in a single batch request"""
         try:
             import requests
@@ -389,7 +389,7 @@ class DocumentAIProcessor:
         finally:
             cursor.close()
     
-    def save_embeddings(self, chunk_ids: List[str], embeddings: List[List[float]], model_name: str = "nomic-embed-text") -> bool:
+    def save_embeddings(self, chunk_ids: List[str], embeddings: List[List[float]], model_name: str = "all-minilm") -> bool:
         """Save embeddings to database with flexible vector storage"""
         cursor = self.ai_conn.cursor()
         
@@ -611,7 +611,7 @@ def main():
     parser.add_argument('--uploads-dir', default='./data/uploads', help='Directory containing uploaded files')
     parser.add_argument('--force-reprocess', action='store_true', help='Reprocess already processed documents')
     parser.add_argument('--max-workers', type=int, default=4, help='Maximum number of parallel workers')
-    parser.add_argument('--embedding-model', default='nomic-embed-text', help='Ollama embedding model to use (default: nomic-embed-text)')
+    parser.add_argument('--embedding-model', default='all-minilm', help='Ollama embedding model to use (default: all-minilm)')
     parser.add_argument('--ollama-url', default='http://localhost:11434', help='Ollama API URL (default: http://localhost:11434)')
     parser.add_argument('--batch-size', type=int, default=20, help='Batch size for embedding generation')
     parser.add_argument('--batch-delay', type=float, default=0.1, help='Batch delay between embedding generations')
