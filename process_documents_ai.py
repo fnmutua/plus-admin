@@ -6,10 +6,8 @@ Updated to match the new database schema with UUID primary keys and flexible emb
 """
 
 import os
-import sys
 import json
-import asyncio
-import aiofiles
+
 import psycopg2
 import argparse
 import uuid
@@ -18,8 +16,7 @@ from typing import List, Dict, Any, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
 from datetime import datetime
-import hashlib
-import re
+
 import requests
 import time
 
