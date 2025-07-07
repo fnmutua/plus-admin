@@ -1,3 +1,38 @@
+// Add fetch polyfill for Node.js compatibility (Node.js 20+ has built-in fetch)
+if (typeof globalThis.fetch === 'undefined') {
+  // For older Node.js versions, use a simple polyfill
+  globalThis.fetch = async (url, options = {}) => {
+    const http = require('http');
+    const https = require('https');
+    const { URL } = require('url');
+    
+    return new Promise((resolve, reject) => {
+      const urlObj = new URL(url);
+      const isHttps = urlObj.protocol === 'https:';
+      const client = isHttps ? https : http;
+      
+      const req = client.request(url, options, (res) => {
+        let data = '';
+        res.on('data', (chunk) => data += chunk);
+        res.on('end', () => {
+          resolve({
+            ok: res.statusCode >= 200 && res.statusCode < 300,
+            status: res.statusCode,
+            statusText: res.statusMessage,
+            headers: res.headers,
+            text: () => Promise.resolve(data),
+            json: () => Promise.resolve(JSON.parse(data))
+          });
+        });
+      });
+      
+      req.on('error', reject);
+      if (options.body) req.write(options.body);
+      req.end();
+    });
+  };
+}
+
 const db = require('../models')
 const config = require('../config/db.config.js')
 ///const config = require("../config/db.config.js");
@@ -1474,8 +1509,7 @@ exports.modelAllGeo = async (req, res) => {
     const lastRow = await db.models[reg_model].findOne({
       attributes: ['updatedAt'],
       order: [['updatedAt', 'DESC']]
-    });
-    
+    });    
     const lastModified = lastRow ? lastRow.updatedAt: Date.now()
     console.log(lastModified,req.body.cache_key)
      console.log("Caching>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>....")
@@ -3797,9 +3831,10 @@ exports.modelPaginatedDatafilterByColumnM2M = (req, res) => {
  
 
 
- 
 
- 
+
+
+
 
 exports.modelPaginatedDatafilterBykeyWord = async (req, res) => {
   try {
@@ -6868,7 +6903,7 @@ exports.modelManyRecordsByCodes = (req, res) => {
 
   if (!Array.isArray(codes) || codes.length === 0) {
     return res.status(400).json({
-      message: '`codes` must be a non‐empty array',
+      message: '`codes` must be a non-empty array',
       code: '00001'
     });
   }

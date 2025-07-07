@@ -1,3 +1,38 @@
+// Add fetch polyfill for Node.js compatibility (Node.js 20+ has built-in fetch)
+if (typeof globalThis.fetch === 'undefined') {
+  // For older Node.js versions, use a simple polyfill
+  globalThis.fetch = async (url, options = {}) => {
+    const http = require('http');
+    const https = require('https');
+    const { URL } = require('url');
+    
+    return new Promise((resolve, reject) => {
+      const urlObj = new URL(url);
+      const isHttps = urlObj.protocol === 'https:';
+      const client = isHttps ? https : http;
+      
+      const req = client.request(url, options, (res) => {
+        let data = '';
+        res.on('data', (chunk) => data += chunk);
+        res.on('end', () => {
+          resolve({
+            ok: res.statusCode >= 200 && res.statusCode < 300,
+            status: res.statusCode,
+            statusText: res.statusMessage,
+            headers: res.headers,
+            text: () => Promise.resolve(data),
+            json: () => Promise.resolve(JSON.parse(data))
+          });
+        });
+      });
+      
+      req.on('error', reject);
+      if (options.body) req.write(options.body);
+      req.end();
+    });
+  };
+}
+
 const express = require('express');
 const bodyParser = require('body-parser');
 //const cors = require('cors');
@@ -110,8 +145,6 @@ const httpsServer = https.createServer(credentials, app);
 // Change the port to 443 (the default HTTPS port).
 httpsServer.listen(8443, () => {
   console.log('HTTPS Server running on port 8443');
- 
- 
 });
 
 
