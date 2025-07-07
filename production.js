@@ -21,7 +21,7 @@ if (!fs.existsSync(uploadsDir)) {
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-const envt = 'DEV'; // PROD
+const envt = 'production'; // PROD
 if (envt === 'DEV') {
   // Switch off for production 
   console.log("DEV: Switching on dotenv");
@@ -45,6 +45,57 @@ app.get('/', (req, res) => {
 });
 
 app.use(express.static('public'));
+
+
+// Log environment variables on load
+console.log('=== ENVIRONMENT VARIABLES LOADED ===');
+console.log('Env file path:', envFilePath);
+console.log('File exists:', require('fs').existsSync(envFilePath));
+
+// Main Database Variables
+console.log('Main DB - HOST:', process.env.VUE_APP_DB_HOST);
+console.log('Main DB - USER:', process.env.VUE_APP_USER);
+console.log('Main DB - DB:', process.env.VUE_APP_DB);
+console.log('Main DB - PORT:', process.env.VUE_APP_DB_PORT);
+console.log('Main DB - PASSWORD:', process.env.VUE_APP_PASSWORD ? '***SET***' : 'NOT SET');
+
+// AI Database Variables
+console.log('AI DB - HOST:', process.env.AI_DB_HOST);
+console.log('AI DB - USER:', process.env.AI_DB_USER);
+console.log('AI DB - NAME:', process.env.AI_DB_NAME);
+console.log('AI DB - PORT:', process.env.AI_DB_PORT);
+console.log('AI DB - PASSWORD:', process.env.AI_DB_PASSWORD ? '***SET***' : 'NOT SET');
+
+// AI Configuration Variables
+console.log('AI Provider:', process.env.AI_PROVIDER);
+console.log('AI Chunk Size:', process.env.CHUNK_SIZE);
+console.log('AI Overlap Size:', process.env.OVERLAP_SIZE);
+console.log('AI Max Chunks:', process.env.MAX_CHUNKS_PER_DOCUMENT);
+console.log('AI Disable Embeddings:', process.env.DISABLE_EMBEDDINGS);
+
+// API Keys (only show if configured)
+console.log('OpenAI API Key:', process.env.OPENAI_API_KEY ? '***CONFIGURED***' : 'NOT CONFIGURED');
+console.log('XAI API Key:', process.env.XAI_API_KEY ? '***CONFIGURED***' : 'NOT CONFIGURED');
+console.log('Ollama Base URL:', process.env.OLLAMA_BASE_URL);
+
+// Server Configuration
+console.log('Server PORT:', process.env.PORT);
+console.log('=====================================');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 const privateKeyPath = '/etc/letsencrypt/live/kesmis.go.ke/privkey.pem';
 const certificatePath = '/etc/letsencrypt/live/kesmis.go.ke/fullchain.pem';

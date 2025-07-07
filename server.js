@@ -260,40 +260,4 @@ app.get('/swagger.json', (req, res) => {
 
  
 
-async function saveEmbeddings(chunkIds, embeddingVectors) {
-  let modelName;
-  if (PROVIDER === 'ollama') {
-      modelName = 'all-minilm';
-  } else if (PROVIDER === 'xai') {
-      // XAI uses either Ollama or OpenAI embeddings
-      if (OLLAMA_BASE_URL) {
-          modelName = 'all-minilm'; // Using Ollama embeddings with XAI
-      } else if (OPENAI_API_KEY && OPENAI_API_KEY !== 'your_openai_api_key_here') {
-          modelName = 'text-embedding-ada-002'; // Using OpenAI embeddings with XAI
-      } else {
-          modelName = 'keyword-search-only'; // No embeddings
-      }
-  } else {
-      modelName = 'text-embedding-ada-002'; // OpenAI
-  }
-  
-  try {
-      const embeddingPromises = chunkIds.map(async (chunkId, index) => {
-          // Convert embedding array to pgvector format
-          const embeddingString = `[${embeddingVectors[index].join(',')}]`;
-          
-          const query = `
-              INSERT INTO embeddings (chunk_id, embedding_vector, model_name)
-              VALUES ($1, $2::vector, $3)
-          `;
-          await pool.query(query, [chunkId, embeddingString, modelName]);
-      });
-      
-      await Promise.all(embeddingPromises);
-      console.log(`✅ Saved ${chunkIds.length} embeddings using ${modelName}`);
-  } catch (error) {
-      console.error('Failed to save embeddings:', error.message);
-      // Don't throw error, just log it and continue without embeddings
-      console.log('Continuing without embeddings - will use keyword search only');
-  }
-}
+ 
