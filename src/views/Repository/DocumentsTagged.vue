@@ -1662,7 +1662,7 @@ const toggleSources = (messageIndex) => {
           <p style="margin: 4px 0 0 0; color: #909399; font-size: 14px;">{{ t('Use the filters to subset') }}</p>
         </div>
         <div style="display: flex; gap: 8px;">
-          <el-button @click="$router.push('/repository/ai-chat')" type="success" plain size="small">
+          <el-button @click="$router.push('/repo/ai-chat')" type="success" plain size="small">
             <Icon icon="material-symbols:smart-toy" width="16" style="margin-right: 4px;" />
             AI Chat Interface
           </el-button>

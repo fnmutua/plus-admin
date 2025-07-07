@@ -1,0 +1,1122 @@
+2025-07-07 18:29:24,895 - ERROR - Failed to connect to source database: connection to server at "localhost" (::1), port 5445 failed: FATAL:  database "your_source_database" does not exist
+
+2025-07-07 18:29:45,055 - INFO - Connected to source database successfully
+2025-07-07 18:29:45,103 - INFO - Connected to AI database successfully
+2025-07-07 18:29:45,106 - INFO - Source database connection closed
+2025-07-07 18:29:45,107 - INFO - AI database connection closed
+2025-07-07 18:30:45,853 - INFO - Connected to source database successfully
+2025-07-07 18:30:45,902 - INFO - Connected to AI database successfully
+2025-07-07 18:30:45,905 - INFO - Source database connection closed
+2025-07-07 18:30:45,906 - INFO - AI database connection closed
+2025-07-07 18:31:08,137 - INFO - Connected to source database successfully
+2025-07-07 18:31:08,173 - INFO - Connected to AI database successfully
+2025-07-07 18:31:08,177 - INFO - Source database connection closed
+2025-07-07 18:31:08,178 - INFO - AI database connection closed
+2025-07-07 18:31:26,630 - INFO - Connected to source database successfully
+2025-07-07 18:31:26,668 - INFO - Connected to AI database successfully
+2025-07-07 18:31:26,679 - INFO - Found 16 documents to process
+2025-07-07 18:31:26,680 - INFO - Starting parallel processing of 16 documents with 4 workers
+2025-07-07 18:31:26,682 - INFO - Processing document: EGS-2310 - A01.csv.zip (ID: 16)
+2025-07-07 18:31:26,683 - INFO - Processing document: EGS-2310 - A04.csv.zip (ID: 15)
+2025-07-07 18:31:26,684 - INFO - Processing document: cyxi7brh.png (ID: 14)
+2025-07-07 18:31:26,684 - WARNING - Unsupported file type: .zip
+2025-07-07 18:31:26,685 - WARNING - Unsupported file type: .zip
+2025-07-07 18:31:26,685 - INFO - Processing document: Lopiding_layers.zip (ID: 13)
+2025-07-07 18:31:26,686 - WARNING - Unsupported file type: .png
+2025-07-07 18:31:26,689 - WARNING - Unsupported file type: .zip
+2025-07-07 18:31:26,690 - ERROR - Error updating document status: column "ai_processed" of relation "document" does not exist
+LINE 3:                 SET ai_processed = false, ai_processed_at = ...
+                            ^
+
+2025-07-07 18:31:26,691 - ERROR - Error updating document status: current transaction is aborted, commands ignored until end of transaction block
+
+2025-07-07 18:31:26,691 - ERROR - Error updating document status: current transaction is aborted, commands ignored until end of transaction block
+
+2025-07-07 18:31:26,692 - INFO - Processing document: 1695971004448.jpg (ID: 12)
+2025-07-07 18:31:26,692 - ERROR - Error updating document status: column "ai_processed" of relation "document" does not exist
+LINE 3:                 SET ai_processed = false, ai_processed_at = ...
+                            ^
+
+2025-07-07 18:31:26,693 - INFO - Processing document: Lopiding socio-economic Survey Report.pdf (ID: 11)
+2025-07-07 18:31:26,694 - INFO - Processing document: cyxi7brh (1).png (ID: 10)
+2025-07-07 18:31:26,695 - WARNING - Unsupported file type: .jpg
+2025-07-07 18:31:26,696 - INFO - Processing document: cyxi7brh (2).png (ID: 9)
+2025-07-07 18:31:26,706 - WARNING - Unsupported file type: .png
+2025-07-07 18:31:26,709 - ERROR - Error updating document status: column "ai_processed" of relation "document" does not exist
+LINE 3:                 SET ai_processed = false, ai_processed_at = ...
+                            ^
+
+2025-07-07 18:31:26,710 - WARNING - Unsupported file type: .png
+2025-07-07 18:31:26,717 - ERROR - Error updating document status: column "ai_processed" of relation "document" does not exist
+LINE 3:                 SET ai_processed = false, ai_processed_at = ...
+                            ^
+
+2025-07-07 18:31:26,718 - INFO - Processing document: Urban Resilience - Consultancies-20250609T161444Z-1-001.zip (ID: 8)
+2025-07-07 18:31:26,724 - ERROR - Error updating document status: column "ai_processed" of relation "document" does not exist
+LINE 3:                 SET ai_processed = false, ai_processed_at = ...
+                            ^
+
+2025-07-07 18:31:26,727 - INFO - Processing document: T__proc_notices_notices_055_k_notice_doc_52884_561104146.pdf (ID: 7)
+2025-07-07 18:31:26,730 - WARNING - Unsupported file type: .zip
+2025-07-07 18:31:26,732 - INFO - Processing document: INVBMGJ77 ETIMS INVOICE.pdf (ID: 6)
+2025-07-07 18:31:26,738 - ERROR - Error updating document status: column "ai_processed" of relation "document" does not exist
+LINE 3:                 SET ai_processed = false, ai_processed_at = ...
+                            ^
+
+2025-07-07 18:31:26,753 - INFO - Processing document: SalesReciept.pdf (ID: 5)
+2025-07-07 18:31:26,933 - ERROR - Error saving document to AI database: relation "documents_ai" does not exist
+LINE 2:                 INSERT INTO documents_ai (filename, file_pat...
+                                    ^
+
+2025-07-07 18:31:26,941 - INFO - Processing document: KISIP-June01.pdf (ID: 4)
+2025-07-07 18:31:27,240 - ERROR - Error saving document to AI database: relation "documents_ai" does not exist
+LINE 2:                 INSERT INTO documents_ai (filename, file_pat...
+                                    ^
+
+2025-07-07 18:31:27,302 - INFO - Processing document: Nakuru City Bus Park Feb 2025 Progress Report (2).docx (ID: 3)
+2025-07-07 18:31:27,349 - ERROR - Error saving document to AI database: relation "documents_ai" does not exist
+LINE 2:                 INSERT INTO documents_ai (filename, file_pat...
+                                    ^
+
+2025-07-07 18:31:27,537 - INFO - Processing document: Machakos_10_Mjini Swahili Village Settlement Profile Report.docx (ID: 2)
+2025-07-07 18:31:27,754 - ERROR - Error saving document to AI database: relation "documents_ai" does not exist
+LINE 2:                 INSERT INTO documents_ai (filename, file_pat...
+                                    ^
+
+2025-07-07 18:31:27,848 - INFO - Processing document: Machakos_11_Kyumbi Settlement Profile Report.docx (ID: 1)
+2025-07-07 18:31:37,124 - ERROR - Error saving document to AI database: relation "documents_ai" does not exist
+LINE 2:                 INSERT INTO documents_ai (filename, file_pat...
+                                    ^
+
+2025-07-07 18:31:37,376 - ERROR - Error saving document to AI database: relation "documents_ai" does not exist
+LINE 2:                 INSERT INTO documents_ai (filename, file_pat...
+                                    ^
+
+2025-07-07 18:31:38,023 - ERROR - Error saving document to AI database: relation "documents_ai" does not exist
+LINE 2:                 INSERT INTO documents_ai (filename, file_pat...
+                                    ^
+
+2025-07-07 18:31:38,023 - ERROR - Error saving document to AI database: current transaction is aborted, commands ignored until end of transaction block
+
+2025-07-07 18:31:38,042 - INFO -    Total documents: 16
+2025-07-07 18:31:38,043 - INFO -    Successful: 0
+2025-07-07 18:31:38,044 - INFO -    Failed: 16
+2025-07-07 18:31:38,046 - INFO - Source database connection closed
+2025-07-07 18:31:38,047 - INFO - AI database connection closed
+2025-07-07 18:32:11,884 - INFO - Connected to source database successfully
+2025-07-07 18:32:11,937 - INFO - Connected to AI database successfully
+2025-07-07 18:32:11,942 - INFO - Found 16 documents to process
+2025-07-07 18:32:11,943 - INFO - Starting parallel processing of 16 documents with 4 workers
+2025-07-07 18:32:11,945 - INFO - Processing document: EGS-2310 - A01.csv.zip (ID: 16)
+2025-07-07 18:32:11,946 - INFO - Processing document: EGS-2310 - A04.csv.zip (ID: 15)
+2025-07-07 18:32:11,947 - WARNING - Unsupported file type: .zip
+2025-07-07 18:32:11,947 - INFO - Processing document: cyxi7brh.png (ID: 14)
+2025-07-07 18:32:11,948 - WARNING - Unsupported file type: .zip
+2025-07-07 18:32:11,948 - INFO - Processing document: Lopiding_layers.zip (ID: 13)
+2025-07-07 18:32:11,950 - WARNING - Unsupported file type: .png
+2025-07-07 18:32:11,950 - ERROR - Error updating document status: column "ai_processed" of relation "document" does not exist
+LINE 3:                 SET ai_processed = false, ai_processed_at = ...
+                            ^
+
+2025-07-07 18:32:11,951 - WARNING - Unsupported file type: .zip
+2025-07-07 18:32:11,951 - ERROR - Error updating document status: column "ai_processed" of relation "document" does not exist
+LINE 3:                 SET ai_processed = false, ai_processed_at = ...
+                            ^
+
+2025-07-07 18:32:11,952 - ERROR - Error updating document status: column "ai_processed" of relation "document" does not exist
+LINE 3:                 SET ai_processed = false, ai_processed_at = ...
+                            ^
+
+2025-07-07 18:32:11,953 - INFO - Processing document: 1695971004448.jpg (ID: 12)
+2025-07-07 18:32:11,955 - ERROR - Error updating document status: column "ai_processed" of relation "document" does not exist
+LINE 3:                 SET ai_processed = false, ai_processed_at = ...
+                            ^
+
+2025-07-07 18:32:11,956 - INFO - Processing document: Lopiding socio-economic Survey Report.pdf (ID: 11)
+2025-07-07 18:32:11,958 - INFO - Processing document: cyxi7brh (1).png (ID: 10)
+2025-07-07 18:32:11,961 - WARNING - Unsupported file type: .jpg
+2025-07-07 18:32:11,967 - INFO - Processing document: cyxi7brh (2).png (ID: 9)
+2025-07-07 18:32:11,969 - WARNING - Unsupported file type: .png
+2025-07-07 18:32:11,973 - ERROR - Error updating document status: column "ai_processed" of relation "document" does not exist
+LINE 3:                 SET ai_processed = false, ai_processed_at = ...
+                            ^
+
+2025-07-07 18:32:11,978 - WARNING - Unsupported file type: .png
+2025-07-07 18:32:11,982 - ERROR - Error updating document status: column "ai_processed" of relation "document" does not exist
+LINE 3:                 SET ai_processed = false, ai_processed_at = ...
+                            ^
+
+2025-07-07 18:32:11,988 - INFO - Processing document: Urban Resilience - Consultancies-20250609T161444Z-1-001.zip (ID: 8)
+2025-07-07 18:32:12,005 - ERROR - Error updating document status: column "ai_processed" of relation "document" does not exist
+LINE 3:                 SET ai_processed = false, ai_processed_at = ...
+                            ^
+
+2025-07-07 18:32:12,005 - INFO - Processing document: T__proc_notices_notices_055_k_notice_doc_52884_561104146.pdf (ID: 7)
+2025-07-07 18:32:12,009 - WARNING - Unsupported file type: .zip
+2025-07-07 18:32:12,018 - INFO - Processing document: INVBMGJ77 ETIMS INVOICE.pdf (ID: 6)
+2025-07-07 18:32:12,027 - ERROR - Error updating document status: column "ai_processed" of relation "document" does not exist
+LINE 3:                 SET ai_processed = false, ai_processed_at = ...
+                            ^
+
+2025-07-07 18:32:12,034 - INFO - Processing document: SalesReciept.pdf (ID: 5)
+2025-07-07 18:32:12,144 - ERROR - Error saving document to AI database: relation "documents_ai" does not exist
+LINE 2:                 INSERT INTO documents_ai (filename, file_pat...
+                                    ^
+
+2025-07-07 18:32:12,155 - INFO - Processing document: KISIP-June01.pdf (ID: 4)
+2025-07-07 18:32:12,290 - ERROR - Error saving document to AI database: relation "documents_ai" does not exist
+LINE 2:                 INSERT INTO documents_ai (filename, file_pat...
+                                    ^
+
+2025-07-07 18:32:12,349 - INFO - Processing document: Nakuru City Bus Park Feb 2025 Progress Report (2).docx (ID: 3)
+2025-07-07 18:32:12,571 - ERROR - Error saving document to AI database: relation "documents_ai" does not exist
+LINE 2:                 INSERT INTO documents_ai (filename, file_pat...
+                                    ^
+
+2025-07-07 18:32:12,911 - INFO - Processing document: Machakos_10_Mjini Swahili Village Settlement Profile Report.docx (ID: 2)
+2025-07-07 18:32:13,077 - ERROR - Error saving document to AI database: relation "documents_ai" does not exist
+LINE 2:                 INSERT INTO documents_ai (filename, file_pat...
+                                    ^
+
+2025-07-07 18:32:13,224 - INFO - Processing document: Machakos_11_Kyumbi Settlement Profile Report.docx (ID: 1)
+2025-07-07 18:32:22,627 - ERROR - Error saving document to AI database: relation "documents_ai" does not exist
+LINE 2:                 INSERT INTO documents_ai (filename, file_pat...
+                                    ^
+
+2025-07-07 18:32:22,704 - ERROR - Error saving document to AI database: relation "documents_ai" does not exist
+LINE 2:                 INSERT INTO documents_ai (filename, file_pat...
+                                    ^
+
+2025-07-07 18:32:23,128 - ERROR - Error saving document to AI database: relation "documents_ai" does not exist
+LINE 2:                 INSERT INTO documents_ai (filename, file_pat...
+                                    ^
+
+2025-07-07 18:32:23,129 - ERROR - Error saving document to AI database: current transaction is aborted, commands ignored until end of transaction block
+
+2025-07-07 18:32:23,152 - INFO -    Total documents: 16
+2025-07-07 18:32:23,153 - INFO -    Successful: 0
+2025-07-07 18:32:23,154 - INFO -    Failed: 16
+2025-07-07 18:32:23,158 - INFO - Source database connection closed
+2025-07-07 18:32:23,159 - INFO - AI database connection closed
+2025-07-07 18:37:15,808 - INFO - Connected to source database successfully
+2025-07-07 18:37:15,979 - ERROR - Failed to connect to AI database: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "document_ai" does not exist
+
+2025-07-07 18:37:15,980 - INFO - Source database connection closed
+2025-07-07 18:37:34,438 - INFO - Connected to source database successfully
+2025-07-07 18:37:34,540 - INFO - Connected to AI database successfully
+2025-07-07 18:37:34,547 - INFO - Found 16 documents to process
+2025-07-07 18:37:34,547 - INFO - Starting parallel processing of 16 documents with 4 workers
+2025-07-07 18:37:34,550 - INFO - Processing document: EGS-2310 - A01.csv.zip (ID: 16)
+2025-07-07 18:37:34,551 - INFO - Processing document: EGS-2310 - A04.csv.zip (ID: 15)
+2025-07-07 18:37:34,551 - WARNING - Unsupported file type: .zip
+2025-07-07 18:37:34,552 - INFO - Processing document: cyxi7brh.png (ID: 14)
+2025-07-07 18:37:34,553 - WARNING - Unsupported file type: .zip
+2025-07-07 18:37:34,553 - INFO - Processing document: Lopiding_layers.zip (ID: 13)
+2025-07-07 18:37:34,555 - WARNING - Unsupported file type: .png
+2025-07-07 18:37:34,556 - WARNING - Unsupported file type: .zip
+2025-07-07 18:37:34,557 - INFO - Processing document: 1695971004448.jpg (ID: 12)
+2025-07-07 18:37:34,557 - INFO - Processing document: Lopiding socio-economic Survey Report.pdf (ID: 11)
+2025-07-07 18:37:34,558 - WARNING - Unsupported file type: .jpg
+2025-07-07 18:37:34,559 - INFO - Processing document: cyxi7brh (1).png (ID: 10)
+2025-07-07 18:37:34,559 - INFO - Processing document: cyxi7brh (2).png (ID: 9)
+2025-07-07 18:37:34,570 - INFO - Processing document: Urban Resilience - Consultancies-20250609T161444Z-1-001.zip (ID: 8)
+2025-07-07 18:37:34,571 - WARNING - Unsupported file type: .png
+2025-07-07 18:37:34,575 - WARNING - Unsupported file type: .png
+2025-07-07 18:37:34,584 - WARNING - Unsupported file type: .zip
+2025-07-07 18:37:34,587 - INFO - Processing document: T__proc_notices_notices_055_k_notice_doc_52884_561104146.pdf (ID: 7)
+2025-07-07 18:37:34,588 - INFO - Processing document: INVBMGJ77 ETIMS INVOICE.pdf (ID: 6)
+2025-07-07 18:37:34,603 - INFO - Processing document: SalesReciept.pdf (ID: 5)
+2025-07-07 18:37:45,795 - ERROR - OpenAI library not installed
+2025-07-07 18:37:45,796 - ERROR - OpenAI library not installed
+2025-07-07 18:37:45,797 - ERROR - OpenAI library not installed
+2025-07-07 18:37:45,798 - ERROR - OpenAI library not installed
+2025-07-07 18:37:45,798 - ERROR - OpenAI library not installed
+2025-07-07 18:37:45,799 - ERROR - OpenAI library not installed
+2025-07-07 18:37:45,799 - ERROR - OpenAI library not installed
+2025-07-07 18:37:45,800 - ERROR - OpenAI library not installed
+2025-07-07 18:37:45,801 - ERROR - OpenAI library not installed
+2025-07-07 18:37:45,802 - ERROR - OpenAI library not installed
+2025-07-07 18:37:45,803 - INFO - Successfully processed SalesReciept.pdf: 1 chunks, 0 embeddings
+2025-07-07 18:37:45,803 - ERROR - OpenAI library not installed
+2025-07-07 18:37:45,804 - INFO - Processing document: KISIP-June01.pdf (ID: 4)
+2025-07-07 18:37:45,805 - ERROR - OpenAI library not installed
+2025-07-07 18:37:45,806 - ERROR - OpenAI library not installed
+2025-07-07 18:37:45,807 - ERROR - OpenAI library not installed
+2025-07-07 18:37:45,807 - ERROR - OpenAI library not installed
+2025-07-07 18:37:45,828 - INFO - Successfully processed INVBMGJ77 ETIMS INVOICE.pdf: 1 chunks, 0 embeddings
+2025-07-07 18:37:45,832 - ERROR - OpenAI library not installed
+2025-07-07 18:37:45,833 - ERROR - OpenAI library not installed
+2025-07-07 18:37:45,834 - ERROR - OpenAI library not installed
+2025-07-07 18:37:45,835 - ERROR - OpenAI library not installed
+2025-07-07 18:37:45,835 - INFO - Processing document: Nakuru City Bus Park Feb 2025 Progress Report (2).docx (ID: 3)
+2025-07-07 18:37:45,837 - ERROR - OpenAI library not installed
+2025-07-07 18:37:45,853 - ERROR - OpenAI library not installed
+2025-07-07 18:37:45,865 - INFO - Successfully processed T__proc_notices_notices_055_k_notice_doc_52884_561104146.pdf: 18 chunks, 0 embeddings
+2025-07-07 18:37:45,865 - INFO - Successfully processed KISIP-June01.pdf: 1 chunks, 0 embeddings
+2025-07-07 18:37:45,867 - INFO - Processing document: Machakos_10_Mjini Swahili Village Settlement Profile Report.docx (ID: 2)
+2025-07-07 18:37:45,867 - INFO - Processing document: Machakos_11_Kyumbi Settlement Profile Report.docx (ID: 1)
+2025-07-07 18:37:46,209 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,211 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,212 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,213 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,214 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,215 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,217 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,218 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,218 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,227 - INFO - Successfully processed Nakuru City Bus Park Feb 2025 Progress Report (2).docx: 9 chunks, 0 embeddings
+2025-07-07 18:37:46,256 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,256 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,257 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,265 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,266 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,267 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,267 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,268 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,269 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,269 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,270 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,271 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,287 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,289 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,290 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,291 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,293 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,294 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,301 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,303 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,304 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,305 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,308 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,310 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,312 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,314 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,315 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,318 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,319 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,322 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,324 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,325 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,327 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,329 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,330 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,333 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,335 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,337 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,339 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,341 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,342 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,344 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,346 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,347 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,350 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,351 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,353 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,354 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,356 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,357 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,359 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,361 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,364 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,366 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,367 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,369 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,371 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,373 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,374 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,376 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,378 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,380 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,382 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,383 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,385 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,387 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,388 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,389 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,391 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,392 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,393 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,396 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,397 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,400 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,402 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,403 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,404 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,406 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,407 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,409 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,411 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,412 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,414 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,416 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,418 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,419 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,421 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,423 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,424 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,425 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,426 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,427 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,429 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,430 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,432 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,435 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,435 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,437 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,439 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,440 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,442 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,444 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,445 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,447 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,449 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,450 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,452 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,454 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,456 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,457 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,459 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,462 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,463 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,465 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,467 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,469 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,470 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,472 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,474 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,476 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,477 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,479 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,480 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,481 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,482 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,485 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,486 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,487 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,490 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,491 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,493 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,494 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,496 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,498 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,500 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,502 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,504 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,505 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,506 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,508 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,510 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,513 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,514 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,516 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,517 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,519 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,520 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,522 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,524 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,526 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,528 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,530 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,532 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,533 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,534 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,536 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,538 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,539 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,541 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,542 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,544 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,546 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,547 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,549 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,550 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,552 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,553 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,554 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,556 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,557 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,559 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,560 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,562 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,563 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,565 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,567 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,568 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,570 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,572 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,574 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,575 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,577 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,578 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,580 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,582 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,584 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,586 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,587 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,589 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,591 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,593 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,594 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,596 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,598 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,600 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,602 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,603 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,605 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,605 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,607 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,609 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,610 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,611 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,613 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,615 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,617 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,619 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,620 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,621 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,623 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,625 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,626 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,629 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,630 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,632 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,634 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,635 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,638 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,640 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,641 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,643 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,645 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,647 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,649 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,650 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,651 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,653 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,654 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,656 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,658 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,659 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,662 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,663 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,664 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,666 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,668 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,670 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,671 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,672 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,674 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,676 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,678 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,679 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,681 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,682 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,684 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,685 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,687 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,688 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,691 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,692 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,694 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,695 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,696 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,698 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,699 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,701 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,703 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,705 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,706 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,708 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,710 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,711 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,712 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,715 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,717 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,718 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,719 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,721 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,723 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,725 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,726 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,729 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,730 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,732 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,734 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,735 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,737 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,739 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,741 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,743 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,744 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,745 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,747 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,748 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,750 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,751 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,753 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,755 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,757 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,758 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,759 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,760 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,763 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,764 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,766 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,768 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,769 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,771 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,772 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,774 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,775 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,777 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,778 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,779 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,781 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,783 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,785 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,786 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,788 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,789 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,790 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,791 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,793 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,797 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,798 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,799 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,800 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,801 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,802 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,803 - ERROR - OpenAI library not installed
+2025-07-07 18:37:46,860 - INFO - Successfully processed Lopiding socio-economic Survey Report.pdf: 321 chunks, 0 embeddings
+2025-07-07 18:37:47,213 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,214 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,216 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,218 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,218 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,219 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,221 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,221 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,222 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,223 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,224 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,225 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,226 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,227 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,227 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,228 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,229 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,230 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,231 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,232 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,233 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,234 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,235 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,235 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,238 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,238 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,239 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,239 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,241 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,241 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,241 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,243 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,243 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,244 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,244 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,246 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,246 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,248 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,252 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,252 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,254 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,255 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,255 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,256 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,257 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,257 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,258 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,260 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,261 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,262 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,262 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,263 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,264 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,265 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,265 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,266 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,267 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,267 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,268 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,269 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,270 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,271 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,272 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,272 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,273 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,274 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,275 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,276 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,276 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,277 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,278 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,278 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,279 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,280 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,280 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,281 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,283 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,283 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,284 - INFO - Successfully processed Machakos_10_Mjini Swahili Village Settlement Profile Report.docx: 48 chunks, 0 embeddings
+2025-07-07 18:37:47,284 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,285 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,286 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,286 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,288 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,290 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,292 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,293 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,295 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,296 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,297 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,298 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,298 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,299 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,300 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,300 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,301 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,302 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,302 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,303 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,304 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,304 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,305 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,306 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,307 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,307 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,308 - ERROR - OpenAI library not installed
+2025-07-07 18:37:47,311 - INFO - Successfully processed Machakos_11_Kyumbi Settlement Profile Report.docx: 57 chunks, 0 embeddings
+2025-07-07 18:37:47,322 - INFO -    Total documents: 16
+2025-07-07 18:37:47,323 - INFO -    Successful: 8
+2025-07-07 18:37:47,323 - INFO -    Failed: 8
+2025-07-07 18:37:47,331 - INFO - Source database connection closed
+2025-07-07 18:37:47,331 - INFO - AI database connection closed
+2025-07-07 18:39:21,904 - INFO - Connected to source database successfully
+2025-07-07 18:39:21,973 - INFO - Connected to AI database successfully
+2025-07-07 18:39:21,992 - INFO - Found 16 documents to process
+2025-07-07 18:39:21,992 - INFO - Starting parallel processing of 16 documents with 4 workers
+2025-07-07 18:39:21,995 - INFO - Processing document: EGS-2310 - A01.csv.zip (ID: 16)
+2025-07-07 18:39:21,995 - INFO - Processing document: EGS-2310 - A04.csv.zip (ID: 15)
+2025-07-07 18:39:21,996 - INFO - Processing document: cyxi7brh.png (ID: 14)
+2025-07-07 18:39:21,997 - WARNING - Unsupported file type: .zip
+2025-07-07 18:39:21,998 - INFO - Processing document: Lopiding_layers.zip (ID: 13)
+2025-07-07 18:39:21,998 - WARNING - Unsupported file type: .zip
+2025-07-07 18:39:21,999 - WARNING - Unsupported file type: .png
+2025-07-07 18:39:22,000 - WARNING - Unsupported file type: .zip
+2025-07-07 18:39:22,004 - INFO - Processing document: 1695971004448.jpg (ID: 12)
+2025-07-07 18:39:22,005 - INFO - Processing document: Lopiding socio-economic Survey Report.pdf (ID: 11)
+2025-07-07 18:39:22,006 - WARNING - Unsupported file type: .jpg
+2025-07-07 18:39:22,006 - INFO - Processing document: cyxi7brh (1).png (ID: 10)
+2025-07-07 18:39:22,007 - INFO - Processing document: cyxi7brh (2).png (ID: 9)
+2025-07-07 18:39:22,016 - INFO - Processing document: Urban Resilience - Consultancies-20250609T161444Z-1-001.zip (ID: 8)
+2025-07-07 18:39:22,017 - WARNING - Unsupported file type: .png
+2025-07-07 18:39:22,023 - WARNING - Unsupported file type: .png
+2025-07-07 18:39:22,029 - WARNING - Unsupported file type: .zip
+2025-07-07 18:39:22,037 - INFO - Processing document: T__proc_notices_notices_055_k_notice_doc_52884_561104146.pdf (ID: 7)
+2025-07-07 18:39:22,039 - INFO - Processing document: INVBMGJ77 ETIMS INVOICE.pdf (ID: 6)
+2025-07-07 18:39:22,054 - INFO - Processing document: SalesReciept.pdf (ID: 5)
+2025-07-07 18:39:26,620 - INFO - Successfully processed SalesReciept.pdf: 1 chunks, 1 embeddings
+2025-07-07 18:39:26,651 - INFO - Processing document: KISIP-June01.pdf (ID: 4)
+2025-07-07 18:39:28,511 - INFO - Successfully processed INVBMGJ77 ETIMS INVOICE.pdf: 1 chunks, 1 embeddings
+2025-07-07 18:39:28,526 - INFO - Processing document: Nakuru City Bus Park Feb 2025 Progress Report (2).docx (ID: 3)
+2025-07-07 18:39:34,881 - INFO - Successfully processed KISIP-June01.pdf: 1 chunks, 1 embeddings
+2025-07-07 18:39:34,884 - INFO - Processing document: Machakos_10_Mjini Swahili Village Settlement Profile Report.docx (ID: 2)
+2025-07-07 18:40:05,771 - INFO - Successfully processed Nakuru City Bus Park Feb 2025 Progress Report (2).docx: 9 chunks, 9 embeddings
+2025-07-07 18:40:05,774 - INFO - Processing document: Machakos_11_Kyumbi Settlement Profile Report.docx (ID: 1)
+2025-07-07 18:40:15,587 - INFO - Successfully processed T__proc_notices_notices_055_k_notice_doc_52884_561104146.pdf: 18 chunks, 18 embeddings
+2025-07-07 18:41:36,994 - INFO - Connected to source database successfully
+2025-07-07 18:41:37,028 - INFO - pgvector extension detected - vector similarity search enabled
+2025-07-07 18:41:37,029 - INFO - Connected to AI database successfully
+2025-07-07 18:41:37,029 - INFO - Using Ollama embedding model: nomic-embed-text
+2025-07-07 18:41:37,030 - INFO - Ollama API URL: http://localhost:11434
+2025-07-07 18:41:37,034 - INFO - Found 16 documents to process
+2025-07-07 18:41:37,035 - INFO - Starting parallel processing of 16 documents with 4 workers
+2025-07-07 18:41:37,037 - INFO - Processing document: EGS-2310 - A01.csv.zip (ID: 16)
+2025-07-07 18:41:37,037 - INFO - Processing document: EGS-2310 - A04.csv.zip (ID: 15)
+2025-07-07 18:41:37,038 - INFO - Processing document: cyxi7brh.png (ID: 14)
+2025-07-07 18:41:37,038 - WARNING - Unsupported file type: .zip
+2025-07-07 18:41:37,039 - WARNING - Unsupported file type: .zip
+2025-07-07 18:41:37,040 - INFO - Processing document: Lopiding_layers.zip (ID: 13)
+2025-07-07 18:41:37,041 - WARNING - Unsupported file type: .png
+2025-07-07 18:41:37,042 - WARNING - Unsupported file type: .zip
+2025-07-07 18:41:37,046 - INFO - Processing document: 1695971004448.jpg (ID: 12)
+2025-07-07 18:41:37,047 - INFO - Processing document: Lopiding socio-economic Survey Report.pdf (ID: 11)
+2025-07-07 18:41:37,047 - ERROR - FAILED EGS-2310 - A01.csv.zip: No text content extracted
+2025-07-07 18:41:37,047 - INFO - Processing document: cyxi7brh (1).png (ID: 10)
+2025-07-07 18:41:37,047 - INFO - Processing document: cyxi7brh (2).png (ID: 9)
+2025-07-07 18:41:37,048 - WARNING - Unsupported file type: .jpg
+2025-07-07 18:41:37,048 - ERROR - FAILED EGS-2310 - A04.csv.zip: No text content extracted
+2025-07-07 18:41:37,049 - WARNING - Unsupported file type: .png
+2025-07-07 18:41:37,049 - WARNING - Unsupported file type: .png
+2025-07-07 18:41:37,050 - ERROR - FAILED cyxi7brh.png: No text content extracted
+2025-07-07 18:41:37,050 - INFO - Processing document: Urban Resilience - Consultancies-20250609T161444Z-1-001.zip (ID: 8)
+2025-07-07 18:41:37,052 - ERROR - FAILED Lopiding_layers.zip: No text content extracted
+2025-07-07 18:41:37,053 - WARNING - Unsupported file type: .zip
+2025-07-07 18:41:37,053 - INFO - Processing document: T__proc_notices_notices_055_k_notice_doc_52884_561104146.pdf (ID: 7)
+2025-07-07 18:41:37,053 - INFO - Processing document: INVBMGJ77 ETIMS INVOICE.pdf (ID: 6)
+2025-07-07 18:41:37,053 - ERROR - FAILED 1695971004448.jpg: No text content extracted
+2025-07-07 18:41:37,055 - INFO - Processing document: SalesReciept.pdf (ID: 5)
+2025-07-07 18:41:37,055 - ERROR - FAILED cyxi7brh (1).png: No text content extracted
+2025-07-07 18:41:37,057 - ERROR - FAILED cyxi7brh (2).png: No text content extracted
+2025-07-07 18:41:37,057 - ERROR - FAILED Urban Resilience - Consultancies-20250609T161444Z-1-001.zip: No text content extracted
+2025-07-07 18:41:39,885 - INFO - Successfully processed SalesReciept.pdf: 1 chunks, 1 embeddings
+2025-07-07 18:41:39,907 - INFO - Processing document: KISIP-June01.pdf (ID: 4)
+2025-07-07 18:41:39,908 - INFO - SUCCESS SalesReciept.pdf: 1 chunks processed [VECTOR]
+2025-07-07 18:41:41,567 - INFO - Successfully processed INVBMGJ77 ETIMS INVOICE.pdf: 1 chunks, 1 embeddings
+2025-07-07 18:41:41,596 - INFO - Processing document: Nakuru City Bus Park Feb 2025 Progress Report (2).docx (ID: 3)
+2025-07-07 18:41:41,599 - INFO - SUCCESS INVBMGJ77 ETIMS INVOICE.pdf: 1 chunks processed [VECTOR]
+2025-07-07 18:41:48,702 - INFO - Successfully processed KISIP-June01.pdf: 1 chunks, 1 embeddings
+2025-07-07 18:41:48,703 - INFO - Processing document: Machakos_10_Mjini Swahili Village Settlement Profile Report.docx (ID: 2)
+2025-07-07 18:41:48,704 - INFO - SUCCESS KISIP-June01.pdf: 1 chunks processed [VECTOR]
+2025-07-07 18:42:15,598 - INFO - Successfully processed Nakuru City Bus Park Feb 2025 Progress Report (2).docx: 9 chunks, 9 embeddings
+2025-07-07 18:42:15,599 - INFO - Processing document: Machakos_11_Kyumbi Settlement Profile Report.docx (ID: 1)
+2025-07-07 18:42:15,599 - INFO - SUCCESS Nakuru City Bus Park Feb 2025 Progress Report (2).docx: 9 chunks processed [VECTOR]
+2025-07-07 18:42:26,221 - INFO - Successfully processed T__proc_notices_notices_055_k_notice_doc_52884_561104146.pdf: 18 chunks, 18 embeddings
+2025-07-07 18:42:26,223 - INFO - SUCCESS T__proc_notices_notices_055_k_notice_doc_52884_561104146.pdf: 18 chunks processed [VECTOR]
+2025-07-07 18:43:35,512 - INFO - Successfully processed Machakos_10_Mjini Swahili Village Settlement Profile Report.docx: 48 chunks, 48 embeddings
+2025-07-07 18:43:35,513 - INFO - SUCCESS Machakos_10_Mjini Swahili Village Settlement Profile Report.docx: 48 chunks processed [VECTOR]
+2025-07-07 18:43:57,008 - INFO - Successfully processed Machakos_11_Kyumbi Settlement Profile Report.docx: 57 chunks, 57 embeddings
+2025-07-07 18:43:57,011 - INFO - SUCCESS Machakos_11_Kyumbi Settlement Profile Report.docx: 57 chunks processed [VECTOR]
+2025-07-07 18:46:58,982 - INFO - Connected to source database successfully
+2025-07-07 18:46:59,015 - INFO - pgvector extension detected - vector similarity search enabled
+2025-07-07 18:46:59,015 - INFO - Connected to AI database successfully
+2025-07-07 18:46:59,015 - INFO - Using Ollama embedding model: nomic-embed-text
+2025-07-07 18:46:59,016 - INFO - Ollama API URL: http://localhost:11434
+2025-07-07 18:46:59,016 - INFO - Batch size: 10 chunks per request
+2025-07-07 18:46:59,016 - INFO - Performance tips:
+2025-07-07 18:46:59,016 - INFO -   - Use smaller batch sizes (5-10) for better memory usage
+2025-07-07 18:46:59,016 - INFO -   - Ensure Ollama has enough RAM allocated
+2025-07-07 18:46:59,017 - INFO -   - Consider using faster models like 'all-minilm' for speed
+2025-07-07 18:46:59,017 - INFO -   - Close other applications to free up system resources
+2025-07-07 18:46:59,021 - INFO - Found 16 documents to process
+2025-07-07 18:46:59,022 - INFO - Starting parallel processing of 16 documents with 4 workers
+2025-07-07 18:46:59,023 - INFO - Processing document: EGS-2310 - A01.csv.zip (ID: 16)
+2025-07-07 18:46:59,024 - INFO - Processing document: EGS-2310 - A04.csv.zip (ID: 15)
+2025-07-07 18:46:59,024 - WARNING - Unsupported file type: .zip
+2025-07-07 18:46:59,024 - INFO - Processing document: cyxi7brh.png (ID: 14)
+2025-07-07 18:46:59,025 - WARNING - Unsupported file type: .zip
+2025-07-07 18:46:59,025 - INFO - Processing document: Lopiding_layers.zip (ID: 13)
+2025-07-07 18:46:59,026 - WARNING - Unsupported file type: .png
+2025-07-07 18:46:59,027 - WARNING - Unsupported file type: .zip
+2025-07-07 18:46:59,030 - INFO - Processing document: 1695971004448.jpg (ID: 12)
+2025-07-07 18:46:59,031 - ERROR - FAILED EGS-2310 - A01.csv.zip: No text content extracted
+2025-07-07 18:46:59,031 - WARNING - Unsupported file type: .jpg
+2025-07-07 18:46:59,032 - INFO - Processing document: Lopiding socio-economic Survey Report.pdf (ID: 11)
+2025-07-07 18:46:59,032 - INFO - Processing document: cyxi7brh (1).png (ID: 10)
+2025-07-07 18:46:59,032 - ERROR - FAILED EGS-2310 - A04.csv.zip: No text content extracted
+2025-07-07 18:46:59,033 - INFO - Processing document: cyxi7brh (2).png (ID: 9)
+2025-07-07 18:46:59,034 - WARNING - Unsupported file type: .png
+2025-07-07 18:46:59,034 - INFO - Processing document: Urban Resilience - Consultancies-20250609T161444Z-1-001.zip (ID: 8)
+2025-07-07 18:46:59,034 - ERROR - FAILED cyxi7brh.png: No text content extracted
+2025-07-07 18:46:59,035 - WARNING - Unsupported file type: .png
+2025-07-07 18:46:59,036 - WARNING - Unsupported file type: .zip
+2025-07-07 18:46:59,036 - ERROR - FAILED Lopiding_layers.zip: No text content extracted
+2025-07-07 18:46:59,037 - INFO - Processing document: T__proc_notices_notices_055_k_notice_doc_52884_561104146.pdf (ID: 7)
+2025-07-07 18:46:59,038 - ERROR - FAILED 1695971004448.jpg: No text content extracted
+2025-07-07 18:46:59,040 - ERROR - FAILED cyxi7brh (1).png: No text content extracted
+2025-07-07 18:46:59,040 - INFO - Processing document: INVBMGJ77 ETIMS INVOICE.pdf (ID: 6)
+2025-07-07 18:46:59,040 - INFO - Processing document: SalesReciept.pdf (ID: 5)
+2025-07-07 18:46:59,040 - ERROR - FAILED cyxi7brh (2).png: No text content extracted
+2025-07-07 18:46:59,042 - ERROR - FAILED Urban Resilience - Consultancies-20250609T161444Z-1-001.zip: No text content extracted
+2025-07-07 18:46:59,264 - INFO - Generating embeddings for batch 1/1
+2025-07-07 18:46:59,674 - INFO - Generating embeddings for batch 1/1
+2025-07-07 18:46:59,798 - INFO - Successfully processed SalesReciept.pdf: 1 chunks, 0 embeddings
+2025-07-07 18:46:59,830 - INFO - Processing document: KISIP-June01.pdf (ID: 4)
+2025-07-07 18:46:59,874 - INFO - SUCCESS SalesReciept.pdf: 1 chunks processed [VECTOR]
+2025-07-07 18:47:00,253 - INFO - Successfully processed INVBMGJ77 ETIMS INVOICE.pdf: 1 chunks, 0 embeddings
+2025-07-07 18:47:00,285 - INFO - Processing document: Nakuru City Bus Park Feb 2025 Progress Report (2).docx (ID: 3)
+2025-07-07 18:47:00,285 - INFO - SUCCESS INVBMGJ77 ETIMS INVOICE.pdf: 1 chunks processed [VECTOR]
+2025-07-07 18:47:00,400 - INFO - Generating embeddings for batch 1/1
+2025-07-07 18:47:00,576 - INFO - Successfully processed KISIP-June01.pdf: 1 chunks, 0 embeddings
+2025-07-07 18:47:00,577 - INFO - Processing document: Machakos_10_Mjini Swahili Village Settlement Profile Report.docx (ID: 2)
+2025-07-07 18:47:00,583 - INFO - SUCCESS KISIP-June01.pdf: 1 chunks processed [VECTOR]
+2025-07-07 18:47:00,679 - INFO - Generating embeddings for batch 1/2
+2025-07-07 18:47:00,897 - INFO - Generating embeddings for batch 2/2
+2025-07-07 18:47:01,084 - INFO - Successfully processed T__proc_notices_notices_055_k_notice_doc_52884_561104146.pdf: 18 chunks, 0 embeddings
+2025-07-07 18:47:01,100 - INFO - Processing document: Machakos_11_Kyumbi Settlement Profile Report.docx (ID: 1)
+2025-07-07 18:47:01,105 - INFO - SUCCESS T__proc_notices_notices_055_k_notice_doc_52884_561104146.pdf: 18 chunks processed [VECTOR]
+2025-07-07 18:47:09,662 - INFO - Generating embeddings for batch 1/1
+2025-07-07 18:47:09,726 - INFO - Successfully processed Nakuru City Bus Park Feb 2025 Progress Report (2).docx: 9 chunks, 0 embeddings
+2025-07-07 18:47:09,727 - INFO - SUCCESS Nakuru City Bus Park Feb 2025 Progress Report (2).docx: 9 chunks processed [VECTOR]
+2025-07-07 18:47:10,452 - INFO - Generating embeddings for batch 1/5
+2025-07-07 18:47:10,497 - INFO - Generating embeddings for batch 1/6
+2025-07-07 18:47:10,577 - INFO - Generating embeddings for batch 2/5
+2025-07-07 18:47:10,643 - INFO - Generating embeddings for batch 2/6
+2025-07-07 18:47:10,719 - INFO - Generating embeddings for batch 3/5
+2025-07-07 18:47:10,783 - INFO - Generating embeddings for batch 3/6
+2025-07-07 18:47:10,803 - INFO - Generating embeddings for batch 1/33
+2025-07-07 18:47:10,858 - INFO - Generating embeddings for batch 4/5
+2025-07-07 18:47:10,909 - INFO - Generating embeddings for batch 4/6
+2025-07-07 18:47:10,936 - INFO - Generating embeddings for batch 2/33
+2025-07-07 18:47:11,000 - INFO - Generating embeddings for batch 5/5
+2025-07-07 18:47:11,027 - INFO - Successfully processed Machakos_10_Mjini Swahili Village Settlement Profile Report.docx: 48 chunks, 0 embeddings
+2025-07-07 18:47:11,028 - INFO - SUCCESS Machakos_10_Mjini Swahili Village Settlement Profile Report.docx: 48 chunks processed [VECTOR]
+2025-07-07 18:47:11,045 - INFO - Generating embeddings for batch 5/6
+2025-07-07 18:47:11,077 - INFO - Generating embeddings for batch 3/33
+2025-07-07 18:47:11,195 - INFO - Generating embeddings for batch 6/6
+2025-07-07 18:47:11,201 - INFO - Generating embeddings for batch 4/33
+2025-07-07 18:47:11,238 - INFO - Successfully processed Machakos_11_Kyumbi Settlement Profile Report.docx: 57 chunks, 0 embeddings
+2025-07-07 18:47:11,239 - INFO - SUCCESS Machakos_11_Kyumbi Settlement Profile Report.docx: 57 chunks processed [VECTOR]
+2025-07-07 18:47:11,342 - INFO - Generating embeddings for batch 5/33
+2025-07-07 18:47:11,486 - INFO - Generating embeddings for batch 6/33
+2025-07-07 18:47:11,635 - INFO - Generating embeddings for batch 7/33
+2025-07-07 18:47:11,769 - INFO - Generating embeddings for batch 8/33
+2025-07-07 18:47:11,898 - INFO - Generating embeddings for batch 9/33
+2025-07-07 18:47:12,045 - INFO - Generating embeddings for batch 10/33
+2025-07-07 18:47:12,188 - INFO - Generating embeddings for batch 11/33
+2025-07-07 18:47:12,329 - INFO - Generating embeddings for batch 12/33
+2025-07-07 18:47:12,474 - INFO - Generating embeddings for batch 13/33
+2025-07-07 18:47:12,629 - INFO - Generating embeddings for batch 14/33
+2025-07-07 18:47:12,771 - INFO - Generating embeddings for batch 15/33
+2025-07-07 18:47:12,913 - INFO - Generating embeddings for batch 16/33
+2025-07-07 18:47:13,038 - INFO - Generating embeddings for batch 17/33
+2025-07-07 18:47:13,173 - INFO - Generating embeddings for batch 18/33
+2025-07-07 18:47:13,320 - INFO - Generating embeddings for batch 19/33
+2025-07-07 18:47:13,463 - INFO - Generating embeddings for batch 20/33
+2025-07-07 18:47:13,599 - INFO - Generating embeddings for batch 21/33
+2025-07-07 18:47:13,742 - INFO - Generating embeddings for batch 22/33
+2025-07-07 18:47:13,865 - INFO - Generating embeddings for batch 23/33
+2025-07-07 18:47:13,998 - INFO - Generating embeddings for batch 24/33
+2025-07-07 18:47:14,143 - INFO - Generating embeddings for batch 25/33
+2025-07-07 18:47:14,291 - INFO - Generating embeddings for batch 26/33
+2025-07-07 18:47:14,441 - INFO - Generating embeddings for batch 27/33
+2025-07-07 18:47:14,586 - INFO - Generating embeddings for batch 28/33
+2025-07-07 18:47:14,739 - INFO - Generating embeddings for batch 29/33
+2025-07-07 18:47:14,895 - INFO - Generating embeddings for batch 30/33
+2025-07-07 18:47:15,043 - INFO - Generating embeddings for batch 31/33
+2025-07-07 18:47:15,192 - INFO - Generating embeddings for batch 32/33
+2025-07-07 18:47:15,342 - INFO - Generating embeddings for batch 33/33
+2025-07-07 18:47:15,386 - INFO - Successfully processed Lopiding socio-economic Survey Report.pdf: 321 chunks, 0 embeddings
+2025-07-07 18:47:15,388 - INFO - SUCCESS Lopiding socio-economic Survey Report.pdf: 321 chunks processed [VECTOR]
+2025-07-07 18:47:15,389 - INFO - 
+Processing Summary:
+2025-07-07 18:47:15,390 - INFO -    Total documents: 16
+2025-07-07 18:47:15,391 - INFO -    Successful: 8
+2025-07-07 18:47:15,391 - INFO -    Failed: 8
+2025-07-07 18:47:15,392 - INFO - Vector similarity search enabled
+2025-07-07 18:47:15,395 - INFO - Source database connection closed
+2025-07-07 18:47:15,395 - INFO - AI database connection closed
+2025-07-07 18:47:41,524 - INFO - Connected to source database successfully
+2025-07-07 18:47:41,567 - INFO - pgvector extension detected - vector similarity search enabled
+2025-07-07 18:47:41,568 - INFO - Connected to AI database successfully
+2025-07-07 18:47:41,569 - INFO - Using Ollama embedding model: nomic-embed-text
+2025-07-07 18:47:41,569 - INFO - Ollama API URL: http://localhost:11434
+2025-07-07 18:47:41,570 - INFO - Batch size: 20 chunks per request
+2025-07-07 18:47:41,571 - INFO - Performance tips:
+2025-07-07 18:47:41,572 - INFO -   - Use smaller batch sizes (5-10) for better memory usage
+2025-07-07 18:47:41,572 - INFO -   - Ensure Ollama has enough RAM allocated
+2025-07-07 18:47:41,573 - INFO -   - Consider using faster models like 'all-minilm' for speed
+2025-07-07 18:47:41,574 - INFO -   - Close other applications to free up system resources
+2025-07-07 18:47:41,579 - INFO - Found 16 documents to process
+2025-07-07 18:47:41,579 - INFO - Starting parallel processing of 16 documents with 4 workers
+2025-07-07 18:47:41,582 - INFO - Processing document: EGS-2310 - A01.csv.zip (ID: 16)
+2025-07-07 18:47:41,582 - INFO - Processing document: EGS-2310 - A04.csv.zip (ID: 15)
+2025-07-07 18:47:41,583 - WARNING - Unsupported file type: .zip
+2025-07-07 18:47:41,583 - INFO - Processing document: cyxi7brh.png (ID: 14)
+2025-07-07 18:47:41,584 - WARNING - Unsupported file type: .zip
+2025-07-07 18:47:41,585 - INFO - Processing document: Lopiding_layers.zip (ID: 13)
+2025-07-07 18:47:41,586 - WARNING - Unsupported file type: .png
+2025-07-07 18:47:41,587 - WARNING - Unsupported file type: .zip
+2025-07-07 18:47:41,590 - INFO - Processing document: 1695971004448.jpg (ID: 12)
+2025-07-07 18:47:41,591 - ERROR - FAILED EGS-2310 - A01.csv.zip: No text content extracted
+2025-07-07 18:47:41,591 - WARNING - Unsupported file type: .jpg
+2025-07-07 18:47:41,592 - INFO - Processing document: Lopiding socio-economic Survey Report.pdf (ID: 11)
+2025-07-07 18:47:41,592 - ERROR - FAILED EGS-2310 - A04.csv.zip: No text content extracted
+2025-07-07 18:47:41,593 - INFO - Processing document: cyxi7brh (1).png (ID: 10)
+2025-07-07 18:47:41,593 - INFO - Processing document: cyxi7brh (2).png (ID: 9)
+2025-07-07 18:47:41,594 - ERROR - FAILED cyxi7brh.png: No text content extracted
+2025-07-07 18:47:41,595 - INFO - Processing document: Urban Resilience - Consultancies-20250609T161444Z-1-001.zip (ID: 8)
+2025-07-07 18:47:41,596 - WARNING - Unsupported file type: .png
+2025-07-07 18:47:41,596 - WARNING - Unsupported file type: .png
+2025-07-07 18:47:41,597 - ERROR - FAILED Lopiding_layers.zip: No text content extracted
+2025-07-07 18:47:41,598 - WARNING - Unsupported file type: .zip
+2025-07-07 18:47:41,599 - ERROR - FAILED 1695971004448.jpg: No text content extracted
+2025-07-07 18:47:41,600 - INFO - Processing document: T__proc_notices_notices_055_k_notice_doc_52884_561104146.pdf (ID: 7)
+2025-07-07 18:47:41,601 - INFO - Processing document: INVBMGJ77 ETIMS INVOICE.pdf (ID: 6)
+2025-07-07 18:47:41,601 - ERROR - FAILED cyxi7brh (2).png: No text content extracted
+2025-07-07 18:47:41,602 - INFO - Processing document: SalesReciept.pdf (ID: 5)
+2025-07-07 18:47:41,604 - ERROR - FAILED cyxi7brh (1).png: No text content extracted
+2025-07-07 18:47:41,606 - ERROR - FAILED Urban Resilience - Consultancies-20250609T161444Z-1-001.zip: No text content extracted
+2025-07-07 18:47:41,762 - INFO - Generating embeddings for batch 1/1
+2025-07-07 18:47:41,941 - INFO - Successfully processed SalesReciept.pdf: 1 chunks, 0 embeddings
+2025-07-07 18:47:41,946 - INFO - Processing document: KISIP-June01.pdf (ID: 4)
+2025-07-07 18:47:41,971 - INFO - SUCCESS SalesReciept.pdf: 1 chunks processed [VECTOR]
+2025-07-07 18:47:42,791 - INFO - Generating embeddings for batch 1/1
+2025-07-07 18:47:42,911 - INFO - Generating embeddings for batch 1/1
+2025-07-07 18:47:43,060 - INFO - Successfully processed INVBMGJ77 ETIMS INVOICE.pdf: 1 chunks, 0 embeddings
+2025-07-07 18:47:43,081 - INFO - Processing document: Nakuru City Bus Park Feb 2025 Progress Report (2).docx (ID: 3)
+2025-07-07 18:47:43,081 - INFO - SUCCESS INVBMGJ77 ETIMS INVOICE.pdf: 1 chunks processed [VECTOR]
+2025-07-07 18:47:43,104 - INFO - Successfully processed KISIP-June01.pdf: 1 chunks, 0 embeddings
+2025-07-07 18:47:43,113 - INFO - Processing document: Machakos_10_Mjini Swahili Village Settlement Profile Report.docx (ID: 2)
+2025-07-07 18:47:43,113 - INFO - SUCCESS KISIP-June01.pdf: 1 chunks processed [VECTOR]
+2025-07-07 18:47:43,307 - INFO - Generating embeddings for batch 1/1
+2025-07-07 18:47:43,422 - INFO - Successfully processed T__proc_notices_notices_055_k_notice_doc_52884_561104146.pdf: 18 chunks, 0 embeddings
+2025-07-07 18:47:43,433 - INFO - Processing document: Machakos_11_Kyumbi Settlement Profile Report.docx (ID: 1)
+2025-07-07 18:47:43,435 - INFO - SUCCESS T__proc_notices_notices_055_k_notice_doc_52884_561104146.pdf: 18 chunks processed [VECTOR]
+2025-07-07 18:47:52,090 - INFO - Generating embeddings for batch 1/1
+2025-07-07 18:47:52,120 - INFO - Successfully processed Nakuru City Bus Park Feb 2025 Progress Report (2).docx: 9 chunks, 0 embeddings
+2025-07-07 18:47:52,121 - INFO - SUCCESS Nakuru City Bus Park Feb 2025 Progress Report (2).docx: 9 chunks processed [VECTOR]
+2025-07-07 18:47:52,889 - INFO - Generating embeddings for batch 1/3
+2025-07-07 18:47:52,939 - INFO - Generating embeddings for batch 1/3
+2025-07-07 18:47:53,013 - INFO - Generating embeddings for batch 2/3
+2025-07-07 18:47:53,068 - INFO - Generating embeddings for batch 2/3
+2025-07-07 18:47:53,096 - INFO - Generating embeddings for batch 1/17
+2025-07-07 18:47:53,139 - INFO - Generating embeddings for batch 3/3
+2025-07-07 18:47:53,172 - INFO - Successfully processed Machakos_10_Mjini Swahili Village Settlement Profile Report.docx: 48 chunks, 0 embeddings
+2025-07-07 18:47:53,173 - INFO - SUCCESS Machakos_10_Mjini Swahili Village Settlement Profile Report.docx: 48 chunks processed [VECTOR]
+2025-07-07 18:47:53,194 - INFO - Generating embeddings for batch 3/3
+2025-07-07 18:47:53,219 - INFO - Generating embeddings for batch 2/17
+2025-07-07 18:47:53,242 - INFO - Successfully processed Machakos_11_Kyumbi Settlement Profile Report.docx: 57 chunks, 0 embeddings
+2025-07-07 18:47:53,243 - INFO - SUCCESS Machakos_11_Kyumbi Settlement Profile Report.docx: 57 chunks processed [VECTOR]
+2025-07-07 18:47:53,346 - INFO - Generating embeddings for batch 3/17
+2025-07-07 18:47:53,481 - INFO - Generating embeddings for batch 4/17
+2025-07-07 18:47:53,620 - INFO - Generating embeddings for batch 5/17
+2025-07-07 18:47:53,755 - INFO - Generating embeddings for batch 6/17
+2025-07-07 18:47:53,891 - INFO - Generating embeddings for batch 7/17
+2025-07-07 18:47:54,025 - INFO - Generating embeddings for batch 8/17
+2025-07-07 18:47:54,162 - INFO - Generating embeddings for batch 9/17
+2025-07-07 18:47:54,298 - INFO - Generating embeddings for batch 10/17
+2025-07-07 18:47:54,431 - INFO - Generating embeddings for batch 11/17
+2025-07-07 18:47:54,582 - INFO - Generating embeddings for batch 12/17
+2025-07-07 18:47:54,719 - INFO - Generating embeddings for batch 13/17
+2025-07-07 18:47:54,876 - INFO - Generating embeddings for batch 14/17
+2025-07-07 18:47:55,013 - INFO - Generating embeddings for batch 15/17
+2025-07-07 18:47:55,148 - INFO - Generating embeddings for batch 16/17
+2025-07-07 18:47:55,286 - INFO - Generating embeddings for batch 17/17
+2025-07-07 18:47:55,337 - INFO - Successfully processed Lopiding socio-economic Survey Report.pdf: 321 chunks, 0 embeddings
+2025-07-07 18:47:55,338 - INFO - SUCCESS Lopiding socio-economic Survey Report.pdf: 321 chunks processed [VECTOR]
+2025-07-07 18:47:55,340 - INFO - 
+Processing Summary:
+2025-07-07 18:47:55,341 - INFO -    Total documents: 16
+2025-07-07 18:47:55,341 - INFO -    Successful: 8
+2025-07-07 18:47:55,342 - INFO -    Failed: 8
+2025-07-07 18:47:55,343 - INFO - Vector similarity search enabled
+2025-07-07 18:47:55,347 - INFO - Source database connection closed
+2025-07-07 18:47:55,347 - INFO - AI database connection closed
+2025-07-07 18:48:35,841 - INFO - Connected to source database successfully
+2025-07-07 18:48:35,900 - INFO - pgvector extension detected - vector similarity search enabled
+2025-07-07 18:48:35,901 - INFO - Connected to AI database successfully
+2025-07-07 18:48:35,901 - INFO - Using Ollama embedding model: nomic-embed-text
+2025-07-07 18:48:35,902 - INFO - Ollama API URL: http://localhost:11434
+2025-07-07 18:48:35,902 - INFO - Batch size: 10 chunks per request
+2025-07-07 18:48:35,902 - INFO - Performance tips:
+2025-07-07 18:48:35,903 - INFO -   - Use smaller batch sizes (5-10) for better memory usage
+2025-07-07 18:48:35,903 - INFO -   - Ensure Ollama has enough RAM allocated
+2025-07-07 18:48:35,903 - INFO -   - Consider using faster models like 'all-minilm' for speed
+2025-07-07 18:48:35,904 - INFO -   - Close other applications to free up system resources
+2025-07-07 18:48:35,908 - INFO - Found 16 documents to process
+2025-07-07 18:48:35,909 - INFO - Starting parallel processing of 16 documents with 4 workers
+2025-07-07 18:48:35,911 - INFO - Processing document: EGS-2310 - A01.csv.zip (ID: 16)
+2025-07-07 18:48:35,911 - INFO - Processing document: EGS-2310 - A04.csv.zip (ID: 15)
+2025-07-07 18:48:35,912 - INFO - Processing document: cyxi7brh.png (ID: 14)
+2025-07-07 18:48:35,912 - WARNING - Unsupported file type: .zip
+2025-07-07 18:48:35,913 - WARNING - Unsupported file type: .zip
+2025-07-07 18:48:35,913 - INFO - Processing document: Lopiding_layers.zip (ID: 13)
+2025-07-07 18:48:35,914 - WARNING - Unsupported file type: .png
+2025-07-07 18:48:35,916 - WARNING - Unsupported file type: .zip
+2025-07-07 18:48:35,920 - INFO - Processing document: 1695971004448.jpg (ID: 12)
+2025-07-07 18:48:35,920 - ERROR - FAILED EGS-2310 - A01.csv.zip: No text content extracted
+2025-07-07 18:48:35,920 - WARNING - Unsupported file type: .jpg
+2025-07-07 18:48:35,921 - INFO - Processing document: Lopiding socio-economic Survey Report.pdf (ID: 11)
+2025-07-07 18:48:35,921 - ERROR - FAILED EGS-2310 - A04.csv.zip: No text content extracted
+2025-07-07 18:48:35,921 - INFO - Processing document: cyxi7brh (1).png (ID: 10)
+2025-07-07 18:48:35,921 - INFO - Processing document: cyxi7brh (2).png (ID: 9)
+2025-07-07 18:48:35,922 - ERROR - FAILED cyxi7brh.png: No text content extracted
+2025-07-07 18:48:35,923 - INFO - Processing document: Urban Resilience - Consultancies-20250609T161444Z-1-001.zip (ID: 8)
+2025-07-07 18:48:35,923 - WARNING - Unsupported file type: .png
+2025-07-07 18:48:35,923 - WARNING - Unsupported file type: .png
+2025-07-07 18:48:35,924 - ERROR - FAILED Lopiding_layers.zip: No text content extracted
+2025-07-07 18:48:35,925 - WARNING - Unsupported file type: .zip
+2025-07-07 18:48:35,926 - ERROR - FAILED 1695971004448.jpg: No text content extracted
+2025-07-07 18:48:35,927 - INFO - Processing document: T__proc_notices_notices_055_k_notice_doc_52884_561104146.pdf (ID: 7)
+2025-07-07 18:48:35,927 - INFO - Processing document: INVBMGJ77 ETIMS INVOICE.pdf (ID: 6)
+2025-07-07 18:48:35,927 - ERROR - FAILED cyxi7brh (2).png: No text content extracted
+2025-07-07 18:48:35,928 - INFO - Processing document: SalesReciept.pdf (ID: 5)
+2025-07-07 18:48:35,930 - ERROR - FAILED cyxi7brh (1).png: No text content extracted
+2025-07-07 18:48:35,931 - ERROR - FAILED Urban Resilience - Consultancies-20250609T161444Z-1-001.zip: No text content extracted
+2025-07-07 18:48:36,115 - INFO - Generating embeddings for batch 1/1
+2025-07-07 18:48:36,637 - INFO - Successfully processed SalesReciept.pdf: 1 chunks, 0 embeddings
+2025-07-07 18:48:36,684 - INFO - Processing document: KISIP-June01.pdf (ID: 4)
+2025-07-07 18:48:36,685 - INFO - SUCCESS SalesReciept.pdf: 1 chunks processed [VECTOR]
+2025-07-07 18:48:36,716 - INFO - Generating embeddings for batch 1/1
+2025-07-07 18:48:37,057 - INFO - Successfully processed INVBMGJ77 ETIMS INVOICE.pdf: 1 chunks, 0 embeddings
+2025-07-07 18:48:37,143 - INFO - Processing document: Nakuru City Bus Park Feb 2025 Progress Report (2).docx (ID: 3)
+2025-07-07 18:48:37,144 - INFO - SUCCESS INVBMGJ77 ETIMS INVOICE.pdf: 1 chunks processed [VECTOR]
+2025-07-07 18:48:37,181 - INFO - Generating embeddings for batch 1/1
+2025-07-07 18:48:37,442 - INFO - Successfully processed KISIP-June01.pdf: 1 chunks, 0 embeddings
+2025-07-07 18:48:37,455 - INFO - Processing document: Machakos_10_Mjini Swahili Village Settlement Profile Report.docx (ID: 2)
+2025-07-07 18:48:37,459 - INFO - SUCCESS KISIP-June01.pdf: 1 chunks processed [VECTOR]
+2025-07-07 18:48:37,521 - INFO - Generating embeddings for batch 1/2
+2025-07-07 18:48:37,735 - INFO - Generating embeddings for batch 2/2
+2025-07-07 18:48:37,877 - INFO - Successfully processed T__proc_notices_notices_055_k_notice_doc_52884_561104146.pdf: 18 chunks, 0 embeddings
+2025-07-07 18:48:37,879 - INFO - Processing document: Machakos_11_Kyumbi Settlement Profile Report.docx (ID: 1)
+2025-07-07 18:48:37,879 - INFO - SUCCESS T__proc_notices_notices_055_k_notice_doc_52884_561104146.pdf: 18 chunks processed [VECTOR]
+2025-07-07 18:48:46,939 - INFO - Generating embeddings for batch 1/1
+2025-07-07 18:48:46,993 - INFO - Successfully processed Nakuru City Bus Park Feb 2025 Progress Report (2).docx: 9 chunks, 0 embeddings
+2025-07-07 18:48:46,995 - INFO - SUCCESS Nakuru City Bus Park Feb 2025 Progress Report (2).docx: 9 chunks processed [VECTOR]
+2025-07-07 18:48:47,773 - INFO - Generating embeddings for batch 1/5
+2025-07-07 18:48:47,825 - INFO - Generating embeddings for batch 1/6
+2025-07-07 18:48:47,918 - INFO - Generating embeddings for batch 2/5
+2025-07-07 18:48:47,949 - INFO - Generating embeddings for batch 2/6
+2025-07-07 18:48:48,042 - INFO - Generating embeddings for batch 3/5
+2025-07-07 18:48:48,072 - INFO - Generating embeddings for batch 3/6
+2025-07-07 18:48:48,124 - INFO - Generating embeddings for batch 1/33
+2025-07-07 18:48:48,184 - INFO - Generating embeddings for batch 4/5
+2025-07-07 18:48:48,214 - INFO - Generating embeddings for batch 4/6
+2025-07-07 18:48:48,248 - INFO - Generating embeddings for batch 2/33
+2025-07-07 18:48:48,316 - INFO - Generating embeddings for batch 5/5
+2025-07-07 18:48:48,364 - INFO - Generating embeddings for batch 5/6
+2025-07-07 18:48:48,372 - INFO - Successfully processed Machakos_10_Mjini Swahili Village Settlement Profile Report.docx: 48 chunks, 0 embeddings
+2025-07-07 18:48:48,373 - INFO - SUCCESS Machakos_10_Mjini Swahili Village Settlement Profile Report.docx: 48 chunks processed [VECTOR]
+2025-07-07 18:48:48,391 - INFO - Generating embeddings for batch 3/33
+2025-07-07 18:48:48,514 - INFO - Generating embeddings for batch 6/6
+2025-07-07 18:48:48,518 - INFO - Generating embeddings for batch 4/33
+2025-07-07 18:48:48,552 - INFO - Successfully processed Machakos_11_Kyumbi Settlement Profile Report.docx: 57 chunks, 0 embeddings
+2025-07-07 18:48:48,553 - INFO - SUCCESS Machakos_11_Kyumbi Settlement Profile Report.docx: 57 chunks processed [VECTOR]
+2025-07-07 18:48:48,651 - INFO - Generating embeddings for batch 5/33
+2025-07-07 18:48:48,799 - INFO - Generating embeddings for batch 6/33
+2025-07-07 18:48:48,951 - INFO - Generating embeddings for batch 7/33
+2025-07-07 18:48:49,107 - INFO - Generating embeddings for batch 8/33
+2025-07-07 18:48:49,254 - INFO - Generating embeddings for batch 9/33
+2025-07-07 18:48:49,395 - INFO - Generating embeddings for batch 10/33
+2025-07-07 18:48:49,545 - INFO - Generating embeddings for batch 11/33
+2025-07-07 18:48:49,699 - INFO - Generating embeddings for batch 12/33
+2025-07-07 18:48:49,857 - INFO - Generating embeddings for batch 13/33
+2025-07-07 18:48:50,011 - INFO - Generating embeddings for batch 14/33
+2025-07-07 18:48:50,165 - INFO - Generating embeddings for batch 15/33
+2025-07-07 18:48:50,321 - INFO - Generating embeddings for batch 16/33
+2025-07-07 18:48:50,463 - INFO - Generating embeddings for batch 17/33
+2025-07-07 18:48:50,617 - INFO - Generating embeddings for batch 18/33
+2025-07-07 18:48:50,765 - INFO - Generating embeddings for batch 19/33
+2025-07-07 18:48:50,910 - INFO - Generating embeddings for batch 20/33
+2025-07-07 18:48:51,067 - INFO - Generating embeddings for batch 21/33
+2025-07-07 18:48:51,220 - INFO - Generating embeddings for batch 22/33
+2025-07-07 18:48:51,378 - INFO - Generating embeddings for batch 23/33
+2025-07-07 18:48:51,533 - INFO - Generating embeddings for batch 24/33
+2025-07-07 18:48:51,690 - INFO - Generating embeddings for batch 25/33
+2025-07-07 18:48:51,843 - INFO - Generating embeddings for batch 26/33
+2025-07-07 18:48:51,988 - INFO - Generating embeddings for batch 27/33
+2025-07-07 18:48:52,123 - INFO - Generating embeddings for batch 28/33
+2025-07-07 18:48:52,269 - INFO - Generating embeddings for batch 29/33
+2025-07-07 18:48:52,410 - INFO - Generating embeddings for batch 30/33
+2025-07-07 18:48:52,554 - INFO - Generating embeddings for batch 31/33
+2025-07-07 18:48:52,692 - INFO - Generating embeddings for batch 32/33
+2025-07-07 18:48:52,840 - INFO - Generating embeddings for batch 33/33
+2025-07-07 18:48:52,896 - INFO - Successfully processed Lopiding socio-economic Survey Report.pdf: 321 chunks, 0 embeddings
+2025-07-07 18:48:52,898 - INFO - SUCCESS Lopiding socio-economic Survey Report.pdf: 321 chunks processed [VECTOR]
+2025-07-07 18:48:52,899 - INFO - 
+Processing Summary:
+2025-07-07 18:48:52,900 - INFO -    Total documents: 16
+2025-07-07 18:48:52,901 - INFO -    Successful: 8
+2025-07-07 18:48:52,901 - INFO -    Failed: 8
+2025-07-07 18:48:52,902 - INFO - Vector similarity search enabled
+2025-07-07 18:48:52,905 - INFO - Source database connection closed
+2025-07-07 18:48:52,906 - INFO - AI database connection closed
