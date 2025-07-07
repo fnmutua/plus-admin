@@ -7,7 +7,8 @@ const https = require('https');
 
 // ... Your other code ...
  
-
+const { ReadableStream } = require('web-streams-polyfill/ponyfill');
+globalThis.ReadableStream = ReadableStream;
 
 
 const path = require('path');

@@ -1,3 +1,9 @@
+// Add ReadableStream polyfill for Node.js compatibility with LangChain
+if (typeof globalThis.ReadableStream === 'undefined') {
+  const { ReadableStream } = require('stream/web');
+  globalThis.ReadableStream = ReadableStream;
+}
+
 const express = require('express')
 const bodyParser = require('body-parser')
 const cors = require('cors')
