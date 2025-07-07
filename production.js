@@ -28,11 +28,10 @@ if (envt === 'DEV') {
   // Switch off for production 
   console.log("DEV: Switching on dotenv");
   console.log('Port-VITE_APP_HOST.:', process.env.PORT, process.env.VITE_APP_HOST);
-
-  const dotenv = require('dotenv');
-  dotenv.config();
+ 
 }
-
+const dotenv = require('dotenv');
+dotenv.config();
 
 
 // middle ware
