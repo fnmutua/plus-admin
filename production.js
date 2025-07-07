@@ -6,7 +6,10 @@ const fs = require('fs');
 const https = require('https');
 
 // ... Your other code ...
- 
+ // Add ReadableStream setup for Node.js v20
+const { ReadableStream } = require('stream/web');
+globalThis.ReadableStream = ReadableStream;
+console.log('ReadableStream defined:', !!globalThis.ReadableStream); // Debug log
  
 
 const path = require('path');
