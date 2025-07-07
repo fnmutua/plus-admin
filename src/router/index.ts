@@ -1180,6 +1180,18 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       },
       
       {
+        path: 'ai-chat',
+        component: () => import('@/views/AI/DocumentChat.vue'),
+        name: 'DocumentAIChat',
+        meta: {
+          title: 'AI Chat',
+          hidden: false,
+          role: ['root_admin','admin', 'super_admin', 'monitoring', 'staff'  ] ,
+          icon:'material-symbols:smart-toy'
+        }
+      },
+      
+      {
         path: 'cleanup',
       //  component: 'views/Users/County',
         component: () => import('@/views/Repository/DeleteDocuments.vue'),

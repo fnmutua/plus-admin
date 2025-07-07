@@ -74,6 +74,30 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.STRING,
       allowNull: false
     },
+    
+    // AI Processing fields
+    aiProcessed: {
+      type: DataTypes.BOOLEAN,
+      allowNull: true,
+      defaultValue: false
+    },
+    aiProcessedAt: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    aiChunks: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      defaultValue: 0
+    },
+    aiDocumentId: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    aiWarning: {
+      type: DataTypes.TEXT,
+      allowNull: true
+    },
  
   }, {
     sequelize,

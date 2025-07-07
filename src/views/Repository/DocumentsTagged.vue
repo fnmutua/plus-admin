@@ -2,7 +2,7 @@
 <script setup lang="ts">
  import { useI18n } from '@/hooks/web/useI18n'
 import { getSettlementListByCounty } from '@/api/settlements'
-import { ElButton, ElBadge, ElRow, ElCol, ElCard,ElTable, ElTableColumn, ElCollapse, ElCollapseItem, ElPagination, ElDialog,
+import { ElButton, ElBadge, ElRow, ElCol, ElCard,ElTable, ElTableColumn,ElCheckbox, ElCollapse, ElCollapseItem, ElPagination, ElDialog,
   ElFormItem, ElInput, ElMessage, ElSelect, ElOption, ElForm, ElOptionGroup, ElDrawer, ElDivider, ElSwitch, ElSlider, ElInputNumber } from 'element-plus'
 import {
     UploadFilled,
@@ -1288,23 +1288,24 @@ const expandedSources = ref(new Set()) // Track which message sources are expand
 
 // Process existing documents functionality
 const isProcessingExisting = ref(false)
+const forceReprocess = ref(false)
 const processExistingDocuments = async () => {
   isProcessingExisting.value = true
   try {
-    const response = await processExistingDocumentsWithAI({ processAll: true })
+    const response = await processExistingDocumentsWithAI({ 
+      processAll: true,
+      forceReprocess: forceReprocess.value 
+    })
+    
     if (response.success) {
-      ElMessage.success(response.message || 'AI processing started!')
+      const data = response.data || response
+      const message = `AI processing completed! Processed: ${data.processed}, Failed: ${data.failed}, Already Processed: ${data.alreadyProcessed || 0}`
+      ElMessage.success(message)
     } else {
       ElMessage.error(response.message || 'Failed to start AI processing')
     }
-      
-    const result = await response.json()
-    if (result && result.code === '0000') {
-      ElMessage.success(result.message || 'AI processing started!')
-    } else {
-      ElMessage.error(result.message || 'Failed to start AI processing')
-    }
   } catch (error) {
+    console.error('Error processing existing documents:', error)
     ElMessage.error('Error: ' + (error.message || error))
   } finally {
     isProcessingExisting.value = false
@@ -1660,10 +1661,16 @@ const toggleSources = (messageIndex) => {
           <h3 style="margin: 0; color: #303133;">{{ t('Document Repository') }}</h3>
           <p style="margin: 4px 0 0 0; color: #909399; font-size: 14px;">{{ t('Use the filters to subset') }}</p>
         </div>
-        <el-button @click="openAIConfig" type="primary" plain size="small">
-          <Icon icon="material-symbols:smart-toy" width="16" style="margin-right: 4px;" />
-          AI Configuration
-        </el-button>
+        <div style="display: flex; gap: 8px;">
+          <el-button @click="$router.push('/repository/ai-chat')" type="success" plain size="small">
+            <Icon icon="material-symbols:smart-toy" width="16" style="margin-right: 4px;" />
+            AI Chat Interface
+          </el-button>
+          <el-button @click="openAIConfig" type="primary" plain size="small">
+            <Icon icon="material-symbols:settings" width="16" style="margin-right: 4px;" />
+            AI Configuration
+          </el-button>
+        </div>
       </div>
     </template>
 
@@ -1858,53 +1865,69 @@ v-model="searchTerm" placeholder="Search documents by name/settlement/county/for
         <div style="width: 100%;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
             <h3 style="margin: 0; color: #303133;">🤖 AI Document Assistant</h3>
-            <el-button @click="clearChatHistory" type="info" plain size="small">
-              Clear History
-            </el-button>
-          </div>
-          <!-- Admin-only: Process Existing Documents Button -->
-          <div v-if="showAdminButtons" style="margin-bottom: 10px; text-align: right;">
-            <el-button 
-              type="warning" 
-              size="small" 
-              :loading="isProcessingExisting"
-              @click="processExistingDocuments"
-            >
-              <Icon icon="material-symbols:bolt" width="18" style="margin-right: 4px;" />
-              Process All Existing Documents with AI
-            </el-button>
           </div>
           <!-- Provider & Model Selection in Header -->
-          <div style="display: flex; gap: 10px; align-items: center;">
-            <el-select 
-              v-model="aiConfig.provider" 
-              placeholder="Provider" 
-              style="width: 120px" 
-              size="small"
-              @change="handleProviderChange"
-            >
-              <el-option
-                v-for="provider in aiProviders"
-                :key="provider.id"
-                :label="provider.name"
-                :value="provider.id"
-              />
-            </el-select>
+          <div style="display: flex; gap: 10px; align-items: center; justify-content: space-between;">
+            <div style="display: flex; gap: 10px; align-items: center;">
+              <el-select 
+                v-model="aiConfig.provider" 
+                placeholder="Provider" 
+                style="width: 120px" 
+                size="small"
+                @change="handleProviderChange"
+              >
+                <el-option
+                  v-for="provider in aiProviders"
+                  :key="provider.id"
+                  :label="provider.name"
+                  :value="provider.id"
+                />
+              </el-select>
+              
+              <el-select 
+                v-model="aiConfig.model" 
+                placeholder="Model" 
+                style="width: 180px" 
+                size="small"
+                @change="handleModelChange"
+              >
+                <el-option
+                  v-for="model in availableModels"
+                  :key="model.id"
+                  :label="model.name"
+                  :value="model.id"
+                />
+              </el-select>
+            </div>
             
-            <el-select 
-              v-model="aiConfig.model" 
-              placeholder="Model" 
-              style="width: 180px" 
-              size="small"
-              @change="handleModelChange"
-            >
-              <el-option
-                v-for="model in availableModels"
-                :key="model.id"
-                :label="model.name"
-                :value="model.id"
-              />
-            </el-select>
+            <div style="display: flex; gap: 10px; align-items: center;">
+              <!-- Clear History Button -->
+              <el-button @click="clearChatHistory" type="info" plain size="small">
+                Clear History
+              </el-button>
+              
+              <!-- Admin-only: Process Existing Documents Button -->
+              <div  style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <el-checkbox 
+                    v-model="forceReprocess" 
+                    size="small"
+                    style="font-size: 12px;"
+                  >
+                    Force Reprocess
+                  </el-checkbox>
+                </div>
+                <el-button 
+                  type="warning" 
+                  size="small" 
+                  :loading="isProcessingExisting"
+                  @click="processExistingDocuments"
+                >
+                  <Icon icon="material-symbols:bolt" width="18" style="margin-right: 4px;" />
+                  Process All Existing Documents with AI
+                </el-button>
+              </div>
+            </div>
           </div>
         </div>
       </template>

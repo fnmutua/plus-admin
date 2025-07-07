@@ -1110,16 +1110,6 @@ exports.modelImportData = async (req, res) => {
  
  
 
-
- 
-
- 
-
- 
- 
- 
-
-
 function safeParseAndSanitize(jsonStr) {
   try {
     const parsed = JSON.parse(jsonStr, (key, value) => {
@@ -3060,7 +3050,7 @@ exports.modelPaginatedData = (req, res) => {
  
  
 
- 
+
 
 
 exports.modelPaginatedDatafilterByColumn = async (req, res) => {
@@ -3518,6 +3508,8 @@ exports.modelPaginatedDatafilterByColumnNoGeo = async (req, res) => {
  
  
    }
+ 
+ 
  
    else {
      
@@ -7967,8 +7959,8 @@ exports.askAIDocument = async (req, res) => {
             has_embeddings: doc.embedding_count > 0
         })));
 
-        // Get relevant chunks using semantic search
-        const relevantChunks = await getRelevantChunks(question);
+        // Get relevant chunks using semantic search with conservative limit
+        const relevantChunks = await getRelevantChunks(question, 5); // Reduced from default 10 to 5
         
         if (relevantChunks.length === 0) {
             return res.json({
@@ -7988,6 +7980,29 @@ exports.askAIDocument = async (req, res) => {
         const context = relevantChunks.map(chunk => 
             `[From ${chunk.filename}]: ${chunk.content}`
         ).join('\n\n');
+
+        // Estimate token count (rough approximation: 1 token ≈ 4 characters)
+        const estimatedTokens = Math.ceil((context.length + question.length) / 4);
+        const maxTokens = 100000; // Conservative limit for XAI model
+        
+        console.log(`Estimated tokens: ${estimatedTokens} (max: ${maxTokens})`);
+        
+        if (estimatedTokens > maxTokens) {
+            console.warn(`Token limit exceeded (${estimatedTokens} > ${maxTokens}), reducing chunks`);
+            // Reduce chunks to fit within token limit
+            const maxChunks = Math.floor(maxTokens * 4 / (context.length / relevantChunks.length));
+            const reducedChunks = relevantChunks.slice(0, Math.max(1, maxChunks));
+            
+            const reducedContext = reducedChunks.map(chunk => 
+                `[From ${chunk.filename}]: ${chunk.content}`
+            ).join('\n\n');
+            
+            console.log(`Reduced to ${reducedChunks.length} chunks, estimated tokens: ${Math.ceil((reducedContext.length + question.length) / 4)}`);
+            
+            // Update context and relevantChunks for the rest of the function
+            relevantChunks.length = 0;
+            relevantChunks.push(...reducedChunks);
+        }
 
         // Get conversation history (optional - implement if needed)
         // const history = await getConversationHistory(sessionId, 3);
@@ -8223,7 +8238,8 @@ async function getRelevantChunks(question, limit = 10) {
               // Convert embedding array to pgvector format
               const embeddingString = `[${queryEmbedding.join(',')}]`;
               
-              // Get more results initially to ensure diversity
+              // Get more results initially to ensure diversity, but limit to prevent token overflow
+              const searchLimit = Math.min(limit * 3, 50); // Get more for diversity but cap at 50
               const result = await docAIPool.query(`
                   SELECT 
                       dc.content,
@@ -8238,7 +8254,8 @@ async function getRelevantChunks(question, limit = 10) {
                   JOIN documents d ON dc.document_id = d.id
                   JOIN embeddings e ON dc.id = e.chunk_id
                   ORDER BY distance ASC
-              `, [embeddingString]);
+                  LIMIT $2
+              `, [embeddingString, searchLimit]);
               
               console.log('Vector search found', result.rows.length, 'chunks');
               
@@ -8251,36 +8268,11 @@ async function getRelevantChunks(question, limit = 10) {
                   const diverseResults = ensureDocumentDiversity(result.rows);
                   console.log('After diversity filtering:', diverseResults.length, 'chunks from', new Set(diverseResults.map(r => r.filename)).size, 'documents');
                   
-                  // If we only got results from one document, try to add some from other documents
-                  if (new Set(diverseResults.map(r => r.filename)).size === 1 && docDistribution.rows.length > 1) {
-                      console.log('Only one document found, adding samples from other documents');
-                      const currentDoc = diverseResults[0].filename;
-                      const otherDocs = docDistribution.rows.filter(doc => doc.filename !== currentDoc);
-                      
-                      // Add one chunk from each other document
-                      for (const otherDoc of otherDocs.slice(0, 2)) { // Limit to 2 additional docs
-                          const sampleChunk = await docAIPool.query(`
-                              SELECT 
-                                  dc.content,
-                                  dc.metadata,
-                                  d.filename,
-                                  NULL as embedding_vector,
-                                  0.8 as distance
-                              FROM document_chunks dc
-                              JOIN documents d ON dc.document_id = d.id
-                              WHERE d.filename = $1
-                              ORDER BY dc.chunk_index ASC
-                              LIMIT 1
-                          `, [otherDoc.filename]);
-                          
-                          if (sampleChunk.rows.length > 0) {
-                              diverseResults.push(sampleChunk.rows[0]);
-                              console.log(`Added sample chunk from: ${otherDoc.filename}`);
-                          }
-                      }
-                  }
+                  // Apply final limit to prevent token overflow
+                  const finalResults = diverseResults.slice(0, limit);
+                  console.log('After final limit:', finalResults.length, 'chunks');
                   
-                  return diverseResults;
+                  return finalResults;
               }
           } catch (vectorError) {
               console.warn('Vector similarity search failed, using keyword fallback:', vectorError.message);
@@ -8306,11 +8298,11 @@ async function getRelevantChunks(question, limit = 10) {
               FROM document_chunks dc
               JOIN documents d ON dc.document_id = d.id
               ORDER BY d.created_at DESC, dc.chunk_index ASC
-              LIMIT 50
-          `);
+              LIMIT $1
+          `, [limit]);
           console.log('No keywords fallback found', result.rows.length, 'chunks');
           const diverseResults = ensureDocumentDiversity(result.rows);
-          return diverseResults;
+          return diverseResults.slice(0, limit);
       }
       
       // Enhanced keyword-based search with diversity
@@ -8318,7 +8310,7 @@ async function getRelevantChunks(question, limit = 10) {
           `LOWER(dc.content) LIKE $${index + 1}`
       ).join(' OR ');
       
-      // First try exact keyword search
+      // First try exact keyword search with limit
       let result = await docAIPool.query(`
           SELECT 
               dc.content,
@@ -8333,12 +8325,13 @@ async function getRelevantChunks(question, limit = 10) {
           JOIN documents d ON dc.document_id = d.id
           WHERE ${keywordConditions}
           ORDER BY d.created_at DESC, dc.chunk_index ASC
-      `, keywords.map(k => `%${k}%`));
+          LIMIT $${keywords.length + 1}
+      `, [...keywords.map(k => `%${k}%`), limit]);
       
       console.log('Exact keyword search found', result.rows.length, 'chunks');
       
       // If we don't have enough results, try broader search
-      if (result.rows.length < 20) {
+      if (result.rows.length < Math.min(limit / 2, 10)) {
           console.log('Not enough results, trying broader search...');
           
           // Try searching for partial keywords (first 3 characters)
@@ -8348,6 +8341,7 @@ async function getRelevantChunks(question, limit = 10) {
                   `LOWER(dc.content) LIKE $${index + 1}`
               ).join(' OR ');
               
+              const remainingLimit = limit - result.rows.length;
               const partialResult = await docAIPool.query(`
                   SELECT 
                       dc.content,
@@ -8362,7 +8356,8 @@ async function getRelevantChunks(question, limit = 10) {
                   JOIN documents d ON dc.document_id = d.id
                   WHERE ${partialConditions}
                   ORDER BY d.created_at DESC, dc.chunk_index ASC
-              `, partialKeywords.map(k => `%${k}%`));
+                  LIMIT $${partialKeywords.length + 1}
+              `, [...partialKeywords.map(k => `%${k}%`), remainingLimit]);
               
               console.log('Partial keyword search found', partialResult.rows.length, 'chunks');
               
@@ -8373,50 +8368,16 @@ async function getRelevantChunks(question, limit = 10) {
           }
       }
       
-      // If still not enough results, add some random chunks from other documents
-      if (result.rows.length < 30) {
-          console.log('Still not enough results, adding sample chunks from all documents...');
-          
-          const foundDocs = [...new Set(result.rows.map(r => r.filename))];
-          const allDocs = await docAIPool.query(`
-              SELECT DISTINCT d.filename
-              FROM documents d
-              JOIN document_chunks dc ON d.id = dc.document_id
-              ORDER BY d.created_at DESC
-          `);
-          
-          const missingDocs = allDocs.rows.filter(doc => !foundDocs.includes(doc.filename));
-          
-          for (const missingDoc of missingDocs.slice(0, 5)) { // Add up to 5 missing docs
-              const sampleChunk = await docAIPool.query(`
-                  SELECT 
-                      dc.content,
-                      dc.metadata,
-                      dc.chunk_index,
-                      d.filename,
-                      d.file_size,
-                      d.file_type,
-                      NULL as embedding_vector,
-                      0.9 as distance
-                  FROM document_chunks dc
-                  JOIN documents d ON dc.document_id = d.id
-                  WHERE d.filename = $1
-                  ORDER BY dc.chunk_index ASC
-                  LIMIT 2
-              `, [missingDoc.filename]);
-              
-              if (sampleChunk.rows.length > 0) {
-                  result.rows.push(...sampleChunk.rows);
-                  console.log(`Added sample chunks from: ${missingDoc.filename}`);
-              }
-          }
-      }
+      // Apply final limit and diversity
+      const diverseResults = ensureDocumentDiversity(result.rows);
+      const finalResults = diverseResults.slice(0, limit);
+      console.log('Final results after limit:', finalResults.length, 'chunks');
       
-      return result.rows;
+      return finalResults;
       
   } catch (error) {
       console.error('Error in getRelevantChunks:', error);
-      // Final fallback: return diverse recent chunks
+      // Final fallback: return diverse recent chunks with limit
       const result = await docAIPool.query(`
           SELECT 
               dc.content,
@@ -8430,11 +8391,11 @@ async function getRelevantChunks(question, limit = 10) {
           FROM document_chunks dc
           JOIN documents d ON dc.document_id = d.id
           ORDER BY d.created_at DESC, dc.chunk_index ASC
-          LIMIT 50
-      `);
+          LIMIT $1
+      `, [limit]);
       console.log('Final fallback found', result.rows.length, 'chunks');
       const diverseResults = ensureDocumentDiversity(result.rows);
-      return diverseResults;
+      return diverseResults.slice(0, limit);
   }
 }
 
@@ -8444,19 +8405,16 @@ initializeDocumentAIDatabase().catch(error => {
 })
 
 // Manual AI Processing for Existing Documents
- // Manual AI Processing for Existing Documents
-  
-// Manual AI Processing for Existing Documents
 exports.processExistingDocumentsWithAI = async (req, res) => {
   try {
-    const { processAll, documentIds } = req.body;
+    const { processAll, documentIds, forceReprocess = false } = req.body;
     
     let documentsToProcess = [];
     
     if (processAll) {
       // Get all documents from the database
       documentsToProcess = await db.models.document.findAll({
-        attributes: ['id', 'name', 'location', 'size', 'format']
+        attributes: ['id', 'name', 'location', 'size', 'format', 'aiProcessed', 'aiProcessedAt']
       });
     } else if (documentIds && Array.isArray(documentIds)) {
       // Process specific documents
@@ -8466,7 +8424,7 @@ exports.processExistingDocumentsWithAI = async (req, res) => {
             [op.in]: documentIds
           }
         },
-        attributes: ['id', 'name', 'location', 'size', 'format']
+        attributes: ['id', 'name', 'location', 'size', 'format', 'aiProcessed', 'aiProcessedAt']
       });
     } else {
       return res.status(400).json({
@@ -8482,19 +8440,49 @@ exports.processExistingDocumentsWithAI = async (req, res) => {
         data: {
           processed: 0,
           failed: 0,
+          alreadyProcessed: 0,
+          skipped: 0,
           total: 0
         }
       });
     }
 
-    console.log(`Processing ${documentsToProcess.length} documents with AI...`);
+    // Filter documents based on processing status
+    let documentsToActuallyProcess = [];
+    let alreadyProcessed = 0;
+    let skipped = 0;
+
+    for (const doc of documentsToProcess) {
+      if (doc.aiProcessed && !forceReprocess) {
+        alreadyProcessed++;
+        console.log(`Document already processed: ${doc.name} (processed at: ${doc.aiProcessedAt})`);
+      } else {
+        documentsToActuallyProcess.push(doc);
+      }
+    }
+
+    if (documentsToActuallyProcess.length === 0) {
+      return res.status(200).json({
+        code: '0000',
+        message: `All documents have already been processed. Use forceReprocess=true to reprocess.`,
+        data: {
+          processed: 0,
+          failed: 0,
+          alreadyProcessed,
+          skipped: 0,
+          total: documentsToProcess.length
+        }
+      });
+    }
+
+    console.log(`Processing ${documentsToActuallyProcess.length} documents with AI (${alreadyProcessed} already processed, ${skipped} skipped)...`);
     
     let processed = 0;
     let failed = 0;
     const batchSize = 5; // Process in batches to avoid overwhelming the system
     
-    for (let i = 0; i < documentsToProcess.length; i += batchSize) {
-      const batch = documentsToProcess.slice(i, i + batchSize);
+    for (let i = 0; i < documentsToActuallyProcess.length; i += batchSize) {
+      const batch = documentsToActuallyProcess.slice(i, i + batchSize);
       
       // Process batch in parallel
       const batchPromises = batch.map(async (doc) => {
@@ -8520,8 +8508,21 @@ exports.processExistingDocumentsWithAI = async (req, res) => {
           const result = await processDocumentWithAI(filePath, doc.name, fileSize);
           
           if (result.success) {
-            console.log(`Successfully processed: ${doc.name}`);
-            return { success: true };
+            // Update the document record with AI processing results
+            const updateData = {
+              aiProcessed: true,
+              aiProcessedAt: new Date(),
+              aiChunks: result.chunks || 0,
+              aiDocumentId: result.documentId || null,
+              aiWarning: result.warning || null
+            };
+            
+            await db.models.document.update(updateData, {
+              where: { id: doc.id }
+            });
+            
+            console.log(`Successfully processed and updated: ${doc.name} (chunks: ${result.chunks}, documentId: ${result.documentId})`);
+            return { success: true, chunks: result.chunks, documentId: result.documentId };
           } else {
             console.log(`Failed to process: ${doc.name} - ${result.message || 'Unknown error'}`);
             return { success: false, reason: result.message || 'Processing failed' };
@@ -8546,19 +8547,21 @@ exports.processExistingDocumentsWithAI = async (req, res) => {
       });
       
       // Small delay between batches
-      if (i + batchSize < documentsToProcess.length) {
+      if (i + batchSize < documentsToActuallyProcess.length) {
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }
     
-    console.log(`AI Processing completed. Processed: ${processed}, Failed: ${failed}`);
+    console.log(`AI Processing completed. Processed: ${processed}, Failed: ${failed}, Already Processed: ${alreadyProcessed}`);
     
     return res.status(200).json({
       code: '0000',
-      message: `AI processing completed. Processed: ${processed}, Failed: ${failed}`,
+      message: `AI processing completed. Processed: ${processed}, Failed: ${failed}, Already Processed: ${alreadyProcessed}`,
       data: {
         processed,
         failed,
+        alreadyProcessed,
+        skipped,
         total: documentsToProcess.length
       }
     });
