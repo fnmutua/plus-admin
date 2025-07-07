@@ -49,9 +49,7 @@ app.use(express.static('public'));
 
 // Log environment variables on load
 console.log('=== ENVIRONMENT VARIABLES LOADED ===');
-console.log('Env file path:', envFilePath);
-console.log('File exists:', require('fs').existsSync(envFilePath));
-
+ 
 // Main Database Variables
 console.log('Main DB - HOST:', process.env.VUE_APP_DB_HOST);
 console.log('Main DB - USER:', process.env.VUE_APP_USER);
