@@ -206,7 +206,7 @@ class DocumentAIProcessor:
             logger.error(f"Error extracting text from {file_path}: {e}")
             return ""
     
-    def generate_embedding(self, text: str, model_name: str = "nomic-embed-text") -> List[float]:
+    def generate_embedding(self, text: str, model_name: str = "all-minilm") -> List[float]:
         """Generate embedding for text using Ollama API"""
         try:
             # Ollama API endpoint (default local installation)
