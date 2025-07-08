@@ -1190,6 +1190,7 @@ exports.modelImportDataUpsert = async (req, res) => {
     const inserted = [];
     const updated = [];
     const errors = [];
+    const aiProcessed = []; // Track AI processing results
 
     // Encryption passphrase for households
     const passphrase = '***REDACTED***';
@@ -1279,10 +1280,30 @@ exports.modelImportDataUpsert = async (req, res) => {
           uniqueFields.forEach(f => delete updateData[f]);
           await existing.update(updateData);
           updated.push(item.code || existing.id);
+          
+          // Process updated record for AI
+          try {
+            console.log(`Processing updated ${modelName} record for AI:`, existing.id);
+            const aiResult = await processRecordForAI(existing, modelName);
+            aiProcessed.push({ recordId: existing.id, action: 'updated', aiResult });
+          } catch (aiError) {
+            console.warn(`AI processing failed for updated ${modelName} record ${existing.id}:`, aiError.message);
+            aiProcessed.push({ recordId: existing.id, action: 'updated', aiResult: { success: false, error: aiError.message } });
+          }
         } else {
           try {
             const rec = await Model.create(item);
             inserted.push(rec.id);
+            
+            // Process newly created record for AI
+            try {
+              console.log(`Processing newly created ${modelName} record for AI:`, rec.id);
+              const aiResult = await processRecordForAI(rec, modelName);
+              aiProcessed.push({ recordId: rec.id, action: 'inserted', aiResult });
+            } catch (aiError) {
+              console.warn(`AI processing failed for newly created ${modelName} record ${rec.id}:`, aiError.message);
+              aiProcessed.push({ recordId: rec.id, action: 'inserted', aiResult: { success: false, error: aiError.message } });
+            }
           } catch (createErr) {
             if (createErr.name === 'SequelizeUniqueConstraintError') {
               const vioWhere = {};
@@ -1293,6 +1314,16 @@ exports.modelImportDataUpsert = async (req, res) => {
                 uniqueFields.forEach(f => delete upd[f]);
                 await rec.update(upd);
                 updated.push(item.code || rec.id);
+                
+                // Process updated record for AI (from unique constraint handling)
+                try {
+                  console.log(`Processing updated ${modelName} record for AI (from constraint):`, rec.id);
+                  const aiResult = await processRecordForAI(rec, modelName);
+                  aiProcessed.push({ recordId: rec.id, action: 'updated', aiResult });
+                } catch (aiError) {
+                  console.warn(`AI processing failed for updated ${modelName} record ${rec.id}:`, aiError.message);
+                  aiProcessed.push({ recordId: rec.id, action: 'updated', aiResult: { success: false, error: aiError.message } });
+                }
               } else {
                 errors.push({ item, error: createErr.name, detail: createErr.message });
               }
@@ -1323,11 +1354,20 @@ exports.modelImportDataUpsert = async (req, res) => {
 
     // Final response
     const hasErrors = errors.length > 0;
+    const successfulAIProcessing = aiProcessed.filter(p => p.aiResult.success).length;
+    const failedAIProcessing = aiProcessed.filter(p => !p.aiResult.success).length;
+    
     return res.status(hasErrors ? 207 : 200).json({
       message: hasErrors ? 'Import completed with some errors' : 'Import process completed successfully',
       insertedCount: inserted.length,
       updatedCount: updated.length,
       failedCount: errors.length,
+      aiProcessing: {
+        totalProcessed: aiProcessed.length,
+        successful: successfulAIProcessing,
+        failed: failedAIProcessing,
+        details: aiProcessed
+      },
       errors,
       code: hasErrors ? '0001' : '0000',
     });
