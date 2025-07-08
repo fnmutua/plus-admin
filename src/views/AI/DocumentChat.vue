@@ -380,7 +380,7 @@ onMounted(() => {
         <div v-if="isProcessing" class="message-container">
           <div class="message ai-message">
             <div class="message-avatar">
-              <Icon icon="material-symbols:smart-toy" width="24" color="#67c23a" />
+              <Icon icon="ri:mic-ai-line" width="24" color="#67c23a" />
             </div>
             <div class="message-content">
               <div class="loading-indicator">

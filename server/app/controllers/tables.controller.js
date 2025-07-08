@@ -1444,6 +1444,10 @@ exports.modelCreateOneRecord = (req, res) => {
       data: item, // Include the created record in the response
       code: '0000',
     });
+
+    // Process the created record for AI
+    console.log('Processing record for AI >>>>>>>>>>>>>>>>>', item)
+    await processRecordForAI(item, reg_model);
   })
   .catch(async function (error) {
     // handle error;
@@ -1936,6 +1940,7 @@ exports.modelOneGeo = async (req, res) => {
 
  
  
+
 
 exports.xmodelSelectGeo = async (req, res) => {
   const reg_model = req.body.model;
@@ -7368,6 +7373,8 @@ async function saveDocumentToAI(filename, filePath, fileType, fileSize, content,
         fileSizeBytes = 0;
     }
     
+    const actualFilePath = filePath || `database_record_${Date.now()}`;
+
     console.log(`File size conversion for ${filename}: ${fileSize} -> ${fileSizeBytes} bytes`);
     
     const query = `
@@ -7375,7 +7382,8 @@ async function saveDocumentToAI(filename, filePath, fileType, fileSize, content,
         VALUES ($1, $2, $3, $4, $5, $6)
         RETURNING id
     `
-    const result = await docAIPool.query(query, [filename, filePath, fileType, fileSizeBytes, content, metadata])
+
+    const result = await docAIPool.query(query, [filename, actualFilePath, fileType, fileSizeBytes, content, metadata])
     return result.rows[0].id
 }
 
@@ -8757,3 +8765,148 @@ exports.getAIHealth = async (req, res) => {
     });
   }
 };
+
+/**
+ * Process database records for AI chunking and embedding
+ */
+async function processRecordForAI(record, modelName) {
+  try {
+    console.log(`🔍 Processing ${modelName} record ${record.id} for AI...`);
+    // Check if Document AI database is available
+    if (!docAIPool) {
+      console.log(`⚠️  Document AI database not available - skipping AI processing for ${modelName} record ${record.id}`);
+      return { success: false, message: 'Document AI database not available', warning: 'Database connection failed' };
+    }
+    // Initialize Document AI database if needed
+    const dbInitialized = await initializeDocumentAIDatabase();
+    if (!dbInitialized) {
+      return { success: false, message: 'Failed to initialize Document AI database', warning: 'Database initialization failed' };
+    }
+    // Convert record to text content for processing
+    const recordContent = convertRecordToText(record, modelName);
+    if (!recordContent || recordContent.trim().length === 0) {
+      console.log(`No content extracted from ${modelName} record ${record.id}`);
+      return { success: false, message: 'No content extracted' };
+    }
+    // Create a virtual filename for the record
+    const recordFilename = `${modelName}_${record.id}_${Date.now()}.json`;
+    // Save record to AI database
+    const documentId = await saveDocumentToAI(recordFilename, null, '.json', recordContent.length, recordContent, {
+      source_model: modelName,
+      record_id: record.id,
+      record_type: 'database_record',
+      chunkCount: 0 // Will be updated after chunking
+    });
+    // Create chunks from the record content
+    const chunks = await createChunksFromText(recordContent, recordFilename);
+    if (!chunks || chunks.length === 0) {
+      console.log(`No chunks created from ${modelName} record ${record.id}`);
+      return { success: false, message: 'No chunks created' };
+    }
+    // Save chunks to AI database
+    const chunkIds = await saveDocumentChunks(documentId, chunks);
+    // Generate embeddings if available
+    if (embeddings && !CONFIG.disableEmbeddings) {
+      try {
+        const texts = chunks.map(chunk => chunk.pageContent);
+        const embeddingVectors = await embeddings.embedDocuments(texts);
+        // Ensure embeddings are proper arrays
+        const normalizedEmbeddings = embeddingVectors.map(emb => {
+          if (Array.isArray(emb)) {
+            return emb;
+          } else if (typeof emb === 'object' && emb !== null) {
+            return Object.values(emb);
+          } else {
+            console.warn('Unexpected embedding format:', typeof emb, emb);
+            return Array(384).fill(0); // fallback
+          }
+        });
+        await saveEmbeddings(chunkIds, normalizedEmbeddings);
+        console.log(`✅ AI processing completed for ${modelName} record ${record.id} with embeddings`);
+        return { success: true, message: 'Record processed with AI embeddings', chunks: chunks.length, documentId };
+      } catch (embeddingError) {
+        console.warn(`Embedding failed for ${modelName} record ${record.id}:`, embeddingError.message);
+        return { success: true, message: 'Record processed without embeddings', chunks: chunks.length, documentId, warning: 'Embedding failed' };
+      }
+    } else {
+      // Generate basic embeddings as fallback
+      try {
+        const texts = chunks.map(chunk => chunk.pageContent);
+        const embeddingVectors = await Promise.all(texts.map(text => generateEmbedding(text)));
+        await saveEmbeddings(chunkIds, embeddingVectors);
+        console.log(`✅ AI processing completed for ${modelName} record ${record.id} with basic embeddings`);
+        return { success: true, message: 'Record processed with basic embeddings', chunks: chunks.length, documentId };
+      } catch (fallbackError) {
+        console.warn(`Basic embedding failed for ${modelName} record ${record.id}:`, fallbackError.message);
+        return { success: true, message: 'Record processed without embeddings', chunks: chunks.length, documentId, warning: 'Basic embedding failed' };
+      }
+    }
+  } catch (error) {
+    console.error(`Error processing ${modelName} record ${record.id} for AI:`, error);
+    return { success: false, message: 'Error processing record for AI', error: error.message };
+  }
+}
+
+/**
+ * Convert database record to text content for chunking
+ */
+function convertRecordToText(record, modelName) {
+  try {
+    // Convert record to plain object if it's a Sequelize instance
+    const recordData = record.toJSON ? record.toJSON() : record;
+    // Filter out sensitive or non-text fields
+    const excludeFields = ['id', 'createdAt', 'updatedAt', 'createdBy', 'updatedBy', 'geom', 'geometry'];
+    const filteredData = {};
+    Object.keys(recordData).forEach(key => {
+      if (!excludeFields.includes(key) && recordData[key] !== null && recordData[key] !== undefined) {
+        filteredData[key] = recordData[key];
+      }
+    });
+    // Convert to readable text format
+    const textParts = [];
+    // Add model name as context
+    textParts.push(`Model: ${modelName}`);
+    textParts.push(`Record ID: ${recordData.id || 'N/A'}`);
+    textParts.push('');
+    // Add each field as key-value pairs
+    Object.keys(filteredData).forEach(key => {
+      const value = filteredData[key];
+      if (typeof value === 'string' && value.trim().length > 0) {
+        textParts.push(`${key}: ${value}`);
+      } else if (typeof value === 'number' || typeof value === 'boolean') {
+        textParts.push(`${key}: ${value}`);
+      } else if (typeof value === 'object' && value !== null) {
+        textParts.push(`${key}: ${JSON.stringify(value)}`);
+      }
+    });
+    return textParts.join('\n');
+  } catch (error) {
+    console.error('Error converting record to text:', error);
+    return JSON.stringify(record, null, 2);
+  }
+}
+
+/**
+ * Create chunks from text content
+ */
+async function createChunksFromText(text, filename) {
+  try {
+    // Create a simple document object for chunking
+    const doc = {
+      pageContent: text,
+      metadata: {
+        filename: filename,
+        fileType: '.json',
+        source: 'database_record'
+      }
+    };
+    // Use the existing text splitter
+    const chunks = await textSplitter.splitDocuments([doc]);
+    const limitedChunks = chunks.slice(0, MAX_CHUNKS_PER_DOCUMENT);
+    return limitedChunks;
+  } catch (error) {
+    console.error(`Error creating chunks from text for ${filename}:`, error);
+    return [];
+  }
+}
+
