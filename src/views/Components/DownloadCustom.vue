@@ -7,7 +7,7 @@
 
   <el-dialog title="Select the columns to include in the excel sheet" v-model="showDownloadDialog" draggable width="60%">
     <el-checkbox
-    v-model="checkAll"
+    v-model="checkAll" 
     @change="handleCheckAllChange"
   >
   <em>Select all Fields</em>
