@@ -2,7 +2,7 @@
 """
 Offline Document AI Processing Script
 Processes documents with AI embeddings in parallel for better performance
-Updated to match the new database schema with UUID primary keys and flexible embedding storage
+Updated to match the new database schema with UUID primary keys and vector(384) storage
 """
 
 import os
@@ -42,7 +42,7 @@ class DocumentAIProcessor:
         self.source_conn = None
         self.ai_conn = None
         self.pgvector_available = False
-        self.default_embedding_model = "nomic-embed-text"
+        self.default_embedding_model = "all-minilm"
         
     def connect_source_db(self):
         """Connect to source PostgreSQL database (contains document table)"""
@@ -107,7 +107,7 @@ class DocumentAIProcessor:
         
         for row in cursor.fetchall():
             doc = dict(zip(columns, row))
-            if not force_reprocess and doc.get('ai_processed'):
+            if not force_reprocess and doc.get('aiProcessed'):
                 logger.info(f"Document {doc['name']} already processed, skipping")
                 continue
             documents.append(doc)
@@ -390,7 +390,7 @@ class DocumentAIProcessor:
             cursor.close()
     
     def save_embeddings(self, chunk_ids: List[str], embeddings: List[List[float]], model_name: str = "all-minilm") -> bool:
-        """Save embeddings to database with flexible vector storage"""
+        """Save embeddings to database with vector(384) storage"""
         cursor = self.ai_conn.cursor()
         
         try:
@@ -399,22 +399,25 @@ class DocumentAIProcessor:
                     # Generate UUID for embedding
                     embedding_id = str(uuid.uuid4())
                     
-                    if self.pgvector_available:
-                        # Use pgvector vector type
-                        query = """
-                            INSERT INTO embeddings (id, chunk_id, embedding_vector, model_name, created_at)
-                            VALUES (%s, %s, %s::vector, %s, %s)
-                        """
-                        cursor.execute(query, (embedding_id, chunk_id, embedding, model_name, datetime.now()))
-                    else:
-                        # Use REAL[] array type
-                        query = """
-                            INSERT INTO embeddings (id, chunk_id, embedding_vector, model_name, created_at)
-                            VALUES (%s, %s, %s, %s, %s)
-                        """
-                        cursor.execute(query, (embedding_id, chunk_id, embedding, model_name, datetime.now()))
+                    # Convert embedding to pgvector format string
+                    embedding_string = f"[{','.join(map(str, embedding))}]"
+                    
+                    # Use vector(384) type with proper casting
+                    query = """
+                        INSERT INTO embeddings (id, chunk_id, embedding_vector, model_name, created_at, updated_at)
+                        VALUES (%s, %s, %s::vector, %s, %s, %s)
+                    """
+                    cursor.execute(query, (
+                        embedding_id, 
+                        chunk_id, 
+                        embedding_string, 
+                        model_name, 
+                        datetime.now(),
+                        datetime.now()
+                    ))
             
             self.ai_conn.commit()
+            logger.info(f"Saved {len([e for e in embeddings if e])} embeddings using {model_name}")
             return True
             
         except Exception as e:
@@ -527,7 +530,7 @@ class DocumentAIProcessor:
             }
             
         except Exception as e:
-            logger.error(f"FAILED {doc['name']}: Unexpected error - {e}")
+            logger.error(f"FAILED {document['name']}: Unexpected error - {e}")
             self.update_document_status(doc_id, False, 0, str(e))
             return {'success': False, 'reason': str(e)}
     

@@ -5,68 +5,102 @@
     </el-tooltip>
   </div>
 
-  <el-dialog title="Select the columns to include in the excel sheet" v-model="showDownloadDialog" draggable width="60%" :close-on-click-modal="false">
-    <el-checkbox
-    v-model="checkAll"
-    @change="handleCheckAllChange"
+  <el-drawer 
+    v-model="showDownloadDialog" 
+    direction="rtl" 
+    :size="isMobile ? '100%' : '45%'"
+    :with-header="false"
+    :close-on-click-modal="false"
   >
-  <em>Select all Fields</em>
-  </el-checkbox>
-    
-    <div class="fields-container">
-      <el-collapse v-model="activeCollapse" accordion>
-        <el-collapse-item v-for="(fields, modelName) in availableFields" :key="modelName" :name="modelName">
-          <template #title>
-            <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-              <span style="font-weight: 500; color: #409EFF;">
-                {{ modelName === 'main' ? currentModel : modelName.charAt(0).toUpperCase() + modelName.slice(1) }} Fields
-              </span>
-              <el-checkbox 
-                :model-value="isModelAllSelected(modelName)"
-                @change.stop="(val) => handleModelCheckAllChange(modelName, val)"
-                style="margin-left: 10px;"
-              >
-                <em>Select all</em>
-              </el-checkbox>
-            </div>
-          </template>
-          
-          <div class="fields-grid">
-            <el-checkbox v-for="(field, index) in fields" :key="index" :label="field" v-model="selectedFields" class="field-checkbox">
-              <el-tooltip :content="field" placement="top">
-                <span>{{ getDisplayFieldName(field) }}</span>
-              </el-tooltip>
-              <el-tag v-if="selectedFields.includes(field)" type="success" class="field-tag">
-                {{ selectedFields.indexOf(field) }}
-              </el-tag>
-            </el-checkbox>
-          </div>
-        </el-collapse-item>
-      </el-collapse>
+    <!-- Custom Header -->
+    <div class="drawer-header">
+      <div class="header-content">
+        <div class="header-icon">
+          <el-icon :size="24">
+            <Download />
+          </el-icon>
+        </div>
+        <div class="header-text">
+          <h3>Select Fields to Download</h3>
+          <p>Choose the columns to include in your Excel file</p>
+        </div>
+      </div>
+      <el-button 
+        type="text" 
+        @click="showDownloadDialog = false"
+        class="close-button"
+      >
+        <el-icon :size="20">
+          <Close />
+        </el-icon>
+      </el-button>
     </div>
 
-    <template #footer>
-      <div class="dialog-footer">
-        <el-button @click="showDownloadDialog = false">Cancel</el-button>
-        <el-button type="primary" @click="downloadCSV">
-          Download Filtered<el-icon class="el-icon--right"><Filter /></el-icon>
-        </el-button>
-        <el-button type="primary" @click="downloadAll">
-          Download All <el-icon class="el-icon--right"><Document /></el-icon>
-        </el-button>
+    <div class="drawer-content">
+      <el-checkbox
+        v-model="checkAll"
+        @change="handleCheckAllChange"
+        class="select-all-checkbox"
+      >
+        <em>Select all Fields</em>
+      </el-checkbox>
+      
+      <div class="fields-container">
+        <el-collapse v-model="activeCollapse" accordion>
+          <el-collapse-item v-for="(fields, modelName) in availableFields" :key="modelName" :name="modelName">
+            <template #title>
+              <el-tooltip :content="`Expand to view/select ${fields.length} ${modelName === 'main' ? currentModel : modelName} fields`" placement="top">
+                <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                  <span style="font-weight: 500; color: #409EFF;">
+                    {{ modelName === 'main' ? currentModel : modelName.charAt(0).toUpperCase() + modelName.slice(1) }} Fields
+                  </span>
+                  <el-checkbox 
+                    :model-value="isModelAllSelected(modelName)"
+                    @change.stop="(val) => handleModelCheckAllChange(modelName, val)"
+                    style="margin-left: 10px;"
+                  >
+                    <em>Select all</em>
+                  </el-checkbox>
+                </div>
+              </el-tooltip>
+            </template>
+            
+            <div class="fields-grid">
+              <el-checkbox v-for="(field, index) in fields" :key="index" :label="field" v-model="selectedFields" class="field-checkbox">
+                <el-tooltip :content="field" placement="top">
+                  <span>{{ getDisplayFieldName(field) }}</span>
+                </el-tooltip>
+                <el-tag v-if="selectedFields.includes(field)" type="success" class="field-tag">
+                  {{ selectedFields.indexOf(field) }}
+                </el-tag>
+              </el-checkbox>
+            </div>
+          </el-collapse-item>
+        </el-collapse>
       </div>
-    </template>
-  </el-dialog>
+    </div>
+
+    <!-- Drawer Footer -->
+    <div class="drawer-footer">
+      <el-button @click="showDownloadDialog = false">Cancel</el-button>
+      <el-button type="primary" @click="downloadCSV">
+        Download Filtered<el-icon class="el-icon--right"><Filter /></el-icon>
+      </el-button>
+      <el-button type="primary" @click="downloadAll">
+        Download All <el-icon class="el-icon--right"><Document /></el-icon>
+      </el-button>
+    </div>
+  </el-drawer>
 </template>
 
 
 <script setup>
-import { ref, onMounted, watch, defineProps } from 'vue';
-import { ElButton, ElTooltip, ElDialog, ElRow, ElCol, ElCheckbox, ElForm, ElIcon, ElMessage, ElTag, ElDivider, ElCollapse, ElCollapseItem } from 'element-plus';
+import { ref, onMounted, watch, defineProps, computed } from 'vue';
+import { ElButton, ElTooltip, ElDialog, ElRow, ElCol, ElCheckbox, ElDrawer, ElForm, ElIcon, ElMessage, ElTag, ElDivider, ElCollapse, ElCollapseItem } from 'element-plus';
 import { Finished } from '@element-plus/icons-vue';
 import writeXlsxFile from 'write-excel-file';
 import { getAllForDownload } from '@/api/settlements';
-import { Delete, Edit, Search, Share, List, Upload, Filter,Download, Document } from '@element-plus/icons-vue';
+import { Delete, Edit, Search, Share, List, Upload, Filter, Download, Document, Close } from '@element-plus/icons-vue';
 import * as turf from '@turf/turf'
 
 
@@ -86,6 +120,11 @@ const associated_models = ref();
 
 const checkAll = ref(false);
 const activeCollapse = ref([]);
+
+// Mobile detection
+const isMobile = computed(() => {
+  return window.innerWidth <= 768;
+});
 
 
  
@@ -514,15 +553,46 @@ const downloadAll = async () => {
 .fields-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 8px;
-  padding: 10px 0;
+  gap: 0.5px;
+  padding: 4px 0;
 }
 
 .field-checkbox {
-  margin-bottom: 8px;
+  margin-bottom: 4px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Responsive design for small screens */
+@media (max-width: 768px) {
+  .fields-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 4px;
+    padding: 8px 0;
+  }
+  
+  .field-checkbox {
+    margin-bottom: 4px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .fields-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 3px;
+    padding: 6px 0;
+  }
+  
+  .field-checkbox {
+    margin-bottom: 1px;
+    font-size: 12px;
+  }
+  
+  .el-collapse-item__content {
+    padding: 6px 0;
+  }
 }
 
 .el-collapse-item__header {
@@ -531,6 +601,71 @@ const downloadAll = async () => {
 
 .el-collapse-item__content {
   padding: 10px 0;
+}
+
+/* Drawer Styles */
+.drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.drawer-header .header-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.drawer-header .header-icon {
+  color: #409eff;
+}
+
+.drawer-header .header-text h3 {
+  margin: 0 0 4px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.drawer-header .header-text p {
+  margin: 0;
+  font-size: 14px;
+  color: #606266;
+}
+
+.close-button {
+  color: #909399;
+}
+
+.close-button:hover {
+  color: #409eff;
+}
+
+.drawer-content {
+  padding: 24px;
+  height: calc(100vh - 140px);
+  overflow-y: auto;
+}
+
+.select-all-checkbox {
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.drawer-footer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 16px 24px;
+  background: white;
+  border-top: 1px solid #e9ecef;
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
 }
 
 /* Custom scrollbar for the fields container */
@@ -550,5 +685,29 @@ const downloadAll = async () => {
 
 .fields-container::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
+}
+
+/* Responsive drawer adjustments */
+@media (max-width: 768px) {
+  .drawer-content {
+    padding: 16px;
+    height: calc(100vh - 120px);
+  }
+  
+  .drawer-header {
+    padding: 16px 20px;
+  }
+  
+  .drawer-footer {
+    padding: 12px 16px;
+  }
+  
+  .drawer-header .header-text h3 {
+    font-size: 16px;
+  }
+  
+  .drawer-header .header-text p {
+    font-size: 13px;
+  }
 }
 </style>
