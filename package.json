@@ -30,6 +30,7 @@
   },
   "dependencies": {
     "@dafcoe/vue-collapsible-panel": "^0.2.0",
+    "@dqbd/tiktoken": "^1.0.21",
     "@element-plus/icons-vue": "^2.3.1",
     "@iconify/iconify": "^2.2.1",
     "@intlify/unplugin-vue-i18n": "^6.0.5",
@@ -113,6 +114,7 @@
     "redis": "^4.6.8",
     "request": "^2.88.2",
     "request-ip": "^3.3.0",
+    "sbd": "^1.0.19",
     "sequelize": "^6.32.1",
     "sequelize-cli": "^6.6.2",
     "shapefile": "^0.6.6",

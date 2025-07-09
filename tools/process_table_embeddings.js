@@ -3,6 +3,8 @@
 const { Pool } = require('pg');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+// Generate embedding for text (fallback method)
+const axios = require('axios');
 
 // Configuration
 const CONFIG = {
@@ -49,31 +51,9 @@ const CONFIG = {
 let sourcePool;
 let aiPool;
 
-// Text splitter for chunking
-const textSplitter = {
-  async splitDocuments(docs) {
-    const chunks = [];
-    docs.forEach((doc, docIndex) => {
-      const text = doc.pageContent;
-      const words = text.split(/\s+/);
-      const chunkSize = Math.ceil(words.length / CONFIG.maxChunksPerRecord);
-      
-      for (let i = 0; i < words.length; i += chunkSize) {
-        const chunkWords = words.slice(i, i + chunkSize);
-        chunks.push({
-          pageContent: chunkWords.join(' '),
-          metadata: {
-            ...doc.metadata,
-            chunk_index: Math.floor(i / chunkSize),
-            start_position: i,
-            end_position: Math.min(i + chunkSize, words.length),
-          }
-        });
-      }
-    });
-    return chunks;
-  }
-};
+ 
+ 
+
 
 // Initialize database connections
 async function initializeConnections() {
@@ -180,44 +160,33 @@ async function initializeAIDatabase() {
   }
 }
 
-// Generate embedding for text (fallback method)
+
+
 async function generateEmbedding(text) {
   try {
-    // Simple frequency-based embedding generation
-    const words = text.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/);
-    const wordFreq = {};
-    
-    // Count word frequencies
-    words.forEach(word => {
-      if (word.length > 2) {
-        wordFreq[word] = (wordFreq[word] || 0) + 1;
-      }
+    // Ensure the base URL is set
+    const baseUrl = CONFIG.ollamaBaseUrl || 'http://localhost:11434';
+
+    // Request embedding from Ollama
+    const response = await axios.post(`${baseUrl}/api/embeddings`, {
+      model: 'all-minilm',
+      prompt: text
     });
-    
-    // Create a 384-dimensional vector (all-minilm size)
-    const vector = new Array(384).fill(0);
-    
-    // Use word frequencies to populate vector
-    const wordKeys = Object.keys(wordFreq);
-    wordKeys.forEach((word, index) => {
-      const vectorIndex = index % 384;
-      vector[vectorIndex] = wordFreq[word] / wordKeys.length;
-    });
-    
-    // Normalize vector
-    const magnitude = Math.sqrt(vector.reduce((sum, val) => sum + val * val, 0));
-    if (magnitude > 0) {
-      for (let i = 0; i < vector.length; i++) {
-        vector[i] = vector[i] / magnitude;
-      }
+
+    // Validate and return the vector
+    const vector = response.data.embedding;
+    if (!vector || !Array.isArray(vector) || vector.length !== 384) {
+      throw new Error(`Invalid embedding vector received from Ollama.`);
     }
-    
+
     return vector;
   } catch (error) {
-    console.error('Error generating embedding:', error);
+    console.error('❌ Failed to generate embedding via Ollama:', error.message);
+    console.warn('⚠️ Falling back to random vector');
     return Array(384).fill(0).map(() => Math.random() - 0.5);
   }
 }
+
 
 // Save document to AI database
 async function saveDocumentToAI(filename, filePath, fileType, fileSize, content, metadata = {}) {
@@ -304,59 +273,56 @@ async function saveEmbeddings(chunkIds, embeddingVectors) {
 
 // Convert record to text content
 function convertRecordToText(record, modelName) {
-  try {
-    // Remove common database fields that don't add semantic value
-    const excludeFields = ['id', 'created_at', 'updated_at', 'deleted_at', 'createdAt', 'updatedAt', 'deletedAt'];
-    
-    const cleanRecord = {};
-    Object.keys(record).forEach(key => {
-      if (!excludeFields.includes(key)) {
-        const value = record[key];
-        if (value !== null && value !== undefined) {
-          cleanRecord[key] = value;
-        }
+  const excludeFields = [
+    'id', 'created_at', 'updated_at',
+    'deleted_at', 'createdAt', 'updatedAt', 'deletedAt',
+    'geom' // 👈 Exclude geometry
+  ];
+
+  const cleanRecord = {};
+  Object.keys(record).forEach(key => {
+    if (!excludeFields.includes(key)) {
+      const value = record[key];
+      if (value !== null && value !== undefined) {
+        cleanRecord[key] = value;
       }
-    });
-    
-    // Convert to readable text
-    const textParts = [];
-    textParts.push(`Record from ${modelName} table:`);
-    
-    Object.entries(cleanRecord).forEach(([key, value]) => {
-      if (typeof value === 'object' && value !== null) {
-        textParts.push(`${key}: ${JSON.stringify(value)}`);
-      } else {
-        textParts.push(`${key}: ${value}`);
-      }
-    });
-    
-    return textParts.join('\n');
-  } catch (error) {
-    console.error('Error converting record to text:', error);
-    return JSON.stringify(record);
-  }
+    }
+  });
+
+  const textParts = [];
+  textParts.push(`Record from ${modelName} table:`);
+
+  Object.entries(cleanRecord).forEach(([key, value]) => {
+    if (typeof value === 'object' && value !== null) {
+      textParts.push(`${key}: ${JSON.stringify(value)}`);
+    } else {
+      textParts.push(`${key}: ${value}`);
+    }
+  });
+
+  return textParts.join('\n');
 }
+
+
 
 // Create chunks from text
 async function createChunksFromText(text, filename) {
-  try {
-    const doc = {
-      pageContent: text,
-      metadata: {
-        filename: filename,
-        fileType: '.json',
-        source: 'database_record'
-      }
-    };
-    
-    const chunks = await textSplitter.splitDocuments([doc]);
-    const limitedChunks = chunks.slice(0, CONFIG.maxChunksPerRecord);
-    return limitedChunks;
-  } catch (error) {
-    console.error(`Error creating chunks from text for ${filename}:`, error);
-    return [];
-  }
+  const doc = {
+    pageContent: text,
+    metadata: {
+      filename,
+      fileType: '.json',
+      source: 'database_record'
+    }
+  };
+
+  // 👇 Treat the whole object as a single chunk
+  return [{
+    pageContent: doc.pageContent,
+    metadata: { ...doc.metadata, chunk_index: 0 }
+  }];
 }
+
 
 // Process a single record for AI
 async function processRecordForAI(record, modelName) {

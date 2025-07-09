@@ -51,6 +51,7 @@ const User = db.user;
 const redis = require("redis");
 const Progress = require('progress');
 const { v4: uuidv4 } = require('uuid');
+const axios = require('axios');
 
 const fuzzball = require('fuzzball'); // Make sure to install this with `npm install fuzzball`
 
@@ -1343,7 +1344,7 @@ exports.modelImportDataUpsert = async (req, res) => {
            WHEN monthly_income::int <= 5000 THEN '0_5000'
            WHEN monthly_income::int BETWEEN 5001 AND 10000 THEN '5001_10000'
            WHEN monthly_income::int BETWEEN 10001 AND 15000 THEN '10001_15000'
-           WHEN monthly_income::int BETWEEN 15001 AND 20000 THEN '15001_20001'
+           WHEN monthly_income::int BETWEEN 15001 AND 20000 THEN '15001_20000'
            WHEN monthly_income::int BETWEEN 20001 AND 30000 THEN '20001_30000'
            WHEN monthly_income::int BETWEEN 30001 AND 50000 THEN '30001_50000'
            WHEN monthly_income::int > 50000 THEN 'above_50000'
@@ -8188,43 +8189,24 @@ Answer:`;
  */
 async function generateEmbedding(question) {
   try {
-    // Simple but effective embedding generation
-    // Convert text to lowercase and create a frequency-based vector
-    const words = question.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/);
-    const wordFreq = {};
-    
-    // Count word frequencies
-    words.forEach(word => {
-      if (word.length > 2) { // Skip very short words
-        wordFreq[word] = (wordFreq[word] || 0) + 1;
-      }
+    const response = await axios.post(`${OLLAMA_BASE_URL}/api/embeddings`, {
+      model: 'all-minilm',
+      prompt: question
     });
-    
-    // Create a 1536-dimensional vector (standard OpenAI embedding size)
-    const vector = new Array(1536).fill(0);
-    
-    // Use word frequencies to populate vector
-    const wordKeys = Object.keys(wordFreq);
-    wordKeys.forEach((word, index) => {
-      const vectorIndex = index % 1536;
-      vector[vectorIndex] = wordFreq[word] / wordKeys.length;
-    });
-    
-    // Normalize vector
-    const magnitude = Math.sqrt(vector.reduce((sum, val) => sum + val * val, 0));
-    if (magnitude > 0) {
-      for (let i = 0; i < vector.length; i++) {
-        vector[i] = vector[i] / magnitude;
-      }
+
+    const vector = response.data.embedding;
+    if (!vector || !Array.isArray(vector) || vector.length !== 384) {
+      throw new Error(`Expected embedding of length 384, but got ${vector.length}`);
     }
-    
+
+    console.log(`✅ Generated embedding (length: ${vector.length})`);
     return vector;
-  } catch (error) {
-    console.error('Error generating embedding:', error);
-    // Fallback to random vector
-    return Array(1536).fill(0).map(() => Math.random() - 0.5);
+  } catch (err) {
+    console.error('❌ Error generating embedding:', err.message);
+    return null;
   }
 }
+
 // Helper function to ensure diversity across documents
 function ensureDocumentDiversity(chunks) {
   const documentGroups = {};
@@ -8255,234 +8237,80 @@ function ensureDocumentDiversity(chunks) {
   
   return diverseResults;
 }
+
 /**
  * Get relevant document chunks using semantic search (pgvector) or keyword search
  */
-async function getRelevantChunks(question, limit = 10) {
+async function getRelevantChunks(question, limit = 5) {
   try {
-      // Check if we have any documents and chunks
-      const docCount = await docAIPool.query('SELECT COUNT(*) as count FROM documents');
-      const chunkCount = await docAIPool.query('SELECT COUNT(*) as count FROM document_chunks');
-      const embeddingCount = await docAIPool.query('SELECT COUNT(*) as count FROM embeddings');
-      
-      console.log('Database stats - Documents:', docCount.rows[0].count, 'Chunks:', chunkCount.rows[0].count, 'Embeddings:', embeddingCount.rows[0].count);
-      
-      // Check what chunks exist
-      const sampleChunks = await docAIPool.query(`
-          SELECT dc.content, d.filename, e.embedding_vector IS NOT NULL as has_embedding
-          FROM document_chunks dc
-          JOIN documents d ON dc.document_id = d.id
-          LEFT JOIN embeddings e ON dc.id = e.chunk_id
-          LIMIT 3
-      `);
-      console.log('Sample chunks:', sampleChunks.rows.map(row => ({
-          filename: row.filename,
-          content: row.content.substring(0, 100) + '...',
-          has_embedding: row.has_embedding
-      })));
-      
-      // Check document distribution
-      const docDistribution = await docAIPool.query(`
-          SELECT d.filename, COUNT(dc.id) as chunk_count
-          FROM documents d
-          LEFT JOIN document_chunks dc ON d.id = dc.document_id
-          GROUP BY d.filename, d.id
-          ORDER BY d.created_at DESC
-      `);
-      console.log('Document distribution:', docDistribution.rows.map(row => ({
-          filename: row.filename,
-          chunk_count: row.chunk_count
-      })));
-      
-      // Try to get query embedding, but fall back to keyword search if OpenAI fails
-      let queryEmbedding;
-      let useVectorSearch = true;
-      
-      if (!embeddings) {
-          console.log('No embeddings available, using keyword search only');
-          useVectorSearch = false;
-      } else {
-          try {
-              // Check stored embedding dimensions first
-              const storedEmbedding = await docAIPool.query(`
-                  SELECT embedding_vector FROM embeddings LIMIT 1
-              `);
-              
-              let storedDimension = null;
-              if (storedEmbedding.rows.length > 0) {
-                  const embeddingValue = storedEmbedding.rows[0].embedding_vector;
-                  if (typeof embeddingValue === 'string' && embeddingValue.startsWith('[')) {
-                      // Parse the vector string to get dimension
-                      const vectorArray = embeddingValue.slice(1, -1).split(',').map(x => parseFloat(x.trim()));
-                      storedDimension = vectorArray.length;
-                      console.log('Stored embedding dimension:', storedDimension);
-                  }
-              }
-              
-              // Generate query embedding
-              queryEmbedding = await embeddings.embedQuery(question);
-              console.log('Query embedding type:', typeof queryEmbedding, 'Length:', queryEmbedding.length);
-              console.log('Searching for query:', question);
-              
-              // Check if dimensions match
-              if (storedDimension && queryEmbedding.length !== storedDimension) {
-                  console.warn(`Dimension mismatch: stored=${storedDimension}, query=${queryEmbedding.length}`);
-                  console.log('Falling back to keyword search due to dimension mismatch');
-                  useVectorSearch = false;
-              }
-              
-          } catch (embeddingError) {
-              console.warn('Embedding failed, falling back to keyword search:', embeddingError.message);
-              useVectorSearch = false;
-          }
-      }
-      
-      // Try vector similarity search first (if pgvector is available and embeddings work)
-      if (useVectorSearch) {
-          try {
-              // Convert embedding array to pgvector format
-              const embeddingString = `[${queryEmbedding.join(',')}]`;
-              
-              // Get more results initially to ensure diversity, but limit to prevent token overflow
-              const searchLimit = Math.min(limit * 3, 50); // Get more for diversity but cap at 50
-              const result = await docAIPool.query(`
-                  SELECT 
-                      dc.content,
-                      dc.metadata,
-                      dc.chunk_index,
-                      d.filename,
-                      d.file_size,
-                      d.file_type,
-                      e.embedding_vector,
-                      (e.embedding_vector <=> $1::vector) as distance
-                  FROM document_chunks dc
-                  JOIN documents d ON dc.document_id = d.id
-                  JOIN embeddings e ON dc.id = e.chunk_id
-                  ORDER BY distance ASC
-                  LIMIT $2
-              `, [embeddingString, searchLimit]);
-              
-              console.log('Vector search found', result.rows.length, 'chunks');
-              
-              if (result.rows.length > 0) {
-                  // Debug: Show what documents were found
-                  const foundDocs = [...new Set(result.rows.map(r => r.filename))];
-                  console.log('Documents found in vector search:', foundDocs);
-                  
-                  // Ensure diversity by limiting chunks per document
-                  const diverseResults = ensureDocumentDiversity(result.rows);
-                  console.log('After diversity filtering:', diverseResults.length, 'chunks from', new Set(diverseResults.map(r => r.filename)).size, 'documents');
-                  
-                  // Apply final limit to prevent token overflow
-                  const finalResults = diverseResults.slice(0, limit);
-                  console.log('After final limit:', finalResults.length, 'chunks');
-                  
-                  return finalResults;
-              }
-          } catch (vectorError) {
-              console.warn('Vector similarity search failed, using keyword fallback:', vectorError.message);
-              useVectorSearch = false;
-          }
-      }
-      
-      // Fall back to keyword search if vector search fails or no results
-      console.log('Using keyword search fallback');
-      
-      const keywords = question.toLowerCase().split(/\s+/).filter(word => word.length > 2);
-      console.log('Keywords extracted:', keywords);
-      
-      if (keywords.length === 0) {
-          // If no keywords, return diverse chunks from recent documents
-          const result = await docAIPool.query(`
-              SELECT 
-                  dc.content,
-                  dc.metadata,
-                  d.filename,
-                  NULL as embedding_vector,
-                  0.5 as distance
-              FROM document_chunks dc
-              JOIN documents d ON dc.document_id = d.id
-              ORDER BY d.created_at DESC, dc.chunk_index ASC
-              LIMIT $1
-          `, [limit]);
-          console.log('No keywords fallback found', result.rows.length, 'chunks');
-          const diverseResults = ensureDocumentDiversity(result.rows);
-          return diverseResults.slice(0, limit);
-      }
-      
-      // Enhanced keyword-based search with diversity
-      const keywordConditions = keywords.map((_, index) => 
-          `LOWER(dc.content) LIKE $${index + 1}`
-      ).join(' OR ');
-      
-      // First try exact keyword search with limit
-      let result = await docAIPool.query(`
-          SELECT 
-              dc.content,
-              dc.metadata,
-              dc.chunk_index,
-              d.filename,
-              d.file_size,
-              d.file_type,
-              NULL as embedding_vector,
-              0.5 as distance
-          FROM document_chunks dc
-          JOIN documents d ON dc.document_id = d.id
-          WHERE ${keywordConditions}
-          ORDER BY d.created_at DESC, dc.chunk_index ASC
-          LIMIT $${keywords.length + 1}
-      `, [...keywords.map(k => `%${k}%`), limit]);
-      
-      console.log('Exact keyword search found', result.rows.length, 'chunks');
-      
-      // If we don't have enough results, try broader search
-      if (result.rows.length < Math.min(limit / 2, 10)) {
-          console.log('Not enough results, trying broader search...');
-          
-          // Try searching for partial keywords (first 3 characters)
-          const partialKeywords = keywords.map(k => k.substring(0, 3)).filter(k => k.length >= 3);
-          if (partialKeywords.length > 0) {
-              const partialConditions = partialKeywords.map((_, index) => 
-                  `LOWER(dc.content) LIKE $${index + 1}`
-              ).join(' OR ');
-              
-              const remainingLimit = limit - result.rows.length;
-              const partialResult = await docAIPool.query(`
-                  SELECT 
-                      dc.content,
-                      dc.metadata,
-                      dc.chunk_index,
-                      d.filename,
-                      d.file_size,
-                      d.file_type,
-                      NULL as embedding_vector,
-                      0.7 as distance
-                  FROM document_chunks dc
-                  JOIN documents d ON dc.document_id = d.id
-                  WHERE ${partialConditions}
-                  ORDER BY d.created_at DESC, dc.chunk_index ASC
-                  LIMIT $${partialKeywords.length + 1}
-              `, [...partialKeywords.map(k => `%${k}%`), remainingLimit]);
-              
-              console.log('Partial keyword search found', partialResult.rows.length, 'chunks');
-              
-              // Combine results, avoiding duplicates
-              const existingFilenames = new Set(result.rows.map(r => r.filename));
-              const additionalChunks = partialResult.rows.filter(chunk => !existingFilenames.has(chunk.filename));
-              result.rows = [...result.rows, ...additionalChunks];
-          }
-      }
-      
-      // Apply final limit and diversity
-      const diverseResults = ensureDocumentDiversity(result.rows);
-      const finalResults = diverseResults.slice(0, limit);
-      console.log('Final results after limit:', finalResults.length, 'chunks');
-      
-      return finalResults;
-      
+    console.log(`🔍 Query: "${question}"`);
+
+    const embedding = await generateEmbedding(question);
+    if (!embedding) {
+      console.log('⚠️ Skipping query due to embedding error.');
+      // Fallback to keyword search
+      return await fallbackKeywordSearch(question, limit);
+    }
+
+    const results = await searchSimilarChunks(embedding, limit);
+
+    if (!results.length) {
+      console.log('⚠️ No matching chunks found.');
+      return await fallbackKeywordSearch(question, limit);
+    }
+
+    console.log(`\n✅ Top ${results.length} similar results:\n`);
+    results.forEach((r, i) => {
+      console.log(`🔹 [${i + 1}] ${r.filename} (distance: ${r.distance})`);
+      console.log(r.content);
+      console.log('---');
+    });
+
+    return results;
   } catch (error) {
-      console.error('Error in getRelevantChunks:', error);
-      // Final fallback: return diverse recent chunks with limit
+    console.error('Error in getRelevantChunks:', error);
+    return await fallbackKeywordSearch(question, limit);
+  }
+}
+
+// Query vector similarity from PostgreSQL
+async function searchSimilarChunks(embeddingVector, topK = 5) {
+  try {
+    const vectorStr = `[${embeddingVector.join(',')}]`; // Format as pgvector input
+
+    const query = `
+      SELECT 
+        d.filename,
+        c.content,
+        c.metadata,
+        c.chunk_index,
+        d.file_size,
+        d.file_type,
+        e.embedding_vector,
+        e.embedding_vector <-> $1::vector AS distance
+      FROM embeddings e
+      JOIN document_chunks c ON c.id = e.chunk_id
+      JOIN documents d ON d.id = c.document_id
+      ORDER BY e.embedding_vector <-> $1::vector
+      LIMIT $2;
+    `;
+
+    const res = await docAIPool.query(query, [vectorStr, topK]);
+    return res.rows;
+  } catch (err) {
+    console.error('❌ Error querying database:', err.message);
+    return [];
+  }
+}
+
+// Fallback keyword search function
+async function fallbackKeywordSearch(question, limit = 5) {
+  try {
+    const keywords = question.toLowerCase().split(/\s+/).filter(word => word.length > 2);
+    console.log('Keywords extracted:', keywords);
+    
+    if (keywords.length === 0) {
+      // If no keywords, return diverse chunks from recent documents
       const result = await docAIPool.query(`
           SELECT 
               dc.content,
@@ -8498,9 +8326,98 @@ async function getRelevantChunks(question, limit = 10) {
           ORDER BY d.created_at DESC, dc.chunk_index ASC
           LIMIT $1
       `, [limit]);
-      console.log('Final fallback found', result.rows.length, 'chunks');
-      const diverseResults = ensureDocumentDiversity(result.rows);
-      return diverseResults.slice(0, limit);
+      console.log('No keywords fallback found', result.rows.length, 'chunks');
+      return result.rows;
+    }
+    
+    // Enhanced keyword-based search
+    const keywordConditions = keywords.map((_, index) => 
+        `LOWER(dc.content) LIKE $${index + 1}`
+    ).join(' OR ');
+    
+    // First try exact keyword search with limit
+    let result = await docAIPool.query(`
+        SELECT 
+            dc.content,
+            dc.metadata,
+            dc.chunk_index,
+            d.filename,
+            d.file_size,
+            d.file_type,
+            NULL as embedding_vector,
+            0.5 as distance
+        FROM document_chunks dc
+        JOIN documents d ON dc.document_id = d.id
+        WHERE ${keywordConditions}
+        ORDER BY d.created_at DESC, dc.chunk_index ASC
+        LIMIT $${keywords.length + 1}
+    `, [...keywords.map(k => `%${k}%`), limit]);
+    
+    console.log('Exact keyword search found', result.rows.length, 'chunks');
+    
+    // If we don't have enough results, try broader search
+    if (result.rows.length < Math.min(limit / 2, 5)) {
+      console.log('Not enough results, trying broader search...');
+      
+      // Try searching for partial keywords (first 3 characters)
+      const partialKeywords = keywords.map(k => k.substring(0, 3)).filter(k => k.length >= 3);
+      if (partialKeywords.length > 0) {
+        const partialConditions = partialKeywords.map((_, index) => 
+            `LOWER(dc.content) LIKE $${index + 1}`
+        ).join(' OR ');
+        
+        const remainingLimit = limit - result.rows.length;
+        const partialResult = await docAIPool.query(`
+            SELECT 
+                dc.content,
+                dc.metadata,
+                dc.chunk_index,
+                d.filename,
+                d.file_size,
+                d.file_type,
+                NULL as embedding_vector,
+                0.7 as distance
+            FROM document_chunks dc
+            JOIN documents d ON dc.document_id = d.id
+            WHERE ${partialConditions}
+            ORDER BY d.created_at DESC, dc.chunk_index ASC
+            LIMIT $${partialKeywords.length + 1}
+        `, [...partialKeywords.map(k => `%${k}%`), remainingLimit]);
+        
+        console.log('Partial keyword search found', partialResult.rows.length, 'chunks');
+        
+        // Combine results, avoiding duplicates
+        const existingFilenames = new Set(result.rows.map(r => r.filename));
+        const additionalChunks = partialResult.rows.filter(chunk => !existingFilenames.has(chunk.filename));
+        result.rows = [...result.rows, ...additionalChunks];
+      }
+    }
+    
+    // Apply final limit
+    const finalResults = result.rows.slice(0, limit);
+    console.log('Final results after limit:', finalResults.length, 'chunks');
+    
+    return finalResults;
+  } catch (error) {
+    console.error('Error in fallbackKeywordSearch:', error);
+    // Final fallback: return diverse recent chunks with limit
+    const result = await docAIPool.query(`
+        SELECT 
+            dc.content,
+            dc.metadata,
+            dc.chunk_index,
+            d.filename,
+            d.file_size,
+            d.file_type,
+            NULL as embedding_vector,
+            0.5 as distance
+        FROM document_chunks dc
+        JOIN documents d ON dc.document_id = d.id
+        ORDER BY d.created_at DESC, dc.chunk_index ASC
+        LIMIT $1
+    `, [limit]);
+    console.log('Final fallback found', result.rows.length, 'chunks');
+    return result.rows;
   }
 }
 

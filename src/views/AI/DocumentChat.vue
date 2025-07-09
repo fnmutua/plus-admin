@@ -298,7 +298,7 @@ onMounted(() => {
       <div ref="chatContainer" class="chat-messages">
         <div v-if="chatMessages.length === 0" class="welcome-message">
           <h3>Welcome to KeSMIS AI Assistant</h3>
-          <p>Ask me anything about KEdocuments! I'll use semantic search to find the most relevant information.</p>
+          <p>Ask me anything about Slums and informal settlements in Kenya! I'll use semantic search to find the most relevant information.</p>
         </div>
 
         <div v-for="(message, index) in chatMessages" :key="message.id" class="message-container">
@@ -389,7 +389,7 @@ onMounted(() => {
                   <span></span>
                   <span></span>
                 </div>
-                <span>Analyzing documents...</span>
+                <span>Analyzing data and documents...</span>
               </div>
             </div>
           </div>
