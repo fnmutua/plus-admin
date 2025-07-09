@@ -534,19 +534,7 @@ const getCounts = async () => {
 };
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+ 
 
 // Save filters to localStorage
 const saveFiltersToLocalStorage = () => {
@@ -705,14 +693,7 @@ watch(
 
 
 
-
-
-
-
-
-const showAdminButtons = ref(appStore.getAdminButtons)
-const showEditButtons = ref(appStore.getEditButtons)
-
+ 
 
 
 
@@ -724,7 +705,7 @@ let tableDataList = ref<GrievanceType[]>([])
 
  
 const associated_Model = ''
-const associated_multiple_models = ['county', 'settlement', 'grievance_document', 'users']
+const associated_multiple_models = ['county', 'settlement', 'grievance_document', 'users','subcounty','ward']
 const model = 'grievance'
 //// ------------------parameters -----------------------////
 
@@ -3099,7 +3080,7 @@ const filterByOfficer = async (officerId: number, officerName: string) => {
           <DownloadCustom 
               :data="tableDataList" 
               :model="model"
-              :associated_models="['users']" 
+              :associated_models="['users','county','subcounty','ward','settlement']" 
               class="action-button"
             />
         </div>

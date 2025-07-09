@@ -5795,18 +5795,15 @@ exports.xgetAllListforDownload = async (req, res) => {
       const model = db.models[modelName];
       const attributes = model.rawAttributes;
 
-      // Determine which fields to include
-      const modelAttributes = ['id'];
-      // if (attributes.name) modelAttributes.push('name');
-      // if (attributes.title) modelAttributes.push('title');
-      for (const attributeKey in attributes) {
-        if (attributeKey.toLowerCase().includes("name")) {
-          modelAttributes.push(attributeKey);
-        }
-        if (attributeKey.toLowerCase().includes("title")) {
-          modelAttributes.push(attributeKey);
-        }
-      }
+      // Include all attributes except geom and other sensitive fields
+      const modelAttributes = Object.keys(attributes).filter(attr => {
+        const lowerAttr = attr.toLowerCase();
+        return !lowerAttr.includes('geom') && 
+               !lowerAttr.includes('password') && 
+               !lowerAttr.includes('token') &&
+               !lowerAttr.includes('createdat') &&
+               !lowerAttr.includes('updatedat');
+      });
       
       includeModels.push({
         model: model,
@@ -5822,13 +5819,25 @@ exports.xgetAllListforDownload = async (req, res) => {
     const child_model = db.models[nested_models[0]];
     const grand_child_model = db.models[nested_models[1]];
 
-    const childAttributes = ['id'];
-    if (child_model.rawAttributes.name) childAttributes.push('name');
-    if (child_model.rawAttributes.title) childAttributes.push('title');
+    // Include all attributes except sensitive fields for child model
+    const childAttributes = Object.keys(child_model.rawAttributes).filter(attr => {
+      const lowerAttr = attr.toLowerCase();
+      return !lowerAttr.includes('geom') && 
+             !lowerAttr.includes('password') && 
+             !lowerAttr.includes('token') &&
+             !lowerAttr.includes('createdat') &&
+             !lowerAttr.includes('updatedat');
+    });
 
-    const grandChildAttributes = ['id'];
-    if (grand_child_model.rawAttributes.name) grandChildAttributes.push('name');
-    if (grand_child_model.rawAttributes.title) grandChildAttributes.push('title');
+    // Include all attributes except sensitive fields for grand child model
+    const grandChildAttributes = Object.keys(grand_child_model.rawAttributes).filter(attr => {
+      const lowerAttr = attr.toLowerCase();
+      return !lowerAttr.includes('geom') && 
+             !lowerAttr.includes('password') && 
+             !lowerAttr.includes('token') &&
+             !lowerAttr.includes('createdat') &&
+             !lowerAttr.includes('updatedat');
+    });
 
     const nestedModels = {
       model: child_model,
@@ -5938,15 +5947,15 @@ exports.getAllListforDownload = async (req, res) => {
       const model = db.models[modelName];
       const attributes = model.rawAttributes;
 
-      const modelAttributes = ['id'];
-      for (const attributeKey in attributes) {
-        if (attributeKey.toLowerCase().includes('name')) {
-          modelAttributes.push(attributeKey);
-        }
-        if (attributeKey.toLowerCase().includes('title')) {
-          modelAttributes.push(attributeKey);
-        }
-      }
+      // Include all attributes except geom and other sensitive fields
+      const modelAttributes = Object.keys(attributes).filter(attr => {
+        const lowerAttr = attr.toLowerCase();
+        return !lowerAttr.includes('geom') && 
+               !lowerAttr.includes('password') && 
+               !lowerAttr.includes('token') &&
+               !lowerAttr.includes('createdat') &&
+               !lowerAttr.includes('updatedat');
+      });
 
       // Check if this is the users model and we're dealing with grievance
       const includeConfig = {
@@ -5970,13 +5979,25 @@ exports.getAllListforDownload = async (req, res) => {
     const child_model = db.models[nested_models[0]];
     const grand_child_model = db.models[nested_models[1]];
 
-    const childAttributes = ['id'];
-    if (child_model.rawAttributes.name) childAttributes.push('name');
-    if (child_model.rawAttributes.title) childAttributes.push('title');
+    // Include all attributes except sensitive fields for child model
+    const childAttributes = Object.keys(child_model.rawAttributes).filter(attr => {
+      const lowerAttr = attr.toLowerCase();
+      return !lowerAttr.includes('geom') && 
+             !lowerAttr.includes('password') && 
+             !lowerAttr.includes('token') &&
+             !lowerAttr.includes('createdat') &&
+             !lowerAttr.includes('updatedat');
+    });
 
-    const grandChildAttributes = ['id'];
-    if (grand_child_model.rawAttributes.name) grandChildAttributes.push('name');
-    if (grand_child_model.rawAttributes.title) grandChildAttributes.push('title');
+    // Include all attributes except sensitive fields for grand child model
+    const grandChildAttributes = Object.keys(grand_child_model.rawAttributes).filter(attr => {
+      const lowerAttr = attr.toLowerCase();
+      return !lowerAttr.includes('geom') && 
+             !lowerAttr.includes('password') && 
+             !lowerAttr.includes('token') &&
+             !lowerAttr.includes('createdat') &&
+             !lowerAttr.includes('updatedat');
+    });
 
     const nestedModels = {
       model: child_model,
@@ -8950,4 +8971,3 @@ async function createChunksFromText(text, filename) {
     return [];
   }
 }
-

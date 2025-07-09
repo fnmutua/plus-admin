@@ -5,8 +5,8 @@ const pool = new Pool({
     user: process.env.DB_USER || 'postgres',
     host: process.env.DB_HOST || 'localhost',
     database: process.env.DB_NAME || 'document_ai',
-    password: process.env.DB_PASSWORD || 'password',
-    port: process.env.DB_PORT || 5432,
+    password: process.env.DB_PASSWORD || '***REDACTED***',
+    port: process.env.DB_PORT || 5445,
 });
 
 async function resetDatabase() {
@@ -20,6 +20,7 @@ async function resetDatabase() {
         await pool.query('DROP TABLE IF EXISTS document_chunks CASCADE');
         await pool.query('DROP TABLE IF EXISTS conversations CASCADE');
         await pool.query('DROP TABLE IF EXISTS documents CASCADE');
+        await pool.query('DROP TABLE IF EXISTS embedding_sources CASCADE');
         
         console.log('✅ All existing tables dropped');
         
@@ -65,23 +66,19 @@ async function resetDatabase() {
             )
         `);
         
-        // Create embeddings table with flexible source support
+        // Create embeddings table - matching tables controller exactly
         console.log('🔢 Creating embeddings table...');
         if (pgvectorAvailable) {
             await pool.query(`
                 CREATE TABLE embeddings (
                     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                     chunk_id UUID REFERENCES document_chunks(id) ON DELETE CASCADE,
-                    embedding_vector vector,
+                    embedding_vector vector(384),
                     model_name VARCHAR(100) NOT NULL,
-                    source_type VARCHAR(50) NOT NULL DEFAULT 'ollama',
-                    source_config JSONB DEFAULT '{}',
-                    metadata JSONB DEFAULT '{}',
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             `);
-            console.log('✅ Embeddings table created with pgvector support and flexible sources');
+            console.log('✅ Embeddings table created with pgvector support (matching tables controller)');
         } else {
             await pool.query(`
                 CREATE TABLE embeddings (
@@ -89,14 +86,10 @@ async function resetDatabase() {
                     chunk_id UUID REFERENCES document_chunks(id) ON DELETE CASCADE,
                     embedding_vector REAL[],
                     model_name VARCHAR(100) NOT NULL,
-                    source_type VARCHAR(50) NOT NULL DEFAULT 'ollama',
-                    source_config JSONB DEFAULT '{}',
-                    metadata JSONB DEFAULT '{}',
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             `);
-            console.log('✅ Embeddings table created with REAL[] array support and flexible sources');
+            console.log('✅ Embeddings table created with REAL[] array support (matching tables controller)');
         }
         
         // Create conversations table
@@ -114,32 +107,7 @@ async function resetDatabase() {
             )
         `);
         
-        // Create embedding sources table for managing different providers
-        console.log('🔌 Creating embedding_sources table...');
-        await pool.query(`
-            CREATE TABLE embedding_sources (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                name VARCHAR(100) NOT NULL UNIQUE,
-                source_type VARCHAR(50) NOT NULL,
-                config JSONB NOT NULL DEFAULT '{}',
-                is_active BOOLEAN DEFAULT true,
-                priority INTEGER DEFAULT 0,
-                metadata JSONB DEFAULT '{}',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        `);
-        
-        // Insert default embedding sources
-        console.log('📝 Inserting default embedding sources...');
-        await pool.query(`
-            INSERT INTO embedding_sources (name, source_type, config, priority, metadata) VALUES
-            ('ollama-local', 'ollama', '{"url": "http://localhost:11434", "default_model": "all-minilm"}', 1, '{"description": "Local Ollama instance"}'),
-            ('openai-api', 'openai', '{"api_key": "", "default_model": "text-embedding-ada-002"}', 2, '{"description": "OpenAI API embeddings"}'),
-            ('postgres-embeddings', 'postgres', '{"connection": {"host": "localhost", "port": 5432, "database": "embeddings_db", "user": "postgres"}, "table": "embeddings", "vector_column": "embedding"}', 3, '{"description": "External PostgreSQL embeddings table"}'),
-            ('huggingface-api', 'huggingface', '{"api_key": "", "default_model": "sentence-transformers/all-MiniLM-L6-v2"}', 4, '{"description": "Hugging Face API embeddings"}')
-            ON CONFLICT (name) DO NOTHING
-        `);
+        // Remove embedding_sources table - not used by tables controller
         
         // Create indexes for better performance
         console.log('📊 Creating indexes...');
@@ -147,11 +115,7 @@ async function resetDatabase() {
             CREATE INDEX idx_documents_filename ON documents(filename);
             CREATE INDEX idx_document_chunks_document_id ON document_chunks(document_id);
             CREATE INDEX idx_embeddings_chunk_id ON embeddings(chunk_id);
-            CREATE INDEX idx_embeddings_source_type ON embeddings(source_type);
             CREATE INDEX idx_embeddings_model_name ON embeddings(model_name);
-            CREATE INDEX idx_embedding_sources_name ON embedding_sources(name);
-            CREATE INDEX idx_embedding_sources_type ON embedding_sources(source_type);
-            CREATE INDEX idx_embedding_sources_active ON embedding_sources(is_active);
             CREATE INDEX idx_conversations_session_id ON conversations(session_id);
             CREATE INDEX idx_conversations_created_at ON conversations(created_at);
         `);
@@ -181,30 +145,20 @@ async function resetDatabase() {
         console.log('📊 Tables created:');
         console.log('   - documents');
         console.log('   - document_chunks');
-        console.log('   - embeddings (with flexible source support)');
-        console.log('   - embedding_sources (manages different providers)');
+        console.log('   - embeddings (matching tables controller)');
         console.log('   - conversations');
         
         if (pgvectorAvailable) {
             console.log('🚀 Vector similarity search enabled');
-            console.log('   - Flexible vector dimensions (supports any embedding size)');
-            console.log('   - Compatible with: all-minilm (384d), text-embedding-ada-002 (1536d), etc.');
+            console.log('   - 384-dimensional vectors (all-minilm model)');
+            console.log('   - Compatible with tables controller embedding format');
         } else {
             console.log('🔍 Keyword-based search enabled (pgvector not available)');
         }
         
-        console.log('\n🔌 Supported embedding sources:');
-        console.log('   - ollama: Local Ollama instance');
-        console.log('   - openai: OpenAI API embeddings');
-        console.log('   - postgres: External PostgreSQL embeddings table');
-        console.log('   - huggingface: Hugging Face API embeddings');
-        console.log('   - Custom: Add your own sources via embedding_sources table');
-        
         // Test the connection
         const testResult = await pool.query('SELECT COUNT(*) as count FROM documents');
-        const sourcesResult = await pool.query('SELECT COUNT(*) as count FROM embedding_sources');
         console.log(`\n✅ Database connection test: ${testResult.rows[0].count} documents found`);
-        console.log(`✅ Embedding sources configured: ${sourcesResult.rows[0].count} sources available`);
         
     } catch (error) {
         console.error('❌ Database reset failed:', error);
