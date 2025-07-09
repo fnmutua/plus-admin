@@ -1362,6 +1362,7 @@ exports.modelImportDataUpsert = async (req, res) => {
       insertedCount: inserted.length,
       updatedCount: updated.length,
       failedCount: errors.length,
+      
       aiProcessing: {
         totalProcessed: aiProcessed.length,
         successful: successfulAIProcessing,
