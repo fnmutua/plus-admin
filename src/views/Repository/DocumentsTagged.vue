@@ -2,17 +2,19 @@
 <script setup lang="ts">
 import { useI18n } from '@/hooks/web/useI18n'
 import { getDocumentRepository } from '@/api/settlements'
-import { ElButton, ElRow, ElCol, ElCard, ElTable, ElTableColumn, ElCheckbox, ElPagination, ElTag,
+import { getListWithoutGeo } from '@/api/counties'
+import { ElButton, ElRow, ElCol,ElDialog, ElCard, ElTable, ElTableColumn, ElCheckbox, ElPagination, ElTag,ElForm,ElFormItem,
   ElInput, ElMessage, ElSelect, ElOption, ElDrawer } from 'element-plus'
 import { Document } from '@element-plus/icons-vue'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useCache } from '@/hooks/web/useCache'
-import { deleteDocument } from '@/api/settlements'
+import { deleteDocument, updateOneRecord } from '@/api/settlements'
 import moment from "moment"
 import { getFile } from '@/api/summary'
 import { askAIDocument, getAIProviders, getAIModels, processExistingDocumentsWithAI } from '@/api/ai'
 import { useAppStore } from '@/store/modules/app'
 import TableActions from '@/views/Components/TableActions.vue'
+import PermissionWrapper from '@/components/PermissionWrapper.vue'
 import { Icon } from '@iconify/vue'
 import { useRouter } from 'vue-router'
 
@@ -37,6 +39,7 @@ interface ProcessedRole {
 interface UserInfo {
   id: number
   roles: UserRole[]
+  permissions?: string[]
 }
 
 interface Document {
@@ -148,15 +151,35 @@ const roles_filters = isSuperAdmin ? [] : processedRoles.filter(role => role.mod
   value: role.fieldvalue
 }))
 
-// Action buttons based on permissions
+// Get user permissions
+const userPermissions = userInfo.permissions || []
+
+// Action buttons based on user permissions
 const action_buttons = ref<string[]>([])
-if (showAdminButtons.value) {
-  action_buttons.value = ['edit', 'delete', 'preview', 'download']
-} else if (showEditButtons.value) {
-  action_buttons.value = ['edit', 'preview', 'download']
-} else {
-  action_buttons.value = ['preview', 'download']
+
+// Check permissions and set action buttons
+const setActionButtons = () => {
+  const buttons: string[] = []
+  
+  // Always allow preview/download for all users
+  buttons.push('preview', 'download')
+  
+  // Check for edit permission
+  if (userPermissions.includes('document:update') || userPermissions.includes('*.*.*')) {
+    buttons.push('edit')
+  }
+  
+  // Check for delete permission
+  if (userPermissions.includes('document:delete') || userPermissions.includes('*.*.*')) {
+    buttons.push('delete')
+  }
+  
+  action_buttons.value = buttons
+  console.log('action_buttons', action_buttons.value)
 }
+
+// Initialize action buttons
+setActionButtons()
 
 // Reactive data
 const loading = ref(false)
@@ -164,13 +187,15 @@ const loadingText = ref('Loading documents...')
 const canCancel = ref(false)
 const searchTerm = ref('')
 const currentPage = ref(1)
-const pageSize = ref(10)
+const pageSize = ref(5)
 const totalDocs = ref(0)
 const documents = ref<Document[]>([])
 const categoryCounts = ref<CategoryCounts>({})
 const totalDocuments = ref(0)
 const selectedCategories = ref(new Set<string>())
 const currentlyFiltered = ref(false)
+const selectedDocuments = ref<Set<number>>(new Set())
+const drawerSearchTerm = ref('')
 
 // Mobile responsiveness
 const isMobile = computed(() => appStore.getMobile)
@@ -309,6 +334,13 @@ const handlePageChange = async (newPage: number) => {
   await loadDocumentRepository()
 }
 
+// Page size handler
+const handlePageSizeChange = async (newPageSize: number) => {
+  pageSize.value = newPageSize
+  currentPage.value = 1 // Reset to first page when changing page size
+  await loadDocumentRepository()
+}
+
 // File operations
 const downloadFile = async (data: Document) => {
   try {
@@ -384,6 +416,389 @@ const removeDocument = async (data: Document) => {
   } catch (error) {
     console.error('Error deleting document:', error)
     ElMessage.error('Failed to delete document')
+  }
+}
+
+// Batch download function
+const batchDownload = async () => {
+  if (selectedDocuments.value.size === 0) {
+    ElMessage.warning('Please select documents to download')
+    return
+  }
+
+  try {
+    const selectedDocs = documents.value.filter(doc => selectedDocuments.value.has(doc.id))
+    
+    for (const doc of selectedDocs) {
+      await downloadFile(doc)
+      // Add a small delay between downloads to prevent browser blocking
+      await new Promise(resolve => setTimeout(resolve, 500))
+    }
+    
+    ElMessage.success(`Downloaded ${selectedDocs.length} document(s)`)
+    selectedDocuments.value.clear()
+  } catch (error) {
+    console.error('Error in batch download:', error)
+    ElMessage.error('Failed to download some documents')
+  }
+}
+
+// Download all documents function
+const downloadAllDocuments = async () => {
+  try {
+    ElMessage.info('Starting download of all documents...')
+    
+    // Get all documents without pagination
+    const requestData = {
+      page: 1,
+      limit: 10000, // Large limit to get all documents
+      searchTerm: searchTerm.value || undefined,
+      categoryFilter: selectedCategories.value.size > 0 ? Array.from(selectedCategories.value) : undefined,
+      userFilters: roles_filters.length > 0 ? roles_filters : undefined,
+      sortBy: 'createdAt',
+      sortOrder: 'DESC'
+    }
+
+    const response = await getDocumentRepository(requestData)
+    const responseData = (response as any).data || (response as any).results || response
+    
+    if ((response as any).success && responseData) {
+      const allDocs = responseData.documents || []
+      
+      if (allDocs.length === 0) {
+        ElMessage.warning('No documents found to download')
+        return
+      }
+      
+      ElMessage.info(`Downloading ${allDocs.length} documents...`)
+      
+      for (const doc of allDocs) {
+        await downloadFile(doc)
+        // Add a small delay between downloads to prevent browser blocking
+        await new Promise(resolve => setTimeout(resolve, 500))
+      }
+      
+      ElMessage.success(`Downloaded all ${allDocs.length} document(s)`)
+    } else {
+      ElMessage.error('Failed to load documents for download')
+    }
+  } catch (error) {
+    console.error('Error in download all documents:', error)
+    ElMessage.error('Failed to download all documents')
+  }
+}
+
+// Select all documents
+const selectAllDocuments = () => {
+  if (selectedDocuments.value.size === documents.value.length) {
+    selectedDocuments.value.clear()
+  } else {
+    documents.value.forEach(doc => selectedDocuments.value.add(doc.id))
+  }
+}
+
+// Handle table selection change
+const handleSelectionChange = (selection: Document[]) => {
+  selectedDocuments.value = new Set(selection.map(doc => doc.id))
+}
+
+// Edit document functionality
+const documentForm = reactive({
+  id: null,
+  name: '',
+  category: undefined as number | undefined, // This will be the document type/category (Report, Checklist, etc.)
+  parent_id: undefined as number | undefined, // This will be the specific parent ID (settlement, facility, etc.)
+  format: '',
+  document_type_id: undefined as number | undefined // This will be the document type (Report, Checklist, etc.)
+})
+
+const docCategories = ref<any[]>([])
+const docTypes = ref<any[]>([])
+const docGroups = ref<any[]>([])
+const documentName = ref('')
+const dialogVisible = ref(false)
+
+// Upload options for nested group structure
+const uploadOptions = [
+  {
+    label: 'Settlement',
+    options: [
+      { value: 'settlement', label: 'Settlements' },
+      { value: 'project', label: 'Projects' }
+    ]
+  },
+  {
+    label: 'Households',
+    options: [
+      { value: 'beneficiary', label: 'Beneficiaries' }
+    ]
+  },
+  {
+    label: 'Facilities',
+    options: [
+      { value: 'health_facility', label: 'Health' },
+      { value: 'education_facility', label: 'Education' },
+      { value: 'road', label: 'Roads' },
+      { value: 'road_asset', label: 'Structures(roads)' },
+      { value: 'water_point', label: 'Water' },
+      { value: 'sewer', label: 'Sewer' },
+      { value: 'other_facility', label: 'Other' }
+    ]
+  },
+  {
+    label: 'Indicators',
+    options: [
+      { value: 'indicator_category_report', label: 'M&E Reports' }
+    ]
+  },
+  {
+    label: 'Contracts',
+    options: [
+      { value: 'contractor', label: 'Contract Documents' }
+    ]
+  },
+  {
+    label: 'Others',
+    options: [
+      { value: 'other_documents', label: 'Other Documents' }
+    ]
+  }
+]
+
+const theParentModel = ref()
+const parentOptions = ref<any[]>([])
+const document_field = ref('')
+const hide_parent = ref(false)
+const disable_submit = ref(true)
+const parentTitle = ref("Parent (selected)")
+const parentLoading = ref(false)
+
+const getparentOptions = async () => {
+  parentLoading.value = true
+  parentOptions.value = []
+  
+  try {
+    const res = await getListWithoutGeo({
+      params: {
+        pageIndex: 1,
+        limit: 1000,
+        curUser: 1, // Id for logged in user
+        model: theParentModel.value, //model 
+        searchField: 'name',
+        searchKeyword: '',
+        sort: 'ASC'
+      }
+    }).then((response: { data: any }) => {
+      // console.log('Received response:', response)
+      //tableDataList.value = response.data
+      var ret = response.data
+
+      ret.forEach(function (arrayItem: any) {
+        var countyOpt: any = {}
+        countyOpt.value = parseInt(arrayItem.id) // Ensure it's an integer
+        console.log(arrayItem)
+
+        if (arrayItem.contract_number) {
+          countyOpt.label = arrayItem.contract_number
+        }
+        else if (arrayItem.name) {
+          countyOpt.label = arrayItem.name  
+        }
+        else {
+          countyOpt.label = arrayItem.title  
+        }
+        console.log(countyOpt)
+        parentOptions.value.push(countyOpt)
+      })
+    })
+  } catch (error) {
+    console.error('Error loading parent options:', error)
+    ElMessage.error('Failed to load parent options')
+  } finally {
+    parentLoading.value = false
+  }
+}
+
+const handleSelectType = async (type: string) => {
+  theParentModel.value = type
+  console.log('Selected.....>', type)
+
+  disable_submit.value = false
+  if (type === 'settlement') {
+    document_field.value = 'settlement_id'
+    parentTitle.value = "Settlement"
+    getparentOptions()
+  }
+  else if (type === 'beneficiary') {
+    document_field.value = 'beneficiary_id'
+    parentTitle.value = "Beneficiary"
+    getparentOptions()
+  }
+  else if (type === 'project') {
+    document_field.value = 'project_id'
+    parentTitle.value = "Project"
+    getparentOptions()
+  }
+  else if (type === 'contractor') {
+    document_field.value = 'contractor_id'
+    parentTitle.value = "Contract"
+    getparentOptions()
+  }
+  else if (type === 'health_facility') {
+    document_field.value = 'health_facility_id'
+    parentTitle.value = "Health Facility"
+    getparentOptions()
+  }
+  else if (type === 'education_facility') {
+    document_field.value = 'education_facility_id'
+    parentTitle.value = "Education Facility"
+    getparentOptions()
+  }
+  else if (type === 'road') {
+    document_field.value = 'road_id'
+    parentTitle.value = "Road"
+    getparentOptions()
+  }
+  else if (type === 'road_asset') {
+    document_field.value = 'road_asset_id'
+    parentTitle.value = "Asset"
+    getparentOptions()
+  }
+  else if (type === 'water_point') {
+    document_field.value = 'water_point_id'
+    parentTitle.value = "Water Point"
+    getparentOptions()
+  }
+  else if (type === 'sewer') {
+    document_field.value = 'sewer_id'
+    parentTitle.value = "Sewer"
+    getparentOptions()
+  }
+  else if (type === 'other_facility') {
+    document_field.value = 'other_facility_id'
+    parentTitle.value = "Other Facility"
+    getparentOptions()
+  }
+  else if (type === 'indicator_category_report') {
+    document_field.value = 'indicator_category_report'
+    parentTitle.value = "M&E Report"
+    getparentOptions()
+  }
+  else if (type === 'other_documents') {
+    hide_parent.value = true
+  }
+
+  console.log(theParentModel.value)
+}
+
+const editDocument = (data: Document) => {
+  console.log('Edit', data)
+
+  // Reset form state
+  theParentModel.value = null
+  parentOptions.value = []
+  document_field.value = ''
+  hide_parent.value = false
+  disable_submit.value = true
+  parentTitle.value = "Parent (selected)"
+
+  // Copy all properties from data to documentForm
+  for (const key in data) {
+    if (Object.prototype.hasOwnProperty.call(data, key)) {
+      if (key === "name") {
+        // If the property name is "name" and contains a dot, strip the text after the dot
+        const propertyName = (data as any)[key].split('.')[0];
+        console.log(propertyName)
+        documentForm['name'] = (data as any)[key].split('.')[0];
+      } else {
+        (documentForm as any)[key] = (data as any)[key];
+      }
+    }
+  }
+
+  console.log('documentForm', documentForm)
+  documentName.value = "Editing: " + data.name
+
+  dialogVisible.value = true
+
+  // Load document types from database
+  getDocumentTypes()
+}
+
+const handleClose = () => {
+  dialogVisible.value = false
+}
+
+const getDocumentTypes = async () => {
+  try {
+    const response = await getListWithoutGeo({
+      params: {
+        curUser: 1,
+        model: 'document_type',
+        associated_multiple_models: ['document_category'],
+        searchField: 'name',
+        searchKeyword: '',
+        sort: 'ASC'
+      }
+    });
+
+    console.log('Doc Types', response.data)
+    docTypes.value = response.data
+
+    // Populate docCategories for the dropdown
+    docCategories.value = response.data.map(item => ({
+      value: item.id,
+      label: item.type
+    }))
+
+    response.data.forEach(item => {
+      let documentCategory = item.document_category;
+      let existingEntry = docGroups.value.find(entry => entry.id === documentCategory.id);
+
+      if (!existingEntry) {
+        docGroups.value.push({
+          id: documentCategory.id,
+          title: documentCategory.title
+        });
+      }
+    });
+
+    console.log('Doc docGroups', docGroups.value)
+
+  } catch (error) {
+    console.error('Error fetching document types:', error);
+  }
+}
+
+const handleSubmitData = async () => {
+  try {
+    // Update the document with the new nested structure
+    const result = "/data/uploads/" + documentForm.name + '.' + documentForm.format;  
+    (documentForm as any).edited_name = documentForm.name + '.' + documentForm.format;
+    (documentForm as any).model = 'document';
+    (documentForm as any).document_field = document_field.value;
+    (documentForm as any).theParentModel = theParentModel.value;
+    
+    // Set the parent_id based on the selected parent
+    if (documentForm.parent_id) {
+      (documentForm as any)[document_field.value] = parseInt(documentForm.parent_id.toString());
+    }
+    
+    // Set the category to the selected document type
+    if (documentForm.category) {
+      (documentForm as any).category = parseInt(documentForm.category.toString());
+    }
+    
+    await updateOneRecord(documentForm as any)
+ 
+    dialogVisible.value = false;
+    ElMessage.success('Document updated successfully');
+    
+    // Reload the documents to reflect changes
+    await loadDocumentRepository();
+  } catch (error) {
+    console.error('Error updating document:', error);
+    ElMessage.error('Failed to update document');
   }
 }
 
@@ -611,6 +1026,78 @@ const getTagType = (groupName: string) => {
   }
 }
 
+// File icon helper function
+const getFileIcon = (format: string) => {
+  const fileType = format.toLowerCase()
+  
+  switch (fileType) {
+    case 'pdf':
+      return 'vscode-icons:file-type-pdf2'
+    case 'doc':
+    case 'docx':
+      return 'vscode-icons:file-type-word2'
+    case 'xls':
+    case 'xlsx':
+      return 'vscode-icons:file-type-excel2'
+    case 'ppt':
+    case 'pptx':
+      return 'vscode-icons:file-type-powerpoint2'
+    case 'jpg':
+    case 'jpeg':
+    case 'png':
+    case 'gif':
+    case 'bmp':
+    case 'svg':
+      return 'vscode-icons:file-type-image'
+    case 'txt':
+      return 'vscode-icons:file-type-text'
+    case 'zip':
+    case 'rar':
+    case '7z':
+      return 'vscode-icons:file-type-zip'
+    case 'mp4':
+    case 'avi':
+    case 'mov':
+    case 'wmv':
+      return 'vscode-icons:file-type-video'
+    case 'mp3':
+    case 'wav':
+    case 'flac':
+      return 'vscode-icons:file-type-audio'
+    case 'dwg':
+    case 'dxf':
+      return 'vscode-icons:file-type-cad'
+    case 'csv':
+      return 'vscode-icons:file-type-csv'
+    case 'json':
+      return 'vscode-icons:file-type-json'
+    case 'xml':
+      return 'vscode-icons:file-type-xml'
+    case 'html':
+    case 'htm':
+      return 'vscode-icons:file-type-html'
+    case 'css':
+      return 'vscode-icons:file-type-css'
+    case 'js':
+      return 'vscode-icons:file-type-js'
+    case 'ts':
+      return 'vscode-icons:file-type-typescript-official'
+    case 'py':
+      return 'vscode-icons:file-type-python'
+    case 'java':
+      return 'vscode-icons:file-type-java'
+    case 'cpp':
+    case 'c':
+      return 'vscode-icons:file-type-cpp'
+    case 'sql':
+      return 'vscode-icons:file-type-sql'
+    case 'md':
+      return 'vscode-icons:file-type-markdown'
+    default:
+      return 'vscode-icons:file-type-document'
+  }
+}
+
 
 
 // Initialize
@@ -624,6 +1111,35 @@ const getDocumentTypeNameFromId = (typeId: string) => {
   const doc = documents.value.find(doc => doc['document_type.id'] === parseInt(typeId))
   return doc ? doc['document_type.type'] : `Type ${typeId}`
 }
+
+// Filtered category counts for drawer
+const filteredCategoryCounts = computed(() => {
+  if (!drawerSearchTerm.value) {
+    return categoryCounts.value
+  }
+  
+  const filtered: CategoryCounts = {}
+  const searchLower = drawerSearchTerm.value.toLowerCase()
+  
+  Object.entries(categoryCounts.value).forEach(([groupName, types]) => {
+    const filteredTypes: { [key: string]: any } = {}
+    
+    Object.entries(types).forEach(([typeId, typeData]) => {
+      const typeName = typeof typeData === 'object' && typeData !== null ? (typeData as any).name : getDocumentTypeNameFromId(typeId)
+      if (typeName.toLowerCase().includes(searchLower) || groupName.toLowerCase().includes(searchLower)) {
+        filteredTypes[typeId] = typeData
+      }
+    })
+    
+    if (Object.keys(filteredTypes).length > 0) {
+      filtered[groupName] = filteredTypes
+    }
+  })
+  
+  return filtered
+})
+
+
 </script>
 
 <template>
@@ -663,7 +1179,7 @@ const getDocumentTypeNameFromId = (typeId: string) => {
         style="margin-right: 8px;"
       >
         <Icon icon="material-symbols:filter-list" width="16" style="margin-right: 4px;" />
-        
+        Filter By Category
       </el-button>
       <el-button 
         @click="clearFilters" 
@@ -676,18 +1192,58 @@ const getDocumentTypeNameFromId = (typeId: string) => {
         Clear Filters ({{ selectedCategories.size + (searchTerm ? 1 : 0) }})
       </el-button>
           <el-button @click="router.push('/repo/ai-chat')" type="success" plain size="small">
-            <Icon icon="material-symbols:smart-toy" width="16" style="margin-right: 4px;" />
-            AI Chat Interface
+            <Icon icon="mingcute:mic-ai-fill" width="16" style="margin-right: 4px;" />
+            KesMIS-AI Chat 
           </el-button>
         </el-col>
       </el-row>
     </div>
-
-    <!-- Filter Button -->
-    <div style="margin-bottom: 20px;">
-       
-     
+    
+    <!-- Selection Controls -->
+    <div v-if="selectedDocuments.size > 0" style="margin: 10px 0; padding: 10px; background-color: #f5f7fa; border-radius: 4px;">
+      <el-row :gutter="16" align="middle">
+        <el-col :span="12">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <span style="font-size: 14px; color: #606266;">
+              {{ selectedDocuments.size }} document(s) selected
+            </span>
+          </div>
+        </el-col>
+        <el-col :span="12" style="text-align: right;">
+          <el-button 
+            @click="batchDownload" 
+            type="primary" 
+            size="small"
+          >
+            <Icon icon="material-symbols:download" width="16" style="margin-right: 4px;" />
+            Download Selected ({{ selectedDocuments.size }})
+          </el-button>
+          <el-button 
+            @click="selectedDocuments.clear()" 
+            type="info" 
+            plain 
+            size="small"
+            style="margin-left: 8px;"
+          >
+            <Icon icon="material-symbols:clear" width="16" style="margin-right: 4px;" />
+            Clear Selection
+          </el-button>
+        </el-col>
+      </el-row>
     </div>
+    
+    <!-- Download All Button -->
+    <!-- <div v-if="totalDocs > 0" style="margin: 10px 0;">
+      <el-button 
+        @click="downloadAllDocuments" 
+        type="success" 
+        plain 
+        size="small"
+      >
+        <Icon icon="material-symbols:download" width="16" style="margin-right: 4px;" />
+        Download All ({{ totalDocs }})
+      </el-button>
+    </div> -->
 
     <!-- Documents Table -->
     <el-table 
@@ -697,42 +1253,73 @@ const getDocumentTypeNameFromId = (typeId: string) => {
       class="thin-rows-table" 
       border 
       v-loading="loading"
+      @selection-change="handleSelectionChange"
     >
+      <!-- Selection Column -->
+      <el-table-column type="selection" width="55" />
+      
       <el-table-column label="#" type="index" width="50">
         <template #default="{ $index }">
           <span>{{ ($index + 1) + ((currentPage - 1) * pageSize) }}</span>
         </template>
       </el-table-column>
-      <el-table-column prop="name" label="Title" />
-      <el-table-column prop="settlement.name" label="Settlement" />
+                      <el-table-column prop="name" label="Title">
+                  <template #default="{ row }">
+                    <div class="file-icon clickable-file" @click="downloadFile(row)">
+                      <Icon :icon="getFileIcon(row.format)" width="20" />
+                      <span class="file-link">{{ row.name }}</span>
+                    </div>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="settlement.name" label="Settlement" />
       <el-table-column prop="createdAt" label="Date" :formatter="formatEndDate" />
-      <el-table-column prop="user.name" label="User" />
-      <el-table-column prop="size" label="Size(Mb)" />
+                 <el-table-column prop="user.name" label="User" />
+                <el-table-column prop="size" label="Size(Mb)" />
       <el-table-column label="Actions" :width="actionColumnWidth">
         <template #default="{ row }">
-          <TableActions 
-            :item="row" 
-            :buttons="action_buttons" 
-            @edit="() => {}" 
-            @delete="removeDocument" 
-            @preview="viewDocument" 
-            @download="downloadFile" 
-          />
+          <PermissionWrapper :permissions="action_buttons.length > 0 ? ['document:read'] : []">
+            <TableActions 
+              :item="row" 
+              :buttons="action_buttons" 
+              @edit="editDocument" 
+              @delete="removeDocument" 
+              @preview="viewDocument" 
+             
+            />
+          </PermissionWrapper>
         </template>
       </el-table-column>
     </el-table>
 
     <!-- Pagination -->
     <div class="pagination-wrapper" v-if="totalDocs > 0">
-      <el-pagination
-        :current-page="currentPage"
-        :page-size="pageSize"
-        background
-        small
-        layout="prev, pager, next"
-        :total="totalDocs"
-        @current-change="handlePageChange"
-      />
+      <div class="pagination-controls">
+        <div class="page-size-selector">
+          <span class="page-size-label">Show:</span>
+          <el-select 
+            v-model="pageSize" 
+            size="small" 
+            style="width: 80px; margin-left: 8px;"
+            @change="handlePageSizeChange"
+          >
+            <el-option label="10" :value="10" />
+            <el-option label="25" :value="25" />
+            <el-option label="50" :value="50" />
+            <el-option label="100" :value="100" />
+          </el-select>
+          <span class="page-size-label" style="margin-left: 8px;">per page</span>
+        </div>
+        
+        <el-pagination
+          :current-page="currentPage"
+          :page-size="pageSize"
+          background
+          small
+          layout="total, prev, pager, next, jumper"
+          :total="totalDocs"
+          @current-change="handlePageChange"
+        />
+      </div>
     </div>
 
     <!-- Filter Drawer -->
@@ -766,9 +1353,23 @@ const getDocumentTypeNameFromId = (typeId: string) => {
         </div>
       </template>
       
-      <div style="padding: 20px;">
-        <div v-if="Object.keys(categoryCounts).length > 0" class="filter-drawer-content">
-          <div v-for="(types, groupName) in categoryCounts" :key="groupName" class="filter-group">
+      <div style="padding: 10px;">
+        <!-- Search Input -->
+        <div class="drawer-search">
+          <el-input
+            v-model="drawerSearchTerm"
+            placeholder="Search document types..."
+            clearable
+            size="small"
+          >
+            <template #prefix>
+              <Icon icon="material-symbols:search" width="16" />
+            </template>
+          </el-input>
+        </div>
+        
+        <div v-if="Object.keys(filteredCategoryCounts).length > 0" class="filter-drawer-content">
+          <div v-for="(types, groupName) in filteredCategoryCounts" :key="groupName" class="filter-group">
             <h4 class="filter-group-title">{{ formatText(groupName) }}</h4>
             <div class="filter-checkboxes">
               <div 
@@ -793,8 +1394,6 @@ const getDocumentTypeNameFromId = (typeId: string) => {
               </div>
             </div>
           </div>
-    
-
         </div>
         
         <div v-else style="text-align: center; color: #909399; padding: 40px 20px;">
@@ -804,21 +1403,95 @@ const getDocumentTypeNameFromId = (typeId: string) => {
       </div>
     </el-drawer>
 
+    <!-- Edit Document Drawer -->
+    <el-drawer
+      v-model="dialogVisible"
+      direction="rtl"
+      size="500px"
+      :before-close="handleClose"
+    >
+      <template #header>
+        <div style="width: 100%; display: flex; justify-content: space-between; align-items: center;">
+          <h3 style="margin: 0;">{{ documentName }}</h3>
+        </div>
+      </template>
+      
+      <div style="padding: 24px;">
+        <el-form :model="documentForm" label-width="auto" style="max-width: 600px">
+          <el-form-item label="Document name">
+            <el-input v-model="documentForm.name" />
+          </el-form-item>
+          
+          <el-form-item label="Document Parent">
+            <el-select v-model="theParentModel" placeholder="Select Parent" @change="handleSelectType">
+              <el-option-group
+                v-for="group in uploadOptions"
+                :key="group.label"
+                :label="group.label"
+              >
+                <el-option
+                  v-for="item in group.options"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                />
+              </el-option-group>
+            </el-select>
+          </el-form-item>
+
+          <el-form-item v-if="!hide_parent" :label="parentTitle">
+            <el-select filterable clearable
+              v-model="documentForm.parent_id" 
+              placeholder="please select your parent"
+              v-loading="parentLoading"
+              :loading="parentLoading"
+            >
+              <el-option
+                v-for="item in parentOptions"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
+          </el-form-item>
+
+          <el-form-item label="Document category">
+            <el-select v-model="documentForm.category" placeholder="Select  document category">
+              <el-option v-for="item in docCategories" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+          </el-form-item>
+
+          <el-form-item label="File format">
+            <el-input v-model="documentForm.format" disabled />
+          </el-form-item>
+          
+          <el-form-item>
+            <el-button type="primary" @click="handleSubmitData" :disabled="disable_submit">Save Changes</el-button>
+            <el-button @click="dialogVisible = false">Cancel</el-button>
+          </el-form-item>
+        </el-form>
+      </div>
+    </el-drawer>
+
   
   </el-card>
 </template>
 
 <style scoped>
 /* Filter Drawer Styles */
+.drawer-search {
+  margin-bottom: 16px;
+}
+
 .filter-drawer-content {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 16px;
 }
 
 .filter-group {
   border-bottom: 1px solid #f0f0f0;
-  padding-bottom: 16px;
+  padding-bottom: 12px;
 }
 
 .filter-group:last-child {
@@ -827,20 +1500,20 @@ const getDocumentTypeNameFromId = (typeId: string) => {
 }
 
 .filter-group-title {
-  margin: 0 0 12px 0;
+  margin: 0 0 8px 0;
   color: #303133;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
 }
 
 .filter-checkboxes {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 2px;
 }
 
 .filter-checkbox-item {
-  padding: 4px 0;
+  padding: 2px 0;
 }
 
 .filter-checkbox {
@@ -852,17 +1525,17 @@ const getDocumentTypeNameFromId = (typeId: string) => {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: 4px 0;
+  padding: 2px 0;
 }
 
 .checkbox-label {
-  font-size: 14px;
+  font-size: 13px;
   color: #303133;
   flex: 1;
 }
 
 .checkbox-badge {
-  margin-left: 8px;
+  margin-left: 6px;
 }
 
 .filter-actions {
@@ -879,10 +1552,66 @@ const getDocumentTypeNameFromId = (typeId: string) => {
   height: 10px;
 }
 
+/* File icon styles */
+.file-icon {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.file-icon .iconify {
+  flex-shrink: 0;
+}
+
+/* Clickable file styles */
+.clickable-file {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.clickable-file:hover {
+  background-color: #f5f7fa;
+  border-radius: 4px;
+  padding: 4px 8px;
+  margin: -4px -8px;
+}
+
+.file-link {
+  color: #409eff;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.file-link:hover {
+  color: #66b1ff;
+  text-decoration: underline;
+}
+
+/* Table row hover effect */
+.el-table__body tr:hover > td {
+  background-color: #f5f7fa !important;
+}
+
 .pagination-wrapper {
   margin-top: 20px;
+}
+
+.pagination-controls {
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.page-size-selector {
+  display: flex;
+  align-items: center;
+}
+
+.page-size-label {
+  font-size: 14px;
+  color: #606266;
 }
 
 /* Prevent horizontal scrolling globally */
@@ -894,6 +1623,49 @@ const getDocumentTypeNameFromId = (typeId: string) => {
 :deep(.el-col) {
   padding-left: 6px !important;
   padding-right: 6px !important;
+}
+
+/* Edit Document Form Styles */
+.edit-document-form {
+  .el-form-item {
+    margin-bottom: 24px;
+  }
+  
+  .el-form-item__label {
+    font-weight: 600;
+    color: #303133;
+    margin-bottom: 8px;
+  }
+  
+  .el-form-item.is-required .el-form-item__label::before {
+    color: #f56c6c;
+  }
+  
+  .el-input,
+  .el-select {
+    .el-input__wrapper {
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    
+    .el-input__wrapper:hover {
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    }
+    
+    .el-input__wrapper.is-focus {
+      box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2);
+    }
+  }
+  
+  .el-divider {
+    margin: 32px 0 24px 0;
+    
+    .el-divider__text {
+      background-color: #f5f7fa;
+      padding: 0 16px;
+      font-size: 14px;
+    }
+  }
 }
 
 /* Spinner animation for AI processing */
