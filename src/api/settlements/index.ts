@@ -314,6 +314,12 @@ export const getDocumentsBySearch = (
   return request.post({ url: prod + '/api/v1/docs/search', data })
 }
 
+export const getDocumentRepository = (
+  data: any
+): Promise<IResponse<any>> => {
+  return request.post({ url: prod + '/api/v1/docs/repository', data })
+}
+
 
  
 export const getRawFiles = (data: SettlementType): Promise<IResponse<SettlementType>> => {

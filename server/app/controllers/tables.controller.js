@@ -5572,6 +5572,371 @@ async function updateSettlementDataInODK(settToUpdate) {
 
  
  
+exports.getDocumentRepository = async (req, res) => {
+  try {
+    const { 
+      page = 1, 
+      limit = 10, 
+      searchTerm = '', 
+      categoryFilter = null,
+      userFilters = [],
+      sortBy = 'createdAt',
+      sortOrder = 'DESC'
+    } = req.body;
+
+    console.log('getDocumentRepository - Request body:', req.body);
+    console.log('getDocumentRepository - categoryFilter:', categoryFilter);
+
+    const offset = (page - 1) * limit;
+    
+    // Build base query with includes
+    const baseQuery = {
+      include: [
+        {
+          model: db.models.document_type,
+          as: 'document_type',
+          attributes: ['id', 'type', 'group']
+        },
+        {
+          model: db.models.settlement,
+          as: 'settlement',
+          attributes: ['id', 'name'],
+          include: [{
+            model: db.models.county,
+            as: 'county',
+            attributes: ['id', 'name']
+          }]
+        },
+        {
+          model: db.models.users,
+          as: 'user',
+          attributes: ['id', 'name']
+        }
+      ],
+      attributes: [
+        'id', 'name', 'category', 'format', 'size', 'location', 
+        'protectedFile', 'createdBy', 'createdAt', 'updatedAt'
+      ],
+      order: [[sortBy, sortOrder]],
+      limit: limit,
+      offset: offset,
+      distinct: true
+    };
+
+    // Add search conditions
+    const searchConditions = [];
+    if (searchTerm) {
+      searchConditions.push(
+        { name: { [Op.iLike]: `%${searchTerm}%` } },
+        { '$document_type.type$': { [Op.iLike]: `%${searchTerm}%` } },
+        { '$document_type.group$': { [Op.iLike]: `%${searchTerm}%` } },
+        { '$settlement.name$': { [Op.iLike]: `%${searchTerm}%` } },
+        { '$settlement.county.name$': { [Op.iLike]: `%${searchTerm}%` } },
+        { '$user.name$': { [Op.iLike]: `%${searchTerm}%` } }
+      );
+    }
+
+    // Add category filter
+    if (categoryFilter) {
+      if (Array.isArray(categoryFilter)) {
+        baseQuery.where = { category: { [op.in]: categoryFilter } };
+        console.log('getDocumentRepository - Applied array filter:', { category: { [op.in]: categoryFilter } });
+      } else {
+        baseQuery.where = { category: categoryFilter };
+        console.log('getDocumentRepository - Applied single filter:', { category: categoryFilter });
+      }
+    }
+
+    // Add user permission filters
+    if (userFilters.length > 0) {
+      const userConditions = userFilters.map(filter => ({
+        [filter.field]: filter.value
+      }));
+      if (baseQuery.where) {
+        baseQuery.where = { [Op.and]: [baseQuery.where, { [Op.or]: userConditions }] };
+      } else {
+        baseQuery.where = { [Op.or]: userConditions };
+      }
+    }
+
+    // Add search conditions
+    if (searchConditions.length > 0) {
+      const searchWhere = { [Op.or]: searchConditions };
+      if (baseQuery.where) {
+        baseQuery.where = { [Op.and]: [baseQuery.where, searchWhere] };
+      } else {
+        baseQuery.where = searchWhere;
+      }
+    }
+
+    // Get documents with count
+    let documentsResult;
+    try {
+      console.log('getDocumentRepository - Final baseQuery:', JSON.stringify(baseQuery, null, 2));
+      documentsResult = await db.models.document.findAndCountAll(baseQuery);
+    } catch (queryError) {
+      console.error('Error in main documents query:', queryError);
+      // Fallback to simpler query if complex query fails
+      const simpleQuery = {
+        include: [
+          {
+            model: db.models.document_type,
+            as: 'document_type',
+            attributes: ['type', 'group']
+          },
+          {
+            model: db.models.settlement,
+            as: 'settlement',
+            attributes: ['id', 'name'],
+            include: [{
+              model: db.models.county,
+              as: 'county',
+              attributes: ['id', 'name']
+            }]
+          },
+          {
+            model: db.models.users,
+            as: 'user',
+            attributes: ['id', 'name']
+          }
+        ],
+        attributes: [
+          'id', 'name', 'category', 'format', 'size', 'location', 
+          'protectedFile', 'createdBy', 'createdAt', 'updatedAt'
+        ],
+        order: [[sortBy, sortOrder]],
+        limit: limit,
+        offset: offset
+      };
+      
+      if (searchConditions.length > 0) {
+        simpleQuery.where = { [Op.or]: searchConditions };
+      }
+      
+      documentsResult = await db.models.document.findAndCountAll(simpleQuery);
+    }
+
+    // Get all document types for proper naming (do this first)
+    let allDocumentTypes;
+    try {
+      allDocumentTypes = await db.models.document_type.findAll({
+        attributes: ['id', 'type', 'group'],
+        raw: true
+      });
+    } catch (docTypeError) {
+      console.error('Error fetching document types:', docTypeError);
+      allDocumentTypes = [];
+    }
+
+    // Create a mapping of document type IDs to names
+    const docTypeMap = allDocumentTypes.reduce((acc, docType) => {
+      acc[docType.id] = { name: docType.type, group: docType.group };
+      return acc;
+    }, {});
+
+    // Get category counts for sidebar (always show all available types, not filtered)
+    let categoryCounts;
+    try {
+      // First, get all document types to ensure we show all available types
+      const allDocTypes = await db.models.document_type.findAll({
+        attributes: ['id', 'type', 'group'],
+        raw: true
+      });
+
+      // Then get counts for documents that exist
+      const docCounts = await db.models.document.findAll({
+        include: [{
+          model: db.models.document_type,
+          as: 'document_type',
+          attributes: ['id', 'type', 'group']
+        }],
+        attributes: [
+          [db.sequelize.fn('COUNT', db.sequelize.col('document.id')), 'count'],
+          [db.sequelize.col('document_type.group'), 'group'],
+          [db.sequelize.col('document_type.type'), 'type'],
+          [db.sequelize.col('document_type.id'), 'document_type_id']
+        ],
+        group: ['document_type.group', 'document_type.type', 'document_type.id'],
+        // Don't apply document filters to category counts - show all available types
+        where: {}, 
+        raw: true,
+        nest: false
+      });
+
+      // Create a map of existing counts
+      const countMap = {};
+      docCounts.forEach(item => {
+        const key = `${item.group}-${item.document_type_id}`;
+        countMap[key] = {
+          group: item.group,
+          type: item.type,
+          document_type_id: item.document_type_id,
+          count: parseInt(item.count)
+        };
+      });
+
+      // Combine all document types with their counts (0 if no documents exist)
+      categoryCounts = allDocTypes.map(docType => {
+        const key = `${docType.group}-${docType.id}`;
+        const existing = countMap[key];
+        return {
+          group: docType.group,
+          type: docType.type,
+          document_type_id: docType.id,
+          count: existing ? existing.count : 0
+        };
+      });
+    } catch (categoryError) {
+      console.error('Error in category counts query:', categoryError);
+      // Fallback: create category counts from all documents, not just filtered ones
+      const docTypeCounts = {};
+      // Get all documents for category counts, not just filtered ones
+      const allDocs = await db.models.document.findAll({
+        include: [{
+          model: db.models.document_type,
+          as: 'document_type',
+          attributes: ['id', 'type', 'group']
+        }],
+        raw: true,
+        nest: false
+      });
+      
+      allDocs.forEach(doc => {
+        const group = doc['document_type.group'] || 'Other';
+        const type = doc['document_type.type'] || 'Unknown';
+        const typeId = doc['document_type.id'] || doc.category;
+        
+        if (!docTypeCounts[group]) {
+          docTypeCounts[group] = {};
+        }
+        if (!docTypeCounts[group][typeId]) {
+          docTypeCounts[group][typeId] = { count: 0, name: type };
+        }
+        docTypeCounts[group][typeId].count++;
+      });
+      categoryCounts = Object.entries(docTypeCounts).map(([group, types]) => 
+        Object.entries(types).map(([typeId, data]) => ({
+          group,
+          type: data.name,
+          document_type_id: parseInt(typeId),
+          count: data.count
+        }))
+      ).flat();
+    }
+    
+    console.log('getDocumentRepository - categoryCounts result:', categoryCounts);
+    console.log('getDocumentRepository - categoryCounts length:', categoryCounts.length);
+    if (categoryCounts.length > 0) {
+      console.log('getDocumentRepository - first categoryCount item:', categoryCounts[0]);
+    }
+
+    // Get total counts by group (always show all groups, not filtered)
+    let groupTotals;
+    try {
+      groupTotals = await db.models.document.findAll({
+        include: [{
+          model: db.models.document_type,
+          as: 'document_type',
+          attributes: ['group']
+        }],
+        attributes: [
+          [db.sequelize.fn('COUNT', db.sequelize.col('document.id')), 'total'],
+          [db.sequelize.col('document_type.group'), 'group']
+        ],
+        group: ['document_type.group'],
+        // Don't apply document filters to group totals - show all groups
+        where: {}, 
+        raw: true,
+        nest: false
+      });
+    } catch (groupError) {
+      console.error('Error in group totals query:', groupError);
+      groupTotals = [];
+    }
+
+    // Process and format the response
+    const processedDocuments = documentsResult.rows.map(doc => {
+      const flatDoc = doc.get({ plain: true });
+      return {
+        id: flatDoc.id,
+        name: flatDoc.name,
+        category: flatDoc.category,
+        format: flatDoc.format,
+        size: flatDoc.size,
+        location: flatDoc.location,
+        protectedFile: flatDoc.protectedFile,
+        createdBy: flatDoc.createdBy,
+        createdAt: flatDoc.createdAt,
+        updatedAt: flatDoc.updatedAt,
+        'document_type.id': flatDoc.document_type?.id,
+        'document_type.type': flatDoc.document_type?.type,
+        'document_type.group': flatDoc.document_type?.group,
+        'settlement.id': flatDoc.settlement?.id,
+        'settlement.name': flatDoc.settlement?.name,
+        'settlement.county.id': flatDoc.settlement?.county?.id,
+        'settlement.county.name': flatDoc.settlement?.county?.name,
+        'user.id': flatDoc.user?.id,
+        'user.name': flatDoc.user?.name
+      };
+    });
+
+    // Handle empty results gracefully
+    if (!categoryCounts || categoryCounts.length === 0) {
+      categoryCounts = [];
+    }
+
+    // Format category counts with document type IDs and names
+    const formattedCategoryCounts = categoryCounts.reduce((acc, item) => {
+      const group = item.group || docTypeMap[item.document_type_id]?.group || 'Other';
+      const typeName = item.type || docTypeMap[item.document_type_id]?.name || `Type ${item.document_type_id}`;
+      
+      if (!acc[group]) {
+        acc[group] = {};
+      }
+      // Store both count and type name
+      acc[group][item.document_type_id] = {
+        count: parseInt(item.count),
+        name: typeName
+      };
+      return acc;
+    }, {});
+    
+    console.log('getDocumentRepository - formattedCategoryCounts:', formattedCategoryCounts);
+
+    // Handle empty group totals gracefully
+    if (!groupTotals || groupTotals.length === 0) {
+      groupTotals = [];
+    }
+
+    // Add total documents count
+    const totalDocuments = groupTotals.reduce((sum, item) => sum + parseInt(item.total), 0);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        documents: processedDocuments,
+        categoryCounts: formattedCategoryCounts,
+        totalDocuments: totalDocuments,
+        pagination: {
+          currentPage: page,
+          totalPages: Math.ceil(documentsResult.count / limit),
+          totalItems: documentsResult.count,
+          itemsPerPage: limit
+        }
+      },
+      code: '0000'
+    });
+
+  } catch (error) {
+    console.error('Error in getDocumentRepository:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch document repository data',
+      error: error.message
+    });
+  }
+};
+
 exports.filterRepository = async (req, res) => {
   try {
     const searchTerm = req.body.searchTerm; // Assuming you get the filter value in the request body
@@ -7576,14 +7941,14 @@ async function processDocumentWithAI(filePath, filename, fileSize) {
         }
         
         // Initialize Document AI database if needed
-        const dbInitialized = await initializeDocumentAIDatabase();
-        if (!dbInitialized) {
-            return { 
-                success: false, 
-                message: 'Failed to initialize Document AI database',
-                warning: 'Database initialization failed'
-            };
-        }
+        // const dbInitialized = await initializeDocumentAIDatabase();
+        // if (!dbInitialized) {
+        //     return { 
+        //         success: false, 
+        //         message: 'Failed to initialize Document AI database',
+        //         warning: 'Database initialization failed'
+        //     };
+        // }
         
         // Process document with LangChain
         const chunks = await processDocumentForAI(filePath, filename);
@@ -8422,9 +8787,9 @@ async function fallbackKeywordSearch(question, limit = 5) {
 }
 
 // Initialize Document AI database on module load
-initializeDocumentAIDatabase().catch(error => {
-    console.error('❌ Failed to initialize Document AI database:', error)
-})
+// initializeDocumentAIDatabase().catch(error => {
+//     console.error('❌ Failed to initialize Document AI database:', error)
+// })
 
 // Manual AI Processing for Existing Documents
 exports.processExistingDocumentsWithAI = async (req, res) => {
@@ -8704,13 +9069,13 @@ exports.getAIProcessingStats = async (req, res) => {
 };
 
 // Initialize Document AI database on module load
-if (docAIPool) {
-    initializeDocumentAIDatabase().catch(error => {
-        console.error('❌ Failed to initialize Document AI database:', error);
-    });
-} else {
-    console.log('⚠️  Document AI database not available - AI features will be disabled');
-}
+// if (docAIPool) {
+//     initializeDocumentAIDatabase().catch(error => {
+//         console.error('❌ Failed to initialize Document AI database:', error);
+//     });
+// } else {
+//     console.log('⚠️  Document AI database not available - AI features will be disabled');
+// }
 
 // AI Configuration and Provider Management Functions
 
@@ -8757,10 +9122,10 @@ async function processRecordForAI(record, modelName) {
       return { success: false, message: 'Document AI database not available', warning: 'Database connection failed' };
     }
     // Initialize Document AI database if needed
-    const dbInitialized = await initializeDocumentAIDatabase();
-    if (!dbInitialized) {
-      return { success: false, message: 'Failed to initialize Document AI database', warning: 'Database initialization failed' };
-    }
+    // const dbInitialized = await initializeDocumentAIDatabase();
+    // if (!dbInitialized) {
+    //   return { success: false, message: 'Failed to initialize Document AI database', warning: 'Database initialization failed' };
+    // }
     // Convert record to text content for processing
     const recordContent = convertRecordToText(record, modelName);
     if (!recordContent || recordContent.trim().length === 0) {

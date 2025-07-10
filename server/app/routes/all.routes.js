@@ -2554,6 +2554,103 @@ module.exports = function (app) {
 
   /**
    * @swagger
+   * /api/v1/docs/repository:
+   *   post:
+   *     tags: [Data]
+   *     summary: Get optimized document repository data
+   *     description: Get documents with category counts, pagination, and search in a single optimized call.
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: false
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               page:
+   *                 type: integer
+   *                 description: Page number for pagination
+   *                 example: 1
+   *               limit:
+   *                 type: integer
+   *                 description: Number of items per page
+   *                 example: 10
+   *               searchTerm:
+   *                 type: string
+   *                 description: Search term for documents
+   *                 example: "report"
+   *               categoryFilter:
+   *                 type: integer
+   *                 description: Filter by document category ID
+   *                 example: 1
+   *               userFilters:
+   *                 type: array
+   *                 description: User permission filters
+   *                 items:
+   *                   type: object
+   *                   properties:
+   *                     field:
+   *                       type: string
+   *                     value:
+   *                       type: any
+   *               sortBy:
+   *                 type: string
+   *                 description: Field to sort by
+   *                 example: "createdAt"
+   *               sortOrder:
+   *                 type: string
+   *                 description: Sort order (ASC or DESC)
+   *                 example: "DESC"
+   *     responses:
+   *       200:
+   *         description: Document repository data retrieved successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 data:
+   *                   type: object
+   *                   properties:
+   *                     documents:
+   *                       type: array
+   *                       items:
+   *                         type: object
+   *                     categoryCounts:
+   *                       type: object
+   *                       description: Document counts by category and type
+   *                     totalDocuments:
+   *                       type: integer
+   *                       description: Total number of documents
+   *                     pagination:
+   *                       type: object
+   *                       properties:
+   *                         currentPage:
+   *                           type: integer
+   *                         totalPages:
+   *                           type: integer
+   *                         totalItems:
+   *                           type: integer
+   *                         itemsPerPage:
+   *                           type: integer
+   *                 code:
+   *                   type: string
+   *                   example: "0000"
+   *       400:
+   *         description: Bad request - invalid parameters
+   *       401:
+   *         description: Unauthorized - invalid token
+   *       500:
+   *         description: Internal server error
+   */
+  app.post('/api/v1/docs/repository', [authJwt.verifyToken, hasPermission('document:read')], controller.getDocumentRepository)
+
+  /**
+   * @swagger
    * /api/v1/fields/options:
    *   post:
    *     tags: [Data]
