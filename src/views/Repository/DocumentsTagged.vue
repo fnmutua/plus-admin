@@ -6,7 +6,7 @@ import { getListWithoutGeo } from '@/api/counties'
 import { ElButton, ElRow, ElCol,ElDialog, ElCard, ElTable, ElTableColumn, ElCheckbox, ElPagination, ElTag,ElForm,ElFormItem,
   ElInput, ElMessage, ElSelect, ElOption, ElDrawer } from 'element-plus'
 import { Document } from '@element-plus/icons-vue'
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useCache } from '@/hooks/web/useCache'
 import { deleteDocument, updateOneRecord } from '@/api/settlements'
 import moment from "moment"
@@ -187,7 +187,7 @@ const loadingText = ref('Loading documents...')
 const canCancel = ref(false)
 const searchTerm = ref('')
 const currentPage = ref(1)
-const pageSize = ref(5)
+const pageSize = ref(10) // Default, will be adjusted based on screen size
 const totalDocs = ref(0)
 const documents = ref<Document[]>([])
 const categoryCounts = ref<CategoryCounts>({})
@@ -201,6 +201,33 @@ const drawerSearchTerm = ref('')
 const isMobile = computed(() => appStore.getMobile)
 const dialogWidth = ref(isMobile.value ? "90%" : "25%")
 const actionColumnWidth = ref(isMobile.value ? "75px" : "160px")
+
+// Responsive page size based on screen height
+const getResponsivePageSize = () => {
+  const screenHeight = window.innerHeight
+  if (screenHeight < 768) { // Mobile and small tablets
+    return 5
+  } else if (screenHeight < 1024) { // Medium screens
+    return 10
+  } else { // Larger screens
+    return 15
+  }
+}
+
+// Initialize page size based on screen size
+const initializePageSize = () => {
+  pageSize.value = getResponsivePageSize()
+}
+
+// Handle window resize
+const handleResize = () => {
+  const newPageSize = getResponsivePageSize()
+  if (newPageSize !== pageSize.value) {
+    pageSize.value = newPageSize
+    currentPage.value = 1 // Reset to first page when changing page size
+    loadDocumentRepository()
+  }
+}
 
 // AI Configuration
 const aiConfigDrawer = ref(false)
@@ -251,7 +278,7 @@ const loadDocumentRepository = async (params: any = {}) => {
       categoryFilter: selectedCategories.value.size > 0 ? Array.from(selectedCategories.value) : undefined,
       userFilters: roles_filters.length > 0 ? roles_filters : undefined,
       sortBy: 'createdAt',
-      sortOrder: 'DESC',
+      sortOrder: 'DESC', // Ensure latest uploads appear first
       ...params
     }
 
@@ -456,7 +483,7 @@ const downloadAllDocuments = async () => {
       categoryFilter: selectedCategories.value.size > 0 ? Array.from(selectedCategories.value) : undefined,
       userFilters: roles_filters.length > 0 ? roles_filters : undefined,
       sortBy: 'createdAt',
-      sortOrder: 'DESC'
+      sortOrder: 'DESC' // Ensure latest uploads appear first
     }
 
     const response = await getDocumentRepository(requestData)
@@ -1102,8 +1129,15 @@ const getFileIcon = (format: string) => {
 
 // Initialize
 onMounted(async () => {
+  initializePageSize() // Initialize page size based on screen size
   loadAIConfig()
   await loadDocumentRepository()
+  window.addEventListener('resize', handleResize) // Add event listener for resize
+})
+
+// Cleanup on unmount
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
 })
 
 // Helper function to get document type name from ID
@@ -1302,6 +1336,8 @@ const filteredCategoryCounts = computed(() => {
             style="width: 80px; margin-left: 8px;"
             @change="handlePageSizeChange"
           >
+            <el-option label="5" :value="5" />
+            <el-option label="8" :value="8" />
             <el-option label="10" :value="10" />
             <el-option label="25" :value="25" />
             <el-option label="50" :value="50" />
@@ -1440,7 +1476,8 @@ const filteredCategoryCounts = computed(() => {
           </el-form-item>
 
           <el-form-item v-if="!hide_parent" :label="parentTitle">
-            <el-select filterable clearable
+            <el-select
+filterable clearable
               v-model="documentForm.parent_id" 
               placeholder="please select your parent"
               v-loading="parentLoading"
