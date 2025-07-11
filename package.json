@@ -101,7 +101,7 @@
     "papaparse": "^5.4.1",
     "pdf-lib": "^1.17.1",
     "pdf-parse": "^1.1.1",
-    "pg": "^8.13.1",
+    "pg": "^8.16.3",
     "pg-query-stream": "^4.5.3",
     "pinia": "^2.0.21",
     "pinia-plugin-persist": "^1.0.0",

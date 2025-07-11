@@ -103,7 +103,7 @@ const setDefaultModels = () => {
     openai: ['gpt-3.5-turbo', 'gpt-4', 'gpt-4-turbo'],
     anthropic: ['claude-3-sonnet', 'claude-3-opus', 'claude-3-haiku'],
     ollama: ['llama2', 'mistral', 'codellama', 'neural-chat'],
-    xai: ['grok-3-mini-fast', 'grok-3-mini', 'grok-3', 'grok-beta', 'grok-pro']
+    xai: ['grok-3-mini-fast', 'grok-3-mini', 'grok-3', 'grok-beta', 'grok-4-0709']
   }
   availableModels.value = (defaultModels[aiConfig.provider as keyof typeof defaultModels] || []).map(model => ({
     id: model,
