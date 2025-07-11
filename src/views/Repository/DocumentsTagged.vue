@@ -6,7 +6,7 @@ import { getListWithoutGeo } from '@/api/counties'
 import { ElButton, ElRow, ElCol,ElDialog, ElCard, ElTable, ElTableColumn, ElCheckbox, ElPagination, ElTag,ElForm,ElFormItem,
   ElInput, ElMessage, ElSelect, ElOption, ElDrawer } from 'element-plus'
 import { Document } from '@element-plus/icons-vue'
-import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useCache } from '@/hooks/web/useCache'
 import { deleteDocument, updateOneRecord } from '@/api/settlements'
 import moment from "moment"
@@ -111,7 +111,6 @@ const { wsCache } = useCache()
 const appStore = useAppStore()
 const userInfo: UserInfo = wsCache.get(appStore.getUserInfo)
 const showAdminButtons = ref(appStore.getAdminButtons)
-const showEditButtons = ref(appStore.getEditButtons)
 
 // User role processing
 const processedRoles: ProcessedRole[] = userInfo.roles.map((role: UserRole) => {
@@ -159,27 +158,33 @@ const action_buttons = ref<string[]>([])
 
 // Check permissions and set action buttons
 const setActionButtons = () => {
-  const buttons: string[] = []
-  
+  // Clear existing buttons first
+  action_buttons.value = []
+    // Check for delete permission - only use specific document:delete permission
+    if (userPermissions.includes('document:delete')) {
+    action_buttons.value.push('delete')
+  }
   // Always allow preview/download for all users
-  buttons.push('preview', 'download')
+  action_buttons.value.push('preview', 'download')
   
   // Check for edit permission
-  if (userPermissions.includes('document:update') || userPermissions.includes('*.*.*')) {
-    buttons.push('edit')
+  if (userPermissions.includes('document:update')) {
+    action_buttons.value.push('edit')
   }
   
-  // Check for delete permission
-  if (userPermissions.includes('document:delete') || userPermissions.includes('*.*.*')) {
-    buttons.push('delete')
-  }
+
   
-  action_buttons.value = buttons
   console.log('action_buttons', action_buttons.value)
+  console.log('userPermissions', userPermissions)
 }
 
 // Initialize action buttons
 setActionButtons()
+
+// Watch for changes in user permissions and update action buttons
+watch(() => userPermissions, () => {
+  setActionButtons()
+}, { immediate: true })
 
 // Reactive data
 const loading = ref(false)
@@ -199,8 +204,7 @@ const drawerSearchTerm = ref('')
 
 // Mobile responsiveness
 const isMobile = computed(() => appStore.getMobile)
-const dialogWidth = ref(isMobile.value ? "90%" : "25%")
-const actionColumnWidth = ref(isMobile.value ? "75px" : "160px")
+const actionColumnWidth = ref(isMobile.value ? "150px" : "260px")
 
 // Responsive page size based on screen height
 const getResponsivePageSize = () => {
@@ -230,7 +234,6 @@ const handleResize = () => {
 }
 
 // AI Configuration
-const aiConfigDrawer = ref(false)
 const filterDrawer = ref(false)
 const aiConfig = reactive({
   provider: 'openai',
@@ -247,7 +250,6 @@ const expandedSources = ref(new Set<number>())
 
 // Process existing documents functionality
 const isProcessingExisting = ref(false)
-const forceReprocess = ref(false)
 
 const { t } = useI18n()
 
@@ -299,6 +301,9 @@ const loadDocumentRepository = async (params: any = {}) => {
       documents.value.forEach(doc => {
         doc.deletable = doc.createdBy === userInfo.id || showAdminButtons.value
       })
+
+      // Update action buttons after documents are loaded
+      setActionButtons()
 
       // Ensure pagination is valid
       if (totalDocs.value < pageSize.value) {
@@ -369,8 +374,12 @@ const handlePageSizeChange = async (newPageSize: number) => {
 }
 
 // File operations
-const downloadFile = async (data: Document) => {
+const downloadFile = async (data: Document, showMessages = true) => {
   try {
+    if (showMessages) {
+      ElMessage.info(`Starting download: ${data.name}`)
+    }
+    
     const formData: FormData = {}
     let fname: string
     const filename = data.name
@@ -390,9 +399,15 @@ const downloadFile = async (data: Document) => {
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
+    
+    if (showMessages) {
+      ElMessage.success(`Download completed: ${fname}`)
+    }
   } catch (error) {
     console.error('Error downloading file:', error)
-    ElMessage.error('Download failed.')
+    if (showMessages) {
+      ElMessage.error('Download failed.')
+    }
   }
 }
 
@@ -456,13 +471,15 @@ const batchDownload = async () => {
   try {
     const selectedDocs = documents.value.filter(doc => selectedDocuments.value.has(doc.id))
     
+    ElMessage.info(`Starting batch download of ${selectedDocs.length} document(s). This may take a while...`)
+    
     for (const doc of selectedDocs) {
-      await downloadFile(doc)
+      await downloadFile(doc, false) // Don't show individual messages
       // Add a small delay between downloads to prevent browser blocking
       await new Promise(resolve => setTimeout(resolve, 500))
     }
     
-    ElMessage.success(`Downloaded ${selectedDocs.length} document(s)`)
+    ElMessage.success(`Batch download completed: ${selectedDocs.length} document(s)`)
     selectedDocuments.value.clear()
   } catch (error) {
     console.error('Error in batch download:', error)
@@ -471,58 +488,8 @@ const batchDownload = async () => {
 }
 
 // Download all documents function
-const downloadAllDocuments = async () => {
-  try {
-    ElMessage.info('Starting download of all documents...')
-    
-    // Get all documents without pagination
-    const requestData = {
-      page: 1,
-      limit: 10000, // Large limit to get all documents
-      searchTerm: searchTerm.value || undefined,
-      categoryFilter: selectedCategories.value.size > 0 ? Array.from(selectedCategories.value) : undefined,
-      userFilters: roles_filters.length > 0 ? roles_filters : undefined,
-      sortBy: 'createdAt',
-      sortOrder: 'DESC' // Ensure latest uploads appear first
-    }
-
-    const response = await getDocumentRepository(requestData)
-    const responseData = (response as any).data || (response as any).results || response
-    
-    if ((response as any).success && responseData) {
-      const allDocs = responseData.documents || []
-      
-      if (allDocs.length === 0) {
-        ElMessage.warning('No documents found to download')
-        return
-      }
-      
-      ElMessage.info(`Downloading ${allDocs.length} documents...`)
-      
-      for (const doc of allDocs) {
-        await downloadFile(doc)
-        // Add a small delay between downloads to prevent browser blocking
-        await new Promise(resolve => setTimeout(resolve, 500))
-      }
-      
-      ElMessage.success(`Downloaded all ${allDocs.length} document(s)`)
-    } else {
-      ElMessage.error('Failed to load documents for download')
-    }
-  } catch (error) {
-    console.error('Error in download all documents:', error)
-    ElMessage.error('Failed to download all documents')
-  }
-}
 
 // Select all documents
-const selectAllDocuments = () => {
-  if (selectedDocuments.value.size === documents.value.length) {
-    selectedDocuments.value.clear()
-  } else {
-    documents.value.forEach(doc => selectedDocuments.value.add(doc.id))
-  }
-}
 
 // Handle table selection change
 const handleSelectionChange = (selection: Document[]) => {
@@ -605,39 +572,6 @@ const getparentOptions = async () => {
   parentOptions.value = []
   
   try {
-    const res = await getListWithoutGeo({
-      params: {
-        pageIndex: 1,
-        limit: 1000,
-        curUser: 1, // Id for logged in user
-        model: theParentModel.value, //model 
-        searchField: 'name',
-        searchKeyword: '',
-        sort: 'ASC'
-      }
-    }).then((response: { data: any }) => {
-      // console.log('Received response:', response)
-      //tableDataList.value = response.data
-      var ret = response.data
-
-      ret.forEach(function (arrayItem: any) {
-        var countyOpt: any = {}
-        countyOpt.value = parseInt(arrayItem.id) // Ensure it's an integer
-        console.log(arrayItem)
-
-        if (arrayItem.contract_number) {
-          countyOpt.label = arrayItem.contract_number
-        }
-        else if (arrayItem.name) {
-          countyOpt.label = arrayItem.name  
-        }
-        else {
-          countyOpt.label = arrayItem.title  
-        }
-        console.log(countyOpt)
-        parentOptions.value.push(countyOpt)
-      })
-    })
   } catch (error) {
     console.error('Error loading parent options:', error)
     ElMessage.error('Failed to load parent options')
@@ -800,7 +734,6 @@ const getDocumentTypes = async () => {
 const handleSubmitData = async () => {
   try {
     // Update the document with the new nested structure
-    const result = "/data/uploads/" + documentForm.name + '.' + documentForm.format;  
     (documentForm as any).edited_name = documentForm.name + '.' + documentForm.format;
     (documentForm as any).model = 'document';
     (documentForm as any).document_field = document_field.value;
@@ -916,122 +849,15 @@ const setDefaultModels = () => {
   }
 }
 
-const handleProviderChange = () => {
-  fetchAIModels()
-  saveAIConfig()
-}
 
-const handleModelChange = () => {
-  saveAIConfig()
-}
 
 // Chat Functions
-const sendQuestion = async () => {
-  if (!currentQuestion.value.trim() || isProcessing.value) return
-  
-  const question = currentQuestion.value.trim()
-  
-  chatMessages.value.push({
-    type: 'user',
-    content: question,
-    timestamp: new Date()
-  })
-  
-  currentQuestion.value = ''
-  isProcessing.value = true
-  
-  try {
-    const response = await askAIDocument({
-      question,
-      sessionId: sessionId.value,
-      provider: aiConfig.provider,
-      model: aiConfig.model
-    })
-    
-    if (response.success && response.answer) {
-      chatMessages.value.push({
-        type: 'ai',
-        content: response.answer || 'No response received from AI',
-        sources: response.sources || [],
-        tokens:  response.tokens || 0,
-        timestamp: new Date()
-      })
-    } else if (response.success && response.data && response.data.answer) {
-      chatMessages.value.push({
-        type: 'ai',
-        content: response.data.answer || 'No response received from AI',
-        sources: response.data.sources || [],
-        tokens: response.data.tokens || 0,
-        timestamp: new Date()
-      })
-    } else {
-      const errorMessage = response.message || response.error || 'Unknown error occurred'
-      chatMessages.value.push({
-        type: 'ai',
-        content: `Error: ${errorMessage}`,
-        timestamp: new Date()
-      })
-    }
-  } catch (error) {
-    console.error('Error in sendQuestion:', error)
-    const errorMessage = error instanceof Error ? error.message : 'Network error occurred'
-    chatMessages.value.push({
-      type: 'ai',
-      content: `Error: ${errorMessage}`,
-      timestamp: new Date()
-    })
-  } finally {
-    isProcessing.value = false
-  }
-}
 
-const clearChatHistory = () => {
-  chatMessages.value = []
-  ElMessage.success('Chat history cleared')
-}
 
-const formatTimestamp = (timestamp: Date) => {
-  return new Date(timestamp).toLocaleTimeString()
-}
 
-const formatFileSize = (bytes: number) => {
-  if (bytes === 0) return '0 Bytes'
-  const k = 1024
-  const sizes = ['Bytes', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-}
 
-const toggleSources = (messageIndex: number) => {
-  if (expandedSources.value.has(messageIndex)) {
-    expandedSources.value.delete(messageIndex)
-  } else {
-    expandedSources.value.add(messageIndex)
-  }
-}
 
 // Process existing documents functionality
-const processExistingDocuments = async () => {
-  isProcessingExisting.value = true
-  try {
-    const response = await processExistingDocumentsWithAI({ 
-      processAll: true
-    })
-    
-    if ((response as any).success) {
-      const data = (response as any).data || response
-      const message = `AI processing completed! Processed: ${(data as any).processed || 0}, Failed: ${(data as any).failed || 0}, Already Processed: ${(data as any).alreadyProcessed || 0}`
-      ElMessage.success(message)
-    } else {
-      ElMessage.error((response as any).message || 'Failed to start AI processing')
-    }
-  } catch (error: any) {
-    console.error('Error processing existing documents:', error)
-    ElMessage.error('Error: ' + (error.message || error))
-  } finally {
-    isProcessingExisting.value = false
-  }
-}
 
 // Tag type helper function
 const getTagType = (groupName: string) => {
@@ -1131,6 +957,11 @@ const getFileIcon = (format: string) => {
 onMounted(async () => {
   initializePageSize() // Initialize page size based on screen size
   loadAIConfig()
+  
+  // Set action buttons after component is mounted and DOM is ready
+  await nextTick()
+  setActionButtons()
+  
   await loadDocumentRepository()
   window.addEventListener('resize', handleResize) // Add event listener for resize
 })
@@ -1188,7 +1019,7 @@ const filteredCategoryCounts = computed(() => {
     <!-- Search and Filter Controls -->
     <div style="margin: 5px 0;">
       <el-row :gutter="16">
-        <el-col :span="15">
+        <el-col :xs="24" :sm="24" :md="16" :lg="15" :xl="15">
           <el-input
             v-model="searchTerm"
             placeholder="Search documents by name/settlement/county/format/uploader name"
@@ -1203,32 +1034,34 @@ const filteredCategoryCounts = computed(() => {
             </template>
           </el-input>
         </el-col>
-        <el-col :span="9">
-           
-          <el-button 
-        @click="filterDrawer = true" 
-        type="primary" 
-        plain 
-        size="small"
-        style="margin-right: 8px;"
-      >
-        <Icon icon="material-symbols:filter-list" width="16" style="margin-right: 4px;" />
-        Filter By Category
-      </el-button>
-      <el-button 
-        @click="clearFilters" 
-        type="info" 
-        plain 
-        size="small"
-        v-if="currentlyFiltered"
-      >
-        <Icon icon="material-symbols:clear" width="16" style="margin-right: 4px;" />
-        Clear Filters ({{ selectedCategories.size + (searchTerm ? 1 : 0) }})
-      </el-button>
-          <el-button @click="router.push('/repo/ai-chat')" type="success" plain size="small">
-            <Icon icon="mingcute:mic-ai-fill" width="16" style="margin-right: 4px;" />
-            KesMIS-AI Chat 
-          </el-button>
+        <el-col :xs="24" :sm="24" :md="8" :lg="9" :xl="9">
+          <div class="action-buttons-container">
+            <el-button 
+              @click="filterDrawer = true" 
+              type="primary" 
+              plain 
+              size="small"
+              class="action-button"
+            >
+              <Icon icon="material-symbols:filter-list" width="16" style="margin-right: 4px;" />
+              Filter By Category
+            </el-button>
+            <el-button 
+              @click="clearFilters" 
+              type="info" 
+              plain 
+              size="small"
+              v-if="currentlyFiltered"
+              class="action-button"
+            >
+              <Icon icon="material-symbols:clear" width="16" style="margin-right: 4px;" />
+              Clear Filters ({{ selectedCategories.size + (searchTerm ? 1 : 0) }})
+            </el-button>
+            <el-button @click="router.push('/repo/ai-chat')" type="success" plain size="small" class="action-button">
+              <Icon icon="mingcute:mic-ai-fill" width="16" style="margin-right: 4px;" />
+              KesMIS-AI Assistant 
+            </el-button>
+          </div>
         </el-col>
       </el-row>
     </div>
@@ -1236,48 +1069,39 @@ const filteredCategoryCounts = computed(() => {
     <!-- Selection Controls -->
     <div v-if="selectedDocuments.size > 0" style="margin: 10px 0; padding: 10px; background-color: #f5f7fa; border-radius: 4px;">
       <el-row :gutter="16" align="middle">
-        <el-col :span="12">
+        <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
           <div style="display: flex; align-items: center; gap: 12px;">
             <span style="font-size: 14px; color: #606266;">
               {{ selectedDocuments.size }} document(s) selected
             </span>
           </div>
         </el-col>
-        <el-col :span="12" style="text-align: right;">
-          <el-button 
-            @click="batchDownload" 
-            type="primary" 
-            size="small"
-          >
-            <Icon icon="material-symbols:download" width="16" style="margin-right: 4px;" />
-            Download Selected ({{ selectedDocuments.size }})
-          </el-button>
-          <el-button 
-            @click="selectedDocuments.clear()" 
-            type="info" 
-            plain 
-            size="small"
-            style="margin-left: 8px;"
-          >
-            <Icon icon="material-symbols:clear" width="16" style="margin-right: 4px;" />
-            Clear Selection
-          </el-button>
+        <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12" class="selection-actions">
+          <div class="selection-buttons">
+            <el-button 
+              @click="batchDownload" 
+              type="primary" 
+              size="small"
+              class="selection-button"
+            >
+              <Icon icon="material-symbols:download" width="16" style="margin-right: 4px;" />
+              Download Selected ({{ selectedDocuments.size }})
+            </el-button>
+            <el-button 
+              @click="selectedDocuments.clear()" 
+              type="info" 
+              plain 
+              size="small"
+              class="selection-button"
+            >
+              <Icon icon="material-symbols:clear" width="16" style="margin-right: 4px;" />
+              Clear Selection
+            </el-button>
+          </div>
         </el-col>
       </el-row>
     </div>
-    
-    <!-- Download All Button -->
-    <!-- <div v-if="totalDocs > 0" style="margin: 10px 0;">
-      <el-button 
-        @click="downloadAllDocuments" 
-        type="success" 
-        plain 
-        size="small"
-      >
-        <Icon icon="material-symbols:download" width="16" style="margin-right: 4px;" />
-        Download All ({{ totalDocs }})
-      </el-button>
-    </div> -->
+ 
 
     <!-- Documents Table -->
     <el-table 
@@ -1297,21 +1121,22 @@ const filteredCategoryCounts = computed(() => {
           <span>{{ ($index + 1) + ((currentPage - 1) * pageSize) }}</span>
         </template>
       </el-table-column>
-                      <el-table-column prop="name" label="Title">
+                      <el-table-column prop="name" label="Title" min-width="300" show-overflow-tooltip>
                   <template #default="{ row }">
                     <div class="file-icon clickable-file" @click="downloadFile(row)">
                       <Icon :icon="getFileIcon(row.format)" width="20" />
-                      <span class="file-link">{{ row.name }}</span>
+                      <span class="file-link document-title">{{ row.name }}</span>
                     </div>
                   </template>
                 </el-table-column>
-                <el-table-column prop="settlement.name" label="Settlement" />
-      <el-table-column prop="createdAt" label="Date" :formatter="formatEndDate" />
-                 <el-table-column prop="user.name" label="User" />
-                <el-table-column prop="size" label="Size(Mb)" />
+                <el-table-column prop="settlement.name" label="Settlement" min-width="120" show-overflow-tooltip />
+      <el-table-column prop="createdAt" label="Date" :formatter="formatEndDate" min-width="120" />
+                 <el-table-column prop="user.name" label="User" min-width="100" show-overflow-tooltip />
+                <el-table-column prop="size" label="Size(Mb)" min-width="80" />
       <el-table-column label="Actions" :width="actionColumnWidth">
         <template #default="{ row }">
-          <PermissionWrapper :permissions="action_buttons.length > 0 ? ['document:read'] : []">
+             <PermissionWrapper :permissions="['document:read', 'document:delete', 'document:create']">
+ 
             <TableActions 
               :item="row" 
               :buttons="action_buttons" 
@@ -1594,10 +1419,22 @@ filterable clearable
   display: flex;
   align-items: center;
   gap: 8px;
+  width: 100%;
 }
 
 .file-icon .iconify {
   flex-shrink: 0;
+}
+
+/* Document title styles */
+.document-title {
+  flex: 1;
+  word-break: break-word;
+  line-height: 1.4;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Clickable file styles */
@@ -1649,6 +1486,52 @@ filterable clearable
 .page-size-label {
   font-size: 14px;
   color: #606266;
+}
+
+/* Responsive Layout Styles */
+.action-buttons-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.action-button {
+  margin-bottom: 4px;
+}
+
+.selection-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.selection-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.selection-button {
+  margin-bottom: 4px;
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+  .action-buttons-container {
+    justify-content: center;
+    margin-top: 8px;
+  }
+  
+  .selection-actions {
+    justify-content: center;
+    margin-top: 8px;
+  }
+  
+  .selection-buttons {
+    justify-content: center;
+  }
 }
 
 /* Prevent horizontal scrolling globally */

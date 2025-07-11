@@ -24,7 +24,7 @@ v-if="buttons.includes('review')" type="primary" size="small" :icon="View" @clic
 
       <el-tooltip content="Download" placement="top">
         <el-button
-v-if="buttons.includes('download')" type="tertiary" size="small" :icon="Download"
+v-if="buttons.includes('download')" type="info" size="small" :icon="Download"
           @click="onDownload(item)" plain />
       </el-tooltip>
 
@@ -110,21 +110,22 @@ width="300" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
 </template>
 
 <script lang="ts" setup>
-import { ref, onMounted, watch, defineProps, onUnmounted } from 'vue';
+import { ref, onMounted, watch, defineProps, onUnmounted, PropType } from 'vue';
 import { ElButton, ElIcon, ElDropdown, ElDropdownMenu, ElDropdownItem, ElTooltip, ElPopconfirm } from 'element-plus';
 import { ArrowDown, Edit, TopRight, Position, Delete, InfoFilled, View, Download } from '@element-plus/icons-vue';
 
 const props = defineProps({
   item: Object,
-  buttons: Array,
-
+  buttons: {
+    type: Array as PropType<string[]>,
+    default: () => []
+  },
 });
 
 const emit = defineEmits(["edit", "viewOnMap", "review", "preview", "delete", "download",]);
 
 
-
-//console.log('Table Actions:::::', props)
+ console.log('Table Actions:::::', props)
 
 
 
@@ -133,10 +134,9 @@ watch(
   () => ({
     item: props.item,
     buttons: props.buttons,
-
   }),
-  (newProps) => {
-    const { item, buttons } = newProps;
+  () => {
+    // Watcher for debugging if needed
   },
   { immediate: true }
 );
