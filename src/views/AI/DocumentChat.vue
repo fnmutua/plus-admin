@@ -20,8 +20,8 @@ const chatContainer = ref<HTMLElement>()
 // AI Configuration
 const aiConfigDrawer = ref(false)
 const aiConfig = reactive({
-  provider: 'xai',
-  model: 'grok-3-mini-fast'
+  provider: 'ollama',
+  model: 'llama2'
 })
 
 const aiProviders = ref<any[]>([])
@@ -91,18 +91,17 @@ const fetchAIModels = async () => {
 
 const setDefaultProviders = () => {
   aiProviders.value = [
+    { id: 'ollama', name: 'Ollama (Local)', description: 'Local AI models', isAvailable: true },
     { id: 'xai', name: 'X-AI (Grok)', description: 'Grok GPT models', isAvailable: true },
-    { id: 'openai', name: 'OpenAI', description: 'OpenAI GPT models', isAvailable: true },
-    { id: 'ollama', name: 'Ollama (Local)', description: 'Local AI models', isAvailable: true }
+    { id: 'openai', name: 'OpenAI', description: 'OpenAI GPT models', isAvailable: true }
   ]
   setDefaultModels()
 }
 
 const setDefaultModels = () => {
   const defaultModels = {
+    ollama: [ 'mistral','llama3.2:1b','llama3.2:3b', 'phi'],
     openai: ['gpt-3.5-turbo', 'gpt-4', 'gpt-4-turbo'],
-    anthropic: ['claude-3-sonnet', 'claude-3-opus', 'claude-3-haiku'],
-    ollama: ['llama2', 'mistral', 'codellama', 'neural-chat'],
     xai: ['grok-3-mini-fast', 'grok-3-mini', 'grok-3', 'grok-beta', 'grok-4-0709']
   }
   availableModels.value = (defaultModels[aiConfig.provider as keyof typeof defaultModels] || []).map(model => ({
@@ -214,14 +213,11 @@ const processExistingDocuments = async () => {
   isProcessingExisting.value = true
   try {
     const response = await processExistingDocumentsWithAI({ 
-      processAll: true,
-      forceReprocess: forceReprocess.value 
+      processAll: true
     })
     
     if (response.success) {
-      const data = response.data || response
-      const message = `AI processing completed! Processed: ${data.processed}, Failed: ${data.failed}, Already Processed: ${data.alreadyProcessed || 0}`
-      ElMessage.success(message)
+      ElMessage.success('AI processing completed successfully!')
     } else {
       ElMessage.error(response.message || 'Failed to start AI processing')
     }
@@ -351,23 +347,23 @@ onMounted(() => {
                         acc[source.filename].maxSimilarity = parseFloat(source.similarity);
                       }
                       return acc;
-                    }, {}))" 
-                    :key="document.filename" 
+                    }, {})) as any" 
+                    :key="(document as any).filename" 
                     class="source-document"
                   >
                     <div class="source-header">
-                      <strong>{{ document.filename }}</strong>
+                      <strong>{{ (document as any).filename }}</strong>
                       <div class="source-badges">
-                        <el-badge v-if="document.maxSimilarity > 0" :value="`${(document.maxSimilarity * 100).toFixed(1)}%`" class="similarity-badge" />
-                        <el-badge :value="`${document.chunks.length} chunks`" class="chunks-badge" />
+                        <el-badge v-if="(document as any).maxSimilarity > 0" :value="`${((document as any).maxSimilarity * 100).toFixed(1)}%`" class="similarity-badge" />
+                        <el-badge :value="`${(document as any).chunks.length} chunks`" class="chunks-badge" />
                       </div>
                     </div>
-                    <div v-if="document.chunks[0].preview" class="source-preview">
-                      {{ document.chunks[0].preview }}
+                    <div v-if="(document as any).chunks[0].preview" class="source-preview">
+                      {{ (document as any).chunks[0].preview }}
                     </div>
                     <div class="source-meta">
-                      <span v-if="document.fileSize">Size: {{ formatFileSize(parseInt(document.fileSize)) }}</span>
-                      <span v-if="document.fileType"> • Type: {{ document.fileType.toUpperCase() }}</span>
+                      <span v-if="(document as any).fileSize">Size: {{ formatFileSize(parseInt((document as any).fileSize)) }}</span>
+                      <span v-if="(document as any).fileType"> • Type: {{ (document as any).fileType.toUpperCase() }}</span>
                     </div>
                   </div>
                 </div>

@@ -65,6 +65,7 @@ const { OpenAIEmbeddings } = require('@langchain/openai')
 const { ChatOpenAI } = require('@langchain/openai')
 const { ChatOllama } = require('@langchain/community/chat_models/ollama')
 const { OllamaEmbeddings } = require('@langchain/community/embeddings/ollama')
+const { ChatXAI } = require('@langchain/xai')
 const { PDFLoader } = require('langchain/document_loaders/fs/pdf')
 const { TextLoader } = require('langchain/document_loaders/fs/text')
 const { CSVLoader } = require('langchain/document_loaders/fs/csv')
@@ -150,6 +151,10 @@ let embeddings
 let llm
 
 if (PROVIDER === 'ollama') {
+    console.log('🔧 Initializing Ollama LLM...');
+    console.log('📍 Ollama Base URL:', OLLAMA_BASE_URL);
+    console.log('🏷️  Ollama Model:', OLLAMA_MODEL);
+    
     try {
         embeddings = new OllamaEmbeddings({
             model: 'all-minilm',
@@ -162,9 +167,12 @@ if (PROVIDER === 'ollama') {
             temperature: 0.1
         })
         
-        console.log('✅ Ollama integration loaded successfully')
+        console.log('✅ Ollama integration loaded successfully');
+        console.log('🤖 LLM initialized with model:', OLLAMA_MODEL);
+        console.log('🔍 Embeddings initialized with model: all-minilm');
     } catch (ollamaError) {
-        console.error('❌ Ollama integration failed:', ollamaError.message)
+        console.error('❌ Ollama integration failed:', ollamaError.message);
+        console.error('🔍 Check if Ollama is running at:', OLLAMA_BASE_URL);
         embeddings = null
         llm = null
         CONFIG.disableEmbeddings = true
@@ -8391,8 +8399,23 @@ async function searchDocumentsByVector(question, documentIds = null, limit = 10)
  */
 exports.askAIDocument = async (req, res) => {
     try {
-        const { question, sessionId = 'default', model = 'default' } = req.body;
-        console.log('question', question)
+        const { question, sessionId = 'default', model = 'default', provider: requestedProvider } = req.body;
+        console.log('=== AI DOCUMENT REQUEST ===');
+        console.log('Question:', question);
+        console.log('Session ID:', sessionId);
+        console.log('Requested Model:', model);
+        console.log('Requested Provider:', requestedProvider);
+        console.log('Current Provider:', PROVIDER);
+        console.log('Current Model:', OLLAMA_MODEL);
+        console.log('Active Model:', model !== 'default' ? model : 'mistral');
+        console.log('Ollama Base URL:', OLLAMA_BASE_URL);
+        console.log('LLM Available:', !!llm);
+        console.log('Embeddings Available:', !!embeddings);
+        console.log('================================');
+        
+        // Use the requested provider if available, otherwise fall back to environment default
+        const activeProvider = requestedProvider || PROVIDER;
+        console.log('🎯 Using provider:', activeProvider);
         
         if (!question) {
             return res.status(400).json({ error: 'Question is required' });
@@ -8430,8 +8453,8 @@ exports.askAIDocument = async (req, res) => {
             has_embeddings: doc.embedding_count > 0
         })));
 
-        // Get relevant chunks using semantic search with conservative limit
-        const relevantChunks = await getRelevantChunks(question, 5); // Reduced from default 10 to 5
+        // Get relevant chunks using semantic search - use all available chunks
+        const relevantChunks = await getRelevantChunks(question); // Use all available chunks
         
         if (relevantChunks.length === 0) {
             return res.json({
@@ -8447,32 +8470,59 @@ exports.askAIDocument = async (req, res) => {
         console.log('Documents found in search results:', foundDocs);
         console.log('Total chunks found:', relevantChunks.length);
 
-        // Build context from relevant chunks
-        const context = relevantChunks.map(chunk => 
+                // Build context from relevant chunks with size optimization
+        let context = relevantChunks.map(chunk => 
             `[From ${chunk.filename}]: ${chunk.content}`
         ).join('\n\n');
 
-        // Estimate token count (rough approximation: 1 token ≈ 4 characters)
-        const estimatedTokens = Math.ceil((context.length + question.length) / 4);
-        const maxTokens = 100000; // Conservative limit for XAI model
+        // More accurate token estimation (closer to actual tokenization)
+        const estimatedTokens = Math.ceil((context.length + question.length) / 3.5); // More accurate ratio
+        const maxModelTokens = 120000; // Conservative limit for model (131072 - safety margin)
         
-        console.log(`Estimated tokens: ${estimatedTokens} (max: ${maxTokens})`);
+        console.log(`Estimated tokens: ${estimatedTokens} (max: ${maxModelTokens})`);
         
-        if (estimatedTokens > maxTokens) {
-            console.warn(`Token limit exceeded (${estimatedTokens} > ${maxTokens}), reducing chunks`);
-            // Reduce chunks to fit within token limit
-            const maxChunks = Math.floor(maxTokens * 4 / (context.length / relevantChunks.length));
+        if (estimatedTokens > maxModelTokens) {
+            console.warn(`Token limit exceeded (${estimatedTokens} > ${maxModelTokens}), reducing chunks`);
+            
+            // Calculate how many chunks we can fit within the token limit
+            const questionTokens = Math.ceil(question.length / 3.5);
+            const availableTokens = maxModelTokens - questionTokens - 1000; // Leave 1000 tokens for prompt overhead
+            
+            // Calculate average tokens per chunk
+            const avgTokensPerChunk = estimatedTokens / relevantChunks.length;
+            const maxChunks = Math.floor(availableTokens / avgTokensPerChunk);
+            
+            console.log(`Available tokens for chunks: ${availableTokens}, avg tokens per chunk: ${avgTokensPerChunk}, max chunks: ${maxChunks}`);
+            
             const reducedChunks = relevantChunks.slice(0, Math.max(1, maxChunks));
             
             const reducedContext = reducedChunks.map(chunk => 
                 `[From ${chunk.filename}]: ${chunk.content}`
             ).join('\n\n');
             
-            console.log(`Reduced to ${reducedChunks.length} chunks, estimated tokens: ${Math.ceil((reducedContext.length + question.length) / 4)}`);
+            const newEstimatedTokens = Math.ceil((reducedContext.length + question.length) / 3.5);
+            console.log(`Reduced to ${reducedChunks.length} chunks, estimated tokens: ${newEstimatedTokens}`);
             
-            // Update context and relevantChunks for the rest of the function
-            relevantChunks.length = 0;
-            relevantChunks.push(...reducedChunks);
+            // Verify we're under the limit
+            if (newEstimatedTokens > maxModelTokens) {
+                console.warn(`Still over limit (${newEstimatedTokens} > ${maxModelTokens}), further reducing...`);
+                const furtherReducedChunks = reducedChunks.slice(0, Math.floor(maxChunks * 0.8)); // Reduce by 20%
+                const finalContext = furtherReducedChunks.map(chunk => 
+                    `[From ${chunk.filename}]: ${chunk.content}`
+                ).join('\n\n');
+                const finalTokens = Math.ceil((finalContext.length + question.length) / 3.5);
+                console.log(`Further reduced to ${furtherReducedChunks.length} chunks, estimated tokens: ${finalTokens}`);
+                
+                // Update context and relevantChunks for the rest of the function
+                relevantChunks.length = 0;
+                relevantChunks.push(...furtherReducedChunks);
+                context = finalContext;
+            } else {
+                // Update context and relevantChunks for the rest of the function
+                relevantChunks.length = 0;
+                relevantChunks.push(...reducedChunks);
+                context = reducedContext;
+            }
         }
 
         // Get conversation history (optional - implement if needed)
@@ -8483,24 +8533,75 @@ exports.askAIDocument = async (req, res) => {
         //       ).join('\n\n')}\n\n`
         //     : '';
 
-        const prompt = `You are a helpful AI assistant. You have access to the following information from the user's documents:
+        const prompt = `Based on this information:
 
 ${context}
 
-Based on the information above, please answer the following question. If the information is not available in the documents, say so clearly. Keep your answer concise and focused.
-
-Question: ${question}
+Answer this question briefly: ${question}
 
 Answer:`;
 
-        // Generate response using AI (for now, return a mock response)
-        // In a real implementation, you would call your selected AI provider
+        // Generate response using AI
         let answer;
-        if (!llm) {
+        let llmToUse = null;
+        
+        // Determine which LLM to use based on the requested provider
+        const requestedModel = model !== 'default' ? model : 'mistral'; // Default to mistral if not specified
+        
+        if (activeProvider === 'ollama') {
+            console.log('🚀 Initializing Ollama LLM with model:', requestedModel);
+            try {
+                llmToUse = new ChatOllama({
+                    model: requestedModel,
+                    baseUrl: OLLAMA_BASE_URL,
+                    temperature: 0.1,
+                    // Performance optimizations
+                    maxTokens: 2000, // Increased for more comprehensive responses
+                    // Use faster models if available
+                    modelName: requestedModel.includes('fast') ? requestedModel : requestedModel + '-fast'
+                });
+                console.log('✅ Ollama LLM initialized for this request with model:', requestedModel);
+            } catch (error) {
+                console.error('❌ Failed to initialize Ollama LLM:', error.message);
+            }
+        } else if (activeProvider === 'xai') {
+            console.log('🚀 Initializing XAI LLM with model:', requestedModel);
+            try {
+                llmToUse = new ChatXAI({
+                    apiKey: XAI_API_KEY,
+                    model: requestedModel,
+                    temperature: 0.1
+                });
+                console.log('✅ XAI LLM initialized for this request with model:', requestedModel);
+            } catch (error) {
+                console.error('❌ Failed to initialize XAI LLM:', error.message);
+            }
+        } else if (activeProvider === 'openai') {
+            console.log('🚀 Initializing OpenAI LLM with model:', requestedModel);
+            try {
+                llmToUse = new ChatOpenAI({
+                    openAIApiKey: OPENAI_API_KEY,
+                    modelName: requestedModel,
+                    temperature: 0.1
+                });
+                console.log('✅ OpenAI LLM initialized for this request with model:', requestedModel);
+            } catch (error) {
+                console.error('❌ Failed to initialize OpenAI LLM:', error.message);
+            }
+        }
+        
+        if (!llmToUse) {
+            console.log('❌ No suitable LLM available - returning fallback response');
             answer = "I'm sorry, but the AI model is not available at the moment. However, I found some relevant information in your documents. Please try again later or contact support.";
         } else {
-            const response = await llm.invoke(prompt);
+            console.log('📝 Prompt length:', prompt.length, 'characters');
+            const startTime = Date.now();
+            
+            const response = await llmToUse.invoke(prompt);
+            const endTime = Date.now();
             answer = response.content;
+            console.log('✅ LLM response received in', endTime - startTime, 'ms');
+            console.log('📄 Response length:', answer.length, 'characters');
         }
         
         // Mock response for now
@@ -8554,6 +8655,10 @@ Answer:`;
  */
 async function generateEmbedding(question) {
   try {
+    console.log('🔍 Generating embedding for question:', question.substring(0, 100) + '...');
+    console.log('📍 Using Ollama URL:', OLLAMA_BASE_URL);
+    console.log('🏷️  Using embedding model: all-minilm');
+    
     const response = await axios.post(`${OLLAMA_BASE_URL}/api/embeddings`, {
       model: 'all-minilm',
       prompt: question
@@ -8606,7 +8711,7 @@ function ensureDocumentDiversity(chunks) {
 /**
  * Get relevant document chunks using semantic search (pgvector) or keyword search
  */
-async function getRelevantChunks(question, limit = 5) {
+async function getRelevantChunks(question) {
   try {
     console.log(`🔍 Query: "${question}"`);
 
@@ -8614,14 +8719,14 @@ async function getRelevantChunks(question, limit = 5) {
     if (!embedding) {
       console.log('⚠️ Skipping query due to embedding error.');
       // Fallback to keyword search
-      return await fallbackKeywordSearch(question, limit);
+      return await fallbackKeywordSearch(question);
     }
 
-    const results = await searchSimilarChunks(embedding, limit);
+    const results = await searchSimilarChunks(embedding);
 
     if (!results.length) {
       console.log('⚠️ No matching chunks found.');
-      return await fallbackKeywordSearch(question, limit);
+      return await fallbackKeywordSearch(question);
     }
 
     console.log(`\n✅ Top ${results.length} similar results:\n`);
@@ -8639,7 +8744,7 @@ async function getRelevantChunks(question, limit = 5) {
 }
 
 // Query vector similarity from PostgreSQL
-async function searchSimilarChunks(embeddingVector, topK = 5) {
+async function searchSimilarChunks(embeddingVector) {
   try {
     const vectorStr = `[${embeddingVector.join(',')}]`; // Format as pgvector input
 
@@ -8657,10 +8762,9 @@ async function searchSimilarChunks(embeddingVector, topK = 5) {
       JOIN document_chunks c ON c.id = e.chunk_id
       JOIN documents d ON d.id = c.document_id
       ORDER BY e.embedding_vector <-> $1::vector
-      LIMIT $2;
     `;
 
-    const res = await docAIPool.query(query, [vectorStr, topK]);
+    const res = await docAIPool.query(query, [vectorStr]);
     return res.rows;
   } catch (err) {
     console.error('❌ Error querying database:', err.message);
@@ -8669,7 +8773,7 @@ async function searchSimilarChunks(embeddingVector, topK = 5) {
 }
 
 // Fallback keyword search function
-async function fallbackKeywordSearch(question, limit = 5) {
+async function fallbackKeywordSearch(question) {
   try {
     const keywords = question.toLowerCase().split(/\s+/).filter(word => word.length > 2);
     console.log('Keywords extracted:', keywords);
@@ -8689,8 +8793,7 @@ async function fallbackKeywordSearch(question, limit = 5) {
           FROM document_chunks dc
           JOIN documents d ON dc.document_id = d.id
           ORDER BY d.created_at DESC, dc.chunk_index ASC
-          LIMIT $1
-      `, [limit]);
+      `);
       console.log('No keywords fallback found', result.rows.length, 'chunks');
       return result.rows;
     }
@@ -8700,7 +8803,7 @@ async function fallbackKeywordSearch(question, limit = 5) {
         `LOWER(dc.content) LIKE $${index + 1}`
     ).join(' OR ');
     
-    // First try exact keyword search with limit
+    // First try exact keyword search without limit
     let result = await docAIPool.query(`
         SELECT 
             dc.content,
@@ -8715,13 +8818,12 @@ async function fallbackKeywordSearch(question, limit = 5) {
         JOIN documents d ON dc.document_id = d.id
         WHERE ${keywordConditions}
         ORDER BY d.created_at DESC, dc.chunk_index ASC
-        LIMIT $${keywords.length + 1}
-    `, [...keywords.map(k => `%${k}%`), limit]);
+    `, [...keywords.map(k => `%${k}%`)]);
     
     console.log('Exact keyword search found', result.rows.length, 'chunks');
     
     // If we don't have enough results, try broader search
-    if (result.rows.length < Math.min(limit / 2, 5)) {
+    if (result.rows.length < 5) {
       console.log('Not enough results, trying broader search...');
       
       // Try searching for partial keywords (first 3 characters)
@@ -8731,7 +8833,6 @@ async function fallbackKeywordSearch(question, limit = 5) {
             `LOWER(dc.content) LIKE $${index + 1}`
         ).join(' OR ');
         
-        const remainingLimit = limit - result.rows.length;
         const partialResult = await docAIPool.query(`
             SELECT 
                 dc.content,
@@ -8746,8 +8847,7 @@ async function fallbackKeywordSearch(question, limit = 5) {
             JOIN documents d ON dc.document_id = d.id
             WHERE ${partialConditions}
             ORDER BY d.created_at DESC, dc.chunk_index ASC
-            LIMIT $${partialKeywords.length + 1}
-        `, [...partialKeywords.map(k => `%${k}%`), remainingLimit]);
+        `, [...partialKeywords.map(k => `%${k}%`)]);
         
         console.log('Partial keyword search found', partialResult.rows.length, 'chunks');
         
@@ -8758,14 +8858,12 @@ async function fallbackKeywordSearch(question, limit = 5) {
       }
     }
     
-    // Apply final limit
-    const finalResults = result.rows.slice(0, limit);
-    console.log('Final results after limit:', finalResults.length, 'chunks');
+    console.log('Final results:', result.rows.length, 'chunks');
     
-    return finalResults;
+    return result.rows;
   } catch (error) {
     console.error('Error in fallbackKeywordSearch:', error);
-    // Final fallback: return diverse recent chunks with limit
+    // Final fallback: return diverse recent chunks without limit
     const result = await docAIPool.query(`
         SELECT 
             dc.content,
@@ -8779,8 +8877,7 @@ async function fallbackKeywordSearch(question, limit = 5) {
         FROM document_chunks dc
         JOIN documents d ON dc.document_id = d.id
         ORDER BY d.created_at DESC, dc.chunk_index ASC
-        LIMIT $1
-    `, [limit]);
+    `);
     console.log('Final fallback found', result.rows.length, 'chunks');
     return result.rows;
   }
