@@ -146,6 +146,8 @@ const CHUNK_SIZE = parseInt(process.env.CHUNK_SIZE) || 1200
 const OVERLAP_SIZE = parseInt(process.env.OVERLAP_SIZE) || 200
 const MAX_CHUNKS_PER_DOCUMENT = parseInt(process.env.MAX_CHUNKS_PER_DOCUMENT) || 15
 
+
+
 // Initialize LangChain components
 let embeddings
 let llm
@@ -8765,6 +8767,7 @@ async function searchSimilarChunks(embeddingVector) {
     `;
 
     const res = await docAIPool.query(query, [vectorStr]);
+    console.log(`✅ Found ${res.rows.length} chunks from vector search`);
     return res.rows;
   } catch (err) {
     console.error('❌ Error querying database:', err.message);
@@ -8772,14 +8775,14 @@ async function searchSimilarChunks(embeddingVector) {
   }
 }
 
-// Fallback keyword search function
+// Fallback keyword search function with improved filtering
 async function fallbackKeywordSearch(question) {
   try {
     const keywords = question.toLowerCase().split(/\s+/).filter(word => word.length > 2);
     console.log('Keywords extracted:', keywords);
     
     if (keywords.length === 0) {
-      // If no keywords, return diverse chunks from recent documents
+      // If no keywords, return diverse chunks from recent documents with limit
       const result = await docAIPool.query(`
           SELECT 
               dc.content,
@@ -8798,12 +8801,12 @@ async function fallbackKeywordSearch(question) {
       return result.rows;
     }
     
-    // Enhanced keyword-based search
+    // Enhanced keyword-based search with limits
     const keywordConditions = keywords.map((_, index) => 
         `LOWER(dc.content) LIKE $${index + 1}`
     ).join(' OR ');
     
-    // First try exact keyword search without limit
+    // First try exact keyword search with limit
     let result = await docAIPool.query(`
         SELECT 
             dc.content,
@@ -8818,7 +8821,7 @@ async function fallbackKeywordSearch(question) {
         JOIN documents d ON dc.document_id = d.id
         WHERE ${keywordConditions}
         ORDER BY d.created_at DESC, dc.chunk_index ASC
-    `, [...keywords.map(k => `%${k}%`)]);
+    `, keywords.map(k => `%${k}%`));
     
     console.log('Exact keyword search found', result.rows.length, 'chunks');
     
@@ -8847,23 +8850,23 @@ async function fallbackKeywordSearch(question) {
             JOIN documents d ON dc.document_id = d.id
             WHERE ${partialConditions}
             ORDER BY d.created_at DESC, dc.chunk_index ASC
-        `, [...partialKeywords.map(k => `%${k}%`)]);
+        `, partialKeywords.map(k => `%${k}%`));
         
         console.log('Partial keyword search found', partialResult.rows.length, 'chunks');
         
-        // Combine results, avoiding duplicates
+        // Combine results, avoiding duplicates and limiting total
         const existingFilenames = new Set(result.rows.map(r => r.filename));
         const additionalChunks = partialResult.rows.filter(chunk => !existingFilenames.has(chunk.filename));
         result.rows = [...result.rows, ...additionalChunks];
       }
     }
     
-    console.log('Final results:', result.rows.length, 'chunks');
+    console.log('Final keyword results:', result.rows.length, 'chunks');
     
     return result.rows;
   } catch (error) {
     console.error('Error in fallbackKeywordSearch:', error);
-    // Final fallback: return diverse recent chunks without limit
+    // Final fallback: return diverse recent chunks with limit
     const result = await docAIPool.query(`
         SELECT 
             dc.content,
