@@ -101,7 +101,7 @@ const setDefaultProviders = () => {
 const setDefaultModels = () => {
   const defaultModels = {
     ollama: [ 'mistral','llama3.2:1b','gemma3n','llama3.2:3b', 'phi'],
-    openai: ['gpt-3.5-turbo', 'gpt-4', 'gpt-4-turbo'],
+    openai: ['gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1-nano','gpt-4.1-preview'],
     xai: ['grok-3-mini-fast', 'grok-3-mini', 'grok-3', 'grok-beta', 'grok-4-0709']
   }
   availableModels.value = (defaultModels[aiConfig.provider as keyof typeof defaultModels] || []).map(model => ({
@@ -183,6 +183,8 @@ const sendQuestion = async () => {
         id: Date.now() + 1,
         type: 'ai',
         content: `Error: ${errorMessage}`,
+        provider: aiConfig.provider,
+        model: aiConfig.model,
         timestamp: new Date()
       })
     }
@@ -193,6 +195,8 @@ const sendQuestion = async () => {
       id: Date.now() + 1,
       type: 'ai',
       content: `Error: ${errorMessage}`,
+      provider: aiConfig.provider,
+      model: aiConfig.model,
       timestamp: new Date()
     })
   } finally {
@@ -544,7 +548,7 @@ onMounted(() => {
 }
 
 .header-title {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--el-text-color-primary);
   letter-spacing: -0.025em;
@@ -579,7 +583,7 @@ onMounted(() => {
 .welcome-message h3 {
   margin: 0 0 20px 0;
   color: var(--el-text-color-primary);
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 700;
   letter-spacing: -0.025em;
   line-height: 1.2;
@@ -587,7 +591,7 @@ onMounted(() => {
 
 .welcome-message p {
   margin: 0 0 40px 0;
-  font-size: 18px;
+  font-size: 16px;
   line-height: 1.7;
   font-weight: 400;
   max-width: 600px;
@@ -630,7 +634,7 @@ onMounted(() => {
   align-items: center;
   gap: 12px;
   margin-bottom: 10px;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--el-text-color-regular);
   font-weight: 500;
 }
@@ -663,7 +667,7 @@ onMounted(() => {
   box-shadow: 0 4px 12px rgba(0,0,0,0.08);
   line-height: 1.7;
   color: var(--el-text-color-primary);
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 400;
   letter-spacing: -0.01em;
   border: 1px solid var(--el-border-color-lighter);
@@ -682,7 +686,7 @@ onMounted(() => {
 
 .sources-toggle {
   color: #3b82f6;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   padding: 6px 12px;
   border-radius: 8px;
@@ -745,14 +749,14 @@ onMounted(() => {
 
 .source-preview {
   color: var(--el-text-color-regular);
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.6;
   margin-bottom: 10px;
   font-weight: 400;
 }
 
 .source-meta {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--el-text-color-secondary);
   font-weight: 400;
 }
@@ -809,7 +813,7 @@ onMounted(() => {
   border-radius: 16px;
   border: 2px solid var(--el-border-color-light);
   padding: 16px 20px;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 400;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   resize: none;
@@ -848,7 +852,7 @@ onMounted(() => {
 }
 
 .input-hint {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--el-text-color-regular);
   font-weight: 400;
   letter-spacing: -0.01em;
@@ -865,7 +869,7 @@ onMounted(() => {
 .config-section h4 {
   margin: 0 0 16px 0;
   color: var(--el-text-color-primary);
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
 }
 
@@ -877,7 +881,7 @@ onMounted(() => {
 }
 
 .config-row label {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--el-text-color-regular);
   font-weight: 500;
 }
@@ -895,12 +899,12 @@ onMounted(() => {
 }
 
 .info-label {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--el-text-color-regular);
 }
 
 .info-value {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--el-text-color-primary);
   font-weight: 500;
 }

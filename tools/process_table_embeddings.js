@@ -39,7 +39,7 @@ const CONFIG = {
   // Tables to process (hardcoded array)
   tablesToProcess: [
      
-    'settlement',
+    'grievance',
      
   ],
   
