@@ -5,6 +5,7 @@ const Users = db.models.users
 const Role = db.role
 const OTP = db.models.otp
 const axios = require('axios');
+const UserRoles = db.models.user_roles
 
 const Sequelize = require('sequelize')
  const op = Sequelize.Op
@@ -1440,25 +1441,120 @@ exports.rolesController = (req, res) => {
 }
 
 
-exports.sendFeedback = (req, res) => {
- 
- console.log('feedback received')
- var obj = req.body
+// Add SMS utility functions at the top of the file after the imports
+function formatPhoneNumber(phoneNumber) {
+  if (!phoneNumber) return null;
+  
+  // Remove all non-digit characters
+  let formattedNumber = phoneNumber.replace(/\D/g, '');
+  
+  // If it starts with 0, replace with 254
+  if (formattedNumber.startsWith('0')) {
+    return '254' + formattedNumber.slice(1);
+  }
+  
+  // If it starts with 254, return as is
+  if (formattedNumber.startsWith('254')) {
+    return formattedNumber;
+  }
+  
+  // If it starts with any other digit, prepend '254'
+  return '254' + formattedNumber;
+}
+
+async function sendNotificationSMS(phone_number, message) {
+  const url = "https://quicksms.advantasms.com/api/services/sendotp/";
+  
+  if (!phone_number || !message) {
+    console.warn("Invalid input: phone_number or message is missing.");
+    return;
+  }
+
+  const requestData = {
+    apikey: "***REDACTED***",
+    partnerID: "12108",
+    shortcode: "KISIP",
+    message: message,
+    mobile: formatPhoneNumber(phone_number),
+  };
+
+  try {
+    const response = await axios.post(url, requestData);
+    console.log(`SMS sent to ${phone_number}:`, response.data);
+    return response.data;
+  } catch (error) {
+    console.error(`Error sending SMS to ${phone_number}:`, error);
+    throw error;
+  }
+}
+
+
+async function getUsersByRoles(roleNames, locationLevel = null, locationId = null) {
+  try {
+    const users = await Users.findAll({
+      include: [
+        {
+          model: UserRoles,
+          where: {
+            roleid: { [Op.in]: [ -99,0,9] }  // Root, suprt Admin, and support
+          }
+        }
+      ],
+      attributes: ['id', 'name', 'phone', 'email', 'username']
+    });
+
+    return users;
+  } catch (error) {
+    console.error('Error fetching users by roles:', error);
+    return [];
+  }
+}
+
+exports.sendFeedback = async (req, res) => {
+  console.log('feedback received')
+  var obj = req.body
   console.log(obj)
- // insert
- db.models.feedback
- .create(obj)
- .then(async function (item) {
-   // Special for projects where we store the project-activty relation 
-      res.status(200).send({
-       message: 'We have received your feedback. We will revert.',
-        code: '0000'
-   })
- })
- .catch(function (err) {
-    console.log(err)
-   return res.status(500).send({ message: 'We are unable to receive your feedback at this moment. Please try again later.' })
- })
+  
+  try {
+    // Insert feedback into database
+    const feedbackItem = await db.models.feedback.create(obj);
+    
+    // Prepare SMS message for offices
+    const smsMessage = `New feedback received from ${obj.name} (${obj.email}): ${obj.message.substring(0, 100)}${obj.message.length > 100 ? '...' : ''}`;
+    
+    // Get users with Support, Admin, and other roles (roleid: 0, 1, 9)
+    const grmUsers = await getUsersByRoles();
+    
+    // Send SMS to each GRM user
+    const smsPromises = grmUsers.map(async (user) => {
+      if (user.phone) {
+        try {
+          console.log(user)
+         // await sendNotificationSMS(user.phone, smsMessage);
+          console.log(`SMS notification sent to ${user.name} (${user.phone})`);
+        } catch (error) {
+          console.error(`Failed to send SMS to ${user.name}:`, error.message);
+        }
+      }
+    });
+    
+    // Wait for all SMS to be sent (but don't fail if some fail)
+    await Promise.allSettled(smsPromises);
+    
+    res.status(200).send({
+      message: 'We have received your feedback. We will revert.',
+      code: '0000',
+      smsSent: true,
+      usersNotified: grmUsers.length
+    });
+    
+  } catch (error) {
+    console.error('Error processing feedback:', error);
+    return res.status(500).send({ 
+      message: 'We are unable to receive your feedback at this moment. Please try again later.',
+      error: error.message
+    });
+  }
 }
 
 exports.getFeedback = (req, res) => {
@@ -1597,6 +1693,81 @@ exports.getUsersByIds = async (req, res) => {
       error: err.message,
       code: '0001'
     });
+  }
+};
+ 
+exports.modelSupportUsers = async (req, res) => {
+  try {
+    console.log('Getting Support Users', req.body);
+    const { currentUser, filters = [], filterValues = [], limit = 10, page = 1 } = req.body;
+
+    const findAndCountOptions = {
+      include: [
+        {
+          model: db.models.user_roles,
+          required: true,
+          where: {
+            roleid: 9 // Support role
+          }
+        },
+        {
+          model: db.models.county,
+          attributes: ['id', 'name', 'code'],
+          required: false
+        }
+      ],
+      where: {},
+      limit,
+      offset: (page - 1) * limit,
+      order: [['id', 'DESC']] // Add this line to sort by ID in descending order
+    };
+
+    // Normalize and cast filter values based on the column type
+    const normalizeAndCastFilter = (filter, value) => {
+      if (typeof value === 'string') {
+        // Cast value for boolean columns
+        if (value === 'true' || value === 'false') {
+          return Sequelize.cast(value === 'true', 'BOOLEAN');
+        }
+        // Cast value for integer columns
+        if (!isNaN(value)) {
+          return Sequelize.cast(value, 'INTEGER');
+        }
+      }
+      return value; // Default case
+    };
+
+    // Add filter conditions if filters and values are provided
+    if (filters.length === filterValues.length) {
+      findAndCountOptions.where[Op.and] = filters.map((filter, index) => ({
+        [filter]: { [Op.eq]: normalizeAndCastFilter(filter, filterValues[index]) }
+      }));
+    }
+
+    console.log('Final Query Options for Support Users:', findAndCountOptions);
+
+    // Query users and include their roles with user_roles details
+    const { count, rows: supportUsers } = await Users.findAndCountAll(findAndCountOptions);
+
+    // Convert photo binary data to base64 URL
+    const usersWithPhotos = supportUsers.map(user => {
+      if (user.photo) {
+        user.photo = 'data:image/png;base64,' + user.photo.toString('base64');
+      } else {
+        user.photo = ''; // Assign empty string if no photo
+      }
+      return user;
+    });
+
+    res.status(200).send({
+      data: usersWithPhotos,
+      total: count,
+      code: '0000',
+      message: 'Support users retrieved successfully',
+    });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).send({ message: 'Unable to retrieve Support users. Please try again later.' });
   }
 };
  

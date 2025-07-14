@@ -109,10 +109,11 @@ const schema = reactive<FormSchema[]>([
 ])
 
 const dialogFeedback = ref()
-const { register, elFormRef, methods, setFieldsValue } = useForm()
+const { register, elFormRef, methods } = useForm()
 
 const loginLoading = ref(false)
 const guestLoading = ref(false)
+const feedbackLoading = ref(false)
 
 const redirect = ref<string>('')
 
@@ -361,39 +362,49 @@ const reset = () => {
 const ruleFormRef = ref<FormInstance>()
 
 const sendFeedback = async (formEl: FormInstance | undefined) => {
-
- 
   feedback.code = uuid.v4()
   if (!formEl) return
-  await formEl.validate(async (valid, fields) => {
-    if (valid) {
-        // The form is valid, you can perform further actions here
-      const res = setUserFeedback(feedback)
-
-      
-      dialogFeedback.value=false
-        
+  
+  feedbackLoading.value = true
+  try {
+    await formEl.validate(async (valid, fields) => {
+      if (valid) {
+        try {
+          await setUserFeedback(feedback)
+          ElMessage.success('Thank you for your feedback! We\'ll get back to you soon.')
+          dialogFeedback.value = false
+          // Reset form
+          feedback.name = ''
+          feedback.email = ''
+          feedback.message = ''
+          feedback.phone = ''
+          feedback.code = ''
+        } catch (error) {
+          console.error('Error sending feedback:', error)
+          ElMessage.error('Failed to send feedback. Please try again later.')
+        }
       } else {
-        // The form is invalid, you can show an error message or perform other actions
-      console.log('Form validation failed.');
-        ElMessage.error('Validation Errors. Please address')
+        console.log('Form validation failed.')
+        ElMessage.error('Please fill in all required fields correctly.')
       }
-    });
-
+    })
+  } finally {
+    feedbackLoading.value = false
+  }
 }
 
-const feedbackRules =  {
-      name: [
-        { required: true, message: 'Please enter your name', trigger: 'blur' }
-      ],
-      email: [
-        { required: true, message: 'Please enter your email', trigger: 'blur' },
-        { type: 'email', message: 'Please enter a valid email address', trigger: ['blur', 'change'] }
-      ],
-      message: [
-        { required: true, message: 'Please enter a message', trigger: 'blur' }
-      ]
-    }
+const feedbackRules = {
+  name: [
+    { required: true, message: 'Please enter your name', trigger: 'blur' }
+  ],
+  email: [
+    { required: true, message: 'Please enter your email', trigger: 'blur' },
+    { type: 'email' as const, message: 'Please enter a valid email address', trigger: ['blur', 'change'] }
+  ],
+  message: [
+    { required: true, message: 'Please enter a message', trigger: 'blur' }
+  ]
+}
  
 
 
@@ -438,22 +449,36 @@ const feedbackRules =  {
       <template #tool>
         <div class="flex justify-between items-center w-[100%]">
           <div>
-            <ElLink @click="dialogFormVisible = true" :underline="false">{{ t('Forgot Password') }}</ElLink>
+            <ElLink @click="dialogFormVisible = true" :underline="false" class="text-sm text-gray-600 hover:text-primary">
+              {{ t('Forgot Password') }}
+            </ElLink>
           </div>
           
-          <el-row>
-            <el-tooltip content="leave us a message" placement="top">
-              <el-button type="secondary" @click="dialogFeedback = true">
-                <Icon icon="fluent:person-feedback-32-regular" />
+          <div class="flex items-center gap-2">
+            <el-tooltip content="Send us feedback or report an issue" placement="top">
+              <el-button 
+                type="info" 
+                size="small"
+                class="feedback-btn"
+                @click="dialogFeedback = true"
+              >
+                <Icon icon="fluent:person-feedback-32-regular" class="mr-1" />
+                Feedback
               </el-button>
             </el-tooltip>
 
-            <el-tooltip content="Our privacy policy" placement="top">
-              <el-button type="secondary" @click="toPrivacy">
-                <Icon icon="material-symbols:privacy-tip-outline" />
+            <el-tooltip content="View our privacy policy and data protection information" placement="top">
+              <el-button 
+                type="info" 
+                size="small"
+                class="privacy-btn"
+                @click="toPrivacy"
+              >
+                <Icon icon="material-symbols:privacy-tip-outline" class="mr-1" />
+                Privacy
               </el-button>
             </el-tooltip>
-          </el-row>
+          </div>
         </div>
       </template>
     </Form>
@@ -481,39 +506,43 @@ const feedbackRules =  {
   </el-dialog>
 
   <el-dialog
-    title="Send us a message"
+    title="Send Feedback"
     v-model="dialogFeedback"
-    width="25%"
+    width="400px"
     :center="true"
+    class="feedback-dialog"
   >
-    <el-form :model="feedback" :rules="feedbackRules" ref="ruleFormRef"> 
-      <el-row>
-        <el-col :xs="24" :sm="12">
-          <el-form-item label="Name" prop="name">
-            <el-input v-model="feedback.name"/>
-          </el-form-item>
-        </el-col>
-      </el-row>
-      <el-row>
-        <el-col :xs="24" :sm="12">
-          <el-form-item label="Email" prop="email">
-            <el-input v-model="feedback.email"/>
-          </el-form-item>
-        </el-col>
-      </el-row>
-      
-      <el-row>
-        <el-col :xs="24" :sm="12">
-          <el-form-item label="Message" prop="message">
-            <el-input v-model="feedback.message" type="textarea"/>
-          </el-form-item>
-        </el-col>
-      </el-row>
-    </el-form>
-    <div style="text-align: center">
-      <el-button @click="dialogFeedback = false">Cancel</el-button>
-      <el-button type="primary" @click="sendFeedback(ruleFormRef)">Submit</el-button>
+    <div class="mb-4 text-sm text-gray-600">
+      We'd love to hear from you! Send us your feedback, suggestions, or report any issues you've encountered.
     </div>
+    
+    <el-form :model="feedback" :rules="feedbackRules" ref="ruleFormRef" label-position="top"> 
+      <el-form-item label="Your Name" prop="name">
+        <el-input v-model="feedback.name" placeholder="Enter your full name"/>
+      </el-form-item>
+      
+      <el-form-item label="Email Address" prop="email">
+        <el-input v-model="feedback.email" placeholder="Enter your email address"/>
+      </el-form-item>
+      
+      <el-form-item label="Message" prop="message">
+        <el-input 
+          v-model="feedback.message" 
+          type="textarea" 
+          :rows="4"
+          placeholder="Tell us about your experience, suggestions, or any issues you've encountered..."
+        />
+      </el-form-item>
+    </el-form>
+    
+    <template #footer>
+      <div class="dialog-footer">
+        <el-button @click="dialogFeedback = false">Cancel</el-button>
+        <el-button type="primary" @click="sendFeedback(ruleFormRef)" :loading="feedbackLoading">
+          Send Feedback
+        </el-button>
+      </div>
+    </template>
   </el-dialog>
 </template>
 
@@ -540,5 +569,42 @@ const feedbackRules =  {
 
 .dialog-footer button:first-child {
   margin-right: 10px;
+}
+
+.feedback-btn,
+.privacy-btn {
+  transition: all 0.3s ease;
+  border-radius: 6px;
+  font-size: 12px;
+  padding: 6px 12px;
+}
+
+.feedback-btn:hover,
+.privacy-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.feedback-dialog .el-dialog__body {
+  padding: 20px 24px;
+}
+
+.feedback-dialog .el-form-item {
+  margin-bottom: 16px;
+}
+
+.feedback-dialog .el-form-item__label {
+  font-weight: 500;
+  color: #333;
+}
+
+.feedback-dialog .el-input__inner,
+.feedback-dialog .el-textarea__inner {
+  border-radius: 6px;
+}
+
+.feedback-dialog .el-textarea__inner {
+  resize: vertical;
+  min-height: 80px;
 }
 </style>

@@ -178,6 +178,56 @@ module.exports = function(app) {
 
   /**
    * @swagger
+   * /api/v1/user/support:
+   *   post:
+   *     tags: [Users]
+   *     summary: Get support users
+   *     description: Retrieve users with support roles (roleid: 9).
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               currentUser:
+   *                 type: object
+   *               filters:
+   *                 type: array
+   *                 items: { type: string }
+   *               filterValues:
+   *                 type: array
+   *                 items: { type: string }
+   *               limit:
+   *                 type: integer
+   *               page:
+   *                 type: integer
+   *     responses:
+   *       200:
+   *         description: Support users retrieved successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 data:
+   *                   type: array
+   *                   items: { type: object }
+   *                 total:
+   *                   type: integer
+   *                 code:
+   *                   type: string
+   *                   example: "0000"
+   *                 message:
+   *                   type: string
+   *                   example: "Support users retrieved successfully"
+   */
+  app.post("/api/v1/user/support", [authJwt.verifyToken, hasPermission('user:read')], controller.modelSupportUsers);
+
+  /**
+   * @swagger
    * /api/v1/user/grm/location:
    *   post:
    *     tags: [Users]

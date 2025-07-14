@@ -1542,7 +1542,20 @@ export const adminRoutes: AppRouteRecordRaw[] = [
 
         }
       },
-    
+      
+      {
+        path: 'support',
+       // component: 'views/Users/User',
+        component: () => import('@/views/Users/SupportUsers.vue'),
+        name: 'Support_Staff',
+        meta: {
+          title: 'Support',
+          hidden: false,
+          icon: 'mdi:account-cog',
+           role: ['root_admin','admin', 'super_admin'   ] 
+
+        }
+      },
 
       {
         path: 'new',
