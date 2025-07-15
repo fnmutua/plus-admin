@@ -536,9 +536,7 @@ const editIndicator = async (data: TableSlotDefault) => {
   } else if (data.row.category == 'Indicator') {
     // Load indicator categories for Indicator cards
     await getIndicatorCategories()
-    console.log('Indicator category ID:', data)
     ruleForm.indicator_category_id = data.row.indicator_category_id
-    
   }
 
   showEditSaveButton.value = true
@@ -550,7 +548,7 @@ const editIndicator = async (data: TableSlotDefault) => {
   ruleForm.iconColor = data.row.iconColor
   ruleForm.icon = data.row.icon
   ruleForm.aggregation = data.row.aggregation
-  ruleForm.indicator_id = data.row.indicator_id
+  ruleForm.indicator_category_id = data.row.indicator_category_id
   ruleForm.card_model_field = data.row.card_model_field
   ruleForm.filter_value = data.row.filter_value
   ruleForm.computation = data.row.computation
@@ -609,7 +607,7 @@ const ruleForm = reactive({
   iconColor: '',
   icon: '',
   aggregation: '',
-  indicator_id: null,
+  indicator_category_id: null,
   card_model_field: '',
   filter_value: null,
   filter_function: null,
@@ -638,8 +636,7 @@ const handleClose = () => {
   ruleForm.iconColor = ''
   ruleForm.icon = ''
   ruleForm.aggregation = ''
-  ruleForm.indicator_id = null
-  ruleForm.card_model_field = ''
+   ruleForm.card_model_field = ''
   ruleForm.filter_value = null
   ruleForm.computation = null
   ruleForm.filter_function = null
@@ -699,10 +696,7 @@ const rules = reactive<FormRules>({
   description: [
     { required: true, message: 'description is required.', trigger: 'blur' },
   ],
-  indicator_id: [
-    { required: true, message: 'Indicator is required.', trigger: 'blur' },
-  ],
-
+  
   computation: [
     { required: true, message: 'computation is required.', trigger: 'blur' },
   ],
@@ -766,7 +760,20 @@ const submitForm = async (formEl: FormInstance | undefined) => {
     if (valid) {
       ruleForm.model = model
       ruleForm.code = uuid.v4()
-      const res = CreateRecord(ruleForm)
+      
+      // Fix: Ensure indicator_category_id is null for Status cards
+      if (ruleForm.category === 'Status') {
+        ruleForm.indicator_category_id = null
+      }
+      
+      const res = CreateRecord(ruleForm).then(() => {
+        // Close drawer after successful submission
+        AddDialogVisible.value = false
+        // Clear the form
+        handleClose()
+        // Refresh the data
+        getFilteredData(filters, filterValues)
+      })
 
     } else {
       console.log('error submit!', fields)
@@ -780,11 +787,20 @@ const editForm = async (formEl: FormInstance | undefined) => {
   await formEl.validate((valid, fields) => {
     if (valid) {
       ruleForm.model = model
+      
+      // Fix: Ensure indicator_category_id is null for Status cards
+      if (ruleForm.category === 'Status') {
+        ruleForm.indicator_category_id = null
+      }
 
-      updateOneRecord(ruleForm).then(() => { })
-
-      // dialogFormVisible.value = false
-
+      updateOneRecord(ruleForm).then(() => {
+        // Close drawer after successful update
+        AddDialogVisible.value = false
+        // Clear the form
+        handleClose()
+        // Refresh the data
+        getFilteredData(filters, filterValues)
+      })
 
     } else {
       console.log('error submit!', fields)
@@ -834,9 +850,11 @@ const handleCategorySelection = async (category) => {
     await getIndicatorCategories()
     ruleForm.card_model = 'indicator_category_report'
     ruleForm.card_model_field = 'amount'
-  } else {
-    // For Status cards, keep the current logic
-    console.log('Status card selected')
+  } else if (category === 'Status') {
+    // For Status cards, we need to wait for user to select an entity first
+    console.log('Status card selected - waiting for entity selection')
+    // Clear fieldSet for Status cards - it will be populated when entity is selected
+    fieldSet.value = []
   }
 }
 
@@ -853,7 +871,8 @@ const handleSelectModel = async (selModel) => {
   ruleForm.computation = null
   ruleForm.filters = null
   fieldSet.value = []
-  ruleForm.category = ''
+  // Don't reset category - this was causing the Status selection to be cleared
+  // ruleForm.category = ''
 
 
   console.log('specs.....')
@@ -972,6 +991,7 @@ const CloneCard = async (data: TableSlotDefault) => {
 
   // Set category first
   ruleForm.category = data.row.category
+  ruleForm.indicator_category_id = data.row.indicator_category_id
 
   if (data.row.category === 'Status') {
     ruleForm.card_model = data.row.card_model
@@ -991,7 +1011,6 @@ const CloneCard = async (data: TableSlotDefault) => {
   ruleForm.iconColor = data.row.iconColor
   ruleForm.icon = data.row.icon
   ruleForm.aggregation = data.row.aggregation
-  ruleForm.indicator_id = data.row.indicator_id
   ruleForm.card_model_field = data.row.card_model_field
   ruleForm.filter_value = data.row.filter_value
   ruleForm.computation = data.row.computation
@@ -1448,9 +1467,13 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
               <el-option v-for="item in DashboardOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
           </el-form-item>
+        </el-col>
+        <el-col :span="24">
           <el-form-item id="btn2" label="Title" prop="title">
             <el-input v-model="ruleForm.title" />
           </el-form-item>
+        </el-col>
+        <el-col :span="24">
           <el-form-item id="btn3" label="Description" prop="description">
             <el-input v-model="ruleForm.description" />
           </el-form-item>
@@ -1459,8 +1482,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
 
 
       <el-row v-if="activeStep === 1" :gutter="20">
-        <el-col :span="18">
-
+        <el-col :span="24">
           <el-form-item id="btn4" label="Icon" prop="icon">
             <el-tooltip content="Get icons from https://icon-sets.iconify.design/" placement="top">
               <el-input v-model="ruleForm.icon" />
@@ -1468,33 +1490,46 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
           </el-form-item>
         </el-col>
 
-        <el-col :span="6">
+        <el-col :span="24">
           <el-form-item id="btn5" label="Icon Color" prop="iconColor">
             <el-color-picker v-model="ruleForm.iconColor" />
           </el-form-item>
-
         </el-col>
       </el-row>
 
-      <el-row v-if="activeStep === 2" :gutter="20">
-        <el-col :span="12">
-
+            <el-row v-if="activeStep === 2" :gutter="20">
+        <el-col :span="24">
           <el-form-item id="btn6" label="Category" prop="category">
             <el-select v-model="ruleForm.category" filterable placeholder="Select" :onChange="handleCategorySelection">
               <el-option v-for="item in categoryOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
           </el-form-item>
-          
-          <!-- Show different fields based on category -->
-          <el-form-item v-if="ruleForm.category === 'Status'" id="btn7" label="Aggregation Field" prop="card_model_field">
+        </el-col>
+        
+        <!-- Show Entity selection only for Status cards -->
+        <el-col :span="24" v-if="ruleForm.category === 'Status'">
+          <el-form-item id="btn8" label="Entity" prop="card_model">
+            <el-select
+v-model="ruleForm.card_model" :onClear="handleClear" clearable filterable collapse-tags
+              :onChange="handleSelectModel" placeholder="Select Entity to summarize">
+              <el-option v-for="item in ModelOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+          </el-form-item>
+        </el-col>
+        
+        <!-- Show different fields based on category -->
+        <el-col :span="24" v-if="ruleForm.category === 'Status'">
+          <el-form-item id="btn7" label="Aggregation Field" prop="card_model_field">
             <el-select
 v-model="ruleForm.card_model_field" :onClear="handleClear" clearable filterable collapse-tags
               placeholder="Field to summarize">
               <el-option v-for="item in fieldSet" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
           </el-form-item>
-          
-          <el-form-item v-if="ruleForm.category === 'Indicator'" id="btn7_indicator" label="Select Indicator" prop="indicator_category_id">
+        </el-col>
+        
+        <el-col :span="24" v-if="ruleForm.category === 'Indicator'">
+          <el-form-item id="btn7_indicator" label="Select Indicator" prop="indicator_category_id">
             <el-select
 v-model="ruleForm.indicator_category_id" :onClear="handleClear" clearable filterable collapse-tags
               placeholder="Select Indicator Category">
@@ -1503,19 +1538,10 @@ v-model="ruleForm.indicator_category_id" :onClear="handleClear" clearable filter
           </el-form-item>
         </el-col>
 
-        <el-col :span="12">
-          <!-- Show Entity selection only for Status cards -->
-          <el-form-item v-if="ruleForm.category === 'Status'" id="btn8" label="Entity" prop="card_model">
-            <el-select
-v-model="ruleForm.card_model" :onClear="handleClear" clearable filterable collapse-tags
-              :onChange="handleSelectModel" placeholder="Select Entity to summarize">
-              <el-option v-for="item in ModelOptions" :key="item.value" :label="item.label" :value="item.value" />
-            </el-select>
-          </el-form-item>
-
+        <el-col :span="24">
           <el-form-item id="btn9" label="Aggregation" prop="aggregation">
             <el-select
-size="default" v-model="ruleForm.aggregation" :onClear="handleClear" style="width: 90%" clearable
+size="default" v-model="ruleForm.aggregation" :onClear="handleClear" style="width: 100%" clearable
               filterable collapse-tags placeholder="Select">
               <el-option
 v-for="item in aggregationOptionsFiltered" :key="item.value" :label="item.label"
@@ -1534,15 +1560,19 @@ size="default" v-model="ruleForm.computation" :onClear="handleClear" clearable f
               <el-option label="Proportion(%)" value="proportion" />
               <el-option label="Absolute" value="absolute" /> </el-select>
           </el-form-item>
-          <el-form-item id="btn11" label="Filter" prop="filtered" v-if="ruleForm.card_model" class="mt-4">
+        </el-col>
+        <el-col :span="24" v-if="ruleForm.card_model">
+          <el-form-item id="btn11" label="Filter" prop="filtered" class="mt-4">
             <el-switch
 v-model="ruleForm.filtered" style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949"
               active-text="Yes" inactive-text="No" />
           </el-form-item>
-
+        </el-col>
+        
+        <el-col :span="24" v-if="ruleForm.filtered">
           <div>
             <el-table
-v-if="ruleForm.filtered" :data="tableData" style="width: 90%; margin-left: 10px;" max-height="250"
+:data="tableData" style="width: 100%;" max-height="250"
               size="small">
               <el-table-column prop="field" label="Field">
                 <template #default="scope">
@@ -1582,14 +1612,16 @@ size="small" v-model="scope.row.value" placeholder="Select Value" multiple
                 </template>
               </el-table-column>
             </el-table>
-
           </div>
+        </el-col>
+        
+        <el-col :span="24" v-if="ruleForm.filtered">
           <el-row>
             <el-button-group>
-              <el-button v-if="ruleForm.filtered" class="mt-4" style="width: 45%" @click="onAddItem" size="small">
+              <el-button class="mt-4" style="width: 45%" @click="onAddItem" size="small">
                 Add Filter
               </el-button>
-              <el-button v-if="ruleForm.filtered" class="mt-4" style="width: 45%" @click="onAddFilter" size="small">
+              <el-button class="mt-4" style="width: 45%" @click="onAddFilter" size="small">
                 Save Filters
               </el-button>
             </el-button-group>

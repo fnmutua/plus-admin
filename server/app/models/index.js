@@ -1445,13 +1445,13 @@ db.models.dashboard.hasMany(db.models.dashboard_card, {
 
 
 // Dashbaord - Cardss
-db.models.dashboard_card.belongsTo(db.models.indicator, {
-  foreignKey: 'indicator_id',
+db.models.dashboard_card.belongsTo(db.models.indicator_category, {
+  foreignKey: 'indicator_category_id',
  
 })
 
-db.models.indicator.hasMany(db.models.dashboard_card, {
-  foreignKey: 'indicator_id',
+db.models.indicator_category.hasMany(db.models.dashboard_card, {
+  foreignKey: 'indicator_category_id',
  
 })
 

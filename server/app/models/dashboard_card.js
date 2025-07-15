@@ -44,6 +44,11 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true
     },
 
+    indicator_category_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+
     filter_value: {
       type: DataTypes.ARRAY(DataTypes.STRING),
       allowNull: true

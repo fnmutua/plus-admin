@@ -212,16 +212,15 @@ const getSummaryIfIntervention = async (scards) => {
 
 console.log('scards',scards)
 
-let indicator= scards.indicator_id
+// Now using indicator_category_id directly from the card
+let indicator_category_id = scards.indicator_category_id
 
-var ids = await getIndicatorConfigurations(indicator)
-
-console.log('Found Indicator_category_ids', ids, indicator)
+console.log('Using indicator_category_id directly:', indicator_category_id)
 
 // set admin level filtering
 let associated_Models = []
 let filterFields = ['indicator_category_id'] 
-let filterValues = [ids] 
+let filterValues = [indicator_category_id] 
 let filterOperators = ['eq']
 
 
@@ -281,14 +280,14 @@ formData.filterField =filterFields
 formData.filterValue =filterValues 
 formData.filterOperator = filterOperators
 // Add indicator_category_id to request body for automatic filtering
-formData.indicator_category_id = ids
+formData.indicator_category_id = indicator_category_id
 
 console.log('Filter FormData : ', formData)
 
 try {
   const response01 = await getSummarybyFieldFromMultipleIncludes(formData);
   console.log("Cards sumamrye", response01.Total[0].sum)
-  console.log('ids', ids)
+  console.log('indicator_category_id', indicator_category_id)
 
  // const response = await getSumFilter(sumQuery);
   const amount = response01.Total[0].sum ? parseInt(response01.Total[0].sum) : 0
@@ -304,22 +303,94 @@ try {
 };
 
 const getSummary = async (card) => {
+  // Check if this is an indicator card or entity card
+  if (card.category === 'Indicator') {
+    return await getSummaryForIndicator(card)
+  } else {
+    return await getSummaryForEntity(card)
+  }
+}
 
- 
-    var selectModel = card.card_model
-    var cmodelField = card.card_model_field
-    var aggregMethod = card.aggregation
-    var filter_value = card.filter_value
-    var filter_field = card.filter_field
-    var computation = card.computation
-    var filter_function = card.filter_function
-    var unique = card.unique?card.unique:false 
-    var filters = card.filters
+const getSummaryForIndicator = async (card) => {
+  console.log('Processing Indicator card:', card)
+  
+  // Now using indicator_category_id directly from the card
+  let indicator_category_id = card.indicator_category_id
+  
+  console.log('Using indicator_category_id directly:', indicator_category_id)
+  
+  // set admin level filtering
+  let associated_Models = []
+  let filterFields = ['indicator_category_id'] 
+  let filterValues = [indicator_category_id] 
+  let filterOperators = ['eq']
+  
+  var filter_value = card.filter_value
+  var filter_field = card.filter_field
+  var filter_function = card.filter_function
+  
+  if (filter_value && filter_field ) { 
+    filterFields.push(filter_field)
+    filterValues.push(filter_value)
+    filterOperators.push(filter_function)
+  }
+  
+  if (filterLevel.value === 'county') {
+    associated_Models.push('subcounty')
+    filterFields.push('county_id')
+    filterValues.push(selectedCounties.value)
+    filterOperators.push('or')
+  }
+  else if (filterLevel.value === 'subcounty') { 
+    // filter by subcounty 
+    associated_Models.push('ward')
+    filterFields.push('subcounty_id')
+    filterValues.push(selectedSubCounties.value)
+    filterOperators.push('or')
+  }
+  else if (filterLevel.value === 'national') {
+    associated_Models.push('county')
+  }
+  
+  const formData = {}
+  formData.model = 'indicator_category_report'
+  formData.summaryField = 'amount'
+  formData.summaryFunction = 'sum'
+  formData.assoc_models = associated_Models
+  formData.groupFields = []
+  formData.filterField = filterFields
+  formData.filterValue = filterValues 
+  formData.filterOperator = filterOperators
+  // Add indicator_category_id to request body for automatic filtering
+  formData.indicator_category_id = indicator_category_id
+  
+  console.log('Indicator Filter FormData : ', formData)
+  
+  try {
+    const response01 = await getSummarybyFieldFromMultipleIncludes(formData);
+    console.log("Indicator Cards summary", response01.Total[0].sum)
+    const amount = response01.Total[0].sum ? parseInt(response01.Total[0].sum) : 0
+    return amount;
+  } catch (error) {
+    console.error(error);
+    return 0;
+  }
+}
+
+const getSummaryForEntity = async (card) => {
+  console.log('Processing Entity card:', card)
+  
+  var selectModel = card.card_model
+  var cmodelField = card.card_model_field
+  var aggregMethod = card.aggregation
+  var filter_value = card.filter_value
+  var filter_field = card.filter_field
+  var computation = card.computation
+  var filter_function = card.filter_function
+  var unique = card.unique?card.unique:false 
+  var filters = card.filters
 
   console.log('unique',unique)
- 
-  //var ids = await getIndicatorConfigurations(indicator)
-
   console.log('thisCard',card)
 
   // set admin level filtering
@@ -328,105 +399,58 @@ const getSummary = async (card) => {
   let filterValues = []
   let filterOperators =[]
 
-  // if (filter_value) { 
-  //   filterFields.push(filter_field)
-  //   filterValues = [filter_value]
-  //   filterOperators.push(filter_function)
-  // }
-
   if(filters) {
-
-      for (const item of filters ) {
-        if(item.field) {
-          filterFields.push(item.field);
+    for (const item of filters ) {
+      if(item.field) {
+        filterFields.push(item.field);
         filterValues.push(item.value);
         filterOperators.push(item.operation);
-        }
-
       }
-      }
-
-
+    }
+  }
 
   if (filterLevel.value === 'county') {
     associated_Models.push('subcounty')
-    //filterValues.push(selectedCounties.value)
-
-    // for (let i = 0; i < selectedCounties.value.length; i++) { 
-    //   filterFields.push('county_id')
-    //   filterOperators.push(['eq'])
-    // }
-
-       
     filterFields.push('county_id')
-     filterValues.push(selectedCounties.value)
+    filterValues.push(selectedCounties.value)
     filterOperators.push('or')
   }
-
   else if (filterLevel.value === 'subcounty') { 
     // filter by subcounty 
     associated_Models.push('ward')
-    //filterFields.push('subcounty_id')
-    //filterValues.push(selectedSubCounties.value)
-    // for (let i = 0; i < selectedSubCounties.value.length; i++) {
-    //   filterFields.push('subcounty_id')
-    //   filterOperator.push(['eq'])
-    // }
-
-     
     filterFields.push('subcounty_id')
-     filterValues.push(selectedSubCounties.value)
+    filterValues.push(selectedSubCounties.value)
     filterOperators.push('or')
-
   }
-   
-
-
   else if (filterLevel.value === 'national') {
     associated_Models.push('county')
-
-
   }
-
-
-
 
   const formData = {}
   formData.model = selectModel
   formData.summaryField = selectModel + '.' + cmodelField  // concatenating to avoid abiguity
-  //formData.summaryField =  cmodelField  // concatenating to avoid abiguity
   formData.summaryFunction = aggregMethod
-  //formData.assoc_models = ['county']
   formData.assoc_models = associated_Models
   formData.groupFields = []
-  // formData.filterField =['indicator_category_id']
-  // formData.filterValue = [ids]    
   formData.filterField = filterFields
   formData.filterValue = filterValues
   formData.calculationType = computation
   formData.filter_function = filter_function
   formData.filterOperator = filterOperators
-  formData.uniqueCounts =unique
+  formData.uniqueCounts = unique
 
-  console.log('form-c-Data',formData)
+  console.log('Entity form-c-Data',formData)
 
   try {
     const response01 = await getSummarybyFieldFromMultipleIncludes(formData);
-    console.log("Cards sumamrye", response01)
-    // console.log('ids', ids)
-
-    // const response = await getSumFilter(sumQuery);
+    console.log("Entity Cards summary", response01)
     const amount = response01.Total[0][aggregMethod] ? parseInt(response01.Total[0][aggregMethod]) : 0
-    //console.log('Cumulative Data', response.data)
-
     return amount;
   } catch (error) {
-    // Handle any errors that occur during the asynchronous operation
     console.error(error);
-    //return null; // or any default value you prefer
-    return 0; // or any default value you prefer
+    return 0;
   }
-};
+}
 
 
 function xtransformData(data, chartType, aggregationMethod, cfield) {
@@ -795,6 +819,32 @@ function convertStringsToNumbers(stringArray) {
         return stringArray.map(Number);
       }
 
+
+const getSummaryChart = async (thisChart) => {
+  // Check if this is an indicator chart or entity chart
+  if (thisChart.category === 'Indicator') {
+    return await getSummaryChartForIndicator(thisChart)
+  } else {
+    return await getSummaryChartForEntity(thisChart)
+  }
+}
+
+const getSummaryChartForIndicator = async (thisChart) => {
+  console.log('Processing Indicator chart:', thisChart)
+  
+  // For charts, we still use indicator_id to get indicator category IDs
+  let indicator = thisChart.indicator_id
+  var indicator_categories = await getIndicatorConfigurations(indicator)
+  
+  return await getSummaryChartIIntervention(indicator_categories, thisChart)
+}
+
+const getSummaryChartForEntity = async (thisChart) => {
+  console.log('Processing Entity chart:', thisChart)
+  
+  // Use the existing xgetSummaryMultipleParentsGrouped function for entities
+  return await xgetSummaryMultipleParentsGrouped(thisChart)
+}
 
 const getSummaryChartIIntervention = async (indicator_categories,thisChart) => {
   
@@ -1966,11 +2016,8 @@ const getCharts = async (section_id) => {
           console.log('This processPieChart:', indicator)
 
           try {
-            //  console.log("bar", getIndicatorConfigurations(indicator.id)) 
-            //  get the indicator configruation IDS for the indicators in this chart. These could be 1 or more 
-            var ids = await getIndicatorConfigurations(indicator.id)
-            // console.log("pie", ids) 
-            var cdata = await getSummaryChartIIntervention(ids, thisChart)   // first array is the categories // second is the data
+            // Use the unified chart function that handles both indicator and entity charts
+            var cdata = await getSummaryChart(thisChart)   // first array is the categories // second is the data
             console.log('PIEx', cdata[1])
 
             const UpdatedPieOptionsMultiple = {
