@@ -248,17 +248,19 @@ console.log('Found Indicator_cateory_ids', ids, indicator)
   
 
   const formData = {}
-  formData.model = 'indicator_category_report'
-  formData.summaryField = 'amount'
-  formData.summaryFunction = 'sum'
-  //formData.assoc_models = ['county']
-  formData.assoc_models = associated_Models
-  formData.groupFields = []
-  // formData.filterField =['indicator_category_id']
-  // formData.filterValue = [ids]    
-  formData.filterField =filterFields
-  formData.filterValue =filterValues 
-  formData.filterOperator = filterOperators
+formData.model = 'indicator_category_report'
+formData.summaryField = 'amount'
+formData.summaryFunction = 'sum'
+//formData.assoc_models = ['county']
+formData.assoc_models = associated_Models
+formData.groupFields = []
+// formData.filterField =['indicator_category_id']
+// formData.filterValue = [ids]    
+formData.filterField =filterFields
+formData.filterValue =filterValues 
+formData.filterOperator = filterOperators
+// Add indicator_category_id to request body for automatic filtering
+formData.indicator_category_id = ids
 
   console.log('Filter FormData : ', formData)
 
@@ -445,20 +447,23 @@ const getSummaryMultipleParentsGrouped = async (indicator_categories,thisChart) 
 
 
   const formData = {}
-  formData.model = cmodel
-  formData.summaryField = cmodel + '.' + cfield  // Remove ambiguous fields 
-  formData.summaryFunction = cAggregation
-  formData.assoc_models = associated_Models // ['county', 'indicator_category'] 
-  formData.groupFields = groupFields //['county.name','indicator_category.category_title']
-  // formData.filterField = ['indicator_category_id']
-  // formData.filterValue = [indicator_categories]  // Bitumen
-  formData.filterField = filterFields
-  formData.filterOperator = filterOperators // Bitumen
-  formData.filterValue = filterValues
+formData.model = cmodel
+formData.summaryField = cmodel + '.' + cfield  // Remove ambiguous fields 
+formData.summaryFunction = cAggregation
+formData.assoc_models = associated_Models // ['county', 'indicator_category'] 
+formData.groupFields = groupFields //['county.name','indicator_category.category_title']
+// formData.filterField = ['indicator_category_id']
+// formData.filterValue = [indicator_categories]  // Bitumen
+formData.filterField = filterFields
+formData.filterOperator = filterOperators // Bitumen
+formData.filterValue = filterValues
 
-  // added for unique couts 
-  formData.uniqueCounts = unique
-  formData.ignoreEmpty = ignoreEmpty
+// Add indicator_category_id to request body for automatic filtering
+formData.indicator_category_id = indicator_categories
+
+// added for unique couts 
+formData.uniqueCounts = unique
+formData.ignoreEmpty = ignoreEmpty
 
   console.log('form-Data',formData)
 

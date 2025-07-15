@@ -1089,19 +1089,21 @@ const HighMastsConstructed = ref()
 
 const getRoadsConstructed = async () => {
   const formData = {}
-  formData.model = 'indicator_category_report'
-  formData.summaryField = 'amount'
-  formData.summaryFunction = 'sum'
-  // Asccoiated models 
-  //formData.assoc_models = ['settlement', 'households']
-  //formData.groupFields = ['settlement.name', 'settlement.household.gender']
+formData.model = 'indicator_category_report'
+formData.summaryField = 'amount'
+formData.summaryFunction = 'sum'
+// Asccoiated models 
+//formData.assoc_models = ['settlement', 'households']
+//formData.groupFields = ['settlement.name', 'settlement.household.gender']
 
-  formData.assoc_models = ['county']
-  formData.groupFields = ['county.name']
-  formData.filterField = 'indicator_category_id'
-  formData.filterValue = [2]  // Bitumen 
-  let RdDataTarmac = []
-  formData.cache_key = 'getRoadsConstructed'
+formData.assoc_models = ['county']
+formData.groupFields = ['county.name']
+formData.filterField = 'indicator_category_id'
+formData.filterValue = [2]  // Bitumen 
+// Add indicator_category_id to request body for automatic filtering
+formData.indicator_category_id = 2
+let RdDataTarmac = []
+formData.cache_key = 'getRoadsConstructed'
 
 
   /// Gravel Roads
@@ -1125,8 +1127,10 @@ const getRoadsConstructed = async () => {
 
 
   /// Gravel Roads
-  formData.filterValue = [7] // 7 - Gravel 
-  formData.cache_key = 'getRoadsConstructedGravel'
+formData.filterValue = [7] // 7 - Gravel 
+// Add indicator_category_id to request body for automatic filtering
+formData.indicator_category_id = 7
+formData.cache_key = 'getRoadsConstructedGravel'
 
   const RdDataGravel = []
   await getSummarybyFieldFromMultipleIncludes(formData)

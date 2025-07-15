@@ -855,26 +855,59 @@ if (req.body.filterField && req.body.filterValue &&req.body.filterOperator && re
   // }
   console.log("The array contains the string.",qry);
 
-db.models[reg_model].findAll(qry).then(async (list) => {
+  try {
+    // Check if the model exists
+    if (!reg_model || !db.models[reg_model]) {
+      console.error('Model not found:', reg_model);
+      return res.status(400).send({
+        error: 'Model not found',
+        message: `Model '${reg_model}' does not exist`,
+        code: '4001'
+      });
+    }
 
-  let totalValue;
-  if (calculationType === 'proportion') {
-    const totalCount = await db.models[reg_model].count();
-    totalValue = list.map((item) => ({
-      ...item,
-      [summaryFunction]: item[summaryFunction] / totalCount * 100,
-    }));
-  } else {
-    totalValue = list;
+    db.models[reg_model].findAll(qry).then(async (list) => {
+      try {
+        let totalValue;
+        if (calculationType === 'proportion') {
+          const totalCount = await db.models[reg_model].count();
+          totalValue = list.map((item) => ({
+            ...item,
+            [summaryFunction]: item[summaryFunction] / totalCount * 100,
+          }));
+        } else {
+          totalValue = list;
+        }
+
+        res.status(200).send({
+          Total: totalValue,
+          fromCache: false,
+          code: '0000'
+        })
+      } catch (innerError) {
+        console.error('Error processing data:', innerError);
+        res.status(500).send({
+          error: 'Data processing error',
+          message: innerError.message,
+          code: '5001'
+        });
+      }
+    }).catch((dbError) => {
+      console.error('Database query error:', dbError);
+      res.status(500).send({
+        error: 'Database query error',
+        message: dbError.message,
+        code: '5002'
+      });
+    });
+  } catch (error) {
+    console.error('Unexpected error in _sumModelAssociatedMultipleModels:', error);
+    res.status(500).send({
+      error: 'Unexpected error',
+      message: error.message,
+      code: '5000'
+    });
   }
-
-
-  res.status(200).send({
-    Total: totalValue,
-    fromCache: false,
-      code: '0000'
-  })
-})
 
 };
 
@@ -1002,6 +1035,15 @@ let groupfields = []
   // Add associated models to the query
   if (assoc_models &&  req.body.assoc_models.length > 0 && Array.isArray(assoc_models) ) {
     assoc_models.forEach(assocModel => {
+      // Check if the associated model exists
+      if (!db.models[assocModel]) {
+        console.error('Associated model not found:', assocModel);
+        return res.status(400).send({
+          error: 'Associated model not found',
+          message: `Associated model '${assocModel}' does not exist`,
+          code: '4002'
+        });
+      }
       qry.include.push({
         model: db.models[assocModel],
         attributes: [],
@@ -1024,6 +1066,15 @@ let groupfields = []
   // Add nested include models to the query
   if (nested_models &&  req.body.nested_models.length > 0  && Array.isArray(nested_models)) {
     nested_models.forEach(nestedModel => {
+      // Check if the nested model exists
+      if (!db.models[nestedModel.model]) {
+        console.error('Nested model not found:', nestedModel.model);
+        return res.status(400).send({
+          error: 'Nested model not found',
+          message: `Nested model '${nestedModel.model}' does not exist`,
+          code: '4003'
+        });
+      }
       qry.include.push({
         model: db.models[nestedModel.model],
         as: nestedModel.alias,
@@ -1079,7 +1130,7 @@ if (req.body.filterField && req.body.filterValue &&req.body.filterOperator && re
 
  
   console.log('-----------------------------y--------------------------------',req.body.filterField)
-  console.log(   'filter values',filterValues )
+  console.log('filter values',filterValues )
   console.log('  filterCols',filterCols )
   console.log('  filterOperators',filterOperators )
 
@@ -1146,37 +1197,99 @@ if (req.body.filterField && req.body.filterValue &&req.body.filterOperator && re
     qry.where = { [op.and]: filterConditions };
   }
 
+  // Special handling for indicator_category_report - automatically filter by indicator_category_id
+  if (reg_model === 'indicator_category_report') {
+    let indicatorCategoryId = null;
+    
+    // Check if indicator_category_id is provided in the request body
+    if (req.body.indicator_category_id) {
+      indicatorCategoryId = req.body.indicator_category_id;
+    }
+    // Also check if it's provided in the card configuration
+    else if (req.body.card_config && req.body.card_config.indicator_category_id) {
+      indicatorCategoryId = req.body.card_config.indicator_category_id;
+    }
+    
+    if (indicatorCategoryId) {
+      console.log('Adding automatic filter for indicator_category_id:', indicatorCategoryId);
+      
+      // Add the indicator_category_id filter to existing conditions
+      if (filterConditions.length > 0) {
+        filterConditions.push({ indicator_category_id: indicatorCategoryId });
+      } else {
+        filterConditions.push({ indicator_category_id: indicatorCategoryId });
+      }
+    }
+    
+    // Update the where clause if we have conditions
+    if (filterConditions.length > 0) {
+      qry.where = { [op.and]: filterConditions };
+    }
+  }
+
   console.log('qry',JSON.stringify(qry) )
   console.log('calculationType',calculationType )
 
 
 
-db.models[reg_model].findAll(qry).then(async (list) => {
-
-  let totalValue;
-  console.log('list',list )
-
-  if (calculationType === 'proportion') {
-
-    console.log("The array contains the string.",qry);
-    console.log("proportion ----------------.",qry);
-
-    const totalCount = await db.models[reg_model].count();
-    totalValue = list.map((item) => ({
-      ...item,
-      [summaryFunction]: item[summaryFunction] / totalCount * 100,
-    }));
-  } else {
-    totalValue = list;
+try {
+  // Check if the model exists
+  if (!reg_model || !db.models[reg_model]) {
+    console.error('Model not found:', reg_model);
+    return res.status(400).send({
+      error: 'Model not found',
+      message: `Model '${reg_model}' does not exist`,
+      code: '4001'
+    });
   }
 
+  db.models[reg_model].findAll(qry).then(async (list) => {
+    try {
+      let totalValue;
+      console.log('list', list)
 
-  res.status(200).send({
-    Total: totalValue,
-    fromCache: false,
-      code: '0000'
-  })
-})
+      if (calculationType === 'proportion') {
+        console.log("The array contains the string.", qry);
+        console.log("proportion ----------------.", qry);
+
+        const totalCount = await db.models[reg_model].count();
+        totalValue = list.map((item) => ({
+          ...item,
+          [summaryFunction]: item[summaryFunction] / totalCount * 100,
+        }));
+      } else {
+        totalValue = list;
+      }
+
+      res.status(200).send({
+        Total: totalValue,
+        fromCache: false,
+        code: '0000'
+      })
+    } catch (innerError) {
+      console.error('Error processing data:', innerError);
+      res.status(500).send({
+        error: 'Data processing error',
+        message: innerError.message,
+        code: '5001'
+      });
+    }
+  }).catch((dbError) => {
+    console.error('Database query error:', dbError);
+    res.status(500).send({
+      error: 'Database query error',
+      message: dbError.message,
+      code: '5002'
+    });
+  });
+} catch (error) {
+  console.error('Unexpected error in sumModelAssociatedMultipleModels:', error);
+  res.status(500).send({
+    error: 'Unexpected error',
+    message: error.message,
+    code: '5000'
+  });
+}
 
 };
 

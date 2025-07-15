@@ -306,21 +306,26 @@ for (const item of filters ) {
 
 
   const formData = {}
-  formData.model = selectModel
-  formData.summaryField = selectModel + '.' + cmodelField  // concatenating to avoid abiguity
-  //formData.summaryField =  cmodelField  // concatenating to avoid abiguity
-  formData.summaryFunction = aggregMethod
-  //formData.assoc_models = ['county']
-  formData.assoc_models = associated_Models
-  formData.groupFields = []
-  // formData.filterField =['indicator_category_id']
-  // formData.filterValue = [ids]    
-  formData.filterField = filterFields
-  formData.filterValue = filterValues
-  formData.calculationType = computation
-  formData.filter_function = filter_function
-  formData.filterOperator = filterOperators
-  formData.uniqueCounts =unique
+formData.model = selectModel
+formData.summaryField = selectModel + '.' + cmodelField  // concatenating to avoid abiguity
+//formData.summaryField =  cmodelField  // concatenating to avoid abiguity
+formData.summaryFunction = aggregMethod
+//formData.assoc_models = ['county']
+formData.assoc_models = associated_Models
+formData.groupFields = []
+// formData.filterField =['indicator_category_id']
+// formData.filterValue = [ids]    
+formData.filterField = filterFields
+formData.filterValue = filterValues
+formData.calculationType = computation
+formData.filter_function = filter_function
+formData.filterOperator = filterOperators
+formData.uniqueCounts =unique
+
+// Add indicator_category_id to request body for automatic filtering if it's an indicator card
+if (selectModel === 'indicator_category_report' && card.indicator_category_id) {
+  formData.indicator_category_id = card.indicator_category_id
+}
 
   console.log('foxrmData',formData)
 
@@ -524,20 +529,25 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
 
 
   const formData = {}
-  formData.model = cmodel
-  formData.summaryField = cmodel + '.' + cfield  // Remove ambiguous fields 
-  formData.summaryFunction = cAggregation
-  formData.assoc_models = associated_Models // ['county', 'indicator_category'] 
-  formData.groupFields = groupFields //['county.name','indicator_category.category_title']
-  // formData.filterField = ['indicator_category_id']
-  // formData.filterValue = [indicator_categories]  // Bitumen
-  formData.filterField = filterFields
-  formData.filterOperator =filterOperators // Bitumen
-  formData.filterValue = filterValues
+formData.model = cmodel
+formData.summaryField = cmodel + '.' + cfield  // Remove ambiguous fields 
+formData.summaryFunction = cAggregation
+formData.assoc_models = associated_Models // ['county', 'indicator_category'] 
+formData.groupFields = groupFields //['county.name','indicator_category.category_title']
+// formData.filterField = ['indicator_category_id']
+// formData.filterValue = [indicator_categories]  // Bitumen
+formData.filterField = filterFields
+formData.filterOperator =filterOperators // Bitumen
+formData.filterValue = filterValues
 
-  // added for unique couts 
-  formData.uniqueCounts = unique
-  formData.ignoreEmpty = ignoreEmpty
+// Add indicator_category_id to request body for automatic filtering if it's an indicator card
+if (cmodel === 'indicator_category_report' && thisChart.indicator_category_id) {
+  formData.indicator_category_id = thisChart.indicator_category_id
+}
+
+// added for unique couts 
+formData.uniqueCounts = unique
+formData.ignoreEmpty = ignoreEmpty
   
 
   console.log('form-2-Data',formData)

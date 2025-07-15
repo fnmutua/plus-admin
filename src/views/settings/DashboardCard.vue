@@ -155,6 +155,35 @@ onMounted(() => {
 
 
 const fieldSet = ref([])
+const indicatorCategoryOptions = ref([])
+
+// Get indicator categories for Indicator cards
+const getIndicatorCategories = async () => {
+  const res = await getCountyListApi({
+    params: {
+      curUser: 1,
+      model: 'indicator_category',
+      searchField: 'name',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received indicator categories:', response)
+    var ret = response.data
+
+    indicatorCategoryOptions.value = []
+    ret.forEach(function (arrayItem: { id: string; indicator_name: string; category: any }) {
+      var opt = {}
+      opt.value = arrayItem.id
+      opt.label = `${arrayItem.indicator_name} | ${arrayItem.category_title}`
+      opt.indicator_name = arrayItem.indicator_name
+      opt.category_title = arrayItem.category_title
+      opt.unit = arrayItem.indicator?.unit || ''
+      indicatorCategoryOptions.value.push(opt)
+    })
+  })
+}
+
 const getModeldefinition = async (selModel) => {
   console.log(selModel)
   var formData = {}
@@ -418,7 +447,7 @@ const getDashboardOptions = async () => {
     params: {
       pageIndex: 1,
       limit: 100,
-      curUser: 1, // Id for logged in user
+      curUser: userInfo?.id || 1, // Use current user ID
       model: 'dashboard',
       searchField: 'title',
       searchKeyword: '',
@@ -431,14 +460,33 @@ const getDashboardOptions = async () => {
 
     loading.value = false
 
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
+    // Filter dashboards to show only user's dashboards and public ones
+    const filteredDashboards = ret.filter(function (dashboard: any) {
+      // Show dashboards that belong to the current user
+      if (dashboard.createdBy === userInfo?.id) {
+        return true
+      }
+      // Show public dashboards (using the 'public' boolean field)
+      if (dashboard.public === true) {
+        return true
+      }
+      return false
+    })
+
+    DashboardOptions.value = []
+    filteredDashboards.forEach(function (arrayItem: { id: string; type: string; title: string; createdBy: number; public: boolean }) {
       var opt = {}
       opt.value = arrayItem.id
       opt.label = arrayItem.title  
       opt.type = arrayItem.type
+      opt.createdBy = arrayItem.createdBy
+      opt.public = arrayItem.public
       //  console.log(countyOpt)
       DashboardOptions.value.push(opt)
     })
+    
+    console.log('Filtered dashboards for user:', userInfo?.id, 'Total available:', DashboardOptions.value.length)
+    console.log('User ID:', userInfo?.id, 'User roles:', userInfo?.roles)
   })
 }
 
@@ -475,19 +523,23 @@ const getStrategicFocusAreas = async () => {
 const editIndicator = async (data: TableSlotDefault) => {
   showSubmitBtn.value = false
   console.log('Edit--->', data)
-  ruleForm.card_model = data.row.card_model
-
-
-
-
-
-  await handleSelectModel(data.row.card_model)
-  if (data.row.filter_field) {
-    await handleFilterAggregators(data.row.filter_field)
+  
+  // Set category first
+  ruleForm.category = data.row.category
+  
+  if (data.row.category === 'Status') {
+    ruleForm.card_model = data.row.card_model
+    await handleSelectModel(data.row.card_model)
+    if (data.row.filter_field) {
+      await handleFilterAggregators(data.row.filter_field)
+    }
+  } else if (data.row.category == 'Indicator') {
+    // Load indicator categories for Indicator cards
+    await getIndicatorCategories()
+    console.log('Indicator category ID:', data)
+    ruleForm.indicator_category_id = data.row.indicator_category_id
+    
   }
-
-
-
 
   showEditSaveButton.value = true
 
@@ -508,39 +560,19 @@ const editIndicator = async (data: TableSlotDefault) => {
   ruleForm.unique = data.row.unique
   ruleForm.filters = data.row.filters
   tableData.value = data.row.filters ?? [];
-  ruleForm.category = data.row.category
-
 
   console.log('Edit Mode', data.row)
-
-
-
 
   if (data.row.filter_value) {
     fieldSelected.value = true
     showFilterValues.value = true
   } else {
     fieldSelected.value = false
-
   }
-
-  //fieldSelected.value && showFilterValues && ruleForm.filtered
 
   showStatusExtras.value = true
 
-
-  //  if (data.row.dashboard.type=='status') {
-  //    showStatusExtras.value = true
-  //    fieldSelected.value=true
-  //  } else {
-  //   showStatusExtras.value=false
-
-  // }
-
-
-
   formHeader.value = 'Edit Card'
-
 
   AddDialogVisible.value = true
 }
@@ -587,7 +619,8 @@ const ruleForm = reactive({
   computation: null,
   unique: false,
   filters: null,
-  category: ''
+  category: '',
+  indicator_category_id: null
 
 
 
@@ -616,6 +649,7 @@ const handleClose = () => {
   ruleForm.unique = false
   ruleForm.filters = null
   ruleForm.category = ''
+  ruleForm.indicator_category_id = null
   formHeader.value = 'Add Card'
   activeStep.value = 0
 }
@@ -658,7 +692,6 @@ const rules = reactive<FormRules>({
     { required: true, message: 'iconColor is required.', trigger: 'blur' },
   ],
 
-
   aggregation: [
     { required: true, message: 'Aggregator method is required.', trigger: 'blur' },
   ],
@@ -672,9 +705,53 @@ const rules = reactive<FormRules>({
 
   computation: [
     { required: true, message: 'computation is required.', trigger: 'blur' },
+  ],
+
+  // Conditional validation based on category
+  card_model_field: [
+    { 
+      required: true, 
+      message: 'Aggregation field is required for Status cards.', 
+      trigger: 'blur',
+      validator: (rule, value, callback) => {
+        if (ruleForm.category === 'Status' && !value) {
+          callback(new Error('Aggregation field is required for Status cards.'))
+        } else {
+          callback()
+        }
+      }
+    }
+  ],
+
+  indicator_category_id: [
+    { 
+      required: true, 
+      message: 'Indicator category is required for Indicator cards.', 
+      trigger: 'blur',
+      validator: (rule, value, callback) => {
+        if (ruleForm.category === 'Indicator' && !value) {
+          callback(new Error('Indicator category is required for Indicator cards.'))
+        } else {
+          callback()
+        }
+      }
+    }
+  ],
+
+  card_model: [
+    { 
+      required: true, 
+      message: 'Entity is required for Status cards.', 
+      trigger: 'blur',
+      validator: (rule, value, callback) => {
+        if (ruleForm.category === 'Status' && !value) {
+          callback(new Error('Entity is required for Status cards.'))
+        } else {
+          callback()
+        }
+      }
+    }
   ]
-
-
 
 })
 
@@ -721,6 +798,7 @@ const editForm = async (formEl: FormInstance | undefined) => {
 //getIndicatorOptions()
 getInterventionsAll()
 getDashboardOptions()
+//getIndicatorCategories() // Only load when Indicator category is selected
 //getStrategicFocusAreas()
 //getIndicatorNames()
 
@@ -737,6 +815,29 @@ const handleSelectType = async (dashboard_id) => {
 
   showStatusExtras.value = true
 
+}
+
+// Handle category selection (Status vs Indicator)
+const handleCategorySelection = async (category) => {
+  console.log('Selected category:', category)
+  
+  // Reset form fields when category changes
+  ruleForm.card_model = ''
+  ruleForm.card_model_field = ''
+  ruleForm.aggregation = ''
+  ruleForm.indicator_category_id = ''
+  fieldSet.value = []
+  
+  if (category === 'Indicator') {
+    // For Indicator cards, load indicator categories
+    console.log('Indicator card selected - loading indicator categories')
+    await getIndicatorCategories()
+    ruleForm.card_model = 'indicator_category_report'
+    ruleForm.card_model_field = 'amount'
+  } else {
+    // For Status cards, keep the current logic
+    console.log('Status card selected')
+  }
 }
 
 const handleSelectModel = async (selModel) => {
@@ -866,20 +967,23 @@ const handleFilterFunction = async (val, index) => {
 
 
 const CloneCard = async (data: TableSlotDefault) => {
-
-
   showSubmitBtn.value = true
   showEditSaveButton.value = false
 
+  // Set category first
+  ruleForm.category = data.row.category
 
-  ruleForm.card_model = data.row.card_model
-
-
-  await handleSelectModel(data.row.card_model)
-  if (data.row.filter_field) {
-    await handleFilterAggregators(data.row.filter_field)
+  if (data.row.category === 'Status') {
+    ruleForm.card_model = data.row.card_model
+    await handleSelectModel(data.row.card_model)
+    if (data.row.filter_field) {
+      await handleFilterAggregators(data.row.filter_field)
+    }
+  } else if (data.row.category === 'Indicator') {
+    // Load indicator categories for Indicator cards
+    await getIndicatorCategories()
+    ruleForm.indicator_category_id = data.row.indicator_category_id
   }
-
 
   ruleForm.title = data.row.title
   ruleForm.dashboard_id = data.row.dashboard_id
@@ -897,24 +1001,16 @@ const CloneCard = async (data: TableSlotDefault) => {
   ruleForm.unique = data.row.unique
   ruleForm.category = data.row.category
 
-
-
   if (data.row.filter_value) {
     fieldSelected.value = true
     showFilterValues.value = true
   } else {
     fieldSelected.value = false
-
   }
-
 
   showStatusExtras.value = true
 
-
-
-
   formHeader.value = 'Clone Card'
-
 
   AddDialogVisible.value = true
 }
@@ -1073,8 +1169,8 @@ const categoryOptions = [
     label: 'Status'
   },
   {
-    value: 'Intervention',
-    label: 'Intervention'
+    value: 'Indicator',
+    label: 'Indicator'
   }
 ]
 
@@ -1384,21 +1480,32 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
         <el-col :span="12">
 
           <el-form-item id="btn6" label="Category" prop="category">
-            <el-select v-model="ruleForm.category" filterable placeholder="Select" :onChange="handleSelectType">
+            <el-select v-model="ruleForm.category" filterable placeholder="Select" :onChange="handleCategorySelection">
               <el-option v-for="item in categoryOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
           </el-form-item>
-          <el-form-item id="btn7" label="Aggregation Field" prop="card_model_field">
+          
+          <!-- Show different fields based on category -->
+          <el-form-item v-if="ruleForm.category === 'Status'" id="btn7" label="Aggregation Field" prop="card_model_field">
             <el-select
 v-model="ruleForm.card_model_field" :onClear="handleClear" clearable filterable collapse-tags
               placeholder="Field to summarize">
               <el-option v-for="item in fieldSet" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
           </el-form-item>
+          
+          <el-form-item v-if="ruleForm.category === 'Indicator'" id="btn7_indicator" label="Select Indicator" prop="indicator_category_id">
+            <el-select
+v-model="ruleForm.indicator_category_id" :onClear="handleClear" clearable filterable collapse-tags
+              placeholder="Select Indicator Category">
+              <el-option v-for="item in indicatorCategoryOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+          </el-form-item>
         </el-col>
 
         <el-col :span="12">
-          <el-form-item id="btn8" label="Entity" prop="card_model">
+          <!-- Show Entity selection only for Status cards -->
+          <el-form-item v-if="ruleForm.category === 'Status'" id="btn8" label="Entity" prop="card_model">
             <el-select
 v-model="ruleForm.card_model" :onClear="handleClear" clearable filterable collapse-tags
               :onChange="handleSelectModel" placeholder="Select Entity to summarize">
@@ -1527,7 +1634,7 @@ target="#btn1" title="Title"
       description="This is the short name of the dashboards. This is what will appear under the navigation section for dashboards. Use a single short word." />
     <el-tour-step
 target="#btn2" title="Type"
-      description="The system supports two types of dashboards 'Status' : draws on the various entities within the system eg settlements, facilities, households e.t.c. The 'Intervention' type draws data exclusively from the M&E indicators" />
+      description="The system supports two types of dashboards 'Status' : draws on the various entities within the system eg settlements, facilities, households e.t.c. The 'Indicator' type draws data exclusively from the M&E indicators" />
     />
     <el-tour-step target="#btn3" title="Description" description="Provide a short description of this card" />
     />
@@ -1544,10 +1651,11 @@ target="#btn4" title="Icon"
   <el-tour v-model="showTourStep2" z-index="100000" :onClose="endTour">
     <el-tour-step
 target="#btn6" title="Category"
-      description="The system supports two types of cards 'Status' : draws on the various entities within the system eg settlements, facilities, households e.t.c. The 'Intervention' type draws data exclusively from the M&E indicators" />
-    <el-tour-step target="#btn7" title="Aggregation Field" description="The field to use for summary" />
+      description="The system supports two types of cards 'Status' : draws on the various entities within the system eg settlements, facilities, households e.t.c. The 'Indicator' type draws data exclusively from the M&E indicators" />
+    <el-tour-step target="#btn7" title="Aggregation Field" description="For Status cards: The field to use for summary" />
+    <el-tour-step target="#btn7_indicator" title="Indicator Category" description="For Indicator cards: Select the indicator category that will be used to generate reports" />
 
-    <el-tour-step target="#btn8" title="Entity" description="The entity(table) to summarize" />
+    <el-tour-step target="#btn8" title="Entity" description="For Status cards: The entity(table) to summarize" />
     <el-tour-step
 target="#btn9" title="Aggregation Method"
       description="The computation method to use. Sum only applies to numeric fields" />
