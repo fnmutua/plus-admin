@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, nextTick, watch } from 'vue'
 import { ElButton, ElInput, ElMessage, ElSelect, ElOption, ElDialog, ElDivider, ElBadge, ElOptionGroup } from 'element-plus'
 import { Icon } from '@iconify/vue'
 import { askAIDocument, getAIProviders, getAIModels, processExistingDocumentsWithAI } from '@/api/ai'
@@ -21,6 +21,7 @@ const chatContainer = ref<HTMLElement>()
 const groupedModels = [
   {
     label: 'ollama',
+    disabled:false,
     options: [
       {
         id: 'mistral',
@@ -31,6 +32,14 @@ const groupedModels = [
         name: 'gemma3n',
       },
       {
+        id: 'gemma3:1b',
+        name: 'gemma3:1b',
+      },
+      {
+        id: 'deepseek-r1:1.5b',
+        name: 'deepseek-r1:1.5',
+      },
+      {
         id: 'llama3.2:1b',
         name: 'llama3.2:1b',
       },
@@ -38,6 +47,7 @@ const groupedModels = [
   },
   {
     label: 'xai',
+    disabled:true,
     options: [
       {
         id: 'grok-3-mini-fast',
@@ -320,6 +330,14 @@ defineExpose({
 onMounted(() => {
   loadAIConfig()
 })
+
+watch(chatMessages, () => {
+  nextTick(() => {
+    if (chatContainer.value) {
+      chatContainer.value.scrollTop = chatContainer.value.scrollHeight;
+    }
+  });
+});
 </script>
 
 <template>
@@ -331,6 +349,38 @@ onMounted(() => {
     class="ai-assistant-dialog"
     top="4vh"
   >
+    <!-- Custom header with model selector -->
+    <template #header>
+      <div class="dialog-header">
+        <span>KeSMIS AI Assistant</span>
+        <el-divider direction="vertical" class="header-divider" />
+        <div class="model-selector-container">
+          <label class="model-label">Model:</label>
+          <el-select 
+            v-model="aiConfig.model" 
+            placeholder="Model" 
+            class="header-model-select"
+            @change="handleModelChange"
+            size="small"
+          >
+            <el-option-group
+              v-for="group in groupedModels"
+              :key="group.label"
+              :label="group.label"
+            >
+              <el-option
+                v-for="model in group.options"
+                :key="model.id"
+                :label="model.name"
+                :disabled="group.disabled"
+                :value="model.id"
+              />
+            </el-option-group>
+          </el-select>
+        </div>
+      </div>
+    </template>
+
     <div class="ai-assistant-container">
       <!-- Chat Messages -->
       <div class="chat-layout">
@@ -362,25 +412,6 @@ onMounted(() => {
                 >
                   <Icon v-if="!isProcessing" icon="material-symbols:send" width="16" />
                 </el-button>
-                <el-select 
-                  v-model="aiConfig.model" 
-                  placeholder="Model" 
-                  class="model-select-inside"
-                  @change="handleModelChange"
-                >
-                  <el-option-group
-                    v-for="group in groupedModels"
-                    :key="group.label"
-                    :label="group.label"
-                  >
-                    <el-option
-                      v-for="model in group.options"
-                      :key="model.id"
-                      :label="model.name"
-                      :value="model.id"
-                    />
-                  </el-option-group>
-                </el-select>
               </div>
               <div class="input-footer">
                 <span class="input-hint">Press Enter to send, Shift+Enter for new line</span>
@@ -507,25 +538,6 @@ onMounted(() => {
             >
               <Icon v-if="!isProcessing" icon="material-symbols:send" width="16" />
             </el-button>
-            <el-select 
-              v-model="aiConfig.model" 
-              placeholder="Model" 
-              class="model-select-inside"
-              @change="handleModelChange"
-            >
-              <el-option-group
-                v-for="group in groupedModels"
-                :key="group.label"
-                :label="group.label"
-              >
-                <el-option
-                  v-for="model in group.options"
-                  :key="model.id"
-                  :label="model.name"
-                  :value="model.id"
-                />
-              </el-option-group>
-            </el-select>
           </div>
           <div class="input-footer">
             <span class="input-hint">Press Enter to send, Shift+Enter for new line</span>
@@ -597,7 +609,7 @@ onMounted(() => {
 
 /* Centered Input Container */
 .centered-input-container {
-  width: 80%;
+  width: 95%;
   max-width: 800px;
   margin: 0 auto;
 }
@@ -937,5 +949,58 @@ onMounted(() => {
   .chat-layout {
     width: 100%;
   }
+}
+
+.centered-input-container, .input-wrapper {
+  width: 95% !important;
+  max-width: 95% !important;
+}
+
+.dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.header-model-select {
+  width: 150px;
+}
+
+.header-model-select :deep(.el-input__wrapper) {
+  border-radius: 6px;
+  background: var(--el-bg-color);
+  border: 1px solid var(--el-border-color);
+}
+
+.header-model-select :deep(.el-input__wrapper:hover) {
+  border-color: var(--el-color-primary);
+}
+
+.header-model-select :deep(.el-input__wrapper.is-focus) {
+  border-color: var(--el-color-primary);
+  box-shadow: 0 0 0 2px var(--el-color-primary-light-8);
+}
+
+.model-selector-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.model-label {
+  font-size: 14px;
+  color: var(--el-text-color-regular);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.header-divider {
+  margin: 0 16px;
+  height: 20px;
+}
+
+.header-divider :deep(.el-divider__text) {
+  background: transparent;
 }
 </style> 
