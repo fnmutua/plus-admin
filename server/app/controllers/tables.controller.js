@@ -408,132 +408,7 @@ exports.allAccess = (req, res) => {
 };
 
 
-
-exports.xGetRoutes = async (req, res) => {
-  try {
-    const {
-      model: reg_model,
-      filters = [],
-      filterValues = [],
-      associated_multiple_models = [],
-      limit,
-      page,
-      cache_key
-    } = req.body;
-
-    console.log('Req-body', req.body);
-
-    // Validate model exists
-    const modelDefinition = db.models[reg_model];
-    if (!modelDefinition) {
-      return res.status(400).send({
-        error: `Model ${reg_model} not found`,
-        code: 'MODEL_NOT_FOUND'
-      });
-    }
-
-    // Base query construction
-    const baseQuery = { where: {} };
-
-    // Filter handling
-    if (filters.length > 0 && filterValues.length === filters.length) {
-      baseQuery.where = {
-        [Op.and]: filters.map((filter, i) => ({ [filter]: filterValues[i] }))
-      };
-    }
-
-    // Count query (separate for better performance)
-    const count = await modelDefinition.count(baseQuery);
-    console.log('Total records:', count);
-
-    // Build include models
-    const includeModels = [];
-
-    // Handle associated models
-    associated_multiple_models.forEach(modelName => {
-      if (db.models[modelName]) {
-        includeModels.push({
-          model: db.models[modelName],
-          required: false
-        });
-      }
-    });
-
-    // Helper: recursive include builder for self-referencing associations
-    const buildRecursiveInclude = (model, alias, depth = 3) => {
-      if (depth <= 0) return [];
-      return [{
-        model,
-        as: alias,
-        required: false,
-        include: buildRecursiveInclude(model, alias, depth - 1)
-      }];
-    };
-
-    // Handle self-referential relationships automatically
-    Object.values(modelDefinition.associations).forEach(assoc => {
-      if (assoc.target.name === reg_model) {
-        console.log(`Adding recursive include for ${reg_model} -> ${assoc.as}`);
-        includeModels.push(...buildRecursiveInclude(modelDefinition, assoc.as, 3)); // depth = 3
-      }
-    });
-
-    // Main query construction
-    const qry = {
-      include: includeModels.length ? includeModels : undefined,
-      where: baseQuery.where,
-      order: [['createdAt', 'DESC']],
-      distinct: true
-    };
-
-    // Pagination
-    if (limit) {
-      qry.limit = parseInt(limit);
-      if (page) {
-        qry.offset = (parseInt(page) - 1) * qry.limit;
-      }
-    }
-
-    console.log('Final Query:', JSON.stringify(qry, null, 2));
-
-    // Cache handling
-    if (cache_key) {
-      const cacheDuration = 3600;
-      const lastModified = await getLastModified(modelDefinition);
-      const cachedData = await getCachedData(cache_key);
-
-      if (cachedData && lastModified <= cachedData.lastModified) {
-        return sendCachedResponse(res, cache_key, cachedData, count);
-      }
-
-      const response = await fetchAndCacheData(
-        modelDefinition,
-        qry,
-        cache_key,
-        cacheDuration,
-        count
-      );
-      return res.status(200).send(response);
-    }
-
-    // Non-cached response
-    const response = await modelDefinition.findAndCountAll(qry);
-    return res.status(200).send({
-      fromCache: false,
-      data: response.rows,
-      total: count,
-      code: '0000'
-    });
-
-  } catch (error) {
-    console.error('Error in GetRoutes:', error);
-    return res.status(500).send({
-      message: 'Internal server error',
-      code: 'SERVER_ERROR',
-      error: error.message
-    });
-  }
-};
+ 
 
 
 
@@ -8479,7 +8354,14 @@ exports.askAIDocument = async (req, res) => {
 
         // More accurate token estimation (closer to actual tokenization)
         const estimatedTokens = Math.ceil((context.length + question.length) / 3.5); // More accurate ratio
-        const maxModelTokens = 120000; // Conservative limit for model (131072 - safety margin)
+        
+        // Set token limit based on provider
+        let maxModelTokens;
+        if (activeProvider === 'openai') {
+            maxModelTokens = 30000; // OpenAI models have 30k token limit
+        } else {
+            maxModelTokens = 120000; // Conservative limit for other models (131072 - safety margin)
+        }
         
         console.log(`Estimated tokens: ${estimatedTokens} (max: ${maxModelTokens})`);
         
@@ -9353,4 +9235,3 @@ async function createChunksFromText(text, filename) {
     return [];
   }
 }
-re

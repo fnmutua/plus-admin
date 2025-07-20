@@ -1,5 +1,5 @@
 <script lang="tsx">
-import { defineComponent, computed } from 'vue'
+import { defineComponent, computed, ref } from 'vue'
 import { Collapse } from '@/components/Collapse'
 import { LocaleDropdown } from '@/components/LocaleDropdown'
 import { SizeDropdown } from '@/components/SizeDropdown'
@@ -10,6 +10,8 @@ import { useAppStore } from '@/store/modules/app'
 import { useDesign } from '@/hooks/web/useDesign'
 import { NotificationBadge } from '@/components/NotificationBadge'
 import { ThemeSwitch } from '@/components/ThemeSwitch'
+import AIAssistant from '@/components/AIAssistant'
+import { Icon } from '@iconify/vue'
 
 const { getPrefixCls, variables } = useDesign()
 
@@ -35,8 +37,18 @@ const layout = computed(() => appStore.getLayout)
 // 多语言图标
 const locale = computed(() => appStore.getLocale)
 
+// AI Assistant
+const aiAssistantRef = ref()
+
+const openAIAssistant = () => {
+  aiAssistantRef.value?.openModal()
+}
+
 export default defineComponent({
   name: 'ToolHeader',
+  components: {
+    AIAssistant
+  },
   setup() {
     return () => (
       <div
@@ -66,8 +78,24 @@ export default defineComponent({
           ) : undefined}
           <NotificationBadge class="hover-tigger"></NotificationBadge>
 
+          {/* AI Assistant Icon */}
+          <div 
+            class="hover-tigger cursor-pointer flex items-center justify-center w-8 h-8 rounded-md hover:bg-[var(--el-fill-color-light)] transition-colors"
+            onClick={openAIAssistant}
+            title="AI Assistant"
+          >
+            <Icon 
+              icon="hugeicons:ai-brain-02" 
+              width="18" 
+              color="var(--top-header-text-color)"
+            />
+          </div>
+
           <UserInfo class="hover-tigger"></UserInfo>
         </div>
+
+        {/* AI Assistant Modal */}
+        <AIAssistant ref={aiAssistantRef} />
       </div>
     )
   }
