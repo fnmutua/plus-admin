@@ -1200,48 +1200,55 @@ const getFilteredDownloadData = async (selFilters, selfilterValues) => {
   return res.data
 }
 
+const downloadLoading = ref(false);
+
 const handleDownloadSelectFields = async () => {
   if (selectedFields.value.length < 1) {
     ElMessage.warning('Specify the fields you want on the exported file')
     return
   }
-  let dataToDownload = []
-  if (filters.value.length > 2 && filterValues.value.length > 1) {
-    const downData = await getFilteredDownloadData(filters.value, filterValues.value)
-    downData.forEach(function (arrayItem) {
-      var dd = flattenJSON(arrayItem)
-      dataToDownload.push(dd)
-    })
-  } else {
-    dataToDownload.push(...flattenedData.value)
-  }
-  let fields = []
-  for (let i = 0; i < selectedFields.value.length; i++) {
-    var fld = {}
-    fld.label = selectedFields.value[i]
-    fld.value = selectedFields.value[i]
-    fields.push(fld)
-  }
-  var dataObj = {}
-  dataObj.sheet = 'data'
-  dataObj.columns = fields
-  let dataHolder = []
-  for (let i = 0; i < dataToDownload.length; i++) {
-    let thisRecord = {}
-    thisRecord.index = i + 1
-    for (let j = 0; j < fields.length; j++) {
-      var fld = fields[j].label
-      thisRecord[fld] = dataToDownload[i][fld]
+  downloadLoading.value = true;
+  try {
+    let dataToDownload = []
+    if (filters.value.length > 2 && filterValues.value.length > 1) {
+      const downData = await getFilteredDownloadData(filters.value, filterValues.value)
+      downData.forEach(function (arrayItem) {
+        var dd = flattenJSON(arrayItem)
+        dataToDownload.push(dd)
+      })
+    } else {
+      dataToDownload.push(...flattenedData.value)
     }
-    dataHolder.push(thisRecord)
+    let fields = []
+    for (let i = 0; i < selectedFields.value.length; i++) {
+      var fld = {}
+      fld.label = selectedFields.value[i]
+      fld.value = selectedFields.value[i]
+      fields.push(fld)
+    }
+    var dataObj = {}
+    dataObj.sheet = 'data'
+    dataObj.columns = fields
+    let dataHolder = []
+    for (let i = 0; i < dataToDownload.length; i++) {
+      let thisRecord = {}
+      thisRecord.index = i + 1
+      for (let j = 0; j < fields.length; j++) {
+        var fld = fields[j].label
+        thisRecord[fld] = dataToDownload[i][fld]
+      }
+      dataHolder.push(thisRecord)
+    }
+    dataObj.content = dataHolder
+    let settings = {
+      fileName: model,
+      writeMode: "writeFile",
+      writeOptions: {},
+    }
+    xlsx([dataObj], settings)
+  } finally {
+    downloadLoading.value = false;
   }
-  dataObj.content = dataHolder
-  let settings = {
-    fileName: model,
-    writeMode: "writeFile",
-    writeOptions: {},
-  }
-  xlsx([dataObj], settings)
 }
 
 const dialogWidth = ref(isMobile.value ? "90%" : "25%")
@@ -1870,7 +1877,9 @@ v-model="search_string" clearable :onClear="handleClear"
 
           <DownloadCustom
 v-if="showEditButtons" :data="tableDataList" :model="model"
-            :associated_models="associated_multiple_models" />
+            :associated_models="associated_multiple_models" :loading="downloadLoading"
+            @download-start="downloadLoading = true"
+            @download-end="downloadLoading = false" />
         </div>
 
 
@@ -2475,7 +2484,7 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
           <el-checkbox v-model="selectedFields" :label="field">{{ field }}</el-checkbox>
         </el-col>
       </el-row>
-      <el-button type="success" @click="handleDownloadSelectFields()">Download</el-button>
+      <el-button type="success" :loading="downloadLoading" @click="handleDownloadSelectFields()">Download</el-button>
     </el-dialog>
 
 

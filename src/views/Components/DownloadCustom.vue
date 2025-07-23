@@ -1,7 +1,7 @@
 <template>
-  <div v-loading="downloading" style="display: inline-block; margin-left: 5px">
+  <div style="display: inline-block; margin-left: 5px">
     <el-tooltip content="Download" placement="top">
-      <el-button @click="selectDownload" type="primary" :icon="Download" />
+      <el-button @click="selectDownload" type="primary" :icon="Download" :loading="loading" />
     </el-tooltip>
   </div>
 
@@ -83,10 +83,10 @@
     <!-- Drawer Footer -->
     <div class="drawer-footer">
       <el-button @click="showDownloadDialog = false">Cancel</el-button>
-      <el-button type="primary" @click="downloadCSV">
+      <el-button type="primary" @click="downloadCSV" :loading="loading">
         Download Filtered<el-icon class="el-icon--right"><Filter /></el-icon>
       </el-button>
-      <el-button type="primary" @click="downloadAll">
+      <el-button type="primary" @click="downloadAll" :loading="loading">
         Download All <el-icon class="el-icon--right"><Document /></el-icon>
       </el-button>
     </div>
@@ -95,6 +95,7 @@
 
 
 <script setup>
+const emit = defineEmits(['download-start', 'download-end']);
 import { ref, onMounted, watch, defineProps, computed } from 'vue';
 import { ElButton, ElTooltip, ElDialog, ElRow, ElCol, ElCheckbox, ElDrawer, ElForm, ElIcon, ElMessage, ElTag, ElDivider, ElCollapse, ElCollapseItem } from 'element-plus';
 import { Finished } from '@element-plus/icons-vue';
@@ -107,7 +108,8 @@ import * as turf from '@turf/turf'
 const props = defineProps({
   data: Array,
   model: String,
-  associated_models: Array
+  associated_models: Array,
+  loading: Boolean
 });
 
 const tableDataList = ref([]);
@@ -391,63 +393,46 @@ const downloadCSV = async () => {
   if (!selectedFields.value.length) {
     return ElMessage.warning("Please select at least one field.");
   }
-
-  const extractedData = extractData(tableDataList.value, selectedFields.value);
-
-  // Clean up the field names and prepare column headers
-  const columns = selectedFields.value.map((field) => {
-  // Step 1: Remove all special characters (underscore, dot, etc.)
-  let cleanedField = field.replace(/[^a-zA-Z0-9]/g, ' ');  // Replace non-alphanumeric characters with space
-
-  // Step 2: Split by spaces, filter out empty strings, and capitalize each word
-  const words = cleanedField.split(/\s+/).filter(word => word);
-
-  // Step 3: Capitalize the first letter of each word and join without spaces
-  const formattedField = words
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join('');  // Join the words without spaces (e.g., FirstName)
-
-  return {
-    column: formattedField,
-    type: String,
-  };
-});
- 
-  // Create rows for the data, with each cell wrapped and in italic
-  const rows = extractedData.map((row) =>
-    selectedFields.value.map((field) => ({
-      type: String,
-      //fontStyle: 'italic',
-      wrap: true,
-      value: row[field] ? String(row[field]) : '',
-    }))
-  );
-
-  // Add headers as the first row
-  rows.unshift(columns.map((col) => ({ value: col.column, fontWeight: 'bold' })));
-
-  // Calculate column widths based on the maximum length of data in each column
-  const columnWidths = columns.map((col, index) => {
-    // Get the column header length
-    let maxLength = col.column.length;
-
-    // Check each row's value in this column
-    extractedData.forEach((row) => {
-      const cellValue = row[selectedFields.value[index]] ? String(row[selectedFields.value[index]]) : '';
-      if (cellValue.length > maxLength) {
-        maxLength = cellValue.length;
-      }
+  emit('download-start');
+  try {
+    const extractedData = extractData(tableDataList.value, selectedFields.value);
+    // Clean up the field names and prepare column headers
+    const columns = selectedFields.value.map((field) => {
+      let cleanedField = field.replace(/[^a-zA-Z0-9]/g, ' ');
+      const words = cleanedField.split(/\s+/).filter(word => word);
+      const formattedField = words
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join('');
+      return {
+        column: formattedField,
+        type: String,
+      };
     });
-
-    // Return width (you can scale it by a factor, e.g., multiplying by a constant for better spacing)
-    return maxLength + 5; // Add padding for better readability
-  });
-
-  // Export the file with calculated column widths
-  await writeXlsxFile(rows, {
-    fileName: `${props.model}.xlsx`,
-    columns: columnWidths.map((width) => ({ width })),
-  });
+    const rows = extractedData.map((row) =>
+      selectedFields.value.map((field) => ({
+        type: String,
+        wrap: true,
+        value: row[field] ? String(row[field]) : '',
+      }))
+    );
+    rows.unshift(columns.map((col) => ({ value: col.column, fontWeight: 'bold' })));
+    const columnWidths = columns.map((col, index) => {
+      let maxLength = col.column.length;
+      extractedData.forEach((row) => {
+        const cellValue = row[selectedFields.value[index]] ? String(row[selectedFields.value[index]]) : '';
+        if (cellValue.length > maxLength) {
+          maxLength = cellValue.length;
+        }
+      });
+      return maxLength + 5;
+    });
+    await writeXlsxFile(rows, {
+      fileName: `${props.model}.xlsx`,
+      columns: columnWidths.map((width) => ({ width })),
+    });
+  } finally {
+    emit('download-end');
+  }
 };
 
 
@@ -475,68 +460,46 @@ const downloadAll = async () => {
   if (!selectedFields.value.length) {
     return ElMessage.warning("Please select at least one field.");
   }
-
-  await getFilteredData();
-
-  const extractedData = extractData(tableDataList.value, selectedFields.value);
-
- 
-
-  const columns = selectedFields.value.map((field) => {
-  // Step 1: Remove all special characters (underscore, dot, etc.)
-  let cleanedField = field.replace(/[^a-zA-Z0-9]/g, ' ');  // Replace non-alphanumeric characters with space
-
-  // Step 2: Split by spaces, filter out empty strings, and capitalize each word
-  const words = cleanedField.split(/\s+/).filter(word => word);
-
-  // Step 3: Capitalize the first letter of each word and join without spaces
-  const formattedField = words
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join('');  // Join the words without spaces (e.g., FirstName)
-
-  return {
-    column: formattedField,
-    type: String,
-  };
-});
-
-
-
-  // Create rows for the data, with each cell wrapped and in italic
-  const rows = extractedData.map((row) =>
-    selectedFields.value.map((field) => ({
-      type: String,
-      //fontStyle: 'italic',
-      wrap: true,
-      value: row[field] ? String(row[field]) : '',
-    }))
-  );
-
-  // Add headers as the first row
-  rows.unshift(columns.map((col) => ({ value: col.column, fontWeight: 'bold' })));
-
-  // Calculate column widths based on the maximum length of data in each column
-  const columnWidths = columns.map((col, index) => {
-    // Get the column header length
-    let maxLength = col.column.length;
-
-    // Check each row's value in this column
-    extractedData.forEach((row) => {
-      const cellValue = row[selectedFields.value[index]] ? String(row[selectedFields.value[index]]) : '';
-      if (cellValue.length > maxLength) {
-        maxLength = cellValue.length;
-      }
+  emit('download-start');
+  try {
+    await getFilteredData();
+    const extractedData = extractData(tableDataList.value, selectedFields.value);
+    const columns = selectedFields.value.map((field) => {
+      let cleanedField = field.replace(/[^a-zA-Z0-9]/g, ' ');
+      const words = cleanedField.split(/\s+/).filter(word => word);
+      const formattedField = words
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join('');
+      return {
+        column: formattedField,
+        type: String,
+      };
     });
-
-    // Return width (you can scale it by a factor, e.g., multiplying by a constant for better spacing)
-    return maxLength + 5; // Add padding for better readability
-  });
-
-  // Export the file with calculated column widths
-  await writeXlsxFile(rows, {
-    fileName: `${props.model}.xlsx`,
-    columns: columnWidths.map((width) => ({ width })),
-  });
+    const rows = extractedData.map((row) =>
+      selectedFields.value.map((field) => ({
+        type: String,
+        wrap: true,
+        value: row[field] ? String(row[field]) : '',
+      }))
+    );
+    rows.unshift(columns.map((col) => ({ value: col.column, fontWeight: 'bold' })));
+    const columnWidths = columns.map((col, index) => {
+      let maxLength = col.column.length;
+      extractedData.forEach((row) => {
+        const cellValue = row[selectedFields.value[index]] ? String(row[selectedFields.value[index]]) : '';
+        if (cellValue.length > maxLength) {
+          maxLength = cellValue.length;
+        }
+      });
+      return maxLength + 5;
+    });
+    await writeXlsxFile(rows, {
+      fileName: `${props.model}.xlsx`,
+      columns: columnWidths.map((width) => ({ width })),
+    });
+  } finally {
+    emit('download-end');
+  }
 };
 </script>
 
