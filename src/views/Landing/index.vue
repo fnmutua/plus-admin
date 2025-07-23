@@ -92,8 +92,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
+import { useCache } from '@/hooks/web/useCache';
+import { useAppStoreWithOut } from '@/store/modules/app';
 import {
   ElButton,
   ElCol,
@@ -108,6 +110,10 @@ import { Icon } from '@iconify/vue';
 import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary';
 
 const router = useRouter();
+const { wsCache } = useCache();
+const appStore = useAppStoreWithOut();
+
+const isLoggedIn = computed(() => !!wsCache.get(appStore.getUserInfo));
 
 // Function to open API documentation
 const openApiDocs = () => {
@@ -129,7 +135,11 @@ const formatNumber = (num: number): string => {
 const navigateTo = (page: string) => {
   switch (page) {
     case 'get-started':
-      router.push('/login');
+      if (isLoggedIn.value) {
+        router.push('/dashboard/national');
+      } else {
+        router.push('/login');
+      }
       break;
     case 'grm':
       router.push('/grm');

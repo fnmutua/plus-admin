@@ -28,7 +28,7 @@
                 <el-menu-item index="4">About</el-menu-item>
                 <el-menu-item index="6">FAQs</el-menu-item>
                 <el-menu-item index="8" @click="openApiDocs">API Docs</el-menu-item>
-                <el-menu-item index="2">Login</el-menu-item>
+                <el-menu-item index="2" @click="handleLoginOrLogout">{{ isLoggedIn ? 'Logout' : 'Login' }}</el-menu-item>
                 <el-menu-item index="7" @click="toggleDark">
                   <Icon :icon="isDark ? 'carbon:moon' : 'carbon:sun'" inline />
                 </el-menu-item>
@@ -67,6 +67,8 @@ import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage, ElMain, ElMenu, ElMenuItem, ElContainer, ElFooter, ElHeader } from 'element-plus';
 import { Icon } from '@iconify/vue';
+import { useCache } from '@/hooks/web/useCache';
+import { useAppStoreWithOut } from '@/store/modules/app';
 
 const isSmallScreen = computed(() => window.innerWidth <= 768);
 const menuOpen = ref(false);
@@ -110,6 +112,21 @@ function handleResize() {
 
 const activeIndex = ref('1');
 const router = useRouter();
+const { wsCache } = useCache();
+const appStore = useAppStoreWithOut();
+const isLoggedIn = computed(() => !!wsCache.get(appStore.getUserInfo));
+
+const handleLoginOrLogout = () => {
+  if (isLoggedIn.value) {
+    // Logout logic
+    wsCache.clear();
+    localStorage.clear();
+    sessionStorage.clear();
+    router.push('/login');
+  } else {
+    router.push('/login');
+  }
+};
 
 // Function to open API documentation
 const openApiDocs = () => {
@@ -123,9 +140,6 @@ const handleSelect = (index: string) => {
   switch (index) {
     case '1':
       router.push('/landing');
-      break;
-    case '2':
-      router.push('/login');
       break;
     case '3':
       router.push('/grm');
