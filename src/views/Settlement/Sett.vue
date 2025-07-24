@@ -732,7 +732,13 @@ const approve = async () => {
   ruleForm.model = 'settlement'
   await updateOneRecord(ruleForm).then(() => { })
   ShowReviewDialog.value = false
-  getFilteredData(filters, filterValues)
+  // Remove from New list if reviewing a 'New' settlement
+  if (activeSegment.value === 'New') {
+    const idx = tableDataListNew.value.findIndex(item => item.id === ruleForm.id)
+    if (idx !== -1) tableDataListNew.value.splice(idx, 1)
+  } else {
+    getFilteredData(filters, filterValues)
+  }
 }
 
 const reject = async () => {
@@ -748,7 +754,13 @@ const confirmReject = async () => {
   await updateOneRecord(ruleForm).then(() => { })
   RejectDialog.value = false
   ShowReviewDialog.value = false
-  getFilteredData(filters, filterValues)
+  // Remove from New list if reviewing a 'New' settlement
+  if (activeSegment.value === 'New') {
+    const idx = tableDataListNew.value.findIndex(item => item.id === ruleForm.id)
+    if (idx !== -1) tableDataListNew.value.splice(idx, 1)
+  } else {
+    getFilteredData(filters, filterValues)
+  }
 }
 
 const viewOnMap = (data: TableSlotDefault) => {
@@ -1776,9 +1788,19 @@ const handleDateChange = async () => {
   }
 }
 
-
-
-
+// Helper to get geometry icon
+function getGeometryIcon(row) {
+  if (!row.geom || !row.geom.type) {
+    return { icon: 'ep:warning',  tooltip: 'No geometry' };
+  }
+  if (row.geom.type === 'Point' || row.geom.type === 'MultiPoint') {
+    return { icon: 'mdi:map-marker',  tooltip: 'Point geometry' };
+  }
+  if (row.geom.type === 'Polygon' || row.geom.type === 'MultiPolygon') {
+    return { icon: 'material-symbols:map-outline-sharp',  tooltip: 'Polygon geometry' };
+  }
+  return { icon: 'ep:warning',   tooltip: 'Unknown geometry' };
+}
 
 </script>
 
@@ -1925,6 +1947,14 @@ table-layout="auto"
 
           </template>
         </el-table-column>
+        <!-- NEW: Geometry Icon Column -->
+        <el-table-column label="Geom" width="60">
+          <template #default="{ row }">
+            <el-tooltip :content="getGeometryIcon(row).tooltip" placement="top">
+              <Icon :icon="getGeometryIcon(row).icon" :color="getGeometryIcon(row).color" width="24" height="24" />
+            </el-tooltip>
+          </template>
+        </el-table-column>
 
         <el-table-column label="Id" width="80" prop="id" sortable>
           <template #default="scope">
@@ -1964,7 +1994,7 @@ type="primary" v-show="isCopyIconVisible(row)" size="small" :icon="Clock" circle
 
         <el-table-column label="Population" prop="population" sortable />
         <el-table-column label="Area(HA)" prop="area" sortable :formatter="row => Number(row.area).toFixed(2)" />
-        <el-table-column label="Created" prop="createdAt" sortable :formatter="formatDate" />
+        <el-table-column label="Created" prop="updatedAt" sortable :formatter="formatDate" />
         <el-table-column label="Code" prop="code" sortable>
           <template #default="{ row }">
             <div style="position: relative;" @mouseenter="showCopyIcon(row)" @mouseleave="hideCopyIcon(row)">
@@ -2016,7 +2046,14 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="page"
 
           </template>
         </el-table-column>
-
+        <!-- NEW: Geometry Icon Column -->
+        <el-table-column label="Geom" width="60">
+          <template #default="{ row }">
+            <el-tooltip :content="getGeometryIcon(row).tooltip" placement="top">
+              <Icon :icon="getGeometryIcon(row).icon" :color="getGeometryIcon(row).color" width="24" height="24" />
+            </el-tooltip>
+          </template>
+        </el-table-column>
         <el-table-column label="Id" width="80" prop="id" sortable>
           <template #default="scope">
             <div v-if="scope.row.documents.length > 0" style="display: inline-flex; align-items: center;">
@@ -2035,7 +2072,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="page"
         </el-table-column>
         <el-table-column label="Population" prop="population" sortable />
         <el-table-column label="Area(HA)" prop="area" sortable :formatter="row => Number(row.area).toFixed(2)" />
-        <el-table-column label="Created" prop="createdAt" sortable :formatter="formatDate" />
+        <el-table-column label="Created" prop="updatedAt" sortable :formatter="formatDate" />
 
         <el-table-column label="Code" prop="code" sortable>
           <template #default="{ row }">
@@ -2106,7 +2143,7 @@ style="margin-left: 10px; margin-top: 5px" size="small" v-if="showAdminButtons" 
         </el-table-column>
         <el-table-column label="Population" prop="population" sortable />
         <el-table-column label="Area(HA)" prop="area" sortable :formatter="row => Number(row.area).toFixed(2)" />
-        <el-table-column label="Created" prop="createdAt" sortable :formatter="formatDate" />
+        <el-table-column label="Created" prop="updatedAt" sortable :formatter="formatDate" />
 
         <el-table-column label="Code" prop="code" sortable>
           <template #default="{ row }">
@@ -2178,7 +2215,7 @@ style="margin-left: 10px; margin-top: 5px" size="small" v-if="showAdminButtons" 
           </el-table-column>
           <el-table-column label="Population" prop="population" sortable />
           <el-table-column label="Area(HA)" prop="area" sortable :formatter="row => Number(row.area).toFixed(2)" />
-          <el-table-column label="Created" prop="createdAt" sortable :formatter="formatDate" />
+          <el-table-column label="Created" prop="updatedAt" sortable :formatter="formatDate" />
 
           <el-table-column label="Code" prop="code" sortable>
             <template #default="{ row }">
@@ -2222,7 +2259,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="page"
         <el-table-column label="Name" width="200" prop="name" sortable />     
         <el-table-column label="Population" prop="population" sortable />
         <el-table-column label="Area(HA)" prop="area" sortable :formatter="row => Number(row.area).toFixed(2)" />
-        <el-table-column label="Created" prop="createdAt" sortable :formatter="formatDate" />
+        <el-table-column label="Created" prop="updatedAt" sortable :formatter="formatDate" />
         <el-table-column label="Code" prop="code" sortable>
           <template #default="{ row }">
             <div style="position: relative;" @mouseenter="showCopyIcon(row)" @mouseleave="hideCopyIcon(row)">
@@ -2291,7 +2328,7 @@ plain @click="mergeRecords" v-if="props.row.duplicates.length > 1"
                 <el-table-column label="Population" prop="population" />
                 <el-table-column label="Area(HA)" prop="area" sortable :formatter="row => Number(row.area).toFixed(2)" />
                 <el-table-column label="Code" prop="code" />
-                <el-table-column label="Created" prop="createdAt" sortable :formatter="formatDate" />
+                <el-table-column label="Created" prop="updatedAt" sortable :formatter="formatDate" />
                 <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
                   <template #default="scope">
                     <el-dropdown v-if="isMobile">

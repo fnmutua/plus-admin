@@ -50,7 +50,7 @@ module.exports = function (sequelize, DataTypes) {
         //unique:true
       },
       description: {
-        type: DataTypes.STRING,
+        type: DataTypes.TEXT,
         allowNull: true
       },
       pop_density: {
