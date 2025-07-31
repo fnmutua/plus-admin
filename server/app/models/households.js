@@ -28,7 +28,11 @@ module.exports = function (sequelize, DataTypes) {
 
       // Survey Fields
       date_survey: DataTypes.DATE,
-      code: DataTypes.STRING,
+      code: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        unique: true
+      },
        telephone: DataTypes.STRING,
       nationality: DataTypes.STRING,
       age: DataTypes.STRING,

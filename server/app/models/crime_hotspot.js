@@ -51,14 +51,7 @@ module.exports = (sequelize) => {
   }, {
     tableName: 'crime_hotspot',
     timestamps: true,
-
-    indexes: [
-      {
-        name: 'unique_crime_key',
-        unique: true,
-        fields: ['CH_Name', 'settlement_id', 'ward_id']
-      },
-    ]
+ 
 
 
   });

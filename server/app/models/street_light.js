@@ -38,17 +38,7 @@ module.exports = (sequelize) => {
   }, {
     tableName: 'streetlight',
     timestamps: false,
-
-        indexes: [
-       
-       {
-        name: 'unique_streetlight_key',
-        unique: true,
-        fields: ['road_name', 'settlement_id', 'ward_id']
-      },
-      // Kee
-
-    ]
+ 
 
 
   });

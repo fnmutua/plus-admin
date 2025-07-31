@@ -966,38 +966,7 @@ exports.modelAllDatafilter = (req, res) => {
       })
     })
 }
-
-exports.xmodelImportData = (req, res) => {
-  var reg_model = req.body.model
-
-  console.log('here ----', req.body.data)
-
-  // insert
-
-
-  db.models[reg_model]
-    .bulkCreate(req.body.data, { returning: true })
-    .then(function (item) {
-      console.log(req.body.count)
-      res.status(200).send({
-        message: 'Record Successfully saved',
-        total: req.body.count,
-        code: '0000'
-      })
-    })
-    .catch(function (err) {
-      // handle error;
-      console.log('error0----1------>', err)
-
-      if (err.name == 'SequelizeUniqueConstraintError') {
-        var msg = 'One or more table constraints are violated. Check your unique columns'
-      } else {
-        var msg = 'The uploaded file does not match the required fields'
-      }
-      return res.status(500).send({ message: msg })
-
-    })
-}
+ 
 
 exports.modelImportData = async (req, res) => {
   var reg_model = req.body.model
@@ -1054,7 +1023,7 @@ exports.modelImportDataUpsert = async (req, res) => {
     // Validate request body
     console.log('Validate request body', req.body);
     const body = typeof req.body === 'string' ? safeParseAndSanitize(req.body) : req.body;
-    const { model: modelName, data: rawData } = body;
+    const { model: modelName, data: rawData, forceInsert = false } = body;
 
     if (!modelName || !rawData) {
       return res.status(400).json({ message: 'Model name and data are required' });
@@ -1152,18 +1121,42 @@ exports.modelImportDataUpsert = async (req, res) => {
       return record;
     });
 
-    // Upsert logic with unique constraint handling
+    // Upsert logic with code field priority
     for (const item of validData) {
-      const uniqueFields = Object.keys(attributes).filter(attr =>
-        attributes[attr].unique || (attributes[attr].primaryKey && attr !== 'id')
-      );
-      const where = {};
-      uniqueFields.forEach(f => { if (item[f] != null) where[f] = item[f]; });
       try {
-        let existing = Object.keys(where).length ? await Model.findOne({ where }) : null;
+        // First, try to find existing record by code field
+        let existing = null;
+        if (!forceInsert && item.code) {
+        //  console.log(`Checking for existing record with code: ${item.code}`);
+          existing = await Model.findOne({ where: { code: item.code } });
+          if (existing) {
+          //  console.log(`Found existing record with code: ${item.code}, ID: ${existing.id}`);
+          } else {
+          //  console.log(`No existing record found with code: ${item.code}`);
+          }
+        }
+        
+        // If no record found by code, fall back to unique constraint fields
+        if (!existing && !forceInsert) {
+          const uniqueFields = Object.keys(attributes).filter(attr =>
+            attributes[attr].unique || (attributes[attr].primaryKey && attr !== 'id')
+          );
+          const where = {};
+          uniqueFields.forEach(f => { if (item[f] != null) where[f] = item[f]; });
+          existing = Object.keys(where).length ? await Model.findOne({ where }) : null;
+          if (existing) {
+            console.log(`Found existing record by unique fields, ID: ${existing.id}`);
+          }
+        }
+        
         if (existing) {
+          // Update existing record
+          console.log(`Updating existing record with code: ${item.code}`);
           const updateData = { ...item };
-          uniqueFields.forEach(f => delete updateData[f]);
+          // Don't update the code field if it's being used as the identifier
+          if (item.code) {
+            delete updateData.code;
+          }
           await existing.update(updateData);
           updated.push(item.code || existing.id);
           
@@ -1177,6 +1170,8 @@ exports.modelImportDataUpsert = async (req, res) => {
             aiProcessed.push({ recordId: existing.id, action: 'updated', aiResult: { success: false, error: aiError.message } });
           }
         } else {
+          // Create new record
+          console.log(`Creating new record with code: ${item.code}`);
           try {
             const rec = await Model.create(item);
             inserted.push(rec.id);
@@ -1192,12 +1187,18 @@ exports.modelImportDataUpsert = async (req, res) => {
             }
           } catch (createErr) {
             if (createErr.name === 'SequelizeUniqueConstraintError') {
+              console.log(`Unique constraint violation for code: ${item.code}, fields:`, createErr.fields);
+              // Handle unique constraint violation
               const vioWhere = {};
               Object.keys(createErr.fields).forEach(f => vioWhere[f] = item[f]);
               const rec = await Model.findOne({ where: vioWhere });
               if (rec) {
+               // console.log(`Found existing record during constraint violation, ID: ${rec.id}`);
                 const upd = { ...item };
-                uniqueFields.forEach(f => delete upd[f]);
+                // Don't update the code field if it's being used as the identifier
+                if (item.code) {
+                  delete upd.code;
+                }
                 await rec.update(upd);
                 updated.push(item.code || rec.id);
                 
@@ -9097,10 +9098,10 @@ exports.getAIHealth = async (req, res) => {
  */
 async function processRecordForAI(record, modelName) {
   try {
-    console.log(`🔍 Processing ${modelName} record ${record.id} for AI...`);
+   // console.log(`🔍 Processing ${modelName} record ${record.id} for AI...`);
     // Check if Document AI database is available
     if (!docAIPool) {
-      console.log(`⚠️  Document AI database not available - skipping AI processing for ${modelName} record ${record.id}`);
+    //  console.log(`⚠️  Document AI database not available - skipping AI processing for ${modelName} record ${record.id}`);
       return { success: false, message: 'Document AI database not available', warning: 'Database connection failed' };
     }
     // Initialize Document AI database if needed

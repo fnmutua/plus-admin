@@ -125,11 +125,7 @@ module.exports = function (sequelize, DataTypes) {
         unique: true,
         fields: ['id']
       },
-      {
-        name: 'unique_road_natural_key',
-        unique: true,
-        fields: ['name', 'settlement_id', 'ward_id']
-      },
+   
       // Keep code index if needed for external referencing
       {
         name: 'road_code',

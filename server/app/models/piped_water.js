@@ -102,25 +102,6 @@ module.exports = function(sequelize, DataTypes) {
     schema: 'public',
     timestamps: true,
     underscored: false,
-    indexes: [
-      {
-        name: "piped_water_pkey",
-        unique: true,
-        fields: [{ name: "id" }]
-      },
-
-     {
-        name: 'piped_water_key',
-        unique: true,
-        fields: ['name', 'settlement_id', 'ward_id']
-      },
-
-
-      {
-        name: 'piped_code',
-        unique: true,
-        fields: [{ name: 'code' }]
-      }
-    ]
+    
   });
 };

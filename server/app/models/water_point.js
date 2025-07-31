@@ -93,20 +93,6 @@ module.exports = function(sequelize, DataTypes) {
     tableName: 'water_point',
     schema: 'public',
     timestamps: true,
-   // underscored: true,
-    indexes: [
-      {
-        name: "water_facility_pkey",
-        unique: true,
-        fields: [{ name: "id" }]
-      },
-       {
-        name: 'unique_wp_key',
-        unique: true,
-        fields: ['name', 'settlement_id', 'ward_id']
-      },
-      // Kee
-
-    ]
+    
   });
 };

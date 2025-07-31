@@ -78,7 +78,11 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.INTEGER,
       allowNull: true
     },
-
+    code: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true
+    },
     geom: {
       type: DataTypes.GEOMETRY('Geometry', 4326),
       allowNull: true
@@ -94,15 +98,6 @@ module.exports = function(sequelize, DataTypes) {
     tableName: 'structure',
     schema: 'public',
     timestamps: true,
-    indexes: [
-      {
-        name: "structure_unique_index",
-        unique: true,
-        fields: [
-          { name: "id" },
-          { name: "structure_id" },
-        ]
-      },
-    ]
+     
   });
 };

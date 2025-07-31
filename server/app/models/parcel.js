@@ -58,21 +58,6 @@ module.exports = function(sequelize, DataTypes) {
     tableName: 'parcel',
     schema: 'public',
     timestamps: true,
-    indexes: [
-      {
-        name: "parcel_pkey",
-        unique: true,
-        fields: [
-          { name: "id" },
-        ]
-      },
-
-      {
-        unique: true,
-        fields: ['parcel_no', 'area_ha', 'settlement_id']
-      },
-
-
-    ]
+   
   });
 };

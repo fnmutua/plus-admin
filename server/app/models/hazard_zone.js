@@ -37,6 +37,7 @@ module.exports = (sequelize) => {
     code: {
       type: DataTypes.STRING,  // Matches 'code'
       allowNull: false,
+      unique: true
     },
   
     comment: {
@@ -55,18 +56,7 @@ module.exports = (sequelize) => {
   }, {
     tableName: 'hazard_zone',
     timestamps: false,
-
-
-     indexes: [
-       
-       {
-        name: 'unique_hazard_key',
-        unique: true,
-        fields: ['place_name', 'settlement_id', 'ward_id']
-      },
-      // Kee
-
-    ]
+ 
   });
 
   return HazardZone;

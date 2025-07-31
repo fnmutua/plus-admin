@@ -284,12 +284,7 @@ module.exports = function(sequelize, DataTypes) {
           { name: "id" },
         ]
       },
-      {
-        name: 'unique_educ_key',
-        unique: true,
-        fields: ['name', 'settlement_id', 'ward_id']
-      },
-
+    
 
     ]
   });

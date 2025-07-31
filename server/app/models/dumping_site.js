@@ -49,16 +49,7 @@ module.exports = (sequelize) => {
     tableName: 'dumping_site',
     timestamps: false,
 
-    indexes: [
-      
-      {
-        name: 'unique_dumping_key',
-        unique: true,
-        fields: ['DS_Name', 'settlement_id', 'ward_id']
-      },
-
-
-    ]
+   
 
 
   });

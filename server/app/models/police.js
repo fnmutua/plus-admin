@@ -50,16 +50,7 @@ module.exports = (sequelize) => {
   }, {
     tableName: 'police_station',
     timestamps: true,
-     indexes: [
-       
-       {
-        name: 'unique_policestn_key',
-        unique: true,
-        fields: ['PC_Name', 'settlement_id', 'ward_id']
-      },
-      // Kee
-
-    ]
+ 
 
 
   });

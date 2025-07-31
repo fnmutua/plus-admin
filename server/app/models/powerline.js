@@ -78,30 +78,6 @@ module.exports = function(sequelize, DataTypes) {
     schema: 'public',
     timestamps: true,
     underscored: false,
-    indexes: [
-      {
-        name: "powerline_pkey",
-        unique: true,
-        fields: [{ name: "id" }]
-      },
-   {
-        name: "powerline_pkey",
-        unique: true,
-        fields: [{ name: "id" }]
-      },
-
-      {
-        name: 'unique_power_key',
-        unique: true,
-        fields: ['PL_Name', 'settlement_id', 'ward_id']
-      },
-
-
-      {
-        name: 'powerline_code',
-        unique: true,
-        fields: [{ name: 'code' }]
-      }
-    ]
+     
   });
 };

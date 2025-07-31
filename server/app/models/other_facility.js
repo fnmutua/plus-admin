@@ -141,14 +141,6 @@ module.exports = function(sequelize, DataTypes) {
     tableName: 'other_facility',
     schema: 'public',
     timestamps: true,
-    indexes: [
-      {
-        name: "other_facility_pkey",
-        unique: true,
-        fields: [
-          { name: "id" },
-        ]
-      },
-    ]
+    
   });
 };

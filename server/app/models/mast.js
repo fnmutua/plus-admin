@@ -38,13 +38,7 @@ module.exports = (sequelize) => {
   }, {
     tableName: 'mast',
     timestamps: false,
-     indexes: [
-       {
-        name: 'unique_mast_key',
-        unique: true,
-        fields: ['TC_Name' ]
-      },
-     ]
+  
 
 
   });

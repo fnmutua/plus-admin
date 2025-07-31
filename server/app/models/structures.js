@@ -43,20 +43,17 @@ module.exports = function(sequelize, DataTypes) {
     geom: {
       type: DataTypes.STRING,
       allowNull: false
+    },
+    code: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      unique: true
     }
   }, {
     sequelize,
     tableName: 'structures',
     schema: 'public',
     timestamps: true,
-    indexes: [
-      {
-        name: "structures_pkey",
-        unique: true,
-        fields: [
-          { name: "id" },
-        ]
-      },
-    ]
+   
   });
 };

@@ -36,6 +36,7 @@ module.exports = (sequelize) => {
     code: {
       type: DataTypes.STRING,  // Matches 'code'
       allowNull: false,
+      unique: true
     },
     reference_name: {
       type: DataTypes.STRING,  // Matches 'RI_name'

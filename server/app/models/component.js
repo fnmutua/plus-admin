@@ -35,7 +35,8 @@ module.exports = function(sequelize, DataTypes) {
  
      code: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: false,
+      unique: true
     },
  
   }, {
