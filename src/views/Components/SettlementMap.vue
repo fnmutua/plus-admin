@@ -731,16 +731,8 @@ const processSettlementData = async (featureCollection: any, bounds: google.maps
 
 // Computed properties and other logic
 const availableLayers = computed(() => {
-  const layers: string[] = []
-  if (layerFeatureCounts.value.settlement > 0) layers.push('settlement')
-  if (layerFeatureCounts.value.parcels > 0) layers.push('parcels')
-  if (layerFeatureCounts.value.parcelLabels > 0) layers.push('parcelLabels')
-  if (layerFeatureCounts.value.roads > 0) layers.push('roads')
-  if (layerFeatureCounts.value.schools > 0) layers.push('schools')
-  if (layerFeatureCounts.value.water_points > 0) layers.push('water_points')
-  if (layerFeatureCounts.value.structures > 0) layers.push('structures')
-  if (layerFeatureCounts.value.other_points > 0) layers.push('other_points')
-  return layers
+  // Always include all possible layers, even if count is 0
+  return ['settlement', 'parcels', 'parcelLabels', 'roads', 'schools', 'water_points', 'structures', 'other_points', 'powerline', 'sewer', 'piped_water']
 })
 
 const infowindow = ref(false)
@@ -1360,12 +1352,12 @@ const loadMapData = async () => {
         <h3 style="margin: 0; font-weight: bold; font-size: 16px; color: #333;">KEY</h3>
         </div>
         <ElCollapse accordion>
-          <ElCollapseItem title="Parcels" v-if="availableLayers.includes('parcels') || availableLayers.includes('parcelLabels')">
+          <ElCollapseItem title="Parcels">
             <div style="display: flex; flex-direction: column; gap: 2px;">
-              <ElCheckbox v-if="availableLayers.includes('parcels')" v-model="parcelsVisible" @change="toggleParcels">
+              <ElCheckbox v-model="parcelsVisible" @change="toggleParcels">
                 Parcels ({{ layerFeatureCounts.parcels }})
               </ElCheckbox>
-              <ElCheckbox v-if="availableLayers.includes('parcelLabels')" v-model="parcelLabelsVisible" @change="toggleParcelLabels">
+              <ElCheckbox v-model="parcelLabelsVisible" @change="toggleParcelLabels">
                 Labels ({{ layerFeatureCounts.parcelLabels }})
               </ElCheckbox>
             </div>
@@ -1376,7 +1368,7 @@ const loadMapData = async () => {
           </ElCollapseItem>
           <ElCollapseItem title="Layers">
             <div style="display: flex; flex-direction: column; gap: 2px;">
-              <ElCheckbox v-if="availableLayers.includes('other_points')" v-model="OtherPointVisible" @change="toggleOtherPoint">
+              <ElCheckbox v-model="OtherPointVisible" @change="toggleOtherPoint">
                 Facilities ({{ layerFeatureCounts.other_points }})
               </ElCheckbox>
               <div v-for="item in PolyLineItems.filter(item => item.show)" :key="item.label" class="line-item">
@@ -1387,24 +1379,24 @@ const loadMapData = async () => {
                 <img :src="item.icon" class="legend-icon" />
                 <div class="legend-label">{{ item.label }}</div>
               </div>
-              <ElCheckbox v-if="availableLayers.includes('roads')" v-model="roadsVisible" @change="toggleRoads">
+              <ElCheckbox v-model="roadsVisible" @change="toggleRoads">
                 Roads ({{ layerFeatureCounts.roads }})
               </ElCheckbox>
-              <ElCheckbox v-if="availableLayers.includes('structures')" v-model="StructureVisible" @change="toggleStructure">
+              <ElCheckbox v-model="StructureVisible" @change="toggleStructure">
                 Structures ({{ layerFeatureCounts.structures }})
               </ElCheckbox>
-            <ElCheckbox v-if="availableLayers.includes('powerline')" v-model="powerlineVisible">
+            <ElCheckbox v-model="powerlineVisible">
               Powerline
             </ElCheckbox>
-            <ElCheckbox v-if="availableLayers.includes('sewer')" v-model="sewerVisible">
+            <ElCheckbox v-model="sewerVisible">
               Sewer
             </ElCheckbox>
-            <ElCheckbox v-if="availableLayers.includes('piped_water')" v-model="pipedWaterVisible">
+            <ElCheckbox v-model="pipedWaterVisible">
               Piped Water
             </ElCheckbox>
             </div>
           </ElCollapseItem>
-          <ElCollapseItem v-if="selectedImageryLayers.length > 0" title="Imagery">
+          <ElCollapseItem title="Imagery">
             <ElCheckboxGroup v-model="selectedImageryLayers" @change="toggleImageryGroup">
               <div style="display: flex; flex-direction: column; gap: 2px;">
                 <ElCheckbox v-for="layer in availableImageryLayers" :key="layer" :label="layer">
@@ -1413,7 +1405,7 @@ const loadMapData = async () => {
               </div>
             </ElCheckboxGroup>
           </ElCollapseItem>
-          <ElCollapseItem title="Settlement" v-if="availableLayers.includes('settlement')">
+          <ElCollapseItem title="Settlement">
             <ElCheckbox v-model="settVisibile" @change="toggleSettlement">
               Boundary ({{ layerFeatureCounts.settlement }})
             </ElCheckbox>
