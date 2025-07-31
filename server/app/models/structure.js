@@ -1,7 +1,7 @@
 const Sequelize = require('sequelize');
 module.exports = function(sequelize, DataTypes) {
   return sequelize.define('structure', {
-    id: {
+    structure_id: {
       autoIncrement: true,
       type: DataTypes.INTEGER,
       allowNull: false,
@@ -33,12 +33,7 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true
     },
 
-    structure_id: {
-      type: DataTypes.STRING,
-      allowNull: false,
-      unique: true
-    },
-
+   
     structure_typology: {
       type: DataTypes.STRING,
       allowNull: true

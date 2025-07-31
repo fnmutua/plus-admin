@@ -15,7 +15,6 @@ var _sewer = require('./sewer')
 var _status = require('./status')
 var _stream = require('./stream')
 var _structure_type = require('./structure_type')
-var _structures = require('./structures')
 var _user_roles = require('./user_roles')
 var _users = require('./users')
 var _households = require('./households')
@@ -128,7 +127,6 @@ function initModels(sequelize) {
   var status = _status(sequelize, DataTypes)
   var stream = _stream(sequelize, DataTypes)
   var structure_type = _structure_type(sequelize, DataTypes)
-  var structures = _structures(sequelize, DataTypes)
   var user_roles = _user_roles(sequelize, DataTypes)
   var users = _users(sequelize, DataTypes)
   var households = _households(sequelize, DataTypes)
@@ -245,7 +243,6 @@ var role = _role(sequelize, DataTypes)
     status,
     stream,
     structure_type,
-    //structures,
     structure,
     user_roles,
     users,
