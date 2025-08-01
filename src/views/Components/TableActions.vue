@@ -47,6 +47,17 @@ width="300" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
         </template>
       </el-tooltip>
 
+      <el-tooltip content="Decommission" placement="top">
+        <template #default>
+          <el-popconfirm
+width="300" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
+            icon-color="#E6A23C" title="Are you sure to decommission this settlement?" @confirm="onDecommission(item)">
+            <template #reference>
+              <el-button v-if="buttons.includes('decommission')" type="warning" size="small" :icon="TakeawayBox" />
+            </template>
+          </el-popconfirm>
+        </template>
+      </el-tooltip>
 
 
     </div>
@@ -92,6 +103,12 @@ width="300" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
             </el-icon>
           </el-dropdown-item>
 
+          <el-dropdown-item v-if="buttons.includes('decommission')" @click="onDecommission(item)">
+            <el-icon>
+              <TakeawayBox />
+            </el-icon>
+          </el-dropdown-item>
+
 
 
           <el-dropdown-item v-if="buttons.includes('download')" @click="onDownload(item)">
@@ -112,7 +129,7 @@ width="300" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
 <script lang="ts" setup>
 import { ref, onMounted, watch, defineProps, onUnmounted, PropType } from 'vue';
 import { ElButton, ElIcon, ElDropdown, ElDropdownMenu, ElDropdownItem, ElTooltip, ElPopconfirm } from 'element-plus';
-import { ArrowDown, Edit, TopRight, Position, Delete, InfoFilled, View, Download } from '@element-plus/icons-vue';
+import { ArrowDown, Edit, TopRight, Position, Delete, InfoFilled, View, Download, TakeawayBox } from '@element-plus/icons-vue';
 
 const props = defineProps({
   item: Object,
@@ -122,7 +139,7 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(["edit", "viewOnMap", "review", "preview", "delete", "download",]);
+const emit = defineEmits(["edit", "viewOnMap", "review", "preview", "delete", "download", "decommission"]);
 
 
  console.log('Table Actions:::::', props)
@@ -167,7 +184,9 @@ const onDownload = (item) => {
   emit("download", item);
 };
 
-
+const onDecommission = (item) => {
+  emit("decommission", item);
+};
 
 
 const isSmallScreen = ref(false);

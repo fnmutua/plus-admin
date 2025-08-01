@@ -116,6 +116,9 @@ const action_buttons = computed(() => {
   if (activeSegment.value === 'New' || activeSegment.value === 'Rejected') {
     buttons.push('review');
   }
+  if (activeSegment.value === 'Approved' && isSuperAdmin.value) {
+    buttons.push('decommission');
+  }
   return buttons;
 });
 
@@ -677,6 +680,8 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 const ShowReviewDialog = ref(false)
 const RejectDialog = ref(false)
 const settlement_raw = ref({})
+const DecommissionDialog = ref(false)
+const decommissionReason = ref('')
 
 const Review = (data: TableSlotDefault) => {
   ShowReviewDialog.value = true
@@ -1189,6 +1194,49 @@ const handleDelete = (data: TableSlotDefault) => {
   if (data.documents.length > 0) {
     formData.filesToDelete = data.documents
     deleteDocument(formData)
+  }
+}
+
+const handleDecommission = async (data: TableSlotDefault) => {
+  DecommissionDialog.value = true
+  ruleForm.id = data.id
+  ruleForm.name = data.name
+}
+
+const confirmDecommission = async () => {
+  try {
+    const formData = {
+      id: ruleForm.id,
+      isApproved: 'Decommissioned',
+      model: 'settlement',
+      reviewerId: userInfo.id,
+      decommission_reason: decommissionReason.value
+    };
+    
+    await updateOneRecord(formData);
+    
+    // Remove from approved list
+    const index = tableDataList.value.findIndex(item => item.id === ruleForm.id);
+    if (index !== -1) {
+      tableDataList.value.splice(index, 1);
+    }
+    
+    // Update counts
+    await getCounts();
+    
+    DecommissionDialog.value = false
+    decommissionReason.value = ''
+    
+    ElMessage({
+      message: 'Settlement decommissioned successfully!',
+      type: 'success'
+    });
+  } catch (error) {
+    console.error('Error decommissioning settlement:', error);
+    ElMessage({
+      message: 'Failed to decommission settlement. Please try again.',
+      type: 'error'
+    });
   }
 }
 
@@ -2017,7 +2065,7 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
             <PermissionWrapper :permissions="['settlement:update', 'settlement:delete']">
               <TableActions
                 :item="row" :buttons="action_buttons" @view-on-map="handleViewOnMap" @edit="handleEdit"
-                @review="Review" @delete="handleDelete" />
+                @review="Review" @delete="handleDelete" @decommission="handleDecommission" />
             </PermissionWrapper>
           </template>
         </el-table-column>
@@ -2095,7 +2143,7 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
             <!-- Example 1: Only Edit and Delete buttons -->
             <TableActions
 :item="row" :buttons="action_buttons" @edit="handleEdit" @review="Review"
-              @delete="handleDelete" @view-on-map="handleViewOnMap" />
+              @delete="handleDelete" @view-on-map="handleViewOnMap" @decommission="handleDecommission" />
 
           </template>
         </el-table-column>
@@ -2164,7 +2212,7 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" ci
             <!-- Example 1: Only Edit and Delete buttons -->
             <TableActions
 :item="row" :buttons="action_buttons" @edit="handleEdit" @review="Review"
-              @delete="handleDelete" @view-on-map="handleViewOnMap" />
+              @delete="handleDelete" @view-on-map="handleViewOnMap" @decommission="handleDecommission" />
 
           </template>
         </el-table-column>
@@ -2236,7 +2284,7 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" ci
               <!-- Example 1: Only Edit and Delete buttons -->
               <TableActions
 :item="row" :buttons="action_buttons" @edit="handleEdit" @review="Review"
-                @delete="handleDelete" @view-on-map="handleViewOnMap" />
+                @delete="handleDelete" @view-on-map="handleViewOnMap" @decommission="handleDecommission" />
 
             </template>
           </el-table-column>
@@ -2555,6 +2603,29 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
           <el-button @click="RejectDialog = false">Cancel</el-button>
           <el-button type="primary" @click="confirmReject">
             Confirm
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="DecommissionDialog" title="Decommission Settlement" width="30%">
+      <el-form>
+        <el-form-item label="Settlement Name">
+          <el-input v-model="ruleForm.name" disabled />
+        </el-form-item>
+        <el-form-item label="Reason for Decommission">
+          <el-input 
+            v-model="decommissionReason" 
+            type="textarea" 
+            :rows="3"
+            placeholder="Please provide a reason for decommissioning this settlement..." />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="DecommissionDialog = false">Cancel</el-button>
+          <el-button type="warning" @click="confirmDecommission">
+            Decommission
           </el-button>
         </span>
       </template>
