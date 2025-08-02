@@ -2375,7 +2375,9 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="page"
 
         <el-table
 :data="decommSettlements" :show-overflow-tooltip="true" style="width: 100% ; margin-top: 10px;"
-          border :row-class-name="tableRowClassName" @expand-change="handleExpand" row-key="id"  :expand-row-keys="expandedRowKeys">
+          border :row-class-name="tableRowClassName" @expand-change="handleExpand" row-key="id"  :expand-row-keys="expandedRowKeys"
+          @row-dblclick="handleRowDblClick"
+        >
           <el-table-column type="expand">
             <template #default="props">
               <div m="4">
