@@ -4,6 +4,7 @@ import { ref, reactive, computed, onMounted, nextTick } from 'vue'
 import { ElButton, ElInput, ElMessage, ElSelect, ElOption, ElDrawer, ElDivider,ElCard, ElSwitch, ElCheckbox, ElBadge } from 'element-plus'
 import { Icon } from '@iconify/vue'
 import { askAIDocument, getAIProviders, getAIModels, processExistingDocumentsWithAI } from '@/api/ai'
+import { getFile } from '@/api/summary'
 import { useAppStore } from '@/store/modules/app'
 
 const appStore = useAppStore()
@@ -261,6 +262,29 @@ const openAIConfig = () => {
   aiConfigDrawer.value = true
 }
 
+const downloadFile = async (filename: string, format: string) => {
+  try {
+    ElMessage.info(`Starting download: ${filename}`)
+    let fname = filename
+    if (!/\.\w+$/.test(filename) && format) {
+      fname = filename + '.' + format
+    }
+    const formData: any = { filename: fname, responseType: 'blob' }
+    const response = await getFile(formData)
+    const url = window.URL.createObjectURL(new Blob([response.data]))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', fname)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    ElMessage.success(`Download completed: ${fname}`)
+  } catch (error) {
+    console.error('Error downloading file:', error)
+    ElMessage.error('Download failed.')
+  }
+}
+
 // Handle Enter key
 const handleKeyDown = (event: KeyboardEvent) => {
   if (event.key === 'Enter' && !event.shiftKey) {
@@ -336,7 +360,7 @@ onMounted(() => {
                     width="16" 
                     style="margin-right: 4px;"
                   />
-                  📚 Sources ({{ new Set(message.sources.map((s: any) => s.filename)).size }} documents)
+                  📚 zSources ({{ new Set(message.sources.map((s: any) => s.filename)).size }} documents)
                 </el-button>
                 
                 <div v-if="expandedSources.has(index)" class="sources-content">
@@ -362,6 +386,16 @@ onMounted(() => {
                   >
                     <div class="source-header">
                       <strong>{{ (document as any).filename }}</strong>
+                      <el-button
+                        type="text"
+                        size="small"
+                        style="margin-left: 10px; color: #409eff; font-size: 13px; vertical-align: middle;"
+                        :title="`Download ${ (document as any).filename }`"
+                        @click="downloadFile((document as any).filename, (document as any).fileType)"
+                      >
+                        <Icon icon="material-symbols:download" width="16" style="margin-right: 2px;" />
+                        Download
+                      </el-button>
                       <div class="source-badges">
                         <el-badge v-if="(document as any).maxSimilarity > 0" :value="`${((document as any).maxSimilarity * 100).toFixed(1)}%`" class="similarity-badge" />
                         <el-badge :value="`${(document as any).chunks.length} chunks`" class="chunks-badge" />

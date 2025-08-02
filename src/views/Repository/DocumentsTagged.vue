@@ -4,7 +4,7 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { getDocumentRepository } from '@/api/settlements'
 import { getListWithoutGeo } from '@/api/counties'
 import { ElButton, ElRow, ElCol,ElDialog, ElCard, ElTable, ElTableColumn, ElCheckbox, ElPagination, ElTag,ElForm,ElFormItem,
-  ElInput, ElMessage, ElSelect, ElOption, ElDrawer } from 'element-plus'
+  ElInput, ElMessage, ElSelect, ElOption, ElDrawer, ElDatePicker,ElUpload } from 'element-plus'
 import { Document } from '@element-plus/icons-vue'
 import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useCache } from '@/hooks/web/useCache'
@@ -17,6 +17,9 @@ import TableActions from '@/views/Components/TableActions.vue'
 import PermissionWrapper from '@/components/PermissionWrapper.vue'
 import { Icon } from '@iconify/vue'
 import { useRouter } from 'vue-router'
+import { uploadFilesBatch, checkFilesExist } from '@/api/settlements'
+import { uuid } from 'vue-uuid'
+import { searchByKeyWord } from '@/api/settlements'
 
 // Type definitions
 interface UserRole {
@@ -1004,6 +1007,258 @@ const filteredCategoryCounts = computed(() => {
   return filtered
 })
 
+const importDrawerVisible = ref(false)
+const importStep = ref(0)
+const importFileList = ref<any[]>([])
+const importTargetModel = ref('')
+const importDocTypes = ref<any[]>([])
+const importParentOptions = ref<any[]>([])
+const importFileMetadata = ref<any[]>([])
+const importFieldMappings = ref<any[]>([])
+const importLoading = ref({ upload: false, fetchParents: false, import: false })
+const importFieldSearch = ref('')
+const importPreviewCount = ref(1)
+const importCanImport = ref(true)
+
+const IMPORT_UPLOAD_OPTIONS = [
+  { value: 'settlement', label: 'Settlements' },
+  { value: 'project', label: 'Projects' },
+  { value: 'health_facility', label: 'Health Facilities' },
+  { value: 'education_facility', label: 'Education Facilities' },
+  { value: 'road', label: 'Roads' },
+  { value: 'road_asset', label: 'Road Assets' },
+  { value: 'water_point', label: 'Water Points' },
+  { value: 'piped_water', label: 'Piped Water' },
+  { value: 'sewer', label: 'Sewer' },
+  { value: 'other_facility', label: 'Other Facilities' },
+  { value: 'other_documents', label: 'Other Documents' },
+]
+const IMPORT_MODEL_MAPPINGS = {
+  settlement: 'settlement_id',
+  project: 'project_id',
+  education_facility: 'education_facility_id',
+  road: 'road_id',
+  road_asset: 'road_asset_id',
+  water_point: 'water_point_id',
+  sewer: 'sewer_id',
+  other_facility: 'other_facility_id',
+  other_documents: null,
+}
+
+// Add file upload handler for import drawer
+const importBeforeUpload = (file) => {
+  const types = [
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/pdf',
+    'application/zip',
+    'application/x-rar-compressed',
+    'application/x-zip-compressed',
+    'application/vnd.rar',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'image/png',
+    'image/jpeg',
+    'image/tiff',
+    'text/csv',
+    'text/plain',
+    'application/json',
+    'application/vnd.geo+json',
+    'application/vnd.google-earth.kml+xml',
+    'application/vnd.google-earth.kmz',
+    'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  ];
+  const isValidType = types.includes(file.type);
+  const isLt50M = file.size / 1024 / 1024 < 5000;
+  if (!isValidType) {
+    ElMessage.error(`${file.type} file type is not allowed`);
+    return false;
+  }
+  if (!isLt50M) {
+    ElMessage.error('File size should not exceed 5GB');
+    return false;
+  }
+  return true;
+};
+
+const importHandleFileUpload = (uploadFile) => {
+  const file = uploadFile.raw || uploadFile.file;
+  if (!file || !importBeforeUpload(file)) return;
+  // Prevent duplicates based on name + size
+  const exists = importFileList.value.some(f => f.name === file.name && f.size === file.size);
+  if (exists) {
+    ElMessage.warning(`File ${file.name} already uploaded.`);
+    return;
+  }
+  const currentIndex = importFileList.value.length;
+  importFileList.value.push({ ...uploadFile, protected: false, type: '', field_id: '' });
+  importFileMetadata.value.push({
+    name: file.name,
+    type: '',
+    format: file.name.split('.').pop() || '',
+    size: (file.size / 1024 / 1024).toFixed(2),
+    protected: false,
+    field_id: ''
+  });
+  importFieldMappings.value.push({ fileIndex: currentIndex, type: '', field_id: '' });
+  ElMessage.success(`File ${file.name} loaded successfully!`);
+};
+
+const importHandleSelectModel = async (model: string) => {
+  importTargetModel.value = model;
+  importParentOptions.value = [];
+  const mappedFieldId = IMPORT_MODEL_MAPPINGS[model] || undefined;
+  importFieldMappings.value = importFileList.value.map((_, index) => ({
+    fileIndex: index,
+    type: '',
+    field_id: mappedFieldId,
+  }));
+  if (mappedFieldId) {
+    importLoading.value.fetchParents = true;
+    try {
+      const associatedModels = model === 'settlement' ? ['county', 'subcounty', 'ward'] :
+        ['project', 'contractor', 'road', 'road_asset'].includes(model) ? [] :
+        ['county', 'subcounty', 'ward'];
+      const formData = {
+        curUser: 1,
+        model: model,
+        searchField: model === 'project' ? 'title' : 'name',
+        searchKeyword: '',
+        excludeGeom: false,
+        excludeGeomAssoc: true,
+        associated_multiple_models: associatedModels,
+        filters: [],
+        filterValues: [],
+      };
+      const response = await searchByKeyWord(formData as any);
+      const data = (response as any).data;
+      if (data && data.length > 0) {
+        importParentOptions.value = data.map((item: any) => ({
+          value: item.id,
+          label: item.name || item.title || item.contract_number || 'Unknown',
+          county: item.county?.name,
+          subcounty: item.subcounty?.name,
+          ward: item.ward?.name,
+          ward_id: item.ward?.id,
+          subcounty_id: item.subcounty?.id,
+          county_id: item.county?.id,
+        }));
+      } else {
+        ElMessage.warning('No parent options found for the selected entity.');
+      }
+    } catch (err: any) {
+      ElMessage.error(err.message || 'Failed to load parent options');
+    } finally {
+      importLoading.value.fetchParents = false;
+    }
+  }
+  importStep.value++;
+}
+
+// Add docTypes fetch for import drawer
+const getImportDocTypes = async () => {
+  try {
+    const res = await getListWithoutGeo({
+      params: {
+        pageIndex: 1,
+        limit: 100,
+        curUser: 1,
+        model: 'document_type',
+        searchField: 'name',
+        searchKeyword: '',
+        sort: 'ASC',
+      },
+    });
+    const nestedData = res.data.reduce((acc: any, cur: any) => {
+      const group = cur.group || 'Other';
+      if (!acc[group]) acc[group] = [];
+      acc[group].push({ value: cur.id, label: cur.type });
+      return acc;
+    }, {});
+    importDocTypes.value = Object.entries(nestedData).map(([label, options]) => ({ label, options }));
+  } catch (err) {
+    ElMessage.error('Failed to load document types');
+  }
+}
+// Fetch doc types on mount
+onMounted(() => { getImportDocTypes(); });
+
+const importFiles = async () => {
+  importLoading.value.import = true;
+  try {
+    // Validate required fields
+    for (const mapping of importFieldMappings.value) {
+      if (!mapping.type) {
+        ElMessage.error('Please select a document type for all files.');
+        importLoading.value.import = false;
+        return;
+      }
+      if (importTargetModel.value !== 'other_documents' && !mapping.parent_id) {
+        ElMessage.error('Please select a parent entity for all files.');
+        importLoading.value.import = false;
+        return;
+      }
+    }
+    // Build file metadata
+    importFileMetadata.value = importFileList.value.map((file, index) => {
+      const mapping = importFieldMappings.value[index];
+      const metadata: any = {
+        name: file.name,
+        type: mapping.type,
+        format: file.name.split('.').pop() || '',
+        size: (file.size / 1024 / 1024).toFixed(2),
+        protected: file.protected || false,
+        field_id: mapping.field_id,
+      };
+      if (mapping.field_id && mapping.parent_id) {
+        metadata[mapping.field_id] = mapping.parent_id;
+      }
+      return metadata;
+    });
+    // Build FormData
+    const formData = new FormData();
+    importFileList.value.forEach((file, index) => {
+      const metadata = importFileMetadata.value[index];
+      formData.append('files', file.raw);
+      formData.append('model', 'document');
+      formData.append('createdBy', '1'); // Use actual user ID if available
+      formData.append('format', metadata.format);
+      formData.append('category', metadata.type);
+      if (metadata.field_id && metadata[metadata.field_id]) {
+        formData.append('field_id', metadata.field_id);
+        formData.append(metadata.field_id, metadata[metadata.field_id].toString());
+      }
+      formData.append('protected', metadata.protected.toString());
+      formData.append('size', metadata.size);
+      formData.append('code', uuid.v4());
+    });
+    // Upload
+    const response = await uploadFilesBatch(formData as any);
+    const resData = (response as any).data || response;
+    if (Array.isArray(resData.errors) && resData.errors.length > 0) {
+      const errorDetails = resData.errors.map((err: any, idx: number) => {
+        const fileIndex = err.index ?? idx;
+        const reason = err.detail ?? 'Unknown error';
+        return `File ${importFileList.value[fileIndex].name}: ${reason}`;
+      }).join('\n');
+      ElMessage.error(`Some files failed to import:\n${errorDetails}`);
+      importLoading.value.import = false;
+      return;
+    }
+    if (resData.code === '0000') {
+      ElMessage.success(`Files imported successfully! ${importFileList.value.length} files imported.`);
+      importDrawerVisible.value = false;
+      await loadDocumentRepository();
+    } else {
+      ElMessage.warning(`Imported ${importFileList.value.length - (resData.failedCount || 0)} of ${importFileList.value.length} files successfully.`);
+    }
+  } catch (err: any) {
+    ElMessage.error(err.message || 'Error importing files. Please check the data and try again.');
+  } finally {
+    importLoading.value.import = false;
+  }
+}
 
 </script>
 
@@ -1017,54 +1272,41 @@ const filteredCategoryCounts = computed(() => {
     </template>
 
     <!-- Search and Filter Controls -->
-    <div style="margin: 5px 0;">
-      <el-row :gutter="16">
-        <el-col :xs="24" :sm="24" :md="16" :lg="15" :xl="15">
-          <el-input
-            v-model="searchTerm"
-            placeholder="Search documents by name/settlement/county/format/uploader name"
-            clearable
-            @change="handleSearch"
-            @clear="clearFilters"
-          >
-            <template #append>
-              <el-button @click="handleSearch" type="primary">
-                <Icon icon="material-symbols:search" width="16" />
-              </el-button>
-            </template>
-          </el-input>
-        </el-col>
-        <el-col :xs="24" :sm="24" :md="8" :lg="9" :xl="9">
-          <div class="action-buttons-container">
-            <el-button 
-              @click="filterDrawer = true" 
-              type="primary" 
-              plain 
-              size="small"
-              class="action-button"
-            >
-              <Icon icon="material-symbols:filter-list" width="16" style="margin-right: 4px;" />
-              Filter By Category
+    <el-row :gutter="10" class="mb-2" >
+      <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+        <el-input
+          v-model="searchTerm"
+          placeholder="Search documents by name/settlement/county/format/uploader name"
+          clearable
+          @change="handleSearch"
+          @clear="clearFilters"
+        >
+          <template #append>
+            <el-button @click="handleSearch" type="primary">
+              <Icon icon="material-symbols:search" width="16" />
             </el-button>
-            <el-button 
-              @click="clearFilters" 
-              type="info" 
-              plain 
-              size="small"
-              v-if="currentlyFiltered"
-              class="action-button"
-            >
-              <Icon icon="material-symbols:clear" width="16" style="margin-right: 4px;" />
-              Clear Filters ({{ selectedCategories.size + (searchTerm ? 1 : 0) }})
-            </el-button>
-            <el-button @click="router.push('/repo/ai-chat')" type="success" plain size="small" class="action-button">
-              <Icon icon="mingcute:mic-ai-fill" width="16" style="margin-right: 4px;" />
-              KesMIS-AI Assistant 
-            </el-button>
-          </div>
-        </el-col>
-      </el-row>
-    </div>
+          </template>
+        </el-input>
+      </el-col>
+      <el-col :xs="24" :sm="6" :md="4" :lg="4" :xl="4">
+        <el-button  plain   @click="importDrawerVisible = true"  >
+          <Icon icon="material-symbols:upload" width="18" style="margin-right: 4px;" />
+          upload
+        </el-button>
+      </el-col>
+      <el-col :xs="24" :sm="4" :md="4" :lg="4" :xl="4">
+        <el-button @click="filterDrawer = true" type="primary" plain   block>
+          <Icon icon="material-symbols:filter-list" width="16" />
+          Filter By Category
+        </el-button>
+      </el-col>
+      <el-col :xs="24" :sm="6" :md="4" :lg="4" :xl="4">
+        <el-button @click="clearFilters" type="info" plain   block :disabled="!currentlyFiltered">
+          <Icon icon="material-symbols:clear" width="16" style="margin-right: 2px;" />
+          Clear Filters ({{ selectedCategories.size + (searchTerm ? 1 : 0) }})
+        </el-button>
+      </el-col>
+    </el-row>
     
     <!-- Selection Controls -->
     <div v-if="selectedDocuments.size > 0" style="margin: 10px 0; padding: 10px; background-color: #f5f7fa; border-radius: 4px;">
@@ -1268,7 +1510,7 @@ const filteredCategoryCounts = computed(() => {
     <el-drawer
       v-model="dialogVisible"
       direction="rtl"
-      size="500px"
+      size="30%"
       :before-close="handleClose"
     >
       <template #header>
@@ -1335,6 +1577,153 @@ filterable clearable
       </div>
     </el-drawer>
 
+    <el-drawer
+      v-model="importDrawerVisible"
+      title="Batch Import Documents"
+      size="40%"
+      direction="rtl"
+      :before-close="() => { importDrawerVisible = false }"
+    >
+      <el-steps :active="importStep" finish-status="success" align-center>
+        <el-step title="Upload Files" />
+        <el-step title="Select Target Model" />
+        <el-step title="Match Fields" />
+        <el-step title="Review & Import" />
+      </el-steps>
+      <div v-if="importStep === 0" class="mt-4">
+        <PermissionWrapper :permissions="'document:create'">
+          <el-upload
+            action=""
+            :auto-upload="false"
+            :show-file-list="true"
+            :on-change="importHandleFileUpload"
+            :limit="20"
+            :multiple="true"
+            accept=".xls,.xlsx,.pdf,.zip,.doc,.docx,.png,.jpg,.csv,.json,.geojson,.ppt,.pptx,.rar,.tif,.txt"
+          >
+            <el-button type="primary">Upload Files</el-button>
+          </el-upload>
+        </PermissionWrapper>
+        <p class="text-sm text-gray-500 mt-2">Supported formats: .xls, .xlsx, .pdf, .zip, .doc, .docx, .png, .jpg, .csv, .json, .geojson, .ppt, .pptx, .rar, .tif, .txt</p>
+      </div>
+      <div v-if="importStep === 1" class="mt-4">
+        <el-select
+          v-model="importTargetModel"
+          filterable
+          clearable
+          placeholder="Select entity to attach the documents to"
+          @change="importHandleSelectModel"
+          :disabled="importLoading.fetchParents"
+        >
+          <el-option v-for="item in IMPORT_UPLOAD_OPTIONS" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </div>
+      <div v-if="importStep === 2" class="mt-4">
+        <el-input
+          v-model="importFieldSearch"
+          placeholder="Search files"
+          clearable
+          class="mb-2"
+          aria-label="Search files"
+        />
+        <div class="max-h-[60vh] overflow-auto border rounded bg-gray-50 p-2">
+          <el-table :data="importFieldMappings.filter(mapping => importFileList[mapping.fileIndex]?.name.toLowerCase().includes(importFieldSearch.toLowerCase()))" style="width: 100%">
+            <el-table-column label="File Name">
+              <template #default="{ row }">
+                {{ importFileList[row.fileIndex]?.name }}
+              </template>
+            </el-table-column>
+            <el-table-column label="Document Type">
+              <template #default="{ row }">
+                <el-select v-model="row.type" placeholder="Select Type" clearable filterable>
+                  <el-option-group v-for="group in importDocTypes" :key="group.label" :label="group.label">
+                    <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
+                  </el-option-group>
+                </el-select>
+              </template>
+            </el-table-column>
+            <el-table-column v-if="importTargetModel !== 'other_documents'" label="Parent Entity">
+              <template #default="{ row }">
+                <el-select
+                  v-model="row.parent_id"
+                  filterable
+                  remote
+                  :remote-method="(kw) => {/* optionally implement remote search */}"
+                  :loading="importLoading.fetchParents"
+                  placeholder="Search parent entity"
+                  aria-label="Select parent entity"
+                >
+                  <el-option
+                    v-for="item in importParentOptions"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  >
+                    <div style="display: flex; align-items: center;">
+                      <span style="flex: 1; text-align: left;">{{ item.label }}</span>
+                      <span style="flex: 2; color: var(--el-text-color-secondary); font-size: 13px; text-align: right;">
+                        {{ item.ward }}, {{ item.subcounty }}, {{ item.county }}
+                      </span>
+                    </div>
+                  </el-option>
+                </el-select>
+              </template>
+            </el-table-column>
+            <el-table-column label="Protected">
+              <template #default="{ row }">
+                <el-switch v-model="importFileList[row.fileIndex].protected" />
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+      </div>
+      <div v-if="importStep === 3" class="mt-4">
+        <el-alert
+          title="Ready to import. Below is the remapped file metadata."
+          type="success"
+          aria-label="Import ready"
+        />
+        <el-select
+          v-model="importPreviewCount"
+          placeholder="Select number of records to preview"
+          class="mt-2"
+          aria-label="Select number of records to preview"
+        >
+          <el-option label="1" :value="1" />
+          <el-option label="5" :value="5" />
+          <el-option label="10" :value="10" />
+        </el-select>
+        <div
+          v-if="importFileMetadata && importFileMetadata.length"
+          class="mt-2 max-h-60 overflow-auto border rounded bg-gray-50 p-2"
+        >
+          <pre class="text-sm whitespace-pre-wrap">
+            {{ JSON.stringify(importFileMetadata.slice(0, importPreviewCount), null, 2) }}
+          </pre>
+        </div>
+        <el-alert v-else title="No files to import." type="warning" class="mt-2" />
+        <!-- <div class="mt-4 flex justify-end">
+          <el-button type="primary" :loading="importLoading.import" @click="importFiles">Import</el-button>
+        </div> -->
+      </div>
+      <template #footer>
+        <el-row :gutter="12" justify="end">
+          <el-col :xs="24" :sm="8" :md="6" :lg="4" v-if="importStep !== 0">
+            <el-button block @click="importStep--">Back</el-button>
+          </el-col>
+          <el-col :xs="24" :sm="8" :md="6" :lg="4">
+            <el-button
+              block
+              type="primary"
+              :loading="importLoading.import && importStep === 3"
+              @click="importStep === 3 ? importFiles() : importStep++"
+            >
+              {{ importStep === 3 ? 'Import' : (importStep === 2 ? 'Review' : 'Next') }}
+            </el-button>
+          </el-col>
+        </el-row>
+      </template>
+    </el-drawer>
   
   </el-card>
 </template>

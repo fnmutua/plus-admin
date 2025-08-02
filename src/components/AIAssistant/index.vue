@@ -4,6 +4,7 @@ import { ElButton, ElInput, ElMessage, ElSelect, ElOption, ElDialog, ElDivider, 
 import { Icon } from '@iconify/vue'
 import { askAIDocument, getAIProviders, getAIModels, processExistingDocumentsWithAI } from '@/api/ai'
 import { useAppStore } from '@/store/modules/app'
+import { getFile } from '@/api/summary'
    
 const appStore = useAppStore()
 
@@ -322,6 +323,29 @@ const closeModal = () => {
   visible.value = false
 }
 
+const downloadFile = async (filename: string, format: string) => {
+  try {
+    ElMessage.info(`Starting download: ${filename}`)
+    let fname = filename
+    if (!/\.\w+$/.test(filename) && format) {
+      fname = filename + '.' + format
+    }
+    const formData: any = { filename: fname, responseType: 'blob' }
+    const response = await getFile(formData)
+    const url = window.URL.createObjectURL(new Blob([response.data]))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', fname)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    ElMessage.success(`Download completed: ${fname}`)
+  } catch (error) {
+    console.error('Error downloading file:', error)
+    ElMessage.error('Download failed.')
+  }
+}
+
 defineExpose({
   openModal,
   closeModal
@@ -476,6 +500,17 @@ watch(chatMessages, () => {
                     >
                       <div class="source-header">
                         <strong>{{ (document as any).filename }}</strong>
+                        <el-button
+                          v-if="!(document as any).filename.toLowerCase().endsWith('.json')"
+                          type="text"
+                          size="small"
+                          style="margin-left: 10px; color: #409eff; font-size: 13px; vertical-align: middle;"
+                          :title="`Download ${ (document as any).filename }`"
+                          @click="downloadFile((document as any).filename, (document as any).fileType)"
+                        >
+                          <Icon icon="material-symbols:download" width="16" style="margin-right: 2px;" />
+                          Download
+                        </el-button>
                         <div class="source-badges">
                           <el-badge v-if="(document as any).maxSimilarity > 0" :value="`${((document as any).maxSimilarity * 100).toFixed(1)}%`" class="similarity-badge" />
                           <el-badge :value="`${(document as any).chunks.length} chunks`" class="chunks-badge" />
