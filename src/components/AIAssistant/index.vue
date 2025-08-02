@@ -362,13 +362,16 @@ watch(chatMessages, () => {
     }
   });
 });
+
+const isMobile = computed(() => appStore.getMobile || window.innerWidth <= 768)
+const dialogWidth = computed(() => isMobile.value ? '100%' : '50%')
 </script>
 
 <template>
   <el-dialog
     v-model="visible"
     title="KeSMIS AI Assistant"
-    width="50%"
+    :width="dialogWidth"
     :before-close="closeModal"
     class="ai-assistant-dialog"
     top="4vh"
@@ -645,7 +648,7 @@ watch(chatMessages, () => {
 /* Centered Input Container */
 .centered-input-container {
   width: 95%;
-  max-width: 800px;
+  max-width: 900px;
   margin: 0 auto;
 }
 

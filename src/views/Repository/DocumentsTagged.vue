@@ -4,7 +4,7 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { getDocumentRepository } from '@/api/settlements'
 import { getListWithoutGeo } from '@/api/counties'
 import { ElButton, ElRow, ElCol,ElDialog, ElCard, ElTable, ElTableColumn, ElCheckbox, ElPagination, ElTag,ElForm,ElFormItem,
-  ElInput, ElMessage, ElSelect, ElOption, ElDrawer, ElDatePicker,ElUpload } from 'element-plus'
+  ElInput, ElMessage, ElSelect, ElOption, ElDrawer, ElDivider,ElUpload } from 'element-plus'
 import { Document } from '@element-plus/icons-vue'
 import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useCache } from '@/hooks/web/useCache'
@@ -1260,6 +1260,9 @@ const importFiles = async () => {
   }
 }
 
+const filterDrawerSize = computed(() => isMobile.value ? '100%' : '400px')
+const importDrawerSize = computed(() => isMobile.value ? '100%' : '40%')
+
 </script>
 
 <template>
@@ -1272,8 +1275,8 @@ const importFiles = async () => {
     </template>
 
     <!-- Search and Filter Controls -->
-    <el-row :gutter="10" class="mb-2" >
-      <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+    <el-row :gutter="12" class="mb-2" >
+      <el-col  :gutter="12" :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
         <el-input
           v-model="searchTerm"
           placeholder="Search documents by name/settlement/county/format/uploader name"
@@ -1429,7 +1432,7 @@ const importFiles = async () => {
     <el-drawer
       v-model="filterDrawer"
       direction="rtl"
-      size="400px"
+      :size="filterDrawerSize"
       :before-close="() => filterDrawer = false"
     >
       <template #header>
@@ -1510,7 +1513,7 @@ const importFiles = async () => {
     <el-drawer
       v-model="dialogVisible"
       direction="rtl"
-      size="30%"
+      :size="editDrawerSize"
       :before-close="handleClose"
     >
       <template #header>
@@ -1580,7 +1583,7 @@ filterable clearable
     <el-drawer
       v-model="importDrawerVisible"
       title="Batch Import Documents"
-      size="40%"
+      :size="importDrawerSize"
       direction="rtl"
       :before-close="() => { importDrawerVisible = false }"
     >
@@ -1708,6 +1711,7 @@ filterable clearable
       </div>
       <template #footer>
         <el-row :gutter="12" justify="end">
+          <el-divider />
           <el-col :xs="24" :sm="8" :md="6" :lg="4" v-if="importStep !== 0">
             <el-button block @click="importStep--">Back</el-button>
           </el-col>
