@@ -3,20 +3,20 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { getSettlementListByCounty, getDuplicates, mergeDuplicates } from '@/api/settlements'
 import { getListWithoutGeo } from '@/api/counties'
 import {
-  ElButton, ElSelect, FormInstance, ElTabs, ElTabPane, ElDialog, ElInputNumber,
+  ElButton, ElSelect, FormInstance, ElTabs, ElTabPane, ElDialog, ElInputNumber,ElCollapse,ElCollapseItem,
   ElInput, ElBadge, ElForm, ElDescriptions, ElDescriptionsItem, ElFormItem, ElUpload, ElCard, ElPopconfirm, ElTable, ElCol, ElRow,
-  ElTableColumn, UploadUserFile, ElDropdown, ElDropdownMenu, ElDropdownItem, ElStep, ElSteps, ElCheckbox, ElIcon, ElDatePicker,
+  ElTableColumn, UploadUserFile, ElDropdown, ElDropdownMenu, ElDropdownItem, ElStep, ElSteps, ElCheckbox, ElIcon, ElDatePicker,ElCheckboxGroup,
 } from 'element-plus'
 import { ElMessage, ElSegmented } from 'element-plus'
 import { Position, Plus, Delete, Edit, Filter, InfoFilled, CopyDocument, Clock, Search, Setting, Back, Loading, CircleCheck, Message, CircleClose, Warning, View, RefreshLeft } from '@element-plus/icons-vue'
 import { ArrowLeft, ArrowRight, UploadFilled, Postcard, TopRight, Lock, Guide, TakeawayBox } from '@element-plus/icons-vue'
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, nextTick } from 'vue'
 import { ElPagination, ElTooltip, ElOption } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { DeleteRecord, updateOneRecord, revertHistory, deleteDocument } from '@/api/settlements'
 import { useAppStore } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
-import { defineAsyncComponent, onMounted, nextTick } from 'vue';
+import { defineAsyncComponent, onMounted } from 'vue';
 import xlsx from "json-as-xlsx"
 import { searchByKeyWord } from '@/api/settlements'
 import readShapefileAndConvertToGeoJSON from '@/utils/readShapefile'
@@ -104,8 +104,8 @@ const isSuperAdmin = ref(
 );
 const thisHistory = ref()
 
-const action_buttons = computed(() => {
-  let buttons = [];
+const action_buttons = computed<string[]>(() => {
+  let buttons: string[] = [];
   if (showAdminButtons.value) {
     buttons = ['edit', 'viewOnMap', 'delete'];
   } else if (showEditButtons.value) {
@@ -151,17 +151,13 @@ const processedRoles = userInfo.roles.map(role => {
   };
 }).filter(role => role !== null);
 
-let roles_filters = [];
-let userType;
+let roles_filters: { role: string; field: string | null; value: any }[] = [];
 if (isSuperAdmin.value) {
   roles_filters = [];
-  userType = "superadmin";
   showAdminButtons.value = true
 } else if (processedRoles.some(role => role.role === "admin")) {
-  userType = "admin";
   showAdminButtons.value = true
 } else if (processedRoles.some(role => role.role === "staff")) {
-  userType = "staff";
   showAdminButtons.value = true
 } else {
   const applicableRoles = processedRoles.filter(role => role.model !== "national");
@@ -316,7 +312,18 @@ const totalPending = ref(0)
 const showEditSaveButton = ref(false)
 const showAddSaveButton = ref(true)
 const formheader = ref('Edit Settlement')
-const duplicateRecords = ref([])
+// Explicitly type duplicateRecords for Duplicates segment
+interface DuplicateGroup {
+  header: string;
+  records: any[];
+  _mergeState?: { selected: any[]; primary: any | null };
+}
+interface CountyDuplicate {
+  parent: string;
+  groups: DuplicateGroup[];
+  _activeTab: string;
+}
+const duplicateRecords = ref<CountyDuplicate[]>([])
 const duplicateTotal = ref(0)
 const deletedSettlements = ref([])
 const deletedSettlementsCount = ref(0)
@@ -563,9 +570,6 @@ const getPotentialDuplicates = async () => {
     }
     var index = filters.value.indexOf(selectOption)
     if (filterValues[index]) {
-      filterValues.value.splice(index, 1)
-    }
-    if (!filterValues.value.includes(selectedWard.value)) {
       filterValues.value.splice(index, 0, selectedWard.value)
     }
     if (selectedWard.value.length === 0) {
@@ -573,7 +577,7 @@ const getPotentialDuplicates = async () => {
     }
   }
   pushRoleFilters()
-  const formData = {}
+  const formData: any = {}
   formData.limit = pageSize.value
   formData.page = page.value
   formData.curUser = 1
@@ -582,16 +586,45 @@ const getPotentialDuplicates = async () => {
   formData.searchKeyword = ''
   formData.assocModel = associated_Model
   formData.fields = ['name', 'county_id']
-  formData.associated_multiple_models = associated_multiple_models
+  formData.associated_multiple_models = ['county', 'subcounty', 'ward']
   formData.filters = filters.value
   formData.filterValues = filterValues.value
-  formData.associated_model = "county"
-  formData.foreignKey = "county_id"
-  formData.displayField = "name"
+  formData.associated_model = 'county'
+  formData.foreignKey = 'county_id'
+  formData.displayField = 'name'
   const res = await getDuplicates(formData)
-  duplicateRecords.value = res.data
-  duplicateTotal.value = res.data.length
-  total.value = res.data.length
+  const groupedByCounty: Record<string, any[]> = {}
+  res.data.forEach((duplicateGroup: any) => {
+    if (!duplicateGroup.duplicates.length) return;
+    const first = duplicateGroup.duplicates[0]
+    let countyName = 'Unknown County'
+    if (first.county && first.county.name) {
+      countyName = first.county.name
+    } else if (first.county_id) {
+      countyName = `County ID: ${first.county_id}`
+    }
+    if (!groupedByCounty[countyName]) {
+      groupedByCounty[countyName] = []
+    }
+    const uniqueNames = [...new Set(duplicateGroup.duplicates.map((d: any) => d.name))]
+    groupedByCounty[countyName].push({
+      header: uniqueNames.join(' / '),
+      records: duplicateGroup.duplicates
+    })
+  })
+  duplicateRecords.value = Object.entries(groupedByCounty).map(([parent, groups]: [string, any[]]) => {
+    const countyObj: any = { parent, groups, _activeTab: 'set1' }
+    groups.forEach((group, groupIdx) => {
+      if (!group._mergeState) {
+        group._mergeState = reactive({ selected: [], primary: null })
+      }
+    })
+    return countyObj
+  })
+  // Debug log
+  console.log('duplicateRecords', JSON.parse(JSON.stringify(duplicateRecords.value)))
+  duplicateTotal.value = duplicateRecords.value.length
+  total.value = duplicateRecords.value.length
   loadingGetData.value = false
   loadingGetDataMsg.value = 'Loading the data.. Please wait.......'
 }
@@ -613,8 +646,8 @@ const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
   return res;
 };
 
-const model_fields = ref([])
-const flattenedData = ref([])
+const model_fields = ref<string[]>([])
+const flattenedData = ref<any[]>([])
 
 function getLatLonFromGeom(geom) {
   if (!geom || !geom.type || !geom.coordinates) {
@@ -1664,8 +1697,9 @@ const onExpand = (row, expandedRows) => {
 const paginatedData = computed(() => {
   const start = (currentPage.value - 1) * pageSize.value;
   const end = start + pageSize.value;
-  return duplicateRecords.value.slice(start, end);
-});
+  // Only paginate counties, not groups
+  return duplicateRecords.value.slice(start, end)
+})
 
 function handlePageChange(page) {
   currentPage.value = page;
@@ -1849,6 +1883,116 @@ function getGeometryIcon(row) {
   }
   return { icon: 'ep:warning',   tooltip: 'Unknown geometry' };
 }
+
+// Helper to group duplicates by name
+function groupedByName(duplicates) {
+  const groups = {};
+  duplicates.forEach(d => {
+    if (!groups[d.name]) groups[d.name] = [];
+    groups[d.name].push(d);
+  });
+  return Object.entries(groups).map(([name, records]) => ({ name, records }));
+}
+
+// Helper to group duplicates by candidate names (all unique names in the group)
+function groupedByCandidates(duplicates) {
+  if (!duplicates || !duplicates.length) return [];
+  // The backend already gives you a group of candidates (duplicates)
+  const uniqueNames = [...new Set(duplicates.map(d => d.name))];
+  return [{
+    header: uniqueNames.join(' / '),
+    records: duplicates
+  }];
+}
+
+// Add these methods in <script setup> (after mergeRecords, before template):
+function ensureMergeState(group) {
+  if (!group._mergeState) {
+    group._mergeState = reactive({
+      selected: [],
+      primary: null
+    })
+  }
+}
+function handleGroupSelection(selection, group) {
+  ensureMergeState(group)
+  group._mergeState.selected = selection
+  if (!selection.find(r => r.id === group._mergeState.primary)) {
+    group._mergeState.primary = null
+  }
+}
+async function mergeGroupRecords(group) {
+  ensureMergeState(group)
+  const selected = group._mergeState.selected
+  const primary = group._mergeState.primary
+  if (!primary || selected.length < 2) return
+  const toMerge = selected.map(r => r.id).filter(id => id !== primary)
+  const formData = {
+    model: 'settlement',
+    primaryId: primary,
+    duplicateIds: toMerge
+  }
+  const res = await mergeDuplicates(formData)
+  if (res.code == '0000') {
+    // Remove this group from UI
+    const countyGroup = duplicateRecords.value.find(cg => cg.groups.includes(group))
+    if (countyGroup) {
+      const idx = countyGroup.groups.indexOf(group)
+      if (idx !== -1) countyGroup.groups.splice(idx, 1)
+      if (countyGroup.groups.length === 0) {
+        const cidx = duplicateRecords.value.indexOf(countyGroup)
+        if (cidx !== -1) duplicateRecords.value.splice(cidx, 1)
+      }
+    }
+  }
+  group._mergeState.selected = []
+  group._mergeState.primary = null
+}
+
+duplicateRecords.value.forEach(county => {
+  county._activeTab = 'set1'
+  county.groups.forEach((group, groupIdx) => {
+    if (!group._mergeState) {
+      group._mergeState = reactive({ selected: [], primary: null })
+    }
+  })
+})
+
+// Add this method in <script setup>:
+function handleCheckboxChange(val, row, group) {
+  ensureMergeState(group)
+  if (val) {
+    if (!group._mergeState.selected.includes(row)) {
+      group._mergeState.selected.push(row)
+    }
+  } else {
+    group._mergeState.selected = group._mergeState.selected.filter(r => r !== row)
+  }
+  if (!group._mergeState.selected.find(r => r.id === group._mergeState.primary)) {
+    group._mergeState.primary = null
+  }
+}
+
+// In <script setup>, add:
+const expandedCountyKeys = ref([])
+function toggleCountyExpand(parent) {
+  const idx = expandedCountyKeys.value.indexOf(parent)
+  if (idx === -1) {
+    expandedCountyKeys.value.push(parent)
+  } else {
+    expandedCountyKeys.value.splice(idx, 1)
+  }
+}
+
+
+duplicateRecords.value.forEach(county => {
+  county._expandedGroups = []
+  county.groups.forEach(group => {
+    if (!group._mergeState) {
+      group._mergeState = reactive({ selected: [], primary: null })
+    }
+  })
+})
 
 </script>
 
@@ -2342,100 +2486,88 @@ type="primary" size="small" :icon="View" @click="DeleteReview(row)"
     </div>
 
  
-
     <div v-if="activeSegment === 'Duplicates'">
-      <!-- Table with pagination -->
-      <el-table table-layout="auto"  :data="paginatedData" @expand-change="onExpand" style="width: 100% ; margin-top: 10px;">
-        <el-table-column type="expand">
-          <template #default="props">
-            <div m="4" style="margin-left:20px">
-              <div class="mb-4 d-flex align-items-center">
-                <div v-if="selectedRecords.length > 0">
-                  <el-button plain @click="showDuplicateMap(props as TableSlotDefault)" :icon="Position">
-                    Compare Location
-                  </el-button>
-                  <el-select
-v-model="primaryRecord" placeholder="Select record to merge to"
-                    :onChange="handleSelectPrimary" style="width: 290px; margin-left: 10px;">
-                    <el-option
-v-for="option in primaryOptions" :key="option.value" :label="option.label"
-                      :value="option.value" />
-                  </el-select>
-                  <el-button
-plain @click="mergeRecords" v-if="props.row.duplicates.length > 1"
-                    style="margin-left: 10px;">
-                    <Icon icon="flowbite:merge-cells-outline" style="margin-left: 4px;" /> Merge
-                  </el-button>
+  <el-collapse v-model="expandedCountyKeys" accordion>
+    <el-collapse-item
+      v-for="(county, countyIdx) in paginatedData"
+      :key="county.parent"
+      :name="county.parent"
+    >
+      <template #title>
+        <span style="margin-right: 12px; color: #888;">{{ countyIdx + 1 }}.</span>
+       {{ county.parent }} 
+      </template>
+      <el-tabs v-model="county._activeTab" type="card" style="margin-top: 8px;">
+        <el-tab-pane
+          v-for="(group, groupIdx) in county.groups"
+          :key="group.header"
+          :label="`Set ${groupIdx + 1}`"
+          :name="`set${groupIdx + 1}`"
+        >
+          <el-table :data="group.records" style="margin-bottom: 8px;">
+            <el-table-column
+              width="40"
+              :selectable="() => true"
+            >
+              <template #default="{ row }">
+                <el-checkbox
+                  :model-value="group._mergeState && group._mergeState.selected.includes(row)"
+                  @change="val => handleCheckboxChange(val, row, group)"
+                  @click.stop
+                />
+              </template>
+            </el-table-column>
+            <el-table-column type="index" label="No." width="50" />
+            <el-table-column label="ID" prop="id" width="80" />
+            <el-table-column label="Name" prop="name" min-width="200" sortable/>
+            <el-table-column label="Location" min-width="250">
+              <template #default="{ row }">
+                <div style="font-size: 13px; color: #666;">
+                  <div v-if="row.ward">{{ row.ward.name }} ward</div>
+                  <div v-else-if="row.ward_id">Ward ID: {{ row.ward_id }}</div>
+                  <div v-if="row.subcounty">{{ row.subcounty.name }} subcounty</div>
+                  <div v-else-if="row.subcounty_id">Subcounty ID: {{ row.subcounty_id }}</div>
+                  <div v-if="row.county">{{ row.county.name }}</div>
+                  <div v-else-if="row.county_id">County ID: {{ row.county_id }}</div>
                 </div>
-              </div>
-
-              <el-table  table-layout="auto" :data="props.row.duplicates" @selection-change="handleSelection" border>
-                <el-table-column type="selection" />
-                <el-table-column label="Id" prop="id" />
-                <el-table-column label="Name" prop="name" sortable />
-                <el-table-column label="Population" prop="population" />
-                <el-table-column label="Area(HA)" prop="area" sortable :formatter="row => Number(row.area).toFixed(2)" />
-                <el-table-column label="Code" prop="code" />
-                <el-table-column label="Created" prop="updatedAt" sortable :formatter="formatDate" />
-                <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
-                  <template #default="scope">
-                    <el-dropdown v-if="isMobile">
-                      <span class="el-dropdown-link">
-                        <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
-                      </span>
-                      <template #dropdown>
-                        <el-dropdown-menu>
-                          <el-dropdown-item
-v-if="showAdminButtons" @click="editSettlement(scope as TableSlotDefault)"
-                            :icon="Edit">Edit</el-dropdown-item>
-                          <el-dropdown-item
-@click="viewOnMap(scope as TableSlotDefault)"
-                            :icon="Position">Map</el-dropdown-item>
-                          <el-dropdown-item
-v-if="showAdminButtons"
-                            @click="DeleteSettlement(scope.row as TableSlotDefault)" :icon="Delete"
-                            color="red">Delete</el-dropdown-item>
-                        </el-dropdown-menu>
-                      </template>
-                    </el-dropdown>
-                    <div v-else>
-                      <el-tooltip content="View on Map" placement="top">
-                        <el-button
-type="warning" size="small" :icon="Position"
-                          @click="viewOnMap(scope as TableSlotDefault)" circle :disabled="!scope.row.geom" />
-                      </el-tooltip>
-                      <el-tooltip content="Delete" placement="top">
-                        <el-popconfirm
-width="300" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
-                          icon-color="#626AEF" title="Are you sure to delete this settlement?"
-                          @confirm="DeleteSettlement(scope.row as TableSlotDefault)">
-                          <template #reference>
-                            <el-button v-if="showAdminButtons" type="danger" size="small" :icon="Delete" circle />
-                          </template>
-                        </el-popconfirm>
-                      </el-tooltip>
-                    </div>
-                  </template>
-                </el-table-column>
-              </el-table>
-            </div>
-          </template>
-        </el-table-column>
-
-        <el-table-column label="County" prop="parent" sortable />
-      </el-table>
-
-      <!-- Pagination -->
-      <el-pagination
-background class="mt-4" layout="prev, pager, next, jumper" :total="duplicateRecords.length"
-        :page-size="pageSize" @current-change="handlePageChange" />
-
-
-
-
-
-    </div>
- 
+              </template>
+            </el-table-column>
+            <el-table-column label="Population" prop="population" width="120" />
+            <el-table-column label="Area (HA)" prop="area" width="120" />
+            <el-table-column label="Code" prop="code" width="120" />
+            <el-table-column label="Created At" prop="createdAt" width="140">
+              <template #default="{ row }">
+                <span>{{ row.createdAt ? new Date(row.createdAt).toLocaleDateString() : '' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="Updated At" prop="updatedAt" width="140">
+              <template #default="{ row }">
+                <span>{{ row.updatedAt ? new Date(row.updatedAt).toLocaleDateString() : '' }}</span>
+              </template>
+            </el-table-column>
+          </el-table>
+          <div style="margin-top: 8px;" v-if="group._mergeState && group._mergeState.selected.length >= 2">
+            <el-select v-model="group._mergeState.primary" placeholder="Select primary record" style="width: 220px; margin-right: 8px;">
+              <el-option v-for="rec in group._mergeState.selected" :key="rec.id" :label="rec.name + ' (ID:' + rec.id + ')'" :value="rec.id" />
+            </el-select>
+            <el-button type="success" :disabled="!group._mergeState.primary" @click="mergeGroupRecords(group)">
+              Merge Selected
+            </el-button>
+          </div>
+        </el-tab-pane>
+      </el-tabs>
+    </el-collapse-item>
+  </el-collapse>
+  <el-pagination
+    background 
+    class="mt-4" 
+    layout="sizes, prev, pager, next, jumper" 
+    :total="duplicateRecords.length"
+    :page-size="pageSize" 
+    :page-sizes="[5, 10, 15, 20, 50, 100]" 
+    @current-change="handlePageChange" 
+    @size-change="onPageSizeChange" />
+</div>
 
 
 

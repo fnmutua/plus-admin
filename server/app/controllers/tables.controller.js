@@ -6455,7 +6455,7 @@ exports.checkPotentialDuplicates = async (req, res) => {
  
  
 
-exports.xfindPotentialDuplicates = async (req, res) => {
+exports.findPotentialDuplicates = async (req, res) => {
   console.log('Req-body for duplicates:', req.body);
 
   const { model, fields, associated_model, foreignKey, displayField } = req.body; // Include associated model parameters
@@ -6505,6 +6505,33 @@ exports.xfindPotentialDuplicates = async (req, res) => {
   // Filter out groups with only one record
   const validGroups = groupedDuplicates.filter(group => group.length > 1);
 
+  // Helper to fetch {id, name} for county, subcounty, ward
+  async function enrichWithLocationInfo(duplicate) {
+    const result = { ...duplicate };
+    // County
+    if (duplicate.county_id) {
+      const county = await db.models.county.findOne({ where: { id: duplicate.county_id }, attributes: ['id', 'name'] });
+      result.county = county ? { id: county.id, name: county.name } : null;
+    } else {
+      result.county = null;
+    }
+    // Subcounty
+    if (duplicate.subcounty_id) {
+      const subcounty = await db.models.subcounty.findOne({ where: { id: duplicate.subcounty_id }, attributes: ['id', 'name'] });
+      result.subcounty = subcounty ? { id: subcounty.id, name: subcounty.name } : null;
+    } else {
+      result.subcounty = null;
+    }
+    // Ward
+    if (duplicate.ward_id) {
+      const ward = await db.models.ward.findOne({ where: { id: duplicate.ward_id }, attributes: ['id', 'name'] });
+      result.ward = ward ? { id: ward.id, name: ward.name } : null;
+    } else {
+      result.ward = null;
+    }
+    return result;
+  }
+
   // If there is an associated model, fetch its data
   if (associated_model) {
       try {
@@ -6530,15 +6557,13 @@ exports.xfindPotentialDuplicates = async (req, res) => {
               // Get the display field value from the associated data
               const displayValue = associatedData[displayField];
 
+              // Enrich all duplicates in this group
+              const enrichedDuplicates = await Promise.all(group.map(enrichWithLocationInfo));
+
               // Construct the response for this group
               return {
                   parent: displayValue, // Include the display field value from the associated model
-                  duplicates: group.map(duplicate => {
-                      // Return all attributes of the duplicate records
-                      return {
-                          ...duplicate // Include all properties of the duplicate record
-                      };
-                  })
+                  duplicates: enrichedDuplicates
               };
           });
 
@@ -6561,11 +6586,9 @@ exports.xfindPotentialDuplicates = async (req, res) => {
   }
 
   // Send response with grouped duplicates if no associated model is provided
-  const responseData = validGroups.map(group => ({
-      duplicates: group.map(duplicate => ({
-          ...duplicate // Include all properties of the duplicate record
-      }))
-  }));
+  const responseData = await Promise.all(validGroups.map(async group => ({
+      duplicates: await Promise.all(group.map(enrichWithLocationInfo))
+  })));
 
   res.status(200).send({
       data: responseData,
@@ -6629,6 +6652,33 @@ exports.xfindPotentialDuplicates = async (req, res) => {
     // Filter out groups with only one record
     const validGroups = groupedDuplicates.filter(group => group.length > 1);
 
+    // Helper to fetch {id, name} for county, subcounty, ward
+    async function enrichWithLocationInfo(duplicate) {
+      const result = { ...duplicate };
+      // County
+      if (duplicate.county_id) {
+        const county = await db.models.county.findOne({ where: { id: duplicate.county_id }, attributes: ['id', 'name'] });
+        result.county = county ? { id: county.id, name: county.name } : null;
+      } else {
+        result.county = null;
+      }
+      // Subcounty
+      if (duplicate.subcounty_id) {
+        const subcounty = await db.models.subcounty.findOne({ where: { id: duplicate.subcounty_id }, attributes: ['id', 'name'] });
+        result.subcounty = subcounty ? { id: subcounty.id, name: subcounty.name } : null;
+      } else {
+        result.subcounty = null;
+      }
+      // Ward
+      if (duplicate.ward_id) {
+        const ward = await db.models.ward.findOne({ where: { id: duplicate.ward_id }, attributes: ['id', 'name'] });
+        result.ward = ward ? { id: ward.id, name: ward.name } : null;
+      } else {
+        result.ward = null;
+      }
+      return result;
+    }
+
     // If there is an associated model, fetch its data
     if (associated_model) {
         try {
@@ -6654,15 +6704,13 @@ exports.xfindPotentialDuplicates = async (req, res) => {
                 // Get the display field value from the associated data
                 const displayValue = associatedData[displayField];
 
+                // Enrich all duplicates in this group
+                const enrichedDuplicates = await Promise.all(group.map(enrichWithLocationInfo));
+
                 // Construct the response for this group
                 return {
                     parent: displayValue, // Include the display field value from the associated model
-                    duplicates: group.map(duplicate => {
-                        // Return all attributes of the duplicate records
-                        return {
-                            ...duplicate // Include all properties of the duplicate record
-                        };
-                    })
+                    duplicates: enrichedDuplicates
                 };
             });
 
@@ -6685,11 +6733,9 @@ exports.xfindPotentialDuplicates = async (req, res) => {
     }
 
     // Send response with grouped duplicates if no associated model is provided
-    const responseData = validGroups.map(group => ({
-        duplicates: group.map(duplicate => ({
-            ...duplicate // Include all properties of the duplicate record
-        }))
-    }));
+    const responseData = await Promise.all(validGroups.map(async group => ({
+        duplicates: await Promise.all(group.map(enrichWithLocationInfo))
+    })));
 
     res.status(200).send({
         data: responseData,

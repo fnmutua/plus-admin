@@ -59,6 +59,15 @@ width="300" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
         </template>
       </el-tooltip>
 
+      <el-tooltip content="Add Geometry" placement="top">
+        <el-button
+          v-if="buttons.includes('addGeometry')" 
+          type="success" 
+          size="small" 
+          :icon="Position" 
+          @click="onAddGeometry(item)" />
+      </el-tooltip>
+
 
     </div>
 
@@ -109,6 +118,12 @@ width="300" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
             </el-icon>
           </el-dropdown-item>
 
+          <el-dropdown-item v-if="buttons.includes('addGeometry')" @click="onAddGeometry(item)">
+            <el-icon>
+              <Position />
+            </el-icon>
+          </el-dropdown-item>
+
 
 
           <el-dropdown-item v-if="buttons.includes('download')" @click="onDownload(item)">
@@ -139,7 +154,7 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(["edit", "viewOnMap", "review", "preview", "delete", "download", "decommission"]);
+const emit = defineEmits(["edit", "viewOnMap", "review", "preview", "delete", "download", "decommission", "addGeometry"]);
 
 
  console.log('Table Actions:::::', props)
@@ -186,6 +201,10 @@ const onDownload = (item) => {
 
 const onDecommission = (item) => {
   emit("decommission", item);
+};
+
+const onAddGeometry = (item) => {
+  emit("addGeometry", item);
 };
 
 
