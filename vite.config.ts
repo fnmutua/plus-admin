@@ -64,7 +64,21 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
         symbolId: 'icon-[dir]-[name]',
         svgoOptions: true
       }),
-      PurgeIcons(),
+      PurgeIcons({
+        content: [
+          'src/**/*.{vue,js,ts,jsx,tsx}',
+          'index.html'
+        ],
+        exclude: [
+          'node_modules/**',
+          'dist/**',
+          'build/**',
+          '**/pgdata/**',
+          '**/data/**',
+          'tools/**',
+          'server/**'
+        ]
+      }),
       viteMockServe({
         ignore: /^\_/,
         mockPath: 'mock',
