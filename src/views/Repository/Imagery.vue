@@ -1,6 +1,6 @@
 <!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick } from 'vue';
+import { ref, computed, onMounted, nextTick, watch } from 'vue';
 import {
   ElButton,
   ElSelect,
@@ -8,6 +8,7 @@ import {
   ElTooltip,
   ElOption,
   ElDialog,
+  ElDrawer,
   ElForm,
   ElUpload,
   ElFormItem,
@@ -90,6 +91,14 @@ const bounds = ref<Layer['bbox']>();
 const AddDialogVisible = ref(false);
 const UploadDialogVisible = ref(false);
 const EditDialogVisible = ref(false);
+
+// Watch for dialog close to cleanup map
+watch(AddDialogVisible, (newValue) => {
+  if (!newValue && map.value) {
+    // Clear layers when dialog closes
+    clearMapLayers();
+  }
+});
 const DialogTitle = ref('Imagery');
 const loading = ref(false);
 const loadingUploads = ref(false);
@@ -153,44 +162,90 @@ const loadMap = () => {
   map.value.addControl(new mapboxgl.NavigationControl());
 };
 
- 
+// Clear all custom layers and sources
+const clearMapLayers = () => {
+  if (!map.value) return;
+  
+  try {
+    // Remove all custom layers
+    const layersToRemove = [];
+    map.value.getStyle().layers?.forEach(layer => {
+      if (layer.id.startsWith('geoserver-')) {
+        layersToRemove.push(layer.id);
+      }
+    });
+    
+    layersToRemove.forEach(layerId => {
+      if (map.value!.getLayer(layerId)) {
+        map.value!.removeLayer(layerId);
+      }
+    });
 
+    // Remove all custom sources
+    const sourcesToRemove = [];
+    Object.keys(map.value.getStyle().sources || {}).forEach(sourceId => {
+      if (sourceId.startsWith('geoserver-')) {
+        sourcesToRemove.push(sourceId);
+      }
+    });
+    
+    sourcesToRemove.forEach(sourceId => {
+      if (map.value!.getSource(sourceId)) {
+        map.value!.removeSource(sourceId);
+      }
+    });
+  } catch (error) {
+    console.warn('Error clearing map layers:', error);
+  }
+};
 
- const updateMapLayer = () => {
+const updateMapLayer = () => {
   if (!map.value || !layerName.value || !bounds.value) return;
 
   const addLayer = () => {
-    // Remove existing layer and source if they exist
-    if (map.value!.getLayer('geoserver-wms-layer')) {
-      map.value!.removeLayer('geoserver-wms-layer');
+    try {
+      // Clear all previous custom layers and sources
+      clearMapLayers();
+
+      // Add new layer with unique ID based on layer name
+      const layerId = `geoserver-wms-layer-${layerName.value.replace(/[^a-zA-Z0-9]/g, '_')}`;
+      const sourceId = `geoserver-wms-source-${layerName.value.replace(/[^a-zA-Z0-9]/g, '_')}`;
+
+      // Add new source
+      map.value!.addSource(sourceId, {
+        type: 'raster',
+        tiles: [
+          `${serverUrl}/wms?&bbox={bbox-epsg-3857}&format=image/png&service=WMS&version=1.1.1&request=GetMap&srs=EPSG:3857&transparent=true&width=256&height=256&layers=${layerName.value}`,
+        ],
+        tileSize: 256,
+      });
+
+      // Add new layer
+      map.value!.addLayer({
+        id: layerId,
+        type: 'raster',
+        source: sourceId,
+        paint: {},
+      });
+
+      // Fit map to bounds with padding
+      map.value!.fitBounds([
+        [bounds.value.westBoundLongitude, bounds.value.southBoundLatitude],
+        [bounds.value.eastBoundLongitude, bounds.value.northBoundLatitude],
+      ], {
+        padding: 50,
+        duration: 1000
+      });
+
+      // Resize map to ensure proper rendering
+      setTimeout(() => {
+        map.value?.resize();
+      }, 100);
+
+    } catch (error) {
+      console.error('Error updating map layer:', error);
+      ElMessage.error('Error loading imagery layer');
     }
-    if (map.value!.getSource('geoserver-wms-source')) {
-      map.value!.removeSource('geoserver-wms-source');
-    }
-
-    // Add new layer
-    map.value!.addSource('geoserver-wms-source', {
-      type: 'raster',
-      tiles: [
-        `${serverUrl}/wms?&bbox={bbox-epsg-3857}&format=image/png&service=WMS&version=1.1.1&request=GetMap&srs=EPSG:3857&transparent=true&width=256&height=256&layers=${layerName.value}`,
-      ],
-      tileSize: 256,
-    });
-    map.value!.addLayer({
-      id: 'geoserver-wms-layer',
-      type: 'raster',
-      source: 'geoserver-wms-source',
-      paint: {},
-    });
-
-    // Fit map to bounds
-    map.value!.fitBounds([
-      [bounds.value.westBoundLongitude, bounds.value.southBoundLatitude],
-      [bounds.value.eastBoundLongitude, bounds.value.northBoundLatitude],
-    ]);
-
-    // Resize map to ensure proper rendering
-    map.value!.resize();
   };
 
   // Check if the map's style is loaded
@@ -207,16 +262,33 @@ const loadMap = () => {
 
 // Handle layer selection
 const handleSelectLayer = async (lyr: string) => {
-  AddDialogVisible.value = true;
+  try {
+    AddDialogVisible.value = true;
+    layerName.value = lyr;
+    DialogTitle.value = lyr;
 
-  layerName.value = lyr;
-  DialogTitle.value = lyr;
+    const filteredLayers = tableDataList.value.filter((layer) => layer.name === lyr);
+    bounds.value = filteredLayers[0]?.bbox;
+    
+    if (!bounds.value) {
+      ElMessage.error('No bounds found for this layer');
+      return;
+    }
 
-  const filteredLayers = tableDataList.value.filter((layer) => layer.name === lyr);
-  bounds.value = filteredLayers[0]?.bbox;
-  await nextTick();
+    await nextTick();
+    
+    // Initialize map if not already done
     loadMap();
-  updateMapLayer();
+    
+    // Wait a bit for the dialog to fully open before updating the map
+    setTimeout(() => {
+      updateMapLayer();
+    }, 200);
+    
+  } catch (error) {
+    console.error('Error selecting layer:', error);
+    ElMessage.error('Error loading layer');
+  }
 };
 
 // Handle row double-click
@@ -423,13 +495,13 @@ onMounted(() => {
   updatePageSize();
  
 
-  // Resize observer for dialog
-  const dialog = document.querySelector('.el-dialog');
-  if (dialog) {
+  // Resize observer for drawer
+  const drawer = document.querySelector('.el-drawer');
+  if (drawer) {
     const resizeObserver = new ResizeObserver(() => {
       map.value?.resize();
     });
-    resizeObserver.observe(dialog);
+    resizeObserver.observe(drawer);
   }
 
   // Fetch layers
@@ -682,9 +754,9 @@ const xdownloadImagery = (layerName) => {
     />
   </el-card>
 
-  <el-dialog v-model="AddDialogVisible" :title="DialogTitle" width="75%" draggable>
+  <el-drawer v-model="AddDialogVisible" :title="DialogTitle" size="75%" direction="rtl">
     <div id="mapContainer" class="basemap"></div>
-  </el-dialog>
+  </el-drawer>
 
   <el-dialog v-model="UploadDialogVisible" title="Upload Imagery to Geoserver" width="500">
     <div v-loading="loadingUploads">
@@ -783,7 +855,8 @@ const xdownloadImagery = (layerName) => {
 
 .basemap {
   width: 100%;
-  height: 65vh;
+  height: calc(100vh - 120px);
+  min-height: 400px;
 }
 
 @media (max-width: 768px) {
