@@ -36,7 +36,7 @@ import axios from 'axios';
 import { XMLParser } from 'fast-xml-parser';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import '@mapbox/mapbox-gl-geocoder/lib/mapbox-gl-geocoder.css';
+import '@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css';
 
 // Interfaces for type safety
 interface Layer {
@@ -57,7 +57,7 @@ interface FormData {
   username: string;
   password: string;
   crs: string;
-  name: string | null;
+  name: string | undefined;
   storeName?: string;
   oldLayerName?: string;
   newLayerName?: string;
@@ -102,10 +102,11 @@ watch(AddDialogVisible, (newValue) => {
 const DialogTitle = ref('Imagery');
 const loading = ref(false);
 const loadingUploads = ref(false);
+const mapLoading = ref(false);
 const map = ref<mapboxgl.Map | null>(null);
 const ruleFormRef = ref();
 const showEditButtons = ref(false);
-const model = ref(null);
+const model = ref<string | undefined>(undefined);
 const associated_multiple_models = ref([]);
 const oldLayer = ref<Layer>();
 
@@ -127,7 +128,7 @@ const form = ref<FormData>({
   password: '***REDACTED***',
   
   crs: 'EPSG:21037',
-  name: null,
+  name: undefined,
 });
 
 // Form validation rules
@@ -168,7 +169,7 @@ const clearMapLayers = () => {
   
   try {
     // Remove all custom layers
-    const layersToRemove = [];
+    const layersToRemove: string[] = [];
     map.value.getStyle().layers?.forEach(layer => {
       if (layer.id.startsWith('geoserver-')) {
         layersToRemove.push(layer.id);
@@ -182,7 +183,7 @@ const clearMapLayers = () => {
     });
 
     // Remove all custom sources
-    const sourcesToRemove = [];
+    const sourcesToRemove: string[] = [];
     Object.keys(map.value.getStyle().sources || {}).forEach(sourceId => {
       if (sourceId.startsWith('geoserver-')) {
         sourcesToRemove.push(sourceId);
@@ -202,14 +203,16 @@ const clearMapLayers = () => {
 const updateMapLayer = () => {
   if (!map.value || !layerName.value || !bounds.value) return;
 
+  mapLoading.value = true;
+
   const addLayer = () => {
     try {
       // Clear all previous custom layers and sources
       clearMapLayers();
 
       // Add new layer with unique ID based on layer name
-      const layerId = `geoserver-wms-layer-${layerName.value.replace(/[^a-zA-Z0-9]/g, '_')}`;
-      const sourceId = `geoserver-wms-source-${layerName.value.replace(/[^a-zA-Z0-9]/g, '_')}`;
+      const layerId = `geoserver-wms-layer-${layerName.value!.replace(/[^a-zA-Z0-9]/g, '_')}`;
+      const sourceId = `geoserver-wms-source-${layerName.value!.replace(/[^a-zA-Z0-9]/g, '_')}`;
 
       // Add new source
       map.value!.addSource(sourceId, {
@@ -230,8 +233,8 @@ const updateMapLayer = () => {
 
       // Fit map to bounds with padding
       map.value!.fitBounds([
-        [bounds.value.westBoundLongitude, bounds.value.southBoundLatitude],
-        [bounds.value.eastBoundLongitude, bounds.value.northBoundLatitude],
+        [bounds.value!.westBoundLongitude, bounds.value!.southBoundLatitude],
+        [bounds.value!.eastBoundLongitude, bounds.value!.northBoundLatitude],
       ], {
         padding: 50,
         duration: 1000
@@ -240,11 +243,13 @@ const updateMapLayer = () => {
       // Resize map to ensure proper rendering
       setTimeout(() => {
         map.value?.resize();
+        mapLoading.value = false;
       }, 100);
 
     } catch (error) {
       console.error('Error updating map layer:', error);
       ElMessage.error('Error loading imagery layer');
+      mapLoading.value = false;
     }
   };
 
@@ -256,6 +261,8 @@ const updateMapLayer = () => {
     map.value.once('load', addLayer);
   }
 };
+
+
 
 
 
@@ -351,7 +358,8 @@ const uploadImageToGeoServer = async (file: any, store: string) => {
       ElMessage.error('Upload failed');
     }
   } catch (error) {
-    ElMessage.error(`Error uploading file: ${error.message}`);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    ElMessage.error(`Error uploading file: ${errorMessage}`);
     throw error;
   }
 };
@@ -437,8 +445,8 @@ const saveEdits = async () => {
         console.log('form.value',form.value.newCrs)
         tableDataList.value[index] = {
           ...tableDataList.value[index], // Preserve other properties
-          name: form.value.newLayerName,
-          crs: [form.value.newCrs],
+          name: form.value.newLayerName || '',
+          crs: [form.value.newCrs || ''],
           // Add other updated fields from form.value or res.data as needed
         };
         console.log('tableDataList.value[index]',tableDataList.value[index])
@@ -755,7 +763,7 @@ const xdownloadImagery = (layerName) => {
   </el-card>
 
   <el-drawer v-model="AddDialogVisible" :title="DialogTitle" size="75%" direction="rtl">
-    <div id="mapContainer" class="basemap"></div>
+    <div id="mapContainer" class="basemap" v-loading="mapLoading" element-loading-text="Loading imagery..."></div>
   </el-drawer>
 
   <el-dialog v-model="UploadDialogVisible" title="Upload Imagery to Geoserver" width="500">
@@ -857,7 +865,10 @@ const xdownloadImagery = (layerName) => {
   width: 100%;
   height: calc(100vh - 120px);
   min-height: 400px;
+  position: relative;
 }
+
+
 
 @media (max-width: 768px) {
   .el-row {

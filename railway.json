@@ -2,7 +2,7 @@
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
     "builder": "RAILPACK",
-    "buildCommand": "nvm use 20 && npm install --legacy-peer-deps && NODE_OPTIONS='--max-old-space-size=8192' npx vite build --mode pro",
+    "buildCommand": " npm install --legacy-peer-deps && NODE_OPTIONS='--max-old-space-size=8192' npx vite build --mode pro",
     "memory": 8192
   },
   "deploy": {
