@@ -1127,3 +1127,581 @@ exports.generateTimelinePDF = async (req, res) => {
     res.status(500).send({ message: 'Unable to generate timeline PDF' });
   }
 };
+// const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
+// const QRCode = require('qrcode');
+
+exports.xgenerateTimelinePDF = async (req, res) => {
+  try {
+    // Get the form data and events array from the request body
+    const { events = [], grievance_id, grievance_code, type, details = '', status = '', settlement = '' } = req.body;
+
+    console.log('Enhanced PDF Request:', req.body);
+
+    // Validate input
+    if (!Array.isArray(events) || events.length === 0) {
+      return res.status(400).send({ message: 'Events array is required and cannot be empty' });
+    }
+    if (!grievance_code || !type) {
+      return res.status(400).send({ message: 'grievance_code and type are required' });
+    }
+
+    // Sort events by date in descending order (latest first)
+    const sortedEvents = [...events].sort((a, b) => {
+      const dateA = new Date(a.date);
+      const dateB = new Date(b.date);
+      return dateB - dateA; // Latest date first
+    });
+
+    // Calculate timeline statistics
+    const timelineStats = calculateTimelineStats(sortedEvents);
+
+    // Create a new PDF document
+    const pdfDoc = await PDFDocument.create();
+    let page = pdfDoc.addPage([595, 842]); // A4 size in points (portrait)
+    const { width, height } = page.getSize();
+
+    // Load fonts
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    const italicFont = await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
+
+    // Enhanced styling constants
+    const styles = {
+      fontSize: {
+        title: 18,
+        header: 14,
+        section: 13,
+        body: 11,
+        small: 9,
+        caption: 8
+      },
+      colors: {
+        primary: rgb(0, 0.2, 0.8),      // Government blue
+        secondary: rgb(0.2, 0.6, 0.2),  // Success green
+        warning: rgb(0.9, 0.6, 0),      // Warning orange
+        danger: rgb(0.8, 0.2, 0.2),     // Danger red
+        gray: rgb(0.4, 0.4, 0.4),       // Gray text
+        lightGray: rgb(0.9, 0.9, 0.9),  // Light background
+        black: rgb(0, 0, 0),
+        white: rgb(1, 1, 1)
+      },
+      spacing: {
+        margin: 40,
+        padding: 15,
+        lineHeight: 18,
+        sectionGap: 25
+      }
+    };
+
+    // Status color mapping
+    const statusColors = {
+      'Resolved': styles.colors.secondary,
+      'Closed': styles.colors.gray,
+      'Escalated': styles.colors.warning,
+      'Referred': styles.colors.primary,
+      'Under Review': styles.colors.primary,
+      'In Court': styles.colors.danger,
+      'Rejected': styles.colors.danger,
+      'Reported': styles.colors.primary,
+      'Open': styles.colors.primary
+    };
+
+    let currentY = height - styles.spacing.margin;
+
+    // 1. ENHANCED HEADER WITH GOVERNMENT BRANDING
+    currentY = await drawEnhancedHeader(page, pdfDoc, styles, currentY, width, boldFont, font);
+
+    // 2. TITLE SECTION WITH GRIEVANCE INFO
+    currentY = drawTitleSection(page, styles, currentY, width, grievance_code, status, boldFont, font);
+
+    // 3. SUMMARY DASHBOARD
+    currentY = drawSummaryDashboard(page, styles, currentY, width, timelineStats, boldFont, font);
+
+    // 4. GRIEVANCE DETAILS SECTION
+    if (details) {
+      currentY = drawDetailsSection(page, styles, currentY, width, details, boldFont, font);
+    }
+
+    // 5. ENHANCED TIMELINE SECTION
+    currentY = await drawEnhancedTimeline(page, pdfDoc, styles, currentY, width, height, sortedEvents, statusColors, boldFont, font, italicFont);
+
+    // 6. FOOTER WITH MULTIPLE QR CODES
+    await drawEnhancedFooter(page, pdfDoc, styles, width, height, grievance_id, grievance_code, req);
+
+    // Save the PDF to bytes
+    const pdfBytes = await pdfDoc.save();
+
+    // Set headers for browser download
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="enhanced-grievance-timeline-${grievance_code}.pdf"`);
+    res.setHeader('Content-Length', pdfBytes.length);
+
+    // Send the PDF bytes to the browser
+    res.status(200).send(Buffer.from(pdfBytes));
+
+  } catch (error) {
+    console.error('Error generating enhanced timeline PDF:', error);
+    res.status(500).send({ message: 'Unable to generate enhanced timeline PDF' });
+  }
+};
+
+// Helper function to calculate timeline statistics
+function calculateTimelineStats(events) {
+  const stats = {
+    totalEvents: events.length,
+    totalDuration: 0,
+    averageStepTime: 0,
+    officers: new Set(),
+    statusChanges: {},
+    slaCompliance: 'N/A'
+  };
+
+  if (events.length > 1) {
+    const firstEvent = new Date(events[events.length - 1].date);
+    const lastEvent = new Date(events[0].date);
+    stats.totalDuration = Math.ceil((lastEvent - firstEvent) / (1000 * 60 * 60 * 24)); // Days
+    stats.averageStepTime = Math.ceil(stats.totalDuration / (events.length - 1));
+  }
+
+  events.forEach(event => {
+    if (event.description && event.description.includes('By: ')) {
+      const officer = event.description.split('By: ')[1];
+      if (officer) stats.officers.add(officer.trim());
+    }
+    
+    if (event.event) {
+      stats.statusChanges[event.event] = (stats.statusChanges[event.event] || 0) + 1;
+    }
+  });
+
+  // Simple SLA compliance (assume 30 days is target)
+  if (stats.totalDuration > 0) {
+    stats.slaCompliance = stats.totalDuration <= 30 ? 'Compliant' : 'Exceeded';
+  }
+
+  return stats;
+}
+
+// Enhanced header with government branding
+async function drawEnhancedHeader(page, pdfDoc, styles, currentY, width, boldFont, font) {
+  // Remove header background for cleaner look
+
+  // Try to load government logo - centered at top
+  try {
+    const logoPath = './public/gok.png';
+    const logoBytes = fs.readFileSync(logoPath);
+    const logoImage = await pdfDoc.embedPng(logoBytes);
+    const logoWidth = 80;
+    const logoHeight = 80;
+    page.drawImage(logoImage, {
+      x: (width - logoWidth) / 2, // Center horizontally
+      y: currentY - logoHeight,
+      width: logoWidth,
+      height: logoHeight,
+    });
+    currentY -= logoHeight + 20; // Adjust for logo height and spacing
+  } catch (e) {
+    console.warn('Failed to load logo:', e.message);
+  }
+
+  // Header text
+  const headerLines = [
+    'REPUBLIC OF KENYA',
+    'MINISTRY OF LANDS, PUBLIC WORKS, HOUSING AND URBAN DEVELOPMENT',
+    'GRIEVANCE REDRESS MECHANISM - TIMELINE REPORT'
+  ];
+
+  let headerY = currentY;
+  headerLines.forEach((line, index) => {
+    const fontSize = index === 0 ? styles.fontSize.header : (index === 1 ? styles.fontSize.body : styles.fontSize.section);
+    const textWidth = boldFont.widthOfTextAtSize(line, fontSize);
+    page.drawText(line, {
+      x: (width - textWidth) / 2,
+      y: headerY,
+      size: fontSize,
+      font: boldFont,
+      color: styles.colors.black,
+    });
+    headerY -= styles.spacing.lineHeight;
+  });
+
+  return headerY - 20;
+}
+
+// Title section with grievance information
+function drawTitleSection(page, styles, currentY, width, grievance_code, status, boldFont, font) {
+  // Remove title background for cleaner look
+
+  // Grievance code
+  page.drawText(`Grievance Code: ${grievance_code}`, {
+    x: styles.spacing.margin + styles.spacing.padding,
+    y: currentY - 25,
+    size: styles.fontSize.title,
+    font: boldFont,
+    color: styles.colors.black,
+  });
+
+  // Current status
+  const statusText = `Current Status: ${status}`;
+  const statusWidth = font.widthOfTextAtSize(statusText, styles.fontSize.body);
+  page.drawText(statusText, {
+    x: width - styles.spacing.margin - statusWidth - styles.spacing.padding,
+    y: currentY - 25,
+    size: styles.fontSize.body,
+    font: font,
+    color: styles.colors.gray,
+  });
+
+  // Report generation date
+  const dateText = `Generated: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`;
+  page.drawText(dateText, {
+    x: styles.spacing.margin + styles.spacing.padding,
+    y: currentY - 40,
+    size: styles.fontSize.small,
+    font: font,
+    color: styles.colors.gray,
+  });
+
+  return currentY - 70;
+}
+
+// Summary dashboard with key metrics
+function drawSummaryDashboard(page, styles, currentY, width, stats, boldFont, font) {
+  // Dashboard title
+  page.drawText('Timeline Summary', {
+    x: styles.spacing.margin,
+    y: currentY,
+    size: styles.fontSize.section,
+    font: boldFont,
+    color: styles.colors.black,
+  });
+
+  currentY -= 30;
+
+  // Metrics in a grid layout
+  const metrics = [
+    { label: 'Total Events', value: stats.totalEvents },
+    { label: 'Duration (Days)', value: stats.totalDuration || 'N/A' },
+    { label: 'Officers Involved', value: stats.officers.size },
+    { label: 'SLA Status', value: stats.slaCompliance }
+  ];
+
+  const boxWidth = (width - 2 * styles.spacing.margin - 30) / 2;
+  const boxHeight = 35;
+
+  metrics.forEach((metric, index) => {
+    const x = styles.spacing.margin + (index % 2) * (boxWidth + 15);
+    const y = currentY - Math.floor(index / 2) * (boxHeight + 10);
+
+    // Remove metric box background for cleaner look
+
+    // Metric label
+    page.drawText(metric.label, {
+      x: x + styles.spacing.padding,
+      y: y - 15,
+      size: styles.fontSize.small,
+      font: font,
+      color: styles.colors.gray,
+    });
+
+    // Metric value
+    page.drawText(String(metric.value), {
+      x: x + styles.spacing.padding,
+      y: y - 30,
+      size: styles.fontSize.header,
+      font: boldFont,
+      color: styles.colors.primary,
+    });
+  });
+
+  return currentY - 90;
+}
+
+// Details section
+function drawDetailsSection(page, styles, currentY, width, details, boldFont, font) {
+  page.drawText('Grievance Description', {
+    x: styles.spacing.margin,
+    y: currentY,
+    size: styles.fontSize.section,
+    font: boldFont,
+    color: styles.colors.black,
+  });
+
+  currentY -= 25;
+
+  // Word wrap for description
+  const maxWidth = width - 2 * styles.spacing.margin;
+  const words = details.split(' ');
+  let lines = [];
+  let currentLine = '';
+
+  words.forEach(word => {
+    const testLine = currentLine ? `${currentLine} ${word}` : word;
+    const testWidth = font.widthOfTextAtSize(testLine, styles.fontSize.body);
+    if (testWidth <= maxWidth) {
+      currentLine = testLine;
+    } else {
+      lines.push(currentLine);
+      currentLine = word;
+    }
+  });
+  if (currentLine) lines.push(currentLine);
+
+  lines.forEach(line => {
+    page.drawText(line, {
+      x: styles.spacing.margin,
+      y: currentY,
+      size: styles.fontSize.body,
+      font: font,
+      color: styles.colors.black,
+    });
+    currentY -= styles.spacing.lineHeight;
+  });
+
+  return currentY - styles.spacing.sectionGap;
+}
+
+// Enhanced timeline with improved visuals
+async function drawEnhancedTimeline(page, pdfDoc, styles, currentY, width, height, events, statusColors, boldFont, font, italicFont) {
+  // Timeline title
+  page.drawText('Timeline of Events', {
+    x: styles.spacing.margin,
+    y: currentY,
+    size: styles.fontSize.section,
+    font: boldFont,
+    color: styles.colors.black,
+  });
+
+  currentY -= 35;
+  const timelineX = styles.spacing.margin + 80;
+  let timelineStartY = currentY;
+
+  events.forEach((event, index) => {
+    const isLast = index === events.length - 1;
+    
+    // Check if we need a new page
+    if (currentY < 150 && !isLast) {
+      // Draw timeline line to bottom of page
+      page.drawLine({
+        start: { x: timelineX, y: timelineStartY },
+        end: { x: timelineX, y: 50 },
+        thickness: 3,
+        color: styles.colors.primary,
+      });
+
+      // Add new page
+      page = pdfDoc.addPage([595, 842]);
+      currentY = height - styles.spacing.margin;
+      timelineStartY = currentY;
+    }
+
+    // Format date - compact format (date only, no time)
+    const dateObj = new Date(event.date);
+    const formattedDate = dateObj.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+
+    // Date text - single line format
+    page.drawText(formattedDate, {
+      x: styles.spacing.margin,
+      y: currentY - 10,
+      size: styles.fontSize.small,
+      font: font,
+      color: styles.colors.black,
+    });
+
+    // Status indicator (colored circle)
+    const statusColor = statusColors[event.event] || styles.colors.gray;
+    page.drawCircle({
+      x: timelineX,
+      y: currentY - 5,
+      size: 8,
+      color: statusColor,
+      borderColor: styles.colors.black,
+      borderWidth: 1,
+    });
+
+    // Connector line
+    page.drawLine({
+      start: { x: timelineX + 12, y: currentY - 5 },
+      end: { x: timelineX + 25, y: currentY - 5 },
+      thickness: 2,
+      color: styles.colors.gray,
+    });
+
+    // Event title with colored text (no background)
+    page.drawText(event.event, {
+      x: timelineX + 30,
+      y: currentY - 8,
+      size: styles.fontSize.body,
+      font: boldFont,
+      color: statusColor,
+    });
+
+    // Process description with newlines
+    if (event.description) {
+      const descriptionY = currentY - 25;
+      const maxDescWidth = width - timelineX - 50;
+      
+      // Split by newlines first
+      const paragraphs = event.description.split('\n');
+      let descCurrentY = descriptionY;
+      
+      paragraphs.forEach((paragraph) => {
+        if (paragraph.trim() === '') {
+          descCurrentY -= styles.spacing.lineHeight;
+          return;
+        }
+        
+        // Word wrap within paragraph
+        const words = paragraph.split(' ');
+        let lines = [];
+        let currentLine = '';
+        
+        words.forEach(word => {
+          const testLine = currentLine ? `${currentLine} ${word}` : word;
+          const testWidth = font.widthOfTextAtSize(testLine, styles.fontSize.small);
+          if (testWidth <= maxDescWidth) {
+            currentLine = testLine;
+          } else {
+            lines.push(currentLine);
+            currentLine = word;
+          }
+        });
+        if (currentLine) lines.push(currentLine);
+        
+        // Draw the lines
+        lines.forEach(line => {
+          const fontToUse = line.startsWith('By:') ? italicFont : font;
+          const colorToUse = line.startsWith('By:') ? styles.colors.primary : styles.colors.black;
+          
+          page.drawText(line, {
+            x: timelineX + 30,
+            y: descCurrentY,
+            size: styles.fontSize.small,
+            font: fontToUse,
+            color: colorToUse,
+          });
+          descCurrentY -= styles.spacing.lineHeight;
+        });
+        
+        descCurrentY -= 5; // Extra space between paragraphs
+      });
+      
+      currentY = Math.min(currentY - 60, descCurrentY - 10);
+    } else {
+      currentY -= 40;
+    }
+
+    // Duration since last event (if not first)
+    if (index > 0) {
+      const prevDate = new Date(events[index - 1].date);
+      const currentDate = new Date(event.date);
+      const daysDiff = Math.abs(Math.ceil((prevDate - currentDate) / (1000 * 60 * 60 * 24)));
+      
+      if (daysDiff > 0) {
+        page.drawText(`${daysDiff} day${daysDiff !== 1 ? 's' : ''} later`, {
+          x: timelineX - 30,
+          y: currentY + 20,
+          size: styles.fontSize.caption,
+          font: italicFont,
+          color: styles.colors.gray,
+        });
+      }
+    }
+
+    currentY -= styles.spacing.sectionGap;
+  });
+
+  // Draw final timeline line
+  page.drawLine({
+    start: { x: timelineX, y: timelineStartY },
+    end: { x: timelineX, y: currentY + styles.spacing.sectionGap },
+    thickness: 3,
+    color: styles.colors.primary,
+  });
+
+  return currentY;
+}
+
+// Enhanced footer with multiple QR codes
+async function drawEnhancedFooter(page, pdfDoc, styles, width, height, grievance_id, grievance_code, req) {
+  const footerY = 80;
+  
+  // Load font for text in footer (needed throughout the function)
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  
+  // Remove footer background for cleaner look
+
+  try {
+    const serverUrl = `${req.protocol}://${req.get('host')}`;
+    
+    // Single QR Code for status check
+    const statusUrl = `${serverUrl}/#/status/${grievance_code}`;
+    const statusQR = await QRCode.toDataURL(statusUrl);
+    const statusQRImage = await pdfDoc.embedPng(statusQR);
+    
+    page.drawImage(statusQRImage, {
+      x: width - 70, // Position on the right side
+      y: 20,
+      width: 50,
+      height: 50,
+    });
+    
+    page.drawText('Check Status', {
+      x: width - 70,
+      y: 15,
+      size: styles.fontSize.caption,
+      font: font,
+      color: styles.colors.black,
+    });
+
+  } catch (error) {
+    console.warn('Failed to generate QR code:', error.message);
+  }
+
+  // Legal disclaimer
+  const disclaimer = 'This is an official document generated by the Ministry of Lands, Public Works, Housing and Urban Development. ' +
+                    'For inquiries, contact the grievance redress unit.';
+  
+  const disclaimerX = styles.spacing.margin;
+  const maxDisclaimerWidth = width - disclaimerX - 100; // Leave space for QR code
+  
+  // Word wrap disclaimer
+  const words = disclaimer.split(' ');
+  let lines = [];
+  let currentLine = '';
+  
+  words.forEach(word => {
+    const testLine = currentLine ? `${currentLine} ${word}` : word;
+    const testWidth = font.widthOfTextAtSize(testLine, styles.fontSize.caption);
+    if (testWidth <= maxDisclaimerWidth) {
+      currentLine = testLine;
+    } else {
+      lines.push(currentLine);
+      currentLine = word;
+    }
+  });
+  if (currentLine) lines.push(currentLine);
+  
+  lines.forEach((line, index) => {
+    page.drawText(line, {
+      x: disclaimerX,
+      y: 55 - (index * 10),
+      size: styles.fontSize.caption,
+      font: font,
+      color: styles.colors.gray,
+    });
+  });
+  
+  // Document reference
+  page.drawText(`Document Ref: GRM-${grievance_code}-${new Date().getFullYear()}`, {
+    x: width - 150,
+    y: 25,
+    size: styles.fontSize.caption,
+    font: font,
+    color: styles.colors.gray,
+  });
+}
