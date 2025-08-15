@@ -130,7 +130,14 @@ module.exports = function (sequelize) {
         type: DataTypes.DATE,
         allowNull: true
       },
-
+      date_resolved: {
+        type: DataTypes.DATE,
+        allowNull: true
+      },
+      date_closed: {
+        type: DataTypes.DATE,
+        allowNull: true
+      },
       reffered_to_officer: {
         type: DataTypes.INTEGER,
         allowNull: true

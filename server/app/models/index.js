@@ -1691,6 +1691,7 @@ db.models.grievance_resolution_level.hasMany(db.models.grievance_resolution, {
 // Grievance Actions belongs to Grievance
 db.models.grievance_log.belongsTo(db.models.users, {
   foreignKey: 'action_by',
+  as: 'user'
  });
 
 // Grievance has many Grievance Actions

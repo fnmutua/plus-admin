@@ -10,22 +10,22 @@ import {
   signupGRM
 } from '@/api/register'
 
-import { ElButton, ElSelect, ElCheckbox, ElCol,ElDrawer,  ElIcon} from 'element-plus'
+import { ElButton, ElSelect, ElCheckbox, ElCol,ElDrawer, ElIcon} from 'element-plus'
 import {
   Plus, 
   Back,Postcard,TopRight,Lock,Guide,TakeawayBox,
   CircleCheck, Warning,View,
-  Delete, Search, Refresh, Share, Paperclip, Close, Phone} from '@element-plus/icons-vue'
+  Delete, Search, Refresh, Share, Paperclip, Close, Phone, Loading, Filter} from '@element-plus/icons-vue'
 
 import { getSettlementListByCounty } from '@/api/settlements'
 import {   getGRMStaffByLocation } from '@/api/users'
 
 
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed, nextTick } from 'vue'
 import {
   ElPagination, ElOption, ElDialog, ElForm, ElTour, ElUpload,
   ElFormItem, ElRow, ElInput, ElStep, ElSteps, ElTable, ElTableColumn, ElCard, ElMessage, ElSwitch,
-  ElTag
+  ElTag, ElTooltip
 } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { useAppStoreWithOut } from '@/store/modules/app'
@@ -94,8 +94,8 @@ const selectedCounty=ref()
 
  
 const filters = ref<string[]>([])
-const filterValues = ref<any[][]>([[]])
-const filterFunction = ref<string[]>(['in'])
+const filterValues = ref<any[][]>([])
+const filterFunction = ref<string[]>([])
 
 // Type definitions for role filters
 interface RoleFilter {
@@ -153,6 +153,7 @@ const Statuses = ref([
     icon: Postcard,
     count: 0,
     hidden: false,
+    description: 'All grievances regardless of status'
   },
   {
     label: 'Sorting',
@@ -160,6 +161,7 @@ const Statuses = ref([
     icon: Postcard,
     count: 0,
     hidden: false,
+    description: 'Grievance has been received on the system but not acted on'
   },
 
   {
@@ -168,6 +170,7 @@ const Statuses = ref([
     icon: View,
     count: 0,
     hidden: false,
+    description: 'Grievance is being worked on. The complainant has been informed of the same'
   },
 
 
@@ -177,6 +180,7 @@ const Statuses = ref([
     icon: CircleCheck,
     count: 0,
     hidden: false,
+    description: 'Grievance has been resolved and a corrective action recommended/implemented'
   },
 
  
@@ -186,13 +190,15 @@ const Statuses = ref([
     icon: TopRight,
     count: 0,
     hidden: false,
+    description: 'The grievance has been escalated to a higher level for resolution (e.g., SEC → County GRM → NPCT)'
   },
   {
     label: 'Closed',
     value: 'Closed',
     icon: Lock,
     count: 0,
-    hidden: false,    
+    hidden: false,
+    description: 'Grievance has been resolved and the complainant has accepted the resolution'
  
 
   },
@@ -201,7 +207,8 @@ const Statuses = ref([
     value: 'Referred',
     icon: Guide,
     count: 0,
-    hidden: false
+    hidden: false,
+    description: 'Reviewed and referred: 1) to a specific officer (CPCT/NPCT), or 2) to an external entity for resolution'
   },
 
   {
@@ -209,7 +216,8 @@ const Statuses = ref([
     value: 'In Court',
     icon: TakeawayBox,
     count: 0,
-    hidden: false
+    hidden: false,
+    description: 'The case is in court pending determination'
   },
 
   {
@@ -217,16 +225,29 @@ const Statuses = ref([
     value: 'Rejected',
     icon: Warning,
     count: 0,
-    hidden: false
+    hidden: false,
+    description: 'The grievance is fake or does not qualify (e.g., testing/training data)'
   },
   {
     label: 'Deleted',
     value: 'Deleted',
     icon: Delete,
     count: 0,
-    hidden: !isSuperAdmin.value
+    hidden: !isSuperAdmin.value,
+    description: 'Grievance has been deleted (mostly training/dummy data)'
   },
 ])
+
+
+// Tooltip visibility map for status cards (manual control)
+const statusTooltipVisible = ref<Record<string, boolean>>({})
+
+const showStatusTip = (statusValue: string) => {
+  statusTooltipVisible.value[statusValue] = true
+  window.setTimeout(() => {
+    statusTooltipVisible.value[statusValue] = false
+  }, 2000)
+}
 
 
 
@@ -376,7 +397,15 @@ if (isMobile.value) {
 
 
 function formatDate(dateString) {
+  if (!dateString) return '';
+  
   const date = new Date(dateString);
+  
+  // Check if the date is valid
+  if (isNaN(date.getTime())) {
+    return 'Pending';
+  }
+  
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
@@ -431,7 +460,7 @@ const updatePageSize = () => {
 
  
 const getCounts = async () => {
-  console.log('Fetching grievance counts...', filterValues.value, filters.value);
+  console.log('Fetching grievance counts...', filterValues.value, filters.value, 'search:', search_string.value);
 
   try {
     // Build filter parameters
@@ -448,70 +477,45 @@ const getCounts = async () => {
       if (field === 'status') continue;
 
       if (field && value !== undefined && value !== null) {
-        filterField.push(field);
-        
+        // Ensure value is an array and not empty
+        let arrayValue;
         if (Array.isArray(value)) {
-          filterValue.push(value);
-          filterOperator.push('in');
+          if (value.length === 0) continue; // Skip empty arrays
+          arrayValue = value;
         } else {
-          filterValue.push([value]);
-          filterOperator.push('eq');
+          arrayValue = [value];
         }
+        
+        filterField.push(field);
+        filterValue.push(arrayValue);
+        filterOperator.push('in');
       }
     }
 
-    // Get counts for each status
+    // Get counts for each specific status (exclude 'All' here)
+    const statusesForCounts = Statuses.value.filter(s => s.value !== 'All');
     const statusCounts = await Promise.all(
-      Statuses.value.map(async (status) => {
-        if (status.value === 'All') {
-          // For "All", get the total count excluding deleted grievances
-          const formData = {
-            model: 'grievance',
-            summaryField: 'id',
-            summaryFunction: 'count',
-            filterField: [...filterField, 'status'],
-            filterValue: [...filterValue, ['Deleted']],
-            filterOperator: [...filterOperator, 'ne'] // 'ne' means not equal
-          };
-          
-          const response = await getSummarybyFieldFromMultipleIncludes(formData);
-          return {
-            status: status.value,
-            count: parseInt(response?.Total?.[0]?.count || '0', 10)
-          };
-        } else if (status.value === 'Deleted') {
-          // For deleted grievances, count records with status = 'Deleted'
-          const formData = {
-            model: 'grievance',
-            summaryField: 'id',
-            summaryFunction: 'count',
-            filterField: [...filterField, 'status'],
-            filterValue: [...filterValue, ['Deleted']],
-            filterOperator: [...filterOperator, 'eq']
-          };
-          
-          const response = await getSummarybyFieldFromMultipleIncludes(formData);
-          return {
-            status: status.value,
-            count: parseInt(response?.Total?.[0]?.count || '0', 10)
-          };
-        } else {
-          // For specific statuses, add status filter
-          const statusFormData = {
-            model: 'grievance',
-            summaryField: 'id',
-            summaryFunction: 'count',
-            filterField: [...filterField, 'status'],
-            filterValue: [...filterValue, [status.value]],
-            filterOperator: [...filterOperator, 'eq']
-          };
-          
-          const response = await getSummarybyFieldFromMultipleIncludes(statusFormData);
-          return {
-            status: status.value,
-            count: parseInt(response?.Total?.[0]?.count || '0', 10)
-          };
+      statusesForCounts.map(async (status) => {
+        const formData = {
+          model: 'grievance',
+          summaryField: 'id',
+          summaryFunction: 'count',
+          filterField: [...filterField, 'status'],
+          filterValue: [...filterValue, [status.value]],
+          filterOperator: [...filterOperator, 'in']
+        };
+
+        // Include search string if active
+        if (search_string.value && search_string.value.trim()) {
+          formData.searchField = 'name';
+          formData.searchString = search_string.value.trim();
         }
+
+        const response = await getSummarybyFieldFromMultipleIncludes(formData);
+        return {
+          status: status.value,
+          count: parseInt(response?.Total?.[0]?.count || '0', 10)
+        };
       })
     );
 
@@ -523,7 +527,14 @@ const getCounts = async () => {
       }
     });
 
-    console.log('Updated status counts:', statusCounts);
+    // Set 'All' as sum of all non-deleted statuses
+    const totalExcludingDeleted = statusCounts
+      .filter(sc => sc.status !== 'Deleted')
+      .reduce((sum, sc) => sum + sc.count, 0);
+    const allStatus = Statuses.value.find(s => s.value === 'All');
+    if (allStatus) allStatus.count = totalExcludingDeleted;
+
+    console.log('Updated status counts:', statusCounts, 'All:', totalExcludingDeleted);
   } catch (error) {
     console.error('Error fetching status counts:', error);
     // Reset all counts to 0 on error
@@ -725,23 +736,27 @@ const handleClear = async () => {
 
   // clear all the filters -------
   filterValues.value = []
-  filters.value  = []
+  filters.value = []
+  filterFunction.value = []
   value1.value = []
   value2.value = []
   value3.value = []
   pageSize.value = 5
   currentPage.value = 1
  
-
-  selectedCounty.value=[]
-  selectedSubCounty.value=[]
-  selectedWard.value=[]
-  selectedCategories.value=[]
+  // Reset filter selections - use null for single selections, empty array for multiple
+  selectedCounty.value = null
+  selectedSubCounty.value = null
+  selectedWard.value = null
+  selectedCategories.value = []
+  selectedOfficer.value = null
   referredOfficerSearch.value = ''
+  search_string.value = ''
 
+  // Clear original table data
+  originalTableData.value = []
 
   localStorage.removeItem('grievanceFilters');
-
 
   //----run the get data--------
   await getInterventionsAll()
@@ -755,12 +770,24 @@ const handleClear = async () => {
 const onPageChange = async (selPage: any) => {
   console.log('on change change: selected counties ', selCounties)
   page.value = selPage
-  getFilteredData(filters.value, filterValues.value)
+  
+  // Check if there's an active search and use the appropriate data fetching method
+  if (search_string.value && search_string.value.trim()) {
+    await getFilteredBySearchData(search_string.value)
+  } else {
+    await getFilteredData(filters.value, filterValues.value)
+  }
 }
 
 const onPageSizeChange = async (size: any) => {
   pageSize.value = size
-  getFilteredData(filters.value, filterValues.value)
+  
+  // Check if there's an active search and use the appropriate data fetching method
+  if (search_string.value && search_string.value.trim()) {
+    await getFilteredBySearchData(search_string.value)
+  } else {
+    await getFilteredData(filters.value, filterValues.value)
+  }
 }
 
 const getInterventionsAll = async () => {
@@ -804,21 +831,35 @@ const getFilteredData = async (selFilters: string[], selfilterValues: any[][]) =
 
   formData.associated_multiple_models = associated_multiple_models
 
-
- // formData.filterFunctions = [];
-
-// Loop to determine the correct operator (eq or in) per filter
-for (let i = 0; i < selfilterValues.length; i++) {
-  const val = selfilterValues[i];
-
-  if (Array.isArray(val)) {
+  // Ensure filterFunctions array matches the length of filters and all values are arrays
+  formData.filterFunctions = [];
+  for (let i = 0; i < selfilterValues.length; i++) {
+    const val = selfilterValues[i];
+    
+    // Always ensure filterValues[i] is an array
+    if (!Array.isArray(val)) {
+      formData.filterValues[i] = [val];
+    } else if (val.length === 0) {
+      // Handle empty arrays - skip this filter
+      continue;
+    }
+    
+    // Always use 'in' operator for array-based filtering
     formData.filterFunctions.push('in');
-  } else {
-    formData.filterFunctions.push('eq');
-    // Optional: wrap scalar in array if your backend expects array
-    formData.filterValues[i] = [val];
   }
-}
+  
+  // Remove any filters that have empty arrays
+  const validIndices = [];
+  for (let i = 0; i < formData.filterValues.length; i++) {
+    if (Array.isArray(formData.filterValues[i]) && formData.filterValues[i].length > 0) {
+      validIndices.push(i);
+    }
+  }
+  
+  // Rebuild arrays with only valid filters
+  formData.filters = validIndices.map(i => formData.filters[i]);
+  formData.filterValues = validIndices.map(i => formData.filterValues[i]);
+  formData.filterFunctions = validIndices.map(i => formData.filterFunctions[i]);
 
 
   //-------------------------
@@ -873,6 +914,36 @@ const getIndicatorOptions = async (selFilters, selfilterValues) => {
   formData.filterFunctions = filterFunction.value
 
   formData.associated_multiple_models = associated_multiple_models
+
+  // Ensure filterFunctions array matches the length of filters and all values are arrays
+  formData.filterFunctions = [];
+  for (let i = 0; i < formData.filterValues.length; i++) {
+    const val = formData.filterValues[i];
+    
+    // Always ensure filterValues[i] is an array
+    if (!Array.isArray(val)) {
+      formData.filterValues[i] = [val];
+    } else if (val.length === 0) {
+      // Handle empty arrays - skip this filter
+      continue;
+    }
+    
+    // Always use 'in' operator for array-based filtering
+    formData.filterFunctions.push('in');
+  }
+  
+  // Remove any filters that have empty arrays
+  const validIndices = [];
+  for (let i = 0; i < formData.filterValues.length; i++) {
+    if (Array.isArray(formData.filterValues[i]) && formData.filterValues[i].length > 0) {
+      validIndices.push(i);
+    }
+  }
+  
+  // Rebuild arrays with only valid filters
+  formData.filters = validIndices.map(i => formData.filters[i]);
+  formData.filterValues = validIndices.map(i => formData.filterValues[i]);
+  formData.filterFunctions = validIndices.map(i => formData.filterFunctions[i]);
 
   //-------------------------
   //console.log(formData)
@@ -1872,6 +1943,36 @@ const getFilteredBySearchData = async (searchKey) => {
   formData.nested_models = []
   //formData.cache_key = 'SeacrchByKey_' + search_string.value
 
+  // Ensure filterFunctions array matches the length of filters and all values are arrays
+  formData.filterFunctions = [];
+  for (let i = 0; i < formData.filterValues.length; i++) {
+    const val = formData.filterValues[i];
+    
+    // Always ensure filterValues[i] is an array
+    if (!Array.isArray(val)) {
+      formData.filterValues[i] = [val];
+    } else if (val.length === 0) {
+      // Handle empty arrays - skip this filter
+      continue;
+    }
+    
+    // Always use 'in' operator for array-based filtering
+    formData.filterFunctions.push('in');
+  }
+  
+  // Remove any filters that have empty arrays
+  const validIndices = [];
+  for (let i = 0; i < formData.filterValues.length; i++) {
+    if (Array.isArray(formData.filterValues[i]) && formData.filterValues[i].length > 0) {
+      validIndices.push(i);
+    }
+  }
+  
+  // Rebuild arrays with only valid filters
+  formData.filters = validIndices.map(i => formData.filters[i]);
+  formData.filterValues = validIndices.map(i => formData.filterValues[i]);
+  formData.filterFunctions = validIndices.map(i => formData.filterFunctions[i]);
+
   //-------------------------
   console.log('SeacrchByKey_', formData)
 
@@ -2060,7 +2161,17 @@ const onSegmentClick = async (statusValue?: string) => {
     filterValues.value[index] = ['Deleted']
   }
 
-  await getFilteredData(filters.value, filterValues.value)
+  // Check if there's an active search and use the appropriate data fetching method
+  if (search_string.value && search_string.value.trim()) {
+    await getFilteredBySearchData(search_string.value)
+  } else {
+    await getFilteredData(filters.value, filterValues.value)
+  }
+  
+  // Force a fresh count calculation after segment switch to ensure counts are accurate
+  // Small delay to ensure filters are fully applied before counting
+  await nextTick()
+  await getCounts()
 }
 
 
@@ -2128,98 +2239,82 @@ const getWardNames = async () => {
 }
 
 const filterByCounty = async (county_id: any) => {
-
-if (county_id) {
-  enableSubcounty.value = true   // allow selection of subcounty 
- // selectedCounty.value = county_id
-  getSubCountyNames()
-}
-
-value5.value = null // clear the subcounty 
-value6.value = null   // clear the ward sr
-
-if (selectedCounty.value) {
-  const selectOption = 'county_id';
-
-  // Ensure the filter key exists
-  if (!filters.value.includes(selectOption)) {
-    filters.value.push(selectOption);
-      filterFunction.value.push('in')
-
+  if (county_id) {
+    selectedCounty.value = county_id;
+    enableSubcounty.value = true; // allow selection of subcounty 
+    getSubCountyNames();
   }
 
+  value5.value = null; // clear the subcounty 
+  value6.value = null; // clear the ward sr
+
+  const selectOption = 'county_id';
   const index = filters.value.indexOf(selectOption);
 
-  // Clear previously selected county filter values
-  filterValues.value[index] = [];
+  if (selectedCounty.value) {
+    // Ensure the filter key exists
+    if (!filters.value.includes(selectOption)) {
+      filters.value.push(selectOption);
+      filterFunction.value.push('in');
+    }
 
-  // Insert new county filter value if it's not empty
-  if (selectedCounty.value.length > 0) {
-    filterValues.value[index] = [...selectedCounty.value];
+    // Update filter values - wrap single value in array for 'in' operator
+    const filterIndex = filters.value.indexOf(selectOption);
+    filterValues.value[filterIndex] = [selectedCounty.value];
+  } else {
+    // Remove filter if no county selected
+    if (index !== -1) {
+      filters.value.splice(index, 1);
+      filterFunction.value.splice(index, 1);
+      filterValues.value.splice(index, 1);
+    }
   }
 
-  // Remove filter key if no values are selected
-  if (selectedCounty.value.length === 0) {
-    filters.value.splice(index, 1);
-    filterValues.value.splice(index, 1);
+  if (search_string.value) {
+    getFilteredBySearchData(search_string.value);
+  } else {
+    getFilteredData(filters.value, filterValues.value);
+    getCounts();
   }
-
-}
-
-if (search_string.value) {
-  getFilteredBySearchData(search_string.value)
-} else {
-  getFilteredData(filters.value, filterValues.value)
-  getCounts()
-}
 }
 
 
 const filterBySubCounty = async (subcounty_id: any) => {
-
-value6.value = null   // clear the ward sr
-
-
-if (subcounty_id) {
-  selectedSubCounty.value = subcounty_id
-  getWardNames()
-}
-
-
-if (selectedSubCounty.value ) {
-  const selectOption = 'subcounty_id';
-
-  // Ensure the filter key exists
-  if (!filters.value.includes(selectOption)) {
-    filters.value.push(selectOption);
-      filterFunction.value.push('in')
-
+  if (subcounty_id) {
+    selectedSubCounty.value = subcounty_id;
+    getWardNames();
   }
 
+  value6.value = null; // clear the ward sr
+
+  const selectOption = 'subcounty_id';
   const index = filters.value.indexOf(selectOption);
 
-  // Clear previously selected county filter values
-  filterValues.value[index] = [];
+  if (selectedSubCounty.value) {
+    // Ensure the filter key exists
+    if (!filters.value.includes(selectOption)) {
+      filters.value.push(selectOption);
+      filterFunction.value.push('in');
+    }
 
-  // Insert new county filter value if it's not empty
-  if (selectedSubCounty.value.length  > 0) {
-    filterValues.value[index] = [...selectedSubCounty.value];
+    // Update filter values - wrap single value in array for 'in' operator
+    const filterIndex = filters.value.indexOf(selectOption);
+    filterValues.value[filterIndex] = [selectedSubCounty.value];
+  } else {
+    // Remove filter if no subcounty selected
+    if (index !== -1) {
+      filters.value.splice(index, 1);
+      filterFunction.value.splice(index, 1);
+      filterValues.value.splice(index, 1);
+    }
   }
 
-  // Remove filter key if no values are selected
-  if (selectedSubCounty.value.length === 0) {
-    filters.value.splice(index, 1);
-    filterValues.value.splice(index, 1);
+  if (search_string.value) {
+    getFilteredBySearchData(search_string.value);
+  } else {
+    getFilteredData(filters.value, filterValues.value);
+    getCounts();
   }
-}
-
-
-if (search_string.value) {
-  getFilteredBySearchData(search_string.value)
-} else {
-  getFilteredData(filters.value, filterValues.value)
-  getCounts()
-}
 }
 
 
@@ -2233,81 +2328,83 @@ if (search_string.value) {
 
 
 const filterByWard = async (ward_id: any) => {
-
-value6.value = null   // clear the ward sr
-
-
-if (ward_id) {
-  selectedWard.value = ward_id
- 
-}
-
-
-if (selectedWard.value ) {
-  const selectOption = 'ward_id';
-
-  // Ensure the filter key exists
-  if (!filters.value.includes(selectOption)) {
-    filters.value.push(selectOption);
-      filterFunction.value.push('in')
-
+  if (ward_id) {
+    selectedWard.value = ward_id;
   }
 
+  const selectOption = 'ward_id';
   const index = filters.value.indexOf(selectOption);
 
-  // Clear previously selected county filter values
-  filterValues.value[index] = [];
+  if (selectedWard.value) {
+    // Ensure the filter key exists
+    if (!filters.value.includes(selectOption)) {
+      filters.value.push(selectOption);
+      filterFunction.value.push('in');
+    }
 
-  // Insert new county filter value if it's not empty
-  if (selectedWard.value.length  > 0) {
-    filterValues.value[index] = [...selectedWard.value];
+    // Update filter values - wrap single value in array for 'in' operator
+    const filterIndex = filters.value.indexOf(selectOption);
+    filterValues.value[filterIndex] = [selectedWard.value];
+  } else {
+    // Remove filter if no ward selected
+    if (index !== -1) {
+      filters.value.splice(index, 1);
+      filterFunction.value.splice(index, 1);
+      filterValues.value.splice(index, 1);
+    }
   }
 
-  // Remove filter key if no values are selected
-  if (selectedWard.value.length === 0) {
-    filters.value.splice(index, 1);
-    filterValues.value.splice(index, 1);
+  if (search_string.value) {
+    getFilteredBySearchData(search_string.value);
+  } else {
+    getFilteredData(filters.value, filterValues.value);
+    getCounts();
   }
 }
 
-
-
-if (search_string.value) {
-  getFilteredBySearchData(search_string.value)
-} else {
-  getFilteredData(filters.value, filterValues.value)
-  getCounts()
-}
-}
-
-const getDaysToExpiry = (expiryDate) => {
-  if (!expiryDate) return "N/A";  // Handle missing dates
+const getDaysDiff = (expiryDate: any): number | null => {
+  if (!expiryDate) return null;
   const expiry = new Date(expiryDate);
+  if (isNaN(expiry.getTime())) return null;
   const today = new Date();
-  const diffTime = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24)); // Convert milliseconds to days
-//  console.log('expiry',expiry, 'today',today,'diffTime',diffTime )
-  return diffTime > 0 ? `${diffTime} days` : "Expired";
+  // Compare by day (ignore time component)
+  const startOfExpiry = new Date(expiry.getFullYear(), expiry.getMonth(), expiry.getDate());
+  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const msPerDay = 1000 * 60 * 60 * 24;
+  return Math.ceil((startOfExpiry.getTime() - startOfToday.getTime()) / msPerDay);
 };
 
-const getExpiryClass = (expiryDate) => {
-  if (!expiryDate) return "";
-  const diff = getDaysToExpiry(expiryDate);
-  return diff === "Expired" ? "text-red-500" : "text-green-500"; // Apply color styling
+const formatExpiryPhrase = (expiryDate: any): string => {
+  const diff = getDaysDiff(expiryDate);
+  if (diff === null) return '';
+  if (diff === 0) return `Expires today`;
+
+  const absDays = Math.abs(diff);
+  let value = absDays;
+  let unit = 'day';
+
+  if (absDays > 365) {
+    value = Math.ceil(absDays / 365);
+    unit = 'year';
+  } else if (absDays > 30) {
+    value = Math.ceil(absDays / 30);
+    unit = 'month';
+  }
+
+  const plural = value === 1 ? '' : 's';
+  const phrase = `${value} ${unit}${plural}`;
+
+  return diff > 0 ? `${phrase} to expiry` : `${phrase} past expiry`;
+};
+
+const getExpiryClass = (expiryDate: any) => {
+  const diff = getDaysDiff(expiryDate);
+  if (diff === null) return '';
+  return diff < 0 || diff === 0 ? 'text-red-500' : 'text-green-500';
 };
 
 
-
-const formatDate2 = (row, column, dateString) => {
-  const date = new Date(dateString);
-  return new Intl.DateTimeFormat('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true,
-  }).format(date);
-}
+ 
 
 
 
@@ -2661,24 +2758,24 @@ const submitResolutionForm = async () => {
  
 
 const grievanceOptions = [
-  { label: 'Land Ownership or Title Disputes', value: 'land_ownership' },
-  { label: 'Evictions or Displacement', value: 'evictions' },
-  { label: 'Compensation or Resettlement Issues', value: 'compensation' },
-  { label: 'Poor Road or Pathway Conditions', value: 'poor_roads' },
-  { label: 'Infrastructure related ', value: 'infrastructure' },
-  { label: 'Drainage and Flooding Problems', value: 'drainage_flooding' },
-  { label: 'Water Access and Supply Issues', value: 'water_supply' },
-  { label: 'Sanitation and Hygiene Concerns', value: 'sanitation' },
-  { label: 'Electricity or Street Lighting Issues', value: 'electricity_lighting' },
-  { label: 'Waste Collection and Management', value: 'waste_management' },
-  { label: 'Environmental Degradation ', value: 'environmental_issues' },
-  { label: 'Health and Safety Hazards', value: 'health_safety' },
-  { label: 'Corruption, Mismanagement, or Bribery', value: 'corruption' },
-  { label: 'Discrimination, Exclusion or Favoritism', value: 'discrimination' },
-  { label: 'Gender-Based Violence or Harassment', value: 'gbv' },
-  { label: 'Labour Issues (e.g. unpaid wages, poor conditions)', value: 'labour_issues' },
-  { label: 'Lack of Information or Consultation', value: 'information_gap' },
-  { label: 'Project Implementation Delays or Inactivity', value: 'delays' },
+  { label: 'Land Ownership/Titles', value: 'land_ownership' },
+  { label: 'Evictions/Displacement', value: 'evictions' },
+  { label: 'Compensation Issues', value: 'compensation' },
+  { label: 'Poor Roads/Pathways', value: 'poor_roads' },
+  { label: 'Infrastructure', value: 'infrastructure' },
+  { label: 'Drainage/Flooding', value: 'drainage_flooding' },
+  { label: 'Water Access/Supply', value: 'water_supply' },
+  { label: 'Sanitation/Hygiene', value: 'sanitation' },
+  { label: 'Electricity/Lighting', value: 'electricity_lighting' },
+  { label: 'Waste Management', value: 'waste_management' },
+  { label: 'Environmental Issues', value: 'environmental_issues' },
+  { label: 'Health/Safety', value: 'health_safety' },
+  { label: 'Corruption/Bribery', value: 'corruption' },
+  { label: 'Discrimination', value: 'discrimination' },
+  { label: 'Gender-Based Violence', value: 'gbv' },
+  { label: 'Labour Issues', value: 'labour_issues' },
+  { label: 'Information Gap', value: 'information_gap' },
+  { label: 'Project Delays', value: 'delays' },
   { label: 'Other', value: 'other' }
 ];
 
@@ -2687,51 +2784,41 @@ const grievanceOptions = [
 
 
 const filterByCategory = async (categories: any) => {
+  // Clear the ward selection when category changes
+  // value6.value = null;
 
-//value6.value = null   // clear the ward sr
-
-
-if (categories) {
-  selectedCategories.value = categories
- 
-}
-
-
-if (selectedCategories.value ) {
-  const selectOption = 'nature';
-
-  // Ensure the filter key exists
-  if (!filters.value.includes(selectOption)) {
-    filters.value.push(selectOption);
-      filterFunction.value.push('in')
-
+  if (categories) {
+    selectedCategories.value = categories;
   }
 
+  const selectOption = 'nature';
   const index = filters.value.indexOf(selectOption);
 
-  // Clear previously selected county filter values
-  filterValues.value[index] = [];
+  if (selectedCategories.value && selectedCategories.value.length > 0) {
+    // Ensure the filter key exists
+    if (!filters.value.includes(selectOption)) {
+      filters.value.push(selectOption);
+      filterFunction.value.push('in');
+    }
 
-  // Insert new county filter value if it's not empty
-  if (selectedCategories.value.length  > 0) {
-    filterValues.value[index] = [...selectedCategories.value];
+    // Update filter values - ensure it's always an array
+    const filterIndex = filters.value.indexOf(selectOption);
+    filterValues.value[filterIndex] = [...selectedCategories.value];
+  } else {
+    // Remove filter if no categories selected
+    if (index !== -1) {
+      filters.value.splice(index, 1);
+      filterFunction.value.splice(index, 1);
+      filterValues.value.splice(index, 1);
+    }
   }
 
-  // Remove filter key if no values are selected
-  if (selectedCategories.value.length === 0) {
-    filters.value.splice(index, 1);
-    filterValues.value.splice(index, 1);
+  if (search_string.value) {
+    getFilteredBySearchData(search_string.value);
+  } else {
+    getFilteredData(filters.value, filterValues.value);
+    getCounts();
   }
-}
-
-
-
-if (search_string.value) {
-  getFilteredBySearchData(search_string.value)
-} else {
-  getFilteredData(filters.value, filterValues.value)
-  getCounts()
-}
 }
 
 
@@ -2741,16 +2828,61 @@ const searchQuery = ref('')
 const isSearching = ref(false)
 const referredOfficerSearch = ref('')
 
+// Modal filter variables
+const filterModalVisible = ref(false)
+
+// Computed properties for modal filters
+const hasActiveFilters = computed(() => {
+  return selectedCategories.value.length > 0 || 
+         selectedCounty.value || 
+         selectedSubCounty.value || 
+         selectedWard.value || 
+         referredOfficerSearch.value
+})
+
+const activeFilterCount = computed(() => {
+  let count = 0
+  if (selectedCategories.value.length > 0) count++
+  if (selectedCounty.value) count++
+  if (selectedSubCounty.value) count++
+  if (selectedWard.value) count++
+  if (referredOfficerSearch.value) count++
+  return count
+})
+
+// Helper functions for getting labels
+const getCountyLabel = (countyValue: string) => {
+  const county = countiesOptions.value.find(c => c.value === countyValue)
+  return county ? county.label : countyValue
+}
+
+const getSubCountyLabel = (subCountyValue: string) => {
+  const subCounty = subcountiesOptions.value.find(sc => sc.value === subCountyValue)
+  return subCounty ? subCounty.label : subCountyValue
+}
+
+const getWardLabel = (wardValue: string) => {
+  const ward = wardOptions.value.find(w => w.value === wardValue)
+  return ward ? ward.label : wardValue
+}
+
 // Debounced search function
 let searchTimeout: NodeJS.Timeout | null = null
-const debouncedSearch = (value: string) => {
+const debouncedSearch = () => {
   if (searchTimeout) {
     clearTimeout(searchTimeout)
   }
   searchTimeout = setTimeout(() => {
-    performSearch(value)
+    performSearch(searchQuery.value)
   }, 300)
 }
+
+// Watch for searchQuery changes for immediate responsiveness
+watch(searchQuery, (newValue) => {
+  // Synchronize search_string with searchQuery
+  search_string.value = newValue
+  debouncedSearch()
+})
 
 // Debounced referred officer search function
 let referredOfficerSearchTimeout: NodeJS.Timeout | null = null
@@ -2765,7 +2897,15 @@ const debouncedReferredOfficerSearch = () => {
 
 const performSearch = async (query: string) => {
   if (!query.trim()) {
-    await handleClear()
+    // When search is cleared, restore filtered data without search
+    search_string.value = ''
+    isSearching.value = true
+    try {
+      await getFilteredData(filters.value, filterValues.value)
+      await getCounts()
+    } finally {
+      isSearching.value = false
+    }
     return
   }
   
@@ -2805,16 +2945,18 @@ const getReferredOfficerSummary = async () => {
       if (field === 'status') continue;
 
       if (field && value !== undefined && value !== null) {
-        filterField.push(field);
-        
-        // Ensure value is always an array
+        // Ensure value is an array and not empty
+        let arrayValue;
         if (Array.isArray(value)) {
-          filterValue.push([...value]); // Create a copy of the array
-          filterOperator.push('in');
+          if (value.length === 0) continue; // Skip empty arrays
+          arrayValue = [...value]; // Create a copy of the array
         } else {
-          filterValue.push([value]);
-          filterOperator.push('eq');
+          arrayValue = [value];
         }
+        
+        filterField.push(field);
+        filterValue.push(arrayValue);
+        filterOperator.push('in');
       }
     }
 
@@ -2833,7 +2975,7 @@ const getReferredOfficerSummary = async () => {
       summaryFunction: 'count',
       groupFields: ['reffered_to_officer'],
       filterField: filterField,
-      filterValue: [filterValue],
+      filterValue: filterValue,
       filterOperator: filterOperator
     }
     
@@ -2929,8 +3071,98 @@ const filterByReferredOfficer = async () => {
   total.value = filteredData.length
 }
 
-const toggleFilters = () => {
-  isFiltersOpen.value = !isFiltersOpen.value
+// Modal filter methods
+const openFilterModal = () => {
+  filterModalVisible.value = true
+}
+
+// Clear individual filter methods
+const clearCategoryFilter = () => {
+  selectedCategories.value = []
+  filterByCategory([])
+}
+
+const clearCountyFilter = () => {
+  selectedCounty.value = null
+  filterByCounty(null)
+}
+
+const clearSubCountyFilter = () => {
+  selectedSubCounty.value = null
+  filterBySubCounty(null)
+}
+
+const clearWardFilter = () => {
+  selectedWard.value = null
+  filterByWard(null)
+}
+
+const clearOfficerSearch = () => {
+  referredOfficerSearch.value = ''
+  filterByReferredOfficer()
+}
+
+// Clear all filters method
+const clearAllFilters = async () => {
+  // Reset all filter selections properly
+  selectedCategories.value = []
+  selectedCounty.value = null
+  selectedSubCounty.value = null
+  selectedWard.value = null
+  selectedOfficer.value = null
+  referredOfficerSearch.value = ''
+  search_string.value = ''
+  
+  // Clear the underlying filter arrays
+  filterValues.value = []
+  filters.value = []
+  filterFunction.value = []
+  
+  // Clear original data and call handleClear
+  originalTableData.value = []
+  await handleClear()
+}
+
+// Apply filters and close modal
+const applyFiltersAndClose = async () => {
+  // Apply all filters in sequence
+  await filterByCategory(selectedCategories.value)
+  
+  // Apply location filters if they have values
+  if (selectedCounty.value) {
+    await filterByCounty(selectedCounty.value)
+  }
+  if (selectedSubCounty.value) {
+    await filterBySubCounty(selectedSubCounty.value)
+  }
+  if (selectedWard.value) {
+    await filterByWard(selectedWard.value)
+  }
+  
+  // Apply officer search if it has a value
+  if (referredOfficerSearch.value) {
+    await filterByReferredOfficer()
+  }
+  
+  // Final data fetch and count update
+  if (search_string.value) {
+    await getFilteredBySearchData(search_string.value)
+  } else {
+    await getFilteredData(filters.value, filterValues.value)
+    await getCounts()
+  }
+  
+  filterModalVisible.value = false
+}
+
+// Apply filters method (can be customized if needed)
+const applyFilters = () => {
+  if (search_string.value) {
+    getFilteredBySearchData(search_string.value)
+  } else {
+    getFilteredData(filters.value, filterValues.value)
+    getCounts()
+  }
 }
 
 // Enhanced status type mapping
@@ -3048,35 +3280,33 @@ const filterByOfficer = async (officerId: number, officerName: string) => {
             <el-button type="primary" plain :icon="Back" @click="goBack">
             Back
           </el-button>
-            <div class="total-count-badge">
-              <div class="count-number">{{ totalGrievanceCount }}</div>
-              <div class="count-label">Total Grievances</div>
-            </div>
-            
-            <div class="header-text">
-              <h3>Grievance Management</h3>
-              <p>Manage and track grievance complaints</p>
-            </div>
-          </div>
+               <div class="header-text">
+                <h3>Grievance Management</h3>
+              </div>
+           </div>
           
         <div class="header-actions">
-          <div class="header-search">
+          <div class="header-search" style="flex:1 1 auto; min-width: 220px;">
             <el-input
               v-model="searchQuery"
               placeholder="Search grievances by code, description, or complainant name..."
-              :prefix-icon="Search"
               clearable
-              @input="debouncedSearch"
               class="header-search-input"
-              v-loading="isSearching"
             >
               <template #append>
+                <el-icon :class="{ 'is-loading': isSearching }" style="margin-right: 8px;">
+                  <Loading />
+                </el-icon>
                 <el-button :icon="Search" @click="performSearch(searchQuery)" />
               </template>
             </el-input>
           </div>
           
-      
+          <div class="total-count-badge">
+            <div class="count-number">{{ totalGrievanceCount }}</div>
+            <div class="count-label">Total Grievances</div>
+          </div>
+
           <DownloadCustom 
               :data="tableDataList" 
               :model="model"
@@ -3091,30 +3321,19 @@ const filterByOfficer = async (officerId: number, officerName: string) => {
           <div class="status-cards">
             <template v-for="status in Statuses" :key="status.value">
               <!-- Regular status cards (excluding All) -->
-              <div 
+              <el-tooltip
+                :content="status.description"
+                placement="bottom"
+                effect="light"
+                popper-class="status-success-tooltip"
+                :manual="true"
+                trigger="manual"
+                v-model:visible="statusTooltipVisible[status.value]"
                 v-if="!['All', 'Deleted', 'Rejected'].includes(status.value)"
-                :class="['status-card', { active: activeSegment === status.value }]"
-                @click="onSegmentClick(status.value)"
-              >
-                <div class="status-icon">
-                  <el-icon :size="18">
-                    <component :is="status.icon" />
-                  </el-icon>
-                </div>
-                <div class="status-info">
-                  <div class="status-label">{{ status.label }}</div>
-                  <div class="status-count">{{ status.count }}</div>
-                </div>
-              </div>
-              
-              <!-- Permission-wrapped status cards -->
-              <PermissionWrapper 
-                v-else-if="['Deleted', 'Rejected'].includes(status.value)"
-                :permissions="['grievance:viewDeleted']"
               >
                 <div 
                   :class="['status-card', { active: activeSegment === status.value }]"
-                  @click="onSegmentClick(status.value)"
+                  @click="onSegmentClick(status.value); showStatusTip(status.value)"
                 >
                   <div class="status-icon">
                     <el-icon :size="18">
@@ -3126,6 +3345,37 @@ const filterByOfficer = async (officerId: number, officerName: string) => {
                     <div class="status-count">{{ status.count }}</div>
                   </div>
                 </div>
+              </el-tooltip>
+              
+              <!-- Permission-wrapped status cards -->
+              <PermissionWrapper 
+                v-else-if="['Deleted', 'Rejected'].includes(status.value)"
+                :permissions="['grievance:viewDeleted']"
+              >
+                <el-tooltip
+                  :content="status.description"
+                  placement="top"
+                  effect="light"
+                  popper-class="status-success-tooltip"
+                  :manual="true"
+                  trigger="manual"
+                  v-model:visible="statusTooltipVisible[status.value]"
+                >
+                  <div 
+                    :class="['status-card', { active: activeSegment === status.value }]"
+                    @click="onSegmentClick(status.value); showStatusTip(status.value)"
+                  >
+                    <div class="status-icon">
+                      <el-icon :size="18">
+                        <component :is="status.icon" />
+                      </el-icon>
+                    </div>
+                    <div class="status-info">
+                      <div class="status-label">{{ status.label }}</div>
+                      <div class="status-count">{{ status.count }}</div>
+                    </div>
+                  </div>
+                </el-tooltip>
               </PermissionWrapper>
             </template>
           </div>
@@ -3133,145 +3383,95 @@ const filterByOfficer = async (officerId: number, officerName: string) => {
       </div>
       </template>
 
-      <!-- Filters Bar -->
-      <div class="filters-bar">
-        <el-row :gutter="12" align="middle">
-          <!-- Filters Columns -->
-          <el-col :xs="24" :sm="12" :md="4" :lg="4">
-            <el-select
-              v-model="selectedCategories"
-              multiple
-              clearable
-              filterable
-              collapse-tags
-              placeholder="Category"
-              @change="filterByCategory"
-              class="quick-filter"
-            >
-              <el-option
-                v-for="item in grievanceOptions"
-                :key="item.value"
-                :label="item.label"
-                :value="item.value"
-              />
-            </el-select>
-          </el-col>
-
-          <el-col :xs="24" :sm="12" :md="3" :lg="3" v-if="isNationalStaff">
-            <el-select
-              v-model="selectedCounty"
-              clearable
-              filterable
-              collapse-tags
-              placeholder="County"
-              @change="filterByCounty"
-              class="quick-filter"
-            >
-              <el-option
-                v-for="item in countiesOptions"
-                :key="item.value"
-                :label="item.label"
-                :value="item.value"
-              />
-            </el-select>
-          </el-col>
-
-          <el-col :xs="24" :sm="12" :md="3" :lg="3">
-            <el-select
-              v-model="selectedSubCounty"
-              :disabled="!selectedCounty"
-              clearable
-              filterable
-              collapse-tags
-              placeholder="Subcounty"
-              @change="filterBySubCounty"
-              class="quick-filter"
-            >
-              <el-option
-                v-for="item in subcountiesOptions"
-                :key="item.value"
-                :label="item.label"
-                :value="item.value"
-              />
-            </el-select>
-          </el-col>
-
-          <el-col :xs="24" :sm="12" :md="3" :lg="3">
-            <el-select
-              v-model="selectedWard"
-              :disabled="!selectedSubCounty"
-              clearable
-              filterable
-              collapse-tags
-              placeholder="Ward"
-              @change="filterByWard"
-              class="quick-filter"
-            >
-              <el-option
-                v-for="item in wardOptions"
-                :key="item.value"
-                :label="item.label"
-                :value="item.value"
-              />
-            </el-select>
-          </el-col>
-
-          <!-- Referred Officer Search - Only show in Referred tab -->
-          <el-col :xs="24" :sm="12" :md="3" :lg="3" v-if="activeSegment === 'Referred'">
-            <el-input
-              v-model="referredOfficerSearch"
-              placeholder="Search by officer name or phone..."
-              :prefix-icon="Search"
-              clearable
-              @input="debouncedReferredOfficerSearch"
-              class="quick-filter"
-              v-loading="isSearching"
+      <!-- Compact Filter Bar with Modal -->
+      <div class="compact-filter-bar">
+        <div class="filter-summary">
+          <!-- Filter Button -->
+          <el-button 
+            type="primary" 
+            :icon="Filter"
+            size="small"
+            @click="openFilterModal"
+            class="filter-button"
+          >
+            Filters
+            <el-badge 
+              v-if="activeFilterCount > 0" 
+              :value="activeFilterCount" 
+              class="filter-badge"
             />
-          </el-col>
-          
-          <!-- Summary Button - Only show in Referred tab -->
-          <el-col :xs="24" :sm="12" :md="2" :lg="2" v-if="activeSegment === 'Referred'">
-            <el-button 
+          </el-button>
+
+          <!-- Applied Filters Tags -->
+          <div class="applied-filters" v-if="hasActiveFilters">
+            <el-tag 
+              v-if="selectedCategories.length" 
+              size="small" 
               type="info" 
-              :icon="View"
-              @click="getReferredOfficerSummary"
-              :loading="summaryLoading"
-              :disabled="isFilteredByOfficer"
-              class="action-button"
+              closable 
+              @close="clearCategoryFilter"
             >
-              Summary
-            </el-button>
-          </el-col>
-          <!-- Action Buttons -->
-          <el-col :xs="24" :sm="12" :md="2" :lg="2">
-            <PermissionWrapper :permissions="['grievance:create']">
-              <el-button type="primary" :icon="Plus" @click="AddComponent" class="action-button">
-                New Grievance
-              </el-button>
-            </PermissionWrapper>
-          </el-col>
-
-          <el-col :xs="24" :sm="12" :md="2" :lg="2">
-            <el-button 
-              v-if="selectedRows.length > 0" 
-              type="success" 
-              :icon="Share"
-              @click="handleBulkAction"
-              class="action-button"
+              Categories ({{ selectedCategories.length }})
+            </el-tag>
+            <el-tag 
+              v-if="selectedCounty" 
+              size="small" 
+              type="info" 
+              closable 
+              @close="clearCountyFilter"
             >
-              Refer Selected ({{ selectedRows.length }})
-            </el-button>
-          </el-col>
+              {{ getCountyLabel(selectedCounty) }}
+            </el-tag>
+            <el-tag 
+              v-if="selectedSubCounty" 
+              size="small" 
+              type="info" 
+              closable 
+              @close="clearSubCountyFilter"
+            >
+              {{ getSubCountyLabel(selectedSubCounty) }}
+            </el-tag>
+            <el-tag 
+              v-if="selectedWard" 
+              size="small" 
+              type="info" 
+              closable 
+              @close="clearWardFilter"
+            >
+              {{ getWardLabel(selectedWard) }}
+            </el-tag>
+            <el-tag 
+              v-if="referredOfficerSearch" 
+              size="small" 
+              type="info" 
+              closable 
+              @close="clearOfficerSearch"
+            >
+              Officer: {{ referredOfficerSearch }}
+            </el-tag>
+          </div>
+        </div>
 
-          <el-col :xs="24" :sm="12" :md="2" :lg="2">
-            <el-button @click="handleClear" :icon="Refresh" class="action-button">
-              Clear Filters
-            </el-button>
-          </el-col>
-
-          
-
-        </el-row>
+        <!-- Action Buttons -->
+        <div class="quick-actions">
+          <el-button 
+            v-if="hasActiveFilters" 
+            size="small" 
+            type="warning" 
+            :icon="Refresh" 
+            @click="handleClear"
+          >
+            Clear All
+          </el-button>
+          <el-button 
+            size="small" 
+            type="success" 
+            :icon="Plus" 
+            @click="AddComponent"
+          >
+            Add
+          </el-button>
+        </div>
       </div>
 
       <!-- Enhanced Table -->
@@ -3292,8 +3492,11 @@ const filterByOfficer = async (officerId: number, officerName: string) => {
           width="50"
           :selectable="isRowSelectable"
         />
+      <!-- Optional Selection Column for Non-Final Statuses -->
+       
 
-        <el-table-column label="ID" width="80" prop="id">
+
+        <el-table-column label="ID" width="100" prop="id">
           <template #default="{ row }">
             <div class="grievance-id">
               <span class="id-number">#{{ row.id }}</span>
@@ -3311,7 +3514,10 @@ const filterByOfficer = async (officerId: number, officerName: string) => {
               <div class="grievance-code">{{ row.code }}</div>
               <div class="grievance-description">{{ row.description }}</div>
               <div class="grievance-category">
-                <el-tag size="small">{{ row.nature }}</el-tag>
+                <el-tag size="small" :type="getStatusType(row.status)">
+                  {{ row.status }}
+                </el-tag>
+                <el-tag size="small" style="margin-left:6px;">{{ row.nature }}</el-tag>
               </div>
             </div>
           </template>
@@ -3326,13 +3532,13 @@ const filterByOfficer = async (officerId: number, officerName: string) => {
           </template>
         </el-table-column>
 
-        <el-table-column label="Status" width="120">
+        <!-- <el-table-column label="Status" width="120">
           <template #default="{ row }">
             <el-tag :type="getStatusType(row.status)" size="small">
               {{ row.status }}
             </el-tag>
           </template>
-        </el-table-column>
+        </el-table-column> -->
 
         <!-- Show only in 'Referred' tab -->
         <el-table-column label="Referred To" width="200" v-if="activeSegment === 'Referred'">
@@ -3355,6 +3561,12 @@ const filterByOfficer = async (officerId: number, officerName: string) => {
           </template>
         </el-table-column>
 
+        
+        <el-table-column  v-if="['Resolved'].includes(activeSegment)" prop="date_resolved" label="Date Resolved" width="150">
+          <template #default="{ row }">
+            <span>{{ formatDate(row.date_resolved) }}</span>
+          </template>
+        </el-table-column>
         <!-- Show only in 'Sorting' tab -->
         <el-table-column label="Complainant" prop="name" width="150" v-if="activeSegment === 'Sorting'" />
         <el-table-column label="Reported By" width="150" v-if="activeSegment === 'Sorting'">
@@ -3364,10 +3576,12 @@ const filterByOfficer = async (officerId: number, officerName: string) => {
           </template>
         </el-table-column>
 
-        <el-table-column label="Expiry" width="120">
+        <el-table-column label="Deadline" width="200">
           <template #default="{ row }">
-            <div :class="getExpiryClass(row.status_expiry_date)">
-              {{ getDaysToExpiry(row.status_expiry_date) }}
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span :class="getExpiryClass(row.status_expiry_date)">
+                {{ formatExpiryPhrase(row.status_expiry_date) }}
+              </span>
             </div>
           </template>
         </el-table-column>
@@ -3844,6 +4058,156 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
     </template>
   </el-dialog>
 
+  <!-- Filter Drawer -->
+  <el-drawer
+    v-model="filterModalVisible"
+    title="Filter Options"
+    :size="isMobile ? '100%' : '400px'"
+    direction="rtl"
+    class="filter-drawer"
+  >
+    <div class="filter-drawer-content">
+      <!-- Filter List -->
+      <div class="filter-list">
+        <!-- Category Filter -->
+        <div class="filter-item">
+          <label class="filter-label">Grievance Categories</label>
+          <el-select
+            v-model="selectedCategories"
+            multiple
+            clearable
+            filterable
+            placeholder="Select categories"
+            size="small"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="item in grievanceOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+        </div>
+
+        <!-- County Filter -->
+        <div class="filter-item" v-if="isNationalStaff">
+          <label class="filter-label">County</label>
+          <el-select
+            v-model="selectedCounty"
+            clearable
+            filterable
+            placeholder="Select county"
+            size="small"
+            style="width: 100%"
+            @change="filterByCounty"
+          >
+            <el-option
+              v-for="item in countiesOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+        </div>
+
+        <!-- Subcounty Filter -->
+        <div class="filter-item">
+          <label class="filter-label">Subcounty</label>
+          <el-select
+            v-model="selectedSubCounty"
+            :disabled="!selectedCounty"
+            clearable
+            filterable
+            placeholder="Select subcounty"
+            size="small"
+            style="width: 100%"
+            @change="filterBySubCounty"
+          >
+            <el-option
+              v-for="item in subcountiesOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+        </div>
+
+        <!-- Ward Filter -->
+        <div class="filter-item">
+          <label class="filter-label">Ward</label>
+          <el-select
+            v-model="selectedWard"
+            :disabled="!selectedSubCounty"
+            clearable
+            filterable
+            placeholder="Select ward"
+            size="small"
+            style="width: 100%"
+            @change="filterByWard"
+          >
+            <el-option
+              v-for="item in wardOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+        </div>
+
+        <!-- Officer Search - Only show in Referred tab -->
+        <div class="filter-item" v-if="activeSegment === 'Referred'">
+          <label class="filter-label">Officer Search</label>
+          <el-input
+            v-model="referredOfficerSearch"
+            placeholder="Search by officer..."
+            :prefix-icon="Search"
+            clearable
+            size="small"
+            @input="debouncedReferredOfficerSearch"
+            v-loading="isSearching"
+          />
+        </div>
+
+        <!-- Officer Summary - Only show in Referred tab -->
+        <div class="filter-item" v-if="activeSegment === 'Referred'">
+          <label class="filter-label">Officer Summary</label>
+          <el-button 
+            type="info" 
+            :icon="View"
+            size="small"
+            @click="getReferredOfficerSummary"
+            :loading="summaryLoading"
+            :disabled="isFilteredByOfficer"
+            style="width: 100%"
+          >
+            Get Summary
+          </el-button>
+        </div>
+
+        <!-- Bulk Actions Section -->
+        <div class="filter-item" v-if="selectedRows.length > 0">
+          <label class="filter-label">Bulk Actions</label>
+          <el-button 
+            type="success" 
+            :icon="Share"
+            size="small"
+            @click="handleBulkAction"
+            style="width: 100%"
+          >
+            Refer Selected ({{ selectedRows.length }})
+          </el-button>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="filter-drawer-footer">
+        <el-button @click="clearAllFilters" :icon="Refresh">Clear All</el-button>
+        <el-button type="primary" @click="applyFiltersAndClose" :icon="Filter">Apply Filters</el-button>
+      </div>
+    </div>
+  </el-drawer>
+
   <!-- Tour -->
   <el-tour v-model="isTourVisible" :steps="filteredTourSteps" />
 </template>
@@ -3851,8 +4215,21 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
 <style scoped>
 /* Dashboard Layout */
 .grievance-dashboard {
-  padding: 20px;
-   min-height: 100vh;
+  padding: 4px;
+  min-height: 100vh;
+}
+
+/* Main Content Card - Optimized for older screens */
+.main-content-card {
+  margin-bottom: 16px;
+}
+
+.main-content-card :deep(.el-card__body) {
+  padding: 8px;
+}
+
+.main-content-card :deep(.el-card__header) {
+  padding: 8px 12px;
 }
 
 /* Header */
@@ -3903,22 +4280,22 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
   padding: 20px;
 }
 
-/* Status Cards in Header */
+/* Status Cards in Header - Optimized for older screens */
 .status-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 6px;
 }
 
 .status-card {
   display: flex;
   align-items: center;
-  padding: 12px;
+  padding: 8px;
   border: 1px solid #e4e7ed;
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
   transition: all 0.3s ease;
-   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .status-card:hover {
@@ -3944,23 +4321,23 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
 
 .status-label {
   font-weight: 500;
-  margin-bottom: 2px;
+  margin-bottom: 1px;
   color: #303133;
-  font-size: 12px;
+  font-size: 11px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .status-count {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: bold;
   color: #409eff;
 }
 
-/* Card Header */
+/* Card Header - Optimized for older screens */
 .card-header {
-  padding: 20px 24px;
+  padding: 16px 20px;
   border-bottom: 1px solid #e9ecef;
 }
 
@@ -3968,18 +4345,23 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .card-header .header-content {
   display: flex;
   align-items: center;
-  gap: 16px;
-  flex: 1;
+  gap: 12px;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
 }
 
 .card-header .header-icon {
   color: #409eff;
+}
+
+.card-header .header-text {
+  padding: 4px 8px;
 }
 
 .card-header .header-text h3 {
@@ -3998,36 +4380,41 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
 .card-header .header-actions {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
+  flex-wrap: wrap;
+  flex: 1 1 auto;
 }
 
 .card-header .status-cards-container {
   margin-top: 8px;
 }
 
-/* Total Count Badge */
+/* Total Count Badge - Optimized for older screens */
 .total-count-badge {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 8px;
-  padding: 8px 16px;
-  color: white;
+   border: 1px solid #e4e7ed;
+  border-radius: 6px;
+  padding: 6px 10px;
+  color: #303133;
   text-align: center;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
-  transition: all 0.3s ease;
-  min-width: 100px;
+  box-shadow: none;
+  transition: none;
+  min-width: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
 }
 
 .total-count-badge:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  transform: none;
+  box-shadow: none;
 }
 
 .count-number {
-  font-size: 20px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 600;
   line-height: 1;
   margin-bottom: 2px;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .count-label {
@@ -4035,31 +4422,188 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
   font-weight: 500;
   opacity: 0.9;
   text-transform: uppercase;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.2px;
 }
 
 .header-search {
-  min-width: 400px;
+  min-width: 300px;
 }
 
 .header-search-input {
   width: 100%;
 }
 
-/* Filters Bar */
-.filters-bar {
-  margin-bottom: 3px;
-  margin-top: 2px;
-  padding: 12px 0;
-  border-bottom: 1px solid #f0f0f0;
+.header-search :deep(.el-input-group__append) .el-icon.is-loading {
+  animation: rotating 1s linear infinite;
+}
+
+@keyframes rotating {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Redesigned Filters Bar - Compact and Responsive */
+.filters-bar-redesigned {
+  margin-bottom: 8px;
+  margin-top: 4px;
+  border-radius: 6px;
+  padding: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.filters-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.filters-row:last-child {
+  margin-bottom: 0;
+}
+
+.primary-filters {
+  border-bottom: 1px solid #e9ecef;
+  padding-bottom: 6px;
+  margin-bottom: 6px;
+}
+
+.action-buttons {
+  justify-content: flex-end;
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-bottom: 0;
+}
+
+.filter-group {
+  min-width: 120px;
+  flex: 1;
+  max-width: 200px;
+}
+
+.button-group {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* Compact Components */
+.compact-select {
+  width: 100%;
+}
+
+.compact-select :deep(.el-select__tags) {
+  max-height: 28px;
+  overflow: hidden;
+  flex-wrap: nowrap;
+}
+
+.compact-select :deep(.el-tag) {
+  max-width: 70px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-right: 2px;
+  font-size: 11px;
+  height: 20px;
+  line-height: 18px;
+}
+
+.compact-select :deep(.el-input__inner) {
+  height: 28px !important;
+  min-height: 28px !important;
+  font-size: 12px;
+}
+
+.compact-input {
+  width: 100%;
+}
+
+.compact-input :deep(.el-input__inner) {
+  height: 28px !important;
+  font-size: 12px;
+}
+
+.compact-button {
+  font-size: 11px;
+  padding: 4px 8px;
+  height: 28px;
+  min-width: 60px;
+}
+
+/* Dropdown improvements */
+.compact-select :deep(.el-select-dropdown__item) {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 6px 10px;
+  font-size: 12px;
+  line-height: 1.3;
 }
 
 .quick-filter {
   width: 100%;
 }
 
-.quick-filter {
-  width: 100%;
+/* Fix for category select expansion issue */
+.category-select :deep(.el-select__tags) {
+  max-height: 32px;
+  overflow: hidden;
+  flex-wrap: nowrap;
+}
+
+.category-select :deep(.el-tag) {
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-right: 4px;
+}
+
+.category-select :deep(.el-input__inner) {
+  height: 32px !important;
+  min-height: 32px !important;
+}
+
+.category-select :deep(.el-select__input) {
+  height: 30px;
+}
+
+/* Ellipsis for dropdown options */
+.category-select :deep(.el-select-dropdown__item) {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 8px 12px;
+}
+
+/* Responsive tag sizes for smaller screens */
+@media (max-width: 768px) {
+  .category-select :deep(.el-tag) {
+    max-width: 80px;
+    font-size: 11px;
+  }
+  
+  .category-select :deep(.el-select-dropdown__item) {
+    max-width: 150px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .category-select :deep(.el-tag) {
+    max-width: 60px;
+    font-size: 10px;
+  }
+  
+  .category-select :deep(.el-select-dropdown__item) {
+    max-width: 120px;
+    font-size: 11px;
+  }
 }
 
 .action-button {
@@ -4260,8 +4804,249 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
   justify-content: flex-end;
 }
 
-/* Responsive Design */
+/* Responsive Design - Optimized for older screens */
+@media (max-width: 1200px) {
+  .grievance-dashboard {
+    padding: 2px;
+  }
+  
+  .main-content-card :deep(.el-card__body) {
+    padding: 6px;
+  }
+  
+  .main-content-card :deep(.el-card__header) {
+    padding: 6px 10px;
+  }
+  
+  .card-header {
+    padding: 12px 16px;
+  }
+  
+  .card-header .header-content {
+    gap: 8px;
+  }
+  
+  .status-cards {
+    grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+    gap: 4px;
+  }
+  
+  .status-card {
+    padding: 6px;
+  }
+  
+  .status-label {
+    font-size: 10px;
+  }
+  
+  .status-count {
+    font-size: 14px;
+  }
+}
+
+/* Compact Filter Bar with Modal */
+.compact-filter-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+   border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+.filter-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.filter-button {
+  position: relative;
+}
+
+.filter-badge :deep(.el-badge__content) {
+  top: -5px;
+  right: -5px;
+}
+
+.applied-filters {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.quick-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Filter Drawer */
+.filter-drawer :deep(.el-drawer__body) {
+  padding: 0;
+}
+
+.filter-drawer-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 20px;
+}
+
+.filter-list {
+  flex: 1;
+  overflow-y: auto;
+  margin-bottom: 20px;
+}
+
+.filter-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.filter-item:last-child {
+  margin-bottom: 0;
+}
+
+.filter-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+  margin-bottom: 4px;
+}
+
+.filter-drawer-footer {
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  border-top: 1px solid #e4e7ed;
+  padding-top: 16px;
+  margin-top: auto;
+}
+
+/* Drawer Responsive Design */
 @media (max-width: 768px) {
+  .compact-filter-bar {
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+  }
+  
+  .filter-summary {
+    justify-content: space-between;
+  }
+  
+  .quick-actions {
+    justify-content: center;
+  }
+  
+  .applied-filters {
+    justify-content: center;
+    margin-top: 8px;
+  }
+  
+  .filter-drawer-content {
+    padding: 16px;
+  }
+  
+  .filter-item {
+    margin-bottom: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .compact-filter-bar {
+    padding: 10px 12px;
+  }
+  
+  .filter-summary {
+    gap: 8px;
+  }
+  
+  .quick-actions {
+    gap: 6px;
+  }
+  
+  .filter-drawer-footer {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .filter-drawer-content {
+    padding: 12px;
+  }
+}
+
+/* Additional responsive styles */
+@media (max-width: 1024px) {
+  .count-number {
+    font-size: 16px;
+  }
+  
+  .count-label {
+    font-size: 8px;
+  }
+  
+  .header-search {
+    min-width: 250px;
+  }
+  
+  .filters-bar {
+    padding: 6px 0;
+  }
+}
+
+/* Responsive Design for Redesigned Filters */
+@media (max-width: 768px) {
+  .filters-bar-redesigned {
+    padding: 6px;
+  }
+  
+  .filters-row {
+    gap: 6px;
+  }
+  
+  .filter-group {
+    min-width: 100px;
+    max-width: 150px;
+  }
+  
+  .compact-select :deep(.el-tag) {
+    max-width: 50px;
+    font-size: 10px;
+    height: 18px;
+    line-height: 16px;
+  }
+  
+  .compact-select :deep(.el-input__inner) {
+    height: 26px !important;
+    font-size: 11px;
+  }
+  
+  .compact-input :deep(.el-input__inner) {
+    height: 26px !important;
+    font-size: 11px;
+  }
+  
+  .compact-button {
+    font-size: 10px;
+    padding: 3px 6px;
+    height: 26px;
+    min-width: 50px;
+  }
+  
+  .compact-select :deep(.el-select-dropdown__item) {
+    max-width: 140px;
+    font-size: 11px;
+    padding: 5px 8px;
+  }
+
   .card-header .header-top {
     flex-direction: column;
     gap: 16px;
@@ -4293,37 +5078,24 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
   }
   
   .status-cards {
-    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-    gap: 6px;
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+    gap: 4px;
   }
   
   .status-card {
-    padding: 6px;
+    padding: 4px;
   }
   
   .status-label {
-    font-size: 10px;
+    font-size: 9px;
   }
   
   .status-count {
-    font-size: 14px;
+    font-size: 12px;
   }
   
   .header-search {
-    min-width: 200px;
-  }
-  
-  .filters-bar {
-    padding: 12px 0;
-  }
-  
-  /* Mobile spacing for filter columns */
-  .filters-bar .el-col {
-    margin-bottom: 12px;
-  }
-  
-  .filters-bar .el-col:last-child {
-    margin-bottom: 0;
+    min-width: 180px;
   }
   
   .drawer-content {
@@ -4332,6 +5104,36 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
   
   .drawer-footer {
     padding: 12px 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .filters-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+  }
+  
+  .primary-filters {
+    border-bottom: none;
+    padding-bottom: 4px;
+    margin-bottom: 4px;
+  }
+  
+  .filter-group {
+    min-width: auto;
+    max-width: none;
+    width: 100%;
+  }
+  
+  .button-group {
+    justify-content: center;
+    width: 100%;
+  }
+  
+  .compact-button {
+    flex: 1;
+    min-width: 70px;
   }
 }
 
@@ -4459,6 +5261,20 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
     font-size: 11px;
     padding: 4px 8px;
   }
+}
+</style>
+<style scoped>
+/* Success themed tooltip for status explanations */
+:global(.status-success-tooltip) {
+  background-color: #f0f9eb !important; /* el-success-lighter */
+  color: #67c23a !important;            /* el-success */
+  border: 1px solid #c2e7b0 !important; /* subtle border */
+  box-shadow: 0 2px 8px rgba(103, 194, 58, 0.15) !important;
+}
+
+:global(.status-success-tooltip .el-popper__arrow::before) {
+  background-color: #f0f9eb !important;
+  border: 1px solid #c2e7b0 !important;
 }
 </style>
 

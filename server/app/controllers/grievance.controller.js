@@ -1172,20 +1172,23 @@ exports.batchDocumentsUploadByGrievanceCode = async (req, res) => {
         if (associatedModels.length > 0) {
           findOptions.include = associatedModels.map(model => {
             if (typeof model === 'string') {
-              // Limit fields for 'users' model
-              if (model === 'users') {
-                return { 
-                  model: db.models[model], 
-                  attributes: ['id', 'name', 'username', 'email', 'phone'] 
-                };
-              }
+                          // Limit fields for 'users' model
+            if (model === 'users') {
+              return { 
+                model: db.models[model], 
+                as: 'users',
+                attributes: ['id', 'name', 'username', 'email', 'phone'] 
+              };
+            }
               return { model: db.models[model] };
             } else if (typeof model === 'object' && model.name && model.nestedAssociations) {
               return {
                 model: db.models[model.name],
+                as: model.name === 'users' ? 'users' : undefined,
                 attributes: model.name === 'users' ? ['id', 'name', 'username', 'email', 'phone'] : undefined,
                 include: model.nestedAssociations.map(nestedModel => ({
                   model: db.models[nestedModel],
+                  as: nestedModel === 'users' ? 'user' : undefined,
                   attributes: nestedModel === 'users' ? ['id', 'name', 'username', 'email', 'phone'] : undefined,
                 }))
               };
@@ -1336,6 +1339,7 @@ exports.getGrievanceByPublicId = async (req, res) => {
               .filter(nestedModel => nestedModel === 'users')
               .map(() => ({
                 model: db.models.users,
+                as: 'user',
                 attributes: ['name']
               }))
           };
@@ -1498,6 +1502,7 @@ exports.getGrievanceByPublicId = async (req, res) => {
           if (model === 'users') {
             return { 
               model: db.models[model], 
+              as: 'users',
               attributes: ['id', 'name', 'username', 'email', 'phone'] 
             };
           }
@@ -1505,9 +1510,11 @@ exports.getGrievanceByPublicId = async (req, res) => {
         } else if (typeof model === 'object' && model.name && model.nestedAssociations) {
           return {
             model: db.models[model.name],
+            as: model.name === 'users' ? 'users' : undefined,
             attributes: model.name === 'users' ? ['id', 'name', 'username', 'email', 'phone'] : undefined,
             include: model.nestedAssociations.map(nestedModel => ({
               model: db.models[nestedModel],
+              as: nestedModel === 'users' ? 'user' : undefined,
               attributes: nestedModel === 'users' ? ['id', 'name', 'username', 'email', 'phone'] : undefined,
             }))
           };
@@ -2690,7 +2697,18 @@ exports._bulkUpdateReferredToOfficer = async (req, res) => {
     
       const associatedModels = req.body.associated_multiple_models || [];
       if (associatedModels.length > 0) {
-        findAndCountOptions.include = associatedModels.map(model => ({ model: db.models[model] }));
+        findAndCountOptions.include = associatedModels.map(model => {
+          if (model === 'users') {
+            // Special handling for users association with alias
+            return { 
+              model: db.models[model],
+              as: 'users',
+              required: false // Left join to include grievances without referred officers
+            };
+          } else {
+            return { model: db.models[model] };
+          }
+        });
       }
     
       Grievance.findAndCountAll(findAndCountOptions)

@@ -817,8 +817,14 @@ if (req.body.filterField && req.body.filterValue &&req.body.filterOperator && re
       filterConditions.push({ [op.or]: orConditions });
     } else if (operatorMappings[operator] && filterVal) {
       if (Array.isArray(filterVal)) {
-        const nestedConditions = filterVal.map((nestedVal) => ({ [filterCol]: { [operatorMappings[operator]]: nestedVal } }));
-        filterConditions.push({ [op.or]: nestedConditions });
+        if (operator === 'in') {
+          // For 'in' operator, use the array directly without wrapping in OR
+          filterConditions.push({ [filterCol]: { [operatorMappings[operator]]: filterVal } });
+        } else {
+          // For other operators, create OR conditions for each array element
+          const nestedConditions = filterVal.map((nestedVal) => ({ [filterCol]: { [operatorMappings[operator]]: nestedVal } }));
+          filterConditions.push({ [op.or]: nestedConditions });
+        }
       } else {
         filterConditions.push({ [filterCol]: { [operatorMappings[operator]]: filterVal } });
       }
@@ -1161,7 +1167,10 @@ if (req.body.filterField && req.body.filterValue &&req.body.filterOperator && re
             console.log('>><<', operatorMappings[operator],filterVal)
             let nestedConditions
 
-            if (operator === 'contains') {
+            if (operator === 'in') {
+              // For 'in' operator, use the array directly without wrapping in OR
+              nestedConditions = { [filterCol]: { [operatorMappings[operator]]: filterVal } };
+            } else if (operator === 'contains') {
              // nestedConditions = filterVal.map((nestedVal) => ({ [filterCol]: { [operatorMappings[operator]]: nestedVal } }));
               nestedConditions = ({ [filterCol]: { [operatorMappings[operator]]: filterVal } });
             } else {
@@ -1172,7 +1181,13 @@ if (req.body.filterField && req.body.filterValue &&req.body.filterOperator && re
            
 
 
-            filterConditions.push({ [op.or]: nestedConditions });
+            if (operator === 'in') {
+              // For 'in' operator, push the condition directly
+              filterConditions.push(nestedConditions);
+            } else {
+              // For other operators, wrap in OR
+              filterConditions.push({ [op.or]: nestedConditions });
+            }
 
 
           } else {
@@ -1192,9 +1207,72 @@ if (req.body.filterField && req.body.filterValue &&req.body.filterOperator && re
  
   }
   
+  // Store search info for later application
+  let searchInfo = null;
+  if (req.body.searchField && req.body.searchString) {
+    searchInfo = {
+      field: req.body.searchField,
+      string: req.body.searchString
+    };
+    
+    // Search functionality enabled
+  }
   
   if (filterConditions.length > 0) {
     qry.where = { [op.and]: filterConditions };
+  }
+
+  // Apply search functionality after other conditions are set
+  if (searchInfo && reg_model === 'grievance') {
+    const searchField = searchInfo.field;
+    const searchString = searchInfo.string;
+    
+    console.log('Applying search to query...');
+    console.log('Current qry.where before search:', JSON.stringify(qry.where, null, 2));
+    
+    if (searchField === 'name') {
+      // For encrypted name field, try the same approach as getGrievancesByKeyword
+      const nameSearchCondition = sequelize.where(
+        sequelize.fn('PGP_SYM_DECRYPT', sequelize.cast(sequelize.col('grievance.name'), 'bytea'), '***REDACTED***'),
+        { [op.iLike]: `%${searchString}%` }
+      );
+      
+      console.log('Using encrypted search with sequelize.where for name field');
+      
+      // Instead of combining complex conditions, add it as an OR with multiple searchable fields
+      // This mimics how getGrievancesByKeyword works
+      const multiFieldSearch = {
+        [op.or]: [
+          nameSearchCondition,
+          { code: { [op.iLike]: `%${searchString}%` } },
+          { description: { [op.iLike]: `%${searchString}%` } },
+          { phone: { [op.iLike]: `%${searchString}%` } }
+        ]
+      };
+      
+      // Combine with existing where conditions
+      if (qry.where) {
+        qry.where = { [op.and]: [qry.where, multiFieldSearch] };
+      } else {
+        qry.where = multiFieldSearch;
+      }
+      console.log('Applied multi-field search including encrypted name');
+    } else if (['code', 'description', 'phone', 'plea', 'nature'].includes(searchField)) {
+      // For non-encrypted fields
+      const searchCondition = { [searchField]: { [op.iLike]: `%${searchString}%` } };
+      
+      console.log('Search condition:', JSON.stringify(searchCondition, null, 2));
+      
+      // Combine with existing where conditions
+      if (qry.where) {
+        qry.where = { [op.and]: [qry.where, searchCondition] };
+      } else {
+        qry.where = searchCondition;
+      }
+      console.log('Applied regular search for', searchField);
+    }
+    
+    console.log('Final qry.where after search:', JSON.stringify(qry.where, null, 2));
   }
 
   // Special handling for indicator_category_report - automatically filter by indicator_category_id
@@ -1227,8 +1305,12 @@ if (req.body.filterField && req.body.filterValue &&req.body.filterOperator && re
     }
   }
 
-  console.log('qry',JSON.stringify(qry) )
-  console.log('calculationType',calculationType )
+  console.log('=== FINAL QUERY DEBUG ===');
+  console.log('qry',JSON.stringify(qry, null, 2) );
+  console.log('calculationType',calculationType );
+  console.log('Model:', reg_model);
+  console.log('Summary Field:', summaryField);
+  console.log('Search Info:', req.body.searchField, req.body.searchString);
 
 
 
