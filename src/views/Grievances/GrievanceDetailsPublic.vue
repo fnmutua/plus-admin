@@ -136,7 +136,7 @@ const handleDownload = async () => {
       date: log.date_actioned,
       settlement: log.action_type,
       event: log.action_type,
-      description: (log.action || 'N/A') + (log.user?.name ? ' By: ' + log.user.name : ''),
+      description: (log.action || 'N/A') + (log.user?.name ? '\nBy: ' + log.user.name : ''),
     }))
     const formData = {
       grievance_id: fullGrievanceData.value.id,

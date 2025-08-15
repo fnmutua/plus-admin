@@ -832,10 +832,10 @@ const getFilteredData = async (selFilters: string[], selfilterValues: any[][]) =
   formData.associated_multiple_models = associated_multiple_models
 
   // Ensure filterFunctions array matches the length of filters and all values are arrays
-  formData.filterFunctions = [];
-  for (let i = 0; i < selfilterValues.length; i++) {
-    const val = selfilterValues[i];
-    
+formData.filterFunctions = [];
+for (let i = 0; i < selfilterValues.length; i++) {
+  const val = selfilterValues[i];
+
     // Always ensure filterValues[i] is an array
     if (!Array.isArray(val)) {
       formData.filterValues[i] = [val];
@@ -2165,7 +2165,7 @@ const onSegmentClick = async (statusValue?: string) => {
   if (search_string.value && search_string.value.trim()) {
     await getFilteredBySearchData(search_string.value)
   } else {
-    await getFilteredData(filters.value, filterValues.value)
+  await getFilteredData(filters.value, filterValues.value)
   }
   
   // Force a fresh count calculation after segment switch to ensure counts are accurate
@@ -3280,10 +3280,10 @@ const filterByOfficer = async (officerId: number, officerName: string) => {
             <el-button type="primary" plain :icon="Back" @click="goBack">
             Back
           </el-button>
-               <div class="header-text">
+              <div class="header-text">
                 <h3>Grievance Management</h3>
               </div>
-           </div>
+          </div>
           
         <div class="header-actions">
           <div class="header-search" style="flex:1 1 auto; min-width: 220px;">
@@ -3454,7 +3454,7 @@ const filterByOfficer = async (officerId: number, officerName: string) => {
 
         <!-- Action Buttons -->
         <div class="quick-actions">
-          <el-button 
+            <el-button 
             v-if="hasActiveFilters" 
             size="small" 
             type="warning" 
@@ -3462,15 +3462,15 @@ const filterByOfficer = async (officerId: number, officerName: string) => {
             @click="handleClear"
           >
             Clear All
-          </el-button>
-          <el-button 
+            </el-button>
+            <el-button 
             size="small" 
-            type="success" 
+              type="success" 
             :icon="Plus" 
             @click="AddComponent"
-          >
+            >
             Add
-          </el-button>
+            </el-button>
         </div>
       </div>
 
@@ -3565,6 +3565,12 @@ const filterByOfficer = async (officerId: number, officerName: string) => {
         <el-table-column  v-if="['Resolved'].includes(activeSegment)" prop="date_resolved" label="Date Resolved" width="150">
           <template #default="{ row }">
             <span>{{ formatDate(row.date_resolved) }}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column  v-if="['Closed'].includes(activeSegment)" prop="date_closed" label="Date Closed" width="150">
+          <template #default="{ row }">
+            <span>{{ formatDate(row.date_closed) }}</span>
           </template>
         </el-table-column>
         <!-- Show only in 'Sorting' tab -->
@@ -4391,7 +4397,7 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
 
 /* Total Count Badge - Optimized for older screens */
 .total-count-badge {
-   border: 1px solid #e4e7ed;
+  border: 1px solid #e4e7ed;
   border-radius: 6px;
   padding: 6px 10px;
   color: #303133;

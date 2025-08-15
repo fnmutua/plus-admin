@@ -952,25 +952,37 @@ const submitResolutionForm = async () => {
           form.value.current_level = 'county';
           msg = "Your grievance has been referred to the county team for resolution.";
         }
-      } 
- 
+      }
+      else if (form.value.new_status == 'Resolved') {
+        form.value.current_level = Grievance.value.current_level;
+        msg = "Your grievance has been resolved. " + form.value.action;
+      }
+      else if (form.value.new_status == 'Closed') {
+        form.value.current_level = Grievance.value.current_level;
+        msg = "Your grievance has been closed. " + form.value.action;
+      }
+      else if (form.value.new_status == 'Referred') {
+        form.value.current_level = Grievance.value.current_level;
+        msg = "Your grievance has been referred to " + officerLabel.value + " for action. " + form.value.action;
+        form.value.action = 'Referred to ' + officerLabel.value +' : ' + form.value.action;
+      }
       else {
         form.value.current_level = Grievance.value.current_level;
         msg = form.value.action;
       }
 
-
-      
       console.log(form.value.new_status)
       console.log(form.value.current_level)
       console.log(Grievance.value.current_level)
 
-      form.value.action = 'Referred to ' + officerLabel.value +' : ' + form.value.action;
-
       console.log("checking issue.............",form.value)
       // Log the action 
 
-      const res = await logGrievanceAction(form.value)
+      // Create a copy of the form data for logging with the proper message
+      const logData = { ...form.value };
+      logData.action = msg; // Use the proper message instead of the raw action
+      
+      const res = await logGrievanceAction(logData)
 
 
       /// Upload fies
@@ -990,6 +1002,8 @@ const submitResolutionForm = async () => {
         action_level: current_user_roles[0] ? current_user_roles[0] : 'settlement',
         reffered_to_officer: form.value.reffered_to_officer , // Extract id or set to null
       };
+
+     
 
       console.log('Udpate GRVs',formData)
       /// udpate the status
@@ -1638,7 +1652,7 @@ const handleDownlaod = async () => {
    date: log.date_actioned,
    settlement: log.action_type,
    event: log.action_type,
-   description: (log.action || 'N/A') + (log.user?.name ? ' By: ' + log.user.name : '')
+   description: (log.action || 'N/A') + (log.user?.name ? '\nBy: ' + log.user.name : '')
 }));
 
  console.log('logEvents',logEvents)

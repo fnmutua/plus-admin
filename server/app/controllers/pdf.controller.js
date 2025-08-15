@@ -469,11 +469,22 @@ exports.xgenerateTimelinePDF = async (req, res) => {
 
       // Draw event description with word wrapping (if provided)
       if (event.description) {
-        const descriptionWords = event.description.split(' ');
+        // First split by newlines to handle explicit line breaks
+        const descriptionParagraphs = event.description.split('\n');
         let descriptionLines = [];
-        let currentDescriptionLine = '';
-      
-        for (const word of descriptionWords) {
+        
+        // Process each paragraph separately
+        descriptionParagraphs.forEach((paragraph) => {
+          if (paragraph.trim() === '') {
+            // Add empty line for blank paragraphs
+            descriptionLines.push('');
+            return;
+          }
+          
+          const descriptionWords = paragraph.split(' ');
+          let currentDescriptionLine = '';
+        
+          for (const word of descriptionWords) {
           // Check if the word alone exceeds eventWidth
           const wordWidth = font.widthOfTextAtSize(word, fontSize - 2);
           if (wordWidth > eventWidth) {
@@ -521,8 +532,9 @@ exports.xgenerateTimelinePDF = async (req, res) => {
               currentDescriptionLine = word;
             }
           }
-        }
-        if (currentDescriptionLine) descriptionLines.push(currentDescriptionLine);
+          }
+          if (currentDescriptionLine) descriptionLines.push(currentDescriptionLine);
+        });
       
         // Draw the event description
         const descriptionY = currentY - 5;
@@ -970,11 +982,22 @@ exports.generateTimelinePDF = async (req, res) => {
 
       // Draw event description with word wrapping (if provided)
       if (event.description) {
-        const descriptionWords = event.description.split(' ');
+        // First split by newlines to handle explicit line breaks
+        const descriptionParagraphs = event.description.split('\n');
         let descriptionLines = [];
-        let currentDescriptionLine = '';
-      
-        for (const word of descriptionWords) {
+        
+        // Process each paragraph separately
+        descriptionParagraphs.forEach((paragraph) => {
+          if (paragraph.trim() === '') {
+            // Add empty line for blank paragraphs
+            descriptionLines.push('');
+            return;
+          }
+          
+          const descriptionWords = paragraph.split(' ');
+          let currentDescriptionLine = '';
+        
+          for (const word of descriptionWords) {
           // Check if the word alone exceeds eventWidth
           const wordWidth = font.widthOfTextAtSize(word, fontSize - 2);
           if (wordWidth > eventWidth) {
@@ -1022,8 +1045,9 @@ exports.generateTimelinePDF = async (req, res) => {
               currentDescriptionLine = word;
             }
           }
-        }
-        if (currentDescriptionLine) descriptionLines.push(currentDescriptionLine);
+          }
+          if (currentDescriptionLine) descriptionLines.push(currentDescriptionLine);
+        });
       
         // Draw the event description
         const descriptionY = currentY - 5;

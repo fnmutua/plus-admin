@@ -1172,14 +1172,14 @@ exports.batchDocumentsUploadByGrievanceCode = async (req, res) => {
         if (associatedModels.length > 0) {
           findOptions.include = associatedModels.map(model => {
             if (typeof model === 'string') {
-                          // Limit fields for 'users' model
-            if (model === 'users') {
-              return { 
-                model: db.models[model], 
+              // Limit fields for 'users' model
+              if (model === 'users') {
+                return { 
+                  model: db.models[model], 
                 as: 'users',
-                attributes: ['id', 'name', 'username', 'email', 'phone'] 
-              };
-            }
+                  attributes: ['id', 'name', 'username', 'email', 'phone'] 
+                };
+              }
               return { model: db.models[model] };
             } else if (typeof model === 'object' && model.name && model.nestedAssociations) {
               return {
@@ -2143,7 +2143,12 @@ exports.modelImportGrievances = async (req, res) => {
         grievance.current_level = current_level;
         grievance.reffered_to_officer = req.body.reffered_to_officer;
 
- 
+        // Auto-populate date fields when status changes to Resolved or Closed
+        if (newStatus === 'Resolved' ) {
+          grievance.date_resolved = new Date();
+        } else if (newStatus === 'Closed' ) {
+          grievance.date_closed = new Date();
+        }
 
         await grievance.save(); // Save the updated grievance
 
