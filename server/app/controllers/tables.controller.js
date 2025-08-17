@@ -1111,7 +1111,7 @@ exports.modelImportDataUpsert = async (req, res) => {
         createdBy: currentUser,
         updatedAt: timestamp,
         createdAt: item.createdAt || timestamp,
-        isApproved: true, // Add isApproved field with true value
+        isApproved: 'Approved', // Add isApproved field with true value
       };
       if (modelName === 'households') {
         // --- RESPONDENT NAME ---
