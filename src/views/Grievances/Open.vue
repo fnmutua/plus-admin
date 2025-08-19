@@ -1029,10 +1029,6 @@ const AddComponent = () => {
 }
 
 
-
-
-
-
 const uploadFiles = async (action_id, grievance_id) => {
   const formData = new FormData();
 

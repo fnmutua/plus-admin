@@ -50,20 +50,23 @@
           <el-collapse-item v-for="(fields, modelName) in availableFields" :key="modelName" :name="modelName">
             <template #title>
               <el-tooltip :content="`Expand to view/select ${fields.length} ${modelName === 'main' ? currentModel : modelName} fields`" placement="top">
-                <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                <div style="display: flex; align-items: center; width: 100%;">
                   <span style="font-weight: 500; color: #409EFF;">
                     {{ modelName === 'main' ? currentModel : modelName.charAt(0).toUpperCase() + modelName.slice(1) }} Fields
                   </span>
-                  <el-checkbox 
-                    :model-value="isModelAllSelected(modelName)"
-                    @change.stop="(val) => handleModelCheckAllChange(modelName, val)"
-                    style="margin-left: 10px;"
-                  >
-                    <em>Select all</em>
-                  </el-checkbox>
                 </div>
               </el-tooltip>
             </template>
+            
+            <div class="model-select-all-container">
+              <el-checkbox 
+                :model-value="isModelAllSelected(modelName)"
+                @change="(val) => handleModelCheckAllChange(modelName, val)"
+                class="model-select-all-checkbox"
+              >
+                <em>Select all {{ modelName === 'main' ? currentModel : modelName.charAt(0).toUpperCase() + modelName.slice(1) }} fields</em>
+              </el-checkbox>
+            </div>
             
             <div class="fields-grid">
               <el-checkbox v-for="(field, index) in fields" :key="index" :label="field" v-model="selectedFields" class="field-checkbox">
@@ -564,6 +567,17 @@ const downloadAll = async () => {
 
 .el-collapse-item__content {
   padding: 10px 0;
+}
+
+.model-select-all-container {
+  padding: 8px 0 12px 0;
+  border-bottom: 1px solid #f0f0f0;
+  margin-bottom: 12px;
+}
+
+.model-select-all-checkbox {
+  font-weight: 500;
+  color: #606266;
 }
 
 /* Drawer Styles */
