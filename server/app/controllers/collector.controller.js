@@ -1727,3 +1727,27 @@ exports.downloadSubmissionAttachment = (req, res) => {
     }
   });
 };
+
+exports.modelGetProjectUsers = (req, res) => {
+  const { project_id, token } = req.body;
+  const requestOptions = {
+    url: `https://collector.kesmis.go.ke/v1/projects/${project_id}/app-users`,
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  };
+  request(requestOptions, (error, response, body) => {
+    if (!error && response.statusCode === 200) {
+      let users = JSON.parse(body);
+      res.status(200).send({
+        data: users,
+        code: '0000',
+        token: token
+      });
+    } else {
+      console.error('Error fetching project users:', error);
+      res.status(500).send({ error: 'Failed to fetch project users' });
+    }
+  });
+};

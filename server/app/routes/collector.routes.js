@@ -38,6 +38,7 @@ module.exports = function(app) {
 
     app.post("/api/v1/collector/submissions/csv",  controller.modelGetCsvSubmissions);
     app.post("/api/v1/collector/submissions/geo",  controller.modelGetGeoJsonSubmissions);
+    app.post("/api/v1/collector/project/users",  controller.modelGetProjectUsers);
 
   
 };

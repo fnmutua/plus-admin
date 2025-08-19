@@ -143,6 +143,13 @@ export const downloadSubmissionAttachments = (data)  => {
  });
 };
 
+export const getProjectUsers = (data)  => {
+  return request.post({
+   url: prod + '/api/v1/collector/project/users',
+   data    
+ });
+};
+
 
 
 

@@ -13,7 +13,7 @@ import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import {
   loginCollector, editSubmissions,
-  getSubmissions,getCSVSubmissions,getGeoSubmissions
+  getSubmissions,getCSVSubmissions,getGeoSubmissions, getProjectUsers
 } from '@/api/collector'
 
 import { useTransition } from '@vueuse/core'
@@ -24,6 +24,7 @@ import {
   CaretBottom,
   CaretTop,
   Warning,
+  Download,
 } from '@element-plus/icons-vue'
 
 import { watch, onMounted } from 'vue';
@@ -96,7 +97,9 @@ const summary = ref({
         totalProjects: 0,
         totalForms: 0,
         totalSubmissions: 0,
-        mostRecentSubmission: null
+        mostRecentSubmission: null,
+        totalEnumerators: 0,
+        enumerators: []
     });
 
 
@@ -106,6 +109,7 @@ const processProjectData = async (projectArray) => {
   summary.value.totalForms=0
   summary.value.totalSubmissions=0
   summary.value.mostRecentSubmission=null
+  summary.value.totalEnumerators=0
 
     projectArray.forEach(project => {
         // Increment total projects
@@ -129,6 +133,28 @@ const processProjectData = async (projectArray) => {
             });
         }
     });
+
+    // Fetch enumerator counts for each project
+    for (const project of projectArray) {
+        try {
+            const formData = {
+                project_id: project.id,
+                token: localStorage.getItem('collectorToken')
+            };
+            const response = await getProjectUsers(formData);
+            if (response.data && Array.isArray(response.data)) {
+                summary.value.totalEnumerators += response.data.length;
+                // Add project name to each enumerator
+                const enumeratorsWithProject = response.data.map(enumerator => ({
+                    ...enumerator,
+                    projectName: project.name || 'Unknown Project'
+                }));
+                summary.value.enumerators.push(...enumeratorsWithProject);
+            }
+        } catch (error) {
+            console.error('Error fetching enumerators for project:', project.id, error);
+        }
+    }
 
    // return result;
 }
@@ -376,6 +402,7 @@ const editRecordSubmit = async (row) => {
 
 
 const showAddDialog = ref(false)
+const showEnumeratorsDialog = ref(false)
  
 
 const totalItems = ref(); // Total number of rows (initially full dataset)
@@ -700,6 +727,36 @@ const handleDownload = async (row) => {
   }
 };
 
+const handleDownloadEnumerators = () => {
+  try {
+    // Create CSV content
+    const headers = ['Name', 'Project Name'];
+    const csvContent = [
+      headers.join(','),
+      ...summary.value.enumerators.map(enumerator => 
+        `"${enumerator.displayName || 'N/A'}","${enumerator.projectName || 'N/A'}"`
+      )
+    ].join('\n');
+
+    // Create and download file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `enumerators_${Date.now()}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    ElMessage.success('Enumerator data downloaded successfully');
+  } catch (error) {
+    console.error('Error downloading enumerator data:', error);
+    ElMessage.error('Failed to download enumerator data');
+  }
+};
+
 </script>
 
 <template>
@@ -709,19 +766,19 @@ const handleDownload = async (row) => {
     <el-card style="margin-bottom: 5px;"> 
 
     <el-row :gutter="20">
-        <el-col :span="6" :lg="6" :md="12" :sm="24" :xs="24" shadow="hover">
+        <el-col :span="5" :lg="5" :md="12" :sm="24" :xs="24" shadow="hover">
           <el-card   shadow="hover">
             <el-statistic title="Number of Data Collection Projects" :value="summary.totalProjects" />
           </el-card>
       </el-col>
-      <el-col :span="6" :lg="6" :md="12" :sm="24" :xs="24" shadow="hover">
+      <el-col :span="5" :lg="5" :md="12" :sm="24" :xs="24" shadow="hover">
 
         <el-card   shadow="hover">
           <el-statistic title="Number of Data Collection Forms" :value="summary.totalForms" />
         </el-card>
 
       </el-col>
-      <el-col :span="6" :lg="6" :md="12" :sm="24" :xs="24">
+      <el-col :span="5" :lg="5" :md="12" :sm="24" :xs="24">
  
 
         <el-card  shadow="hover" >
@@ -730,10 +787,33 @@ const handleDownload = async (row) => {
 
       </el-col>
 
-      <el-col :span="6" :lg="6" :md="12" :sm="24" :xs="24" >
+      <el-col :span="5" :lg="5" :md="12" :sm="24" :xs="24" >
             
         <el-card  shadow="hover">
           <el-statistic title="Latest Submission" :value="formatDateAgo(summary.mostRecentSubmission)" />
+        </el-card>
+
+      </el-col>
+
+      <el-col :span="4" :lg="4" :md="12" :sm="24" :xs="24" >
+            
+        <el-card  shadow="hover">
+          <el-statistic title="Total Enumerators" :value="summary.totalEnumerators">
+            <template #title>
+              <span>Total Enumerators</span>
+              <PermissionWrapper :permissions="'survey:export'">
+                <el-button 
+                  type="success" 
+                  size="small" 
+                  plain
+                  @click="handleDownloadEnumerators"
+                  style="margin-left: 8px;"
+                >
+                  <el-icon><Download /></el-icon>
+                </el-button>
+              </PermissionWrapper>
+            </template>
+          </el-statistic>
         </el-card>
 
       </el-col>
@@ -901,6 +981,22 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
         <el-button @click="dialogVisible = false">Cancel</el-button>
         <el-button type="primary" @click="editRecordSubmit">
           Confirm
+        </el-button>
+      </div>
+    </template>
+  </el-dialog>
+
+  <el-dialog v-model="showEnumeratorsDialog" title="Enumerator List" width="600">
+    <el-table :data="summary.enumerators" border style="width: 100%">
+      <el-table-column label="Name" prop="displayName" />
+      <el-table-column label="Project Name" prop="projectName" />
+    </el-table>
+    
+    <template #footer>
+      <div class="dialog-footer">
+        <el-button @click="showEnumeratorsDialog = false">Close</el-button>
+        <el-button type="success" @click="handleDownloadEnumerators">
+          Download CSV
         </el-button>
       </div>
     </template>

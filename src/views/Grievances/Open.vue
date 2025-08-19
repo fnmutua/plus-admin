@@ -3471,6 +3471,15 @@ const filterByOfficer = async (officerId: number, officerName: string) => {
             >
             Add
             </el-button>
+            <el-button 
+              v-if="selectedRows.length > 0 && !['Closed', 'Resolved', 'In Court', 'Deleted', 'Rejected'].includes(activeSegment)"
+              type="primary" 
+              :icon="Share"
+              size="small"
+              @click="handleBulkAction"
+            >
+              Refer ({{ selectedRows.length }})
+            </el-button>
         </div>
       </div>
 
@@ -4191,19 +4200,7 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
           </el-button>
         </div>
 
-        <!-- Bulk Actions Section -->
-        <div class="filter-item" v-if="selectedRows.length > 0">
-          <label class="filter-label">Bulk Actions</label>
-          <el-button 
-            type="success" 
-            :icon="Share"
-            size="small"
-            @click="handleBulkAction"
-            style="width: 100%"
-          >
-            Refer Selected ({{ selectedRows.length }})
-          </el-button>
-        </div>
+
       </div>
 
       <!-- Action Buttons -->
