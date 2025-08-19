@@ -126,9 +126,14 @@ class="button-container"
           wardMessage }}</h3>
       </div>
 
-      <!-- <pre>{{ wardMessage}}</pre>  -->
-      <div v-if="currentStep == totalSteps - 1" id="mapContainer" class="basemap"></div>
-      <div v-if="currentStep == totalSteps - 1" id='coordinates' class='coordinates'></div>
+             <!-- <pre>{{ wardMessage}}</pre>  -->
+               <div v-if="currentStep == totalSteps - 1" class="map-container">
+          <div id="mapContainer" style="width: 100%; height: 65vh;"></div>
+          <div id='coordinates' class='coordinates'></div>
+          <div id='geometry-status' class='geometry-status' style="display: none;">
+            <span id='geometry-status-text'>Geometry saved</span>
+          </div>
+        </div>
     </el-card>
     <el-dialog v-model="showDialog" title="Select Location" width="70%">
       <el-row>
@@ -202,7 +207,7 @@ v-for="(step, index) in filteredTourSteps" :key="index" :target="step.target" :t
 
 
 <script lang="ts" setup>
-import { ref, reactive, onMounted, computed, watch } from 'vue';
+import { ref, reactive, onMounted, computed, watch, onBeforeUnmount } from 'vue';
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { ElCard, ElPopconfirm, ElCascader, ElCascaderPanel, ElTooltip, ElTour, ElTourStep, ElDialog, ElUpload,   } from 'element-plus'
@@ -216,13 +221,9 @@ import { useRoute } from 'vue-router'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 
-import mapboxgl from "mapbox-gl";
-import MapboxDraw from '@mapbox/mapbox-gl-draw';
-import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css'
-import { MapboxLayerSwitcherControl, MapboxLayerDefinition } from "mapbox-layer-switcher";
+import { Loader } from '@googlemaps/js-api-loader'
 import { CreateRecord, DeleteRecord, updateOneRecord, getOneGeo, getOneSettlement, uploadDocuments, getfilteredGeo, duplicatePreCheck } from '@/api/settlements'
 
-import "mapbox-layer-switcher/styles.css";
 import * as turf from '@turf/turf'
 import {
   ElButton,
@@ -347,10 +348,63 @@ const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
 
+// Watch for dark mode changes from the app store
+watch(() => appStore.getIsDark, (isDark) => {
+  // Update toolbar theme when dark mode changes
+  const toolbar = document.querySelector('.google-map-unified-toolbar');
+  if (toolbar) {
+    const colors = {
+      background: isDark ? '#2c2c2c' : '#fff',
+      border: isDark ? '#3a3a3a' : '#ccc',
+      shadow: isDark ? '0 2px 8px rgba(0,0,0,0.4)' : '0 2px 8px rgba(0,0,0,0.15)'
+    };
+    
+    const toolbarContainer = toolbar.querySelector('div');
+    if (toolbarContainer) {
+      toolbarContainer.style.background = colors.background;
+      toolbarContainer.style.border = `1px solid ${colors.border}`;
+      toolbarContainer.style.boxShadow = colors.shadow;
+    }
+  }
+  
+  // Update map theme when dark mode changes
+  if (googleMap.value) {
+    const mapStyles = isDark ? [
+      { elementType: 'geometry', stylers: [{ color: '#242f3e' }] },
+      { elementType: 'labels.text.stroke', stylers: [{ color: '#242f3e' }] },
+      { elementType: 'labels.text.fill', stylers: [{ color: '#746855' }] },
+      { featureType: 'administrative.locality', elementType: 'labels.text.fill', stylers: [{ color: '#d59563' }] },
+      { featureType: 'poi', elementType: 'labels.text.fill', stylers: [{ color: '#d59563' }] },
+      { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#263c3f' }] },
+      { featureType: 'poi.park', elementType: 'labels.text.fill', stylers: [{ color: '#6b9a76' }] },
+      { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#38414e' }] },
+      { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#212a37' }] },
+      { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#9ca5b3' }] },
+      { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#746855' }] },
+      { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#1f2835' }] },
+      { featureType: 'road.highway', elementType: 'labels.text.fill', stylers: [{ color: '#f3d19c' }] },
+      { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#2f3948' }] },
+      { featureType: 'transit.station', elementType: 'labels.text.fill', stylers: [{ color: '#d59563' }] },
+      { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#17263c' }] },
+      { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#515c6d' }] },
+      { featureType: 'water', elementType: 'labels.text.stroke', stylers: [{ color: '#17263c' }] }
+    ] : [];
+    
+    googleMap.value.setOptions({ styles: mapStyles });
+  }
+});
 
-const MapBoxToken =
-  'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg'
-mapboxgl.accessToken = MapBoxToken;
+
+const googleMapsApiKey = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
+
+// Initialize Google Maps loader
+const loader = new Loader({
+  apiKey: googleMapsApiKey,
+  version: 'weekly',
+  libraries: ['drawing', 'geometry'],
+  region: 'KE',
+  language: 'en'
+})
 
 
 const isMobile = computed(() => appStore.getMobile)
@@ -409,7 +463,7 @@ const onSelectSubcounty = (subcounty_id) => {
 
 };
 
-const centroid = ref(37, 1)
+const centroid = ref({ lat: 1, lng: 37 })
 
 const calculateArea = (geom) => {
   // Calculate the area using Turf.js
@@ -420,8 +474,11 @@ const calculateArea = (geom) => {
   area_ha.value = areaHectares.toFixed(4)
 
   var centre = turf.centroid(geom);
-  centroid.value = centre.geometry.coordinates
-
+  // Convert to Google Maps LatLng format (lat, lng)
+  centroid.value = {
+    lat: centre.geometry.coordinates[1],
+    lng: centre.geometry.coordinates[0]
+  }
 };
 
 
@@ -680,16 +737,13 @@ const readJson = (event) => {
     console.log(geom)
     formData.geom = geom
 
-
     geomScope.value = geom
-    map.value.getSource("scope").setData(geomScope.value);
-    bounds.value = turf.bbox((geomScope.value))
     console.log("From geojson", geomScope.value)
 
     calculateArea(geom)
-    //map.value.fitBounds(bounds.value, { padding: 20, maxZoom: 18 })
-
-    loadMap()
+    
+    // Update Google Maps polygon
+    loadExistingGeometry()
 
   }
 
@@ -728,12 +782,11 @@ const readShp = async (file) => {
         formData.geom = geomX
 
         geomScope.value = geomX
-        map.value.getSource("scope").setData(geomScope.value);
-        bounds.value = turf.bbox((geomScope.value))
         console.log("From SHP/KML", geomScope.value)
-        //map.value.fitBounds(bounds.value, { padding: 20, maxZoom: 18 })
         calculateArea(geomX)
-        loadMap()
+        
+        // Update Google Maps polygon
+        loadExistingGeometry()
 
       }
 
@@ -829,344 +882,934 @@ const nextStep = async () => {
 
 
 const loadMap = async () => {
-
-  map.value = new mapboxgl.Map({
-    container: 'mapContainer',
-    style: 'mapbox://styles/mapbox/streets-v12',
-    center: [37.137343, 1.137451],
-    zoom: 8
-  });
-
-
-
-  map.value.addControl(new mapboxgl.NavigationControl());
-  // add marker for project location
-
-
-  function updateRuleform(feature) {
-    // do something with the new marker feature
-    var crs = { type: 'name', properties: { name: 'EPSG:4326' } }
-    feature.geometry.crs = crs
-    console.log('----feature', feature);
-
-
-
-    formData.geom = feature.geometry
-    console.log(formData)
-    calculateArea(feature.geometry)
-
-    console.log('centroid.value', centroid.value)
-
-    map.value.getSource('labels').setData({
-      type: 'FeatureCollection',
-      features: [
-        {
-          type: 'Feature',
-          geometry: {
-            type: 'Point',
-            coordinates: centroid.value, // Update with the actual coordinates
-          },
-          properties: {
-            title: area_ha.value + " Ha.", // Update with the desired label text (area)
-          },
-        },
-      ],
-    });
-
-  }
-
-  // listen for the draw.create event
-  map.value.on('draw.create', function (e) {
-    // check if the new feature is a marker
-    // if (e.features[0].geometry.type === 'Polygon') {
-    // trigger your function here
-    updateRuleform(e.features[0]);
-
-    //  }
-  });
-
-
-  // listen for the draw.se event
-  map.value.on('draw.update', function (e) {
-    // check if the new feature is a marker
-    //if (e.features[0].geometry.type === 'Polygon') {
-    // trigger your function here
-    updateRuleform(e.features[0]);
-
-    // }
-  });
-
-  // Listen for the draw.delete event
-  map.value.on('draw.delete', function (event) {
-    // Get the IDs of the deleted features
-    var deletedFeatureIds = event.features.map(function (feature) {
-      return feature.id;
-    });
-
-    // Remove the corresponding layers from the map
-    deletedFeatureIds.forEach(function (id) {
-      map.value.removeLayer(id);
-    });
-
-
-    map.value.getSource('labels').setData({
-      type: 'FeatureCollection',
-      features: [
-        {
-          type: 'Feature',
-          geometry: {
-            type: 'Point',
-            coordinates: centroid.value, // Update with the actual coordinates
-          },
-          properties: {
-            title: '', // Update with the desired label text (area)
-          },
-        },
-      ],
-    });
-
-
-
-
-  });
-
-  map.value.on('mousemove', function (e) {
-    document.getElementById('coordinates').innerHTML =
-      'Lon: ' + e.lngLat.lng.toFixed(5) + ' Lat: ' + e.lngLat.lat.toFixed(5);
-  });
-
-
-  map.value.on('load', function () {
-    // code to execute after the map has finished loading
-    console.log("Map has loaded......")
-    //map.value.addControl(draw, 'top-left');
-
-
-
-    map.value.addLayer({
-      id: 'Satellite',
-      source: { "type": "raster", "url": "mapbox://mapbox.satellite", "tileSize": 256 },
-      type: "raster"
-    });
-
-    map.value.addLayer({
-      id: 'Streets',
-      source: { "type": "raster", "url": "mapbox://mapbox.streets", "tileSize": 256 },
-      type: "raster"
-    }, 'Satellite');
-
-
-
-    map.value.addSource('scope', {
-      type: 'geojson',
-      //data: projectPoly.value
-      data: geomScope.value,
-    });
-
-
-
-
-    map.value.addLayer({
-      id: 'labels',
-      type: 'symbol',
-      source: {
-        type: 'geojson',
-        data: {
-          type: 'FeatureCollection',
-          features: [
-            {
-              type: 'Feature',
-              geometry: {
-                type: 'Point',
-                coordinates: centroid.value, // Replace with initial coordinates
-              },
-              properties: {
-                title: area_ha.value + " Ha.", // Initialize with an empty string
-              },
-            },
-          ],
-        },
-      },
-      layout: {
-        'text-field': ['get', 'title'],
-        'text-size': 16,
-        'text-anchor': 'top',
-      },
-      paint: {
-        'text-color': '#FF0000', // Red text color
-        'text-halo-color': '#FFFFFF', // White halo color
-        'text-halo-width': 2, // Adjust the halo width as needed    
-      },
-
-
-    });
-
-
-
-
-
-
-
-
-
-
-
-
-    // Edit only if not a new record 
-    if (!newRecord.value) {
-      toggleDrawToolbox('digitize')
-      const geojson = JSON.parse(JSON.stringify(geomScope.value));
-      var feature = turf.feature(geojson);
-      var collection = turf.featureCollection([feature])
-      draw.set(collection);
-      // Check if the new feature is a polygon
-      // if (collection.features[0].type === 'Polygon') {
-      // Trigger your function here
-      updateRuleform(collection.features[0]);
-      //}
+  try {
+    console.log("Loading Google Maps...");
+    
+    // Check if map container exists
+    const mapContainer = document.getElementById('mapContainer');
+    if (!mapContainer) {
+      throw new Error('Map container not found');
     }
-
-
-    if (newRecord.value) {
-      toggleDrawToolbox('digitize')
-      // Load this outline only if its a new settlement 
-      map.value.addLayer({
-        'id': 'geomScope',
-        'type': 'line',
-        'source': 'scope',
-        'layout': {},
-        'paint': {
-          'line-color': 'red',
-          'line-width': 3
-        }
+    
+    // Load Google Maps API
+    await loader.load();
+    
+    // Check if google object is available
+    if (!window.google || !window.google.maps) {
+      throw new Error('Google Maps API not loaded properly');
+    }
+    
+         // Function to get map styles based on theme
+     const getMapStyles = () => {
+       const isDark = document.documentElement.classList.contains('dark');
+       
+       if (isDark) {
+         return [
+           { elementType: 'geometry', stylers: [{ color: '#242f3e' }] },
+           { elementType: 'labels.text.stroke', stylers: [{ color: '#242f3e' }] },
+           { elementType: 'labels.text.fill', stylers: [{ color: '#746855' }] },
+           {
+             featureType: 'administrative.locality',
+             elementType: 'labels.text.fill',
+             stylers: [{ color: '#d59563' }]
+           },
+           {
+             featureType: 'poi',
+             elementType: 'labels.text.fill',
+             stylers: [{ color: '#d59563' }]
+           },
+           {
+             featureType: 'poi.park',
+             elementType: 'geometry',
+             stylers: [{ color: '#263c3f' }]
+           },
+           {
+             featureType: 'poi.park',
+             elementType: 'labels.text.fill',
+             stylers: [{ color: '#6b9a76' }]
+           },
+           {
+             featureType: 'road',
+             elementType: 'geometry',
+             stylers: [{ color: '#38414e' }]
+           },
+           {
+             featureType: 'road',
+             elementType: 'geometry.stroke',
+             stylers: [{ color: '#212a37' }]
+           },
+           {
+             featureType: 'road',
+             elementType: 'labels.text.fill',
+             stylers: [{ color: '#9ca5b3' }]
+           },
+           {
+             featureType: 'road.highway',
+             elementType: 'geometry',
+             stylers: [{ color: '#746855' }]
+           },
+           {
+             featureType: 'road.highway',
+             elementType: 'geometry.stroke',
+             stylers: [{ color: '#1f2835' }]
+           },
+           {
+             featureType: 'road.highway',
+             elementType: 'labels.text.fill',
+             stylers: [{ color: '#f3d19c' }]
+           },
+           {
+             featureType: 'transit',
+             elementType: 'geometry',
+             stylers: [{ color: '#2f3948' }]
+           },
+           {
+             featureType: 'transit.station',
+             elementType: 'labels.text.fill',
+             stylers: [{ color: '#d59563' }]
+           },
+           {
+             featureType: 'water',
+             elementType: 'geometry',
+             stylers: [{ color: '#17263c' }]
+           },
+           {
+             featureType: 'water',
+             elementType: 'labels.text.fill',
+             stylers: [{ color: '#515c6d' }]
+           },
+           {
+             featureType: 'water',
+             elementType: 'labels.text.stroke',
+             stylers: [{ color: '#17263c' }]
+           }
+         ];
+       } else {
+         return []; // Default light theme
+       }
+     };
+     
+           // Initialize map
+      googleMap.value = new google.maps.Map(mapContainer, {
+        center: { lat: 1.137451, lng: 37.137343 },
+        zoom: 8,
+        mapTypeId: google.maps.MapTypeId.ROADMAP,
+        mapTypeControl: false, // Hide default map type controls
+        streetViewControl: true,
+        fullscreenControl: true,
+        styles: getMapStyles()
       });
-
-    }
-    else {
-
-
-      map.value.addLayer({
-      'id': 'draw-layer',
-      'type': 'fill',
-      'source': {
-        'type': 'geojson',
-        'data': {
-          'type': 'FeatureCollection',
-          'features': []
-        }
-      },
-      'paint': {
-        'fill-color': '#0080ff', // blue color fill
-         'fill-opacity': 1
-      },
-      'layout': {}
+    
+    // Wait for map to be ready
+    google.maps.event.addListenerOnce(googleMap.value, 'idle', () => {
+      console.log("Map is ready");
+      
+               // Initialize drawing manager
+         try {
+           drawingManager.value = new google.maps.drawing.DrawingManager({
+             drawingMode: null,
+             drawingControl: false, // Hide default drawing controls
+             drawingModes: [
+               google.maps.drawing.OverlayType.POLYGON
+             ],
+             polygonOptions: {
+               fillColor: '#FF0000',
+               fillOpacity: 0.1,
+               strokeWeight: 2,
+               strokeColor: '#FF0000',
+               clickable: true,
+               editable: true,
+               draggable: false,
+               zIndex: 1
+             }
+           });
+           
+           // Add drawing manager to map
+           drawingManager.value.setMap(googleMap.value);
+           
+           // Add event listeners
+           google.maps.event.addListener(drawingManager.value, 'polygoncomplete', onPolygonComplete);
+           google.maps.event.addListener(googleMap.value, 'mousemove', onMouseMove);
+           
+           // Load existing geometry if available (for editing sessions)
+           if (geomScope.value && Object.keys(geomScope.value).length > 0) {
+             console.log('Loading existing geometry for editing session');
+             console.log('Geometry data:', JSON.stringify(geomScope.value, null, 2));
+             ElMessage.info('Loading existing geometry for editing...');
+             // Small delay to ensure map is fully rendered
+             setTimeout(() => {
+               loadExistingGeometry();
+             }, 100);
+           } else if (newRecord.value && formData.geom) {
+             // For new records, if formData.geom exists but geomScope doesn't, use formData.geom
+             console.log('Loading ward geometry from formData for new record');
+             geomScope.value = formData.geom;
+             setTimeout(() => {
+               loadExistingGeometry();
+             }, 100);
+           } else {
+             console.log('No existing geometry found - new record mode');
+             ElMessage.info('Please select a ward first to get the ward boundary as a guide, then draw your settlement within it');
+           }
+           
+           // Add unified toolbar with upload, draw, and pan tools
+           addUnifiedToolbar();
+        
+        console.log("Google Maps loaded successfully");
+        ElMessage.success('Google Maps loaded successfully');
+      } catch (drawingError) {
+        console.error("Error initializing drawing manager:", drawingError);
+        ElMessage.warning('Map loaded but drawing features may not be available');
+      }
     });
+    
+  } catch (error) {
+    console.error("Error loading Google Maps:", error);
+    
+         // Try to load a basic map without drawing features
+     try {
+       if (window.google && window.google.maps) {
+         const getMapStyles = () => {
+           const isDark = document.documentElement.classList.contains('dark');
+           return isDark ? [
+             { elementType: 'geometry', stylers: [{ color: '#242f3e' }] },
+             { elementType: 'labels.text.stroke', stylers: [{ color: '#242f3e' }] },
+             { elementType: 'labels.text.fill', stylers: [{ color: '#746855' }] },
+             { featureType: 'administrative.locality', elementType: 'labels.text.fill', stylers: [{ color: '#d59563' }] },
+             { featureType: 'poi', elementType: 'labels.text.fill', stylers: [{ color: '#d59563' }] },
+             { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#263c3f' }] },
+             { featureType: 'poi.park', elementType: 'labels.text.fill', stylers: [{ color: '#6b9a76' }] },
+             { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#38414e' }] },
+             { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#212a37' }] },
+             { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#9ca5b3' }] },
+             { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#746855' }] },
+             { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#1f2835' }] },
+             { featureType: 'road.highway', elementType: 'labels.text.fill', stylers: [{ color: '#f3d19c' }] },
+             { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#2f3948' }] },
+             { featureType: 'transit.station', elementType: 'labels.text.fill', stylers: [{ color: '#d59563' }] },
+             { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#17263c' }] },
+             { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#515c6d' }] },
+             { featureType: 'water', elementType: 'labels.text.stroke', stylers: [{ color: '#17263c' }] }
+           ] : [];
+         };
+         
+                   googleMap.value = new google.maps.Map(document.getElementById('mapContainer'), {
+            center: { lat: 1.137451, lng: 37.137343 },
+            zoom: 8,
+            mapTypeId: google.maps.MapTypeId.ROADMAP,
+            mapTypeControl: false, // Hide default map type controls
+            styles: getMapStyles()
+          });
+        
+        ElMessage.warning('Basic map loaded. Drawing features may not be available.');
+      } else {
+        ElMessage.error('Failed to load Google Maps. Please check your internet connection and API key.');
+      }
+    } catch (fallbackError) {
+      console.error("Fallback map loading failed:", fallbackError);
+      ElMessage.error('Failed to load Google Maps completely.');
     }
+  }
+}
 
+const googleMap = ref(null);
+const drawingManager = ref(null);
+const drawnPolygons = ref([]);
+const guidePolygonRef = ref(null); // Reference to the guide polygon (ward boundary)
+const wardBoundaryGeometry = ref(null); // Store the ward geometry for boundary checking
 
-    // switch it off until the user selects to
-    map.value.setLayoutProperty('Satellite', 'visibility', 'none')
-
-
-    const layers: MapboxLayerDefinition[] = [
-
-      {
-        id: "Satellite",
-        title: "Satellite",
-        visibility: 'none',
-        type: 'base'
-      },
-
-      {
-        id: "Streets",
-        title: "Streets",
-        visibility: 'none',
-        type: 'base'
-      },
-
-    ];
-    map.value.addControl(new MapboxLayerSwitcherControl(layers));
-
-
-
-
-
-    var bounds = turf.bbox((geomScope.value));
-    map.value.fitBounds(bounds, { padding: 20, duration: 1000 });
-
-
-
-  });
-
-
-
-
-  //map.value.addControl(ctrlLine, "top-left");
-
-
-
-  function addHomeButton(map) {
-    class HomeButton {
-      onAdd(map) {
-        const div = document.createElement("div");
-        div.className = "mapboxgl-ctrl mapboxgl-ctrl-group";
-        div.id = "upload";
-        div.innerHTML = `<button>
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path opacity="0.5" d="M17 9.00195C19.175 9.01406 20.3529 9.11051 21.1213 9.8789C22 10.7576 22 12.1718 22 15.0002V16.0002C22 18.8286 22 20.2429 21.1213 21.1215C20.2426 22.0002 18.8284 22.0002 16 22.0002H8C5.17157 22.0002 3.75736 22.0002 2.87868 21.1215C2 20.2429 2 18.8286 2 16.0002L2 15.0002C2 12.1718 2 10.7576 2.87868 9.87889C3.64706 9.11051 4.82497 9.01406 7 9.00195" stroke="#1C274C" stroke-width="1.5" stroke-linecap="round"></path> <path d="M12 15L12 2M12 2L15 5.5M12 2L9 5.5" stroke="#1C274C" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path> </g></svg>
-		
-  </button>`; div.addEventListener("contextmenu", (e) => e.preventDefault());
-        div.addEventListener("click", () => showUploadDialog.value = true);
-
-        return div;
+const loadExistingGeometry = () => {
+  if (!geomScope.value || !googleMap.value) {
+    console.log('No geometry to load or map not ready');
+    return;
+  }
+  
+  // Check if geomScope is a string (might be WKT or JSON string)
+  if (typeof geomScope.value === 'string') {
+    console.log('geomScope is a string, attempting to parse:', geomScope.value);
+    try {
+      const parsed = JSON.parse(geomScope.value);
+      geomScope.value = parsed;
+      console.log('Successfully parsed geomScope string as JSON:', parsed);
+    } catch (parseError) {
+      console.error('Failed to parse geomScope string:', parseError);
+      ElMessage.error('Invalid geometry format');
+      return;
+    }
+  }
+  
+  // Check if geomScope has a geom property (common in some APIs)
+  if (geomScope.value && geomScope.value.geom && !geomScope.value.coordinates) {
+    console.log('Found geom property, using it instead:', geomScope.value.geom);
+    geomScope.value = geomScope.value.geom;
+  }
+  
+  // Handle FeatureCollection format
+  if (geomScope.value && geomScope.value.type === 'FeatureCollection' && geomScope.value.features) {
+    console.log('Found FeatureCollection, extracting first feature geometry');
+    if (geomScope.value.features.length > 0) {
+      geomScope.value = geomScope.value.features[0].geometry;
+      console.log('Extracted geometry from FeatureCollection:', geomScope.value);
+    } else {
+      throw new Error('FeatureCollection has no features');
+    }
+  }
+  
+  // Handle Feature format
+  if (geomScope.value && geomScope.value.type === 'Feature' && geomScope.value.geometry) {
+    console.log('Found Feature, extracting geometry');
+    geomScope.value = geomScope.value.geometry;
+    console.log('Extracted geometry from Feature:', geomScope.value);
+  }
+  
+  console.log('Loading geometry:', geomScope.value);
+  console.log('Geometry type:', geomScope.value.type);
+  console.log('Geometry coordinates structure:', JSON.stringify(geomScope.value.coordinates, null, 2));
+  console.log('Geometry coordinates type:', typeof geomScope.value.coordinates);
+  console.log('Is coordinates array?', Array.isArray(geomScope.value.coordinates));
+  
+  // Clear any existing polygons first
+  drawnPolygons.value.forEach(p => p.setMap(null));
+  drawnPolygons.value = [];
+  
+  try {
+    // Handle different geometry structures
+    let rawCoordinates;
+    
+    // First, check if coordinates is a string (might be WKT or other format)
+    if (typeof geomScope.value.coordinates === 'string') {
+      console.log('Coordinates is a string, attempting to parse:', geomScope.value.coordinates);
+      try {
+        // Try to parse as JSON
+        const parsed = JSON.parse(geomScope.value.coordinates);
+        geomScope.value.coordinates = parsed;
+        console.log('Successfully parsed string coordinates as JSON:', parsed);
+      } catch (parseError) {
+        console.error('Failed to parse coordinates string:', parseError);
+        throw new Error(`Coordinates is a string but cannot be parsed: ${geomScope.value.coordinates}`);
       }
     }
-    const homeButton = new HomeButton();
-    map.addControl(homeButton, "top-left");
+    
+    // Now handle the parsed coordinates
+    if (geomScope.value.type === 'Polygon') {
+      // Standard Polygon: coordinates[0] contains the outer ring
+      if (Array.isArray(geomScope.value.coordinates) && geomScope.value.coordinates.length > 0) {
+        rawCoordinates = geomScope.value.coordinates[0];
+        console.log('Using Polygon coordinates[0]:', rawCoordinates);
+      } else {
+        throw new Error(`Polygon coordinates structure is invalid: ${JSON.stringify(geomScope.value.coordinates)}`);
+      }
+    } else if (geomScope.value.type === 'MultiPolygon') {
+      // MultiPolygon: coordinates[0][0] contains the first polygon's outer ring
+      if (Array.isArray(geomScope.value.coordinates) && 
+          geomScope.value.coordinates.length > 0 && 
+          Array.isArray(geomScope.value.coordinates[0]) && 
+          geomScope.value.coordinates[0].length > 0) {
+        rawCoordinates = geomScope.value.coordinates[0][0];
+        console.log('Using MultiPolygon coordinates[0][0]:', rawCoordinates);
+      } else {
+        throw new Error(`MultiPolygon coordinates structure is invalid: ${JSON.stringify(geomScope.value.coordinates)}`);
+      }
+    } else {
+      // Try to handle other geometry types or malformed data
+      console.warn(`Unsupported geometry type: ${geomScope.value.type}, attempting fallback`);
+      
+      // Try different possible structures
+      if (Array.isArray(geomScope.value.coordinates)) {
+        if (geomScope.value.coordinates.length > 0) {
+          if (Array.isArray(geomScope.value.coordinates[0])) {
+            if (geomScope.value.coordinates[0].length > 0 && Array.isArray(geomScope.value.coordinates[0][0])) {
+              // MultiPolygon-like structure
+              rawCoordinates = geomScope.value.coordinates[0][0];
+              console.log('Using fallback MultiPolygon-like structure:', rawCoordinates);
+            } else {
+              // Polygon-like structure
+              rawCoordinates = geomScope.value.coordinates[0];
+              console.log('Using fallback Polygon-like structure:', rawCoordinates);
+            }
+          } else {
+            // Single coordinate array
+            rawCoordinates = geomScope.value.coordinates;
+            console.log('Using fallback single coordinate array:', rawCoordinates);
+          }
+        } else {
+          throw new Error(`Coordinates array is empty`);
+        }
+      } else {
+        console.error('Coordinates is not an array:', geomScope.value.coordinates);
+        throw new Error(`Cannot parse geometry coordinates structure. Expected array, got: ${typeof geomScope.value.coordinates}`);
+      }
+    }
+    
+    console.log('Raw coordinates:', rawCoordinates);
+    console.log('Number of coordinate pairs:', rawCoordinates.length);
+    
+    // Validate coordinates are valid numbers
+    const coordinates = rawCoordinates.map(coord => {
+      const lat = parseFloat(coord[1]);
+      const lng = parseFloat(coord[0]);
+      
+      // Check if coordinates are valid numbers and within reasonable bounds
+      if (isNaN(lat) || isNaN(lng)) {
+        throw new Error(`Invalid coordinate: lat=${coord[1]}, lng=${coord[0]}`);
+      }
+      
+      if (lat < -90 || lat > 90) {
+        throw new Error(`Latitude out of bounds: ${lat}`);
+      }
+      
+      if (lng < -180 || lng > 180) {
+        throw new Error(`Longitude out of bounds: ${lng}`);
+      }
+      
+      return {
+        lat: lat,
+        lng: lng
+      };
+    });
+    
+    console.log('Validated coordinates:', coordinates);
+    console.log('Number of validated coordinates:', coordinates.length);
+    
+    // Ensure we have at least 3 points for a polygon
+    if (coordinates.length < 3) {
+      throw new Error(`Polygon must have at least 3 points, got ${coordinates.length}. Raw coordinates: ${JSON.stringify(rawCoordinates)}`);
+    }
+    
+    if (newRecord.value) {
+      // For NEW RECORDS: Create guide polygon (ward boundary) - this is NOT editable, just a visual guide
+      const guidePolygon = new google.maps.Polygon({
+        paths: coordinates,
+        strokeColor: '#000000', // Black outline
+        strokeOpacity: 0.8,
+        strokeWeight: 3,
+        fillColor: '#000000', // Black fill
+        fillOpacity: 0.05, // Very transparent
+        map: googleMap.value,
+        clickable: false, // Not clickable
+        editable: false, // Not editable
+        draggable: false, // Not draggable
+        zIndex: 1 // Lower z-index so user polygons appear on top
+      });
+      
+      // Store guide polygon reference (but don't add to drawnPolygons array)
+      guidePolygonRef.value = guidePolygon;
+      
+      // Store the ward geometry for boundary checking
+      wardBoundaryGeometry.value = geomScope.value;
+      
+      console.log('Ward geometry loaded as guide polygon for new record');
+      ElMessage.success('Ward boundary loaded as guide. Please draw your settlement within the black boundary.');
+      
+    } else {
+             // For EDITING EXISTING RECORDS: Create editable settlement polygon
+       const settlementPolygon = new google.maps.Polygon({
+         paths: coordinates,
+         strokeColor: '#FF0000', // Red outline
+         strokeOpacity: 1,
+         strokeWeight: 2,
+         fillColor: '#FF0000', // Red fill
+         fillOpacity: 0.1,
+         map: googleMap.value,
+         clickable: true,
+         editable: true,
+         draggable: false,
+         zIndex: 2 // Higher z-index so it appears above guide polygons
+       });
+      
+      // Store reference to the editable settlement polygon
+      drawnPolygons.value = [settlementPolygon];
+      
+      // Add editing event listeners to the settlement polygon
+      addPolygonEditListeners(settlementPolygon);
+      
+      // Calculate area and centroid
+      calculateArea(geomScope.value);
+      
+      console.log('Existing settlement geometry loaded as editable polygon');
+      ElMessage.success('Existing settlement geometry loaded for editing.');
+    }
+    
+    // Fit bounds to geometry with padding
+    const bounds = new google.maps.LatLngBounds();
+    coordinates.forEach(coord => bounds.extend(coord));
+    
+    // Add some padding to the bounds for better visibility
+    googleMap.value.fitBounds(bounds, {
+      padding: { top: 50, right: 50, bottom: 50, left: 50 }
+    });
+    
+    // Set a minimum zoom level to prevent over-zooming
+    google.maps.event.addListenerOnce(googleMap.value, 'bounds_changed', () => {
+      if (googleMap.value.getZoom() > 18) {
+        googleMap.value.setZoom(18);
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error loading geometry:', error);
+    ElMessage.error(`Failed to load geometry: ${error.message}`);
+    
+    // Fallback: center map on Kenya
+    googleMap.value.setCenter({ lat: 1.137451, lng: 37.137343 });
+    googleMap.value.setZoom(8);
   }
-  addHomeButton(map.value)
+}
 
 
+
+const addUnifiedToolbar = () => {
+  if (!googleMap.value) return;
+  
+  // Check if toolbar already exists
+  const controls = googleMap.value.controls[google.maps.ControlPosition.TOP_LEFT];
+  const existingToolbar = Array.from(controls).find(control => 
+    control.className === 'google-map-unified-toolbar'
+  );
+  
+  if (existingToolbar) {
+    return; // Toolbar already exists, don't add another one
+  }
+  
+  // Function to get current theme colors
+  const getThemeColors = () => {
+    const isDark = document.documentElement.classList.contains('dark');
+    return {
+      background: isDark ? '#2c2c2c' : '#fff',
+      border: isDark ? '#3a3a3a' : '#ccc',
+      shadow: isDark ? '0 2px 8px rgba(0,0,0,0.4)' : '0 2px 8px rgba(0,0,0,0.15)',
+      text: isDark ? '#ffffff' : '#000000'
+    };
+  };
+  
+  // Function to update toolbar theme
+  const updateToolbarTheme = () => {
+    const colors = getThemeColors();
+    const toolbarContainer = toolbar.querySelector('div');
+    if (toolbarContainer) {
+      toolbarContainer.style.background = colors.background;
+      toolbarContainer.style.border = `1px solid ${colors.border}`;
+      toolbarContainer.style.boxShadow = colors.shadow;
+    }
+  };
+  
+  // Create unified toolbar container
+  const toolbar = document.createElement('div');
+  toolbar.className = 'google-map-unified-toolbar';
+  
+  // Get initial theme colors
+  const colors = getThemeColors();
+  
+     toolbar.innerHTML = `
+     <div style="
+       background: ${colors.background};
+       border: 1px solid ${colors.border};
+       border-radius: 6px;
+       padding: 8px;
+       box-shadow: ${colors.shadow};
+       display: flex;
+       gap: 4px;
+       align-items: center;
+       transition: all 0.3s ease;
+     ">
+       <!-- Pan Tool -->
+       <button id="pan-tool" style="
+         background: #4CAF50;
+         border: none;
+         border-radius: 4px;
+         padding: 8px 12px;
+         cursor: pointer;
+         font-size: 12px;
+         color: white;
+         display: flex;
+         align-items: center;
+         gap: 4px;
+         transition: background-color 0.2s;
+       " title="Pan Tool">
+         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 14px; height: 14px;">
+           <path d="M10 9V5L3 12L10 19V15.1C15 15.1 18.5 16.5 21 20C20 15 17 10 10 9Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+         </svg>
+         Pan
+       </button>
+       
+       <!-- Draw Tool -->
+       <button id="draw-tool" style="
+         background: #2196F3;
+         border: none;
+         border-radius: 4px;
+         padding: 8px 12px;
+         cursor: pointer;
+         font-size: 12px;
+         color: white;
+         display: flex;
+         align-items: center;
+         gap: 4px;
+         transition: background-color 0.2s;
+       " title="Draw Polygon">
+         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 14px; height: 14px;">
+           <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+           <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+           <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+         </svg>
+         Draw
+       </button>
+       
+       <!-- Upload Tool -->
+       <button id="upload-tool" style="
+         background: #FF9800;
+         border: none;
+         border-radius: 4px;
+         padding: 8px 12px;
+         cursor: pointer;
+         font-size: 12px;
+         color: white;
+         display: flex;
+         align-items: center;
+         gap: 4px;
+         transition: background-color 0.2s;
+       " title="Upload File">
+         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 14px; height: 14px;">
+           <path d="M21 15V19A2 2 0 0 1 19 21H5A2 2 0 0 1 3 19V15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+           <path d="M17 8L12 3L7 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+           <path d="M12 3V15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+         </svg>
+         Upload
+       </button>
+       
+       <!-- Divider -->
+       <div style="width: 1px; height: 24px; background: ${colors.border}; margin: 0 4px;"></div>
+       
+       <!-- Map Type Tool -->
+       <button id="map-type-tool" style="
+         background: #9C27B0;
+         border: none;
+         border-radius: 4px;
+         padding: 8px 12px;
+         cursor: pointer;
+         font-size: 12px;
+         color: white;
+         display: flex;
+         align-items: center;
+         gap: 4px;
+         transition: background-color 0.2s;
+       " title="Switch Map Type">
+         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 14px; height: 14px;">
+           <path d="M9 20L3 17V4L9 7M9 20L15 17M9 20V7M15 17L21 20V7L15 4M15 17V4M9 7L15 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+         </svg>
+         Map
+       </button>
+       
+       <!-- Satellite Tool -->
+       <button id="satellite-tool" style="
+         background: #607D8B;
+         border: none;
+         border-radius: 4px;
+         padding: 8px 12px;
+         cursor: pointer;
+         font-size: 12px;
+         color: white;
+         display: flex;
+         align-items: center;
+         gap: 4px;
+         transition: background-color 0.2s;
+       " title="Satellite View">
+         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 14px; height: 14px;">
+           <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+           <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+           <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+         </svg>
+         Satellite
+       </button>
+     </div>
+   `;
+  
+     // Add event listeners
+   const panTool = toolbar.querySelector('#pan-tool');
+   const drawTool = toolbar.querySelector('#draw-tool');
+   const uploadTool = toolbar.querySelector('#upload-tool');
+   const mapTypeTool = toolbar.querySelector('#map-type-tool');
+   const satelliteTool = toolbar.querySelector('#satellite-tool');
+  
+  // Pan tool functionality
+  panTool.addEventListener('click', () => {
+    // Reset all button styles
+    panTool.style.background = '#4CAF50';
+    drawTool.style.background = '#2196F3';
+    
+    // Set drawing mode to null (pan mode)
+    if (drawingManager.value) {
+      drawingManager.value.setDrawingMode(null);
+    }
+    
+    // Change cursor to grab
+    googleMap.value.setOptions({ draggableCursor: 'grab' });
+    
+    ElMessage.info('Pan mode activated. Click and drag to move the map.');
+  });
+  
+  // Draw tool functionality
+  drawTool.addEventListener('click', () => {
+    // Reset all button styles
+    panTool.style.background = '#4CAF50';
+    drawTool.style.background = '#1976D2';
+    
+    // Set drawing mode to polygon
+    if (drawingManager.value) {
+      drawingManager.value.setDrawingMode(google.maps.drawing.OverlayType.POLYGON);
+    }
+    
+    // Change cursor to crosshair
+    googleMap.value.setOptions({ draggableCursor: 'crosshair' });
+    
+    ElMessage.info('Draw mode activated. Click to add polygon vertices, double-click to finish.');
+  });
+  
+     // Upload tool functionality
+   uploadTool.addEventListener('click', () => {
+     showUploadDialog.value = true;
+   });
+   
+   // Map type tool functionality
+   mapTypeTool.addEventListener('click', () => {
+     // Reset all button styles
+     panTool.style.background = '#4CAF50';
+     drawTool.style.background = '#2196F3';
+     mapTypeTool.style.background = '#7B1FA2';
+     satelliteTool.style.background = '#607D8B';
+     
+     // Set map type to roadmap
+     if (googleMap.value) {
+       googleMap.value.setMapTypeId(google.maps.MapTypeId.ROADMAP);
+     }
+     
+     ElMessage.info('Switched to Map view');
+   });
+   
+   // Satellite tool functionality
+   satelliteTool.addEventListener('click', () => {
+     // Reset all button styles
+     panTool.style.background = '#4CAF50';
+     drawTool.style.background = '#2196F3';
+     mapTypeTool.style.background = '#9C27B0';
+     satelliteTool.style.background = '#455A64';
+     
+     // Set map type to satellite
+     if (googleMap.value) {
+       googleMap.value.setMapTypeId(google.maps.MapTypeId.SATELLITE);
+     }
+     
+     ElMessage.info('Switched to Satellite view');
+   });
+   
+   // Add hover effects
+   [panTool, drawTool, uploadTool, mapTypeTool, satelliteTool].forEach(button => {
+     button.addEventListener('mouseenter', () => {
+       button.style.opacity = '0.8';
+     });
+     button.addEventListener('mouseleave', () => {
+       button.style.opacity = '1';
+     });
+   });
+  
+  // Add to map
+  googleMap.value.controls[google.maps.ControlPosition.TOP_LEFT].push(toolbar);
+  
+  // Set initial state to pan mode
+  panTool.click();
+  
+  // Listen for theme changes
+  const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+        updateToolbarTheme();
+      }
+    });
+  });
+  
+  // Start observing the document element for class changes
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['class']
+  });
+  
+  // Clean up observer when component is unmounted
+  onBeforeUnmount(() => {
+    observer.disconnect();
+  });
+}
+
+const onPolygonComplete = (polygon) => {
+  console.log('Polygon completed:', polygon);
+  
+  // Only check boundary for new records
+  if (newRecord.value && wardBoundaryGeometry.value) {
+    const isWithinBoundary = checkPolygonWithinBoundary(polygon);
+    if (!isWithinBoundary) {
+      // Remove the polygon from the map
+      polygon.setMap(null);
+      ElMessage.error('Settlement must be drawn within the ward boundary! Please try again.');
+      return;
+    }
+  }
+  
+  // Clear existing polygons
+  drawnPolygons.value.forEach(p => p.setMap(null));
+  drawnPolygons.value = [];
+  
+  // Add new polygon to array
+  drawnPolygons.value.push(polygon);
+  
+  // Add editing event listeners to the polygon
+  addPolygonEditListeners(polygon);
+  
+  // Convert to GeoJSON and update form data
+  updatePolygonData(polygon);
+  
+  // Show success message
+  ElMessage.success('Settlement polygon drawn successfully! Area: ' + area_ha.value + ' hectares');
+}
+
+const addPolygonEditListeners = (polygon) => {
+  // Listen for polygon editing events
+  google.maps.event.addListener(polygon, 'set_at', () => {
+    console.log('Polygon vertex moved');
+    // Only check boundary for new records
+    if (newRecord.value && wardBoundaryGeometry.value) {
+      const isWithinBoundary = checkPolygonWithinBoundary(polygon);
+      if (!isWithinBoundary) {
+        ElMessage.warning('Warning: Settlement extends outside ward boundary!');
+      }
+    }
+    updatePolygonData(polygon);
+  });
+  
+  google.maps.event.addListener(polygon, 'insert_at', () => {
+    console.log('Polygon vertex inserted');
+    // Only check boundary for new records
+    if (newRecord.value && wardBoundaryGeometry.value) {
+      const isWithinBoundary = checkPolygonWithinBoundary(polygon);
+      if (!isWithinBoundary) {
+        ElMessage.warning('Warning: Settlement extends outside ward boundary!');
+      }
+    }
+    updatePolygonData(polygon);
+  });
+  
+  google.maps.event.addListener(polygon, 'remove_at', () => {
+    console.log('Polygon vertex removed');
+    updatePolygonData(polygon);
+  });
+  
+     // Removed dragend listener since dragging is now disabled
+}
+
+// Function to check if a polygon is within the ward boundary
+const checkPolygonWithinBoundary = (polygon) => {
+  try {
+    // Get the polygon path
+    const path = polygon.getPath();
+    const coordinates = [];
+    
+    // Convert to array of coordinates
+    for (let i = 0; i < path.getLength(); i++) {
+      const latLng = path.getAt(i);
+      coordinates.push([latLng.lng(), latLng.lat()]);
+    }
+    
+    // Create a GeoJSON polygon from the drawn polygon
+    const drawnPolygonGeoJSON = {
+      type: 'Polygon',
+      coordinates: [coordinates]
+    };
+    
+    // Use Turf.js to check if the drawn polygon is within the ward boundary
+    const isWithin = turf.booleanWithin(drawnPolygonGeoJSON, wardBoundaryGeometry.value);
+    
+    console.log('Boundary check result:', isWithin);
+    return isWithin;
+    
+  } catch (error) {
+    console.error('Error checking polygon boundary:', error);
+    // If there's an error in the check, allow the polygon (fail-safe)
+    return true;
+  }
+}
+
+const updatePolygonData = (polygon) => {
+  try {
+    // Convert to GeoJSON and update form data
+    const path = polygon.getPath();
+    const coordinates = [];
+    
+    for (let i = 0; i < path.getLength(); i++) {
+      const latLng = path.getAt(i);
+      coordinates.push([latLng.lng(), latLng.lat()]);
+    }
+    
+    const geojson = {
+      type: 'Polygon',
+      coordinates: [coordinates]
+    };
+    
+    // Update both formData and geomScope
+    formData.geom = geojson;
+    geomScope.value = geojson;
+    
+    // Recalculate area
+    calculateArea(geojson);
+    
+    console.log('Polygon data updated successfully:', geojson);
+    console.log('formData.geom after update:', formData.geom);
+    console.log('geomScope.value after update:', geomScope.value);
+    
+    // Show user feedback
+    ElMessage.success('Geometry updated! Area: ' + area_ha.value + ' hectares');
+    
+    // Show status indicator
+    const statusDiv = document.getElementById('geometry-status');
+    const statusText = document.getElementById('geometry-status-text');
+    if (statusDiv && statusText) {
+      statusText.textContent = `Geometry saved (${area_ha.value} ha)`;
+      statusDiv.style.display = 'block';
+      setTimeout(() => {
+        statusDiv.style.display = 'none';
+      }, 3000);
+    }
+    
+  } catch (error) {
+    console.error('Error updating polygon data:', error);
+    ElMessage.error('Failed to update geometry: ' + error.message);
+  }
+}
+
+const onMouseMove = (event) => {
+  const coordinatesDiv = document.getElementById('coordinates');
+  if (coordinatesDiv) {
+    coordinatesDiv.innerHTML = 
+      'Lon: ' + event.latLng.lng().toFixed(5) + ' Lat: ' + event.latLng.lat().toFixed(5);
+  }
+}
+
+// Function to manually save current polygon state
+const saveCurrentPolygonState = () => {
+  if (drawnPolygons.value && drawnPolygons.value.length > 0) {
+    const polygon = drawnPolygons.value[0];
+    if (polygon) {
+      updatePolygonData(polygon);
+      console.log('Current polygon state saved manually');
+      return true;
+    }
+  }
+  console.log('No polygon to save');
+  return false;
 }
 
  
 
 
-const draw = new MapboxDraw({
-  displayControlsDefault: false,
-  controls: {
-    point: true,
-    line_string: false,
-    polygon: true,
-    trash: true
-  },
+// Google Maps drawing manager will be initialized when map is ready
 
-})
-
-const toggleDrawToolbox = (value) => {
-  console.log(value)
-
-  if (value == 'digitize') {
-    visibleUpload.value = false
-
-    map.value.addControl(draw, 'top-left');
-    console.log('adding')
-  } else if (value == 'upload') {
-
-    visibleUpload.value = true
-    map.value.removeControl(draw);
-    console.log('remove....')
-  }
-  else {
-    visibleUpload.value = false
-
-    map.value.removeControl(draw);
-    console.log('remove....')
-
-  }
-
-
-
-};
+// Drawing is now handled by the Google Maps Drawing Manager
 
 
 
@@ -1175,21 +1818,51 @@ const submitForm = async () => {
   formInstance.value.validate(async (valid: boolean) => {
     if (valid) {
       // Perform form submission logic
+      console.log('Form validation passed, preparing to submit...');
+      console.log('Current formData before submission:', formData);
+      console.log('Current geomScope before submission:', geomScope.value);
 
       formData.model = model
       formData.component_id = component_id.value
 
- 
+      // Save current polygon state before submission (if any polygon exists)
+      const polygonSaved = saveCurrentPolygonState();
+      
+      // For new records, we need a settlement polygon drawn by the user
+      if (newRecord.value) {
+        if (drawnPolygons.value.length === 0) {
+          ElMessage.error('Please draw your settlement polygon within the ward boundary before submitting');
+          return;
+        }
+        
+        // Use the drawn settlement polygon, not the ward geometry
+        if (formData.geom && formData.geom.type === 'Polygon') {
+          console.log('Using drawn settlement geometry:', formData.geom);
+        } else {
+          ElMessage.error('No valid settlement geometry found. Please draw your settlement polygon.');
+          return;
+        }
+      } else {
+        // For editing existing records, use the existing geometry
+        if (geomScope.value && Object.keys(geomScope.value).length > 0) {
+          formData.geom = geomScope.value;
+          console.log('Geometry set from geomScope for editing:', formData.geom);
+        }
+      }
 
-
-
-      //formData.geom =geomScope.value
-
-      if (newRecord.value || formData.geom.type == 'Polygon') {
-        // Calculate area using Turf.js if newRecord is not present
-        const areaSquareMeters = turf.area(formData.geom);
-        const areaHectares = areaSquareMeters / 10000;
-        formData.area = areaHectares.toFixed(4);
+      // Calculate area if geometry exists
+      if (formData.geom && formData.geom.type === 'Polygon') {
+        try {
+          const areaSquareMeters = turf.area(formData.geom);
+          const areaHectares = areaSquareMeters / 10000;
+          formData.area = areaHectares.toFixed(4);
+          console.log('Area calculated:', formData.area, 'hectares');
+        } catch (areaError) {
+          console.error('Error calculating area:', areaError);
+          ElMessage.warning('Could not calculate area from geometry');
+        }
+      } else {
+        console.warn('No valid geometry found for area calculation');
       }
 
 
@@ -1260,7 +1933,9 @@ const submitForm = async () => {
 
 
 const handleChangeLocationOption = async (value: any) => {
-  toggleDrawToolbox(value)
+  // Drawing is now handled by the Google Maps Drawing Manager
+  // No need for manual toggle as the drawing controls are always available
+  console.log('Location option changed:', value);
 }
 
 const handleChangeLocation = async (value: any) => {
@@ -1295,7 +1970,9 @@ const handleChangeLocation = async (value: any) => {
 
   if (newRecord.value) {
     geomScope.value = res.data[0].json_build_object
-
+    // Also set formData.geom for new records to ensure it's available during submission
+    formData.geom = res.data[0].json_build_object
+    console.log('Geometry set for new record:', formData.geom)
   }
   //const lastElement = array[array.length - 1];
 
@@ -1738,7 +2415,8 @@ watch(
 </style>
 
 <style scoped>
-.basemap {
+.map-container {
+  position: relative;
   width: 100%;
   height: 65vh;
 }
@@ -1800,5 +2478,19 @@ watch(
 
 .my-image-button {
   background: url("data:image/png;base64 etc...");
+}
+
+.geometry-status {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background-color: rgba(76, 175, 80, 0.9);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  z-index: 1000;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  transition: opacity 0.3s ease;
 }
 </style>
