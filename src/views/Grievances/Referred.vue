@@ -7,13 +7,12 @@ import { getGrievances } from '@/api/grievance'
 
 import { ElButton, ElSelect, ElCheckbox, ElCol, ElIcon, ElTag } from 'element-plus'
 import {
-  Plus, ArrowLeft, ArrowRight, UploadFilled,RefreshLeft,
+  Plus, ArrowLeft, ArrowRight, UploadFilled,
   Edit,
-  Back,Postcard,TopRight,Lock,Guide,TakeawayBox,
-  InfoFilled, Position,CircleCheck, Warning,View,
+  Back,Guide,
+  InfoFilled, Position,
   Delete
 } from '@element-plus/icons-vue'
-import {   ElSegmented } from 'element-plus'
 
 import { getSettlementListByCounty } from '@/api/settlements'
 
@@ -21,19 +20,17 @@ import { getSettlementListByCounty } from '@/api/settlements'
 import { ref, reactive, onMounted, computed } from 'vue'
 import {
   ElPagination, ElTooltip, ElOption, ElDialog, ElForm, ElDropdown, ElDropdownItem, ElDropdownMenu, ElTour, ElTourStep, ElUpload,
-  ElFormItem, ElRow, ElInput, FormRules, ElStep, ElSteps, ElTable, ElTableColumn, ElCard, ElMessage, ElSwitch
+  ElFormItem, ElRow, ElInput, ElStep, ElSteps, ElTable, ElTableColumn, ElCard, ElMessage, ElSwitch
 } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
-import { DeleteRecord, updateOneRecord } from '@/api/settlements'
+import { DeleteRecord } from '@/api/settlements'
 import { uuid } from 'vue-uuid'
 import type { FormInstance } from 'element-plus'
-import xlsx from "json-as-xlsx"
 
 import writeXlsxFile from 'write-excel-file';
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
-import PermissionWrapper from '@/components/PermissionWrapper.vue';
 import type { UploadUserFile } from 'element-plus'
 
 import { getCountyAuth, getSettlementByCountyAuth } from '@/api/register'
@@ -43,6 +40,7 @@ import exportFromJSON from 'export-from-json'
 import Papa from 'papaparse';
 
 import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
+import { getUsersByIds } from '@/api/users'
 
 
 const { wsCache } = useCache()
@@ -358,6 +356,11 @@ const showEditButtons = ref(appStore.getEditButtons)
 
 
 let tableDataList = ref<UserType[]>([])
+
+// Supporting staff functionality
+const supportingStaffUsers = ref<Record<number, any>>({})
+const supportingStaffLoading = ref(false)
+
 //// ------------------parameters -----------------------////
 
 // Prepare filters array
@@ -366,8 +369,8 @@ let tableDataList = ref<UserType[]>([])
 // var filterValues = [['Resolved', 'Rejected', 'Closed']];
 // var filterFunction = ['notIn'];
 
-const  filters=ref(['status','reffered_to_officer'])
-const  filterValues=ref([['Referred'],[userInfo.id]])
+const  filters=ref(['status'])
+const  filterValues=ref([['Referred']])
 const  filterFunction=ref(['in'])
 
 
@@ -435,6 +438,59 @@ const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
   return res;
 };
 
+// Helper function to get supporting staff name by ID
+const getSupportingStaffName = (staffId: number): string => {
+  const staff = supportingStaffUsers.value[staffId];
+  return staff ? staff.name : `Staff ${staffId}`;
+}
+
+// Helper function to get supporting staff phone by ID
+const getSupportingStaffPhone = (staffId: number): string => {
+  const staff = supportingStaffUsers.value[staffId];
+  return staff ? staff.phone : '';
+}
+
+// Function to fetch supporting staff data
+const fetchSupportingStaffData = async () => {
+  if (supportingStaffLoading.value) return;
+  
+  supportingStaffLoading.value = true;
+  
+  try {
+    // Collect all unique supporting staff IDs from the current data
+    const staffIds = new Set<number>();
+    
+    tableDataList.value.forEach(grievance => {
+      if (grievance.reffered_to_support_staff && Array.isArray(grievance.reffered_to_support_staff)) {
+        grievance.reffered_to_support_staff.forEach(id => {
+          if (id && !supportingStaffUsers.value[id]) {
+            staffIds.add(id);
+          }
+        });
+      }
+    });
+    
+    // If we have new staff IDs to fetch
+    if (staffIds.size > 0) {
+      const staffIdsArray = Array.from(staffIds);
+      console.log('Fetching supporting staff data for IDs:', staffIdsArray);
+      
+      // Fetch user details for the supporting staff IDs
+      const userResponse = await getUsersByIds(staffIdsArray, ['id', 'name', 'phone', 'email']);
+      
+      if (userResponse.data) {
+        userResponse.data.forEach((user: any) => {
+          supportingStaffUsers.value[user.id] = user;
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching supporting staff data:', error);
+  } finally {
+    supportingStaffLoading.value = false;
+  }
+}
+
 
 const getFilteredData = async (selFilters, selfilterValues) => {
 
@@ -484,19 +540,31 @@ console.log('After Querry', res)
 console.log('After Querry - selFilters', selFilters)
 console.log('After Querry - selfilterValues', selfilterValues)
 
+// Filter grievances to show only those referred to the logged-in user OR where they are supporting staff
+const filteredGrievances = res.data.filter(grievance => {
+  // Check if grievance is referred to the logged-in user
+  const isReferredToUser = grievance.reffered_to_officer === userInfo.id;
+  
+  // Check if logged-in user is in the supporting staff list
+  const isSupportingStaff = grievance.reffered_to_support_staff && 
+    Array.isArray(grievance.reffered_to_support_staff) && 
+    grievance.reffered_to_support_staff.includes(userInfo.id);
+  
+  return isReferredToUser || isSupportingStaff;
+});
 
-
-tableDataList.value = res.data
+tableDataList.value = filteredGrievances
 
 availableFields.value = extractFields(tableDataList.value);
 
+// Fetch supporting staff data if we have referred grievances
+await fetchSupportingStaffData()
 
-
-total.value = res.total
+total.value = filteredGrievances.length
 
 Statuses.value.forEach(status => {
 if (status.label === activeSegment.value) {
-  status.count = res.total; // Update this count dynamically
+  status.count = filteredGrievances.length; // Update this count dynamically
 }
 });
 
@@ -1536,12 +1604,22 @@ const getFilteredBySearchData = async (searchKey) => {
 
   console.log('---->', res.data)
 
-  tableDataList.value = res.data
+  // Filter grievances to show only those referred to the logged-in user OR where they are supporting staff
+  const filteredGrievances = res.data.filter(grievance => {
+    // Check if grievance is referred to the logged-in user
+    const isReferredToUser = grievance.reffered_to_officer === userInfo.id;
+    
+    // Check if logged-in user is in the supporting staff list
+    const isSupportingStaff = grievance.reffered_to_support_staff && 
+      Array.isArray(grievance.reffered_to_support_staff) && 
+      grievance.reffered_to_support_staff.includes(userInfo.id);
+    
+    return isReferredToUser || isSupportingStaff;
+  });
 
+  tableDataList.value = filteredGrievances
 
-
-
-  total.value = res.total
+  total.value = filteredGrievances.length
   loading.value = false
 
 
@@ -2286,7 +2364,39 @@ if (search_string.value) {
               <span v-else>{{ scope.row.reporter_name }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="Referred to" prop="user.name" min-width="100" v-if="!isMobile" />
+                     <el-table-column label="Referred to" width="300" v-if="!isMobile">
+             <template #default="{ row }">
+               <div class="referred-officer">
+                 <!-- Main Officer -->
+                 <div v-if="row.reffered_to_officer && row.users" class="officer-info">
+                  
+                   <div class="officer-details">
+                     <span class="officer-name">{{ row.users.name }} | {{ row.users.phone }}</span>
+                    </div>
+                 </div>
+                 <div v-else class="no-officer">
+                  
+                   <el-tag size="small" type="info">Not assigned</el-tag>
+                 </div>
+                 
+                 <!-- Supporting Staff Section -->
+                 <div v-if="row.reffered_to_support_staff && row.reffered_to_support_staff.length > 0" class="supporting-staff">
+                   <div class="supporting-staff-header">
+                     <span class="supporting-staff-label">Supported By:</span>
+                   </div>
+                   <div  >
+                     <div 
+                       v-for="staffId in row.reffered_to_support_staff" 
+                       :key="staffId"
+                       class="staff-item"
+                     >
+                       <span class="staff-name">{{ getSupportingStaffName(staffId) }} | {{ getSupportingStaffPhone(staffId) }} </span>
+                      </div>
+                   </div>
+                 </div>
+               </div>
+             </template>
+           </el-table-column>
           <el-table-column label="Description" prop="description" sortable min-width="150" v-if="!isMobile" />
           <el-table-column label="Location" sortable min-width="150" v-if="!isMobile">
             <template #default="scope">
@@ -2767,6 +2877,85 @@ v-for="(step, index) in filteredTourSteps" :key="index" :target="step.target" :t
 .item {
   margin-top: 10px;
   margin-right: 40px;
+}
+
+/* Referred Officer Styles */
+.referred-officer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.officer-info, .no-officer {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.officer-header, .supporting-staff-header {
+  display: flex;
+  align-items: center;
+}
+
+.officer-label, .supporting-staff-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #606266;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-right: 8px;
+}
+
+.officer-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-left: 12px;
+}
+
+.officer-name, .staff-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: #303133;
+}
+
+.officer-phone, .staff-phone {
+  font-size: 11px;
+  color: #909399;
+  font-family: monospace;
+}
+
+/* Supporting Staff Styles */
+.supporting-staff {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e4e7ed;
+}
+
+.supporting-staff-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-left: 12px;
+}
+
+.staff-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px 8px;
+   }
+
+.staff-name {
+  font-size: 12px;
+  font-weight: 300;
+  color: #303133;
+}
+
+.staff-phone {
+  font-size: 10px;
+  color: #909399;
+  font-family: monospace;
 }
 </style>
 

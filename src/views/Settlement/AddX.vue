@@ -466,18 +466,48 @@ const onSelectSubcounty = (subcounty_id) => {
 const centroid = ref({ lat: 1, lng: 37 })
 
 const calculateArea = (geom) => {
-  // Calculate the area using Turf.js
-  const areaSquareMeters = turf.area(geom);
-
-  // Convert square meters to hectares
-  const areaHectares = areaSquareMeters / 10000;
-  area_ha.value = areaHectares.toFixed(4)
-
-  var centre = turf.centroid(geom);
-  // Convert to Google Maps LatLng format (lat, lng)
-  centroid.value = {
-    lat: centre.geometry.coordinates[1],
-    lng: centre.geometry.coordinates[0]
+  // Handle different geometry types
+  if (geom.type === 'Point') {
+    // For points, set area to 0 and use the point coordinates directly
+    area_ha.value = 0;
+    centroid.value = {
+      lat: geom.coordinates[1],
+      lng: geom.coordinates[0]
+    };
+    return;
+  }
+  
+  // Calculate the area using Turf.js for polygons
+  try {
+    const areaSquareMeters = turf.area(geom);
+    
+    // Convert square meters to hectares
+    const areaHectares = areaSquareMeters / 10000;
+    area_ha.value = parseFloat(areaHectares.toFixed(4));
+    
+    var centre = turf.centroid(geom);
+    // Convert to Google Maps LatLng format (lat, lng)
+    centroid.value = {
+      lat: centre.geometry.coordinates[1],
+      lng: centre.geometry.coordinates[0]
+    };
+  } catch (error) {
+    console.error('Error calculating area:', error);
+    area_ha.value = 0;
+    // Set a default centroid if calculation fails
+    if (geom.coordinates && geom.coordinates.length > 0) {
+      if (geom.type === 'Polygon') {
+        centroid.value = {
+          lat: geom.coordinates[0][0][1],
+          lng: geom.coordinates[0][0][0]
+        };
+      } else if (geom.type === 'MultiPolygon') {
+        centroid.value = {
+          lat: geom.coordinates[0][0][0][1],
+          lng: geom.coordinates[0][0][0][0]
+        };
+      }
+    }
   }
 };
 
@@ -535,17 +565,18 @@ onMounted(async () => {
   console.log('route.params.', route.query)
 
 
-  const form = {}
-  form.model = model
-  form.id = route.query.id
+  const form: { model: string; id: string } = {
+    model: model,
+    id: String(route.query.id || '')
+  }
 
   let ward_id
 
 
 
   if (route.query.id) {
-    await getOneSettlement(form)
-      .then((res) => {
+    await getOneSettlement(form as any)
+      .then((res: any) => {
         // Handle the successful response here
         console.log(res.data)
         var curData = res.data
@@ -555,9 +586,9 @@ onMounted(async () => {
         geomScope.value = curData.geom
 
 
-        subcountyOptionsFiltered.value = subcountyOptions.value.filter((obj) => obj.county_id == curData.county_id);
-        wardOptionsFiltered.value = wardOptions.value.filter((obj) => obj.subcounty_id == curData.subcounty_id);
-        settOptionsFiltered.value = settlementOptionsV2.value.filter((obj) => obj.ward_id == curData.ward_id);
+        subcountyOptionsFiltered.value = subcountyOptions.value.filter((obj: any) => obj.county_id == curData.county_id);
+        wardOptionsFiltered.value = wardOptions.value.filter((obj: any) => obj.subcounty_id == curData.subcounty_id);
+        settOptionsFiltered.value = settlementOptionsV2.value.filter((obj: any) => obj.ward_id == curData.ward_id);
 
         ward_id = curData.ward_id
 
@@ -584,9 +615,10 @@ onMounted(async () => {
     if (!geomScope.value) {
       // if the settlement does not have geomtery, allocated the ward geom to the settlement 
 
-      const wform = {}
-      wform.model = 'ward'
-      wform.id = ward_id
+      const wform: { model: string; id: string } = {
+        model: 'ward',
+        id: String(ward_id)
+      }
 
       geomScope.value = await getWard(wform)
 
@@ -607,13 +639,13 @@ onMounted(async () => {
 
 
 
-const getWard = async (wform) => {
+const getWard = async (wform: { model: string; id: string }) => {
   console.log(wform)
 
-  let ward = await getOneSettlement(wform)
+  let ward = await getOneSettlement(wform as any)
   console.log("ward", ward)
 
-  return ward.data.geom
+  return (ward as any).data.geom
 
 };
 
@@ -1168,12 +1200,93 @@ const loadExistingGeometry = () => {
   console.log('Geometry coordinates type:', typeof geomScope.value.coordinates);
   console.log('Is coordinates array?', Array.isArray(geomScope.value.coordinates));
   
-  // Clear any existing polygons first
+  // Clear any existing polygons and markers first
   drawnPolygons.value.forEach(p => p.setMap(null));
   drawnPolygons.value = [];
   
   try {
-    // Handle different geometry structures
+    // Handle different geometry types
+    if (geomScope.value.type === 'Point') {
+      // Handle Point geometry - create a simple marker
+      if (Array.isArray(geomScope.value.coordinates) && geomScope.value.coordinates.length === 2) {
+        const centerLng = parseFloat(geomScope.value.coordinates[0]);
+        const centerLat = parseFloat(geomScope.value.coordinates[1]);
+        
+        // Validate coordinates
+        if (isNaN(centerLat) || isNaN(centerLng)) {
+          throw new Error(`Invalid point coordinates: lng=${geomScope.value.coordinates[0]}, lat=${geomScope.value.coordinates[1]}`);
+        }
+        
+        if (centerLat < -90 || centerLat > 90) {
+          throw new Error(`Latitude out of bounds: ${centerLat}`);
+        }
+        
+        if (centerLng < -180 || centerLng > 180) {
+          throw new Error(`Longitude out of bounds: ${centerLng}`);
+        }
+        
+        if (newRecord.value) {
+          // For NEW RECORDS: Create guide polygon (ward boundary) - this is NOT editable, just a visual guide
+          // We need to get the ward geometry for the guide
+          if (wardBoundaryGeometry.value) {
+            // Use existing ward boundary
+            loadWardBoundary(wardBoundaryGeometry.value);
+          } else {
+            // Center map on the point
+            googleMap.value.setCenter({ lat: centerLat, lng: centerLng });
+            googleMap.value.setZoom(15);
+          }
+          
+          console.log('Point geometry loaded for new record - ward boundary needed');
+          ElMessage.info('Point location detected. Please select a ward to get the boundary guide, then draw your settlement within it.');
+        } else {
+          // For EDITING EXISTING RECORDS: Create editable point marker
+          const pointMarker = new google.maps.Marker({
+            position: { lat: centerLat, lng: centerLng },
+            map: googleMap.value,
+            draggable: true,
+            title: 'Settlement Location',
+            icon: {
+              url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="#FF0000"/>
+                </svg>
+              `),
+              scaledSize: new google.maps.Size(24, 24),
+              anchor: new google.maps.Point(12, 12)
+            }
+          });
+          
+          // Store reference to the editable point marker
+          drawnPolygons.value = [pointMarker];
+          
+          // Add editing event listeners to the point marker
+          addPointEditListeners(pointMarker);
+          
+          // Store original geometry type for proper conversion back
+          if (geomScope.value && geomScope.value.type) {
+            geomScope.value.originalType = geomScope.value.type;
+          }
+          
+          // Set area to 0 for points
+          area_ha.value = 0;
+          
+          // Center map on the point
+          googleMap.value.setCenter({ lat: centerLat, lng: centerLng });
+          googleMap.value.setZoom(15);
+          
+          console.log('Existing settlement point geometry loaded as editable marker');
+          ElMessage.success('Existing settlement point location loaded for editing. Drag the marker to move the location.');
+        }
+        
+        return; // Exit early for Point geometry
+        
+      } else {
+        throw new Error(`Point coordinates structure is invalid: ${JSON.stringify(geomScope.value.coordinates)}`);
+      }
+    }
+    
+    // Handle Polygon and MultiPolygon geometries
     let rawCoordinates;
     
     // First, check if coordinates is a string (might be WKT or other format)
@@ -1190,7 +1303,7 @@ const loadExistingGeometry = () => {
       }
     }
     
-    // Now handle the parsed coordinates
+    // Handle Polygon geometry
     if (geomScope.value.type === 'Polygon') {
       // Standard Polygon: coordinates[0] contains the outer ring
       if (Array.isArray(geomScope.value.coordinates) && geomScope.value.coordinates.length > 0) {
@@ -1302,20 +1415,20 @@ const loadExistingGeometry = () => {
       ElMessage.success('Ward boundary loaded as guide. Please draw your settlement within the black boundary.');
       
     } else {
-             // For EDITING EXISTING RECORDS: Create editable settlement polygon
-       const settlementPolygon = new google.maps.Polygon({
-         paths: coordinates,
-         strokeColor: '#FF0000', // Red outline
-         strokeOpacity: 1,
-         strokeWeight: 2,
-         fillColor: '#FF0000', // Red fill
-         fillOpacity: 0.1,
-         map: googleMap.value,
-         clickable: true,
-         editable: true,
-         draggable: false,
-         zIndex: 2 // Higher z-index so it appears above guide polygons
-       });
+      // For EDITING EXISTING RECORDS: Create editable settlement polygon
+      const settlementPolygon = new google.maps.Polygon({
+        paths: coordinates,
+        strokeColor: '#FF0000', // Red outline
+        strokeOpacity: 1,
+        strokeWeight: 2,
+        fillColor: '#FF0000', // Red fill
+        fillOpacity: 0.1,
+        map: googleMap.value,
+        clickable: true,
+        editable: true,
+        draggable: false,
+        zIndex: 2 // Higher z-index so it appears above guide polygons
+      });
       
       // Store reference to the editable settlement polygon
       drawnPolygons.value = [settlementPolygon];
@@ -1323,8 +1436,18 @@ const loadExistingGeometry = () => {
       // Add editing event listeners to the settlement polygon
       addPolygonEditListeners(settlementPolygon);
       
-      // Calculate area and centroid
-      calculateArea(geomScope.value);
+      // Store original geometry type for proper conversion back
+      if (geomScope.value && geomScope.value.type) {
+        geomScope.value.originalType = geomScope.value.type;
+      }
+      
+      // Calculate area and centroid (only for polygons)
+      if (geomScope.value.type === 'Polygon' || geomScope.value.type === 'MultiPolygon') {
+        calculateArea(geomScope.value);
+      } else {
+        // For points, set area to 0
+        area_ha.value = 0;
+      }
       
       console.log('Existing settlement geometry loaded as editable polygon');
       ElMessage.success('Existing settlement geometry loaded for editing.');
@@ -1703,6 +1826,66 @@ const addPolygonEditListeners = (polygon) => {
      // Removed dragend listener since dragging is now disabled
 }
 
+const addPointEditListeners = (marker) => {
+  // Listen for marker drag events
+  google.maps.event.addListener(marker, 'dragend', () => {
+    console.log('Point marker moved');
+    updatePointData(marker);
+  });
+}
+
+const loadWardBoundary = (wardGeometry) => {
+  // This function loads the ward boundary as a guide polygon
+  if (!wardGeometry || !googleMap.value) return;
+  
+  try {
+    let coordinates;
+    
+    if (wardGeometry.type === 'Polygon') {
+      coordinates = wardGeometry.coordinates[0];
+    } else if (wardGeometry.type === 'MultiPolygon') {
+      coordinates = wardGeometry.coordinates[0][0];
+    } else {
+      console.warn('Ward geometry is not a polygon type:', wardGeometry.type);
+      return;
+    }
+    
+    // Convert to Google Maps format
+    const googleMapsCoordinates = coordinates.map(coord => ({
+      lat: parseFloat(coord[1]),
+      lng: parseFloat(coord[0])
+    }));
+    
+    // Create guide polygon (ward boundary)
+    const guidePolygon = new google.maps.Polygon({
+      paths: googleMapsCoordinates,
+      strokeColor: '#000000', // Black outline
+      strokeOpacity: 0.8,
+      strokeWeight: 3,
+      fillColor: '#000000', // Black fill
+      fillOpacity: 0.05, // Very transparent
+      map: googleMap.value,
+      clickable: false, // Not clickable
+      editable: false, // Not editable
+      draggable: false, // Not draggable
+      zIndex: 1 // Lower z-index so user polygons appear on top
+    });
+    
+    // Store guide polygon reference
+    guidePolygonRef.value = guidePolygon;
+    
+    // Store the ward geometry for boundary checking
+    wardBoundaryGeometry.value = wardGeometry;
+    
+    console.log('Ward boundary loaded as guide polygon');
+    ElMessage.success('Ward boundary loaded as guide. Please draw your settlement within the black boundary.');
+    
+  } catch (error) {
+    console.error('Error loading ward boundary:', error);
+    ElMessage.warning('Could not load ward boundary as guide');
+  }
+}
+
 // Function to check if a polygon is within the ward boundary
 const checkPolygonWithinBoundary = (polygon) => {
   try {
@@ -1746,30 +1929,60 @@ const updatePolygonData = (polygon) => {
       coordinates.push([latLng.lng(), latLng.lat()]);
     }
     
-    const geojson = {
-      type: 'Polygon',
-      coordinates: [coordinates]
-    };
+    let geojson;
+    
+    // Check if this was originally a Point geometry and convert back if needed
+    if (geomScope.value && geomScope.value.originalType === 'Point') {
+      // Calculate centroid of the polygon and convert back to Point
+      const centerLng = coordinates.reduce((sum, coord) => sum + coord[0], 0) / coordinates.length;
+      const centerLat = coordinates.reduce((sum, coord) => sum + coord[1], 0) / coordinates.length;
+      
+      geojson = {
+        type: 'Point',
+        coordinates: [centerLng, centerLat]
+      };
+      
+      console.log('Converted polygon back to Point geometry:', geojson);
+    } else {
+      // Standard polygon geometry
+      geojson = {
+        type: 'Polygon',
+        coordinates: [coordinates]
+      };
+    }
     
     // Update both formData and geomScope
     formData.geom = geojson;
     geomScope.value = geojson;
     
-    // Recalculate area
-    calculateArea(geojson);
+    // Recalculate area (only for polygons)
+    if (geojson.type === 'Polygon') {
+      calculateArea(geojson);
+    } else {
+      // For points, set area to 0 or a small value
+      area_ha.value = 0;
+    }
     
-    console.log('Polygon data updated successfully:', geojson);
+    console.log('Geometry data updated successfully:', geojson);
     console.log('formData.geom after update:', formData.geom);
     console.log('geomScope.value after update:', geomScope.value);
     
     // Show user feedback
-    ElMessage.success('Geometry updated! Area: ' + area_ha.value + ' hectares');
+    if (geojson.type === 'Point') {
+      ElMessage.success('Point location updated!');
+    } else {
+      ElMessage.success('Geometry updated! Area: ' + area_ha.value + ' hectares');
+    }
     
     // Show status indicator
     const statusDiv = document.getElementById('geometry-status');
     const statusText = document.getElementById('geometry-status-text');
     if (statusDiv && statusText) {
-      statusText.textContent = `Geometry saved (${area_ha.value} ha)`;
+      if (geojson.type === 'Point') {
+        statusText.textContent = `Point location saved`;
+      } else {
+        statusText.textContent = `Geometry saved (${area_ha.value} ha)`;
+      }
       statusDiv.style.display = 'block';
       setTimeout(() => {
         statusDiv.style.display = 'none';
@@ -1779,6 +1992,50 @@ const updatePolygonData = (polygon) => {
   } catch (error) {
     console.error('Error updating polygon data:', error);
     ElMessage.error('Failed to update geometry: ' + error.message);
+  }
+}
+
+const updatePointData = (marker) => {
+  try {
+    // Get the marker position
+    const position = marker.getPosition();
+    const lng = position.lng();
+    const lat = position.lat();
+    
+    // Create Point GeoJSON
+    const geojson = {
+      type: 'Point',
+      coordinates: [lng, lat]
+    };
+    
+    // Update both formData and geomScope
+    formData.geom = geojson;
+    geomScope.value = geojson;
+    
+    // Set area to 0 for points
+    area_ha.value = 0;
+    
+    console.log('Point data updated successfully:', geojson);
+    console.log('formData.geom after update:', formData.geom);
+    console.log('geomScope.value after update:', geomScope.value);
+    
+    // Show user feedback
+    ElMessage.success('Point location updated!');
+    
+    // Show status indicator
+    const statusDiv = document.getElementById('geometry-status');
+    const statusText = document.getElementById('geometry-status-text');
+    if (statusDiv && statusText) {
+      statusText.textContent = `Point location saved`;
+      statusDiv.style.display = 'block';
+      setTimeout(() => {
+        statusDiv.style.display = 'none';
+      }, 3000);
+    }
+    
+  } catch (error) {
+    console.error('Error updating point data:', error);
+    ElMessage.error('Failed to update point location: ' + error.message);
   }
 }
 

@@ -257,6 +257,8 @@ const currentUser = wsCache.get(appStore.getUserInfo)
 
 const grmUsers=ref([])
 const grmUsersLoading=ref(false)
+const supportingStaffUsers=ref<Record<number, any>>({})
+const supportingStaffLoading=ref(false)
 
 const getGRMUsers = async (countyIds: any) => {
 
@@ -290,7 +292,10 @@ const getGRMUsers = async (countyIds: any) => {
     value: user.id,
   }));
 
- 
+  // Also store the users for supporting staff lookup
+  res.data.forEach(user => {
+    supportingStaffUsers.value[user.id] = user;
+  });
  
 }
  
@@ -809,6 +814,52 @@ const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
   return res;
 };
 
+// Helper function to get supporting staff name by ID
+const getSupportingStaffName = (staffId: number): string => {
+  const staff = supportingStaffUsers.value[staffId];
+  return staff ? staff.name : `Staff ${staffId}`;
+}
+
+// Function to fetch supporting staff data
+const fetchSupportingStaffData = async () => {
+  if (supportingStaffLoading.value) return;
+  
+  supportingStaffLoading.value = true;
+  
+  try {
+    // Collect all unique supporting staff IDs from the current data
+    const staffIds = new Set<number>();
+    
+    tableDataList.value.forEach(grievance => {
+      if (grievance.reffered_to_support_staff && Array.isArray(grievance.reffered_to_support_staff)) {
+        grievance.reffered_to_support_staff.forEach(id => {
+          if (id && !supportingStaffUsers.value[id]) {
+            staffIds.add(id);
+          }
+        });
+      }
+    });
+    
+    // If we have new staff IDs to fetch
+    if (staffIds.size > 0) {
+      const staffIdsArray = Array.from(staffIds);
+      console.log('Fetching supporting staff data for IDs:', staffIdsArray);
+      
+      // Fetch user details for the supporting staff IDs
+      const userResponse = await getUsersByIds(staffIdsArray, ['id', 'name', 'phone', 'email']);
+      
+      if (userResponse.data) {
+        userResponse.data.forEach((user: any) => {
+          supportingStaffUsers.value[user.id] = user;
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching supporting staff data:', error);
+  } finally {
+    supportingStaffLoading.value = false;
+  }
+}
 
 const getFilteredData = async (selFilters: string[], selfilterValues: any[][]) => {
 
@@ -877,6 +928,9 @@ for (let i = 0; i < selfilterValues.length; i++) {
   availableFields.value = extractFields(tableDataList.value);
 
   total.value = res.total
+
+  // Fetch supporting staff data if we have referred grievances
+  await fetchSupportingStaffData()
 
   // Update the count for the current active segment
   Statuses.value.forEach(status => {
@@ -1008,6 +1062,7 @@ const DeleteIndicator = async (data: TableSlotDefault) => {
     console.log(tableDataList.value)
 
   }
+
 
 
 
@@ -3546,7 +3601,7 @@ const filterByOfficer = async (officerId: number, officerName: string) => {
         </el-table-column> -->
 
         <!-- Show only in 'Referred' tab -->
-        <el-table-column label="Referred To" width="200" v-if="activeSegment === 'Referred'">
+        <el-table-column label="Referred To" width="250" v-if="activeSegment === 'Referred'">
           <template #default="{ row }">
             <div class="referred-officer">
               <div v-if="row.reffered_to_officer && row.users" class="officer-info" style="flex-direction:column;align-items:flex-start;gap:0;">
@@ -3555,6 +3610,22 @@ const filterByOfficer = async (officerId: number, officerName: string) => {
               </div>
               <div v-else class="no-officer">
                 <el-tag size="small" type="info">Not assigned</el-tag>
+              </div>
+              
+              <!-- Supporting Staff Section -->
+              <div v-if="row.reffered_to_support_staff && row.reffered_to_support_staff.length > 0" class="supporting-staff">
+                <div class="supporting-staff-label">Supported by:</div>
+                <div class="supporting-staff-list">
+                  <el-tag 
+                    v-for="staffId in row.reffered_to_support_staff" 
+                    :key="staffId"
+                    size="small" 
+                    type="success"
+                    class="staff-tag"
+                  >
+                    {{ getSupportingStaffName(staffId) }}
+                  </el-tag>
+                </div>
               </div>
             </div>
           </template>
@@ -4699,6 +4770,36 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* Supporting Staff Styles */
+.supporting-staff {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e4e7ed;
+}
+
+.supporting-staff-label {
+  font-size: 11px;
+  font-weight: 300;
+  color: #606266;
+  margin-bottom: 4px;
+  text-transform: propercase;
+  letter-spacing: 0.5px;
+}
+
+.supporting-staff-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.staff-tag {
+  font-size: 10px;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Row Status Classes */
