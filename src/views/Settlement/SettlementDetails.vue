@@ -1,15 +1,15 @@
 <script setup lang="ts">
 import { Descriptions } from '@/components/Descriptions'
 import { useI18n } from '@/hooks/web/useI18n'
-import { onMounted, defineAsyncComponent, ref, reactive, computed } from 'vue'
+import { onMounted, defineAsyncComponent, ref, reactive, computed, watch } from 'vue'
 import {
-  ElInput, ElButton, ElTabPane, ElTabs, ElCard, ElTable, ElTableColumn, ElMessage, ElDrawer,   ElSelect,
-  ElIcon, ElPopconfirm, ElPagination,ElRow,ElCol,
+  ElInput, ElButton, ElTabPane, ElTabs, ElCard, ElTable, ElTableColumn, ElMessage, ElDrawer, ElImage,  ElSelect,
+  ElIcon, ElPopconfirm, ElPagination,ElRow,ElCol,ElDialog
 } from 'element-plus'
 import { useRoute } from 'vue-router'
 import {
   getSettlementListByCounty} from '@/api/settlements'
-import { Back, Upload, Search, Edit, More, RefreshLeft } from '@element-plus/icons-vue'
+import { Back, Upload, Search, Edit, More, RefreshLeft, Picture, Download } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { getFile } from '@/api/summary'
 import jsPDF from 'jspdf'
@@ -395,6 +395,7 @@ const getFilteredData = async (selFilters: string[], selfilterValues: any[][]) =
 };
 
 const settlementId=ref(route.params.id)
+
 onMounted(async () => {
 
 
@@ -853,9 +854,45 @@ const collapsedSections = reactive({
 
 const collapsedDocumentSections = reactive({})
 
-// Group documents by `document_type.type`
+// Initialize all document sections as collapsed when documents are loaded
+const initializeDocumentSections = () => {
+  // Initialize Photos section if photos exist
+  if (photos.value.length > 0) {
+    collapsedDocumentSections['Photos'] = true; // true means collapsed/closed
+  }
+  
+  // Initialize other document sections
+  Object.keys(groupedDocuments.value).forEach(type => {
+    collapsedDocumentSections[type] = true; // true means collapsed/closed
+  });
+};
+
+// Separate photos from other documents
+const photos = computed(() => {
+  return settlementDocuments.value.filter(doc => {
+    const format = doc.format?.toLowerCase() || '';
+    const isPhoto = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'tiff', 'tif'].includes(format);
+    return isPhoto;
+  });
+});
+
+// Photo preview state
+const photoPreviewVisible = ref(false)
+const currentPhoto = ref(null)
+const currentPhotoIndex = ref(0)
+const previewPhotoUrl = ref('')
+const previewLoading = ref(false)
+const downloadLoading = ref(false)
+
+// Group documents by `document_type.type` (excluding photos)
 const groupedDocuments = computed(() => {
-  return settlementDocuments.value.reduce((groups, doc) => {
+  const nonPhotoDocs = settlementDocuments.value.filter(doc => {
+    const format = doc.format?.toLowerCase() || '';
+    const isPhoto = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'tiff', 'tif'].includes(format);
+    return !isPhoto;
+  });
+  
+  return nonPhotoDocs.reduce((groups, doc) => {
     const type = doc["document_type.type"] || "Unknown";
     if (!groups[type]) {
       groups[type] = [];
@@ -867,7 +904,8 @@ const groupedDocuments = computed(() => {
 
 
 const searchQuery = ref('')
-// Filter and group documents by `documeFFnt_type.type`
+
+// Filter and group documents by `document_type.type`
 const filteredGroupedDocuments = computed(() => {
   const query = searchQuery.value.toLowerCase();
 
@@ -887,13 +925,103 @@ const filteredGroupedDocuments = computed(() => {
   return filteredDocs;
 });
 
+// Watch for changes in groupedDocuments and initialize sections
+watch(groupedDocuments, () => {
+  initializeDocumentSections();
+}, { immediate: true });
+
+// Watch for changes in filteredGroupedDocuments to reinitialize sections when search changes
+watch(filteredGroupedDocuments, () => {
+  initializeDocumentSections();
+}, { immediate: true });
+
+// Watch for changes in photos to ensure Photos section is properly managed
+watch(photos, () => {
+  initializeDocumentSections();
+}, { immediate: true });
 
 
 
 
-// Toggle collapse state for a specific type
+
+// Toggle collapse state for a specific type (accordion behavior - only one open at a time)
 const toggleCollapse = (type) => {
+  // Close all other sections first
+  Object.keys(collapsedDocumentSections).forEach(key => {
+    if (key !== type) {
+      collapsedDocumentSections[key] = true; // true means collapsed/closed
+    }
+  });
+  
+  // Toggle the clicked section
   collapsedDocumentSections[type] = !collapsedDocumentSections[type];
+};
+
+// Photo preview function
+const previewPhoto = async (photo, index) => {
+  currentPhoto.value = photo;
+  currentPhotoIndex.value = index;
+  previewLoading.value = true;
+  photoPreviewVisible.value = true;
+  
+  try {
+    // Use the download structure to get the photo
+    const formData = {
+      filename: photo.name,
+      doc_id: photo.id,
+      responseType: 'blob'
+    };
+    
+    const response = await getFile(formData);
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    previewPhotoUrl.value = url;
+  } catch (error) {
+    console.error('Failed to load photo:', error);
+    ElMessage.error('Failed to load photo');
+  } finally {
+    previewLoading.value = false;
+  }
+};
+
+// Close photo preview
+const closePhotoPreview = () => {
+  photoPreviewVisible.value = false;
+  currentPhoto.value = null;
+  currentPhotoIndex.value = 0;
+  previewPhotoUrl.value = '';
+  previewLoading.value = false;
+  downloadLoading.value = false;
+};
+
+// Download current photo
+const downloadCurrentPhoto = async () => {
+  if (!currentPhoto.value) return;
+  
+  downloadLoading.value = true;
+  try {
+    const formData = {
+      filename: currentPhoto.value.name,
+      doc_id: currentPhoto.value.id,
+      responseType: 'blob'
+    };
+    
+    const response = await getFile(formData);
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', currentPhoto.value.name);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    
+    ElMessage.success('Photo downloaded successfully');
+  } catch (error) {
+    console.error('Failed to download photo:', error);
+    ElMessage.error('Failed to download photo');
+  } finally {
+    downloadLoading.value = false;
+  }
 };
 
 function makePlural(word) {
@@ -1524,50 +1652,91 @@ const generatePDFReport = () => {
 
 
 
-      <el-tab-pane  v-if="showAdminButtons||showEditButtons" label="Documents" name="documents">
+             <el-tab-pane  v-if="showAdminButtons||showEditButtons" label="Documents" name="documents">
 
-        <div>
-          <!-- Filter Input -->
-          <el-input
+                  <div>
+            <!-- Filter Input -->
+           <el-input
 v-model="searchQuery" type="text" placeholder="Search documents..." style="width: 100%"
-            :prefix-icon="Search" clearable />
+             :prefix-icon="Search" clearable />
 
-          <div
+           <!-- Photos Section (Collapsible) -->
+           <div v-if="photos.length > 0" :class="[prefixCls, 'bg-[var(--el-color-white)] dark:(bg-[var(--el-bg-color)] border-[var(--el-border-color)] border-1px) mb-4']">
+             <div
+               :class="[`${prefixCls}-header`, 'h-50px flex justify-between items-center mb-10px border-bottom-1 border-solid border-[var(--tags-view-border-color)] px-10px cursor-pointer dark:border-[var(--el-border-color)]']"
+               @click="toggleCollapse('Photos')">
+               <div :class="[`${prefixCls}-header__title`, 'relative text-base font-medium ml-10px']">
+                 <div class="flex items-center">
+                   Photos <span class="text-gray-500 ml-2 text-sm">({{ photos.length }})</span>
+                 </div>
+               </div>
+               <Icon :icon="collapsedDocumentSections['Photos'] ? 'ep:arrow-down' : 'ep:arrow-up'" />
+             </div>
+             <ElCollapseTransition>
+               <div v-show="!collapsedDocumentSections['Photos']" :class="[`${prefixCls}-content`, 'p-5px']">
+                 <!-- Photo Grid using Element Plus Image -->
+                 <div class="photo-grid">
+                   <div 
+                     v-for="(photo, index) in photos" 
+                     :key="photo.id" 
+                     class="photo-item"
+                   >
+                                           <div 
+                        class="photo-placeholder"
+                        @click="previewPhoto(photo, index)"
+                      >
+                        <div class="placeholder-content">
+                          <el-icon class="placeholder-icon"><Picture /></el-icon>
+                          <span class="placeholder-text">Click to Preview</span>
+                        </div>
+                      </div>
+                     <div class="photo-info">
+                       <div class="photo-name">{{ photo.name }}</div>
+                       <div class="photo-format">{{ photo.format?.toUpperCase() }}</div>
+                     </div>
+                   </div>
+                 </div>
+               </div>
+             </ElCollapseTransition>
+           </div>
+
+           <!-- Other Documents -->
+           <div
 v-for="(docs, type) in filteredGroupedDocuments" :key="type"
-            :class="[prefixCls, 'bg-[var(--el-color-white)] dark:(bg-[var(--el-bg-color)] border-[var(--el-border-color)] border-1px)']">
-            <!-- Collapsible Header -->
-            <div
-              :class="[`${prefixCls}-header`, 'h-50px flex justify-between items-center mb-10px border-bottom-1 border-solid border-[var(--tags-view-border-color)] px-10px cursor-pointer dark:border-[var(--el-border-color)]']"
-              @click="toggleCollapse(type)">
-              <div :class="[`${prefixCls}-header__title`, 'relative text-base font-medium ml-10px']">
-                <div class="flex items-center">
-                  {{ makePlural(type) }} <span class="text-gray-500 ml-2 text-sm">({{ docs.length }})</span>
-                </div>
-              </div>
-              <Icon :icon="collapsedDocumentSections[type] ? 'ep:arrow-down' : 'ep:arrow-up'" />
-            </div>
+             :class="[prefixCls, 'bg-[var(--el-color-white)] dark:(bg-[var(--el-bg-color)] border-[var(--el-border-color)] border-1px)']">
+             <!-- Collapsible Header -->
+             <div
+               :class="[`${prefixCls}-header`, 'h-50px flex justify-between items-center mb-10px border-bottom-1 border-solid border-[var(--tags-view-border-color)] px-10px cursor-pointer dark:border-[var(--el-border-color)]']"
+               @click="toggleCollapse(type)">
+               <div :class="[`${prefixCls}-header__title`, 'relative text-base font-medium ml-10px']">
+                 <div class="flex items-center">
+                   {{ makePlural(type) }} <span class="text-gray-500 ml-2 text-sm">({{ docs.length }})</span>
+                 </div>
+               </div>
+               <Icon :icon="collapsedDocumentSections[type] ? 'ep:arrow-down' : 'ep:arrow-up'" />
+             </div>
 
-            <!-- Collapsible Content -->
-            <ElCollapseTransition>
-              <div v-show="!collapsedDocumentSections[type]" :class="[`${prefixCls}-content`, 'p-10px']">
-                <el-table :data="docs" style="width: 100%">
-                  <el-table-column type="index" width="50" />
-                  <el-table-column prop="name" label="Name" />
-                  <el-table-column prop="createdAt" label="Uploaded" />
-                  <el-table-column fixed="right" label="">
-                    <template #default="scope">
-                      <el-button plain :loading="loadingStates[scope.row.id]" @click="downloadFile(scope.row)">
-                        <Icon icon="fa-solid:download" style="margin-right: 5px;" />
-                        Download
-                      </el-button>
-                    </template>
-                  </el-table-column>
-                </el-table>
-              </div>
-            </ElCollapseTransition>
-          </div>
-        </div>
-      </el-tab-pane>
+             <!-- Collapsible Content -->
+             <ElCollapseTransition>
+               <div v-show="!collapsedDocumentSections[type]" :class="[`${prefixCls}-content`, 'p-10px']">
+                 <el-table :data="docs" style="width: 100%">
+                   <el-table-column type="index" width="50" />
+                   <el-table-column prop="name" label="Name" />
+                   <el-table-column prop="createdAt" label="Uploaded" />
+                   <el-table-column fixed="right" label="">
+                     <template #default="scope">
+                       <el-button plain :loading="loadingStates[scope.row.id]" @click="downloadFile(scope.row)">
+                         <Icon icon="fa-solid:download" style="margin-right: 5px;" />
+                         Download
+                         </el-button>
+                     </template>
+                   </el-table-column>
+                 </el-table>
+               </div>
+             </ElCollapseTransition>
+           </div>
+         </div>
+       </el-tab-pane>
 
       <el-tab-pane label="Projects" name="Projects">
         <el-card>
@@ -1788,7 +1957,91 @@ width="300" title="Are you sure to delete this project?"
         prop="value"
         label=""/>
      </el-table>
-  </el-drawer>
+     </el-drawer>
+
+   <!-- Photo Preview Modal -->
+   <el-dialog 
+     v-model="photoPreviewVisible" 
+     :title="currentPhoto?.name || 'Photo Preview'"
+     width="50%"
+     :show-close="true"
+     @close="closePhotoPreview"
+     class="photo-preview-dialog"
+   >
+     <div class="photo-preview-container">
+       <div v-if="previewLoading" class="preview-loading">
+         <el-icon class="is-loading"><Picture /></el-icon>
+         <span>Loading photo...</span>
+       </div>
+       
+       <div v-else-if="previewPhotoUrl" class="preview-image-container">
+         <img 
+           :src="previewPhotoUrl" 
+           :alt="currentPhoto?.name"
+           class="preview-image"
+         />
+       </div>
+       
+       <div v-else class="preview-error">
+         <el-icon><Picture /></el-icon>
+         <span>Failed to load photo</span>
+       </div>
+     </div>
+     
+     <!-- Photo Details -->
+     <div v-if="currentPhoto" class="photo-details">
+       <div class="detail-row">
+         <span class="detail-label">Name:</span>
+         <span class="detail-value">{{ currentPhoto.name }}</span>
+       </div>
+       <div class="detail-row">
+         <span class="detail-label">Format:</span>
+         <span class="detail-value">{{ currentPhoto.format?.toUpperCase() }}</span>
+       </div>
+       <div class="detail-row">
+         <span class="detail-label">Uploaded:</span>
+         <span class="detail-value">{{ formatDate(currentPhoto.createdAt) }}</span>
+       </div>
+     </div>
+     
+     <!-- Navigation Controls -->
+     <template #footer>
+       <div class="preview-footer">
+         <div class="preview-counter">
+           {{ currentPhotoIndex + 1 }} / {{ photos.length }}
+         </div>
+         <div class="preview-actions">
+           <el-button 
+             :disabled="currentPhotoIndex === 0"
+             @click="previewPhoto(photos[currentPhotoIndex - 1], currentPhotoIndex - 1)"
+             type="primary"
+             :icon="Back"
+             circle
+           />
+           <el-button 
+             :disabled="currentPhotoIndex === photos.length - 1"
+             @click="previewPhoto(photos[currentPhotoIndex + 1], currentPhotoIndex + 1)"
+             type="primary"
+             :icon="Back"
+             circle
+             style="transform: rotate(180deg);"
+           />
+         </div>
+         <div class="preview-download">
+           <el-button 
+             type="success"
+             :icon="Download"
+             @click="downloadCurrentPhoto"
+             :loading="downloadLoading"
+           >
+             Download
+           </el-button>
+         </div>
+       </div>
+     </template>
+   </el-dialog>
+
+   
 
 </template>
 
@@ -2028,4 +2281,246 @@ width="300" title="Are you sure to delete this project?"
 .td-bold {
    font-weight: bold; /* Italicized text */
 }
+
+/* Photo Grid Styles */
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 16px;
+  padding: 16px 0;
+}
+
+.photo-item {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  background: var(--el-bg-color);
+}
+
+.photo-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+/* Photo Placeholder Styles */
+.photo-placeholder {
+  width: 100%;
+  height: 80px;
+  cursor: pointer;
+  background: var(--el-fill-color-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  border: 1px solid var(--el-border-color);
+}
+
+.photo-placeholder:hover {
+  background: var(--el-fill-color);
+  border-color: var(--el-color-primary);
+  transform: scale(1.02);
+}
+
+.placeholder-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.placeholder-icon {
+  font-size: 24px;
+  color: var(--el-text-color-placeholder);
+  margin-bottom: 5px;
+}
+
+.photo-placeholder:hover .placeholder-icon {
+  color: var(--el-color-primary);
+}
+
+.placeholder-text {
+  font-size: 12px;
+  color: var(--el-text-color-regular);
+  font-weight: 500;
+}
+
+.photo-placeholder:hover .placeholder-text {
+  color: var(--el-color-primary);
+}
+
+.photo-info {
+  padding: 8px;
+  background: var(--el-bg-color);
+  backdrop-filter: blur(10px);
+}
+
+.photo-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--el-text-color-primary);
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.photo-format {
+  font-size: 10px;
+  color: var(--el-text-color-regular);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.image-placeholder,
+.image-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--el-text-color-placeholder);
+  font-size: 12px;
+}
+
+.image-placeholder .el-icon,
+.image-error .el-icon {
+  font-size: 24px;
+  margin-bottom: 4px;
+}
+
+.image-error {
+  color: var(--el-color-danger);
+}
+
+/* Photo Preview Styles */
+.photo-preview-dialog {
+  .el-dialog__body {
+    padding: 20px;
+  }
+}
+
+.photo-preview-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.preview-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: var(--el-text-color-regular);
+}
+
+.preview-loading .el-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  animation: spin 1s linear infinite;
+}
+
+.preview-image-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.preview-image {
+  max-width: 100%;
+  max-height: 400px;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.preview-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: var(--el-color-danger);
+}
+
+.preview-error .el-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.photo-details {
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  border: 1px solid var(--el-border-color);
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.detail-row:last-child {
+  margin-bottom: 0;
+}
+
+.detail-label {
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.detail-value {
+  color: var(--el-text-color-regular);
+}
+
+.preview-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.preview-download {
+  margin-left: auto;
+}
+
+.preview-counter {
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.preview-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex: 1;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .photo-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 12px;
+  }
+  
+  .photo-placeholder {
+    height: 120px;
+  }
+  
+  .photo-preview-dialog {
+    width: 95% !important;
+  }
+}
+
+
+
 </style>

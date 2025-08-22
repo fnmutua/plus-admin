@@ -247,7 +247,7 @@ const xgroups = ref({
 
   },
   Others: {
-    photos: [],
+    // photos: [], // Photos are excluded from the list
     ownership_documents: [],
     registration_documents: [],
 

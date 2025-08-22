@@ -295,10 +295,20 @@ const loadDocumentRepository = async (params: any = {}) => {
     const responseData = (response as any).data || (response as any).results || response
     
     if ((response as any).success && responseData) {
-      documents.value = responseData.documents || []
+      // Filter out photo/image documents
+      const allDocuments = responseData.documents || []
+      const filteredDocuments = allDocuments.filter(doc => {
+        const format = doc.format?.toLowerCase() || ''
+        const isPhoto = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'tiff', 'tif'].includes(format)
+        return !isPhoto // Exclude photos from the list
+      })
+      
+      documents.value = filteredDocuments
       categoryCounts.value = responseData.categoryCounts || {}
+      
+      // Keep the original total count for pagination, but update the displayed count
       totalDocuments.value = responseData.totalDocuments || 0
-      totalDocs.value = responseData.pagination?.totalItems || 0
+      totalDocs.value = responseData.pagination?.totalItems || responseData.totalDocuments || 0
       
       // Add deletable property based on permissions
       documents.value.forEach(doc => {
@@ -310,6 +320,12 @@ const loadDocumentRepository = async (params: any = {}) => {
 
       // Ensure pagination is valid
       if (totalDocs.value < pageSize.value) {
+        currentPage.value = 1
+      }
+      
+      // If current page is beyond the available data, reset to first page
+      const maxPage = Math.ceil(totalDocs.value / pageSize.value)
+      if (currentPage.value > maxPage && maxPage > 0) {
         currentPage.value = 1
       }
     } else {
@@ -1007,6 +1023,18 @@ const filteredCategoryCounts = computed(() => {
   return filtered
 })
 
+// Computed property to show filtered vs total documents
+const displayInfo = computed(() => {
+  const filteredCount = documents.value.length
+  const totalCount = totalDocs.value
+  
+  if (filteredCount === totalCount) {
+    return `Showing ${filteredCount} documents`
+  } else {
+    return `Showing ${filteredCount} of ${totalCount} documents (photos excluded)`
+  }
+})
+
 const importDrawerVisible = ref(false)
 const importStep = ref(0)
 const importFileList = ref<any[]>([])
@@ -1261,6 +1289,7 @@ const importFiles = async () => {
 }
 
 const filterDrawerSize = computed(() => isMobile.value ? '100%' : '400px')
+const editDrawerSize = computed(() => isMobile.value ? '100%' : '40%')
 const importDrawerSize = computed(() => isMobile.value ? '100%' : '40%')
 
 </script>
@@ -1348,16 +1377,21 @@ const importDrawerSize = computed(() => isMobile.value ? '100%' : '40%')
     </div>
  
 
-    <!-- Documents Table -->
-    <el-table 
-      :data="documents" 
-      style="width: 100%" 
-      size="small" 
-      class="thin-rows-table" 
-      border 
-      v-loading="loading"
-      @selection-change="handleSelectionChange"
-    >
+         <!-- Documents Display Info -->
+     <div class="documents-info" style="margin: 10px 0; padding: 8px; background-color: #f0f9ff; border-radius: 4px; border-left: 4px solid #3b82f6;">
+       <span style="font-size: 14px; color: #1e40af;">{{ displayInfo }}</span>
+     </div>
+     
+     <!-- Documents Table -->
+     <el-table 
+       :data="documents" 
+       style="width: 100%" 
+       size="small" 
+       class="thin-rows-table" 
+       border 
+       v-loading="loading"
+       @selection-change="handleSelectionChange"
+     >
       <!-- Selection Column -->
       <el-table-column type="selection" width="55" />
       

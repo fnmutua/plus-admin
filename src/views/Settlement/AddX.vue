@@ -213,8 +213,8 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { ElCard, ElPopconfirm, ElCascader, ElCascaderPanel, ElTooltip, ElTour, ElTourStep, ElDialog, ElUpload,   } from 'element-plus'
 import { useRouter } from 'vue-router'
 
-import { steps, formFields, formData, formRules } from './common/fields.ts'
-import { subcountyOptions, wardOptions, settlementOptionsV2 } from './common/index.ts'
+import { steps, formFields, formData, formRules } from './common/fields'
+import { subcountyOptions, wardOptions, settlementOptionsV2 } from './common/index'
 import { createHousehold, getOneHousehold, updateHousehold } from '@/api/households'
 import shortid from 'shortid';
 import { useRoute } from 'vue-router'
@@ -236,8 +236,8 @@ import {
   ElSteps,
   ElStep, ElRow, ElCol,
   ElSelect, ElOption,
-  Form as ElFormInstance
 } from 'element-plus';
+import type { FormInstance } from 'element-plus';
 import readShapefileAndConvertToGeoJSON from '@/utils/readShapefile'
 import proj4 from 'proj4';
 import { countyOptions } from './common';
@@ -903,8 +903,37 @@ const nextStep = async () => {
   if ((currentStep.value + 1) == (totalSteps.value - 1)) {
     console.log('Last Step')
 
-    console.log('mapContainer', mapContainer)
-    await new Promise(resolve => setTimeout(resolve, 100));  //delay for 2 seconds the call loadmap
+    // Wait for DOM to be fully rendered and then check for map container
+    await new Promise(resolve => setTimeout(resolve, 300));  // Increased delay to ensure DOM is ready
+
+    // Try multiple times to find the map container
+    let mapContainerElement = null;
+    let attempts = 0;
+    const maxAttempts = 10;
+    
+    while (!mapContainerElement && attempts < maxAttempts) {
+      mapContainerElement = document.getElementById('mapContainer');
+      if (!mapContainerElement) {
+        console.log(`Map container not found, attempt ${attempts + 1}/${maxAttempts}`);
+        await new Promise(resolve => setTimeout(resolve, 100));
+        attempts++;
+      }
+    }
+
+    if (!mapContainerElement) {
+      console.error('Map container not found after multiple attempts');
+      ElMessage.error('Map container not found. Please refresh the page and try again.');
+      return;
+    }
+
+    console.log('mapContainer found:', mapContainerElement)
+    
+    // Additional check to ensure the container is visible and has dimensions
+    const rect = mapContainerElement.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) {
+      console.warn('Map container has zero dimensions, waiting for layout...');
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
 
     loadMap()
     // toggleDrawToolbox('digitize')
@@ -917,11 +946,26 @@ const loadMap = async () => {
   try {
     console.log("Loading Google Maps...");
     
-    // Check if map container exists
+    // Check if map container exists and is properly rendered
     const mapContainer = document.getElementById('mapContainer');
     if (!mapContainer) {
       throw new Error('Map container not found');
     }
+    
+    // Check if container has proper dimensions
+    const rect = mapContainer.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) {
+      console.warn('Map container has zero dimensions, waiting for layout...');
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Check again after waiting
+      const newRect = mapContainer.getBoundingClientRect();
+      if (newRect.width === 0 || newRect.height === 0) {
+        throw new Error('Map container still has zero dimensions after waiting');
+      }
+    }
+    
+    console.log('Map container dimensions:', rect.width, 'x', rect.height);
     
     // Load Google Maps API
     await loader.load();
@@ -929,6 +973,11 @@ const loadMap = async () => {
     // Check if google object is available
     if (!window.google || !window.google.maps) {
       throw new Error('Google Maps API not loaded properly');
+    }
+    
+    // Check if drawing library is available
+    if (!window.google.maps.drawing) {
+      console.warn('Drawing library not available, will load basic map functionality');
     }
     
          // Function to get map styles based on theme
@@ -1038,6 +1087,11 @@ const loadMap = async () => {
       
                // Initialize drawing manager
          try {
+           // Check if drawing library is available
+           if (!google.maps.drawing) {
+             throw new Error('Drawing library not loaded. Please ensure the drawing library is included in the Google Maps API.');
+           }
+           
            drawingManager.value = new google.maps.drawing.DrawingManager({
              drawingMode: null,
              drawingControl: false, // Hide default drawing controls
@@ -1091,7 +1145,25 @@ const loadMap = async () => {
         ElMessage.success('Google Maps loaded successfully');
       } catch (drawingError) {
         console.error("Error initializing drawing manager:", drawingError);
-        ElMessage.warning('Map loaded but drawing features may not be available');
+        ElMessage.warning('Map loaded but drawing features may not be available. Error: ' + drawingError.message);
+        
+        // Try to load basic map functionality without drawing
+        try {
+          // Add basic event listeners
+          google.maps.event.addListener(googleMap.value, 'mousemove', onMouseMove);
+          
+          // Load existing geometry if available (for editing sessions)
+          if (geomScope.value && Object.keys(geomScope.value).length > 0) {
+            console.log('Loading existing geometry without drawing manager');
+            setTimeout(() => {
+              loadExistingGeometry();
+            }, 100);
+          }
+          
+          ElMessage.info('Basic map loaded. Drawing features are not available.');
+        } catch (basicError) {
+          console.error("Error setting up basic map functionality:", basicError);
+        }
       }
     });
     
@@ -1125,15 +1197,26 @@ const loadMap = async () => {
            ] : [];
          };
          
-                   googleMap.value = new google.maps.Map(document.getElementById('mapContainer'), {
-            center: { lat: 1.137451, lng: 37.137343 },
-            zoom: 8,
-            mapTypeId: google.maps.MapTypeId.ROADMAP,
-            mapTypeControl: false, // Hide default map type controls
-            styles: getMapStyles()
-          });
+         googleMap.value = new google.maps.Map(document.getElementById('mapContainer'), {
+           center: { lat: 1.137451, lng: 37.137343 },
+           zoom: 8,
+           mapTypeId: google.maps.MapTypeId.ROADMAP,
+           mapTypeControl: false, // Hide default map type controls
+           styles: getMapStyles()
+         });
+         
+         // Add basic event listeners
+         google.maps.event.addListener(googleMap.value, 'mousemove', onMouseMove);
+         
+         // Load existing geometry if available (for editing sessions)
+         if (geomScope.value && Object.keys(geomScope.value).length > 0) {
+           console.log('Loading existing geometry in fallback mode');
+           setTimeout(() => {
+             loadExistingGeometry();
+           }, 100);
+         }
         
-        ElMessage.warning('Basic map loaded. Drawing features may not be available.');
+        ElMessage.warning('Basic map loaded. Drawing features are not available.');
       } else {
         ElMessage.error('Failed to load Google Maps. Please check your internet connection and API key.');
       }
@@ -1557,18 +1640,19 @@ const addUnifiedToolbar = () => {
        
        <!-- Draw Tool -->
        <button id="draw-tool" style="
-         background: #2196F3;
+         background: ${window.google?.maps?.drawing ? '#2196F3' : '#9E9E9E'};
          border: none;
          border-radius: 4px;
          padding: 8px 12px;
-         cursor: pointer;
+         cursor: ${window.google?.maps?.drawing ? 'pointer' : 'not-allowed'};
          font-size: 12px;
          color: white;
          display: flex;
          align-items: center;
          gap: 4px;
          transition: background-color 0.2s;
-       " title="Draw Polygon">
+         opacity: ${window.google?.maps?.drawing ? '1' : '0.6'};
+       " title="${window.google?.maps?.drawing ? 'Draw Polygon' : 'Drawing not available'}" ${!window.google?.maps?.drawing ? 'disabled' : ''}>
          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 14px; height: 14px;">
            <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
            <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -1652,6 +1736,13 @@ const addUnifiedToolbar = () => {
    const uploadTool = toolbar.querySelector('#upload-tool');
    const mapTypeTool = toolbar.querySelector('#map-type-tool');
    const satelliteTool = toolbar.querySelector('#satellite-tool');
+   
+   // Disable draw tool if drawing library is not available
+   if (drawTool && !window.google?.maps?.drawing) {
+     drawTool.disabled = true;
+     drawTool.style.cursor = 'not-allowed';
+     drawTool.style.opacity = '0.6';
+   }
   
   // Pan tool functionality
   panTool.addEventListener('click', () => {
@@ -1665,7 +1756,9 @@ const addUnifiedToolbar = () => {
     }
     
     // Change cursor to grab
-    googleMap.value.setOptions({ draggableCursor: 'grab' });
+    if (googleMap.value) {
+      googleMap.value.setOptions({ draggableCursor: 'grab' });
+    }
     
     ElMessage.info('Pan mode activated. Click and drag to move the map.');
   });
@@ -1676,15 +1769,21 @@ const addUnifiedToolbar = () => {
     panTool.style.background = '#4CAF50';
     drawTool.style.background = '#1976D2';
     
-    // Set drawing mode to polygon
-    if (drawingManager.value) {
+    // Check if drawing manager is available
+    if (drawingManager.value && window.google.maps.drawing) {
       drawingManager.value.setDrawingMode(google.maps.drawing.OverlayType.POLYGON);
+      
+      // Change cursor to crosshair
+      if (googleMap.value) {
+        googleMap.value.setOptions({ draggableCursor: 'crosshair' });
+      }
+      
+      ElMessage.info('Draw mode activated. Click to add polygon vertices, double-click to finish.');
+    } else {
+      ElMessage.warning('Drawing functionality is not available. Please refresh the page or check your internet connection.');
+      // Reset button style
+      drawTool.style.background = '#2196F3';
     }
-    
-    // Change cursor to crosshair
-    googleMap.value.setOptions({ draggableCursor: 'crosshair' });
-    
-    ElMessage.info('Draw mode activated. Click to add polygon vertices, double-click to finish.');
   });
   
      // Upload tool functionality
