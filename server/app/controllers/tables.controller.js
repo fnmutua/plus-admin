@@ -5470,11 +5470,15 @@ exports.getDocumentRepository = async (req, res) => {
       sortBy = 'createdAt',
       sortOrder = 'DESC',
       excludePhotos = false,
-      excludeFormats = []
+      excludeFormats = [],
+      uploaderFilter = null,
+      dateFilter = null
     } = req.body;
 
     console.log('getDocumentRepository - Request body:', req.body);
     console.log('getDocumentRepository - categoryFilter:', categoryFilter);
+    console.log('getDocumentRepository - uploaderFilter:', uploaderFilter);
+    console.log('getDocumentRepository - dateFilter:', dateFilter);
     console.log('getDocumentRepository - excludePhotos:', excludePhotos);
     console.log('getDocumentRepository - excludeFormats:', excludeFormats);
 
@@ -5546,6 +5550,71 @@ exports.getDocumentRepository = async (req, res) => {
         baseQuery.where = categoryCondition;
       }
       console.log('getDocumentRepository - Applied category filter:', categoryCondition);
+    }
+
+    // Add uploader filter
+    if (uploaderFilter) {
+      const uploaderCondition = Array.isArray(uploaderFilter) 
+        ? { createdBy: { [Op.in]: uploaderFilter } }
+        : { createdBy: uploaderFilter };
+      
+      if (baseQuery.where) {
+        baseQuery.where = { [Op.and]: [baseQuery.where, uploaderCondition] };
+      } else {
+        baseQuery.where = uploaderCondition;
+      }
+      console.log('getDocumentRepository - Applied uploader filter:', uploaderCondition);
+    }
+
+    // Add date filter
+    if (dateFilter && dateFilter.startDate && dateFilter.endDate) {
+      const startDate = new Date(dateFilter.startDate);
+      const endDate = new Date(dateFilter.endDate);
+      
+      console.log('getDocumentRepository - Date filter received:');
+      console.log('  Raw startDate:', dateFilter.startDate);
+      console.log('  Raw endDate:', dateFilter.endDate);
+      console.log('  Parsed startDate:', startDate);
+      console.log('  Parsed endDate:', endDate);
+      
+      const dateCondition = {
+        createdAt: {
+          [Op.between]: [startDate, endDate]
+        }
+      };
+      
+      if (baseQuery.where) {
+        baseQuery.where = { [Op.and]: [baseQuery.where, dateCondition] };
+      } else {
+        baseQuery.where = dateCondition;
+      }
+      console.log('getDocumentRepository - Applied date filter:', dateCondition);
+      
+      // Test query to see what documents exist in date range
+      try {
+        const testCount = await db.models.document.count({
+          where: {
+            createdAt: {
+              [Op.between]: [startDate, endDate]
+            }
+          }
+        });
+        console.log('getDocumentRepository - Documents in date range (before other filters):', testCount);
+        
+        // Also get some sample dates to understand data distribution
+        const sampleDocs = await db.models.document.findAll({
+          attributes: ['id', 'createdAt', 'name'],
+          order: [['createdAt', 'DESC']],
+          limit: 5
+        });
+        console.log('getDocumentRepository - Recent documents sample:');
+        sampleDocs.forEach(doc => {
+          console.log(`  ID: ${doc.id}, Name: ${doc.name}, Created: ${doc.createdAt}`);
+        });
+        
+      } catch (testError) {
+        console.log('getDocumentRepository - Error testing date range:', testError.message);
+      }
     }
 
     // Add user permission filters
@@ -5812,11 +5881,49 @@ exports.getDocumentRepository = async (req, res) => {
     // Add total documents count
     const totalDocuments = groupTotals.reduce((sum, item) => sum + parseInt(item.total), 0);
 
+    // Generate uploader counts
+    let uploaderCounts = {};
+    try {
+      const uploaderCountsRaw = await db.models.document.findAll({
+        include: [{
+          model: db.models.users,
+          as: 'user',
+          attributes: ['id', 'name']
+        }],
+        attributes: [
+          'createdBy',
+          [db.sequelize.fn('COUNT', db.sequelize.col('document.id')), 'count']
+        ],
+        group: ['document.createdBy', 'user.id', 'user.name'],
+        raw: true,
+        nest: false
+      });
+
+      uploaderCounts = uploaderCountsRaw.reduce((acc, item) => {
+        const userId = item.createdBy;
+        const userName = item['user.name'] || 'Unknown User';
+        const count = parseInt(item.count);
+        
+        acc[userId] = {
+          id: userId,
+          name: userName,
+          count: count
+        };
+        return acc;
+      }, {});
+      
+      console.log('getDocumentRepository - uploaderCounts:', uploaderCounts);
+    } catch (uploaderError) {
+      console.error('Error generating uploader counts:', uploaderError);
+      uploaderCounts = {};
+    }
+
     res.status(200).json({
       success: true,
       data: {
         documents: processedDocuments,
         categoryCounts: formattedCategoryCounts,
+        uploaderCounts: uploaderCounts,
         totalDocuments: totalDocuments,
         pagination: {
           currentPage: page,
@@ -5833,6 +5940,63 @@ exports.getDocumentRepository = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch document repository data',
+      error: error.message
+    });
+  }
+};
+
+exports.getDocumentUploaders = async (req, res) => {
+  try {
+    // Exclude photo formats - same list as in getDocumentRepository
+    const photoFormats = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'tiff', 'tif'];
+    
+    const uploaders = await db.models.document.findAll({
+      include: [{
+        model: db.models.users,
+        as: 'user',
+        attributes: ['id', 'name']
+      }],
+      attributes: [
+        'createdBy',
+        [db.sequelize.fn('COUNT', db.sequelize.col('document.id')), 'count']
+      ],
+      where: {
+        format: { [Op.notIn]: photoFormats }
+      },
+      group: ['document.createdBy', 'user.id', 'user.name'],
+      order: [[db.sequelize.fn('COUNT', db.sequelize.col('document.id')), 'DESC']],
+      raw: true,
+      nest: false
+    });
+
+    const formattedUploaders = uploaders.reduce((acc, item) => {
+      const userId = item.createdBy;
+      const userName = item['user.name'] || 'Unknown User';
+      const count = parseInt(item.count);
+      
+      acc[userId] = {
+        id: userId,
+        name: userName,
+        count: count
+      };
+      return acc;
+    }, {});
+
+    console.log('getDocumentUploaders - Found uploaders (non-photo documents only):', Object.keys(formattedUploaders).length);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        uploaders: formattedUploaders
+      },
+      code: '0000'
+    });
+
+  } catch (error) {
+    console.error('Error in getDocumentUploaders:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch document uploaders',
       error: error.message
     });
   }

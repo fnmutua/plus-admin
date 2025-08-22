@@ -1,11 +1,11 @@
 <!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
 import { useI18n } from '@/hooks/web/useI18n'
-import { getDocumentRepository } from '@/api/settlements'
+import { getDocumentRepository, getDocumentUploaders } from '@/api/settlements'
 import { getListWithoutGeo } from '@/api/counties'
 import { ElButton, ElRow, ElCol,ElDialog, ElCard, ElTable, ElTableColumn, ElCheckbox, ElPagination, ElTag,ElForm,ElFormItem,
-  ElInput, ElMessage, ElSelect, ElOption, ElDrawer, ElDivider,ElUpload } from 'element-plus'
-import { Document } from '@element-plus/icons-vue'
+  ElInput, ElMessage, ElSelect, ElOption, ElDrawer, ElDivider,ElUpload, ElTabs, ElTabPane, ElDatePicker } from 'element-plus'
+import { Document, Loading } from '@element-plus/icons-vue'
 import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useCache } from '@/hooks/web/useCache'
 import { deleteDocument, updateOneRecord } from '@/api/settlements'
@@ -201,9 +201,18 @@ const documents = ref<Document[]>([])
 const categoryCounts = ref<CategoryCounts>({})
 const totalDocuments = ref(0)
 const selectedCategories = ref(new Set<string>())
+const selectedUploaders = ref(new Set<string>())
 const currentlyFiltered = ref(false)
 const selectedDocuments = ref<Set<number>>(new Set())
 const drawerSearchTerm = ref('')
+const uploaderCounts = ref<{ [key: string]: { id: number, name: string, count: number } }>({})
+const activeFilterTab = ref('category')
+const uploadersLoading = ref(false)
+
+// Date filter variables
+const dateRange = ref<[Date, Date] | null>(null)
+const selectedDateRange = ref('')
+const customDateRange = ref<[Date, Date] | null>(null)
 
 // Mobile responsiveness
 const isMobile = computed(() => appStore.getMobile)
@@ -281,6 +290,11 @@ const loadDocumentRepository = async (params: any = {}) => {
       limit: pageSize.value,
       searchTerm: searchTerm.value || undefined,
       categoryFilter: selectedCategories.value.size > 0 ? Array.from(selectedCategories.value) : undefined,
+      uploaderFilter: selectedUploaders.value.size > 0 ? Array.from(selectedUploaders.value) : undefined,
+      dateFilter: dateRange.value ? {
+        startDate: dateRange.value[0].toISOString(),
+        endDate: dateRange.value[1].toISOString()
+      } : undefined,
       userFilters: roles_filters.length > 0 ? roles_filters : undefined,
       sortBy: 'createdAt',
       sortOrder: 'DESC', // Ensure latest uploads appear first
@@ -373,6 +387,7 @@ const loadDocumentRepository = async (params: any = {}) => {
       console.log('Sample document:', allDocuments[0])
       documents.value = allDocuments
       categoryCounts.value = responseData.categoryCounts || {}
+      // uploaderCounts now loaded separately via dedicated endpoint
       
       // Keep the original total count for pagination, but update the displayed count
       totalDocuments.value = responseData.totalDocuments || responseData.total || allDocuments.length
@@ -433,10 +448,107 @@ const handleCategoryToggle = (categoryId: string) => {
   selectedCategories.value = newSet
 }
 
+// Uploader filter handlers
+const handleUploaderToggle = (uploaderId: string) => {
+  const newSet = new Set(selectedUploaders.value)
+  if (newSet.has(uploaderId)) {
+    newSet.delete(uploaderId)
+  } else {
+    newSet.add(uploaderId)
+  }
+  selectedUploaders.value = newSet
+}
+
+// Date filter options
+const dateRangeOptions = [
+  { label: 'Today', value: 'today' },
+  { label: 'Yesterday', value: 'yesterday' },
+  { label: 'Last 7 days', value: 'last7days' },
+  { label: 'Last 30 days', value: 'last30days' },
+  { label: 'Last 3 months', value: 'last3months' },
+  { label: 'Last 6 months', value: 'last6months' },
+  { label: 'This year', value: 'thisyear' },
+  { label: 'Custom range', value: 'custom' }
+]
+
+// Date filter handlers
+const handleDateRangeSelect = (value: string) => {
+  selectedDateRange.value = value
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  
+  switch (value) {
+    case 'today':
+      const endOfToday = new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1)
+      dateRange.value = [today, endOfToday]
+      break
+    case 'yesterday':
+      const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000)
+      const endOfYesterday = new Date(yesterday.getTime() + 24 * 60 * 60 * 1000 - 1)
+      dateRange.value = [yesterday, endOfYesterday]
+      break
+    case 'last7days':
+      const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)
+      dateRange.value = [sevenDaysAgo, now]
+      break
+    case 'last30days':
+      const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000)
+      dateRange.value = [thirtyDaysAgo, now]
+      break
+    case 'last3months':
+      const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate())
+      dateRange.value = [threeMonthsAgo, now]
+      break
+    case 'last6months':
+      const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate())
+      dateRange.value = [sixMonthsAgo, now]
+      break
+    case 'thisyear':
+      const startOfYear = new Date(now.getFullYear(), 0, 1)
+      dateRange.value = [startOfYear, now]
+      break
+    case 'custom':
+      dateRange.value = customDateRange.value
+      break
+    default:
+      dateRange.value = null
+  }
+  
+  // Debug logging
+  if (dateRange.value) {
+    console.log('Date range selected:', value)
+    console.log('Start date:', dateRange.value[0])
+    console.log('End date:', dateRange.value[1])
+    console.log('Start ISO:', dateRange.value[0].toISOString())
+    console.log('End ISO:', dateRange.value[1].toISOString())
+  }
+}
+
+const handleCustomDateChange = (dates: [Date, Date] | null) => {
+  customDateRange.value = dates
+  if (selectedDateRange.value === 'custom') {
+    dateRange.value = dates
+  }
+}
+
+const clearDateFilter = () => {
+  selectedDateRange.value = ''
+  dateRange.value = null
+  customDateRange.value = null
+}
+
 const applyFilters = async () => {
   console.log('applyFilters - selectedCategories:', Array.from(selectedCategories.value));
+  console.log('applyFilters - selectedUploaders:', Array.from(selectedUploaders.value));
+  console.log('applyFilters - dateRange:', dateRange.value);
+  if (dateRange.value) {
+    console.log('applyFilters - dateRange ISO strings:', {
+      startDate: dateRange.value[0].toISOString(),
+      endDate: dateRange.value[1].toISOString()
+    });
+  }
   currentPage.value = 1
-  currentlyFiltered.value = selectedCategories.value.size > 0 || !!searchTerm.value
+  currentlyFiltered.value = selectedCategories.value.size > 0 || selectedUploaders.value.size > 0 || !!dateRange.value || !!searchTerm.value
   await loadDocumentRepository()
   filterDrawer.value = false
 }
@@ -445,6 +557,8 @@ const applyFilters = async () => {
 const clearFilters = async () => {
   searchTerm.value = ''
   selectedCategories.value = new Set<string>()
+  selectedUploaders.value = new Set<string>()
+  clearDateFilter()
   currentPage.value = 1
   currentlyFiltered.value = false
   await loadDocumentRepository()
@@ -1359,6 +1473,38 @@ const importFiles = async () => {
   }
 }
 
+// Load uploaders function
+const loadUploaders = async () => {
+  if (Object.keys(uploaderCounts.value).length > 0) {
+    return; // Already loaded
+  }
+  
+  uploadersLoading.value = true;
+  try {
+    const response = await getDocumentUploaders();
+    console.log('Uploaders response:', response);
+    
+    if ((response as any).success && (response as any).data) {
+      uploaderCounts.value = (response as any).data.uploaders || {};
+      console.log('Loaded uploaders:', uploaderCounts.value);
+    } else {
+      ElMessage.error('Failed to load uploaders');
+    }
+  } catch (error) {
+    console.error('Error loading uploaders:', error);
+    ElMessage.error('Failed to load uploaders');
+  } finally {
+    uploadersLoading.value = false;
+  }
+};
+
+// Handle tab change
+const handleTabChange = (tabName: string) => {
+  if (tabName === 'uploader') {
+    loadUploaders();
+  }
+};
+
 const filterDrawerSize = computed(() => isMobile.value ? '100%' : '400px')
 const editDrawerSize = computed(() => isMobile.value ? '100%' : '40%')
 const importDrawerSize = computed(() => isMobile.value ? '100%' : '40%')
@@ -1375,41 +1521,74 @@ const importDrawerSize = computed(() => isMobile.value ? '100%' : '40%')
     </template>
 
     <!-- Search and Filter Controls -->
-    <el-row :gutter="12" class="mb-2" >
-      <el-col  :gutter="12" :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-        <el-input
-          v-model="searchTerm"
-          placeholder="Search documents by name/settlement/county/format/uploader name"
-          clearable
-          @change="handleSearch"
-          @clear="clearFilters"
-        >
-          <template #append>
-            <el-button @click="handleSearch" type="primary">
+    <div class="controls-container">
+      <el-row :gutter="16" class="controls-row">
+        <!-- Search Section -->
+        <el-col :xs="24" :sm="24" :md="14" :lg="14" :xl="14" class="search-col">
+          <el-input
+            v-model="searchTerm"
+            placeholder="Search documents by name, settlement, county, format, or uploader..."
+            clearable
+            @change="handleSearch"
+            @clear="clearFilters"
+            size="default"
+            class="search-input"
+          >
+            <template #prepend>
               <Icon icon="material-symbols:search" width="16" />
+            </template>
+            <template #append>
+              <el-button @click="handleSearch" type="primary" :loading="loading">
+                Search
+              </el-button>
+            </template>
+          </el-input>
+        </el-col>
+        
+        <!-- Action Buttons Section -->
+        <el-col :xs="24" :sm="24" :md="10" :lg="10" :xl="10" class="actions-col">
+          <div class="action-buttons">
+            <el-button 
+              @click="importDrawerVisible = true" 
+              type="success" 
+              plain
+              class="action-btn"
+            >
+              <Icon icon="material-symbols:upload" width="16" />
+              <span class="btn-text">Upload</span>
             </el-button>
-          </template>
-        </el-input>
-      </el-col>
-      <el-col :xs="24" :sm="6" :md="4" :lg="4" :xl="4">
-        <el-button  plain   @click="importDrawerVisible = true"  >
-          <Icon icon="material-symbols:upload" width="18" style="margin-right: 4px;" />
-          upload
-        </el-button>
-      </el-col>
-      <el-col :xs="24" :sm="4" :md="4" :lg="4" :xl="4">
-        <el-button @click="filterDrawer = true" type="primary" plain   block>
-          <Icon icon="material-symbols:filter-list" width="16" />
-          Filter By Category
-        </el-button>
-      </el-col>
-      <el-col :xs="24" :sm="6" :md="4" :lg="4" :xl="4">
-        <el-button @click="clearFilters" type="info" plain   block :disabled="!currentlyFiltered">
-          <Icon icon="material-symbols:clear" width="16" style="margin-right: 2px;" />
-          Clear Filters ({{ selectedCategories.size + (searchTerm ? 1 : 0) }})
-        </el-button>
-      </el-col>
-    </el-row>
+            
+            <el-button 
+              @click="filterDrawer = true" 
+              type="primary" 
+              plain
+              class="action-btn"
+              :class="{ 'active-filter': currentlyFiltered }"
+            >
+              <Icon icon="material-symbols:filter-list" width="16" />
+              <span class="btn-text">Filters</span>
+              <el-badge 
+                v-if="selectedCategories.size + selectedUploaders.size + (dateRange ? 1 : 0) > 0" 
+                :value="selectedCategories.size + selectedUploaders.size + (dateRange ? 1 : 0)" 
+                class="filter-badge"
+              />
+            </el-button>
+            
+            <el-button 
+              @click="clearFilters" 
+              type="warning" 
+              plain
+              class="action-btn clear-btn"
+              :disabled="!currentlyFiltered"
+              v-if="currentlyFiltered"
+            >
+              <Icon icon="material-symbols:clear" width="16" />
+              <span class="btn-text">Clear</span>
+            </el-button>
+          </div>
+        </el-col>
+      </el-row>
+    </div>
     
     <!-- Selection Controls -->
     <div v-if="selectedDocuments.size > 0" style="margin: 10px 0; padding: 10px; background-color: #f5f7fa; border-radius: 4px;">
@@ -1553,16 +1732,16 @@ const importDrawerSize = computed(() => isMobile.value ? '100%' : '40%')
               @click="applyFilters" 
               type="primary" 
               size="small"
-              :disabled="selectedCategories.size === 0"
+              :disabled="selectedCategories.size === 0 && selectedUploaders.size === 0 && !dateRange"
             >
-              Apply Filters ({{ selectedCategories.size }})
+              Apply Filters ({{ selectedCategories.size + selectedUploaders.size + (dateRange ? 1 : 0) }})
             </el-button>
             <el-button 
-              @click="selectedCategories = new Set()" 
+              @click="() => { selectedCategories = new Set(); selectedUploaders = new Set(); clearDateFilter(); }" 
               type="info" 
               plain 
               size="small"
-              :disabled="selectedCategories.size === 0"
+              :disabled="selectedCategories.size === 0 && selectedUploaders.size === 0 && !dateRange"
             >
               Clear Selection
             </el-button>
@@ -1571,52 +1750,168 @@ const importDrawerSize = computed(() => isMobile.value ? '100%' : '40%')
       </template>
       
       <div style="padding: 10px;">
-        <!-- Search Input -->
-        <div class="drawer-search">
-          <el-input
-            v-model="drawerSearchTerm"
-            placeholder="Search document types..."
-            clearable
-            size="small"
-          >
-            <template #prefix>
-              <Icon icon="material-symbols:search" width="16" />
-            </template>
-          </el-input>
-        </div>
-        
-        <div v-if="Object.keys(filteredCategoryCounts).length > 0" class="filter-drawer-content">
-          <div v-for="(types, groupName) in filteredCategoryCounts" :key="groupName" class="filter-group">
-            <h4 class="filter-group-title">{{ formatText(groupName) }}</h4>
-            <div class="filter-checkboxes">
-              <div 
-                v-for="(typeData, typeId) in types" 
-                :key="typeId" 
-                class="filter-checkbox-item"
+        <!-- Filter Tabs -->
+        <el-tabs v-model="activeFilterTab" class="filter-tabs" @tab-change="handleTabChange">
+          <!-- By Category Tab -->
+          <el-tab-pane label="By Category" name="category">
+            <!-- Search Input -->
+            <div class="drawer-search">
+              <el-input
+                v-model="drawerSearchTerm"
+                placeholder="Search document types..."
+                clearable
+                size="small"
               >
-                <el-checkbox 
-                  :model-value="selectedCategories.has(String(typeId))"
-                  @change="() => handleCategoryToggle(String(typeId))"
-                  class="filter-checkbox"
-                >
-                  <div class="checkbox-content">
-                    <span class="checkbox-label">{{ typeof typeData === 'object' ? (typeData as any).name : getDocumentTypeNameFromId(String(typeId)) }}</span>
-                    <el-badge 
-                      :value="String(typeof typeData === 'object' ? (typeData as any).count : typeData)" 
-                      :type="getTagType(String(groupName))" 
-                      class="checkbox-badge"
-                    />
+                <template #prefix>
+                  <Icon icon="material-symbols:search" width="16" />
+                </template>
+              </el-input>
+            </div>
+            
+            <div v-if="Object.keys(filteredCategoryCounts).length > 0" class="filter-drawer-content">
+              <div v-for="(types, groupName) in filteredCategoryCounts" :key="groupName" class="filter-group">
+                <h4 class="filter-group-title">{{ formatText(groupName) }}</h4>
+                <div class="filter-checkboxes">
+                  <div 
+                    v-for="(typeData, typeId) in types" 
+                    :key="typeId" 
+                    class="filter-checkbox-item"
+                  >
+                    <el-checkbox 
+                      :model-value="selectedCategories.has(String(typeId))"
+                      @change="() => handleCategoryToggle(String(typeId))"
+                      class="filter-checkbox"
+                    >
+                      <div class="checkbox-content">
+                        <span class="checkbox-label">{{ typeof typeData === 'object' ? (typeData as any).name : getDocumentTypeNameFromId(String(typeId)) }}</span>
+                        <el-badge 
+                          :value="String(typeof typeData === 'object' ? (typeData as any).count : typeData)" 
+                          :type="getTagType(String(groupName))" 
+                          class="checkbox-badge"
+                        />
+                      </div>
+                    </el-checkbox>
                   </div>
-                </el-checkbox>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
-        
-        <div v-else style="text-align: center; color: #909399; padding: 40px 20px;">
-          <Icon icon="material-symbols:folder-open" width="48" style="margin-bottom: 16px; opacity: 0.5;" />
-          <p>No document types available</p>
-        </div>
+            
+            <div v-else style="text-align: center; color: #909399; padding: 40px 20px;">
+              <Icon icon="material-symbols:folder-open" width="48" style="margin-bottom: 16px; opacity: 0.5;" />
+              <p>No document types available</p>
+            </div>
+          </el-tab-pane>
+
+          <!-- By Uploader Tab -->
+          <el-tab-pane label="By Uploader" name="uploader">
+            <div v-if="uploadersLoading" style="text-align: center; padding: 40px 20px;">
+              <el-icon class="is-loading" style="font-size: 24px; color: var(--el-color-primary); margin-bottom: 16px;">
+                <Loading />
+              </el-icon>
+              <p style="color: #909399;">Loading uploaders...</p>
+            </div>
+            
+            <div v-else-if="Object.keys(uploaderCounts).length > 0" class="filter-drawer-content">
+              <div class="filter-group">
+                <div class="filter-checkboxes">
+                  <div 
+                    v-for="(uploaderData, uploaderId) in uploaderCounts" 
+                    :key="uploaderId" 
+                    class="filter-checkbox-item"
+                  >
+                    <el-checkbox 
+                      :model-value="selectedUploaders.has(String(uploaderId))"
+                      @change="() => handleUploaderToggle(String(uploaderId))"
+                      class="filter-checkbox"
+                    >
+                      <div class="checkbox-content">
+                        <span class="checkbox-label">{{ uploaderData.name }}</span>
+                        <el-badge 
+                          :value="String(uploaderData.count)" 
+                          type="info" 
+                          class="checkbox-badge"
+                        />
+                      </div>
+                    </el-checkbox>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div v-else style="text-align: center; color: #909399; padding: 40px 20px;">
+              <Icon icon="material-symbols:person" width="48" style="margin-bottom: 16px; opacity: 0.5;" />
+              <p>No uploaders available</p>
+            </div>
+          </el-tab-pane>
+
+          <!-- By Time Tab -->
+          <el-tab-pane label="By Time" name="time">
+            <div class="filter-drawer-content">
+              <div class="filter-group">
+                <h4 class="filter-group-title">Upload Date Range</h4>
+                
+                <!-- Predefined Date Ranges -->
+                <div class="date-range-options">
+                  <el-select 
+                    v-model="selectedDateRange" 
+                    placeholder="Select a date range"
+                    @change="handleDateRangeSelect"
+                    style="width: 100%; margin-bottom: 16px;"
+                    clearable
+                  >
+                    <el-option
+                      v-for="option in dateRangeOptions"
+                      :key="option.value"
+                      :label="option.label"
+                      :value="option.value"
+                    />
+                  </el-select>
+                </div>
+
+                <!-- Custom Date Range Picker -->
+                <div v-if="selectedDateRange === 'custom'" class="custom-date-range">
+                  <el-date-picker
+                    v-model="customDateRange"
+                    type="daterange"
+                    range-separator="to"
+                    start-placeholder="Start date"
+                    end-placeholder="End date"
+                    format="YYYY-MM-DD"
+                    value-format="YYYY-MM-DD"
+                    @change="handleCustomDateChange"
+                    style="width: 100%;"
+                  />
+                </div>
+
+                <!-- Current Filter Display -->
+                <div v-if="dateRange" class="current-date-filter">
+                  <div class="filter-info">
+                    <Icon icon="material-symbols:calendar-today" width="16" style="margin-right: 8px;" />
+                    <span class="filter-label">Active Filter:</span>
+                  </div>
+                  <div class="filter-value">
+                    {{ moment(dateRange[0]).format('MMM DD, YYYY') }} - {{ moment(dateRange[1]).format('MMM DD, YYYY') }}
+                  </div>
+                  <el-button 
+                    type="danger" 
+                    size="small" 
+                    plain 
+                    @click="clearDateFilter"
+                    style="margin-top: 8px;"
+                  >
+                    Clear Date Filter
+                  </el-button>
+                </div>
+
+                <!-- No Filter Message -->
+                <div v-if="!dateRange && !selectedDateRange" style="text-align: center; color: #909399; padding: 20px;">
+                  <Icon icon="material-symbols:calendar-month" width="48" style="margin-bottom: 16px; opacity: 0.5;" />
+                  <p>Select a date range to filter documents by upload date</p>
+                </div>
+              </div>
+            </div>
+          </el-tab-pane>
+        </el-tabs>
       </div>
     </el-drawer>
 
@@ -1865,6 +2160,68 @@ filterable clearable
   padding-bottom: 0;
 }
 
+.filter-tabs {
+  margin-bottom: 16px;
+}
+
+.filter-tabs .el-tabs__header {
+  margin: 0 0 16px 0;
+}
+
+.filter-tabs .el-tabs__nav-wrap::after {
+  display: none;
+}
+
+.filter-tabs .el-tabs__item {
+  padding: 0 16px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.date-range-options {
+  margin-bottom: 16px;
+}
+
+.custom-date-range {
+  margin-bottom: 16px;
+}
+
+.current-date-filter {
+  background: var(--el-fill-color-light);
+  border: 1px solid var(--el-border-color);
+  border-radius: 6px;
+  padding: 12px;
+  margin-top: 16px;
+}
+
+.filter-info {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--el-text-color-primary);
+}
+
+.filter-label {
+  color: var(--el-text-color-regular);
+}
+
+.filter-value {
+  font-size: 14px;
+  color: var(--el-text-color-primary);
+  font-weight: 600;
+}
+
+.filter-section-title {
+  margin: 0 0 12px 0;
+  color: #303133;
+  font-size: 16px;
+  font-weight: 700;
+  border-bottom: 2px solid #e4e7ed;
+  padding-bottom: 8px;
+}
+
 .filter-group-title {
   margin: 0 0 8px 0;
   color: #303133;
@@ -2089,6 +2446,138 @@ filterable clearable
       padding: 0 16px;
       font-size: 14px;
     }
+  }
+}
+
+/* Controls Container Styles */
+.controls-container {
+  margin-bottom: 20px;
+  padding: 16px;
+  background: var(--el-bg-color);
+  border-radius: 8px;
+  border: 1px solid var(--el-border-color-light);
+}
+
+.controls-row {
+  align-items: flex-end;
+}
+
+.search-col {
+  margin-bottom: 12px;
+}
+
+.search-input {
+  width: 100%;
+}
+
+.search-input .el-input__wrapper {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.search-input .el-input__wrapper:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.search-input .el-input__wrapper.is-focus {
+  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2);
+}
+
+.actions-col {
+  margin-bottom: 12px;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.action-btn {
+  position: relative;
+  transition: all 0.3s ease;
+  min-width: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.action-btn .btn-text {
+  font-weight: 500;
+}
+
+.action-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.active-filter {
+  background-color: var(--el-color-primary-light-9) !important;
+  border-color: var(--el-color-primary) !important;
+  color: var(--el-color-primary) !important;
+}
+
+.filter-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+}
+
+.clear-btn {
+  animation: fadeInSlide 0.3s ease;
+}
+
+@keyframes fadeInSlide {
+  from {
+    opacity: 0;
+    transform: translateX(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Mobile Responsive Adjustments */
+@media (max-width: 768px) {
+  .controls-container {
+    padding: 12px;
+  }
+  
+  .action-buttons {
+    justify-content: center;
+    margin-top: 12px;
+  }
+  
+  .action-btn {
+    min-width: 80px;
+    flex: 1;
+  }
+  
+  .btn-text {
+    display: none;
+  }
+  
+  .search-col, .actions-col {
+    margin-bottom: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .action-buttons {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .action-btn {
+    width: 100%;
+    min-width: unset;
+  }
+  
+  .btn-text {
+    display: inline;
   }
 }
 

@@ -2648,6 +2648,7 @@ module.exports = function (app) {
    *         description: Internal server error
    */
   app.post('/api/v1/docs/repository', [authJwt.verifyToken, hasPermission('document:read')], controller.getDocumentRepository)
+  app.get('/api/v1/docs/uploaders', [authJwt.verifyToken, hasPermission('document:read')], controller.getDocumentUploaders)
 
   /**
    * @swagger

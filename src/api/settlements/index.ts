@@ -323,7 +323,13 @@ export const getDocumentRepository = (
     excludePhotos: true, // Exclude photo/image formats on backend
     excludeFormats: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'tiff', 'tif'] // Specify formats to exclude
   }
+  console.log('getDocumentRepository API - sending requestData:', requestData)
+  console.log('getDocumentRepository API - excludePhotos:', requestData.excludePhotos)
   return request.post({ url: prod + '/api/v1/docs/repository', data: requestData })
+}
+
+export const getDocumentUploaders = (): Promise<IResponse<any>> => {
+  return request.get({ url: prod + '/api/v1/docs/uploaders' })
 }
 
 
