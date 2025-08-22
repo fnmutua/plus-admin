@@ -292,6 +292,8 @@ const loadDocumentRepository = async (params: any = {}) => {
     const response = await getDocumentRepository(requestData)
     
     console.log('API Response:', response)
+    console.log('Response type:', typeof response)
+    console.log('Response keys:', response && typeof response === 'object' ? Object.keys(response) : 'Not an object')
     
     // Handle different response structures
     let responseData: any
@@ -318,9 +320,56 @@ const loadDocumentRepository = async (params: any = {}) => {
     }
     
     if (success && responseData) {
-      // Filter out photo/image documents
-      const allDocuments = responseData.documents || responseData || []
+      // Handle different possible document array locations
+      let allDocuments = []
+      
+      if (responseData.documents && Array.isArray(responseData.documents)) {
+        allDocuments = responseData.documents
+      } else if (responseData.data && Array.isArray(responseData.data)) {
+        allDocuments = responseData.data
+      } else if (Array.isArray(responseData)) {
+        allDocuments = responseData
+      } else if (responseData.results && Array.isArray(responseData.results)) {
+        allDocuments = responseData.results
+      } else {
+        // Fallback: check all properties for arrays
+        console.log('No standard document array found, checking all properties...')
+        console.log('Available response keys:', Object.keys(responseData))
+        
+        for (const key in responseData) {
+          if (Array.isArray(responseData[key])) {
+            console.log(`Found array at key "${key}" with length:`, responseData[key].length)
+            // Check if this array contains document-like objects
+            if (responseData[key].length > 0) {
+              const firstItem = responseData[key][0]
+              const hasDocumentProperties = firstItem && (
+                firstItem.hasOwnProperty('name') || 
+                firstItem.hasOwnProperty('filename') || 
+                firstItem.hasOwnProperty('format') ||
+                firstItem.hasOwnProperty('id')
+              )
+              
+              if (hasDocumentProperties) {
+                allDocuments = responseData[key]
+                console.log('Using array from key:', key, '(verified as documents)')
+                break
+              } else {
+                console.log(`Array at "${key}" doesn't appear to contain documents`)
+              }
+            }
+          }
+        }
+        
+        // If still no documents found, log the full response structure
+        if (allDocuments.length === 0) {
+          console.warn('No document arrays found in response. Full response structure:')
+          console.warn(JSON.stringify(responseData, null, 2))
+        }
+      }
+      
       console.log('All documents before filtering:', allDocuments.length)
+      console.log('Response structure:', Object.keys(responseData))
+      console.log('Sample raw document:', allDocuments[0])
       
       const filteredDocuments = allDocuments.filter(doc => {
         const format = doc.format?.toLowerCase() || ''
@@ -329,13 +378,13 @@ const loadDocumentRepository = async (params: any = {}) => {
       })
       
       console.log('Filtered documents:', filteredDocuments.length)
-      console.log('Sample document:', filteredDocuments[0])
+      console.log('Sample filtered document:', filteredDocuments[0])
       documents.value = filteredDocuments
       categoryCounts.value = responseData.categoryCounts || {}
       
       // Keep the original total count for pagination, but update the displayed count
-      totalDocuments.value = responseData.totalDocuments || filteredDocuments.length
-      totalDocs.value = responseData.pagination?.totalItems || responseData.totalDocuments || filteredDocuments.length
+      totalDocuments.value = responseData.totalDocuments || responseData.total || allDocuments.length
+      totalDocs.value = responseData.pagination?.totalItems || responseData.totalDocuments || responseData.total || allDocuments.length
       
       console.log('Final documents array length:', documents.value.length)
       console.log('Total docs:', totalDocs.value)
