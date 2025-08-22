@@ -80,6 +80,10 @@ const props = defineProps<{
   settlementId: string
 }>()
 
+const emit = defineEmits<{
+  'layers-loaded': []
+}>()
+
 const appStore = useAppStore()
 const googleMapsApiKey = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
 
@@ -1252,6 +1256,8 @@ const loadMapData = async () => {
     setLoading(false)
     mapLoading.value = false
     isProcessing.value = false
+    // Emit event when all layers are loaded
+    emit('layers-loaded')
   }
 }
 </script>

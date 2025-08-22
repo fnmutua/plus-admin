@@ -9,7 +9,7 @@ import {
 import { useRoute } from 'vue-router'
 import {
   getSettlementListByCounty} from '@/api/settlements'
-import { Back, Upload, Search, Edit, More, RefreshLeft, Picture, Download } from '@element-plus/icons-vue'
+import { Back, Upload, Search, Edit, More, RefreshLeft, Picture, Download, Loading } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { getFile } from '@/api/summary'
 import jsPDF from 'jspdf'
@@ -397,13 +397,17 @@ const getFilteredData = async (selFilters: string[], selfilterValues: any[][]) =
 const settlementId=ref(route.params.id)
 
 onMounted(async () => {
-
-
   getFilteredData(filters, filterValues)
   await getIndicatorCategoryReports(route.params.id)
   await getSettlmentHistory(route.params.id)
   await getProjectLocations(route.params.id)
   console.log(settlement)
+  
+  // If map tab is active on mount, show loading
+  if (activeName.value === 'map') {
+    mapLoading.value = true;
+    startMapLoadingTimeout();
+  }
 })
 
 const router = useRouter()
@@ -824,18 +828,17 @@ const clickTab = (tab) => {
   console.log('Tab clicked:', tab.props);
   localStorage.setItem('activeTab', tab.props.name);
 
-  // if (tab.props.name === 'map') {
-  //   // Delay the loadMap function
-  //   setTimeout(() => {
-  //     loadMap(); // Load map after a brief delay
-  //   }, 500); // Delay in milliseconds (500 ms = 0.5 seconds)
-  // }
- if (tab.props.name === 'Households') {
+  if (tab.props.name === 'map') {
+    // Show loading spinner for map
+    mapLoading.value = true;
+    startMapLoadingTimeout();
+  }
+  
+  if (tab.props.name === 'Households') {
     // Delay the loadMap function
     console.log('get households...')
     getHouseholds()
   }
-
 };
 
 
@@ -883,6 +886,9 @@ const currentPhotoIndex = ref(0)
 const previewPhotoUrl = ref('')
 const previewLoading = ref(false)
 const downloadLoading = ref(false)
+
+// Map loading state
+const mapLoading = ref(true)
 
 // Group documents by `document_type.type` (excluding photos)
 const groupedDocuments = computed(() => {
@@ -1395,6 +1401,23 @@ const searcHouseholds = async () => {
    
 }
 
+
+
+// Map event handlers
+const onLayersLoaded = () => {
+  mapLoading.value = false;
+};
+
+// Fallback timeout in case layers-loaded event doesn't fire
+const startMapLoadingTimeout = () => {
+  setTimeout(() => {
+    if (mapLoading.value) {
+      console.warn('Map loading timeout - hiding spinner after 10 seconds');
+      mapLoading.value = false;
+    }
+  }, 10000); // 10 second fallback
+};
+
 const generatePDFReport = () => {
   try {
     const doc = new jsPDF()
@@ -1644,8 +1667,17 @@ const generatePDFReport = () => {
 
       <el-tab-pane label="Location" name="map">
         <div class="map-container-wrapper">
+          <div v-if="mapLoading" class="map-loading-container">
+            <div class="map-loading-spinner">
+              <el-icon class="is-loading"><Loading /></el-icon>
+              <p>Loading settlement map data...</p>
+              <p class="loading-subtitle">This may take a few moments while we fetch all layers</p>
+            </div>
+          </div>
           <SettlementMap
+            v-else
             :settlementId="settlementId"
+            @layers-loaded="onLayersLoaded"
           />  
         </div>
       </el-tab-pane>
@@ -2089,6 +2121,46 @@ width="300" title="Are you sure to delete this project?"
   height: 60vh;
   min-height: 400px;
   position: relative;
+}
+
+.map-loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  min-height: 400px;
+  background: var(--el-bg-color);
+  border-radius: 8px;
+  border: 1px solid var(--el-border-color);
+}
+
+.map-loading-spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  color: var(--el-text-color-regular);
+}
+
+.map-loading-spinner .el-icon {
+  font-size: 48px;
+  color: var(--el-color-primary);
+  animation: spin 1s linear infinite;
+}
+
+.map-loading-spinner p {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.map-loading-spinner .loading-subtitle {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--el-text-color-regular);
+  opacity: 0.8;
+  margin-top: 8px;
 }
 </style>
 
