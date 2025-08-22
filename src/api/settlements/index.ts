@@ -317,7 +317,13 @@ export const getDocumentsBySearch = (
 export const getDocumentRepository = (
   data: any
 ): Promise<IResponse<any>> => {
-  return request.post({ url: prod + '/api/v1/docs/repository', data })
+  // Add photo exclusion to the request data
+  const requestData = {
+    ...data,
+    excludePhotos: true, // Exclude photo/image formats on backend
+    excludeFormats: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'tiff', 'tif'] // Specify formats to exclude
+  }
+  return request.post({ url: prod + '/api/v1/docs/repository', data: requestData })
 }
 
 

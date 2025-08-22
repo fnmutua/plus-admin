@@ -369,19 +369,9 @@ const loadDocumentRepository = async (params: any = {}) => {
         }
       }
       
-      console.log('All documents before filtering:', allDocuments.length)
-      console.log('Response structure:', Object.keys(responseData))
-      console.log('Sample raw document:', allDocuments[0])
-      
-      const filteredDocuments = allDocuments.filter(doc => {
-        const format = doc.format?.toLowerCase() || ''
-        const isPhoto = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'tiff', 'tif'].includes(format)
-        return !isPhoto // Exclude photos from the list
-      })
-      
-      console.log('Filtered documents:', filteredDocuments.length)
-      console.log('Sample filtered document:', filteredDocuments[0])
-      documents.value = filteredDocuments
+      console.log('Documents received from backend:', allDocuments.length)
+      console.log('Sample document:', allDocuments[0])
+      documents.value = allDocuments
       categoryCounts.value = responseData.categoryCounts || {}
       
       // Keep the original total count for pagination, but update the displayed count
@@ -1112,7 +1102,7 @@ const displayInfo = computed(() => {
   if (filteredCount === totalCount) {
     return `Showing ${filteredCount} documents`
   } else {
-    return `Showing ${filteredCount} of ${totalCount} documents (photos excluded)`
+    return `Showing ${filteredCount} of ${totalCount} documents`
   }
 })
 

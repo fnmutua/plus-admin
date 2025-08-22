@@ -5468,11 +5468,15 @@ exports.getDocumentRepository = async (req, res) => {
       categoryFilter = null,
       userFilters = [],
       sortBy = 'createdAt',
-      sortOrder = 'DESC'
+      sortOrder = 'DESC',
+      excludePhotos = false,
+      excludeFormats = []
     } = req.body;
 
     console.log('getDocumentRepository - Request body:', req.body);
     console.log('getDocumentRepository - categoryFilter:', categoryFilter);
+    console.log('getDocumentRepository - excludePhotos:', excludePhotos);
+    console.log('getDocumentRepository - excludeFormats:', excludeFormats);
 
     const offset = (page - 1) * limit;
     
@@ -5523,15 +5527,25 @@ exports.getDocumentRepository = async (req, res) => {
       );
     }
 
+    // Add photo exclusion filter
+    if (excludePhotos && excludeFormats.length > 0) {
+      const photoFilter = { format: { [Op.notIn]: excludeFormats } };
+      baseQuery.where = photoFilter;
+      console.log('getDocumentRepository - Applied photo exclusion filter:', photoFilter);
+    }
+
     // Add category filter
     if (categoryFilter) {
-      if (Array.isArray(categoryFilter)) {
-        baseQuery.where = { category: { [op.in]: categoryFilter } };
-        console.log('getDocumentRepository - Applied array filter:', { category: { [op.in]: categoryFilter } });
+      const categoryCondition = Array.isArray(categoryFilter) 
+        ? { category: { [op.in]: categoryFilter } }
+        : { category: categoryFilter };
+      
+      if (baseQuery.where) {
+        baseQuery.where = { [Op.and]: [baseQuery.where, categoryCondition] };
       } else {
-        baseQuery.where = { category: categoryFilter };
-        console.log('getDocumentRepository - Applied single filter:', { category: categoryFilter });
+        baseQuery.where = categoryCondition;
       }
+      console.log('getDocumentRepository - Applied category filter:', categoryCondition);
     }
 
     // Add user permission filters
