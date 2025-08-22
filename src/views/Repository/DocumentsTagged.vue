@@ -294,6 +294,8 @@ const loadDocumentRepository = async (params: any = {}) => {
     console.log('API Response:', response)
     console.log('Response type:', typeof response)
     console.log('Response keys:', response && typeof response === 'object' ? Object.keys(response) : 'Not an object')
+    console.log('Response.success:', (response as any)?.success)
+    console.log('Response.data keys:', (response as any)?.data ? Object.keys((response as any).data) : 'No data object')
     
     // Handle different response structures
     let responseData: any
@@ -303,7 +305,7 @@ const loadDocumentRepository = async (params: any = {}) => {
       // Check if response has a success property
       if ('success' in response) {
         success = Boolean((response as any).success)
-        responseData = (response as any).data || (response as any).results
+        responseData = (response as any).data || (response as any).results || response
       } else if ('data' in response) {
         // Direct data structure
         success = true
