@@ -1635,8 +1635,7 @@ const importDrawerSize = computed(() => isMobile.value ? '100%' : '40%')
      <!-- Documents Table -->
      <div v-if="documents.length === 0 && !loading" style="text-align: center; padding: 40px; color: #909399;">
        <p>No documents found. Documents array length: {{ documents.length }}</p>
-       <p>Total docs: {{ totalDocs }}</p>
-     </div>
+      </div>
      
      <el-table 
        v-if="documents.length > 0"

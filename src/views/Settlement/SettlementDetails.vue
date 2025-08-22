@@ -403,11 +403,10 @@ onMounted(async () => {
   await getProjectLocations(route.params.id)
   console.log(settlement)
   
-  // If map tab is active on mount, show loading
-  if (activeName.value === 'map') {
-    mapLoading.value = true;
-    startMapLoadingTimeout();
-  }
+  // Always load map data on mount to avoid waiting when user switches to Location tab
+  // The SettlementMap component will start loading immediately and emit 'layers-loaded' when ready
+  mapLoading.value = true;
+  startMapLoadingTimeout();
 })
 
 const router = useRouter()
@@ -828,14 +827,8 @@ const clickTab = (tab) => {
   console.log('Tab clicked:', tab.props);
   localStorage.setItem('activeTab', tab.props.name);
 
-  if (tab.props.name === 'map') {
-    // Show loading spinner for map
-    mapLoading.value = true;
-    startMapLoadingTimeout();
-  }
-  
   if (tab.props.name === 'Households') {
-    // Delay the loadMap function
+    // Load households data when tab is clicked
     console.log('get households...')
     getHouseholds()
   }
@@ -1675,9 +1668,9 @@ const generatePDFReport = () => {
             </div>
           </div>
           <SettlementMap
-            v-else
             :settlementId="settlementId"
             @layers-loaded="onLayersLoaded"
+            :class="{ 'map-hidden': mapLoading }"
           />  
         </div>
       </el-tab-pane>
@@ -2161,6 +2154,10 @@ width="300" title="Are you sure to delete this project?"
   color: var(--el-text-color-regular);
   opacity: 0.8;
   margin-top: 8px;
+}
+
+.map-hidden {
+  display: none;
 }
 </style>
 
