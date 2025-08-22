@@ -291,24 +291,54 @@ const loadDocumentRepository = async (params: any = {}) => {
 
     const response = await getDocumentRepository(requestData)
     
-    // Handle both possible response structures
-    const responseData = (response as any).data || (response as any).results || response
+    console.log('API Response:', response)
     
-    if ((response as any).success && responseData) {
+    // Handle different response structures
+    let responseData: any
+    let success = false
+    
+    if (response && typeof response === 'object') {
+      // Check if response has a success property
+      if ('success' in response) {
+        success = Boolean((response as any).success)
+        responseData = (response as any).data || (response as any).results
+      } else if ('data' in response) {
+        // Direct data structure
+        success = true
+        responseData = (response as any).data
+      } else if (Array.isArray(response)) {
+        // Direct array response
+        success = true
+        responseData = { documents: response }
+      } else {
+        // Assume it's the data itself
+        success = true
+        responseData = response
+      }
+    }
+    
+    if (success && responseData) {
       // Filter out photo/image documents
-      const allDocuments = responseData.documents || []
+      const allDocuments = responseData.documents || responseData || []
+      console.log('All documents before filtering:', allDocuments.length)
+      
       const filteredDocuments = allDocuments.filter(doc => {
         const format = doc.format?.toLowerCase() || ''
         const isPhoto = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'tiff', 'tif'].includes(format)
         return !isPhoto // Exclude photos from the list
       })
       
+      console.log('Filtered documents:', filteredDocuments.length)
+      console.log('Sample document:', filteredDocuments[0])
       documents.value = filteredDocuments
       categoryCounts.value = responseData.categoryCounts || {}
       
       // Keep the original total count for pagination, but update the displayed count
-      totalDocuments.value = responseData.totalDocuments || 0
-      totalDocs.value = responseData.pagination?.totalItems || responseData.totalDocuments || 0
+      totalDocuments.value = responseData.totalDocuments || filteredDocuments.length
+      totalDocs.value = responseData.pagination?.totalItems || responseData.totalDocuments || filteredDocuments.length
+      
+      console.log('Final documents array length:', documents.value.length)
+      console.log('Total docs:', totalDocs.value)
       
       // Add deletable property based on permissions
       documents.value.forEach(doc => {
@@ -1383,7 +1413,13 @@ const importDrawerSize = computed(() => isMobile.value ? '100%' : '40%')
      </div>
      
      <!-- Documents Table -->
+     <div v-if="documents.length === 0 && !loading" style="text-align: center; padding: 40px; color: #909399;">
+       <p>No documents found. Documents array length: {{ documents.length }}</p>
+       <p>Total docs: {{ totalDocs }}</p>
+     </div>
+     
      <el-table 
+       v-if="documents.length > 0"
        :data="documents" 
        style="width: 100%" 
        size="small" 

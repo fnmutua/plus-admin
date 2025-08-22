@@ -634,6 +634,18 @@ onMounted(async () => {
       formData[key] = undefined;
     });
   }
+  
+  // Ensure toolbar is added after a delay even if missed in the main flow
+  setTimeout(() => {
+    if (googleMap.value && !document.querySelector('.google-map-unified-toolbar')) {
+      try {
+        addUnifiedToolbar();
+        console.log('Toolbar added via fallback timer');
+      } catch (error) {
+        console.error('Failed to add toolbar via fallback timer:', error);
+      }
+    }
+  }, 3000);
 })
 
 
@@ -1139,7 +1151,24 @@ const loadMap = async () => {
            }
            
            // Add unified toolbar with upload, draw, and pan tools
-           addUnifiedToolbar();
+           // Add a small delay to ensure the map is fully rendered
+           setTimeout(() => {
+             try {
+               addUnifiedToolbar();
+               console.log('Toolbar added successfully');
+             } catch (error) {
+               console.error('Error adding toolbar:', error);
+               // Retry after a longer delay
+               setTimeout(() => {
+                 try {
+                   addUnifiedToolbar();
+                   console.log('Toolbar added on retry');
+                 } catch (retryError) {
+                   console.error('Failed to add toolbar on retry:', retryError);
+                 }
+               }, 1000);
+             }
+           }, 500);
         
         console.log("Google Maps loaded successfully");
         ElMessage.success('Google Maps loaded successfully');
@@ -1217,6 +1246,16 @@ const loadMap = async () => {
          }
         
         ElMessage.warning('Basic map loaded. Drawing features are not available.');
+        
+        // Try to add toolbar even in fallback mode
+        setTimeout(() => {
+          try {
+            addUnifiedToolbar();
+            console.log('Toolbar added in fallback mode');
+          } catch (error) {
+            console.error('Failed to add toolbar in fallback mode:', error);
+          }
+        }, 1000);
       } else {
         ElMessage.error('Failed to load Google Maps. Please check your internet connection and API key.');
       }
@@ -1565,7 +1604,15 @@ const loadExistingGeometry = () => {
 
 
 const addUnifiedToolbar = () => {
-  if (!googleMap.value) return;
+  if (!googleMap.value) {
+    console.warn('Google map not ready, skipping toolbar creation');
+    return;
+  }
+  
+  if (!googleMap.value.controls) {
+    console.warn('Google map controls not ready, skipping toolbar creation');
+    return;
+  }
   
   // Check if toolbar already exists
   const controls = googleMap.value.controls[google.maps.ControlPosition.TOP_LEFT];

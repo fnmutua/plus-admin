@@ -90,6 +90,7 @@ const googleMapsApiKey = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
 const mapRef = ref<any>(null)
 const title = ref('')
 const mapReady = ref(false)
+const drawingManager = ref(null)
 
 // Geo data
 const features = ref([])
