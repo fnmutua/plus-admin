@@ -113,6 +113,11 @@ const isLoading = ref(false)
 const mapLoading = ref(true)
 const dataLoading = ref(false)
 
+// Progressive loading states
+const loadingProgress = ref(0)
+const loadingStatus = ref('')
+const showProgressOverlay = ref(false)
+
 // Track feature counts
 const layerFeatureCounts = ref({
   settlement: 0,
@@ -199,6 +204,13 @@ const PolyLineItems = ref([
     show: false,
   },
 ])
+
+// Helper function to update loading status
+const updateLoadingStatus = (status: string, progress: number) => {
+  loadingStatus.value = status
+  loadingProgress.value = progress
+  console.log(`📊 ${Math.round(progress)}% - ${status}`)
+}
 
 // Fetch functions - Consolidated approach
 const fetchAllSettlementData = async (): Promise<SettlementMapData | null> => {
@@ -308,6 +320,412 @@ const fetchAllSettlementData = async (): Promise<SettlementMapData | null> => {
   }
 }
 
+// Progressive loading with status updates but keeping layers together
+const loadSelectedLayersWithProgress = async (layers: string[]) => {
+  if (!mapReady.value || !window.google?.maps) {
+    console.error('Google Maps API not ready')
+    return
+  }
+
+  const bounds = new google.maps.LatLngBounds()
+  console.log('🔄 Loading selected layers:', layers)
+
+  // Clear all layer data
+  polygons.value = []
+  parcels.value = []
+  parcelLabels.value = []
+  roads.value = []
+  water_points.value = []
+  structures.value = []
+  other_points.value = []
+
+  // Reset feature counts
+  layerFeatureCounts.value = {
+    settlement: 0,
+    parcels: 0,
+    parcelLabels: 0,
+    roads: 0,
+    hospitals: 0,
+    schools: 0,
+    water_points: 0,
+    structures: 0,
+    other_points: 0,
+  }
+
+  updateLoadingStatus('Fetching settlement data...', 15)
+  // Fetch all data in one call
+  const allData = await fetchAllSettlementData()
+  if (!allData) {
+    console.error('❌ Failed to fetch settlement data')
+    return
+  }
+
+  console.log('🔄 Processing consolidated data:', Object.keys(allData))
+  
+  // Process settlement data first
+  if (allData.settlement?.features?.length && layers.includes('settlement')) {
+    updateLoadingStatus('Loading settlement boundary...', 25)
+    await processSettlementData(allData.settlement, bounds)
+    layerFeatureCounts.value.settlement = allData.settlement.features.length
+    console.log(`✅ Loaded settlement boundary: ${allData.settlement.features.length} features`)
+  }
+
+  // Process parcels with progress updates
+  if (allData.parcel?.features?.length && layers.includes('parcels')) {
+    const totalParcels = allData.parcel.features.length
+    updateLoadingStatus(`Loading ${totalParcels} parcels...`, 30)
+    console.log(`🔄 Processing ${totalParcels} parcels...`)
+    
+    await processFeaturesInChunks(allData.parcel.features, (feature: any, index: number) => {
+      const { geometry, properties } = feature
+      if (geometry.type === 'Polygon' || geometry.type === 'MultiPolygon') {
+        let coordinates = geometry.coordinates
+        if (geometry.type === 'MultiPolygon') {
+          coordinates = coordinates.flat()
+        }
+        coordinates.forEach((polygonCoordinates: number[][]) => {
+          const paths = polygonCoordinates.map(([lng, lat]) => {
+            const point = { lat, lng }
+            bounds.extend(point)
+            return point
+          }).filter((path: { lng: number; lat: number }) => isFinite(path.lng) && isFinite(path.lat))
+          const landuseId = properties.landuse_id ?? -1
+          const fillColor = landuseId === 0 ? '#8C675D' :
+            landuseId === 1 ? '#800080' :
+            landuseId === 2 ? '#F6C567' :
+            landuseId === 3 ? '#6FDC6E' :
+            landuseId === 4 ? '#FFFF00' :
+            landuseId === 5 ? '#FF1D1E' :
+            landuseId === 6 ? '#73B2FF' :
+            landuseId === 7 ? '#DCDCDC' :
+            landuseId === 8 ? '#FDFD96' :
+            landuseId === 9 ? '#FDFD96' : 'white'
+          parcels.value.push({
+            id: `parcel-${properties?.id || index}`,
+            paths,
+            strokeColor: 'white',
+            strokeOpacity: 1,
+            strokeWeight: 1,
+            fillColor,
+            fillOpacity: 0.8,
+            properties: { ...properties }
+          })
+          const centroidPoint = turf.centroid(feature)
+          const [lng, lat] = centroidPoint.geometry.coordinates
+          parcelLabels.value.push({
+            id: `label-${properties?.id || index}`,
+            position: { lat, lng },
+            label: properties.parcel_no || '',
+            properties: { ...properties }
+          })
+        })
+      }
+    }, (progress) => {
+      // Update progress during parcel processing
+      const currentProgress = 30 + (progress * 0.25) // From 30% to 55%
+      updateLoadingStatus(`Loading parcels... ${Math.round(progress)}%`, currentProgress)
+    })
+    
+    layerFeatureCounts.value.parcels = allData.parcel.features.length
+    layerFeatureCounts.value.parcelLabels = allData.parcel.features.length
+    
+    // Update legend
+    const landuseIdsFound = new Set(
+      allData.parcel.features.map(f => f.properties?.landuse_id).filter(id => id !== null && id !== undefined)
+    )
+    legendItems.forEach(item => {
+      item.show = landuseIdsFound.has(item.landuseId)
+    })
+    console.log(`✅ Loaded ${allData.parcel.features.length} parcels`)
+  }
+
+  // Process structures
+  if (layers.includes('structures') && allData.structure?.features?.length) {
+    updateLoadingStatus(`Loading ${allData.structure.features.length} structures...`, 60)
+    await processFeaturesInChunks(allData.structure.features, (feature: any, index: number) => {
+      const { geometry, properties } = feature
+      if (geometry.type === 'Polygon' || geometry.type === 'MultiPolygon') {
+        let coordinates = geometry.coordinates
+        if (geometry.type === 'MultiPolygon') {
+          coordinates = coordinates.flat()
+        }
+        coordinates.forEach((polygonCoordinates: number[][]) => {
+          const paths = polygonCoordinates.map(([lng, lat]) => {
+            const point = { lat, lng }
+            bounds.extend(point)
+            return point
+          }).filter((path: { lng: number; lat: number }) => isFinite(path.lng) && isFinite(path.lat))
+         
+          const fillColor = 'black'  
+          structures.value.push({
+            id: `structure-${properties?.structure_id || index}`,
+            paths,
+            strokeColor: 'white',
+            strokeOpacity: 1,
+            strokeWeight: 0.5,
+            fillColor,
+            fillOpacity: 0.7,
+            properties: { ...properties }
+          })
+        })
+      }
+    })
+    layerFeatureCounts.value.structures = allData.structure.features.length
+    console.log(`✅ Loaded ${allData.structure.features.length} structures`)
+  }
+
+  // Process facilities and roads with chunked rendering
+  updateLoadingStatus('Processing facilities and infrastructure...', 70)
+  const pointModels = ['streetlight', 'crime_hotspot', 'community_project', 'health_facility', 'education_facility', 'water_point', 'community_hall', 'police_station', 'mast', 'dumping_site', 'hazard_zone']
+  const lineModels = ['road', 'powerline', 'sewer', 'piped_water']
+
+  // Process point features with chunking for better performance
+  for (const model of pointModels) {
+    if (allData[model]?.features?.length) {
+      const features = allData[model].features
+      console.log(`🔄 Processing ${model} point features:`, features.length)
+      
+      const iconMap: Record<string, string> = {
+        water_point: 'icons/waterdrop.png',
+        mast: 'icons/tower.png',
+        streetlight: 'icons/lighthouse-2.png',
+        dumping_site: 'icons/landfill.png',
+        hazard_zone: 'icons/caution.png',
+        community_project: 'icons/country.png',
+        community_hall: 'icons/communitycentre.png',
+        police_station: 'icons/police.png',
+        crime_hotspot: 'icons/theft.png',
+        health_facility: 'icons/hospital-2.png',
+        education_facility: 'icons/school.png',
+      }
+
+      const iconUrl = iconMap[model] || 'icons/amphitheater.png'
+
+      // Process features in smaller chunks to prevent UI blocking
+      const featureChunkSize = 25 // Smaller chunks for point features
+      for (let i = 0; i < features.length; i += featureChunkSize) {
+        const chunk = features.slice(i, i + featureChunkSize)
+        
+        chunk.forEach((feature: any, chunkIndex: number) => {
+          const { geometry, properties } = feature
+          const index = i + chunkIndex
+
+          // Handle Point
+          if (geometry.type === 'Point') {
+            const [lng, lat] = geometry.coordinates
+            const point = { lat, lng }
+            bounds.extend(point)
+
+            other_points.value.push({
+              id: `op-${model}-${properties?.id || index}`,
+              type: 'marker',
+              position: point,
+              icon: {
+                url: iconUrl,
+                scaledSize: new google.maps.Size(30, 30),
+                anchor: new google.maps.Point(15, 15),
+              },
+              properties: { 
+                ...properties,
+                featureType: model
+              },
+            })
+          }
+        })
+        
+        // Yield control more frequently for point features
+        if (i + featureChunkSize < features.length) {
+          await new Promise(resolve => setTimeout(resolve, 2))
+        }
+      }
+
+      // Update legend items
+      const legendItem = PointLegendItems.value.find(item => item.layer === model)
+      if (legendItem) {
+        legendItem.show = true
+      }
+      
+      console.log(`✅ Processed ${features.length} ${model} point features`)
+    }
+  }
+
+  // Process linear features with chunking
+  updateLoadingStatus('Processing roads and utilities...', 75)
+  
+  for (const model of lineModels) {
+    if (allData[model]?.features?.length) {
+      const features = allData[model].features
+      console.log(`🔄 Processing ${model} linear features:`, features.length)
+
+      // Define line styles for different feature types
+      const lineStyles: Record<string, any> = {
+        road: {
+          strokeColor: "red",
+          strokeOpacity: 1,
+          strokeWeight: 3,
+        },
+        powerline: {
+          strokeColor: "green",
+          strokeOpacity: 1,
+          strokeWeight: 3,  
+          icons: [{
+            icon: {
+              path: google.maps.SymbolPath.CIRCLE,
+              scale: 2,
+              fillColor: 'green',
+              fillOpacity: 1,
+              strokeColor: 'green',
+              strokeWeight: 1
+            },
+            offset: '0',
+            repeat: '10px'
+          }]
+        },
+        sewer: {
+          strokeColor: "#4B0082", // Dark Indigo
+          strokeOpacity: 1,
+          strokeWeight: 3,
+          icons: [{
+            icon: {
+              path: google.maps.SymbolPath.CIRCLE,
+              scale: 2,
+              fillColor: '#4B0082',
+              fillOpacity: 1,
+              strokeColor: '#4B0082',
+              strokeWeight: 1
+            },
+            offset: '0',
+            repeat: '10px'
+          }]
+        },
+        piped_water: {
+          strokeColor: "#00BFFF", // Light Sky Blue
+          strokeOpacity: 1,
+          strokeWeight: 3,
+          icons: [{
+            icon: {
+              path: google.maps.SymbolPath.CIRCLE,
+              scale: 2,
+              fillColor: '#00BFFF',
+              fillOpacity: 1,
+              strokeColor: '#00BFFF',
+              strokeWeight: 1
+            },
+            offset: '0',
+            repeat: '10px'
+          }]
+        }
+      }
+
+      // Process linear features in chunks
+      const linearChunkSize = 10 // Even smaller chunks for complex polylines
+      for (let i = 0; i < features.length; i += linearChunkSize) {
+        const chunk = features.slice(i, i + linearChunkSize)
+        
+        chunk.forEach((feature: any, chunkIndex: number) => {
+          const { geometry, properties } = feature
+          const index = i + chunkIndex
+
+          // Handle LineString & MultiLineString
+          if (geometry.type === 'LineString' || geometry.type === 'MultiLineString') {
+            const lines = geometry.type === 'LineString' ? [geometry.coordinates] : geometry.coordinates
+
+            lines.forEach((line, lineIndex) => {
+              const path = line.map(([lng, lat]) => {
+                const point = { lat, lng }
+                bounds.extend(point)
+                return point
+              })
+
+              // Get the appropriate style for this feature type
+              const style = lineStyles[model] || {
+                strokeColor: "#999999",
+                strokeOpacity: 0.8,
+                strokeWeight: 3,
+              }
+
+              // Add to roads array for roads, or other_points for other linear features
+              if (model === 'road') {
+                roads.value.push({
+                  id: `road-${properties?.id || index}-${lineIndex}`,
+                  path,
+                  options: style,
+                  properties: { 
+                    ...properties,
+                    featureType: model
+                  },
+                })
+              } else {
+                other_points.value.push({
+                  id: `line-${model}-${properties?.id || index}-${lineIndex}`,
+                  type: 'polyline',
+                  path,
+                  options: style,
+                  properties: { 
+                    ...properties,
+                    featureType: model
+                  },
+                })
+              }
+            })
+          }
+        })
+        
+        // Yield control more frequently for linear features (they can be complex)
+        if (i + linearChunkSize < features.length) {
+          await new Promise(resolve => setTimeout(resolve, 5))
+        }
+      }
+
+      // Update legend items
+      const legendLineItem = PolyLineItems.value.find(item => item.layer === model)
+      if (legendLineItem) {
+        legendLineItem.show = true
+      }
+      
+      console.log(`✅ Processed ${features.length} ${model} linear features`)
+    }
+  }
+
+  console.log('other_points (all features) >>', other_points.value)
+  layerFeatureCounts.value.other_points = other_points.value.length
+  layerFeatureCounts.value.roads = roads.value.length
+
+  updateLoadingStatus('Finalizing features...', 82)
+  
+  // Force Vue to update the DOM with new features in batches
+  await nextTick()
+  
+  updateLoadingStatus('Rendering map features...', 85)
+  
+  // Allow UI to update before the potentially heavy rendering
+  await new Promise(resolve => setTimeout(resolve, 50))
+  
+  updateLoadingStatus('Adjusting map view...', 88)
+  // Fit the map to all features
+  if (polygons.value.length || parcels.value.length || roads.value.length || schools.value.length || water_points.value.length || structures.value.length || other_points.value.length) {
+    mapRef.value?.map.fitBounds(bounds)
+    
+    // Give the map time to adjust bounds before continuing
+    await new Promise(resolve => setTimeout(resolve, 100))
+  }
+
+  // After fitting to bounds, check if there's exactly one settlement
+  if (polygons.value.length === 1 && polygons.value[0].type == 'point') {
+    // Get the first settlement's coordinates (adjust this based on your feature structure)
+    const settlement = polygons.value[0]; // Adjust this if your settlement data has a different structure
+    const zoomLevel = 15; // Adjust zoom level as needed
+
+    // Assuming your settlement has latitude and longitude properties:
+    const latLng = { lat: settlement.lat, lng: settlement.lng };
+
+    // Set the zoom and center the map on the settlement
+    mapRef.value?.map.setZoom(zoomLevel);
+    mapRef.value?.map.setCenter(latLng);
+  }
+}
+
+// Keep original function for compatibility
 const loadSelectedLayers = async (layers: string[]) => {
   if (!mapReady.value || !window.google?.maps) {
     console.error('Google Maps API not ready')
@@ -366,6 +784,9 @@ const loadSelectedLayers = async (layers: string[]) => {
 
   // Process parcels
   if (allData.parcel?.features?.length && layers.includes('parcels')) {
+    const totalParcels = allData.parcel.features.length
+    console.log(`🔄 Processing ${totalParcels} parcels...`)
+    
     await processFeaturesInChunks(allData.parcel.features, (feature: any, index: number) => {
       const { geometry, properties } = feature
       if (geometry.type === 'Polygon' || geometry.type === 'MultiPolygon') {
@@ -658,9 +1079,9 @@ if (polygons.value.length === 1 && polygons.value[0].type=='point') {
   }
 }
 
-// Add lazy loading and chunked processing
-const chunkSize = 100 // Process features in chunks
-const processFeaturesInChunks = async (features: any[], processor: (feature: any, index: number) => void) => {
+// Optimized chunked processing for smooth loading
+const chunkSize = 50 // Smaller chunks for better responsiveness
+const processFeaturesInChunks = async (features: any[], processor: (feature: any, index: number) => void, progressCallback?: (progress: number) => void) => {
   const chunks: any[][] = []
   for (let i = 0; i < features.length; i += chunkSize) {
     chunks.push(features.slice(i, i + chunkSize))
@@ -672,10 +1093,14 @@ const processFeaturesInChunks = async (features: any[], processor: (feature: any
       processor(feature, i * chunkSize + index)
     })
     
-    // Yield control to prevent UI blocking
-    if (i < chunks.length - 1) {
-      await new Promise(resolve => setTimeout(resolve, 0))
+    // Update progress if callback provided
+    if (progressCallback) {
+      const progress = ((i + 1) / chunks.length) * 100
+      progressCallback(progress)
     }
+    
+    // Yield control more frequently to prevent UI blocking
+    await new Promise(resolve => setTimeout(resolve, 5))
   }
 }
 
@@ -1237,26 +1662,43 @@ const setLoading = (loading: boolean) => {
   isLoading.value = loading
 }
 
-// Optimized loading function
+// Optimized loading function with progressive feedback
 const loadMapData = async () => {
   if (isProcessing.value) return
   
   isProcessing.value = true
   setLoading(true)
+  showProgressOverlay.value = true
   
   try {
-    await loadSelectedLayers(['settlement', 'parcels', 'other_points', 'structures'])
+    updateLoadingStatus('Initializing map...', 0)
+    
+    // Load all layers together but with progressive status updates
+    updateLoadingStatus('Fetching map data...', 10)
+    await loadSelectedLayersWithProgress(['settlement', 'parcels', 'structures', 'other_points'])
+    
+    updateLoadingStatus('Setting up map controls...', 90)
     setupMapTypeControl()
+    
+    updateLoadingStatus('Loading satellite imagery...', 95)
     await addWmsLayer()
     selectedImageryLayers.value = [...availableImageryLayers.value]
     toggleImageryGroup(selectedImageryLayers.value)
+    
+    updateLoadingStatus('Map ready!', 100)
+    await new Promise(resolve => setTimeout(resolve, 500)) // Brief pause to show completion
+    
   } catch (error) {
     console.error('Error loading map data:', error)
     ElMessage.error('Failed to load map data')
+    updateLoadingStatus('Loading failed', 0)
   } finally {
     setLoading(false)
     mapLoading.value = false
     isProcessing.value = false
+    showProgressOverlay.value = false
+    loadingStatus.value = ''
+    loadingProgress.value = 0
     // Emit event when all layers are loaded
     emit('layers-loaded')
   }
@@ -1265,6 +1707,22 @@ const loadMapData = async () => {
 
  <template>
     <div class="map-container" >
+      <!-- Progressive Loading Overlay -->
+      <div v-if="showProgressOverlay" class="loading-overlay">
+        <div class="loading-content">
+          <div class="loading-spinner"></div>
+          <div class="loading-text">
+            <h3>{{ loadingStatus || 'Loading Map...' }}</h3>
+            <div v-if="loadingProgress > 0" class="progress-container">
+              <div class="progress-bar">
+                <div class="progress-fill" :style="{ width: loadingProgress + '%' }"></div>
+              </div>
+              <div class="progress-text">{{ Math.round(loadingProgress) }}%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
       <GoogleMap
         ref="mapRef"
         :api-key="googleMapsApiKey"
@@ -1599,5 +2057,100 @@ const loadMapData = async () => {
 .map-container:-moz-full-screen .download-btn {
   z-index: 99999;
   position: fixed;
+}
+
+/* Progressive Loading Overlay */
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  backdrop-filter: blur(2px);
+}
+
+.loading-content {
+  text-align: center;
+  background: white;
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  max-width: 350px;
+  width: 90%;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #409eff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 20px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-text h3 {
+  margin: 0 0 15px 0;
+  color: #333;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.progress-container {
+  margin: 15px 0;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 6px;
+  background-color: #f0f0f0;
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #409eff, #67c23a);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  font-size: 13px;
+  color: #666;
+  font-weight: 500;
+}
+
+/* Dark mode styles for loading overlay */
+.dark .loading-overlay {
+  background: rgba(0, 0, 0, 0.95);
+}
+
+.dark .loading-content {
+  background: #333;
+  color: #e0e0e0;
+}
+
+.dark .loading-text h3 {
+  color: #e0e0e0;
+}
+
+.dark .progress-text {
+  color: #ccc;
+}
+
+.dark .progress-bar {
+  background-color: #555;
 }
 </style>
