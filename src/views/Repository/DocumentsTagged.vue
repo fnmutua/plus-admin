@@ -214,6 +214,14 @@ const dateRange = ref<[Date, Date] | null>(null)
 const selectedDateRange = ref('')
 const customDateRange = ref<[Date, Date] | null>(null)
 
+// Computed property to handle date picker value
+const customDateRangeValue = computed({
+  get: () => customDateRange.value,
+  set: (value: [Date, Date] | null) => {
+    customDateRange.value = value
+  }
+})
+
 // Mobile responsiveness
 const isMobile = computed(() => appStore.getMobile)
 const actionColumnWidth = ref(isMobile.value ? "150px" : "260px")
@@ -337,16 +345,16 @@ const loadDocumentRepository = async (params: any = {}) => {
     
     if (success && responseData) {
       // Handle different possible document array locations
-      let allDocuments = []
+      let allDocuments: Document[] = []
       
       if (responseData.documents && Array.isArray(responseData.documents)) {
-        allDocuments = responseData.documents
+        allDocuments = responseData.documents as Document[]
       } else if (responseData.data && Array.isArray(responseData.data)) {
-        allDocuments = responseData.data
+        allDocuments = responseData.data as Document[]
       } else if (Array.isArray(responseData)) {
-        allDocuments = responseData
+        allDocuments = responseData as Document[]
       } else if (responseData.results && Array.isArray(responseData.results)) {
-        allDocuments = responseData.results
+        allDocuments = responseData.results as Document[]
       } else {
         // Fallback: check all properties for arrays
         console.log('No standard document array found, checking all properties...')
@@ -366,7 +374,7 @@ const loadDocumentRepository = async (params: any = {}) => {
               )
               
               if (hasDocumentProperties) {
-                allDocuments = responseData[key]
+                allDocuments = responseData[key] as Document[]
                 console.log('Using array from key:', key, '(verified as documents)')
                 break
               } else {
@@ -776,6 +784,43 @@ const getparentOptions = async () => {
   parentOptions.value = []
   
   try {
+    if (!theParentModel.value) {
+      return
+    }
+
+    const associatedModels = theParentModel.value === 'settlement' ? ['county', 'subcounty', 'ward'] :
+      ['project', 'contractor', 'road', 'road_asset'].includes(theParentModel.value) ? [] :
+      ['county', 'subcounty', 'ward']
+
+    const formData = {
+      curUser: 1,
+      model: theParentModel.value,
+      searchField: theParentModel.value === 'project' ? 'title' : 'name',
+      searchKeyword: '',
+      excludeGeom: false,
+      excludeGeomAssoc: true,
+      associated_multiple_models: associatedModels,
+      filters: [],
+      filterValues: [],
+    }
+
+    const response = await searchByKeyWord(formData as any)
+    const data = (response as any).data
+    
+    if (data && data.length > 0) {
+      parentOptions.value = data.map((item: any) => ({
+        value: item.id,
+        label: item.name || item.title || item.contract_number || 'Unknown',
+        county: item.county?.name,
+        subcounty: item.subcounty?.name,
+        ward: item.ward?.name,
+        ward_id: item.ward?.id,
+        subcounty_id: item.subcounty?.id,
+        county_id: item.county?.id,
+      }))
+    } else {
+      ElMessage.warning('No parent options found for the selected entity.')
+    }
   } catch (error) {
     console.error('Error loading parent options:', error)
     ElMessage.error('Failed to load parent options')
@@ -1870,7 +1915,7 @@ const importDrawerSize = computed(() => isMobile.value ? '100%' : '40%')
                 <!-- Custom Date Range Picker -->
                 <div v-if="selectedDateRange === 'custom'" class="custom-date-range">
                   <el-date-picker
-                    v-model="customDateRange"
+                    v-model="customDateRangeValue"
                     type="daterange"
                     range-separator="to"
                     start-placeholder="Start date"
@@ -1952,7 +1997,8 @@ const importDrawerSize = computed(() => isMobile.value ? '100%' : '40%')
 
           <el-form-item v-if="!hide_parent" :label="parentTitle">
             <el-select
-filterable clearable
+              filterable 
+              clearable
               v-model="documentForm.parent_id" 
               placeholder="please select your parent"
               v-loading="parentLoading"
@@ -1963,7 +2009,14 @@ filterable clearable
                 :key="item.value"
                 :label="item.label"
                 :value="item.value"
-              />
+              >
+                <div style="display: flex; align-items: center;">
+                  <span style="flex: 1; text-align: left;">{{ item.label }}</span>
+                  <span v-if="item.county || item.subcounty || item.ward" style="flex: 2; color: var(--el-text-color-secondary); font-size: 13px; text-align: right;">
+                    {{ item.ward }}, {{ item.subcounty }}, {{ item.county }}
+                  </span>
+                </div>
+              </el-option>
             </el-select>
           </el-form-item>
 
