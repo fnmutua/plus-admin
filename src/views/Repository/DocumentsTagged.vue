@@ -56,6 +56,7 @@ interface Document {
   createdBy: number
   createdAt: string
   updatedAt: string
+  downloadCount: number
   deletable?: boolean
   document_type?: {
     id: number
@@ -209,18 +210,15 @@ const uploaderCounts = ref<{ [key: string]: { id: number, name: string, count: n
 const activeFilterTab = ref('category')
 const uploadersLoading = ref(false)
 
+// Sort options
+const sortOption = ref('date') // 'date' or 'popularity'
+
 // Date filter variables
 const dateRange = ref<[Date, Date] | null>(null)
 const selectedDateRange = ref('')
 const customDateRange = ref<[Date, Date] | null>(null)
 
-// Computed property to handle date picker value
-const customDateRangeValue = computed({
-  get: () => customDateRange.value,
-  set: (value: [Date, Date] | null) => {
-    customDateRange.value = value
-  }
-})
+// Note: Using customDateRange directly for the date picker
 
 // Mobile responsiveness
 const isMobile = computed(() => appStore.getMobile)
@@ -304,8 +302,8 @@ const loadDocumentRepository = async (params: any = {}) => {
         endDate: dateRange.value[1].toISOString()
       } : undefined,
       userFilters: roles_filters.length > 0 ? roles_filters : undefined,
-      sortBy: 'createdAt',
-      sortOrder: 'DESC', // Ensure latest uploads appear first
+      sortBy: sortOption.value === 'popularity' ? 'downloadCount' : 'createdAt',
+      sortOrder: 'DESC', // Ensure latest uploads appear first for date, most popular first for popularity
       ...params
     }
 
@@ -393,6 +391,8 @@ const loadDocumentRepository = async (params: any = {}) => {
       
       console.log('Documents received from backend:', allDocuments.length)
       console.log('Sample document:', allDocuments[0])
+      console.log('Sample document downloadCount:', allDocuments[0]?.downloadCount)
+      console.log('Sample document keys:', allDocuments[0] ? Object.keys(allDocuments[0]) : 'No documents')
       documents.value = allDocuments
       categoryCounts.value = responseData.categoryCounts || {}
       // uploaderCounts now loaded separately via dedicated endpoint
@@ -582,6 +582,13 @@ const handlePageChange = async (newPage: number) => {
 const handlePageSizeChange = async (newPageSize: number) => {
   pageSize.value = newPageSize
   currentPage.value = 1 // Reset to first page when changing page size
+  await loadDocumentRepository()
+}
+
+// Sort handler
+const handleSortChange = async (newSortOption: string) => {
+  sortOption.value = newSortOption
+  currentPage.value = 1 // Reset to first page when changing sort
   await loadDocumentRepository()
 }
 
@@ -1592,7 +1599,21 @@ const importDrawerSize = computed(() => isMobile.value ? '100%' : '40%')
         
         <!-- Action Buttons Section -->
         <el-col :xs="24" :sm="24" :md="10" :lg="10" :xl="10" class="actions-col">
+        
           <div class="action-buttons">
+            <div class="sort-options">
+              <span class="sort-label">Sort by:</span>
+              <el-select 
+                v-model="sortOption" 
+                @change="handleSortChange"
+                size="small"
+                style="width: 120px;"
+              >
+                <el-option label="Date" value="date" />
+                <el-option label="Popularity" value="popularity" />
+              </el-select>
+            </div>
+
             <el-button 
               @click="importDrawerVisible = true" 
               type="success" 
@@ -1712,6 +1733,9 @@ const importDrawerSize = computed(() => isMobile.value ? '100%' : '40%')
       <el-table-column prop="createdAt" label="Date" :formatter="formatEndDate" min-width="120" />
                  <el-table-column prop="user.name" label="User" min-width="100" show-overflow-tooltip />
                 <el-table-column prop="size" label="Size(Mb)" min-width="80" />
+                <el-table-column label="Downloads"  prop="downloadCount"  min-width="50" align="center"/>
+              
+          
       <el-table-column label="Actions" :width="actionColumnWidth">
         <template #default="{ row }">
              <PermissionWrapper :permissions="['document:read', 'document:delete', 'document:create']">
@@ -1722,6 +1746,7 @@ const importDrawerSize = computed(() => isMobile.value ? '100%' : '40%')
               @edit="editDocument" 
               @delete="removeDocument" 
               @preview="viewDocument" 
+              @download="downloadFile(row)"
              
             />
           </PermissionWrapper>
@@ -1915,7 +1940,7 @@ const importDrawerSize = computed(() => isMobile.value ? '100%' : '40%')
                 <!-- Custom Date Range Picker -->
                 <div v-if="selectedDateRange === 'custom'" class="custom-date-range">
                   <el-date-picker
-                    v-model="customDateRangeValue"
+                    v-model="customDateRange"
                     type="daterange"
                     range-separator="to"
                     start-placeholder="Start date"
@@ -2399,6 +2424,19 @@ const importDrawerSize = computed(() => isMobile.value ? '100%' : '40%')
 .page-size-label {
   font-size: 14px;
   color: #606266;
+}
+
+/* Sort Options Styles */
+.sort-options {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sort-label {
+  font-size: 14px;
+  color: #606266;
+  white-space: nowrap;
 }
 
 /* Responsive Layout Styles */

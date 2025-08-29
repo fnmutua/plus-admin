@@ -128,7 +128,7 @@ width="300" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
 
           <el-dropdown-item v-if="buttons.includes('download')" @click="onDownload(item)">
             <el-icon>
-              <Delete />
+              <Download />
             </el-icon>
           </el-dropdown-item>
 

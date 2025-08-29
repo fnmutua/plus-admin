@@ -4965,6 +4965,15 @@ exports.downloadFile = (req, res) => {
           });
         } else {
           // File sent successfully
+          // Increment download count for the document
+          db.models.document.increment('downloadCount', {
+            where: { name: req.body.filename }
+          }).then(() => {
+            console.log('Download count incremented for:', req.body.filename);
+          }).catch(error => {
+            console.error('Error incrementing download count:', error);
+          });
+          
           // Handle success logic here if needed
           // res.status(200).send({
           //   message: 'File Found. Downloading...',
@@ -5510,7 +5519,7 @@ exports.getDocumentRepository = async (req, res) => {
       ],
       attributes: [
         'id', 'name', 'category', 'format', 'size', 'location', 
-        'protectedFile', 'createdBy', 'createdAt', 'updatedAt'
+        'protectedFile', 'createdBy', 'createdAt', 'updatedAt', 'downloadCount'
       ],
       order: [[sortBy, sortOrder]],
       limit: limit,
@@ -5846,7 +5855,8 @@ exports.getDocumentRepository = async (req, res) => {
         'settlement.county.id': flatDoc.settlement?.county?.id,
         'settlement.county.name': flatDoc.settlement?.county?.name,
         'user.id': flatDoc.user?.id,
-        'user.name': flatDoc.user?.name
+        'user.name': flatDoc.user?.name,
+        downloadCount: flatDoc.downloadCount || 0
       };
     });
 
@@ -5916,6 +5926,15 @@ exports.getDocumentRepository = async (req, res) => {
     } catch (uploaderError) {
       console.error('Error generating uploader counts:', uploaderError);
       uploaderCounts = {};
+    }
+
+    // Debug: Log a sample processed document to verify downloadCount is included
+    if (processedDocuments.length > 0) {
+      console.log('getDocumentRepository - Sample processed document:', {
+        id: processedDocuments[0].id,
+        name: processedDocuments[0].name,
+        downloadCount: processedDocuments[0].downloadCount
+      });
     }
 
     res.status(200).json({
