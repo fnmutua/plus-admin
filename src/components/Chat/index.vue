@@ -205,8 +205,6 @@ const handleWebSocketMessage = (data: any) => {
         console.log('Previous status:', readMsg.status)
         readMsg.status = 'read'
         console.log('New status:', readMsg.status)
-        console.log('=== After updating message status ===')
-        logMessageStatuses()
         
         // Update badge count after message status changes
         updateBadgeCount()
@@ -312,7 +310,6 @@ const handleWebSocketMessage = (data: any) => {
 
 // Simulate online users for demo (when WebSocket is not available)
 const simulateOnlineUsers = () => {
-  console.log('Simulating online users for demo')
   onlineUsers.value = [
     {
       id: 'user1',
@@ -366,17 +363,12 @@ const simulateOnlineUsers = () => {
     ]
     
     chatMessages.value.push(...demoMessages)
-    console.log('Added demo messages:', demoMessages.length)
   }
 }
 
 // Send message
 const sendMessage = () => {
   if (!currentMessage.value.trim()) return
-  
-  console.log('=== Sending Message ===')
-  console.log('Current conversation:', activeConversation.value)
-  console.log('Message content:', currentMessage.value)
   
   // Create a temporary message object without an ID
   // The server will generate the real ID when saving to database
@@ -390,9 +382,6 @@ const sendMessage = () => {
     status: 'sending'
   }
   
-  console.log(`Sending message without ID (server will generate one)`)
-  console.log('Message object:', message)
-  
   // Add message to local state immediately with a temporary ID
   // This will be replaced when we get the server response
   const tempMessage = {
@@ -404,17 +393,7 @@ const sendMessage = () => {
   chatMessages.value.push(tempMessage)
   currentMessage.value = ''
   
-  console.log(`Added temporary message to chatMessages. Total count: ${chatMessages.value.length}`)
-  console.log(`Message details:`, {
-    id: tempMessage.id,
-    content: tempMessage.content,
-    message_type: tempMessage.message_type,
-    status: tempMessage.status,
-    isTemp: tempMessage.isTemp
-  })
-  
   if (ws && ws.readyState === WebSocket.OPEN) {
-    console.log('WebSocket connected, sending message to server')
     ws.send(JSON.stringify({
       type: 'message',
       message: message,
@@ -423,43 +402,55 @@ const sendMessage = () => {
     
     // Update status to sent after sending
     tempMessage.status = 'sent'
-    console.log('Message status updated to sent')
+    
+    // Trigger status update animation
+    triggerStatusAnimation(tempMessage.id)
+    
+    // Simulate delivery after a short delay (in real implementation, this would come from server)
+    setTimeout(() => {
+      if (tempMessage.status === 'sent') {
+        tempMessage.status = 'received'
+        // Trigger status update animation
+        triggerStatusAnimation(tempMessage.id)
+      }
+    }, 2000)
   } else {
-    console.log('WebSocket not connected, simulating message delivery for demo')
     // For demo purposes when WebSocket is not available, simulate message delivery
     setTimeout(() => {
-      tempMessage.status = 'received'
-      console.log('Demo message status updated to received')
-    }, 1000)
+      tempMessage.status = 'sent'
+      // Trigger status update animation
+      triggerStatusAnimation(tempMessage.id)
+    }, 500)
+    
+    setTimeout(() => {
+      if (tempMessage.status === 'sent') {
+        tempMessage.status = 'received'
+        // Trigger status update animation
+        triggerStatusAnimation(tempMessage.id)
+      }
+    }, 2000)
   }
   
   // Scroll to bottom after a short delay to ensure the message is rendered
   setTimeout(() => {
     scrollToBottom()
   }, 100)
-  
-  console.log('=== End Sending Message ===')
 }
 
 // Update user status
 const updateUserStatus = (newStatus: string) => {
-  console.log(`Updating user status to: ${newStatus}`)
   userStatus.value = newStatus
   
   // Save to localStorage
   localStorage.setItem('chatUserStatus', newStatus)
-  console.log(`Saved status to localStorage: ${newStatus}`)
   
   // Send to server if connected
   if (ws && ws.readyState === WebSocket.OPEN) {
-    console.log(`Sending status update to server: ${newStatus}`)
     ws.send(JSON.stringify({
       type: 'status_update',
       userId: currentUser.value.id,
       status: newStatus
     }))
-  } else {
-    console.log('WebSocket not connected, cannot send status update')
   }
 }
 
@@ -475,10 +466,8 @@ const cycleUserStatus = () => {
 const loadUserStatus = () => {
   const saved = localStorage.getItem('chatUserStatus')
   if (saved) {
-    console.log(`Loaded saved status from localStorage: ${saved}`)
     userStatus.value = saved
   } else {
-    console.log('No saved status found, using default: online')
     userStatus.value = 'online'
   }
 }
@@ -567,35 +556,19 @@ const getUserStatusColor = (status: string) => {
 
 // Open chat modal
 const openModal = () => {
-  console.log('=== openModal called! ===')
-  console.log('visible before:', visible.value)
-  console.log('Badge count before opening:', unreadCount.value)
-  console.log('Current conversation:', activeConversation.value)
-  console.log('Total messages:', chatMessages.value.length)
-  console.log('Filtered messages:', filteredMessages.value.length)
-  
   visible.value = true
   drawerFocused.value = true
   lastViewedTime.value = new Date()
   
-  console.log('visible after:', visible.value)
-  console.log('Now marking messages as read')
-  
   // Mark all unread messages as read when drawer opens
   // This is the definitive "read" action - user opened drawer to view
   setTimeout(() => {
-    console.log('=== Before marking messages as read ===')
-    logMessageStatuses()
     markAllMessagesAsRead()
-    console.log('=== After marking messages as read ===')
-    logMessageStatuses()
   }, 300) // Small delay to ensure drawer is fully opened
   
   nextTick(() => {
     scrollToBottom()
   })
-  
-  console.log('=== End openModal ===')
 }
 
 // Mark all unread messages as read
@@ -647,6 +620,9 @@ const updateMessageStatus = (messageId: string, status: string) => {
     console.log(`Found message locally, updating status from ${message.status} to ${status}`)
     message.status = status
     
+    // Trigger status update animation
+    triggerStatusAnimation(messageId)
+    
     // Update badge count after changing message status
     updateBadgeCount()
   } else {
@@ -663,19 +639,25 @@ const updateMessageStatus = (messageId: string, status: string) => {
   }
 }
 
+// Trigger status update animation
+const triggerStatusAnimation = (messageId: string) => {
+  nextTick(() => {
+    const statusIcon = document.querySelector(`[data-message-id="${messageId}"] .message-status .iconify, [data-message-id="${messageId}"] .mobile-message-status .iconify`)
+    if (statusIcon) {
+      statusIcon.classList.add('status-updated')
+      setTimeout(() => {
+        statusIcon.classList.remove('status-updated')
+      }, 300)
+    }
+  })
+}
+
 // Mark individual message as read when it comes into view
 const markMessageAsRead = (messageId: string) => {
   updateMessageStatus(messageId, 'read')
 }
 
-// Debug function to log message statuses
-const logMessageStatuses = () => {
-  console.log('=== Current Message Statuses ===')
-  chatMessages.value.forEach((msg, index) => {
-    console.log(`${index}: ID: ${msg.id}, Content: "${msg.content.substring(0, 30)}...", Sender: ${msg.sender.name}, Status: ${msg.status}`)
-  })
-  console.log('================================')
-}
+
 
 // Switch between conversations
 const switchConversation = (conversationId: string) => {
@@ -703,15 +685,11 @@ const updateBadgeCount = () => {
       .filter(u => u.id !== currentUser.value.id)
       .reduce((sum, user) => sum + getUnreadCount(user.id), 0)
   
-  console.log(`Total unread count calculated: ${totalUnreadCount}`)
-  
   // Update local unread count
   unreadCount.value = totalUnreadCount
   
   // Emit to parent component to update badge
   emit('updateUnreadCount', totalUnreadCount)
-  
-  console.log(`Badge count updated to: ${totalUnreadCount}`)
 }
 
 // Get unread count for specific conversation
@@ -724,7 +702,6 @@ const getUnreadCount = (conversationId: string) => {
       msg.sender.id !== currentUser.value.id && 
       msg.status === 'received' // Only count 'received' messages as unread
     ).length
-    console.log(`Team chat unread count: ${count}`)
     return count
   } else {
     // Direct messages: count unread messages from this specific user
@@ -734,7 +711,6 @@ const getUnreadCount = (conversationId: string) => {
       msg.message_type === 'direct_message' &&
       msg.status === 'received' // Only count 'received' messages as unread
     ).length
-    console.log(`Direct message unread count for ${conversationId}: ${count}`)
     return count
   }
 }
@@ -889,23 +865,6 @@ const activeConversationInfo = computed(() => {
 
 // Filtered messages for active conversation
 const filteredMessages = computed(() => {
-  console.log('=== Filtering messages ===')
-  console.log('Active conversation:', activeConversation.value)
-  console.log('Total messages:', chatMessages.value.length)
-  console.log('Current user ID:', currentUser.value.id)
-  
-  if (chatMessages.value.length > 0) {
-    console.log('Message types:', chatMessages.value.map(m => ({ 
-      id: m.id, 
-      type: m.message_type, 
-      receiver: m.receiver_id, 
-      sender: m.sender.id, 
-      isTemp: m.isTemp, 
-      status: m.status,
-      content: m.content.substring(0, 30)
-    })))
-  }
-  
   let filtered: any[]
   if (activeConversation.value === 'general') {
     // Team chat: show only broadcast messages (no receiver_id) from support users
@@ -914,7 +873,6 @@ const filteredMessages = computed(() => {
       msg.message_type === 'team_chat'
       // Show temporary messages so they appear immediately
     )
-    console.log('Team chat filtered count:', filtered.length)
   } else {
     // Direct messages: show only messages between these two specific users
     filtered = chatMessages.value.filter(msg => 
@@ -922,27 +880,8 @@ const filteredMessages = computed(() => {
       ((msg.sender.id === activeConversation.value && msg.receiver_id === currentUser.value.id) ||
        (msg.sender.id === currentUser.value.id && msg.receiver_id === activeConversation.value))
     )
-    console.log('Direct message filtered count:', filtered.length)
   }
   
-  if (filtered.length > 0) {
-    console.log('Filtered messages:', filtered.map(m => ({ 
-      id: m.id, 
-      content: m.content.substring(0, 20), 
-      status: m.status, 
-      isTemp: m.isTemp,
-      sender: m.sender.id,
-      receiver: m.receiver_id
-    })))
-  }
-  
-  // Debug: Check if our temporary message is included
-  const tempMessages = filtered.filter(m => m.isTemp)
-  if (tempMessages.length > 0) {
-    console.log('Temporary messages in filtered results:', tempMessages.map(m => ({ id: m.id, content: m.content, status: m.status })))
-  }
-  
-  console.log('=== End Filtering ===')
   return filtered
 })
 </script>
@@ -958,25 +897,43 @@ const filteredMessages = computed(() => {
   >
     <template #header>
       <div class="drawer-header">
-        <div class="header-left">
-          <!-- Sidebar Toggle -->
-          <el-button 
-            type="text" 
-            @click="showUsersSidebar = !showUsersSidebar"
-            class="sidebar-toggle"
-            :class="{ active: showUsersSidebar }"
-          >
-            <Icon icon="material-symbols:menu" width="18" />
-          </el-button>
-          
-          <!-- Active Conversation Info -->
-          <div class="conversation-info">
-            <Icon :icon="activeConversationInfo.icon" width="18" color="var(--el-text-color-primary)" />
-            <span class="conversation-title">{{ activeConversationInfo.title }}</span>
-          </div>
-        </div>
+                 <div class="header-left">
+           <!-- Active Conversation Info -->
+           <div class="conversation-info">
+             <Icon :icon="activeConversationInfo.icon" width="18" color="var(--el-text-color-primary)" />
+             <span class="conversation-title">{{ activeConversationInfo.title }}</span>
+           </div>
+         </div>
         
         <div class="header-right">
+          <!-- Online Users Preview (Always Visible) -->
+          <div class="online-users-preview" @click="showUsersSidebar = !showUsersSidebar">
+            <div class="online-avatars">
+              <div 
+                v-for="(user, index) in onlineUsers.slice(0, 3)" 
+                :key="user.id"
+                class="online-avatar"
+                :style="{ 
+                  zIndex: 3 - index,
+                  marginLeft: index > 0 ? '-8px' : '0'
+                }"
+                :title="`${user.name} (${user.status})`"
+              >
+                <el-avatar :size="24" :src="user.avatar">
+                  {{ user.name.charAt(0).toUpperCase() }}
+                </el-avatar>
+                <div 
+                  class="status-dot" 
+                  :style="{ backgroundColor: getUserStatusColor(user.status) }"
+                ></div>
+              </div>
+              <div v-if="onlineUsers.length > 3" class="more-users">
+                +{{ onlineUsers.length - 3 }}
+              </div>
+            </div>
+            <span class="online-label">{{ onlineUsers.length }} online</span>
+          </div>
+          
           <!-- User Status Dot -->
           <div 
             class="user-status-dot" 
@@ -985,24 +942,15 @@ const filteredMessages = computed(() => {
             @click="cycleUserStatus"
           ></div>
           
-          <!-- Online Count -->
-          <span v-if="isConnected" class="online-count">{{ onlineUsers.length }}</span>
-          <Icon v-else icon="material-symbols:wifi-off" width="16" color="#f56c6c" title="Offline" />
-          
-          <!-- Debug Button -->
-          <el-button 
-            type="text" 
-            size="small"
-            @click="logMessageStatuses"
-            title="Debug: Log message statuses"
-          >
-            <Icon icon="material-symbols:bug-report" width="14" />
-          </el-button>
+          <!-- Connection Status -->
+          <Icon v-if="!isConnected" icon="material-symbols:wifi-off" width="16" color="#f56c6c" title="Offline" />
         </div>
       </div>
     </template>
 
     <div class="chat-container">
+
+      
       <!-- Users Sidebar -->
       <div 
         v-if="showUsersSidebar" 
@@ -1064,17 +1012,21 @@ const filteredMessages = computed(() => {
           
           <!-- Messages -->
           <div ref="chatContainer" class="chat-messages">
-            <!-- Debug info -->
-            <div style="padding: 8px; background: #f0f0f0; margin-bottom: 8px; font-size: 12px; color: #666;">
-              Debug: Total messages: {{ chatMessages.length }}, Filtered: {{ filteredMessages.length }}, Active: {{ activeConversation }}
-            </div>
-            
             <div v-if="filteredMessages.length === 0" class="no-messages">
               <Icon icon="material-symbols:chat-bubble-outline" width="48" color="var(--el-text-color-placeholder)" />
-              <p>No messages in this conversation yet. Start the conversation!</p>
+              <p v-if="activeConversation === 'general'">No messages in team chat yet. Start the conversation!</p>
+              <p v-else>No messages with this user yet. Start the conversation!</p>
+              <div class="welcome-tips">
+                <p class="tip-title">💡 Quick Tips:</p>
+                <ul class="tip-list">
+                  <li>Use the <strong>Quick Access</strong> bar above to switch conversations</li>
+                  <li>Click on user avatars to start direct messages</li>
+                  <li>Use <strong>Team Chat</strong> for group discussions</li>
+                </ul>
+              </div>
             </div>
             
-            <div v-for="message in filteredMessages" :key="message.id" class="message-container">
+            <div v-for="message in filteredMessages" :key="message.id" class="message-container" :data-message-id="message.id">
               <div 
                 :class="[
                   'message', 
@@ -1097,38 +1049,43 @@ const filteredMessages = computed(() => {
                   <div class="message-text">{{ message.content }}</div>
                   <div class="message-footer">
                     <span class="message-time">{{ formatTimestamp(message.timestamp) }}</span>
-                    <!-- Debug: Show status text -->
-                    <span v-if="message.sender.id === currentUser.id" class="status-debug" style="font-size: 10px; color: #999; margin-right: 4px;">{{ message.status }}</span>
                     <span v-if="message.sender.id === currentUser.id" class="message-status">
-                      <Icon 
-                        v-if="message.status === 'sending'" 
-                        icon="material-symbols:schedule" 
-                        width="12" 
-                        color="#909399" 
-                        title="Sending..."
-                      />
-                      <Icon 
-                        v-else-if="message.status === 'received'" 
-                        icon="material-symbols:done-all" 
-                        width="14" 
-                        color="#909399" 
-                        title="Received"
-                      />
-                      <Icon 
-                        v-else-if="message.status === 'read'" 
-                        icon="material-symbols:done-all" 
-                        width="14" 
-                        color="#1976d2" 
-                        title="Read"
-                      />
-                      <Icon 
-                        v-else-if="message.status === 'failed'" 
-                        icon="material-symbols:error" 
-                        width="12" 
-                        color="#f56c6c" 
-                        title="Failed to send"
-                      />
-                    </span>
+                       <Icon 
+                         v-if="message.status === 'sending'" 
+                         icon="material-symbols:schedule" 
+                         width="12" 
+                         color="#909399" 
+                         title="Sending..."
+                       />
+                       <Icon 
+                         v-else-if="message.status === 'sent'" 
+                         icon="material-symbols:done" 
+                         width="12" 
+                         color="#909399" 
+                         title="Sent"
+                       />
+                       <Icon 
+                         v-else-if="message.status === 'received'" 
+                         icon="material-symbols:done-all" 
+                         width="14" 
+                         color="#909399" 
+                         title="Delivered"
+                       />
+                       <Icon 
+                         v-else-if="message.status === 'read'" 
+                         icon="material-symbols:done-all" 
+                         width="14" 
+                         color="#1976d2" 
+                         title="Read"
+                       />
+                       <Icon 
+                         v-else-if="message.status === 'failed'" 
+                         icon="material-symbols:error" 
+                         width="12" 
+                         color="#f56c6c" 
+                         title="Failed to send"
+                       />
+                     </span>
                   </div>
                 </div>
               </div>
@@ -1164,17 +1121,21 @@ const filteredMessages = computed(() => {
           
           <!-- Mobile Messages -->
           <div ref="chatContainer" class="mobile-chat-messages">
-            <!-- Debug info -->
-            <div style="padding: 8px; background: #f0f0f0; margin-bottom: 8px; font-size: 12px; color: #666;">
-              Debug: Total messages: {{ chatMessages.length }}, Filtered: {{ filteredMessages.length }}, Active: {{ activeConversation }}
-            </div>
-            
             <div v-if="filteredMessages.length === 0" class="no-messages">
               <Icon icon="material-symbols:chat-bubble-outline" width="48" color="var(--el-text-color-placeholder)" />
-              <p>No messages in this conversation yet. Start the conversation!</p>
+              <p v-if="activeConversation === 'general'">No messages in team chat yet. Start the conversation!</p>
+              <p v-else>No messages with this user yet. Start the conversation!</p>
+              <div class="welcome-tips">
+                <p class="tip-title">💡 Quick Tips:</p>
+                <ul class="tip-list">
+                  <li>Use the <strong>Quick Access</strong> bar above to switch conversations</li>
+                  <li>Click on user avatars to start direct messages</li>
+                  <li>Use <strong>Team Chat</strong> for group discussions</li>
+                </ul>
+              </div>
             </div>
             
-            <div v-for="message in filteredMessages" :key="message.id" class="mobile-message-container">
+            <div v-for="message in filteredMessages" :key="message.id" class="mobile-message-container" :data-message-id="message.id">
               <div 
                 :class="[
                   'mobile-message', 
@@ -1188,34 +1149,43 @@ const filteredMessages = computed(() => {
                   <div class="mobile-message-text">{{ message.content }}</div>
                   <div class="mobile-message-footer">
                     <span class="mobile-message-time">{{ formatTimestamp(message.timestamp) }}</span>
-                    <!-- Debug: Show status text -->
-                    <span v-if="message.sender.id === currentUser.id" class="status-debug" style="font-size: 10px; color: #999; margin-right: 4px;">{{ message.status }}</span>
                     <span v-if="message.sender.id === currentUser.id" class="mobile-message-status">
-                      <Icon 
-                        v-if="message.status === 'sending'" 
-                        icon="material-symbols:schedule" 
-                        width="12" 
-                        color="#909399"
-                      />
-                      <Icon 
-                        v-else-if="message.status === 'received'" 
-                        icon="material-symbols:done-all" 
-                        width="14" 
-                        color="#909399"
-                      />
-                      <Icon 
-                        v-else-if="message.status === 'read'" 
-                        icon="material-symbols:done-all" 
-                        width="14" 
-                        color="#1976d2"
-                      />
-                      <Icon 
-                        v-else-if="message.status === 'failed'" 
-                        icon="material-symbols:error" 
-                        width="12" 
-                        color="#f56c6c"
-                      />
-                    </span>
+                       <Icon 
+                         v-if="message.status === 'sending'" 
+                         icon="material-symbols:schedule" 
+                         width="12" 
+                         color="#909399"
+                         title="Sending..."
+                       />
+                       <Icon 
+                         v-else-if="message.status === 'sent'" 
+                         icon="material-symbols:done" 
+                         width="12" 
+                         color="#909399"
+                         title="Sent"
+                       />
+                       <Icon 
+                         v-else-if="message.status === 'received'" 
+                         icon="material-symbols:done-all" 
+                         width="14" 
+                         color="#909399"
+                         title="Delivered"
+                       />
+                       <Icon 
+                         v-else-if="message.status === 'read'" 
+                         icon="material-symbols:done-all" 
+                         width="14" 
+                         color="#1976d2"
+                         title="Read"
+                       />
+                       <Icon 
+                         v-else-if="message.status === 'failed'" 
+                         icon="material-symbols:error" 
+                         width="12" 
+                         color="#f56c6c"
+                         title="Failed to send"
+                       />
+                     </span>
                   </div>
                 </div>
               </div>
@@ -1420,6 +1390,38 @@ const filteredMessages = computed(() => {
   font-size: 14px;
 }
 
+.welcome-tips {
+  margin-top: 20px;
+  padding: 16px;
+  background: var(--el-fill-color-light);
+  border-radius: 8px;
+  border: 1px solid var(--el-border-color-lighter);
+  max-width: 400px;
+}
+
+.tip-title {
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.tip-list {
+  margin: 0;
+  padding-left: 16px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  line-height: 1.5;
+}
+
+.tip-list li {
+  margin-bottom: 4px;
+}
+
+.tip-list strong {
+  color: var(--el-text-color-primary);
+}
+
 .message-container {
   margin-bottom: 16px;
 }
@@ -1487,6 +1489,25 @@ const filteredMessages = computed(() => {
   display: flex;
   align-items: center;
   gap: 2px;
+  margin-left: 8px;
+}
+
+.message-status .iconify {
+  transition: all 0.2s ease;
+}
+
+.message-status .iconify:hover {
+  transform: scale(1.1);
+}
+
+@keyframes statusUpdate {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+.message-status .iconify.status-updated {
+  animation: statusUpdate 0.3s ease-in-out;
 }
 
 .chat-input-container {
@@ -1581,6 +1602,19 @@ const filteredMessages = computed(() => {
   display: flex;
   align-items: center;
   gap: 2px;
+  margin-left: 8px;
+}
+
+.mobile-message-status .iconify {
+  transition: all 0.2s ease;
+}
+
+.mobile-message-status .iconify:hover {
+  transform: scale(1.1);
+}
+
+.mobile-message-status .iconify.status-updated {
+  animation: statusUpdate 0.3s ease-in-out;
 }
 
 .mobile-chat-input {
@@ -1642,6 +1676,68 @@ const filteredMessages = computed(() => {
   border-bottom: 1px solid var(--el-border-color-light);
 }
 
+/* Online Users Preview in Header */
+.online-users-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--el-fill-color-light);
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid var(--el-border-color-lighter);
+}
+
+.online-users-preview:hover {
+  background: var(--el-fill-color);
+  border-color: var(--el-border-color);
+}
+
+.online-avatars {
+  display: flex;
+  align-items: center;
+}
+
+.online-avatar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.online-avatar .status-dot {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 8px;
+  height: 8px;
+  border: 2px solid var(--el-bg-color);
+}
+
+.more-users {
+  background: var(--el-color-primary);
+  color: white;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 10px;
+  margin-left: 4px;
+  min-width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.online-label {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  font-weight: 500;
+}
+
+
+
 .header-left {
   display: flex;
   align-items: center;
@@ -1655,20 +1751,7 @@ const filteredMessages = computed(() => {
   gap: 12px;
 }
 
-.sidebar-toggle {
-  padding: 4px;
-  border-radius: 6px;
-  transition: all 0.2s ease;
-}
 
-.sidebar-toggle:hover {
-  background-color: var(--el-fill-color-light);
-}
-
-.sidebar-toggle.active {
-  background-color: var(--el-color-primary-light-9);
-  color: var(--el-color-primary);
-}
 
 .conversation-info {
   display: flex;
@@ -1831,12 +1914,20 @@ const filteredMessages = computed(() => {
     width: 100% !important;
   }
   
-  .sidebar-toggle {
-    display: block;
-  }
+
   
   .conversation-details {
     display: none;
+  }
+  
+
+  
+  .online-users-preview {
+    padding: 4px 8px;
+  }
+  
+  .online-label {
+    font-size: 11px;
   }
 }
 
