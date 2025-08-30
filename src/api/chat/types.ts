@@ -10,6 +10,15 @@ export type ChatUserType = {
   isOnline: boolean
 }
 
+// Response type for chat users with online count
+export type ChatUsersResponseType = {
+  data: ChatUserType[]
+  total: number
+  onlineCount: number
+  code: string
+  message: string
+}
+
 export type ChatMessageType = {
   id: string
   content: string

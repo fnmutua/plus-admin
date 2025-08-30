@@ -57,6 +57,13 @@ exports.getMessages = async (req, res) => {
       offset: offset
     });
 
+    // Convert sender photos to base64 data URLs
+    messages.rows.forEach(message => {
+      if (message.sender && message.sender.photo && Buffer.isBuffer(message.sender.photo)) {
+        message.sender.photo = 'data:image/png;base64,' + message.sender.photo.toString('base64');
+      }
+    });
+
     res.status(200).json({
       data: messages.rows,
       total: messages.count,
@@ -110,6 +117,11 @@ exports.sendMessage = async (req, res) => {
         attributes: ['id', 'name', 'email', 'photo']
       }]
     });
+
+    // Convert sender photo to base64 data URL
+    if (messageWithSender.sender && messageWithSender.sender.photo && Buffer.isBuffer(messageWithSender.sender.photo)) {
+      messageWithSender.sender.photo = 'data:image/png;base64,' + messageWithSender.sender.photo.toString('base64');
+    }
 
     res.status(200).json({
       message: 'Message sent successfully',
@@ -223,14 +235,25 @@ exports.getOnlineUsers = async (req, res) => {
       attributes: ['id', 'name', 'email', 'photo']
     });
 
-    const onlineUsers = users.map(user => ({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      avatar: user.photo,
-      status: user.status.status,
-      lastSeen: user.status.last_seen
-    }));
+    const onlineUsers = users.map(user => {
+      let photoUrl = '/assets/imgs/avatar.jpg'; // Default fallback
+      
+      // Convert Buffer photo to base64 data URL if available
+      if (user.photo && Buffer.isBuffer(user.photo)) {
+        photoUrl = 'data:image/png;base64,' + user.photo.toString('base64');
+      } else if (user.photo) {
+        photoUrl = user.photo;
+      }
+      
+      return {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        avatar: photoUrl,
+        status: user.status.status,
+        lastSeen: user.status.last_seen
+      };
+    });
 
     res.status(200).json({
       data: onlineUsers,
@@ -490,16 +513,29 @@ exports.getSupportUsersWithStatus = async (req, res) => {
     });
 
     // Format users with their online status
-    const formattedUsers = supportUsers.map(user => ({
-      id: user.id,
-      name: user.name || 'Unknown User',
-      email: user.email || '',
-      avatar: user.photo || user.avatar || '/assets/imgs/avatar.jpg', // Use photo, fallback to avatar, then default
-      status: user.status?.status || 'offline',
-      lastSeen: user.status?.last_seen || null,
-      isOnline: user.status?.is_online || false,
-      role: 'support'
-    }));
+    const formattedUsers = supportUsers.map(user => {
+      let photoUrl = '/assets/imgs/avatar.jpg'; // Default fallback
+      
+      // Convert Buffer photo to base64 data URL if available
+      if (user.photo && Buffer.isBuffer(user.photo)) {
+        photoUrl = 'data:image/png;base64,' + user.photo.toString('base64');
+      } else if (user.photo) {
+        photoUrl = user.photo;
+      } else if (user.avatar) {
+        photoUrl = user.avatar;
+      }
+      
+      return {
+        id: user.id,
+        name: user.name || 'Unknown User',
+        email: user.email || '',
+        avatar: photoUrl,
+        status: user.status?.status || 'offline',
+        lastSeen: user.status?.last_seen || null,
+        isOnline: user.status?.is_online || false,
+        role: 'support'
+      };
+    });
 
     res.status(200).json({
       data: formattedUsers,
@@ -561,22 +597,39 @@ exports.getChatUsers = async (req, res) => {
     });
 
     // Format users for chat interface
-    const formattedUsers = chatUsers.map(user => ({
-      id: user.id,
-      name: user.name || 'Unknown User',
-      email: user.email || '',
-      username: user.username || '',
-      photo: user.photo || user.avatar || '/assets/imgs/avatar.jpg', // Use photo, fallback to avatar, then default
-      status: user.status?.status || 'offline',
-      isOnline: user.status?.is_online || false,
-      lastSeen: user.status?.last_seen || null
-    }));
+    const formattedUsers = chatUsers.map(user => {
+      let photoUrl = '/assets/imgs/avatar.jpg'; // Default fallback
+      
+      // Convert Buffer photo to base64 data URL if available
+      if (user.photo && Buffer.isBuffer(user.photo)) {
+        photoUrl = 'data:image/png;base64,' + user.photo.toString('base64');
+      } else if (user.photo) {
+        photoUrl = user.photo;
+      } else if (user.avatar) {
+        photoUrl = user.avatar;
+      }
+      
+      return {
+        id: user.id,
+        name: user.name || 'Unknown User',
+        email: user.email || '',
+        username: user.username || '',
+        photo: photoUrl,
+        status: user.status?.status || 'offline',
+        isOnline: user.status?.is_online || false,
+        lastSeen: user.status?.last_seen || null
+      };
+    });
+
+    // Count only online users
+    const onlineCount = formattedUsers.filter(user => user.isOnline).length;
 
     res.status(200).json({
       data: formattedUsers,
       total: formattedUsers.length,
+      onlineCount: onlineCount, // Add count of online users
       code: '0000',
-      message: 'Chat users retrieved successfully'
+      message: `${onlineCount} online since ${formattedUsers.length} total support users`
     });
 
   } catch (error) {

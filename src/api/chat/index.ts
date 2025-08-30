@@ -1,7 +1,7 @@
 
 import request from '@/config/axios'
 import state from '@/config/axios'
-import type { ChatUserType } from './types'
+import type { ChatUserType, ChatUsersResponseType } from './types'
 import axios, { AxiosResponse } from 'axios'
 
 const dev = import.meta.env.VITE_APP_HOST + ':4000' // Add the port for local Dev
@@ -11,7 +11,7 @@ const prod = import.meta.env.VITE_APP_HOST // remove the port for production
  * Get chat users with photos for the chat interface
  * This endpoint returns users that can participate in chat with their photos
  */
-export const getChatUsersWithPhotos = (data?: any): Promise<IResponse<ChatUserType[]>> => {
+export const getChatUsersWithPhotos = (data?: any): Promise<ChatUsersResponseType> => {
   console.log('Calling getChatUsersWithPhotos with URL:', prod + '/api/v1/chat/xusers', 'Data:', data)
   return request.post({ url: prod + '/api/v1/chat/xusers', data })
 }
@@ -19,7 +19,7 @@ export const getChatUsersWithPhotos = (data?: any): Promise<IResponse<ChatUserTy
 /**
  * Get support users with their online/offline status
  */
-export const getSupportUsersWithStatus = (data?: any): Promise<IResponse<ChatUserType[]>> => {
+export const getSupportUsersWithStatus = (data?: any): Promise<ChatUsersResponseType> => {
   console.log('Getting support users with status:', data)
   return request.post({ url: prod + '/api/v1/chat/users/support-with-status', data })
 }

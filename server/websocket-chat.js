@@ -377,14 +377,25 @@ async function getOnlineUsers() {
       attributes: ['id', 'name', 'email', 'photo']
     });
 
-    return users.map(user => ({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      avatar: user.photo,
-      status: user.status.status,
-      lastSeen: user.status.last_seen
-    }));
+    return users.map(user => {
+      let photoUrl = '/assets/imgs/avatar.jpg'; // Default fallback
+      
+      // Convert Buffer photo to base64 data URL if available
+      if (user.photo && Buffer.isBuffer(user.photo)) {
+        photoUrl = 'data:image/png;base64,' + user.photo.toString('base64');
+      } else if (user.photo) {
+        photoUrl = user.photo;
+      }
+      
+      return {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        avatar: photoUrl,
+        status: user.status.status,
+        lastSeen: user.status.last_seen
+      };
+    });
   } catch (error) {
     console.error('Error getting online users:', error);
     return [];
@@ -418,6 +429,11 @@ async function saveMessage(messageData) {
         attributes: ['id', 'name', 'email', 'photo']
       }]
     });
+
+    // Convert sender photo to base64 data URL
+    if (messageWithSender.sender && messageWithSender.sender.photo && Buffer.isBuffer(messageWithSender.sender.photo)) {
+      messageWithSender.sender.photo = 'data:image/png;base64,' + messageWithSender.sender.photo.toString('base64');
+    }
 
     return messageWithSender;
   } catch (error) {
@@ -494,6 +510,13 @@ async function getDirectMessages(userId1, userId2, limit = 50) {
       limit: limit
     });
 
+    // Convert sender photos to base64 data URLs
+    messages.forEach(message => {
+      if (message.sender && message.sender.photo && Buffer.isBuffer(message.sender.photo)) {
+        message.sender.photo = 'data:image/png;base64,' + message.sender.photo.toString('base64');
+      }
+    });
+
     return messages;
   } catch (error) {
     console.error('Error getting direct messages:', error);
@@ -517,6 +540,13 @@ async function getRecentMessages(limit = 50) {
       }],
       order: [['created_at', 'DESC']],
       limit: limit
+    });
+
+    // Convert sender photos to base64 data URLs
+    teamChatMessages.forEach(message => {
+      if (message.sender && message.sender.photo && Buffer.isBuffer(message.sender.photo)) {
+        message.sender.photo = 'data:image/png;base64,' + message.sender.photo.toString('base64');
+      }
     });
 
     return teamChatMessages.reverse(); // Return in chronological order

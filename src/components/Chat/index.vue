@@ -31,6 +31,9 @@ const activeConversation = ref<string>('general') // 'general' or user ID
 const conversations = ref<any[]>([])
 const sidebarWidth = ref('250px')
 
+// Online count tracking
+const onlineCount = ref(0)
+
 // WebSocket connection
 let ws: WebSocket | null = null
 
@@ -45,6 +48,24 @@ const currentUser = computed(() => {
     status: 'online'
   }
 })
+
+// User photo from API (like profile module)
+const userPhoto = ref<string>('')
+const getUserPhoto = async () => {
+  try {
+    const userInfo = wsCache.get(appStore.getUserInfo)
+    if (userInfo?.id) {
+      // Call the same API as profile module - just need id
+      const { getMyProfile } = await import('@/api/users')
+      const res = await getMyProfile({ id: userInfo.id } as any)
+      if (res?.data?.photo) {
+        userPhoto.value = res.data.photo
+      }
+    }
+  } catch (error) {
+    console.error('Error getting user photo:', error)
+  }
+}
 
 // WebSocket connection
 const connectWebSocket = () => {
@@ -63,6 +84,7 @@ const connectWebSocket = () => {
         type: 'join',
         user: {
           ...currentUser.value,
+          photo: convertPhotoToDataUrl(userPhoto.value || currentUser.value.avatar), // Use API photo if available
           status: userStatus.value
         }
       }))
@@ -115,6 +137,10 @@ const handleWebSocketMessage = (data: any) => {
         const message = {
           id: data.message.id || Date.now(),
           ...data.message,
+          sender: {
+            ...data.message.sender,
+            photo: convertPhotoToDataUrl(data.message.sender?.photo) // Convert sender photo to base64
+          },
           timestamp: new Date(data.message.timestamp || data.message.createdAt || data.message.created_at || Date.now()),
           status: data.message.status || 'received', // Default to 'received' for all messages
           message_type: data.message.message_type || (data.message.receiver_id ? 'direct_message' : 'team_chat')
@@ -219,7 +245,11 @@ const handleWebSocketMessage = (data: any) => {
       if (data.messages && Array.isArray(data.messages)) {
         const teamChatMessages = data.messages.map(msg => ({
           ...msg,
-          timestamp: new Date(msg.timestamp || msg.createdAt || msg.created_at || Date.now())
+          timestamp: new Date(msg.timestamp || msg.createdAt || msg.created_at || Date.now()),
+          sender: {
+            ...msg.sender,
+            photo: convertPhotoToDataUrl(msg.sender?.photo) // Convert sender photo to base64
+          }
         }))
         
         // Add team chat messages to the main messages array
@@ -239,7 +269,11 @@ const handleWebSocketMessage = (data: any) => {
       if (data.messages && Array.isArray(data.messages)) {
         const conversationMessages = data.messages.map(msg => ({
           ...msg,
-          timestamp: new Date(msg.timestamp || msg.createdAt || msg.created_at || Date.now())
+          timestamp: new Date(msg.timestamp || msg.createdAt || msg.created_at || Date.now()),
+          sender: {
+            ...msg.sender,
+            photo: convertPhotoToDataUrl(msg.sender?.photo) // Convert sender photo to base64
+          }
         }))
         
         // Replace messages for this conversation
@@ -270,9 +304,30 @@ const handleWebSocketMessage = (data: any) => {
       
     case 'users_update':
       if (data.users) {
-        onlineUsers.value = data.users.filter((user: any) => user.id !== currentUser.value.id)
-        // Update badge count when users list updates
+        // Convert photos for all users in the list
+        const usersWithConvertedPhotos = data.users.map((user: any) => ({
+          ...user,
+          photo: convertPhotoToDataUrl(user.photo),
+          avatar: convertPhotoToDataUrl(user.photo)
+        }))
+        
+        // Update online status for existing support staff based on WebSocket data
+        const onlineUserIds = usersWithConvertedPhotos.map((user: any) => user.id)
+        onlineUsers.value = onlineUsers.value.map(user => {
+          const onlineUser = usersWithConvertedPhotos.find(u => u.id === user.id)
+          return {
+            ...user,
+            status: onlineUserIds.includes(user.id) ? 'online' : 'offline',
+            isOnline: onlineUserIds.includes(user.id),
+            // Update photo if available
+            photo: onlineUser ? onlineUser.photo : user.photo,
+            avatar: onlineUser ? onlineUser.avatar : user.avatar
+          }
+        })
+        // Update badge count and online count when users list updates
         updateBadgeCount()
+        // Force reactivity update for computed online count
+        onlineCount.value = realOnlineCount.value
       }
       break
       
@@ -291,19 +346,44 @@ const handleWebSocketMessage = (data: any) => {
       
     case 'user_joined':
       if (data.user && data.user.id !== currentUser.value.id) {
-        onlineUsers.value.push(data.user)
-        // Removed ElMessage notification for user joining
-        // Update badge count when user joins
+        // Convert user photo to base64 data URL if it's Buffer data
+        const userWithConvertedPhoto = {
+          ...data.user,
+          photo: convertPhotoToDataUrl(data.user.photo),
+          avatar: convertPhotoToDataUrl(data.user.photo)
+        }
+        
+        // Update existing user's status to online
+        const userIndex = onlineUsers.value.findIndex(user => user.id === data.user.id)
+        if (userIndex >= 0) {
+          onlineUsers.value[userIndex].status = 'online'
+          onlineUsers.value[userIndex].isOnline = true
+          // Also update photo if it changed
+          onlineUsers.value[userIndex].photo = userWithConvertedPhoto.photo
+          onlineUsers.value[userIndex].avatar = userWithConvertedPhoto.avatar
+        } else {
+          // If user not in list, add them (shouldn't happen but safety check)
+          onlineUsers.value.push(userWithConvertedPhoto)
+        }
+        // Update badge count and online count when user joins
         updateBadgeCount()
+        // Force reactivity update for computed online count
+        onlineCount.value = realOnlineCount.value
       }
       break
       
     case 'user_left':
       if (data.user) {
-        onlineUsers.value = onlineUsers.value.filter(user => user.id !== data.user.id)
-        // Removed ElMessage notification for user leaving
-        // Update badge count when user leaves
+        // Update existing user's status to offline instead of removing them
+        const userIndex = onlineUsers.value.findIndex(user => user.id === data.user.id)
+        if (userIndex >= 0) {
+          onlineUsers.value[userIndex].status = 'offline'
+          onlineUsers.value[userIndex].isOnline = false
+        }
+        // Update badge count and online count when user leaves
         updateBadgeCount()
+        // Force reactivity update for computed online count
+        onlineCount.value = realOnlineCount.value
       }
       break
   }
@@ -319,7 +399,10 @@ const sendMessage = () => {
   // The server will generate the real ID when saving to database
   const message = {
     content: currentMessage.value,
-    sender: currentUser.value,
+    sender: {
+      ...currentUser.value,
+      photo: convertPhotoToDataUrl(userPhoto.value || currentUser.value.avatar) // Use API photo if available
+    },
     receiver_id: activeConversation.value === 'general' ? null : activeConversation.value,
     timestamp: new Date(),
     type: 'text',
@@ -389,6 +472,20 @@ const updateUserStatus = (newStatus: string) => {
   // Save to localStorage
   localStorage.setItem('chatUserStatus', newStatus)
   
+  // Update current user's status in the onlineUsers list
+  const currentUserIndex = onlineUsers.value.findIndex(user => user.id === currentUser.value.id)
+  if (currentUserIndex >= 0) {
+    // Preserve the existing photo when updating status
+    const currentPhoto = onlineUsers.value[currentUserIndex].photo || convertPhotoToDataUrl(currentUser.value.avatar)
+    onlineUsers.value[currentUserIndex] = {
+      ...onlineUsers.value[currentUserIndex],
+      status: newStatus,
+      isOnline: newStatus === 'online',
+      photo: currentPhoto, // Ensure photo is preserved
+      avatar: currentPhoto // Keep avatar consistent
+    }
+  }
+  
   // Send to server if connected
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({
@@ -418,8 +515,81 @@ const loadUserStatus = () => {
 }
 
 
-// Load saved status
-const supportStaff = ref([])
+// Utility function to convert Buffer photo data to base64 data URL (fallback for any remaining Buffer data)
+const convertPhotoToDataUrl = (photoData: any): string => {
+  if (!photoData) return '/assets/imgs/avatar.jpg'
+  
+  // If it's already a data URL or regular URL, return as is
+  if (typeof photoData === 'string') {
+    if (photoData.startsWith('data:') || photoData.startsWith('http') || photoData.startsWith('/')) {
+      return photoData
+    }
+  }
+  
+  // If it's Buffer data, convert to base64 (fallback for any remaining Buffer data)
+  if (photoData && photoData.type === 'Buffer' && Array.isArray(photoData.data)) {
+    try {
+      const base64 = btoa(String.fromCharCode(...photoData.data))
+      return `data:image/png;base64,${base64}`
+    } catch (error) {
+      console.warn('Failed to convert Buffer photo to base64:', error)
+      return '/assets/imgs/avatar.jpg'
+    }
+  }
+  
+  // If it's a regular Buffer object
+  if (photoData && typeof photoData === 'object' && photoData.buffer) {
+    try {
+      const uint8Array = new Uint8Array(photoData.buffer)
+      const base64 = btoa(String.fromCharCode(...uint8Array))
+      return `data:image/png;base64,${base64}`
+    } catch (error) {
+      console.warn('Failed to convert Buffer photo to base64:', error)
+      return '/assets/imgs/avatar.jpg'
+    }
+  }
+  
+  // If it's a Uint8Array directly
+  if (photoData && photoData instanceof Uint8Array) {
+    try {
+      const base64 = btoa(String.fromCharCode(...photoData))
+      return `data:image/png;base64,${base64}`
+    } catch (error) {
+      console.warn('Failed to convert Uint8Array photo to base64:', error)
+      return '/assets/imgs/avatar.jpg'
+    }
+  }
+  
+  // If it's an ArrayBuffer
+  if (photoData && photoData instanceof ArrayBuffer) {
+    try {
+      const uint8Array = new Uint8Array(photoData)
+      const base64 = btoa(String.fromCharCode(...uint8Array))
+      return `data:image/png;base64,${base64}`
+    } catch (error) {
+      console.warn('Failed to convert ArrayBuffer photo to base64:', error)
+      return '/assets/imgs/avatar.jpg'
+    }
+  }
+  
+  // If it's a Blob, convert to base64 (synchronous fallback)
+  if (photoData && photoData instanceof Blob) {
+    try {
+      // For now, return default avatar since Blob conversion is async
+      // In a real implementation, you might want to handle this differently
+      console.warn('Blob photo detected - using default avatar (Blob conversion requires async handling)')
+      return '/assets/imgs/avatar.jpg'
+    } catch (error) {
+      console.warn('Failed to handle Blob photo:', error)
+      return '/assets/imgs/avatar.jpg'
+    }
+  }
+  
+  return '/assets/imgs/avatar.jpg'
+}
+
+// Support staff list (all support users, not necessarily online)
+const supportStaff = ref<any[]>([])
 const getSupportStaffList = async () => {
   console.log('getSupportStaffList..........')
   try {
@@ -428,14 +598,33 @@ const getSupportStaffList = async () => {
     
     // Following the IResponse interface structure: { data, total, code }
     if (res && res.data && Array.isArray(res.data) && res.data.length > 0) {
-      console.log('Found', res.data.length, 'users from API')
-      onlineUsers.value = res.data.map(user => ({
+      console.log('Found', res.data.length, 'support users from API')
+      supportStaff.value = res.data.map(user => ({
         ...user,
-        photo: user.photo || user.avatar || '', // Use photo field, fallback to avatar
-        avatar: user.photo || user.avatar || '' // Keep avatar for backward compatibility
+        photo: convertPhotoToDataUrl(user.photo), // Convert Buffer to base64 data URL
+        avatar: convertPhotoToDataUrl(user.photo) // Keep avatar for backward compatibility
       }))
+      
+      // Initialize onlineUsers with all support staff (offline initially, will be updated by WebSocket)
+      // Also add current user to the list
+      const allUsers = [
+        ...supportStaff.value.map(user => ({
+          ...user,
+          status: 'offline',
+          isOnline: false
+        })),
+        {
+          ...currentUser.value,
+          photo: convertPhotoToDataUrl(currentUser.value.avatar), // Convert current user's avatar/photo
+          avatar: convertPhotoToDataUrl(currentUser.value.avatar), // Keep avatar for consistency
+          status: userStatus.value,
+          isOnline: true
+        }
+      ]
+      onlineUsers.value = allUsers
     } else if (res && res.data && Array.isArray(res.data) && res.data.length === 0) {
-      console.log('API returned empty user list')
+      console.log('API returned empty support user list')
+      supportStaff.value = []
       onlineUsers.value = []
     } else {
       console.warn('Unexpected response structure:', res)
@@ -448,56 +637,77 @@ const getSupportStaffList = async () => {
         isArray: Array.isArray(res?.data)
       })
       
-      // Fallback: create some dummy users for testing
-      console.log('Creating fallback users for testing...')
-      onlineUsers.value = [
+      // Fallback: create some dummy support users for testing
+      console.log('Creating fallback support users for testing...')
+      supportStaff.value = [
         {
           id: 1,
-          name: 'Test User 1',
-          email: 'test1@example.com',
-          photo: '',
-          avatar: '',
-          status: 'online',
-          isOnline: true
+          name: 'Test Support User 1',
+          email: 'support1@example.com',
+          photo: '/assets/imgs/avatar.jpg',
+          avatar: '/assets/imgs/avatar.jpg',
+          status: 'offline',
+          isOnline: false
         },
         {
           id: 2,
-          name: 'Test User 2',
-          email: 'test2@example.com',
-          photo: '',
-          avatar: '',
+          name: 'Test Support User 2',
+          email: 'support2@example.com',
+          photo: '/assets/imgs/avatar.jpg',
+          avatar: '/assets/imgs/avatar.jpg',
           status: 'offline',
           isOnline: false
         }
       ]
+      // Include current user in the list for fallback case
+      const allUsers = [
+        ...supportStaff.value.map(user => ({
+          ...user,
+          status: 'offline',
+          isOnline: false
+        })),
+        {
+          ...currentUser.value,
+          photo: convertPhotoToDataUrl(currentUser.value.avatar), // Convert current user's avatar/photo
+          avatar: convertPhotoToDataUrl(currentUser.value.avatar), // Keep avatar for consistency
+          status: userStatus.value,
+          isOnline: true
+        }
+      ]
+      onlineUsers.value = allUsers
     }
   } catch (error) {
     console.error('Error getting support staff list:', error)
     
     // Fallback on error
-    console.log('Creating fallback users due to error...')
-    onlineUsers.value = [
+    console.log('Creating fallback support users due to error...')
+    supportStaff.value = [
       {
         id: 1,
-        name: 'Test User 1',
-        email: 'test1@example.com',
-        photo: '',
-        avatar: '',
-        status: 'online',
-        isOnline: true
+        name: 'Test Support User 1',
+        email: 'support1@example.com',
+        photo: '/assets/imgs/avatar.jpg',
+        avatar: '/assets/imgs/avatar.jpg',
+        status: 'offline',
+        isOnline: false
       },
       {
         id: 2,
-        name: 'Test User 2',
-        email: 'test2@example.com',
-        photo: '',
-        avatar: '',
+        name: 'Test Support User 2',
+        email: 'support2@example.com',
+        photo: '/assets/imgs/avatar.jpg',
+        avatar: '/assets/imgs/avatar.jpg',
         status: 'offline',
         isOnline: false
       }
     ]
+      onlineUsers.value = supportStaff.value.map(user => ({
+        ...user,
+        status: 'offline',
+        isOnline: false
+      }))
+    }
   }
-}
 
 
 // Handle Enter key
@@ -743,10 +953,18 @@ const getTotalDirectUnreadCount = () => {
     .reduce((sum, user) => sum + getUnreadCount(user.id), 0)
 }
 
-// Sort online users by unread count (unread first)
+// Calculate real online count (excluding current user)
+const realOnlineCount = computed(() => {
+  return onlineUsers.value.filter(user => 
+    user.id !== currentUser.value.id && 
+    user.status === 'online' && 
+    user.isOnline
+  ).length
+})
+
+// Sort online users by unread count (unread first) - include current user
 const sortedOnlineUsers = computed(() => {
   return [...onlineUsers.value]
-    .filter(u => u.id !== currentUser.value.id)
     .sort((a, b) => {
       const aUnread = getUnreadCount(a.id)
       const bUnread = getUnreadCount(b.id)
@@ -859,6 +1077,7 @@ const handleWindowBlur = () => {
 // Lifecycle
 onMounted(() => {
   loadUserStatus()
+  getUserPhoto() // Get user photo from API like profile module
   connectWebSocket()
   getSupportStaffList()
   // Add window focus/blur listeners for better read tracking
@@ -899,8 +1118,8 @@ watch(chatMessages, () => {
 // Watch for drawer visibility changes to mark messages as read
 watch(visible, (newVisible) => {
   if (newVisible) {
-    // When drawer opens, refresh user list and mark all messages as read
-    getSupportStaffList() // Refresh user list with photos
+    // When drawer opens, refresh support staff list and mark all messages as read
+    getSupportStaffList() // Refresh support staff list with photos
     
     setTimeout(() => {
       markAllMessagesAsRead()
@@ -969,7 +1188,7 @@ const activeConversationInfo = computed(() => {
   if (activeConversation.value === 'general') {
     return {
       title: 'Team Chat',
-      subtitle: `${onlineUsers.value.length} online`,
+      subtitle: `${realOnlineCount.value} online`,
       icon: 'material-symbols:forum'
     }
   } else {
@@ -1072,12 +1291,21 @@ const getUserAvatar = (userId: string) => {
             <span class="mobile-unread-count">{{ unreadCount }}</span>
           </div>
           
-          <!-- User Status Dot -->
+          <!-- Current User Avatar with Status Color Circle (Mobile) -->
           <div 
-            class="mobile-user-status-dot" 
-            :style="{ backgroundColor: getUserStatusColor(userStatus) }"
+            class="current-user-avatar-status mobile"
             @click="cycleUserStatus"
-          ></div>
+            :title="`You are ${userStatus} - Click to change status`"
+          >
+            <el-avatar 
+              :size="28" 
+              :src="convertPhotoToDataUrl(userPhoto || currentUser.avatar)"
+              class="current-user-avatar"
+              :style="{ borderColor: getUserStatusColor(userStatus) }"
+            >
+              {{ currentUser.name.charAt(0).toUpperCase() }}
+            </el-avatar>
+          </div>
         </div>
       </div>
     </template>
@@ -1130,16 +1358,24 @@ const getUserAvatar = (userId: string) => {
                 +{{ onlineUsers.length - 3 }}
               </div>
             </div>
-            <span class="online-label">{{ onlineUsers.length }} online</span>
+            <span class="online-label">{{ realOnlineCount }} online</span>
           </div>
           
-          <!-- User Status Dot -->
+          <!-- Current User Avatar with Status Color Circle -->
           <div 
-            class="user-status-dot" 
-            :style="{ backgroundColor: getUserStatusColor(userStatus) }"
-            :title="`You are ${userStatus}`"
+            class="current-user-avatar-status"
             @click="cycleUserStatus"
-          ></div>
+            :title="`You are ${userStatus} - Click to change status`"
+          >
+            <el-avatar 
+              :size="32" 
+              :src="convertPhotoToDataUrl(userPhoto || currentUser.avatar)"
+              class="current-user-avatar"
+              :style="{ borderColor: getUserStatusColor(userStatus) }"
+            >
+              {{ currentUser.name.charAt(0).toUpperCase() }}
+            </el-avatar>
+          </div>
           
           <!-- Connection Status -->
           <Icon v-if="!isConnected" icon="material-symbols:wifi-off" width="16" color="#f56c6c" title="Offline" />
@@ -1158,7 +1394,7 @@ const getUserAvatar = (userId: string) => {
       >
         <!-- Mobile Sidebar Header -->
         <div v-if="isMobile" class="mobile-sidebar-header">
-          <h3>Conversations</h3>
+       
           <el-button 
             @click="showUsersSidebar = false"
             type="text"
@@ -2443,5 +2679,32 @@ const getUserAvatar = (userId: string) => {
 
 .refresh-status-btn:active {
   transform: scale(0.95);
+}
+
+/* Current User Avatar with Status Color Circle */
+.current-user-avatar-status {
+  position: relative;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.current-user-avatar-status:hover {
+  transform: scale(1.05);
+}
+
+.current-user-avatar-status:active {
+  transform: scale(0.95);
+}
+
+.current-user-avatar-status .current-user-avatar {
+  border: 3px solid;
+  transition: border-color 0.3s ease;
+}
+
+/* Mobile version */
+.current-user-avatar-status.mobile .current-user-avatar {
+  border-width: 2px;
 }
 </style>
