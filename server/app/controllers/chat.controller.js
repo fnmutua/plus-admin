@@ -471,7 +471,7 @@ exports.getSupportUsersWithStatus = async (req, res) => {
     const supportUsers = await db.user.findAll({
       include: [
         {
-          model: db.user_roles,
+          model: db.models.user_roles,
           required: true,
           where: {
             roleid: supportRole.id
@@ -483,7 +483,7 @@ exports.getSupportUsersWithStatus = async (req, res) => {
           required: false // Include all users, even those without status
         }
       ],
-      attributes: ['id', 'name', 'email', 'photo'],
+      attributes: ['id', 'name', 'email', 'photo', 'avatar'],
       where: {
         id: { [db.Sequelize.Op.ne]: req.thisUser.id } // Exclude current user
       }
@@ -494,7 +494,7 @@ exports.getSupportUsersWithStatus = async (req, res) => {
       id: user.id,
       name: user.name || 'Unknown User',
       email: user.email || '',
-      avatar: user.photo || '',
+      avatar: user.photo || user.avatar || '/assets/imgs/avatar.jpg', // Use photo, fallback to avatar, then default
       status: user.status?.status || 'offline',
       lastSeen: user.status?.last_seen || null,
       isOnline: user.status?.is_online || false,
@@ -509,6 +509,78 @@ exports.getSupportUsersWithStatus = async (req, res) => {
 
   } catch (error) {
     console.error('Error getting support users with status:', error);
+    res.status(500).json({
+      message: 'Internal server error',
+      error: error.message,
+      code: 'SERVER_ERROR'
+    });
+  }
+};
+
+/**
+ * Get chat users with photos for the chat interface
+ * This endpoint returns users that can participate in chat
+ */
+exports.getChatUsers = async (req, res) => {
+  try {
+    // Get support role ID
+    const supportRole = await db.role.findOne({
+      where: { name: 'support' },
+      attributes: ['id']
+    });
+
+    if (!supportRole) {
+      return res.status(404).json({
+        message: 'Support role not found',
+        code: 'ROLE_NOT_FOUND'
+      });
+    }
+
+    // Get all users with support role, excluding current user
+    const chatUsers = await db.user.findAll({
+      include: [
+        {
+          model: db.models.user_roles,
+          required: true,
+          where: {
+            roleid: supportRole.id
+          }
+        },
+        {
+          model: db.userStatus,
+          as: 'status',
+          required: false
+        }
+      ],
+      attributes: ['id', 'name', 'email', 'photo', 'username', 'avatar'],
+      where: {
+        id: { [db.Sequelize.Op.ne]: req.thisUser.id },
+        isactive: true // Only active users
+      },
+      order: [['name', 'ASC']]
+    });
+
+    // Format users for chat interface
+    const formattedUsers = chatUsers.map(user => ({
+      id: user.id,
+      name: user.name || 'Unknown User',
+      email: user.email || '',
+      username: user.username || '',
+      photo: user.photo || user.avatar || '/assets/imgs/avatar.jpg', // Use photo, fallback to avatar, then default
+      status: user.status?.status || 'offline',
+      isOnline: user.status?.is_online || false,
+      lastSeen: user.status?.last_seen || null
+    }));
+
+    res.status(200).json({
+      data: formattedUsers,
+      total: formattedUsers.length,
+      code: '0000',
+      message: 'Chat users retrieved successfully'
+    });
+
+  } catch (error) {
+    console.error('Error getting chat users:', error);
     res.status(500).json({
       message: 'Internal server error',
       error: error.message,

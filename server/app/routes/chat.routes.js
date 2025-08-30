@@ -203,7 +203,7 @@ module.exports = function(app) {
   /**
    * @swagger
    * /api/v1/chat/users/online:
-   *   get:
+   *   post:
    *     tags: [Chat]
    *     summary: Get online users
    *     description: Retrieve list of currently online users with their status.
@@ -246,7 +246,7 @@ module.exports = function(app) {
    *       500:
    *         description: Internal server error
    */
-  app.get("/api/v1/chat/users/online", [authJwt.verifyToken], controller.getOnlineUsers);
+  app.post("/api/v1/chat/users/online", [authJwt.verifyToken], controller.getOnlineUsers);
 
   /**
    * @swagger
@@ -285,11 +285,10 @@ module.exports = function(app) {
    *         description: Internal server error
    */
   app.post("/api/v1/chat/user/status", [authJwt.verifyToken], controller.updateUserStatus);
-
   /**
    * @swagger
    * /api/v1/chat/unread:
-   *   get:
+   *   post:
    *     tags: [Chat]
    *     summary: Get unread message count
    *     description: Get the number of unread messages for the current user.
@@ -317,7 +316,7 @@ module.exports = function(app) {
    *       500:
    *         description: Internal server error
    */
-  app.get("/api/v1/chat/unread", [authJwt.verifyToken], controller.getUnreadCount);
+  app.post("/api/v1/chat/unread", [authJwt.verifyToken], controller.getUnreadCount);
 
   /**
    * @swagger
@@ -448,6 +447,65 @@ module.exports = function(app) {
    *       500:
    *         description: Internal server error
    */
-  app.get("/api/v1/chat/users/support-with-status", [authJwt.verifyToken], controller.getSupportUsersWithStatus);
+  app.post("/api/v1/chat/users/support-with-status", [authJwt.verifyToken], controller.getSupportUsersWithStatus);
 
+  /**
+   * @swagger
+   * /api/v1/chat/users:
+   *   post:
+   *     tags: [Chat]
+   *     summary: Get chat users with photos
+   *     description: Get all users that can participate in chat with their photos and status.
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: Chat users retrieved successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 data:
+   *                   type: array
+   *                   items:
+   *                     type: object
+   *                     properties:
+   *                       id:
+   *                         type: integer
+   *                       name:
+   *                         type: string
+   *                       email:
+   *                         type: string
+   *                       username:
+   *                         type: string
+   *                       photo:
+   *                         type: string
+   *                         description: URL to user's photo
+   *                       status:
+   *                         type: string
+   *                         enum: [online, away, busy, offline]
+   *                       isOnline:
+   *                         type: boolean
+   *                       lastSeen:
+   *                         type: string
+   *                         format: date-time
+   *                 total:
+   *                   type: integer
+   *                 code:
+   *                   type: string
+   *                   example: "0000"
+   *                 message:
+   *                   type: string
+   *                   example: "Chat users retrieved successfully"
+   *       401:
+   *         description: Unauthorized - invalid token
+   *       404:
+   *         description: Support role not found
+   *       500:
+   *         description: Internal server error
+   */
+  app.post("/api/v1/chat/users", [authJwt.verifyToken], controller.getChatUsers);
+
+  app.post('/api/v1/chat/xusers', [authJwt.verifyToken], controller.getChatUsers);
 };
