@@ -25,6 +25,11 @@ db.role = require('../models/role.js')(sequelize, Sequelize)
 db.permission = require('../models/permission.js')(sequelize, Sequelize)
 db.role_permission = require('../models/role_permissions.js')(sequelize, Sequelize)
 
+// Chat models
+db.chatMessage = require('../models/chat_message.js')(sequelize)
+db.chatMessageStatus = require('../models/chat_message_status.js')(sequelize)
+db.userStatus = require('../models/user_status.js')(sequelize)
+
 var initModels = require('../models/init-models.js')
 db.models = initModels(sequelize)
 
@@ -38,6 +43,19 @@ db.user.belongsToMany(db.role, {
   foreignKey: 'userid',
   otherKey: 'roleid'
 })
+
+// Chat model associations
+db.user.hasMany(db.chatMessage, { foreignKey: 'sender_id', as: 'sentMessages' })
+db.user.hasMany(db.chatMessage, { foreignKey: 'receiver_id', as: 'receivedMessages' })
+db.chatMessage.belongsTo(db.user, { foreignKey: 'sender_id', as: 'sender' })
+db.chatMessage.belongsTo(db.user, { foreignKey: 'receiver_id', as: 'receiver' })
+
+db.chatMessage.hasMany(db.chatMessageStatus, { foreignKey: 'message_id', as: 'statusUpdates' })
+db.chatMessageStatus.belongsTo(db.chatMessage, { foreignKey: 'message_id', as: 'message' })
+db.chatMessageStatus.belongsTo(db.user, { foreignKey: 'user_id', as: 'user' })
+
+db.user.hasOne(db.userStatus, { foreignKey: 'user_id', as: 'status' })
+db.userStatus.belongsTo(db.user, { foreignKey: 'user_id', as: 'user' })
 
 // Role <-> Permission (many-to-many)
 db.role.belongsToMany(db.permission, {

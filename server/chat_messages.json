@@ -1,0 +1,268 @@
+[
+  {
+    "id": "msg_1756537254640_z5wri3m3d",
+    "content": "test",
+    "sender": {
+      "id": 1,
+      "name": "Felix Mutua",
+      "email": "",
+      "avatar": "",
+      "status": "online"
+    },
+    "timestamp": "2025-08-30T07:00:54.641Z",
+    "type": "text",
+    "status": "read",
+    "createdAt": "2025-08-30T07:00:54.641Z",
+    "updatedAt": "2025-08-30T07:01:00.081Z",
+    "readBy": [
+      171
+    ]
+  },
+  {
+    "id": "msg_1756537264968_ni750qm9j",
+    "content": "cheif jhola",
+    "sender": {
+      "id": 171,
+      "name": "Felix Nzive",
+      "email": "",
+      "avatar": "",
+      "status": "online"
+    },
+    "timestamp": "2025-08-30T07:01:04.968Z",
+    "type": "text",
+    "status": "read",
+    "createdAt": "2025-08-30T07:01:04.968Z",
+    "updatedAt": "2025-08-30T07:01:04.975Z",
+    "readBy": [
+      1
+    ]
+  },
+  {
+    "id": "msg_1756537299536_48jo1t504",
+    "content": "check if read",
+    "sender": {
+      "id": 171,
+      "name": "Felix Nzive",
+      "email": "",
+      "avatar": "",
+      "status": "online"
+    },
+    "timestamp": "2025-08-30T07:01:39.537Z",
+    "type": "text",
+    "status": "read",
+    "createdAt": "2025-08-30T07:01:39.537Z",
+    "updatedAt": "2025-08-30T07:01:39.543Z",
+    "readBy": [
+      1
+    ]
+  },
+  {
+    "id": "msg_1756537310344_m41ci4qeo",
+    "content": "read cofemr",
+    "sender": {
+      "id": 1,
+      "name": "Felix Mutua",
+      "email": "",
+      "avatar": "",
+      "status": "online"
+    },
+    "timestamp": "2025-08-30T07:01:50.344Z",
+    "type": "text",
+    "status": "read",
+    "createdAt": "2025-08-30T07:01:50.344Z",
+    "updatedAt": "2025-08-30T07:01:50.351Z",
+    "readBy": [
+      171
+    ]
+  },
+  {
+    "id": "msg_1756537409576_xwvebi8sx",
+    "content": "check ooo1",
+    "sender": {
+      "id": 1,
+      "name": "Felix Mutua",
+      "email": "",
+      "avatar": "",
+      "status": "online"
+    },
+    "timestamp": "2025-08-30T07:03:29.577Z",
+    "type": "text",
+    "status": "read",
+    "createdAt": "2025-08-30T07:03:29.577Z",
+    "updatedAt": "2025-08-30T07:03:29.593Z",
+    "readBy": [
+      171
+    ]
+  },
+  {
+    "id": "msg_1756537483000_p0v5lgiza",
+    "content": "checkk0000001",
+    "sender": {
+      "id": 1,
+      "name": "Felix Mutua",
+      "email": "",
+      "avatar": "",
+      "status": "online"
+    },
+    "timestamp": "2025-08-30T07:04:43.001Z",
+    "type": "text",
+    "status": "read",
+    "createdAt": "2025-08-30T07:04:43.001Z",
+    "updatedAt": "2025-08-30T07:04:43.007Z",
+    "readBy": [
+      171
+    ]
+  },
+  {
+    "id": "msg_1756537550704_2t9jlovad",
+    "content": "25663",
+    "sender": {
+      "id": 1,
+      "name": "Felix Mutua",
+      "email": "",
+      "avatar": "",
+      "status": "online"
+    },
+    "timestamp": "2025-08-30T07:05:50.705Z",
+    "type": "text",
+    "status": "read",
+    "createdAt": "2025-08-30T07:05:50.705Z",
+    "updatedAt": "2025-08-30T07:05:54.081Z",
+    "readBy": [
+      171
+    ]
+  },
+  {
+    "id": "msg_1756537568208_m0d2y1zgx",
+    "content": "saaaa",
+    "sender": {
+      "id": 171,
+      "name": "Felix Nzive",
+      "email": "",
+      "avatar": "",
+      "status": "online"
+    },
+    "timestamp": "2025-08-30T07:06:08.208Z",
+    "type": "text",
+    "status": "read",
+    "createdAt": "2025-08-30T07:06:08.208Z",
+    "updatedAt": "2025-08-30T07:06:09.224Z",
+    "readBy": [
+      1
+    ]
+  },
+  {
+    "id": "msg_1756537601176_i2i2vynqn",
+    "content": "news..",
+    "sender": {
+      "id": 1,
+      "name": "Felix Mutua",
+      "email": "",
+      "avatar": "",
+      "status": "online"
+    },
+    "timestamp": "2025-08-30T07:06:41.177Z",
+    "type": "text",
+    "status": "read",
+    "createdAt": "2025-08-30T07:06:41.177Z",
+    "updatedAt": "2025-08-30T07:06:42.229Z",
+    "readBy": [
+      171
+    ]
+  },
+  {
+    "id": "msg_1756538143921_okswoal53",
+    "content": "tests",
+    "sender": {
+      "id": 1,
+      "name": "Felix Mutua",
+      "email": "",
+      "avatar": "",
+      "status": "online"
+    },
+    "timestamp": "2025-08-30T07:15:43.921Z",
+    "type": "text",
+    "status": "read",
+    "createdAt": "2025-08-30T07:15:43.921Z",
+    "updatedAt": "2025-08-30T07:15:47.523Z",
+    "readBy": [
+      171
+    ]
+  },
+  {
+    "id": "msg_1756539062010_7083lliwh",
+    "content": "new",
+    "sender": {
+      "id": 171,
+      "name": "Felix Nzive",
+      "email": "",
+      "avatar": "",
+      "status": "online"
+    },
+    "timestamp": "2025-08-30T07:31:02.011Z",
+    "type": "text",
+    "status": "read",
+    "createdAt": "2025-08-30T07:31:02.011Z",
+    "updatedAt": "2025-08-30T07:31:02.217Z",
+    "readBy": [
+      1
+    ]
+  },
+  {
+    "id": "msg_1756539112186_tcb08qkyw",
+    "content": "around?",
+    "sender": {
+      "id": 1,
+      "name": "Felix Mutua",
+      "email": "",
+      "avatar": "",
+      "status": "online"
+    },
+    "timestamp": "2025-08-30T07:31:52.186Z",
+    "type": "text",
+    "status": "read",
+    "createdAt": "2025-08-30T07:31:52.186Z",
+    "updatedAt": "2025-08-30T07:31:55.491Z",
+    "readBy": [
+      171
+    ]
+  },
+  {
+    "id": "msg_1756539124890_v2wzu0piz",
+    "content": "yeae nggert",
+    "sender": {
+      "id": 171,
+      "name": "Felix Nzive",
+      "email": "",
+      "avatar": "",
+      "status": "online"
+    },
+    "timestamp": "2025-08-30T07:32:04.890Z",
+    "type": "text",
+    "status": "read",
+    "createdAt": "2025-08-30T07:32:04.890Z",
+    "updatedAt": "2025-08-30T07:32:05.223Z",
+    "readBy": [
+      1
+    ]
+  },
+  {
+    "id": "msg_1756539519362_q8n9cq4go",
+    "content": "0001 mesaage",
+    "sender": {
+      "id": 1,
+      "name": "Felix Mutua",
+      "email": "",
+      "avatar": "",
+      "status": "online"
+    },
+    "timestamp": "2025-08-30T07:38:39.363Z",
+    "type": "text",
+    "status": "read",
+    "createdAt": "2025-08-30T07:38:39.363Z",
+    "updatedAt": "2025-08-30T07:39:02.572Z",
+    "readBy": [
+      171
+    ]
+  }
+]

@@ -26,7 +26,10 @@
     "prepare": "husky install",
     "install-all": "node install-dependencies.js",
     "p": "plop",
-    "swagger:generate": "node swagger-generate.js"
+    "swagger:generate": "node swagger-generate.js",
+    "chat:server": "node server/websocket-chat.js",
+    "chat:migrate": "node server/run-chat-migration.js",
+    "chat:update-enum": "node server/run-enum-update.js"
   },
   "dependencies": {
     "@dafcoe/vue-collapsible-panel": "^0.2.0",
@@ -102,6 +105,7 @@
     "pdf-lib": "^1.17.1",
     "pdf-parse": "^1.1.1",
     "pg": "^8.16.3",
+    "pg-hstore": "^2.3.4",
     "pg-query-stream": "^4.5.3",
     "pinia": "^2.0.21",
     "pinia-plugin-persist": "^1.0.0",
@@ -115,7 +119,7 @@
     "request": "^2.88.2",
     "request-ip": "^3.3.0",
     "sbd": "^1.0.19",
-    "sequelize": "^6.32.1",
+    "sequelize": "^6.37.7",
     "sequelize-cli": "^6.6.2",
     "shapefile": "^0.6.6",
     "shortid": "^2.2.16",
@@ -140,6 +144,7 @@
     "vue3-xlsx": "^1.1.2",
     "web-storage-cache": "^1.1.1",
     "write-excel-file": "^1.4.27",
+    "ws": "^8.18.0",
     "xlsx": "^0.18.5",
     "xmldom": "^0.6.0",
     "xss-clean": "^0.1.4"
