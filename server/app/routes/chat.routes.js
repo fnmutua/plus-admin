@@ -395,4 +395,59 @@ module.exports = function(app) {
    */
   app.get("/api/v1/chat/stats", [authJwt.verifyToken, authJwt.isAdmin], controller.getChatStats);
 
+  /**
+   * @swagger
+   * /api/v1/chat/users/support-with-status:
+   *   get:
+   *     tags: [Chat]
+   *     summary: Get support users with their online/offline status
+   *     description: Get all users with support role and their current online/offline status for chat.
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: Support users with status retrieved successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 data:
+   *                   type: array
+   *                   items:
+   *                     type: object
+   *                     properties:
+   *                       id:
+   *                         type: integer
+   *                       name:
+   *                         type: string
+   *                       email:
+   *                         type: string
+   *                       avatar:
+   *                         type: string
+   *                       status:
+   *                         type: string
+   *                         enum: [online, away, busy, offline]
+   *                       lastSeen:
+   *                         type: string
+   *                         format: date-time
+   *                       isOnline:
+   *                         type: boolean
+   *                       role:
+   *                         type: string
+   *                         example: "support"
+   *                 total:
+   *                   type: integer
+   *                 code:
+   *                   type: string
+   *                   example: "0000"
+   *       401:
+   *         description: Unauthorized - invalid token
+   *       404:
+   *         description: Support role not found
+   *       500:
+   *         description: Internal server error
+   */
+  app.get("/api/v1/chat/users/support-with-status", [authJwt.verifyToken], controller.getSupportUsersWithStatus);
+
 };

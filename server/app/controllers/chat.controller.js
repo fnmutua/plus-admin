@@ -446,3 +446,73 @@ exports.getChatStats = async (req, res) => {
     });
   }
 };
+
+/**
+ * Get users with support role and their online/offline status
+ * This endpoint returns all support users regardless of their online status
+ */
+exports.getSupportUsersWithStatus = async (req, res) => {
+  try {
+    // Get support role ID
+    console.log('getSupportUsersWithStatus..........')
+    const supportRole = await db.role.findOne({
+      where: { name: 'support' },
+      attributes: ['id']
+    });
+
+    if (!supportRole) {
+      return res.status(404).json({
+        message: 'Support role not found',
+        code: 'ROLE_NOT_FOUND'
+      });
+    }
+
+    // Get all users with support role
+    const supportUsers = await db.user.findAll({
+      include: [
+        {
+          model: db.user_roles,
+          required: true,
+          where: {
+            roleid: supportRole.id
+          }
+        },
+        {
+          model: db.userStatus,
+          as: 'status',
+          required: false // Include all users, even those without status
+        }
+      ],
+      attributes: ['id', 'name', 'email', 'photo'],
+      where: {
+        id: { [db.Sequelize.Op.ne]: req.thisUser.id } // Exclude current user
+      }
+    });
+
+    // Format users with their online status
+    const formattedUsers = supportUsers.map(user => ({
+      id: user.id,
+      name: user.name || 'Unknown User',
+      email: user.email || '',
+      avatar: user.photo || '',
+      status: user.status?.status || 'offline',
+      lastSeen: user.status?.last_seen || null,
+      isOnline: user.status?.is_online || false,
+      role: 'support'
+    }));
+
+    res.status(200).json({
+      data: formattedUsers,
+      total: formattedUsers.length,
+      code: '0000'
+    });
+
+  } catch (error) {
+    console.error('Error getting support users with status:', error);
+    res.status(500).json({
+      message: 'Internal server error',
+      error: error.message,
+      code: 'SERVER_ERROR'
+    });
+  }
+};

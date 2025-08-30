@@ -4,6 +4,7 @@ import { ElButton, ElInput, ElMessage, ElDrawer, ElBadge, ElAvatar, ElSelect, El
 import { Icon } from '@iconify/vue'
 import { useAppStore } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
+import { getSupportStaff } from '@/api/chat'
 
 const appStore = useAppStore()
 const { wsCache } = useCache()
@@ -102,7 +103,7 @@ const connectWebSocket = () => {
     console.error('Failed to connect to WebSocket:', error)
     isConnected.value = false
     // For demo purposes, simulate some online users
-    simulateOnlineUsers()
+    //simulateOnlineUsers()
   }
 }
 
@@ -308,63 +309,7 @@ const handleWebSocketMessage = (data: any) => {
   }
 }
 
-// Simulate online users for demo (when WebSocket is not available)
-const simulateOnlineUsers = () => {
-  onlineUsers.value = [
-    {
-      id: 'user1',
-      name: 'John Doe',
-      email: 'john@example.com',
-      avatar: '',
-      status: 'online',
-      lastSeen: new Date()
-    },
-    {
-      id: 'user2', 
-      name: 'Jane Smith',
-      email: 'jane@example.com',
-      avatar: '',
-      status: 'online',
-      lastSeen: new Date()
-    },
-    {
-      id: 'user3',
-      name: 'Bob Johnson',
-      email: 'bob@example.com',
-      avatar: '',
-      status: 'away',
-      lastSeen: new Date(Date.now() - 5 * 60 * 1000) // 5 minutes ago
-    }
-  ]
-  
-  // Add some demo messages for testing
-  if (chatMessages.value.length === 0) {
-    const demoMessages = [
-      {
-        id: 'demo1',
-        content: 'Welcome to the team chat!',
-        sender: { id: 'user1', name: 'John Doe', avatar: '' },
-        receiver_id: null,
-        timestamp: new Date(Date.now() - 10 * 60 * 1000), // 10 minutes ago
-        message_type: 'team_chat',
-        status: 'received',
-        isTemp: false
-      },
-      {
-        id: 'demo2',
-        content: 'Thanks John! Great to be here.',
-        sender: { id: 'user2', name: 'Jane Smith', avatar: '' },
-        receiver_id: null,
-        timestamp: new Date(Date.now() - 8 * 60 * 1000), // 8 minutes ago
-        message_type: 'team_chat',
-        status: 'received',
-        isTemp: false
-      }
-    ]
-    
-    chatMessages.value.push(...demoMessages)
-  }
-}
+
 
 // Send message
 const sendMessage = () => {
@@ -471,6 +416,18 @@ const loadUserStatus = () => {
     userStatus.value = 'online'
   }
 }
+
+
+// Load saved status
+const supportStaff = ref([])
+const getSupportStaffList  =async () => {
+  console.log('getSupportStaffList..........')
+
+  const res= getSupportStaff()
+  supportStaff.value = res.data as any
+    
+}
+
 
 // Handle Enter key
 const handleKeyDown = (event: KeyboardEvent) => {
@@ -745,7 +702,10 @@ const sortedOnlineUsers = computed(() => {
 // Switch between conversations
 const switchConversation = (conversationId: string) => {
   activeConversation.value = conversationId
-  showUsersSidebar.value = false // Auto-hide sidebar on mobile after selection
+  // Auto-hide sidebar on mobile after selection
+  if (isMobile.value) {
+    showUsersSidebar.value = false
+  }
   
   // Request conversation messages from server
   if (ws && ws.readyState === WebSocket.OPEN) {
@@ -829,7 +789,7 @@ const handleWindowBlur = () => {
 onMounted(() => {
   loadUserStatus()
   connectWebSocket()
-  
+  getSupportStaffList()
   // Add window focus/blur listeners for better read tracking
   window.addEventListener('focus', handleWindowFocus)
   window.addEventListener('blur', handleWindowBlur)
@@ -926,7 +886,10 @@ watch(showUsersSidebar, () => {
 
 // Mobile responsive
 const isMobile = computed(() => appStore.getMobile || window.innerWidth <= 768)
+const sMobile = computed(() => '100%')
 const drawerSize = computed(() => isMobile.value ? '100%' : '25%')
+const isTablet = computed(() => window.innerWidth > 768 && window.innerWidth <= 1024)
+const drawerSizeTablet = computed(() => isTablet.value ? '50%' : drawerSize.value)
 
 // Active conversation info
 const activeConversationInfo = computed(() => {
@@ -973,84 +936,142 @@ const filteredMessages = computed(() => {
   <el-drawer
     v-model="visible"
     title="Chat"
-    :size="drawerSize"
+    :size="isMobile ? '100%' : drawerSize"
     direction="rtl"
     class="chat-drawer"
+    
     :before-close="closeModal"
+    :with-header="true"
   >
-    <template #header>
-      <div class="drawer-header">
-                 <div class="header-left">
-           <!-- Active Conversation Info -->
-           <div class="conversation-info">
-             <Icon :icon="activeConversationInfo.icon" width="18" color="var(--el-text-color-primary)" />
-             <span class="conversation-title">{{ activeConversationInfo.title }}</span>
-           </div>
-         </div>
+    <!-- Mobile Header (when header is hidden) -->
+    <template #header v-if="isMobile">
+      <div class="mobile-drawer-header">
+        <div class="mobile-header-left">
+          <!-- Mobile Menu Button -->
+          <el-button 
+            @click="showUsersSidebar = !showUsersSidebar"
+            type="text"
+            class="mobile-menu-btn"
+            :class="{ 'active': showUsersSidebar }"
+          >
+            <Icon icon="material-symbols:menu" width="20" />
+          </el-button>
+        </div>
         
-                 <div class="header-right">
-           <!-- Unread Messages Indicator -->
-           <div 
-             v-if="unreadCount > 0" 
-             class="unread-indicator"
-             @click="jumpToNextUnread"
-             :title="`${unreadCount} unread messages - Click to jump to next unread`"
-           >
-             <Icon icon="material-symbols:mark-email-unread" width="16" color="#f56c6c" />
-             <span class="unread-count">{{ unreadCount }}</span>
-           </div>
-           
-           <!-- Online Users Preview (Always Visible) -->
-           <div class="online-users-preview" @click="showUsersSidebar = !showUsersSidebar">
-             <div class="online-avatars">
-               <div 
-                 v-for="(user, index) in onlineUsers.slice(0, 3)" 
-                 :key="user.id"
-                 class="online-avatar"
-                 :style="{ 
-                   zIndex: 3 - index,
-                   marginLeft: index > 0 ? '-8px' : '0'
-                 }"
-                 :title="`${user.name} (${user.status})`"
-               >
-                 <el-avatar :size="24" :src="user.avatar">
-                   {{ user.name.charAt(0).toUpperCase() }}
-                 </el-avatar>
-                 <div 
-                   class="status-dot" 
-                   :style="{ backgroundColor: getUserStatusColor(user.status) }"
-                 ></div>
-               </div>
-               <div v-if="onlineUsers.length > 3" class="more-users">
-                 +{{ onlineUsers.length - 3 }}
-               </div>
-             </div>
-             <span class="online-label">{{ onlineUsers.length }} online</span>
-           </div>
-           
-           <!-- User Status Dot -->
-           <div 
-             class="user-status-dot" 
-             :style="{ backgroundColor: getUserStatusColor(userStatus) }"
-             :title="`You are ${userStatus}`"
-             @click="cycleUserStatus"
-           ></div>
-           
-           <!-- Connection Status -->
-           <Icon v-if="!isConnected" icon="material-symbols:wifi-off" width="16" color="#f56c6c" title="Offline" />
-         </div>
+        <div class="mobile-header-center">
+          <div class="mobile-conversation-info">
+            <Icon :icon="activeConversationInfo.icon" width="20" color="var(--el-text-color-primary)" />
+            <span class="mobile-conversation-title">{{ activeConversationInfo.title }}</span>
+          </div>
+        </div>
+        
+        <div class="mobile-header-right">
+          <!-- Unread Messages Indicator -->
+          <div 
+            v-if="unreadCount > 0" 
+            class="mobile-unread-indicator"
+            @click="jumpToNextUnread"
+          >
+            <Icon icon="material-symbols:mark-email-unread" width="18" color="#f56c6c" />
+            <span class="mobile-unread-count">{{ unreadCount }}</span>
+          </div>
+          
+          <!-- User Status Dot -->
+          <div 
+            class="mobile-user-status-dot" 
+            :style="{ backgroundColor: getUserStatusColor(userStatus) }"
+            @click="cycleUserStatus"
+          ></div>
+        </div>
       </div>
     </template>
 
-    <div class="chat-container">
+    <!-- Desktop Header -->
+    <template #header v-else>
+      <div class="drawer-header">
+        <div class="header-left">
+          <!-- Active Conversation Info -->
+          <div class="conversation-info">
+            <Icon :icon="activeConversationInfo.icon" width="18" color="var(--el-text-color-primary)" />
+            <span class="conversation-title">{{ activeConversationInfo.title }}</span>
+          </div>
+        </div>
+        
+        <div class="header-right">
+          <!-- Unread Messages Indicator -->
+          <div 
+            v-if="unreadCount > 0" 
+            class="unread-indicator"
+            @click="jumpToNextUnread"
+            :title="`${unreadCount} unread messages - Click to jump to next unread`"
+          >
+            <Icon icon="material-symbols:mark-email-unread" width="16" color="#f56c6c" />
+            <span class="unread-count">{{ unreadCount }}</span>
+          </div>
+          
+          <!-- Online Users Preview (Always Visible) -->
+          <div class="online-users-preview" @click="showUsersSidebar = !showUsersSidebar">
+            <div class="online-avatars">
+              <div 
+                v-for="(user, index) in onlineUsers.slice(0, 3)" 
+                :key="user.id"
+                class="online-avatar"
+                :style="{ 
+                  zIndex: 3 - index,
+                  marginLeft: index > 0 ? '-8px' : '0'
+                }"
+                :title="`${user.name} (${user.status})`"
+              >
+                <el-avatar :size="24" :src="user.avatar">
+                  {{ user.name.charAt(0).toUpperCase() }}
+                </el-avatar>
+                <div 
+                  class="status-dot" 
+                  :style="{ backgroundColor: getUserStatusColor(user.status) }"
+                ></div>
+              </div>
+              <div v-if="onlineUsers.length > 3" class="more-users">
+                +{{ onlineUsers.length - 3 }}
+              </div>
+            </div>
+            <span class="online-label">{{ onlineUsers.length }} online</span>
+          </div>
+          
+          <!-- User Status Dot -->
+          <div 
+            class="user-status-dot" 
+            :style="{ backgroundColor: getUserStatusColor(userStatus) }"
+            :title="`You are ${userStatus}`"
+            @click="cycleUserStatus"
+          ></div>
+          
+          <!-- Connection Status -->
+          <Icon v-if="!isConnected" icon="material-symbols:wifi-off" width="16" color="#f56c6c" title="Offline" />
+        </div>
+      </div>
+    </template>
 
-      
+    <div class="chat-container" :class="{ 'mobile-chat-container': isMobile }">
+
       <!-- Users Sidebar -->
       <div 
         v-if="showUsersSidebar" 
         class="users-sidebar"
-        :style="{ width: sidebarWidth }"
+        :class="{ 'mobile-users-sidebar': isMobile }"
+        :style="{ width: isMobile ? '100%' : sidebarWidth }"
       >
+        <!-- Mobile Sidebar Header -->
+        <div v-if="isMobile" class="mobile-sidebar-header">
+          <h3>Conversations</h3>
+          <el-button 
+            @click="showUsersSidebar = false"
+            type="text"
+            class="close-sidebar-btn"
+          >
+            <Icon icon="material-symbols:close" width="20" />
+          </el-button>
+        </div>
+        
         <div class="sidebar-content">
           <!-- General Chat -->
           <div 
@@ -1070,254 +1091,254 @@ const filteredMessages = computed(() => {
             </div>
           </div>
           
-                     <!-- Direct Messages -->
-           <div class="sidebar-section">
-             <div class="section-title">
-               Direct Messages
-               <span v-if="getTotalDirectUnreadCount() > 0" class="section-unread-count">
-                 ({{ getTotalDirectUnreadCount() }} unread)
-               </span>
-             </div>
-             <div 
-               v-for="user in sortedOnlineUsers" 
-               :key="user.id"
-               class="conversation-item"
-               :class="{ 
-                 active: activeConversation === user.id,
-                 'has-unread': getUnreadCount(user.id) > 0
-               }"
-               @click="switchConversation(user.id)"
-             >
-               <div class="conversation-avatar">
-                 <el-avatar :size="32" :src="user.avatar" class="user-avatar">
-                   {{ user.name.charAt(0).toUpperCase() }}
-                 </el-avatar>
-                 <div 
-                   class="status-dot" 
-                   :style="{ backgroundColor: getUserStatusColor(user.status) }"
-                 ></div>
-               </div>
-               <div class="conversation-info">
-                 <div class="conversation-name">
-                   {{ user.name }}
-                   <span v-if="getUnreadCount(user.id) > 0" class="unread-indicator-text">
-                     • {{ getUnreadCount(user.id) }} new
-                   </span>
-                 </div>
-                 <div class="conversation-preview">{{ user.status }}</div>
-               </div>
-               <div class="conversation-badge" v-if="getUnreadCount(user.id) > 0">
-                 {{ getUnreadCount(user.id) }}
-               </div>
-             </div>
-           </div>
+          <!-- Direct Messages -->
+          <div class="sidebar-section">
+            <div class="section-title">
+              Direct Messages
+              <span v-if="getTotalDirectUnreadCount() > 0" class="section-unread-count">
+                ({{ getTotalDirectUnreadCount() }} unread)
+              </span>
+            </div>
+            <div 
+              v-for="user in sortedOnlineUsers" 
+              :key="user.id"
+              class="conversation-item"
+              :class="{ 
+                active: activeConversation === user.id,
+                'has-unread': getUnreadCount(user.id) > 0
+              }"
+              @click="switchConversation(user.id)"
+            >
+              <div class="conversation-avatar">
+                <el-avatar :size="32" :src="user.avatar" class="user-avatar">
+                  {{ user.name.charAt(0).toUpperCase() }}
+                </el-avatar>
+                <div 
+                  class="status-dot" 
+                  :style="{ backgroundColor: getUserStatusColor(user.status) }"
+                ></div>
+              </div>
+              <div class="conversation-info">
+                <div class="conversation-name">
+                  {{ user.name }}
+                  <span v-if="getUnreadCount(user.id) > 0" class="unread-indicator-text">
+                    • {{ getUnreadCount(user.id) }} new
+                  </span>
+                </div>
+                <div class="conversation-preview">{{ user.status }}</div>
+              </div>
+              <div class="conversation-badge" v-if="getUnreadCount(user.id) > 0">
+                {{ getUnreadCount(user.id) }}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       
       <!-- Desktop Layout -->
       <div v-if="!isMobile" class="desktop-layout" :style="{ marginLeft: showUsersSidebar ? sidebarWidth : '0' }">
-          
-          <!-- Messages -->
-          <div ref="chatContainer" class="chat-messages">
-            <div v-if="filteredMessages.length === 0" class="no-messages">
-              <Icon icon="material-symbols:chat-bubble-outline" width="48" color="var(--el-text-color-placeholder)" />
-              <p v-if="activeConversation === 'general'">No messages in team chat yet. Start the conversation!</p>
-              <p v-else>No messages with this user yet. Start the conversation!</p>
-              <div class="welcome-tips">
-                <p class="tip-title">💡 Quick Tips:</p>
-                <ul class="tip-list">
-                  <li>Use the <strong>Quick Access</strong> bar above to switch conversations</li>
-                  <li>Click on user avatars to start direct messages</li>
-                  <li>Use <strong>Team Chat</strong> for group discussions</li>
-                </ul>
-              </div>
+        
+        <!-- Messages -->
+        <div ref="chatContainer" class="chat-messages">
+          <div v-if="filteredMessages.length === 0" class="no-messages">
+            <Icon icon="material-symbols:chat-bubble-outline" width="48" color="var(--el-text-color-placeholder)" />
+            <p v-if="activeConversation === 'general'">No messages in team chat yet. Start the conversation!</p>
+            <p v-else>No messages with this user yet. Start the conversation!</p>
+            <div class="welcome-tips">
+              <p class="tip-title">💡 Quick Tips:</p>
+              <ul class="tip-list">
+                <li>Use the <strong>Quick Access</strong> bar above to switch conversations</li>
+                <li>Click on user avatars to start direct messages</li>
+                <li>Use <strong>Team Chat</strong> for group discussions</li>
+              </ul>
             </div>
-            
-            <div v-for="message in filteredMessages" :key="message.id" class="message-container" :data-message-id="message.id">
-              <div 
-                :class="[
-                  'message', 
-                  message.sender.id === currentUser.id ? 'own-message' : 'other-message'
-                ]"
+          </div>
+          
+          <div v-for="message in filteredMessages" :key="message.id" class="message-container" :data-message-id="message.id">
+            <div 
+              :class="[
+                'message', 
+                message.sender.id === currentUser.id ? 'own-message' : 'other-message'
+              ]"
+            >
+              <el-avatar 
+                v-if="message.sender.id !== currentUser.id"
+                :size="32" 
+                :src="message.sender.avatar"
+                class="message-avatar"
               >
-                <el-avatar 
-                  v-if="message.sender.id !== currentUser.id"
-                  :size="32" 
-                  :src="message.sender.avatar"
-                  class="message-avatar"
-                >
-                  <Icon icon="material-symbols:person" />
-                </el-avatar>
-                
-                <div class="message-content">
-                  <div v-if="message.sender.id !== currentUser.id" class="message-sender">
-                    {{ message.sender.name }}
-                  </div>
-                  <div class="message-text">{{ message.content }}</div>
-                  <div class="message-footer">
-                    <span class="message-time">{{ formatTimestamp(message.timestamp) }}</span>
-                    <span v-if="message.sender.id === currentUser.id" class="message-status">
-                       <Icon 
-                         v-if="message.status === 'sending'" 
-                         icon="material-symbols:schedule" 
-                         width="12" 
-                         color="#909399" 
-                         title="Sending..."
+                <Icon icon="material-symbols:person" />
+              </el-avatar>
+              
+              <div class="message-content">
+                <div v-if="message.sender.id !== currentUser.id" class="message-sender">
+                  {{ message.sender.name }}
+                </div>
+                <div class="message-text">{{ message.content }}</div>
+                <div class="message-footer">
+                  <span class="message-time">{{ formatTimestamp(message.timestamp) }}</span>
+                  <span v-if="message.sender.id === currentUser.id" class="message-status">
+                     <Icon 
+                       v-if="message.status === 'sending'" 
+                       icon="material-symbols:schedule" 
+                       width="12" 
+                       color="#909399" 
+                       title="Sending..."
+                     />
+                     <Icon 
+                       v-else-if="message.status === 'sent'" 
+                       icon="material-symbols:done" 
+                       width="12" 
+                       color="#909399" 
+                       title="Sent"
+                     />
+                     <Icon 
+                       v-else-if="message.status === 'received'" 
+                       icon="material-symbols:done-all" 
+                       width="14" 
+                       color="#909399" 
+                       title="Delivered"
+                     />
+                     <Icon 
+                       v-else-if="message.status === 'read'" 
+                       icon="material-symbols:done-all" 
+                       width="14" 
+                       color="#1976d2" 
+                       title="Read"
+                     />
+                     <Icon 
+                       v-else-if="message.status === 'failed'" 
+                       icon="material-symbols:error" 
+                       width="12" 
+                       color="#f56c6c" 
+                       title="Failed to send"
                        />
-                       <Icon 
-                         v-else-if="message.status === 'sent'" 
-                         icon="material-symbols:done" 
-                         width="12" 
-                         color="#909399" 
-                         title="Sent"
-                       />
-                       <Icon 
-                         v-else-if="message.status === 'received'" 
-                         icon="material-symbols:done-all" 
-                         width="14" 
-                         color="#909399" 
-                         title="Delivered"
-                       />
-                       <Icon 
-                         v-else-if="message.status === 'read'" 
-                         icon="material-symbols:done-all" 
-                         width="14" 
-                         color="#1976d2" 
-                         title="Read"
-                       />
-                       <Icon 
-                         v-else-if="message.status === 'failed'" 
-                         icon="material-symbols:error" 
-                         width="12" 
-                         color="#f56c6c" 
-                         title="Failed to send"
-                       />
-                     </span>
-                  </div>
+                   </span>
                 </div>
               </div>
             </div>
           </div>
+        </div>
 
-          <!-- Message Input -->
-          <div class="chat-input-container">
-            <div class="input-wrapper">
-              <el-input
-                v-model="currentMessage"
-                placeholder="Type your message..."
-                type="textarea"
-                :rows="1"
-                :autosize="{ minRows: 1, maxRows: 4 }"
-                @keydown="handleKeyDown"
-                class="message-input"
-              />
-              <el-button 
-                @click="sendMessage" 
-                type="primary" 
-                :disabled="!currentMessage.trim()"
-                class="send-button"
-              >
-                <Icon icon="material-symbols:send" width="16" />
-              </el-button>
-            </div>
+        <!-- Message Input -->
+        <div class="chat-input-container">
+          <div class="input-wrapper">
+            <el-input
+              v-model="currentMessage"
+              placeholder="Type your message..."
+              type="textarea"
+              :rows="1"
+              :autosize="{ minRows: 1, maxRows: 4 }"
+              @keydown="handleKeyDown"
+              class="message-input"
+            />
+            <el-button 
+              @click="sendMessage" 
+              type="primary" 
+              :disabled="!currentMessage.trim()"
+              class="send-button"
+            >
+              <Icon icon="material-symbols:send" width="16" />
+            </el-button>
           </div>
+        </div>
       </div>
 
       <!-- Mobile Layout -->
       <div v-else class="mobile-layout">
-          
-          <!-- Mobile Messages -->
-          <div ref="chatContainer" class="mobile-chat-messages">
-            <div v-if="filteredMessages.length === 0" class="no-messages">
-              <Icon icon="material-symbols:chat-bubble-outline" width="48" color="var(--el-text-color-placeholder)" />
-              <p v-if="activeConversation === 'general'">No messages in team chat yet. Start the conversation!</p>
-              <p v-else>No messages with this user yet. Start the conversation!</p>
-              <div class="welcome-tips">
-                <p class="tip-title">💡 Quick Tips:</p>
-                <ul class="tip-list">
-                  <li>Use the <strong>Quick Access</strong> bar above to switch conversations</li>
-                  <li>Click on user avatars to start direct messages</li>
-                  <li>Use <strong>Team Chat</strong> for group discussions</li>
-                </ul>
-              </div>
+        
+        <!-- Mobile Messages -->
+        <div ref="chatContainer" class="mobile-chat-messages">
+          <div v-if="filteredMessages.length === 0" class="no-messages">
+            <Icon icon="material-symbols:chat-bubble-outline" width="48" color="var(--el-text-color-placeholder)" />
+            <p v-if="activeConversation === 'general'">No messages in team chat yet. Start the conversation!</p>
+            <p v-else>No messages with this user yet. Start the conversation!</p>
+            <div class="welcome-tips">
+              <p class="tip-title">💡 Quick Tips:</p>
+              <ul class="tip-list">
+                <li>Tap the <strong>menu button</strong> to switch conversations</li>
+                <li>Use <strong>Team Chat</strong> for group discussions</li>
+                <li>Swipe to see more options</li>
+              </ul>
             </div>
-            
-            <div v-for="message in filteredMessages" :key="message.id" class="mobile-message-container" :data-message-id="message.id">
-              <div 
-                :class="[
-                  'mobile-message', 
-                  message.sender.id === currentUser.id ? 'mobile-own-message' : 'mobile-other-message'
-                ]"
-              >
-                <div class="mobile-message-content">
-                  <div v-if="message.sender.id !== currentUser.id" class="mobile-message-sender">
-                    {{ message.sender.name }}
-                  </div>
-                  <div class="mobile-message-text">{{ message.content }}</div>
-                  <div class="mobile-message-footer">
-                    <span class="mobile-message-time">{{ formatTimestamp(message.timestamp) }}</span>
-                    <span v-if="message.sender.id === currentUser.id" class="mobile-message-status">
-                       <Icon 
-                         v-if="message.status === 'sending'" 
-                         icon="material-symbols:schedule" 
-                         width="12" 
-                         color="#909399"
-                         title="Sending..."
+          </div>
+          
+          <div v-for="message in filteredMessages" :key="message.id" class="mobile-message-container" :data-message-id="message.id">
+            <div 
+              :class="[
+                'mobile-message', 
+                message.sender.id === currentUser.id ? 'mobile-own-message' : 'mobile-other-message'
+              ]"
+            >
+              <div class="mobile-message-content">
+                <div v-if="message.sender.id !== currentUser.id" class="mobile-message-sender">
+                  {{ message.sender.name }}
+                </div>
+                <div class="mobile-message-text">{{ message.content }}</div>
+                <div class="mobile-message-footer">
+                  <span class="mobile-message-time">{{ formatTimestamp(message.timestamp) }}</span>
+                  <span v-if="message.sender.id === currentUser.id" class="mobile-message-status">
+                     <Icon 
+                       v-if="message.status === 'sending'" 
+                       icon="material-symbols:schedule" 
+                       width="12" 
+                       color="#909399"
+                       title="Sending..."
+                     />
+                     <Icon 
+                       v-else-if="message.status === 'sent'" 
+                       icon="material-symbols:done" 
+                       width="12" 
+                       color="#909399"
+                       title="Sent"
+                     />
+                     <Icon 
+                       v-else-if="message.status === 'received'" 
+                       icon="material-symbols:done-all" 
+                       width="14" 
+                       color="#909399"
+                       title="Delivered"
+                     />
+                     <Icon 
+                       v-else-if="message.status === 'read'" 
+                       icon="material-symbols:done-all" 
+                       width="14" 
+                       color="#1976d2"
+                       title="Read"
+                     />
+                     <Icon 
+                       v-else-if="message.status === 'failed'" 
+                       icon="material-symbols:error" 
+                       width="12" 
+                       color="#f56c6c"
+                       title="Failed to send"
                        />
-                       <Icon 
-                         v-else-if="message.status === 'sent'" 
-                         icon="material-symbols:done" 
-                         width="12" 
-                         color="#909399"
-                         title="Sent"
-                       />
-                       <Icon 
-                         v-else-if="message.status === 'received'" 
-                         icon="material-symbols:done-all" 
-                         width="14" 
-                         color="#909399"
-                         title="Delivered"
-                       />
-                       <Icon 
-                         v-else-if="message.status === 'read'" 
-                         icon="material-symbols:done-all" 
-                         width="14" 
-                         color="#1976d2"
-                         title="Read"
-                       />
-                       <Icon 
-                         v-else-if="message.status === 'failed'" 
-                         icon="material-symbols:error" 
-                         width="12" 
-                         color="#f56c6c"
-                         title="Failed to send"
-                       />
-                     </span>
-                  </div>
+                   </span>
                 </div>
               </div>
             </div>
           </div>
+        </div>
 
-          <!-- Mobile Input -->
-          <div class="mobile-chat-input">
-            <div class="mobile-input-wrapper">
-              <el-input
-                v-model="currentMessage"
-                placeholder="Type your message..."
-                @keydown="handleKeyDown"
-                class="mobile-message-input"
-              />
-              <el-button 
-                @click="sendMessage" 
-                type="primary" 
-                :disabled="!currentMessage.trim()"
-                class="mobile-send-button"
-              >
-                <Icon icon="material-symbols:send" width="16" />
-              </el-button>
-            </div>
+        <!-- Mobile Input -->
+        <div class="mobile-chat-input">
+          <div class="mobile-input-wrapper">
+            <el-input
+              v-model="currentMessage"
+              placeholder="Type your message..."
+              @keydown="handleKeyDown"
+              class="mobile-message-input"
+            />
+            <el-button 
+              @click="sendMessage" 
+              type="primary" 
+              :disabled="!currentMessage.trim()"
+              class="mobile-send-button"
+            >
+              <Icon icon="material-symbols:send" width="16" />
+            </el-button>
           </div>
+        </div>
       </div>
     </div>
   </el-drawer>
@@ -1658,6 +1679,95 @@ const filteredMessages = computed(() => {
   flex-shrink: 0;
 }
 
+/* Mobile Header Layout */
+.mobile-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--el-border-color-light);
+}
+
+.mobile-header-left {
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.mobile-header-center {
+  flex: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mobile-header-right {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.mobile-conversation-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.mobile-conversation-title {
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--el-text-color-primary);
+  line-height: 1.2;
+}
+
+.mobile-menu-btn {
+  padding: 8px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.mobile-menu-btn.active {
+  background: var(--el-color-primary-light-9);
+  color: var(--el-color-primary);
+}
+
+.mobile-unread-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: var(--el-color-danger-light-9);
+  border: 1px solid var(--el-color-danger-light-7);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mobile-unread-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--el-color-danger);
+  min-width: 14px;
+  text-align: center;
+}
+
+.mobile-user-status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 2px solid var(--el-bg-color);
+}
+
+.mobile-user-status-dot:hover {
+  transform: scale(1.1);
+}
+
 /* Mobile Layout */
 .mobile-layout {
   height: 100%;
@@ -1745,9 +1855,12 @@ const filteredMessages = computed(() => {
 }
 
 .mobile-chat-input {
-  padding: 16px;
+  padding: 16px 20px;
   border-top: 1px solid var(--el-border-color-light);
   background: var(--el-bg-color);
+  position: sticky;
+  bottom: 0;
+  z-index: 50;
 }
 
 .mobile-input-wrapper {
@@ -1760,26 +1873,133 @@ const filteredMessages = computed(() => {
   flex: 1;
 }
 
-.mobile-send-button {
-  flex-shrink: 0;
+.mobile-message-input :deep(.el-input__wrapper) {
+  border-radius: 24px;
+  padding: 12px 20px;
+  background: var(--el-fill-color-light);
+  border: 1px solid var(--el-border-color-lighter);
+  transition: all 0.2s ease;
 }
 
-/* Responsive Design for Drawer */
-@media (max-width: 768px) {
-  .chat-container {
-    height: calc(100vh - 80px);
+.mobile-message-input :deep(.el-input__wrapper:focus-within) {
+  background: var(--el-bg-color);
+  border-color: var(--el-color-primary);
+  box-shadow: 0 0 0 2px var(--el-color-primary-light-8);
+}
+
+.mobile-send-button {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.mobile-send-button:active {
+  transform: scale(0.95);
+}
+
+/* Mobile Welcome Tips */
+.mobile-layout .welcome-tips {
+  margin-top: 24px;
+  padding: 20px;
+  background: var(--el-fill-color-light);
+  border-radius: 12px;
+  border: 1px solid var(--el-border-color-lighter);
+  max-width: 100%;
+}
+
+.mobile-layout .tip-title {
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+
+.mobile-layout .tip-list {
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.mobile-layout .tip-list li {
+  margin-bottom: 8px;
+}
+
+/* Touch-friendly improvements */
+.conversation-item {
+  min-height: 56px;
+  padding: 12px 16px;
+}
+
+.conversation-item:active {
+  background-color: var(--el-fill-color);
+  transform: scale(0.98);
+}
+
+/* Mobile scrollbar */
+.mobile-chat-messages::-webkit-scrollbar {
+  width: 4px;
+}
+
+.mobile-chat-messages::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.mobile-chat-messages::-webkit-scrollbar-thumb {
+  background: var(--el-border-color);
+  border-radius: 2px;
+}
+
+.mobile-chat-messages::-webkit-scrollbar-thumb:hover {
+  background: var(--el-border-color-light);
+}
+
+/* Mobile keyboard handling */
+@media (max-height: 600px) {
+  .mobile-chat-container {
+    height: calc(100vh - 60px);
   }
   
-  .users-panel {
-    height: 150px;
+  .mobile-drawer-header {
+    padding: 12px 20px;
   }
   
-  .users-list {
-    max-height: 90px;
+  .mobile-chat-input {
+    padding: 12px 20px;
+  }
+}
+
+/* Landscape mobile optimizations */
+@media (max-width: 768px) and (orientation: landscape) {
+  .mobile-drawer-header {
+    padding: 12px 20px;
   }
   
-  .drawer-header h4 {
-    font-size: 16px;
+  .mobile-chat-input {
+    padding: 12px 20px;
+  }
+  
+  .mobile-message-content {
+    padding: 10px 14px;
+  }
+}
+
+/* High DPI mobile devices */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .mobile-message-content {
+    box-shadow: 0 0.5px 1.5px rgba(0, 0, 0, 0.1);
+  }
+}
+
+/* Dark mode mobile optimizations */
+@media (prefers-color-scheme: dark) {
+  .mobile-message-content {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  }
+  
+  .mobile-users-sidebar {
+    background: var(--el-bg-color-overlay);
   }
 }
 
@@ -1896,8 +2116,6 @@ const filteredMessages = computed(() => {
   font-weight: 500;
 }
 
-
-
 .header-left {
   display: flex;
   align-items: center;
@@ -1910,8 +2128,6 @@ const filteredMessages = computed(() => {
   align-items: center;
   gap: 12px;
 }
-
-
 
 .conversation-info {
   display: flex;
@@ -2104,13 +2320,9 @@ const filteredMessages = computed(() => {
     width: 100% !important;
   }
   
-
-  
   .conversation-details {
     display: none;
   }
-  
-
   
   .online-users-preview {
     padding: 4px 8px;
@@ -2125,5 +2337,9 @@ const filteredMessages = computed(() => {
   .chat-container {
     position: relative;
   }
+}
+
+.refresh-status-btn:active {
+  transform: scale(0.95);
 }
 </style>
