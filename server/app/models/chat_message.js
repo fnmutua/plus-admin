@@ -11,10 +11,10 @@ module.exports = (sequelize) => {
       type: DataTypes.TEXT,
       allowNull: false,
     },
-    message_type: {
-      type: DataTypes.ENUM('text', 'image', 'file'),
-      defaultValue: 'text',
-    },
+      message_type: {
+        type: DataTypes.STRING,
+        defaultValue: 'text',
+      },
     sender_id: {
       type: DataTypes.INTEGER,
       allowNull: false,
@@ -32,7 +32,7 @@ module.exports = (sequelize) => {
       }
     },
     status: {
-      type: DataTypes.ENUM('sending', 'sent', 'delivered', 'read', 'failed'),
+      type: DataTypes.STRING,
       defaultValue: 'sent',
     },
     created_at: {

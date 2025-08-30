@@ -84,50 +84,46 @@ wss.on('connection', (ws, req) => {
       switch (message.type) {
         case 'join':
           // User joining the chat
-          currentUser = message.user;
-          clients.set(currentUser.id, ws);
-                     users.set(currentUser.id, {
-             ...currentUser,
-             lastSeen: new Date(),
-             status: currentUser.status || 'online'
-           });
-           
-           // Initialize drawer state as closed (user just joined)
-           drawerStates.set(currentUser.id, false);
-          
-          console.log(`User ${currentUser.name} joined the chat`);
-          
-          try {
-            // Update user status in database
-            await updateUserStatus(currentUser.id, currentUser.status || 'online', true);
+          if (message.user) {
+            currentUser = message.user;
+            clients.set(currentUser.id, ws);
+            drawerStates.set(currentUser.id, false);
             
-            // Send current user the list of online users
-            const onlineUsers = await getOnlineUsers();
-            ws.send(JSON.stringify({
-              type: 'users_update',
-              users: onlineUsers
-            }));
+            console.log(`User ${currentUser.name} (${currentUser.id}) joined the chat`);
             
-            // Send recent messages to the new user
-            const recentMessages = await getRecentMessages();
-            ws.send(JSON.stringify({
-              type: 'message_history',
-              messages: recentMessages
-            }));
-            
-            // Notify all other clients about new user
-            broadcast({
-              type: 'user_joined',
-              user: currentUser
-            }, ws);
-            
-            // Send updated user list to everyone
-            broadcast({
-              type: 'users_update',
-              users: onlineUsers
-            });
-          } catch (error) {
-            console.error('Error handling user join:', error);
+            try {
+              // Update user status in database
+              await updateUserStatus(currentUser.id, currentUser.status || 'online', true);
+              
+              // Send current user the list of online users
+              const onlineUsers = await getOnlineUsers(currentUser.id);
+              ws.send(JSON.stringify({
+                type: 'users_update',
+                users: onlineUsers
+              }));
+              
+              // Send recent messages to the new user
+              const recentMessages = await getRecentMessages();
+              ws.send(JSON.stringify({
+                type: 'message_history',
+                messages: recentMessages
+              }));
+              
+              // Notify all other clients about new user
+              broadcast({
+                type: 'user_joined',
+                user: currentUser
+              }, ws);
+              
+              // Send updated user list to everyone
+              const allOnlineUsers = await getOnlineUsers();
+              broadcast({
+                type: 'users_update',
+                users: allOnlineUsers
+              });
+            } catch (error) {
+              console.error('Error handling user join:', error);
+            }
           }
           break;
           
@@ -135,7 +131,8 @@ wss.on('connection', (ws, req) => {
           // User sending a message
           if (currentUser && message.message) {
             try {
-              const messageType = message.to === 'all' ? 'team_chat' : 'direct_message'
+              // Use existing database enum values until schema is updated
+              const messageType = message.to === 'all' ? 'text' : 'text' // Use 'text' for now instead of 'team_chat'
               console.log(`Saving message: type=${messageType}, to=${message.to}, receiver_id=${message.to !== 'all' ? message.to : null}`)
               
               // Save message to database
@@ -146,51 +143,97 @@ wss.on('connection', (ws, req) => {
                 message_type: messageType
               });
               
+              console.log('Message saved successfully:', {
+                id: savedMessage.id,
+                content: savedMessage.content,
+                message_type: savedMessage.message_type,
+                receiver_id: savedMessage.receiver_id
+              });
+              
               console.log(`Message from ${currentUser.name}: ${savedMessage.content}, saved with type: ${savedMessage.message_type}`);
               
-                             if (message.to && message.to !== 'all') {
-                 // Private message
-                 const targetClient = clients.get(message.to);
-                 if (targetClient && targetClient.readyState === WebSocket.OPEN) {
-                   targetClient.send(JSON.stringify({
-                     type: 'message',
-                     message: savedMessage
-                   }));
-                   
-                   console.log(`Private message sent to ${message.to}`);
-                 } else {
-                   // Recipient is offline, keep as sent
-                   console.log(`Recipient ${message.to} is offline`);
-                 }
-               } else {
-                 // Team chat: Broadcast to all support users
-                 let sentCount = 0;
-                 wss.clients.forEach(client => {
-                   if (client !== ws && client.readyState === WebSocket.OPEN) {
-                     // Only send team chat messages to support users
-                     const clientUserId = Array.from(clients.entries()).find(([id, ws]) => ws === client)?.[0];
-                     if (clientUserId) {
-                       // Check if this client user has support role
-                       // For now, we'll send to all, but you can implement role checking here
-                       client.send(JSON.stringify({
-                         type: 'message',
-                         message: savedMessage
-                       }));
-                       
-                       sentCount++;
-                     }
-                   }
-                 });
-                 
-                 console.log(`Team chat message broadcast to ${sentCount} users`);
-               }
+              // Send confirmation back to sender
+              ws.send(JSON.stringify({
+                type: 'message',
+                message: savedMessage
+              }));
+              
+              if (message.to && message.to !== 'all') {
+                // Private message
+                const targetClient = clients.get(message.to);
+                if (targetClient && targetClient.readyState === WebSocket.OPEN) {
+                  targetClient.send(JSON.stringify({
+                    type: 'message',
+                    message: savedMessage
+                  }));
+                  
+                  console.log(`Private message sent to ${message.to}`);
+                } else {
+                  // Recipient is offline, keep as sent
+                  console.log(`Recipient ${message.to} is offline`);
+                }
+              } else {
+                // Team chat: Broadcast to all other connected clients
+                let sentCount = 0;
+                wss.clients.forEach(client => {
+                  if (client !== ws && client.readyState === WebSocket.OPEN) {
+                    client.send(JSON.stringify({
+                      type: 'message',
+                      message: savedMessage
+                    }));
+                    sentCount++;
+                  }
+                });
+                
+                console.log(`Team chat message broadcast to ${sentCount} users`);
+              }
             } catch (error) {
               console.error('Error handling message:', error);
             }
           }
-          break
+          break;
           
 
+
+        case 'get_messages':
+          // User requesting messages for a conversation
+          if (currentUser && message.conversation) {
+            console.log(`User ${currentUser.name} requesting messages for conversation: ${message.conversation}`);
+            try {
+              if (message.conversation === 'general') {
+                // Load team chat messages
+                console.log('Loading team chat messages...');
+                const teamMessages = await getRecentMessages();
+                console.log(`Sending ${teamMessages.length} team chat messages to user ${currentUser.name}`);
+                
+                // Mark team chat messages as read for this user
+                await markMessagesAsRead(teamMessages, currentUser.id);
+                
+                ws.send(JSON.stringify({
+                  type: 'conversation_messages',
+                  conversationId: 'general',
+                  messages: teamMessages
+                }));
+              } else {
+                // Load direct messages between two users
+                console.log(`Loading direct messages between ${currentUser.id} and ${message.conversation}...`);
+                const directMessages = await getDirectMessages(currentUser.id, message.conversation);
+                console.log(`Sending ${directMessages.length} direct messages to user ${currentUser.name}`);
+                
+                // Mark direct messages as read for this user
+                await markMessagesAsRead(directMessages, currentUser.id);
+                
+                ws.send(JSON.stringify({
+                  type: 'conversation_messages',
+                  conversationId: message.conversation,
+                  messages: directMessages
+                }));
+              }
+            } catch (error) {
+              console.error('Error getting messages:', error);
+            }
+          }
+          break
 
         case 'switch_conversation':
           // User switching to a different conversation
@@ -199,6 +242,10 @@ wss.on('connection', (ws, req) => {
               if (message.conversationId === 'general') {
                 // Load team chat messages
                 const teamMessages = await getRecentMessages();
+                
+                // Mark team chat messages as read for this user
+                await markMessagesAsRead(teamMessages, currentUser.id);
+                
                 ws.send(JSON.stringify({
                   type: 'conversation_messages',
                   conversationId: 'general',
@@ -207,6 +254,10 @@ wss.on('connection', (ws, req) => {
               } else {
                 // Load direct messages between two users
                 const directMessages = await getDirectMessages(currentUser.id, message.conversationId);
+                
+                // Mark direct messages as read for this user
+                await markMessagesAsRead(directMessages, currentUser.id);
+                
                 ws.send(JSON.stringify({
                   type: 'conversation_messages',
                   conversationId: message.conversationId,
@@ -275,7 +326,7 @@ wss.on('connection', (ws, req) => {
               });
               
               // Send updated user list to everyone
-              const onlineUsers = await getOnlineUsers();
+              const onlineUsers = await getOnlineUsers(currentUser.id);
               broadcast({
                 type: 'users_update',
                 users: onlineUsers
@@ -298,10 +349,27 @@ wss.on('connection', (ws, req) => {
            break;
            
          case 'drawer_state':
-           // User opened/closed their chat drawer
+           // User's drawer state changed
            if (currentUser && message.isOpen !== undefined) {
-             drawerStates.set(currentUser.id, message.isOpen);
              console.log(`User ${currentUser.name} drawer state: ${message.isOpen ? 'open' : 'closed'}`);
+             drawerStates.set(currentUser.id, message.isOpen);
+             
+             // If drawer is opened, mark messages as read for the current conversation
+             if (message.isOpen && message.conversationId) {
+               try {
+                 if (message.conversationId === 'general') {
+                   // Mark team chat messages as read
+                   const teamMessages = await getRecentMessages();
+                   await markMessagesAsRead(teamMessages, currentUser.id);
+                 } else {
+                   // Mark direct messages as read
+                   const directMessages = await getDirectMessages(currentUser.id, message.conversationId);
+                   await markMessagesAsRead(directMessages, currentUser.id);
+                 }
+               } catch (error) {
+                 console.error('Error marking messages as read when drawer opened:', error);
+               }
+             }
            }
            break;
            
@@ -321,10 +389,9 @@ wss.on('connection', (ws, req) => {
         // Set user offline in database
         await setUserOffline(currentUser.id);
         
-                 // Remove user from maps
-         clients.delete(currentUser.id);
-         users.delete(currentUser.id);
-         drawerStates.delete(currentUser.id);
+                         // Remove user from maps
+        clients.delete(currentUser.id);
+        drawerStates.delete(currentUser.id);
         
         // Notify all other clients about user leaving
         broadcast({
@@ -354,7 +421,57 @@ const PORT = process.env.CHAT_PORT || 3001;
 server.listen(PORT, () => {
   console.log(`Chat WebSocket server listening on port ${PORT}`);
   console.log(`WebSocket endpoint: ws://localhost:${PORT}/chat`);
+  
+  // Start periodic online status updates
+  startPeriodicStatusUpdates();
 });
+
+// Periodic online status updates
+function startPeriodicStatusUpdates() {
+  setInterval(async () => {
+    try {
+      if (wss.clients.size > 0) {
+        const onlineUsers = await getOnlineUsers();
+        broadcast({
+          type: 'users_update',
+          users: onlineUsers
+        });
+        console.log(`Periodic status update: ${onlineUsers.length} users online`);
+      }
+    } catch (error) {
+      console.error('Error in periodic status update:', error);
+    }
+  }, 30000); // Update every 30 seconds
+}
+
+// Helper function to mark messages as read
+async function markMessagesAsRead(messages, userId) {
+  try {
+    console.log(`Marking ${messages.length} messages as read for user ${userId}`);
+    
+    for (const msg of messages) {
+      // Only mark messages as read if they're not from the current user and not already read
+      if (msg.sender_id !== userId && msg.status !== 'read') {
+        console.log(`Marking message ${msg.id} as read for user ${userId}`);
+        await updateMessageStatus(msg.id, userId, 'read');
+        
+        // Notify the sender that their message was read
+        const senderClient = clients.get(msg.sender_id);
+        if (senderClient && senderClient.readyState === WebSocket.OPEN) {
+          senderClient.send(JSON.stringify({
+            type: 'message_read',
+            messageId: msg.id,
+            readBy: userId
+          }));
+        }
+      }
+    }
+    
+    console.log(`Successfully marked messages as read for user ${userId}`);
+  } catch (error) {
+    console.error('Error marking messages as read:', error);
+  }
+}
 
 // Helper function to check if user has support role
 function hasSupportRole(user) {
@@ -365,9 +482,9 @@ function hasSupportRole(user) {
 }
 
 // Helper function to get online users from database
-async function getOnlineUsers() {
+async function getOnlineUsers(excludeUserId = null) {
   try {
-    const users = await db.user.findAll({
+    const whereClause = {
       include: [{
         model: db.userStatus,
         as: 'status',
@@ -375,7 +492,14 @@ async function getOnlineUsers() {
         required: true
       }],
       attributes: ['id', 'name', 'email', 'photo']
-    });
+    }
+    
+    // Exclude current user if specified
+    if (excludeUserId) {
+      whereClause.where = { id: { [db.Sequelize.Op.ne]: excludeUserId } }
+    }
+    
+    const users = await db.user.findAll(whereClause);
 
     return users.map(user => {
       let photoUrl = '/assets/imgs/avatar.jpg'; // Default fallback
@@ -487,9 +611,11 @@ async function updateMessageStatus(messageId, userId, status) {
 // Helper function to get direct messages between two users
 async function getDirectMessages(userId1, userId2, limit = 50) {
   try {
+    console.log(`Getting direct messages between users ${userId1} and ${userId2}`);
+    
     const messages = await db.chatMessage.findAll({
       where: {
-        message_type: 'direct_message',
+        message_type: 'text', // Use 'text' instead of 'direct_message' for now
         [db.Sequelize.Op.or]: [
           {
             sender_id: userId1,
@@ -510,6 +636,11 @@ async function getDirectMessages(userId1, userId2, limit = 50) {
       limit: limit
     });
 
+    console.log(`Found ${messages.length} direct messages between users ${userId1} and ${userId2}`);
+    messages.forEach(msg => {
+      console.log(`- Message ${msg.id}: "${msg.content}" from ${msg.sender?.name} to ${msg.receiver_id}, type: ${msg.message_type}`);
+    });
+
     // Convert sender photos to base64 data URLs
     messages.forEach(message => {
       if (message.sender && message.sender.photo && Buffer.isBuffer(message.sender.photo)) {
@@ -527,11 +658,13 @@ async function getDirectMessages(userId1, userId2, limit = 50) {
 // Helper function to get recent messages
 async function getRecentMessages(limit = 50) {
   try {
+    console.log('Getting recent messages with limit:', limit);
+    
     // Get team chat messages (broadcast messages)
     const teamChatMessages = await db.chatMessage.findAll({
       where: { 
         receiver_id: null,
-        message_type: 'team_chat'
+        message_type: 'text' // Use 'text' instead of 'team_chat' for now
       },
       include: [{
         model: db.user,
@@ -542,6 +675,11 @@ async function getRecentMessages(limit = 50) {
       limit: limit
     });
 
+    console.log(`Found ${teamChatMessages.length} team chat messages`);
+    teamChatMessages.forEach(msg => {
+      console.log(`- Message ${msg.id}: "${msg.content}" from ${msg.sender?.name}, type: ${msg.message_type}, receiver: ${msg.receiver_id}`);
+    });
+
     // Convert sender photos to base64 data URLs
     teamChatMessages.forEach(message => {
       if (message.sender && message.sender.photo && Buffer.isBuffer(message.sender.photo)) {
@@ -549,7 +687,9 @@ async function getRecentMessages(limit = 50) {
       }
     });
 
-    return teamChatMessages.reverse(); // Return in chronological order
+    const result = teamChatMessages.reverse(); // Return in chronological order
+    console.log(`Returning ${result.length} messages in chronological order`);
+    return result;
   } catch (error) {
     console.error('Error getting recent messages:', error);
     return [];
