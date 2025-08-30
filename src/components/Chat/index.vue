@@ -657,6 +657,89 @@ const markMessageAsRead = (messageId: string) => {
   updateMessageStatus(messageId, 'read')
 }
 
+// Jump to next unread conversation
+const jumpToNextUnread = () => {
+  // First check team chat
+  if (getUnreadCount('general') > 0) {
+    switchConversation('general')
+    return
+  }
+  
+  // Then check direct messages
+  const userWithUnread = onlineUsers.value.find(user => 
+    user.id !== currentUser.value.id && getUnreadCount(user.id) > 0
+  )
+  
+  if (userWithUnread) {
+    switchConversation(userWithUnread.id)
+    // Auto-scroll to first unread message
+    nextTick(() => {
+      setTimeout(() => {
+        scrollToFirstUnread()
+      }, 300)
+    })
+  }
+}
+
+// Scroll to first unread message in current conversation
+const scrollToFirstUnread = () => {
+  if (!chatContainer.value) return
+  
+  const unreadMessages = filteredMessages.value.filter(msg => 
+    msg.status === 'received' && msg.sender.id !== currentUser.value.id
+  )
+  
+  if (unreadMessages.length > 0) {
+    const firstUnread = unreadMessages[0]
+    const messageElement = document.querySelector(`[data-message-id="${firstUnread.id}"]`)
+    
+    if (messageElement) {
+      messageElement.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'center' 
+      })
+      
+      // Highlight the message briefly
+      messageElement.classList.add('highlight-unread')
+      setTimeout(() => {
+        messageElement.classList.remove('highlight-unread')
+      }, 2000)
+    }
+  }
+}
+
+// Get total unread count for direct messages
+const getTotalDirectUnreadCount = () => {
+  return onlineUsers.value
+    .filter(u => u.id !== currentUser.value.id)
+    .reduce((sum, user) => sum + getUnreadCount(user.id), 0)
+}
+
+// Sort online users by unread count (unread first)
+const sortedOnlineUsers = computed(() => {
+  return [...onlineUsers.value]
+    .filter(u => u.id !== currentUser.value.id)
+    .sort((a, b) => {
+      const aUnread = getUnreadCount(a.id)
+      const bUnread = getUnreadCount(b.id)
+      
+      // Sort by unread count (descending)
+      if (aUnread !== bUnread) {
+        return bUnread - aUnread
+      }
+      
+      // Then by online status
+      const aOnline = a.status === 'online'
+      const bOnline = b.status === 'online'
+      if (aOnline !== bOnline) {
+        return aOnline ? -1 : 1
+      }
+      
+      // Finally by name
+      return a.name.localeCompare(b.name)
+    })
+})
+
 
 
 // Switch between conversations
@@ -905,46 +988,57 @@ const filteredMessages = computed(() => {
            </div>
          </div>
         
-        <div class="header-right">
-          <!-- Online Users Preview (Always Visible) -->
-          <div class="online-users-preview" @click="showUsersSidebar = !showUsersSidebar">
-            <div class="online-avatars">
-              <div 
-                v-for="(user, index) in onlineUsers.slice(0, 3)" 
-                :key="user.id"
-                class="online-avatar"
-                :style="{ 
-                  zIndex: 3 - index,
-                  marginLeft: index > 0 ? '-8px' : '0'
-                }"
-                :title="`${user.name} (${user.status})`"
-              >
-                <el-avatar :size="24" :src="user.avatar">
-                  {{ user.name.charAt(0).toUpperCase() }}
-                </el-avatar>
-                <div 
-                  class="status-dot" 
-                  :style="{ backgroundColor: getUserStatusColor(user.status) }"
-                ></div>
-              </div>
-              <div v-if="onlineUsers.length > 3" class="more-users">
-                +{{ onlineUsers.length - 3 }}
-              </div>
-            </div>
-            <span class="online-label">{{ onlineUsers.length }} online</span>
-          </div>
-          
-          <!-- User Status Dot -->
-          <div 
-            class="user-status-dot" 
-            :style="{ backgroundColor: getUserStatusColor(userStatus) }"
-            :title="`You are ${userStatus}`"
-            @click="cycleUserStatus"
-          ></div>
-          
-          <!-- Connection Status -->
-          <Icon v-if="!isConnected" icon="material-symbols:wifi-off" width="16" color="#f56c6c" title="Offline" />
-        </div>
+                 <div class="header-right">
+           <!-- Unread Messages Indicator -->
+           <div 
+             v-if="unreadCount > 0" 
+             class="unread-indicator"
+             @click="jumpToNextUnread"
+             :title="`${unreadCount} unread messages - Click to jump to next unread`"
+           >
+             <Icon icon="material-symbols:mark-email-unread" width="16" color="#f56c6c" />
+             <span class="unread-count">{{ unreadCount }}</span>
+           </div>
+           
+           <!-- Online Users Preview (Always Visible) -->
+           <div class="online-users-preview" @click="showUsersSidebar = !showUsersSidebar">
+             <div class="online-avatars">
+               <div 
+                 v-for="(user, index) in onlineUsers.slice(0, 3)" 
+                 :key="user.id"
+                 class="online-avatar"
+                 :style="{ 
+                   zIndex: 3 - index,
+                   marginLeft: index > 0 ? '-8px' : '0'
+                 }"
+                 :title="`${user.name} (${user.status})`"
+               >
+                 <el-avatar :size="24" :src="user.avatar">
+                   {{ user.name.charAt(0).toUpperCase() }}
+                 </el-avatar>
+                 <div 
+                   class="status-dot" 
+                   :style="{ backgroundColor: getUserStatusColor(user.status) }"
+                 ></div>
+               </div>
+               <div v-if="onlineUsers.length > 3" class="more-users">
+                 +{{ onlineUsers.length - 3 }}
+               </div>
+             </div>
+             <span class="online-label">{{ onlineUsers.length }} online</span>
+           </div>
+           
+           <!-- User Status Dot -->
+           <div 
+             class="user-status-dot" 
+             :style="{ backgroundColor: getUserStatusColor(userStatus) }"
+             :title="`You are ${userStatus}`"
+             @click="cycleUserStatus"
+           ></div>
+           
+           <!-- Connection Status -->
+           <Icon v-if="!isConnected" icon="material-symbols:wifi-off" width="16" color="#f56c6c" title="Offline" />
+         </div>
       </div>
     </template>
 
@@ -976,34 +1070,47 @@ const filteredMessages = computed(() => {
             </div>
           </div>
           
-          <!-- Direct Messages -->
-          <div class="sidebar-section">
-            <div class="section-title">Direct Messages</div>
-            <div 
-              v-for="user in onlineUsers.filter(u => u.id !== currentUser.id)" 
-              :key="user.id"
-              class="conversation-item"
-              :class="{ active: activeConversation === user.id }"
-              @click="switchConversation(user.id)"
-            >
-              <div class="conversation-avatar">
-                <el-avatar :size="32" :src="user.avatar" class="user-avatar">
-                  {{ user.name.charAt(0).toUpperCase() }}
-                </el-avatar>
-                <div 
-                  class="status-dot" 
-                  :style="{ backgroundColor: getUserStatusColor(user.status) }"
-                ></div>
-              </div>
-              <div class="conversation-info">
-                <div class="conversation-name">{{ user.name }}</div>
-                <div class="conversation-preview">{{ user.status }}</div>
-              </div>
-              <div class="conversation-badge" v-if="getUnreadCount(user.id) > 0">
-                {{ getUnreadCount(user.id) }}
-              </div>
-            </div>
-          </div>
+                     <!-- Direct Messages -->
+           <div class="sidebar-section">
+             <div class="section-title">
+               Direct Messages
+               <span v-if="getTotalDirectUnreadCount() > 0" class="section-unread-count">
+                 ({{ getTotalDirectUnreadCount() }} unread)
+               </span>
+             </div>
+             <div 
+               v-for="user in sortedOnlineUsers" 
+               :key="user.id"
+               class="conversation-item"
+               :class="{ 
+                 active: activeConversation === user.id,
+                 'has-unread': getUnreadCount(user.id) > 0
+               }"
+               @click="switchConversation(user.id)"
+             >
+               <div class="conversation-avatar">
+                 <el-avatar :size="32" :src="user.avatar" class="user-avatar">
+                   {{ user.name.charAt(0).toUpperCase() }}
+                 </el-avatar>
+                 <div 
+                   class="status-dot" 
+                   :style="{ backgroundColor: getUserStatusColor(user.status) }"
+                 ></div>
+               </div>
+               <div class="conversation-info">
+                 <div class="conversation-name">
+                   {{ user.name }}
+                   <span v-if="getUnreadCount(user.id) > 0" class="unread-indicator-text">
+                     • {{ getUnreadCount(user.id) }} new
+                   </span>
+                 </div>
+                 <div class="conversation-preview">{{ user.status }}</div>
+               </div>
+               <div class="conversation-badge" v-if="getUnreadCount(user.id) > 0">
+                 {{ getUnreadCount(user.id) }}
+               </div>
+             </div>
+           </div>
         </div>
       </div>
       
@@ -1510,6 +1617,26 @@ const filteredMessages = computed(() => {
   animation: statusUpdate 0.3s ease-in-out;
 }
 
+/* Highlight unread messages */
+.highlight-unread {
+  animation: highlightUnread 2s ease-in-out;
+}
+
+@keyframes highlightUnread {
+  0%, 100% { 
+    background-color: transparent;
+    transform: scale(1);
+  }
+  25% { 
+    background-color: var(--el-color-warning-light-9);
+    transform: scale(1.02);
+  }
+  75% { 
+    background-color: var(--el-color-warning-light-9);
+    transform: scale(1.01);
+  }
+}
+
 .chat-input-container {
   padding: 16px;
   border-top: 1px solid var(--el-border-color-light);
@@ -1676,6 +1803,39 @@ const filteredMessages = computed(() => {
   border-bottom: 1px solid var(--el-border-color-light);
 }
 
+/* Unread Messages Indicator */
+.unread-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: var(--el-color-danger-light-9);
+  border: 1px solid var(--el-color-danger-light-7);
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  animation: pulse 2s infinite;
+}
+
+.unread-indicator:hover {
+  background: var(--el-color-danger-light-8);
+  border-color: var(--el-color-danger-light-6);
+  transform: scale(1.05);
+}
+
+.unread-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--el-color-danger);
+  min-width: 16px;
+  text-align: center;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
+
 /* Online Users Preview in Header */
 .online-users-preview {
   display: flex;
@@ -1833,6 +1993,17 @@ const filteredMessages = computed(() => {
   margin-bottom: 8px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-unread-count {
+  font-size: 11px;
+  color: var(--el-color-danger);
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 .conversation-item {
@@ -1851,6 +2022,19 @@ const filteredMessages = computed(() => {
 .conversation-item.active {
   background-color: var(--el-color-primary-light-9);
   border-right: 3px solid var(--el-color-primary);
+}
+
+.conversation-item.has-unread {
+  background-color: var(--el-color-danger-light-9);
+  border-left: 3px solid var(--el-color-danger);
+}
+
+.conversation-item.has-unread:hover {
+  background-color: var(--el-color-danger-light-8);
+}
+
+.conversation-item.has-unread .conversation-name {
+  font-weight: 600;
 }
 
 .conversation-avatar {
@@ -1891,6 +2075,12 @@ const filteredMessages = computed(() => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.unread-indicator-text {
+  color: var(--el-color-danger);
+  font-weight: 500;
+  font-size: 11px;
 }
 
 .conversation-badge {
