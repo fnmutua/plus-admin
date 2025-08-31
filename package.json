@@ -28,6 +28,7 @@
     "p": "plop",
     "swagger:generate": "node swagger-generate.js",
     "chat:server": "node server/websocket-chat.js",
+    "chat:server-production": "node server/websocket-chat-https.js",
     "chat:migrate": "node server/run-chat-migration.js",
     "chat:update-enum": "node server/run-enum-update.js"
   },

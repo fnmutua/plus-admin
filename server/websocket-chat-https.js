@@ -1,28 +1,52 @@
 const WebSocket = require('ws');
-const http = require('http');
+const https = require('https'); // Changed from http to https
 const path = require('path');
+const fs = require('fs');
 
-// Load environment variables like the main server
+// Load environment variables
 const dotenv = require('dotenv');
 const envFilePath = path.resolve(__dirname, '../.env');
 dotenv.config({ path: envFilePath });
 
 console.log('=== CHAT SERVER ENVIRONMENT VARIABLES ===');
 console.log('Env file path:', envFilePath);
-console.log('File exists:', require('fs').existsSync(envFilePath));
+console.log('File exists:', fs.existsSync(envFilePath));
 console.log('DB - HOST:', process.env.VUE_APP_DB_HOST);
 console.log('DB - USER:', process.env.VUE_APP_USER);
 console.log('DB - DB:', process.env.VUE_APP_DB);
 console.log('DB - PORT:', process.env.VUE_APP_DB_PORT);
 console.log('DB - PASSWORD:', process.env.VUE_APP_PASSWORD ? '***SET***' : 'NOT SET');
+console.log('SSL - CERT PATH:', process.env.SSL_CERT_PATH || 'NOT SET');
+console.log('SSL - KEY PATH:', process.env.SSL_KEY_PATH || 'NOT SET');
 console.log('==========================================');
+
+// Load SSL/TLS certificates for HTTPS
+let server;
+try {
+  const certPath = process.env.SSL_CERT_PATH || '/etc/letsencrypt/live/kesmis.go.ke/fullchain.pem';
+  const keyPath = process.env.SSL_KEY_PATH || '/etc/letsencrypt/live/kesmis.go.ke/privkey.pem';
+  if (!fs.existsSync(certPath) || !fs.existsSync(keyPath)) {
+    throw new Error('SSL certificate or key file not found');
+  }
+  const options = {
+    cert: fs.readFileSync(certPath),
+    key: fs.readFileSync(keyPath),
+  };
+  server = https.createServer(options);
+} catch (error) {
+  console.error('Error loading SSL certificates:', error);
+  // Fallback to HTTP if HTTPS setup fails (not recommended for production)
+  const http = require('http');
+  server = http.createServer();
+  console.warn('Falling back to HTTP due to SSL failure');
+}
 
 const db = require('./app/models');
 const config = require('./app/config/db.config.js');
 const Sequelize = require('sequelize');
 const { Op } = require('sequelize');
 
-// Create Sequelize connection like other controllers
+// Create Sequelize connection
 const sequelize = new Sequelize(config.DB, config.USER, config.PASSWORD, {
   host: config.HOST,
   port: config.PORT,
@@ -36,9 +60,6 @@ const sequelize = new Sequelize(config.DB, config.USER, config.PASSWORD, {
   }
 });
 
-// Create HTTP server
-const server = http.createServer();
-
 // Create WebSocket server
 const wss = new WebSocket.Server({ 
   server,
@@ -47,8 +68,8 @@ const wss = new WebSocket.Server({
 
 // Store connected clients and their info
 const clients = new Map();
-const users = new Map(); // userId -> user info
-const drawerStates = new Map(); // userId -> drawer open/closed state
+const users = new Map();
+const drawerStates = new Map();
 
 // Broadcast to all connected clients except sender
 function broadcast(message, excludeClient = null) {
@@ -69,8 +90,6 @@ function sendToUser(userId, message) {
   }
 }
 
-
-
 // Handle WebSocket connections
 wss.on('connection', (ws, req) => {
   console.log('New WebSocket connection');
@@ -83,7 +102,6 @@ wss.on('connection', (ws, req) => {
       
       switch (message.type) {
         case 'join':
-          // User joining the chat
           if (message.user) {
             currentUser = message.user;
             clients.set(currentUser.id, ws);
@@ -92,30 +110,25 @@ wss.on('connection', (ws, req) => {
             console.log(`User ${currentUser.name} (${currentUser.id}) joined the chat`);
             
             try {
-              // Update user status in database
               await updateUserStatus(currentUser.id, currentUser.status || 'online', true);
               
-              // Send current user the list of online users
               const onlineUsers = await getOnlineUsers(currentUser.id);
               ws.send(JSON.stringify({
                 type: 'users_update',
                 users: onlineUsers
               }));
               
-              // Send recent messages to the new user
               const recentMessages = await getRecentMessages();
               ws.send(JSON.stringify({
                 type: 'message_history',
                 messages: recentMessages
               }));
               
-              // Notify all other clients about new user
               broadcast({
                 type: 'user_joined',
                 user: currentUser
               }, ws);
               
-              // Send updated user list to everyone
               const allOnlineUsers = await getOnlineUsers();
               broadcast({
                 type: 'users_update',
@@ -128,14 +141,11 @@ wss.on('connection', (ws, req) => {
           break;
           
         case 'message':
-          // User sending a message
           if (currentUser && message.message) {
             try {
-              // Use existing database enum values until schema is updated
-              const messageType = message.to === 'all' ? 'text' : 'text' // Use 'text' for now instead of 'team_chat'
-              console.log(`Saving message: type=${messageType}, to=${message.to}, receiver_id=${message.to !== 'all' ? message.to : null}`)
+              const messageType = message.to === 'all' ? 'text' : 'text';
+              console.log(`Saving message: type=${messageType}, to=${message.to}, receiver_id=${message.to !== 'all' ? message.to : null}`);
               
-              // Save message to database
               const savedMessage = await saveMessage({
                 ...message.message,
                 sender: currentUser,
@@ -152,28 +162,23 @@ wss.on('connection', (ws, req) => {
               
               console.log(`Message from ${currentUser.name}: ${savedMessage.content}, saved with type: ${savedMessage.message_type}`);
               
-              // Send confirmation back to sender
               ws.send(JSON.stringify({
                 type: 'message',
                 message: savedMessage
               }));
               
               if (message.to && message.to !== 'all') {
-                // Private message
                 const targetClient = clients.get(message.to);
                 if (targetClient && targetClient.readyState === WebSocket.OPEN) {
                   targetClient.send(JSON.stringify({
                     type: 'message',
                     message: savedMessage
                   }));
-                  
                   console.log(`Private message sent to ${message.to}`);
                 } else {
-                  // Recipient is offline, keep as sent
                   console.log(`Recipient ${message.to} is offline`);
                 }
               } else {
-                // Team chat: Broadcast to all other connected clients
                 let sentCount = 0;
                 wss.clients.forEach(client => {
                   if (client !== ws && client.readyState === WebSocket.OPEN) {
@@ -184,7 +189,6 @@ wss.on('connection', (ws, req) => {
                     sentCount++;
                   }
                 });
-                
                 console.log(`Team chat message broadcast to ${sentCount} users`);
               }
             } catch (error) {
@@ -193,20 +197,15 @@ wss.on('connection', (ws, req) => {
           }
           break;
           
-
-
         case 'get_messages':
-          // User requesting messages for a conversation
           if (currentUser && message.conversation) {
             console.log(`User ${currentUser.name} requesting messages for conversation: ${message.conversation}`);
             try {
               if (message.conversation === 'general') {
-                // Load team chat messages
                 console.log('Loading team chat messages...');
                 const teamMessages = await getRecentMessages();
                 console.log(`Sending ${teamMessages.length} team chat messages to user ${currentUser.name}`);
                 
-                // Mark team chat messages as read for this user
                 await markMessagesAsRead(teamMessages, currentUser.id);
                 
                 ws.send(JSON.stringify({
@@ -215,12 +214,10 @@ wss.on('connection', (ws, req) => {
                   messages: teamMessages
                 }));
               } else {
-                // Load direct messages between two users
                 console.log(`Loading direct messages between ${currentUser.id} and ${message.conversation}...`);
                 const directMessages = await getDirectMessages(currentUser.id, message.conversation);
                 console.log(`Sending ${directMessages.length} direct messages to user ${currentUser.name}`);
                 
-                // Mark direct messages as read for this user
                 await markMessagesAsRead(directMessages, currentUser.id);
                 
                 ws.send(JSON.stringify({
@@ -233,31 +230,22 @@ wss.on('connection', (ws, req) => {
               console.error('Error getting messages:', error);
             }
           }
-          break
+          break;
 
         case 'switch_conversation':
-          // User switching to a different conversation
           if (currentUser && message.conversationId) {
             try {
               if (message.conversationId === 'general') {
-                // Load team chat messages
                 const teamMessages = await getRecentMessages();
-                
-                // Mark team chat messages as read for this user
                 await markMessagesAsRead(teamMessages, currentUser.id);
-                
                 ws.send(JSON.stringify({
                   type: 'conversation_messages',
                   conversationId: 'general',
                   messages: teamMessages
                 }));
               } else {
-                // Load direct messages between two users
                 const directMessages = await getDirectMessages(currentUser.id, message.conversationId);
-                
-                // Mark direct messages as read for this user
                 await markMessagesAsRead(directMessages, currentUser.id);
-                
                 ws.send(JSON.stringify({
                   type: 'conversation_messages',
                   conversationId: message.conversationId,
@@ -268,24 +256,21 @@ wss.on('connection', (ws, req) => {
               console.error('Error switching conversation:', error);
             }
           }
-          break
+          break;
 
         case 'message_read':
-          // User has read a message
           if (message.messageId && message.readBy) {
             console.log(`Message ${message.messageId} read by ${message.readBy}`);
             try {
-              console.log(`Calling updateMessageStatus for message ${message.messageId}`)
+              console.log(`Calling updateMessageStatus for message ${message.messageId}`);
               await updateMessageStatus(message.messageId, message.readBy, 'read');
               
-              // Find the message to get sender info
               const chatMessage = await db.chatMessage.findByPk(message.messageId, {
                 include: [{ model: db.user, as: 'sender' }]
               });
               
               if (chatMessage) {
                 console.log(`Notifying sender ${chatMessage.sender.id} that message was read`);
-                // Notify the sender that their message was read
                 const senderClient = clients.get(chatMessage.sender.id);
                 if (senderClient && senderClient.readyState === WebSocket.OPEN) {
                   senderClient.send(JSON.stringify({
@@ -303,29 +288,20 @@ wss.on('connection', (ws, req) => {
           break;
           
         case 'status_update':
-          // User updating their status
           if (currentUser && message.status) {
             console.log(`User ${currentUser.name} changed status to ${message.status}`);
-            
             try {
-              // Update user status in database
               await updateUserStatus(currentUser.id, message.status, true);
-              
-              // Update user status in memory
               const user = users.get(currentUser.id);
               if (user) {
                 user.status = message.status;
                 users.set(currentUser.id, user);
               }
-              
-              // Broadcast status update to all users
               broadcast({
                 type: 'user_status_updated',
                 userId: currentUser.id,
                 status: message.status
               });
-              
-              // Send updated user list to everyone
               const onlineUsers = await getOnlineUsers(currentUser.id);
               broadcast({
                 type: 'users_update',
@@ -337,44 +313,38 @@ wss.on('connection', (ws, req) => {
           }
           break;
           
-                 case 'typing':
-           // User is typing
-           if (currentUser) {
-             broadcast({
-               type: 'typing',
-               user: currentUser,
-               isTyping: message.isTyping
-             }, ws);
-           }
-           break;
-           
-         case 'drawer_state':
-           // User's drawer state changed
-           if (currentUser && message.isOpen !== undefined) {
-             console.log(`User ${currentUser.name} drawer state: ${message.isOpen ? 'open' : 'closed'}`);
-             drawerStates.set(currentUser.id, message.isOpen);
-             
-             // If drawer is opened, mark messages as read for the current conversation
-             if (message.isOpen && message.conversationId) {
-               try {
-                 if (message.conversationId === 'general') {
-                   // Mark team chat messages as read
-                   const teamMessages = await getRecentMessages();
-                   await markMessagesAsRead(teamMessages, currentUser.id);
-                 } else {
-                   // Mark direct messages as read
-                   const directMessages = await getDirectMessages(currentUser.id, message.conversationId);
-                   await markMessagesAsRead(directMessages, currentUser.id);
-                 }
-               } catch (error) {
-                 console.error('Error marking messages as read when drawer opened:', error);
-               }
-             }
-           }
-           break;
-           
-         default:
-           console.log('Unknown message type:', message.type);
+        case 'typing':
+          if (currentUser) {
+            broadcast({
+              type: 'typing',
+              user: currentUser,
+              isTyping: message.isTyping
+            }, ws);
+          }
+          break;
+          
+        case 'drawer_state':
+          if (currentUser && message.isOpen !== undefined) {
+            console.log(`User ${currentUser.name} drawer state: ${message.isOpen ? 'open' : 'closed'}`);
+            drawerStates.set(currentUser.id, message.isOpen);
+            if (message.isOpen && message.conversationId) {
+              try {
+                if (message.conversationId === 'general') {
+                  const teamMessages = await getRecentMessages();
+                  await markMessagesAsRead(teamMessages, currentUser.id);
+                } else {
+                  const directMessages = await getDirectMessages(currentUser.id, message.conversationId);
+                  await markMessagesAsRead(directMessages, currentUser.id);
+                }
+              } catch (error) {
+                console.error('Error marking messages as read when drawer opened:', error);
+              }
+            }
+          }
+          break;
+          
+        default:
+          console.log('Unknown message type:', message.type);
       }
     } catch (error) {
       console.error('Error processing message:', error);
@@ -384,22 +354,14 @@ wss.on('connection', (ws, req) => {
   ws.on('close', async () => {
     if (currentUser) {
       console.log(`User ${currentUser.name} left the chat`);
-      
       try {
-        // Set user offline in database
         await setUserOffline(currentUser.id);
-        
-                         // Remove user from maps
         clients.delete(currentUser.id);
         drawerStates.delete(currentUser.id);
-        
-        // Notify all other clients about user leaving
         broadcast({
           type: 'user_left',
           user: currentUser
         });
-        
-        // Send updated user list to everyone
         const onlineUsers = await getOnlineUsers();
         broadcast({
           type: 'users_update',
@@ -417,12 +379,11 @@ wss.on('connection', (ws, req) => {
 });
 
 // Start the server
-const PORT = process.env.CHAT_PORT || 3001;
+const PORT = process.env.CHAT_PORT || 443; // Use 443 for HTTPS in production
 server.listen(PORT, () => {
   console.log(`Chat WebSocket server listening on port ${PORT}`);
-  console.log(`WebSocket endpoint: ws://localhost:${PORT}/chat`);
+  console.log(`WebSocket endpoint: wss://localhost:${PORT}/chat`);
   
-  // Start periodic online status updates
   startPeriodicStatusUpdates();
 });
 
@@ -441,21 +402,17 @@ function startPeriodicStatusUpdates() {
     } catch (error) {
       console.error('Error in periodic status update:', error);
     }
-  }, 30000); // Update every 30 seconds
+  }, 30000);
 }
 
 // Helper function to mark messages as read
 async function markMessagesAsRead(messages, userId) {
   try {
     console.log(`Marking ${messages.length} messages as read for user ${userId}`);
-    
     for (const msg of messages) {
-      // Only mark messages as read if they're not from the current user and not already read
       if (msg.sender_id !== userId && msg.status !== 'read') {
         console.log(`Marking message ${msg.id} as read for user ${userId}`);
         await updateMessageStatus(msg.id, userId, 'read');
-        
-        // Notify the sender that their message was read
         const senderClient = clients.get(msg.sender_id);
         if (senderClient && senderClient.readyState === WebSocket.OPEN) {
           senderClient.send(JSON.stringify({
@@ -466,7 +423,6 @@ async function markMessagesAsRead(messages, userId) {
         }
       }
     }
-    
     console.log(`Successfully marked messages as read for user ${userId}`);
   } catch (error) {
     console.error('Error marking messages as read:', error);
@@ -475,10 +431,7 @@ async function markMessagesAsRead(messages, userId) {
 
 // Helper function to check if user has support role
 function hasSupportRole(user) {
-  // Customize this based on your user role system
-  // For now, we'll assume all users have support access
-  // You can check user.role === 'support' or user.permissions.includes('chat_support')
-  return true;
+  return true; // Customize based on your user role system
 }
 
 // Helper function to get online users from database
@@ -492,25 +445,18 @@ async function getOnlineUsers(excludeUserId = null) {
         required: true
       }],
       attributes: ['id', 'name', 'email', 'photo']
-    }
-    
-    // Exclude current user if specified
+    };
     if (excludeUserId) {
-      whereClause.where = { id: { [db.Sequelize.Op.ne]: excludeUserId } }
+      whereClause.where = { id: { [db.Sequelize.Op.ne]: excludeUserId } };
     }
-    
     const users = await db.user.findAll(whereClause);
-
     return users.map(user => {
-      let photoUrl = '/assets/imgs/avatar.jpg'; // Default fallback
-      
-      // Convert Buffer photo to base64 data URL if available
+      let photoUrl = '/assets/imgs/avatar.jpg';
       if (user.photo && Buffer.isBuffer(user.photo)) {
         photoUrl = 'data:image/png;base64,' + user.photo.toString('base64');
       } else if (user.photo) {
         photoUrl = user.photo;
       }
-      
       return {
         id: user.id,
         name: user.name,
@@ -535,17 +481,14 @@ async function saveMessage(messageData) {
       sender_id: messageData.sender?.id,
       receiver_id: messageData.receiver_id,
       status: messageData.status
-    })
-    
+    });
     const message = await db.chatMessage.create({
       content: messageData.content,
       message_type: messageData.message_type,
       sender_id: messageData.sender.id,
       receiver_id: messageData.receiver_id || null,
-      status: 'received' // Always set as 'received' when saved to database
+      status: 'received'
     });
-
-    // Get the message with sender info
     const messageWithSender = await db.chatMessage.findByPk(message.id, {
       include: [{
         model: db.user,
@@ -553,12 +496,9 @@ async function saveMessage(messageData) {
         attributes: ['id', 'name', 'email', 'photo']
       }]
     });
-
-    // Convert sender photo to base64 data URL
     if (messageWithSender.sender && messageWithSender.sender.photo && Buffer.isBuffer(messageWithSender.sender.photo)) {
       messageWithSender.sender.photo = 'data:image/png;base64,' + messageWithSender.sender.photo.toString('base64');
     }
-
     return messageWithSender;
   } catch (error) {
     console.error('Error saving message:', error);
@@ -569,8 +509,7 @@ async function saveMessage(messageData) {
 // Helper function to update message status
 async function updateMessageStatus(messageId, userId, status) {
   try {
-    console.log(`updateMessageStatus: messageId=${messageId}, userId=${userId}, status=${status}`)
-    
+    console.log(`updateMessageStatus: messageId=${messageId}, userId=${userId}, status=${status}`);
     const [statusRecord, created] = await db.chatMessageStatus.findOrCreate({
       where: {
         message_id: messageId,
@@ -581,26 +520,22 @@ async function updateMessageStatus(messageId, userId, status) {
         timestamp: new Date()
       }
     });
-
     if (!created && statusRecord.status !== status) {
-      console.log(`Updating existing status record from ${statusRecord.status} to ${status}`)
+      console.log(`Updating existing status record from ${statusRecord.status} to ${status}`);
       await statusRecord.update({
         status,
         timestamp: new Date()
       });
     } else if (created) {
-      console.log(`Created new status record with status ${status}`)
+      console.log(`Created new status record with status ${status}`);
     }
-
-    // Update main message status if it's read
     if (status === 'read') {
-      console.log(`Updating main message ${messageId} status to 'read'`)
+      console.log(`Updating main message ${messageId} status to 'read'`);
       await db.chatMessage.update(
         { status: 'read' },
         { where: { id: messageId } }
       );
     }
-
     return statusRecord;
   } catch (error) {
     console.error('Error updating message status:', error);
@@ -612,10 +547,9 @@ async function updateMessageStatus(messageId, userId, status) {
 async function getDirectMessages(userId1, userId2, limit = 50) {
   try {
     console.log(`Getting direct messages between users ${userId1} and ${userId2}`);
-    
     const messages = await db.chatMessage.findAll({
       where: {
-        message_type: 'text', // Use 'text' instead of 'direct_message' for now
+        message_type: 'text',
         [db.Sequelize.Op.or]: [
           {
             sender_id: userId1,
@@ -635,19 +569,15 @@ async function getDirectMessages(userId1, userId2, limit = 50) {
       order: [['created_at', 'ASC']],
       limit: limit
     });
-
     console.log(`Found ${messages.length} direct messages between users ${userId1} and ${userId2}`);
     messages.forEach(msg => {
       console.log(`- Message ${msg.id}: "${msg.content}" from ${msg.sender?.name} to ${msg.receiver_id}, type: ${msg.message_type}`);
     });
-
-    // Convert sender photos to base64 data URLs
     messages.forEach(message => {
       if (message.sender && message.sender.photo && Buffer.isBuffer(message.sender.photo)) {
         message.sender.photo = 'data:image/png;base64,' + message.sender.photo.toString('base64');
       }
     });
-
     return messages;
   } catch (error) {
     console.error('Error getting direct messages:', error);
@@ -659,12 +589,10 @@ async function getDirectMessages(userId1, userId2, limit = 50) {
 async function getRecentMessages(limit = 50) {
   try {
     console.log('Getting recent messages with limit:', limit);
-    
-    // Get team chat messages (broadcast messages)
     const teamChatMessages = await db.chatMessage.findAll({
       where: { 
         receiver_id: null,
-        message_type: 'text' // Use 'text' instead of 'team_chat' for now
+        message_type: 'text'
       },
       include: [{
         model: db.user,
@@ -674,20 +602,16 @@ async function getRecentMessages(limit = 50) {
       order: [['created_at', 'DESC']],
       limit: limit
     });
-
     console.log(`Found ${teamChatMessages.length} team chat messages`);
     teamChatMessages.forEach(msg => {
       console.log(`- Message ${msg.id}: "${msg.content}" from ${msg.sender?.name}, type: ${msg.message_type}, receiver: ${msg.receiver_id}`);
     });
-
-    // Convert sender photos to base64 data URLs
     teamChatMessages.forEach(message => {
       if (message.sender && message.sender.photo && Buffer.isBuffer(message.sender.photo)) {
         message.sender.photo = 'data:image/png;base64,' + message.sender.photo.toString('base64');
       }
     });
-
-    const result = teamChatMessages.reverse(); // Return in chronological order
+    const result = teamChatMessages.reverse();
     console.log(`Returning ${result.length} messages in chronological order`);
     return result;
   } catch (error) {
@@ -707,7 +631,6 @@ async function updateUserStatus(userId, status, isOnline = true) {
         last_seen: new Date()
       }
     });
-
     if (!created) {
       await userStatus.update({
         status,
@@ -715,7 +638,6 @@ async function updateUserStatus(userId, status, isOnline = true) {
         last_seen: new Date()
       });
     }
-
     return userStatus;
   } catch (error) {
     console.error('Error updating user status:', error);

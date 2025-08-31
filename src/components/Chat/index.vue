@@ -42,7 +42,8 @@ const currentUser = computed(() => {
 // WebSocket connection
 const connectWebSocket = () => {
   try {
-    const wsUrl = `ws://localhost:3001/chat`
+    // Use environment variable for WebSocket URL, fallback to localhost for development
+    const wsUrl = import.meta.env.VITE_CHAT_WS_URL || `ws://localhost:3001/chat`
     console.log('Connecting to WebSocket:', wsUrl)
     ws = new WebSocket(wsUrl)
     
