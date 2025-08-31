@@ -43,7 +43,7 @@ const currentUser = computed(() => {
 const connectWebSocket = () => {
   try {
     // Use environment variable for WebSocket URL, fallback to localhost for development
-    const wsUrl = import.meta.env.VITE_CHAT_WS_URL || `ws://localhost:3001/chat`
+    const wsUrl = 'wss://kesmis.go.ke/chat'
     console.log('Connecting to WebSocket:', wsUrl)
     ws = new WebSocket(wsUrl)
     
