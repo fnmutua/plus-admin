@@ -418,9 +418,14 @@ wss.on('connection', (ws, req) => {
 
 // Start the server
 const PORT = process.env.CHAT_PORT || 3001;
-server.listen(PORT, () => {
-  console.log(`Chat WebSocket server listening on port ${PORT}`);
-  console.log(`WebSocket endpoint: ws://localhost:${PORT}/chat`);
+const HOST = process.env.CHAT_HOST || '0.0.0.0';
+const SERVER_URL = process.env.CHAT_SERVER_URL || `http://${HOST}:${PORT}`;
+const WS_URL = process.env.CHAT_WS_URL || `ws://${HOST}:${PORT}`;
+
+server.listen(PORT, HOST, () => {
+  console.log(`Chat WebSocket server listening on ${HOST}:${PORT}`);
+  console.log(`Server URL: ${SERVER_URL}`);
+  console.log(`WebSocket endpoint: ${WS_URL}/chat`);
   
   // Start periodic online status updates
   startPeriodicStatusUpdates();
