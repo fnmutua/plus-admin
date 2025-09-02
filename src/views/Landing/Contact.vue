@@ -47,11 +47,28 @@
                   </el-form-item>
                 </el-col>
 
-                <el-col :xs="24" :sm="24" :md="12">
+                <el-col :xs="24" :sm="24" :md="6">
+                  <el-form-item label="Country Code">
+                    <el-select 
+                      v-model="contactForm.country_code" 
+                      placeholder="Select country"
+                      filterable
+                      style="width: 100%"
+                    >
+                      <el-option
+                        v-for="country in countryCodeOptions"
+                        :key="country.value"
+                        :label="country.label"
+                        :value="country.value"
+                      />
+                    </el-select>
+                  </el-form-item>
+                </el-col>
+                <el-col :xs="24" :sm="24" :md="6">
                   <el-form-item label="Phone">
                     <el-input 
                       v-model="contactForm.phone" 
-                      placeholder="Enter your phone number"
+                      placeholder="Enter phone number"
                       :prefix-icon="Phone"
                     />
                   </el-form-item>
@@ -103,8 +120,16 @@ import { ElMain, ElButton, ElCard, ElForm, ElFormItem, ElInput, ElRow, ElCol, El
 import { User, Phone, Message } from '@element-plus/icons-vue';
 import type { FormInstance, FormRules } from 'element-plus';
 import BaseLayout from './BaseLayout.vue';
+import { validateInternationalPhone, formatPhoneForDisplay } from '@/utils/phoneValidation';
+import countryPhoneCodes from '@/utils/countryPhoneCodes.json';
 
 const formRef = ref<FormInstance>();
+
+// Create country code options for the dropdown
+const countryCodeOptions = countryPhoneCodes.map(country => ({
+  value: country.dial_code,
+  label: `${country.flag} ${country.name} (${country.dial_code})`
+}));
 
 const validatePhone = (rule: any, value: string, callback: any) => {
   if (!value) {
@@ -112,27 +137,12 @@ const validatePhone = (rule: any, value: string, callback: any) => {
     return;
   }
   
-  // Remove any spaces or special characters
-  const cleanNumber = value.replace(/[\s\-\(\)]/g, '');
+  // Basic phone number validation - just numbers
+  if (!/^\d+$/.test(value)) {
+    callback(new Error('Phone number should contain only digits'));
+    return;
+  }
   
-  // Check if number starts with +254 or 0
-  if (!cleanNumber.startsWith('+254') && !cleanNumber.startsWith('0')) {
-    callback(new Error('Phone number must start with +254 or 0'));
-    return;
-  }
-
-  // Convert to +254 format for validation
-  let numberToValidate = cleanNumber;
-  if (cleanNumber.startsWith('0')) {
-    numberToValidate = '+254' + cleanNumber.slice(1);
-  }
-
-  // Check if the number is valid (should be +254 followed by 9 digits)
-  if (!/^\+254[0-9]{9}$/.test(numberToValidate)) {
-    callback(new Error('Please enter a valid Kenyan phone number'));
-    return;
-  }
-
   callback();
 };
 
@@ -140,6 +150,9 @@ const rules = ref<FormRules>({
   name: [
     { required: true, message: 'Please input your name', trigger: 'blur' },
     { min: 2, message: 'Name must be at least 2 characters', trigger: 'blur' }
+  ],
+  country_code: [
+    { required: true, message: 'Please select a country code', trigger: 'change' }
   ],
   phone: [
     { required: true, message: 'Please input your phone number', trigger: 'blur' },
@@ -157,6 +170,7 @@ const rules = ref<FormRules>({
 
 const contactForm = ref({
   name: '',
+  country_code: '+254', // Default to Kenya
   phone: '',
   email: '',
   message: '',
@@ -167,14 +181,12 @@ const submitForm = async () => {
   
   try {
     await formRef.value.validate();
-    // Format phone number to +254 format if it starts with 0
-    const formattedPhone = contactForm.value.phone.startsWith('0') 
-      ? '+254' + contactForm.value.phone.slice(1)
-      : contactForm.value.phone;
+    // Combine country code and phone number
+    const fullPhone = contactForm.value.country_code + contactForm.value.phone;
     
     const formData = {
       ...contactForm.value,
-      phone: formattedPhone
+      phone: fullPhone
     };
     
     console.log('Form submitted:', formData);

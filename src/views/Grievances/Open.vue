@@ -47,6 +47,7 @@ import Papa from 'papaparse';
 import { getSummarybyFieldFromMultipleIncludes, getSummaryGroupByMultipleFields } from '@/api/summary'
 import { getUserListApi, getUsersByIds } from '@/api/users'
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
+import { validateInternationalPhone } from '@/utils/phoneValidation'
 
 // Type definitions
 interface UserType {
@@ -2624,15 +2625,18 @@ const handleOfficerChange = (value) => {
 
 
   const validateKenyaPhone = (rule, value, callback) => {
-        const cleaned = value.replace(/\s+/g, '');
-        const pattern = /^(?:\+254|254|0)?(7\d{8}|1\d{8})$/;
         if (!value) {
           callback(new Error("Phone is required"));
-        } else if (!pattern.test(cleaned)) {
-          callback(new Error("Invalid Kenyan phone number"));
-        } else {
-          callback();
+          return;
         }
+        
+        const validation = validateInternationalPhone(value);
+        if (!validation.isValid) {
+          callback(new Error(validation.error));
+          return;
+        }
+        
+        callback();
       };
 
 const OfficerRules = computed(() => ({

@@ -48,6 +48,7 @@ import {
 import {
   getTimelineReport
 } from '@/api/grievance'
+import { validateInternationalPhone } from '@/utils/phoneValidation'
 
 
 
@@ -1623,15 +1624,18 @@ const handleOfficerChange = (value) => {
 
 
   const validateKenyaPhone = (rule, value, callback) => {
-        const cleaned = value.replace(/\s+/g, '');
-        const pattern = /^(?:\+254|254|0)?(7\d{8}|1\d{8})$/;
         if (!value) {
           callback(new Error("Phone is required"));
-        } else if (!pattern.test(cleaned)) {
-          callback(new Error("Invalid Kenyan phone number"));
-        } else {
-          callback();
+          return;
         }
+        
+        const validation = validateInternationalPhone(value);
+        if (!validation.isValid) {
+          callback(new Error(validation.error));
+          return;
+        }
+        
+        callback();
       };
 
 const OfficerRules = computed(() => ({

@@ -218,7 +218,7 @@ exports.signup = (req, res) => {
         const mailOptions = {
           from: 'kisip.mis@gmail.com',
           to: emails,
-          subject: 'New KISIP MIS user account',
+          subject: 'New KeSMIS user account',
           text:
             'A new user account (' +  req.body.email + ')has been created. Please review and approve appropriately via this link:\n\n' +
             CLIENT_URL+'#/users/new'  
@@ -237,14 +237,18 @@ exports.signup = (req, res) => {
 
 
         sendSMS(user,admin_phones)
-            console.log(roles)
-            res.send({
-              message: 'User registered successfully! Please wait for the account to be activated',
-              code: '0000',
-              roles: roles[0].name,
-              data: token,
-              user: user
-            })
+        
+        // Send acknowledgement email to the user
+        sendAcknowledgementEmail(user.email, user.name, user.username)
+        
+        console.log(roles)
+        res.send({
+          message: 'User registered successfully! Please wait for the account to be activated',
+          code: '0000',
+          roles: roles[0].name,
+          data: token,
+          user: user
+        })
           })
         })
     
@@ -365,6 +369,22 @@ exports.modelActivateUser = async (req, res) => {
       }
     } else {
       console.warn(`No phone number found for user ID ${user.id}`);
+    }
+
+    // Send email notification to the user
+    if (user.email) {
+      try {
+        if (isactive) {
+          await sendActivationEmail(user.email, user.name || 'User', user.username || user.email);
+        } else {
+          await sendDeactivationEmail(user.email, user.name || 'User', user.username || user.email);
+        }
+      } catch (emailError) {
+        // Log email error but don't affect the response
+        console.error(`Failed to send email to ${user.email}:`, emailError.message);
+      }
+    } else {
+      console.warn(`No email address found for user ID ${user.id}`);
     }
 
     res.status(200).send({
@@ -1290,6 +1310,12 @@ exports.signupViaApp = async (req, res) => {
       });
 
     // Send response to client
+    
+    // Send acknowledgement email to the user
+    if (user && user.email) {
+      sendAcknowledgementEmail(user.email, user.name, user.username)
+    }
+    
     res.send({
       message: 'User registered successfully!',
       code: '0000',
@@ -1416,6 +1442,12 @@ exports.signupGRC = async (req, res) => {
       });
 
     // Send response to client
+    
+    // Send acknowledgement email to the user
+    if (user && user.email) {
+      sendAcknowledgementEmail(user.email, user.name, user.username)
+    }
+    
     res.send({
       message: 'User registered successfully!',
       code: '0000',
@@ -1543,6 +1575,12 @@ exports.signupGRM = async (req, res) => {
       });
 
     // Send response to client
+    
+    // Send acknowledgement email to the user
+    if (user && user.email) {
+      sendAcknowledgementEmail(user.email, user.name, user.username)
+    }
+    
     res.send({
       message: 'User registered successfully!',
       code: '0000',
@@ -1787,4 +1825,191 @@ exports.verifyCode = async (req, res) => {
 };
 
 
+// Function to send acknowledgement email to user after successful registration
+async function sendAcknowledgementEmail(userEmail, userName, username) {
+  try {
+    var transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: 'kisip.mis@gmail.com',
+        pass: 'ycoxaqavmfiqljjg'
+      }
+    });
+
+    const mailOptions = {
+      from: 'kisip.mis@gmail.com',
+      to: userEmail,
+      subject: 'Welcome to KeSMIS - Registration Successful',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; text-align: center;">
+            <h2 style="color: #28a745; margin-bottom: 20px;">🎉 Registration Successful!</h2>
+            <p style="font-size: 16px; color: #333; margin-bottom: 15px;">
+              Dear <strong>${userName}</strong>,
+            </p>
+            <p style="font-size: 16px; color: #333; margin-bottom: 15px;">
+              Thank you for registering with KeSMIS. Your account has been created successfully with the username: <strong>${username}</strong>
+            </p>
+            <div style="background-color: #e9ecef; padding: 15px; border-radius: 5px; margin: 20px 0;">
+              <p style="margin: 0; color: #495057;">
+                <strong>Important:</strong> Your account is currently pending approval. You will receive a notification once your account is activated by an administrator.
+              </p>
+            </div>
+            <p style="font-size: 16px; color: #333; margin-bottom: 15px;">
+              If you have any questions or need assistance, please contact our support team.
+            </p>
+            <p style="font-size: 16px; color: #333; margin-bottom: 15px;">
+              Best regards,<br>
+              <strong>KeSMIS Team</strong>
+            </p>
+          </div>
+        </div>
+      `
+    };
+
+    const result = await transporter.sendMail(mailOptions);
+    console.log('Acknowledgement email sent successfully to:', userEmail);
+    return result;
+  } catch (error) {
+    console.error('Error sending acknowledgement email to:', userEmail, error);
+    // Don't throw error - we don't want to fail registration if email fails
+    return null;
+  }
+}
+
+// Function to send activation email to user
+async function sendActivationEmail(userEmail, userName, username) {
+  try {
+    var transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: 'kisip.mis@gmail.com',
+        pass: 'ycoxaqavmfiqljjg'
+      }
+    });
+
+    const mailOptions = {
+      from: 'kisip.mis@gmail.com',
+      to: userEmail,
+      subject: 'Account Activated - Welcome to KeSMIS',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background-color: #d4edda; padding: 20px; border-radius: 8px; text-align: center; border: 1px solid #c3e6cb;">
+            <h2 style="color: #155724; margin: 0 0 20px 0;">🎉 Account Activated Successfully!</h2>
+            <p style="color: #155724; font-size: 16px; margin: 0;">
+              Dear <strong>${userName}</strong>, your KeSMIS account has been activated!
+            </p>
+          </div>
+          
+          <div style="background-color: #ffffff; padding: 20px; border-radius: 8px; margin-top: 20px; border: 1px solid #dee2e6;">
+            <h3 style="color: #333; margin-top: 0;">Account Details:</h3>
+            <ul style="color: #555; line-height: 1.6;">
+              <li><strong>Username:</strong> ${username}</li>
+              <li><strong>Status:</strong> Active</li>
+              <li><strong>Access:</strong> Full system access granted</li>
+            </ul>
+            
+            <div style="background-color: #f8f9fa; padding: 15px; border-radius: 6px; margin-top: 20px;">
+              <p style="color: #6c757d; margin: 0; font-size: 14px;">
+                <strong>Next Steps:</strong><br>
+                • You can now log in to your account<br>
+                • Access all available features and modules<br>
+                • Contact support if you need assistance
+              </p>
+            </div>
+            
+            <div style="text-align: center; margin-top: 25px;">
+              <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/login" 
+                 style="background-color: #28a745; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">
+                Login to Your Account
+              </a>
+            </div>
+          </div>
+          
+          <div style="text-align: center; margin-top: 20px; color: #6c757d; font-size: 12px;">
+            <p>This is an automated message. Please do not reply to this email.</p>
+            <p>If you have any questions, please contact the system administrator.</p>
+          </div>
+        </div>
+      `
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log('Activation email sent successfully to:', userEmail);
+    return info;
+  } catch (error) {
+    console.error('Error sending activation email to', userEmail, ':', error);
+    throw error;
+  }
+}
+
+// Function to send deactivation email to user
+async function sendDeactivationEmail(userEmail, userName, username) {
+  try {
+    var transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: 'kisip.mis@gmail.com',
+        pass: 'ycoxaqavmfiqljjg'
+      }
+    });
+
+    const mailOptions = {
+      from: 'kisip.mis@gmail.com',
+      to: userEmail,
+      subject: 'Account Deactivated - KeSMIS',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background-color: #f8d7da; padding: 20px; border-radius: 8px; text-align: center; border: 1px solid #f5c6cb;">
+            <h2 style="color: #721c24; margin: 0 0 20px 0;">⚠️ Account Deactivated</h2>
+            <p style="color: #721c24; font-size: 16px; margin: 0;">
+              Dear <strong>${userName}</strong>, your KeSMIS account has been deactivated.
+            </p>
+          </div>
+          
+          <div style="background-color: #ffffff; padding: 20px; border-radius: 8px; margin-top: 20px; border: 1px solid #dee2e6;">
+            <h3 style="color: #333; margin-top: 0;">Account Status:</h3>
+            <ul style="color: #555; line-height: 1.6;">
+              <li><strong>Username:</strong> ${username}</li>
+              <li><strong>Status:</strong> Inactive</li>
+              <li><strong>Access:</strong> System access temporarily suspended</li>
+            </ul>
+            
+            <div style="background-color: #fff3cd; padding: 15px; border-radius: 6px; margin-top: 20px;">
+              <p style="color: #856404; margin: 0; font-size: 14px;">
+                <strong>What this means:</strong><br>
+                • You cannot log in to your account<br>
+                • All system access is temporarily suspended<br>
+                • Your data remains secure and intact
+              </p>
+            </div>
+            
+            <div style="background-color: #f8f9fa; padding: 15px; border-radius: 6px; margin-top: 20px;">
+              <p style="color: #6c757d; margin: 0; font-size: 14px;">
+                <strong>To reactivate your account:</strong><br>
+                • Contact your system administrator<br>
+                • Provide a valid reason for reactivation<br>
+                • Wait for approval and reactivation
+              </p>
+            </div>
+          </div>
+          
+          <div style="text-align: center; margin-top: 20px; color: #6c757d; font-size: 12px;">
+            <p>This is an automated message. Please do not reply to this email.</p>
+            <p>If you believe this was done in error, please contact the system administrator immediately.</p>
+          </div>
+        </div>
+      `
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log('Deactivation email sent successfully to:', userEmail);
+    return info;
+  } catch (error) {
+    console.error('Error sending deactivation email to', userEmail, ':', error);
+    throw error;
+  }
+}
+
+module.exports = exports;
  
