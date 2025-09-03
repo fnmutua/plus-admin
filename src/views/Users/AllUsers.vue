@@ -4,6 +4,7 @@ import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { getCountyListApi } from '@/api/counties'
 import { getUserRoles,getByName } from '@/api/users'
+import type { UserType } from '@/api/users/types'
 import PermissionWrapper from '@/components/PermissionWrapper.vue';
 
 import {
@@ -58,18 +59,18 @@ const currentUser = wsCache.get(appStore.getUserInfo)
 
 
 const { push } = useRouter()
-const value1 = ref([])
-const value2 = ref([])
-var value3 = ref([])
-const countiesOptions = ref([])
-const RolesOptions = ref([])
+const value1 = ref<any[]>([])
+const value2 = ref<any[]>([])
+var value3 = ref<any[]>([])
+const countiesOptions = ref<any[]>([])
+const RolesOptions = ref<any[]>([])
 
 
-const settlementOptions = ref([])
-const userOptions = ref([])
+const settlementOptions = ref<any[]>([])
+const userOptions = ref<any[]>([])
 
-const settlements = ref([])
-const filteredSettlements = ref([])
+const settlements = ref<any[]>([])
+const filteredSettlements = ref<any[]>([])
 const page = ref(1)
 const pSize = ref(5)
 const selCounties = []
@@ -90,9 +91,9 @@ let tableDataList_orig = ref<UserType[]>([])
 
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
-var filters = []
-var filterValues = []
-var tblData = []
+var filters: string[] = []
+var filterValues: any[] = []
+var tblData: any[] = []
 
 const associated_multiple_models = ['county' ,'user_roles']
 
@@ -456,7 +457,7 @@ const EditUser = (data: TableSlotDefault) => {
   })
 
 
-  form.roles = roles[0]
+  form.roles = roles
   console.log(form)
   dialogFormVisible.value = true
 }
@@ -594,13 +595,15 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
         <!-- Avatar column -->
   <el-table-column label="Avatar" width="100">
     <template #default="scope">
-      <el-avatar :src="scope.row.avatar" size="80px" />
+      <el-avatar :src="scope.row.avatar" :size="80" />
     </template>
   </el-table-column>
 
  
       <el-table-column label="Name" prop="name" width="200" sortable />
       <el-table-column label="Username" prop="username" sortable />
+      <el-table-column label="Country" prop="country_name" sortable />
+
       <el-table-column label="County" prop="county.name" sortable />
       <el-table-column fixed="right" :label="isMobile ? '' : 'Operations'" :width="actionColumnWidth">
         <template #default="scope">

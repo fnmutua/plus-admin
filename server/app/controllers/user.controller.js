@@ -314,8 +314,14 @@ exports.modelAllUsers = async (req, res) => {
 
     console.log('Total Users Retrieved:', count);
 
+    // Ensure country_name is included in the response
+    const usersWithCountry = users.map(user => ({
+      ...user.toJSON(),
+      country_name: user.country_name || 'xNot specified'
+    }));
+
     res.status(200).send({
-      data: users,
+      data: usersWithCountry,
       total: count,
       code: '0000',
       message: 'Users retrieved successfully',
@@ -543,12 +549,13 @@ exports.modelCountyUsers = async (req, res) => {
     // Fetch users and count
     const { count, rows: users } = await db.models.users.findAndCountAll(findAndCountOptions);
 
-    // Convert photo binary data to base64 URL
+    // Convert photo binary data to base64 URL and include country_name
     const usersWithPhotos = users.map(user => ({
       ...user.toJSON(),
       photo: user.photo 
         ? `data:image/png;base64,${user.photo.toString('base64')}` 
-        : ''
+        : '',
+      country_name: user.country_name ||  'KE'
     }));
 
     res.status(200).send({
