@@ -52,38 +52,62 @@ checkDuplicateUsernameOrEmail = async (req, res, next) => {
   try {
     const { username, email, phone } = req.body;
 
-    console.log( username, email, phone )
+    console.log('Checking duplicates for:', { username, email, phone });
 
+    // Check username
     const existingUsername = await User.findOne({ where: { username } });
     if (existingUsername) {
+      console.log('Duplicate username found:', username);
       return res.status(400).send({ message: "Failed! Username is already in use!" });
     }
 
+    // Check email if provided
     if (email) {
       const existingEmail = await User.findOne({ where: { email } });
-        if(existingEmail) {
-          return res.status(400).send({ message: "Failed! Email is already in use!" });
-
-        }
+      if (existingEmail) {
+        console.log('Duplicate email found:', email);
+        return res.status(400).send({ message: "Failed! Email is already in use!" });
+      }
     }
 
-    const normalizedPhone = normalizePhone(phone);
+    // Check phone if provided
+    if (phone) {
+      const normalizedPhone = normalizePhone(phone);
+      console.log('Normalized phone for checking:', normalizedPhone);
 
-    // Fetch all users and check phone match
-    const usersWithPhone = await User.findAll({ attributes: ['phone'] });
+      // Fetch all users and check phone match
+      const usersWithPhone = await User.findAll({ attributes: ['phone'] });
 
-    const isPhoneTaken = usersWithPhone.some(u => {
-      const userPhone = normalizePhone(u.phone);
-      return userPhone && normalizedPhone === userPhone;
-    });
+      const isPhoneTaken = usersWithPhone.some(u => {
+        const userPhone = normalizePhone(u.phone);
+        return userPhone && normalizedPhone === userPhone;
+      });
 
-    if (isPhoneTaken) {
-      return res.status(400).send({ message: "Failed! Phone number is already in use!" });
+      if (isPhoneTaken) {
+        console.log('Duplicate phone found:', phone, 'normalized:', normalizedPhone);
+        return res.status(400).send({ message: "Failed! Phone number is already in use!" });
+      }
     }
 
+    console.log('No duplicates found, proceeding...');
     next();
   } catch (err) {
-    res.status(500).send({ message: "Server error while checking duplicates." });
+    console.error('Error in checkDuplicateUsernameOrEmail:', err);
+    console.error('Stack trace:', err.stack);
+    
+    // More specific error messages based on error type
+    if (err.name === 'SequelizeConnectionError') {
+      return res.status(500).send({ message: "Database connection error. Please try again later." });
+    } else if (err.name === 'SequelizeValidationError') {
+      return res.status(400).send({ message: "Invalid data format. Please check your input." });
+    } else if (err.name === 'SequelizeDatabaseError') {
+      return res.status(500).send({ message: "Database query error. Please contact support." });
+    } else {
+      return res.status(500).send({ 
+        message: "Server error while checking duplicates.", 
+        error: process.env.NODE_ENV === 'development' ? err.message : undefined 
+      });
+    }
   }
 };
 

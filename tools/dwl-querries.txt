@@ -45,6 +45,7 @@ DROP TABLE grievance CASCADE;
 
 
 ALTER TABLE users ALTER COLUMN phone TYPE VARCHAR(50);
+ALTER TABLE users ADD COLUMN country_name  TYPE VARCHAR(50);
 
 
 INSERT INTO public.user_roles(roleid, userid) VALUES (-99,1);
@@ -92,6 +93,10 @@ WHERE id = 34;
 
 ALTER TABLE settlement 
 ADD duplicate BOOLEAN(255) NULL;
+
+ALTER TABLE users ADD  country_name   VARCHAR(50) NULL;
+
+
 
 
 UPDATE grievance  SET pcode = code ;

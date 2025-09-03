@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { ElButton, ElCard, ElForm, ElFormItem, ElInput, ElSelect, ElOption, ElCheckbox, ElSwitch, ElRow, ElCol, ElMessage } from 'element-plus'
+import { ref, onMounted, watch } from 'vue'
+import { ElButton, ElCard, ElForm, ElFormItem, ElInput, ElSelect, ElOption, ElCheckbox, ElMessage } from 'element-plus'
 import { useI18n } from '@/hooks/web/useI18n'
 import { InputPassword } from '@/components/InputPassword'
 import { registerApi, getCountyAuth } from '@/api/register'
@@ -20,6 +20,8 @@ interface RegistrationFormData {
   county_id: string | number
   phone: string            // raw value in the input
   phone_e164?: string      // normalized (E.164) from vue-tel-input validation
+  country_name?: string
+  country?: string
   agree_terms: boolean
   role?: string[]
   location_level?: string
@@ -43,11 +45,14 @@ const formData = ref<RegistrationFormData>({
   county_id: '',
   phone: '',
   phone_e164: '',
+  country_name: '',
+  country: '',
   agree_terms: false
 })
 
 // vue-tel-input validation state
 const phoneIsValid = ref(false)
+const isKenya = ref(false)
 
 // Fetch counties
 const getTableList = async () => {
@@ -119,7 +124,19 @@ const rules = {
       trigger: 'blur'
     }
   ],
-  county_id: [{ required: true, message: 'County is required', trigger: 'change' }],
+  county_id: [
+    {
+      validator: (_: any, value: string | number, cb: any) => {
+        // County is required only when country is Kenya
+        if (!isKenya.value) return cb()
+        if (value === '' || value === undefined || value === null  ) {
+          return cb(new Error('County is required'))
+        }
+        cb()
+      },
+      trigger: 'change'
+    }
+  ],
   agree_terms: [
     {
       validator: (_: any, value: boolean, cb: any) => {
@@ -134,21 +151,21 @@ const rules = {
     { required: true, message: 'Phone number is required', trigger: ['blur', 'change'] },
     {
       validator: (_: any, value: string, cb: any) => {
-        // First check if vue-tel-input validation passed
-        if (phoneIsValid.value) {
-          return cb()
-        }
-        
-        // Fallback validation if vue-tel-input validation failed
+        // Check if phone number is empty
         if (!value || value.trim() === '') {
           return cb(new Error('Phone number is required'))
         }
         
-        // Basic international format check (starts with + and has digits, spaces allowed)
+        // If vue-tel-input validation passed, accept it
+        if (phoneIsValid.value && formData.value.phone_e164) {
+          return cb()
+        }
+        
+        // Basic international format check (starts with + and has digits)
         const cleanPhone = value.trim().replace(/\s/g, '') // Remove all spaces
-        const phoneRegex = /^\+[1-9]\d{1,14}$/
+        const phoneRegex = /^\+[1-9]\d{7,14}$/
         if (!phoneRegex.test(cleanPhone)) {
-          return cb(new Error('Enter a valid international phone number (e.g., +254721770339)'))
+          return cb(new Error('Enter a valid international phone number (e.g., +2547xxxxxxxx)'))
         }
         
         cb()
@@ -181,11 +198,40 @@ const telProps = {
 // Handle validate event from vue-tel-input
 function onPhoneValidate(payload: any) {
   console.log('Phone validation payload:', payload)
-  // payload example: { number: { input: '+2547...', international: '+254 7...', e164: '+2547...' }, isValid: true, country: {...} }
-  phoneIsValid.value = !!payload?.isValid
-  formData.value.phone_e164 = payload?.number?.e164 || ''
-  console.log('Phone validation state:', phoneIsValid.value, 'E164:', formData.value.phone_e164)
+  console.log('payload.valid:', payload?.valid, 'payload.number:', payload?.number)
+  // payload structure: { country: "KE", countryCode: "KE", formatted: "+254 721 770339", valid: true, number: "+254721770339", ... }
+  phoneIsValid.value = !!payload?.valid
+  formData.value.phone_e164 = payload?.number || ''
+  formData.value.country_name = payload?.countryCode || ''
+  formData.value.country = payload?.countryCode || ''
+  isKenya.value = payload?.country === 'KE' || payload?.countryCode === 'KE'
+  console.log('Phone validation state:', phoneIsValid.value, 'E164:', formData.value.phone_e164, 'Country:', payload?.countryCode, 'Is Kenya:', isKenya.value)
+  
+  // Trigger form validation for phone field
+  formRef.value?.validateField('phone')
 }
+
+// Handle country change event from vue-tel-input
+function onCountryChanged(country: any) {
+  console.log('Country changed:', country)
+  // country structure: { iso2: "KE", dialCode: "254", name: "Kenya", ... }
+  const countryCode = country?.iso2 || ''
+  formData.value.country_name = countryCode
+  formData.value.country = countryCode
+  isKenya.value = countryCode === 'KE'
+  console.log('Country changed - Code:', countryCode, 'Is Kenya:', isKenya.value)
+}
+
+// When country changes, default county_id appropriately
+watch(isKenya, (isKe) => {
+  if (!isKe) {
+    // Not Kenya: mark county as Not Applicable
+    formData.value.county_id = '0'
+  } else if (formData.value.county_id === '0') {
+    // Kenya selected: reset previous N/A selection
+    formData.value.county_id = ''
+  }
+})
 
 const loginRegister = async () => {
   await formRef.value?.validate(async (valid) => {
@@ -256,7 +302,17 @@ const toLogin = () => emit('to-login')
         <InputPassword v-model="formData.password" />
       </el-form-item>
 
-      <el-form-item label="County" prop="county_id">
+      <el-form-item label="Phone" prop="phone">
+        <!-- vue-tel-input handles flags, dial code & validation -->
+        <VueTelInput
+          v-model="formData.phone"
+          v-bind="telProps"
+          @validate="onPhoneValidate"
+          @country-changed="onCountryChanged"
+        />
+      </el-form-item>
+
+      <el-form-item v-if="isKenya" label="County" prop="county_id">
         <el-select v-model="formData.county_id" filterable placeholder="Select county" style="width: 100%">
           <el-option
             v-for="opt in countiesOptions"
@@ -265,15 +321,6 @@ const toLogin = () => emit('to-login')
             :value="opt.value"
           />
         </el-select>
-      </el-form-item>
-
-      <el-form-item label="Phone" prop="phone">
-        <!-- vue-tel-input handles flags, dial code & validation -->
-        <VueTelInput
-          v-model="formData.phone"
-          v-bind="telProps"
-          @validate="onPhoneValidate"
-        />
       </el-form-item>
 
             <el-form-item prop="agree_terms">
@@ -393,11 +440,14 @@ const toLogin = () => emit('to-login')
   border: 1px solid var(--el-border-color);
   border-radius: 4px;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  background-color: var(--el-bg-color);
+  z-index: 2000;
 }
 
 :deep(.vue-tel-input .vti__dropdown-item) {
   padding: 8px 12px;
   cursor: pointer;
+  background-color: var(--el-bg-color);
 }
 
 :deep(.vue-tel-input .vti__dropdown-item:hover) {
@@ -446,3 +496,4 @@ const toLogin = () => emit('to-login')
   }
 }
 </style>
+

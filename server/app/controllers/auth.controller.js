@@ -126,6 +126,7 @@ exports.signup = (req, res) => {
     email: req.body.email,
     avatar: req.body.avatar,
     county_id: req.body.county_id,
+    country_name: req.body.country_name,
     password: bcrypt.hashSync(req.body.password, 8)
   })
     .then((user) => {
@@ -1353,6 +1354,7 @@ exports.signupGRC = async (req, res) => {
       name: name,
       phone: phone,
       isactive:true,
+      country_name: 'KE',
       password: hashedPassword // Set to null if password is null
     });
 
@@ -1486,6 +1488,7 @@ exports.signupGRM = async (req, res) => {
       name: name,
       phone: phone,
       isactive:true,
+      country_name: 'KE',
       password: hashedPassword // Set to null if password is null
     });
 
