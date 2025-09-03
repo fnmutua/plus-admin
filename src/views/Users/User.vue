@@ -788,6 +788,7 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
       <el-table-column label="Name" prop="name" width="200" sortable />
       <el-table-column label="Username" prop="username" sortable />
       <el-table-column label="Country" prop="country_name" sortable />
+      <el-table-column label="Organization" prop="organization_name" sortable />
       <el-table-column label="County" prop="county.name" sortable />
       <el-table-column fixed="right" :label="isMobile ? '' : 'Operations'" :width="actionColumnWidth">
         <template #default="scope">

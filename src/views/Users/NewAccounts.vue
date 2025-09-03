@@ -54,6 +54,7 @@ if (isMobile.value) {
 
 
 const currentUser = wsCache.get(appStore.getUserInfo)
+const currentUserInfo = wsCache.get(appStore.getUserInfo)
 
 const showAdminButtons = ref(appStore.getAdminButtons)
 const showEditButtons = ref(appStore.getEditButtons)
@@ -915,6 +916,8 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
       <el-table-column label="Username" prop="username" sortable />
       <el-table-column label="Country" prop="country_name" sortable />
       <el-table-column label="County" prop="county.name" sortable />
+      <el-table-column label="Organization" prop="organization_name" sortable />
+
       <el-table-column fixed="right" :label="isMobile ? '' : 'Operations'" :width="actionColumnWidth">
         <template #default="scope">
 
@@ -959,12 +962,14 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
                   class="my-switch" />
               </el-tooltip>
             </PermissionWrapper>
-            <el-tooltip content="No permission to activate" placement="top">
-              <el-switch
-                v-model="scope.row.isactive" 
-                disabled
-                class="my-switch" />
-            </el-tooltip>
+            <template v-if="!currentUserInfo?.permissions?.includes('user:activate')">
+              <el-tooltip content="No permission to activate" placement="top">
+                <el-switch
+                  v-model="scope.row.isactive" 
+                  disabled
+                  class="my-switch" />
+              </el-tooltip>
+            </template>
             <PermissionWrapper :permissions="['user:update']">
               <el-tooltip content="Edit" placement="top">
                 <ElButton type="primary" :icon="Edit" size="small" @click="EditUser(scope as TableSlotDefault)" circle />

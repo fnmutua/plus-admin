@@ -1019,8 +1019,8 @@ exports.modelAdminUsers = async (req, res) => {
       },
       limit,
       offset: (page - 1) * limit,
-      order: [['id', 'DESC']] // Add this line to sort by ID in descending order
-
+      order: [['id', 'DESC']], // Add this line to sort by ID in descending order
+      attributes: { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] } // Hide sensitive fields
     };
 
     // Normalize and cast filter values based on the column type
