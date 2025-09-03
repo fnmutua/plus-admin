@@ -17,6 +17,7 @@ interface RegistrationFormData {
   username: string
   email: string
   password: string
+  organization_name: string
   county_id: string | number
   phone: string            // raw value in the input
   phone_e164?: string      // normalized (E.164) from vue-tel-input validation
@@ -42,6 +43,7 @@ const formData = ref<RegistrationFormData>({
   username: '',
   email: '',
   password: '',
+  organization_name: '',
   county_id: '',
   phone: '',
   phone_e164: '',
@@ -119,6 +121,17 @@ const rules = {
         if (value.length < 8 || value.length > 20) return cb(new Error('The password must be between 8 and 20 characters long'))
         const re = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_])[A-Za-z\d\W_]+$/
         if (!re.test(value)) return cb(new Error('Required: at least one uppercase letter, one lowercase letter, one digit, and one special character'))
+        cb()
+      },
+      trigger: 'blur'
+    }
+  ],
+  organization_name: [
+    { required: true, message: 'Organization name is required', trigger: 'blur' },
+    {
+      validator: (_: any, value: string, cb: any) => {
+        if (!value || value.trim() === '') return cb(new Error('Organization name is required'))
+        if (value.trim().length < 2) return cb(new Error('Organization name should be at least 2 characters long'))
         cb()
       },
       trigger: 'blur'
@@ -243,6 +256,7 @@ const loginRegister = async () => {
       formData.value.email = formData.value.email.trim()
       formData.value.username = formData.value.username.trim()
       formData.value.name = formData.value.name.trim()
+      formData.value.organization_name = formData.value.organization_name.trim()
 
       // Initial roles & location metadata
       formData.value.role = ['public']
@@ -300,6 +314,10 @@ const toLogin = () => emit('to-login')
 
       <el-form-item label="Password" prop="password">
         <InputPassword v-model="formData.password" />
+      </el-form-item>
+
+      <el-form-item label="Organization" prop="organization_name">
+        <el-input v-model="formData.organization_name" placeholder="e.g. Kenya Red Cross Society" />
       </el-form-item>
 
       <el-form-item label="Phone" prop="phone">

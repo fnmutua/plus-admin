@@ -57,6 +57,11 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.STRING(255),
         allowNull: true
       },
+      organization_name: {
+        type: DataTypes.STRING(255),
+        allowNull: true,
+        defaultValue: 'unspecified'
+      },
       photo: {
         type: DataTypes.BLOB,
         allowNull: true

@@ -27,6 +27,11 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.INTEGER,
         allowNull: true
       },
+      organization_name: {
+        type: DataTypes.STRING(255),
+        allowNull: true,
+        defaultValue: 'unspecified'
+      },
 
       country_name: {
         type: DataTypes.STRING(255),

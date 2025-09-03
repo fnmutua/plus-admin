@@ -95,6 +95,7 @@ ALTER TABLE settlement
 ADD duplicate BOOLEAN(255) NULL;
 
 ALTER TABLE users ADD  country_name   VARCHAR(50) NULL;
+ALTER TABLE users ADD  organization_name   VARCHAR(50)  ;
 
 
 
