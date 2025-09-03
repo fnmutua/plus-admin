@@ -77,7 +77,28 @@ app.use(bodyParser.urlencoded({ limit: '10gb', extended: true }));
 app.use(express.static(path.join(__dirname, '/dist-pro')));
 
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname + '/dist-pro/index.html'));
+  const indexPath = path.join(__dirname, '/dist-pro/index.html')
+  
+  // Check if index.html exists
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath)
+  } else {
+    // Serve fallback HTML file
+    const fallbackPath = path.join(__dirname, '/public/fallback.html')
+    
+    if (fs.existsSync(fallbackPath)) {
+      console.warn('index.html not found, serving fallback page')
+      res.status(503).sendFile(fallbackPath)
+    } else {
+      // Last resort - simple text response
+      console.error('Both index.html and fallback.html not found!')
+      res.status(503).send(`
+        <h1>KeSMIS</h1>
+        <p>System maintenance in progress. Please try again later.</p>
+        <a href="javascript:location.reload()">Try Again</a>
+      `)
+    }
+  }
 });
 
 app.use(express.static('public'));
@@ -395,4 +416,34 @@ app.get('/api-docs-custom', (req, res) => {
 // Serve swagger.json for the custom template
 app.get('/swagger.json', (req, res) => {
   res.json(swaggerFile);
+});
+
+// Catch-all handler for SPA routing - serve index.html for any route not handled by API
+app.get('*', (req, res) => {
+  // Skip API routes and swagger routes
+  if (req.path.startsWith('/api/') || req.path.startsWith('/api-docs') || req.path.startsWith('/swagger')) {
+    return res.status(404).json({ message: 'API endpoint not found' })
+  }
+  
+  const indexPath = path.join(__dirname, '/dist-pro/index.html')
+  
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath)
+  } else {
+    // Serve fallback HTML file
+    const fallbackPath = path.join(__dirname, '/public/fallback.html')
+    
+    if (fs.existsSync(fallbackPath)) {
+      console.warn(`index.html not found for route ${req.path}, serving fallback page`)
+      res.status(503).sendFile(fallbackPath)
+    } else {
+      // Last resort - simple text response
+      console.error(`Both index.html and fallback.html not found for route ${req.path}!`)
+      res.status(503).send(`
+        <h1>KeSMIS</h1>
+        <p>System maintenance in progress. Please try again later.</p>
+        <a href="javascript:location.reload()">Try Again</a>
+      `)
+    }
+  }
 });

@@ -27,7 +27,7 @@
                 <el-menu-item index="5">Contact</el-menu-item>
                 <el-menu-item index="4">About</el-menu-item>
                 <el-menu-item index="6">FAQs</el-menu-item>
-                <el-menu-item index="8" @click="openApiDocs">API Docs</el-menu-item>
+                <el-menu-item index="8">API Docs</el-menu-item>
                 <el-menu-item index="2" @click="handleLoginOrLogout">{{ isLoggedIn ? 'Logout' : 'Login' }}</el-menu-item>
                 <el-menu-item index="7" @click="toggleDark">
                   <Icon :icon="isDark ? 'carbon:moon' : 'carbon:sun'" inline />

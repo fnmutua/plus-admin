@@ -27,8 +27,8 @@ import {
   Position,
   Delete,
 } from '@element-plus/icons-vue';
-import { useAppStoreWithOut } from '@/store/modules/app';
-import { useCache } from '@/hooks/web/useCache';
+// import { useAppStoreWithOut } from '@/store/modules/app';
+// import { useCache } from '@/hooks/web/useCache';
 import { uploadToGeoServer, deleteLayer, EditLayerDetails } from '@/api/geoserver';
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 import PermissionWrapper from '@/components/PermissionWrapper.vue';
@@ -77,10 +77,15 @@ const MapBoxToken =
   'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg';
 mapboxgl.accessToken = MapBoxToken;
 
-const envt = import.meta.env.VITE_APP_HOST;
+// const envt = import.meta.env.VITE_APP_HOST;
 //const serverUrl = envt === 'http://localhost' ? 'http://localhost:8080/geoserver/kisip' : 'https://kesmis.go.ke/geoserver/kisip';
 const serverUrl =  'https://kesmis.go.ke/geoserver/kisip';
 
+// Alternative server URLs to try if primary fails
+const alternativeUrls = [
+  'https://kesmis.go.ke:8080/geoserver/kisip',
+  'http://localhost:8080/geoserver/kisip'
+];
 
 console.log('serverUrl',serverUrl)
 // Reactive refs
@@ -105,7 +110,7 @@ const loadingUploads = ref(false);
 const mapLoading = ref(false);
 const map = ref<mapboxgl.Map | null>(null);
 const ruleFormRef = ref();
-const showEditButtons = ref(false);
+// const showEditButtons = ref(false);
 const model = ref<string | undefined>(undefined);
 const associated_multiple_models = ref([]);
 const oldLayer = ref<Layer>();
@@ -497,12 +502,39 @@ const selectDownload = () => {
   ElMessage.info('Download functionality not implemented');
 };
 
+// Function to try fetching from alternative URLs
+const tryFetchLayers = async (urls: string[], index = 0): Promise<any> => {
+  if (index >= urls.length) {
+    throw new Error('All GeoServer URLs failed');
+  }
+  
+  const currentUrl = urls[index];
+  console.log(`Trying URL ${index + 1}/${urls.length}: ${currentUrl}`);
+  
+  try {
+    const response = await axios.get(`${currentUrl}/ows/?SERVICE=WMS&REQUEST=GetCapabilities`, {
+      timeout: 15000, // 15 second timeout per URL
+      headers: {
+        'Accept': 'application/xml, text/xml, */*'
+      }
+    });
+    
+    console.log(`Success with URL: ${currentUrl}`);
+    return { response, serverUrl: currentUrl };
+    
+  } catch (error: any) {
+    console.warn(`Failed with URL ${currentUrl}:`, error.message);
+    
+    // Try next URL
+    return tryFetchLayers(urls, index + 1);
+  }
+};
+
 // On mounted
 onMounted(() => {
   window.addEventListener('resize', updatePageSize);
   updatePageSize();
  
-
   // Resize observer for drawer
   const drawer = document.querySelector('.el-drawer');
   if (drawer) {
@@ -512,19 +544,146 @@ onMounted(() => {
     resizeObserver.observe(drawer);
   }
 
-  // Fetch layers
+  // Fetch layers with fallback URLs
   loading.value = true;
-  axios.get(`${serverUrl}/ows/?SERVICE=WMS&REQUEST=GetCapabilities`).then((response) => {
+  
+  const urlsToTry = [serverUrl, ...alternativeUrls];
+  
+  tryFetchLayers(urlsToTry).then(({ response, serverUrl: workingUrl }) => {
+    console.log('GetCapabilities response received:', response.status);
+    console.log('Using server URL:', workingUrl);
+    
     const xml = response.data;
-    const parser = new XMLParser();
-    const json = parser.parse(xml);
-    const glayers = json.WMS_Capabilities.Capability.Layer.Layer.map((layer: any) => ({
-      name: layer.Name,
-      title: layer.Title,
-      crs: layer.CRS,
-      bbox: layer.EX_GeographicBoundingBox,
-    }));
+    
+    if (!xml || typeof xml !== 'string') {
+      throw new Error('Invalid XML response from GeoServer');
+    }
 
+    // Check for corrupted WMS Capabilities before parsing
+    if (xml.includes('ServiceException') || xml.includes('TransformerException')) {
+      console.error('Corrupted WMS Capabilities detected:', xml.substring(0, 500));
+      throw new Error('WMS Capabilities is corrupted. This usually happens when one or more layers have metadata errors. Please check GeoServer logs and fix corrupted layers (e.g., Gathambi_ECW_27-11-24).');
+    }
+    
+    const parser = new XMLParser({
+      ignoreAttributes: false,
+      attributeNamePrefix: '@_',
+      textNodeName: '#text'
+    });
+    
+    let json;
+    try {
+      json = parser.parse(xml);
+    } catch (parseError: any) {
+      console.error('XML parsing error:', parseError);
+      throw new Error(`Failed to parse WMS Capabilities XML: ${parseError.message}`);
+    }
+    
+    console.log('Parsed JSON structure:', Object.keys(json));
+    
+    // Check if the structure exists before accessing it
+    if (!json.WMS_Capabilities) {
+      console.error('Missing WMS_Capabilities in response:', json);
+      throw new Error('Invalid WMS Capabilities structure - missing WMS_Capabilities');
+    }
+    
+    if (!json.WMS_Capabilities.Capability) {
+      console.error('Missing Capability in WMS_Capabilities:', json.WMS_Capabilities);
+      throw new Error('Invalid WMS Capabilities structure - missing Capability');
+    }
+    
+    if (!json.WMS_Capabilities.Capability.Layer) {
+      console.error('Missing Layer in Capability:', json.WMS_Capabilities.Capability);
+      throw new Error('Invalid WMS Capabilities structure - missing Layer');
+    }
+    
+    let layers = json.WMS_Capabilities.Capability.Layer.Layer;
+    
+    // Handle case where there's only one layer (not an array)
+    if (!Array.isArray(layers)) {
+      layers = layers ? [layers] : [];
+    }
+    
+    console.log(`Found ${layers.length} raw layers to process`);
+    
+    if (layers.length === 0) {
+      throw new Error('No layers found in WMS Capabilities');
+    }
+    
+    const glayers = layers.map((layer: any, index: number) => {
+      try {
+        // Skip layers without Name
+        if (!layer.Name) {
+          console.warn(`Skipping layer at index ${index}: No Name property`);
+          return null;
+        }
+
+        // Check for corrupted CRS data (contains XML error messages)
+        let cleanCRS = [];
+        if (Array.isArray(layer.CRS)) {
+          cleanCRS = layer.CRS.filter((crs: string) => {
+            if (typeof crs === 'string' && (crs.includes('<?xml') || crs.includes('ServiceException'))) {
+              console.warn(`Corrupted CRS data found in layer ${layer.Name}:`, crs.substring(0, 100) + '...');
+              return false;
+            }
+            return true;
+          });
+        } else if (layer.CRS) {
+          if (typeof layer.CRS === 'string' && (layer.CRS.includes('<?xml') || layer.CRS.includes('ServiceException'))) {
+            console.warn(`Corrupted CRS data found in layer ${layer.Name}:`, layer.CRS.substring(0, 100) + '...');
+            cleanCRS = ['EPSG:4326']; // Default fallback
+          } else {
+            cleanCRS = [layer.CRS];
+          }
+        }
+
+        // If no valid CRS found, use default
+        if (cleanCRS.length === 0) {
+          cleanCRS = ['EPSG:4326'];
+        }
+
+        // Skip layers with specific known corruption issues or patterns
+        const corruptedLayerPatterns = [
+          'Gathambi_ECW_27-11-24',
+          // Add more problematic layer names here as they're discovered
+        ];
+        
+        if (corruptedLayerPatterns.includes(layer.Name)) {
+          console.warn(`Skipping known corrupted layer: ${layer.Name}`);
+          return null;
+        }
+
+        // Also skip layers that have XML errors in their structure
+        const layerString = JSON.stringify(layer);
+        if (layerString.includes('ServiceException') || layerString.includes('TransformerException')) {
+          console.warn(`Skipping layer with embedded XML errors: ${layer.Name}`);
+          return null;
+        }
+
+        return {
+          name: layer.Name,
+          title: layer.Title || layer.Name,
+          crs: cleanCRS,
+          bbox: layer.EX_GeographicBoundingBox || {
+            westBoundLongitude: -180,
+            eastBoundLongitude: 180,
+            southBoundLatitude: -90,
+            northBoundLatitude: 90
+          },
+        };
+      } catch (error: any) {
+        console.warn(`Error processing layer at index ${index}:`, error.message, layer);
+        return null;
+      }
+    }).filter(layer => layer !== null); // Remove null entries
+
+    const skippedCount = layers.length - glayers.length;
+    console.log(`Successfully processed: ${glayers.length}, Skipped: ${skippedCount}`);
+    
+    if (glayers.length === 0) {
+      throw new Error('No valid layers could be processed');
+    }
+    
     tableDataList.value = glayers;
     totalItems.value = glayers.length;
     loading.value = false;
@@ -534,9 +693,43 @@ onMounted(() => {
       label: layer.name,
       bbox: layer.bbox,
     }));
+    
+    if (skippedCount > 0) {
+      ElMessage.success(`Loaded ${glayers.length} imagery layers (${skippedCount} layers skipped due to errors)`);
+    } else {
+      ElMessage.success(`Loaded ${glayers.length} imagery layers from GeoServer`);
+    }
+    
   }).catch((error) => {
-    ElMessage.error('Error fetching layers');
+    console.error('All GeoServer URLs failed:', error);
     loading.value = false;
+    
+    ElMessage.error('Unable to connect to GeoServer. Please check if the service is running and try again.');
+    
+    // Show mock data for development
+    const mockLayers = [
+      {
+        name: 'sample_imagery_1',
+        title: 'Sample Imagery Layer 1',
+        crs: ['EPSG:4326'],
+        bbox: {
+          westBoundLongitude: 36.0,
+          eastBoundLongitude: 38.0,
+          southBoundLatitude: -2.0,
+          northBoundLatitude: 2.0
+        }
+      }
+    ];
+    
+    tableDataList.value = mockLayers;
+    totalItems.value = mockLayers.length;
+    selOptions.value = mockLayers.map(layer => ({
+      value: layer.name,
+      label: layer.name,
+      bbox: layer.bbox,
+    }));
+    
+    ElMessage.info('Showing sample data. Please check GeoServer connection.');
   });
 });
 

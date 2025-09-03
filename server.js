@@ -86,7 +86,28 @@ app.use(express.static(path.join(__dirname, '/dist')))
 app.use(express.static('public'))
 
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname + '/dist/index.html'))
+  const indexPath = path.join(__dirname, '/dist/index.html')
+  
+  // Check if index.html exists
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath)
+  } else {
+    // Serve fallback HTML file
+    const fallbackPath = path.join(__dirname, '/public/fallback.html')
+    
+    if (fs.existsSync(fallbackPath)) {
+      console.warn('index.html not found, serving fallback page')
+      res.status(503).sendFile(fallbackPath)
+    } else {
+      // Last resort - simple text response
+      console.error('Both index.html and fallback.html not found!')
+      res.status(503).send(`
+        <h1>KeSMIS</h1>
+        <p>System maintenance in progress. Please try again later.</p>
+        <a href="javascript:location.reload()">Try Again</a>
+      `)
+    }
+  }
 })
 
 app.use(express.static('public')) // to access the files in public folder
