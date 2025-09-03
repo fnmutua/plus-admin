@@ -23,26 +23,49 @@ exports.createRole = async (req, res) => {
       return res.status(400).json({ message: 'Role name is required' });
     }
 
-    // Ensure subordinates is an array of integers if provided, or null
+    // Ensure subordinates is an array of integers if provided, or empty array
     if (subordinates === undefined || subordinates === null || subordinates === '') {
-      subordinates = null;
+      subordinates = [];
     } else if (!Array.isArray(subordinates)) {
       try {
         subordinates = JSON.parse(subordinates);
       } catch (e) {
-        subordinates = null;
+        subordinates = [];
       }
     }
     if (Array.isArray(subordinates)) {
       subordinates = subordinates.map(Number);
     }
 
+    // Create the new role first
     const newRole = await db.models.roles.create({
       name,
       description,
-      subordinates,
+      subordinates: subordinates,
       isactive
     });
+
+    // Now add this new role as a subordinate to root_admin and super_admin
+    const rootAdminRole = await db.role.findOne({ where: { name: 'root_admin' } });
+    const superAdminRole = await db.role.findOne({ where: { name: 'super_admin' } });
+
+    // Update root_admin to include this new role as a subordinate
+    if (rootAdminRole) {
+      const currentSubordinates = rootAdminRole.subordinates || [];
+      if (!currentSubordinates.includes(newRole.id)) {
+        const updatedSubordinates = [...currentSubordinates, newRole.id];
+        await rootAdminRole.update({ subordinates: updatedSubordinates });
+      }
+    }
+
+    // Update super_admin to include this new role as a subordinate
+    if (superAdminRole) {
+      const currentSubordinates = superAdminRole.subordinates || [];
+      if (!currentSubordinates.includes(newRole.id)) {
+        const updatedSubordinates = [...currentSubordinates, newRole.id];
+        await superAdminRole.update({ subordinates: updatedSubordinates });
+      }
+    }
 
     res.status(200).send({
       message: 'Role created successfully',
@@ -59,45 +82,81 @@ exports.createRole = async (req, res) => {
   }
 };
 
-exports.editRole = (req, res) => {
+exports.editRole = async (req, res) => {
   // Prevent editing root_admin
   if (req.body.name === 'root_admin' || req.body.id === 1) {
     return res.status(403).send({ message: 'Editing root_admin is not allowed', code: '9999' });
   }
   console.log('editing......',req.body);
-  var roleId = req.body.id; // Assuming the role ID is passed as a URL parameter
-  var updatedData = req.body; // Assuming the updated data is present in the request body
+  
+  try {
+    var roleId = req.body.id; // Assuming the role ID is passed as a URL parameter
+    var updatedData = { ...req.body }; // Assuming the updated data is present in the request body
 
-  // Update the role record with the new data
-  db.models.roles
-    .update(updatedData, {
+    // Ensure subordinates is an array
+    if (updatedData.subordinates !== undefined) {
+      let subordinates = updatedData.subordinates;
+      if (!Array.isArray(subordinates)) {
+        try {
+          subordinates = JSON.parse(subordinates);
+        } catch (e) {
+          subordinates = [];
+        }
+      }
+      subordinates = subordinates.map(Number);
+      updatedData.subordinates = subordinates;
+    }
+
+    // Update the role record with the new data
+    const result = await db.models.roles.update(updatedData, {
       where: {
         id: roleId,
       },
-    })
-    .then(function (result) {
-      if (result[0] === 1) {
-        // 'result[0] === 1' means one row was affected, indicating the role was updated successfully
-        res.status(200).send({
-          message: 'Role updated successfully',
-          code: '0000',
-        });
-      } else {
-        // 'result[0] !== 1' means zero rows were affected, indicating the role with the given ID was not found
-        res.status(404).send({
-          message: 'Role not found',
-          code: '0001',
-        });
-      }
-    })
-    .catch(function (err) {
-      // handle error;
-      console.log('error---------->', err);
-      return res.status(500).send({
-        message: 'An error occurred while updating thex role',
-        code: '0002',
-      });
     });
+
+    if (result[0] === 1) {
+      // Ensure this role remains a subordinate of root_admin and super_admin
+      const rootAdminRole = await db.role.findOne({ where: { name: 'root_admin' } });
+      const superAdminRole = await db.role.findOne({ where: { name: 'super_admin' } });
+
+      // Update root_admin to include this role as a subordinate
+      if (rootAdminRole) {
+        const currentSubordinates = rootAdminRole.subordinates || [];
+        if (!currentSubordinates.includes(Number(roleId))) {
+          const updatedSubordinates = [...currentSubordinates, Number(roleId)];
+          await rootAdminRole.update({ subordinates: updatedSubordinates });
+        }
+      }
+
+      // Update super_admin to include this role as a subordinate
+      if (superAdminRole) {
+        const currentSubordinates = superAdminRole.subordinates || [];
+        if (!currentSubordinates.includes(Number(roleId))) {
+          const updatedSubordinates = [...currentSubordinates, Number(roleId)];
+          await superAdminRole.update({ subordinates: updatedSubordinates });
+        }
+      }
+
+      // 'result[0] === 1' means one row was affected, indicating the role was updated successfully
+      res.status(200).send({
+        message: 'Role updated successfully',
+        code: '0000',
+      });
+    } else {
+      // 'result[0] !== 1' means zero rows were affected, indicating the role with the given ID was not found
+      res.status(404).send({
+        message: 'Role not found',
+        code: '0001',
+      });
+    }
+  } catch (err) {
+    // handle error;
+    console.log('error---------->', err);
+    return res.status(500).send({
+      message: 'An error occurred while updating the role',
+      code: '0002',
+    });
+  }
 };
 
 exports.deleteRole = (req, res) => {

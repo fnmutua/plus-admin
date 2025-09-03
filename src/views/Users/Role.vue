@@ -8,14 +8,14 @@ import { ElButton, ElSwitch, ElSelect, ElDialog, ElForm, ElFormItem, ElInput, El
  } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
-  Plus,Edit, Back, Check} from '@element-plus/icons-vue'
+  Plus,Edit, Back, Check, InfoFilled} from '@element-plus/icons-vue'
 
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { useCache } from '@/hooks/web/useCache'
 import { useAppStore } from '@/store/modules/app'
-import request from '@/config/axios/service'
+import { service as request } from '@/config/axios/service'
 
 import {
   getRoles,
@@ -81,7 +81,7 @@ const { t } = useI18n()
 
 const getAllRoles = async () => {
   const res = await getRoles({} as any);
-  tableDataList.value = res.data.data || res.data || []
+  tableDataList.value = (res as any).data?.data || (res as any).data || []
   loading.value = false
 }
 
@@ -135,7 +135,87 @@ const fetchPermissions = async () => {
 // Fetch permissions for a role
 const fetchRolePermissions = async (roleId: any) => {
   const res = await getRolePermissions({ roleId } as any);
-  selectedPermissions.value = (res.data.data || []).map((p: any) => p.id)
+  selectedPermissions.value = ((res as any).data?.data || []).map((p: any) => p.id)
+}
+
+// Default permissions for new roles (read-only permissions based on public role)
+const getDefaultPermissions = () => {
+  return [
+    "article:read",
+    "chart_indicator:read",
+    "collector:read",
+    "collector:submit",
+    "community_hall:read",
+    "community_project:read",
+    "component:read",
+    "contractor:read",
+    "county:read",
+    "crime_hotspot:read",
+    "dashboard:read",
+    "dashboard_card:read",
+    "dashboard_section:read",
+    "dashboard_section_chart:read",
+    "data:export",
+    "document:read",
+    "document_category:read",
+    "document_type:read",
+    "domain:read",
+    "dumping_site:read",
+    "education_facility:read",
+    "facility:read",
+    "floodlight:read",
+    "hazard_zone:read",
+    "health_facility:read",
+    "indicator_category_report:read",
+    "intervention:read",
+    "intervention_type:read",
+    "lot:read",
+    "mast:read",
+    "other_facility:read",
+    "otp:read",
+    "parcel:read",
+    "path:read",
+    "piped_water:read",
+    "police:read",
+    "powerline:read",
+    "programme_implementation:read",
+    "project:read",
+    "project_beneficiary:read",
+    "project_location:read",
+    "public_facility:read",
+    "railway:read",
+    "report:export",
+    "road:read",
+    "road_asset:read",
+    "settlement:export",
+    "settlement:export_data",
+    "settlement:history",
+    "settlement:read",
+    "settlement:verify",
+    "settlement:viewMap",
+    "settlement:view_map",
+    "settlement_history:export",
+    "settlement_history:read",
+    "sewer:read",
+    "status:read",
+    "stream:read",
+    "streetlight:read",
+    "structure:read",
+    "subcounty:read",
+    "ward:read",
+    "water_point:read",
+    "health_facility:read",
+    "police_station:read",
+    "households:read"
+  ]
+}
+
+// Get default permission IDs based on available permissions
+const getDefaultPermissionIds = () => {
+  const defaultPermissionNames = getDefaultPermissions()
+  return permissions.value
+    .filter(perm => defaultPermissionNames.includes(perm.name))
+    .map(perm => perm.id)
 }
  
  
@@ -151,26 +231,26 @@ const fetchSubordinateRoles = async () => {
 
   // 1. Get the user's roles (with subordinates)
   const userRolesRes = await getUserRoles(currentUser)
-  const userRoles = userRolesRes.data || []
+  const userRoles = (userRolesRes as any).data || []
 
   console.log('userRoles',userRoles)
 
   // 2. Collect all unique subordinate IDs
   const subordinateIds = [
-    ...new Set(userRoles.flatMap(role => role.subordinates || []))
+    ...new Set((userRoles as any[]).flatMap(role => role.subordinates || []))
   ]
 
 
   // 3. Fetch all roles
-  const allRolesRes = await getRoles({})
-  const allRoles = allRolesRes.data?.data || []
+  const allRolesRes = await getRoles({} as any)
+  const allRoles = (allRolesRes as any).data?.data || []
 
   // 4. Filter to only subordinate roles
   const subordinateRoles = allRoles.filter(role => subordinateIds.includes(role.id))
 
   // 5. Set options for the select
-  roleOptions.value = userRoles.map(role => ({
-    value: role.id,
+  roleOptions.value = (userRoles as any[]).map((role: any) => ({
+    value: Number(role.id),
     label: role.name
   }))
 }
@@ -181,12 +261,22 @@ onMounted(() => {
   fetchSubordinateRoles()
 })
 
-const AddRole = (data) => {
-  ElMessage.warning("Coming soon...")
+const AddRole = () => {
   AddDialogVisible.value = true
-  // Reset selected permissions
-  selectedPermissions.value = []
+  // Reset form
+  ruleForm.id = ''
+  ruleForm.name = ''
+  ruleForm.description = ''
   ruleForm.subordinates = []
+  
+  // Set default permissions (read-only permissions)
+  selectedPermissions.value = getDefaultPermissionIds()
+  
+  formHeader.value = 'Add Role'
+  showSubmitBtn.value = true
+  showEditSaveButton.value = false
+  activeTab.value = 'details'
+  
   fetchSubordinateRoles()
 }
 
@@ -222,14 +312,15 @@ const submitForm = async (formEl) => {
   if (!formEl) return
   await formEl.validate(async (valid, fields) => {
     if (valid) {
-      // Create the role
-      const res = await createRole(ruleForm)
-      const newRoleId = res.data?.data?.id || res.data?.id || res.data?.data?.roleId || res.data?.roleId
+      // The backend will automatically add this new role as a subordinate to root_admin and super_admin
+      // so we don't need to modify the subordinates array here
+      const res = await createRole(ruleForm as any)
+      const newRoleId = (res as any).data?.data?.id || (res as any).data?.id || (res as any).data?.data?.roleId || (res as any).data?.roleId
       if (newRoleId) {
         await setRolePermissions({
           roleId: newRoleId,
           permissions: selectedPermissions.value
-        })
+        } as any)
       }
       AddDialogVisible.value = false
       getAllRoles()
@@ -244,13 +335,14 @@ const editForm = async (formEl) => {
   if (!formEl) return
   await formEl.validate(async (valid, fields) => {
     if (valid) {
-      await updateRole(ruleForm)
+      // The backend will automatically ensure this role remains a subordinate of root_admin and super_admin
+      await updateRole(ruleForm as any)
       // Send array of permission ids to backend
       const permissionsPayload = {
         permissions: selectedPermissions.value,
         roleId: ruleForm.id
       }
-      await setRolePermissions(permissionsPayload)
+      await setRolePermissions(permissionsPayload as any)
       AddDialogVisible.value = false
       getAllRoles()
     } else {
@@ -349,6 +441,27 @@ const goBack = () => {
   }
 }
 
+// Pagination handlers
+const onPageSizeChange = (size: number) => {
+  pageSize.value = size
+  getAllRoles()
+}
+
+const onPageChange = (page: number) => {
+  currentPage.value = page
+  getAllRoles()
+}
+
+// Form validation rules
+const rules = {
+  name: [
+    { required: true, message: 'Please enter role name', trigger: 'blur' }
+  ],
+  description: [
+    { required: true, message: 'Please enter role description', trigger: 'blur' }
+  ]
+}
+
 </script>
 
 <template>
@@ -356,7 +469,7 @@ const goBack = () => {
    
 
     
-    <el-row type="flex" justify="start" gutter="10" style="display: flex; flex-wrap: nowrap; align-items: center;">
+    <el-row type="flex" justify="start" :gutter="10" style="display: flex; flex-wrap: nowrap; align-items: center;">
 
 <div class="max-w-200px">
   <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
@@ -443,6 +556,10 @@ const goBack = () => {
                   :value="item.value"
                 />
               </el-select>
+              <div style="margin-top: 8px; color: #409EFF; font-size: 13px;">
+                <el-icon><InfoFilled /></el-icon>
+                Note: This role will automatically become a subordinate of Root Admin and Super Admin (they can manage this role).
+              </div>
             </el-form-item>
           </el-form>
         </el-tab-pane>
@@ -475,10 +592,10 @@ const goBack = () => {
                 <el-checkbox-group v-model="selectedPermissions">
                   <el-checkbox
                     v-for="perm in group.options"
-                    :key="perm.id"
-                    :label="perm.id"
+                    :key="(perm as any).id"
+                    :value="(perm as any).id"
                   >
-                    {{ perm.description }}
+                    {{ (perm as any).description }}
                   </el-checkbox>
                 </el-checkbox-group>
               </el-collapse-item>
