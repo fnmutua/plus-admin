@@ -416,7 +416,7 @@ const feedbackRules = {
 </script>
 
 <template>
-  <el-card>
+  <el-card class="login-card">
     <Form
       :schema="schema"
       :rules="rules"
@@ -606,5 +606,30 @@ const feedbackRules = {
 .feedback-dialog .el-textarea__inner {
   resize: vertical;
   min-height: 80px;
+}
+
+/* Login card background styling */
+.login-card {
+  background: transparent !important;
+  border: 1px solid var(--el-border-color);
+  box-shadow: none;
+}
+
+/* Input field styling */
+:deep(.el-input__wrapper) {
+  background: transparent !important;
+  border: 1px solid var(--el-border-color);
+  box-shadow: none !important;
+}
+
+:deep(.el-input__wrapper:hover) {
+  background: transparent !important;
+  border-color: var(--el-border-color-hover);
+}
+
+:deep(.el-input__wrapper.is-focus) {
+  background: transparent !important;
+  border-color: var(--el-color-primary);
+  box-shadow: none !important;
 }
 </style>

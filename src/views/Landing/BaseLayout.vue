@@ -7,7 +7,7 @@
             <div v-if="!isSmallScreen || menuOpen" class="logo">
               <img src="@/assets/imgs/1logo.png" alt="KISIP" />
             </div>
-            <nav>
+            <nav style="background: transparent;">
               <!-- Hamburger icon for small screens -->
               <div class="hamburger" @click="menuOpen = !menuOpen">
                 <Icon icon="mdi:menu" class="hamburger-icon" />
@@ -21,13 +21,14 @@
                 :default-active="activeIndex"
                 @select="handleSelect"
                 :ellipsis="false"
+                style="background: transparent;"
               >
                 <el-menu-item index="1">Home</el-menu-item>
                 <el-menu-item index="3">Grievances</el-menu-item>
-                <el-menu-item index="5">Contact</el-menu-item>
+                <!-- <el-menu-item index="5">Contact</el-menu-item>
                 <el-menu-item index="4">About</el-menu-item>
-                <el-menu-item index="6">FAQs</el-menu-item>
-                <el-menu-item index="8">API Docs</el-menu-item>
+                <el-menu-item index="6">FAQs</el-menu-item> -->
+                <!-- <el-menu-item index="8">API Docs</el-menu-item> -->
                 <el-menu-item index="2" @click="handleLoginOrLogout">{{ isLoggedIn ? 'Logout' : 'Login' }}</el-menu-item>
                 <el-menu-item index="7" @click="toggleDark">
                   <Icon :icon="isDark ? 'carbon:moon' : 'carbon:sun'" inline />
@@ -212,9 +213,9 @@ const handleSelect = (index: string) => {
 }
 
 .el-header {
-  background-color: var(--card-bg);
-  border-bottom: 1px solid var(--border-color);
-  box-shadow: var(--card-shadow);
+  background-color: transparent;
+  border-bottom: none;
+  box-shadow: none;
 }
 
 .el-footer {
@@ -224,18 +225,19 @@ const handleSelect = (index: string) => {
 }
 
 .el-menu {
-  background-color: var(--card-bg);
-  border-right: 1px solid var(--border-color);
+  background-color: transparent !important;
+  border-right: none;
 }
 
 .el-menu-item {
   color: var(--el-color-primary);
-  font-weight: 600;
-  border-radius: 25px !important;
+  font-weight: 450;
+  border-radius: 15px !important;
   margin: 0 5px !important;
   transition: all 0.3s ease;
-  border: 1px solid var(--el-color-primary);
-  background: transparent;
+  border: 1px solid rgba(64, 158, 255, 0.3);
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(8px);
   position: relative;
   overflow: hidden;
 }
@@ -318,6 +320,13 @@ const handleSelect = (index: string) => {
   justify-content: space-between;
   align-items: center;
   padding: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  backdrop-filter: blur(5px);
+  border-radius: 8px;
+}
+
+nav {
+  background: transparent !important;
 }
 
 .logo img {
@@ -329,6 +338,7 @@ const handleSelect = (index: string) => {
   justify-content: center;
   padding: 10px 0;
   gap: 8px;
+  background: transparent !important;
 }
 
 .el-menu-item {
@@ -508,6 +518,15 @@ const handleSelect = (index: string) => {
 
 .dark-mode .logo img {
   filter: brightness(0) invert(1);
+}
+
+.dark-mode .header-content {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.dark-mode .el-menu-item {
+  background: rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .hero {

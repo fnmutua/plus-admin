@@ -380,6 +380,9 @@ const toLogin = () => emit('to-login')
   min-width: 480px;
   max-width: 600px;
   margin: 0 auto;
+  background: transparent !important;
+  border: 1px solid var(--el-border-color);
+  box-shadow: none;
 }
 
 .register-form {
@@ -402,15 +405,20 @@ const toLogin = () => emit('to-login')
 
 /* Input styling */
 :deep(.el-input__wrapper) {
-  box-shadow: 0 0 0 1px var(--el-border-color) inset;
+  background: transparent !important;
+  border: 1px solid var(--el-border-color);
+  box-shadow: none !important;
 }
 
 :deep(.el-input__wrapper:hover) {
-  box-shadow: 0 0 0 1px var(--el-border-color-hover) inset;
+  background: transparent !important;
+  border-color: var(--el-border-color-hover);
 }
 
 :deep(.el-input__wrapper.is-focus) {
-  box-shadow: 0 0 0 1px var(--el-color-primary) inset;
+  background: transparent !important;
+  border-color: var(--el-color-primary);
+  box-shadow: none !important;
 }
 
 /* Error message styling - make errors more visible */
@@ -430,24 +438,26 @@ const toLogin = () => emit('to-login')
 :deep(.vue-tel-input) {
   border-radius: 4px;
   border: 1px solid var(--el-border-color);
+  background: transparent !important;
   transition: border-color 0.2s;
   width: 100%;
 }
 
 :deep(.vue-tel-input:focus-within) {
   border-color: var(--el-color-primary);
+  background: transparent !important;
 }
 
 :deep(.vue-tel-input .vti__dropdown) {
   border: none;
-  background: transparent;
+  background: transparent !important;
   border-right: 1px solid var(--el-border-color);
   border-radius: 4px 0 0 4px;
 }
 
 :deep(.vue-tel-input .vti__input) {
   border: none;
-  background: transparent;
+  background: transparent !important;
   border-radius: 0 4px 4px 0;
   padding: 0 12px;
   height: 32px;

@@ -98,8 +98,7 @@ v-if="!isLogin"
   flex-direction: column;
   text-align: center;
   padding: 100px 20px;
-    background-size: cover;
-  background-position: center;
-   height: 80vh;
+  background: transparent;
+  height: 80vh;
 }
 </style>
