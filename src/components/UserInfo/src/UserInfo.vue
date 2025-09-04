@@ -44,7 +44,10 @@ const loginOut = () => {
     type: 'warning'
   })
     .then(async () => {
-      const res = await loginOutApi().catch(() => { })
+      // Provide required data for loginOutApi
+      const userId = userInfo && userInfo.id ? userInfo.id : null;
+      console.log('UserInfo....', userId)
+      const res = await loginOutApi({ userId }).catch(() => { });
       if (res) {
         wsCache.clear()
         tagsViewStore.delAllViews()

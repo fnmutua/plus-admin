@@ -39,6 +39,26 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.DATE,
         allowNull: false
       },
+      loginTime: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        comment: 'Time when user logged in (for session duration calculation)'
+      },
+      logoutTime: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        comment: 'Time when user logged out'
+      },
+      sessionDuration: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        comment: 'Session duration in seconds'
+      },
+      sessionDurationFormatted: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+        comment: 'Session duration in human readable format (e.g., "2h 30m 15s")'
+      },
 
     },
     {

@@ -1,8 +1,6 @@
 <template>
-  <div class="form-container">
-    <BaseLayout>
-      <el-main>
-        <div class="faqs-container">
+  <BaseLayout>
+    <div class="faqs-container">
           <div class="faqs-content">
             <h1 class="faqs-title">Frequently Asked Questions</h1>
             
@@ -73,17 +71,15 @@
                   </ul>
                 </div>
               </el-collapse-item>
-            </el-collapse>
-          </div>
-        </div>
-      </el-main>
-    </BaseLayout>
-  </div>
+                    </el-collapse>
+      </div>
+    </div>
+  </BaseLayout>
 </template>
 
 <script setup lang="ts">
 import { onMounted } from 'vue';
-import { ElMain, ElCollapse, ElCollapseItem } from 'element-plus';
+import { ElCollapse, ElCollapseItem } from 'element-plus';
 import BaseLayout from './BaseLayout.vue';
 </script>
 

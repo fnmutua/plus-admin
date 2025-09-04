@@ -1,8 +1,7 @@
 <template>
-  <div class="form-container" :class="{ 'dark-mode': isDarkMode }">
-    <BaseLayout>
-      <el-main>
-        <el-card>
+  <BaseLayout>
+    <div class="grievance-container" :class="{ 'dark-mode': isDarkMode }">
+      <el-card>
 
 
           <el-tabs v-model="activeName" :tab-position="tabPosition">
@@ -308,18 +307,14 @@ id="btn2" v-if="active === 2" type="primary" @click="submitForm"
           </template>
 
         </el-card>
-      </el-main>
-    </BaseLayout>
+      </div>
 
-
-    <el-tour v-model="isTourVisible" :z-index="100000" :on-close="endTour">
-      <el-tour-step
+      <el-tour v-model="isTourVisible" :z-index="100000" :on-close="endTour">
+        <el-tour-step
 v-for="(step, index) in filteredTourSteps" :key="index" :target="step.target" :title="step.title"
-        :description="step.content" />
-    </el-tour>
-
-
-  </div>
+          :description="step.content" />
+      </el-tour>
+    </BaseLayout>
 
 
   
@@ -356,7 +351,7 @@ v-for="(step, index) in filteredTourSteps" :key="index" :target="step.target" :t
 <script setup lang="ts">
 import { ref,watch, computed, onMounted } from 'vue';
 import {
-  ElMain, ElButton, ElCard, ElForm, ElFormItem,  ElUpload, ElCheckbox, ElTour, ElTourStep, ElSwitch,
+  ElButton, ElCard, ElForm, ElFormItem,  ElUpload, ElCheckbox, ElTour, ElTourStep, ElSwitch,
   ElTabPane, ElTabs, ElSelect, ElOption, ElRow, ElCol, ElMessage, ElStep, ElSteps, ElIcon, ElTooltip,ElDialog, 
 } from 'element-plus';
 

@@ -1,8 +1,6 @@
 <template>
-  <div class="form-container">
-    <BaseLayout>
-      <el-main>
-        <div class="contact-wrapper">
+  <BaseLayout>
+    <div class="contact-wrapper">
           <div class="contact-info">
             <h2>Get in Touch</h2>
             <p>We'd love to hear from you. Send us a message and we'll respond as soon as possible.</p>
@@ -109,14 +107,14 @@
             </el-card>
           </el-form>
         </div>
-      </el-main>
-    </BaseLayout>
-  </div>
+      </div>
+    </div>
+  </BaseLayout>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import { ElMain, ElButton, ElCard, ElForm, ElFormItem, ElInput, ElRow, ElCol, ElMessage } from 'element-plus';
+import { ElButton, ElCard, ElForm, ElFormItem, ElInput, ElRow, ElCol, ElMessage } from 'element-plus';
 import { User, Phone, Message } from '@element-plus/icons-vue';
 import type { FormInstance, FormRules } from 'element-plus';
 import BaseLayout from './BaseLayout.vue';

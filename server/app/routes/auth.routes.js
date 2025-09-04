@@ -1013,9 +1013,46 @@ module.exports = function (app) {
    *       404:
    *         description: OTP not found
    */
-  app.post(
-  '/api/app/verify',  
-  controller.verifyCode
-  )
+        app.post(
+        '/api/app/verify',  [],
+        controller.verifyCode
+        )
+ 
+        
+        app.post(
+          '/api/app/signout',  
+          controller.Logout
+          )
 
+  /**
+   * @swagger
+   * /api/auth/signout:
+   *   post:
+   *     tags:
+   *       - Authentication
+   *     summary: User logout
+   *     description: Logout user and track session
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               userId:
+   *                 type: integer
+   *                 description: User ID
+   *     responses:
+   *       200:
+   *         description: Logout successful
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/SuccessResponse'
+   *       401:
+   *         description: Unauthorized - invalid token
+   */
+  app.post('/api/auth/signout', [authJwt.verifyToken], controller.Logout)
 }

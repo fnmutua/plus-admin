@@ -99,121 +99,8 @@ exports.modelBoard = (req, res) => {
   res.status(200).send(fields)
 }
 
-exports.Logout = (req, res) => {
-  console.log('logging off')
-  res.status(200).send({
-    code: '0000',
-    status: 'Logged out'
-  })
-}
-
  
- 
-exports.__modelAllUsers = (req, res) => {
-  console.log('Current User', req.body.currrentUser)
-
-  console.log('This User roles',req.roles)
-   var currentUserRoles = req.roles
-
-  // control the levels of users the loogend in user can see
-  if (currentUserRoles.includes(0)) {
-    var RoleFilters = [1,5,6,7,8,9,10,11,12,13,14,15,16] // all staff except national admins
-  }
-  if (currentUserRoles.includes(-99)) {
-    var RoleFilters = [0,1,5,6,7,8,9,10,11,12,13,14,15,16] // all staff except national admins
-  }
-
-  else if (currentUserRoles.includes(1)) {
-    var RoleFilters = [5,6,7,8,9,10,11,12,13,14,15,16] // all staff except national admins
-  }
-
-  else if (currentUserRoles.includes(11) || currentUserRoles.includes(10))  {   // SUD/KSIP staff
-    var RoleFilters = [9,12,13,14] //   
-  }
   
-  else if (currentUserRoles.includes(16)) {   // 16 National M&E
-    var RoleFilters = [6] // county M&E 
-  }
-  
-  else if (currentUserRoles.includes(5)) {   // 5 County Admin
-    var RoleFilters = [7] // county staff
-  }
-  
-  var reg_model = req.body.model 
-
-  // Associated Models
-  var associated_multiple_models = req.body.associated_multiple_models
- 
- 
-    var child_model = db.models.user_roles
-    var grand_child_model = db.models.roles
-    var nestedQuery = {}
-    nestedQuery[req.body.nested_filter[0]] = RoleFilters
-
- 
-
-  var qry = {}
-  var includeModels = []
-
-  // loop through the include models
-  for (let i = 0; i < req.body.associated_multiple_models.length; i++) {
-    var modelIncl = {}
-    modelIncl.model = db.models[req.body.associated_multiple_models[i]]
-    modelIncl.raw = true
-    modelIncl.nested = true
-    includeModels.push(modelIncl)
-
-
-  }
-
-  //console.log(includeModels)
-  if (associated_multiple_models) {
-         var nestedModels = { model: child_model, include: [{ model: grand_child_model, where: nestedQuery }], raw: true, nested: true }
-          includeModels.push(nestedModels)
-      var qry = {
-        include: includeModels
-      }
-     
-  } else {
-    var qry = {}
-  }
-
-  console.log('The Querry XXX',  qry)
-  if (req.body.limit ) {
-    qry.limit = req.body.limit 
-  }
-  if (req.body.page ) {
-    qry.offset = (req.body.page - 1) * req.body.limit
-  }
-
-
-  /// use the multpiple filters
-  var queryFields = {}
-  if (req.body.filters) {
-    if (req.body.filters.length > 0 && req.body.filterValues.length > 0) {
-      for (let i = 0; i < req.body.filters.length; i++) {
-        queryFields[req.body.filters[i]] = req.body.filterValues[i]
-      }
-      console.log('Final-4-object------------>', queryFields)
-      qry.where = queryFields
-    }
-  }
-  qry.distinct=true
-  qry.where =  {
-    id: { [op.notIn]: [req.body.currrentUser] }
-  }
-  qry.attributes = { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] } // will be applciable to users only 
-  db.models[reg_model].findAndCountAll(qry).then((list) => {
-    console.log(list)
-    res.status(200).send({
-      data: list.rows,
-      total: list.count,
-      code: '0000',
-      message: 'Users retrieved successfully'
-    })
-  })
-}
-
 
  
 
@@ -1422,6 +1309,124 @@ exports.deleteUserCascade = async (req, res) => {
 };
 
  
+
+// Get user session statistics
+exports.getUserSessionStats = async (req, res) => {
+  try {
+    const userId = req.params.userId || req.body.userId;
+    const { limit = 10, fromDate, toDate } = req.query;
+    
+    if (!userId) {
+      return res.status(400).send({
+        message: 'User ID is required'
+      });
+    }
+
+    const sessionTracker = require('../utils/sessionTracker');
+    
+    const options = {
+      limit: parseInt(limit),
+      fromDate: fromDate ? new Date(fromDate) : null,
+      toDate: toDate ? new Date(toDate) : null
+    };
+
+    const stats = await sessionTracker.getUserSessionStats(userId, options);
+    
+    res.status(200).send({
+      message: 'Session statistics retrieved successfully',
+      data: stats
+    });
+  } catch (error) {
+    console.error('Error getting user session stats:', error);
+    res.status(500).send({
+      message: 'Error retrieving session statistics',
+      error: error.message
+    });
+  }
+};
+
+// Get active sessions
+exports.getActiveSessions = async (req, res) => {
+  try {
+    const { hoursThreshold = 24 } = req.query;
+    
+    const sessionTracker = require('../utils/sessionTracker');
+    
+    const activeSessions = await sessionTracker.getActiveSessions({
+      hoursThreshold: parseInt(hoursThreshold)
+    });
+    
+    res.status(200).send({
+      message: 'Active sessions retrieved successfully',
+      data: {
+        count: activeSessions.length,
+        sessions: activeSessions
+      }
+    });
+  } catch (error) {
+    console.error('Error getting active sessions:', error);
+    res.status(500).send({
+      message: 'Error retrieving active sessions',
+      error: error.message
+    });
+  }
+};
+
+// Get session logs with duration information
+exports.getSessionLogs = async (req, res) => {
+  try {
+    const { userId, action = 'Logout', limit = 50, offset = 0 } = req.query;
+    
+    let whereClause = {
+      action: action,
+      status: 'Successful'
+    };
+    
+    if (userId) {
+      whereClause.userId = userId;
+    }
+    
+    // Only get logs that have session duration data
+    if (action === 'Logout') {
+      whereClause.sessionDuration = { [db.Sequelize.Op.ne]: null };
+    }
+
+    const logs = await db.models.logs.findAndCountAll({
+      where: whereClause,
+      order: [['date', 'DESC']],
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+      attributes: [
+        'id',
+        'userId',
+        'userName',
+        'action',
+        'date',
+        'source',
+        'loginTime',
+        'logoutTime',
+        'sessionDuration',
+        'sessionDurationFormatted'
+      ]
+    });
+
+    res.status(200).send({
+      message: 'Session logs retrieved successfully',
+      data: {
+        logs: logs.rows,
+        total: logs.count,
+        limit: parseInt(limit),
+        offset: parseInt(offset)
+      }
+    });
+  } catch (error) {
+    console.error('Error getting session logs:', error);
+    res.status(500).send({
+      message: 'Error retrieving session logs',
+      error: error.message
+    });
+  }
+};
 
 exports.rolesController = (req, res) => {
  

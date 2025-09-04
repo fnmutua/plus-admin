@@ -3,19 +3,24 @@ import type { UserType } from './../register/types'
 interface RoleParams {
   roleName: string
 }
+const prod = import.meta.env.VITE_APP_HOST // remove the port for production
 
 export const loginApi = (data: UserType): Promise<IResponse<UserType>> => {
   console.log('Login....', data)
 
-  const dev = import.meta.env.VITE_APP_HOST + ':4000' // Add the port for local Dev
   const prod = import.meta.env.VITE_APP_HOST // remove the port for production
 
   console.log('Port-Host.:', prod) // 123
   return request.post({ url: prod + '/api/auth/signin', data })
 }
 
-export const loginOutApi = (): Promise<IResponse> => {
-  return request.get({ url: '/user/loginOut' })
+//export const loginOutApi = (): Promise<IResponse> => {
+export const loginOutApi = (data: UserType): Promise<IResponse<UserType>> => {
+
+  console.log('LoginOut.2...', data)
+  //return request.post({  url: prod + '/api/v1/user/logout' })
+  return request.post({ url:  prod + '/api/auth/signout', data })  
+
 }
 
 export const getUserListApi = ({ params }: AxiosConfig) => {

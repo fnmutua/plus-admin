@@ -616,11 +616,28 @@ function encodePhoto(photoPath) {
   }
 }
 
+// Utility function to format session duration
+function formatSessionDuration(seconds) {
+  if (!seconds || seconds < 0) return '0s';
+  
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  
+  const parts = [];
+  if (hours > 0) parts.push(`${hours}h`);
+  if (minutes > 0) parts.push(`${minutes}m`);
+  if (secs > 0 || parts.length === 0) parts.push(`${secs}s`);
+  
+  return parts.join(' ');
+}
+
 exports.signin = async (req, res) => {
   const instlog = {}
   instlog.table = 'auth'
   instlog.action = 'Login'
   instlog.date = new Date();
+  instlog.loginTime = new Date(); // Store login time for session duration calculation
 
   // Debug: Log all relevant headers
   console.log('Request Headers:', {
@@ -761,9 +778,8 @@ exports.signin = async (req, res) => {
           instlog.status = 'Successful'
           console.log(instlog)
 
-          if(user.id!=1){
-            await db.models.logs.create(instlog);
-          }
+          // Log all successful logins (including user ID 1 for testing)
+          await db.models.logs.create(instlog);
           
 
  
@@ -1631,6 +1647,7 @@ exports.signinViaApp = async (req, res) => {
   instlog.table='auth'
   instlog.action='Login'
   instlog.date = new Date();
+  instlog.loginTime = new Date(); // Store login time for session duration calculation
   // let ip = req.header('x-forwarded-for') || req.connection.remoteAddress;
   //console.log(req)
   const clientIp = req.connection.remoteAddress; // This will give you the remote IP address of the client
@@ -1778,6 +1795,24 @@ exports.verifyCode = async (req, res) => {
     var token = jwt.sign({ id: user.id }, config.secret, {
       expiresIn: 86400 // 24 hours
     })
+    
+    // Create login log for successful OTP verification
+    const loginLog = {
+      table: 'auth',
+      action: 'Login',
+      date: new Date(),
+      userId: user.id,
+      userName: user.username,
+      status: 'Successful',
+      source: req.headers['x-forwarded-for']?.split(',')[0] || 
+              req.headers['x-real-ip'] || 
+              req.connection.remoteAddress || 
+              'Unknown',
+      loginTime: new Date()
+    };
+    
+    await db.models.logs.create(loginLog);
+    console.log(`User ${user.username} (ID: ${user.id}) logged in via OTP`);
     
     const expiryDate = new Date();
     // Add 24 hours to the current date
@@ -2019,6 +2054,60 @@ async function sendDeactivationEmail(userEmail, userName, username) {
     throw error;
   }
 }
+
+
+
+
+exports.Logout = async (req, res) => {
+  console.log('logging off >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
+  
+  try {
+    // Get user ID from token (set by authJwt.verifyToken middleware)
+    const userId = req.body.userId;
+    console.log('Logout - User ID from token:', userId);
+    
+    if (userId) {
+      const sessionTracker = require('../utils/sessionTracker');
+      
+      // Get user info from database
+      const user = await db.models.users.findByPk(userId);
+      const userName = user ? user.username : 'Unknown';
+      console.log('Logout - User info:', { userId, userName });
+      
+      const source = req.headers['x-forwarded-for']?.split(',')[0] || 
+                    req.headers['x-real-ip'] || 
+                    req.connection.remoteAddress || 
+                    'Unknown';
+      
+      console.log('Logout - Creating logout log...');
+      const result = await sessionTracker.createLogoutLog({
+        userId: userId,
+        userName: userName,
+        source: source
+      });
+      
+      if (result) {
+        console.log(`User ${userName} (ID: ${userId}) logged out successfully with session tracking`);
+      } else {
+        console.log(`User ${userName} (ID: ${userId}) logged out but session tracking failed`);
+      }
+    } else {
+      console.log('No user ID found in request - logout without session tracking');
+    }
+  } catch (error) {
+    console.error('Error logging logout:', error);
+    console.error('Error stack:', error.stack);
+    // Don't fail the logout if logging fails
+  }
+
+  res.status(200).send({
+    code: '0000',
+    status: 'Logged out'
+  })
+}
+
+
+
 
 module.exports = exports;
  

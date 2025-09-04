@@ -37,9 +37,11 @@
           </div>
         </el-header>
 
-        <el-main>
-          <!-- Slot for page-specific content -->
-          <slot></slot>
+        <el-main class="main-content">
+          <div class="content-wrapper">
+            <!-- Slot for page-specific content -->
+            <slot></slot>
+          </div>
         </el-main>
 
         <el-footer>
@@ -65,10 +67,11 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { ElMessage, ElMain, ElMenu, ElMenuItem, ElContainer, ElFooter, ElHeader } from 'element-plus';
+import { ElMain, ElMenu, ElMenuItem, ElContainer, ElFooter, ElHeader } from 'element-plus';
 import { Icon } from '@iconify/vue';
 import { useCache } from '@/hooks/web/useCache';
 import { useAppStoreWithOut } from '@/store/modules/app';
+import { loginOutApi } from '@/api/login';
 
 const isSmallScreen = computed(() => window.innerWidth <= 768);
 const menuOpen = ref(false);
@@ -116,9 +119,19 @@ const { wsCache } = useCache();
 const appStore = useAppStoreWithOut();
 const isLoggedIn = computed(() => !!wsCache.get(appStore.getUserInfo));
 
-const handleLoginOrLogout = () => {
+const handleLoginOrLogout = async () => {
   if (isLoggedIn.value) {
-    // Logout logic
+    // Logout logic - call API first, then clear cache
+    try {
+      const userInfo = wsCache.get(appStore.getUserInfo);
+      if (userInfo) {
+        await loginOutApi(userInfo);
+      }
+    } catch (error) {
+      console.error('Logout API call failed:', error);
+      // Continue with logout even if API fails
+    }
+    
     wsCache.clear();
     localStorage.clear();
     sessionStorage.clear();
@@ -216,18 +229,60 @@ const handleSelect = (index: string) => {
 }
 
 .el-menu-item {
-  color: var(--text-primary);
-  font-weight: 800;
+  color: var(--el-color-primary);
+  font-weight: 600;
+  border-radius: 25px !important;
+  margin: 0 5px !important;
+  transition: all 0.3s ease;
+  border: 1px solid var(--el-color-primary);
+  background: transparent;
+  position: relative;
+  overflow: hidden;
 }
 
 .el-menu-item:hover {
-  background-color: var(--hover-bg);
+  background: var(--el-color-primary) !important;
+  color: white !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .el-menu-item.is-active {
-  color: var(--accent-color);
-  background-color: var(--hover-bg);
+  background: var(--el-color-primary) !important;
+  color: white !important;
   font-weight: 700;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Special styling for login/logout button */
+.el-menu-item[index="2"] {
+  background: transparent !important;
+  color: #4CAF50 !important;
+  border: 1px solid #4CAF50 !important;
+  font-weight: 700;
+}
+
+.el-menu-item[index="2"]:hover {
+  background: #4CAF50 !important;
+  color: white !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+}
+
+/* Special styling for dark mode toggle */
+.el-menu-item[index="7"] {
+  background: transparent !important;
+  color: #6366f1 !important;
+  border: 1px solid #6366f1 !important;
+  min-width: 50px;
+  padding: 12px !important;
+}
+
+.el-menu-item[index="7"]:hover {
+  background: #6366f1 !important;
+  color: white !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
 }
 
 .el-sub-menu__title {
@@ -241,6 +296,18 @@ const handleSelect = (index: string) => {
 .el-main {
   background-color: var(--bg-primary);
   color: var(--text-primary);
+}
+
+.main-content {
+  padding: 0;
+  min-height: calc(100vh - 120px);
+}
+
+.content-wrapper {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  min-height: 100%;
 }
 
 /* Header styles */
@@ -260,11 +327,14 @@ const handleSelect = (index: string) => {
 .el-menu-demo {
   display: flex;
   justify-content: center;
-  padding: 0;
+  padding: 10px 0;
+  gap: 8px;
 }
 
 .el-menu-item {
-  padding: 0 20px;
+  padding: 12px 24px !important;
+  min-width: auto;
+  white-space: nowrap;
 }
 
 /* Hamburger icon styles */
@@ -317,14 +387,20 @@ const handleSelect = (index: string) => {
 
   .el-menu-item {
     color: var(--text-primary);
-    padding: 20px 0;
+    padding: 15px 30px !important;
     font-size: 18px;
     text-align: center;
+    margin: 8px 0 !important;
+    border-radius: 25px !important;
+    width: 80%;
+    max-width: 300px;
   }
 
   .el-menu-item:hover {
-    background-color: var(--hover-bg);
-    border-radius: 8px;
+    background: var(--el-color-primary) !important;
+    color: white !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   }
 }
 

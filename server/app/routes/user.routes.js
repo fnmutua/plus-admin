@@ -833,10 +833,7 @@ module.exports = function(app) {
    *                   type: string
    *                   example: "Logged out"
    */
-  app.post(
-    "/api/v1/user/logout",
-    controller.Logout
-  );
+ 
 
 
 };
