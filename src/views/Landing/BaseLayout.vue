@@ -332,9 +332,10 @@ const handleSelect = (index: string) => {
 }
 
 .el-menu-item {
-  padding: 12px 24px !important;
+  padding: 8px 16px !important;
   min-width: auto;
   white-space: nowrap;
+  font-size: 0.9rem;
 }
 
 /* Hamburger icon styles */
@@ -387,13 +388,13 @@ const handleSelect = (index: string) => {
 
   .el-menu-item {
     color: var(--text-primary);
-    padding: 15px 30px !important;
-    font-size: 18px;
+    padding: 10px 20px !important;
+    font-size: 16px;
     text-align: center;
-    margin: 8px 0 !important;
-    border-radius: 25px !important;
+    margin: 6px 0 !important;
+    border-radius: 20px !important;
     width: 80%;
-    max-width: 300px;
+    max-width: 250px;
   }
 
   .el-menu-item:hover {

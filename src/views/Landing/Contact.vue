@@ -314,9 +314,10 @@ const resetForm = () => {
   background: linear-gradient(135deg, #684035 0%, #8b5a2b 100%);
   border: none;
   color: white;
-  padding: 0.8rem 1.5rem;
+  padding: 0.6rem 1.2rem;
   border-radius: 8px;
   font-weight: 600;
+  font-size: 0.9rem;
   transition: all 0.3s ease;
 }
 
@@ -361,8 +362,8 @@ const resetForm = () => {
   }
 
   .reset-btn {
-    padding: 10px 20px;
-    font-size: 0.9rem;
+    padding: 8px 16px;
+    font-size: 0.85rem;
   }
 }
 

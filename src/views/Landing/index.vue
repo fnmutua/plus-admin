@@ -29,7 +29,7 @@
                     </div>
                   </div>
 
-                  <el-row :gutter="20" class="stats-grid">
+                  <el-row :gutter="10" class="stats-grid">
                     <el-col :xs="24" :sm="12" :md="8" :lg="6">
                       <el-card shadow="hover" class="stat-card">
                         <div class="stat-icon">
@@ -105,7 +105,7 @@ import {
   ElCard,
 } from 'element-plus';
 import BaseLayout from './BaseLayout.vue';
-import { Lock, More, Document } from '@element-plus/icons-vue';
+import { Lock } from '@element-plus/icons-vue';
 import { Icon } from '@iconify/vue';
 import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary';
 
@@ -115,11 +115,6 @@ const appStore = useAppStoreWithOut();
 
 const isLoggedIn = computed(() => !!wsCache.get(appStore.getUserInfo));
 
-// Function to open API documentation
-const openApiDocs = () => {
-  const apiUrl = window.location.origin + '/api-docs';
-  window.open(apiUrl, '_blank');
-};
 
 // Function to format numbers with K, M notation
 const formatNumber = (num: number): string => {
@@ -263,7 +258,7 @@ AvgHHSize();
 
 .main-content {
   flex: 1;
-  padding: 1rem 2rem;
+  padding: 1rem 1.5rem;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   display: flex;
@@ -277,7 +272,7 @@ AvgHHSize();
   margin: 0 auto;
   animation: fadeIn 0.8s ease-out;
   flex-shrink: 0;
-  padding: 2rem 0;
+  padding: 1.5rem 0;
 }
 
 .hero-content {
@@ -336,32 +331,32 @@ AvgHHSize();
 /* HERO TEXT */
 .hero-text {
   text-align: center;
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
 }
 
 .main-title {
-  font-size: 3rem;
+  font-size: 2.5rem;
   font-weight: 800;
   color: var(--el-color-primary);
-  margin-bottom: 3rem;
+  margin-bottom: 2rem;
   line-height: 1.2;
   animation: slideUp 0.8s ease-out;
 }
 
 .subtitle {
-  font-size: 1.5rem;
+  font-size: 1.2rem;
   color: var(--el-text-color-primary);
- margin-bottom: 3rem;
+ margin-bottom: 2rem;
   font-weight: 500;
   animation: slideUp 0.8s ease-out 0.2s backwards;
 }
 
 .description {
-  font-size: 1.2rem;
-  line-height: 1.8;
+  font-size: 1rem;
+  line-height: 1.6;
   color: var(--el-text-color-regular);
- margin-bottom: 2rem;
-  max-width: 1200px;
+ margin-bottom: 1.5rem;
+  max-width: 1000px;
   margin-left: auto;
   margin-right: auto;
   animation: slideUp 0.8s ease-out 0.4s backwards;
@@ -370,13 +365,13 @@ AvgHHSize();
 .cta-buttons {
   display: flex;
   justify-content: center;
-  margin-bottom: 3rem;
+  margin-bottom: 2rem;
   animation: slideUp 0.8s ease-out 0.6s backwards;
 }
 
 .login-btn {
-  padding: 1rem 3.5rem;
-  font-size: 1.2rem;
+  padding: 0.8rem 1.5rem;
+  font-size: 0.8rem;
   border-radius: 8px;
   transition: all 0.3s ease;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
@@ -391,8 +386,8 @@ AvgHHSize();
 
 .api-btn {
   margin-left: 1rem;
-  padding: 1rem 2rem;
-  font-size: 1.1rem;
+  padding: 0.8rem 1.5rem;
+  font-size: 1rem;
   border-radius: 8px;
   transition: all 0.3s ease;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
@@ -406,20 +401,20 @@ AvgHHSize();
 
 /* 4. STATS GRID (using Element Row/Col) */
 .stats-grid {
-  margin: 1rem 0;
+  margin: 0.2rem 0;
   animation: slideUp 0.8s ease-out 0.8s backwards;
   max-width: 1400px;
 }
 
 .stat-card {
-  height: 89%;
+  height: 80%;
   text-align: center;
   transition: all 0.3s ease;
   border: 1px solid var(--el-border-color-lighter);
   background: transparent;
   box-shadow: none !important;
   border-radius: 8px;
-  padding: 0.5rem;
+  padding: 0.3rem;
 }
 
 .stat-card:hover {
@@ -429,8 +424,8 @@ AvgHHSize();
 }
 
 .stat-icon {
-  font-size: 2rem;
-  margin-bottom: 0.25rem;
+  font-size: 1.8rem;
+  margin-bottom: 0.2rem;
   color: var(--el-color-primary);
   display: flex;
   justify-content: center;
@@ -439,15 +434,15 @@ AvgHHSize();
 }
 
 .stat-value {
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   font-weight: 700;
   color: var(--el-color-primary);
-  margin-bottom: 0.2rem;
+  margin-bottom: 0.1rem;
   opacity: 0.95;
 }
 
 .stat-label {
-  font-size: 1.1rem;
+  font-size: 1rem;
   color: var(--el-text-color-regular);
   font-weight: 500;
   opacity: 0.85;
@@ -455,7 +450,7 @@ AvgHHSize();
 
 /* 5. STATS SECTION */
 .stats-section {
-  margin: 3rem 0;
+  margin: 2rem 0;
   animation: slideUp 0.8s ease-out 0.8s backwards;
 }
 
@@ -605,7 +600,7 @@ AvgHHSize();
   animation: slideUp 0.8s ease-out 1.4s backwards;
   max-width: 1400px;
   margin: 0 auto;
-  padding: 0.6rem 0;
+  padding: 0.3rem 0;
 }
 
 .grievance-content {
@@ -660,11 +655,11 @@ AvgHHSize();
 /* Up to 768px wide (tablets & small desktops) */
 @media (max-width: 768px) {
   .main-content {
-    padding: 1rem;
+    padding: 0.8rem;
   }
 
   .hero {
-    padding-bottom: 1rem;
+    padding: 1rem 0;
   }
 
   .hero-visual {
@@ -675,10 +670,20 @@ AvgHHSize();
     max-width: 100%;
   }
 
+  .main-title {
+    font-size: 2.2rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .subtitle {
+    font-size: 1.1rem;
+    margin-bottom: 1.5rem;
+  }
+
   .description {
-    font-size: 1.4rem;
-    line-height: 1.6;
-    margin-bottom: 0.4rem;
+    font-size: 1rem;
+    line-height: 1.5;
+    margin-bottom: 1rem;
     padding: 0 0.5rem;
   }
 
@@ -686,29 +691,37 @@ AvgHHSize();
     flex-direction: column;
     gap: 0.5rem;
     padding: 0 1rem;
+    margin-bottom: 1.5rem;
   }
 
   .login-btn, .api-btn {
     width: 100%;
-    padding: 0.8rem;
-    font-size: 1rem;
+    padding: 0.7rem;
+    font-size: 0.9rem;
     margin-left: 0;
   }
 
   .stats-grid {
-    margin: 1rem 0;
+    margin: 0.5rem 0;
+  }
+
+  .stat-card {
+    padding: 0.3rem;
+    margin-bottom: 0.5rem;
   }
 
   .stat-icon {
-    font-size: 1.3rem;
+    font-size: 1.2rem;
+    margin-bottom: 0.2rem;
   }
 
   .stat-value {
-    font-size: 1.5rem;
+    font-size: 1.3rem;
+    margin-bottom: 0.01rem;
   }
 
   .stat-label {
-    font-size: 1rem;
+    font-size: 0.9rem;
   }
 
   .section-header h2 {
@@ -734,7 +747,7 @@ AvgHHSize();
   }
 
   .grievance-section {
-    padding: 0.75rem 0;
+    padding: 0.3rem 0;
     position: relative;
     z-index: 1;
   }
@@ -755,18 +768,26 @@ AvgHHSize();
 
   /* Cap main-content at viewport height so overflow can scroll */
   .main-content {
-    padding: 0.75rem;
+    padding: 0.5rem;
     max-height: 90vh;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
   }
 
   .main-title {
-    font-size: 2rem;
+    font-size: 1.8rem;
+    margin-bottom: 1rem;
+  }
+
+  .subtitle {
+    font-size: 1rem;
+    margin-bottom: 1rem;
   }
 
   .description {
-  font-size: 1rem;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    margin-bottom: 1rem;
     padding: 0;
   }
 

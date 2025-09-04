@@ -124,9 +124,9 @@ onMounted(() => {
 
 .cta-button {
   margin-top: 2rem;
-  padding: 12px 30px;
-  font-size: 1.1rem;
-  border-radius: 30px;
+  padding: 10px 24px;
+  font-size: 1rem;
+  border-radius: 25px;
   transition: all 0.3s ease;
   background: linear-gradient(45deg, var(--button-gradient-start), var(--button-gradient-end));
   border: none;

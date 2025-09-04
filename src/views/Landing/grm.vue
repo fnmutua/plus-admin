@@ -1476,8 +1476,9 @@ onMounted(() => {
 }
 
 .el-button {
-  padding: 0.8rem 1.5rem;
+  padding: 0.6rem 1.2rem;
   font-weight: 600;
+  font-size: 0.9rem;
   border-radius: 8px;
   transition: all 0.3s ease;
 }
@@ -1585,6 +1586,8 @@ onMounted(() => {
   .el-button {
     width: 100%;
     margin: 0;
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
   }
 
   :deep(.el-step__title) {
@@ -1607,8 +1610,8 @@ onMounted(() => {
   }
 
   .el-button {
-    padding: 0.7rem 1rem;
-    font-size: 0.9rem;
+    padding: 0.6rem 0.9rem;
+    font-size: 0.85rem;
   }
 }
 </style>
