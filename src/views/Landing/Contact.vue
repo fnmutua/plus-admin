@@ -107,18 +107,15 @@
             </el-card>
           </el-form>
         </div>
-      </div>
-    </div>
   </BaseLayout>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import { ElButton, ElCard, ElForm, ElFormItem, ElInput, ElRow, ElCol, ElMessage } from 'element-plus';
+import { ElButton, ElCard, ElForm, ElFormItem, ElInput, ElRow, ElCol, ElMessage, ElSelect, ElOption } from 'element-plus';
 import { User, Phone, Message } from '@element-plus/icons-vue';
 import type { FormInstance, FormRules } from 'element-plus';
 import BaseLayout from './BaseLayout.vue';
-import { validateInternationalPhone, formatPhoneForDisplay } from '@/utils/phoneValidation';
 import countryPhoneCodes from '@/utils/countryPhoneCodes.json';
 
 const formRef = ref<FormInstance>();
@@ -129,7 +126,7 @@ const countryCodeOptions = countryPhoneCodes.map(country => ({
   label: `${country.flag} ${country.name} (${country.dial_code})`
 }));
 
-const validatePhone = (rule: any, value: string, callback: any) => {
+const validatePhone = (_rule: any, value: string, callback: any) => {
   if (!value) {
     callback(new Error('Please input your phone number'));
     return;

@@ -72,13 +72,12 @@
                 </div>
               </el-collapse-item>
                     </el-collapse>
-      </div>
-    </div>
+          </div>
+        </div>
   </BaseLayout>
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue';
 import { ElCollapse, ElCollapseItem } from 'element-plus';
 import BaseLayout from './BaseLayout.vue';
 </script>

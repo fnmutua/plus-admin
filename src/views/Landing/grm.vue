@@ -314,10 +314,7 @@ id="btn2" v-if="active === 2" type="primary" @click="submitForm"
 v-for="(step, index) in filteredTourSteps" :key="index" :target="step.target" :title="step.title"
           :description="step.content" />
       </el-tour>
-    </BaseLayout>
 
-
-  
     <el-dialog 
           v-model="showEscalateMessage" 
           title="Escalate Grievance" 
@@ -344,8 +341,7 @@ v-for="(step, index) in filteredTourSteps" :key="index" :target="step.target" :t
             </div>
           </template>
   </el-dialog>
-
-
+    </BaseLayout>
 </template>
 
 <script setup lang="ts">
