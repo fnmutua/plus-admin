@@ -25,7 +25,7 @@ import {
 
 import { useRouter } from 'vue-router'
 import { useCache } from '@/hooks/web/useCache'
-import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument } from '@/api/settlements'
+import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument, searchByKeyWord } from '@/api/settlements'
 import { uuid } from 'vue-uuid'
 import type { UploadProps, UploadUserFile } from 'element-plus'
 import readXlsxFile from 'read-excel-file'
@@ -235,7 +235,7 @@ var tblData = []
 const associated_Model = ''
 const model = 'indicator_category_report'
 const associated_multiple_models = ['document', 'settlement', 'county', 'users', 'indicator_category']
-//const nested_models = ['indicator_category', 'indicator'] // The mother, then followed by the child
+//const nested_models = ['indicator_category', 'indicator', 'category']  // The mother, then followed by the child
 const nested_models = ['activity', 'project']  // The mother, then followed by the child
 
 //// ------------------parameters -----------------------////
@@ -260,11 +260,53 @@ const handleClear = async () => {
   value1.value = ''
   value2.value = ''
   value3.value = ''
+  selectedSettlements.value = []
+  selectedIndicators.value = []
   pageSize.value = 5
   currentPage.value = 1
   tblData = []
   //----run the get data--------
   getInterventionsAll()
+}
+
+const handleSettlementFilter = async (settlements: any) => {
+  var selectOption = 'settlement_id'
+  var index = filters.indexOf(selectOption)
+  
+  // Remove existing filter if present
+  if (index !== -1) {
+    filters.splice(index, 1)
+    filterValues.splice(index, 1)
+  }
+  
+  // Add new filter if settlements selected
+  if (settlements && settlements.length > 0) {
+    filters.push(selectOption)
+    filterValues.push(settlements)
+  }
+  
+  console.log('Settlement Filter:', settlements)
+  getFilteredData(filters, filterValues)
+}
+
+const handleIndicatorFilter = async (indicators: any) => {
+  var selectOption = 'indicator_category_id'
+  var index = filters.indexOf(selectOption)
+  
+  // Remove existing filter if present
+  if (index !== -1) {
+    filters.splice(index, 1)
+    filterValues.splice(index, 1)
+  }
+  
+  // Add new filter if indicators selected
+  if (indicators && indicators.length > 0) {
+    filters.push(selectOption)
+    filterValues.push(indicators)
+  }
+  
+  console.log('Indicator Filter:', indicators)
+  getFilteredData(filters, filterValues)
 }
 
 const handleSelectIndicatorCategory = async (indicator: any) => {
@@ -387,6 +429,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   const res = await getSettlementListByCounty(formData)
 
   console.log('Reports collected........', res)
+  console.log('First report item structure:', res.data?.[0])
 
   // tableDataList.value = res.data.filter(item => item.indicator_category.indicator_level === 'activity');
 
@@ -404,6 +447,93 @@ const projectOptionsAll = ref([])
 const indicatorsOptions = ref([])
 const indicatorsOptionsFiltered = ref([])
 
+// Filter options and selections
+const allProjectLocations = ref([])
+const settlementFilterOptions = ref([])
+const indicatorFilterOptions = ref([])
+const selectedSettlements = ref([])
+const selectedIndicators = ref([])
+
+
+// Borrowed word for word from ProjectDetails.vue
+const firstLoad = ref(true)
+
+const remoteMethodSettlement = async (keyword) => {
+  loading.value = true
+  let model = 'settlement' // Always search settlements for this filter
+
+  // Dynamically assign associated models
+  const associatedModels = ['county', 'subcounty', 'ward']
+
+  const formData = {
+    model: model,
+    searchField: 'name',
+    searchKeyword: firstLoad.value ? '' : keyword, // only empty search on first load
+    excludeGeom: false,
+    excludeGeomAssoc: true,
+    associated_multiple_models: associatedModels,
+    filters: [],
+    filterValues: [],
+    limit: 50, // Limit to first 50 records
+    offset: 0
+  }
+
+  try {
+    const res = await searchByKeyWord(formData)
+
+    if (res.data && res.data.length > 0) {
+      settlementFilterOptions.value = res.data.map(item => {
+        const base = {
+          value: item.id,
+          label: item.name,
+          name: item.name,
+          geom: item.geom,
+        }
+
+        return {
+          ...base,
+          settlement_id: item.id,
+          county: item.county?.name,
+          subcounty: item.subcounty?.name,
+          ward: item.ward?.name,
+          county_id: item.county?.id,
+          subcounty_id: item.subcounty?.id,
+          ward_id: item.ward?.id
+        }
+      })
+    }
+
+    firstLoad.value = false // Disable first load flag after first run
+    
+  } catch (error) {
+    console.error("Settlement search error:", error)
+  }
+
+  loading.value = false
+}
+
+
+const getIndicatorFilterOptions = async () => {
+  const formData = {
+    curUser: 1,
+    model: 'indicator_category',
+    searchField: 'indicator_name',
+    searchKeyword: '',
+    assocModel: '',
+    filters: [],
+    filterValues: [],
+    associated_multiple_models: [],
+    nested_models: [],
+  };
+
+  const res = await getSettlementListByCounty(formData);
+  console.log('Indicator Filter Options Response:', res);
+
+  indicatorFilterOptions.value = res.data.map((item) => ({
+    value: item.id,
+    label: `${item.indicator_name} | ${item.category_title}`,
+  }));
+};
 
 const getIndicatorNames = async () => {
   console.log('getIndicatorNames >>>>>>>>>>>>>>>>>>>>>>>>>>>>');
@@ -1505,6 +1635,14 @@ getModeldefinition(model)
 
 getIndicatorNames()
 
+// Load filter options - initialize settlement search
+remoteMethodSettlement('').then(() => {
+  console.log('Settlement filter options loaded successfully')
+}).catch(err => {
+  console.error('Failed to load settlement filter options:', err)
+})
+getIndicatorFilterOptions()
+
 //getCategoryOptions()
 getInterventionsAll()
 
@@ -1920,6 +2058,50 @@ function formatDate(dateString) {
   return `${year}-${month}-${day}`;
 }
 
+const getSummaries = (param) => {
+  const { columns, data } = param;
+  const sums = [];
+
+  columns.forEach((column, index) => {
+    if (index === 0) {
+      sums[index] = 'Summary';
+      return;
+    }
+
+    // Calculate total for Amount column
+    if (column.property === 'amount') {
+      const total = data.reduce((sum, row) => {
+        const value = Number(row[column.property]);
+        return isNaN(value) ? sum : sum + value;
+      }, 0);
+      sums[index] = total.toLocaleString();
+    } 
+    // Calculate average for Progress column
+    else if (column.label === 'Progress %') {
+      const validProgressValues = data.filter(row => {
+        const progress = Number(row.progress || 0);
+        return !isNaN(progress) && isFinite(progress);
+      });
+      
+      if (validProgressValues.length > 0) {
+        const averageProgress = validProgressValues.reduce((sum, row) => {
+          return sum + Number(row.progress || 0);
+        }, 0) / validProgressValues.length;
+        
+        sums[index] = `Avg: ${averageProgress.toFixed(1)}%`;
+      } else {
+        sums[index] = 'Avg: 0.0%';
+      }
+    }
+    // For other columns, show empty
+    else {
+      sums[index] = '';
+    }
+  });
+
+  return sums;
+};
+
 const router = useRouter()
 
 const goBack = () => {
@@ -2067,37 +2249,112 @@ function handleIndicatorsChange(selectedIds) {
 
 <template>
   <el-card>
-    <el-row type="flex" justify="start" gutter="10" style="display: flex; flex-wrap: nowrap; align-items: center;">
-      <div class="max-w-200px">
-        <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
+    <el-row :gutter="10" style="margin-bottom: 16px;">
+      <el-col :span="3">
+        <el-button type="primary" plain :icon="Back" @click="goBack">
           Back
         </el-button>
-      </div>
-      <!-- Title Search -->
-      <el-select
-        v-model="value3" :onChange="handleSelectIndicatorCategory" :onClear="handleClear" multiple clearable filterable
-        collapse-tags placeholder="Search Indicator Report">
-        <el-option v-for="item in categories" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
-      <!-- Action Buttons -->
-      <div style="display: flex; align-items: center; gap: 10px; margin-left: 10px;">
-        <PermissionWrapper :permissions="['indicator_category_report:create']">
-          <el-tooltip content="Add Indicator Category Report" placement="top">
-            <el-button :onClick="AddReport" type="primary" :icon="Plus" />
-          </el-tooltip>
-        </PermissionWrapper>
-        <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
-        <DownloadAll :model="model" :associated_models="associated_multiple_models" />
-        <el-button :onClick="handleClear" type="primary" :icon="Filter" />
-      </div>
+      </el-col>
+      
+      <el-col :span="5">
+        <el-select
+          v-model="selectedSettlements" 
+          @change="handleSettlementFilter" 
+          @clear="handleClear" 
+          multiple clearable 
+          filterable
+          remote
+          reserve-keyword
+          :loading="loading"
+          collapse-tags 
+          placeholder="Search Settlement"
+          :remote-method="remoteMethodSettlement"
+          style="width: 100%;">
+          <el-option 
+            v-for="item in settlementFilterOptions" 
+            :key="item.id" 
+            :label="item.label" 
+            :value="item.value">
+            <div style="display: flex; align-items: center;">
+              <span style="flex: 1; text-align: left;">{{ item.label }}</span>
+              <span style="flex: 2; color: var(--el-text-color-secondary); font-size: 13px; text-align: right;">
+                {{ item.ward ? item.ward + ', ' : '' }}{{ item.subcounty ? item.subcounty + ', ' : '' }}{{ item.county }}
+              </span>
+            </div>
+          </el-option>
+        </el-select>
+      </el-col>
+      
+      <el-col :span="5">
+        <el-select
+          v-model="selectedIndicators" 
+          @change="handleIndicatorFilter" 
+          @clear="handleClear" 
+          multiple clearable filterable
+          collapse-tags 
+          placeholder="Filter by Indicator"
+          style="width: 100%;">
+          <el-option v-for="item in indicatorFilterOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </el-col>
+      
+      <el-col :span="11">
+        <div style="display: flex; align-items: center; gap: 10px; justify-content: flex-end;">
+          <PermissionWrapper :permissions="['indicator_category_report:create']">
+            <el-tooltip content="Add Indicator Category Report" placement="top">
+              <el-button :onClick="AddReport" type="primary" :icon="Plus" />
+            </el-tooltip>
+          </PermissionWrapper>
+          <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
+          <DownloadAll :model="model" :associated_models="associated_multiple_models" />
+          <el-button :onClick="handleClear" type="primary" :icon="Filter" />
+        </div>
+      </el-col>
     </el-row>
-    <el-table :data="tableDataList" :loading="loading" border style="width: 100%; margin-top: 10px;">
-      <el-table-column label="Indicator" prop="indicator.name" sortable />
-      <el-table-column label="Category" prop="category_title" sortable />
+    <el-table :data="tableDataList" :loading="loading" border show-summary :summary-method="getSummaries" style="width: 100%; margin-top: 10px;">
+      <el-table-column label="Indicator" sortable>
+        <template #default="{ row }">
+          {{ row.indicator_category?.indicator_name || 'N/A' }}
+        </template>
+      </el-table-column>
+      <el-table-column label="Category" sortable>
+        <template #default="{ row }">
+          {{ row.indicator_category?.category_title || 'N/A' }}
+        </template>
+      </el-table-column>
+      <el-table-column label="Settlement" sortable>
+        <template #default="{ row }">
+          {{ row.settlement?.name || 'N/A' }}
+        </template>
+      </el-table-column>
+      <el-table-column label="Amount" prop="amount" sortable />
+      <el-table-column label="Progress %" prop="progress" sortable>
+        <template #default="{ row }">
+          {{ isFinite(Number(row.progress || 0)) ? Number(row.progress || 0).toFixed(1) : '0.0' }}%
+        </template>
+      </el-table-column>
+      <el-table-column label="Date" prop="date" sortable>
+        <template #default="{ row }">
+          {{ new Date(row.date).toLocaleDateString() }}
+        </template>
+      </el-table-column>
+      <el-table-column label="Status" prop="status" sortable>
+        <template #default="{ row }">
+          <el-tag :type="row.status === 'Approved' ? 'success' : row.status === 'Rejected' ? 'danger' : 'info'">
+            {{ row.status || 'New' }}
+          </el-tag>
+        </template>
+      </el-table-column>
       <el-table-column label="Actions" width="250">
         <template #default="{ row }">
           <PermissionWrapper :permissions="['indicator_category_report:update', 'indicator_category_report:delete']">
-            <TableActions :item="row" :buttons="action_buttons" @edit="editReport" @delete="DeleteReport" />
+            <TableActions 
+              :item="row" 
+              :buttons="action_buttons" 
+              @edit="editReport" 
+              @delete="DeleteReport" 
+              @view-on-map="showMap"
+              :disabled-buttons="row.geom ? [] : ['viewOnMap']" />
           </PermissionWrapper>
         </template>
       </el-table-column>

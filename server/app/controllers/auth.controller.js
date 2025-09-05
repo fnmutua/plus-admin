@@ -1819,11 +1819,24 @@ exports.verifyCode = async (req, res) => {
     expiryDate.setHours(expiryDate.getHours() + 24);
 
 
-    var authorities = []
+    // Fetch all user_roles with location and role name (same as web signin)
+    const userRoles = await db.models.user_roles.findAll({
+      where: { userid: user.id },
+      include: [{ model: db.role, attributes: ['name'] }]
+    });
+    const formattedUserRoles = userRoles.map(ur => ({
+      role: ur.role ? ur.role.name : null,
+      county_id: ur.county_id,
+      subcounty_id: ur.subcounty_id,
+      ward_id: ur.ward_id,
+      settlement_id: ur.settlement_id
+    }));
+
+    // Get authorities as before (same as web signin)
     user.getRoles().then((roles) => {
+      let authorities = [];
       for (let i = 0; i < roles.length; i++) {
-       // authorities.push(roles[i].name)
-        authorities.push(roles[i])
+        authorities.push(roles[i]);
       }
 
       const expiryDate = new Date();
@@ -1834,21 +1847,19 @@ exports.verifyCode = async (req, res) => {
       res.status(200).send({
         id: user.id,
         username: user.username,
+        phone: user.phone,
         name: user.name,
         email: user.email,
         roles: authorities,
-        user_roles: user.user_roles,
-        phone: user.phone,
+        user_roles: formattedUserRoles,
         county_id: user.county_id,
-                  country_name: user.country_name || 'Kenya',
+        country_name: user.country_name || 'Kenya',
         accessToken: token,
-        tokenExpiryDate:expiryDate,
+        tokenExpiryDate: expiryDate,
         code: '0000',
         user: user,
-        photo: user.photo,
-        //avatar: user.avatar,
-        avatar : user.photo ? 'data:image/png;base64,' + user.photo.toString('base64') : user.avatar, 
-        //avatar : user.avatar, 
+        photo: user.avatar,
+        avatar : user.photo ? 'data:image/png;base64,' + user.photo.toString('base64') : user.avatar,
         data: token,
         message: 'Login Successful'
       })

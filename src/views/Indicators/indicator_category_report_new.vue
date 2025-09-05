@@ -3,7 +3,7 @@
 import { useI18n } from '@/hooks/web/useI18n'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
-import { ElButton, ElMessageBox, ElSelect, FormInstance, ElCard, ElLink } from 'element-plus'
+import { ElButton, ElMessageBox, ElSelect, FormInstance, ElRow, ElCard, ElLink } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
   Plus,
@@ -24,7 +24,7 @@ import {
 import { useRouter } from 'vue-router'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
-import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument, uploadDocuments } from '@/api/settlements'
+import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument, uploadDocuments, searchByKeyWord } from '@/api/settlements'
 import { uuid } from 'vue-uuid'
 import type { UploadProps, UploadUserFile } from 'element-plus'
 import readXlsxFile from 'read-excel-file'
@@ -188,10 +188,11 @@ const handleClear = async () => {
   console.log('cleared....')
 
   // clear all the fileters -------
-
   value1.value = null
   value2.value = null
   value3.value = null
+  selectedSettlements.value = []
+  selectedIndicators.value = []
   pageSize.value = 5
   currentPage.value = 1
   tblData = []
@@ -343,6 +344,13 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 const indicatorsOptions = ref([])
 const indicatorsOptionsFiltered = ref([])
 
+// Filter options and selections
+const settlementFilterOptions = ref([])
+const indicatorFilterOptions = ref([])
+const selectedSettlements = ref([])
+const selectedIndicators = ref([])
+const firstLoad = ref(true)
+
 const getIndicatorNames = async () => {
   const formData = {}
 
@@ -388,6 +396,124 @@ const getIndicatorNames = async () => {
 const projectOptions = ref([])
 const activityOptions = ref([])
 const activityOptionsFiltered = ref([])
+
+// Remote search method borrowed from ProjectDetails.vue
+const remoteMethodSettlement = async (keyword) => {
+  loading.value = true
+  let model = 'settlement' // Always search settlements for this filter
+
+  // Dynamically assign associated models
+  const associatedModels = ['county', 'subcounty', 'ward']
+
+  const formData = {
+    model: model,
+    searchField: 'name',
+    searchKeyword: firstLoad.value ? '' : keyword, // only empty search on first load
+    excludeGeom: false,
+    excludeGeomAssoc: true,
+    associated_multiple_models: associatedModels,
+    filters: [],
+    filterValues: [],
+    limit: 50, // Limit to first 50 records
+    offset: 0
+  }
+
+  try {
+    const res = await searchByKeyWord(formData)
+
+    if (res.data && res.data.length > 0) {
+      settlementFilterOptions.value = res.data.map(item => {
+        const base = {
+          value: item.id,
+          label: item.name,
+          name: item.name,
+          geom: item.geom,
+        }
+
+        return {
+          ...base,
+          settlement_id: item.id,
+          county: item.county?.name,
+          subcounty: item.subcounty?.name,
+          ward: item.ward?.name,
+          county_id: item.county?.id,
+          subcounty_id: item.subcounty?.id,
+          ward_id: item.ward?.id
+        }
+      })
+    }
+
+    firstLoad.value = false // Disable first load flag after first run
+    
+  } catch (error) {
+    console.error("Settlement search error:", error)
+  }
+
+  loading.value = false
+}
+
+// Filter handler functions
+const handleSettlementFilter = async (settlements: any) => {
+  var selectOption = 'settlement_id'
+  var index = filters.indexOf(selectOption)
+  
+  // Remove existing filter if present
+  if (index !== -1) {
+    filters.splice(index, 1)
+    filterValues.splice(index, 1)
+  }
+  
+  // Add new filter if settlements selected
+  if (settlements && settlements.length > 0) {
+    filters.push(selectOption)
+    filterValues.push(settlements)
+  }
+  
+  console.log('Settlement Filter:', settlements)
+  getFilteredData(filters, filterValues)
+}
+
+const handleIndicatorFilter = async (indicators: any) => {
+  var selectOption = 'indicator_category_id'
+  var index = filters.indexOf(selectOption)
+  
+  // Remove existing filter if present
+  if (index !== -1) {
+    filters.splice(index, 1)
+    filterValues.splice(index, 1)
+  }
+  
+  // Add new filter if indicators selected
+  if (indicators && indicators.length > 0) {
+    filters.push(selectOption)
+    filterValues.push(indicators)
+  }
+  
+  console.log('Indicator Filter:', indicators)
+  getFilteredData(filters, filterValues)
+}
+
+const getIndicatorFilterOptions = async () => {
+  const formData = {
+    curUser: 1,
+    model: 'indicator_category',
+    searchField: 'indicator_name',
+    searchKeyword: '',
+    assocModel: '',
+    filters: [],
+    filterValues: [],
+    associated_multiple_models: [],
+    nested_models: [],
+  };
+
+  const res = await getSettlementListByCounty(formData);
+  console.log('Indicator Filter Options Response:', res);
+
+  indicatorFilterOptions.value = res.data.map((item) => ({
+    value: item.id,
+    label: `${item.indicator_name} | ${item.category_title}`,
+  }));
+};
 
 const getProjects = async () => {
   const formData = {}
@@ -949,6 +1075,15 @@ getModeldefinition(model)
 
 getIndicatorNames()
 getProjects()
+
+// Load filter options - initialize settlement search
+remoteMethodSettlement('').then(() => {
+  console.log('Settlement filter options loaded successfully')
+}).catch(err => {
+  console.error('Failed to load settlement filter options:', err)
+})
+getIndicatorFilterOptions()
+
 //getCategoryOptions()
 getInterventionsAll()
 
@@ -1206,6 +1341,59 @@ function formatDate(dateString) {
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
+
+const getSummaries = (param) => {
+  const { columns, data } = param;
+  const sums = [];
+
+  columns.forEach((column, index) => {
+    if (index === 0) {
+      sums[index] = 'Summary';
+      return;
+    }
+
+    // Calculate total for Qty/Status column
+    if (column.label === 'Qty/Status') {
+      const numericRows = data.filter(row => row.qualitative === null && row.amount);
+      const total = numericRows.reduce((sum, row) => {
+        const value = Number(row.amount);
+        return isNaN(value) ? sum : sum + value;
+      }, 0);
+      const qualitativeCount = data.filter(row => row.qualitative !== null).length;
+      
+      if (qualitativeCount > 0 && numericRows.length > 0) {
+        sums[index] = `Total: ${total.toLocaleString()} + ${qualitativeCount} Status`;
+      } else if (qualitativeCount > 0) {
+        sums[index] = `${qualitativeCount} Status Items`;
+      } else {
+        sums[index] = `Total: ${total.toLocaleString()}`;
+      }
+    } 
+    // Calculate average for Progress column
+    else if (column.label === 'Progress %') {
+      const validProgressValues = data.filter(row => {
+        const progress = Number(row.progress || 0);
+        return !isNaN(progress) && isFinite(progress);
+      });
+      
+      if (validProgressValues.length > 0) {
+        const averageProgress = validProgressValues.reduce((sum, row) => {
+          return sum + Number(row.progress || 0);
+        }, 0) / validProgressValues.length;
+        
+        sums[index] = `Avg: ${averageProgress.toFixed(1)}%`;
+      } else {
+        sums[index] = 'Avg: 0.0%';
+      }
+    }
+    // For other columns, show empty
+    else {
+      sums[index] = '';
+    }
+  });
+
+  return sums;
+};
 
 const router = useRouter()
 
@@ -1554,35 +1742,61 @@ const downloadFile = async (data) => {
 
   <el-card>
 
-    <el-row type="flex" justify="start" gutter="10" style="display: flex; flex-wrap: nowrap; align-items: center;">
-
-      <div class="max-w-200px">
-        <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
+    <el-row :gutter="10" style="margin-bottom: 16px;">
+      <el-col :span="3">
+        <el-button type="primary" plain :icon="Back" @click="goBack">
           Back
         </el-button>
-      </div>
-
-      <!-- Title Search -->
-      <el-select
-v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear" multiple clearable
-        filterable collapse-tags placeholder="Filter by Project/Indicator" style="width: 450px; margin-right: 10px;">
-        <el-option v-for="item in indicatorsOptions" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
-
-
-      <!-- Action Buttons -->
-      <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px;">
-        <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
-        <el-button :onClick="handleClear" type="primary" :icon="Filter" />
-
-      </div>
-
-      <!-- Download All Component -->
-      <DownloadAll v-if="showEditButtons" :model="model" :associated_models="associated_multiple_models" />
-      <div v-if="dynamicComponent">
-        <upload-component :is="dynamicComponent" v-bind="componentProps" />
-      </div>
-
+      </el-col>
+      
+      <el-col :span="6" style="margin-left: 16px;margin-right: 16px;" >
+        <el-select
+          v-model="selectedSettlements" 
+          @change="handleSettlementFilter" 
+          @clear="handleClear" 
+          multiple clearable 
+          filterable
+          remote
+          reserve-keyword
+          :loading="loading"
+          collapse-tags 
+          placeholder="Search Settlement"
+          :remote-method="remoteMethodSettlement"
+          style="width: 100%;">
+          <el-option 
+            v-for="item in settlementFilterOptions" 
+            :key="item.id" 
+            :label="item.label" 
+            :value="item.value">
+            <div style="display: flex; align-items: center;">
+              <span style="flex: 1; text-align: left;">{{ item.label }}</span>
+              <span style="flex: 2; color: var(--el-text-color-secondary); font-size: 13px; text-align: right;">
+                {{ item.ward ? item.ward + ', ' : '' }}{{ item.subcounty ? item.subcounty + ', ' : '' }}{{ item.county }}
+              </span>
+            </div>
+          </el-option>
+        </el-select>
+      </el-col>
+      
+      <el-col :span="6" style="margin-right: 16px;" >
+        <el-select
+          v-model="selectedIndicators" 
+          @change="handleIndicatorFilter" 
+          @clear="handleClear" 
+          multiple clearable filterable
+          collapse-tags 
+          placeholder="Filter by Indicator"
+          style="width: 100%;">
+          <el-option v-for="item in indicatorFilterOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </el-col>
+      
+      <el-col :span="9">
+        <div style="display: flex; align-items: center; gap: 10px; justify-content: flex-right;">
+          <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
+          <el-button :onClick="handleClear" type="primary" :icon="Filter" />
+        </div>
+      </el-col>
     </el-row>
 
 
@@ -1591,7 +1805,7 @@ v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear
 
 
     <el-table
-:data="tableDataList" style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName"
+:data="tableDataList" style="width: 100%; margin-top: 10px;" border show-summary :summary-method="getSummaries" :row-class-name="tableRowClassName"
       @expand-change="handleExpand" v-loading="loading">
       <el-table-column type="expand">
         <template #default="props">
@@ -1616,30 +1830,46 @@ v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear
 
 
 
-      <el-table-column label="Indicator" width="400" prop="indicator_category.indicator.name" sortable />
-      <el-table-column label="Settlement" width="350" prop="settlement.name" sortable />
-
+      <el-table-column label="Indicator" sortable>
+        <template #default="{ row }">
+          {{ row.indicator_category?.indicator_name || 'N/A' }}
+        </template>
+      </el-table-column>
+      <el-table-column label="Category" sortable>
+        <template #default="{ row }">
+          {{ row.indicator_category?.category_title || 'N/A' }}
+        </template>
+      </el-table-column>
+      <el-table-column label="Settlement" sortable>
+        <template #default="{ row }">
+          {{ row.settlement?.name || 'N/A' }}
+        </template>
+      </el-table-column>
+      <el-table-column label="Qty/Status" sortable>
+        <template #default="{ row }">
+          {{ row.qualitative !== null ? (row.qualitative ? 'Yes' : 'No') : row.amount }}
+        </template>
+      </el-table-column>
+      <el-table-column label="Progress %" prop="progress" sortable>
+        <template #default="{ row }">
+          {{ isFinite(Number(row.progress || 0)) ? Number(row.progress || 0).toFixed(1) : '0.0' }}%
+        </template>
+      </el-table-column>
       <el-table-column label="Date" prop="date" sortable>
         <template #default="scope">
           {{ formatDate(scope.row.date) }}
         </template>
       </el-table-column>
 
-      <!-- <el-table-column label="County" prop="county.name" sortable /> -->
-      <!-- <el-table-column label="Unit" prop="indicator_category.indicator.unit" sortable /> -->
-      <el-table-column label="Category" prop="indicator_category.category_title" sortable />
-      <!-- <el-table-column label="Amount" prop="amount" sortable /> -->
-
-      <el-table-column label="Qty/Status" sortable>
-                  <template #default="{ row }">
-                    {{ row.qualitative !== null ? (row.qualitative ? 'Yes' : 'No') : row.amount }}
-                  </template>
-                </el-table-column>
 
 
-
-
-      <el-table-column label="Status" prop="status" sortable />
+      <el-table-column label="Status" prop="status" sortable>
+        <template #default="{ row }">
+          <el-tag :type="row.status === 'Approved' ? 'success' : row.status === 'Rejected' ? 'danger' : 'info'">
+            {{ row.status || 'New' }}
+          </el-tag>
+        </template>
+      </el-table-column>
       <!-- <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
         <template #default="scope">
           <el-dropdown v-if="isMobile">
