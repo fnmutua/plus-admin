@@ -1,13 +1,12 @@
 <script setup lang="ts">
-import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
 import {
-  ElButton, ElRate, ElTag, FormInstance, ElTabs, ElTabPane, ElDialog, ElCard,
+  ElButton, ElRate, ElTag, ElTabs, ElTabPane, ElDialog, ElCard,
   ElInput, ElBadge, ElDescriptions, ElDescriptionsItem, ElPopconfirm, ElTable, ElCol, ElRow,
-  ElTableColumn, UploadUserFile, ElDropdown, ElDropdownMenu, ElDropdownItem, ElCheckbox
+  ElTableColumn, ElDropdown, ElDropdownMenu, ElDropdownItem, ElCheckbox
 } from 'element-plus'
 import { ElMessage, } from 'element-plus'
 import { Position, View, Plus, Back, CircleCloseFilled, Download, Delete, Edit, Filter, InfoFilled, Search } from '@element-plus/icons-vue'
@@ -26,14 +25,9 @@ import {
   searchByKeyWord
 } from '@/api/settlements'
 
-import readShapefileAndConvertToGeoJSON from '@/utils/readShapefile'
-
 import filterDataByKeys from '@/utils/filterArrays'
 
 import { getSummarybyField } from '@/api/summary'
-
-import { getModelSpecs } from '@/api/fields'
-
 
 import 'element-plus/theme-chalk/display.css'
 
@@ -51,7 +45,82 @@ import { UserType } from '@/api/register/types'
 
 import { MapboxLayerSwitcherControl } from "mapbox-layer-switcher";
 import "mapbox-layer-switcher/styles.css";
-import proj4 from 'proj4';
+
+// Type definitions
+interface EvaluationData {
+  id: string
+  evaluation_title: string
+  overall_rating: number
+  evaluators: string
+  isApproved: 'Pending' | 'Approved' | 'Rejected'
+  reviewerId?: string
+  reject_msg?: string
+  model: string
+  project: {
+    title: string
+    geom?: any
+  }
+  evaluation_type: {
+    type: string
+  }
+  user: {
+    name: string
+  }
+  updatedAt: string
+  documents: any[]
+  [key: string]: any
+}
+
+interface FormData {
+  limit: number
+  page: number
+  curUser: number
+  model: string
+  searchField: string
+  searchKeyword: string
+  assocModel?: string
+  filters: string[]
+  filterValues: string[][]
+  associated_multiple_models: string[]
+  nested_models: string[]
+  cache_key?: string
+  returnAll?: boolean
+}
+
+interface SummaryFormData {
+  model: string
+  summaryField: string
+  summaryFunction: string
+  groupField: string[]
+}
+
+interface DeleteFormData {
+  id: string
+  model: string
+  filesToDelete?: any[]
+}
+
+interface FieldData {
+  label: string
+  value: string
+}
+
+interface DataObject {
+  sheet: string
+  columns: FieldData[]
+  content: any[]
+}
+
+interface MapboxLayerDefinition {
+  id: string
+  title: string
+  visibility: string
+  type: string
+}
+
+interface TableSlotDefault {
+  row: EvaluationData
+}
 
 
 
@@ -113,15 +182,15 @@ const showEditButtons = ref(appStore.getEditButtons)
 
 
 const { push } = useRouter()
-const value1 = ref([])
-const value2 = ref([])
-const value3 = ref()
-var value4 = ref([])
-var value5 = ref([])
+const value1 = ref<string[]>([])
+const value2 = ref<string[]>([])
+const value3 = ref<string>('')
+var value4 = ref<string[]>([])
+var value5 = ref<string[]>([])
 
 const loadingGetData = ref(false)
 
-const interVentionTypeOptions = ref([])
+const interVentionTypeOptions = ref<any[]>([])
 
 
 const page = ref(1)
@@ -178,21 +247,21 @@ const totalApproved = ref(0)
 const totalPending = ref(0)
 
 
-//let tableDataList = ref<UserType[]>([])
-const tableDataList = ref([])
-let tableDataListNew = ref<UserType[]>([])
-let tableDataListRejected = ref<UserType[]>([])
+//let tableDataList = ref<EvaluationData[]>([])
+const tableDataList = ref<EvaluationData[]>([])
+let tableDataListNew = ref<EvaluationData[]>([])
+let tableDataListRejected = ref<EvaluationData[]>([])
 
 //// ------------------parameters -----------------------////
 
 
-const filters = ref(['isApproved'])
-const filterValues = ref([['Approved']]) // make sure the inner array is array
+const filters = ref<string[]>(['isApproved'])
+const filterValues = ref<string[][]>([['Approved']]) // make sure the inner array is array
 
 
 
 
-var tblData = []
+var tblData = ref<EvaluationData[]>([])
 
 const associated_Model = ''
 const associated_multiple_models = ['project', 'evaluation_type', 'users']
@@ -223,11 +292,11 @@ const handleClear = async () => {
   // clear all the fileters -------
   filterValues.value = []
   filters.value = []
-  value1.value = ''
-  value2.value = ''
+  value1.value = []
+  value2.value = []
   value3.value = ''
-  value4.value = ''
-  value5.value = ''
+  value4.value = []
+  value5.value = []
 
   pageSize.value = 5
   currentPage.value = 1
@@ -349,11 +418,12 @@ const getAllSetllementsInitially = async () => {
 
 
 const getSettlementCount = async () => {
-  const formData = {}
-  formData.model = 'evaluation'
-  formData.summaryField = 'isApproved'
-  formData.summaryFunction = 'count'
-  formData.groupField = ['isApproved']
+  const formData: SummaryFormData = {
+    model: 'evaluation',
+    summaryField: 'isApproved',
+    summaryFunction: 'count',
+    groupField: ['isApproved']
+  }
 
   const newSettCount = await getSummarybyField(formData)
   console.log('Settleemnt Count---->', newSettCount)
@@ -479,28 +549,27 @@ const getNewOrRejectedSettlements = async (tab) => {
 
 
 
-  const formData = {}
-  formData.limit = pageSize.value
-  formData.page = page.value
-  formData.curUser = 1 // Id for logged in user
-  formData.model = model
-  //-Search field--------------------------------------------
-  formData.searchField = 'evaluation_title'
-  formData.searchKeyword = ''
-  //--Single Filter -----------------------------------------
-
-  formData.assocModel = associated_Model
-
-  // - multiple filters -------------------------------------
-  formData.filters = filters.value
-  formData.filterValues = filterValues.value
-  formData.associated_multiple_models = associated_multiple_models
-  formData.nested_models = nested_models
-  //formData.cache_key = key
+  const formData: FormData = {
+    limit: pageSize.value,
+    page: page.value,
+    curUser: 1, // Id for logged in user
+    model: model,
+    //-Search field--------------------------------------------
+    searchField: 'evaluation_title',
+    searchKeyword: '',
+    //--Single Filter -----------------------------------------
+    assocModel: associated_Model,
+    // - multiple filters -------------------------------------
+    filters: filters.value,
+    filterValues: filterValues.value,
+    associated_multiple_models: associated_multiple_models,
+    nested_models: nested_models
+    //cache_key: key
+  }
 
   //-------------------------
   console.log(formData)
-  const res = await getSettlementListByCounty(formData)
+  const res = await getSettlementListByCounty(formData as any)
   //const res = await getListWithoutGeo(formData)
 
   loadingGetData.value = false
@@ -561,35 +630,34 @@ const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
 };
 
 
-const model_fields = ref([])
-const flattenedData = ref([])
+const model_fields = ref<string[]>([])
+const flattenedData = ref<any[]>([])
 
 const getFilteredData = async (selFilters, selfilterValues) => {
   loadingGetData.value = true
 
   console.log("loadingGetData", loadingGetData.value)
-  const formData = {}
-  formData.limit = pageSize.value
-  formData.page = page.value
-  formData.curUser = 1 // Id for logged in user
-  formData.model = model
-  //-Search field--------------------------------------------
-  formData.searchField = 'evaluation_title'
-  formData.searchKeyword = ''
-  //--Single Filter -----------------------------------------
-
-  formData.assocModel = associated_Model
-
-  // - multiple filters -------------------------------------
-  formData.filters = selFilters
-  formData.filterValues = selfilterValues
-  formData.associated_multiple_models = associated_multiple_models
-  formData.nested_models = nested_models
+  const formData: FormData = {
+    limit: pageSize.value,
+    page: page.value,
+    curUser: 1, // Id for logged in user
+    model: model,
+    //-Search field--------------------------------------------
+    searchField: 'evaluation_title',
+    searchKeyword: '',
+    //--Single Filter -----------------------------------------
+    assocModel: associated_Model,
+    // - multiple filters -------------------------------------
+    filters: selFilters,
+    filterValues: selfilterValues,
+    associated_multiple_models: associated_multiple_models,
+    nested_models: nested_models
+  }
 
 
   //-------------------------
   console.log('FormSubmitted', formData)
-  const res = await getSettlementListByCounty(formData)
+  const res = await getSettlementListByCounty(formData as any)
 
   console.log('After Querry - associated_multiple_models', res)
   tableDataList.value = res.data
@@ -616,7 +684,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
 const ShowReviewDialog = ref(false)
 const RejectDialog = ref(false)
-const evaluation_raw = ref({})
+const evaluation_raw = ref<EvaluationData>({} as EvaluationData)
 
 
 const Review = (data: TableSlotDefault) => {
@@ -647,7 +715,7 @@ const approveEvaluation = async () => {
   evaluation_raw.value.model = 'evaluation'
   console.log(evaluation_raw)
 
-  await updateOneRecord(evaluation_raw.value).then(() => { })
+  await updateOneRecord(evaluation_raw.value as any).then(() => { })
   ShowReviewDialog.value = false
   getFilteredData(filters, filterValues)
 }
@@ -669,7 +737,7 @@ const confirmReject = async () => {
 
 
 
-  await updateOneRecord(evaluation_raw.value).then(() => { })
+  await updateOneRecord(evaluation_raw.value as any).then(() => { })
   RejectDialog.value = false
   ShowReviewDialog.value = false
 
@@ -876,30 +944,28 @@ const getFilteredBySearchData = async (tab, searchKey) => {
   }
 
 
-  const formData = {}
-  formData.limit = pageSize.value
-  formData.page = page.value
-  formData.curUser = 1 // Id for logged in user
-  formData.model = model
-
-  //-Search field--------------------------------------------
-  formData.searchField = 'evaluation_title'
-  formData.searchKeyword = searchKey
-  //--Single Filter -----------------------------------------
-
-  //formData.assocModel = associated_Model
-
-  // - multiple filters -------------------------------------
-  formData.filters = filters.value
-  formData.filterValues = filterValues.value
-  formData.associated_multiple_models = associated_multiple_models
-  formData.nested_models = nested_models
-  formData.cache_key = 'SeacrchByKey_' + search_string.value
-  formData.returnAll = true
+  const formData: FormData = {
+    limit: pageSize.value,
+    page: page.value,
+    curUser: 1, // Id for logged in user
+    model: model,
+    //-Search field--------------------------------------------
+    searchField: 'evaluation_title',
+    searchKeyword: searchKey,
+    //--Single Filter -----------------------------------------
+    //assocModel: associated_Model,
+    // - multiple filters -------------------------------------
+    filters: filters.value,
+    filterValues: filterValues.value,
+    associated_multiple_models: associated_multiple_models,
+    nested_models: nested_models,
+    cache_key: 'SeacrchByKey_' + search_string.value,
+    returnAll: true
+  }
   //-------------------------
   console.log(formData)
   console.log('activeTab', tab)
-  const res = await searchByKeyWord(formData)
+  const res = await searchByKeyWord(formData as any)
 
   if (tab === 'list') {
 
@@ -1006,14 +1072,15 @@ const editSettlement = (data: TableSlotDefault) => {
 
 const DeleteSettlement = (data: TableSlotDefault) => {
   console.log('----->', data)
-  let formData = {}
-  formData.id = data.id
-  formData.model = model
+  let formData: DeleteFormData = {
+    id: data.row.id,
+    model: model
+  }
 
-  DeleteRecord(formData).then(response => {
+  DeleteRecord(formData as any).then(response => {
     console.log(response)
     // remove the deleted object from array list 
-    let index = tableDataList.value.indexOf(data);
+    let index = tableDataList.value.indexOf(data.row);
     if (index !== -1) {
       tableDataList.value.splice(index, 1);
     }
@@ -1027,10 +1094,10 @@ const DeleteSettlement = (data: TableSlotDefault) => {
   console.log(tableDataList.value)
 
   // Delete docuemnts only if there's any docuemnt to delete 
-  if (data.documents.length > 0) {
-    formData.filesToDelete = data.documents
+  if (data.row.documents.length > 0) {
+    formData.filesToDelete = data.row.documents
 
-    deleteDocument(formData)
+    deleteDocument(formData as any)
 
   }
 
@@ -1043,7 +1110,7 @@ const DeleteSettlement = (data: TableSlotDefault) => {
 
 
 const showSelectFields = ref(false)
-const selectedFields = ref([])
+const selectedFields = ref<string[]>([])
 
 
 const DownloadXlsx = async () => {
@@ -1063,12 +1130,13 @@ const handleDownloadSelectFields = async () => {
 
 
 
-  let fields = []
+  let fields: FieldData[] = []
 
   for (let i = 0; i < selectedFields.value.length; i++) {
-    var fld = {}
-    fld.label = selectedFields.value[i]
-    fld.value = selectedFields.value[i]
+    var fld: FieldData = {
+      label: selectedFields.value[i],
+      value: selectedFields.value[i]
+    }
     fields.push(fld)
   }
 
@@ -1078,23 +1146,25 @@ const handleDownloadSelectFields = async () => {
 
 
   // Preprae the data object 
-  var dataObj = {}
-  dataObj.sheet = 'data'
-  dataObj.columns = fields
+  var dataObj: DataObject = {
+    sheet: 'data',
+    columns: fields,
+    content: []
+  }
 
-  let dataHolder = []
+  let dataHolder: any[] = []
   // loop through the table data and sort the data 
   // change here !
   for (let i = 0; i < flattenedData.value.length; i++) {
-    let thisRecord = {}
+    let thisRecord: any = {
+      index: i + 1
+    }
 
     //   console.log('flattened ??',i,  flattenedData.value[i])
 
-    thisRecord.index = i + 1
-
     for (let j = 0; j < fields.length; j++) {
-      var fld = fields[j].label
-      thisRecord[fld] = flattenedData.value[i][fld]
+      var fieldLabel = fields[j].label
+      thisRecord[fieldLabel] = flattenedData.value[i][fieldLabel]
 
       console.log('fld', thisRecord)
 
@@ -1233,8 +1303,8 @@ function handleExpand(row) {
 console.log('model_fields.value', model_fields.value)
 
 
-const combinedLessons = (row) => {
-  const lessons = [];
+const combinedLessons = (row: any) => {
+  const lessons: any[] = [];
   for (const key in row) {
     if (key.startsWith('lessons_') && Array.isArray(row[key])) {
       lessons.push(...row[key]);
@@ -1280,9 +1350,9 @@ const goBack = () => {
       </div>
 
       <!-- Title Search -->
-      <el-input
+        <el-input
 v-model="search_string" :suffix-icon="Search" placeholder="Enter search text" style="width: 100%;"
-        :onInput="searchByName" />
+        @input="searchByName" />
 
 
 
@@ -1290,12 +1360,12 @@ v-model="search_string" :suffix-icon="Search" placeholder="Enter search text" st
       <!-- Action Buttons -->
       <div style="display: flex; align-items: center; gap: 10px; margin-left: 10px;">
         <el-tooltip content="Create Evaluation" placement="top">
-          <el-button v-if="showEditButtons" :onClick="AddEvaluation" type="primary" :icon="Plus" />
+          <el-button v-if="showEditButtons" @click="AddEvaluation" type="primary" :icon="Plus" />
         </el-tooltip>
 
 
-        <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
-        <el-button :onClick="handleClear" type="primary" :icon="Filter" />
+        <el-button @click="DownloadXlsx" type="primary" :icon="Download" />
+        <el-button @click="handleClear" type="primary" :icon="Filter" />
 
       </div>
 
@@ -1527,7 +1597,7 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
       <el-tab-pane name="Rejected" v-if=showEditButtons :badge="5">
         <template #label>
           <span class="custom-tabs-label">
-            <el-badge :value="totalRejected" class="item">
+            <el-badge :value="totalRejected.toString()" class="item">
               <el-button link>Rejected</el-button>
             </el-badge>
           </span>
@@ -1633,13 +1703,13 @@ v-if="showPagination" layout="sizes, prev, pager, next, total" v-model:currentPa
     <el-dialog v-model="showSelectFields" title="Select Fields" width="50%">
       <el-row>
         <el-col :span="6" v-for="(field, index) in model_fields" :key="index">
-          <el-checkbox v-model="selectedFields" :label="field">{{ field }}</el-checkbox>
+          <el-checkbox v-model="selectedFields" :label="field" :value="field">{{ field }}</el-checkbox>
         </el-col>
       </el-row>
       <el-button type="success" @click="handleDownloadSelectFields()">Download</el-button>
     </el-dialog>
 
-    <el-dialog v-model="ShowReviewDialog" @close="handleClose" :title="formHeader" :width="reviewWindowWidth" draggable>
+    <el-dialog v-model="ShowReviewDialog" :title="formHeader" :width="reviewWindowWidth" draggable>
       <el-descriptions title="" direction="vertical" :column="2" size="small" border>
         <el-descriptions-item label="Project">{{ evaluation_raw.project.title }}</el-descriptions-item>
         <el-descriptions-item label="Title" :span="2">{{ evaluation_raw.evaluation_title }}</el-descriptions-item>
