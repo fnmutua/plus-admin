@@ -4599,7 +4599,7 @@ exports.xbatchDocumentsUploadByParentCode = async (req, res) => {
     }
   })
 }
-exports.batchDocumentsUploadByParentCode = async (req, res) => {
+exports.xxbatchDocumentsUploadByParentCode = async (req, res) => {
 
 
   upload.array('files')(req, res, async (err) => {
@@ -4719,6 +4719,117 @@ exports.batchDocumentsUploadByParentCode = async (req, res) => {
 
       res.status(500).send({
         message: 'Upload failed. ' + errors + ' errors',
+        code: '0000'
+      })
+    }
+  })
+}
+
+exports.batchDocumentsUploadByParentCode = async (req, res) => {
+  upload.array('files')(req, res, async (err) => {
+    if (err) {
+      console.log('Upload middleware error:', err);
+      return res.status(500).send({
+        message: 'Upload failed.',
+        code: '0000'
+      })
+    } 
+    
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).send({ 
+        message: 'No files found in request',
+        code: '0000' 
+      })
+    }
+
+    var myFiles = req.files
+    console.log('files to upload', myFiles)
+    console.log('Properties Document', req.body)
+ 
+    var errors = []
+    var objs = []
+
+    // Validate required fields
+    if (!req.body.pcode) {
+      return res.status(400).send({
+        message: 'pcode is required',
+        code: '0000'
+      })
+    }
+
+    if (!req.body.model) {
+      return res.status(400).send({
+        message: 'model is required', 
+        code: '0000'
+      })
+    }
+
+    if (!req.body.field_id) {
+      return res.status(400).send({
+        message: 'field_id is required',
+        code: '0000'
+      })
+    }
+
+    try {
+      // First, check if records exist with the pcode
+      const records = await db.models[req.body.model].findAll({
+        where: {
+          code: {
+            [Op.eq]: req.body.pcode
+          }
+        }
+      });
+
+      if (!records || records.length === 0) {
+        return res.status(404).send({
+          message: `No records found with pcode: ${req.body.pcode}`,
+          code: '0000'
+        })
+      }
+
+      const recordIds = records.map((record) => record.id);
+      console.log('Found records with IDs:', recordIds);
+
+      // Process each file
+      for (let i = 0; i < myFiles.length; i++) {
+        var obj = {
+          type: req.body.type || 'Document',
+          format: req.body.format || 'png',
+          size: req.body.size || myFiles[i].size,
+          createdBy: req.body.createdBy || 1,
+          category: req.body.category || '10',
+          protectedFile: req.body.protected === 'true',
+          public: req.body.public === 'true',
+          name: myFiles[i].originalname,
+          location: myFiles[i].path,
+          code: crypto.randomUUID()
+        };
+
+        // Create document for each record ID
+        for (const recordId of recordIds) {
+          const newObj = { ...obj };
+          newObj[req.body.field_id] = recordId;
+          objs.push(newObj);
+        }
+      }
+
+      console.log('Documents to create:', objs);
+
+      // Create all documents
+      const createdDocuments = await db.models['document'].bulkCreate(objs);
+      console.log('Created documents:', createdDocuments.length);
+
+      res.status(200).send({
+        message: `Upload via App Successful. Created ${createdDocuments.length} documents.`,
+        code: '0000',
+        createdCount: createdDocuments.length
+      })
+
+    } catch (error) {
+      console.error('Database error:', error);
+      res.status(500).send({
+        message: 'Database operation failed: ' + error.message,
         code: '0000'
       })
     }
