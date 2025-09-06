@@ -6,8 +6,81 @@ import { cloneDeep } from 'lodash-es'
 import { Layout } from '@/utils/routerHelper'
 import { ref ,watch} from 'vue'
 import { getRoutesList } from '@/api/settlements'
-import { useAppStore} from '@/store/modules/app'
+// import { useAppStore} from '@/store/modules/app' // Removed unused import
 import { useCache } from '@/hooks/web/useCache'
+
+// Define proper types for the API responses
+interface RouteRequestData {
+  limit: number
+  page: number
+  curUser: number
+  model: string
+  searchField: string
+  searchKeyword: string
+  associated_multiple_models?: string[]
+  filters?: string[]
+  filterValues?: any[][]
+}
+
+interface RouteItem {
+  id: number
+  title: string
+  acronym: string
+  icon?: string
+  parentId?: number
+  programme_id?: number
+  children?: RouteItem[]
+}
+
+// interface RouteResponse { // Removed unused interface
+//   data: RouteItem[]
+//   message: string
+//   code: string
+//   results: RouteItem[]
+// }
+
+interface ComponentMeta {
+  title: string
+  hidden: boolean
+  component_id: number
+  icon: string
+  role: string[]
+  locationLevel: string[]
+  programme_id: number
+}
+
+interface RouteComponent {
+  id: number
+  title: string
+  acronym: string
+  icon?: string
+  programme_id: number
+  meta: ComponentMeta
+  name: string
+  path: string
+  component: any
+}
+
+// interface DashboardItem { // Removed unused interface
+//   id: number
+//   title: string
+//   icon?: string
+//   main_dashboard?: boolean
+//   public?: boolean
+//   createdBy?: number
+// }
+
+interface DashboardComponent {
+  component: any
+  path: string
+  name: string
+  meta: {
+    title: string
+    hidden: boolean
+    icon?: string
+    dashboard_id: number
+  }
+}
 
 
 function toTitleCase(str) {
@@ -39,14 +112,15 @@ const userInfo = wsCache.get(appStore.getUserInfo)
 
  
 
-const programmeComponentOptions = ref([])
-const dynamicDashbaordOptions = ref([])
+const programmeComponentOptions = ref<RouteItem[]>([])
+const dynamicDashbaordOptions = ref<DashboardComponent[]>([])
+const components = ref<RouteComponent[]>([])
 
  
 
 
-const getProgrameComponents = async () => {
-  const formData = {
+const getProgrameComponents = async (): Promise<RouteItem[]> => {
+  const formData: RouteRequestData = {
     limit: 100,
     page: 1,
     curUser: 1,
@@ -57,7 +131,7 @@ const getProgrameComponents = async () => {
   };
 
   try {
-    const res = await getRoutesList(formData);
+    const res = await getRoutesList(formData as any) as any;
 
     if (!res?.data || !Array.isArray(res.data)) {
       console.error('Invalid data structure received:', res?.data);
@@ -74,25 +148,28 @@ const getProgrameComponents = async () => {
     });
 
     // Step 2: Nest items by parentId
-    const rootItems = [];
+    const rootItems: RouteItem[] = [];
     res.data.forEach(item => {
       if (item.parentId && itemMap.has(Number(item.parentId))) {
         const parent = itemMap.get(Number(item.parentId));
+        if (parent) {
         parent.children.push(item);
+        }
       } else {
         rootItems.push(item);
       }
     });
 
     // Step 3: Recursively transform into route format
-    const buildHierarchy = (items, parentPath = '') => {
+    const buildHierarchy = (items: RouteItem[], parentPath = ''): RouteItem[] => {
       return items.map(item => {
         const fullPath = parentPath
           ? `${parentPath}/${item.acronym.toLowerCase()}`
           : item.acronym.toLowerCase();
 
         return {
-          path: fullPath.split('/').pop(),
+          ...item,
+          path: fullPath.split('/').pop() || '',
           name: toTitleCase(item.title),
           meta: {
             title: item.title,
@@ -101,7 +178,7 @@ const getProgrameComponents = async () => {
             programme_id: item.id,
             role: ['admin', 'super_admin']
           },
-          children: buildHierarchy(item.children, fullPath)
+          children: buildHierarchy(item.children || [], fullPath)
         };
       });
     };
@@ -113,24 +190,39 @@ const getProgrameComponents = async () => {
   }
 };
 
+// Add retry mechanism and better error handling
+const retryWithBackoff = async <T>(
+  fn: () => Promise<T>,
+  maxRetries = 3,
+  baseDelay = 1000
+): Promise<T> => {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (error) {
+      console.warn(`Attempt ${i + 1} failed:`, error);
+      if (i === maxRetries - 1) throw error;
+      
+      const delay = baseDelay * Math.pow(2, i);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  throw new Error('Max retries exceeded');
+};
+
 const loadProgrammeComponents = async () => {
   try {
-    const result = await getProgrameComponents();
+    const result = await retryWithBackoff(() => getProgrameComponents());
     programmeComponentOptions.value = result;
     console.log("Final programmeComponentOptions", programmeComponentOptions.value);
   } catch (error) {
-    console.error("Failed to load components:", error);
+    console.error("Failed to load components after retries:", error);
     programmeComponentOptions.value = [];
   }
 };
 
-loadProgrammeComponents();
-
-
-const components = ref([])
-
-const getComponents = async () => {
-  const formData = {
+const getComponents = async (): Promise<void> => {
+  const formData: RouteRequestData = {
     limit: 100,
     page: 1,
     curUser: 1,
@@ -141,7 +233,7 @@ const getComponents = async () => {
   };
 
   try {
-    const res = await getRoutesList(formData);
+    const res = await getRoutesList(formData as any) as any;
     console.log('Components routes ', res.data);
 
 
@@ -150,29 +242,30 @@ const getComponents = async () => {
     if (res.data && Array.isArray(res.data)) {
      
 
-      res.data.forEach(child_component => {
+      res.data.forEach((child_component: any) => {
+        const child_meta_d: ComponentMeta = {
+          title: child_component.title,
+          hidden: false,
+          component_id: child_component.id,
+          icon: child_component.icon || 'default-icon',
+          role: ['admin', 'super_admin'],
+          locationLevel: ['national'],
+          programme_id: child_component.programme_id
+        };
 
+        const routeComponent: RouteComponent = {
+          id: child_component.id,
+          title: child_component.title,
+          acronym: child_component.acronym,
+          icon: child_component.icon,
+          programme_id: child_component.programme_id,
+          meta: child_meta_d,
+          name: child_component.title,
+          path: child_component.acronym.toLowerCase(),
+          component: () => import('@/views/programmes/interventions.vue')
+        };
 
-        const child_meta_d = {}
-
-        
-        
-
-
-        child_meta_d.title = child_component.title 
-        child_meta_d.hidden = false
-        child_meta_d.component_id = child_component.id 
-        child_meta_d.icon = child_component.icon
-        child_meta_d.role= ['admin', 'super_admin'] 
-        child_meta_d.locationLevel= ['national' ] 
-        child_meta_d.programme_id= child_component.programme_id
-        child_component.meta = child_meta_d    
-        child_component.name = child_component.title     
-        child_component.path = child_component.acronym.toLowerCase()     
-        child_component.component = () => import('@/views/programmes/interventions.vue') // This is a template to hold info on interventions
-
-        
-        components.value.push(child_component)
+        components.value.push(routeComponent);
 
        
       });
@@ -265,7 +358,7 @@ const getComponents = async () => {
 
      } else {
       console.error('Invalid data structure received:', res.data);
-      return []; // Return empty array if invalid data
+      return; // Return void if invalid data
     }
 
 
@@ -281,66 +374,40 @@ const getComponents = async () => {
 
  // Wrap your code in an async function
  
-  const getDynamicDashboards = async () => {
-    const formData = {}
-    formData.limit = 100
-    formData.page = 1
-    formData.curUser = 1 // Id for logged in user
-    formData.model = 'dashboard'
-    //-Search field--------------------------------------------
-    formData.searchField = 'title'
-    formData.searchKeyword = ''
-
-    formData.filters = ['createdBy']
-    formData.filterValues = [[userInfo.id]]
-    //--Single Filter -----------------------------------------
-  
-   
-    // - multiple filters -------------------------------------
-    formData.associated_multiple_models = []
+  const getDynamicDashboards = async (): Promise<void> => {
+    const formData: RouteRequestData = {
+      limit: 100,
+      page: 1,
+      curUser: 1, // Id for logged in user
+      model: 'dashboard',
+      searchField: 'title',
+      searchKeyword: '',
+      filters: ['createdBy'],
+      filterValues: [[userInfo.id]],
+      associated_multiple_models: []
+    };
   
     //-------------------------
     //console.log(formData)
-    const res = await getRoutesList(formData)
+    const res = await getRoutesList(formData as any) as any;
   //  console.log("dynamo",res)
   
      
-    res.data.forEach(function (arrayItem, index) {
-  
-    //  console.log('arrayItem',index,"|",arrayItem)
-  
+    res.data.forEach((arrayItem: any) => {
       if (!arrayItem.main_dashboard) { //Include only the other dashbaprds. The main dashbaord has been loaded elsewher)
-        
+        const prog: DashboardComponent = {
+          component: () => import('@/views/Dashboard/DynamicState.vue'), // This is a template to hold info on interventions
+          path: 'status_' + arrayItem.title.toLowerCase(),
+          name: arrayItem.title,
+          meta: {
+            title: arrayItem.title,
+            hidden: false,
+            icon: arrayItem.icon,
+            dashboard_id: arrayItem.id
+          }
+        };
   
-        const prog = {}
-        // if (arrayItem.type==='intervention') {
-        //   prog.component = () => import('@/views/Dashboard/DynamicIntervention.vue') // This is a template to hold info on interventions
-        //   prog.path = 'intervention_' + arrayItem.title.toLowerCase()
-        //   prog.name = arrayItem.title 
-    
-        // }
-        // else {
-        //   prog.component = () => import('@/views/Dashboard/DynamicState.vue') // This is a template to hold info on interventions
-        //   prog.path = 'status_' + arrayItem.title.toLowerCase()
-        //   prog.name =  arrayItem.title 
-        // }
-
-        prog.component = () => import('@/views/Dashboard/DynamicState.vue') // This is a template to hold info on interventions
-        prog.path = 'status_' + arrayItem.title.toLowerCase()
-        prog.name =  arrayItem.title 
-
-        
-      //  prog.component =  Layout
-    
-        const meta = {}
-        meta.title = arrayItem.title 
-        meta.hidden = false
-        meta.icon = arrayItem.icon
-        meta.dashboard_id = arrayItem.id
-   
-        prog.meta = meta
-  
-          dynamicDashbaordOptions.value.push(prog)
+        dynamicDashbaordOptions.value.push(prog);
     
        // console.log("dynamo", dynamicDashbaordOptions.value)
   
@@ -357,67 +424,42 @@ const getComponents = async () => {
   
   }
 
-  const getPublicDynamicDashboards = async () => {
-    const formData = {}
-    formData.limit = 100
-    formData.page = 1
-    formData.curUser = 1 // Id for logged in user
-    formData.model = 'dashboard'
-    //-Search field--------------------------------------------
-    formData.searchField = 'title'
-    formData.searchKeyword = ''
-
-    formData.filters = ['public']
-    formData.filterValues = [[true]]
-    //--Single Filter -----------------------------------------
-  
-   
-    // - multiple filters -------------------------------------
-    formData.associated_multiple_models = []
+  const getPublicDynamicDashboards = async (): Promise<void> => {
+    const formData: RouteRequestData = {
+      limit: 100,
+      page: 1,
+      curUser: 1, // Id for logged in user
+      model: 'dashboard',
+      searchField: 'title',
+      searchKeyword: '',
+      filters: ['public'],
+      filterValues: [[true]],
+      associated_multiple_models: []
+    };
   
     //-------------------------
     //console.log(formData)
-    const res = await getRoutesList(formData)
+    const res = await getRoutesList(formData as any) as any;
     console.log("dynamo",res)
   
      
-    res.data.forEach(function (arrayItem, index) {
-  
-      console.log('arrayItem',index,"|",arrayItem)
+    res.data.forEach((arrayItem: any) => {
+      console.log('arrayItem',arrayItem)
   
       if (!arrayItem.main_dashboard) { //Include only the other dashbaprds. The main dashbaord has been loaded elsewher)
-        
+        const prog: DashboardComponent = {
+          component: () => import('@/views/Dashboard/DynamicState.vue'), // This is a template to hold info on interventions
+          path: 'status_' + arrayItem.title.toLowerCase(),
+          name: arrayItem.title,
+          meta: {
+            title: arrayItem.title,
+            hidden: false,
+            icon: arrayItem.icon,
+            dashboard_id: arrayItem.id
+          }
+        };
   
-        const prog = {}
-        // if (arrayItem.type==='intervention') {
-        //   prog.component = () => import('@/views/Dashboard/DynamicIntervention.vue') // This is a template to hold info on interventions
-        //   prog.path = 'intervention_' + arrayItem.title.toLowerCase()
-        //   prog.name = arrayItem.title 
-    
-        // }
-        // else {
-        //   prog.component = () => import('@/views/Dashboard/DynamicState.vue') // This is a template to hold info on interventions
-        //   prog.path = 'status_' + arrayItem.title.toLowerCase()
-        //   prog.name =  arrayItem.title 
-        // }
-
-
-        prog.component = () => import('@/views/Dashboard/DynamicState.vue') // This is a template to hold info on interventions
-        prog.path = 'status_' + arrayItem.title.toLowerCase()
-        prog.name =  arrayItem.title 
-        
-      //  prog.component =  Layout
-    
-        const meta = {}
-        meta.title = arrayItem.title 
-        meta.hidden = false
-        meta.icon = arrayItem.icon
-        meta.dashboard_id = arrayItem.id
-   
-        prog.meta = meta
-  
-       // dynamicDashbaordOptions.value.push(prog)
-       const isDuplicate = dynamicDashbaordOptions.value.some(option => option.meta.dashboard_id === meta.dashboard_id);
+        const isDuplicate = dynamicDashbaordOptions.value.some(option => option.meta.dashboard_id === prog.meta.dashboard_id);
 
             if (!isDuplicate) {
               dynamicDashbaordOptions.value.push(prog);
@@ -430,15 +472,34 @@ const getComponents = async () => {
       
     });
     
-    adminRoutes[0].children.push(...dynamicDashbaordOptions.value);
+    adminRoutes[0]?.children?.push(...dynamicDashbaordOptions.value);
 
   
 }
   
-    getDynamicDashboards();
-    getPublicDynamicDashboards();
+// Initialize loading with proper sequencing
+const initializeRoutes = async () => {
+  try {
+    // Load programmes first
+    await loadProgrammeComponents();
+    
+    // Then load components
+    await getComponents();
+    
+    // Finally load dashboards
+    await Promise.all([
+      getDynamicDashboards(),
+      getPublicDynamicDashboards()
+    ]);
+    
+    console.log('All routes loaded successfully');
+  } catch (error) {
+    console.error('Error initializing routes:', error);
+  }
+};
 
- 
+// Start initialization
+initializeRoutes();
  
  // 1. Define subprograms as a reactive reference
 const subprograms = ref([
@@ -458,9 +519,11 @@ const subprograms = ref([
 
 // 2. Create a watcher to update when programmeComponentOptions changes
 watch(programmeComponentOptions, (newVal) => {
-  if (newVal.length > 0) {
+  if (newVal && newVal.length > 0) {
+    console.log('Updating subprograms with new data:', newVal);
+    
     // Update the children array
-    subprograms.value[0].children = [...newVal];
+    subprograms.value[0].children = newVal as any;
     
     // Find index if it already exists
     const existingIndex = adminRoutes.findIndex(
@@ -473,26 +536,14 @@ watch(programmeComponentOptions, (newVal) => {
     } else {
       adminRoutes.splice(2, 0, ...subprograms.value);
     }
+    
+    console.log('Subprograms updated in adminRoutes');
   }
 }, { immediate: true, deep: true });
 
-// 3. Load data function
-const loadProgrammeData = async () => {
-  try {
-    const data = await getProgrameComponents();
-    programmeComponentOptions.value = data;
-  } catch (error) {
-    console.error("Error loading programme data:", error);
-    programmeComponentOptions.value = [];
-  }
-};
+// 3. Load data function - removed as it's now handled by initializeRoutes
 
-// 4. Call the loader
-loadProgrammeData();
- 
-console.log('routesX', adminRoutes)
-
-getComponents()
+// Remove old calls - now handled by initializeRoutes()
 
 export interface PermissionState {
   routers: AppRouteRecordRaw[]
@@ -505,23 +556,23 @@ export interface PermissionState {
 
 
 export const usePermissionStore = defineStore('permission', {
-  state: () => ({
+  state: (): PermissionState => ({
     routers: [],
     addRouters: [],
     isAddRouters: false,
     menuTabRouters: []
   }),
   getters: {
-    getRouters() {
+    getRouters(): AppRouteRecordRaw[] {
       return this.routers;
     },
-    getAddRouters() {
+    getAddRouters(): AppRouteRecordRaw[] {
       return flatMultiLevelRoutes(cloneDeep(this.addRouters));
     },
-    getIsAddRouters() {
+    getIsAddRouters(): boolean {
       return this.isAddRouters;
     },
-    getMenuTabRouters() {
+    getMenuTabRouters(): AppRouteRecordRaw[] {
       return this.menuTabRouters;
     }
   },
@@ -565,12 +616,23 @@ export const usePermissionStore = defineStore('permission', {
       });
     },
   
-    setIsAddRouters(state) {
+    setIsAddRouters(state: boolean) {
       this.isAddRouters = state;
     },
   
-    setMenuTabRouters(routers) {
+    setMenuTabRouters(routers: AppRouteRecordRaw[]) {
       this.menuTabRouters = routers;
+    },
+    
+    // Add method to manually refresh routes
+    async refreshRoutes() {
+      try {
+        console.log('Manually refreshing routes...');
+        await initializeRoutes();
+        console.log('Routes refreshed successfully');
+      } catch (error) {
+        console.error('Error refreshing routes:', error);
+      }
     }
   }
   

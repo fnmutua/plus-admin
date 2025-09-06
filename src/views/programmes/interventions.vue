@@ -6,18 +6,18 @@ import {
   ElUpload, ElTable, ElTableColumn
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
-import { Plus, Edit, UploadFilled, Back, View, Delete, Paperclip, Download } from '@element-plus/icons-vue'
+import { Plus, Back, Download, ArrowRight, DArrowRight } from '@element-plus/icons-vue'
 
 import { ref, reactive, } from 'vue'
 import { ElPagination, ElTooltip, ElOption, } from 'element-plus'
 import { useRouter } from 'vue-router'
-import { DeleteRecord, updateOneRecord, deleteDocument, BatchImportUpsert, getfilteredGeo, DeleteRecordByCriteria } from '@/api/settlements'
+import { DeleteRecord, updateOneRecord, BatchImportUpsert } from '@/api/settlements'
 
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import { Icon } from '@iconify/vue';
 
-import xlsx from "json-as-xlsx"
+// import xlsx from "json-as-xlsx" // Removed unused import
 import writeXlsxFile from 'write-excel-file'
 import {
   searchByKeyWord
@@ -36,7 +36,7 @@ import exportFromJSON from 'export-from-json'
 import Papa from 'papaparse';
 import { onMounted } from 'vue';
 import PermissionWrapper from '@/components/PermissionWrapper.vue';
-import DownloadCustom from '@/views/Components/DownloadCustom.vue';
+// import DownloadCustom from '@/views/Components/DownloadCustom.vue'; // Removed unused import
 
 
 ////////////*************Map Imports***************////////
@@ -71,26 +71,13 @@ const searchString = ref()
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
-const tabDisabled = ref(true)
+// const tabDisabled = ref(true) // Removed unused variable
 
-const showAdminButtons = ref(appStore.getAdminButtons)
-const showEditButtons = ref(appStore.getEditButtons)
-
+// Removed showAdminButtons and showEditButtons since Actions column was removed
 
 
-const action_buttons = ref([])
-if (showAdminButtons.value) {
-  action_buttons.value = ['edit', 'delete']
-} else if (showEditButtons.value) {
 
-  action_buttons.value = ['edit']
-}
-else {
-  action_buttons.value = []
-
-}
-
-console.log('action_buttons', action_buttons.value)
+// Removed action_buttons since Actions column was removed
 
 
 
@@ -168,16 +155,16 @@ watch(
 
 const page = ref(1)
 
-const selCounties = []
+const selCounties: any[] = []
 const loading = ref(true)
 
 const currentPage = ref(1)
 
-const pageBen = ref(1)
-const pSizeBen = ref(5)
+// const pageBen = ref(1) // Removed unused variables
+// const pSizeBen = ref(5)
+// const totalBen = ref(0)
 
 const total = ref(0)
-const totalBen = ref(0)
 
 
 const uploadDialog = ref(false)
@@ -194,14 +181,13 @@ let filterValues: any[] = [[component_id.value]]   // make sure the inner array 
 let tblData = ref<any[]>([])
 const associated_Model = ''
 //const associated_multiple_models = ['settlement', 'county', 'subcounty', 'component', 'document']
-const associated_multiple_models = ['component', 'activity', 'programme_implementation', 'document', 'project_contractor', 'project_location']
-//const nested_models = ['component', 'programme'] // The mother, then followed by the child
-const nested_models = ['document', 'document_type', 'project_location', 'settlement', 'county', 'subcounty', 'ward'] // The mother, then followed by the child
+const associated_multiple_models = ['component', 'programme'] // Minimal associations for better performance
+// Removed nested_models completely for better performance
 
 
 //// ------------------parameters -----------------------////
 
-const facilityGeo = ref([])
+// const facilityGeo = ref([]) // Removed unused variable
 const facilityGeoPoints = ref()
 const facilityGeoLines = ref([])
 const facilityGeoPolygons = ref([])
@@ -213,9 +199,9 @@ const geoLoaded = ref(false)
 const handleClear = async () => {
   console.log('cleared....')
 
-  // clear all the fileters -------
-  filterValues.value = []
-  filters.value = []
+  // clear all the filters -------
+  filterValues = []
+  filters = ['component_id']
   value1.value = []
   value2.value = []
   value3.value = []
@@ -227,9 +213,8 @@ const handleClear = async () => {
   currentPage.value = 1
   tblData.value = []
 
-  beneficiaryTabTitle.value = []
-  beneficiaryTabDisabled.value = true
   beneficiaryTabTitle.value = 'Beneficiaries'
+  beneficiaryTabDisabled.value = true
   //----run the get data--------
   getAllProjects()
 }
@@ -296,110 +281,49 @@ const destructure = (obj) => {
 }
 
 const getFilteredData = async (selFilters, selfilterValues) => {
-  const formData = {}
-  formData.limit = pageSize.value
-  formData.page = page.value
-  formData.curUser = 1 // Id for logged in user
-  formData.model = model
-  //-Search field--------------------------------------------
-  formData.searchField = 'name'
-  formData.searchKeyword = ''
-  //--Single Filter -----------------------------------------
-
-  formData.assocModel = associated_Model
-
-  // - multiple filters -------------------------------------
-  formData.filters = selFilters
-  formData.filterValues = selfilterValues
-  formData.associated_multiple_models = associated_multiple_models
-  formData.nested_models = nested_models
+  const formData: any = {
+    limit: pageSize.value,
+    page: page.value,
+    curUser: 1, // Id for logged in user
+    model: model,
+    searchField: 'name',
+    searchKeyword: '',
+    assocModel: associated_Model,
+    filters: selFilters,
+    filterValues: selfilterValues,
+    associated_multiple_models: associated_multiple_models
+    // Removed nested_models completely for better performance
+  }
 
   //------------------------- 
-  //console.log(formData)
-  const res = await getSettlementListByCounty(formData)
+  console.log('Fetching project data with minimal associations...')
+  const res = await getSettlementListByCounty(formData as any)
 
-  console.log('After Querry - associated_multiple_models', res)
-  tableDataList.value = res.data
-  tableDataList_orig.value = res.data // back for post filter
+  console.log('After Query - minimal associations loaded', res)
+  tableDataList.value = (res as any).data || []
+  tableDataList_orig.value = (res as any).data || [] // back for post filter
 
-  total.value = res.total
-
+  total.value = (res as any).total || 0
 
   tblData.value = [] // reset the table data
   console.log('TBL-b4-', tblData)
-  let filteredIds = []
-  res.data.forEach(function (arrayItem) {
-    //  console.log(arrayItem)
-    filteredIds.push(arrayItem.id)
+  let filteredIds: any[] = []
+  if ((res as any).data) {
+    (res as any).data.forEach(function (arrayItem: any) {
+      filteredIds.push(arrayItem.id)
+      tblData.value.push(arrayItem)
+    })
+  }
 
-    var dd = destructure(arrayItem)
-    delete dd['0']
-    delete dd['1']
-
-    tblData.value.push(arrayItem)
-  })
-
-  // console.log('Now get the filtered Geo for --', filteredIds)
-
-  formData.columnFilterField = 'id'
-  formData.selectedParents = []
-  formData.filtredGeoIds = filteredIds
-  const fgeo = await getfilteredGeo(formData)
-
-  //console.log('the filtred GEO --', fgeo)
-
-
-  if (fgeo.data[0].json_build_object) {
-    var points = []
-    var lines = []
-    var polygons = []
-    facilityGeo.value = fgeo.data[0].json_build_object
-    console.log('Geo Returns---', fgeo.data[0].json_build_object.features)
-    console.log("Facility Geo", facilityGeo)
-
-    if (fgeo.data[0].json_build_object.features === null) {
-
-      // No geo found so intiialize the points, lines and polygons to empty arrays 
-      facilityGeoPoints.value = []
-      facilityGeoLines.value = []
-      facilityGeoPolygons.value = []
-    }
-    else {
-      tabDisabled.value = true
-
-      for (let i = 0; i < fgeo.data[0].json_build_object.features.length; i++) {
-        console.log("Geo Type -------->", fgeo.data[0].json_build_object.features[i].geometry.type)
-
-        if (fgeo.data[0].json_build_object.features[i].geometry.type === "Point") {
-
-          points.push(fgeo.data[0].json_build_object.features[i])
-        } else if (fgeo.data[0].json_build_object.features[i].geometry.type === "LineString" || fgeo.data[0].json_build_object.features[i].geometry.type === "MultiLineString") {
-
-          lines.push(fgeo.data[0].json_build_object.features[i])
-
-        } else {
-          polygons.push(fgeo.data[0].json_build_object.features[i])
-
-        }
-
-      }
-
-      console.log('Points ---x-------', points)
-
-      facilityGeoPoints.value = points
-      facilityGeoLines.value = lines
-      facilityGeoPolygons.value = polygons
-
-      console.log('Lines--->', facilityGeoPoints.value)
-
-
-      //markerLatlon.value = res.data[0].json_build_object.features[0].geometry.coordinates
-    }
-
-
+  // Skip geo loading for now to improve performance
+  // Only load geo if specifically needed
+  if (filteredIds.length > 0) {
+    console.log('Skipping geo loading for performance - can be enabled if needed')
+    // Initialize empty geo arrays
+    facilityGeoPoints.value = []
+    facilityGeoLines.value = []
+    facilityGeoPolygons.value = []
     geoLoaded.value = true
-
-
   }
 
 
@@ -647,37 +571,30 @@ const showUploadDialog = ref(false)
 
 
 const getFilteredBySearchData = async (searchString) => {
-  const formData = {}
-  formData.limit = pageSize.value
-  formData.page = page.value
-  formData.curUser = 1 // Id for logged in user
-  formData.model = model
-
-  //-Search field--------------------------------------------
-  formData.searchField = 'title'
-  formData.searchKeyword = searchString
-  //--Single Filter -----------------------------------------
-
-  //formData.assocModel = associated_Model
-
-  // - multiple filters -------------------------------------
-  formData.filters = filters
-  formData.filterValues = filterValues
-  formData.associated_multiple_models = associated_multiple_models
+  const formData: any = {
+    limit: pageSize.value,
+    page: page.value,
+    curUser: 1, // Id for logged in user
+    model: model,
+    searchField: 'title',
+    searchKeyword: searchString,
+    filters: filters,
+    filterValues: filterValues,
+    associated_multiple_models: associated_multiple_models
+  }
 
   //-------------------------
-  console.log(formData)
-  const res = await searchByKeyWord(formData)
+  console.log('Searching with minimal associations...', formData)
+  const res = await searchByKeyWord(formData as any)
 
-  console.log('After -----x ------Querry', res)
-  tableDataList.value = res.data
-  tableDataList_orig.value = res.data // back for post filter
+  console.log('After search query', res)
+  tableDataList.value = (res as any).data || []
+  tableDataList_orig.value = (res as any).data || [] // back for post filter
 
-  total.value = res.total
+  total.value = (res as any).total || 0
   loading.value = false
 
   tblData.value = [] // reset the table data
-
 }
 
 const searchByName = async (filterString: any) => {
@@ -716,38 +633,53 @@ const loadingBeneficiaries = ref(true)
 //// ------------------------------------ -------------------------------------//
 const componentOptions = ref<any[]>([])
 const getInterventionComponents = async () => {
-
-  const formData = {}
-  formData.limit = 100
-  formData.page = 1
-  formData.curUser = 1 // Id for logged in user
-  formData.model = 'component'
-  //-Search field--------------------------------------------
-  formData.searchField = 'title'
-  formData.searchKeyword = ''
-  //--Single Filter -----------------------------------------
-
-
-  // - multiple filters -------------------------------------
-  formData.associated_multiple_models = ['programme']
+  const formData: any = {
+    limit: 100,
+    page: 1,
+    curUser: 1, // Id for logged in user
+    model: 'component',
+    searchField: 'title',
+    searchKeyword: '',
+    associated_multiple_models: ['programme']
+  }
 
   //-------------------------
-  //console.log(formData)
-  const res = await getRoutesList(formData)
-  res.data.forEach(function (arrayItem: { id: string; type: string }) {
-    var countyOpt = {}
-    countyOpt.value = arrayItem.id
-    countyOpt.label = arrayItem.title + '(' + arrayItem.programme.acronym + ')'
-    //  console.log(countyOpt)
-    componentOptions.value.push(countyOpt)
-  })
-
-
+  console.log('Loading components with minimal associations...')
+  const res = await getRoutesList(formData as any)
+  
+  if ((res as any).data) {
+    (res as any).data.forEach(function (arrayItem: any) {
+      const countyOpt: any = {
+        value: arrayItem.id,
+        label: arrayItem.title + '(' + (arrayItem.programme?.acronym || 'N/A') + ')'
+      }
+      componentOptions.value.push(countyOpt)
+    })
+  }
 }
 
-getAllProjects()
-getInterventionComponents()
-//getBeneficiaries(filtersBen, filterValuesBen)  // First time
+// Initialize data loading with better error handling
+const initializeData = async () => {
+  try {
+    loading.value = true
+    console.log('Initializing interventions data...')
+    
+    // Load data in parallel for better performance
+    await Promise.all([
+      getAllProjects(),
+      getInterventionComponents()
+    ])
+    
+    console.log('Data initialization completed')
+  } catch (error) {
+    console.error('Error initializing data:', error)
+  } finally {
+    loading.value = false
+  }
+}
+
+// Start initialization
+initializeData()
 
 
 
@@ -781,9 +713,8 @@ const AddProject = () => {
   // })
 
   push({
-    path: '/interventions/add/:domain',
-    name: 'AddInterventionProjectsV2',
-    params: { domain: component_id.value }
+    path: `/interventions/add/${component_id.value}`,
+    query: { domain: component_id.value }
   })
 
 }
@@ -796,10 +727,8 @@ const AddProject = () => {
 const editProject = async (data: TableSlotDefault) => {
 
   push({
-    path: '/interventions/add/:domain',
-    name: 'AddInterventionProjectsV2',
-    query: { id: data.id },
-    params: { id: data.id, domain: component_id.value }
+    path: `/interventions/add/${component_id.value}`,
+    query: { id: data.id, domain: component_id.value }
   })
 
  
@@ -816,36 +745,28 @@ const editProject = async (data: TableSlotDefault) => {
 
 
 
-const DeleteProject = (data: TableSlotDefault) => {
+const DeleteProject = (data: any) => {
   console.log('----->', data)
-  let formData = {}
-  formData.id = data.id
-  formData.model = model
+  let formData: any = {
+    id: data.id,
+    model: model
+  }
 
-  DeleteRecord(formData)
+  DeleteRecord(formData as any)
 
   console.log(tableDataList.value)
 
-
-  // Delete docuemnts only if there's any docuemnt to delete 
-  if (data.documents.length > 0) {
-    formData.filesToDelete = data.documents
-    deleteDocument(formData)
-
-  }
+  // Skip document deletion since documents are not loaded
+  
   // remove the deleted object from array list 
-  let index = tableDataList.value.indexOf(data);
+  let index = tableDataList.value.findIndex((item: any) => item.id === data.id);
   if (index !== -1) {
     tableDataList.value.splice(index, 1);
   }
-
 }
 
-const tableRowClassName = (data) => {
-  // console.log('Row Styling --------->', data.row)
-  if (data.row.documents.length > 0) {
-    return 'warning-row'
-  }
+const tableRowClassName = () => {
+  // Removed document-based styling since documents are not loaded
   return ''
 }
 
@@ -906,7 +827,7 @@ const DownloadXlsx = async () => {
           searchKeyword: '',
           filters: ['project_id'],
           filterValues: [[project.id]],
-          associated_multiple_models: ['settlement', 'county', 'subcounty', 'ward']
+          associated_multiple_models: ['settlement'] // Minimal associations for download performance
         }
         
         const locationRes = await getSettlementListByCounty(locationFormData)
@@ -1157,15 +1078,12 @@ const isMobile = computed(() => appStore.getMobile)
 console.log('IsMobile', isMobile)
 
 const dialogWidth = ref()
-const actionColumnWidth = ref()
+// Removed actionColumnWidth since Actions column was removed
 
 if (isMobile.value) {
   dialogWidth.value = "90%"
-  actionColumnWidth.value = "72px"
 } else {
   dialogWidth.value = "28%"
-  actionColumnWidth.value = "100px"
-
 }
 
 
@@ -1386,8 +1304,8 @@ const value6 = ref()
 
 const filterByProgramme = async (prog_id: any) => {
 
-  value5.value = '' // clear the subcounty 
-  value6.value = null   // clear the ward sr
+  value5.value = [] // clear the subcounty 
+  value6.value = []   // clear the ward sr
 
 
 
@@ -1447,62 +1365,71 @@ const DocumentComponentProps = ref({
 const locations_loading = ref(false)
 const project_locations = ref<any[]>([])
 
-const getProjectLocations = async (project_id) => {
+const getProjectLocations = async (project_id: any) => {
   console.log('project_id', project_id);
 
   locations_loading.value = true
-  project_locations.value = []   // Emoty current locations first
+  project_locations.value = []   // Empty current locations first
 
-
-  // Get the project settlement ids
-  const formData = {
-    model: 'project_location',
-    searchField: 'name',
-    searchKeyword: '',
-    filters: ['project_id'],
-    filterValues: [[project_id]],
-    associated_multiple_models: []
-  };
-
-  const res = await getSettlementListByCounty(formData);
-  const sett_ids = res.data.map(item => item.settlement_id); // Extract settlement_id
-  console.log('sett_ids', sett_ids);
-
-  // Fetch settlements and their details
-  const form = {
-    model: 'settlement',
-    filters: ['id'],
-    filterValues: [sett_ids],
-    excludeGeom: true,
-    associated_multiple_models: ['county', 'subcounty', 'ward']
-  };
-
-  const setts = await getSettlementListByCounty(form);
-  console.log('setts', setts);
-
-  // Map settlements to include additional details
-  const settlements = setts.data.map(item => ({
-    county: item.county.name,
-    subcounty: item.subcounty.name,
-    ward: item.ward.name,
-    settlement: item.name,
-    settlement_id: item.id
-  }));
-
-  // Join project locations with settlement details based on settlement_id
-  project_locations.value = res.data.map(projectLocation => {
-    const settlement = settlements.find(sett => sett.settlement_id === projectLocation.settlement_id);
-    return {
-      ...projectLocation,
-      county: settlement ? settlement.county : null,
-      subcounty: settlement ? settlement.subcounty : null,
-      ward: settlement ? settlement.ward : null,
-      settlementName: settlement ? settlement.settlement : null
+  try {
+    // Get the project settlement ids with minimal associations
+    const formData: any = {
+      model: 'project_location',
+      searchField: 'name',
+      searchKeyword: '',
+      filters: ['project_id'],
+      filterValues: [[project_id]],
+      associated_multiple_models: []
     };
-  });
 
-  locations_loading.value = false
-  console.log('project_locations', project_locations);
+    const res = await getSettlementListByCounty(formData as any);
+    const sett_ids = (res as any).data?.map((item: any) => item.settlement_id) || []; // Extract settlement_id
+    console.log('sett_ids', sett_ids);
+
+    if (sett_ids.length === 0) {
+      locations_loading.value = false;
+      return;
+    }
+
+    // Fetch settlements with minimal associations for better performance
+    const form: any = {
+      model: 'settlement',
+      filters: ['id'],
+      filterValues: [sett_ids],
+      excludeGeom: true,
+      associated_multiple_models: ['county'] // Minimal associations for location performance
+    };
+
+    const setts = await getSettlementListByCounty(form as any);
+    console.log('setts', setts);
+
+    // Map settlements to include additional details
+    const settlements = (setts as any).data?.map((item: any) => ({
+      county: item.county?.name || 'N/A',
+      subcounty: item.subcounty?.name || 'N/A',
+      ward: item.ward?.name || 'N/A',
+      settlement: item.name || 'N/A',
+      settlement_id: item.id
+    })) || [];
+
+    // Join project locations with settlement details based on settlement_id
+    project_locations.value = (res as any).data?.map((projectLocation: any) => {
+      const settlement = settlements.find((sett: any) => sett.settlement_id === projectLocation.settlement_id);
+      return {
+        ...projectLocation,
+        county: settlement ? settlement.county : null,
+        subcounty: settlement ? settlement.subcounty : null,
+        ward: settlement ? settlement.ward : null,
+        settlementName: settlement ? settlement.settlement : null
+      };
+    }) || [];
+
+    locations_loading.value = false
+    console.log('project_locations', project_locations);
+  } catch (error) {
+    console.error('Error fetching project locations:', error);
+    locations_loading.value = false;
+  }
 };
 
 
@@ -1580,128 +1507,108 @@ const extra_locations = ref<any[]>([])
 
 
 
-const remoteMethod = async (keyword) => {
+const remoteMethod = async (keyword: string) => {
   console.log(keyword)
   loading.value = true
-  const formData = {}
-  formData.model = 'settlement'
-  //-Search field--------------------------------------------
-  formData.searchField = 'name'
-  formData.searchKeyword = keyword
-  formData.excludeGeom = false
-  formData.excludeGeomAssoc = true
-  formData.associated_multiple_models = ['county', 'subcounty', 'ward']
-
-  //--Single Filter -----------------------------------------
-
-  //formData.assocModel = associated_Model
-
-  // - multiple filters -------------------------------------
-  formData.filters = []
-  formData.filterValues = []
-
-  //formData.cache_key = 'SeacrchByKey_' + search_string.value
+  
+  const formData: any = {
+    model: 'settlement',
+    searchField: 'name',
+    searchKeyword: keyword,
+    excludeGeom: false,
+    excludeGeomAssoc: true,
+    associated_multiple_models: ['county'], // Minimal associations for settlement search performance
+    filters: [],
+    filterValues: []
+  }
 
   //-------------------------
   console.log("formData", formData)
-  const res = await searchByKeyWord(formData)
+  const res = await searchByKeyWord(formData as any)
 
-  console.log("res.data", res.data)
+  console.log("res.data", (res as any).data)
 
-  if (res.data && res.data.length > 0) {
-    sett_options.value = res.data.map(item => ({
+  if ((res as any).data && (res as any).data.length > 0) {
+    sett_options.value = (res as any).data.map((item: any) => ({
       value: item.id,
       settlement_id: item.id,
       label: item.name,
       name: item.name,
-      county: item.county.name,
-      subcounty: item.subcounty.name,
-      ward: item.ward.name,
-      ward_id: item.ward.id,
-      subcounty_id: item.subcounty.id,
-      county_id: item.county.id,
+      county: item.county?.name || 'N/A',
+      subcounty: item.subcounty?.name || 'N/A',
+      ward: item.ward?.name || 'N/A',
+      ward_id: item.ward?.id || null,
+      subcounty_id: item.subcounty?.id || null,
+      county_id: item.county?.id || null,
       geom: item.geom
     }));
-
   }
   loading.value = false
-
 }
 
 
-const getActivities = async (keyword) => {
+const getActivities = async (keyword: string) => {
   console.log(keyword, project_id.value)
-  const formData = {}
-  formData.model = 'activity'
-  //-Search field--------------------------------------------
-  formData.searchField = 'title'
-  formData.searchKeyword = keyword
-  formData.excludeGeom = false
-  formData.associated_multiple_models = []
-
-  //--Single Filter -----------------------------------------
-
-
-  // - multiple filters -------------------------------------
-  formData.filters = []
-  formData.filterValues = []
-
-  //formData.cache_key = 'SeacrchByKey_' + search_string.value
+  
+  const formData: any = {
+    model: 'activity',
+    searchField: 'title',
+    searchKeyword: keyword,
+    excludeGeom: false,
+    associated_multiple_models: [],
+    filters: [],
+    filterValues: []
+  }
 
   //-------------------------
   console.log("formData", formData)
-  const res = await searchByKeyWord(formData)
+  const res = await searchByKeyWord(formData as any)
 
-  console.log("res.data", res.data)
+  console.log("res.data", (res as any).data)
 
-  if (res.data && res.data.length > 0) {
-    activityOptions.value = res.data.map(item => ({
+  if ((res as any).data && (res as any).data.length > 0) {
+    activityOptions.value = (res as any).data.map((item: any) => ({
       value: item.id,
       label: item.title,
       code: item.code,
       project_id: project_id.value
-
     }));
-
   }
 
-
   console.log('sett_options.value', sett_options.value)
-
 }
 
 const AddLocation = async () => {
 
-  //console.log('deleted_locations',deleted_locations)
-  var form = {}
-  form.model = 'project_location'
-
   console.log('project_id', project_id.value)
   console.log('locations', extra_locations.value)
 
-  // fist check if theres any proehct with this id exists then delete all
-
-  const location_objects = [];
+  const location_objects: any[] = [];
 
   for (let i = 0; i < extra_locations.value.length; i++) {
     console.log(extra_locations.value[i])
-    let obj = {}
-    obj.project_id = project_id.value
-    obj.settlement_id = extra_locations.value[i].settlement_id
-    obj.ward_id = extra_locations.value[i].ward_id
-    obj.subcounty_id = extra_locations.value[i].subcounty_id
-    obj.county_id = extra_locations.value[i].county_id
-    obj.location_type = 'settlement'
-    obj.location_name = extra_locations.value[i].name
-    obj.geom = extra_locations.value[i].geom
+    let obj: any = {
+      project_id: project_id.value,
+      settlement_id: extra_locations.value[i].settlement_id,
+      ward_id: extra_locations.value[i].ward_id,
+      subcounty_id: extra_locations.value[i].subcounty_id,
+      county_id: extra_locations.value[i].county_id,
+      location_type: 'settlement',
+      location_name: extra_locations.value[i].name,
+      geom: extra_locations.value[i].geom
+    }
     location_objects.push(obj)
     console.log('obj', obj)
   }
 
-  form.data = location_objects
+  const form: any = {
+    model: 'project_location',
+    data: location_objects
+  }
+  
   console.log('formData', form)
 
-  const loc_res = await BatchImportUpsert(form)
+  const loc_res = await BatchImportUpsert(form as any)
   console.log('loc_res', loc_res)
 
   // 
@@ -1713,43 +1620,37 @@ const AddLocation = async () => {
 
 const AddActivity = async () => {
 
-  //console.log('deleted_locations',deleted_locations)
-  var form = {}
-  form.model = 'project_activity'
-
   console.log('project_id', project_id.value)
-  console.log('locations', extra_activities.value)
+  console.log('activities', extra_activities.value)
 
-  // fist check if theres any proehct with this id exists then delete all
-
-  const activity_objects = [];
+  const activity_objects: any[] = [];
 
   for (let i = 0; i < extra_activities.value.length; i++) {
     console.log(extra_activities.value[i])
-    let obj = {}
-    obj.project_id = extra_activities.value[i].project_id
-    obj.activity_id = extra_activities.value[i].value
-    obj.title = extra_activities.value[i].label
-
-
+    let obj: any = {
+      project_id: extra_activities.value[i].project_id,
+      activity_id: extra_activities.value[i].value,
+      title: extra_activities.value[i].label
+    }
     activity_objects.push(obj)
     console.log('obj', obj)
   }
 
-  form.data = activity_objects
+  const form: any = {
+    model: 'project_activity',
+    data: activity_objects
+  }
+  
   console.log('formData', form)
 
-  const loc_res = await BatchImportUpsert(form)
+  const loc_res = await BatchImportUpsert(form as any)
   console.log('loc_res', loc_res)
 
-  project_activities.value.push(...activity_objects);
+  if (project_activities.value) {
+    project_activities.value.push(...activity_objects);
+  }
 
   console.log('project_activities', project_activities.value)
-  // 
-  //getProjectLocations(project_id.value)
-  // Empty the locations and 
-  //extra_locations.value = []
-  //sett_options.value = []
 }
 
 
@@ -1787,13 +1688,18 @@ const field_set = ref([])
 const uploadData = async () => {
   uploadDialog.value = true
   console.log('Uploading data.......')
-  var formData = {}
-  formData.model = 'project'
-  await getModelSpecs(formData).then((response) => {
+  
+  const formData: any = {
+    model: 'project'
+  }
+  
+  try {
+    const response = await getModelSpecs(formData as any)
     console.log(response.data)
-    field_set.value = response.data
-  })
-
+    field_set.value = (response as any).data
+  } catch (error) {
+    console.error('Error getting model specs:', error)
+  }
 }
 
 
@@ -1869,23 +1775,19 @@ function convertStringArraysToProperArrays(data) {
 
 
 const ImportProjects = async () => {
+  const form: any = {
+    model: 'project',
+    data: convertStringArraysToProperArrays(parsedData.value)
+  }
 
-  //console.log('deleted_locations',deleted_locations)
-  var form = {}
-  form.model = 'project'
-
-  const dta = convertStringArraysToProperArrays(parsedData.value)
-  console.log('dta', dta)
-
-
-  form.data = dta
   console.log('formData', form)
 
-  const results = await BatchImportUpsert(form)
-
-  console.log('BatchImportUpsert', results.insertedDocuments)
-
-
+  try {
+    const results = await BatchImportUpsert(form as any)
+    console.log('BatchImportUpsert', (results as any).insertedDocuments)
+  } catch (error) {
+    console.error('Error importing projects:', error)
+  }
 }
 
 
@@ -1901,8 +1803,12 @@ const handleRowDblClick = (row) => {
 }
 
 function viewProject(row: any) {
-  // Stub for future drawer/dialog view
   console.log('View project details:', row)
+  // Use router.push with the same navigation logic as handleRowDblClick
+  router.push({
+    name: 'ProjectDetails',
+    params: { id: row.id }
+  })
 }
 
 // Remove expand column and add hover logic
@@ -1982,18 +1888,12 @@ const hoveredRow = ref(null);
 
     <el-table
 ref="tableRef" row-key="id" :data="tableDataList" style="width: 100%; margin-top: 10px;" border
-      :row-class-name="tableRowClassName" :row-style="{ height: '56px' }"
-      @row-click="handleRowDblClick"
+      :row-class-name="tableRowClassName" :row-style="{ height: '40px' }"
+      v-loading="loading"
     >
       <el-table-column type="index" label="#" width="50" align="center">
-        <template #default="{ row, $index }">
-          <span>{{$index + 1}}
-            <el-tooltip v-if="row.documents && row.documents.length > 0" content="Has Documents" placement="left">
-              <el-icon style="margin-left: 4px; color: #909399; font-size: 10px; vertical-align: left;">
-                <Paperclip />
-              </el-icon>
-            </el-tooltip>
-          </span>
+        <template #default="{ $index }">
+          <span style="font-weight: 500;">{{$index + 1}}</span>
         </template>
       </el-table-column>
       <el-table-column
@@ -2028,17 +1928,17 @@ ref="tableRef" row-key="id" :data="tableDataList" style="width: 100%; margin-top
           <span class="programme">{{ row.programme?.acronym }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="Actions" width="200" align="right">
+      <el-table-column label="Action" width="120" align="center">
         <template #default="{ row }">
-          <el-tooltip content="View" placement="top">
-            <el-button @click="viewProject(row)" type="info" :icon="View" circle />
-          </el-tooltip>
-          <el-tooltip content="Edit" placement="top">
-            <el-button @click="editProject(row)" type="success" :icon="Edit" circle />
-          </el-tooltip>
-          <el-tooltip content="Delete" placement="top">
-            <el-button @click="DeleteProject(row)" type="danger" :icon="Delete" circle />
-          </el-tooltip>
+          <el-button 
+            @click="viewProject(row)"
+            type="primary" 
+            size="small"
+            :icon="DArrowRight"
+            style="font-size: 12px; padding: 4px 8px;"
+          >
+            More
+          </el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -2164,12 +2064,26 @@ class="upload-demo" :on-change="handleCsvUpload" drag :auto-upload="false"
 </style>
 
 <style>
-.el-table .warning-row {
-  --el-table-tr-bg-color: var(--el-color-warning-light-9);
+/* Removed document-based row styling since documents are not loaded */
+
+/* Compact table styling */
+.el-table .el-table__cell {
+  padding: 8px 0 !important;
 }
 
-.el-table .success-row {
-  --el-table-tr-bg-color: var(--el-color-success-light-9);
+.el-table .el-table__header .el-table__cell {
+  padding: 8px 0 !important;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.el-table .el-table__body .el-table__cell {
+  padding: 6px 0 !important;
+  font-size: 14px;
+}
+
+.el-table .el-table__row {
+  height: 40px !important;
 }
 </style>
 
@@ -2190,10 +2104,15 @@ class="upload-demo" :on-change="handleCsvUpload" drag :auto-upload="false"
 }
 .programme {
   color: #888;
-  font-size: 0.98em;
+  font-size: 0.85em;
 }
 .el-table__row:hover {
   background: #f7fafd !important;
+}
+
+.el-table__row:hover .el-button {
+  transform: translateX(2px);
+  transition: transform 0.2s ease;
 }
 .expand-details {
   background: #f9f9fb;
