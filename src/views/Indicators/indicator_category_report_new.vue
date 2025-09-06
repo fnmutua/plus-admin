@@ -12,7 +12,8 @@ import {
   Filter,
   Delete,
   View, Position, CircleCloseFilled,
-  InfoFilled
+  InfoFilled,
+  Files
 } from '@element-plus/icons-vue'
 
 import { ref, reactive, onMounted, computed } from 'vue'
@@ -32,14 +33,13 @@ import { getModelSpecs } from '@/api/fields'
 import { BatchImportUpsert } from '@/api/settlements'
 import { UserType } from '@/api/register/types'
 import { Icon } from '@iconify/vue';
-import { getFile } from '@/api/summary'
 import xlsx from "json-as-xlsx"
 import { getOneGeo } from '@/api/settlements'
 
 
 import UploadComponent from '@/views/Components/UploadComponent.vue';
+import DocumentDrawer from '@/views/Components/DocumentDrawer.vue';
 import { defineAsyncComponent } from 'vue';
-import ListDocuments from '@/views/Components/ListDocuments.vue';
 
 
 import { MapboxLayerSwitcherControl } from "mapbox-layer-switcher";
@@ -68,13 +68,13 @@ console.log('showEditButtons', showEditButtons.value)
 
 const action_buttons = ref([])
 if (showAdminButtons.value) {
-  action_buttons.value = ['edit', 'delete', 'review', 'viewOnMap']
+  action_buttons.value = ['delete', 'review', 'viewOnMap', 'documents']
 } else if (showEditButtons.value) {
 
-  action_buttons.value = [ 'review', 'viewOnMap']
+  action_buttons.value = [ 'review', 'viewOnMap', 'documents']
 }
 else {
-  action_buttons.value = ['viewOnMap']
+  action_buttons.value = ['viewOnMap', 'documents']
 
 }
 
@@ -152,8 +152,11 @@ const ReviewDialog = ref(false)
 const RejectDialog = ref(false)
 const rejectReason = ref('')
 
+// Document drawer state
+const documentDrawerVisible = ref(false)
+const selectedRowData = ref(null)
 
-const showEditSaveButton = ref(false)
+
 let tableDataList = ref<UserType[]>([])
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
@@ -373,18 +376,24 @@ const getIndicatorNames = async () => {
   //console.log('Idnicator_categor', res)
 
   res.data.forEach(function (arrayItem: { id: string; type: string }) {
+    // Skip items with missing required data
+    if (!arrayItem || !arrayItem.id || !arrayItem.indicator_name) {
+      console.warn('Skipping invalid indicator item:', arrayItem)
+      return
+    }
+
     var opt = {}
     console.log(arrayItem)
     opt.value = arrayItem.id
-    opt.label = arrayItem.indicator_name + ' | ' + arrayItem.category.category
-    opt.title = arrayItem.category.title
-    opt.project_id = arrayItem.project.id
-    opt.activity_id = arrayItem.activity.id
+    opt.label = arrayItem.indicator_name + ' | ' + (arrayItem.category?.category || 'N/A')
+    opt.title = arrayItem.category?.title || 'N/A'
+    opt.project_id = arrayItem.project?.id || null
+    opt.activity_id = arrayItem.activity?.id || null
 
-    opt.county_id = arrayItem.project.county_id
-    opt.subcounty_id = arrayItem.project.subcounty_id
-    opt.settlement_id = arrayItem.project.settlement_id
-    opt.ward_id = arrayItem.project.ward_id
+    opt.county_id = arrayItem.project?.county_id || null
+    opt.subcounty_id = arrayItem.project?.subcounty_id || null
+    opt.settlement_id = arrayItem.project?.settlement_id || null
+    opt.ward_id = arrayItem.project?.ward_id || null
 
     indicatorsOptions.value.push(opt)
     indicatorsOptionsFiltered.value.push(opt)
@@ -537,25 +546,36 @@ const getProjects = async () => {
   console.log('project', res)
 
   res.data.forEach(function (arrayItem: { id: string; type: string }) {
+    // Skip items with missing required data
+    if (!arrayItem || !arrayItem.id || !arrayItem.title) {
+      console.warn('Skipping invalid project item:', arrayItem)
+      return
+    }
+
     var opt = {}
     console.log(arrayItem)
     opt.value = arrayItem.id
     opt.label = arrayItem.title
     projectOptions.value.push(opt)
 
+    // Check if activities exist and is an array
+    if (arrayItem.activities && Array.isArray(arrayItem.activities)) {
+      arrayItem.activities.forEach(function (activity: any) {
+        // Skip activities with missing required data
+        if (!activity || !activity.id || !activity.title) {
+          console.warn('Skipping invalid activity item:', activity)
+          return
+        }
 
-    arrayItem.activities.forEach(function (activity: any) {
-      // console.log('activity--->', activity)
-
-      var act = {}
-      console.log(activity)
-      act.value = activity.id
-      act.label = activity.title
-      act.project_id = arrayItem.id
-      activityOptions.value.push(act)
-      activityOptionsFiltered.value.push(act)
-
-    })
+        var act = {}
+        console.log(activity)
+        act.value = activity.id
+        act.label = activity.title
+        act.project_id = arrayItem.id
+        activityOptions.value.push(act)
+        activityOptionsFiltered.value.push(act)
+      })
+    }
   })
 
 }
@@ -606,19 +626,34 @@ const DeleteReport = (data: TableSlotDefault) => {
 const currentRow = ref()
 
 const handleClose = () => {
-
-  console.log("Closing the dialoig")
+  console.log("Closing the dialog")
   showSubmitBtn.value = true
-  showEditSaveButton.value = false
-  ruleForm.indicator_category_id = null
-  ruleForm.date = null
-  ruleForm.amount = null
-  ruleForm.ward_id = null
-  ruleForm.location = []
+  
+  // Reset form fields
+  ruleForm.id = ''
+  ruleForm.indicator_category_id = ''
+  ruleForm.project_id = ''
+  ruleForm.activity_id = ''
+  ruleForm.programme_implementation_id = ''
+  ruleForm.settlement_id = ''
+  ruleForm.subcounty_id = ''
+  ruleForm.ward_id = ''
+  ruleForm.county_id = ''
+  ruleForm.date = new Date()
+  ruleForm.amount = 0
+  ruleForm.progress = 0
+  ruleForm.project_status = ''
+  ruleForm.disbursement = 0
+  ruleForm.comments = ''
+  ruleForm.qualitative = ''
+  ruleForm.status = ''
+  ruleForm.reject_msg = ''
+  
+  // Clear file upload list
+  fileUploadList.value = []
 
   formHeader.value = 'Add Report'
   AddDialogVisible.value = false
-
 }
 
 
@@ -680,6 +715,7 @@ function getQuarter(date = new Date()) {
 
 const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
+  id: '',
   indicator_category_id: '',
   project_id: '',
   activity_id: '',
@@ -703,18 +739,25 @@ const ruleForm = reactive({
   prevAmount: 0,
   comments: '',
   units: 'Quantity',
-  cumUnits: 'Cumulative(qty)'
+  cumUnits: 'Cumulative(qty)',
+  qualitative: '',
+  status: '',
+  reject_msg: ''
 })
 
 const rules = reactive<FormRules>({
-  indicator_id: [
-    { required: true, message: 'Please provide indicator name', trigger: 'blur' },
-    { min: 3, message: 'Length should be at least 3 characters', trigger: 'blur' }
+  project_id: [
+    { required: true, message: 'Project is required', trigger: 'blur' }
   ],
-  category_id: [
-    { required: true, message: 'Indicator category is required', trigger: 'blur' }],
-  frequency: [{ required: true, message: 'The Indicator frequency is required', trigger: 'blur' }],
-
+  indicator_category_id: [
+    { required: true, message: 'Indicator category is required', trigger: 'blur' }
+  ],
+  amount: [
+    { required: true, message: 'Amount is required', trigger: 'blur' }
+  ],
+  date: [
+    { required: true, message: 'Date is required', trigger: 'blur' }
+  ]
 })
 
 
@@ -769,52 +812,6 @@ const submitForm = async (formEl: FormInstance | undefined) => {
 }
 
 
-const editForm = async (formEl: FormInstance | undefined) => {
-  if (!formEl) return
-  await formEl.validate(async (valid, fields) => {
-    if (valid) {
-      ruleForm.model = 'indicator_category_report'
-      ruleForm.userId = userInfo.id
-      console.log(ruleForm.value)
-      await updateOneRecord(ruleForm).then(() => { })
-
-      // dialogFormVisible.value = false
-
-      const fileTypes = []
-      const updateformData = new FormData()
-
-      for (var i = 0; i < fileUploadList.value.length; i++) {
-        console.log('------>file', fileUploadList.value[i])
-        var format = fileUploadList.value[i].name.split('.').pop() // get file extension
-        //  formData.append("file",this.multipleFiles[i],this.fileNames[i]+"_"+dateVar+"."+this.fileTypes[i]);
-        fileTypes.push(format)
-        // formData.append('files', fileList.value[i])
-        // formData.file = fileList.value[i]
-        updateformData.append('files', fileUploadList.value[i].raw)
-        updateformData.append('DocType', format)
-
-      }
-
-
-      updateformData.append('parent_code', ruleForm.id)
-      updateformData.append('model', model)
-      updateformData.append('grp', 'M&E Documentation')
-      updateformData.append('code', uuid.v4())
-      updateformData.append('column', 'report_id')
-
-
-      // formData.append('DocTypes', fileTypes)
-
-      console.log(updateformData)
-      await uploadDocuments(updateformData)
-
-
-
-    } else {
-      console.log('error submit!', fields)
-    }
-  })
-}
 
 
 const batchData = ref([])
@@ -1093,9 +1090,13 @@ getInterventionsAll()
 
 
 const tableRowClassName = (data) => {
-  // console.log('Row Styling --------->', data.row)
-  if (data.row.documents.length > 0) {
-    return 'warning-row'
+  console.log('Row data for styling:', data.row)
+  console.log('Row documents:', data.row.documents)
+  if (data.row.status == 'Rejected') {
+    return 'danger-row'
+  }
+  if (data.row.status == 'Approved') {
+    return 'success-row'
   }
   return ''
 }
@@ -1207,111 +1208,95 @@ function toggleComponent(row) {
 
 }
 
-
-// component for docuemnts 
-const rowData = ref()
-const documentComponent = defineAsyncComponent(() => import('@/views/Components/ListDocuments.vue'));
-const dynamicDocumentComponent = ref();
-const DocumentComponentProps = ref({
-  message: 'documents',
-  data: rowData.value,
-  docmodel: model,
-
-});
-
-
-function handleExpand(row) {
-  dynamicDocumentComponent.value = null; // Unload the component
-  rowData.value = row
-  DocumentComponentProps.value.data = row
-  setTimeout(() => {
-    dynamicDocumentComponent.value = documentComponent; // Load the component
-  }, 100); // 0.1 seconds
+// Document drawer functions
+const openDocumentDrawer = (row) => {
+  console.log('Opening document drawer for row:', row)
+  selectedRowData.value = row
+  documentDrawerVisible.value = true
 }
+
+const handleDocumentRefresh = () => {
+  console.log('Document refresh triggered')
+  // Refresh the table data when documents are modified
+  getFilteredData(filters, filterValues)
+}
+
+const handleOpenDialog = (row) => {
+  console.log('Opening upload dialog for row:', row)
+  toggleComponent(row)
+}
+
+// Handle upload completion
+const handleUploadComplete = (response) => {
+  console.log('Upload completed:', response)
+  // Refresh the table data to show new documents
+  getFilteredData(filters, filterValues)
+  // Close the upload dialog
+  addMoreDocuments.value = false
+}
+
+
 
 const report = ref({})
 
-
-
-const editIndicator = (data: TableSlotDefault) => {
-  showSubmitBtn.value = false
-
-  showEditSaveButton.value = true
-  console.log(data.county.name)
-  console.log(data.subcounty.name)
-  console.log(data.ward.name)
-  console.log(data.user.name)
+const review = (data: TableSlotDefault) => {
+  console.log('Reviewing report:', data)
+  
+  // Populate report data for the review dialog
+  report.value = {
+    project: data.project?.title || 'N/A',
+    location: data.settlement?.name || 'N/A',
+    indicator: data.indicator_category?.indicator_name || 'N/A',
+    amount: data.amount || 0,
+    date: formatDate(data.date),
+    user: data.user?.name || 'N/A',
+    phone: data.user?.phone || 'N/A',
+    documents: data.documents || []
+  }
+  
+  // Set the current row data for approve/reject actions
+  // Only set the essential fields needed for approval/rejection
   ruleForm.id = data.id
-  ruleForm.county_id = data.county_id
-  ruleForm.subcounty_id = data.subcounty_id
-  ruleForm.ward_id = data.ward_id
-  ruleForm.settlement_id = data.settlement_id
-  ruleForm.project_id = data.project_id
-  ruleForm.activity_id = data.activity_id
-
-
-  ruleForm.date = data.date
-  ruleForm.amount = data.amount
-  ruleForm.indicator_category_id = data.indicator_category_id
-  ruleForm.programme_implementation_id = data.programme_implementation_id
-
-
-  ruleForm.ward_id = data.ward_id
-  ruleForm.code = data.code
-  ruleForm.progress = data.progress
-  ruleForm.project_status = data.project_status
-  ruleForm.disbursement = data.disbursement
-  ruleForm.comments = data.comments
-  ruleForm.cumProgress = data.cumProgress
-  ruleForm.prevAmount = data.prevAmount
-  ruleForm.cumAmount = data.cumAmount
-
-
-
-  formHeader.value = 'Edit Report'
-  fileUploadList.value = data.documents
-
-
-
-  formHeader.value = 'Review Report'
-
-  // make the descriptions dataset 
-  report.value.county = data.county ? data.county.name : ''
-  report.value.indicator = data.indicator_category.indicator_name
-  report.value.status = data.status
-  report.value.date = formatDate(data.date)
-  report.value.amount = data.amount
-  report.value.user = data.user.name
-  report.value.phone = data.user.phone
-  report.value.project = data.project.title
-  report.value.location = data.settlement ? data.settlement.name : ''
-  //report.value.document =  data.documents[0] ? data.documents[0].name : ''
-
-
-
-  console.log(' ruleForm.location', ruleForm.location)
-
+  ruleForm.status = data.status || 'New'
+  ruleForm.reject_msg = data.reject_msg || ''
+  
+  console.log('RuleForm set for review:', {
+    id: ruleForm.id,
+    status: ruleForm.status,
+    reject_msg: ruleForm.reject_msg
+  })
+  
+  // Open the review dialog
   ReviewDialog.value = true
-
-  report.value.documents = Array.isArray(data.documents) && data.documents.length
-    ? data.documents.map(doc => doc) // Pushes the entire document object
-    : [];
-
-
 }
+
+
+
 
 
 
 const approve = async () => {
-  console.log("Appprove")
-  ruleForm.status = 'Approved'
-  console.log(ruleForm)
-  ruleForm.model = 'indicator_category_report'
-  ruleForm.userId = userInfo.id
-  console.log(ruleForm)
-  await updateOneRecord(ruleForm).then(() => { })
+  console.log("Approve")
+  
+  // Create a proper payload for the approval
+  const approvalPayload = {
+    id: ruleForm.id,
+    status: 'Approved',
+    model: 'indicator_category_report',
+    userId: userInfo.id
+  }
+  
+  console.log('Approval payload:', approvalPayload)
+  
+  try {
+    await updateOneRecord(approvalPayload)
   ReviewDialog.value = false
   getFilteredData(filters, filterValues)
+    ElMessage.success('Report approved successfully')
+  } catch (error) {
+    console.error('Error approving report:', error)
+    ElMessage.error('Failed to approve report')
+  }
 }
 
 const reject = async () => {
@@ -1319,18 +1304,28 @@ const reject = async () => {
 }
 const confirmReject = async () => {
   console.log('Reject Msg', rejectReason.value)
-  ruleForm.status = 'Rejected'
-  ruleForm.reject_msg = rejectReason.value
-  console.log(ruleForm)
-  ruleForm.model = 'indicator_category_report'
-  ruleForm.userId = userInfo.id
-  console.log(ruleForm)
-  await updateOneRecord(ruleForm).then(() => { })
+  
+  // Create a proper payload for the rejection
+  const rejectionPayload = {
+    id: ruleForm.id,
+    status: 'Rejected',
+    reject_msg: rejectReason.value,
+    model: 'indicator_category_report',
+    userId: userInfo.id
+  }
+  
+  console.log('Rejection payload:', rejectionPayload)
+  
+  try {
+    await updateOneRecord(rejectionPayload)
   RejectDialog.value = false
   ReviewDialog.value = false
-
   getFilteredData(filters, filterValues)
-
+    ElMessage.success('Report rejected successfully')
+  } catch (error) {
+    console.error('Error rejecting report:', error)
+    ElMessage.error('Failed to reject report')
+  }
 }
 
 
@@ -1694,42 +1689,6 @@ const loadMap = () => {
   });
 };
 
-const viewLoading = ref(false)
-const downloadFile = async (data) => {
-  console.log(data);
-  viewLoading.value = true;
-  const formData = {};
-  formData.filename = data.name;
-  formData.doc_id = data.id;
-  formData.responseType = 'blob';
-
-  // Add a flag to track if the download has started
-
-
-  // Attach a 'beforeunload' event listener to the window
-  window.addEventListener('beforeunload', () => {
-    if (viewLoading.value) {
-      console.log('Download has started.');
-      viewLoading.value = false;
-    }
-  });
-
-  try {
-    const response = await getFile(formData);
-    console.log(response);
-
-    const url = window.URL.createObjectURL(new Blob([response.data]));
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', data.name);
-    document.body.appendChild(link);
-    link.click();
-    viewLoading.value = false;
-  } catch (error) {
-    ElMessage.error('Failed');
-    viewLoading.value = false;
-  }
-};
 
 
 
@@ -1806,27 +1765,8 @@ const downloadFile = async (data) => {
 
     <el-table
 :data="tableDataList" style="width: 100%; margin-top: 10px;" border show-summary :summary-method="getSummaries" :row-class-name="tableRowClassName"
-      @expand-change="handleExpand" v-loading="loading">
-      <el-table-column type="expand">
-        <template #default="props">
-
-          <div>
-            <list-documents
-:is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
-              @open-dialog="toggleComponent(props.row)" />
-          </div>
-
-        </template>
-      </el-table-column>
-
-      <el-table-column label="#" width="80" prop="id" sortable>
-        <template #default="scope">
-          <div v-if="scope.row.documents.length > 0" style="display: inline-flex; align-items: center;">
-            <span>{{ scope.row.id }}</span>
-            <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
-          </div>
-        </template>
-      </el-table-column>
+      v-loading="loading">
+ 
 
 
 
@@ -1870,6 +1810,21 @@ const downloadFile = async (data) => {
           </el-tag>
         </template>
       </el-table-column>
+      <el-table-column label="Documents" width="120" align="center">
+        <template #default="{ row }">
+          <div class="documents-cell">
+            <el-button 
+              type="primary" 
+              size="small" 
+              :icon="Files"
+              @click="openDocumentDrawer(row)"
+              class="documents-button"
+            >
+              {{ row.documents?.length || 0 }}
+            </el-button>
+          </div>
+        </template>
+      </el-table-column>
       <!-- <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
         <template #default="scope">
           <el-dropdown v-if="isMobile">
@@ -1879,7 +1834,7 @@ const downloadFile = async (data) => {
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item
-v-if="showEditButtons" @click="editIndicator(scope as TableSlotDefault)"
+v-if="showEditButtons" @click="review(scope as TableSlotDefault)"
                   :icon="View">View</el-dropdown-item>
                 <el-dropdown-item
 v-if="showAdminButtons" @click="DeleteReport(scope.row as TableSlotDefault)"
@@ -1894,7 +1849,7 @@ v-if="showAdminButtons" @click="DeleteReport(scope.row as TableSlotDefault)"
             <el-tooltip content="Review" placement="top">
               <el-button
 v-if="showAdminButtons" type="primary" :icon="View"
-                @click="editIndicator(scope as TableSlotDefault)" circle />
+                @click="review(scope as TableSlotDefault)" circle />
             </el-tooltip>
 
             <el-tooltip content="Map" placement="top">
@@ -1920,7 +1875,7 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
 
       <el-table-column label="Actions" width="250">
         <template #default="{ row }">
-           <TableActions :item="row" :buttons="action_buttons" @view-on-map="showMap"   @review="editIndicator" @delete="DeleteReport"   />
+           <TableActions :item="row" :buttons="action_buttons" @view-on-map="showMap" @review="review" @delete="DeleteReport" @documents="openDocumentDrawer" />
 
 
         </template>
@@ -1981,8 +1936,12 @@ v-for="item in indicatorsOptionsFiltered" :key="item.value" :label="item.label"
           <el-form-item label="Quantity">
             <el-input-number v-model="ruleForm.amount" />
           </el-form-item>
-
-
+          <el-form-item label="Progress %">
+            <el-input-number v-model="ruleForm.progress" :min="0" :max="100" />
+          </el-form-item>
+          <el-form-item label="Comments">
+            <el-input v-model="ruleForm.comments" type="textarea" placeholder="Enter comments" />
+          </el-form-item>
 
         </el-form>
 
@@ -1999,7 +1958,6 @@ v-for="item in indicatorsOptionsFiltered" :key="item.value" :label="item.label"
 
             <el-button @click="AddDialogVisible = false">Cancel</el-button>
             <el-button v-if="showSubmitBtn" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
-            <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
 
 
           </el-col>
@@ -2040,7 +1998,6 @@ class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d
         <el-button @click="ImportDialogVisible = false">Cancel</el-button>
         <el-button v-if="showProcessBtn" type="secondary" @click="submitFiles()">Process</el-button>
         <el-button v-if="showSubmitBtn" type="primary" @click="submitBatchImport()">Submit</el-button>
-        <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
       </span>
     </template>
   </el-dialog>
@@ -2106,16 +2063,37 @@ class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d
 
   </el-dialog>
 
+  <!-- Document Drawer -->
+  <DocumentDrawer
+    v-model:visible="documentDrawerVisible"
+    :data="selectedRowData"
+    :docmodel="model"
+    @open-dialog="handleOpenDialog"
+    @refresh="handleDocumentRefresh"
+  />
+
+  <!-- Upload Dialog -->
+  <component 
+    v-if="dynamicComponent" 
+    :is="dynamicComponent" 
+    v-bind="componentProps"
+    @close="addMoreDocuments = false"
+    @upload-complete="handleUploadComplete"
+  />
 
 </template>
 
 <style>
 .el-table .danger-row {
   --el-table-tr-bg-color: var(--el-color-danger-light-9);
+  --el-table-tr-text-color: var(--el-color-danger);
+  color: var(--el-table-tr-text-color);
 }
 
 .el-table .success-row {
   --el-table-tr-bg-color: var(--el-color-success-light-9);
+  --el-table-tr-text-color: var(--el-color-success);
+  color: var(--el-table-tr-text-color);
 }
 </style>
 
@@ -2134,5 +2112,17 @@ class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d
   display: flex;
   flex-direction: row;
   justify-content: space-between;
+}
+
+
+.documents-cell {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.documents-button {
+  min-width: 60px;
+  font-weight: 600;
 }
 </style>

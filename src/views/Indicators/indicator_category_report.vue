@@ -13,7 +13,8 @@ import {
   Position, Back,
   InfoFilled,
   Filter,
-  Download
+  Download,
+  Files
 } from '@element-plus/icons-vue'
 
 import { ref, reactive, onMounted, computed } from 'vue'
@@ -29,6 +30,7 @@ import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument, searchByKe
 import { uuid } from 'vue-uuid'
 import type { UploadProps, UploadUserFile } from 'element-plus'
 import readXlsxFile from 'read-excel-file'
+import xlsx from "json-as-xlsx"
 import { getModelSpecs } from '@/api/fields'
 import { BatchImportUpsert } from '@/api/settlements'
 import { UserType } from '@/api/register/types'
@@ -39,6 +41,7 @@ import { getOneGeo } from '@/api/settlements'
 import UploadComponent from '@/views/Components/UploadComponent.vue';
 import { defineAsyncComponent } from 'vue';
 import ListDocuments from '@/views/Components/ListDocuments.vue';
+import DocumentDrawer from '@/views/Components/DocumentDrawer.vue';
 
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 import TableActions from '@/views/Components/TableActions.vue';
@@ -67,6 +70,7 @@ const userInfo = wsCache.get(appStore.getUserInfo)
 
 const showAdminButtons = ref(appStore.getAdminButtons)
 const showEditButtons = ref(appStore.getEditButtons)
+const downloadLoading = ref(false)
 
  
 console.log("userInfo--->", userInfo)
@@ -267,6 +271,53 @@ const handleClear = async () => {
   tblData = []
   //----run the get data--------
   getInterventionsAll()
+}
+
+const DownloadXlsx = async () => {
+  console.log(tableDataList.value)
+
+  // Define the fields for the Excel export
+  let fields = [
+    { label: "S/No", value: "index" },
+    { label: "Indicator", value: "indicator_name" },
+    { label: "Category", value: "category_title" },
+    { label: "Quantity", value: "quantity" },
+    { label: "Cumulative", value: "cumulative" },
+    { label: "Baseline", value: "baseline" },
+    { label: "Target", value: "target" },
+    { label: "Progress", value: "progress" },
+    { label: "Date", value: "date" },
+    { label: "Comments", value: "comments" },
+    { label: "Status", value: "status" }
+  ]
+
+  // Prepare the data object 
+  var dataObj = {}
+  dataObj.sheet = 'Indicator Category Reports'
+  dataObj.columns = fields
+
+  let dataHolder = []
+  tableDataList.value.forEach((item, index) => {
+    let row = {
+      index: index + 1,
+      indicator_name: item.indicator_category?.indicator_name || 'N/A',
+      category_title: item.indicator_category?.category_title || 'N/A',
+      quantity: item.quantity || 0,
+      cumulative: item.cumulative || 0,
+      baseline: item.baseline || 0,
+      target: item.target || 0,
+      progress: item.progress || 0,
+      date: item.date || 'N/A',
+      comments: item.comments || '',
+      status: item.status || 'New'
+    }
+    dataHolder.push(row)
+  })
+
+  dataObj.content = dataHolder
+
+  // Download the file
+  xlsx([dataObj], { fileName: "Indicator_Category_Reports.xlsx" })
 }
 
 const handleSettlementFilter = async (settlements: any) => {
@@ -1709,16 +1760,17 @@ const componentProps = ref({
 
 
 function toggleComponent(row) {
-  console.log('Compnnent data', row)
+  console.log('toggleComponent called with:', row)
   componentProps.value.data = row
   dynamicComponent.value = null; // Unload the component
   addMoreDocuments.value = true; // Set any additional props
+  console.log('addMoreDocuments set to:', addMoreDocuments.value)
 
   setTimeout(() => {
+    console.log('Loading ChildComponent...')
     dynamicComponent.value = ChildComponent; // Load the component
+    console.log('dynamicComponent set to:', dynamicComponent.value)
   }, 100); // 0.1 seconds
-
-
 }
 
 
@@ -1729,34 +1781,50 @@ function disabledFutureDates(date) {
 
 
 
-// component for docuemnts 
-const rowData = ref()
-const documentComponent = defineAsyncComponent(() => import('@/views/Components/ListDocuments.vue'));
-const dynamicDocumentComponent = ref();
-const DocumentComponentProps = ref({
-  message: 'documents',
-  data: rowData.value,
-  docmodel: model,
+// Document drawer state
+const documentDrawerVisible = ref(false)
+const selectedRowData = ref(null)
 
-});
+// Open document drawer
+const openDocumentDrawer = (row) => {
+  console.log('Opening document drawer for row:', row);
+  console.log('Row documents:', row.documents);
+  
+  selectedRowData.value = row
+  documentDrawerVisible.value = true
+}
 
-const expandedRowKeys = ref([])
+// Close document drawer
+const closeDocumentDrawer = () => {
+  documentDrawerVisible.value = false
+  selectedRowData.value = null
+}
 
-function handleExpand(row,expandedRows) {
-  dynamicDocumentComponent.value = null; // Unload the component
-  rowData.value = row
-  DocumentComponentProps.value.data = row
-  setTimeout(() => {
-    dynamicDocumentComponent.value = documentComponent; // Load the component
-  }, 100); // 0.1 seconds
+// Handle document drawer events
+const handleDocumentRefresh = () => {
+  // Refresh the table data when documents are modified
+  getFilteredData(filters, filterValues)
+}
 
-  if (expandedRows.includes(row)) {
-    expandedRowKeys.value = [row.id] // Only keep one expanded
+// Handle upload completion
+const handleUploadComplete = (response) => {
+  console.log('Upload completed:', response)
+  // Refresh the table data to show new documents
+  getFilteredData(filters, filterValues)
+  // Close the upload dialog
+  addMoreDocuments.value = false
+}
+
+const handleOpenDialog = () => {
+  // Handle opening upload dialog
+  console.log('handleOpenDialog called!')
+  console.log('Opening upload dialog for row:', selectedRowData.value)
+  if (selectedRowData.value) {
+    console.log('Calling toggleComponent with:', selectedRowData.value)
+    toggleComponent(selectedRowData.value)
   } else {
-    expandedRowKeys.value = []
+    console.log('No selectedRowData available!')
   }
-
-
 }
 
  
@@ -2304,14 +2372,30 @@ function handleIndicatorsChange(selectedIds) {
             <el-tooltip content="Add Indicator Category Report" placement="top">
               <el-button :onClick="AddReport" type="primary" :icon="Plus" />
             </el-tooltip>
+            <el-tooltip content="Clear" placement="top">
+              <el-button @click="handleClear" type="primary">
+                <Icon icon="mdi:filter-remove" />
+              </el-button>
+            </el-tooltip>
+            <DownloadCustom
+              :data="tableDataList"
+              :model="model"
+              :associated_models="associated_multiple_models"
+              :loading="downloadLoading"
+              @download-start="downloadLoading = true"
+              @download-end="downloadLoading = false"
+            />
           </PermissionWrapper>
-          <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
-          <DownloadAll :model="model" :associated_models="associated_multiple_models" />
-          <el-button :onClick="handleClear" type="primary" :icon="Filter" />
         </div>
       </el-col>
     </el-row>
-    <el-table :data="tableDataList" :loading="loading" border show-summary :summary-method="getSummaries" style="width: 100%; margin-top: 10px;">
+    <el-table 
+      :data="tableDataList" 
+      :loading="loading" 
+      border 
+      show-summary 
+      :summary-method="getSummaries" 
+      style="width: 100%; margin-top: 10px;">
       <el-table-column label="Indicator" sortable>
         <template #default="{ row }">
           {{ row.indicator_category?.indicator_name || 'N/A' }}
@@ -2343,6 +2427,21 @@ function handleIndicatorsChange(selectedIds) {
           <el-tag :type="row.status === 'Approved' ? 'success' : row.status === 'Rejected' ? 'danger' : 'info'">
             {{ row.status || 'New' }}
           </el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="Documents" width="120" align="center">
+        <template #default="{ row }">
+          <div class="documents-cell">
+            <el-button 
+              type="primary" 
+              size="small" 
+              :icon="Files"
+              @click="openDocumentDrawer(row)"
+              class="documents-button"
+            >
+              {{ row.documents?.length || 0 }}
+            </el-button>
+          </div>
         </template>
       </el-table-column>
       <el-table-column label="Actions" width="250">
@@ -2635,7 +2734,23 @@ target="#btn13" title="Documentation"
 
   </el-tour>
 
+  <!-- Document Drawer -->
+  <DocumentDrawer
+    v-model:visible="documentDrawerVisible"
+    :data="selectedRowData"
+    :docmodel="model"
+    @refresh="handleDocumentRefresh"
+    @open-dialog="handleOpenDialog"
+  />
 
+  <!-- Upload Dialog -->
+  <component 
+    v-if="dynamicComponent" 
+    :is="dynamicComponent" 
+    v-bind="componentProps"
+    @close="addMoreDocuments = false"
+    @upload-complete="handleUploadComplete"
+  />
 
 </template>
 
@@ -2676,5 +2791,23 @@ target="#btn13" title="Documentation"
 .item {
   margin-top: 10px;
   margin-right: 40px;
+}
+
+.documents-cell {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.documents-button {
+  min-width: 60px;
+  font-weight: 600;
+}
+
+.no-documents {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  opacity: 0.5;
 }
 </style>

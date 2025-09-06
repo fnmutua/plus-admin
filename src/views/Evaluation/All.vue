@@ -1696,9 +1696,6 @@ v-if="showPagination" layout="sizes, prev, pager, next, total" v-model:currentPa
   width: 100%;
   height: 75vh;
 }
-</style>
-
-<style>
 .el-table .warning-row {
   --el-table-tr-bg-color: var(--el-color-warning-light-9);
 }
@@ -1706,13 +1703,6 @@ v-if="showPagination" layout="sizes, prev, pager, next, total" v-model:currentPa
 .el-table .success-row {
   --el-table-tr-bg-color: var(--el-color-success-light-9);
 }
-</style>
-
-
-
-
-
-<style>
 .el-row {
   margin-bottom: 20px;
 }
@@ -1735,7 +1725,6 @@ v-if="showPagination" layout="sizes, prev, pager, next, total" v-model:currentPa
   margin-right: 40px;
 }
 
-
 .demo-tabs>.el-tabs__content {
   padding: 32px;
   color: #6b778c;
@@ -1755,10 +1744,7 @@ v-if="showPagination" layout="sizes, prev, pager, next, total" v-model:currentPa
 .custom-tab.is-active {
   color: red;
 }
-</style>
 
-
-<style scoped>
 .basemap {
   width: 100%;
   height: 75vh;
@@ -1768,9 +1754,7 @@ v-if="showPagination" layout="sizes, prev, pager, next, total" v-model:currentPa
   box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.4);
   /* Shadow */
 }
-</style>
 
-<style scoped>
 .my-header {
   display: flex;
   flex-direction: row;

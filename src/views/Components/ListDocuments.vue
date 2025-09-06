@@ -1,13 +1,15 @@
 <script setup>
-import { ref, toRefs, onMounted } from 'vue'
+import { ref, toRefs, onMounted, computed } from 'vue'
 import {
   ElButton, ElProgress, ElDialog, ElUpload, ElSelect, ElOption, ElTable, ElTableColumn, ElDropdown,
-  ElDropdownItem, ElPopconfirm, ElTooltip, ElInput, 
+  ElDropdownItem, ElPopconfirm, ElTooltip, ElInput, ElCard, ElEmpty, ElSkeleton, ElTag, ElSpace
 } from 'element-plus';
 import {
   Position, View, Plus, User, TopRight, Briefcase, Download, Delete, Edit,
-  Filter, InfoFilled, CopyDocument, Search, Setting, Loading, UploadFilled
+  Filter, InfoFilled, CopyDocument, Search, Setting, Loading, UploadFilled, Document,
+  Picture, VideoPlay, Files, DocumentCopy, FolderOpened, Calendar
 } from '@element-plus/icons-vue'
+import { Icon } from '@iconify/vue'
 import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
 import { ElMessage, ElPagination } from 'element-plus'
 import { uuid } from 'vue-uuid'
@@ -68,8 +70,9 @@ onMounted(() => {
  window.addEventListener('resize', checkScreenSize);
 
 
-  console.log('data----x', props.data)
-  console.log('userInfo----x', userInfo)
+  console.log('ListDocuments - data----x', props.data)
+  console.log('ListDocuments - userInfo----x', userInfo)
+  console.log('ListDocuments - documents array:', props.data?.documents)
   filterDocuments();
 
 
@@ -79,7 +82,9 @@ onMounted(() => {
 const tableDocuments = ref([])
 const tableDocumentsFiltered = ref([])
 //tableDocuments.value = []
-tableDocuments.value = props.data.documents ? props.data.documents : []
+console.log('Initializing tableDocuments with:', props.data?.documents)
+tableDocuments.value = props.data?.documents ? props.data.documents : []
+console.log('tableDocuments.value after initialization:', tableDocuments.value)
 
 //const cmodel = ref(props.data.docmodel)
 
