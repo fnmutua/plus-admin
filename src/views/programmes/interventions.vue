@@ -181,7 +181,8 @@ let filterValues: any[] = [[component_id.value]]   // make sure the inner array 
 let tblData = ref<any[]>([])
 const associated_Model = ''
 //const associated_multiple_models = ['settlement', 'county', 'subcounty', 'component', 'document']
-const associated_multiple_models = ['component', 'programme'] // Minimal associations for better performance
+const associated_multiple_models = ['component', 'programme', 'project_location'] // Include project_location for location display
+// Note: project_location should include settlement data through its own associations
 // Removed nested_models completely for better performance
 
 
@@ -302,6 +303,12 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   console.log('After Query - minimal associations loaded', res)
   tableDataList.value = (res as any).data || []
   tableDataList_orig.value = (res as any).data || [] // back for post filter
+  
+  // Debug project_locations data
+  if (tableDataList.value.length > 0) {
+    console.log('First project data:', tableDataList.value[0])
+    console.log('Project locations:', tableDataList.value[0].project_locations)
+  }
 
   total.value = (res as any).total || 0
 
@@ -310,9 +317,9 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   let filteredIds: any[] = []
   if ((res as any).data) {
     (res as any).data.forEach(function (arrayItem: any) {
-      filteredIds.push(arrayItem.id)
-      tblData.value.push(arrayItem)
-    })
+    filteredIds.push(arrayItem.id)
+    tblData.value.push(arrayItem)
+  })
   }
 
   // Skip geo loading for now to improve performance
@@ -320,9 +327,9 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   if (filteredIds.length > 0) {
     console.log('Skipping geo loading for performance - can be enabled if needed')
     // Initialize empty geo arrays
-    facilityGeoPoints.value = []
-    facilityGeoLines.value = []
-    facilityGeoPolygons.value = []
+      facilityGeoPoints.value = []
+      facilityGeoLines.value = []
+      facilityGeoPolygons.value = []
     geoLoaded.value = true
   }
 
@@ -653,8 +660,8 @@ const getInterventionComponents = async () => {
         value: arrayItem.id,
         label: arrayItem.title + '(' + (arrayItem.programme?.acronym || 'N/A') + ')'
       }
-      componentOptions.value.push(countyOpt)
-    })
+    componentOptions.value.push(countyOpt)
+  })
   }
 }
 
@@ -1374,17 +1381,17 @@ const getProjectLocations = async (project_id: any) => {
   try {
     // Get the project settlement ids with minimal associations
     const formData: any = {
-      model: 'project_location',
-      searchField: 'name',
-      searchKeyword: '',
-      filters: ['project_id'],
-      filterValues: [[project_id]],
-      associated_multiple_models: []
-    };
+    model: 'project_location',
+    searchField: 'name',
+    searchKeyword: '',
+    filters: ['project_id'],
+    filterValues: [[project_id]],
+    associated_multiple_models: []
+  };
 
     const res = await getSettlementListByCounty(formData as any);
     const sett_ids = (res as any).data?.map((item: any) => item.settlement_id) || []; // Extract settlement_id
-    console.log('sett_ids', sett_ids);
+  console.log('sett_ids', sett_ids);
 
     if (sett_ids.length === 0) {
       locations_loading.value = false;
@@ -1393,39 +1400,39 @@ const getProjectLocations = async (project_id: any) => {
 
     // Fetch settlements with minimal associations for better performance
     const form: any = {
-      model: 'settlement',
-      filters: ['id'],
-      filterValues: [sett_ids],
-      excludeGeom: true,
+    model: 'settlement',
+    filters: ['id'],
+    filterValues: [sett_ids],
+    excludeGeom: true,
       associated_multiple_models: ['county'] // Minimal associations for location performance
-    };
+  };
 
     const setts = await getSettlementListByCounty(form as any);
-    console.log('setts', setts);
+  console.log('setts', setts);
 
-    // Map settlements to include additional details
+  // Map settlements to include additional details
     const settlements = (setts as any).data?.map((item: any) => ({
       county: item.county?.name || 'N/A',
       subcounty: item.subcounty?.name || 'N/A',
       ward: item.ward?.name || 'N/A',
       settlement: item.name || 'N/A',
-      settlement_id: item.id
+    settlement_id: item.id
     })) || [];
 
-    // Join project locations with settlement details based on settlement_id
+  // Join project locations with settlement details based on settlement_id
     project_locations.value = (res as any).data?.map((projectLocation: any) => {
       const settlement = settlements.find((sett: any) => sett.settlement_id === projectLocation.settlement_id);
-      return {
-        ...projectLocation,
-        county: settlement ? settlement.county : null,
-        subcounty: settlement ? settlement.subcounty : null,
-        ward: settlement ? settlement.ward : null,
-        settlementName: settlement ? settlement.settlement : null
-      };
+    return {
+      ...projectLocation,
+      county: settlement ? settlement.county : null,
+      subcounty: settlement ? settlement.subcounty : null,
+      ward: settlement ? settlement.ward : null,
+      settlementName: settlement ? settlement.settlement : null
+    };
     }) || [];
 
-    locations_loading.value = false
-    console.log('project_locations', project_locations);
+  locations_loading.value = false
+  console.log('project_locations', project_locations);
   } catch (error) {
     console.error('Error fetching project locations:', error);
     locations_loading.value = false;
@@ -1647,7 +1654,7 @@ const AddActivity = async () => {
   console.log('loc_res', loc_res)
 
   if (project_activities.value) {
-    project_activities.value.push(...activity_objects);
+  project_activities.value.push(...activity_objects);
   }
 
   console.log('project_activities', project_activities.value)
@@ -1811,6 +1818,23 @@ function viewProject(row: any) {
   })
 }
 
+function goToSettlementMap(location: any) {
+  console.log('Navigate to settlement map:', location)
+  // Navigate to settlement map with settlement ID as path parameter
+  router.push({
+    name: 'SettlementMap',
+    params: {
+      id: location.settlement_id
+    },
+    query: {
+      settlement_name: location.location_name,
+      county_id: location.county_id,
+      subcounty_id: location.subcounty_id,
+      ward_id: location.ward_id
+    }
+  })
+}
+
 // Remove expand column and add hover logic
 const hoveredRow = ref(null);
 
@@ -1926,6 +1950,38 @@ ref="tableRef" row-key="id" :data="tableDataList" style="width: 100%; margin-top
       >
         <template #default="{ row }">
           <span class="programme">{{ row.programme?.acronym }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column
+        label="Locations"
+        prop="project_location"
+        min-width="200"
+        show-overflow-tooltip
+      >
+        <template #default="{ row }">
+          <div v-if="row.project_locations && row.project_locations.length > 0" class="locations-container">
+            <div class="location-list">
+              <span 
+                v-for="(location, index) in row.project_locations" 
+                :key="index"
+                class="location-item"
+              >
+                <span 
+                  v-if="location.location_type === 'settlement'"
+                  @click="goToSettlementMap(location)"
+                  class="settlement-link"
+                  :title="`View ${location.location_name} on map`"
+                >
+                  {{ location.location_name || location.settlement?.name || 'Unknown' }}
+                </span>
+                <span v-else class="location-name">
+                  {{ location.location_name || location.settlement?.name || 'Unknown' }}
+                </span>
+                <span v-if="index < row.project_locations.length - 1" class="location-separator">, </span>
+              </span>
+            </div>
+          </div>
+          <span v-else class="no-locations">No locations configured</span>
         </template>
       </el-table-column>
       <el-table-column label="Action" width="120" align="center">
@@ -2079,7 +2135,7 @@ class="upload-demo" :on-change="handleCsvUpload" drag :auto-upload="false"
 
 .el-table .el-table__body .el-table__cell {
   padding: 6px 0 !important;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .el-table .el-table__row {
@@ -2100,11 +2156,63 @@ class="upload-demo" :on-change="handleCsvUpload" drag :auto-upload="false"
 
 .project-title {
   font-weight: 400;
-  font-size: 0.95em;
+  font-size: 13px;
 }
 .programme {
   color: #888;
-  font-size: 0.85em;
+  font-size: 13px;
+}
+
+.locations-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.location-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.location-item {
+  color: #409EFF;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.settlement-link {
+  color: #409EFF;
+  font-weight: 400;
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: underline;
+  transition: all 0.2s ease;
+}
+
+.settlement-link:hover {
+  color: #66b1ff;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.location-name {
+  color: #409EFF;
+  font-weight: 400;
+  font-size: 13px;
+}
+
+.location-separator {
+  color: #666;
+  font-size: 13px;
+}
+
+.no-locations {
+  color: #999;
+  font-style: italic;
+  font-size: 13px;
 }
 .el-table__row:hover {
   background: #f7fafd !important;
