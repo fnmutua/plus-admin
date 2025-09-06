@@ -806,7 +806,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
   <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" :width="dialogWidth" draggable>
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
 
-      <el-form-item id="btn6" label="Level" prop="level">
+      <el-form-item id="btn1" label="Level" prop="level">
         <el-select v-model="ruleForm.level" placeholder="Level"  :onChange="handleSwitchChange">
           <el-option label="Activity" value="activity" />
           <el-option label="Project" value="project" />
@@ -814,7 +814,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       </el-form-item>
 
 
-      <el-form-item v-if="ruleForm.level=='activity' "  id="btn1" label="Activity" prop="activity_id">
+      <el-form-item v-if="ruleForm.level=='activity' "  id="btn2" label="Activity" prop="activity_id">
         <el-select
 filterable v-model="ruleForm.activity_id" placeholder="Select Activity"
           style="width: 85%; margin-right: 10px;">
@@ -825,23 +825,23 @@ filterable v-model="ruleForm.activity_id" placeholder="Select Activity"
 
 
 
-      <el-form-item id="btn2" label="Title" prop="name">
+      <el-form-item id="btn3" label="Title" prop="name">
         <el-input v-model="ruleForm.name" />
       </el-form-item>
-      <el-form-item id="btn3" label="Type" prop="type">
+      <el-form-item id="btn4" label="Type" prop="type">
         <el-select v-model="ruleForm.type" placeholder="Type">
           <el-option label="Output" value="output" />
           <el-option label="Impact" value="outcome" />
         </el-select>
       </el-form-item>
-      <el-form-item id="btn4" label="Measurement" prop="format">
+      <el-form-item id="btn5" label="Measurement" prop="format">
         <el-select v-model="ruleForm.format" placeholder="Format">
           <el-option label="Number" value="number" />
           <el-option label="Percent" value="percent" />
           <el-option label="Yes/No (true/false)" value="boolean" />
         </el-select>
       </el-form-item>
-      <el-form-item id="btn5" label="Unit" prop="format">
+      <el-form-item id="btn6" label="Unit" prop="format">
         <el-select clearable filterable v-model="ruleForm.unit" allow-create placeholder="Unit">
           <el-option label="Kilometre" value="Km" />
           <el-option label="Number" value="No." />
@@ -866,26 +866,24 @@ filterable v-model="ruleForm.activity_id" placeholder="Select Activity"
 
   <el-tour v-model="openHelp" z-index="100000">
     <el-tour-step
-target="#btn1" title="Activity"
-      description="Select the project activity you wish to configure an indicator for" />
+target="#btn1" title="Level"
+      description="Select the level at which the indicator's data will be reported - either Activity level or Project level" />
+      
     <el-tour-step
-target="#btn2" title="Title"
-      description="Enter a unique name for the indicator. This name will be used to identify the indicator in reports and dashboards." />
+target="#btn3" title="Title"
+      description="Enter a unique name for the indicator. This name will be used to identify the indicator in reports and dashboards" />
+      
     <el-tour-step
-target="#btn3" title="Type"
-      description="Select whether this indicator measures an 'Impact' or an 'Output.' Impact: Refers to the long-term effects or changes that occur as a result of the activities or interventions, often related to the overall goal.Output: Refers to the immediate results or products of activities, such as services delivered or goods produced." />
+target="#btn4" title="Type"
+      description="Select whether this indicator measures an 'Impact' or an 'Output.' Impact: Long-term effects or changes. Output: Immediate results or products of activities" />
+      
     <el-tour-step
-target="#btn4" title="Format"
-      description="Specify how the indicator will be calculated. Options may include sums, averages, percentages" />
+target="#btn5" title="Measurement"
+      description="Specify how the indicator will be calculated - as a Number, Percentage, or Yes/No (boolean) value" />
 
     <el-tour-step
-target="#btn5" title="Unit"
-      description="Specify the unit of measurement for this indicator (e.g.,  Kilometer, dollars, kilograms). This unit should align with the data being collected and reported, ensuring consistency and clarity in how the indicator's values are interpreted." />
-
-    <el-tour-step
-target="#btn6" title="Level"
-      description="Select the level at which the indicator's data will be reported." />
-
+target="#btn6" title="Unit"
+      description="Specify the unit of measurement for this indicator (e.g., Kilometer, Number, Household). You can also create custom units" />
 
   </el-tour>
 
