@@ -35,7 +35,7 @@ if (typeof globalThis.fetch === 'undefined') {
 
 const express = require('express');
 const bodyParser = require('body-parser');
-const cors = require('cors');
+//const cors = require('cors');
 const app = express();
 const fs = require('fs');
 const https = require('https');
@@ -68,12 +68,6 @@ if (envt === 'DEV') {
 const dotenv = require('dotenv');
 dotenv.config();
 
-var corsOptions = {
-  origin: ['http://localhost','http://localhost:4000', 'capacitor://localhost',   'http://localhost:3000','http://localhost:8100','http://localhost:8080', '*',
-     'https://collector.kesmis.go.ke','https://kesmis.go.ke:8080', 'http://kesmis.go.ke:8080']
-};
-
-app.use(cors(corsOptions))
 
 // middle ware
 app.use(bodyParser.json({ limit: '10gb' }));
