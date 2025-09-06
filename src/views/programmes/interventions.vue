@@ -2,13 +2,13 @@
 import { getSettlementListByCounty, getRoutesList } from '@/api/settlements'
 
 import {
-  ElButton, ElSelect, ElDialog, ElCard,
+  ElButton, ElSelect, ElDialog, ElCard,ElDrawer,
   ElUpload, ElTable, ElTableColumn
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
-import { Plus, Back, Download, ArrowRight, DArrowRight } from '@element-plus/icons-vue'
+import { Plus, Back, Download, ArrowRight, DArrowRight, Loading } from '@element-plus/icons-vue'
 
-import { ref, reactive, } from 'vue'
+import { ref, reactive } from 'vue'
 import { ElPagination, ElTooltip, ElOption, } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { DeleteRecord, updateOneRecord, BatchImportUpsert } from '@/api/settlements'
@@ -36,6 +36,7 @@ import exportFromJSON from 'export-from-json'
 import Papa from 'papaparse';
 import { onMounted } from 'vue';
 import PermissionWrapper from '@/components/PermissionWrapper.vue';
+import SettlementMap from '@/views/Components/SettlementMap.vue';
 // import DownloadCustom from '@/views/Components/DownloadCustom.vue'; // Removed unused import
 
 
@@ -168,6 +169,9 @@ const total = ref(0)
 
 
 const uploadDialog = ref(false)
+const settlementMapDrawer = ref(false)
+const selectedSettlement = ref(null)
+const mapLoading = ref(true)
 let tableDataList = ref<UserType[]>([])
 let tableDataList_orig = ref<UserType[]>([])
 //// ------------------parameters -----------------------////
@@ -181,7 +185,7 @@ let filterValues: any[] = [[component_id.value]]   // make sure the inner array 
 let tblData = ref<any[]>([])
 const associated_Model = ''
 //const associated_multiple_models = ['settlement', 'county', 'subcounty', 'component', 'document']
-const associated_multiple_models = ['component', 'programme', 'project_location'] // Include project_location for location display
+const associated_multiple_models = ['programme', 'project_location', 'programme_implementation'] // Include programme, project_location, and programme_implementation
 // Note: project_location should include settlement data through its own associations
 // Removed nested_models completely for better performance
 
@@ -1819,20 +1823,39 @@ function viewProject(row: any) {
 }
 
 function goToSettlementMap(location: any) {
-  console.log('Navigate to settlement map:', location)
-  // Navigate to settlement map with settlement ID as path parameter
-  router.push({
-    name: 'SettlementMap',
-    params: {
-      id: location.settlement_id
-    },
-    query: {
-      settlement_name: location.location_name,
-      county_id: location.county_id,
-      subcounty_id: location.subcounty_id,
-      ward_id: location.ward_id
+  console.log('Open settlement map drawer:', location)
+  // Set the selected settlement data and open the drawer
+  selectedSettlement.value = {
+    id: location.settlement_id,
+    name: location.location_name,
+    county_id: location.county_id,
+    subcounty_id: location.subcounty_id,
+    ward_id: location.ward_id
+  }
+  mapLoading.value = true
+  settlementMapDrawer.value = true
+}
+
+function handleDrawerClose() {
+  settlementMapDrawer.value = false
+  selectedSettlement.value = null
+}
+
+function onLayersLoaded() {
+  console.log('Settlement map layers loaded successfully')
+  mapLoading.value = false
+  // Trigger map resize after a short delay to ensure proper rendering
+  setTimeout(() => {
+    if (window.mapboxgl && window.mapboxgl.Map) {
+      // Trigger resize on all map instances
+      const maps = document.querySelectorAll('.mapboxgl-map')
+      maps.forEach(map => {
+        if (map._mapboxgl_map) {
+          map._mapboxgl_map.resize()
+        }
+      })
     }
-  })
+  }, 100)
 }
 
 // Remove expand column and add hover logic
@@ -1953,6 +1976,16 @@ ref="tableRef" row-key="id" :data="tableDataList" style="width: 100%; margin-top
         </template>
       </el-table-column>
       <el-table-column
+        label="Implementation"
+        prop="programme_implementation.title"
+        max-width="140"
+        show-overflow-tooltip
+      >
+        <template #default="{ row }">
+          <span class="implementation">{{ row.programme_implementation?.title }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column
         label="Locations"
         prop="project_location"
         min-width="200"
@@ -2002,6 +2035,37 @@ ref="tableRef" row-key="id" :data="tableDataList" style="width: 100%; margin-top
 layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       v-model:page-size="pageSize" :page-sizes="[3, 5, 10, 20, 50, 100]" :total="total" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+
+    <!-- Settlement Map Drawer -->
+    <el-drawer
+      v-model="settlementMapDrawer"
+      :size="isMobile ? '100%' : '45%'"
+      direction="rtl"
+      :before-close="handleDrawerClose"
+      :show-close="false"
+    >
+      <template #header="{ close, titleId, titleClass }">
+        <h4 :id="titleId" :class="titleClass" class="custom-drawer-title">
+          {{ selectedSettlement ? selectedSettlement.name : 'Settlement' }} - Map
+        </h4>
+        <el-button type="danger" size="small" @click="close">
+          <Icon icon="material-symbols:close" class="el-icon--left" />
+          Close
+        </el-button>
+      </template>
+      <div v-if="selectedSettlement" class="settlement-map-container">
+        <div v-if="mapLoading" class="map-loading">
+          <el-icon class="is-loading"><Loading /></el-icon>
+          <p>Loading settlement map...</p>
+        </div>
+        <SettlementMap 
+          v-show="!mapLoading"
+          :settlementId="selectedSettlement.id"
+          @layers-loaded="onLayersLoaded"
+          :class="{ 'map-hidden': mapLoading }"
+        />
+      </div>
+    </el-drawer>
 
 
 
@@ -2163,6 +2227,18 @@ class="upload-demo" :on-change="handleCsvUpload" drag :auto-upload="false"
   font-size: 13px;
 }
 
+.component {
+  color: #666;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.implementation {
+  color: #409EFF;
+  font-size: 13px;
+  font-weight: 500;
+}
+
 .locations-container {
   display: flex;
   flex-wrap: wrap;
@@ -2213,6 +2289,76 @@ class="upload-demo" :on-change="handleCsvUpload" drag :auto-upload="false"
   color: #999;
   font-style: italic;
   font-size: 13px;
+}
+
+.settlement-map-container {
+  height: calc(100vh - 120px);
+  padding: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.settlement-map-container .mapboxgl-map {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 400px;
+}
+
+.map-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 500px;
+  background: #f5f7fa;
+  border-radius: 8px;
+}
+
+.map-loading .el-icon {
+  font-size: 32px;
+  color: #409EFF;
+  margin-bottom: 16px;
+}
+
+.map-loading p {
+  margin: 0;
+  color: #606266;
+  font-size: 16px;
+}
+
+.map-hidden {
+  display: none !important;
+}
+
+/* Drawer header styling */
+.el-drawer__header {
+  margin-bottom: 10px !important;
+  padding: 16px 20px 10px 20px !important;
+}
+
+.el-drawer__title {
+  font-weight: 600 !important;
+  font-size: 16px !important;
+}
+
+/* Custom drawer header styling */
+.custom-drawer-title {
+  font-weight: 700 !important;
+  font-size: 14px !important;
+  margin: 0 !important;
+  color: #303133 !important;
+  flex: 1;
+  line-height: 1.2 !important;
+}
+
+.el-drawer__header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  margin-bottom: 5px !important;
+  padding: 8px 16px 4px 16px !important;
+  min-height: 40px !important;
 }
 .el-table__row:hover {
   background: #f7fafd !important;
