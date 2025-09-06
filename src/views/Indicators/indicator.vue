@@ -1,24 +1,27 @@
 <!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
 import { useI18n } from '@/hooks/web/useI18n'
-import { getSettlementListByCounty } from '@/api/settlements'
+import { getSettlementListByCounty, searchByKeyWord } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
-import { ElButton, ElSelect, ElTour, ElCard, ElTourStep } from 'element-plus'
+import DownloadCustom from '@/views/Components/DownloadCustom.vue'
+import { ElButton, ElSelect, ElTour, ElCard, ElTourStep,ElRow,ElCol } from 'element-plus'
 import { ElMessage } from 'element-plus'
+import { Icon } from '@iconify/vue'
 import {
   Plus,
   Download,
   Filter,
   Edit,Back,
   InfoFilled,
-  Delete
+  Delete,
+  Search
 } from '@element-plus/icons-vue'
 
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed, watch } from 'vue'
 import {
   ElPagination, ElTable,
   ElTableColumn, ElDropdown, ElDropdownItem, ElDropdownMenu,
-  ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElInput, ElPopconfirm
+  ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElInput, ElPopconfirm, ElIcon
 } from 'element-plus'
 
 
@@ -87,13 +90,23 @@ var value3 = ref([])
 const indicatorsOptions = ref([])
 const settlementOptions = ref([])
 const categories = ref([])
-const page = ref(1)
- const selCounties = []
-const loading = ref(true)
- 
-const currentPage = ref(1)
-const total = ref(0)
+const searchKeyword = ref('')
+const searchLoading = ref(false)
 const downloadLoading = ref(false)
+const page = ref(1)
+const currentPage = ref(1)
+const selCounties = []
+const loading = ref(true)
+const total = ref(0)
+
+// Keep page and currentPage in sync
+watch(page, (newPage) => {
+  currentPage.value = newPage
+})
+
+watch(currentPage, (newCurrentPage) => {
+  page.value = newCurrentPage
+})
 
 
 
@@ -149,16 +162,64 @@ const showEditSaveButton = ref(false)
 
 
 
+const searchByIndicatorName = async () => {
+  const query = searchKeyword.value?.trim()
+
+  if (!query || query.length < 3) {
+    ElMessage.warning("Please enter at least 3 characters to search.")
+    return
+  }
+
+  searchLoading.value = true
+  await getFilteredBySearchData(query, true) // Reset to page 1 for new search
+  searchLoading.value = false
+}
+
+// Real-time search with debouncing
+let searchTimeout: any = null
+
+const handleSearchInput = () => {
+  // Clear previous timeout
+  if (searchTimeout) {
+    clearTimeout(searchTimeout)
+  }
+  
+  // Set a new timeout to search after user stops typing for 500ms
+  searchTimeout = setTimeout(async () => {
+    const query = searchKeyword.value?.trim()
+    
+    if (query && query.length >= 3) {
+      searchLoading.value = true
+      await getFilteredBySearchData(query, true) // Reset to page 1 for new search
+      searchLoading.value = false
+    } else if (!query) {
+      // If search is cleared, show all data and reset page
+      page.value = 1
+      currentPage.value = 1
+      getInterventionsAll()
+    }
+  }, 500)
+}
+
 const handleClear = async () => {
   console.log('cleared....')
 
-  // clear all the fileters -------
+  // Clear search timeout
+  if (searchTimeout) {
+    clearTimeout(searchTimeout)
+    searchTimeout = null
+  }
+
+  // clear all the filters -------
   filterValues = []
   filters = []
   value1.value = ''
   value2.value = ''
   value3.value = ''
-  pageSize.value = 5
+  searchKeyword.value = ''
+  // Reset page size based on screen size
+  updatePageSize()
+  page.value = 1
   currentPage.value = 1
   tblData = []
   //----run the get data--------
@@ -195,14 +256,26 @@ const handleSelectIndicator = async (indicator: any) => {
 }
 
 const onPageChange = async (selPage: any) => {
-  console.log('on change change: selected counties ', selCounties)
+  console.log('on page change: selected page ', selPage)
   page.value = selPage
-  getFilteredData(filters, filterValues)
+  
+  // Preserve search if there's a search keyword
+  if (searchKeyword.value && searchKeyword.value.trim().length >= 3) {
+    await getFilteredBySearchData(searchKeyword.value.trim(), false) // Don't reset page
+  } else {
+    getFilteredData(filters, filterValues)
+  }
 }
 
 const onPageSizeChange = async (size: any) => {
   pageSize.value = size
-  getFilteredData(filters, filterValues)
+  
+  // Preserve search if there's a search keyword
+  if (searchKeyword.value && searchKeyword.value.trim().length >= 3) {
+    await getFilteredBySearchData(searchKeyword.value.trim(), false) // Don't reset page
+  } else {
+    getFilteredData(filters, filterValues)
+  }
 }
 
 const getInterventionsAll = async () => {
@@ -224,15 +297,44 @@ const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
 };
 
 
-const getFilteredData = async (selFilters, selfilterValues) => {
-  const formData = {}
+const getFilteredBySearchData = async (searchKey: string, resetPage = true) => {
+  // Reset to page 1 when starting a new search
+  if (resetPage) {
+    page.value = 1
+  }
+  
+  const formData: any = {}
+  formData.limit = pageSize.value
+  formData.page = page.value
+  formData.curUser = 1
+  formData.model = model
+  formData.searchField = 'name'
+  formData.searchKeyword = searchKey
+  formData.returnAll = false // Don't return all results, respect pagination
+  formData.filters = filters
+  formData.filterValues = filterValues
+  formData.associated_multiple_models = associated_multiple_models
+
+  const res: any = await searchByKeyWord(formData)
+  tableDataList.value = res.data
+  total.value = res.total
+
+  tblData = [] // reset the table data
+  tableDataList.value.forEach(function (arrayItem: any) {
+    var dd = flattenJSON(arrayItem)
+    tblData.push(dd)
+  })
+}
+
+const getFilteredData = async (selFilters: any, selfilterValues: any) => {
+  const formData: any = {}
   formData.limit = pageSize.value
   formData.page = page.value
   formData.curUser = 1 // Id for logged in user
   formData.model = model
   //-Search field--------------------------------------------
   formData.searchField = 'name'
-  formData.searchKeyword = ''
+  formData.searchKeyword = searchKeyword.value
   //--Single Filter -----------------------------------------
 
   formData.assocModel = associated_Model
@@ -244,7 +346,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
   //-------------------------
   //console.log(formData)
-  const res = await getSettlementListByCounty(formData)
+  const res: any = await getSettlementListByCounty(formData)
 
   console.log('After Querry', res)
   tableDataList.value = res.data
@@ -268,6 +370,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
 const getIndicatorOptions = async () => {
 }
+
 
 
 const makeSettlementOptions = (list) => {
@@ -614,37 +717,59 @@ const handleSwitchChange = async (value) => {
 
 
 
-    <el-row type="flex" justify="start" gutter="10" style="display: flex; flex-wrap: nowrap; align-items: center;">
+    <el-row :gutter="10" style="margin-bottom: 10px;">
 
-      <div class="max-w-200px">
-        <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
+      <!-- Back Button -->
+      <el-col :xs="3" :sm="3" :md="2" :lg="2">
+        <el-button type="primary" plain :icon="Back" @click="goBack" style="width: 100%;">
           Back
         </el-button>
-      </div>
+      </el-col>
 
-      <!-- Title Search -->
-      <el-select
-v-model="value3" :onChange="handleSelectIndicator" :onClear="handleClear" multiple clearable filterable
-        collapse-tags placeholder="Search Indicator">
-        <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
+      <!-- Search Input -->
+      <el-col :xs="17" :sm="17" :md="18" :lg="18">
+        <el-input
+          v-model="searchKeyword"
+          placeholder="Search Indicator by Name"
+          clearable
+          @input="handleSearchInput"
+          @change="searchByIndicatorName"
+          @clear="handleClear"
+          style="width: 100%;">
+          <template #append>
+            <el-button v-loading="searchLoading" :icon="Search" :onClick="searchByIndicatorName" />
+          </template>
+        </el-input>
+      </el-col>
 
+   
 
 
 
 
       <!-- Action Buttons -->
-      <div style="display: flex; align-items: center; gap: 10px; margin-left: 10px;">
-        <PermissionWrapper :permissions="['indicator:create']">
-          <el-tooltip content="Add Indicator" placement="top">
-            <el-button :onClick="AddIndicator" type="primary" :icon="Plus" />
-          </el-tooltip>
-        </PermissionWrapper>
-        <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
-        <DownloadAll :model="model" :associated_models="associated_multiple_models" />
-        <el-button :onClick="handleClear" type="primary" :icon="Filter" />
-
-      </div>
+      <el-col :xs="4" :sm="4" :md="4" :lg="4">
+        <div style="display: flex; align-items: center; gap: 10px; justify-content: flex-end;">
+          <PermissionWrapper :permissions="['indicator:create']">
+            <el-tooltip content="Add Indicator" placement="top">
+              <el-button :onClick="AddIndicator" type="primary" :icon="Plus" />
+            </el-tooltip>
+            <el-tooltip content="Clear" placement="top">
+              <el-button @click="handleClear" type="primary">
+                <Icon icon="mdi:filter-remove" />
+              </el-button>
+            </el-tooltip>
+            <DownloadCustom
+          :data="tableDataList"
+          :model="model"
+          :associated_models="associated_multiple_models"
+          :loading="downloadLoading"
+          @download-start="downloadLoading = true"
+          @download-end="downloadLoading = false"
+        />
+          </PermissionWrapper>
+        </div>
+      </el-col>
 
      </el-row>
 
@@ -674,7 +799,7 @@ v-model="value3" :onChange="handleSelectIndicator" :onClear="handleClear" multip
 
     <ElPagination
 layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-      v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
+      v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100]" :total="total" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
   </el-card>
 

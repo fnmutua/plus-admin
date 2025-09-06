@@ -2249,7 +2249,7 @@ function handleIndicatorsChange(selectedIds) {
 
 <template>
   <el-card>
-    <el-row :gutter="10" style="margin-bottom: 16px;">
+    <el-row :gutter="10" style="margin-bottom: 10px;">
       <el-col :span="3">
         <el-button type="primary" plain :icon="Back" @click="goBack">
           Back

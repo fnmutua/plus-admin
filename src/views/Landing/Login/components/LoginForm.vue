@@ -297,8 +297,7 @@ const getRole = async (authenticatedUser) => {
   wsCache.set('roleRouters', routers);
 
   console.log("formData.role >>", formData.role);
-  console.log("formData.level >>", formData.level);
-
+ 
   // Dynamically add accessible routes
   routers.forEach((route) => {
     addRoute(route);
