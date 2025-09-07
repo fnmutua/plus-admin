@@ -123,10 +123,25 @@ const loadDashboardsImmediately = async () => {
   
   try {
     console.log('Loading dashboards immediately...');
+    
+    // Clear existing dashboards to prevent duplicates
+    dynamicDashbaordOptions.value = [];
+    
+    // Clear existing dashboard routes to prevent duplicates
+    if (adminRoutes[0]?.children) {
+      adminRoutes[0].children = adminRoutes[0].children.filter(route => 
+        !route.path?.startsWith('status_')
+      );
+    }
+    
     await Promise.all([
       getDynamicDashboards(),
       getPublicDynamicDashboards()
     ]);
+    
+    // Add dashboards to routes only once after all are loaded
+    adminRoutes[0]?.children?.push(...dynamicDashbaordOptions.value);
+    
     dashboardsLoaded.value = true;
     console.log('Dashboards loaded immediately');
   } catch (error) {
@@ -424,7 +439,11 @@ const getComponents = async (): Promise<void> => {
           }
         };
   
-        dynamicDashbaordOptions.value.push(prog);
+        // Check for duplicates before adding
+        const isDuplicate = dynamicDashbaordOptions.value.some(option => option.meta.dashboard_id === prog.meta.dashboard_id);
+        if (!isDuplicate) {
+          dynamicDashbaordOptions.value.push(prog);
+        }
     
        // console.log("dynamo", dynamicDashbaordOptions.value)
   
@@ -489,19 +508,15 @@ const getComponents = async (): Promise<void> => {
       
     });
     
-    adminRoutes[0]?.children?.push(...dynamicDashbaordOptions.value);
+    // Routes will be added in loadDashboardsImmediately() to prevent duplicates
 
   
 }
 
-// Start loading dashboards immediately after functions are declared
-loadDashboardsImmediately();
-  
 // Initialize loading with proper sequencing
 const initializeRoutes = async () => {
   try {
-    // Dashboards are already loaded by loadDashboardsImmediately()
-    // Just ensure they're loaded before proceeding
+    // Load dashboards first for immediate availability
     if (!dashboardsLoaded.value) {
       await loadDashboardsImmediately();
     }
