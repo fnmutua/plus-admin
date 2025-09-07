@@ -715,23 +715,30 @@ const indicatorsOptionsFiltered = ref([])
 
 
 const changeActivity = async (activity: any) => {
+  console.log('Activity selected:', activity)
 
+  // Clear previous selections
   ruleForm.indicator_id = null
   ruleForm.category_id = null
   ruleForm.frequency = null
 
+  if (!activity) {
+    indicatorsOptionsFiltered.value = []
+    return
+  }
+
+  // Get indicators for the selected activity
   const sel_indicators = await getProjectActivityIndicators(activity)
 
   const transformedArray = sel_indicators.map(item => {
-  return {
-    label: item.name,
-    value: item.id
-  };
-});
+    return {
+      label: item.name,
+      value: item.id
+    };
+  });
 
-  indicatorsOptionsFiltered.value =transformedArray
- 
-
+  indicatorsOptionsFiltered.value = transformedArray
+  console.log(`Loaded ${transformedArray.length} indicators for activity ${activity}:`, transformedArray)
 }
 
 
@@ -833,10 +840,12 @@ const changeIndicator = async (indicator: any) => {
   ruleForm.category_id = null
   ruleForm.frequency = null
 
-
- 
-  console.log("Filtered Idnciators", indicatorsOptionsFiltered.value[0].label)
-  ruleForm.indicator_name = indicatorsOptionsFiltered.value[0].label
+  // Find the selected indicator from the filtered options
+  const selectedIndicator = indicatorsOptionsFiltered.value.find(item => item.value === indicator)
+  if (selectedIndicator) {
+    ruleForm.indicator_name = selectedIndicator.label
+    console.log("Selected Indicator:", selectedIndicator.label)
+  }
 }
 
 
@@ -1105,13 +1114,18 @@ const submitIndicatorForm = async (formEl: FormInstance | undefined) => {
       ind.value = res.data.id
       ind.label = res.data.name
 
+      // Add to both the main indicators list and filtered list
+      indicatorsOptions.value.push(ind)
       indicatorsOptionsFiltered.value.push(ind)
+      
+      // Close the dialog
+      AddNewIndicatorVisible.value = false
+      
+      console.log('New indicator added:', ind)
     } else {
-      console.log('error categoryForm!', fields)
+      console.log('error indicatorForm!', fields)
     }
   })
-
- 
 }
 
 const handleCloseIndicator = () => {
@@ -1207,11 +1221,14 @@ const goBack = () => {
 
 const handleSwitchChange = async (value) => {
   indicatorsOptionsFiltered.value=[]
+  ruleForm.indicator_id = null
+  ruleForm.category_id = null
+  ruleForm.frequency = null
 
   console.log(value)
 
   if (value=='project') {
-         console.log('Switch is inactive'); 
+         console.log('Switch is inactive - showing project level indicators'); 
         const sel_indicators = await getProjectActivityIndicators(undefined)
           const transformedArray = sel_indicators.map(item => {
           return {
@@ -1224,12 +1241,10 @@ const handleSwitchChange = async (value) => {
         // Add your custom logic here
       } else {
         // The switch is active (set to 'Activity Level Indicator')
-        console.log('Switch is active');
-
-        
+        console.log('Switch is active - activity level indicators will be shown when activity is selected');
+        // Clear indicators until an activity is selected
+        indicatorsOptionsFiltered.value = []
       }
-
-
 }
 
 
@@ -1431,10 +1446,13 @@ v-for="item in activityOptionsFiltered" :key="item.value" :label="item.label"
 ref="ref4" filterable v-model="ruleForm.indicator_id" :onChange="changeIndicator"
             placeholder="Select Indicator" style="width: 70%; margin-right: 10px;">
             <el-option
-v-for="item in indicatorsOptions" :key="item.value" :label="item.label"
+v-for="item in indicatorsOptionsFiltered" :key="item.value" :label="item.label"
               :value="item.value" />
           </el-select>
           <el-button type="primary" @click="AddIndicator" :icon="Plus" plain />
+          <div v-if="ruleForm.indicator_level === 'activity' && !ruleForm.activity_id" style="margin-top: 5px;">
+            <el-text type="info" size="small">Please select an activity first to see available indicators</el-text>
+          </div>
         </el-form-item>
 
  
