@@ -759,16 +759,17 @@ const editIndicator = async (data: TableSlotDefault) => {
   showEditSaveButton.value = true
   editingMode.value = true
 
-  console.log(data)
+  console.log('Editing indicator:', data)
+  
+  // Ensure activity options are loaded first
+  if (activityOptionsFiltered.value.length === 0) {
+    await getActivityOptions()
+  }
+
+  // Set all form values without triggering change functions
   ruleForm.id = data.id
   ruleForm.indicator_name = data.indicator.indicator_name
   ruleForm.indicator_level = data.indicator_level
-
-  
-
-  handleSwitchChange(data.indicator_level)
-  changeActivity()
-
   ruleForm.indicator_id = data.indicator_id
   ruleForm.category_id = data.category_id
   ruleForm.frequency = data.frequency
@@ -779,12 +780,28 @@ const editIndicator = async (data: TableSlotDefault) => {
   ruleForm.baseline = data.baseline
   ruleForm.project_location_id = data.project_location_id
 
+  // Load indicators based on level without clearing fields
+  if (data.indicator_level === 'project') {
+    const sel_indicators = await getProjectActivityIndicators(undefined)
+    const transformedArray = sel_indicators.map(item => ({
+      label: item.name,
+      value: item.id
+    }));
+    indicatorsOptionsFiltered.value = transformedArray
+  } else if (data.indicator_level === 'activity' && data.activity_id) {
+    const sel_indicators = await getProjectActivityIndicators(data.activity_id)
+    const transformedArray = sel_indicators.map(item => ({
+      label: item.name,
+      value: item.id
+    }));
+    indicatorsOptionsFiltered.value = transformedArray
+  }
+
   formHeader.value = 'Edit Indicator Configuration'
- // changeProject(data.project_id)
 
-  console.log(frequencyOptions.value)
-
+  console.log('Frequency options:', frequencyOptions.value)
   await getFrequencyOptions()
+  
   AddDialogVisible.value = true
 }
 
@@ -874,7 +891,11 @@ const categoryRules = reactive<FormRules>({
   ]
 })
 
-const AddIndicatorConfig = () => {
+const AddIndicatorConfig = async () => {
+  // Ensure activity options are loaded when opening the dialog
+  if (activityOptionsFiltered.value.length === 0) {
+    await getActivityOptions()
+  }
   AddDialogVisible.value = true
 }
 
@@ -1220,12 +1241,7 @@ const goBack = () => {
 
 
 const handleSwitchChange = async (value) => {
-  indicatorsOptionsFiltered.value=[]
-  ruleForm.indicator_id = null
-  ruleForm.category_id = null
-  ruleForm.frequency = null
-
-  console.log(value)
+  console.log('Indicator level changed to:', value)
 
   if (value=='project') {
          console.log('Switch is inactive - showing project level indicators'); 
@@ -1335,16 +1351,9 @@ const indicatorLevels = [
 
     <el-table :data="tableDataList" :loading="loading" border style="width: 100%; margin-top: 10px;">
       <el-table-column label="Id" prop="id" width="50px" sortable />
-      <!-- <el-table-column label="Activity" prop="activity.title" sortable /> -->
-      <!-- <el-table-column label="Settlement" prop="project_location.location_name" sortable /> -->
-      <!-- <el-table-column label="Project" prop="project.title" sortable /> -->
-      <!-- <el-table-column
-      property="project.title"
-      label="Project"
-      show-overflow-tooltip
-    /> -->
-    <el-table-column label="Indicator" prop="indicator.name" sortable />
-    <el-table-column label="Dimension" prop="category_title" sortable />
+      <el-table-column label="Activity" prop="activity.title" sortable show-overflow-tooltip />
+      <el-table-column label="Indicator" prop="indicator.name" sortable show-overflow-tooltip />
+      <el-table-column label="Dimension" prop="category_title" sortable />
       <!-- <el-table-column label="Target" prop="target" sortable /> -->
       <!-- <el-table-column label="Baseline" prop="baseline" sortable /> -->
 
