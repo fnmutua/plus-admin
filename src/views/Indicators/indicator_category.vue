@@ -835,7 +835,7 @@ const handleClose = () => {
   ruleForm.category_title = ''
   ruleForm.frequency = ''
 
-
+ 
   formHeader.value = 'Configure Indicator'
   AddDialogVisible.value = false
 
