@@ -115,9 +115,26 @@ const userInfo = wsCache.get(appStore.getUserInfo)
 const programmeComponentOptions = ref<RouteItem[]>([])
 const dynamicDashbaordOptions = ref<DashboardComponent[]>([])
 const components = ref<RouteComponent[]>([])
+const dashboardsLoaded = ref(false)
 
- 
+// Load dashboards immediately and cache them
+const loadDashboardsImmediately = async () => {
+  if (dashboardsLoaded.value) return; // Already loaded
+  
+  try {
+    console.log('Loading dashboards immediately...');
+    await Promise.all([
+      getDynamicDashboards(),
+      getPublicDynamicDashboards()
+    ]);
+    dashboardsLoaded.value = true;
+    console.log('Dashboards loaded immediately');
+  } catch (error) {
+    console.error('Error loading dashboards immediately:', error);
+  }
+};
 
+// Dashboard loading will be started after functions are declared
 
 const getProgrameComponents = async (): Promise<RouteItem[]> => {
   const formData: RouteRequestData = {
@@ -476,21 +493,24 @@ const getComponents = async (): Promise<void> => {
 
   
 }
+
+// Start loading dashboards immediately after functions are declared
+loadDashboardsImmediately();
   
 // Initialize loading with proper sequencing
 const initializeRoutes = async () => {
   try {
-    // Load programmes first
+    // Dashboards are already loaded by loadDashboardsImmediately()
+    // Just ensure they're loaded before proceeding
+    if (!dashboardsLoaded.value) {
+      await loadDashboardsImmediately();
+    }
+    
+    // Then load programmes
     await loadProgrammeComponents();
     
-    // Then load components
+    // Finally load components
     await getComponents();
-    
-    // Finally load dashboards
-    await Promise.all([
-      getDynamicDashboards(),
-      getPublicDynamicDashboards()
-    ]);
     
     console.log('All routes loaded successfully');
   } catch (error) {
@@ -498,7 +518,7 @@ const initializeRoutes = async () => {
   }
 };
 
-// Start initialization
+// Start initialization immediately
 initializeRoutes();
  
  // 1. Define subprograms as a reactive reference
@@ -574,6 +594,12 @@ export const usePermissionStore = defineStore('permission', {
     },
     getMenuTabRouters(): AppRouteRecordRaw[] {
       return this.menuTabRouters;
+    },
+    getDashboardsLoaded(): boolean {
+      return dashboardsLoaded.value;
+    },
+    getDynamicDashboards(): DashboardComponent[] {
+      return dynamicDashbaordOptions.value;
     }
   },
   actions: {
@@ -633,6 +659,14 @@ export const usePermissionStore = defineStore('permission', {
       } catch (error) {
         console.error('Error refreshing routes:', error);
       }
+    },
+    
+    // Add method to ensure dashboards are loaded
+    async ensureDashboardsLoaded() {
+      if (!dashboardsLoaded.value) {
+        await loadDashboardsImmediately();
+      }
+      return dashboardsLoaded.value;
     }
   }
   

@@ -207,7 +207,7 @@ onUnmounted(() => {
         <template #header>
           <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
             <div class="flex items-center space-x-4">
-              <img src="/gok.png" alt="Plus Admin Logo" class="w-10 h-10 sm:w-12 sm:h-12" />
+              <img src="/gok.png" alt="Logo" class="w-10 h-10 sm:w-12 sm:h-12" />
               <h2 v-if="grievanceFound" class="text-xl sm:text-2xl font-bold">
                 {{ grievance.code }}: {{ grievance.complainant }}
               </h2>

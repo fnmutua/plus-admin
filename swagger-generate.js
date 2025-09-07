@@ -5,7 +5,7 @@ const options = {
   definition: {
     openapi: '3.0.0',
     info: {
-      title: 'Plus Admin API',
+      title: 'KesMIS API',
       description: 'API documentation for Plus Admin application',
       version: '1.0.0',
       contact: {

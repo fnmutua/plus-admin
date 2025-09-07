@@ -1064,7 +1064,8 @@ const IndicatorCategoryOptions = ref([])
 const getIndicatorCategories = async () => {
   const formData = {}
 
-  //formData.page = page.value
+  formData.page = 1
+  formData.limit = 10000 // Set a high limit to get all indicators
   formData.curUser = 1 // Id for logged in user
   formData.model = 'indicator'
   //-Search field--------------------------------------------
@@ -1083,18 +1084,27 @@ const getIndicatorCategories = async () => {
   //console.log(formData)
   const res = await getSettlementListByCounty(formData)
 
+  console.log('Total indicators loaded:', res.data.length)
+  console.log('Total count from API:', res.total)
+  
   res.data.forEach(function (arrayItem) {
     console.log(arrayItem)
     // delete arrayItem[associated_Model]['geom'] //  remove the geometry column
 
+    // Skip items without activity or with null activity
+    if (!arrayItem.activity || !arrayItem.activity.title) {
+      console.warn('Skipping indicator without activity:', arrayItem)
+      return
+    }
+
     var opt = {}
     opt.value = arrayItem.id
-     opt.label = arrayItem.name  + '|' + arrayItem.activity.title
+    opt.label = arrayItem.name + '|' + arrayItem.activity.title
     IndicatorCategoryOptions.value.push(opt)
 
   })
 
-  console.log('TBL-4f', tblData)
+  console.log('IndicatorCategoryOptions loaded:', IndicatorCategoryOptions.value.length)
 }
 
 
