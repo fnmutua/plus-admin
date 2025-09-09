@@ -424,6 +424,74 @@ module.exports = function (app) {
 
   /**
    * @swagger
+   * /api/auth/ward/location/details:
+   *   post:
+   *     tags:
+   *       - Authentication
+   *     summary: Get ward with subcounty and county details by location
+   *     description: Retrieve ward information with subcounty and county details based on geographic coordinates
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               lat:
+   *                 type: number
+   *                 description: Latitude coordinate
+   *               lon:
+   *                 type: number
+   *                 description: Longitude coordinate
+   *     responses:
+   *       200:
+   *         description: Ward details found for location
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 code:
+   *                   type: string
+   *                   example: '0000'
+   *                 message:
+   *                   type: string
+   *                   example: 'Ward location details retrieved successfully'
+   *                 data:
+   *                   type: object
+   *                   properties:
+   *                     ward:
+   *                       type: object
+   *                       properties:
+   *                         id:
+   *                           type: integer
+   *                         name:
+   *                           type: string
+   *                     subcounty:
+   *                       type: object
+   *                       properties:
+   *                         id:
+   *                           type: integer
+   *                         name:
+   *                           type: string
+   *                     county:
+   *                       type: object
+   *                       properties:
+   *                         id:
+   *                           type: integer
+   *                         name:
+   *                           type: string
+   *       400:
+   *         description: Missing coordinates
+   *       404:
+   *         description: No ward found for location
+   *       500:
+   *         description: Internal server error
+   */
+  app.post('/api/auth/ward/location/details', controller.getWardWithLocationDetails)
+
+  /**
+   * @swagger
    * /api/auth/county/post:
    *   post:
    *     tags:

@@ -929,7 +929,40 @@ exports.countyByLocationController = (req, res) => {
 exports.WardByLocationController = (req, res) => {
   var reg_model = 'ward'
   var point = req.body.MyLocation
-  console.log(point)
+  console.log('WardByLocationController - point:', point)
+  
+  // Validate MyLocation point
+  if (!point || !Array.isArray(point) || point.length !== 2) {
+    return res.status(400).send({ 
+      message: 'MyLocation is required and must be an array with [longitude, latitude]',
+      code: 'INVALID_LOCATION'
+    });
+  }
+
+  const [lon, lat] = point;
+  
+  // Validate coordinates are numbers
+  if (typeof lon !== 'number' || typeof lat !== 'number' || isNaN(lon) || isNaN(lat)) {
+    return res.status(400).send({ 
+      message: 'MyLocation coordinates must be valid numbers',
+      code: 'INVALID_COORDINATES'
+    });
+  }
+
+  // Validate coordinate ranges
+  if (lat < -90 || lat > 90) {
+    return res.status(400).send({ 
+      message: 'Latitude must be between -90 and 90 degrees',
+      code: 'INVALID_LATITUDE'
+    });
+  }
+
+  if (lon < -180 || lon > 180) {
+    return res.status(400).send({ 
+      message: 'Longitude must be between -180 and 180 degrees',
+      code: 'INVALID_LONGITUDE'
+    });
+  }
  
   db.models[reg_model].findAll().then((features) => {
     let intersectingPolygon = null;
@@ -957,11 +990,116 @@ exports.WardByLocationController = (req, res) => {
       console.log('No intersecting polygon found');
       res.status(500).send({ message: 'Unable to determine your ward based on your location' });
     }
+  }).catch((error) => {
+    console.error('Error in WardByLocationController:', error);
+    res.status(500).send({ 
+      message: 'Internal server error while processing location request',
+      code: 'INTERNAL_ERROR'
+    });
   });
-  
-    
-
 }
+
+exports.getWardWithLocationDetails = async (req, res) => {
+  try {
+    const { lat, lon } = req.body;
+    
+    // Enhanced validation for lat/lon
+    if (lat === undefined || lat === null || lat === '' || 
+        lon === undefined || lon === null || lon === '') {
+      return res.status(400).send({ 
+        message: 'Latitude and longitude are required and cannot be empty',
+        code: 'MISSING_COORDINATES'
+      });
+    }
+
+    // Convert to numbers and validate they are valid numbers
+    const latitude = parseFloat(lat);
+    const longitude = parseFloat(lon);
+    
+    if (isNaN(latitude) || isNaN(longitude)) {
+      return res.status(400).send({ 
+        message: 'Latitude and longitude must be valid numbers',
+        code: 'INVALID_COORDINATES'
+      });
+    }
+
+    // Validate coordinate ranges
+    if (latitude < -90 || latitude > 90) {
+      return res.status(400).send({ 
+        message: 'Latitude must be between -90 and 90 degrees',
+        code: 'INVALID_LATITUDE'
+      });
+    }
+
+    if (longitude < -180 || longitude > 180) {
+      return res.status(400).send({ 
+        message: 'Longitude must be between -180 and 180 degrees',
+        code: 'INVALID_LONGITUDE'
+      });
+    }
+
+    console.log('Searching for ward at coordinates:', latitude, longitude);
+
+    // Use PostGIS spatial query to find the ward containing the point
+    // This is much faster than looping through all wards
+    const query = `
+      SELECT 
+        w.id as ward_id,
+        w.name as ward_name,
+        sc.id as subcounty_id,
+        sc.name as subcounty_name,
+        c.id as county_id,
+        c.name as county_name
+      FROM ward w
+      LEFT JOIN subcounty sc ON w.subcounty_id = sc.id
+      LEFT JOIN county c ON w.county_id = c.id
+      WHERE ST_Contains(w.geom, ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326))
+      LIMIT 1
+    `;
+
+    const result = await db.sequelize.query(query, {
+      type: db.sequelize.QueryTypes.SELECT
+    });
+
+    if (!result || result.length === 0) {
+      return res.status(404).send({ 
+        message: 'No ward found for the provided coordinates',
+        code: 'WARD_NOT_FOUND'
+      });
+    }
+
+    const wardData = result[0];
+
+    // Format the response
+    const response = {
+      ward: {
+        id: wardData.ward_id,
+        name: wardData.ward_name
+      },
+      subcounty: {
+        id: wardData.subcounty_id,
+        name: wardData.subcounty_name
+      },
+      county: {
+        id: wardData.county_id,
+        name: wardData.county_name
+      }
+    };
+
+    res.status(200).send({
+      data: response,
+      code: '0000',
+      message: 'Ward location details retrieved successfully'
+    });
+
+  } catch (error) {
+    console.error('Error in getWardWithLocationDetails:', error);
+    res.status(500).send({ 
+      message: 'Internal server error while processing location request',
+      code: 'INTERNAL_ERROR'
+    });
+  }
+};
 
 exports.countyPostController = async (req, res) => {
   console.log('getting counties......')
