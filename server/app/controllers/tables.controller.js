@@ -2429,10 +2429,7 @@ exports.modelDeleteOneRecord = async (req, res) => {
     const modelName = req.body.model;
     const model = db.models[modelName];
     const id = req.body.id;
-
-
-    
- 
+    const code = req.body.code;
 
     // Check if the model exists
     if (!model) {
@@ -2442,11 +2439,24 @@ exports.modelDeleteOneRecord = async (req, res) => {
       });
     }
 
-    // Check if the record exists
-    const record = await model.findOne({ where: { id } });
+    // Check if the record exists by id or code
+    let whereClause = {};
+    if (id) {
+      whereClause.id = id;
+    } else if (code) {
+      whereClause.code = code;
+    } else {
+      return res.status(400).send({
+        message: 'Either id or code must be provided',
+        code: 'MISSING_IDENTIFIER'
+      });
+    }
+
+    const record = await model.findOne({ where: whereClause });
     if (!record) {
+      const identifier = id ? `id '${id}'` : `code '${code}'`;
       return res.status(404).send({
-        message: `Record with id '${id}' does not exist in '${modelName}' model`,
+        message: `Record with ${identifier} does not exist in '${modelName}' model`,
         code: 'RECORD_NOT_FOUND'
       });
     }
@@ -2481,7 +2491,7 @@ exports.modelDeleteOneRecord = async (req, res) => {
     
         dependentRowsCount = await mdl.count({
           where: {
-            [association.foreignKey]: id
+            [association.foreignKey]: record.id
           }
         });
     
@@ -2501,7 +2511,7 @@ exports.modelDeleteOneRecord = async (req, res) => {
     
 
     // Delete the record
-    await model.destroy({ where: { id } });
+    await model.destroy({ where: { id: record.id } });
     del_event.status='Successful'
     logEvents(del_event)
   
