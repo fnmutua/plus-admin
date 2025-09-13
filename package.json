@@ -30,7 +30,10 @@
     "chat:server": "node server/websocket-chat.js",
     "chat:server-production": "node server/websocket-chat-https.js",
     "chat:migrate": "node server/run-chat-migration.js",
-    "chat:update-enum": "node server/run-enum-update.js"
+    "chat:update-enum": "node server/run-enum-update.js",
+    "video:server": "node server/websocket-video.js",
+    "video:migrate": "node server/run-video-stream-migration.js",
+    "start:all": "node start-video-server.js"
   },
   "dependencies": {
     "@dafcoe/vue-collapsible-panel": "^0.2.0",

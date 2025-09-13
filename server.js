@@ -138,6 +138,7 @@ require('./server/app/routes/chat.routes')(app)
 require('./server/app/routes/pdf.routes')(app)
 require('./server/app/routes/geoserver.routes')(app)
 require('./server/app/routes/project.routes')(app)
+require('./server/app/routes/videoStream.routes')(app)
 
 // Swagger UI setup (serving only)
 const swaggerUi = require('swagger-ui-express');

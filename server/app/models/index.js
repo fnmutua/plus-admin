@@ -4,7 +4,6 @@ const sequelize = new Sequelize(config.DB, config.USER, config.PASSWORD, {
   host: config.HOST,
   port: config.PORT,
   dialect: config.dialect,
-  operatorsAliases: false,
   pool: {
     max: config.pool.max,
     min: config.pool.min,
@@ -29,6 +28,9 @@ db.role_permission = require('../models/role_permissions.js')(sequelize, Sequeli
 db.chatMessage = require('../models/chat_message.js')(sequelize)
 db.chatMessageStatus = require('../models/chat_message_status.js')(sequelize)
 db.userStatus = require('../models/user_status.js')(sequelize)
+
+// Video streaming models
+db.videoStream = require('../models/videoStream.js')(sequelize, Sequelize)
 
 var initModels = require('../models/init-models.js')
 db.models = initModels(sequelize)
@@ -56,6 +58,10 @@ db.chatMessageStatus.belongsTo(db.user, { foreignKey: 'user_id', as: 'user' })
 
 db.user.hasOne(db.userStatus, { foreignKey: 'user_id', as: 'status' })
 db.userStatus.belongsTo(db.user, { foreignKey: 'user_id', as: 'user' })
+
+// Video streaming model associations
+db.user.hasMany(db.videoStream, { foreignKey: 'user_id', as: 'streams' })
+db.videoStream.belongsTo(db.user, { foreignKey: 'user_id', as: 'streamer' })
 
 // Role <-> Permission (many-to-many)
 db.role.belongsToMany(db.permission, {
