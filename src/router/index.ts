@@ -1254,6 +1254,16 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         }
       },
       {
+        path: 'live-streams',
+        component: () => import('@/views/Media/Live.vue'),
+        name: 'LiveStreams',
+        meta: {
+          title: 'Live Streams',
+          hidden: false,
+          icon:'material-symbols:live-tv'
+        }
+      },
+      {
         path: 'articles',
       //  component: 'views/Users/County',
         component: () => import('@/views/Media/Article.vue'),

@@ -79,7 +79,7 @@ module.exports = function(sequelize, DataTypes) {
       unique: true
     },
     geom: {
-      type: DataTypes.GEOMETRY('Geometry', 4326),
+      type: DataTypes.GEOMETRY('GEOMETRY', 4326),  // ✅ uppercase, explicit SRID
       allowNull: true
     },
 

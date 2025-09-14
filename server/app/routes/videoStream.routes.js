@@ -98,61 +98,46 @@ router.get('/search', async (req, res) => {
   }
 });
 
-// Get stream by ID
-router.get('/:streamId', async (req, res) => {
+// Get all streams
+router.get('/all', async (req, res) => {
   try {
-    const { streamId } = req.params;
+    const { status, limit = 20, offset = 0 } = req.query;
 
-    const stream = await db.videoStream.findByPk(streamId, {
+    const whereClause = {};
+    if (status) {
+      whereClause.status = status;
+    }
+
+    const streams = await db.videoStream.findAll({
+      where: whereClause,
       include: [
         {
           model: db.user,
           as: 'streamer',
           attributes: ['id', 'name', 'email', 'photo']
-        },
-        {
-          model: db.streamChatMessage,
-          as: 'chatMessages',
-          include: [
-            {
-              model: db.user,
-              as: 'user',
-              attributes: ['id', 'name', 'photo']
-            }
-          ],
-          order: [['timestamp', 'ASC']],
-          limit: 100
-          }
-      ]
+        }
+      ],
+      order: [['start_time', 'DESC']],
+      limit: parseInt(limit),
+      offset: parseInt(offset)
     });
 
-    if (!stream) {
-      return res.status(404).json({
-        success: false,
-        message: 'Stream not found'
-      });
-    }
-
     // Convert user photos to base64 if they exist
-    if (stream.streamer && stream.streamer.photo && Buffer.isBuffer(stream.streamer.photo)) {
-      stream.streamer.photo = 'data:image/png;base64,' + stream.streamer.photo.toString('base64');
-    }
-
-    stream.chatMessages.forEach(message => {
-      if (message.user && message.user.photo && Buffer.isBuffer(message.user.photo)) {
-        message.user.photo = 'data:image/png;base64,' + message.user.photo.toString('base64');
+    streams.forEach(stream => {
+      if (stream.streamer && stream.streamer.photo && Buffer.isBuffer(stream.streamer.photo)) {
+        stream.streamer.photo = 'data:image/png;base64,' + stream.streamer.photo.toString('base64');
       }
     });
 
     res.json({
       success: true,
-      data: stream
+      data: streams
     });
   } catch (error) {
-    console.error('Error fetching stream:', error);
+    console.error('Error fetching all streams:', error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching stream',
+      message: 'Error fetching all streams',
       error: error.message
     });
   }
@@ -199,6 +184,113 @@ router.get('/user/:userId', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error fetching user streams',
+      error: error.message
+    });
+  }
+});
+
+// Get streams by county
+router.get('/county/:county', async (req, res) => {
+  try {
+    const { county } = req.params;
+    const { status = 'live', limit = 20, offset = 0 } = req.query;
+
+    const streams = await db.videoStream.findAll({
+      where: {
+        county: county,
+        status: status
+      },
+      include: [
+        {
+          model: db.user,
+          as: 'streamer',
+          attributes: ['id', 'name', 'email', 'photo']
+        }
+      ],
+      order: [['start_time', 'DESC']],
+      limit: parseInt(limit),
+      offset: parseInt(offset)
+    });
+
+    // Convert user photos to base64 if they exist
+    streams.forEach(stream => {
+      if (stream.streamer && stream.streamer.photo && Buffer.isBuffer(stream.streamer.photo)) {
+        stream.streamer.photo = 'data:image/png;base64,' + stream.streamer.photo.toString('base64');
+      }
+    });
+
+    res.json({
+      success: true,
+      data: streams
+    });
+  } catch (error) {
+    console.error('Error fetching streams by county:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching streams by county',
+      error: error.message
+    });
+  }
+});
+
+// Get stream by ID
+router.get('/:streamId', async (req, res) => {
+  try {
+    const { streamId } = req.params;
+
+    const stream = await db.videoStream.findByPk(streamId, {
+      include: [
+        {
+          model: db.user,
+          as: 'streamer',
+          attributes: ['id', 'name', 'email', 'photo']
+        },
+        {
+          model: db.streamChatMessage,
+          as: 'chatMessages',
+          include: [
+            {
+              model: db.user,
+              as: 'user',
+              attributes: ['id', 'name', 'photo']
+            }
+          ],
+          order: [['timestamp', 'ASC']],
+          limit: 100
+        }
+      ]
+    });
+
+    if (!stream) {
+      return res.status(404).json({
+        success: false,
+        message: 'Stream not found'
+      });
+    }
+
+    // Convert user photos to base64 if they exist
+    if (stream.streamer && stream.streamer.photo && Buffer.isBuffer(stream.streamer.photo)) {
+      stream.streamer.photo = 'data:image/png;base64,' + stream.streamer.photo.toString('base64');
+    }
+
+    // Safely handle chatMessages
+    if (stream.chatMessages && Array.isArray(stream.chatMessages)) {
+      stream.chatMessages.forEach(message => {
+        if (message.user && message.user.photo && Buffer.isBuffer(message.user.photo)) {
+          message.user.photo = 'data:image/png;base64,' + message.user.photo.toString('base64');
+        }
+      });
+    }
+
+    res.json({
+      success: true,
+      data: stream
+    });
+  } catch (error) {
+    console.error('Error fetching stream:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching stream',
       error: error.message
     });
   }
@@ -476,51 +568,6 @@ router.delete('/:streamId', verifyToken, async (req, res) => {
     });
   }
 });
-
-// Get streams by county
-router.get('/county/:county', async (req, res) => {
-  try {
-    const { county } = req.params;
-    const { status = 'live', limit = 20, offset = 0 } = req.query;
-
-    const streams = await db.videoStream.findAll({
-      where: {
-        county: county,
-        status: status
-      },
-      include: [
-        {
-          model: db.user,
-          as: 'streamer',
-          attributes: ['id', 'name', 'email', 'photo']
-        }
-      ],
-      order: [['start_time', 'DESC']],
-      limit: parseInt(limit),
-      offset: parseInt(offset)
-    });
-
-    // Convert user photos to base64 if they exist
-    streams.forEach(stream => {
-      if (stream.streamer && stream.streamer.photo && Buffer.isBuffer(stream.streamer.photo)) {
-        stream.streamer.photo = 'data:image/png;base64,' + stream.streamer.photo.toString('base64');
-      }
-    });
-
-    res.json({
-      success: true,
-      data: streams
-    });
-  } catch (error) {
-    console.error('Error fetching streams by county:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching streams by county',
-      error: error.message
-    });
-  }
-});
-
 
 module.exports = (app) => {
   app.use('/api/v1/video-stream', router);
