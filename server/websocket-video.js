@@ -20,13 +20,53 @@ const { Op } = require('sequelize');
 // Use the shared database connection from models (like chat server)
 const sequelize = db.sequelize;
 
-// Create HTTP server
-const server = http.createServer();
+// Create HTTP server with CORS headers
+const server = http.createServer((req, res) => {
+  // Set CORS headers for production
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  
+  if (req.method === 'OPTIONS') {
+    res.writeHead(200);
+    res.end();
+    return;
+  }
+  
+  // Handle WebSocket upgrade requests
+  if (req.url === '/video-stream' && req.headers.upgrade === 'websocket') {
+    // Let WebSocket handle this
+    return;
+  }
+  
+  // Default response for other requests
+  res.writeHead(200, { 'Content-Type': 'text/plain' });
+  res.end('Video Streaming WebSocket Server');
+});
 
 // Create WebSocket server for video streaming
 const wss = new WebSocket.Server({ 
   server,
-  path: '/video-stream'
+  path: '/video-stream',
+  verifyClient: (info) => {
+    // Allow connections from kesmis.go.ke and localhost for development
+    const origin = info.origin;
+    const allowedOrigins = [
+      'https://kesmis.go.ke',
+      'http://kesmis.go.ke',
+      'http://localhost:3000',
+      'http://localhost:4000',
+      'http://localhost:8080'
+    ];
+    
+    if (allowedOrigins.includes(origin)) {
+      console.log(`✅ WebSocket connection allowed from: ${origin}`);
+      return true;
+    }
+    
+    console.log(`❌ WebSocket connection rejected from: ${origin}`);
+    return false;
+  }
 });
 
 // Store active streams and connections
@@ -537,13 +577,14 @@ async function updateStreamInDatabase(streamId, updates) {
 // Start the server
 const PORT = process.env.VIDEO_STREAM_PORT || 3002;
 const HOST = process.env.VIDEO_STREAM_HOST || '0.0.0.0';
-const SERVER_URL = process.env.VIDEO_STREAM_SERVER_URL || `http://${HOST}:${PORT}`;
-const WS_URL = process.env.VIDEO_STREAM_WS_URL || `ws://${HOST}:${PORT}`;
+const SERVER_URL = process.env.VIDEO_STREAM_SERVER_URL || `https://kesmis.go.ke:${PORT}`;
+const WS_URL = process.env.VIDEO_STREAM_WS_URL || `wss://kesmis.go.ke:${PORT}`;
 
 server.listen(PORT, HOST, () => {
   console.log(`Video streaming WebSocket server listening on ${HOST}:${PORT}`);
   console.log(`Server URL: ${SERVER_URL}`);
   console.log(`WebSocket endpoint: ${WS_URL}/video-stream`);
+  console.log(`Production WebSocket URL: wss://kesmis.go.ke:${PORT}/video-stream`);
 });
 
 // Periodic cleanup of inactive streams
