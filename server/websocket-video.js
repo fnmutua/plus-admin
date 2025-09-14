@@ -49,11 +49,20 @@ const wss = new WebSocket.Server({
   server,
   path: '/video-stream',
   verifyClient: (info) => {
-    // Allow connections from kesmis.go.ke and localhost for development
+    // Allow connections from any origin (for development/testing)
     const origin = info.origin;
+    console.log(`✅ WebSocket connection allowed from: ${origin}`);
+    return true;
+    
+    // Uncomment below for production with restricted origins:
+    /*
     const allowedOrigins = [
       'https://kesmis.go.ke',
       'http://kesmis.go.ke',
+      'https://piehost.com',
+      'http://piehost.com',
+      'https://websocketking.com',
+      'http://websocketking.com',
       'http://localhost:3000',
       'http://localhost:4000',
       'http://localhost:8080'
@@ -66,6 +75,7 @@ const wss = new WebSocket.Server({
     
     console.log(`❌ WebSocket connection rejected from: ${origin}`);
     return false;
+    */
   }
 });
 
