@@ -8,5 +8,9 @@ sudo pm2 delete server/websocket-chat.js
 sudo pm2 start server/websocket-chat.js
 
 
+sudo pm2 stop server/websocket-video.js
+sudo pm2 delete server/websocket-video.js
+sudo pm2 start server/websocket-video.js
+
 
 
