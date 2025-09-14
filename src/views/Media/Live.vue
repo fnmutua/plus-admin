@@ -9,7 +9,7 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import {
   ElButton, ElCol, ElTooltip, ElPopover,
   ElRow, ElCard, ElImage, ElSelect, ElMessage, ElTag,
-  ElDialog
+  ElDialog, ElTabs, ElTabPane
 } from 'element-plus'
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 import WebRTCVideoPlayer from '@/components/WebRTCVideoPlayer.vue';
@@ -51,8 +51,10 @@ onMounted(async () => {
   window.addEventListener('resize', updatePageSize);
   updatePageSize(); // Initial check
 
-  // Load initial data
-  await getFilteredData(filters.value, filterValues.value)
+  // Load initial data - streams with live tab as default
+  await loadActiveStreams()
+  activeTab.value = 'live'
+  tableDataList.value = liveStreams.value
 })
 
 // Cleanup on unmount
@@ -98,26 +100,39 @@ const handleClear = async () => {
   await getFilteredData(filters.value, filterValues.value)
 }
 
-// Load active streams only
-const loadActiveStreams = async () => {
+// Load all streams (both live and non-live)
+const loadActiveStreams = async (skipTabUpdate = false) => {
   loading.value = true
   try {
-    const res = await getActiveStreams() as any
+    // Get all streams instead of just active ones
+    const res = await getVideoStreams() as any
     if (res.data && res.data.success && Array.isArray(res.data.data)) {
-      tableDataList.value = res.data.data
+      // Separate live and not live streams
+      liveStreams.value = res.data.data.filter(stream => stream.status === 'live')
+      notLiveStreams.value = res.data.data.filter(stream => stream.status !== 'live')
+      
+      // Set the current tab data only if not called from tab change
+      if (!skipTabUpdate) {
+        if (activeTab.value === 'live') {
+          tableDataList.value = liveStreams.value
+        } else {
+          tableDataList.value = notLiveStreams.value
+        }
+      }
+      
       totalItems.value = res.data.data.length
       
       // Fetch thumbnails for each stream
-      tableDataList.value.forEach(async (stream) => {
+      res.data.data.forEach(async (stream) => {
         await fetchStreamThumbnail(stream)
       })
     } else {
-      console.error('Error fetching active streams:', res)
-      ElMessage.error('Failed to fetch active streams')
+      console.error('Error fetching streams:', res)
+      ElMessage.error('Failed to fetch streams')
     }
   } catch (error) {
     console.error('Error in loadActiveStreams:', error)
-    ElMessage.error('Failed to fetch active streams')
+    ElMessage.error('Failed to fetch streams')
   } finally {
     loading.value = false
   }
@@ -237,6 +252,9 @@ const associated_multiple_models = []
 // Stream viewing variables
 const selectedStream = ref<any>(null)
 const showStreamDialog = ref(false)
+const activeTab = ref('live')
+const liveStreams = ref<any[]>([])
+const notLiveStreams = ref<any[]>([])
 
 
 
@@ -345,6 +363,21 @@ const refreshStream = () => {
   }
 };
 
+// Handle tab change
+const handleTabChange = async (tabName: string) => {
+  activeTab.value = tabName;
+  
+  // Automatically load streams when tab changes
+  await loadActiveStreams(true); // Skip tab update to avoid double setting
+  
+  // Set the appropriate data for the selected tab
+  if (tabName === 'live') {
+    tableDataList.value = liveStreams.value;
+  } else {
+    tableDataList.value = notLiveStreams.value;
+  }
+};
+
 
 
 
@@ -395,7 +428,167 @@ const refreshStream = () => {
     </el-row>
 
 
-    <el-row :gutter="20" justify="start">
+    <!-- Stream Tabs -->
+    <el-tabs v-model="activeTab" @tab-change="handleTabChange" type="card" style="margin-bottom: 20px;">
+      <el-tab-pane label="Live Streams" name="live">
+        <div v-if="liveStreams.length === 0" style="text-align: center; padding: 40px; color: #999;">
+          <i class="el-icon-video-camera" style="font-size: 48px; margin-bottom: 16px;"></i>
+          <p>No live streams available</p>
+        </div>
+        <el-row :gutter="20" justify="start" v-else>
+          <el-col :span="8" :xs="24" :sm="12" :md="8" v-for="stream in liveStreams" :key="stream.id">
+            <el-card class="stream-card" shadow="hover" style="height: 95%;">
+              <template #header>
+                <el-popover placement="bottom" width="30%" trigger="hover" :content="stream.title">
+                  <template #reference>
+                    <h2 class="stream-title">{{ stream.title }}</h2>
+                  </template>
+                </el-popover>
+              </template>
+
+              <div class="stream-content" style="height: 100%;">
+                <!-- Stream Thumbnail -->
+                <el-image v-if="stream.thumbnailSrc" :src="stream.thumbnailSrc" fit="cover" style="width: 100%; height: 150px;">
+                  <template #placeholder>
+                    <div class="image-placeholder">Loading...</div>
+                  </template>
+                  <template #error>
+                    <div class="image-error">Failed to load</div>
+                  </template>
+                </el-image>
+
+                <el-image v-else :src="'/placeholder.jpg'" fit="cover" style="width: 100%; height: 150px;" />
+
+                <!-- Stream Description (Truncate if too long) -->
+                <p 
+                  class="stream-description"
+                  style="display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis;">
+                  {{ stream.description }}
+                </p>
+
+                <!-- Stream Info -->
+                <div class="stream-info" style="margin-bottom: 10px;">
+                  <p><strong>Status:</strong> 
+                    <el-tag 
+                      :type="stream.status === 'live' ? 'success' : stream.status === 'ended' ? 'info' : 'warning'">
+                      {{ stream.status || 'Unknown' }}
+                    </el-tag>
+                  </p>
+                  <p v-if="stream.streamer"><strong>Streamer:</strong> {{ stream.streamer.name || 'Unknown' }}</p>
+                </div>
+
+                <!-- Actions -->
+                <div 
+                  class="stream-actions-row"
+                  style="display: flex; align-items: center; justify-content: space-between; margin-bottom:5px">
+                  <el-button 
+                    v-if="stream.status === 'live'" 
+                    type="primary" 
+                    @click="watchStream(stream)">
+                    Watch Live
+                  </el-button>
+                  <el-button 
+                    v-else-if="stream.status === 'ended'" 
+                    type="info" 
+                    disabled
+                  >
+                    Stream Ended
+                  </el-button>
+                  <el-button 
+                    v-else 
+                    type="warning" 
+                    disabled
+                  >
+                    Not Available
+                  </el-button>
+                </div>
+              </div>
+            </el-card>
+          </el-col>
+        </el-row>
+      </el-tab-pane>
+      
+      <el-tab-pane label="Not Live" name="not-live">
+        <div v-if="notLiveStreams.length === 0" style="text-align: center; padding: 40px; color: #999;">
+          <i class="el-icon-video-camera" style="font-size: 48px; margin-bottom: 16px;"></i>
+          <p>No non-live streams available</p>
+        </div>
+        <el-row :gutter="20" justify="start" v-else>
+          <el-col :span="8" :xs="24" :sm="12" :md="8" v-for="stream in notLiveStreams" :key="stream.id">
+            <el-card class="stream-card" shadow="hover" style="height: 95%;">
+              <template #header>
+                <el-popover placement="bottom" width="30%" trigger="hover" :content="stream.title">
+                  <template #reference>
+                    <h2 class="stream-title">{{ stream.title }}</h2>
+                  </template>
+                </el-popover>
+              </template>
+
+              <div class="stream-content" style="height: 100%;">
+                <!-- Stream Thumbnail -->
+                <el-image v-if="stream.thumbnailSrc" :src="stream.thumbnailSrc" fit="cover" style="width: 100%; height: 150px;">
+                  <template #placeholder>
+                    <div class="image-placeholder">Loading...</div>
+                  </template>
+                  <template #error>
+                    <div class="image-error">Failed to load</div>
+                  </template>
+                </el-image>
+
+                <el-image v-else :src="'/placeholder.jpg'" fit="cover" style="width: 100%; height: 150px;" />
+
+                <!-- Stream Description (Truncate if too long) -->
+                <p 
+                  class="stream-description"
+                  style="display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis;">
+                  {{ stream.description }}
+                </p>
+
+                <!-- Stream Info -->
+                <div class="stream-info" style="margin-bottom: 10px;">
+                  <p><strong>Status:</strong> 
+                    <el-tag 
+                      :type="stream.status === 'live' ? 'success' : stream.status === 'ended' ? 'info' : 'warning'">
+                      {{ stream.status || 'Unknown' }}
+                    </el-tag>
+                  </p>
+                  <p v-if="stream.streamer"><strong>Streamer:</strong> {{ stream.streamer.name || 'Unknown' }}</p>
+                </div>
+
+                <!-- Actions -->
+                <div 
+                  class="stream-actions-row"
+                  style="display: flex; align-items: center; justify-content: space-between; margin-bottom:5px">
+                  <el-button 
+                    v-if="stream.status === 'live'" 
+                    type="primary" 
+                    @click="watchStream(stream)">
+                    Watch Live
+                  </el-button>
+                  <el-button 
+                    v-else-if="stream.status === 'ended'" 
+                    type="info" 
+                    disabled
+                  >
+                    Stream Ended
+                  </el-button>
+                  <el-button 
+                    v-else 
+                    type="warning" 
+                    disabled
+                  >
+                    Not Available
+                  </el-button>
+                </div>
+              </div>
+            </el-card>
+          </el-col>
+        </el-row>
+      </el-tab-pane>
+    </el-tabs>
+
+    <!-- Old stream list (hidden) -->
+    <el-row :gutter="20" justify="start" style="display: none;">
       <el-col :span="8" :xs="24" :sm="12" :md="8" v-for="stream in tableDataList" :key="stream.id">
         <el-card class="stream-card" shadow="hover" style="height: 95%;">
           <template #header>

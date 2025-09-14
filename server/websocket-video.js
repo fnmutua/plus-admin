@@ -450,6 +450,73 @@ wss.on('connection', (ws, req) => {
           }));
           break;
           
+        case 'update_stream_status':
+          // Update stream status
+          console.log('📨 Stream status update message received:', JSON.stringify(message, null, 2));
+          
+          if (message.streamId && message.status) {
+            const validStatuses = ['live', 'ended', 'paused', 'connecting'];
+            if (!validStatuses.includes(message.status)) {
+              console.log(`❌ Invalid status: ${message.status}`);
+              ws.send(JSON.stringify({
+                type: 'error',
+                message: 'Invalid status. Must be one of: live, ended, paused, connecting'
+              }));
+              break;
+            }
+            
+            const streamInfo = activeStreams.get(message.streamId);
+            if (streamInfo) {
+              console.log(`🔄 Updating stream ${message.streamId} status from ${streamInfo.status} to ${message.status}`);
+              
+              // Update in-memory stream info
+              streamInfo.status = message.status;
+              if (message.status === 'ended') {
+                streamInfo.endTime = new Date();
+              }
+              
+              // Update database
+              try {
+                await updateStreamInDatabase(message.streamId, {
+                  status: message.status,
+                  ...(message.status === 'ended' && { end_time: streamInfo.endTime })
+                });
+                console.log(`✅ Stream ${message.streamId} status updated to: ${message.status}`);
+              } catch (error) {
+                console.error('Error updating stream status in database:', error);
+              }
+              
+              // Notify all viewers about status change
+              broadcastToStream(message.streamId, {
+                type: 'stream_status_updated',
+                streamId: message.streamId,
+                status: message.status,
+                timestamp: new Date()
+              });
+              
+              // Send confirmation to requester
+              ws.send(JSON.stringify({
+                type: 'status_update_success',
+                streamId: message.streamId,
+                status: message.status,
+                message: 'Stream status updated successfully'
+              }));
+            } else {
+              console.log(`❌ Stream not found: ${message.streamId}`);
+              ws.send(JSON.stringify({
+                type: 'error',
+                message: 'Stream not found'
+              }));
+            }
+          } else {
+            console.log(`❌ Missing streamId or status:`, { streamId: message.streamId, status: message.status });
+            ws.send(JSON.stringify({
+              type: 'error',
+              message: 'Missing streamId or status'
+            }));
+          }
+          break;
+          
           
         default:
           console.log('Unknown message type:', message.type);
