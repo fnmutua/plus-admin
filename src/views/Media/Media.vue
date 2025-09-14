@@ -40,7 +40,6 @@ import Papa from 'papaparse';
 import axios from 'axios';
 
 import { XMLParser } from 'fast-xml-parser';
-import VideoStreams from './VideoStreams.vue'
 
 import '@mapbox/mapbox-gl-geocoder/lib/mapbox-gl-geocoder.css';
 import mapboxgl from "mapbox-gl";
@@ -48,9 +47,6 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
-
-// Media tabs
-const activeTab = ref('streams')
 
 
 const apiKey = import.meta.env.VITE_APP_YOUTUBE_API; // Replace with your API key
@@ -112,30 +108,25 @@ onMounted(fetchVideos);
 
 <template>
   <el-card>
-    <!-- Media Tabs -->
-    <el-tabs v-model="activeTab" class="media-tabs">
-      <el-tab-pane label="Live Streams" name="streams">
-        <VideoStreams />
-      </el-tab-pane>
-      <el-tab-pane label="YouTube Videos" name="youtube">
-        <div>
-          <el-row :gutter="20" justify="center">
-            <el-col
-              :span="8"
-              xs="24"
-              sm="12"
-              md="8"
-              v-for="video in videos"
-              :key="video.id.videoId"
-            >
-              <el-card>
-                <!-- Embedded YouTube Player -->
-                <iframe
-                  :src="`https://www.youtube.com/embed/${video.id.videoId}`"
-                  frameborder="0"
-                  allowfullscreen
-                  style="width: 100%; height: 200px; "
-                ></iframe>
+
+      <div>
+  <el-row :gutter="20" justify="center">
+    <el-col
+      :span="8"
+      xs="24"
+      sm="12"
+      md="8"
+      v-for="video in videos"
+      :key="video.id.videoId"
+    >
+      <el-card>
+        <!-- Embedded YouTube Player -->
+        <iframe
+          :src="`https://www.youtube.com/embed/${video.id.videoId}`"
+          frameborder="0"
+          allowfullscreen
+          style="width: 100%; height: 200px; "
+        ></iframe>
         <!-- Video Info -->
         <div style="margin-top: 10px;  ">
           <!-- <h3>{{ video.snippet.title }}</h3> -->
@@ -169,9 +160,7 @@ onMounted(fetchVideos);
       <el-button @click="playerVisible = false">Close</el-button>
     </template>
   </el-dialog>
-        </div>
-      </el-tab-pane>
-    </el-tabs>
+</div>
   </el-card>
 
 
@@ -281,13 +270,5 @@ onMounted(fetchVideos);
 .basemap {
   width: 100%;
   height: 65vh;
-}
-
-.media-tabs {
-  margin-top: 20px;
-}
-
-.media-tabs .el-tabs__content {
-  padding: 20px 0;
 }
 </style>

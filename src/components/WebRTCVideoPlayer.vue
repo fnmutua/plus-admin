@@ -148,9 +148,11 @@ const webrtcConfig: RTCConfiguration = {
   ]
 }
 
-// WebSocket URL for signaling
-const signalingServerUrl = 'wss://kesmis.go.ke:3002/video-stream'
-//const signalingServerUrl = 'ws://localhost:3002/video-stream'
+// WebSocket URL for signaling - auto-detect environment
+const isDevelopment = import.meta.env.DEV || import.meta.env.MODE === 'development'
+const signalingServerUrl = isDevelopment 
+  ? 'ws://localhost:3002/video-stream'
+  : 'wss://kesmis.go.ke:3002/video-stream'
 
 onMounted(() => {
   if (props.streamInfo?.status === 'live') {

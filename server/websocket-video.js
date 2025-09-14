@@ -587,14 +587,23 @@ async function updateStreamInDatabase(streamId, updates) {
 // Start the server
 const PORT = process.env.VIDEO_STREAM_PORT || 3002;
 const HOST = process.env.VIDEO_STREAM_HOST || '0.0.0.0';
-const SERVER_URL = process.env.VIDEO_STREAM_SERVER_URL || `https://kesmis.go.ke:${PORT}`;
-const WS_URL = process.env.VIDEO_STREAM_WS_URL || `wss://kesmis.go.ke:${PORT}`;
+
+// Detect environment and set appropriate URLs
+const isDevelopment = process.env.NODE_ENV === 'development' || process.env.NODE_ENV !== 'production';
+const SERVER_URL = process.env.VIDEO_STREAM_SERVER_URL || (isDevelopment ? `http://localhost:${PORT}` : `https://kesmis.go.ke:${PORT}`);
+const WS_URL = process.env.VIDEO_STREAM_WS_URL || (isDevelopment ? `ws://localhost:${PORT}` : `wss://kesmis.go.ke:${PORT}`);
 
 server.listen(PORT, HOST, () => {
   console.log(`Video streaming WebSocket server listening on ${HOST}:${PORT}`);
+  console.log(`Environment: ${isDevelopment ? 'Development' : 'Production'}`);
   console.log(`Server URL: ${SERVER_URL}`);
   console.log(`WebSocket endpoint: ${WS_URL}/video-stream`);
-  console.log(`Production WebSocket URL: wss://kesmis.go.ke:${PORT}/video-stream`);
+  
+  if (isDevelopment) {
+    console.log(`🔧 Development WebSocket URL: ws://localhost:${PORT}/video-stream`);
+  } else {
+    console.log(`🚀 Production WebSocket URL: wss://kesmis.go.ke:${PORT}/video-stream`);
+  }
 });
 
 // Periodic cleanup of inactive streams
