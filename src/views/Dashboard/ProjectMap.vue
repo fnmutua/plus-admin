@@ -1020,13 +1020,11 @@ const ResetFilters = async () => {
 
     map.value.addLayer({
       id: 'county',
-      type: 'line',
+      type: 'fill',
       source: 'County',
       paint: {
-        'line-color': 'red',
-        'line-opacity': 1,
-        'line-width': 1,
-        'line-dasharray': [2, 2],
+        'fill-color': 'gray',
+        'fill-opacity': 0.3,
       },
 
     });
@@ -1152,13 +1150,11 @@ if (county) {
 
   map.value.addLayer({
     id: 'county',
-    type: 'line',
+    type: 'fill',
     source: 'County',
     paint: {
-      'line-color': 'red',
-      'line-opacity': 1,
-      'line-width': 1,
-      'line-dasharray': [2, 2],
+      'fill-color': 'gray',
+      'fill-opacity': 0.3,
     },
 
   });

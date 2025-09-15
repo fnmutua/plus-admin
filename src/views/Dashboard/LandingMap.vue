@@ -153,35 +153,7 @@ const toggleFloatingDiv = async () => {
 }
 
 
-
-
-// Removed unused cards variable
-
-
-
-
-
-
-
-
-
-
-// Removed unused console.log
-
-
-
-
-
-
-
-
-//model,field,formula, groupFields, filterFields, filtervalues
-
-
-
-
  
-// Removed unused dialogVisible variable
 const MapBoxToken =
   'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg'
 mapboxgl.accessToken = MapBoxToken;
@@ -280,7 +252,7 @@ onMounted(async () => {
     mapLoadingText.value = 'Getting counties...'
 
     console.log('get cunty shp')
-   // await getCountyGeo()
+    await getCountyGeo()
 
     console.log('get cunty list')
 
@@ -289,29 +261,37 @@ onMounted(async () => {
 
     mapLoading.value=false
 
-    // map.value.addSource('County', {
-    //   type: 'geojson',
-    //   // Point to GeoJSON data. This example visualizes all M1.0+ earthquakes
-    //   // from 12/22/15 to 1/21/16 as logged by USGS' Earthquake hazards program.
-    //   data: countyGeo.value,
-
-    // });
-
-
-
-    // map.value.addLayer({
-    //   id: 'county',
-    //   type: 'line',
-    //   source: 'County',
-    //   paint: {
-    //     'line-color': 'red',
-    //     'line-opacity': 0.4, // Adjust the opacity if needed
-    //     'line-width': 1, // Adjust the width of the line if needed
-    //     'line-dasharray': [2, 2], // Adjust the dash pattern [dash, gap]
-    //   },
-    // });
-
     addSettlementLayers()
+
+    // Add county layers after settlement layers are added
+    if (countyGeo.value) {
+      map.value.addSource('County', {
+        type: 'geojson',
+        data: countyGeo.value,
+      });
+
+      // Add fill layer first
+      map.value.addLayer({
+        id: 'county',
+        type: 'fill',
+        source: 'County',
+        paint: {
+          'fill-color': 'lightblue',
+          'fill-opacity': 0.3,
+        },
+      }, 'settlementLabel');
+
+      // Add polygon fill layer
+      map.value.addLayer({
+        id: 'county-polygon',
+        type: 'fill',
+        source: 'County',
+        paint: {
+          'fill-color': 'lightblue',
+          'fill-opacity': 0.2,
+        },
+      }, 'settlementLabel');
+    }
 
 
 
@@ -468,7 +448,7 @@ const addSettlementLayers = async () => {
     type: 'line',
     source: 'polyFarms',
     paint: {
-      'line-color': 'red',
+      'line-color': 'green',
       'line-opacity': 1,
       'line-width': 2,
     },
@@ -896,32 +876,46 @@ const ResetFilters = async () => {
         mapLoading.value=false
 
 
-      // Check if the 'County' layer already exists, and remove it if it does
+      // Check if the 'County' layers already exist, and remove them if they do
       if (map.value.getLayer('county')) {
         map.value.removeLayer('county');
+      }
+      if (map.value.getLayer('county-polygon')) {
+        map.value.removeLayer('county-polygon');
+      }
+      if (map.value.getSource('County')) {
         map.value.removeSource('County');
       }
 
-      // map.value.addSource('County', {
-      //   type: 'geojson',
-      //   data: countyGeo.value,
-      // });
+      // Add county layers back after reset
+      if (countyGeo.value) {
+        map.value.addSource('County', {
+          type: 'geojson',
+          data: countyGeo.value,
+        });
 
-      // map.value.addLayer({
-      //   id: 'county',
-      //   type: 'line',
-      //   source: 'County',
-      //   paint: {
-      //     'line-color': 'red',
-      //     'line-opacity': 1,
-      //     'line-width': 1,
-      //     'line-dasharray': [2, 2],
-      //   },
+        // Add fill layer first
+        map.value.addLayer({
+          id: 'county',
+          type: 'fill',
+          source: 'County',
+          paint: {
+            'fill-color': 'lightblue',
+            'fill-opacity': 0.3,
+          },
+        }, 'settlementLabel');
 
-      // });
-
-      // var bounds = turf.bbox(countyGeo.value);
-      // map.value.fitBounds(bounds, { padding: 20 });
+        // Add polygon fill layer
+        map.value.addLayer({
+          id: 'county-polygon',
+          type: 'fill',
+          source: 'County',
+          paint: {
+            'fill-color': 'lightblue',
+            'fill-opacity': 0.2,
+          },
+        }, 'settlementLabel');
+      }
 
 
       removeSettlementLayers()
@@ -975,9 +969,14 @@ if (county) {
 
 
 
-  // Check if the 'County' layer already exists, and remove it if it does
+  // Check if the 'County' layers already exist, and remove them if they do
   if (map.value.getLayer('county')) {
     map.value.removeLayer('county');
+  }
+  if (map.value.getLayer('county-polygon')) {
+    map.value.removeLayer('county-polygon');
+  }
+  if (map.value.getSource('County')) {
     map.value.removeSource('County');
   }
 
@@ -986,18 +985,29 @@ if (county) {
     data: countyGeo.value,
   });
 
+  console.log('Adding county layers with data:', countyGeo.value);
+
+  // Add fill layer first
   map.value.addLayer({
     id: 'county',
-    type: 'line',
+    type: 'fill',
     source: 'County',
     paint: {
-      'line-color': 'red',
-      'line-opacity': 1,
-      'line-width': 1,
-      'line-dasharray': [2, 2],
+      'fill-color': 'lightblue',
+      'fill-opacity': 0.3,
     },
+  }, 'settlementLabel'); // Add before settlement labels
 
-  });
+  // Add polygon fill layer
+  map.value.addLayer({
+    id: 'county-polygon',
+    type: 'fill',
+    source: 'County',
+    paint: {
+      'fill-color': 'lightblue',
+      'fill-opacity': 0.2,
+    },
+  }, 'settlementLabel'); // Add before settlement labels
 
   var bounds = turf.bbox(countyGeo.value);
   map.value.fitBounds(bounds, { padding: 20 });
