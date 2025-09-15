@@ -1424,7 +1424,7 @@ exports.modelAllGeo = async (req, res) => {
   var reg_model = req.body.model
    
   var qry2 =
-  "SELECT row_to_json(fc) AS json_build_object FROM (SELECT 'FeatureCollection' AS type, array_to_json(array_agg(f)) AS features FROM (SELECT 'Feature' AS type, ST_AsGeoJSON(ST_ReducePrecision(geom, 0.0001))::json AS geometry, json_strip_nulls(row_to_json(" + reg_model + ")) AS properties FROM " +
+  "SELECT row_to_json(fc) AS json_build_object FROM (SELECT 'FeatureCollection' AS type, array_to_json(array_agg(f)) AS features FROM (SELECT 'Feature' AS type, ST_AsGeoJSON(geom, 8)::json AS geometry, json_strip_nulls(row_to_json(" + reg_model + ")) AS properties FROM " +
   reg_model + " WHERE geom IS NOT NULL) AS f) AS fc";
 
    

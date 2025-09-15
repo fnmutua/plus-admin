@@ -1023,7 +1023,7 @@ module.exports = function (app) {
    *       403:
    *         description: Forbidden - insufficient permissions
    */
-  app.post('/api/v1/data/all/geo', [authJwt.verifyToken, hasDynamicPermission('read')], controller.modelAllGeo)
+  app.post('/api/v1/data/all/geo', [authJwt.verifyToken ], controller.modelAllGeo)
   
   /**
    * @swagger

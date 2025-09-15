@@ -1,7 +1,7 @@
 
 <template>
   <div class="floating-collapse">
-    <el-select v-model="county"  placeholder="Filter by County"  @change="handleChangeCounty" filterable clearable>
+    <el-select v-model="county"   placeholder="Filter by County"   @change="handleChangeCounty" filterable clearable :onClear="ResetFilters">
         <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
     <el-select
@@ -9,8 +9,16 @@ clearable filterable v-model="subcounty"  placeholder="Filter by Subcounty"
       @change="handleChangeSubcounty" :onClear="ResetFilters">
       <el-option v-for="item in subCountyOptions" :key="item.value" :label="item.label" :value="item.value" />
     </el-select>
+
+    <el-select
+clearable filterable v-model="implementer"  placeholder="Filter by Implementer"  
+      @change="handleChangeImplementer" :onClear="ResetFilters">
+      <el-option v-for="item in implementerOptions" :key="item.value" :label="item.label" :value="item.value" />
+    </el-select>
+
     <el-button    @click="ResetFilters"> Reset Filters</el-button>
-   </div>
+ 
+  </div>
 
   
 
@@ -22,10 +30,15 @@ clearable filterable v-model="subcounty"  placeholder="Filter by Subcounty"
 
 <script setup lang="ts" >
 import { useRouter } from 'vue-router'
-import { ref, watch, onMounted } from 'vue'
+import { ref, reactive,watch, onMounted } from 'vue'
 import {
-  ElButton, ElSelect, ElOption, ElMessage
+  ElButton, ElSelect, ElOption, 
+  ElMessage
+
 } from 'element-plus'
+
+import { CanvasRenderer } from 'echarts/renderers';
+import { EChartsOption } from 'echarts'
 import { use } from "echarts/core";
 import { PieChart, GaugeChart, BarChart, LineChart, } from 'echarts/charts';
 import {
@@ -34,31 +47,67 @@ import {
   LegendComponent,
   ToolboxComponent,
   GridComponent,
+
 } from 'echarts/components';
-import { CanvasRenderer } from 'echarts/renderers';
-// Removed unused echarts import
+
+import * as echarts from 'echarts';
+
+import writeXlsxFile from 'write-excel-file';
+
 import mapboxgl from "mapbox-gl";
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 import * as turf from '@turf/turf'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { computed } from 'vue'
-import { getAllGeo, getOneGeo, streamGeo, getfilteredGeo} from '@/api/settlements'
-import { getListWithoutGeo } from '@/api/counties'
-import { getOneSettlement } from '@/api/settlements'
 
- 
-// Removed unused variables for optimization
+import type { FormInstance } from 'element-plus'
+import { getOneGeo ,streamGeo} from '@/api/settlements'
+import { getListWithoutGeo } from '@/api/counties'
+
+
+import {   getOneSettlement  } from '@/api/settlements'
+
+import { useCache } from '@/hooks/web/useCache'
+import { useAppStore } from '@/store/modules/app'
+
+// User and role setup
+const { wsCache } = useCache()
+const appStore = useAppStore()
+const showAdminButtons = ref(appStore.getAdminButtons)
+const showEditButtons = ref(appStore.getEditButtons)
+
+const activeNames = ref(['01'])
+const mainDiv = ref(['1'])
+const handleChange = (val: string[]) => {
+  console.log(val)
+}
+
+// do not use same name with ref
+const formSize = ref('default')
+const ruleFormRef = ref<FormInstance>()
+const ruleForm = reactive({
+  name: '',
+  email: '',
+  phone: '',
+  message: '',
+  rating: 1
+})
+
+
+const tableData = ref([])
  
 const mapLoading =ref(false)
 const mapLoadingText =ref('Loading map....')
 
 
 
+const filterFields =ref([])
+const filterValues =ref([])
 
 
-
-// Removed unused ECharts option variable
+type EChartsOption = echarts.EChartsOption;
+var option: EChartsOption;
 
 use([
   GaugeChart,
@@ -82,8 +131,6 @@ const showSatellite = ref(false);
 const icon = ref(`<button>  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M4.97883 9.68508C2.99294 8.89073 2 8.49355 2 8C2 7.50645 2.99294 7.10927 4.97883 6.31492L7.7873 5.19153C9.77318 4.39718 10.7661 4 12 4C13.2339 4 14.2268 4.39718 16.2127 5.19153L19.0212 6.31492C21.0071 7.10927 22 7.50645 22 8C22 8.49355 21.0071 8.89073 19.0212 9.68508L16.2127 10.8085C14.2268 11.6028 13.2339 12 12 12C10.7661 12 9.77318 11.6028 7.7873 10.8085L4.97883 9.68508Z" fill="#1C274C"></path> <path fill-rule="evenodd" clip-rule="evenodd" d="M2 8C2 8.49355 2.99294 8.89073 4.97883 9.68508L7.7873 10.8085C9.77318 11.6028 10.7661 12 12 12C13.2339 12 14.2268 11.6028 16.2127 10.8085L19.0212 9.68508C21.0071 8.89073 22 8.49355 22 8C22 7.50645 21.0071 7.10927 19.0212 6.31492L16.2127 5.19153C14.2268 4.39718 13.2339 4 12 4C10.7661 4 9.77318 4.39718 7.7873 5.19153L4.97883 6.31492C2.99294 7.10927 2 7.50645 2 8Z" fill="#1C274C"></path> <path opacity="0.7" d="M5.76613 10L4.97883 10.3149C2.99294 11.1093 2 11.5065 2 12C2 12.4935 2.99294 12.8907 4.97883 13.6851L7.7873 14.8085C9.77318 15.6028 10.7661 16 12 16C13.2339 16 14.2268 15.6028 16.2127 14.8085L19.0212 13.6851C21.0071 12.8907 22 12.4935 22 12C22 11.5065 21.0071 11.1093 19.0212 10.3149L18.2339 10L16.2127 10.8085C14.2268 11.6028 13.2339 12 12 12C10.7661 12 9.77318 11.6028 7.7873 10.8085L5.76613 10Z" fill="#1C274C"></path> <path opacity="0.4" d="M5.76613 14L4.97883 14.3149C2.99294 15.1093 2 15.5065 2 16C2 16.4935 2.99294 16.8907 4.97883 17.6851L7.7873 18.8085C9.77318 19.6028 10.7661 20 12 20C13.2339 20 14.2268 19.6028 16.2127 18.8085L19.0212 17.6851C21.0071 16.8907 22 16.4935 22 16C22 15.5065 21.0071 15.1093 19.0212 14.3149L18.2339 14L16.2127 14.8085C14.2268 15.6028 13.2339 16 12 16C10.7661 16 9.77318 15.6028 7.7873 14.8085L5.76613 14Z" fill="#1C274C"></path> </g></svg></button>`)
 
 const toggleFloatingDiv = async () => {
-
-
 
   showSatellite.value = !showSatellite.value;
   console.log('Show Satellite', showSatellite.value);
@@ -153,27 +200,53 @@ const toggleFloatingDiv = async () => {
 }
 
 
+
+
+let cards = []
+
+
+
+
+
+
+
+
+
+
+console.log('cards', cards)
+
+
+
+
+
+
+
+
+//model,field,formula, groupFields, filterFields, filtervalues
+
+
+
+
  
 const MapBoxToken =
   'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg'
 mapboxgl.accessToken = MapBoxToken;
 
-const appStore = useAppStoreWithOut()
 
 const isMobile = computed(() => appStore.getMobile)
 
 console.log('isMobile', isMobile.value)
 
-// Removed unused dialogWidth variable
+const dialogWidth = ref('20%')
 
 
 
-const county = ref<number | undefined>(undefined)
-const polyFarms = ref<any>(null)
-const countyGeo = ref<any>(null)
-const geojson = ref<any>({ type: 'FeatureCollection', features: [] })
-const bounds = ref<any>([])
-const subcountyGeo = ref<any>([])
+const county = ref()
+ const polyFarms = ref()
+const countyGeo = ref()
+const geojson = ref([])
+const bounds = ref([])
+const subcountyGeo = ref([])
 
 
  
@@ -182,18 +255,34 @@ const subcountyGeo = ref<any>([])
 
 const map = ref()
 var isDarkMode  = appStore.getIsDark 
+
+
+
 onMounted(async () => {
 
-  // Removed unused dialogWidth logic
+  if (isMobile.value) {
+    dialogWidth.value = "70%"
+  } else {
+    dialogWidth.value = "20%"
+  }
 
+
+
+
+
+
+
+
+
+
+
+  
  
   console.log("isDark",appStore.getIsDark)
 
   var mapStyle = appStore.getIsDark ? 'mapbox://styles/agspatial/clqcfzcoa00bt01nwhmf465f7' : 'mapbox://styles/mapbox/light-v11';
 
 
-
-  
   watch(
   () => appStore.getIsDark,
   async (newVal) => {
@@ -217,7 +306,10 @@ onMounted(async () => {
 );
 
 
-  
+
+ 
+
+
 
   map.value = new mapboxgl.Map({
     container: 'map',
@@ -247,12 +339,12 @@ onMounted(async () => {
    
    map.value.on('load', async () => {
     mapLoading.value=true
-    mapLoadingText.value = 'Getting Settlements...'
+    mapLoadingText.value = 'Getting Projects...'
     await getFarmGeo()
     mapLoadingText.value = 'Getting counties...'
 
     console.log('get cunty shp')
-    await getCountyGeo()
+   // await getCountyGeo()
 
     console.log('get cunty list')
 
@@ -261,42 +353,42 @@ onMounted(async () => {
 
     mapLoading.value=false
 
+    // map.value.addSource('County', {
+    //   type: 'geojson',
+    //   // Point to GeoJSON data. This example visualizes all M1.0+ earthquakes
+    //   // from 12/22/15 to 1/21/16 as logged by USGS' Earthquake hazards program.
+    //   data: countyGeo.value,
+
+    // });
+
+
+
+    // map.value.addLayer({
+    //   id: 'county',
+    //   type: 'line',
+    //   source: 'County',
+    //   paint: {
+    //     'line-color': 'red',
+    //     'line-opacity': 0.4, // Adjust the opacity if needed
+    //     'line-width': 1, // Adjust the width of the line if needed
+    //     'line-dasharray': [2, 2], // Adjust the dash pattern [dash, gap]
+    //   },
+    // });
+
     addSettlementLayers()
 
-    // Add county layers after settlement layers are added
-    if (countyGeo.value) {
-      map.value.addSource('County', {
-        type: 'geojson',
-        data: countyGeo.value,
-      });
-
-      // Add county outline layer
-      map.value.addLayer({
-        id: 'county',
-        type: 'line',
-        source: 'County',
-        paint: {
-          'line-color': 'red',
-          'line-opacity': 1,
-          'line-width': 0.5,
-        },
-      }, 'settlementLabel');
-    }
 
 
-
-    // bounds.value = turf.bbox((countyGeo.value))
-    // console.log("From geo", bounds.value)
-    // map.value.fitBounds(bounds.value, { padding: 20 })
+  
 
 
 
 
     // inspect a cluster on click
-    map.value.on('click', 'clusters', (e) => {
+    map.value.on('click', 'clustersx', (e) => {
       
       const features = map.value.queryRenderedFeatures(e.point, {
-        layers: ['clusters']
+        layers: ['clustersx']
       });
       console.log('cluster>>,',features)
 
@@ -316,10 +408,9 @@ onMounted(async () => {
     });
 
 
-
-    function addInfo(map: any) {
+    function addInfo(map) {
       class InfoButton {
-        onAdd(map: any) {
+        onAdd(map) {
           const div = document.createElement("div");
           div.className = "mapboxgl-ctrl mapboxgl-ctrl-group";
           div.innerHTML = icon.value;
@@ -333,13 +424,13 @@ onMounted(async () => {
       map.value.addControl(infoBttn, "top-right");
     }
     addInfo(map)
+    
 
 
 
-
-    function addHomeButton(map: any) {
+    function addHomeButton(map) {
       class HomeButton {
-        onAdd(map: any) {
+        onAdd(map) {
           const div = document.createElement("div");
           div.className = "mapboxgl-ctrl mapboxgl-ctrl-group";
           div.innerHTML =
@@ -358,12 +449,15 @@ onMounted(async () => {
 
    
 
-   
+ 
 
 
-    function addDownload(map: any) {
+
+
+ 
+    function addDownload(map) {
       class HomeButton {
-        onAdd(map: any) {
+        onAdd(map) {
           const div = document.createElement("div");
           div.className = "mapboxgl-ctrl mapboxgl-ctrl-group";
           div.innerHTML =
@@ -378,34 +472,70 @@ onMounted(async () => {
       const homeButton = new HomeButton();
       map.value.addControl(homeButton, "top-right");
     }
-    addDownload(map)
 
 
+    if (showAdminButtons.value || showEditButtons.value){
 
+      addDownload(map)
 
-
-
-
-
-
-
-
+    }
 
 
 
   })
   
-  map.value.on('click', 'unclustered-point', (e: any) => {
+  map.value.on('click', 'unclustered-pointx', (e) => {
       const feature = e.features[0];
-      console.log('Clicked  unclustered Feature', feature);
+      const coordinates = feature.geometry.coordinates.slice();
+      console.log('Clicked Feature', feature);
 
-      getClickedFarm(feature.properties.id)
+      const farm =   getClickedFarm(feature.properties.id)
+     
+
+      
+            
+                
             }); 
 
 })
 
 
  
+
+
+const implementerOptions = ref([])
+const implementer =ref()
+
+
+const getImplementers = async () => {
+  const res = await getListWithoutGeo({
+    params: {
+      //   pageIndex: 1,
+      //  limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'programme_implementation',
+      searchField: 'title',
+      searchKeyword: '',
+      sort: 'ASC', 
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received programme_implementation response:', response)
+    const ret = response.data
+
+    ret.forEach((data) => {
+      const option = {
+        value: data.id,
+        title: data.title,
+        label: data.acronym,
+      };
+      implementerOptions.value.push(option);
+    });
+
+
+
+
+  })
+}
 
 
 
@@ -438,15 +568,16 @@ const addSettlementLayers = async () => {
     type: 'line',
     source: 'polyFarms',
     paint: {
-      'line-color': 'green',
-      'line-opacity': 1,
-      'line-width': 2,
+      'line-color': 'red',
+      'line-opacity': 1, // Adjust the opacity if needed
+      'line-width': 2, // Adjust the width of the line if needed
+      'line-dasharray': [1, 3, 0.1, 3], // Adjust the dash pattern [dot, gap, star, gap]
     },
   },
   );
 
   map.value.addLayer({
-    id: 'clusters',
+    id: 'clustersx',
     type: 'circle',
     source: 'farmers',
     filter: ['has', 'point_count'],
@@ -495,7 +626,7 @@ const addSettlementLayers = async () => {
 
 
   map.value.addLayer({
-    id: 'unclustered-point',
+    id: 'unclustered-pointx',
     type: 'circle',
     source: 'farmers',
     filter: ['!', ['has', 'point_count']],
@@ -530,9 +661,21 @@ const addSettlementLayers = async () => {
 });
 
 
-bounds.value = turf.bbox((geojson.value))
-    console.log("From geo", bounds.value)
-    map.value.fitBounds(bounds.value, { padding: 20 })
+  bounds.value = turf.bbox(geojson.value);
+  console.log("From geo", bounds.value);
+
+  // Get the optimal zoom for the bounds
+  const cameraOptions = map.value.cameraForBounds(bounds.value, { padding: 5 });
+
+  if (cameraOptions) {
+    // Decrease zoom level by 1 before setting the camera
+    cameraOptions.zoom = cameraOptions.zoom - 1;
+
+    // Set camera with the adjusted zoom
+    map.value.easeTo(cameraOptions);
+  }
+
+
 
 }
 
@@ -542,13 +685,13 @@ const removeSettlementLayers = async () => {
  
   //
   console.log(' removing clusters.......')
-  map.value.removeLayer('clusters');
+  map.value.removeLayer('clustersx');
  //
  console.log('removing...cluster-count....')
   map.value.removeLayer('cluster-count');
 
   console.log('removing...unclustered-count....')
-  map.value.removeLayer('unclustered-point');
+  map.value.removeLayer('unclustered-pointx');
 
   console.log('removing...polyFarms....')
   map.value.removeLayer('polyFarms');
@@ -564,9 +707,11 @@ const removeSettlementLayers = async () => {
 
 }
 
- 
 
-async function computeCentroids(featureCollection: any) {
+
+// Function to compute centroids for non-point features
+ 
+async function computeCentroids(featureCollection) {
   const resultFeatures = [];
   const polyFeatures = [];
 
@@ -587,7 +732,7 @@ async function computeCentroids(featureCollection: any) {
 
         resultFeatures.push(centroid);
         polyFeatures.push(feature); // Preserve the original polygon/line
-      } catch (error: any) {
+      } catch (error) {
         console.error('Error computing centroid:', error);
       }
     }
@@ -605,19 +750,20 @@ async function computeCentroids(featureCollection: any) {
 }
 
 
- 
+
+
 
 
  
-const allProjectsGeo = ref<any>({ type: 'FeatureCollection', features: [] })
+ 
 
 const getFarmGeo = async () => {
   const params = {
     // Your request parameters here
     // For example, if you have query parameters, you can add them here
-    model: 'settlement',
+    model: 'project_location',
   //  cache_key: 'project_location_geo',
-   associatedModels :'county',
+   associatedModels :'project',
    excludeGeoFromAssociations :'true'
   };
 
@@ -628,7 +774,6 @@ const getFarmGeo = async () => {
     console.log(response.data.data)
    
   geojson.value = await computeCentroids(response.data.data);
-
   allProjectsGeo.value = JSON.parse(JSON.stringify(geojson.value)); // Deep copy of the GeoJSON data
 
     
@@ -638,174 +783,160 @@ const getFarmGeo = async () => {
     console.error('Error fetching data:', error.message);
   }
 };
+
  
+const getImplementerLabel = (id) => {
+  const found = implementerOptions.value.find(item => item.value === id);
+  return found ? found.title : 'Unknown';
+};
 
 
-const getClickedFarm = async (id: number) => { 
+const getClickedFarm = async (id) => { 
 
-  const form: any = {}
-  form.model = 'settlement'
+  const form = {}
+  form.model = 'project_location'
   form.id = id
-  form.assocModel='county'
+  form.assocModel='project'
 
   await getOneSettlement(form)
       .then((res) => {
- 
-        
+  
 
-          const settlement = res.data 
+          const project_location = res.data 
           // Extract properties
-          console.log('settlement',settlement)
+          console.log('project_location',project_location)
           //const name = farm.name || 'Unknown';
-          const area = settlement.area || 'N/A';
-          const county = settlement.county.name || 'N/A';
-
+          const location = project_location.location_name + ' ' + project_location.location_type  || 'N/A';
+          const project_code = project_location.project.project_code   || 'N/A';
+          const implementer =  getImplementerLabel ( project_location.implementer )
         // If the area is not 'N/A', round it to two decimals
-        const roundedArea = area !== 'N/A' ? parseFloat(area).toFixed(2)+'m²' : 'N/A';
-
+ 
         // Now, `roundedArea` contains the rounded value to two decimals
     
          // const type_farming = convertArrayToStrings((farm.type_farming))
-         const name =settlement.name
-         const sett_id =settlement.id
-          // Handle cases where the properties may be null or undefined
+         const name =project_location.project.title
+           // Handle cases where the properties may be null or undefined
 
           // Correct for multiple copies of the feature
           
-          const geom  = turf.centroid(settlement.geom);
+          const geom  = turf.centroid(project_location.geom);
            const popup = new mapboxgl.Popup({
             closeButton: false,  // Optionally, you can include or exclude the close button
           });
  
           const popupContent = `
-                    <div style="
-                      background: ${isDarkMode ? '#444' : '#91c949'};
-                      color: ${isDarkMode ? '#fff' : '#000'};
-                      padding: 10px 12px;
-                      font-weight: 700;
-                      text-align: center;
-                      font-size: 15px;
-                    ">
-                      <u>Settlement Details</u>
-                    </div>
-                    <div style="
-                      padding: 10px 12px;
-                      font-family: 'Source Sans Pro', 'Helvetica Neue', sans-serif;
-                      font-size: 14px;
-                      color: ${isDarkMode ? '#f0f0f0' : '#333'};
-                      background: ${isDarkMode ? '#2c2c2c' : '#fff'};
-                    ">
-                      <div style="margin-bottom: 6px;">
-                        <span style="font-weight: bold;">Name:</span>
-                        <span>${name}</span>
-                      </div>
-                      <div style="margin-bottom: 6px;">
-                        <span style="font-weight: bold;">Area:</span>
-                        <span> ${roundedArea}</span>
-                      </div>
-                      <div>
-                        <span style="font-weight: bold;">County:</span>
-                        <span>${county}</span>
-                      </div>
-                    </div>
-                  `;
+              <div style="
+                background: ${isDarkMode ? '#444' : '#91c949'};
+                color: ${isDarkMode ? '#fff' : '#000'};
+                padding: 10px 12px;
+                font-weight: 700;
+                text-align: center;
+                font-size: 15px;
+                border-radius: 8px 8px 0 0;
+              ">
+                <u>Project Details</u>
+              </div>
+              <div style="
+                padding: 10px 12px;
+                font-family: 'Source Sans Pro', 'Helvetica Neue', sans-serif;
+                font-size: 14px;
+                color: ${isDarkMode ? '#f0f0f0' : '#333'};
+                background: ${isDarkMode ? '#2c2c2c' : '#fff'};
+                border-radius: 0 0 8px 8px;
+              ">
+                <div style="margin-bottom: 6px;">
+                  <span style="font-weight: bold;">Title:</span>
+                  <span>${name}</span>
+                </div>
+                <div style="margin-bottom: 6px;">
+                  <span style="font-weight: bold;">Contract:</span>
+                  <span>${project_code}</span>
+                </div>
+                <div style="margin-bottom: 6px;">
+                  <span style="font-weight: bold;">Location:</span>
+                  <span>${location}</span>
+                </div>
 
+                <div>
+                  <span style="font-weight: bold;">Implementer:</span>
+                  <span>${implementer}</span>
+                </div>
+              </div>
+            `;
 
-
-
-
-            console.log(geom.geometry.coordinates)
-
+           console.log(geom.geometry.coordinates)
           popup.setLngLat(geom.geometry.coordinates)
           .setHTML(popupContent)
           .addTo(map.value);
 
         // Click event on popupElement
-        popup.getElement().addEventListener('click', () => {
-              // your logic here
-              console.log('clicked popup',sett_id)
+        // popup.getElement().addEventListener('click', () => {
+        //       // your logic here
+        //       console.log('clicked popup',sett_id)
+        //       push({
+        //           path: '/settlement/map/:id',
+        //           name: 'SettlementMap',
+        //           params: { id: sett_id}
+        //         })
 
-
-              push(`/settlement/map/${sett_id}`)
-
-              
-            });
+        //     });
        })
 
       
 
 }
 
-const getCountyGeo = async () => {
-  const formData: any = {}
-  formData.model = 'county'
-  formData.cache_key = 'county_geo'
-  const res = await getAllGeo(formData)
-
-  console.log("County returns >>", res)
-  console.log('county geo', res.data[0].json_build_object)
-  countyGeo.value = res.data[0].json_build_object
-
-
-}
 
 
 
-const getSubsetGeo = async (model: string, filterFields: string[], filterValues: any[]) => {
-  console.log('Get all settlements  for this subcounty ', geojson.value)
 
 
+const getSubsetGeo = async (filterFields, filterValues) => {
+  console.log('Filtering settlements for this subcounty:', geojson.value);
 
- // Assuming allProjectsGeo is already defined
-const filteredGeoJson = {
-  type: "FeatureCollection",  // Wrapping the result in a FeatureCollection format
-  features: allProjectsGeo.value.features
-    .filter((feature) => {
-      // Loop over the filterFields and filterValues to apply all filters
-      return filterFields.every((field, index) => {
-        const value = filterValues[index];
-        return feature.properties[field] == value; // Check if feature's property matches the filter value
-      });
+  console.log('filterFields',filterFields)
+  console.log('filterValues',filterValues)
+
+  const filteredFeatures = allProjectsGeo.value.features.filter(feature =>
+    filterFields.every((field, index) => {
+      const expectedValue = filterValues[index];
+      return feature.properties[field] == expectedValue;
     })
-    .map((feature) => {
-      // Return a plain object without the geojson structure
-      return {
-        type: feature.type,
-        geometry: feature.geometry, // Keep geometry
-        properties: { ...feature.properties } // Return properties as a plain object
-      };
-    })
-};
+  );
 
-console.log(filteredGeoJson);
+  
 
+  const filteredGeoJson = {
+    type: "FeatureCollection",
+    features: filteredFeatures.map(feature => ({
+      type: feature.type,
+      geometry: feature.geometry,
+      properties: { ...feature.properties }
+    }))
+  };
 
+  console.log('Filtered GeoJSON:', filteredGeoJson);
 
-
-  // const res = await getfilteredGeo(formData)
-
-   console.log('filtered Geo:', filteredGeoJson)
-
-   if (Array.isArray(filteredGeoJson.features) && filteredGeoJson.features.length > 0) {
- 
-
+  if (filteredGeoJson.features.length > 0) {
     geojson.value = await computeCentroids(filteredGeoJson);
 
-     // Check if the 'farms' layer already exists, and remove it if it does
-    await removeSettlementLayers()
-    await addSettlementLayers()
+    await removeSettlementLayers();
+    await addSettlementLayers();
+  } else {
+    ElMessage.warning('No data for the selected filters. Resetting...');
+    geojson.value = allProjectsGeo.value; // fallback to full dataset
   }
-  else {
-    ElMessage.warning('No data')
-   // geojson.value =  allProjectsGeo.value
-    
-  }
-
-}
+};
 
 
-const countyOptions = ref<Array<{value: number, label: string}>>([])
-const subCountyOptions = ref<Array<{value: number, label: string}>>([])
+
+
+ 
+const countyOptions = ref([])
+
+ 
+
+const subCountyOptions = ref([])
 
  
 
@@ -841,70 +972,70 @@ const getCounty = async () => {
 
  
  
-
+getImplementers()
  
 
  
 
-const subcounty = ref<number | undefined>(undefined)
+const subcounty = ref()
+const allProjectsGeo = ref([])
 
 const ResetFilters = async () => {
-  console.log('clear filters')
+    console.log('clear filters')
+  //  handleChangeCounty(1)
+
+  county.value=null
+  subcounty.value=null
+  subCountyOptions.value=[]
+  implementer.value=null
+  filterFields.value =  [];
+  filterValues.value =[];
+
+
+
+
+
+
+
+      mapLoading.value=true
+      mapLoadingText.value = 'Refreshing Projects...'
+      //await getFarmGeo()
+      geojson.value = allProjectsGeo.value 
+      // await getCountyGeo()
+
+  
+      mapLoading.value=false
+
+
+    // Check if the 'County' layer already exists, and remove it if it does
+    if (map.value.getLayer('county')) {
+      map.value.removeLayer('county');
+      map.value.removeSource('County');
+    }
+
+    map.value.addSource('County', {
+      type: 'geojson',
+      data: countyGeo.value,
+    });
+
+    map.value.addLayer({
+      id: 'county',
+      type: 'fill',
+      source: 'County',
+      paint: {
+        'fill-color': 'gray',
+        'fill-opacity': 0.3,
+      },
+
+    });
+
+    var bounds = turf.bbox(countyGeo.value);
+    map.value.fitBounds(bounds, { padding: 20 });
+
+
+    removeSettlementLayers()
+    addSettlementLayers()
     
-    county.value=undefined
-    subcounty.value=undefined
-    subCountyOptions.value=[]
-        mapLoading.value=true
-        mapLoadingText.value = 'Refreshing Settlements...'
-        //await getFarmGeo()
-
-        geojson.value = allProjectsGeo.value 
-
-      //  await getCountyGeo()
-
-    
-        mapLoading.value=false
-
-      // Clear subcounty boundaries
-      if (map.value.getLayer('Subcounty')) {
-        map.value.removeLayer('Subcounty');
-      }
-      if (map.value.getSource('Subcounty')) {
-        map.value.removeSource('Subcounty');
-      }
-
-      // Check if the 'County' layers already exist, and remove them if they do
-      if (map.value.getLayer('county')) {
-        map.value.removeLayer('county');
-      }
-      if (map.value.getSource('County')) {
-        map.value.removeSource('County');
-      }
-
-      // Add county layers back after reset
-      if (countyGeo.value) {
-        map.value.addSource('County', {
-          type: 'geojson',
-          data: countyGeo.value,
-        });
-
-        // Add county outline layer
-        map.value.addLayer({
-          id: 'county',
-          type: 'line',
-          source: 'County',
-          paint: {
-            'line-color': 'red',
-            'line-opacity': 1,
-            'line-width': 0.5,
-          },
-        }, 'settlementLabel');
-      }
-
-
-      removeSettlementLayers()
-      addSettlementLayers()
-      
 
 
 }
@@ -922,51 +1053,93 @@ const downloadGeoJSON = () => {
 
   const link = document.createElement('a');
   link.href = url;
-  link.download = 'settlements.geojson';
+  link.download = 'projects.geojson';
   document.body.appendChild(link);
   link.click();
 
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 };
-
  
 
-const handleChangeCounty = async (county: number) => {
 
-// get farms for this subcounty 
+
+
+const downloadExcel = async () => {
+  if (!geojson.value || !geojson.value.features) {
+    console.warn('No GeoJSON data to download');
+    return;
+  }
+
+  const features = geojson.value.features;
+
+  // Extract all property keys (assuming all features share the same schema)
+  const keys = Object.keys(features[0]?.properties || {});
+  
+  // Define Excel header schema
+  const schema = keys.map(key => ({
+    column: key,
+    type: String,
+    value: row => row[key] ?? ''
+  }));
+
+  // Prepare data rows
+  const rows = features.map(f => f.properties);
+
+  // Download Excel file
+  await writeXlsxFile(rows, {
+    schema,
+    fileName: 'projects.xlsx'
+  });
+};
+
+
+const handleChangeCounty = async (county) => {
+
+
+  const field = 'county_id';
+  const value = [county]; // assuming your logic expects array format
+
+  const index = filterFields.value.indexOf(field);
+
+  if (index !== -1) {
+    // Only update the value if it's different
+    const existingValue = filterValues.value[index];
+    const isSame = JSON.stringify(existingValue) === JSON.stringify(value);
+
+    if (!isSame) {
+      filterValues.value.splice(index, 1, value); // replace the value
+    }
+    // If it's the same, do nothing
+  } else {
+    // Add the new filter
+    filterFields.value.push(field);
+    filterValues.value.push(value);
+  }
+
+// get farms for this county 
 if (county) {
 
-  const geoForm: any = {}
+  const geoForm = {}
   geoForm.model = 'county'
   geoForm.id = county
 
   console.log(geoForm)
  
-  // Clear subcounty selection and boundaries when county changes
-  subcounty.value = undefined
-  subCountyOptions.value = []
+ 
+  await getSubsetGeo( filterFields.value, filterValues.value)
 
-  await getSubsetGeo('settlement', ['county_id'], [[county]])
 
   // get subcounty shape
   const res = await getOneGeo(geoForm)
 
   countyGeo.value = res.data[0].json_build_object
 
-  // Clear existing subcounty boundaries
-  if (map.value.getLayer('Subcounty')) {
-    map.value.removeLayer('Subcounty');
-  }
-  if (map.value.getSource('Subcounty')) {
-    map.value.removeSource('Subcounty');
-  }
 
-  // Check if the 'County' layers already exist, and remove them if they do
+
+  // Check if the 'County' layer already exists, and remove it if it does
   if (map.value.getLayer('county')) {
     map.value.removeLayer('county');
-  }
-  if (map.value.getSource('County')) {
     map.value.removeSource('County');
   }
 
@@ -975,19 +1148,16 @@ if (county) {
     data: countyGeo.value,
   });
 
-  console.log('Adding county layers with data:', countyGeo.value);
-
-  // Add county outline layer
   map.value.addLayer({
     id: 'county',
-    type: 'line',
+    type: 'fill',
     source: 'County',
     paint: {
-      'line-color': 'red',
-      'line-opacity': 1,
-      'line-width': 0.5,
+      'fill-color': 'gray',
+      'fill-opacity': 0.3,
     },
-  }, 'settlementLabel'); // Add before settlement labels
+
+  });
 
   var bounds = turf.bbox(countyGeo.value);
   map.value.fitBounds(bounds, { padding: 20 });
@@ -996,44 +1166,7 @@ if (county) {
   removeSettlementLayers()
   addSettlementLayers()
 
-  // Get and add subcounty boundaries for the selected county
-  try {
-    const subcountyGeoForm: any = {}
-    subcountyGeoForm.model = 'subcounty'
-    subcountyGeoForm.columnFilterField = 'county_id'
-    subcountyGeoForm.filtredGeoIds = [county]
-
-    const subcountyRes = await getfilteredGeo(subcountyGeoForm)
-    console.log('Subcounty API response:', subcountyRes)
-    
-    if (subcountyRes.data && subcountyRes.data.length > 0) {
-      const subcountyGeoData = subcountyRes.data[0].json_build_object
-      console.log('Subcounty geo data for county:', subcountyGeoData)
-
-      // Add subcounty source and layer
-      map.value.addSource('Subcounty', {
-        type: 'geojson',
-        data: subcountyGeoData,
-      });
-
-      map.value.addLayer({
-        id: 'Subcounty',
-        type: 'line',
-        source: 'Subcounty',
-        paint: {
-          'line-color': 'purple',
-          'line-opacity': 1,
-          'line-width': 0.5,
-        },
-      }, 'settlementLabel');
-    } else {
-      console.log('No subcounty data found for county:', county);
-    }
-
-    console.log('Subcounty layer added for county');
-  } catch (error) {
-    console.error('Error adding subcounty layer for county:', error);
-  }
+  
 
  await getListWithoutGeo({
     params: {
@@ -1070,17 +1203,36 @@ if (county) {
 
 
 }
-  
+
 };
 
-
-
-const handleChangeSubcounty = async (subcounty: number) => {
+const handleChangeSubcounty = async (subcounty) => {
 
   // get farms for this subcounty 
   if (subcounty) {
 
-    const geoForm: any = {}
+    const field = 'subcounty_id';
+  const value = [subcounty]; // assuming your logic expects array format
+
+  const index = filterFields.value.indexOf(field);
+
+  if (index !== -1) {
+    // Only update the value if it's different
+    const existingValue = filterValues.value[index];
+    const isSame = JSON.stringify(existingValue) === JSON.stringify(value);
+
+    if (!isSame) {
+      filterValues.value.splice(index, 1, value); // replace the value
+    }
+    // If it's the same, do nothing
+  } else {
+    // Add the new filter
+    filterFields.value.push(field);
+    filterValues.value.push(value);
+  }
+
+
+    const geoForm = {}
     geoForm.model = 'subcounty'
     geoForm.id = subcounty
 
@@ -1090,69 +1242,45 @@ const handleChangeSubcounty = async (subcounty: number) => {
    // await getFilteredSubcountyCounts(subcounty)
 
 
-     await getSubsetGeo('settlement', ['subcounty_id'], [[subcounty]])
+     await getSubsetGeo(filterFields.value, filterValues.value)
 
     // get subcounty shape
     const res = await getOneGeo(geoForm)
 
     subcountyGeo.value = res.data[0].json_build_object
 
-    console.log('Subcounty geo data:', subcountyGeo.value)
+
 
     // Check if the 'Subcounty' layer already exists, and remove it if it does
     if (map.value.getLayer('Subcounty')) {
       map.value.removeLayer('Subcounty');
-    }
-    if (map.value.getSource('Subcounty')) {
       map.value.removeSource('Subcounty');
     }
 
-    // Add subcounty source and layer
-    try {
-      map.value.addSource('Subcounty', {
-        type: 'geojson',
-        data: subcountyGeo.value,
-      });
+    map.value.addSource('Subcounty', {
+      type: 'geojson',
+      data: subcountyGeo.value,
+    });
 
-      map.value.addLayer({
-        id: 'Subcounty',
-        type: 'line',
-        source: 'Subcounty',
-        paint: {
-          'line-color': 'purple',
-          'line-opacity': 1,
-          'line-width': 0.5,
-        },
-      }, 'settlementLabel'); // Add before settlement labels to ensure visibility
+    map.value.addLayer({
+      id: 'Subcounty',
+      type: 'line',
+      source: 'Subcounty',
+      paint: {
+        'line-color': 'blue',
+        'line-opacity': 1,
+        'line-width': 0.5,
+        'line-dasharray': [2, 2],
+      },
 
-      console.log('Subcounty layer added successfully');
-    } catch (error) {
-      console.error('Error adding subcounty layer:', error);
-    }
+    });
 
     var bounds = turf.bbox(subcountyGeo.value);
     map.value.fitBounds(bounds, { padding: 20 });
 
-    // Remove and re-add settlement layers to ensure proper ordering
+
     removeSettlementLayers()
     addSettlementLayers()
-
-    // Re-add subcounty layer after settlement layers to ensure it's on top
-    if (map.value.getSource('Subcounty')) {
-      if (map.value.getLayer('Subcounty')) {
-        map.value.removeLayer('Subcounty');
-      }
-      map.value.addLayer({
-        id: 'Subcounty',
-        type: 'line',
-        source: 'Subcounty',
-        paint: {
-          'line-color': 'purple',
-          'line-opacity': 1,
-          'line-width': 0.5,
-        },
-      }, 'settlementLabel');
-    }
 
     // map.value.addSource('polyFarms', {
     //   type: 'geojson',
@@ -1167,17 +1295,34 @@ const handleChangeSubcounty = async (subcounty: number) => {
 
 
 
+const handleChangeImplementer = async (implementer) => {
+  const field = 'implementer';
+  const value = [implementer]; // wrap in array if required by your logic
 
+  if (!implementer) return;
 
+  const index = filterFields.value.indexOf(field);
 
-  
-//getCountySubcounty()
-//getCounty()
-//getSubCounty()
+  if (index !== -1) {
+    const existingValue = filterValues.value[index];
+    const isSame = JSON.stringify(existingValue) === JSON.stringify(value);
+
+    if (!isSame) {
+      filterValues.value.splice(index, 1, value); // update value if changed
+    }
+    // else do nothing (already filtered)
+  } else {
+    filterFields.value.push(field);
+    filterValues.value.push(value);
+  }
+
+  await getSubsetGeo(filterFields.value, filterValues.value);
+
+  await removeSettlementLayers();
+  await addSettlementLayers();
+};
+
  
-
- 
-
 
 </script>
 
@@ -1378,21 +1523,7 @@ h1 {
 }
 
 /* Styles for the floating div on the left */
-.floating-div {
-  position: fixed;
-  left: 0;
-  top: 60px;
-  /* Height of the menu */
-  width: 30%;
-  /* 1/3 of the page */
-  height: 95%;
-  background-color: rgba(146, 143, 143, 0.7);
-  /* Semi-transparent white background */
-  z-index: 1000;
-  /* Adjust as needed to be above other elements */
-}
-
-
+ 
 .floating-collapse {
   position: fixed;
   top: 110px;
@@ -1407,6 +1538,9 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  flex-wrap: wrap; /* allows wrapping on smaller screens */
+  justify-content: center; /* center horizontally */
+  align-items: center;     /* center vertically */
 }
 
 /* Dark mode styles */
@@ -1429,6 +1563,9 @@ h1 {
   }
 }
 
+
+
+/* Media query to hide the floating div on small screens */
 
 
 /* Adjust for smaller screens (e.g., screens with a width of 600px or less) */
