@@ -9,6 +9,7 @@ import { getFile } from '@/api/summary'
 import { deleteDocument } from '@/api/settlements'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
+import PermissionWrapper from '@/components/PermissionWrapper.vue'
 
 const props = defineProps({
   visible: {
@@ -22,6 +23,10 @@ const props = defineProps({
   docmodel: {
     type: String,
     default: ''
+  },
+  permissions: {
+    type: Array,
+    default: () => []
   }
 })
 
@@ -55,35 +60,29 @@ watch(() => props.data, (newData) => {
   localDocuments.value = newData?.documents || []
 }, { immediate: true, deep: true })
 
-// Check user permissions
-const userIsAdmin = computed(() => 
-  userInfo?.roles?.includes("admin") || userInfo?.roles?.includes("super_admin")
-)
-
-const documentOwner = computed(() => {
-  // This will be checked per document in the template
-  return false // We'll check ownership per document instead
-})
-
-const canDelete = computed(() => {
-  const admin = userIsAdmin.value
-  const owner = documentOwner.value
-  console.log('canDelete check:', { admin, owner, canDelete: admin || owner })
-  return admin || owner
-})
-
 // Check if a specific document can be deleted
 const canDeleteDocument = (document) => {
-  const admin = userIsAdmin.value
   const owner = userInfo?.id === document?.createdBy
+  const hasCreatedBy = document?.createdBy !== null && document?.createdBy !== undefined
+  
   console.log('canDeleteDocument check:', { 
-    admin, 
     owner, 
     userId: userInfo?.id, 
     createdBy: document?.createdBy,
-    canDelete: admin || owner 
+    hasCreatedBy,
+    documentId: document?.id,
+    documentName: document?.name,
+    canDelete: owner
   })
-  return admin || owner
+  
+  // If document has no createdBy field, allow deletion (for backward compatibility)
+  if (!hasCreatedBy) {
+    console.log('Document has no createdBy field, allowing deletion for backward compatibility')
+    return true
+  }
+  
+  // If user is the owner, they can delete
+  return owner
 }
 
 // File type detection and icons
@@ -231,12 +230,6 @@ const removeDocument = async (doc) => {
   try {
     console.log('Delete button clicked for document:', doc)
     
-    // Check if user can delete this document
-    if (!canDeleteDocument(doc)) {
-      ElMessage.error('You do not have permission to delete this document')
-      return
-    }
-    
     // Show confirmation dialog
     const confirmed = await ElMessageBox.confirm(
       'Are you sure you want to delete this document?',
@@ -350,7 +343,6 @@ watch(() => props.visible, (newVal) => {
       </el-button>
     </div>
 
-
     <!-- Documents List -->
     <div v-if="localDocuments.length > 0" class="documents-list">
       <div 
@@ -386,16 +378,18 @@ watch(() => props.visible, (newVal) => {
             </el-button>
           </el-tooltip>
           
-          <el-tooltip v-if="canDeleteDocument(document)" content="Delete" placement="top">
-            <el-button 
-              size="small"
-              type="danger"
-              class="action-button"
-              @click="removeDocument(document)"
-            >
-              <Icon icon="mdi:delete" />
-            </el-button>
-          </el-tooltip>
+          <PermissionWrapper :permissions="permissions">
+            <el-tooltip v-if="canDeleteDocument(document)" content="Delete" placement="top">
+              <el-button 
+                size="small"
+                type="danger"
+                class="action-button"
+                @click="removeDocument(document)"
+              >
+                <Icon icon="mdi:delete" />
+              </el-button>
+            </el-tooltip>
+          </PermissionWrapper>
         </div>
       </div>
     </div>

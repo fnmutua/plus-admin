@@ -2739,6 +2739,7 @@ target="#btn13" title="Documentation"
     v-model:visible="documentDrawerVisible"
     :data="selectedRowData"
     :docmodel="model"
+    :permissions="['indicator_category_report:delete', 'document:delete']"
     @refresh="handleDocumentRefresh"
     @open-dialog="handleOpenDialog"
   />

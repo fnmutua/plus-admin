@@ -5112,6 +5112,8 @@ exports.downloadFile = (req, res) => {
 exports.RemoveDocument = (req, res) => {
   var reg_model = 'document'  
   let errors =[]
+  let successCount = 0
+  let totalFiles = req.body.filesToDelete.length
   console.log("Removing files:", req.body.filesToDelete )
  
   for (let i = 0; i < req.body.filesToDelete.length; i++) {
@@ -5122,15 +5124,23 @@ exports.RemoveDocument = (req, res) => {
 
     const filePath = path.join('/data/', 'uploads', req.body.filesToDelete[i].name );
 
-      fs.unlinkSync(filePath);
+      // Try to delete the file, but don't fail if it doesn't exist
+      try {
+        fs.unlinkSync(filePath);
+        console.log('File deleted successfully:', filePath)
+      } catch (fileError) {
+        console.log('File not found or already deleted:', filePath, fileError.message)
+        // Continue with database deletion even if file doesn't exist
+      }
     
       db.models[reg_model].destroy({ where: { name: req.body.filesToDelete[i].name } })
         .then((result) => {
-       console.log('object succeed')
+       console.log('Database record deleted successfully for:', req.body.filesToDelete[i].name)
+       successCount++
       }) 
       .catch(function (err) {
         // handle error;
-        console.log('error0---------->', err)
+        console.log('Database deletion error---------->', err)
         errors.push(err)
   
       })
@@ -5139,37 +5149,50 @@ exports.RemoveDocument = (req, res) => {
      // var filePath = './public/' + req.body.filesToDelete[i];
       const filePath = path.join('/data/', 'uploads', req.body.filesToDelete[i]);
 
-       fs.unlinkSync(filePath);
+      // Try to delete the file, but don't fail if it doesn't exist
+      try {
+        fs.unlinkSync(filePath);
+        console.log('File deleted successfully:', filePath)
+      } catch (fileError) {
+        console.log('File not found or already deleted:', filePath, fileError.message)
+        // Continue with database deletion even if file doesn't exist
+      }
     
       db.models[reg_model].destroy({ where: { name: req.body.filesToDelete[i] } })
         .then((result) => {
-       console.log('delete succeed')
+       console.log('Database record deleted successfully for:', req.body.filesToDelete[i])
+       successCount++
       }) 
       .catch(function (err) {
         // handle error;
-        console.log('error0---------->', err)
+        console.log('Database deletion error---------->', err)
         errors.push(err)
   
       })
 
     }
  
+  }
 
-    if (errors.length ===0) {
+  // Wait a bit for async operations to complete, then send response
+  setTimeout(() => {
+    if (errors.length === 0) {
       res.status(200).send({
         message: 'Delete Successful',
-        code: '0000'
+        code: '0000',
+        deletedCount: successCount,
+        totalFiles: totalFiles
       })
     } else {
       res.status(500).send({
         message: 'Delete Failed',
-        code: '0000'
+        code: '0000',
+        errors: errors,
+        deletedCount: successCount,
+        totalFiles: totalFiles
       })
     }
-  
-    }
-
-
+  }, 1000) // Wait 1 second for async operations
 
 }
 
