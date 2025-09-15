@@ -107,7 +107,7 @@ redis-cli
 
 
 
-DROP TABLE grievance_document CASCADE;
+DROP TABLE structures CASCADE;
 
 
 

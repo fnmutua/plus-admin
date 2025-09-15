@@ -60,9 +60,10 @@ const userIsAdmin = computed(() =>
   userInfo?.roles?.includes("admin") || userInfo?.roles?.includes("super_admin")
 )
 
-const documentOwner = computed(() => 
-  localDocuments.value.length > 0 && userInfo?.id === localDocuments.value[0]?.createdBy
-)
+const documentOwner = computed(() => {
+  // This will be checked per document in the template
+  return false // We'll check ownership per document instead
+})
 
 const canDelete = computed(() => {
   const admin = userIsAdmin.value
@@ -70,6 +71,20 @@ const canDelete = computed(() => {
   console.log('canDelete check:', { admin, owner, canDelete: admin || owner })
   return admin || owner
 })
+
+// Check if a specific document can be deleted
+const canDeleteDocument = (document) => {
+  const admin = userIsAdmin.value
+  const owner = userInfo?.id === document?.createdBy
+  console.log('canDeleteDocument check:', { 
+    admin, 
+    owner, 
+    userId: userInfo?.id, 
+    createdBy: document?.createdBy,
+    canDelete: admin || owner 
+  })
+  return admin || owner
+}
 
 // File type detection and icons
 const getFileIcon = (filename) => {
@@ -216,6 +231,12 @@ const removeDocument = async (doc) => {
   try {
     console.log('Delete button clicked for document:', doc)
     
+    // Check if user can delete this document
+    if (!canDeleteDocument(doc)) {
+      ElMessage.error('You do not have permission to delete this document')
+      return
+    }
+    
     // Show confirmation dialog
     const confirmed = await ElMessageBox.confirm(
       'Are you sure you want to delete this document?',
@@ -267,7 +288,18 @@ const removeDocument = async (doc) => {
       status: error.response?.status,
       data: error.response?.data
     })
-    ElMessage.error(error.response?.data?.message || 'Failed to delete document')
+    
+    // More specific error messages
+    let errorMessage = 'Failed to delete document'
+    if (error.response?.status === 403) {
+      errorMessage = 'You do not have permission to delete this document'
+    } else if (error.response?.status === 404) {
+      errorMessage = 'Document not found or already deleted'
+    } else if (error.response?.data?.message) {
+      errorMessage = error.response.data.message
+    }
+    
+    ElMessage.error(errorMessage)
   }
 }
 
@@ -354,7 +386,7 @@ watch(() => props.visible, (newVal) => {
             </el-button>
           </el-tooltip>
           
-          <el-tooltip v-if="canDelete" content="Delete" placement="top">
+          <el-tooltip v-if="canDeleteDocument(document)" content="Delete" placement="top">
             <el-button 
               size="small"
               type="danger"
