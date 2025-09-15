@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // @ts-nocheck
 import { ref, onMounted, watch, computed, nextTick } from 'vue'
-import { ElButton, ElTable, ElTableColumn, ElMessage, ElCollapse, ElCollapseItem, ElCheckbox, ElCheckboxGroup } from 'element-plus'
+import { ElButton, ElTable, ElTableColumn, ElMessage, ElCollapse, ElCollapseItem, ElCheckbox, ElCheckboxGroup, ElDrawer, ElDescriptions, ElDescriptionsItem } from 'element-plus'
 import { GoogleMap, Polygon, InfoWindow, Marker, Polyline, Circle } from 'vue3-google-map'
 import * as turf from '@turf/turf'
 import { getSettlementMapData } from '@/api/settlements'
@@ -1170,44 +1170,59 @@ const PointInfowindow = ref(false)
 const selectedFeature = ref<any>(null)
 const gmapCenter = ref()
 
+// Drawer state
+const drawerVisible = ref(false)
+const drawerTitle = ref('')
+const drawerData = ref<any[]>([])
+
 const onPolygonClick = (feature) => {
-  infowindow.value = true
-  // Better positioning logic for different feature types
-  if (feature.paths && feature.paths.length > 0) {
-    gmapCenter.value = feature.paths[0]
-  } else if (feature.path && feature.path.length > 0) {
-    gmapCenter.value = feature.path[Math.floor(feature.path.length / 2)]
-  } else if (feature.position) {
-    gmapCenter.value = feature.position
-  } else {
-    gmapCenter.value = { lat: 0, lng: 0 }
-  }
+  // Close any existing popups
+  infowindow.value = false
+  PointInfowindow.value = false
+  
+  // Prepare drawer data
+  const filteredProperties = Object.fromEntries(
+    Object.entries(feature.properties || {}).filter(([_, value]) => value)
+  )
+  
+  drawerData.value = Object.entries(filteredProperties).map(([key, value]) => ({
+    field: key,
+    value: value
+  }))
+  
+  drawerTitle.value = 'Feature Details'
+  drawerVisible.value = true
+  
   selectedFeature.value = {
     ...feature,
-    properties: Object.fromEntries(
-      Object.entries(feature.properties || {}).filter(([_, value]) => value)
-    )
+    properties: filteredProperties
   }
   console.log('Polygon clicked:', selectedFeature.value)
 }
 
 const onPointClick = (feature) => {
-  PointInfowindow.value = true
-  // Better positioning logic for different feature types
-  if (feature.paths && feature.paths.length > 0) {
-    gmapCenter.value = feature.paths[0]
-  } else if (feature.path && feature.path.length > 0) {
-    gmapCenter.value = feature.path[Math.floor(feature.path.length / 2)]
-  } else if (feature.position) {
-    gmapCenter.value = feature.position
-  } else {
-    gmapCenter.value = { lat: 0, lng: 0 }
-  }
+  // Close any existing popups
+  infowindow.value = false
+  PointInfowindow.value = false
+  
+  // Prepare drawer data
+  const filteredProperties = Object.fromEntries(
+    Object.entries(feature.properties || {}).filter(([_, value]) => value)
+  )
+  
+  drawerData.value = Object.entries(filteredProperties).map(([key, value]) => ({
+    field: key,
+    value: value
+  }))
+  
+  // Set appropriate title based on feature type
+  const featureType = feature.properties?.featureType || 'Unknown Feature'
+  drawerTitle.value = featureType.replace(/_/g, ' ').toUpperCase()
+  drawerVisible.value = true
+  
   selectedFeature.value = {
     ...feature,
-    properties: Object.fromEntries(
-      Object.entries(feature.properties || {}).filter(([_, value]) => value)
-    )
+    properties: filteredProperties
   }
   console.log('Point/Line clicked:', selectedFeature.value)
 }
@@ -1215,6 +1230,12 @@ const onPointClick = (feature) => {
 const closePopup = () => {
   infowindow.value = false
   PointInfowindow.value = false
+}
+
+const closeDrawer = () => {
+  drawerVisible.value = false
+  drawerData.value = []
+  drawerTitle.value = ''
 }
 
 const filteredProperties = computed(() => {
@@ -1395,42 +1416,91 @@ const getSettlementBbox = () => {
 
 const geoserverUrl = 'https://kesmis.go.ke/geoserver'
 
+// Cache for WMS capabilities to avoid repeated requests
+const wmsCapabilitiesCache = ref<{ data: any[], timestamp: number } | null>(null)
+const WMS_CACHE_TIMEOUT = 10 * 60 * 1000 // 10 minutes
+
 const getWmsUrl = async (bbox: { minLng: number; minLat: number; maxLng: number; maxLat: number }) => {
   try {
+    // Check cache first
+    if (wmsCapabilitiesCache.value && 
+        Date.now() - wmsCapabilitiesCache.value.timestamp < WMS_CACHE_TIMEOUT) {
+      console.log('🔄 Using cached WMS capabilities')
+      return filterLayersByBbox(wmsCapabilitiesCache.value.data, bbox)
+    }
+
+    console.log('🔄 Fetching fresh WMS capabilities...')
     const capabilitiesUrl = geoserverUrl + '/kisip/ows?service=wms&request=GetCapabilities'
-    const response = await axios.get(capabilitiesUrl)
+    
+    // Add timeout and better error handling
+    const response = await axios.get(capabilitiesUrl, {
+      timeout: 15000, // 15 second timeout
+      headers: {
+        'Accept': 'application/xml, text/xml, */*',
+        'Cache-Control': 'no-cache'
+      }
+    })
+    
     const xml = response.data
-    const parser = new XMLParser()
+    const parser = new XMLParser({
+      ignoreAttributes: false,
+      attributeNamePrefix: "@_",
+      parseAttributeValue: true,
+      trimValues: true
+    })
+    
     const json = parser.parse(xml)
-    const glayers = json.WMS_Capabilities.Capability.Layer.Layer.map((layer: any) => ({
+    
+    // Extract layers more efficiently
+    const layers = json?.WMS_Capabilities?.Capability?.Layer?.Layer || []
+    const glayers = layers.map((layer: any) => ({
       name: layer.Name,
       title: layer.Title,
       label: layer.Name,
       value: layer.Name,
-      bbox: {
+      bbox: layer.EX_GeographicBoundingBox ? {
         minx: parseFloat(layer.EX_GeographicBoundingBox.westBoundLongitude),
         miny: parseFloat(layer.EX_GeographicBoundingBox.southBoundLatitude),
         maxx: parseFloat(layer.EX_GeographicBoundingBox.eastBoundLongitude),
         maxy: parseFloat(layer.EX_GeographicBoundingBox.northBoundLatitude),
-      }
-    }))
-    const imageUrls: string[] = []
-    for (const layer of glayers) {
-      const { name, bbox: layerBbox } = layer
-      const intersects =
-        bbox.minLng < layerBbox.maxx &&
-        bbox.maxLng > layerBbox.minx &&
-        bbox.minLat < layerBbox.maxy &&
-        bbox.maxLat > layerBbox.miny
-      if (intersects) {
-        imageUrls.push('kisip:' + name)
-      }
+      } : null
+    })).filter(layer => layer.bbox) // Filter out layers without bbox
+    
+    // Cache the results
+    wmsCapabilitiesCache.value = {
+      data: glayers,
+      timestamp: Date.now()
     }
-    return imageUrls
+    
+    return filterLayersByBbox(glayers, bbox)
   } catch (error) {
-    console.error('Error occurred while fetching WMS URL:', error)
+    console.error('❌ Error fetching WMS capabilities:', error)
+    // Return empty array instead of throwing to prevent map loading failure
     return []
   }
+}
+
+// Helper function to filter layers by bounding box
+const filterLayersByBbox = (layers: any[], bbox: { minLng: number; minLat: number; maxLng: number; maxLat: number }) => {
+  const imageUrls: string[] = []
+  
+  for (const layer of layers) {
+    const { name, bbox: layerBbox } = layer
+    if (!layerBbox) continue
+    
+    const intersects =
+      bbox.minLng < layerBbox.maxx &&
+      bbox.maxLng > layerBbox.minx &&
+      bbox.minLat < layerBbox.maxy &&
+      bbox.maxLat > layerBbox.miny
+      
+    if (intersects) {
+      imageUrls.push('kisip:' + name)
+    }
+  }
+  
+  console.log(`✅ Found ${imageUrls.length} intersecting WMS layers`)
+  return imageUrls
 }
 
 const availableImageryLayers = ref<string[]>([])
@@ -1445,47 +1515,88 @@ const addWmsLayer = async () => {
   }
   
   try {
-  const layerList = await getWmsUrl(bbox)
-  if (!layerList || !mapRef.value?.map) return
-  availableImageryLayers.value = layerList
-  imageryLayerObjects.value = {}
-  const wmsBaseUrl = geoserverUrl + '/kisip/wms'
-  layerList.forEach(layerName => {
-    const wmsLayer = new google.maps.ImageMapType({
-      getTileUrl(coord, zoom) {
-        const tileSize = 256
-        const proj = mapRef.value!.map.getProjection()
-        const scale = 1 << zoom
-        const nwPoint = new google.maps.Point(coord.x * tileSize / scale, coord.y * tileSize / scale)
-        const sePoint = new google.maps.Point((coord.x + 1) * tileSize / scale, (coord.y + 1) * tileSize / scale)
-        const nw = proj.fromPointToLatLng(nwPoint)
-        const se = proj.fromPointToLatLng(sePoint)
-        const bbox = [nw.lng(), se.lat(), se.lng(), nw.lat()].join(',')
-        const params = new URLSearchParams({
-          service: 'WMS',
-          version: '1.1.0',
-          request: 'GetMap',
-          layers: layerName,
-          styles: '',
-          bbox,
-          width: '512',
-          height: '512',
-          srs: 'EPSG:4326',
-          format: 'image/png',
-          transparent: 'true'
-        })
-        return `${wmsBaseUrl}?${params.toString()}`
-      },
-      tileSize: new google.maps.Size(256, 256),
-      maxZoom: 22,
-      minZoom: 0,
-      name: `Drone: ${layerName}`,
-      opacity: 0.8
+    updateLoadingStatus('Loading satellite imagery...', 95)
+    
+    const layerList = await getWmsUrl(bbox)
+    if (!layerList || !mapRef.value?.map) {
+      console.log('⚠️ No WMS layers found or map not ready')
+      return
+    }
+    
+    console.log(`🔄 Creating ${layerList.length} WMS layers...`)
+    availableImageryLayers.value = layerList
+    imageryLayerObjects.value = {}
+    
+    const wmsBaseUrl = geoserverUrl + '/kisip/wms'
+    
+    // Process layers in parallel for better performance
+    const layerPromises = layerList.map(layerName => {
+      return new Promise<void>((resolve) => {
+        try {
+          const wmsLayer = new google.maps.ImageMapType({
+            getTileUrl(coord, zoom) {
+              // Optimize tile URL generation
+              const tileSize = 256
+              const proj = mapRef.value!.map.getProjection()
+              const scale = 1 << zoom
+              
+              // Use more efficient coordinate calculation
+              const nwPoint = new google.maps.Point(
+                coord.x * tileSize / scale, 
+                coord.y * tileSize / scale
+              )
+              const sePoint = new google.maps.Point(
+                (coord.x + 1) * tileSize / scale, 
+                (coord.y + 1) * tileSize / scale
+              )
+              
+              const nw = proj.fromPointToLatLng(nwPoint)
+              const se = proj.fromPointToLatLng(sePoint)
+              
+              // Optimize bbox string creation
+              const bboxStr = `${nw.lng()},${se.lat()},${se.lng()},${nw.lat()}`
+              
+              // Use optimized parameters
+              const params = new URLSearchParams({
+                service: 'WMS',
+                version: '1.1.0',
+                request: 'GetMap',
+                layers: layerName,
+                styles: '',
+                bbox: bboxStr,
+                width: '256',  // Reduced from 512 for faster loading
+                height: '256', // Reduced from 512 for faster loading
+                srs: 'EPSG:4326',
+                format: 'image/jpeg', // Changed from PNG to JPEG for faster loading
+                transparent: 'false' // Set to false for JPEG
+              })
+              
+              return `${wmsBaseUrl}?${params.toString()}`
+            },
+            tileSize: new google.maps.Size(256, 256),
+            maxZoom: 20, // Reduced max zoom for better performance
+            minZoom: 8,  // Set minimum zoom
+            name: `Imagery: ${layerName.replace('kisip:', '')}`,
+            opacity: 0.85
+          })
+          
+          imageryLayerObjects.value[layerName] = wmsLayer
+          resolve()
+        } catch (error) {
+          console.error(`❌ Error creating layer ${layerName}:`, error)
+          resolve() // Continue with other layers even if one fails
+        }
+      })
     })
-    imageryLayerObjects.value[layerName] = wmsLayer
-  })
+    
+    // Wait for all layers to be created
+    await Promise.all(layerPromises)
+    
+    console.log(`✅ Created ${Object.keys(imageryLayerObjects.value).length} WMS layers`)
+    
   } catch (error) {
     console.error('❌ Error adding WMS layer:', error)
+    // Don't throw error to prevent map loading failure
   }
 }
 
@@ -1680,12 +1791,20 @@ const loadMapData = async () => {
     updateLoadingStatus('Setting up map controls...', 90)
     setupMapTypeControl()
     
-    updateLoadingStatus('Loading satellite imagery...', 95)
-    await addWmsLayer()
-    selectedImageryLayers.value = [...availableImageryLayers.value]
-    toggleImageryGroup(selectedImageryLayers.value)
-    
     updateLoadingStatus('Map ready!', 100)
+    
+    // Load imagery in the background without blocking the main loading
+    setTimeout(async () => {
+      try {
+        console.log('🔄 Loading satellite imagery in background...')
+        await addWmsLayer()
+        selectedImageryLayers.value = [...availableImageryLayers.value]
+        toggleImageryGroup(selectedImageryLayers.value)
+        console.log('✅ Satellite imagery loaded successfully')
+      } catch (error) {
+        console.error('❌ Error loading satellite imagery:', error)
+      }
+    }, 100) // Small delay to let the map render first
     await new Promise(resolve => setTimeout(resolve, 500)) // Brief pause to show completion
     
   } catch (error) {
@@ -1790,7 +1909,8 @@ const loadMapData = async () => {
         <Polyline v-for="item in other_points.filter(p => p.properties?.featureType === 'piped_water')" :key="item.id" :options="item" @click="onPointClick(item)" />
       </div>
 
-        <InfoWindow v-if="infowindow" @closeclick="closePopup" :options="{ position: gmapCenter }">
+        <!-- Keep InfoWindows for backward compatibility but hide them -->
+        <InfoWindow v-if="false" @closeclick="closePopup" :options="{ position: gmapCenter }">
           <div style="max-width: 400px; height: 250px">
             <el-table :data="Object.entries(selectedFeature?.properties || {})" border style="width: 100;">
               <el-table-column prop="0" label="Property" width="150" />
@@ -1799,7 +1919,7 @@ const loadMapData = async () => {
           </div>
         </InfoWindow>
 
-        <InfoWindow v-if="PointInfowindow" @closeclick="closePopup" :options="{ position: gmapCenter }">
+        <InfoWindow v-if="false" @closeclick="closePopup" :options="{ position: gmapCenter }">
           <div style="max-width: 400px; height: 250px">
             <div style="font-size: 16px; font-weight: bold; margin-bottom: 10px; text-align: center; text-transform: uppercase;">
               {{ (selectedFeature?.properties?.featureType || 'Unknown Feature').replace(/_/g, ' ') }}
@@ -1811,6 +1931,43 @@ const loadMapData = async () => {
           </div>
         </InfoWindow>
       </GoogleMap>
+
+      <!-- Feature Details Drawer -->
+      <ElDrawer
+        v-model="drawerVisible"
+        :title="drawerTitle"
+        direction="rtl"
+        size="40%"
+        :before-close="closeDrawer"
+        :close-on-click-modal="true"
+        :close-on-press-escape="true"
+        :z-index="10000"
+        :modal="false"
+        :append-to-body="true"
+      >
+        <div v-if="drawerData.length > 0">
+          <ElDescriptions :column="1" border>
+            <ElDescriptionsItem 
+              v-for="item in drawerData" 
+              :key="item.field"
+              :label="item.field"
+              :label-style="{ fontWeight: 'bold', minWidth: '120px' }"
+            >
+              <template #default>
+                <span v-if="typeof item.value === 'object'">
+                  {{ JSON.stringify(item.value) }}
+                </span>
+                <span v-else>
+                  {{ item.value }}
+                </span>
+              </template>
+            </ElDescriptionsItem>
+          </ElDescriptions>
+        </div>
+        <div v-else class="no-data">
+          <p>No additional information available for this feature.</p>
+        </div>
+      </ElDrawer>
 
       <div id="floating-div">
       <div style="text-align: center; font-weight: bold; margin-bottom: 10px;">
@@ -2152,5 +2309,27 @@ const loadMapData = async () => {
 
 .dark .progress-bar {
   background-color: #555;
+}
+
+/* Drawer styles */
+.no-data {
+  text-align: center;
+  padding: 20px;
+  color: #999;
+  font-style: italic;
+}
+
+/* Ensure drawer appears above download button */
+.el-drawer {
+  z-index: 10000 !important;
+}
+
+.el-drawer__wrapper {
+  z-index: 10000 !important;
+}
+
+/* Dark mode for drawer */
+.dark .no-data {
+  color: #ccc;
 }
 </style>
