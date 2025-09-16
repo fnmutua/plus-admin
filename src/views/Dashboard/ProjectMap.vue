@@ -13,16 +13,75 @@
     </el-select>
 
 
-
+ 
     <el-button @click="ResetFilters"> Reset Filters</el-button>
   </div>
 
   <div v-loading="mapLoading" :element-loading-text="mapLoadingText" id="map" class="map"></div>
+
+  <!-- Project Details Drawer -->
+  <el-drawer
+    v-model="drawerVisible"
+    title="Project Location Details"
+    direction="rtl"
+    size="400px"
+    :before-close="handleDrawerClose"
+  >
+    <div v-if="projectDetails.projectTitle" class="project-details">
+      <el-descriptions :column="1" border>
+        <el-descriptions-item label="Project Title">
+          {{ projectDetails.projectTitle }}
+        </el-descriptions-item>
+        <el-descriptions-item label="Contract Code">
+          {{ projectDetails.projectCode }}
+        </el-descriptions-item>
+        <el-descriptions-item label="Location">
+          {{ projectDetails.locationName }}
+        </el-descriptions-item>
+        <el-descriptions-item label="Implementer">
+          {{ projectDetails.implementerName }}
+        </el-descriptions-item>
+        <el-descriptions-item label="Location ID">
+          {{ projectDetails.projectLocationId }}
+        </el-descriptions-item>
+      </el-descriptions>
+
+      <!-- Additional Project Details -->
+      <div v-if="projectDetails.project" class="additional-details">
+        <h4 style="margin-top: 20px; margin-bottom: 10px;">Additional Project Information</h4>
+        <el-descriptions :column="1" border>
+          <el-descriptions-item v-if="projectDetails.project.description" label="Description">
+            {{ projectDetails.project.description }}
+          </el-descriptions-item>
+          <el-descriptions-item v-if="projectDetails.project.start_date" label="Start Date">
+            {{ projectDetails.project.start_date }}
+          </el-descriptions-item>
+          <el-descriptions-item v-if="projectDetails.project.end_date" label="End Date">
+            {{ projectDetails.project.end_date }}
+          </el-descriptions-item>
+          <el-descriptions-item v-if="projectDetails.project.status" label="Status">
+            {{ projectDetails.project.status }}
+          </el-descriptions-item>
+        </el-descriptions>
+      </div>
+
+      <!-- Settlement Details Button -->
+      <div v-if="isSettlement" class="settlement-actions" style="margin-top: 20px;">
+        <el-button 
+          type="primary" 
+          @click="goToSettlementDetails"
+          style="width: 100%;"
+        >
+          View Settlement Details
+        </el-button>
+      </div>
+    </div>
+  </el-drawer>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, watch, onMounted } from 'vue'
-import { ElButton, ElSelect, ElOption, ElMessage } from 'element-plus'
+import { ElButton, ElSelect, ElOption, ElMessage, ElDrawer, ElDescriptions, ElDescriptionsItem } from 'element-plus'
 import mapboxgl from "mapbox-gl"
 import 'mapbox-gl/dist/mapbox-gl.css'
 import * as turf from '@turf/turf'
@@ -31,9 +90,11 @@ import { computed } from 'vue'
 import { getOneGeo, streamGeo, getAllGeo } from '@/api/settlements'
 import { getListWithoutGeo } from '@/api/counties'
 import { getOneSettlement } from '@/api/settlements'
+import { useRouter } from 'vue-router'
 
 // User and role setup
 const appStore = useAppStore()
+const router = useRouter()
  
 // Map and data refs
 const map = ref()
@@ -46,6 +107,24 @@ const subcounty = ref()
 const implementer = ref()
 const filterFields = ref([])
 const filterValues = ref([])
+
+// Drawer state
+const drawerVisible = ref(false)
+const projectDetails = ref({
+  projectTitle: '',
+  projectCode: '',
+  locationName: '',
+  implementerName: '',
+  projectLocationId: '',
+  project: {
+    description: '',
+    start_date: '',
+    end_date: '',
+    status: ''
+  },
+  settlementId: null,
+  locationType: ''
+})
 
 // Data refs
 const geojson = ref([])
@@ -262,11 +341,11 @@ const addSettlementLayers = async () => {
     source: 'projectLocations',
     layout: {
       'text-field': ['concat', ['to-string', ['get', 'name']]],
-      'text-size': 12,
-      'text-offset': [0, 1]
-    },
+    'text-size': 12,
+    'text-offset': [0, 1]
+  },
     paint: {
-      'text-color': 'red',
+    'text-color': 'red',
       'text-halo-color': 'white',
       'text-halo-width': 1
     }
@@ -276,8 +355,8 @@ const addSettlementLayers = async () => {
   if (geojson.value.features.length > 0) {
     const bounds = turf.bbox(geojson.value)
     const cameraOptions = map.value.cameraForBounds(bounds, { padding: 5 })
-    
-    if (cameraOptions) {
+
+  if (cameraOptions) {
       cameraOptions.zoom = cameraOptions.zoom - 1
       map.value.easeTo(cameraOptions)
     }
@@ -397,7 +476,7 @@ const handleChangeCounty = async (countyId) => {
       }
 
       // Remove all existing county layers
-      if (map.value.getLayer('county')) {
+    if (map.value.getLayer('county')) {
         map.value.removeLayer('county')
       }
       if (map.value.getSource('County')) {
@@ -410,18 +489,18 @@ const handleChangeCounty = async (countyId) => {
       const selectedCountyGeo = res.data[0].json_build_object
 
       // Add the selected county to map
-      map.value.addSource('County', {
-        type: 'geojson',
+    map.value.addSource('County', {
+      type: 'geojson',
         data: selectedCountyGeo
       })
 
-      map.value.addLayer({
-        id: 'county',
-        type: 'line',
-        source: 'County',
-        paint: {
-          'line-color': 'red',
-          'line-opacity': 1,
+    map.value.addLayer({
+      id: 'county',
+      type: 'line',
+      source: 'County',
+      paint: {
+        'line-color': 'red',
+        'line-opacity': 1,
           'line-width': 2
         }
       })
@@ -584,7 +663,7 @@ const loadCountiesFromFilteredProjects = async () => {
     const countyPromises = countyIds.map(async (countyId) => {
       try {
         const geoForm = { model: 'county', id: countyId }
-        const res = await getOneGeo(geoForm)
+  const res = await getOneGeo(geoForm)
         return res.data[0].json_build_object
       } catch (error) {
         console.error(`Error loading county ${countyId}:`, error)
@@ -606,18 +685,18 @@ const loadCountiesFromFilteredProjects = async () => {
     }
 
     // Add combined county layer to map
-    map.value.addSource('County', {
-      type: 'geojson',
+  map.value.addSource('County', {
+    type: 'geojson',
       data: combinedCountyGeo
     })
 
-    map.value.addLayer({
-      id: 'county',
-      type: 'line',
-      source: 'County',
-      paint: {
-        'line-color': 'red',
-        'line-opacity': 1,
+  map.value.addLayer({
+    id: 'county',
+    type: 'line',
+    source: 'County',
+    paint: {
+      'line-color': 'red',
+      'line-opacity': 1,
         'line-width': 2
       }
     })
@@ -686,65 +765,62 @@ const getClickedProjectLocation = async (projectLocationId, lngLat) => {
     const projectTitle = project.title || 'Unknown Project'
     const implementerName = getImplementerLabel(projectLocation.implementer)
 
-    // Create popup content
-    const popupContent = `
-      <div style="
-        background: ${isDarkMode ? '#444' : '#91c949'};
-        color: ${isDarkMode ? '#fff' : '#000'};
-        padding: 10px 12px;
-        font-weight: 700;
-        text-align: center;
-        font-size: 15px;
-        border-radius: 8px 8px 0 0;
-      ">
-        <u>Project Location Details</u>
-      </div>
-      <div style="
-        padding: 10px 12px;
-        font-family: 'Source Sans Pro', 'Helvetica Neue', sans-serif;
-        font-size: 14px;
-        color: ${isDarkMode ? '#f0f0f0' : '#333'};
-        background: ${isDarkMode ? '#2c2c2c' : '#fff'};
-        border-radius: 0 0 8px 8px;
-      ">
-        <div style="margin-bottom: 6px;">
-          <span style="font-weight: bold;">Project:</span>
-          <span>${projectTitle}</span>
-        </div>
-        <div style="margin-bottom: 6px;">
-          <span style="font-weight: bold;">Contract:</span>
-          <span>${projectCode}</span>
-        </div>
-        <div style="margin-bottom: 6px;">
-          <span style="font-weight: bold;">Location:</span>
-          <span>${locationName} ${locationType}</span>
-        </div>
-        <div style="margin-bottom: 6px;">
-          <span style="font-weight: bold;">Implementer:</span>
-          <span>${implementerName}</span>
-        </div>
-        <div style="margin-bottom: 6px;">
-          <span style="font-weight: bold;">Location ID:</span>
-          <span>${projectLocationId}</span>
-        </div>
-      </div>
-    `
+    // Set project details for drawer
+    projectDetails.value = {
+      projectTitle,
+      projectCode,
+      locationName: `${locationName} ${locationType}`.trim(),
+      implementerName,
+      projectLocationId,
+      project: project,
+      settlementId: projectLocation.settlement_id,
+      locationType: projectLocation.location_type
+    }
 
-    // Create and show popup
-    const popup = new mapboxgl.Popup({
-      closeButton: true,
-      closeOnClick: false
-    })
-
-    popup.setLngLat(lngLat)
-      .setHTML(popupContent)
-      .addTo(map.value)
+    // Show drawer
+    drawerVisible.value = true
 
   } catch (error) {
     console.error('Error fetching project location details:', error)
     ElMessage.error('Failed to load project location details')
   }
 }
+
+// Handle drawer close
+const handleDrawerClose = (done) => {
+  drawerVisible.value = false
+  projectDetails.value = {
+    projectTitle: '',
+    projectCode: '',
+    locationName: '',
+    implementerName: '',
+    projectLocationId: '',
+    project: {
+      description: '',
+      start_date: '',
+      end_date: '',
+      status: ''
+    },
+    settlementId: null,
+    locationType: ''
+  }
+  done()
+}
+
+// Navigate to settlement details
+const goToSettlementDetails = () => {
+  if (projectDetails.value.settlementId) {
+    router.push({
+      name: 'SettlementDetails',
+      params: { id: projectDetails.value.settlementId }
+    })
+  }
+}
+
+// Check if project location is a settlement
+const isSettlement = computed(() => {
+  return projectDetails.value.settlementId || projectDetails.value.locationType === 'settlement'
+})
 
 // Get subcounties for county
 const getSubcountiesForCounty = async (countyId) => {
@@ -993,6 +1069,22 @@ onMounted(() => {
 
 #map {
   height: 95vh;
+}
+
+/* Project Details Drawer Styles */
+.project-details {
+  padding: 20px;
+}
+
+.additional-details {
+  margin-top: 20px;
+}
+
+.additional-details h4 {
+  color: #409eff;
+  font-weight: 600;
+  border-bottom: 2px solid #409eff;
+  padding-bottom: 8px;
 }
 
 @media (max-width: 600px) {

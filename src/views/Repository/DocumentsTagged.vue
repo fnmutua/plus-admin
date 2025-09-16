@@ -210,6 +210,9 @@ const uploaderCounts = ref<{ [key: string]: { id: number, name: string, count: n
 const activeFilterTab = ref('category')
 const uploadersLoading = ref(false)
 
+// Tab management
+const activeTab = ref('documents')
+
 // Sort options
 const sortOption = ref('date') // 'date' or 'popularity'
 
@@ -411,6 +414,9 @@ const loadDocumentRepository = async (params: any = {}) => {
 
       // Update action buttons after documents are loaded
       setActionButtons()
+
+      // Load documents based on current tab
+      await loadDocumentsByTab()
 
       // Ensure pagination is valid
       if (totalDocs.value < pageSize.value) {
@@ -1219,6 +1225,8 @@ onMounted(async () => {
   setActionButtons()
   
   await loadDocumentRepository()
+  // Load documents based on current tab after loading
+  await loadDocumentsByTab()
   window.addEventListener('resize', handleResize) // Add event listener for resize
 })
 
@@ -1551,7 +1559,7 @@ const loadUploaders = async () => {
 };
 
 // Handle tab change
-const handleTabChange = (tabName: string) => {
+const handleTabChange2 = (tabName: string) => {
   if (tabName === 'uploader') {
     loadUploaders();
   }
@@ -1560,6 +1568,146 @@ const handleTabChange = (tabName: string) => {
 const filterDrawerSize = computed(() => isMobile.value ? '100%' : '400px')
 const editDrawerSize = computed(() => isMobile.value ? '100%' : '40%')
 const importDrawerSize = computed(() => isMobile.value ? '100%' : '40%')
+
+// Tab filtering properties
+const imageFormats = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'webp', 'tiff', 'tif']
+const filteredDocuments = ref<Document[]>([])
+const filteredPhotos = ref<Document[]>([])
+
+const documentsCount = computed(() => filteredDocuments.value.length)
+const photosCount = computed(() => filteredPhotos.value.length)
+
+// Function to load documents based on tab
+const loadDocumentsByTab = async () => {
+  if (activeTab.value === 'documents') {
+    // For documents tab, use the already loaded documents and filter client-side
+    filteredDocuments.value = documents.value.filter(doc => {
+      let format = doc.format
+      if (!format && doc.name) {
+        const match = doc.name.match(/\.([^.]+)$/)
+        format = match ? match[1] : null
+      }
+      
+      if (!format) {
+        return true
+      }
+      
+      const formatLower = format.toLowerCase()
+      return !imageFormats.includes(formatLower)
+    })
+  } else if (activeTab.value === 'photos') {
+    // For photos tab, make a server request to get only photo documents
+    try {
+      loading.value = true
+      loadingText.value = 'Loading photos...'
+      
+      const requestData = {
+        page: currentPage.value,
+        limit: pageSize.value,
+        searchTerm: searchTerm.value || undefined,
+        categoryFilter: selectedCategories.value.size > 0 ? Array.from(selectedCategories.value) : undefined,
+        uploaderFilter: selectedUploaders.value.size > 0 ? Array.from(selectedUploaders.value) : undefined,
+        dateFilter: dateRange.value ? {
+          startDate: dateRange.value[0].toISOString(),
+          endDate: dateRange.value[1].toISOString()
+        } : undefined,
+        userFilters: roles_filters.length > 0 ? roles_filters : undefined,
+        sortBy: sortOption.value === 'popularity' ? 'downloadCount' : 'createdAt',
+        sortOrder: 'DESC',
+        formatFilter: imageFormats // Send image formats to server
+      }
+
+      console.log('Loading photos with requestData:', requestData)
+      const response = await getDocumentRepository(requestData)
+      
+      // Handle response similar to main loadDocumentRepository function
+      let responseData: any
+      let success = false
+      
+      if (response && typeof response === 'object') {
+        if ('success' in response) {
+          success = Boolean((response as any).success)
+          responseData = (response as any).data || (response as any).results || response
+        } else if ('data' in response) {
+          success = true
+          responseData = (response as any).data
+        } else if (Array.isArray(response)) {
+          success = true
+          responseData = { documents: response }
+        } else {
+          success = true
+          responseData = response
+        }
+      }
+      
+      if (success && responseData) {
+        let allDocuments: Document[] = []
+        
+        if (responseData.documents && Array.isArray(responseData.documents)) {
+          allDocuments = responseData.documents as Document[]
+        } else if (responseData.data && Array.isArray(responseData.data)) {
+          allDocuments = responseData.data as Document[]
+        } else if (Array.isArray(responseData)) {
+          allDocuments = responseData as Document[]
+        } else if (responseData.results && Array.isArray(responseData.results)) {
+          allDocuments = responseData.results as Document[]
+        }
+        
+        filteredPhotos.value = allDocuments
+        console.log('Photos loaded from server:', filteredPhotos.value.length)
+        console.log('Photo documents:', filteredPhotos.value)
+      } else {
+        ElMessage.error('Failed to load photos')
+        filteredPhotos.value = []
+      }
+    } catch (error) {
+      console.error('Error loading photos:', error)
+      ElMessage.error('Failed to load photos')
+      filteredPhotos.value = []
+    } finally {
+      loading.value = false
+    }
+  }
+}
+
+// Photo handling functions
+const getPhotoPreview = (photo: Document) => {
+  // For now, return a placeholder. In a real implementation, you'd generate a thumbnail URL
+  return `data:image/svg+xml;base64,${btoa(`
+    <svg width="200" height="150" xmlns="http://www.w3.org/2000/svg">
+      <rect width="200" height="150" fill="#f0f0f0"/>
+      <text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="#999" font-family="Arial" font-size="14">
+        ${photo.format.toUpperCase()}
+      </text>
+    </svg>
+  `)}`
+}
+
+const formatFileSize = (size: number) => {
+  if (size < 1024) return `${size} B`
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`
+}
+
+const handleImageError = (event: Event) => {
+  const img = event.target as HTMLImageElement
+  img.src = `data:image/svg+xml;base64,${btoa(`
+    <svg width="200" height="150" xmlns="http://www.w3.org/2000/svg">
+      <rect width="200" height="150" fill="#f0f0f0"/>
+      <text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="#999" font-family="Arial" font-size="12">
+        Image not available
+      </text>
+    </svg>
+  `)}`
+}
+
+const handleTabChange = async (tabName: string) => {
+  activeTab.value = tabName
+  // Reset selection when switching tabs
+  selectedDocuments.value.clear()
+  // Load documents based on the selected tab
+  await loadDocumentsByTab()
+}
 
 </script>
 
@@ -1697,22 +1845,35 @@ const importDrawerSize = computed(() => isMobile.value ? '100%' : '40%')
      <div class="documents-info" style="margin: 10px 0; padding: 8px; background-color: #f0f9ff; border-radius: 4px; border-left: 4px solid #3b82f6;">
        <span style="font-size: 14px; color: #1e40af;">{{ displayInfo }}</span>
      </div>
-     
-     <!-- Documents Table -->
-     <div v-if="documents.length === 0 && !loading" style="text-align: center; padding: 40px; color: #909399;">
-       <p>No documents found. Documents array length: {{ documents.length }}</p>
-      </div>
-     
-     <el-table 
-       v-if="documents.length > 0"
-       :data="documents" 
-       style="width: 100%" 
-       size="small" 
-       class="thin-rows-table" 
-       border 
-       v-loading="loading"
-       @selection-change="handleSelectionChange"
-     >
+
+     <!-- Tabs for Documents and Photos -->
+     <el-tabs v-model="activeTab" class="documents-tabs" @tab-change="handleTabChange">
+       <!-- Documents Tab -->
+       <el-tab-pane label="Documents" name="documents">
+         <template #label>
+           <span class="tab-label">
+             <Icon icon="material-symbols:description" width="16" style="margin-right: 6px;" />
+             Documents
+             <el-badge v-if="documentsCount > 0" :value="documentsCount" class="tab-badge" />
+           </span>
+         </template>
+         
+         <!-- Documents Table -->
+         <div v-if="filteredDocuments.length === 0 && !loading" style="text-align: center; padding: 40px; color: #909399;">
+           <Icon icon="material-symbols:description" width="48" style="margin-bottom: 16px; opacity: 0.5;" />
+           <p>No documents found</p>
+         </div>
+         
+         <el-table 
+           v-if="filteredDocuments.length > 0"
+           :data="filteredDocuments" 
+           style="width: 100%" 
+           size="small" 
+           class="thin-rows-table" 
+           border 
+           v-loading="loading"
+           @selection-change="handleSelectionChange"
+         >
       <!-- Selection Column -->
       <el-table-column type="selection" width="55" />
       
@@ -1753,6 +1914,70 @@ const importDrawerSize = computed(() => isMobile.value ? '100%' : '40%')
         </template>
       </el-table-column>
     </el-table>
+       </el-tab-pane>
+
+       <!-- Photos Tab -->
+       <el-tab-pane label="Photos" name="photos">
+         <template #label>
+           <span class="tab-label">
+             <Icon icon="material-symbols:photo" width="16" style="margin-right: 6px;" />
+             Photos
+             <el-badge v-if="photosCount > 0" :value="photosCount" class="tab-badge" />
+           </span>
+         </template>
+         
+         <!-- Photos Grid -->
+         <div v-if="filteredPhotos.length === 0 && !loading" style="text-align: center; padding: 40px; color: #909399;">
+           <Icon icon="material-symbols:photo" width="48" style="margin-bottom: 16px; opacity: 0.5;" />
+           <p>No photos found</p>
+         </div>
+         
+         <div v-if="filteredPhotos.length > 0" class="photos-grid">
+           <div 
+             v-for="photo in filteredPhotos" 
+             :key="photo.id" 
+             class="photo-card"
+             @click="viewDocument(photo)"
+           >
+             <div class="photo-preview">
+               <img 
+                 :src="getPhotoPreview(photo)" 
+                 :alt="photo.name"
+                 class="photo-image"
+                 @error="handleImageError"
+               />
+               <div class="photo-overlay">
+                 <Icon icon="material-symbols:visibility" width="20" />
+               </div>
+             </div>
+             <div class="photo-info">
+               <div class="photo-name" :title="photo.name">{{ photo.name }}</div>
+               <div class="photo-meta">
+                 <span class="photo-size">{{ formatFileSize(photo.size) }}</span>
+                 <span class="photo-date">{{ formatEndDate(photo) }}</span>
+               </div>
+               <div class="photo-actions">
+                 <el-button size="small" type="primary" plain @click.stop="downloadFile(photo)">
+                   <Icon icon="material-symbols:download" width="14" />
+                 </el-button>
+                 <el-button size="small" type="success" plain @click.stop="viewDocument(photo)">
+                   <Icon icon="material-symbols:visibility" width="14" />
+                 </el-button>
+                    <el-button 
+               
+                     size="small" 
+                     type="danger" 
+                     plain 
+                     @click.stop="removeDocument(photo)"
+                   >
+                     <Icon icon="material-symbols:delete" width="14" />
+                   </el-button>
+                </div>
+             </div>
+           </div>
+         </div>
+       </el-tab-pane>
+     </el-tabs>
 
     <!-- Pagination -->
     <div class="pagination-wrapper" v-if="totalDocs > 0">
@@ -1820,7 +2045,7 @@ const importDrawerSize = computed(() => isMobile.value ? '100%' : '40%')
       
       <div style="padding: 10px;">
         <!-- Filter Tabs -->
-        <el-tabs v-model="activeFilterTab" class="filter-tabs" @tab-change="handleTabChange">
+        <el-tabs v-model="activeFilterTab" class="filter-tabs" @tab-change="handleTabChange2">
           <!-- By Category Tab -->
           <el-tab-pane label="By Category" name="category">
             <!-- Search Input -->
@@ -2675,5 +2900,178 @@ const importDrawerSize = computed(() => isMobile.value ? '100%' : '40%')
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+/* Documents Tabs Styles */
+.documents-tabs {
+  margin-top: 20px;
+}
+
+.documents-tabs .el-tabs__header {
+  margin-bottom: 20px;
+}
+
+.documents-tabs .el-tabs__nav-wrap::after {
+  display: none;
+}
+
+.documents-tabs .el-tabs__item {
+  padding: 0 20px;
+  font-size: 16px;
+  font-weight: 500;
+  height: 48px;
+  line-height: 48px;
+}
+
+.tab-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tab-badge {
+  margin-left: 8px;
+}
+
+/* Photos Grid Styles */
+.photos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 20px;
+  padding: 20px 0;
+}
+
+.photo-card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  border: 1px solid #e4e7ed;
+}
+
+.photo-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  border-color: #409eff;
+}
+
+.photo-preview {
+  position: relative;
+  width: 100%;
+  height: 180px;
+  overflow: hidden;
+  background: #f5f7fa;
+}
+
+.photo-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.photo-card:hover .photo-image {
+  transform: scale(1.05);
+}
+
+.photo-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  color: white;
+}
+
+.photo-card:hover .photo-overlay {
+  opacity: 1;
+}
+
+.photo-info {
+  padding: 16px;
+}
+
+.photo-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+  margin-bottom: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.photo-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: #909399;
+}
+
+.photo-size {
+  font-weight: 500;
+}
+
+.photo-date {
+  color: #c0c4cc;
+}
+
+.photo-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.photo-actions .el-button {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
+}
+
+/* Mobile responsive adjustments for photos */
+@media (max-width: 768px) {
+  .photos-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+    padding: 16px 0;
+  }
+  
+  .photo-preview {
+    height: 150px;
+  }
+  
+  .photo-info {
+    padding: 12px;
+  }
+  
+  .photo-actions {
+    flex-direction: column;
+    gap: 6px;
+  }
+  
+  .photo-actions .el-button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .photos-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+  }
+  
+  .photo-preview {
+    height: 120px;
+  }
 }
 </style>
