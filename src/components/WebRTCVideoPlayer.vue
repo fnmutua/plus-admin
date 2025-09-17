@@ -1,144 +1,83 @@
 <template>
-  <div class="webrtc-video-player">
-    <div class="video-container">
-      <video
-        ref="videoElement"
-        autoplay
-        playsinline
-        muted
-        controls
-        class="video-stream"
-        :class="{ 'no-stream': !hasStream }"
-      >
-        <source :src="streamUrl" type="video/mp4" v-if="streamUrl" />
-        Your browser does not support the video tag.
-      </video>
-      
-      <!-- WebRTC Video Element (hidden, used for WebRTC streams) -->
-      <video
-        ref="webrtcVideoElement"
-        autoplay
-        playsinline
-        class="webrtc-video-stream"
-        :class="{ 'no-stream': !hasWebRTCStream }"
-        style="display: none;"
-      ></video>
-      
-      <!-- Loading overlay -->
-      <div v-if="isLoading" class="loading-overlay">
-        <div class="loading-spinner"></div>
-        <p>{{ loadingMessage }}</p>
-      </div>
-      
-      <!-- No stream overlay -->
-      <div v-if="!hasStream && !hasWebRTCStream && !isLoading" class="no-stream-overlay">
-        <div class="no-stream-content">
-          <i class="el-icon-video-camera" style="font-size: 48px; color: #ccc;"></i>
-          <p>No video stream available</p>
-          <p class="stream-info" v-if="streamInfo">{{ streamInfo.title }}</p>
-        </div>
-      </div>
+  <div class="webrtc-player">
+    <!-- Remote video -->
+    <video
+      ref="videoRef"
+      autoplay
+      playsinline
+      controls
+      class="webrtc-video"
+    ></video>
+
+    <!-- Loading overlay -->
+    <div v-if="isLoading" class="loading-overlay">
+      <div class="loading-spinner"></div>
+      <p>{{ loadingMessage }}</p>
     </div>
-    
-    <!-- Stream Controls -->
-    <div class="stream-controls" v-if="hasStream || hasWebRTCStream">
-      <div class="stream-info-display">
-        <span v-if="streamInfo" class="stream-title">{{ streamInfo.title }}</span>
-        <span v-if="streamInfo" class="stream-status" :class="streamInfo.status">
-          {{ streamInfo.status }}
-        </span>
-      </div>
-      
-      <div class="control-buttons">
-        <el-button
-          type="primary"
-          size="small"
-          @click="toggleFullscreen"
-          :icon="isFullscreen ? 'el-icon-copy-document' : 'el-icon-full-screen'"
-        >
-          {{ isFullscreen ? 'Exit Fullscreen' : 'Fullscreen' }}
-        </el-button>
-        
-        <el-button
-          type="info"
-          size="small"
-          @click="toggleMute"
-          :icon="isMuted ? 'el-icon-microphone' : 'el-icon-turn-off-microphone'"
-        >
-          {{ isMuted ? 'Unmute' : 'Mute' }}
-        </el-button>
-        
-        <el-button
-          type="warning"
-          size="small"
-          @click="refreshStream"
-          :loading="isRefreshing"
-          icon="el-icon-refresh"
-        >
-          Refresh
-        </el-button>
-      </div>
+
+    <!-- Overlay message if no stream -->
+    <div v-if="!hasStream && !isLoading" class="overlay">
+      <p>No video stream available</p>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls" v-if="hasStream">
+      <el-button size="small" type="primary" @click="toggleFullscreen">
+        {{ isFullscreen ? 'Exit Fullscreen' : 'Fullscreen' }}
+      </el-button>
+      <el-button size="small" type="info" @click="toggleMute">
+        {{ isMuted ? 'Unmute' : 'Mute' }}
+      </el-button>
+      <el-button size="small" type="warning" @click="refreshStream" :loading="isRefreshing">
+        Refresh
+      </el-button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { ElButton, ElMessage } from 'element-plus'
 
-interface StreamInfo {
-  id: string
-  title: string
-  description?: string
-  status: 'live' | 'ended' | 'connecting'
-  streamer?: {
-    name: string
-    email: string
-  }
-  resolution?: string
-  bitrate?: number
-  framerate?: number
-}
-
+/**
+ * Props: optional metadata about the stream
+ */
 interface Props {
-  streamInfo?: StreamInfo
+  streamInfo?: any
   streamUrl?: string
-  autoPlay?: boolean
-  showControls?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  autoPlay: true,
-  showControls: true
+  streamInfo: null,
+  streamUrl: ''
 })
 
+/**
+ * Emits
+ */
 const emit = defineEmits<{
-  streamStarted: [stream: MediaStream]
-  streamEnded: []
-  streamError: [error: Error]
-  fullscreenChanged: [isFullscreen: boolean]
+  (e: 'stream-started', stream: MediaStream): void
+  (e: 'stream-ended'): void
+  (e: 'stream-error', error: Error): void
+  (e: 'fullscreen-changed', isFullscreen: boolean): void
 }>()
 
-// Refs
-const videoElement = ref<HTMLVideoElement>()
-const webrtcVideoElement = ref<HTMLVideoElement>()
+/**
+ * State
+ */
+const videoRef = ref<HTMLVideoElement | null>(null)
+const hasStream = ref(false)
+const isFullscreen = ref(false)
+const isMuted = ref(false)
 const isLoading = ref(false)
 const isRefreshing = ref(false)
-const isMuted = ref(false)
-const isFullscreen = ref(false)
 const loadingMessage = ref('Connecting to stream...')
+let currentStream: MediaStream | null = null
 
 // WebRTC related
 const peerConnection = ref<RTCPeerConnection | null>(null)
 const webSocket = ref<WebSocket | null>(null)
-const hasWebRTCStream = ref(false)
-const currentStream = ref<MediaStream | null>(null)
 const connectionTimeout = ref<NodeJS.Timeout | null>(null)
-
-// Computed
-const hasStream = computed(() => {
-  return !!(props.streamUrl || currentStream.value)
-})
 
 // WebRTC Configuration
 const webrtcConfig: RTCConfiguration = {
@@ -154,19 +93,25 @@ const signalingServerUrl = isDevelopment
   ? 'ws://localhost:3002/video-stream'
   : 'wss://kesmis.go.ke:3002/video-stream'
 
+/**
+ * Mount lifecycle
+ */
 onMounted(() => {
   if (props.streamInfo?.status === 'live') {
     connectToStream()
   }
 })
 
+/**
+ * Cleanup lifecycle
+ */
 onUnmounted(() => {
   cleanup()
 })
 
 // Watch for stream info changes
 watch(() => props.streamInfo, (newInfo) => {
-  if (newInfo?.status === 'live' && !hasWebRTCStream.value) {
+  if (newInfo?.status === 'live' && !hasStream.value) {
     connectToStream()
   } else if (newInfo?.status === 'ended') {
     stopStream()
@@ -194,19 +139,19 @@ const connectToStream = async () => {
     
     // Handle incoming stream
     peerConnection.value.ontrack = (event) => {
-      console.log('Received remote stream:', event.streams[0])
+      console.log('🎥 Remote stream received:', event.streams[0])
       const stream = event.streams[0]
-      currentStream.value = stream
+      currentStream = stream
       
-      if (webrtcVideoElement.value) {
-        webrtcVideoElement.value.srcObject = stream
-        webrtcVideoElement.value.style.display = 'block'
-        if (videoElement.value) {
-          videoElement.value.style.display = 'none'
-        }
+      if (videoRef.value) {
+        videoRef.value.srcObject = stream
+        videoRef.value.play().catch(err => {
+          console.error('play() failed:', err)
+          emit('stream-error', err)
+        })
       }
       
-      hasWebRTCStream.value = true
+      hasStream.value = true
       isLoading.value = false
       
       // Clear any pending timeouts
@@ -215,7 +160,7 @@ const connectToStream = async () => {
         connectionTimeout.value = null
       }
       
-      emit('streamStarted', stream)
+      emit('stream-started', stream)
     }
     
     // Handle connection state changes
@@ -247,7 +192,7 @@ const connectToStream = async () => {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     ElMessage.error(`Failed to connect to stream: ${errorMessage}`)
     isLoading.value = false
-    emit('streamError', error as Error)
+    emit('stream-error', error as Error)
   }
 }
 
@@ -291,13 +236,13 @@ const connectToSignalingServer = async (): Promise<void> => {
               console.log('📡 Stream is live, waiting for WebRTC connection from streamer...')
               // Set a timeout to show a message if no video comes
               connectionTimeout.value = setTimeout(() => {
-                if (isLoading.value && !hasWebRTCStream.value) {
+                if (isLoading.value && !hasStream.value) {
                   loadingMessage.value = 'Waiting for streamer to start video...'
                   ElMessage.info('Stream is live but no video yet. Waiting for streamer to start video.')
                   
                   // Set another timeout to give up
                   setTimeout(() => {
-                    if (isLoading.value && !hasWebRTCStream.value) {
+                    if (isLoading.value && !hasStream.value) {
                       ElMessage.warning('No video received. The streamer may not be actively streaming video.')
                       loadingMessage.value = 'No video available'
                     }
@@ -372,21 +317,16 @@ const connectToSignalingServer = async (): Promise<void> => {
  * Stop the current stream
  */
 const stopStream = () => {
-  if (currentStream.value) {
-    currentStream.value.getTracks().forEach(track => track.stop())
-    currentStream.value = null
+  console.log('🛑 Stream ended')
+  hasStream.value = false
+  if (videoRef.value) {
+    videoRef.value.srcObject = null
   }
-  
-  if (webrtcVideoElement.value) {
-    webrtcVideoElement.value.srcObject = null
-    webrtcVideoElement.value.style.display = 'none'
-    if (videoElement.value) {
-      videoElement.value.style.display = 'block'
-    }
+  if (currentStream) {
+    currentStream.getTracks().forEach(track => track.stop())
+    currentStream = null
   }
-  
-  hasWebRTCStream.value = false
-  emit('streamEnded')
+  emit('stream-ended')
 }
 
 /**
@@ -410,37 +350,29 @@ const refreshStream = async () => {
  * Toggle mute/unmute
  */
 const toggleMute = () => {
-  if (videoElement.value) {
-    videoElement.value.muted = !videoElement.value.muted
-    isMuted.value = videoElement.value.muted
-  }
-  if (webrtcVideoElement.value) {
-    webrtcVideoElement.value.muted = !webrtcVideoElement.value.muted
-    isMuted.value = webrtcVideoElement.value.muted
+  if (videoRef.value) {
+    videoRef.value.muted = !videoRef.value.muted
+    isMuted.value = videoRef.value.muted
   }
 }
 
 /**
- * Toggle fullscreen
+ * Handle fullscreen toggle
  */
-const toggleFullscreen = () => {
-  const element = videoElement.value || webrtcVideoElement.value
-  if (!element) return
-  
-  if (!document.fullscreenElement) {
-    element.requestFullscreen().then(() => {
+const toggleFullscreen = async () => {
+  if (!videoRef.value) return
+  try {
+    if (!document.fullscreenElement) {
+      await videoRef.value.requestFullscreen()
       isFullscreen.value = true
-      emit('fullscreenChanged', true)
-    }).catch(err => {
-      console.error('Error attempting to enable fullscreen:', err)
-    })
-  } else {
-    document.exitFullscreen().then(() => {
+      emit('fullscreen-changed', true)
+    } else {
+      await document.exitFullscreen()
       isFullscreen.value = false
-      emit('fullscreenChanged', false)
-    }).catch(err => {
-      console.error('Error attempting to exit fullscreen:', err)
-    })
+      emit('fullscreen-changed', false)
+    }
+  } catch (err) {
+    console.error('Fullscreen toggle failed', err)
   }
 }
 
@@ -448,7 +380,13 @@ const toggleFullscreen = () => {
  * Cleanup resources
  */
 const cleanup = () => {
-  stopStream()
+  if (videoRef.value) {
+    videoRef.value.srcObject = null
+  }
+  if (currentStream) {
+    currentStream.getTracks().forEach(track => track.stop())
+    currentStream = null
+  }
   
   // Clear any pending timeouts
   if (connectionTimeout.value) {
@@ -470,38 +408,28 @@ const cleanup = () => {
 // Listen for fullscreen changes
 document.addEventListener('fullscreenchange', () => {
   isFullscreen.value = !!document.fullscreenElement
-  emit('fullscreenChanged', isFullscreen.value)
+  emit('fullscreen-changed', isFullscreen.value)
 })
 </script>
 
 <style scoped>
-.webrtc-video-player {
+.webrtc-player {
   position: relative;
   width: 100%;
   height: 100%;
-  background: #000;
+  background: black;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   border-radius: 8px;
   overflow: hidden;
 }
 
-.video-container {
-  position: relative;
+.webrtc-video {
   width: 100%;
   height: 100%;
-  min-height: 300px;
+  object-fit: contain;
   background: #000;
-}
-
-.video-stream,
-.webrtc-video-stream {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  background: #000;
-}
-
-.no-stream {
-  display: none;
 }
 
 .loading-overlay {
@@ -534,109 +462,43 @@ document.addEventListener('fullscreenchange', () => {
   100% { transform: rotate(360deg); }
 }
 
-.no-stream-overlay {
+.overlay {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: #f5f5f5;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 5;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 10px 20px;
+  border-radius: 8px;
 }
 
-.no-stream-content {
-  text-align: center;
-  color: #666;
-}
-
-.no-stream-content p {
-  margin: 8px 0;
-}
-
-.stream-info {
-  font-size: 14px;
-  color: #999;
-}
-
-.stream-controls {
+.controls {
   position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
-  padding: 16px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  z-index: 10;
-}
-
-.stream-info-display {
-  color: white;
-  flex: 1;
-}
-
-.stream-title {
-  font-weight: bold;
-  font-size: 16px;
-  margin-right: 12px;
-}
-
-.stream-status {
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: bold;
-}
-
-.stream-status.live {
-  background: #67C23A;
-  color: white;
-}
-
-.stream-status.ended {
-  background: #909399;
-  color: white;
-}
-
-.stream-status.connecting {
-  background: #E6A23C;
-  color: white;
-}
-
-.control-buttons {
+  bottom: 10px;
+  right: 10px;
   display: flex;
   gap: 8px;
 }
 
-.control-buttons .el-button {
+.controls .el-button {
   background: rgba(255, 255, 255, 0.2);
   border: 1px solid rgba(255, 255, 255, 0.3);
   color: white;
 }
 
-.control-buttons .el-button:hover {
+.controls .el-button:hover {
   background: rgba(255, 255, 255, 0.3);
   border-color: rgba(255, 255, 255, 0.5);
 }
 
 /* Responsive design */
 @media (max-width: 768px) {
-  .stream-controls {
+  .controls {
     flex-direction: column;
-    gap: 12px;
-    padding: 12px;
-  }
-  
-  .stream-info-display {
-    text-align: center;
-  }
-  
-  .control-buttons {
-    justify-content: center;
+    gap: 8px;
+    bottom: 10px;
+    right: 10px;
   }
 }
 </style>

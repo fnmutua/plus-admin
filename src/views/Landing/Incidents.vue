@@ -49,9 +49,7 @@
                     </el-form-item>
                   </el-col>
                   <el-col :xs="24" :sm="24" :md="12" :span="12">
-                    <el-form-item label="Department" prop="department">
-                      <el-input v-model="incidentForm.department" />
-                    </el-form-item>
+                    
                 
                     <el-form-item label="Reported By" prop="reported_by">
                       <el-input v-model="incidentForm.reported_by" />
@@ -59,7 +57,7 @@
                     <el-form-item label="Reporter Phone" prop="reporter_phone">
                       <el-input v-model="incidentForm.reporter_phone" placeholder="2547XXXXXXXX" />
                     </el-form-item>
-                   
+                 
                   </el-col>
                 </el-row>
 
@@ -78,6 +76,13 @@
                       <el-input v-model="incidentForm.site_supervisor" />
                     </el-form-item>
                   </el-col>
+                  <el-col :xs="24" :sm="24" :md="12" :span="12">
+
+                  <el-form-item label="Department" prop="department">
+                      <el-input v-model="incidentForm.department" />
+                    </el-form-item>
+                  </el-col>
+
                 </el-row>
 
                 <!-- Step 3: Categories -->
@@ -289,9 +294,15 @@
         <!-- Footer navigation -->
         <template #footer>
           <div class="steps-navigation">
-            <el-button v-if="active > 0" @click="prev" type="primary">Previous</el-button>
-            <el-button v-if="active < 6" type="primary" @click="next">Next</el-button>
-            <el-button v-if="active === 6" type="success" @click="submitForm">Submit</el-button>
+            <el-button v-if="active > 0" @click="prev" type="primary" class="nav-button">
+              <i class="fas fa-chevron-left"></i> Previous
+            </el-button>
+            <el-button v-if="active < 6" type="primary" @click="next" class="nav-button">
+              Next <i class="fas fa-chevron-right"></i>
+            </el-button>
+            <el-button v-if="active === 6" type="success" @click="submitForm" class="nav-button">
+              <i class="fas fa-check"></i> Submit
+            </el-button>
           </div>
         </template>
       </el-card>
@@ -542,7 +553,6 @@ const validationRules = {
   step0: {
     occurred_date: [{ required: true, message: 'Occurred Date is required', trigger: 'change' }],
     occurred_time: [{ required: true, message: 'Occurred Time is required', trigger: 'change' }],
-    department: [{ required: true, message: 'Department is required', trigger: 'blur' }],
     location_text: [{ required: true, message: 'Location is required', trigger: 'blur' }],
     reported_by: [{ required: true, message: 'Reported By is required', trigger: 'blur' }],
     reporter_phone: [{ required: true, message: 'Reporter Phone is required', trigger: 'blur' }],
@@ -552,7 +562,9 @@ const validationRules = {
   step1: {
     worker_name: [{ required: true, message: 'Worker Name is required', trigger: 'blur' }],
     designation: [{ required: true, message: 'Designation is required', trigger: 'blur' }],
-    site_supervisor: [{ required: true, message: 'Site Supervisor is required', trigger: 'blur' }]
+    site_supervisor: [{ required: true, message: 'Site Supervisor is required', trigger: 'blur' }],
+    department: [{ required: true, message: 'Department is required', trigger: 'blur' }],
+
   },
   step2: {
     incident_types: [{ required: true, message: 'Select at least 1 Incident Type', trigger: 'change' }],
@@ -758,7 +770,26 @@ const isDarkMode = ref(false)
 
 <style>
 .incident-container { padding: 1rem; }
-.steps-navigation { margin-top: 1rem; display: flex; justify-content: space-between; }
+.steps-navigation { 
+  margin-top: 1rem; 
+  display: flex; 
+  justify-content: space-between; 
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.nav-button {
+  flex: 1;
+  min-width: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.nav-button i {
+  font-size: 14px;
+}
 
 /* Scrollable form content */
 .form-content-scrollable {
@@ -877,15 +908,20 @@ const isDarkMode = ref(false)
 
 @media (max-width: 768px) {
   .steps-navigation {
-    flex-direction: column;
+    flex-direction: row;
     gap: 8px;
-    justify-content: center;
-    align-items: stretch;
+    justify-content: space-between;
+    align-items: center;
   }
-  .steps-navigation .el-button {
-    width: 100%;
+  
+  .nav-button {
+    flex: 1;
     margin: 0;
+    min-width: 100px;
+    height: 44px;
+    font-size: 16px;
   }
+  
   /* no change to scrollable height on mobile */
 }
 

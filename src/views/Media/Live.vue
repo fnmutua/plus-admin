@@ -104,8 +104,16 @@ const handleClear = async () => {
 const loadActiveStreams = async (skipTabUpdate = false) => {
   loading.value = true
   try {
-    // Get all streams instead of just active ones
-    const res = await getVideoStreams() as any
+    // Try to get all streams, fallback to search if /all fails
+    let res
+    try {
+      res = await getVideoStreams() as any
+    } catch (error) {
+      console.warn('getVideoStreams failed, trying search endpoint:', error)
+      // Fallback to search endpoint to get all streams
+      res = await searchStreams({ limit: 100 }) as any
+    }
+    
     if (res.data && res.data.success && Array.isArray(res.data.data)) {
       // Separate live and not live streams
       liveStreams.value = res.data.data.filter(stream => stream.status === 'live')
