@@ -335,6 +335,11 @@ import type { FormInstance } from 'element-plus'
 import { getCountyAuth, getSettlementByCountyAuth } from '@/api/register'
 import type { UploadUserFile } from 'element-plus'
 import { uuid } from 'vue-uuid'
+import { useRouter } from 'vue-router';
+
+const router = useRouter();
+
+
 
 // === Options from the PDF ===
 const incidentTypes = [
@@ -675,27 +680,42 @@ const next = async () => {
 const prev = () => active.value--
 
 const submitForm = async () => {
+  try {
+    await incidentFormRef.value?.validate()
+  } catch (e) {
+    ElMessage.error('Please fill required fields')
+    return
+  }
+
+  try {
     // system-generate reported date/time
     incidentForm.value.reported_date = new Date().toISOString().split("T")[0]
-  incidentForm.value.reported_time = new Date().toLocaleTimeString()
-  // system-generate prepared date
-  incidentForm.value.prepared_by_date = new Date().toISOString().split("T")[0]
+    incidentForm.value.reported_time = new Date().toLocaleTimeString()
+    // system-generate prepared date
+    incidentForm.value.prepared_by_date = new Date().toISOString().split("T")[0]
 
-     //1. Submit teh greivance 
-  const res = await createIncident(incidentForm.value)
-      console.log('res', res)
-
-  // 2. Upload documents if any
-  try {
-    if (fileList.value && fileList.value.length > 0 && res?.data?.id) {
-      await uploadFiles(res.data.id)
+    // Create incident
+    const res = await createIncident(incidentForm.value)
+    console.log('res', res)
+    router.push('/landing');
+    // Upload documents if any
+    try {
+      if (fileList.value && fileList.value.length > 0 && res?.data?.id) {
+        await uploadFiles(res.data.id)
+      }
+    } catch (uploadErr) {
+      console.error('Upload failed', uploadErr)
+      ElMessage.error('Incident created, but uploading documents failed')
+      return
     }
-  } catch (e) {
-    console.error('Upload failed', e)
+
+    ElMessage.success('Incident submitted successfully')
+  } catch (err) {
+    console.error('Submit failed', err)
+    ElMessage.error('Failed to submit incident')
   }
 
   console.log("Submitting Incident:", incidentForm.value)
-  //ElMessage.success("Incident Report Submitted Successfully")
 }
 // === Action Dialog ===
 const showActionDialog = ref(false)
