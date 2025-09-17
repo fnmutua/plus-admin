@@ -252,7 +252,8 @@
                 <!-- Step 5: Actions to Avoid -->
                 <el-row v-if="active === 5" :gutter="10">
                   <el-col :span="24">
-                    <el-table :data="incidentForm.actions_to_avoid" style="width:100%">
+                    <div class="table-scroll">
+                      <el-table :data="incidentForm.actions_to_avoid" style="width:100%" class="actions-table">
                       <el-table-column prop="action" label="Action" />
                       <el-table-column prop="responsible" label="Responsible" />
                       <el-table-column prop="priority" label="Priority" />
@@ -262,7 +263,8 @@
                           <el-button type="danger" size="small" @click="removeAction($index)">Remove</el-button>
                         </template>
                       </el-table-column>
-                    </el-table>
+                      </el-table>
+                    </div>
                     <el-button type="primary" @click="addActionRow">Add Action</el-button>
                   </el-col>
                 </el-row>
@@ -865,5 +867,15 @@ const isDarkMode = ref(false)
     margin: 0;
   }
   /* no change to scrollable height on mobile */
+}
+
+/* Horizontal scroll for mobile tables */
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.actions-table {
+  min-width: 700px;
 }
 </style>
