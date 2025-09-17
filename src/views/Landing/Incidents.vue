@@ -5,7 +5,7 @@
         <el-tabs v-model="activeName" :tab-position="tabPosition">
           <!-- TAB 1: File Incident -->
           <el-tab-pane label="File an Incident" name="file">
-            <el-steps :active="active" finish-status="success">
+            <el-steps v-if="!isMobile" :active="active" finish-status="success" :direction="isMobile ? 'vertical' : 'horizontal'" :simple="isMobile">
               <el-step title="Incident Details" />
               <el-step title="Incident Details(2)" />
               <el-step title="Investigation" />
@@ -27,7 +27,7 @@
 
                 <!-- Step 1: Incident Details (Part 1) -->
                 <el-row v-if="active === 0" :gutter="10">
-                  <el-col :span="12">
+                  <el-col :xs="24" :sm="24" :md="12" :span="12">
                     <el-form-item label="Occurrence Date" prop="occurred_date">
                       <el-date-picker v-model="incidentForm.occurred_date" type="date" />
                     </el-form-item>
@@ -48,7 +48,7 @@
                       <el-input v-model="incidentForm.location_text" />
                     </el-form-item>
                   </el-col>
-                  <el-col :span="12">
+                  <el-col :xs="24" :sm="24" :md="12" :span="12">
                     <el-form-item label="Department" prop="department">
                       <el-input v-model="incidentForm.department" />
                     </el-form-item>
@@ -65,7 +65,7 @@
 
                 <!-- Step 2: Incident Details (Part 2) -->
                 <el-row v-if="active === 1" :gutter="10">
-                  <el-col :span="12">
+                  <el-col :xs="24" :sm="24" :md="12" :span="12">
                     <el-form-item label="Worker Name" prop="worker_name">
                       <el-input v-model="incidentForm.worker_name" />
                     </el-form-item>
@@ -73,7 +73,7 @@
                       <el-input v-model="incidentForm.designation" />
                     </el-form-item>
                   </el-col>
-                  <el-col :span="12">
+                  <el-col :xs="24" :sm="24" :md="12" :span="12">
                     <el-form-item label="Site Supervisor" prop="site_supervisor">
                       <el-input v-model="incidentForm.site_supervisor" />
                     </el-form-item>
@@ -93,7 +93,7 @@
                       <el-form-item prop="incident_types">
                         <el-checkbox-group v-model="incidentForm.incident_types">
                           <el-row :gutter="10">
-                            <el-col v-for="i in incidentTypes" :key="i" :span="8">
+                            <el-col v-for="i in incidentTypes" :key="i" :xs="24" :sm="24" :md="24" :span="24">
                               <el-checkbox :label="i" class="checkbox-item">{{ i }}</el-checkbox>
                             </el-col>
                           </el-row>
@@ -113,7 +113,7 @@
                       <el-form-item prop="mechanisms">
                         <el-checkbox-group v-model="incidentForm.mechanisms">
                           <el-row :gutter="10">
-                            <el-col v-for="m in mechanisms" :key="m" :span="8">
+                            <el-col v-for="m in mechanisms" :key="m" :xs="24" :sm="24" :md="24" :span="24">
                               <el-checkbox :label="m" class="checkbox-item">{{ m }}</el-checkbox>
                             </el-col>
                           </el-row>
@@ -133,7 +133,7 @@
                       <el-form-item prop="indirect_causes">
                         <el-checkbox-group v-model="incidentForm.indirect_causes">
                           <el-row :gutter="10">
-                            <el-col v-for="p in indirectCauses" :key="p" :span="8">
+                            <el-col v-for="p in indirectCauses" :key="p" :xs="24" :sm="24" :md="24" :span="24">
                               <el-checkbox :label="p" class="checkbox-item">{{ p }}</el-checkbox>
                             </el-col>
                           </el-row>
@@ -153,7 +153,7 @@
                       <el-form-item prop="activity_leading">
                         <el-checkbox-group v-model="incidentForm.activity_leading">
                           <el-row :gutter="10">
-                            <el-col v-for="a in activities" :key="a" :span="8">
+                            <el-col v-for="a in activities" :key="a" :xs="24" :sm="24" :md="24" :span="24">
                               <el-checkbox :label="a" class="checkbox-item">{{ a }}</el-checkbox>
                             </el-col>
                           </el-row>
@@ -181,7 +181,7 @@
                       <el-form-item prop="direct_causes">
                         <el-checkbox-group v-model="incidentForm.direct_causes">
                           <el-row :gutter="10">
-                            <el-col v-for="j in directCauses" :key="j" :span="8">
+                            <el-col v-for="j in directCauses" :key="j" :xs="24" :sm="24" :md="24" :span="24">
                               <el-checkbox :label="j" class="checkbox-item">{{ j }}</el-checkbox>
                             </el-col>
                           </el-row>
@@ -201,7 +201,7 @@
                       <el-form-item prop="root_cause">
                         <el-checkbox-group v-model="incidentForm.root_cause">
                           <el-row :gutter="10">
-                            <el-col v-for="a in rootCauses" :key="a" :span="8">
+                            <el-col v-for="a in rootCauses" :key="a" :xs="24" :sm="24" :md="24" :span="24">
                               <el-checkbox :label="a" class="checkbox-item">{{ a }}</el-checkbox>
                             </el-col>
                           </el-row>
@@ -269,7 +269,7 @@
 
                 <!-- Step 6: Prepared By -->
                 <el-row v-if="active === 6" :gutter="10">
-                  <el-col :span="12">
+                  <el-col :xs="24" :sm="24" :md="12" :span="12">
                     <el-form-item label="Prepared By" prop="prepared_by_name">
                       <el-input v-model="incidentForm.prepared_by_name" />
                     </el-form-item>
@@ -295,7 +295,7 @@
       </el-card>
     </div>
 
-    <el-dialog v-model="showActionDialog" title="Add Action" width="500px">
+    <el-dialog v-model="showActionDialog" title="Add Action" :width="dialogWidth">
         <el-form :model="newAction" :rules="actionDialogRules" label-position="top" ref="dialogFormRef">
           <el-form-item label="Action" prop="action">
             <el-input v-model="newAction.action" />
@@ -520,6 +520,15 @@ const activeName = ref('file')
 const active = ref(0)
 const tabPosition = ref<'top' | 'left' | 'right' | 'bottom'>('top')
 const incidentFormRef = ref<FormInstance>()
+
+// Responsive helpers
+const isMobile = ref(false)
+const dialogWidth = computed(() => (isMobile.value ? '95%' : '500px'))
+if (typeof window !== 'undefined') {
+  const setIsMobile = () => { isMobile.value = window.innerWidth < 768 }
+  setIsMobile()
+  window.addEventListener('resize', setIsMobile)
+}
  
 // === Validation Rules for Main Form ===
 const validationRules = {
@@ -731,7 +740,7 @@ const isDarkMode = ref(false)
 
 /* Scrollable form content */
 .form-content-scrollable {
-  max-height: 70vh;
+  max-height: 60vh;
   overflow-y: auto;
   padding-right: 8px;
 }
@@ -799,27 +808,30 @@ const isDarkMode = ref(false)
 }
 
 .checkbox-item {
-  display: block;
+  display: flex;
+  align-items: center;
   margin-bottom: 8px;
   margin-right: 0;
-  white-space: normal;
-  word-wrap: break-word;
 }
 
 .checkbox-item .el-checkbox__label {
   font-size: 14px;
-  line-height: 1.4;
+  line-height: 1;
   padding-left: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
 }
 
 /* Improve multi-line checkbox label layout */
 .checkbox-item .el-checkbox {
-  display: flex;
-  align-items: flex-start;
+  display: inline-flex;
+  align-items: center; /* align checkbox square with label */
 }
 
 .checkbox-item .el-checkbox__input {
-  margin-top: 2px; /* align the checkbox square with first line of text */
+  margin-top: 0;
 }
 
 .checkbox-item .el-checkbox__label {
@@ -839,5 +851,19 @@ const isDarkMode = ref(false)
 
 .dark-mode .checkbox-item .el-checkbox__label {
   color: #e5eaf3;
+}
+
+@media (max-width: 768px) {
+  .steps-navigation {
+    flex-direction: column;
+    gap: 8px;
+    justify-content: center;
+    align-items: stretch;
+  }
+  .steps-navigation .el-button {
+    width: 100%;
+    margin: 0;
+  }
+  /* no change to scrollable height on mobile */
 }
 </style>
