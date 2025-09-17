@@ -47,6 +47,16 @@ export const constantRouterMap: AppRouteRecordRaw[] = [
     }
   },
   {
+    path: '/incidents',
+    component: () => import('@/views/Landing/Incidents.vue'),
+    name: 'IncidentsLanding',
+    meta: {
+      hidden: true,
+      title: 'Incidents',
+      noTagsView: true
+    }
+  },
+  {
     path: '/about',
     component: () => import('@/views/Landing/about.vue'),
     name: 'About',
@@ -1409,6 +1419,33 @@ export const adminRoutes: AppRouteRecordRaw[] = [
    
 
 
+    ]
+  },
+
+  {
+    path: '/inc',
+    component: Layout,
+    redirect: '/inc/open',
+    name: 'Incidents',
+    meta: {
+      title: 'Incidents',
+      icon: 'mdi:alert-decagram',
+      role: [ 'root_admin','super_admin', 'admin', 'staff' ],
+      locationLevel:['national','county','settlement'],
+      alwaysShow: false
+    },
+    children: [
+      {
+        path: 'open',
+        component: () => import('@/views/Incidents/Open.vue'),
+        name: 'OpenIncidents',
+        meta: {
+          title: 'Incidents',
+          icon:'mdi:alert',
+          role: [ 'root_admin','super_admin','admin','staff' ],
+          locationLevel:['national','county','settlement']
+        }
+      }
     ]
   },
   // {

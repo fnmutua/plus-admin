@@ -25,7 +25,15 @@
                       >
                         Get Started
                       </el-button>
-                    
+                      <el-button
+                        type="success"
+                        size="large"
+                        class="login-btn"
+                        @click="router.push('/incidents')"
+                        style="margin-left:8px;"
+                      >
+                        Report Incident
+                      </el-button>
                     </div>
                   </div>
 
