@@ -4,17 +4,43 @@
       <el-container>
         <el-header>
           <div class="header-content">
-            <div v-if="!isSmallScreen || menuOpen" class="logo">
-              <img src="@/assets/imgs/1logo.png" alt="KISIP - Kenya Informal Settlements Improvement Project" width="50" height="40" loading="lazy" />
-            </div>
-            <nav style="background: transparent;">
+            <!-- Mobile Menu (Top left) -->
+            <div v-if="isSmallScreen" class="mobile-menu-container">
               <!-- Hamburger icon for small screens -->
               <div class="hamburger" @click="menuOpen = !menuOpen">
                 <Icon icon="mdi:menu" class="hamburger-icon" />
               </div>
-              <!-- Menu -->
+              
+              <!-- Dropdown Menu -->
+              <div class="mobile-dropdown-menu" :class="{ open: menuOpen }" @click.stop>
+                <div class="menu-item" @click="handleSelect('1')">
+                  <Icon icon="mdi:home" />
+                  <span>Home</span>
+                </div>
+                <div class="menu-item" @click="handleSelect('3')">
+                  <Icon icon="mdi:file-document-outline" />
+                  <span>Grievances</span>
+                </div>
+                <div class="menu-item" @click="handleLoginOrLogout">
+                  <Icon :icon="isLoggedIn ? 'mdi:logout' : 'mdi:login'" />
+                  <span>{{ isLoggedIn ? 'Logout' : 'Login' }}</span>
+                </div>
+                <div class="menu-item" @click="toggleDark">
+                  <Icon :icon="isDark ? 'carbon:moon' : 'carbon:sun'" />
+                  <span>{{ isDark ? 'Dark Mode' : 'Light Mode' }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Logo (Desktop only) -->
+            <div v-if="!isSmallScreen" class="logo">
+              <img src="@/assets/imgs/1logo.png" alt="KISIP - Kenya Informal Settlements Improvement Project" width="50" height="40" loading="lazy" />
+            </div>
+
+            <nav style="background: transparent;">
+              <!-- Desktop Menu -->
               <el-menu
-                :class="{ open: isSmallScreen && menuOpen }"
+                v-if="!isSmallScreen"
                 mode="horizontal"
                 active-text-color="#684035"
                 class="el-menu-demo"
@@ -25,10 +51,6 @@
               >
                 <el-menu-item index="1">Home</el-menu-item>
                 <el-menu-item index="3">Grievances</el-menu-item>
-                <!-- <el-menu-item index="5">Contact</el-menu-item>
-                <el-menu-item index="4">About</el-menu-item>
-                <el-menu-item index="6">FAQs</el-menu-item> -->
-                <!-- <el-menu-item index="8">API Docs</el-menu-item> -->
                 <el-menu-item index="2" @click="handleLoginOrLogout">{{ isLoggedIn ? 'Logout' : 'Login' }}</el-menu-item>
                 <el-menu-item index="7" @click="toggleDark">
                   <Icon :icon="isDark ? 'carbon:moon' : 'carbon:sun'" inline />
@@ -102,6 +124,16 @@ onMounted(() => {
   });
 
   window.addEventListener('resize', handleResize);
+  
+  // Close mobile menu when clicking outside
+  document.addEventListener('click', (e) => {
+    if (isSmallScreen.value && menuOpen.value) {
+      const mobileMenu = document.querySelector('.mobile-menu-container');
+      if (mobileMenu && !mobileMenu.contains(e.target as Node)) {
+        menuOpen.value = false;
+      }
+    }
+  });
 });
 
 onBeforeUnmount(() => {
@@ -150,6 +182,7 @@ const openApiDocs = () => {
 
 const handleSelect = (index: string) => {
   activeIndex.value = index;
+  menuOpen.value = false; // Close mobile menu after selection
   console.log("Index", activeIndex.value);
   switch (index) {
     case '1':
@@ -174,6 +207,7 @@ const handleSelect = (index: string) => {
       //ElMessage.warning('Page not found.');
   }
 };
+
 </script>
 
 <style scoped>
@@ -210,6 +244,9 @@ const handleSelect = (index: string) => {
   background-color: var(--bg-primary);
   color: var(--text-primary);
   transition: all 0.3s ease;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .el-header {
@@ -303,6 +340,9 @@ const handleSelect = (index: string) => {
 .main-content {
   padding: 0;
   min-height: calc(100vh - 120px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .content-wrapper {
@@ -310,6 +350,7 @@ const handleSelect = (index: string) => {
   margin: 0 auto;
   padding: 20px;
   min-height: 100%;
+  width: 100%;
 }
 
 /* Header styles */
@@ -320,17 +361,30 @@ const handleSelect = (index: string) => {
   justify-content: space-between;
   align-items: center;
   padding: 10px;
-  background: rgba(255, 255, 255, 0.02);
-  backdrop-filter: blur(5px);
+  background: #ffffff;
   border-radius: 8px;
+  position: relative;
 }
 
 nav {
   background: transparent !important;
 }
 
+/* Logo styles */
+.logo {
+  display: block;
+  flex-shrink: 0;
+}
+
 .logo img {
   height: 50px;
+  width: auto;
+  object-fit: contain;
+  transition: all 0.3s ease;
+}
+
+.logo img:hover {
+  transform: scale(1.05);
 }
 
 .el-menu-demo {
@@ -348,19 +402,113 @@ nav {
   font-size: 0.9rem;
 }
 
+/* Mobile menu container */
+.mobile-menu-container {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: none;
+  z-index: 1000;
+}
+
 /* Hamburger icon styles */
 .hamburger {
-  display: none;
   cursor: pointer;
-  position: absolute;
-  right: 20px;
-  top: 20px;
+  position: relative;
   z-index: 1100;
+  padding: 12px;
+  border-radius: 14px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  background: #ffffff;
+  border: 1px solid #e8eaed;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+}
+
+.hamburger:hover {
+  background: #f8f9fa;
+  transform: scale(1.08);
+  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.15);
 }
 
 .hamburger-icon {
-  font-size: 24px;
-  color: var(--text-primary);
+  font-size: 26px;
+  color: #2c3e50;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-weight: 600;
+}
+
+/* Mobile dropdown menu */
+.mobile-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15), 0 8px 25px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e8eaed;
+  min-width: 220px;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-15px) scale(0.95);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 1000;
+  margin-top: 12px;
+  overflow: hidden;
+}
+
+.mobile-dropdown-menu.open {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0) scale(1);
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  padding: 16px 20px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  color: #2c3e50;
+  font-size: 15px;
+  font-weight: 500;
+  border-bottom: 1px solid #f5f7fa;
+  position: relative;
+}
+
+.menu-item:last-child {
+  border-bottom: none;
+}
+
+.menu-item:hover {
+  background: linear-gradient(135deg, rgba(104, 64, 53, 0.08), rgba(104, 64, 53, 0.12));
+  color: #684035;
+  transform: translateX(6px);
+  box-shadow: inset 4px 0 0 #684035;
+}
+
+.menu-item:active {
+  transform: translateX(2px) scale(0.98);
+}
+
+.menu-item .iconify {
+  margin-right: 14px;
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  color: #684035;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 0.8;
+}
+
+.menu-item span {
+  flex: 1;
+  text-align: left;
 }
 
 /* Small screen styles */
@@ -368,50 +516,19 @@ nav {
   .header-content {
     justify-content: flex-end;
     padding: 10px;
+    align-items: center;
   }
 
   .logo {
-    display: none;
+    display: none; /* Hide logo on mobile */
   }
 
-  .hamburger {
+  .mobile-menu-container {
     display: block;
   }
 
   .el-menu-demo {
     display: none;
-    position: fixed;
-    top: 0;
-    right: 0;
-    width: 100%;
-    height: 100%;
-    background-color: var(--card-bg);
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-  }
-
-  .el-menu-demo.open {
-    display: flex;
-  }
-
-  .el-menu-item {
-    color: var(--text-primary);
-    padding: 10px 20px !important;
-    font-size: 16px;
-    text-align: center;
-    margin: 6px 0 !important;
-    border-radius: 20px !important;
-    width: 80%;
-    max-width: 250px;
-  }
-
-  .el-menu-item:hover {
-    background: var(--el-color-primary) !important;
-    color: white !important;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   }
 }
 
@@ -464,9 +581,7 @@ nav {
     padding: 15px;
   }
 
-  .logo img {
-    height: 40px;
-  }
+  /* Logo visible on desktop */
 
   .el-menu-item {
     padding: 0 15px;
@@ -474,14 +589,33 @@ nav {
 }
 
 @media (max-width: 768px) {
+  .base-layout {
+    height: 100vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
   .header-content {
     flex-direction: column;
     align-items: center;
     padding: 10px;
   }
 
-  .logo img {
-    height: 50px;
+  /* Logo visible on desktop */
+
+  .main-content {
+    min-height: calc(100vh - 100px);
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    flex: 1;
+  }
+
+  .content-wrapper {
+    padding: 10px;
+    width: 100%;
+    max-width: 100%;
+    min-height: auto;
   }
 
   .footer-content {
@@ -503,6 +637,27 @@ nav {
 }
 
 @media (max-width: 480px) {
+  .base-layout {
+    height: 100vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .main-content {
+    min-height: calc(100vh - 80px);
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    flex: 1;
+  }
+
+  .content-wrapper {
+    padding: 5px;
+    width: 100%;
+    max-width: 100%;
+    min-height: auto;
+  }
+
   .hero-content h1 {
     font-size: 2rem;
   }
@@ -521,13 +676,49 @@ nav {
 }
 
 .dark-mode .header-content {
-  background: rgba(0, 0, 0, 0.1);
+  background: #1a1a1a;
 }
 
 .dark-mode .el-menu-item {
   background: rgba(0, 0, 0, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
+
+.dark-mode .mobile-dropdown-menu {
+  background: #2c2c2c;
+  border-color: #3a3a3a;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4), 0 8px 25px rgba(0, 0, 0, 0.2);
+}
+
+.dark-mode .menu-item {
+  color: #e8eaed;
+  border-bottom-color: #3a3a3a;
+}
+
+.dark-mode .menu-item:hover {
+  background: linear-gradient(135deg, rgba(104, 64, 53, 0.2), rgba(104, 64, 53, 0.3));
+  color: #ffffff;
+  box-shadow: inset 4px 0 0 #684035;
+}
+
+.dark-mode .menu-item .iconify {
+  color: #e8eaed;
+  opacity: 0.9;
+}
+
+.dark-mode .hamburger-icon {
+  color: #e8eaed;
+}
+
+.dark-mode .hamburger {
+  background: #2c2c2c;
+  border: 1px solid #3a3a3a;
+}
+
+.dark-mode .hamburger:hover {
+  background: #363636;
+}
+
 
 .hero {
   position: relative;

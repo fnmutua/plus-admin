@@ -6,7 +6,6 @@ import { getIncidents, createIncident, updateIncident, deleteIncident, getIncide
 import { getIncidentDocuments, downloadIncidentFile } from '@/api/incident'
 import { uploadIncidentDocuments } from '@/api/incident'
 import { uuid } from 'vue-uuid'
-import EmailComposer from '@/components/EmailComposer.vue'
 
 const loading = ref(false)
 const list = ref<any[]>([])
@@ -31,15 +30,6 @@ const editForm = ref<any>({})
 const active = ref(0)
 const editFormRef = ref<any>(null)
 
-// Email composer
-const showEmail = ref(false)
-const emailDefaults = ref<{ recipients: string[]; subject: string; body: string }>({ recipients: [], subject: '', body: '' })
-const openEmailForIncident = (row: any) => {
-  const subject = `Incident ${row.code || ''} - ${row.severity || ''}`.trim()
-  const body = `Hello,\n\nPlease review the incident details below:\n\nCode: ${row.code}\nOccurred: ${formatDateTime(row.occurred_date)}\nLocation: ${row.location_text || ''}\nSeverity: ${row.severity || ''}\n\nBrief: ${row.description || ''}\n\nRegards,\nKeSMIS`
-  emailDefaults.value = { recipients: row?.reporter_email ? [row.reporter_email] : [], subject, body }
-  showEmail.value = true
-}
 
 // Action dialog variables
 const showActionDialog = ref(false)
@@ -752,7 +742,6 @@ watch(historyActiveTab, (v) => {
           <ElButton size="small" @click="openEditDrawer(row)">Edit</ElButton>
           <ElButton size="small" type="warning" @click="openStatusDialog(row)">Status</ElButton>
           <ElButton size="small" type="info" @click="openHistoryDrawer(row)">History</ElButton>
-          <ElButton size="small" type="success" @click="openEmailForIncident(row)">Email</ElButton>
           <ElButton size="small" type="danger" @click="handleDelete(row)">Delete</ElButton>
         </template>
       </ElTableColumn>
@@ -760,15 +749,6 @@ watch(historyActiveTab, (v) => {
     <ElPagination v-model:current-page="page" v-model:page-size="pageSize" :total="total" layout="prev, pager, next, sizes" @current-change="fetchList" @size-change="fetchList" style="margin-top:10px;" />
   </ElCard>
 
-  <!-- Email Composer -->
-  <EmailComposer 
-    v-model="showEmail"
-    :default-recipients="emailDefaults.recipients"
-    :default-subject="emailDefaults.subject"
-    :default-body="emailDefaults.body"
-    title="Send Incident Email"
-    @sent="ElMessage.success('Email sent successfully')"
-  />
 
   <ElDialog v-model="dialog" title="Report Incident" width="60%">
     <ElForm :model="form" label-position="top">

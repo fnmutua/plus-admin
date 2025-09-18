@@ -321,7 +321,7 @@ AvgHHSize();
 /* 1. Make entire page scrollable, but remove horizontal overflow */
 .landing-container {
   width: 100%;
-  min-height: 90vh;
+  min-height: 100vh;
   overflow-x: hidden;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch; /* smooth scrolling on iOS */
@@ -330,8 +330,8 @@ AvgHHSize();
 /* 2. Ensure the Element container also scrolls vertically if needed */
 .main-container {
   width: 100%;
-  min-height: 90vh;
- display: flex;
+  min-height: 100vh;
+  display: flex;
   flex-direction: column;
 }
 
@@ -746,12 +746,28 @@ AvgHHSize();
 
 /* Up to 768px wide (tablets & small desktops) */
 @media (max-width: 768px) {
+  .landing-container {
+    min-height: 100vh;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .main-container {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
   .main-content {
     padding: 0.8rem;
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .hero {
     padding: 1rem 0;
+    flex-shrink: 0;
   }
 
   .hero-visual {
@@ -839,36 +855,54 @@ AvgHHSize();
   }
 
   .grievance-section {
-    padding: 0.3rem 0;
+    padding: 1rem 0;
     position: relative;
     z-index: 1;
+    margin-top: 1rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    backdrop-filter: blur(5px);
   }
 
   .grievance-message {
     font-size: 0.9rem;
     line-height: 1.4;
+    padding: 0 1rem;
   }
 }
 
 /* Up to 480px wide (phones) */
 @media (max-width: 480px) {
-  /* Force the landing-container & main-container to fill viewport */
-  .landing-container,
-  .main-container {
-    max-height: 100vh;
+  .landing-container {
+    min-height: 100vh;
+    overflow-x: hidden;
+    overflow-y: auto;
   }
 
-  /* Cap main-content at viewport height so overflow can scroll */
+  .main-container {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
   .main-content {
     padding: 0.5rem;
-    max-height: 90vh;
+    flex: 1;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .hero {
+    flex-shrink: 0;
+    padding: 0.5rem 0;
   }
 
   .main-title {
     font-size: 1.8rem;
     margin-bottom: 1rem;
+    line-height: 1.2;
   }
 
   .subtitle {
@@ -883,8 +917,18 @@ AvgHHSize();
     padding: 0;
   }
 
+  .cta-buttons {
+    margin-bottom: 1rem;
+  }
+
+  .stats-section {
+    flex-shrink: 0;
+    margin: 1rem 0;
+  }
+
   .stat-card {
     padding: 0.4rem;
+    margin-bottom: 0.5rem;
   }
 
   .stat-value {
@@ -894,11 +938,31 @@ AvgHHSize();
   .stat-label {
     font-size: 0.9rem;
   }
- 
+
+  .grievance-section {
+    flex-shrink: 0;
+    margin-top: 1rem;
+    padding: 1rem 0;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    backdrop-filter: blur(5px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
 
   .grievance-message {
     font-size: 0.9rem;
     line-height: 1.3;
+    padding: 0 1rem;
+    text-align: center;
+  }
+
+  .grievance-link {
+    display: inline-block;
+    margin: 0 2px;
+    padding: 2px 4px;
+    background: rgba(76, 175, 80, 0.1);
+    border-radius: 4px;
+    text-decoration: none;
   }
 }
 </style>
