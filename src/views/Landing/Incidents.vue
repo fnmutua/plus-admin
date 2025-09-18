@@ -358,10 +358,14 @@ onMounted(() => {
     { name: 'description', content: 'Report incidents in slums and informal settlements through KeSMIS. Submit safety concerns, infrastructure issues, or emergency situations in Kenya\'s informal settlements.' },
     { name: 'keywords', content: 'report incident, slum incidents, informal settlement reporting, Kenya safety concerns, infrastructure issues, emergency reporting, KISIP incidents' },
     { name: 'robots', content: 'index, follow' },
-    { property: 'og:title', content: 'Report an Incident - KeSMIS Kenya Slum Management Information System' },
-    { property: 'og:description', content: 'Report incidents in slums and informal settlements through KeSMIS. Submit safety concerns, infrastructure issues, or emergency situations.' },
+    { property: 'og:title', content: 'Report an Incident - KISIP' },
+    { property: 'og:description', content: 'Report site incidents and accidents through KeSMIS:Safety concerns, infrastructure issues, or emergency situations.' },
     { property: 'og:type', content: 'website' },
-    { property: 'og:url', content: 'https://kesmis.go.ke/incidents' }
+    { property: 'og:url', content: 'https://kesmis.go.ke/incidents' },
+    { property: 'og:image', content: 'https://kesmis.go.ke/assets/warning.png' },
+    { property: 'og:image:width', content: '50' },
+    { property: 'og:image:height', content: '50' }
+
   ];
 
   metaTags.forEach(tag => {
