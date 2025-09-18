@@ -7,11 +7,14 @@
           <el-tabs v-model="activeName" :tab-position="tabPosition">
 
             <el-tab-pane label="File a Grievance" name="file">
-              <el-steps :active="active" finish-status="success">
-                <el-step title="Personal Details" />
-                <el-step title="Grievance Details" />
-                <el-step title="Review & Submit" />
-              </el-steps>
+              <section aria-label="Grievance Filing Process">
+                <h1 class="visually-hidden">File a Grievance with KISIP</h1>
+                <el-steps :active="active" finish-status="success" aria-label="Grievance filing steps">
+                  <el-step title="Personal Details" />
+                  <el-step title="Grievance Details" />
+                  <el-step title="Review & Submit" />
+                </el-steps>
+              </section>
 
               <el-form
 :model="grmForm" class="demo-form-inline" label-position="top" :rules="currentStepRules"
@@ -354,6 +357,59 @@ import {
 import BaseLayout from './BaseLayout.vue';
 import { getCountyAuth, getSettlementByCountyAuth } from '@/api/register'
 import { uploadGrievanceDocuments, generateGrievance, logGrievanceAction, getGrievanceStatus, sendAcknowledgement,selfEscalate } from '@/api/grievance'
+
+// SEO Meta Tags Setup
+onMounted(() => {
+  document.title = 'File a Grievance - KeSMIS Kenya Slum Management Information System | KISIP';
+  
+  const metaTags = [
+    { name: 'description', content: 'File a grievance with KeSMIS KISIP project. Submit complaints, feedback, or concerns about the Kenya Informal Settlements Improvement Project through our online grievance management system.' },
+    { name: 'keywords', content: 'file grievance, KISIP complaint, Kenya slum management grievance, online complaint form, KISIP feedback, grievance management system' },
+    { name: 'robots', content: 'index, follow' },
+    { property: 'og:title', content: 'File a Grievance - KeSMIS Kenya Slum Management Information System' },
+    { property: 'og:description', content: 'File a grievance with KeSMIS KISIP project. Submit complaints, feedback, or concerns about the Kenya Informal Settlements Improvement Project.' },
+    { property: 'og:type', content: 'website' },
+    { property: 'og:url', content: 'https://kesmis.go.ke/grm' }
+  ];
+
+  metaTags.forEach(tag => {
+    const meta = document.createElement('meta');
+    if (tag.name) meta.setAttribute('name', tag.name);
+    if (tag.property) meta.setAttribute('property', tag.property);
+    meta.setAttribute('content', tag.content);
+    document.head.appendChild(meta);
+  });
+
+  const canonicalLink = document.createElement('link');
+  canonicalLink.setAttribute('rel', 'canonical');
+  canonicalLink.setAttribute('href', 'https://kesmis.go.ke/grm');
+  document.head.appendChild(canonicalLink);
+
+  const script = document.createElement('script');
+  script.type = 'application/ld+json';
+  script.textContent = JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    "name": "File a Grievance",
+    "description": "Grievance management system for the Kenya Slum Management Information System",
+    "url": "https://kesmis.go.ke/grm",
+    "isPartOf": {
+      "@type": "WebSite",
+      "name": "KeSMIS",
+      "url": "https://kesmis.go.ke"
+    },
+    "mainEntity": {
+      "@type": "Service",
+      "name": "Grievance Management Service",
+      "description": "Online grievance filing system for KISIP project complaints and feedback",
+      "provider": {
+        "@type": "Organization",
+        "name": "Kenya Informal Settlements Improvement Project (KISIP)"
+      }
+    }
+  });
+  document.head.appendChild(script);
+});
 import {
   ArrowLeft,
   ArrowRight,
@@ -1285,6 +1341,19 @@ onMounted(() => {
 
 
 <style>
+/* Accessibility */
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
 .form-container {
   max-height: 100vh;
   overflow-y: auto;

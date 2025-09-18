@@ -1,0 +1,26 @@
+User-agent: *
+Allow: /
+
+# Sitemap location
+Sitemap: https://kesmis.go.ke/sitemap.xml
+
+# Disallow admin and private areas
+Disallow: /admin/
+Disallow: /dashboard/
+Disallow: /api/
+Disallow: /uploads/
+Disallow: /server/
+
+# Allow important landing pages
+Allow: /
+Allow: /about
+Allow: /contact
+Allow: /faq
+Allow: /privacy
+Allow: /status
+Allow: /incidents
+Allow: /grm
+Allow: /login
+
+# Crawl delay (optional)
+Crawl-delay: 1

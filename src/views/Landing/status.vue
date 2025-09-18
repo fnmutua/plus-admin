@@ -87,6 +87,50 @@ import {
 import { onMounted,  ref } from 'vue'
 import { useRoute } from 'vue-router'
 
+// SEO Meta Tags Setup
+onMounted(() => {
+  document.title = 'Grievance Status Check - KeSMIS Kenya Slum Management Information System | KISIP';
+  
+  const metaTags = [
+    { name: 'description', content: 'Check the status of your grievance with KeSMIS. Track your complaint progress and download related documents using your grievance code and phone number.' },
+    { name: 'keywords', content: 'grievance status, complaint tracking, KeSMIS status check, KISIP grievance, complaint progress' },
+    { name: 'robots', content: 'index, follow' },
+    { property: 'og:title', content: 'Grievance Status Check - KeSMIS' },
+    { property: 'og:description', content: 'Check the status of your grievance with KeSMIS. Track your complaint progress and download related documents.' },
+    { property: 'og:type', content: 'website' },
+    { property: 'og:url', content: 'https://kesmis.go.ke/status' }
+  ];
+
+  metaTags.forEach(tag => {
+    const meta = document.createElement('meta');
+    if (tag.name) meta.setAttribute('name', tag.name);
+    if (tag.property) meta.setAttribute('property', tag.property);
+    meta.setAttribute('content', tag.content);
+    document.head.appendChild(meta);
+  });
+
+  const canonicalLink = document.createElement('link');
+  canonicalLink.setAttribute('rel', 'canonical');
+  canonicalLink.setAttribute('href', 'https://kesmis.go.ke/status');
+  document.head.appendChild(canonicalLink);
+
+  const script = document.createElement('script');
+  script.type = 'application/ld+json';
+  script.textContent = JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    "name": "Grievance Status Check",
+    "description": "Check the status of your grievance with the Kenya Slum Management Information System",
+    "url": "https://kesmis.go.ke/status",
+    "isPartOf": {
+      "@type": "WebSite",
+      "name": "KeSMIS",
+      "url": "https://kesmis.go.ke"
+    }
+  });
+  document.head.appendChild(script);
+});
+
 const route = useRoute()
 
 

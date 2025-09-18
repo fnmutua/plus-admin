@@ -9,10 +9,10 @@
                 <div class="hero-content">
                   <div class="hero-text">
                     <h1 class="main-title">Welcome to KeSMIS</h1>
-                    <h3 class="subtitle">Kenya Slum Management Information System</h3>
+                    <h2 class="subtitle">Kenya Slum Management Information System</h2>
 
                     <p class="description">
-                      This is the national geodatabase for slums and informal settlements across Kenya. It provides a centralized platform for real-time data collection, storage, and visualization.
+                      This is the national geodatabase for slums and informal settlements across Kenya. It provides a centralized platform for real-time data collection, storage, and visualization to support urban planning and development initiatives across the country.
                     </p>
 
                     <div class="cta-buttons">
@@ -37,62 +37,66 @@
                     </div>
                   </div>
 
-                  <el-row :gutter="10" class="stats-grid">
-                    <el-col :xs="24" :sm="12" :md="8" :lg="6">
-                      <el-card shadow="hover" class="stat-card">
-                        <div class="stat-icon">
-                          <Icon icon="tabler:map-2" />
-                        </div>
-                        <div class="stat-value">{{ NumSettlements }}</div>
-                        <div class="stat-label">Slums/Informal settlements</div>
-                      </el-card>
-                    </el-col>
-                    <el-col :xs="24" :sm="12" :md="8" :lg="6">
-                      <el-card shadow="hover" class="stat-card">
-                        <div class="stat-icon">
-                          <Icon icon="mdi:account-group" />
-                        </div>
-                        <div class="stat-value">{{ Population }}</div>
-                        <div class="stat-label">People living in Slums</div>
-                      </el-card>
-                    </el-col>
-                    <el-col :xs="24" :sm="12" :md="8" :lg="6">
-                      <el-card shadow="hover" class="stat-card">
-                        <div class="stat-icon">
-                          <Icon icon="fa-solid:road" />
-                        </div>
-                        <div class="stat-value">{{ TotalProjs }}</div>
-                        <div class="stat-label">Intervention Projects</div>
-                      </el-card>
-                    </el-col>
-                    <el-col :xs="24" :sm="12" :md="8" :lg="6">
-                      <el-card shadow="hover" class="stat-card">
-                        <div class="stat-icon">
-                          <Icon icon="vaadin:family" />
-                        </div>
-                        <div class="stat-value">{{ avgHHSize }}</div>
-                        <div class="stat-label">Avg. Household Size</div>
-                      </el-card>
-                    </el-col>
-                  </el-row>
+                  <section class="stats-section" aria-label="System Statistics">
+                    <h2 class="visually-hidden">KeSMIS System Statistics</h2>
+                    <el-row :gutter="10" class="stats-grid">
+                      <el-col :xs="24" :sm="12" :md="8" :lg="6">
+                        <article class="stat-card">
+                          <div class="stat-icon" aria-hidden="true">
+                            <Icon icon="tabler:map-2" />
+                          </div>
+                          <div class="stat-value" aria-label="Number of settlements">{{ NumSettlements }}</div>
+                          <div class="stat-label">Slums/Informal settlements</div>
+                        </article>
+                      </el-col>
+                      <el-col :xs="24" :sm="12" :md="8" :lg="6">
+                        <article class="stat-card">
+                          <div class="stat-icon" aria-hidden="true">
+                            <Icon icon="mdi:account-group" />
+                          </div>
+                          <div class="stat-value" aria-label="Population in slums">{{ Population }}</div>
+                          <div class="stat-label">People living in Slums</div>
+                        </article>
+                      </el-col>
+                      <el-col :xs="24" :sm="12" :md="8" :lg="6">
+                        <article class="stat-card">
+                          <div class="stat-icon" aria-hidden="true">
+                            <Icon icon="fa-solid:road" />
+                          </div>
+                          <div class="stat-value" aria-label="Total projects">{{ TotalProjs }}</div>
+                          <div class="stat-label">Intervention Projects</div>
+                        </article>
+                      </el-col>
+                      <el-col :xs="24" :sm="12" :md="8" :lg="6">
+                        <article class="stat-card">
+                          <div class="stat-icon" aria-hidden="true">
+                            <Icon icon="vaadin:family" />
+                          </div>
+                          <div class="stat-value" aria-label="Average household size">{{ avgHHSize }}</div>
+                          <div class="stat-label">Avg. Household Size</div>
+                        </article>
+                      </el-col>
+                    </el-row>
+                  </section>
                 </div>
               </el-col>
             </el-row>
           </div>
 
-          <el-row justify="center">
-            <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
-              <div class="grievance-section">
+          <section class="grievance-section" aria-label="Grievance Reporting">
+            <el-row justify="center">
+              <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
                 <div class="grievance-content">
+                  <h2 class="visually-hidden">Report a Grievance</h2>
                   <p class="grievance-message">
                     If you have a grievance against the KISIP project or its actors, you can
-                    <el-button plain link class="grievance-link" @click="navigateTo('grm')">file a grievance</el-button>, or call our toll free helpline at
-                    <a href="tel:0800724349" class="grievance-link">0800 724 349 </a> free of charge.
+                    <el-button plain link class="grievance-link" @click="navigateTo('grm')" aria-label="File a grievance online">file a grievance</el-button>, or call our toll free helpline at
+                    <a href="tel:0800724349" class="grievance-link" aria-label="Call toll free helpline">0800 724 349</a> free of charge.
                   </p>
                 </div>
-              </div>
-            </el-col>
-          </el-row>
+              </el-col>
+            </el-row>
+          </section>
         </el-main>
       </el-container>
     </div>
@@ -100,7 +104,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useCache } from '@/hooks/web/useCache';
 import { useAppStoreWithOut } from '@/store/modules/app';
@@ -110,12 +114,79 @@ import {
   ElRow,
   ElMain,
   ElContainer,
-  ElCard,
 } from 'element-plus';
 import BaseLayout from './BaseLayout.vue';
 import { Lock } from '@element-plus/icons-vue';
 import { Icon } from '@iconify/vue';
 import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary';
+
+// SEO Meta Tags Setup
+onMounted(() => {
+  // Set document title
+  document.title = 'KeSMIS - Kenya Slum Management Information System | KISIP';
+  
+  // Create and add meta tags
+  const metaTags = [
+    { name: 'description', content: 'Kenya Slum Management Information System (KeSMIS) - National geodatabase for slums and informal settlements across Kenya. Real-time data collection, storage, and visualization platform for urban planning and development.' },
+    { name: 'keywords', content: 'Kenya slums, informal settlements, urban planning, KISIP, geodatabase, slum management, data collection, Kenya housing, urban development, settlement mapping' },
+    { name: 'author', content: 'Kenya Informal Settlements Improvement Project (KISIP)' },
+    { name: 'robots', content: 'index, follow' },
+    { property: 'og:title', content: 'KeSMIS - Kenya Slum Management Information System' },
+    { property: 'og:description', content: 'National geodatabase for slums and informal settlements across Kenya. Real-time data collection, storage, and visualization platform.' },
+    { property: 'og:type', content: 'website' },
+    { property: 'og:url', content: 'https://kesmis.go.ke' },
+    { property: 'og:image', content: 'https://kesmis.go.ke/og-image.jpg' },
+    { property: 'og:site_name', content: 'KeSMIS' },
+    { property: 'og:locale', content: 'en_KE' },
+    { name: 'twitter:card', content: 'summary_large_image' },
+    { name: 'twitter:title', content: 'KeSMIS - Kenya Slum Management Information System' },
+    { name: 'twitter:description', content: 'National geodatabase for slums and informal settlements across Kenya. Real-time data collection and visualization platform.' },
+    { name: 'twitter:image', content: 'https://kesmis.go.ke/twitter-card.jpg' },
+    { name: 'theme-color', content: '#684035' },
+    { name: 'msapplication-TileColor', content: '#684035' }
+  ];
+
+  metaTags.forEach(tag => {
+    const meta = document.createElement('meta');
+    if (tag.name) {
+      meta.setAttribute('name', tag.name);
+    }
+    if (tag.property) {
+      meta.setAttribute('property', tag.property);
+    }
+    meta.setAttribute('content', tag.content);
+    document.head.appendChild(meta);
+  });
+
+  // Add canonical link
+  const canonicalLink = document.createElement('link');
+  canonicalLink.setAttribute('rel', 'canonical');
+  canonicalLink.setAttribute('href', 'https://kesmis.go.ke');
+  document.head.appendChild(canonicalLink);
+
+  // Add JSON-LD structured data
+  const script = document.createElement('script');
+  script.type = 'application/ld+json';
+  script.textContent = JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "KeSMIS - Kenya Slum Management Information System",
+    "description": "National geodatabase for slums and informal settlements across Kenya",
+    "url": "https://kesmis.go.ke",
+    "publisher": {
+      "@type": "Organization",
+      "name": "Kenya Informal Settlements Improvement Project (KISIP)",
+      "url": "https://kesmis.go.ke",
+      "logo": "https://kesmis.go.ke/logo.png"
+    },
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": "https://kesmis.go.ke/search?q={search_term_string}",
+      "query-input": "required name=search_term_string"
+    }
+  });
+  document.head.appendChild(script);
+});
 
 const router = useRouter();
 const { wsCache } = useCache();
@@ -658,7 +729,20 @@ AvgHHSize();
   }
 }
 
-/* 7. RESPONSIVE ADJUSTMENTS */
+/* 7. ACCESSIBILITY */
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+/* 8. RESPONSIVE ADJUSTMENTS */
 
 /* Up to 768px wide (tablets & small desktops) */
 @media (max-width: 768px) {

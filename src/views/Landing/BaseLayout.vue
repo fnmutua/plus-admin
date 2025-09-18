@@ -5,7 +5,7 @@
         <el-header>
           <div class="header-content">
             <div v-if="!isSmallScreen || menuOpen" class="logo">
-              <img src="@/assets/imgs/1logo.png" alt="KISIP" />
+              <img src="@/assets/imgs/1logo.png" alt="KISIP - Kenya Informal Settlements Improvement Project" width="120" height="40" loading="lazy" />
             </div>
             <nav style="background: transparent;">
               <!-- Hamburger icon for small screens -->

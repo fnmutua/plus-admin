@@ -5,15 +5,18 @@
         <el-tabs v-model="activeName" :tab-position="tabPosition">
           <!-- TAB 1: File Incident -->
           <el-tab-pane label="File an Incident" name="file">
-            <el-steps v-if="!isMobile" :active="active" finish-status="success" :direction="isMobile ? 'vertical' : 'horizontal'" :simple="isMobile">
-              <el-step title="Incident Details" />
-              <el-step title="Incident Details(2)" />
-              <el-step title="Investigation" />
-              <el-step title="Investigation(2)" />
-              <el-step title="Narrative" />
-              <el-step title="Actions" />
-              <el-step title="Prepared" />
-            </el-steps>
+            <section aria-label="Incident Reporting Process">
+              <h1 class="visually-hidden">Report an Incident in Slums and Informal Settlements</h1>
+              <el-steps v-if="!isMobile" :active="active" finish-status="success" :direction="isMobile ? 'vertical' : 'horizontal'" :simple="isMobile" aria-label="Incident reporting steps">
+                <el-step title="Incident Details" />
+                <el-step title="Incident Details(2)" />
+                <el-step title="Investigation" />
+                <el-step title="Investigation(2)" />
+                <el-step title="Narrative" />
+                <el-step title="Actions" />
+                <el-step title="Prepared" />
+              </el-steps>
+            </section>
 
             <el-form
               :model="incidentForm"
@@ -337,7 +340,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { ElMessage,ElStep,ElSteps,ElTabPane,ElTabs,ElCheckboxGroup,ElCheckbox,ElDatePicker,ElCol,ElRow,ElDialog,
   ElTimePicker,ElInput,ElSelect,ElOption,ElTable,ElTableColumn,ElButton,ElCard,ElForm,ElFormItem, ElUpload } from 'element-plus'
 import BaseLayout from './BaseLayout.vue'
@@ -346,6 +349,59 @@ import type { FormInstance } from 'element-plus'
 import { getCountyAuth, getSettlementByCountyAuth } from '@/api/register'
 import type { UploadUserFile } from 'element-plus'
 import { uuid } from 'vue-uuid'
+
+// SEO Meta Tags Setup
+onMounted(() => {
+  document.title = 'Report an Incident - KeSMIS Kenya Slum Management Information System | KISIP';
+  
+  const metaTags = [
+    { name: 'description', content: 'Report incidents in slums and informal settlements through KeSMIS. Submit safety concerns, infrastructure issues, or emergency situations in Kenya\'s informal settlements.' },
+    { name: 'keywords', content: 'report incident, slum incidents, informal settlement reporting, Kenya safety concerns, infrastructure issues, emergency reporting, KISIP incidents' },
+    { name: 'robots', content: 'index, follow' },
+    { property: 'og:title', content: 'Report an Incident - KeSMIS Kenya Slum Management Information System' },
+    { property: 'og:description', content: 'Report incidents in slums and informal settlements through KeSMIS. Submit safety concerns, infrastructure issues, or emergency situations.' },
+    { property: 'og:type', content: 'website' },
+    { property: 'og:url', content: 'https://kesmis.go.ke/incidents' }
+  ];
+
+  metaTags.forEach(tag => {
+    const meta = document.createElement('meta');
+    if (tag.name) meta.setAttribute('name', tag.name);
+    if (tag.property) meta.setAttribute('property', tag.property);
+    meta.setAttribute('content', tag.content);
+    document.head.appendChild(meta);
+  });
+
+  const canonicalLink = document.createElement('link');
+  canonicalLink.setAttribute('rel', 'canonical');
+  canonicalLink.setAttribute('href', 'https://kesmis.go.ke/incidents');
+  document.head.appendChild(canonicalLink);
+
+  const script = document.createElement('script');
+  script.type = 'application/ld+json';
+  script.textContent = JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    "name": "Report an Incident",
+    "description": "Incident reporting system for slums and informal settlements in Kenya",
+    "url": "https://kesmis.go.ke/incidents",
+    "isPartOf": {
+      "@type": "WebSite",
+      "name": "KeSMIS",
+      "url": "https://kesmis.go.ke"
+    },
+    "mainEntity": {
+      "@type": "Service",
+      "name": "Incident Reporting Service",
+      "description": "Online incident reporting system for slums and informal settlements",
+      "provider": {
+        "@type": "Organization",
+        "name": "Kenya Informal Settlements Improvement Project (KISIP)"
+      }
+    }
+  });
+  document.head.appendChild(script);
+});
 import { useRouter } from 'vue-router';
 
 const router = useRouter();
@@ -769,6 +825,19 @@ const isDarkMode = ref(false)
 </script>
 
 <style>
+/* Accessibility */
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
 .incident-container { padding: 1rem; }
 .steps-navigation { 
   margin-top: 1rem; 

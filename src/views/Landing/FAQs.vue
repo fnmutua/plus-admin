@@ -80,6 +80,64 @@
 <script setup lang="ts">
 import { ElCollapse, ElCollapseItem } from 'element-plus';
 import BaseLayout from './BaseLayout.vue';
+import { onMounted } from 'vue';
+
+// SEO Meta Tags Setup
+onMounted(() => {
+  document.title = 'FAQs - KeSMIS Kenya Slum Management Information System | KISIP';
+  
+  const metaTags = [
+    { name: 'description', content: 'Frequently Asked Questions about KeSMIS (Kenya Slum Management Information System). Find answers about SlumMapper app, data collection, privacy, and technical support.' },
+    { name: 'keywords', content: 'KeSMIS FAQ, SlumMapper questions, Kenya slum management help, KISIP support, data collection FAQ, technical support' },
+    { name: 'robots', content: 'index, follow' },
+    { property: 'og:title', content: 'FAQs - KeSMIS Kenya Slum Management Information System' },
+    { property: 'og:description', content: 'Frequently Asked Questions about KeSMIS. Find answers about SlumMapper app, data collection, privacy, and technical support.' },
+    { property: 'og:type', content: 'website' },
+    { property: 'og:url', content: 'https://kesmis.go.ke/faq' }
+  ];
+
+  metaTags.forEach(tag => {
+    const meta = document.createElement('meta');
+    if (tag.name) meta.setAttribute('name', tag.name);
+    if (tag.property) meta.setAttribute('property', tag.property);
+    meta.setAttribute('content', tag.content);
+    document.head.appendChild(meta);
+  });
+
+  const canonicalLink = document.createElement('link');
+  canonicalLink.setAttribute('rel', 'canonical');
+  canonicalLink.setAttribute('href', 'https://kesmis.go.ke/faq');
+  document.head.appendChild(canonicalLink);
+
+  const script = document.createElement('script');
+  script.type = 'application/ld+json';
+  script.textContent = JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "name": "KeSMIS Frequently Asked Questions",
+    "description": "Common questions and answers about the Kenya Slum Management Information System",
+    "url": "https://kesmis.go.ke/faq",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "What is the Kenya Slum Information System?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "The Kenya Slum Information System (KSIS) is a comprehensive digital platform designed to collect, manage, and analyze data about informal settlements across Kenya."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "What is SlumMapper and how does it work?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "SlumMapper is a mobile application that allows users to map and document informal settlements using GPS technology and can work offline in areas with limited connectivity."
+        }
+      }
+    ]
+  });
+  document.head.appendChild(script);
+});
 </script>
 
 <style>

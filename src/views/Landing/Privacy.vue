@@ -49,6 +49,50 @@ import { onMounted, ref } from 'vue';
 import { ElMain, ElButton,  ElTabPane,ElTabs } from 'element-plus';
 import BaseLayout from './BaseLayout.vue';
 
+// SEO Meta Tags Setup
+onMounted(() => {
+  document.title = 'Privacy Policy - KeSMIS Kenya Slum Management Information System | KISIP';
+  
+  const metaTags = [
+    { name: 'description', content: 'Privacy Policy for KeSMIS (Kenya Slum Management Information System) and SlumMapper app. Learn how we collect, use, and protect your personal information.' },
+    { name: 'keywords', content: 'KeSMIS privacy policy, SlumMapper privacy, data protection Kenya, KISIP privacy, personal information policy' },
+    { name: 'robots', content: 'index, follow' },
+    { property: 'og:title', content: 'Privacy Policy - KeSMIS Kenya Slum Management Information System' },
+    { property: 'og:description', content: 'Privacy Policy for KeSMIS and SlumMapper app. Learn how we collect, use, and protect your personal information.' },
+    { property: 'og:type', content: 'website' },
+    { property: 'og:url', content: 'https://kesmis.go.ke/privacy' }
+  ];
+
+  metaTags.forEach(tag => {
+    const meta = document.createElement('meta');
+    if (tag.name) meta.setAttribute('name', tag.name);
+    if (tag.property) meta.setAttribute('property', tag.property);
+    meta.setAttribute('content', tag.content);
+    document.head.appendChild(meta);
+  });
+
+  const canonicalLink = document.createElement('link');
+  canonicalLink.setAttribute('rel', 'canonical');
+  canonicalLink.setAttribute('href', 'https://kesmis.go.ke/privacy');
+  document.head.appendChild(canonicalLink);
+
+  const script = document.createElement('script');
+  script.type = 'application/ld+json';
+  script.textContent = JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    "name": "Privacy Policy",
+    "description": "Privacy Policy for the Kenya Slum Management Information System and SlumMapper app",
+    "url": "https://kesmis.go.ke/privacy",
+    "isPartOf": {
+      "@type": "WebSite",
+      "name": "KeSMIS",
+      "url": "https://kesmis.go.ke"
+    }
+  });
+  document.head.appendChild(script);
+});
+
  
 
 const grmForm = ref({

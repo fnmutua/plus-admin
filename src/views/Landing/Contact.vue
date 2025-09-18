@@ -1,24 +1,24 @@
 <template>
   <BaseLayout>
     <div class="contact-wrapper">
-          <div class="contact-info">
+          <section class="contact-info" aria-label="Contact Information">
             <h2>Get in Touch</h2>
             <p>We'd love to hear from you. Send us a message and we'll respond as soon as possible.</p>
             <div class="contact-details">
               <div class="contact-item">
-                <i class="el-icon-location"></i>
+                <i class="el-icon-location" aria-hidden="true"></i>
                 <span>Nairobi, Kenya</span>
               </div>
               <div class="contact-item">
-                <i class="el-icon-message"></i>
-                <span>kisip2info@gmail.com</span>
+                <i class="el-icon-message" aria-hidden="true"></i>
+                <a href="mailto:kisip2info@gmail.com" aria-label="Send email to KISIP">kisip2info@gmail.com</a>
               </div>
               <div class="contact-item">
-                <i class="el-icon-phone"></i>
-                <span>0800 724 349 </span>
+                <i class="el-icon-phone" aria-hidden="true"></i>
+                <a href="tel:0800724349" aria-label="Call KISIP helpline">0800 724 349</a>
               </div>
             </div>
-          </div>
+          </section>
 
           <el-form 
             :model="contactForm" 
@@ -111,12 +111,62 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { ElButton, ElCard, ElForm, ElFormItem, ElInput, ElRow, ElCol, ElMessage, ElSelect, ElOption } from 'element-plus';
 import { User, Phone, Message } from '@element-plus/icons-vue';
 import type { FormInstance, FormRules } from 'element-plus';
 import BaseLayout from './BaseLayout.vue';
 import countryPhoneCodes from '@/utils/countryPhoneCodes.json';
+
+// SEO Meta Tags Setup
+onMounted(() => {
+  document.title = 'Contact KeSMIS - Kenya Slum Management Information System | KISIP';
+  
+  const metaTags = [
+    { name: 'description', content: 'Contact the KeSMIS team for support, inquiries, or feedback. Get in touch with KISIP for assistance with the Kenya Slum Management Information System.' },
+    { name: 'keywords', content: 'contact KeSMIS, KISIP support, Kenya slum management contact, technical support, feedback form, helpline Kenya' },
+    { name: 'robots', content: 'index, follow' },
+    { property: 'og:title', content: 'Contact KeSMIS - Kenya Slum Management Information System' },
+    { property: 'og:description', content: 'Contact the KeSMIS team for support, inquiries, or feedback. Get in touch with KISIP for assistance.' },
+    { property: 'og:type', content: 'website' },
+    { property: 'og:url', content: 'https://kesmis.go.ke/contact' }
+  ];
+
+  metaTags.forEach(tag => {
+    const meta = document.createElement('meta');
+    if (tag.name) meta.setAttribute('name', tag.name);
+    if (tag.property) meta.setAttribute('property', tag.property);
+    meta.setAttribute('content', tag.content);
+    document.head.appendChild(meta);
+  });
+
+  const canonicalLink = document.createElement('link');
+  canonicalLink.setAttribute('rel', 'canonical');
+  canonicalLink.setAttribute('href', 'https://kesmis.go.ke/contact');
+  document.head.appendChild(canonicalLink);
+
+  const script = document.createElement('script');
+  script.type = 'application/ld+json';
+  script.textContent = JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "ContactPage",
+    "name": "Contact KeSMIS",
+    "description": "Contact information for the Kenya Slum Management Information System",
+    "url": "https://kesmis.go.ke/contact",
+    "mainEntity": {
+      "@type": "Organization",
+      "name": "Kenya Informal Settlements Improvement Project (KISIP)",
+      "email": "kisip2info@gmail.com",
+      "telephone": "0800 724 349",
+      "address": {
+        "@type": "PostalAddress",
+        "addressLocality": "Nairobi",
+        "addressCountry": "Kenya"
+      }
+    }
+  });
+  document.head.appendChild(script);
+});
 
 const formRef = ref<FormInstance>();
 
