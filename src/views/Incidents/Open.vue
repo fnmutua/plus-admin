@@ -6,6 +6,8 @@ import { getIncidents, createIncident, updateIncident, deleteIncident, getIncide
 import { getIncidentDocuments, downloadIncidentFile } from '@/api/incident'
 import { uploadIncidentDocuments } from '@/api/incident'
 import { uuid } from 'vue-uuid'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
 const loading = ref(false)
 const list = ref<any[]>([])
@@ -700,6 +702,483 @@ const uploadDocuments = async (incidentId: number, files: any[]) => {
   }
 }
 
+// PDF generation function
+const generatePDF = async (incidentData: any) => {
+  try {
+    ElMessage.info('Generating PDF report...')
+    
+    // Use provided incident data or fallback to selectedIncident
+    const incident = incidentData || selectedIncident.value
+    if (!incident) {
+      throw new Error('No incident data available')
+    }
+    
+    // Ensure documents and history are loaded
+    if (docs.value.length === 0) {
+      await fetchIncidentDocuments()
+    }
+    if (historyList.value.length === 0) {
+      const res: any = await getIncidentHistory({ incident_id: incident.id })
+      if (res && res.code === '0000') {
+        historyList.value = res.data || []
+      }
+    }
+    
+    const documents = docs.value || []
+    const history = historyList.value || []
+    
+    // Create PDF
+    const doc = new jsPDF()
+    
+    // Set up fonts and colors
+    // Get primary color from CSS variables
+    const getPrimaryColor = () => {
+      const root = document.documentElement
+      const primaryColor = getComputedStyle(root).getPropertyValue('--el-color-primary').trim()
+      
+      if (primaryColor) {
+        // Convert hex to RGB
+        const hex = primaryColor.replace('#', '')
+        const r = parseInt(hex.substr(0, 2), 16)
+        const g = parseInt(hex.substr(2, 2), 16)
+        const b = parseInt(hex.substr(4, 2), 16)
+        return [r, g, b]
+      }
+      
+      // Fallback to default primary color
+      return [64, 158, 255] // Element Plus default blue
+    }
+    
+    const primaryColor = getPrimaryColor()
+    const lightGray = [236, 240, 241] // #ecf0f1
+    
+    // Helper function to format dates
+    const formatDate = (date: any) => {
+      if (!date) return 'N/A'
+      const d = new Date(date)
+      const day = String(d.getDate()).padStart(2, '0')
+      const month = String(d.getMonth() + 1).padStart(2, '0')
+      const year = d.getFullYear()
+      return `${day}-${month}-${year}`
+    }
+    
+    // Helper function to format time
+    const formatTime = (time: any) => {
+      if (!time) return 'N/A'
+      
+      let hours, minutes, ampm
+      
+      // If it's an ISO datetime string, extract just the time part
+      if (typeof time === 'string' && time.includes('T')) {
+        const date = new Date(time)
+        hours = date.getHours()
+        minutes = String(date.getMinutes()).padStart(2, '0')
+      }
+      // If it's already in HH:MM format, convert to 12-hour
+      else if (typeof time === 'string' && time.includes(':')) {
+        const [h, m] = time.split(':')
+        hours = parseInt(h, 10)
+        minutes = m.padStart(2, '0')
+      }
+      // For Date objects, extract time
+      else if (time instanceof Date) {
+        hours = time.getHours()
+        minutes = String(time.getMinutes()).padStart(2, '0')
+      }
+      else {
+        return time
+      }
+      
+      // Convert to 12-hour format with AM/PM
+      let hour12 = hours
+      if (hours === 0) {
+        hour12 = 12
+        ampm = 'AM'
+      } else if (hours < 12) {
+        hour12 = hours
+        ampm = 'AM'
+      } else if (hours === 12) {
+        hour12 = 12
+        ampm = 'PM'
+      } else {
+        hour12 = hours - 12
+        ampm = 'PM'
+      }
+      
+      return `${hour12}:${minutes} ${ampm}`
+    }
+    
+    // Helper function to format datetime
+    const formatDateTime = (date: any) => {
+      if (!date) return 'N/A'
+      const d = new Date(date)
+      const day = String(d.getDate()).padStart(2, '0')
+      const month = String(d.getMonth() + 1).padStart(2, '0')
+      const year = d.getFullYear()
+      const hours = d.getHours()
+      const minutes = String(d.getMinutes()).padStart(2, '0')
+      
+      let hour12 = hours
+      let ampm = 'AM'
+      
+      if (hours === 0) {
+        hour12 = 12
+        ampm = 'AM'
+      } else if (hours < 12) {
+        hour12 = hours
+        ampm = 'AM'
+      } else if (hours === 12) {
+        hour12 = 12
+        ampm = 'PM'
+      } else {
+        hour12 = hours - 12
+        ampm = 'PM'
+      }
+      
+      return `${day}-${month}-${year} ${hour12}:${minutes} ${ampm}`
+    }
+    
+    // Helper function to add text with styling
+    const addText = (text: string, x: number, y: number, options: any = {}) => {
+      const { fontSize = 10, fontStyle = 'normal', color = [0, 0, 0], align = 'left' } = options
+      doc.setFontSize(fontSize)
+      doc.setFont('helvetica', fontStyle)
+      doc.setTextColor(color[0], color[1], color[2])
+      doc.text(text, x, y, { align })
+    }
+
+    // Helper function to add line
+    const addLine = (x1: number, y1: number, x2: number, y2: number, color = [0, 0, 0], width = 0.5) => {
+      doc.setDrawColor(color[0], color[1], color[2])
+      doc.setLineWidth(width)
+      doc.line(x1, y1, x2, y2)
+    }
+
+    // Helper function to add rectangle
+    const addRect = (x: number, y: number, width: number, height: number, fillColor: number[] | null = null, strokeColor = [0, 0, 0]) => {
+      if (fillColor) {
+        doc.setFillColor(fillColor[0], fillColor[1], fillColor[2])
+        doc.rect(x, y, width, height, 'F')
+      }
+      doc.setDrawColor(strokeColor[0], strokeColor[1], strokeColor[2])
+      doc.rect(x, y, width, height)
+    }
+
+    // Header
+    addRect(10, 10, 190, 25, primaryColor)
+    addText('INCIDENT REPORT', 105, 20, { fontSize: 16, fontStyle: 'bold', color: [255, 255, 255], align: 'center' })
+    addText('Second Kenya Informal Settlement Project - KISIP 2', 105, 26, { fontSize: 10, color: [255, 255, 255], align: 'center' })
+    
+    // Incident Code and Status
+    let yPos = 45
+    addText(`Incident Code: ${incident.code || 'N/A'}`, 15, yPos, { fontSize: 12, fontStyle: 'bold', color: primaryColor })
+    
+    // Status badge
+    const statusColor = getPDFStatusColor(incident.status)
+    const statusText = getPDFStatusLabel(incident.status)
+    addText('Status: ', 120, yPos, { fontSize: 12, fontStyle: 'bold' })
+    addText(statusText, 140, yPos, { fontSize: 12, fontStyle: 'bold', color: statusColor })
+    
+    yPos += 15
+
+    // Basic Information Section
+    addText('BASIC INFORMATION', 15, yPos, { fontSize: 14, fontStyle: 'bold', color: primaryColor })
+    addLine(15, yPos + 2, 195, yPos + 2, primaryColor, 1)
+    yPos += 10
+
+    const basicInfo = [
+      ['Occurred Date:', formatDate(incident.occurred_date)],
+      ['Occurred Time:', formatTime(incident.occurred_time)],
+      ['Reported Date:', formatDate(incident.reported_date)],
+      ['Location:', incident.location_text || 'N/A'],
+      ['Severity:', incident.severity || 'N/A'],
+      ['Reported By:', incident.reported_by || 'N/A'],
+      ['Reporter Phone:', incident.reporter_phone || 'N/A']
+    ]
+
+    basicInfo.forEach(([label, value]) => {
+      addText(label, 20, yPos, { fontSize: 10, fontStyle: 'bold' })
+      addText(value, 80, yPos, { fontSize: 10 })
+      yPos += 6
+    })
+
+    yPos += 5
+
+    // Worker Details Section
+    addText('WORKER DETAILS', 15, yPos, { fontSize: 14, fontStyle: 'bold', color: primaryColor })
+    addLine(15, yPos + 2, 195, yPos + 2, primaryColor, 1)
+    yPos += 10
+
+    const workerInfo = [
+      ['Worker Name:', incident.worker_name || 'N/A'],
+      ['Designation:', incident.designation || 'N/A'],
+      ['Site Supervisor:', incident.site_supervisor || 'N/A'],
+      ['Department:', incident.department || 'N/A']
+    ]
+
+    workerInfo.forEach(([label, value]) => {
+      addText(label, 20, yPos, { fontSize: 10, fontStyle: 'bold' })
+      addText(value, 80, yPos, { fontSize: 10 })
+      yPos += 6
+    })
+
+    yPos += 5
+
+    // Check if we need a new page for incident details (leave space for footer)
+    if (yPos > 200) {
+      doc.addPage()
+      yPos = 20
+    }
+
+    // Incident Categories Section
+    addText('INCIDENT DETAILS', 15, yPos, { fontSize: 14, fontStyle: 'bold', color: primaryColor })
+    addLine(15, yPos + 2, 195, yPos + 2, primaryColor, 1)
+    yPos += 10
+
+    // Incident Types
+    if (incident.incident_types && incident.incident_types.length > 0) {
+      addText('Incident Types:', 20, yPos, { fontSize: 10, fontStyle: 'bold' })
+      yPos += 6
+      incident.incident_types.forEach((type: string) => {
+        addText(`• ${type}`, 25, yPos, { fontSize: 9 })
+        yPos += 5
+      })
+      yPos += 3
+    }
+
+    // Mechanisms
+    if (incident.mechanisms && incident.mechanisms.length > 0) {
+      addText('Mechanisms:', 20, yPos, { fontSize: 10, fontStyle: 'bold' })
+      yPos += 6
+      incident.mechanisms.forEach((mechanism: string) => {
+        addText(`• ${mechanism}`, 25, yPos, { fontSize: 9 })
+        yPos += 5
+      })
+      yPos += 3
+    }
+
+    // Causes
+    if (incident.direct_causes && incident.direct_causes.length > 0) {
+      addText('Direct Causes:', 20, yPos, { fontSize: 10, fontStyle: 'bold' })
+      yPos += 6
+      incident.direct_causes.forEach((cause: string) => {
+        addText(`• ${cause}`, 25, yPos, { fontSize: 9 })
+        yPos += 5
+      })
+      yPos += 3
+    }
+
+    if (incident.indirect_causes && incident.indirect_causes.length > 0) {
+      addText('Indirect Causes:', 20, yPos, { fontSize: 10, fontStyle: 'bold' })
+      yPos += 6
+      incident.indirect_causes.forEach((cause: string) => {
+        addText(`• ${cause}`, 25, yPos, { fontSize: 9 })
+        yPos += 5
+      })
+      yPos += 3
+    }
+
+    if (incident.root_cause && incident.root_cause.length > 0) {
+      addText('Root Causes:', 20, yPos, { fontSize: 10, fontStyle: 'bold' })
+      yPos += 6
+      incident.root_cause.forEach((cause: string) => {
+        addText(`• ${cause}`, 25, yPos, { fontSize: 9 })
+        yPos += 5
+      })
+      yPos += 3
+    }
+
+    // Check if we need a new page
+    if (yPos > 200) {
+      doc.addPage()
+      yPos = 20
+    }
+
+    // Check if we need a new page for narrative (leave space for footer)
+    if (yPos > 200) {
+      doc.addPage()
+      yPos = 20
+    }
+
+    // Narrative Section
+    addText('NARRATIVE', 15, yPos, { fontSize: 14, fontStyle: 'bold', color: primaryColor })
+    addLine(15, yPos + 2, 195, yPos + 2, primaryColor, 1)
+    yPos += 10
+
+    if (incident.description) {
+      addText('Description:', 20, yPos, { fontSize: 10, fontStyle: 'bold' })
+      yPos += 6
+      const descriptionLines = doc.splitTextToSize(incident.description, 170)
+      doc.text(descriptionLines, 20, yPos)
+      yPos += descriptionLines.length * 4 + 5
+    }
+
+    if (incident.consequences) {
+      addText('Consequences:', 20, yPos, { fontSize: 10, fontStyle: 'bold' })
+      yPos += 6
+      const consequencesLines = doc.splitTextToSize(incident.consequences, 170)
+      doc.text(consequencesLines, 20, yPos)
+      yPos += consequencesLines.length * 4 + 5
+    }
+
+    if (incident.immediate_action) {
+      addText('Immediate Action:', 20, yPos, { fontSize: 10, fontStyle: 'bold' })
+      yPos += 6
+      const actionLines = doc.splitTextToSize(incident.immediate_action, 170)
+      doc.text(actionLines, 20, yPos)
+      yPos += actionLines.length * 4 + 5
+    }
+
+    // Check if we need a new page for actions (leave space for footer)
+    if (yPos > 200) {
+      doc.addPage()
+      yPos = 20
+    }
+
+    // Actions to Avoid Section
+    if (incident.actions_to_avoid && incident.actions_to_avoid.length > 0) {
+      addText('ACTIONS TO AVOID', 15, yPos, { fontSize: 14, fontStyle: 'bold', color: primaryColor })
+      addLine(15, yPos + 2, 195, yPos + 2, primaryColor, 1)
+      yPos += 10
+
+      // Create table for actions
+      const actionsData = incident.actions_to_avoid.map((action: any, index: number) => [
+        index + 1,
+        action.action || 'N/A',
+        action.responsible || 'N/A',
+        action.priority || 'N/A',
+        action.due_date || 'N/A'
+      ])
+
+      autoTable(doc, {
+        head: [['#', 'Action', 'Responsible', 'Priority', 'Due Date']],
+        body: actionsData,
+        startY: yPos,
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: primaryColor as [number, number, number], textColor: [255, 255, 255], fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: lightGray as [number, number, number] },
+        margin: { left: 15, right: 15 }
+      })
+
+      yPos = (doc as any).lastAutoTable.finalY + 10
+    }
+
+    // Check if we need a new page for documents (leave space for footer)
+    if (yPos > 200) {
+      doc.addPage()
+      yPos = 20
+    }
+
+    // Documents Section
+    if (documents && documents.length > 0) {
+      addText('ATTACHED DOCUMENTS', 15, yPos, { fontSize: 14, fontStyle: 'bold', color: primaryColor })
+      addLine(15, yPos + 2, 195, yPos + 2, primaryColor, 1)
+      yPos += 10
+
+      const docsData = documents.map((doc: any, index: number) => [
+        index + 1,
+        doc.name || 'N/A',
+        doc.type || 'N/A',
+        doc.format || 'N/A',
+        doc.size ? `${doc.size} MB` : 'N/A'
+      ])
+
+      autoTable(doc, {
+        head: [['#', 'File Name', 'Type', 'Format', 'Size']],
+        body: docsData,
+        startY: yPos,
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: primaryColor as [number, number, number], textColor: [255, 255, 255], fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: lightGray as [number, number, number] },
+        margin: { left: 15, right: 15 }
+      })
+
+      yPos = (doc as any).lastAutoTable.finalY + 10
+    }
+
+    // Check if we need a new page for history (leave space for footer)
+    if (yPos > 200) {
+      doc.addPage()
+      yPos = 20
+    }
+
+    // History Section
+    if (history && history.length > 0) {
+      addText('CHANGE HISTORY', 15, yPos, { fontSize: 14, fontStyle: 'bold', color: primaryColor })
+      addLine(15, yPos + 2, 195, yPos + 2, primaryColor, 1)
+      yPos += 10
+
+      const historyData = history.slice(0, 10).map((item: any, index: number) => [
+        index + 1,
+        item.action || 'N/A',
+        item.changed_by_name || item.changedByName || 'System',
+        formatDateTime(item.createdAt),
+        item.change_reason || item.field_name || 'N/A'
+      ])
+
+      autoTable(doc, {
+        head: [['#', 'Action', 'Changed By', 'Date', 'Details']],
+        body: historyData,
+        startY: yPos,
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: primaryColor as [number, number, number], textColor: [255, 255, 255], fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: lightGray as [number, number, number] },
+        margin: { left: 15, right: 15 }
+      })
+
+      yPos = (doc as any).lastAutoTable.finalY + 10
+    }
+
+    // Footer
+    const pageCount = (doc as any).internal.getNumberOfPages()
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i)
+      
+      // Footer separator line
+      addLine(10, 275, 200, 275, [200, 200, 200], 0.5)
+      
+      // Footer content
+      addText(`Page ${i} of ${pageCount}`, 105, 285, { fontSize: 9, color: [64, 64, 64], align: 'center' })
+      addText(`Generated on ${formatDateTime(new Date())}`, 15, 285, { fontSize: 9, color: [64, 64, 64] })
+      addText('KeSMIS - Incident Management System', 15, 290, { fontSize: 8, color: [102, 102, 102] })
+    }
+
+    // Save the PDF
+    doc.save(`incident-report-${incident.code}.pdf`)
+    
+    ElMessage.success('PDF report downloaded successfully')
+  } catch (e) {
+    console.error('PDF generation error:', e)
+    ElMessage.error('Failed to generate PDF report')
+  }
+}
+
+ 
+// Helper functions for PDF generation
+const getPDFStatusColor = (status: string): [number, number, number] => {
+  const colors: { [key: string]: [number, number, number] } = {
+    'open': [231, 76, 60],
+    'under_investigation': [243, 156, 18],
+    'action_required': [243, 156, 18],
+    'in_progress': [52, 152, 219],
+    'resolved': [39, 174, 96],
+    'closed': [149, 165, 166]
+  }
+  return colors[status] || [149, 165, 166]
+}
+
+const getPDFStatusLabel = (status: string) => {
+  const labels: { [key: string]: string } = {
+    'open': 'Open',
+    'under_investigation': 'Under Investigation',
+    'action_required': 'Action Required',
+    'in_progress': 'In Progress',
+    'resolved': 'Resolved',
+    'closed': 'Closed'
+  }
+  return labels[status] || status || 'Open'
+}
+
 watch(historyActiveTab, (v) => {
   if (v === 'docs') {
     fetchIncidentDocuments()
@@ -737,11 +1216,12 @@ watch(historyActiveTab, (v) => {
         </template>
       </ElTableColumn>
       <ElTableColumn prop="description" label="Brief" />
-      <ElTableColumn label="Actions" width="480" fixed="right">
+      <ElTableColumn label="Actions" width="580" fixed="right">
         <template #default="{ row }">
           <ElButton size="small" @click="openEditDrawer(row)">Edit</ElButton>
           <ElButton size="small" type="warning" @click="openStatusDialog(row)">Status</ElButton>
           <ElButton size="small" type="info" @click="openHistoryDrawer(row)">History</ElButton>
+          <ElButton size="small" type="success" @click="generatePDF(row)">PDF</ElButton>
           <ElButton size="small" type="danger" @click="handleDelete(row)">Delete</ElButton>
         </template>
       </ElTableColumn>
@@ -1468,7 +1948,7 @@ watch(historyActiveTab, (v) => {
               </ElCollapseItem>
 
               <!-- Incident Categories -->
-              <ElCollapseItem title="Incident Categories" name="categories">
+              <ElCollapseItem title="Incident Details" name="categories">
                 <div class="detail-section">
                   <div class="detail-row" v-if="selectedIncident.incident_types && selectedIncident.incident_types.length">
                     <span class="detail-label">Incident Types:</span>
@@ -1570,7 +2050,7 @@ watch(historyActiveTab, (v) => {
         </ElTabPane>
 
         <!-- History Tab -->
-        <ElTabPane label="Change History" name="history">
+        <ElTabPane label="History" name="history">
           <div class="history-content">
     <ElTimeline>
       <ElTimelineItem
@@ -1631,7 +2111,10 @@ watch(historyActiveTab, (v) => {
     </div>
     
     <template #footer>
-      <div style="display: flex; justify-content: flex-end; gap: 8px; padding: 16px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px;">
+        <ElButton type="success" @click="generatePDF(selectedIncident)" :disabled="!selectedIncident">
+          <i class="fas fa-file-pdf"></i> Download PDF Report
+        </ElButton>
         <ElButton @click="historyDrawer=false">Close</ElButton>
       </div>
     </template>
@@ -1741,6 +2224,21 @@ watch(historyActiveTab, (v) => {
   background-color: #f5f7fa;
 }
 
+/* Drawer title styling */
+.el-drawer__header {
+  padding: 20px 24px;
+  border-bottom: 2px solid #e4e7ed;
+  background-color: #f8f9fa;
+}
+
+.el-drawer__title {
+  font-size: 24px !important;
+  font-weight: 700 !important;
+  color: #2c3e50 !important;
+  margin: 0 !important;
+  line-height: 1.2 !important;
+}
+
 .drawer-content {
   padding: 10px 0;
 }
@@ -1809,9 +2307,9 @@ watch(historyActiveTab, (v) => {
 }
 
 .step-text {
-  font-size: 16px;
-  font-weight: 600;
-  color: #303133;
+  font-size: 20px;
+  font-weight: 700;
+  color: #2c3e50;
 }
 
 .step-nav-btn {
@@ -1855,9 +2353,9 @@ watch(historyActiveTab, (v) => {
 }
 
 .card-header {
-  font-weight: 600;
-  font-size: 16px;
-  color: #303133;
+  font-weight: 700;
+  font-size: 18px;
+  color: #2c3e50;
 }
 
 .checkbox-item {
@@ -2016,7 +2514,7 @@ watch(historyActiveTab, (v) => {
   }
   
   .step-text {
-    font-size: 14px;
+    font-size: 16px;
   }
   
   .step-number {
@@ -2087,8 +2585,9 @@ watch(historyActiveTab, (v) => {
 
 /* Collapse customization */
 .el-collapse-item__header {
-  font-weight: 600;
-  color: #303133;
+  font-weight: 700;
+  font-size: 16px;
+  color: #2c3e50;
 }
 
 .el-collapse-item__content {

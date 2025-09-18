@@ -30,6 +30,9 @@ module.exports = function (app) {
   app.post('/api/v1/inc/history', [authJwt.verifyToken, hasPermission('incident:read')], controller.getIncidentHistory)
   app.post('/api/v1/inc/history/action', [authJwt.verifyToken, hasPermission('incident:read')], controller.getIncidentHistoryByAction)
 
+  // PDF report data
+  app.post('/api/v1/inc/pdf-data', [authJwt.verifyToken, hasPermission('incident:read')], controller.getIncidentPDFData)
+
   // TEST: Serve route-specific HTML for /incidents with OG/Twitter tags injected
   const fs = require('fs')
   const path = require('path')

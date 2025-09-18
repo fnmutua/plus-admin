@@ -7,6 +7,7 @@ const path = require('path')
 const shortid = require('shortid')
 const { trackIncidentHistory, trackIncidentCreation, trackIncidentUpdate, trackIncidentDeletion, trackStatusChange } = require('../utils/incidentHistoryTracker')
 const nodemailer = require('nodemailer')
+// PDF generation moved to frontend using jsPDF
 
 const generateINCCode = async () => {
   const prefix = 'INC'
@@ -369,6 +370,55 @@ exports.getIncidentHistoryByAction = async (req, res) => {
   } catch (e) {
     console.error('getIncidentHistoryByAction error', e)
     res.status(500).send({ message: 'Failed to fetch incident history by action' })
+  }
+}
+
+// --- PDF Report Data ---
+exports.getIncidentPDFData = async (req, res) => {
+  try {
+    const { id } = req.body
+    if (!id) {
+      return res.status(400).send({ message: 'Incident ID is required' })
+    }
+
+    // Fetch incident with all related data
+    const incident = await db.models.incident.findByPk(id)
+    if (!incident) {
+      return res.status(404).send({ message: 'Incident not found' })
+    }
+
+    // Fetch incident documents
+    const documents = await db.models.incident_document.findAll({
+      where: { incident_id: id }
+    })
+
+    // Fetch incident history
+    const history = await db.models.incident_history.findAll({
+      where: { incident_id: id },
+      order: [['createdAt', 'DESC']],
+      include: [
+        {
+          model: db.models.users,
+          as: 'user',
+          attributes: ['id', 'name', 'username', 'email'],
+          required: false
+        }
+      ]
+    })
+
+    // Return all data for frontend PDF generation
+    res.status(200).send({ 
+      code: '0000', 
+      data: {
+        incident,
+        documents,
+        history
+      }
+    })
+
+  } catch (e) {
+    console.error('getIncidentPDFData error', e)
+    res.status(500).send({ message: 'Failed to fetch incident data for PDF' })
   }
 }
 
