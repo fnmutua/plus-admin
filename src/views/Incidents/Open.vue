@@ -1,8 +1,8 @@
 <!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { ElCard, ElTable, ElTableColumn, ElPagination, ElButton, ElInput, ElDialog, ElDrawer, ElForm, ElFormItem, ElDatePicker, ElTimePicker, ElSelect, ElOption, ElTag, ElTimeline, ElTimelineItem, ElMessageBox, ElMessage, ElCheckboxGroup, ElCheckbox, ElRow, ElCol } from 'element-plus'
-import { getIncidents, createIncident, generateIncidentCode, updateIncident, deleteIncident, getIncidentHistory } from '@/api/incident'
+import { ElCard, ElTable, ElTableColumn, ElPagination, ElButton, ElInput, ElDialog, ElDrawer, ElForm, ElFormItem, ElDatePicker, ElTimePicker, ElSelect, ElOption, ElTag, ElTimeline, ElTimelineItem, ElMessageBox, ElMessage, ElCheckboxGroup, ElCheckbox, ElRow, ElCol, ElTabs, ElTabPane, ElCollapse, ElCollapseItem } from 'element-plus'
+import { getIncidents, createIncident, updateIncident, deleteIncident, getIncidentHistory } from '@/api/incident'
 
 const loading = ref(false)
 const list = ref<any[]>([])
@@ -13,9 +13,15 @@ const keyword = ref('')
 
 const dialog = ref(false)
 const form = ref<any>({})
+const reportDrawer = ref(false)
+const reportForm = ref<any>({})
+const reportActive = ref(0)
+const reportFormRef = ref<any>(null)
 const historyDrawer = ref(false)
 const historyList = ref<any[]>([])
 const selectedIncident = ref<any>(null)
+const historyActiveTab = ref('details')
+const activeCollapseItems = ref(['basic'])
 const editDrawer = ref(false)
 const editForm = ref<any>({})
 const active = ref(0)
@@ -35,6 +41,7 @@ const isMobile = ref(false)
 // Computed drawer sizes
 const editDrawerSize = computed(() => isMobile.value ? '100%' : '50%')
 const historyDrawerSize = computed(() => isMobile.value ? '100%' : '30%')
+const reportDrawerSize = computed(() => isMobile.value ? '100%' : '50%')
 
 // Step titles
 const stepTitles = [
@@ -116,10 +123,23 @@ const fetchList = async () => {
   }
 }
 
-const openDialog = async () => {
-  const codeRes: any = await generateIncidentCode()
-  form.value = { code: codeRes.data, occurred_date: new Date(), reported_date: new Date() }
-  dialog.value = true
+
+// Report drawer functions
+const openReportDrawer = async () => {
+  reportForm.value = { 
+    occurred_date: new Date(), 
+    reported_date: new Date(),
+    // Initialize arrays
+    incident_types: [],
+    mechanisms: [],
+    indirect_causes: [],
+    direct_causes: [],
+    activity_leading: [],
+    root_cause: [],
+    actions_to_avoid: []
+  }
+  reportActive.value = 0
+  reportDrawer.value = true
 }
 
 const submit = async () => {
@@ -195,6 +215,28 @@ const getActionColor = (action: string): 'success' | 'warning' | 'info' | 'prima
   return colors[action] || 'info'
 }
 
+const getSeverityColor = (severity: string): 'success' | 'warning' | 'info' | 'primary' | 'danger' => {
+  const colors: { [key: string]: 'success' | 'warning' | 'info' | 'primary' | 'danger' } = {
+    'Minor': 'success',
+    'Major': 'warning',
+    'Lost time injury': 'danger',
+    'Fatality': 'danger',
+    'Restricted to work cases': 'warning',
+    'Medical treatment cases': 'warning',
+    'First Aid Case': 'info'
+  }
+  return colors[severity] || 'info'
+}
+
+const getPriorityColor = (priority: string): 'success' | 'warning' | 'info' | 'primary' | 'danger' => {
+  const colors: { [key: string]: 'success' | 'warning' | 'info' | 'primary' | 'danger' } = {
+    'High': 'danger',
+    'Medium': 'warning',
+    'Low': 'success'
+  }
+  return colors[priority] || 'info'
+}
+
 const formatValue = (value: any) => {
   if (typeof value === 'object') {
     return JSON.stringify(value, null, 2)
@@ -259,6 +301,42 @@ const goToNextStep = async () => {
   }
 }
 
+// Report drawer navigation functions
+const reportNextStep = async () => {
+  try {
+    await reportFormRef.value?.validate()
+    reportActive.value++
+  } catch {
+    ElMessage.error('Please fill required fields')
+  }
+}
+
+const reportPrevStep = () => {
+  reportActive.value--
+}
+
+const reportGoToPrevStep = async () => {
+  if (reportActive.value > 0) {
+    try {
+      await reportFormRef.value?.validate()
+      reportActive.value--
+    } catch {
+      ElMessage.error('Please fill required fields before going back')
+    }
+  }
+}
+
+const reportGoToNextStep = async () => {
+  if (reportActive.value < stepTitles.length - 1) {
+    try {
+      await reportFormRef.value?.validate()
+      reportActive.value++
+    } catch {
+      ElMessage.error('Please fill required fields')
+    }
+  }
+}
+
 // Validation rules for each step
 const validationRules = {
   step0: {
@@ -300,6 +378,69 @@ const validationRules = {
 }
 
 const currentStepRules = computed(() => validationRules[`step${active.value}`] || {})
+const reportCurrentStepRules = computed(() => validationRules[`step${reportActive.value}`] || {})
+
+// Report form submit function
+const submitReport = async () => {
+  try {
+    await reportFormRef.value?.validate()
+    saving.value = true
+    
+    // Prepare form data with proper field types
+    const formData = { ...reportForm.value }
+    
+    // Remove code field - backend will generate it
+    delete formData.code
+    
+    // Set system-generated dates
+    formData.reported_date = new Date().toISOString().split("T")[0]
+    formData.reported_time = new Date().toLocaleTimeString()
+    formData.prepared_by_date = new Date().toISOString().split("T")[0]
+    
+    // Ensure occurred_date is properly formatted
+    if (formData.occurred_date instanceof Date) {
+      formData.occurred_date = formData.occurred_date.toISOString().split("T")[0]
+    }
+    
+    // Ensure all array fields are properly initialized
+    formData.incident_types = formData.incident_types || []
+    formData.mechanisms = formData.mechanisms || []
+    formData.indirect_causes = formData.indirect_causes || []
+    formData.direct_causes = formData.direct_causes || []
+    formData.activity_leading = formData.activity_leading || []
+    formData.root_cause = formData.root_cause || []
+    formData.actions_to_avoid = formData.actions_to_avoid || []
+    
+    // Ensure string fields are not null/undefined
+    formData.location_text = formData.location_text || ''
+    formData.worker_name = formData.worker_name || ''
+    formData.designation = formData.designation || ''
+    formData.site_supervisor = formData.site_supervisor || ''
+    formData.department = formData.department || ''
+    formData.description = formData.description || ''
+    formData.consequences = formData.consequences || ''
+    formData.immediate_action = formData.immediate_action || ''
+    formData.severity = formData.severity || ''
+    formData.prepared_by_name = formData.prepared_by_name || ''
+    formData.prepared_by_job_title = formData.prepared_by_job_title || ''
+    formData.reported_by = formData.reported_by || ''
+    formData.reporter_phone = formData.reporter_phone || ''
+    
+    const res: any = await createIncident(formData)
+    if (res && res.code === '0000') {
+      reportDrawer.value = false
+      fetchList()
+      ElMessage.success('Incident reported successfully')
+    } else {
+      ElMessage.error('Failed to report incident')
+    }
+  } catch (error) {
+    console.error('Report submission error:', error)
+    ElMessage.error('Please fill required fields before submitting')
+  } finally {
+    saving.value = false
+  }
+}
 
 // Action dialog validation rules
 const actionDialogRules = {
@@ -323,11 +464,19 @@ const confirmAddAction = async () => {
     return
   }
   
-  if (!editForm.value.actions_to_avoid) {
-    editForm.value.actions_to_avoid = []
+  // Determine which form is active based on which drawer is open
+  if (editDrawer.value) {
+    if (!editForm.value.actions_to_avoid) {
+      editForm.value.actions_to_avoid = []
+    }
+    editForm.value.actions_to_avoid.push({ ...newAction.value })
+  } else if (reportDrawer.value) {
+    if (!reportForm.value.actions_to_avoid) {
+      reportForm.value.actions_to_avoid = []
+    }
+    reportForm.value.actions_to_avoid.push({ ...newAction.value })
   }
   
-  editForm.value.actions_to_avoid.push({ ...newAction.value })
   newAction.value = { action: "", responsible: "", priority: "", due_date: "" }
   showActionDialog.value = false
 }
@@ -337,6 +486,14 @@ const removeAction = (index: number) => {
     editForm.value.actions_to_avoid.splice(index, 1)
   }
 }
+
+// Report form action management functions
+const removeReportAction = (index: number) => {
+  if (reportForm.value.actions_to_avoid) {
+    reportForm.value.actions_to_avoid.splice(index, 1)
+  }
+}
+
 
 // Save current step function
 const saveCurrentStep = async () => {
@@ -375,7 +532,7 @@ onMounted(() => {
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">
       <ElInput v-model="keyword" placeholder="Search by code, description, location" style="max-width:320px" @change="fetchList" />
       <ElButton type="primary" @click="fetchList">Search</ElButton>
-      <ElButton type="success" @click="openDialog">Report Incident</ElButton>
+      <ElButton type="success" @click="openReportDrawer">Report Incident</ElButton>
     </div>
     <ElTable :data="list" v-loading="loading" >
       <ElTableColumn prop="code" label="Code" width="140" />
@@ -687,7 +844,7 @@ onMounted(() => {
                   </ElTable>
                 </div>
                 <ElButton type="primary" @click="addActionRow" style="margin-top: 10px;">Add Action</ElButton>
-              </ElFormItem>
+      </ElFormItem>
             </ElCol>
           </ElRow>
         </div>
@@ -741,20 +898,469 @@ onMounted(() => {
     </template>
   </ElDrawer>
 
+  <!-- Report Incident Drawer -->
+  <ElDrawer 
+    v-model="reportDrawer" 
+    title="Report Incident" 
+    :size="reportDrawerSize"
+    direction="rtl"
+    :with-header="true"
+    :close-on-click-modal="false"
+  >
+    <div class="drawer-content">
+      <!-- Step Header with Navigation -->
+      <div class="step-header">
+        <ElButton 
+          @click="reportGoToPrevStep" 
+          :disabled="reportActive === 0"
+          type="text" 
+          class="step-nav-btn prev-btn"
+        >
+          <i class="fas fa-chevron-left"></i>
+        </ElButton>
+        
+        <div class="step-title">
+          <span class="step-number">{{ reportActive + 1 }}</span>
+          <span class="step-text">{{ stepTitles[reportActive] }}</span>
+        </div>
+        
+        <ElButton 
+          @click="reportGoToNextStep" 
+          :disabled="reportActive === stepTitles.length - 1"
+          type="text" 
+          class="step-nav-btn next-btn"
+        >
+          <i class="fas fa-chevron-right"></i>
+        </ElButton>
+      </div>
+
+      <ElForm 
+        :model="reportForm" 
+        :rules="reportCurrentStepRules"
+        ref="reportFormRef"
+        label-position="top"
+        class="edit-form"
+      >
+        <!-- Step 0: Incident Details -->
+        <div v-if="reportActive === 0" class="form-step">
+          <ElRow :gutter="16">
+            <ElCol :span="24">
+              <ElFormItem label="Occurred Date" prop="occurred_date">
+                <ElDatePicker v-model="reportForm.occurred_date" type="date" />
+              </ElFormItem>
+              <ElFormItem label="Occurred Time" prop="occurred_time">
+                <ElTimePicker v-model="reportForm.occurred_time" />
+              </ElFormItem>
+              <ElFormItem label="Location" prop="location_text">
+                <ElInput v-model="reportForm.location_text" />
+              </ElFormItem>
+              <ElFormItem label="Reported By" prop="reported_by">
+                <ElInput v-model="reportForm.reported_by" />
+              </ElFormItem>
+              <ElFormItem label="Reporter Phone" prop="reporter_phone">
+                <ElInput v-model="reportForm.reporter_phone" placeholder="2547XXXXXXXX" />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+        </div>
+
+        <!-- Step 1: Worker Details -->
+        <div v-if="reportActive === 1" class="form-step">
+          <ElRow :gutter="16">
+            <ElCol :span="24">
+              <ElFormItem label="Worker Name" prop="worker_name">
+                <ElInput v-model="reportForm.worker_name" />
+              </ElFormItem>
+              <ElFormItem label="Designation" prop="designation">
+                <ElInput v-model="reportForm.designation" />
+              </ElFormItem>
+              <ElFormItem label="Site Supervisor" prop="site_supervisor">
+                <ElInput v-model="reportForm.site_supervisor" />
+              </ElFormItem>
+              <ElFormItem label="Department" prop="department">
+                <ElInput v-model="reportForm.department" />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+        </div>
+
+        <!-- Step 2: Categories -->
+        <div v-if="reportActive === 2" class="form-step">
+          <ElRow :gutter="20">
+            <!-- Incident Types Card -->
+            <ElCol :span="24">
+              <ElCard class="category-card" shadow="hover">
+                <template #header>
+                  <div class="card-header">Incident Types</div>
+                </template>
+                <ElFormItem prop="incident_types">
+                  <ElCheckboxGroup v-model="reportForm.incident_types">
+                    <ElRow :gutter="10">
+                      <ElCol v-for="i in incidentTypes" :key="i" :span="24">
+                        <ElCheckbox :label="i" class="checkbox-item">{{ i }}</ElCheckbox>
+                      </ElCol>
+                    </ElRow>
+                  </ElCheckboxGroup>
+                </ElFormItem>
+              </ElCard>
+            </ElCol>
+
+            <!-- Mechanism Causing Incident Card -->
+            <ElCol :span="24">
+              <ElCard class="category-card" shadow="hover">
+                <template #header>
+                  <div class="card-header">Mechanism Causing Incident</div>
+                </template>
+                <ElFormItem prop="mechanisms">
+                  <ElCheckboxGroup v-model="reportForm.mechanisms">
+                    <ElRow :gutter="10">
+                      <ElCol v-for="m in mechanisms" :key="m" :span="24">
+                        <ElCheckbox :label="m" class="checkbox-item">{{ m }}</ElCheckbox>
+                      </ElCol>
+                    </ElRow>
+                  </ElCheckboxGroup>
+                </ElFormItem>
+              </ElCard>
+            </ElCol>
+
+            <!-- Indirect Causes Card -->
+            <ElCol :span="24">
+              <ElCard class="category-card" shadow="hover">
+                <template #header>
+                  <div class="card-header">Indirect Causes</div>
+                </template>
+                <ElFormItem prop="indirect_causes">
+                  <ElCheckboxGroup v-model="reportForm.indirect_causes">
+                    <ElRow :gutter="10">
+                      <ElCol v-for="p in indirectCauses" :key="p" :span="24">
+                        <ElCheckbox :label="p" class="checkbox-item">{{ p }}</ElCheckbox>
+                      </ElCol>
+                    </ElRow>
+                  </ElCheckboxGroup>
+                </ElFormItem>
+              </ElCard>
+            </ElCol>
+
+            <!-- Activity Leading to Incident Card -->
+            <ElCol :span="24">
+              <ElCard class="category-card" shadow="hover">
+                <template #header>
+                  <div class="card-header">Activity Leading to Incident</div>
+                </template>
+                <ElFormItem prop="activity_leading">
+                  <ElCheckboxGroup v-model="reportForm.activity_leading">
+                    <ElRow :gutter="10">
+                      <ElCol v-for="a in activities" :key="a" :span="24">
+                        <ElCheckbox :label="a" class="checkbox-item">{{ a }}</ElCheckbox>
+                      </ElCol>
+                    </ElRow>
+                  </ElCheckboxGroup>
+                </ElFormItem>
+              </ElCard>
+            </ElCol>
+          </ElRow>
+        </div>
+
+        <!-- Step 3: Causes -->
+        <div v-if="reportActive === 3" class="form-step">
+          <ElRow :gutter="20">
+            <!-- Direct Causes Card -->
+            <ElCol :span="24">
+              <ElCard class="category-card" shadow="hover">
+                <template #header>
+                  <div class="card-header">Direct Causes</div>
+                </template>
+                <ElFormItem prop="direct_causes">
+                  <ElCheckboxGroup v-model="reportForm.direct_causes">
+                    <ElRow :gutter="10">
+                      <ElCol v-for="j in directCauses" :key="j" :span="24">
+                        <ElCheckbox :label="j" class="checkbox-item">{{ j }}</ElCheckbox>
+                      </ElCol>
+                    </ElRow>
+                  </ElCheckboxGroup>
+                </ElFormItem>
+              </ElCard>
+            </ElCol>
+
+            <!-- Root Cause Card -->
+            <ElCol :span="24">
+              <ElCard class="category-card" shadow="hover">
+                <template #header>
+                  <div class="card-header">Root Cause</div>
+                </template>
+                <ElFormItem prop="root_cause">
+                  <ElCheckboxGroup v-model="reportForm.root_cause">
+                    <ElRow :gutter="10">
+                      <ElCol v-for="a in rootCauses" :key="a" :span="24">
+                        <ElCheckbox :label="a" class="checkbox-item">{{ a }}</ElCheckbox>
+                      </ElCol>
+                    </ElRow>
+                  </ElCheckboxGroup>
+                </ElFormItem>
+              </ElCard>
+            </ElCol>
+          </ElRow>
+        </div>
+
+        <!-- Step 4: Narrative -->
+        <div v-if="reportActive === 4" class="form-step">
+          <ElRow :gutter="16">
+            <ElCol :span="24">
+              <ElFormItem label="Description" prop="description">
+                <ElInput type="textarea" :rows="3" v-model="reportForm.description" />
+              </ElFormItem>
+              <ElFormItem label="Consequences" prop="consequences">
+                <ElInput type="textarea" :rows="3" v-model="reportForm.consequences" />
+              </ElFormItem>
+              <ElFormItem label="Immediate Action" prop="immediate_action">
+                <ElInput type="textarea" :rows="3" v-model="reportForm.immediate_action" />
+              </ElFormItem>
+              <ElFormItem label="Severity" prop="severity">
+                <ElSelect v-model="reportForm.severity" placeholder="Select severity">
+                  <ElOption v-for="s in severityLevels" :key="s" :label="s" :value="s" />
+                </ElSelect>
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+        </div>
+
+        <!-- Step 5: Actions -->
+        <div v-if="reportActive === 5" class="form-step">
+          <ElRow :gutter="16">
+            <ElCol :span="24">
+              <ElFormItem prop="actions_to_avoid">
+                <div class="table-scroll">
+                  <ElTable :data="reportForm.actions_to_avoid || []" style="width:100%" class="actions-table">
+                    <ElTableColumn prop="action" label="Action" />
+                    <ElTableColumn prop="responsible" label="Responsible" />
+                    <ElTableColumn prop="priority" label="Priority" />
+                    <ElTableColumn prop="due_date" label="Due Date" />
+                    <ElTableColumn label="Operations">
+                      <template #default="{ $index }">
+                        <ElButton type="danger" size="small" @click="removeReportAction($index)">Remove</ElButton>
+                      </template>
+                    </ElTableColumn>
+                  </ElTable>
+                </div>
+                <ElButton type="primary" @click="addActionRow" style="margin-top: 10px;">Add Action</ElButton>
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+        </div>
+
+        <!-- Step 6: Prepared By -->
+        <div v-if="reportActive === 6" class="form-step">
+          <ElRow :gutter="16">
+            <ElCol :span="24">
+              <ElFormItem label="Prepared By" prop="prepared_by_name">
+                <ElInput v-model="reportForm.prepared_by_name" />
+              </ElFormItem>
+              <ElFormItem label="Job Title" prop="prepared_by_job_title">
+                <ElInput v-model="reportForm.prepared_by_job_title" />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+        </div>
+      </ElForm>
+    </div>
+
+    <template #footer>
+      <div class="steps-navigation">
+        <div class="nav-left">
+          <ElButton v-if="reportActive > 0" @click="reportPrevStep" type="primary" class="nav-button">
+            <i class="fas fa-chevron-left"></i> Previous
+          </ElButton>
+        </div>
+        
+        <div class="nav-center">
+          <!-- No save progress for new incidents -->
+        </div>
+        
+        <div class="nav-right">
+          <ElButton v-if="reportActive < 6" type="primary" @click="reportNextStep" class="nav-button">
+            Next <i class="fas fa-chevron-right"></i>
+          </ElButton>
+          <ElButton v-if="reportActive === 6" type="success" @click="submitReport" class="nav-button">
+            <i class="fas fa-check"></i> Submit Report
+          </ElButton>
+          <ElButton @click="reportDrawer=false" class="nav-button cancel-button">Cancel</ElButton>
+        </div>
+      </div>
+    </template>
+  </ElDrawer>
+
   <!-- History Drawer -->
   <ElDrawer 
     v-model="historyDrawer" 
-    title="Incident History" 
+    title="Incident Details & History" 
     :size="historyDrawerSize"
     direction="rtl"
     :with-header="true"
     :close-on-click-modal="false"
   >
-    <div v-if="selectedIncident" style="margin-bottom: 20px; padding: 16px; background-color: #f5f7fa; border-radius: 8px;">
-      <h4 style="margin: 0 0 8px 0; color: #303133;">Incident: {{ selectedIncident.code }}</h4>
-      <p style="margin: 0; color: #606266;"><strong>Description:</strong> {{ selectedIncident.description }}</p>
+    <div v-if="selectedIncident">
+      <ElTabs v-model="historyActiveTab" type="card">
+        <!-- Details Tab -->
+        <ElTabPane label="Incident Details" name="details">
+          <div class="incident-details">
+            <!-- Basic Info -->
+            <ElCollapse v-model="activeCollapseItems" accordion>
+              <ElCollapseItem title="Basic Information" name="basic">
+                <div class="detail-section">
+                  <div class="detail-row">
+                    <span class="detail-label">Code:</span>
+                    <span class="detail-value">{{ selectedIncident.code }}</span>
     </div>
-    
+                  <div class="detail-row">
+                    <span class="detail-label">Occurred Date:</span>
+                    <span class="detail-value">{{ formatDateTime(selectedIncident.occurred_date) }}</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="detail-label">Reported Date:</span>
+                    <span class="detail-value">{{ formatDateTime(selectedIncident.reported_date) }}</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="detail-label">Location:</span>
+                    <span class="detail-value">{{ selectedIncident.location_text || 'N/A' }}</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="detail-label">Severity:</span>
+                    <span class="detail-value">
+                      <ElTag :type="getSeverityColor(selectedIncident.severity)">
+                        {{ selectedIncident.severity || 'N/A' }}
+                      </ElTag>
+                    </span>
+                  </div>
+                </div>
+              </ElCollapseItem>
+
+              <!-- Worker Details -->
+              <ElCollapseItem title="Worker Details" name="worker">
+                <div class="detail-section">
+                  <div class="detail-row">
+                    <span class="detail-label">Worker Name:</span>
+                    <span class="detail-value">{{ selectedIncident.worker_name || 'N/A' }}</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="detail-label">Designation:</span>
+                    <span class="detail-value">{{ selectedIncident.designation || 'N/A' }}</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="detail-label">Site Supervisor:</span>
+                    <span class="detail-value">{{ selectedIncident.site_supervisor || 'N/A' }}</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="detail-label">Department:</span>
+                    <span class="detail-value">{{ selectedIncident.department || 'N/A' }}</span>
+                  </div>
+                </div>
+              </ElCollapseItem>
+
+              <!-- Incident Categories -->
+              <ElCollapseItem title="Incident Categories" name="categories">
+                <div class="detail-section">
+                  <div class="detail-row" v-if="selectedIncident.incident_types && selectedIncident.incident_types.length">
+                    <span class="detail-label">Incident Types:</span>
+                    <div class="detail-value">
+                      <ElTag v-for="type in selectedIncident.incident_types" :key="type" style="margin-right: 8px; margin-bottom: 4px;">
+                        {{ type }}
+                      </ElTag>
+                    </div>
+                  </div>
+                  <div class="detail-row" v-if="selectedIncident.mechanisms && selectedIncident.mechanisms.length">
+                    <span class="detail-label">Mechanisms:</span>
+                    <div class="detail-value">
+                      <ElTag v-for="mechanism in selectedIncident.mechanisms" :key="mechanism" style="margin-right: 8px; margin-bottom: 4px;">
+                        {{ mechanism }}
+                      </ElTag>
+                    </div>
+                  </div>
+                  <div class="detail-row" v-if="selectedIncident.indirect_causes && selectedIncident.indirect_causes.length">
+                    <span class="detail-label">Indirect Causes:</span>
+                    <div class="detail-value">
+                      <ElTag v-for="cause in selectedIncident.indirect_causes" :key="cause" style="margin-right: 8px; margin-bottom: 4px;">
+                        {{ cause }}
+                      </ElTag>
+                    </div>
+                  </div>
+                  <div class="detail-row" v-if="selectedIncident.direct_causes && selectedIncident.direct_causes.length">
+                    <span class="detail-label">Direct Causes:</span>
+                    <div class="detail-value">
+                      <ElTag v-for="cause in selectedIncident.direct_causes" :key="cause" style="margin-right: 8px; margin-bottom: 4px;">
+                        {{ cause }}
+                      </ElTag>
+                    </div>
+                  </div>
+                  <div class="detail-row" v-if="selectedIncident.root_cause && selectedIncident.root_cause.length">
+                    <span class="detail-label">Root Causes:</span>
+                    <div class="detail-value">
+                      <ElTag v-for="cause in selectedIncident.root_cause" :key="cause" style="margin-right: 8px; margin-bottom: 4px;">
+                        {{ cause }}
+                      </ElTag>
+                    </div>
+                  </div>
+                </div>
+              </ElCollapseItem>
+
+              <!-- Narrative -->
+              <ElCollapseItem title="Narrative" name="narrative">
+                <div class="detail-section">
+                  <div class="detail-row">
+                    <span class="detail-label">Description:</span>
+                    <div class="detail-value">{{ selectedIncident.description || 'N/A' }}</div>
+                  </div>
+                  <div class="detail-row">
+                    <span class="detail-label">Consequences:</span>
+                    <div class="detail-value">{{ selectedIncident.consequences || 'N/A' }}</div>
+                  </div>
+                  <div class="detail-row">
+                    <span class="detail-label">Immediate Action:</span>
+                    <div class="detail-value">{{ selectedIncident.immediate_action || 'N/A' }}</div>
+                  </div>
+                </div>
+              </ElCollapseItem>
+
+              <!-- Actions -->
+              <ElCollapseItem title="Actions to Avoid" name="actions" v-if="selectedIncident.actions_to_avoid && selectedIncident.actions_to_avoid.length">
+                <div class="detail-section">
+                  <div v-for="(action, index) in selectedIncident.actions_to_avoid" :key="index" class="action-item">
+                    <div class="action-header">
+                      <strong>Action {{ index + 1 }}:</strong>
+                      <ElTag :type="getPriorityColor(action.priority)">{{ action.priority }}</ElTag>
+                    </div>
+                    <div class="action-details">
+                      <div><strong>Action:</strong> {{ action.action }}</div>
+                      <div><strong>Responsible:</strong> {{ action.responsible }}</div>
+                      <div><strong>Due Date:</strong> {{ action.due_date }}</div>
+                    </div>
+                  </div>
+                </div>
+              </ElCollapseItem>
+
+              <!-- Prepared By -->
+              <ElCollapseItem title="Prepared By" name="prepared">
+                <div class="detail-section">
+                  <div class="detail-row">
+                    <span class="detail-label">Prepared By:</span>
+                    <span class="detail-value">{{ selectedIncident.prepared_by_name || 'N/A' }}</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="detail-label">Job Title:</span>
+                    <span class="detail-value">{{ selectedIncident.prepared_by_job_title || 'N/A' }}</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="detail-label">Prepared Date:</span>
+                    <span class="detail-value">{{ formatDateTime(selectedIncident.prepared_by_date) }}</span>
+                  </div>
+                </div>
+              </ElCollapseItem>
+            </ElCollapse>
+          </div>
+        </ElTabPane>
+
+        <!-- History Tab -->
+        <ElTabPane label="Change History" name="history">
+          <div class="history-content">
     <ElTimeline>
       <ElTimelineItem
         v-for="(item, index) in historyList"
@@ -789,6 +1395,10 @@ onMounted(() => {
         </template>
       </ElTimelineItem>
     </ElTimeline>
+          </div>
+        </ElTabPane>
+      </ElTabs>
+    </div>
     
     <template #footer>
       <div style="display: flex; justify-content: flex-end; gap: 8px; padding: 16px;">
@@ -1137,6 +1747,79 @@ onMounted(() => {
     width: 32px;
     height: 32px;
   }
+}
+
+/* History Drawer Styles */
+.incident-details {
+  padding: 16px 0;
+}
+
+.detail-section {
+  padding: 16px;
+}
+
+.detail-row {
+  display: flex;
+  margin-bottom: 12px;
+  align-items: flex-start;
+}
+
+.detail-label {
+  font-weight: 600;
+  color: #606266;
+  min-width: 140px;
+  margin-right: 16px;
+  flex-shrink: 0;
+}
+
+.detail-value {
+  color: #303133;
+  flex: 1;
+  word-break: break-word;
+}
+
+.action-item {
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.action-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.action-details div {
+  margin-bottom: 4px;
+}
+
+.history-content {
+  padding: 16px 0;
+}
+
+/* Collapse customization */
+.el-collapse-item__header {
+  font-weight: 600;
+  color: #303133;
+}
+
+.el-collapse-item__content {
+  padding: 0;
+}
+
+/* Tabs customization */
+.el-tabs__header {
+  margin-bottom: 16px;
+}
+
+.el-tabs__item {
+  font-weight: 500;
 }
 </style>
 
