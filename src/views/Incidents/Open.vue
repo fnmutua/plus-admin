@@ -202,6 +202,26 @@ const formatValue = (value: any) => {
   return value || 'N/A'
 }
 
+// Date formatting function
+const formatDateTime = (dateString: string) => {
+  if (!dateString) return 'N/A'
+  
+  try {
+    const date = new Date(dateString)
+    if (isNaN(date.getTime())) return 'N/A'
+    
+    const day = String(date.getDate()).padStart(2, '0')
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const year = date.getFullYear()
+    const hours = String(date.getHours()).padStart(2, '0')
+    const minutes = String(date.getMinutes()).padStart(2, '0')
+    
+    return `${day}-${month}-${year} ${hours}:${minutes}`
+  } catch (error) {
+    return 'N/A'
+  }
+}
+
 // Step navigation functions
 const nextStep = async () => {
   try {
@@ -359,8 +379,16 @@ onMounted(() => {
     </div>
     <ElTable :data="list" v-loading="loading" >
       <ElTableColumn prop="code" label="Code" width="140" />
-      <ElTableColumn prop="occurred_date" label="Occurred" width="160" />
-      <ElTableColumn prop="reported_date" label="Reported" width="160" />
+      <ElTableColumn prop="occurred_date" label="Occurred" width="160">
+        <template #default="{ row }">
+          {{ formatDateTime(row.occurred_date) }}
+        </template>
+      </ElTableColumn>
+      <ElTableColumn prop="reported_date" label="Reported" width="160">
+        <template #default="{ row }">
+          {{ formatDateTime(row.reported_date) }}
+        </template>
+      </ElTableColumn>
       <ElTableColumn prop="worker_name" label="Worker" />
       <ElTableColumn prop="location_text" label="Location" />
       <ElTableColumn prop="severity" label="Severity" width="120" />
