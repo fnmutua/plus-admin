@@ -26,11 +26,18 @@
                         Get Started
                       </el-button>
                       <el-button
+                        type="warning"
+                        size="large"
+                        class="login-btn"
+                        @click="router.push('/grm')"
+                      >
+                        File a Grievance
+                      </el-button>
+                      <el-button
                         type="success"
                         size="large"
                         class="login-btn"
                         @click="router.push('/incidents')"
-                        style="margin-left:8px;"
                       >
                         Report Incident
                       </el-button>
@@ -451,6 +458,7 @@ AvgHHSize();
   gap: 1rem;
   margin-bottom: 3rem;
   animation: slideUp 0.8s ease-out 0.6s backwards;
+  flex-wrap: wrap;
 }
 
 .login-btn {
@@ -1021,12 +1029,14 @@ AvgHHSize();
     margin-bottom: 1.5rem;
     padding: 0 1.5rem;
     gap: 0.8rem;
+    flex-direction: column;
   }
 
   .login-btn, .api-btn {
     padding: 0.9rem 1.2rem;
     font-size: 0.95rem;
     min-height: 48px;
+    width: 100%;
   }
 
   .stats-section {

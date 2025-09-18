@@ -516,6 +516,7 @@ nav {
   text-align: left;
 }
 
+
 /* Small screen styles */
 @media (max-width: 768px) {
   .header-content {
@@ -714,6 +715,7 @@ nav {
 .dark-mode .hamburger-icon {
   color: #e8eaed;
 }
+
 
 .dark-mode .hamburger {
   background: #2c2c2c;
