@@ -24,6 +24,14 @@ export const uploadIncidentDocuments = (data: any): Promise<IResponse> => {
   return request.post({ url: prod + '/api/v1/inc/upload', data })
 }
 
+export const getIncidentDocuments = (data: any): Promise<IResponse> => {
+  return request.post({ url: prod + '/api/v1/inc/documents', data })
+}
+
+export const downloadIncidentFile = (data: any): Promise<IResponse> => {
+  return request.post({ url: prod + '/api/v1/inc/download', data, responseType: 'blob', headersType: 'application/json' })
+}
+
 export const updateIncident = (data: any): Promise<IResponse> => {
   return request.post({ url: prod + '/api/v1/inc/update', data })
 }

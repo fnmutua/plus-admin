@@ -96,7 +96,12 @@ exports.updateIncident = async (req, res) => {
     const oldIncident = { ...incident.toJSON() }
     
     // Check if status is being changed specifically
-    const isStatusChange = updateData.status && updateData.status !== oldIncident.status
+    const isStatusChange = Object.prototype.hasOwnProperty.call(updateData, 'status') && updateData.status !== oldIncident.status
+
+    // If status is changing, action_taken is required
+    if (isStatusChange && (!action_taken || !String(action_taken).trim())) {
+      return res.status(400).send({ code: '1001', message: 'Action taken is required when changing status' })
+    }
     
     // Update the incident (without action_taken field)
     await incident.update(updateData)

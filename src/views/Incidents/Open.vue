@@ -1,8 +1,11 @@
 <!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
-import { ElCard, ElTable, ElTableColumn, ElPagination, ElButton, ElInput, ElDialog, ElDrawer, ElForm, ElFormItem, ElDatePicker, ElTimePicker, ElSelect, ElOption, ElTag, ElTimeline, ElTimelineItem, ElMessageBox, ElMessage, ElCheckboxGroup, ElCheckbox, ElRow, ElCol, ElTabs, ElTabPane, ElCollapse, ElCollapseItem } from 'element-plus'
+import { ref, onMounted, computed, watch } from 'vue'
+import { ElCard, ElTable, ElTableColumn, ElPagination, ElButton, ElInput, ElDialog, ElDrawer, ElForm, ElFormItem, ElDatePicker, ElTimePicker, ElSelect, ElOption, ElTag, ElTimeline, ElTimelineItem, ElMessageBox, ElMessage, ElCheckboxGroup, ElCheckbox, ElRow, ElCol, ElTabs, ElTabPane, ElCollapse, ElCollapseItem, ElUpload } from 'element-plus'
 import { getIncidents, createIncident, updateIncident, deleteIncident, getIncidentHistory } from '@/api/incident'
+import { getIncidentDocuments, downloadIncidentFile } from '@/api/incident'
+import { uploadIncidentDocuments } from '@/api/incident'
+import { uuid } from 'vue-uuid'
 
 const loading = ref(false)
 const list = ref<any[]>([])
@@ -43,6 +46,14 @@ const saving = ref(false)
 
 // Mobile detection
 const isMobile = ref(false)
+
+// Documentation state
+const docsLoading = ref(false)
+const docs = ref<any[]>([])
+
+// Upload state
+const reportFiles = ref<any[]>([])
+const editFiles = ref<any[]>([])
 
 // Computed drawer sizes
 const editDrawerSize = computed(() => isMobile.value ? '100%' : '50%')
@@ -183,6 +194,11 @@ const openEditDrawer = (row: any) => {
 const submitEdit = async () => {
   const res: any = await updateIncident(editForm.value)
   if (res && res.code === '0000') {
+    // Upload any selected documents for edit
+    if (editFiles.value && editFiles.value.length) {
+      await uploadDocuments(editForm.value.id || res.data?.id, editFiles.value)
+      editFiles.value = []
+    }
     editDrawer.value = false
     fetchList()
     ElMessage.success('Incident updated successfully')
@@ -214,6 +230,10 @@ const openHistoryDrawer = async (row: any) => {
     if (res && res.code === '0000') {
       historyList.value = res.data || []
       historyDrawer.value = true
+      historyActiveTab.value = 'details'
+      // lazy load docs
+      docs.value = []
+      docsLoading.value = false
     }
   } catch (error) {
     ElMessage.error('Failed to fetch incident history')
@@ -467,6 +487,11 @@ const submitReport = async () => {
     
     const res: any = await createIncident(formData)
     if (res && res.code === '0000') {
+      // Upload any selected documents for new incident
+      if (reportFiles.value && reportFiles.value.length) {
+        await uploadDocuments(res.data?.id, reportFiles.value)
+        reportFiles.value = []
+      }
       reportDrawer.value = false
       fetchList()
       ElMessage.success('Incident reported successfully')
@@ -491,7 +516,8 @@ const actionDialogRules = {
 
 // Status update validation rules
 const statusUpdateRules = {
-  status: [{ required: true, message: 'Status is required', trigger: 'change' }]
+  status: [{ required: true, message: 'Status is required', trigger: 'change' }],
+  action_taken: [{ required: true, message: 'Action taken is required', trigger: 'blur' }]
 }
 
 // Action management functions
@@ -604,6 +630,79 @@ onMounted(() => {
   fetchList()
   checkMobile()
   window.addEventListener('resize', checkMobile)
+})
+
+// Documentation functions
+const fetchIncidentDocuments = async () => {
+  if (!selectedIncident.value) return
+  docsLoading.value = true
+  try {
+    const res: any = await getIncidentDocuments({ incident_id: selectedIncident.value.id })
+    if (res && res.code === '0000') {
+      docs.value = res.data || []
+    }
+  } catch (e) {
+    ElMessage.error('Failed to load documents')
+  } finally {
+    docsLoading.value = false
+  }
+}
+
+const downloadDoc = async (doc: any) => {
+  try {
+    const res: any = await downloadIncidentFile({ filename: doc.name })
+    const blob = new Blob([res as any])
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = doc.name
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    window.URL.revokeObjectURL(url)
+  } catch (e) {
+    ElMessage.error('Download failed')
+  }
+}
+
+const uploadDocuments = async (incidentId: number, files: any[]) => {
+  if (!files || files.length === 0) return true
+  try {
+    const formData = new FormData()
+    for (const f of files) {
+      const raw = f.raw || f
+      if (!raw) continue
+      // file binary
+      formData.append('files', raw)
+      // metadata per file (append for each file, backend supports arrays)
+      const name: string = f.name || raw.name || ''
+      const ext = name.includes('.') ? name.split('.').pop() as string : ''
+      const sizeMb = raw.size ? (raw.size / 1024 / 1024).toFixed(2) : ''
+      formData.append('format', ext)
+      formData.append('incident_id', String(incidentId))
+      formData.append('type', 'Supporting Documentation')
+      formData.append('protected_file', 'true')
+      formData.append('size', String(sizeMb))
+      formData.append('code', uuid.v4())
+    }
+
+    const res: any = await uploadIncidentDocuments(formData)
+    if (res && res.code === '0000') {
+      ElMessage.success('Documents uploaded')
+      return true
+    }
+    ElMessage.error('Failed to upload documents')
+    return false
+  } catch (e) {
+    ElMessage.error('Upload error')
+    return false
+  }
+}
+
+watch(historyActiveTab, (v) => {
+  if (v === 'docs') {
+    fetchIncidentDocuments()
+  }
 })
 </script>
 
@@ -946,7 +1045,18 @@ onMounted(() => {
               </ElFormItem>
               <ElFormItem label="Job Title" prop="prepared_by_job_title">
                 <ElInput v-model="editForm.prepared_by_job_title" />
-      </ElFormItem>
+              </ElFormItem>
+              <ElFormItem label="Attach Documents">
+                <ElUpload
+                  v-model:file-list="editFiles"
+                  :auto-upload="false"
+                  multiple
+                  :limit="10"
+                  :on-exceed="() => ElMessage.warning('File limit reached')"
+                >
+                  <ElButton type="primary">Select Files</ElButton>
+                </ElUpload>
+              </ElFormItem>
             </ElCol>
           </ElRow>
         </div>
@@ -1246,6 +1356,17 @@ onMounted(() => {
               <ElFormItem label="Job Title" prop="prepared_by_job_title">
                 <ElInput v-model="reportForm.prepared_by_job_title" />
               </ElFormItem>
+              <ElFormItem label="Attach Documents">
+                <ElUpload
+                  v-model:file-list="reportFiles"
+                  :auto-upload="false"
+                  multiple
+                  :limit="10"
+                  :on-exceed="() => ElMessage.warning('File limit reached')"
+                >
+                  <ElButton type="primary">Select Files</ElButton>
+                </ElUpload>
+              </ElFormItem>
             </ElCol>
           </ElRow>
         </div>
@@ -1485,6 +1606,25 @@ onMounted(() => {
     </ElTimeline>
           </div>
         </ElTabPane>
+
+        <!-- Documentation Tab -->
+        <ElTabPane label="Documentation" name="docs">
+          <div class="history-content">
+            <div v-if="docsLoading">Loading documents...</div>
+            <div v-else>
+              <ElTable :data="docs" style="width:100%">
+                <ElTableColumn prop="name" label="File Name" />
+                <ElTableColumn prop="type" label="Type" width="140" />
+                <ElTableColumn prop="size" label="Size" width="120" />
+                <ElTableColumn label="Actions" width="160">
+                  <template #default="{ row }">
+                    <ElButton size="small" type="primary" @click="downloadDoc(row)">Download</ElButton>
+                  </template>
+                </ElTableColumn>
+              </ElTable>
+            </div>
+          </div>
+        </ElTabPane>
       </ElTabs>
     </div>
     
@@ -1560,7 +1700,7 @@ onMounted(() => {
         </ElSelect>
       </ElFormItem>
       
-      <ElFormItem label="Action Taken (Optional)">
+      <ElFormItem label="Action Taken" prop="action_taken">
         <ElInput 
           type="textarea" 
           :rows="3" 
