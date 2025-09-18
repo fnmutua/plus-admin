@@ -5,7 +5,7 @@ process.env.VUE_APP_PASSWORD = '***REDACTED***';
 process.env.VUE_APP_DB_PORT = '5432';
 
 // Check for database name from command line argument or environment variable
-const databaseName = process.argv[2] || process.env.DATABASE_NAME || 'kisip';
+const databaseName = process.argv[2] || process.env.DATABASE_NAME || 'kisip' || 'kesmis';
 
 // Validate database name
 if (databaseName !== 'kisip' && databaseName !== 'kesmis') {
