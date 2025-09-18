@@ -6,6 +6,7 @@ const fs = require('fs')
 const path = require('path')
 const shortid = require('shortid')
 const { trackIncidentHistory, trackIncidentCreation, trackIncidentUpdate, trackIncidentDeletion, trackStatusChange } = require('../utils/incidentHistoryTracker')
+const nodemailer = require('nodemailer')
 
 const generateINCCode = async () => {
   const prefix = 'INC'
@@ -167,6 +168,45 @@ exports.updateIncidentStatus = async (req, res) => {
   } catch (e) {
     console.error('updateIncidentStatus error', e)
     res.status(500).send({ message: 'Failed to update status' })
+  }
+}
+
+// --- Email ---
+exports.sendIncidentEmail = async (req, res) => {
+  try {
+    const { to, subject, text, html } = req.body || {}
+
+    if (!to || (Array.isArray(to) && to.length === 0)) {
+      return res.status(400).send({ code: '1001', message: 'Recipient email(s) required' })
+    }
+
+    const recipients = Array.isArray(to) ? to : String(to).split(',').map((x) => x.trim())
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    const validEmails = recipients.filter((e) => emailRegex.test(e))
+    if (!validEmails.length) {
+      return res.status(400).send({ code: '1002', message: 'No valid recipient emails' })
+    }
+
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER || 'kisip.mis@gmail.com',
+        pass: process.env.EMAIL_PASS || 'ycoxaqavmfiqljjg'
+      }
+    })
+
+    const info = await transporter.sendMail({
+      from: process.env.EMAIL_FROM || 'kisip.mis@gmail.com',
+      to: validEmails.join(','),
+      subject: subject || 'Notification',
+      text: text || '',
+      html: html || undefined
+    })
+
+    res.status(200).send({ code: '0000', message: 'Email sent', data: { messageId: info.messageId } })
+  } catch (e) {
+    console.error('sendIncidentEmail error', e)
+    res.status(500).send({ code: '9999', message: 'Failed to send email' })
   }
 }
 

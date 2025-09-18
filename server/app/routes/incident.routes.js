@@ -16,6 +16,9 @@ module.exports = function (app) {
   app.post('/api/v1/inc/delete', [authJwt.verifyToken, hasPermission('incident:delete')], controller.deleteIncident)
   app.post('/api/v1/inc/status', [authJwt.verifyToken, hasPermission('incident:update')], controller.updateIncidentStatus)
 
+  // email
+  app.post('/api/v1/inc/email/send', [authJwt.verifyToken, hasPermission('incident:update')], controller.sendIncidentEmail)
+
   // documents
   app.post('/api/v1/inc/upload', controller.uploadIncidentDocument)
   app.post('/api/v1/inc/documents', [authJwt.verifyToken, hasPermission('incident:read')], controller.getIncidentDocuments)
@@ -26,6 +29,33 @@ module.exports = function (app) {
   // history tracking
   app.post('/api/v1/inc/history', [authJwt.verifyToken, hasPermission('incident:read')], controller.getIncidentHistory)
   app.post('/api/v1/inc/history/action', [authJwt.verifyToken, hasPermission('incident:read')], controller.getIncidentHistoryByAction)
+
+  // TEST: Serve route-specific HTML for /incidents with OG/Twitter tags injected
+  const fs = require('fs')
+  const path = require('path')
+  app.get('/incidents', (req, res) => {
+    try {
+      console.log('Serving route-specific HTML for /incidents with OG/Twitter tags injected')
+      const indexPath = path.join(__dirname, '../../public/index.html')
+      let html = fs.readFileSync(indexPath, 'utf8')
+      const tags = `\n      <meta property="og:title" content="Report an xIncident" />\n     
+       <meta property="og:description" content="Report site incidents and accidents through KeSMIS." />\n     
+        <meta property="og:type" content="website" />\n      
+        <meta property="og:url" content="https://kesmis.go.ke/incidents" />\n      
+        <meta property="og:image" content="https://kesmis.go.ke/assets/warning.png" />\n    
+          <meta property="og:image:width" content="1200" />\n     
+           <meta property="og:image:height" content="630" />\n      
+           <meta name="twitter:card" content="summary_large_image" />\n     
+            <meta name="twitter:title" content="Report an Incident - KeSMIS" />\n     
+             <meta name="twitter:description" content="Report site incidents and accidents through KeSMIS." />\n     
+              <meta name="twitter:image" content="https://kesmis.go.ke/assets/warning.png" />\n    
+                <link rel="canonical" href="https://kesmis.go.ke/incidents" />\n    `
+      html = html.replace('</head>', `${tags}\n</head>`)
+      res.set('Content-Type', 'text/html').send(html)
+    } catch (e) {
+      res.status(500).send('Failed to render route shell')
+    }
+  })
 }
 
 

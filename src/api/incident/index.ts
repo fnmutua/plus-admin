@@ -51,3 +51,7 @@ export const getIncidentHistory = (data: any): Promise<IResponse> => {
 export const getIncidentHistoryByAction = (data: any): Promise<IResponse> => {
   return request.post({ url: prod + '/api/v1/inc/history/action', data })
 }
+
+export const sendIncidentEmail = (data: { to: string | string[]; subject?: string; text?: string; html?: string }): Promise<IResponse> => {
+  return request.post({ url: prod + '/api/v1/inc/email/send', data })
+}

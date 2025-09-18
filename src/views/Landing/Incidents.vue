@@ -352,7 +352,7 @@ import { uuid } from 'vue-uuid'
 
 // SEO Meta Tags Setup
 onMounted(() => {
-  document.title = 'Report an Incident - KeSMIS Kenya Slum Management Information System | KISIP';
+ // document.title = 'Report an Incident - KeSMIS Kenya Slum Management Information System | KeSMiS';
   
   const metaTags = [
     { name: 'description', content: 'Report incidents in slums and informal settlements through KeSMIS. Submit safety concerns, infrastructure issues, or emergency situations in Kenya\'s informal settlements.' },
