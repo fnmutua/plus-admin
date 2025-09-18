@@ -101,7 +101,7 @@
                       <el-form-item prop="incident_types">
                         <el-checkbox-group v-model="incidentForm.incident_types">
                           <el-row :gutter="10">
-                            <el-col v-for="i in incidentTypes" :key="i" :xs="24" :sm="24" :md="24" :span="24">
+                            <el-col v-for="i in incidentTypes" :key="i" :xs="24" :sm="12" :md="12" :span="12">
                               <el-checkbox :label="i" class="checkbox-item">{{ i }}</el-checkbox>
                             </el-col>
                           </el-row>
@@ -121,7 +121,7 @@
                       <el-form-item prop="mechanisms">
                         <el-checkbox-group v-model="incidentForm.mechanisms">
                           <el-row :gutter="10">
-                            <el-col v-for="m in mechanisms" :key="m" :xs="24" :sm="24" :md="24" :span="24">
+                            <el-col v-for="m in mechanisms" :key="m" :xs="24" :sm="12" :md="12" :span="12">
                               <el-checkbox :label="m" class="checkbox-item">{{ m }}</el-checkbox>
                             </el-col>
                           </el-row>
@@ -141,7 +141,7 @@
                       <el-form-item prop="indirect_causes">
                         <el-checkbox-group v-model="incidentForm.indirect_causes">
                           <el-row :gutter="10">
-                            <el-col v-for="p in indirectCauses" :key="p" :xs="24" :sm="24" :md="24" :span="24">
+                            <el-col v-for="p in indirectCauses" :key="p" :xs="24" :sm="12" :md="12" :span="12">
                               <el-checkbox :label="p" class="checkbox-item">{{ p }}</el-checkbox>
                             </el-col>
                           </el-row>
@@ -161,7 +161,7 @@
                       <el-form-item prop="activity_leading">
                         <el-checkbox-group v-model="incidentForm.activity_leading">
                           <el-row :gutter="10">
-                            <el-col v-for="a in activities" :key="a" :xs="24" :sm="24" :md="24" :span="24">
+                            <el-col v-for="a in activities" :key="a" :xs="24" :sm="12" :md="12" :span="12">
                               <el-checkbox :label="a" class="checkbox-item">{{ a }}</el-checkbox>
                             </el-col>
                           </el-row>
@@ -189,7 +189,7 @@
                       <el-form-item prop="direct_causes">
                         <el-checkbox-group v-model="incidentForm.direct_causes">
                           <el-row :gutter="10">
-                            <el-col v-for="j in directCauses" :key="j" :xs="24" :sm="24" :md="24" :span="24">
+                            <el-col v-for="j in directCauses" :key="j" :xs="24" :sm="12" :md="12" :span="12">
                               <el-checkbox :label="j" class="checkbox-item">{{ j }}</el-checkbox>
                             </el-col>
                           </el-row>
@@ -209,7 +209,7 @@
                       <el-form-item prop="root_cause">
                         <el-checkbox-group v-model="incidentForm.root_cause">
                           <el-row :gutter="10">
-                            <el-col v-for="a in rootCauses" :key="a" :xs="24" :sm="24" :md="24" :span="24">
+                            <el-col v-for="a in rootCauses" :key="a" :xs="24" :sm="12" :md="12" :span="12">
                               <el-checkbox :label="a" class="checkbox-item">{{ a }}</el-checkbox>
                             </el-col>
                           </el-row>
