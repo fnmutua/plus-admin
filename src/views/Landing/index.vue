@@ -414,47 +414,54 @@ AvgHHSize();
 }
 
 .main-title {
-  font-size: 2.5rem;
+  font-size: 3.2rem;
   font-weight: 800;
   color: var(--el-color-primary);
-  margin-bottom: 2rem;
-  line-height: 1.2;
+  margin-bottom: 2.5rem;
+  line-height: 1.1;
   animation: slideUp 0.8s ease-out;
+  letter-spacing: -0.5px;
 }
 
 .subtitle {
-  font-size: 1.2rem;
+  font-size: 1.4rem;
   color: var(--el-text-color-primary);
- margin-bottom: 2rem;
+  margin-bottom: 2.5rem;
   font-weight: 500;
   animation: slideUp 0.8s ease-out 0.2s backwards;
+  text-align: center;
 }
 
 .description {
-  font-size: 1rem;
-  line-height: 1.6;
+  font-size: 1.1rem;
+  line-height: 1.7;
   color: var(--el-text-color-regular);
- margin-bottom: 1.5rem;
-  max-width: 1000px;
+  margin-bottom: 3rem;
+  max-width: 900px;
   margin-left: auto;
   margin-right: auto;
   animation: slideUp 0.8s ease-out 0.4s backwards;
+  text-align: center;
+  font-weight: 400;
 }
 
 .cta-buttons {
   display: flex;
   justify-content: center;
-  margin-bottom: 2rem;
+  gap: 1rem;
+  margin-bottom: 3rem;
   animation: slideUp 0.8s ease-out 0.6s backwards;
 }
 
 .login-btn {
-  padding: 0.8rem 1.5rem;
-  font-size: 0.8rem;
-  border-radius: 8px;
+  padding: 1rem 2rem;
+  font-size: 1rem;
+  border-radius: 12px;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
   font-weight: 600;
+  min-width: 160px;
+  min-height: 50px;
 }
 
 .login-btn:hover {
@@ -480,57 +487,106 @@ AvgHHSize();
 
 /* 4. STATS GRID (using Element Row/Col) */
 .stats-grid {
-  margin: 0.2rem 0;
+  margin: 2rem auto;
   animation: slideUp 0.8s ease-out 0.8s backwards;
-  max-width: 1400px;
+  max-width: 1200px;
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
 }
 
 .stat-card {
-  height: 80%;
+  height: 100%;
   text-align: center;
-  transition: all 0.3s ease;
-  border: 1px solid var(--el-border-color-lighter);
-  background: transparent;
-  box-shadow: none !important;
-  border-radius: 8px;
-  padding: 0.3rem;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid #e8eaed;
+  background: #ffffff;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border-radius: 16px;
+  padding: 2rem 1.5rem;
+  margin: 0.5rem;
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
 }
 
 .stat-card:hover {
-  transform: translateY(-3px);
-  border-color: var(--el-color-primary-light-5);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1) !important;
+  transform: translateY(-8px) scale(1.02);
+  border-color: #684035;
+  box-shadow: 0 20px 40px rgba(104, 64, 53, 0.15);
+  background: linear-gradient(135deg, #ffffff 0%, #fafbfc 100%);
+}
+
+.stat-card:hover .stat-icon {
+  transform: scale(1.1);
+  background: linear-gradient(135deg, rgba(104, 64, 53, 0.15), rgba(104, 64, 53, 0.1));
 }
 
 .stat-icon {
-  font-size: 1.8rem;
-  margin-bottom: 0.2rem;
-  color: var(--el-color-primary);
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+  color: #684035;
   display: flex;
   justify-content: center;
   align-items: center;
-  opacity: 0.9;
+  width: 60px;
+  height: 60px;
+  background: linear-gradient(135deg, rgba(104, 64, 53, 0.1), rgba(104, 64, 53, 0.05));
+  border-radius: 50%;
+  transition: all 0.3s ease;
 }
 
 .stat-value {
-  font-size: 1.4rem;
-  font-weight: 700;
-  color: var(--el-color-primary);
-  margin-bottom: 0.1rem;
-  opacity: 0.95;
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: #2c3e50;
+  margin-bottom: 0.5rem;
+  line-height: 1.2;
+  letter-spacing: -0.5px;
 }
 
 .stat-label {
-  font-size: 1rem;
-  color: var(--el-text-color-regular);
-  font-weight: 500;
-  opacity: 0.85;
+  font-size: 0.95rem;
+  color: #6c757d;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  line-height: 1.3;
 }
 
 /* 5. STATS SECTION */
 .stats-section {
   margin: 2rem 0;
   animation: slideUp 0.8s ease-out 0.8s backwards;
+}
+
+/* Dark mode for stats cards */
+.dark-mode .stat-card {
+  background: #2c2c2c;
+  border-color: #3a3a3a;
+  color: #e8eaed;
+}
+
+.dark-mode .stat-card:hover {
+  background: linear-gradient(135deg, #2c2c2c 0%, #363636 100%);
+  border-color: #684035;
+}
+
+.dark-mode .stat-value {
+  color: #ffffff;
+}
+
+.dark-mode .stat-label {
+  color: #b0b3b8;
+}
+
+.dark-mode .stat-icon {
+  color: #684035;
+  background: linear-gradient(135deg, rgba(104, 64, 53, 0.2), rgba(104, 64, 53, 0.1));
 }
 
 /* 6. FEATURES SECTION */
@@ -768,6 +824,16 @@ AvgHHSize();
   .hero {
     padding: 1rem 0;
     flex-shrink: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .hero-content {
+    width: 100%;
+    max-width: 500px;
+    margin: 0 auto;
+    padding: 0 1rem;
   }
 
   .hero-visual {
@@ -779,57 +845,81 @@ AvgHHSize();
   }
 
   .main-title {
-    font-size: 2.2rem;
-    margin-bottom: 1.5rem;
+    font-size: 2.8rem;
+    margin-bottom: 2rem;
   }
 
   .subtitle {
-    font-size: 1.1rem;
-    margin-bottom: 1.5rem;
+    font-size: 1.3rem;
+    margin-bottom: 2rem;
   }
 
   .description {
-    font-size: 1rem;
-    line-height: 1.5;
-    margin-bottom: 1rem;
+    font-size: 1.1rem;
+    line-height: 1.6;
+    margin-bottom: 2rem;
     padding: 0 0.5rem;
   }
 
   .cta-buttons {
     flex-direction: column;
-    gap: 0.5rem;
-    padding: 0 1rem;
-    margin-bottom: 1.5rem;
+    gap: 1rem;
+    padding: 0 2rem;
+    margin-bottom: 2rem;
+    align-items: center;
+    width: 100%;
+    max-width: 400px;
+    margin-left: auto;
+    margin-right: auto;
   }
 
   .login-btn, .api-btn {
     width: 100%;
-    padding: 0.7rem;
-    font-size: 0.9rem;
+    padding: 1rem 1.5rem;
+    font-size: 1rem;
     margin-left: 0;
+    border-radius: 12px;
+    font-weight: 600;
+    min-height: 50px;
   }
 
   .stats-grid {
-    margin: 0.5rem 0;
+    margin: 2rem auto;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    padding: 0 1rem;
   }
 
   .stat-card {
-    padding: 0.3rem;
-    margin-bottom: 0.5rem;
+    padding: 2rem 1.5rem;
+    margin: 0.8rem 0;
+    min-height: 160px;
+    width: 100%;
+    max-width: 350px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
   }
 
   .stat-icon {
-    font-size: 1.2rem;
-    margin-bottom: 0.2rem;
+    font-size: 2.2rem;
+    margin-bottom: 1rem;
+    width: 55px;
+    height: 55px;
   }
 
   .stat-value {
-    font-size: 1.3rem;
-    margin-bottom: 0.01rem;
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+    font-weight: 800;
   }
 
   .stat-label {
     font-size: 0.9rem;
+    text-align: center;
+    line-height: 1.3;
   }
 
   .section-header h2 {
@@ -897,46 +987,76 @@ AvgHHSize();
   .hero {
     flex-shrink: 0;
     padding: 0.5rem 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .hero-content {
+    width: 100%;
+    max-width: 400px;
+    margin: 0 auto;
+    padding: 0 1rem;
   }
 
   .main-title {
-    font-size: 1.8rem;
-    margin-bottom: 1rem;
+    font-size: 2.2rem;
+    margin-bottom: 1.5rem;
     line-height: 1.2;
   }
 
   .subtitle {
-    font-size: 1rem;
-    margin-bottom: 1rem;
+    font-size: 1.2rem;
+    margin-bottom: 1.5rem;
   }
 
   .description {
-    font-size: 0.9rem;
-    line-height: 1.5;
-    margin-bottom: 1rem;
+    font-size: 1rem;
+    line-height: 1.6;
+    margin-bottom: 1.5rem;
     padding: 0;
   }
 
   .cta-buttons {
-    margin-bottom: 1rem;
+    margin-bottom: 1.5rem;
+    padding: 0 1.5rem;
+    gap: 0.8rem;
+  }
+
+  .login-btn, .api-btn {
+    padding: 0.9rem 1.2rem;
+    font-size: 0.95rem;
+    min-height: 48px;
   }
 
   .stats-section {
     flex-shrink: 0;
-    margin: 1rem 0;
+    margin: 2rem 0;
+    padding: 0 1rem;
   }
 
   .stat-card {
-    padding: 0.4rem;
-    margin-bottom: 0.5rem;
+    padding: 1.5rem 1rem;
+    margin: 0.6rem 0;
+    min-height: 140px;
+    max-width: 320px;
+  }
+
+  .stat-icon {
+    font-size: 1.8rem;
+    width: 45px;
+    height: 45px;
+    margin-bottom: 0.8rem;
   }
 
   .stat-value {
-    font-size: 1.6rem;
+    font-size: 1.8rem;
+    margin-bottom: 0.4rem;
   }
 
   .stat-label {
-    font-size: 0.9rem;
+    font-size: 0.85rem;
+    text-align: center;
   }
 
   .grievance-section {

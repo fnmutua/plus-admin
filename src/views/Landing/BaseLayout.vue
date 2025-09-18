@@ -21,6 +21,10 @@
                   <Icon icon="mdi:file-document-outline" />
                   <span>Grievances</span>
                 </div>
+                <div class="menu-item" @click="handleSelect('4')">
+                  <Icon icon="mdi:alert-circle-outline" />
+                  <span>Incident</span>
+                </div>
                 <div class="menu-item" @click="handleLoginOrLogout">
                   <Icon :icon="isLoggedIn ? 'mdi:logout' : 'mdi:login'" />
                   <span>{{ isLoggedIn ? 'Logout' : 'Login' }}</span>
@@ -51,6 +55,7 @@
               >
                 <el-menu-item index="1">Home</el-menu-item>
                 <el-menu-item index="3">Grievances</el-menu-item>
+                <el-menu-item index="4">Incident</el-menu-item>
                 <el-menu-item index="2" @click="handleLoginOrLogout">{{ isLoggedIn ? 'Logout' : 'Login' }}</el-menu-item>
                 <el-menu-item index="7" @click="toggleDark">
                   <Icon :icon="isDark ? 'carbon:moon' : 'carbon:sun'" inline />
@@ -192,7 +197,7 @@ const handleSelect = (index: string) => {
       router.push('/grm');
       break;
     case '4':
-      router.push('/about');
+      router.push('/incidents');
       break;
     case '5':
       router.push('/contact');
