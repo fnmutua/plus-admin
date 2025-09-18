@@ -92,6 +92,27 @@ db.models.user_roles.belongsTo(db.models.roles, {
 db.models.roles.hasMany(db.models.user_roles, {
   foreignKey: 'roleid'
 })
+
+// Incident History associations
+db.models.incident_history.belongsTo(db.models.users, {
+  foreignKey: 'changed_by',
+  as: 'user'
+})
+
+db.models.users.hasMany(db.models.incident_history, {
+  foreignKey: 'changed_by',
+  as: 'incidentHistories'
+})
+
+db.models.incident_history.belongsTo(db.models.incident, {
+  foreignKey: 'incident_id',
+  as: 'incident'
+})
+
+db.models.incident.hasMany(db.models.incident_history, {
+  foreignKey: 'incident_id',
+  as: 'histories'
+})
  
 
 

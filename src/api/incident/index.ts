@@ -23,3 +23,23 @@ export const generateIncidentCode = (): Promise<IResponse> => {
 export const uploadIncidentDocuments = (data: any): Promise<IResponse> => {
   return request.post({ url: prod + '/api/v1/inc/upload', data })
 }
+
+export const updateIncident = (data: any): Promise<IResponse> => {
+  return request.post({ url: prod + '/api/v1/inc/update', data })
+}
+
+export const deleteIncident = (data: any): Promise<IResponse> => {
+  return request.post({ url: prod + '/api/v1/inc/delete', data })
+}
+
+export const updateIncidentStatus = (data: any): Promise<IResponse> => {
+  return request.post({ url: prod + '/api/v1/inc/status', data })
+}
+
+export const getIncidentHistory = (data: any): Promise<IResponse> => {
+  return request.post({ url: prod + '/api/v1/inc/history', data })
+}
+
+export const getIncidentHistoryByAction = (data: any): Promise<IResponse> => {
+  return request.post({ url: prod + '/api/v1/inc/history/action', data })
+}

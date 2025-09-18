@@ -39,6 +39,7 @@ module.exports = function (sequelize) {
       indirect_causes: { type: DataTypes.ARRAY(DataTypes.STRING), allowNull: true },
       direct_causes: { type: DataTypes.ARRAY(DataTypes.STRING), allowNull: true },
       activity_leading: { type: DataTypes.ARRAY(DataTypes.STRING), allowNull: true },
+      root_cause: { type: DataTypes.ARRAY(DataTypes.STRING), allowNull: true },
 
       // narrative sections
       description: { type: DataTypes.TEXT, allowNull: true },

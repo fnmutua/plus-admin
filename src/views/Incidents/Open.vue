@@ -1,8 +1,8 @@
 <!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { ElCard, ElTable, ElTableColumn, ElPagination, ElButton, ElInput, ElDialog, ElForm, ElFormItem, ElDatePicker, ElSelect, ElOption } from 'element-plus'
-import { getIncidents, createIncident, generateIncidentCode } from '@/api/incident'
+import { ref, onMounted, computed } from 'vue'
+import { ElCard, ElTable, ElTableColumn, ElPagination, ElButton, ElInput, ElDialog, ElDrawer, ElForm, ElFormItem, ElDatePicker, ElTimePicker, ElSelect, ElOption, ElTag, ElTimeline, ElTimelineItem, ElMessageBox, ElMessage, ElCheckboxGroup, ElCheckbox, ElRow, ElCol } from 'element-plus'
+import { getIncidents, createIncident, generateIncidentCode, updateIncident, deleteIncident, getIncidentHistory } from '@/api/incident'
 
 const loading = ref(false)
 const list = ref<any[]>([])
@@ -13,6 +13,97 @@ const keyword = ref('')
 
 const dialog = ref(false)
 const form = ref<any>({})
+const historyDrawer = ref(false)
+const historyList = ref<any[]>([])
+const selectedIncident = ref<any>(null)
+const editDrawer = ref(false)
+const editForm = ref<any>({})
+const active = ref(0)
+const editFormRef = ref<any>(null)
+
+// Action dialog variables
+const showActionDialog = ref(false)
+const newAction = ref({ action: "", responsible: "", priority: "", due_date: "" })
+const actionDialogRef = ref<any>(null)
+
+// Save functionality
+const saving = ref(false)
+
+// Mobile detection
+const isMobile = ref(false)
+
+// Computed drawer sizes
+const editDrawerSize = computed(() => isMobile.value ? '100%' : '50%')
+const historyDrawerSize = computed(() => isMobile.value ? '100%' : '30%')
+
+// Step titles
+const stepTitles = [
+  'Incident Details',
+  'Worker Details', 
+  'Categories',
+  'Causes',
+  'Narrative',
+  'Actions',
+  'Prepared By'
+]
+
+// Form data arrays and options
+const incidentTypes = [
+  "Hazards","Environmental Impact","Near Miss","Occupational Personal Injury",
+  "Non-Occupational Incident / Accident","Occupational Disease","Vehicle Incident/ Accident",
+  "Fatality","Non worker incident (Traffic Accident Away)"
+]
+
+const mechanisms = [
+  "Loss of Containment", "Assault", "Radiation", "Fire/Explosion", "Unsafe Act",
+  "Plant /Vehicle Operation", "Pollution /Environment", "Mechanical lifting",
+  "Structural / Foundation", "Slip/ Trip/fall", "Lifting/ crane operation",
+  "Waterborne", "Falling from height", "Manual handling", "Hazardous Substances exposure",
+  "Falling/flying objects", "Using Machineries", "Driving", "Unsafe Condition",
+  "Radiation", "Electrical", "Using Hand tools"
+]
+
+const indirectCauses = [
+  "Inadequate Mental / Physical capacity", "Inadequate Design / Engineering",
+  "Inadequate knowledge/skills", "Inadequate Procedures", "Stress",
+  "Inadequate Tools / Equipment", "Inadequate Supervision", "Inadequate Instructions.",
+  "Improper Motivation", "Inadequate Planning / Organization.", "Disregard of Instruction.",
+  "Inadequate Supervision.", "Inadequate appreciation of situation", "Inadequate Training",
+  "Fatigue / illness", "Inadequate Maintenance / Inspection", "Others (specify)",
+  "Inadequate judgement involving KPLC wire)"
+]
+
+const directCauses = [
+  "Failure in Communication", "Inadequate PPEs", "Failure to follow Rules/ Regulations",
+  "Defective / damaged Tools and Equipment", "Failure to wear PPEs", "Inadequate CPEs",
+  "Failure to wear RPEs", "Inadequate warning / Safety devices", "Improve manual handling",
+  "Poor housekeeping", "Improve Vehicle Operation", "Inadequate/ miss use of Tools/ Equipment",
+  "Failure to properly observe warnings", "Failure to properly observe Safety devices",
+  "Wet / Uneven floor / Ground", "Misuse of Tool, Equipment and Plants",
+  "Inadequate Access and Egress", "Others", "Accident involving the hanging kplc wire",
+  "Weak old structures with shallow foundations"
+]
+
+const activities = [
+  "Using portable Tools/Equipment", "Grinding", "Breaking connection",
+  "Operating Plant / Machineries", "Electrical work", "Manual lifting/handling",
+  "Assembling /Dismantling", "Welding / Cutting with torch", "Movement of Equipment",
+  "Handling hazardous substances", "Inspection, Examination, Radiography",
+  "Others (refiling of water bowser)", "Climbing / Descending", "Cleaning",
+  "Working / Walking on same level", "Painting", "Driving", "Digging",
+  "Working at height (above 2 M)", "Draining/ flushing"
+]
+
+const rootCauses = [
+  "Management commitment", "Inspection / Audit", "Recruitment Procedures",
+  "Training", "Planning", "Communication", "Design", "Standards",
+  "Housekeeping", "Failure in organization", "Others (specify)"
+]
+
+const severityLevels = [
+  "Minor","Major","Lost time injury","Fatality",
+  "Restricted to work cases","Medical treatment cases","First Aid Case"
+]
 
 const fetchList = async () => {
   loading.value = true
@@ -36,10 +127,227 @@ const submit = async () => {
   if (res && res.code === '0000') {
     dialog.value = false
     fetchList()
+    ElMessage.success('Incident created successfully')
   }
 }
 
-onMounted(fetchList)
+const openEditDrawer = (row: any) => {
+  editForm.value = { ...row }
+  // Initialize arrays if they don't exist
+  editForm.value.incident_types = editForm.value.incident_types || []
+  editForm.value.mechanisms = editForm.value.mechanisms || []
+  editForm.value.indirect_causes = editForm.value.indirect_causes || []
+  editForm.value.direct_causes = editForm.value.direct_causes || []
+  editForm.value.activity_leading = editForm.value.activity_leading || []
+  editForm.value.root_cause = editForm.value.root_cause || []
+  editForm.value.actions_to_avoid = editForm.value.actions_to_avoid || []
+  active.value = 0
+  editDrawer.value = true
+}
+
+const submitEdit = async () => {
+  const res: any = await updateIncident(editForm.value)
+  if (res && res.code === '0000') {
+    editDrawer.value = false
+    fetchList()
+    ElMessage.success('Incident updated successfully')
+  }
+}
+
+const handleDelete = async (row: any) => {
+  try {
+    await ElMessageBox.confirm('Are you sure you want to delete this incident?', 'Warning', {
+      confirmButtonText: 'Yes',
+      cancelButtonText: 'Cancel',
+      type: 'warning'
+    })
+    
+    const res: any = await deleteIncident({ id: row.id })
+    if (res && res.code === '0000') {
+      fetchList()
+      ElMessage.success('Incident deleted successfully')
+    }
+  } catch (error) {
+    // User cancelled
+  }
+}
+
+const openHistoryDrawer = async (row: any) => {
+  selectedIncident.value = row
+  try {
+    const res: any = await getIncidentHistory({ incident_id: row.id })
+    if (res && res.code === '0000') {
+      historyList.value = res.data || []
+      historyDrawer.value = true
+    }
+  } catch (error) {
+    ElMessage.error('Failed to fetch incident history')
+  }
+}
+
+const getActionColor = (action: string): 'success' | 'warning' | 'info' | 'primary' | 'danger' => {
+  const colors: { [key: string]: 'success' | 'warning' | 'info' | 'primary' | 'danger' } = {
+    created: 'success',
+    updated: 'primary',
+    deleted: 'danger',
+    status_changed: 'warning'
+  }
+  return colors[action] || 'info'
+}
+
+const formatValue = (value: any) => {
+  if (typeof value === 'object') {
+    return JSON.stringify(value, null, 2)
+  }
+  return value || 'N/A'
+}
+
+// Step navigation functions
+const nextStep = async () => {
+  try {
+    await editFormRef.value?.validate()
+    active.value++
+  } catch {
+    ElMessage.error('Please fill required fields')
+  }
+}
+
+const prevStep = () => {
+  active.value--
+}
+
+// Arrow navigation functions
+const goToPrevStep = async () => {
+  if (active.value > 0) {
+    try {
+      await editFormRef.value?.validate()
+      active.value--
+    } catch {
+      ElMessage.error('Please fill required fields before going back')
+    }
+  }
+}
+
+const goToNextStep = async () => {
+  if (active.value < stepTitles.length - 1) {
+    try {
+      await editFormRef.value?.validate()
+      active.value++
+    } catch {
+      ElMessage.error('Please fill required fields')
+    }
+  }
+}
+
+// Validation rules for each step
+const validationRules = {
+  step0: {
+    occurred_date: [{ required: true, message: 'Occurred Date is required', trigger: 'change' }],
+    occurred_time: [{ required: true, message: 'Occurred Time is required', trigger: 'change' }],
+    location_text: [{ required: true, message: 'Location is required', trigger: 'blur' }],
+    reported_by: [{ required: true, message: 'Reported By is required', trigger: 'blur' }],
+    reporter_phone: [{ required: true, message: 'Reporter Phone is required', trigger: 'blur' }]
+  },
+  step1: {
+    worker_name: [{ required: true, message: 'Worker Name is required', trigger: 'blur' }],
+    designation: [{ required: true, message: 'Designation is required', trigger: 'blur' }],
+    site_supervisor: [{ required: true, message: 'Site Supervisor is required', trigger: 'blur' }],
+    department: [{ required: true, message: 'Department is required', trigger: 'blur' }]
+  },
+  step2: {
+    incident_types: [{ required: true, message: 'Select at least 1 Incident Type', trigger: 'change' }],
+    mechanisms: [{ required: true, message: 'Select at least 1 Mechanism', trigger: 'change' }],
+    indirect_causes: [{ required: true, message: 'Select at least 1 Indirect Cause', trigger: 'change' }],
+    activity_leading: [{ required: true, message: 'Select at least 1 Activity', trigger: 'change' }]
+  },
+  step3: {
+    direct_causes: [{ required: true, message: 'Select at least 1 Direct Cause', trigger: 'change' }],
+    root_cause: [{ required: true, message: 'Select at least 1 Root Cause', trigger: 'change' }]
+  },
+  step4: {
+    description: [{ required: true, message: 'Description is required', trigger: 'blur' }],
+    consequences: [{ required: true, message: 'Consequences are required', trigger: 'blur' }],
+    immediate_action: [{ required: true, message: 'Immediate Action is required', trigger: 'blur' }],
+    severity: [{ required: true, message: 'Severity is required', trigger: 'change' }]
+  },
+  step5: {
+    actions_to_avoid: [{ required: true, message: 'Add at least one Action to Avoid', trigger: 'change' }]
+  },
+  step6: {
+    prepared_by_name: [{ required: true, message: 'Prepared By is required', trigger: 'blur' }],
+    prepared_by_job_title: [{ required: true, message: 'Job Title is required', trigger: 'blur' }]
+  }
+}
+
+const currentStepRules = computed(() => validationRules[`step${active.value}`] || {})
+
+// Action dialog validation rules
+const actionDialogRules = {
+  action: [{ required: true, message: 'Action is required', trigger: 'blur' }],
+  responsible: [{ required: true, message: 'Responsible is required', trigger: 'blur' }],
+  priority: [{ required: true, message: 'Priority is required', trigger: 'change' }],
+  due_date: [{ required: true, message: 'Due Date is required', trigger: 'change' }]
+}
+
+// Action management functions
+const addActionRow = () => {
+  newAction.value = { action: "", responsible: "", priority: "", due_date: "" }
+  showActionDialog.value = true
+}
+
+const confirmAddAction = async () => {
+  try {
+    await actionDialogRef.value?.validate()
+  } catch (e) {
+    ElMessage.error("Please fill all required fields")
+    return
+  }
+  
+  if (!editForm.value.actions_to_avoid) {
+    editForm.value.actions_to_avoid = []
+  }
+  
+  editForm.value.actions_to_avoid.push({ ...newAction.value })
+  newAction.value = { action: "", responsible: "", priority: "", due_date: "" }
+  showActionDialog.value = false
+}
+
+const removeAction = (index: number) => {
+  if (editForm.value.actions_to_avoid) {
+    editForm.value.actions_to_avoid.splice(index, 1)
+  }
+}
+
+// Save current step function
+const saveCurrentStep = async () => {
+  try {
+    await editFormRef.value?.validate()
+    saving.value = true
+    
+    const res: any = await updateIncident(editForm.value)
+    if (res && res.code === '0000') {
+      ElMessage.success('Progress saved successfully')
+      fetchList() // Refresh the list to show updated data
+    } else {
+      ElMessage.error('Failed to save progress')
+    }
+  } catch (error) {
+    ElMessage.error('Please fill required fields before saving')
+  } finally {
+    saving.value = false
+  }
+}
+
+// Mobile detection setup
+const checkMobile = () => {
+  isMobile.value = window.innerWidth < 768
+}
+
+onMounted(() => {
+  fetchList()
+  checkMobile()
+  window.addEventListener('resize', checkMobile)
+})
 </script>
 
 <template>
@@ -49,7 +357,7 @@ onMounted(fetchList)
       <ElButton type="primary" @click="fetchList">Search</ElButton>
       <ElButton type="success" @click="openDialog">Report Incident</ElButton>
     </div>
-    <ElTable :data="list" v-loading="loading" size="small">
+    <ElTable :data="list" v-loading="loading" >
       <ElTableColumn prop="code" label="Code" width="140" />
       <ElTableColumn prop="occurred_date" label="Occurred" width="160" />
       <ElTableColumn prop="reported_date" label="Reported" width="160" />
@@ -57,6 +365,13 @@ onMounted(fetchList)
       <ElTableColumn prop="location_text" label="Location" />
       <ElTableColumn prop="severity" label="Severity" width="120" />
       <ElTableColumn prop="description" label="Brief" />
+      <ElTableColumn label="Actions" width="350" fixed="right">
+        <template #default="{ row }">
+          <ElButton size="small" @click="openEditDrawer(row)">Edit</ElButton>
+          <ElButton size="small" type="info" @click="openHistoryDrawer(row)">History</ElButton>
+          <ElButton size="small" type="danger" @click="handleDelete(row)">Delete</ElButton>
+        </template>
+      </ElTableColumn>
     </ElTable>
     <ElPagination v-model:current-page="page" v-model:page-size="pageSize" :total="total" layout="prev, pager, next, sizes" @current-change="fetchList" @size-change="fetchList" style="margin-top:10px;" />
   </ElCard>
@@ -95,9 +410,706 @@ onMounted(fetchList)
       <ElButton type="primary" @click="submit">Submit</ElButton>
     </template>
   </ElDialog>
+
+  <!-- Edit Drawer -->
+  <ElDrawer 
+    v-model="editDrawer" 
+    title="Edit Incident" 
+    :size="editDrawerSize"
+    direction="rtl"
+    :with-header="true"
+    :close-on-click-modal="false"
+  >
+    <div class="drawer-content">
+      <!-- Step Header with Navigation -->
+      <div class="step-header">
+        <ElButton 
+          @click="goToPrevStep" 
+          :disabled="active === 0"
+          type="text" 
+          class="step-nav-btn prev-btn"
+        >
+          <i class="fas fa-chevron-left"></i>
+        </ElButton>
+        
+        <div class="step-title">
+          <span class="step-number">{{ active + 1 }}</span>
+          <span class="step-text">{{ stepTitles[active] }}</span>
+        </div>
+        
+        <ElButton 
+          @click="goToNextStep" 
+          :disabled="active === stepTitles.length - 1"
+          type="text" 
+          class="step-nav-btn next-btn"
+        >
+          <i class="fas fa-chevron-right"></i>
+        </ElButton>
+      </div>
+
+      <ElForm 
+        :model="editForm" 
+        :rules="currentStepRules"
+        ref="editFormRef"
+        label-position="top"
+        class="edit-form"
+      >
+        <!-- Step 0: Incident Details -->
+        <div v-if="active === 0" class="form-step">
+          <ElRow :gutter="16">
+            <ElCol :span="24">
+              <ElFormItem label="Code" prop="code">
+        <ElInput v-model="editForm.code" disabled />
+      </ElFormItem>
+              <ElFormItem label="Occurred Date" prop="occurred_date">
+        <ElDatePicker v-model="editForm.occurred_date" type="date" />
+      </ElFormItem>
+              <ElFormItem label="Occurred Time" prop="occurred_time">
+                <ElTimePicker v-model="editForm.occurred_time" />
+      </ElFormItem>
+              <ElFormItem label="Location" prop="location_text">
+        <ElInput v-model="editForm.location_text" />
+      </ElFormItem>
+              <ElFormItem label="Reported By" prop="reported_by">
+                <ElInput v-model="editForm.reported_by" />
+              </ElFormItem>
+              <ElFormItem label="Reporter Phone" prop="reporter_phone">
+                <ElInput v-model="editForm.reporter_phone" placeholder="2547XXXXXXXX" />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+        </div>
+
+        <!-- Step 1: Worker Details -->
+        <div v-if="active === 1" class="form-step">
+          <ElRow :gutter="16">
+            <ElCol :span="24">
+              <ElFormItem label="Worker Name" prop="worker_name">
+        <ElInput v-model="editForm.worker_name" />
+      </ElFormItem>
+              <ElFormItem label="Designation" prop="designation">
+                <ElInput v-model="editForm.designation" />
+              </ElFormItem>
+              <ElFormItem label="Site Supervisor" prop="site_supervisor">
+                <ElInput v-model="editForm.site_supervisor" />
+              </ElFormItem>
+              <ElFormItem label="Department" prop="department">
+                <ElInput v-model="editForm.department" />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+        </div>
+
+        <!-- Step 2: Categories -->
+        <div v-if="active === 2" class="form-step">
+          <ElRow :gutter="20">
+            <!-- Incident Types Card -->
+            <ElCol :span="24">
+              <ElCard class="category-card" shadow="hover">
+                <template #header>
+                  <div class="card-header">Incident Types</div>
+                </template>
+                <ElFormItem prop="incident_types">
+                  <ElCheckboxGroup v-model="editForm.incident_types">
+                    <ElRow :gutter="10">
+                      <ElCol v-for="i in incidentTypes" :key="i" :span="24">
+                        <ElCheckbox :label="i" class="checkbox-item">{{ i }}</ElCheckbox>
+                      </ElCol>
+                    </ElRow>
+                  </ElCheckboxGroup>
+                </ElFormItem>
+              </ElCard>
+            </ElCol>
+
+            <!-- Mechanism Causing Incident Card -->
+            <ElCol :span="24">
+              <ElCard class="category-card" shadow="hover">
+                <template #header>
+                  <div class="card-header">Mechanism Causing Incident</div>
+                </template>
+                <ElFormItem prop="mechanisms">
+                  <ElCheckboxGroup v-model="editForm.mechanisms">
+                    <ElRow :gutter="10">
+                      <ElCol v-for="m in mechanisms" :key="m" :span="24">
+                        <ElCheckbox :label="m" class="checkbox-item">{{ m }}</ElCheckbox>
+                      </ElCol>
+                    </ElRow>
+                  </ElCheckboxGroup>
+                </ElFormItem>
+              </ElCard>
+            </ElCol>
+
+            <!-- Indirect Causes Card -->
+            <ElCol :span="24">
+              <ElCard class="category-card" shadow="hover">
+                <template #header>
+                  <div class="card-header">Indirect Causes</div>
+                </template>
+                <ElFormItem prop="indirect_causes">
+                  <ElCheckboxGroup v-model="editForm.indirect_causes">
+                    <ElRow :gutter="10">
+                      <ElCol v-for="p in indirectCauses" :key="p" :span="24">
+                        <ElCheckbox :label="p" class="checkbox-item">{{ p }}</ElCheckbox>
+                      </ElCol>
+                    </ElRow>
+                  </ElCheckboxGroup>
+                </ElFormItem>
+              </ElCard>
+            </ElCol>
+
+            <!-- Activity Leading to Incident Card -->
+            <ElCol :span="24">
+              <ElCard class="category-card" shadow="hover">
+                <template #header>
+                  <div class="card-header">Activity Leading to Incident</div>
+                </template>
+                <ElFormItem prop="activity_leading">
+                  <ElCheckboxGroup v-model="editForm.activity_leading">
+                    <ElRow :gutter="10">
+                      <ElCol v-for="a in activities" :key="a" :span="24">
+                        <ElCheckbox :label="a" class="checkbox-item">{{ a }}</ElCheckbox>
+                      </ElCol>
+                    </ElRow>
+                  </ElCheckboxGroup>
+                </ElFormItem>
+              </ElCard>
+            </ElCol>
+          </ElRow>
+        </div>
+
+        <!-- Step 3: Causes -->
+        <div v-if="active === 3" class="form-step">
+          <ElRow :gutter="20">
+            <!-- Direct Causes Card -->
+            <ElCol :span="24">
+              <ElCard class="category-card" shadow="hover">
+                <template #header>
+                  <div class="card-header">Direct Causes</div>
+                </template>
+                <ElFormItem prop="direct_causes">
+                  <ElCheckboxGroup v-model="editForm.direct_causes">
+                    <ElRow :gutter="10">
+                      <ElCol v-for="j in directCauses" :key="j" :span="24">
+                        <ElCheckbox :label="j" class="checkbox-item">{{ j }}</ElCheckbox>
+                      </ElCol>
+                    </ElRow>
+                  </ElCheckboxGroup>
+                </ElFormItem>
+              </ElCard>
+            </ElCol>
+
+            <!-- Root Cause Card -->
+            <ElCol :span="24">
+              <ElCard class="category-card" shadow="hover">
+                <template #header>
+                  <div class="card-header">Root Cause</div>
+                </template>
+                <ElFormItem prop="root_cause">
+                  <ElCheckboxGroup v-model="editForm.root_cause">
+                    <ElRow :gutter="10">
+                      <ElCol v-for="a in rootCauses" :key="a" :span="24">
+                        <ElCheckbox :label="a" class="checkbox-item">{{ a }}</ElCheckbox>
+                      </ElCol>
+                    </ElRow>
+                  </ElCheckboxGroup>
+                </ElFormItem>
+              </ElCard>
+            </ElCol>
+          </ElRow>
+        </div>
+
+        <!-- Step 4: Narrative -->
+        <div v-if="active === 4" class="form-step">
+          <ElRow :gutter="16">
+            <ElCol :span="24">
+              <ElFormItem label="Description" prop="description">
+                <ElInput type="textarea" :rows="3" v-model="editForm.description" />
+              </ElFormItem>
+              <ElFormItem label="Consequences" prop="consequences">
+                <ElInput type="textarea" :rows="3" v-model="editForm.consequences" />
+              </ElFormItem>
+              <ElFormItem label="Immediate Action" prop="immediate_action">
+                <ElInput type="textarea" :rows="3" v-model="editForm.immediate_action" />
+              </ElFormItem>
+              <ElFormItem label="Severity" prop="severity">
+                <ElSelect v-model="editForm.severity" placeholder="Select severity">
+                  <ElOption v-for="s in severityLevels" :key="s" :label="s" :value="s" />
+        </ElSelect>
+      </ElFormItem>
+            </ElCol>
+          </ElRow>
+        </div>
+
+        <!-- Step 5: Actions -->
+        <div v-if="active === 5" class="form-step">
+          <ElRow :gutter="16">
+            <ElCol :span="24">
+              <ElFormItem prop="actions_to_avoid">
+                <div class="table-scroll">
+                  <ElTable :data="editForm.actions_to_avoid || []" style="width:100%" class="actions-table">
+                    <ElTableColumn prop="action" label="Action" />
+                    <ElTableColumn prop="responsible" label="Responsible" />
+                    <ElTableColumn prop="priority" label="Priority" />
+                    <ElTableColumn prop="due_date" label="Due Date" />
+                    <ElTableColumn label="Operations">
+                      <template #default="{ $index }">
+                        <ElButton type="danger" size="small" @click="removeAction($index)">Remove</ElButton>
+                      </template>
+                    </ElTableColumn>
+                  </ElTable>
+                </div>
+                <ElButton type="primary" @click="addActionRow" style="margin-top: 10px;">Add Action</ElButton>
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+        </div>
+
+        <!-- Step 6: Prepared By -->
+        <div v-if="active === 6" class="form-step">
+          <ElRow :gutter="16">
+            <ElCol :span="24">
+              <ElFormItem label="Prepared By" prop="prepared_by_name">
+                <ElInput v-model="editForm.prepared_by_name" />
+              </ElFormItem>
+              <ElFormItem label="Job Title" prop="prepared_by_job_title">
+                <ElInput v-model="editForm.prepared_by_job_title" />
+      </ElFormItem>
+            </ElCol>
+          </ElRow>
+        </div>
+    </ElForm>
+    </div>
+
+    <template #footer>
+      <div class="steps-navigation">
+        <div class="nav-left">
+          <ElButton v-if="active > 0" @click="prevStep" type="primary" class="nav-button">
+            <i class="fas fa-chevron-left"></i> Previous
+          </ElButton>
+        </div>
+        
+        <div class="nav-center">
+          <ElButton 
+            @click="saveCurrentStep" 
+            type="warning" 
+            class="nav-button save-button"
+            :loading="saving"
+            :disabled="saving"
+          >
+            <i class="fas fa-save"></i> Save Progress
+          </ElButton>
+        </div>
+        
+        <div class="nav-right">
+          <ElButton v-if="active < 6" type="primary" @click="nextStep" class="nav-button">
+            Next <i class="fas fa-chevron-right"></i>
+          </ElButton>
+          <ElButton v-if="active === 6" type="success" @click="submitEdit" class="nav-button">
+            <i class="fas fa-check"></i> Final Update
+          </ElButton>
+          <ElButton @click="editDrawer=false" class="nav-button cancel-button">Cancel</ElButton>
+        </div>
+      </div>
+    </template>
+  </ElDrawer>
+
+  <!-- History Drawer -->
+  <ElDrawer 
+    v-model="historyDrawer" 
+    title="Incident History" 
+    :size="historyDrawerSize"
+    direction="rtl"
+    :with-header="true"
+    :close-on-click-modal="false"
+  >
+    <div v-if="selectedIncident" style="margin-bottom: 20px; padding: 16px; background-color: #f5f7fa; border-radius: 8px;">
+      <h4 style="margin: 0 0 8px 0; color: #303133;">Incident: {{ selectedIncident.code }}</h4>
+      <p style="margin: 0; color: #606266;"><strong>Description:</strong> {{ selectedIncident.description }}</p>
+    </div>
+    
+    <ElTimeline>
+      <ElTimelineItem
+        v-for="(item, index) in historyList"
+        :key="index"
+        :timestamp="new Date(item.createdAt).toLocaleString()"
+        :type="getActionColor(item.action)"
+      >
+        <template #default>
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+              <ElTag :type="getActionColor(item.action)">{{ item.action.toUpperCase() }}</ElTag>
+              <span v-if="item.changed_by_name" style="font-weight: bold;">by {{ item.changed_by_name }}</span>
+            </div>
+            
+            <div v-if="item.field_name" style="margin-bottom: 4px;">
+              <strong>Field:</strong> {{ item.field_name }}
+            </div>
+            
+            <div v-if="item.old_value && item.new_value" style="margin-bottom: 4px;">
+              <div><strong>From:</strong> {{ formatValue(item.old_value) }}</div>
+              <div><strong>To:</strong> {{ formatValue(item.new_value) }}</div>
+            </div>
+            
+            <div v-if="item.change_reason" style="margin-bottom: 4px;">
+              <strong>Reason:</strong> {{ item.change_reason }}
+            </div>
+            
+            <div v-if="item.ip_address" style="font-size: 12px; color: #666;">
+              IP: {{ item.ip_address }}
+            </div>
+          </div>
+        </template>
+      </ElTimelineItem>
+    </ElTimeline>
+    
+    <template #footer>
+      <div style="display: flex; justify-content: flex-end; gap: 8px; padding: 16px;">
+        <ElButton @click="historyDrawer=false">Close</ElButton>
+      </div>
+    </template>
+  </ElDrawer>
+
+  <!-- Action Dialog -->
+  <ElDialog 
+    v-model="showActionDialog" 
+    title="Add Action" 
+    :width="'500px'"
+    :close-on-click-modal="false"
+  >
+    <ElForm 
+      :model="newAction" 
+      :rules="actionDialogRules" 
+      label-position="top" 
+      ref="actionDialogRef"
+    >
+      <ElFormItem label="Action" prop="action">
+        <ElInput v-model="newAction.action" placeholder="Enter action to be taken" />
+      </ElFormItem>
+      <ElFormItem label="Responsible" prop="responsible">
+        <ElInput v-model="newAction.responsible" placeholder="Enter responsible person" />
+      </ElFormItem>
+      <ElFormItem label="Priority" prop="priority">
+        <ElSelect v-model="newAction.priority" placeholder="Select priority">
+          <ElOption label="High" value="High" />
+          <ElOption label="Medium" value="Medium" />
+          <ElOption label="Low" value="Low" />
+        </ElSelect>
+      </ElFormItem>
+      <ElFormItem label="Due Date" prop="due_date">
+        <ElDatePicker v-model="newAction.due_date" type="date" placeholder="Select due date" />
+      </ElFormItem>
+    </ElForm>
+    <template #footer>
+      <ElButton @click="showActionDialog = false">Cancel</ElButton>
+      <ElButton type="primary" @click="confirmAddAction">Add Action</ElButton>
+    </template>
+  </ElDialog>
 </template>
 
 <style scoped>
+/* Drawer Styles */
+.el-drawer__body {
+  padding: 10px 20px 20px 20px;
+}
+
+.drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  border-bottom: 1px solid #e4e7ed;
+  background-color: #f5f7fa;
+}
+
+.drawer-content {
+  padding: 10px 0;
+}
+
+/* Form spacing in drawer */
+.el-form {
+  padding: 0 20px;
+}
+
+.el-form-item {
+  margin-bottom: 16px;
+}
+
+/* Timeline styling in history drawer */
+.el-timeline {
+  padding-left: 20px;
+}
+
+.el-timeline-item__content {
+  padding-left: 20px;
+}
+
+/* Responsive drawer sizes */
+@media (max-width: 768px) {
+  .el-drawer {
+    width: 100% !important;
+  }
+}
+
+/* Step-based form styles */
+.form-step {
+  padding: 10px 0;
+}
+
+/* Step Header Styles */
+.step-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  margin-bottom: 16px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.step-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  justify-content: center;
+}
+
+.step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background-color: #409eff;
+  color: white;
+  border-radius: 50%;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.step-text {
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.step-nav-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.step-nav-btn:hover:not(:disabled) {
+  background-color: #409eff;
+  color: white;
+}
+
+.step-nav-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.prev-btn {
+  margin-right: auto;
+}
+
+.next-btn {
+  margin-left: auto;
+}
+
+.edit-form {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+/* Category Cards Styling */
+.category-card {
+  margin-bottom: 20px;
+  height: fit-content;
+}
+
+.card-header {
+  font-weight: 600;
+  font-size: 16px;
+  color: #303133;
+}
+
+.checkbox-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+  margin-right: 0;
+}
+
+.checkbox-item .el-checkbox__label {
+  font-size: 14px;
+  line-height: 1.4;
+  padding-left: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.checkbox-item .el-checkbox {
+  display: inline-flex;
+  align-items: flex-start;
+}
+
+.checkbox-item .el-checkbox__input {
+  margin-top: 2px;
+}
+
+/* Steps navigation */
+.steps-navigation {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 16px;
+  border-top: 1px solid #e4e7ed;
+}
+
+.nav-left, .nav-center, .nav-right {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.nav-center {
+  flex: 1;
+  justify-content: center;
+}
+
+.nav-button {
+  min-width: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 16px;
+}
+
+.save-button {
+  background-color: #e6a23c;
+  border-color: #e6a23c;
+  color: white;
+}
+
+.save-button:hover {
+  background-color: #d4922b;
+  border-color: #d4922b;
+}
+
+.cancel-button {
+  background-color: #f56c6c;
+  border-color: #f56c6c;
+  color: white;
+}
+
+.cancel-button:hover {
+  background-color: #f78989;
+  border-color: #f78989;
+}
+
+.nav-button i {
+  font-size: 14px;
+}
+
+/* Table scroll for actions */
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.actions-table {
+  min-width: 600px;
+}
+
+/* Custom scrollbar for form */
+.edit-form::-webkit-scrollbar {
+  width: 6px;
+}
+
+.edit-form::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.edit-form::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.edit-form::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+@media (max-width: 768px) {
+  .steps-navigation {
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+  }
+  
+  .nav-left, .nav-center, .nav-right {
+    justify-content: center;
+    width: 100%;
+  }
+  
+  .nav-center {
+    order: 1;
+  }
+  
+  .nav-left {
+    order: 2;
+  }
+  
+  .nav-right {
+    order: 3;
+  }
+  
+  .nav-button {
+    flex: 1;
+    margin: 0;
+    min-width: 100px;
+    height: 44px;
+    font-size: 16px;
+  }
+  
+  .save-button {
+    order: -1;
+    margin-bottom: 8px;
+  }
+  
+  /* Mobile step header */
+  .step-header {
+    padding: 8px 16px;
+    margin-bottom: 12px;
+  }
+  
+  .step-text {
+    font-size: 14px;
+  }
+  
+  .step-number {
+    width: 24px;
+    height: 24px;
+    font-size: 12px;
+  }
+  
+  .step-nav-btn {
+    width: 32px;
+    height: 32px;
+  }
+}
 </style>
 
 

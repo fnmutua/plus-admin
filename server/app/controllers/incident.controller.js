@@ -5,6 +5,7 @@ const multer = require('multer')
 const fs = require('fs')
 const path = require('path')
 const shortid = require('shortid')
+const { trackIncidentCreation, trackIncidentUpdate, trackIncidentDeletion, trackStatusChange } = require('../utils/incidentHistoryTracker')
 
 const generateINCCode = async () => {
   const prefix = 'INC'
@@ -39,6 +40,10 @@ exports.createIncident = async (req, res) => {
       body.code = await generateINCCode()
     }
     const created = await db.models.incident.create(body)
+    
+    // Track incident creation
+    await trackIncidentCreation(created, req.thisUser, req)
+    
     res.status(200).send({ code: '0000', data: created })
   } catch (e) {
     console.error('createIncident error', e)
@@ -78,6 +83,66 @@ exports.getIncidentById = async (req, res) => {
     res.status(200).send({ code: '0000', data: one })
   } catch (e) {
     res.status(500).send({ message: 'Failed to fetch incident' })
+  }
+}
+
+exports.updateIncident = async (req, res) => {
+  try {
+    const { id, ...updateData } = req.body
+    const incident = await db.models.incident.findByPk(id)
+    if (!incident) return res.status(404).send({ message: 'Incident not found' })
+    
+    // Store old values for history tracking
+    const oldIncident = { ...incident.toJSON() }
+    
+    // Update the incident
+    await incident.update(updateData)
+    
+    // Track the update
+    await trackIncidentUpdate(oldIncident, incident.toJSON(), req.thisUser, req)
+    
+    res.status(200).send({ code: '0000', data: incident, message: 'Incident updated successfully' })
+  } catch (e) {
+    console.error('updateIncident error', e)
+    res.status(500).send({ message: 'Failed to update incident' })
+  }
+}
+
+exports.deleteIncident = async (req, res) => {
+  try {
+    const { id } = req.body
+    const incident = await db.models.incident.findByPk(id)
+    if (!incident) return res.status(404).send({ message: 'Incident not found' })
+    
+    // Track the deletion before deleting
+    await trackIncidentDeletion(incident, req.thisUser, req)
+    
+    // Delete the incident
+    await incident.destroy()
+    
+    res.status(200).send({ code: '0000', message: 'Incident deleted successfully' })
+  } catch (e) {
+    console.error('deleteIncident error', e)
+    res.status(500).send({ message: 'Failed to delete incident' })
+  }
+}
+
+exports.updateIncidentStatus = async (req, res) => {
+  try {
+    const { id, status, reason } = req.body
+    const incident = await db.models.incident.findByPk(id)
+    if (!incident) return res.status(404).send({ message: 'Incident not found' })
+    
+    const oldStatus = incident.status
+    await incident.update({ status })
+    
+    // Track status change
+    await trackStatusChange(id, oldStatus, status, req.thisUser, req, reason)
+    
+    res.status(200).send({ code: '0000', data: incident, message: 'Status updated successfully' })
+  } catch (e) {
+    console.error('updateIncidentStatus error', e)
+    res.status(500).send({ message: 'Failed to update status' })
   }
 }
 
@@ -182,6 +247,64 @@ exports.getIncidentDocumentById = async (req, res) => {
     res.status(200).send({ code: '0000', data: doc })
   } catch (e) {
     res.status(500).send({ message: 'Failed to get document' })
+  }
+}
+
+// --- History Tracking ---
+exports.getIncidentHistory = async (req, res) => {
+  try {
+    const { incident_id, page = 1, pageSize = 20 } = req.body
+    const where = { incident_id }
+    
+    const { rows, count } = await db.models.incident_history.findAndCountAll({
+      where,
+      order: [['createdAt', 'DESC']],
+      offset: (page - 1) * pageSize,
+      limit: pageSize,
+      include: [
+        {
+          model: db.models.users,
+          as: 'user',
+          attributes: ['id', 'name', 'username', 'email'],
+          required: false
+        }
+      ]
+    })
+    
+    res.status(200).send({ code: '0000', data: rows, total: count })
+  } catch (e) {
+    console.error('getIncidentHistory error', e)
+    res.status(500).send({ message: 'Failed to fetch incident history' })
+  }
+}
+
+exports.getIncidentHistoryByAction = async (req, res) => {
+  try {
+    const { incident_id, action, page = 1, pageSize = 20 } = req.body
+    const where = { incident_id }
+    if (action) {
+      where.action = action
+    }
+    
+    const { rows, count } = await db.models.incident_history.findAndCountAll({
+      where,
+      order: [['createdAt', 'DESC']],
+      offset: (page - 1) * pageSize,
+      limit: pageSize,
+      include: [
+        {
+          model: db.models.users,
+          as: 'user',
+          attributes: ['id', 'name', 'username', 'email'],
+          required: false
+        }
+      ]
+    })
+    
+    res.status(200).send({ code: '0000', data: rows, total: count })
+  } catch (e) {
+    console.error('getIncidentHistoryByAction error', e)
+    res.status(500).send({ message: 'Failed to fetch incident history by action' })
   }
 }
 

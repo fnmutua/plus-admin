@@ -71,6 +71,7 @@ var _settlement_uploads = require('./settlement_uploads')
 // grievances 
 var _grievance = require('./Grievance')
 var _incident = require('./Incident')
+var _incident_history = require('./incident_history')
 var _grievance_log = require('./GrievanceAction')
 var _grievance_document = require('./GrievanceDocument')
 var _incident_document = require('./IncidentDocument')
@@ -184,6 +185,7 @@ function initModels(sequelize) {
   // Greivances 
   var grievance = _grievance(sequelize, DataTypes)
   var incident = _incident(sequelize, DataTypes)
+  var incident_history = _incident_history(sequelize, DataTypes)
   var grievance_log = _grievance_log(sequelize, DataTypes)
   var grievance_document = _grievance_document(sequelize, DataTypes)
   var incident_document = _incident_document(sequelize, DataTypes)
@@ -296,7 +298,7 @@ var role = _role(sequelize, DataTypes)
     contractor,
     project_location,
     project_beneficiary,grievance_resolution_level,
-    grievance, incident,
+    grievance, incident, incident_history,
     grievance_log,disbursement,project_contractor,project_team,
      grievance_resolution,grievance_escalation,grievance_document, incident_document, grievance_notification,article,
      settlement_history,grievance_history, programme,permissions,role_permissions,role
