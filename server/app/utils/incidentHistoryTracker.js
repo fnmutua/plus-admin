@@ -72,6 +72,7 @@ const trackIncidentUpdate = async (oldIncident, newIncident, user, req) => {
     'location_text', 'worker_name', 'designation', 'incident_types',
     'mechanisms', 'indirect_causes', 'direct_causes', 'activity_leading',
     'description', 'consequences', 'immediate_action', 'severity',
+    'status',
     'actions_to_avoid', 'prepared_by_name', 'prepared_by_job_title',
     'prepared_by_date'
   ]

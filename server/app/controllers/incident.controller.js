@@ -5,7 +5,7 @@ const multer = require('multer')
 const fs = require('fs')
 const path = require('path')
 const shortid = require('shortid')
-const { trackIncidentCreation, trackIncidentUpdate, trackIncidentDeletion, trackStatusChange } = require('../utils/incidentHistoryTracker')
+const { trackIncidentHistory, trackIncidentCreation, trackIncidentUpdate, trackIncidentDeletion, trackStatusChange } = require('../utils/incidentHistoryTracker')
 
 const generateINCCode = async () => {
   const prefix = 'INC'
@@ -88,18 +88,37 @@ exports.getIncidentById = async (req, res) => {
 
 exports.updateIncident = async (req, res) => {
   try {
-    const { id, ...updateData } = req.body
+    const { id, action_taken, ...updateData } = req.body
     const incident = await db.models.incident.findByPk(id)
     if (!incident) return res.status(404).send({ message: 'Incident not found' })
     
     // Store old values for history tracking
     const oldIncident = { ...incident.toJSON() }
     
-    // Update the incident
+    // Check if status is being changed specifically
+    const isStatusChange = updateData.status && updateData.status !== oldIncident.status
+    
+    // Update the incident (without action_taken field)
     await incident.update(updateData)
     
     // Track the update
     await trackIncidentUpdate(oldIncident, incident.toJSON(), req.thisUser, req)
+    
+    // If status was changed and action_taken was provided, track it separately in history
+    if (isStatusChange && action_taken) {
+      await trackIncidentHistory({
+        incidentId: id,
+        action: 'status_changed',
+        fieldName: 'status',
+        oldValue: oldIncident.status,
+        newValue: updateData.status,
+        changedBy: req.thisUser?.id,
+        changedByName: req.thisUser?.name || req.thisUser?.username,
+        changeReason: `Status changed from '${oldIncident.status}' to '${updateData.status}'. Action taken: ${action_taken}`,
+        ipAddress: req?.ip || req?.connection?.remoteAddress,
+        userAgent: req?.get('User-Agent')
+      })
+    }
     
     res.status(200).send({ code: '0000', data: incident, message: 'Incident updated successfully' })
   } catch (e) {

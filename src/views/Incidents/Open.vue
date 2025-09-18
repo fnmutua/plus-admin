@@ -32,6 +32,12 @@ const showActionDialog = ref(false)
 const newAction = ref({ action: "", responsible: "", priority: "", due_date: "" })
 const actionDialogRef = ref<any>(null)
 
+// Status update dialog variables
+const showStatusDialog = ref(false)
+const statusForm = ref({ status: "", action_taken: "" })
+const statusDialogRef = ref<any>(null)
+const selectedIncidentForStatus = ref<any>(null)
+
 // Save functionality
 const saving = ref(false)
 
@@ -110,6 +116,15 @@ const rootCauses = [
 const severityLevels = [
   "Minor","Major","Lost time injury","Fatality",
   "Restricted to work cases","Medical treatment cases","First Aid Case"
+]
+
+const statusOptions = [
+  { label: "Open", value: "open" },
+  { label: "Under Investigation", value: "under_investigation" },
+  { label: "Action Required", value: "action_required" },
+  { label: "In Progress", value: "in_progress" },
+  { label: "Resolved", value: "resolved" },
+  { label: "Closed", value: "closed" }
 ]
 
 const fetchList = async () => {
@@ -235,6 +250,30 @@ const getPriorityColor = (priority: string): 'success' | 'warning' | 'info' | 'p
     'Low': 'success'
   }
   return colors[priority] || 'info'
+}
+
+const getStatusColor = (status: string): 'success' | 'warning' | 'info' | 'primary' | 'danger' => {
+  const colors: { [key: string]: 'success' | 'warning' | 'info' | 'primary' | 'danger' } = {
+    'open': 'danger',
+    'under_investigation': 'warning',
+    'action_required': 'warning',
+    'in_progress': 'primary',
+    'resolved': 'success',
+    'closed': 'info'
+  }
+  return colors[status] || 'info'
+}
+
+const getStatusLabel = (status: string): string => {
+  const labels: { [key: string]: string } = {
+    'open': 'Open',
+    'under_investigation': 'Under Investigation',
+    'action_required': 'Action Required',
+    'in_progress': 'In Progress',
+    'resolved': 'Resolved',
+    'closed': 'Closed'
+  }
+  return labels[status] || status || 'Open'
 }
 
 const formatValue = (value: any) => {
@@ -450,6 +489,11 @@ const actionDialogRules = {
   due_date: [{ required: true, message: 'Due Date is required', trigger: 'change' }]
 }
 
+// Status update validation rules
+const statusUpdateRules = {
+  status: [{ required: true, message: 'Status is required', trigger: 'change' }]
+}
+
 // Action management functions
 const addActionRow = () => {
   newAction.value = { action: "", responsible: "", priority: "", due_date: "" }
@@ -491,6 +535,42 @@ const removeAction = (index: number) => {
 const removeReportAction = (index: number) => {
   if (reportForm.value.actions_to_avoid) {
     reportForm.value.actions_to_avoid.splice(index, 1)
+  }
+}
+
+// Status update functions
+const openStatusDialog = (row: any) => {
+  selectedIncidentForStatus.value = row
+  statusForm.value = {
+    status: row.status || 'open',
+    action_taken: ''
+  }
+  showStatusDialog.value = true
+}
+
+const submitStatusUpdate = async () => {
+  try {
+    await statusDialogRef.value?.validate()
+    saving.value = true
+    
+    const updateData = {
+      id: selectedIncidentForStatus.value.id,
+      status: statusForm.value.status,
+      action_taken: statusForm.value.action_taken
+    }
+    
+    const res: any = await updateIncident(updateData)
+    if (res && res.code === '0000') {
+      showStatusDialog.value = false
+      fetchList()
+      ElMessage.success('Status updated successfully')
+    } else {
+      ElMessage.error('Failed to update status')
+    }
+  } catch (error) {
+    ElMessage.error('Please fill required fields')
+  } finally {
+    saving.value = false
   }
 }
 
@@ -549,10 +629,18 @@ onMounted(() => {
       <ElTableColumn prop="worker_name" label="Worker" />
       <ElTableColumn prop="location_text" label="Location" />
       <ElTableColumn prop="severity" label="Severity" width="120" />
+      <ElTableColumn prop="status" label="Status" width="140">
+        <template #default="{ row }">
+          <ElTag :type="getStatusColor(row.status)">
+            {{ getStatusLabel(row.status) }}
+          </ElTag>
+        </template>
+      </ElTableColumn>
       <ElTableColumn prop="description" label="Brief" />
-      <ElTableColumn label="Actions" width="350" fixed="right">
+      <ElTableColumn label="Actions" width="400" fixed="right">
         <template #default="{ row }">
           <ElButton size="small" @click="openEditDrawer(row)">Edit</ElButton>
+          <ElButton size="small" type="warning" @click="openStatusDialog(row)">Status</ElButton>
           <ElButton size="small" type="info" @click="openHistoryDrawer(row)">History</ElButton>
           <ElButton size="small" type="danger" @click="handleDelete(row)">Delete</ElButton>
         </template>
@@ -1440,6 +1528,58 @@ onMounted(() => {
     <template #footer>
       <ElButton @click="showActionDialog = false">Cancel</ElButton>
       <ElButton type="primary" @click="confirmAddAction">Add Action</ElButton>
+    </template>
+  </ElDialog>
+
+  <!-- Status Update Dialog -->
+  <ElDialog 
+    v-model="showStatusDialog" 
+    title="Update Incident Status" 
+    :width="'500px'"
+    :close-on-click-modal="false"
+  >
+    <div v-if="selectedIncidentForStatus" style="margin-bottom: 16px; padding: 12px; background-color: #f5f7fa; border-radius: 6px;">
+      <strong>Incident:</strong> {{ selectedIncidentForStatus.code }}<br/>
+      <strong>Description:</strong> {{ selectedIncidentForStatus.description }}
+    </div>
+    
+    <ElForm 
+      :model="statusForm" 
+      :rules="statusUpdateRules" 
+      label-position="top" 
+      ref="statusDialogRef"
+    >
+      <ElFormItem label="Status" prop="status">
+        <ElSelect v-model="statusForm.status" placeholder="Select status" style="width: 100%;">
+          <ElOption 
+            v-for="option in statusOptions" 
+            :key="option.value" 
+            :label="option.label" 
+            :value="option.value" 
+          />
+        </ElSelect>
+      </ElFormItem>
+      
+      <ElFormItem label="Action Taken (Optional)">
+        <ElInput 
+          type="textarea" 
+          :rows="3" 
+          v-model="statusForm.action_taken" 
+          placeholder="Describe the action taken to address this incident"
+        />
+      </ElFormItem>
+    </ElForm>
+    
+    <template #footer>
+      <ElButton @click="showStatusDialog = false">Cancel</ElButton>
+      <ElButton 
+        type="primary" 
+        @click="submitStatusUpdate"
+        :loading="saving"
+        :disabled="saving"
+      >
+        Update Status
+      </ElButton>
     </template>
   </ElDialog>
 </template>

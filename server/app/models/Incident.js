@@ -47,6 +47,7 @@ module.exports = function (sequelize) {
       immediate_action: { type: DataTypes.TEXT, allowNull: true },
 
       severity: { type: DataTypes.STRING, allowNull: true },
+      status: { type: DataTypes.STRING, allowNull: true, defaultValue: 'open' },
 
       actions_to_avoid: { type: DataTypes.JSONB, allowNull: true }, // array of {action, responsible, priority, due_date}
 
