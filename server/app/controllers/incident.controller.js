@@ -82,7 +82,7 @@ async function getSafeguardsUsers() {
           model: db.models.user_roles,
           where: {
            // roleid: { [Sequelize.Op.in]: [0, 1, 11] } // Root Admin, Super Admin, and Support roles
-            roleid: { [Sequelize.Op.in]: [0] } // Root Admin, Super Admin, and Support roles
+            roleid: { [Sequelize.Op.in]: [0,11] } // Root Admin, Super Admin, and Support roles
           }
         }
       ],
