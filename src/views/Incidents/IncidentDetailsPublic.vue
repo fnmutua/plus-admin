@@ -96,16 +96,16 @@ const formatDateOnly = (dateString: string | null) => {
 const fetchIncident = async () => {
   try {
     const id = route.params.id
-    const res = await getPublicIncident(id as string)
+    const res = await getPublicIncident({ id: id as string })
 
     console.log(res.data)
-    if (!res.data.data || !res.data.data.incident || !res.data.data.incident.code) {
+    if (!res.data || !res.data.incident || !res.data.incident.code) {
       incidentFound.value = false
       return
     }
     
-    fullIncidentData.value = res.data.data
-    const incidentData = res.data.data.incident
+    fullIncidentData.value = res.data
+    const incidentData = res.data.incident
     
     incident.value = {
       id: incidentData.id,
@@ -214,7 +214,7 @@ const handleDownload = async () => {
 }
 
 const handleForward = () => {
-  const targetPath = `/incidents/${incident.value.id}`
+  const targetPath = `/inc/open`
 
   push(targetPath).catch(() => {
     push({

@@ -140,7 +140,7 @@ exports.createIncident = async (req, res) => {
     if (body.reporter_phone) {
       try {
         const serverUrl = `${req.protocol}://${req.get('host')}`;
-        const statusUrl = `${serverUrl}/#/incidents/public/${created.id}`;
+        const statusUrl = `${serverUrl}/#/incidents/${created.id}`;
         const acknowledgementMessage = `Dear ${body.reported_by || 'Valued User'}, your incident has been received with reference ${body.code}. Location: ${settlementName}, ${countyName}. You can monitor the status of your report here -> ${statusUrl}. Thank you for reporting.`;
         await sendNotificationSMS(body.reporter_phone, acknowledgementMessage);
         console.log(`Acknowledgement SMS sent to ${body.reporter_phone}`);
@@ -576,7 +576,7 @@ exports.getSafeguardsUsers = async (req, res) => {
 // Get public incident details (no authentication required)
 exports.getPublicIncident = async (req, res) => {
   try {
-    const { id } = req.params
+    const { id } = req.body
     console.log('getPublicIncident called with id:', id)
     
     if (!id) {
