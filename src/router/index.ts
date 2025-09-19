@@ -89,6 +89,17 @@ export const constantRouterMap: AppRouteRecordRaw[] = [
       noCache: true
     }
   },
+  {
+    path: '/incidents/:id',
+    component: () => import('@/views/Incidents/IncidentDetailsPublic.vue'),
+    name: 'IncidentStatus',
+    meta: {
+      hidden: true,
+      title: 'Incident Status',
+      icon:'pajamas:status',
+      noCache: true
+    }
+  },
 
 
   {

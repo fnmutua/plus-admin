@@ -33,6 +33,12 @@ module.exports = function (app) {
   // PDF report data
   app.post('/api/v1/inc/pdf-data', [authJwt.verifyToken, hasPermission('incident:read')], controller.getIncidentPDFData)
 
+  // Safeguards users
+  app.post('/api/v1/inc/safeguards', [authJwt.verifyToken, hasPermission('incident:read')], controller.getSafeguardsUsers)
+
+  // Public incident details (no authentication required)
+  app.get('/api/v1/inc/public/:id', controller.getPublicIncident)
+
   // TEST: Serve route-specific HTML for /incidents with OG/Twitter tags injected
   const fs = require('fs')
   const path = require('path')

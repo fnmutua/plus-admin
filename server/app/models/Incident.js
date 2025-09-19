@@ -11,8 +11,8 @@ module.exports = function (sequelize) {
         allowNull: false,
         primaryKey: true
       },
-      // geo linkage (optional, follow grievance style)
-      county_id: { type: DataTypes.INTEGER, allowNull: true },
+      // geo linkage (required county, optional others - follow grievance style)
+      county_id: { type: DataTypes.INTEGER, allowNull: false },
       subcounty_id: { type: DataTypes.INTEGER, allowNull: true },
       ward_id: { type: DataTypes.INTEGER, allowNull: true },
       settlement_id: { type: DataTypes.INTEGER, allowNull: true },
@@ -26,6 +26,7 @@ module.exports = function (sequelize) {
       reported_date: { type: DataTypes.DATE, allowNull: true },
       reported_time: { type: DataTypes.STRING, allowNull: true },
       reported_by: { type: DataTypes.STRING, allowNull: true },
+      reporter_role: { type: DataTypes.STRING, allowNull: true },
       reporter_phone: { type: DataTypes.STRING, allowNull: true },
       site_supervisor: { type: DataTypes.STRING, allowNull: true },
       department: { type: DataTypes.STRING, allowNull: true },

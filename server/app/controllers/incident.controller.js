@@ -7,6 +7,7 @@ const path = require('path')
 const shortid = require('shortid')
 const { trackIncidentHistory, trackIncidentCreation, trackIncidentUpdate, trackIncidentDeletion, trackStatusChange } = require('../utils/incidentHistoryTracker')
 const nodemailer = require('nodemailer')
+const axios = require('axios')
 // PDF generation moved to frontend using jsPDF
 
 const generateINCCode = async () => {
@@ -24,6 +25,75 @@ const generateINCCode = async () => {
     }
   }
   return newCode
+}
+
+// SMS Utility Functions
+function formatPhoneNumber(phoneNumber) {
+  if (!phoneNumber) return null;
+  
+  // Remove all non-digit characters
+  let cleaned = phoneNumber.replace(/\D/g, '');
+  
+  // Handle different formats
+  if (cleaned.startsWith('254')) {
+    return cleaned; // Already in correct format
+  } else if (cleaned.startsWith('0')) {
+    return '254' + cleaned.substring(1); // Convert 07... to 2547...
+  } else if (cleaned.startsWith('7') && cleaned.length === 9) {
+    return '254' + cleaned; // Convert 7... to 2547...
+  } else if (cleaned.length === 9) {
+    return '254' + cleaned; // Add 254 prefix
+  }
+  
+  return cleaned; // Return as-is if no pattern matches
+}
+
+async function sendNotificationSMS(phone_number, message) {
+  const url = "https://quicksms.advantasms.com/api/services/sendotp/";
+  
+  if (!phone_number || !message) {
+    console.warn("Invalid input: phone_number or message is missing.");
+    return;
+  }
+
+  const requestData = {
+    apikey: "***REDACTED***",
+    partnerID: "12108",
+    shortcode: "KISIP",
+    message: message,
+    mobile: formatPhoneNumber(phone_number),
+  };
+
+  try {
+    const response = await axios.post(url, requestData);
+    console.log(`SMS sent to ${phone_number}:`, response.data);
+    return response.data;
+  } catch (error) {
+    console.error(`Error sending SMS to ${phone_number}:`, error);
+    throw error;
+  }
+}
+
+async function getSafeguardsUsers() {
+  try {
+    const users = await db.models.users.findAll({
+      include: [
+        {
+          model: db.models.user_roles,
+          where: {
+           // roleid: { [Sequelize.Op.in]: [0, 1, 11] } // Root Admin, Super Admin, and Support roles
+            roleid: { [Sequelize.Op.in]: [0] } // Root Admin, Super Admin, and Support roles
+          }
+        }
+      ],
+      attributes: ['id', 'name', 'phone', 'email', 'username']
+    });
+
+    return users;
+  } catch (error) {
+    console.error('Error fetching safeguards users:', error);
+    return [];
+  }
 }
 
 exports.generateINCCode = async (req, res) => {
@@ -46,7 +116,72 @@ exports.createIncident = async (req, res) => {
     // Track incident creation
     await trackIncidentCreation(created, req.thisUser, req)
     
-    res.status(200).send({ code: '0000', data: created })
+    // Fetch county and settlement names for SMS
+    let countyName = 'N/A';
+    let settlementName = 'N/A';
+    
+    try {
+      if (created.county_id) {
+        const county = await db.models.county.findByPk(created.county_id);
+        if (county) countyName = county.name;
+      }
+      
+      if (created.settlement_id) {
+        const settlement = await db.models.settlement.findByPk(created.settlement_id);
+        if (settlement) settlementName = settlement.name;
+      }
+    } catch (geoError) {
+      console.error('Failed to fetch geographic data:', geoError);
+      // Continue with SMS even if geographic data fetch fails
+    }
+
+    // Send acknowledgement SMS to the person filing the incident
+    console.log('body.reporter_phone', body)
+    if (body.reporter_phone) {
+      try {
+        const serverUrl = `${req.protocol}://${req.get('host')}`;
+        const statusUrl = `${serverUrl}/#/incidents/public/${created.id}`;
+        const acknowledgementMessage = `Dear ${body.reported_by || 'Valued User'}, your incident has been received with reference ${body.code}. Location: ${settlementName}, ${countyName}. You can monitor the status of your report here -> ${statusUrl}. Thank you for reporting.`;
+        await sendNotificationSMS(body.reporter_phone, acknowledgementMessage);
+        console.log(`Acknowledgement SMS sent to ${body.reporter_phone}`);
+      } catch (smsError) {
+        console.error('Failed to send acknowledgement SMS:', smsError);
+        // Don't fail the entire request if SMS fails
+      }
+    }
+    
+    // Notify safeguards users about the new incident
+    try {
+      const safeguardsUsers = await getSafeguardsUsers();
+      const serverUrl = `${req.protocol}://${req.get('host')}`;
+      const incidentUrl = `${serverUrl}/#/incidents/${created.id}`;
+      const incidentMessage = `New incident reported: ${body.code}. Location: ${settlementName}, ${countyName}. Type: ${body.incident_types ? body.incident_types.join(', ') : 'N/A'}, Severity: ${body.severity || 'N/A'}. Review and take action here -> ${incidentUrl}`;
+      
+      const smsPromises = safeguardsUsers.map(async (user) => {
+        if (user.phone) {
+          try {
+            await sendNotificationSMS(user.phone, incidentMessage);
+            console.log(`SMS notification sent to safeguards user ${user.name} (${user.phone})`);
+          } catch (error) {
+            console.error(`Failed to send SMS to ${user.name}:`, error.message);
+          }
+        }
+      });
+      
+      // Wait for all SMS to be sent (but don't fail if some fail)
+      await Promise.allSettled(smsPromises);
+      console.log(`Notified ${safeguardsUsers.length} safeguards users about incident ${body.code}`);
+    } catch (notificationError) {
+      console.error('Failed to notify safeguards users:', notificationError);
+      // Don't fail the entire request if notification fails
+    }
+    
+    res.status(200).send({ 
+      code: '0000', 
+      data: created,
+      message: 'Incident created successfully. Acknowledgement SMS sent.',
+      safeguardsNotified: true
+    })
   } catch (e) {
     console.error('createIncident error', e)
     res.status(500).send({ message: 'Failed to create incident' })
@@ -419,6 +554,71 @@ exports.getIncidentPDFData = async (req, res) => {
   } catch (e) {
     console.error('getIncidentPDFData error', e)
     res.status(500).send({ message: 'Failed to fetch incident data for PDF' })
+  }
+}
+
+// Get all users with safeguards roles
+exports.getSafeguardsUsers = async (req, res) => {
+  try {
+    const safeguardsUsers = await getSafeguardsUsers();
+    res.status(200).send({ 
+      code: '0000', 
+      data: safeguardsUsers,
+      message: 'Safeguards users retrieved successfully',
+      total: safeguardsUsers.length
+    });
+  } catch (e) {
+    console.error('getSafeguardsUsers error', e);
+    res.status(500).send({ message: 'Failed to fetch safeguards users' });
+  }
+}
+
+// Get public incident details (no authentication required)
+exports.getPublicIncident = async (req, res) => {
+  try {
+    const { id } = req.params
+    console.log('getPublicIncident called with id:', id)
+    
+    if (!id) {
+      return res.status(400).send({ message: 'Incident ID is required' })
+    }
+
+    // First, try to get the incident without associations to debug
+    const incident = await db.models.incident.findByPk(id)
+    console.log('Incident found:', incident ? 'Yes' : 'No')
+    
+    if (!incident) {
+      return res.status(404).send({ message: 'Incident not found' })
+    }
+
+    // Fetch incident history
+    const history = await db.models.incident_history.findAll({
+      where: { incident_id: id },
+      order: [['createdAt', 'DESC']],
+      include: [
+        {
+          model: db.models.users,
+          as: 'user',
+          attributes: ['id', 'name', 'username'],
+          required: false
+        }
+      ]
+    })
+
+    console.log('History found:', history.length, 'records')
+
+    // Return all data for public view
+    res.status(200).send({ 
+      code: '0000', 
+      data: {
+        incident,
+        history
+      }
+    })
+
+  } catch (e) {
+    console.error('getPublicIncident error', e)
+    res.status(500).send({ message: 'Failed to fetch incident data' })
   }
 }
 

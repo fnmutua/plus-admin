@@ -57,6 +57,24 @@
                     <el-form-item label="Reported By" prop="reported_by">
                       <el-input v-model="incidentForm.reported_by" />
                     </el-form-item>
+
+         
+                    <el-form-item label="Reporter role" prop="reporter_role">
+                      <el-select v-model="incidentForm.reporter_role" placeholder="Select reporter role">
+                        <el-option label="Consultant" value="Consultant" />
+                        <el-option label="Contractor" value="Contractor" />
+                        <el-option label="SEC" value="SEC" />
+                        <el-option label="Victim/self" value="Victim/self" />
+                        <el-option label="CPCT" value="CPCT" />
+                        <el-option label="Member" value="Member" />
+                        <el-option label="On behalf of victim" value="On behalf of victim" />
+                      </el-select>
+                    </el-form-item>
+
+                    
+
+
+
                     <el-form-item label="Reporter Phone" prop="reporter_phone">
                       <el-input v-model="incidentForm.reporter_phone" placeholder="2547XXXXXXXX" />
                     </el-form-item>
@@ -540,6 +558,7 @@ interface IncidentForm {
   reported_date: string
   reported_time: string
   reported_by: string
+  reporter_role: string
   reporter_phone: string
   site_supervisor: string
   department: string
@@ -572,6 +591,7 @@ const incidentForm = ref<IncidentForm>({
   reported_date: '',
   reported_time: '',
   reported_by: "",
+  reporter_role: "",
   reporter_phone: "",
   site_supervisor: "",
   department: "",
@@ -615,6 +635,10 @@ const validationRules = {
     occurred_time: [{ required: true, message: 'Occurred Time is required', trigger: 'change' }],
     location_text: [{ required: true, message: 'Location is required', trigger: 'blur' }],
     reported_by: [{ required: true, message: 'Reported By is required', trigger: 'blur' }],
+    reporter_role: [{ required: true, message: 'Your Role is required', trigger: 'blur' }],
+
+    
+
     reporter_phone: [{ required: true, message: 'Reporter Phone is required', trigger: 'blur' }],
     county_id: [{ required: true, message: 'County is required', trigger: 'change' }],
     settlement_id: [{ required: true, message: 'Settlement is required', trigger: 'change' }]

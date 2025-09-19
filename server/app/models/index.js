@@ -1591,6 +1591,39 @@ db.models.settlement.hasMany(db.models.grievance, {
   foreignKey: 'settlement_id'
 })
 
+// Incidents - Geographic relationships (same as grievances)
+db.models.incident.belongsTo(db.models.county, {
+  foreignKey: 'county_id',
+})
+
+db.models.county.hasMany(db.models.incident, {
+  foreignKey: 'county_id'
+})
+
+db.models.incident.belongsTo(db.models.subcounty, {
+  foreignKey: 'subcounty_id',
+})
+
+db.models.subcounty.hasMany(db.models.incident, {
+  foreignKey: 'subcounty_id'
+})
+
+db.models.incident.belongsTo(db.models.ward, {
+  foreignKey: 'ward_id',
+})
+
+db.models.ward.hasMany(db.models.incident, {
+  foreignKey: 'ward_id'
+})
+
+db.models.incident.belongsTo(db.models.settlement, {
+  foreignKey: 'settlement_id',
+})
+
+db.models.settlement.hasMany(db.models.incident, {
+  foreignKey: 'settlement_id'
+})
+
 
 
 

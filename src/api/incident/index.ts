@@ -62,3 +62,15 @@ export const getIncidentPDFData = (data: { id: number }): Promise<IResponse> => 
     data
   })
 }
+
+export const getPublicIncident = (id: string): Promise<IResponse> => {
+  // For public endpoints, use direct fetch to avoid authentication headers
+  return fetch(`http://localhost/api/v1/inc/public/${id}`)
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      return response.json()
+    })
+    .then(data => ({ data }))
+}
