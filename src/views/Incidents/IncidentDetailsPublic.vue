@@ -111,7 +111,8 @@ const fetchIncident = async () => {
       id: incidentData.id,
       code: incidentData.code,
       reported_by: incidentData.reported_by,
-      reporter_phone: incidentData.reporter_phone?.substring(0, 6) + '******' || 'N/A',
+      reporter_phone: incidentData.reporter_phone ? 
+        incidentData.reporter_phone.substring(0, 3) + '*****' + incidentData.reporter_phone.substring(incidentData.reporter_phone.length - 2) : 'N/A',
       county: incidentData.county?.name || 'N/A',
       settlement: incidentData.settlement?.name || 'N/A',
       incident_types: incidentData.incident_types,
@@ -408,6 +409,12 @@ const generatePDF = async (incidentData: any) => {
     addLine(15, yPos + 2, 195, yPos + 2, primaryColor, 1)
     yPos += 10
 
+    // Helper function to obscure phone number
+    const obscurePhone = (phone: string | null) => {
+      if (!phone) return 'N/A'
+      return phone.substring(0, 3) + '*****' + phone.substring(phone.length - 2)
+    }
+
     const basicInfo = [
       ['Occurred Date:', formatDate(incident.occurred_date)],
       ['Occurred Time:', formatTime(incident.occurred_time)],
@@ -415,7 +422,7 @@ const generatePDF = async (incidentData: any) => {
       ['Location:', incident.location_text || 'N/A'],
       ['Severity:', incident.severity || 'N/A'],
       ['Reported By:', incident.reported_by || 'N/A'],
-      ['Reporter Phone:', incident.reporter_phone || 'N/A']
+      ['Reporter Phone:', obscurePhone(incident.reporter_phone)]
     ]
 
     basicInfo.forEach(([label, value]) => {
@@ -559,7 +566,7 @@ const generatePDF = async (incidentData: any) => {
 
     // Actions to Avoid Section
     if (incident.actions_to_avoid && incident.actions_to_avoid.length > 0) {
-      addText('ACTIONS TO AVOID', 15, yPos, { fontSize: 14, fontStyle: 'bold', color: primaryColor })
+      addText('ACTIONS TAKEN', 15, yPos, { fontSize: 14, fontStyle: 'bold', color: primaryColor })
       addLine(15, yPos + 2, 195, yPos + 2, primaryColor, 1)
       yPos += 10
 

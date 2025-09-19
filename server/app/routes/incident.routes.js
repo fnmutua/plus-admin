@@ -37,7 +37,7 @@ module.exports = function (app) {
   app.post('/api/v1/inc/safeguards', [authJwt.verifyToken, hasPermission('incident:read')], controller.getSafeguardsUsers)
 
   // Public incident details (no authentication required)
-  app.post('/api/v1/inc/public/:id', controller.getPublicIncident)
+  app.post('/api/v1/inc/public', controller.getPublicIncident)
 
   // TEST: Serve route-specific HTML for /incidents with OG/Twitter tags injected
   const fs = require('fs')

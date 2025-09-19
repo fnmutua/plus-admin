@@ -1,7 +1,8 @@
 <!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue'
-import { ElCard, ElTable, ElTableColumn, ElPagination, ElButton, ElInput, ElDialog, ElDrawer, ElForm, ElFormItem, ElDatePicker, ElTimePicker, ElSelect, ElOption, ElTag, ElTimeline, ElTimelineItem, ElMessageBox, ElMessage, ElCheckboxGroup, ElCheckbox, ElRow, ElCol, ElTabs, ElTabPane, ElCollapse, ElCollapseItem, ElUpload } from 'element-plus'
+import { ElCard, ElTable, ElTableColumn, ElPagination, ElButton, ElInput, ElDialog, ElDrawer, ElForm, ElFormItem, ElDatePicker, ElTimePicker, ElSelect, ElOption, ElTag, ElTimeline, ElTimelineItem, ElMessageBox, ElMessage, ElCheckboxGroup, ElCheckbox, ElRow, ElCol, ElTabs, ElTabPane, ElCollapse, ElCollapseItem, ElUpload, ElTooltip, ElDropdown, ElDropdownMenu, ElDropdownItem } from 'element-plus'
+import { Edit, Flag, Clock, Document, Delete, User, Calendar, Warning, InfoFilled, Location, MoreFilled } from '@element-plus/icons-vue'
 import { getIncidents, createIncident, updateIncident, deleteIncident, getIncidentHistory } from '@/api/incident'
 import { getIncidentDocuments, downloadIncidentFile } from '@/api/incident'
 import { uploadIncidentDocuments } from '@/api/incident'
@@ -15,6 +16,7 @@ const total = ref(0)
 const page = ref(1)
 const pageSize = ref(10)
 const keyword = ref('')
+const isMobile = ref(false)
 
 const dialog = ref(false)
 const form = ref<any>({})
@@ -48,8 +50,7 @@ const selectedIncidentForStatus = ref<any>(null)
 const saving = ref(false)
 
 // Mobile detection
-const isMobile = ref(false)
-
+ 
 // Documentation state
 const docsLoading = ref(false)
 const docs = ref<any[]>([])
@@ -223,6 +224,26 @@ const handleDelete = async (row: any) => {
     }
   } catch (error) {
     // User cancelled
+  }
+}
+
+const handleMobileAction = (command: string, row: any) => {
+  switch (command) {
+    case 'edit':
+      openEditDrawer(row)
+      break
+    case 'status':
+      openStatusDialog(row)
+      break
+    case 'history':
+      openHistoryDrawer(row)
+      break
+    case 'pdf':
+      generatePDF(row)
+      break
+    case 'delete':
+      handleDelete(row)
+      break
   }
 }
 
@@ -886,6 +907,12 @@ const generatePDF = async (incidentData: any) => {
     addLine(15, yPos + 2, 195, yPos + 2, primaryColor, 1)
     yPos += 10
 
+    // Helper function to obscure phone number
+    const obscurePhone = (phone: string | null) => {
+      if (!phone) return 'N/A'
+      return phone.substring(0, 3) + '*****' + phone.substring(phone.length - 2)
+    }
+
     const basicInfo = [
       ['Occurred Date:', formatDate(incident.occurred_date)],
       ['Occurred Time:', formatTime(incident.occurred_time)],
@@ -893,7 +920,7 @@ const generatePDF = async (incidentData: any) => {
       ['Location:', incident.location_text || 'N/A'],
       ['Severity:', incident.severity || 'N/A'],
       ['Reported By:', incident.reported_by || 'N/A'],
-      ['Reporter Phone:', incident.reporter_phone || 'N/A']
+      ['Reporter Phone:', obscurePhone(incident.reporter_phone)]
     ]
 
     basicInfo.forEach(([label, value]) => {
@@ -1006,7 +1033,7 @@ const generatePDF = async (incidentData: any) => {
     yPos += 10
 
     if (incident.description) {
-      addText('Description:', 20, yPos, { fontSize: 10, fontStyle: 'bold' })
+      addText('Description:', 20, yPos, { fontSize: 10  })
       yPos += 6
       const descriptionLines = doc.splitTextToSize(incident.description, 170)
       doc.text(descriptionLines, 20, yPos)
@@ -1014,7 +1041,7 @@ const generatePDF = async (incidentData: any) => {
     }
 
     if (incident.consequences) {
-      addText('Consequences:', 20, yPos, { fontSize: 10, fontStyle: 'bold' })
+      addText('Consequences:', 20, yPos, { fontSize: 10  })
       yPos += 6
       const consequencesLines = doc.splitTextToSize(incident.consequences, 170)
       doc.text(consequencesLines, 20, yPos)
@@ -1022,7 +1049,7 @@ const generatePDF = async (incidentData: any) => {
     }
 
     if (incident.immediate_action) {
-      addText('Immediate Action:', 20, yPos, { fontSize: 10, fontStyle: 'bold' })
+      addText('Immediate Action:', 20, yPos, { fontSize: 10  })
       yPos += 6
       const actionLines = doc.splitTextToSize(incident.immediate_action, 170)
       doc.text(actionLines, 20, yPos)
@@ -1193,39 +1220,104 @@ watch(historyActiveTab, (v) => {
       <ElButton type="primary" @click="fetchList">Search</ElButton>
       <ElButton type="success" @click="openReportDrawer">Report Incident</ElButton>
     </div>
-    <ElTable :data="list" v-loading="loading" >
-      <ElTableColumn prop="code" label="Code" width="140" />
-      <ElTableColumn prop="occurred_date" label="Occurred" width="160">
-        <template #default="{ row }">
-          {{ formatDateTime(row.occurred_date) }}
-        </template>
-      </ElTableColumn>
-      <ElTableColumn prop="reported_date" label="Reported" width="160">
-        <template #default="{ row }">
-          {{ formatDateTime(row.reported_date) }}
-        </template>
-      </ElTableColumn>
-      <ElTableColumn prop="worker_name" label="Worker" />
-      <ElTableColumn prop="location_text" label="Location" />
-      <ElTableColumn prop="severity" label="Severity" width="120" />
-      <ElTableColumn prop="status" label="Status" width="140">
-        <template #default="{ row }">
-          <ElTag :type="getStatusColor(row.status)">
-            {{ getStatusLabel(row.status) }}
-          </ElTag>
-        </template>
-      </ElTableColumn>
-      <ElTableColumn prop="description" label="Brief" />
-      <ElTableColumn label="Actions" width="580" fixed="right">
-        <template #default="{ row }">
-          <ElButton size="small" @click="openEditDrawer(row)">Edit</ElButton>
-          <ElButton size="small" type="warning" @click="openStatusDialog(row)">Status</ElButton>
-          <ElButton size="small" type="info" @click="openHistoryDrawer(row)">History</ElButton>
-          <ElButton size="small" type="success" @click="generatePDF(row)">PDF</ElButton>
-          <ElButton size="small" type="danger" @click="handleDelete(row)">Delete</ElButton>
-        </template>
-      </ElTableColumn>
-    </ElTable>
+    <div class="table-container">
+      <ElTable :data="list" v-loading="loading" style="width: 100%; min-width: 800px;">
+        <ElTableColumn label="#" width="60" fixed="left">
+          <template #default="{ $index }">
+            <div class="index-cell">
+              {{ $index + 1 + (page - 1) * pageSize }}
+            </div>
+          </template>
+        </ElTableColumn>
+        
+        <ElTableColumn prop="code" label="Code" width="120" fixed="left">
+          <template #default="{ row }">
+            <div class="code-cell">
+              <div class="code-text">{{ row.code }}</div>
+              <div class="code-date">{{ formatDateTime(row.occurred_date) }}</div>
+            </div>
+          </template>
+        </ElTableColumn>
+        
+        <ElTableColumn label="Details" min-width="400">
+          <template #default="{ row }">
+            <div class="details-cell">
+              <div class="detail-sentence">
+                <span class="reporter-info">
+                  <strong>{{ row.reported_by || 'Unknown' }}</strong>
+                </span>
+                <span class="date-info">
+                  {{ formatDateTime(row.reported_date) }}
+                </span>
+                <span class="tags-section">
+                  <ElTag :type="getSeverityColor(row.severity)" size="small" class="severity-tag">
+                    {{ row.severity || 'N/A' }}
+                  </ElTag>
+                  <ElTag :type="getStatusColor(row.status)" size="small" class="status-tag">
+                    {{ getStatusLabel(row.status) }}
+                  </ElTag>
+                </span>
+                <span class="location-info">
+                  {{ row.location_text || 'No location' }}
+                </span>
+              </div>
+            </div>
+          </template>
+        </ElTableColumn>
+        
+        <ElTableColumn prop="description" label="Description" min-width="300">
+          <template #default="{ row }">
+            <div class="description-cell">
+              <div class="description-sentence">
+                {{ row.description || 'No description provided' }}
+                <span v-if="row.worker_name" class="worker-info"> • Worker: {{ row.worker_name }}</span>
+              </div>
+            </div>
+          </template>
+        </ElTableColumn>
+        
+        <ElTableColumn label="Actions" width="300" fixed="right">
+          <template #default="{ row }">
+            <div class="actions-cell">
+              <!-- Desktop: Individual buttons -->
+              <template v-if="!isMobile">
+                <el-tooltip content="Edit Incident" placement="top">
+                  <ElButton size="small" @click="openEditDrawer(row)" class="action-btn" :icon="Edit"/>
+                </el-tooltip>
+                <el-tooltip content="Change Status" placement="top">
+                  <ElButton size="small" type="warning" @click="openStatusDialog(row)" class="action-btn" :icon="Flag"/>
+                </el-tooltip>
+                <el-tooltip content="View History" placement="top">
+                  <ElButton size="small" type="info" @click="openHistoryDrawer(row)" class="action-btn" :icon="Clock"/>
+                </el-tooltip>
+                <el-tooltip content="Generate PDF" placement="top">
+                  <ElButton size="small" type="success" @click="generatePDF(row)" class="action-btn" :icon="Document"/>
+                </el-tooltip>
+                <el-tooltip content="Delete Incident" placement="top">
+                  <ElButton size="small" type="danger" @click="handleDelete(row)" class="action-btn" :icon="Delete"/>
+                </el-tooltip>
+              </template>
+              
+              <!-- Mobile: Dropdown menu -->
+              <template v-else>
+                <el-dropdown trigger="click" @command="(command) => handleMobileAction(command, row)">
+                  <ElButton size="small" :icon="MoreFilled" circle />
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item command="edit" :icon="Edit">Edit</el-dropdown-item>
+                      <el-dropdown-item command="status" :icon="Flag">Change Status</el-dropdown-item>
+                      <el-dropdown-item command="history" :icon="Clock">View History</el-dropdown-item>
+                      <el-dropdown-item command="pdf" :icon="Document">Generate PDF</el-dropdown-item>
+                      <el-dropdown-item command="delete" :icon="Delete" divided>Delete</el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
+              </template>
+            </div>
+          </template>
+        </ElTableColumn>
+      </ElTable>
+    </div>
     <ElPagination v-model:current-page="page" v-model:page-size="pageSize" :total="total" layout="prev, pager, next, sizes" @current-change="fetchList" @size-change="fetchList" style="margin-top:10px;" />
   </ElCard>
 
@@ -2601,6 +2693,231 @@ watch(historyActiveTab, (v) => {
 
 .el-tabs__item {
   font-weight: 500;
+}
+
+/* Table Container for Horizontal Scrolling */
+.table-container {
+  overflow-x: auto;
+  width: 100%;
+}
+
+.table-container::-webkit-scrollbar {
+  height: 8px;
+}
+
+.table-container::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.table-container::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.table-container::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* New Table Design Styles */
+.index-cell {
+  padding: 4px 0;
+  text-align: center;
+  font-weight: 600;
+  font-size: 12px;
+  color: #606266;
+  background-color: #f5f7fa;
+  border-radius: 4px;
+  margin: 2px;
+}
+
+.code-cell {
+  padding: 4px 0;
+}
+
+.code-text {
+  font-weight: 700;
+  font-size: 13px;
+  color: #409eff;
+  margin-bottom: 2px;
+}
+
+.code-date {
+  font-size: 11px;
+  color: #909399;
+}
+
+.details-cell {
+  padding: 4px 0;
+}
+
+.detail-sentence {
+  color: #303133;
+  font-size: 12px;
+  line-height: 1.4;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.reporter-info {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #409eff;
+  font-weight: 600;
+}
+
+.reporter-info .el-icon {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+.date-info {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #606266;
+  font-size: 11px;
+}
+
+.date-info .el-icon {
+  font-size: 10px;
+  color: #909399;
+}
+
+.tags-section {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.severity-tag .el-icon {
+  font-size: 9px;
+  margin-right: 3px;
+}
+
+.status-tag .el-icon {
+  font-size: 8px;
+  margin-right: 3px;
+}
+
+.location-info {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #606266;
+  font-size: 11px;
+  flex: 1;
+  min-width: 0;
+}
+
+.location-info .el-icon {
+  font-size: 10px;
+  color: #f56c6c;
+  flex-shrink: 0;
+}
+
+.location-info span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.description-cell {
+  padding: 4px 0;
+}
+
+.description-sentence {
+  color: #303133;
+  font-size: 12px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.worker-info {
+  color: #909399;
+  font-style: italic;
+}
+
+.actions-cell {
+  padding: 4px 0;
+  display: flex;
+  flex-direction: row;
+  gap: 4px;
+  justify-content: center;
+  align-items: center;
+}
+
+.action-btn {
+  flex: 1;
+  justify-content: center;
+  font-size: 11px;
+  padding: 4px 6px;
+  height: auto;
+  min-height: 24px;
+  min-width: 32px;
+}
+
+.action-btn i {
+  font-size: 10px;
+}
+
+/* Mobile responsiveness for new table */
+@media (max-width: 768px) {
+  /* Table container adjustments for mobile */
+  .table-container {
+    margin: 0 -16px;
+    padding: 0 16px;
+  }
+  
+  /* Mobile actions cell */
+  .actions-cell {
+    padding: 4px 0;
+    text-align: center;
+  }
+  
+  /* Mobile detail sentence adjustments */
+  .detail-sentence {
+    font-size: 11px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  
+  .reporter-info,
+  .date-info,
+  .location-info {
+    font-size: 10px;
+  }
+  
+  .tags-section {
+    gap: 4px;
+  }
+  
+  .severity-tag,
+  .status-tag {
+    font-size: 9px;
+  }
+  
+  .description-sentence {
+    font-size: 11px;
+    -webkit-line-clamp: 1;
+  }
+  
+  .worker-info {
+    font-size: 10px;
+  }
+  
+  /* Ensure proper spacing on mobile */
+  .el-table .el-table__cell {
+    padding: 8px 4px;
+  }
 }
 </style>
 

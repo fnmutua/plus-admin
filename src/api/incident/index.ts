@@ -77,5 +77,5 @@ export const getIncidentPDFData = (data: { id: number }): Promise<IResponse> => 
 
 
 export const getPublicIncident = (data: { id: string }): Promise<IResponse> => {
-  return request.post({ url: prod + '/api/v1/inc/public/' + data.id, data })
+  return request.post({ url: prod + '/api/v1/inc/public', data })
 }
