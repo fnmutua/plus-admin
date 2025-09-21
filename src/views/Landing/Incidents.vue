@@ -368,62 +368,42 @@ import { getCountyAuth, getSettlementByCountyAuth } from '@/api/register'
 import type { UploadUserFile } from 'element-plus'
 import { uuid } from 'vue-uuid'
 
-// SEO Meta Tags Setup
-onMounted(() => {
- // document.title = 'Report an Incident - KeSMIS Kenya Slum Management Information System | KeSMiS';
-  
-  const metaTags = [
+import { useHead } from '@unhead/vue'
+
+useHead({
+  title: 'Report an Incident | KeSMIS Kenya Slum Management Information System',
+  meta: [
     { name: 'description', content: 'Report incidents in slums and informal settlements through KeSMIS. Submit safety concerns, infrastructure issues, or emergency situations in Kenya\'s informal settlements.' },
     { name: 'keywords', content: 'report incident, slum incidents, informal settlement reporting, Kenya safety concerns, infrastructure issues, emergency reporting, KISIP incidents' },
+    { name: 'author', content: 'Kenya Informal Settlements Improvement Project (KISIP)' },
     { name: 'robots', content: 'index, follow' },
-    { property: 'og:title', content: 'Report an Incident - KISIP' },
-    { property: 'og:description', content: 'Report site incidents and accidents through KeSMIS:Safety concerns, infrastructure issues, or emergency situations.' },
+    
+    // Open Graph tags (for WhatsApp, Facebook, LinkedIn)
+    { property: 'og:title', content: 'Report an Incident - KeSMIS Kenya Slum Management Information System' },
+    { property: 'og:description', content: 'Report incidents in slums and informal settlements through KeSMIS. Submit safety concerns, infrastructure issues, or emergency situations.' },
     { property: 'og:type', content: 'website' },
     { property: 'og:url', content: 'https://kesmis.go.ke/incidents' },
-    { property: 'og:image', content: 'https://kesmis.go.ke/assets/warning.png' },
-    { property: 'og:image:width', content: '50' },
-    { property: 'og:image:height', content: '50' }
-
-  ];
-
-  metaTags.forEach(tag => {
-    const meta = document.createElement('meta');
-    if (tag.name) meta.setAttribute('name', tag.name);
-    if (tag.property) meta.setAttribute('property', tag.property);
-    meta.setAttribute('content', tag.content);
-    document.head.appendChild(meta);
-  });
-
-  const canonicalLink = document.createElement('link');
-  canonicalLink.setAttribute('rel', 'canonical');
-  canonicalLink.setAttribute('href', 'https://kesmis.go.ke/incidents');
-  document.head.appendChild(canonicalLink);
-
-  const script = document.createElement('script');
-  script.type = 'application/ld+json';
-  script.textContent = JSON.stringify({
-    "@context": "https://schema.org",
-    "@type": "WebPage",
-    "name": "Report an Incident",
-    "description": "Incident reporting system for slums and informal settlements in Kenya",
-    "url": "https://kesmis.go.ke/incidents",
-    "isPartOf": {
-      "@type": "WebSite",
-      "name": "KeSMIS",
-      "url": "https://kesmis.go.ke"
-    },
-    "mainEntity": {
-      "@type": "Service",
-      "name": "Incident Reporting Service",
-      "description": "Online incident reporting system for slums and informal settlements",
-      "provider": {
-        "@type": "Organization",
-        "name": "Kenya Informal Settlements Improvement Project (KISIP)"
-      }
-    }
-  });
-  document.head.appendChild(script);
-});
+    { property: 'og:image', content: 'https://kesmis.go.ke/warning.png' },
+    { property: 'og:image:width', content: '1200' },
+    { property: 'og:image:height', content: '630' },
+    { property: 'og:image:alt', content: 'KeSMIS Logo - Kenya Slum Management Information System' },
+    { property: 'og:site_name', content: 'KeSMIS' },
+    { property: 'og:locale', content: 'en_KE' },
+    
+    // Twitter Card tags
+    { name: 'twitter:card', content: 'summary_large_image' },
+    { name: 'twitter:title', content: 'Report an Incident - KeSMIS Kenya Slum Management Information System' },
+    { name: 'twitter:description', content: 'Report incidents in slums and informal settlements through KeSMIS. Submit safety concerns, infrastructure issues, or emergency situations.' },
+    { name: 'twitter:image', content: 'https://kesmis.go.ke/warning.jpg' },
+    { name: 'twitter:image:alt', content: 'KeSMIS Logo - Kenya Slum Management Information System' },
+    
+    // Additional meta tags for better SEO
+    { name: 'theme-color', content: '#684035' },
+    { name: 'msapplication-TileColor', content: '#684035' },
+    { name: 'viewport', content: 'width=device-width, initial-scale=1.0' },
+    { name: 'format-detection', content: 'telephone=no' }
+  ]
+})
 import { useRouter } from 'vue-router';
 
 const router = useRouter();

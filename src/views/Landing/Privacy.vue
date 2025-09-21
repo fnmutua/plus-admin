@@ -48,50 +48,42 @@
 import { onMounted, ref } from 'vue';
 import { ElMain, ElButton,  ElTabPane,ElTabs } from 'element-plus';
 import BaseLayout from './BaseLayout.vue';
+import { useHead } from '@unhead/vue'
 
-// SEO Meta Tags Setup
-onMounted(() => {
-  document.title = 'Privacy Policy - KeSMIS Kenya Slum Management Information System | KISIP';
-  
-  const metaTags = [
+useHead({
+  title: 'Privacy Policy | KeSMIS Kenya Slum Management Information System',
+  meta: [
     { name: 'description', content: 'Privacy Policy for KeSMIS (Kenya Slum Management Information System) and SlumMapper app. Learn how we collect, use, and protect your personal information.' },
     { name: 'keywords', content: 'KeSMIS privacy policy, SlumMapper privacy, data protection Kenya, KISIP privacy, personal information policy' },
+    { name: 'author', content: 'Kenya Informal Settlements Improvement Project (KISIP)' },
     { name: 'robots', content: 'index, follow' },
+    
+    // Open Graph tags (for WhatsApp, Facebook, LinkedIn)
     { property: 'og:title', content: 'Privacy Policy - KeSMIS Kenya Slum Management Information System' },
     { property: 'og:description', content: 'Privacy Policy for KeSMIS and SlumMapper app. Learn how we collect, use, and protect your personal information.' },
     { property: 'og:type', content: 'website' },
-    { property: 'og:url', content: 'https://kesmis.go.ke/privacy' }
-  ];
-
-  metaTags.forEach(tag => {
-    const meta = document.createElement('meta');
-    if (tag.name) meta.setAttribute('name', tag.name);
-    if (tag.property) meta.setAttribute('property', tag.property);
-    meta.setAttribute('content', tag.content);
-    document.head.appendChild(meta);
-  });
-
-  const canonicalLink = document.createElement('link');
-  canonicalLink.setAttribute('rel', 'canonical');
-  canonicalLink.setAttribute('href', 'https://kesmis.go.ke/privacy');
-  document.head.appendChild(canonicalLink);
-
-  const script = document.createElement('script');
-  script.type = 'application/ld+json';
-  script.textContent = JSON.stringify({
-    "@context": "https://schema.org",
-    "@type": "WebPage",
-    "name": "Privacy Policy",
-    "description": "Privacy Policy for the Kenya Slum Management Information System and SlumMapper app",
-    "url": "https://kesmis.go.ke/privacy",
-    "isPartOf": {
-      "@type": "WebSite",
-      "name": "KeSMIS",
-      "url": "https://kesmis.go.ke"
-    }
-  });
-  document.head.appendChild(script);
-});
+    { property: 'og:url', content: 'https://kesmis.go.ke/privacy' },
+    { property: 'og:image', content: 'https://kesmis.go.ke/logo.png' },
+    { property: 'og:image:width', content: '1200' },
+    { property: 'og:image:height', content: '630' },
+    { property: 'og:image:alt', content: 'KeSMIS Logo - Kenya Slum Management Information System' },
+    { property: 'og:site_name', content: 'KeSMIS' },
+    { property: 'og:locale', content: 'en_KE' },
+    
+    // Twitter Card tags
+    { name: 'twitter:card', content: 'summary_large_image' },
+    { name: 'twitter:title', content: 'Privacy Policy - KeSMIS Kenya Slum Management Information System' },
+    { name: 'twitter:description', content: 'Privacy Policy for KeSMIS and SlumMapper app. Learn how we collect, use, and protect your personal information.' },
+    { name: 'twitter:image', content: 'https://kesmis.go.ke/twitter-card.jpg' },
+    { name: 'twitter:image:alt', content: 'KeSMIS Logo - Kenya Slum Management Information System' },
+    
+    // Additional meta tags for better SEO
+    { name: 'theme-color', content: '#684035' },
+    { name: 'msapplication-TileColor', content: '#684035' },
+    { name: 'viewport', content: 'width=device-width, initial-scale=1.0' },
+    { name: 'format-detection', content: 'telephone=no' }
+  ]
+})
 
  
 

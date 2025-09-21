@@ -33,52 +33,42 @@
 import { ElButton } from 'element-plus';
 import BaseLayout from './BaseLayout.vue';
 import { ref, onMounted } from 'vue';
+import { useHead } from '@unhead/vue'
 
-// SEO Meta Tags Setup
-onMounted(() => {
-  document.title = 'About KeSMIS - Kenya Slum Management Information System | KISIP';
-  
-  const metaTags = [
+useHead({
+  title: 'About KeSMIS | Kenya Slum Management Information System',
+  meta: [
     { name: 'description', content: 'Learn about KeSMIS (Kenya Slum Management Information System) - an innovative platform improving living conditions in slums across Kenya through comprehensive data collection and analysis.' },
     { name: 'keywords', content: 'about KeSMIS, Kenya slum management, KISIP project, urban development Kenya, slum improvement, informal settlements Kenya, data collection platform' },
+    { name: 'author', content: 'Kenya Informal Settlements Improvement Project (KISIP)' },
     { name: 'robots', content: 'index, follow' },
+    
+    // Open Graph tags (for WhatsApp, Facebook, LinkedIn)
     { property: 'og:title', content: 'About KeSMIS - Kenya Slum Management Information System' },
     { property: 'og:description', content: 'Learn about KeSMIS - an innovative platform improving living conditions in slums across Kenya through comprehensive data collection and analysis.' },
     { property: 'og:type', content: 'website' },
-    { property: 'og:url', content: 'https://kesmis.go.ke/about' }
-  ];
-
-  metaTags.forEach(tag => {
-    const meta = document.createElement('meta');
-    if (tag.name) meta.setAttribute('name', tag.name);
-    if (tag.property) meta.setAttribute('property', tag.property);
-    meta.setAttribute('content', tag.content);
-    document.head.appendChild(meta);
-  });
-
-  const canonicalLink = document.createElement('link');
-  canonicalLink.setAttribute('rel', 'canonical');
-  canonicalLink.setAttribute('href', 'https://kesmis.go.ke/about');
-  document.head.appendChild(canonicalLink);
-
-  const script = document.createElement('script');
-  script.type = 'application/ld+json';
-  script.textContent = JSON.stringify({
-    "@context": "https://schema.org",
-    "@type": "AboutPage",
-    "name": "About KeSMIS",
-    "description": "Learn about the Kenya Slum Management Information System and its mission to improve living conditions in slums across Kenya",
-    "url": "https://kesmis.go.ke/about",
-    "mainEntity": {
-      "@type": "SoftwareApplication",
-      "name": "KeSMIS",
-      "description": "Kenya Slum Management Information System",
-      "applicationCategory": "Data Collection Platform",
-      "operatingSystem": "Web-based"
-    }
-  });
-  document.head.appendChild(script);
-});
+    { property: 'og:url', content: 'https://kesmis.go.ke/about' },
+    { property: 'og:image', content: 'https://kesmis.go.ke/logo.png' },
+    { property: 'og:image:width', content: '1200' },
+    { property: 'og:image:height', content: '630' },
+    { property: 'og:image:alt', content: 'KeSMIS Logo - Kenya Slum Management Information System' },
+    { property: 'og:site_name', content: 'KeSMIS' },
+    { property: 'og:locale', content: 'en_KE' },
+    
+    // Twitter Card tags
+    { name: 'twitter:card', content: 'summary_large_image' },
+    { name: 'twitter:title', content: 'About KeSMIS - Kenya Slum Management Information System' },
+    { name: 'twitter:description', content: 'Learn about KeSMIS - an innovative platform improving living conditions in slums across Kenya through comprehensive data collection and analysis.' },
+    { name: 'twitter:image', content: 'https://kesmis.go.ke/twitter-card.jpg' },
+    { name: 'twitter:image:alt', content: 'KeSMIS Logo - Kenya Slum Management Information System' },
+    
+    // Additional meta tags for better SEO
+    { name: 'theme-color', content: '#684035' },
+    { name: 'msapplication-TileColor', content: '#684035' },
+    { name: 'viewport', content: 'width=device-width, initial-scale=1.0' },
+    { name: 'format-detection', content: 'telephone=no' }
+  ]
+})
 
 const isDarkMode = ref(false);
 

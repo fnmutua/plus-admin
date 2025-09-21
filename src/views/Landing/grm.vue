@@ -358,58 +358,42 @@ import BaseLayout from './BaseLayout.vue';
 import { getCountyAuth, getSettlementByCountyAuth } from '@/api/register'
 import { uploadGrievanceDocuments, generateGrievance, logGrievanceAction, getGrievanceStatus, sendAcknowledgement,selfEscalate } from '@/api/grievance'
 
-// SEO Meta Tags Setup
-onMounted(() => {
-  document.title = 'File a Grievance - KeSMIS Kenya Slum Management Information System | KISIP';
-  
-  const metaTags = [
+import { useHead } from '@unhead/vue'
+
+useHead({
+  title: 'File a Grievance | KeSMIS Kenya Slum Management Information System',
+  meta: [
     { name: 'description', content: 'File a grievance with KeSMIS KISIP project. Submit complaints, feedback, or concerns about the Kenya Informal Settlements Improvement Project through our online grievance management system.' },
     { name: 'keywords', content: 'file grievance, KISIP complaint, Kenya slum management grievance, online complaint form, KISIP feedback, grievance management system' },
+    { name: 'author', content: 'Kenya Informal Settlements Improvement Project (KISIP)' },
     { name: 'robots', content: 'index, follow' },
+    
+    // Open Graph tags (for WhatsApp, Facebook, LinkedIn)
     { property: 'og:title', content: 'File a Grievance - KeSMIS Kenya Slum Management Information System' },
-    { property: 'og:description', content: 'File a grievance with KeSMIS KISIP project. Submit complaints, feedback, or concerns about the Kenya Informal Settlements Improvement Project.' },
+    { property: 'og:description', content: 'Submit complaints, feedback, or concerns about the Kenya Informal Settlements Improvement Project.' },
     { property: 'og:type', content: 'website' },
-    { property: 'og:url', content: 'https://kesmis.go.ke/grm' }
-  ];
-
-  metaTags.forEach(tag => {
-    const meta = document.createElement('meta');
-    if (tag.name) meta.setAttribute('name', tag.name);
-    if (tag.property) meta.setAttribute('property', tag.property);
-    meta.setAttribute('content', tag.content);
-    document.head.appendChild(meta);
-  });
-
-  const canonicalLink = document.createElement('link');
-  canonicalLink.setAttribute('rel', 'canonical');
-  canonicalLink.setAttribute('href', 'https://kesmis.go.ke/grm');
-  document.head.appendChild(canonicalLink);
-
-  const script = document.createElement('script');
-  script.type = 'application/ld+json';
-  script.textContent = JSON.stringify({
-    "@context": "https://schema.org",
-    "@type": "WebPage",
-    "name": "File a Grievance",
-    "description": "Grievance management system for the Kenya Slum Management Information System",
-    "url": "https://kesmis.go.ke/grm",
-    "isPartOf": {
-      "@type": "WebSite",
-      "name": "KeSMIS",
-      "url": "https://kesmis.go.ke"
-    },
-    "mainEntity": {
-      "@type": "Service",
-      "name": "Grievance Management Service",
-      "description": "Online grievance filing system for KISIP project complaints and feedback",
-      "provider": {
-        "@type": "Organization",
-        "name": "Kenya Informal Settlements Improvement Project (KISIP)"
-      }
-    }
-  });
-  document.head.appendChild(script);
-});
+    { property: 'og:url', content: 'https://kesmis.go.ke/grm' },
+    { property: 'og:image', content: 'https://kesmis.go.ke/logo.png' },
+    { property: 'og:image:width', content: '1200' },
+    { property: 'og:image:height', content: '630' },
+    { property: 'og:image:alt', content: 'KeSMIS Logo - Kenya Slum Management Information System' },
+    { property: 'og:site_name', content: 'KeSMIS' },
+    { property: 'og:locale', content: 'en_KE' },
+    
+    // Twitter Card tags
+    { name: 'twitter:card', content: 'summary_large_image' },
+    { name: 'twitter:title', content: 'File a Grievance - KeSMIS Kenya Slum Management Information System' },
+    { name: 'twitter:description', content: 'File a grievance with KeSMIS KISIP project. Submit complaints, feedback, or concerns about the Kenya Informal Settlements Improvement Project.' },
+    { name: 'twitter:image', content: 'https://kesmis.go.ke/twitter-card.jpg' },
+    { name: 'twitter:image:alt', content: 'KeSMIS Logo - Kenya Slum Management Information System' },
+    
+    // Additional meta tags for better SEO
+    { name: 'theme-color', content: '#684035' },
+    { name: 'msapplication-TileColor', content: '#684035' },
+    { name: 'viewport', content: 'width=device-width, initial-scale=1.0' },
+    { name: 'format-detection', content: 'telephone=no' }
+  ]
+})
 import {
   ArrowLeft,
   ArrowRight,

@@ -87,49 +87,42 @@ import {
 import { onMounted,  ref } from 'vue'
 import { useRoute } from 'vue-router'
 
-// SEO Meta Tags Setup
-onMounted(() => {
-  document.title = 'Grievance Status Check - KeSMIS Kenya Slum Management Information System | KISIP';
-  
-  const metaTags = [
+import { useHead } from '@unhead/vue'
+
+useHead({
+  title: 'Grievance Status Check | KeSMIS Kenya Slum Management Information System',
+  meta: [
     { name: 'description', content: 'Check the status of your grievance with KeSMIS. Track your complaint progress and download related documents using your grievance code and phone number.' },
     { name: 'keywords', content: 'grievance status, complaint tracking, KeSMIS status check, KISIP grievance, complaint progress' },
+    { name: 'author', content: 'Kenya Informal Settlements Improvement Project (KISIP)' },
     { name: 'robots', content: 'index, follow' },
-    { property: 'og:title', content: 'Grievance Status Check - KeSMIS' },
+    
+    // Open Graph tags (for WhatsApp, Facebook, LinkedIn)
+    { property: 'og:title', content: 'Grievance Status Check - KeSMIS Kenya Slum Management Information System' },
     { property: 'og:description', content: 'Check the status of your grievance with KeSMIS. Track your complaint progress and download related documents.' },
     { property: 'og:type', content: 'website' },
-    { property: 'og:url', content: 'https://kesmis.go.ke/status' }
-  ];
-
-  metaTags.forEach(tag => {
-    const meta = document.createElement('meta');
-    if (tag.name) meta.setAttribute('name', tag.name);
-    if (tag.property) meta.setAttribute('property', tag.property);
-    meta.setAttribute('content', tag.content);
-    document.head.appendChild(meta);
-  });
-
-  const canonicalLink = document.createElement('link');
-  canonicalLink.setAttribute('rel', 'canonical');
-  canonicalLink.setAttribute('href', 'https://kesmis.go.ke/status');
-  document.head.appendChild(canonicalLink);
-
-  const script = document.createElement('script');
-  script.type = 'application/ld+json';
-  script.textContent = JSON.stringify({
-    "@context": "https://schema.org",
-    "@type": "WebPage",
-    "name": "Grievance Status Check",
-    "description": "Check the status of your grievance with the Kenya Slum Management Information System",
-    "url": "https://kesmis.go.ke/status",
-    "isPartOf": {
-      "@type": "WebSite",
-      "name": "KeSMIS",
-      "url": "https://kesmis.go.ke"
-    }
-  });
-  document.head.appendChild(script);
-});
+    { property: 'og:url', content: 'https://kesmis.go.ke/status' },
+    { property: 'og:image', content: 'https://kesmis.go.ke/logo.png' },
+    { property: 'og:image:width', content: '1200' },
+    { property: 'og:image:height', content: '630' },
+    { property: 'og:image:alt', content: 'KeSMIS Logo - Kenya Slum Management Information System' },
+    { property: 'og:site_name', content: 'KeSMIS' },
+    { property: 'og:locale', content: 'en_KE' },
+    
+    // Twitter Card tags
+    { name: 'twitter:card', content: 'summary_large_image' },
+    { name: 'twitter:title', content: 'Grievance Status Check - KeSMIS Kenya Slum Management Information System' },
+    { name: 'twitter:description', content: 'Check the status of your grievance with KeSMIS. Track your complaint progress and download related documents.' },
+    { name: 'twitter:image', content: 'https://kesmis.go.ke/twitter-card.jpg' },
+    { name: 'twitter:image:alt', content: 'KeSMIS Logo - Kenya Slum Management Information System' },
+    
+    // Additional meta tags for better SEO
+    { name: 'theme-color', content: '#684035' },
+    { name: 'msapplication-TileColor', content: '#684035' },
+    { name: 'viewport', content: 'width=device-width, initial-scale=1.0' },
+    { name: 'format-detection', content: 'telephone=no' }
+  ]
+})
 
 const route = useRoute()
 

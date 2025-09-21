@@ -51,6 +51,7 @@
     "@studiometa/vue-mapbox-gl": "^2.1.1",
     "@turf/turf": "^6.5.0",
     "@types/vue-tel-input": "^2.1.7",
+    "@unhead/vue": "^1.11.20",
     "@vue-leaflet/vue-leaflet": "^0.10.1",
     "@vueuse/core": "^9.1.1",
     "@wangeditor/editor": "^5.1.14",

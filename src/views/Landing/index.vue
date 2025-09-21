@@ -126,74 +126,45 @@ import BaseLayout from './BaseLayout.vue';
 import { Lock } from '@element-plus/icons-vue';
 import { Icon } from '@iconify/vue';
 import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary';
+import { useHead } from '@unhead/vue'
 
-// SEO Meta Tags Setup
-onMounted(() => {
-  // Set document title
-  document.title = 'KeSMIS - Kenya Slum Management Information System | KISIP';
-  
-  // Create and add meta tags
-  const metaTags = [
+useHead({
+  title: 'KeSMIS | Kenya Slum Management Information System',
+  meta: [
     { name: 'description', content: 'Kenya Slum Management Information System (KeSMIS) - National geodatabase for slums and informal settlements across Kenya. Real-time data collection, storage, and visualization platform for urban planning and development.' },
     { name: 'keywords', content: 'Kenya slums, informal settlements, urban planning, KISIP, geodatabase, slum management, data collection, Kenya housing, urban development, settlement mapping' },
     { name: 'author', content: 'Kenya Informal Settlements Improvement Project (KISIP)' },
     { name: 'robots', content: 'index, follow' },
-    { property: 'og:title', content: 'KeSMIS - Kenya Slum Management Information System' },
+    
+    // Open Graph tags (for WhatsApp, Facebook, LinkedIn)
+    { property: 'og:title', content: 'KeSMIS |  Kenya Slum Management Information System' },
     { property: 'og:description', content: 'National geodatabase for slums and informal settlements across Kenya. Real-time data collection, storage, and visualization platform.' },
     { property: 'og:type', content: 'website' },
     { property: 'og:url', content: 'https://kesmis.go.ke' },
-    { property: 'og:image', content: 'https://kesmis.go.ke/og-image.jpg' },
+    { property: 'og:image', content: 'https://kesmis.go.ke/logo.png' },
+    { property: 'og:image:width', content: '1200' },
+    { property: 'og:image:height', content: '630' },
+    { property: 'og:image:alt', content: 'KeSMIS Logo - Kenya Slum Management Information System' },
     { property: 'og:site_name', content: 'KeSMIS' },
     { property: 'og:locale', content: 'en_KE' },
+    
+    // Twitter Card tags
     { name: 'twitter:card', content: 'summary_large_image' },
     { name: 'twitter:title', content: 'KeSMIS - Kenya Slum Management Information System' },
     { name: 'twitter:description', content: 'National geodatabase for slums and informal settlements across Kenya. Real-time data collection and visualization platform.' },
     { name: 'twitter:image', content: 'https://kesmis.go.ke/twitter-card.jpg' },
+    { name: 'twitter:image:alt', content: 'KeSMIS Logo - Kenya Slum Management Information System' },
+    
+    // Additional meta tags for better SEO
     { name: 'theme-color', content: '#684035' },
-    { name: 'msapplication-TileColor', content: '#684035' }
-  ];
+    { name: 'msapplication-TileColor', content: '#684035' },
+    { name: 'viewport', content: 'width=device-width, initial-scale=1.0' },
+    { name: 'format-detection', content: 'telephone=no' }
+  ]
+})
 
-  metaTags.forEach(tag => {
-    const meta = document.createElement('meta');
-    if (tag.name) {
-      meta.setAttribute('name', tag.name);
-    }
-    if (tag.property) {
-      meta.setAttribute('property', tag.property);
-    }
-    meta.setAttribute('content', tag.content);
-    document.head.appendChild(meta);
-  });
 
-  // Add canonical link
-  const canonicalLink = document.createElement('link');
-  canonicalLink.setAttribute('rel', 'canonical');
-  canonicalLink.setAttribute('href', 'https://kesmis.go.ke');
-  document.head.appendChild(canonicalLink);
-
-  // Add JSON-LD structured data
-  const script = document.createElement('script');
-  script.type = 'application/ld+json';
-  script.textContent = JSON.stringify({
-    "@context": "https://schema.org",
-    "@type": "WebSite",
-    "name": "KeSMIS - Kenya Slum Management Information System",
-    "description": "National geodatabase for slums and informal settlements across Kenya",
-    "url": "https://kesmis.go.ke",
-    "publisher": {
-      "@type": "Organization",
-      "name": "Kenya Informal Settlements Improvement Project (KISIP)",
-      "url": "https://kesmis.go.ke",
-      "logo": "https://kesmis.go.ke/logo.png"
-    },
-    "potentialAction": {
-      "@type": "SearchAction",
-      "target": "https://kesmis.go.ke/search?q={search_term_string}",
-      "query-input": "required name=search_term_string"
-    }
-  });
-  document.head.appendChild(script);
-});
+ 
 
 const router = useRouter();
 const { wsCache } = useCache();

@@ -117,56 +117,42 @@ import { User, Phone, Message } from '@element-plus/icons-vue';
 import type { FormInstance, FormRules } from 'element-plus';
 import BaseLayout from './BaseLayout.vue';
 import countryPhoneCodes from '@/utils/countryPhoneCodes.json';
+import { useHead } from '@unhead/vue'
 
-// SEO Meta Tags Setup
-onMounted(() => {
-  document.title = 'Contact KeSMIS - Kenya Slum Management Information System | KISIP';
-  
-  const metaTags = [
+useHead({
+  title: 'Contact KeSMIS | Kenya Slum Management Information System',
+  meta: [
     { name: 'description', content: 'Contact the KeSMIS team for support, inquiries, or feedback. Get in touch with KISIP for assistance with the Kenya Slum Management Information System.' },
     { name: 'keywords', content: 'contact KeSMIS, KISIP support, Kenya slum management contact, technical support, feedback form, helpline Kenya' },
+    { name: 'author', content: 'Kenya Informal Settlements Improvement Project (KISIP)' },
     { name: 'robots', content: 'index, follow' },
+    
+    // Open Graph tags (for WhatsApp, Facebook, LinkedIn)
     { property: 'og:title', content: 'Contact KeSMIS - Kenya Slum Management Information System' },
     { property: 'og:description', content: 'Contact the KeSMIS team for support, inquiries, or feedback. Get in touch with KISIP for assistance.' },
     { property: 'og:type', content: 'website' },
-    { property: 'og:url', content: 'https://kesmis.go.ke/contact' }
-  ];
-
-  metaTags.forEach(tag => {
-    const meta = document.createElement('meta');
-    if (tag.name) meta.setAttribute('name', tag.name);
-    if (tag.property) meta.setAttribute('property', tag.property);
-    meta.setAttribute('content', tag.content);
-    document.head.appendChild(meta);
-  });
-
-  const canonicalLink = document.createElement('link');
-  canonicalLink.setAttribute('rel', 'canonical');
-  canonicalLink.setAttribute('href', 'https://kesmis.go.ke/contact');
-  document.head.appendChild(canonicalLink);
-
-  const script = document.createElement('script');
-  script.type = 'application/ld+json';
-  script.textContent = JSON.stringify({
-    "@context": "https://schema.org",
-    "@type": "ContactPage",
-    "name": "Contact KeSMIS",
-    "description": "Contact information for the Kenya Slum Management Information System",
-    "url": "https://kesmis.go.ke/contact",
-    "mainEntity": {
-      "@type": "Organization",
-      "name": "Kenya Informal Settlements Improvement Project (KISIP)",
-      "email": "kisip2info@gmail.com",
-      "telephone": "0800 724 349",
-      "address": {
-        "@type": "PostalAddress",
-        "addressLocality": "Nairobi",
-        "addressCountry": "Kenya"
-      }
-    }
-  });
-  document.head.appendChild(script);
-});
+    { property: 'og:url', content: 'https://kesmis.go.ke/contact' },
+    { property: 'og:image', content: 'https://kesmis.go.ke/logo.png' },
+    { property: 'og:image:width', content: '1200' },
+    { property: 'og:image:height', content: '630' },
+    { property: 'og:image:alt', content: 'KeSMIS Logo - Kenya Slum Management Information System' },
+    { property: 'og:site_name', content: 'KeSMIS' },
+    { property: 'og:locale', content: 'en_KE' },
+    
+    // Twitter Card tags
+    { name: 'twitter:card', content: 'summary_large_image' },
+    { name: 'twitter:title', content: 'Contact KeSMIS - Kenya Slum Management Information System' },
+    { name: 'twitter:description', content: 'Contact the KeSMIS team for support, inquiries, or feedback. Get in touch with KISIP for assistance.' },
+    { name: 'twitter:image', content: 'https://kesmis.go.ke/twitter-card.jpg' },
+    { name: 'twitter:image:alt', content: 'KeSMIS Logo - Kenya Slum Management Information System' },
+    
+    // Additional meta tags for better SEO
+    { name: 'theme-color', content: '#684035' },
+    { name: 'msapplication-TileColor', content: '#684035' },
+    { name: 'viewport', content: 'width=device-width, initial-scale=1.0' },
+    { name: 'format-detection', content: 'telephone=no' }
+  ]
+})
 
 const formRef = ref<FormInstance>();
 

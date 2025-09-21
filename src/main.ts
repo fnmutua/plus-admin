@@ -38,6 +38,24 @@ import VChart, { THEME_KEY } from 'vue-echarts'
 import App from './App.vue'
 import './permission'
 
+
+
+import { createHead } from '@unhead/vue'
+const head = createHead()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 import romaTheme from './theme.json' // ✅ Ensure path and tsconfig.json support this
 
 // ✅ Register the ECharts theme
@@ -64,6 +82,9 @@ const setupAll = async () => {
 
   // ✅ Optional: Register ApexCharts
   app.use(VueApexCharts)
+
+  app.use(head)
+
 
   app.mount('#app')
 }

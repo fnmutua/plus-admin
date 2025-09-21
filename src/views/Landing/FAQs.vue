@@ -81,63 +81,42 @@
 import { ElCollapse, ElCollapseItem } from 'element-plus';
 import BaseLayout from './BaseLayout.vue';
 import { onMounted } from 'vue';
+import { useHead } from '@unhead/vue'
 
-// SEO Meta Tags Setup
-onMounted(() => {
-  document.title = 'FAQs - KeSMIS Kenya Slum Management Information System | KISIP';
-  
-  const metaTags = [
+useHead({
+  title: 'FAQs | KeSMIS Kenya Slum Management Information System',
+  meta: [
     { name: 'description', content: 'Frequently Asked Questions about KeSMIS (Kenya Slum Management Information System). Find answers about SlumMapper app, data collection, privacy, and technical support.' },
     { name: 'keywords', content: 'KeSMIS FAQ, SlumMapper questions, Kenya slum management help, KISIP support, data collection FAQ, technical support' },
+    { name: 'author', content: 'Kenya Informal Settlements Improvement Project (KISIP)' },
     { name: 'robots', content: 'index, follow' },
+    
+    // Open Graph tags (for WhatsApp, Facebook, LinkedIn)
     { property: 'og:title', content: 'FAQs - KeSMIS Kenya Slum Management Information System' },
     { property: 'og:description', content: 'Frequently Asked Questions about KeSMIS. Find answers about SlumMapper app, data collection, privacy, and technical support.' },
     { property: 'og:type', content: 'website' },
-    { property: 'og:url', content: 'https://kesmis.go.ke/faq' }
-  ];
-
-  metaTags.forEach(tag => {
-    const meta = document.createElement('meta');
-    if (tag.name) meta.setAttribute('name', tag.name);
-    if (tag.property) meta.setAttribute('property', tag.property);
-    meta.setAttribute('content', tag.content);
-    document.head.appendChild(meta);
-  });
-
-  const canonicalLink = document.createElement('link');
-  canonicalLink.setAttribute('rel', 'canonical');
-  canonicalLink.setAttribute('href', 'https://kesmis.go.ke/faq');
-  document.head.appendChild(canonicalLink);
-
-  const script = document.createElement('script');
-  script.type = 'application/ld+json';
-  script.textContent = JSON.stringify({
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    "name": "KeSMIS Frequently Asked Questions",
-    "description": "Common questions and answers about the Kenya Slum Management Information System",
-    "url": "https://kesmis.go.ke/faq",
-    "mainEntity": [
-      {
-        "@type": "Question",
-        "name": "What is the Kenya Slum Information System?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "The Kenya Slum Information System (KSIS) is a comprehensive digital platform designed to collect, manage, and analyze data about informal settlements across Kenya."
-        }
-      },
-      {
-        "@type": "Question",
-        "name": "What is SlumMapper and how does it work?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "SlumMapper is a mobile application that allows users to map and document informal settlements using GPS technology and can work offline in areas with limited connectivity."
-        }
-      }
-    ]
-  });
-  document.head.appendChild(script);
-});
+    { property: 'og:url', content: 'https://kesmis.go.ke/faq' },
+    { property: 'og:image', content: 'https://kesmis.go.ke/logo.png' },
+    { property: 'og:image:width', content: '1200' },
+    { property: 'og:image:height', content: '630' },
+    { property: 'og:image:alt', content: 'KeSMIS Logo - Kenya Slum Management Information System' },
+    { property: 'og:site_name', content: 'KeSMIS' },
+    { property: 'og:locale', content: 'en_KE' },
+    
+    // Twitter Card tags
+    { name: 'twitter:card', content: 'summary_large_image' },
+    { name: 'twitter:title', content: 'FAQs - KeSMIS Kenya Slum Management Information System' },
+    { name: 'twitter:description', content: 'Frequently Asked Questions about KeSMIS. Find answers about SlumMapper app, data collection, privacy, and technical support.' },
+    { name: 'twitter:image', content: 'https://kesmis.go.ke/twitter-card.jpg' },
+    { name: 'twitter:image:alt', content: 'KeSMIS Logo - Kenya Slum Management Information System' },
+    
+    // Additional meta tags for better SEO
+    { name: 'theme-color', content: '#684035' },
+    { name: 'msapplication-TileColor', content: '#684035' },
+    { name: 'viewport', content: 'width=device-width, initial-scale=1.0' },
+    { name: 'format-detection', content: 'telephone=no' }
+  ]
+})
 </script>
 
 <style>
