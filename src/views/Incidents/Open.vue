@@ -2,13 +2,16 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue'
 import { ElCard, ElTable, ElTableColumn, ElPagination, ElButton, ElInput, ElDialog, ElDrawer, ElForm, ElFormItem, ElDatePicker, ElTimePicker, ElSelect, ElOption, ElTag, ElTimeline, ElTimelineItem, ElMessageBox, ElMessage, ElCheckboxGroup, ElCheckbox, ElRow, ElCol, ElTabs, ElTabPane, ElCollapse, ElCollapseItem, ElUpload, ElTooltip, ElDropdown, ElDropdownMenu, ElDropdownItem } from 'element-plus'
-import { Edit, Flag, Clock, Document, Delete, User, Calendar, Warning, InfoFilled, Location, MoreFilled } from '@element-plus/icons-vue'
+import { Edit, Flag, Clock, Document, Delete, MoreFilled } from '@element-plus/icons-vue'
 import { getIncidents, createIncident, updateIncident, deleteIncident, getIncidentHistory } from '@/api/incident'
 import { getIncidentDocuments, downloadIncidentFile } from '@/api/incident'
 import { uploadIncidentDocuments } from '@/api/incident'
 import { uuid } from 'vue-uuid'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import QRCode from 'qrcode'
+import { useCache } from '@/hooks/web/useCache'
+import { useAppStoreWithOut } from '@/store/modules/app'
 
 const loading = ref(false)
 const list = ref<any[]>([])
@@ -17,6 +20,52 @@ const page = ref(1)
 const pageSize = ref(10)
 const keyword = ref('')
 const isMobile = ref(false)
+
+// User info for pre-populating reporter role
+const { wsCache } = useCache()
+const appStore = useAppStoreWithOut()
+const currentUser = computed(() => wsCache.get(appStore.getUserInfo))
+
+// Function to get current user's role for pre-population
+const getCurrentUserRole = () => {
+  const user = currentUser.value
+  if (!user || !user.roles || !Array.isArray(user.roles)) {
+    return ''
+  }
+  
+  // Get the highest priority role from user's roles
+  const roleHierarchy = {
+    'super_admin': 1,
+    'admin': 2,
+    'grm': 2,
+    'staff': 3,
+    'consultant': 4,
+    'public': 5
+  }
+  
+  let highestRole = 'public'
+  let highestLevel = 5
+  
+  user.roles.forEach((roleObj) => {
+    const roleName = roleObj.name
+    if (roleHierarchy[roleName] && roleHierarchy[roleName] < highestLevel) {
+      highestRole = roleName
+      highestLevel = roleHierarchy[roleName]
+    }
+  })
+  
+  // Map role names to reporter role options
+  const roleMapping = {
+    'super_admin': 'Consultant',
+    'admin': 'Consultant', 
+    'grm': 'Consultant',
+    'staff': 'SEC',
+    'consultant': 'Consultant',
+    'public': 'Member'
+  }
+  
+  return roleMapping[highestRole] || 'Member'
+}
 
 const dialog = ref(false)
 const form = ref<any>({})
@@ -40,11 +89,12 @@ const showActionDialog = ref(false)
 const newAction = ref({ action: "", responsible: "", priority: "", due_date: "" })
 const actionDialogRef = ref<any>(null)
 
-// Status update dialog variables
-const showStatusDialog = ref(false)
+// Status update drawer variables
+const statusDrawer = ref(false)
 const statusForm = ref({ status: "", action_taken: "" })
-const statusDialogRef = ref<any>(null)
+const statusFormRef = ref<any>(null)
 const selectedIncidentForStatus = ref<any>(null)
+const statusFiles = ref<any[]>([])
 
 // Save functionality
 const saving = ref(false)
@@ -63,6 +113,7 @@ const editFiles = ref<any[]>([])
 const editDrawerSize = computed(() => isMobile.value ? '100%' : '50%')
 const historyDrawerSize = computed(() => isMobile.value ? '100%' : '30%')
 const reportDrawerSize = computed(() => isMobile.value ? '100%' : '50%')
+const statusDrawerSize = computed(() => isMobile.value ? '100%' : '40%')
 
 // Step titles
 const stepTitles = [
@@ -146,7 +197,19 @@ const fetchList = async () => {
   loading.value = true
   try {
     const res: any = await getIncidents({ page: page.value, pageSize: pageSize.value, keyword: keyword.value })
-    list.value = res.data || []
+    const incidents = res.data || []
+    
+    // Check for documents for each incident
+    for (const incident of incidents) {
+      try {
+        const docsRes: any = await getIncidentDocuments({ incident_id: incident.id })
+        incident.has_documents = docsRes && docsRes.code === '0000' && docsRes.data && docsRes.data.length > 0
+      } catch (error) {
+        incident.has_documents = false
+      }
+    }
+    
+    list.value = incidents
     total.value = res.total || 0
   } finally {
     loading.value = false
@@ -156,9 +219,17 @@ const fetchList = async () => {
 
 // Report drawer functions
 const openReportDrawer = async () => {
+  // Get current user's details for pre-population
+  const userRole = getCurrentUserRole()
+  const userName = currentUser.value?.name || ''
+  const userPhone = currentUser.value?.phone || ''
+  
   reportForm.value = { 
     occurred_date: new Date(), 
     reported_date: new Date(),
+    reported_by: userName,
+    reporter_role: userRole,
+    reporter_phone: userPhone,
     // Initialize arrays
     incident_types: [],
     mechanisms: [],
@@ -191,6 +262,8 @@ const openEditDrawer = (row: any) => {
   editForm.value.activity_leading = editForm.value.activity_leading || []
   editForm.value.root_cause = editForm.value.root_cause || []
   editForm.value.actions_to_avoid = editForm.value.actions_to_avoid || []
+  // Initialize reporter_role if it doesn't exist
+  editForm.value.reporter_role = editForm.value.reporter_role || ''
   active.value = 0
   editDrawer.value = true
 }
@@ -427,6 +500,7 @@ const validationRules = {
     occurred_time: [{ required: true, message: 'Occurred Time is required', trigger: 'change' }],
     location_text: [{ required: true, message: 'Location is required', trigger: 'blur' }],
     reported_by: [{ required: true, message: 'Reported By is required', trigger: 'blur' }],
+    reporter_role: [{ required: true, message: 'Reporter Role is required', trigger: 'change' }],
     reporter_phone: [{ required: true, message: 'Reporter Phone is required', trigger: 'blur' }]
   },
   step1: {
@@ -507,6 +581,7 @@ const submitReport = async () => {
     formData.prepared_by_name = formData.prepared_by_name || ''
     formData.prepared_by_job_title = formData.prepared_by_job_title || ''
     formData.reported_by = formData.reported_by || ''
+    formData.reporter_role = formData.reporter_role || ''
     formData.reporter_phone = formData.reporter_phone || ''
     
     const res: any = await createIncident(formData)
@@ -595,12 +670,13 @@ const openStatusDialog = (row: any) => {
     status: row.status || 'open',
     action_taken: ''
   }
-  showStatusDialog.value = true
+  statusFiles.value = [] // Reset files when opening drawer
+  statusDrawer.value = true
 }
 
 const submitStatusUpdate = async () => {
   try {
-    await statusDialogRef.value?.validate()
+    await statusFormRef.value?.validate()
     saving.value = true
     
     const updateData = {
@@ -611,7 +687,12 @@ const submitStatusUpdate = async () => {
     
     const res: any = await updateIncident(updateData)
     if (res && res.code === '0000') {
-      showStatusDialog.value = false
+      // Upload any selected documents for status update
+      if (statusFiles.value && statusFiles.value.length) {
+        await uploadDocuments(selectedIncidentForStatus.value.id, statusFiles.value)
+        statusFiles.value = []
+      }
+      statusDrawer.value = false
       fetchList()
       ElMessage.success('Status updated successfully')
     } else {
@@ -887,6 +968,20 @@ const generatePDF = async (incidentData: any) => {
 
     // Header
     addRect(10, 10, 190, 25, primaryColor)
+    
+    // Add GOK logo
+    try {
+      const logoImg = new Image()
+      logoImg.src = '/gok.png'
+      await new Promise((resolve, reject) => {
+        logoImg.onload = resolve
+        logoImg.onerror = reject
+      })
+      doc.addImage(logoImg, 'PNG', 15, 12, 15, 15)
+    } catch (logoError) {
+      console.warn('Failed to load GOK logo:', logoError)
+    }
+    
     addText('INCIDENT REPORT', 105, 20, { fontSize: 16, fontStyle: 'bold', color: [255, 255, 255], align: 'center' })
     addText('Second Kenya Informal Settlement Project - KISIP 2', 105, 26, { fontSize: 10, color: [255, 255, 255], align: 'center' })
     
@@ -1033,25 +1128,31 @@ const generatePDF = async (incidentData: any) => {
     yPos += 10
 
     if (incident.description) {
-      addText('Description:', 20, yPos, { fontSize: 10  })
+      addText('Description:', 20, yPos, { fontSize: 11, fontStyle: 'bold' })
       yPos += 6
       const descriptionLines = doc.splitTextToSize(incident.description, 170)
-      doc.text(descriptionLines, 20, yPos)
-      yPos += descriptionLines.length * 4 + 5
+      doc.setFontSize(10)
+      descriptionLines.forEach((line: string) => {
+        addText(line, 20, yPos, { fontSize: 10 })
+        yPos += 4
+      })
+      yPos += 5
     }
 
     if (incident.consequences) {
-      addText('Consequences:', 20, yPos, { fontSize: 10  })
+      addText('Consequences:', 20, yPos, { fontSize: 10, fontStyle: 'bold' })
       yPos += 6
       const consequencesLines = doc.splitTextToSize(incident.consequences, 170)
+      doc.setFontSize(9)
       doc.text(consequencesLines, 20, yPos)
       yPos += consequencesLines.length * 4 + 5
     }
 
     if (incident.immediate_action) {
-      addText('Immediate Action:', 20, yPos, { fontSize: 10  })
+      addText('Immediate Action:', 20, yPos, { fontSize: 10, fontStyle: 'bold' })
       yPos += 6
       const actionLines = doc.splitTextToSize(incident.immediate_action, 170)
+      doc.setFontSize(9)
       doc.text(actionLines, 20, yPos)
       yPos += actionLines.length * 4 + 5
     }
@@ -1156,6 +1257,50 @@ const generatePDF = async (incidentData: any) => {
       yPos = (doc as any).lastAutoTable.finalY + 10
     }
 
+    // Load GOK logo image (only once)
+    let logoDataUrl: string | null = null
+    try {
+      const logoImg = new Image()
+      logoImg.src = '/gok.png'
+      await new Promise((resolve, reject) => {
+        logoImg.onload = () => {
+          const canvas = document.createElement('canvas')
+          // Use higher resolution canvas for better quality
+          canvas.width = 80
+          canvas.height = 80
+          const ctx = canvas.getContext('2d')
+          if (ctx) {
+            // Enable image smoothing for better quality
+            ctx.imageSmoothingEnabled = true
+            ctx.imageSmoothingQuality = 'high'
+            ctx.drawImage(logoImg, 0, 0, 80, 80)
+            logoDataUrl = canvas.toDataURL('image/png')
+          }
+          resolve(true)
+        }
+        logoImg.onerror = reject
+      })
+    } catch (logoError) {
+      console.warn('Failed to load GOK logo:', logoError)
+    }
+
+    // Generate QR code for incident status URL (only once)
+    let qrCodeDataUrl: string | null = null
+    try {
+      const serverUrl = window.location.origin
+      const statusUrl = `${serverUrl}/#/incidents/${incident.id}`
+      qrCodeDataUrl = await QRCode.toDataURL(statusUrl, {
+        width: 20,
+        margin: 1,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        }
+      })
+    } catch (qrError) {
+      console.warn('Failed to generate QR code:', qrError)
+    }
+
     // Footer
     const pageCount = (doc as any).internal.getNumberOfPages()
     for (let i = 1; i <= pageCount; i++) {
@@ -1163,6 +1308,25 @@ const generatePDF = async (incidentData: any) => {
       
       // Footer separator line
       addLine(10, 275, 200, 275, [200, 200, 200], 0.5)
+      
+      // Add images only on the first page
+      if (i === 1) {
+        // Add GOK logo to the top-left corner
+        if (logoDataUrl) {
+          doc.addImage(logoDataUrl, 'PNG', 12, 12, 20, 20)
+        }
+        
+        // Add QR code to the top-right corner
+        if (qrCodeDataUrl) {
+          // Add QR code
+          doc.addImage(qrCodeDataUrl, 'PNG', 172, 12, 20, 20)
+          
+          // Add "Check Status" text to the right of QR code (rotated)
+          doc.setFontSize(8)
+          doc.setTextColor(255, 255, 255)
+          doc.text('Check Status', 196, 31, { angle: 90 })
+        }
+      }
       
       // Footer content
       addText(`Page ${i} of ${pageCount}`, 105, 285, { fontSize: 9, color: [64, 64, 64], align: 'center' })
@@ -1255,6 +1419,9 @@ watch(historyActiveTab, (v) => {
                   </ElTag>
                   <ElTag :type="getStatusColor(row.status)" size="small" class="status-tag">
                     {{ getStatusLabel(row.status) }}
+                  </ElTag>
+                  <ElTag v-if="row.has_documents" type="info" size="small" class="attachment-tag">
+                    <i class="iconify" data-icon="mdi:attachment"></i>
                   </ElTag>
                 </span>
                 <span class="location-info">
@@ -1418,6 +1585,17 @@ watch(historyActiveTab, (v) => {
       </ElFormItem>
               <ElFormItem label="Reported By" prop="reported_by">
                 <ElInput v-model="editForm.reported_by" />
+              </ElFormItem>
+              <ElFormItem label="Reporter Role" prop="reporter_role">
+                <ElSelect v-model="editForm.reporter_role" placeholder="Select reporter role">
+                  <ElOption label="Consultant" value="Consultant" />
+                  <ElOption label="Contractor" value="Contractor" />
+                  <ElOption label="SEC" value="SEC" />
+                  <ElOption label="Victim/self" value="Victim/self" />
+                  <ElOption label="CPCT" value="CPCT" />
+                  <ElOption label="Member" value="Member" />
+                  <ElOption label="On behalf of victim" value="On behalf of victim" />
+                </ElSelect>
               </ElFormItem>
               <ElFormItem label="Reporter Phone" prop="reporter_phone">
                 <ElInput v-model="editForm.reporter_phone" placeholder="2547XXXXXXXX" />
@@ -1728,6 +1906,17 @@ watch(historyActiveTab, (v) => {
               </ElFormItem>
               <ElFormItem label="Reported By" prop="reported_by">
                 <ElInput v-model="reportForm.reported_by" />
+              </ElFormItem>
+              <ElFormItem label="Reporter Role" prop="reporter_role">
+                <ElSelect v-model="reportForm.reporter_role" placeholder="Select reporter role">
+                  <ElOption label="Consultant" value="Consultant" />
+                  <ElOption label="Contractor" value="Contractor" />
+                  <ElOption label="SEC" value="SEC" />
+                  <ElOption label="Victim/self" value="Victim/self" />
+                  <ElOption label="CPCT" value="CPCT" />
+                  <ElOption label="Member" value="Member" />
+                  <ElOption label="On behalf of victim" value="On behalf of victim" />
+                </ElSelect>
               </ElFormItem>
               <ElFormItem label="Reporter Phone" prop="reporter_phone">
                 <ElInput v-model="reportForm.reporter_phone" placeholder="2547XXXXXXXX" />
@@ -2248,57 +2437,88 @@ watch(historyActiveTab, (v) => {
     </template>
   </ElDialog>
 
-  <!-- Status Update Dialog -->
-  <ElDialog 
-    v-model="showStatusDialog" 
+  <!-- Status Update Drawer -->
+  <ElDrawer 
+    v-model="statusDrawer" 
     title="Update Incident Status" 
-    :width="'500px'"
+    :size="statusDrawerSize"
+    direction="rtl"
+    :with-header="true"
     :close-on-click-modal="false"
   >
-    <div v-if="selectedIncidentForStatus" style="margin-bottom: 16px; padding: 12px; background-color: #f5f7fa; border-radius: 6px;">
-      <strong>Incident:</strong> {{ selectedIncidentForStatus.code }}<br/>
-      <strong>Description:</strong> {{ selectedIncidentForStatus.description }}
-    </div>
-    
-    <ElForm 
-      :model="statusForm" 
-      :rules="statusUpdateRules" 
-      label-position="top" 
-      ref="statusDialogRef"
-    >
-      <ElFormItem label="Status" prop="status">
-        <ElSelect v-model="statusForm.status" placeholder="Select status" style="width: 100%;">
-          <ElOption 
-            v-for="option in statusOptions" 
-            :key="option.value" 
-            :label="option.label" 
-            :value="option.value" 
-          />
-        </ElSelect>
-      </ElFormItem>
+    <div class="drawer-content">
+      <div v-if="selectedIncidentForStatus" class="incident-info-card">
+        <div class="incident-info-header">
+          <strong>Incident Code:</strong> {{ selectedIncidentForStatus.code }}
+        </div>
+        <div class="incident-info-description">
+          <strong>Description:</strong> {{ selectedIncidentForStatus.description || 'No description provided' }}
+        </div>
+        <div class="incident-info-status">
+          <strong>Current Status:</strong> 
+          <ElTag :type="getStatusColor(selectedIncidentForStatus.status)">
+            {{ getStatusLabel(selectedIncidentForStatus.status) }}
+          </ElTag>
+        </div>
+      </div>
       
-      <ElFormItem label="Action Taken" prop="action_taken">
-        <ElInput 
-          type="textarea" 
-          :rows="3" 
-          v-model="statusForm.action_taken" 
-          placeholder="Describe the action taken to address this incident"
-        />
-      </ElFormItem>
-    </ElForm>
-    
-    <template #footer>
-      <ElButton @click="showStatusDialog = false">Cancel</ElButton>
-      <ElButton 
-        type="primary" 
-        @click="submitStatusUpdate"
-        :loading="saving"
-        :disabled="saving"
+      <ElForm 
+        :model="statusForm" 
+        :rules="statusUpdateRules" 
+        label-position="top" 
+        ref="statusFormRef"
+        class="status-form"
       >
-        Update Status
-      </ElButton>
+        <ElFormItem label="New Status" prop="status">
+          <ElSelect v-model="statusForm.status" placeholder="Select new status" style="width: 100%;">
+            <ElOption 
+              v-for="option in statusOptions" 
+              :key="option.value" 
+              :label="option.label" 
+              :value="option.value" 
+            />
+          </ElSelect>
+        </ElFormItem>
+        
+        <ElFormItem label="Action Taken" prop="action_taken">
+          <ElInput 
+            type="textarea" 
+            :rows="4" 
+            v-model="statusForm.action_taken" 
+            placeholder="Describe the action taken to address this incident"
+          />
+        </ElFormItem>
+        
+        <ElFormItem label="Attach Supporting Documents">
+          <ElUpload
+            v-model:file-list="statusFiles"
+            :auto-upload="false"
+            multiple
+            :limit="10"
+            :on-exceed="() => ElMessage.warning('File limit reached')"
+          >
+            <ElButton type="primary">Select Files</ElButton>
+          </ElUpload>
+        
+        </ElFormItem>
+      </ElForm>
+    </div>
+
+    <template #footer>
+      <div class="drawer-footer">
+        <ElButton @click="statusDrawer = false" class="cancel-btn">Cancel</ElButton>
+        <ElButton 
+          type="primary" 
+          @click="submitStatusUpdate"
+          :loading="saving"
+          :disabled="saving"
+          class="submit-btn"
+        >
+          <i class="fas fa-check"></i> Update Status
+        </ElButton>
+      </div>
     </template>
-  </ElDialog>
+  </ElDrawer>
 </template>
 
 <style scoped>
@@ -2695,6 +2915,112 @@ watch(historyActiveTab, (v) => {
   font-weight: 500;
 }
 
+/* Status Drawer Styles */
+.incident-info-card {
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.incident-info-header {
+  font-size: 16px;
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: 8px;
+}
+
+.incident-info-description {
+  font-size: 14px;
+  color: #606266;
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+
+.incident-info-status {
+  font-size: 14px;
+  color: #606266;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-form {
+  padding: 0;
+}
+
+.status-form .el-form-item {
+  margin-bottom: 20px;
+}
+
+.upload-hint {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 4px;
+}
+
+.drawer-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border-top: 1px solid #e4e7ed;
+  background-color: #f8f9fa;
+}
+
+.cancel-btn {
+  background-color: #f56c6c;
+  border-color: #f56c6c;
+  color: white;
+  min-width: 100px;
+}
+
+.cancel-btn:hover {
+  background-color: #f78989;
+  border-color: #f78989;
+}
+
+.submit-btn {
+  min-width: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.submit-btn i {
+  font-size: 14px;
+}
+
+/* Mobile responsiveness for status drawer */
+@media (max-width: 768px) {
+  .drawer-footer {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .cancel-btn,
+  .submit-btn {
+    width: 100%;
+    min-width: auto;
+  }
+  
+  .incident-info-card {
+    padding: 12px;
+    margin-bottom: 16px;
+  }
+  
+  .incident-info-header {
+    font-size: 14px;
+  }
+  
+  .incident-info-description,
+  .incident-info-status {
+    font-size: 12px;
+  }
+}
+
 /* Table Container for Horizontal Scrolling */
 .table-container {
   overflow-x: auto;
@@ -2801,6 +3127,23 @@ watch(historyActiveTab, (v) => {
 .status-tag .el-icon {
   font-size: 8px;
   margin-right: 3px;
+}
+
+.attachment-tag {
+  background-color: #e1f5fe !important;
+  border-color: #81d4fa !important;
+  color: #0277bd !important;
+  min-width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+}
+
+.attachment-tag i {
+  font-size: 10px;
+  margin: 0;
 }
 
 .location-info {

@@ -195,52 +195,93 @@ getDocumentTypes();
   }
 };
 
-// Handle file upload
+// Handle file validation before upload
 const beforeUpload: UploadProps['beforeUpload'] = (file) => {
- const types = [
-  'application/vnd.ms-excel', // .xls
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
-  'application/pdf', // .pdf
-  'application/zip', // .zip
-  'application/x-rar-compressed', // .rar
-  'application/x-zip-compressed',
-  'application/vnd.rar', // .rar (alternative)
-  'application/msword', // .doc
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
-  'image/png', // .png
-  'image/jpeg', // .jpg/.jpeg
-  'image/tiff', // .tiff
-  'text/csv', // .csv
-  'text/plain', // .txt
-  'application/json', // .json
-  'application/vnd.geo+json', // .geojson
-  'application/vnd.google-earth.kml+xml', // .kml
-  'application/vnd.google-earth.kmz', // .kmz
-  'application/vnd.ms-powerpoint', // .ppt
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx
-];
-
-  const isValidType = types.includes(file.type);
+  // Check file type and size
+  const fileExtension = file.name.split('.').pop()?.toLowerCase();
+  const allowedExtensions = ['xls', 'xlsx', 'pdf', 'zip', 'rar', 'doc', 'docx', 'png', 'jpg', 'jpeg', 'tiff', 'tif', 'csv', 'txt', 'json', 'geojson', 'kml', 'kmz', 'ppt', 'pptx', 'dwg', 'dxf', 'dgn'];
+  const types = [
+    'application/vnd.ms-excel', // .xls
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+    'application/pdf', // .pdf
+    'application/zip', // .zip
+    'application/x-rar-compressed', // .rar
+    'application/x-zip-compressed',
+    'application/vnd.rar', // .rar (alternative)
+    'application/msword', // .doc
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+    'image/png', // .png
+    'image/jpeg', // .jpg/.jpeg
+    'image/tiff', // .tiff
+    'image/tif', // .tif
+    'text/csv', // .csv
+    'text/plain', // .txt
+    'application/json', // .json
+    'application/vnd.geo+json', // .geojson
+    'application/vnd.google-earth.kml+xml', // .kml
+    'application/vnd.google-earth.kmz', // .kmz
+    'application/vnd.ms-powerpoint', // .ppt
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx
+    'application/dwg', // .dwg
+    'image/vnd.dwg', // .dwg (alternative)
+    'application/dxf', // .dxf
+    'image/vnd.dxf', // .dxf (alternative)
+    'application/dgn', // .dgn
+    'image/vnd.dgn', // .dgn (alternative)
+    'application/octet-stream', // Generic binary for CAD files
+  ];
+  
+  const isValidType = types.includes(file.type) || allowedExtensions.includes(fileExtension || '');
   const isLt50M = file.size / 1024 / 1024 < 5000;
 
   if (!isValidType) {
-    ElMessage.error(`${file.type} file type is not allowed`);
+    ElMessage.error(`File type not supported. Supported formats: ${allowedExtensions.join(', ')}`);
     return false;
   }
+  
   if (!isLt50M) {
     ElMessage.error('File size should not exceed 5GB');
     return false;
   }
+
   return true;
 };
 
- 
-
- const handleFileUpload = async (uploadFile: any) => {
-
-
+// Handle file upload after validation passes
+const handleFileUpload = async (uploadFile: any) => {
   const file = uploadFile.raw || uploadFile.file;
-  if (!file || !beforeUpload(file)) return;
+  
+  if (!file) {
+    ElMessage.error('No file selected');
+    return;
+  }
+
+  // Double-check validation as safety net (in case beforeUpload didn't work)
+  const fileExtension = file.name.split('.').pop()?.toLowerCase();
+  const allowedExtensions = ['xls', 'xlsx', 'pdf', 'zip', 'rar', 'doc', 'docx', 'png', 'jpg', 'jpeg', 'tiff', 'tif', 'csv', 'txt', 'json', 'geojson', 'kml', 'kmz', 'ppt', 'pptx', 'dwg', 'dxf', 'dgn'];
+  const types = [
+    'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/pdf', 'application/zip', 'application/x-rar-compressed', 'application/x-zip-compressed',
+    'application/vnd.rar', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'image/png', 'image/jpeg', 'image/tiff', 'image/tif', 'text/csv', 'text/plain', 'application/json',
+    'application/vnd.geo+json', 'application/vnd.google-earth.kml+xml', 'application/vnd.google-earth.kmz',
+    'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'application/dwg', 'image/vnd.dwg', 'application/dxf', 'image/vnd.dxf', 'application/dgn', 'image/vnd.dgn',
+    'application/octet-stream'
+  ];
+  
+  const isValidType = types.includes(file.type) || allowedExtensions.includes(fileExtension || '');
+  const isLt50M = file.size / 1024 / 1024 < 5000;
+
+  if (!isValidType) {
+    ElMessage.error(`File type not supported. Supported formats: ${allowedExtensions.join(', ')}`);
+    return;
+  }
+  
+  if (!isLt50M) {
+    ElMessage.error('File size should not exceed 5GB');
+    return;
+  }
 
   // Prevent duplicates based on name + size
   const exists = fileList.value.some(f => f.name === file.name && f.size === file.size);
@@ -653,11 +694,18 @@ const importFiles = async () => {
 
 // Navigation handlers
 const handleNextStep = async () => {
+  // Validate that we have files before proceeding from step 0
+  if (step.value === 0) {
+    if (fileList.value.length === 0) {
+      ElMessage.warning('Please upload at least one file before proceeding');
+      return;
+    }
+  }
+  
   if (step.value === 2) {
     remapFileMetadata();
   }
   if (step.value === 3) {
-    
     await importFiles();
   } else {
     step.value++;
@@ -696,16 +744,16 @@ const handleReset = () => {
             :show-file-list="true"
             :on-change="handleFileUpload"
             :on-exceed="handleExceed"
+            :before-upload="beforeUpload"
             :limit="20"
             :multiple="true"
-            :before-upload="beforeUpload"
-            accept=".xls,.xlsx,.pdf,.zip,.doc,.docx,.png,.jpg,.csv,.json,.geojson,.ppt,.pptx,.rar,.tif,.txt"
+            accept=".xls,.xlsx,.pdf,.zip,.doc,.docx,.png,.jpg,.csv,.json,.geojson,.ppt,.pptx,.rar,.tif,.txt,.dwg,.dxf,.dgn,.tiff"
             aria-label="Upload documents"
           >
             <el-button type="primary" :loading="loading.upload">Upload Files</el-button>
           </el-upload>
         </PermissionWrapper>
-        <p class="text-sm text-gray-500 mt-2">Supported formats: .xls, .xlsx, .pdf, .zip, .doc, .docx, .png, .jpg, .csv, .json, .geojson, .ppt, .pptx, .rar, .tif, .txt</p>
+        <p class="text-sm text-gray-500 mt-2">Supported formats: .xls, .xlsx, .pdf, .zip, .doc, .docx, .png, .jpg, .csv, .json, .geojson, .ppt, .pptx, .rar, .tif, .txt, .dwg, .dxf, .dgn, .tiff</p>
       </div>
 
       <!-- Step 1: Select Target Model -->
@@ -838,7 +886,7 @@ const handleReset = () => {
               <el-button
                 type="primary"
                 :loading="loading.import || loading.fetchParents"
-                :disabled="step === 3 && (!canImport || fileList.length === 0)"
+                :disabled="(step === 0 && fileList.length === 0) || (step === 3 && (!canImport || fileList.length === 0))"
                 @click="handleNextStep"
                 aria-label="Proceed to next step or import"
               >

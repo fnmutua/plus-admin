@@ -82,11 +82,11 @@ app.use(bodyParser.json({ limit: '200mb' }))
 // parse requests of content-type - application/x-www-form-urlencoded
 app.use(bodyParser.urlencoded({ limit: '200mb', extended: true }))
 
-app.use(express.static(path.join(__dirname, '/dist')))
+app.use(express.static(path.join(__dirname, '/dist-pro')))
 app.use(express.static('public'))
 
 app.get('/', (req, res) => {
-  const indexPath = path.join(__dirname, '/dist/index.html')
+  const indexPath = path.join(__dirname, '/dist-pro/index.html')
   
   // Check if index.html exists
   if (fs.existsSync(indexPath)) {

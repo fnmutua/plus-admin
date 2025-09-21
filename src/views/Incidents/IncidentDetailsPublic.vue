@@ -9,6 +9,7 @@ import { Download, ArrowRight, Back } from '@element-plus/icons-vue'
 import { useAppStore } from '@/store/modules/app'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import QRCode from 'qrcode'
 
 const appStore = useAppStore()
 const route = useRoute()
@@ -535,17 +536,25 @@ const generatePDF = async (incidentData: any) => {
     yPos += 10
 
     if (incident.description) {
-      addText('Description:', 20, yPos, { fontSize: 10, fontStyle: 'bold' })
+      addText('Description:', 20, yPos, { fontSize: 11, fontStyle: 'bold' })
       yPos += 6
       const descriptionLines = doc.splitTextToSize(incident.description, 170)
-      doc.text(descriptionLines, 20, yPos)
-      yPos += descriptionLines.length * 4 + 5
+      doc.setFontSize(10)
+      descriptionLines.forEach((line: string) => {
+        addText(line, 20, yPos, { fontSize: 10 })
+        yPos += 4
+      })
+      yPos += 5
     }
 
+
+
+    
     if (incident.consequences) {
       addText('Consequences:', 20, yPos, { fontSize: 10, fontStyle: 'bold' })
       yPos += 6
       const consequencesLines = doc.splitTextToSize(incident.consequences, 170)
+      doc.setFontSize(9)
       doc.text(consequencesLines, 20, yPos)
       yPos += consequencesLines.length * 4 + 5
     }
@@ -554,6 +563,7 @@ const generatePDF = async (incidentData: any) => {
       addText('Immediate Action:', 20, yPos, { fontSize: 10, fontStyle: 'bold' })
       yPos += 6
       const actionLines = doc.splitTextToSize(incident.immediate_action, 170)
+      doc.setFontSize(9)
       doc.text(actionLines, 20, yPos)
       yPos += actionLines.length * 4 + 5
     }
@@ -658,6 +668,50 @@ const generatePDF = async (incidentData: any) => {
       yPos = (doc as any).lastAutoTable.finalY + 10
     }
 
+    // Load GOK logo image (only once)
+    let logoDataUrl: string | null = null
+    try {
+      const logoImg = new Image()
+      logoImg.src = '/gok.png'
+      await new Promise((resolve, reject) => {
+        logoImg.onload = () => {
+          const canvas = document.createElement('canvas')
+          // Use higher resolution canvas for better quality
+          canvas.width = 80
+          canvas.height = 80
+          const ctx = canvas.getContext('2d')
+          if (ctx) {
+            // Enable image smoothing for better quality
+            ctx.imageSmoothingEnabled = true
+            ctx.imageSmoothingQuality = 'high'
+            ctx.drawImage(logoImg, 0, 0, 80, 80)
+            logoDataUrl = canvas.toDataURL('image/png')
+          }
+          resolve(true)
+        }
+        logoImg.onerror = reject
+      })
+    } catch (logoError) {
+      console.warn('Failed to load GOK logo:', logoError)
+    }
+
+    // Generate QR code for incident status URL (only once)
+    let qrCodeDataUrl: string | null = null
+    try {
+      const serverUrl = window.location.origin
+      const statusUrl = `${serverUrl}/#/incidents/${incident.id}`
+      qrCodeDataUrl = await QRCode.toDataURL(statusUrl, {
+        width: 20,
+        margin: 1,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        }
+      })
+    } catch (qrError) {
+      console.warn('Failed to generate QR code:', qrError)
+    }
+
     // Footer
     const pageCount = (doc as any).internal.getNumberOfPages()
     for (let i = 1; i <= pageCount; i++) {
@@ -665,6 +719,25 @@ const generatePDF = async (incidentData: any) => {
       
       // Footer separator line
       addLine(10, 275, 200, 275, [200, 200, 200], 0.5)
+      
+      // Add QR code only on first page
+      if (i === 1) {
+        // Add GOK logo to the top-left corner
+        if (logoDataUrl) {
+          doc.addImage(logoDataUrl, 'PNG', 12, 12, 20, 20)
+        }
+        
+        // Add QR code to the top-right corner
+        if (qrCodeDataUrl) {
+          // Add QR code
+          doc.addImage(qrCodeDataUrl, 'PNG', 173, 12, 20, 20)
+          
+          // Add "Check Status" text to the right of QR code (rotated)
+          doc.setFontSize(8)
+          doc.setTextColor(255, 255, 255)
+          doc.text('Check Status', 196, 31, { angle: 90 })
+        }
+      }
       
       // Footer content
       addText(`Page ${i} of ${pageCount}`, 105, 285, { fontSize: 9, color: [64, 64, 64], align: 'center' })
