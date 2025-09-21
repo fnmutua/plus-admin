@@ -84,6 +84,10 @@ const activeStreams = new Map(); // streamId -> stream info
 const streamConnections = new Map(); // streamId -> Set of WebSocket connections
 const userStreams = new Map(); // userId -> Set of streamIds
 
+// Queue for pending WebRTC offers and ICE candidates when no viewers are connected
+const pendingOffers = new Map(); // streamId -> offer
+const pendingIceCandidates = new Map(); // streamId -> array of ICE candidates
+
 // Create streams directory if it doesn't exist
 const streamsDir = path.join(__dirname, '../uploads/streams');
 if (!fs.existsSync(streamsDir)) {
@@ -93,15 +97,34 @@ if (!fs.existsSync(streamsDir)) {
 // Broadcast to all connections for a specific stream
 function broadcastToStream(streamId, message, excludeConnection = null) {
   const connections = streamConnections.get(streamId);
-  if (!connections) return;
+  if (!connections) {
+    console.log(`❌ No connections found for stream ${streamId}`);
+    return;
+  }
 
   const messageStr = JSON.stringify(message);
+  console.log(`📤 Broadcasting ${message.type} to ${connections.size} connections for stream ${streamId}`);
   
+  let sentCount = 0;
   connections.forEach(connection => {
-    if (connection !== excludeConnection && connection.readyState === WebSocket.OPEN) {
-      connection.send(messageStr);
+    if (connection !== excludeConnection) {
+      if (connection.readyState === WebSocket.OPEN) {
+        try {
+          connection.send(messageStr);
+          sentCount++;
+          console.log(`📤 Sending ${message.type} to connection (${sentCount}/${connections.size})`);
+        } catch (error) {
+          console.log(`❌ Error sending to connection: ${error.message}`);
+        }
+      } else {
+        console.log(`❌ Connection not ready (state: ${connection.readyState})`);
+      }
+    } else {
+      console.log(`❌ Connection excluded from broadcast`);
     }
   });
+  
+  console.log(`✅ Successfully sent ${message.type} to ${sentCount} connections`);
 }
 
 // Broadcast to all active streams
@@ -165,14 +188,90 @@ wss.on('connection', (ws, req) => {
             }
             userStreams.get(currentUser.id).add(message.streamId);
             
-            // Get stream info
-            const streamInfo = activeStreams.get(message.streamId);
+            // Get stream info from activeStreams first
+            let streamInfo = activeStreams.get(message.streamId);
+            
+            // If not found in activeStreams, check database
+            if (!streamInfo) {
+              console.log(`Stream ${message.streamId} not found in activeStreams, checking database...`);
+              try {
+                if (db.videoStream) {
+                  const dbStream = await db.videoStream.findByPk(message.streamId, {
+                    include: [
+                      {
+                        model: db.user,
+                        as: 'streamer',
+                        attributes: ['id', 'name', 'email', 'photo']
+                      }
+                    ]
+                  });
+                  
+                  if (dbStream && dbStream.status === 'live') {
+                    console.log(`Found stream ${message.streamId} in database with status: ${dbStream.status}`);
+                    
+                    // Convert database stream to activeStreams format
+                    streamInfo = {
+                      id: dbStream.id,
+                      title: dbStream.title,
+                      description: dbStream.description,
+                      userId: dbStream.user_id,
+                      userName: dbStream.streamer?.name || 'Unknown',
+                      status: dbStream.status,
+                      startTime: dbStream.start_time,
+                      viewerCount: 0,
+                      settings: dbStream.settings ? JSON.parse(dbStream.settings) : {},
+                      location: dbStream.location,
+                      county: dbStream.county
+                    };
+                    
+                    // Add to activeStreams for future lookups
+                    activeStreams.set(message.streamId, streamInfo);
+                    console.log(`Added stream ${message.streamId} to activeStreams from database`);
+                  } else {
+                    console.log(`Stream ${message.streamId} not found in database or not live`);
+                  }
+                } else {
+                  console.log('VideoStream model not available');
+                }
+              } catch (error) {
+                console.error('Error checking database for stream:', error);
+              }
+            }
+            
             if (streamInfo) {
               // Send stream info to the joining user
               ws.send(JSON.stringify({
                 type: 'stream_info',
                 stream: streamInfo
               }));
+              
+              // Send any pending WebRTC offer to the new viewer
+              const pendingOffer = pendingOffers.get(message.streamId);
+              if (pendingOffer) {
+                console.log(`📡 Sending pending offer to new viewer`);
+                ws.send(JSON.stringify({
+                  type: 'stream_offer',
+                  offer: pendingOffer.offer,
+                  streamerId: pendingOffer.streamerId
+                }));
+                // Remove the pending offer since it's been sent
+                pendingOffers.delete(message.streamId);
+              }
+              
+              // Send any pending ICE candidates to the new viewer
+              const pendingCandidates = pendingIceCandidates.get(message.streamId);
+              if (pendingCandidates && pendingCandidates.length > 0) {
+                console.log(`🧊 Sending ${pendingCandidates.length} pending ICE candidates to new viewer`);
+                pendingCandidates.forEach(candidateData => {
+                  ws.send(JSON.stringify({
+                    type: 'ice_candidate',
+                    candidate: candidateData.candidate,
+                    fromUserId: candidateData.fromUserId
+                  }));
+                });
+                // Remove the pending candidates since they've been sent
+                pendingIceCandidates.delete(message.streamId);
+              }
               
               // Notify other viewers about new viewer
               broadcastToStream(message.streamId, {
@@ -182,6 +281,7 @@ wss.on('connection', (ws, req) => {
               }, ws);
             } else {
               // Stream doesn't exist
+              console.log(`Stream ${message.streamId} not found in activeStreams or database`);
               ws.send(JSON.stringify({
                 type: 'error',
                 message: 'Stream not found'
@@ -265,26 +365,41 @@ wss.on('connection', (ws, req) => {
           if (currentStreamId && message.offer) {
             console.log(`WebRTC offer received for stream ${currentStreamId}`);
             
-            // Forward offer to all viewers
-            broadcastToStream(currentStreamId, {
-              type: 'webrtc_offer',
-              offer: message.offer,
-              streamerId: currentUser.id
-            }, ws);
+            // Check if there are viewers connected
+            const connections = streamConnections.get(currentStreamId);
+            const viewerCount = connections ? connections.size - 1 : 0; // -1 to exclude streamer
+            
+            if (viewerCount > 0) {
+              console.log(`📡 Forwarding offer to ${viewerCount} viewers`);
+              // Forward offer to all viewers (excluding streamer)
+              broadcastToStream(currentStreamId, {
+                type: 'stream_offer',  // ✅ Fixed: Frontend expects 'stream_offer'
+                offer: message.offer,
+                streamerId: currentUser.id
+              }, ws);
+            } else {
+              console.log(`⚠️ No viewers connected, storing offer for later`);
+              // Store the offer for when a viewer connects
+              pendingOffers.set(currentStreamId, {
+                offer: message.offer,
+                streamerId: currentUser.id,
+                timestamp: Date.now()
+              });
+            }
           }
           break;
           
         case 'webrtc_answer':
           // WebRTC answer from viewer
-          if (currentStreamId && message.answer && message.streamerId) {
+          if (currentStreamId && message.answer) {
             console.log(`WebRTC answer received for stream ${currentStreamId} from viewer ${currentUser.id}`);
             
-            // Forward answer to the specific streamer
-            const streamConnections = streamConnections.get(currentStreamId);
-            if (streamConnections) {
-              streamConnections.forEach(connection => {
+            // Forward answer to the streamer (first connection in the stream)
+            const connections = streamConnections.get(currentStreamId);
+            if (connections) {
+              connections.forEach(connection => {
                 if (connection.readyState === WebSocket.OPEN) {
-                  // Send to streamer (assuming first connection is streamer)
+                  // Send to streamer
                   connection.send(JSON.stringify({
                     type: 'webrtc_answer',
                     answer: message.answer,
@@ -316,12 +431,30 @@ wss.on('connection', (ws, req) => {
                 });
               }
             } else {
-              // Broadcast to all connections in stream
-              broadcastToStream(currentStreamId, {
-                type: 'ice_candidate',
-                candidate: message.candidate,
-                fromUserId: currentUser.id
-              }, ws);
+              // Check if there are viewers connected
+              const connections = streamConnections.get(currentStreamId);
+              const viewerCount = connections ? connections.size - 1 : 0; // -1 to exclude streamer
+              
+              if (viewerCount > 0) {
+                console.log(`🧊 Forwarding ICE candidate to ${viewerCount} viewers`);
+                // Broadcast to all connections in stream (excluding streamer)
+                broadcastToStream(currentStreamId, {
+                  type: 'ice_candidate',
+                  candidate: message.candidate,
+                  fromUserId: currentUser.id
+                }, ws);
+              } else {
+                console.log(`⚠️ No viewers connected, storing ICE candidate for later`);
+                // Store the ICE candidate for when a viewer connects
+                if (!pendingIceCandidates.has(currentStreamId)) {
+                  pendingIceCandidates.set(currentStreamId, []);
+                }
+                pendingIceCandidates.get(currentStreamId).push({
+                  candidate: message.candidate,
+                  fromUserId: currentUser.id,
+                  timestamp: Date.now()
+                });
+              }
             }
           }
           break;

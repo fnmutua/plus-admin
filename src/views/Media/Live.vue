@@ -47,6 +47,7 @@ const updatePageSize = () => {
 };
 
 const loading = ref(false)
+const refreshing = ref(false)
 onMounted(async () => {
   window.addEventListener('resize', updatePageSize);
   updatePageSize(); // Initial check
@@ -55,11 +56,31 @@ onMounted(async () => {
   await loadActiveStreams()
   activeTab.value = 'live'
   tableDataList.value = liveStreams.value
+  
+  // Auto-refresh streams every 5 seconds
+  const refreshInterval = setInterval(async () => {
+    refreshing.value = true
+    await loadActiveStreams(true) // Skip tab update
+    if (activeTab.value === 'live') {
+      tableDataList.value = liveStreams.value
+    } else {
+      tableDataList.value = notLiveStreams.value
+    }
+    refreshing.value = false
+  }, 5000)
+  
+  // Store interval ID for cleanup
+  window.streamRefreshInterval = refreshInterval
 })
 
 // Cleanup on unmount
 onUnmounted(() => {
   window.removeEventListener('resize', updatePageSize);
+  // Clear the refresh interval
+  if (window.streamRefreshInterval) {
+    clearInterval(window.streamRefreshInterval);
+    window.streamRefreshInterval = null;
+  }
 })
 
 
@@ -426,6 +447,12 @@ const handleTabChange = async (tabName: string) => {
             </el-button>
           </el-tooltip>
           
+          <el-tooltip content="Auto-refreshing every 5 seconds" placement="top">
+            <el-button type="info" :loading="refreshing" disabled>
+              {{ refreshing ? 'Refreshing...' : 'Auto-refresh' }}
+            </el-button>
+          </el-tooltip>
+          
           <el-tooltip content="Clear" placement="top">
             <el-button @click="handleClear" type="primary" :icon="Filter" />
           </el-tooltip>
@@ -454,60 +481,43 @@ const handleTabChange = async (tabName: string) => {
                 </el-popover>
               </template>
 
-              <div class="stream-content" style="height: 100%;">
-                <!-- Stream Thumbnail -->
-                <el-image v-if="stream.thumbnailSrc" :src="stream.thumbnailSrc" fit="cover" style="width: 100%; height: 150px;">
-                  <template #placeholder>
-                    <div class="image-placeholder">Loading...</div>
-                  </template>
-                  <template #error>
-                    <div class="image-error">Failed to load</div>
-                  </template>
-                </el-image>
-
-                <el-image v-else :src="'/placeholder.jpg'" fit="cover" style="width: 100%; height: 150px;" />
-
-                <!-- Stream Description (Truncate if too long) -->
-                <p 
-                  class="stream-description"
-                  style="display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis;">
-                  {{ stream.description }}
-                </p>
+              <div class="stream-content" style="height: 100%; display: flex; flex-direction: column; justify-content: space-between;">
+                
+ 
 
                 <!-- Stream Info -->
-                <div class="stream-info" style="margin-bottom: 10px;">
-                  <p><strong>Status:</strong> 
-                    <el-tag 
-                      :type="stream.status === 'live' ? 'success' : stream.status === 'ended' ? 'info' : 'warning'">
-                      {{ stream.status || 'Unknown' }}
-                    </el-tag>
+                <div class="stream-info" style="text-align: center; margin-bottom: 20px;">
+                  <h3 style="margin: 0 0 10px 0; color: #409EFF;">{{ stream.streamer?.name || 'Unknown Streamer' }}</h3>
+                  <p style="margin: 0; color: #666; font-size: 14px;">
+                    Started: {{ new Date(stream.start_time).toLocaleString() }}
                   </p>
-                  <p v-if="stream.streamer"><strong>Streamer:</strong> {{ stream.streamer.name || 'Unknown' }}</p>
                 </div>
 
                 <!-- Actions -->
-                <div 
-                  class="stream-actions-row"
-                  style="display: flex; align-items: center; justify-content: space-between; margin-bottom:5px">
+                <div class="stream-actions-row" style="text-align: center;">
                   <el-button 
                     v-if="stream.status === 'live'" 
                     type="primary" 
-                    @click="watchStream(stream)">
-                    Watch Live
+                    size="large"
+                    @click="watchStream(stream)"
+                    style="width: 100%;">
+                    ▶️ Watch Live
                   </el-button>
                   <el-button 
                     v-else-if="stream.status === 'ended'" 
                     type="info" 
+                    size="large"
                     disabled
-                  >
-                    Stream Ended
+                    style="width: 100%;">
+                    ⏹️ Stream Ended
                   </el-button>
                   <el-button 
                     v-else 
                     type="warning" 
+                    size="large"
                     disabled
-                  >
-                    Not Available
+                    style="width: 100%;">
+                    ⚠️ Not Available
                   </el-button>
                 </div>
               </div>
@@ -532,7 +542,7 @@ const handleTabChange = async (tabName: string) => {
                 </el-popover>
               </template>
 
-              <div class="stream-content" style="height: 100%;">
+              <div class="stream-content" style="height: 100%; display: flex; flex-direction: column; justify-content: space-between;">
                 <!-- Stream Thumbnail -->
                 <el-image v-if="stream.thumbnailSrc" :src="stream.thumbnailSrc" fit="cover" style="width: 100%; height: 150px;">
                   <template #placeholder>
@@ -545,47 +555,39 @@ const handleTabChange = async (tabName: string) => {
 
                 <el-image v-else :src="'/placeholder.jpg'" fit="cover" style="width: 100%; height: 150px;" />
 
-                <!-- Stream Description (Truncate if too long) -->
-                <p 
-                  class="stream-description"
-                  style="display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis;">
-                  {{ stream.description }}
-                </p>
-
                 <!-- Stream Info -->
-                <div class="stream-info" style="margin-bottom: 10px;">
-                  <p><strong>Status:</strong> 
-                    <el-tag 
-                      :type="stream.status === 'live' ? 'success' : stream.status === 'ended' ? 'info' : 'warning'">
-                      {{ stream.status || 'Unknown' }}
-                    </el-tag>
+                <div class="stream-info" style="text-align: center; margin-bottom: 20px;">
+                  <h3 style="margin: 0 0 10px 0; color: #409EFF;">{{ stream.streamer?.name || 'Unknown Streamer' }}</h3>
+                  <p style="margin: 0; color: #666; font-size: 14px;">
+                    Started: {{ new Date(stream.start_time).toLocaleString() }}
                   </p>
-                  <p v-if="stream.streamer"><strong>Streamer:</strong> {{ stream.streamer.name || 'Unknown' }}</p>
                 </div>
 
                 <!-- Actions -->
-                <div 
-                  class="stream-actions-row"
-                  style="display: flex; align-items: center; justify-content: space-between; margin-bottom:5px">
+                <div class="stream-actions-row" style="text-align: center;">
                   <el-button 
                     v-if="stream.status === 'live'" 
                     type="primary" 
-                    @click="watchStream(stream)">
-                    Watch Live
+                    size="large"
+                    @click="watchStream(stream)"
+                    style="width: 100%;">
+                    ▶️ Watch Live
                   </el-button>
                   <el-button 
                     v-else-if="stream.status === 'ended'" 
                     type="info" 
+                    size="large"
                     disabled
-                  >
-                    Stream Ended
+                    style="width: 100%;">
+                    ⏹️ Stream Ended
                   </el-button>
                   <el-button 
                     v-else 
                     type="warning" 
+                    size="large"
                     disabled
-                  >
-                    Not Available
+                    style="width: 100%;">
+                    ⚠️ Not Available
                   </el-button>
                 </div>
               </div>

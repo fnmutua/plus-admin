@@ -20,6 +20,11 @@
       <p>No video stream available</p>
     </div>
 
+    <!-- Stream Info -->
+    <div class="stream-info" v-if="props.streamInfo?.id">
+      <span class="stream-id">ID: {{ props.streamInfo.id }}</span>
+    </div>
+
     <!-- Controls -->
     <div class="controls" v-if="hasStream">
       <el-button size="small" type="primary" @click="toggleFullscreen">
@@ -30,6 +35,16 @@
       </el-button>
       <el-button size="small" type="warning" @click="refreshStream" :loading="isRefreshing">
         Refresh
+      </el-button>
+    </div>
+    
+    <!-- Loading controls -->
+    <div class="controls" v-if="!hasStream && isLoading">
+      <el-button size="small" type="danger" @click="forceRefresh" :loading="isRefreshing">
+        Force Refresh
+      </el-button>
+      <el-button size="small" type="info" @click="refreshStream" :loading="isRefreshing">
+        Retry Connection
       </el-button>
     </div>
   </div>
@@ -90,7 +105,7 @@ const webrtcConfig: RTCConfiguration = {
 // WebSocket URL for signaling - auto-detect environment
 const isDevelopment = import.meta.env.DEV || import.meta.env.MODE === 'development'
 const signalingServerUrl = isDevelopment 
-  ? 'ws://localhost:3002/video-stream'
+  ? 'ws://192.168.100.235:3002/video-stream'
   : 'wss://kesmis.go.ke:3002/video-stream'
 
 /**
@@ -168,8 +183,15 @@ const connectToStream = async () => {
       console.log('WebRTC connection state:', peerConnection.value?.connectionState)
       
       if (peerConnection.value?.connectionState === 'failed') {
-        ElMessage.error('Connection failed. Please try again.')
+        ElMessage.error('WebRTC connection failed. Please try again.')
         isLoading.value = false
+        loadingMessage.value = 'Connection failed. Try refreshing.'
+      } else if (peerConnection.value?.connectionState === 'connected') {
+        console.log('🎉 WebRTC connection established!')
+        ElMessage.success('Video connection established!')
+      } else if (peerConnection.value?.connectionState === 'connecting') {
+        console.log('🔄 WebRTC connecting...')
+        loadingMessage.value = 'Connecting to video stream...'
       }
     }
     
@@ -206,10 +228,12 @@ const connectToSignalingServer = async (): Promise<void> => {
       
       webSocket.value.onopen = () => {
         console.log('✅ Connected to video streaming signaling server')
+        console.log('🔗 WebSocket URL:', signalingServerUrl)
+        console.log('📡 Stream ID:', props.streamInfo?.id)
         loadingMessage.value = 'Requesting stream...'
         
         // Send request to join stream
-        webSocket.value?.send(JSON.stringify({
+        const joinMessage = {
           type: 'join_stream',
           streamId: props.streamInfo?.id,
           user: {
@@ -217,14 +241,16 @@ const connectToSignalingServer = async (): Promise<void> => {
             name: 'Viewer',
             email: 'viewer@example.com'
           }
-        }))
+        }
+        console.log('📤 Sending join stream message:', joinMessage)
+        webSocket.value?.send(JSON.stringify(joinMessage))
         
         resolve()
       }
       
       webSocket.value.onmessage = async (event) => {
         const data = JSON.parse(event.data)
-        console.log('Received signaling message:', data)
+        console.log('📨 Received signaling message:', data)
         
         switch (data.type) {
           case 'stream_info':
@@ -234,22 +260,32 @@ const connectToSignalingServer = async (): Promise<void> => {
             // Check if streamer is actually streaming
             if (data.stream && data.stream.status === 'live') {
               console.log('📡 Stream is live, waiting for WebRTC connection from streamer...')
+              console.log('🔍 Stream details:', {
+                id: data.stream.id,
+                title: data.stream.title,
+                status: data.stream.status,
+                startTime: data.stream.startTime
+              })
+              
               // Set a timeout to show a message if no video comes
               connectionTimeout.value = setTimeout(() => {
                 if (isLoading.value && !hasStream.value) {
+                  console.log('⏰ 5 seconds passed, no video received yet')
                   loadingMessage.value = 'Waiting for streamer to start video...'
                   ElMessage.info('Stream is live but no video yet. Waiting for streamer to start video.')
                   
                   // Set another timeout to give up
                   setTimeout(() => {
                     if (isLoading.value && !hasStream.value) {
+                      console.log('⏰ 15 seconds passed, still no video')
                       ElMessage.warning('No video received. The streamer may not be actively streaming video.')
-                      loadingMessage.value = 'No video available'
+                      loadingMessage.value = 'No video available - Try refreshing or check if streamer is connected'
                     }
                   }, 10000)
                 }
               }, 5000)
             } else {
+              console.log('❌ Stream is not live:', data.stream?.status)
               ElMessage.warning('Stream is not currently live')
               isLoading.value = false
             }
@@ -258,15 +294,30 @@ const connectToSignalingServer = async (): Promise<void> => {
           case 'stream_offer':
             console.log('📝 Received WebRTC offer')
             if (peerConnection.value) {
-              await peerConnection.value.setRemoteDescription(new RTCSessionDescription(data.offer))
-              const answer = await peerConnection.value.createAnswer()
-              await peerConnection.value.setLocalDescription(answer)
-              
-              webSocket.value?.send(JSON.stringify({
-                type: 'webrtc_answer',
-                answer: answer,
-                streamId: props.streamInfo?.id
-              }))
+              try {
+                console.log('🔧 Setting remote description...')
+                await peerConnection.value.setRemoteDescription(new RTCSessionDescription(data.offer))
+                console.log('✅ Remote description set successfully')
+                
+                console.log('🔧 Creating answer...')
+                const answer = await peerConnection.value.createAnswer()
+                console.log('✅ Answer created successfully')
+                
+                console.log('🔧 Setting local description...')
+                await peerConnection.value.setLocalDescription(answer)
+                console.log('✅ Local description set successfully')
+                
+                console.log('📤 Sending answer to streamer...')
+                webSocket.value?.send(JSON.stringify({
+                  type: 'webrtc_answer',
+                  answer: answer,
+                  streamId: props.streamInfo?.id
+                }))
+                console.log('✅ Answer sent successfully')
+              } catch (error) {
+                console.error('❌ Error in WebRTC offer handling:', error)
+                ElMessage.error('WebRTC connection failed: ' + error.message)
+              }
             }
             break
             
@@ -341,6 +392,32 @@ const refreshStream = async () => {
   } catch (error) {
     console.error('Error refreshing stream:', error)
     ElMessage.error('Failed to refresh stream')
+  } finally {
+    isRefreshing.value = false
+  }
+}
+
+/**
+ * Force refresh - completely restart the connection
+ */
+const forceRefresh = async () => {
+  isRefreshing.value = true
+  try {
+    console.log('🔄 Force refreshing stream connection...')
+    
+    // Clean up everything
+    cleanup()
+    
+    // Wait a bit
+    await new Promise(resolve => setTimeout(resolve, 2000))
+    
+    // Restart connection
+    await connectToStream()
+    
+    ElMessage.info('Force refresh completed')
+  } catch (error) {
+    console.error('Error in force refresh:', error)
+    ElMessage.error('Force refresh failed: ' + error.message)
   } finally {
     isRefreshing.value = false
   }
@@ -490,6 +567,24 @@ document.addEventListener('fullscreenchange', () => {
 .controls .el-button:hover {
   background: rgba(255, 255, 255, 0.3);
   border-color: rgba(255, 255, 255, 0.5);
+}
+
+.stream-info {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: monospace;
+  z-index: 5;
+}
+
+.stream-id {
+  color: #00ff00;
+  font-weight: bold;
 }
 
 /* Responsive design */
