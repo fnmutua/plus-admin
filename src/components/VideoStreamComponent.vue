@@ -118,7 +118,9 @@ import {
 const props = defineProps({
   streamUrl: {
     type: String,
-    default: 'ws://localhost:3002/video-stream'
+    default: 'ws://localhost
+    
+    /video-stream'
   },
   autoStart: {
     type: Boolean,
