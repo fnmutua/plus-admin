@@ -103,7 +103,7 @@ const webrtcConfig: RTCConfiguration = {
 }
 
 // WebSocket URL for signaling - auto-detect environment
-const isDevelopment = true
+const isDevelopment = false
 const signalingServerUrl = isDevelopment 
   ? 'ws://localhost:3002/video-stream'
   : 'wss://kesmis.go.ke:3002/video-stream'
