@@ -66,11 +66,13 @@ import { ElButton, ElMessage } from 'element-plus'
 interface Props {
   streamInfo?: any
   streamUrl?: string
+  persistConnection?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   streamInfo: null,
-  streamUrl: ''
+  streamUrl: '',
+  persistConnection: true
 })
 
 /**
@@ -81,6 +83,7 @@ const emit = defineEmits<{
   (e: 'stream-ended'): void
   (e: 'stream-error', error: Error): void
   (e: 'fullscreen-changed', isFullscreen: boolean): void
+  (e: 'redirect-stream', streamId: string): void
 }>()
 
 /**
@@ -103,6 +106,8 @@ const reconnectAttempts = ref(0)
 const maxReconnectAttempts = 3
 const reconnecting = ref(false)
 const keepAlive = ref(false)
+const wsReconnectAttempts = ref(0)
+const maxWsReconnectAttempts = 5
 
 // WebRTC Configuration (supports optional env TURN/STUN)
 const envIce: RTCIceServer[] = []
@@ -143,8 +148,7 @@ const signalingServerUrl = envUrl && typeof envUrl === 'string' && envUrl.length
  * Mount lifecycle
  */
 onMounted(() => {
-
-  console.log ('signalingServerUrl ---> ',signalingServerUrl)
+  console.log('signalingServerUrl --->', signalingServerUrl)
   if (props.streamInfo?.status === 'live') {
     connectToStream()
   }
@@ -241,7 +245,7 @@ const connectToStream = async () => {
       console.log('WebRTC connection state:', peerConnection.value?.connectionState)
       
       if (peerConnection.value?.connectionState === 'failed') {
-        tryReconnect('failed')
+        if (props.persistConnection) tryReconnect('failed')
       } else if (peerConnection.value?.connectionState === 'connected') {
         console.log('🎉 WebRTC connection established!')
         ElMessage.success('Video connection established!')
@@ -251,7 +255,7 @@ const connectToStream = async () => {
         console.log('🔄 WebRTC connecting...')
         loadingMessage.value = 'Connecting to video stream...'
       } else if (peerConnection.value?.connectionState === 'disconnected') {
-        tryReconnect('disconnected')
+        if (props.persistConnection) tryReconnect('disconnected')
       }
     }
 
@@ -259,7 +263,7 @@ const connectToStream = async () => {
     peerConnection.value.oniceconnectionstatechange = () => {
       const s = peerConnection.value?.iceConnectionState
       console.log('ICE state:', s)
-      if (s === 'failed' || s === 'disconnected') {
+      if ((s === 'failed' || s === 'disconnected') && props.persistConnection) {
         tryReconnect(`ice-${s}`)
       }
     }
@@ -322,6 +326,15 @@ const connectToSignalingServer = async (): Promise<void> => {
         console.log('📨 Received signaling message:', data)
         
         switch (data.type) {
+          case 'redirect_stream':
+            // Server suggests redirecting to a different live stream id
+            if (data.streamId && typeof data.streamId === 'string') {
+              console.log('🔁 Redirect instruction received for stream:', data.streamId)
+              // Fully cleanup before emitting redirect
+              cleanup(true)
+              emit('redirect-stream', data.streamId)
+            }
+            break
           case 'stream_info':
             console.log('📺 Received stream info:', data.stream)
             loadingMessage.value = 'Stream found, waiting for video...'
@@ -417,7 +430,10 @@ const connectToSignalingServer = async (): Promise<void> => {
       
       webSocket.value.onclose = (event) => {
         console.log('❌ Video streaming signaling server disconnected:', event.code, event.reason)
-        if (!reconnecting.value && isLoading.value) {
+        // Attempt to reconnect signaling if we are keeping the stream alive
+        if (props.persistConnection || keepAlive.value) {
+          attemptWsReconnect()
+        } else if (!reconnecting.value && isLoading.value) {
           reject(new Error(`WebSocket connection closed: ${event.code} - ${event.reason}`))
         }
       }
@@ -425,13 +441,42 @@ const connectToSignalingServer = async (): Promise<void> => {
       webSocket.value.onerror = (error) => {
         console.error('❌ Video streaming signaling server error:', error)
         console.error('WebSocket URL:', signalingServerUrl)
-        reject(new Error(`WebSocket connection failed: ${error}`))
+        if (props.persistConnection || keepAlive.value) {
+          attemptWsReconnect()
+        } else {
+          reject(new Error(`WebSocket connection failed: ${error}`))
+        }
       }
       
     } catch (error) {
       reject(error)
     }
   })
+}
+
+/**
+ * Attempt to reconnect only the signaling channel.
+ * Keeps existing PeerConnection/media if possible and re-joins the stream.
+ */
+const attemptWsReconnect = () => {
+  if (!(props.streamInfo?.id)) return
+  if (wsReconnectAttempts.value >= maxWsReconnectAttempts) {
+    console.warn('Max WebSocket reconnect attempts reached')
+    return
+  }
+  wsReconnectAttempts.value += 1
+  const delay = Math.min(5000, 500 * Math.pow(2, wsReconnectAttempts.value))
+  console.log(`🔁 Reconnecting signaling in ${delay}ms (attempt ${wsReconnectAttempts.value}/${maxWsReconnectAttempts})`)
+  setTimeout(async () => {
+    try {
+      await connectToSignalingServer()
+      // Once connected, we will send join_stream again in onopen, which prompts streamer to send a fresh offer
+      wsReconnectAttempts.value = 0
+    } catch (e) {
+      console.error('Signaling reconnect failed:', e)
+      attemptWsReconnect()
+    }
+  }, delay)
 }
 
 /**
@@ -456,8 +501,9 @@ const stopStream = () => {
 const refreshStream = async () => {
   isRefreshing.value = true
   try {
-    stopStream()
-    await new Promise(resolve => setTimeout(resolve, 1000)) // Wait 1 second
+    // Fully cleanup previous PC/WS to avoid stale state when refreshing
+    cleanup(true)
+    await new Promise(resolve => setTimeout(resolve, 500))
     await connectToStream()
   } catch (error) {
     console.error('Error refreshing stream:', error)

@@ -384,16 +384,29 @@ const handleFullscreenChanged = (isFullscreen: boolean) => {
   console.log('Fullscreen changed:', isFullscreen);
 };
 
-const refreshStream = () => {
-  if (selectedStream.value) {
-    // Force refresh by closing and reopening the stream
-    const streamId = selectedStream.value.id;
-    selectedStream.value = null;
-    setTimeout(() => {
-      selectedStream.value = tableDataList.value.find(s => s.id === streamId);
-    }, 100);
+// Handle server-initiated redirect to another stream id
+const handleRedirectStream = async (newStreamId: string) => {
+  try {
+    // Find the stream from current lists; fallback to refetch
+    let target = liveStreams.value.find((s: any) => s.id === newStreamId)
+    if (!target) {
+      // Refresh lists and try again
+      await loadActiveStreams(true)
+      target = liveStreams.value.find((s: any) => s.id === newStreamId)
+    }
+    if (target) {
+      selectedStream.value = target
+      ElMessage.info('Redirected to latest live stream')
+    } else {
+      ElMessage.warning('Redirect target stream not found')
+    }
+  } catch (e) {
+    console.error('Redirect failed:', e)
+    ElMessage.error('Failed to redirect to live stream')
   }
-};
+}
+
+// Stream refresh functionality removed
 
 // Handle tab change
 const handleTabChange = async (tabName: string) => {
@@ -690,6 +703,7 @@ const handleTabChange = async (tabName: string) => {
         @stream-ended="handleStreamEnded"
         @stream-error="handleStreamError"
         @fullscreen-changed="handleFullscreenChanged"
+        @redirect-stream="handleRedirectStream"
       />
     </div>
     <div v-else style="text-align: center; padding: 50px; color: #999;">
