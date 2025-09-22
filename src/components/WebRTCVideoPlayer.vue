@@ -102,13 +102,18 @@ const webrtcConfig: RTCConfiguration = {
   ]
 }
 
-// WebSocket URL for signaling - auto-detect environment
-const isDevelopment = false
-const signalingServerUrl = isDevelopment 
-  ? 'ws://localhost:3002/video-stream'
-  : 'wss://kesmis.go.ke:3002/video-stream'
-
- // const xsignalingServerUrl = 'wss://kesmis.go.ke/video-stream'
+// WebSocket URL for signaling - auto-detect environment and host
+const protocolIsSecure = typeof window !== 'undefined' && window.location.protocol === 'https:'
+const hostName = typeof window !== 'undefined' ? window.location.hostname : 'localhost'
+const envUrl = (import.meta as any)?.env?.VITE_VIDEO_STREAM_WS_URL
+// If env var provided, use it. Otherwise:
+// - In production behind reverse-proxy, assume same-origin path `/video-stream`
+// - In local dev, use ws://localhost:3002/video-stream
+const signalingServerUrl = envUrl && typeof envUrl === 'string' && envUrl.length > 0
+  ? envUrl
+  : (typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+      ? `${protocolIsSecure ? 'wss' : 'ws'}://${hostName}/video-stream`
+      : `ws://localhost:3002/video-stream`)
 
 /**
  * Mount lifecycle
@@ -320,7 +325,8 @@ const connectToSignalingServer = async (): Promise<void> => {
                 console.log('✅ Answer sent successfully')
               } catch (error) {
                 console.error('❌ Error in WebRTC offer handling:', error)
-                ElMessage.error('WebRTC connection failed: ' + error.message)
+                const errMsg = error instanceof Error ? error.message : String(error)
+                ElMessage.error('WebRTC connection failed: ' + errMsg)
               }
             }
             break
@@ -421,7 +427,8 @@ const forceRefresh = async () => {
     ElMessage.info('Force refresh completed')
   } catch (error) {
     console.error('Error in force refresh:', error)
-    ElMessage.error('Force refresh failed: ' + error.message)
+    const errMsg = error instanceof Error ? error.message : String(error)
+    ElMessage.error('Force refresh failed: ' + errMsg)
   } finally {
     isRefreshing.value = false
   }
