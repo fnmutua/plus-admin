@@ -16,10 +16,8 @@ import WebRTCVideoPlayer from '@/components/WebRTCVideoPlayer.vue';
 
 import {
   searchStreams,
-  getVideoStreams,
-  getActiveStreams
+  getVideoStreams
 } from '@/api/streams'
-import type { IResponse } from '@/api/ai/types'
  
 
 const model = 'VideoStream'
@@ -47,7 +45,6 @@ const updatePageSize = () => {
 };
 
 const loading = ref(false)
-const refreshing = ref(false)
 onMounted(async () => {
   window.addEventListener('resize', updatePageSize);
   updatePageSize(); // Initial check
@@ -57,30 +54,13 @@ onMounted(async () => {
   activeTab.value = 'live'
   tableDataList.value = liveStreams.value
   
-  // Auto-refresh streams every 5 seconds
-  const refreshInterval = setInterval(async () => {
-    refreshing.value = true
-    await loadActiveStreams(true) // Skip tab update
-    if (activeTab.value === 'live') {
-      tableDataList.value = liveStreams.value
-    } else {
-      tableDataList.value = notLiveStreams.value
-    }
-    refreshing.value = false
-  }, 5000)
-  
-  // Store interval ID for cleanup
-  window.streamRefreshInterval = refreshInterval
+  // Auto-refresh disabled by request
 })
 
 // Cleanup on unmount
 onUnmounted(() => {
   window.removeEventListener('resize', updatePageSize);
-  // Clear the refresh interval
-  if (window.streamRefreshInterval) {
-    clearInterval(window.streamRefreshInterval);
-    window.streamRefreshInterval = null;
-  }
+  // No interval to clear (auto-refresh disabled)
 })
 
 
@@ -298,20 +278,37 @@ const notLiveStreams = ref<any[]>([])
 
 
 // Initial data load is now handled in onMounted
+// Ensure we open the most up-to-date stream object from server
+const refreshSingleStream = async (streamId) => {
+  try {
+    const res = await getVideoStreams({ limit: 100 }) as any
+    if (res?.data?.success && Array.isArray(res.data.data)) {
+      const latest = res.data.data.find((s: any) => s.id === streamId)
+      return latest || null
+    }
+  } catch (e) {
+    console.error('Failed to refresh single stream:', e)
+  }
+  return null
+}
+
 const watchStream = async (stream) => {
-  console.log('Watching stream:', stream);
+  console.log('Watching stream:', stream)
   
-  // Check if stream is live
-  if (stream.status !== 'live') {
-    ElMessage.warning('This stream is not currently live');
-    return;
+  // fetch freshest info for this stream before opening
+  const latest = await refreshSingleStream(stream.id)
+  if (!latest) {
+    ElMessage.error('Video cannot be found. It may have ended.')
+    return
+  }
+  if (latest.status !== 'live') {
+    ElMessage.warning('This stream is not currently live')
+    return
   }
   
-  // Set the selected stream and show the dialog
-  selectedStream.value = stream;
-  showStreamDialog.value = true;
-  
-  ElMessage.info(`Opening stream: ${stream.title}`)
+  selectedStream.value = latest
+  showStreamDialog.value = true
+  ElMessage.info(`Opening stream: ${latest.title}`)
 }
 
 
@@ -357,9 +354,15 @@ async function getStreamThumbnail(stream) {
 
 
 // Stream dialog handlers
+const videoPlayerRef = ref<any>(null)
+
 const handleStreamDialogClose = () => {
+  // Set keepAlive to prevent stream cleanup when dialog closes
+  if (videoPlayerRef.value) {
+    videoPlayerRef.value.keepAlive = true
+  }
   showStreamDialog.value = false;
-  selectedStream.value = null;
+  // Don't clear selectedStream to keep it alive
 };
 
 const handleStreamStarted = (stream: MediaStream) => {
@@ -442,16 +445,12 @@ const handleTabChange = async (tabName: string) => {
       <el-col :xs="24" :sm="24" :md="12" :lg="4">
         <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px;">
           <el-tooltip content="Load Active Streams" placement="top">
-            <el-button @click="loadActiveStreams" type="success" :loading="loading">
+            <el-button @click="() => loadActiveStreams()" type="success" :loading="loading">
               Live Streams
             </el-button>
           </el-tooltip>
           
-          <el-tooltip content="Auto-refreshing every 5 seconds" placement="top">
-            <el-button type="info" :loading="refreshing" disabled>
-              {{ refreshing ? 'Refreshing...' : 'Auto-refresh' }}
-            </el-button>
-          </el-tooltip>
+          <!-- Auto-refresh control removed -->
           
           <el-tooltip content="Clear" placement="top">
             <el-button @click="handleClear" type="primary" :icon="Filter" />
@@ -681,10 +680,11 @@ const handleTabChange = async (tabName: string) => {
     :title="selectedStream?.title || 'Live Stream'"
     width="80%"
     :before-close="handleStreamDialogClose"
-    destroy-on-close
+    :destroy-on-close="false"
   >
     <div v-if="selectedStream && selectedStream.status === 'live'" style="height: 60vh;">
       <WebRTCVideoPlayer
+        ref="videoPlayerRef"
         :stream-info="selectedStream"
         @stream-started="handleStreamStarted"
         @stream-ended="handleStreamEnded"
@@ -697,18 +697,7 @@ const handleTabChange = async (tabName: string) => {
       <p>Stream is not available or not live</p>
     </div>
     
-    <template #footer>
-      <div class="dialog-footer">
-        <el-button @click="showStreamDialog = false">Close</el-button>
-        <el-button 
-          v-if="selectedStream?.status === 'live'" 
-          type="primary" 
-          @click="refreshStream"
-        >
-          Refresh Stream
-        </el-button>
-      </div>
-    </template>
+    
   </el-dialog>
 
 </template>

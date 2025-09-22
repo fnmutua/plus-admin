@@ -20,6 +20,12 @@
       <p>No video stream available</p>
     </div>
 
+    <!-- Reconnecting banner -->
+    <div v-if="reconnecting" class="reconnecting-banner">
+      <div class="reconnecting-spinner"></div>
+      <span>Reconnecting... ({{ reconnectAttempts }}/{{ maxReconnectAttempts }})</span>
+    </div>
+
     <!-- Stream Info -->
     <div class="stream-info" v-if="props.streamInfo?.id">
       <span class="stream-id">ID: {{ props.streamInfo.id }}</span>
@@ -93,13 +99,31 @@ let currentStream: MediaStream | null = null
 const peerConnection = ref<RTCPeerConnection | null>(null)
 const webSocket = ref<WebSocket | null>(null)
 const connectionTimeout = ref<NodeJS.Timeout | null>(null)
+const reconnectAttempts = ref(0)
+const maxReconnectAttempts = 3
+const reconnecting = ref(false)
+const keepAlive = ref(false)
 
-// WebRTC Configuration
+// WebRTC Configuration (supports optional env TURN/STUN)
+const envIce: RTCIceServer[] = []
+const envStun = (import.meta as any)?.env?.VITE_STUN_URLS as string | undefined
+if (envStun) {
+  const stunUrls = envStun.split(',').map((u: string) => u.trim()).filter(Boolean)
+  if (stunUrls.length) envIce.push({ urls: stunUrls })
+}
+const turnUrl = (import.meta as any)?.env?.VITE_TURN_URL as string | undefined
+const turnUser = (import.meta as any)?.env?.VITE_TURN_USERNAME as string | undefined
+const turnCred = (import.meta as any)?.env?.VITE_TURN_CREDENTIAL as string | undefined
+if (turnUrl && turnUser && turnCred) {
+  const turnUrls = turnUrl.split(',').map((u: string) => u.trim()).filter(Boolean)
+  if (turnUrls.length) envIce.push({ urls: turnUrls, username: turnUser, credential: turnCred })
+}
+const defaultIce: RTCIceServer[] = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' }
+]
 const webrtcConfig: RTCConfiguration = {
-  iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' }
-  ]
+  iceServers: envIce.length > 0 ? envIce : defaultIce
 }
 
 // WebSocket URL for signaling - auto-detect environment and host
@@ -161,18 +185,43 @@ const connectToStream = async () => {
     // Create WebRTC peer connection
     peerConnection.value = new RTCPeerConnection(webrtcConfig)
     
-    // Handle incoming stream
+    // Handle incoming stream (guard against duplicate ontrack and autoplay AbortError)
     peerConnection.value.ontrack = (event) => {
-      console.log('🎥 Remote stream received:', event.streams[0])
       const stream = event.streams[0]
+      console.log('🎥 Remote stream received:', stream)
+
+      // If we already set the same stream, ignore duplicate ontrack
+      if (hasStream.value && videoRef.value && videoRef.value.srcObject === stream) {
+        console.log('🔁 Duplicate ontrack ignored')
+        return
+      }
+
       currentStream = stream
       
       if (videoRef.value) {
-        videoRef.value.srcObject = stream
-        videoRef.value.play().catch(err => {
-          console.error('play() failed:', err)
-          emit('stream-error', err)
-        })
+        if (videoRef.value.srcObject !== stream) {
+          videoRef.value.srcObject = stream
+        }
+        // Ensure muted for autoplay policies
+        if (videoRef.value.muted !== true) {
+          videoRef.value.muted = true
+        }
+        const playPromise = videoRef.value.play()
+        if (playPromise && typeof playPromise.catch === 'function') {
+          playPromise.catch(err => {
+            if (err && (err.name === 'AbortError' || err.code === 20)) {
+              console.log('🔄 play() aborted by a new load; retrying shortly')
+              setTimeout(() => {
+                if (videoRef.value) {
+                  videoRef.value.play().catch(() => {})
+                }
+              }, 150)
+            } else {
+              console.error('play() failed:', err)
+              emit('stream-error', err as Error)
+            }
+          })
+        }
       }
       
       hasStream.value = true
@@ -192,15 +241,26 @@ const connectToStream = async () => {
       console.log('WebRTC connection state:', peerConnection.value?.connectionState)
       
       if (peerConnection.value?.connectionState === 'failed') {
-        ElMessage.error('WebRTC connection failed. Please try again.')
-        isLoading.value = false
-        loadingMessage.value = 'Connection failed. Try refreshing.'
+        tryReconnect('failed')
       } else if (peerConnection.value?.connectionState === 'connected') {
         console.log('🎉 WebRTC connection established!')
         ElMessage.success('Video connection established!')
+        reconnectAttempts.value = 0
+        reconnecting.value = false
       } else if (peerConnection.value?.connectionState === 'connecting') {
         console.log('🔄 WebRTC connecting...')
         loadingMessage.value = 'Connecting to video stream...'
+      } else if (peerConnection.value?.connectionState === 'disconnected') {
+        tryReconnect('disconnected')
+      }
+    }
+
+    // ICE layer transitions can also indicate transient drops
+    peerConnection.value.oniceconnectionstatechange = () => {
+      const s = peerConnection.value?.iceConnectionState
+      console.log('ICE state:', s)
+      if (s === 'failed' || s === 'disconnected') {
+        tryReconnect(`ice-${s}`)
       }
     }
     
@@ -357,7 +417,7 @@ const connectToSignalingServer = async (): Promise<void> => {
       
       webSocket.value.onclose = (event) => {
         console.log('❌ Video streaming signaling server disconnected:', event.code, event.reason)
-        if (isLoading.value) {
+        if (!reconnecting.value && isLoading.value) {
           reject(new Error(`WebSocket connection closed: ${event.code} - ${event.reason}`))
         }
       }
@@ -406,6 +466,30 @@ const refreshStream = async () => {
     isRefreshing.value = false
   }
 }
+
+// Attempt reconnection with simple exponential backoff
+const tryReconnect = (reason: string) => {
+  console.warn('Attempting reconnect due to:', reason)
+  if (reconnectAttempts.value >= maxReconnectAttempts) {
+    ElMessage.error('Connection failed. Try refreshing.')
+    isLoading.value = false
+    reconnecting.value = false
+    return
+  }
+  reconnecting.value = true
+  reconnectAttempts.value += 1
+  const backoffMs = Math.min(5000, 500 * Math.pow(2, reconnectAttempts.value))
+  setTimeout(async () => {
+    try {
+      await refreshStream()
+    } catch (e) {
+      console.error('Reconnect attempt failed:', e)
+    }
+  }, backoffMs)
+}
+
+// Expose keepAlive for parent to control
+defineExpose({ keepAlive })
 
 /**
  * Force refresh - completely restart the connection
@@ -467,7 +551,11 @@ const toggleFullscreen = async () => {
 /**
  * Cleanup resources
  */
-const cleanup = () => {
+const cleanup = (force = false) => {
+  if (keepAlive.value && !force) {
+    console.log('Skipping cleanup to keep stream alive')
+    return
+  }
   if (videoRef.value) {
     videoRef.value.srcObject = null
   }
@@ -491,6 +579,7 @@ const cleanup = () => {
     webSocket.value.close()
     webSocket.value = null
   }
+  keepAlive.value = false
 }
 
 // Listen for fullscreen changes
@@ -596,6 +685,30 @@ document.addEventListener('fullscreenchange', () => {
 .stream-id {
   color: #00ff00;
   font-weight: bold;
+}
+
+.reconnecting-banner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 16px 24px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 15;
+}
+
+.reconnecting-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #333;
+  border-top: 2px solid #409EFF;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
 }
 
 /* Responsive design */

@@ -83,9 +83,15 @@ const wss = new WebSocket.Server({
 const activeStreams = new Map(); // streamId -> stream info
 const streamConnections = new Map(); // streamId -> Set of WebSocket connections
 const userStreams = new Map(); // userId -> Set of streamIds
+// Track the primary streamer connection per stream
+const streamerConnections = new Map(); // streamId -> WebSocket
 
 // Queue for pending WebRTC offers and ICE candidates when no viewers are connected
-const pendingOffers = new Map(); // streamId -> offer
+const pendingOffers = new Map(); // streamId -> offer (when there were no viewers at the time)
+// Cache the latest offer so late-joining viewers can receive it without requiring the streamer to resend
+const latestOffers = new Map(); // streamId -> { offer, streamerId, timestamp }
+// Brief cache of recent ICE candidates from the streamer to assist late joiners
+const latestIceByStream = new Map(); // streamId -> Array<{ candidate, fromUserId, timestamp }>
 const pendingIceCandidates = new Map(); // streamId -> array of ICE candidates
 
 // Create streams directory if it doesn't exist
@@ -248,7 +254,7 @@ wss.on('connection', (ws, req) => {
               // Send any pending WebRTC offer to the new viewer
               const pendingOffer = pendingOffers.get(message.streamId);
               if (pendingOffer) {
-                console.log(`📡 Sending pending offer to new viewer`);
+                console.log(`📡 Sending pending offer to new viewer (from pendingOffers)`);
                 ws.send(JSON.stringify({
                   type: 'stream_offer',
                   offer: pendingOffer.offer,
@@ -256,12 +262,25 @@ wss.on('connection', (ws, req) => {
                 }));
                 // Remove the pending offer since it's been sent
                 pendingOffers.delete(message.streamId);
+              } else {
+                // If no pending offer, try the latest cached offer
+                const cachedOffer = latestOffers.get(message.streamId);
+                if (cachedOffer) {
+                  console.log(`📡 Sending cached latest offer to new viewer`);
+                  ws.send(JSON.stringify({
+                    type: 'stream_offer',
+                    offer: cachedOffer.offer,
+                    streamerId: cachedOffer.streamerId
+                  }));
+                } else {
+                  console.log(`⚠️ No offer available yet for stream ${message.streamId}`);
+                }
               }
               
               // Send any pending ICE candidates to the new viewer
               const pendingCandidates = pendingIceCandidates.get(message.streamId);
               if (pendingCandidates && pendingCandidates.length > 0) {
-                console.log(`🧊 Sending ${pendingCandidates.length} pending ICE candidates to new viewer`);
+                console.log(`🧊 Sending ${pendingCandidates.length} pending ICE candidates to new viewer (pending queue)`);
                 pendingCandidates.forEach(candidateData => {
                   ws.send(JSON.stringify({
                     type: 'ice_candidate',
@@ -271,6 +290,19 @@ wss.on('connection', (ws, req) => {
                 });
                 // Remove the pending candidates since they've been sent
                 pendingIceCandidates.delete(message.streamId);
+              } else {
+                // Also try the recent ICE cache from streamer
+                const cachedIce = latestIceByStream.get(message.streamId);
+                if (cachedIce && cachedIce.length > 0) {
+                  console.log(`🧊 Sending ${cachedIce.length} cached ICE candidates to new viewer`);
+                  cachedIce.forEach(candidateData => {
+                    ws.send(JSON.stringify({
+                      type: 'ice_candidate',
+                      candidate: candidateData.candidate,
+                      fromUserId: candidateData.fromUserId
+                    }));
+                  });
+                }
               }
               
               // Notify other viewers about new viewer
@@ -279,6 +311,20 @@ wss.on('connection', (ws, req) => {
                 user: currentUser,
                 viewerCount: streamConnections.get(message.streamId).size
               }, ws);
+
+              // Prompt streamer to send a fresh offer for this viewer (helps after refresh)
+              const streamerSocket = streamerConnections.get(message.streamId);
+              if (streamerSocket && streamerSocket.readyState === WebSocket.OPEN) {
+                try {
+                  streamerSocket.send(JSON.stringify({
+                    type: 'request_offer',
+                    streamId: message.streamId,
+                    targetViewerId: currentUser.id
+                  }));
+                } catch (e) {
+                  console.log('⚠️ Failed to send request_offer to streamer:', e?.message);
+                }
+              }
             } else {
               // Stream doesn't exist
               console.log(`Stream ${message.streamId} not found in activeStreams or database`);
@@ -329,6 +375,8 @@ wss.on('connection', (ws, req) => {
               streamConnections.set(streamId, new Set());
             }
             streamConnections.get(streamId).add(ws);
+            // Remember the streamer socket for targeted signaling
+            streamerConnections.set(streamId, ws);
             
             // Add stream to user's streams
             if (!userStreams.has(currentUser.id)) {
@@ -369,6 +417,13 @@ wss.on('connection', (ws, req) => {
             const connections = streamConnections.get(currentStreamId);
             const viewerCount = connections ? connections.size - 1 : 0; // -1 to exclude streamer
             
+            // Always cache the latest offer for late-joining viewers
+            latestOffers.set(currentStreamId, {
+              offer: message.offer,
+              streamerId: currentUser.id,
+              timestamp: Date.now()
+            });
+
             if (viewerCount > 0) {
               console.log(`📡 Forwarding offer to ${viewerCount} viewers`);
               // Forward offer to all viewers (excluding streamer)
@@ -394,19 +449,16 @@ wss.on('connection', (ws, req) => {
           if (currentStreamId && message.answer) {
             console.log(`WebRTC answer received for stream ${currentStreamId} from viewer ${currentUser.id}`);
             
-            // Forward answer to the streamer (first connection in the stream)
-            const connections = streamConnections.get(currentStreamId);
-            if (connections) {
-              connections.forEach(connection => {
-                if (connection.readyState === WebSocket.OPEN) {
-                  // Send to streamer
-                  connection.send(JSON.stringify({
-                    type: 'webrtc_answer',
-                    answer: message.answer,
-                    viewerId: currentUser.id
-                  }));
-                }
-              });
+            // Forward answer to the streamer only
+            const streamerSocket = streamerConnections.get(currentStreamId);
+            if (streamerSocket && streamerSocket.readyState === WebSocket.OPEN) {
+              streamerSocket.send(JSON.stringify({
+                type: 'webrtc_answer',
+                answer: message.answer,
+                viewerId: currentUser.id
+              }));
+            } else {
+              console.log('⚠️ Streamer socket not available/open for stream', currentStreamId);
             }
           }
           break;
@@ -435,6 +487,15 @@ wss.on('connection', (ws, req) => {
               const connections = streamConnections.get(currentStreamId);
               const viewerCount = connections ? connections.size - 1 : 0; // -1 to exclude streamer
               
+              // Cache streamer ICE candidates for late joiners (best-effort, short list)
+              if (currentUser && currentUser.id === (activeStreams.get(currentStreamId)?.userId)) {
+                if (!latestIceByStream.has(currentStreamId)) latestIceByStream.set(currentStreamId, []);
+                const list = latestIceByStream.get(currentStreamId);
+                list.push({ candidate: message.candidate, fromUserId: currentUser.id, timestamp: Date.now() });
+                // Keep only recent 50
+                if (list.length > 50) list.shift();
+              }
+
               if (viewerCount > 0) {
                 console.log(`🧊 Forwarding ICE candidate to ${viewerCount} viewers`);
                 // Broadcast to all connections in stream (excluding streamer)
@@ -505,6 +566,7 @@ wss.on('connection', (ws, req) => {
             // Clean up
             activeStreams.delete(currentStreamId);
             streamConnections.delete(currentStreamId);
+            streamerConnections.delete(currentStreamId);
             
             if (currentUser) {
               const userStreamSet = userStreams.get(currentUser.id);
