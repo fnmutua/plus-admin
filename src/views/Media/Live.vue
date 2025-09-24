@@ -16,8 +16,8 @@ const isConnected = ref(false);
 async function loadStreams() {
   loading.value = true;
   try {
-    // Get streams from signaling server
-    const signalingServerUrl = 'http://kesmis.go.ke:3000';
+    // Get streams from signaling server via nginx proxy
+    const signalingServerUrl = 'https://kesmis.go.ke/stream';
     const response = await fetch(`${signalingServerUrl}/streams`);
     
     if (response.ok) {
@@ -64,7 +64,7 @@ async function connectToServer() {
   
   try {
     console.log("📡 Calling webrtcService.connectToSignalingServer()...");
-    const connected = await webrtcService.connectToSignalingServer();
+    const connected = await webrtcService.connectToSignalingServer('https://kesmis.go.ke');
     console.log("📊 Connection result:", connected);
     
     if (connected) {

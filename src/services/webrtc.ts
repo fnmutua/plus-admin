@@ -35,8 +35,10 @@ export class WebRTCService {
     const configuration = {
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
-      ]
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun.cloudflare.com:3478' }
+      ],
+      iceCandidatePoolSize: 10
     };
 
     this.peerConnection = new RTCPeerConnection(configuration);
@@ -147,27 +149,35 @@ export class WebRTCService {
     console.log('✅ Peer connection setup completed');
   }
 
-  async connectToSignalingServer(serverUrl = 'http://kesmis.go.ke:3000'): Promise<boolean> {
+  async connectToSignalingServer(serverUrl = 'https://kesmis.go.ke'): Promise<boolean> {
     try {
       this.socket = io(serverUrl, {
+        path: '/stream/socket.io/',
         transports: ['websocket', 'polling'],
-        timeout: 10000,
-        forceNew: true
+        timeout: 15000,
+        forceNew: true,
+        upgrade: true,
+        rememberUpgrade: false,
+        secure: true,
+        rejectUnauthorized: false
       });
 
       return new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
-          reject(new Error('Connection timeout'));
-        }, 10000);
+          reject(new Error('Connection timeout - check nginx proxy and server'));
+        }, 15000);
 
         this.socket!.on('connect', () => {
-          console.log('🔌 Connected to signaling server:', this.socket!.id);
+          console.log('🔌 Connected to signaling server via HTTPS/WSS:', this.socket!.id);
+          console.log('✅ WebSocket connection established through nginx proxy');
           clearTimeout(timeout);
           resolve(true);
         });
 
         this.socket!.on('connect_error', (error) => {
           console.error('❌ Connection error:', error);
+          console.error('❌ Error details:', error.message);
+          console.error('❌ Check nginx proxy configuration for /stream path');
           clearTimeout(timeout);
           reject(error);
         });
@@ -316,10 +326,15 @@ export class WebRTCService {
   async leaveStream(): Promise<void> {
     console.log('🚪 Leaving stream...');
     
+    if (this.currentStreamId && this.socket) {
+      console.log('📡 Emitting leave-stream event...');
+      this.socket.emit('leave-stream', { streamId: this.currentStreamId });
+    }
+    
     if (this.peerConnection) {
       console.log('🔌 Closing existing peer connection...');
       this.peerConnection.close();
-      this.peerConnection = null;
+      this.setupPeerConnection(); // Recreate for next stream
     }
 
     if (this.videoElement) {
@@ -327,15 +342,10 @@ export class WebRTCService {
       // Stop the video and clear the stream
       this.videoElement.pause();
       this.videoElement.srcObject = null;
-      
-      // Remove all event listeners to prevent memory leaks
-      this.videoElement.removeEventListener('play', () => {});
-      this.videoElement.removeEventListener('pause', () => {});
-      this.videoElement.removeEventListener('ended', () => {});
+      this.videoElement = null;
     }
 
     this.currentStreamId = null;
-    this.isConnected = false;
     
     console.log('✅ Stream left successfully');
   }

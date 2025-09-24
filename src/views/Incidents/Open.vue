@@ -1002,12 +1002,6 @@ const generatePDF = async (incidentData: any) => {
     addLine(15, yPos + 2, 195, yPos + 2, primaryColor, 1)
     yPos += 10
 
-    // Helper function to obscure phone number
-    const obscurePhone = (phone: string | null) => {
-      if (!phone) return 'N/A'
-      return phone.substring(0, 3) + '*****' + phone.substring(phone.length - 2)
-    }
-
     const basicInfo = [
       ['Occurred Date:', formatDate(incident.occurred_date)],
       ['Occurred Time:', formatTime(incident.occurred_time)],
@@ -1015,7 +1009,7 @@ const generatePDF = async (incidentData: any) => {
       ['Location:', incident.location_text || 'N/A'],
       ['Severity:', incident.severity || 'N/A'],
       ['Reported By:', incident.reported_by || 'N/A'],
-      ['Reporter Phone:', obscurePhone(incident.reporter_phone)]
+      ['Reporter Phone:', incident.reporter_phone || 'N/A']
     ]
 
     basicInfo.forEach(([label, value]) => {
