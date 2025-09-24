@@ -23,7 +23,10 @@ export class WebRTCService {
   private videoElement: HTMLVideoElement | null = null;
   private isConnected = false;
   private currentStreamId: string | null = null;
+  private broadcasterSocketId: string | null = null;
   private events: WebRTCEvents | null = null;
+  private networkType: 'same' | 'cross' | 'unknown' = 'unknown';
+  private turnServerStatus: 'working' | 'failed' | 'untested' = 'untested';
 
   constructor() {
     this.setupPeerConnection();
@@ -34,24 +37,57 @@ export class WebRTCService {
     
     const configuration = {
       iceServers: [
+        // STUN servers for discovering public IP
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun.cloudflare.com:3478' }
+        { urls: 'stun:stun.cloudflare.com:3478' },
+        
+        // Your TURN server - primary configuration
+        {
+          urls: [
+            "turn:kesmis.go.ke:3478", 
+            "turn:kesmis.go.ke:3478?transport=udp",
+            "turn:kesmis.go.ke:3478?transport=tcp"
+          ],
+          username: "admin",
+          credential: "admin"
+        }
       ],
-      iceCandidatePoolSize: 10
+      iceCandidatePoolSize: 10,
+      iceTransportPolicy: 'all',
+      bundlePolicy: 'max-bundle',
+      rtcpMuxPolicy: 'require'
     };
+    
 
     this.peerConnection = new RTCPeerConnection(configuration);
     console.log('✅ Peer connection created:', this.peerConnection);
 
     // Handle ICE candidates
     this.peerConnection.onicecandidate = (event) => {
-      if (event.candidate && this.socket) {
-        console.log('🧊 Sending ICE candidate');
+      console.log('🧊 Sending ICE candidate:', event.candidate?.type, event.candidate?.protocol);
+      console.log('🌐 Candidate address:', event.candidate?.address || 'unknown');
+      console.log('🔍 Debug state:', {
+        hasCandidate: !!event.candidate,
+        hasSocket: !!this.socket,
+        broadcasterSocketId: this.broadcasterSocketId,
+        currentStreamId: this.currentStreamId
+      });
+      
+      if (event.candidate && this.socket && this.broadcasterSocketId) {
+        console.log('📤 Sending to broadcaster:', this.broadcasterSocketId);
         this.socket.emit('ice-candidate', {
-          to: this.currentStreamId,
+          to: this.broadcasterSocketId,
           candidate: event.candidate
         });
+        console.log('✅ ICE candidate sent successfully');
+      } else if (!event.candidate) {
+        console.log('✅ ICE gathering completed');
+      } else if (!this.broadcasterSocketId) {
+        console.warn('⚠️ Cannot send ICE candidate - no broadcaster socket ID stored!');
+        console.warn('💡 This means the offer handler did not store the broadcaster ID');
+      } else if (!this.socket) {
+        console.warn('⚠️ Cannot send ICE candidate - no socket connection');
       }
     };
 
@@ -69,20 +105,34 @@ export class WebRTCService {
         
         // Ensure proper settings for autoplay
         v.muted = true;
+        v.autoplay = true;
         v.setAttribute('playsinline', '');
+        v.setAttribute('webkit-playsinline', '');
         
         // Set the live stream
         v.srcObject = stream as any;
         console.log('✅ Live stream attached to video element');
         
+        // Force immediate play attempt
+        v.play().catch(err => {
+          console.log('🎮 Initial autoplay blocked:', err.name);
+          console.log('💡 User gesture required - video will play when user clicks');
+        });
+        
         const tryPlay = () => {
+          console.log('🎮 Attempting to play video - readyState:', v.readyState);
+          console.log('🎮 Video properties - paused:', v.paused, 'muted:', v.muted, 'src:', !!v.srcObject);
+          
           const p = v.play();
           if (p && typeof (p as any).catch === 'function') {
-            p.catch((err: any) => {
+            p.then(() => {
+              console.log('✅ Video playing successfully');
+            }).catch((err: any) => {
               if (err && (err.name === 'AbortError' || err.code === 20)) {
                 console.log('🔄 Live stream play() aborted; will retry on canplay');
               } else {
                 console.error('❌ Live stream play() failed:', err);
+                console.error('💡 Try clicking on the video to manually start playback');
               }
             });
           }
@@ -99,6 +149,8 @@ export class WebRTCService {
           console.log('🎬 Live stream metadata loaded');
           console.log('📊 Video dimensions:', v.videoWidth, 'x', v.videoHeight);
           console.log('📊 Video duration:', v.duration);
+          console.log('📊 Video readyState:', v.readyState);
+          console.log('📊 Video networkState:', v.networkState);
           
           // Check if video tracks are muted
           const videoTracks = stream.getVideoTracks();
@@ -116,33 +168,136 @@ export class WebRTCService {
           if (v.videoWidth === 0 || v.videoHeight === 0) {
             console.warn('⚠️ Video dimensions are 0x0 - no video content detected');
           }
+          
+          // Force play after metadata loads
+          console.log('🎮 Forcing play after metadata loaded...');
+          tryPlay();
         };
         
         v.addEventListener('canplay', onCanPlay as any, { once: true } as any);
         v.addEventListener('loadedmetadata', onLoadedMetadata as any, { once: true } as any);
         
+        // Wait for tracks to be ready
+        const checkTracks = () => {
+          const videoTracks = stream.getVideoTracks();
+          const audioTracks = stream.getAudioTracks();
+          
+          console.log('🎵 Audio tracks:', audioTracks.length, audioTracks.map(t => t.readyState));
+          console.log('📹 Video tracks:', videoTracks.length, videoTracks.map(t => t.readyState));
+          
+          if (videoTracks.length > 0) {
+            const videoTrack = videoTracks[0];
+            console.log('📹 Video track state:', videoTrack.readyState, 'enabled:', videoTrack.enabled);
+            
+            if (videoTrack.readyState === 'live') {
+              console.log('✅ Video track is live - attempting play');
+              console.log('🔍 Track details:', {
+                id: videoTrack.id,
+                kind: videoTrack.kind,
+                label: videoTrack.label,
+                enabled: videoTrack.enabled,
+                muted: videoTrack.muted,
+                readyState: videoTrack.readyState
+              });
+              
+              // Multiple aggressive play attempts
+              tryPlay();
+              setTimeout(() => {
+                console.log('🔄 Retry play after track ready...');
+                tryPlay();
+              }, 100);
+              setTimeout(() => {
+                console.log('🔄 Final retry play after track ready...');
+                tryPlay();
+              }, 500);
+            } else {
+              console.log('⏳ Video track not ready yet, waiting...');
+              setTimeout(checkTracks, 500);
+            }
+          } else {
+            console.log('❌ No video tracks found');
+          }
+        };
+        
         // Try immediate play
         console.log('🎮 Attempting immediate play of live stream');
         tryPlay();
         
-        // Fallback: try again after a short delay
+        // Check track states
+        setTimeout(checkTracks, 100);
+        
+        // Fallback: try again after delays
         setTimeout(() => {
           console.log('🎮 Fallback play attempt after 1 second');
           tryPlay();
         }, 1000);
+        
+        setTimeout(() => {
+          console.log('🎮 Final fallback play attempt after 3 seconds');
+          tryPlay();
+        }, 3000);
       }
     };
 
     // Handle connection state changes
     this.peerConnection.onconnectionstatechange = () => {
       const state = this.peerConnection?.connectionState;
-      console.log('🔗 Connection state:', state);
+      console.log('🔗 WebRTC Connection state:', state);
       this.events?.onConnectionStateChange(state || 'unknown');
       
       if (state === 'connected') {
         this.isConnected = true;
-      } else if (state === 'disconnected' || state === 'failed') {
+        console.log('✅ WebRTC peer connection established successfully!');
+      } else if (state === 'disconnected') {
         this.isConnected = false;
+        console.warn('⚠️ WebRTC connection disconnected - may reconnect automatically');
+      } else if (state === 'failed') {
+        this.isConnected = false;
+        console.error('❌ WebRTC connection failed - likely NAT/firewall issue');
+        console.error('💡 Suggestion: Check TURN server configuration or network settings');
+      } else if (state === 'connecting') {
+        console.log('🔄 WebRTC connection in progress...');
+      }
+    };
+
+    // Handle ICE connection state changes (more detailed)
+    this.peerConnection.oniceconnectionstatechange = () => {
+      const iceState = this.peerConnection?.iceConnectionState;
+      console.log('🧊 ICE connection state:', iceState);
+      
+      if (iceState === 'checking') {
+        console.log('🔍 ICE checking - trying different connection paths...');
+      } else if (iceState === 'connected') {
+        console.log('✅ ICE connected - media should start flowing now');
+        this.logConnectionPath();
+        this.checkMediaFlow();
+      } else if (iceState === 'completed') {
+        console.log('✅ ICE completed - optimal connection path established');
+        this.logConnectionPath();
+        this.checkMediaFlow();
+      } else if (iceState === 'failed') {
+        console.error('❌ ICE connection failed - trying TURN server fallback');
+        console.error('💡 This usually means both users are behind symmetric NAT');
+        console.log('🔄 Setting up TURN-only restart in 1 second...');
+        // Try to restart ICE with TURN-only
+        setTimeout(() => {
+          console.log('⏰ TURN-only restart timeout triggered');
+          this.restartIceWithTurnOnly();
+        }, 1000);
+      } else if (iceState === 'disconnected') {
+        console.warn('⚠️ ICE connection lost - will attempt automatic recovery');
+        console.log('⏰ Setting up 3-second recovery timer...');
+        // Give it some time to reconnect before taking action
+        setTimeout(() => {
+          const currentState = this.peerConnection?.iceConnectionState;
+          console.log(`🔍 Checking ICE state after 3s: ${currentState}`);
+          if (currentState === 'disconnected' || currentState === 'failed') {
+            console.log('🔄 ICE still disconnected/failed after 3s, attempting restart...');
+            this.restartIceWithTurnOnly();
+          } else {
+            console.log('✅ ICE recovered naturally, no restart needed');
+          }
+        }, 3000);
       }
     };
     
@@ -152,7 +307,7 @@ export class WebRTCService {
   async connectToSignalingServer(serverUrl = 'https://kesmis.go.ke'): Promise<boolean> {
     try {
       this.socket = io(serverUrl, {
-        path: '/stream/socket.io/',
+        path: '/stream/socket.io',
         transports: ['websocket', 'polling'],
         timeout: 15000,
         forceNew: true,
@@ -190,7 +345,12 @@ export class WebRTCService {
         // Handle WebRTC signaling events
         this.socket!.on('offer', async ({ from, offer }) => {
           console.log('📤 Received offer from:', from);
+          console.log('💾 Storing broadcaster socket ID...');
+          this.broadcasterSocketId = from; // Store broadcaster socket ID
+          console.log('✅ Broadcaster socket ID stored:', this.broadcasterSocketId);
+          
           if (this.peerConnection) {
+            console.log('🔧 Processing offer and creating answer...');
             await this.peerConnection.setRemoteDescription(offer);
             const answer = await this.peerConnection.createAnswer();
             await this.peerConnection.setLocalDescription(answer);
@@ -199,6 +359,10 @@ export class WebRTCService {
               to: from,
               answer: answer
             });
+            console.log('📤 Sent answer back to broadcaster:', from);
+            console.log('🎯 Ready to send ICE candidates to:', this.broadcasterSocketId);
+          } else {
+            console.error('❌ No peer connection available for offer processing');
           }
         });
 
@@ -210,9 +374,15 @@ export class WebRTCService {
         });
 
         this.socket!.on('ice-candidate', async ({ from, candidate }) => {
-          console.log('🧊 Received ICE candidate from:', from);
+          console.log('🧊 Received ICE candidate from:', from, 'type:', candidate?.type);
           if (this.peerConnection && candidate) {
-            await this.peerConnection.addIceCandidate(candidate);
+            try {
+              await this.peerConnection.addIceCandidate(candidate);
+              console.log('✅ ICE candidate added successfully');
+            } catch (error) {
+              console.error('❌ Failed to add ICE candidate:', error);
+              // Continue anyway - some candidates may fail but others might work
+            }
           }
         });
 
@@ -346,6 +516,7 @@ export class WebRTCService {
     }
 
     this.currentStreamId = null;
+    this.broadcasterSocketId = null;
     
     console.log('✅ Stream left successfully');
   }
@@ -399,6 +570,315 @@ export class WebRTCService {
       return this.peerConnection !== null;
     }
     return true;
+  }
+
+  // Log the connection path being used
+  private logConnectionPath(): void {
+    if (!this.peerConnection) return;
+    
+    this.peerConnection.getStats().then(stats => {
+      stats.forEach(report => {
+        if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+          console.log('🌐 Active connection path:', report);
+          console.log('🔗 Local candidate:', report.localCandidateId);
+          console.log('🔗 Remote candidate:', report.remoteCandidateId);
+        }
+        if (report.type === 'local-candidate' && report.candidateType) {
+          console.log('📍 Local candidate type:', report.candidateType, report.ip || 'unknown');
+        }
+        if (report.type === 'remote-candidate' && report.candidateType) {
+          console.log('📍 Remote candidate type:', report.candidateType, report.ip || 'unknown');
+        }
+      });
+    }).catch(err => {
+      console.log('📊 Could not get connection stats:', err);
+    });
+  }
+
+  // Check if media is flowing through the connection
+  private checkMediaFlow(): void {
+    if (!this.peerConnection || !this.videoElement) return;
+    
+    console.log('🔍 Checking media flow...');
+    
+    // Check video element state
+    const v = this.videoElement;
+    console.log('📺 Video element - readyState:', v.readyState, 'networkState:', v.networkState);
+    console.log('📺 Video element styles:', {
+      display: getComputedStyle(v).display,
+      visibility: getComputedStyle(v).visibility,
+      opacity: getComputedStyle(v).opacity,
+      width: getComputedStyle(v).width,
+      height: getComputedStyle(v).height,
+      position: getComputedStyle(v).position
+    });
+    console.log('📺 Video element bounds:', v.getBoundingClientRect());
+    
+    // Force video to play when connection is established
+    if (v.readyState === 0 && v.srcObject) {
+      console.log('🎮 Forcing video play after ICE connection...');
+      v.load(); // Reload the video element
+      setTimeout(() => {
+        v.play().catch(err => {
+          console.log('🎮 Auto-play blocked, user interaction required');
+        });
+      }, 200);
+    }
+    
+    // Check if we're getting media data
+    setTimeout(() => {
+      if (v.readyState > 0) {
+        console.log('✅ Media data is flowing - video should be visible');
+        console.log('🎯 Final video check:', {
+          currentTime: v.currentTime,
+          videoWidth: v.videoWidth,
+          videoHeight: v.videoHeight,
+          paused: v.paused,
+          ended: v.ended,
+          buffered: v.buffered.length > 0 ? `${v.buffered.start(0)}-${v.buffered.end(0)}` : 'empty'
+        });
+        
+        // Force refresh of video display
+        v.style.display = 'none';
+        v.offsetHeight; // Force reflow
+        v.style.display = 'block';
+      } else {
+        console.warn('⚠️ No media data after 2 seconds - possible codec or bandwidth issue');
+        console.warn('💡 The broadcaster may have video disabled or poor connection');
+      }
+    }, 2000);
+  }
+
+  // Test TURN server connectivity
+  private async testTurnServer(): Promise<boolean> {
+    console.log('🔍 Testing TURN server connectivity...');
+    
+    return new Promise((resolve) => {
+      const testConfig = {
+        iceServers: [
+          {
+            urls: ["turn:kesmis.go.ke:3478"],
+            username: "admin",
+            credential: "admin"
+          }
+        ]
+      };
+      
+      const testPC = new RTCPeerConnection(testConfig);
+      let hasRelayCandidate = false;
+      
+      const cleanup = () => {
+        if (timeout) clearTimeout(timeout);
+        testPC.close();
+      };
+      
+      const timeout = setTimeout(() => {
+        cleanup();
+        console.log('⏱️ TURN test timeout');
+        this.turnServerStatus = 'failed';
+        resolve(false);
+      }, 10000);
+      
+      testPC.onicecandidate = (event) => {
+        if (event.candidate) {
+          const candidate = event.candidate.candidate;
+          console.log('🧊 Test candidate:', candidate);
+          
+          if (candidate.includes('relay')) {
+            hasRelayCandidate = true;
+            console.log('✅ TURN server working - relay candidate found');
+            this.turnServerStatus = 'working';
+            cleanup();
+            resolve(true);
+          }
+        } else {
+          // ICE gathering complete
+          console.log(`🏁 Test ICE gathering complete - relay found: ${hasRelayCandidate}`);
+          this.turnServerStatus = hasRelayCandidate ? 'working' : 'failed';
+          cleanup();
+          resolve(hasRelayCandidate);
+        }
+      };
+      
+      testPC.onerror = (error) => {
+        console.error('❌ TURN test error:', error);
+        this.turnServerStatus = 'failed';
+        cleanup();
+        resolve(false);
+      };
+      
+      // Create offer to start ICE gathering
+      testPC.createDataChannel('test');
+      testPC.createOffer().then(offer => {
+        return testPC.setLocalDescription(offer);
+      }).catch(error => {
+        console.error('❌ TURN test offer failed:', error);
+        this.turnServerStatus = 'failed';
+        cleanup();
+        resolve(false);
+      });
+    });
+  }
+
+  // Detect network scenario based on ICE candidates
+  private detectNetworkScenario(candidates: RTCIceCandidate[]): 'same' | 'cross' | 'unknown' {
+    const hasHost = candidates.some(c => c.candidate.includes('host'));
+    const hasSrflx = candidates.some(c => c.candidate.includes('srflx'));
+    const hasRelay = candidates.some(c => c.candidate.includes('relay'));
+    
+    console.log('🌐 Network analysis:', { hasHost, hasSrflx, hasRelay });
+    
+    if (hasHost && !hasSrflx && !hasRelay) {
+      console.log('🏠 Same network detected (host candidates only)');
+      return 'same';
+    } else if (hasSrflx || hasRelay) {
+      console.log('🌍 Cross-network detected (STUN/TURN candidates)');
+      return 'cross';
+    }
+    
+    console.log('❓ Unknown network scenario');
+    return 'unknown';
+  }
+
+  // Get adaptive WebRTC configuration based on network type and TURN status
+  private getAdaptiveConfig(): RTCConfiguration {
+    console.log(`🔧 Getting config for network: ${this.networkType}, TURN: ${this.turnServerStatus}`);
+    
+    if (this.networkType === 'cross' && this.turnServerStatus === 'working') {
+      console.log('🌍 Using cross-network optimized config with TURN');
+      return {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          {
+            urls: [
+              "turn:kesmis.go.ke:3478",
+              "turn:kesmis.go.ke:3478?transport=udp", 
+              "turn:kesmis.go.ke:3478?transport=tcp"
+            ],
+            username: "admin",
+            credential: "admin"
+          }
+        ],
+        iceCandidatePoolSize: 15,
+        iceTransportPolicy: 'all',
+        bundlePolicy: 'max-bundle',
+        rtcpMuxPolicy: 'require'
+      };
+    } else if (this.networkType === 'same') {
+      console.log('🏠 Using same-network optimized config');
+      return {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' }
+        ],
+        iceCandidatePoolSize: 5,
+        iceTransportPolicy: 'all',
+        bundlePolicy: 'max-bundle',
+        rtcpMuxPolicy: 'require'
+      };
+    } else {
+      console.log('🔧 Using default config');
+      return {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'stun:stun.cloudflare.com:3478' },
+          {
+            urls: [
+              "turn:kesmis.go.ke:3478", 
+              "turn:kesmis.go.ke:3478?transport=udp",
+              "turn:kesmis.go.ke:3478?transport=tcp"
+            ],
+            username: "admin",
+            credential: "admin"
+          }
+        ],
+        iceCandidatePoolSize: 10,
+        iceTransportPolicy: 'all',
+        bundlePolicy: 'max-bundle',
+        rtcpMuxPolicy: 'require'
+      };
+    }
+  }
+
+  // Restart ICE with TURN-only configuration for cross-network issues
+  private async restartIceWithTurnOnly(): Promise<void> {
+    console.log('🔄 Restarting ICE with TURN-only configuration...');
+    
+    if (!this.peerConnection || !this.socket || !this.currentStreamId) {
+      console.error('❌ Cannot restart ICE - missing peer connection, socket, or stream ID');
+      return;
+    }
+
+    try {
+      // First, try with TURN-only configuration
+      const turnOnlyConfig = {
+        iceServers: [
+          // Only your TURN server - force relay
+          {
+            urls: [
+              "turn:kesmis.go.ke:3478", 
+              "turn:kesmis.go.ke:3478?transport=udp",
+              "turn:kesmis.go.ke:3478?transport=tcp"
+            ],
+            username: "admin",
+            credential: "admin"
+          }
+        ],
+        iceCandidatePoolSize: 15,
+        iceTransportPolicy: 'relay', // Force TURN usage
+        bundlePolicy: 'max-bundle',
+        rtcpMuxPolicy: 'require'
+      };
+
+      // Update the configuration
+      await this.peerConnection.setConfiguration(turnOnlyConfig);
+      console.log('✅ Updated to TURN-only configuration');
+
+      // Create a fresh offer with ICE restart
+      console.log('🔄 Creating ICE restart offer...');
+      const restartOffer = await this.peerConnection.createOffer({ iceRestart: true });
+      await this.peerConnection.setLocalDescription(restartOffer);
+      
+      // Send restart offer through signaling
+      this.socket.emit('ice-restart-offer', {
+        offer: restartOffer,
+        streamId: this.currentStreamId
+      });
+      
+      console.log('📤 ICE restart offer sent to broadcaster');
+      
+    } catch (error) {
+      console.error('❌ Failed to restart ICE:', error);
+      
+      // Last resort: recreate the entire peer connection
+      console.log('🔄 Attempting full peer connection restart...');
+      try {
+        this.setupPeerConnection();
+        if (this.videoElement && this.currentStreamId) {
+          // Try to rejoin the stream
+          setTimeout(() => {
+            this.socket?.emit('rejoin-stream', { streamId: this.currentStreamId });
+          }, 500);
+        }
+      } catch (recreateError) {
+        console.error('❌ Failed to recreate peer connection:', recreateError);
+      }
+    }
+  }
+
+  // Initialize with network detection and TURN testing
+  async initialize(): Promise<void> {
+    console.log('🚀 Initializing WebRTC service with diagnostics...');
+    
+    // Test TURN server first
+    const turnWorking = await this.testTurnServer();
+    console.log(`🔄 TURN server test result: ${turnWorking ? 'working' : 'failed'}`);
+    
+    // For now, assume unknown network until we get ICE candidates
+    this.networkType = 'unknown';
+    
+    console.log('✅ WebRTC service initialized');
   }
 }
 

@@ -63,6 +63,9 @@ async function connectToServer() {
   console.log("🔄 Starting connection process...");
   
   try {
+    console.log("🚀 Initializing WebRTC service with diagnostics...");
+    await webrtcService.initialize();
+    
     console.log("📡 Calling webrtcService.connectToSignalingServer()...");
     const connected = await webrtcService.connectToSignalingServer('https://kesmis.go.ke');
     console.log("📊 Connection result:", connected);
@@ -200,6 +203,78 @@ function closePlayer() {
   webrtcService.leaveStream();
 }
 
+function handleVideoClick() {
+  console.log('🎮 Video clicked - attempting manual play');
+  if (videoRef.value) {
+    const v = videoRef.value;
+    console.log('🔍 Video state before manual play:', {
+      readyState: v.readyState,
+      networkState: v.networkState,
+      paused: v.paused,
+      ended: v.ended,
+      currentTime: v.currentTime,
+      videoWidth: v.videoWidth,
+      videoHeight: v.videoHeight,
+      srcObject: !!v.srcObject
+    });
+    
+    // Force load and play
+    v.load();
+    setTimeout(() => {
+      v.play().then(() => {
+        console.log('✅ Manual play successful after user gesture');
+        console.log('🎯 Video playing:', {
+          readyState: v.readyState,
+          currentTime: v.currentTime,
+          paused: v.paused
+        });
+      }).catch(err => {
+        console.error('❌ Manual play failed:', err);
+        console.error('🔍 Error details:', err.name, err.message);
+      });
+    }, 100);
+  }
+}
+
+function formatStartTime(startTime: string | Date | undefined): string {
+  if (!startTime) return 'Unknown';
+  
+  try {
+    const date = new Date(startTime);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    
+    // If less than 1 minute ago, show "Just now"
+    if (diffMs < 60000) {
+      return 'Just now';
+    }
+    
+    // If less than 1 hour ago, show minutes
+    if (diffMs < 3600000) {
+      const minutes = Math.floor(diffMs / 60000);
+      return `${minutes}m ago`;
+    }
+    
+    // If less than 24 hours ago, show hours and minutes
+    if (diffMs < 86400000) {
+      const hours = Math.floor(diffMs / 3600000);
+      const minutes = Math.floor((diffMs % 3600000) / 60000);
+      return `${hours}h ${minutes}m ago`;
+    }
+    
+    // If more than 24 hours ago, show the date and time
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  } catch (error) {
+    console.error('Error formatting start time:', error);
+    return 'Invalid date';
+  }
+}
+
 
 
 
@@ -272,10 +347,15 @@ onUnmounted(() => {
       style="width: 100%"
       :empty-text="isConnected ? 'No streams available' : 'Connect to server to view streams'"
     >
-      <el-table-column prop="title" label="Title" />
+      <!-- <el-table-column prop="title" label="Title" /> -->
       <el-table-column prop="streamerName" label="Streamer">
         <template #default="{ row }">
           {{ row.streamerName || 'Unknown Streamer' }}
+        </template>
+      </el-table-column>
+      <el-table-column prop="startTime" label="Start Time" width="160">
+        <template #default="{ row }">
+          {{ formatStartTime(row.startTime) }}
         </template>
       </el-table-column>
       <el-table-column prop="streamId" label="Stream ID" width="120">
@@ -343,6 +423,7 @@ onUnmounted(() => {
             playsinline
             controls
             class="stream-video"
+            @click="handleVideoClick"
           >
             Your browser does not support the video tag.
           </video>
