@@ -2,7 +2,6 @@
  sudo pm2 delete production
  sudo pm2 start production.js
  
-
 sudo pm2 stop server/websocket-chat.js
 sudo pm2 delete server/websocket-chat.js
 sudo pm2 start server/websocket-chat.js
@@ -13,4 +12,8 @@ sudo pm2 delete server/websocket-video.js
 sudo pm2 start server/websocket-video.js
 
 
+
+ sudo pm2 stop  /home/kesmis/streamer/server.js
+ sudo pm2 delete  /home/kesmis/streamer/server.js
+ sudo pm2 start  /home/kesmis/streamer/server.js
 
