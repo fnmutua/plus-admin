@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from "vue";
-import { ElTable, ElTableColumn, ElButton, ElMessage, ElDrawer, ElTag, ElIcon } from "element-plus";
+import { ElTable, ElTableColumn, ElButton, ElMessage, ElDialog, ElTag, ElIcon ,ElCard} from "element-plus";
 import { VideoPlay, Connection, Close } from "@element-plus/icons-vue";
 import { webrtcService, type StreamInfo } from "@/services/webrtc";
 
@@ -179,10 +179,6 @@ async function watchStream(stream: StreamInfo) {
   }
 }
 
-function testClick() {
-  console.log('🧪 Test button clicked!');
-  ElMessage.success('Test button works!');
-}
 
 function handleWatchClick(row: StreamInfo) {
   console.log('🎬 Watch button clicked for:', row);
@@ -228,7 +224,9 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div>
+
+  <el-card>
+    <div>
     <div class="header-section">
     <h2>📺 Live Streams</h2>
       
@@ -242,9 +240,7 @@ onUnmounted(() => {
           {{ connectionStatus.toUpperCase() }}
         </el-tag>
         
-        <span v-if="!isConnected" class="connection-hint">
-          ⚠️ Connect to server to watch streams
-        </span>
+     
         
         <el-button 
           type="primary" 
@@ -264,28 +260,17 @@ onUnmounted(() => {
         >
           🔄 Refresh Streams
         </el-button>
-        
-        <el-button 
-          type="info"
-          @click="testClick"
-        >
-          🧪 Test Click
-        </el-button>
+      
          
       </div>
     </div>
 
 
-    <div class="debug-info">
-      <p>🔍 Debug Info: {{ streams.length }} streams available</p>
-      <p>🔍 Connection Status: {{ connectionStatus }} ({{ isConnected ? 'Connected' : 'Disconnected' }})</p>
-    </div>
-
     <el-table
       v-loading="loading"
-      :data="streams"
+      :data="isConnected ? streams : []"
       style="width: 100%"
-      empty-text="No streams available"
+      :empty-text="isConnected ? 'No streams available' : 'Connect to server to view streams'"
     >
       <el-table-column prop="title" label="Title" />
       <el-table-column prop="streamerName" label="Streamer">
@@ -327,17 +312,19 @@ onUnmounted(() => {
       </el-table-column>
     </el-table>
 
-    <!-- Video Player Drawer -->
-    <el-drawer
+    <!-- Video Player Dialog -->
+    <el-dialog
       v-model="showPlayer"
-      size="50%"
-      direction="rtl"
+      draggable
+      :title="selectedStream?.title || 'Live Stream'"
+      width="50%"
       :close-on-click-modal="false"
       @close="closePlayer"
-      class="stream-drawer"
+      class="stream-dialog"
+      center
     >
       <template #header>
-        <div class="stream-header" v-if="selectedStream">
+        <div class="dialog-header" v-if="selectedStream">
           <div class="stream-title">
             <h3>{{ selectedStream.title }}</h3>
             <el-tag type="success" size="small">LIVE</el-tag>
@@ -347,7 +334,6 @@ onUnmounted(() => {
       </template>
       
       <div v-if="selectedStream" class="stream-content">
-        
         <div class="video-container">
           <video
             ref="videoRef"
@@ -361,10 +347,13 @@ onUnmounted(() => {
             Your browser does not support the video tag.
           </video>
         </div>
-        
       </div>
-    </el-drawer>
+    </el-dialog>
   </div>
+
+
+  </el-card>
+
 </template>
 
 <style scoped>
@@ -442,53 +431,51 @@ onUnmounted(() => {
 .stream-video {
   width: 100%;
   height: auto;
-  max-height: 60vh;
+  max-height: 40vh;
   display: block;
 }
 
-/* Drawer styles */
-.stream-drawer .stream-header {
+/* Dialog styles */
+.stream-dialog .dialog-header {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-.stream-drawer .stream-title {
+.stream-dialog .stream-title {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.stream-drawer .stream-title h3 {
+.stream-dialog .stream-title h3 {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
 }
 
-.stream-drawer .stream-meta {
+.stream-dialog .stream-meta {
   margin: 0;
   color: #666;
   font-size: 14px;
 }
 
-.stream-drawer .stream-content {
-  height: calc(100vh - 120px);
+.stream-dialog .stream-content {
   display: flex;
-  flex-direction: column;
-  padding-top: 8px;
+  justify-content: center;
+  align-items: center;
 }
 
-.stream-drawer .video-container {
-  flex: 1;
+.stream-dialog .video-container {
+  width: 100%;
   background: #000;
   border-radius: 8px;
   overflow: hidden;
-  margin: 0;
 }
 
-.stream-drawer .stream-video {
+.stream-dialog .stream-video {
   width: 100%;
-  height: 100%;
+  height: 50vh;
   object-fit: contain;
 }
 
