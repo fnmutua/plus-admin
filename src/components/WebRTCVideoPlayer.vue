@@ -20,6 +20,11 @@
       <p>No video stream available</p>
     </div>
 
+    <!-- User gesture required overlay -->
+    <div v-if="showPlayOverlay && hasStream" class="overlay">
+      <el-button size="small" type="primary" @click="handleUserPlay">Tap to Play</el-button>
+    </div>
+
     <!-- Reconnecting banner -->
     <div v-if="reconnecting" class="reconnecting-banner">
       <div class="reconnecting-spinner"></div>
@@ -97,6 +102,7 @@ const isLoading = ref(false)
 const isRefreshing = ref(false)
 const loadingMessage = ref('Connecting to stream...')
 let currentStream: MediaStream | null = null
+const showPlayOverlay = ref(false)
 
 // WebRTC related
 const peerConnection = ref<RTCPeerConnection | null>(null)
@@ -203,29 +209,57 @@ const connectToStream = async () => {
       currentStream = stream
       
       if (videoRef.value) {
-        if (videoRef.value.srcObject !== stream) {
-          videoRef.value.srcObject = stream
+        const v = videoRef.value
+        // Prepare element for a safe source swap
+        try { v.pause() } catch (_) {}
+        v.setAttribute('playsinline', '')
+        v.muted = true // enforce autoplay policy
+
+        if (v.srcObject !== stream) {
+          v.srcObject = stream
         }
-        // Ensure muted for autoplay policies
-        if (videoRef.value.muted !== true) {
-          videoRef.value.muted = true
-        }
-        const playPromise = videoRef.value.play()
-        if (playPromise && typeof playPromise.catch === 'function') {
-          playPromise.catch(err => {
-            if (err && (err.name === 'AbortError' || err.code === 20)) {
-              console.log('🔄 play() aborted by a new load; retrying shortly')
-              setTimeout(() => {
-                if (videoRef.value) {
-                  videoRef.value.play().catch(() => {})
+
+        const tryPlay = () => {
+          const p = v.play()
+          if (p && typeof p.catch === 'function') {
+            p.catch((err: any) => {
+              if (err && (err.name === 'AbortError' || err.code === 20)) {
+                console.log('🔄 play() aborted by a new load; retrying on canplay')
+                // Wait for readiness before retrying to avoid rapid loops
+              } else {
+                console.error('play() failed:', err)
+                // If autoplay is blocked (e.g., NotAllowedError), show a user gesture button
+                if ((err as any)?.name === 'NotAllowedError') {
+                  showPlayOverlay.value = true
                 }
-              }, 150)
-            } else {
-              console.error('play() failed:', err)
-              emit('stream-error', err as Error)
-            }
-          })
+                emit('stream-error', err as Error)
+              }
+            })
+          }
         }
+
+        // Prefer playing after metadata/canplay to avoid AbortError
+        const onLoadedMeta = () => {
+          v.removeEventListener('loadedmetadata', onLoadedMeta)
+          // Will usually be followed by canplay; try once here anyway
+          tryPlay()
+        }
+        const onCanPlay = () => {
+          v.removeEventListener('canplay', onCanPlay)
+          tryPlay()
+        }
+        v.addEventListener('loadedmetadata', onLoadedMeta, { once: true })
+        v.addEventListener('canplay', onCanPlay, { once: true })
+
+        // When playing starts, hide any play overlay
+        const onPlaying = () => {
+          showPlayOverlay.value = false
+          v.removeEventListener('playing', onPlaying)
+        }
+        v.addEventListener('playing', onPlaying)
+
+        // Fallback: attempt immediate play too
+        tryPlay()
       }
       
       hasStream.value = true
@@ -591,6 +625,20 @@ const toggleFullscreen = async () => {
     }
   } catch (err) {
     console.error('Fullscreen toggle failed', err)
+  }
+}
+
+/**
+ * User-gesture fallback to start playback
+ */
+const handleUserPlay = async () => {
+  if (!videoRef.value) return
+  try {
+    await videoRef.value.play()
+    showPlayOverlay.value = false
+  } catch (err) {
+    console.error('User play failed', err)
+    ElMessage.error('Unable to start video. Please try again.')
   }
 }
 

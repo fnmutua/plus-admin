@@ -130,6 +130,7 @@
     "sequelize-cli": "^6.6.2",
     "shapefile": "^0.6.6",
     "shortid": "^2.2.16",
+    "socket.io-client": "^4.8.1",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "tmp": "^0.2.3",

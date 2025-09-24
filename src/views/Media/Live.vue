@@ -1,881 +1,512 @@
 <script setup lang="ts">
+import { ref, onMounted, onUnmounted } from "vue";
+import { ElTable, ElTableColumn, ElButton, ElMessage, ElDrawer, ElTag, ElIcon } from "element-plus";
+import { VideoPlay, Connection, Close } from "@element-plus/icons-vue";
+import { webrtcService, type StreamInfo } from "@/services/webrtc";
 
+const streams = ref<StreamInfo[]>([]);
+const loading = ref(false);
+const connecting = ref(false);
+const showPlayer = ref(false);
+const selectedStream = ref<StreamInfo | null>(null);
+const connectionStatus = ref("disconnected");
+const videoRef = ref<HTMLVideoElement | null>(null);
+const isConnected = ref(false);
 
-import {
-  Filter
-} from '@element-plus/icons-vue'
-
-import { ref, onMounted, onUnmounted } from 'vue'
-import {
-  ElButton, ElCol, ElTooltip, ElPopover,
-  ElRow, ElCard, ElImage, ElSelect, ElMessage, ElTag,
-  ElDialog, ElTabs, ElTabPane
-} from 'element-plus'
-import DownloadCustom from '@/views/Components/DownloadCustom.vue';
-import WebRTCVideoPlayer from '@/components/WebRTCVideoPlayer.vue';
-
-import {
-  searchStreams,
-  getVideoStreams
-} from '@/api/streams'
- 
-
-const model = 'VideoStream'
-
-
-// component for docuemnts 
-const tableDataList = ref<any[]>([])
-
-const mobileBreakpoint = 768;
-const defaultPageSize = 10;
-const mobilePageSize = 5;
-const totalItems = ref(0)
-const total = ref(0)
-
-
-const pageSize = ref(defaultPageSize);
-
-// Function to update pageSize based on window width
-const updatePageSize = () => {
-  if (window.innerWidth <= mobileBreakpoint) {
-    pageSize.value = mobilePageSize;
-  } else {
-    pageSize.value = defaultPageSize;
-  }
-};
-
-const loading = ref(false)
-onMounted(async () => {
-  window.addEventListener('resize', updatePageSize);
-  updatePageSize(); // Initial check
-
-  // Load initial data - streams with live tab as default
-  await loadActiveStreams()
-  activeTab.value = 'live'
-  tableDataList.value = liveStreams.value
-  
-  // Auto-refresh disabled by request
-})
-
-// Cleanup on unmount
-onUnmounted(() => {
-  window.removeEventListener('resize', updatePageSize);
-  // No interval to clear (auto-refresh disabled)
-})
-
-
-
-
-
-
-
-
-
-
-
-
-const page = ref(1)
-
-
-
-
-
-
-
-// Computed Property for Paginated Data
-
-const search_string = ref()
-
-
-
-const filters = ref()
-const filterValues = ref() // make sure the inner array is array
-
-
-
-
-
-const handleClear = async () => {
-  console.log('cleared....')
-  search_string.value = ''
-  await getFilteredData(filters.value, filterValues.value)
-}
-
-// Load all streams (both live and non-live)
-const loadActiveStreams = async (skipTabUpdate = false) => {
-  loading.value = true
+async function loadStreams() {
+  loading.value = true;
   try {
-    // Try to get all streams, fallback to search if /all fails
-    let res
-    try {
-      res = await getVideoStreams() as any
-    } catch (error) {
-      console.warn('getVideoStreams failed, trying search endpoint:', error)
-      // Fallback to search endpoint to get all streams
-      res = await searchStreams({ limit: 100 }) as any
-    }
+    // Get streams from signaling server
+    const signalingServerUrl = 'http://kesmis.go.ke:3000';
+    const response = await fetch(`${signalingServerUrl}/streams`);
     
-    if (res.data && res.data.success && Array.isArray(res.data.data)) {
-      // Separate live and not live streams
-      liveStreams.value = res.data.data.filter(stream => stream.status === 'live')
-      notLiveStreams.value = res.data.data.filter(stream => stream.status !== 'live')
+    if (response.ok) {
+      const res = await response.json();
+      console.log("📡 Signaling Server Response:", res);
       
-      // Set the current tab data only if not called from tab change
-      if (!skipTabUpdate) {
-        if (activeTab.value === 'live') {
-          tableDataList.value = liveStreams.value
+      if (res.success && Array.isArray(res.data)) {
+        streams.value = res.data;
+        console.log("📺 Active streams:", res.data);
+        
+        if (res.data.length === 0) {
+          ElMessage.info("No active streams available");
         } else {
-          tableDataList.value = notLiveStreams.value
+          ElMessage.success(`Found ${res.data.length} active stream(s)`);
         }
+      } else {
+        console.error("❌ Invalid signaling server response:", res);
+        ElMessage.error("Invalid response from signaling server");
+        streams.value = [];
       }
-      
-      totalItems.value = res.data.data.length
-      
-      // Fetch thumbnails for each stream
-      res.data.data.forEach(async (stream) => {
-        await fetchStreamThumbnail(stream)
-      })
     } else {
-      console.error('Error fetching streams:', res)
-      ElMessage.error('Failed to fetch streams')
+      console.error("❌ Failed to fetch streams from signaling server");
+      ElMessage.error("Failed to connect to signaling server");
+      streams.value = [];
+    }
+  } catch (err) {
+    console.error("❌ Error fetching streams:", err);
+    ElMessage.error("Error fetching streams: " + (err as Error).message);
+    streams.value = [];
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function connectToServer() {
+  console.log("🔌 connectToServer called");
+  if (connecting.value) {
+    console.log("⚠️ Already connecting, skipping...");
+    return;
+  }
+  
+  connecting.value = true;
+  console.log("🔄 Starting connection process...");
+  
+  try {
+    console.log("📡 Calling webrtcService.connectToSignalingServer()...");
+    const connected = await webrtcService.connectToSignalingServer();
+    console.log("📊 Connection result:", connected);
+    
+    if (connected) {
+      console.log("✅ Connection successful, updating UI state...");
+      isConnected.value = true;
+      connectionStatus.value = "connected";
+      ElMessage.success("Connected to signaling server");
+      
+      // Set up event handlers
+      console.log("🎧 Setting up event handlers...");
+      webrtcService.setEvents({
+        onStreamEnded: () => {
+          console.log("📡 Stream ended event received");
+          ElMessage.warning("Stream ended by broadcaster");
+          showPlayer.value = false;
+          selectedStream.value = null;
+        },
+        onViewerJoined: (data) => {
+          console.log("👥 Viewer joined:", data);
+        },
+        onViewerDisconnected: (data) => {
+          console.log("👥 Viewer disconnected:", data);
+        },
+        onConnectionStateChange: (state) => {
+          console.log("🔗 Connection state changed:", state);
+          connectionStatus.value = state;
+          if (state === "connected") {
+            ElMessage.success("WebRTC connection established");
+          } else if (state === "disconnected" || state === "failed") {
+            ElMessage.error("WebRTC connection lost");
+          }
+        },
+      });
+      console.log("✅ Event handlers set up successfully");
+      
+    } else {
+      console.log("❌ Connection failed");
+      ElMessage.error("Failed to connect to signaling server");
     }
   } catch (error) {
-    console.error('Error in loadActiveStreams:', error)
-    ElMessage.error('Failed to fetch streams')
+    console.error("❌ Connection error:", error);
+    ElMessage.error("Failed to connect to signaling server");
   } finally {
-    loading.value = false
+    connecting.value = false;
+    console.log("🏁 Connection process completed");
   }
 }
 
-
-const getFilteredData = async (selFilters, selfilterValues) => {
-  loading.value = true
+async function watchStream(stream: StreamInfo) {
+  console.log("🎬 watchStream called with:", stream);
+  console.log("🔍 Current state - isConnected:", isConnected.value);
+  console.log("🔍 WebRTC socket connected:", webrtcService.isSocketConnected());
   
+  if (!isConnected.value) {
+    console.log("❌ Not connected to signaling server");
+    ElMessage.warning("Please connect to the signaling server first. Click the 'Connect to Server' button.");
+    return;
+  }
+
+  // Double-check WebRTC service connection
+  if (!webrtcService.isSocketConnected()) {
+    console.log("❌ WebRTC service not connected");
+    ElMessage.warning("WebRTC service not connected. Please reconnect to the server.");
+    return;
+  }
+
   try {
-    // Calculate offset for pagination
-    const offset = (page.value - 1) * pageSize.value
+    console.log("✅ Pre-checks passed, setting up stream...");
+    selectedStream.value = stream;
+    showPlayer.value = true;
     
-    // Prepare query parameters
-    const params: any = {
-      limit: pageSize.value,
-      offset: offset
+    console.log("⏳ Waiting for drawer to open...");
+    // Wait for the drawer to open and video element to be available
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    console.log("🔍 Checking video element availability...");
+    
+    // Retry mechanism for video element
+    let retries = 0;
+    const maxRetries = 5;
+    while (!videoRef.value && retries < maxRetries) {
+      retries++;
+      console.log(`🔄 Video element not ready, retrying... (${retries}/${maxRetries})`);
+      await new Promise(resolve => setTimeout(resolve, 200));
     }
     
-    // Add status filter if needed
-    if (selFilters && selfilterValues) {
-      // You can add more filter logic here based on your needs
-      if (selfilterValues.status) {
-        params.status = selfilterValues.status
-      }
+    if (!videoRef.value) {
+      console.log("❌ Video element not available after retries");
+      ElMessage.error("Video element not available - please try again");
+      showPlayer.value = false;
+      return;
     }
-
-    console.log('Fetching streams with params:', params)
-    const res = await getVideoStreams(params) as any
-
-    console.log('Streams collected........', res)
-
-    if (res.data && res.data.success && Array.isArray(res.data.data)) {
-      tableDataList.value = res.data.data
-      totalItems.value = res.data.data.length
-      
-      // Fetch thumbnails for each stream
-      tableDataList.value.forEach(async (stream) => {
-        await fetchStreamThumbnail(stream)
-      })
+    
+    console.log("✅ Video element found:", videoRef.value);
+    console.log("🎥 Attempting to join stream:", stream.streamId);
+    
+    const success = await webrtcService.joinStream(stream.streamId, videoRef.value);
+    console.log("📊 Stream join result:", success);
+    
+    if (success) {
+      console.log("✅ Stream joined successfully");
+      ElMessage.success(`Joining stream: ${stream.title}`);
     } else {
-      console.error('Error fetching streams:', res)
-      ElMessage.error('Failed to fetch streams')
-      tableDataList.value = []
+      console.log("❌ Failed to join stream");
+      ElMessage.error("Failed to join stream - check console for details");
+      showPlayer.value = false;
     }
   } catch (error) {
-    console.error('Error in getFilteredData:', error)
-    ElMessage.error('Failed to fetch streams')
-    tableDataList.value = []
-  } finally {
-    loading.value = false
+    console.error("❌ Error joining stream:", error);
+    ElMessage.error("Failed to join stream: " + (error as Error).message);
+    showPlayer.value = false;
   }
 }
 
+function testClick() {
+  console.log('🧪 Test button clicked!');
+  ElMessage.success('Test button works!');
+}
 
-const getFilteredBySearchData = async (searchKey) => {
-  loading.value = true
-  searchLoading.value = true
+function handleWatchClick(row: StreamInfo) {
+  console.log('🎬 Watch button clicked for:', row);
+  console.log('🔍 Button state - isConnected:', isConnected.value);
+  console.log('🔍 Button state - connecting:', connecting.value);
   
-  try {
-    console.log('search_string.value', search_string.value)
-    
-    // Calculate offset for pagination
-    const offset = (page.value - 1) * pageSize.value
-    
-    // Prepare search parameters
-    const params: any = {
-      q: searchKey,
-      limit: pageSize.value,
-      offset: offset
-    }
-    
-    // Add additional filters if needed
-    if (filters.value && filterValues.value) {
-      if (filterValues.value.county) {
-        params.county = filterValues.value.county
-      }
-      if (filterValues.value.status) {
-        params.status = filterValues.value.status
-      }
-    }
-
-    console.log('Searching streams with params:', params)
-    const res = await searchStreams(params) as any
-    
-    if (res.data && res.data.success && Array.isArray(res.data.data)) {
-      tableDataList.value = res.data.data
-      total.value = res.data.data.length
-      console.log('tableDataList.value', tableDataList.value)
-    } else {
-      console.error('Error searching streams:', res)
-      ElMessage.error('Failed to search streams')
-      tableDataList.value = []
-    }
-  } catch (error) {
-    console.error('Error in getFilteredBySearchData:', error)
-    ElMessage.error('Failed to search streams')
-    tableDataList.value = []
-  } finally {
-    searchLoading.value = false
-    loading.value = false
-  }
-}
-
-const searchByNewName = async (filterString: any) => {
-
-  getFilteredBySearchData(filterString)
-}
-
-
-
-
-
-const searchLoading = ref()
-const associated_multiple_models = []
-
-// Stream viewing variables
-const selectedStream = ref<any>(null)
-const showStreamDialog = ref(false)
-const activeTab = ref('live')
-const liveStreams = ref<any[]>([])
-const notLiveStreams = ref<any[]>([])
-
-
-
-
-
-
-
-
-
-
-
-
-
-// Initial data load is now handled in onMounted
-// Ensure we open the most up-to-date stream object from server
-const refreshSingleStream = async (streamId) => {
-  try {
-    const res = await getVideoStreams({ limit: 100 }) as any
-    if (res?.data?.success && Array.isArray(res.data.data)) {
-      const latest = res.data.data.find((s: any) => s.id === streamId)
-      return latest || null
-    }
-  } catch (e) {
-    console.error('Failed to refresh single stream:', e)
-  }
-  return null
-}
-
-const watchStream = async (stream) => {
-  console.log('Watching stream:', stream)
-  
-  // fetch freshest info for this stream before opening
-  const latest = await refreshSingleStream(stream.id)
-  if (!latest) {
-    ElMessage.error('Video cannot be found. It may have ended.')
-    return
-  }
-  if (latest.status !== 'live') {
-    ElMessage.warning('This stream is not currently live')
-    return
+  if (!isConnected.value) {
+    console.log('❌ Button disabled - not connected');
+    ElMessage.warning("Please connect to the signaling server first!");
+    return;
   }
   
-  selectedStream.value = latest
-  showStreamDialog.value = true
-  ElMessage.info(`Opening stream: ${latest.title}`)
+  watchStream(row);
+}
+
+function closePlayer() {
+  showPlayer.value = false;
+  selectedStream.value = null;
+  webrtcService.leaveStream();
 }
 
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-const fetchStreamThumbnail = async (stream) => {
-  const thumbnailSrc = await getStreamThumbnail(stream); // Assuming getStreamThumbnail returns the Base64 image
-  stream.thumbnailSrc = thumbnailSrc; // Assign the fetched stream thumbnail to the stream object
-};
-
-
-
-async function getStreamThumbnail(stream) {
-  // For streams, we might have a thumbnail URL or need to generate one
-  // This is a placeholder - adjust based on your stream data structure
-  if (stream.thumbnailUrl) {
-    return stream.thumbnailUrl;
-  }
-
-  // If no thumbnail URL, return a placeholder or generate one
-  console.log("No thumbnail found for stream:", stream.title);
-  return null;
-}
-
-
-// Stream dialog handlers
-const videoPlayerRef = ref<any>(null)
-
-const handleStreamDialogClose = () => {
-  // Set keepAlive to prevent stream cleanup when dialog closes
-  if (videoPlayerRef.value) {
-    videoPlayerRef.value.keepAlive = true
-  }
-  showStreamDialog.value = false;
-  // Don't clear selectedStream to keep it alive
-};
-
-const handleStreamStarted = (stream: MediaStream) => {
-  console.log('Stream started:', stream);
-  ElMessage.success('Stream connected successfully!');
-};
-
-const handleStreamEnded = () => {
-  console.log('Stream ended');
-  ElMessage.info('Stream ended');
-};
-
-const handleStreamError = (error: Error) => {
-  console.error('Stream error:', error);
-  ElMessage.error('Stream error: ' + error.message);
-};
-
-const handleFullscreenChanged = (isFullscreen: boolean) => {
-  console.log('Fullscreen changed:', isFullscreen);
-};
-
-// Handle server-initiated redirect to another stream id
-const handleRedirectStream = async (newStreamId: string) => {
-  try {
-    // Find the stream from current lists; fallback to refetch
-    let target = liveStreams.value.find((s: any) => s.id === newStreamId)
-    if (!target) {
-      // Refresh lists and try again
-      await loadActiveStreams(true)
-      target = liveStreams.value.find((s: any) => s.id === newStreamId)
-    }
-    if (target) {
-      selectedStream.value = target
-      ElMessage.info('Redirected to latest live stream')
-    } else {
-      ElMessage.warning('Redirect target stream not found')
-    }
-  } catch (e) {
-    console.error('Redirect failed:', e)
-    ElMessage.error('Failed to redirect to live stream')
+function getStatusColor(status: string) {
+  switch (status) {
+    case "connected": return "success";
+    case "connecting": return "warning";
+    case "disconnected": return "danger";
+    case "failed": return "danger";
+    default: return "info";
   }
 }
 
-// Stream refresh functionality removed
+onMounted(() => {
+  loadStreams();
+});
 
-// Handle tab change
-const handleTabChange = async (tabName: string) => {
-  activeTab.value = tabName;
-  
-  // Automatically load streams when tab changes
-  await loadActiveStreams(true); // Skip tab update to avoid double setting
-  
-  // Set the appropriate data for the selected tab
-  if (tabName === 'live') {
-    tableDataList.value = liveStreams.value;
-  } else {
-    tableDataList.value = notLiveStreams.value;
-  }
-};
-
-
-
-
-
-
-
-
-
-
-
+onUnmounted(() => {
+  webrtcService.disconnect();
+});
 </script>
 
 <template>
-  <el-card>
-
-    <el-row :gutter="10" style="margin-bottom:10px;">
-      <el-col :xs="24" :sm="24" :md="20" :lg="20">
-        <el-select 
-          v-model="search_string" 
-          multiple 
-          clearable 
-          filterable 
-          remote 
-          :remote-method="searchByNewName"
-          reserve-keyword 
-          no-match-text='' 
-          placeholder="Search a stream by its title or part of it ..."
-          style=" margin-right: 5px;" />
-
-
-      </el-col>
-
-      <el-col :xs="24" :sm="24" :md="12" :lg="4">
-        <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px;">
-          <el-tooltip content="Load Active Streams" placement="top">
-            <el-button @click="() => loadActiveStreams()" type="success" :loading="loading">
-              Live Streams
-            </el-button>
-          </el-tooltip>
-          
-          <!-- Auto-refresh control removed -->
-          
-          <el-tooltip content="Clear" placement="top">
-            <el-button @click="handleClear" type="primary" :icon="Filter" />
-          </el-tooltip>
-
-          <DownloadCustom :data="tableDataList" :model="model" :associated_models="associated_multiple_models" />
-        </div>
-      </el-col>
-    </el-row>
-
-
-    <!-- Stream Tabs -->
-    <el-tabs v-model="activeTab" @tab-change="handleTabChange" type="card" style="margin-bottom: 20px;">
-      <el-tab-pane label="Live Streams" name="live">
-        <div v-if="liveStreams.length === 0" style="text-align: center; padding: 40px; color: #999;">
-          <i class="el-icon-video-camera" style="font-size: 48px; margin-bottom: 16px;"></i>
-          <p>No live streams available</p>
-        </div>
-        <el-row :gutter="20" justify="start" v-else>
-          <el-col :span="8" :xs="24" :sm="12" :md="8" v-for="stream in liveStreams" :key="stream.id">
-            <el-card class="stream-card" shadow="hover" style="height: 95%;">
-              <template #header>
-                <el-popover placement="bottom" width="30%" trigger="hover" :content="stream.title">
-                  <template #reference>
-                    <h2 class="stream-title">{{ stream.title }}</h2>
-                  </template>
-                </el-popover>
-              </template>
-
-              <div class="stream-content" style="height: 100%; display: flex; flex-direction: column; justify-content: space-between;">
-                
- 
-
-                <!-- Stream Info -->
-                <div class="stream-info" style="text-align: center; margin-bottom: 20px;">
-                  <h3 style="margin: 0 0 10px 0; color: #409EFF;">{{ stream.streamer?.name || 'Unknown Streamer' }}</h3>
-                  <p style="margin: 0; color: #666; font-size: 14px;">
-                    Started: {{ new Date(stream.start_time).toLocaleString() }}
-                  </p>
-                </div>
-
-                <!-- Actions -->
-                <div class="stream-actions-row" style="text-align: center;">
-                  <el-button 
-                    v-if="stream.status === 'live'" 
-                    type="primary" 
-                    size="large"
-                    @click="watchStream(stream)"
-                    style="width: 100%;">
-                    ▶️ Watch Live
-                  </el-button>
-                  <el-button 
-                    v-else-if="stream.status === 'ended'" 
-                    type="info" 
-                    size="large"
-                    disabled
-                    style="width: 100%;">
-                    ⏹️ Stream Ended
-                  </el-button>
-                  <el-button 
-                    v-else 
-                    type="warning" 
-                    size="large"
-                    disabled
-                    style="width: 100%;">
-                    ⚠️ Not Available
-                  </el-button>
-                </div>
-              </div>
-            </el-card>
-          </el-col>
-        </el-row>
-      </el-tab-pane>
+  <div>
+    <div class="header-section">
+    <h2>📺 Live Streams</h2>
       
-      <el-tab-pane label="Not Live" name="not-live">
-        <div v-if="notLiveStreams.length === 0" style="text-align: center; padding: 40px; color: #999;">
-          <i class="el-icon-video-camera" style="font-size: 48px; margin-bottom: 16px;"></i>
-          <p>No non-live streams available</p>
-        </div>
-        <el-row :gutter="20" justify="start" v-else>
-          <el-col :span="8" :xs="24" :sm="12" :md="8" v-for="stream in notLiveStreams" :key="stream.id">
-            <el-card class="stream-card" shadow="hover" style="height: 95%;">
-              <template #header>
-                <el-popover placement="bottom" width="30%" trigger="hover" :content="stream.title">
-                  <template #reference>
-                    <h2 class="stream-title">{{ stream.title }}</h2>
-                  </template>
-                </el-popover>
-              </template>
+      <div class="connection-controls">
+        <el-tag 
+          :type="getStatusColor(connectionStatus)" 
+          size="large"
+          class="status-tag"
+        >
+          <el-icon><Connection v-if="isConnected" /><Close v-else /></el-icon>
+          {{ connectionStatus.toUpperCase() }}
+        </el-tag>
+        
+        <span v-if="!isConnected" class="connection-hint">
+          ⚠️ Connect to server to watch streams
+        </span>
+        
+        <el-button 
+          type="primary" 
+          :loading="connecting"
+          :disabled="isConnected"
+          @click="connectToServer"
+        >
+          <el-icon><Connection /></el-icon>
+          Connect to Server
+        </el-button>
+        
+        
+        <el-button 
+          type="default"
+          @click="loadStreams"
+          :loading="loading"
+        >
+          🔄 Refresh Streams
+        </el-button>
+        
+        <el-button 
+          type="info"
+          @click="testClick"
+        >
+          🧪 Test Click
+        </el-button>
+         
+      </div>
+    </div>
 
-              <div class="stream-content" style="height: 100%; display: flex; flex-direction: column; justify-content: space-between;">
-                <!-- Stream Thumbnail -->
-                <el-image v-if="stream.thumbnailSrc" :src="stream.thumbnailSrc" fit="cover" style="width: 100%; height: 150px;">
-                  <template #placeholder>
-                    <div class="image-placeholder">Loading...</div>
-                  </template>
-                  <template #error>
-                    <div class="image-error">Failed to load</div>
-                  </template>
-                </el-image>
 
-                <el-image v-else :src="'/placeholder.jpg'" fit="cover" style="width: 100%; height: 150px;" />
+    <div class="debug-info">
+      <p>🔍 Debug Info: {{ streams.length }} streams available</p>
+      <p>🔍 Connection Status: {{ connectionStatus }} ({{ isConnected ? 'Connected' : 'Disconnected' }})</p>
+    </div>
 
-                <!-- Stream Info -->
-                <div class="stream-info" style="text-align: center; margin-bottom: 20px;">
-                  <h3 style="margin: 0 0 10px 0; color: #409EFF;">{{ stream.streamer?.name || 'Unknown Streamer' }}</h3>
-                  <p style="margin: 0; color: #666; font-size: 14px;">
-                    Started: {{ new Date(stream.start_time).toLocaleString() }}
-                  </p>
-                </div>
+    <el-table
+      v-loading="loading"
+      :data="streams"
+      style="width: 100%"
+      empty-text="No streams available"
+    >
+      <el-table-column prop="title" label="Title" />
+      <el-table-column prop="streamerName" label="Streamer">
+        <template #default="{ row }">
+          {{ row.streamerName || 'Unknown Streamer' }}
+        </template>
+      </el-table-column>
+      <el-table-column prop="streamId" label="Stream ID" width="120">
+        <template #default="{ row }">
+          <code>{{ row.streamId?.substring(0, 8) }}...</code>
+        </template>
+      </el-table-column>
+      <el-table-column prop="status" label="Status" width="100">
+        <template #default="{ row }">
+          <el-tag 
+            :type="row.status === 'live' ? 'success' : 'info'" 
+            size="small"
+          >
+            {{ row.status?.toUpperCase() || 'UNKNOWN' }}
+          </el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column
+        label="Actions"
+        width="150"
+        align="center"
+      >
+        <template #default="{ row }">
+          <el-button
+            type="primary"
+            size="small"
+            :disabled="!isConnected"
+            @click="handleWatchClick(row)"
+          >
+            <el-icon><VideoPlay /></el-icon>
+            Watch
+          </el-button>
+        </template>
+      </el-table-column>
+    </el-table>
 
-                <!-- Actions -->
-                <div class="stream-actions-row" style="text-align: center;">
-                  <el-button 
-                    v-if="stream.status === 'live'" 
-                    type="primary" 
-                    size="large"
-                    @click="watchStream(stream)"
-                    style="width: 100%;">
-                    ▶️ Watch Live
-                  </el-button>
-                  <el-button 
-                    v-else-if="stream.status === 'ended'" 
-                    type="info" 
-                    size="large"
-                    disabled
-                    style="width: 100%;">
-                    ⏹️ Stream Ended
-                  </el-button>
-                  <el-button 
-                    v-else 
-                    type="warning" 
-                    size="large"
-                    disabled
-                    style="width: 100%;">
-                    ⚠️ Not Available
-                  </el-button>
-                </div>
-              </div>
-            </el-card>
-          </el-col>
-        </el-row>
-      </el-tab-pane>
-    </el-tabs>
-
-    <!-- Old stream list (hidden) -->
-    <el-row :gutter="20" justify="start" style="display: none;">
-      <el-col :span="8" :xs="24" :sm="12" :md="8" v-for="stream in tableDataList" :key="stream.id">
-        <el-card class="stream-card" shadow="hover" style="height: 95%;">
-          <template #header>
-            <el-popover placement="bottom" width="30%" trigger="hover" :content="stream.title">
-              <template #reference>
-                <h2 class="stream-title">{{ stream.title }}</h2>
-              </template>
-            </el-popover>
-          </template>
-
-          <div class="stream-content" style="height: 100%;">
-            <!-- Stream Thumbnail -->
-            <el-image v-if="stream.thumbnailSrc" :src="stream.thumbnailSrc" fit="cover" style="width: 100%; height: 150px;">
-              <template #placeholder>
-                <div class="image-placeholder">Loading...</div>
-              </template>
-              <template #error>
-                <div class="image-error">Failed to load</div>
-              </template>
-            </el-image>
-
-            <el-image v-else :src="'/placeholder.jpg'" fit="cover" style="width: 100%; height: 150px;" />
-
-            <!-- Stream Description (Truncate if too long) -->
-            <p 
-              class="stream-description"
-              style="display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis;">
-              {{ stream.description }}
-            </p>
-
-            <!-- Stream Info -->
-            <div class="stream-info" style="margin-bottom: 10px;">
-              <p><strong>Status:</strong> 
-                <el-tag 
-                  :type="stream.status === 'live' ? 'success' : stream.status === 'ended' ? 'info' : 'warning'">
-                  {{ stream.status || 'Unknown' }}
-                </el-tag>
-              </p>
-              <p v-if="stream.streamer"><strong>Streamer:</strong> {{ stream.streamer.name || 'Unknown' }}</p>
-            </div>
-
-            <!-- Actions -->
-            <div 
-              class="stream-actions-row"
-              style="display: flex; align-items: center; justify-content: space-between; margin-bottom:5px">
-              <el-button 
-                v-if="stream.status === 'live'" 
-                type="primary" 
-                @click="watchStream(stream)">
-                Watch Live
-              </el-button>
-              <el-button 
-                v-else-if="stream.status === 'ended'" 
-                type="info" 
-                disabled
-              >
-                Stream Ended
-              </el-button>
-              <el-button 
-                v-else 
-                type="warning" 
-                disabled
-              >
-                Not Available
-              </el-button>
-            </div>
-
-           
-
+    <!-- Video Player Drawer -->
+    <el-drawer
+      v-model="showPlayer"
+      size="50%"
+      direction="rtl"
+      :close-on-click-modal="false"
+      @close="closePlayer"
+      class="stream-drawer"
+    >
+      <template #header>
+        <div class="stream-header" v-if="selectedStream">
+          <div class="stream-title">
+            <h3>{{ selectedStream.title }}</h3>
+            <el-tag type="success" size="small">LIVE</el-tag>
           </div>
-        </el-card>
-      </el-col>
-    </el-row>
-
-  </el-card>
-
-  <!-- Simple Video Player Dialog -->
-  <el-dialog
-    v-model="showStreamDialog"
-    :title="selectedStream?.title || 'Live Stream'"
-    width="80%"
-    :before-close="handleStreamDialogClose"
-    :destroy-on-close="false"
-  >
-    <div v-if="selectedStream && selectedStream.status === 'live'" style="height: 60vh;">
-      <WebRTCVideoPlayer
-        ref="videoPlayerRef"
-        :stream-info="selectedStream"
-        @stream-started="handleStreamStarted"
-        @stream-ended="handleStreamEnded"
-        @stream-error="handleStreamError"
-        @fullscreen-changed="handleFullscreenChanged"
-        @redirect-stream="handleRedirectStream"
-      />
-    </div>
-    <div v-else style="text-align: center; padding: 50px; color: #999;">
-      <i class="el-icon-video-camera" style="font-size: 48px; margin-bottom: 16px;"></i>
-      <p>Stream is not available or not live</p>
-    </div>
-    
-    
-  </el-dialog>
-
+          <p class="stream-meta">Streamer: {{ selectedStream.streamerName || 'Unknown Streamer' }}</p>
+        </div>
+      </template>
+      
+      <div v-if="selectedStream" class="stream-content">
+        
+        <div class="video-container">
+          <video
+            ref="videoRef"
+            :key="selectedStream?.streamId"
+            autoplay
+            muted
+            playsinline
+            controls
+            class="stream-video"
+          >
+            Your browser does not support the video tag.
+          </video>
+        </div>
+        
+      </div>
+    </el-drawer>
+  </div>
 </template>
 
-
-
 <style scoped>
-.upload-demo {
-  width: 300px;
+.header-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 15px;
 }
 
-.template-link {
-  text-decoration: underline;
-  color: #409EFF;
-  /* Optional: change link color */
+.connection-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.status-tag {
+  font-weight: bold;
+  min-width: 120px;
+  justify-content: center;
+}
+
+.connection-hint {
+  color: #e6a23c;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.debug-info {
+  background: #f5f7fa;
+  padding: 10px;
+  border-radius: 4px;
+  margin-bottom: 15px;
+  font-size: 14px;
+}
+
+.debug-info p {
+  margin: 5px 0;
+  color: #606266;
 }
 
 
-
-
-.mt-4 {
-  margin-top: 16px;
+.stream-player {
+  max-width: 100%;
 }
+
+.stream-info {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.stream-info h3 {
+  margin: 0;
+  color: #409eff;
+}
+
+.stream-info p {
+  margin: 0;
+  color: #666;
+}
+
+.video-container {
+  width: 100%;
+  margin: 20px 0;
+  background: #000;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.stream-video {
+  width: 100%;
+  height: auto;
+  max-height: 60vh;
+  display: block;
+}
+
+/* Drawer styles */
+.stream-drawer .stream-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stream-drawer .stream-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.stream-drawer .stream-title h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.stream-drawer .stream-meta {
+  margin: 0;
+  color: #666;
+  font-size: 14px;
+}
+
+.stream-drawer .stream-content {
+  height: calc(100vh - 120px);
+  display: flex;
+  flex-direction: column;
+  padding-top: 8px;
+}
+
+.stream-drawer .video-container {
+  flex: 1;
+  background: #000;
+  border-radius: 8px;
+  overflow: hidden;
+  margin: 0;
+}
+
+.stream-drawer .stream-video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
 
 @media (max-width: 768px) {
-  .el-pagination {
-    font-size: 12px;
-    /* Adjust font size for small screens */
+  .header-section {
+    flex-direction: column;
+    align-items: flex-start;
   }
-
-  .el-pagination .el-pagination__sizes {
-    display: none;
-    /* Hide size selector on small screens */
+  
+  .connection-controls {
+    width: 100%;
+    justify-content: flex-start;
   }
-
-  .el-pagination .el-pagination__total {
-    display: none;
-    /* Hide total count on small screens */
+  
+  .stream-info {
+    flex-direction: column;
+    align-items: flex-start;
   }
-
-
-
-}
-</style>
-
-
-
-<style>
-.el-table .danger-row {
-  --el-table-tr-bg-color: var(--el-color-danger-light-9);
-  --el-table-tr-text-color: var(--el-color-danger);
-  color: var(--el-table-tr-text-color);
-}
-
-.el-table .success-row {
-  --el-table-tr-text-color: var(--el-color-success);
-  color: var(--el-table-tr-text-color);
-}
-
-.el-table .warning-row {
-  --el-table-tr-bg-color: var(--el-color-warning-light-9);
-}
-
-.el-table .rejected-row {
-  --el-table-tr-bg-color: var(--el-color-danger-light-9);
-  --el-table-tr-text-color: var(--el-color-danger);
-  color: var(--el-table-tr-text-color);
-}
-
-.el-table .referred-row {
-  --el-table-tr-bg-color: var(--el-color-warning-light-9);
-  --el-table-tr-text-color: var(--el-color-warning);
-  color: var(--el-table-tr-text-color);
-}
-
-.el-table .escalated-row {
-  --el-table-tr-bg-color: var(--el-color-secondary);
-  --el-table-tr-text-color: var(--el-color-secondary);
-  color: var(--el-table-tr-text-color);
-}
-
-.el-table .resolved-row {
-  --el-table-tr-bg-color: var(--el-color-success-light-9);
-  --el-table-tr-text-color: var(--el-color-success);
-  color: var(--el-table-tr-text-color);
-}
-
-.el-table .closed-row {
-  --el-table-tr-bg-color: var(--el-color-info-light-9);
-  --el-table-tr-text-color: var(--el-color-info);
-  color: var(--el-table-tr-text-color);
-}
-
-.item {
-  margin-top: 10px;
-  margin-right: 40px;
-}
-
-
-.basemap {
-  width: 100%;
-  height: 65vh;
-}
-</style>
-
-<style scoped>
-.stream-card {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  justify-content: space-between;
-}
-
-.stream-content {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
-.stream-title {
-  font-size: 1.5em;
-  font-weight: bold;
-  margin-bottom: 1em;
-}
-
-.stream-description {
-  margin-bottom: 1em;
-}
-
-.attachments {
-  margin-top: 1em;
-}
-
-.image-placeholder,
-.image-error {
-  text-align: center;
-  padding: 50px;
-  font-size: 1.2em;
-}
-
-.el-card {
-  height: 100%;
-}
-
-
-
-.stream-title {
-  font-size: 1em;
-  font-weight: bold;
-  margin-bottom: 1em;
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  line-clamp: 1;
-  /* Truncate after 1 line */
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-
-
-.el-popper.is-customized {
-  /* Set padding to ensure the height is 32px */
-  padding: 6px 12px;
-  background: linear-gradient(90deg, rgb(233, 12, 12), rgb(229, 174, 129));
 }
 </style>
