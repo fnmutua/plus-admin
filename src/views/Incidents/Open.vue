@@ -187,6 +187,7 @@ const severityLevels = [
 const statusOptions = [
   { label: "Open", value: "open" },
   { label: "Under Investigation", value: "under_investigation" },
+  { label: "In Court", value: "In_Court" },
   { label: "Action Required", value: "action_required" },
   { label: "In Progress", value: "in_progress" },
   { label: "Resolved", value: "resolved" },
