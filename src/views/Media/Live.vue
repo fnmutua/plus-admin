@@ -275,6 +275,18 @@ function formatStartTime(startTime: string | Date | undefined): string {
   }
 }
 
+function formatLocation(stream: StreamInfo): string {
+  if (!stream.ward || !stream.subcounty || !stream.county) {
+    return 'Location not available';
+  }
+  
+  const ward = stream.ward.name || 'Unknown Ward';
+  const subcounty = stream.subcounty.name || 'Unknown Subcounty';
+  const county = stream.county.name || 'Unknown County';
+  
+  return `${ward}, ${subcounty}, ${county}`;
+}
+
 
 
 
@@ -351,6 +363,11 @@ onUnmounted(() => {
       <el-table-column prop="streamerName" label="Streamer">
         <template #default="{ row }">
           {{ row.streamerName || 'Unknown Streamer' }}
+        </template>
+      </el-table-column>
+      <el-table-column prop="location" label="Location" width="250">
+        <template #default="{ row }">
+          {{ formatLocation(row) }}
         </template>
       </el-table-column>
       <el-table-column prop="startTime" label="Start Time" width="160">

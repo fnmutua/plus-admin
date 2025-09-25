@@ -1,5 +1,6 @@
 import { io, Socket } from 'socket.io-client';
 
+// Updated interface with location fields
 export interface StreamInfo {
   streamId: string;
   title: string;
@@ -7,6 +8,22 @@ export interface StreamInfo {
   status: string;
   startTime?: string;
   viewerCount?: number;
+  location?: {
+    latitude: number;
+    longitude: number;
+  };
+  ward?: {
+    id: number;
+    name: string;
+  };
+  subcounty?: {
+    id: number;
+    name: string;
+  };
+  county?: {
+    id: number;
+    name: string;
+  };
 }
 
 export interface WebRTCEvents {
