@@ -203,25 +203,30 @@ const geoLoaded = ref(false)
 
 const handleClear = async () => {
   console.log('cleared....')
+  loading.value = true
 
-  // clear all the filters -------
-  filterValues = []
-  filters = ['component_id']
-  value1.value = []
-  value2.value = []
-  value3.value = []
-  value4.value = []
-  value5.value = []
-  value40.value = []
+  try {
+    // clear all the filters -------
+    filterValues = []
+    filters = ['component_id']
+    value1.value = []
+    value2.value = []
+    value3.value = []
+    value4.value = []
+    value5.value = []
+    value40.value = []
 
-  pageSize.value = 5
-  currentPage.value = 1
-  tblData.value = []
+    pageSize.value = 5
+    currentPage.value = 1
+    tblData.value = []
 
-  beneficiaryTabTitle.value = 'Beneficiaries'
-  beneficiaryTabDisabled.value = true
-  //----run the get data--------
-  getAllProjects()
+    beneficiaryTabTitle.value = 'Beneficiaries'
+    beneficiaryTabDisabled.value = true
+    //----run the get data--------
+    await getAllProjects()
+  } finally {
+    loading.value = false
+  }
 }
 
 
@@ -233,31 +238,34 @@ const addMoreDocuments = ref()
 const onPageChange = async (selPage: any) => {
   console.log('on change change: selected counties ', selCounties)
   page.value = selPage
+  loading.value = true
 
-
-  if (searchString.value) {
-
-    getFilteredBySearchData(searchString.value)
-
-  } else {
-    getFilteredData(filters, filterValues)
+  try {
+    if (searchString.value) {
+      await getFilteredBySearchData(searchString.value)
+    } else {
+      await getFilteredData(filters, filterValues)
+    }
+  } finally {
+    loading.value = false
   }
-
-
 }
 
 
 
 const onPageSizeChange = async (size: any) => {
   pageSize.value = size
-  if (searchString.value) {
+  loading.value = true
 
-    getFilteredBySearchData(searchString.value)
-
-  } else {
-    getFilteredData(filters, filterValues)
+  try {
+    if (searchString.value) {
+      await getFilteredBySearchData(searchString.value)
+    } else {
+      await getFilteredData(filters, filterValues)
+    }
+  } finally {
+    loading.value = false
   }
-
 }
 
 
@@ -266,7 +274,7 @@ const onPageSizeChange = async (size: any) => {
 
 
 const getAllProjects = async () => {
-  getFilteredData(filters, filterValues)
+  await getFilteredData(filters, filterValues)
 }
 
 const destructure = (obj) => {
@@ -286,59 +294,66 @@ const destructure = (obj) => {
 }
 
 const getFilteredData = async (selFilters, selfilterValues) => {
-  const formData: any = {
-    limit: pageSize.value,
-    page: page.value,
-    curUser: 1, // Id for logged in user
-    model: model,
-    searchField: 'name',
-    searchKeyword: '',
-    assocModel: associated_Model,
-    filters: selFilters,
-    filterValues: selfilterValues,
-    associated_multiple_models: associated_multiple_models
-    // Removed nested_models completely for better performance
+  try {
+    const formData: any = {
+      limit: pageSize.value,
+      page: page.value,
+      curUser: 1, // Id for logged in user
+      model: model,
+      searchField: 'name',
+      searchKeyword: '',
+      assocModel: associated_Model,
+      filters: selFilters,
+      filterValues: selfilterValues,
+      associated_multiple_models: associated_multiple_models
+      // Removed nested_models completely for better performance
+    }
+
+    //------------------------- 
+    console.log('Fetching project data with minimal associations...')
+    const res = await getSettlementListByCounty(formData as any)
+
+    console.log('After Query - minimal associations loaded', res)
+    tableDataList.value = (res as any).data || []
+    tableDataList_orig.value = (res as any).data || [] // back for post filter
+    
+    // Debug project_locations data
+    if (tableDataList.value.length > 0) {
+      console.log('First project data:', tableDataList.value[0])
+      console.log('Project locations:', tableDataList.value[0].project_locations)
+    }
+
+    total.value = (res as any).total || 0
+
+    tblData.value = [] // reset the table data
+    console.log('TBL-b4-', tblData)
+    let filteredIds: any[] = []
+    if ((res as any).data) {
+      (res as any).data.forEach(function (arrayItem: any) {
+      filteredIds.push(arrayItem.id)
+      tblData.value.push(arrayItem)
+    })
+    }
+
+    // Skip geo loading for now to improve performance
+    // Only load geo if specifically needed
+    if (filteredIds.length > 0) {
+      console.log('Skipping geo loading for performance - can be enabled if needed')
+      // Initialize empty geo arrays
+        facilityGeoPoints.value = []
+        facilityGeoLines.value = []
+        facilityGeoPolygons.value = []
+      geoLoaded.value = true
+    }
+
+    console.log('TBL-4f', tblData)
+  } catch (error) {
+    console.error('Error fetching project data:', error)
+    tableDataList.value = []
+    tableDataList_orig.value = []
+    total.value = 0
+    tblData.value = []
   }
-
-  //------------------------- 
-  console.log('Fetching project data with minimal associations...')
-  const res = await getSettlementListByCounty(formData as any)
-
-  console.log('After Query - minimal associations loaded', res)
-  tableDataList.value = (res as any).data || []
-  tableDataList_orig.value = (res as any).data || [] // back for post filter
-  
-  // Debug project_locations data
-  if (tableDataList.value.length > 0) {
-    console.log('First project data:', tableDataList.value[0])
-    console.log('Project locations:', tableDataList.value[0].project_locations)
-  }
-
-  total.value = (res as any).total || 0
-
-  tblData.value = [] // reset the table data
-  console.log('TBL-b4-', tblData)
-  let filteredIds: any[] = []
-  if ((res as any).data) {
-    (res as any).data.forEach(function (arrayItem: any) {
-    filteredIds.push(arrayItem.id)
-    tblData.value.push(arrayItem)
-  })
-  }
-
-  // Skip geo loading for now to improve performance
-  // Only load geo if specifically needed
-  if (filteredIds.length > 0) {
-    console.log('Skipping geo loading for performance - can be enabled if needed')
-    // Initialize empty geo arrays
-      facilityGeoPoints.value = []
-      facilityGeoLines.value = []
-      facilityGeoPolygons.value = []
-    geoLoaded.value = true
-  }
-
-
-  console.log('TBL-4f', tblData)
 }
 
 
@@ -582,42 +597,51 @@ const showUploadDialog = ref(false)
 
 
 const getFilteredBySearchData = async (searchString) => {
-  const formData: any = {
-    limit: pageSize.value,
-    page: page.value,
-    curUser: 1, // Id for logged in user
-    model: model,
-    searchField: 'title',
-    searchKeyword: searchString,
-    filters: filters,
-    filterValues: filterValues,
-    associated_multiple_models: associated_multiple_models
+  try {
+    const formData: any = {
+      limit: pageSize.value,
+      page: page.value,
+      curUser: 1, // Id for logged in user
+      model: model,
+      searchField: 'title',
+      searchKeyword: searchString,
+      filters: filters,
+      filterValues: filterValues,
+      associated_multiple_models: associated_multiple_models
+    }
+
+    //-------------------------
+    console.log('Searching with minimal associations...', formData)
+    const res = await searchByKeyWord(formData as any)
+
+    console.log('After search query', res)
+    tableDataList.value = (res as any).data || []
+    tableDataList_orig.value = (res as any).data || [] // back for post filter
+
+    total.value = (res as any).total || 0
+    tblData.value = [] // reset the table data
+  } catch (error) {
+    console.error('Error searching data:', error)
+    tableDataList.value = []
+    tableDataList_orig.value = []
+    total.value = 0
+    tblData.value = []
   }
-
-  //-------------------------
-  console.log('Searching with minimal associations...', formData)
-  const res = await searchByKeyWord(formData as any)
-
-  console.log('After search query', res)
-  tableDataList.value = (res as any).data || []
-  tableDataList_orig.value = (res as any).data || [] // back for post filter
-
-  total.value = (res as any).total || 0
-  loading.value = false
-
-  tblData.value = [] // reset the table data
 }
 
 const searchByName = async (filterString: any) => {
   searchString.value = filterString
+  loading.value = true
 
-  if (searchString.value) {
-    getFilteredBySearchData(searchString.value)
-  } else {
-    getAllProjects()
-
+  try {
+    if (searchString.value) {
+      await getFilteredBySearchData(searchString.value)
+    } else {
+      await getAllProjects()
+    }
+  } finally {
+    loading.value = false
   }
-
 }
 
 
@@ -1314,25 +1338,23 @@ const value6 = ref()
 
 
 const filterByProgramme = async (prog_id: any) => {
-
   value5.value = [] // clear the subcounty 
   value6.value = []   // clear the ward sr
+  loading.value = true
 
-
-
-  if (prog_id.length > 0) {
-    filters.push('implementation_id')
-    filterValues.push(prog_id)
-
-    getFilteredData(filters, filterValues)
-  } else {
-    filters.splice(filters.indexOf('implementation_id'), 1);
-    filterValues.splice(filterValues.indexOf(prog_id), 1);
-    getFilteredData(filters, filterValues)
+  try {
+    if (prog_id.length > 0) {
+      filters.push('implementation_id')
+      filterValues.push(prog_id)
+      await getFilteredData(filters, filterValues)
+    } else {
+      filters.splice(filters.indexOf('implementation_id'), 1);
+      filterValues.splice(filterValues.indexOf(prog_id), 1);
+      await getFilteredData(filters, filterValues)
+    }
+  } finally {
+    loading.value = false
   }
-
-
-
 }
 
 

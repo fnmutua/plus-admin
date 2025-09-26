@@ -14,8 +14,15 @@ const videoRef = ref<HTMLVideoElement | null>(null);
 const isConnected = ref(false);
 const videoRotation = ref(0); // Track current rotation
 const isVideoRotated = ref(false);
+const isMobile = ref(false);
+const refreshIntervalId = ref<number | null>(null);
+
+function updateIsMobile() {
+  isMobile.value = window.innerWidth <= 768;
+}
 
 async function loadStreams() {
+  if (loading.value) return; // prevent overlapping refreshes
   loading.value = true;
   try {
     // Get streams from signaling server via nginx proxy
@@ -363,10 +370,25 @@ function getStatusColor(status: string) {
 
 onMounted(() => {
   loadStreams();
+  updateIsMobile();
+  window.addEventListener('resize', updateIsMobile);
+  // Auto-refresh streams every 30 seconds (only when not viewing a stream)
+  refreshIntervalId.value = window.setInterval(() => {
+    if (!showPlayer.value) {
+      loadStreams();
+    }
+  }, 30000);
+  // Auto-connect to server on mount
+  connectToServer();
 });
 
 onUnmounted(() => {
   webrtcService.disconnect();
+  window.removeEventListener('resize', updateIsMobile);
+  if (refreshIntervalId.value !== null) {
+    clearInterval(refreshIntervalId.value);
+    refreshIntervalId.value = null;
+  }
 });
 </script>
 
@@ -474,10 +496,12 @@ onUnmounted(() => {
       v-model="showPlayer"
       draggable
       :title="selectedStream?.title || 'Live Stream'"
-      width="50%"
+      :width="isMobile ? '100%' : '50%'"
+      :fullscreen="isMobile"
+      :destroy-on-close="true"
       :close-on-click-modal="false"
       @close="closePlayer"
-      class="stream-dialog"
+      :class="['stream-dialog', { mobile: isMobile }]"
       center
     >
       <template #header>
@@ -670,6 +694,12 @@ onUnmounted(() => {
 
 
 @media (max-width: 768px) {
+  .stream-dialog.mobile :deep(.el-dialog) {
+    margin: 0 !important;
+  }
+  .stream-dialog.mobile :deep(.el-dialog__body) {
+    padding: 0 0 8px 0;
+  }
   .header-section {
     flex-direction: column;
     align-items: flex-start;
@@ -683,6 +713,21 @@ onUnmounted(() => {
   .stream-info {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .stream-dialog.mobile .stream-title h3 {
+    font-size: 16px;
+  }
+
+  .stream-dialog.mobile .video-container {
+    border-radius: 0;
+    min-height: 50vh;
+  }
+
+  .stream-dialog.mobile .stream-video {
+    width: 100vw;
+    height: calc(100vh - 140px);
+    max-height: unset;
   }
 }
 </style>
