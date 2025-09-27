@@ -33,7 +33,6 @@ import { uploadToGeoServer, deleteLayer, EditLayerDetails } from '@/api/geoserve
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 import PermissionWrapper from '@/components/PermissionWrapper.vue';
 import axios from 'axios';
-import { XMLParser } from 'fast-xml-parser';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import '@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css';
@@ -81,11 +80,7 @@ mapboxgl.accessToken = MapBoxToken;
 //const serverUrl = envt === 'http://localhost' ? 'http://localhost:8080/geoserver/kisip' : 'https://kesmis.go.ke/geoserver/kisip';
 const serverUrl =  'https://kesmis.go.ke/geoserver/kisip';
 
-// Alternative server URLs to try if primary fails
-const alternativeUrls = [
-  'https://kesmis.go.ke:8080/geoserver/kisip',
-  'http://localhost:8080/geoserver/kisip'
-];
+// Note: Now using direct REST API call to https://kesmis.go.ke/geoserver/rest/layers.json
 
 console.log('serverUrl',serverUrl)
 // Reactive refs
@@ -279,6 +274,7 @@ const handleSelectLayer = async (lyr: string) => {
     layerName.value = lyr;
     DialogTitle.value = lyr;
 
+    // Get layer information from the already loaded table data
     const filteredLayers = tableDataList.value.filter((layer) => layer.name === lyr);
     bounds.value = filteredLayers[0]?.bbox;
     
@@ -286,6 +282,8 @@ const handleSelectLayer = async (lyr: string) => {
       ElMessage.error('No bounds found for this layer');
       return;
     }
+
+    console.log('Using cached layer bounds:', bounds.value);
 
     await nextTick();
     
@@ -306,6 +304,115 @@ const handleSelectLayer = async (lyr: string) => {
 // Handle row double-click
 const handleRowDblClick = (row: Layer) => {
   handleSelectLayer(row.name);
+};
+
+// Refresh layer data from GeoServer after edit
+const refreshLayerData = async (layerName: string) => {
+  try {
+    console.log(`🔄 Refreshing data for layer: ${layerName}`);
+    
+    // Fetch detailed layer information
+    const layerDetailsUrl = `https://kesmis.go.ke/geoserver/rest/layers/kisip:${layerName}.json`;
+    console.log(`📡 Fetching layer details from: ${layerDetailsUrl}`);
+    
+    const layerResponse = await axios.get(layerDetailsUrl, {
+      timeout: 10000,
+      headers: { 'Accept': 'application/json, */*' },
+      auth: { username: 'admin', password: '***REDACTED***' }
+    });
+
+    if (layerResponse.status === 200 && layerResponse.data.layer && layerResponse.data.layer.resource) {
+      // Follow the resource href to get detailed information
+      let resourceUrl = layerResponse.data.layer.resource.href;
+      resourceUrl = resourceUrl.replace("http://", "https://");
+      
+      const resourceResponse = await axios.get(resourceUrl, {
+        timeout: 10000,
+        headers: { 'Accept': 'application/json, */*' },
+        auth: { username: 'admin', password: '***REDACTED***' }
+      });
+
+      if (resourceResponse.status === 200) {
+        const resourceData = resourceResponse.data;
+        const dataSource = resourceData.coverage || resourceData.featureType;
+        
+        // Extract CRS information
+        let cleanCRS: string[] = ['EPSG:4326']; // Default fallback
+        if (dataSource && dataSource.srs) {
+          cleanCRS = [dataSource.srs];
+        }
+
+        // Extract bounding box information
+        let bbox = {
+          westBoundLongitude: -180,
+          eastBoundLongitude: 180,
+          southBoundLatitude: -90,
+          northBoundLatitude: 90
+        };
+
+        if (dataSource && dataSource.latLonBoundingBox) {
+          const latLonBbox = dataSource.latLonBoundingBox;
+          bbox = {
+            westBoundLongitude: latLonBbox.minx || -180,
+            eastBoundLongitude: latLonBbox.maxx || 180,
+            southBoundLatitude: latLonBbox.miny || -90,
+            northBoundLatitude: latLonBbox.maxy || 90
+          };
+        } else if (dataSource && dataSource.nativeBoundingBox) {
+          const nativeBbox = dataSource.nativeBoundingBox;
+          bbox = {
+            westBoundLongitude: nativeBbox.minx || -180,
+            eastBoundLongitude: nativeBbox.maxx || 180,
+            southBoundLatitude: nativeBbox.miny || -90,
+            northBoundLatitude: nativeBbox.maxy || 90
+          };
+        }
+
+        // Find the layer in the table and update it
+        const layerIndex = tableDataList.value.findIndex(layer => layer.name === layerName);
+        console.log(`🔍 Looking for layer ${layerName} in table, found at index: ${layerIndex}`);
+        
+        if (layerIndex !== -1) {
+          const oldLayerData = tableDataList.value[layerIndex];
+          console.log(`📝 Old layer data:`, oldLayerData);
+          
+          // Force Vue reactivity by creating a new array
+          const updatedLayers = [...tableDataList.value];
+          updatedLayers[layerIndex] = {
+            name: layerName,
+            title: layerResponse.data.layer.title || layerName,
+            crs: cleanCRS,
+            bbox: bbox,
+          };
+          tableDataList.value = updatedLayers;
+          
+          console.log(`📝 New layer data:`, tableDataList.value[layerIndex]);
+          
+          // Also update the select options
+          const optionIndex = selOptions.value.findIndex(option => option.value === layerName);
+          if (optionIndex !== -1) {
+            selOptions.value[optionIndex] = {
+              value: layerName,
+              label: layerName,
+              bbox: bbox,
+            };
+            console.log(`🔄 Updated select option at index ${optionIndex}`);
+          }
+          
+          console.log(`✅ Successfully refreshed layer ${layerName}: CRS=${cleanCRS[0]}, Bbox=[${bbox.westBoundLongitude}, ${bbox.southBoundLatitude}, ${bbox.eastBoundLongitude}, ${bbox.northBoundLatitude}]`);
+        } else {
+          console.warn(`❌ Layer ${layerName} not found in table data for refresh`);
+          console.log(`📋 Available layers:`, tableDataList.value.map(l => l.name));
+        }
+      } else {
+        console.warn(`Failed to fetch resource for layer ${layerName} during refresh`);
+      }
+    } else {
+      console.warn(`Failed to fetch details for layer ${layerName} during refresh`);
+    }
+  } catch (error: any) {
+    console.error(`Error refreshing layer data for ${layerName}:`, error.message);
+  }
 };
 
 // Update page size based on window width
@@ -397,33 +504,7 @@ const editLayer = async (lyr: Layer) => {
 };
 
 const EditLoading=ref(false)
-const xsaveEdits = async () => {
-  try {
-    form.value.oldLayerName = oldLayer.value?.name;
-    form.value.newLayerName = form.value.name;
-    form.value.newCrs = form.value.crs;
-        EditLoading.value=true
-
-    const res = await EditLayerDetails(form.value);
-
-    console.log('Sfter Edits',res)
-    EditLoading.value=false
-    if (res && res.code === '0000') {
-      ElMessage.success('Layer details updated successfully');
-      EditDialogVisible.value = false;
-          EditLoading.value=false
-
-    } else {
-      ElMessage.error('Failed to update layer details');
-          EditLoading.value=false
-
-    }
-  } catch (error) {
-    ElMessage.error('Error updating layer details');
-        EditLoading.value=false
-
-  }
-};
+ 
 
 const saveEdits = async () => {
   try {
@@ -441,24 +522,36 @@ const saveEdits = async () => {
       ElMessage.success('Layer details updated successfully');
       EditDialogVisible.value = false;
 
-      // Find and update the layer in tableData
-      const index = tableDataList.value.findIndex(
-        (layer) => layer.name === form.value.oldLayerName
-      );
-      if (index !== -1) {
-        // Replace the old layer with the updated data
-        console.log('form.value',form.value.newCrs)
-        tableDataList.value[index] = {
-          ...tableDataList.value[index], // Preserve other properties
-          name: form.value.newLayerName || '',
-          crs: [form.value.newCrs || ''],
-          // Add other updated fields from form.value or res.data as needed
+      // Update the table row with the submitted data
+      const layerName = form.value.newLayerName || form.value.oldLayerName;
+      const layerIndex = tableDataList.value.findIndex(layer => layer.name === form.value.oldLayerName);
+      
+      if (layerIndex !== -1) {
+        // Update the layer in the table with the submitted data
+        const updatedLayers = [...tableDataList.value];
+        updatedLayers[layerIndex] = {
+          name: layerName,
+          title: layerName, // Use the new name as title
+          crs: [form.value.newCrs || 'EPSG:4326'],
+          bbox: tableDataList.value[layerIndex].bbox, // Keep existing bbox
         };
-        console.log('tableDataList.value[index]',tableDataList.value[index])
-
-
+        tableDataList.value = updatedLayers;
+        
+        // Also update the select options
+        const optionIndex = selOptions.value.findIndex(option => option.value === form.value.oldLayerName);
+        if (optionIndex !== -1) {
+          const updatedOptions = [...selOptions.value];
+          updatedOptions[optionIndex] = {
+            value: layerName,
+            label: layerName,
+            bbox: tableDataList.value[layerIndex].bbox,
+          };
+          selOptions.value = updatedOptions;
+        }
+        
+        console.log(`✅ Updated table row for layer: ${layerName} with CRS: ${form.value.newCrs}`);
       } else {
-        console.warn('Layer not found in tableData:', form.value.oldLayerName);
+        console.warn(`❌ Layer ${form.value.oldLayerName} not found in table for update`);
       }
     } else {
       ElMessage.error('Failed to update layer details');
@@ -502,31 +595,29 @@ const selectDownload = () => {
   ElMessage.info('Download functionality not implemented');
 };
 
-// Function to try fetching from alternative URLs
-const tryFetchLayers = async (urls: string[], index = 0): Promise<any> => {
-  if (index >= urls.length) {
-    throw new Error('All GeoServer URLs failed');
-  }
-  
-  const currentUrl = urls[index];
-  console.log(`Trying URL ${index + 1}/${urls.length}: ${currentUrl}`);
+// Function to fetch layers from GeoServer REST API
+const fetchLayersFromRestAPI = async (): Promise<any> => {
+  const restApiUrl = 'https://kesmis.go.ke/geoserver/rest/layers.json';
+  console.log(`Fetching layers from REST API: ${restApiUrl}`);
   
   try {
-    const response = await axios.get(`${currentUrl}/ows/?SERVICE=WMS&REQUEST=GetCapabilities`, {
-      timeout: 15000, // 15 second timeout per URL
+    const response = await axios.get(restApiUrl, {
+      timeout: 15000, // 15 second timeout
       headers: {
-        'Accept': 'application/xml, text/xml, */*'
+        'Accept': 'application/json, */*'
+      },
+      auth: {
+        username: 'admin',
+        password: '***REDACTED***'
       }
     });
     
-    console.log(`Success with URL: ${currentUrl}`);
-    return { response, serverUrl: currentUrl };
+    console.log(`Success with REST API: ${restApiUrl}`);
+    return { response, serverUrl: 'https://kesmis.go.ke/geoserver/kisip' };
     
   } catch (error: any) {
-    console.warn(`Failed with URL ${currentUrl}:`, error.message);
-    
-    // Try next URL
-    return tryFetchLayers(urls, index + 1);
+    console.error(`Failed to fetch from REST API:`, error.message);
+    throw error;
   }
 };
 
@@ -544,193 +635,214 @@ onMounted(() => {
     resizeObserver.observe(drawer);
   }
 
-  // Fetch layers with fallback URLs
+  // Fetch layers from GeoServer REST API
   loading.value = true;
   
-  const urlsToTry = [serverUrl, ...alternativeUrls];
-  
-  tryFetchLayers(urlsToTry).then(({ response, serverUrl: workingUrl }) => {
-    console.log('GetCapabilities response received:', response.status);
-    console.log('Using server URL:', workingUrl);
-    
-    const xml = response.data;
-    
-    if (!xml || typeof xml !== 'string') {
-      throw new Error('Invalid XML response from GeoServer');
-    }
-
-    // Check for corrupted WMS Capabilities before parsing
-    if (xml.includes('ServiceException') || xml.includes('TransformerException')) {
-      console.error('Corrupted WMS Capabilities detected:', xml.substring(0, 500));
-      throw new Error('WMS Capabilities is corrupted. This usually happens when one or more layers have metadata errors. Please check GeoServer logs and fix corrupted layers (e.g., Gathambi_ECW_27-11-24).');
-    }
-    
-    const parser = new XMLParser({
-      ignoreAttributes: false,
-      attributeNamePrefix: '@_',
-      textNodeName: '#text'
-    });
-    
-    let json;
+  // Use async/await instead of .then() to properly handle await inside the loop
+  (async () => {
     try {
-      json = parser.parse(xml);
-    } catch (parseError: any) {
-      console.error('XML parsing error:', parseError);
-      throw new Error(`Failed to parse WMS Capabilities XML: ${parseError.message}`);
-    }
-    
-    console.log('Parsed JSON structure:', Object.keys(json));
-    
-    // Check if the structure exists before accessing it
-    if (!json.WMS_Capabilities) {
-      console.error('Missing WMS_Capabilities in response:', json);
-      throw new Error('Invalid WMS Capabilities structure - missing WMS_Capabilities');
-    }
-    
-    if (!json.WMS_Capabilities.Capability) {
-      console.error('Missing Capability in WMS_Capabilities:', json.WMS_Capabilities);
-      throw new Error('Invalid WMS Capabilities structure - missing Capability');
-    }
-    
-    if (!json.WMS_Capabilities.Capability.Layer) {
-      console.error('Missing Layer in Capability:', json.WMS_Capabilities.Capability);
-      throw new Error('Invalid WMS Capabilities structure - missing Layer');
-    }
-    
-    let layers = json.WMS_Capabilities.Capability.Layer.Layer;
-    
-    // Handle case where there's only one layer (not an array)
-    if (!Array.isArray(layers)) {
-      layers = layers ? [layers] : [];
-    }
-    
-    console.log(`Found ${layers.length} raw layers to process`);
-    
-    if (layers.length === 0) {
-      throw new Error('No layers found in WMS Capabilities');
-    }
-    
-    const glayers = layers.map((layer: any, index: number) => {
-      try {
-        // Skip layers without Name
-        if (!layer.Name) {
-          console.warn(`Skipping layer at index ${index}: No Name property`);
-          return null;
-        }
+      const { response, serverUrl: workingUrl } = await fetchLayersFromRestAPI();
+      console.log('REST API response received:', response.status);
+      console.log('Using server URL:', workingUrl);
+      
+      const jsonData = response.data;
+      
+      if (!jsonData || typeof jsonData !== 'object') {
+        throw new Error('Invalid JSON response from GeoServer REST API');
+      }
 
-        // Check for corrupted CRS data (contains XML error messages)
-        let cleanCRS = [];
-        if (Array.isArray(layer.CRS)) {
-          cleanCRS = layer.CRS.filter((crs: string) => {
-            if (typeof crs === 'string' && (crs.includes('<?xml') || crs.includes('ServiceException'))) {
-              console.warn(`Corrupted CRS data found in layer ${layer.Name}:`, crs.substring(0, 100) + '...');
-              return false;
+      console.log('REST API JSON structure:', Object.keys(jsonData));
+      
+      // Check if the structure exists before accessing it
+      if (!jsonData.layers) {
+        console.error('Missing layers in REST API response:', jsonData);
+        throw new Error('Invalid REST API structure - missing layers');
+      }
+      
+      let layers = jsonData.layers.layer;
+      
+      // Handle case where there's only one layer (not an array)
+      if (!Array.isArray(layers)) {
+        layers = layers ? [layers] : [];
+      }
+      
+      console.log(`Found ${layers.length} raw layers to process`);
+      
+      if (layers.length === 0) {
+        throw new Error('No layers found in REST API response');
+      }
+      
+      // Process layers and fetch detailed information for each
+      const glayers = [];
+      
+      for (let i = 0; i < layers.length; i++) {
+        const layer = layers[i];
+        
+        try {
+          // Skip layers without name
+          if (!layer.name) {
+            console.warn(`Skipping layer at index ${i}: No name property`);
+            continue;
+          }
+
+          console.log(`Processing layer ${i + 1}/${layers.length}: ${layer.name}`);
+
+          // Fetch detailed layer information
+          const layerDetailsUrl = `https://kesmis.go.ke/geoserver/rest/layers/kisip:${layer.name}.json`;
+          
+          try {
+            const layerResponse = await axios.get(layerDetailsUrl, {
+              timeout: 10000,
+              headers: { 'Accept': 'application/json, */*' },
+              auth: { username: 'admin', password: '***REDACTED***' }
+            });
+
+            if (layerResponse.status === 200 && layerResponse.data.layer && layerResponse.data.layer.resource) {
+              // Follow the resource href to get detailed information
+              let resourceUrl = layerResponse.data.layer.resource.href;
+              resourceUrl = resourceUrl.replace("http://", "https://");
+              
+              const resourceResponse = await axios.get(resourceUrl, {
+                timeout: 10000,
+                headers: { 'Accept': 'application/json, */*' },
+                auth: { username: 'admin', password: '***REDACTED***' }
+              });
+
+              if (resourceResponse.status === 200) {
+                const resourceData = resourceResponse.data;
+                const dataSource = resourceData.coverage || resourceData.featureType;
+                
+                // Extract CRS information
+                let cleanCRS: string[] = ['EPSG:4326']; // Default fallback
+                if (dataSource && dataSource.srs) {
+                  cleanCRS = [dataSource.srs];
+                }
+
+                // Extract bounding box information
+                let bbox = {
+                  westBoundLongitude: -180,
+                  eastBoundLongitude: 180,
+                  southBoundLatitude: -90,
+                  northBoundLatitude: 90
+                };
+
+                if (dataSource && dataSource.latLonBoundingBox) {
+                  const latLonBbox = dataSource.latLonBoundingBox;
+                  bbox = {
+                    westBoundLongitude: latLonBbox.minx || -180,
+                    eastBoundLongitude: latLonBbox.maxx || 180,
+                    southBoundLatitude: latLonBbox.miny || -90,
+                    northBoundLatitude: latLonBbox.maxy || 90
+                  };
+                } else if (dataSource && dataSource.nativeBoundingBox) {
+                  const nativeBbox = dataSource.nativeBoundingBox;
+                  bbox = {
+                    westBoundLongitude: nativeBbox.minx || -180,
+                    eastBoundLongitude: nativeBbox.maxx || 180,
+                    southBoundLatitude: nativeBbox.miny || -90,
+                    northBoundLatitude: nativeBbox.maxy || 90
+                  };
+                }
+
+                glayers.push({
+                  name: layer.name,
+                  title: layer.title || layer.name,
+                  crs: cleanCRS,
+                  bbox: bbox,
+                });
+
+                console.log(`✓ Layer ${layer.name}: CRS=${cleanCRS[0]}, Bbox=[${bbox.westBoundLongitude}, ${bbox.southBoundLatitude}, ${bbox.eastBoundLongitude}, ${bbox.northBoundLatitude}]`);
+              } else {
+                console.warn(`Failed to fetch resource for layer ${layer.name}`);
+                // Add layer with default values
+                glayers.push({
+                  name: layer.name,
+                  title: layer.title || layer.name,
+                  crs: ['EPSG:4326'],
+                  bbox: { westBoundLongitude: -180, eastBoundLongitude: 180, southBoundLatitude: -90, northBoundLatitude: 90 }
+                });
+              }
+            } else {
+              console.warn(`Failed to fetch details for layer ${layer.name}`);
+              // Add layer with default values
+              glayers.push({
+                name: layer.name,
+                title: layer.title || layer.name,
+                crs: ['EPSG:4326'],
+                bbox: { westBoundLongitude: -180, eastBoundLongitude: 180, southBoundLatitude: -90, northBoundLatitude: 90 }
+              });
             }
-            return true;
-          });
-        } else if (layer.CRS) {
-          if (typeof layer.CRS === 'string' && (layer.CRS.includes('<?xml') || layer.CRS.includes('ServiceException'))) {
-            console.warn(`Corrupted CRS data found in layer ${layer.Name}:`, layer.CRS.substring(0, 100) + '...');
-            cleanCRS = ['EPSG:4326']; // Default fallback
-          } else {
-            cleanCRS = [layer.CRS];
+          } catch (error: any) {
+            console.warn(`Error fetching details for layer ${layer.name}:`, error.message);
+            // Add layer with default values
+            glayers.push({
+              name: layer.name,
+              title: layer.title || layer.name,
+              crs: ['EPSG:4326'],
+              bbox: { westBoundLongitude: -180, eastBoundLongitude: 180, southBoundLatitude: -90, northBoundLatitude: 90 }
+            });
+          }
+        } catch (error: any) {
+          console.warn(`Error processing layer at index ${i}:`, error.message, layer);
+          continue;
+        }
+      }
+
+      const skippedCount = layers.length - glayers.length;
+      console.log(`Successfully processed: ${glayers.length}, Skipped: ${skippedCount}`);
+      
+      if (glayers.length === 0) {
+        throw new Error('No valid layers could be processed');
+      }
+      
+      tableDataList.value = glayers;
+      totalItems.value = glayers.length;
+      loading.value = false;
+
+      selOptions.value = glayers.map((layer: any) => ({
+        value: layer.name,
+        label: layer.name,
+        bbox: layer.bbox,
+      }));
+      
+      if (skippedCount > 0) {
+        ElMessage.success(`Loaded ${glayers.length} imagery layers (${skippedCount} layers skipped due to errors)`);
+      } else {
+        ElMessage.success(`Loaded ${glayers.length} imagery layers from GeoServer REST API`);
+      }
+      
+    } catch (error) {
+      console.error('Failed to fetch layers from GeoServer REST API:', error);
+      loading.value = false;
+      
+        ElMessage.error('Unable to connect to GeoServer REST API. Please check if the service is running and try again.');
+      
+      // Show mock data for development
+      const mockLayers = [
+        {
+          name: 'sample_imagery_1',
+          title: 'Sample Imagery Layer 1',
+          crs: ['EPSG:4326'],
+          bbox: {
+            westBoundLongitude: 36.0,
+            eastBoundLongitude: 38.0,
+            southBoundLatitude: -2.0,
+            northBoundLatitude: 2.0
           }
         }
-
-        // If no valid CRS found, use default
-        if (cleanCRS.length === 0) {
-          cleanCRS = ['EPSG:4326'];
-        }
-
-        // Skip layers with specific known corruption issues or patterns
-        const corruptedLayerPatterns = [
-          'Gathambi_ECW_27-11-24',
-          // Add more problematic layer names here as they're discovered
-        ];
-        
-        if (corruptedLayerPatterns.includes(layer.Name)) {
-          console.warn(`Skipping known corrupted layer: ${layer.Name}`);
-          return null;
-        }
-
-        // Also skip layers that have XML errors in their structure
-        const layerString = JSON.stringify(layer);
-        if (layerString.includes('ServiceException') || layerString.includes('TransformerException')) {
-          console.warn(`Skipping layer with embedded XML errors: ${layer.Name}`);
-          return null;
-        }
-
-        return {
-          name: layer.Name,
-          title: layer.Title || layer.Name,
-          crs: cleanCRS,
-          bbox: layer.EX_GeographicBoundingBox || {
-            westBoundLongitude: -180,
-            eastBoundLongitude: 180,
-            southBoundLatitude: -90,
-            northBoundLatitude: 90
-          },
-        };
-      } catch (error: any) {
-        console.warn(`Error processing layer at index ${index}:`, error.message, layer);
-        return null;
-      }
-    }).filter(layer => layer !== null); // Remove null entries
-
-    const skippedCount = layers.length - glayers.length;
-    console.log(`Successfully processed: ${glayers.length}, Skipped: ${skippedCount}`);
-    
-    if (glayers.length === 0) {
-      throw new Error('No valid layers could be processed');
+      ];
+      
+      tableDataList.value = mockLayers;
+      totalItems.value = mockLayers.length;
+      selOptions.value = mockLayers.map(layer => ({
+        value: layer.name,
+        label: layer.name,
+        bbox: layer.bbox,
+      }));
+      
+      ElMessage.info('Showing sample data. Please check GeoServer connection.');
     }
-    
-    tableDataList.value = glayers;
-    totalItems.value = glayers.length;
-    loading.value = false;
-
-    selOptions.value = glayers.map((layer: any) => ({
-      value: layer.name,
-      label: layer.name,
-      bbox: layer.bbox,
-    }));
-    
-    if (skippedCount > 0) {
-      ElMessage.success(`Loaded ${glayers.length} imagery layers (${skippedCount} layers skipped due to errors)`);
-    } else {
-      ElMessage.success(`Loaded ${glayers.length} imagery layers from GeoServer`);
-    }
-    
-  }).catch((error) => {
-    console.error('All GeoServer URLs failed:', error);
-    loading.value = false;
-    
-    ElMessage.error('Unable to connect to GeoServer. Please check if the service is running and try again.');
-    
-    // Show mock data for development
-    const mockLayers = [
-      {
-        name: 'sample_imagery_1',
-        title: 'Sample Imagery Layer 1',
-        crs: ['EPSG:4326'],
-        bbox: {
-          westBoundLongitude: 36.0,
-          eastBoundLongitude: 38.0,
-          southBoundLatitude: -2.0,
-          northBoundLatitude: 2.0
-        }
-      }
-    ];
-    
-    tableDataList.value = mockLayers;
-    totalItems.value = mockLayers.length;
-    selOptions.value = mockLayers.map(layer => ({
-      value: layer.name,
-      label: layer.name,
-      bbox: layer.bbox,
-    }));
-    
-    ElMessage.info('Showing sample data. Please check GeoServer connection.');
-  });
+  })();
 });
 
 
