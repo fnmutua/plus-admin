@@ -7,7 +7,6 @@ import * as turf from '@turf/turf'
 import { getSettlementMapData } from '@/api/settlements'
 import { Icon } from '@iconify/vue'
 import axios from 'axios'
-import { XMLParser } from 'fast-xml-parser'
 import { useAppStore } from '@/store/modules/app'
 import JSZip from 'jszip'
 import { saveAs } from 'file-saver'
@@ -1416,65 +1415,162 @@ const getSettlementBbox = () => {
 
 const geoserverUrl = 'https://kesmis.go.ke/geoserver'
 
-// Cache for WMS capabilities to avoid repeated requests
-const wmsCapabilitiesCache = ref<{ data: any[], timestamp: number } | null>(null)
-const WMS_CACHE_TIMEOUT = 10 * 60 * 1000 // 10 minutes
+// Cache for REST API layers to avoid repeated requests
+const restLayersCache = ref<{ data: any[], timestamp: number } | null>(null)
+const REST_CACHE_TIMEOUT = 10 * 60 * 1000 // 10 minutes
 
-const getWmsUrl = async (bbox: { minLng: number; minLat: number; maxLng: number; maxLat: number }) => {
+const getRestLayers = async (bbox: { minLng: number; minLat: number; maxLng: number; maxLat: number }) => {
   try {
     // Check cache first
-    if (wmsCapabilitiesCache.value && 
-        Date.now() - wmsCapabilitiesCache.value.timestamp < WMS_CACHE_TIMEOUT) {
-      console.log('🔄 Using cached WMS capabilities')
-      return filterLayersByBbox(wmsCapabilitiesCache.value.data, bbox)
+    if (restLayersCache.value && 
+        Date.now() - restLayersCache.value.timestamp < REST_CACHE_TIMEOUT) {
+      console.log('🔄 Using cached REST API layers')
+      return filterLayersByBbox(restLayersCache.value.data, bbox)
     }
 
-    console.log('🔄 Fetching fresh WMS capabilities...')
-    const capabilitiesUrl = geoserverUrl + '/kisip/ows?service=wms&request=GetCapabilities'
+    console.log('🔄 Fetching fresh layers from GeoServer REST API...')
+    const restApiUrl = geoserverUrl + '/rest/layers.json'
     
-    // Add timeout and better error handling
-    const response = await axios.get(capabilitiesUrl, {
+    // Add timeout and authentication
+    const response = await axios.get(restApiUrl, {
       timeout: 15000, // 15 second timeout
       headers: {
-        'Accept': 'application/xml, text/xml, */*',
-        'Cache-Control': 'no-cache'
+        'Accept': 'application/json, */*'
+      },
+      auth: {
+        username: 'admin',
+        password: '***REDACTED***'
       }
     })
     
-    const xml = response.data
-    const parser = new XMLParser({
-      ignoreAttributes: false,
-      attributeNamePrefix: "@_",
-      parseAttributeValue: true,
-      trimValues: true
-    })
+    const jsonData = response.data
     
-    const json = parser.parse(xml)
+    if (!jsonData || typeof jsonData !== 'object') {
+      throw new Error('Invalid JSON response from GeoServer REST API')
+    }
     
-    // Extract layers more efficiently
-    const layers = json?.WMS_Capabilities?.Capability?.Layer?.Layer || []
-    const glayers = layers.map((layer: any) => ({
-      name: layer.Name,
-      title: layer.Title,
-      label: layer.Name,
-      value: layer.Name,
-      bbox: layer.EX_GeographicBoundingBox ? {
-        minx: parseFloat(layer.EX_GeographicBoundingBox.westBoundLongitude),
-        miny: parseFloat(layer.EX_GeographicBoundingBox.southBoundLatitude),
-        maxx: parseFloat(layer.EX_GeographicBoundingBox.eastBoundLongitude),
-        maxy: parseFloat(layer.EX_GeographicBoundingBox.northBoundLatitude),
-      } : null
-    })).filter(layer => layer.bbox) // Filter out layers without bbox
+    // Check if the structure exists before accessing it
+    if (!jsonData.layers) {
+      console.error('Missing layers in REST API response:', jsonData)
+      throw new Error('Invalid REST API structure - missing layers')
+    }
+    
+    let layers = jsonData.layers.layer
+    
+    // Handle case where there's only one layer (not an array)
+    if (!Array.isArray(layers)) {
+      layers = layers ? [layers] : []
+    }
+    
+    console.log(`Found ${layers.length} raw layers to process`)
+    
+    if (layers.length === 0) {
+      throw new Error('No layers found in REST API response')
+    }
+    
+    // Process layers and fetch detailed information for each
+    const glayers = []
+    
+    for (let i = 0; i < layers.length; i++) {
+      const layer = layers[i]
+      
+      try {
+        // Skip layers without name
+        if (!layer.name) {
+          console.warn(`Skipping layer at index ${i}: No name property`)
+          continue
+        }
+
+        console.log(`Processing layer ${i + 1}/${layers.length}: ${layer.name}`)
+
+        // Fetch detailed layer information
+        const layerDetailsUrl = `${geoserverUrl}/rest/layers/kisip:${layer.name}.json`
+        
+        try {
+          const layerResponse = await axios.get(layerDetailsUrl, {
+            timeout: 10000,
+            headers: { 'Accept': 'application/json, */*' },
+            auth: { username: 'admin', password: '***REDACTED***' }
+          });
+
+          if (layerResponse.status === 200 && layerResponse.data.layer && layerResponse.data.layer.resource) {
+            // Follow the resource href to get detailed information
+            let resourceUrl = layerResponse.data.layer.resource.href;
+            resourceUrl = resourceUrl.replace("http://", "https://");
+            
+            const resourceResponse = await axios.get(resourceUrl, {
+              timeout: 10000,
+              headers: { 'Accept': 'application/json, */*' },
+              auth: { username: 'admin', password: '***REDACTED***' }
+            });
+
+            if (resourceResponse.status === 200) {
+              const resourceData = resourceResponse.data;
+              const dataSource = resourceData.coverage || resourceData.featureType;
+              
+              // Extract bounding box information
+              let bbox = null;
+
+              if (dataSource && dataSource.latLonBoundingBox) {
+                const latLonBbox = dataSource.latLonBoundingBox;
+                bbox = {
+                  minx: latLonBbox.minx || -180,
+                  miny: latLonBbox.miny || -90,
+                  maxx: latLonBbox.maxx || 180,
+                  maxy: latLonBbox.maxy || 90
+                };
+              } else if (dataSource && dataSource.nativeBoundingBox) {
+                const nativeBbox = dataSource.nativeBoundingBox;
+                bbox = {
+                  minx: nativeBbox.minx || -180,
+                  miny: nativeBbox.miny || -90,
+                  maxx: nativeBbox.maxx || 180,
+                  maxy: nativeBbox.maxy || 90
+                };
+              }
+
+              if (bbox) {
+                glayers.push({
+                  name: layer.name,
+                  title: layer.title || layer.name,
+                  label: layer.name,
+                  value: layer.name,
+                  bbox: bbox,
+                });
+
+                console.log(`✓ Layer ${layer.name}: Bbox=[${bbox.minx}, ${bbox.miny}, ${bbox.maxx}, ${bbox.maxy}]`);
+              }
+            } else {
+              console.warn(`Failed to fetch resource for layer ${layer.name}`);
+            }
+          } else {
+            console.warn(`Failed to fetch details for layer ${layer.name}`);
+          }
+        } catch (error: any) {
+          console.warn(`Error fetching details for layer ${layer.name}:`, error.message);
+        }
+      } catch (error: any) {
+        console.warn(`Error processing layer at index ${i}:`, error.message, layer);
+        continue;
+      }
+    }
+
+    const skippedCount = layers.length - glayers.length;
+    console.log(`Successfully processed: ${glayers.length}, Skipped: ${skippedCount}`)
+    
+    if (glayers.length === 0) {
+      throw new Error('No valid layers could be processed')
+    }
     
     // Cache the results
-    wmsCapabilitiesCache.value = {
+    restLayersCache.value = {
       data: glayers,
       timestamp: Date.now()
     }
     
     return filterLayersByBbox(glayers, bbox)
   } catch (error) {
-    console.error('❌ Error fetching WMS capabilities:', error)
+    console.error('❌ Error fetching REST API layers:', error)
     // Return empty array instead of throwing to prevent map loading failure
     return []
   }
@@ -1517,9 +1613,9 @@ const addWmsLayer = async () => {
   try {
     updateLoadingStatus('Loading satellite imagery...', 95)
     
-    const layerList = await getWmsUrl(bbox)
+    const layerList = await getRestLayers(bbox)
     if (!layerList || !mapRef.value?.map) {
-      console.log('⚠️ No WMS layers found or map not ready')
+      console.log('⚠️ No REST API layers found or map not ready')
       return
     }
     
@@ -1567,8 +1663,8 @@ const addWmsLayer = async () => {
                 width: '256',  // Reduced from 512 for faster loading
                 height: '256', // Reduced from 512 for faster loading
                 srs: 'EPSG:4326',
-                format: 'image/jpeg', // Changed from PNG to JPEG for faster loading
-                transparent: 'false' // Set to false for JPEG
+                format: 'image/png', // Use PNG for transparency support
+                transparent: 'true' // Enable transparency so imagery overlays on base map
               })
               
               return `${wmsBaseUrl}?${params.toString()}`
@@ -1577,7 +1673,7 @@ const addWmsLayer = async () => {
             maxZoom: 20, // Reduced max zoom for better performance
             minZoom: 8,  // Set minimum zoom
             name: `Imagery: ${layerName.replace('kisip:', '')}`,
-            opacity: 0.85
+            opacity: 0.6 // Reduced opacity so base map shows through
           })
           
           imageryLayerObjects.value[layerName] = wmsLayer
@@ -2018,7 +2114,7 @@ const loadMapData = async () => {
             </ElCheckbox>
             </div>
           </ElCollapseItem>
-          <ElCollapseItem title="Imagery">
+          <ElCollapseItem v-if="availableImageryLayers.length > 0" title="Imagery">
             <ElCheckboxGroup v-model="selectedImageryLayers" @change="toggleImageryGroup">
               <div style="display: flex; flex-direction: column; gap: 2px;">
                 <ElCheckbox v-for="layer in availableImageryLayers" :key="layer" :label="layer">
