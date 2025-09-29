@@ -792,7 +792,7 @@ const disable_submit = ref(true)
 const parentTitle = ref("Parent (selected)")
 const parentLoading = ref(false)
 
-const getparentOptions = async () => {
+const getparentOptions = async (keyword?: string) => {
   parentLoading.value = true
   parentOptions.value = []
   
@@ -809,12 +809,14 @@ const getparentOptions = async () => {
       curUser: 1,
       model: theParentModel.value,
       searchField: theParentModel.value === 'project' ? 'title' : 'name',
-      searchKeyword: '',
+      searchKeyword: keyword || '',
       excludeGeom: false,
       excludeGeomAssoc: true,
       associated_multiple_models: associatedModels,
       filters: [],
       filterValues: [],
+      limit: 100,
+      page: 1,
     }
 
     const response = await searchByKeyWord(formData as any)
@@ -840,6 +842,17 @@ const getparentOptions = async () => {
   } finally {
     parentLoading.value = false
   }
+}
+
+let parentSearchTimer: number | null = null
+function remoteFetchParents(kw: string) {
+  if (parentSearchTimer) {
+    clearTimeout(parentSearchTimer)
+    parentSearchTimer = null
+  }
+  parentSearchTimer = window.setTimeout(() => {
+    getparentOptions(kw || '')
+  }, 300)
 }
 
 const handleSelectType = async (type: string) => {
@@ -2247,12 +2260,14 @@ const handleTabChange = async (tabName: string) => {
 
           <el-form-item v-if="!hide_parent" :label="parentTitle">
             <el-select
-              filterable 
               clearable
               v-model="documentForm.parent_id" 
               placeholder="please select your parent"
-              v-loading="parentLoading"
               :loading="parentLoading"
+              filterable
+              remote
+              reserve-keyword
+              :remote-method="remoteFetchParents"
             >
               <el-option
                 v-for="item in parentOptions"

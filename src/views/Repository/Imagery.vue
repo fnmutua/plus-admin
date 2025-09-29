@@ -18,6 +18,7 @@ import {
   ElTableColumn,
   ElCard,
   ElMessage,
+  ElProgress,
 } from 'element-plus';
 import {
   Plus,
@@ -117,6 +118,13 @@ const mobilePageSize = 5;
 const pageSize = ref(defaultPageSize);
 const currentPage = ref(1);
 const totalItems = ref(0);
+
+// Progress state for incremental loading
+const totalLayers = ref(0);
+const processedLayers = ref(0);
+const progressPct = computed(() =>
+  totalLayers.value === 0 ? 0 : Math.round((processedLayers.value / totalLayers.value) * 100)
+);
 
 // Form data
 const form = ref<FormData>({
@@ -672,121 +680,84 @@ onMounted(() => {
         throw new Error('No layers found in REST API response');
       }
       
-      // Process layers and fetch detailed information for each
-      const glayers = [];
-      
-      for (let i = 0; i < layers.length; i++) {
-        const layer = layers[i];
-        
-        try {
-          // Skip layers without name
-          if (!layer.name) {
-            console.warn(`Skipping layer at index ${i}: No name property`);
-            continue;
-          }
+      // Concurrency-limited incremental processing with progress bar
+      const glayers: Layer[] = [];
+      const inputLayers = (layers as any[]).filter((l: any) => l && l.name);
+      totalLayers.value = inputLayers.length;
+      processedLayers.value = 0;
 
-          console.log(`Processing layer ${i + 1}/${layers.length}: ${layer.name}`);
+      const geo = axios.create({
+        baseURL: 'https://kesmis.go.ke/geoserver',
+        timeout: 10000,
+        headers: { 'Accept': 'application/json, */*' },
+        auth: { username: 'admin', password: '***REDACTED***' }
+      });
 
-          // Fetch detailed layer information
-          const layerDetailsUrl = `https://kesmis.go.ke/geoserver/rest/layers/kisip:${layer.name}.json`;
-          
+      const limit = 6;
+      let next = 0;
+
+      // release top-level loading so UI is interactive while we process
+      loading.value = false;
+
+      async function worker() {
+        while (next < inputLayers.length) {
+          const idx = next++;
+          const layer = inputLayers[idx];
           try {
-            const layerResponse = await axios.get(layerDetailsUrl, {
-              timeout: 10000,
-              headers: { 'Accept': 'application/json, */*' },
-              auth: { username: 'admin', password: '***REDACTED***' }
-            });
-
-            if (layerResponse.status === 200 && layerResponse.data.layer && layerResponse.data.layer.resource) {
-              // Follow the resource href to get detailed information
-              let resourceUrl = layerResponse.data.layer.resource.href;
-              resourceUrl = resourceUrl.replace("http://", "https://");
-              
-              const resourceResponse = await axios.get(resourceUrl, {
-                timeout: 10000,
-                headers: { 'Accept': 'application/json, */*' },
-                auth: { username: 'admin', password: '***REDACTED***' }
-              });
-
-              if (resourceResponse.status === 200) {
-                const resourceData = resourceResponse.data;
-                const dataSource = resourceData.coverage || resourceData.featureType;
-                
-                // Extract CRS information
-                let cleanCRS: string[] = ['EPSG:4326']; // Default fallback
-                if (dataSource && dataSource.srs) {
-                  cleanCRS = [dataSource.srs];
-                }
-
-                // Extract bounding box information
-                let bbox = {
-                  westBoundLongitude: -180,
-                  eastBoundLongitude: 180,
-                  southBoundLatitude: -90,
-                  northBoundLatitude: 90
-                };
-
-                if (dataSource && dataSource.latLonBoundingBox) {
-                  const latLonBbox = dataSource.latLonBoundingBox;
-                  bbox = {
-                    westBoundLongitude: latLonBbox.minx || -180,
-                    eastBoundLongitude: latLonBbox.maxx || 180,
-                    southBoundLatitude: latLonBbox.miny || -90,
-                    northBoundLatitude: latLonBbox.maxy || 90
-                  };
-                } else if (dataSource && dataSource.nativeBoundingBox) {
-                  const nativeBbox = dataSource.nativeBoundingBox;
-                  bbox = {
-                    westBoundLongitude: nativeBbox.minx || -180,
-                    eastBoundLongitude: nativeBbox.maxx || 180,
-                    southBoundLatitude: nativeBbox.miny || -90,
-                    northBoundLatitude: nativeBbox.maxy || 90
-                  };
-                }
-
-                glayers.push({
-                  name: layer.name,
-                  title: layer.title || layer.name,
-                  crs: cleanCRS,
-                  bbox: bbox,
-                });
-
-                console.log(`✓ Layer ${layer.name}: CRS=${cleanCRS[0]}, Bbox=[${bbox.westBoundLongitude}, ${bbox.southBoundLatitude}, ${bbox.eastBoundLongitude}, ${bbox.northBoundLatitude}]`);
-              } else {
-                console.warn(`Failed to fetch resource for layer ${layer.name}`);
-                // Add layer with default values
-                glayers.push({
-                  name: layer.name,
-                  title: layer.title || layer.name,
-                  crs: ['EPSG:4326'],
-                  bbox: { westBoundLongitude: -180, eastBoundLongitude: 180, southBoundLatitude: -90, northBoundLatitude: 90 }
-                });
-              }
-            } else {
-              console.warn(`Failed to fetch details for layer ${layer.name}`);
-              // Add layer with default values
+            const layerResp = await geo.get(`/rest/layers/kisip:${layer.name}.json`);
+            const href = layerResp.data?.layer?.resource?.href as string | undefined;
+            if (!href) {
               glayers.push({
                 name: layer.name,
                 title: layer.title || layer.name,
                 crs: ['EPSG:4326'],
                 bbox: { westBoundLongitude: -180, eastBoundLongitude: 180, southBoundLatitude: -90, northBoundLatitude: 90 }
               });
+            } else {
+              const resUrl = href.replace('http://', 'https://');
+              const resResp = await geo.get(resUrl);
+              const dataSource = resResp.data.coverage || resResp.data.featureType;
+              const crs = dataSource?.srs ? [dataSource.srs] : ['EPSG:4326'];
+              let bbox = {
+                westBoundLongitude: -180,
+                eastBoundLongitude: 180,
+                southBoundLatitude: -90,
+                northBoundLatitude: 90
+              };
+              const latLon = dataSource?.latLonBoundingBox;
+              const nativeB = dataSource?.nativeBoundingBox;
+              if (latLon) {
+                bbox = {
+                  westBoundLongitude: latLon.minx || -180,
+                  eastBoundLongitude: latLon.maxx || 180,
+                  southBoundLatitude: latLon.miny || -90,
+                  northBoundLatitude: latLon.maxy || 90
+                };
+              } else if (nativeB) {
+                bbox = {
+                  westBoundLongitude: nativeB.minx || -180,
+                  eastBoundLongitude: nativeB.maxx || 180,
+                  southBoundLatitude: nativeB.miny || -90,
+                  northBoundLatitude: nativeB.maxy || 90
+                };
+              }
+              glayers.push({ name: layer.name, title: layer.title || layer.name, crs, bbox });
             }
-          } catch (error: any) {
-            console.warn(`Error fetching details for layer ${layer.name}:`, error.message);
-            // Add layer with default values
+          } catch (e: any) {
+            console.warn('Layer process failed', layer?.name, e?.message || e);
             glayers.push({
               name: layer.name,
               title: layer.title || layer.name,
               crs: ['EPSG:4326'],
               bbox: { westBoundLongitude: -180, eastBoundLongitude: 180, southBoundLatitude: -90, northBoundLatitude: 90 }
             });
+          } finally {
+            processedLayers.value += 1;
           }
-        } catch (error: any) {
-          console.warn(`Error processing layer at index ${i}:`, error.message, layer);
-          continue;
         }
       }
+
+      await Promise.all(new Array(Math.min(limit, inputLayers.length)).fill(0).map(() => worker()));
 
       const skippedCount = layers.length - glayers.length;
       console.log(`Successfully processed: ${glayers.length}, Skipped: ${skippedCount}`);
@@ -798,6 +769,9 @@ onMounted(() => {
       tableDataList.value = glayers;
       totalItems.value = glayers.length;
       loading.value = false;
+      // reset progress state
+      totalLayers.value = 0;
+      processedLayers.value = 0;
 
       selOptions.value = glayers.map((layer: any) => ({
         value: layer.name,
@@ -959,7 +933,14 @@ const xdownloadImagery = (layerName) => {
 </script>
 
 <template>
-  <el-card v-loading="loading">
+  <el-card v-loading="loading && totalLayers === 0">
+    <div v-if="totalLayers > 0" style="margin: 8px 0 12px 0;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <span>Loading layers: {{ processedLayers }} / {{ totalLayers }}</span>
+        <span>{{ progressPct }}%</span>
+      </div>
+      <el-progress :percentage="progressPct" :stroke-width="12" :show-text="false"/>
+    </div>
     <el-row
       type="flex"
       justify="start"

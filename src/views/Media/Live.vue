@@ -12,8 +12,7 @@ const selectedStream = ref<StreamInfo | null>(null);
 const connectionStatus = ref("disconnected");
 const videoRef = ref<HTMLVideoElement | null>(null);
 const isConnected = ref(false);
-const videoRotation = ref(0); // Track current rotation
-const isVideoRotated = ref(false);
+// Rotation removed
 const isMobile = ref(false);
 const refreshIntervalId = ref<number | null>(null);
 
@@ -173,6 +172,8 @@ async function watchStream(stream: StreamInfo) {
     console.log("✅ Video element found:", videoRef.value);
     console.log("🎥 Attempting to join stream:", stream.streamId);
     
+    // Rotation handling removed
+    
     const success = await webrtcService.joinStream(stream.streamId, videoRef.value);
     console.log("📊 Stream join result:", success);
     
@@ -209,63 +210,12 @@ function handleWatchClick(row: StreamInfo) {
 function closePlayer() {
   showPlayer.value = false;
   selectedStream.value = null;
-  videoRotation.value = 0;
-  isVideoRotated.value = false;
   webrtcService.leaveStream();
 }
 
-function toggleVideoRotation() {
-  if (!videoRef.value) return;
-  
-  // Cycle through rotations: 0° → 90° → 180° → 270° → 0°
-  videoRotation.value = (videoRotation.value + 90) % 360;
-  isVideoRotated.value = videoRotation.value !== 0;
-  
-  console.log(`🔄 Manual rotation applied: ${videoRotation.value}°`);
-  
-  const video = videoRef.value;
-  if (videoRotation.value === 0) {
-    video.style.transform = 'none';
-  } else {
-    video.style.transform = `rotate(${videoRotation.value}deg)`;
-    video.style.transformOrigin = 'center center';
-  }
-  
-  ElMessage.info(`Video rotated to ${videoRotation.value}°`);
-}
+// Rotation controls removed
 
-function detectAndCorrectRotation() {
-  if (!videoRef.value) return;
-  
-  const video = videoRef.value;
-  console.log('🔄 Checking video dimensions for rotation detection...');
-  
-  // Wait for video metadata to load
-  if (video.videoWidth === 0 || video.videoHeight === 0) {
-    console.log('⏳ Video dimensions not ready, will retry...');
-    return;
-  }
-  
-  const aspectRatio = video.videoWidth / video.videoHeight;
-  console.log(`📐 Video dimensions: ${video.videoWidth}x${video.videoHeight}, aspect ratio: ${aspectRatio.toFixed(2)}`);
-  
-  // If the video appears to be in portrait mode (height > width) but we expect landscape,
-  // or if the aspect ratio suggests rotation, apply correction
-  if (video.videoHeight > video.videoWidth && aspectRatio < 1) {
-    console.log('🔄 Portrait video detected - applying rotation correction');
-    isVideoRotated.value = true;
-    videoRotation.value = 90; // Rotate to make it landscape
-    
-    // Apply the rotation transform
-    video.style.transform = `rotate(90deg) scale(${1/aspectRatio}, ${aspectRatio})`;
-    video.style.transformOrigin = 'center center';
-  } else {
-    console.log('✅ Video orientation looks correct');
-    isVideoRotated.value = false;
-    videoRotation.value = 0;
-    video.style.transform = 'none';
-  }
-}
+// Auto-rotation removed
 
 function handleVideoClick() {
   console.log('🎮 Video clicked - attempting manual play');
@@ -509,14 +459,7 @@ onUnmounted(() => {
           <div class="stream-title">
             <h3>{{ selectedStream.title }}</h3>
             <el-tag type="success" size="small">LIVE</el-tag>
-            <el-button 
-              type="info" 
-              size="small" 
-              @click="toggleVideoRotation"
-              title="Rotate video if it appears sideways"
-            >
-              🔄 Rotate ({{ videoRotation }}°)
-            </el-button>
+            
           </div>
           <p class="stream-meta">Streamer: {{ selectedStream.streamerName || 'Unknown Streamer' }}</p>
         </div>
@@ -533,9 +476,6 @@ onUnmounted(() => {
             controls
             class="stream-video"
             @click="handleVideoClick"
-            @loadedmetadata="detectAndCorrectRotation"
-            @playing="detectAndCorrectRotation"
-            @resize="detectAndCorrectRotation"
           >
             Your browser does not support the video tag.
           </video>
