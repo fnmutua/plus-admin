@@ -2218,7 +2218,7 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
 
       <ElPagination
 layout="sizes, prev, pager, next, total" v-model:currentPage="page"
-      v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100]" :total="totalApproved" :background="true"
+      v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100,1000,2000]" :total="totalApproved" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
 
     </div>
@@ -2295,7 +2295,7 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
       </el-table>
       <ElPagination
 layout="sizes, prev, pager, next, total" v-model:currentPage="page"
-      v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100]" :total="totalPending" :background="true"
+      v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100,1000,2000]" :total="totalPending" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
     </div>
 
@@ -2366,7 +2366,7 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" ci
 
       <ElPagination
 layout="sizes, prev, pager, next, total" v-model:currentPage="page"
-      v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100]" :total="totalRejected" :background="true"
+      v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100,1000,2000]" :total="totalRejected" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
     </div>
 
@@ -2440,7 +2440,7 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" ci
 
         <ElPagination
 layout="sizes, prev, pager, next, total" v-model:currentPage="page"
-        v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100]" :total="decommSettlementsCount" :background="true"
+        v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100,1000,2000]" :total="decommSettlementsCount" :background="true"
         @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
     </div>
 
@@ -2566,7 +2566,7 @@ type="primary" size="small" :icon="View" @click="DeleteReview(row)"
     layout="sizes, prev, pager, next, jumper" 
     :total="duplicateRecords.length"
     :page-size="pageSize" 
-    :page-sizes="[5, 10, 15, 20, 50, 100]" 
+    :page-sizes="[5, 10, 15, 20, 50, 100,1000,2000]" 
     @current-change="handlePageChange" 
     @size-change="onPageSizeChange" />
 </div>
