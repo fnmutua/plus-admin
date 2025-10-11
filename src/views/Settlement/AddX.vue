@@ -348,6 +348,119 @@ const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
 
+// Check if user is super admin
+const isSuperAdmin = ref(
+  userInfo.roles.some(role => role.name === "super_admin" || role.name === "root_admin")
+);
+
+// Process user roles for location-based permissions
+const processedRoles = userInfo.roles.map(role => {
+  let field = null;
+  let fieldvalue = null;
+  if (role.user_roles.location_level === "county") {
+    field = "county_id";
+    fieldvalue = role.user_roles.county_id;
+  } else if (role.user_roles.location_level === "settlement") {
+    field = "settlement_id";
+    fieldvalue = role.user_roles.settlement_id;
+  } else if (role.user_roles.location_level === "national" || role.user_roles.location_level === null) {
+    return {
+      role: role.name,
+      model: "national",
+      field: null,
+      fieldvalue: null
+    };
+  } else {
+    field = "location_id";
+    fieldvalue = role.user_roles.location_id;
+  }
+  return {
+    role: role.name,
+    model: role.user_roles.location_level,
+    field: field,
+    fieldvalue: fieldvalue
+  };
+}).filter(role => role !== null);
+
+// Location-aware permission checking function
+const canUserAccessSettlement = (settlement: any, action: 'edit' | 'delete' | 'create'): boolean => {
+  // Super admins can access everything
+  if (isSuperAdmin.value) {
+    return true;
+  }
+
+  // Check if user has the required global permission
+  const userPermissions = userInfo.permissions || [];
+  const requiredPermissions = {
+    edit: 'settlement:update',
+    delete: 'settlement:delete',
+    create: 'settlement:create'
+  };
+
+  // If user has all permissions (*.*.*), allow access
+  if (userPermissions.includes('*.*.*')) {
+    return true;
+  }
+
+  // Check if user has the specific permission
+  if (!userPermissions.includes(requiredPermissions[action])) {
+    return false;
+  }
+
+  // For create action, check if user can create in any of their assigned locations
+  if (action === 'create') {
+    return processedRoles.some(role => 
+      role.model === 'county' || role.model === 'settlement' || role.model === 'national'
+    );
+  }
+
+  // For edit/delete actions, check location-based access
+  return processedRoles.some(role => {
+    if (role.model === 'national') {
+      return true; // National level access
+    } else if (role.model === 'county') {
+      return settlement.county_id === role.fieldvalue;
+    } else if (role.model === 'settlement') {
+      return settlement.id === role.fieldvalue;
+    } else if (role.field === 'location_id') {
+      // Check subcounty or ward level access
+      return settlement.subcounty_id === role.fieldvalue || settlement.ward_id === role.fieldvalue;
+    }
+    return false;
+  });
+};
+
+// Check if user can create settlements in the selected location
+const canCreateInLocation = (countyId: string, subcountyId?: string, wardId?: string): boolean => {
+  if (isSuperAdmin.value) {
+    return true;
+  }
+
+  const userPermissions = userInfo.permissions || [];
+  if (userPermissions.includes('*.*.*')) {
+    return true;
+  }
+
+  if (!userPermissions.includes('settlement:create')) {
+    return false;
+  }
+
+  return processedRoles.some(role => {
+    if (role.model === 'national') {
+      return true;
+    } else if (role.model === 'county') {
+      return countyId === role.fieldvalue;
+    } else if (role.model === 'settlement') {
+      // Settlement-level users can only create in their specific settlement
+      return false; // They can't create new settlements
+    } else if (role.field === 'location_id') {
+      // Check if user has access to the specific subcounty or ward
+      return subcountyId === role.fieldvalue || wardId === role.fieldvalue;
+    }
+    return false;
+  });
+};
+
 // Watch for dark mode changes from the app store
 watch(() => appStore.getIsDark, (isDark) => {
   // Update toolbar theme when dark mode changes
@@ -443,6 +556,15 @@ const area_ha = ref(0)
 
 
 const onSelectCounty = (county_id) => {
+  // Check if user can create in this county
+  if (!canCreateInLocation(county_id)) {
+    ElMessage({
+      message: 'You do not have permission to create settlements in this county.',
+      type: 'warning',
+    });
+    return;
+  }
+
   formData.subcounty_id = null
   formData.ward_id = null
   formData.settlement_id = null
@@ -455,6 +577,15 @@ const onSelectCounty = (county_id) => {
 
 
 const onSelectSubcounty = (subcounty_id) => {
+  // Check if user can create in this subcounty
+  if (!canCreateInLocation(formData.county_id, subcounty_id)) {
+    ElMessage({
+      message: 'You do not have permission to create settlements in this subcounty.',
+      type: 'warning',
+    });
+    return;
+  }
+
   formData.ward_id = null
   formData.settlement_id = null
 
@@ -513,6 +644,14 @@ const calculateArea = (geom) => {
 
 
 const onSelectWard = (ward_id) => {
+  // Check if user can create in this ward
+  if (!canCreateInLocation(formData.county_id, formData.subcounty_id, ward_id)) {
+    ElMessage({
+      message: 'You do not have permission to create settlements in this ward.',
+      type: 'warning',
+    });
+    return;
+  }
 
   formData.settlement_id = null
   settOptionsFiltered.value = settlementOptionsV2.value.filter((obj) => obj.ward_id == ward_id);
@@ -529,6 +668,15 @@ const onSelectSettlement = (sett_id) => {
 };
 
 const setLocationOnMobile = () => {
+  // Check if user can create in the selected location
+  if (!canCreateInLocation(county_id.value, subcounty_id.value, ward_id.value)) {
+    ElMessage({
+      message: 'You do not have permission to create settlements in this location.',
+      type: 'warning',
+    });
+    return;
+  }
+
   formData.county_id = county_id.value
   formData.subcounty_id = subcounty_id.value
   formData.ward_id = ward_id.value
@@ -585,6 +733,16 @@ onMounted(async () => {
         console.log('curData', curData)
         geomScope.value = curData.geom
 
+        // Check if user can edit this settlement
+        if (!canUserAccessSettlement(curData, 'edit')) {
+          ElMessage({
+            message: 'You do not have permission to edit this settlement.',
+            type: 'error',
+          });
+          // Redirect back to settlements list
+          router.back();
+          return;
+        }
 
         subcountyOptionsFiltered.value = subcountyOptions.value.filter((obj: any) => obj.county_id == curData.county_id);
         wardOptionsFiltered.value = wardOptions.value.filter((obj: any) => obj.subcounty_id == curData.subcounty_id);
@@ -2220,6 +2378,27 @@ const submitForm = async () => {
   const formInstance = dynamicFormRef
   formInstance.value.validate(async (valid: boolean) => {
     if (valid) {
+      // Check permissions before proceeding
+      if (newRecord.value) {
+        // For new records, check if user can create in the selected location
+        if (!canCreateInLocation(formData.county_id, formData.subcounty_id, formData.ward_id)) {
+          ElMessage({
+            message: 'You do not have permission to create settlements in this location.',
+            type: 'warning',
+          });
+          return;
+        }
+      } else {
+        // For editing existing records, check if user can edit this settlement
+        if (!canUserAccessSettlement(formData, 'edit')) {
+          ElMessage({
+            message: 'You do not have permission to edit this settlement.',
+            type: 'warning',
+          });
+          return;
+        }
+      }
+
       // Perform form submission logic
       console.log('Form validation passed, preparing to submit...');
       console.log('Current formData before submission:', formData);
@@ -2391,23 +2570,59 @@ const handleChangeLocation = async (value: any) => {
 // Function to get the field change handler based on field name
 const getFieldChangeHandler = (fieldName: string) => {
   const field = formFields.flat().find((f) => f.name === fieldName);
-  if (fieldName == 'county_id') {
-    onSelectCounty(formData[fieldName])
-  }
+  
+  // For new records, check permissions before allowing location changes
+  if (newRecord.value) {
+    if (fieldName == 'county_id') {
+      if (!canCreateInLocation(formData[fieldName])) {
+        ElMessage({
+          message: 'You do not have permission to create settlements in this county.',
+          type: 'warning',
+        });
+        return;
+      }
+      onSelectCounty(formData[fieldName])
+    }
 
+    if (fieldName == 'subcounty_id') {
+      if (!canCreateInLocation(formData.county_id, formData[fieldName])) {
+        ElMessage({
+          message: 'You do not have permission to create settlements in this subcounty.',
+          type: 'warning',
+        });
+        return;
+      }
+      onSelectSubcounty(formData[fieldName])
+    }
+    
+    if (fieldName == 'ward_id') {
+      if (!canCreateInLocation(formData.county_id, formData.subcounty_id, formData[fieldName])) {
+        ElMessage({
+          message: 'You do not have permission to create settlements in this ward.',
+          type: 'warning',
+        });
+        return;
+      }
+      onSelectWard(formData[fieldName])
+    }
+  } else {
+    // For editing existing records, use the original handlers
+    if (fieldName == 'county_id') {
+      onSelectCounty(formData[fieldName])
+    }
 
-  if (fieldName == 'subcounty_id') {
-    onSelectSubcounty(formData[fieldName])
+    if (fieldName == 'subcounty_id') {
+      onSelectSubcounty(formData[fieldName])
+    }
+    
+    if (fieldName == 'ward_id') {
+      onSelectWard(formData[fieldName])
+    }
   }
-  if (fieldName == 'ward_id') {
-    onSelectWard(formData[fieldName])
-  }
+  
   if (fieldName == 'settlement_id') {
     onSelectSettlement(formData[fieldName])
   }
-
-
-
 
   if (fieldName == 'location_option') {
     handleChangeLocationOption(formData[fieldName])

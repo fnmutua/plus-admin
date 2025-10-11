@@ -190,6 +190,140 @@ const pushRoleFilters = () => {
  // saveFiltersToStorage(); // Save after updating filters
 };
 
+// Location-aware permission checking function
+const canUserAccessSettlement = (settlement: any, action: 'edit' | 'delete' | 'create'): boolean => {
+  // Super admins can access everything
+  if (isSuperAdmin.value) {
+    return true;
+  }
+
+  // Check if user has the required global permission
+  const userPermissions = userInfo.permissions || [];
+  const requiredPermissions = {
+    edit: 'settlement:update',
+    delete: 'settlement:delete',
+    create: 'settlement:create'
+  };
+
+  // If user has all permissions (*.*.*), allow access
+  if (userPermissions.includes('*.*.*')) {
+    return true;
+  }
+
+  // Check if user has the specific permission
+  if (!userPermissions.includes(requiredPermissions[action])) {
+    return false;
+  }
+
+  // For create action, check if user can create in any of their assigned locations
+  if (action === 'create') {
+    return processedRoles.some(role => 
+      role.model === 'county' || role.model === 'settlement' || role.model === 'national'
+    );
+  }
+
+  // For edit/delete actions, check location-based access
+  return processedRoles.some(role => {
+    if (role.model === 'national') {
+      return true; // National level access
+    } else if (role.model === 'county') {
+      return settlement.county_id === role.fieldvalue;
+    } else if (role.model === 'settlement') {
+      return settlement.id === role.fieldvalue;
+    } else if (role.field === 'location_id') {
+      // Check subcounty or ward level access
+      return settlement.subcounty_id === role.fieldvalue || settlement.ward_id === role.fieldvalue;
+    }
+    return false;
+  });
+};
+
+// Get action buttons for a specific settlement
+const getSettlementActionButtons = (settlement: any): string[] => {
+  let buttons: string[] = [];
+  
+  // Always show view on map if settlement has geometry
+  if (settlement.geom || settlement.hasGeom) {
+    buttons.push('viewOnMap');
+  }
+
+  // Check edit permission
+  if (canUserAccessSettlement(settlement, 'edit')) {
+    buttons.push('edit');
+  }
+
+  // Check delete permission
+  if (canUserAccessSettlement(settlement, 'delete')) {
+    buttons.push('delete');
+  }
+
+  // Add review button for New/Rejected segments if user has admin rights
+  if ((activeSegment.value === 'New' || activeSegment.value === 'Rejected') && showAdminButtons.value) {
+    buttons.push('review');
+  }
+
+  // Add decommission button for Approved settlements if super admin
+  if (activeSegment.value === 'Approved' && isSuperAdmin.value) {
+    buttons.push('decommission');
+  }
+
+  return buttons;
+};
+
+// Calculate dynamic action column width based on button count
+const getActionColumnWidth = (): string => {
+  // Mobile responsiveness
+  const isMobileView = isMobile.value;
+  
+  // Base width for the column header and padding
+  const baseWidth = isMobileView ? 60 : 80;
+  // Width per button (considering button size + margin)
+  const buttonWidth = isMobileView ? 35 : 45;
+  // Minimum width to ensure readability
+  const minWidth = isMobileView ? 80 : 120;
+  
+  const calculatedWidth = baseWidth + (maxButtons * buttonWidth);
+  return `${Math.max(calculatedWidth, minWidth)}px`;
+};
+
+// Get maximum number of buttons across all settlements for current segment
+const getMaxButtonCount = computed(() => {
+  let maxCount = 0;
+  let dataToCheck: any[] = [];
+  
+  // Get the appropriate data array based on active segment
+  switch (activeSegment.value) {
+    case 'Approved':
+      dataToCheck = tableDataList.value;
+      break;
+    case 'New':
+      dataToCheck = tableDataListNew.value;
+      break;
+    case 'Rejected':
+      dataToCheck = tableDataListRejected.value;
+      break;
+    case 'Decommissioned':
+      dataToCheck = decommSettlements.value;
+      break;
+    default:
+      dataToCheck = [];
+  }
+  
+  // Calculate max button count across all settlements
+  dataToCheck.forEach(settlement => {
+    const buttonCount = getSettlementActionButtons(settlement).length;
+    if (buttonCount > maxCount) {
+      maxCount = buttonCount;
+    }
+  });
+  
+  // Ensure minimum of 1 button (viewOnMap is usually always present)
+  return Math.max(maxCount, 1);
+});
+
+// Dynamic action column width for current segment
+const actionColumnWidth = computed(() => getActionColumnWidth(getMaxButtonCount.value));
+
 // Form setup
 const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
@@ -1118,6 +1252,15 @@ const handleClose = () => {
 }
 
 const AddSettlement = () => {
+  // Check if user can create settlements
+  if (!canUserAccessSettlement({}, 'create')) {
+    ElMessage({
+      message: 'You do not have permission to create settlements.',
+      type: 'warning',
+    });
+    return;
+  }
+  
   push({ name: 'AddSettlementX' })
 }
 
@@ -1160,6 +1303,15 @@ const editSettlement = (data: TableSlotDefault) => {
 }
 
 const handleEdit = (data) => {
+  // Check if user can edit this settlement
+  if (!canUserAccessSettlement(data, 'edit')) {
+    ElMessage({
+      message: 'You do not have permission to edit this settlement.',
+      type: 'warning',
+    });
+    return;
+  }
+
   push({
     name: 'AddSettlementX',
     query: { id: data.id }
@@ -1213,6 +1365,15 @@ const DeleteSettlement = (data: TableSlotDefault) => {
 }
 
 const handleDelete = (data: TableSlotDefault) => {
+  // Check if user can delete this settlement
+  if (!canUserAccessSettlement(data, 'delete')) {
+    ElMessage({
+      message: 'You do not have permission to delete this settlement.',
+      type: 'warning',
+    });
+    return;
+  }
+
   let formData = {}
   formData.id = data.id
   formData.model = model
@@ -1345,7 +1506,6 @@ const handleDownloadSelectFields = async () => {
 }
 
 const dialogWidth = ref(isMobile.value ? "90%" : "25%")
-const actionColumnWidth = ref(isMobile.value ? "80px" : "200px")
 
 const getDocumentTypes = async () => {}
 getDocumentTypes()
@@ -2078,9 +2238,7 @@ v-model="search_string" clearable :onClear="handleClear"
 
 
           <el-tooltip content="Add Settlement" placement="top">
-            <PermissionWrapper :permissions="'settlement:create'">
-              <el-button :onClick="AddSettlement" type="primary" :icon="Plus" />
-            </PermissionWrapper>
+            <el-button v-if="canUserAccessSettlement({}, 'create')" :onClick="AddSettlement" type="primary" :icon="Plus" />
           </el-tooltip>
           
           <el-tooltip content="Clear" placement="top">
@@ -2204,13 +2362,11 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
           </template>
         </el-table-column>
 
-        <el-table-column label="Actions" width="250">
+        <el-table-column label="Actions" :width="actionColumnWidth">
           <template #default="{ row }">
-            <PermissionWrapper :permissions="['settlement:update', 'settlement:delete']">
-              <TableActions
-                :item="row" :buttons="action_buttons" @view-on-map="handleViewOnMap" @edit="handleEdit"
-                @review="Review" @delete="handleDelete" @decommission="handleDecommission" />
-            </PermissionWrapper>
+            <TableActions
+              :item="row" :buttons="getSettlementActionButtons(row)" @view-on-map="handleViewOnMap" @edit="handleEdit"
+              @review="Review" @delete="handleDelete" @decommission="handleDecommission" />
           </template>
         </el-table-column>
 
@@ -2282,11 +2438,11 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
         </el-table-column>
 
 
-        <el-table-column label="Actions" width="300">
+        <el-table-column label="Actions" :width="actionColumnWidth">
           <template #default="{ row }">
             <!-- Example 1: Only Edit and Delete buttons -->
             <TableActions
-:item="row" :buttons="action_buttons" @edit="handleEdit" @review="Review"
+:item="row" :buttons="getSettlementActionButtons(row)" @edit="handleEdit" @review="Review"
               @delete="handleDelete" @view-on-map="handleViewOnMap" @decommission="handleDecommission" />
 
           </template>
@@ -2351,11 +2507,11 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" ci
           </template>
         </el-table-column>
 
-        <el-table-column label="Actions" width="300">
+        <el-table-column label="Actions" :width="actionColumnWidth">
           <template #default="{ row }">
             <!-- Example 1: Only Edit and Delete buttons -->
             <TableActions
-:item="row" :buttons="action_buttons" @edit="handleEdit" @review="Review"
+:item="row" :buttons="getSettlementActionButtons(row)" @edit="handleEdit" @review="Review"
               @delete="handleDelete" @view-on-map="handleViewOnMap" @decommission="handleDecommission" />
 
           </template>
@@ -2425,11 +2581,11 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" ci
             </template>
           </el-table-column>
 
-          <el-table-column label="Actions" width="300">
+          <el-table-column label="Actions" :width="actionColumnWidth">
             <template #default="{ row }">
               <!-- Example 1: Only Edit and Delete buttons -->
               <TableActions
-:item="row" :buttons="action_buttons" @edit="handleEdit" @review="Review"
+:item="row" :buttons="getSettlementActionButtons(row)" @edit="handleEdit" @review="Review"
                 @delete="handleDelete" @view-on-map="handleViewOnMap" @decommission="handleDecommission" />
 
             </template>
