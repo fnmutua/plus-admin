@@ -271,7 +271,7 @@ const getSettlementActionButtons = (settlement: any): string[] => {
 };
 
 // Calculate dynamic action column width based on button count
-const getActionColumnWidth = (): string => {
+const getActionColumnWidth = (maxButtons): string => {
   // Mobile responsiveness
   const isMobileView = isMobile.value;
   

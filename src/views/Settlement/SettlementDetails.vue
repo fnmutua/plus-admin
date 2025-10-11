@@ -14,7 +14,6 @@ import { useRouter } from 'vue-router'
 import { getFile } from '@/api/summary'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
-import html2canvas from 'html2canvas'
 
 // Locally
 import '@dafcoe/vue-collapsible-panel/dist/vue-collapsible-panel.css'
@@ -55,6 +54,55 @@ const { push } = useRouter()
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
+const userInfo = wsCache.get(appStore.getUserInfo)
+
+// Check if user is super admin
+const isSuperAdmin = ref(
+  userInfo.roles.some(role => role.name === "super_admin" || role.name === "root_admin")
+);
+
+// Process user roles for location-based permissions
+const processedRoles = userInfo.roles.map(role => {
+  let field = null;
+  let fieldvalue = null;
+  if (role.user_roles.location_level === "county") {
+    field = "county_id";
+    fieldvalue = role.user_roles.county_id;
+  } else if (role.user_roles.location_level === "settlement") {
+    field = "settlement_id";
+    fieldvalue = role.user_roles.settlement_id;
+  } else if (role.user_roles.location_level === "national" || role.user_roles.location_level === "regional") {
+    // National/Regional level access - can access all settlements
+    field = null;
+    fieldvalue = null;
+  }
+  return { field, value: fieldvalue, location_level: role.user_roles.location_level };
+});
+
+// Location-aware permission checking function
+const canUserAccessSettlement = (settlement: any, action: 'edit' | 'delete' | 'view'): boolean => {
+  // Super admins can access everything
+  if (isSuperAdmin.value) {
+    return true;
+  }
+
+  // For view action, allow if user has any location access
+  if (action === 'view') {
+    return processedRoles.some(role => role.field !== null);
+  }
+
+  // For edit/delete actions, check specific location permissions
+  return processedRoles.some(role => {
+    if (!role.field) return false; // No location restriction means no access for edit/delete
+    
+    if (role.field === "settlement_id") {
+      return settlement.id === role.value;
+    } else if (role.field === "county_id") {
+      return settlement.county_id === role.value;
+    }
+    return false;
+  });
+};
 
 const showAdminButtons = ref(appStore.getAdminButtons)
 const showEditButtons = ref(appStore.getEditButtons)
@@ -1223,6 +1271,19 @@ const projectStatus = (data) => {
 
 
 const AddReport = () => {
+  // Check if user can edit this settlement
+  const settlementData = {
+    id: route.params.id,
+    county_id: profile.county_id || null
+  };
+  
+  if (!canUserAccessSettlement(settlementData, 'edit')) {
+    ElMessage({
+      message: 'You do not have permission to add reports for this settlement.',
+      type: 'warning',
+    });
+    return;
+  }
 
   push({
     name: 'PastReports',
@@ -1336,6 +1397,20 @@ const getProjectLocations = async (settlement_id) => {
 };
 
 const RevertEdits = async (data: TableSlotDefault) => {
+  // Check if user can edit this settlement
+  const settlementData = {
+    id: route.params.id,
+    county_id: profile.county_id || null
+  };
+  
+  if (!canUserAccessSettlement(settlementData, 'edit')) {
+    ElMessage({
+      message: 'You do not have permission to revert changes for this settlement.',
+      type: 'warning',
+    });
+    return;
+  }
+
   console.log('Reverts.....', data.row)
 
   const formData = {
@@ -1351,6 +1426,19 @@ const RevertEdits = async (data: TableSlotDefault) => {
 
 
 const editSettlement = () => {
+  // Check if user can edit this settlement
+  const settlementData = {
+    id: route.params.id,
+    county_id: profile.county_id || null
+  };
+  
+  if (!canUserAccessSettlement(settlementData, 'edit')) {
+    ElMessage({
+      message: 'You do not have permission to edit this settlement.',
+      type: 'warning',
+    });
+    return;
+  }
 
   push({
     name: 'AddSettlementX',
@@ -1564,7 +1652,7 @@ const generatePDFReport = () => {
           </el-button>
           {{ profile.name }} Settlement, {{ profile.subcounty }} Subcounty, {{ profile.county }} County
         </div>
-        <el-button v-if="showAdminButtons" type="success" :icon="Edit" @click="editSettlement">
+        <el-button v-if="showAdminButtons && canUserAccessSettlement({id: route.params.id, county_id: profile.county_id}, 'edit')" type="success" :icon="Edit" @click="editSettlement">
           Edit
         </el-button>
       </div>
@@ -1677,7 +1765,7 @@ const generatePDFReport = () => {
 
 
 
-             <el-tab-pane  v-if="showAdminButtons||showEditButtons" label="Documents" name="documents">
+             <el-tab-pane  v-if="canUserAccessSettlement({id: route.params.id, county_id: profile.county_id}, 'view')" label="Documents" name="documents">
 
                   <div>
             <!-- Filter Input -->
@@ -1797,7 +1885,7 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
 
       </el-tab-pane>
 
-    <el-tab-pane  v-if="showAdminButtons||showEditButtons" label="Households" name="Households">
+    <el-tab-pane  v-if="canUserAccessSettlement({id: route.params.id, county_id: profile.county_id}, 'view')" label="Households" name="Households">
    
         <el-card>
           <el-row :gutter="10" style="margin-bottom:10px">
@@ -1854,7 +1942,7 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
       <el-tab-pane label="Indicators" name="Indicator">
         <el-card>
 
-          <el-button :onClick="AddReport" style="margin-left :5px;margin-bottom :5px; " plain>
+          <el-button v-if="canUserAccessSettlement({id: route.params.id, county_id: profile.county_id}, 'edit')" :onClick="AddReport" style="margin-left :5px;margin-bottom :5px; " plain>
             <Icon icon="material-symbols:add" style=" color: green" /> File Report
           </el-button>
 
@@ -1905,7 +1993,7 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
       </el-tab-pane>
 
 
-      <el-tab-pane  v-if="showAdminButtons||showEditButtons" label="History" name="History">
+      <el-tab-pane  v-if="canUserAccessSettlement({id: route.params.id, county_id: profile.county_id}, 'edit')" label="History" name="History">
 
 
         <el-table :data="editHistory" border ref="tableEditRef" >
@@ -1938,7 +2026,7 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
         </el-table>
       </el-tab-pane>
 
-      <el-tab-pane  v-if="showAdminButtons||showEditButtons" label="Settings" name="Settings">
+      <el-tab-pane  v-if="canUserAccessSettlement({id: route.params.id, county_id: profile.county_id}, 'delete')" label="Settings" name="Settings">
         <el-popconfirm
 width="300" title="Are you sure to delete this project?"
           @confirm="DeleteProject(projectFullData.id)">
