@@ -1337,8 +1337,27 @@ const AddTeam = async () => {
   AddTeamDialog.value = true
 }
 
-const roles = ['Project Manager', 'Regional Lead', 'CDH', 'Clerk of Works', 'Other'];
-
+const xroles = ['Project Manager', 'Regional Lead', 'CDH', 'Clerk of Works', 'Other'];
+const roles = [
+  "Team Leader",
+  "Resident Engineer (RE)",
+  "Assistant Resident Engineer (ARE)",
+  "Roads Engineer",
+  "Materials Engineer",
+  "Water & Sanitation Engineer",
+  "Electrical Engineer",
+  "Surveyor Engineer",
+  "Environmental Expert",
+  "Sociologist / Community / Resettlement Expert",
+  "Socio-Economist",
+  "Procurement and Contract Management Expert",
+  "Works Inspector",
+  "CAD Technician",
+  "Laboratory Technicians",
+  "Office Administrator",
+  "Chainmen",
+  "Other"
+]
 
 
 

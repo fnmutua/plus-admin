@@ -1006,6 +1006,51 @@ module.exports = function(app) {
      */
    // app.post("/api/v1/project/location/details", [authJwt.verifyToken, hasPermission('project:read')], controller.getProjectLocationDetails);
     app.post("/api/v1/project/location/details", [], controller.getProjectLocationDetails);
+
+    /**
+     * @swagger
+     * /api/v1/project/team/add:
+     *   post:
+     *     tags: [Projects]
+     *     summary: Create or update a project team member
+     *     security:
+     *       - bearerAuth: []
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             type: object
+     *             properties:
+     *               id:
+     *                 type: integer
+     *               project_id:
+     *                 type: integer
+     *                 example: 1
+     *               name:
+     *                 type: string
+     *               phone:
+     *                 type: string
+     *               email:
+     *                 type: string
+     *               role:
+     *                 type: string
+     *                 enum: ["Project Manager", "Regional Lead", "CDH", "Clerk of Works", "Other"]
+     *               code:
+     *                 type: string
+     *     responses:
+     *       200:
+     *         description: Team member created or updated
+     *       400:
+     *         description: Validation or duplicate error
+     *       401:
+     *         description: Unauthorized
+     *       403:
+     *         description: Forbidden
+     *       500:
+     *         description: Server error
+     */
+    app.post('/api/v1/project/team/add', [], controller.addProjectTeamMember);
  
     
 

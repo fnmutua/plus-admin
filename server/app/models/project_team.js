@@ -32,9 +32,9 @@ module.exports = function(sequelize, DataTypes) {
   role: {
     type: DataTypes.STRING,
     allowNull: false,
-    validate: {
-      isIn: [['Project Manager', 'Regional Lead', 'CDH', 'Clerk of Works','Other' ]]
-    }
+    // validate: {
+    //   isIn: [['Project Manager', 'Regional Lead', 'CDH', 'Clerk of Works','Other' ]]
+    // }
   },
      code: {
       type: DataTypes.STRING,

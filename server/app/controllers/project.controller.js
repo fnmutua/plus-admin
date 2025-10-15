@@ -959,4 +959,36 @@ exports.getProjectLocationDetails = async (req, res) => {
 };
 
 
+// Create or update a project team member
+exports.addProjectTeamMember = async (req, res) => {
+  try {
+    const { id, project_id, name, phone, email, role, code } = req.body;
+
+    if (!project_id || !name || !phone || !role) {
+      return res.status(400).json({ message: 'project_id, name, phone, and role are required' });
+    }
+
+    const payload = { id, project_id, name, phone, email, role, code };
+
+    // Attach createdBy if available
+    if (req.thisUser && req.thisUser.id) {
+      payload.createdBy = req.thisUser.id;
+    }
+
+    const [item, created] = await db.models.project_team.upsert(payload, { returning: true });
+
+    return res.status(200).json({
+      message: created ? 'Team member created' : 'Team member updated',
+      data: item,
+      code: '0000',
+    });
+  } catch (error) {
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      return res.status(400).json({ message: 'Duplicate team member for project (name/phone/email must be unique per project)' });
+    }
+    console.error('Error adding project team member:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
  
