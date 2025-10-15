@@ -678,6 +678,334 @@ module.exports = function(app) {
      *                     example: "Duplicate entry for code TASK-001"
      */
     app.post("/api/v1/project/task/import", [authJwt.verifyToken, hasPermission('project:import')], controller.modelImportDataUpsert);
+
+    /**
+     * @swagger
+     * /api/v1/project/details:
+     *   post:
+     *     tags: [Projects]
+     *     summary: Get project details
+     *     description: Retrieve detailed information about a specific project including contractor information.
+     *     security:
+     *       - bearerAuth: []
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             type: object
+     *             properties:
+     *               id:
+     *                 type: integer
+     *                 description: Project ID
+     *                 example: 1
+     *               code:
+     *                 type: string
+     *                 description: Project code
+     *                 example: "PROJ-001"
+     *     responses:
+     *       200:
+     *         description: Project details retrieved successfully
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 message:
+     *                   type: string
+     *                   example: "Project details retrieved successfully"
+     *                 data:
+     *                   type: object
+     *                   properties:
+     *                     id:
+     *                       type: integer
+     *                       example: 1
+     *                     title:
+     *                       type: string
+     *                       example: "Infrastructure Development Project"
+     *                     project_code:
+     *                       type: string
+     *                       example: "INFRA-2024"
+     *                     code:
+     *                       type: string
+     *                       example: "PROJ-001"
+     *                     status:
+     *                       type: string
+     *                       example: "Active"
+     *                     description:
+     *                       type: string
+     *                       example: "Development of infrastructure components"
+     *                     start_date:
+     *                       type: string
+     *                       format: date-time
+     *                     end_date:
+     *                       type: string
+     *                       format: date-time
+     *                     cost:
+     *                       type: integer
+     *                       example: 1000000
+     *                     contractor:
+     *                       type: object
+     *                       properties:
+     *                         id:
+     *                           type: integer
+     *                           example: 1
+     *                         name:
+     *                           type: string
+     *                           example: "ABC Construction Ltd"
+     *                         contract_number:
+     *                           type: string
+     *                           example: "CON-2024-001"
+     *                         address:
+     *                           type: string
+     *                           example: "123 Main Street, Nairobi"
+     *                         phone:
+     *                           type: string
+     *                           example: "+254700000000"
+     *                         code:
+     *                           type: string
+     *                           example: "CON-001"
+     *                 code:
+     *                   type: string
+     *                   example: "0000"
+     *       400:
+     *         description: Bad request - project ID or code required
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 message:
+     *                   type: string
+     *                   example: "Project ID or code is required"
+     *       401:
+     *         description: Unauthorized - invalid token
+     *       403:
+     *         description: Forbidden - insufficient permissions (project:read)
+     *       404:
+     *         description: Project not found
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 message:
+     *                   type: string
+     *                   example: "Project not found"
+     *       500:
+     *         description: Internal server error
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 message:
+     *                   type: string
+     *                   example: "An unexpected error occurred while fetching project details."
+     */
+    app.post("/api/v1/project/details", [authJwt.verifyToken, hasPermission('project:read')], controller.getProjectDetails);
+
+    /**
+     * @swagger
+     * /api/v1/project/location/details:
+     *   post:
+     *     tags: [Projects]
+     *     summary: Get project location details
+     *     description: Retrieve detailed information about project locations including county, ward, settlement details, project information, contractor details, and calculated centroid coordinates for polygon geometries.
+     *     security:
+     *       - bearerAuth: []
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             type: object
+     *             properties:
+     *               project_id:
+     *                 type: integer
+     *                 description: Project ID
+     *                 example: 1
+     *               project_code:
+     *                 type: string
+     *                 description: Project code
+     *                 example: "PROJ-001"
+     *     responses:
+     *       200:
+     *         description: Project location details retrieved successfully
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 message:
+     *                   type: string
+     *                   example: "Project location details retrieved successfully"
+     *                 data:
+     *                   type: array
+     *                   items:
+     *                     type: object
+     *                     properties:
+     *                       project_id:
+     *                         type: integer
+     *                         example: 1
+     *                       ward_id:
+     *                         type: integer
+     *                         example: 1
+     *                       settlement_id:
+     *                         type: integer
+     *                         example: 1
+     *                       subcounty_id:
+     *                         type: integer
+     *                         example: 1
+     *                       county_id:
+     *                         type: integer
+     *                         example: 1
+     *                       location_name:
+     *                         type: string
+     *                         example: "Main Site"
+     *                       location_type:
+     *                         type: string
+     *                         example: "settlement"
+     *                         enum: ["county", "subcounty", "ward", "settlement"]
+     *                       centroid:
+     *                         type: object
+     *                         properties:
+     *                           latitude:
+     *                             type: number
+     *                             example: -1.2921
+     *                           longitude:
+     *                             type: number
+     *                             example: 36.8219
+     *                       project:
+     *                         type: object
+     *                         properties:
+     *                           id:
+     *                             type: integer
+     *                             example: 1
+     *                           title:
+     *                             type: string
+     *                             example: "Infrastructure Development Project"
+     *                           project_code:
+     *                             type: string
+     *                             example: "INFRA-2024"
+     *                           code:
+     *                             type: string
+     *                             example: "PROJ-001"
+     *                           status:
+     *                             type: string
+     *                             example: "Active"
+     *                           description:
+     *                             type: string
+     *                             example: "Development of infrastructure components"
+     *                           contractor:
+     *                             type: object
+     *                             properties:
+     *                               id:
+     *                                 type: integer
+     *                                 example: 1
+     *                               name:
+     *                                 type: string
+     *                                 example: "ABC Construction Ltd"
+     *                               contract_number:
+     *                                 type: string
+     *                                 example: "CON-2024-001"
+     *                               address:
+     *                                 type: string
+     *                                 example: "123 Main Street, Nairobi"
+     *                               phone:
+     *                                 type: string
+     *                                 example: "+254700000000"
+     *                               code:
+     *                                 type: string
+     *                                 example: "CON-001"
+     *                       county:
+     *                         type: object
+     *                         properties:
+     *                           id:
+     *                             type: integer
+     *                             example: 1
+     *                           name:
+     *                             type: string
+     *                             example: "Nairobi"
+     *                           code:
+     *                             type: string
+     *                             example: "047"
+     *                       subcounty:
+     *                         type: object
+     *                         properties:
+     *                           id:
+     *                             type: integer
+     *                             example: 1
+     *                           name:
+     *                             type: string
+     *                             example: "Westlands"
+     *                           code:
+     *                             type: string
+     *                             example: "047001"
+     *                       ward:
+     *                         type: object
+     *                         properties:
+     *                           id:
+     *                             type: integer
+     *                             example: 1
+     *                           name:
+     *                             type: string
+     *                             example: "Parklands"
+     *                           code:
+     *                             type: string
+     *                             example: "047001001"
+     *                       settlement:
+     *                         type: object
+     *                         properties:
+     *                           id:
+     *                             type: integer
+     *                             example: 1
+     *                           name:
+     *                             type: string
+     *                             example: "Parklands Estate"
+     *                           code:
+     *                             type: string
+     *                             example: "SET-001"
+     *                 code:
+     *                   type: string
+     *                   example: "0000"
+     *       400:
+     *         description: Bad request - project ID or code required
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 message:
+     *                   type: string
+     *                   example: "Project ID or code is required"
+     *       401:
+     *         description: Unauthorized - invalid token
+     *       403:
+     *         description: Forbidden - insufficient permissions (project:read)
+     *       404:
+     *         description: No project locations found
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 message:
+     *                   type: string
+     *                   example: "No project locations found"
+     *       500:
+     *         description: Internal server error
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 message:
+     *                   type: string
+     *                   example: "An unexpected error occurred while fetching project location details."
+     */
+   // app.post("/api/v1/project/location/details", [authJwt.verifyToken, hasPermission('project:read')], controller.getProjectLocationDetails);
+    app.post("/api/v1/project/location/details", [], controller.getProjectLocationDetails);
  
     
 

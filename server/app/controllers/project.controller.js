@@ -772,5 +772,191 @@ exports.modelImportDataUpsert = async (req, res) => {
   }
 };
 
+exports.getProjectDetails = async (req, res) => {
+  const { id, code } = req.body;
+
+  console.log('Fetching project details for:', { id, code });
+
+  // Check if either id or code is provided
+  if (!id && !code) {
+    return res.status(400).json({
+      message: 'Project ID or code is required',
+    });
+  }
+
+  try {
+    const whereClause = id ? { id } : { code };
+
+    const project = await db.models.project.findOne({
+      where: whereClause,
+      attributes: [
+        'id', 'title', 'project_code', 'component_id', 'implementation_id',
+        'status', 'description', 'start_date', 'end_date', 'cost',
+        'sourceFunding', 'contractor_id', 'implementation_scope', 'code', 'geom'
+      ],
+      include: [
+        {
+          model: db.models.project_contractor,
+          attributes: ['id', 'name', 'role', 'scope', 'contractor_id', 'project_id'],
+          where: { role: 'Consultant' },
+          required: false
+        }
+      ]
+    });
+
+    if (!project) {
+      return res.status(404).json({
+        message: 'Project not found',
+      });
+    }
+
+    res.status(200).json({
+      message: 'Project details retrieved successfully',
+      data: project,
+      code: '0000',
+    });
+
+  } catch (error) {
+    console.error('Error fetching project details:', error);
+    return res.status(500).json({
+      message: 'An unexpected error occurred while fetching project details.',
+    });
+  }
+};
+
+exports.getProjectLocationDetails = async (req, res) => {
+  //const { project_id, project_code } = req.body;
+
+ // console.log('Fetching project location details for:', { project_id, project_code });
+
+  // If neither project_id nor project_code is provided, return all project locations
+
+  try {
+    // Always return all project locations (no filters)
+    const whereClause = {};
+
+    const projectLocations = await db.models.project_location.findAll({
+      where: whereClause,
+      attributes: [
+        'project_id','location_name',  'location_type','geom' 
+      ],
+      include: [
+        {
+          model: db.models.project,
+          attributes: ['id', 'title', 'project_code', 'code', 'status', 'description'],
+          include: [
+            {
+              model: db.models.project_contractor,
+              attributes: ['id', 'name', 'role', 'scope', 'contractor_id', 'project_id'],
+              where: { role: 'Consultant' },
+              required: false
+            }
+          ]
+        },
+        {
+          model: db.models.county,
+          attributes: ['id', 'name' ],
+          required: false
+        },
+        {
+          model: db.models.subcounty,
+          attributes: ['id', 'name' ],
+          required: false
+        },
+        {
+          model: db.models.ward,
+          attributes: ['id', 'name' ],
+          required: false
+        },
+        {
+          model: db.models.settlement,
+          attributes: ['id', 'name' ],
+          required: false
+        }
+      ]
+    });
+
+    if (projectLocations.length === 0) {
+      return res.status(404).json({
+        message: 'No project locations found',
+      });
+    }
+
+    // Process the data to include latlng (centroid) computed from ONLY the first geometry
+    const processedLocations = projectLocations.map(location => {
+      const locationData = location.toJSON();
+      
+      // Calculate latlng for polygon geometries if geom exists
+      if (locationData.geom && locationData.geom.coordinates) {
+        try {
+          // Use only the first geometry's exterior ring
+          if (locationData.geom.type === 'Polygon') {
+            const ring = locationData.geom.coordinates[0] || [];
+            const n = ring.length;
+            if (n > 0) {
+              const last = ring[n - 1];
+              const first = ring[0];
+              const effective = (last && first && last[0] === first[0] && last[1] === first[1]) ? ring.slice(0, n - 1) : ring;
+              let sumLat = 0, sumLon = 0;
+              effective.forEach(coord => { sumLon += coord[0]; sumLat += coord[1]; });
+              const count = effective.length;
+              locationData.latlng = count > 0 ? { latitude: sumLat / count, longitude: sumLon / count } : null;
+            } else {
+              locationData.latlng = null;
+            }
+          } else if (locationData.geom.type === 'MultiPolygon') {
+            const firstPolygon = (locationData.geom.coordinates && locationData.geom.coordinates[0]) || [];
+            const ring = (firstPolygon && firstPolygon[0]) || [];
+            const n = ring.length;
+            if (n > 0) {
+              const last = ring[n - 1];
+              const first = ring[0];
+              const effective = (last && first && last[0] === first[0] && last[1] === first[1]) ? ring.slice(0, n - 1) : ring;
+              let sumLat = 0, sumLon = 0;
+              effective.forEach(coord => { sumLon += coord[0]; sumLat += coord[1]; });
+              const count = effective.length;
+              locationData.latlng = count > 0 ? { latitude: sumLat / count, longitude: sumLon / count } : null;
+            } else {
+              locationData.latlng = null;
+            }
+          } else if (locationData.geom.type === 'Point') {
+            // For point geometries, use coordinates directly
+            locationData.latlng = {
+              latitude: locationData.geom.coordinates[1],
+              longitude: locationData.geom.coordinates[0]
+            };
+          }
+        } catch (error) {
+          console.error('Error calculating centroid:', error);
+          locationData.latlng = null;
+        }
+      } else {
+        locationData.latlng = null;
+      }
+
+      // Remove heavy geometry from response after computing centroid
+      if (locationData.geom) {
+        delete locationData.geom;
+      }
+
+      // Note: Only return centroid for project_location, not for project
+
+      return locationData;
+    });
+
+    res.status(200).json({
+      message: 'Project location details retrieved successfully',
+      data: processedLocations,
+      code: '0000',
+    });
+
+  } catch (error) {
+    console.error('Error fetching project location details:', error);
+    return res.status(500).json({
+      message: 'An unexpected error occurred while fetching project location details.',
+    });
+  }
+};
+
 
  
