@@ -1,0 +1,39 @@
+
+// 1. Get all projects  [POST] empty body 
+curl  -X POST       https://kesmis.go.ke/api/v1/project/location/details 
+
+
+//2. Push proejct Team [POST]
+https://kesmis.go.ke/api/v1/project/team/add
+
+POST body 
+{
+  "project_id": 42,// get from list of projects above   
+  "name": "Jane Doe",
+  "phone": "+254700000000",
+  "email": "jane@example.com",
+  "role": "Project Manager", // see below   
+  "code": "TEAM-001"     // autogenerate 
+}
+// Role Options
+[
+  "Team Leader",
+  "Resident Engineer (RE)",
+  "Assistant Resident Engineer (ARE)",
+  "Roads Engineer",
+  "Materials Engineer",
+  "Water & Sanitation Engineer",
+  "Electrical Engineer",
+  "Surveyor Engineer",
+  "Environmental Expert",
+  "Sociologist / Community / Resettlement Expert",
+  "Socio-Economist",
+  "Procurement and Contract Management Expert",
+  "Works Inspector",
+  "CAD Technician",
+  "Laboratory Technicians",
+  "Office Administrator",
+  "Chainmen",
+  "Other"
+]
+
