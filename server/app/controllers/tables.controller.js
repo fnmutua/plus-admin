@@ -1783,14 +1783,31 @@ exports.streamMinimalGeo = async (req, res) => {
       }
     });
 
-    // Query the model for id, geometry, and available admin IDs
+    // Diagnostics: count totals vs filtered to understand dropped records
+    try {
+      const stats = await db.sequelize.query(`
+        SELECT 
+          COUNT(*)::int AS total,
+          COUNT(geom)::int AS with_geom,
+          SUM(CASE WHEN geom IS NOT NULL AND ST_IsEmpty(geom) THEN 1 ELSE 0 END)::int AS empty_geom
+        FROM ${reg_model}
+      `, { type: db.Sequelize.QueryTypes.SELECT });
+      if (Array.isArray(stats) && stats.length > 0) {
+        const { total, with_geom, empty_geom } = stats[0];
+        console.log('streamMinimalGeo counts:', { model: reg_model, total, with_geom, empty_geom });
+      }
+    } catch (diagErr) {
+      console.warn('streamMinimalGeo diagnostics failed:', diagErr?.message || diagErr);
+    }
+
+    // Query the model for id, geometry, and available admin IDs (do not exclude ST_IsEmpty)
     const records = await db.models[reg_model].findAll({
       attributes: attributes,
       where: {
-        geom: { [db.Sequelize.Op.ne]: null },
-        [db.Sequelize.Op.and]: db.sequelize.literal('ST_IsEmpty(geom) = false')
+        geom: { [db.Sequelize.Op.ne]: null }
       }
     });
+    console.log('streamMinimalGeo returned records:', { model: reg_model, returned: records?.length || 0 });
 
     // Convert to GeoJSON FeatureCollection
     const geojson = {

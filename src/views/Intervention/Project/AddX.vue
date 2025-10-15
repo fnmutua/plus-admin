@@ -1,6 +1,6 @@
 <template>
   <div>
-    <el-card class="box-card">
+    <el-card class="box-card" v-loading="isLoading">
      
 
 
@@ -488,6 +488,7 @@ const fileList = ref([])
 const visibleUpload = ref(false)
 
 const newRecord = ref(true)
+const isLoading = ref(false)
 
 const map = ref()
 
@@ -499,8 +500,8 @@ const component_title = ref()
 
 onMounted(async () => {
 
-  //formData.value = JSON.parse(route.query.formData);
-  // console.log('data>>',data)
+ 
+ 
   console.log('passed data', route.query.id)
   console.log('formData', formData)
 
@@ -534,6 +535,7 @@ onMounted(async () => {
 
 
   if (route.query.id) {
+    isLoading.value = true
     await getOneSettlement(form)
       .then((res) => {
         // Handle the successful response here
@@ -571,6 +573,7 @@ onMounted(async () => {
         // Handle the error here
         console.log('Error:', error);
       });
+    isLoading.value = false
 
 
     if (!geomScope.value) {

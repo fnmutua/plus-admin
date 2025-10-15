@@ -764,6 +764,7 @@ const projectLocations = ref([])
 const projectDisbursements = ref()
 
 const project_title = ref()
+const isLoading = ref(false)
 const project_id = ref(route.params.id)
 
 
@@ -773,6 +774,7 @@ const programme_implementation_id = ref()
 
 
 onMounted(async () => {
+  isLoading.value = true
   const id = route.params.id
   const formData = {}
   formData.model = 'project'
@@ -865,6 +867,7 @@ onMounted(async () => {
 
   projectDescription.value = objectToArray(Project.value);
   console.log(projectDescription);
+  isLoading.value = false
 
   changeProject(route.params.id)
   // get current Tab 
@@ -1721,14 +1724,19 @@ const createNewContractor = async () => {
 const { push } = useRouter()
 
 const editProject = async () => {
+  // push({
+  //   path: '/interventions/add/:domain',
+  //   name: 'AddInterventionProjectsV2',
+  //   query: { id: projectFullData.value.id },
+  //   params: { id: projectFullData.value.id, domain: projectFullData.value.component_id }
+  // })
+
+
   push({
-    path: '/interventions/add/:domain',
-    name: 'AddInterventionProjectsV2',
-    query: { id: projectFullData.value.id },
-    params: { id: projectFullData.value.id, domain: projectFullData.value.component_id }
-  })
-
-
+  name: 'AddProject',
+  query: { id: projectFullData.value.id },
+  params: { domain: projectFullData.value.component_id, id: projectFullData.value.id }
+})
 
 
 
@@ -3447,7 +3455,7 @@ function formatLocation(item) {
 </script>
 
 <template>
-  <el-card>
+  <el-card v-loading="isLoading">
     <!-- Header Section -->
     <template #header>
       <div class="card-header">

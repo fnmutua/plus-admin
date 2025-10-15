@@ -275,13 +275,50 @@ exports.deleteIncident = async (req, res) => {
     const incident = await db.models.incident.findByPk(id)
     if (!incident) return res.status(404).send({ message: 'Incident not found' })
     
-    // Track the deletion before deleting
+    // Track the deletion before removing associations so the audit row is also cleaned
     await trackIncidentDeletion(incident, req.thisUser, req)
+    
+    // Find all associated documents
+    const documents = await db.models.incident_document.findAll({
+      where: { incident_id: id }
+    })
+    
+    // Delete physical files from disk
+    for (const doc of documents) {
+      try {
+        if (doc.location && fs.existsSync(doc.location)) {
+          fs.unlinkSync(doc.location)
+          console.log(`Deleted file: ${doc.location}`)
+        }
+      } catch (fileError) {
+        console.error(`Failed to delete file ${doc.location}:`, fileError)
+        // Continue with deletion even if file removal fails
+      }
+    }
+    
+    // Delete all associated documents from database
+    if (documents.length > 0) {
+      await db.models.incident_document.destroy({
+        where: { incident_id: id }
+      })
+      console.log(`Deleted ${documents.length} associated documents`)
+    }
+    
+    // Delete all associated history records
+    const historyCount = await db.models.incident_history.destroy({
+      where: { incident_id: id }
+    })
+    if (historyCount > 0) {
+      console.log(`Deleted ${historyCount} associated history records`)
+    }
     
     // Delete the incident
     await incident.destroy()
     
-    res.status(200).send({ code: '0000', message: 'Incident deleted successfully' })
+    res.status(200).send({ 
+      code: '0000', 
+      message: `Incident deleted successfully. Removed ${documents.length} associated documents and ${historyCount} history records.` 
+    })
   } catch (e) {
     console.error('deleteIncident error', e)
     res.status(500).send({ message: 'Failed to delete incident' })

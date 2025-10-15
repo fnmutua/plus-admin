@@ -736,21 +736,23 @@ const ruleForm = reactive({
 
 
 
-
-const activeName = ref('list')
+ 
 const AddProject = () => {
 
   console.log("Adding Projects")
   console.log(component_id.value)
-  // push({
-  //   path: '/interventions/kisip/add',
-  //   name: 'AddInterventionProjectsV2'
-  // })
+  
+ 
+ 
+ console.log('Add prject');
 
-  push({
-    path: `/interventions/add/${component_id.value}`,
-    query: { domain: component_id.value }
-  })
+ push({
+  name: 'AddProject',
+  params: { domain: component_id.value }
+})
+ 
+
+
 
 }
 
@@ -761,12 +763,16 @@ const AddProject = () => {
 
 const editProject = async (data: TableSlotDefault) => {
 
-  push({
-    path: `/interventions/add/${component_id.value}`,
-    query: { id: data.id, domain: component_id.value }
-  })
 
- 
+  // push({
+  //   path: `/interventions/add/${component_id.value}`,
+  //   query: { id: data.id, domain: component_id.value }
+  // })
+
+  push({
+  name: 'AddProject',
+  params: { domain: component_id.value, id: data.id }
+})
 
 
 }
@@ -1825,7 +1831,7 @@ const ImportProjects = async () => {
 
 
 
-const handleRowDblClick = (row) => {
+const viewProject = (row) => {
  
  console.log('Double clicked row:', row);
 
@@ -1835,14 +1841,18 @@ const handleRowDblClick = (row) => {
 })
 }
 
-function viewProject(row: any) {
-  console.log('View project details:', row)
-  // Use router.push with the same navigation logic as handleRowDblClick
-  router.push({
-    name: 'ProjectDetails',
-    params: { id: row.id }
-  })
-}
+// function xviewProject(row: any) {
+//   console.log('View project details:', row)
+//   // Use router.push with the same navigation logic as handleRowDblClick
+//  push({
+//     name: 'ProjectDetails',
+//     params: { id: row.id }
+//   })
+  
+// }
+
+
+
 
 function goToSettlementMap(location: any) {
   console.log('Open settlement map drawer:', location)

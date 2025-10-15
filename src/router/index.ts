@@ -1515,18 +1515,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
 
     },
     children: [
-      {
-        path: 'add/:domain',
-        name: 'AddInterventionProjectsV2',
-        component: () => import('@/views/Intervention/Project/AddX.vue'),
-        meta: {
-          title: 'Add Project',
-          hidden: true,
-          props: true,
-          icon:'material-symbols:add-circle-rounded'
-        },
-   
-      },
+     
       {
         path: 'tenure',
         name: 'kisipInterventions',
@@ -1660,6 +1649,48 @@ export const adminRoutes: AppRouteRecordRaw[] = [
  
 
  
+  {
+    path: '/prj',
+    component: Layout,
+    //redirect: '/settings',
+    name: 'Projects',
+    meta: {
+      title: 'Projects',
+      icon: 'material-symbols:settings',
+      alwaysShow: true,
+      role: ['root_admin','admin', 'super_admin' ,'staff'  ] ,
+      locationLevel:['national','county'],
+
+
+    },
+    children: [
+      {
+        path: ':id',
+        component: () => import('@/views/programmes/ProjectDetails.vue'),
+        name: 'ProjectDetails',
+        meta: {
+          hidden: true,
+          title: 'Project Details',
+          icon:'ion:document-attach',
+       //   noCache: true
+        }
+      },
+      {
+        path: 'add/:domain',
+        name: 'AddProject',
+        component: () => import('@/views/Intervention/Project/AddX.vue'),
+        meta: {
+          title: 'Add Project',
+          hidden: true,
+          props: true,
+          icon:'material-symbols:add-circle-rounded'
+        },
+   
+      },
+
+     ]
+  },
+
  
   {
     path: '/settings',
@@ -1671,7 +1702,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       icon: 'material-symbols:settings',
       alwaysShow: true,
       role: ['root_admin','admin', 'super_admin' ,'staff'  ] ,
-      locationLevel:['national'],
+      locationLevel:['national' ],
 
 
     },
@@ -1849,17 +1880,17 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             }
           }, 
 
-          {
-            path: ':id',
-            component: () => import('@/views/programmes/ProjectDetails.vue'),
-            name: 'ProjectDetails',
-            meta: {
-              hidden: true,
-              title: 'Project Details',
-              icon:'ion:document-attach',
-              noCache: true
-            }
-          },
+          // {
+          //   path: ':id',
+          //   component: () => import('@/views/programmes/ProjectDetails.vue'),
+          //   name: 'ProjectDetails',
+          //   meta: {
+          //     hidden: true,
+          //     title: 'Project Details',
+          //     icon:'ion:document-attach',
+          //     noCache: true
+          //   }
+          // },
 
           
         ]
