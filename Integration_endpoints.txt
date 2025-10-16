@@ -1,0 +1,235 @@
+//#1
+
+//Api to pull projects sites details
+
+//payload
+
+
+
+{"token":"","id":"site_id",} //pull one site using id
+
+{"token":"","id":"",} //pull all sites
+
+
+
+//response
+
+
+
+[
+
+	{
+
+		"siteid":"",
+
+		"site_name":"",
+
+		"county":"",
+
+		"latlng":"",
+
+		"area":"", 
+
+		"developer":
+
+		[
+
+			{
+
+				"id":"",
+
+				"names":"",
+
+			}, 
+
+		]
+
+		
+
+	},
+
+]
+
+
+
+
+
+#2
+
+//Api to push employees
+
+//payload
+
+{
+
+	"token":"",
+
+	"employees":[
+
+		{
+
+			"id":"",
+
+			"names":"",
+
+			"idno":"",
+
+			"mobile":""  
+
+		},
+
+		{
+
+			...
+
+		}
+
+	]
+
+}
+
+
+
+
+
+#3
+
+//Api to push clockin time
+
+//payload
+
+{
+
+	"token":"",
+
+	"attendance":[
+
+		{
+
+			"id":"",
+
+			"names":"",
+
+			"idno":"",
+
+			"mobile":"",
+
+			"clockin_date":"",
+
+			"clockin_time":"",			
+
+		},
+
+		{
+
+			...
+
+		}
+
+	]
+
+}
+
+
+
+#4
+
+//Api to push clockout time
+
+//payload
+
+{
+
+	"token":"",
+
+	"attendance":[
+
+		{
+
+			"id":"",
+
+			"names":"",
+
+			"idno":"",
+
+			"mobile":"",
+
+			"clockout_date":"",
+
+			"clockout_time":"",			
+
+		},
+
+		{
+
+			...
+
+		}
+
+	]
+
+}
+
+
+
+
+
+#4
+
+//Api to push rollcall time
+
+//payload
+
+{
+
+	"token":"",
+
+	"attendance":[
+
+		{
+
+			"id":"",
+
+			"names":"",
+
+			"idno":"",
+
+			"mobile":"",
+
+			"rollcall_date":"",
+
+			"rollcall_time":"",
+
+			"rollcall_number":"",			
+
+		},
+
+		{
+
+			...
+
+		}
+
+	]
+
+}
+
+
+
+
+
+#5
+
+//Api to push latlng
+
+//payload
+
+{
+
+	"token":"",
+
+	"siteid":"",
+
+	"latlng":"" 
+
+}

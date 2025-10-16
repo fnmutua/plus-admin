@@ -21,7 +21,7 @@ import {
 import { getCountyListApi, } from '@/api/counties'
 
 import { uploadFilesBatch } from '@/api/settlements'
-import { addTask, getTasks, getNestedTasks, batchImport, deleteTask } from '@/api/project'
+import { addTask, getTasks, getNestedTasks, batchImport, deleteTask, getClockInHistory } from '@/api/project'
 
 import {
   getOneSettlement
@@ -55,6 +55,7 @@ import { getFile } from '@/api/summary'
 import MapboxDraw from '@mapbox/mapbox-gl-draw';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css'
 import shortid from 'shortid';
+import DownloadCustom from '@/views/Components/DownloadCustom.vue'
 
 import type { FormInstance } from 'element-plus'
 import { getModelSpecs } from '@/api/fields'
@@ -763,6 +764,22 @@ const projectContractors = ref()
 const projectLocations = ref([])
 const projectDisbursements = ref()
 
+// Clock-in related data
+const clockInHistory = ref([])
+const clockDateRange = ref([]) // [startDate, endDate]
+const clockMonth = ref(null)   // single month
+const downloadClockLoading = ref(false)
+
+// Format YYYY-MM-DD
+const formatYMD = (date) => {
+  if (!date) return ''
+  const d = new Date(date)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 const project_title = ref()
 const isLoading = ref(false)
 const project_id = ref(route.params.id)
@@ -1139,6 +1156,10 @@ const handleTabClick = (tab) => {
     projectScopeChecked.value = projectScope.value.map(activity => activity.id);
 
   }
+
+  if (tab.props.name === 'clockin') {
+    getProjectClockIns(route.params.id);
+  }
 };
 
 const addMoreDocuments = ref(false)
@@ -1418,6 +1439,56 @@ const RemoveTeamMember = async (row) => {
 
 
 
+// Fetch clock-in history for the project
+const getProjectClockIns = async (project_id, params = {}) => {
+  try {
+    const res = await getClockInHistory({ project_id, ...params })
+    clockInHistory.value = res.data || []
+    console.log('Clock-in history:', clockInHistory.value)
+  } catch (error) {
+    console.error('Error fetching clock-in history:', error)
+  }
+}
+
+// Format date and time
+const formatDateTime = (dateString) => {
+  if (!dateString) return '-'
+  const date = new Date(dateString)
+  return date.toLocaleString()
+}
+
+// Calculate hours worked  
+const calculateHours = (clockIn, clockOut) => {
+  if (!clockIn || !clockOut) return '-'
+  const start = new Date(clockIn)
+  const end = new Date(clockOut)
+  const hours = (end - start) / (1000 * 60 * 60)
+  return hours.toFixed(2) + ' hrs'
+}
+
+// Apply filters (date range or month) to reload clock-ins
+const applyClockFilters = () => {
+  const params = {}
+
+  if (clockDateRange.value && clockDateRange.value.length === 2 && clockDateRange.value[0] && clockDateRange.value[1]) {
+    params.start_date = formatYMD(clockDateRange.value[0])
+    params.end_date = formatYMD(clockDateRange.value[1])
+  } else if (clockMonth.value) {
+    const d = new Date(clockMonth.value)
+    const first = new Date(d.getFullYear(), d.getMonth(), 1)
+    const last = new Date(d.getFullYear(), d.getMonth() + 1, 0)
+    params.start_date = formatYMD(first)
+    params.end_date = formatYMD(last)
+  }
+
+  getProjectClockIns(route.params.id, params)
+}
+
+const clearClockFilters = () => {
+  clockDateRange.value = []
+  clockMonth.value = null
+  getProjectClockIns(route.params.id)
+}
 
 
 /// contratcor 
@@ -3745,6 +3816,90 @@ v-model="projectScopeChecked" :label="activity.id" @change="toggleActivity()"
           </el-table>
         </el-card>
 
+      </el-tab-pane>
+
+      <el-tab-pane label="Clock-In/Out" name="clockin">
+        <el-card>
+          <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap;">
+            <el-date-picker
+              v-model="clockDateRange"
+              type="daterange"
+              range-separator="to"
+              start-placeholder="Start date"
+              end-placeholder="End date"
+              format="YYYY-MM-DD"
+              value-format="YYYY-MM-DD"
+              @change="applyClockFilters"
+            />
+
+            <el-date-picker
+              v-model="clockMonth"
+              type="month"
+              placeholder="Select month"
+              format="YYYY-MM"
+              value-format="YYYY-MM"
+              @change="applyClockFilters"
+            />
+
+            <el-button plain type="primary" @click="applyClockFilters">Apply</el-button>
+            <el-button plain @click="clearClockFilters">Clear</el-button>
+
+            <DownloadCustom
+              :data="clockInHistory"
+              model="project_clockin"
+              :associated_models="['project','project_team']"
+              :loading="downloadClockLoading"
+              @download-start="downloadClockLoading = true"
+              @download-end="downloadClockLoading = false"
+            />
+          </div>
+
+          <el-table :data="clockInHistory" style="width: 100%" border>
+            <el-table-column type="index" width="50" label="#" />
+            <el-table-column label="Name" width="180">
+              <template #default="scope">
+                {{ scope.row.teamMember?.name || '-' }}
+              </template>
+            </el-table-column>
+            <el-table-column label="Role" width="150">
+              <template #default="scope">
+                {{ scope.row.teamMember?.role || '-' }}
+              </template>
+            </el-table-column>
+            <el-table-column label="Location/Site" width="200">
+              <template #default="scope">
+                {{ scope.row.project?.title || '-' }}
+              </template>
+            </el-table-column>
+            <el-table-column label="Clock In Time" width="180">
+              <template #default="scope">
+                {{ formatDateTime(scope.row.clock_in_time) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="Clock Out Time" width="180">
+              <template #default="scope">
+                {{ formatDateTime(scope.row.clock_out_time) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="Status" width="120">
+              <template #default="scope">
+                <el-tag v-if="scope.row.status === 'active'" type="success">Active</el-tag>
+                <el-tag v-else-if="scope.row.status === 'completed'" type="info">Completed</el-tag>
+                <el-tag v-else type="warning">{{ scope.row.status }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="Hours Worked" width="120">
+              <template #default="scope">
+                {{ scope.row.total_hours ? scope.row.total_hours + ' hrs' : calculateHours(scope.row.clock_in_time, scope.row.clock_out_time) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="Notes" min-width="200">
+              <template #default="scope">
+                {{ scope.row.notes || '-' }}
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-card>
       </el-tab-pane>
 
 

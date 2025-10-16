@@ -812,6 +812,27 @@ db.models.project.hasMany(db.models.project_contractor, {
   foreignKey: 'project_id'
 })
 
+// Project Clock-in associations
+db.models.project_clockin.belongsTo(db.models.project, {
+  foreignKey: 'project_id',
+  as: 'project'
+})
+
+db.models.project_clockin.belongsTo(db.models.project_team, {
+  foreignKey: 'team_member_id',
+  as: 'teamMember'
+})
+
+db.models.project.hasMany(db.models.project_clockin, {
+  foreignKey: 'project_id',
+  as: 'clockIns'
+})
+
+db.models.project_team.hasMany(db.models.project_clockin, {
+  foreignKey: 'team_member_id',
+  as: 'clockIns'
+})
+
 
 
 

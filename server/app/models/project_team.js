@@ -47,18 +47,12 @@ module.exports = function(sequelize, DataTypes) {
     schema: 'public',
     timestamps: true,
     indexes: [
-      {
-        name: "project_team_pkey",
-        unique: true,
-        fields: [
-          { name: "id" },
-        ]
-      },
-      {
+       {
         name: "unique_project_team",
         unique: true,
-        fields: ['name', 'phone', 'project_id', 'email'] // Added unique index for specified fields
-      }
+        fields: ['name', 'phone', 'project_id'] // Unique per project, allows same person in different projects
+      },
+    
     ]
   });
 };

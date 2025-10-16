@@ -1051,8 +1051,271 @@ module.exports = function(app) {
      *         description: Server error
      */
     app.post('/api/v1/project/team/add', [], controller.addProjectTeamMember);
- 
-    
 
+    /**
+     * @swagger
+     * /api/v1/project/clock-in:
+     *   post:
+     *     tags: [Projects]
+     *     summary: Clock in a team member to a project
+     *     security:
+     *       - bearerAuth: []
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             type: object
+     *             required:
+     *               - project_id
+     *               - team_member_id
+     *             properties:
+     *               project_id:
+     *                 type: integer
+     *                 example: 1
+     *               team_member_id:
+     *                 type: integer
+     *                 example: 5
+     *               geom:
+     *                 type: object
+     *                 description: GPS coordinates as GeoJSON geometry
+     *                 example: {"type": "Point", "coordinates": [-1.2921, 36.8219]}
+     *               notes:
+     *                 type: string
+     *                 example: "Starting work on foundation"
+     *     responses:
+     *       200:
+     *         description: Team member clocked in successfully
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 message:
+     *                   type: string
+     *                   example: "Team member clocked in successfully"
+     *                 data:
+     *                   type: object
+     *                 code:
+     *                   type: string
+     *                   example: "0000"
+     *       400:
+     *         description: Validation error or already clocked in
+     *       404:
+     *         description: Team member not found for project
+     *       500:
+     *         description: Server error
+     */
+    app.post('/api/v1/project/clock-in', [], controller.clockInTeamMember);
+
+    /**
+     * @swagger
+     * /api/v1/project/clock-out:
+     *   post:
+     *     tags: [Projects]
+     *     summary: Clock out a team member from a project
+     *     security:
+     *       - bearerAuth: []
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             type: object
+     *             required:
+     *               - project_id
+     *               - team_member_id
+     *             properties:
+     *               project_id:
+     *                 type: integer
+     *                 example: 1
+     *               team_member_id:
+     *                 type: integer
+     *                 example: 5
+     *               notes:
+     *                 type: string
+     *                 example: "Completed foundation work"
+     *     responses:
+     *       200:
+     *         description: Team member clocked out successfully
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 message:
+     *                   type: string
+     *                   example: "Team member clocked out successfully"
+     *                 data:
+     *                   type: object
+     *                   properties:
+     *                     total_hours:
+     *                       type: number
+     *                       example: 8.5
+     *                     overtime_hours:
+     *                       type: number
+     *                       example: 0.5
+     *                 code:
+     *                   type: string
+     *                   example: "0000"
+     *       400:
+     *         description: Validation error
+     *       404:
+     *         description: No active clock-in session found
+     *       500:
+     *         description: Server error
+     */
+    app.post('/api/v1/project/clock-out', [], controller.clockOutTeamMember);
+
+    /**
+     * @swagger
+     * /api/v1/project/clock-history:
+     *   get:
+     *     tags: [Projects]
+     *     summary: Get clock-in history for team members or projects
+     *     security:
+     *       - bearerAuth: []
+     *     parameters:
+     *       - in: query
+     *         name: project_id
+     *         schema:
+     *           type: integer
+     *         description: Filter by project ID
+     *         example: 1
+     *       - in: query
+     *         name: team_member_id
+     *         schema:
+     *           type: integer
+     *         description: Filter by team member ID
+     *         example: 5
+     *       - in: query
+     *         name: start_date
+     *         schema:
+     *           type: string
+     *           format: date
+     *         description: Start date for date range filter
+     *         example: "2024-01-01"
+     *       - in: query
+     *         name: end_date
+     *         schema:
+     *           type: string
+     *           format: date
+     *         description: End date for date range filter
+     *         example: "2024-01-31"
+     *       - in: query
+     *         name: status
+     *         schema:
+     *           type: string
+     *           enum: [active, completed, cancelled]
+     *         description: Filter by clock-in status
+     *         example: "completed"
+     *     responses:
+     *       200:
+     *         description: Clock-in history retrieved successfully
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 message:
+     *                   type: string
+     *                   example: "Clock-in history retrieved successfully"
+     *                 data:
+     *                   type: array
+     *                   items:
+     *                     type: object
+     *                     properties:
+     *                       id:
+     *                         type: integer
+     *                       clock_in_time:
+     *                         type: string
+     *                         format: date-time
+     *                       clock_out_time:
+     *                         type: string
+     *                         format: date-time
+     *                       total_hours:
+     *                         type: number
+     *                       overtime_hours:
+     *                         type: number
+     *                       status:
+     *                         type: string
+     *                       teamMember:
+     *                         type: object
+     *                         properties:
+     *                           name:
+     *                             type: string
+     *                           role:
+     *                             type: string
+     *                       project:
+     *                         type: object
+     *                         properties:
+     *                           title:
+     *                             type: string
+     *                 code:
+     *                   type: string
+     *                   example: "0000"
+     *       500:
+     *         description: Server error
+     */
+    app.get('/api/v1/project/clock-history', [], controller.getClockInHistory);
+
+    /**
+     * @swagger
+     * /api/v1/project/active-clockins:
+     *   get:
+     *     tags: [Projects]
+     *     summary: Get currently active clock-ins for a project
+     *     security:
+     *       - bearerAuth: []
+     *     parameters:
+     *       - in: query
+     *         name: project_id
+     *         schema:
+     *           type: integer
+     *         required: true
+     *         description: Project ID to get active clock-ins for
+     *         example: 1
+     *     responses:
+     *       200:
+     *         description: Active clock-ins retrieved successfully
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 message:
+     *                   type: string
+     *                   example: "Active clock-ins retrieved successfully"
+     *                 data:
+     *                   type: array
+     *                   items:
+     *                     type: object
+     *                     properties:
+     *                       id:
+     *                         type: integer
+     *                       clock_in_time:
+     *                         type: string
+     *                         format: date-time
+     *                       work_date:
+     *                         type: string
+     *                         format: date
+     *                       teamMember:
+     *                         type: object
+     *                         properties:
+     *                           name:
+     *                             type: string
+     *                           role:
+     *                             type: string
+     *                           phone:
+     *                             type: string
+     *                 code:
+     *                   type: string
+     *                   example: "0000"
+     *       400:
+     *         description: Project ID is required
+     *       500:
+     *         description: Server error
+     */
+    app.get('/api/v1/project/active-clockins', [], controller.getActiveClockIns);
 
 };

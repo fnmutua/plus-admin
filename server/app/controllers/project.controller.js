@@ -832,11 +832,14 @@ exports.getProjectLocationDetails = async (req, res) => {
   // If neither project_id nor project_code is provided, return all project locations
 
   try {
-    // Always return all project locations (no filters)
-    const whereClause = {};
+    const   component_id  = 27;
+
+    const projectWhere = component_id ? { component_id } : undefined;
+
+    console.log('projectWhere', projectWhere);
 
     const projectLocations = await db.models.project_location.findAll({
-      where: whereClause,
+      where: {},
       attributes: [
         'project_id','location_name',  'location_type','geom' 
       ],
@@ -844,6 +847,8 @@ exports.getProjectLocationDetails = async (req, res) => {
         {
           model: db.models.project,
           attributes: ['id', 'title', 'project_code', 'code', 'status', 'description'],
+          where: projectWhere,
+          required: !!projectWhere,
           include: [
             {
               model: db.models.project_contractor,
@@ -975,7 +980,13 @@ exports.addProjectTeamMember = async (req, res) => {
       payload.createdBy = req.thisUser.id;
     }
 
-    const [item, created] = await db.models.project_team.upsert(payload, { returning: true });
+    // Use upsert with proper conflict resolution
+    // Primary unique index is on ['name', 'phone', 'project_id']
+    // This allows same person to be in different projects
+    const [item, created] = await db.models.project_team.upsert(payload, {
+      returning: true,
+      conflictFields: ['name', 'phone', 'project_id']
+    });
 
     return res.status(200).json({
       message: created ? 'Team member created' : 'Team member updated',
@@ -984,9 +995,196 @@ exports.addProjectTeamMember = async (req, res) => {
     });
   } catch (error) {
     if (error.name === 'SequelizeUniqueConstraintError') {
-      return res.status(400).json({ message: 'Duplicate team member for project (name/phone/email must be unique per project)' });
+      return res.status(400).json({ message: 'Duplicate team member for this project (name/phone combination must be unique per project)' });
     }
     console.error('Error adding project team member:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+// Clock in a team member to a project
+exports.clockInTeamMember = async (req, res) => {
+  try {
+    const { project_id, team_member_id, geom, notes } = req.body;
+
+    if (!project_id || !team_member_id) {
+      return res.status(400).json({ message: 'project_id and team_member_id are required' });
+    }
+
+    // Check if team member exists and belongs to the project
+    const teamMember = await db.models.project_team.findOne({
+      where: { id: team_member_id, project_id }
+    });
+
+    if (!teamMember) {
+      return res.status(404).json({ message: 'Team member not found for this project' });
+    }
+
+    // Check if team member is already clocked in
+    const activeClockIn = await db.models.project_clockin.findOne({
+      where: { 
+        team_member_id, 
+        project_id, 
+        status: 'active' 
+      }
+    });
+
+    if (activeClockIn) {
+      return res.status(400).json({ 
+        message: 'Team member is already clocked in',
+        data: activeClockIn
+      });
+    }
+
+    const payload = {
+      project_id,
+      team_member_id,
+      clock_in_time: new Date(),
+      work_date: new Date().toISOString().split('T')[0], // Today's date
+      geom,
+      notes,
+      status: 'active'
+    };
+
+    // Attach createdBy if available
+    if (req.thisUser && req.thisUser.id) {
+      payload.createdBy = req.thisUser.id;
+    }
+
+    const clockIn = await db.models.project_clockin.create(payload);
+
+    return res.status(200).json({
+      message: 'Team member clocked in successfully',
+      data: clockIn,
+      code: '0000',
+    });
+  } catch (error) {
+    console.error('Error clocking in team member:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+// Clock out a team member from a project
+exports.clockOutTeamMember = async (req, res) => {
+  try {
+    const { project_id, team_member_id, notes } = req.body;
+
+    if (!project_id || !team_member_id) {
+      return res.status(400).json({ message: 'project_id and team_member_id are required' });
+    }
+
+    // Find active clock-in session
+    const activeClockIn = await db.models.project_clockin.findOne({
+      where: { 
+        team_member_id, 
+        project_id, 
+        status: 'active' 
+      }
+    });
+
+    if (!activeClockIn) {
+      return res.status(404).json({ message: 'No active clock-in session found for this team member' });
+    }
+
+    // Update clock-out time and status
+    const clockOutTime = new Date();
+    await activeClockIn.update({
+      clock_out_time: clockOutTime,
+      status: 'completed',
+      notes: notes || activeClockIn.notes
+    });
+
+    // Refresh the record to get calculated fields
+    await activeClockIn.reload();
+
+    return res.status(200).json({
+      message: 'Team member clocked out successfully',
+      data: activeClockIn,
+      code: '0000',
+    });
+  } catch (error) {
+    console.error('Error clocking out team member:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+// Get clock-in history for a team member or project
+exports.getClockInHistory = async (req, res) => {
+  try {
+    const { project_id, team_member_id, start_date, end_date, status } = req.query;
+
+    const whereClause = {};
+    
+    if (project_id) whereClause.project_id = project_id;
+    if (team_member_id) whereClause.team_member_id = team_member_id;
+    if (status) whereClause.status = status;
+
+    // Date range filter
+    if (start_date || end_date) {
+      whereClause.work_date = {};
+      if (start_date) whereClause.work_date[db.Sequelize.Op.gte] = start_date;
+      if (end_date) whereClause.work_date[db.Sequelize.Op.lte] = end_date;
+    }
+
+    const clockInHistory = await db.models.project_clockin.findAll({
+      where: whereClause,
+      include: [
+        {
+          model: db.models.project_team,
+          attributes: ['id', 'name', 'phone', 'email', 'role'],
+          as: 'teamMember'
+        },
+        {
+          model: db.models.project,
+          attributes: ['id', 'title', 'project_code'],
+          as: 'project'
+        }
+      ],
+      order: [['work_date', 'DESC'], ['clock_in_time', 'DESC']]
+    });
+
+    return res.status(200).json({
+      message: 'Clock-in history retrieved successfully',
+      data: clockInHistory,
+      code: '0000',
+    });
+  } catch (error) {
+    console.error('Error fetching clock-in history:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+// Get current active clock-ins for a project
+exports.getActiveClockIns = async (req, res) => {
+  try {
+    const { project_id } = req.query;
+
+    if (!project_id) {
+      return res.status(400).json({ message: 'project_id is required' });
+    }
+
+    const activeClockIns = await db.models.project_clockin.findAll({
+      where: { 
+        project_id, 
+        status: 'active' 
+      },
+      include: [
+        {
+          model: db.models.project_team,
+          attributes: ['id', 'name', 'phone', 'email', 'role'],
+          as: 'teamMember'
+        }
+      ],
+      order: [['clock_in_time', 'ASC']]
+    });
+
+    return res.status(200).json({
+      message: 'Active clock-ins retrieved successfully',
+      data: activeClockIns,
+      code: '0000',
+    });
+  } catch (error) {
+    console.error('Error fetching active clock-ins:', error);
     return res.status(500).json({ message: 'Internal server error' });
   }
 };

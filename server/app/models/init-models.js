@@ -89,6 +89,7 @@ var _grievance_history= require('./grievance_history')
 var _disbursement= require('./disbursements')
 var _project_contractor= require('./project_contractor')
 var _project_team= require('./project_team')
+var _project_clockin= require('./project_clockin')
 
  
 var _powerline= require('./powerline')
@@ -202,6 +203,7 @@ function initModels(sequelize) {
   var disbursement = _disbursement(sequelize, DataTypes)
   var project_contractor = _project_contractor(sequelize, DataTypes)
   var project_team = _project_team(sequelize, DataTypes)
+  var project_clockin = _project_clockin(sequelize, DataTypes)
 
 
   // Round 1 
@@ -299,7 +301,7 @@ var role = _role(sequelize, DataTypes)
     project_location,
     project_beneficiary,grievance_resolution_level,
     grievance, incident, incident_history,
-    grievance_log,disbursement,project_contractor,project_team,
+    grievance_log,disbursement,project_contractor,project_team,project_clockin,
      grievance_resolution,grievance_escalation,grievance_document, incident_document, grievance_notification,article,
      settlement_history,grievance_history, programme,permissions,role_permissions,role
 
