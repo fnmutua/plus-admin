@@ -813,9 +813,9 @@ db.models.project.hasMany(db.models.project_contractor, {
 })
 
 // Project Clock-in associations
-db.models.project_clockin.belongsTo(db.models.project, {
-  foreignKey: 'project_id',
-  as: 'project'
+db.models.project_clockin.belongsTo(db.models.project_location, {
+  foreignKey: 'project_location_id',
+  as: 'projectLocation'
 })
 
 db.models.project_clockin.belongsTo(db.models.project_team, {
@@ -823,8 +823,8 @@ db.models.project_clockin.belongsTo(db.models.project_team, {
   as: 'teamMember'
 })
 
-db.models.project.hasMany(db.models.project_clockin, {
-  foreignKey: 'project_id',
+db.models.project_location.hasMany(db.models.project_clockin, {
+  foreignKey: 'project_location_id',
   as: 'clockIns'
 })
 
@@ -833,6 +833,15 @@ db.models.project_team.hasMany(db.models.project_clockin, {
   as: 'clockIns'
 })
 
+
+db.models.project.hasMany(db.models.project_clockin, {
+  foreignKey: 'project_id',
+  as: 'clockInsProjects'
+})
+
+db.models.project_clockin.belongsTo(db.models.project, {
+  foreignKey: 'project_id' 
+})
 
 
 

@@ -1005,10 +1005,10 @@ exports.addProjectTeamMember = async (req, res) => {
 // Clock in a team member to a project
 exports.clockInTeamMember = async (req, res) => {
   try {
-    const { project_id, team_member_id, geom, notes } = req.body;
+    const { project_id, team_member_id, geom, project_location_id, notes } = req.body;
 
-    if (!project_id || !team_member_id) {
-      return res.status(400).json({ message: 'project_id and team_member_id are required' });
+    if (!project_id || !team_member_id || !project_location_id) {
+      return res.status(400).json({ message: 'project_id,project_location_id  and team_member_id are required' });
     }
 
     // Check if team member exists and belongs to the project
@@ -1043,6 +1043,8 @@ exports.clockInTeamMember = async (req, res) => {
       work_date: new Date().toISOString().split('T')[0], // Today's date
       geom,
       notes,
+      project_location_id,
+
       status: 'active'
     };
 
@@ -1067,10 +1069,10 @@ exports.clockInTeamMember = async (req, res) => {
 // Clock out a team member from a project
 exports.clockOutTeamMember = async (req, res) => {
   try {
-    const { project_id, team_member_id, notes } = req.body;
+    const { project_id, team_member_id,project_location_id, notes } = req.body;
 
-    if (!project_id || !team_member_id) {
-      return res.status(400).json({ message: 'project_id and team_member_id are required' });
+    if (!project_id || !team_member_id || !project_location_id) {
+      return res.status(400).json({ message: 'project_id, project_location_id and team_member_id are required' });
     }
 
     // Find active clock-in session
@@ -1078,6 +1080,7 @@ exports.clockOutTeamMember = async (req, res) => {
       where: { 
         team_member_id, 
         project_id, 
+        project_location_id,
         status: 'active' 
       }
     });
@@ -1111,12 +1114,13 @@ exports.clockOutTeamMember = async (req, res) => {
 // Get clock-in history for a team member or project
 exports.getClockInHistory = async (req, res) => {
   try {
-    const { project_id, team_member_id, start_date, end_date, status } = req.query;
+    const { project_id, team_member_id, project_location_id, start_date, end_date, status } = req.query;
 
     const whereClause = {};
     
     if (project_id) whereClause.project_id = project_id;
     if (team_member_id) whereClause.team_member_id = team_member_id;
+    if (project_location_id) whereClause.project_location_id = project_location_id;
     if (status) whereClause.status = status;
 
     // Date range filter
@@ -1133,6 +1137,11 @@ exports.getClockInHistory = async (req, res) => {
           model: db.models.project_team,
           attributes: ['id', 'name', 'phone', 'email', 'role'],
           as: 'teamMember'
+        },
+        {
+          model: db.models.project_location,
+          attributes: ['id', 'location_name'],
+          as: 'projectLocation'
         },
         {
           model: db.models.project,
@@ -1173,6 +1182,11 @@ exports.getActiveClockIns = async (req, res) => {
           model: db.models.project_team,
           attributes: ['id', 'name', 'phone', 'email', 'role'],
           as: 'teamMember'
+        },
+        {
+          model: db.models.project_location,
+          attributes: ['id', 'location_name'],
+          as: 'projectLocation'
         }
       ],
       order: [['clock_in_time', 'ASC']]

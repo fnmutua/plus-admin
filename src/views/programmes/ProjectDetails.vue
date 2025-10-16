@@ -62,13 +62,7 @@ import { getModelSpecs } from '@/api/fields'
 
 import exportFromJSON from 'export-from-json'
 import Papa from 'papaparse';
-
-import TaskNode from './TaskNode.vue';
-
-import TaskNodeNested from './TaskNodeNested.vue'
-import { Certificate } from 'crypto'
-import { now } from 'moment'
-
+ 
 
 
 
@@ -1488,6 +1482,104 @@ const clearClockFilters = () => {
   clockDateRange.value = []
   clockMonth.value = null
   getProjectClockIns(route.params.id)
+}
+
+// Clock-in map preview
+const clockDialogMap = ref(false)
+const clockMapGeom = ref()
+
+const openClockMap = (row) => {
+  clockMapGeom.value = null
+  if (row && row.geom) {
+    clockMapGeom.value = { geom: row.geom }
+  }
+  // Fallback: if geom missing, try lat/lon if present
+  if (!clockMapGeom.value && row && row.longitude && row.latitude) {
+    clockMapGeom.value = {
+      geom: {
+        type: 'Point',
+        coordinates: [Number(row.longitude), Number(row.latitude)]
+      }
+    }
+  }
+  if (!clockMapGeom.value) return
+  clockDialogMap.value = true
+  setTimeout(loadClockMap, 100)
+}
+
+const closeClockMap = () => {
+  clockDialogMap.value = false
+}
+
+const loadClockMap = () => {
+  try {
+    const centroid = turf.centroid(clockMapGeom.value.geom)
+    const mapCenter = centroid.geometry.coordinates
+    const nmap = new mapboxgl.Map({
+      container: 'clockMapContainer',
+      style: 'mapbox://styles/mapbox/streets-v12',
+      center: mapCenter,
+      zoom: 12,
+    })
+
+    nmap.on('load', () => {
+      // Add base layers
+      nmap.addLayer({
+        id: 'Satellite',
+        source: { type: 'raster', url: 'mapbox://mapbox.satellite', tileSize: 256 },
+        type: 'raster',
+      })
+      nmap.addLayer({
+        id: 'Streets',
+        source: { type: 'raster', url: 'mapbox://mapbox.streets', tileSize: 256 },
+        type: 'raster',
+      })
+      nmap.setLayoutProperty('Satellite', 'visibility', 'none')
+
+      // Render point/line/polygon
+      const geometryType = clockMapGeom.value.geom?.type
+      if (geometryType === 'Point') {
+        nmap.addLayer({
+          id: 'clock-point',
+          type: 'circle',
+          source: { type: 'geojson', data: clockMapGeom.value.geom },
+          paint: { 'circle-color': 'red', 'circle-radius': 6 },
+          filter: ['==', '$type', 'Point'],
+        })
+
+        const coords = clockMapGeom.value.geom.coordinates
+        const lat = coords[1].toFixed(5)
+        const lng = coords[0].toFixed(5)
+        const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(`<h3>Clock-in</h3><p>(${lat}, ${lng})</p>`)
+        new mapboxgl.Marker().setLngLat(coords).setPopup(popup).addTo(nmap).togglePopup()
+      } else if (geometryType === 'Polygon' || geometryType === 'MultiPolygon') {
+        nmap.addLayer({
+          id: 'clock-polygon',
+          type: 'line',
+          source: { type: 'geojson', data: clockMapGeom.value.geom },
+          paint: { 'line-color': 'red', 'line-width': 2 },
+          filter: ['in', '$type', 'Polygon'],
+        })
+        const bounds = turf.bbox(clockMapGeom.value.geom)
+        nmap.fitBounds(bounds, { padding: 40, animate: true })
+      } else if (geometryType === 'LineString' || geometryType === 'MultiLineString') {
+        nmap.addLayer({
+          id: 'clock-line',
+          type: 'line',
+          source: { type: 'geojson', data: clockMapGeom.value.geom },
+          paint: { 'line-color': 'red', 'line-width': 3 },
+          filter: ['in', '$type', 'LineString'],
+        })
+        const bounds = turf.bbox(clockMapGeom.value.geom)
+        nmap.fitBounds(bounds, { padding: 40, animate: true })
+      }
+
+      nmap.addControl(new mapboxgl.NavigationControl(), 'top-left')
+      nmap.resize()
+    })
+  } catch (e) {
+    console.error('Map load error', e)
+  }
 }
 
 
@@ -3847,7 +3939,7 @@ v-model="projectScopeChecked" :label="activity.id" @change="toggleActivity()"
             <DownloadCustom
               :data="clockInHistory"
               model="project_clockin"
-              :associated_models="['project','project_team']"
+              :associated_models="['project','project_team','project_location']"
               :loading="downloadClockLoading"
               @download-start="downloadClockLoading = true"
               @download-end="downloadClockLoading = false"
@@ -3866,11 +3958,19 @@ v-model="projectScopeChecked" :label="activity.id" @change="toggleActivity()"
                 {{ scope.row.teamMember?.role || '-' }}
               </template>
             </el-table-column>
-            <el-table-column label="Location/Site" width="200">
+            <el-table-column label="Site" width="200">
               <template #default="scope">
-                {{ scope.row.project?.title || '-' }}
+                {{ scope.row.projectLocation?.location_name || '-' }}
               </template>
             </el-table-column>
+              <el-table-column label="Map" width="100">
+                <template #default="scope">
+                  <el-button size="small" type="primary" plain @click="openClockMap(scope.row)">
+                    <Icon icon="mdi:map" style="margin-right: 4px;" />
+                    Map
+                  </el-button>
+                </template>
+              </el-table-column>
             <el-table-column label="Clock In Time" width="180">
               <template #default="scope">
                 {{ formatDateTime(scope.row.clock_in_time) }}
@@ -3900,6 +4000,15 @@ v-model="projectScopeChecked" :label="activity.id" @change="toggleActivity()"
             </el-table-column>
           </el-table>
         </el-card>
+        <el-dialog v-model="clockDialogMap" width="50%" draggable :before-close="closeClockMap" :show-close="false">
+          <template #header="{ titleId, titleClass }">
+            <div class="my-header">
+              <h4 :id="titleId" :class="titleClass">Clock-in Location</h4>
+              <el-button type="danger" :icon="CircleCloseFilled" @click="closeClockMap">Close Map</el-button>
+            </div>
+          </template>
+          <div id="clockMapContainer" class="basemap"></div>
+        </el-dialog>
       </el-tab-pane>
 
 

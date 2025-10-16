@@ -1,6 +1,14 @@
 const Sequelize = require('sequelize');
 module.exports = function(sequelize, DataTypes) {
   return sequelize.define('project_clockin', {
+    project_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: 'project',
+        key: 'id'
+      }
+    },
     id: {
       autoIncrement: true,
       type: DataTypes.INTEGER,
@@ -8,11 +16,11 @@ module.exports = function(sequelize, DataTypes) {
       primaryKey: true
     },
 
-    project_id: {
+    project_location_id: {
       type: DataTypes.INTEGER,
       allowNull: false,
       references: {
-        model: 'project',
+        model: 'project_location',
         key: 'id'
       }
     },
@@ -99,7 +107,11 @@ module.exports = function(sequelize, DataTypes) {
     indexes: [
       {
         name: "idx_project_clockin_project_team",
-        fields: ['project_id', 'team_member_id']
+        fields: ['project_location_id', 'team_member_id']
+      },
+      {
+        name: "idx_project_clockin_project",
+        fields: ['project_id']
       },
       {
         name: "idx_project_clockin_work_date",
@@ -112,11 +124,11 @@ module.exports = function(sequelize, DataTypes) {
       {
         name: "unique_active_clockin",
         unique: true,
-        fields: ['team_member_id', 'project_id'],
+        fields: ['team_member_id', 'project_location_id'],
         where: {
           status: 'active'
         },
-        comment: 'Ensures only one active clock-in session per team member per project'
+        comment: 'Ensures only one active clock-in session per team member per project location'
       }
     ],
     hooks: {

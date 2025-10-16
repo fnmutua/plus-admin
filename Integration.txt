@@ -37,3 +37,28 @@ POST body
   "Other"
 ]
 
+
+//3. Clock In 
+https://kesmis.go.ke/api/v1/project/clock-in
+body
+{
+  "project_id": 168,
+  "team_member_id": 7,
+  "geom": {
+    "type": "Point",
+    "coordinates": [-1.2921, 36.8219]
+  },
+  "notes": "Starting work on foundation"
+}
+//
+
+
+
+//4. Clock In 
+https://kesmis.go.ke/api/v1/project/clock-out
+
+{
+  "project_id": 168,
+  "team_member_id": 1,
+  "notes": "Completed foundation work"
+}
