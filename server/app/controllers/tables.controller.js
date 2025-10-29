@@ -5123,6 +5123,141 @@ exports.downloadFile = (req, res) => {
   });
 };
 
+// Create a public share link for one or more documents and send via email
+exports.createDocumentShare = async (req, res) => {
+  try {
+    const { documentIds, to, message, expiresInHours = 168 } = req.body || {}
+    if (!Array.isArray(documentIds) || documentIds.length === 0) {
+      return res.status(400).send({ code: '1001', message: 'documentIds array is required' })
+    }
+
+    // Validate docs
+    const docs = await db.models.document.findAll({ where: { id: { [Sequelize.Op.in]: documentIds } } })
+    if (!docs || docs.length === 0) {
+      return res.status(404).send({ code: '1002', message: 'No matching documents found' })
+    }
+
+    const token = crypto.randomUUID()
+    const expiresAt = new Date(Date.now() + (Number(expiresInHours) || 168) * 60 * 60 * 1000)
+
+    const share = await db.models.document_share.create({
+      token,
+      email: Array.isArray(to) ? to.join(',') : (to || null),
+      message: message || null,
+      expiresAt,
+      createdBy: req?.thisUser?.id || null,
+      isRevoked: false
+    })
+
+    const items = docs.map(d => ({ share_id: share.id, document_id: d.id }))
+    if (items.length) await db.models.document_share_item.bulkCreate(items)
+
+    // Generate frontend URL for better UX (hash route for SPA)
+    const serverUrl = `${req.protocol}://${req.get('host')}`
+    // Remove port if present (backend might be on different port than frontend)
+    const frontendUrl = process.env.FRONTEND_URL || serverUrl.replace(/:\d+$/, '')
+    const publicUrl = `${frontendUrl}/#/share/${token}`
+
+    // Optional email
+    if (to) {
+      const recipients = Array.isArray(to) ? to : String(to).split(',').map(x => x.trim())
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      const validEmails = recipients.filter(e => emailRegex.test(e))
+      if (validEmails.length) {
+        const transporter = nodemailer.createTransport({
+          service: 'gmail',
+          auth: {
+            user: process.env.EMAIL_USER || 'kisip.mis@gmail.com',
+            pass: process.env.EMAIL_PASS || 'ycoxaqavmfiqljjg'
+          }
+        })
+        const html = `
+          <p>You have been granted access to download shared documents.</p>
+          ${message ? `<p>${message}</p>` : ''}
+          <p>Open the link below to view and download:</p>
+          <p><a href="${publicUrl}">${publicUrl}</a></p>
+          <p>This link ${expiresAt ? 'expires on ' + expiresAt.toUTCString() : 'does not expire'}.</p>
+        `
+        await transporter.sendMail({
+          from: process.env.EMAIL_FROM || 'kisip.mis@gmail.com',
+          to: validEmails.join(','),
+          subject: 'Documents shared with you',
+          text: `Documents have been shared with you. Link: ${publicUrl}`,
+          html
+        })
+      }
+    }
+
+    res.status(200).send({ code: '0000', message: 'Share link created', data: { token, url: publicUrl, expiresAt } })
+  } catch (e) {
+    console.error('createDocumentShare error', e)
+    res.status(500).send({ code: '9999', message: 'Failed to create share link' })
+  }
+}
+
+// Public: view shared documents by token
+exports.getPublicShare = async (req, res) => {
+  try {
+    const { token } = req.params
+    if (!token) return res.status(400).send('Missing token')
+
+    const share = await db.models.document_share.findOne({ where: { token, isRevoked: false } })
+    if (!share) return res.status(404).send('Share not found')
+    if (share.expiresAt && new Date(share.expiresAt).getTime() < Date.now()) return res.status(410).send('Link expired')
+
+    const items = await db.models.document_share_item.findAll({ where: { share_id: share.id }, include: [{ model: db.models.document, as: 'document' }] })
+    const docs = items.map(i => i.document).filter(Boolean)
+
+    // If Accept header prefers HTML, render a basic page with download links
+    const accept = (req.headers['accept'] || '').toLowerCase()
+    const serverUrl = `${req.protocol}://${req.get('host')}`
+    if (accept.includes('text/html')) {
+      const list = docs.map(d => `<li><a href="${serverUrl}/api/public/share/${token}/download/${d.id}">${d.name}</a> (${Number(d.size) || 0} bytes)</li>`).join('')
+      const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Shared Documents</title></head><body><h3>Shared Documents</h3><ul>${list}</ul></body></html>`
+      res.setHeader('Content-Type', 'text/html; charset=utf-8')
+      return res.status(200).send(html)
+    }
+
+    res.status(200).send({ 
+      code: '0000', 
+      data: {
+        documents: docs.map(d => ({ id: d.id, name: d.name, size: d.size, createdAt: d.createdAt })),
+        expiresAt: share.expiresAt || null
+      }
+    })
+  } catch (e) {
+    console.error('getPublicShare error', e)
+    res.status(500).send('Failed to fetch share')
+  }
+}
+
+// Public: download a file from a share token
+exports.downloadSharedFile = async (req, res) => {
+  try {
+    const { token, documentId } = req.params
+    const share = await db.models.document_share.findOne({ where: { token, isRevoked: false } })
+    if (!share) return res.status(404).send('Share not found')
+    if (share.expiresAt && new Date(share.expiresAt).getTime() < Date.now()) return res.status(410).send('Link expired')
+
+    const item = await db.models.document_share_item.findOne({ where: { share_id: share.id, document_id: documentId } })
+    if (!item) return res.status(403).send('Not allowed')
+
+    const doc = await db.models.document.findByPk(documentId)
+    if (!doc) return res.status(404).send('File not found')
+
+    const filePath = path.isAbsolute(doc.location) ? doc.location : path.join('/data/uploads', doc.name)
+    if (!fs.existsSync(filePath)) return res.status(404).send('File not found')
+
+    // increment download count
+    try { await db.models.document.increment('downloadCount', { where: { id: doc.id } }) } catch {}
+
+    res.download(filePath, doc.name)
+  } catch (e) {
+    console.error('downloadSharedFile error', e)
+    res.status(500).send('Failed to download file')
+  }
+}
+
 
 
 

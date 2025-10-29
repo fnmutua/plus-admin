@@ -341,6 +341,53 @@ export const getDocumentUploaders = (): Promise<IResponse<any>> => {
 }
 
 
+// Create a public share link for one or more documents
+export const shareDocuments = (data: {
+  documentIds: number[]
+  to?: string[] | string
+  message?: string
+  expiresInHours?: number
+}): Promise<IResponse<any>> => {
+  return request.post({ url: prod + '/api/v1/documents/share', data })
+}
+
+// Get shared documents by token (public endpoint, no auth required)
+export const getPublicSharedDocuments = (token: string): Promise<IResponse<any>> => {
+  // Use direct axios for public endpoint (no auth token)
+  return axios.get(prod + `/api/public/share/${token}`)
+    .then(response => {
+      if (response.data.code === '0000') {
+        const payload = response.data.data
+        // Support both old (array) and new ({ documents, expiresAt }) structures
+        const documents = Array.isArray(payload) ? payload : (payload?.documents || [])
+        const expiresAt = Array.isArray(payload) ? (payload?.[0]?.expiresAt || null) : (payload?.expiresAt || null)
+        return {
+          data: { documents, expiresAt },
+          code: response.data.code,
+          message: response.data.message || 'Success',
+          results: { documents, expiresAt }
+        }
+      }
+      throw new Error(response.data.message || 'Failed to fetch shared documents')
+    })
+    .catch(error => {
+      if (error.response?.status === 404) {
+        throw new Error('Share link not found')
+      } else if (error.response?.status === 410) {
+        throw new Error('Share link has expired')
+      }
+      throw error
+    })
+}
+
+// Download a shared document (public endpoint)
+export const downloadSharedDocument = (token: string, documentId: number): Promise<Blob> => {
+  return axios.get(prod + `/api/public/share/${token}/download/${documentId}`, {
+    responseType: 'blob'
+  }).then(response => response.data)
+}
+
+
  
 export const getRawFiles = (data: SettlementType): Promise<IResponse<SettlementType>> => {
 

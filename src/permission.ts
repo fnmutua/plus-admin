@@ -108,6 +108,9 @@ router.beforeEach(async (to, from, next) => {
     else if (to.path.startsWith('/incidents/')) {
       next(); // For public incident details, do not redirect
     }
+    else if (to.path.startsWith('/share/')) {
+      next(); // For public shared documents, do not redirect
+    }
     else {
       next(`/login?redirect=${to.path}`); // Otherwise, redirect to the login page
     }

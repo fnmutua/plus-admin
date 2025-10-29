@@ -28,6 +28,12 @@ v-if="buttons.includes('download')" type="info" size="small" :icon="Download"
           @click="onDownload(item)" plain />
       </el-tooltip>
 
+      <el-tooltip content="Share" placement="top">
+        <el-button
+v-if="buttons.includes('share')" type="primary" size="small" :icon="TopRight"
+          @click="onShare(item)" plain />
+      </el-tooltip>
+
       <el-tooltip content="Preview" placement="top">
         <el-button
 v-if="buttons.includes('preview')" type="warning" size="small" :icon="TopRight"
@@ -132,6 +138,12 @@ width="300" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
             </el-icon>
           </el-dropdown-item>
 
+          <el-dropdown-item v-if="buttons.includes('share')" @click="onShare(item)">
+            <el-icon>
+              <TopRight />
+            </el-icon>
+          </el-dropdown-item>
+
 
 
         </el-dropdown-menu>
@@ -154,7 +166,7 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(["edit", "viewOnMap", "review", "preview", "delete", "download", "decommission", "addGeometry"]);
+const emit = defineEmits(["edit", "viewOnMap", "review", "preview", "delete", "download", "decommission", "addGeometry", "share"]);
 
 
  console.log('Table Actions:::::', props)
@@ -197,6 +209,10 @@ const onPreview = (item) => {
 
 const onDownload = (item) => {
   emit("download", item);
+};
+
+const onShare = (item) => {
+  emit("share", item);
 };
 
 const onDecommission = (item) => {

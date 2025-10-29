@@ -20,6 +20,7 @@ import { useRouter } from 'vue-router'
 import { uploadFilesBatch, checkFilesExist } from '@/api/settlements'
 import { uuid } from 'vue-uuid'
 import { searchByKeyWord } from '@/api/settlements'
+import { shareDocuments } from '@/api/settlements'
 
 // Type definitions
 interface UserRole {
@@ -168,8 +169,8 @@ const setActionButtons = () => {
     if (userPermissions.includes('document:delete')) {
     action_buttons.value.push('delete')
   }
-  // Always allow preview/download for all users
-  action_buttons.value.push('preview', 'download')
+  // Always allow preview/download/share for all users
+  action_buttons.value.push('preview', 'download', 'share')
   
   // Check for edit permission
   if (userPermissions.includes('document:update')) {
@@ -205,6 +206,17 @@ const selectedCategories = ref(new Set<string>())
 const selectedUploaders = ref(new Set<string>())
 const currentlyFiltered = ref(false)
 const selectedDocuments = ref<Set<number>>(new Set())
+// Share dialog state
+const shareDialogVisible = ref(false)
+const shareGenerating = ref(false)
+const shareForm = reactive({
+  emailsText: '',
+  message: '',
+  expiresInHours: 168,
+  sendEmail: true
+})
+const shareResultUrl = ref('')
+const shareError = ref('')
 const drawerSearchTerm = ref('')
 const uploaderCounts = ref<{ [key: string]: { id: number, name: string, count: number } }>({})
 const activeFilterTab = ref('category')
@@ -719,6 +731,73 @@ const batchDownload = async () => {
 // Handle table selection change
 const handleSelectionChange = (selection: Document[]) => {
   selectedDocuments.value = new Set(selection.map(doc => doc.id))
+}
+
+const openShareDialog = () => {
+  shareDialogVisible.value = true
+  shareForm.emailsText = ''
+  shareForm.message = ''
+  shareForm.expiresInHours = 168
+  shareForm.sendEmail = true
+  shareResultUrl.value = ''
+  shareError.value = ''
+}
+
+const submitShare = async () => {
+  try {
+    shareGenerating.value = true
+    shareError.value = ''
+
+    const documentIds = Array.from(selectedDocuments.value)
+    if (documentIds.length === 0) {
+      ElMessage.warning('Please select at least one document to share')
+      shareGenerating.value = false
+      return
+    }
+
+    const to = shareForm.sendEmail && shareForm.emailsText
+      ? shareForm.emailsText
+          .split(/[\s,;]+/)
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0)
+      : undefined
+
+    const payload: any = {
+      documentIds,
+      message: shareForm.message || undefined,
+      expiresInHours: Number(shareForm.expiresInHours) || 168
+    }
+    if (to && to.length) payload.to = to
+
+    const resp: any = await shareDocuments(payload as any)
+    const data = resp?.data || resp
+    if ((data?.code === '0000' && data?.data?.url) || (resp?.code === '0000' && resp?.data?.url)) {
+      const out = data?.data?.url ? data : resp
+      shareResultUrl.value = out.data.url
+      ElMessage.success('Share link created')
+    } else {
+      throw new Error(data?.message || 'Failed to create share link')
+    }
+  } catch (err: any) {
+    console.error('submitShare error', err)
+    shareError.value = err?.message || 'Failed to create share link'
+    ElMessage.error(shareError.value)
+  } finally {
+    shareGenerating.value = false
+  }
+}
+
+const copyShareUrl = async () => {
+  try {
+    if (!shareResultUrl.value) return
+    await navigator.clipboard.writeText(shareResultUrl.value)
+    ElMessage.success('Link copied to clipboard')
+  } catch {}
+}
+
+const onShareDocument = (data: Document) => {
+  selectedDocuments.value = new Set([data.id])
+  openShareDialog()
 }
 
 // Edit document functionality
@@ -1722,6 +1801,12 @@ const handleTabChange = async (tabName: string) => {
   await loadDocumentsByTab()
 }
 
+const xonShareDocument = (row: Document) => {
+  // Implement the logic to share a single document
+  console.log('Sharing document:', row)
+  // You might want to open a share dialog or navigate to a share page
+}
+
 </script>
 
 <template>
@@ -1829,6 +1914,15 @@ const handleTabChange = async (tabName: string) => {
         </el-col>
         <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12" class="selection-actions">
           <div class="selection-buttons">
+                <el-button 
+                  @click="openShareDialog" 
+                  type="success" 
+                  size="small"
+                  class="selection-button"
+                >
+                  <Icon icon="material-symbols:share" width="16" style="margin-right: 4px;" />
+                  Share Selected
+                </el-button>
             <el-button 
               @click="batchDownload" 
               type="primary" 
@@ -1921,7 +2015,7 @@ const handleTabChange = async (tabName: string) => {
               @delete="removeDocument" 
               @preview="viewDocument" 
               @download="downloadFile(row)"
-             
+              @share="onShareDocument(row)"
             />
           </PermissionWrapper>
         </template>
@@ -2302,6 +2396,52 @@ const handleTabChange = async (tabName: string) => {
         </el-form>
       </div>
     </el-drawer>
+
+    <!-- Share Documents Dialog -->
+    <el-dialog 
+      v-model="shareDialogVisible" 
+      title="Share selected documents" 
+      width="520px"
+    >
+      <div>
+        <el-alert 
+          v-if="shareError" 
+          :title="shareError" 
+          type="error" 
+          show-icon 
+          class="mb-2"/>
+        <el-form label-width="auto">
+          <el-form-item label="Recipient emails">
+            <el-input 
+              v-model="shareForm.emailsText" 
+              :disabled="!shareForm.sendEmail"
+              placeholder="Enter one or more emails (comma or space separated)"/>
+          </el-form-item>
+          <el-form-item>
+            <el-checkbox v-model="shareForm.sendEmail">Send email notification</el-checkbox>
+          </el-form-item>
+          <el-form-item label="Message (optional)">
+            <el-input v-model="shareForm.message" type="textarea" :rows="3" placeholder="Add a note to the recipient(s)"/>
+          </el-form-item>
+          <el-form-item label="Expires in (hours)">
+            <el-input v-model.number="shareForm.expiresInHours" type="number" min="1"/>
+          </el-form-item>
+          <el-form-item label="Generated link">
+            <el-input v-model="shareResultUrl" readonly placeholder="Generate to get link">
+              <template #append>
+                <el-button :disabled="!shareResultUrl" @click="copyShareUrl">Copy</el-button>
+              </template>
+            </el-input>
+          </el-form-item>
+        </el-form>
+      </div>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="shareDialogVisible = false">Close</el-button>
+          <el-button type="primary" :loading="shareGenerating" @click="submitShare">Generate Link</el-button>
+        </span>
+      </template>
+    </el-dialog>
 
     <el-drawer
       v-model="importDrawerVisible"

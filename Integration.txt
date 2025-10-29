@@ -43,10 +43,11 @@ https://kesmis.go.ke/api/v1/project/clock-in
 body
 {
   "project_id": 168,
-  "team_member_id": 7,
+  "team_member_id": 1,
+  "project_location_id": 723,
   "geom": {
     "type": "Point",
-    "coordinates": [-1.2921, 36.8219]
+    "coordinates": [36.8219,-1.2921]
   },
   "notes": "Starting work on foundation"
 }
@@ -54,11 +55,13 @@ body
 
 
 
-//4. Clock In 
+//4. Clock out 
 https://kesmis.go.ke/api/v1/project/clock-out
 
 {
   "project_id": 168,
   "team_member_id": 1,
-  "notes": "Completed foundation work"
+  "project_location_id":723,
+    "notes": "Finsihed work on foundation"
 }
+

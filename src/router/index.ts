@@ -100,7 +100,17 @@ export const constantRouterMap: AppRouteRecordRaw[] = [
       noCache: true
     }
   },
-
+  {
+    path: '/share/:token',
+    component: () => import('@/views/Repository/SharedDocumentsPublic.vue'),
+    name: 'SharedDocuments',
+    meta: {
+      hidden: true,
+      title: 'Shared Documents',
+      icon:'material-symbols:share',
+      noCache: true
+    }
+  },
 
   {
     path: '/privacy',
@@ -1656,8 +1666,9 @@ export const adminRoutes: AppRouteRecordRaw[] = [
     name: 'Projects',
     meta: {
       title: 'Projects',
+      hidden: true,
       icon: 'material-symbols:settings',
-      alwaysShow: true,
+      alwaysShow: false,
       role: ['root_admin','admin', 'super_admin' ,'staff'  ] ,
       locationLevel:['national','county'],
 

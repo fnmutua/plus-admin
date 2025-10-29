@@ -82,14 +82,12 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true,
       comment: 'Calculated total hours worked (auto-calculated on clock out)'
     },
-
     overtime_hours: {
       type: DataTypes.DECIMAL(5, 2),
       allowNull: true,
       defaultValue: 0,
       comment: 'Overtime hours if applicable'
     },
-
     createdBy: {
       type: DataTypes.INTEGER,
       allowNull: true,

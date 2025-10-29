@@ -1307,6 +1307,18 @@ db.models.users.hasMany(db.models.document, {
   foreignKey: 'createdBy'
 })
 
+// Document share associations
+if (db.models.document_share && db.models.document_share_item) {
+  db.models.document_share.belongsTo(db.models.users, { foreignKey: 'createdBy', as: 'creator' })
+  db.models.users.hasMany(db.models.document_share, { foreignKey: 'createdBy', as: 'documentShares' })
+
+  db.models.document_share_item.belongsTo(db.models.document_share, { foreignKey: 'share_id', as: 'share' })
+  db.models.document_share.hasMany(db.models.document_share_item, { foreignKey: 'share_id', as: 'items' })
+
+  db.models.document_share_item.belongsTo(db.models.document, { foreignKey: 'document_id', as: 'document' })
+  db.models.document.hasMany(db.models.document_share_item, { foreignKey: 'document_id', as: 'shares' })
+}
+
 
 
 db.models.subcounty.belongsTo(db.models.county, {
