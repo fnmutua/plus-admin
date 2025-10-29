@@ -1801,11 +1801,7 @@ const handleTabChange = async (tabName: string) => {
   await loadDocumentsByTab()
 }
 
-const xonShareDocument = (row: Document) => {
-  // Implement the logic to share a single document
-  console.log('Sharing document:', row)
-  // You might want to open a share dialog or navigate to a share page
-}
+ 
 
 </script>
 

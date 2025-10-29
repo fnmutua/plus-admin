@@ -2204,6 +2204,12 @@ module.exports = function (app) {
   app.post('/api/v1/download', [authJwt.verifyToken, hasPermission('document:read')], controller.downloadFile)
   // Create a document share link and send email
   app.post('/api/v1/documents/share', [authJwt.verifyToken, hasPermission('document:read')], controller.createDocumentShare)
+  
+  // Get all document shares (for current user or all if admin)
+  app.get('/api/v1/documents/shares', [authJwt.verifyToken, hasPermission('document:read')], controller.getDocumentShares)
+  
+  // Revoke a document share
+  app.post('/api/v1/documents/share/revoke', [authJwt.verifyToken, hasPermission('document:read')], controller.revokeDocumentShare)
 
   // Public share access (no auth)
   app.get('/api/public/share/:token', controller.getPublicShare)

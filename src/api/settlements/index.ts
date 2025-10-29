@@ -387,6 +387,16 @@ export const downloadSharedDocument = (token: string, documentId: number): Promi
   }).then(response => response.data)
 }
 
+// Get all document shares
+export const getDocumentShares = (): Promise<IResponse<any>> => {
+  return request.get({ url: prod + '/api/v1/documents/shares' })
+}
+
+// Revoke a document share
+export const revokeDocumentShare = (shareId: number): Promise<IResponse<any>> => {
+  return request.post({ url: prod + '/api/v1/documents/share/revoke', data: { shareId } })
+}
+
 
  
 export const getRawFiles = (data: SettlementType): Promise<IResponse<SettlementType>> => {

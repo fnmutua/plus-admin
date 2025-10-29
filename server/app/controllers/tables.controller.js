@@ -5258,6 +5258,103 @@ exports.downloadSharedFile = async (req, res) => {
   }
 }
 
+// Get all document shares for the current user or all if admin
+exports.getDocumentShares = async (req, res) => {
+  try {
+    const userId = req?.thisUser?.id
+    if (!userId) return res.status(401).send({ code: '1001', message: 'Unauthorized' })
+
+    // Check if user is admin/super_admin using association helper
+    const user = req.thisUser || await db.user.findByPk(userId)
+    let userRoles = []
+    try {
+      userRoles = (await user.getRoles()) || []
+    } catch {}
+    const isAdmin = userRoles.some((role) => ['admin', 'super_admin', 'root_admin'].includes(role.name))
+
+    // Build where clause - users see their own shares, admins see all
+    const whereClause = isAdmin ? {} : { createdBy: userId }
+
+    const shares = await db.models.document_share.findAll({
+      where: whereClause,
+      include: [
+        { 
+          model: db.models.users, 
+          as: 'creator',
+          attributes: ['id', 'name', 'email']
+        },
+        {
+          model: db.models.document_share_item,
+          as: 'items',
+          include: [
+            {
+              model: db.models.document,
+              as: 'document',
+              attributes: ['id', 'name']
+            }
+          ]
+        }
+      ],
+      order: [['createdAt', 'DESC']]
+    })
+
+    const formattedShares = shares.map(share => ({
+      id: share.id,
+      token: share.token,
+      email: share.email,
+      message: share.message,
+      expiresAt: share.expiresAt,
+      isRevoked: share.isRevoked,
+      createdAt: share.createdAt,
+      createdBy: share.createdBy,
+      creator: share.creator ? {
+        id: share.creator.id,
+        name: share.creator.name,
+        email: share.creator.email
+      } : null,
+      documentCount: share.items?.length || 0,
+      documents: share.items?.map(item => item.document?.name).filter(Boolean) || []
+    }))
+
+    res.status(200).send({ code: '0000', data: formattedShares })
+  } catch (e) {
+    console.error('getDocumentShares error', e)
+    res.status(500).send({ code: '1003', message: 'Failed to fetch shares' })
+  }
+}
+
+// Revoke a document share
+exports.revokeDocumentShare = async (req, res) => {
+  try {
+    const { shareId } = req.body || req.params
+    const userId = req?.thisUser?.id
+    if (!userId) return res.status(401).send({ code: '1001', message: 'Unauthorized' })
+
+    const share = await db.models.document_share.findByPk(shareId)
+    if (!share) return res.status(404).send({ code: '1002', message: 'Share not found' })
+
+    // Check if user is admin or the creator
+    const user = req.thisUser || await db.user.findByPk(userId)
+    let userRoles = []
+    try {
+      userRoles = (await user.getRoles()) || []
+    } catch {}
+    const isAdmin = userRoles.some((role) => ['admin', 'super_admin', 'root_admin'].includes(role.name))
+
+    if (!isAdmin && share.createdBy !== userId) {
+      return res.status(403).send({ code: '1004', message: 'Not authorized to revoke this share' })
+    }
+
+    share.isRevoked = true
+    await share.save()
+
+    res.status(200).send({ code: '0000', message: 'Share revoked successfully', data: share })
+  } catch (e) {
+    console.error('revokeDocumentShare error', e)
+    res.status(500).send({ code: '1005', message: 'Failed to revoke share' })
+  }
+}
+
 
 
 

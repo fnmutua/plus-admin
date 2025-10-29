@@ -1250,6 +1250,18 @@ export const adminRoutes: AppRouteRecordRaw[] = [
 
         }
       },
+      
+      {
+        path: 'shares',
+        component: () => import('@/views/Repository/SharedDocumentsList.vue'),
+        name: 'DocumentShares',
+        meta: {
+          title: 'Document Shares',
+          hidden: false,
+          role: ['root_admin','admin', 'super_admin', 'monitoring', 'staff' ] ,
+          icon:'material-symbols:share'
+        }
+      },
 
     
 

@@ -141,10 +141,10 @@ const fetchSharedDocuments = async () => {
   }
 }
 
-const handleDownload = async (document: SharedDocument) => {
+const handleDownload = async (document: SharedDocument): Promise<boolean> => {
   try {
     const token = route.params.token as string
-    ElMessage.info(`Downloading ${document.name}...`)
+    //ElMessage.info(`Downloading ${document.name}...`)
     
     const blob = await downloadSharedDocument(token, document.id)
     
@@ -165,9 +165,46 @@ const handleDownload = async (document: SharedDocument) => {
     window.URL.revokeObjectURL(url)
     
     ElMessage.success(`Download completed: ${fileName}`)
+    return true
   } catch (error: any) {
     console.error('Error downloading file:', error)
-    ElMessage.error('Failed to download file')
+    
+    // Close any existing messages so the error is visible
+    try { (ElMessage as any).closeAll && (ElMessage as any).closeAll() } catch {}
+    
+    // Provide more specific error messages
+    let errorMessage = 'Failed to download file'
+    
+    // Check if it's an Axios error with response
+    if (error?.response && typeof error.response.status === 'number') {
+      const status = error.response.status
+      
+      if (status === 404) {
+        errorMessage = `File "${document.name}" not found or has been deleted`
+      } else if (status === 410) {
+        errorMessage = 'This share link has expired'
+      } else if (status === 403) {
+        errorMessage = 'You do not have permission to download this file'
+      } else if (status === 500) {
+        errorMessage = 'Server error occurred while downloading the file. Please try again later.'
+      } else if (status === 400) {
+        errorMessage = 'Invalid request. Please check the share link.'
+      } else {
+        // Handle Blob error responses (when responseType is 'blob' but server returns error)
+        if (error.response.data instanceof Blob) {
+          errorMessage = `Download failed (Error ${status}: ${error.response.statusText || 'Unknown error'})`
+        } else {
+          errorMessage = error.response.data?.message || error.response.statusText || `Download failed (Error ${status})`
+        }
+      }
+    } else if (error?.code === 'ERR_NETWORK' || error?.message?.includes('Network Error')) {
+      errorMessage = 'Network error. Please check your connection and try again.'
+    } else if (error?.message) {
+      errorMessage = error.message
+    }
+    
+    ElMessage.error({ message: errorMessage, duration: 6000, showClose: true })
+    return false
   }
 }
 
@@ -179,13 +216,25 @@ const downloadAll = async () => {
 
   ElMessage.info(`Starting batch download of ${documents.value.length} document(s)...`)
   
+  let successCount = 0
+  let failCount = 0
+  
   for (const doc of documents.value) {
-    await handleDownload(doc)
+    const success = await handleDownload(doc)
+    if (success) {
+      successCount++
+    } else {
+      failCount++
+    }
     // Small delay between downloads to prevent browser blocking
     await new Promise(resolve => setTimeout(resolve, 500))
   }
   
-  ElMessage.success(`Batch download completed: ${documents.value.length} document(s)`)
+  if (failCount === 0) {
+    ElMessage.success(`Batch download completed: ${successCount} document(s)`)
+  } else {
+    ElMessage.warning(`Batch download completed: ${successCount} succeeded, ${failCount} failed`)
+  }
 }
 
 const goBack = () => {
@@ -269,7 +318,7 @@ onMounted(() => {
             <h3 class="text-lg font-semibold mb-4">Documents</h3>
             
             <!-- Mobile View: Card Layout -->
-            <div v-if="isMobile" class="space-y-4">
+            <div v-if="isMobile" class="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
               <div
                 v-for="doc in documents"
                 :key="doc.id"
@@ -303,14 +352,15 @@ onMounted(() => {
             </div>
 
             <!-- Desktop View: Table Layout -->
-            <el-table
-              v-else
-              :data="documents"
-              style="width: 100%"
-              border
-              stripe
-              class="documents-table"
-            >
+            <div v-else class="documents-table-wrapper">
+              <el-table
+                :data="documents"
+                style="width: 100%"
+                border
+                stripe
+                class="documents-table"
+                max-height="500"
+              >
               <el-table-column label="#" type="index" width="60" align="center" />
               
               <el-table-column label="File" min-width="300">
@@ -347,7 +397,8 @@ onMounted(() => {
                   </el-button>
                 </template>
               </el-table-column>
-            </el-table>
+              </el-table>
+            </div>
           </div>
         </div>
 
@@ -383,6 +434,14 @@ onMounted(() => {
 .document-card:hover {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   transform: translateY(-2px);
+}
+
+.documents-table-wrapper {
+  width: 100%;
+}
+
+.documents-table {
+  width: 100%;
 }
 
 .documents-table :deep(.el-table__body tr:hover > td) {
