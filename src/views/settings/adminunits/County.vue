@@ -1,0 +1,490 @@
+<!-- eslint-disable prettier/prettier -->
+<script setup lang="ts">
+import { ContentWrap } from '@/components/ContentWrap'
+import { Table } from '@/components/Table'
+import { ElButton, ElMessage, ElUpload, ElDialog, ElForm, ElFormItem, ElInput } from 'element-plus'
+import { Edit, Upload, Plus, Search } from '@element-plus/icons-vue'
+import { ref, reactive, onMounted } from 'vue'
+import { ElPagination } from 'element-plus'
+import type { FormInstance } from 'element-plus'
+import { getCountiesApi, getCountyByIdApi, updateCountyApi, createCountyApi, type County } from '@/api/adminunits'
+import * as turf from '@turf/turf'
+import DownloadCustom from '@/views/Components/DownloadCustom.vue'
+
+const loading = ref(false)
+const tableData = ref<County[]>([])
+const filteredData = ref<County[]>([])
+const pageSize = ref(10)
+const currentPage = ref(1)
+const total = ref(0)
+const searchKeyword = ref('')
+
+const editDialogVisible = ref(false)
+const isEditMode = ref(false)
+const formRef = ref<FormInstance>()
+const formData = reactive({
+  id: null as number | null,
+  name: '',
+  code: ''
+})
+
+const geometryData = ref<any>(null) // Store geometry separately to avoid Vue reactivity issues
+const processingGeo = ref(false) // Disable submit while processing GeoJSON
+const uploadRef = ref()
+
+const columns = [
+  {
+    field: 'index',
+    label: '#',
+    type: 'index'
+  },
+  {
+    field: 'name',
+    label: 'Name',
+    sortable: true
+  },
+  {
+    field: 'code',
+    label: 'Code',
+    sortable: true
+  },
+  {
+    field: 'area_km2',
+    label: 'Area (km²)',
+    sortable: true,
+    formatter: (row: County) => row.area_km2 ? row.area_km2.toFixed(2) : 'N/A'
+  },
+  {
+    field: 'settlements_count',
+    label: 'Settlements',
+    sortable: true
+  },
+  {
+    field: 'action',
+    label: 'Actions'
+  }
+]
+
+const fetchCounties = async () => {
+  loading.value = true
+  try {
+    const response = await getCountiesApi()
+    tableData.value = response.data || []
+    filteredData.value = tableData.value
+    total.value = filteredData.value.length
+    applyPagination()
+  } catch (error) {
+    console.error('Error fetching counties:', error)
+    ElMessage.error('Failed to fetch counties')
+  } finally {
+    loading.value = false
+  }
+}
+
+const remoteSearch = async (keyword: string) => {
+  try {
+    if (!keyword || keyword.trim() === '') {
+      searchKeyword.value = ''
+      filteredData.value = tableData.value
+      total.value = filteredData.value.length
+      currentPage.value = 1
+      applyPagination()
+      return
+    }
+    
+    searchKeyword.value = keyword.trim().toLowerCase()
+    filteredData.value = tableData.value.filter((county: County) => 
+      county.name?.toLowerCase().includes(searchKeyword.value) ||
+      county.code?.toLowerCase().includes(searchKeyword.value)
+    )
+    total.value = filteredData.value.length
+    currentPage.value = 1
+    applyPagination()
+  } catch (error) {
+    console.error('Error searching counties:', error)
+  }
+}
+
+const displayedData = ref<County[]>([])
+
+const applyPagination = () => {
+  const start = (currentPage.value - 1) * pageSize.value
+  const end = start + pageSize.value
+  displayedData.value = filteredData.value.slice(start, end)
+}
+
+const handlePageChange = (page: number) => {
+  currentPage.value = page
+  applyPagination()
+}
+
+const handlePageSizeChange = (size: number) => {
+  pageSize.value = size
+  currentPage.value = 1
+  applyPagination()
+}
+
+const downloadLoading = ref(false)
+
+const handleAdd = () => {
+  isEditMode.value = false
+  formData.id = null
+  formData.name = ''
+  formData.code = ''
+  geometryData.value = null
+  editDialogVisible.value = true
+}
+
+const handleEdit = async (row: County) => {
+  try {
+    isEditMode.value = true
+    const response = await getCountyByIdApi(row.id)
+    formData.id = response.data.id
+    formData.name = response.data.name
+    formData.code = response.data.code
+    geometryData.value = null
+    editDialogVisible.value = true
+  } catch (error) {
+    console.error('Error fetching county:', error)
+    ElMessage.error('Failed to fetch county details')
+  }
+}
+
+const handleSubmit = async () => {
+  console.log('=== Form Submit Started ===')
+  console.log('formRef.value exists:', !!formRef.value)
+  
+  if (!formRef.value) return
+  
+  await formRef.value.validate((valid) => {
+    console.log('Form validation result:', valid)
+    
+    if (valid) {
+      console.log('Form is valid, preparing payload...')
+      console.log('Form data:', {
+        id: formData.id,
+        name: formData.name,
+        code: formData.code
+      })
+      
+      const payload: any = {
+        name: formData.name,
+        code: formData.code
+      }
+      
+      // Check if geometry exists and add it to payload
+      console.log('=== Checking Geometry ===')
+      console.log('geometryData ref object:', geometryData)
+      console.log('geometryData.value:', geometryData.value)
+      console.log('geometryData.value type:', typeof geometryData.value)
+      console.log('geometryData.value === null:', geometryData.value === null)
+      console.log('geometryData.value === undefined:', geometryData.value === undefined)
+      console.log('Boolean check (!!geometryData.value):', !!geometryData.value)
+      
+      if (geometryData.value) {
+        console.log('geometryData.value exists, checking structure...')
+        console.log('Has type property:', 'type' in geometryData.value)
+        console.log('Has coordinates property:', 'coordinates' in geometryData.value)
+        console.log('geometryData.value.type:', geometryData.value.type)
+        console.log('geometryData.value.coordinates:', geometryData.value.coordinates)
+        console.log('geometryData.value.coordinates type:', typeof geometryData.value.coordinates)
+        console.log('geometryData.value.coordinates is array:', Array.isArray(geometryData.value.coordinates))
+      }
+      
+      if (geometryData.value && typeof geometryData.value === 'object' && geometryData.value.type && geometryData.value.coordinates) {
+        console.log('Geometry validation passed, adding to payload...')
+        payload.geom = JSON.parse(JSON.stringify(geometryData.value)) // Deep copy
+        console.log('Geometry added to payload:', payload.geom)
+        console.log('Payload geom type:', payload.geom.type)
+        console.log('Payload geom coordinates length:', payload.geom.coordinates?.length)
+      } else {
+        console.warn('=== Geometry validation failed ===')
+        console.warn('Condition checks:')
+        console.warn('  - geometryData.value exists:', !!geometryData.value)
+        console.warn('  - Is object:', typeof geometryData.value === 'object')
+        console.warn('  - Has type:', !!geometryData.value?.type)
+        console.warn('  - Has coordinates:', !!geometryData.value?.coordinates)
+        console.warn('Final geometryData.value value:', geometryData.value)
+      }
+      
+      console.log('=== Final Payload ===')
+      console.log('Payload object:', payload)
+      console.log('Payload JSON:', JSON.stringify(payload, null, 2))
+      console.log('Payload has geom:', 'geom' in payload)
+      
+      if (isEditMode.value && formData.id) {
+        // Update existing
+        updateCountyApi(formData.id, payload)
+          .then(() => {
+            ElMessage.success('County updated successfully')
+            editDialogVisible.value = false
+            fetchCounties()
+          })
+          .catch((error) => {
+            console.error('Error updating county:', error)
+            ElMessage.error('Failed to update county')
+          })
+      } else {
+        // Create new
+        createCountyApi(payload)
+          .then(() => {
+            ElMessage.success('County created successfully')
+            editDialogVisible.value = false
+            fetchCounties()
+          })
+          .catch((error) => {
+            console.error('Error creating county:', error)
+            ElMessage.error('Failed to create county')
+          })
+      }
+    }
+  })
+}
+
+const handleGeoFileChange = (uploadFile: any) => {
+  console.log('=== GeoJSON File Change ===')
+  console.log('Upload file object:', uploadFile)
+  
+  // Extract the actual File object - similar to DocumentsTagged.vue approach
+  const file = uploadFile.raw || uploadFile.file
+  console.log('Extracted file:', file)
+  console.log('File name:', file?.name)
+  console.log('File type:', file?.type)
+  console.log('Is File instance:', file instanceof File)
+  
+  if (!file || !(file instanceof File)) {
+    console.error('Invalid file object - not a File instance')
+    ElMessage.error('Invalid file. Please select a valid GeoJSON file.')
+    return false
+  }
+  
+  // Validate file type
+  const fileType = file.name.split('.').pop()?.toLowerCase()
+  console.log('Detected file extension:', fileType)
+  
+  if (fileType !== 'geojson' && fileType !== 'json') {
+    console.error('Unsupported file type:', fileType)
+    ElMessage.error('Only GeoJSON (.geojson, .json) files are supported')
+    return false
+  }
+  
+  // Start processing
+  processingGeo.value = true
+  
+  const reader = new FileReader()
+  
+  reader.onload = (e) => {
+    console.log('FileReader onload event triggered')
+    console.log('Event target:', e.target)
+    console.log('Result type:', typeof e.target?.result)
+    
+    try {
+      const fileContent = e.target?.result as string
+      console.log('File content length:', fileContent?.length)
+      console.log('File content preview (first 200 chars):', fileContent?.substring(0, 200))
+      
+      const json = JSON.parse(fileContent)
+      console.log('JSON parsed successfully')
+      console.log('JSON structure:', {
+        type: json.type,
+        featuresCount: json.features?.length,
+        hasFeatures: !!json.features
+      })
+      
+      if (!json.features || json.features.length === 0) {
+        console.error('No features found in GeoJSON')
+        ElMessage.error('GeoJSON file must contain at least one feature')
+        processingGeo.value = false
+        return
+      }
+      
+      console.log('Number of features:', json.features.length)
+      
+      if (json.features.length > 1) {
+        console.warn('Multiple features detected, using first one')
+        ElMessage.warning('File contains multiple features. Using the first feature.')
+      }
+      
+      const geometry = json.features[0].geometry
+      console.log('Extracted geometry:', {
+        type: geometry.type,
+        hasCoordinates: !!geometry.coordinates,
+        coordinatesLength: geometry.coordinates?.length,
+        coordinatesPreview: geometry.coordinates?.slice(0, 2)
+      })
+      
+      if (geometry.type === 'Polygon' || geometry.type === 'MultiPolygon') {
+        // Create a clean geometry object and store it in ref to avoid Vue reactivity issues
+        const cleanGeometry = {
+          type: geometry.type,
+          coordinates: geometry.coordinates
+        }
+        
+        console.log('Clean geometry object created:', cleanGeometry)
+        console.log('Assigning to geometryData.value...')
+        
+        geometryData.value = cleanGeometry
+        
+        console.log('Geometry assigned. geometryData.value:', geometryData.value)
+        console.log('geometryData.value type check:', typeof geometryData.value)
+        console.log('geometryData.value.type:', geometryData.value?.type)
+        console.log('geometryData.value.coordinates exists:', !!geometryData.value?.coordinates)
+        
+        // Calculate area
+        const areaSqM = turf.area(geometry)
+        const areaSqKm = areaSqM / 1000000
+        console.log('Area calculated:', areaSqKm, 'km²')
+        
+        ElMessage.success(`Geometry loaded. Area: ${areaSqKm.toFixed(2)} km²`)
+        console.log('=== GeoJSON Upload Completed Successfully ===')
+        processingGeo.value = false
+      } else {
+        console.error('Invalid geometry type:', geometry.type)
+        ElMessage.error('Geometry must be a Polygon or MultiPolygon')
+        processingGeo.value = false
+      }
+    } catch (error) {
+      console.error('=== Error parsing GeoJSON ===')
+      console.error('Error object:', error)
+      console.error('Error message:', error instanceof Error ? error.message : String(error))
+      console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace')
+      ElMessage.error('Failed to parse GeoJSON file')
+      processingGeo.value = false
+    }
+  }
+  
+  reader.onerror = (error) => {
+    console.error('FileReader error:', error)
+    ElMessage.error('Error reading file')
+    processingGeo.value = false
+  }
+  
+  console.log('Starting to read file as text...')
+  reader.readAsText(file)
+}
+
+const handleClose = () => {
+  formData.id = null
+  formData.name = ''
+  formData.code = ''
+  geometryData.value = null
+}
+
+onMounted(() => {
+  fetchCounties()
+})
+</script>
+
+<template>
+  <ContentWrap>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+      <h2>Counties</h2>
+      <div style="display: flex; gap: 10px;">
+        <DownloadCustom
+          :data="filteredData"
+          model="county"
+          :associated_models="[]"
+          :loading="downloadLoading"
+          @download-start="downloadLoading = true"
+          @download-end="downloadLoading = false"
+        />
+        <el-button type="primary" :icon="Plus" @click="handleAdd">Add County</el-button>
+      </div>
+    </div>
+
+    <div style="margin-bottom: 20px;">
+      <el-input
+        v-model="searchKeyword"
+        placeholder="Search counties by name or code..."
+        clearable
+        @clear="remoteSearch('')"
+        @input="remoteSearch"
+        style="width: 300px;"
+      >
+        <template #prefix>
+          <el-icon><Search /></el-icon>
+        </template>
+      </el-input>
+    </div>
+
+    <Table
+      :columns="columns"
+      :data="displayedData"
+      :loading="loading"
+    >
+      <template #action="data">
+        <el-tooltip content="Edit" placement="top">
+          <el-button
+            type="primary"
+            :icon="Edit"
+            @click="handleEdit(data.row)"
+            circle
+          />
+        </el-tooltip>
+      </template>
+    </Table>
+
+    <ElPagination
+      layout="sizes, prev, pager, next, total"
+      v-model:current-page="currentPage"
+      v-model:page-size="pageSize"
+      :page-sizes="[5, 10, 20, 50, 100, 5000, 10000]"
+      :total="total"
+      :background="true"
+      class="mt-4"
+      @current-change="handlePageChange"
+      @size-change="handlePageSizeChange"
+    />
+
+    <ElDialog
+      v-model="editDialogVisible"
+      :title="isEditMode ? 'Edit County' : 'Add County'"
+      width="50%"
+      @close="handleClose"
+    >
+      <el-form
+        ref="formRef"
+        :model="formData"
+        label-width="120px"
+      >
+        <el-form-item label="Name" prop="name" :rules="[{ required: true, message: 'Name is required' }]">
+          <el-input v-model="formData.name" />
+        </el-form-item>
+        
+        <el-form-item label="Code" prop="code" :rules="[{ required: true, message: 'Code is required' }]">
+          <el-input v-model="formData.code" />
+        </el-form-item>
+        
+        <el-form-item label="Geometry (GeoJSON)">
+          <el-upload
+            ref="uploadRef"
+            action=""
+            :auto-upload="false"
+            :show-file-list="false"
+            :on-change="handleGeoFileChange"
+            accept=".geojson,.json"
+          >
+            <template #trigger>
+              <el-button type="primary" :icon="Upload" :loading="processingGeo" :disabled="processingGeo">
+                <template v-if="processingGeo">Processing...</template>
+                <template v-else>Upload GeoJSON</template>
+              </el-button>
+            </template>
+          </el-upload>
+          <div v-if="geometryData" style="margin-top: 10px; color: green;">
+            ✓ Geometry loaded
+          </div>
+        </el-form-item>
+      </el-form>
+      
+      <template #footer>
+        <el-button @click="editDialogVisible = false" :disabled="processingGeo">Cancel</el-button>
+        <el-button type="primary" @click="handleSubmit" :disabled="processingGeo">
+          <template v-if="processingGeo">Processing GeoJSON...</template>
+          <template v-else>{{ isEditMode ? 'Update' : 'Create' }}</template>
+        </el-button>
+      </template>
+    </ElDialog>
+  </ContentWrap>
+</template>
+

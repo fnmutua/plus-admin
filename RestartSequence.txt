@@ -118,3 +118,9 @@ docker run -d \
   -v /path/to/your/local/data/dir:/var/lib/geoserver_data \
   --restart=always \
   gmalaga/geoserver_ecw30
+
+
+
+ ALTER SEQUENCE county_id_seq RESTART WITH 48 ;
+ ALTER SEQUENCE subcounty_id_seq RESTART WITH 291 ;
+ ALTER SEQUENCE ward_id_seq RESTART WITH 1451 ;

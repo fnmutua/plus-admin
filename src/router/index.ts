@@ -1979,7 +1979,54 @@ export const adminRoutes: AppRouteRecordRaw[] = [
     
         ]
       },
- 
+      
+      {
+        path: 'adminunits',
+        component: Layout,
+        redirect: '/settings/adminunits/counties',
+        name: 'AdminUnits',
+        meta: {
+          title: 'Admin Units',
+          icon: 'mdi:map-marker-multiple',
+          role: ['root_admin', 'super_admin'],
+          alwaysShow: true
+        },
+        children: [
+          {
+            path: 'counties',
+            component: () => import('@/views/settings/adminunits/County.vue'),
+            name: 'Counties',
+            meta: {
+              title: 'Counties',
+              hidden: false,
+              icon: 'mdi:map-marker',
+              role: ['root_admin', 'super_admin']
+            }
+          },
+          {
+            path: 'subcounties',
+            component: () => import('@/views/settings/adminunits/Subcounty.vue'),
+            name: 'Subcounties',
+            meta: {
+              title: 'Subcounties',
+              hidden: false,
+              icon: 'mdi:map-marker-outline',
+              role: ['root_admin', 'super_admin']
+            }
+          },
+          {
+            path: 'wards',
+            component: () => import('@/views/settings/adminunits/Ward.vue'),
+            name: 'Wards',
+            meta: {
+              title: 'Wards',
+              hidden: false,
+              icon: 'mdi:map-marker-radius',
+              role: ['root_admin', 'super_admin']
+            }
+          }
+        ]
+      },      
 
     ]
   },
