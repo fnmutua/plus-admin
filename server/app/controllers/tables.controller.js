@@ -1125,6 +1125,27 @@ exports.modelImportDataUpsert = async (req, res) => {
     // Upsert logic with code field priority
     for (const item of validData) {
       try {
+        // Simple field-length check so errors mention the exact field
+        const tooLongFields = []
+        Object.entries(attributes).forEach(([key, attrDef]) => {
+          if (!(key in item)) return
+          const val = item[key]
+          if (val == null) return
+          const typeKey = attrDef?.type?.key
+          if (typeof val === 'string' && (typeKey === 'STRING' || typeKey === 'CHAR')) {
+            const configuredLen = (attrDef?.type?.options && attrDef.type.options.length) ? Number(attrDef.type.options.length) : undefined
+            const maxLen = configuredLen || 255
+            if (val.length > maxLen) {
+              tooLongFields.push({ field: key, max: maxLen, length: val.length })
+            }
+          }
+        })
+        if (tooLongFields.length) {
+          tooLongFields.forEach(f => {
+            errors.push({ item, field: f.field, error: 'too_long', detail: `Field '${f.field}' length ${f.length} exceeds maximum ${f.max}` })
+          })
+          continue
+        }
         // First, try to find existing record by code field
         let existing = null;
         if (!forceInsert && item.code) {
@@ -1219,7 +1240,33 @@ exports.modelImportDataUpsert = async (req, res) => {
           }
         }
       } catch (err) {
-        errors.push({ item, error: err.name || 'UpsertError', detail: err.message });
+        // Include field names in error messages when possible
+        if (Array.isArray(err?.errors) && err.errors.length) {
+          err.errors.forEach((e) => {
+            const fieldName = e?.path || e?.column || 'unknown'
+            errors.push({ item, field: fieldName, error: e?.type || (err.name || 'UpsertError'), detail: `Field '${fieldName}': ${e?.message || err.message}` })
+          })
+        } else if (err?.fields && Object.keys(err.fields).length) {
+          Object.keys(err.fields).forEach((fieldName) => {
+            errors.push({ item, field: fieldName, error: err.name || 'UpsertError', detail: `Field '${fieldName}': ${err.message}` })
+          })
+        } else if (/value too long for type character varying\((\d+)\)/i.test(String(err?.message || ''))) {
+          // Heuristic mapping for length errors
+          Object.entries(item).forEach(([k, v]) => {
+            const attr = attributes[k]
+            const typeKey = attr?.type?.key
+            const configuredLen = (attr?.type?.options && attr.type.options.length) ? Number(attr.type.options.length) : undefined
+            const maxLen = configuredLen || 255
+            if (typeof v === 'string' && (typeKey === 'STRING' || typeKey === 'CHAR') && v.length > maxLen) {
+              errors.push({ item, field: k, error: 'too_long', detail: `Field '${k}' length ${v.length} exceeds maximum ${maxLen}` })
+            }
+          })
+          if (!errors.some(e => e.item === item)) {
+            errors.push({ item, error: err.name || 'UpsertError', detail: err.message })
+          }
+        } else {
+          errors.push({ item, error: err.name || 'UpsertError', detail: err.message })
+        }
       }
     }
 
@@ -5138,7 +5185,8 @@ exports.createDocumentShare = async (req, res) => {
     }
 
     const token = crypto.randomUUID()
-    const expiresAt = new Date(Date.now() + (Number(expiresInHours) || 168) * 60 * 60 * 1000)
+    const hours = Number(expiresInHours)
+    const expiresAt = hours === 0 ? null : new Date(Date.now() + (hours || 168) * 60 * 60 * 1000)
 
     const share = await db.models.document_share.create({
       token,
@@ -5355,6 +5403,38 @@ exports.revokeDocumentShare = async (req, res) => {
   }
 }
 
+
+// Unrevoke a document share
+exports.unrevokeDocumentShare = async (req, res) => {
+  try {
+    const { shareId } = req.body || req.params
+    const userId = req?.thisUser?.id
+    if (!userId) return res.status(401).send({ code: '1001', message: 'Unauthorized' })
+
+    const share = await db.models.document_share.findByPk(shareId)
+    if (!share) return res.status(404).send({ code: '1002', message: 'Share not found' })
+
+    // Check if user is admin or the creator
+    const user = req.thisUser || await db.user.findByPk(userId)
+    let userRoles = []
+    try {
+      userRoles = (await user.getRoles()) || []
+    } catch {}
+    const isAdmin = userRoles.some((role) => ['admin', 'super_admin', 'root_admin'].includes(role.name))
+
+    if (!isAdmin && share.createdBy !== userId) {
+      return res.status(403).send({ code: '1004', message: 'Not authorized to unrevoke this share' })
+    }
+
+    share.isRevoked = false
+    await share.save()
+
+    res.status(200).send({ code: '0000', message: 'Share unrevoked successfully', data: share })
+  } catch (e) {
+    console.error('unrevokeDocumentShare error', e)
+    res.status(500).send({ code: '1006', message: 'Failed to unrevoke share' })
+  }
+}
 
 
 

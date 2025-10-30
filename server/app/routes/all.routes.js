@@ -2211,6 +2211,9 @@ module.exports = function (app) {
   // Revoke a document share
   app.post('/api/v1/documents/share/revoke', [authJwt.verifyToken, hasPermission('document:read')], controller.revokeDocumentShare)
 
+  // Unrevoke a document share
+  app.post('/api/v1/documents/share/unrevoke', [authJwt.verifyToken, hasPermission('document:read')], controller.unrevokeDocumentShare)
+
   // Public share access (no auth)
   app.get('/api/public/share/:token', controller.getPublicShare)
   app.get('/api/public/share/:token/download/:documentId', controller.downloadSharedFile)

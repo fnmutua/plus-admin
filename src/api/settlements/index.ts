@@ -397,6 +397,11 @@ export const revokeDocumentShare = (shareId: number): Promise<IResponse<any>> =>
   return request.post({ url: prod + '/api/v1/documents/share/revoke', data: { shareId } })
 }
 
+// Unrevoke a document share
+export const unrevokeDocumentShare = (shareId: number): Promise<IResponse<any>> => {
+  return request.post({ url: prod + '/api/v1/documents/share/unrevoke', data: { shareId } })
+}
+
 
  
 export const getRawFiles = (data: SettlementType): Promise<IResponse<SettlementType>> => {

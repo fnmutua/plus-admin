@@ -3,7 +3,7 @@ import { onMounted, ref } from 'vue'
 import { ElButton, ElCard, ElTable, ElTableColumn, ElMessage, ElMessageBox, ElTag } from 'element-plus'
 import { Refresh, Delete } from '@element-plus/icons-vue'
 import { Icon } from '@iconify/vue'
-import { getDocumentShares, revokeDocumentShare } from '@/api/settlements'
+import { getDocumentShares, revokeDocumentShare, unrevokeDocumentShare } from '@/api/settlements'
 
 interface DocumentShare {
   id: number
@@ -105,6 +105,36 @@ const handleRevoke = async (share: DocumentShare) => {
   }
 }
 
+const handleUnrevoke = async (share: DocumentShare) => {
+  try {
+    await ElMessageBox.confirm(
+      `Unrevoke this share? The link will become accessible again.`,
+      'Unrevoke Share',
+      {
+        confirmButtonText: 'Unrevoke',
+        cancelButtonText: 'Cancel',
+        type: 'info',
+      }
+    )
+
+    loading.value = true
+    const response = await unrevokeDocumentShare(share.id)
+    
+    if (response.code === '0000') {
+      ElMessage.success('Share unrevoked successfully')
+      await fetchShares()
+    } else {
+      ElMessage.error(response.message || 'Failed to unrevoke share')
+    }
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      console.error('Error unrevoking share:', error)
+      ElMessage.error(error.message || 'Failed to unrevoke share')
+    }
+  } finally {
+    loading.value = false
+  }
+}
 const copyShareLink = async (share: DocumentShare) => {
   try {
     const serverUrl = window.location.origin
@@ -208,7 +238,7 @@ onMounted(() => {
         </template>
       </el-table-column>
 
-      <el-table-column label="Actions" width="200" align="center" fixed="right">
+      <el-table-column label="Actions" width="220" align="center" fixed="right">
         <template #default="{ row }">
           <div class="flex gap-2 justify-center">
             <el-button
@@ -220,16 +250,28 @@ onMounted(() => {
               <Icon icon="material-symbols:link" width="16" />
               Copy Link
             </el-button>
-            <el-button
-              size="small"
-              type="danger"
-              plain
-              :icon="Delete"
-              @click="handleRevoke(row)"
-              :disabled="row.isRevoked"
-            >
-              {{ row.isRevoked ? 'Revoked' : 'Revoke' }}
-            </el-button>
+            <template v-if="row.isRevoked">
+              <el-button
+                size="small"
+                type="success"
+                plain
+                :icon="Refresh"
+                @click="handleUnrevoke(row)"
+              >
+                Unrevoke
+              </el-button>
+            </template>
+            <template v-else>
+              <el-button
+                size="small"
+                type="danger"
+                plain
+                :icon="Delete"
+                @click="handleRevoke(row)"
+              >
+                Revoke
+              </el-button>
+            </template>
           </div>
         </template>
       </el-table-column>

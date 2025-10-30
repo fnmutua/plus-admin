@@ -737,13 +737,13 @@ const openShareDialog = () => {
   shareDialogVisible.value = true
   shareForm.emailsText = ''
   shareForm.message = ''
-  shareForm.expiresInHours = 168
+  shareForm.expiresInHours = 0
   shareForm.sendEmail = true
   shareResultUrl.value = ''
   shareError.value = ''
 }
 
-const submitShare = async () => {
+const submitShare = async (generateOnly = false) => {
   try {
     shareGenerating.value = true
     shareError.value = ''
@@ -755,7 +755,7 @@ const submitShare = async () => {
       return
     }
 
-    const to = shareForm.sendEmail && shareForm.emailsText
+    const to = !generateOnly && shareForm.sendEmail && shareForm.emailsText
       ? shareForm.emailsText
           .split(/[\s,;]+/)
           .map((s) => s.trim())
@@ -765,7 +765,7 @@ const submitShare = async () => {
     const payload: any = {
       documentIds,
       message: shareForm.message || undefined,
-      expiresInHours: Number(shareForm.expiresInHours) || 168
+      expiresInHours: Number(shareForm.expiresInHours) || 0
     }
     if (to && to.length) payload.to = to
 
@@ -2419,8 +2419,8 @@ const handleTabChange = async (tabName: string) => {
           <el-form-item label="Message (optional)">
             <el-input v-model="shareForm.message" type="textarea" :rows="3" placeholder="Add a note to the recipient(s)"/>
           </el-form-item>
-          <el-form-item label="Expires in (hours)">
-            <el-input v-model.number="shareForm.expiresInHours" type="number" min="1"/>
+          <el-form-item label="Expires in (hours, 0 = never)">
+            <el-input v-model.number="shareForm.expiresInHours" type="number" min="0"/>
           </el-form-item>
           <el-form-item label="Generated link">
             <el-input v-model="shareResultUrl" readonly placeholder="Generate to get link">
@@ -2434,7 +2434,8 @@ const handleTabChange = async (tabName: string) => {
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="shareDialogVisible = false">Close</el-button>
-          <el-button type="primary" :loading="shareGenerating" @click="submitShare">Generate Link</el-button>
+          <el-button :loading="shareGenerating" @click="submitShare(true)">Generate Link</el-button>
+          <el-button type="primary" :disabled="shareForm.sendEmail && !shareForm.emailsText" :loading="shareGenerating" @click="submitShare(false)">Send Link</el-button>
         </span>
       </template>
     </el-dialog>
