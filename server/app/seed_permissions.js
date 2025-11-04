@@ -5,7 +5,7 @@ process.env.VUE_APP_PASSWORD = '***REDACTED***';
 process.env.VUE_APP_DB_PORT = '5432';
 
 // Check for database name from command line argument or environment variable
-const databaseName = process.argv[2] || process.env.DATABASE_NAME  || 'kesmis';
+const databaseName = process.argv[2] || process.env.DATABASE_NAME  || 'kisip';
 
 // Validate database name
 if (databaseName !== 'kisip' && databaseName !== 'kesmis') {
@@ -466,6 +466,12 @@ async function seedPermissions() {
       { name: 'contractor:update', description: 'Update contractors' },
       { name: 'contractor:delete', description: 'Delete contractors' },
 
+      // Grievance History Permissions
+      { name: 'grievance_history:create', description: 'Create grievance history entry' },
+      { name: 'grievance_history:read', description: 'View grievance history entries' },
+      { name: 'grievance_history:update', description: 'Update grievance history entries' },
+      { name: 'grievance_history:delete', description: 'Delete grievance history entries' },
+
       // Grievance Management Extensions
       { name: 'grievance_resolution_level:manage', description: 'Manage grievance resolution levels' },
       { name: 'grievance_log:manage', description: 'Manage grievance logs' },
@@ -473,7 +479,6 @@ async function seedPermissions() {
       { name: 'grievance_escalation:manage', description: 'Manage grievance escalations' },
       { name: 'grievance_document:manage', description: 'Manage grievance documents' },
       { name: 'grievance_notification:manage', description: 'Manage grievance notifications' },
-      { name: 'grievance_history:manage', description: 'Manage grievance history' },
 
       // Articles
       { name: 'article:create', description: 'Create articles' },

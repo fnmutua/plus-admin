@@ -724,6 +724,9 @@ let tableDataList = ref<GrievanceType[]>([])
 const associated_Model = ''
 const associated_multiple_models = ['county', 'settlement', 'grievance_document', 'users','subcounty','ward']
 const model = 'grievance'
+
+// Store deletion history data for deleted grievances
+const deletionHistoryMap = ref<Record<number, any>>({})
 //// ------------------parameters -----------------------////
 
 const { t } = useI18n()
@@ -821,6 +824,131 @@ const getSupportingStaffName = (staffId: number): string => {
   return staff ? staff.name : `Staff ${staffId}`;
 }
 
+// Helper function to get deleter name from grievance
+const getDeleterName = (grievance: GrievanceType): string => {
+  // First check if deletion history is already in the grievance data
+  if (grievance.grievance_history && Array.isArray(grievance.grievance_history)) {
+    const deletionHistory = grievance.grievance_history.find(
+      (history: any) => history.change_type === 'Delete'
+    );
+    if (deletionHistory) {
+      // Check multiple possible alias names
+      const user = deletionHistory.users || deletionHistory.user || deletionHistory.changed_by_user;
+      if (user && user.name) {
+        return user.name;
+      }
+    }
+  }
+  
+  // Check in the deletion history map
+  const history = deletionHistoryMap.value[grievance.id];
+  if (history) {
+    // Check multiple possible alias names
+    const user = history.users || history.user || history.changed_by_user;
+    if (user && user.name) {
+      return user.name;
+    }
+    // Also check if changed_by is a direct ID and we need to look it up
+    if (history.changed_by && typeof history.changed_by === 'number') {
+      // This would require a separate lookup, but for now try the above
+    }
+  }
+  
+  return 'Unknown';
+}
+
+// Function to fetch deletion history for deleted grievances
+const fetchDeletionHistory = async () => {
+  if (tableDataList.value.length === 0) return;
+  
+  try {
+    // Collect all grievance IDs
+    const grievanceIds = tableDataList.value.map(g => g.id);
+    
+    if (grievanceIds.length === 0) return;
+    
+    // Fetch deletion history for these grievances
+    const formData = {
+      model: 'grievance_history',
+      filters: ['grievance_id', 'change_type'],
+      filterValues: [grievanceIds, ['Delete']],
+      filterFunctions: ['in', 'in'],
+      associated_multiple_models: ['users'],
+      limit: 10000,
+      page: 1,
+      curUser: 1
+    };
+    
+    console.log('Fetching deletion history with formData:', formData);
+    const res = await getSettlementListByCounty(formData as any);
+    console.log('Deletion history response:', res);
+    
+    // Map deletion history by grievance_id
+    if (res && res.data && Array.isArray(res.data)) {
+      console.log('Deletion history data count:', res.data.length);
+      
+      // Collect all changed_by user IDs to fetch user names separately
+      const userIds = new Set<number>();
+      res.data.forEach((history: any) => {
+        if (history.changed_by && typeof history.changed_by === 'number') {
+          userIds.add(history.changed_by);
+        }
+      });
+      
+      // Fetch user details if we have user IDs
+      if (userIds.size > 0) {
+        const userIdsArray = Array.from(userIds);
+        console.log('Fetching user details for IDs:', userIdsArray);
+        try {
+          const userResponse = await getUsersByIds(userIdsArray, ['id', 'name', 'phone', 'email']);
+          console.log('User response:', userResponse);
+          
+          // Create a map of user ID to user object
+          const usersMap = new Map<number, any>();
+          if (userResponse.data && Array.isArray(userResponse.data)) {
+            userResponse.data.forEach((user: any) => {
+              usersMap.set(user.id, user);
+            });
+          }
+          
+          // Map deletion history by grievance_id and attach user data
+          res.data.forEach((history: any) => {
+            if (history.grievance_id) {
+              // Attach user data to history
+              if (history.changed_by && usersMap.has(history.changed_by)) {
+                history.users = usersMap.get(history.changed_by);
+              }
+              deletionHistoryMap.value[history.grievance_id] = history;
+              console.log(`Mapped history for grievance ${history.grievance_id}:`, history);
+            }
+          });
+        } catch (userError) {
+          console.error('Error fetching user details:', userError);
+          // Still map the history without user data
+          res.data.forEach((history: any) => {
+            if (history.grievance_id) {
+              deletionHistoryMap.value[history.grievance_id] = history;
+            }
+          });
+        }
+      } else {
+        // No user IDs found, just map the history
+        res.data.forEach((history: any) => {
+          if (history.grievance_id) {
+            deletionHistoryMap.value[history.grievance_id] = history;
+          }
+        });
+      }
+      
+      console.log('Final deletionHistoryMap:', deletionHistoryMap.value);
+    } else {
+      console.warn('No deletion history data found in response:', res);
+    }
+  } catch (error) {
+    console.error('Error fetching deletion history:', error);
+  }
+}
+
 // Function to fetch supporting staff data
 const fetchSupportingStaffData = async () => {
   if (supportingStaffLoading.value) return;
@@ -881,7 +1009,12 @@ const getFilteredData = async (selFilters: string[], selfilterValues: any[][]) =
   formData.filterValues = selfilterValues
   formData.filterFunctions = filterFunction.value
 
-  formData.associated_multiple_models = associated_multiple_models
+  // Include grievance_history when viewing deleted grievances
+  const associatedModels = [...associated_multiple_models]
+  if (activeSegment.value === 'Deleted') {
+    associatedModels.push('grievance_history')
+  }
+  formData.associated_multiple_models = associatedModels
 
   // Ensure filterFunctions array matches the length of filters and all values are arrays
 formData.filterFunctions = [];
@@ -932,6 +1065,11 @@ for (let i = 0; i < selfilterValues.length; i++) {
 
   // Fetch supporting staff data if we have referred grievances
   await fetchSupportingStaffData()
+
+  // Fetch deletion history data if viewing deleted grievances
+  if (activeSegment.value === 'Deleted') {
+    await fetchDeletionHistory()
+  }
 
   // Update the count for the current active segment
   Statuses.value.forEach(status => {
@@ -1991,7 +2129,12 @@ const getFilteredBySearchData = async (searchKey) => {
   formData.filterValues = filterValues.value
   formData.filterFunctions = filterFunction.value
 
-  formData.associated_multiple_models = associated_multiple_models
+  // Include grievance_history when viewing deleted grievances
+  const associatedModels = [...associated_multiple_models]
+  if (activeSegment.value === 'Deleted') {
+    associatedModels.push('grievance_history')
+  }
+  formData.associated_multiple_models = associatedModels
   formData.nested_models = []
   //formData.cache_key = 'SeacrchByKey_' + search_string.value
 
@@ -2035,6 +2178,11 @@ const getFilteredBySearchData = async (searchKey) => {
   tableDataList.value = res.data
 
   total.value = res.total
+  
+  // Fetch deletion history data if viewing deleted grievances
+  if (activeSegment.value === 'Deleted') {
+    await fetchDeletionHistory()
+  }
   
   // Refresh counts after search
   await getCounts()
@@ -2119,6 +2267,11 @@ const onSegmentClick = async (statusValue?: string) => {
   
   // Clear original data when switching segments
   originalTableData.value = []
+  
+  // Clear deletion history map when switching segments
+  if (activeSegment.value !== 'Deleted') {
+    deletionHistoryMap.value = {}
+  }
 
   // Clear existing status filters
   const statusIndex = filters.value.indexOf('status')
@@ -3582,6 +3735,10 @@ const filterByOfficer = async (officerId: number, officerName: string) => {
                   {{ row.status }}
                 </el-tag>
                 <el-tag size="small" style="margin-left:6px;">{{ row.nature }}</el-tag>
+              </div>
+              <!-- Show deleter name in Deleted tab -->
+              <div v-if="activeSegment === 'Deleted'" class="deleter-info" style="margin-top: 6px; font-size: 12px; color: #909399;">
+                <span style="font-weight: 500;">Deleted by:</span> {{ getDeleterName(row) }}
               </div>
             </div>
           </template>

@@ -3277,7 +3277,8 @@ exports._bulkUpdateReferredToOfficer = async (req, res) => {
               console.log('Performing soft delete for grievance...');
               
               // Log the deletion action before updating the record
-              await updateGrievanceHistory(record.id, record, req.thisUser.id, "Delete");
+              // Convert record to JSON to ensure proper serialization
+              await updateGrievanceHistory(record.id, record.toJSON(), req.thisUser.id, "Delete");
               
               // Update the grievance record to mark it as deleted
               await record.update({
