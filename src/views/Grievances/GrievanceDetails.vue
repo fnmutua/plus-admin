@@ -645,6 +645,127 @@ function getDifferences(before, after, parentKey = '') {
 
 
 const editHistory = ref([])
+
+// Track reverted records persistently (survives database refreshes)
+const revertedRecordsMap = ref<Record<number, {
+  is_reverted: boolean;
+  reverted_at: string;
+  reverted_by: number;
+  reverted_by_user: { id: number; name: string };
+}>>({})
+
+// Computed property to check if a record is reverted
+const isReverted = (record) => {
+  if (!record || !record.id) return false;
+  
+  // First check our persistent frontend tracking map
+  if (revertedRecordsMap.value[record.id]) {
+    return true;
+  }
+  
+  // Then check multiple possible field names for revert status from database
+  const isRevertedCheck = 
+    record.is_reverted === true || 
+    record.is_reverted === 1 ||
+    record.reverted === true ||
+    record.reverted === 1 ||
+    !!record.reverted_at ||
+    !!record.revertedAt ||
+    !!record.reverted_by ||
+    !!record.revertedBy ||
+    !!record.reverted_by_user ||
+    !!record.revertedByUser ||
+    false;
+  
+  // Debug logging
+  if (isRevertedCheck) {
+    console.log('Record is reverted:', record.id, {
+      is_reverted: record.is_reverted,
+      reverted_at: record.reverted_at || record.revertedAt,
+      reverted_by: record.reverted_by || record.revertedBy,
+      reverted_by_user: record.reverted_by_user || record.revertedByUser
+    });
+  }
+  
+  return isRevertedCheck;
+}
+
+// Get revert information for display
+const getRevertInfo = (record) => {
+  if (!record || !record.id) return { reverted: false };
+  
+  // First check our persistent frontend tracking map
+  if (revertedRecordsMap.value[record.id]) {
+    const revertData = revertedRecordsMap.value[record.id];
+    return {
+      reverted: true,
+      revertedAt: revertData.reverted_at,
+      revertedBy: revertData.reverted_by_user?.name || 'System',
+    }
+  }
+  
+  // Then check database fields
+  if (isReverted(record)) {
+    return {
+      reverted: true,
+      revertedAt: record.reverted_at || record.revertedAt || record.reverted_at,
+      revertedBy: 
+        record.reverted_by_user?.name || 
+        record.revertedByUser?.name ||
+        record.reverted_by_user ||
+        record.revertedByUser ||
+        record.reverted_by ||
+        record.revertedBy ||
+        'System',
+    }
+  }
+  return { reverted: false }
+}
+
+// Get action type for history records: Edit or Delete
+const getHistoryActionType = (record) => {
+  if (!record) return 'Edit';
+  
+  // First check backend's change_type field (primary source)
+  if (record.change_type) {
+    const changeType = String(record.change_type).trim();
+    if (changeType === 'Delete' || changeType.toLowerCase() === 'delete') {
+      return 'Delete';
+    }
+    // If it's not Delete, check if it's explicitly Edit
+    if (changeType === 'Edit' || changeType.toLowerCase() === 'edit') {
+      return 'Edit';
+    }
+    // For other types like 'Referred', treat as Edit
+    return 'Edit';
+  }
+  
+  // Fallback: check other possible field names
+  if (record.action_type && typeof record.action_type === 'string') {
+    const at = record.action_type.toLowerCase();
+    if (at.includes('delete')) return 'Delete';
+  }
+  if (record.operation && String(record.operation).toLowerCase() === 'delete') {
+    return 'Delete';
+  }
+  
+  // Heuristic fallback: if after is empty and before had values, likely a delete
+  try {
+    const before = record?.changes?.before || {};
+    const after = record?.changes?.after || {};
+    if (Object.keys(before).length > 0 && Object.keys(after).length === 0) {
+      return 'Delete';
+    }
+  } catch (e) {}
+  
+  // Default to Edit
+  return 'Edit';
+}
+
+const getHistoryActionTagType = (actionType) => {
+  return actionType === 'Delete' ? 'danger' : 'info';
+}
+
 const getGrievanceHistory = async (grievance_id) => {
   try {
     const model = 'grievance_history'
@@ -656,7 +777,7 @@ const getGrievanceHistory = async (grievance_id) => {
     //-Search field--------------------------------------------
     formData.searchField = 'name'
     formData.excludeGeom = false
-    formData.associated_multiple_models = ['users']
+    formData.associated_multiple_models = ['users', 'reverted_by_user']
 
     //--Single Filter -----------------------------------------
 
@@ -678,11 +799,52 @@ const getGrievanceHistory = async (grievance_id) => {
     editHistory.value = rawHistory.map((record) => {
       const changes = record.changes || {};
       const differences = getDifferences(changes.before || {}, changes.after || {});
+      
+      // If database has revert status but we don't have it in our map, add it
+      if (!revertedRecordsMap.value[record.id] && 
+          (record.is_reverted || record.reverted_at || record.reverted_by || record.reverted_by_user)) {
+        revertedRecordsMap.value[record.id] = {
+          is_reverted: true,
+          reverted_at: record.reverted_at || record.revertedAt || new Date().toISOString(),
+          reverted_by: record.reverted_by || record.revertedBy || userInfo.id,
+          reverted_by_user: record.reverted_by_user || record.revertedByUser || {
+            id: record.reverted_by || record.revertedBy || userInfo.id,
+            name: record.reverted_by_user?.name || record.revertedByUser?.name || 'System'
+          }
+        };
+      }
+      
+      // Merge with frontend persistent revert state if it exists
+      const frontendRevertState = revertedRecordsMap.value[record.id];
+      const mergedRecord = frontendRevertState 
+        ? {
+            ...record,
+            ...frontendRevertState,
+          }
+        : record;
+      
+      // Debug: Log revert status for each record
+      console.log('Processing history record:', record.id, {
+        is_reverted: mergedRecord.is_reverted,
+        reverted_at: mergedRecord.reverted_at,
+        reverted_by: mergedRecord.reverted_by,
+        reverted_by_user: mergedRecord.reverted_by_user,
+        hasFrontendState: !!frontendRevertState,
+        allKeys: Object.keys(mergedRecord)
+      });
+      
+      const revertInfo = getRevertInfo(mergedRecord);
+      
       return {
-        ...record,
+        ...mergedRecord,
         differences,
+        revertInfo,
       };
     });
+    
+    // Log summary of revert status
+    const revertedCount = editHistory.value.filter(r => isReverted(r)).length;
+    console.log(`History loaded: ${editHistory.value.length} records, ${revertedCount} reverted`);
   } catch (error) {
     console.warn('No grievance history found or error occurred:', error);
     editHistory.value = [];
@@ -1143,6 +1305,7 @@ const getActionClass =   (actionType) => {
     if (actionType.includes('Referred')) return 'referred-title';
     if (actionType.includes('Closed')) return 'closed-title';
     if (actionType.includes('Rejected')) return 'rejected-title';
+    if (actionType.includes('Reverted')) return 'reverted-title';
     return '';
   }
   
@@ -1416,19 +1579,116 @@ const prev = () => {
 };
 
 
+const revertLoading = ref<Record<number, boolean>>({})
+
 const RevertEdits = async (data: TableSlotDefault) => {
-  console.log('Reverts.....', data.row)
+  try {
+    const historyRecord = data.row;
+    const changedFields = historyRecord.differences?.map(diff => formatSentence(diff.field)).join(', ') || 'multiple fields';
+    
+    // Show confirmation dialog
+    await ElMessageBox.confirm(
+      `Are you sure you want to revert the changes made on ${formatDate(historyRecord.created_at)}? This will restore the previous values for: ${changedFields}.`,
+      'Confirm Revert',
+      {
+        confirmButtonText: 'Yes, Revert',
+        cancelButtonText: 'Cancel',
+        type: 'warning',
+        dangerouslyUseHTMLString: false,
+      }
+    )
 
-  const formData = {
-    model: 'grievance',
-    history_id: data.row.id,
-  };
+    revertLoading.value[historyRecord.id] = true
 
-  const res = await revertGrievanceHistory(formData);
-  console.log('Reverts success.....', res.data)
-  //await getGrievanceHistory(route.params.id)
+    // Step 1: Revert the history
+    const revertFormData = {
+      model: 'grievance',
+      history_id: historyRecord.id,
+    };
 
+    const revertRes = await revertGrievanceHistory(revertFormData);
+    console.log('Reverts success.....', revertRes.data)
+    console.log('Revert response full:', revertRes)
+    
+    // Store revert status in persistent map (survives database refreshes)
+    const revertTimestamp = new Date().toISOString();
+    const revertUserInfo = {
+      id: userInfo.id,
+      name: userInfo.name || 'Current User'
+    };
+    
+    revertedRecordsMap.value[historyRecord.id] = {
+      is_reverted: true,
+      reverted_at: revertTimestamp,
+      reverted_by: userInfo.id,
+      reverted_by_user: revertUserInfo
+    };
+    
+    console.log('Stored revert status in persistent map:', revertedRecordsMap.value[historyRecord.id]);
+    
+    // Immediately update the record in the frontend to show revert status
+    const historyIndex = editHistory.value.findIndex(h => h.id === historyRecord.id);
+    if (historyIndex !== -1) {
+      // Mark as reverted with current user info
+      editHistory.value[historyIndex] = {
+        ...editHistory.value[historyIndex],
+        ...revertedRecordsMap.value[historyRecord.id],
+        revertInfo: {
+          reverted: true,
+          revertedAt: revertTimestamp,
+          revertedBy: revertUserInfo.name
+        }
+      };
+      console.log('Updated history record in frontend:', editHistory.value[historyIndex]);
+    }
+    
+    // Step 2: Log the revert action to grievance logs
+    const revertLogData = {
+      grievance_id: Grievance.value.id,
+      action_type: 'Reverted',
+      action_by: userInfo.id,
+      date_actioned: new Date(),
+      prev_status: Grievance.value.status,
+      new_status: Grievance.value.status, // Status doesn't change on revert
+      action_level: current_user_roles[0] ? current_user_roles[0] : 'settlement',
+      current_level: Grievance.value.current_level,
+      action: `Reverted edit made on ${formatDate(historyRecord.created_at)} by ${historyRecord.user?.name || 'System'}. Restored previous values for: ${changedFields}.`,
+    };
 
+    // Log the revert action to appear in Action Logs timeline
+    const logResult = await logGrievanceAction(revertLogData);
+    console.log('Revert log result:', logResult)
+    
+    // Refresh grievance data and logs first to ensure we have latest data
+    await processGrievance()
+    
+    // Wait a bit for the database to update
+    await new Promise(resolve => setTimeout(resolve, 500))
+    
+    // Refresh history after revert - fetch with updated data
+    await getGrievanceHistory(route.params.id)
+    
+    // Log the updated history to debug
+    console.log('Updated edit history after revert:', editHistory.value)
+    console.log('Reverted record check:', editHistory.value.find(h => h.id === historyRecord.id))
+    
+    ElMessage({
+      message: 'Changes have been successfully reverted and logged',
+      type: 'success',
+      duration: 3000
+    })
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('Revert error:', error)
+      ElMessage({
+        message: 'Failed to revert changes. Please try again.',
+        type: 'error',
+        duration: 3000
+      })
+    }
+  } finally {
+    revertLoading.value[data.row.id] = false
+  }
 };
 
 
@@ -1830,7 +2090,8 @@ class="notification-custom-card" shadow="hover" :class="log.action_type === 'Res
             log.action_type === 'Reported' ? 'reported-background' :
               log.action_type === 'Referred' ? 'referred-background' :
                 log.action_type === 'Closed' ? 'closed-background' :
-                  'info-background'">
+                  log.action_type === 'Reverted' ? 'reverted-background' :
+                    'info-background'">
                   <div class="notification-container">
                     <el-row align="middle" :gutter="10">
                       <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" :gutter="10">
@@ -1916,7 +2177,7 @@ class="notification-custom-card" shadow="hover"
 
       <el-tab-pane label="Settings" name="settings"  >
  
-        <div class="flex justify-end p-4">
+        <div class="flex justify-end p-2">
           <PermissionWrapper :permissions="['grievance:update']">
             <el-button @click="clickEdit"  type="success" :icon="Edit"   plain>Edit</el-button>
           </PermissionWrapper>
@@ -1933,34 +2194,126 @@ width="340"
             </el-popconfirm>
           </PermissionWrapper>
        </div>
-       <el-table v-if="editHistory.length > 0" :data="editHistory" border ref="tableEditRef" >
-              <el-table-column label="" type="expand" >
-                <template #default="{ row }">
-                  <el-table :data="row.differences" style="margin: 10px 0;" border >
-                    <el-table-column prop="field" label="Field"  />
-                    <el-table-column prop="before" label="Before"  class-name="italic-red" show-overflow-tooltip />
-                    <el-table-column prop="after" label="After"  class-name="italic-green" show-overflow-tooltip  />
+       <el-card v-if="editHistory.length > 0" shadow="never"  >
+          
+          <el-table 
+            :data="editHistory" 
+            border 
+            ref="tableEditRef" 
+            stripe 
+            class="history-table"
+            :row-class-name="({ row }) => [
+              isReverted(row) ? 'reverted-row' : '',
+              getHistoryActionType(row) === 'Delete' ? 'no-expand' : ''
+            ].filter(Boolean).join(' ')"
+          >
+            <el-table-column label="Changes" type="expand" width="120">
+              <template #default="{ row }">
+                <div class="expand-content">
+                  <el-table :data="row.differences" border size="small" class="differences-table">
+                    <el-table-column prop="field" label="Field" >
+                      <template #default="{ row: diff }">
+                        <span class="field-name">{{ formatSentence(diff.field) }}</span>
+                      </template>
+                    </el-table-column>
+                    <el-table-column prop="before" label="Before" class-name="italic-red" show-overflow-tooltip>
+                      <template #default="{ row: diff }">
+                        <span class="before-value">{{ diff.before || '(empty)' }}</span>
+                      </template>
+                    </el-table-column>
+                    <el-table-column prop="after" label="After" class-name="italic-green" show-overflow-tooltip>
+                      <template #default="{ row: diff }">
+                        <span class="after-value">{{ diff.after || '(empty)' }}</span>
+                      </template>
+                    </el-table-column>
                   </el-table>
-                </template>
-              </el-table-column>
+                  
+                  <!-- Revert Information -->
+                  <el-alert
+                    v-if="isReverted(row)"
+                    :title="`This edit was reverted on ${formatDate(row.revertInfo?.revertedAt || row.reverted_at)} by ${row.revertInfo?.revertedBy || 'System'}`"
+                    type="warning"
+                    :closable="false"
+                    show-icon
+                    style="margin: 10px 0;"
+                  />
+                </div>
+              </template>
+            </el-table-column>
 
-              <el-table-column label="Date Edited" prop="created_at" sortable class-name="td-bold">
-                <template #default="scope">
+            <!-- <el-table-column label="Status" width="120" align="center">
+              <template #default="{ row }">
+                <el-tag 
+                  :type="isReverted(row) ? 'warning' : 'success'" 
+                  :effect="isReverted(row) ? 'plain' : 'dark'"
+                  size="small"
+                >
+                  <Icon 
+                    :icon="isReverted(row) ? 'mdi:undo-variant' : 'mdi:check-circle'" 
+                    style="margin-right: 4px;" 
+                  />
+                  {{ isReverted(row) ? 'Reverted' : 'Active' }}
+                </el-tag>
+              </template>
+            </el-table-column> -->
+
+            <el-table-column label="Action" align="center">
+              <template #default="{ row }">
+                <el-tag size="small" :type="getHistoryActionTagType(getHistoryActionType(row))">
+                  {{ getHistoryActionType(row) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+
+            <el-table-column label="Date Edited"  width="150" prop="created_at" sortable class-name="td-bold">
+              <template #default="scope">
+                <div class="date-cell">
+                  <Icon icon="mdi:calendar-clock" style="margin-right: 4px; color: #909399;" />
                   {{ formatDate(scope.row.created_at) }}
-                </template>
-              </el-table-column>
+                </div>
+              </template>
+            </el-table-column>
 
-              <el-table-column label="Edited By" prop="user.name" sortable  class-name="td-bold"/>
-              <el-table-column fixed="right" label="Actions" width="100">
-                <template #default="scope">
-                  <PermissionWrapper :permissions="['grievance:update']">
-                    <el-tooltip content="Revert " placement="top">
-                      <el-button type="warning" :icon="RefreshLeft" @click="RevertEdits(scope as TableSlotDefault)" />
-                    </el-tooltip>
-                  </PermissionWrapper>
-                </template>
-              </el-table-column>
-              </el-table>
+            <el-table-column label="Edited By" prop="user.name" sortable class-name="td-bold">
+              <template #default="scope">
+                <div class="user-cell">
+                  <Icon icon="mdi:account" style="margin-right: 4px; color: #909399;" />
+                  {{ scope.row.user?.name || 'System' }}
+                </div>
+              </template>
+            </el-table-column>
+
+            <el-table-column label="Changes Count" align="center">
+              <template #default="{ row }">
+                <el-tag size="small" type="info">
+                  {{ row.differences?.length || 0 }} field(s)
+                </el-tag>
+              </template>
+            </el-table-column>
+
+            <el-table-column fixed="right" label="Actions" align="center">
+              <template #default="scope">
+                <PermissionWrapper :permissions="['grievance:update']">
+                  <el-tooltip 
+                    :content="isReverted(scope.row) ? 'This edit has already been reverted' : 'Revert this edit'" 
+                    placement="top"
+                  >
+                    <el-button 
+                      type="warning" 
+                      :icon="RefreshLeft" 
+                      :disabled="isReverted(scope.row) || revertLoading[scope.row.id]"
+                      :loading="revertLoading[scope.row.id]"
+                      size="small"
+                      @click="RevertEdits(scope as TableSlotDefault)" 
+                    >
+                      {{ revertLoading[scope.row.id] ? 'Reverting...' : 'Revert' }}
+                    </el-button>
+                  </el-tooltip>
+                </PermissionWrapper>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-card>
               
        <el-empty v-else description="No edit history found for this grievance" />
 
@@ -2557,6 +2910,12 @@ width="340"
   /* Blue */
 }
 
+.reverted-title {
+  color: #FF9800;
+  /* Orange */
+  font-weight: 500;
+}
+
 .resolved-background {
   background-color: rgba(220, 240, 220, 0.4);
   /* Light green with 80% opacity */
@@ -2612,7 +2971,16 @@ width="340"
   /* Border color */
 }
 
-
+.reverted-background {
+  background-color: rgba(255, 243, 224, 0.4);
+  /* Light orange with 40% opacity */
+  color: #856404;
+  /* Dark orange text */
+  padding: 5px;
+  border-radius: 5px;
+  border: 1px solid #ffc107;
+  /* Orange border */
+}
 
 .info-background {
   background-color: rgba(204, 229, 255, 0.4);
@@ -2847,5 +3215,116 @@ width="340"
   .drawer-content {
     padding: 16px 20px;
   }
+}
+
+/* Edit History Styles */
+.history-card {
+  margin-top: 8px;
+}
+
+.history-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.history-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+  display: flex;
+  align-items: center;
+}
+
+.history-table {
+  margin-top: 0;
+  width: 100%;
+}
+
+.history-table .el-table__row {
+  transition: all 0.3s ease;
+}
+
+.history-table .el-table__row:hover {
+  background-color: #f5f7fa;
+}
+
+.history-table .el-table__row.reverted-row {
+  background-color: #fdf6ec;
+  opacity: 0.8;
+}
+
+/* Hide expansion icon for Delete rows */
+/* Hide expansion UI for Delete rows (deep selector to reach child component DOM) */
+::v-deep .history-table .no-expand .el-table__expand-column .el-table__expand-icon {
+  display: none !important;
+}
+
+/* Disable click on the expand cell for Delete rows */
+::v-deep .history-table .no-expand .el-table__expand-column .cell {
+  pointer-events: none;
+}
+
+.expand-content {
+  padding: 0;
+  background-color: #fafafa;
+}
+
+.field-name {
+  font-weight: 500;
+  color: #606266;
+}
+
+.before-value {
+  color: #f56c6c;
+  text-decoration: line-through;
+  font-style: italic;
+}
+
+.after-value {
+  color: #67c23a;
+  font-weight: 500;
+}
+
+.date-cell,
+.user-cell {
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+}
+
+.italic-red {
+  color: #f56c6c;
+}
+
+.italic-green {
+  color: #67c23a;
+}
+
+.td-bold {
+  font-weight: 500;
+}
+
+/* Responsive adjustments for history table */
+@media (max-width: 768px) {
+  .history-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .history-table {
+    font-size: 12px;
+  }
+}
+
+/* Make card body and inner tables consume full width */
+:deep(.history-card .el-card__body) {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.differences-table {
+  width: 100%;
 }
 </style>
