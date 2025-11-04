@@ -12,12 +12,13 @@
                 <el-steps :active="active" finish-status="success" aria-label="Grievance filing steps">
                   <el-step title="Personal Details" />
                   <el-step title="Grievance Details" />
+                  <el-step title="Complaint Details" />
                   <el-step title="Review & Submit" />
                 </el-steps>
               </section>
 
               <el-form
-:model="grmForm" class="demo-form-inline" label-position="top" :rules="currentStepRules"
+              :model="grmForm" class="demo-form-inline" label-position="top" :rules="currentStepRules" size="small"
                 ref="dynamicFormRef">
                 <el-card shadow="hover">
                   <el-row v-if="active === 0" :gutter="10">
@@ -81,9 +82,16 @@ v-for="item in countiesOptions" :key="item.value" :label="item.label"
                         </el-select>
                       </el-form-item>
 
-                      <el-form-item id="btn11" label="Settlement" prop="settlement_id">
+                      <el-form-item id="btn11" prop="settlement_id">
+                        <template #label>
+                          Settlement
+                          <span v-if="isFilteringSettlements" class="loading-dots" aria-live="polite" aria-busy="true">
+                            <span class="dot">.</span><span class="dot">.</span><span class="dot">.</span>
+                          </span>
+                        </template>
                         <el-select
-filterable v-model="grmForm.settlement_id" placeholder="Settlement"
+                        filterable v-model="grmForm.settlement_id" :placeholder="isFilteringSettlements ? 'Filtering settlements…' : 'Settlement'"
+                          :disabled="!grmForm.county_id || isFilteringSettlements" :loading="isFilteringSettlements"
                           @change="handleSelectSettlement" style="width:90%">
                           <el-option
 v-for="item in settlementOptions" :key="item.value" :label="item.label"
@@ -91,87 +99,60 @@ v-for="item in settlementOptions" :key="item.value" :label="item.label"
                         </el-select>
                       </el-form-item>
 
+                      
+                    </el-col>
+                    <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
                       <el-form-item id="btn12" label="Address" prop="address">
                         <el-input v-model="grmForm.address" placeholder="Enter address" style="width:90%" />
                       </el-form-item>
 
-
-
-                      <el-checkbox
-id="btn13" v-model="grmForm.isgbv"
-                        label="Is this complaint related to Gender-Based Violence?" size="large"
-                        style="margin-bottom:5px" />
-
-                 
+                      <div style="padding-top:4px;">
                         <el-checkbox
-id="btn13" v-model="grmForm.isInCourt"
-                        label="Is this complaint currently in court?" size="large"
-                        style="margin-bottom:5px" />
+ id="btn13" v-model="grmForm.isgbv"
+                          label="Is this complaint related to Gender-Based Violence?" size="large"
+                          style="margin-bottom:5px; display:block;" />
 
-
-
-                    </el-col>
-                    <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-
-                      <!-- <el-form-item v-if="!grmForm.isgbv" id="btn14" label="Nature of Complaint" prop="nature">
-                        <el-select v-model="grmForm.nature" placeholder="Select category" style="width:90%">
-                          <el-option label="Land" value="land" />
-                          <el-option label="Labour Related" value="labour" />
-                          <el-option label="Infrastructure" value="infrastructure" />
-                          <el-option label="Others" value="others" />
-                        </el-select>
-                      </el-form-item> -->
-
-
-                      <el-form-item v-if="!grmForm.isgbv" id="btn14" label="Nature of Complaint" prop="nature">
-                          <el-select filterable  v-model="grmForm.nature" placeholder="Select category" style="width:90%">
-                            <!-- <el-option label="Land Ownership Disputes" value="land_ownership" />
-                            <el-option label="Evictions and Displacement" value="evictions" />
-                            <el-option label="Compensation Concerns" value="compensation" />
-                            <el-option label="Labour Wage Disputes" value="labour_wages" />
-                            <el-option label="Unfair Dismissal or Termination" value="unfair_dismissal" />
-                            <el-option label="Workplace Harassment" value="workplace_harassment" />
-                            <el-option label="Unsafe Working Conditions" value="unsafe_conditions" />
-                            <el-option label="Poor Road Conditions" value="poor_roads" />
-                            <el-option label="Water and Sanitation Issues" value="water_sanitation" />
-                            <el-option label="Electricity and Power Supply Concerns" value="electricity" />
-                            <el-option label="Inadequate Public Transport" value="public_transport" />
-                            <el-option label="Pollution Complaints" value="pollution" />
-                            <el-option label="Waste Management Issues" value="waste_management" />
-                            <el-option label="Public Health Hazards" value="public_health" />
-                            <el-option label="Deforestation or Land Degradation" value="deforestation" />
-                            <el-option label="Discrimination and Exclusion" value="discrimination" />
-                            <el-option label="Corruption and Mismanagement" value="corruption" />
-                            <el-option label="Others" value="others" /> -->
-                            <el-option
-                                    v-for="item in grievanceOptions"
-                                    :key="item.value"
-                                    :label="item.label"
-                                    :value="item.value"
-                                  />
-                          </el-select>
-                        </el-form-item>
-
-
-
-                      <el-form-item id="btn15" label="Complaint Description" prop="description">
-                        <el-input
-v-model="grmForm.description" type="textarea" rows="2"
-                          placeholder="Describe your complaint" style="width:90%" />
-                      </el-form-item>
-
-                      <el-form-item id="btn16" label="Plea/Request" prop="plea">
-                        <el-input
-v-model="grmForm.plea" type="textarea" rows="2" placeholder="Enter your plea/request"
-                          style="width:90%" />
-                      </el-form-item>
+                        <el-checkbox
+ id="btn13" v-model="grmForm.isInCourt"
+                          label="Is this complaint currently in court?" size="large"
+                          style="margin-bottom:5px; display:block;" />
+                      </div>
                     </el-col>
 
 
                   </el-row>
 
                   <el-row v-if="active === 2" :gutter="10">
-                    <!-- Step 3: Review & Submit -->
+                    <!-- Step 3: Complaint Details -->
+                    <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+                      <el-form-item v-if="!grmForm.isgbv" id="btn14" label="Nature of Complaint" prop="nature">
+                        <el-select filterable v-model="grmForm.nature" placeholder="Select category" style="width:90%">
+                          <el-option
+                            v-for="item in grievanceOptions"
+                            :key="item.value"
+                            :label="item.label"
+                            :value="item.value"
+                          />
+                        </el-select>
+                      </el-form-item>
+
+                      <el-form-item id="btn15" label="Complaint Description" prop="description">
+                        <el-input
+                          v-model="grmForm.description" type="textarea" rows="2"
+                          placeholder="Describe your complaint" style="width:90%" />
+                      </el-form-item>
+                    </el-col>
+                    <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+                      <el-form-item id="btn16" label="Plea/Request" prop="plea">
+                        <el-input
+                          v-model="grmForm.plea" type="textarea" rows="4" placeholder="Enter your plea/request"
+                          style="width:90%" />
+                      </el-form-item>
+                    </el-col>
+                  </el-row>
+
+                  <el-row v-if="active === 3" :gutter="10">
+                    <!-- Step 4: Review & Submit -->
                     <el-col :xs="12" :sm="12" :md="12" :lg="12" :xl="12">
                       <el-form-item id="btn17" label="Witness Name" prop="witness">
                         <el-input v-model="grmForm.witness" placeholder="Enter witness name" style="width:90%" />
@@ -295,14 +276,14 @@ class="steps-navigation"
                 </el-button>
               </div>
               <div>
-                <el-button id="btn7" v-if="active < 2" type="primary" @click="next">
+                <el-button id="btn7" v-if="active < 3" type="primary" @click="next">
                   Next <el-icon class="el-icon--right">
                     <ArrowRight />
                   </el-icon>
                 </el-button>
 
                 <el-button
-id="btn2" v-if="active === 2" type="primary" @click="submitForm"
+id="btn2" v-if="active === 3" type="primary" @click="submitForm"
                   style="margin-left: 10px;">Submit</el-button>
                 <el-button id="btn8" @click="resetForm" style="margin-left: 10px;">Reset</el-button>
               </div>
@@ -529,12 +510,15 @@ const validationRules = ({
   step2: {
     county_id: [{ required: true, message: 'County is required', trigger: 'change' }],
     settlement_id: [{ required: true, message: 'Settlement is required', trigger: 'change' }],
+  },
+
+  step3: {
     nature: [{ required: true, message: 'Nature of complaint is required', trigger: 'change' }],
     description: [{ required: true, message: 'Description is required', trigger: 'blur' }],
     plea: [{ required: true, message: 'Plea/request is required', trigger: 'blur' }],
   },
 
-  step3: {
+  step4: {
     reporter_name: [{ required: true, message: 'Name is required', trigger: 'change' }],
     reporter_phone: [{ required: true, message: 'Phone is required', trigger: 'change' }],
   },
@@ -566,6 +550,7 @@ const statusResult = ref<StatusResult>({
 
 
 const ageRanges = [
+  { value: 'unspecified', label: 'Unspecified' },
   { value: '18-25', label: '18-25' },
   { value: '26-35', label: '26-35' },
   { value: '36-45', label: '36-45' },
@@ -576,6 +561,7 @@ const ageRanges = [
 
 const countiesOptions = ref<CountyOption[]>([])
 const settlementOptions = ref<SettlementOption[]>([])
+const isFilteringSettlements = ref(false)
 
 const getCounties = async () => {
 
@@ -614,17 +600,17 @@ const getSettlementByCounty = async (selectCounty) => {
   settlementOptions.value = []
   grmForm.value.settlement_id = null
 
-
   console.log("County:", selectCounty)
 
   const formData = {}
   formData.model = 'settlement'
-  await getSettlementByCountyAuth({ county_id: selectCounty }).then((response) => {
+
+  isFilteringSettlements.value = true
+
+  try {
+    const response = await getSettlementByCountyAuth({ county_id: selectCounty })
     console.log('List of settlement:', response)
-    //tableDataList.value = response.data
-    var opt = response.data
-
-
+    const opt = response.data || []
 
     opt.forEach(function (arrayItem) {
       var item = {}
@@ -637,13 +623,17 @@ const getSettlementByCounty = async (selectCounty) => {
       settlementOptions.value.push(item)
     })
 
-
     // sort by value
     settlementOptions.value.sort(function (a, b) {
       return a.value - b.value;
     });
 
-  })
+    // No toast messages; UI shows animated dots next to label while filtering
+  } catch (error) {
+    // Optional: you may add error handling UI if needed
+  } finally {
+    isFilteringSettlements.value = false
+  }
 }
 
 const handleSelectSettlement = async (settlementId) => {
@@ -1401,7 +1391,7 @@ onMounted(() => {
   border-radius: 12px;
   box-shadow: var(--card-shadow);
   transition: all 0.3s ease;
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
 }
 
 .el-card:hover {
@@ -1409,8 +1399,8 @@ onMounted(() => {
 }
 
 .el-steps {
-  margin-bottom: 2rem;
-  padding: 1rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem;
   background: var(--step-bg);
   border-radius: 8px;
   box-shadow: var(--card-shadow);
@@ -1433,7 +1423,7 @@ onMounted(() => {
 }
 
 .el-form-item {
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.75rem;
 }
 
 :deep(.el-form-item__label) {
@@ -1449,7 +1439,7 @@ onMounted(() => {
   border: 1px solid var(--input-border);
   border-radius: 8px;
   transition: all 0.3s ease;
-  padding: 0.5rem 1rem;
+  padding: 0.35rem 0.75rem;
 }
 
 :deep(.el-input__wrapper:hover),
@@ -1469,7 +1459,7 @@ onMounted(() => {
   border: 1px solid var(--input-border);
   border-radius: 8px;
   transition: all 0.3s ease;
-  padding: 1rem;
+  padding: 0.75rem;
   font-size: 1rem;
   resize: none;
 }
@@ -1517,15 +1507,15 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 2rem;
-  padding: 1rem;
+  margin-top: 1rem;
+  padding: 0.75rem;
   background: var(--bg-primary);
   border-radius: 8px;
   box-shadow: var(--card-shadow);
 }
 
 .el-button {
-  padding: 0.6rem 1.2rem;
+  padding: 0.5rem 1rem;
   font-weight: 600;
   font-size: 0.9rem;
   border-radius: 8px;
@@ -1555,6 +1545,27 @@ onMounted(() => {
   border-color: var(--accent-color);
   color: var(--accent-color);
 }
+
+  /* Animated dots shown next to Settlement label while filtering */
+  .loading-dots {
+    display: inline-block;
+    margin-left: 6px;
+  }
+  .loading-dots .dot {
+    display: inline-block;
+    animation: loading-blink 1.4s infinite both;
+  }
+  .loading-dots .dot:nth-child(2) {
+    animation-delay: .2s;
+  }
+  .loading-dots .dot:nth-child(3) {
+    animation-delay: .4s;
+  }
+  @keyframes loading-blink {
+    0% { opacity: 0.2; }
+    20% { opacity: 1; }
+    100% { opacity: 0.2; }
+  }
 
 :deep(.el-upload) {
   width: 100%;

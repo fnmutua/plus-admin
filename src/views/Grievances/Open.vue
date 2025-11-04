@@ -87,6 +87,7 @@ const userInfo = wsCache.get(appStore.getUserInfo)
 
 const countiesOptions = ref<Array<{value: string, label: string}>>([])
 const settlementOptions = ref<Array<{value: string, label: string, county_id?: string, subcounty_id?: string, ward_id?: string}>>([])
+const isFilteringSettlements = ref(false)
 
 const isSuperAdmin = ref(userInfo.roles.some(role => role.name === "super_admin"));
 
@@ -1600,6 +1601,9 @@ const validationRules = ({
   step2: {
     county_id: [{ required: true, message: 'County is required', trigger: 'change' }],
     settlement_id: [{ required: true, message: 'Settlement is required', trigger: 'change' }],
+  },
+
+  step3: {
     nature: [{ required: true, message: 'Nature of complaint is required', trigger: 'change' }],
     description: [{ required: true, message: 'Description is required', trigger: 'blur' }],
     plea: [{ required: true, message: 'Plea/request is required', trigger: 'blur' }],
@@ -1612,6 +1616,7 @@ const validationRules = ({
 
 
 const ageRanges = [
+  { value: 'unspecified', label: 'Unspecified' },
   { value: '18-25', label: '18-25' },
   { value: '26-35', label: '26-35' },
   { value: '36-45', label: '36-45' },
@@ -1907,12 +1912,11 @@ const getSettlementByCounty = async (selectCounty) => {
 
   const formData = {}
   formData.model = 'settlement'
-  await getSettlementByCountyAuth({ county_id: selectCounty }).then((response) => {
+  isFilteringSettlements.value = true
+  try {
+    const response = await getSettlementByCountyAuth({ county_id: selectCounty })
     console.log('List of settlement:', response)
-    //tableDataList.value = response.data
-    var opt = response.data
-
-
+    var opt = response.data || []
 
     opt.forEach(function (arrayItem) {
       var item = {}
@@ -1925,13 +1929,15 @@ const getSettlementByCounty = async (selectCounty) => {
       settlementOptions.value.push(item)
     })
 
-
     // sort by value
     settlementOptions.value.sort(function (a, b) {
       return a.value - b.value;
     });
-
-  })
+  } catch (error) {
+    console.error('Failed to fetch settlements', error)
+  } finally {
+    isFilteringSettlements.value = false
+  }
 }
 
 const handleSelectSettlement = async (settlementId) => {
@@ -3901,6 +3907,7 @@ const filterByOfficer = async (officerId: number, officerName: string) => {
       <el-steps :active="active" finish-status="success" class="drawer-steps">
         <el-step title="Complainant Details" />
         <el-step title="Grievance Details" />
+        <el-step title="Complaint Details" />
         <el-step title="Review & Submit" />
       </el-steps>
 
@@ -3908,12 +3915,13 @@ const filterByOfficer = async (officerId: number, officerName: string) => {
         :model="grmForm"
         class="grievance-form"
         label-position="top"
+        size="small"
         :rules="currentStepRules"
         ref="dynamicFormRef"
       >
         <!-- Step 1: Complainant Details -->
         <div v-if="active === 0" class="form-step">
-          <el-row :gutter="16">
+          <el-row :gutter="8">
             <el-col :xs="24" :sm="24" :md="24" :lg="24">
               <el-form-item id="btn1" label="Name of Complainant" prop="name">
                 <el-input v-model="grmForm.name" placeholder="Enter name" />
@@ -3959,7 +3967,7 @@ const filterByOfficer = async (officerId: number, officerName: string) => {
 
         <!-- Step 2: Grievance Details -->
         <div v-if="active === 1" class="form-step">
-          <el-row :gutter="16">
+          <el-row :gutter="8">
             <el-col :xs="24" :sm="24" :md="24" :lg="24">
               <el-form-item id="btn10" label="County" prop="county_id">
                 <el-select
@@ -3978,10 +3986,18 @@ const filterByOfficer = async (officerId: number, officerName: string) => {
               </el-form-item>
             </el-col>
             <el-col :xs="24" :sm="24" :md="24" :lg="24">
-              <el-form-item id="btn11" label="Settlement" prop="settlement_id">
+              <el-form-item id="btn11" prop="settlement_id">
+                <template #label>
+                  Settlement
+                  <span v-if="isFilteringSettlements" class="loading-dots" aria-live="polite" aria-busy="true">
+                    <span class="dot">.</span><span class="dot">.</span><span class="dot">.</span>
+                  </span>
+                </template>
                 <el-select
                   v-model="grmForm.settlement_id"
-                  placeholder="Select settlement"
+                  :placeholder="isFilteringSettlements ? 'Filtering settlements…' : 'Select settlement'"
+                  :disabled="!grmForm.county_id || isFilteringSettlements"
+                  :loading="isFilteringSettlements"
                   style="width: 100%;"
                   @change="handleSelectSettlement(grmForm.settlement_id)"
                 >
@@ -4004,6 +4020,14 @@ const filterByOfficer = async (officerId: number, officerName: string) => {
                 <el-switch v-model="grmForm.isgbv" />
               </el-form-item>
             </el-col>
+            
+            
+          </el-row>
+        </div>
+
+        <!-- Step 3: Complaint Details -->
+        <div v-if="active === 2" class="form-step">
+          <el-row :gutter="8">
             <el-col :xs="24" :sm="24" :md="24" :lg="24">
               <el-form-item id="btn14" label="Nature of Complaint" prop="nature">
                 <el-select v-model="grmForm.nature" placeholder="Select nature" style="width: 100%;">
@@ -4039,9 +4063,9 @@ const filterByOfficer = async (officerId: number, officerName: string) => {
           </el-row>
         </div>
 
-        <!-- Step 3: Review & Submit -->
-        <div v-if="active === 2" class="form-step">
-          <el-row :gutter="16">
+        <!-- Step 4: Review & Submit -->
+        <div v-if="active === 3" class="form-step">
+          <el-row :gutter="8">
             <el-col :xs="24" :sm="24" :md="24" :lg="24">
               <el-form-item id="btn17" label="Witness Name (Optional)" prop="witness">
                 <el-input v-model="grmForm.witness" placeholder="Enter witness name" />
@@ -4095,8 +4119,8 @@ const filterByOfficer = async (officerId: number, officerName: string) => {
       <div class="drawer-footer">
         <el-button id="btn8" v-if="active === 0" @click="resetForm">Clear Form</el-button>
         <el-button id="btn9" v-if="active > 0" @click="prev">Previous</el-button>
-        <el-button id="btn7" v-if="active < 2" type="primary" @click="next">Next</el-button>
-        <el-button id="btn21" v-if="active === 2" type="primary" @click="submitForm">Submit</el-button>
+        <el-button id="btn7" v-if="active < 3" type="primary" @click="next">Next</el-button>
+        <el-button id="btn21" v-if="active === 3" type="primary" @click="submitForm">Submit</el-button>
         <el-button @click="AddDialogVisible = false">Cancel</el-button>
       </div>
     </div>
@@ -5054,15 +5078,16 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
 }
 
 .drawer-footer {
-  position: absolute;
+  position: sticky;
   bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 16px 24px;
+  padding: 12px 16px;
    border-top: 1px solid #e9ecef;
+  background: #fff;
   display: flex;
   gap: 12px;
   justify-content: flex-end;
+  z-index: 1;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.04);
 }
 
 /* Responsive Design - Optimized for older screens */
@@ -5522,6 +5547,44 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
     font-size: 11px;
     padding: 4px 8px;
   }
+}
+
+/* Compact form tweaks */
+.grievance-form :deep(.el-form-item) {
+  margin-bottom: 8px;
+}
+.grievance-form :deep(.el-input__wrapper),
+.grievance-form :deep(.el-textarea__inner),
+.grievance-form :deep(.el-select .el-input__wrapper) {
+  padding: 2px 8px;
+  min-height: 28px;
+}
+.grievance-form :deep(.el-input__inner) {
+  height: 26px;
+}
+.grievance-form :deep(.el-textarea__inner) {
+  padding: 6px 8px;
+}
+
+/* Animated dots shown next to Settlement label while filtering */
+.loading-dots {
+  display: inline-block;
+  margin-left: 6px;
+}
+.loading-dots .dot {
+  display: inline-block;
+  animation: loading-blink 1.4s infinite both;
+}
+.loading-dots .dot:nth-child(2) {
+  animation-delay: .2s;
+}
+.loading-dots .dot:nth-child(3) {
+  animation-delay: .4s;
+}
+@keyframes loading-blink {
+  0% { opacity: 0.2; }
+  20% { opacity: 1; }
+  100% { opacity: 0.2; }
 }
 </style>
 <style scoped>
