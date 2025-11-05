@@ -597,6 +597,59 @@ exports.sumGroupByMultipleColumns = async (req, res) => {
   }
 };
 
+/**
+ * Return quick counts for a county: settlements, projects, grievances
+ * Body: { county_id: number, cache_key?: string }
+ */
+exports.countsByCounty = async (req, res) => {
+  try {
+    const countyId = req.body.county_id;
+    if (!countyId && countyId !== 0) {
+      return res.status(400).send({ message: 'county_id is required', code: '4001' });
+    }
+
+    const cacheKey = req.body.cache_key || `county_counts_${countyId}`;
+
+    // Try cache first
+    let cached;
+    try {
+      cached = await redisClient.get(cacheKey);
+    } catch (e) {
+      // ignore cache errors
+    }
+    if (cached) {
+      return res.status(200).send({ fromCache: true, counts: JSON.parse(cached), code: '0000' });
+    }
+
+    const settlementsPromise = db.models.settlement.count({ where: { county_id: countyId } });
+    const grievancesPromise = db.models.grievance.count({ where: { county_id: countyId } });
+    // Projects are tied to county via project_location
+    const projectsPromise = db.models.project_location.count({
+      where: { county_id: countyId },
+      distinct: true,
+      col: 'project_id'
+    });
+
+    const [settlements, grievances, projects] = await Promise.all([
+      settlementsPromise,
+      grievancesPromise,
+      projectsPromise
+    ]);
+
+    const result = { settlements, projects, grievances };
+    try {
+      await redisClient.set(cacheKey, JSON.stringify(result), { EX: 300, NX: true });
+    } catch (e) {
+      // ignore cache set errors
+    }
+
+    return res.status(200).send({ fromCache: false, counts: result, code: '0000' });
+  } catch (error) {
+    console.error('countsByCounty error', error);
+    return res.status(500).send({ message: 'Failed to get counts', code: '5000' });
+  }
+};
+
 exports._sumModelAssociatedMultipleModels = async (req, res) => {
 
   var reg_model = req.body.model;

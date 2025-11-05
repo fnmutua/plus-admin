@@ -536,6 +536,53 @@ module.exports = function (app) {
    */
    app.post('/api/v1/summary/group/app',  [authJwt.verifyToken], controller.appGetSummaryCombined)
 
+  // Quick counts for app boot: settlements, projects, grievances per county
+  /**
+   * @swagger
+   * /api/v1/summary/county/counts:
+   *   post:
+   *     tags: [Summary]
+   *     summary: Quick counts for a county
+   *     description: Returns counts of settlements, projects and grievances for a given county. Cached briefly for performance.
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required: [county_id]
+   *             properties:
+   *               county_id:
+   *                 type: integer
+   *                 example: 47
+   *               cache_key:
+   *                 type: string
+   *                 example: county_counts_47
+   *     responses:
+   *       200:
+   *         description: Counts retrieved
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 counts:
+   *                   type: object
+   *                   properties:
+   *                     settlements:
+   *                       type: integer
+   *                     projects:
+   *                       type: integer
+   *                     grievances:
+   *                       type: integer
+   *                 code:
+   *                   type: string
+   *                   example: '0000'
+   */
+  app.post('/api/v1/summary/county/counts', [authJwt.verifyToken], controller.countsByCounty)
+
  
   
 }
