@@ -1893,7 +1893,7 @@ exports.signinViaApp = async (req, res) => {
           res.send({
             message: 'Check your phone for login verification SMS! ',
             code: '0000',
-            data: otpCode,
+            //data: otpCode,
           });
 
         })
