@@ -5,7 +5,7 @@
         <el-header>
           <div class="header-content">
             <!-- Mobile Menu (Top left) -->
-            <div v-if="isSmallScreen" class="mobile-menu-container">
+            <div v-if="isCompactScreen" class="mobile-menu-container">
               <!-- Hamburger icon for small screens -->
               <div class="hamburger" @click="menuOpen = !menuOpen">
                 <Icon icon="mdi:menu" class="hamburger-icon" />
@@ -37,14 +37,14 @@
             </div>
 
             <!-- Logo (Desktop only) -->
-            <div v-if="!isSmallScreen" class="logo">
+            <div v-if="!isCompactScreen" class="logo">
               <img src="@/assets/imgs/1logo.png" alt="KISIP - Kenya Informal Settlements Improvement Project" width="50" height="40" loading="lazy" />
             </div>
 
             <nav style="background: transparent;">
               <!-- Desktop Menu -->
               <el-menu
-                v-if="!isSmallScreen"
+                v-if="!isCompactScreen"
                 mode="horizontal"
                 active-text-color="#684035"
                 class="el-menu-demo"
@@ -101,7 +101,10 @@ import { useCache } from '@/hooks/web/useCache';
 import { useAppStoreWithOut } from '@/store/modules/app';
 import { loginOutApi } from '@/api/login';
 
-const isSmallScreen = computed(() => window.innerWidth <= 768);
+const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1600);
+const isSmallScreen = computed(() => windowWidth.value <= 768);
+const isMediumScreen = computed(() => windowWidth.value > 768 && windowWidth.value <= 1600);
+const isCompactScreen = computed(() => isSmallScreen.value || isMediumScreen.value);
 const menuOpen = ref(false);
 const isDark = ref(false);
 
@@ -120,6 +123,7 @@ const toggleDark = () => {
 
 // Watch for system theme changes
 onMounted(() => {
+  windowWidth.value = window.innerWidth;
   checkDarkMode();
   
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
@@ -132,7 +136,7 @@ onMounted(() => {
   
   // Close mobile menu when clicking outside
   document.addEventListener('click', (e) => {
-    if (isSmallScreen.value && menuOpen.value) {
+    if (isCompactScreen.value && menuOpen.value) {
       const mobileMenu = document.querySelector('.mobile-menu-container');
       if (mobileMenu && !mobileMenu.contains(e.target as Node)) {
         menuOpen.value = false;
@@ -146,7 +150,8 @@ onBeforeUnmount(() => {
 });
 
 function handleResize() {
-  if (window.innerWidth > 768 && menuOpen.value) {
+  windowWidth.value = window.innerWidth;
+  if (windowWidth.value > 1600 && menuOpen.value) {
     menuOpen.value = false;
   }
 }
@@ -340,14 +345,20 @@ const handleSelect = (index: string) => {
 .el-main {
   background-color: var(--bg-primary);
   color: var(--text-primary);
+  /* Ensure full height and scroll */
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .main-content {
   padding: 0;
-  min-height: calc(100vh - 120px);
+  min-height: calc(100vh - 120px); /* Keep default */
+  height: 100%; /* Add: Fill available space */
   overflow-x: hidden;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  overflow-y: visible; /* Allow overflow initially */
+  display: flex;
+  flex: 1; /* Grow to fill el-container */
 }
 
 .content-wrapper {
@@ -356,12 +367,16 @@ const handleSelect = (index: string) => {
   padding: 20px;
   min-height: 100%;
   width: 100%;
+  /* Add: Enable scroll if content overflows wrapper */
+  overflow-y: auto;
+  box-sizing: border-box;
+  flex: 1; /* Grow within main-content */
 }
 
 /* Header styles */
 .header-content {
   max-width: 100%;
-  margin: 10 auto;
+  margin: 0 auto; /* Fixed: was '10 auto' */
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -517,8 +532,8 @@ nav {
 }
 
 
-/* Small screen styles */
-@media (max-width: 768px) {
+/* Small & medium screen styles */
+@media (max-width: 1600px) {
   .header-content {
     justify-content: flex-end;
     padding: 10px;
@@ -582,7 +597,7 @@ nav {
 }
 
 /* Responsive styles */
-@media (max-width: 1024px) {
+@media (max-width: 1600px) {
   .header-content {
     padding: 15px;
   }
@@ -594,7 +609,7 @@ nav {
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1600px) {
   .base-layout {
     height: 100vh;
     overflow-y: auto;
