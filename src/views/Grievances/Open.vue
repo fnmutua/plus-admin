@@ -3,7 +3,7 @@
 import { useI18n } from '@/hooks/web/useI18n'
 import { getListWithoutGeo} from '@/api/counties'
 
-import { getGrievances,updateBulkGrievance } from '@/api/grievance'
+import { getGrievances,updateBulkGrievance, deleteCascade } from '@/api/grievance'
 import { watch } from 'vue';
 
 import {
@@ -24,7 +24,7 @@ import {   getGRMStaffByLocation } from '@/api/users'
 import { ref, reactive, onMounted, computed, nextTick } from 'vue'
 import {
   ElPagination, ElOption, ElDialog, ElForm, ElTour, ElUpload,
-  ElFormItem, ElRow, ElInput, ElStep, ElSteps, ElTable, ElTableColumn, ElCard, ElMessage, ElSwitch,
+  ElFormItem, ElRow, ElInput, ElStep, ElSteps, ElTable, ElTableColumn, ElCard, ElMessage, ElMessageBox, ElSwitch,
   ElTag, ElTooltip
 } from 'element-plus'
 import { useRouter } from 'vue-router'
@@ -2744,6 +2744,92 @@ async function handleBulkAction() {
   await getGRMUsers(countyIds);
 }
 
+// Bulk delete function
+const handleBulkDelete = () => {
+  if (selectedRows.value.length === 0) {
+    ElMessage({
+      message: 'No grievances selected',
+      type: 'warning'
+    })
+    return
+  }
+
+  ElMessageBox.confirm(
+    `Are you sure you want to delete ${selectedRows.value.length} selected grievance(s)? This action cannot be undone.`,
+    'Confirm Delete',
+    {
+      confirmButtonText: 'Delete',
+      cancelButtonText: 'Cancel',
+      type: 'warning',
+      dangerouslyUseHTMLString: false
+    }
+  ).then(async () => {
+    await performBulkDelete()
+  }).catch(() => {
+    // User cancelled
+  })
+}
+
+// Perform the actual bulk delete
+const deleting = ref(false)
+const performBulkDelete = async () => {
+  deleting.value = true
+  const deletePromises = selectedRows.value.map(grievance => {
+    return deleteCascade({
+      model: 'grievance',
+      id: grievance.id
+    })
+  })
+
+  try {
+    const results = await Promise.allSettled(deletePromises)
+    
+    // Count successful and failed deletions
+    const successful = results.filter(r => r.status === 'fulfilled').length
+    const failed = results.filter(r => r.status === 'rejected').length
+
+    // Remove successfully deleted grievances from the table
+    const deletedIds = selectedRows.value
+      .filter((_, index) => results[index].status === 'fulfilled')
+      .map(g => g.id)
+    
+    tableDataList.value = tableDataList.value.filter(g => !deletedIds.includes(g.id))
+    
+    // Clear selection
+    selectedRows.value = []
+
+    // Show success/error message
+    if (successful > 0 && failed === 0) {
+      ElMessage({
+        message: `Successfully deleted ${successful} grievance(s)`,
+        type: 'success'
+      })
+    } else if (successful > 0 && failed > 0) {
+      ElMessage({
+        message: `Deleted ${successful} grievance(s), but ${failed} failed`,
+        type: 'warning'
+      })
+    } else {
+      ElMessage({
+        message: `Failed to delete ${failed} grievance(s)`,
+        type: 'error'
+      })
+    }
+
+    // Refresh the data and counts
+    await getFilteredData(filters.value, filterValues.value)
+    await getCounts()
+  } catch (error) {
+    console.error('Error during bulk delete:', error)
+    ElMessage({
+      message: 'An error occurred while deleting grievances',
+      type: 'error'
+    })
+  } finally {
+    deleting.value = false
+  }
+}
+
 const form = ref({
   grievance_id: null,
   reffered_to_officer: null,
@@ -3693,6 +3779,15 @@ const filterByOfficer = async (officerId: number, officerName: string) => {
               @click="handleBulkAction"
             >
               Refer ({{ selectedRows.length }})
+            </el-button>
+            <el-button 
+              v-if="selectedRows.length > 0 && isSuperAdmin && !['Deleted'].includes(activeSegment)"
+              type="danger" 
+              :icon="Delete"
+              size="small"
+              @click="handleBulkDelete"
+            >
+              Delete ({{ selectedRows.length }})
             </el-button>
         </div>
       </div>
