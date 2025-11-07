@@ -1,6 +1,6 @@
 <template>
   <BaseLayout>
-    <div class="incident-container" :class="{ 'dark-mode': isDarkMode }">
+    <div class="incident-container">
       <el-card>
         <el-tabs v-model="activeName" :tab-position="tabPosition">
           <!-- TAB 1: File Incident -->
@@ -828,11 +828,9 @@ const removeAction = (index: number) => {
 }
 
 
-// === Dark mode ===
-const isDarkMode = ref(false)
 </script>
 
-<style>
+<style scoped>
 /* Accessibility */
 .visually-hidden {
   position: absolute !important;
@@ -846,7 +844,64 @@ const isDarkMode = ref(false)
   border: 0 !important;
 }
 
-.incident-container { padding: 1rem; }
+.incident-container {
+  padding: 1rem;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+.dark-mode .incident-container {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.dark-mode :deep(.el-tabs__header) {
+  background: transparent;
+}
+
+.dark-mode :deep(.el-tabs__item) {
+  color: rgba(255, 255, 255, 0.75) !important;
+}
+
+.dark-mode :deep(.el-tabs__item.is-active) {
+  color: #ffffff !important;
+}
+
+.dark-mode :deep(.el-tabs__active-bar) {
+  background: var(--accent-color) !important;
+}
+
+.dark-mode :deep(.el-tabs__nav-wrap::after) {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.dark-mode :deep(.el-card__header) {
+  border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+  color: #ffffff !important;
+}
+
+.dark-mode :deep(.el-card__body) {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.dark-mode :deep(.el-dialog) {
+  background: #1f2933 !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.dark-mode :deep(.el-dialog__title) {
+  color: #ffffff !important;
+}
+
+.dark-mode :deep(.el-dialog__body) {
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+
+.dark-mode :deep(.el-dialog__footer) {
+  border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
 .steps-navigation { 
   margin-top: 1rem; 
   display: flex; 
@@ -979,8 +1034,54 @@ const isDarkMode = ref(false)
   color: #e5eaf3;
 }
 
+.dark-mode :deep(.el-form-item__label) {
+  color: #ffffff !important;
+}
+
 .dark-mode .checkbox-item .el-checkbox__label {
   color: #e5eaf3;
+}
+
+.dark-mode :deep(.el-input__wrapper),
+.dark-mode :deep(.el-textarea__inner) {
+  background: transparent !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+  color: #ffffff !important;
+}
+
+.dark-mode :deep(.el-input__inner),
+.dark-mode :deep(.el-select__selected-item),
+.dark-mode :deep(.el-date-editor .el-input__inner),
+.dark-mode :deep(.el-time-editor .el-input__inner) {
+  color: #ffffff !important;
+}
+
+.dark-mode :deep(.el-input__inner::placeholder),
+.dark-mode :deep(.el-textarea__inner::placeholder) {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.dark-mode :deep(.el-select .el-input__wrapper),
+.dark-mode :deep(.el-date-editor .el-input__wrapper),
+.dark-mode :deep(.el-time-picker .el-input__wrapper) {
+  background: transparent !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+}
+
+.dark-mode :deep(.el-select-dropdown),
+.dark-mode :deep(.el-picker-panel) {
+  background: #1f2933 !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: #ffffff !important;
+}
+
+.dark-mode :deep(.el-select-dropdown__item) {
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+
+.dark-mode :deep(.el-select-dropdown__item.is-hovering),
+.dark-mode :deep(.el-select-dropdown__item.hover) {
+  background: rgba(255, 255, 255, 0.1) !important;
 }
 
 @media (max-width: 768px) {

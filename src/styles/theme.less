@@ -1,6 +1,61 @@
-// .text-color {
-//   color: var(--el-text-color-regular);
-// }
-// .dark .dark\:text-color {
-//   color: rgba(255, 255, 255, var(--dark-text-color));
-// }
+.dark,
+.dark body {
+  color: rgba(255, 255, 255, var(--dark-text-color));
+}
+
+.dark .dark\:text-color {
+  color: rgba(255, 255, 255, var(--dark-text-color));
+}
+
+.dark .el-input__wrapper,
+.dark .el-textarea__inner,
+.dark-mode .el-input__wrapper,
+.dark-mode .el-textarea__inner {
+  background-color: transparent !important;
+  box-shadow: none !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+  color: rgba(255, 255, 255, 0.95) !important;
+}
+
+.dark .el-input__inner,
+.dark-mode .el-input__inner,
+.dark .el-textarea__inner,
+.dark-mode .el-textarea__inner {
+  color: rgba(255, 255, 255, 0.95) !important;
+}
+
+.dark .el-select,
+.dark-mode .el-select {
+  --el-select-input-color: rgba(255, 255, 255, 0.95);
+}
+
+.dark .el-select .el-input__wrapper,
+.dark-mode .el-select .el-input__wrapper,
+.dark .el-date-editor .el-input__wrapper,
+.dark-mode .el-date-editor .el-input__wrapper,
+.dark .el-time-picker .el-input__wrapper,
+.dark-mode .el-time-picker .el-input__wrapper {
+  background-color: transparent !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+.dark .el-select-dropdown,
+.dark-mode .el-select-dropdown,
+.dark .el-picker-panel,
+.dark-mode .el-picker-panel {
+  background-color: #1f2933 !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: rgba(255, 255, 255, 0.95) !important;
+}
+
+.dark .el-select-dropdown__item,
+.dark-mode .el-select-dropdown__item {
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+
+.dark .el-select-dropdown__item.hover,
+.dark-mode .el-select-dropdown__item.hover,
+.dark .el-select-dropdown__item:hover,
+.dark-mode .el-select-dropdown__item:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}

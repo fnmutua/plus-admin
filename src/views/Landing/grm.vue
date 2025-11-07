@@ -1,7 +1,7 @@
 <template>
   <BaseLayout>
-    <div class="grievance-container" :class="{ 'dark-mode': isDarkMode }">
-      <el-card>
+    <div class="grievance-container">
+      <el-card class="grievance-card">
 
 
           <el-tabs v-model="activeName" :tab-position="tabPosition">
@@ -276,7 +276,7 @@ class="steps-navigation"
                 </el-button>
               </div>
               <div>
-                <el-button id="btn7" v-if="active < 3" type="primary" @click="next">
+                <el-button id="btn7" v-if="active < 3"  @click="next">
                   Next <el-icon class="el-icon--right">
                     <ArrowRight />
                   </el-icon>
@@ -1283,38 +1283,14 @@ try {
 
  }
 
-const isDarkMode = ref(false);
-
-// Function to check system dark mode preference
-const checkDarkMode = () => {
-  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const savedTheme = localStorage.getItem('theme');
-  isDarkMode.value = savedTheme ? savedTheme === 'dark' : prefersDark;
-};
-
-// Function to toggle dark mode
-const toggleDarkMode = () => {
-  isDarkMode.value = !isDarkMode.value;
-  localStorage.setItem('theme', isDarkMode.value ? 'dark' : 'light');
-};
-
-// Watch for system theme changes
-onMounted(() => {
-  checkDarkMode();
-  
-  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-    if (!localStorage.getItem('theme')) {
-      isDarkMode.value = e.matches;
-    }
-  });
-});
+// Dark mode is handled by BaseLayout; styles respond to the inherited `.dark-mode` class.
  
 </script>
 
 
 
 
-<style>
+<style scoped>
 /* Accessibility */
 .visually-hidden {
   position: absolute !important;
@@ -1326,6 +1302,42 @@ onMounted(() => {
   clip: rect(0, 0, 0, 0) !important;
   white-space: nowrap !important;
   border: 0 !important;
+}
+
+.grievance-container :deep(.content-wrapper) {
+  max-width: 100%;
+  width: 100%;
+  padding: 0;
+}
+
+@media (min-width: 768px) {
+  .grievance-container :deep(.content-wrapper) {
+    padding: 0 1.5rem 2rem;
+  }
+}
+
+.grievance-container {
+  padding: 1.5rem;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+.grievance-card {
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 16px;
+  border: 1px solid var(--border-color);
+}
+
+.grievance-card :deep(.el-card__body) {
+  padding: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .grievance-card :deep(.el-card__body) {
+    padding: 1rem;
+  }
 }
 
 .form-container {
@@ -1363,36 +1375,7 @@ onMounted(() => {
   --disabled-text: #c0c4cc;
 }
 
-.dark-mode {
-  --bg-primary: #1a1a1a;
-  --bg-secondary: #2c2c2c;
-  --text-primary: #ffffff;
-  --text-secondary: #a0a0a0;
-  --border-color: #3a3a3a;
-  --accent-color: #4a9eff;
-  --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  --input-bg: #2c2c2c;
-  --input-border: #3a3a3a;
-  --input-text: #ffffff;
-  --step-bg: #2c2c2c;
-  --step-border: #3a3a3a;
-  --step-text: #ffffff;
-  --step-active: #4a9eff;
-  --step-completed: #67c23a;
-  --card-bg: #2c2c2c;
-  --hover-bg: #363636;
-  --disabled-bg: #2c2c2c;
-  --disabled-text: #666666;
-}
-
-.el-card {
-  background: var(--card-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  box-shadow: var(--card-shadow);
-  transition: all 0.3s ease;
-  margin-bottom: 1rem;
-}
+ 
 
 .el-card:hover {
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
@@ -1426,32 +1409,7 @@ onMounted(() => {
   margin-bottom: 0.75rem;
 }
 
-:deep(.el-form-item__label) {
-  color: var(--text-primary);
-  font-weight: 600;
-  font-size: 0.95rem;
-  margin-bottom: 0.5rem;
-}
 
-:deep(.el-input__wrapper) {
-  background: var(--input-bg);
-  box-shadow: none;
-  border: 1px solid var(--input-border);
-  border-radius: 8px;
-  transition: all 0.3s ease;
-  padding: 0.35rem 0.75rem;
-}
-
-:deep(.el-input__wrapper:hover),
-:deep(.el-input__wrapper.is-focus) {
-  border-color: var(--accent-color);
-  box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.2);
-}
-
-:deep(.el-input__inner) {
-  color: var(--input-text);
-  background: var(--input-bg);
-}
 
 :deep(.el-textarea__inner) {
   background: var(--input-bg);

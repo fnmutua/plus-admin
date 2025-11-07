@@ -111,7 +111,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useCache } from '@/hooks/web/useCache';
 import { useAppStoreWithOut } from '@/store/modules/app';
@@ -566,6 +566,60 @@ AvgHHSize();
 .dark-mode .stat-icon {
   color: #684035;
   background: linear-gradient(135deg, rgba(104, 64, 53, 0.2), rgba(104, 64, 53, 0.1));
+}
+
+.dark-mode .main-title {
+  color: #ffffff;
+}
+
+.dark-mode .subtitle {
+  color: #d1d5db;
+}
+
+.dark-mode .description {
+  color: #cbd5f5;
+}
+
+.dark-mode .section-header h2 {
+  color: #ffffff;
+}
+
+.dark-mode .section-header p {
+  color: #d1d5db;
+}
+
+.dark-mode .feature-card {
+  border-color: #3a3a3a;
+  background: #2c2c2c;
+}
+
+.dark-mode .feature-card h3 {
+  color: #ffffff;
+}
+
+.dark-mode .feature-card p {
+  color: #e2e8f0;
+}
+
+.dark-mode .api-text h2 {
+  color: #ffffff;
+}
+
+.dark-mode .api-text p,
+.dark-mode .api-features li {
+  color: #d1d5db;
+}
+
+.dark-mode .grievance-message {
+  color: #e8eaed;
+}
+
+.dark-mode .grievance-link {
+  color: #66d9a3;
+}
+
+.dark-mode .grievance-link:hover {
+  color: #7ef0bb;
 }
 
 /* 6. FEATURES SECTION */

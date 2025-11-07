@@ -101,24 +101,54 @@ import { useCache } from '@/hooks/web/useCache';
 import { useAppStoreWithOut } from '@/store/modules/app';
 import { loginOutApi } from '@/api/login';
 
+const router = useRouter();
+const { wsCache } = useCache();
+const appStore = useAppStoreWithOut();
+
 const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1600);
 const isSmallScreen = computed(() => windowWidth.value <= 768);
 const isMediumScreen = computed(() => windowWidth.value > 768 && windowWidth.value <= 1600);
 const isCompactScreen = computed(() => isSmallScreen.value || isMediumScreen.value);
 const menuOpen = ref(false);
-const isDark = ref(false);
+const isDark = computed(() => appStore.getIsDark);
+
+const prefersDarkQuery = typeof window !== 'undefined'
+  ? window.matchMedia('(prefers-color-scheme: dark)')
+  : null;
+
+const handleSystemThemeChange = (event: MediaQueryListEvent) => {
+  if (!localStorage.getItem('theme')) {
+    appStore.setIsDark(event.matches);
+  }
+};
+
+const handleDocumentClick = (e: MouseEvent) => {
+  if (isCompactScreen.value && menuOpen.value) {
+    const mobileMenu = document.querySelector('.mobile-menu-container');
+    if (mobileMenu && !mobileMenu.contains(e.target as Node)) {
+      menuOpen.value = false;
+    }
+  }
+};
 
 // Function to check system dark mode preference
 const checkDarkMode = () => {
-  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
   const savedTheme = localStorage.getItem('theme');
-  isDark.value = savedTheme ? savedTheme === 'dark' : prefersDark;
+  const prefersDark = prefersDarkQuery ? prefersDarkQuery.matches : false;
+  const shouldUseDark = savedTheme ? savedTheme === 'dark' : prefersDark;
+
+  if (!savedTheme) {
+    localStorage.setItem('theme', shouldUseDark ? 'dark' : 'light');
+  }
+
+  appStore.setIsDark(shouldUseDark);
 };
 
 // Function to toggle dark mode
 const toggleDark = () => {
-  isDark.value = !isDark.value;
-  localStorage.setItem('theme', isDark.value ? 'dark' : 'light');
+  const next = !appStore.getIsDark;
+  localStorage.setItem('theme', next ? 'dark' : 'light');
+  appStore.setIsDark(next);
 };
 
 // Watch for system theme changes
@@ -126,27 +156,18 @@ onMounted(() => {
   windowWidth.value = window.innerWidth;
   checkDarkMode();
   
-  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-    if (!localStorage.getItem('theme')) {
-      isDark.value = e.matches;
-    }
-  });
+  prefersDarkQuery?.addEventListener('change', handleSystemThemeChange);
 
   window.addEventListener('resize', handleResize);
   
   // Close mobile menu when clicking outside
-  document.addEventListener('click', (e) => {
-    if (isCompactScreen.value && menuOpen.value) {
-      const mobileMenu = document.querySelector('.mobile-menu-container');
-      if (mobileMenu && !mobileMenu.contains(e.target as Node)) {
-        menuOpen.value = false;
-      }
-    }
-  });
+  document.addEventListener('click', handleDocumentClick);
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', handleResize);
+  prefersDarkQuery?.removeEventListener('change', handleSystemThemeChange);
+  document.removeEventListener('click', handleDocumentClick);
 });
 
 function handleResize() {
@@ -157,9 +178,6 @@ function handleResize() {
 }
 
 const activeIndex = ref('1');
-const router = useRouter();
-const { wsCache } = useCache();
-const appStore = useAppStoreWithOut();
 const isLoggedIn = computed(() => !!wsCache.get(appStore.getUserInfo));
 
 const handleLoginOrLogout = async () => {
@@ -221,34 +239,6 @@ const handleSelect = (index: string) => {
 </script>
 
 <style scoped>
-:root {
-  --bg-primary: #ffffff;
-  --bg-secondary: #f5f7fa;
-  --text-primary: #2c3e50;
-  --text-secondary: #606266;
-  --border-color: #dcdfe6;
-  --accent-color: #409eff;
-  --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  --card-bg: #ffffff;
-  --hover-bg: #f5f7fa;
-  --disabled-bg: #f5f7fa;
-  --disabled-text: #c0c4cc;
-}
-
-.dark-mode {
-  --bg-primary: #1a1a1a;
-  --bg-secondary: #2c2c2c;
-  --text-primary: #ffffff;
-  --text-secondary: #a0a0a0;
-  --border-color: #3a3a3a;
-  --accent-color: #4a9eff;
-  --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  --card-bg: #2c2c2c;
-  --hover-bg: #363636;
-  --disabled-bg: #2c2c2c;
-  --disabled-text: #666666;
-}
-
 .base-layout {
   min-height: 100vh;
   background-color: var(--bg-primary);
@@ -531,7 +521,6 @@ nav {
   text-align: left;
 }
 
-
 /* Small & medium screen styles */
 @media (max-width: 1600px) {
   .header-content {
@@ -703,6 +692,7 @@ nav {
 .dark-mode .el-menu-item {
   background: rgba(0, 0, 0, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #ffffff !important;
 }
 
 .dark-mode .mobile-dropdown-menu {
@@ -731,7 +721,6 @@ nav {
   color: #e8eaed;
 }
 
-
 .dark-mode .hamburger {
   background: #2c2c2c;
   border: 1px solid #3a3a3a;
@@ -740,7 +729,6 @@ nav {
 .dark-mode .hamburger:hover {
   background: #363636;
 }
-
 
 .hero {
   position: relative;

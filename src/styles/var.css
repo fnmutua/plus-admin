@@ -1,5 +1,6 @@
 :root {
   --dark-bg-color: #293146;
+  --dark-text-color: 1;
 
   /* left menu start */
   --left-menu-border-color: '#eee';
@@ -66,4 +67,31 @@
   --app-footer-height: 50px;
 
   --transition-time-02: 0.2s;
+
+  /* Landing theme variables */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f5f7fa;
+  --text-primary: #2c3e50;
+  --text-secondary: #606266;
+  --border-color: #dcdfe6;
+  --accent-color: #409eff;
+  --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --card-bg: #ffffff;
+  --hover-bg: #f5f7fa;
+  --disabled-bg: #f5f7fa;
+  --disabled-text: #c0c4cc;
+}
+
+.dark-mode {
+  --bg-primary: #1a1a1a;
+  --bg-secondary: #2c2c2c;
+  --text-primary: #ffffff;
+  --text-secondary: #a0a0a0;
+  --border-color: #3a3a3a;
+  --accent-color: #4a9eff;
+  --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --card-bg: #2c2c2c;
+  --hover-bg: #363636;
+  --disabled-bg: #2c2c2c;
+  --disabled-text: #666666;
 }
