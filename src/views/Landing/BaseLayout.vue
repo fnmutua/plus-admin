@@ -254,6 +254,13 @@ const handleSelect = (index: string) => {
   -webkit-overflow-scrolling: touch;
 }
 
+:deep(.el-container) {
+  display: flex;
+  flex-direction: column;
+  height: auto;
+  min-height: 100vh;
+}
+
 .el-header {
   background-color: transparent;
   border-bottom: none;
@@ -344,18 +351,21 @@ const handleSelect = (index: string) => {
 
 .main-content {
   padding: 0;
-  min-height: calc(100vh - 120px);
   overflow-x: hidden;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  flex: 1;
+  height: auto;
 }
 
 .content-wrapper {
   max-width: 1200px;
   margin: 0 auto;
   padding: 20px;
-  min-height: 100%;
+  padding-bottom: 40px;
   width: 100%;
+  height: auto;
+  min-height: auto;
 }
 
 /* Header styles */
@@ -581,99 +591,18 @@ nav {
   color: var(--accent-color);
 }
 
-/* Responsive styles */
-@media (max-width: 1024px) {
-  .header-content {
-    padding: 15px;
-  }
-
-  /* Logo visible on desktop */
-
-  .el-menu-item {
-    padding: 0 15px;
-  }
-}
-
+/* Simple responsive - Element Plus handles most of it */
 @media (max-width: 768px) {
-  .base-layout {
-    height: 100vh;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+  .mobile-menu-container {
+    display: block;
   }
 
-  .header-content {
-    flex-direction: column;
-    align-items: center;
-    padding: 10px;
+  .el-menu-demo {
+    display: none;
   }
 
-  /* Logo visible on desktop */
-
-  .main-content {
-    min-height: calc(100vh - 100px);
-    overflow-x: hidden;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    flex: 1;
-  }
-
-  .content-wrapper {
-    padding: 10px;
-    width: 100%;
-    max-width: 100%;
-    min-height: auto;
-  }
-
-  .footer-content {
-    flex-direction: column;
-    text-align: center;
-  }
-
-  .footer-content p {
-    margin-bottom: 15px;
-  }
-
-  .footer-content ul {
-    justify-content: center;
-  }
-
-  .footer-content ul li {
-    margin: 0 0.5rem;
-  }
-}
-
-@media (max-width: 480px) {
-  .base-layout {
-    height: 100vh;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .main-content {
-    min-height: calc(100vh - 80px);
-    overflow-x: hidden;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    flex: 1;
-  }
-
-  .content-wrapper {
-    padding: 5px;
-    width: 100%;
-    max-width: 100%;
-    min-height: auto;
-  }
-
-  .hero-content h1 {
-    font-size: 2rem;
-  }
-
-  .hero-content p {
-    font-size: 0.875rem;
-  }
-
-  .hero-image img {
-    max-width: 100%;
+  .logo {
+    display: none;
   }
 }
 

@@ -263,34 +263,31 @@ id="btn20" class="upload-demo"
               </el-form>
             </el-tab-pane>
           </el-tabs>
-          <template #footer>
-            <div
-class="steps-navigation"
-              style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
-              <div>
-                <el-tooltip content="Help" placement="top">
-                  <el-button color="#626aef" type="info" @click="showTour" :icon="InfoFilled" plain />
-                </el-tooltip>
-
-                <el-button id="btn9" v-if="active > 0" @click="prev" type="primary" :icon="ArrowLeft">Previous
-                </el-button>
-              </div>
-              <div>
-                <el-button id="btn7" v-if="active < 3" type="primary" @click="next">
-                  Next <el-icon class="el-icon--right">
-                    <ArrowRight />
-                  </el-icon>
-                </el-button>
-
-                <el-button
-id="btn2" v-if="active === 3" type="primary" @click="submitForm"
-                  style="margin-left: 10px;">Submit</el-button>
-                <el-button id="btn8" @click="resetForm" style="margin-left: 10px;">Reset</el-button>
-              </div>
-            </div>
-          </template>
-
         </el-card>
+        
+        <!-- Navigation buttons moved outside card for better scrolling -->
+        <div class="steps-navigation" v-if="activeName === 'file'">
+          <div>
+            <el-tooltip content="Help" placement="top">
+              <el-button color="#626aef" type="info" @click="showTour" :icon="InfoFilled" plain />
+            </el-tooltip>
+
+            <el-button id="btn9" v-if="active > 0" @click="prev" type="primary" :icon="ArrowLeft">Previous
+            </el-button>
+          </div>
+          <div>
+            <el-button id="btn7" v-if="active < 3" type="primary" @click="next">
+              Next <el-icon class="el-icon--right">
+                <ArrowRight />
+              </el-icon>
+            </el-button>
+
+            <el-button
+id="btn2" v-if="active === 3" type="primary" @click="submitForm"
+              style="margin-left: 10px;">Submit</el-button>
+            <el-button id="btn8" @click="resetForm" style="margin-left: 10px;">Reset</el-button>
+          </div>
+        </div>
       </div>
 
       <el-tour v-model="isTourVisible" :z-index="100000" :on-close="endTour">
@@ -1328,9 +1325,19 @@ onMounted(() => {
   border: 0 !important;
 }
 
+.grievance-container {
+  width: 100%;
+  padding: 1rem;
+  padding-bottom: 4rem;
+  background-color: var(--bg-primary);
+  min-height: auto;
+  overflow-x: hidden;
+  overflow-y: visible;
+}
+
 .form-container {
-  max-height: 100vh;
-  overflow-y: auto;
+  max-height: none;
+  overflow-y: visible;
   background-color: var(--bg-primary);
   transition: all 0.3s ease;
   padding: 2rem 0;
@@ -1385,12 +1392,7 @@ onMounted(() => {
   --disabled-text: #666666;
 }
 
-.el-card {
-  background: var(--card-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  box-shadow: var(--card-shadow);
-  transition: all 0.3s ease;
+.grievance-container .el-card {
   margin-bottom: 1rem;
 }
 
@@ -1507,11 +1509,12 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 1rem;
-  padding: 0.75rem;
-  background: var(--bg-primary);
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
-  box-shadow: var(--card-shadow);
+  width: 100%;
 }
 
 .el-button {
@@ -1622,56 +1625,27 @@ onMounted(() => {
   }
 }
 
+/* Simple responsive - Element Plus handles most of it */
 @media (max-width: 768px) {
-  .form-container {
-    padding: 1rem;
-  }
-
-  .el-card {
-    margin-bottom: 1rem;
-  }
-
   .steps-navigation {
     flex-direction: column;
     gap: 1rem;
   }
 
-  .steps-navigation > div {
-    width: 100%;
-    display: flex;
-    justify-content: center;
-    gap: 0.5rem;
+  .grievance-container {
+    padding-bottom: 6rem;
+    overflow-y: visible;
   }
 
-  .el-button {
-    width: 100%;
-    margin: 0;
-    padding: 0.5rem 1rem;
-    font-size: 0.85rem;
-  }
-
-  :deep(.el-step__title) {
-    font-size: 0.9rem;
+  .form-container {
+    overflow-y: visible;
   }
 }
 
 @media (max-width: 480px) {
-  .form-container {
+  .grievance-container {
     padding: 0.5rem;
-  }
-
-  .el-form-item {
-    margin-bottom: 1rem;
-  }
-
-  :deep(.el-input__wrapper),
-  :deep(.el-textarea__inner) {
-    padding: 0.5rem;
-  }
-
-  .el-button {
-    padding: 0.6rem 0.9rem;
-    font-size: 0.85rem;
+    padding-bottom: 6rem;
   }
 }
 </style>
