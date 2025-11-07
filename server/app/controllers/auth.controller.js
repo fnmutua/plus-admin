@@ -1906,7 +1906,7 @@ exports.signinViaApp = async (req, res) => {
         // SMS is disabled, still return OTP code but inform user
         res.send({
           message: 'SMS notifications are currently disabled. Please login using username and password.',
-          code: '0000',
+          code: '9999',
           //data: otpCode,
         });
       }
