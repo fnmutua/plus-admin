@@ -8,6 +8,7 @@ const shortid = require('shortid')
 const { trackIncidentHistory, trackIncidentCreation, trackIncidentUpdate, trackIncidentDeletion, trackStatusChange } = require('../utils/incidentHistoryTracker')
 const nodemailer = require('nodemailer')
 const axios = require('axios')
+const { isIncidentSMSEnabled } = require('../utils/smsSettings')
 // PDF generation moved to frontend using jsPDF
 
 const generateINCCode = async () => {
@@ -49,6 +50,13 @@ function formatPhoneNumber(phoneNumber) {
 }
 
 async function sendNotificationSMS(phone_number, message) {
+  // Check if SMS is enabled for incident module
+  const smsEnabled = await isIncidentSMSEnabled()
+  if (!smsEnabled) {
+    console.log('SMS sending is disabled for incident module. Skipping SMS notification.')
+    return
+  }
+
   const url = "https://quicksms.advantasms.com/api/services/sendotp/";
   
   if (!phone_number || !message) {

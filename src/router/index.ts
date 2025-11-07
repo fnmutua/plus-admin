@@ -1730,7 +1730,16 @@ export const adminRoutes: AppRouteRecordRaw[] = [
 
     },
     children: [
-        
+      {
+        path: 'module-settings',
+        name: 'ModuleSettings',
+        component: () => import('@/views/settings/ModuleSettings.vue'),
+        meta: {
+          title: 'Module Settings',
+          icon: 'material-symbols:settings',
+          role: ['root_admin', 'super_admin']
+        }
+      },
       {
         path: 'common',
         component: Layout,

@@ -7,6 +7,7 @@ const Role = db.role
 const User = db.user
 const Users = db.models.users
 const OTP = db.models.otp
+const { isAuthSMSEnabled } = require('../utils/smsSettings')
 
  //db.models[reg_model]
 const Op = db.Sequelize.Op
@@ -45,6 +46,13 @@ function formatPhoneNumber(phoneNumber) {
 }
 
 async function sendSMS(sms_obj, admins_phones) {
+  // Check if SMS is enabled for auth module
+  const smsEnabled = await isAuthSMSEnabled()
+  if (!smsEnabled) {
+    console.log('SMS sending is disabled for auth module. Skipping SMS notification.')
+    return
+  }
+
   // URL for the SMS service
   const url = "https://quicksms.advantasms.com/api/services/sendotp/";
 
@@ -86,6 +94,13 @@ for (const phone of admins_phones) {
 
 
 async function sendNotification(phone_number, message) {
+  // Check if SMS is enabled for auth module
+  const smsEnabled = await isAuthSMSEnabled()
+  if (!smsEnabled) {
+    console.log('SMS sending is disabled for auth module. Skipping SMS notification.')
+    return
+  }
+
   // URL for the SMS service
   const url = "https://quicksms.advantasms.com/api/services/sendotp/";
 
@@ -1447,22 +1462,25 @@ exports.signupViaApp = async (req, res) => {
     console.log("OTP saved:", otp);
 
     // Send OTP via external service (Leopard)
-    const url = "https://quicksms.advantasms.com/api/services/sendotp/";
-    const requestData = {
-      apikey: '***REDACTED***',
-      partnerID: '12108',
-      shortcode: 'KISIP',
-      message: 'Your registration code is: ' + otpCode + '.',
-      mobile: req.body.phone,
-    };
+    const smsEnabled = await isAuthSMSEnabled()
+    if (smsEnabled) {
+      const url = "https://quicksms.advantasms.com/api/services/sendotp/";
+      const requestData = {
+        apikey: '***REDACTED***',
+        partnerID: '12108',
+        shortcode: 'KISIP',
+        message: 'Your registration code is: ' + otpCode + '.',
+        mobile: req.body.phone,
+      };
 
-    axios.post(url, requestData)
+      axios.post(url, requestData)
       .then(response => {
         console.log('Response:', response.data);
       })
       .catch(error => {
         console.error('Error:', error);
       });
+    }
 
     // Send response to client
     
@@ -1579,24 +1597,27 @@ exports.signupGRC = async (req, res) => {
     console.log("OTP saved:", otp);
 
     // Send OTP via external service (Leopard)
-    const url = "https://quicksms.advantasms.com/api/services/sendotp/";
-    const requestData = {
-      apikey: '***REDACTED***',
-      partnerID: '12108',
-      shortcode: 'KISIP',
-      //message: 'Your registration code is: ' + otpCode + '.',
-     // message: 'An account has been set up for you to manage Grievances from your settlement. Please download the Slum Mapper app from the Play Store(Android or IOS) and log in using the given OTP: ' + otpCode + '.',
-      message: `Hi ${name}, an account has been set up for you to manage grievances from your settlement. Please download the Slum Mapper app from the Play Store - https://play.google.com/store/apps/details?id=co.ke.ags.slum.mapper  and log in using your phone as username: ${phone} and password:${password}. A version for IOS is  available for Iphone users.`,
-      mobile: req.body.phone,
-    };
+    const smsEnabled = await isAuthSMSEnabled()
+    if (smsEnabled) {
+      const url = "https://quicksms.advantasms.com/api/services/sendotp/";
+      const requestData = {
+        apikey: '***REDACTED***',
+        partnerID: '12108',
+        shortcode: 'KISIP',
+        //message: 'Your registration code is: ' + otpCode + '.',
+       // message: 'An account has been set up for you to manage Grievances from your settlement. Please download the Slum Mapper app from the Play Store(Android or IOS) and log in using the given OTP: ' + otpCode + '.',
+        message: `Hi ${name}, an account has been set up for you to manage grievances from your settlement. Please download the Slum Mapper app from the Play Store - https://play.google.com/store/apps/details?id=co.ke.ags.slum.mapper  and log in using your phone as username: ${phone} and password:${password}. A version for IOS is  available for Iphone users.`,
+        mobile: req.body.phone,
+      };
 
-    axios.post(url, requestData)
+      axios.post(url, requestData)
       .then(response => {
         console.log('Response:', response.data);
       })
       .catch(error => {
         console.error('Error:', error);
       });
+    }
 
     // Send response to client
     
@@ -1714,24 +1735,27 @@ exports.signupGRM = async (req, res) => {
     console.log("OTP saved:", otp);
 
     // Send OTP via external service (Leopard)
-    const url = "https://quicksms.advantasms.com/api/services/sendotp/";
-    const requestData = {
-      apikey: '***REDACTED***',
-      partnerID: '12108',
-      shortcode: 'KISIP',
-      //message: 'Your registration code is: ' + otpCode + '.',
-     // message: 'An account has been set up for you to manage Grievances from your settlement. Please download the Slum Mapper app from the Play Store(Android or IOS) and log in using the given OTP: ' + otpCode + '.',
-      message: `Hi ${name}, an account has been set up for you to manage grievances from your component/county/settlement. Please log in  on https://kesmis.go.ke using your phone as username: ${phone} and password:${password}.`,
-      mobile: req.body.phone,
-    };
+    const smsEnabled = await isAuthSMSEnabled()
+    if (smsEnabled) {
+      const url = "https://quicksms.advantasms.com/api/services/sendotp/";
+      const requestData = {
+        apikey: '***REDACTED***',
+        partnerID: '12108',
+        shortcode: 'KISIP',
+        //message: 'Your registration code is: ' + otpCode + '.',
+       // message: 'An account has been set up for you to manage Grievances from your settlement. Please download the Slum Mapper app from the Play Store(Android or IOS) and log in using the given OTP: ' + otpCode + '.',
+        message: `Hi ${name}, an account has been set up for you to manage grievances from your component/county/settlement. Please log in  on https://kesmis.go.ke using your phone as username: ${phone} and password:${password}.`,
+        mobile: req.body.phone,
+      };
 
-    axios.post(url, requestData)
+      axios.post(url, requestData)
       .then(response => {
         console.log('Response:', response.data);
       })
       .catch(error => {
         console.error('Error:', error);
       });
+    }
 
     // Send response to client
     
@@ -1850,8 +1874,10 @@ exports.signinViaApp = async (req, res) => {
       console.log("OTP saved:", otp);
 
       // Send OTP via Leopard (not implemented in this code snippet)
-       const url = "https://quicksms.advantasms.com/api/services/sendotp/";
-       const requestData = {
+      const smsEnabled = await isAuthSMSEnabled()
+      if (smsEnabled) {
+        const url = "https://quicksms.advantasms.com/api/services/sendotp/";
+        const requestData = {
           apikey: '***REDACTED***',
           partnerID: '12108',
           shortcode: 'KISIP',
@@ -1876,6 +1902,14 @@ exports.signinViaApp = async (req, res) => {
           let msg = error.response && error.response.data && error.response.data.message ? error.response.data.message : "Our SMS service provider is down. Please try again later";
           res.status(500).send({ message:msg})
         });
+      } else {
+        // SMS is disabled, still return OTP code but inform user
+        res.send({
+          message: 'SMS notifications are currently disabled. Please contact administrator.',
+          code: '0000',
+          data: otpCode,
+        });
+      }
     })
     .catch((err) => {
       res.status(500).send({ message: err.message })

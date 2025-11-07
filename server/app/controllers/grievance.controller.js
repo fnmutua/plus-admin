@@ -14,6 +14,7 @@ const Sequelize = require('sequelize')
  const Role = db.role
  const { Op, literal } = require('sequelize');
  const cron = require('node-cron'); // Scheduler
+ const { isGrievanceSMSEnabled, getGrievanceSMSStatus } = require('../utils/smsSettings')
 
 
  var bcrypt = require('bcryptjs')
@@ -67,6 +68,28 @@ exports.generateGRMCode = async (req, res) => {
 
  
 async function sendNotificationSMS(sms_obj) {
+  // Check if SMS is enabled for grievance module and get user who disabled it
+  const smsStatus = await getGrievanceSMSStatus()
+  
+  const notification ={}
+  notification.grievance_id = sms_obj.grievance_id
+  notification.recipient = sms_obj.phone
+  notification.message =  sms_obj.grv_code + ": " + sms_obj.message
+  notification.medium = 'SMS'
+  notification.type = sms_obj.type?  sms_obj.type: 'Acknowledgement'
+  notification.code = shortid.generate()
+  notification.sender_id = sms_obj.sender_id
+  notification.status = sms_obj.status
+
+  if (!smsStatus.enabled) {
+    console.log('SMS sending is disabled for grievance module. Logging notification as disabled.')
+    const disabledByUser = smsStatus.disabledBy
+    const disabledByName = disabledByUser?.name || disabledByUser?.username || 'system administrator'
+    notification.status = `Disabled. Message sending was disabled by ${disabledByName}`
+    await db.models.grievance_notification.create(notification)
+    return
+  }
+
   // Send OTP via Leopard (not implemented in this code snippet)
 
   console.log('------------',sms_obj)
@@ -79,18 +102,6 @@ async function sendNotificationSMS(sms_obj) {
     message: sms_obj.grv_code + ":" +sms_obj.message,
     mobile: sms_obj.phone,
   };
-
-
-  const notification ={}
-
-  notification.grievance_id = sms_obj.grievance_id
-  notification.recipient = sms_obj.phone
-  notification.message =  sms_obj.grv_code + ": " + sms_obj.message
-  notification.medium = 'SMS'
-  notification.type = sms_obj.type?  sms_obj.type: 'Acknowledgement'
-  notification.code = shortid.generate()
-  notification.sender_id = sms_obj.sender_id
-  notification.status = sms_obj.status
 
   console.log('notification ----------?>',notification)
 
@@ -121,34 +132,20 @@ async function sendNotificationSMS(sms_obj) {
 }
 
 async function sendCreateSMS(sms_obj,serverUrl) {
-  // Send OTP via Leopard (not implemented in this code snippet)
-  const url = "https://quicksms.advantasms.com/api/services/sendotp/";
- 
-     // Generate QR code as a data URI
-     const status_url = serverUrl +'/#/status/'+sms_obj.id
-     console.log(url)
-
+  // Check if SMS is enabled for grievance module and get user who disabled it
+  const smsStatus = await getGrievanceSMSStatus()
+  
+  // Generate QR code as a data URI
+  const status_url = serverUrl +'/#/status/'+sms_obj.id
+  console.log('Status URL:', status_url)
 
   let msg =
     "Dear " +
     sms_obj.name +
     ", your grievance has been registered. Your reference is : " +
     sms_obj.code + ". You can monitor the status of your report here -> " + status_url
-    
-
-    //http://localhost:3000/status/6652e0486b49fb5075942951
-
-
-  const requestData = {
-    apikey: "***REDACTED***",
-     partnerID: '12108',
-    shortcode: "KISIP",
-    message: msg,
-    mobile: sms_obj.phone,
-  };
 
   const notification ={}
-
   notification.grievance_id = sms_obj.id
   notification.recipient = sms_obj.phone
   notification.message = msg
@@ -157,7 +154,25 @@ async function sendCreateSMS(sms_obj,serverUrl) {
   notification.code = shortid.generate()
  // notification.sender_id = 0  /// remember to change
   
+  if (!smsStatus.enabled) {
+    console.log('SMS sending is disabled for grievance module. Logging notification as disabled.')
+    const disabledByUser = smsStatus.disabledBy
+    const disabledByName = disabledByUser?.name || disabledByUser?.username || 'system administrator'
+    notification.status = `Disabled. Message sending was disabled by ${disabledByName}`
+    await db.models.grievance_notification.create(notification)
+    return
+  }
 
+  // Send OTP via Leopard (not implemented in this code snippet)
+  const url = "https://quicksms.advantasms.com/api/services/sendotp/";
+
+  const requestData = {
+    apikey: "***REDACTED***",
+     partnerID: '12108',
+    shortcode: "KISIP",
+    message: msg,
+    mobile: sms_obj.phone,
+  };
 
   axios
     .post(url, requestData)

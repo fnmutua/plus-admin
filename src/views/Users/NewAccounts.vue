@@ -1,7 +1,7 @@
 <!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
 import { useI18n } from '@/hooks/web/useI18n'
-import { getSettlementListByCounty } from '@/api/settlements'
+import { getSettlementListByCounty, searchByKeyWord } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
 import { getUserRoles, getByName } from '@/api/users'
 import PermissionWrapper from '@/components/PermissionWrapper.vue';
@@ -75,6 +75,7 @@ const userOptions = ref([])
 
 const settlements = ref([])
 const filteredSettlements = ref([])
+const settlementSearchLoading = ref(false)
 const page = ref(1)
 const selCounties = []
 const loading = ref(true)
@@ -711,42 +712,70 @@ const isNationalLevel = ref(false)
 const isCountyLevel = ref(false)
 const isSettlementLevel = ref(false)
 
+// Remote search method for settlements - fetches on demand (based on Document.vue implementation)
+const searchSettlements = async (keyword = '', countyId = null) => {
+  // Use provided countyId or get from current context
+  const targetCountyId = countyId || (value2.value && value2.value.length > 0 ? value2.value[0] : null)
+  
+  // If no county is selected, don't search
+  if (!targetCountyId) {
+    settlementOptions.value = []
+    return
+  }
+  
+  settlementSearchLoading.value = true
+  
+  try {
+    const formData = {
+      curUser: 1,
+      model: 'settlement',
+      searchField: 'name',
+      searchKeyword: keyword,
+      excludeGeom: false,
+      excludeGeomAssoc: true,
+      associated_multiple_models: ['county', 'subcounty', 'ward'],
+      filters: ['county_id'],
+      filterValues: [[targetCountyId]],
+      currentUser: currentUser
+    }
+
+    const response = await searchByKeyWord(formData)
+    
+    if (!response.data || response.data.length === 0) {
+      settlementOptions.value = []
+      return
+    }
+
+    console.log('Settlement search response.data:', response.data)
+    
+    settlementOptions.value = response.data.map((item: any) => ({
+      value: item.id,
+      label: item.name || 'Unknown',
+      county: item.county?.name,
+      subcounty: item.subcounty?.name,
+      ward: item.ward?.name,
+    }))
+    
+    console.log('Settlement options updated:', settlementOptions.value.length, 'options')
+  } catch (error) {
+    console.error('Error searching settlements:', error)
+    ElMessage.error((error as Error).message || 'Failed to load settlements')
+    settlementOptions.value = []
+  } finally {
+    settlementSearchLoading.value = false
+  }
+}
+
+// Legacy function - kept for compatibility, now uses remote search
 const getCountySettlements = async (county_id) => {
-
+  if (!county_id) {
+    settlementOptions.value = []
+    return
+  }
+  // Clear settlement selection when county changes
   settlementOptions.value = []
-  const formData = {}
-  // formData.limit = pageSize.value
-  // formData.page = page.value
-  formData.curUser = 1 // Id for logged in user
-  formData.model = 'settlement'
-  //-Search field--------------------------------------------
-  formData.searchField = 'name'
-  formData.searchKeyword = ''
-  //--Single Filter -----------------------------------------
-
-  //formData.assocModel = associated_Model
-
-  // - multiple filters -------------------------------------
-  formData.filters = ['county_id']
-  formData.filterValues = [[county_id]]
-  formData.associated_multiple_models = []
-  //formData.nested_models = nested_models
-  //formData.nested_filter = nested_filter
-  formData.currentUser = currentUser
-
-
-  //-------------------------
-  const res = await getSettlementListByCounty(formData)
-
-
-  res.data.forEach(function (arrayItem) {
-    var opt = {}
-    opt.value = arrayItem.id
-    opt.label = arrayItem.name  
-    settlementOptions.value.push(opt)
-  })
-
-
+  // Load settlements for the selected county using remote search
+  await searchSettlements('', county_id)
 }
 
 const handleChangeLevel = async (level) => {
@@ -1044,8 +1073,18 @@ v-model="row.location_level" placeholder="Select level" size="small"
           <el-table-column prop="county_id" label="County">
             <template #default="{ row }">
               <el-select
-v-model="row.county_id" placeholder="County" clearable :disabled="isNationalLevel"
-                @change="getCountySettlements(row.county_id)" size="small" style="width:80%">
+                v-model="row.county_id" 
+                placeholder="County" 
+                clearable 
+                :disabled="isNationalLevel" 
+                filterable
+                @change="async (countyId) => { 
+                  row.settlement_id = null; 
+                  settlementOptions.value = []; 
+                  if (countyId) await searchSettlements('', countyId); 
+                }" 
+                size="small" 
+                style="width:80%">
                 <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
             </template>
@@ -1054,10 +1093,22 @@ v-model="row.county_id" placeholder="County" clearable :disabled="isNationalLeve
           <el-table-column prop="settlement_id" label="Settlement">
             <template #default="{ row }">
               <el-select
-v-model="row.settlement_id" placeholder="Settlement" size="small"
-                :disabled="!isSettlementLevel" style="width:80%" clearable>
+                v-model="row.settlement_id" 
+                placeholder="Search settlements (select county first)" 
+                size="small"
+                :disabled="!isSettlementLevel || !row.county_id" 
+                style="width:80%" 
+                filterable 
+                remote
+                :remote-method="(query) => searchSettlements(query, row.county_id)"
+                :loading="settlementSearchLoading"
+                reserve-keyword
+                clearable
+                @focus="() => { if (row.county_id && settlementOptions.length === 0) searchSettlements('', row.county_id) }">
                 <el-option
-v-for="item in settlementOptions" :key="item.value" :label="item.label"
+                  v-for="item in settlementOptions" 
+                  :key="item.value" 
+                  :label="item.label"
                   :value="item.value" />
               </el-select>
             </template>

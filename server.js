@@ -82,6 +82,31 @@ app.use(bodyParser.json({ limit: '200mb' }))
 // parse requests of content-type - application/x-www-form-urlencoded
 app.use(bodyParser.urlencoded({ limit: '200mb', extended: true }))
 
+const db = require('./server/app/models')
+const Role = db.role
+db.sequelize.sync().then(() => {
+  console.log('Drop and Resync Db')
+})
+
+// Register all API routes BEFORE static middleware
+require('./server/app/routes/auth.routes')(app)
+require('./server/app/routes/user.routes')(app)
+require('./server/app/routes/all.routes')(app)
+require('./server/app/routes/summary.routes')(app)
+require('./server/app/routes/household.routes')(app)
+require('./server/app/routes/role.routes')(app)
+require('./server/app/routes/collector.routes')(app)
+require('./server/app/routes/grievance.routes')(app)
+require('./server/app/routes/incident.routes')(app)
+require('./server/app/routes/chat.routes')(app)
+require('./server/app/routes/pdf.routes')(app)
+require('./server/app/routes/geoserver.routes')(app)
+require('./server/app/routes/project.routes')(app)
+require('./server/app/routes/videoStream.routes')(app)
+require('./server/app/routes/adminunits.routes')(app)
+require('./server/app/routes/settings.routes')(app)
+
+// Static middleware should come AFTER API routes
 app.use(express.static(path.join(__dirname, '/dist-pro')))
 app.use(express.static('public'))
 
@@ -110,8 +135,6 @@ app.get('/', (req, res) => {
   }
 })
 
-app.use(express.static('public')) // to access the files in public folder
-
 const PORT = process.env.PORT || 80
 
 app.listen(PORT, () => {
@@ -119,29 +142,7 @@ app.listen(PORT, () => {
 })
 
 console.log('Port-Env.:', process.env.PORT)
-
-const db = require('./server/app/models')
-const Role = db.role
-db.sequelize.sync().then(() => {
-  console.log('Drop and Resync Db')
-})
-
-require('./server/app/routes/auth.routes')(app)
-require('./server/app/routes/user.routes')(app)
-require('./server/app/routes/all.routes')(app)
-require('./server/app/routes/summary.routes')(app)
-require('./server/app/routes/household.routes')(app)
-require('./server/app/routes/role.routes')(app)
-require('./server/app/routes/collector.routes')(app)
-require('./server/app/routes/grievance.routes')(app)
-require('./server/app/routes/incident.routes')(app)
-require('./server/app/routes/chat.routes')(app)
-require('./server/app/routes/pdf.routes')(app)
-require('./server/app/routes/geoserver.routes')(app)
-require('./server/app/routes/project.routes')(app)
-require('./server/app/routes/videoStream.routes')(app)
-require('./server/app/routes/adminunits.routes')(app)
-
+ 
 // Swagger UI setup (serving only)
 const swaggerUi = require('swagger-ui-express');
 let swaggerFile;

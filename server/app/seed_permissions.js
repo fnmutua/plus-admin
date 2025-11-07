@@ -275,6 +275,10 @@ async function seedPermissions() {
       { name: 'admin:all', description: 'Full admin access' },
       { name: 'system:all', description: 'Full system access' },
 
+      // Settings Module
+      { name: 'settings:read', description: 'View module settings' },
+      { name: 'settings:update', description: 'Update module settings' },
+
       // Logs Module (root admin only)
       { name: 'logs:read', description: 'View system logs' },
       { name: 'logs:delete', description: 'Delete system logs' },
@@ -837,6 +841,8 @@ async function seedPermissions() {
     "dashboard_section_chart:read",
     "dashboard_section_chart:update",
     "data:export",
+    "settings:read",
+    "settings:update",
     "data:import",
     "disbursement:create",
     "disbursement:delete",
@@ -1245,6 +1251,8 @@ async function seedPermissions() {
     "dashboard_section_chart:read",
     "dashboard_section_chart:update",
     "data:export",
+    "settings:read",
+    "settings:update",
     "data:import",
     "disbursement:create",
     "disbursement:delete",

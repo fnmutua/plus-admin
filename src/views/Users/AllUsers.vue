@@ -22,7 +22,7 @@ import {
   Filter 
 } from '@element-plus/icons-vue'
 
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, watch } from 'vue'
 import { ElPagination, ElTooltip, ElOption, ElDivider,ElCol } from 'element-plus'
 import { useRouter } from 'vue-router'
  import { activateUserApi, updateUserApi, getCountyStaff } from '@/api/users'
@@ -71,6 +71,7 @@ const userOptions = ref<any[]>([])
 
 const settlements = ref<any[]>([])
 const filteredSettlements = ref<any[]>([])
+const settlementSearchLoading = ref(false)
 const page = ref(1)
 const pSize = ref(5)
 const selCounties = []
@@ -112,6 +113,7 @@ const form = reactive({
   email: '',
   phone: '',
   county_id: '',
+  settlement_id: '',
   roles: [],
   avatar: '',
   username:null
@@ -161,12 +163,10 @@ const handleSelectCounty = async (county_id: any) => {
   }
 
   console.log('FilterValues:', filterValues)
-  // here we filter the list of settlements based on the selected county
-  filteredSettlements.value = settlements.value.filter(
-    (settlement) => settlement.county_id == county_id
-  )
-  console.log('filyterested settlements------>', filteredSettlements)
-  makeSettlementOptions(filteredSettlements)
+  // When county is selected, clear settlement options
+  // Settlements will be loaded via remote search when user searches
+  settlementOptions.value = []
+  filteredSettlements.value = []
 
   getFilteredData(filters, filterValues)
 }
@@ -276,20 +276,82 @@ const getRoles = async () => {
   console.log('RolesOptions', RolesOptions)
 }
 
+// Handle settlement select focus - load initial settlements if county is selected
+const handleSettlementSelectFocus = () => {
+  if (form.county_id && settlementOptions.value.length === 0) {
+    // Load initial settlements when user focuses on the select
+    searchSettlements('')
+  }
+}
+
+// Remote search method for settlements - fetches on demand (based on Document.vue implementation)
+const searchSettlements = async (keyword = '') => {
+  // Get county from dialog form or filter
+  const countyId = form.county_id || (value2.value && value2.value.length > 0 ? value2.value[0] : null)
+  
+  // If no county is selected, don't search
+  if (!countyId) {
+    settlementOptions.value = []
+    return
+  }
+  
+  settlementSearchLoading.value = true
+  
+  try {
+    // Use county from dialog if available, otherwise use filter counties
+    const countiesToFilter = form.county_id ? [form.county_id] : (value2.value || [])
+    
+    const formData = {
+      curUser: 1,
+      model: 'settlement',
+      searchField: 'name',
+      searchKeyword: keyword,
+      excludeGeom: false,
+      excludeGeomAssoc: true,
+      associated_multiple_models: ['county', 'subcounty', 'ward'],
+      filters: countiesToFilter.length > 0 ? ['county_id'] : [],
+      filterValues: countiesToFilter.length > 0 ? [countiesToFilter] : [],
+      currentUser: currentUser
+    }
+
+    const response = await searchByKeyWord(formData)
+    
+    if (!response.data || response.data.length === 0) {
+      settlementOptions.value = []
+      return
+    }
+
+    console.log('Settlement search response.data:', response.data)
+    
+    settlementOptions.value = response.data.map((item: any) => ({
+      value: item.id,
+      label: item.name || 'Unknown',
+      county: item.county?.name,
+      subcounty: item.subcounty?.name,
+      ward: item.ward?.name,
+    }))
+    
+    console.log('Settlement options updated:', settlementOptions.value.length, 'options')
+  } catch (error) {
+    console.error('Error searching settlements:', error)
+    ElMessage.error((error as Error).message || 'Failed to load settlements')
+    settlementOptions.value = []
+  } finally {
+    settlementSearchLoading.value = false
+  }
+}
+
+// Legacy function - kept for compatibility but not loading all upfront
 const getSettlementsOptions = async () => {
+  // No longer loading all settlements upfront - using remote search instead
+  console.log('Settlements will be loaded via remote search when needed')
 }
 
 
+// Legacy function - settlements now loaded via remote search
 const makeSettlementOptions = (list) => {
-  console.log('making the options..............', list)
-  settlementOptions.value = []
-  list.value.forEach(function (arrayItem: { id: string; type: string }) {
-    var countyOpt = {}
-    countyOpt.value = arrayItem.id
-    countyOpt.label = arrayItem.name  
-    //  console.log(countyOpt)
-    settlementOptions.value.push(countyOpt)
-  })
+  // No longer needed - using remote search instead
+  console.log('Settlements loaded via remote search')
 }
 
 const activateDeactivate = async (data: TableSlotDefault) => {
@@ -428,6 +490,20 @@ getCountyNames()
 getSettlementsOptions()
 getInterventionsAll()
 
+// Watch for county changes in the dialog form to enable settlement select
+watch(() => form.county_id, async (newCountyId, oldCountyId) => {
+  if (dialogFormVisible.value && newCountyId && newCountyId !== oldCountyId) {
+    // County changed in dialog, load settlements for that county
+    form.settlement_id = ''
+    settlementOptions.value = []
+    await searchSettlements('')
+  } else if (dialogFormVisible.value && !newCountyId) {
+    // County cleared, disable settlement select
+    form.settlement_id = ''
+    settlementOptions.value = []
+  }
+})
+
 
 
 const AddUser = () => {
@@ -446,6 +522,7 @@ const EditUser = (data: TableSlotDefault) => {
   form.id = data.row.id
   form.name = data.row.name
   form.county_id = data.row.county_id
+  form.settlement_id = data.row.settlement_id || ''
   form.email = data.row.email
   form.phone = data.row.phone
   form.avatar = data.row.avatar
@@ -459,7 +536,32 @@ const EditUser = (data: TableSlotDefault) => {
 
   form.roles = roles
   console.log(form)
+  
+  // If county is selected, enable settlement search
+  if (form.county_id) {
+    handleDialogCountyChange(form.county_id)
+  } else {
+    settlementOptions.value = []
+  }
+  
   dialogFormVisible.value = true
+}
+
+// Handle county change in the dialog
+const handleDialogCountyChange = async (countyId: any) => {
+  console.log('County changed in dialog:', countyId)
+  
+  // Clear settlement selection when county changes
+  form.settlement_id = ''
+  settlementOptions.value = []
+  
+  // If county is selected, trigger a search to load settlements for that county
+  if (countyId) {
+    // Small delay to ensure form.county_id is updated
+    await new Promise(resolve => setTimeout(resolve, 100))
+    // Trigger search with empty query to load settlements for the selected county
+    await searchSettlements('')
+  }
 }
 
  
@@ -712,8 +814,30 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
         <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" >
 
         <el-form-item label="County" :label-width="formLabelWidth">
-          <el-select v-model="form.county_id" placeholder="Please select a zone">
+          <el-select v-model="form.county_id" placeholder="Please select a county" @change="handleDialogCountyChange">
             <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
+        </el-col>
+
+        <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" >
+        <el-form-item label="Settlement" :label-width="formLabelWidth">
+          <el-select 
+            v-model="form.settlement_id" 
+            placeholder="Search settlements (select county first)" 
+            filterable
+            remote
+            :remote-method="searchSettlements"
+            :disabled="!form.county_id"
+            reserve-keyword
+            clearable
+            :loading="settlementSearchLoading"
+            @focus="handleSettlementSelectFocus">
+            <el-option 
+              v-for="item in settlementOptions" 
+              :key="item.value" 
+              :label="item.label" 
+              :value="item.value" />
           </el-select>
         </el-form-item>
         </el-col>

@@ -6,6 +6,7 @@ const Role = db.role
 const OTP = db.models.otp
 const axios = require('axios');
 const UserRoles = db.models.user_roles
+const { isUserSMSEnabled, isFeedbackSMSEnabled } = require('../utils/smsSettings')
 
 const Sequelize = require('sequelize')
  const op = Sequelize.Op
@@ -1475,6 +1476,13 @@ function formatPhoneNumber(phoneNumber) {
 }
 
 async function sendNotificationSMS(phone_number, message) {
+  // Check if SMS is enabled for user module
+  const smsEnabled = await isUserSMSEnabled()
+  if (!smsEnabled) {
+    console.log('SMS sending is disabled for user module. Skipping SMS notification.')
+    return
+  }
+
   const url = "https://quicksms.advantasms.com/api/services/sendotp/";
   
   if (!phone_number || !message) {
@@ -1537,21 +1545,24 @@ exports.sendFeedback = async (req, res) => {
     // Get users with Support, Admin, and other roles (roleid: 0, 1, 9)
     const grmUsers = await getUsersByRoles();
     
-    // Send SMS to each GRM user
-    const smsPromises = grmUsers.map(async (user) => {
-      if (user.phone) {
-        try {
-          console.log(user)
-         // await sendNotificationSMS(user.phone, smsMessage);
-          console.log(`SMS notification sent to ${user.name} (${user.phone})`);
-        } catch (error) {
-          console.error(`Failed to send SMS to ${user.name}:`, error.message);
+    // Send SMS to each GRM user (only if feedback SMS is enabled)
+    const smsEnabled = await isFeedbackSMSEnabled()
+    if (smsEnabled) {
+      const smsPromises = grmUsers.map(async (user) => {
+        if (user.phone) {
+          try {
+            console.log(user)
+           // await sendNotificationSMS(user.phone, smsMessage);
+            console.log(`SMS notification sent to ${user.name} (${user.phone})`);
+          } catch (error) {
+            console.error(`Failed to send SMS to ${user.name}:`, error.message);
+          }
         }
-      }
-    });
+      });
     
-    // Wait for all SMS to be sent (but don't fail if some fail)
-    await Promise.allSettled(smsPromises);
+      // Wait for all SMS to be sent (but don't fail if some fail)
+      await Promise.allSettled(smsPromises);
+    }
     
     res.status(200).send({
       message: 'We have received your feedback. We will revert.',
