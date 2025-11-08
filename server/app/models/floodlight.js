@@ -52,10 +52,7 @@ module.exports = (sequelize) => {
     },
   }, {
     tableName: 'floodlight',
-    timestamps: false,
-   
-
-
+    timestamps: true
   });
 
   return Floodlight;

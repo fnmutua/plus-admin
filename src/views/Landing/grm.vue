@@ -26,6 +26,7 @@
                     <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
                       <el-form-item id="btn1" label="Name" prop="name">
                         <el-input v-model="grmForm.name" placeholder="Enter name" style="width:90%" />
+                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Please provide your name as it appears on the National ID. Fill Anonymous if you want anonymity.</el-text>
                       </el-form-item>
 
                       <el-form-item id="btn2" label="Gender" prop="gender">
@@ -34,6 +35,7 @@
                           <el-option label="Male" value="male" />
                           <el-option label="Unspecified" value="unspecified" />
                         </el-select>
+                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Please select your gender.</el-text>
                       </el-form-item>
 
                       <el-form-item id="btn3" label="Age" prop="age">
@@ -42,6 +44,7 @@
 v-for="item in ageRanges" :key="item.value" :label="item.label"
                             :value="item.value" />
                         </el-select>
+                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Select your age bracket.</el-text>
                       </el-form-item>
 
 
@@ -51,16 +54,19 @@ v-for="item in ageRanges" :key="item.value" :label="item.label"
                     <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
                       <el-form-item id="btn4" label="National ID" prop="national_id">
                         <el-input v-model="grmForm.national_id" placeholder="Enter ID number" style="width:90%" />
+                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">We require your national ID especially for land related complaints.</el-text>
                       </el-form-item>
 
                       <el-form-item id="btn5" label="Phone" prop="phone">
                         <el-input
 v-model="grmForm.phone" placeholder="Enter phone number (254.....)" style="width:90%"
                           :onChange="convertPhoneNumber" />
+                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Please provide your phone number. We require this for our communication on the status of the complaint.</el-text>
                       </el-form-item>
 
                       <el-form-item id="btn6" label="Email" prop="email">
                         <el-input v-model="grmForm.email" placeholder="Enter Email" style="width:90%" />
+                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Please provide an email address. We may use this for our communication on the status of the complaint.</el-text>
                       </el-form-item>
                     </el-col>
 
@@ -80,6 +86,7 @@ filterable v-model="grmForm.county_id" placeholder="County" @change="getSettleme
 v-for="item in countiesOptions" :key="item.value" :label="item.label"
                             :value="item.value" />
                         </el-select>
+                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Select the county where the project is implemented.</el-text>
                       </el-form-item>
 
                       <el-form-item id="btn11" prop="settlement_id">
@@ -97,6 +104,7 @@ v-for="item in countiesOptions" :key="item.value" :label="item.label"
 v-for="item in settlementOptions" :key="item.value" :label="item.label"
                             :value="item.value" />
                         </el-select>
+                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Select the settlement within the selected county.</el-text>
                       </el-form-item>
 
                       
@@ -104,19 +112,24 @@ v-for="item in settlementOptions" :key="item.value" :label="item.label"
                     <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
                       <el-form-item id="btn12" label="Address" prop="address">
                         <el-input v-model="grmForm.address" placeholder="Enter address" style="width:90%" />
+                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Enter your address, e.g., near XXX Primary school, Plot No. XXX.</el-text>
                       </el-form-item>
 
-                      <div style="padding-top:4px;">
+                      <el-form-item id="btn13" label="Complaint Type">
                         <el-checkbox
- id="btn13" v-model="grmForm.isgbv"
-                          label="Is this complaint related to Gender-Based Violence?" size="large"
-                          style="margin-bottom:5px; display:block;" />
+                          v-model="grmForm.isgbv"
+                          label="Is this complaint related to Gender-Based Violence?"
+                          size="large"
+                          style="display: block; margin-bottom: 4px;" />
+                        <el-text type="info" size="small" class="checkbox-helper">Indicate if the complaint is related to Gender-Based Violence.</el-text>
 
                         <el-checkbox
- id="btn13" v-model="grmForm.isInCourt"
-                          label="Is this complaint currently in court?" size="large"
-                          style="margin-bottom:5px; display:block;" />
-                      </div>
+                          v-model="grmForm.isInCourt"
+                          label="Is this complaint currently in court?"
+                          size="large"
+                          style="display: block; margin-top: 12px; margin-bottom: 4px;" />
+                        <el-text type="info" size="small" class="checkbox-helper">Indicate if this complaint is currently being handled in court.</el-text>
+                      </el-form-item>
                     </el-col>
 
 
@@ -134,12 +147,14 @@ v-for="item in settlementOptions" :key="item.value" :label="item.label"
                             :value="item.value"
                           />
                         </el-select>
+                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Select the category that best describes the nature of the complaint.</el-text>
                       </el-form-item>
 
                       <el-form-item id="btn15" label="Complaint Description" prop="description">
                         <el-input
                           v-model="grmForm.description" type="textarea" rows="2"
                           placeholder="Describe your complaint" style="width:90%" />
+                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Provide a detailed description of the complaint, including what happened, when, where, and who was involved.</el-text>
                       </el-form-item>
                     </el-col>
                     <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
@@ -147,6 +162,7 @@ v-for="item in settlementOptions" :key="item.value" :label="item.label"
                         <el-input
                           v-model="grmForm.plea" type="textarea" rows="4" placeholder="Enter your plea/request"
                           style="width:90%" />
+                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Enter your plea or request regarding the complaint. What action would you like to be taken?</el-text>
                       </el-form-item>
                     </el-col>
                   </el-row>
@@ -156,37 +172,45 @@ v-for="item in settlementOptions" :key="item.value" :label="item.label"
                     <el-col :xs="12" :sm="12" :md="12" :lg="12" :xl="12">
                       <el-form-item id="btn17" label="Witness Name" prop="witness">
                         <el-input v-model="grmForm.witness" placeholder="Enter witness name" style="width:90%" />
+                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Enter the name of the witness related to the grievance (optional).</el-text>
                       </el-form-item>
 
                       <el-form-item id="btn18" label="Witness Phone" prop="witness_phone">
                         <el-input v-model="grmForm.witness_phone" placeholder="Enter witness phone" style="width:90%" />
+                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Enter the phone number of the witness (optional).</el-text>
                       </el-form-item>
 
                       <el-form-item id="btn19" label="Witness Statement" prop="witness_statement">
                         <el-input
 v-model="grmForm.witness_statement" type="textarea"
                           placeholder="Enter witness statement" style="width:90%" />
+                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Provide a statement from the witness regarding the grievance (optional).</el-text>
                       </el-form-item>
                     </el-col>
                     <el-col :xs="12" :sm="12" :md="12" :lg="12" :xl="12">
 
                       <el-form-item id="btn17" label="Are you the complainant?" prop="witness">
-
-                        <el-switch
-v-model="grmForm.self_reported" class="ml-2" inline-prompt
-                          style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949" active-text="Yes"
-                          inactive-text="No" />
-
+                        <div style="display: flex; align-items: center; gap: 12px; padding: 4px 0;">
+                          <el-switch
+                            v-model="grmForm.self_reported"
+                            inline-prompt
+                            style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949"
+                            active-text="Yes"
+                            inactive-text="No" />
+                        </div>
+                        <el-text type="info" size="small" class="switch-helper">Indicate if you are filing this grievance on behalf of yourself or someone else.</el-text>
                       </el-form-item>
 
                       <el-form-item v-if="!grmForm.self_reported" id="btn18" label="Your Name" prop="reporter_name">
                         <el-input v-model="grmForm.reporter_name" placeholder="Your Name" style="width:90%" />
+                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Enter your name if you are filing on behalf of someone else.</el-text>
                       </el-form-item>
 
                       <el-form-item v-if="!grmForm.self_reported" id="btn19" label="Your Phone" prop="reporter_phone">
                         <el-input
 v-model="grmForm.reporter_phone" type="text" placeholder="Your Phone"
                           style="width:90%" />
+                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Enter your phone number if you are filing on behalf of someone else.</el-text>
                       </el-form-item>
 
 
@@ -200,6 +224,7 @@ id="btn20" class="upload-demo"
                         <el-button type="primary">Upload Supporting Documentation</el-button>
                         <template #tip>
                           <div class="el-upload__tip">pdf/jpg/png files with a size less than 500KB.</div>
+                          <el-text type="info" size="small" style="display: block; margin-top: 8px;">Upload supporting documents such as photos, reports, or other relevant files related to this grievance (optional).</el-text>
                         </template>
                       </el-upload>
 
@@ -272,7 +297,7 @@ class="steps-navigation"
                   <el-button color="#626aef" type="info" @click="showTour" :icon="InfoFilled" plain />
                 </el-tooltip>
 
-                <el-button id="btn9" v-if="active > 0" @click="prev" type="primary" :icon="ArrowLeft">Previous
+                <el-button id="btn9" v-if="active > 0" @click="prev"   :icon="ArrowLeft">Previous
                 </el-button>
               </div>
               <div>
@@ -283,7 +308,7 @@ class="steps-navigation"
                 </el-button>
 
                 <el-button
-id="btn2" v-if="active === 3" type="primary" @click="submitForm"
+id="btn2" v-if="active === 3"  @click="submitForm"
                   style="margin-left: 10px;">Submit</el-button>
                 <el-button id="btn8" @click="resetForm" style="margin-left: 10px;">Reset</el-button>
               </div>
@@ -332,7 +357,7 @@ v-for="(step, index) in filteredTourSteps" :key="index" :target="step.target" :t
 import { ref,watch, computed, onMounted } from 'vue';
 import {
   ElButton, ElCard, ElForm, ElFormItem,  ElUpload, ElCheckbox, ElTour, ElTourStep, ElSwitch,
-  ElTabPane, ElTabs, ElSelect, ElOption, ElRow, ElCol, ElMessage, ElStep, ElSteps, ElIcon, ElTooltip,ElDialog, 
+  ElTabPane, ElTabs, ElSelect, ElOption, ElRow, ElCol, ElMessage, ElStep, ElSteps, ElIcon, ElTooltip,ElDialog, ElText,
 } from 'element-plus';
 
 import BaseLayout from './BaseLayout.vue';
@@ -1454,11 +1479,60 @@ try {
 
 :deep(.el-checkbox__label) {
   color: var(--text-primary);
+  font-size: 0.95rem;
+  line-height: 1.5;
 }
 
 :deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
   background-color: var(--accent-color);
   border-color: var(--accent-color);
+}
+
+/* Checkbox styling improvements */
+:deep(.el-checkbox) {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 0;
+}
+
+:deep(.el-checkbox__input) {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+:deep(.el-checkbox__label) {
+  padding-left: 8px;
+  line-height: 1.6;
+}
+
+/* Switch styling improvements */
+:deep(.el-switch) {
+  margin: 0;
+}
+
+:deep(.el-switch__label) {
+  font-size: 0.9rem;
+}
+
+:deep(.el-switch__label.is-active) {
+  color: var(--accent-color);
+}
+
+/* Form item with checkboxes and switches */
+.el-form-item[id="btn13"],
+.el-form-item[id="btn17"] {
+  margin-bottom: 1rem;
+}
+
+/* Checkbox and switch helper text styling */
+.checkbox-helper,
+.switch-helper {
+  display: block;
+  margin-left: 28px;
+  margin-top: 2px;
+  font-size: 0.75rem;
+  line-height: 1.3;
+  color: var(--text-secondary);
 }
 
 .steps-navigation {
