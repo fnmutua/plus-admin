@@ -55,7 +55,7 @@ module.exports = (sequelize) => {
     }, 
   }, {
     tableName: 'hazard_zone',
-    timestamps: false,
+    timestamps: true,
  
   });
 
