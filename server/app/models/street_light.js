@@ -37,7 +37,7 @@ module.exports = (sequelize) => {
     
   }, {
     tableName: 'streetlight',
-    timestamps: false,
+    timestamps: true,
  
 
 

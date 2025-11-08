@@ -37,7 +37,7 @@ module.exports = (sequelize) => {
     },
   }, {
     tableName: 'mast',
-    timestamps: false,
+    timestamps: true,
   
 
 
