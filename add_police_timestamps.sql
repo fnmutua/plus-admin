@@ -14,3 +14,6 @@ UPDATE hazard_zone
 SET "updatedAt" = CURRENT_TIMESTAMP 
 WHERE "updatedAt" IS NULL;
 
+
+
+@dmin!@K#sM1S*20@3

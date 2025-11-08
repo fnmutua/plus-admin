@@ -47,7 +47,7 @@ module.exports = (sequelize) => {
     },
   }, {
     tableName: 'dumping_site',
-    timestamps: false,
+    timestamps: true,
 
    
 
