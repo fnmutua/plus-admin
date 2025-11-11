@@ -621,6 +621,7 @@ exports.countsByCounty = async (req, res) => {
       return res.status(200).send({ fromCache: true, counts: JSON.parse(cached), code: '0000' });
     }
 
+    // Basic counts
     const settlementsPromise = db.models.settlement.count({ where: { county_id: countyId } });
     const grievancesPromise = db.models.grievance.count({ where: { county_id: countyId } });
     // Projects are tied to county via project_location
@@ -630,13 +631,114 @@ exports.countsByCounty = async (req, res) => {
       col: 'project_id'
     });
 
-    const [settlements, grievances, projects] = await Promise.all([
+    // Settlement statistics
+    const totalPopulationPromise = db.models.settlement.sum('population', {
+      where: { 
+        county_id: countyId,
+        population: { [Op.ne]: null }
+      }
+    });
+
+    const slumsCountPromise = db.models.settlement.count({
+      where: {
+        county_id: countyId,
+        settlement_type: { [Op.iLike]: '%slum%' }
+      }
+    });
+
+    const informalSettlementsCountPromise = db.models.settlement.count({
+      where: {
+        county_id: countyId,
+        settlement_type: { [Op.iLike]: '%informal%' }
+      }
+    });
+
+    // Roads - calculate length from geometry using PostGIS (km)
+    const roadsLengthPromise = sequelize.query(
+      `SELECT COALESCE(SUM(ST_Length(geom::geography) / 1000), 0) AS total_length_km
+       FROM road
+       WHERE county_id = :countyId AND geom IS NOT NULL`,
+      {
+        replacements: { countyId },
+        type: QueryTypes.SELECT
+      }
+    );
+
+    // Floodlights count
+    const floodlightsCountPromise = db.models.floodlight.count({
+      where: { county_id: countyId }
+    });
+
+    // Schools count (education_facility)
+    const schoolsCountPromise = db.models.education_facility.count({
+      where: { county_id: countyId }
+    });
+
+    // Health facilities count
+    const healthFacilitiesCountPromise = db.models.health_facility.count({
+      where: { county_id: countyId }
+    });
+
+    // Powerlines - calculate length from geometry using PostGIS
+    const powerlinesLengthPromise = sequelize.query(
+      `SELECT COALESCE(SUM(ST_Length(geom::geography) / 1000), 0) as total_length_km 
+       FROM powerline 
+       WHERE county_id = :countyId AND geom IS NOT NULL`,
+      {
+        replacements: { countyId },
+        type: QueryTypes.SELECT
+      }
+    );
+
+    const [
+      settlements,
+      grievances,
+      projects,
+      totalPopulation,
+      slumsCount,
+      informalSettlementsCount,
+      roadsLengthResult,
+      floodlightsCount,
+      schoolsCount,
+      healthFacilitiesCount,
+      powerlinesLengthResult
+    ] = await Promise.all([
       settlementsPromise,
       grievancesPromise,
-      projectsPromise
+      projectsPromise,
+      totalPopulationPromise,
+      slumsCountPromise,
+      informalSettlementsCountPromise,
+      roadsLengthPromise,
+      floodlightsCountPromise,
+      schoolsCountPromise,
+      healthFacilitiesCountPromise,
+      powerlinesLengthPromise
     ]);
 
-    const result = { settlements, projects, grievances };
+    // Extract powerline length from query result
+    const powerlinesLengthKm = powerlinesLengthResult && powerlinesLengthResult[0] 
+      ? parseFloat(powerlinesLengthResult[0].total_length_km || 0) 
+      : 0;
+
+    const roadsLengthKm = roadsLengthResult && roadsLengthResult[0]
+      ? parseFloat(roadsLengthResult[0].total_length_km || 0)
+      : 0;
+
+    const result = {
+      settlements,
+      projects,
+      grievances,
+      total_population: totalPopulation || 0,
+      slums: slumsCount || 0,
+      informal_settlements: informalSettlementsCount || 0,
+      roads_length_km: isNaN(roadsLengthKm) ? 0 : roadsLengthKm,
+      floodlights: floodlightsCount || 0,
+      schools: schoolsCount || 0,
+      health_facilities: healthFacilitiesCount || 0,
+      powerlines_length_km: powerlinesLengthKm || 0
+    };
+
     try {
       await redisClient.set(cacheKey, JSON.stringify(result), { EX: 300, NX: true });
     } catch (e) {
