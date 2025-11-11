@@ -13,7 +13,7 @@ import {
 import { ElButton, ElSelect, ElCheckbox, ElCol,ElDrawer, ElIcon} from 'element-plus'
 import {
   Plus, 
-  Back,Postcard,TopRight,Lock,Guide,TakeawayBox,
+  Back,Postcard,TopRight,Lock,Guide,TakeawayBox,Upload,
   CircleCheck, Warning,View,
   Delete, Search, Refresh, Share, Paperclip, Close, Phone, Loading, Filter} from '@element-plus/icons-vue'
 
@@ -90,6 +90,13 @@ const settlementOptions = ref<Array<{value: string, label: string, county_id?: s
 const isFilteringSettlements = ref(false)
 
 const isSuperAdmin = ref(userInfo.roles.some(role => role.name === "super_admin"));
+const hasUploadAccess = computed(() =>
+  userInfo.roles.some(role => ['super_admin', 'root_admin'].includes(role.name)),
+);
+const hasUploadPermission = computed(() => {
+  const permissions = userInfo?.permissions || [];
+  return Array.isArray(permissions) && permissions.includes('grievance:upload');
+});
 
 console.log("userInfo--->", userInfo)
 const selectedCounty=ref()
@@ -3573,48 +3580,71 @@ const filterByOfficer = async (officerId: number, officerName: string) => {
     <el-card class="main-content-card">
 
       <template #header>
-      <div class="card-header">
-        <!-- Header Top Row: Title and Actions -->
-        <div class="header-top">
-          <div class="header-content">
-            <el-button type="primary" plain :icon="Back" @click="goBack">
-            Back
-          </el-button>
-              <div class="header-text">
-                <h3>Grievance Management</h3>
-              </div>
-          </div>
-          
-        <div class="header-actions">
-          <div class="header-search" style="flex:1 1 auto; min-width: 220px;">
-            <el-input
-              v-model="searchQuery"
-              placeholder="Search grievances by code, description, or complainant name..."
-              clearable
-              class="header-search-input"
-            >
-              <template #append>
-                <el-icon :class="{ 'is-loading': isSearching }" style="margin-right: 8px;">
-                  <Loading />
-                </el-icon>
-                <el-button :icon="Search" @click="performSearch(searchQuery)" />
-              </template>
-            </el-input>
-          </div>
-          
-          <div class="total-count-badge">
-            <div class="count-number">{{ totalGrievanceCount }}</div>
-            <div class="count-label">Total Grievances</div>
-          </div>
+        <div class="card-header">
+          <!-- Header Top Row: Title and Actions -->
+     
+            <el-row :gutter="12" align="middle" class="header-row">
+              <el-col :xs="24" :sm="24" :md="2"  :lg="2">
+                <el-button type="primary" plain :icon="Back" @click="goBack" class="header-back-btn">
+                  Back
+                </el-button>
+              </el-col>
+              <el-col :xs="24" :sm="24" :md="18"  :lg="18">
+                <div class="header-search">
+                  <el-input
+                    v-model="searchQuery"
+                    placeholder="Search grievances by code, description, or complainant name..."
+                    clearable
+                    class="header-search-input"
+                  >
+                    <template #append>
+                      <el-icon :class="{ 'is-loading': isSearching }" class="search-spinner">
+                        <Loading />
+                      </el-icon>
+                      <el-button :icon="Search" @click="performSearch(searchQuery)" />
+                    </template>
+                  </el-input>
+                </div>
+              </el-col>
+              <el-col :xs="24" :sm="24" :md="4"  :lg="4" >
+                <div class="header-actions">
+                  <div class="total-count-badge">
+                    <div class="count-number">{{ totalGrievanceCount }}</div>
+                    <div class="count-label">Total Grievances</div>
+                  </div>
 
-          <DownloadCustom 
-              :data="tableDataList" 
-              :model="model"
-              :associated_models="['users','county','subcounty','ward','settlement']" 
-              class="action-button"
-            />
-        </div>
-        </div>
+                  <DownloadCustom
+                    :data="tableDataList"
+                    :model="model"
+                    :associated_models="['users','county','subcounty','ward','settlement']"
+                    class="action-button"
+                  />
+                  <PermissionWrapper :permissions="['grievance:upload']">
+                    <el-tooltip content="Upload data / Download template" placement="top">
+                      <el-button
+                        type="primary"
+                        plain
+                        @click="uploadData"
+                      >
+                        <el-icon><Upload /></el-icon>
+                      </el-button>
+                    </el-tooltip>
+                  </PermissionWrapper>
+                  <template>
+                    <el-tooltip content="Upload data / Download template" placement="top">
+                      <el-button
+                        type="primary"
+                        plain
+                        @click="uploadData"
+                      >
+                        <el-icon><Upload /></el-icon>
+                      </el-button>
+                    </el-tooltip>
+                  </template>
+                </div>
+              </el-col>
+            </el-row>
+ 
 
         <!-- Header Bottom Row: Status Cards -->
         <div class="status-cards-container">
@@ -4730,9 +4760,9 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
 .card-header .header-actions {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 12px;
   flex-wrap: wrap;
-  flex: 1 1 auto;
 }
 
 .card-header .status-cards-container {
@@ -4776,7 +4806,7 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
 }
 
 .header-search {
-  min-width: 300px;
+  width: 100%;
 }
 
 .header-search-input {
@@ -4957,10 +4987,17 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
 }
 
 .action-button {
-  width: 100%;
+  width: auto;
   font-size: 12px;
   padding: 6px 12px;
-  min-width: auto;
+  min-width: 120px;
+}
+.action-button.icon-only {
+  width: auto;
+  padding: 6px;
+}
+.action-button.icon-only :deep(.el-icon) {
+  font-size: 16px;
 }
 
 /* Table Styles */

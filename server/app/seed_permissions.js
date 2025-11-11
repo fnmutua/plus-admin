@@ -226,6 +226,7 @@ async function seedPermissions() {
       { name: 'grievance:import', description: 'Import grievances in bulk' },
       { name: 'grievance:export', description: 'Export grievances' },
       { name: 'grievance:viewDeleted', description: 'View deleted grievances' },
+      { name: 'grievance:upload', description: 'Upload grievances from templates' },
       { name: 'grievance:restore', description: 'Restore deleted grievances' },
 
       // Incident (fine-grained)
@@ -921,6 +922,7 @@ async function seedPermissions() {
     "grievance:escalate",
     "grievance:export",
     "grievance:import",
+    "grievance:upload",
     "grievance:logAction",
     "grievance:notify",
     "grievance:read",
@@ -1335,6 +1337,7 @@ async function seedPermissions() {
     "grievance:escalate",
     "grievance:export",
     "grievance:import",
+    "grievance:upload",
     "grievance:logAction",
     "grievance:notify",
     "grievance:read",
