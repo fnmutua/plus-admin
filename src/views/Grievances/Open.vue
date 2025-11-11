@@ -15,7 +15,8 @@ import {
   Plus, 
   Back,Postcard,TopRight,Lock,Guide,TakeawayBox,Upload,
   CircleCheck, Warning,View,
-  Delete, Search, Refresh, Share, Paperclip, Close, Phone, Loading, Filter} from '@element-plus/icons-vue'
+  Delete, Search, Refresh, Share, Paperclip, Close, Phone, Loading, Filter,
+  Document, InfoFilled, Download} from '@element-plus/icons-vue'
 
 import { getSettlementListByCounty } from '@/api/settlements'
 import {   getGRMStaffByLocation } from '@/api/users'
@@ -1976,10 +1977,18 @@ function convertPhoneNumber(phoneNumber: string | undefined) {
 
 
 const uploadDialog = ref(false)
+const isUploading = ref(false)
+const isParsing = ref(false)
+const uploadFileList = ref<UploadUserFile[]>([])
+const importResults = ref<any>(null)
+const showImportResults = ref(false)
 
 const field_set = ref([])
 const uploadData = async () => {
   uploadDialog.value = true
+  uploadFileList.value = []
+  importResults.value = null
+  showImportResults.value = false
   console.log('Uploading data.......')
   var formData = {}
   formData.model = 'grievance'
@@ -1991,12 +2000,10 @@ const uploadData = async () => {
 }
 
 const DownloadTemplate = async () => {
-
   const data = field_set.value
   const fileName = 'grievance_template'
   const exportType = exportFromJSON.types.csv
   if (data) exportFromJSON({ data, fileName, exportType })
-
 }
 
 
@@ -2033,55 +2040,146 @@ function convertStringArraysToProperArrays(data) {
 
 
 const ImportGrievances = async () => {
+  try {
+    var form = {}
+    form.model = 'grievance'
 
-  //console.log('deleted_locations',deleted_locations)
-  var form = {}
-  form.model = 'grievance'
+    const dta = convertStringArraysToProperArrays(parsedData.value)
+    console.log('dta', dta)
 
-  const dta = convertStringArraysToProperArrays(parsedData.value)
-  console.log('dta', dta)
+    form.data = dta
+    console.log('formData', form)
 
+    const results = await batchImportGrievances(form)
 
-  form.data = dta
-  console.log('formData', form)
-
-  const results = await batchImportGrievances(form)
-
-  console.log('BatchImportUpsert', results.insertedDocuments)
-
-
-
-
+    console.log('BatchImportUpsert', results)
+    
+    // Store results for display
+    const failedRecordsArray = results.failedRecords || []
+    importResults.value = {
+      totalRecords: results.totalRecords || dta.length,
+      successfulRecords: results.successfulRecords || results.insertedDocuments?.length || 0,
+      failedRecords: Array.isArray(failedRecordsArray) ? failedRecordsArray.length : (typeof results.failedRecords === 'number' ? results.failedRecords : 0),
+      insertedDocuments: results.insertedDocuments || [],
+      failedRecordsArray: failedRecordsArray,
+      message: results.message || 'Import completed'
+    }
+    
+    showImportResults.value = true
+    
+    // Show appropriate message based on results
+    if (importResults.value.failedRecords > 0) {
+      ElMessage({
+        message: `Import completed with ${importResults.value.failedRecords} failed record(s). Check details below.`,
+        type: 'warning',
+        duration: 5000
+      })
+    } else {
+      ElMessage({
+        message: `Successfully imported ${importResults.value.successfulRecords} record(s).`,
+        type: 'success'
+      })
+    }
+    
+    return results
+  } catch (error) {
+    console.error('Import error:', error)
+    throw error
+  }
 }
 
 
 
 
 
-const handleCsvUpload = async (file) => {
-
+const handleCsvUpload = async (file: any) => {
+  // Store the file in the file list
   if (file.raw) {
-    parseCSV(file.raw);
+    uploadFileList.value = [file]
+    parsedData.value = [] // Clear previous data
+    importResults.value = null
+    showImportResults.value = false
   }
 }
 
 const parsedData = ref([])
 
-const parseCSV = async (file) => {
-  Papa.parse(file, {
-    header: true,
-    dynamicTyping: true,
-    skipEmptyLines: true,
-    complete: (result) => {
-      parsedData.value = result.data;
+const parseCSV = async (file: File) => {
+  return new Promise((resolve, reject) => {
+    Papa.parse(file, {
+      header: true,
+      dynamicTyping: true,
+      skipEmptyLines: true,
+      complete: (result) => {
+        parsedData.value = result.data;
+        console.log('parsedData.value', parsedData.value)
+        resolve(result.data)
+      },
+      error: (error) => {
+        console.error('Error parsing CSV:', error);
+        ElMessage({
+          message: 'Error parsing CSV file. Please check the file format.',
+          type: 'error'
+        })
+        reject(error)
+      },
+    });
+  })
+}
 
-      console.log('parsedData.value', parsedData.value)
-      ImportGrievances()
-    },
-    error: (error) => {
-      console.error('Error parsing CSV:', error);
-    },
-  });
+const handleRemoveFile = () => {
+  uploadFileList.value = []
+  parsedData.value = []
+  importResults.value = null
+  showImportResults.value = false
+}
+
+const submitImport = async () => {
+  if (uploadFileList.value.length === 0 || !uploadFileList.value[0].raw) {
+    ElMessage({
+      message: 'Please select a CSV file to upload',
+      type: 'warning'
+    })
+    return
+  }
+
+  try {
+    isUploading.value = true
+    showImportResults.value = false
+    
+    // Parse the CSV file
+    isParsing.value = true
+    await parseCSV(uploadFileList.value[0].raw)
+    // Parsing is complete, set flag to false
+    isParsing.value = false
+    
+    // Small delay to ensure UI updates
+    await new Promise(resolve => setTimeout(resolve, 100))
+    
+    // Import the grievances
+    await ImportGrievances()
+    
+    // Show success message
+    ElMessage({
+      message: 'Import completed successfully!',
+      type: 'success'
+    })
+    
+    // Refresh the data
+    await getFilteredData(filters.value, filterValues.value)
+    await getCounts()
+    
+  } catch (error) {
+    console.error('Import error:', error)
+    isParsing.value = false
+    ElMessage({
+      message: 'Error importing grievances. Please check the console for details.',
+      type: 'error'
+    })
+  } finally {
+    isUploading.value = false
+    isParsing.value = false
+  }
 }
 
 const tableRowClassName = (data) => {
@@ -4369,26 +4467,159 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
   <el-dialog
     v-model="uploadDialog"
     title="Upload Grievances"
-    :width="isMobile ? '90%' : '50%'"
+    :width="isMobile ? '90%' : '60%'"
     draggable
+    :close-on-click-modal="false"
+    :close-on-press-escape="!isUploading"
   >
-    <el-upload
-      :auto-upload="false"
-      :on-change="handleCsvUpload"
-      accept=".csv"
-    >
-      <el-button type="primary">Click to upload CSV</el-button>
-      <template #tip>
-        <div class="el-upload__tip">
-          Please upload a CSV file with grievance data.
+    <div v-loading="isUploading" :element-loading-text="isParsing && isUploading ? 'Parsing CSV file...' : isUploading ? 'Importing grievances...' : ''">
+      <!-- File Upload Section -->
+      <div class="upload-section">
+        <el-upload
+          :auto-upload="false"
+          :on-change="handleCsvUpload"
+          :on-remove="handleRemoveFile"
+          :file-list="uploadFileList"
+          :limit="1"
+          accept=".csv"
+          :disabled="isUploading"
+          drag
+          class="upload-dragger"
+        >
+          <el-icon class="el-icon--upload"><Upload /></el-icon>
+          <div class="el-upload__text">
+            Drop CSV file here or <em>click to upload</em>
+          </div>
+          <template #tip>
+            <div class="el-upload__tip">
+              <el-icon><InfoFilled /></el-icon>
+              Please upload a CSV file with grievance data. Maximum file size: 10MB
+            </div>
+          </template>
+        </el-upload>
+      </div>
+
+      <!-- File Info Section -->
+      <div v-if="uploadFileList.length > 0" class="file-info-section">
+        <el-card shadow="never" class="file-info-card">
+          <template #header>
+            <div class="file-info-header">
+              <el-icon><Document /></el-icon>
+              <span>Selected File</span>
+            </div>
+          </template>
+          <div class="file-details">
+            <div class="file-detail-item">
+              <span class="label">File Name:</span>
+              <span class="value">{{ uploadFileList[0].name }}</span>
+            </div>
+            <div class="file-detail-item" v-if="uploadFileList[0].size">
+              <span class="label">File Size:</span>
+              <span class="value">{{ (uploadFileList[0].size / 1024 / 1024).toFixed(2) }} MB</span>
+            </div>
+            <div class="file-detail-item" v-if="parsedData.length > 0">
+              <span class="label">Records Found:</span>
+              <span class="value">{{ parsedData.length }}</span>
+            </div>
+          </div>
+        </el-card>
+      </div>
+
+      <!-- Import Results Section -->
+      <div v-if="showImportResults && importResults" class="import-results-section">
+        <el-card shadow="never" :class="['results-card', importResults.failedRecords > 0 ? 'has-errors' : 'success']">
+          <template #header>
+            <div class="results-header">
+              <el-icon v-if="importResults.failedRecords === 0"><CircleCheck /></el-icon>
+              <el-icon v-else><Warning /></el-icon>
+              <span>Import Results</span>
+            </div>
+          </template>
+          <div class="results-content">
+            <div class="results-summary">
+              <div class="summary-item">
+                <span class="summary-label">Total Records:</span>
+                <span class="summary-value">{{ importResults.totalRecords }}</span>
+              </div>
+              <div class="summary-item success">
+                <span class="summary-label">Successful:</span>
+                <span class="summary-value">{{ importResults.successfulRecords }}</span>
+              </div>
+              <div class="summary-item" v-if="importResults.failedRecords > 0" :class="importResults.failedRecords > 0 ? 'error' : ''">
+                <span class="summary-label">Failed:</span>
+                <span class="summary-value">{{ importResults.failedRecords }}</span>
+              </div>
+            </div>
+
+            <!-- Failed Records Details -->
+            <div v-if="importResults.failedRecords > 0 && importResults.failedRecordsArray?.length > 0" class="failed-records">
+              <el-collapse>
+                <el-collapse-item title="View Failed Records" name="failed">
+                  <div class="failed-records-list">
+                    <div 
+                      v-for="(failed, index) in importResults.failedRecordsArray" 
+                      :key="index"
+                      class="failed-record-item"
+                    >
+                      <el-alert
+                        :title="`Record ${index + 1}`"
+                        :description="failed.error?.message || 'Unknown error'"
+                        type="error"
+                        :closable="false"
+                        show-icon
+                      >
+                        <template #default>
+                          <div class="failed-record-details">
+                            <div class="error-message">
+                              <strong>Error:</strong> {{ failed.error?.message || 'Unknown error' }}
+                            </div>
+                            <div v-if="failed.error?.detail" class="error-detail">
+                              <strong>Details:</strong> {{ failed.error.detail }}
+                            </div>
+                            <div v-if="failed.record" class="error-record">
+                              <strong>Record Data:</strong>
+                              <pre>{{ JSON.stringify(failed.record, null, 2) }}</pre>
+                            </div>
+                          </div>
+                        </template>
+                      </el-alert>
+                    </div>
+                  </div>
+                </el-collapse-item>
+              </el-collapse>
+            </div>
+          </div>
+        </el-card>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="upload-actions">
+        <el-button 
+          type="info" 
+          :icon="Download" 
+          @click="DownloadTemplate"
+          :disabled="isUploading"
+        >
+          Download Template
+        </el-button>
+        <div class="dialog-footer">
+          <el-button 
+            @click="uploadDialog = false"
+            :disabled="isUploading"
+          >
+            {{ showImportResults ? 'Close' : 'Cancel' }}
+          </el-button>
+          <el-button 
+            type="primary" 
+            :icon="Upload"
+            @click="submitImport"
+            :loading="isUploading"
+            :disabled="uploadFileList.length === 0 || isUploading"
+          >
+            {{ isUploading ? 'Importing...' : 'Import Grievances' }}
+          </el-button>
         </div>
-      </template>
-    </el-upload>
-    <el-button type="primary" @click="DownloadTemplate" style="margin-top: 20px;">
-      Download Template
-    </el-button>
-    <div class="dialog-footer">
-      <el-button @click="uploadDialog = false">Cancel</el-button>
+      </div>
     </div>
   </el-dialog>
 
@@ -5717,6 +5948,288 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
   0% { opacity: 0.2; }
   20% { opacity: 1; }
   100% { opacity: 0.2; }
+}
+
+/* Upload Dialog Styles */
+.upload-section {
+  margin-bottom: 20px;
+}
+
+.upload-dragger {
+  width: 100%;
+}
+
+.upload-dragger :deep(.el-upload-dragger) {
+  width: 100%;
+  padding: 40px 20px;
+  border: 2px dashed #d9d9d9;
+  border-radius: 8px;
+  background-color: #fafafa;
+  transition: all 0.3s ease;
+}
+
+.upload-dragger :deep(.el-upload-dragger:hover) {
+  border-color: #409eff;
+  background-color: #f0f9ff;
+}
+
+.upload-dragger .el-icon--upload {
+  font-size: 48px;
+  color: #409eff;
+  margin-bottom: 16px;
+}
+
+.upload-dragger .el-upload__text {
+  color: #606266;
+  font-size: 14px;
+}
+
+.upload-dragger .el-upload__text em {
+  color: #409eff;
+  font-style: normal;
+}
+
+.upload-dragger .el-upload__tip {
+  margin-top: 12px;
+  color: #909399;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
+}
+
+.file-info-section {
+  margin-bottom: 20px;
+}
+
+.file-info-card {
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+}
+
+.file-info-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.file-info-header .el-icon {
+  color: #409eff;
+  font-size: 18px;
+}
+
+.file-details {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.file-detail-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.file-detail-item:last-child {
+  border-bottom: none;
+}
+
+.file-detail-item .label {
+  font-weight: 500;
+  color: #606266;
+  font-size: 14px;
+}
+
+.file-detail-item .value {
+  color: #303133;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.import-results-section {
+  margin-bottom: 20px;
+}
+
+.results-card {
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+}
+
+.results-card.success {
+  border-color: #67c23a;
+  background-color: #f0f9eb;
+}
+
+.results-card.has-errors {
+  border-color: #f56c6c;
+  background-color: #fef0f0;
+}
+
+.results-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.results-header .el-icon {
+  font-size: 18px;
+}
+
+.results-card.success .results-header .el-icon {
+  color: #67c23a;
+}
+
+.results-card.has-errors .results-header .el-icon {
+  color: #f56c6c;
+}
+
+.results-content {
+  padding: 8px 0;
+}
+
+.results-summary {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 16px;
+  background-color: #f5f7fa;
+  border-radius: 6px;
+  min-width: 120px;
+}
+
+.summary-item.success {
+  background-color: #f0f9eb;
+}
+
+.summary-item.error {
+  background-color: #fef0f0;
+}
+
+.summary-label {
+  font-size: 12px;
+  color: #909399;
+  font-weight: 500;
+}
+
+.summary-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #303133;
+}
+
+.summary-item.success .summary-value {
+  color: #67c23a;
+}
+
+.summary-item.error .summary-value {
+  color: #f56c6c;
+}
+
+.failed-records {
+  margin-top: 16px;
+}
+
+.failed-records-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.failed-record-item {
+  margin-bottom: 8px;
+}
+
+.failed-record-details {
+  margin-top: 8px;
+  padding: 8px;
+  background-color: #fff;
+  border-radius: 4px;
+}
+
+.error-message,
+.error-detail {
+  margin-bottom: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.error-message strong,
+.error-detail strong {
+  color: #303133;
+}
+
+.error-record {
+  margin-top: 12px;
+}
+
+.error-record pre {
+  background-color: #f5f7fa;
+  padding: 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  overflow-x: auto;
+  max-height: 200px;
+  overflow-y: auto;
+  margin: 8px 0 0 0;
+}
+
+.upload-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #e4e7ed;
+}
+
+.upload-actions .dialog-footer {
+  display: flex;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+}
+
+/* Responsive styles for upload dialog */
+@media (max-width: 768px) {
+  .results-summary {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .summary-item {
+    width: 100%;
+    min-width: auto;
+  }
+  
+  .upload-actions {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .upload-actions .dialog-footer {
+    width: 100%;
+    justify-content: stretch;
+  }
+  
+  .upload-actions .dialog-footer .el-button {
+    flex: 1;
+  }
 }
 </style>
 <style scoped>

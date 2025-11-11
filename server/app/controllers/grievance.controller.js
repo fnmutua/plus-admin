@@ -1741,7 +1741,7 @@ exports.modelImportGrievances = async (req, res) => {
       const reg_model = 'grievance';
       const data = req.body.data;
       const insertedDocuments = [];
-      const errors = [];
+      const failedRecords = [];
     
       console.log('req.body.data', req.thisUser);
     
@@ -1756,42 +1756,76 @@ exports.modelImportGrievances = async (req, res) => {
         let lastCode = lastGrievance ? lastGrievance.code : await generateGRMCode();
     
         // Sequentially process grievances
-        for (const item of data) {
+        console.log(`Starting import of ${data.length} records...`);
+        for (let index = 0; index < data.length; index++) {
+          const item = data[index];
+          // Store original item data for error reporting
+          const originalItem = { ...item };
+          console.log(`Processing record ${index + 1}/${data.length}...`);
           try {
+            // Validate required fields before processing
+            const requiredFields = ['county_id', 'nature', 'status', 'current_status_date', 'status_expiry_date', 'current_level'];
+            const missingFields = requiredFields.filter(field => item[field] == null || item[field] === undefined || item[field] === '');
+            
+            if (missingFields.length > 0) {
+              throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
+            }
+
             // Generate a new code by incrementing the last code
             const newCode = await generateNextGrievanceCode(lastCode);
             lastCode = newCode; // Update lastCode for the next item
     
             item.code = newCode;
     
-            // Encrypt 'name' and 'national_id'
-            item.name = Sequelize.fn('PGP_SYM_ENCRYPT', item.name, '***REDACTED***');
-            item.national_id = Sequelize.fn('PGP_SYM_ENCRYPT', item.national_id, '***REDACTED***');
+            // Encrypt 'name' and 'national_id' - ensure they are strings before encryption
+            if (item.name != null && item.name !== undefined) {
+              item.name = Sequelize.fn('PGP_SYM_ENCRYPT', Sequelize.cast(item.name, 'TEXT'), '***REDACTED***');
+            }
+            if (item.national_id != null && item.national_id !== undefined) {
+              item.national_id = Sequelize.fn('PGP_SYM_ENCRYPT', Sequelize.cast(item.national_id, 'TEXT'), '***REDACTED***');
+            }
     
             // Use upsert to insert or update depending on conflicts
             const [insertedData, created] = await db.models[reg_model].upsert(item, {
               returning: true, // Get the inserted/updated data
             });
+            
+            // Ensure item.id is set from insertedData for use in subsequent queries
+            if (!insertedData || !insertedData.id) {
+              throw new Error('Failed to create/update grievance: No ID returned');
+            }
+            
+            item.id = insertedData.id;
  
-              // Decrypt the fields after creation
-            const decryptedName = await db.sequelize.query(
-              `SELECT PGP_SYM_DECRYPT(name::bytea, '***REDACTED***') AS name FROM grievance WHERE id = :id`,
-              {
-                replacements: { id: item.id },
-                type: Sequelize.QueryTypes.SELECT
-              }
-            );
+            // Decrypt the fields after creation (only if they were encrypted)
+            try {
+              const decryptedName = await db.sequelize.query(
+                `SELECT PGP_SYM_DECRYPT(name::bytea, '***REDACTED***') AS name FROM grievance WHERE id = :id`,
+                {
+                  replacements: { id: item.id },
+                  type: Sequelize.QueryTypes.SELECT
+                }
+              );
 
-            const decryptedNationalId = await db.sequelize.query(
-              `SELECT PGP_SYM_DECRYPT(national_id::bytea, '***REDACTED***') AS national_id FROM grievance WHERE id = :id`,
-              {
-                replacements: { id: item.id },
-                type: Sequelize.QueryTypes.SELECT
+              if (decryptedName && decryptedName[0] && decryptedName[0].name) {
+                item.name = decryptedName[0].name;
               }
-            );
-            // Add the decrypted values to the response object
-            item.name = decryptedName[0].name;
-            item.national_id = decryptedNationalId[0].national_id;
+
+              const decryptedNationalId = await db.sequelize.query(
+                `SELECT PGP_SYM_DECRYPT(national_id::bytea, '***REDACTED***') AS national_id FROM grievance WHERE id = :id`,
+                {
+                  replacements: { id: item.id },
+                  type: Sequelize.QueryTypes.SELECT
+                }
+              );
+
+              if (decryptedNationalId && decryptedNationalId[0] && decryptedNationalId[0].national_id) {
+                item.national_id = decryptedNationalId[0].national_id;
+              }
+            } catch (decryptErr) {
+              console.log('Warning: Failed to decrypt fields for grievance ID:', item.id, decryptErr.message);
+              // Continue processing even if decryption fails
+            }
                 
             const serverUrl = `${req.protocol}://${req.get('host')}`;
             sendCreateSMS(item,serverUrl);
@@ -1800,65 +1834,113 @@ exports.modelImportGrievances = async (req, res) => {
 
             console.log('Logged--------------->')
             // 1. Create a log for creation 
-            let create_action ={}
+            let create_action = {}
             create_action.grievance_id = insertedData.id
             create_action.action_type = 'Reported'
-            //create_action.action_by = 1  // Rememner to change 
-            create_action.date_actioned = item.date_reported
+            //create_action.action_by = 1  // Remember to change 
+            create_action.date_actioned = item.date_reported || new Date()
             create_action.current_level = 'settlement'
-            create_action.prev_status ='Open'
+            create_action.prev_status = 'Open'
             create_action.new_status = 'Open'
-            create_action.action_level= item.action_level
-            logGrievanceAction (create_action)
+            create_action.action_level = item.action_level || null
+            // Await log creation and catch errors silently to not block import
+            try {
+              await logGrievanceAction(create_action);
+            } catch (logErr) {
+              console.log('Warning: Failed to create initial log for grievance ID:', insertedData.id, logErr.message);
+            }
 
             // 2. Create a log for Current status 
-            let current_action ={}
+            let current_action = {}
             current_action.grievance_id = insertedData.id
-            current_action.action_type = item.status
-            //current_action.action_by = 1  // Rememner to change 
-            current_action.date_actioned = item.date_actioned
-            current_action.prev_status ='Sorting'
-            current_action.new_status = item.status
-            current_action.action = item.action
-            current_action.action_level= item.action_level
+            current_action.action_type = item.status || 'Open'
+            //current_action.action_by = 1  // Remember to change 
+            // Use date_actioned from Excel, or fall back to date_reported, or current date
+            current_action.date_actioned = item.date_actioned || item.date_reported || new Date()
+            // Set current_level - use from Excel if available, or default to 'settlement'
+            current_action.current_level = item.current_level || 'settlement'
+            current_action.prev_status = 'Sorting'
+            current_action.new_status = item.status || 'Open'
+            current_action.action = item.action || null
+            current_action.action_level = item.action_level || null
 
-            
-            logGrievanceAction (current_action)
+            // Await log creation and catch errors silently to not block import
+            try {
+              await logGrievanceAction(current_action);
+            } catch (logErr) {
+              console.log('Warning: Failed to create status log for grievance ID:', insertedData.id, logErr.message);
+            }
 
  
 
-            if (created) {
-              insertedDocuments.push(insertedData); // Add the inserted document to the array if it was created
-
-
-          
-            }
+            // Add to insertedDocuments regardless of whether it was created or updated
+            insertedDocuments.push(insertedData);
+            console.log(`Successfully processed record ${index + 1}/${data.length} - Grievance ID: ${insertedData.id}, Code: ${insertedData.code}`);
           } catch (err) {
-            errors.push(err.original);
-            console.log('Error while processing grievances:', err);
+            // Store the failed record with error details
+            const failedRecord = {
+              record: originalItem,
+              error: {
+                message: err.message || 'Unknown error',
+                code: err.code || err.original?.code || null,
+                detail: err.original?.detail || err.detail || null,
+                constraint: err.original?.constraint || err.constraint || null,
+              }
+            };
+            failedRecords.push(failedRecord);
+            console.log(`Error processing record ${index + 1}/${data.length}:`, err.message);
+            console.log('Failed record data:', JSON.stringify(originalItem, null, 2));
           }
         }
     
         // Check for errors and respond accordingly
-        if (errors.length > 0) {
-         // let errorCodes = [...new Set(errors.map((error) => error.code))];
-          let errorMsg = 'Import/Update failed for ' + errors.length + ' Records.';
+        if (failedRecords.length > 0) {
+          let errorMsg = 'Import/Update failed for ' + failedRecords.length + ' Record(s).';
     
-          // if (errorCodes.includes('42P10')) {
-          //   errorMsg = 'There are one or more duplicate records';
-          // }
+          // Return both success and failure information
+          const response = {
+            message: errorMsg,
+            code: '1001',
+            totalRecords: data.length,
+            successfulRecords: insertedDocuments.length,
+            failedRecords: failedRecords.length,
+            insertedDocuments: insertedDocuments,
+            failedRecords: failedRecords, // Array of failed records with error details
+          };
     
-          res.status(500).send({ message: errorMsg });
+          // If some records succeeded, return 207 (Multi-Status), otherwise 500
+          if (insertedDocuments.length > 0) {
+            res.status(207).send(response);
+          } else {
+            res.status(500).send(response);
+          }
         } else {
           res.status(200).send({
             message: 'Import/Update Successful',
             code: '0000',
+            totalRecords: data.length,
+            successfulRecords: insertedDocuments.length,
+            failedRecords: 0,
             insertedDocuments: insertedDocuments, // Add the inserted documents to the response
+            failedRecords: [], // Empty array when no failures
           });
         }
       } catch (err) {
         console.error('Unexpected error:', err);
-        res.status(500).send({ message: 'Internal Server Error', error: err.message });
+        res.status(500).send({ 
+          message: 'Internal Server Error', 
+          error: err.message,
+          code: '9999',
+          failedRecords: data.map(item => ({
+            record: item,
+            error: {
+              message: err.message || 'Unexpected error during import',
+              code: null,
+              detail: null,
+              constraint: null,
+            }
+          }))
+        });
       }
     };
     
