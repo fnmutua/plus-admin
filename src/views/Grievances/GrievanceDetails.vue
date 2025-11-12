@@ -2170,13 +2170,10 @@ const formData = {}
     
     <div v-if="FullGrievanceData.confirmed_by_national_grm" style="display: flex; flex-direction: column; gap: 8px;">
       <div>
-        <strong>Confirmed by:</strong> National GRM
+        <strong>Confirmed by:</strong> {{ FullGrievanceData.confirmed_by_user?.name || FullGrievanceData.confirmed_by_user?.username || 'National GRM Officer' }}
       </div>
       <div v-if="FullGrievanceData.date_confirmed_by_national_grm">
         <strong>Date Confirmed:</strong> {{ formatDate(FullGrievanceData.date_confirmed_by_national_grm) }}
-      </div>
-      <div v-if="FullGrievanceData.confirmation_level">
-        <strong>Level:</strong> {{ formatSentence(FullGrievanceData.confirmation_level) }}
       </div>
       <div v-if="FullGrievanceData.confirmation_notes">
         <strong>Notes:</strong> {{ FullGrievanceData.confirmation_notes }}

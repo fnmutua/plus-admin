@@ -133,6 +133,7 @@ const search_string=ref()
 const subcountiesOptions = ref([])
 const selectedWard=ref()
 const selectedCategories =ref([])
+const selectedConfirmationStatus = ref<string | null>(null)
 const activeSegment = ref('All')
 
 
@@ -583,6 +584,7 @@ const saveFiltersToLocalStorage = () => {
     selectedSubCounty: selectedSubCounty.value,
     selectedWard: selectedWard.value,
     selectedCategories: selectedCategories.value,
+    selectedConfirmationStatus: selectedConfirmationStatus.value,
     activeSegment: activeSegment.value,
   }));
 };
@@ -605,6 +607,7 @@ const loadFiltersFromLocalStorage = async () => {
       selectedSubCounty.value = parsed.selectedSubCounty || null;
       selectedWard.value = parsed.selectedWard || null;
       selectedCategories.value = parsed.selectedCategories || [];
+      selectedConfirmationStatus.value = parsed.selectedConfirmationStatus || null;
       activeSegment.value = parsed.activeSegment || 'All';
 
       console.log('Mounting gettign',selectedCounty.value )
@@ -647,6 +650,10 @@ const loadFiltersFromLocalStorage = async () => {
                 filterByCounty(selectedSubCounty.value)
             }
 
+      if(selectedConfirmationStatus.value)  {
+                filterByConfirmationStatus(selectedConfirmationStatus.value)
+            }
+
 
             
 
@@ -676,6 +683,7 @@ const loadFiltersFromLocalStorage = async () => {
       selectedSubCounty.value = null;
       selectedWard.value = null;
       selectedCategories.value = [];
+      selectedConfirmationStatus.value = null;
       activeSegment.value = 'Sorting';
     }
   }
@@ -777,8 +785,8 @@ const handleClear = async () => {
   selectedSubCounty.value = null
   selectedWard.value = null
   selectedCategories.value = []
-  selectedOfficer.value = null
   referredOfficerSearch.value = ''
+  selectedConfirmationStatus.value = null
   search_string.value = ''
 
   // Clear original table data
@@ -3178,6 +3186,11 @@ const projectPhaseOptions = [
   { label: 'KISIP 1', value: 'KISIP 1' },
 ]
 
+const confirmationStatusOptions = [
+  { label: 'Confirmed', value: 'confirmed' },
+  { label: 'Awaiting Confirmation', value: 'awaiting' },
+]
+
 const grievanceOptions = [
   { label: 'Land Ownership/Titles', value: 'land_ownership' },
   { label: 'Evictions/Displacement', value: 'evictions' },
@@ -3242,6 +3255,46 @@ const filterByCategory = async (categories: any) => {
   }
 }
 
+// Filter by confirmation status
+const filterByConfirmationStatus = async (status: string | null) => {
+  if (status !== null && status !== undefined) {
+    selectedConfirmationStatus.value = status;
+  }
+
+  const selectOption = 'confirmed_by_national_grm';
+  const index = filters.value.indexOf(selectOption);
+
+  if (selectedConfirmationStatus.value) {
+    // Ensure the filter key exists
+    if (!filters.value.includes(selectOption)) {
+      filters.value.push(selectOption);
+      filterFunction.value.push('eq');
+    }
+
+    // Convert status to boolean value
+    const filterIndex = filters.value.indexOf(selectOption);
+    if (selectedConfirmationStatus.value === 'confirmed') {
+      filterValues.value[filterIndex] = [true];
+    } else if (selectedConfirmationStatus.value === 'awaiting') {
+      filterValues.value[filterIndex] = [false];
+    }
+  } else {
+    // Remove filter if no status selected
+    if (index !== -1) {
+      filters.value.splice(index, 1);
+      filterFunction.value.splice(index, 1);
+      filterValues.value.splice(index, 1);
+    }
+  }
+
+  if (search_string.value) {
+    getFilteredBySearchData(search_string.value);
+  } else {
+    getFilteredData(filters.value, filterValues.value);
+    getCounts();
+  }
+}
+
 
 // New reactive variables for improved UX
 const isFiltersOpen = ref(false)
@@ -3258,7 +3311,8 @@ const hasActiveFilters = computed(() => {
          selectedCounty.value || 
          selectedSubCounty.value || 
          selectedWard.value || 
-         referredOfficerSearch.value
+         referredOfficerSearch.value ||
+         selectedConfirmationStatus.value
 })
 
 const activeFilterCount = computed(() => {
@@ -3268,6 +3322,7 @@ const activeFilterCount = computed(() => {
   if (selectedSubCounty.value) count++
   if (selectedWard.value) count++
   if (referredOfficerSearch.value) count++
+  if (selectedConfirmationStatus.value) count++
   return count
 })
 
@@ -3523,6 +3578,11 @@ const clearOfficerSearch = () => {
   filterByReferredOfficer()
 }
 
+const clearConfirmationStatusFilter = () => {
+  selectedConfirmationStatus.value = null
+  filterByConfirmationStatus(null)
+}
+
 // Clear all filters method
 const clearAllFilters = async () => {
   // Reset all filter selections properly
@@ -3530,8 +3590,8 @@ const clearAllFilters = async () => {
   selectedCounty.value = null
   selectedSubCounty.value = null
   selectedWard.value = null
-  selectedOfficer.value = null
   referredOfficerSearch.value = ''
+  selectedConfirmationStatus.value = null
   search_string.value = ''
   
   // Clear the underlying filter arrays
@@ -3558,6 +3618,11 @@ const applyFiltersAndClose = async () => {
   }
   if (selectedWard.value) {
     await filterByWard(selectedWard.value)
+  }
+  
+  // Apply confirmation status filter if it has a value
+  if (selectedConfirmationStatus.value) {
+    await filterByConfirmationStatus(selectedConfirmationStatus.value)
   }
   
   // Apply officer search if it has a value
@@ -3959,6 +4024,15 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
               @close="clearOfficerSearch"
             >
               Officer: {{ referredOfficerSearch }}
+            </el-tag>
+            <el-tag 
+              v-if="selectedConfirmationStatus" 
+              size="small" 
+              type="info" 
+              closable 
+              @close="clearConfirmationStatusFilter"
+            >
+              Confirmation: {{ selectedConfirmationStatus === 'confirmed' ? 'Confirmed' : 'Awaiting' }}
             </el-tag>
           </div>
         </div>
@@ -4921,6 +4995,28 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
           </el-button>
         </div>
 
+        <!-- Confirmation Status Filter - Only show when Resolved segment is active -->
+        <div class="filter-item" v-if="activeSegment === 'Resolved'">
+          <label class="filter-label">Confirmation Status</label>
+          <el-select
+            v-model="selectedConfirmationStatus"
+            clearable
+            placeholder="Select confirmation status"
+            size="small"
+            style="width: 100%"
+            @change="filterByConfirmationStatus"
+          >
+            <el-option
+              v-for="item in confirmationStatusOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+          <el-text type="info" size="small" style="display: block; margin-top: 4px;">
+            Filter resolved grievances by confirmation status
+          </el-text>
+        </div>
 
       </div>
 

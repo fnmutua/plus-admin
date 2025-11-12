@@ -1210,9 +1210,20 @@ exports.batchDocumentsUploadByGrievanceCode = async (req, res) => {
             }
           });
         }
-    
+        
         // Fetch the grievance
         const grievance = await Grievance.findOne(findOptions);
+        
+        // Fetch confirmed_by_user separately if confirmed_by_user_id exists
+        if (grievance && grievance.confirmed_by_user_id) {
+          const confirmedByUser = await db.models.users.findOne({
+            where: { id: grievance.confirmed_by_user_id },
+            attributes: ['id', 'name', 'username', 'email', 'phone']
+          });
+          if (confirmedByUser) {
+            grievance.dataValues.confirmed_by_user = confirmedByUser;
+          }
+        }
     
         console.log('The Grievance', grievance);
     
