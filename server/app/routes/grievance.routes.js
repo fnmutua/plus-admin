@@ -430,6 +430,44 @@ module.exports = function (app) {
 
   /**
    * @swagger
+   * /api/v1/grv/confirm:
+   *   post:
+   *     tags: [Grievances]
+   *     summary: Confirm grievance resolution by national GRM
+   *     description: Confirm that a resolved grievance at settlement/county level has been properly resolved (requires national GRM role)
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               grievance_id:
+   *                 type: integer
+   *                 description: Grievance ID
+   *               confirmation_level:
+   *                 type: string
+   *                 enum: [settlement, county]
+   *                 description: Level at which resolution was confirmed
+   *               confirmation_notes:
+   *                 type: string
+   *                 description: Optional notes about the confirmation
+   *     responses:
+   *       200:
+   *         description: Resolution confirmed successfully
+   *       401:
+   *         description: Unauthorized - invalid token
+   *       403:
+   *         description: Forbidden - only national GRM can confirm
+   *       404:
+   *         description: Grievance not found
+   */
+  app.post('/api/v1/grv/confirm', [authJwt.verifyToken, hasPermission('grievance:update')],  controller.confirmGrievanceResolution)
+
+  /**
+   * @swagger
    * /api/v1/grv/update:
    *   post:
    *     tags: [Grievances]

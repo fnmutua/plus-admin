@@ -115,6 +115,10 @@ export const sendOverdueReminder = (data: any): Promise<IResponse<any>> => {
   return request.post({ url: prod + '/api/v1/grv/reminder', data })
 }
 
+export const confirmGrievanceResolution = (data: any): Promise<IResponse<any>> => {
+  return request.post({ url: prod + '/api/v1/grv/confirm', data })
+}
+
 
 
 

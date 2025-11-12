@@ -3970,3 +3970,119 @@ exports.sendReminder = async (req, res) => {
     return res.status(500).send({ code: "9999", message: "Unable to update grievance status. Please try again later." });
   }
 };
+
+// Confirm grievance resolution by national GRM
+exports.confirmGrievanceResolution = async (req, res) => {
+  try {
+    const user = req.thisUser;
+    const currentUserRoles = await user.getRoles();
+    const hasSuperAdminRole = currentUserRoles.some(role => role.name === 'super_admin');
+    const isNationalGRM = currentUserRoles.some(role => 
+      (role.name === 'grm' || role.name === 'admin' || role.name === 'staff') && 
+      (role.user_roles?.location_level === 'national' || role.user_roles?.location_level === null)
+    );
+
+    if (!hasSuperAdminRole && !isNationalGRM) {
+      return res.status(403).send({
+        code: '9999',
+        message: 'Only national GRM staff can confirm grievance resolutions',
+      });
+    }
+
+    const { grievance_id, confirmation_level, confirmation_notes } = req.body;
+
+    if (!grievance_id) {
+      return res.status(400).send({
+        code: '1001',
+        message: 'Grievance ID is required',
+      });
+    }
+
+    if (!confirmation_level || !['settlement', 'county'].includes(confirmation_level)) {
+      return res.status(400).send({
+        code: '1001',
+        message: 'Confirmation level must be either "settlement" or "county"',
+      });
+    }
+
+    const grievance = await Grievance.findOne({
+      where: { id: grievance_id }
+    });
+
+    if (!grievance) {
+      return res.status(404).send({
+        code: '1002',
+        message: 'Grievance not found',
+      });
+    }
+
+    // Validate that grievance is resolved and at the correct level
+    if (grievance.status !== 'Resolved') {
+      return res.status(400).send({
+        code: '1003',
+        message: 'Only resolved grievances can be confirmed',
+      });
+    }
+
+    if (!['settlement', 'county'].includes(grievance.current_level)) {
+      return res.status(400).send({
+        code: '1004',
+        message: 'Only grievances resolved at settlement or county level can be confirmed',
+      });
+    }
+
+    if (grievance.current_level !== confirmation_level) {
+      return res.status(400).send({
+        code: '1005',
+        message: `Confirmation level must match the grievance current level (${grievance.current_level})`,
+      });
+    }
+
+    // Update confirmation fields
+    grievance.confirmed_by_national_grm = true;
+    grievance.confirmed_by_user_id = user.id;
+    grievance.date_confirmed_by_national_grm = new Date();
+    grievance.confirmation_level = confirmation_level;
+    if (confirmation_notes) {
+      grievance.confirmation_notes = confirmation_notes;
+    }
+
+    await grievance.save();
+
+    // Log the confirmation action
+    try {
+      const logData = {
+        grievance_id: grievance.id,
+        action_type: 'Updated',
+        action_by: user.id,
+        action: `Resolution confirmed by national GRM at ${confirmation_level} level`,
+        action_level: 'national',
+        current_level: grievance.current_level,
+        date_actioned: new Date(),
+        prev_status: grievance.status,
+        new_status: grievance.status,
+      };
+      await db.models.grievance_log.create(logData);
+    } catch (logError) {
+      console.error('Error logging confirmation action:', logError);
+      // Don't fail the request if logging fails
+    }
+
+    return res.status(200).send({
+      code: '0000',
+      message: 'Grievance resolution confirmed successfully',
+      data: {
+        grievance: grievance,
+        code: grievance.code,
+        confirmed_by: user.name || user.email,
+        confirmation_date: grievance.date_confirmed_by_national_grm,
+      },
+    });
+  } catch (error) {
+    console.error('Error confirming grievance resolution:', error);
+    return res.status(500).send({
+      code: '9999',
+      message: 'Unable to confirm grievance resolution. Please try again later.',
+    });
+  }
+};

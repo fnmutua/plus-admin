@@ -162,6 +162,33 @@ module.exports = function (sequelize) {
         type: DataTypes.STRING,
         allowNull: true,
         defaultValue: 'KISIP 2' // Use 'true' as a string if this is meant to be a string.         
+      },
+      // National GRM confirmation fields
+      confirmed_by_national_grm: {
+        type: DataTypes.BOOLEAN,
+        allowNull: true,
+        defaultValue: false
+      },
+      confirmed_by_user_id: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        // references: {
+        //   model: 'users',
+        //   key: 'id'
+        // }
+      },
+      date_confirmed_by_national_grm: {
+        type: DataTypes.DATE,
+        allowNull: true
+      },
+      confirmation_level: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        // enum: ['settlement', 'county'] - can be added if you want strict validation
+      },
+      confirmation_notes: {
+        type: DataTypes.TEXT,
+        allowNull: true
       }
     },
     {

@@ -3,7 +3,7 @@
 import { useI18n } from '@/hooks/web/useI18n'
 import { getListWithoutGeo} from '@/api/counties'
 
-import { getGrievances,updateBulkGrievance, deleteCascade } from '@/api/grievance'
+import { getGrievances,updateBulkGrievance, deleteCascade, confirmGrievanceResolution } from '@/api/grievance'
 import { watch } from 'vue';
 
 import {
@@ -79,6 +79,11 @@ interface GrievanceType {
   reffered_to_officer?: number
   reffered_to_support_staff?: number[]
   users?: { name: string; phone: string; id: number }
+  confirmed_by_national_grm?: boolean
+  confirmed_by_user_id?: number
+  date_confirmed_by_national_grm?: string
+  confirmation_level?: string
+  confirmation_notes?: string
   [key: string]: any
 }
 
@@ -315,6 +320,11 @@ const getGRMUsers = async (countyIds: any) => {
 
 const isNationalStaff = ref(false)
 const isCountyStaff = ref(false)
+
+// Check if user is national GRM (can confirm resolutions)
+const isNationalGRM = computed(() => {
+  return isNationalStaff.value || isSuperAdmin.value
+})
 
 const getUserRoles = async () => {
   // Clear existing filters
@@ -3675,6 +3685,73 @@ const filterByOfficer = async (officerId: number, officerName: string) => {
   })
 }
 
+// Confirmation dialog state
+const showConfirmationDialog = ref(false)
+const confirmationForm = ref({
+  grievance_id: null,
+  confirmation_level: '',
+  confirmation_notes: ''
+})
+const selectedGrievanceForConfirmation = ref<GrievanceType | null>(null)
+
+// Open confirmation dialog
+const openConfirmationDialog = (grievance: GrievanceType) => {
+  selectedGrievanceForConfirmation.value = grievance
+  confirmationForm.value = {
+    grievance_id: grievance.id,
+    confirmation_level: grievance.current_level || '',
+    confirmation_notes: ''
+  }
+  showConfirmationDialog.value = true
+}
+
+// Confirm grievance resolution
+const handleConfirmResolution = async () => {
+  if (!confirmationForm.value.grievance_id || !confirmationForm.value.confirmation_level) {
+    ElMessage({
+      message: 'Please provide all required information',
+      type: 'warning'
+    })
+    return
+  }
+
+  try {
+    const res = await confirmGrievanceResolution(confirmationForm.value)
+    
+    ElMessage({
+      message: res.message || 'Grievance resolution confirmed successfully',
+      type: 'success'
+    })
+
+    showConfirmationDialog.value = false
+    
+    // Refresh the data
+    await getFilteredData(filters.value, filterValues.value)
+    await getCounts()
+  } catch (error: any) {
+    console.error('Error confirming resolution:', error)
+    ElMessage({
+      message: error.response?.data?.message || 'Failed to confirm resolution',
+      type: 'error'
+    })
+  }
+}
+
+// Check if grievance can be confirmed
+const canConfirmGrievance = (grievance: GrievanceType): boolean => {
+  return isNationalGRM.value && 
+         grievance.status === 'Resolved' && 
+         ['settlement', 'county'].includes(grievance.current_level) &&
+         !grievance.confirmed_by_national_grm
+}
+
+// Check if grievance is awaiting confirmation
+const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
+  return grievance.status === 'Resolved' && 
+         ['settlement', 'county'].includes(grievance.current_level) &&
+         !grievance.confirmed_by_national_grm
+}
+
 </script>
 
 <template>
@@ -3972,6 +4049,15 @@ const filterByOfficer = async (officerId: number, officerName: string) => {
                 <el-tag size="small" style="margin-left:6px;">{{ row.nature }}</el-tag>
                 <el-tag v-if="row.project_phase" size="small" type="warning" style="margin-left:6px;">
                   {{ row.project_phase }}
+                </el-tag>
+                <!-- Confirmation status badge -->
+                <el-tag 
+                  v-if="row.status === 'Resolved' && ['settlement', 'county'].includes(row.current_level)"
+                  size="small" 
+                  :type="row.confirmed_by_national_grm ? 'success' : 'warning'" 
+                  style="margin-left:6px;"
+                >
+                  {{ row.confirmed_by_national_grm ? 'Confirmed' : 'Awaiting Confirmation' }}
                 </el-tag>
               </div>
               <!-- Show deleter name in Deleted tab -->

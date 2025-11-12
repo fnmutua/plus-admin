@@ -2,12 +2,12 @@
 import { onMounted, reactive, computed } from 'vue'
 import {
   ElButton, ElTimeline, ElTimelineItem, ElCol, ElRow, ElForm, ElFormItem, ElInput, ElUpload, ElMessage,ElPopconfirm, 
-  ElCard, ElTabs, ElTabPane, ElTable, ElTableColumn, ElTooltip, ElDialog, ElSelect, ElOption, ElIcon, ElCollapse, ElCollapseItem, ElSwitch, ElDatePicker, ElDrawer, ElMessageBox,
+  ElCard, ElTabs, ElTabPane, ElTable, ElTableColumn, ElTooltip, ElDialog, ElSelect, ElOption, ElIcon, ElCollapse, ElCollapseItem, ElSwitch, ElDatePicker, ElDrawer, ElMessageBox, ElTag, ElAlert,
 } from 'element-plus'
 // Locally
 import { getOneGrievance } from '@/api/grievance'
 import { uploadGrievanceDocuments, logGrievanceAction, getActionFile, updateGrievanceStatus, sendOverdueReminder,
-  updateGrievance, sendAcknowledgement, deleteCascade,revertGrievanceHistory,getGrievanceHistoryByGrievanceId} from '@/api/grievance'
+  updateGrievance, sendAcknowledgement, deleteCascade,revertGrievanceHistory,getGrievanceHistoryByGrievanceId, confirmGrievanceResolution} from '@/api/grievance'
 import { uuid } from 'vue-uuid'
 
 
@@ -15,7 +15,7 @@ import { Icon } from '@iconify/vue';
 import PermissionWrapper from '@/components/PermissionWrapper.vue';
 import {
   Download, CaretRight, Check, Close, Lock, Notification, Microphone,Delete,Edit,ArrowLeft,RefreshLeft,
-  ArrowRight,
+  ArrowRight, Document,
 } from '@element-plus/icons-vue'
 
 import {
@@ -78,6 +78,11 @@ function getLocationLevels(user) {
 const current_user_roles = getLocationLevels(userInfo)
 
 console.log('current_user_roles', current_user_roles)
+
+// Check if user is national GRM (can confirm resolutions)
+const isNationalGRM = computed(() => {
+  return isSuperAdmin.value || current_user_roles.includes('national') || current_user_roles.includes(null)
+})
 
 const activeName = ref('details')
 // Resolve, Escalate, Documentation 
@@ -197,6 +202,99 @@ const FullGrievanceData=ref()
 
 const showRefferalField=ref(false)
 const shouldShowReminder=ref(false)
+
+// Confirmation dialog state
+const showConfirmationDialog = ref(false)
+const confirmationForm = ref({
+  grievance_id: null,
+  confirmation_level: '',
+  confirmation_notes: ''
+})
+
+// Check if grievance can be confirmed
+const canConfirmGrievance = computed(() => {
+  if (!FullGrievanceData.value) return false
+  return isNationalGRM.value && 
+         FullGrievanceData.value.status === 'Resolved' && 
+         ['settlement', 'county'].includes(FullGrievanceData.value.current_level) &&
+         !FullGrievanceData.value.confirmed_by_national_grm
+})
+
+// Check if grievance is awaiting confirmation
+const isAwaitingConfirmation = computed(() => {
+  if (!FullGrievanceData.value) return false
+  return FullGrievanceData.value.status === 'Resolved' && 
+         ['settlement', 'county'].includes(FullGrievanceData.value.current_level) &&
+         !FullGrievanceData.value.confirmed_by_national_grm
+})
+
+// Get resolution-related documents
+const getResolutionDocuments = computed(() => {
+  if (!FullGrievanceData.value || !GrievanceLogs.value || !Array.isArray(GrievanceLogs.value)) return []
+  
+  // Find the resolution action log
+  const resolutionLog = (GrievanceLogs.value as any[]).find((log: any) => 
+    log.action_type === 'Resolved' || log.new_status === 'Resolved'
+  )
+  
+  if (!resolutionLog || !(resolutionLog as any).id) return []
+  
+  const resolutionLogId = (resolutionLog as any).id
+  
+  // Get documents associated with the resolution action
+  const resolutionDocs = (GrievanceDocuments.value as any[]).filter((doc: any) => 
+    doc.action_id === resolutionLogId
+  )
+  
+  // Also check nested documents in the log
+  if ((resolutionLog as any).grievance_documents && Array.isArray((resolutionLog as any).grievance_documents) && (resolutionLog as any).grievance_documents.length > 0) {
+    return [...resolutionDocs, ...(resolutionLog as any).grievance_documents]
+  }
+  
+  return resolutionDocs
+})
+
+// Open confirmation dialog
+const openConfirmationDialog = () => {
+  if (!FullGrievanceData.value) return
+  confirmationForm.value = {
+    grievance_id: FullGrievanceData.value.id,
+    confirmation_level: FullGrievanceData.value.current_level || '',
+    confirmation_notes: ''
+  }
+  showConfirmationDialog.value = true
+}
+
+// Confirm grievance resolution
+const handleConfirmResolution = async () => {
+  if (!confirmationForm.value.grievance_id || !confirmationForm.value.confirmation_level) {
+    ElMessage({
+      message: 'Please provide all required information',
+      type: 'warning'
+    })
+    return
+  }
+
+  try {
+    const res = await confirmGrievanceResolution(confirmationForm.value)
+    
+    ElMessage({
+      message: (res as any).message || 'Grievance resolution confirmed successfully',
+      type: 'success'
+    })
+
+    showConfirmationDialog.value = false
+    
+    // Refresh the grievance data
+    await processGrievance()
+  } catch (error: any) {
+    console.error('Error confirming resolution:', error)
+    ElMessage({
+      message: error.response?.data?.message || 'Failed to confirm resolution',
+      type: 'error'
+    })
+  }
+}
  
 
 const processGrievance = async() => { 
@@ -2036,8 +2134,58 @@ const formData = {}
       >
         <Icon :icon="'icon-park-outline:remind'" style="margin-right: 10px;" /> Send Reminder
       </el-button>
+      
+      <!-- Confirmation Button for National GRM -->
+      <el-button
+        v-if="canConfirmGrievance"
+        type="success"
+        @click="openConfirmationDialog"
+        size="small"
+        class="responsive-button"
+      >
+        <el-icon><Check /></el-icon>
+        Confirm Resolution
+      </el-button>
     </div>
   </template>
+  
+  <!-- Confirmation Status Display -->
+  <el-card
+    v-if="FullGrievanceData && FullGrievanceData.status === 'Resolved' && ['settlement', 'county'].includes(FullGrievanceData.current_level)"
+    style="margin-top: 16px;"
+    shadow="never"
+    :class="FullGrievanceData.confirmed_by_national_grm ? 'confirmation-card confirmed' : 'confirmation-card awaiting'"
+  >
+    <template #header>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <el-icon :size="20" :color="FullGrievanceData.confirmed_by_national_grm ? '#67c23a' : '#e6a23c'">
+          <Check v-if="FullGrievanceData.confirmed_by_national_grm" />
+          <Notification v-else />
+        </el-icon>
+        <span style="font-weight: 600;">
+          {{ FullGrievanceData.confirmed_by_national_grm ? 'Resolution Confirmed' : 'Awaiting National GRM Confirmation' }}
+        </span>
+      </div>
+    </template>
+    
+    <div v-if="FullGrievanceData.confirmed_by_national_grm" style="display: flex; flex-direction: column; gap: 8px;">
+      <div>
+        <strong>Confirmed by:</strong> National GRM
+      </div>
+      <div v-if="FullGrievanceData.date_confirmed_by_national_grm">
+        <strong>Date Confirmed:</strong> {{ formatDate(FullGrievanceData.date_confirmed_by_national_grm) }}
+      </div>
+      <div v-if="FullGrievanceData.confirmation_level">
+        <strong>Level:</strong> {{ formatSentence(FullGrievanceData.confirmation_level) }}
+      </div>
+      <div v-if="FullGrievanceData.confirmation_notes">
+        <strong>Notes:</strong> {{ FullGrievanceData.confirmation_notes }}
+      </div>
+    </div>
+    <div v-else style="color: #e6a23c;">
+      This resolution at {{ formatSentence(FullGrievanceData.current_level) }} level is awaiting confirmation by national GRM.
+    </div>
+  </el-card>
 </el-card>
 
 
@@ -2741,6 +2889,135 @@ width="340"
             </template>
  </el-dialog>
 
+  <!-- Confirmation Dialog -->
+  <el-dialog
+    v-model="showConfirmationDialog"
+    title="Confirm Grievance Resolution"
+    width="900px"
+    draggable
+  >
+    <el-form :model="confirmationForm" label-width="180px">
+      <el-form-item label="Grievance Code:">
+        <span>{{ FullGrievanceData?.code }}</span>
+      </el-form-item>
+      
+      <el-form-item label="Current Level:">
+        <el-tag type="info">{{ formatSentence(confirmationForm.confirmation_level) }}</el-tag>
+      </el-form-item>
+      
+      <el-form-item label="Confirmation Level:" required>
+        <el-select
+          v-model="confirmationForm.confirmation_level"
+          placeholder="Select confirmation level"
+          style="width: 100%"
+          disabled
+        >
+          <el-option label="Settlement" value="settlement" />
+          <el-option label="County" value="county" />
+        </el-select>
+      </el-form-item>
+      
+      <el-form-item label="Confirmation Notes:">
+        <el-input
+          v-model="confirmationForm.confirmation_notes"
+          type="textarea"
+          :rows="4"
+          placeholder="Add any notes about the confirmation (optional)"
+        />
+      </el-form-item>
+      
+      <!-- Resolution Documents Section -->
+      <el-form-item v-if="getResolutionDocuments.length > 0" label="Resolution Documents:">
+        <el-card shadow="never" style="width: 100%;">
+          <template #header>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <el-icon><Document /></el-icon>
+              <span>Documents Attached to Resolution ({{ getResolutionDocuments.length }})</span>
+            </div>
+          </template>
+          <el-table :data="getResolutionDocuments" style="width: 100%" size="small" max-height="200">
+            <el-table-column type="index" width="50" label="#" />
+            <el-table-column prop="name" label="Document Name" min-width="200">
+              <template #default="{ row }">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <el-icon><Document /></el-icon>
+                  <span>{{ row.name }}</span>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column prop="type" label="Type" width="150">
+              <template #default="{ row }">
+                <el-tag size="small" type="info">{{ row.type || 'Documentation' }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="format" label="Format" width="100">
+              <template #default="{ row }">
+                <el-tag size="small">{{ row.format?.toUpperCase() || 'N/A' }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="size" label="Size" width="100">
+              <template #default="{ row }">
+                <span>{{ row.size ? `${row.size} MB` : 'N/A' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="createdAt" label="Uploaded" width="150">
+              <template #default="{ row }">
+                <span>{{ formatDate(row.createdAt) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="Actions" width="120" fixed="right">
+              <template #default="{ row }">
+                <el-button
+                  type="primary"
+                  size="small"
+                  :icon="Download"
+                  @click="downloadFile(row)"
+                  :loading="viewLoading"
+                >
+                  Download
+                </el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-card>
+      </el-form-item>
+      
+      <el-alert
+        v-if="getResolutionDocuments.length === 0"
+        type="warning"
+        :closable="false"
+        style="margin-bottom: 20px;"
+      >
+        <template #title>
+          <div>
+            <strong>Note:</strong> No documents are attached to this resolution. You may want to verify the resolution before confirming.
+          </div>
+        </template>
+      </el-alert>
+      
+      <el-alert
+        type="info"
+        :closable="false"
+        style="margin-bottom: 20px;"
+      >
+        <template #title>
+          <div>
+            <strong>Note:</strong> By confirming this resolution, you are verifying that the grievance has been properly resolved at the {{ formatSentence(confirmationForm.confirmation_level) }} level.
+          </div>
+        </template>
+      </el-alert>
+    </el-form>
+    
+    <template #footer>
+      <div class="dialog-footer">
+        <el-button @click="showConfirmationDialog = false">Cancel</el-button>
+        <el-button type="success" @click="handleConfirmResolution">
+          <el-icon><Check /></el-icon>
+          Confirm Resolution
+        </el-button>
+      </div>
+    </template>
+  </el-dialog>
 
 </template>
 <style scoped>
@@ -3350,5 +3627,20 @@ width="340"
 
 .differences-table {
   width: 100%;
+}
+
+/* Confirmation Card Styles */
+.confirmation-card {
+  border-left: 4px solid;
+}
+
+.confirmation-card.confirmed {
+  border-left-color: #67c23a;
+  background-color: #f0f9eb;
+}
+
+.confirmation-card.awaiting {
+  border-left-color: #e6a23c;
+  background-color: #fdf6ec;
 }
 </style>
