@@ -1593,6 +1593,7 @@ const grmForm = ref({
   witness: '',
   witness_phone: '',
   witness_statement: '',
+  project_phase: 'KISIP 2',
 });
 
 const validationRules = ({
@@ -3162,6 +3163,11 @@ const submitResolutionForm = async () => {
 
  
 
+const projectPhaseOptions = [
+  { label: 'KISIP 2', value: 'KISIP 2' },
+  { label: 'KISIP 1', value: 'KISIP 1' },
+]
+
 const grievanceOptions = [
   { label: 'Land Ownership/Titles', value: 'land_ownership' },
   { label: 'Evictions/Displacement', value: 'evictions' },
@@ -3964,6 +3970,9 @@ const filterByOfficer = async (officerId: number, officerName: string) => {
                   {{ row.status }}
                 </el-tag>
                 <el-tag size="small" style="margin-left:6px;">{{ row.nature }}</el-tag>
+                <el-tag v-if="row.project_phase" size="small" type="warning" style="margin-left:6px;">
+                  {{ row.project_phase }}
+                </el-tag>
               </div>
               <!-- Show deleter name in Deleted tab -->
               <div v-if="activeSegment === 'Deleted'" class="deleter-info" style="margin-top: 6px; font-size: 12px; color: #909399;">
@@ -4206,6 +4215,24 @@ const filterByOfficer = async (officerId: number, officerName: string) => {
                     :value="item.value"
                   />
                 </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="24" :md="24" :lg="24">
+              <el-form-item id="btn10a" label="Project Phase" prop="project_phase">
+                <el-select
+                  filterable
+                  v-model="grmForm.project_phase"
+                  placeholder="Select Project Phase"
+                  style="width: 100%;"
+                >
+                  <el-option
+                    v-for="item in projectPhaseOptions"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                </el-select>
+                <el-text type="info" size="small" style="display: block; margin-top: 4px;">Select the project phase (KISIP 1 or KISIP 2).</el-text>
               </el-form-item>
             </el-col>
             <el-col :xs="24" :sm="24" :md="24" :lg="24">

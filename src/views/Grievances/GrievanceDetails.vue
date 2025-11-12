@@ -1414,6 +1414,7 @@ const grmForm = ref({
   witness: '',
   witness_phone: '',
   witness_statement: '',
+  project_phase: 'KISIP 2',
 });
 
 
@@ -1443,6 +1444,7 @@ console.log(FullGrievanceData.value)
     witness: FullGrievanceData.value.witness || '',
     witness_phone: FullGrievanceData.value.witness_phone || '',
     witness_statement: FullGrievanceData.value.witness_statement || '',
+    project_phase: FullGrievanceData.value.project_phase || 'KISIP 2',
    };
   EditDialogVisible.value = true
 
@@ -1533,6 +1535,11 @@ const validationRules = ({
 });
 
 
+
+const projectPhaseOptions = [
+  { label: 'KISIP 2', value: 'KISIP 2' },
+  { label: 'KISIP 1', value: 'KISIP 1' },
+]
 
 const ageRanges = [
   { value: '18-25', label: '18-25' },
@@ -2559,6 +2566,23 @@ width="340"
                         style="width:90%">
                         <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
                       </el-select>
+                    </el-form-item>
+
+                    <el-form-item id="btn10a" label="Project Phase" prop="project_phase">
+                      <el-select
+                        filterable
+                        v-model="grmForm.project_phase"
+                        placeholder="Select Project Phase"
+                        style="width:90%"
+                      >
+                        <el-option
+                          v-for="item in projectPhaseOptions"
+                          :key="item.value"
+                          :label="item.label"
+                          :value="item.value"
+                        />
+                      </el-select>
+                      <el-text type="info" size="small" style="display: block; margin-top: 4px;">Select the project phase (KISIP 1 or KISIP 2).</el-text>
                     </el-form-item>
 
                     <el-form-item id="btn11" label="Settlement" prop="settlement_id">

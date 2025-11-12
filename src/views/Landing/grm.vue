@@ -89,6 +89,17 @@ v-for="item in countiesOptions" :key="item.value" :label="item.label"
                         <el-text type="info" size="small" style="display: block; margin-top: 4px;">Select the county where the project is implemented.</el-text>
                       </el-form-item>
 
+                      <el-form-item id="btn10a" label="Project Phase" prop="project_phase">
+                        <el-select
+                          filterable v-model="grmForm.project_phase" placeholder="Select Project Phase"
+                          style="width:90%">
+                          <el-option
+                            v-for="item in projectPhaseOptions" :key="item.value" :label="item.label"
+                            :value="item.value" />
+                        </el-select>
+                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Select the project phase (KISIP 1 or KISIP 2).</el-text>
+                      </el-form-item>
+
                       <el-form-item id="btn11" prop="settlement_id">
                         <template #label>
                           Settlement
@@ -415,6 +426,12 @@ import type { FormInstance, FormRules } from 'element-plus';
 const activeName = ref('file');
 const active = ref(0);
 
+const projectPhaseOptions = [
+{ label: 'KISIP 2', value: 'KISIP 2' },
+{ label: 'KISIP 1', value: 'KISIP 1' },
+]
+
+
 const grievanceOptions = [
   { label: 'Land Ownership or Title Disputes', value: 'land_ownership' },
   { label: 'Evictions or Displacement', value: 'evictions' },
@@ -467,6 +484,7 @@ interface GrievanceForm {
   current_level?: string;
   subcounty_id?: string;
   ward_id?: string;
+  project_phase?: string;
 }
 
 interface StatusResult {
@@ -513,6 +531,7 @@ const grmForm = ref<GrievanceForm>({
   self_reported: true,
   reporter_name: '',
   reporter_phone: '',
+  project_phase: 'KISIP 2',
 });
 
 

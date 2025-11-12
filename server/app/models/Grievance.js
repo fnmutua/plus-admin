@@ -157,8 +157,12 @@ module.exports = function (sequelize) {
         type: DataTypes.STRING,
         allowNull: true,
          
+      },
+      project_phase: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        defaultValue: 'KISIP 2' // Use 'true' as a string if this is meant to be a string.         
       }
-
     },
     {
       sequelize,
