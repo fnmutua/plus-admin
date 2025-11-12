@@ -13,4 +13,10 @@ WHERE date_reported < DATE '2024-01-01';
 
 UPDATE public.grievance
 SET project_phase =   'KISIP 2' 
-WHERE date_reported  > DATE '2024-01-01';
+WHERE date_reported  >= DATE '2024-01-01';
+
+
+UPDATE public.grievance
+SET project_phase =   'KISIP 2' 
+WHERE date_reported IS NULL
+ 
