@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { onMounted, reactive, computed } from 'vue'
+import { onMounted, reactive, computed, watch } from 'vue'
 import {
-  ElButton, ElTimeline, ElTimelineItem, ElCol, ElRow, ElForm, ElFormItem, ElInput, ElUpload, ElMessage,ElPopconfirm, 
+  ElButton, ElTimeline, ElTimelineItem, ElCol, ElRow, ElForm, ElFormItem, ElInput, ElUpload, ElMessage,ElPopconfirm, ElText,
   ElCard, ElTabs, ElTabPane, ElTable, ElTableColumn, ElTooltip, ElDialog, ElSelect, ElOption, ElIcon, ElCollapse, ElCollapseItem, ElSwitch, ElDatePicker, ElDrawer, ElMessageBox, ElTag, ElAlert,
 } from 'element-plus'
 // Locally
@@ -1134,6 +1134,10 @@ const handlePreview = (file) => {
 
 const handleRemove = (file, fileList) => {
   console.log('Remove:', file, fileList);
+  // Trigger validation when files are removed, especially if status is Resolved
+  if (dynamicFormRef.value && form.value.new_status === 'Resolved') {
+    dynamicFormRef.value.validateField('fileList');
+  }
 };
 
 const beforeRemove = () => {
@@ -1848,14 +1852,56 @@ const rules = computed(() => ({
   filer_present: [{ required: true, message: "This is required", trigger: "blur" }],
   resolution_date: [{ required: true, message: "Resolution date is required", trigger: "blur" }],
 
-  // fileList: [
-  //   {
-  //     required: form.value.new_status === "Resolved",
-  //     message: "Please upload supporting documents",
-  //     trigger: "change"
-  //   }
-  // ]
+  fileList: [
+    {
+      validator: (rule, value, callback) => {
+        if (form.value.new_status === "Resolved") {
+          if (!value || value.length === 0) {
+            callback(new Error("Please upload the signed resolution form"));
+          } else {
+            callback();
+          }
+        } else {
+          callback();
+        }
+      },
+      trigger: "change"
+    }
+  ]
 }));
+
+// Watch for status changes to trigger fileList validation when status becomes "Resolved"
+watch(() => form.value.new_status, (newStatus) => {
+  if (newStatus === 'Resolved' && dynamicFormRef.value) {
+    // Trigger validation after a short delay to ensure form is updated
+    setTimeout(() => {
+      dynamicFormRef.value?.validateField('fileList');
+    }, 100);
+  }
+});
+
+const downloadResolutionForm = async () => {
+  try {
+    const url = new URL(`${import.meta.env.BASE_URL}forms/resolution.docx`, window.location.origin).toString();
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Failed to fetch resolution form');
+
+    const blob = await response.blob();
+    const objectUrl = window.URL.createObjectURL(blob);
+
+    const link = document.createElement('a');
+    link.href = objectUrl;
+    link.download = 'resolution_form_template.docx';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    window.URL.revokeObjectURL(objectUrl);
+  } catch (error) {
+    console.error('Resolution form download failed:', error);
+    ElMessage.error('Unable to download the resolution form. Please try again.');
+  }
+};
 
 
 
@@ -2771,26 +2817,48 @@ width="340"
           <el-input type="textarea" :rows="isMobile ? 3 : 2" placeholder="Name of organization" v-model="form.reffered_to" />
         </el-form-item> 
 
-        <el-form-item label="Upload Documentation" label-position="top">
-          <el-upload
-            class="upload-demo" 
-            action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" 
-            multiple
-            :on-preview="handlePreview" 
-            :on-remove="handleRemove" 
-            :before-remove="beforeRemove" 
-            :limit="3"
-            v-model:file-list="form.fileList" 
-            :auto-upload="false" 
-            :on-exceed="handleExceed"
-          >
-            <el-button type="primary" plain>
-              <Icon icon="basil:file-upload-outline" width="24" /> Upload Documentation
-            </el-button>
-            <template #tip>
-              <p>E.g Minutes, forms, e.t.c. These should be pdf/jpg/png files with a size less than 10MB.</p>
-            </template>
-          </el-upload>
+        <el-form-item 
+          label="Upload Documentation" 
+          label-position="top"
+          prop="fileList"
+          :required="form.new_status === 'Resolved'"
+        >
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div v-if="form.new_status === 'Resolved'" style="margin-bottom: 8px;">
+              <el-button 
+                type="success" 
+                plain 
+                size="small"
+                :icon="Download"
+                @click="downloadResolutionForm"
+              >
+                Download Resolution Form Template
+              </el-button>
+              <el-text type="warning" size="small" style="margin-left: 8px;">
+                <strong>Required:</strong> Please download, fill, sign, and upload the resolution form.
+              </el-text>
+            </div>
+            <el-upload
+              class="upload-demo" 
+              action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" 
+              multiple
+              :on-preview="handlePreview" 
+              :on-remove="handleRemove" 
+              :before-remove="beforeRemove" 
+              :limit="3"
+              v-model:file-list="form.fileList" 
+              :auto-upload="false" 
+              :on-exceed="handleExceed"
+              @change="() => { if (dynamicFormRef) dynamicFormRef.value?.validateField('fileList') }"
+            >
+              <el-button type="primary" plain>
+                <Icon icon="basil:file-upload-outline" width="24" /> Upload Documentation
+              </el-button>
+              <template #tip>
+                <el-text type="info" size="small">E.g Minutes, forms, e.t.c. These should be pdf/jpg/png files with a size less than 10MB.</el-text>
+              </template>
+            </el-upload>
+          </div>
         </el-form-item>
 
       </el-form>
