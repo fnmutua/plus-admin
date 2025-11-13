@@ -4436,14 +4436,14 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
       <el-steps 
         :active="active" 
         finish-status="success" 
-        class="drawer-steps"
-        :direction="isMobile ? 'vertical' : 'horizontal'"
-        :space="isMobile ? 100 : undefined"
+        :class="['drawer-steps', { 'drawer-steps--icons-only': isMobile }]"
+        direction="horizontal"
+        :space="isMobile ? 80 : undefined"
       >
-        <el-step title="Complainant Details" />
-        <el-step title="Grievance Details" />
-        <el-step title="Complaint Details" />
-        <el-step title="Review & Submit" />
+        <el-step :title="isMobile ? '' : 'Complainant Details'" :icon="Document" />
+        <el-step :title="isMobile ? '' : 'Grievance Details'" :icon="InfoFilled" />
+        <el-step :title="isMobile ? '' : 'Complaint Details'" :icon="Paperclip" />
+        <el-step :title="isMobile ? '' : 'Review & Submit'" :icon="CircleCheck" />
       </el-steps>
 
       <el-form
