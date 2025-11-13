@@ -1,3 +1,91 @@
+.confirmation-drawer :deep(.el-drawer__body) {
+  padding: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.confirmation-drawer .drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e9ecef;
+  background: var(--el-bg-color);
+}
+
+.confirmation-drawer .drawer-header-content h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.confirmation-drawer .drawer-header-content p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+  line-height: 1.4;
+}
+
+.confirmation-drawer .drawer-close-btn {
+  color: var(--el-text-color-secondary);
+}
+
+.confirmation-drawer .drawer-body {
+  padding: 20px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.confirmation-drawer .drawer-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 12px 20px;
+  border-top: 1px solid #e9ecef;
+  background: var(--el-bg-color);
+}
+
+.confirmation-drawer .drawer-footer .el-button {
+  min-width: 120px;
+}
+
+.confirmation-form :deep(.el-form-item__label) {
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.confirmation-form :deep(.el-form-item) {
+  margin-bottom: 16px;
+}
+
+.confirmation-form :deep(.el-select),
+.confirmation-form :deep(.el-textarea) {
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .confirmation-drawer .drawer-body {
+    padding: 16px;
+  }
+
+  .confirmation-drawer .drawer-header-content h3 {
+    font-size: 16px;
+  }
+
+  .confirmation-drawer .drawer-header-content p {
+    font-size: 12px;
+  }
+
+  .confirmation-drawer .drawer-footer {
+    padding: 10px 16px;
+    gap: 8px;
+  }
+
+  .confirmation-drawer .drawer-footer .el-button {
+    flex: 1;
+  }
+}
 <script setup lang="ts">
 import { onMounted, reactive, computed, watch } from 'vue'
 import {
@@ -156,45 +244,41 @@ const button_color = ref()
 const button_icon = ref()
 const button_disabled = ref(true)
 
-const StatusOptions = ref([
-  {
-    value: 'Sorting',
-    label: 'Sorting',
-  },
-  {
-    value: 'Investigation',
-    label: 'Investigate Grievance',
-  },
-  {
-    value: 'Under Review',
-    label: 'Under Review (in progress)',
-  },
-  {
-    value: 'Escalated',
-    label: 'Escalate ',
-  },
-  {
-    value: 'Resolved',
-    label: 'Resolve Grievance',
-  },
-  {
-    value: 'Rejected',
-    label: 'Reject Grievance',
-  },
-  {
-    value: 'In Court',
-    label: 'In Court',
-  },
+const statusDictionary = [
+  { value: 'Sorting', label: 'Sorting', supportedBy: ['Sorting'] },
+  { value: 'Investigation', label: 'Investigate Grievance', supportedBy: ['Sorting', 'Investigation', 'Under Review', 'Escalated', 'Referred'] },
+  { value: 'Under Review', label: 'Under Review (in progress)', supportedBy: ['Sorting', 'Investigation', 'Under Review', 'Escalated', 'Referred'] },
+  { value: 'Escalated', label: 'Escalate', supportedBy: ['Sorting', 'Investigation', 'Under Review', 'Escalated', 'Referred', 'Resolved'] },
+  { value: 'Resolved', label: 'Resolve Grievance', supportedBy: ['Sorting', 'Investigation', 'Under Review', 'Escalated', 'Referred', 'Resolved'] },
+  { value: 'Rejected', label: 'Reject Grievance', supportedBy: ['Sorting', 'Investigation', 'Under Review', 'Escalated', 'Referred'] },
+  { value: 'In Court', label: 'In Court', supportedBy: ['Resolved'] },
+  { value: 'Referred', label: 'Refer Grievance', supportedBy: ['Sorting', 'Investigation', 'Under Review', 'Escalated', 'Referred', 'Closed'] },
+  { value: 'ExternalReferral', label: 'Refer to External Agency', supportedBy: ['Escalated', 'Referred', 'Resolved', 'Closed'] },
+  { value: 'Returned', label: 'Send Back', supportedBy: ['Escalated', 'Referred'] },
+  { value: 'Closed', label: 'Close Grievance', supportedBy: ['Resolved', 'Closed'] },
+]
 
-  {
-    value: 'Referred',
-    label: 'Refer Grievance',
-  },
-  {
-    value: 'Closed',
-    label: 'Close Grievance',
-  },
-])
+const StatusOptions = ref(statusDictionary.map(({ value, label }) => ({ value, label })))
+
+const yesNoOptions = [
+  { label: 'Yes', value: true },
+  { label: 'No', value: false }
+]
+
+const disableFutureDates = (date: Date) => {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return date.getTime() > today.getTime()
+}
+
+const showResolutionUploadHint = computed(() => {
+  return form.value.new_status === 'Resolved' && (!form.value.fileList || form.value.fileList.length === 0)
+})
+
+const showGeneralUploadHint = computed(() => {
+  if (form.value.new_status === 'Resolved') return false
+  return !form.value.fileList || form.value.fileList.length === 0
+})
 
 
 const showActionButton=ref(true)
@@ -349,330 +433,86 @@ const processGrievance = async() => {
     button_disabled.value = true
   } 
 
-  if (Grievance.value.status == 'Sorting') {
+  const currentStatus = Grievance.value.status
+
+  const permitted = statusDictionary.filter(option => option.supportedBy.includes(currentStatus))
+  StatusOptions.value = permitted.map(({ value, label }) => ({ value, label }))
+
+  if (currentStatus === 'Sorting') {
     button_label.value = 'Review and Sort';
     button_color.value = 'primary';
     button_icon.value = 'icon-park-solid:sort';
-
-    StatusOptions.value = [
-      {
-        value: 'Rejected',
-        label: 'Reject Grievance',
-      },
-      {
-        value: 'Investigation',
-        label: 'Investigating Grievance',
-      },
-
-      {
-    value: 'Under Review',
-    label: 'Under Review (in progress)',
-    },
-      {
-        value: 'Escalated',
-        label: 'Escalate',
-      },
-      {
-        value: 'Referred',
-        label: 'Refer Grievance',
-      },
-      {
-        value: 'Resolved',
-        label: 'Resolve Grievance',
-      },
-
-      
-
-    ]
-
-
-  }
-  else if (Grievance.value.status == 'Investigation') {
+  } else if (currentStatus == 'Investigation') {
     button_label.value = 'Review Status';
     button_color.value = 'warning';
     button_icon.value = 'icon-park-solid:preview-open';
-
-    StatusOptions.value = [
-      {
-        value: 'Resolved',
-        label: 'Resolve Grievance',
-      },
-      {
-        value: 'Escalated',
-        label: 'Escalate',
-      },
-      {
-    value: 'Under Review',
-        label: 'Under Review (in progress)',
-      },
-      {
-        value: 'Referred',
-        label: 'Refer Grievance',
-      },
-      {
-        value: 'Rejected',
-        label: 'Reject Grievance',
-      },
-    ]
-  }
-
-  else if (Grievance.value.status == 'Under Review') {
+  } else if (currentStatus == 'Under Review') {
     button_label.value = 'Review Status';
     button_color.value = 'warning';
     button_icon.value = 'icon-park-solid:preview-open';
-
-    StatusOptions.value = [
-    {
-    value: 'Under Review',
-    label: 'Under Review (in progress)',
-  },
-      {
-        value: 'Resolved',
-        label: 'Resolve Grievance',
-      },
-      {
-        value: 'Escalated',
-        label: 'Escalate',
-      },
-     
-      {
-        value: 'Referred',
-        label: 'Refer Grievance',
-      },
-      {
-        value: 'Rejected',
-        label: 'Reject Grievance',
-      },
-    ]
-  }
-
-   else if (Grievance.value.status == 'Escalated') {
+  } else if (currentStatus == 'Escalated') {
     button_label.value = 'Review Status';
     button_color.value = 'warning';
     button_icon.value = 'icon-park-solid:preview-open';
-
-    StatusOptions.value = [
-      {
-        value: 'Resolved',
-        label: 'Resolve Grievance',
-      },
-      {
-        value: 'Investigation',
-        label: 'Investigating Grievance',
-      },
-      {
-    value: 'Under Review',
-        label: 'Under Review (in progress)',
-      },
-      {
-        value: 'Escalated',
-        label: 'Escalate',
-      },
-
-      {
-        value: 'Referred',
-        label: 'Refer Grievance',
-      },
-      {
-        value: 'Rejected',
-        label: 'Reject Grievance',
-      },
-    ]
-
-
-
-     // If grievance is at national level, remove some options
-     if (Grievance.value.current_level === 'national') {
-        StatusOptions.value = StatusOptions.value.filter(option => 
-          option.value !== 'Escalated' && option.value !== 'Referred'
-        );
-
-           // Add option to send back to county
-     StatusOptions.value.push({
-          value: 'Returned',
-          label: 'Send Back to County',
-        });
-    }
-  
-
-       // If grievance is at county level
-       if (Grievance.value.current_level === 'county') {
-        // Add option to send back to settlement
-        StatusOptions.value.push({
-          value: 'Returned',
-          label: 'Send Back to Settlement',
-        });
-    }
-  }
-
-  else if (Grievance.value.status == 'Referred') {
+  } else if (currentStatus == 'Referred') {
     button_label.value = 'Review Status';
     button_color.value = 'warning';
     button_icon.value = 'icon-park-solid:preview-open';
-
-    StatusOptions.value = [
-      {
-        value: 'Resolved',
-        label: 'Resolve Grievance',
-      },
-      {
-        value: 'Investigation',
-        label: 'Investigating Grievance',
-      },
-      {
-    value: 'Under Review',
-        label: 'Under Review (in progress)',
-      },
-      {
-        value: 'Escalated',
-        label: 'Escalate',
-      },
-
-      {
-        value: 'Referred',
-        label: 'Refer Grievance',
-      },
-      {
-        value: 'Rejected',
-        label: 'Reject Grievance',
-      },
-    ]
-
-
-
-     // If grievance is at national level, remove some options
-     if (Grievance.value.current_level === 'national') {
-        StatusOptions.value = StatusOptions.value.filter(option => 
-          option.value !== 'Escalated' && option.value !== 'Referred'
-        );
-
-           // Add option to send back to county
-     StatusOptions.value.push({
-          value: 'Returned',
-          label: 'Send Back to County',
-        });
-    }
-  
-
-       // If grievance is at county level
-       if (Grievance.value.current_level === 'county') {
-        // Add option to send back to settlement
-        StatusOptions.value.push({
-          value: 'Returned',
-          label: 'Send Back to Settlement',
-        });
-    }
-  }
-
-  else if (  Grievance.value.status == 'ExternalReferral'  ) {
+  } else if (currentStatus == 'ExternalReferral') {
     button_label.value = 'Review Status';
     button_color.value = 'warning';
     button_icon.value = 'icon-park-solid:preview-open';
-
-
-    StatusOptions.value = [
-      {
-        value: 'Closed',
-        label: 'Close Grievance',
-      }
-    ]
-  }
-
-  else if (Grievance.value.status == 'In Court') {
+  } else if (currentStatus == 'In Court') {
     button_label.value = 'Review Status';
     button_color.value = 'warning';
     button_icon.value = 'icon-park-solid:preview-open';
-
-    StatusOptions.value = [
-      {
-        value: 'Closed',
-        label: 'Close Grievance',
-      }
-    ]
-  }
- 
-  else if (Grievance.value.status == 'Closed') {
+  } else if (currentStatus == 'Closed') {
     button_label.value = 'Review Status';
     button_color.value = 'warning';
     button_icon.value = 'icon-park-solid:preview-open';
-
-    StatusOptions.value = [
-      {
-        value: 'Referred',
-        label: 'Refer to Court',
-      }
-
-    ]
-
-
-  }
-
-  else if (Grievance.value.status == 'Resolved') {
+  } else if (currentStatus == 'Resolved') {
     button_label.value = 'Review/Close grievance';
     button_color.value = 'success';
     button_icon.value = 'typcn:tick';
-
-    StatusOptions.value = [
-      {
-        value: 'Closed',
-        label: 'Close Grievance',
-      },
-    
-    ]
-
-
-  }
-
- 
-  else {
+  } else {
     button_label.value = 'Review Status';
     button_color.value = 'warning';
     button_icon.value = 'icon-park-solid:preview-open';
-
-    StatusOptions.value = [
-      {
-        value: 'Sorting',
-        label: 'Sorting',
-      },
-      {
-        value: 'Investigation',
-        label: 'Investigating Grievance',
-      },
-
-      {
-        value: 'Escalated',
-        label: 'Escalated',
-      },
-      {
-        value: 'Resolved',
-        label: 'Resolved',
-      },
-
-      {
-        value: 'Referred',
-        label: 'Refer Grievance',
-      },
-      {
-        value: 'Closed',
-        label: 'Closed',
-      },
-    ]
   }
 
-
-
-// Check if level is 'county' or 'national', then add the external agency option
-if (res.data.current_level  == 'county' || res.data.current_level  == 'national') {
-  showRefferalField.value=true
+  if (['county', 'national'].includes(String(Grievance.value.current_level))) {
+    showRefferalField.value = true
+    if (!StatusOptions.value.some(opt => opt.value === 'ExternalReferral')) {
   StatusOptions.value.push({
     value: 'ExternalReferral',
     label: 'Refer to External Agency',
-  });
-}else {
-  showRefferalField.value=false
+      })
+    }
+  } else {
+    showRefferalField.value = false
+    StatusOptions.value = StatusOptions.value.filter(opt => opt.value !== 'ExternalReferral')
+  }
 
-}
-
+  if (Grievance.value.current_level === 'national') {
+    StatusOptions.value = StatusOptions.value.filter(option =>
+      option.value !== 'Escalated' && option.value !== 'Referred'
+    )
+    if (!StatusOptions.value.some(opt => opt.value === 'Returned')) {
+      StatusOptions.value.push({
+        value: 'Returned',
+        label: 'Send Back to County',
+      })
+    }
+  } else if (Grievance.value.current_level === 'county') {
+    if (!StatusOptions.value.some(opt => opt.value === 'Returned')) {
+      StatusOptions.value.push({
+        value: 'Returned',
+        label: 'Send Back to Settlement',
+      })
+    }
+  } else {
+    StatusOptions.value = StatusOptions.value.filter(opt => opt.value !== 'Returned')
+  }
 
 
   // if(res.data.status=='Escalated'){
@@ -1850,7 +1690,29 @@ const rules = computed(() => ({
   agreement_reached: [{ required: true, message: "This is required", trigger: "blur" }],
   field_verification_conducted: [{ required: true, message: "Status is required", trigger: "blur" }],
   filer_present: [{ required: true, message: "This is required", trigger: "blur" }],
-  resolution_date: [{ required: true, message: "Resolution date is required", trigger: "blur" }],
+  resolution_date: [
+    { required: true, message: "Resolution date is required", trigger: "change" },
+    {
+      validator: (_rule, value, callback) => {
+        if (!value) {
+          callback();
+          return;
+        }
+
+        const selectedDate = new Date(value);
+        const today = new Date();
+        selectedDate.setHours(0,0,0,0);
+        today.setHours(0,0,0,0);
+
+        if (selectedDate > today) {
+          callback(new Error("Resolution date cannot be in the future"));
+        } else {
+          callback();
+        }
+      },
+      trigger: "change"
+    }
+  ],
 
   fileList: [
     {
@@ -2765,21 +2627,51 @@ width="340"
         </el-form-item>
 
         <el-row :gutter="isMobile ? 0 : 2" v-if="form.new_status == 'Resolved'">
-          <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
+          <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
             <el-form-item label="Was Filer Present? " label-position="top" prop="filer_present">
-              <el-switch v-model="form.filer_present" />
+              <el-select
+                v-model="form.filer_present"
+                placeholder="Select"
+                style="width: 100%"
+                clearable
+              >
+                <el-option
+                  v-for="option in yesNoOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </el-select>
             </el-form-item>
           </el-col>
 
-          <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
+          <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
             <el-form-item label="Was field verification of complaint conducted?  " label-position="top" prop="field_verification_conducted">
-              <el-switch v-model="form.field_verification_conducted" />
+              <el-select
+                v-model="form.field_verification_conducted"
+                placeholder="Select"
+                style="width: 100%"
+                clearable
+              >
+                <el-option
+                  v-for="option in yesNoOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </el-select>
             </el-form-item>
           </el-col>
 
-          <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
+          <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
             <el-form-item label="Date of Resolution" label-position="top" prop="resolution_date">
-              <el-date-picker v-model="form.resolution_date" type="date" placeholder="Select" style="width: 100%" />
+              <el-date-picker
+                v-model="form.resolution_date"
+                type="date"
+                placeholder="Select"
+                style="width: 100%"
+                :disabled-date="disableFutureDates"
+              />
             </el-form-item>
           </el-col>
         </el-row>
@@ -2789,12 +2681,24 @@ width="340"
         </el-form-item>
 
         <el-row :gutter="isMobile ? 0 : 2" v-if="form.new_status == 'Resolved'">
-          <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
+          <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
             <el-form-item label="Was agreement reached on the issues?	" label-position="top" prop="agreement_reached">
-              <el-switch v-model="form.agreement_reached" />
+              <el-select
+                v-model="form.agreement_reached"
+                placeholder="Select"
+                style="width: 100%"
+                clearable
+              >
+                <el-option
+                  v-for="option in yesNoOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </el-select>
             </el-form-item>
           </el-col>
-          <el-col :xs="24" :sm="24" :md="16" :lg="16" :xl="16">
+          <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
             <el-form-item v-if="form.agreement_reached" label="If agreement was reached, detail the agreement below:" label-position="top" prop="agreement">
               <el-input type="textarea" :rows="isMobile ? 3 : 2" placeholder="Provide details of agreement here" v-model="form.agreement" />
             </el-form-item>
@@ -2838,26 +2742,41 @@ width="340"
                 <strong>Required:</strong> Please download, fill, sign, and upload the resolution form.
               </el-text>
             </div>
-            <el-upload
-              class="upload-demo" 
-              action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" 
-              multiple
-              :on-preview="handlePreview" 
-              :on-remove="handleRemove" 
-              :before-remove="beforeRemove" 
-              :limit="3"
-              v-model:file-list="form.fileList" 
-              :auto-upload="false" 
-              :on-exceed="handleExceed"
+          <el-upload
+            class="upload-demo" 
+            action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" 
+            multiple
+            :on-preview="handlePreview" 
+            :on-remove="handleRemove" 
+            :before-remove="beforeRemove" 
+            :limit="3"
+            v-model:file-list="form.fileList" 
+            :auto-upload="false" 
+            :on-exceed="handleExceed"
               @change="() => { if (dynamicFormRef) dynamicFormRef.value?.validateField('fileList') }"
-            >
-              <el-button type="primary" plain>
-                <Icon icon="basil:file-upload-outline" width="24" /> Upload Documentation
-              </el-button>
-              <template #tip>
-                <el-text type="info" size="small">E.g Minutes, forms, e.t.c. These should be pdf/jpg/png files with a size less than 10MB.</el-text>
-              </template>
-            </el-upload>
+          >
+            <el-button type="primary" plain>
+              <Icon icon="basil:file-upload-outline" width="24" /> Upload Documentation
+            </el-button>
+            <template #tip>
+              <div style="display: flex; flex-direction: column; gap: 4px;">
+                <el-text
+                  v-if="showResolutionUploadHint"
+                  type="warning"
+                  size="small"
+                >
+                  Please upload the signed resolution form (pdf/jpg/png, under 10MB). Attach supporting evidence (minutes, photos, etc.) as needed.
+                </el-text>
+                <el-text
+                  v-else-if="showGeneralUploadHint"
+                  type="info"
+                  size="small"
+                >
+                  Upload supporting documentation (e.g. minutes, forms, photos) — pdf/jpg/png, under 10MB.
+                </el-text>
+              </div>
+            </template>
+          </el-upload>
           </div>
         </el-form-item>
 
@@ -3135,34 +3054,32 @@ width="340"
  </el-dialog>
 
   <!-- Confirmation Dialog -->
-  <el-dialog
+  <el-drawer
     v-model="showConfirmationDialog"
-    title="Confirm Grievance Resolution"
-    width="900px"
-    draggable
+    :title="isMobile ? '' : null"
+    direction="rtl"
+    :size="isMobile ? '100%' : '40%'"
+    :with-header="false"
+    :destroy-on-close="true"
+    class="confirmation-drawer"
   >
-    <el-form :model="confirmationForm" label-width="180px">
-      <el-form-item label="Grievance Code:">
+    <div class="drawer-header">
+      <div class="drawer-header-content">
+        <h3>Confirm Resolution</h3>
+        <p>{{ FullGrievanceData?.code }} &mdash; {{ FullGrievanceData?.description }}</p>
+      </div>
+      <el-button type="text" @click="showConfirmationDialog = false" class="drawer-close-btn">
+        <el-icon><Close /></el-icon>
+      </el-button>
+    </div>
+
+    <div class="drawer-body">
+    <el-form :model="confirmationForm" label-position="top" class="confirmation-form">
+      <el-form-item label="Grievance Code">
         <span>{{ FullGrievanceData?.code }}</span>
       </el-form-item>
       
-      <el-form-item label="Current Level:">
-        <el-tag type="info">{{ formatSentence(confirmationForm.confirmation_level) }}</el-tag>
-      </el-form-item>
-      
-      <el-form-item label="Confirmation Level:" required>
-        <el-select
-          v-model="confirmationForm.confirmation_level"
-          placeholder="Select confirmation level"
-          style="width: 100%"
-          disabled
-        >
-          <el-option label="Settlement" value="settlement" />
-          <el-option label="County" value="county" />
-        </el-select>
-      </el-form-item>
-      
-      <el-form-item label="Confirmation Notes:">
+      <el-form-item label="Confirmation Notes">
         <el-input
           v-model="confirmationForm.confirmation_notes"
           type="textarea"
@@ -3253,16 +3170,15 @@ width="340"
       </el-alert>
     </el-form>
     
-    <template #footer>
-      <div class="dialog-footer">
-        <el-button @click="showConfirmationDialog = false">Cancel</el-button>
-        <el-button type="success" @click="handleConfirmResolution">
+    <div class="drawer-footer">
+      <el-button @click="showConfirmationDialog = false" :size="isMobile ? 'small' : 'default'">Cancel</el-button>
+      <el-button type="success" @click="handleConfirmResolution" :size="isMobile ? 'small' : 'default'">
           <el-icon><Check /></el-icon>
           Confirm Resolution
         </el-button>
       </div>
-    </template>
-  </el-dialog>
+    </div>
+  </el-drawer>
 
 </template>
 <style scoped>
