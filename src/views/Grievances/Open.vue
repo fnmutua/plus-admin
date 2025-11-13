@@ -5859,8 +5859,7 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
   padding: 16px 20px;
   border-bottom: 1px solid #e9ecef;
   flex-shrink: 0;
-  background: #fff;
- }
+  }
 
 .drawer-header .header-content {
   display: flex;
@@ -5940,7 +5939,7 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
   bottom: 0;
   padding: 12px 16px;
    border-top: 1px solid #e9ecef;
-  background: #fff;
+
   display: flex;
   gap: 8px;
   justify-content: flex-end;
