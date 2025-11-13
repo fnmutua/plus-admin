@@ -2857,6 +2857,19 @@ function handleSelectionChange(selection) {
   selectedRows.value = selection
 }
 
+const isRowSelected = (row: GrievanceType) => {
+  return selectedRows.value.some((selected: GrievanceType) => selected.id === row.id)
+}
+
+const toggleMobileSelection = (row: GrievanceType) => {
+  const index = selectedRows.value.findIndex((selected: GrievanceType) => selected.id === row.id)
+  if (index !== -1) {
+    selectedRows.value.splice(index, 1)
+  } else {
+    selectedRows.value.push(row)
+  }
+}
+
 const showReferralDialog =ref(false)
 async function handleBulkAction() {
   console.log('Bulk Action on:', selectedRows.value)
@@ -3671,6 +3684,15 @@ const getStatusType = (status: string) => {
   return statusMap[status] || 'info'
 }
 
+const getMobileLocation = (row: GrievanceType) => {
+  const segments = [
+    row.settlement?.name,
+    row.county?.name
+  ].filter(Boolean)
+
+  return segments.join(', ') || 'N/A'
+}
+
 // Enhanced row class name function
 const getRowClassName = ({ row }: { row: any }) => {
   const status = row.status
@@ -3831,13 +3853,21 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
           <!-- Header Top Row: Title and Actions -->
      
             <el-row :gutter="12" align="middle" class="header-row">
-              <el-col :xs="24" :sm="24" :md="2"  :lg="2">
-                <el-button type="primary" plain :icon="Back" @click="goBack" class="header-back-btn">
-                  Back
+              <el-col :xs="isMobile ? 4 : 24" :sm="24" :md="2"  :lg="2">
+                <el-button
+                  type="primary"
+                  plain
+                  :icon="Back"
+                  @click="goBack"
+                  class="header-back-btn"
+                  :class="{ 'header-back-btn--mobile': isMobile }"
+                  aria-label="Go back"
+                >
+                  <span v-if="!isMobile">Back</span>
                 </el-button>
               </el-col>
-              <el-col :xs="24" :sm="24" :md="18"  :lg="18">
-                <div class="header-search">
+              <el-col :xs="isMobile ? 20 : 24" :sm="24" :md="18"  :lg="18">
+                <div class="header-search" :class="{ 'header-search--mobile': isMobile }">
                   <el-input
                     v-model="searchQuery"
                     placeholder="Search grievances by code, description, or complainant name..."
@@ -3855,17 +3885,19 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
               </el-col>
               <el-col :xs="24" :sm="24" :md="4"  :lg="4" >
                 <div class="header-actions">
-                  <div class="total-count-badge">
-                    <div class="count-number">{{ totalGrievanceCount }}</div>
-                    <div class="count-label">Total Grievances</div>
-                  </div>
+                  <div class="total-download-group">
+                    <div class="total-count-badge">
+                      <div class="count-number">{{ totalGrievanceCount }}</div>
+                      <div class="count-label">Total Grievances</div>
+                    </div>
 
-                  <DownloadCustom
-                    :data="tableDataList"
-                    :model="model"
-                    :associated_models="['users','county','subcounty','ward','settlement']"
-                    class="action-button"
-                  />
+                    <DownloadCustom
+                      :data="tableDataList"
+                      :model="model"
+                      :associated_models="['users','county','subcounty','ward','settlement']"
+                      class="action-button"
+                    />
+                  </div>
                   <PermissionWrapper :permissions="['grievance:upload']">
                     <el-tooltip content="Upload data / Download template" placement="top">
                       <el-button
@@ -3894,10 +3926,9 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
  
 
         <!-- Header Bottom Row: Status Cards -->
-        <div class="status-cards-container">
+        <div class="status-cards-container" v-if="!isMobile">
           <div class="status-cards">
             <template v-for="status in Statuses" :key="status.value">
-              <!-- Regular status cards (excluding All) -->
               <el-tooltip
                 :content="status.description"
                 placement="bottom"
@@ -3924,7 +3955,6 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
                 </div>
               </el-tooltip>
               
-              <!-- Permission-wrapped status cards -->
               <PermissionWrapper 
                 v-else-if="['Deleted', 'Rejected'].includes(status.value)"
                 :permissions="['grievance:viewDeleted']"
@@ -3953,6 +3983,47 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
                     </div>
                   </div>
                 </el-tooltip>
+              </PermissionWrapper>
+            </template>
+          </div>
+        </div>
+
+        <div v-else class="mobile-status-scroll">
+          <div class="mobile-status-track">
+            <template v-for="status in Statuses" :key="status.value">
+              <div
+                v-if="!['All', 'Deleted', 'Rejected'].includes(status.value)"
+                :class="['mobile-status-card', { active: activeSegment === status.value }]"
+                @click="onSegmentClick(status.value)"
+              >
+                <div class="status-icon">
+                  <el-icon :size="18">
+                    <component :is="status.icon" />
+                  </el-icon>
+                </div>
+                <div class="status-info">
+                  <div class="status-label">{{ status.label }}</div>
+                  <div class="status-count">{{ status.count }}</div>
+                </div>
+              </div>
+              <PermissionWrapper
+                v-else-if="['Deleted', 'Rejected'].includes(status.value)"
+                :permissions="['grievance:viewDeleted']"
+              >
+                <div
+                  :class="['mobile-status-card', { active: activeSegment === status.value }]"
+                  @click="onSegmentClick(status.value)"
+                >
+                  <div class="status-icon">
+                    <el-icon :size="18">
+                      <component :is="status.icon" />
+                    </el-icon>
+                  </div>
+                  <div class="status-info">
+                    <div class="status-label">{{ status.label }}</div>
+                    <div class="status-count">{{ status.count }}</div>
+                  </div>
+                </div>
               </PermissionWrapper>
             </template>
           </div>
@@ -4039,7 +4110,7 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
         </div>
 
         <!-- Action Buttons -->
-        <div class="quick-actions">
+        <div class="quick-actions" :class="{ 'mobile-quick-actions': isMobile }">
             <el-button 
             v-if="hasActiveFilters" 
             size="small" 
@@ -4080,6 +4151,7 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
 
       <!-- Enhanced Table -->
       <el-table
+        v-if="!isMobile"
         v-loading="loading"
         :data="tableDataList"
         :row-class-name="getRowClassName"
@@ -4236,6 +4308,60 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
           </template>
         </el-table-column>
       </el-table>
+
+      <div v-else class="mobile-grievance-list">
+        <div
+          v-for="row in tableDataList"
+          :key="row.id"
+          class="mobile-grievance-card"
+          @click="handleRowClick(row)"
+        >
+          <div class="mobile-card-header">
+            <div class="card-code">{{ row.code }}</div>
+            <el-tag size="small" :type="getStatusType(row.status)">
+              {{ row.status }}
+            </el-tag>
+          </div>
+          <div class="mobile-card-body">
+            <p class="card-description">{{ row.description }}</p>
+            <div class="card-row">
+              <span class="card-label">Location</span>
+              <span class="card-value">{{ getMobileLocation(row) }}</span>
+            </div>
+            <div class="card-row">
+              <span class="card-label">Reported</span>
+              <span class="card-value">{{ formatDate(row.date_reported) }}</span>
+            </div>
+            <div class="card-row">
+              <span class="card-label">Deadline</span>
+              <span class="card-value" :class="getExpiryClass(row.status_expiry_date)">
+                {{ formatExpiryPhrase(row.status_expiry_date) }}
+              </span>
+            </div>
+            <div
+              class="card-row"
+              v-if="activeSegment === 'Resolved' && row.resolution"
+            >
+              <span class="card-label">Resolution</span>
+              <span class="card-value">{{ row.resolution }}</span>
+            </div>
+          </div>
+          <div class="mobile-card-footer">
+            <el-checkbox
+              v-if="isRowSelectable()"
+              :model-value="isRowSelected(row)"
+              @change="toggleMobileSelection(row)"
+              @click.stop
+              size="small"
+            >
+              Select
+            </el-checkbox>
+            <el-button type="primary" text size="small" @click.stop="handleRowClick(row)">
+              View Details
+            </el-button>
+          </div>
+        </div>
+      </div>
 
       <!-- Pagination -->
       <el-pagination
@@ -5186,6 +5312,35 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
    box-shadow: 0 4px 12px rgba(64, 158, 255, 0.2);
 }
 
+.mobile-status-scroll {
+  margin-top: 12px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.mobile-status-track {
+  display: flex;
+  gap: 10px;
+  min-width: max-content;
+}
+
+.mobile-status-card {
+  min-width: 140px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid #e4e7ed;
+  border-radius: 10px;
+  background-color: var(--el-bg-color);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.mobile-status-card.active {
+  border-color: #d8144f;
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.2);
+}
+
 .status-icon {
   margin-right: 8px;
   color: #409eff;
@@ -5262,6 +5417,21 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
   flex-wrap: wrap;
 }
 
+.card-header .header-row {
+  margin-bottom: 20px;
+}
+
+.card-header .total-download-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: nowrap;
+}
+
+.card-header .total-download-group .action-button {
+  flex-shrink: 0;
+}
+
 .card-header .status-cards-container {
   margin-top: 8px;
 }
@@ -5308,6 +5478,24 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
 
 .header-search-input {
   width: 100%;
+}
+
+.header-search--mobile {
+  width: 100%;
+}
+
+.header-back-btn--mobile {
+  padding: 6px;
+  min-width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.search-spinner {
+  margin-right: 6px;
 }
 
 .header-search :deep(.el-input-group__append) .el-icon.is-loading {
@@ -5854,6 +6042,97 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
   align-items: center;
 }
 
+.mobile-quick-actions {
+  flex-wrap: wrap;
+}
+
+.mobile-quick-actions .el-button {
+  flex: 1 1 100%;
+  margin: 4px 0;
+}
+
+.mobile-grievance-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mobile-grievance-card {
+  background-color: var(--el-bg-color);
+  border: 1px solid #e4e7ed;
+  border-radius: 12px;
+  padding: 14px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mobile-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.mobile-card-header .card-code {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--el-text-color-primary);
+}
+
+.mobile-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.card-description {
+  margin: 0;
+  font-size: 13px;
+  color: var(--el-text-color-regular);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.card-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.card-label {
+  font-weight: 600;
+  color: var(--el-text-color-secondary);
+}
+
+.card-value {
+  flex: 1;
+  text-align: left;
+  color: var(--el-text-color-primary);
+}
+
+.mobile-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.mobile-card-footer .el-button {
+  padding: 0;
+  margin-left: auto;
+}
+
+@media (min-width: 769px) {
+  .mobile-grievance-list {
+    display: none;
+  }
+}
+
 /* Filter Drawer */
 .filter-drawer :deep(.el-drawer__body) {
   padding: 0;
@@ -6033,6 +6312,11 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
     gap: 12px;
   }
   
+  .card-header .total-download-group {
+    width: 100%;
+    justify-content: space-between;
+  }
+
   .total-count-badge {
     min-width: 80px;
     padding: 6px 12px;
