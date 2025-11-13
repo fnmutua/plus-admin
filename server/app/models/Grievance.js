@@ -189,6 +189,10 @@ module.exports = function (sequelize) {
       confirmation_notes: {
         type: DataTypes.TEXT,
         allowNull: true
+      },
+      resolution: {
+        type: DataTypes.TEXT,
+        allowNull: true
       }
     },
     {

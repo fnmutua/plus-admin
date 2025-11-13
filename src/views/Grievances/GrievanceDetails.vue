@@ -325,6 +325,7 @@ const processGrievance = async() => {
   Grievance.value.date_reported = res.data.date_reported
   Grievance.value.plea = res.data.plea
   Grievance.value.current_level = res.data.current_level
+  Grievance.value.resolution = res.data.resolution || null
 
 
   if(Grievance.value.status =='Closed' || Grievance.value.status =='In Court' ) {
@@ -1003,10 +1004,37 @@ onMounted(async () => {
 
 // Computed property to transform grievance object into an array for el-table
 const grievanceData = computed(() => {
-  return Object.keys(Grievance.value).map(key => ({
-    label: formatSentence(key),
-    value: formatSentence(Grievance.value[key])
-  }));
+  const data = Object.keys(Grievance.value).map(key => {
+    // Don't format resolution value - it's already readable text
+    const value = key === 'resolution' 
+      ? (Grievance.value[key] || 'N/A')
+      : (Grievance.value[key] !== null && Grievance.value[key] !== undefined 
+          ? formatSentence(Grievance.value[key]) 
+          : 'N/A');
+    
+    return {
+      label: formatSentence(key),
+      value: value
+    };
+  });
+  
+  // Add resolution field if it exists in FullGrievanceData (even if not in Grievance.value)
+  if (FullGrievanceData.value?.resolution) {
+    // Check if resolution already exists in the data array
+    const resolutionIndex = data.findIndex(item => item.label.toLowerCase() === 'resolution');
+    if (resolutionIndex !== -1) {
+      // Update existing resolution entry
+      data[resolutionIndex].value = FullGrievanceData.value.resolution;
+    } else {
+      // Add resolution entry
+      data.push({
+        label: 'Resolution',
+        value: FullGrievanceData.value.resolution
+      });
+    }
+  }
+  
+  return data;
 });
 
 
@@ -1250,7 +1278,7 @@ const submitResolutionForm = async () => {
       await uploadFiles(res.data.id, Grievance.value.id)
 
 
-      const formData = {
+      const formData: any = {
         code: Grievance.value.code,
         new_status: form.value.new_status,
         recipient: Grievance.value.phone,
@@ -1263,6 +1291,12 @@ const submitResolutionForm = async () => {
         action_level: current_user_roles[0] ? current_user_roles[0] : 'settlement',
         reffered_to_officer: form.value.reffered_to_officer , // Extract id or set to null
       };
+
+      // Explicitly send resolution field when grievance is resolved
+      // Use the action text directly (without the "Your grievance has been resolved. " prefix)
+      if (form.value.new_status === 'Resolved') {
+        formData.resolution = form.value.action || msg.replace("Your grievance has been resolved. ", "");
+      }
 
      
 
@@ -2082,23 +2116,25 @@ const formData = {}
     <el-tabs v-model="activeName" type="border-card" class="demo-tabs">
       <el-tab-pane label="Grievance Details" name="details">
 
-        <el-card class="responsive-card">
+        <el-card class="responsive-card details-table-card">
           <el-table
               :data="grievanceData"
+              class="grievance-details-table"
               style="width: 100%"
               size="small"
               :table-layout="'auto'"
               show-overflow-tooltip
+              stripe
             >
-              <el-table-column prop="label" label="" width="150">
+              <el-table-column prop="label" label="" width="180" class-name="detail-label-column">
                 <template #default="{ row }">
-                  <span style="font-weight: bold">{{ row.label }}</span>
+                  <span class="detail-label">{{ row.label }}</span>
                 </template>
               </el-table-column>
               
-              <el-table-column prop="value" label="">
+              <el-table-column prop="value" label="" class-name="detail-value-column">
                 <template #default="{ row }">
-                  <div style="white-space: normal; word-break: break-word;">
+                  <div class="detail-value" :class="{ 'detail-value-resolution': row.label.toLowerCase() === 'resolution' }">
                     {{ row.value }}
                   </div>
                 </template>
@@ -2152,34 +2188,37 @@ const formData = {}
   <!-- Confirmation Status Display -->
   <el-card
     v-if="FullGrievanceData && FullGrievanceData.status === 'Resolved' && ['settlement', 'county'].includes(FullGrievanceData.current_level)"
-    style="margin-top: 16px;"
+    class="confirmation-status-card"
     shadow="never"
     :class="FullGrievanceData.confirmed_by_national_grm ? 'confirmation-card confirmed' : 'confirmation-card awaiting'"
   >
     <template #header>
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <el-icon :size="20" :color="FullGrievanceData.confirmed_by_national_grm ? '#67c23a' : '#e6a23c'">
+      <div class="confirmation-header">
+        <el-icon :size="16" class="confirmation-icon">
           <Check v-if="FullGrievanceData.confirmed_by_national_grm" />
           <Notification v-else />
         </el-icon>
-        <span style="font-weight: 600;">
+        <span class="confirmation-title">
           {{ FullGrievanceData.confirmed_by_national_grm ? 'Resolution Confirmed' : 'Awaiting National GRM Confirmation' }}
         </span>
       </div>
     </template>
     
-    <div v-if="FullGrievanceData.confirmed_by_national_grm" style="display: flex; flex-direction: column; gap: 8px;">
-      <div>
-        <strong>Confirmed by:</strong> {{ FullGrievanceData.confirmed_by_user?.name || FullGrievanceData.confirmed_by_user?.username || 'National GRM Officer' }}
+    <div v-if="FullGrievanceData.confirmed_by_national_grm" class="confirmation-details">
+      <div class="confirmation-detail-item">
+        <span class="confirmation-label">Confirmed by:</span>
+        <span class="confirmation-value">{{ FullGrievanceData.confirmed_by_user?.name || FullGrievanceData.confirmed_by_user?.username || 'National GRM Officer' }}</span>
       </div>
-      <div v-if="FullGrievanceData.date_confirmed_by_national_grm">
-        <strong>Date Confirmed:</strong> {{ formatDate(FullGrievanceData.date_confirmed_by_national_grm) }}
+      <div v-if="FullGrievanceData.date_confirmed_by_national_grm" class="confirmation-detail-item">
+        <span class="confirmation-label">Date Confirmed:</span>
+        <span class="confirmation-value">{{ formatDate(FullGrievanceData.date_confirmed_by_national_grm) }}</span>
       </div>
-      <div v-if="FullGrievanceData.confirmation_notes">
-        <strong>Notes:</strong> {{ FullGrievanceData.confirmation_notes }}
+      <div v-if="FullGrievanceData.confirmation_notes" class="confirmation-detail-item">
+        <span class="confirmation-label">Notes:</span>
+        <span class="confirmation-value">{{ FullGrievanceData.confirmation_notes }}</span>
       </div>
     </div>
-    <div v-else style="color: #e6a23c;">
+    <div v-else class="confirmation-awaiting-message">
       This resolution at {{ formatSentence(FullGrievanceData.current_level) }} level is awaiting confirmation by national GRM.
     </div>
   </el-card>
@@ -3626,18 +3665,197 @@ width="340"
   width: 100%;
 }
 
-/* Confirmation Card Styles */
+/* Confirmation Card Styles - Improved and Dark Mode Friendly */
+.confirmation-status-card {
+  margin-top: 12px;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.confirmation-status-card :deep(.el-card__header) {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  background-color: var(--el-bg-color-page);
+}
+
+.confirmation-status-card :deep(.el-card__body) {
+  padding: 12px 16px;
+}
+
+.confirmation-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.confirmation-icon {
+  flex-shrink: 0;
+}
+
+.confirmation-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  line-height: 1.4;
+}
+
+.confirmation-details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.confirmation-detail-item {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.confirmation-label {
+  font-weight: 500;
+  color: var(--el-text-color-regular);
+  min-width: 100px;
+}
+
+.confirmation-value {
+  color: var(--el-text-color-primary);
+  flex: 1;
+  word-break: break-word;
+}
+
+.confirmation-awaiting-message {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--el-text-color-regular);
+  font-style: italic;
+}
+
 .confirmation-card {
-  border-left: 4px solid;
+  border-left: 3px solid;
+  border-radius: 6px;
 }
 
 .confirmation-card.confirmed {
-  border-left-color: #67c23a;
-  background-color: #f0f9eb;
+  border-left-color: var(--el-color-success);
+  background-color: var(--el-color-success-light-9);
+}
+
+.confirmation-card.confirmed :deep(.el-card__header) {
+  background-color: var(--el-color-success-light-9);
+}
+
+.confirmation-card.confirmed .confirmation-icon {
+  color: var(--el-color-success);
 }
 
 .confirmation-card.awaiting {
-  border-left-color: #e6a23c;
-  background-color: #fdf6ec;
+  border-left-color: var(--el-color-warning);
+  background-color: var(--el-color-warning-light-9);
+}
+
+.confirmation-card.awaiting :deep(.el-card__header) {
+  background-color: var(--el-color-warning-light-9);
+}
+
+.confirmation-card.awaiting .confirmation-icon {
+  color: var(--el-color-warning);
+}
+
+/* Dark mode adjustments */
+[data-theme="dark"] .confirmation-card.confirmed {
+  background-color: rgba(103, 194, 58, 0.15);
+  border-left-color: var(--el-color-success);
+}
+
+[data-theme="dark"] .confirmation-card.awaiting {
+  background-color: rgba(230, 162, 60, 0.15);
+  border-left-color: var(--el-color-warning);
+}
+
+/* Details Table Styles - Improved */
+.details-table-card {
+  border-radius: 8px;
+}
+
+.details-table-card :deep(.el-card__body) {
+  padding: 12px;
+}
+
+.grievance-details-table {
+  font-size: 13px;
+}
+
+.grievance-details-table :deep(.el-table__header) {
+  background-color: var(--el-bg-color-page);
+}
+
+.grievance-details-table :deep(.el-table__row) {
+  transition: background-color 0.2s ease;
+}
+
+.grievance-details-table :deep(.el-table__row:hover) {
+  background-color: var(--el-fill-color-light);
+}
+
+.detail-label-column {
+  background-color: var(--el-fill-color-lighter);
+}
+
+.detail-label {
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--el-text-color-regular);
+  letter-spacing: 0.2px;
+}
+
+.detail-value {
+  font-size: 13px;
+  color: var(--el-text-color-primary);
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.5;
+  padding: 2px 0;
+}
+
+.detail-value-resolution {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--el-text-color-primary);
+  padding: 4px 0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .confirmation-header {
+    gap: 6px;
+  }
+  
+  .confirmation-title {
+    font-size: 12px;
+  }
+  
+  .confirmation-detail-item {
+    font-size: 11px;
+    flex-direction: column;
+    gap: 2px;
+  }
+  
+  .confirmation-label {
+    min-width: auto;
+  }
+  
+  .grievance-details-table {
+    font-size: 12px;
+  }
+  
+  .detail-label {
+    font-size: 11px;
+  }
+  
+  .detail-value {
+    font-size: 12px;
+  }
 }
 </style>

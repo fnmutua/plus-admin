@@ -2254,6 +2254,13 @@ exports.modelImportGrievances = async (req, res) => {
         // Auto-populate date fields when status changes to Resolved or Closed
         if (newStatus === 'Resolved' ) {
           grievance.date_resolved = new Date();
+          // Save the resolution (action taken) when grievance is resolved
+          if (req.body.resolution) {
+            grievance.resolution = req.body.resolution;
+          } else if (action) {
+            // Fallback to action if resolution is not provided
+            grievance.resolution = action;
+          }
         } else if (newStatus === 'Closed' ) {
           grievance.date_closed = new Date();
         }

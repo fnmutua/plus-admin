@@ -84,6 +84,7 @@ interface GrievanceType {
   date_confirmed_by_national_grm?: string
   confirmation_level?: string
   confirmation_notes?: string
+  resolution?: string
   [key: string]: any
 }
 
@@ -1036,9 +1037,9 @@ const getFilteredData = async (selFilters: string[], selfilterValues: any[][]) =
   formData.filterValues = selfilterValues
   formData.filterFunctions = filterFunction.value
 
-  // Include grievance_history when viewing deleted grievances
+  // Include grievance_history when viewing deleted or resolved grievances
   const associatedModels = [...associated_multiple_models]
-  if (activeSegment.value === 'Deleted') {
+  if (activeSegment.value === 'Deleted' || activeSegment.value === 'Resolved') {
     associatedModels.push('grievance_history')
   }
   formData.associated_multiple_models = associatedModels
@@ -4124,9 +4125,9 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
                 <el-tag v-if="row.project_phase" size="small" type="warning" style="margin-left:6px;">
                   {{ row.project_phase }}
                 </el-tag>
-                <!-- Confirmation status badge -->
+                <!-- Confirmation status badge - Show for all resolved grievances at settlement/county level -->
                 <el-tag 
-                  v-if="row.status === 'Resolved' && ['settlement', 'county'].includes(row.current_level)"
+                  v-if="row.status === 'Resolved' && row.current_level && ['settlement', 'county'].includes(String(row.current_level).toLowerCase())"
                   size="small" 
                   :type="row.confirmed_by_national_grm ? 'success' : 'warning'" 
                   style="margin-left:6px;"
@@ -4200,6 +4201,14 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
         <el-table-column  v-if="['Resolved'].includes(activeSegment)" prop="date_resolved" label="Date Resolved" width="150">
           <template #default="{ row }">
             <span>{{ formatDate(row.date_resolved) }}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column v-if="['Resolved'].includes(activeSegment)" prop="resolution" label="Resolution" min-width="300">
+          <template #default="{ row }">
+            <div class="resolution-text">
+              {{ row.resolution || 'No resolution details' }}
+            </div>
           </template>
         </el-table-column>
 
@@ -5471,6 +5480,13 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
   color: #606266;
   font-size: 14px;
   line-height: 1.4;
+}
+
+.resolution-text {
+  color: #606266;
+  font-size: 14px;
+  line-height: 1.4;
+  word-wrap: break-word;
 }
 
 .grievance-category {
