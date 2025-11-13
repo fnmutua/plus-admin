@@ -4279,33 +4279,41 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
     :size="isMobile ? '100%' : '50%'"
     :with-header="false"
     :before-close="handleCloseDialog"
+    class="grievance-drawer"
   >
     <!-- Custom Header -->
     <div class="drawer-header">
       <div class="header-content">
         <div class="header-icon">
-          <el-icon :size="24">
+          <el-icon :size="isMobile ? 20 : 24">
             <Plus />
           </el-icon>
         </div>
         <div class="header-text">
           <h3>File a Grievance</h3>
-          <p>Create a new grievance complaint</p>
+          <p v-if="!isMobile">Create a new grievance complaint</p>
         </div>
       </div>
       <el-button 
         type="text" 
         @click="AddDialogVisible = false"
         class="close-button"
+        :size="isMobile ? 'small' : 'default'"
       >
-        <el-icon :size="20">
+        <el-icon :size="isMobile ? 18 : 20">
           <Close />
         </el-icon>
       </el-button>
     </div>
 
     <div class="drawer-content">
-      <el-steps :active="active" finish-status="success" class="drawer-steps">
+      <el-steps 
+        :active="active" 
+        finish-status="success" 
+        class="drawer-steps"
+        :direction="isMobile ? 'vertical' : 'horizontal'"
+        :space="isMobile ? 100 : undefined"
+      >
         <el-step title="Complainant Details" />
         <el-step title="Grievance Details" />
         <el-step title="Complaint Details" />
@@ -4465,7 +4473,7 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
                   type="textarea"
                   v-model="grmForm.description"
                   placeholder="Provide a detailed description"
-                  :rows="4"
+                  :rows="isMobile ? 3 : 4"
                 />
               </el-form-item>
             </el-col>
@@ -4475,7 +4483,7 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
                   type="textarea"
                   v-model="grmForm.plea"
                   placeholder="Enter the complainant's plea or request"
-                  :rows="4"
+                  :rows="isMobile ? 3 : 4"
                 />
               </el-form-item>
             </el-col>
@@ -4505,7 +4513,7 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
                   type="textarea"
                   v-model="grmForm.witness_statement"
                   placeholder="Enter witness statement"
-                  :rows="4"
+                  :rows="isMobile ? 3 : 4"
                 />
               </el-form-item>
             </el-col>
@@ -4535,12 +4543,52 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
       </el-form>
 
       <!-- Drawer Footer -->
-      <div class="drawer-footer">
-        <el-button id="btn8" v-if="active === 0" @click="resetForm">Clear Form</el-button>
-        <el-button id="btn9" v-if="active > 0" @click="prev">Previous</el-button>
-        <el-button id="btn7" v-if="active < 3" type="primary" @click="next">Next</el-button>
-        <el-button id="btn21" v-if="active === 3" type="primary" @click="submitForm">Submit</el-button>
-        <el-button @click="AddDialogVisible = false">Cancel</el-button>
+      <div class="drawer-footer" :class="{ 'mobile-footer': isMobile }">
+        <el-button 
+          id="btn8" 
+          v-if="active === 0" 
+          @click="resetForm"
+          :size="isMobile ? 'small' : 'default'"
+          :class="{ 'mobile-button': isMobile }"
+        >
+          Clear Form
+        </el-button>
+        <el-button 
+          id="btn9" 
+          v-if="active > 0" 
+          @click="prev"
+          :size="isMobile ? 'small' : 'default'"
+          :class="{ 'mobile-button': isMobile }"
+        >
+          Previous
+        </el-button>
+        <el-button 
+          id="btn7" 
+          v-if="active < 3" 
+          type="primary" 
+          @click="next"
+          :size="isMobile ? 'small' : 'default'"
+          :class="{ 'mobile-button': isMobile }"
+        >
+          Next
+        </el-button>
+        <el-button 
+          id="btn21" 
+          v-if="active === 3" 
+          type="primary" 
+          @click="submitForm"
+          :size="isMobile ? 'small' : 'default'"
+          :class="{ 'mobile-button': isMobile }"
+        >
+          Submit
+        </el-button>
+        <el-button 
+          @click="AddDialogVisible = false"
+          :size="isMobile ? 'small' : 'default'"
+          :class="{ 'mobile-button': isMobile }"
+        >
+          Cancel
+        </el-button>
       </div>
     </div>
   </el-drawer>
@@ -5608,39 +5656,62 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
 }
 
 /* Drawer Styles */
+.grievance-drawer :deep(.el-drawer__body) {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
 .drawer-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px 24px;
+  padding: 16px 20px;
   border-bottom: 1px solid #e9ecef;
+  flex-shrink: 0;
+  background: #fff;
  }
 
 .drawer-header .header-content {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
 }
 
 .drawer-header .header-icon {
   color: #409eff;
+  flex-shrink: 0;
+}
+
+.drawer-header .header-text {
+  min-width: 0;
+  flex: 1;
 }
 
 .drawer-header .header-text h3 {
-  margin: 0 0 4px 0;
+  margin: 0 0 2px 0;
   font-size: 18px;
   font-weight: 600;
   color: #303133;
+  line-height: 1.3;
+  word-wrap: break-word;
 }
 
 .drawer-header .header-text p {
   margin: 0;
   font-size: 14px;
   color: #606266;
+  line-height: 1.4;
 }
 
 .close-button {
   color: #909399;
+  flex-shrink: 0;
+  padding: 4px;
 }
 
 .close-button:hover {
@@ -5648,21 +5719,32 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
 }
 
 .drawer-content {
-  padding: 24px;
-  height: calc(100vh - 80px);
+  padding: 16px 20px;
+  flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 .drawer-steps {
-  margin-bottom: 24px;
+  margin-bottom: 20px;
+}
+
+.drawer-steps :deep(.el-step__title) {
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.drawer-steps :deep(.el-step__description) {
+  font-size: 12px;
 }
 
 .grievance-form {
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 
 .form-step {
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .drawer-footer {
@@ -5672,10 +5754,23 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
    border-top: 1px solid #e9ecef;
   background: #fff;
   display: flex;
-  gap: 12px;
+  gap: 8px;
   justify-content: flex-end;
-  z-index: 1;
+  flex-wrap: wrap;
+  z-index: 10;
   box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.04);
+  flex-shrink: 0;
+}
+
+.drawer-footer.mobile-footer {
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+}
+
+.drawer-footer.mobile-footer .mobile-button {
+  width: 100%;
+  margin: 0;
 }
 
 /* Responsive Design - Optimized for older screens */
@@ -5972,12 +6067,145 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
     min-width: 180px;
   }
   
+  .drawer-header {
+    padding: 12px 16px;
+  }
+  
+  .drawer-header .header-text h3 {
+    font-size: 16px;
+  }
+  
+  .drawer-header .header-text p {
+    font-size: 12px;
+  }
+  
   .drawer-content {
-    padding: 16px;
+    padding: 12px 16px;
+    height: calc(100vh - 140px);
+  }
+  
+  .drawer-steps {
+    margin-bottom: 16px;
+  }
+  
+  .drawer-steps :deep(.el-step__title) {
+    font-size: 12px;
+  }
+  
+  .drawer-steps :deep(.el-step__head) {
+    width: 24px;
+    height: 24px;
+  }
+  
+  .drawer-steps :deep(.el-step__icon) {
+    width: 24px;
+    height: 24px;
+    font-size: 12px;
+  }
+  
+  .drawer-steps :deep(.el-step__line) {
+    top: 12px;
+  }
+  
+  .grievance-form {
+    margin-bottom: 16px;
+  }
+  
+  .form-step {
+    margin-bottom: 12px;
   }
   
   .drawer-footer {
-    padding: 12px 16px;
+    padding: 10px 12px;
+    gap: 6px;
+  }
+  
+  .drawer-footer.mobile-footer {
+    padding: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .drawer-header {
+    padding: 10px 12px;
+  }
+  
+  .drawer-header .header-content {
+    gap: 8px;
+  }
+  
+  .drawer-header .header-text h3 {
+    font-size: 15px;
+  }
+  
+  .drawer-content {
+    padding: 10px 12px;
+    height: calc(100vh - 120px);
+  }
+  
+  .drawer-steps {
+    margin-bottom: 12px;
+  }
+  
+  .drawer-steps :deep(.el-step__title) {
+    font-size: 11px;
+  }
+  
+  .drawer-steps :deep(.el-step__head) {
+    width: 20px;
+    height: 20px;
+  }
+  
+  .drawer-steps :deep(.el-step__icon) {
+    width: 20px;
+    height: 20px;
+    font-size: 11px;
+  }
+  
+  .drawer-steps :deep(.el-step__line) {
+    top: 10px;
+  }
+  
+  .grievance-form :deep(.el-form-item) {
+    margin-bottom: 12px;
+  }
+  
+  .grievance-form :deep(.el-form-item__label) {
+    font-size: 13px;
+    margin-bottom: 4px;
+    padding-bottom: 0;
+  }
+  
+  .grievance-form :deep(.el-input__wrapper),
+  .grievance-form :deep(.el-textarea__inner),
+  .grievance-form :deep(.el-select .el-input__wrapper) {
+    padding: 4px 8px;
+    min-height: 32px;
+  }
+  
+  .grievance-form :deep(.el-input__inner) {
+    height: 30px;
+    font-size: 14px;
+  }
+  
+  .grievance-form :deep(.el-textarea__inner) {
+    padding: 6px 8px;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  
+  .drawer-footer {
+    padding: 8px 10px;
+    gap: 6px;
+  }
+  
+  .drawer-footer.mobile-footer {
+    padding: 8px;
+  }
+  
+  .drawer-footer .el-button {
+    font-size: 13px;
+    padding: 8px 12px;
   }
 }
 

@@ -60,6 +60,7 @@ const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
 
+const isMobile = computed(() => appStore.getMobile)
  
 const isSuperAdmin = ref(userInfo.roles.some(role => role.name === "super_admin"));
 
@@ -1013,7 +1014,7 @@ const grievanceData = computed(() => {
           : 'N/A');
     
     return {
-      label: formatSentence(key),
+    label: formatSentence(key),
       value: value
     };
   });
@@ -2117,22 +2118,23 @@ const formData = {}
       <el-tab-pane label="Grievance Details" name="details">
 
         <el-card class="responsive-card details-table-card">
+          <!-- Desktop Table View -->
           <el-table
               :data="grievanceData"
-              class="grievance-details-table"
+              class="grievance-details-table desktop-table"
               style="width: 100%"
               size="small"
               :table-layout="'auto'"
               show-overflow-tooltip
               stripe
             >
-              <el-table-column prop="label" label="" width="180" class-name="detail-label-column">
+              <el-table-column prop="label" label="" :width="isMobile ? 120 : 180" class-name="detail-label-column" :min-width="isMobile ? 100 : 150">
                 <template #default="{ row }">
                   <span class="detail-label">{{ row.label }}</span>
                 </template>
               </el-table-column>
               
-              <el-table-column prop="value" label="" class-name="detail-value-column">
+              <el-table-column prop="value" label="" class-name="detail-value-column" min-width="200">
                 <template #default="{ row }">
                   <div class="detail-value" :class="{ 'detail-value-resolution': row.label.toLowerCase() === 'resolution' }">
                     {{ row.value }}
@@ -2140,6 +2142,19 @@ const formData = {}
                 </template>
               </el-table-column>
             </el-table>
+
+          <!-- Mobile Card View -->
+          <div class="mobile-details-list">
+            <div 
+              v-for="(item, index) in grievanceData" 
+              :key="index" 
+              class="mobile-detail-item"
+              :class="{ 'mobile-detail-resolution': item.label.toLowerCase() === 'resolution' }"
+            >
+              <div class="mobile-detail-label">{{ item.label }}</div>
+              <div class="mobile-detail-value">{{ item.value }}</div>
+            </div>
+          </div>
 
 
   <template #header v-if="showActionButton">
@@ -2318,51 +2333,155 @@ class="notification-custom-card" shadow="hover" :class="log.action_type === 'Res
 
 
       <el-tab-pane label="Notifications" name="notifications">
+        <!-- Mobile Card View -->
+        <div v-if="isMobile" class="mobile-notifications-list">
+          <div 
+            v-for="(notification, index) in sortedGrievanceNotifications" 
+            :key="index" 
+            class="mobile-notification-card"
+            :class="notification.status === 'Success' ? 'mobile-notification-success' : 'mobile-notification-fail'"
+          >
+            <div class="mobile-notification-header">
+              <div class="mobile-notification-status">
+                <el-icon class="status-icon success-icon" v-if="notification.status === 'Success'"><Check /></el-icon>
+                <el-icon class="status-icon fail-icon" v-else><Close /></el-icon>
+                <span class="mobile-notification-date">{{ formatDate(notification.createdAt) }}</span>
+              </div>
+              <el-tag 
+                v-if="notification.status === 'Success'"
+                size="small"
+                type="success"
+                class="mobile-notification-tag"
+              >
+                {{ notification.status }}
+              </el-tag>
+            </div>
 
-        <el-timeline style="max-width: 100%;">
+            <div class="mobile-notification-body">
+              <div class="mobile-notification-message">
+                {{ notification.message }}
+              </div>
+              <div class="mobile-notification-meta">
+                <div class="meta-row">
+                  <span class="meta-label">Phone:</span>
+                  <span class="meta-value">{{ notification.recipient }}</span>
+                </div>
+                <div class="meta-row meta-status-row">
+                  <span class="meta-label">Status:</span>
+                  <el-tag 
+                    v-if="notification.status === 'Success'"
+                    size="small"
+                    type="success"
+                    class="mobile-notification-tag"
+                  >
+                    {{ notification.status }}
+                  </el-tag>
+                  <span 
+                    v-else 
+                    class="meta-value status-text"
+                  >
+                    {{ notification.status }}
+                  </span>
+                </div>
+                <div class="meta-row">
+                  <span class="meta-label">Sent By:</span>
+                  <span class="meta-value">{{ notification.user ? notification.user.name : 'System' }}</span>
+                </div>
+              </div>
+              <div v-if="notification.reference" class="mobile-notification-reference">
+                <span class="meta-label">Reference:</span>
+                <span class="meta-value">{{ notification.reference }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Desktop Timeline View -->
+        <div v-else class="notifications-wrapper">
+          <el-timeline class="notifications-timeline">
           <el-timeline-item
-v-for="(notification, index) in sortedGrievanceNotifications" :key="index" placement="top"
-            :timestamp="formatDate(notification.createdAt)" timestamp-class="timestamp-class"
-            :color="notification.status == 'Success' ? 'green' : 'red'">
-            <el-collapse>
-              <el-collapse-item :name="notification.id" :icon="CaretRight" :title="notification.id">
+              v-for="(notification, index) in sortedGrievanceNotifications" 
+              :key="index" 
+              placement="top"
+              :timestamp="formatDate(notification.createdAt)" 
+              timestamp-class="timestamp-class"
+              :color="notification.status == 'Success' ? 'green' : 'red'"
+              class="notification-timeline-item"
+            >
+              <el-collapse class="notification-collapse">
+                <el-collapse-item 
+                  :name="notification.id" 
+                  :icon="CaretRight" 
+                  :title="notification.id"
+                  class="notification-collapse-item"
+                >
                 <!-- Scoped slot for custom title -->
                 <template #title>
-                  <span :class="notification.status === 'Success' ? 'success-title' : 'fail-title'">
-                    <el-icon v-if="notification.status === 'Success'" class="success-icon" style="margin-right: 8px;">
-                      <!-- Use a checkmark icon for success (Element Plus provides many options) -->
+                    <div class="notification-title-wrapper">
+                      <el-icon 
+                        v-if="notification.status === 'Success'" 
+                        class="notification-status-icon success-icon"
+                      >
                       <Check />
                     </el-icon>
-
-                    <el-icon v-if="notification.status != 'Success'" class="success-icon" style="margin-right: 8px;">
-                      <!-- Use a checkmark icon for success (Element Plus provides many options) -->
+                      <el-icon 
+                        v-else 
+                        class="notification-status-icon fail-icon"
+                      >
                       <Close />
                     </el-icon>
-
-
+                      <span 
+                        class="notification-title-text"
+                        :class="notification.status === 'Success' ? 'success-title' : 'fail-title'"
+                      >
                     {{ notification.message }}
                   </span>
+                    </div>
                 </template>
 
                 <el-card
-class="notification-custom-card" shadow="hover"
-                  :class="notification.status === 'Success' ? 'success-background' : 'closed-background'">
+                    class="notification-custom-card" 
+                    shadow="hover"
+                    :class="notification.status === 'Success' ? 'success-background' : 'closed-background'"
+                  >
                   <div class="notification-container">
-                    <!-- Message -->
-                    <p class="action-body">Message: {{ notification.message }}</p>
-                    <p class="action-footer">Date: {{ notification.createdAt }}</p>
-                    <p class="action-footer">Phone: {{ notification.recipient }}</p>                  
-                    <p class="action-footer">Delivery Status: {{ notification.status }}</p>
-                    <p class="action-footer">Sent By: {{ notification.user ? notification.user.name : 'System' }}</p>
+                      <div class="notification-detail-row">
+                        <span class="notification-detail-label">Message:</span>
+                        <span class="notification-detail-value">{{ notification.message }}</span>
+                      </div>
+                      <div class="notification-detail-row">
+                        <span class="notification-detail-label">Phone:</span>
+                        <span class="notification-detail-value">{{ notification.recipient }}</span>
+                      </div>
+                      <div class="notification-detail-row">
+                        <span class="notification-detail-label">Status:</span>
+                        <el-tag 
+                          v-if="notification.status === 'Success'"
+                          type="success" 
+                          size="small"
+                          class="notification-status-tag"
+                        >
+                          {{ notification.status }}
+                        </el-tag>
+                        <span v-else class="notification-detail-value status-text">
+                          {{ notification.status }}
+                        </span>
+                      </div>
+                      <div class="notification-detail-row">
+                        <span class="notification-detail-label">Sent By:</span>
+                        <span class="notification-detail-value">{{ notification.user ? notification.user.name : 'System' }}</span>
+                      </div>
+                      <div v-if="notification.reference" class="notification-detail-row">
+                        <span class="notification-detail-label">Reference:</span>
+                        <span class="notification-detail-value">{{ notification.reference }}</span>
+                      </div>
                   </div>
                 </el-card>
               </el-collapse-item>
             </el-collapse>
           </el-timeline-item>
-
-
         </el-timeline>
-
+        </div>
       </el-tab-pane>
 
 
@@ -2517,27 +2636,29 @@ width="340"
   <el-drawer 
     v-model="dialogFormVisible" 
     direction="rtl" 
-    size="40%"
+    :size="isMobile ? '100%' : '40%'"
     :with-header="false"
     :before-close="handleDrawerClose"
+    class="grievance-drawer"
   >
     <!-- Custom Header -->
     <div class="drawer-header">
       <div class="header-content">
         <div class="header-icon">
-          <Icon icon="mdi:file-document-edit" size="24" />
+          <Icon icon="mdi:file-document-edit" :size="isMobile ? 20 : 24" />
         </div>
         <div class="header-text">
           <h3>Grievance Status Update</h3>
-          <p>Update the status and details of grievance #{{ Grievance.code }}</p>
+          <p v-if="!isMobile">Update the status and details of grievance #{{ Grievance.code }}</p>
         </div>
       </div>
       <el-button 
         type="text" 
         @click="dialogFormVisible = false"
         class="close-button"
+        :size="isMobile ? 'small' : 'default'"
       >
-        <Icon icon="mdi:close" size="20" />
+        <Icon icon="mdi:close" :size="isMobile ? 18 : 20" />
       </el-button>
     </div>
 
@@ -2597,57 +2718,57 @@ width="340"
           </el-select>
         </el-form-item>
 
-        <el-row :gutter="2" v-if="form.new_status == 'Resolved'">
-          <el-col :xs="8" :sm="8" :md="8" :lg="8" :xl="8">
+        <el-row :gutter="isMobile ? 0 : 2" v-if="form.new_status == 'Resolved'">
+          <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
             <el-form-item label="Was Filer Present? " label-position="top" prop="filer_present">
               <el-switch v-model="form.filer_present" />
             </el-form-item>
           </el-col>
 
-          <el-col :xs="8" :sm="8" :md="8" :lg="8" :xl="8">
+          <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
             <el-form-item label="Was field verification of complaint conducted?  " label-position="top" prop="field_verification_conducted">
               <el-switch v-model="form.field_verification_conducted" />
             </el-form-item>
           </el-col>
 
-          <el-col :xs="8" :sm="8" :md="8" :lg="8" :xl="8">
+          <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
             <el-form-item label="Date of Resolution" label-position="top" prop="resolution_date">
-              <el-date-picker v-model="form.resolution_date" type="date" placeholder="Select" />
+              <el-date-picker v-model="form.resolution_date" type="date" placeholder="Select" style="width: 100%" />
             </el-form-item>
           </el-col>
         </el-row>
 
         <el-form-item v-if="form.new_status == 'Resolved'" label="Findings of field investigation" label-position="top" prop="field_investigations">
-          <el-input type="textarea" :rows="2" placeholder="Provide details of the resolution here" v-model="form.field_investigations" />
+          <el-input type="textarea" :rows="isMobile ? 3 : 2" placeholder="Provide details of the resolution here" v-model="form.field_investigations" />
         </el-form-item>
 
-        <el-row :gutter="2" v-if="form.new_status == 'Resolved'">
-          <el-col :xs="8" :sm="8" :md="8" :lg="8" :xl="8">
+        <el-row :gutter="isMobile ? 0 : 2" v-if="form.new_status == 'Resolved'">
+          <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
             <el-form-item label="Was agreement reached on the issues?	" label-position="top" prop="agreement_reached">
               <el-switch v-model="form.agreement_reached" />
             </el-form-item>
           </el-col>
-          <el-col :xs="16" :sm="16" :md="16" :lg="16" :xl="16">
+          <el-col :xs="24" :sm="24" :md="16" :lg="16" :xl="16">
             <el-form-item v-if="form.agreement_reached" label="If agreement was reached, detail the agreement below:" label-position="top" prop="agreement">
-              <el-input type="textarea" :rows="2" placeholder="Provide details of agreement here" v-model="form.agreement" />
+              <el-input type="textarea" :rows="isMobile ? 3 : 2" placeholder="Provide details of agreement here" v-model="form.agreement" />
             </el-form-item>
 
             <el-form-item v-if="!form.agreement_reached" label="If agreement was not reached, specify the points of disagreement below" label-position="top" prop="point_disagreement">
-              <el-input type="textarea" :rows="2" placeholder="Provide details of disagreement here" v-model="form.point_disagreement" />
+              <el-input type="textarea" :rows="isMobile ? 3 : 2" placeholder="Provide details of disagreement here" v-model="form.point_disagreement" />
             </el-form-item>
           </el-col>
         </el-row>
 
         <el-form-item v-if="form.new_status == 'Resolved'" label="Issues" label-position="top" prop="issues">
-          <el-input type="textarea" :rows="2" placeholder="Provide details of the resolution here" v-model="form.issues" />
+          <el-input type="textarea" :rows="isMobile ? 3 : 2" placeholder="Provide details of the resolution here" v-model="form.issues" />
         </el-form-item>
 
         <el-form-item label="Describe the Action Taken" label-position="top" prop="action">
-          <el-input type="textarea" :rows="2" placeholder="Provide details of the resolution here" v-model="form.action" />
+          <el-input type="textarea" :rows="isMobile ? 3 : 2" placeholder="Provide details of the resolution here" v-model="form.action" />
         </el-form-item>
 
         <el-form-item v-if="form.new_status == 'ExternalReferral'" label="Name of organization case reffered to" label-position="top" prop="reffered_to">
-          <el-input type="textarea" :rows="2" placeholder="Name of organization" v-model="form.reffered_to" />
+          <el-input type="textarea" :rows="isMobile ? 3 : 2" placeholder="Name of organization" v-model="form.reffered_to" />
         </el-form-item> 
 
         <el-form-item label="Upload Documentation" label-position="top">
@@ -2674,16 +2795,36 @@ width="340"
 
       </el-form>
 
-      <div class="form-actions">
-        <el-button @click="dialogFormVisible = false">Cancel</el-button>
-        <el-button type="primary" @click="submitResolutionForm">Submit</el-button>
+      <div class="form-actions" :class="{ 'mobile-actions': isMobile }">
+        <el-button 
+          @click="dialogFormVisible = false"
+          :size="isMobile ? 'small' : 'default'"
+          :class="{ 'mobile-button': isMobile }"
+        >
+          Cancel
+        </el-button>
+        <el-button 
+          type="primary" 
+          @click="submitResolutionForm"
+          :size="isMobile ? 'small' : 'default'"
+          :class="{ 'mobile-button': isMobile }"
+        >
+          Submit
+        </el-button>
       </div>
     </div>
   </el-drawer>
 
 
 
-  <el-dialog v-model="EditDialogVisible" @close="handleCloseDialog" title="Edit the Grievance" width="65%" draggable>
+  <el-dialog 
+    v-model="EditDialogVisible" 
+    @close="handleCloseDialog" 
+    title="Edit the Grievance" 
+    :width="isMobile ? '95%' : '65%'" 
+    draggable
+    class="edit-grievance-dialog"
+  >
 
             <el-steps :active="active" finish-status="success">
               <el-step title="Complainant Details" />
@@ -3341,24 +3482,431 @@ width="340"
 }
 
 
-.notification-custom-card {
-  padding: 5px;
-  /* Reduce padding */
-  margin: 2px 0;
-  /* Adjust margin as needed */
-  min-height: 5px;
-  /* Set a minimum height if needed */
+/* Notifications Styles */
+.mobile-notifications-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 8px 0;
 }
 
+.mobile-notification-card {
+  background-color: var(--el-bg-color);
+  border-radius: 10px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  padding: 12px 14px;
+  border-left: 4px solid transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mobile-notification-success {
+  border-left-color: var(--el-color-success);
+}
+
+.mobile-notification-fail {
+  border-left-color: var(--el-color-danger);
+}
+
+.mobile-notification-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.mobile-notification-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.mobile-notification-date {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--el-text-color-secondary);
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.mobile-notification-tag {
+  flex-shrink: 0;
+}
+
+.mobile-notification-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mobile-notification-message {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--el-text-color-primary);
+  word-break: break-word;
+}
+
+.mobile-notification-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mobile-notification-meta .meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  line-height: 1.4;
+}
+
+.mobile-notification-meta .meta-label {
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--el-text-color-regular);
+  margin-right: 4px;
+}
+
+.mobile-notification-meta .meta-value {
+  font-size: 12px;
+  color: var(--el-text-color-primary);
+  word-break: break-word;
+}
+
+.status-text {
+  display: block;
+  font-size: inherit;
+  color: var(--el-text-color-primary);
+  word-break: break-word;
+  white-space: normal;
+}
+
+.mobile-notification-meta div {
+  line-height: 1.4;
+}
+
+.mobile-notification-reference {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  word-break: break-word;
+}
+
+.status-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.status-icon.success-icon {
+  color: var(--el-color-success);
+}
+
+.status-icon.fail-icon {
+  color: var(--el-color-danger);
+}
+
+.notifications-wrapper {
+  width: 100%;
+  padding: 0;
+}
+
+.notifications-timeline {
+  max-width: 100%;
+  padding: 0;
+}
+
+.notification-timeline-item {
+  margin-bottom: 12px;
+}
+
+.notification-collapse {
+  width: 100%;
+}
+
+.notification-collapse-item {
+  width: 100%;
+}
+
+.notification-collapse-item :deep(.el-collapse-item__header) {
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.notification-title-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+
+.notification-status-icon {
+  flex-shrink: 0;
+  font-size: 16px;
+}
+
+.notification-status-icon.success-icon {
+  color: #67C23A;
+}
+
+.notification-status-icon.fail-icon {
+  color: #f56c6c;
+}
+
+.notification-title-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  line-height: 1.4;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.notification-custom-card {
+  padding: 12px;
+  margin: 4px 0;
+  min-height: auto;
+  border-radius: 6px;
+}
+
+.notification-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.notification-detail-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: flex-start;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.notification-detail-label {
+  font-weight: 600;
+  color: var(--el-text-color-regular);
+  min-width: 80px;
+  flex-shrink: 0;
+}
+
+.notification-detail-value {
+  color: var(--el-text-color-primary);
+  flex: 1;
+  word-break: break-word;
+  min-width: 0;
+}
+
+.notification-status-tag {
+  margin-left: 0;
+}
 
 .timestamp-class {
-  font-weight: bold;
-  /* Example: Make it bold */
-  color: #6c757d;
-  /* Example: Set color */
+  font-weight: 600;
+  color: var(--el-text-color-regular);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+/* Mobile optimizations for notifications */
+@media (max-width: 768px) {
+  .mobile-notifications-list {
+    gap: 10px;
+    padding: 6px 2px;
+  }
+
+  .mobile-notification-card {
+    padding: 12px;
+    border-radius: 8px;
+  }
+
+  .mobile-notification-date {
+    font-size: 11px;
+  }
+
+  .mobile-notification-message {
+    font-size: 12px;
+  }
+
+  .mobile-notification-meta .meta-label,
+  .mobile-notification-meta .meta-value,
+  .mobile-notification-meta .meta-row,
+  .mobile-notification-reference {
+    font-size: 11px;
+  }
+
+  .status-icon {
   font-size: 14px;
-  /* Example: Adjust font size */
-  /* Add any additional styles as needed */
+  }
+
+  .notifications-timeline {
+    padding: 0 4px;
+  }
+  
+  .notification-timeline-item {
+    margin-bottom: 10px;
+  }
+  
+  .timestamp-class {
+    font-size: 11px;
+    font-weight: 500;
+  }
+  
+  .notification-title-wrapper {
+    gap: 6px;
+  }
+  
+  .notification-status-icon {
+    font-size: 14px;
+  }
+  
+  .notification-title-text {
+    font-size: 12px;
+    line-height: 1.3;
+  }
+  
+  .notification-custom-card {
+    padding: 10px;
+    margin: 2px 0;
+  }
+  
+  .notification-container {
+    gap: 6px;
+  }
+  
+  .notification-detail-row {
+    font-size: 12px;
+    gap: 4px;
+    flex-direction: column;
+  }
+  
+  .notification-detail-label {
+    min-width: auto;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  
+  .notification-detail-value {
+    font-size: 12px;
+    line-height: 1.4;
+  }
+  
+  .notification-status-tag {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+  
+  /* Optimize collapse item on mobile */
+  .notification-collapse-item :deep(.el-collapse-item__header) {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+  
+  .notification-collapse-item :deep(.el-collapse-item__content) {
+    padding: 8px 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .mobile-notifications-list {
+    gap: 8px;
+    padding: 4px 0;
+  }
+
+  .mobile-notification-card {
+    padding: 10px;
+  }
+
+  .mobile-notification-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .mobile-notification-date {
+    font-size: 10px;
+  }
+
+  .mobile-notification-message {
+    font-size: 11px;
+  }
+
+  .mobile-notification-meta .meta-label,
+  .mobile-notification-meta .meta-value,
+  .mobile-notification-meta .meta-row,
+  .mobile-notification-reference {
+    font-size: 10px;
+  }
+
+  .status-icon {
+    font-size: 12px;
+  }
+
+  .notifications-timeline {
+    padding: 0 2px;
+  }
+  
+  .notification-timeline-item {
+    margin-bottom: 8px;
+  }
+  
+  .timestamp-class {
+    font-size: 10px;
+  }
+  
+  .notification-title-wrapper {
+    gap: 4px;
+  }
+  
+  .notification-status-icon {
+    font-size: 12px;
+  }
+  
+  .notification-title-text {
+    font-size: 11px;
+  }
+  
+  .notification-custom-card {
+    padding: 8px;
+    margin: 2px 0;
+  }
+  
+  .notification-container {
+    gap: 5px;
+  }
+  
+  .notification-detail-row {
+    font-size: 11px;
+    gap: 3px;
+  }
+  
+  .notification-detail-label {
+    font-size: 10px;
+  }
+  
+  .notification-detail-value {
+    font-size: 11px;
+  }
+  
+  .notification-status-tag {
+    font-size: 9px;
+    padding: 1px 4px;
+  }
+  
+  .notification-collapse-item :deep(.el-collapse-item__header) {
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+  
+  .notification-collapse-item :deep(.el-collapse-item__content) {
+    padding: 6px 8px;
+  }
 }
 </style>
 
@@ -3429,24 +3977,36 @@ width="340"
   margin-bottom: 8px;
 }
 
+/* Drawer Styles - Mobile Optimized */
+.grievance-drawer :deep(.el-drawer__body) {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
 /* Drawer Header Styles */
 .drawer-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 24px 16px 24px;
+  padding: 16px 20px;
   border-bottom: 1px solid #e4e7ed;
   background: linear-gradient(135deg, var(--el-color-primary) 0%, var(--el-color-primary-dark-2) 100%);
   color: white;
   position: sticky;
   top: 0;
   z-index: 10;
+  flex-shrink: 0;
 }
 
 .header-content {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
 }
 
 .header-icon {
@@ -3458,13 +4018,21 @@ width="340"
   background: rgba(255, 255, 255, 0.2);
   border-radius: 12px;
   backdrop-filter: blur(10px);
+  flex-shrink: 0;
+}
+
+.header-text {
+  min-width: 0;
+  flex: 1;
 }
 
 .header-text h3 {
-  margin: 0 0 4px 0;
+  margin: 0 0 2px 0;
   font-size: 18px;
   font-weight: 600;
   color: white;
+  line-height: 1.3;
+  word-wrap: break-word;
 }
 
 .header-text p {
@@ -3472,13 +4040,15 @@ width="340"
   font-size: 14px;
   opacity: 0.9;
   color: rgba(255, 255, 255, 0.9);
+  line-height: 1.4;
 }
 
 .close-button {
   color: white !important;
-  padding: 8px;
+  padding: 4px;
   border-radius: 8px;
   transition: all 0.3s ease;
+  flex-shrink: 0;
 }
 
 .close-button:hover {
@@ -3488,9 +4058,11 @@ width="340"
 
 /* Drawer Content Styles */
 .drawer-content {
-  padding: 20px 24px;
-  height: calc(100% - 84px);
+  padding: 16px 20px;
+  flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 .grievance-form {
@@ -3505,6 +4077,7 @@ width="340"
   font-weight: 500;
   color: #606266;
   margin-bottom: 6px;
+  font-size: 13px;
 }
 
 .grievance-form .el-input,
@@ -3518,22 +4091,36 @@ width="340"
   position: sticky;
   bottom: 0;
   background: white;
-  padding: 16px 0;
+  padding: 12px 0;
   border-top: 1px solid #e4e7ed;
-  margin-top: 24px;
+  margin-top: 20px;
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
+  gap: 8px;
+  flex-wrap: wrap;
+  z-index: 10;
+  flex-shrink: 0;
+}
+
+.form-actions.mobile-actions {
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+}
+
+.form-actions.mobile-actions .mobile-button {
+  width: 100%;
+  margin: 0;
 }
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .drawer-header {
-    padding: 16px 20px 12px 20px;
+    padding: 12px 16px;
   }
   
   .header-content {
-    gap: 10px;
+    gap: 8px;
   }
   
   .header-icon {
@@ -3546,11 +4133,149 @@ width="340"
   }
   
   .header-text p {
-    font-size: 13px;
+    font-size: 12px;
   }
   
   .drawer-content {
-    padding: 16px 20px;
+    padding: 12px 16px;
+    height: calc(100vh - 140px);
+  }
+  
+  .grievance-form .el-form-item {
+    margin-bottom: 14px;
+  }
+  
+  .grievance-form .el-form-item__label {
+    font-size: 12px;
+    margin-bottom: 4px;
+  }
+  
+  .grievance-form :deep(.el-input__wrapper),
+  .grievance-form :deep(.el-textarea__inner),
+  .grievance-form :deep(.el-select .el-input__wrapper) {
+    padding: 4px 8px;
+    min-height: 32px;
+  }
+  
+  .grievance-form :deep(.el-input__inner) {
+    height: 30px;
+    font-size: 14px;
+  }
+  
+  .grievance-form :deep(.el-textarea__inner) {
+    padding: 6px 8px;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  
+  .form-actions {
+    padding: 10px 12px;
+    gap: 6px;
+  }
+  
+  .form-actions.mobile-actions {
+    padding: 10px;
+  }
+  
+  .form-actions .el-button {
+    font-size: 13px;
+    padding: 8px 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .drawer-header {
+    padding: 10px 12px;
+  }
+  
+  .header-icon {
+    width: 36px;
+    height: 36px;
+  }
+  
+  .header-text h3 {
+    font-size: 15px;
+  }
+  
+  .drawer-content {
+    padding: 10px 12px;
+    height: calc(100vh - 120px);
+  }
+  
+  .grievance-form .el-form-item {
+    margin-bottom: 12px;
+  }
+  
+  .grievance-form .el-form-item__label {
+    font-size: 11px;
+  }
+  
+  .grievance-form :deep(.el-input__wrapper),
+  .grievance-form :deep(.el-textarea__inner),
+  .grievance-form :deep(.el-select .el-input__wrapper) {
+    padding: 4px 8px;
+    min-height: 30px;
+  }
+  
+  .grievance-form :deep(.el-input__inner) {
+    height: 28px;
+    font-size: 13px;
+  }
+  
+  .grievance-form :deep(.el-textarea__inner) {
+    padding: 5px 8px;
+    font-size: 13px;
+  }
+  
+  .form-actions {
+    padding: 8px 10px;
+  }
+  
+  .form-actions .el-button {
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+}
+
+/* Edit Dialog Mobile Optimization */
+.edit-grievance-dialog :deep(.el-dialog__body) {
+  padding: 16px;
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 768px) {
+  .edit-grievance-dialog :deep(.el-dialog__body) {
+    padding: 12px;
+    max-height: calc(100vh - 150px);
+  }
+  
+  .edit-grievance-dialog :deep(.el-dialog__header) {
+    padding: 12px 16px;
+  }
+  
+  .edit-grievance-dialog :deep(.el-dialog__title) {
+    font-size: 16px;
+  }
+  
+  .edit-grievance-dialog :deep(.el-steps) {
+    margin-bottom: 16px;
+  }
+  
+  .edit-grievance-dialog :deep(.el-step__title) {
+    font-size: 12px;
+  }
+  
+  .edit-grievance-dialog :deep(.el-step__head) {
+    width: 24px;
+    height: 24px;
+  }
+  
+  .edit-grievance-dialog :deep(.el-step__icon) {
+    width: 24px;
+    height: 24px;
+    font-size: 12px;
   }
 }
 
@@ -3783,19 +4508,20 @@ width="340"
   padding: 12px;
 }
 
-.grievance-details-table {
+/* Desktop Table View */
+.grievance-details-table.desktop-table {
   font-size: 13px;
 }
 
-.grievance-details-table :deep(.el-table__header) {
+.grievance-details-table.desktop-table :deep(.el-table__header) {
   background-color: var(--el-bg-color-page);
 }
 
-.grievance-details-table :deep(.el-table__row) {
+.grievance-details-table.desktop-table :deep(.el-table__row) {
   transition: background-color 0.2s ease;
 }
 
-.grievance-details-table :deep(.el-table__row:hover) {
+.grievance-details-table.desktop-table :deep(.el-table__row:hover) {
   background-color: var(--el-fill-color-light);
 }
 
@@ -3826,6 +4552,51 @@ width="340"
   padding: 4px 0;
 }
 
+/* Mobile Card View */
+.mobile-details-list {
+  display: none;
+}
+
+.mobile-detail-item {
+  padding: 12px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  background-color: var(--el-bg-color);
+  transition: background-color 0.2s ease;
+}
+
+.mobile-detail-item:last-child {
+  border-bottom: none;
+}
+
+.mobile-detail-item:hover {
+  background-color: var(--el-fill-color-light);
+}
+
+.mobile-detail-label {
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--el-text-color-regular);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+
+.mobile-detail-value {
+  font-size: 13px;
+  color: var(--el-text-color-primary);
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.5;
+  padding: 0;
+}
+
+.mobile-detail-resolution .mobile-detail-value {
+  font-size: 12px;
+  line-height: 1.6;
+  padding: 4px 0;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .confirmation-header {
@@ -3846,16 +4617,60 @@ width="340"
     min-width: auto;
   }
   
-  .grievance-details-table {
+  /* Hide desktop table on mobile */
+  .grievance-details-table.desktop-table {
+    display: none;
+  }
+  
+  /* Show mobile card view on mobile */
+  .mobile-details-list {
+    display: block;
+  }
+  
+  .details-table-card :deep(.el-card__body) {
+    padding: 8px;
+  }
+  
+  .mobile-detail-item {
+    padding: 10px 8px;
+    margin-bottom: 0;
+  }
+  
+  .mobile-detail-label {
+    font-size: 10px;
+    margin-bottom: 5px;
+  }
+  
+  .mobile-detail-value {
     font-size: 12px;
   }
   
-  .detail-label {
+  .mobile-detail-resolution .mobile-detail-value {
     font-size: 11px;
   }
+}
+
+@media (max-width: 480px) {
+  .details-table-card :deep(.el-card__body) {
+    padding: 6px;
+  }
   
-  .detail-value {
-    font-size: 12px;
+  .mobile-detail-item {
+    padding: 8px 6px;
+  }
+  
+  .mobile-detail-label {
+    font-size: 9px;
+    margin-bottom: 4px;
+  }
+  
+  .mobile-detail-value {
+    font-size: 11px;
+    line-height: 1.4;
+  }
+  
+  .mobile-detail-resolution .mobile-detail-value {
+    font-size: 10px;
   }
 }
 </style>

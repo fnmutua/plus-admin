@@ -298,8 +298,8 @@ exports.createGrievanceRecord = async (req, res) => {
           }
         
           if (grm.phone) { // Push only if phone is not null or undefined
-
-            let msg = 'A new grievance has been reported. Please review for your action. Reference:' + generatedCode
+            const statusUrl = `${serverUrl}/#/status/${item.id}`;
+            let msg = 'A new grievance has been reported. Please review for your action. Reference: ' + generatedCode + '. Track status here -> ' + statusUrl
            // grm_officials.push(grm.phone);
             let msg_obj={} 
             msg_obj.message = msg 
@@ -461,7 +461,8 @@ exports.createGrievanceBatchRecords = async (req, res) => {
           
             if (grm.phone) { // Push only if phone is not null or undefined
   
-              let msg = 'A new grievance has been reported. Please review for your action. Reference:' + generatedCode
+              const statusUrl = `${serverUrl}/#/status/${item.id}`;
+              let msg = 'A new grievance has been reported. Please review for your action. Reference: ' + generatedCode + '. Track status here -> ' + statusUrl
              // grm_officials.push(grm.phone);
               let msg_obj={} 
               msg_obj.message = msg 
