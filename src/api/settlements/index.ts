@@ -425,10 +425,38 @@ export const getSettlementMapData = (data: { settlementId: string }): Promise<IR
 }
 
 // Download geospatial data for multiple settlements as zip
-export const downloadSettlementsGeoData = (data: { settlementIds: number[], filters?: any[], filterValues?: any[] }): Promise<Blob> => {
+export const downloadSettlementsGeoData = (data: { settlementIds: number[], filters?: any[], filterValues?: any[] }): Promise<{ blob: Blob, shareLink: string | null, documentId: number | null }> => {
   return request.post({ 
     url: prod + '/api/v1/data/download/geo/zip', 
     data,
     responseType: 'blob'
-  }).then((response: any) => response.data)
+  }).then((response: any) => {
+    // Debug: log response to see headers
+    console.log('Download response:', response);
+    console.log('Response headers:', response.headers);
+    
+    // Try different ways to access the header (headers are usually lowercase in axios)
+    const shareLink = 
+      response.headers?.['x-share-link'] || 
+      response.headers?.['X-Share-Link'] || 
+      response.headers?.get?.('x-share-link') ||
+      response.headers?.get?.('X-Share-Link') ||
+      null;
+    
+    // Get document ID from header
+    const documentId = 
+      response.headers?.['x-document-id'] || 
+      response.headers?.['X-Document-Id'] || 
+      response.headers?.get?.('x-document-id') ||
+      response.headers?.get?.('X-Document-Id') ||
+      null;
+    
+    console.log('Extracted share link:', shareLink);
+    console.log('Extracted document ID:', documentId);
+    return { 
+      blob: response.data, 
+      shareLink: shareLink ? decodeURIComponent(shareLink) : null,
+      documentId: documentId ? parseInt(documentId) : null
+    };
+  })
 }

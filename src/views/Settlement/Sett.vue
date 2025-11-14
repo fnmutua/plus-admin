@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { useI18n } from '@/hooks/web/useI18n'
-import { getSettlementListByCounty, getDuplicates, mergeDuplicates, downloadSettlementsGeoData } from '@/api/settlements'
+import { getSettlementListByCounty, getDuplicates, mergeDuplicates, downloadSettlementsGeoData, shareDocuments } from '@/api/settlements'
 import { getListWithoutGeo } from '@/api/counties'
 import {
   ElButton, ElSelect, FormInstance, ElTabs, ElTabPane, ElDialog, ElInputNumber,ElCollapse,ElCollapseItem,
   ElInput, ElBadge, ElForm, ElDescriptions, ElDescriptionsItem, ElFormItem, ElUpload, ElCard, ElPopconfirm, ElTable, ElCol, ElRow,
   ElTableColumn, UploadUserFile, ElDropdown, ElDropdownMenu, ElDropdownItem, ElStep, ElSteps, ElCheckbox, ElIcon, ElDatePicker,ElCheckboxGroup,
 } from 'element-plus'
-import { ElMessage, ElSegmented } from 'element-plus'
+import { ElMessage, ElSegmented, ElMessageBox } from 'element-plus'
 import { Position, Plus, Delete, Edit, Filter, InfoFilled, CopyDocument, Clock, Search, Setting, Back, Loading, CircleCheck, Message, CircleClose, Warning, View, RefreshLeft } from '@element-plus/icons-vue'
 import { ArrowLeft, ArrowRight, UploadFilled, Postcard, TopRight, Lock, Guide, TakeawayBox } from '@element-plus/icons-vue'
 import { ref, reactive, computed, nextTick } from 'vue'
@@ -1520,11 +1520,35 @@ const handleDownloadGeoData = async () => {
     ElMessage.info(`Preparing geospatial data for ${settlementIds.length} settlement(s)...`);
     
     // Call the API to download geospatial data
-    const blob = await downloadSettlementsGeoData({
+    const { blob, shareLink, documentId } = await downloadSettlementsGeoData({
       settlementIds: settlementIds,
       filters: segmentFilters,
       filterValues: segmentFilterValues
     });
+    
+    console.log('Share link received:', shareLink);
+    console.log('Document ID received:', documentId);
+    
+    // If share link not in header, try to get it via shareDocuments API (same pattern as DocumentsTagged.vue)
+    let finalShareLink = shareLink;
+    if (!finalShareLink && documentId) {
+      try {
+        // Create a new share link using the same API as DocumentsTagged.vue
+        const shareResponse = await shareDocuments({
+          documentIds: [documentId],
+          expiresInHours: 0 // No expiry, same as backend creates
+        });
+        const shareData = shareResponse?.data || shareResponse;
+        // Use same pattern as DocumentsTagged.vue line 774-776
+        if ((shareData?.code === '0000' && shareData?.data?.url) || (shareResponse?.code === '0000' && shareResponse?.data?.url)) {
+          const out = shareData?.data?.url ? shareData : shareResponse;
+          finalShareLink = out.data.url;
+          console.log('Share link retrieved via API (same as DocumentsTagged.vue):', finalShareLink);
+        }
+      } catch (err) {
+        console.warn('Failed to get share link via API:', err);
+      }
+    }
     
     // Create download link
     const url = window.URL.createObjectURL(blob);
@@ -1536,7 +1560,57 @@ const handleDownloadGeoData = async () => {
     document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
     
-    ElMessage.success(`Geospatial data downloaded successfully for ${settlementIds.length} settlement(s)`);
+    // Show share link if available
+    if (finalShareLink) {
+      console.log('Showing dialog with share link:', finalShareLink);
+      // Copy share link to clipboard
+      let clipboardSuccess = false;
+      try {
+        await navigator.clipboard.writeText(finalShareLink);
+        clipboardSuccess = true;
+      } catch (err) {
+        console.warn('Failed to copy to clipboard:', err);
+      }
+      
+      // Show dialog with share link for easy copying and email sharing
+      ElMessageBox.alert(
+        `<div style="margin: 10px 0;">
+          <p style="margin-bottom: 15px; font-size: 14px; color: #333;">
+            <strong>Download started!</strong> Your geospatial data is being downloaded.
+          </p>
+          <p style="margin-bottom: 10px; font-weight: 600; color: #409EFF;">Share Link (No Expiry):</p>
+          <div style="background: #f5f7fa; padding: 12px; border-radius: 4px; margin: 10px 0; border: 1px solid #e4e7ed;">
+            <p style="word-break: break-all; margin: 0; font-family: monospace; font-size: 13px; color: #303133;">
+              ${finalShareLink}
+            </p>
+          </div>
+          <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e4e7ed;">
+            <p style="margin: 0; font-size: 12px; color: #909399;">
+              ${clipboardSuccess ? '✓ Link copied to clipboard. You can paste it in an email or share it with others.' : 'Click the link above to copy it, or select and copy the text.'}
+            </p>
+            <p style="margin: 8px 0 0 0; font-size: 12px; color: #909399;">
+              This link never expires and provides public access to download the geospatial data.
+            </p>
+          </div>
+        </div>`,
+        'Geospatial Data Share Link',
+        {
+          dangerouslyUseHTMLString: true,
+          confirmButtonText: 'Got it',
+          type: 'success',
+          customClass: 'share-link-dialog'
+        }
+      ).then(() => {
+        // Show a success message after dialog is closed
+        ElMessage.success({
+          message: `Download completed! Share link: ${finalShareLink}`,
+          duration: 8000,
+          showClose: true
+        });
+      });
+    } else {
+      ElMessage.success(`Geospatial data downloaded successfully for ${settlementIds.length} settlement(s)`);
+    }
   } catch (error: any) {
     console.error('Error downloading geospatial data:', error);
     ElMessage.error(error?.response?.data?.message || 'Failed to download geospatial data. Please try again.');
@@ -2335,24 +2409,23 @@ v-model="search_string" clearable :onClear="handleClear"
               <Icon icon="mdi:filter-remove" />
             </el-button>
           </el-tooltip>
-
-          <PermissionWrapper :permissions="'settlement:downloadGeo'">
-            <el-tooltip content="Download Geospatial Data (GeoJSON)" placement="top">
-              <el-button 
-                :loading="downloadGeoLoading" 
-                @click="handleDownloadGeoData" 
-                type="success">
-                <Icon icon="mdi:download" style="margin-right: 4px;" />
-                Download Geo
-              </el-button>
-            </el-tooltip>
-          </PermissionWrapper>
-
           <DownloadCustom
 v-if="showEditButtons" :data="tableDataList" :model="model"
             :associated_models="associated_multiple_models" :loading="downloadLoading"
             @download-start="downloadLoading = true"
             @download-end="downloadLoading = false" />
+          <PermissionWrapper :permissions="'settlement:downloadGeo'">
+            <el-tooltip content="Download Geospatial Data (GeoJSON)" placement="top">
+              <el-button 
+                :loading="downloadGeoLoading" 
+                @click="handleDownloadGeoData" 
+                type="primary">
+                <Icon icon="gis:layer-download" style="margin-right: 4px;" />
+              </el-button>
+            </el-tooltip>
+          </PermissionWrapper>
+ 
+       
         </div>
 
 

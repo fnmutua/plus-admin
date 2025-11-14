@@ -8473,13 +8473,65 @@ exports.downloadSettlementsGeoDataZip = async (req, res) => {
       compressionOptions: { level: 6 }
     });
 
-    // Set response headers
+    // Save zip file to public/uploads directory
     const timestamp = new Date().toISOString().split('T')[0];
-    const filename = `settlements_geodata_${timestamp}.zip`;
+    const filename = `settlements_geodata_${timestamp}_${Date.now()}.zip`;
+    const uploadDir = path.join(__dirname, '../../public/uploads');
+    
+    // Ensure upload directory exists
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    
+    const filePath = path.join(uploadDir, filename);
+    fs.writeFileSync(filePath, zipBuffer);
+    console.log(`💾 Zip file saved to: ${filePath}`);
 
+    // Create document record
+    const documentCode = crypto.randomUUID();
+    const documentObj = {
+      name: filename,
+      format: 'zip',
+      size: zipBuffer.length,
+      location: `./public/uploads/${filename}`,
+      code: documentCode,
+      category: 9, // Category for geospatial exports
+      createdBy: req?.thisUser?.id || null,
+    };
+
+    const document = await db.models.document.create(documentObj);
+    console.log(`📄 Document created with ID: ${document.id}`);
+
+    // Create share link with no expiry (expiresInHours = 0)
+    const shareToken = crypto.randomUUID();
+    const share = await db.models.document_share.create({
+      token: shareToken,
+      email: null,
+      message: `Geospatial data export for ${settlementIds.length} settlement(s)`,
+      expiresAt: null, // No expiry
+      createdBy: req?.thisUser?.id || null,
+      isRevoked: false
+    });
+
+    // Link document to share
+    await db.models.document_share_item.create({
+      share_id: share.id,
+      document_id: document.id
+    });
+
+    // Generate share URL (same format as DocumentsTagged.vue expects)
+    const serverUrl = `${req.protocol}://${req.get('host')}`;
+    const frontendUrl = process.env.FRONTEND_URL || serverUrl.replace(/:\d+$/, '');
+    const shareUrl = `${frontendUrl}/#/share/${shareToken}`;
+
+    console.log(`🔗 Share link created: ${shareUrl}`);
+
+    // Set response headers
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.setHeader('Content-Length', zipBuffer.length);
+    res.setHeader('X-Share-Link', shareUrl); // Include share link in custom header
+    res.setHeader('X-Document-Id', document.id.toString()); // Include document ID for reference
 
     console.log(`✅ Zip file generated successfully (${(zipBuffer.length / 1024 / 1024).toFixed(2)} MB)`);
 
