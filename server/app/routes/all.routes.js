@@ -1310,6 +1310,56 @@ module.exports = function (app) {
 
   /**
    * @swagger
+   * /api/v1/data/download/geo/zip:
+   *   post:
+   *     tags: [Data]
+   *     summary: Download geospatial data for multiple settlements as zip
+   *     description: Downloads all geospatial data (settlements, roads, facilities, etc.) for specified settlements as a zip file containing GeoJSON files. Excludes documents.
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - settlementIds
+   *             properties:
+   *               settlementIds:
+   *                 type: array
+   *                 items:
+   *                   type: integer
+   *                 description: Array of settlement IDs to download
+   *               filters:
+   *                 type: array
+   *                 items:
+   *                   type: string
+   *                 description: Optional filter fields
+   *               filterValues:
+   *                 type: array
+   *                 items:
+   *                   type: array
+   *                 description: Optional filter values
+   *     responses:
+   *       200:
+   *         description: Zip file with geospatial data
+   *         content:
+   *           application/zip:
+   *             schema:
+   *               type: string
+   *               format: binary
+   *       400:
+   *         description: Bad request - missing or invalid settlement IDs
+   *       401:
+   *         description: Unauthorized - invalid token
+   *       500:
+   *         description: Server error
+   */
+  app.post('/api/v1/data/download/geo/zip', [authJwt.verifyToken, hasPermission('settlement:downloadGeo')], controller.downloadSettlementsGeoDataZip)
+
+  /**
+   * @swagger
    * /api/v1/data/one:
    *   post:
    *     tags: [Data]

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from '@/hooks/web/useI18n'
-import { getSettlementListByCounty, getDuplicates, mergeDuplicates } from '@/api/settlements'
+import { getSettlementListByCounty, getDuplicates, mergeDuplicates, downloadSettlementsGeoData } from '@/api/settlements'
 import { getListWithoutGeo } from '@/api/counties'
 import {
   ElButton, ElSelect, FormInstance, ElTabs, ElTabPane, ElDialog, ElInputNumber,ElCollapse,ElCollapseItem,
@@ -1455,6 +1455,95 @@ const getFilteredDownloadData = async (selFilters, selfilterValues) => {
 }
 
 const downloadLoading = ref(false);
+const downloadGeoLoading = ref(false);
+
+const handleDownloadGeoData = async () => {
+  try {
+    downloadGeoLoading.value = true;
+    
+    // Prepare filters based on active segment
+    let segmentFilters = filters.value;
+    let segmentFilterValues = filterValues.value;
+    
+    // Set status filter based on active segment
+    if (activeSegment.value === 'New') {
+      segmentFilters = ['isApproved', 'isActive', ...filters.value.filter(f => f !== 'isApproved' && f !== 'isActive')];
+      segmentFilterValues = [['Pending'], ['true'], ...filterValues.value.filter((_, i) => filters.value[i] !== 'isApproved' && filters.value[i] !== 'isActive')];
+    } else if (activeSegment.value === 'Rejected') {
+      segmentFilters = ['isApproved', 'isActive', ...filters.value.filter(f => f !== 'isApproved' && f !== 'isActive')];
+      segmentFilterValues = [['Rejected'], ['true'], ...filterValues.value.filter((_, i) => filters.value[i] !== 'isApproved' && filters.value[i] !== 'isActive')];
+    } else if (activeSegment.value === 'Decommissioned') {
+      segmentFilters = ['isApproved', 'isActive', ...filters.value.filter(f => f !== 'isApproved' && f !== 'isActive')];
+      segmentFilterValues = [['Decommissioned'], ['true'], ...filterValues.value.filter((_, i) => filters.value[i] !== 'isApproved' && filters.value[i] !== 'isActive')];
+    } else {
+      // Approved
+      segmentFilters = ['isApproved', 'isActive', ...filters.value.filter(f => f !== 'isApproved' && f !== 'isActive')];
+      segmentFilterValues = [['Approved'], ['true'], ...filterValues.value.filter((_, i) => filters.value[i] !== 'isApproved' && filters.value[i] !== 'isActive')];
+    }
+    
+    // Apply role filters
+    pushRoleFilters();
+    
+    // Fetch ALL filtered settlements (not just current page)
+    const formData: any = {
+      limit: 10000, // Large limit to get all settlements
+      page: 1,
+      curUser: 1,
+      model: model,
+      searchField: 'name',
+      searchKeyword: search_string.value || '',
+      assocModel: associated_Model,
+      filters: segmentFilters,
+      filterValues: segmentFilterValues,
+      associated_multiple_models: associated_multiple_models,
+      nested_models: nested_models,
+      dateRange: dateRange.value,
+      returnAll: true
+    };
+    
+    ElMessage.info('Fetching filtered settlements...');
+    const res = await getSettlementListByCounty(formData);
+    
+    if (!res.data || res.data.length === 0) {
+      ElMessage.warning('No settlements found to download. Please apply filters first.');
+      return;
+    }
+    
+    // Extract settlement IDs
+    const settlementIds = res.data.map((s: any) => s.id).filter((id: any) => id != null);
+    
+    if (settlementIds.length === 0) {
+      ElMessage.warning('No valid settlement IDs found');
+      return;
+    }
+    
+    ElMessage.info(`Preparing geospatial data for ${settlementIds.length} settlement(s)...`);
+    
+    // Call the API to download geospatial data
+    const blob = await downloadSettlementsGeoData({
+      settlementIds: settlementIds,
+      filters: segmentFilters,
+      filterValues: segmentFilterValues
+    });
+    
+    // Create download link
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `settlements_geodata_${new Date().toISOString().split('T')[0]}.zip`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    
+    ElMessage.success(`Geospatial data downloaded successfully for ${settlementIds.length} settlement(s)`);
+  } catch (error: any) {
+    console.error('Error downloading geospatial data:', error);
+    ElMessage.error(error?.response?.data?.message || 'Failed to download geospatial data. Please try again.');
+  } finally {
+    downloadGeoLoading.value = false;
+  }
+};
 
 const handleDownloadSelectFields = async () => {
   if (selectedFields.value.length < 1) {
@@ -2246,6 +2335,18 @@ v-model="search_string" clearable :onClear="handleClear"
               <Icon icon="mdi:filter-remove" />
             </el-button>
           </el-tooltip>
+
+          <PermissionWrapper :permissions="'settlement:downloadGeo'">
+            <el-tooltip content="Download Geospatial Data (GeoJSON)" placement="top">
+              <el-button 
+                :loading="downloadGeoLoading" 
+                @click="handleDownloadGeoData" 
+                type="success">
+                <Icon icon="mdi:download" style="margin-right: 4px;" />
+                Download Geo
+              </el-button>
+            </el-tooltip>
+          </PermissionWrapper>
 
           <DownloadCustom
 v-if="showEditButtons" :data="tableDataList" :model="model"

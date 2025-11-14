@@ -423,3 +423,12 @@ export const revertHistory = (data: SettlementType): Promise<IResponse<Settlemen
 export const getSettlementMapData = (data: { settlementId: string }): Promise<IResponse<any>> => {
   return request.post({ url: prod + '/api/v1/data/geo/multiple', data })
 }
+
+// Download geospatial data for multiple settlements as zip
+export const downloadSettlementsGeoData = (data: { settlementIds: number[], filters?: any[], filterValues?: any[] }): Promise<Blob> => {
+  return request.post({ 
+    url: prod + '/api/v1/data/download/geo/zip', 
+    data,
+    responseType: 'blob'
+  }).then((response: any) => response.data)
+}

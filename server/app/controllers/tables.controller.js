@@ -8305,6 +8305,196 @@ exports.getSettlementMapData = async (req, res) => {
   }
 };
 
+// Helper function to fetch geospatial data for a single settlement
+async function fetchSettlementGeoData(settlementId) {
+  const models = [
+    'settlement',
+    'parcel',
+    'structure',
+    'road',
+    'streetlight',
+    'crime_hotspot',
+    'community_project',
+    'health_facility',
+    'education_facility',
+    'water_point',
+    'sewer',
+    'piped_water',
+    'powerline',
+    'community_hall',
+    'police_station',
+    'mast',
+    'dumping_site',
+    'hazard_zone',
+    'public_facility',
+    'other_facility',
+  ];
+
+  const dataPromises = models.map(async (model) => {
+    try {
+      if (model === 'structure') {
+        const rows = await db.sequelize.query(
+          `SELECT ST_AsGeoJSON(geom, 8) AS geometry FROM structure WHERE geom IS NOT NULL AND settlement_id = :settlementId`,
+          {
+            replacements: { settlementId },
+            type: db.sequelize.QueryTypes.SELECT,
+          }
+        );
+
+        const geojson = {
+          type: 'FeatureCollection',
+          features: rows.map(row => ({
+            type: 'Feature',
+            geometry: JSON.parse(row.geometry),
+            properties: {}
+          }))
+        };
+
+        return { model, data: geojson, success: true };
+      }
+
+      let query;
+      if (model === 'settlement') {
+        query = `
+          SELECT row_to_json(fc) AS json_build_object
+          FROM (
+            SELECT 'FeatureCollection' AS type, array_to_json(array_agg(f)) AS features
+            FROM (
+              SELECT 'Feature' AS type,
+                     ST_AsGeoJSON(s.geom, 8)::json AS geometry,
+                     json_strip_nulls(row_to_json(s)) AS properties
+              FROM ${model} s
+              WHERE s.geom IS NOT NULL AND s.id = :settlementId
+            ) AS f
+          ) AS fc
+        `;
+      } else {
+        query = `
+          SELECT row_to_json(fc) AS json_build_object
+          FROM (
+            SELECT 'FeatureCollection' AS type, array_to_json(array_agg(f)) AS features
+            FROM (
+              SELECT 'Feature' AS type,
+                     ST_AsGeoJSON(s.geom, 8)::json AS geometry,
+                     json_strip_nulls(row_to_json(s)) AS properties
+              FROM ${model} s
+              WHERE s.geom IS NOT NULL AND s.settlement_id = :settlementId
+            ) AS f
+          ) AS fc
+        `;
+      }
+
+      const queryResult = await db.sequelize.query(query, {
+        replacements: { settlementId },
+        type: db.sequelize.QueryTypes.SELECT,
+      });
+
+      return {
+        model,
+        data: queryResult[0]?.json_build_object || { type: 'FeatureCollection', features: [] },
+        success: true,
+      };
+    } catch (error) {
+      console.error(`❌ Error fetching ${model} for settlement ${settlementId}:`, error.message);
+      return {
+        model,
+        data: { type: 'FeatureCollection', features: [] },
+        success: false,
+        error: error.message,
+      };
+    }
+  });
+
+  const results = await Promise.all(dataPromises);
+  const geoData = {};
+  
+  results.forEach(result => {
+    if (result.success && result.data.features && result.data.features.length > 0) {
+      geoData[result.model] = result.data;
+    }
+  });
+
+  return geoData;
+}
+
+// Download geospatial data for multiple settlements as zip
+exports.downloadSettlementsGeoDataZip = async (req, res) => {
+  try {
+    const { settlementIds } = req.body;
+
+    if (!settlementIds || !Array.isArray(settlementIds) || settlementIds.length === 0) {
+      return res.status(400).json({
+        message: 'Settlement IDs array is required',
+        code: 'MISSING_SETTLEMENT_IDS',
+      });
+    }
+
+    console.log(`🔄 Preparing geospatial data download for ${settlementIds.length} settlement(s)...`);
+
+    // Import JSZip
+    const JSZip = require('jszip');
+    const zip = new JSZip();
+
+    // Fetch settlement names for folder organization
+    const settlementNames = await db.sequelize.query(
+      `SELECT id, name FROM settlement WHERE id IN (:settlementIds)`,
+      {
+        replacements: { settlementIds },
+        type: db.sequelize.QueryTypes.SELECT,
+      }
+    );
+
+    const nameMap = {};
+    settlementNames.forEach(s => {
+      nameMap[s.id] = s.name.replace(/[^a-z0-9]/gi, '_').toLowerCase() || `settlement_${s.id}`;
+    });
+
+    // Process each settlement
+    for (const settlementId of settlementIds) {
+      const settlementName = nameMap[settlementId] || `settlement_${settlementId}`;
+      console.log(`  📦 Processing settlement ${settlementId} (${settlementName})...`);
+
+      const geoData = await fetchSettlementGeoData(settlementId);
+
+      // Add each data type as a GeoJSON file
+      for (const [model, data] of Object.entries(geoData)) {
+        if (data && data.features && data.features.length > 0) {
+          const fileName = `${settlementName}/${settlementName}_${model}.geojson`;
+          zip.file(fileName, JSON.stringify(data, null, 2));
+        }
+      }
+    }
+
+    // Generate zip file
+    console.log('📦 Generating zip file...');
+    const zipBuffer = await zip.generateAsync({
+      type: 'nodebuffer',
+      compression: 'DEFLATE',
+      compressionOptions: { level: 6 }
+    });
+
+    // Set response headers
+    const timestamp = new Date().toISOString().split('T')[0];
+    const filename = `settlements_geodata_${timestamp}.zip`;
+
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', zipBuffer.length);
+
+    console.log(`✅ Zip file generated successfully (${(zipBuffer.length / 1024 / 1024).toFixed(2)} MB)`);
+
+    // Send the zip file
+    res.send(zipBuffer);
+  } catch (error) {
+    console.error('❌ Error in downloadSettlementsGeoDataZip:', error);
+    return res.status(500).json({
+      message: 'Failed to generate geospatial data zip file',
+      error: error.message,
+      code: 'SERVER_ERROR',
+    });
+  }
+};
+
 // Document AI Helper Functions
 async function initializeDocumentAIDatabase() {
     if (!docAIPool) {
