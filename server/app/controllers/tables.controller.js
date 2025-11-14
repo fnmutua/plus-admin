@@ -8487,25 +8487,37 @@ exports.downloadSettlementsGeoDataZip = async (req, res) => {
     fs.writeFileSync(filePath, zipBuffer);
     console.log(`💾 Zip file saved to: ${filePath}`);
 
-    // Get actual file size from filesystem after writing (more accurate than buffer length)
+    // Verify file was written and get actual file size from filesystem
+    if (!fs.existsSync(filePath)) {
+      throw new Error(`File was not created at ${filePath}`);
+    }
+    
     const fileStats = fs.statSync(filePath);
     const actualFileSize = fileStats.size;
-    console.log(`📊 File size: ${actualFileSize} bytes (${(actualFileSize / 1024 / 1024).toFixed(2)} MB)`);
+    
+    // Verify file size matches buffer size (should be the same)
+    if (actualFileSize !== zipBuffer.length) {
+      console.warn(`⚠️  File size mismatch: filesystem=${actualFileSize}, buffer=${zipBuffer.length}`);
+    }
+    
+    console.log(`📊 File size from filesystem: ${actualFileSize} bytes (${(actualFileSize / 1024 / 1024).toFixed(2)} MB)`);
+    console.log(`📊 Buffer length: ${zipBuffer.length} bytes (${(zipBuffer.length / 1024 / 1024).toFixed(2)} MB)`);
 
     // Create document record (location should match where file is actually stored)
     const documentCode = crypto.randomUUID();
     const documentObj = {
       name: filename,
       format: 'zip',
-      size: actualFileSize, // Use actual file size from filesystem
+      size: Number(actualFileSize / 1024 / 1024).toFixed(2), // Explicitly convert to number for DECIMAL type
       location: filePath, // Use the actual file path where it's stored
       code: documentCode,
       category: 9, // Category for geospatial exports
       createdBy: req?.thisUser?.id || null,
     };
 
+    console.log(`📝 Document object to save:`, JSON.stringify(documentObj, null, 2));
     const document = await db.models.document.create(documentObj);
-    console.log(`📄 Document created with ID: ${document.id}`);
+    console.log(`📄 Document created with ID: ${document.id}, saved size: ${document.size} bytes (${(document.size / 1024 / 1024).toFixed(2)} MB)`);
 
     // Create share link with no expiry (expiresInHours = 0)
     const shareToken = crypto.randomUUID();
