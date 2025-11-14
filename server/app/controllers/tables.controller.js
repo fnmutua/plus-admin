@@ -8473,10 +8473,10 @@ exports.downloadSettlementsGeoDataZip = async (req, res) => {
       compressionOptions: { level: 6 }
     });
 
-    // Save zip file to public/uploads directory
+    // Save zip file to /data/uploads directory (same as other documents)
     const timestamp = new Date().toISOString().split('T')[0];
     const filename = `settlements_geodata_${timestamp}_${Date.now()}.zip`;
-    const uploadDir = path.join(__dirname, '../../public/uploads');
+    const uploadDir = '/data/uploads';
     
     // Ensure upload directory exists
     if (!fs.existsSync(uploadDir)) {
@@ -8487,13 +8487,13 @@ exports.downloadSettlementsGeoDataZip = async (req, res) => {
     fs.writeFileSync(filePath, zipBuffer);
     console.log(`💾 Zip file saved to: ${filePath}`);
 
-    // Create document record
+    // Create document record (location should match where file is actually stored)
     const documentCode = crypto.randomUUID();
     const documentObj = {
       name: filename,
       format: 'zip',
       size: zipBuffer.length,
-      location: `./public/uploads/${filename}`,
+      location: filePath, // Use the actual file path where it's stored
       code: documentCode,
       category: 9, // Category for geospatial exports
       createdBy: req?.thisUser?.id || null,
