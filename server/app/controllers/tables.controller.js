@@ -8487,12 +8487,17 @@ exports.downloadSettlementsGeoDataZip = async (req, res) => {
     fs.writeFileSync(filePath, zipBuffer);
     console.log(`💾 Zip file saved to: ${filePath}`);
 
+    // Get actual file size from filesystem after writing (more accurate than buffer length)
+    const fileStats = fs.statSync(filePath);
+    const actualFileSize = fileStats.size;
+    console.log(`📊 File size: ${actualFileSize} bytes (${(actualFileSize / 1024 / 1024).toFixed(2)} MB)`);
+
     // Create document record (location should match where file is actually stored)
     const documentCode = crypto.randomUUID();
     const documentObj = {
       name: filename,
       format: 'zip',
-      size: zipBuffer.length,
+      size: actualFileSize, // Use actual file size from filesystem
       location: filePath, // Use the actual file path where it's stored
       code: documentCode,
       category: 9, // Category for geospatial exports
@@ -8529,11 +8534,11 @@ exports.downloadSettlementsGeoDataZip = async (req, res) => {
     // Set response headers
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.setHeader('Content-Length', zipBuffer.length);
+    res.setHeader('Content-Length', actualFileSize); // Use actual file size for consistency
     res.setHeader('X-Share-Link', shareUrl); // Include share link in custom header
     res.setHeader('X-Document-Id', document.id.toString()); // Include document ID for reference
 
-    console.log(`✅ Zip file generated successfully (${(zipBuffer.length / 1024 / 1024).toFixed(2)} MB)`);
+    console.log(`✅ Zip file generated successfully (${(actualFileSize / 1024 / 1024).toFixed(2)} MB)`);
 
     // Send the zip file
     res.send(zipBuffer);
