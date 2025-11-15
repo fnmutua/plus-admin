@@ -1,9 +1,7 @@
 <template>
   <BaseLayout>
-    <div class="grievance-container">
+    <div class="grievance-container" id="grievance-form">
       <el-card class="grievance-card">
-
-
           <el-tabs v-model="activeName" :tab-position="tabPosition">
 
             <el-tab-pane label="File a Grievance" name="file">
@@ -365,7 +363,7 @@ v-for="(step, index) in filteredTourSteps" :key="index" :target="step.target" :t
 </template>
 
 <script setup lang="ts">
-import { ref,watch, computed, onMounted } from 'vue';
+import { ref,watch, computed } from 'vue';
 import {
   ElButton, ElCard, ElForm, ElFormItem,  ElUpload, ElCheckbox, ElTour, ElTourStep, ElSwitch,
   ElTabPane, ElTabs, ElSelect, ElOption, ElRow, ElCol, ElMessage, ElStep, ElSteps, ElIcon, ElTooltip,ElDialog, ElText,

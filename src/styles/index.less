@@ -1,2 +1,13 @@
 @import './var.css';
 @import 'element-plus/theme-chalk/dark/css-vars.css';
+
+/* Global smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}

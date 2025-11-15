@@ -1,8 +1,8 @@
 <template>
   <div class="base-layout" :class="{ 'dark-mode': isDark }">
     <div class="landing-page">
-      <el-container>
-        <el-header>
+      <el-container direction="vertical">
+        <el-header :class="{ 'scrolled': isScrolled }" height="70px">
           <div class="header-content">
             <!-- Mobile Menu (Top left) -->
             <div v-if="isCompactScreen" class="mobile-menu-container">
@@ -13,21 +13,21 @@
               
               <!-- Dropdown Menu -->
               <div class="mobile-dropdown-menu" :class="{ open: menuOpen }" @click.stop>
-                <div class="menu-item" @click="handleSelect('1')">
+                <div class="menu-item" :class="{ 'is-active': activeIndex === '1' }" @click="handleSelect('1')">
                   <Icon icon="mdi:home" />
                   <span>Home</span>
                 </div>
-                <div class="menu-item" @click="handleSelect('3')">
+                <div class="menu-item" :class="{ 'is-active': activeIndex === 'features' }" @click="scrollToSection('features')">
+                  <Icon icon="mdi:star-outline" />
+                  <span>Features</span>
+                </div>
+                <div class="menu-item" :class="{ 'is-active': activeIndex === 'how-it-works' }" @click="scrollToSection('how-it-works')">
+                  <Icon icon="mdi:information-outline" />
+                  <span>How it works</span>
+                </div>
+                <div class="menu-item" :class="{ 'is-active': activeIndex === '3' }" @click="handleSelect('3')">
                   <Icon icon="mdi:file-document-outline" />
                   <span>Grievances</span>
-                </div>
-                <div class="menu-item" @click="handleSelect('4')">
-                  <Icon icon="mdi:alert-circle-outline" />
-                  <span>Incident</span>
-                </div>
-                <div class="menu-item" @click="handleLoginOrLogout">
-                  <Icon :icon="isLoggedIn ? 'mdi:logout' : 'mdi:login'" />
-                  <span>{{ isLoggedIn ? 'Logout' : 'Login' }}</span>
                 </div>
                 <div class="menu-item" @click="toggleDark">
                   <Icon :icon="isDark ? 'carbon:moon' : 'carbon:sun'" />
@@ -46,7 +46,7 @@
               <el-menu
                 v-if="!isCompactScreen"
                 mode="horizontal"
-                active-text-color="#684035"
+                active-text-color="#00DC82"
                 class="el-menu-demo"
                 :default-active="activeIndex"
                 @select="handleSelect"
@@ -54,10 +54,10 @@
                 style="background: transparent;"
               >
                 <el-menu-item index="1">Home</el-menu-item>
-                <el-menu-item index="3">Grievances</el-menu-item>
-                <el-menu-item index="4">Incident</el-menu-item>
-                <el-menu-item index="2" @click="handleLoginOrLogout">{{ isLoggedIn ? 'Logout' : 'Login' }}</el-menu-item>
-                <el-menu-item index="7" @click="toggleDark">
+                <el-menu-item index="features" @click="scrollToSection('features')">Features</el-menu-item>
+                <el-menu-item index="how-it-works" @click="scrollToSection('how-it-works')">How it works</el-menu-item>
+                <el-menu-item index="3" @click="handleSelect('3')">Grievances</el-menu-item>
+                <el-menu-item index="7" @click="toggleDark" class="theme-toggle">
                   <Icon :icon="isDark ? 'carbon:moon' : 'carbon:sun'" inline />
                 </el-menu-item>
               </el-menu>
@@ -65,24 +65,34 @@
           </div>
         </el-header>
 
-        <el-main class="main-content">
-          <div class="content-wrapper">
-            <!-- Slot for page-specific content -->
-            <slot></slot>
-          </div>
+        <el-main>
+          <!-- Slot for page-specific content -->
+          <slot></slot>
         </el-main>
 
         <el-footer>
           <div class="footer-content">
             <div class="left-content">
-              <p>&copy; 2024 KISIP. All rights reserved.</p>
+              <h3 class="footer-title">KeSMIS</h3>
+              <p class="footer-description">Kenya Slum Management Information System - A comprehensive platform for managing settlements, grievances, and urban development projects.</p>
+              <p class="footer-copyright">&copy; {{ currentYear }} KISIP. All rights reserved.</p>
             </div>
             <div class="right-content">
               <nav>
-                <ul>
-                  <li><router-link to="/privacy">Privacy Policy</router-link></li>
-                  <li><router-link to="/contact">Contact Us</router-link></li>
-                </ul>
+                <div class="footer-links-group">
+                  <h4>Resources</h4>
+                  <ul>
+                    <li><router-link to="/docs">Docs</router-link></li>
+                    <li><router-link to="/contact">Support</router-link></li>
+                  </ul>
+                </div>
+                <div class="footer-links-group">
+                  <h4>Legal</h4>
+                  <ul>
+                    <li><router-link to="/privacy">Privacy</router-link></li>
+                    <li><router-link to="/contact">Terms</router-link></li>
+                  </ul>
+                </div>
               </nav>
             </div>
           </div>
@@ -101,9 +111,31 @@ import { useCache } from '@/hooks/web/useCache';
 import { useAppStoreWithOut } from '@/store/modules/app';
 import { loginOutApi } from '@/api/login';
 
+// Enable scrolling for landing page
+onMounted(() => {
+  document.body.classList.add('landing-page-active');
+  document.documentElement.classList.add('landing-page-active');
+  const app = document.getElementById('app');
+  if (app) {
+    app.classList.add('landing-page-active');
+  }
+});
+
+onBeforeUnmount(() => {
+  document.body.classList.remove('landing-page-active');
+  document.documentElement.classList.remove('landing-page-active');
+  const app = document.getElementById('app');
+  if (app) {
+    app.classList.remove('landing-page-active');
+  }
+});
+
 const router = useRouter();
 const { wsCache } = useCache();
 const appStore = useAppStoreWithOut();
+
+// Get current year for copyright
+const currentYear = new Date().getFullYear();
 
 const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1600);
 const isSmallScreen = computed(() => windowWidth.value <= 768);
@@ -111,6 +143,7 @@ const isMediumScreen = computed(() => windowWidth.value > 768 && windowWidth.val
 const isCompactScreen = computed(() => isSmallScreen.value || isMediumScreen.value);
 const menuOpen = ref(false);
 const isDark = computed(() => appStore.getIsDark);
+const isScrolled = ref(false);
 
 const prefersDarkQuery = typeof window !== 'undefined'
   ? window.matchMedia('(prefers-color-scheme: dark)')
@@ -151,6 +184,54 @@ const toggleDark = () => {
   appStore.setIsDark(next);
 };
 
+// Handle scroll for header transparency and active menu item - optimized with throttling
+let ticking = false;
+const handleScroll = () => {
+  if (!ticking) {
+    window.requestAnimationFrame(() => {
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      isScrolled.value = scrollTop > 20;
+      
+      // Update active menu item based on scroll position
+      updateActiveMenuItem();
+      
+      ticking = false;
+    });
+    ticking = true;
+  }
+};
+
+// Update active menu item based on current scroll position
+const updateActiveMenuItem = () => {
+  const sections = [
+    { id: 'features', index: 'features' },
+    { id: 'how-it-works', index: 'how-it-works' },
+    { id: 'grievances', index: '3' },
+  ];
+  
+  const scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
+  const headerOffset = 100; // Account for fixed header
+  
+  // Check if we're at the top (home section)
+  if (scrollPosition < 200) {
+    activeIndex.value = '1';
+    return;
+  }
+  
+  // Check each section from bottom to top to find the one currently in view
+  // Use a larger threshold (200px) to activate earlier as user scrolls
+  for (let i = sections.length - 1; i >= 0; i--) {
+    const section = document.getElementById(sections[i].id);
+    if (section) {
+      const sectionTop = section.offsetTop - headerOffset;
+      if (scrollPosition >= sectionTop - 200) { // 200px threshold for early activation
+        activeIndex.value = sections[i].index;
+        return;
+      }
+    }
+  }
+};
+
 // Watch for system theme changes
 onMounted(() => {
   windowWidth.value = window.innerWidth;
@@ -159,13 +240,18 @@ onMounted(() => {
   prefersDarkQuery?.addEventListener('change', handleSystemThemeChange);
 
   window.addEventListener('resize', handleResize);
+  window.addEventListener('scroll', handleScroll, { passive: true });
   
   // Close mobile menu when clicking outside
   document.addEventListener('click', handleDocumentClick);
+  
+  // Initial scroll check
+  handleScroll();
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', handleResize);
+  window.removeEventListener('scroll', handleScroll);
   prefersDarkQuery?.removeEventListener('change', handleSystemThemeChange);
   document.removeEventListener('click', handleDocumentClick);
 });
@@ -208,16 +294,58 @@ const openApiDocs = () => {
   window.open(apiUrl, '_blank');
 };
 
+const scrollToSection = (sectionId: string) => {
+  menuOpen.value = false;
+  // Update active index immediately for better UX
+  if (sectionId === 'features') {
+    activeIndex.value = 'features';
+  } else if (sectionId === 'how-it-works') {
+    activeIndex.value = 'how-it-works';
+  }
+  
+  // Use setTimeout to ensure DOM is updated and menu is closed
+  setTimeout(() => {
+    const element = document.getElementById(sectionId);
+    if (element) {
+      const headerOffset = 90; // Height of fixed header (70px) with extra spacing
+      const elementPosition = element.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+
+      window.scrollTo({
+        top: Math.max(0, offsetPosition), // Ensure we don't scroll to negative position
+        behavior: 'smooth'
+      });
+    }
+  }, 150);
+};
+
 const handleSelect = (index: string) => {
   activeIndex.value = index;
   menuOpen.value = false; // Close mobile menu after selection
-  console.log("Index", activeIndex.value);
+  
   switch (index) {
     case '1':
-      router.push('/landing');
+      // Smooth scroll to top if already on landing page
+      if (router.currentRoute.value.path === '/landing' || router.currentRoute.value.path === '/') {
+        window.scrollTo({
+          top: 0,
+          behavior: 'smooth'
+        });
+      } else {
+        router.push('/landing');
+      }
       break;
     case '3':
-      router.push('/grm');
+      // Scroll to grievances section if on landing page, otherwise navigate to route
+      if (router.currentRoute.value.path === '/landing' || router.currentRoute.value.path === '/') {
+        scrollToSection('grievances');
+      } else {
+        router.push('/landing').then(() => {
+          setTimeout(() => {
+            scrollToSection('grievances');
+          }, 100);
+        });
+      }
       break;
     case '4':
       router.push('/incidents');
@@ -227,6 +355,16 @@ const handleSelect = (index: string) => {
       break;
     case '6':
       router.push('/faqs');
+      break;
+    case 'docs':
+      router.push('/docs');
+      break;
+    case 'get-started':
+      if (isLoggedIn.value) {
+        router.push('/dashboard/national');
+      } else {
+        router.push('/login');
+      }
       break;
     case '8':
       openApiDocs();
@@ -240,19 +378,59 @@ const handleSelect = (index: string) => {
 
 <style scoped>
 .base-layout {
-  min-height: 100vh;
   background-color: var(--bg-primary);
   color: var(--text-primary);
   transition: all 0.3s ease;
-  overflow-x: hidden;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  min-height: 100vh;
+  overflow: visible;
+  height: auto;
+}
+
+.base-layout :deep(.el-container) {
+  height: auto;
+  min-height: 100vh;
+  overflow: visible;
+}
+
+.landing-page {
+  width: 100%;
+  overflow: visible;
+  height: auto;
 }
 
 .el-header {
   background-color: transparent;
   border-bottom: none;
   box-shadow: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background-color: rgba(255, 255, 255, 0.7);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 0;
+  height: 70px;
+  display: flex;
+  align-items: center;
+}
+
+.el-header.scrolled {
+  background-color: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.dark-mode .el-header {
+  background-color: rgba(26, 26, 26, 0.7);
+}
+
+.dark-mode .el-header.scrolled {
+  background-color: rgba(26, 26, 26, 0.95);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .el-footer {
@@ -267,12 +445,12 @@ const handleSelect = (index: string) => {
 }
 
 .el-menu-item {
-  color: var(--el-color-primary);
+  color: #00DC82;
   font-weight: 450;
   border-radius: 15px !important;
   margin: 0 5px !important;
   transition: all 0.3s ease;
-  border: 1px solid rgba(64, 158, 255, 0.3);
+  border: 1px solid rgba(0, 220, 130, 0.3);
   background: rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(8px);
   position: relative;
@@ -280,48 +458,72 @@ const handleSelect = (index: string) => {
 }
 
 .el-menu-item:hover {
-  background: var(--el-color-primary) !important;
+  background: #00DC82 !important;
   color: white !important;
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px rgba(0, 220, 130, 0.3);
 }
 
 .el-menu-item.is-active {
-  background: var(--el-color-primary) !important;
+  background: #00DC82 !important;
   color: white !important;
   font-weight: 700;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 12px rgba(0, 220, 130, 0.4);
 }
 
 /* Special styling for login/logout button */
-.el-menu-item[index="2"] {
+.login-menu-item {
   background: transparent !important;
-  color: #4CAF50 !important;
-  border: 1px solid #4CAF50 !important;
-  font-weight: 700;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-color) !important;
+  font-weight: 500;
 }
 
-.el-menu-item[index="2"]:hover {
-  background: #4CAF50 !important;
+.login-menu-item:hover {
+  background: var(--hover-bg) !important;
+  color: var(--text-primary) !important;
+  transform: translateY(-2px);
+}
+
+/* Special styling for primary CTA button */
+.primary-menu-item {
+  background: #00DC82 !important;
+  color: white !important;
+  border: none !important;
+  font-weight: 600;
+}
+
+.primary-menu-item:hover {
+  background: #00B86B !important;
   color: white !important;
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 220, 130, 0.4);
+}
+
+.primary-menu-item-mobile {
+  background: linear-gradient(135deg, #00DC82 0%, #00B86B 100%);
+  color: white !important;
+  font-weight: 600;
+}
+
+.primary-menu-item-mobile:hover {
+  background: linear-gradient(135deg, #00B86B 0%, #00A155 100%);
+  color: white !important;
 }
 
 /* Special styling for dark mode toggle */
-.el-menu-item[index="7"] {
+.theme-toggle {
   background: transparent !important;
-  color: #6366f1 !important;
-  border: 1px solid #6366f1 !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-color) !important;
   min-width: 50px;
   padding: 12px !important;
 }
 
-.el-menu-item[index="7"]:hover {
-  background: #6366f1 !important;
-  color: white !important;
+.theme-toggle:hover {
+  background: var(--hover-bg) !important;
+  color: var(--text-primary) !important;
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
 }
 
 .el-sub-menu__title {
@@ -332,48 +534,30 @@ const handleSelect = (index: string) => {
   background-color: var(--hover-bg);
 }
 
-.el-main {
+.base-layout :deep(.el-main) {
   background-color: var(--bg-primary);
   color: var(--text-primary);
-  /* Ensure full height and scroll */
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.main-content {
   padding: 0;
-  min-height: calc(100vh - 120px); /* Keep default */
-  height: 100%; /* Add: Fill available space */
-  overflow-x: hidden;
-  overflow-y: visible; /* Allow overflow initially */
-  display: flex;
-  flex: 1; /* Grow to fill el-container */
+  margin-top: 70px;
+  overflow: visible !important;
+  height: auto !important;
+  max-height: none !important;
 }
 
-.content-wrapper {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 20px;
-  min-height: 100%;
-  width: 100%;
-  /* Add: Enable scroll if content overflows wrapper */
-  overflow-y: auto;
-  box-sizing: border-box;
-  flex: 1; /* Grow within main-content */
-}
 
 /* Header styles */
 .header-content {
-  max-width: 100%;
-  margin: 0 auto; /* Fixed: was '10 auto' */
+  max-width: 1280px;
+  width: 100%;
+  margin: 0 auto;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px;
-  background: #ffffff;
-  border-radius: 8px;
+  padding: 0 2rem;
+  background: transparent;
+  border-radius: 0;
   position: relative;
+  height: 100%;
 }
 
 nav {
@@ -429,9 +613,10 @@ nav {
   padding: 12px;
   border-radius: 14px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  background: #ffffff;
-  border: 1px solid #e8eaed;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -439,10 +624,19 @@ nav {
   height: 48px;
 }
 
+.dark-mode .hamburger {
+  background: rgba(26, 26, 26, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
 .hamburger:hover {
-  background: #f8f9fa;
+  background: rgba(255, 255, 255, 1);
   transform: scale(1.08);
   box-shadow: 0 6px 25px rgba(0, 0, 0, 0.15);
+}
+
+.dark-mode .hamburger:hover {
+  background: rgba(26, 26, 26, 1);
 }
 
 .hamburger-icon {
@@ -457,10 +651,12 @@ nav {
   position: absolute;
   top: 100%;
   left: 0;
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border-radius: 16px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15), 0 8px 25px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e8eaed;
+  border: 1px solid rgba(0, 0, 0, 0.1);
   min-width: 220px;
   opacity: 0;
   visibility: hidden;
@@ -499,6 +695,18 @@ nav {
   color: #684035;
   transform: translateX(6px);
   box-shadow: inset 4px 0 0 #684035;
+}
+
+.menu-item.is-active {
+  background: linear-gradient(135deg, rgba(0, 220, 130, 0.1), rgba(0, 220, 130, 0.15));
+  color: #00DC82;
+  font-weight: 600;
+  box-shadow: inset 4px 0 0 #00DC82;
+}
+
+.menu-item.is-active .iconify {
+  color: #00DC82;
+  opacity: 1;
 }
 
 .menu-item:active {
@@ -546,43 +754,80 @@ nav {
 .footer-content {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  max-width: 100%;
+  align-items: flex-start;
+  max-width: 1280px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 3rem 2rem;
   font-family: 'Helvetica Neue', Arial, sans-serif;
   color: var(--text-secondary);
   border-top: 1px solid var(--border-color);
+  gap: 3rem;
 }
 
 .left-content {
   flex: 1;
+  max-width: 400px;
+}
+
+.footer-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 0.75rem;
+}
+
+.footer-description {
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  margin-bottom: 1rem;
+}
+
+.footer-copyright {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin: 0;
 }
 
 .right-content {
   flex: 1;
-  text-align: right;
+  display: flex;
+  gap: 3rem;
+  justify-content: flex-end;
+}
+
+.footer-links-group {
+  min-width: 120px;
+}
+
+.footer-links-group h4 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .footer-content ul {
   list-style-type: none;
   padding: 0;
-  display: flex;
-  justify-content: flex-end;
   margin: 0;
 }
 
 .footer-content ul li {
-  margin-left: 1.5rem;
+  margin-bottom: 0.75rem;
 }
 
 .footer-content ul li a {
   color: var(--text-secondary);
   text-decoration: none;
+  font-size: 0.9375rem;
+  transition: color 0.3s ease;
 }
 
 .footer-content ul li a:hover {
-  color: var(--accent-color);
+  color: #00DC82;
 }
 
 /* Responsive styles */
@@ -600,8 +845,8 @@ nav {
 
 @media (max-width: 1600px) {
   .base-layout {
-    height: 100vh;
-    overflow-y: auto;
+    min-height: 100vh;
+    overflow-y: visible;
     -webkit-overflow-scrolling: touch;
   }
 
@@ -613,60 +858,43 @@ nav {
 
   /* Logo visible on desktop */
 
-  .main-content {
-    min-height: calc(100vh - 100px);
-    overflow-x: hidden;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    flex: 1;
-  }
-
-  .content-wrapper {
-    padding: 10px;
-    width: 100%;
-    max-width: 100%;
-    min-height: auto;
-  }
-
   .footer-content {
     flex-direction: column;
-    text-align: center;
+    text-align: left;
+    padding: 2rem 1rem;
+    gap: 2rem;
+  }
+
+  .left-content {
+    max-width: 100%;
   }
 
   .footer-content p {
     margin-bottom: 15px;
   }
 
+  .right-content {
+    flex-direction: column;
+    gap: 2rem;
+    width: 100%;
+  }
+
   .footer-content ul {
-    justify-content: center;
+    justify-content: flex-start;
   }
 
   .footer-content ul li {
-    margin: 0 0.5rem;
+    margin: 0 0 0.75rem 0;
   }
 }
 
 @media (max-width: 480px) {
   .base-layout {
-    height: 100vh;
-    overflow-y: auto;
+    min-height: 100vh;
+    overflow-y: visible;
     -webkit-overflow-scrolling: touch;
   }
 
-  .main-content {
-    min-height: calc(100vh - 80px);
-    overflow-x: hidden;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    flex: 1;
-  }
-
-  .content-wrapper {
-    padding: 5px;
-    width: 100%;
-    max-width: 100%;
-    min-height: auto;
-  }
 
   .hero-content h1 {
     font-size: 2rem;
@@ -696,8 +924,10 @@ nav {
 }
 
 .dark-mode .mobile-dropdown-menu {
-  background: #2c2c2c;
-  border-color: #3a3a3a;
+  background: rgba(26, 26, 26, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-color: rgba(255, 255, 255, 0.1);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4), 0 8px 25px rgba(0, 0, 0, 0.2);
 }
 
@@ -710,6 +940,17 @@ nav {
   background: linear-gradient(135deg, rgba(104, 64, 53, 0.2), rgba(104, 64, 53, 0.3));
   color: #ffffff;
   box-shadow: inset 4px 0 0 #684035;
+}
+
+.dark-mode .menu-item.is-active {
+  background: linear-gradient(135deg, rgba(0, 220, 130, 0.2), rgba(0, 220, 130, 0.25));
+  color: #00DC82;
+  box-shadow: inset 4px 0 0 #00DC82;
+}
+
+.dark-mode .menu-item.is-active .iconify {
+  color: #00DC82;
+  opacity: 1;
 }
 
 .dark-mode .menu-item .iconify {
@@ -760,5 +1001,40 @@ nav {
 .hero > * {
   position: relative;
   z-index: 1;
+}
+</style>
+
+<style>
+/* Global override for landing page - allow scrolling only on body */
+body.landing-page-active,
+html.landing-page-active {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  height: auto !important;
+}
+
+/* Hide scrollbar but keep scrolling functionality */
+body.landing-page-active::-webkit-scrollbar,
+html.landing-page-active::-webkit-scrollbar {
+  display: none;
+}
+
+body.landing-page-active,
+html.landing-page-active {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+#app.landing-page-active {
+  height: auto !important;
+  overflow: visible !important;
+}
+
+/* Prevent nested scroll containers */
+#app.landing-page-active .el-container,
+#app.landing-page-active .el-main {
+  overflow: visible !important;
+  height: auto !important;
+  max-height: none !important;
 }
 </style>

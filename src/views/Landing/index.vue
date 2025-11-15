@@ -1,111 +1,306 @@
 <template>
   <BaseLayout>
-    <div class="landing-container">
-      <el-container class="main-container">
-        <el-main class="main-content">
-          <div class="hero">
-            <el-row justify="center">
-              <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
+    <div class="landing-page">
+      <!-- Hero Section -->
+      <section class="hero-section">
+        <div class="hero-container">
+          <el-row :gutter="40" align="middle">
+            <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
                 <div class="hero-content">
-                  <div class="hero-text">
-                    <h1 class="main-title">Welcome to KeSMIS</h1>
-                    <h2 class="subtitle">Kenya Slum Management Information System</h2>
-
-                    <p class="description">
-                      This is the national geodatabase for slums and informal settlements across Kenya. It provides a centralized platform for real-time data collection, storage, and visualization to support urban planning and development initiatives across the country.
-                    </p>
-
-                    <div class="cta-buttons">
+                <h1 class="hero-title">
+                  Kenya Slum Management Information System
+                </h1>
+                
+                <p class="hero-description">
+                  KeSMIS is the national geodatabase and information management system for slums and informal settlements across Kenya. 
+                  The system facilitates comprehensive data collection, grievance management, and project monitoring to support evidence-based decision-making in urban development.
+                </p>
+                
+                <ul class="hero-features">
+                  <li>
+                    <Icon icon="mdi:check-circle" class="feature-icon" />
+                    <span>National geodatabase for informal settlements</span>
+                  </li>
+                  <li>
+                    <Icon icon="mdi:check-circle" class="feature-icon" />
+                    <span>Electronic Grievance Redress Mechanism (e-GRM)</span>
+                  </li>
+                  <li>
+                    <Icon icon="mdi:check-circle" class="feature-icon" />
+                    <span>Project monitoring and reporting</span>
+                  </li>
+                  <li>
+                    <Icon icon="mdi:check-circle" class="feature-icon" />
+                    <span>Real-time data collection and analysis</span>
+                  </li>
+                </ul>
+                
+                <div class="hero-cta">
                       <el-button
                         type="primary"
-                        :icon="Lock"
                         size="large"
-                        class="login-btn"
+                        :icon="isLoggedIn ? Monitor : Lock"
                         @click="navigateTo('get-started')"
+                        class="cta-primary"
                       >
-                        Get Started
+                        {{ isLoggedIn ? 'Dashboard' : 'Sign in' }}
                       </el-button>
                       <el-button
-                        type="warning"
                         size="large"
-                        class="login-btn"
-                        @click="router.push('/grm')"
+                        @click="navigateTo('grm')"
+                        class="cta-secondary"
                       >
+                        <Icon icon="mdi:file-document-edit" class="button-icon" />
                         File a Grievance
                       </el-button>
                       <el-button
-                        type="success"
                         size="large"
-                        class="login-btn"
-                        @click="router.push('/incidents')"
+                        @click="navigateTo('incident')"
+                        class="cta-secondary"
                       >
-                        Report Incident
+                        <Icon icon="mdi:alert-circle" class="button-icon" />
+                        Incident Report
                       </el-button>
                     </div>
                   </div>
+            </el-col>
+            
+            <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+              <div class="hero-preview">
+                <el-card class="preview-card" shadow="hover">
+                  <div class="preview-dashboard">
+                    <!-- Fake Sidebar -->
+                    <div class="preview-sidebar">
+                      <div class="sidebar-item active"></div>
+                      <div class="sidebar-item"></div>
+                      <div class="sidebar-item"></div>
+                      <div class="sidebar-item"></div>
+                          </div>
+                    
+                    <!-- Fake Content Area -->
+                    <div class="preview-content">
+                      <div class="preview-header">
+                        <div class="header-line"></div>
+                        <div class="header-line short"></div>
+                      </div>
+                      <div class="preview-table">
+                        <div class="table-row"></div>
+                        <div class="table-row"></div>
+                        <div class="table-row"></div>
+                        <div class="table-row"></div>
+                      </div>
+                      <div class="preview-chart">
+                        <div class="chart-bar" style="height: 60%"></div>
+                        <div class="chart-bar" style="height: 80%"></div>
+                        <div class="chart-bar" style="height: 45%"></div>
+                        <div class="chart-bar" style="height: 90%"></div>
+                        <div class="chart-bar" style="height: 70%"></div>
+                      </div>
+                    </div>
+                  </div>
+                </el-card>
+              </div>
+                      </el-col>
+          </el-row>
+                          </div>
+      </section>
 
-                  <section class="stats-section" aria-label="System Statistics">
-                    <h2 class="visually-hidden">KeSMIS System Statistics</h2>
-                    <el-row :gutter="10" class="stats-grid">
-                      <el-col :xs="24" :sm="12" :md="8" :lg="6">
-                        <article class="stat-card">
-                          <div class="stat-icon" aria-hidden="true">
-                            <Icon icon="tabler:map-2" />
-                          </div>
-                          <div class="stat-value" aria-label="Number of settlements">{{ NumSettlements }}</div>
-                          <div class="stat-label">Slums/Informal settlements</div>
-                        </article>
+      <!-- Features Section -->
+      <section id="features" ref="featuresSection" class="features-section">
+        <div class="section-container">
+          <div class="section-header">
+            <h2 class="section-title">System Capabilities</h2>
+            <p class="section-subtitle">
+              Comprehensive tools for managing informal settlements, tracking projects, and processing grievances
+            </p>
+          </div>
+          
+          <el-row :gutter="24" class="features-grid">
+            <el-col :xs="24" :sm="12" :md="8" :lg="8" :xl="8" v-for="feature in features" :key="feature.id">
+              <el-card 
+                class="feature-card"
+                shadow="hover">
+                <div class="feature-icon-wrapper">
+                  <Icon :icon="feature.icon" class="feature-icon-large" />
+                </div>
+                <h3 class="feature-title">{{ feature.title }}</h3>
+                <p class="feature-description">{{ feature.description }}</p>
+              </el-card>
                       </el-col>
-                      <el-col :xs="24" :sm="12" :md="8" :lg="6">
-                        <article class="stat-card">
-                          <div class="stat-icon" aria-hidden="true">
-                            <Icon icon="mdi:account-group" />
+          </el-row>
                           </div>
-                          <div class="stat-value" aria-label="Population in slums">{{ Population }}</div>
-                          <div class="stat-label">People living in Slums</div>
-                        </article>
+      </section>
+
+      <!-- Why This System Section -->
+      <section class="why-section" ref="whySection">
+        <div class="section-container">
+          <el-row :gutter="40" align="middle">
+            <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+              <div class="why-content">
+                <h2 class="section-title">About KISIP</h2>
+                <p class="why-description">
+                  KeSMIS is implemented under the Kenya Informal Settlements Improvement Project (KISIP), 
+                  a government initiative aimed at improving living conditions in informal settlements across Kenya. 
+                  The system supports evidence-based planning and decision-making for urban development interventions.
+                </p>
+                <ul class="why-list">
+                  <li>
+                    <Icon icon="mdi:shield-check" class="list-icon" />
+                    <span>Compliant with government data security and privacy standards</span>
+                  </li>
+                  <li>
+                    <Icon icon="mdi:account-group" class="list-icon" />
+                    <span>Multi-stakeholder access for national, county, and project teams</span>
+                  </li>
+                  <li>
+                    <Icon icon="mdi:map-marker-multiple" class="list-icon" />
+                    <span>Standardized geospatial data collection and management</span>
+                  </li>
+                  <li>
+                    <Icon icon="mdi:chart-line" class="list-icon" />
+                    <span>Performance monitoring and evaluation reporting</span>
+                  </li>
+                </ul>
+              </div>
                       </el-col>
-                      <el-col :xs="24" :sm="12" :md="8" :lg="6">
-                        <article class="stat-card">
-                          <div class="stat-icon" aria-hidden="true">
-                            <Icon icon="fa-solid:road" />
-                          </div>
-                          <div class="stat-value" aria-label="Total projects">{{ TotalProjs }}</div>
-                          <div class="stat-label">Intervention Projects</div>
-                        </article>
-                      </el-col>
-                      <el-col :xs="24" :sm="12" :md="8" :lg="6">
-                        <article class="stat-card">
-                          <div class="stat-icon" aria-hidden="true">
-                            <Icon icon="vaadin:family" />
-                          </div>
-                          <div class="stat-value" aria-label="Average household size">{{ avgHHSize }}</div>
-                          <div class="stat-label">Avg. Household Size</div>
-                        </article>
+            
+            <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+              <div class="stats-stack">
+                <div class="stat-item">
+                  <div class="stat-number">{{ NumSettlements }}+</div>
+                  <div class="stat-text">Informal Settlements</div>
+                </div>
+                <div class="stat-item">
+                  <div class="stat-number">{{ Population }}+</div>
+                  <div class="stat-text">Residents Recorded</div>
+                </div>
+                <div class="stat-item">
+                  <div class="stat-number">{{ TotalProjs }}+</div>
+                  <div class="stat-text">KISIP Projects</div>
+                </div>
+                <div class="stat-item">
+                  <div class="stat-number">24/7</div>
+                  <div class="stat-text">System Availability</div>
+                </div>
+              </div>
                       </el-col>
                     </el-row>
+        </div>
                   </section>
+
+      <!-- How It Works Section -->
+      <section id="how-it-works" ref="howItWorksSection" class="how-it-works-section">
+        <div class="section-container">
+          <div class="section-header">
+            <h2 class="section-title">System Access</h2>
+            <p class="section-subtitle">
+              Access the system through authorized user accounts
+            </p>
                 </div>
+          
+          <el-row :gutter="24" class="steps-grid">
+            <el-col :xs="24" :sm="12" :md="6" :lg="6" :xl="6" v-for="(step, index) in steps" :key="step.id">
+              <el-card 
+                class="step-card"
+                shadow="hover">
+                <div class="step-number">{{ index + 1 }}</div>
+                <h3 class="step-title">{{ step.title }}</h3>
+                <p class="step-description">{{ step.description }}</p>
+              </el-card>
               </el-col>
             </el-row>
           </div>
+      </section>
 
-          <section class="grievance-section" aria-label="Grievance Reporting">
-            <el-row justify="center">
-              <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
-                <div class="grievance-content">
-                  <h2 class="visually-hidden">Report a Grievance</h2>
-                  <p class="grievance-message">
-                    If you have a grievance against the KISIP project or its actors, you can
-                    <el-button plain link class="grievance-link" @click="navigateTo('grm')" aria-label="File a grievance online">file a grievance</el-button>, or call our toll free helpline at
-                    <a href="tel:0800724349" class="grievance-link" aria-label="Call toll free helpline">0800 724 349</a> free of charge.
-                  </p>
+      <!-- Grievance Hero Section -->
+      <section id="grievances" class="grievance-hero-section">
+        <div class="hero-container">
+          <el-row :gutter="40" align="middle">
+            <el-col :xs="24" :sm="24" :md="14" :lg="14" :xl="14">
+              <div class="hero-content">
+                <h2 class="hero-title">
+                  Electronic Grievance Redress Mechanism
+                </h2>
+                <p class="hero-description">
+                  Submit, track, and resolve grievances related to KISIP projects and activities through our transparent and accessible platform.
+                </p>
+                <ul class="hero-features">
+                  <li>
+                    <Icon icon="mdi:check-circle" class="feature-icon" />
+                    <span>Submit grievances online or via toll-free helpline</span>
+                  </li>
+                  <li>
+                    <Icon icon="mdi:check-circle" class="feature-icon" />
+                    <span>Track your grievance status in real-time</span>
+                  </li>
+                  <li>
+                    <Icon icon="mdi:check-circle" class="feature-icon" />
+                    <span>Confidential and secure grievance handling</span>
+                  </li>
+                  <li>
+                    <Icon icon="mdi:check-circle" class="feature-icon" />
+                    <span>Timely response and resolution</span>
+                  </li>
+                </ul>
+                <div class="hero-cta">
+                  <el-button
+                    type="primary"
+                    size="large"
+                    @click="navigateTo('grm')"
+                    class="cta-primary"
+                  >
+                    <Icon icon="mdi:file-document-edit" class="button-icon" />
+                    File a Grievance
+                  </el-button>
+                  <el-button
+                    size="large"
+                    @click="navigateTo('grm')"
+                    class="cta-secondary"
+                  >
+                    <Icon icon="mdi:clipboard-text-search" class="button-icon" />
+                    Check Status
+                  </el-button>
                 </div>
-              </el-col>
-            </el-row>
-          </section>
-        </el-main>
-      </el-container>
+              </div>
+            </el-col>
+            <el-col :xs="24" :sm="24" :md="10" :lg="10" :xl="10">
+              <div class="hero-visual">
+                <el-card class="info-card" shadow="hover">
+                  <div class="info-content">
+                    <Icon icon="mdi:phone-in-talk" class="info-icon" />
+                    <h3>Toll-Free Helpline</h3>
+                    <p class="helpline-number">
+                      <a href="tel:0800724349">0800 724 349</a>
+                    </p>
+                    <p class="helpline-text">Available 24/7 for grievance submissions</p>
+                  </div>
+                </el-card>
+              </div>
+            </el-col>
+          </el-row>
+        </div>
+      </section>
+
+      <!-- CTA Strip -->
+      <section ref="ctaSection" class="cta-strip">
+        <div class="cta-container">
+          <h2 class="cta-title">Access the System</h2>
+          <p class="cta-description">
+            Authorized users can access KeSMIS to manage settlement data, process grievances, and monitor KISIP project activities.
+          </p>
+          <el-button
+            type="primary"
+            size="large"
+            :icon="Monitor"
+            @click="navigateTo('get-started')"
+            class="cta-button"
+          >
+            Open Dashboard
+          </el-button>
+        </div>
+      </section>
+
+
     </div>
   </BaseLayout>
 </template>
@@ -119,11 +314,10 @@ import {
   ElButton,
   ElCol,
   ElRow,
-  ElMain,
-  ElContainer,
+  ElCard,
 } from 'element-plus';
 import BaseLayout from './BaseLayout.vue';
-import { Lock } from '@element-plus/icons-vue';
+import { Lock, Monitor } from '@element-plus/icons-vue';
 import { Icon } from '@iconify/vue';
 import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary';
 import { useHead } from '@unhead/vue'
@@ -132,39 +326,8 @@ useHead({
   title: 'KeSMIS | Kenya Slum Management Information System',
   meta: [
     { name: 'description', content: 'Kenya Slum Management Information System (KeSMIS) - National geodatabase for slums and informal settlements across Kenya. Real-time data collection, storage, and visualization platform for urban planning and development.' },
-    { name: 'keywords', content: 'Kenya slums, informal settlements, urban planning, KISIP, geodatabase, slum management, data collection, Kenya housing, urban development, settlement mapping' },
-    { name: 'author', content: 'Kenya Informal Settlements Improvement Project (KISIP)' },
-    { name: 'robots', content: 'index, follow' },
-    
-    // Open Graph tags (for WhatsApp, Facebook, LinkedIn)
-    { property: 'og:title', content: 'KeSMIS |  Kenya Slum Management Information System' },
-    { property: 'og:description', content: 'National geodatabase for slums and informal settlements across Kenya. Real-time data collection, storage, and visualization platform.' },
-    { property: 'og:type', content: 'website' },
-    { property: 'og:url', content: 'https://kesmis.go.ke' },
-    { property: 'og:image', content: 'https://kesmis.go.ke/logo.png' },
-    { property: 'og:image:width', content: '1200' },
-    { property: 'og:image:height', content: '630' },
-    { property: 'og:image:alt', content: 'KeSMIS Logo - Kenya Slum Management Information System' },
-    { property: 'og:site_name', content: 'KeSMIS' },
-    { property: 'og:locale', content: 'en_KE' },
-    
-    // Twitter Card tags
-    { name: 'twitter:card', content: 'summary_large_image' },
-    { name: 'twitter:title', content: 'KeSMIS - Kenya Slum Management Information System' },
-    { name: 'twitter:description', content: 'National geodatabase for slums and informal settlements across Kenya. Real-time data collection and visualization platform.' },
-    { name: 'twitter:image', content: 'https://kesmis.go.ke/twitter-card.jpg' },
-    { name: 'twitter:image:alt', content: 'KeSMIS Logo - Kenya Slum Management Information System' },
-    
-    // Additional meta tags for better SEO
-    { name: 'theme-color', content: '#684035' },
-    { name: 'msapplication-TileColor', content: '#684035' },
-    { name: 'viewport', content: 'width=device-width, initial-scale=1.0' },
-    { name: 'format-detection', content: 'telephone=no' }
   ]
 })
-
-
- 
 
 const router = useRouter();
 const { wsCache } = useCache();
@@ -172,8 +335,13 @@ const appStore = useAppStoreWithOut();
 
 const isLoggedIn = computed(() => !!wsCache.get(appStore.getUserInfo));
 
+// Section refs for scroll navigation
+const featuresSection = ref<HTMLElement | null>(null);
+const whySection = ref<HTMLElement | null>(null);
+const howItWorksSection = ref<HTMLElement | null>(null);
+const ctaSection = ref<HTMLElement | null>(null);
 
-// Function to format numbers with K, M notation
+// Format numbers with K, M notation
 const formatNumber = (num: number): string => {
   if (num >= 1000000) {
     return (num / 1000000).toFixed(1) + 'M';
@@ -196,11 +364,17 @@ const navigateTo = (page: string) => {
     case 'grm':
       router.push('/grm');
       break;
+    case 'incident':
+      router.push('/incidents');
+      break;
+    case 'docs':
+      router.push('/docs');
+      break;
     case 'about':
       router.push('/about');
       break;
     case 'faq':
-      router.push('/faq');
+      router.push('/faqs');
       break;
     default:
       router.push('/');
@@ -208,11 +382,76 @@ const navigateTo = (page: string) => {
   }
 };
 
+// Data
 const NumSettlements = ref('0');
 const Population = ref('0');
 const TotalProjs = ref('0');
 const avgHHSize = ref('0');
 
+const features = [
+  {
+    id: 1,
+    icon: 'mdi:database',
+    title: 'Settlement Data Management',
+    description: 'Comprehensive geodatabase for recording and managing data on informal settlements, households, and infrastructure facilities.'
+  },
+  {
+    id: 2,
+    icon: 'mdi:map',
+    title: 'Geographic Information System',
+    description: 'Spatial data visualization and mapping capabilities for settlement boundaries, infrastructure locations, and project sites.'
+  },
+  {
+    id: 3,
+    icon: 'mdi:file-document-multiple',
+    title: 'Electronic Grievance Redress',
+    description: 'Integrated e-GRM system for receiving, tracking, and managing grievances related to KISIP projects and activities.'
+  },
+  {
+    id: 4,
+    icon: 'mdi:chart-box',
+    title: 'Project Monitoring & Reporting',
+    description: 'Dashboards and reporting tools for tracking project progress, outcomes, and performance indicators across all projects.'
+  },
+  {
+    id: 5,
+    icon: 'mdi:account-key',
+    title: 'Multi-Level Access Control',
+    description: 'Role-based access management supporting national, county, and project-level users with appropriate permissions and controls.'
+  },
+  {
+    id: 6,
+    icon: 'mdi:cloud-sync',
+    title: 'Data Collection & Synchronization',
+    description: 'Mobile and web-based data collection tools with real-time synchronization capabilities for efficient field operations.'
+  }
+];
+
+const steps = [
+  {
+    id: 1,
+    title: 'User Authentication',
+    description: 'Access the system using authorized credentials provided by the KISIP project administration team.'
+  },
+  {
+    id: 2,
+    title: 'Data Entry & Collection',
+    description: 'Record settlement data, household information, and infrastructure details through the system interfaces.'
+  },
+  {
+    id: 3,
+    title: 'Grievance Processing',
+    description: 'Submit and manage grievances through the electronic Grievance Redress Mechanism (e-GRM) platform.'
+  },
+  {
+    id: 4,
+    title: 'Reporting & Analysis',
+    description: 'Generate reports, view dashboards, and analyze data for project monitoring and evaluation purposes.'
+  }
+];
+
+
+// Fetch data
 const getNumberOFSettlements = async () => {
   const formData = {
     model: 'settlement',
@@ -296,336 +535,279 @@ AvgHHSize();
 </script>
 
 <style scoped>
-/* 1. Make entire page scrollable, but remove horizontal overflow */
-.landing-container {
+/* Landing Page Container */
+.landing-page {
   width: 100%;
-  min-height: 100vh;
-  overflow-x: hidden;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch; /* smooth scrolling on iOS */
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  overflow: visible;
+  height: auto;
 }
 
-/* 2. Ensure the Element container also scrolls vertically if needed */
-.main-container {
-  width: 100%;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
+/* Hide scrollbar but keep scrolling functionality */
+.landing-page::-webkit-scrollbar {
+  display: none;
 }
 
-.main-content {
-  flex: 1;
-  padding: 1rem 1.5rem;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  display: flex;
-  flex-direction: column;
+.landing-page {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
 }
 
-/* 3. HERO SECTION LAYOUT */
-.hero {
-  width: 100%;
-  max-width: 1400px;
+/* Smooth scrolling for all sections */
+.landing-page section {
+  scroll-margin-top: 90px;
+}
+
+/* Section Container */
+.section-container {
+  max-width: 1280px;
   margin: 0 auto;
-  animation: fadeIn 0.8s ease-out;
-  flex-shrink: 0;
-  padding: 1.5rem 0;
+  padding: 0 2rem;
+}
+
+/* Hero Section */
+.hero-section {
+  padding: 4rem 0 3rem;
+  background: linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+}
+
+.hero-container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 2rem;
 }
 
 .hero-content {
-  max-width: 1300px;
-  margin: 0 auto;
+  animation: fadeInUp 0.6s ease-out;
 }
 
-.hero-visual {
-  display: flex;
-  justify-content: center;
+.hero-badge {
+  display: inline-flex;
   align-items: center;
-}
-
-.image-carousel {
-  width: 100%;
-  max-width: 500px;
-}
-
-.carousel-image {
-  position: relative;
-  height: 100%;
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-.carousel-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: 12px;
-}
-
-.image-overlay {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
-  color: white;
-  padding: 2rem 1rem 1rem;
-  text-align: center;
-}
-
-.image-overlay h3 {
-  margin: 0 0 0.5rem 0;
-  font-size: 1.2rem;
-  font-weight: 600;
-}
-
-.image-overlay p {
-  margin: 0;
-  font-size: 0.9rem;
-  opacity: 0.9;
-}
-
-/* HERO TEXT */
-.hero-text {
-  text-align: center;
+  gap: 0.5rem;
   margin-bottom: 1.5rem;
-}
-
-.main-title {
-  font-size: 3.2rem;
-  font-weight: 800;
-  color: var(--el-color-primary);
-  margin-bottom: 2.5rem;
-  line-height: 1.1;
-  animation: slideUp 0.8s ease-out;
-  letter-spacing: -0.5px;
-}
-
-.subtitle {
-  font-size: 1.4rem;
-  color: var(--el-text-color-primary);
-  margin-bottom: 2.5rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
   font-weight: 500;
-  animation: slideUp 0.8s ease-out 0.2s backwards;
-  text-align: center;
+  border-radius: 20px;
 }
 
-.description {
-  font-size: 1.1rem;
-  line-height: 1.7;
-  color: var(--el-text-color-regular);
-  margin-bottom: 3rem;
-  max-width: 900px;
-  margin-left: auto;
-  margin-right: auto;
-  animation: slideUp 0.8s ease-out 0.4s backwards;
-  text-align: center;
-  font-weight: 400;
-}
-
-.cta-buttons {
-  display: flex;
-  justify-content: center;
-  gap: 1rem;
-  margin-bottom: 3rem;
-  animation: slideUp 0.8s ease-out 0.6s backwards;
-  flex-wrap: wrap;
-}
-
-.login-btn {
-  padding: 1rem 2rem;
+.badge-icon {
   font-size: 1rem;
-  border-radius: 12px;
-  transition: all 0.3s ease;
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
-  font-weight: 600;
-  min-width: 160px;
-  min-height: 50px;
 }
 
-.login-btn:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
-  background-color: var(--el-color-primary-dark-2);
-}
-
-.api-btn {
-  margin-left: 1rem;
-  padding: 0.8rem 1.5rem;
-  font-size: 1rem;
-  border-radius: 8px;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  font-weight: 600;
-}
-
-.api-btn:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
-}
-
-/* 4. STATS GRID (using Element Row/Col) */
-.stats-grid {
-  margin: 2rem auto;
-  animation: slideUp 0.8s ease-out 0.8s backwards;
-  max-width: 1200px;
-  display: flex;
-  justify-content: center;
-  align-items: stretch;
-}
-
-.stat-card {
-  height: 100%;
+.hero-content {
   text-align: center;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  border: 1px solid #e8eaed;
-  background: #ffffff;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  border-radius: 16px;
-  padding: 2rem 1.5rem;
-  margin: 0.5rem;
-  min-height: 180px;
   display: flex;
   flex-direction: column;
-  justify-content: center;
   align-items: center;
-  position: relative;
-  overflow: hidden;
 }
 
-.stat-card:hover {
-  transform: translateY(-8px) scale(1.02);
-  border-color: #684035;
-  box-shadow: 0 20px 40px rgba(104, 64, 53, 0.15);
-  background: linear-gradient(135deg, #ffffff 0%, #fafbfc 100%);
-}
-
-.stat-card:hover .stat-icon {
-  transform: scale(1.1);
-  background: linear-gradient(135deg, rgba(104, 64, 53, 0.15), rgba(104, 64, 53, 0.1));
-}
-
-.stat-icon {
-  font-size: 2.5rem;
-  margin-bottom: 1rem;
-  color: #684035;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  width: 60px;
-  height: 60px;
-  background: linear-gradient(135deg, rgba(104, 64, 53, 0.1), rgba(104, 64, 53, 0.05));
-  border-radius: 50%;
-  transition: all 0.3s ease;
-}
-
-.stat-value {
-  font-size: 2.2rem;
+.hero-title {
+  font-size: 3rem;
   font-weight: 800;
-  color: #2c3e50;
-  margin-bottom: 0.5rem;
   line-height: 1.2;
-  letter-spacing: -0.5px;
+  margin-bottom: 1rem;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  text-align: center;
 }
 
-.stat-label {
-  font-size: 0.95rem;
-  color: #6c757d;
+.title-accent {
+  background: linear-gradient(135deg, #00DC82 0%, #00B86B 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.hero-description {
+  font-size: 1.125rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  margin-bottom: 1.5rem;
+  max-width: 600px;
+  text-align: center;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.hero-features {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.5rem 0;
+}
+
+.hero-features li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.9375rem;
+  color: var(--text-primary);
+}
+
+.feature-icon {
+  font-size: 1.25rem;
+  color: #00DC82;
+  flex-shrink: 0;
+}
+
+.hero-cta {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: nowrap;
+  align-items: center;
+}
+
+.cta-primary {
+  padding: 0.875rem 1.5rem;
+  font-size: 0.9375rem;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  line-height: 1.3;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+  background: #00DC82 !important;
+  border-color: #00DC82 !important;
+  color: white !important;
 }
 
-/* 5. STATS SECTION */
-.stats-section {
-  margin: 2rem 0;
-  animation: slideUp 0.8s ease-out 0.8s backwards;
+.cta-primary:hover {
+  background: #00B86B !important;
+  border-color: #00B86B !important;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 220, 130, 0.3);
 }
 
-/* Dark mode for stats cards */
-.dark-mode .stat-card {
-  background: #2c2c2c;
-  border-color: #3a3a3a;
-  color: #e8eaed;
+.cta-secondary {
+  padding: 0.875rem 1.5rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-primary);
+  white-space: nowrap;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
-.dark-mode .stat-card:hover {
-  background: linear-gradient(135deg, #2c2c2c 0%, #363636 100%);
-  border-color: #684035;
+.cta-secondary:hover {
+  background: rgba(64, 158, 255, 0.1);
+  border-color: var(--el-color-primary);
+  color: var(--el-color-primary);
+  transform: translateY(-2px);
 }
 
-.dark-mode .stat-value {
-  color: #ffffff;
+.button-icon {
+  font-size: 1.125rem;
 }
 
-.dark-mode .stat-label {
-  color: #b0b3b8;
+/* Hero Preview */
+.hero-preview {
+  animation: fadeInUp 0.6s ease-out 0.2s backwards;
 }
 
-.dark-mode .stat-icon {
-  color: #684035;
-  background: linear-gradient(135deg, rgba(104, 64, 53, 0.2), rgba(104, 64, 53, 0.1));
+.preview-card {
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
 }
 
-.dark-mode .main-title {
-  color: #ffffff;
+.preview-card :deep(.el-card__body) {
+  padding: 0;
 }
 
-.dark-mode .subtitle {
-  color: #d1d5db;
+.preview-dashboard {
+  display: flex;
+  height: 400px;
+  background: var(--bg-primary);
 }
 
-.dark-mode .description {
-  color: #cbd5f5;
+.preview-sidebar {
+  width: 60px;
+  background: var(--bg-secondary);
+  padding: 1rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
-.dark-mode .section-header h2 {
-  color: #ffffff;
+.sidebar-item {
+  width: 100%;
+  height: 40px;
+  background: var(--border-color);
+  border-radius: 8px;
+  opacity: 0.5;
 }
 
-.dark-mode .section-header p {
-  color: #d1d5db;
+.sidebar-item.active {
+  background: #00DC82;
+  opacity: 1;
 }
 
-.dark-mode .feature-card {
-  border-color: #3a3a3a;
-  background: #2c2c2c;
+.preview-content {
+  flex: 1;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
 }
 
-.dark-mode .feature-card h3 {
-  color: #ffffff;
+.preview-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
-.dark-mode .feature-card p {
-  color: #e2e8f0;
+.header-line {
+  height: 12px;
+  background: var(--border-color);
+  border-radius: 4px;
+  width: 60%;
 }
 
-.dark-mode .api-text h2 {
-  color: #ffffff;
+.header-line.short {
+  width: 40%;
 }
 
-.dark-mode .api-text p,
-.dark-mode .api-features li {
-  color: #d1d5db;
+.preview-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
-.dark-mode .grievance-message {
-  color: #e8eaed;
+.table-row {
+  height: 8px;
+  background: var(--border-color);
+  border-radius: 4px;
+  opacity: 0.6;
 }
 
-.dark-mode .grievance-link {
-  color: #66d9a3;
+.preview-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  height: 120px;
+  margin-top: auto;
 }
 
-.dark-mode .grievance-link:hover {
-  color: #7ef0bb;
+.chart-bar {
+  flex: 1;
+  background: linear-gradient(180deg, #00DC82 0%, #00B86B 100%);
+  border-radius: 4px 4px 0 0;
+  min-height: 20px;
 }
 
-/* 6. FEATURES SECTION */
+/* Features Section */
 .features-section {
-  margin: 4rem 0;
-  animation: slideUp 0.8s ease-out 1s backwards;
+  padding: 5rem 0;
+  background: var(--bg-primary);
 }
 
 .section-header {
@@ -633,184 +815,439 @@ AvgHHSize();
   margin-bottom: 3rem;
 }
 
-.section-header h2 {
+.section-title {
   font-size: 2.5rem;
   font-weight: 700;
-  color: var(--el-color-primary);
   margin-bottom: 1rem;
+  color: var(--text-primary);
 }
 
-.section-header p {
-  font-size: 1.2rem;
-  color: var(--el-text-color-regular);
+.section-subtitle {
+  font-size: 1.125rem;
+  color: var(--text-secondary);
   max-width: 600px;
   margin: 0 auto;
 }
 
+.features-grid {
+  margin-top: 3rem;
+}
+
 .feature-card {
+  min-height: 200px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  transition: all 0.3s ease;
   text-align: center;
   padding: 2rem 1.5rem;
-  height: 100%;
-  transition: all 0.3s ease;
-  border: 1px solid var(--el-border-color-lighter);
-  background: transparent;
-  box-shadow: none !important;
-  border-radius: 12px;
 }
+
 
 .feature-card:hover {
-  transform: translateY(-5px);
-  border-color: var(--el-color-primary-light-5);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1) !important;
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(0, 220, 130, 0.2);
+  border-color: #00DC82;
 }
 
-.feature-icon {
-  font-size: 3rem;
-  margin-bottom: 1.5rem;
-  color: var(--el-color-primary);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.feature-card h3 {
-  font-size: 1.3rem;
-  font-weight: 600;
-  color: var(--el-text-color-primary);
-  margin-bottom: 1rem;
-}
-
-.feature-card p {
-  font-size: 1rem;
-  color: var(--el-text-color-regular);
-  line-height: 1.6;
-}
-
-/* 7. API SECTION */
-.api-section {
-  margin: 4rem 0;
-  animation: slideUp 0.8s ease-out 1.2s backwards;
-}
-
-.api-card {
-  background: linear-gradient(135deg, var(--el-color-primary-light-9), var(--el-color-primary-light-8));
-  border: none;
-  border-radius: 16px;
-  overflow: hidden;
-}
-
-.api-content {
-  display: flex;
-  align-items: center;
-  gap: 3rem;
-  padding: 2rem;
-}
-
-.api-text {
-  flex: 1;
-}
-
-.api-text h2 {
-  font-size: 2rem;
-  font-weight: 700;
-  color: var(--el-color-primary);
-  margin-bottom: 1rem;
-}
-
-.api-text p {
-  font-size: 1.1rem;
-  color: var(--el-text-color-regular);
-  margin-bottom: 1.5rem;
-  line-height: 1.6;
-}
-
-.api-features {
-  list-style: none;
+.feature-card :deep(.el-card__body) {
   padding: 0;
+}
+
+.feature-icon-wrapper {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 1.5rem;
+  background: linear-gradient(135deg, rgba(0, 220, 130, 0.1) 0%, rgba(0, 220, 130, 0.05) 100%);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.feature-icon-large {
+  font-size: 2rem;
+  color: #00DC82;
+}
+
+.feature-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  color: var(--text-primary);
+}
+
+.feature-description {
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* Why Section */
+.why-section {
+  padding: 5rem 0;
+  background: var(--bg-secondary);
+}
+
+.why-content {
+  animation: fadeInLeft 0.6s ease-out;
+}
+
+.why-description {
+  font-size: 1.125rem;
+  line-height: 1.7;
+  color: var(--text-secondary);
   margin-bottom: 2rem;
 }
 
-.api-features li {
-  font-size: 1rem;
-  color: var(--el-text-color-regular);
-  margin-bottom: 0.5rem;
-  padding-left: 0;
-}
-
-.api-docs-btn {
-  padding: 1rem 2rem;
-  font-size: 1.1rem;
-  border-radius: 8px;
-  transition: all 0.3s ease;
-  font-weight: 600;
-}
-
-.api-docs-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
-}
-
-.api-visual {
-  flex: 1;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.api-code-icon {
-  font-size: 8rem;
-  color: var(--el-color-primary);
-  opacity: 0.3;
-}
-
-/* 8. GRIEVANCE SECTION */
-.grievance-section {
-  animation: slideUp 0.8s ease-out 1.4s backwards;
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 0.3rem 0;
-}
-
-.grievance-content {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.grievance-message {
-  font-size: 0.9rem;
-  color: var(--el-text-color-primary);
+.why-list {
+  list-style: none;
+  padding: 0;
   margin: 0;
-  font-weight: 400;
+}
+
+.why-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.list-icon {
+  font-size: 1.5rem;
+  color: #00DC82;
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+}
+
+.stats-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  animation: fadeInRight 0.6s ease-out;
+}
+
+.stat-item {
+  padding: 1.5rem;
+  background: var(--card-bg);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.stat-item:hover {
+  transform: translateX(8px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+}
+
+.stat-number {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: #00DC82;
+  margin-bottom: 0.5rem;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.stat-text {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* How It Works Section */
+.how-it-works-section {
+  padding: 5rem 0;
+  background: var(--bg-primary);
+}
+
+.steps-grid {
+  margin-top: 3rem;
+}
+
+.step-card {
+  height: 100%;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  transition: all 0.3s ease;
+  text-align: center;
+  padding: 2rem 1.5rem;
+  position: relative;
+}
+
+.step-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+}
+
+.step-card :deep(.el-card__body) {
+  padding: 0;
+}
+
+.step-number {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 1.5rem;
+  background: linear-gradient(135deg, #00DC82 0%, #00B86B 100%);
+  color: white;
+  border-radius: 50%;
+    display: flex;
+    align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.step-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  color: var(--text-primary);
+}
+
+.step-description {
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* CTA Strip */
+.cta-strip {
+  padding: 5rem 0;
+  background: linear-gradient(135deg, #00DC82 0%, #00B86B 100%);
+  color: white;
   text-align: center;
 }
 
-.grievance-link {
-  color: var(--el-color-success);
-  text-decoration: none;
-  font-weight: 500;
-  transition: color 0.3s ease;
-  white-space: nowrap;
+.cta-container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 0 2rem;
 }
 
-.grievance-link:hover {
-  color: var(--el-color-success-dark-2);
+.cta-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+}
+
+.cta-description {
+  font-size: 1.125rem;
+    margin-bottom: 2rem;
+  opacity: 0.95;
+}
+
+.cta-button {
+  padding: 1rem 2.5rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+  background: white;
+  color: #00DC82;
+  border: none;
+}
+
+.cta-button:hover {
+  background: rgba(255, 255, 255, 0.9);
+  color: #00B86B;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 220, 130, 0.2);
+}
+
+
+/* Grievance Hero Section */
+.grievance-hero-section {
+  padding: 5rem 0;
+  background: var(--bg-secondary);
+}
+
+.grievance-hero-section .hero-container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+.grievance-hero-section .hero-content {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+.grievance-hero-section .hero-title {
+  font-size: 2.5rem;
+  font-weight: 800;
+  line-height: 1.1;
+  margin-bottom: 1.5rem;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.grievance-hero-section .hero-description {
+  font-size: 1.125rem;
+  line-height: 1.7;
+  color: var(--text-secondary);
+  margin-bottom: 2rem;
+  max-width: 600px;
+}
+
+.grievance-hero-section .hero-features {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 2.5rem 0;
+}
+
+.grievance-hero-section .hero-features li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.grievance-hero-section .hero-cta {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: nowrap;
+  align-items: center;
+}
+
+.grievance-hero-section .cta-primary,
+.grievance-hero-section .cta-secondary {
+  padding: 0.875rem 1.5rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.grievance-hero-section .cta-primary {
+  background: #00DC82 !important;
+  border-color: #00DC82 !important;
+  color: white !important;
+}
+
+.grievance-hero-section .cta-primary:hover {
+  background: #00B86B !important;
+  border-color: #00B86B !important;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 220, 130, 0.3);
+}
+
+.grievance-hero-section .cta-secondary {
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-primary);
+}
+
+.grievance-hero-section .cta-secondary:hover {
+  background: rgba(0, 220, 130, 0.1);
+  border-color: #00DC82;
+  color: #00DC82;
+  transform: translateY(-2px);
+}
+
+.grievance-hero-section .hero-visual {
+  animation: fadeInUp 0.6s ease-out 0.2s backwards;
+}
+
+.grievance-hero-section .info-card {
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+  text-align: center;
+  padding: 2rem;
+}
+
+.grievance-hero-section .info-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.grievance-hero-section .info-icon {
+  font-size: 4rem;
+  color: #00DC82;
+  margin-bottom: 0.5rem;
+}
+
+.grievance-hero-section .info-content h3 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.grievance-hero-section .helpline-number {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #00DC82;
+  margin: 0.5rem 0;
+}
+
+.grievance-hero-section .helpline-number a {
+  color: #00DC82;
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+
+.grievance-hero-section .helpline-number a:hover {
+  color: #00B86B;
   text-decoration: underline;
 }
 
-/* 6. ANIMATIONS */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
+.grievance-hero-section .helpline-text {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+
+@media (max-width: 768px) {
+  .grievance-hero-section {
+    padding: 3rem 0 2rem;
   }
-  to {
-    opacity: 1;
+
+  .grievance-hero-section .hero-title {
+    font-size: 2rem;
+  }
+
+  .grievance-hero-section .hero-description {
+    font-size: 1rem;
+  }
+
+  .grievance-hero-section .hero-cta {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .grievance-hero-section .cta-primary,
+  .grievance-hero-section .cta-secondary {
+    flex: 1;
+    min-width: 120px;
+  }
+
+  .grievance-hero-section .info-icon {
+    font-size: 3rem;
+  }
+
+  .grievance-hero-section .helpline-number {
+    font-size: 1.5rem;
   }
 }
-@keyframes slideUp {
+
+
+/* Legacy animations (for initial load) */
+@keyframes fadeInUp {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(30px);
   }
   to {
     opacity: 1;
@@ -818,7 +1255,29 @@ AvgHHSize();
   }
 }
 
-/* 7. ACCESSIBILITY */
+@keyframes fadeInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeInRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Accessibility */
 .visually-hidden {
   position: absolute !important;
   width: 1px !important;
@@ -831,293 +1290,76 @@ AvgHHSize();
   border: 0 !important;
 }
 
-/* 8. RESPONSIVE ADJUSTMENTS */
-
-/* Up to 768px wide (tablets & small desktops) */
+/* Responsive Design */
 @media (max-width: 768px) {
-  .landing-container {
-    min-height: 100vh;
-    overflow-x: hidden;
-    overflow-y: auto;
+  .hero-section {
+    padding: 3rem 0 2rem;
   }
 
-  .main-container {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
+  .hero-title {
+    font-size: 2.5rem;
   }
 
-  .main-content {
-    padding: 0.8rem;
+  .hero-description {
+    font-size: 1.125rem;
+  }
+
+  .section-title {
+    font-size: 2rem;
+  }
+
+  .section-container {
+    padding: 0 1rem;
+  }
+
+  .hero-container {
+    padding: 0 1rem;
+  }
+
+  .cta-title {
+    font-size: 2rem;
+  }
+
+  .preview-dashboard {
+    height: 300px;
+  }
+
+  .hero-cta {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .cta-primary,
+  .cta-secondary {
     flex: 1;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .hero {
-    padding: 1rem 0;
-    flex-shrink: 0;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  }
-
-  .hero-content {
-    width: 100%;
-    max-width: 500px;
-    margin: 0 auto;
-    padding: 0 1rem;
-  }
-
-  .hero-visual {
-    margin-top: 2rem;
-  }
-
-  .image-carousel {
-    max-width: 100%;
-  }
-
-  .main-title {
-    font-size: 2.8rem;
-    margin-bottom: 2rem;
-  }
-
-  .subtitle {
-    font-size: 1.3rem;
-    margin-bottom: 2rem;
-  }
-
-  .description {
-    font-size: 1.1rem;
-    line-height: 1.6;
-    margin-bottom: 2rem;
-    padding: 0 0.5rem;
-  }
-
-  .cta-buttons {
-    flex-direction: column;
-    gap: 1rem;
-    padding: 0 2rem;
-    margin-bottom: 2rem;
-    align-items: center;
-    width: 100%;
-    max-width: 400px;
-    margin-left: auto;
-    margin-right: auto;
-  }
-
-  .login-btn, .api-btn {
-    width: 100%;
-    padding: 1rem 1.5rem;
-    font-size: 1rem;
-    margin-left: 0;
-    border-radius: 12px;
-    font-weight: 600;
-    min-height: 50px;
-  }
-
-  .stats-grid {
-    margin: 2rem auto;
-    flex-direction: column;
-    align-items: center;
-    width: 100%;
-    padding: 0 1rem;
-  }
-
-  .stat-card {
-    padding: 2rem 1.5rem;
-    margin: 0.8rem 0;
-    min-height: 160px;
-    width: 100%;
-    max-width: 350px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-  }
-
-  .stat-icon {
-    font-size: 2.2rem;
-    margin-bottom: 1rem;
-    width: 55px;
-    height: 55px;
-  }
-
-  .stat-value {
-    font-size: 2rem;
-    margin-bottom: 0.5rem;
-    font-weight: 800;
-  }
-
-  .stat-label {
-    font-size: 0.9rem;
-    text-align: center;
-    line-height: 1.3;
-  }
-
-  .section-header h2 {
-    font-size: 2rem;
-  }
-
-  .section-header p {
-    font-size: 1.1rem;
-  }
-
-  .feature-card {
-    margin-bottom: 1rem;
-  }
-
-  .api-content {
-    flex-direction: column;
-    text-align: center;
-    gap: 2rem;
-  }
-
-  .api-code-icon {
-    font-size: 6rem;
-  }
-
-  .grievance-section {
-    padding: 1rem 0;
-    position: relative;
-    z-index: 1;
-    margin-top: 1rem;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 8px;
-    backdrop-filter: blur(5px);
-  }
-
-  .grievance-message {
-    font-size: 0.9rem;
-    line-height: 1.4;
-    padding: 0 1rem;
+    min-width: 120px;
   }
 }
 
-/* Up to 480px wide (phones) */
 @media (max-width: 480px) {
-  .landing-container {
-    min-height: 100vh;
-    overflow-x: hidden;
-    overflow-y: auto;
+  .hero-title {
+    font-size: 2rem;
   }
 
-  .main-container {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
+  .section-title {
+    font-size: 1.75rem;
   }
 
-  .main-content {
-    padding: 0.5rem;
-    flex: 1;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    display: flex;
-    flex-direction: column;
+  .preview-dashboard {
+    height: 250px;
   }
+}
 
-  .hero {
-    flex-shrink: 0;
-    padding: 0.5rem 0;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  }
+/* Dark Mode Support */
+.dark-mode .preview-dashboard {
+  background: var(--bg-secondary);
+}
 
-  .hero-content {
-    width: 100%;
-    max-width: 400px;
-    margin: 0 auto;
-    padding: 0 1rem;
-  }
+.dark-mode .preview-sidebar {
+  background: var(--bg-primary);
+}
 
-  .main-title {
-    font-size: 2.2rem;
-    margin-bottom: 1.5rem;
-    line-height: 1.2;
-  }
-
-  .subtitle {
-    font-size: 1.2rem;
-    margin-bottom: 1.5rem;
-  }
-
-  .description {
-    font-size: 1rem;
-    line-height: 1.6;
-    margin-bottom: 1.5rem;
-    padding: 0;
-  }
-
-  .cta-buttons {
-    margin-bottom: 1.5rem;
-    padding: 0 1.5rem;
-    gap: 0.8rem;
-    flex-direction: column;
-  }
-
-  .login-btn, .api-btn {
-    padding: 0.9rem 1.2rem;
-    font-size: 0.95rem;
-    min-height: 48px;
-    width: 100%;
-  }
-
-  .stats-section {
-    flex-shrink: 0;
-    margin: 2rem 0;
-    padding: 0 1rem;
-  }
-
-  .stat-card {
-    padding: 1.5rem 1rem;
-    margin: 0.6rem 0;
-    min-height: 140px;
-    max-width: 320px;
-  }
-
-  .stat-icon {
-    font-size: 1.8rem;
-    width: 45px;
-    height: 45px;
-    margin-bottom: 0.8rem;
-  }
-
-  .stat-value {
-    font-size: 1.8rem;
-    margin-bottom: 0.4rem;
-  }
-
-  .stat-label {
-    font-size: 0.85rem;
-    text-align: center;
-  }
-
-  .grievance-section {
-    flex-shrink: 0;
-    margin-top: 1rem;
-    padding: 1rem 0;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 8px;
-    backdrop-filter: blur(5px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-  }
-
-  .grievance-message {
-    font-size: 0.9rem;
-    line-height: 1.3;
-    padding: 0 1rem;
-    text-align: center;
-  }
-
-  .grievance-link {
-    display: inline-block;
-    margin: 0 2px;
-    padding: 2px 4px;
-    background: rgba(76, 175, 80, 0.1);
-    border-radius: 4px;
-    text-decoration: none;
-  }
+.dark-mode .stat-item {
+  background: var(--bg-primary);
 }
 </style>
