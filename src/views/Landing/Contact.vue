@@ -6,15 +6,15 @@
             <p>We'd love to hear from you. Send us a message and we'll respond as soon as possible.</p>
             <div class="contact-details">
               <div class="contact-item">
-                <i class="el-icon-location" aria-hidden="true"></i>
+                <Icon icon="mdi:map-marker" class="contact-icon" />
                 <span>Nairobi, Kenya</span>
               </div>
               <div class="contact-item">
-                <i class="el-icon-message" aria-hidden="true"></i>
+                <Icon icon="mdi:email" class="contact-icon" />
                 <a href="mailto:kisip2info@gmail.com" aria-label="Send email to KISIP">kisip2info@gmail.com</a>
               </div>
               <div class="contact-item">
-                <i class="el-icon-phone" aria-hidden="true"></i>
+                <Icon icon="mdi:phone" class="contact-icon" />
                 <a href="tel:0800724349" aria-label="Call KISIP helpline">0800 724 349</a>
               </div>
             </div>
@@ -111,13 +111,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref } from 'vue';
 import { ElButton, ElCard, ElForm, ElFormItem, ElInput, ElRow, ElCol, ElMessage, ElSelect, ElOption } from 'element-plus';
 import { User, Phone, Message } from '@element-plus/icons-vue';
 import type { FormInstance, FormRules } from 'element-plus';
 import BaseLayout from './BaseLayout.vue';
 import countryPhoneCodes from '@/utils/countryPhoneCodes.json';
-import { useHead } from '@unhead/vue'
+import { useHead } from '@unhead/vue';
+import { Icon } from '@iconify/vue';
 
 useHead({
   title: 'Contact KeSMIS | Kenya Slum Management Information System',
@@ -147,8 +148,8 @@ useHead({
     { name: 'twitter:image:alt', content: 'KeSMIS Logo - Kenya Slum Management Information System' },
     
     // Additional meta tags for better SEO
-    { name: 'theme-color', content: '#684035' },
-    { name: 'msapplication-TileColor', content: '#684035' },
+    { name: 'theme-color', content: '#00DC82' },
+    { name: 'msapplication-TileColor', content: '#00DC82' },
     { name: 'viewport', content: 'width=device-width, initial-scale=1.0' },
     { name: 'format-detection', content: 'telephone=no' }
   ]
@@ -243,33 +244,35 @@ const resetForm = () => {
 }
 
 .contact-wrapper {
-  max-width: 1200px;
+  max-width: 1280px;
   margin: 0 auto;
   display: grid;
   grid-template-columns: 1fr 2fr;
-  gap: 2rem;
-  background-color: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  padding: 2rem;
+  gap: 3rem;
+  padding: 4rem 2rem;
 }
 
 .contact-info {
-  padding: 2rem;
-  background: linear-gradient(135deg, #684035 0%, #8b5a2b 100%);
+  padding: 2.5rem;
+  background: linear-gradient(135deg, #00DC82 0%, #00B86B 100%);
   color: white;
-  border-radius: 8px;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(0, 220, 130, 0.2);
 }
 
 .contact-info h2 {
-  font-size: 2rem;
+  font-size: 2.5rem;
   margin-bottom: 1rem;
-  font-weight: 600;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
 }
 
 .contact-info p {
-  margin-bottom: 2rem;
-  line-height: 1.6;
+  margin-bottom: 2.5rem;
+  line-height: 1.7;
+  font-size: 1.125rem;
+  opacity: 0.95;
 }
 
 .contact-details {
@@ -282,29 +285,59 @@ const resetForm = () => {
   display: flex;
   align-items: center;
   gap: 1rem;
-  transition: transform 0.3s ease;
+  transition: all 0.3s ease;
+  padding: 0.75rem;
+  border-radius: 8px;
+  background: transparent;
+  border: 2px solid rgba(255, 255, 255, 0.3);
 }
 
 .contact-item:hover {
-  transform: translateX(10px);
+  transform: translateX(8px);
+  border-color: rgba(255, 255, 255, 0.6);
 }
 
-.contact-item i {
+.contact-icon {
   font-size: 1.5rem;
-  color: #ffd700;
+  color: white;
+  opacity: 0.9;
+  flex-shrink: 0;
+  padding: 0.5rem;
+  background: transparent;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+.contact-item a {
+  color: white;
+  text-decoration: none;
+  transition: opacity 0.3s ease;
+}
+
+.contact-item a:hover {
+  opacity: 0.8;
+  text-decoration: underline;
 }
 
 .form-card {
   border: none;
-  box-shadow: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  border-radius: 16px;
+  overflow: hidden;
 }
 
 .card-header {
-  text-align: center;
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #684035;
+  text-align: left;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-primary);
   padding: 1rem 0;
+  letter-spacing: -0.01em;
 }
 
 .el-form-item {
@@ -313,61 +346,85 @@ const resetForm = () => {
 
 .el-input :deep(.el-input__wrapper) {
   box-shadow: none;
-  border: 1px solid #dcdfe6;
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   transition: all 0.3s ease;
 }
 
 .el-input :deep(.el-input__wrapper:hover),
 .el-input :deep(.el-input__wrapper.is-focus) {
-  border-color: #684035;
-  box-shadow: 0 0 0 2px rgba(104, 64, 53, 0.2);
+  border-color: #00DC82;
+  box-shadow: 0 0 0 2px rgba(0, 220, 130, 0.2);
 }
 
 .el-textarea :deep(.el-textarea__inner) {
-  border: 1px solid #dcdfe6;
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   transition: all 0.3s ease;
 }
 
 .el-textarea :deep(.el-textarea__inner:hover),
 .el-textarea :deep(.el-textarea__inner:focus) {
-  border-color: #684035;
-  box-shadow: 0 0 0 2px rgba(104, 64, 53, 0.2);
+  border-color: #00DC82;
+  box-shadow: 0 0 0 2px rgba(0, 220, 130, 0.2);
 }
 
 .form-footer {
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 1rem;
-  padding-top: 1rem;
+  padding-top: 1.5rem;
 }
 
 .reset-btn {
-  background: linear-gradient(135deg, #684035 0%, #8b5a2b 100%);
-  border: none;
-  color: white;
-  padding: 0.6rem 1.2rem;
+  background: #00DC82 !important;
+  border: 1px solid #00DC82 !important;
+  color: white !important;
+  padding: 0.875rem 1.5rem;
   border-radius: 8px;
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 0.9375rem;
   transition: all 0.3s ease;
 }
 
 .reset-btn:hover {
+  background: #00B86B !important;
+  border-color: #00B86B !important;
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(104, 64, 53, 0.3);
-  opacity: 0.9;
+  box-shadow: 0 8px 20px rgba(0, 220, 130, 0.3);
+}
+
+.reset-btn:first-child {
+  background: #00DC82 !important;
+  border-color: #00DC82 !important;
+}
+
+.reset-btn:last-child {
+  background: transparent !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+.reset-btn:last-child:hover {
+  background: rgba(0, 220, 130, 0.1) !important;
+  border-color: #00DC82 !important;
+  color: #00DC82 !important;
 }
 
 @media (max-width: 768px) {
   .contact-wrapper {
     grid-template-columns: 1fr;
-    padding: 1rem;
+    padding: 2rem 1rem;
+    gap: 2rem;
   }
 
   .contact-info {
     order: 2;
+    padding: 2rem;
+  }
+
+  .contact-info h2 {
+    font-size: 2rem;
   }
 
   .contact-form {
@@ -375,12 +432,12 @@ const resetForm = () => {
   }
 
   .card-header {
-    font-size: 1.3rem;
+    font-size: 1.5rem;
   }
 
   .form-footer {
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.75rem;
   }
 
   .reset-btn {
@@ -398,6 +455,65 @@ const resetForm = () => {
     padding: 8px 16px;
     font-size: 0.85rem;
   }
+}
+
+/* Dark Mode Support */
+.dark-mode .contact-wrapper {
+  background: transparent;
+}
+
+.dark-mode .form-card {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+}
+
+.dark-mode .card-header {
+  color: var(--text-primary);
+}
+
+.dark-mode .el-input :deep(.el-input__wrapper) {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+}
+
+.dark-mode .el-input :deep(.el-input__wrapper:hover),
+.dark-mode .el-input :deep(.el-input__wrapper.is-focus) {
+  border-color: #00DC82;
+  box-shadow: 0 0 0 2px rgba(0, 220, 130, 0.2);
+}
+
+.dark-mode .el-textarea :deep(.el-textarea__inner) {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+.dark-mode .el-textarea :deep(.el-textarea__inner:hover),
+.dark-mode .el-textarea :deep(.el-textarea__inner:focus) {
+  border-color: #00DC82;
+  box-shadow: 0 0 0 2px rgba(0, 220, 130, 0.2);
+}
+
+.dark-mode .el-select :deep(.el-select__wrapper) {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+}
+
+.dark-mode .el-select :deep(.el-select__wrapper:hover),
+.dark-mode .el-select :deep(.el-select__wrapper.is-focused) {
+  border-color: #00DC82;
+  box-shadow: 0 0 0 2px rgba(0, 220, 130, 0.2);
+}
+
+.dark-mode .reset-btn:last-child {
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+.dark-mode .reset-btn:last-child:hover {
+  background: rgba(0, 220, 130, 0.15) !important;
+  border-color: #00DC82 !important;
+  color: #00DC82 !important;
 }
 
 :deep(.el-form-item__error) {
