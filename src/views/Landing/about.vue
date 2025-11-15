@@ -1,28 +1,76 @@
 <template>
   <BaseLayout>
-    <div class="hero" :class="{ 'dark-mode': isDarkMode }"> 
+    <div class="about-container">
       <div class="about-content">
-        <h1 class="title">About KeSMIS</h1>
-        <div class="content-wrapper">
-          <section>
-            <h2 class="visually-hidden">Introduction</h2>
-            <p class="intro-text">Kenya Slum Management Information System (KeSMIS) is an innovative platform aimed at improving the living conditions in slums across Kenya. Through comprehensive data collection, management, and analysis, KeSMIS provides critical insights that inform policy decisions and development strategies.</p>
+        <h1 class="about-title">About KeSMIS</h1>
+        
+        <div class="about-sections">
+          <section class="about-section">
+            <div class="section-card">
+              <h2 class="section-title">
+                <Icon icon="mdi:information-outline" class="section-icon" />
+                Introduction
+              </h2>
+              <p class="section-text">
+                The Kenya Slum Management Information System (KeSMIS) is the national geodatabase and information management system for slums and informal settlements across Kenya. Implemented under the Kenya Informal Settlements Improvement Project (KISIP), KeSMIS facilitates comprehensive data collection, grievance management, and project monitoring to support evidence-based decision-making in urban development.
+              </p>
+            </div>
           </section>
           
-          <section>
-            <h2 class="visually-hidden">Our Mission</h2>
-            <p class="mission-text">Our mission is to empower communities and stakeholders by providing access to reliable information and tools necessary for effective slum management and urban planning.</p>
+          <section class="about-section">
+            <div class="section-card">
+              <h2 class="section-title">
+                <Icon icon="mdi:target" class="section-icon" />
+                Our Mission
+              </h2>
+              <p class="section-text">
+                KeSMIS aims to provide government agencies, development partners, and communities with reliable data and analytical tools necessary for effective slum management, urban planning, and evidence-based policy formulation. The system supports the transformation of informal settlements into sustainable and livable environments through comprehensive information management.
+              </p>
+            </div>
           </section>
           
-          <section>
-            <h2 class="visually-hidden">Project Background</h2>
-            <p class="project-text">KeSMIS is part of the Kenya Informal Settlements Improvement Project (KISIP), which is committed to transforming informal settlements into sustainable and livable environments.</p>
+          <section class="about-section">
+            <div class="section-card">
+              <h2 class="section-title">
+                <Icon icon="mdi:office-building-outline" class="section-icon" />
+                Project Background
+              </h2>
+              <p class="section-text">
+                KeSMIS is a key component of the Kenya Informal Settlements Improvement Project (KISIP), a government initiative aimed at improving living conditions in informal settlements across Kenya. The system supports KISIP's objectives by providing a centralized platform for data collection, management, and analysis related to informal settlements, infrastructure, and community services.
+              </p>
+            </div>
           </section>
-          
-          <el-button type="primary" size="large" class="cta-button">
-            Learn More
-            <i class="el-icon-arrow-right"></i>
-          </el-button>
+
+          <section class="about-section">
+            <div class="section-card">
+              <h2 class="section-title">
+                <Icon icon="mdi:chart-box-outline" class="section-icon" />
+                Key Features
+              </h2>
+              <ul class="features-list">
+                <li>
+                  <Icon icon="mdi:check-circle" class="list-icon" />
+                  <span>National geodatabase for slums and informal settlements</span>
+                </li>
+                <li>
+                  <Icon icon="mdi:check-circle" class="list-icon" />
+                  <span>Electronic Grievance Redress Mechanism (e-GRM)</span>
+                </li>
+                <li>
+                  <Icon icon="mdi:check-circle" class="list-icon" />
+                  <span>Project monitoring and reporting capabilities</span>
+                </li>
+                <li>
+                  <Icon icon="mdi:check-circle" class="list-icon" />
+                  <span>Real-time data collection and synchronization</span>
+                </li>
+                <li>
+                  <Icon icon="mdi:check-circle" class="list-icon" />
+                  <span>Multi-level access control and user management</span>
+                </li>
+              </ul>
+            </div>
+          </section>
         </div>
       </div>
     </div>
@@ -30,22 +78,21 @@
 </template>
 
 <script setup lang="ts">
-import { ElButton } from 'element-plus';
 import BaseLayout from './BaseLayout.vue';
-import { ref, onMounted } from 'vue';
-import { useHead } from '@unhead/vue'
+import { useHead } from '@unhead/vue';
+import { Icon } from '@iconify/vue';
 
 useHead({
   title: 'About KeSMIS | Kenya Slum Management Information System',
   meta: [
-    { name: 'description', content: 'Learn about KeSMIS (Kenya Slum Management Information System) - an innovative platform improving living conditions in slums across Kenya through comprehensive data collection and analysis.' },
+    { name: 'description', content: 'Learn about KeSMIS (Kenya Slum Management Information System) - the national geodatabase and information management system for slums and informal settlements across Kenya, implemented under KISIP.' },
     { name: 'keywords', content: 'about KeSMIS, Kenya slum management, KISIP project, urban development Kenya, slum improvement, informal settlements Kenya, data collection platform' },
     { name: 'author', content: 'Kenya Informal Settlements Improvement Project (KISIP)' },
     { name: 'robots', content: 'index, follow' },
     
     // Open Graph tags (for WhatsApp, Facebook, LinkedIn)
     { property: 'og:title', content: 'About KeSMIS - Kenya Slum Management Information System' },
-    { property: 'og:description', content: 'Learn about KeSMIS - an innovative platform improving living conditions in slums across Kenya through comprehensive data collection and analysis.' },
+    { property: 'og:description', content: 'Learn about KeSMIS - the national geodatabase and information management system for slums and informal settlements across Kenya.' },
     { property: 'og:type', content: 'website' },
     { property: 'og:url', content: 'https://kesmis.go.ke/about' },
     { property: 'og:image', content: 'https://kesmis.go.ke/logo.png' },
@@ -58,207 +105,171 @@ useHead({
     // Twitter Card tags
     { name: 'twitter:card', content: 'summary_large_image' },
     { name: 'twitter:title', content: 'About KeSMIS - Kenya Slum Management Information System' },
-    { name: 'twitter:description', content: 'Learn about KeSMIS - an innovative platform improving living conditions in slums across Kenya through comprehensive data collection and analysis.' },
+    { name: 'twitter:description', content: 'Learn about KeSMIS - the national geodatabase and information management system for slums and informal settlements across Kenya.' },
     { name: 'twitter:image', content: 'https://kesmis.go.ke/twitter-card.jpg' },
     { name: 'twitter:image:alt', content: 'KeSMIS Logo - Kenya Slum Management Information System' },
     
     // Additional meta tags for better SEO
-    { name: 'theme-color', content: '#684035' },
-    { name: 'msapplication-TileColor', content: '#684035' },
+    { name: 'theme-color', content: '#00DC82' },
+    { name: 'msapplication-TileColor', content: '#00DC82' },
     { name: 'viewport', content: 'width=device-width, initial-scale=1.0' },
     { name: 'format-detection', content: 'telephone=no' }
   ]
 })
-
-const isDarkMode = ref(false);
-
-// Function to check system dark mode preference
-const checkDarkMode = () => {
-  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const savedTheme = localStorage.getItem('theme');
-  isDarkMode.value = savedTheme ? savedTheme === 'dark' : prefersDark;
-};
-
-// Watch for system theme changes
-onMounted(() => {
-  checkDarkMode();
-  
-  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-    if (!localStorage.getItem('theme')) {
-      isDarkMode.value = e.matches;
-    }
-  });
-});
 </script>
 
 <style scoped>
-:root {
-  --bg-primary: #ffffff;
-  --bg-secondary: rgba(255, 255, 255, 0.95);
-  --text-primary: #2c3e50;
-  --text-secondary: #34495e;
-  --border-color: #3498db;
-  --shadow-color: rgba(0, 0, 0, 0.05);
-  --gradient-start: #2c3e50;
-  --gradient-end: #3498db;
-  --button-gradient-start: #3498db;
-  --button-gradient-end: #2980b9;
-  --button-shadow: rgba(52, 152, 219, 0.3);
-}
-
-.dark-mode {
-  --bg-primary: #1a1a1a;
-  --bg-secondary: rgba(30, 30, 30, 0.95);
-  --text-primary: #e0e0e0;
-  --text-secondary: #b0b0b0;
-  --border-color: #4a9eff;
-  --shadow-color: rgba(0, 0, 0, 0.2);
-  --gradient-start: #4a9eff;
-  --gradient-end: #6eb5ff;
-  --button-gradient-start: #4a9eff;
-  --button-gradient-end: #6eb5ff;
-  --button-shadow: rgba(74, 158, 255, 0.3);
-}
-
-.about-page {
-  font-family: 'Helvetica Neue', Arial, sans-serif;
+.about-container {
+  min-height: 100vh;
+  color: var(--text-primary);
+  transition: all 0.3s ease;
+  padding: 4rem 2rem;
 }
 
 .about-content {
-  padding: 80px 20px;
-  text-align: center;
-  max-width: 900px;
+  max-width: 1280px;
   margin: 0 auto;
 }
 
-.title {
-  font-size: 3.5rem;
-  margin-bottom: 2rem;
-  font-weight: 800;
-  background: linear-gradient(45deg, var(--gradient-start), var(--gradient-end));
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: fadeInDown 0.8s ease-out;
-}
-
-.content-wrapper {
-  background: var(--bg-secondary);
-  padding: 2rem;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px var(--shadow-color);
-  animation: fadeIn 1s ease-out;
-  transition: all 0.3s ease;
-}
-
-.intro-text, .mission-text, .project-text {
-  font-size: 1.2rem;
-  line-height: 1.8;
-  margin-bottom: 1.5rem;
+.about-title {
+  text-align: left;
+  margin-bottom: 3rem;
   color: var(--text-primary);
-  transition: color 0.3s ease;
+  font-size: 2.5rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
 }
 
-.mission-text {
-  font-weight: 500;
-  color: var(--text-secondary);
-  border-left: 4px solid var(--border-color);
-  padding-left: 1rem;
-  margin: 2rem 0;
-  transition: all 0.3s ease;
-}
-
-.cta-button {
-  margin-top: 2rem;
-  padding: 10px 24px;
-  font-size: 1rem;
-  border-radius: 25px;
-  transition: all 0.3s ease;
-  background: linear-gradient(45deg, var(--button-gradient-start), var(--button-gradient-end));
-  border: none;
-}
-
-.cta-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 15px var(--button-shadow);
-}
-
-.hero {
-  position: relative;
+.about-sections {
   display: flex;
-  justify-content: center;
-  align-items: center;
   flex-direction: column;
-  text-align: center;
-  padding: 60px 20px;
-  min-height: 80vh;
-  overflow: hidden;
-  background-color: var(--bg-primary);
-  transition: background-color 0.3s ease;
+  gap: 2rem;
 }
 
-.hero::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(45deg, transparent 49%, var(--text-secondary) 49% 51%, transparent 51%), 
-              linear-gradient(-45deg, transparent 49%, var(--text-secondary) 49% 51%, transparent 51%);
-  background-color: var(--bg-primary);
-  background-image: url('@/assets/imgs/background.png');
-  opacity: 0.15;
-  z-index: -1;
+.about-section {
+  scroll-margin-top: 100px;
+}
+
+.section-card {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 2.5rem;
   transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.section-card:hover {
+  box-shadow: 0 8px 24px rgba(0, 220, 130, 0.1);
+  border-color: rgba(0, 220, 130, 0.3);
 }
 
-@keyframes fadeInDown {
-  from {
-    opacity: 0;
-    transform: translateY(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid rgba(0, 220, 130, 0.2);
 }
 
-/* Accessibility */
-.visually-hidden {
-  position: absolute !important;
-  width: 1px !important;
-  height: 1px !important;
-  padding: 0 !important;
-  margin: -1px !important;
-  overflow: hidden !important;
-  clip: rect(0, 0, 0, 0) !important;
-  white-space: nowrap !important;
-  border: 0 !important;
+.section-icon {
+  font-size: 1.75rem;
+  color: #00DC82;
+  flex-shrink: 0;
+}
+
+.section-text {
+  color: var(--text-secondary);
+  line-height: 1.8;
+  font-size: 1rem;
+  margin: 0;
+}
+
+.features-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.features-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  font-size: 1rem;
+}
+
+.list-icon {
+  font-size: 1.25rem;
+  color: #00DC82;
+  flex-shrink: 0;
+  margin-top: 0.125rem;
 }
 
 @media (max-width: 768px) {
-  .title {
-    font-size: 2.5rem;
+  .about-container {
+    padding: 2rem 1rem;
+  }
+
+  .about-title {
+    font-size: 2rem;
+    margin-bottom: 2rem;
+  }
+
+  .section-card {
+    padding: 2rem 1.5rem;
+  }
+
+  .section-title {
+    font-size: 1.25rem;
+    gap: 0.75rem;
+  }
+
+  .section-icon {
+    font-size: 1.5rem;
+  }
+
+  .about-sections {
+    gap: 1.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .about-container {
+    padding: 1.5rem 1rem;
   }
   
-  .content-wrapper {
-    padding: 1.5rem;
+  .about-title {
+    font-size: 1.75rem;
   }
-  
-  .intro-text, .mission-text, .project-text {
-    font-size: 1.1rem;
+
+  .section-card {
+    padding: 1.5rem 1rem;
   }
+
+  .section-title {
+    font-size: 1.125rem;
+    flex-wrap: wrap;
+  }
+}
+
+/* Dark Mode Support */
+.dark-mode .section-card {
+  background: var(--bg-primary);
+  border-color: var(--border-color);
+}
+
+.dark-mode .section-card:hover {
+  border-color: rgba(0, 220, 130, 0.4);
+  box-shadow: 0 8px 24px rgba(0, 220, 130, 0.15);
 }
 </style>
