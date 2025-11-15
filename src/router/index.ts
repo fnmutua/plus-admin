@@ -168,6 +168,17 @@ export const constantRouterMap: AppRouteRecordRaw[] = [
   },
 
   {
+    path: '/register',
+    component: () => import('@/views/Landing/Register/Register.vue'),
+    name: 'Register',
+    meta: {
+      hidden: true,
+      title: t('router.register'),
+      noTagsView: true
+    }
+  },
+
+  {
     path: '/logoff',
     component: () => import('@/views/Reset/Reset.vue'),
     name: 'Logoff',
@@ -2161,7 +2172,7 @@ router.beforeEach((to, from, next) => {
 });
 
 export const resetRouter = (): void => {
-  const resetWhiteNameList = ['Redirect', 'Login', 'NoFind', 'Root', 'Reset', 'Logoff', 
+  const resetWhiteNameList = ['Redirect', 'Login', 'Register', 'NoFind', 'Root', 'Reset', 'Logoff', 
     'Privacy', 'Contact','Landing','FAQs','About','GRM','DeleteAccount']
   router.getRoutes().forEach((route) => {
     const { name } = route

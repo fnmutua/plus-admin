@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
-import { ElButton, ElCard, ElForm, ElFormItem, ElInput, ElSelect, ElOption, ElCheckbox, ElMessage } from 'element-plus'
+import { ref, onMounted, watch, reactive } from 'vue'
+import { ElButton, ElForm, ElFormItem, ElInput, ElSelect, ElOption, ElCheckbox, ElMessage, ElLink, FormInstance } from 'element-plus'
 import { useI18n } from '@/hooks/web/useI18n'
 import { InputPassword } from '@/components/InputPassword'
 import { registerApi, getCountyAuth } from '@/api/register'
-import { VueTelInput } from 'vue-tel-input' // local registration
+import { VueTelInput } from 'vue-tel-input'
 import 'vue-tel-input/vue-tel-input.css'
+import { useRouter } from 'vue-router'
+import BaseLayout from '../../BaseLayout.vue'
 
 interface CountyOption {
   value: string | number
@@ -19,8 +21,8 @@ interface RegistrationFormData {
   password: string
   organization_name: string
   county_id: string | number
-  phone: string            // raw value in the input
-  phone_e164?: string      // normalized (E.164) from vue-tel-input validation
+  phone: string
+  phone_e164?: string
   country_name?: string
   country?: string
   agree_terms: boolean
@@ -30,15 +32,15 @@ interface RegistrationFormData {
   location_field?: string
 }
 
-const emit = defineEmits(['to-login'])
+const { push } = useRouter()
 const { t } = useI18n()
 
-const formRef = ref<InstanceType<typeof ElForm> | null>(null)
+const formRef = ref<FormInstance>()
 const loading = ref(false)
 
 const countiesOptions = ref<CountyOption[]>([])
 
-const formData = ref<RegistrationFormData>({
+const formData = reactive<RegistrationFormData>({
   name: '',
   username: '',
   email: '',
@@ -49,7 +51,7 @@ const formData = ref<RegistrationFormData>({
   phone_e164: '',
   country_name: '',
   country: '',
-  agree_terms: false
+  agree_terms: true
 })
 
 // vue-tel-input validation state
@@ -140,9 +142,8 @@ const rules = {
   county_id: [
     {
       validator: (_: any, value: string | number, cb: any) => {
-        // County is required only when country is Kenya
         if (!isKenya.value) return cb()
-        if (value === '' || value === undefined || value === null  ) {
+        if (value === '' || value === undefined || value === null) {
           return cb(new Error('County is required'))
         }
         cb()
@@ -159,23 +160,19 @@ const rules = {
       trigger: 'change'
     }
   ],
-  // Phone validation - use vue-tel-input validation with fallback
   phone: [
     { required: true, message: 'Phone number is required', trigger: ['blur', 'change'] },
     {
       validator: (_: any, value: string, cb: any) => {
-        // Check if phone number is empty
         if (!value || value.trim() === '') {
           return cb(new Error('Phone number is required'))
         }
         
-        // If vue-tel-input validation passed, accept it
-        if (phoneIsValid.value && formData.value.phone_e164) {
+        if (phoneIsValid.value && formData.phone_e164) {
           return cb()
         }
         
-        // Basic international format check (starts with + and has digits)
-        const cleanPhone = value.trim().replace(/\s/g, '') // Remove all spaces
+        const cleanPhone = value.trim().replace(/\s/g, '')
         const phoneRegex = /^\+[1-9]\d{7,14}$/
         if (!phoneRegex.test(cleanPhone)) {
           return cb(new Error('Enter a valid international phone number (e.g., +2547xxxxxxxx)'))
@@ -190,8 +187,8 @@ const rules = {
 
 // vue-tel-input props
 const telProps = {
-  mode: 'international',                 // always show international format
-  autoDefaultCountry: 'KE',              // default to Kenya
+  mode: 'international',
+  autoDefaultCountry: 'KE',
   validCharactersOnly: true,
   inputOptions: {
     showDialCode: true,
@@ -199,50 +196,40 @@ const telProps = {
   },
   preferredCountries: ['KE', 'UG', 'TZ', 'RW', 'ET', 'US', 'GB', 'IN'],
   dropdownOptions: {
-     showFlags: true,
+    showFlags: true,
     showCountryCode: true,
-     searchable: true,   
-     showSearchBox: true, 
-     showDialCodeInSelection:false,                // Enable country search
-    searchPlaceholder: 'Search countries...'  // Custom search placeholder
+    searchable: true,
+    showSearchBox: true,
+    showDialCodeInSelection: false,
+    searchPlaceholder: 'Search countries...'
   }
 } as const
 
 // Handle validate event from vue-tel-input
 function onPhoneValidate(payload: any) {
-  console.log('Phone validation payload:', payload)
-  console.log('payload.valid:', payload?.valid, 'payload.number:', payload?.number)
-  // payload structure: { country: "KE", countryCode: "KE", formatted: "+254 721 770339", valid: true, number: "+254721770339", ... }
   phoneIsValid.value = !!payload?.valid
-  formData.value.phone_e164 = payload?.number || ''
-  formData.value.country_name = payload?.countryCode || ''
-  formData.value.country = payload?.countryCode || ''
+  formData.phone_e164 = payload?.number || ''
+  formData.country_name = payload?.countryCode || ''
+  formData.country = payload?.countryCode || ''
   isKenya.value = payload?.country === 'KE' || payload?.countryCode === 'KE'
-  console.log('Phone validation state:', phoneIsValid.value, 'E164:', formData.value.phone_e164, 'Country:', payload?.countryCode, 'Is Kenya:', isKenya.value)
   
-  // Trigger form validation for phone field
   formRef.value?.validateField('phone')
 }
 
 // Handle country change event from vue-tel-input
 function onCountryChanged(country: any) {
-  console.log('Country changed:', country)
-  // country structure: { iso2: "KE", dialCode: "254", name: "Kenya", ... }
   const countryCode = country?.iso2 || ''
-  formData.value.country_name = countryCode
-  formData.value.country = countryCode
+  formData.country_name = countryCode
+  formData.country = countryCode
   isKenya.value = countryCode === 'KE'
-  console.log('Country changed - Code:', countryCode, 'Is Kenya:', isKenya.value)
 }
 
 // When country changes, default county_id appropriately
 watch(isKenya, (isKe) => {
   if (!isKe) {
-    // Not Kenya: mark county as Not Applicable
-    formData.value.county_id = '0'
-  } else if (formData.value.county_id === '0') {
-    // Kenya selected: reset previous N/A selection
-    formData.value.county_id = ''
+    formData.county_id = '0'
+  } else if (formData.county_id === '0') {
+    formData.county_id = ''
   }
 })
 
@@ -252,276 +239,704 @@ const loginRegister = async () => {
 
     try {
       loading.value = true
-      // Trim basic strings
-      formData.value.email = formData.value.email.trim()
-      formData.value.username = formData.value.username.trim()
-      formData.value.name = formData.value.name.trim()
-      formData.value.organization_name = formData.value.organization_name.trim()
+      formData.email = formData.email.trim()
+      formData.username = formData.username.trim()
+      formData.name = formData.name.trim()
+      formData.organization_name = formData.organization_name.trim()
 
-      // Initial roles & location metadata
-      formData.value.role = ['public']
-      formData.value.location_level = 'county'
-      formData.value.location_id = formData.value.county_id
-      formData.value.location_field = 'county_id'
+      formData.role = ['public']
+      formData.location_level = 'county'
+      formData.location_id = formData.county_id
+      formData.location_field = 'county_id'
 
-      // Use E.164 format from vue-tel-input if available and valid
-      if (phoneIsValid.value && formData.value.phone_e164) {
-        formData.value.phone = formData.value.phone_e164
+      if (phoneIsValid.value && formData.phone_e164) {
+        formData.phone = formData.phone_e164
       } else {
-        // Fallback to cleaned raw value (remove spaces)
-        formData.value.phone = formData.value.phone.trim().replace(/\s/g, '')
+        formData.phone = formData.phone.trim().replace(/\s/g, '')
       }
 
-      const payload: RegistrationFormData = { ...formData.value }
-      const res = await registerApi(payload as any)
-      console.log('After Register:', res)
+      const payload: RegistrationFormData = { ...formData }
+      await registerApi(payload as any)
       ElMessage.success('Registration successful')
-    } catch (e) {
+      push({ name: 'Login' })
+    } catch (e: any) {
       console.error('Registration error:', e)
-      ElMessage.error('Registration failed')
+      ElMessage.error(e?.message || 'Registration failed')
     } finally {
       loading.value = false
     }
   })
 }
 
-const toLogin = () => emit('to-login')
+const toLogin = () => {
+  push({ name: 'Login' })
+}
+
+const toPrivacy = () => {
+  push({ name: 'Privacy' })
+}
 </script>
 
 <template>
-  <el-card class="register-card">
-                   <el-form
-        ref="formRef"
-        :model="formData"
-        :rules="rules"
-        label-position="left"
-        hide-required-asterisk
-        class="register-form dark:(border-1 border-[var(--el-border-color)] border-solid) mb-5"
-      >
-      <h2 class="text-2xl font-bold text-center w-[100%] mb-6">{{ t('login.register') }}</h2>
+  <BaseLayout>
+    <div class="auth-page">
+      <div class="auth-container">
+        <div class="auth-card">
+          <!-- Header -->
+          <div class="auth-header">
+            <h1 class="auth-title">Create an account</h1>
+            <p class="auth-subtitle">Sign up to get started</p>
+          </div>
 
-      <el-form-item label="Full Name" prop="name">
-        <el-input v-model="formData.name" placeholder="e.g. Jane Wanjiku" />
-      </el-form-item>
+          <!-- Form -->
+          <el-form
+            ref="formRef"
+            :model="formData"
+            :rules="rules"
+            class="auth-form"
+            label-position="top"
+            size="large"
+            hide-required-asterisk
+            @submit.prevent="loginRegister"
+          >
+            <div class="form-fields">
+              <el-form-item prop="name" class="form-field-item" label-position="top">
+                <template #label>
+                  <span class="form-label">Full Name</span>
+                </template>
+                <el-input
+                  v-model="formData.name"
+                  placeholder="e.g. Jane Wanjiku"
+                  class="auth-input"
+                  autocomplete="name"
+                  clearable
+                />
+              </el-form-item>
 
-      <el-form-item label="Username" prop="username">
-        <el-input v-model="formData.username" placeholder="e.g. janewanjiku" />
-      </el-form-item>
+              <el-form-item prop="username" class="form-field-item" label-position="top">
+                <template #label>
+                  <span class="form-label">Username</span>
+                </template>
+                <el-input
+                  v-model="formData.username"
+                  placeholder="e.g. janewanjiku"
+                  class="auth-input"
+                  autocomplete="username"
+                  clearable
+                />
+              </el-form-item>
 
-      <el-form-item label="Email" prop="email">
-        <el-input v-model="formData.email" type="email" placeholder="name@example.com" />
-      </el-form-item>
+              <el-form-item prop="email" class="form-field-item" label-position="top">
+                <template #label>
+                  <span class="form-label">Email</span>
+                </template>
+                <el-input
+                  v-model="formData.email"
+                  type="email"
+                  placeholder="name@example.com"
+                  class="auth-input"
+                  autocomplete="email"
+                  clearable
+                />
+              </el-form-item>
 
-      <el-form-item label="Password" prop="password">
-        <InputPassword v-model="formData.password" />
-      </el-form-item>
+              <el-form-item prop="password" class="form-field-item" label-position="top">
+                <template #label>
+                  <span class="form-label">Password</span>
+                </template>
+                <InputPassword
+                  v-model="formData.password"
+                  :placeholder="t('login.passwordPlaceholder')"
+                  class="auth-input"
+                  autocomplete="new-password"
+                />
+              </el-form-item>
 
-      <el-form-item label="Organization" prop="organization_name">
-        <el-input v-model="formData.organization_name" placeholder="e.g. Kenya Red Cross Society" />
-      </el-form-item>
+              <el-form-item prop="organization_name" class="form-field-item" label-position="top">
+                <template #label>
+                  <span class="form-label">Organization</span>
+                </template>
+                <el-input
+                  v-model="formData.organization_name"
+                  placeholder="e.g. Kenya Red Cross Society"
+                  class="auth-input"
+                  clearable
+                />
+              </el-form-item>
 
-      <el-form-item label="Phone" prop="phone">
-        <!-- vue-tel-input handles flags, dial code & validation -->
-        <VueTelInput
-          v-model="formData.phone"
-          v-bind="telProps"
-          @validate="onPhoneValidate"
-          @country-changed="onCountryChanged"
-        />
-      </el-form-item>
+              <el-form-item prop="phone" class="form-field-item" label-position="top">
+                <template #label>
+                  <span class="form-label">Phone</span>
+                </template>
+                <VueTelInput
+                  v-model="formData.phone"
+                  v-bind="telProps"
+                  @validate="onPhoneValidate"
+                  @country-changed="onCountryChanged"
+                />
+              </el-form-item>
 
-      <el-form-item v-if="isKenya" label="County" prop="county_id">
-        <el-select v-model="formData.county_id" filterable placeholder="Select county" style="width: 100%">
-          <el-option
-            v-for="opt in countiesOptions"
-            :key="opt.value"
-            :label="opt.label"
-            :value="opt.value"
-          />
-        </el-select>
-      </el-form-item>
+              <el-form-item
+                v-if="isKenya"
+                prop="county_id"
+                class="form-field-item"
+                label-position="top"
+              >
+                <template #label>
+                  <span class="form-label">County</span>
+                </template>
+                <el-select
+                  v-model="formData.county_id"
+                  filterable
+                  placeholder="Select county"
+                  class="auth-select"
+                >
+                  <el-option
+                    v-for="opt in countiesOptions"
+                    :key="opt.value"
+                    :label="opt.label"
+                    :value="opt.value"
+                  />
+                </el-select>
+              </el-form-item>
 
-            <el-form-item prop="agree_terms">
-        <template #label>
-          <span>
-            Agree to terms of the 
-            <a 
-              href="/privacy-policy" 
-              target="_blank" 
-              class="text-blue-600 hover:text-blue-800 underline cursor-pointer"
-            >
-              privacy policy
-            </a>
-          </span>
-        </template>
-        <el-checkbox v-model="formData.agree_terms" />
-        <template #error="{ error }">
-          <div class="el-form-item__error">{{ error }}</div>
-        </template>
-      </el-form-item>
- 
-      <div class="w-[100%]">
-        <el-button type="primary" class="w-[100%]" :loading="loading" @click="loginRegister">
-          {{ t('login.register') }}
-        </el-button>
+              <el-form-item prop="agree_terms" class="form-field-item checkbox-item">
+                <el-checkbox v-model="formData.agree_terms">
+                  <span class="checkbox-label">
+                    I agree to the
+                    <ElLink
+                      :underline="false"
+                      class="privacy-link"
+                      @click="toPrivacy"
+                    >
+                      privacy policy
+                    </ElLink>
+                  </span>
+                </el-checkbox>
+              </el-form-item>
+            </div>
+
+            <div class="auth-actions">
+              <ElButton
+                type="primary"
+                :loading="loading"
+                class="auth-button"
+                native-type="submit"
+                block
+              >
+                <span v-if="!loading">{{ t('login.register') }}</span>
+                <span v-else>Creating account...</span>
+              </ElButton>
+
+              <div class="auth-footer">
+                <p class="footer-text">
+                  Already have an account?
+                  <ElLink
+                    :underline="false"
+                    class="footer-link"
+                    @click="toLogin"
+                  >
+                    Sign in
+                  </ElLink>
+                </p>
+              </div>
+            </div>
+          </el-form>
+        </div>
       </div>
-      <div class="w-[100%] mt-2">
-        <el-button class="w-[100%]" @click="toLogin">
-          {{ t('login.hasUser') }}
-        </el-button>
-      </div>
-    </el-form>
-  </el-card>
+    </div>
+  </BaseLayout>
 </template>
 
 <style scoped>
-/* Card sizing and layout */
-.register-card {
-  min-width: 480px;
-  max-width: 600px;
-  margin: 0 auto;
-  background: transparent !important;
-  border: 1px solid var(--el-border-color);
-  box-shadow: none;
+.auth-page {
+  min-height: calc(100vh - 70px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  background: var(--bg-primary);
+  position: relative;
 }
 
-.register-form {
-  padding: 20px 0;
+.auth-page::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: 
+    radial-gradient(circle at 20% 50%, rgba(0, 220, 130, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(0, 184, 107, 0.1) 0%, transparent 50%);
+  pointer-events: none;
 }
 
-.el-form-item {
-  margin-bottom: 24px;
+.auth-container {
+  width: 100%;
+  max-width: 420px;
+  position: relative;
+  z-index: 1;
 }
 
-.el-form-item:last-child {
+.auth-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 2.5rem;
+  box-shadow: 
+    0 1px 3px rgba(0, 0, 0, 0.08),
+    0 10px 40px rgba(0, 0, 0, 0.04);
+  transition: all 0.3s ease;
+}
+
+.auth-card:hover {
+  box-shadow: 
+    0 1px 3px rgba(0, 0, 0, 0.1),
+    0 20px 60px rgba(0, 0, 0, 0.08);
+}
+
+/* Header */
+.auth-header {
+  text-align: center;
+  margin-bottom: 1.75rem;
+}
+
+.auth-title {
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 0.5rem 0;
+  letter-spacing: -0.01em;
+}
+
+.auth-subtitle {
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* Form */
+.auth-form {
   margin-bottom: 0;
+  width: 100%;
 }
 
-/* Form label styling */
-:deep(.el-form-item__label) {
+.form-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.form-field-item {
+  margin-bottom: 0 !important;
+  width: 100%;
+}
+
+:deep(.form-field-item .el-form-item) {
+  margin-bottom: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+:deep(.form-field-item .el-form-item__content) {
+  width: 100%;
+  margin-left: 0 !important;
+}
+
+.form-label {
+  font-size: 0.875rem;
   font-weight: 500;
-  color: var(--el-text-color-primary);
+  color: var(--text-primary);
+  display: block;
+  margin-bottom: 0.5rem;
+  line-height: 1.4;
+}
+
+:deep(.el-form-item__label) {
+  padding: 0;
+  margin-bottom: 0.5rem;
+  line-height: 1.4;
+  width: 100%;
+  text-align: left;
+}
+
+:deep(.el-form-item.is-required .el-form-item__label::before) {
+  display: none;
+}
+
+:deep(.el-form-item__error) {
+  font-size: 0.8125rem;
+  margin-top: 0.5rem;
+  padding-left: 0;
+  line-height: 1.4;
+  position: static;
+  color: var(--el-color-error);
 }
 
 /* Input styling */
+.auth-input {
+  width: 100%;
+}
+
+:deep(.el-input) {
+  width: 100%;
+  font-size: 0.9375rem;
+}
+
 :deep(.el-input__wrapper) {
-  background: transparent !important;
-  border: 1px solid var(--el-border-color);
-  box-shadow: none !important;
+  border-radius: 8px;
+  padding: 0 14px;
+  height: 44px;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  transition: all 0.15s ease;
+  box-shadow: none;
+  width: 100%;
 }
 
 :deep(.el-input__wrapper:hover) {
-  background: transparent !important;
   border-color: var(--el-border-color-hover);
 }
 
 :deep(.el-input__wrapper.is-focus) {
-  background: transparent !important;
-  border-color: var(--el-color-primary);
-  box-shadow: none !important;
+  border-color: #00DC82;
+  box-shadow: 0 0 0 3px rgba(0, 220, 130, 0.08);
+  background: transparent;
 }
 
-/* Error message styling - make errors more visible */
-:deep(.el-form-item__error) {
-  color: var(--el-color-danger);
-  font-size: 12px;
-  line-height: 1;
-  padding-top: 4px;
-  position: static;
-  margin-top: 4px;
-  margin-left: 0;
-  text-align: left;
-  padding-left: 0;
+:deep(.el-input__inner) {
+  color: var(--text-primary);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  padding: 0;
 }
 
-/* Custom styling for vue-tel-input to match Element Plus theme */
-:deep(.vue-tel-input) {
-  border-radius: 4px;
-  border: 1px solid var(--el-border-color);
-  background: transparent !important;
-  transition: border-color 0.2s;
+:deep(.el-input__suffix) {
+  right: 14px;
+}
+
+/* Select styling */
+.auth-select {
   width: 100%;
 }
 
-:deep(.vue-tel-input:focus-within) {
-  border-color: var(--el-color-primary);
+:deep(.el-select .el-input__wrapper) {
+  border-radius: 8px;
+  padding: 0 14px;
+  height: 44px;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  transition: all 0.15s ease;
+  box-shadow: none;
+}
+
+:deep(.el-select .el-input__wrapper:hover) {
+  border-color: var(--el-border-color-hover);
+}
+
+:deep(.el-select .el-input__wrapper.is-focus) {
+  border-color: #00DC82;
+  box-shadow: 0 0 0 3px rgba(0, 220, 130, 0.08);
+  background: transparent;
+}
+
+/* Password Input */
+:deep(.input-password) {
+  width: 100%;
+}
+
+:deep(.input-password .el-input) {
+  width: 100%;
+  font-size: 0.9375rem;
+}
+
+:deep(.input-password .el-input__wrapper) {
+  border-radius: 8px;
+  padding: 0 14px;
+  height: 44px;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  transition: all 0.15s ease;
+  box-shadow: none;
+  width: 100%;
+}
+
+:deep(.input-password .el-input__wrapper:hover) {
+  border-color: var(--el-border-color-hover);
+}
+
+:deep(.input-password .el-input__wrapper.is-focus) {
+  border-color: #00DC82;
+  box-shadow: 0 0 0 3px rgba(0, 220, 130, 0.08);
+  background: transparent;
+}
+
+:deep(.input-password .el-input__inner) {
+  color: var(--text-primary);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+/* vue-tel-input styling */
+:deep(.vue-tel-input) {
+  border-radius: 8px;
+  border: 1px solid var(--border-color) !important;
   background: transparent !important;
+  transition: all 0.15s ease;
+  width: 100%;
+  height: 44px;
+}
+
+:deep(.vue-tel-input:focus-within) {
+  border-color: #00DC82 !important;
+  box-shadow: 0 0 0 3px rgba(0, 220, 130, 0.08) !important;
 }
 
 :deep(.vue-tel-input .vti__dropdown) {
   border: none;
   background: transparent !important;
-  border-right: 1px solid var(--el-border-color);
-  border-radius: 4px 0 0 4px;
+  border-right: 1px solid var(--border-color);
+  border-radius: 8px 0 0 8px;
+  height: 44px;
 }
 
 :deep(.vue-tel-input .vti__input) {
   border: none;
   background: transparent !important;
-  border-radius: 0 4px 4px 0;
-  padding: 0 12px;
-  height: 32px;
-  line-height: 32px;
+  border-radius: 0 8px 8px 0;
+  padding: 0 14px;
+  height: 44px;
+  line-height: 44px;
+  color: var(--text-primary);
+  font-size: 0.9375rem;
 }
 
 :deep(.vue-tel-input .vti__dropdown-list) {
-  border: 1px solid var(--el-border-color);
-  border-radius: 4px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
-  background-color: var(--el-bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  background-color: var(--card-bg);
   z-index: 2000;
+  margin-top: 4px;
 }
 
 :deep(.vue-tel-input .vti__dropdown-item) {
-  padding: 8px 12px;
+  padding: 12px 16px;
   cursor: pointer;
-  background-color: var(--el-bg-color);
+  background-color: var(--card-bg);
+  transition: all 0.2s ease;
 }
 
 :deep(.vue-tel-input .vti__dropdown-item:hover) {
-  background-color: var(--el-fill-color-light);
+  background-color: var(--hover-bg);
 }
 
 :deep(.vue-tel-input .vti__dropdown-item.selected) {
-  background-color: var(--el-color-primary-light-9);
-  color: var(--el-color-primary);
-}
-
-/* Button styling */
-:deep(.el-button) {
-  height: 40px;
-  font-weight: 500;
+  background-color: rgba(0, 220, 130, 0.1);
+  color: #00DC82;
 }
 
 /* Checkbox styling */
+.checkbox-item :deep(.el-form-item__content) {
+  flex-direction: row;
+  align-items: flex-start;
+  margin-left: 0 !important;
+}
+
+.checkbox-item :deep(.el-form-item__error) {
+  margin-left: 0;
+}
+
 :deep(.el-checkbox) {
   margin-top: 0;
+  margin-bottom: 0;
+  display: flex;
+  align-items: flex-start;
+}
+
+:deep(.el-checkbox__input) {
+  margin-top: 2px;
+  flex-shrink: 0;
 }
 
 :deep(.el-checkbox__label) {
-  color: transparent;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  margin-left: 8px;
+  padding-left: 0;
 }
 
-/* Country option styles for custom country renders */
-.country-option {
+.checkbox-label {
+  display: inline;
+}
+
+:deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
+  background-color: #00DC82;
+  border-color: #00DC82;
+}
+
+:deep(.el-checkbox__inner) {
+  border-radius: 4px;
+  border-color: var(--border-color);
+  width: 16px;
+  height: 16px;
+}
+
+.privacy-link {
+  color: #00DC82;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.privacy-link:hover {
+  color: #00B86B;
+  text-decoration: underline;
+}
+
+/* Actions */
+.auth-actions {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  gap: 0;
+  width: 100%;
 }
-.flag { font-size: 1.2em; }
-.country-name { flex: 1; }
-.dial-code { color: var(--el-text-color-secondary); }
 
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  .register-card {
-    min-width: 100%;
-    margin: 0 16px;
+.auth-button {
+  height: 44px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #00DC82 0%, #00B86B 100%);
+  border: none;
+  transition: all 0.15s ease;
+  width: 100%;
+  margin-bottom: 0;
+}
+
+.auth-button:hover {
+  background: linear-gradient(135deg, #00B86B 0%, #00A155 100%);
+  box-shadow: 0 4px 12px rgba(0, 220, 130, 0.25);
+}
+
+.auth-button:active {
+  transform: scale(0.98);
+}
+
+/* Footer */
+.auth-footer {
+  text-align: center;
+  padding-top: 1.25rem;
+  margin-top: 1.5rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.footer-text {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.footer-link {
+  font-weight: 600;
+  color: #00DC82;
+  text-decoration: none;
+  margin-left: 0.25rem;
+  transition: color 0.2s;
+}
+
+.footer-link:hover {
+  color: #00B86B;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .auth-page {
+    padding: 1rem;
   }
-  
-  .register-form {
-    padding: 16px 0;
+
+  .auth-card {
+    padding: 2rem 1.5rem;
+    border-radius: 16px;
   }
+
+  .auth-title {
+    font-size: 1.5rem;
+  }
+}
+
+/* Dark mode */
+.dark-mode .auth-card {
+  background: transparent;
+  box-shadow: none;
+  border: 1px solid var(--border-color);
+}
+
+.dark-mode :deep(.el-input__wrapper) {
+  background: transparent !important;
+}
+
+.dark-mode :deep(.input-password .el-input__wrapper) {
+  background: transparent !important;
+}
+
+.dark-mode :deep(.el-input__wrapper.is-focus) {
+  background: transparent !important;
+}
+
+.dark-mode :deep(.input-password .el-input__wrapper.is-focus) {
+  background: transparent !important;
+}
+
+.dark-mode :deep(.el-select .el-input__wrapper) {
+  background: transparent !important;
+}
+
+.dark-mode :deep(.vue-tel-input) {
+  background: transparent !important;
+}
+
+.dark-mode :deep(.el-input__wrapper:not(.is-disabled)) {
+  background: transparent !important;
+}
+
+.dark-mode :deep(.input-password .el-input__wrapper:not(.is-disabled)) {
+  background: transparent !important;
+}
+
+.dark-mode :deep(.el-select .el-input__wrapper:not(.is-disabled)) {
+  background: transparent !important;
+}
+
+.dark-mode :deep(.el-input__wrapper.is-disabled) {
+  background: transparent !important;
+}
+
+.dark-mode :deep(.input-password) {
+  background: transparent !important;
+}
+
+.dark-mode :deep(.input-password .el-input) {
+  background: transparent !important;
+}
+
+.dark-mode :deep(.input-password .el-input__wrapper:hover) {
+  background: transparent !important;
+}
+
+.dark-mode :deep(.input-password .el-input__wrapper.is-filled) {
+  background: transparent !important;
+}
+
+.dark-mode :deep([class*="input-password"]) {
+  background: transparent !important;
+}
+
+.dark-mode :deep([class*="input-password"] .el-input__wrapper) {
+  background: transparent !important;
+}
+
+.dark-mode :deep([class*="input-password"] .el-input__wrapper.is-filled) {
+  background: transparent !important;
 }
 </style>
-

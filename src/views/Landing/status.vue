@@ -1,91 +1,81 @@
 <template>
-  <div class="form-container">
-    <BaseLayout>
-      <el-main>
-     
-            <el-form :inline="false" :model="statusForm" class="status-form" label-position="top">
-              <el-card shadow="hover">
-                <el-row :gutter="10"  v-if="!statusResult">
-                  <el-col :xs="24" :sm="24" :md="12" :lg="6" :xl="6">
-                    <el-form-item label="Grievance Code">
-                      <el-input v-model="statusForm.grievanceCode" placeholder="GRM-0000-0000" />
-                    </el-form-item>
-                  </el-col>
-                  <el-col :xs="24" :sm="24" :md="12" :lg="6" :xl="6">
-                    <el-form-item label="Phone Number">
-                      <el-input v-model="statusForm.phoneNumber" placeholder="0700 000 0000" />
-                    </el-form-item>
-                  </el-col>
-                </el-row>
-                <el-row  v-if="!statusResult">
-                  <el-col :span="24">
-                    <el-button type="primary" @click="checkStatus">Check Status</el-button>
-                  </el-col>
-                </el-row>
-                <el-row :gutter="10">
-                  <el-col :span="24">
-                    <div class="status-result" v-if="statusResult">
-                      <el-card style="margin-top: 10px">
-                        <p style="margin-top: 10px"><strong>Ref:</strong> {{ statusResult.code }}</p>
-                        <p style="margin-top: 10px"><strong>Date Reported:</strong> {{ statusResult.date_reported  }} ({{getDaysSince(statusResult.date_reported)}} days ago)</p>
-                        <p style="margin-top: 10px"><strong>Status:</strong> {{ statusResult.status }}</p>
+  <BaseLayout>
+    <div class="status-container">
+      <el-card class="status-card">
+        <el-form :inline="false" :model="statusForm" class="status-form" label-position="top">
+          <div v-if="!statusResult">
+            <el-row :gutter="20">
+              <el-col :xs="24" :sm="24" :md="12" :lg="8" :xl="8">
+                <el-form-item label="Grievance Code">
+                  <el-input v-model="statusForm.grievanceCode" placeholder="GRM-0000-0000" />
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="24" :md="12" :lg="8" :xl="8">
+                <el-form-item label="Phone Number">
+                  <el-input v-model="statusForm.phoneNumber" placeholder="254700000000" />
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="24" :md="24" :lg="8" :xl="8">
+                <el-form-item label="&nbsp;">
+                  <el-button type="primary" @click="checkStatus" style="width: 100%;">Check Status</el-button>
+                </el-form-item>
+              </el-col>
+            </el-row>
+          </div>
 
-                        <p style="margin-top: 10px"><strong>Documents:</strong> </p>
+          <div class="status-result" v-if="statusResult">
+            <el-card class="result-card">
+              <h2 class="result-title">Grievance Status</h2>
+              <div class="result-content">
+                <div class="result-item">
+                  <span class="result-label">Reference Code:</span>
+                  <span class="result-value">{{ statusResult.code }}</span>
+                </div>
+                <div class="result-item">
+                  <span class="result-label">Date Reported:</span>
+                  <span class="result-value">{{ statusResult.date_reported }} ({{ getDaysSince(statusResult.date_reported) }} days ago)</span>
+                </div>
+                <div class="result-item">
+                  <span class="result-label">Status:</span>
+                  <span class="result-value">{{ statusResult.status }}</span>
+                </div>
 
-                        <div >
-                          <span v-for="(document, index) in files" :key="index">
-                              <el-button 
-                                type="primary"  plain
-                                @click="downloadFile(document)" 
-                                style="margin-right: 10px;"
-                              >
-                                <Icon icon="fa-solid:download" style="margin-right: 5px;" />
-                                Download {{ document.name }} ( {{ document.name }}) <!-- Display the document name -->
-                              </el-button>
-                            </span>
-                        </div>
-
-
-                      </el-card>
-
-                      
-                    </div>
-                  </el-col>
-                </el-row>
-              </el-card>
-            </el-form>
-         
-      
-
-   
-      </el-main>
-    </BaseLayout>
-
-    
- 
-
-
-  </div>
+                <div class="documents-section" v-if="files && files.length > 0">
+                  <h3 class="documents-title">Supporting Documents</h3>
+                  <div class="documents-list">
+                    <el-button 
+                      v-for="(document, index) in files" 
+                      :key="index"
+                      type="primary" 
+                      plain
+                      @click="downloadFile(document)" 
+                      class="download-btn"
+                    >
+                      <Icon icon="mdi:download" class="download-icon" />
+                      Download {{ document.name }}
+                    </el-button>
+                  </div>
+                </div>
+              </div>
+            </el-card>
+          </div>
+        </el-form>
+      </el-card>
+    </div>
+  </BaseLayout>
 </template>
 
 <script setup lang="ts">
 import {
-  ElMain, ElButton, ElCard, ElForm, ElFormItem, ElInput, ElTour,ElTourStep,
-  ElRow, ElCol, ElIcon,ElTooltip
+  ElButton, ElCard, ElForm, ElFormItem, ElInput,
+  ElRow, ElCol, ElMessage
 } from 'element-plus';
 
 import BaseLayout from './BaseLayout.vue';
-import { getGrievanceStatus,getActionFile } from '@/api/grievance'
-
- 
-import {
-  ArrowLeft,
-  ArrowRight,
-  InfoFilled,
-} from '@element-plus/icons-vue'
-
-import { onMounted,  ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { getGrievanceStatus, getActionFile } from '@/api/grievance';
+import { Icon } from '@iconify/vue';
+import { onMounted, ref } from 'vue';
+import { useRoute } from 'vue-router';
 
 import { useHead } from '@unhead/vue'
 
@@ -117,8 +107,8 @@ useHead({
     { name: 'twitter:image:alt', content: 'KeSMIS Logo - Kenya Slum Management Information System' },
     
     // Additional meta tags for better SEO
-    { name: 'theme-color', content: '#684035' },
-    { name: 'msapplication-TileColor', content: '#684035' },
+    { name: 'theme-color', content: '#00DC82' },
+    { name: 'msapplication-TileColor', content: '#00DC82' },
     { name: 'viewport', content: 'width=device-width, initial-scale=1.0' },
     { name: 'format-detection', content: 'telephone=no' }
   ]
@@ -241,46 +231,293 @@ const checkStatus = async () => {
 
 
 
-<style>
-.form-container {
-  max-height: 100vh;
-  /* Set a maximum height for the scrollable area */
-  overflow-y: auto;
-  /* Enable vertical scrolling */
+<style scoped>
+.status-container {
+  padding: 4rem 2rem;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background 0.3s ease, color 0.3s ease;
+  min-height: 100vh;
 }
 
-.three-column-form .el-form-item {
-  margin-bottom: 20px;
-  /* Adjust spacing between form items if needed */
+.status-card {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  box-sizing: border-box;
+  border-radius: 16px;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+  background: var(--bg-primary);
 }
 
-.grm-header {
-  padding: 100px 20px;
-  text-align: center;
-  color: #030303;
-}
-</style>
-
-<style>
-.demo-form-inline .el-input {
-  --el-input-width: 220px;
+.status-card :deep(.el-card__body) {
+  padding: 2.5rem;
 }
 
-.demo-form-inline .el-select {
-  --el-select-width: 220px;
+/* Form Items */
+:deep(.el-form-item) {
+  margin-bottom: 1.5rem;
 }
 
-.demo-tabs {
+:deep(.el-form-item__label) {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.9375rem;
+  margin-bottom: 0.5rem;
+  letter-spacing: -0.01em;
+  line-height: 1.5;
+}
+
+/* Input Styling */
+:deep(.el-input__wrapper) {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  box-shadow: none;
+  background: var(--bg-primary);
+}
+
+:deep(.el-input__wrapper:hover) {
+  border-color: #00DC82;
+}
+
+:deep(.el-input__wrapper.is-focus) {
+  border-color: #00DC82;
+  box-shadow: 0 0 0 2px rgba(0, 220, 130, 0.2);
+}
+
+:deep(.el-input__inner) {
+  color: var(--text-primary);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+/* Button Styling */
+:deep(.el-button) {
+  padding: 0.875rem 1.5rem;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  letter-spacing: -0.01em;
+  border: none;
+}
+
+:deep(.el-button--primary) {
+  background: #00DC82 !important;
+  border: 1px solid #00DC82 !important;
+  color: white !important;
+}
+
+:deep(.el-button--primary:hover) {
+  background: #00B86B !important;
+  border-color: #00B86B !important;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 220, 130, 0.3);
+}
+
+:deep(.el-button--primary.is-plain) {
+  background: transparent !important;
+  border: 1px solid #00DC82 !important;
+  color: #00DC82 !important;
+}
+
+:deep(.el-button--primary.is-plain:hover) {
+  background: rgba(0, 220, 130, 0.1) !important;
+  border-color: #00B86B !important;
+  color: #00B86B !important;
+}
+
+/* Status Result */
+.status-result {
+  margin-top: 2rem;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.result-card {
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  background: var(--bg-primary);
+}
+
+.result-card :deep(.el-card__body) {
+  padding: 2rem;
+}
+
+.result-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 1.5rem;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.result-content {
   display: flex;
   flex-direction: column;
+  gap: 1.25rem;
 }
 
-@media (min-width: 768px) {
-  .demo-tabs {
-    flex-direction: row;
+.result-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.result-item:last-of-type {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.result-label {
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.result-value {
+  color: var(--text-primary);
+  font-size: 1rem;
+  line-height: 1.6;
+  font-weight: 500;
+}
+
+.documents-section {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 2px solid var(--border-color);
+}
+
+.documents-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 1rem;
+  letter-spacing: -0.01em;
+}
+
+.documents-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.download-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+}
+
+.download-icon {
+  font-size: 1rem;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
+/* Card Styling */
+:deep(.el-card) {
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  background: var(--bg-primary);
+  overflow: hidden;
+}
 
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+  .status-container {
+    padding: 2rem 1rem;
+  }
+  
+  .status-card :deep(.el-card__body) {
+    padding: 1.5rem;
+  }
 
+  .result-title {
+    font-size: 1.5rem;
+  }
+
+  .result-card :deep(.el-card__body) {
+    padding: 1.5rem;
+  }
+
+  .documents-list {
+    flex-direction: column;
+  }
+
+  .download-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .status-container {
+    padding: 1.5rem 1rem;
+  }
+  
+  .status-card :deep(.el-card__body) {
+    padding: 1rem;
+  }
+
+  .result-title {
+    font-size: 1.25rem;
+  }
+
+  .result-card :deep(.el-card__body) {
+    padding: 1.25rem;
+  }
+
+  .result-item {
+    padding-bottom: 1rem;
+  }
+}
+
+/* Dark Mode Support */
+.dark-mode .status-card {
+  background: var(--bg-primary);
+  border-color: var(--border-color);
+}
+
+.dark-mode :deep(.el-card) {
+  background: var(--bg-primary);
+  border-color: var(--border-color);
+}
+
+.dark-mode :deep(.el-input__wrapper) {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+}
+
+.dark-mode :deep(.el-input__wrapper:hover),
+.dark-mode :deep(.el-input__wrapper.is-focus) {
+  border-color: #00DC82;
+  box-shadow: 0 0 0 2px rgba(0, 220, 130, 0.2);
+}
+
+.dark-mode .result-item {
+  border-color: var(--border-color);
+}
+
+.dark-mode .documents-section {
+  border-color: var(--border-color);
+}
 </style>

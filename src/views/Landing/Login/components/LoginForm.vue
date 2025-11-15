@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { reactive, ref, unref, watch } from 'vue'
-import { Form } from '@/components/Form'
 import { useI18n } from '@/hooks/web/useI18n'
-import { ElButton, ElLink,  ElDialog, ElForm, ElFormItem, ElInput,FormInstance,ElMessage, ElTooltip,ElCard } from 'element-plus'
-import { useForm } from '@/hooks/web/useForm'
+import { ElButton, ElLink, ElDialog, ElForm, ElFormItem, ElInput, FormInstance, ElMessage, ElTooltip } from 'element-plus'
+import { InputPassword } from '@/components/InputPassword'
 import { loginApi } from '@/api/login'
 import { useCache } from '@/hooks/web/useCache'
 import { useAppStore } from '@/store/modules/app'
@@ -12,25 +11,25 @@ import { useRouter } from 'vue-router'
 import type { RouteLocationNormalizedLoaded, RouteRecordRaw } from 'vue-router'
 import { UserType } from '@/api/login/types'
 import { useValidator } from '@/hooks/web/useValidator'
-import { resetUserPassword,setUserFeedback, getUserPermissions } from '@/api/users'
+import { resetUserPassword, setUserFeedback, getUserPermissions } from '@/api/users'
 import { uuid } from 'vue-uuid'
 import { Icon } from '@iconify/vue';
-
-
 
 const { required } = useValidator()
  
 const emit = defineEmits(['to-register'])
 
 const appStore = useAppStore()
-
 const permissionStore = usePermissionStore()
-
 const { currentRoute, addRoute, push } = useRouter()
-
 const { wsCache } = useCache()
-
 const { t } = useI18n()
+
+const loginFormRef = ref<FormInstance>()
+const loginForm = reactive({
+  username: '',
+  password: ''
+})
 
 const rules = {
   username: [required()],
@@ -38,17 +37,14 @@ const rules = {
 }
 
 const dialogFormVisible = ref(false)
-const formLabelWidth = '140px'
-
-const form = reactive({
+const resetPasswordForm = reactive({
   email: '',
 })
 
-
-const toPrivacy= () => {
+const toPrivacy = () => {
   push({
-         name: 'Privacy'
-    })
+    name: 'Privacy'
+  })
 }
 
 const feedback = reactive({
@@ -56,60 +52,10 @@ const feedback = reactive({
   email: '',
   message: '',
   phone: '',
-  code:''
+  code: ''
 })
 
-
-const schema = reactive<FormSchema[]>([
-  {
-    field: 'title',
-    colProps: {
-      span: 24
-    }
-  },
-  {
-    field: 'username',
-    label: t('login.username'),
-    value: '',
-    component: 'Input',
-    colProps: {
-      span: 24
-    },
-    componentProps: {
-      placeholder: t('login.usernamePlaceholder')
-    }
-  },
-  {
-    field: 'password',
-    label: t('login.password'),
-    value: '',
-    component: 'InputPassword',
-    colProps: {
-      span: 24
-    },
-    componentProps: {
-      style: {
-        width: '100%'
-      },
-      placeholder: t('login.passwordPlaceholder')
-    }
-  },
-  {
-    field: 'login',
-    colProps: {
-      span: 24
-    }
-  },
-  {
-    field: 'tool',
-    colProps: {
-      span: 24
-    }
-  },
-])
-
 const dialogFeedback = ref()
-const { register, elFormRef, methods } = useForm()
 
 const loginLoading = ref(false)
 const guestLoading = ref(false)
@@ -130,35 +76,30 @@ watch(
 // 登录
 const signIn = async () => {
   appStore.dynamicRouter = true
-  const formRef = unref(elFormRef)
+  const formRef = unref(loginFormRef)
   await formRef?.validate(async (isValid) => {
     if (isValid) {
       loginLoading.value = true
-      const { getFormData } = methods
-      const formData = await getFormData<UserType>()
+      const formData: UserType = {
+        username: loginForm.username,
+        password: loginForm.password
+      } as UserType
       try {
         const res = await loginApi(formData)
         console.log('After Login', res)
-        const selUserDetails = (({ id, name, roles, data, county_id, avatar, phone, photo }) => ({ id, name, roles, data, county_id ,avatar, phone,  photo}))(res);
+        const selUserDetails = (({ id, name, roles, data, county_id, avatar, phone, photo }) => ({ id, name, roles, data, county_id, avatar, phone, photo }))(res);
         if (selUserDetails) {
           wsCache.set(appStore.getUserInfo, selUserDetails)
-          // 是否使用动态路由
           const userDeatilsAfterLogin = wsCache.get(appStore.getUserInfo)
 
           console.log("----userDeatilsAfterLogin----", userDeatilsAfterLogin)
 
-        
           if (appStore.getDynamicRouter) {
-
-
-             getRole(userDeatilsAfterLogin)
-
-             
+            getRole(userDeatilsAfterLogin, formData)
           } else {
-            //getRole() // temp 
             await permissionStore.generateRoutes('none').catch(() => { })
             permissionStore.getAddRouters.forEach((route) => {
-              addRoute(route as RouteRecordRaw) // 动态添加可访问路由表
+              addRoute(route as RouteRecordRaw)
             })
             permissionStore.setIsAddRouters(true)
             push({ path: redirect.value || permissionStore.addRouters[0].path })
@@ -173,9 +114,7 @@ const signIn = async () => {
  
  
 
-const getRole = async (authenticatedUser) => {
-  const { getFormData } = methods;
-  const formData = await getFormData<UserType>();
+const getRole = async (authenticatedUser: any, formData: UserType) => {
   console.log('authenticatedUser roles', authenticatedUser);
 
   // Get wsCache at the top of the function
@@ -316,42 +255,18 @@ const getRole = async (authenticatedUser) => {
 const guestLogin = async () => {
   guestLoading.value = true;
   try {
-    // Step 1: Update the schema values
-    const usernameField = schema.find(item => item.field === 'username');
-    const passwordField = schema.find(item => item.field === 'password');
-    
-    if (usernameField && passwordField) {
-      usernameField.value = 'guest';
-      passwordField.value = 'Guest@123';
-      
-      // Disable the input fields
-      if (usernameField.componentProps) {
-        usernameField.componentProps.disabled = true;
-      }
-      if (passwordField.componentProps) {
-        passwordField.componentProps.disabled = true;
-      }
-    }
-
-    // Step 2: Update the form model directly
-    const { getFormData } = methods;
-    const formData = await getFormData<UserType>();
-    formData.username = 'guest';
-    formData.password = 'Guest@123';
-
-    // Step 3: Submit using the existing signIn function which will handle routing
+    loginForm.username = 'guest';
+    loginForm.password = 'Guest@123';
     await signIn();
   } finally {
     guestLoading.value = false;
   }
 };
 
-const toRegister = () => {
-  emit('to-register')
-}
+// toRegister is handled by parent component via emit
 
 const reset = () => {
-  resetUserPassword(form)
+  resetUserPassword(resetPasswordForm as any)
 }
 
 
@@ -415,73 +330,82 @@ const feedbackRules = {
 </script>
 
 <template>
-  <el-card class="login-card">
-    <Form
-      :schema="schema"
+  <div class="login-form-container">
+    <el-form
+      ref="loginFormRef"
+      :model="loginForm"
       :rules="rules"
       label-position="top"
       hide-required-asterisk
       size="large"
-      class="border-solid"
-      @register="register"
+      class="login-form"
     >
-      <template #title>
-        <h2 class="text-2xl font-bold text-center w-[100%]">{{ t('login.login') }}</h2>
-      </template>
+      <el-form-item :label="t('login.username')" prop="username">
+        <el-input
+          v-model="loginForm.username"
+          :placeholder="t('login.usernamePlaceholder')"
+        />
+      </el-form-item>
 
-      <template #login>
-        <div class="w-[100%] flex gap-2">
-          <ElButton :loading="loginLoading" type="primary" class="flex-1" @click="signIn">
-            {{ t('login.login') }}
-          </ElButton>
-          <ElButton :loading="guestLoading" type="info" class="flex-1" @click="guestLogin">
-            Login as Guest
-          </ElButton>
-        </div>
-        <div class="w-[100%] mt-15px">
-          <ElButton class="w-[100%]" @click="toRegister">
-            {{ t('login.register') }}
-          </ElButton>
-        </div>
-      </template>
+      <el-form-item :label="t('login.password')" prop="password">
+        <InputPassword
+          v-model="loginForm.password"
+          :placeholder="t('login.passwordPlaceholder')"
+        />
+      </el-form-item>
 
-      <template #tool>
-        <div class="flex justify-between items-center w-[100%]">
-          <div>
-            <ElLink @click="dialogFormVisible = true" :underline="false" class="text-sm text-gray-600 hover:text-primary">
-              {{ t('Forgot Password') }}
-            </ElLink>
-          </div>
-          
-          <div class="flex items-center gap-2">
-            <el-tooltip content="Send us feedback or report an issue" placement="top">
-              <el-button 
-                type="info" 
-                size="small"
-                class="feedback-btn"
-                @click="dialogFeedback = true"
-              >
-                <Icon icon="fluent:person-feedback-32-regular" class="mr-1" />
-                Feedback
-              </el-button>
-            </el-tooltip>
+      <div class="button-group">
+        <ElButton 
+          :loading="loginLoading" 
+          type="primary" 
+          class="primary-button"
+          @click="signIn"
+        >
+          <Icon icon="mdi:login" class="button-icon" />
+          {{ t('login.login') }}
+        </ElButton>
+        <ElButton 
+          :loading="guestLoading" 
+          class="guest-button"
+          @click="guestLogin"
+        >
+          <Icon icon="mdi:account-outline" class="button-icon" />
+          Continue as Guest
+        </ElButton>
+      </div>
 
-            <el-tooltip content="View our privacy policy and data protection information" placement="top">
-              <el-button 
-                type="info" 
-                size="small"
-                class="privacy-btn"
-                @click="toPrivacy"
-              >
-                <Icon icon="material-symbols:privacy-tip-outline" class="mr-1" />
-                Privacy
-              </el-button>
-            </el-tooltip>
-          </div>
+      <div class="form-footer">
+        <ElLink 
+          @click="dialogFormVisible = true" 
+          :underline="false" 
+          class="forgot-password-link"
+        >
+          <Icon icon="mdi:lock-reset" class="link-icon" />
+          {{ t('Forgot Password') }}
+        </ElLink>
+        
+        <div class="footer-actions">
+          <el-tooltip content="Send us feedback or report an issue" placement="top">
+            <button 
+              class="action-button"
+              @click="dialogFeedback = true"
+            >
+              <Icon icon="fluent:person-feedback-32-regular" />
+            </button>
+          </el-tooltip>
+
+          <el-tooltip content="View our privacy policy" placement="top">
+            <button 
+              class="action-button"
+              @click="toPrivacy"
+            >
+              <Icon icon="material-symbols:privacy-tip-outline" />
+            </button>
+          </el-tooltip>
         </div>
-      </template>
-    </Form>
-  </el-card>
+      </div>
+    </el-form>
+  </div>
 
   <el-dialog
     title="Please Enter your Email"
@@ -489,11 +413,11 @@ const feedbackRules = {
     width="25%"
     :center="true"
   >
-    <el-form :model="form">
+    <el-form :model="resetPasswordForm">
       <el-row>
         <el-col :xs="24" :sm="12">
           <el-form-item label="Email" prop="email">
-            <el-input v-model="form.email"/>
+            <el-input v-model="resetPasswordForm.email"/>
           </el-form-item>
         </el-col>
       </el-row>
@@ -546,89 +470,284 @@ const feedbackRules = {
 </template>
 
 <style lang="less" scoped>
-:deep(.anticon) {
-  &:hover {
-    color: var(--el-color-primary) !important;
-  }
-}
-</style>
-
-<style scoped>
-.el-button--text {
-  margin-right: 15px;
+.login-form-container {
+  width: 100%;
 }
 
-.el-select {
-  width: 300px;
+.login-form {
+  width: 100%;
 }
 
-.el-input {
-  width: 300px;
+.button-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
 }
 
-.dialog-footer button:first-child {
-  margin-right: 10px;
-}
-
-.feedback-btn,
-.privacy-btn {
+.primary-button {
+  width: 100%;
+  height: 48px;
+  font-size: 1rem;
+  font-weight: 600;
+  background: linear-gradient(135deg, #00DC82 0%, #00B86B 100%) !important;
+  border: none !important;
+  border-radius: 12px;
   transition: all 0.3s ease;
-  border-radius: 6px;
-  font-size: 12px;
-  padding: 6px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
 }
 
-.feedback-btn:hover,
-.privacy-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+.primary-button:hover {
+  background: linear-gradient(135deg, #00B86B 0%, #00A155 100%) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 220, 130, 0.3);
 }
 
-.feedback-dialog .el-dialog__body {
-  padding: 20px 24px;
-}
-
-.feedback-dialog .el-form-item {
-  margin-bottom: 16px;
-}
-
-.feedback-dialog .el-form-item__label {
+.guest-button {
+  width: 100%;
+  height: 48px;
+  font-size: 0.9375rem;
   font-weight: 500;
-  color: #333;
+  background: var(--bg-secondary) !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-primary) !important;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
 }
 
-.feedback-dialog .el-input__inner,
-.feedback-dialog .el-textarea__inner {
-  border-radius: 6px;
+.guest-button:hover {
+  background: var(--hover-bg) !important;
+  border-color: #00DC82 !important;
+  color: #00DC82 !important;
+  transform: translateY(-2px);
 }
 
-.feedback-dialog .el-textarea__inner {
-  resize: vertical;
-  min-height: 80px;
+.button-icon {
+  font-size: 1.125rem;
 }
 
-/* Login card background styling */
-.login-card {
-  background: transparent !important;
-  border: 1px solid var(--el-border-color);
-  box-shadow: none;
+.form-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.forgot-password-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  transition: all 0.3s ease;
+  text-decoration: none;
+}
+
+.forgot-password-link:hover {
+  color: #00DC82;
+}
+
+.link-icon {
+  font-size: 1rem;
+}
+
+.footer-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.action-button {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  color: var(--text-secondary);
+  padding: 0;
+}
+
+.action-button:hover {
+  background: var(--hover-bg);
+  border-color: #00DC82;
+  color: #00DC82;
+  transform: translateY(-2px);
+}
+
+.action-button .iconify {
+  font-size: 1.125rem;
 }
 
 /* Input field styling */
 :deep(.el-input__wrapper) {
-  background: transparent !important;
-  border: 1px solid var(--el-border-color);
+  background: var(--bg-secondary) !important;
+  border: 1px solid var(--border-color) !important;
   box-shadow: none !important;
+  border-radius: 12px;
+  padding: 0 16px;
+  height: 48px;
+  transition: all 0.3s ease;
 }
 
 :deep(.el-input__wrapper:hover) {
-  background: transparent !important;
-  border-color: var(--el-border-color-hover);
+  border-color: var(--el-border-color-hover) !important;
 }
 
 :deep(.el-input__wrapper.is-focus) {
-  background: transparent !important;
-  border-color: var(--el-color-primary);
+  border-color: #00DC82 !important;
+  box-shadow: 0 0 0 3px rgba(0, 220, 130, 0.1) !important;
+}
+
+:deep(.el-input__inner) {
+  color: var(--text-primary);
+  font-size: 0.9375rem;
+}
+
+:deep(.el-form-item) {
+  margin-bottom: 1.5rem;
+}
+
+:deep(.el-form-item__label) {
+  padding-bottom: 0.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+:deep(.el-form-item__error) {
+  color: var(--el-color-danger);
+  font-size: 0.8125rem;
+  margin-top: 0.5rem;
+}
+
+/* Password input styling */
+:deep(.el-input-password__wrapper) {
+  background: var(--bg-secondary) !important;
+  border: 1px solid var(--border-color) !important;
   box-shadow: none !important;
+  border-radius: 12px;
+  padding: 0 16px;
+  height: 48px;
+  transition: all 0.3s ease;
+}
+
+:deep(.el-input-password__wrapper:hover) {
+  border-color: var(--el-border-color-hover) !important;
+}
+
+:deep(.el-input-password__wrapper.is-focus) {
+  border-color: #00DC82 !important;
+  box-shadow: 0 0 0 3px rgba(0, 220, 130, 0.1) !important;
+}
+
+/* Dialog styling */
+.dialog-footer button:first-child {
+  margin-right: 10px;
+}
+
+.feedback-dialog :deep(.el-dialog__body) {
+  padding: 20px 24px;
+}
+
+.feedback-dialog :deep(.el-form-item) {
+  margin-bottom: 16px;
+}
+
+.feedback-dialog :deep(.el-form-item__label) {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.feedback-dialog :deep(.el-input__inner),
+.feedback-dialog :deep(.el-textarea__inner) {
+  border-radius: 8px;
+}
+
+.feedback-dialog :deep(.el-textarea__inner) {
+  resize: vertical;
+  min-height: 80px;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .form-footer {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+
+  .footer-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+/* Dark mode */
+.dark-mode :deep(.el-input__wrapper) {
+  background: transparent !important;
+}
+
+.dark-mode :deep(.input-password .el-input__wrapper) {
+  background: transparent !important;
+}
+
+.dark-mode :deep(.el-input__wrapper.is-focus) {
+  background: transparent !important;
+}
+
+.dark-mode :deep(.input-password .el-input__wrapper.is-focus) {
+  background: transparent !important;
+}
+
+.dark-mode :deep(.el-input__wrapper:not(.is-disabled)) {
+  background: transparent !important;
+}
+
+.dark-mode :deep(.input-password .el-input__wrapper:not(.is-disabled)) {
+  background: transparent !important;
+}
+
+.dark-mode :deep(.el-input__wrapper.is-disabled) {
+  background: transparent !important;
+}
+
+.dark-mode :deep(.input-password) {
+  background: transparent !important;
+}
+
+.dark-mode :deep(.input-password .el-input) {
+  background: transparent !important;
+}
+
+.dark-mode :deep(.input-password .el-input__wrapper:hover) {
+  background: transparent !important;
+}
+
+.dark-mode :deep(.input-password .el-input__wrapper.is-filled) {
+  background: transparent !important;
+}
+
+.dark-mode :deep([class*="input-password"]) {
+  background: transparent !important;
+}
+
+.dark-mode :deep([class*="input-password"] .el-input__wrapper) {
+  background: transparent !important;
+}
+
+.dark-mode :deep([class*="input-password"] .el-input__wrapper.is-filled) {
+  background: transparent !important;
 }
 </style>

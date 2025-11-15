@@ -571,29 +571,112 @@ exports.reset = (req, res) => {
         var transporter = nodemailer.createTransport({
           service: 'gmail',
           auth: {
-            user: 'kisip.mis@gmail.com',
-            pass: 'ycoxaqavmfiqljjg'
+            user: process.env.EMAIL_USER || 'kisip.mis@gmail.com',
+            pass: process.env.EMAIL_PASS || 'ycoxaqavmfiqljjg'
           }
         }) // initialize create Transport service
 
 
-        const CLIENT_URL = 'https://' + req.headers.host
-        const xCLIENT_URL = req.headers.referer
-        //const CLIENT_URL = req.host;
-        console.log(req.originalUrl)
-        console.log(req.hostname)
-
+        const CLIENT_URL = req.protocol + '://' + req.get('host')
+        const resetLink = CLIENT_URL + '/#/reset/' + token
+        
         console.log('Reset-URL', CLIENT_URL)
+        console.log('Reset-Link', resetLink)
         
         const mailOptions = {
-          from: 'kisip.mis@gmail.com',
+          from: process.env.EMAIL_FROM || 'kisip.mis@gmail.com',
           to: `${req.body.email}`,
-          subject: 'Link To Reset Password',
-          text:
-            'You are receiving this because you (or someone else) have requested the reset of the password for your account: ' + username + ' \n\n' +
-            'Please click on the following link, or paste this into your browser to complete the process within one hour of receiving it:\n\n' +
-            CLIENT_URL + '#/reset/' + token + '\n\n' +
-            'If you did not request this, please ignore this email and your password will remain unchanged.\n'
+          subject: 'Reset Your Password - KeSMIS',
+          html: `
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Reset Your Password</title>
+            </head>
+            <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
+              <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #f5f5f5; padding: 20px;">
+                <tr>
+                  <td align="center">
+                    <table role="presentation" style="max-width: 600px; width: 100%; border-collapse: collapse; background-color: #ffffff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); overflow: hidden;">
+                      <!-- Header -->
+                      <tr>
+                        <td style="background: linear-gradient(135deg, #00DC82 0%, #00B86B 100%); padding: 40px 30px; text-align: center;">
+                          <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 600; letter-spacing: -0.5px;">
+                            Reset Your Password
+                          </h1>
+                        </td>
+                      </tr>
+                      
+                      <!-- Content -->
+                      <tr>
+                        <td style="padding: 40px 30px;">
+                          <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 1.6; color: #333333;">
+                            Hello <strong>${username}</strong>,
+                          </p>
+                          
+                          <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 1.6; color: #333333;">
+                            You are receiving this email because you (or someone else) have requested to reset the password for your KeSMIS account.
+                          </p>
+                          
+                          <p style="margin: 0 0 30px 0; font-size: 16px; line-height: 1.6; color: #333333;">
+                            Please click the button below to reset your password. This link will expire in <strong>24 hours</strong>.
+                          </p>
+                          
+                          <!-- Reset Button -->
+                          <table role="presentation" style="width: 100%; border-collapse: collapse; margin: 30px 0;">
+                            <tr>
+                              <td align="center">
+                                <a href="${resetLink}" style="display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #00DC82 0%, #00B86B 100%); color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(0, 220, 130, 0.3);">
+                                  Reset Password
+                                </a>
+                              </td>
+                            </tr>
+                          </table>
+                          
+                          <!-- Alternative Link -->
+                          <p style="margin: 30px 0 20px 0; font-size: 14px; line-height: 1.6; color: #666666; text-align: center;">
+                            Or copy and paste this link into your browser:
+                          </p>
+                          <p style="margin: 0 0 30px 0; font-size: 13px; line-height: 1.6; color: #00DC82; word-break: break-all; text-align: center; padding: 12px; background-color: #f8f9fa; border-radius: 6px;">
+                            ${resetLink}
+                          </p>
+                          
+                          <!-- Warning Box -->
+                          <div style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 16px; border-radius: 6px; margin: 30px 0;">
+                            <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #856404;">
+                              <strong>⚠️ Important:</strong> If you did not request this password reset, please ignore this email. Your password will remain unchanged and no changes will be made to your account.
+                            </p>
+                          </div>
+                          
+                          <p style="margin: 30px 0 0 0; font-size: 14px; line-height: 1.6; color: #666666;">
+                            For security reasons, this link will expire in 24 hours. If you need to reset your password after that, please request a new reset link.
+                          </p>
+                        </td>
+                      </tr>
+                      
+                      <!-- Footer -->
+                      <tr>
+                        <td style="background-color: #f8f9fa; padding: 30px; text-align: center; border-top: 1px solid #e9ecef;">
+                          <p style="margin: 0 0 10px 0; font-size: 14px; color: #666666;">
+                            If you have any questions or need assistance, please contact our support team.
+                          </p>
+                          <p style="margin: 0; font-size: 14px; color: #666666;">
+                            Best regards,<br>
+                            <strong style="color: #00DC82;">KeSMIS Team</strong>
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </body>
+            </html>
+          `,
+          // Plain text fallback
+          text: `Reset Your Password - KeSMIS\n\nHello ${username},\n\nYou are receiving this because you (or someone else) have requested the reset of the password for your account.\n\nPlease click on the following link, or paste this into your browser to complete the process within 24 hours:\n\n${resetLink}\n\nIf you did not request this, please ignore this email and your password will remain unchanged.\n\nBest regards,\nKeSMIS Team`
         };
         
 
@@ -601,12 +684,15 @@ exports.reset = (req, res) => {
 
         transporter.sendMail(mailOptions, (err, response) => {
           if (err) {
-            console.error('there was an error: ', err)
+            console.error('Error sending reset password email: ', err)
+            return res.status(500).send({
+              message: 'Failed to send reset password email. Please try again later.',
+              code: "1001"
+            })
           } else {
-            console.log('here is the res: ', response)
-            //  res.status(200).json('recovery email sent');
+            console.log('Reset password email sent successfully: ', response)
             res.status(200).send({
-              message: 'Recovery Email Sent',
+              message: 'Password reset instructions have been sent to your email address.',
               code: "0000"
             })
           }

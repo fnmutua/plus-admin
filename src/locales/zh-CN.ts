@@ -102,6 +102,7 @@ export default {
   },
   router: {
     login: '登录',
+    register: '注册',
     level: '多级菜单',
     menu: '菜单',
     menu1: '菜单1',

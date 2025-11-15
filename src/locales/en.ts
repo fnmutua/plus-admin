@@ -102,6 +102,7 @@ export default {
   },
   router: {
     login: 'Login',
+    register: 'Register',
     level: 'Multi level menu',
     menu: 'Menu',
     menu1: 'Menu1',

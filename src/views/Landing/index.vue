@@ -50,7 +50,7 @@
                         @click="navigateTo('grm')"
                         class="cta-secondary"
                       >
-                        <Icon icon="mdi:file-document-edit" class="button-icon" />
+                        <Icon icon="uiw:message" class="button-icon" />
                         File a Grievance
                       </el-button>
                       <el-button
@@ -249,7 +249,7 @@
                     @click="navigateTo('grm')"
                     class="cta-primary"
                   >
-                    <Icon icon="mdi:file-document-edit" class="button-icon" />
+                    <Icon icon="uiw:message" class="button-icon" />
                     File a Grievance
                   </el-button>
                   <el-button
@@ -705,6 +705,7 @@ AvgHHSize();
 
 .button-icon {
   font-size: 1.125rem;
+  margin-right: 0.5rem;
 }
 
 /* Hero Preview */
@@ -967,6 +968,10 @@ AvgHHSize();
 
 .steps-grid {
   margin-top: 3rem;
+}
+
+.steps-grid :deep(.el-col) {
+  margin-bottom: 2rem;
 }
 
 .step-card {
@@ -1353,6 +1358,7 @@ AvgHHSize();
     flex-wrap: nowrap;
     gap: 0.75rem;
     width: 100%;
+    margin-bottom: 2rem;
   }
 
   .cta-primary,
@@ -1379,6 +1385,7 @@ AvgHHSize();
 
   .hero-cta {
     gap: 0.625rem;
+    margin-bottom: 2rem;
   }
 
   .cta-primary,
