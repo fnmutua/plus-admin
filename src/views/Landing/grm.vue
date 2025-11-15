@@ -296,28 +296,35 @@ id="btn20" class="upload-demo"
             </el-tab-pane>
           </el-tabs>
           <template #footer>
-            <div
-class="steps-navigation"
-              style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
-              <div>
+            <div class="steps-navigation">
+              <div class="nav-group-left">
                 <el-tooltip content="Help" placement="top">
-                  <el-button color="#626aef" type="info" @click="showTour" :icon="InfoFilled" plain />
+                  <el-button color="#626aef" type="info" @click="showTour" :icon="InfoFilled" plain class="help-button">
+                    <span class="help-button-text">Help</span>
+                  </el-button>
                 </el-tooltip>
 
-                <el-button id="btn9" v-if="active > 0" @click="prev"   :icon="ArrowLeft">Previous
+                <el-button id="btn9" v-if="active > 0" @click="prev" :icon="ArrowLeft" class="prev-button">
+                  Previous
                 </el-button>
               </div>
-              <div>
-                <el-button id="btn7" v-if="active < 3"  @click="next">
+              <div class="nav-group-right">
+                <el-button id="btn7" v-if="active < 3" @click="next" class="next-button">
                   Next <el-icon class="el-icon--right">
                     <ArrowRight />
                   </el-icon>
                 </el-button>
 
                 <el-button
-id="btn2" v-if="active === 3"  @click="submitForm"
-                  style="margin-left: 10px;">Submit</el-button>
-                <el-button id="btn8" @click="resetForm" style="margin-left: 10px;">Reset</el-button>
+                  id="btn2" 
+                  v-if="active === 3" 
+                  @click="submitForm"
+                  type="primary"
+                  class="submit-button"
+                >
+                  Submit
+                </el-button>
+                <el-button id="btn8" @click="resetForm" class="reset-button">Reset</el-button>
               </div>
             </div>
           </template>
@@ -1669,7 +1676,14 @@ try {
   margin-top: 2px;
   font-size: 0.75rem;
   line-height: 1.3;
-  color: var(--text-secondary);
+  color: rgba(128, 128, 128, 0.6) !important;
+  opacity: 0.7;
+}
+
+.dark-mode .checkbox-helper,
+.dark-mode .switch-helper {
+  color: rgba(160, 160, 160, 0.5) !important;
+  opacity: 0.6;
 }
 
 /* Navigation Buttons */
@@ -1683,13 +1697,49 @@ try {
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   border: 1px solid var(--border-color);
+  border-top: 2px solid rgba(0, 220, 130, 0.2);
   gap: 1rem;
+  position: relative;
+}
+
+.steps-navigation::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(0, 220, 130, 0.3) 0%, rgba(0, 184, 107, 0.2) 50%, rgba(0, 220, 130, 0.3) 100%);
+  border-radius: 12px 12px 0 0;
 }
 
 .steps-navigation > div {
   display: flex;
   gap: 0.75rem;
   align-items: center;
+}
+
+.nav-group-left {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.nav-group-right {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+/* Help button text - hidden on mobile */
+.help-button-text {
+  display: inline;
+}
+
+@media (max-width: 768px) {
+  .help-button-text {
+    display: none;
+  }
 }
 
 /* Button Styling */
@@ -1701,42 +1751,50 @@ try {
   transition: all 0.3s ease;
   letter-spacing: -0.01em;
   border: none;
+  position: relative;
 }
 
+/* Subtle color lining on buttons */
 :deep(.el-button--primary) {
   background: #00DC82 !important;
   border: 1px solid #00DC82 !important;
+  border-left: 3px solid rgba(0, 184, 107, 0.6) !important;
   color: white !important;
-}
-
-:deep(.el-button--primary:hover) {
-  background: #00B86B !important;
-  border-color: #00B86B !important;
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(0, 220, 130, 0.3);
 }
 
 :deep(.el-button--default) {
   background: transparent !important;
   border: 1px solid var(--border-color) !important;
+  border-left: 3px solid rgba(0, 220, 130, 0.2) !important;
   color: var(--text-primary) !important;
+}
+
+:deep(.el-button--primary:hover) {
+  background: #00B86B !important;
+  border-color: #00B86B !important;
+  border-left-color: rgba(0, 184, 107, 0.8) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 220, 130, 0.3);
 }
 
 :deep(.el-button--default:hover) {
   background: rgba(0, 220, 130, 0.1) !important;
   border-color: #00DC82 !important;
+  border-left-color: rgba(0, 220, 130, 0.4) !important;
   color: #00DC82 !important;
 }
 
 :deep(.el-button--info) {
   background: transparent !important;
   border: 1px solid var(--border-color) !important;
+  border-left: 3px solid rgba(98, 106, 239, 0.3) !important;
   color: var(--text-primary) !important;
 }
 
 :deep(.el-button--info:hover) {
   background: rgba(0, 220, 130, 0.1) !important;
   border-color: #00DC82 !important;
+  border-left-color: rgba(98, 106, 239, 0.5) !important;
   color: #00DC82 !important;
 }
 
@@ -1893,11 +1951,24 @@ try {
 
 /* Text Styling */
 :deep(.el-text) {
-  color: var(--text-secondary);
-  font-size: 0.875rem;
+  color: rgb(139, 138, 138);
+  font-size: 0.7875rem;
   line-height: 1.6;
   display: block;
   margin-top: 0.5rem;
+  font-style: italic;
+}
+
+/* Helper text - more subtle, pushed to background */
+:deep(.el-text[type="info"]) {
+  color: rgba(128, 128, 128, 0.6) !important;
+  font-size: 0.8125rem;
+  opacity: 0.7;
+}
+
+.dark-mode :deep(.el-text[type="info"]) {
+  color: rgba(160, 160, 160, 0.5) !important;
+  opacity: 0.6;
 }
 
 /* Dialog Styling */
@@ -1939,24 +2010,57 @@ try {
   }
 
   .steps-navigation {
-    flex-direction: column;
-    gap: 1rem;
-    padding: 1rem;
+    flex-direction: row;
+    gap: 0.5rem;
+    padding: 0.875rem;
+    margin-top: 1.5rem;
+    position: sticky;
+    bottom: 0;
+    background: var(--bg-primary);
+    border-top: 2px solid rgba(0, 220, 130, 0.25);
+    border-radius: 0;
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
+    z-index: 10;
+  }
+
+  .steps-navigation::before {
+    display: none;
   }
 
   .steps-navigation > div {
-    width: 100%;
     display: flex;
-    justify-content: center;
     gap: 0.5rem;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    flex: 1;
   }
 
-  :deep(.el-button) {
+  /* Help button - icon only on mobile */
+  .steps-navigation .nav-group-left :deep(.el-button--info) {
+    min-width: 44px;
+    width: 44px;
+    padding: 0.75rem;
+    flex-shrink: 0;
+  }
+
+  .steps-navigation .nav-group-left :deep(.el-button--info .help-button-text) {
+    display: none;
+  }
+
+  /* All buttons - flexible sizing on mobile */
+  .steps-navigation :deep(.el-button) {
     flex: 1;
-    min-width: 120px;
-    padding: 0.75rem 1rem;
-    font-size: 0.875rem;
+    min-width: 0;
+    padding: 0.75rem 0.75rem;
+    font-size: 0.8125rem;
+    min-height: 44px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Help button stays fixed width */
+  .steps-navigation .nav-group-left :deep(.el-button--info) {
+    flex: 0 0 44px;
   }
 
   :deep(.el-step__title) {
@@ -1987,19 +2091,34 @@ try {
     padding: 0.625rem;
   }
 
-  :deep(.el-button) {
-    padding: 0.75rem 1rem;
-    font-size: 0.875rem;
-    width: 100%;
+  .steps-navigation {
+    padding: 0.75rem;
+    gap: 0.5rem;
+    margin-top: 1rem;
   }
 
   .steps-navigation > div {
-    flex-direction: column;
-    width: 100%;
+    gap: 0.375rem;
   }
 
+  /* All buttons stay in same row, smaller padding on very small screens */
   .steps-navigation :deep(.el-button) {
-    width: 100%;
+    flex: 1;
+    min-width: 0;
+    padding: 0.75rem 0.5rem;
+    font-size: 0.75rem;
+    min-height: 44px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Help button stays icon-only and fixed width */
+  .steps-navigation .nav-group-left :deep(.el-button--info) {
+    width: 44px;
+    min-width: 44px;
+    flex: 0 0 44px;
+    padding: 0.75rem;
   }
 
   .el-steps {
