@@ -80,7 +80,6 @@
 <script setup lang="ts">
 import { ElCollapse, ElCollapseItem } from 'element-plus';
 import BaseLayout from './BaseLayout.vue';
-import { onMounted } from 'vue';
 import { useHead } from '@unhead/vue'
 
 useHead({
@@ -111,8 +110,8 @@ useHead({
     { name: 'twitter:image:alt', content: 'KeSMIS Logo - Kenya Slum Management Information System' },
     
     // Additional meta tags for better SEO
-    { name: 'theme-color', content: '#684035' },
-    { name: 'msapplication-TileColor', content: '#684035' },
+    { name: 'theme-color', content: '#00DC82' },
+    { name: 'msapplication-TileColor', content: '#00DC82' },
     { name: 'viewport', content: 'width=device-width, initial-scale=1.0' },
     { name: 'format-detection', content: 'telephone=no' }
   ]
@@ -129,49 +128,184 @@ useHead({
   min-height: 100vh;
   color: var(--text-primary);
   transition: all 0.3s ease;
-  padding: 2rem;
+  padding: 4rem 2rem;
 }
 
 .faqs-content {
-  border-radius: 12px;
-  box-shadow: var(--card-shadow);
-  padding: 2rem;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  padding: 3rem;
   margin: 0 auto;
-  max-width: 1200px;
+  max-width: 1280px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
 }
 
 .faqs-title {
-  text-align: center;
-  margin-bottom: 2rem;
+  text-align: left;
+  margin-bottom: 3rem;
   color: var(--text-primary);
-  font-size: 2rem;
+  font-size: 2.5rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
 }
 
 .faq-answer {
   color: var(--text-secondary);
-  line-height: 1.6;
+  line-height: 1.7;
+  font-size: 1rem;
+  padding: 0.5rem 0;
 }
 
 .faq-answer ul {
-  margin-top: 0.5rem;
+  margin-top: 0.75rem;
   padding-left: 1.5rem;
 }
 
 .faq-answer li {
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.faq-answer a {
+  color: #00DC82;
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+.faq-answer a:hover {
+  color: #00B86B;
+  text-decoration: underline;
+}
+
+/* Element Plus Collapse Styling */
+:deep(.el-collapse) {
+  border: none;
+}
+
+:deep(.el-collapse-item) {
+  margin-bottom: 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+:deep(.el-collapse-item:hover) {
+  border-color: #00DC82;
+  box-shadow: 0 4px 12px rgba(0, 220, 130, 0.1);
+}
+
+:deep(.el-collapse-item__header) {
+  padding: 1.25rem 1.5rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  border-bottom: none;
+  transition: all 0.3s ease;
+}
+
+:deep(.el-collapse-item__header:hover) {
+  color: #00DC82;
+  background: var(--bg-secondary);
+}
+
+:deep(.el-collapse-item__header.is-active) {
+  color: #00DC82;
+  border-bottom: 1px solid var(--border-color);
+}
+
+:deep(.el-collapse-item__wrap) {
+  background: var(--bg-primary);
+  border-top: none;
+}
+
+:deep(.el-collapse-item__content) {
+  padding: 1.5rem;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
+:deep(.el-collapse-item__arrow) {
+  color: var(--text-primary);
+  font-size: 1.25rem;
+  transition: all 0.3s ease;
+}
+
+:deep(.el-collapse-item__header:hover .el-collapse-item__arrow) {
+  color: #00DC82;
+}
+
+:deep(.el-collapse-item__header.is-active .el-collapse-item__arrow) {
+  color: #00DC82;
 }
 
 @media (max-width: 768px) {
   .faqs-container {
-    padding: 1rem;
+    padding: 2rem 1rem;
   }
   
   .faqs-content {
-    padding: 1rem;
+    padding: 2rem 1.5rem;
   }
   
   .faqs-title {
-    font-size: 1.5rem;
+    font-size: 2rem;
+    margin-bottom: 2rem;
   }
+
+  :deep(.el-collapse-item__header) {
+    padding: 1rem 1.25rem;
+    font-size: 1rem;
+  }
+
+  :deep(.el-collapse-item__content) {
+    padding: 1.25rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .faqs-container {
+    padding: 1.5rem 1rem;
+  }
+  
+  .faqs-content {
+    padding: 1.5rem 1rem;
+  }
+  
+  .faqs-title {
+    font-size: 1.75rem;
+  }
+}
+
+/* Dark Mode Support */
+.dark-mode .faqs-content {
+  background: var(--bg-primary);
+  border-color: var(--border-color);
+}
+
+.dark-mode :deep(.el-collapse-item) {
+  border-color: var(--border-color);
+  background: var(--bg-primary);
+}
+
+.dark-mode :deep(.el-collapse-item:hover) {
+  border-color: #00DC82;
+  box-shadow: 0 4px 12px rgba(0, 220, 130, 0.15);
+}
+
+.dark-mode :deep(.el-collapse-item__header) {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.dark-mode :deep(.el-collapse-item__header:hover) {
+  background: var(--bg-secondary);
+}
+
+.dark-mode :deep(.el-collapse-item__content) {
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
 }
 </style>
