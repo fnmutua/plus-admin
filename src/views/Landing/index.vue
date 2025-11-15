@@ -19,7 +19,7 @@
                 <ul class="hero-features">
                   <li>
                     <Icon icon="mdi:check-circle" class="feature-icon" />
-                    <span>National geodatabase for informal settlements</span>
+                    <span>National geodatabase for slums and informal settlements</span>
                   </li>
                   <li>
                     <Icon icon="mdi:check-circle" class="feature-icon" />
@@ -115,7 +115,7 @@
             </p>
           </div>
           
-          <el-row :gutter="24" class="features-grid">
+          <el-row :gutter="32" class="features-grid">
             <el-col :xs="24" :sm="12" :md="8" :lg="8" :xl="8" v-for="feature in features" :key="feature.id">
               <el-card 
                 class="feature-card"
@@ -598,10 +598,10 @@ AvgHHSize();
 }
 
 .hero-content {
-  text-align: center;
+  text-align: left;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
 }
 
 .hero-title {
@@ -611,7 +611,7 @@ AvgHHSize();
   margin-bottom: 1rem;
   color: var(--text-primary);
   letter-spacing: -0.02em;
-  text-align: center;
+  text-align: left;
 }
 
 .title-accent {
@@ -627,15 +627,14 @@ AvgHHSize();
   color: var(--text-secondary);
   margin-bottom: 1.5rem;
   max-width: 600px;
-  text-align: center;
-  margin-left: auto;
-  margin-right: auto;
+  text-align: left;
 }
 
 .hero-features {
   list-style: none;
   padding: 0;
   margin: 0 0 1.5rem 0;
+  align-items: flex-start;
 }
 
 .hero-features li {
@@ -658,6 +657,7 @@ AvgHHSize();
   gap: 0.75rem;
   flex-wrap: nowrap;
   align-items: center;
+  justify-content: flex-start;
 }
 
 .cta-primary {
@@ -831,9 +831,11 @@ AvgHHSize();
 
 .features-grid {
   margin-top: 3rem;
+  margin-bottom: 2rem;
 }
 
 .feature-card {
+  margin-bottom: 2rem;
   min-height: 200px;
   border-radius: 12px;
   border: 1px solid var(--border-color);
@@ -1070,6 +1072,8 @@ AvgHHSize();
 
 .grievance-hero-section .hero-content {
   animation: fadeInUp 0.6s ease-out;
+  text-align: left;
+  align-items: flex-start;
 }
 
 .grievance-hero-section .hero-title {
@@ -1079,6 +1083,7 @@ AvgHHSize();
   margin-bottom: 1.5rem;
   color: var(--text-primary);
   letter-spacing: -0.02em;
+  text-align: left;
 }
 
 .grievance-hero-section .hero-description {
@@ -1087,9 +1092,11 @@ AvgHHSize();
   color: var(--text-secondary);
   margin-bottom: 2rem;
   max-width: 600px;
+  text-align: left;
 }
 
 .grievance-hero-section .hero-features {
+  align-items: flex-start;
   list-style: none;
   padding: 0;
   margin: 0 0 2.5rem 0;
@@ -1109,6 +1116,7 @@ AvgHHSize();
   gap: 0.75rem;
   flex-wrap: nowrap;
   align-items: center;
+  justify-content: flex-start;
 }
 
 .grievance-hero-section .cta-primary,
@@ -1223,14 +1231,18 @@ AvgHHSize();
   }
 
   .grievance-hero-section .hero-cta {
-    flex-wrap: wrap;
-    gap: 0.5rem;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 0.75rem;
+    width: 100%;
   }
 
   .grievance-hero-section .cta-primary,
   .grievance-hero-section .cta-secondary {
-    flex: 1;
-    min-width: 120px;
+    width: 100%;
+    justify-content: center;
+    padding: 1rem 1.5rem;
+    font-size: 1rem;
   }
 
   .grievance-hero-section .info-icon {
@@ -1239,6 +1251,18 @@ AvgHHSize();
 
   .grievance-hero-section .helpline-number {
     font-size: 1.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .grievance-hero-section .hero-cta {
+    gap: 0.625rem;
+  }
+
+  .grievance-hero-section .cta-primary,
+  .grievance-hero-section .cta-secondary {
+    padding: 0.875rem 1.25rem;
+    font-size: 0.9375rem;
   }
 }
 
@@ -1325,14 +1349,18 @@ AvgHHSize();
   }
 
   .hero-cta {
-    flex-wrap: wrap;
-    gap: 0.5rem;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 0.75rem;
+    width: 100%;
   }
 
   .cta-primary,
   .cta-secondary {
-    flex: 1;
-    min-width: 120px;
+    width: 100%;
+    justify-content: center;
+    padding: 1rem 1.5rem;
+    font-size: 1rem;
   }
 }
 
@@ -1347,6 +1375,16 @@ AvgHHSize();
 
   .preview-dashboard {
     height: 250px;
+  }
+
+  .hero-cta {
+    gap: 0.625rem;
+  }
+
+  .cta-primary,
+  .cta-secondary {
+    padding: 0.875rem 1.25rem;
+    font-size: 0.9375rem;
   }
 }
 
