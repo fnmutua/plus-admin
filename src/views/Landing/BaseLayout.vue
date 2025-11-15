@@ -82,16 +82,15 @@
                 <div class="footer-links-group">
                   <h4>Resources</h4>
                   <ul>
-                    <li><router-link to="/docs">Docs</router-link></li>
+                    <li><router-link to="/about">About</router-link></li>
+                    <li><router-link to="/faqs">FAQs</router-link></li>
                     <li><router-link to="/contact">Support</router-link></li>
                   </ul>
                 </div>
                 <div class="footer-links-group">
-                  <h4>Legal</h4>
-                  <ul>
+                   <ul>
                     <li><router-link to="/privacy">Privacy</router-link></li>
-                    <li><router-link to="/contact">Terms</router-link></li>
-                  </ul>
+                   </ul>
                 </div>
               </nav>
             </div>

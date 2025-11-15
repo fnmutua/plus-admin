@@ -23,21 +23,21 @@
                     <!-- Step 1: Personal Details -->
                     <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
                       <el-form-item id="btn1" label="Name" prop="name">
-                        <el-input v-model="grmForm.name" placeholder="Enter name" style="width:90%" />
-                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Please provide your name as it appears on the National ID. Fill Anonymous if you want anonymity.</el-text>
+                        <el-input v-model="grmForm.name" placeholder="Enter name" />
+                        <el-text type="info" size="small">Please provide your name as it appears on the National ID. Fill Anonymous if you want anonymity.</el-text>
                       </el-form-item>
 
                       <el-form-item id="btn2" label="Gender" prop="gender">
-                        <el-select v-model="grmForm.gender" placeholder="Select" style="width:90%">
+                        <el-select v-model="grmForm.gender" placeholder="Select" style="width: 100%">
                           <el-option label="Female" value="female" />
                           <el-option label="Male" value="male" />
                           <el-option label="Unspecified" value="unspecified" />
                         </el-select>
-                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Please select your gender.</el-text>
+                        <el-text type="info" size="small">Please select your gender.</el-text>
                       </el-form-item>
 
                       <el-form-item id="btn3" label="Age" prop="age">
-                        <el-select v-model="grmForm.age" placeholder="Select" style="width:90%">
+                        <el-select v-model="grmForm.age" placeholder="Select" style="width: 100%">
                           <el-option
 v-for="item in ageRanges" :key="item.value" :label="item.label"
                             :value="item.value" />
@@ -51,19 +51,19 @@ v-for="item in ageRanges" :key="item.value" :label="item.label"
 
                     <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
                       <el-form-item id="btn4" label="National ID" prop="national_id">
-                        <el-input v-model="grmForm.national_id" placeholder="Enter ID number" style="width:90%" />
+                        <el-input v-model="grmForm.national_id" placeholder="Enter ID number" style="width: 100%" />
                         <el-text type="info" size="small" style="display: block; margin-top: 4px;">We require your national ID especially for land related complaints.</el-text>
                       </el-form-item>
 
                       <el-form-item id="btn5" label="Phone" prop="phone">
                         <el-input
-v-model="grmForm.phone" placeholder="Enter phone number (254.....)" style="width:90%"
+v-model="grmForm.phone" placeholder="Enter phone number (254.....)" style="width: 100%"
                           :onChange="convertPhoneNumber" />
                         <el-text type="info" size="small" style="display: block; margin-top: 4px;">Please provide your phone number. We require this for our communication on the status of the complaint.</el-text>
                       </el-form-item>
 
                       <el-form-item id="btn6" label="Email" prop="email">
-                        <el-input v-model="grmForm.email" placeholder="Enter Email" style="width:90%" />
+                        <el-input v-model="grmForm.email" placeholder="Enter Email" style="width: 100%" />
                         <el-text type="info" size="small" style="display: block; margin-top: 4px;">Please provide an email address. We may use this for our communication on the status of the complaint.</el-text>
                       </el-form-item>
                     </el-col>
@@ -79,7 +79,7 @@ v-model="grmForm.phone" placeholder="Enter phone number (254.....)" style="width
                       <el-form-item id="btn10" label="County" prop="county_id">
                         <el-select
 filterable v-model="grmForm.county_id" placeholder="County" @change="getSettlementByCounty"
-                          style="width:90%">
+                          style="width: 100%">
                           <el-option
 v-for="item in countiesOptions" :key="item.value" :label="item.label"
                             :value="item.value" />
@@ -90,7 +90,7 @@ v-for="item in countiesOptions" :key="item.value" :label="item.label"
                       <el-form-item id="btn10a" label="Project Phase" prop="project_phase">
                         <el-select
                           filterable v-model="grmForm.project_phase" placeholder="Select Project Phase"
-                          style="width:90%">
+                          style="width: 100%">
                           <el-option
                             v-for="item in projectPhaseOptions" :key="item.value" :label="item.label"
                             :value="item.value" />
@@ -108,7 +108,7 @@ v-for="item in countiesOptions" :key="item.value" :label="item.label"
                         <el-select
                         filterable v-model="grmForm.settlement_id" :placeholder="isFilteringSettlements ? 'Filtering settlements…' : 'Settlement'"
                           :disabled="!grmForm.county_id || isFilteringSettlements" :loading="isFilteringSettlements"
-                          @change="handleSelectSettlement" style="width:90%">
+                          @change="handleSelectSettlement" style="width: 100%">
                           <el-option
 v-for="item in settlementOptions" :key="item.value" :label="item.label"
                             :value="item.value" />
@@ -120,7 +120,7 @@ v-for="item in settlementOptions" :key="item.value" :label="item.label"
                     </el-col>
                     <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
                       <el-form-item id="btn12" label="Address" prop="address">
-                        <el-input v-model="grmForm.address" placeholder="Enter address" style="width:90%" />
+                        <el-input v-model="grmForm.address" placeholder="Enter address" style="width: 100%" />
                         <el-text type="info" size="small" style="display: block; margin-top: 4px;">Enter your address, e.g., near XXX Primary school, Plot No. XXX.</el-text>
                       </el-form-item>
 
@@ -130,15 +130,13 @@ v-for="item in settlementOptions" :key="item.value" :label="item.label"
                           label="Is this complaint related to Gender-Based Violence?"
                           size="large"
                           style="display: block; margin-bottom: 4px;" />
-                        <el-text type="info" size="small" class="checkbox-helper">Indicate if the complaint is related to Gender-Based Violence.</el-text>
-
+ 
                         <el-checkbox
                           v-model="grmForm.isInCourt"
                           label="Is this complaint currently in court?"
                           size="large"
                           style="display: block; margin-top: 12px; margin-bottom: 4px;" />
-                        <el-text type="info" size="small" class="checkbox-helper">Indicate if this complaint is currently being handled in court.</el-text>
-                      </el-form-item>
+                       </el-form-item>
                     </el-col>
 
 
@@ -148,7 +146,7 @@ v-for="item in settlementOptions" :key="item.value" :label="item.label"
                     <!-- Step 3: Complaint Details -->
                     <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
                       <el-form-item v-if="!grmForm.isgbv" id="btn14" label="Nature of Complaint" prop="nature">
-                        <el-select filterable v-model="grmForm.nature" placeholder="Select category" style="width:90%">
+                        <el-select filterable v-model="grmForm.nature" placeholder="Select category" style="width: 100%">
                           <el-option
                             v-for="item in grievanceOptions"
                             :key="item.value"
@@ -162,7 +160,7 @@ v-for="item in settlementOptions" :key="item.value" :label="item.label"
                       <el-form-item id="btn15" label="Complaint Description" prop="description">
                         <el-input
                           v-model="grmForm.description" type="textarea" rows="2"
-                          placeholder="Describe your complaint" style="width:90%" />
+                          placeholder="Describe your complaint" style="width: 100%" />
                         <el-text type="info" size="small" style="display: block; margin-top: 4px;">Provide a detailed description of the complaint, including what happened, when, where, and who was involved.</el-text>
                       </el-form-item>
                     </el-col>
@@ -170,7 +168,7 @@ v-for="item in settlementOptions" :key="item.value" :label="item.label"
                       <el-form-item id="btn16" label="Plea/Request" prop="plea">
                         <el-input
                           v-model="grmForm.plea" type="textarea" rows="4" placeholder="Enter your plea/request"
-                          style="width:90%" />
+                          style="width: 100%" />
                         <el-text type="info" size="small" style="display: block; margin-top: 4px;">Enter your plea or request regarding the complaint. What action would you like to be taken?</el-text>
                       </el-form-item>
                     </el-col>
@@ -180,25 +178,25 @@ v-for="item in settlementOptions" :key="item.value" :label="item.label"
                     <!-- Step 4: Review & Submit -->
                     <el-col :xs="12" :sm="12" :md="12" :lg="12" :xl="12">
                       <el-form-item id="btn17" label="Witness Name" prop="witness">
-                        <el-input v-model="grmForm.witness" placeholder="Enter witness name" style="width:90%" />
+                        <el-input v-model="grmForm.witness" placeholder="Enter witness name" style="width: 100%" />
                         <el-text type="info" size="small" style="display: block; margin-top: 4px;">Enter the name of the witness related to the grievance (optional).</el-text>
                       </el-form-item>
 
                       <el-form-item id="btn18" label="Witness Phone" prop="witness_phone">
-                        <el-input v-model="grmForm.witness_phone" placeholder="Enter witness phone" style="width:90%" />
+                        <el-input v-model="grmForm.witness_phone" placeholder="Enter witness phone" style="width: 100%" />
                         <el-text type="info" size="small" style="display: block; margin-top: 4px;">Enter the phone number of the witness (optional).</el-text>
                       </el-form-item>
 
                       <el-form-item id="btn19" label="Witness Statement" prop="witness_statement">
                         <el-input
 v-model="grmForm.witness_statement" type="textarea"
-                          placeholder="Enter witness statement" style="width:90%" />
+                          placeholder="Enter witness statement" style="width: 100%" />
                         <el-text type="info" size="small" style="display: block; margin-top: 4px;">Provide a statement from the witness regarding the grievance (optional).</el-text>
                       </el-form-item>
                     </el-col>
                     <el-col :xs="12" :sm="12" :md="12" :lg="12" :xl="12">
 
-                      <el-form-item id="btn17" label="Are you the complainant?" prop="witness">
+                      <el-form-item id="btn21" label="Are you the complainant?" prop="witness">
                         <div style="display: flex; align-items: center; gap: 12px; padding: 4px 0;">
                           <el-switch
                             v-model="grmForm.self_reported"
@@ -210,15 +208,15 @@ v-model="grmForm.witness_statement" type="textarea"
                         <el-text type="info" size="small" class="switch-helper">Indicate if you are filing this grievance on behalf of yourself or someone else.</el-text>
                       </el-form-item>
 
-                      <el-form-item v-if="!grmForm.self_reported" id="btn18" label="Your Name" prop="reporter_name">
-                        <el-input v-model="grmForm.reporter_name" placeholder="Your Name" style="width:90%" />
+                      <el-form-item v-if="!grmForm.self_reported" id="btn22" label="Your Name" prop="reporter_name">
+                        <el-input v-model="grmForm.reporter_name" placeholder="Your Name" style="width: 100%" />
                         <el-text type="info" size="small" style="display: block; margin-top: 4px;">Enter your name if you are filing on behalf of someone else.</el-text>
                       </el-form-item>
 
-                      <el-form-item v-if="!grmForm.self_reported" id="btn19" label="Your Phone" prop="reporter_phone">
+                      <el-form-item v-if="!grmForm.self_reported" id="btn23" label="Your Phone" prop="reporter_phone">
                         <el-input
 v-model="grmForm.reporter_phone" type="text" placeholder="Your Phone"
-                          style="width:90%" />
+                          style="width: 100%" />
                         <el-text type="info" size="small" style="display: block; margin-top: 4px;">Enter your phone number if you are filing on behalf of someone else.</el-text>
                       </el-form-item>
 
@@ -403,8 +401,8 @@ useHead({
     { name: 'twitter:image:alt', content: 'KeSMIS Logo - Kenya Slum Management Information System' },
     
     // Additional meta tags for better SEO
-    { name: 'theme-color', content: '#684035' },
-    { name: 'msapplication-TileColor', content: '#684035' },
+    { name: 'theme-color', content: '#00DC82' },
+    { name: 'msapplication-TileColor', content: '#00DC82' },
     { name: 'viewport', content: 'width=device-width, initial-scale=1.0' },
     { name: 'format-detection', content: 'telephone=no' }
   ]
@@ -1073,6 +1071,7 @@ const endTour = () => {
 
 
 const tourSteps = ref([
+  // Step 0: Personal Details
   {
     step: 0,
     target: '#btn1',
@@ -1091,48 +1090,46 @@ const tourSteps = ref([
     step: 0,
     target: '#btn3',
     title: 'Age',
-    content: 'Select your age bracket',
+    content: 'Select your age bracket.',
     visible: true
   },
   {
     step: 0,
     target: '#btn4',
     title: 'National ID',
-    content: 'We require your national ID especially for land related complaints',
+    content: 'We require your national ID especially for land related complaints.',
     visible: true
   },
   {
     step: 0,
     target: '#btn5',
     title: 'Phone',
-    content: 'Please provide your phone number. We require this for our communication on the status of the complaint',
+    content: 'Please provide your phone number. We require this for our communication on the status of the complaint.',
     visible: true
   },
   {
     step: 0,
     target: '#btn6',
-    title: 'Email(optional)',
-    content: 'Please provide an email address. We may use this for our communication on the status of the complaint',
+    title: 'Email (Optional)',
+    content: 'Please provide an email address. We may use this for our communication on the status of the complaint.',
     visible: true
   },
   {
     step: 0,
     target: '#btn7',
-    title: 'Next',
-    content: 'Click here to fill in the complaint details',
+    title: 'Next Button',
+    content: 'Click here to proceed to the next step and fill in the grievance details.',
     visible: true
   },
-
-
   {
     step: 0,
     target: '#btn8',
-    title: 'Clear Form',
-    content: 'Click here to clear this form',
+    title: 'Reset Form',
+    content: 'Click here to clear all form fields and start over.',
     visible: true
   },
 
-
+  // Step 1: Grievance Details
   {
     step: 1,
     target: '#btn10',
@@ -1140,7 +1137,13 @@ const tourSteps = ref([
     content: 'Select the county where the project is implemented.',
     visible: true
   },
-
+  {
+    step: 1,
+    target: '#btn10a',
+    title: 'Project Phase',
+    content: 'Select the project phase (KISIP 1 or KISIP 2).',
+    visible: true
+  },
   {
     step: 1,
     target: '#btn11',
@@ -1152,85 +1155,139 @@ const tourSteps = ref([
     step: 1,
     target: '#btn12',
     title: 'Address',
-    content: 'Enter the your address.e, near XXX Primary school, Plot No. XXX.',
+    content: 'Enter your address, e.g., near XXX Primary school, Plot No. XXX.',
     visible: true
   },
   {
     step: 1,
     target: '#btn13',
-    title: 'GBV Related Complaint',
-    content: 'Indicate if the complaint is related to Gender-Based Violence.',
+    title: 'Complaint Type',
+    content: 'Indicate if the complaint is related to Gender-Based Violence or if it is currently in court.',
     visible: true
   },
   {
     step: 1,
+    target: '#btn9',
+    title: 'Previous Button',
+    content: 'Click here to go back to the previous step.',
+    visible: true
+  },
+  {
+    step: 1,
+    target: '#btn7',
+    title: 'Next Button',
+    content: 'Click here to proceed to the complaint details step.',
+    visible: true
+  },
+
+  // Step 2: Complaint Details
+  {
+    step: 2,
     target: '#btn14',
     title: 'Nature of Complaint',
     content: 'Select the category that best describes the nature of the complaint.',
     visible: true
   },
   {
-    step: 1,
+    step: 2,
     target: '#btn15',
     title: 'Complaint Description',
-    content: 'Provide a detailed description of the complaint.',
+    content: 'Provide a detailed description of the complaint, including what happened, when, where, and who was involved.',
     visible: true
   },
   {
-    step: 1,
+    step: 2,
     target: '#btn16',
     title: 'Plea/Request',
-    content: 'Enter your plea or request regarding the complaint.',
+    content: 'Enter your plea or request regarding the complaint. What action would you like to be taken?',
     visible: true
   },
-
-  {
-    step: 1,
-    target: '#btn9',
-    title: 'Previous',
-    content: 'Click here to go back one page',
-    visible: true
-  },
-
-
   {
     step: 2,
+    target: '#btn9',
+    title: 'Previous Button',
+    content: 'Click here to go back to the previous step.',
+    visible: true
+  },
+  {
+    step: 2,
+    target: '#btn7',
+    title: 'Next Button',
+    content: 'Click here to proceed to the review and submit step.',
+    visible: true
+  },
+
+  // Step 3: Review & Submit
+  {
+    step: 3,
     target: '#btn17',
     title: 'Witness Name',
-    content: 'Enter the name of the witness related to the grievance.',
+    content: 'Enter the name of the witness related to the grievance (optional).',
     visible: true
   },
-
   {
-    step: 2,
+    step: 3,
     target: '#btn18',
     title: 'Witness Phone',
-    content: 'Enter the phone number of the witness.',
+    content: 'Enter the phone number of the witness (optional).',
     visible: true
   },
-
   {
-    step: 2,
+    step: 3,
     target: '#btn19',
     title: 'Witness Statement',
-    content: 'Provide a statement from the witness regarding the grievance.',
+    content: 'Provide a statement from the witness regarding the grievance (optional).',
     visible: true
   },
   {
-    step: 2,
+    step: 3,
+    target: '#btn21',
+    title: 'Are you the complainant?',
+    content: 'Indicate if you are filing this grievance on behalf of yourself or someone else.',
+    visible: true
+  },
+  {
+    step: 3,
+    target: '#btn22',
+    title: 'Reporter Name',
+    content: 'Enter your name if you are filing on behalf of someone else.',
+    visible: true
+  },
+  {
+    step: 3,
+    target: '#btn23',
+    title: 'Reporter Phone',
+    content: 'Enter your phone number if you are filing on behalf of someone else.',
+    visible: true
+  },
+  {
+    step: 3,
     target: '#btn20',
     title: 'Supporting Documentation',
-    content: 'Upload any supporting documents related to the grievance. Only pdf/jpg/png files with a size less than 10mb are allowed.',
+    content: 'Upload any supporting documents related to the grievance. Only pdf/jpg/png files with a size less than 500KB are allowed (up to 3 files).',
     visible: true
   },
   {
-    step: 2,
-    target: '#btn21',
-    title: 'Submit',
-    content: 'Click to send the form. You will receive a notification on SMS with a link for future followups.',
+    step: 3,
+    target: '#btn2',
+    title: 'Submit Button',
+    content: 'Click to submit your grievance. You will receive a notification via SMS with a reference code for future follow-ups.',
+    visible: true
+  },
+  {
+    step: 3,
+    target: '#btn9',
+    title: 'Previous Button',
+    content: 'Click here to go back to the previous step.',
+    visible: true
+  },
+  {
+    step: 3,
+    target: '#btn8',
+    title: 'Reset Form',
+    content: 'Click here to clear all form fields and start over.',
     visible: true
   }
-
 ]);
 
 
@@ -1346,163 +1403,219 @@ try {
   border: 0 !important;
 }
 
-.grievance-container :deep(.content-wrapper) {
-  max-width: 100%;
-  width: 100%;
-  padding: 0;
-}
-
-@media (min-width: 768px) {
-  .grievance-container :deep(.content-wrapper) {
-    padding: 0 1.5rem 2rem;
-  }
-}
-
 .grievance-container {
-  padding: 1.5rem;
+  padding: 4rem 2rem;
   background: var(--bg-primary);
   color: var(--text-primary);
   transition: background 0.3s ease, color 0.3s ease;
+  min-height: 100vh;
 }
 
 .grievance-card {
   width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
   box-sizing: border-box;
   border-radius: 16px;
   border: 1px solid var(--border-color);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+  background: var(--bg-primary);
 }
 
 .grievance-card :deep(.el-card__body) {
-  padding: 1.5rem;
+  padding: 2.5rem;
 }
 
 @media (max-width: 768px) {
+  .grievance-container {
+    padding: 2rem 1rem;
+  }
+  
+  .grievance-card :deep(.el-card__body) {
+    padding: 1.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .grievance-container {
+    padding: 1.5rem 1rem;
+  }
+  
   .grievance-card :deep(.el-card__body) {
     padding: 1rem;
   }
 }
 
-.form-container {
-  max-height: 100vh;
-  overflow-y: auto;
-  background-color: var(--bg-primary);
-  transition: all 0.3s ease;
-  padding: 2rem 0;
-}
-
-:root {
-  --bg-primary: #ffffff;
-  --bg-secondary: #f5f7fa;
-  --text-primary: #2c3e50;
-  --text-secondary: #606266;
-  --border-color: #dcdfe6;
-  --accent-color: #409eff;
-  --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  --success-color: #67c23a;
-  --warning-color: #e6a23c;
-  --danger-color: #f56c6c;
-  --gradient-start: #409eff;
-  --gradient-end: #66b1ff;
-  --input-bg: #ffffff;
-  --input-border: #dcdfe6;
-  --input-text: #2c3e50;
-  --step-bg: #ffffff;
-  --step-border: #dcdfe6;
-  --step-text: #2c3e50;
-  --step-active: #409eff;
-  --step-completed: #67c23a;
-  --card-bg: #ffffff;
-  --hover-bg: #f5f7fa;
-  --disabled-bg: #f5f7fa;
-  --disabled-text: #c0c4cc;
-}
-
- 
-
-.el-card:hover {
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
-}
-
+/* Steps Component */
 .el-steps {
-  margin-bottom: 1rem;
-  padding: 0.75rem;
-  background: var(--step-bg);
-  border-radius: 8px;
-  box-shadow: var(--card-shadow);
+  margin-bottom: 2.5rem;
+  padding: 2rem 1.5rem;
+  background: var(--bg-primary);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  border: 1px solid var(--border-color);
 }
 
 :deep(.el-step__title) {
   font-size: 1rem;
   font-weight: 600;
-  color: var(--step-text);
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
 }
 
 :deep(.el-step__head.is-process) {
-  color: var(--step-active);
-  border-color: var(--step-active);
+  color: #00DC82;
+  border-color: #00DC82;
 }
 
 :deep(.el-step__head.is-finish) {
-  color: var(--step-completed);
-  border-color: var(--step-completed);
+  color: #00DC82;
+  border-color: #00DC82;
 }
 
+:deep(.el-step__head.is-process .el-step__icon) {
+  background-color: #00DC82;
+  border-color: #00DC82;
+  color: white;
+}
+
+:deep(.el-step__head.is-finish .el-step__icon) {
+  background-color: #00DC82;
+  border-color: #00DC82;
+  color: white;
+}
+
+:deep(.el-step__head.is-wait .el-step__icon) {
+  background-color: var(--bg-secondary);
+  border-color: var(--border-color);
+  color: var(--text-secondary);
+}
+
+/* Form Items */
 .el-form-item {
-  margin-bottom: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+:deep(.el-form-item__label) {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.9375rem;
+  margin-bottom: 0.5rem;
+  letter-spacing: -0.01em;
+  line-height: 1.5;
+}
+
+/* Input Styling */
+:deep(.el-input__wrapper) {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  box-shadow: none;
+  background: var(--bg-primary);
+}
+
+:deep(.el-input__wrapper:hover) {
+  border-color: #00DC82;
+}
+
+:deep(.el-input__wrapper.is-focus) {
+  border-color: #00DC82;
+  box-shadow: 0 0 0 2px rgba(0, 220, 130, 0.2);
+}
+
+:deep(.el-input__inner) {
+  color: var(--text-primary);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+:deep(.el-input.is-error .el-input__wrapper) {
+  border-color: #f56c6c;
+  box-shadow: 0 0 0 2px rgba(245, 108, 108, 0.2);
+}
+
+:deep(.el-form-item__error) {
+  color: #f56c6c;
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
 }
 
 
 
+/* Textarea Styling */
 :deep(.el-textarea__inner) {
-  background: var(--input-bg);
-  color: var(--input-text);
-  border: 1px solid var(--input-border);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   transition: all 0.3s ease;
   padding: 0.75rem;
-  font-size: 1rem;
+  font-size: 0.9375rem;
   resize: none;
+  line-height: 1.6;
+  font-family: inherit;
 }
 
-:deep(.el-textarea__inner:hover),
+:deep(.el-textarea__inner:hover) {
+  border-color: #00DC82;
+}
+
 :deep(.el-textarea__inner:focus) {
-  border-color: var(--accent-color);
-  box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.2);
+  border-color: #00DC82;
+  box-shadow: 0 0 0 2px rgba(0, 220, 130, 0.2);
 }
 
+:deep(.el-textarea.is-error .el-textarea__inner) {
+  border-color: #f56c6c;
+  box-shadow: 0 0 0 2px rgba(245, 108, 108, 0.2);
+}
+
+/* Select Styling */
 :deep(.el-select .el-input__wrapper) {
-  background: var(--input-bg);
+  background: var(--bg-primary);
 }
 
 :deep(.el-select-dropdown) {
-  background: var(--card-bg);
+  background: var(--bg-primary);
   border: 1px solid var(--border-color);
-  box-shadow: var(--card-shadow);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
 }
 
 :deep(.el-select-dropdown__item) {
   color: var(--text-primary);
+  font-size: 0.9375rem;
+  padding: 0.75rem 1rem;
+  transition: all 0.2s ease;
 }
 
 :deep(.el-select-dropdown__item.hover),
 :deep(.el-select-dropdown__item:hover) {
-  background: var(--hover-bg);
+  background: rgba(0, 220, 130, 0.05);
 }
 
 :deep(.el-select-dropdown__item.selected) {
-  color: var(--accent-color);
-  background: var(--hover-bg);
+  color: #00DC82;
+  background: rgba(0, 220, 130, 0.1);
+  font-weight: 600;
 }
 
+/* Checkbox Styling */
 :deep(.el-checkbox__label) {
   color: var(--text-primary);
-  font-size: 0.95rem;
-  line-height: 1.5;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  font-weight: 500;
 }
 
 :deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
-  background-color: var(--accent-color);
-  border-color: var(--accent-color);
+  background-color: #00DC82;
+  border-color: #00DC82;
+}
+
+:deep(.el-checkbox__inner:hover) {
+  border-color: #00DC82;
 }
 
 /* Checkbox styling improvements */
@@ -1531,13 +1644,20 @@ try {
   font-size: 0.9rem;
 }
 
+/* Switch Styling */
 :deep(.el-switch__label.is-active) {
-  color: var(--accent-color);
+  color: #00DC82;
+}
+
+:deep(.el-switch.is-checked .el-switch__core) {
+  background-color: #00DC82;
+  border-color: #00DC82;
 }
 
 /* Form item with checkboxes and switches */
 .el-form-item[id="btn13"],
-.el-form-item[id="btn17"] {
+.el-form-item[id="btn17"],
+.el-form-item[id="btn21"] {
   margin-bottom: 1rem;
 }
 
@@ -1552,47 +1672,85 @@ try {
   color: var(--text-secondary);
 }
 
+/* Navigation Buttons */
 .steps-navigation {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 1rem;
-  padding: 0.75rem;
+  margin-top: 2.5rem;
+  padding: 1.5rem;
   background: var(--bg-primary);
-  border-radius: 8px;
-  box-shadow: var(--card-shadow);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  border: 1px solid var(--border-color);
+  gap: 1rem;
 }
 
-.el-button {
-  padding: 0.5rem 1rem;
+.steps-navigation > div {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+/* Button Styling */
+:deep(.el-button) {
+  padding: 0.875rem 1.5rem;
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 0.9375rem;
   border-radius: 8px;
   transition: all 0.3s ease;
-}
-
-.el-button--primary {
-  background: linear-gradient(to right, var(--gradient-start), var(--gradient-end));
+  letter-spacing: -0.01em;
   border: none;
-  color: white;
 }
 
-.el-button--primary:hover {
+:deep(.el-button--primary) {
+  background: #00DC82 !important;
+  border: 1px solid #00DC82 !important;
+  color: white !important;
+}
+
+:deep(.el-button--primary:hover) {
+  background: #00B86B !important;
+  border-color: #00B86B !important;
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(74, 158, 255, 0.3);
-  opacity: 0.9;
+  box-shadow: 0 8px 20px rgba(0, 220, 130, 0.3);
 }
 
-.el-button--info {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
+:deep(.el-button--default) {
+  background: transparent !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-primary) !important;
 }
 
-.el-button--info:hover {
-  background: var(--hover-bg);
-  border-color: var(--accent-color);
-  color: var(--accent-color);
+:deep(.el-button--default:hover) {
+  background: rgba(0, 220, 130, 0.1) !important;
+  border-color: #00DC82 !important;
+  color: #00DC82 !important;
+}
+
+:deep(.el-button--info) {
+  background: transparent !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+:deep(.el-button--info:hover) {
+  background: rgba(0, 220, 130, 0.1) !important;
+  border-color: #00DC82 !important;
+  color: #00DC82 !important;
+}
+
+:deep(.el-button--danger) {
+  background: #f56c6c !important;
+  border-color: #f56c6c !important;
+  color: white !important;
+}
+
+:deep(.el-button--danger:hover) {
+  background: #e85a5a !important;
+  border-color: #e85a5a !important;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(245, 108, 108, 0.3);
 }
 
   /* Animated dots shown next to Settlement label while filtering */
@@ -1616,48 +1774,64 @@ try {
     100% { opacity: 0.2; }
   }
 
+/* Upload Styling */
 :deep(.el-upload) {
   width: 100%;
 }
 
 :deep(.el-upload-dragger) {
   width: 100%;
-  background: var(--input-bg);
+  background: var(--bg-primary);
   border: 2px dashed var(--border-color);
   border-radius: 8px;
   transition: all 0.3s ease;
 }
 
 :deep(.el-upload-dragger:hover) {
-  border-color: var(--accent-color);
-  background: var(--hover-bg);
+  border-color: #00DC82;
+  background: rgba(0, 220, 130, 0.02);
 }
 
 :deep(.el-upload__tip) {
   color: var(--text-secondary);
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   margin-top: 0.5rem;
+  line-height: 1.5;
 }
 
+:deep(.el-upload-list) {
+  margin-top: 1rem;
+}
+
+/* Status Result */
 .status-result {
-  margin-top: 1.5rem;
+  margin-top: 2rem;
   animation: fadeIn 0.3s ease-out;
 }
 
-.status-result .el-card {
-  background: var(--card-bg);
+.status-result :deep(.el-card) {
+  background: var(--bg-primary);
   border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.status-result :deep(.el-card__body) {
+  padding: 1.5rem;
 }
 
 .status-result p {
   color: var(--text-primary);
-  margin: 0.5rem 0;
-  font-size: 1rem;
+  margin: 0.75rem 0;
+  font-size: 0.9375rem;
+  line-height: 1.7;
 }
 
 .status-result strong {
-  color: var(--text-secondary);
+  color: var(--text-primary);
   font-weight: 600;
+  letter-spacing: -0.01em;
+  margin-right: 0.5rem;
 }
 
 @keyframes fadeIn {
@@ -1671,18 +1845,103 @@ try {
   }
 }
 
-@media (max-width: 768px) {
-  .form-container {
-    padding: 1rem;
-  }
+/* Tabs Styling */
+:deep(.el-tabs__header) {
+  margin-bottom: 2rem;
+  border-bottom: 1px solid var(--border-color);
+}
 
-  .el-card {
-    margin-bottom: 1rem;
+:deep(.el-tabs__item) {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding: 0 1.5rem;
+  letter-spacing: -0.01em;
+  transition: all 0.3s ease;
+}
+
+:deep(.el-tabs__item.is-active) {
+  color: #00DC82;
+}
+
+:deep(.el-tabs__active-bar) {
+  background-color: #00DC82;
+  height: 3px;
+}
+
+:deep(.el-tabs__item:hover) {
+  color: #00DC82;
+}
+
+/* Card Styling */
+:deep(.el-card) {
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  background: var(--bg-primary);
+  overflow: hidden;
+}
+
+:deep(.el-card__body) {
+  padding: 1.5rem;
+}
+
+:deep(.el-card.shadow-hover:hover) {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transition: box-shadow 0.3s ease;
+}
+
+/* Text Styling */
+:deep(.el-text) {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  display: block;
+  margin-top: 0.5rem;
+}
+
+/* Dialog Styling */
+:deep(.el-dialog) {
+  border-radius: 16px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+}
+
+:deep(.el-dialog__header) {
+  padding: 1.5rem 1.5rem 1rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+:deep(.el-dialog__title) {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+:deep(.el-dialog__body) {
+  padding: 1.5rem;
+  color: var(--text-primary);
+}
+
+:deep(.el-dialog__footer) {
+  padding: 1rem 1.5rem 1.5rem;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+  .el-steps {
+    display: none;
   }
 
   .steps-navigation {
     flex-direction: column;
     gap: 1rem;
+    padding: 1rem;
   }
 
   .steps-navigation > div {
@@ -1690,38 +1949,139 @@ try {
     display: flex;
     justify-content: center;
     gap: 0.5rem;
+    flex-wrap: wrap;
   }
 
-  .el-button {
-    width: 100%;
-    margin: 0;
-    padding: 0.5rem 1rem;
-    font-size: 0.85rem;
+  :deep(.el-button) {
+    flex: 1;
+    min-width: 120px;
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
   }
 
   :deep(.el-step__title) {
-    font-size: 0.9rem;
+    font-size: 0.875rem;
+  }
+
+  :deep(.el-tabs__item) {
+    font-size: 0.875rem;
+    padding: 0 1rem;
+  }
+
+  .el-form-item {
+    margin-bottom: 1.25rem;
+  }
+
+  :deep(.el-card__body) {
+    padding: 1.25rem;
   }
 }
 
 @media (max-width: 480px) {
-  .form-container {
-    padding: 0.5rem;
-  }
-
   .el-form-item {
     margin-bottom: 1rem;
   }
 
   :deep(.el-input__wrapper),
   :deep(.el-textarea__inner) {
-    padding: 0.5rem;
+    padding: 0.625rem;
   }
 
-  .el-button {
-    padding: 0.6rem 0.9rem;
-    font-size: 0.85rem;
+  :deep(.el-button) {
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    width: 100%;
   }
+
+  .steps-navigation > div {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .steps-navigation :deep(.el-button) {
+    width: 100%;
+  }
+
+  .el-steps {
+    padding: 1rem 0.75rem;
+  }
+
+  :deep(.el-step__title) {
+    font-size: 0.8125rem;
+  }
+
+  :deep(.el-tabs__item) {
+    font-size: 0.8125rem;
+    padding: 0 0.75rem;
+  }
+}
+
+/* Dark Mode Support */
+.dark-mode .grievance-card {
+  background: var(--bg-primary);
+  border-color: var(--border-color);
+}
+
+.dark-mode :deep(.el-card) {
+  background: var(--bg-primary);
+  border-color: var(--border-color);
+}
+
+.dark-mode :deep(.el-steps) {
+  background: var(--bg-primary);
+  border-color: var(--border-color);
+}
+
+.dark-mode :deep(.el-input__wrapper) {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+}
+
+.dark-mode :deep(.el-input__wrapper:hover),
+.dark-mode :deep(.el-input__wrapper.is-focus) {
+  border-color: #00DC82;
+  box-shadow: 0 0 0 2px rgba(0, 220, 130, 0.2);
+}
+
+.dark-mode :deep(.el-textarea__inner) {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+.dark-mode :deep(.el-textarea__inner:hover),
+.dark-mode :deep(.el-textarea__inner:focus) {
+  border-color: #00DC82;
+  box-shadow: 0 0 0 2px rgba(0, 220, 130, 0.2);
+}
+
+.dark-mode :deep(.el-select .el-input__wrapper) {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+}
+
+.dark-mode :deep(.el-select-dropdown) {
+  background: var(--bg-primary);
+  border-color: var(--border-color);
+}
+
+.dark-mode .steps-navigation {
+  background: var(--bg-primary);
+  border-color: var(--border-color);
+}
+
+.dark-mode :deep(.el-tabs__header) {
+  border-color: var(--border-color);
+}
+
+.dark-mode :deep(.el-dialog) {
+  background: var(--bg-primary);
+  border-color: var(--border-color);
+}
+
+.dark-mode :deep(.el-dialog__header),
+.dark-mode :deep(.el-dialog__footer) {
+  border-color: var(--border-color);
 }
 </style>
 
