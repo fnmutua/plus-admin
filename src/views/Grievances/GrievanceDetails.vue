@@ -420,18 +420,37 @@ const processGrievance = async() => {
   }
 
   console.log('res.data.current_level', res.data.current_level)
-  console.log('current_user_roles', current_user_roles[0])
+  console.log('current_user_roles', current_user_roles)
 
-  if (current_user_roles[0] === res.data.current_level || current_user_roles[0]  == "national") {
-//  if (current_user_roles[0] == res.data.current_level) {
-    console.log('user roles matches grievances', current_user_roles[0]  )
-    button_disabled.value = false
+  // Determine if user can act on this grievance based on their role level
+  // National GRM can act on all levels (national, county, settlement)
+  // County GRM can act on county-level and settlement-level grievances
+  // Settlement GRM can act on settlement-level grievances only
+  const userHasNationalRole = current_user_roles.includes('national') || isSuperAdmin.value
+  const userHasCountyRole = current_user_roles.includes('county')
+  const userHasSettlementRole = current_user_roles.includes('settlement')
+  const grievanceLevel = res.data.current_level
 
+  let canAct = false
+
+  if (userHasNationalRole) {
+    // National GRM can act on all levels
+    canAct = true
+    console.log('National GRM - can act on all levels')
+  } else if (userHasCountyRole && (grievanceLevel === 'county' || grievanceLevel === 'settlement')) {
+    // County GRM can act on county-level and settlement-level grievances
+    canAct = true
+    console.log('County GRM - can act on county-level and settlement-level grievances')
+  } else if (userHasSettlementRole && grievanceLevel === 'settlement') {
+    // Settlement GRM can act on settlement-level grievances only
+    canAct = true
+    console.log('Settlement GRM - can act on settlement-level grievances')
   } else {
+    canAct = false
+    console.log('User role does not have permission for this grievance level')
+  }
 
-
-    button_disabled.value = true
-  } 
+  button_disabled.value = !canAct 
 
   const currentStatus = Grievance.value.status
 
