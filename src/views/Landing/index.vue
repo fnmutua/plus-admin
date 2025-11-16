@@ -13,7 +13,6 @@
                 
                 <p class="hero-description">
                   KeSMIS is the national geodatabase and information management system for slums and informal settlements across Kenya. 
-                  The system facilitates comprehensive data collection, grievance management, and project monitoring to support evidence-based decision-making in urban development.
                 </p>
                 
                 <ul class="hero-features">
@@ -24,6 +23,10 @@
                   <li>
                     <Icon icon="mdi:check-circle" class="feature-icon" />
                     <span>Electronic Grievance Redress Mechanism (e-GRM)</span>
+                  </li>
+                  <li>
+                    <Icon icon="mdi:check-circle" class="feature-icon" />
+                    <span>Project accidents and incidents reporting</span>
                   </li>
                   <li>
                     <Icon icon="mdi:check-circle" class="feature-icon" />

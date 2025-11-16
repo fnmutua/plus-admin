@@ -529,15 +529,36 @@ exports.modelGRMUsers = async (req, res) => {
     // Query users and include their roles with user_roles details
     const { count, rows: grmUsers } = await Users.findAndCountAll(findAndCountOptions);
 
-    // Convert photo binary data to base64 URL
-    const usersWithPhotos = grmUsers.map(user => {
-      if (user.photo) {
-        user.photo = 'data:image/png;base64,' + user.photo.toString('base64');
+    // Import sessionTracker to get last login
+    const sessionTracker = require('../utils/sessionTracker');
+
+    // Convert photo binary data to base64 URL and add last login
+    const usersWithPhotos = await Promise.all(grmUsers.map(async (user) => {
+      const userObj = user.toJSON ? user.toJSON() : user;
+      
+      if (userObj.photo) {
+        userObj.photo = 'data:image/png;base64,' + userObj.photo.toString('base64');
       } else {
-        user.photo = ''; // Assign empty string if no photo
+        userObj.photo = ''; // Assign empty string if no photo
       }
-      return user;
-    });
+
+      // Get last login information
+      try {
+        const lastLoginLog = await sessionTracker.getLastLoginLog(userObj.id);
+        if (lastLoginLog && lastLoginLog.loginTime) {
+          userObj.last_login = lastLoginLog.loginTime;
+        } else if (lastLoginLog && lastLoginLog.date) {
+          userObj.last_login = lastLoginLog.date;
+        } else {
+          userObj.last_login = null;
+        }
+      } catch (error) {
+        console.error(`Error getting last login for user ${userObj.id}:`, error);
+        userObj.last_login = null;
+      }
+
+      return userObj;
+    }));
 
     res.status(200).send({
       data: usersWithPhotos,

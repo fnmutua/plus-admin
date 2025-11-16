@@ -8,7 +8,7 @@ import PermissionWrapper from '@/components/PermissionWrapper.vue';
 
 import {
   ElButton, ElSwitch, ElSelect, ElDialog, ElDropdown, ElDropdownItem, ElMessage,
-  ElFormItem, ElForm, ElInput, ElTable, ElTableColumn, ElAvatar, ElRow, ElPagination, ElTooltip, ElOption, ElCard, ElCol
+  ElFormItem, ElForm, ElInput, ElTable, ElTableColumn, ElAvatar, ElRow, ElPagination, ElTooltip, ElOption, ElCard, ElCol, ElTabs, ElTabPane
 } from 'element-plus'
 import {
   Position,
@@ -40,10 +40,10 @@ const actionColumnWidth = ref()
 
 if (isMobile.value) {
   dialogWidth.value = "90%"
-  actionColumnWidth.value = "75px"
+  actionColumnWidth.value = "100px"
 } else {
   dialogWidth.value = "50%"
-  actionColumnWidth.value = "160px"
+  actionColumnWidth.value = "220px"
 
 }
 
@@ -76,6 +76,27 @@ const selCounties = []
 const loading = ref(true)
 const currentPage = ref(1)
 const total = ref(0)
+
+// Tab management
+const activeTab = ref('national')
+const loadingNational = ref(true)
+const loadingCounty = ref(true)
+const loadingSettlement = ref(true)
+
+// Separate data arrays for each level
+let tableDataListNational = ref<UserType[]>([])
+let tableDataListCounty = ref<UserType[]>([])
+let tableDataListSettlement = ref<UserType[]>([])
+
+// Separate totals for each level
+const totalNational = ref(0)
+const totalCounty = ref(0)
+const totalSettlement = ref(0)
+
+// Separate current pages for each level
+const currentPageNational = ref(1)
+const currentPageCounty = ref(1)
+const currentPageSettlement = ref(1)
  
 const tmp_roles = ref([])
 
@@ -113,6 +134,24 @@ const formLabelWidth = '100px'
 
 let tableDataList = ref<UserType[]>([])
 let tableDataList_orig = ref<UserType[]>([])
+
+// Helper function to filter users by location level
+const filterUsersByLocationLevel = (users: UserType[], level: string) => {
+  return users.filter(user => {
+    if (!user.user_roles || !Array.isArray(user.user_roles)) return false
+    return user.user_roles.some(role => role.location_level === level)
+  })
+}
+
+// Helper function to get unique users (in case a user has multiple roles at same level)
+const getUniqueUsers = (users: UserType[]) => {
+  const seen = new Set()
+  return users.filter(user => {
+    if (seen.has(user.id)) return false
+    seen.add(user.id)
+    return true
+  })
+}
 
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
@@ -160,6 +199,9 @@ const handleClear = async () => {
   value3.value = ''
   pageSize.value = 5
   currentPage.value = 1
+  currentPageNational.value = 1
+  currentPageCounty.value = 1
+  currentPageSettlement.value = 1
   tblData = []
   //----run the get data--------
   getInterventionsAll()
@@ -196,6 +238,13 @@ const handleSelectCounty = async (county_id: any) => {
   console.log('filyterested settlements------>', filteredSettlements)
   makeSettlementOptions(filteredSettlements)
 
+  // Reset pagination for all tabs when filter changes
+  currentPageNational.value = 1
+  currentPageCounty.value = 1
+  currentPageSettlement.value = 1
+  currentPage.value = 1
+  page.value = 1
+
   getFilteredData(filters, filterValues)
 }
 
@@ -204,6 +253,15 @@ const handleSelectCounty = async (county_id: any) => {
 const onPageChange = async (selPage: any) => {
   console.log('on change change: selected counties ', selCounties)
   page.value = selPage
+
+  // Update the appropriate current page based on active tab
+  if (activeTab.value === 'national') {
+    currentPageNational.value = selPage
+  } else if (activeTab.value === 'county') {
+    currentPageCounty.value = selPage
+  } else if (activeTab.value === 'settlement') {
+    currentPageSettlement.value = selPage
+  }
 
   if (searchString.value == '') {
     getFilteredBySearchData(searchString.value)
@@ -376,9 +434,14 @@ const activateDeactivate = async (data: TableSlotDefault) => {
 
 
 const getFilteredBySearchData = async (searchString) => {
+  loading.value = true
+  loadingNational.value = true
+  loadingCounty.value = true
+  loadingSettlement.value = true
+  
   const formData = {}
-  formData.limit = pageSize.value
-  formData.page = page.value
+  formData.limit = 10000 // Get all data to filter client-side
+  formData.page = 1
   formData.curUser = 1 // Id for logged in user
   formData.model = model
 
@@ -403,11 +466,41 @@ const getFilteredBySearchData = async (searchString) => {
 
   console.log('After -----x ------Querry', res)
   tableDataList.value = res.data
+  tableDataList_orig.value = res.data // back for post filter
 
-  //tableDataList_orig.value = res.data // back for post filter
+  // Filter users by location level
+  const allNationalUsers = filterUsersByLocationLevel(res.data, 'national')
+  const allCountyUsers = filterUsersByLocationLevel(res.data, 'county')
+  const allSettlementUsers = filterUsersByLocationLevel(res.data, 'settlement')
 
+  // Get unique users for each level
+  const uniqueNationalUsers = getUniqueUsers(allNationalUsers)
+  const uniqueCountyUsers = getUniqueUsers(allCountyUsers)
+  const uniqueSettlementUsers = getUniqueUsers(allSettlementUsers)
+
+  // Update totals
+  totalNational.value = uniqueNationalUsers.length
+  totalCounty.value = uniqueCountyUsers.length
+  totalSettlement.value = uniqueSettlementUsers.length
   total.value = res.total
+
+  // Apply pagination to each level
+  const startIndexNational = (currentPageNational.value - 1) * pageSize.value
+  const endIndexNational = startIndexNational + pageSize.value
+  tableDataListNational.value = uniqueNationalUsers.slice(startIndexNational, endIndexNational)
+
+  const startIndexCounty = (currentPageCounty.value - 1) * pageSize.value
+  const endIndexCounty = startIndexCounty + pageSize.value
+  tableDataListCounty.value = uniqueCountyUsers.slice(startIndexCounty, endIndexCounty)
+
+  const startIndexSettlement = (currentPageSettlement.value - 1) * pageSize.value
+  const endIndexSettlement = startIndexSettlement + pageSize.value
+  tableDataListSettlement.value = uniqueSettlementUsers.slice(startIndexSettlement, endIndexSettlement)
+
   loading.value = false
+  loadingNational.value = false
+  loadingCounty.value = false
+  loadingSettlement.value = false
 
   tblData = [] // reset the table data
 
@@ -416,9 +509,13 @@ const getFilteredBySearchData = async (searchString) => {
 
 const getFilteredData = async (selFilters, selfilterValues) => {
   loading.value = true
+  loadingNational.value = true
+  loadingCounty.value = true
+  loadingSettlement.value = true
+  
   const formData = {}
-  formData.limit = pageSize.value
-  formData.page = page.value
+  formData.limit = 10000 // Get all data to filter client-side
+  formData.page = 1
   formData.curUser = 1 // Id for logged in user
   formData.model = model
   //-Search field--------------------------------------------
@@ -445,10 +542,34 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   tableDataList.value = res.data
   tableDataList_orig.value = res.data // back for post filter
 
-  total.value = res.total   // instead of usign the erronues total reurned due to left/right joins
+  // Filter users by location level
+  const allNationalUsers = filterUsersByLocationLevel(res.data, 'national')
+  const allCountyUsers = filterUsersByLocationLevel(res.data, 'county')
+  const allSettlementUsers = filterUsersByLocationLevel(res.data, 'settlement')
 
+  // Get unique users for each level
+  const uniqueNationalUsers = getUniqueUsers(allNationalUsers)
+  const uniqueCountyUsers = getUniqueUsers(allCountyUsers)
+  const uniqueSettlementUsers = getUniqueUsers(allSettlementUsers)
 
+  // Update totals
+  totalNational.value = uniqueNationalUsers.length
+  totalCounty.value = uniqueCountyUsers.length
+  totalSettlement.value = uniqueSettlementUsers.length
+  total.value = res.total
 
+  // Apply pagination to each level
+  const startIndexNational = (currentPageNational.value - 1) * pageSize.value
+  const endIndexNational = startIndexNational + pageSize.value
+  tableDataListNational.value = uniqueNationalUsers.slice(startIndexNational, endIndexNational)
+
+  const startIndexCounty = (currentPageCounty.value - 1) * pageSize.value
+  const endIndexCounty = startIndexCounty + pageSize.value
+  tableDataListCounty.value = uniqueCountyUsers.slice(startIndexCounty, endIndexCounty)
+
+  const startIndexSettlement = (currentPageSettlement.value - 1) * pageSize.value
+  const endIndexSettlement = startIndexSettlement + pageSize.value
+  tableDataListSettlement.value = uniqueSettlementUsers.slice(startIndexSettlement, endIndexSettlement)
 
   res.data.forEach(function (arrayItem) {
     console.log('arrayItem ----->', arrayItem)
@@ -465,6 +586,9 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
   console.log('TBL-4f', tblData)
   loading.value = false
+  loadingNational.value = false
+  loadingCounty.value = false
+  loadingSettlement.value = false
 }
 
 const searchByName = async (filterString: any) => {
@@ -552,8 +676,92 @@ const EditUser = async (data: TableSlotDefault) => {
   dialogFormVisible.value = true
 }
 
+// Helper function to get current table data based on active tab
+const getCurrentTableData = computed(() => {
+  if (activeTab.value === 'national') {
+    return tableDataListNational.value
+  } else if (activeTab.value === 'county') {
+    return tableDataListCounty.value
+  } else if (activeTab.value === 'settlement') {
+    return tableDataListSettlement.value
+  }
+  return []
+})
 
+// Helper function to get current total based on active tab
+const getCurrentTotal = computed(() => {
+  if (activeTab.value === 'national') {
+    return totalNational.value
+  } else if (activeTab.value === 'county') {
+    return totalCounty.value
+  } else if (activeTab.value === 'settlement') {
+    return totalSettlement.value
+  }
+  return 0
+})
 
+// Helper function to get current loading state based on active tab
+const getCurrentLoading = computed(() => {
+  if (activeTab.value === 'national') {
+    return loadingNational.value
+  } else if (activeTab.value === 'county') {
+    return loadingCounty.value
+  } else if (activeTab.value === 'settlement') {
+    return loadingSettlement.value
+  }
+  return loading.value
+})
+
+// Helper function to get current page based on active tab
+const getCurrentPage = computed({
+  get() {
+    if (activeTab.value === 'national') {
+      return currentPageNational.value
+    } else if (activeTab.value === 'county') {
+      return currentPageCounty.value
+    } else if (activeTab.value === 'settlement') {
+      return currentPageSettlement.value
+    }
+    return currentPage.value
+  },
+  set(value: number) {
+    if (activeTab.value === 'national') {
+      currentPageNational.value = value
+    } else if (activeTab.value === 'county') {
+      currentPageCounty.value = value
+    } else if (activeTab.value === 'settlement') {
+      currentPageSettlement.value = value
+    } else {
+      currentPage.value = value
+    }
+  }
+})
+
+// Handle tab change
+const handleTabChange = (tabName: string) => {
+  activeTab.value = tabName
+  // Refresh data when switching tabs (re-apply pagination)
+  getFilteredData(filters, filterValues)
+}
+
+// Format date for display
+const formatDate = (dateString: string | Date | null) => {
+  if (!dateString) return null
+  try {
+    const date = new Date(dateString)
+    if (isNaN(date.getTime())) return null
+    return date.toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  } catch (error) {
+    console.error('Error formatting date:', error)
+    return null
+  }
+}
 
 const search = ref('')
 
@@ -833,18 +1041,31 @@ const updateUser = () => {
     updateUserApi(form.value).then((response) => {
       console.log("udapyetd", response)
 
-         // Find the index of the object with the matching ID
-         const index = tableDataList.value.findIndex(item => item.id === response.user.id);
+         // Find and update in all three tab arrays
+         const nationalIndex = tableDataListNational.value.findIndex(item => item.id === response.user.id);
+         const countyIndex = tableDataListCounty.value.findIndex(item => item.id === response.user.id);
+         const settlementIndex = tableDataListSettlement.value.findIndex(item => item.id === response.user.id);
 
-          if (index !== -1) {
-            // Replace the object with the updated response data
-            tableDataList.value[index] = response.user;
-
-            console.log('updated  tableDataList.value', tableDataList.value)
+          if (nationalIndex !== -1) {
+            tableDataListNational.value[nationalIndex] = response.user;
+          }
+          if (countyIndex !== -1) {
+            tableDataListCounty.value[countyIndex] = response.user;
+          }
+          if (settlementIndex !== -1) {
+            tableDataListSettlement.value[settlementIndex] = response.user;
           }
 
+          // Also update the main tableDataList
+          const index = tableDataList.value.findIndex(item => item.id === response.user.id);
+          if (index !== -1) {
+            tableDataList.value[index] = response.user;
+          }
 
+          // Refresh data to re-categorize users by location level
+          getFilteredData(filters, filterValues)
 
+          console.log('updated user data')
     })
 
     dialogFormVisible.value = false
@@ -914,7 +1135,9 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
 
 
 
-    <el-table :data="tableDataList" style="width: 100% ; margin-top: 30px" v-loading="loading">
+    <el-tabs v-model="activeTab" @tab-change="handleTabChange" style="margin-top: 20px;">
+      <el-tab-pane label="National Level" name="national">
+        <el-table :data="getCurrentTableData" style="width: 100% ; margin-top: 30px" v-loading="getCurrentLoading">
 
       <el-table-column prop="id" label="#" width="50" />
 
@@ -933,7 +1156,15 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
 
       <el-table-column label="Name" prop="name" width="200" sortable />
       <el-table-column label="Username" prop="username" sortable />
-      <el-table-column label="County" prop="county.name" sortable />
+      <el-table-column label="County" prop="county.name" width="120" sortable />
+      <el-table-column label="Last Login" width="180" sortable>
+        <template #default="scope">
+          <span v-if="scope.row.last_login">
+            {{ formatDate(scope.row.last_login) }}
+          </span>
+          <span v-else style="color: #999;">Never</span>
+        </template>
+      </el-table-column>
       <el-table-column fixed="right" :label="isMobile ? '' : 'Operations'" :width="actionColumnWidth">
         <template #default="scope">
 
@@ -968,17 +1199,17 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
 
 
           <div v-else>
-            <PermissionWrapper :permissions="['user:activate']">
-              <el-tooltip content="Activate" placement="top">
+            <el-tooltip v-if="showAdminButtons" content="Activate" placement="top">
+              <PermissionWrapper :permissions="['user:activate']">
                 <el-switch
                   v-model="scope.row.isactive" 
                   @click="activateDeactivate(scope as TableSlotDefault)"
                   :loading="userLoadingStates[scope.row.id]"
                   :disabled="userLoadingStates[scope.row.id]"
                   class="my-switch" />
-              </el-tooltip>
-            </PermissionWrapper>
-            <el-tooltip content="No permission to activate" placement="top">
+              </PermissionWrapper>
+            </el-tooltip>
+            <el-tooltip v-else content="No permission to activate" placement="top">
               <el-switch
                 v-model="scope.row.isactive" 
                 disabled
@@ -996,12 +1227,224 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
 
     </el-table>
 
+        <ElPagination
+          layout="sizes, prev, pager, next, total" 
+          v-model:currentPage="getCurrentPage"
+          v-model:page-size="pageSize" 
+          :page-sizes="[5, 10, 20, 50, 100]" 
+          :total="getCurrentTotal" 
+          :background="true"
+          @size-change="onPageSizeChange" 
+          @current-change="onPageChange" 
+          class="mt-4" />
+      </el-tab-pane>
 
+      <el-tab-pane label="County Level" name="county">
+        <el-table :data="getCurrentTableData" style="width: 100% ; margin-top: 30px" v-loading="getCurrentLoading">
+
+      <el-table-column prop="id" label="#" width="50" />
+
+
+      <!-- Avatar column -->
+      <el-table-column label="Avatar" width="100">
+        <template #default="scope">
+          <div v-if="scope.row.photo">
+            <el-avatar :src="scope.row.photo" size="80px" />
+          </div>
+          <div v-else>
+            <el-avatar size="80px" />
+          </div>
+        </template>
+      </el-table-column>
+
+      <el-table-column label="Name" prop="name" width="200" sortable />
+      <el-table-column label="Username" prop="username" sortable />
+      <el-table-column label="County" prop="county.name" width="120" sortable />
+      <el-table-column label="Last Login" width="180" sortable>
+        <template #default="scope">
+          <span v-if="scope.row.last_login">
+            {{ formatDate(scope.row.last_login) }}
+          </span>
+          <span v-else style="color: #999;">Never</span>
+        </template>
+      </el-table-column>
+      <el-table-column fixed="right" :label="isMobile ? '' : 'Operations'" :width="actionColumnWidth">
+        <template #default="scope">
+
+          <el-dropdown v-if="isMobile">
+            <span class="el-dropdown-link">
+              <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
+            </span>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item v-if="showAdminButtons">
+                  <PermissionWrapper :permissions="['user:activate']">
+                    <el-switch
+                      v-model="scope.row.isactive" 
+                      @click="activateDeactivate(scope as TableSlotDefault)"
+                      :loading="userLoadingStates[scope.row.id]"
+                      :disabled="userLoadingStates[scope.row.id]"
+                      :icon="Edit" />
+                  </PermissionWrapper>
+                </el-dropdown-item>
+                <el-dropdown-item v-else>
+                  <el-switch
+                    v-model="scope.row.isactive" 
+                    disabled
+                    :icon="Edit" />
+                </el-dropdown-item>
+                <PermissionWrapper :permissions="['user:update']">
+                  <el-dropdown-item @click="EditUser(scope as TableSlotDefault)" :icon="Position">Edit</el-dropdown-item>
+                </PermissionWrapper>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+
+
+          <div v-else>
+            <el-tooltip v-if="showAdminButtons" content="Activate" placement="top">
+              <PermissionWrapper :permissions="['user:activate']">
+                <el-switch
+                  v-model="scope.row.isactive" 
+                  @click="activateDeactivate(scope as TableSlotDefault)"
+                  :loading="userLoadingStates[scope.row.id]"
+                  :disabled="userLoadingStates[scope.row.id]"
+                  class="my-switch" />
+              </PermissionWrapper>
+            </el-tooltip>
+            <el-tooltip v-else content="No permission to activate" placement="top">
+              <el-switch
+                v-model="scope.row.isactive" 
+                disabled
+                class="my-switch" />
+            </el-tooltip>
+            <PermissionWrapper :permissions="['user:update']">
+              <el-tooltip content="Edit" placement="top">
+                <ElButton type="primary" :icon="Edit" size="small" @click="EditUser(scope as TableSlotDefault)" circle />
+              </el-tooltip>
+            </PermissionWrapper>
+          </div>
+
+        </template>
+      </el-table-column>
+
+        </el-table>
 
     <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-      v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 100]" :total="total" :background="true"
-      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+          layout="sizes, prev, pager, next, total" 
+          v-model:currentPage="getCurrentPage"
+          v-model:page-size="pageSize" 
+          :page-sizes="[5, 10, 20, 50, 100]" 
+          :total="getCurrentTotal" 
+          :background="true"
+          @size-change="onPageSizeChange" 
+          @current-change="onPageChange" 
+          class="mt-4" />
+      </el-tab-pane>
+
+      <el-tab-pane label="Settlement Level" name="settlement">
+        <el-table :data="getCurrentTableData" style="width: 100% ; margin-top: 30px" v-loading="getCurrentLoading">
+
+      <el-table-column prop="id" label="#" width="50" />
+
+
+      <!-- Avatar column -->
+      <el-table-column label="Avatar" width="100">
+        <template #default="scope">
+          <div v-if="scope.row.photo">
+            <el-avatar :src="scope.row.photo" size="80px" />
+          </div>
+          <div v-else>
+            <el-avatar size="80px" />
+          </div>
+        </template>
+      </el-table-column>
+
+      <el-table-column label="Name" prop="name" width="200" sortable />
+      <el-table-column label="Username" prop="username" sortable />
+      <el-table-column label="County" prop="county.name" width="120" sortable />
+      <el-table-column label="Last Login" width="180" sortable>
+        <template #default="scope">
+          <span v-if="scope.row.last_login">
+            {{ formatDate(scope.row.last_login) }}
+          </span>
+          <span v-else style="color: #999;">Never</span>
+        </template>
+      </el-table-column>
+      <el-table-column fixed="right" :label="isMobile ? '' : 'Operations'" :width="actionColumnWidth">
+        <template #default="scope">
+
+          <el-dropdown v-if="isMobile">
+            <span class="el-dropdown-link">
+              <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
+            </span>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item v-if="showAdminButtons">
+                  <PermissionWrapper :permissions="['user:activate']">
+                    <el-switch
+                      v-model="scope.row.isactive" 
+                      @click="activateDeactivate(scope as TableSlotDefault)"
+                      :loading="userLoadingStates[scope.row.id]"
+                      :disabled="userLoadingStates[scope.row.id]"
+                      :icon="Edit" />
+                  </PermissionWrapper>
+                </el-dropdown-item>
+                <el-dropdown-item v-else>
+                  <el-switch
+                    v-model="scope.row.isactive" 
+                    disabled
+                    :icon="Edit" />
+                </el-dropdown-item>
+                <PermissionWrapper :permissions="['user:update']">
+                  <el-dropdown-item @click="EditUser(scope as TableSlotDefault)" :icon="Position">Edit</el-dropdown-item>
+                </PermissionWrapper>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+
+
+          <div v-else>
+            <el-tooltip v-if="showAdminButtons" content="Activate" placement="top">
+              <PermissionWrapper :permissions="['user:activate']">
+                <el-switch
+                  v-model="scope.row.isactive" 
+                  @click="activateDeactivate(scope as TableSlotDefault)"
+                  :loading="userLoadingStates[scope.row.id]"
+                  :disabled="userLoadingStates[scope.row.id]"
+                  class="my-switch" />
+              </PermissionWrapper>
+            </el-tooltip>
+            <el-tooltip v-else content="No permission to activate" placement="top">
+              <el-switch
+                v-model="scope.row.isactive" 
+                disabled
+                class="my-switch" />
+            </el-tooltip>
+            <PermissionWrapper :permissions="['user:update']">
+              <el-tooltip content="Edit" placement="top">
+                <ElButton type="primary" :icon="Edit" size="small" @click="EditUser(scope as TableSlotDefault)" circle />
+              </el-tooltip>
+            </PermissionWrapper>
+          </div>
+
+        </template>
+      </el-table-column>
+
+        </el-table>
+
+        <ElPagination
+          layout="sizes, prev, pager, next, total" 
+          v-model:currentPage="getCurrentPage"
+          v-model:page-size="pageSize" 
+          :page-sizes="[5, 10, 20, 50, 100]" 
+          :total="getCurrentTotal" 
+          :background="true"
+          @size-change="onPageSizeChange" 
+          @current-change="onPageChange" 
+          class="mt-4" />
+      </el-tab-pane>
+    </el-tabs>
 
 
 
