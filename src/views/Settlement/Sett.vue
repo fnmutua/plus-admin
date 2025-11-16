@@ -2550,6 +2550,7 @@ v-model="search_string" clearable :onClear="handleClear"
           <DownloadCustom
 v-if="showEditButtons" :data="tableDataList" :model="model"
             :associated_models="associated_multiple_models" :loading="downloadLoading"
+            :filters="filters" :filterValues="filterValues"
             @download-start="downloadLoading = true"
             @download-end="downloadLoading = false" />
           <PermissionWrapper :permissions="'settlement:downloadGeo'">

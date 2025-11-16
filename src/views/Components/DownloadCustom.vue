@@ -448,8 +448,9 @@ const getFilteredData = async () => {
   formData.model = props.model;
   formData.searchField = 'name';
   formData.searchKeyword = '';
-  formData.filters = [];
-  formData.filterValues = [];
+  // Use filters from props if provided, otherwise use empty arrays
+  formData.filters = props.filters || [];
+  formData.filterValues = props.filterValues || [];
   formData.associated_multiple_models = props.associated_models;
   formData.nested_models = [];
 
