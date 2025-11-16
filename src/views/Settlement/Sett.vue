@@ -452,16 +452,17 @@ const getCounts = async () => {
   try {
     const response = await getSummarybyFieldFromMultipleIncludes(formData);
     const amount = response.Total;
-    Statuses.value.forEach((status) => {
-      let keyToCompare = status.value;
-      if (status.value === 'New') {
-        keyToCompare = 'Pending';
-      }
-      const match = amount.find((item) => item.isApproved === keyToCompare);
-      if (match) {
-        status.count = parseInt(match.count, 10);
-      }
-    });
+    
+    // Update the count refs directly instead of modifying computed property
+    const pendingMatch = amount.find((item) => item.isApproved === 'Pending');
+    const approvedMatch = amount.find((item) => item.isApproved === 'Approved');
+    const rejectedMatch = amount.find((item) => item.isApproved === 'Rejected');
+    const decommissionedMatch = amount.find((item) => item.isApproved === 'Decommissioned');
+    
+    totalPending.value = pendingMatch ? parseInt(pendingMatch.count, 10) : 0;
+    totalApproved.value = approvedMatch ? parseInt(approvedMatch.count, 10) : 0;
+    totalRejected.value = rejectedMatch ? parseInt(rejectedMatch.count, 10) : 0;
+    decommSettlementsCount.value = decommissionedMatch ? parseInt(decommissionedMatch.count, 10) : 0;
   } catch (error) {
     console.error(error);
     return [];
@@ -480,7 +481,7 @@ onMounted(async () => {
   }
   
   await loadFiltersFromStorage(); // Restore filters (will merge with role filters)
-  getCounts();
+  await getCounts(); // Wait for counts to be calculated with role filters
   getSettlmentHistory();
 
   // Check if any filters were restored from storage
@@ -672,18 +673,57 @@ const onPageSizeChange = async (size: any) => {
 
 const getAllSetllementsInitially = async (tab) => {
   await getNewOrRejectedSettlements(tab)
-  getSettlementCount()
+  await getSettlementCount()
 }
 
 const getSettlementCount = async () => {
-  const formData = {}
+  const formData: any = {}
   formData.model = 'settlement'
   formData.summaryField = 'isApproved'
   formData.summaryFunction = 'count'
-  formData.groupField = ['isApproved']
-  formData.filterColumn = 'isActive'
-  formData.filterValue = 'true'
-  const newSettCount = await getSummarybyField(formData)
+  formData.groupFields = ['isApproved']
+  
+  // Build filter arrays properly
+  const filterFields: string[] = []
+  const filterValues: any[][] = []
+  const filterOperators: string[] = []
+  
+  // Always include isActive filter
+  filterFields.push('isActive')
+  filterValues.push(['true'])
+  filterOperators.push('in')
+  
+  // Add role-based filters if they exist
+  if (roles_filters.length > 0) {
+    roles_filters.forEach(roleFilter => {
+      const { field, value } = roleFilter
+      if (field && value !== null && value !== undefined) {
+        // Check if this filter field is already added
+        const existingIndex = filterFields.indexOf(field)
+        if (existingIndex === -1) {
+          filterFields.push(field)
+          // Ensure value is an array
+          const filterValue = Array.isArray(value) ? value : [value]
+          filterValues.push(filterValue)
+          filterOperators.push('in')
+        } else {
+          // Merge values if field already exists
+          const existingValue = filterValues[existingIndex]
+          const newValue = Array.isArray(value) ? value : [value]
+          filterValues[existingIndex] = [...new Set([...existingValue, ...newValue])]
+        }
+      }
+    })
+  }
+  
+  // Only add filterField, filterValue, and filterOperator if we have filters
+  if (filterFields.length > 0) {
+    formData.filterField = filterFields
+    formData.filterValue = filterValues
+    formData.filterOperator = filterOperators
+  }
+  
+  const newSettCount = await getSummarybyFieldFromMultipleIncludes(formData)
   let pending = await filterDataByKeys(newSettCount.Total, ['isApproved'], ['Pending']);
   let approved = await filterDataByKeys(newSettCount.Total, ['isApproved'], ['Approved']);
   let rejected = await filterDataByKeys(newSettCount.Total, ['isApproved'], ['Rejected']);
