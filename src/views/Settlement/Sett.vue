@@ -10,7 +10,7 @@ import {
 import { ElMessage, ElSegmented, ElMessageBox } from 'element-plus'
 import { Position, Plus, Delete, Edit, Filter, InfoFilled, CopyDocument, Clock, Search, Setting, Back, Loading, CircleCheck, Message, CircleClose, Warning, View, RefreshLeft } from '@element-plus/icons-vue'
 import { ArrowLeft, ArrowRight, UploadFilled, Postcard, TopRight, Lock, Guide, TakeawayBox } from '@element-plus/icons-vue'
-import { ref, reactive, computed, nextTick } from 'vue'
+import { ref, reactive, computed, nextTick, watch } from 'vue'
 import { ElPagination, ElTooltip, ElOption } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { DeleteRecord, updateOneRecord, revertHistory, deleteDocument } from '@/api/settlements'
@@ -473,6 +473,12 @@ onMounted(async () => {
   window.addEventListener('resize', updatePageSize);
   updatePageSize();
   await getUserRoles(); // Initialize role-based filters first
+  
+  // Ensure non-national users always see Approved segment
+  if (!isNationalStaff.value && !isSuperAdmin.value) {
+    activeSegment.value = 'Approved'
+  }
+  
   await loadFiltersFromStorage(); // Restore filters (will merge with role filters)
   getCounts();
   getSettlmentHistory();
@@ -2175,7 +2181,7 @@ const handleRowDblClick = (row) => {
 
 const activeSegment = ref('Approved')
 
-const Statuses = ref([
+const Statuses = computed(() => [
   {
     label: 'Approved',
     value: 'Approved',
@@ -2188,35 +2194,35 @@ const Statuses = ref([
     value: 'New',
     icon: Message,
     count: totalPending,
-    hidden: !showAdminButtons.value
+    hidden: !isNationalStaff.value || !showAdminButtons.value
   },
   {
     label: 'Rejected',
     value: 'Rejected',
     icon: CircleClose,
     count: totalRejected,
-    hidden: !showAdminButtons.value
+    hidden: !isNationalStaff.value || !showAdminButtons.value
   },
   {
     label: 'Duplicates',
     value: 'Duplicates',
     icon: Warning,
     count: duplicateTotal,
-    hidden: !showAdminButtons.value
+    hidden: !isNationalStaff.value || !showAdminButtons.value
   },
   {
     label: 'Decommissioned',
     value: 'Decommissioned',
     icon: Delete,
     count: decommSettlementsCount,
-    hidden: !isSuperAdmin.value
+    hidden: !isNationalStaff.value || !isSuperAdmin.value
   },
   {
     label: 'Deleted',
     value: 'Deleted',
     icon: Delete,
     count: deletedSettlementsCount,
-    hidden: !isSuperAdmin.value
+    hidden: !isNationalStaff.value || !isSuperAdmin.value
   },
 ])
 
@@ -2248,7 +2254,20 @@ const getThisHistory = async (sett_id) => {
 };
  
 
+// Watch activeSegment to ensure non-national users always stay on Approved
+watch(activeSegment, (newValue) => {
+  if (!isNationalStaff.value && !isSuperAdmin.value && newValue !== 'Approved') {
+    activeSegment.value = 'Approved'
+  }
+})
+
 const onSegmentClick = async () => {
+  // Prevent non-national users from changing segments
+  if (!isNationalStaff.value && !isSuperAdmin.value) {
+    activeSegment.value = 'Approved'
+    return
+  }
+
   const statusMap = {
     'Approved': 'Approved',
     'New': 'Pending',
@@ -2575,7 +2594,7 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
     </el-row>
 
 
-    <div class="custom-style">
+    <div class="custom-style" v-if="isNationalStaff || isSuperAdmin">
 
       <el-segmented v-model="activeSegment" :options="filteredSegments" block :onChange="onSegmentClick">
         <template #default="{ item }">
