@@ -8,19 +8,18 @@ import { Back } from '@element-plus/icons-vue'
 import { ref, computed } from 'vue'
 import {
   ElPagination, ElInput, ElSelect, ElOption, ElCol,ElTable,ElTableColumn,
-  ElRow, ElTableV2, ElCard
+  ElRow, ElCard, ElNotification, ElAlert
 } from 'element-plus'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import {
-  loginCollector, deleteSubmissions,
+  loginCollector,
   getSubmissions
 } from '@/api/collector'
 
-import { watch, onMounted } from 'vue';
+import { watch, onMounted, toRaw } from 'vue';
 
 import DownloadCustom from '@/views/Components/DownloadCustomFields.vue';
-import PermissionWrapper from '@/components/PermissionWrapper.vue';
 import { useRouter } from 'vue-router'
 
 const { wsCache } = useCache()
@@ -66,6 +65,8 @@ console.log("userInfo--->", userInfo)
 const projects = ref([])
 const forms = ref([])
 const loading = ref(false)
+const fetchingData = ref(false)
+const dataFetchStatus = ref('')
 
 
 
@@ -77,37 +78,58 @@ const loginUserToCollector = async () => {
   formData.password = "***REDACTED***"
 
   loading.value = true
+  fetchingData.value = true
+  dataFetchStatus.value = 'Connecting to server and fetching all SEC data...'
+
+  // Show notification that data fetching has started
+  ElNotification({
+    title: 'Fetching Data',
+    message: 'We are fetching all SEC officials data. This may take a moment. You can continue using other features while data loads.',
+    type: 'info',
+    duration: 5000,
+    position: 'top-right'
+  })
+
+  try {
+    await loginCollector(formData).then((response) => {
+      // Assuming the token is in the response data
+      const token = response.token;
+      // Save the token to localStorage
+      localStorage.setItem('collectorToken', token);
+      console.log('collectorToken:', response);
+      const all_projects = JSON.parse(response.data);
+      console.log('projects:', projects);
+
+      // loop through each project 
+      all_projects.forEach(function (project) {
+
+        projects.value.push(project)
+
+        project.formList.forEach(function (form) {
+
+          forms.value.push(form)
 
 
-  await loginCollector(formData).then((response) => {
-    // Assuming the token is in the response data
-    const token = response.token;
-    // Save the token to localStorage
-    localStorage.setItem('collectorToken', token);
-    console.log('collectorToken:', response);
-    const all_projects = JSON.parse(response.data);
-    console.log('projects:', projects);
-
-    // loop through each project 
-    all_projects.forEach(function (project) {
-
-      projects.value.push(project)
-
-      project.formList.forEach(function (form) {
-
-        forms.value.push(form)
-
+        })
 
       })
 
+
+      getSecData()
+
     })
-
-
-    getSecData()
-
-  })
-
-
+  } catch (error) {
+    loading.value = false
+    fetchingData.value = false
+    dataFetchStatus.value = ''
+    ElNotification({
+      title: 'Error',
+      message: 'Failed to connect to server. Please try again.',
+      type: 'error',
+      duration: 5000,
+      position: 'top-right'
+    })
+  }
 
 }
 
@@ -208,8 +230,8 @@ const getSecData = async () => {
     token: localStorage.getItem('collectorToken')
   };
 
-  // Set loading state
-  /// loading.value = true;
+  // Update status message
+  dataFetchStatus.value = 'Processing and extracting SEC officials data...'
 
   try {
     // Await the response from getSubmissions
@@ -217,18 +239,42 @@ const getSecData = async () => {
 
     console.log('Submissions:', response);
 
+    // Update status message
+    dataFetchStatus.value = 'Extracting and organizing data...'
+
     // Await the extraction of data
     await extractData(response.data);
 
     // Log the extracted data
     console.log(sec_officials.value);
 
+    // Update total items
+    totalItems.value = sec_officials.value.length
+
+    // Show success notification
+    ElNotification({
+      title: 'Data Loaded Successfully',
+      message: `Successfully loaded ${sec_officials.value.length} SEC official records. You can now filter and search the data.`,
+      type: 'success',
+      duration: 5000,
+      position: 'top-right'
+    })
+
   } catch (error) {
     // Handle errors here
     console.error('Error:', error);
+    ElNotification({
+      title: 'Error Loading Data',
+      message: 'Failed to load SEC officials data. Please try refreshing the page.',
+      type: 'error',
+      duration: 5000,
+      position: 'top-right'
+    })
   } finally {
     // Reset loading state
     loading.value = false;
+    fetchingData.value = false;
+    dataFetchStatus.value = '';
   }
 };
 
@@ -460,7 +506,7 @@ const SEC_options =  [
  
 const anyRowSelected=ref(false)
 
-const multipleTableRef = ref<TableInstance>()
+const multipleTableRef = ref()
 const multipleSelection = ref()
 
 const selectable = (row: any) => !row.has_acc;
@@ -476,7 +522,27 @@ const handleSelectionChange = (val: any[]) => {
 </script>
 
 <template>
-  <el-card v-loading="loading">
+  <el-card>
+    <!-- Status Alert -->
+    <el-alert
+      v-if="fetchingData && dataFetchStatus"
+      :title="dataFetchStatus"
+      type="info"
+      :closable="false"
+      show-icon
+      style="margin-bottom: 15px;"
+    >
+      <template #default>
+        <div>
+          <p>{{ dataFetchStatus }}</p>
+          <p style="font-size: 12px; margin-top: 5px; color: #909399;">
+            You can use the filters and search while data is being loaded.
+          </p>
+        </div>
+      </template>
+    </el-alert>
+
+    <div v-loading="loading" element-loading-text="Loading data...">
     <el-row :gutter="10" style=" margin-bottom:10px;">
       <el-col :xs="24" :sm="24" :md="2" :lg="2" class="max-w-200px">
         <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
@@ -576,9 +642,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
         @size-change="handlePageSizeChange" @current-change="handlePageChange" class="mt-4" />
 
     </div>
-
-
-
+    </div>
 
   </el-card>
 

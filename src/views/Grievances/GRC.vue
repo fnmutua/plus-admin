@@ -7,7 +7,7 @@ import { Plus, Back } from '@element-plus/icons-vue'
 import { ref, computed,toRaw, unref } from 'vue'
 import {
   ElPagination, ElInput, ElSelect, ElOption, ElButton, ElDialog,ElMessage,
-  ElRow, ElTableV2, ElCard,ElTable,ElTableColumn,
+  ElRow, ElTableV2, ElCard,ElTable,ElTableColumn, ElNotification, ElAlert
 } from 'element-plus'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
@@ -97,6 +97,8 @@ console.log("userInfo--->", userInfo)
 const projects = ref([])
 const forms = ref([])
 const loading = ref(false)
+const fetchingData = ref(false)
+const dataFetchStatus = ref('')
 
 
 
@@ -108,37 +110,58 @@ const loginUserToCollector = async () => {
   formData.password = "***REDACTED***"
 
   loading.value = true
+  fetchingData.value = true
+  dataFetchStatus.value = 'Connecting to server and fetching all GRC data...'
+
+  // Show notification that data fetching has started
+  ElNotification({
+    title: 'Fetching Data',
+    message: 'We are fetching all GRC officials data. This may take a moment. You can continue using other features while data loads.',
+    type: 'info',
+    duration: 5000,
+    position: 'top-right'
+  })
+
+  try {
+    await loginCollector(formData).then((response) => {
+      // Assuming the token is in the response data
+      const token = response.token;
+      // Save the token to localStorage
+      localStorage.setItem('collectorToken', token);
+      console.log('collectorToken:', response);
+      const all_projects = JSON.parse(response.data);
+      console.log('projects:', projects);
+
+      // loop through each project 
+      all_projects.forEach(function (project) {
+
+        projects.value.push(project)
+
+        project.formList.forEach(function (form) {
+
+          forms.value.push(form)
 
 
-  await loginCollector(formData).then((response) => {
-    // Assuming the token is in the response data
-    const token = response.token;
-    // Save the token to localStorage
-    localStorage.setItem('collectorToken', token);
-    console.log('collectorToken:', response);
-    const all_projects = JSON.parse(response.data);
-    console.log('projects:', projects);
-
-    // loop through each project 
-    all_projects.forEach(function (project) {
-
-      projects.value.push(project)
-
-      project.formList.forEach(function (form) {
-
-        forms.value.push(form)
-
+        })
 
       })
 
+
+      getGRCData()
+
     })
-
-
-    getGRCData()
-
-  })
-
-
+  } catch (error) {
+    loading.value = false
+    fetchingData.value = false
+    dataFetchStatus.value = ''
+    ElNotification({
+      title: 'Error',
+      message: 'Failed to connect to server. Please try again.',
+      type: 'error',
+      duration: 5000,
+      position: 'top-right'
+    })
+  }
 
 }
 
@@ -242,8 +265,8 @@ const getGRCData = async () => {
     token: localStorage.getItem('collectorToken')
   };
 
-  // Set loading state
-  /// loading.value = true;
+  // Update status message
+  dataFetchStatus.value = 'Processing and extracting GRC officials data...'
 
   try {
     // Await the response from getSubmissions
@@ -251,11 +274,18 @@ const getGRCData = async () => {
 
     console.log('Submissions:', response);
 
+    // Update status message
+    dataFetchStatus.value = 'Extracting and organizing data...'
+
     // Await the extraction of data
     await extractData(response.data);
 
     // Log the extracted data
     console.log('grc_officials.value', grc_officials.value);
+    
+    // Update status message
+    dataFetchStatus.value = 'Checking user accounts...'
+    
     const usernames = grc_officials.value
       .filter(official => official.grc_position === "secretary") // Only secretaries
       .map(official => official.mobile); // Extract mobile numbers
@@ -281,14 +311,33 @@ const getGRCData = async () => {
 
     console.log('Updated grc_officials:', grc_officials.value);
 
+    // Update total items
+    totalItems.value = grc_officials.value.length
 
+    // Show success notification
+    ElNotification({
+      title: 'Data Loaded Successfully',
+      message: `Successfully loaded ${grc_officials.value.length} GRC official records. You can now filter and search the data.`,
+      type: 'success',
+      duration: 5000,
+      position: 'top-right'
+    })
 
   } catch (error) {
     // Handle errors here
     console.error('Error:', error);
+    ElNotification({
+      title: 'Error Loading Data',
+      message: 'Failed to load GRC officials data. Please try refreshing the page.',
+      type: 'error',
+      duration: 5000,
+      position: 'top-right'
+    })
   } finally {
     // Reset loading state
     loading.value = false;
+    fetchingData.value = false;
+    dataFetchStatus.value = '';
   }
 };
 
@@ -704,7 +753,27 @@ const handleSelectionChange = (val: any[]) => {
 </script>
 
 <template>
-  <el-card v-loading="loading">
+  <el-card>
+    <!-- Status Alert -->
+    <el-alert
+      v-if="fetchingData && dataFetchStatus"
+      :title="dataFetchStatus"
+      type="info"
+      :closable="false"
+      show-icon
+      style="margin-bottom: 15px;"
+    >
+      <template #default>
+        <div>
+          <p>{{ dataFetchStatus }}</p>
+          <p style="font-size: 12px; margin-top: 5px; color: #909399;">
+            You can use the filters and search while data is being loaded.
+          </p>
+        </div>
+      </template>
+    </el-alert>
+
+    <div v-loading="loading" element-loading-text="Loading data...">
     <el-row
 type="flex" justify="start" gutter="10"
       style="display: flex; flex-wrap: nowrap; align-items: center; margin-bottom:10px">
@@ -802,8 +871,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
         @size-change="handlePageSizeChange" @current-change="handlePageChange" class="mt-4" />
 
     </div>
-
-
+    </div>
 
   </el-card>
 
