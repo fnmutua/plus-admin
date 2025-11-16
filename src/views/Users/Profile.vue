@@ -1,23 +1,21 @@
 <script setup lang="ts">
  
-import { onMounted, ref, reactive, unref } from 'vue'
+import { onMounted, ref, reactive } from 'vue'
  
-import { ElFormItem, ElInput, ElButton, ElDialog, ElForm, ElMessage ,FormInstance, ElCard, ElDivider} from 'element-plus'
+import { 
+  ElFormItem, 
+  ElInput, 
+  ElButton, 
+  ElForm, 
+  ElMessage,
+  FormInstance, 
+  ElCard, 
+  ElAvatar} from 'element-plus'
  
-  
-// Locally
- import '@dafcoe/vue-collapsible-panel/dist/vue-collapsible-panel.css'
+import '@dafcoe/vue-collapsible-panel/dist/vue-collapsible-panel.css'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
-import {  updateByUserApi,  getMyProfile } from '@/api/users'
-import {
-  ElAvatar
-} from 'element-plus'
-
- 
- 
-
-import { Icon } from '@iconify/vue';
+import { updateByUserApi, getMyProfile } from '@/api/users'
 
  
 const { wsCache } = useCache()
@@ -30,37 +28,22 @@ const userInfo = wsCache.get(appStore.getUserInfo)
  
 
 //// ------------------parameters -----------------------////
-var filters = ['id']
-const id = userInfo.id
 const model = 'users'
-
-//const associated_Model = ''
-const associated_multiple_models = ['county']
-var filterValues = [id]
-
 //// ------------------parameters -----------------------////
-
-let settlement = reactive({
-  count: 0,
-  name: 'unnwo',
-  flag: false
-})
-////////////
  
 
 const profile = reactive({
-  id:'',
+  id: '',
   name: '',
-  avatar:'',
+  avatar: '',
   county: '',
   email: '',
   status: '',
   username: '',
-  phone: null,
+  phone: null as string | null,
   county_id: '',
-  photo: null, 
-  roles:[],
- 
+  photo: null as string | null, 
+  roles: [] as any[],
 })
 
 
@@ -77,40 +60,42 @@ function getInitials(name) {
 
 const initials =ref()
 const getFilteredData = async () => {
-  const formData = {}
+  try {
+    const formData: any = {}
+    formData.model = model
+    formData.id = userInfo.id
 
-  formData.model = model
-  formData.id =  userInfo.id
+    const res: any = await getMyProfile(formData)
 
+    console.log('getMyProfile', res.data)
+    userDetails.value = res.data
+    
+    if (res.data) {
+      const data = res.data as any
+      profile.name = data.name || ''
+      profile.username = data.username || ''
+      profile.avatar = data.avatar || ''
+      profile.email = data.email || ''
+      profile.county = String(data.county_id || '')
+      profile.id = String(data.id || '')
+      profile.county_id = String(data.county_id || '')
+      profile.roles = data.roles || []
+      profile.phone = (data.phone || null) as string | null
+      profile.photo = data.photo || null
 
-  //-------------------------
-  //console.log(formData)
-  const res = await getMyProfile(formData)
-
-  console.log('getMyProfile', res.data)
-  userDetails.value = res.data
-  profile.name = res.data.name
-  profile.username = res.data.username
-  profile.avatar = res.data.avatar
-  profile.email = res.data.email
-  profile.county = res.data.county_id
-  profile.id = res.data.id
-  profile.county_id = res.data.county_id
-  profile.roles = res.data.roles
-  profile.phone = res.data.phone
-  profile.photo = res.data.photo
-
-  initials.value = getInitials(res.data.name)
-  console.log(userDetails)
-
+      if (data.name) {
+        initials.value = getInitials(data.name)
+      }
+    }
+  } catch (error) {
+    console.error('Error loading profile:', error)
+    ElMessage.error('Failed to load profile data')
+  }
 }
 
 
 onMounted(() => {
-  
-
-  getFilteredData(filters, filterValues)
-  console.log(settlement)
+  getFilteredData()
 })
 
   
@@ -122,98 +107,96 @@ onMounted(() => {
 
 const ruleFormRefProfile = ref<FormInstance>()
 const ruleForm = reactive({
-  id:'',
+  id: '',
   name: '',
-  avatar:'',
+  avatar: '',
   county: '',
   email: '',
   status: '',
   username: '',
-  phone: null,
-  county_id:'',
-  roles:[],
+  phone: null as string | null,
+  county_id: '',
+  roles: [] as any[],
 })
 
-const dialogFormVisible=ref(false)
 
 const EditUser = () => {
-  console.log(profile.id)
-  // Append other form data properties to the formData
-  ruleForm.id= profile.id
+  ruleForm.id = profile.id
   ruleForm.name = profile.name
-  ruleForm.email= profile.email
-  ruleForm.username= profile.username
-  ruleForm.phone= profile.phone
-  ruleForm.county_id= profile.county_id
-  
-  dialogFormVisible.value = true
+  ruleForm.email = profile.email
+  ruleForm.username = profile.username
+  ruleForm.phone = profile.phone
+  ruleForm.county_id = profile.county_id
 }
 
-const photofile=ref( )
+const photofile = ref()
+const photoPreview = ref('')
+const uploading = ref(false)
+const fileInput = ref<HTMLInputElement>()
+
 const uploadProfilePhoto = async (event) => {
-  
-  const file = event.target.files[0];
-    photofile.value = event.target.files[0];
+  const file = event.target.files[0]
+  if (!file) return
 
-
-    // Check file size (5MB = 5 * 1024 * 1024 bytes)
-    const maxSize = 5 * 1024 * 1024; // 5MB
-      if (file.size > maxSize) {
-       ElMessage.error('File size exceeds 5MB.');
-        return;
-      } else {
-        formData.value.append('profilePhoto', file); // Append the profile photo file to the formData
-
-      }
-
-
-  
-
-
-  // Append other form data properties as needed
-
-  console.log(formData);
-    // Inspect the contents of formData
-    for (const pair of formData.value.entries()) {
-    console.log(pair[0], pair[1]);
+  // Check file size (5MB = 5 * 1024 * 1024 bytes)
+  const maxSize = 5 * 1024 * 1024 // 5MB
+  if (file.size > maxSize) {
+    ElMessage.error('File size exceeds 5MB. Please choose a smaller image.')
+    return
   }
 
+  // Check file type
+  if (!file.type.startsWith('image/')) {
+    ElMessage.error('Please select an image file.')
+    return
+  }
+
+  photofile.value = file
+  formData.value.append('profilePhoto', file)
+
+  // Create preview
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    photoPreview.value = e.target?.result as string
+  }
+  reader.readAsDataURL(file)
 }
 
 
 
 const updateUser = async (formEl: FormInstance | undefined) => {
   if (!formEl) return
-  console.log(ruleForm)
+  
+  uploading.value = true
+  const updateFormData = new FormData()
+  updateFormData.append('id', String(profile.id))
+  updateFormData.append('name', profile.name)
+  updateFormData.append('email', profile.email)
+  updateFormData.append('username', profile.username)
+  updateFormData.append('phone', profile.phone || '')
+  updateFormData.append('county_id', ruleForm.county_id || '')
+  
+  if (photofile.value) {
+    updateFormData.append('profilePhoto', photofile.value)
+  }
 
-  const formData = new FormData(); 
-   formData.append('id', profile.id);
-  formData.append('name', profile.name);
-   formData.append('email', profile.email);
-   formData.append('username', profile.username);
-  formData.append('phone', profile.phone);
-  formData.append('county_id',ruleForm.county_id);
-  formData.append('profilePhoto', photofile.value); // Append the profile photo file to the formData
-
-
-  await updateByUserApi(formData)
-  .then(response => {
-    // Handle the API response and show the message to the user
-    const message = response.data; // Assuming the message is in the 'message' field of the API response
-    console.log('API Response:', response);
-    console.log('Message:', response);
-    // You can display the message to the user using a notification or any other method
-  })
-  .catch(error => {
-    // Handle any errors that occur during the API call
-    console.error('Error updating user:', error);
-    // You can display an error message to the user using a notification or any other method
-  });
-
-/// formData.value = new FormData(); // Create a new empty FormData object
-dialogFormVisible.value = false; // Close the form dialog regardless of the API call result
-
-
+  try {
+    await updateByUserApi(updateFormData as any)
+    ElMessage.success('Profile updated successfully!')
+    
+    // Refresh profile data
+    await getFilteredData()
+    
+    // Reset photo preview and file
+    photofile.value = null
+    photoPreview.value = ''
+    formData.value = new FormData()
+  } catch (error) {
+    console.error('Error updating user:', error)
+    ElMessage.error('Failed to update profile. Please try again.')
+  } finally {
+    uploading.value = false
+  }
 }
 
 
@@ -222,181 +205,179 @@ dialogFormVisible.value = false; // Close the form dialog regardless of the API 
 </script>
 
 <template>
-     <div class="profile-header">
-    <!-- Use the avatarPath to display the user's avatar -->
-    <div class="profile-photo-wrapper" @click="EditUser">
-      <!-- Edit icon -->
-     
-      <img :src="profile.photo" alt="User Profile Image" v-if="profile.photo" />
-      <el-avatar size="large" v-else>
-        {{ initials }}
-      </el-avatar>
-    </div>
+  <div class="profile-container">
+    <el-card class="profile-card" shadow="hover">
+      <!-- Profile Header Section -->
+      <div class="profile-header">
+        <div class="profile-avatar-section">
+          <div class="avatar-wrapper" @click="EditUser">
+            <el-avatar :size="120" class="profile-avatar">
+              <img v-if="profile.photo" :src="profile.photo" alt="Profile" />
+              <span v-else class="avatar-initials">{{ initials }}</span>
+            </el-avatar>
+          </div>
+          <div class="profile-info">
+            <h1 class="profile-name">{{ profile.name || 'User Name' }}</h1>
+            <p class="profile-username">@{{ profile.username }}</p>
+          </div>
+        </div>
+        <el-button type="primary" @click="EditUser" class="edit-button">
+          Edit Profile
+        </el-button>
+      </div>
+
+      <!-- Profile Details Section -->
+      <div class="profile-details">
+        <el-form ref="ruleFormRefProfile" :model="profile">
+          <el-form-item label="Full Name">
+            <el-input v-model="profile.name" placeholder="Enter your full name" clearable />
+          </el-form-item>
+          <el-form-item label="Username">
+            <el-input v-model="profile.username" disabled placeholder="Username" />
+          </el-form-item>
+          <el-form-item label="Email">
+            <el-input v-model="profile.email" type="email" placeholder="Enter your email" clearable />
+          </el-form-item>
+          <el-form-item label="Phone">
+            <el-input v-model="profile.phone" placeholder="Enter your phone number" clearable />
+          </el-form-item>
+          <el-form-item label="Profile Photo">
+            <input 
+              type="file" 
+              ref="fileInput"
+              @change="uploadProfilePhoto" 
+              accept="image/*"
+              style="display: none"
+            />
+            <el-button type="primary" @click="fileInput?.click()" plain>
+              Change Photo
+            </el-button>
+            <p class="upload-hint">JPG, PNG or GIF. Max size 5MB</p>
+            <div v-if="photoPreview" class="photo-preview">
+              <img :src="photoPreview" alt="Preview" style="max-width: 100px; max-height: 100px; border-radius: 8px; margin-top: 8px;" />
+            </div>
+          </el-form-item>
+          <el-form-item>
+            <el-button 
+              type="primary" 
+              @click="updateUser(ruleFormRefProfile)"
+              :loading="uploading"
+            >
+              {{ uploading ? 'Saving...' : 'Update Profile' }}
+            </el-button>
+          </el-form-item>
+        </el-form>
+      </div>
+    </el-card>
   </div>
-  
-
-
-       <el-form ref="ruleFormRefProfile" :model="profile" >
-        <el-form-item label="Name" >
-          <el-input v-model="profile.name" autocomplete="off" />
-        </el-form-item>
-        <el-form-item label="Username" >
-          <el-input v-model="profile.username" autocomplete="off" disabled />
-        </el-form-item>
-        <el-form-item label="Email" >
-          <el-input v-model="profile.email" autocomplete="off" />
-        </el-form-item>
-        <el-form-item label="Phone" >
-          <el-input v-model="profile.phone" autocomplete="off" />
-        </el-form-item>
-
-        <el-form-item label="Profile" >
-          <input type="file" @change="uploadProfilePhoto" accept="image/*"/> <!-- Profile photo input -->
-        </el-form-item>
-
-        <el-form-item>
-      <el-button type="primary" @click="updateUser(ruleFormRefProfile)">
-        Update
-      </el-button>
-     </el-form-item>
-
-
-      </el-form>
-     
- 
 </template>
 
 <style lang="less" scoped>
-.is-required--item {
-  position: relative;
-
-  &::before {
-    margin-right: 4px;
-    color: var(--el-color-danger);
-    content: '*';
-  }
+.profile-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
 }
-</style>
-<style>
-.user-profile {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  font-family: 'Roboto', sans-serif;
-  margin: 20px;
-  padding: 20px;
-  border-radius: 10px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+.profile-card {
+  border-radius: 12px;
+  overflow: hidden;
 }
 
 .profile-header {
   display: flex;
-  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 24px;
+  gap: 24px;
+  flex-wrap: wrap;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+}
+
+.profile-avatar-section {
+  display: flex;
   align-items: center;
-  margin-bottom: 20px;
+  gap: 24px;
+  flex: 1;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    width: 100%;
+  }
 }
 
-.profile-header img {
-  width: 150px;
-  height: 150px;
-  object-fit: cover;
-  border-radius: 50%;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+.avatar-wrapper {
+  position: relative;
+  cursor: pointer;
+  transition: transform 0.3s ease;
+
+  &:hover {
+    transform: scale(1.05);
+  }
 }
 
-.profile-header h1 {
-  font-size: 24px;
-  margin-top: 10px;
-  margin-bottom: 5px;
+.profile-avatar {
+  border: 4px solid var(--el-border-color-lighter);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
 }
 
-.profile-header p {
-  font-size: 18px;
-  color: #888;
+.avatar-initials {
+  font-size: 48px;
+  font-weight: 600;
+  color: var(--el-color-primary);
+}
+
+.profile-info {
+  flex: 1;
+}
+
+.profile-name {
+  font-size: 28px;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+  color: var(--el-text-color-primary);
+}
+
+.profile-username {
+  font-size: 16px;
+  color: var(--el-text-color-regular);
+  margin: 0 0 12px 0;
+}
+
+.edit-button {
+  @media (max-width: 768px) {
+    width: 100%;
+  }
 }
 
 .profile-details {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
+  padding: 24px;
 }
 
-.profile-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 10px;
-  border-radius: 10px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  background-color: #fff;
-  transition: all 0.2s ease-in-out;
+.upload-hint {
+  margin: 8px 0 0 0;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
 }
 
-.profile-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+.photo-preview {
+  margin-top: 8px;
 }
 
-.card-icon {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  width: 70px;
-  height: 70px;
-  font-size: 24px;
-  color: #888;
-  background-color: #f8f8f8;
-  border-radius: 50%;
-  margin-bottom: 10px;
-}
-
-.card-content {
-  text-align: center;
-}
-
-.card-content h3 {
-  font-size: 18px;
-  margin-bottom: 5px;
-}
-
-
-.card-xcontent {
-  display: flex;
-  align-items: center;
-}
-
-
-.icon-container {
-  display: inline-block;
-  position: relative;
-  box-shadow: 0 2px 4px rgba(34, 35, 35, 0.2);
-  padding: 5px;
-  /* optional padding around the icon */
-  border-radius: 10%;
-  /* optional border radius for circular icon */
-}
-
-
-
-.card-content p {
-  font-size: 16px;
-  color: #888;
-}
-</style>
-
-<style>
-  .profile-photo-wrapper {
-    position: relative;
-    cursor: pointer;
+// Responsive adjustments
+@media (max-width: 768px) {
+  .profile-container {
+    padding: 16px;
   }
 
-  .edit-icon {
-    position: absolute;
-    top: 0;
-    left: 0;
-    background-color: #fff;
-    padding: 5px;
-    border-radius: 50%;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  .profile-name {
+    font-size: 24px;
   }
+}
 </style>

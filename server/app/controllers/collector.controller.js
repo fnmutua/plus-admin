@@ -814,12 +814,77 @@ exports.modelDataCollectorCSVWithMedia = (req, res) => {
 
  
 
-exports.modelGetSubmissions = (req, res) => {
+exports.modelGetSubmissions = async (req, res) => {
  
    // Extract email and password from req.body
    const { project, form, token } = req.body;
- 
+
+   // Get user info for filtering
+   let userFilter = null;
+   let userCountyName = null;
+   let userSettlementCode = null;
+   let userSettlementName = null;
    
+   if (req.userid) {
+     try {
+       const User = db.user;
+       const user = await User.findByPk(req.userid);
+       if (user) {
+         const roles = await user.getRoles();
+         // Check if user has national level access
+         const hasNationalAccess = roles.some(role => {
+           return role.user_roles?.location_level === 'national' || 
+                  ['super_admin', 'root_admin', 'admin', 'staff'].includes(role.name);
+         });
+
+         if (!hasNationalAccess) {
+           // Find the first non-national role to determine filter
+           const locationRole = roles.find(role => {
+             const locationLevel = role.user_roles?.location_level;
+             return locationLevel === 'county' || locationLevel === 'settlement';
+           });
+
+           if (locationRole && locationRole.user_roles) {
+             userFilter = {
+               location_level: locationRole.user_roles.location_level,
+               county_id: locationRole.user_roles.county_id,
+               settlement_id: locationRole.user_roles.settlement_id
+             };
+
+             // Get county name if filtering by county
+             if (userFilter.location_level === 'county' && userFilter.county_id) {
+               try {
+                 const County = db.models.county || db.county;
+                 const userCounty = await County.findByPk(userFilter.county_id);
+                 if (userCounty) {
+                   userCountyName = userCounty.name;
+                 }
+               } catch (countyError) {
+                 console.error('Error getting county info:', countyError);
+               }
+             }
+
+             // Get settlement info if filtering by settlement
+             if (userFilter.location_level === 'settlement' && userFilter.settlement_id) {
+               try {
+                 const Settlement = db.models.settlement || db.settlement;
+                 const userSettlement = await Settlement.findByPk(userFilter.settlement_id);
+                 if (userSettlement) {
+                   userSettlementCode = userSettlement.code;
+                   userSettlementName = userSettlement.name;
+                 }
+               } catch (settlementError) {
+                 console.error('Error getting settlement info:', settlementError);
+               }
+             }
+           }
+         }
+       }
+     } catch (userError) {
+       console.error('Error getting user info for filtering:', userError);
+       // Continue without filtering if there's an error
+     }
+   }
 
   // let url 
  //  url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions`;
@@ -846,7 +911,7 @@ exports.modelGetSubmissions = (req, res) => {
       },
     }, async function (error, response, body) {
      
-  
+
      // console.log('------>', error)
   
       if (!error && response.statusCode === 200) {
@@ -869,14 +934,16 @@ exports.modelGetSubmissions = (req, res) => {
 
           // Convert entities to a lookup map for quick access
           let entitiesMap = new Map();
+          let entitiesCountyMap = new Map(); // Map settlement code to county
           entities.value.forEach(entity => {
             entitiesMap.set(entity.code, entity.sett_name);
+            entitiesCountyMap.set(entity.code, entity.county_name);
           });
 
 
 
  
- 
+
         // Select only the desired fields and map settlements
         let filteredData = objs.map(submission => {
           return {
@@ -884,14 +951,33 @@ exports.modelGetSubmissions = (req, res) => {
             date: submission.today,
             group_location: submission.group_location,
             grp_certification: submission.grp_certification,
-            pcode: submission.group_location.pcode,
+            pcode: submission.group_location?.pcode,
             sec_officials: submission.sec_officials,
             grc_officials: submission.grc_officials,
             meta_instanceID: submission.meta?.instanceID,
             meta : submission.__system,
-            settlement_name: entitiesMap.get(submission.group_location.pcode) || 'Unknown', // Append settlement name
+            settlement_name: entitiesMap.get(submission.group_location?.pcode) || 'Unknown', // Append settlement name
+            county_name: entitiesCountyMap.get(submission.group_location?.pcode) || 'Unknown', // Append county name
           };
         });
+
+        // Apply user-based filtering if user is not national level
+        if (userFilter) {
+          filteredData = filteredData.filter(submission => {
+            if (userFilter.location_level === 'county' && userCountyName) {
+              // Filter by county name
+              const submissionCounty = submission.county_name || submission.group_location?.county;
+              return submissionCounty === userCountyName;
+            } else if (userFilter.location_level === 'settlement') {
+              // Filter by settlement code or name
+              const submissionPcode = submission.pcode;
+              const submissionSettlementName = submission.settlement_name;
+              return (userSettlementCode && submissionPcode === userSettlementCode) ||
+                     (userSettlementName && submissionSettlementName === userSettlementName);
+            }
+            return true;
+          });
+        }
 
    
 

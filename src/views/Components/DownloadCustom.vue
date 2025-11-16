@@ -112,7 +112,9 @@ const props = defineProps({
   data: Array,
   model: String,
   associated_models: Array,
-  loading: Boolean
+  loading: Boolean,
+  filters: Array,
+  filterValues: Array
 });
 
 const tableDataList = ref([]);
