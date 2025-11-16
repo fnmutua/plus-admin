@@ -463,30 +463,88 @@ exports.modelCountyUsers = async (req, res) => {
 
 exports.modelGRMUsers = async (req, res) => {
   try {
-    console.log('Getting GRMS', req.body);
-    const { currentUser, filters = [], filterValues = [], limit = 10, page = 1 } = req.body;
-    const { roles: currentUserRoles = [], county_id: userCounty } = currentUser;
+    const { currentUser, filters = [], filterValues = [], limit = 10, page = 1, searchString, searchField = 'name' } = req.body;
 
-    console.log('Current User Roles:', currentUserRoles);
+    console.log('=== modelGRMUsers called ===');
+    console.log('Request params:', { 
+      currentUserId: currentUser?.id, 
+      filters, 
+      filterValues, 
+      limit, 
+      page, 
+      searchString 
+    });
 
-    // Extract unique subordinate role IDs from the current user roles
-    const uniqueSubordinates = [
-      ...new Set(
-        currentUserRoles.flatMap(role => role.subordinates || [])
-      )
-    ];
+    // Find GRM role by name
+    const grmRole = await db.models.roles.findOne({
+      where: { name: 'grm' }
+    });
 
-     
+    console.log('GRM role found:', grmRole ? { id: grmRole.id, name: grmRole.name } : 'NOT FOUND');
 
-    const findAndCountOptions = {
+    if (!grmRole) {
+      return res.status(404).send({
+        message: 'GRM role not found',
+        code: 'ROLE_NOT_FOUND'
+      });
+    }
+
+    // Build where clause
+    const whereClause = {
+      id: { [Op.ne]: currentUser.id } // Exclude current user
+    };
+
+    // Add search condition if provided
+    if (searchString) {
+      whereClause[Op.or] = [
+        { name: { [Op.iLike]: `%${searchString}%` } },
+        { username: { [Op.iLike]: `%${searchString}%` } },
+        { email: { [Op.iLike]: `%${searchString}%` } },
+        { phone: { [Op.iLike]: `%${searchString}%` } }
+      ];
+    }
+
+    // Add filter conditions if provided
+    if (filters.length === filterValues.length && filters.length > 0) {
+      const filterConditions = filters.map((filter, index) => {
+        let value = filterValues[index];
+        // Cast boolean strings
+        if (value === 'true' || value === 'false') {
+          value = value === 'true';
+        }
+        // Cast numeric strings
+        else if (!isNaN(value)) {
+          value = Number(value);
+        }
+        return { [filter]: { [Op.eq]: value } };
+      });
+      // Combine with existing conditions
+      if (whereClause[Op.or]) {
+        whereClause[Op.and] = [
+          { [Op.or]: whereClause[Op.or] },
+          ...filterConditions
+        ];
+        delete whereClause[Op.or];
+      } else {
+        whereClause[Op.and] = filterConditions;
+      }
+    }
+
+    console.log('Where clause:', JSON.stringify(whereClause, null, 2));
+
+    // Query users with GRM role
+    const { count, rows: grmUsers } = await Users.findAndCountAll({
       include: [
         {
           model: db.models.user_roles,
           required: true,
-          where: {
-            roleid: uniqueSubordinates,
-            roleid: 4 // GRM
-          }
+          where: { roleid: grmRole.id },
+          include: [
+            {
+              model: db.models.roles,
+              required: false
+            }
+          ]
         },
         {
           model: db.models.county,
@@ -494,71 +552,189 @@ exports.modelGRMUsers = async (req, res) => {
           required: false
         }
       ],
-      where: {},
+      where: whereClause,
       limit,
       offset: (page - 1) * limit,
-      order: [['id', 'DESC']] // Add this line to sort by ID in descending order
+      order: [['id', 'DESC']],
+      attributes: { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] }
+    });
 
-    };
+    // Log sample user roles to see what's being returned
+    const sampleUserRoles = grmUsers[0] ? grmUsers[0].user_roles?.map(ur => ({
+      roleid: ur.roleid,
+      location_level: ur.location_level,
+      role_name: ur.role?.name,
+      isGrm: ur.roleid === grmRole.id
+    })) || [] : [];
+    
+    // Check if any users have settlement level roles
+    const usersWithSettlementRoles = grmUsers.filter(user => {
+      const userObj = user.toJSON ? user.toJSON() : user;
+      return userObj.user_roles?.some(ur => ur.location_level === 'settlement');
+    });
 
-
-    // Normalize and cast filter values based on the column type
-    const normalizeAndCastFilter = (filter, value) => {
-      if (typeof value === 'string') {
-        // Cast value for boolean columns
-        if (value === 'true' || value === 'false') {
-          return Sequelize.cast(value === 'true', 'BOOLEAN');
-        }
-        // Cast value for integer columns
-        if (!isNaN(value)) {
-          return Sequelize.cast(value, 'INTEGER');
-        }
-      }
-      return value; // Default case
-    };
-
-    // Add filter conditions if filters and values are provided
-    if (filters.length === filterValues.length) {
-      findAndCountOptions.where[Op.and] = filters.map((filter, index) => ({
-        [filter]: { [Op.eq]: normalizeAndCastFilter(filter, filterValues[index]) }
-      }));
+    console.log('Query results:', { 
+      totalCount: count, 
+      returnedUsers: grmUsers.length,
+      usersWithSettlementRoles: usersWithSettlementRoles.length,
+      sampleUser: grmUsers[0] ? {
+        id: grmUsers[0].id,
+        name: grmUsers[0].name,
+        username: grmUsers[0].username,
+        user_roles_count: grmUsers[0].user_roles?.length || 0,
+        user_roles: sampleUserRoles
+      } : null
+    });
+    
+    if (usersWithSettlementRoles.length > 0) {
+      console.log('WARNING: Found users with settlement roles in response:', usersWithSettlementRoles.map(u => ({
+        id: u.id,
+        name: u.name,
+        settlementRoles: u.user_roles?.filter(ur => ur.location_level === 'settlement').map(ur => ({
+          roleid: ur.roleid,
+          role_name: ur.role?.name,
+          isGrm: ur.roleid === grmRole.id
+        }))
+      })));
     }
 
-    console.log('Final Query Options for GRM Users:', findAndCountOptions);
+    // Get total counts for each location level (without pagination)
+    const baseWhereClause = {
+      id: { [Op.ne]: currentUser.id }
+    };
 
-    // Query users and include their roles with user_roles details
-    const { count, rows: grmUsers } = await Users.findAndCountAll(findAndCountOptions);
+    // Apply search condition if provided
+    if (searchString) {
+      baseWhereClause[Op.or] = [
+        { name: { [Op.iLike]: `%${searchString}%` } },
+        { username: { [Op.iLike]: `%${searchString}%` } },
+        { email: { [Op.iLike]: `%${searchString}%` } },
+        { phone: { [Op.iLike]: `%${searchString}%` } }
+      ];
+    }
 
-    // Import sessionTracker to get last login
-    const sessionTracker = require('../utils/sessionTracker');
-
-    // Convert photo binary data to base64 URL and add last login
-    const usersWithPhotos = await Promise.all(grmUsers.map(async (user) => {
-      const userObj = user.toJSON ? user.toJSON() : user;
-      
-      if (userObj.photo) {
-        userObj.photo = 'data:image/png;base64,' + userObj.photo.toString('base64');
-      } else {
-        userObj.photo = ''; // Assign empty string if no photo
-      }
-
-      // Get last login information
-      try {
-        const lastLoginLog = await sessionTracker.getLastLoginLog(userObj.id);
-        if (lastLoginLog && lastLoginLog.loginTime) {
-          userObj.last_login = lastLoginLog.loginTime;
-        } else if (lastLoginLog && lastLoginLog.date) {
-          userObj.last_login = lastLoginLog.date;
-        } else {
-          userObj.last_login = null;
+    // Apply same filters but without pagination for counting
+    if (filters.length === filterValues.length && filters.length > 0) {
+      const filterConditions = filters.map((filter, index) => {
+        let value = filterValues[index];
+        if (value === 'true' || value === 'false') {
+          value = value === 'true';
+        } else if (!isNaN(value)) {
+          value = Number(value);
         }
-      } catch (error) {
-        console.error(`Error getting last login for user ${userObj.id}:`, error);
-        userObj.last_login = null;
+        return { [filter]: { [Op.eq]: value } };
+      });
+      // Combine with existing conditions
+      if (baseWhereClause[Op.or]) {
+        baseWhereClause[Op.and] = [
+          { [Op.or]: baseWhereClause[Op.or] },
+          ...filterConditions
+        ];
+        delete baseWhereClause[Op.or];
+      } else {
+        baseWhereClause[Op.and] = filterConditions;
       }
+    }
 
+    // Count national GRM users
+    const { count: totalNational } = await Users.findAndCountAll({
+      include: [
+        {
+          model: db.models.user_roles,
+          required: true,
+          where: { 
+            roleid: grmRole.id,
+            location_level: 'national'
+          }
+        }
+      ],
+      where: baseWhereClause,
+      distinct: true
+    });
+
+    // Count county GRM users
+    const { count: totalCounty } = await Users.findAndCountAll({
+      include: [
+        {
+          model: db.models.user_roles,
+          required: true,
+          where: { 
+            roleid: grmRole.id,
+            location_level: 'county'
+          }
+        }
+      ],
+      where: baseWhereClause,
+      distinct: true
+    });
+
+    // Count settlement GRM users
+    const { count: totalSettlement } = await Users.findAndCountAll({
+      include: [
+        {
+          model: db.models.user_roles,
+          required: true,
+          where: { 
+            roleid: grmRole.id,
+            location_level: 'settlement'
+          }
+        }
+      ],
+      where: baseWhereClause,
+      distinct: true
+    });
+
+    console.log('=== GRM USER TOTALS BY LOCATION LEVEL ===');
+    console.log('Total National GRM Users:', totalNational);
+    console.log('Total County GRM Users:', totalCounty);
+    console.log('Total Settlement GRM Users:', totalSettlement);
+    console.log('===========================================');
+
+    // Convert photo to base64 and filter user_roles to only include GRM roles
+    const usersWithPhotos = grmUsers.map(user => {
+      const userObj = user.toJSON ? user.toJSON() : user;
+      userObj.photo = userObj.photo 
+        ? 'data:image/png;base64,' + userObj.photo.toString('base64')
+        : '';
+      
+      // Ensure only GRM roles are included in user_roles (safety filter)
+      if (userObj.user_roles && Array.isArray(userObj.user_roles)) {
+        userObj.user_roles = userObj.user_roles.filter(ur => ur.roleid === grmRole.id);
+      }
+      
       return userObj;
-    }));
+    });
+    
+    // Log settlement roles after filtering
+    const settlementRolesAfterFilter = usersWithPhotos.filter(user => 
+      user.user_roles?.some(ur => ur.location_level === 'settlement')
+    );
+    
+    if (settlementRolesAfterFilter.length > 0) {
+      console.log('After filtering - Users with settlement GRM roles:', settlementRolesAfterFilter.length);
+      console.log('Settlement GRM users:', settlementRolesAfterFilter.map(u => ({
+        id: u.id,
+        name: u.name,
+        settlementRoles: u.user_roles?.filter(ur => ur.location_level === 'settlement')
+      })));
+    } else {
+      console.log('After filtering - No users with settlement GRM roles found');
+    }
+
+    console.log('Final response:', {
+      dataCount: usersWithPhotos.length,
+      total: count,
+      totalsByLevel: {
+        national: totalNational,
+        county: totalCounty,
+        settlement: totalSettlement
+      },
+      firstUser: usersWithPhotos[0] ? {
+        id: usersWithPhotos[0].id,
+        name: usersWithPhotos[0].name,
+        user_roles_count: usersWithPhotos[0].user_roles?.length || 0
+      } : null
+    });
 
     res.status(200).send({
       data: usersWithPhotos,
@@ -567,7 +743,7 @@ exports.modelGRMUsers = async (req, res) => {
       message: 'GRM users retrieved successfully',
     });
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Error in modelGRMUsers:', error);
     res.status(500).send({ message: 'Unable to retrieve GRM users. Please try again later.' });
   }
 };
@@ -886,36 +1062,88 @@ exports.getGRMUsersByLocation = async (req, res) => {
 
 exports.modelAdminUsers = async (req, res) => {
   try {
-    console.log('Getting GRMS', req.body);
-    const { currentUser, filters = [], filterValues = [], limit = 10, page = 1 } = req.body;
-    const { roles: currentUserRoles = [], county_id: userCounty } = currentUser;
+    const { currentUser, filters = [], filterValues = [], limit = 10, page = 1, searchString, searchField = 'name' } = req.body;
 
-    console.log('Current User Roles:', currentUserRoles);
+    console.log('=== modelAdminUsers called ===');
+    console.log('Request params:', { 
+      currentUserId: currentUser?.id, 
+      filters, 
+      filterValues, 
+      limit, 
+      page, 
+      searchString 
+    });
 
-    // Extract unique subordinate role IDs from the current user roles
-    const uniqueSubordinates = [
-      ...new Set(
-        currentUserRoles.flatMap(role => role.subordinates || [])
-      )
-    ];
+    // Find admin role by name
+    const adminRole = await db.models.roles.findOne({
+      where: { name: 'admin' }
+    });
 
- 
+    console.log('Admin role found:', adminRole ? { id: adminRole.id, name: adminRole.name } : 'NOT FOUND');
 
-    const findAndCountOptions = {
+    if (!adminRole) {
+      return res.status(404).send({
+        message: 'Admin role not found',
+        code: 'ROLE_NOT_FOUND'
+      });
+    }
+
+    // Build where clause
+    const whereClause = {
+      id: { [Op.ne]: currentUser.id } // Exclude current user
+    };
+
+    // Add search condition if provided
+    if (searchString) {
+      whereClause[Op.or] = [
+        { name: { [Op.iLike]: `%${searchString}%` } },
+        { username: { [Op.iLike]: `%${searchString}%` } },
+        { email: { [Op.iLike]: `%${searchString}%` } },
+        { phone: { [Op.iLike]: `%${searchString}%` } }
+      ];
+    }
+
+    // Add filter conditions if provided
+    if (filters.length === filterValues.length && filters.length > 0) {
+      const filterConditions = filters.map((filter, index) => {
+        let value = filterValues[index];
+        // Cast boolean strings
+        if (value === 'true' || value === 'false') {
+          value = value === 'true';
+        }
+        // Cast numeric strings
+        else if (!isNaN(value)) {
+          value = Number(value);
+        }
+        return { [filter]: { [Op.eq]: value } };
+      });
+      // Combine with existing conditions
+      if (whereClause[Op.or]) {
+        whereClause[Op.and] = [
+          { [Op.or]: whereClause[Op.or] },
+          ...filterConditions
+        ];
+        delete whereClause[Op.or];
+      } else {
+        whereClause[Op.and] = filterConditions;
+      }
+    }
+
+    console.log('Where clause:', JSON.stringify(whereClause, null, 2));
+
+    // Query users with admin role
+    const { count, rows: adminUsers } = await Users.findAndCountAll({
       include: [
         {
           model: db.models.user_roles,
-          // as: 'roles', // Alias as defined in your User model associations
-          // through: {
-          //   model: db.models.user_roles,
-          //   as: 'user_roles', // Alias for the user_roles join table
-          //   attributes: ['roleid', 'location_level', 'location_id', 'county_id', 'settlement_id'], // Select specific fields from user_roles
-          // },
           required: true,
-          where: {
-            roleid: uniqueSubordinates,
-            roleid: 1 // ADMIN
-          }
+          where: { roleid: adminRole.id },
+          include: [
+            {
+              model: db.models.roles,
+              required: false
+            }
+          ]
         },
         {
           model: db.models.county,
@@ -923,61 +1151,199 @@ exports.modelAdminUsers = async (req, res) => {
           required: false
         }
       ],
-      where: {
-        id: { [Op.ne]: currentUser.id } // Exclude current user
-      },
+      where: whereClause,
       limit,
       offset: (page - 1) * limit,
-      order: [['id', 'DESC']], // Add this line to sort by ID in descending order
-      attributes: { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] } // Hide sensitive fields
-    };
+      order: [['id', 'DESC']],
+      attributes: { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] }
+    });
 
-    // Normalize and cast filter values based on the column type
-    const normalizeAndCastFilter = (filter, value) => {
-      if (typeof value === 'string') {
-        // Cast value for boolean columns
-        if (value === 'true' || value === 'false') {
-          return Sequelize.cast(value === 'true', 'BOOLEAN');
-        }
-        // Cast value for integer columns
-        if (!isNaN(value)) {
-          return Sequelize.cast(value, 'INTEGER');
-        }
-      }
-      return value; // Default case
-    };
+    // Log sample user roles to see what's being returned
+    const sampleUserRoles = adminUsers[0] ? adminUsers[0].user_roles?.map(ur => ({
+      roleid: ur.roleid,
+      location_level: ur.location_level,
+      role_name: ur.role?.name,
+      isAdmin: ur.roleid === adminRole.id
+    })) || [] : [];
+    
+    // Check if any users have settlement level roles
+    const usersWithSettlementRoles = adminUsers.filter(user => {
+      const userObj = user.toJSON ? user.toJSON() : user;
+      return userObj.user_roles?.some(ur => ur.location_level === 'settlement');
+    });
 
-    // Add filter conditions if filters and values are provided
-    if (filters.length === filterValues.length) {
-      findAndCountOptions.where[Op.and] = filters.map((filter, index) => ({
-        [filter]: { [Op.eq]: normalizeAndCastFilter(filter, filterValues[index]) }
-      }));
+    console.log('Query results:', { 
+      totalCount: count, 
+      returnedUsers: adminUsers.length,
+      usersWithSettlementRoles: usersWithSettlementRoles.length,
+      sampleUser: adminUsers[0] ? {
+        id: adminUsers[0].id,
+        name: adminUsers[0].name,
+        username: adminUsers[0].username,
+        user_roles_count: adminUsers[0].user_roles?.length || 0,
+        user_roles: sampleUserRoles
+      } : null
+    });
+    
+    if (usersWithSettlementRoles.length > 0) {
+      console.log('WARNING: Found users with settlement roles in response:', usersWithSettlementRoles.map(u => ({
+        id: u.id,
+        name: u.name,
+        settlementRoles: u.user_roles?.filter(ur => ur.location_level === 'settlement').map(ur => ({
+          roleid: ur.roleid,
+          role_name: ur.role?.name,
+          isAdmin: ur.roleid === adminRole.id
+        }))
+      })));
     }
 
-    console.log('Final Query Options for GRM Users:', findAndCountOptions);
+    // Get total counts for each location level (without pagination)
+    const baseWhereClause = {
+      id: { [Op.ne]: currentUser.id }
+    };
 
-    // Query users and include their roles with user_roles details
-    const { count, rows: grmUsers } = await Users.findAndCountAll(findAndCountOptions);
+    // Apply search condition if provided
+    if (searchString) {
+      baseWhereClause[Op.or] = [
+        { name: { [Op.iLike]: `%${searchString}%` } },
+        { username: { [Op.iLike]: `%${searchString}%` } },
+        { email: { [Op.iLike]: `%${searchString}%` } },
+        { phone: { [Op.iLike]: `%${searchString}%` } }
+      ];
+    }
 
-    // Convert photo binary data to base64 URL
-    const usersWithPhotos = grmUsers.map(user => {
-      if (user.photo) {
-        user.photo = 'data:image/png;base64,' + user.photo.toString('base64');
+    // Apply same filters but without pagination for counting
+    if (filters.length === filterValues.length && filters.length > 0) {
+      const filterConditions = filters.map((filter, index) => {
+        let value = filterValues[index];
+        if (value === 'true' || value === 'false') {
+          value = value === 'true';
+        } else if (!isNaN(value)) {
+          value = Number(value);
+        }
+        return { [filter]: { [Op.eq]: value } };
+      });
+      // Combine with existing conditions
+      if (baseWhereClause[Op.or]) {
+        baseWhereClause[Op.and] = [
+          { [Op.or]: baseWhereClause[Op.or] },
+          ...filterConditions
+        ];
+        delete baseWhereClause[Op.or];
       } else {
-        user.photo = ''; // Assign empty string if no photo
+        baseWhereClause[Op.and] = filterConditions;
       }
-      return user;
+    }
+
+    // Count national admin users
+    const { count: totalNational } = await Users.findAndCountAll({
+      include: [
+        {
+          model: db.models.user_roles,
+          required: true,
+          where: { 
+            roleid: adminRole.id,
+            location_level: 'national'
+          }
+        }
+      ],
+      where: baseWhereClause,
+      distinct: true
+    });
+
+    // Count county admin users
+    const { count: totalCounty } = await Users.findAndCountAll({
+      include: [
+        {
+          model: db.models.user_roles,
+          required: true,
+          where: { 
+            roleid: adminRole.id,
+            location_level: 'county'
+          }
+        }
+      ],
+      where: baseWhereClause,
+      distinct: true
+    });
+
+    // Count settlement admin users
+    const { count: totalSettlement } = await Users.findAndCountAll({
+      include: [
+        {
+          model: db.models.user_roles,
+          required: true,
+          where: { 
+            roleid: adminRole.id,
+            location_level: 'settlement'
+          }
+        }
+      ],
+      where: baseWhereClause,
+      distinct: true
+    });
+
+    console.log('=== ADMIN USER TOTALS BY LOCATION LEVEL ===');
+    console.log('Total National Admin Users:', totalNational);
+    console.log('Total County Admin Users:', totalCounty);
+    console.log('Total Settlement Admin Users:', totalSettlement);
+    console.log('===========================================');
+
+    // Convert photo to base64 and filter user_roles to only include admin roles
+    const usersWithPhotos = adminUsers.map(user => {
+      const userObj = user.toJSON ? user.toJSON() : user;
+      userObj.photo = userObj.photo 
+        ? 'data:image/png;base64,' + userObj.photo.toString('base64')
+        : '';
+      
+      // Ensure only admin roles are included in user_roles (safety filter)
+      if (userObj.user_roles && Array.isArray(userObj.user_roles)) {
+        userObj.user_roles = userObj.user_roles.filter(ur => ur.roleid === adminRole.id);
+      }
+      
+      return userObj;
+    });
+    
+    // Log settlement roles after filtering
+    const settlementRolesAfterFilter = usersWithPhotos.filter(user => 
+      user.user_roles?.some(ur => ur.location_level === 'settlement')
+    );
+    
+    if (settlementRolesAfterFilter.length > 0) {
+      console.log('After filtering - Users with settlement admin roles:', settlementRolesAfterFilter.length);
+      console.log('Settlement admin users:', settlementRolesAfterFilter.map(u => ({
+        id: u.id,
+        name: u.name,
+        settlementRoles: u.user_roles?.filter(ur => ur.location_level === 'settlement')
+      })));
+    } else {
+      console.log('After filtering - No users with settlement admin roles found');
+    }
+
+    console.log('Final response:', {
+      dataCount: usersWithPhotos.length,
+      total: count,
+      totalsByLevel: {
+        national: totalNational,
+        county: totalCounty,
+        settlement: totalSettlement
+      },
+      firstUser: usersWithPhotos[0] ? {
+        id: usersWithPhotos[0].id,
+        name: usersWithPhotos[0].name,
+        user_roles_count: usersWithPhotos[0].user_roles?.length || 0
+      } : null
     });
 
     res.status(200).send({
       data: usersWithPhotos,
       total: count,
       code: '0000',
-      message: 'GRM users retrieved successfully',
+      message: 'Admin users retrieved successfully',
     });
   } catch (error) {
-    console.error('Error:', error);
-    res.status(500).send({ message: 'Unable to retrieve GRM users. Please try again later.' });
+    console.error('Error in modelAdminUsers:', error);
+    res.status(500).send({ message: 'Unable to retrieve admin users. Please try again later.' });
   }
 };
  
@@ -1445,6 +1811,51 @@ exports.getSessionLogs = async (req, res) => {
     console.error('Error getting session logs:', error);
     res.status(500).send({
       message: 'Error retrieving session logs',
+      error: error.message
+    });
+  }
+};
+
+// Get last login for multiple users (batch)
+exports.getUsersLastLogin = async (req, res) => {
+  try {
+    const { userIds } = req.body;
+    
+    if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
+      return res.status(400).send({
+        message: 'userIds array is required'
+      });
+    }
+
+    const sessionTracker = require('../utils/sessionTracker');
+    const lastLoginMap = {};
+
+    // Fetch last login for all users in parallel
+    await Promise.all(userIds.map(async (userId) => {
+      try {
+        const lastLoginLog = await sessionTracker.getLastLoginLog(userId);
+        if (lastLoginLog && lastLoginLog.loginTime) {
+          lastLoginMap[userId] = lastLoginLog.loginTime;
+        } else if (lastLoginLog && lastLoginLog.date) {
+          lastLoginMap[userId] = lastLoginLog.date;
+        } else {
+          lastLoginMap[userId] = null;
+        }
+      } catch (error) {
+        console.error(`Error getting last login for user ${userId}:`, error);
+        lastLoginMap[userId] = null;
+      }
+    }));
+
+    res.status(200).send({
+      data: lastLoginMap,
+      code: '0000',
+      message: 'Last login data retrieved successfully',
+    });
+  } catch (error) {
+    console.error('Error getting users last login:', error);
+    res.status(500).send({
+      message: 'Unable to retrieve last login data',
       error: error.message
     });
   }

@@ -219,6 +219,11 @@ export const getUsersByIds = (userIds: number[], fields?: string[]): Promise<IRe
   return request.post({ url: prod + '/api/v1/user/by-ids', data: { userIds, fields } })
 }
 
+// Function to get last login for multiple users (batch)
+export const getUsersLastLogin = (userIds: number[]): Promise<IResponse<Record<number, Date | null>>> => {
+  return request.post({ url: prod + '/api/v1/user/last-login', data: { userIds } })
+}
+
 //export const setRolePermissions = (roleId, permissions) => request.put({ url: prod + `/api/v1/roles/${roleId}/permissions`, data: { permissions } })
 //export const addRolePermission = (roleId, permission) => request.post({ url: prod + `/api/v1/roles/${roleId}/permissions`, data: { permission } })
 //export const removeRolePermission = (roleId, permissionId) => request.delete({ url: prod + `/api/v1/roles/${roleId}/permissions/${permissionId}` })

@@ -9,13 +9,14 @@ import DownloadAll from '@/views/Components/DownloadAll.vue';
 
 import {
   ElButton, ElSwitch, ElSelect, ElDialog, ElDropdown, ElDropdownItem, ElMessage,
-  ElFormItem, ElForm, ElInput, ElTable, ElTableColumn, ElAvatar, ElRow, ElPagination, ElTooltip, ElOption, ElCard, ElCol
+  ElFormItem, ElForm, ElInput, ElTable, ElTableColumn, ElAvatar, ElRow, ElPagination, ElTooltip, ElOption, ElCard, ElCol, ElIcon
 } from 'element-plus'
 import {
   Position,
   Edit,
   Back,
-  Plus
+  Plus,
+  ArrowDown
 } from '@element-plus/icons-vue'
 
 import { ref, onMounted, computed } from 'vue'
@@ -105,7 +106,7 @@ onMounted(async () => {
 
 
 const dialogFormVisible = ref(false)
-const formLabelWidth = '100px'
+const formLabelWidth = computed(() => isMobile.value ? '90px' : '100px')
 
 
 let tableDataList = ref<UserType[]>([])
@@ -139,7 +140,8 @@ const form = ref({
   location_id: null,
   roles: [],
   avatar: '',
-  username: null
+  username: null,
+  organization_name: ''
 })
 
 
@@ -478,6 +480,7 @@ const EditUser = async (data: TableSlotDefault) => {
   form.value.phone = data.row.phone
   form.value.avatar = data.row.avatar
   form.value.username = data.row.username
+  form.value.organization_name = data.row.organization_name || ''
 
   data.row.user_roles.forEach(async function (userRole) {
     console.log("User's Role", userRole);
@@ -822,25 +825,33 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
       <el-table-column fixed="right" :label="isMobile ? '' : 'Operations'" :width="actionColumnWidth">
         <template #default="scope">
 
-          <el-dropdown v-if="isMobile">
-            <span class="el-dropdown-link">
-              <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
-            </span>
+          <el-dropdown v-if="isMobile" trigger="click">
+            <el-button type="primary" size="small" circle>
+              <el-icon><ArrowDown /></el-icon>
+            </el-button>
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item v-if="showAdminButtons">
                   <PermissionWrapper :permissions="['user:activate']">
                     <el-switch
-v-model="scope.row.isactive" @click="activateDeactivate(scope as TableSlotDefault)"
-                      :icon="Edit" />
+                      v-model="scope.row.isactive" 
+                      @click="activateDeactivate(scope as TableSlotDefault)"
+                      :loading="userLoadingStates[scope.row.id]"
+                      :disabled="userLoadingStates[scope.row.id]" />
+                    <span style="margin-left: 8px;">Activate/Deactivate</span>
                   </PermissionWrapper>
-
-
                 </el-dropdown-item>
-
-                <el-dropdown-item />
+                <el-dropdown-item v-else>
+                  <el-switch
+                    v-model="scope.row.isactive" 
+                    disabled />
+                  <span style="margin-left: 8px;">Activate/Deactivate</span>
+                </el-dropdown-item>
                 <PermissionWrapper :permissions="['user:update']">
-                  <el-dropdown-item @click="EditUser(scope as TableSlotDefault)" :icon="Position">Edit</el-dropdown-item>
+                  <el-dropdown-item @click="EditUser(scope as TableSlotDefault)">
+                    <el-icon><Edit /></el-icon>
+                    <span style="margin-left: 8px;">Edit</span>
+                  </el-dropdown-item>
                 </PermissionWrapper>
               </el-dropdown-menu>
             </template>
@@ -880,7 +891,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
 
 
 
-    <el-dialog draggable v-model="dialogFormVisible" title="User Details" :width="dialogWidth">
+    <el-dialog :draggable="!isMobile" v-model="dialogFormVisible" title="User Details" :width="dialogWidth">
       <el-form :model="form">
         <el-row>
           <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
@@ -906,31 +917,38 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
               <el-input v-model="form.phone" autocomplete="off" />
             </el-form-item>
           </el-col>
+
+          <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+            <el-form-item label="Organization" :label-width="formLabelWidth">
+              <el-input v-model="form.organization_name" autocomplete="off" />
+            </el-form-item>
+          </el-col>
         </el-row>
 
         <!-- Table for roles management -->
-        <el-table :data="tmp_roles" style="width: 100%" size="small">
+        <div :style="{ overflowX: 'auto', width: '100%' }">
+          <el-table :data="tmp_roles" style="width: 100%; min-width: 600px" size="small">
 
-          <el-table-column prop="role" label="Role">
+          <el-table-column prop="role" label="Role" :width="isMobile ? 120 : 150">
             <template #default="{ row }">
               <el-select
-v-model="row.roleid" placeholder="Select Role" size="small" style="width:80%" searchable
+v-model="row.roleid" placeholder="Select Role" size="small" :style="{ width: isMobile ? '100%' : '100%' }" searchable
                 filterable>
                 <el-option v-for="item in RolesOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
             </template>
           </el-table-column>
-          <el-table-column prop="level" label="Level">
+          <el-table-column prop="level" label="Level" :width="isMobile ? 100 : 120">
             <template #default="{ row }">
               <el-select
 v-model="row.location_level" placeholder="Select level" size="small" filterable
-                @change="handleChangeLevel(row.location_level)" style="width:80%">
+                @change="handleChangeLevel(row.location_level)" :style="{ width: '100%' }">
                 <el-option v-for="item in locationOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
             </template>
           </el-table-column>
 
-          <el-table-column prop="county_id" label="County">
+          <el-table-column prop="county_id" label="County" :width="isMobile ? 120 : 150">
             <template #default="{ row }">
               <el-select
                 v-model="row.county_id" 
@@ -944,20 +962,20 @@ v-model="row.location_level" placeholder="Select level" size="small" filterable
                   if (countyId) await searchSettlements('', countyId); 
                 }" 
                 size="small" 
-                style="width:80%">
+                :style="{ width: '100%' }">
                 <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
             </template>
           </el-table-column>
 
-          <el-table-column prop="settlement_id" label="Settlement">
+          <el-table-column prop="settlement_id" label="Settlement" :width="isMobile ? 140 : 180">
             <template #default="{ row }">
               <el-select
                 v-model="row.settlement_id" 
-                placeholder="Search settlements (select county first)" 
+                placeholder="Search settlements" 
                 size="small"
                 :disabled="!isSettlementLevel || !row.county_id" 
-                style="width:80%" 
+                :style="{ width: '100%' }" 
                 filterable 
                 remote
                 :remote-method="(query) => searchSettlements(query, row.county_id)"
@@ -974,12 +992,13 @@ v-model="row.location_level" placeholder="Select level" size="small" filterable
             </template>
           </el-table-column>
 
-          <el-table-column label="Actions">
+          <el-table-column label="Actions" :width="isMobile ? 80 : 120" fixed="right">
             <template #default="{ $index }">
               <el-button @click="removeRole($index)" type="danger" size="small">Remove</el-button>
             </template>
           </el-table-column>
         </el-table>
+        </div>
 
         <el-button @click="addRole" type="primary" style="margin-top: 10px;">Add Role</el-button>
       </el-form>
