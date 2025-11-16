@@ -161,7 +161,11 @@ const isCountyOrNational = computed(() =>
   )
 );
 
-
+// Check if user has permission to view deleted grievances
+const canViewDeletedGrievances = computed(() => {
+  const permissions = userInfo?.permissions || [];
+  return Array.isArray(permissions) && permissions.includes('grievance:viewDeleted');
+})
 
 const Statuses = ref([
   {
@@ -250,10 +254,18 @@ const Statuses = ref([
     value: 'Deleted',
     icon: Delete,
     count: 0,
-    hidden: !isSuperAdmin.value,
+    hidden: true, // Will be updated reactively via watch
     description: 'Grievance has been deleted (mostly training/dummy data)'
   },
 ])
+
+// Watch for permission changes and update Deleted status visibility
+watch(canViewDeletedGrievances, (hasPermission) => {
+  const deletedStatus = Statuses.value.find(s => s.value === 'Deleted')
+  if (deletedStatus) {
+    deletedStatus.hidden = !hasPermission
+  }
+}, { immediate: true })
 
 
 // Tooltip visibility map for status cards (manual control)
@@ -519,8 +531,8 @@ const getCounts = async () => {
       }
     }
 
-    // Get counts for each specific status (exclude 'All' here)
-    const statusesForCounts = Statuses.value.filter(s => s.value !== 'All');
+    // Get counts for each specific status (exclude 'All' here and hidden statuses)
+    const statusesForCounts = Statuses.value.filter(s => s.value !== 'All' && !s.hidden);
     const statusCounts = await Promise.all(
       statusesForCounts.map(async (status) => {
         const formData = {
@@ -771,6 +783,44 @@ const showEditSaveButton = ref(false)
 const handleClear = async () => {
   console.log('cleared....')
 
+  // Preserve role-based location filters before clearing
+  const roleBasedLocationFilters: { filter: string, value: any[], function: string }[] = []
+  
+  if (!isSuperAdmin.value && !isNationalStaff.value) {
+    // Check user roles to get location-based filter
+    const grmRole = userInfo.roles?.find(role => 
+      role.name === "grm" || 
+      role.name === "admin" || 
+      role.name === "root_admin" || 
+      role.name === "super_admin" || 
+      role.name === "staff"
+    )
+    
+    if (grmRole && grmRole.user_roles) {
+      const level = grmRole.user_roles.location_level
+      
+      if (level === "county" && grmRole.user_roles.county_id) {
+        roleBasedLocationFilters.push({
+          filter: "county_id",
+          value: [grmRole.user_roles.county_id],
+          function: "in"
+        })
+      } else if (level === "settlement" && grmRole.user_roles.settlement_id) {
+        roleBasedLocationFilters.push({
+          filter: "settlement_id",
+          value: [grmRole.user_roles.settlement_id],
+          function: "in"
+        })
+      } else if (level && grmRole.user_roles.location_id) {
+        roleBasedLocationFilters.push({
+          filter: "location_id",
+          value: [grmRole.user_roles.location_id],
+          function: "in"
+        })
+      }
+    }
+  }
+
   // clear all the filters -------
   filterValues.value = []
   filters.value = []
@@ -782,13 +832,23 @@ const handleClear = async () => {
   currentPage.value = 1
  
   // Reset filter selections - use null for single selections, empty array for multiple
-  selectedCounty.value = null
+  // Preserve county selection if it's role-based
+  if (!isCountyStaff.value) {
+    selectedCounty.value = null
+  }
   selectedSubCounty.value = null
   selectedWard.value = null
   selectedCategories.value = []
   referredOfficerSearch.value = ''
   selectedConfirmationStatus.value = null
   search_string.value = ''
+
+  // Restore role-based location filters
+  roleBasedLocationFilters.forEach(locFilter => {
+    filters.value.push(locFilter.filter)
+    filterValues.value.push(locFilter.value)
+    filterFunction.value.push(locFilter.function)
+  })
 
   // Clear original table data
   originalTableData.value = []
@@ -1074,6 +1134,28 @@ for (let i = 0; i < selfilterValues.length; i++) {
   formData.filterValues = validIndices.map(i => formData.filterValues[i]);
   formData.filterFunctions = validIndices.map(i => formData.filterFunctions[i]);
 
+  // Exclude deleted grievances if user doesn't have permission (unless viewing Deleted segment)
+  if (!canViewDeletedGrievances.value && activeSegment.value !== 'Deleted') {
+    const statusIndex = formData.filters.indexOf('status');
+    if (statusIndex !== -1) {
+      // If status filter exists, ensure 'Deleted' is not included
+      const statusValues = formData.filterValues[statusIndex];
+      if (Array.isArray(statusValues)) {
+        formData.filterValues[statusIndex] = statusValues.filter(s => s !== 'Deleted');
+        // Remove status filter if no values left
+        if (formData.filterValues[statusIndex].length === 0) {
+          formData.filters.splice(statusIndex, 1);
+          formData.filterValues.splice(statusIndex, 1);
+          formData.filterFunctions.splice(statusIndex, 1);
+        }
+      }
+    } else {
+      // Add filter to exclude deleted grievances using notIn (camelCase as expected by backend)
+      formData.filters.push('status');
+      formData.filterValues.push(['Deleted']);
+      formData.filterFunctions.push('notIn');
+    }
+  }
 
   //-------------------------
   //console.log(formData)
@@ -2299,6 +2381,29 @@ const getFilteredBySearchData = async (searchKey) => {
   formData.filterValues = validIndices.map(i => formData.filterValues[i]);
   formData.filterFunctions = validIndices.map(i => formData.filterFunctions[i]);
 
+  // Always exclude deleted grievances from search if user doesn't have permission
+  if (!canViewDeletedGrievances.value) {
+    const statusIndex = formData.filters.indexOf('status');
+    if (statusIndex !== -1) {
+      // If status filter exists, ensure 'Deleted' is not included
+      const statusValues = formData.filterValues[statusIndex];
+      if (Array.isArray(statusValues)) {
+        formData.filterValues[statusIndex] = statusValues.filter(s => s !== 'Deleted');
+        // Remove status filter if no values left
+        if (formData.filterValues[statusIndex].length === 0) {
+          formData.filters.splice(statusIndex, 1);
+          formData.filterValues.splice(statusIndex, 1);
+          formData.filterFunctions.splice(statusIndex, 1);
+        }
+      }
+    } else {
+      // Add filter to exclude deleted grievances using notIn (camelCase as expected by backend)
+      formData.filters.push('status');
+      formData.filterValues.push(['Deleted']);
+      formData.filterFunctions.push('notIn');
+    }
+  }
+
   //-------------------------
   console.log('SeacrchByKey_', formData)
 
@@ -3309,7 +3414,6 @@ const filterByConfirmationStatus = async (status: string | null) => {
   }
 }
 
-
 // New reactive variables for improved UX
 const isFiltersOpen = ref(false)
 const searchQuery = ref('')
@@ -3599,19 +3703,69 @@ const clearConfirmationStatusFilter = () => {
 
 // Clear all filters method
 const clearAllFilters = async () => {
-  // Reset all filter selections properly
+  // Get role-based location filters from user roles
+  let roleBasedLocationFilter: { field: string, value: any } | null = null
+  
+  if (!isSuperAdmin.value && !isNationalStaff.value) {
+    // Check user roles to get location-based filter
+    const grmRole = userInfo.roles?.find(role => 
+      role.name === "grm" || 
+      role.name === "admin" || 
+      role.name === "root_admin" || 
+      role.name === "super_admin" || 
+      role.name === "staff"
+    )
+    
+    if (grmRole && grmRole.user_roles) {
+      const level = grmRole.user_roles.location_level
+      
+      if (level === "county" && grmRole.user_roles.county_id) {
+        roleBasedLocationFilter = {
+          field: "county_id",
+          value: grmRole.user_roles.county_id
+        }
+      } else if (level === "settlement" && grmRole.user_roles.settlement_id) {
+        roleBasedLocationFilter = {
+          field: "settlement_id",
+          value: grmRole.user_roles.settlement_id
+        }
+      } else if (level && grmRole.user_roles.location_id) {
+        roleBasedLocationFilter = {
+          field: "location_id",
+          value: grmRole.user_roles.location_id
+        }
+      }
+    }
+  }
+  
+  // Reset all filter selections properly (except role-based location filters)
   selectedCategories.value = []
-  selectedCounty.value = null
+  // Only clear county if it's not a role-based filter
+  if (!isCountyStaff.value) {
+    selectedCounty.value = null
+  }
   selectedSubCounty.value = null
   selectedWard.value = null
   referredOfficerSearch.value = ''
   selectedConfirmationStatus.value = null
   search_string.value = ''
   
-  // Clear the underlying filter arrays
+  // Clear the underlying filter arrays, but preserve role-based location filters
   filterValues.value = []
   filters.value = []
   filterFunction.value = []
+  
+  // Restore role-based location filter if it exists
+  if (roleBasedLocationFilter) {
+    filters.value.push(roleBasedLocationFilter.field)
+    filterValues.value.push([roleBasedLocationFilter.value])
+    filterFunction.value.push('in')
+    
+    // Also update selectedCounty if it's a county filter
+    if (roleBasedLocationFilter.field === 'county_id' && isCountyStaff.value) {
+      selectedCounty.value = roleBasedLocationFilter.value
+    }
+  }
   
   // Clear original data and call handleClear
   originalTableData.value = []
@@ -3937,7 +4091,33 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
                 :manual="true"
                 trigger="manual"
                 v-model:visible="statusTooltipVisible[status.value]"
-                v-if="!['All', 'Deleted', 'Rejected'].includes(status.value)"
+                v-if="!['All', 'Deleted'].includes(status.value) && status.value !== 'Rejected'"
+              >
+                <div 
+                  :class="['status-card', { active: activeSegment === status.value }]"
+                  @click="onSegmentClick(status.value); showStatusTip(status.value)"
+                >
+                  <div class="status-icon">
+                    <el-icon :size="18">
+                      <component :is="status.icon" />
+                    </el-icon>
+                  </div>
+                  <div class="status-info">
+                    <div class="status-label">{{ status.label }}</div>
+                    <div class="status-count">{{ status.count }}</div>
+                  </div>
+                </div>
+              </el-tooltip>
+              
+              <el-tooltip
+                v-else-if="status.value === 'Rejected'"
+                :content="status.description"
+                placement="bottom"
+                effect="light"
+                popper-class="status-success-tooltip"
+                :manual="true"
+                trigger="manual"
+                v-model:visible="statusTooltipVisible[status.value]"
               >
                 <div 
                   :class="['status-card', { active: activeSegment === status.value }]"
@@ -3956,7 +4136,7 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
               </el-tooltip>
               
               <PermissionWrapper 
-                v-else-if="['Deleted', 'Rejected'].includes(status.value)"
+                v-else-if="status.value === 'Deleted'"
                 :permissions="['grievance:viewDeleted']"
               >
                 <el-tooltip
@@ -3992,7 +4172,7 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
           <div class="mobile-status-track">
             <template v-for="status in Statuses" :key="status.value">
               <div
-                v-if="!['All', 'Deleted', 'Rejected'].includes(status.value)"
+                v-if="!['All', 'Deleted'].includes(status.value) && status.value !== 'Rejected'"
                 :class="['mobile-status-card', { active: activeSegment === status.value }]"
                 @click="onSegmentClick(status.value)"
               >
@@ -4006,8 +4186,24 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
                   <div class="status-count">{{ status.count }}</div>
                 </div>
               </div>
+              <div
+                v-else-if="status.value === 'Rejected'"
+                :class="['mobile-status-card', { active: activeSegment === status.value }]"
+                @click="onSegmentClick(status.value)"
+              >
+                <div class="status-icon">
+                  <el-icon :size="18">
+                    <component :is="status.icon" />
+                  </el-icon>
+                </div>
+                <div class="status-info">
+                  <div class="status-label">{{ status.label }}</div>
+                  <div class="status-count">{{ status.count }}</div>
+                </div>
+              </div>
+              
               <PermissionWrapper
-                v-else-if="['Deleted', 'Rejected'].includes(status.value)"
+                v-else-if="status.value === 'Deleted'"
                 :permissions="['grievance:viewDeleted']"
               >
                 <div
