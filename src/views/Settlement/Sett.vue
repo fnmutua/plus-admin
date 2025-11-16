@@ -81,13 +81,32 @@ const loadFiltersFromStorage = () => {
 
   if (savedFilters) {
     const filterState = JSON.parse(savedFilters)
-    selectedCounty.value = filterState.selectedCounty || []
+    
+    // Only restore county if user is not county staff (county staff county is set by getUserRoles)
+    if (!isCountyStaff.value) {
+      selectedCounty.value = filterState.selectedCounty || []
+      value4.value = filterState.value4 || []
+    }
+    
     selectedSubCounty.value = filterState.selectedSubCounty || []
     selectedWard.value = filterState.selectedWard || []
     search_string.value = filterState.search_string || ''
-    filters.value = filterState.filters || [ 'isApproved', 'isActive']
-    filterValues.value = filterState.filterValues || [  ['Approved'], ['true']]
-    value4.value = filterState.value4 || []
+    
+    // Merge saved filters with role-based filters (role filters take precedence)
+    const savedFiltersArray = filterState.filters || []
+    const savedFilterValues = filterState.filterValues || []
+    
+    // Get role-based filter fields
+    const roleFilterFields = roles_filters.map(rf => rf.field).filter(Boolean)
+    
+    // Add saved filters that are not role-based
+    savedFiltersArray.forEach((filter: string, index: number) => {
+      if (!roleFilterFields.includes(filter) && !filters.value.includes(filter)) {
+        filters.value.push(filter)
+        filterValues.value.push(savedFilterValues[index] || [])
+      }
+    })
+    
     value5.value = filterState.value5 || []
     value6.value = filterState.value6 || []
   }
@@ -102,6 +121,8 @@ const showEditButtons = ref(appStore.getEditButtons)
 const isSuperAdmin = ref(
   userInfo.roles.some(role => role.name === "super_admin" || role.name === "root_admin")
 );
+const isNationalStaff = ref(false)
+const isCountyStaff = ref(false)
 const thisHistory = ref()
 
 const action_buttons = computed<string[]>(() => {
@@ -123,71 +144,91 @@ const action_buttons = computed<string[]>(() => {
 });
 
 // Process user roles
-const processedRoles = userInfo.roles.map(role => {
-  let field = null;
-  let fieldvalue = null;
-  if (role.user_roles.location_level === "county") {
-    field = "county_id";
-    fieldvalue = role.user_roles.county_id;
-  } else if (role.user_roles.location_level === "settlement") {
-    field = "settlement_id";
-    fieldvalue = role.user_roles.settlement_id;
-  } else if (role.user_roles.location_level === "national" || role.user_roles.location_level === null) {
+let processedRoles: any[] = []
+let roles_filters: { role: string; field: string | null; value: any }[] = [];
+
+const getUserRoles = async () => {
+  // Clear existing filters
+  roles_filters = [];
+  filters.value = [];
+  filterValues.value = [];
+
+  processedRoles = userInfo.roles.map(role => {
+    let field = null;
+    let fieldvalue = null;
+    const level = role.user_roles?.location_level;
+    
+    if (level === "county") {
+      isNationalStaff.value = false;
+      field = "county_id";
+      fieldvalue = role.user_roles.county_id;
+      isCountyStaff.value = true;
+      // Set selectedCounty for county staff
+      if (fieldvalue) {
+        selectedCounty.value = [fieldvalue];
+        getSubCountyNames();
+      }
+    } else if (level === "settlement") {
+      isNationalStaff.value = false;
+      field = "id"; // Use 'id' for settlement_id filter
+      fieldvalue = role.user_roles.settlement_id;
+    } else if (level === "national" || level === null) {
+      isNationalStaff.value = true;
+      return {
+        role: role.name,
+        model: "national",
+        field: null,
+        fieldvalue: null
+      };
+    } else {
+      field = "location_id";
+      fieldvalue = role.user_roles.location_id;
+    }
     return {
       role: role.name,
-      model: "national",
-      field: null,
-      fieldvalue: null
+      model: level,
+      field: field,
+      fieldvalue: fieldvalue
     };
-  } else {
-    field = "location_id";
-    fieldvalue = role.user_roles.location_id;
-  }
-  return {
-    role: role.name,
-    model: role.user_roles.location_level,
-    field: field,
-    fieldvalue: fieldvalue
-  };
-}).filter(role => role !== null);
+  }).filter(role => role !== null);
 
-let roles_filters: { role: string; field: string | null; value: any }[] = [];
-if (isSuperAdmin.value) {
-  roles_filters = [];
-  showAdminButtons.value = true
-} else if (processedRoles.some(role => role.role === "admin")) {
-  showAdminButtons.value = true
-} else if (processedRoles.some(role => role.role === "staff")) {
-  showAdminButtons.value = true
-} else {
-  const applicableRoles = processedRoles.filter(role => role.model !== "national");
-  roles_filters = applicableRoles.map(role => ({
-    role: role.role,
-    field: role.field === 'settlement_id' ? 'id' : role.field,
-    value: role.fieldvalue
-  }));
-  showAdminButtons.value = false
-}
+  // Determine roles_filters and admin buttons
+  if (isSuperAdmin.value) {
+    roles_filters = [];
+    showAdminButtons.value = true
+  } else if (processedRoles.some(role => role.role === "admin")) {
+    showAdminButtons.value = true
+  } else if (processedRoles.some(role => role.role === "staff")) {
+    showAdminButtons.value = true
+  } else {
+    const applicableRoles = processedRoles.filter(role => role.model !== "national");
+    roles_filters = applicableRoles.map(role => ({
+      role: role.role,
+      field: role.field === 'settlement_id' ? 'id' : role.field,
+      value: role.fieldvalue
+    }));
+    showAdminButtons.value = false
+  }
+
+  // Populate filters and filterValues from roles_filters
+  roles_filters.forEach(rf => {
+    if (rf.field && rf.value !== null && rf.value !== undefined) {
+      filters.value.push(rf.field);
+      filterValues.value.push(Array.isArray(rf.value) ? rf.value : [rf.value]);
+    }
+  });
+
+  console.log('isSuperAdmin.value', isSuperAdmin.value);
+  console.log('isNationalStaff.value', isNationalStaff.value);
+  console.log('isCountyStaff.value', isCountyStaff.value);
+  console.log('roles_filters --', roles_filters);
+  console.log('filters', filters.value);
+  console.log('filterValues', filterValues.value);
+};
 
 const pushRoleFilters = () => {
-  if (roles_filters.length > 0) {
-    const filterMap = {};
-    roles_filters.forEach(roleFilter => {
-      const { field, value } = roleFilter;
-      if (filterMap[field]) {
-        if (!filterMap[field].includes(value)) {
-          filterMap[field].push(value);
-        }
-      } else {
-        filterMap[field] = [value];
-      }
-    });
-    Object.keys(filterMap).forEach(field => {
-      filters.value.push(field);
-      filterValues.value.push(filterMap[field]);
-    });
-  }
- // saveFiltersToStorage(); // Save after updating filters
+  // This function is kept for backward compatibility but role filters are now applied in getUserRoles
+  // Role filters are already in filters.value and filterValues.value from getUserRoles
 };
 
 // Location-aware permission checking function
@@ -362,16 +403,52 @@ const updatePageSize = () => {
 };
 
 const getCounts = async () => {
-  const formData = {}
+  const formData: any = {}
   formData.model = 'settlement'
   formData.summaryField = 'isApproved'
   formData.summaryFunction = 'count'
   formData.groupFields = ['isApproved']
+  
+  // Build filter arrays properly
+  const filterFields: string[] = []
+  const filterValues: any[][] = []
+  const filterOperators: string[] = []
+  
+  // Always include isActive filter
+  filterFields.push('isActive')
+  filterValues.push(['true'])
+  filterOperators.push('in')
+  
+  // Add role-based filters if they exist
   if (roles_filters.length > 0) {
-    formData.filterField = [filters.value[1]]
-    formData.filterValue = [[filterValues.value[1]]]
-    formData.filterOperator = ['eq']
+    roles_filters.forEach(roleFilter => {
+      const { field, value } = roleFilter
+      if (field && value !== null && value !== undefined) {
+        // Check if this filter field is already added
+        const existingIndex = filterFields.indexOf(field)
+        if (existingIndex === -1) {
+          filterFields.push(field)
+          // Ensure value is an array
+          const filterValue = Array.isArray(value) ? value : [value]
+          filterValues.push(filterValue)
+          filterOperators.push('in')
+        } else {
+          // Merge values if field already exists
+          const existingValue = filterValues[existingIndex]
+          const newValue = Array.isArray(value) ? value : [value]
+          filterValues[existingIndex] = [...new Set([...existingValue, ...newValue])]
+        }
+      }
+    })
   }
+  
+  // Only add filterField, filterValue, and filterOperator if we have filters
+  if (filterFields.length > 0) {
+    formData.filterField = filterFields
+    formData.filterValue = filterValues
+    formData.filterOperator = filterOperators
+  }
+  
   try {
     const response = await getSummarybyFieldFromMultipleIncludes(formData);
     const amount = response.Total;
@@ -395,7 +472,8 @@ const getCounts = async () => {
 onMounted(async () => {
   window.addEventListener('resize', updatePageSize);
   updatePageSize();
-  await loadFiltersFromStorage(); // Restore filters
+  await getUserRoles(); // Initialize role-based filters first
+  await loadFiltersFromStorage(); // Restore filters (will merge with role filters)
   getCounts();
   getSettlmentHistory();
 
@@ -476,11 +554,55 @@ const isMobile = computed(() => appStore.getMobile)
 const reviewWindowWidth = ref(isMobile.value ? "100%" : "40%")
 
 const handleClear = async () => {
+  // Preserve role-based location filters before clearing
+  const roleBasedLocationFilters: { filter: string, value: any[], function: string }[] = []
+  
+  if (!isSuperAdmin.value && !isNationalStaff.value) {
+    // Check user roles to get location-based filter
+    const grmRole = userInfo.roles?.find(role => 
+      role.name === "grm" || 
+      role.name === "admin" || 
+      role.name === "root_admin" || 
+      role.name === "super_admin" || 
+      role.name === "staff"
+    )
+    
+    if (grmRole && grmRole.user_roles) {
+      const level = grmRole.user_roles.location_level
+      
+      if (level === "county" && grmRole.user_roles.county_id) {
+        roleBasedLocationFilters.push({
+          filter: "county_id",
+          value: [grmRole.user_roles.county_id],
+          function: "in"
+        })
+      } else if (level === "settlement" && grmRole.user_roles.settlement_id) {
+        roleBasedLocationFilters.push({
+          filter: "id",
+          value: [grmRole.user_roles.settlement_id],
+          function: "in"
+        })
+      } else if (level && grmRole.user_roles.location_id) {
+        roleBasedLocationFilters.push({
+          filter: "location_id",
+          value: [grmRole.user_roles.location_id],
+          function: "in"
+        })
+      }
+    }
+  }
+
   enableSubcounty.value = false
   search_string.value = ''
-  selectedCounty.value = []
+  
+  // Only clear county selection if it's not role-based
+  if (!isCountyStaff.value) {
+    selectedCounty.value = []
+  }
   selectedSubCounty.value = []
   selectedWard.value = []
+  
+  // Clear the underlying filter arrays
   filterValues.value = []
   filters.value = []
   value4.value = []
@@ -488,6 +610,13 @@ const handleClear = async () => {
   value6.value = []
   dateRange.value = []
   currentPage.value = 1
+
+  // Restore role-based location filters
+  roleBasedLocationFilters.forEach(locFilter => {
+    filters.value.push(locFilter.filter)
+    filterValues.value.push(locFilter.value)
+  })
+
   localStorage.removeItem('settlementFilters'); // Clear stored filters
   await getAllSetllementsInitially(activeSegment.value)
 }
@@ -1087,6 +1216,11 @@ const wardOptions = ref([])
 const subcountiesOptions = ref([])
 
 const getSubCountyNames = async () => {
+  // Handle array for selectedCounty (get first value if array)
+  const countyId = Array.isArray(selectedCounty.value) && selectedCounty.value.length > 0 
+    ? selectedCounty.value[0] 
+    : selectedCounty.value;
+  
   const res = await getListWithoutGeo({
     params: {
       pageIndex: 1,
@@ -1094,7 +1228,7 @@ const getSubCountyNames = async () => {
       curUser: 1,
       model: 'subcounty',
       searchField: 'county_id',
-      searchKeyword: selectedCounty.value,
+      searchKeyword: countyId,
       sort: 'ASC'
     }
   }).then((response: { data: any }) => {
@@ -1136,14 +1270,18 @@ const getWardNames = async () => {
 }
 
 const filterByCounty = async (county_id: any) => {
-  if (county_id) {
+  if (county_id && (Array.isArray(county_id) ? county_id.length > 0 : true)) {
     enableSubcounty.value = true
-    selectedCounty.value = county_id
+    // Ensure selectedCounty is always an array
+    selectedCounty.value = Array.isArray(county_id) ? county_id : [county_id]
     value4.value = county_id
     await getSubCountyNames()
   } else {
-    selectedCounty.value = []
-    value4.value = []
+    // Only clear if not county staff (county staff should keep their county)
+    if (!isCountyStaff.value) {
+      selectedCounty.value = []
+      value4.value = []
+    }
   }
   selectedSubCounty.value = []
   selectedWard.value = []
@@ -2339,7 +2477,7 @@ duplicateRecords.value.forEach(county => {
         </div>
       </el-col>
 
-      <el-col :xs="24" :sm="24" :md="12" :lg="4">
+      <el-col :xs="24" :sm="24" :md="12" :lg="4" v-if="isNationalStaff || isSuperAdmin">
         <el-select
 size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear" multiple clearable
           filterable collapse-tags placeholder="By County" style=" margin-right: 5px;">

@@ -1248,14 +1248,18 @@ let groupfields = []
 
   const operatorMappings = {
     eq: op.eq,
+    ne: op.ne,
     gt: op.gt,
     gte: op.gte,
     lt: op.lt,
+    lte: op.lte,
     in: op.in,
-    contains:op.overlap,
-    lte: op.lte, // Added lte mapping
-    or: op.or, // Added lte mapping
-     notEmpty: op.not, // Added lte mapping
+    notIn: op.notIn,
+    contains: op.overlap,
+    or: op.or,
+    notEmpty: op.not,
+    like: op.like,
+    iLike: op.iLike,
 
     // Add more operator mappings as needed
   };
@@ -1322,8 +1326,8 @@ if (req.body.filterField && req.body.filterValue &&req.body.filterOperator && re
             console.log('>><<', operatorMappings[operator],filterVal)
             let nestedConditions
 
-            if (operator === 'in') {
-              // For 'in' operator, use the array directly without wrapping in OR
+            if (operator === 'in' || operator === 'notIn') {
+              // For 'in' and 'notIn' operators, use the array directly without wrapping in OR
               nestedConditions = { [filterCol]: { [operatorMappings[operator]]: filterVal } };
             } else if (operator === 'contains') {
              // nestedConditions = filterVal.map((nestedVal) => ({ [filterCol]: { [operatorMappings[operator]]: nestedVal } }));
@@ -1336,8 +1340,8 @@ if (req.body.filterField && req.body.filterValue &&req.body.filterOperator && re
            
 
 
-            if (operator === 'in') {
-              // For 'in' operator, push the condition directly
+            if (operator === 'in' || operator === 'notIn') {
+              // For 'in' and 'notIn' operators, push the condition directly
               filterConditions.push(nestedConditions);
             } else {
               // For other operators, wrap in OR
