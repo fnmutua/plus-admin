@@ -1415,7 +1415,7 @@ const disableFutureDates = (date: Date) => {
 
 const submitForm = async () => {
   if (!grmForm.value.date_reported) {
-    grmForm.value.date_reported = new Date();
+  grmForm.value.date_reported = new Date();
   }
   grmForm.value.status = 'Sorting'
 
@@ -1859,13 +1859,6 @@ const tourSteps = ref([
     target: '#btn5',
     title: 'Phone',
     content: 'Please provide the complainants phone number. We require this for  communication on the status of the complaint',
-    visible: true
-  },
-  {
-    step: 0,
-    target: '#btn6',
-    title: 'Email(optional)',
-    content: 'Please provide an email address if available. We may use this for our communication on the status of the complaint',
     visible: true
   },
   {
@@ -4706,11 +4699,6 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
                   placeholder="Enter complainant's phone number (254.....) - we will use this to communicate about the complaint status"
                   @input="convertPhoneNumber(grmForm.phone)"
                 />
-              </el-form-item>
-            </el-col>
-            <el-col :xs="24" :sm="24" :md="24" :lg="24">
-              <el-form-item id="btn6" label="Email (Optional)" prop="email">
-                <el-input v-model="grmForm.email" placeholder="Enter email" />
               </el-form-item>
             </el-col>
             <el-col :xs="24" :sm="24" :md="24" :lg="24">

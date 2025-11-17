@@ -1327,7 +1327,7 @@ const grmForm = ref({
 const clickEdit = () => {
   getCounties()
   getSettlementByCounty(FullGrievanceData.value.county_id)
-  console.log(FullGrievanceData.value)
+console.log(FullGrievanceData.value)
   grmForm.value = {
     name: FullGrievanceData.value.name || '',
     gender: FullGrievanceData.value.gender || '',
@@ -1351,7 +1351,7 @@ const clickEdit = () => {
     witness_statement: FullGrievanceData.value.witness_statement || '',
     project_phase: FullGrievanceData.value.project_phase || 'KISIP 2',
     date_reported: FullGrievanceData.value.date_reported ? new Date(FullGrievanceData.value.date_reported) : null,
-  };
+   };
   active.value = 0
   fileList.value = []
   EditDialogVisible.value = true
@@ -1372,7 +1372,7 @@ const saveGrievance = async () => {
       form.value.action_level = current_user_roles[0] ? current_user_roles[0] : 'settlement'
       form.value.current_level = Grievance.value.current_level;
       form.value.new_status = Grievance.value.status;
-      
+ 
       // Set a meaningful action message describing the edit
       const changedFields = [];
       const fieldLabels = {
@@ -1414,20 +1414,20 @@ const saveGrievance = async () => {
       // Upload files if any - temporarily set form.value.fileList for upload
       if (fileList.value && fileList.value.length > 0) {
         form.value.fileList = fileList.value
-        await uploadFiles(res.data.id, Grievance.value.id)
+      await uploadFiles(res.data.id, Grievance.value.id)
         form.value.fileList = []
       }
 
       const formData = {}
-      formData.code = FullGrievanceData.value.code 
+        formData.code = FullGrievanceData.value.code 
       formData.updatedData = grmForm.value
 
       // Update the grievance
-      await updateGrievance(formData)
+     await updateGrievance(formData)
 
-      await processGrievance()
+     await processGrievance()
 
-      EditDialogVisible.value = false
+     EditDialogVisible.value = false
 
       ElMessage({
         message: res.message || 'Grievance updated successfully',
@@ -2847,9 +2847,9 @@ width="340"
         <el-step :title="isMobile ? '' : 'Grievance Details'" :icon="InfoFilled" />
         <el-step :title="isMobile ? '' : 'Complaint Details'" :icon="Paperclip" />
         <el-step :title="isMobile ? '' : 'Review & Submit'" :icon="CircleCheck" />
-      </el-steps>
+            </el-steps>
 
-      <el-form
+            <el-form
         :model="grmForm"
         class="grievance-form"
         label-position="top"
@@ -2861,44 +2861,39 @@ width="340"
         <div v-if="active === 0" class="form-step">
           <el-row :gutter="8">
             <el-col :xs="24" :sm="24" :md="24" :lg="24">
-              <el-form-item id="btn1" label="Name of Complainant" prop="name">
-                <el-input v-model="grmForm.name" placeholder="Enter name" />
-              </el-form-item>
+              <el-form-item id="btn1" label="Name of Complainant(s)" prop="name">
+                <el-input v-model="grmForm.name" type="textarea" :rows="2" placeholder="Enter one or more names (separate by comma). Provide complainant's full name(s) as on National ID. Fill Anonymous for anonymity." />
+                    </el-form-item>
             </el-col>
             <el-col :xs="24" :sm="24" :md="24" :lg="24">
-              <el-form-item id="btn2" label="Gender" prop="gender">
-                <el-select v-model="grmForm.gender" placeholder="Select gender" style="width: 100%;" filterable>
-                  <el-option label="Male" value="male" />
+                    <el-form-item id="btn2" label="Gender" prop="gender">
+                <el-select v-model="grmForm.gender" placeholder="Select the complainant's gender" style="width: 100%;" filterable>
+                        <el-option label="Male" value="male" />
                   <el-option label="Female" value="female" />
                   <el-option label="Other" value="other" />
-                </el-select>
-              </el-form-item>
+                      </el-select>
+                    </el-form-item>
             </el-col>
             <el-col :xs="24" :sm="24" :md="24" :lg="24">
               <el-form-item id="btn3" label="Age Bracket" prop="age">
-                <el-select v-model="grmForm.age" placeholder="Select age bracket" style="width: 100%;" filterable>
+                <el-select v-model="grmForm.age" placeholder="Select the complainant's age bracket" style="width: 100%;" filterable>
                   <el-option v-for="range in ageRanges" :key="range.value" :label="range.label" :value="range.value" />
-                </el-select>
-              </el-form-item>
-            </el-col>
+                      </el-select>
+                    </el-form-item>
+                  </el-col>
             <el-col :xs="24" :sm="24" :md="24" :lg="24">
-              <el-form-item id="btn4" label="National ID" prop="national_id">
-                <el-input v-model="grmForm.national_id" placeholder="Enter national ID" />
-              </el-form-item>
+                    <el-form-item id="btn4" label="National ID" prop="national_id">
+                <el-input v-model="grmForm.national_id" placeholder="Enter complainant's national ID (required especially for land related complaints)" />
+                    </el-form-item>
             </el-col>
             <el-col :xs="24" :sm="24" :md="24" :lg="24">
               <el-form-item id="btn5" label="Phone Number" prop="phone">
-                <el-input
+                      <el-input
                   v-model="grmForm.phone"
-                  placeholder="Enter phone number"
+                  placeholder="Enter complainant's phone number (254.....) - we will use this to communicate about the complaint status"
                   @input="convertPhoneNumber(grmForm.phone)"
                 />
-              </el-form-item>
-            </el-col>
-            <el-col :xs="24" :sm="24" :md="24" :lg="24">
-              <el-form-item id="btn6" label="Email (Optional)" prop="email">
-                <el-input v-model="grmForm.email" placeholder="Enter email" />
-              </el-form-item>
+                    </el-form-item>
             </el-col>
             <el-col :xs="24" :sm="24" :md="24" :lg="24">
               <el-form-item id="btn7" label="Date Reported" prop="date_reported">
@@ -2910,17 +2905,17 @@ width="340"
                   format="YYYY-MM-DD"
                   :disabled-date="disableFutureDates"
                 />
-              </el-form-item>
-            </el-col>
-          </el-row>
+                    </el-form-item>
+                  </el-col>
+                </el-row>
         </div>
 
-        <!-- Step 2: Grievance Details -->
+                  <!-- Step 2: Grievance Details -->
         <div v-if="active === 1" class="form-step">
           <el-row :gutter="8">
             <el-col :xs="24" :sm="24" :md="24" :lg="24">
-              <el-form-item id="btn10" label="County" prop="county_id">
-                <el-select
+                    <el-form-item id="btn10" label="County" prop="county_id">
+                      <el-select
                   v-model="grmForm.county_id"
                   placeholder="Select county"
                   style="width: 100%;"
@@ -2933,33 +2928,32 @@ width="340"
                     :label="item.label"
                     :value="item.value"
                   />
-                </el-select>
-              </el-form-item>
+                      </el-select>
+                    </el-form-item>
             </el-col>
             <el-col :xs="24" :sm="24" :md="24" :lg="24">
-              <el-form-item id="btn10a" label="Project Phase" prop="project_phase">
-                <el-select
-                  filterable
-                  v-model="grmForm.project_phase"
-                  placeholder="Select Project Phase"
+                    <el-form-item id="btn10a" label="Project Phase" prop="project_phase">
+                      <el-select
+                        filterable
+                        v-model="grmForm.project_phase"
+                        placeholder="Select Project Phase (KISIP 1 or KISIP 2)"
                   style="width: 100%;"
-                >
-                  <el-option
-                    v-for="item in projectPhaseOptions"
-                    :key="item.value"
-                    :label="item.label"
-                    :value="item.value"
-                  />
-                </el-select>
-                <el-text type="info" size="small" style="display: block; margin-top: 4px;">Select the project phase (KISIP 1 or KISIP 2).</el-text>
-              </el-form-item>
+                      >
+                        <el-option
+                          v-for="item in projectPhaseOptions"
+                          :key="item.value"
+                          :label="item.label"
+                          :value="item.value"
+                        />
+                      </el-select>
+                    </el-form-item>
             </el-col>
             <el-col :xs="24" :sm="24" :md="24" :lg="24">
               <el-form-item id="btn11" prop="settlement_id">
                 <template #label>
                   Settlement
                 </template>
-                <el-select
+                      <el-select
                   v-model="grmForm.settlement_id"
                   placeholder="Select settlement"
                   :disabled="!grmForm.county_id"
@@ -2967,20 +2961,20 @@ width="340"
                   filterable
                   @change="handleSelectSettlement(grmForm.settlement_id)"
                 >
-                  <el-option
+                        <el-option
                     v-for="item in settlementOptions"
                     :key="item.value"
                     :label="item.label"
                     :value="item.value"
                   />
-                </el-select>
-              </el-form-item>
+                      </el-select>
+                    </el-form-item>
             </el-col>
             <el-col :xs="24" :sm="24" :md="24" :lg="24">
-              <el-form-item id="btn12" label="Address" prop="address">
-                <el-input v-model="grmForm.address" placeholder="Enter address (e.g., near XXX Primary School)" />
-              </el-form-item>
-            </el-col>
+              <el-form-item id="btn12" label="Physical Address" prop="address">
+                <el-input v-model="grmForm.address" placeholder="Enter complainant's physical address (e.g., near XXX Primary school, Plot No. XXX)" />
+                    </el-form-item>
+                  </el-col>
             <el-col :xs="24" :sm="24" :md="24" :lg="24">
               <el-form-item id="btn13" label="Is this a GBV-related complaint?">
                 <el-switch v-model="grmForm.isgbv" />
@@ -3006,30 +3000,30 @@ width="340"
                     :label="item.label"
                     :value="item.value"
                   />
-                </el-select>
-              </el-form-item>
+                                  </el-select>
+                                </el-form-item>
             </el-col>
             <el-col :xs="24" :sm="24" :md="24" :lg="24">
               <el-form-item id="btn15" label="Description" prop="description">
-                <el-input
+                      <el-input
                   type="textarea"
                   v-model="grmForm.description"
                   placeholder="Provide a detailed description"
                   :rows="isMobile ? 3 : 4"
                 />
-              </el-form-item>
+                    </el-form-item>
             </el-col>
             <el-col :xs="24" :sm="24" :md="24" :lg="24">
-              <el-form-item id="btn16" label="Plea/Request" prop="plea">
-                <el-input
+                    <el-form-item id="btn16" label="Plea/Request" prop="plea">
+                      <el-input
                   type="textarea"
                   v-model="grmForm.plea"
-                  placeholder="Enter the complainant's plea or request"
+                  placeholder="Enter complainant's plea or request - what action would you like to be taken?"
                   :rows="isMobile ? 3 : 4"
                 />
-              </el-form-item>
-            </el-col>
-          </el-row>
+                    </el-form-item>
+                  </el-col>
+                </el-row>
         </div>
 
         <!-- Step 4: Review & Submit -->
@@ -3089,9 +3083,9 @@ width="340"
 
 
                   </el-col>
-          </el-row>
+                </el-row>
         </div>
-      </el-form>
+            </el-form>
 
       <!-- Drawer Footer -->
       <div class="drawer-footer" :class="{ 'mobile-footer': isMobile }">
@@ -3103,8 +3097,8 @@ width="340"
           :class="{ 'mobile-button': isMobile }"
         >
           Previous
-        </el-button>
-        <el-button 
+                  </el-button>
+                  <el-button
           id="btn7" 
           v-if="active < 3" 
           type="primary" 
@@ -3131,8 +3125,8 @@ width="340"
         >
           Cancel
         </el-button>
-      </div>
-    </div>
+                 </div>
+              </div>
   </el-drawer>
 
   <!-- Confirmation Dialog -->

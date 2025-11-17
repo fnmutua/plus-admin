@@ -2,22 +2,19 @@
   <BaseLayout>
     <div class="grievance-container" id="grievance-form">
       <el-card class="grievance-card">
-          <el-tabs v-model="activeName" :tab-position="tabPosition">
+        <section aria-label="Grievance Filing Process">
+          <h1 class="visually-hidden">File a Grievance with KISIP</h1>
+          <el-steps :active="active" finish-status="success" aria-label="Grievance filing steps">
+            <el-step title="Personal Details" />
+            <el-step title="Grievance Details" />
+            <el-step title="Complaint Details" />
+            <el-step title="Review & Submit" />
+          </el-steps>
+        </section>
 
-            <el-tab-pane label="File a Grievance" name="file">
-              <section aria-label="Grievance Filing Process">
-                <h1 class="visually-hidden">File a Grievance with KISIP</h1>
-                <el-steps :active="active" finish-status="success" aria-label="Grievance filing steps">
-                  <el-step title="Personal Details" />
-                  <el-step title="Grievance Details" />
-                  <el-step title="Complaint Details" />
-                  <el-step title="Review & Submit" />
-                </el-steps>
-              </section>
-
-              <el-form
-              :model="grmForm" class="demo-form-inline" label-position="top" :rules="currentStepRules" size="small"
-                ref="dynamicFormRef">
+        <el-form
+          :model="grmForm" class="demo-form-inline" label-position="top" :rules="currentStepRules" size="small"
+          ref="dynamicFormRef">
                 <el-card shadow="hover">
                   <el-row v-if="active === 0" :gutter="10">
                     <!-- Step 1: Personal Details -->
@@ -257,56 +254,6 @@ id="btn20" class="upload-demo"
                 </el-card>
               </el-form>
 
-
-            </el-tab-pane>
-
-            <el-tab-pane label="Check Status of a Grievance" name="status">
-              <el-form :inline="false" :model="statusForm" class="status-form" label-position="top">
-                <el-card shadow="hover">
-                  <el-row :gutter="10">
-                    <el-col :xs="24" :sm="24" :md="12" :lg="6" :xl="6">
-                      <el-form-item label="Grievance Code">
-                        <el-input v-model="statusForm.grievanceCode" placeholder="GRM-0000-0000" />
-                      </el-form-item>
-                    </el-col>
-                    <el-col :xs="24" :sm="24" :md="12" :lg="6" :xl="6">
-                      <el-form-item label="Phone Number">
-                        <el-input v-model="statusForm.phoneNumber" placeholder="25470000000" />
-                      </el-form-item>
-                    </el-col>
-                  </el-row>
-                  <el-row>
-                    <el-col :span="24">
-                      <el-button type="primary" @click="checkStatus">Check Status</el-button>
-                    </el-col>
-                  </el-row>
-                  <el-row :gutter="10">
-                    <el-col :span="24">
-                      <div class="status-result" v-if="statusResult">
-                        <el-card style="margin-top: 10px">
-                          <p style="margin-top: 10px"><strong>Ref:</strong> {{ statusResult.code }}</p>
-                          <p style="margin-top: 10px"><strong>Date Reported:</strong> {{ statusResult.date_reported }}
-                            ({{ getDaysSince(statusResult.date_reported) }} days ago)</p>
-                            <p style="margin-top: 10px"><strong>Status:</strong> {{ statusResult.status }}</p>
-                            <p style="margin-top: 10px"><strong>Status2:</strong> {{ statusResult.daysToExpiryDate }}</p>
-                            <el-button  
-                              type="danger"
-                              style="margin-top: 10px"
-                              v-if="statusResult.daysToExpiryDate < 0" 
-                              @click="escalateIssue"
-                            >
-                              {{ statusResult.escalateLabel }}
-                            </el-button>
-
-
-                        </el-card>
-                      </div>
-                    </el-col>
-                  </el-row>
-                </el-card>
-              </el-form>
-            </el-tab-pane>
-          </el-tabs>
           <template #footer>
             <div class="steps-navigation">
               <div class="nav-group-left">
@@ -349,33 +296,6 @@ id="btn20" class="upload-demo"
 v-for="(step, index) in filteredTourSteps" :key="index" :target="step.target" :title="step.title"
           :description="step.content" />
       </el-tour>
-
-    <el-dialog 
-          v-model="showEscalateMessage" 
-          title="Escalate Grievance" 
-          width="50%" 
-          :close-on-click-modal="false"
-        >
-          <el-row justify="center">
-            <el-col :span="24">
-              <el-input 
-                v-model="EscalateMessage" 
-                placeholder="Enter escalation reason. Provide as much detail as possible" 
-                type="textarea" 
-                :rows="3"
-                maxlength="500"
-                show-word-limit
-              />
-            </el-col>
-          </el-row>
-
-          <template #footer>
-            <div class="dialog-footer">
-              <el-button @click="showEscalateMessage = false">Cancel</el-button>
-              <el-button type="success" @click="submitEscalation()">Submit</el-button>
-            </div>
-          </template>
-  </el-dialog>
     </BaseLayout>
 </template>
 
@@ -383,19 +303,19 @@ v-for="(step, index) in filteredTourSteps" :key="index" :target="step.target" :t
 import { ref,watch, computed, nextTick } from 'vue';
 import {
   ElButton, ElCard, ElForm, ElFormItem,  ElUpload, ElCheckbox, ElTour, ElTourStep, ElSwitch,
-  ElTabPane, ElTabs, ElSelect, ElOption, ElRow, ElCol, ElMessage, ElStep, ElSteps, ElIcon, ElTooltip,ElDialog, ElText, ElDatePicker,
+  ElSelect, ElOption, ElRow, ElCol, ElMessage, ElStep, ElSteps, ElIcon, ElTooltip, ElText, ElDatePicker,
 } from 'element-plus';
 
 import BaseLayout from './BaseLayout.vue';
 import { getCountyAuth, getSettlementByCountyAuth } from '@/api/register'
-import { uploadGrievanceDocuments, generateGrievance, logGrievanceAction, getGrievanceStatus, sendAcknowledgement,selfEscalate } from '@/api/grievance'
+import { uploadGrievanceDocuments, generateGrievance, logGrievanceAction, sendAcknowledgement } from '@/api/grievance'
 
 import { useHead } from '@unhead/vue'
 
 useHead({
   title: 'File a Grievance | KeSMIS Kenya Slum Management Information System',
   meta: [
-    { name: 'description', content: 'File a grievance with KeSMIS KISIP project. Submit complaints, feedback, or concerns about the Kenya Informal Settlements Improvement Project through our online grievance management system.' },
+    { name: 'description', content: 'File a grievance with  KISIP project. Submit complaints, feedback, or concerns about the Kenya Informal Settlements Improvement Project through our online grievance management system.' },
     { name: 'keywords', content: 'file grievance, KISIP complaint, Kenya slum management grievance, online complaint form, KISIP feedback, grievance management system' },
     { name: 'author', content: 'Kenya Informal Settlements Improvement Project (KISIP)' },
     { name: 'robots', content: 'index, follow' },
@@ -435,10 +355,9 @@ import type { UploadUserFile } from 'element-plus'
 import { uuid } from 'vue-uuid'
 import { useRouter } from 'vue-router';
 import { ElInput } from 'element-plus';
-import type { FormInstance, FormRules } from 'element-plus';
+import type { FormInstance } from 'element-plus';
 
 
-const activeName = ref('file');
 const active = ref(0);
 
 const projectPhaseOptions = [
@@ -500,16 +419,6 @@ interface GrievanceForm {
   subcounty_id?: string;
   ward_id?: string;
   project_phase?: string;
-}
-
-interface StatusResult {
-  code: string;
-  id: string;
-  date_reported: string;
-  status: string;
-  daysToExpiryDate: number;
-  current_level: string;
-  escalateLabel: string;
 }
 
 interface CountyOption {
@@ -592,22 +501,6 @@ const currentStepRules = computed(() => {
 });
 
 console.log('currentStepRules', currentStepRules)
-
-const statusForm = ref({
-  grievanceCode: '',
-  phoneNumber: '',
-});
-
-const statusResult = ref<StatusResult>({
-  code: '',
-  id: '',
-  date_reported: '',
-  status: '',
-  daysToExpiryDate: 0,
-  current_level: '',
-  escalateLabel: ''
-});
-
 
 const ageRanges = [
   { value: 'unspecified', label: 'Unspecified' },
@@ -958,43 +851,6 @@ const submitForm = async () => {
 
 
 
-   // Watch for changes in grievanceCode and format as "GRM-..."
-   watch(
-      () => statusForm.value.grievanceCode,
-      (newVal) => {
-        if (!newVal.startsWith("GRM-")) {
-          statusForm.value.grievanceCode = `GRM-${newVal.replace(/[^0-9]/g, "")}`;
-        }
-      }
-    );
-
-    
-
- 
-
-// Watch for changes in phoneNumber and ensure it starts with "254"
-watch(
-  () => statusForm.value.phoneNumber,
-  (newVal) => {
-    // Remove non-numeric characters
-    let sanitizedNumber = newVal.replace(/[^0-9]/g, "");
-
-    // Check if it starts with '0' and truncate it
-    if (sanitizedNumber.startsWith("0")) {
-      sanitizedNumber = sanitizedNumber.substring(1);
-    }
-
-    // Add '254' prefix if it's missing
-    if (!sanitizedNumber.startsWith("254")) {
-      sanitizedNumber = `254${sanitizedNumber}`;
-    }
-
-    // Ensure the number doesn't exceed the typical length of 12 digits
-    statusForm.value.phoneNumber = sanitizedNumber.substring(0, 12);
-  }
-);
-
-
 // Watch for changes in phoneNumber and ensure it starts with "254"
 watch(
   () => grmForm.value.phone,
@@ -1070,29 +926,6 @@ const resetForm = () => {
   }
 };
 
-const checkStatus = async () => {
-
-  console.log(statusForm.value)
-  const res = await getGrievanceStatus(statusForm.value)
-  console.log(res.data)
-
-  // Handle checking status logic here
-  statusResult.value = {
-    code: res.data.code,
-    id: res.data.id,
-    date_reported: res.data.date_reported,
-    status: res.data.status,
-    daysToExpiryDate: res.data.daysToExpiryDate,
-    current_level:  res.data.current_level,
-    escalateLabel:  res.data.escalateLabel
-  };
-};
-
-
- 
- 
-
- 
 
 
 
@@ -1116,11 +949,6 @@ const beforeRemove = (file) => {
 const handleExceed = (files, fileList) => {
   ElMessage.warning('You can only upload up to 3 files.');
 };
-
-
-const tabPosition = ref('top')
-
-
 
 const isTourVisible = ref(false)
 const showTour = () => {
@@ -1380,80 +1208,6 @@ function convertPhoneNumber(phoneNumber: string | undefined) {
   grmForm.value.phone = trimmedPhoneNumber
 
 }
-
-function getDaysSince(dateString) {
-  // Parse the given date
-  const givenDate = new Date(dateString);
-
-  // Get the current date
-  const currentDate = new Date();
-
-  // Calculate the difference in time (milliseconds)
-  const timeDifference = currentDate - givenDate;
-
-  // Convert time difference from milliseconds to days (1000 ms * 60 sec * 60 min * 24 hours)
-  const daysDifference = Math.floor(timeDifference / (1000 * 60 * 60 * 24));
-
-  return daysDifference;
-}
-
-const showEscalateMessage=ref(false)
-const EscalateMessage=ref(null)
-const escalateIssue = async () => {
-
-  console.log('Escalating......')
-  showEscalateMessage.value=true
-
- }
- const submitEscalation = async () => {
-
-  console.log(EscalateMessage.value)
-
-  const formData = {}
-  formData.code = statusResult.value.code
-  formData.action = EscalateMessage.value
-  formData.new_status = 'Escalated'
-
-  if (statusResult.value.current_level === 'settlement') {
-  formData.current_level = 'county';
-} else if (statusResult.value.current_level === 'county') {
-  formData.current_level = 'national';
-} else {
-  formData.current_level = statusResult.value.current_level; // Default fallback (no change)
-}
-  
-formData.status_expiry_date = new Date() + getStageDuration(formData.new_status);
-formData.current_status_date=new Date();
-
-// here we provide log actiion 
-formData.grievance_id=statusResult.value.id
-formData.action_type = 'Escalate'
-formData.action_by = 1 /// to be changed
-formData.date_actioned = new Date();
-formData.prev_status = statusResult.value.status
-formData.action_level = statusResult.value.current_level 
-  
-
-
-console.log(formData)
-
-try {
-  const res = await selfEscalate(formData);
-  if (res) {
-    console.log(res)
-
-    await logGrievanceAction(formData);
-  }
-} catch (error) {
-  console.error("Error in selfEscalate:", error);
-}
-
-
-
-
-  showEscalateMessage.value=false
-
- }
 
 // Dark mode is handled by BaseLayout; styles respond to the inherited `.dark-mode` class.
  
