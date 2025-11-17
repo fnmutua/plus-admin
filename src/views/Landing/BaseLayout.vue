@@ -136,10 +136,10 @@ const appStore = useAppStoreWithOut();
 // Get current year for copyright
 const currentYear = new Date().getFullYear();
 
+const COMPACT_BREAKPOINT = 768; // px breakpoint for switching to mobile navigation
 const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1600);
-const isSmallScreen = computed(() => windowWidth.value <= 768);
-const isMediumScreen = computed(() => windowWidth.value > 768 && windowWidth.value <= 1600);
-const isCompactScreen = computed(() => isSmallScreen.value || isMediumScreen.value);
+const isSmallScreen = computed(() => windowWidth.value <= COMPACT_BREAKPOINT);
+const isCompactScreen = computed(() => windowWidth.value <= COMPACT_BREAKPOINT);
 const menuOpen = ref(false);
 const isDark = computed(() => appStore.getIsDark);
 const isScrolled = ref(false);
@@ -257,7 +257,7 @@ onBeforeUnmount(() => {
 
 function handleResize() {
   windowWidth.value = window.innerWidth;
-  if (windowWidth.value > 1600 && menuOpen.value) {
+  if (windowWidth.value > COMPACT_BREAKPOINT && menuOpen.value) {
     menuOpen.value = false;
   }
 }
@@ -728,8 +728,8 @@ nav {
   text-align: left;
 }
 
-/* Small & medium screen styles */
-@media (max-width: 1600px) {
+/* Small screen styles */
+@media (max-width: 768px) {
   .header-content {
     justify-content: flex-end;
     padding: 10px;
@@ -830,7 +830,7 @@ nav {
 }
 
 /* Responsive styles */
-@media (max-width: 1600px) {
+@media (max-width: 768px) {
   .header-content {
     padding: 15px;
   }
@@ -842,7 +842,7 @@ nav {
   }
 }
 
-@media (max-width: 1600px) {
+@media (max-width: 768px) {
   .base-layout {
     min-height: 100vh;
     overflow-y: visible;

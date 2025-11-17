@@ -105,7 +105,8 @@ import { useAppStoreWithOut } from '@/store/modules/app'
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
-const userInfo = wsCache.get(appStore.getUserInfo)
+// Don't read userInfo at module load - it may not be available yet
+// const userInfo = wsCache.get(appStore.getUserInfo)
 
 
 
@@ -407,6 +408,13 @@ const getComponents = async (): Promise<void> => {
  // Wrap your code in an async function
  
   const getDynamicDashboards = async (): Promise<void> => {
+    // Get userInfo dynamically when called, not at module load
+    const currentUserInfo = wsCache.get(appStore.getUserInfo)
+    if (!currentUserInfo || !currentUserInfo.id) {
+      console.warn('Cannot load dynamic dashboards: user not logged in');
+      return;
+    }
+    
     const formData: RouteRequestData = {
       limit: 100,
       page: 1,
@@ -415,7 +423,7 @@ const getComponents = async (): Promise<void> => {
       searchField: 'title',
       searchKeyword: '',
       filters: ['createdBy'],
-      filterValues: [[userInfo.id]],
+      filterValues: [[currentUserInfo.id]],
       associated_multiple_models: []
     };
   
@@ -516,6 +524,13 @@ const getComponents = async (): Promise<void> => {
 // Initialize loading with proper sequencing
 const initializeRoutes = async () => {
   try {
+    // Check if user is logged in before loading routes
+    const currentUserInfo = wsCache.get(appStore.getUserInfo)
+    if (!currentUserInfo) {
+      console.log('User not logged in, skipping route initialization');
+      return;
+    }
+    
     // Load dashboards first for immediate availability
     if (!dashboardsLoaded.value) {
       await loadDashboardsImmediately();
@@ -533,8 +548,8 @@ const initializeRoutes = async () => {
   }
 };
 
-// Start initialization immediately
-initializeRoutes();
+// Don't start initialization immediately - wait for login
+// initializeRoutes();
  
  // 1. Define subprograms as a reactive reference
 const subprograms = ref([
@@ -621,8 +636,15 @@ export const usePermissionStore = defineStore('permission', {
     }
   },
   actions: {
-    generateRoutes(type, locationLevel) {
-      return new Promise<void>((resolve) => {
+    async generateRoutes(type, locationLevel) {
+      return new Promise<void>(async (resolve) => {
+        // Initialize dynamic routes first if not already loaded
+        // This ensures dashboards, programmes, and components are loaded before filtering
+        if (!dashboardsLoaded.value || programmeComponentOptions.value.length === 0) {
+          console.log('Initializing dynamic routes before generating filtered routes...');
+          await initializeRoutes();
+        }
+        
         // Function to recursively filter routes and their children based on 'type' and 'locationLevel'
         const filterRoutes = (routes) => {
           const filteredRoutes = routes.filter((route) => {
@@ -672,6 +694,11 @@ export const usePermissionStore = defineStore('permission', {
     async refreshRoutes() {
       try {
         console.log('Manually refreshing routes...');
+        // Reset loaded flags to force reload
+        dashboardsLoaded.value = false;
+        programmeComponentOptions.value = [];
+        components.value = [];
+        dynamicDashbaordOptions.value = [];
         await initializeRoutes();
         console.log('Routes refreshed successfully');
       } catch (error) {
