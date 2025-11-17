@@ -93,6 +93,12 @@ const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
 
 const countiesOptions = ref<Array<{value: string, label: string}>>([])
+const countySelectOptions = computed(() => {
+  if (isCountyStaff.value && selectedCounty.value) {
+    return countiesOptions.value.filter(option => option.value === selectedCounty.value)
+  }
+  return countiesOptions.value
+})
 const settlementOptions = ref<Array<{value: string, label: string, county_id?: string, subcounty_id?: string, ward_id?: string}>>([])
 const isFilteringSettlements = ref(false)
 
@@ -2049,6 +2055,17 @@ const getSettlementByCounty = async (selectCounty) => {
     isFilteringSettlements.value = false
   }
 }
+
+watch(
+  () => [isCountyStaff.value, selectedCounty.value],
+  ([isCounty, county]) => {
+    if (isCounty && county) {
+      grmForm.value.county_id = county
+      getSettlementByCounty(county)
+    }
+  },
+  { immediate: true }
+)
 
 const handleSelectSettlement = async (settlementId) => {
   console.log(settlementId)
@@ -4660,7 +4677,7 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
             </el-col>
             <el-col :xs="24" :sm="24" :md="24" :lg="24">
               <el-form-item id="btn2" label="Gender" prop="gender">
-                <el-select v-model="grmForm.gender" placeholder="Select gender" style="width: 100%;">
+                <el-select v-model="grmForm.gender" placeholder="Select gender" style="width: 100%;" filterable>
                   <el-option label="Male" value="male" />
                   <el-option label="Female" value="female" />
                   <el-option label="Other" value="other" />
@@ -4669,7 +4686,7 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
             </el-col>
             <el-col :xs="24" :sm="24" :md="24" :lg="24">
               <el-form-item id="btn3" label="Age Bracket" prop="age">
-                <el-select v-model="grmForm.age" placeholder="Select age bracket" style="width: 100%;">
+                <el-select v-model="grmForm.age" placeholder="Select age bracket" style="width: 100%;" filterable>
                   <el-option v-for="range in ageRanges" :key="range.value" :label="range.label" :value="range.value" />
                 </el-select>
               </el-form-item>
@@ -4705,10 +4722,11 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
                   v-model="grmForm.county_id"
                   placeholder="Select county"
                   style="width: 100%;"
+                  filterable
                   @change="getSettlementByCounty(grmForm.county_id)"
                 >
                   <el-option
-                    v-for="item in countiesOptions"
+                    v-for="item in countySelectOptions"
                     :key="item.value"
                     :label="item.label"
                     :value="item.value"
@@ -4748,6 +4766,7 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
                   :disabled="!grmForm.county_id || isFilteringSettlements"
                   :loading="isFilteringSettlements"
                   style="width: 100%;"
+                  filterable
                   @change="handleSelectSettlement(grmForm.settlement_id)"
                 >
                   <el-option
@@ -4779,7 +4798,7 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
           <el-row :gutter="8">
             <el-col :xs="24" :sm="24" :md="24" :lg="24">
               <el-form-item id="btn14" label="Nature of Complaint" prop="nature">
-                <el-select v-model="grmForm.nature" placeholder="Select nature" style="width: 100%;">
+                <el-select v-model="grmForm.nature" placeholder="Select nature" style="width: 100%;" filterable>
                   <el-option
                     v-for="item in grievanceOptions"
                     :key="item.value"

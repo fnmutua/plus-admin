@@ -388,11 +388,19 @@ exports.modelActivateUser = async (req, res) => {
       console.warn(`No phone number found for user ID ${user.id}`);
     }
 
+    const requestBaseUrl = `${req.protocol}://${req.get('host')}`;
+    const frontendBaseUrl = getFrontendBaseUrl(requestBaseUrl);
+
     // Send email notification to the user
     if (user.email) {
       try {
         if (isactive) {
-          await sendActivationEmail(user.email, user.name || 'User', user.username || user.email);
+          await sendActivationEmail(
+            user.email,
+            user.name || 'User',
+            user.username || user.email,
+            frontendBaseUrl
+          );
         } else {
           await sendDeactivationEmail(user.email, user.name || 'User', user.username || user.email);
         }
@@ -2187,8 +2195,19 @@ async function sendAcknowledgementEmail(userEmail, userName, username) {
   }
 }
 
+function getFrontendBaseUrl(preferredUrl) {
+  const base =
+    process.env.FRONTEND_URL ||
+    process.env.APP_HOST ||
+    process.env.VITE_APP_HOST ||
+    preferredUrl ||
+    'https://kesmis.go.ke';
+
+  return base.endsWith('/') ? base.slice(0, -1) : base;
+}
+
 // Function to send activation email to user
-async function sendActivationEmail(userEmail, userName, username) {
+async function sendActivationEmail(userEmail, userName, username, baseUrl) {
   try {
     var transporter = nodemailer.createTransport({
       service: 'gmail',
@@ -2229,7 +2248,7 @@ async function sendActivationEmail(userEmail, userName, username) {
             </div>
             
             <div style="text-align: center; margin-top: 25px;">
-              <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/login" 
+              <a href="${getFrontendBaseUrl(baseUrl)}/login" 
                  style="background-color: #28a745; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">
                 Login to Your Account
               </a>
