@@ -22,9 +22,9 @@
                   <el-row v-if="active === 0" :gutter="10">
                     <!-- Step 1: Personal Details -->
                     <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-                      <el-form-item id="btn1" label="Name" prop="name">
-                        <el-input v-model="grmForm.name" placeholder="Enter name" />
-                        <el-text type="info" size="small">Please provide your name as it appears on the National ID. Fill Anonymous if you want anonymity.</el-text>
+                      <el-form-item id="btn1" label="Name of Complainant(s)" prop="name">
+                        <el-input v-model="grmForm.name" type="textarea" :rows="2" placeholder="Enter name(s) seperate by comma if more than one complainant" />
+                        <el-text type="info" size="small">This field allows you to enter one or more names. Please provide the complainant's full name(s) as it appears on the National ID. Fill Anonymous if you want anonymity.</el-text>
                       </el-form-item>
 
                       <el-form-item id="btn2" label="Gender" prop="gender">
@@ -33,7 +33,7 @@
                           <el-option label="Male" value="male" />
                           <el-option label="Unspecified" value="unspecified" />
                         </el-select>
-                        <el-text type="info" size="small">Please select your gender.</el-text>
+                        <el-text type="info" size="small">Please select the complainant's gender.</el-text>
                       </el-form-item>
 
                       <el-form-item id="btn3" label="Age" prop="age">
@@ -42,7 +42,7 @@
 v-for="item in ageRanges" :key="item.value" :label="item.label"
                             :value="item.value" />
                         </el-select>
-                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Select your age bracket.</el-text>
+                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Select the complainant's age bracket.</el-text>
                       </el-form-item>
 
 
@@ -52,14 +52,14 @@ v-for="item in ageRanges" :key="item.value" :label="item.label"
                     <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
                       <el-form-item id="btn4" label="National ID" prop="national_id">
                         <el-input v-model="grmForm.national_id" placeholder="Enter ID number" style="width: 100%" />
-                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">We require your national ID especially for land related complaints.</el-text>
+                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">We require the complainant's national ID especially for land related complaints.</el-text>
                       </el-form-item>
 
                       <el-form-item id="btn5" label="Phone" prop="phone">
                         <el-input
 v-model="grmForm.phone" placeholder="Enter phone number (254.....)" style="width: 100%"
                           :onChange="convertPhoneNumber" />
-                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Please provide your phone number. We require this for our communication on the status of the complaint.</el-text>
+                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Please provide the complainant's phone number. This is the number we will use to communicate regarding the status of the complaint.</el-text>
                       </el-form-item>
 
                       <el-form-item id="btn6" label="Email" prop="email">
@@ -119,9 +119,21 @@ v-for="item in settlementOptions" :key="item.value" :label="item.label"
                       
                     </el-col>
                     <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-                      <el-form-item id="btn12" label="Address" prop="address">
-                        <el-input v-model="grmForm.address" placeholder="Enter address" style="width: 100%" />
-                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Enter your address, e.g., near XXX Primary school, Plot No. XXX.</el-text>
+                      <el-form-item id="btn12" label="Physical Address" prop="address">
+                        <el-input v-model="grmForm.address" placeholder="Enter physical address" style="width: 100%" />
+                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Enter the complainant's physical address, e.g., near XXX Primary school, Plot No. XXX.</el-text>
+                      </el-form-item>
+
+                      <el-form-item id="btn7a" label="Date Reported" prop="date_reported">
+                        <el-date-picker
+                          v-model="grmForm.date_reported"
+                          type="date"
+                          placeholder="Select date reported"
+                          style="width: 100%;"
+                          format="YYYY-MM-DD"
+                          :disabled-date="disableFutureDates"
+                        />
+                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Select the date when the grievance was reported. Defaults to today.</el-text>
                       </el-form-item>
 
                       <el-form-item id="btn13" label="Complaint Type">
@@ -169,7 +181,7 @@ v-for="item in settlementOptions" :key="item.value" :label="item.label"
                         <el-input
                           v-model="grmForm.plea" type="textarea" rows="4" placeholder="Enter your plea/request"
                           style="width: 100%" />
-                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Enter your plea or request regarding the complaint. What action would you like to be taken?</el-text>
+                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Enter the complainant's plea or request regarding the complaint. What action would you like to be taken?</el-text>
                       </el-form-item>
                     </el-col>
                   </el-row>
@@ -368,10 +380,10 @@ v-for="(step, index) in filteredTourSteps" :key="index" :target="step.target" :t
 </template>
 
 <script setup lang="ts">
-import { ref,watch, computed } from 'vue';
+import { ref,watch, computed, nextTick } from 'vue';
 import {
   ElButton, ElCard, ElForm, ElFormItem,  ElUpload, ElCheckbox, ElTour, ElTourStep, ElSwitch,
-  ElTabPane, ElTabs, ElSelect, ElOption, ElRow, ElCol, ElMessage, ElStep, ElSteps, ElIcon, ElTooltip,ElDialog, ElText,
+  ElTabPane, ElTabs, ElSelect, ElOption, ElRow, ElCol, ElMessage, ElStep, ElSteps, ElIcon, ElTooltip,ElDialog, ElText, ElDatePicker,
 } from 'element-plus';
 
 import BaseLayout from './BaseLayout.vue';
@@ -535,6 +547,7 @@ const grmForm = ref<GrievanceForm>({
   reporter_name: '',
   reporter_phone: '',
   project_phase: 'KISIP 2',
+  date_reported: new Date(),
 });
 
 
@@ -724,6 +737,48 @@ const next = async () => {
   try {
     await formInstance.validate();
     active.value++;
+    
+    // Focus the first field of the next step
+    await nextTick();
+    let firstFieldId = '';
+    if (active.value === 1) {
+      firstFieldId = '#btn10'; // County field
+    } else if (active.value === 2) {
+      firstFieldId = '#btn14'; // Nature of Complaint field (or first visible field)
+    } else if (active.value === 3) {
+      firstFieldId = '#btn17'; // Witness Name field
+    }
+    
+    if (firstFieldId) {
+      // Use setTimeout to ensure DOM is fully rendered
+      setTimeout(() => {
+        // Try to find the input or select element within the specific form item
+        const formItem = document.querySelector(firstFieldId) as HTMLElement;
+        if (formItem) {
+          // For step 1, specifically target the County select field (first select in the form item)
+          if (active.value === 1) {
+            // Find the first el-select within this form item (should be County)
+            const firstSelect = formItem.querySelector('.el-select:first-of-type .el-select__wrapper input, .el-select:first-of-type input');
+            if (firstSelect) {
+              (firstSelect as HTMLElement).focus();
+              return;
+            }
+          }
+          
+          // For select fields, find the input inside .el-select within this specific form item only
+          const selectInput = formItem.querySelector('.el-select__wrapper input, .el-select input');
+          if (selectInput) {
+            (selectInput as HTMLElement).focus();
+          } else {
+            // For regular input fields, find only direct children or within this form item
+            const input = formItem.querySelector('input, textarea');
+            if (input) {
+              (input as HTMLElement).focus();
+            }
+          }
+        }
+      }, 50);
+    }
   } catch (error) {
     ElMessage({
       message: 'Please fill in all required fields correctly',
@@ -810,6 +865,12 @@ function getStageDuration(status) {
     };
     return (durations[status] || 0) * 24 * 60 * 60 * 1000; // Convert days to milliseconds
 }
+
+const disableFutureDates = (date: Date) => {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return date.getTime() > today.getTime()
+}
  
 const submitForm = async () => {
 
@@ -820,7 +881,10 @@ const submitForm = async () => {
       console.log('Is Valid', grmForm)
 
 
-      grmForm.value.date_reported = new Date();
+      // Use date_reported from form, or default to today if not set
+      if (!grmForm.value.date_reported) {
+        grmForm.value.date_reported = new Date();
+      }
  
 
       if(grmForm.value.isInCourt) {
@@ -1001,6 +1065,8 @@ const resetForm = () => {
   const formRef = dynamicFormRef.value;
   if (formRef) {
     formRef.resetFields();
+    // Reset date_reported to today after reset
+    grmForm.value.date_reported = new Date();
   }
 };
 
@@ -1083,35 +1149,35 @@ const tourSteps = ref([
     step: 0,
     target: '#btn1',
     title: 'Name',
-    content: 'Please provide your name as it appears on the National ID. Fill Anonymous if you want anonymity.',
+    content: 'Please provide the complainant\'s name as it appears on the National ID. Fill Anonymous if you want anonymity.',
     visible: true
   },
   {
     step: 0,
     target: '#btn2',
     title: 'Gender',
-    content: 'Please select your gender.',
+    content: 'Please select the complainant\'s gender.',
     visible: true
   },
   {
     step: 0,
     target: '#btn3',
     title: 'Age',
-    content: 'Select your age bracket.',
+    content: 'Select the complainant\'s age bracket.',
     visible: true
   },
   {
     step: 0,
     target: '#btn4',
     title: 'National ID',
-    content: 'We require your national ID especially for land related complaints.',
+    content: 'We require the complainant\'s national ID especially for land related complaints.',
     visible: true
   },
   {
     step: 0,
     target: '#btn5',
     title: 'Phone',
-    content: 'Please provide your phone number. We require this for our communication on the status of the complaint.',
+    content: 'Please provide the complainant\'s phone number. We require this for our communication on the status of the complaint.',
     visible: true
   },
   {
@@ -1161,8 +1227,8 @@ const tourSteps = ref([
   {
     step: 1,
     target: '#btn12',
-    title: 'Address',
-    content: 'Enter your address, e.g., near XXX Primary school, Plot No. XXX.',
+    title: 'Physical Address',
+    content: 'Enter the complainant\'s physical address, e.g., near XXX Primary school, Plot No. XXX.',
     visible: true
   },
   {
@@ -1206,7 +1272,7 @@ const tourSteps = ref([
     step: 2,
     target: '#btn16',
     title: 'Plea/Request',
-    content: 'Enter your plea or request regarding the complaint. What action would you like to be taken?',
+    content: 'Enter the complainant\'s plea or request regarding the complaint. What action would you like to be taken?',
     visible: true
   },
   {
@@ -1456,19 +1522,35 @@ try {
 
 /* Steps Component */
 .el-steps {
-  margin-bottom: 2.5rem;
-  padding: 2rem 1.5rem;
+  margin-bottom: 0.5rem;
+  padding: 0.5rem 0.75rem;
   background: var(--bg-primary);
-  border-radius: 12px;
+  border-radius: 6px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   border: 1px solid var(--border-color);
 }
 
 :deep(.el-step__title) {
-  font-size: 1rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: var(--text-primary);
   letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+:deep(.el-step__head) {
+  width: 24px;
+  height: 24px;
+}
+
+:deep(.el-step__icon) {
+  width: 24px;
+  height: 24px;
+  font-size: 12px;
+}
+
+:deep(.el-step__line) {
+  top: 12px;
 }
 
 :deep(.el-step__head.is-process) {
@@ -1501,7 +1583,7 @@ try {
 
 /* Form Items */
 .el-form-item {
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
 }
 
 :deep(.el-form-item__label) {
@@ -1691,14 +1773,14 @@ try {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 2.5rem;
-  padding: 1.5rem;
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
   background: var(--bg-primary);
-  border-radius: 12px;
+  border-radius: 6px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   border: 1px solid var(--border-color);
   border-top: 2px solid rgba(0, 220, 130, 0.2);
-  gap: 1rem;
+  gap: 0.375rem;
   position: relative;
 }
 
@@ -1715,7 +1797,7 @@ try {
 
 .steps-navigation > div {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.375rem;
   align-items: center;
 }
 
@@ -2012,8 +2094,8 @@ try {
   .steps-navigation {
     flex-direction: row;
     gap: 0.5rem;
-    padding: 0.875rem;
-    margin-top: 1.5rem;
+    padding: 0.75rem;
+    margin-top: 1rem;
     position: sticky;
     bottom: 0;
     background: var(--bg-primary);
@@ -2092,9 +2174,9 @@ try {
   }
 
   .steps-navigation {
-    padding: 0.75rem;
-    gap: 0.5rem;
-    margin-top: 1rem;
+    padding: 0.5rem 0.625rem;
+    gap: 0.375rem;
+    margin-top: 0.5rem;
   }
 
   .steps-navigation > div {
@@ -2122,7 +2204,8 @@ try {
   }
 
   .el-steps {
-    padding: 1rem 0.75rem;
+    padding: 0.5rem 0.375rem;
+    margin-bottom: 0.5rem;
   }
 
   :deep(.el-step__title) {

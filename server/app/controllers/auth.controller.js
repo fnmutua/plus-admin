@@ -291,9 +291,30 @@ exports.updateUser = async (req, res) => {
       return res.status(404).send({ message: "User not found" });
     }
 
-    // Update user data
-    await user.set(req.body);
-    await user.save();
+    // Prepare update data - only include fields that are explicitly provided
+    // This prevents overwriting fields with undefined/null values
+    const updateData = {};
+    const allowedFields = ['name', 'email', 'phone', 'avatar', 'username', 'organization_name', 'county_id', 'settlement_id', 'location_level', 'location_id'];
+    
+    allowedFields.forEach(field => {
+      // Only include field if it's explicitly provided (hasOwnProperty check)
+      // For phone: preserve existing value if undefined/null, but allow empty string to clear it
+      if (field === 'phone') {
+        if (req.body.hasOwnProperty('phone') && req.body.phone !== undefined && req.body.phone !== null) {
+          updateData[field] = req.body[field];
+        }
+        // If phone is undefined/null, don't include it in updateData (preserves existing value)
+      } else {
+        if (req.body.hasOwnProperty(field) && req.body[field] !== undefined) {
+          updateData[field] = req.body[field];
+        }
+      }
+    });
+
+    // Update user data with only the fields we want to update
+    if (Object.keys(updateData).length > 0) {
+      await user.update(updateData);
+    }
 
     console.log("Roles Length:", req.body.roles);
 

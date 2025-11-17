@@ -1170,6 +1170,17 @@ const updateUser = () => {
     // Proceed with form submission or any further processing
     console.log("Form is valid. Proceeding with submission...");
 
+    // Ensure phone is preserved - only if it's undefined or null (not explicitly cleared)
+    // Find the original user data to preserve phone if not explicitly provided
+    const originalUser = tableDataList.value.find(u => u.id === form.value.id) ||
+                         tableDataListNational.value.find(u => u.id === form.value.id) ||
+                         tableDataListCounty.value.find(u => u.id === form.value.id) ||
+                         tableDataListSettlement.value.find(u => u.id === form.value.id);
+    if (originalUser && (form.value.phone === undefined || form.value.phone === null)) {
+      // Preserve original phone if it wasn't explicitly provided in the form
+      form.value.phone = originalUser.phone || '';
+    }
+
     form.value.roles = tmp_roles.value
     console.log('form.value', form.value)
     updateUserApi(form.value).then((response) => {

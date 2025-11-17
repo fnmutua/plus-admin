@@ -848,7 +848,13 @@ const updateUser = () => {
     }
   });
 
-
+  // Ensure phone is preserved - only if it's undefined or null (not explicitly cleared)
+  // Find the original user data to preserve phone if not explicitly provided
+  const originalUser = tableDataList.value.find(u => u.id === form.value.id);
+  if (originalUser && (form.value.phone === undefined || form.value.phone === null)) {
+    // Preserve original phone if it wasn't explicitly provided in the form
+    form.value.phone = originalUser.phone || '';
+  }
 
   form.value.roles = tmp_roles.value
   console.log('form.value', form.value)

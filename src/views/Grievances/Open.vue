@@ -26,7 +26,7 @@ import { ref, reactive, onMounted, computed, nextTick } from 'vue'
 import {
   ElPagination, ElOption, ElDialog, ElForm, ElTour, ElUpload,
   ElFormItem, ElRow, ElInput, ElStep, ElSteps, ElTable, ElTableColumn, ElCard, ElMessage, ElMessageBox, ElSwitch,
-  ElTag, ElTooltip
+  ElTag, ElTooltip, ElDatePicker
 } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { useAppStoreWithOut } from '@/store/modules/app'
@@ -4674,13 +4674,13 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
         <div v-if="active === 0" class="form-step">
           <el-row :gutter="8">
             <el-col :xs="24" :sm="24" :md="24" :lg="24">
-              <el-form-item id="btn1" label="Name of Complainant" prop="name">
-                <el-input v-model="grmForm.name" placeholder="Enter name" />
+              <el-form-item id="btn1" label="Name of Complainant(s)" prop="name">
+                <el-input v-model="grmForm.name" type="textarea" :rows="2" placeholder="Enter one or more names (separate by comma). Provide complainant's full name(s) as on National ID. Fill Anonymous for anonymity." />
               </el-form-item>
             </el-col>
             <el-col :xs="24" :sm="24" :md="24" :lg="24">
               <el-form-item id="btn2" label="Gender" prop="gender">
-                <el-select v-model="grmForm.gender" placeholder="Select gender" style="width: 100%;" filterable>
+                <el-select v-model="grmForm.gender" placeholder="Select the complainant's gender" style="width: 100%;" filterable>
                   <el-option label="Male" value="male" />
                   <el-option label="Female" value="female" />
                   <el-option label="Other" value="other" />
@@ -4689,21 +4689,21 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
             </el-col>
             <el-col :xs="24" :sm="24" :md="24" :lg="24">
               <el-form-item id="btn3" label="Age Bracket" prop="age">
-                <el-select v-model="grmForm.age" placeholder="Select age bracket" style="width: 100%;" filterable>
+                <el-select v-model="grmForm.age" placeholder="Select the complainant's age bracket" style="width: 100%;" filterable>
                   <el-option v-for="range in ageRanges" :key="range.value" :label="range.label" :value="range.value" />
                 </el-select>
               </el-form-item>
             </el-col>
             <el-col :xs="24" :sm="24" :md="24" :lg="24">
               <el-form-item id="btn4" label="National ID" prop="national_id">
-                <el-input v-model="grmForm.national_id" placeholder="Enter national ID" />
+                <el-input v-model="grmForm.national_id" placeholder="Enter complainant's national ID (required especially for land related complaints)" />
               </el-form-item>
             </el-col>
             <el-col :xs="24" :sm="24" :md="24" :lg="24">
               <el-form-item id="btn5" label="Phone Number" prop="phone">
                 <el-input
                   v-model="grmForm.phone"
-                  placeholder="Enter phone number"
+                  placeholder="Enter complainant's phone number (254.....) - we will use this to communicate about the complaint status"
                   @input="convertPhoneNumber(grmForm.phone)"
                 />
               </el-form-item>
@@ -4754,7 +4754,7 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
                 <el-select
                   filterable
                   v-model="grmForm.project_phase"
-                  placeholder="Select Project Phase"
+                  placeholder="Select Project Phase (KISIP 1 or KISIP 2)"
                   style="width: 100%;"
                 >
                   <el-option
@@ -4764,7 +4764,6 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
                     :value="item.value"
                   />
                 </el-select>
-                <el-text type="info" size="small" style="display: block; margin-top: 4px;">Select the project phase (KISIP 1 or KISIP 2).</el-text>
               </el-form-item>
             </el-col>
             <el-col :xs="24" :sm="24" :md="24" :lg="24">
@@ -4794,8 +4793,8 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
               </el-form-item>
             </el-col>
             <el-col :xs="24" :sm="24" :md="24" :lg="24">
-              <el-form-item id="btn12" label="Address" prop="address">
-                <el-input v-model="grmForm.address" placeholder="Enter address (e.g., near XXX Primary School)" />
+              <el-form-item id="btn12" label="Physical Address" prop="address">
+                <el-input v-model="grmForm.address" placeholder="Enter complainant's physical address (e.g., near XXX Primary school, Plot No. XXX)" />
               </el-form-item>
             </el-col>
             <el-col :xs="24" :sm="24" :md="24" :lg="24">
@@ -4838,7 +4837,7 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
                 <el-input
                   type="textarea"
                   v-model="grmForm.plea"
-                  placeholder="Enter the complainant's plea or request"
+                  placeholder="Enter complainant's plea or request - what action would you like to be taken?"
                   :rows="isMobile ? 3 : 4"
                 />
               </el-form-item>
