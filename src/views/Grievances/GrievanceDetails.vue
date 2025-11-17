@@ -1,91 +1,4 @@
-.confirmation-drawer :deep(.el-drawer__body) {
-  padding: 0;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.confirmation-drawer .drawer-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  padding: 16px 20px;
-  border-bottom: 1px solid #e9ecef;
-  background: var(--el-bg-color);
-}
-
-.confirmation-drawer .drawer-header-content h3 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.confirmation-drawer .drawer-header-content p {
-  margin: 4px 0 0;
-  font-size: 13px;
-  color: var(--el-text-color-secondary);
-  line-height: 1.4;
-}
-
-.confirmation-drawer .drawer-close-btn {
-  color: var(--el-text-color-secondary);
-}
-
-.confirmation-drawer .drawer-body {
-  padding: 20px;
-  flex: 1;
-  overflow-y: auto;
-}
-
-.confirmation-drawer .drawer-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  padding: 12px 20px;
-  border-top: 1px solid #e9ecef;
-  background: var(--el-bg-color);
-}
-
-.confirmation-drawer .drawer-footer .el-button {
-  min-width: 120px;
-}
-
-.confirmation-form :deep(.el-form-item__label) {
-  font-weight: 600;
-  color: var(--el-text-color-primary);
-}
-
-.confirmation-form :deep(.el-form-item) {
-  margin-bottom: 16px;
-}
-
-.confirmation-form :deep(.el-select),
-.confirmation-form :deep(.el-textarea) {
-  width: 100%;
-}
-
-@media (max-width: 768px) {
-  .confirmation-drawer .drawer-body {
-    padding: 16px;
-  }
-
-  .confirmation-drawer .drawer-header-content h3 {
-    font-size: 16px;
-  }
-
-  .confirmation-drawer .drawer-header-content p {
-    font-size: 12px;
-  }
-
-  .confirmation-drawer .drawer-footer {
-    padding: 10px 16px;
-    gap: 8px;
-  }
-
-  .confirmation-drawer .drawer-footer .el-button {
-    flex: 1;
-  }
-}
+ 
 <script setup lang="ts">
 import { onMounted, reactive, computed, watch } from 'vue'
 import {
@@ -103,7 +16,7 @@ import { Icon } from '@iconify/vue';
 import PermissionWrapper from '@/components/PermissionWrapper.vue';
 import {
   Download, CaretRight, Check, Close, Lock, Notification, Microphone,Delete,Edit,ArrowLeft,RefreshLeft,
-  ArrowRight, Document,
+  ArrowRight, Document, Plus, Paperclip, InfoFilled, CircleCheck,
 } from '@element-plus/icons-vue'
 
 import {
@@ -1308,10 +1221,6 @@ const getActionClass =   (actionType) => {
  
 const EditDialogVisible=ref(false)
 
-const handleCloseDialog = () => {
-  EditDialogVisible.value = false
-}
-
 
 const countiesOptions=ref([])
 const settlementOptions=ref([])
@@ -1411,14 +1320,14 @@ const grmForm = ref({
   witness_phone: '',
   witness_statement: '',
   project_phase: 'KISIP 2',
+  date_reported: null as Date | null,
 });
 
 
 const clickEdit = () => {
-
   getCounties()
   getSettlementByCounty(FullGrievanceData.value.county_id)
-console.log(FullGrievanceData.value)
+  console.log(FullGrievanceData.value)
   grmForm.value = {
     name: FullGrievanceData.value.name || '',
     gender: FullGrievanceData.value.gender || '',
@@ -1430,20 +1339,22 @@ console.log(FullGrievanceData.value)
     settlement_id: FullGrievanceData.value.settlement_id || '',
     address: FullGrievanceData.value.address || '',
     nature: FullGrievanceData.value.nature || '',
-    isgbv: FullGrievanceData.value.isgbv ?? false, // Handle boolean values safely
+    isgbv: FullGrievanceData.value.isgbv ?? false,
     description: FullGrievanceData.value.description || '',
     plea: FullGrievanceData.value.plea || '',
     isInCourt: FullGrievanceData.value.isInCourt ?? false,
     self_reported: FullGrievanceData.value.self_reported ?? false,
-    reporter_name: FullGrievanceData.value.reporter_name || userInfo.name, // Use existing user info as fallback
+    reporter_name: FullGrievanceData.value.reporter_name || userInfo.name,
     reporter_phone: FullGrievanceData.value.reporter_phone || userInfo.phone,
     witness: FullGrievanceData.value.witness || '',
     witness_phone: FullGrievanceData.value.witness_phone || '',
     witness_statement: FullGrievanceData.value.witness_statement || '',
     project_phase: FullGrievanceData.value.project_phase || 'KISIP 2',
-   };
+    date_reported: FullGrievanceData.value.date_reported ? new Date(FullGrievanceData.value.date_reported) : null,
+  };
+  active.value = 0
+  fileList.value = []
   EditDialogVisible.value = true
-
 }
  
 
@@ -1454,56 +1365,82 @@ const saveGrievance = async () => {
   formInstance.value.validate(async (valid: boolean) => {
     if (valid) {
       form.value.grievance_id = Grievance.value.id
-      form.value.action_type = 'Edit'
-      form.value.action_by = userInfo.id  // remember t change 
+      form.value.action_type = 'Updated'
+      form.value.action_by = userInfo.id
       form.value.date_actioned = new Date();
       form.value.prev_status = Grievance.value.status
       form.value.action_level = current_user_roles[0] ? current_user_roles[0] : 'settlement'
       form.value.current_level = Grievance.value.current_level;
       form.value.new_status = Grievance.value.status;
- 
       
+      // Set a meaningful action message describing the edit
+      const changedFields = [];
+      const fieldLabels = {
+        name: 'Name',
+        phone: 'Phone',
+        email: 'Email',
+        county_id: 'County',
+        settlement_id: 'Settlement',
+        nature: 'Nature of Complaint',
+        description: 'Description',
+        plea: 'Plea/Request',
+        isgbv: 'GBV Status',
+        address: 'Address',
+        gender: 'Gender',
+        age: 'Age',
+        national_id: 'National ID',
+        date_reported: 'Date Reported',
+        project_phase: 'Project Phase'
+      };
+      
+      // Compare key fields
+      Object.keys(fieldLabels).forEach(key => {
+        const oldValue = FullGrievanceData.value[key];
+        const newValue = grmForm.value[key];
+        if (oldValue !== newValue && (oldValue || newValue)) {
+          changedFields.push(fieldLabels[key]);
+        }
+      });
+      
+      const actionMessage = changedFields.length > 0 
+        ? `Grievance details updated. Fields modified: ${changedFields.join(', ')}.`
+        : 'Grievance details updated.';
+      
+      form.value.action = actionMessage;
+ 
       // Log the action 
+      const res = await logGrievanceAction(form.value)
 
-    const res = await logGrievanceAction(form.value)
-
-
-      /// Upload fies
-      await uploadFiles(res.data.id, Grievance.value.id)
+      // Upload files if any - temporarily set form.value.fileList for upload
+      if (fileList.value && fileList.value.length > 0) {
+        form.value.fileList = fileList.value
+        await uploadFiles(res.data.id, Grievance.value.id)
+        form.value.fileList = []
+      }
 
       const formData = {}
-        formData.code = FullGrievanceData.value.code 
-        formData.updatedData = grmForm.value  // Remove ambiguous fields
+      formData.code = FullGrievanceData.value.code 
+      formData.updatedData = grmForm.value
 
+      // Update the grievance
+      await updateGrievance(formData)
 
-      /// udpate the status
-     await updateGrievance(formData)
+      await processGrievance()
 
-     await processGrievance()
-
-     EditDialogVisible.value = false
-
-      
-     // await generatePDFform(Grievance.value, res.data)
-
+      EditDialogVisible.value = false
 
       ElMessage({
-        message: res.message,
+        message: res.message || 'Grievance updated successfully',
         type: 'success'
       })
-
-      dialogFormVisible.value = false
     } else {
       console.log('is Not Valid')
       ElMessage({
         message: 'Please provide all required details',
         type: 'error'
-      })    // felix - show message on success request 
-
+      })
     }
   });
-
-
 };
 
 
@@ -1515,19 +1452,18 @@ const validationRules = ({
     age: [{ required: true, message: 'Age is required', trigger: 'change' }],
     national_id: [{ required: true, message: 'National ID is required', trigger: 'blur' }],
     phone: [{ required: true, message: 'Phone number is required', trigger: 'blur' }],
-
   },
 
   step2: {
     county_id: [{ required: true, message: 'County is required', trigger: 'change' }],
     settlement_id: [{ required: true, message: 'Settlement is required', trigger: 'change' }],
+  },
+
+  step3: {
     nature: [{ required: true, message: 'Nature of complaint is required', trigger: 'change' }],
     description: [{ required: true, message: 'Description is required', trigger: 'blur' }],
     plea: [{ required: true, message: 'Plea/request is required', trigger: 'blur' }],
   },
-
-
-
 });
 
 
@@ -1544,6 +1480,28 @@ const ageRanges = [
   { value: '46-55', label: '46-55' },
   { value: '56-65', label: '56-65' },
   { value: '65+', label: '65+' },
+];
+
+const grievanceOptions = [
+  { label: 'Land Ownership/Titles', value: 'land_ownership' },
+  { label: 'Evictions/Displacement', value: 'evictions' },
+  { label: 'Compensation Issues', value: 'compensation' },
+  { label: 'Poor Roads/Pathways', value: 'poor_roads' },
+  { label: 'Infrastructure', value: 'infrastructure' },
+  { label: 'Drainage/Flooding', value: 'drainage_flooding' },
+  { label: 'Water Access/Supply', value: 'water_supply' },
+  { label: 'Sanitation/Hygiene', value: 'sanitation' },
+  { label: 'Electricity/Lighting', value: 'electricity_lighting' },
+  { label: 'Waste Management', value: 'waste_management' },
+  { label: 'Environmental Issues', value: 'environmental_issues' },
+  { label: 'Health/Safety', value: 'health_safety' },
+  { label: 'Corruption/Bribery', value: 'corruption' },
+  { label: 'Discrimination', value: 'discrimination' },
+  { label: 'Gender-Based Violence', value: 'gbv' },
+  { label: 'Labour Issues', value: 'labour_issues' },
+  { label: 'Information Gap', value: 'information_gap' },
+  { label: 'Project Delays', value: 'delays' },
+  { label: 'Other', value: 'other' }
 ];
 
 
@@ -1569,17 +1527,36 @@ const next = async () => {
       active.value++;
     }
   });
-
-
 };
-
-const fileList = ref<UploadUserFile[]>([])
-
-
 
 const prev = () => {
   active.value--;
 };
+
+const fileList = ref<UploadUserFile[]>([])
+
+const handleCloseEditDialog = (done) => {
+  // Check if there are unsaved changes
+  const hasChanges = Object.values(grmForm.value).some(val => val !== null && val !== '');
+  
+  if (hasChanges) {
+    ElMessageBox.confirm('You have unsaved changes. Are you sure you want to close?', 'Warning', {
+      confirmButtonText: 'Yes, Close',
+      cancelButtonText: 'Cancel',
+      type: 'warning',
+    }).then(() => {
+      active.value = 0
+      fileList.value = []
+      done();
+    }).catch(() => {
+      // User cancelled, don't close
+    });
+  } else {
+    active.value = 0
+    fileList.value = []
+    done();
+  }
+}
 
 
 const revertLoading = ref<Record<number, boolean>>({})
@@ -2112,6 +2089,9 @@ const formData = {}
       >
         <Icon :icon="'icon-park-outline:remind'" style="margin-right: 10px;" /> Send Reminder
       </el-button>
+      <PermissionWrapper :permissions="['grievance:update']">
+        <el-button @click="clickEdit" type="success" :icon="Edit" plain size="small" class="responsive-button">Edit</el-button>
+      </PermissionWrapper>
       
       <!-- Confirmation Button for National GRM -->
       <el-button
@@ -2415,9 +2395,6 @@ class="notification-custom-card" shadow="hover" :class="log.action_type === 'Res
       <el-tab-pane label="Settings" name="settings"  >
  
         <div class="flex justify-end p-2">
-          <PermissionWrapper :permissions="['grievance:update']">
-            <el-button @click="clickEdit"  type="success" :icon="Edit"   plain>Edit</el-button>
-          </PermissionWrapper>
           <PermissionWrapper :permissions="['grievance:delete']">
             <el-popconfirm
 width="340"
@@ -2823,171 +2800,242 @@ width="340"
 
 
 
-  <el-dialog 
+  <!-- Edit Grievance Drawer -->
+  <el-drawer 
     v-model="EditDialogVisible" 
-    @close="handleCloseDialog" 
-    title="Edit the Grievance" 
-    :width="isMobile ? '95%' : '65%'" 
-    draggable
-    class="edit-grievance-dialog"
+    direction="rtl" 
+    :size="isMobile ? '100%' : '50%'"
+    :with-header="false"
+    :before-close="handleCloseEditDialog"
+    class="grievance-drawer"
   >
+    <!-- Custom Header -->
+    <div class="drawer-header">
+      <div class="header-content">
+        <div class="header-icon">
+          <el-icon :size="isMobile ? 20 : 24">
+            <Edit />
+          </el-icon>
+        </div>
+        <div class="header-text">
+          <h3>Edit Grievance</h3>
+          <p v-if="!isMobile">Update grievance #{{ Grievance.code }}</p>
+        </div>
+      </div>
+      <el-button 
+        type="text" 
+        @click="EditDialogVisible = false"
+        class="close-button"
+        :size="isMobile ? 'small' : 'default'"
+      >
+        <el-icon :size="isMobile ? 18 : 20">
+          <Close />
+        </el-icon>
+      </el-button>
+    </div>
 
-            <el-steps :active="active" finish-status="success">
-              <el-step title="Complainant Details" />
-              <el-step title="Grievance Details" />
-              <el-step title="Review & Submit" />
-            </el-steps>
+    <div class="drawer-content">
 
-            <el-form
-            :model="grmForm" class="demo-form-inline" label-position="top" :rules="currentStepRules"
-              ref="dynamicFormRef">
-              <el-card shadow="hover">
-                <el-row v-if="active === 0" :gutter="10">
-                  <!-- Step 1: Personal Details -->
-                  <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-                    <el-form-item id="btn1" label="Name of Complainant" prop="name">
-                      <el-input v-model="grmForm.name" placeholder="Enter name" style="width:90%" />
-                    </el-form-item>
+      <el-steps 
+        :active="active" 
+        finish-status="success" 
+        :class="['drawer-steps', { 'drawer-steps--icons-only': isMobile }]"
+        direction="horizontal"
+        :space="isMobile ? 80 : undefined"
+      >
+        <el-step :title="isMobile ? '' : 'Complainant Details'" :icon="Document" />
+        <el-step :title="isMobile ? '' : 'Grievance Details'" :icon="InfoFilled" />
+        <el-step :title="isMobile ? '' : 'Complaint Details'" :icon="Paperclip" />
+        <el-step :title="isMobile ? '' : 'Review & Submit'" :icon="CircleCheck" />
+      </el-steps>
 
-                    <el-form-item id="btn2" label="Gender" prop="gender">
-                      <el-select v-model="grmForm.gender" placeholder="Select" style="width:90%">
-                        <el-option label="Female" value="female" />
-                        <el-option label="Male" value="male" />
-                        <el-option label="Unspecified" value="unspecified" />
-                      </el-select>
-                    </el-form-item>
+      <el-form
+        :model="grmForm"
+        class="grievance-form"
+        label-position="top"
+        size="small"
+        :rules="currentStepRules"
+        ref="dynamicFormRef"
+      >
+        <!-- Step 1: Complainant Details -->
+        <div v-if="active === 0" class="form-step">
+          <el-row :gutter="8">
+            <el-col :xs="24" :sm="24" :md="24" :lg="24">
+              <el-form-item id="btn1" label="Name of Complainant" prop="name">
+                <el-input v-model="grmForm.name" placeholder="Enter name" />
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="24" :md="24" :lg="24">
+              <el-form-item id="btn2" label="Gender" prop="gender">
+                <el-select v-model="grmForm.gender" placeholder="Select gender" style="width: 100%;" filterable>
+                  <el-option label="Male" value="male" />
+                  <el-option label="Female" value="female" />
+                  <el-option label="Other" value="other" />
+                </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="24" :md="24" :lg="24">
+              <el-form-item id="btn3" label="Age Bracket" prop="age">
+                <el-select v-model="grmForm.age" placeholder="Select age bracket" style="width: 100%;" filterable>
+                  <el-option v-for="range in ageRanges" :key="range.value" :label="range.label" :value="range.value" />
+                </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="24" :md="24" :lg="24">
+              <el-form-item id="btn4" label="National ID" prop="national_id">
+                <el-input v-model="grmForm.national_id" placeholder="Enter national ID" />
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="24" :md="24" :lg="24">
+              <el-form-item id="btn5" label="Phone Number" prop="phone">
+                <el-input
+                  v-model="grmForm.phone"
+                  placeholder="Enter phone number"
+                  @input="convertPhoneNumber(grmForm.phone)"
+                />
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="24" :md="24" :lg="24">
+              <el-form-item id="btn6" label="Email (Optional)" prop="email">
+                <el-input v-model="grmForm.email" placeholder="Enter email" />
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="24" :md="24" :lg="24">
+              <el-form-item id="btn7" label="Date Reported" prop="date_reported">
+                <el-date-picker
+                  v-model="grmForm.date_reported"
+                  type="date"
+                  placeholder="Select date reported"
+                  style="width: 100%;"
+                  format="YYYY-MM-DD"
+                  :disabled-date="disableFutureDates"
+                />
+              </el-form-item>
+            </el-col>
+          </el-row>
+        </div>
 
-                    <el-form-item id="btn3" label="Age" prop="age">
-                      <el-select v-model="grmForm.age" placeholder="Select" style="width:90%">
-                        <el-option v-for="item in ageRanges" :key="item.value" :label="item.label" :value="item.value" />
-                      </el-select>
-                    </el-form-item>
+        <!-- Step 2: Grievance Details -->
+        <div v-if="active === 1" class="form-step">
+          <el-row :gutter="8">
+            <el-col :xs="24" :sm="24" :md="24" :lg="24">
+              <el-form-item id="btn10" label="County" prop="county_id">
+                <el-select
+                  v-model="grmForm.county_id"
+                  placeholder="Select county"
+                  style="width: 100%;"
+                  filterable
+                  @change="getSettlementByCounty(grmForm.county_id)"
+                >
+                  <el-option
+                    v-for="item in countiesOptions"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="24" :md="24" :lg="24">
+              <el-form-item id="btn10a" label="Project Phase" prop="project_phase">
+                <el-select
+                  filterable
+                  v-model="grmForm.project_phase"
+                  placeholder="Select Project Phase"
+                  style="width: 100%;"
+                >
+                  <el-option
+                    v-for="item in projectPhaseOptions"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                </el-select>
+                <el-text type="info" size="small" style="display: block; margin-top: 4px;">Select the project phase (KISIP 1 or KISIP 2).</el-text>
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="24" :md="24" :lg="24">
+              <el-form-item id="btn11" prop="settlement_id">
+                <template #label>
+                  Settlement
+                </template>
+                <el-select
+                  v-model="grmForm.settlement_id"
+                  placeholder="Select settlement"
+                  :disabled="!grmForm.county_id"
+                  style="width: 100%;"
+                  filterable
+                  @change="handleSelectSettlement(grmForm.settlement_id)"
+                >
+                  <el-option
+                    v-for="item in settlementOptions"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="24" :md="24" :lg="24">
+              <el-form-item id="btn12" label="Address" prop="address">
+                <el-input v-model="grmForm.address" placeholder="Enter address (e.g., near XXX Primary School)" />
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="24" :md="24" :lg="24">
+              <el-form-item id="btn13" label="Is this a GBV-related complaint?">
+                <el-switch v-model="grmForm.isgbv" />
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="24" :md="24" :lg="24">
+              <el-form-item id="btn13" label="Is this complaint currently in court?">
+                <el-switch v-model="grmForm.isInCourt" />
+              </el-form-item>
+            </el-col>
+          </el-row>
+        </div>
 
+        <!-- Step 3: Complaint Details -->
+        <div v-if="active === 2" class="form-step">
+          <el-row :gutter="8">
+            <el-col :xs="24" :sm="24" :md="24" :lg="24">
+              <el-form-item id="btn14" label="Nature of Complaint" prop="nature">
+                <el-select v-model="grmForm.nature" placeholder="Select nature" style="width: 100%;" filterable>
+                  <el-option
+                    v-for="item in grievanceOptions"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="24" :md="24" :lg="24">
+              <el-form-item id="btn15" label="Description" prop="description">
+                <el-input
+                  type="textarea"
+                  v-model="grmForm.description"
+                  placeholder="Provide a detailed description"
+                  :rows="isMobile ? 3 : 4"
+                />
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="24" :md="24" :lg="24">
+              <el-form-item id="btn16" label="Plea/Request" prop="plea">
+                <el-input
+                  type="textarea"
+                  v-model="grmForm.plea"
+                  placeholder="Enter the complainant's plea or request"
+                  :rows="isMobile ? 3 : 4"
+                />
+              </el-form-item>
+            </el-col>
+          </el-row>
+        </div>
 
-                  </el-col>
-
-
-                  <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-                    <el-form-item id="btn4" label="National ID" prop="national_id">
-                      <el-input v-model="grmForm.national_id" placeholder="Enter ID number" style="width:90%" />
-                    </el-form-item>
-
-                    <el-form-item id="btn5" label="Phone" prop="phone">
-                      <el-input
-            v-model="grmForm.phone" placeholder="Enter phone number" style="width:90%"
-                        :onChange="convertPhoneNumber" />
-                    </el-form-item>
-
-                    <el-form-item id="btn6" label="Email" prop="email">
-                      <el-input v-model="grmForm.email" placeholder="Enter Email" style="width:90%" />
-                    </el-form-item>
-                  </el-col>
-
-
-                </el-row>
-
-
-
-                <el-row v-if="active === 1" :gutter="10">
-                  <!-- Step 2: Grievance Details -->
-                  <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-                    <el-form-item id="btn10" label="County" prop="county_id">
-                      <el-select
-            filterable v-model="grmForm.county_id" placeholder="County" @change="getSettlementByCounty"
-                        style="width:90%">
-                        <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
-                      </el-select>
-                    </el-form-item>
-
-                    <el-form-item id="btn10a" label="Project Phase" prop="project_phase">
-                      <el-select
-                        filterable
-                        v-model="grmForm.project_phase"
-                        placeholder="Select Project Phase"
-                        style="width:90%"
-                      >
-                        <el-option
-                          v-for="item in projectPhaseOptions"
-                          :key="item.value"
-                          :label="item.label"
-                          :value="item.value"
-                        />
-                      </el-select>
-                      <el-text type="info" size="small" style="display: block; margin-top: 4px;">Select the project phase (KISIP 1 or KISIP 2).</el-text>
-                    </el-form-item>
-
-                    <el-form-item id="btn11" label="Settlement" prop="settlement_id">
-                      <el-select
-            filterable v-model="grmForm.settlement_id" placeholder="Settlement"
-                        @change="handleSelectSettlement" style="width:90%">
-                        <el-option
-            v-for="item in settlementOptions" :key="item.value" :label="item.label"
-                          :value="item.value" />
-                      </el-select>
-                    </el-form-item>
-
-                    <el-form-item id="btn12" label="Address" prop="address">
-                      <el-input v-model="grmForm.address" placeholder="Enter address" style="width:90%" />
-                    </el-form-item>
-
-
-
-                    <el-checkbox id="btn13" v-model="grmForm.isgbv" label="Is this complaint related to Gender-Based Violence?" size="large" style="margin-bottom:5px" />
-
-
-
-
-                  </el-col>
-                  <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-
-                    <el-checkbox id="btn13" v-model="grmForm.isInCourt" label="Is this complaint currently in court?" size="large" style="margin-bottom:5px" />
- 
-
-
-                    <el-form-item v-if="!grmForm.isgbv" id="btn14" label="Nature of Complaint" prop="nature">
-                                  <el-select  filterable v-model="grmForm.nature" placeholder="Select category" style="width:90%">
-                                    <el-option label="Land Ownership Disputes" value="land_ownership" />
-                                    <el-option label="Evictions and Displacement" value="evictions" />
-                                    <el-option label="Compensation Concerns" value="compensation" />
-                                    <el-option label="Labour Wage Disputes" value="labour_wages" />
-                                    <el-option label="Unfair Dismissal or Termination" value="unfair_dismissal" />
-                                    <el-option label="Workplace Harassment" value="workplace_harassment" />
-                                    <el-option label="Unsafe Working Conditions" value="unsafe_conditions" />
-                                    <el-option label="Poor Road Conditions" value="poor_roads" />
-                                    <el-option label="Water and Sanitation Issues" value="water_sanitation" />
-                                    <el-option label="Electricity and Power Supply Concerns" value="electricity" />
-                                    <el-option label="Inadequate Public Transport" value="public_transport" />
-                                    <el-option label="Pollution Complaints" value="pollution" />
-                                    <el-option label="Waste Management Issues" value="waste_management" />
-                                    <el-option label="Public Health Hazards" value="public_health" />
-                                    <el-option label="Deforestation or Land Degradation" value="deforestation" />
-                                    <el-option label="Discrimination and Exclusion" value="discrimination" />
-                                    <el-option label="Corruption and Mismanagement" value="corruption" />
-                                    <el-option label="Others" value="others" />
-                                  </el-select>
-                                </el-form-item>
-
-                                
-
-                    <el-form-item id="btn15" label="Complaint Description" prop="description">
-                      <el-input
-            v-model="grmForm.description" type="textarea" rows="2" placeholder="Describe your complaint"
-                        style="width:90%" />
-                    </el-form-item>
-
-                    <el-form-item id="btn16" label="Plea/Request" prop="plea">
-                      <el-input
-            v-model="grmForm.plea" type="textarea" rows="2" placeholder="Enter your plea/request"
-                        style="width:90%" />
-                    </el-form-item>
-                  </el-col>
-
-
-                </el-row>
-
-                <el-row v-if="active === 2" :gutter="10">
-                  <!-- Step 3: Review & Submit -->
-                  <el-col :xs="12" :sm="21" :md="12" :lg="12" :xl="12">
+        <!-- Step 4: Review & Submit -->
+        <div v-if="active === 3" class="form-step">
+          <el-row :gutter="8">
+            <el-col :xs="24" :sm="24" :md="24" :lg="24">
                     <el-form-item id="btn17" label="Witness Name" prop="witness">
                       <el-input v-model="grmForm.witness" placeholder="Enter witness name" style="width:90%" />
                     </el-form-item>
@@ -3041,36 +3089,51 @@ width="340"
 
 
                   </el-col>
+          </el-row>
+        </div>
+      </el-form>
 
-                </el-row>
-              </el-card>
-            </el-form>
-
-            <template #footer>
-              <div
-            class="steps-navigation"
-                style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
-                <div>
-                 
-
-                  <el-button id="btn9" v-if="active > 0" @click="prev" type="primary" :icon="ArrowLeft">Previous </el-button>
-                </div>
-                <div>
-                  <el-button id="btn7" v-if="active < 2" type="primary" @click="next">
-                    Next <el-icon class="el-icon--right">
-                      <ArrowRight />
-                    </el-icon>
-                  </el-button>
-
- 
-
-                  <el-button
-            id="btn2" v-if="active === 2" type="primary" @click="saveGrievance"
-                    style="margin-left: 10px;">Save</el-button>
-                 </div>
-              </div>
-            </template>
- </el-dialog>
+      <!-- Drawer Footer -->
+      <div class="drawer-footer" :class="{ 'mobile-footer': isMobile }">
+        <el-button 
+          id="btn9" 
+          v-if="active > 0" 
+          @click="prev"
+          :size="isMobile ? 'small' : 'default'"
+          :class="{ 'mobile-button': isMobile }"
+        >
+          Previous
+        </el-button>
+        <el-button 
+          id="btn7" 
+          v-if="active < 3" 
+          type="primary" 
+          @click="next"
+          :size="isMobile ? 'small' : 'default'"
+          :class="{ 'mobile-button': isMobile }"
+        >
+          Next
+        </el-button>
+        <el-button 
+          id="btn2" 
+          v-if="active === 3" 
+          type="primary" 
+          @click="saveGrievance"
+          :size="isMobile ? 'small' : 'default'"
+          :class="{ 'mobile-button': isMobile }"
+        >
+          Save
+        </el-button>
+        <el-button 
+          @click="EditDialogVisible = false"
+          :size="isMobile ? 'small' : 'default'"
+          :class="{ 'mobile-button': isMobile }"
+        >
+          Cancel
+        </el-button>
+      </div>
+    </div>
+  </el-drawer>
 
   <!-- Confirmation Dialog -->
   <el-drawer
@@ -3992,19 +4055,14 @@ width="340"
 /* Drawer Header Styles */
 .drawer-header {
   display: flex;
-  align-items: center;
   justify-content: space-between;
+  align-items: center;
   padding: 16px 20px;
-  border-bottom: 1px solid #e4e7ed;
-  background: linear-gradient(135deg, var(--el-color-primary) 0%, var(--el-color-primary-dark-2) 100%);
-  color: white;
-  position: sticky;
-  top: 0;
-  z-index: 10;
+  border-bottom: 1px solid #e9ecef;
   flex-shrink: 0;
 }
 
-.header-content {
+.drawer-header .header-content {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -4012,51 +4070,40 @@ width="340"
   min-width: 0;
 }
 
-.header-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 48px;
-  height: 48px;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 12px;
-  backdrop-filter: blur(10px);
+.drawer-header .header-icon {
+  color: #409eff;
   flex-shrink: 0;
 }
 
-.header-text {
+.drawer-header .header-text {
   min-width: 0;
   flex: 1;
 }
 
-.header-text h3 {
+.drawer-header .header-text h3 {
   margin: 0 0 2px 0;
   font-size: 18px;
   font-weight: 600;
-  color: white;
+  color: #303133;
   line-height: 1.3;
   word-wrap: break-word;
 }
 
-.header-text p {
+.drawer-header .header-text p {
   margin: 0;
   font-size: 14px;
-  opacity: 0.9;
-  color: rgba(255, 255, 255, 0.9);
+  color: #606266;
   line-height: 1.4;
 }
 
 .close-button {
-  color: white !important;
-  padding: 4px;
-  border-radius: 8px;
-  transition: all 0.3s ease;
+  color: #909399;
   flex-shrink: 0;
+  padding: 4px;
 }
 
 .close-button:hover {
-  background: rgba(255, 255, 255, 0.1);
-  transform: scale(1.05);
+  color: #409eff;
 }
 
 /* Drawer Content Styles */
@@ -4068,8 +4115,51 @@ width="340"
   -webkit-overflow-scrolling: touch;
 }
 
+.drawer-footer {
+  position: sticky;
+  bottom: 0;
+  padding: 12px 16px;
+  border-top: 1px solid #e9ecef;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  z-index: 10;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.04);
+  flex-shrink: 0;
+}
+
+.drawer-footer.mobile-footer {
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+}
+
+.drawer-footer.mobile-footer .mobile-button {
+  width: 100%;
+  margin: 0;
+}
+
+.drawer-steps {
+  margin-bottom: 20px;
+}
+
+.drawer-steps :deep(.el-step__title) {
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.drawer-steps :deep(.el-step__description) {
+  font-size: 12px;
+}
+
 .grievance-form {
   margin-top: 0;
+  margin-bottom: 20px;
+}
+
+.form-step {
+  margin-bottom: 16px;
 }
 
 .grievance-form .el-form-item {
@@ -4122,26 +4212,61 @@ width="340"
     padding: 12px 16px;
   }
   
-  .header-content {
+  .drawer-header .header-content {
     gap: 8px;
   }
   
-  .header-icon {
-    width: 40px;
-    height: 40px;
-  }
-  
-  .header-text h3 {
+  .drawer-header .header-text h3 {
     font-size: 16px;
   }
   
-  .header-text p {
+  .drawer-header .header-text p {
     font-size: 12px;
   }
   
   .drawer-content {
     padding: 12px 16px;
     height: calc(100vh - 140px);
+  }
+  
+  .drawer-steps {
+    margin-bottom: 16px;
+  }
+  
+  .drawer-steps :deep(.el-step__title) {
+    font-size: 12px;
+  }
+  
+  .drawer-steps :deep(.el-step__head) {
+    width: 24px;
+    height: 24px;
+  }
+  
+  .drawer-steps :deep(.el-step__icon) {
+    width: 24px;
+    height: 24px;
+    font-size: 12px;
+  }
+  
+  .drawer-steps :deep(.el-step__line) {
+    top: 12px;
+  }
+  
+  .grievance-form {
+    margin-bottom: 16px;
+  }
+  
+  .form-step {
+    margin-bottom: 12px;
+  }
+  
+  .drawer-footer {
+    padding: 10px 12px;
+    gap: 6px;
+  }
+  
+  .drawer-footer.mobile-footer {
+    padding: 10px;
   }
   
   .grievance-form .el-form-item {
@@ -4191,18 +4316,54 @@ width="340"
     padding: 10px 12px;
   }
   
-  .header-icon {
-    width: 36px;
-    height: 36px;
+  .drawer-header .header-content {
+    gap: 8px;
   }
   
-  .header-text h3 {
+  .drawer-header .header-text h3 {
     font-size: 15px;
   }
   
   .drawer-content {
     padding: 10px 12px;
     height: calc(100vh - 120px);
+  }
+  
+  .drawer-steps {
+    margin-bottom: 12px;
+  }
+  
+  .drawer-steps :deep(.el-step__title) {
+    font-size: 11px;
+  }
+  
+  .drawer-steps :deep(.el-step__head) {
+    width: 20px;
+    height: 20px;
+  }
+  
+  .drawer-steps :deep(.el-step__icon) {
+    width: 20px;
+    height: 20px;
+    font-size: 11px;
+  }
+  
+  .drawer-steps :deep(.el-step__line) {
+    top: 10px;
+  }
+  
+  .drawer-footer {
+    padding: 8px 10px;
+    gap: 6px;
+  }
+  
+  .drawer-footer.mobile-footer {
+    padding: 8px;
+  }
+  
+  .drawer-footer .el-button {
+    font-size: 13px;
+    padding: 8px 12px;
   }
   
   .grievance-form .el-form-item {

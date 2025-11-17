@@ -103,13 +103,7 @@ const settlementOptions = ref<Array<{value: string, label: string, county_id?: s
 const isFilteringSettlements = ref(false)
 
 const isSuperAdmin = ref(userInfo.roles.some(role => role.name === "super_admin"));
-const hasUploadAccess = computed(() =>
-  userInfo.roles.some(role => ['super_admin', 'root_admin'].includes(role.name)),
-);
-const hasUploadPermission = computed(() => {
-  const permissions = userInfo?.permissions || [];
-  return Array.isArray(permissions) && permissions.includes('grievance:upload');
-});
+ 
 
 console.log("userInfo--->", userInfo)
 const selectedCounty=ref()
@@ -1413,8 +1407,16 @@ function getStageDuration(status) {
 
 
 
+const disableFutureDates = (date: Date) => {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return date.getTime() > today.getTime()
+}
+
 const submitForm = async () => {
-  grmForm.value.date_reported = new Date();
+  if (!grmForm.value.date_reported) {
+    grmForm.value.date_reported = new Date();
+  }
   grmForm.value.status = 'Sorting'
 
   grmForm.value.current_status_date=new Date();
@@ -1701,6 +1703,7 @@ const grmForm = ref({
   witness_phone: '',
   witness_statement: '',
   project_phase: 'KISIP 2',
+  date_reported: null as Date | null,
 });
 
 const validationRules = ({
@@ -3443,7 +3446,7 @@ const filterModalVisible = ref(false)
 // Computed properties for modal filters
 const hasActiveFilters = computed(() => {
   return selectedCategories.value.length > 0 || 
-         selectedCounty.value || 
+         (isNationalGRM.value && selectedCounty.value) || 
          selectedSubCounty.value || 
          selectedWard.value || 
          referredOfficerSearch.value ||
@@ -3453,7 +3456,7 @@ const hasActiveFilters = computed(() => {
 const activeFilterCount = computed(() => {
   let count = 0
   if (selectedCategories.value.length > 0) count++
-  if (selectedCounty.value) count++
+  if (isNationalGRM.value && selectedCounty.value) count++
   if (selectedSubCounty.value) count++
   if (selectedWard.value) count++
   if (referredOfficerSearch.value) count++
@@ -4275,7 +4278,7 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
               Categories ({{ selectedCategories.length }})
             </el-tag>
             <el-tag 
-              v-if="selectedCounty" 
+              v-if="selectedCounty && isNationalGRM" 
               size="small" 
               type="info" 
               closable 
@@ -4331,7 +4334,7 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
             :icon="Refresh" 
             @click="handleClear"
           >
-            Clear All
+            Clear Filters
             </el-button>
             <el-button 
             size="small" 
@@ -4708,6 +4711,18 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
             <el-col :xs="24" :sm="24" :md="24" :lg="24">
               <el-form-item id="btn6" label="Email (Optional)" prop="email">
                 <el-input v-model="grmForm.email" placeholder="Enter email" />
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="24" :md="24" :lg="24">
+              <el-form-item id="btn7" label="Date Reported" prop="date_reported">
+                <el-date-picker
+                  v-model="grmForm.date_reported"
+                  type="date"
+                  placeholder="Select date reported"
+                  style="width: 100%;"
+                  format="YYYY-MM-DD"
+                  :disabled-date="disableFutureDates"
+                />
               </el-form-item>
             </el-col>
           </el-row>
