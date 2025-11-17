@@ -7,7 +7,7 @@
             <el-collapse accordion>
               <el-collapse-item title="What is the Kenya Slum Information System?">
                 <div class="faq-answer">
-                  The Kenya Slum Information System (KSIS) is a comprehensive digital platform designed to collect, manage, and analyze data about informal settlements across Kenya. It helps in understanding and addressing the needs of slum communities through data-driven insights.
+                  The Kenya Slum Information System (KeSMIS) is a comprehensive digital platform designed to collect, manage, and analyze data about informal settlements across Kenya. It helps in understanding and addressing the needs of slum communities through data-driven insights.
                 </div>
               </el-collapse-item>
 

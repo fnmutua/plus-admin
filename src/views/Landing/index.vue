@@ -275,7 +275,7 @@
                     <p class="helpline-number">
                       <a href="tel:0800724349">0800 724 349</a>
                     </p>
-                    <p class="helpline-text">Available 24/7 for grievance submissions</p>
+                    <p class="helpline-text">Available during working hours for grievance submissions</p>
                   </div>
                 </el-card>
               </div>

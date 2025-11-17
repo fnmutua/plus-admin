@@ -102,7 +102,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
+import { ref, onMounted, onBeforeUnmount, computed, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMain, ElMenu, ElMenuItem, ElContainer, ElFooter, ElHeader } from 'element-plus';
 import { Icon } from '@iconify/vue';
@@ -293,7 +293,7 @@ const openApiDocs = () => {
   window.open(apiUrl, '_blank');
 };
 
-const scrollToSection = (sectionId: string) => {
+const scrollToSection = async (sectionId: string) => {
   menuOpen.value = false;
   // Update active index immediately for better UX
   if (sectionId === 'features') {
@@ -302,20 +302,20 @@ const scrollToSection = (sectionId: string) => {
     activeIndex.value = 'how-it-works';
   }
   
-  // Use setTimeout to ensure DOM is updated and menu is closed
-  setTimeout(() => {
+  await nextTick();
+  requestAnimationFrame(() => {
     const element = document.getElementById(sectionId);
     if (element) {
-      const headerOffset = 90; // Height of fixed header (70px) with extra spacing
-      const elementPosition = element.getBoundingClientRect().top;
-      const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+      const headerOffset = isCompactScreen.value ? 70 : 90; // Adjust offset for smaller screens
+      const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
+      const offsetPosition = elementPosition - headerOffset;
 
       window.scrollTo({
         top: Math.max(0, offsetPosition), // Ensure we don't scroll to negative position
         behavior: 'smooth'
       });
     }
-  }, 150);
+  });
 };
 
 const handleSelect = (index: string) => {
