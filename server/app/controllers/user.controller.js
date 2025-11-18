@@ -955,7 +955,7 @@ exports._getGRMUsersByLocation = async (req, res) => {
 exports.getGRMUsersByLocation = async (req, res) => {
   try {
     console.log('Getting GRM Users by Location (Including National)', req.body);
-    let { currentUser, county_id, settlement_id, filters = [], filterValues = [], limit = 10000, page = 1 } = req.body;
+    let { currentUser, county_id, settlement_id, filters = [], filterValues = [], limit = 10000, page = 1, include_national = false } = req.body;
     const { county_id: userCounty } = currentUser;
 
     // Normalize county_id and settlement_id to arrays
@@ -972,22 +972,36 @@ exports.getGRMUsersByLocation = async (req, res) => {
       });
     }
 
+    const locationConditions = [];
+
+    if (settlement_id?.length) {
+      locationConditions.push({ settlement_id: { [Op.in]: settlement_id } });
+    }
+
+    if (!settlement_id?.length && county_id?.length) {
+      locationConditions.push({ county_id: { [Op.in]: county_id } });
+    }
+
+    if (include_national) {
+      locationConditions.push({ location_level: 'national' });
+    }
+
+    if (!locationConditions.length) {
+      return res.status(400).send({
+        message: 'Unable to determine location filter for GRM users.'
+      });
+    }
+
     const findAndCountOptions = {
       include: [
         {
           model: db.models.user_roles,
           required: true,
           where: {
-            [Op.or]: [
-              // Match any county_id if provided and no settlement_id
-              (!settlement_id?.length && county_id?.length) ? { county_id: { [Op.in]: county_id } } : null,
-              // Match any settlement_id if provided
-              settlement_id?.length ? { settlement_id: { [Op.in]: settlement_id } } : null,
-              // Always include national-level users
-              { location_level: 'national' },
-              // Only include GRM role (roleid: 4)
+            [Op.and]: [
               { roleid: 4 },
-            ].filter(Boolean)
+              { [Op.or]: locationConditions }
+            ]
           }
         },
         {

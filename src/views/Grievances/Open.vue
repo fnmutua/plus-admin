@@ -259,14 +259,7 @@ const Statuses = ref([
   },
 ])
 
-// Watch for permission changes and update Deleted status visibility
-watch(canViewDeletedGrievances, (hasPermission) => {
-  const deletedStatus = Statuses.value.find(s => s.value === 'Deleted')
-  if (deletedStatus) {
-    deletedStatus.hidden = !hasPermission
-  }
-}, { immediate: true })
-
+const visibleStatuses = computed(() => Statuses.value.filter(status => !status.hidden))
 
 // Tooltip visibility map for status cards (manual control)
 const statusTooltipVisible = ref<Record<string, boolean>>({})
@@ -290,42 +283,57 @@ const supportingStaffUsers=ref<Record<number, any>>({})
 const supportingStaffLoading=ref(false)
 
 const getGRMUsers = async (countyIds: any) => {
+  grmUsersLoading.value = true
 
-  grmUsersLoading.value=true
- 
+  const normalizedCountyIds: Array<string | number> = []
+  if (Array.isArray(countyIds)) {
+    countyIds.filter(id => id !== undefined && id !== null).forEach(id => normalizedCountyIds.push(id))
+  } else if (countyIds !== undefined && countyIds !== null) {
+    normalizedCountyIds.push(countyIds)
+  }
+
   const formData: any = {}
- 
+
   formData.model = 'users'
- 
+
   // - multiple filters -------------------------------------
   formData.filters = []
   formData.filterValues = []
   formData.associated_multiple_models = ['settlement']
   formData.currentUser = currentUser
-  formData.county_id = countyIds
-  //formData.settlement_id = FullGrievanceData.value.settlement_id
-  formData.currentUser = currentUser
+  formData.county_id = normalizedCountyIds
   formData.limit = 10000
   
-    //-------------------------
+  //-------------------------
   console.log('gettign getGRMStaff users --->', formData)
   const res = await getGRMStaffByLocation(formData)
 
   console.log('After getting getGRMStaff users', res)
    
-  grmUsersLoading.value=false
+  grmUsersLoading.value = false
 
-  // Assuming res.data is an array of objects with name and phone
-    grmUsers.value = res.data.map(user => ({
-    label: user.name  + ' (' + user.phone  + ')' ,
+  const responseUsers = Array.isArray(res.data) ? res.data : []
+
+  // Further safeguard on frontend: restrict to allowed counties when provided
+  const allowedCountyIds = normalizedCountyIds.length > 0 ? normalizedCountyIds : (isCountyStaff.value && userCountyId.value ? [userCountyId.value] : [])
+
+  let filteredUsers = responseUsers
+  if (allowedCountyIds.length > 0) {
+    filteredUsers = responseUsers.filter(user => {
+      const userCounty = user?.settlement?.county_id ?? user?.county_id ?? user?.county?.id
+      return allowedCountyIds.includes(userCounty)
+    })
+  }
+
+  grmUsers.value = filteredUsers.map(user => ({
+    label: `${user.name} (${user.phone})`,
     value: user.id,
-  }));
+  }))
 
   // Also store the users for supporting staff lookup
-  res.data.forEach(user => {
-    supportingStaffUsers.value[user.id] = user;
-  });
- 
+  filteredUsers.forEach(user => {
+    supportingStaffUsers.value[user.id] = user
+  })
 }
  
 
@@ -334,11 +342,27 @@ const getGRMUsers = async (countyIds: any) => {
 
 const isNationalStaff = ref(false)
 const isCountyStaff = ref(false)
+const userCountyId = ref<string | number | null>(null)
 
 // Check if user is national GRM (can confirm resolutions)
 const isNationalGRM = computed(() => {
   return isNationalStaff.value || isSuperAdmin.value
 })
+
+const canSeeDeletedStatus = computed(() => {
+  return (
+    canViewDeletedGrievances.value &&
+    (isNationalStaff.value || isSuperAdmin.value || isNationalGRM.value)
+  )
+})
+
+// Watch for permission/location changes and update Deleted status visibility
+watch(canSeeDeletedStatus, (canSee) => {
+  const deletedStatus = Statuses.value.find(s => s.value === 'Deleted')
+  if (deletedStatus) {
+    deletedStatus.hidden = !canSee
+  }
+}, { immediate: true })
 
 const getUserRoles = async () => {
   // Clear existing filters
@@ -357,7 +381,8 @@ const getUserRoles = async () => {
         isNationalStaff.value = false;
         field = "county_id";
         fieldvalue = role.user_roles.county_id;
-        isCountyStaff.value=true 
+        isCountyStaff.value = true 
+        userCountyId.value = role.user_roles.county_id
         console.log ('isCountyStaff.value',isCountyStaff.value)
         //CountyId.value =role.user_roles.county_id;
         selectedCounty.value =role.user_roles.county_id;
@@ -369,12 +394,15 @@ const getUserRoles = async () => {
         isNationalStaff.value = false;
         field = "settlement_id";
         fieldvalue = role.user_roles.settlement_id;
+        userCountyId.value = null
       } else if (level === "national" || level === null) {
         isNationalStaff.value = true;
+        userCountyId.value = null
         return { model: "national", field: null, fieldvalue: null };
       } else {
         field = "location_id";
         fieldvalue = role.user_roles.location_id;
+        userCountyId.value = null
       }
 
       return {
@@ -3023,16 +3051,34 @@ const toggleMobileSelection = (row: GrievanceType) => {
   }
 }
 
-const showReferralDialog =ref(false)
+const showReferralDialog = ref(false)
 async function handleBulkAction() {
+  if (selectedRows.value.length === 0) {
+    ElMessage({
+      message: 'Please select at least one grievance to refer',
+      type: 'warning'
+    })
+    return
+  }
+
   console.log('Bulk Action on:', selectedRows.value)
 
- // Extract unique county IDs from selected rows
- const countyIds = [...new Set(selectedRows.value.map(row => row.county?.id))];
-  console.log('Extracted county IDs:', countyIds);
+  // Extract unique county IDs from selected rows
+  let countyIds = [...new Set(selectedRows.value.map(row => row.county?.id))].filter(Boolean)
 
-  showReferralDialog.value = true;
-  await getGRMUsers(countyIds);
+  // County GRMs should only refer to officers within their own county
+  if (isCountyStaff.value) {
+    if (userCountyId.value) {
+      countyIds = [userCountyId.value]
+    } else {
+      countyIds = []
+    }
+  }
+
+  console.log('Resolved county IDs for referral:', countyIds)
+
+  showReferralDialog.value = true
+  await getGRMUsers(countyIds)
 }
 
 // Bulk delete function
@@ -4130,7 +4176,7 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
         <!-- Header Bottom Row: Status Cards -->
         <div class="status-cards-container" v-if="!isMobile">
           <div class="status-cards">
-            <template v-for="status in Statuses" :key="status.value">
+            <template v-for="status in visibleStatuses" :key="status.value">
               <el-tooltip
                 :content="status.description"
                 placement="bottom"
@@ -4218,7 +4264,7 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
 
         <div v-else class="mobile-status-scroll">
           <div class="mobile-status-track">
-            <template v-for="status in Statuses" :key="status.value">
+            <template v-for="status in visibleStatuses" :key="status.value">
               <div
                 v-if="!['All', 'Deleted'].includes(status.value) && status.value !== 'Rejected'"
                 :class="['mobile-status-card', { active: activeSegment === status.value }]"
