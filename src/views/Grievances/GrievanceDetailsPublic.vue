@@ -2,7 +2,7 @@
 import { onMounted, ref, computed ,onUnmounted} from 'vue'
  
 import { ElButton, ElDescriptions, ElDescriptionsItem, ElCard, ElMessage, ElEmpty } from 'element-plus'
-import { getOneGrievance,getOnePublicGrievance, getTimelineReport } from '@/api/grievance'
+import { getOneGrievance,getOnePublicGrievance, getTimelineReport, getActionFile } from '@/api/grievance'
 import { useRoute, useRouter } from 'vue-router'
 import { Download, ArrowRight, Back } from '@element-plus/icons-vue'
 import { Icon } from '@iconify/vue'
@@ -37,6 +37,10 @@ const grievance = ref({
 const fullGrievanceData = ref()
 const grievanceLogs = ref([])
 const grievanceFound = ref(true)
+const acknowledgementDoc = computed(() => {
+  const documents = fullGrievanceData.value?.grievance_documents || []
+  return documents.find((doc: any) => doc.type === 'acknowledgement')
+})
 
 const formatDate = (dateString: string) => {
   const date = new Date(dateString)
@@ -163,6 +167,37 @@ const handleDownload = async () => {
   }
 }
 
+const ackDownloadLoading = ref(false)
+const handleAckDownload = async () => {
+  const doc = acknowledgementDoc.value
+  if (!doc) {
+    ElMessage.warning('Acknowledgement form is not available for this grievance')
+    return
+  }
+  try {
+    ackDownloadLoading.value = true
+    const formData = {
+      filename: doc.name,
+      doc_id: doc.id,
+      responseType: 'blob'
+    }
+    const response = await getActionFile(formData)
+    const url = window.URL.createObjectURL(new Blob([response.data]))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', doc.name)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+  } catch (error) {
+    console.error('Failed to download acknowledgement', error)
+    ElMessage.error('Failed to download acknowledgement form')
+  } finally {
+    ackDownloadLoading.value = false
+  }
+}
+
 const handleForward = () => {
   const targetPath = `/grm/${grievance.value.id}`
 
@@ -278,6 +313,16 @@ type="primary"
                   Download
                 </el-button>
                 <el-button
+                  type="warning"
+                  plain
+                  :icon="Download"
+                  @click="handleAckDownload"
+                  :disabled="!acknowledgementDoc"
+                  :loading="ackDownloadLoading"
+                  class="w-full sm:w-auto">
+                  Acknowledgement
+                </el-button>
+                <el-button
 type="success"
                   plain
                   :icon="ArrowRight"
@@ -297,6 +342,17 @@ type="success"
                   class="w-full sm:w-auto"
                 >
                   Download Timeline
+                </el-button>
+                <el-button
+                  type="warning"
+                  plain
+                  :icon="Download"
+                  @click="handleAckDownload"
+                  :disabled="!acknowledgementDoc"
+                  :loading="ackDownloadLoading"
+                  class="w-full sm:w-auto"
+                >
+                  Download Acknowledgement
                 </el-button>
                 <el-button
                   type="success"

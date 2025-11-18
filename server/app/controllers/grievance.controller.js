@@ -1416,7 +1416,13 @@ exports.getGrievanceByPublicId = async (req, res) => {
           if (model === 'county' || model === 'settlement') {
             return { model: db.models[model], attributes: ['name'] };
           }
-          return null; // Exclude unused models like grievance_document, grievance_notification
+          if (model === 'grievance_document') {
+            return {
+              model: db.models.grievance_document,
+              attributes: ['id', 'name', 'type', 'format', 'size', 'grievance_id'],
+            };
+          }
+          return null; // Exclude other unused models
         } else if (typeof model === 'object' && model.name === 'grievance_log' && model.nestedAssociations) {
           return {
             model: db.models[model.name],
