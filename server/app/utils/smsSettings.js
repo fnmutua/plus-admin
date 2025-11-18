@@ -2,19 +2,29 @@ const db = require('../models')
 
 /**
  * Check if SMS sending is enabled for a specific module and get the user who disabled it
- * @param {string} module - Module name (e.g., 'sms_grievance', 'sms_incident')
+ * @param {string} module - Module name (e.g., 'sms_grievance_county', 'sms_grievance_national', 'sms_incident_county', 'sms_incident_national', 'sms_auth', etc.)
  * @returns {Promise<{enabled: boolean, disabledBy: object|null}>} - Returns enabled status and user who disabled it
  */
 async function getSMSStatus(module) {
   try {
+    // Ensure module name is trimmed and normalized
+    const moduleName = (module || '').trim()
+    if (!moduleName) {
+      console.error(`[SMS Settings] Empty module name provided`)
+      return { enabled: true, disabledBy: null }
+    }
+    
     const setting = await db.models.module_settings.findOne({
-      where: { module }
+      where: { module: moduleName }
     })
     
     // If setting doesn't exist, default to enabled (backward compatibility)
     if (!setting) {
+      console.log(`[SMS Settings] Module '${moduleName}' not found in database, defaulting to enabled`)
       return { enabled: true, disabledBy: null }
     }
+    
+    console.log(`[SMS Settings] Module '${moduleName}' found:`, { enabled: setting.enabled, id: setting.id, module: setting.module })
     
     // If enabled, return enabled with no disabledBy user
     if (setting.enabled === true) {
@@ -49,7 +59,7 @@ async function getSMSStatus(module) {
 
 /**
  * Check if SMS sending is enabled for a specific module (backward compatibility)
- * @param {string} module - Module name (e.g., 'sms_grievance', 'sms_incident')
+ * @param {string} module - Module name (e.g., 'sms_grievance_county', 'sms_grievance_national', 'sms_incident_county', 'sms_incident_national', 'sms_auth', etc.)
  * @returns {Promise<boolean>} - Returns true if enabled, false otherwise
  */
 async function isSMSEnabled(module) {
@@ -58,31 +68,47 @@ async function isSMSEnabled(module) {
 }
 
 /**
- * Check if SMS sending is enabled for grievance module
+ * Check if SMS sending is enabled for grievance module at a specific level
+ * @param {string} level - Level: 'county' or 'national'
+ * @returns {Promise<boolean>} - Returns true if enabled, false otherwise
  */
-async function isGrievanceSMSEnabled() {
-  return await isSMSEnabled('sms_grievance')
+async function isGrievanceSMSEnabled(level = 'county') {
+  const module = level === 'national' ? 'sms_grievance_national' : 'sms_grievance_county'
+  console.log(`[SMS Settings] Checking grievance SMS for level '${level}' -> module '${module}'`)
+  return await isSMSEnabled(module)
 }
 
 /**
- * Get SMS status for grievance module (includes user who disabled it)
+ * Get SMS status for grievance module at a specific level (includes user who disabled it)
+ * @param {string} level - Level: 'county' or 'national'
+ * @returns {Promise<{enabled: boolean, disabledBy: object|null}>}
  */
-async function getGrievanceSMSStatus() {
-  return await getSMSStatus('sms_grievance')
+async function getGrievanceSMSStatus(level = 'county') {
+  const module = level === 'national' ? 'sms_grievance_national' : 'sms_grievance_county'
+  console.log(`[SMS Settings] Getting grievance SMS status for level '${level}' -> module '${module}'`)
+  return await getSMSStatus(module)
 }
 
 /**
- * Check if SMS sending is enabled for incident module
+ * Check if SMS sending is enabled for incident module at a specific level
+ * @param {string} level - Level: 'county' or 'national'
+ * @returns {Promise<boolean>} - Returns true if enabled, false otherwise
  */
-async function isIncidentSMSEnabled() {
-  return await isSMSEnabled('sms_incident')
+async function isIncidentSMSEnabled(level = 'county') {
+  const module = level === 'national' ? 'sms_incident_national' : 'sms_incident_county'
+  console.log(`[SMS Settings] Checking incident SMS for level '${level}' -> module '${module}'`)
+  return await isSMSEnabled(module)
 }
 
 /**
- * Get SMS status for incident module (includes user who disabled it)
+ * Get SMS status for incident module at a specific level (includes user who disabled it)
+ * @param {string} level - Level: 'county' or 'national'
+ * @returns {Promise<{enabled: boolean, disabledBy: object|null}>}
  */
-async function getIncidentSMSStatus() {
-  return await getSMSStatus('sms_incident')
+async function getIncidentSMSStatus(level = 'county') {
+  const module = level === 'national' ? 'sms_incident_national' : 'sms_incident_county'
+  console.log(`[SMS Settings] Getting incident SMS status for level '${level}' -> module '${module}'`)
+  return await getSMSStatus(module)
 }
 
 /**

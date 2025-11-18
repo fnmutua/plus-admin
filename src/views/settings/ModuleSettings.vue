@@ -9,37 +9,124 @@
       </template>
 
       <div v-loading="loading" class="settings-content">
-        <div class="settings-list">
-          <div
-            v-for="setting in settings"
-            :key="setting.id || setting.module"
-            class="setting-item"
-          >
-            <div class="setting-info">
-              <div class="setting-header">
-                <h3 class="setting-title">{{ formatModuleName(setting.module) }}</h3>
-                <ElTag :type="setting.enabled ? 'success' : 'info'" size="small">
-                  {{ setting.enabled ? 'Enabled' : 'Disabled' }}
-                </ElTag>
+        <ElTabs v-model="activeTab" class="settings-tabs">
+          <!-- Grievances Tab -->
+          <ElTabPane label="Grievances" name="grievances">
+            <div class="settings-list">
+              <div
+                v-for="setting in grievanceSettings"
+                :key="setting.id || setting.module"
+                class="setting-item"
+              >
+                <div class="setting-info">
+                  <div class="setting-header">
+                    <h3 class="setting-title">{{ formatModuleName(setting.module) }}</h3>
+                    <ElTag :type="setting.enabled ? 'success' : 'info'" size="small">
+                      {{ setting.enabled ? 'Enabled' : 'Disabled' }}
+                    </ElTag>
+                  </div>
+                  <p v-if="setting.description" class="setting-description">
+                    {{ setting.description }}
+                  </p>
+                  <p v-else class="setting-description text-muted">
+                    No description available
+                  </p>
+                </div>
+                <div class="setting-action">
+                  <ElSwitch
+                    v-model="setting.enabled"
+                    :loading="setting.saving"
+                    active-text="ON"
+                    inactive-text="OFF"
+                    @change="handleToggle(setting)"
+                  />
+                </div>
               </div>
-              <p v-if="setting.description" class="setting-description">
-                {{ setting.description }}
-              </p>
-              <p v-else class="setting-description text-muted">
-                No description available
-              </p>
+              
+              <div v-if="grievanceSettings.length === 0" class="empty-state">
+                <ElEmpty description="No grievance settings found" />
+              </div>
             </div>
-            <div class="setting-action">
-              <ElSwitch
-                v-model="setting.enabled"
-                :loading="setting.saving"
-                active-text="ON"
-                inactive-text="OFF"
-                @change="handleToggle(setting)"
-              />
+          </ElTabPane>
+
+          <!-- Incidents Tab -->
+          <ElTabPane label="Incidents" name="incidents">
+            <div class="settings-list">
+              <div
+                v-for="setting in incidentSettings"
+                :key="setting.id || setting.module"
+                class="setting-item"
+              >
+                <div class="setting-info">
+                  <div class="setting-header">
+                    <h3 class="setting-title">{{ formatModuleName(setting.module) }}</h3>
+                    <ElTag :type="setting.enabled ? 'success' : 'info'" size="small">
+                      {{ setting.enabled ? 'Enabled' : 'Disabled' }}
+                    </ElTag>
+                  </div>
+                  <p v-if="setting.description" class="setting-description">
+                    {{ setting.description }}
+                  </p>
+                  <p v-else class="setting-description text-muted">
+                    No description available
+                  </p>
+                </div>
+                <div class="setting-action">
+                  <ElSwitch
+                    v-model="setting.enabled"
+                    :loading="setting.saving"
+                    active-text="ON"
+                    inactive-text="OFF"
+                    @change="handleToggle(setting)"
+                  />
+                </div>
+              </div>
+              
+              <div v-if="incidentSettings.length === 0" class="empty-state">
+                <ElEmpty description="No incident settings found" />
+              </div>
             </div>
-          </div>
-        </div>
+          </ElTabPane>
+
+          <!-- Other Settings Tab -->
+          <ElTabPane label="Other Settings" name="other">
+            <div class="settings-list">
+              <div
+                v-for="setting in otherSettings"
+                :key="setting.id || setting.module"
+                class="setting-item"
+              >
+                <div class="setting-info">
+                  <div class="setting-header">
+                    <h3 class="setting-title">{{ formatModuleName(setting.module) }}</h3>
+                    <ElTag :type="setting.enabled ? 'success' : 'info'" size="small">
+                      {{ setting.enabled ? 'Enabled' : 'Disabled' }}
+                    </ElTag>
+                  </div>
+                  <p v-if="setting.description" class="setting-description">
+                    {{ setting.description }}
+                  </p>
+                  <p v-else class="setting-description text-muted">
+                    No description available
+                  </p>
+                </div>
+                <div class="setting-action">
+                  <ElSwitch
+                    v-model="setting.enabled"
+                    :loading="setting.saving"
+                    active-text="ON"
+                    inactive-text="OFF"
+                    @change="handleToggle(setting)"
+                  />
+                </div>
+              </div>
+              
+              <div v-if="otherSettings.length === 0" class="empty-state">
+                <ElEmpty description="No other settings found" />
+              </div>
+            </div>
+          </ElTabPane>
+        </ElTabs>
 
         <div v-if="settings.length === 0 && !loading" class="empty-state">
           <ElEmpty description="No settings found" />
@@ -61,25 +148,36 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { ElCard, ElSwitch, ElTag, ElButton, ElEmpty, ElMessage } from 'element-plus'
+import { ref, onMounted, computed } from 'vue'
+import { ElCard, ElSwitch, ElTag, ElButton, ElEmpty, ElMessage, ElTabs, ElTabPane } from 'element-plus'
 import { getAllSettings, bulkUpdateSettings, type ModuleSetting } from '@/api/settings'
 
 const loading = ref(false)
 const saving = ref(false)
 const settings = ref<Array<ModuleSetting & { saving?: boolean }>>([])
+const activeTab = ref('grievances')
 
 // Default SMS module settings
 const defaultSettings = [
   {
-    module: 'sms_grievance',
+    module: 'sms_grievance_county',
     enabled: true,
-    description: 'Enable/disable SMS notifications for grievance module'
+    description: 'Enable/disable SMS notifications for grievances at county level'
   },
   {
-    module: 'sms_incident',
+    module: 'sms_grievance_national',
     enabled: true,
-    description: 'Enable/disable SMS notifications for incident module'
+    description: 'Enable/disable SMS notifications for grievances at national level'
+  },
+  {
+    module: 'sms_incident_county',
+    enabled: true,
+    description: 'Enable/disable SMS notifications for incidents at county level'
+  },
+  {
+    module: 'sms_incident_national',
+    enabled: true,
+    description: 'Enable/disable SMS notifications for incidents at national level'
   },
   {
     module: 'sms_auth',
@@ -106,6 +204,28 @@ const formatModuleName = (module: string): string => {
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ')
 }
+
+// Grievance settings
+const grievanceSettings = computed(() => {
+  return settings.value.filter(s => s.module.startsWith('sms_grievance_'))
+})
+
+// Incident settings
+const incidentSettings = computed(() => {
+  return settings.value.filter(s => s.module.startsWith('sms_incident_'))
+})
+
+// Other settings (auth, user, feedback, etc.) - explicitly excludes grievances and incidents
+const otherSettings = computed(() => {
+  return settings.value.filter(s => {
+    const module = s.module || ''
+    // Exclude grievances and incidents - only include other modules
+    return !module.startsWith('sms_grievance_') && 
+           !module.startsWith('sms_incident_') &&
+           module !== 'sms_grievance' &&
+           module !== 'sms_incident'
+  })
+})
 
 const loadSettings = async () => {
   loading.value = true
@@ -215,6 +335,22 @@ onMounted(() => {
 
 .settings-content {
   min-height: 200px;
+}
+
+.settings-tabs {
+  :deep(.el-tabs__header) {
+    margin-bottom: 20px;
+  }
+
+  :deep(.el-tabs__item) {
+    font-size: 15px;
+    font-weight: 500;
+    padding: 0 24px;
+  }
+
+  :deep(.el-tabs__content) {
+    padding: 0;
+  }
 }
 
 .settings-list {

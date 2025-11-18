@@ -49,11 +49,37 @@ function formatPhoneNumber(phoneNumber) {
   return cleaned; // Return as-is if no pattern matches
 }
 
-async function sendNotificationSMS(phone_number, message) {
-  // Check if SMS is enabled for incident module
-  const smsEnabled = await isIncidentSMSEnabled()
+// Helper function to determine incident level
+function getIncidentLevel(incident) {
+  // Check if location_level is explicitly set
+  if (incident && incident.location_level === 'national') {
+    return 'national'
+  }
+  // If it has county_id or settlement_id, it's county level
+  if (incident && (incident.county_id || incident.settlement_id)) {
+    return 'county'
+  }
+  // Default to county for backward compatibility
+  return 'county'
+}
+
+async function sendNotificationSMS(phone_number, message, incident = null) {
+  // Determine the level from the incident data
+  const level = getIncidentLevel(incident)
+  console.log(`[SMS] Incident level determined: ${level}`, {
+    location_level: incident?.location_level,
+    county_id: incident?.county_id,
+    settlement_id: incident?.settlement_id,
+    incident_id: incident?.id
+  })
+  
+  // Check if SMS is enabled for incident module at the determined level
+  const moduleName = level === 'national' ? 'sms_incident_national' : 'sms_incident_county'
+  const smsEnabled = await isIncidentSMSEnabled(level)
+  console.log(`[SMS] Incident SMS status for ${level} level (${moduleName}):`, { enabled: smsEnabled })
+  
   if (!smsEnabled) {
-    console.log('SMS sending is disabled for incident module. Skipping SMS notification.')
+    console.log(`[SMS] SMS sending is disabled for incident module at ${level} level (${moduleName}). Skipping SMS notification.`)
     return
   }
 
@@ -150,7 +176,7 @@ exports.createIncident = async (req, res) => {
         const serverUrl = `${req.protocol}://${req.get('host')}`;
         const statusUrl = `${serverUrl}/#/incidents/${created.id}`;
         const acknowledgementMessage = `Dear ${body.reported_by || 'Valued User'}, your incident has been received with reference ${body.code}. Location: ${settlementName}, ${countyName}. You can monitor the status of your report here -> ${statusUrl}. Thank you for reporting.`;
-        await sendNotificationSMS(body.reporter_phone, acknowledgementMessage);
+        await sendNotificationSMS(body.reporter_phone, acknowledgementMessage, created);
         console.log(`Acknowledgement SMS sent to ${body.reporter_phone}`);
       } catch (smsError) {
         console.error('Failed to send acknowledgement SMS:', smsError);
@@ -168,7 +194,7 @@ exports.createIncident = async (req, res) => {
       const smsPromises = safeguardsUsers.map(async (user) => {
         if (user.phone) {
           try {
-            await sendNotificationSMS(user.phone, incidentMessage);
+            await sendNotificationSMS(user.phone, incidentMessage, created);
             console.log(`SMS notification sent to safeguards user ${user.name} (${user.phone})`);
           } catch (error) {
             console.error(`Failed to send SMS to ${user.name}:`, error.message);

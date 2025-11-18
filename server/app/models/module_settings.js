@@ -11,7 +11,7 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.STRING,
       allowNull: false,
       unique: true,
-      comment: 'Module name (e.g., sms_grievance, sms_incident, sms_auth, etc.)'
+      comment: 'Module name (e.g., sms_grievance_county, sms_grievance_national, sms_incident_county, sms_incident_national, sms_auth, sms_user, sms_feedback, etc.)'
     },
     enabled: {
       type: DataTypes.BOOLEAN,

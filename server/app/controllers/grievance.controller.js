@@ -67,9 +67,58 @@ exports.generateGRMCode = async (req, res) => {
 };
 
  
+// Helper function to determine grievance level
+function getGrievanceLevel(grievance) {
+  // Check if location_level is explicitly set
+  if (grievance.location_level === 'national') {
+    return 'national'
+  }
+  // If it has county_id or settlement_id, it's county level
+  if (grievance.county_id || grievance.settlement_id) {
+    return 'county'
+  }
+  // Default to county for backward compatibility
+  return 'county'
+}
+
 async function sendNotificationSMS(sms_obj) {
-  // Check if SMS is enabled for grievance module and get user who disabled it
-  const smsStatus = await getGrievanceSMSStatus()
+  // Determine the level from the grievance data
+  // If sms_obj has grievance data, use it; otherwise fetch it
+  let level = 'county' // default
+  if (sms_obj.grievance_id) {
+    try {
+      const grievance = await db.models.grievance.findByPk(sms_obj.grievance_id, {
+        attributes: ['location_level', 'county_id', 'settlement_id']
+      })
+      if (grievance) {
+        level = getGrievanceLevel(grievance)
+        console.log(`[SMS] Grievance ${sms_obj.grievance_id} level determined: ${level}`, {
+          location_level: grievance.location_level,
+          county_id: grievance.county_id,
+          settlement_id: grievance.settlement_id
+        })
+      } else {
+        console.log(`[SMS] Grievance ${sms_obj.grievance_id} not found, using default level: county`)
+      }
+    } catch (error) {
+      console.error('Error determining grievance level:', error)
+      // Default to county on error
+    }
+  } else if (sms_obj.location_level || sms_obj.county_id || sms_obj.settlement_id) {
+    // If level info is directly in sms_obj
+    level = getGrievanceLevel(sms_obj)
+    console.log(`[SMS] Level determined from sms_obj: ${level}`, {
+      location_level: sms_obj.location_level,
+      county_id: sms_obj.county_id,
+      settlement_id: sms_obj.settlement_id
+    })
+  } else {
+    console.log(`[SMS] No level info found, using default: county`)
+  }
+  
+  // Check if SMS is enabled for grievance module at the determined level
+  const smsStatus = await getGrievanceSMSStatus(level)
+  console.log(`[SMS] Grievance SMS status for ${level} level:`, { enabled: smsStatus.enabled, module: level === 'national' ? 'sms_grievance_national' : 'sms_grievance_county' })
   
   const notification ={}
   notification.grievance_id = sms_obj.grievance_id
@@ -132,8 +181,18 @@ async function sendNotificationSMS(sms_obj) {
 }
 
 async function sendCreateSMS(sms_obj,serverUrl) {
-  // Check if SMS is enabled for grievance module and get user who disabled it
-  const smsStatus = await getGrievanceSMSStatus()
+  // Determine the level from the grievance data
+  const level = getGrievanceLevel(sms_obj)
+  console.log(`[SMS] Create SMS - Grievance level determined: ${level}`, {
+    location_level: sms_obj.location_level,
+    county_id: sms_obj.county_id,
+    settlement_id: sms_obj.settlement_id,
+    grievance_id: sms_obj.id
+  })
+  
+  // Check if SMS is enabled for grievance module at the determined level
+  const smsStatus = await getGrievanceSMSStatus(level)
+  console.log(`[SMS] Create SMS - Grievance SMS status for ${level} level:`, { enabled: smsStatus.enabled, module: level === 'national' ? 'sms_grievance_national' : 'sms_grievance_county' })
   
   // Generate QR code as a data URI
   const status_url = serverUrl +'/#/status/'+sms_obj.id

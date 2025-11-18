@@ -247,14 +247,24 @@ exports.initializeDefaultSettings = async () => {
   try {
     const defaultSettings = [
       {
-        module: 'sms_grievance',
+        module: 'sms_grievance_county',
         enabled: true,
-        description: 'Enable/disable SMS notifications for grievance module'
+        description: 'Enable/disable SMS notifications for grievances at county level'
       },
       {
-        module: 'sms_incident',
+        module: 'sms_grievance_national',
         enabled: true,
-        description: 'Enable/disable SMS notifications for incident module'
+        description: 'Enable/disable SMS notifications for grievances at national level'
+      },
+      {
+        module: 'sms_incident_county',
+        enabled: true,
+        description: 'Enable/disable SMS notifications for incidents at county level'
+      },
+      {
+        module: 'sms_incident_national',
+        enabled: true,
+        description: 'Enable/disable SMS notifications for incidents at national level'
       },
       {
         module: 'sms_auth',
