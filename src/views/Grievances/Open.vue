@@ -231,6 +231,14 @@ const Statuses = ref([
     hidden: false,
     description: 'Reviewed and referred: 1) to a specific officer (CPCT/NPCT), or 2) to an external entity for resolution'
   },
+  {
+    label: 'External Referral',
+    value: 'ExternalReferral',
+    icon: Share,
+    count: 0,
+    hidden: false,
+    description: 'Referred to an external agency for resolution'
+  },
 
   {
     label: 'In Court',
@@ -2649,6 +2657,15 @@ const onSegmentClick = async (statusValue?: string) => {
     }
     var index = filters.value.indexOf(selectOption)
     filterValues.value[index] = ['Referred', 'ExternalReferral']
+
+  } else if (activeSegment.value === "ExternalReferral") {
+    var selectOption = 'status'
+    if (!filters.value.includes(selectOption)) {
+      filters.value.push(selectOption)
+      filterFunction.value.push('in')
+    }
+    var index = filters.value.indexOf(selectOption)
+    filterValues.value[index] = ['ExternalReferral']
 
   } else if (activeSegment.value === "In Court") {
     var selectOption = 'status'
