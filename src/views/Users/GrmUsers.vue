@@ -998,8 +998,8 @@ const searchSettlements = async (keyword = '', countyId = null) => {
   // Use provided countyId or get from current context
   const targetCountyId = countyId || (value2.value && value2.value.length > 0 ? value2.value[0] : null)
   
-  // If no county is selected, don't search
-  if (!targetCountyId) {
+  // If no county is selected or "Not Applicable" (0), don't search
+  if (!targetCountyId || targetCountyId === 0) {
     settlementOptions.value = []
     return
   }
@@ -1049,12 +1049,13 @@ const searchSettlements = async (keyword = '', countyId = null) => {
 
 // Legacy function - kept for compatibility, now uses remote search
 const getCountySettlements = async (county_id) => {
-  if (!county_id) {
-    settlementOptions.value = []
+  settlementOptions.value = []
+  
+  // If no county is selected or "Not Applicable" (0), don't search
+  if (!county_id || county_id === 0) {
     return
   }
-  // Clear settlement selection when county changes
-  settlementOptions.value = []
+  
   // Load settlements for the selected county using remote search
   await searchSettlements('', county_id)
 }
@@ -1619,6 +1620,20 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
               <el-input v-model="form.organization_name" autocomplete="off" />
             </el-form-item>
           </el-col>
+
+          <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+            <el-form-item label="County" :label-width="formLabelWidth">
+              <el-select
+                v-model="form.county_id"
+                placeholder="Select County"
+                clearable
+                filterable
+                :style="{ width: '100%' }">
+                <el-option :value="0" label="Not Applicable" />
+                <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </el-form-item>
+          </el-col>
         </el-row>
 
         <!-- Table for roles management -->
@@ -1659,6 +1674,7 @@ v-model="row.location_level" placeholder="Select level" size="small" filterable
                 }" 
                 size="small" 
                 :style="{ width: '100%' }">
+                <el-option :value="0" label="Not Applicable" />
                 <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
             </template>

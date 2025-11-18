@@ -1649,6 +1649,20 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
               <el-input v-model="form.organization_name" autocomplete="off" />
             </el-form-item>
           </el-col>
+
+          <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+            <el-form-item label="County" :label-width="formLabelWidth">
+              <el-select
+                v-model="form.county_id"
+                placeholder="Select County"
+                clearable
+                filterable
+                :style="{ width: '100%' }">
+                <el-option :value="0" label="Not Applicable" />
+                <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </el-form-item>
+          </el-col>
         </el-row>
 
         <!-- Table for roles management -->
@@ -1689,6 +1703,7 @@ v-model="row.location_level" placeholder="Select level" size="small" filterable
                 }" 
                 size="small" 
                 :style="{ width: '100%' }">
+                <el-option :value="0" label="Not Applicable" />
                 <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
             </template>

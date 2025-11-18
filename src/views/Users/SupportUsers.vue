@@ -581,6 +581,12 @@ const isSettlementLevel = ref(false)
 
 const getCountySettlements = async (county_id: any) => {
   settlementOptions.value = []
+  
+  // If no county is selected or "Not Applicable" (0), don't search
+  if (!county_id || county_id === 0) {
+    return
+  }
+  
   const formData: any = {}
   // formData.limit = pageSize.value
   // formData.page = page.value
@@ -888,6 +894,20 @@ const updateUser = () => {
               <el-input v-model="form.phone" autocomplete="off" />
             </el-form-item>
           </el-col>
+
+          <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+            <el-form-item label="County" :label-width="formLabelWidth">
+              <el-select
+                v-model="form.county_id"
+                placeholder="Select County"
+                clearable
+                filterable
+                :style="{ width: '100%' }">
+                <el-option :value="0" label="Not Applicable" />
+                <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </el-form-item>
+          </el-col>
         </el-row>
 
         <!-- Table for roles management -->
@@ -930,6 +950,7 @@ const updateUser = () => {
                 @change="getCountySettlements(row.county_id)" 
                 size="small" 
                 style="width:80%">
+                <el-option :value="0" label="Not Applicable" />
                 <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
             </template>
