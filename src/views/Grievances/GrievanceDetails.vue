@@ -417,15 +417,15 @@ const processGrievance = async() => {
 
   if (['county', 'national'].includes(String(Grievance.value.current_level))) {
     showRefferalField.value = true
-    if (!StatusOptions.value.some(opt => opt.value === 'ExternalReferral')) {
-  StatusOptions.value.push({
-    value: 'ExternalReferral',
-    label: 'Refer to External Agency',
-      })
-    }
   } else {
     showRefferalField.value = false
-    StatusOptions.value = StatusOptions.value.filter(opt => opt.value !== 'ExternalReferral')
+  }
+
+  if (!StatusOptions.value.some(opt => opt.value === 'ExternalReferral')) {
+    StatusOptions.value.push({
+      value: 'ExternalReferral',
+      label: 'Refer to External Agency',
+    })
   }
 
   if (Grievance.value.current_level === 'national') {
