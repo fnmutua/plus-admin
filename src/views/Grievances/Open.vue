@@ -40,7 +40,7 @@ import PermissionWrapper from '@/components/PermissionWrapper.vue';
 import type { UploadUserFile } from 'element-plus'
 
 import { getCountyAuth, getSettlementByCountyAuth } from '@/api/register'
-import { uploadGrievanceDocuments, generateGrievance, logGrievanceAction,revertGrievanceHistory,logGrievanceActionBulk, batchImportGrievances, getByKeyword } from '@/api/grievance'
+import { uploadGrievanceDocuments, generateGrievance, logGrievanceAction,revertGrievanceHistory,logGrievanceActionBulk, batchImportGrievances, getByKeyword, sendAcknowledgement } from '@/api/grievance'
 import { getModelSpecs } from '@/api/fields'
 import exportFromJSON from 'export-from-json'
 import Papa from 'papaparse';
@@ -1389,6 +1389,38 @@ const logAction = async (grievance) => {
 
 }
 
+const sendNotification = async (grievance, action_id) => {
+  const formData = {};
+
+  // Additional properties based on the provided JSON object
+  formData.type = "acknowledgement"
+  formData.action_id = action_id || null;
+  formData.grievance_id = grievance.id || null;
+  formData.phone = grievance.phone || null;
+  formData.project_phone = grievance.project_phone || 'Not Available';
+  formData.code = grievance.code || null;
+  formData.date = formatDate(grievance.date_reported) || null;
+  formData.age = grievance.age || null;
+  formData.gender = grievance.gender || null;
+  formData.barcode = grievance.barcode || null;
+  formData.name = grievance.name || null;
+  formData.address = grievance.address || null;
+  formData.settlement = grievance.settlement?.name || null;
+  formData.email = grievance.email || null;
+  formData.complaint = grievance.description || null;
+  formData.county = grievance.county?.name || null;
+  formData.subcounty = grievance.subcounty?.name || null;
+  formData.documents = grievance.documents || null;
+
+
+  console.log(formData);
+
+  const res = await sendAcknowledgement(formData)
+
+  console.log(res)
+
+}
+
 
  
 
@@ -1471,6 +1503,9 @@ console.log('grmForm.value',grmForm.value)
       // 3. Uplaod docuemnts 
 
       await uploadFiles(log.id, grv.data.id)
+
+      // 4. Send Notification (generates acknowledgment PDF)
+      await sendNotification(grv.data, log.id)
 
 
       ElMessage({

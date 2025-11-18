@@ -79,11 +79,28 @@ exports.generatePDF = async (req, res) => {
     const pdfBytes = await pdfDoc.save();
 
     
-    // Generate a random UUID for the file name
-    const uniqueFilename = `${shortid.generate()}.pdf`;
+    // Generate filename from grievance code and document type
+    // Format: GRM-2024-0001-Acknowledgement.pdf
+    const grievanceCode = formData.code || 'UNKNOWN';
+    const docType = formData.type || 'document';
+    // Capitalize first letter of document type
+    const capitalizedType = docType.charAt(0).toUpperCase() + docType.slice(1);
+    // Sanitize filename: remove special characters, replace spaces with hyphens
+    const sanitizedCode = grievanceCode.replace(/[^a-zA-Z0-9-]/g, '');
+    let baseFilename = `${sanitizedCode}-${capitalizedType}.pdf`;
+    
+    // Handle duplicate filenames by appending a number if file already exists
+    let uniqueFilename = baseFilename;
+    let counter = 1;
+    const uploadDir = '/data/grievances';
+    while (fs.existsSync(path.join(uploadDir, uniqueFilename))) {
+      const nameWithoutExt = baseFilename.replace('.pdf', '');
+      uniqueFilename = `${nameWithoutExt}-${counter}.pdf`;
+      counter++;
+    }
 
     // Define the upload path
-    const uploadPath = path.join('/data/grievances', uniqueFilename);
+    const uploadPath = path.join(uploadDir, uniqueFilename);
 
   
     // Save the PDF to the /data/uploads directory

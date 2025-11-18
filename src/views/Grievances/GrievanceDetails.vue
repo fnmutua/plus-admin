@@ -939,6 +939,7 @@ const generatePDFform = async (grievance, action) => {
     formData.type = "resolution"
 
     formData.grievance_id = grievance.id
+    formData.code = grievance.code || null; // Grievance code for filename generation
     formData.project_phone = grievance.project_phone || 'Not Available';
     formData.settlement = grievance.settlement || null;
     formData.resolution_date = formatDate(action.resolution_date) || null;
