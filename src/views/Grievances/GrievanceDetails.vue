@@ -368,7 +368,10 @@ const processGrievance = async() => {
   const currentStatus = Grievance.value.status
 
   const permitted = statusDictionary.filter(option => option.supportedBy.includes(currentStatus))
-  StatusOptions.value = permitted.map(({ value, label }) => ({ value, label }))
+  const allowCurrentStatus = ['Escalated', 'Referred'].includes(String(currentStatus))
+  StatusOptions.value = permitted
+    .filter(({ value }) => allowCurrentStatus || value !== currentStatus)
+    .map(({ value, label }) => ({ value, label }))
 
   if (currentStatus === 'Sorting') {
     button_label.value = 'Review and Sort';
