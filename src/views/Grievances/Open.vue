@@ -4821,8 +4821,19 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
               </el-form-item>
             </el-col>
             <el-col :xs="24" :sm="24" :md="24" :lg="24">
-              <el-form-item id="btn13" label="Is this a GBV-related complaint?">
-                <el-switch v-model="grmForm.isgbv" />
+              <el-form-item id="btn13" label="Is this complaint related to Gender-Based Violence?" prop="isgbv">
+                <el-select v-model="grmForm.isgbv" placeholder="Select option" style="width: 100%;" filterable>
+                  <el-option label="No" :value="false" />
+                  <el-option label="Yes" :value="true" />
+                </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="24" :md="24" :lg="24">
+              <el-form-item id="btn13a" label="Is this complaint currently in court?" prop="isInCourt">
+                <el-select v-model="grmForm.isInCourt" placeholder="Select option" style="width: 100%;" filterable>
+                  <el-option label="No" :value="false" />
+                  <el-option label="Yes" :value="true" />
+                </el-select>
               </el-form-item>
             </el-col>
             
