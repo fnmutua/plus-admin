@@ -114,7 +114,8 @@ const props = defineProps({
   associated_models: Array,
   loading: Boolean,
   filters: Array,
-  filterValues: Array
+  filterValues: Array,
+  filterFunctions: Array
 });
 
 const tableDataList = ref([]);
@@ -442,7 +443,7 @@ const downloadCSV = async () => {
 
 
 
-const getFilteredData = async () => {
+const getFilteredData = async (selectedFieldsList = []) => {
   const formData = {};
 
   formData.model = props.model;
@@ -451,8 +452,13 @@ const getFilteredData = async () => {
   // Use filters from props if provided, otherwise use empty arrays
   formData.filters = props.filters || [];
   formData.filterValues = props.filterValues || [];
+  formData.filterFunctions = props.filterFunctions || [];
   formData.associated_multiple_models = props.associated_models;
   formData.nested_models = [];
+  // Pass selected fields to backend for efficient data fetching
+  if (selectedFieldsList && selectedFieldsList.length > 0) {
+    formData.selectedFields = selectedFieldsList;
+  }
 
   const res = await getAllForDownload(formData);
   console.log('User download All', res);
@@ -468,7 +474,7 @@ const downloadAll = async () => {
   }
   emit('download-start');
   try {
-    await getFilteredData();
+    await getFilteredData(selectedFields.value);
     const extractedData = extractData(tableDataList.value, selectedFields.value);
     const columns = selectedFields.value.map((field) => {
       let cleanedField = field.replace(/[^a-zA-Z0-9]/g, ' ');

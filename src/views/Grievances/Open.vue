@@ -372,6 +372,59 @@ watch(canSeeDeletedStatus, (canSee) => {
   }
 }, { immediate: true })
 
+// Computed properties for download filters - always exclude "Deleted" status
+const downloadFilters = computed(() => {
+  const downloadFiltersList = [...filters.value];
+  const downloadFilterValues = filterValues.value.map(arr => [...arr]);
+  const downloadFilterFunctions = [...filterFunction.value];
+  
+  // Check if status filter exists
+  const statusIndex = downloadFiltersList.indexOf('status');
+  
+  if (statusIndex !== -1) {
+    // Status filter exists - ensure "Deleted" is not in the values
+    if (Array.isArray(downloadFilterValues[statusIndex])) {
+      downloadFilterValues[statusIndex] = downloadFilterValues[statusIndex].filter(
+        (val: any) => val !== 'Deleted'
+      );
+      // If no values left after filtering, remove the filter
+      if (downloadFilterValues[statusIndex].length === 0) {
+        downloadFiltersList.splice(statusIndex, 1);
+        downloadFilterValues.splice(statusIndex, 1);
+        if (downloadFilterFunctions[statusIndex] !== undefined) {
+          downloadFilterFunctions.splice(statusIndex, 1);
+        }
+      }
+    }
+  }
+  
+  // Always add filter to exclude "Deleted" status from downloads
+  const newStatusIndex = downloadFiltersList.indexOf('status');
+  if (newStatusIndex === -1) {
+    // No status filter exists, add one to exclude "Deleted"
+    downloadFiltersList.push('status');
+    downloadFilterValues.push(['Deleted']);
+    downloadFilterFunctions.push('notIn');
+  } else {
+    // Status filter exists, ensure "Deleted" is excluded with notIn
+    // Add a separate notIn filter for "Deleted" if it's not already excluded
+    const hasDeletedExclusion = downloadFilterValues[newStatusIndex]?.includes('Deleted') && 
+                                 downloadFilterFunctions[newStatusIndex] === 'notIn';
+    if (!hasDeletedExclusion) {
+      // Add separate filter to exclude "Deleted"
+      downloadFiltersList.push('status');
+      downloadFilterValues.push(['Deleted']);
+      downloadFilterFunctions.push('notIn');
+    }
+  }
+  
+  return {
+    filters: downloadFiltersList,
+    filterValues: downloadFilterValues,
+    filterFunctions: downloadFilterFunctions
+  };
+})
+
 const getUserRoles = async () => {
   // Clear existing filters
   roles_filters = [];
@@ -4160,6 +4213,9 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
                       :data="tableDataList"
                       :model="model"
                       :associated_models="['users','county','subcounty','ward','settlement']"
+                      :filters="downloadFilters.filters"
+                      :filterValues="downloadFilters.filterValues"
+                      :filterFunctions="downloadFilters.filterFunctions"
                       class="action-button"
                     />
                   </div>

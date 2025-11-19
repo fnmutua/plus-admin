@@ -6810,8 +6810,10 @@ exports.getAllListforDownload = async (req, res) => {
   console.log('Req-body:', req.body);
 
   const reg_model = req.body.model;
+  const user = req.thisUser;
 
   // Base query with conditional decryption
+  // We'll set attributes later if selectedFields is provided, otherwise use default
   const baseQuery = {
     where: {},
     attributes: reg_model === 'grievance'
@@ -6841,17 +6843,95 @@ exports.getAllListforDownload = async (req, res) => {
         }
   };
 
-  // Filtering
+  // Apply county filtering for grievance model based on user roles
+  if (reg_model === 'grievance' && user) {
+    try {
+      const currentUserRoles = await user.getRoles();
+      const hasSuperAdminRole = currentUserRoles.some(role => ['super_admin', 'root_admin', 'admin', 'staff'].includes(role.name));
+      const hasNationalRole = currentUserRoles.some(role => role.user_roles && role.user_roles.location_level === 'national');
+      const countyAdminRole = currentUserRoles.find(role => role.user_roles && role.user_roles.location_level === 'county');
+
+      // Apply county filter for county users (not for super admin or national users)
+      if (!hasSuperAdminRole && !hasNationalRole && countyAdminRole) {
+        const countyId = countyAdminRole.user_roles.county_id;
+        if (countyId) {
+          baseQuery.where.county_id = countyId;
+          console.log('Applying county filter from role for download:', countyId);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking user roles for county filtering:', error);
+    }
+  }
+
+  // Filtering from request body (applied after role-based filtering)
   if (
     req.body.filters &&
     req.body.filters.length > 0 &&
+    req.body.filterValues &&
     req.body.filterValues.length > 0 &&
     req.body.filterValues.length === req.body.filters.length
   ) {
-    const lstQueries = req.body.filters.map((filter, i) => ({
-      [filter]: req.body.filterValues[i]
-    }));
-    baseQuery.where = { [Op.and]: lstQueries };
+    const filterFunctions = req.body.filterFunctions || [];
+    const lstQueries = req.body.filters.map((filter, i) => {
+      // Handle array values (filterValues[i] might be an array)
+      const value = Array.isArray(req.body.filterValues[i]) 
+        ? req.body.filterValues[i] 
+        : [req.body.filterValues[i]];
+      
+      // Get filter function if provided (default to 'eq' or 'in' for arrays)
+      const filterFunc = filterFunctions[i] || (value.length > 1 ? 'in' : 'eq');
+      
+      // Apply the appropriate Sequelize operator based on filter function
+      switch (filterFunc.toLowerCase()) {
+        case 'notin':
+        case 'not_in':
+          // Exclude values (NOT IN)
+          return { [filter]: { [Op.notIn]: value } };
+        case 'in':
+          // Include values (IN)
+          return { [filter]: { [Op.in]: value } };
+        case 'ne':
+        case 'not':
+          // Not equal
+          return { [filter]: { [Op.ne]: value[0] } };
+        case 'like':
+        case 'ilike':
+          // Like / case-insensitive like
+          return { [filter]: { [Op.iLike]: `%${value[0]}%` } };
+        case 'gte':
+          // Greater than or equal
+          return { [filter]: { [Op.gte]: value[0] } };
+        case 'lte':
+          // Less than or equal
+          return { [filter]: { [Op.lte]: value[0] } };
+        case 'gt':
+          // Greater than
+          return { [filter]: { [Op.gt]: value[0] } };
+        case 'lt':
+          // Less than
+          return { [filter]: { [Op.lt]: value[0] } };
+        case 'eq':
+        default:
+          // Equal (default) - use 'in' for arrays, 'eq' for single values
+          if (value.length > 1) {
+            return { [filter]: { [Op.in]: value } };
+          } else {
+            return { [filter]: value[0] };
+          }
+      }
+    });
+    
+    // Merge with existing where conditions
+    if (Object.keys(baseQuery.where).length > 0) {
+      // If we already have conditions, combine them with AND
+      const existingConditions = Object.keys(baseQuery.where).map(key => ({
+        [key]: baseQuery.where[key]
+      }));
+      baseQuery.where = { [Op.and]: [...existingConditions, ...lstQueries] };
+    } else {
+      baseQuery.where = { [Op.and]: lstQueries };
+    }
   }
 
   // Associated Models
@@ -6940,6 +7020,110 @@ exports.getAllListforDownload = async (req, res) => {
     includeModels.push(nestedModels);
   }
 
+  // Handle selected fields if provided
+  const selectedFields = req.body.selectedFields || [];
+  if (selectedFields.length > 0) {
+    // Separate main model fields from nested/associated model fields
+    const mainModelFields = [];
+    const nestedFieldsMap = {}; // Map of model name to array of fields
+    
+    selectedFields.forEach(field => {
+      if (field.includes('.')) {
+        // This is a nested field (e.g., "county.name")
+        const parts = field.split('.');
+        const modelName = parts[0];
+        const fieldName = parts.slice(1).join('.');
+        
+        if (!nestedFieldsMap[modelName]) {
+          nestedFieldsMap[modelName] = [];
+        }
+        nestedFieldsMap[modelName].push(fieldName);
+      } else {
+        // This is a main model field
+        mainModelFields.push(field);
+      }
+    });
+
+    // Update main model attributes if we have selected fields
+    if (mainModelFields.length > 0) {
+      if (reg_model === 'grievance') {
+        // For grievance, we need to include decrypted fields if they're selected
+        const includeAttributes = [];
+        const excludeFields = ['latitude', 'longitude', 'coordinates', 'name']; // exclude encrypted name
+        
+        // Add all selected fields except name and national_id (we'll handle those separately)
+        mainModelFields.forEach(field => {
+          if (field !== 'name' && field !== 'national_id') {
+            includeAttributes.push(field);
+          }
+        });
+        
+        // Add decrypted name if 'name' is in selected fields
+        if (mainModelFields.includes('name')) {
+          includeAttributes.push([
+            sequelize.fn(
+              'PGP_SYM_DECRYPT',
+              sequelize.cast(sequelize.col(`${reg_model}.name`), 'bytea'),
+              '***REDACTED***'
+            ),
+            'name'
+          ]);
+        }
+        
+        // Add decrypted national_id if 'national_id' is in selected fields
+        if (mainModelFields.includes('national_id')) {
+          includeAttributes.push([
+            sequelize.fn(
+              'PGP_SYM_DECRYPT',
+              sequelize.cast(sequelize.col(`${reg_model}.national_id`), 'bytea'),
+              '***REDACTED***'
+            ),
+            'national_id'
+          ]);
+        }
+        
+        baseQuery.attributes = {
+          include: includeAttributes,
+          exclude: excludeFields
+        };
+      } else {
+        // For other models, just use the selected fields
+        baseQuery.attributes = {
+          include: mainModelFields,
+          exclude: ['latitude', 'longitude', 'coordinates']
+        };
+      }
+    }
+
+    // Update associated model attributes based on selected nested fields
+    if (Object.keys(nestedFieldsMap).length > 0) {
+      includeModels.forEach(includeModel => {
+        // Try to match model name in different cases
+        const modelNameLower = includeModel.model.name.toLowerCase();
+        const modelNameOriginal = includeModel.model.name;
+        
+        // Check if this model is in our nested fields map (try both lowercase and original case)
+        const fieldsForModel = nestedFieldsMap[modelNameLower] || nestedFieldsMap[modelNameOriginal];
+        
+        if (fieldsForModel && fieldsForModel.length > 0) {
+          // Filter attributes for this associated model
+          const modelAttributes = Object.keys(includeModel.model.rawAttributes).filter(attr => {
+            const lowerAttr = attr.toLowerCase();
+            return fieldsForModel.includes(attr) &&
+                   !lowerAttr.includes('geom') && 
+                   !lowerAttr.includes('password') && 
+                   !lowerAttr.includes('token') &&
+                   !lowerAttr.includes('createdat') &&
+                   !lowerAttr.includes('updatedat');
+          });
+          if (modelAttributes.length > 0) {
+            includeModel.attributes = modelAttributes;
+          }
+        }
+      });
+    }
+  }
+
   // Final query
   const qry = {
     ...baseQuery,
@@ -6947,7 +7131,8 @@ exports.getAllListforDownload = async (req, res) => {
     order: [['createdAt', 'DESC']]
   };
 
-  console.log('Final Query:', qry);
+  console.log('Final Query:', JSON.stringify(qry, null, 2));
+  console.log('Selected Fields:', selectedFields);
 
   try {
     const response = await db.models[reg_model].findAll(qry);
