@@ -1056,35 +1056,35 @@ const submitResolutionForm = async () => {
   formInstance.value.validate(async (valid: boolean) => {
     if (valid) {
       try {
-        form.value.grievance_id = Grievance.value.id
-        form.value.action_type = form.value.new_status
-        form.value.action_by = userInfo.id  // remember t change 
-        form.value.date_actioned = new Date();
-        form.value.prev_status = Grievance.value.status
-        form.value.action_level = current_user_roles[0] ? current_user_roles[0] : 'settlement'
-        //form.value.action =  'testing referral'
+      form.value.grievance_id = Grievance.value.id
+      form.value.action_type = form.value.new_status
+      form.value.action_by = userInfo.id  // remember t change 
+      form.value.date_actioned = new Date();
+      form.value.prev_status = Grievance.value.status
+      form.value.action_level = current_user_roles[0] ? current_user_roles[0] : 'settlement'
+      //form.value.action =  'testing referral'
 
-        let msg = ''
-        if (form.value.new_status == 'Escalated') {
-          if (current_user_roles[0] == 'settlement') {
-            form.value.current_level = 'county';
-            msg = "Your grievance has been escalated to the county.";
-          } else {
-            form.value.current_level = 'national';
-            msg = "Your grievance has been escalated to the national team.";
-          }
-        } 
-        else if (form.value.new_status == 'Returned') {
-          if (current_user_roles[0] == 'county') {
-            form.value.current_level = 'settlement';
-            msg = "Your grievance has been referred to the settlement Grievance Redress team for resolution.";
-          } else {
-            form.value.current_level = 'county';
-            msg = "Your grievance has been referred to the county team for resolution.";
-          }
+      let msg = ''
+      if (form.value.new_status == 'Escalated') {
+        if (current_user_roles[0] == 'settlement') {
+          form.value.current_level = 'county';
+          msg = "Your grievance has been escalated to the county.";
+        } else {
+          form.value.current_level = 'national';
+          msg = "Your grievance has been escalated to the national team.";
         }
-        else if (form.value.new_status == 'Resolved') {
-          form.value.current_level = Grievance.value.current_level;
+      } 
+      else if (form.value.new_status == 'Returned') {
+        if (current_user_roles[0] == 'county') {
+          form.value.current_level = 'settlement';
+          msg = "Your grievance has been referred to the settlement Grievance Redress team for resolution.";
+        } else {
+          form.value.current_level = 'county';
+          msg = "Your grievance has been referred to the county team for resolution.";
+        }
+      }
+      else if (form.value.new_status == 'Resolved') {
+        form.value.current_level = Grievance.value.current_level;
           // Check if user is at national level
           const isNationalLevel = current_user_roles.includes('national') || isSuperAdmin.value;
           if (isNationalLevel) {
@@ -1094,72 +1094,72 @@ const submitResolutionForm = async () => {
             // County or Settlement resolves - subject to confirmation
             msg = "Your grievance has been resolved, subject to confirmation by KISIP National Team. " + form.value.action;
           }
-        }
-        else if (form.value.new_status == 'Closed') {
-          form.value.current_level = Grievance.value.current_level;
-          msg = "Your grievance has been closed. " + form.value.action;
-        }
-        else if (form.value.new_status == 'Referred') {
-          form.value.current_level = Grievance.value.current_level;
-          msg = "Your grievance has been referred to " + officerLabel.value + " for action. " + form.value.action;
-          form.value.action = 'Referred to ' + officerLabel.value +' : ' + form.value.action;
-        }
-        else {
-          form.value.current_level = Grievance.value.current_level;
-          msg = form.value.action;
-        }
+      }
+      else if (form.value.new_status == 'Closed') {
+        form.value.current_level = Grievance.value.current_level;
+        msg = "Your grievance has been closed. " + form.value.action;
+      }
+      else if (form.value.new_status == 'Referred') {
+        form.value.current_level = Grievance.value.current_level;
+        msg = "Your grievance has been referred to " + officerLabel.value + " for action. " + form.value.action;
+        form.value.action = 'Referred to ' + officerLabel.value +' : ' + form.value.action;
+      }
+      else {
+        form.value.current_level = Grievance.value.current_level;
+        msg = form.value.action;
+      }
 
-        console.log(form.value.new_status)
-        console.log(form.value.current_level)
-        console.log(Grievance.value.current_level)
+      console.log(form.value.new_status)
+      console.log(form.value.current_level)
+      console.log(Grievance.value.current_level)
 
-        console.log("checking issue.............",form.value)
-        // Log the action 
+      console.log("checking issue.............",form.value)
+      // Log the action 
 
-        // Create a copy of the form data for logging with the proper message
-        const logData = { ...form.value };
-        logData.action = msg; // Use the proper message instead of the raw action
-        
-        const res = await logGrievanceAction(logData)
+      // Create a copy of the form data for logging with the proper message
+      const logData = { ...form.value };
+      logData.action = msg; // Use the proper message instead of the raw action
+      
+      const res = await logGrievanceAction(logData)
 
 
-        /// Upload fies
-        await uploadFiles(res.data.id, Grievance.value.id)
+      /// Upload fies
+      await uploadFiles(res.data.id, Grievance.value.id)
 
 
         // Check if user is at national level for auto-closure
         const isNationalLevel = current_user_roles.includes('national') || isSuperAdmin.value;
         const shouldAutoClose = isNationalLevel && form.value.new_status === 'Resolved';
-        
-        const formData: any = {
-          code: Grievance.value.code,
-          new_status: shouldAutoClose ? 'Closed' : form.value.new_status,
-          recipient: Grievance.value.phone,
-          grievance_id: Grievance.value.id,
-          action: msg,
-          current_level: form.value.current_level,
-          current_status_date: new Date(),
-          status_expiry_date: new Date(Date.now() + getStageDuration(shouldAutoClose ? 'Closed' : form.value.new_status)),
-          action_by: userInfo.id,
-          action_level: current_user_roles[0] ? current_user_roles[0] : 'settlement',
-          reffered_to_officer: form.value.reffered_to_officer , // Extract id or set to null
-        };
 
-        // Explicitly send resolution field when grievance is resolved
-        // Use the action text directly (without the "Your grievance has been resolved. " prefix)
-        if (form.value.new_status === 'Resolved') {
+      const formData: any = {
+        code: Grievance.value.code,
+          new_status: shouldAutoClose ? 'Closed' : form.value.new_status,
+        recipient: Grievance.value.phone,
+        grievance_id: Grievance.value.id,
+        action: msg,
+        current_level: form.value.current_level,
+        current_status_date: new Date(),
+          status_expiry_date: new Date(Date.now() + getStageDuration(shouldAutoClose ? 'Closed' : form.value.new_status)),
+        action_by: userInfo.id,
+        action_level: current_user_roles[0] ? current_user_roles[0] : 'settlement',
+        reffered_to_officer: form.value.reffered_to_officer , // Extract id or set to null
+      };
+
+      // Explicitly send resolution field when grievance is resolved
+      // Use the action text directly (without the "Your grievance has been resolved. " prefix)
+      if (form.value.new_status === 'Resolved') {
           formData.resolution = form.value.action || msg.replace(/^Your grievance has been resolved[^.]*\.\s*/, "");
           // If national level, also set status to Closed
           if (shouldAutoClose) {
             formData.new_status = 'Closed';
           }
-        }
+      }
 
-       
+     
 
-        console.log('Udpate GRVs',formData)
-        /// udpate the status
-        const updatedGrievance = await updateGrievanceStatus(formData)
+      console.log('Udpate GRVs',formData)
+      /// udpate the status
+      const updatedGrievance = await updateGrievanceStatus(formData)
 
         // Success - close drawer immediately
         isSubmittingSuccessfully.value = true
@@ -1167,20 +1167,20 @@ const submitResolutionForm = async () => {
         dialogFormVisible.value = false
 
         // Continue with other operations in background
-        await processGrievance()
+      await processGrievance()
 
-        console.log('Old Grievance.value', Grievance.value)
-        console.log('New Grievance.value', updatedGrievance)
+      console.log('Old Grievance.value', Grievance.value)
+      console.log('New Grievance.value', updatedGrievance)
  
         // Generate PDF in background
         generatePDFform(Grievance.value, res.data).catch(err => {
           console.error('PDF generation failed:', err)
         })
 
-        ElMessage({
+      ElMessage({
           message: res.message || 'Grievance status updated successfully',
-          type: 'success'
-        })
+        type: 'success'
+      })
       } catch (error) {
         console.error('Error submitting form:', error)
         ElMessage({
@@ -1990,25 +1990,25 @@ const clear = () => {
 
 // Helper function to reset form to initial state
 const resetForm = () => {
-  form.value = {
-    grievance_id: null,
-    action_type: null,
-    action_by: null,
-    action: null,
-    reffered_to: null,
-    reffered_to_officer: null,
-    date_actioned: null,
-    prev_status: null,
-    new_status: null,
-    fileList: [],
-    resolution_date: null,
+      form.value = {
+        grievance_id: null,
+        action_type: null,
+        action_by: null,
+        action: null,
+        reffered_to: null,
+        reffered_to_officer: null,
+        date_actioned: null,
+        prev_status: null,
+        new_status: null,
+        fileList: [],
+        resolution_date: null,
     filer_present: true,
     field_verification_conducted: false,
-    field_investigations: null,
+        field_investigations: null,
     agreement_reached: false,
     agreement: null,
-    point_disagreement: null,
-    issues: null,
+        point_disagreement: null,
+        issues: null,
   }
   resolutionStep.value = 0 // Reset resolution step
   // Clear form validation
@@ -2083,7 +2083,6 @@ const handleDrawerClose = (done) => {
   // If submission was successful, close immediately without confirmation
   if (isSubmittingSuccessfully.value) {
     isSubmittingSuccessfully.value = false
-    resetForm()
     done();
     return;
   }
@@ -2760,11 +2759,11 @@ width="340"
 
         <!-- Status Selection Section -->
         <div class="form-section">
-          <el-form-item label="Update Grievance Status" label-position="top" prop="new_status">
+        <el-form-item label="Update Grievance Status" label-position="top" prop="new_status">
             <el-select v-model="form.new_status" placeholder="Select status" style="width: 100%">
-              <el-option v-for="item in StatusOptions" :key="item.value" :label="item.label" :value="item.value" />
-            </el-select>
-          </el-form-item>
+            <el-option v-for="item in StatusOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
         </div>
 
         <!-- Referral Section -->
@@ -2773,45 +2772,45 @@ width="340"
             <span class="section-title">{{ sectionTitle }}</span>
           </el-divider>
           <el-form-item v-loading="grmUsersLoading" label="Select Officer to Refer To" label-position="top" prop="reffered_to_officer">
-            <el-select v-model="form.reffered_to_officer" clearable filterable placeholder="Select Officer" :loading="grmUsersLoading" :disabled="grmUsersLoading" @change="handleOfficerChange" style="width: 100%">
-              <el-option
-                v-for="item in grmUsers"
-                :key="item.value"
-                :label="item.label"
-                :value="item.value"
-              />
-              <template #footer>
-                <el-button v-if="!isAdding" text bg size="small" @click="onAddOption">
-                  Add Officer
-                </el-button>
-                <template v-else>
-                  <el-form :model="formOfficer" label-width="0" :rules="OfficerRules" ref="formRef">
-                    <el-form-item prop="optionName">
-                      <el-input
-                        v-model="formOfficer.optionName"
-                        class="option-input"
-                        placeholder="Name"
-                        size="small"
-                      />
-                    </el-form-item>
-                    <el-form-item prop="optionPhone">
-                      <el-input
-                        v-model="formOfficer.optionPhone"
-                        class="option-input"
-                        placeholder="Enter phone number (254.....)" 
-                        size="small"
-                        :onChange="convertPhoneNumberX" 
-                      />
-                    </el-form-item>
-                    <el-form-item>
+          <el-select v-model="form.reffered_to_officer" clearable filterable placeholder="Select Officer" :loading="grmUsersLoading" :disabled="grmUsersLoading" @change="handleOfficerChange" style="width: 100%">
+            <el-option
+              v-for="item in grmUsers"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+            <template #footer>
+              <el-button v-if="!isAdding" text bg size="small" @click="onAddOption">
+                Add Officer
+              </el-button>
+              <template v-else>
+                <el-form :model="formOfficer" label-width="0" :rules="OfficerRules" ref="formRef">
+                  <el-form-item prop="optionName">
+                    <el-input
+                      v-model="formOfficer.optionName"
+                      class="option-input"
+                      placeholder="Name"
+                      size="small"
+                    />
+                  </el-form-item>
+                  <el-form-item prop="optionPhone">
+                    <el-input
+                      v-model="formOfficer.optionPhone"
+                      class="option-input"
+                      placeholder="Enter phone number (254.....)" 
+                      size="small"
+                      :onChange="convertPhoneNumberX" 
+                    />
+                  </el-form-item>
+                  <el-form-item>
                       <el-button type="primary" size="small" @click="onConfirm">Confirm</el-button>
                       <el-button size="small" @click="clear">Cancel</el-button>
-                    </el-form-item>
-                  </el-form>
-                </template>
+                  </el-form-item>
+                </el-form>
               </template>
-            </el-select>
-          </el-form-item>
+            </template>
+          </el-select>
+        </el-form-item>
         </div>
 
         <!-- External Referral Section -->
@@ -2851,17 +2850,17 @@ width="340"
                 <el-form-item label="Was Filer Present?" label-position="top" prop="filer_present">
                   <el-select v-model="form.filer_present" placeholder="Select" style="width: 100%" clearable>
                     <el-option v-for="option in yesNoOptions" :key="option.value" :label="option.label" :value="option.value" />
-                  </el-select>
-                </el-form-item>
-              </el-col>
+              </el-select>
+            </el-form-item>
+          </el-col>
 
               <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
                 <el-form-item label="Was field verification conducted?" label-position="top" prop="field_verification_conducted">
                   <el-select v-model="form.field_verification_conducted" placeholder="Select" style="width: 100%" clearable>
                     <el-option v-for="option in yesNoOptions" :key="option.value" :label="option.label" :value="option.value" />
-                  </el-select>
-                </el-form-item>
-              </el-col>
+              </el-select>
+            </el-form-item>
+          </el-col>
             </el-row>
 
             <el-form-item label="Date of Resolution" label-position="top" prop="resolution_date">
@@ -2884,7 +2883,7 @@ width="340"
                 placeholder="Describe the findings from the field investigation" 
                 v-model="form.field_investigations" 
               />
-            </el-form-item>
+        </el-form-item>
 
             <!-- <el-form-item label="Issues" label-position="top" prop="issues">
               <el-input 
@@ -2920,54 +2919,54 @@ width="340"
                 placeholder="Specify the points of disagreement" 
                 v-model="form.point_disagreement" 
               />
-            </el-form-item>
+        </el-form-item>
           </div>
 
           <!-- Step 3: Documentation -->
           <div v-if="resolutionStep === 3" class="resolution-step-content">
-            <el-form-item 
-              label="Upload Documentation" 
-              label-position="top"
-              prop="fileList"
+        <el-form-item 
+          label="Upload Documentation" 
+          label-position="top"
+          prop="fileList"
               :required="true"
-            >
+        >
               <div class="upload-section">
                 <div class="resolution-form-download">
-                  <el-button 
-                    type="success" 
-                    plain 
-                    size="small"
-                    :icon="Download"
-                    @click="downloadResolutionForm"
-                  >
-                    Download Resolution Form Template
-                  </el-button>
+              <el-button 
+                type="success" 
+                plain 
+                size="small"
+                :icon="Download"
+                @click="downloadResolutionForm"
+              >
+                Download Resolution Form Template
+              </el-button>
                   <el-text type="warning" size="small" class="required-hint">
-                    <strong>Required:</strong> Please download, fill, sign, and upload the resolution form.
-                  </el-text>
-                </div>
-                <el-upload
-                  class="upload-demo" 
-                  action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" 
-                  multiple
-                  :on-preview="handlePreview" 
-                  :on-remove="handleRemove" 
-                  :before-remove="beforeRemove" 
-                  :limit="3"
-                  v-model:file-list="form.fileList" 
-                  :auto-upload="false" 
-                  :on-exceed="handleExceed"
-                  @change="() => { if (dynamicFormRef) dynamicFormRef.value?.validateField('fileList') }"
-                >
-                  <el-button type="primary" plain>
-                    <Icon icon="basil:file-upload-outline" width="24" /> Upload Documentation
-                  </el-button>
-                  <template #tip>
+                <strong>Required:</strong> Please download, fill, sign, and upload the resolution form.
+              </el-text>
+            </div>
+          <el-upload
+            class="upload-demo" 
+            action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" 
+            multiple
+            :on-preview="handlePreview" 
+            :on-remove="handleRemove" 
+            :before-remove="beforeRemove" 
+            :limit="3"
+            v-model:file-list="form.fileList" 
+            :auto-upload="false" 
+            :on-exceed="handleExceed"
+              @change="() => { if (dynamicFormRef) dynamicFormRef.value?.validateField('fileList') }"
+          >
+            <el-button type="primary" plain>
+              <Icon icon="basil:file-upload-outline" width="24" /> Upload Documentation
+            </el-button>
+            <template #tip>
                     <div class="upload-tips">
                       <el-text type="warning" size="small">
-                        Please upload the signed resolution form (pdf/jpg/png, under 10MB). Attach supporting evidence (minutes, photos, etc.) as needed. 
+                  Please upload the signed resolution form (pdf/jpg/png, under 10MB). Attach supporting evidence (minutes, photos, etc.) as needed.
                         <strong>Required:</strong> Documentation must be uploaded before proceeding to the next step.
-                      </el-text>
+                </el-text>
                     </div>
                   </template>
                 </el-upload>
@@ -3068,13 +3067,13 @@ width="340"
                 <template #tip>
                   <div class="upload-tips">
                     <el-text type="info" size="small">
-                      Upload supporting documentation (e.g. minutes, forms, photos) — pdf/jpg/png, under 10MB.
-                    </el-text>
-                  </div>
-                </template>
-              </el-upload>
-            </div>
-          </el-form-item>
+                  Upload supporting documentation (e.g. minutes, forms, photos) — pdf/jpg/png, under 10MB.
+                </el-text>
+              </div>
+            </template>
+          </el-upload>
+          </div>
+        </el-form-item>
         </div>
 
       </el-form>
