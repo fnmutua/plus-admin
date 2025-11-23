@@ -328,6 +328,9 @@ exports.createGrievanceRecord = async (req, res) => {
 
     sendCreateSMS(item,serverUrl);
 
+    // Log creation is handled elsewhere - do not create duplicate log here
+    let reportedLogId = null;
+
     let grm_officials=[]
     let grm_officials_names=[]
     
@@ -421,6 +424,7 @@ exports.createGrievanceRecord = async (req, res) => {
 
     res.status(200).send({
       data: itemWithAssociations,
+      log_id: reportedLogId, // Include the log ID for frontend use
       code: '0000',
       message: 'Grievance reported successfully.'
     });
@@ -488,7 +492,28 @@ exports.createGrievanceBatchRecords = async (req, res) => {
 
       sendCreateSMS(item,serverUrl);
 
-
+      // Create a log entry for the reported grievance
+      try {
+        const description = grievance.description || item.description || '';
+        const actionMessage = description 
+          ? `Grievance reported: ${description.length > 100 ? description.substring(0, 100) + '...' : description}` 
+          : `New grievance registered with code ${generatedCode}`;
+        
+        const reportedLog = {
+          grievance_id: item.id,
+          action_type: 'Reported',
+          action_by: req.thisUser ? req.thisUser.id : null,
+          date_actioned: item.date_reported || new Date(),
+          current_level: 'settlement',
+          prev_status: 'Open',
+          new_status: item.status || 'Open',
+          action: actionMessage,
+          action_level: 'settlement',
+        };
+        await logGrievanceAction(reportedLog);
+      } catch (logErr) {
+        console.log('Warning: Failed to create reported log for grievance ID:', item.id, logErr.message);
+      }
 
       let grm_officials=[]
       let grm_officials_names=[]
@@ -585,6 +610,33 @@ exports.logGrievanceAction = async (req, res) => {
     let obj = req.body;
 
     console.log('Log>>', obj)
+
+    // Ensure action field is set - if missing, provide a default based on action_type
+    if (!obj.action || obj.action === null || obj.action === '') {
+      const actionType = obj.action_type || 'Action';
+      if (actionType === 'Reported') {
+        // For Reported actions, try to get description from grievance if available
+        if (obj.grievance_id) {
+          try {
+            const grievance = await db.models.grievance.findByPk(obj.grievance_id);
+            if (grievance && grievance.description) {
+              const description = grievance.description.length > 100 
+                ? grievance.description.substring(0, 100) + '...' 
+                : grievance.description;
+              obj.action = `Grievance reported: ${description}`;
+            } else {
+              obj.action = `New grievance registered with code ${grievance?.code || ''}`;
+            }
+          } catch (grievanceErr) {
+            obj.action = `Grievance reported`;
+          }
+        } else {
+          obj.action = `Grievance reported`;
+        }
+      } else {
+        obj.action = `${actionType} action performed`;
+      }
+    }
 
        // Create the record
     const item = await db.models.grievance_log.create(obj);
@@ -1807,9 +1859,11 @@ const generateNextGrievanceCode = async (lastCode) => {
         const item = await db.models.grievance_log.create(obj);
 
         console.log('Created log:', item);
+        return item; // Return the created log so we can get the ID
      
       } catch (err) {
         console.log(err);
+        return null;
        }
     }
 
@@ -1920,6 +1974,10 @@ exports.modelImportGrievances = async (req, res) => {
             create_action.prev_status = 'Open'
             create_action.new_status = 'Open'
             create_action.action_level = item.action_level || null
+            const description = item.description || '';
+            create_action.action = description 
+              ? `Grievance reported: ${description.length > 100 ? description.substring(0, 100) + '...' : description}` 
+              : `New grievance registered with code ${newCode}`
             // Await log creation and catch errors silently to not block import
             try {
               await logGrievanceAction(create_action);
@@ -1927,25 +1985,30 @@ exports.modelImportGrievances = async (req, res) => {
               console.log('Warning: Failed to create initial log for grievance ID:', insertedData.id, logErr.message);
             }
 
-            // 2. Create a log for Current status 
-            let current_action = {}
-            current_action.grievance_id = insertedData.id
-            current_action.action_type = item.status || 'Open'
-            //current_action.action_by = 1  // Remember to change 
-            // Use date_actioned from Excel, or fall back to date_reported, or current date
-            current_action.date_actioned = item.date_actioned || item.date_reported || new Date()
-            // Set current_level - use from Excel if available, or default to 'settlement'
-            current_action.current_level = item.current_level || 'settlement'
-            current_action.prev_status = 'Sorting'
-            current_action.new_status = item.status || 'Open'
-            current_action.action = item.action || null
-            current_action.action_level = item.action_level || null
+            // 2. Create a log for Current status (only if status is different from 'Open' or if there's a meaningful action)
+            // Skip this log if status is 'Open' to avoid duplicate with 'Reported' log
+            const currentStatus = item.status || 'Open';
+            if (currentStatus !== 'Open' || item.action) {
+              let current_action = {}
+              current_action.grievance_id = insertedData.id
+              current_action.action_type = currentStatus
+              //current_action.action_by = 1  // Remember to change 
+              // Use date_actioned from Excel, or fall back to date_reported, or current date
+              current_action.date_actioned = item.date_actioned || item.date_reported || new Date()
+              // Set current_level - use from Excel if available, or default to 'settlement'
+              current_action.current_level = item.current_level || 'settlement'
+              current_action.prev_status = 'Sorting'
+              current_action.new_status = currentStatus
+              // Ensure action field is set - use item.action if available, otherwise provide a default message
+              current_action.action = item.action || `Grievance status set to ${currentStatus}`
+              current_action.action_level = item.action_level || null
 
-            // Await log creation and catch errors silently to not block import
-            try {
-              await logGrievanceAction(current_action);
-            } catch (logErr) {
-              console.log('Warning: Failed to create status log for grievance ID:', insertedData.id, logErr.message);
+              // Await log creation and catch errors silently to not block import
+              try {
+                await logGrievanceAction(current_action);
+              } catch (logErr) {
+                console.log('Warning: Failed to create status log for grievance ID:', insertedData.id, logErr.message);
+              }
             }
 
  
@@ -4131,6 +4194,10 @@ exports.confirmGrievanceResolution = async (req, res) => {
       grievance.confirmation_notes = confirmation_notes;
     }
 
+    // Close the grievance after confirmation
+    grievance.status = 'Closed';
+    grievance.date_closed = new Date();
+
     await grievance.save();
 
     // Log the confirmation action
@@ -4143,8 +4210,8 @@ exports.confirmGrievanceResolution = async (req, res) => {
         action_level: 'national',
         current_level: grievance.current_level,
         date_actioned: new Date(),
-        prev_status: grievance.status,
-        new_status: grievance.status,
+        prev_status: 'Resolved',
+        new_status: 'Closed',
       };
       await db.models.grievance_log.create(logData);
     } catch (logError) {
@@ -4152,9 +4219,27 @@ exports.confirmGrievanceResolution = async (req, res) => {
       // Don't fail the request if logging fails
     }
 
+    // Send SMS to complainant about closure
+    try {
+      const closureMessage = `Your grievance has been confirmed and closed by KISIP National Team. ${grievance.resolution || ''}`;
+      const msg_obj = {
+        message: closureMessage,
+        type: 'Notification',
+        phone: grievance.phone,
+        grv_code: grievance.code,
+        status: 'Closed',
+        grievance_id: grievance.id,
+        sender_id: user.id,
+      };
+      sendNotificationSMS(msg_obj);
+    } catch (smsError) {
+      console.error('Error sending closure SMS:', smsError);
+      // Don't fail the request if SMS fails
+    }
+
     return res.status(200).send({
       code: '0000',
-      message: 'Grievance resolution confirmed successfully',
+      message: 'Grievance resolution confirmed and closed successfully',
       data: {
         grievance: grievance,
         code: grievance.code,

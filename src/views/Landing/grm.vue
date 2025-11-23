@@ -737,8 +737,11 @@ const logAction = async (grievance) => {
   formData.prev_status = grievance.status
   formData.new_status = grievance.status
   formData.current_level = 'settlement'
-
-
+  // Add action field to avoid showing "None"
+  const description = grievance.description || '';
+  formData.action = description 
+    ? `Grievance reported: ${description.length > 100 ? description.substring(0, 100) + '...' : description}` 
+    : `New grievance registered with code ${grievance.code || ''}`
 
   const res = await logGrievanceAction(formData)
 
@@ -814,15 +817,13 @@ const submitForm = async () => {
 
 
 
-      // 3. Log the entry
+      // 2. Create log entry with proper action field
       let log = await logAction(res.data)
 
-
-      // 2. Uplaod docuemnts 
+      // 3. Upload documents 
       await uploadFiles(log.id, res.data.id)
 
-      // 3. Send Notification 
-
+      // 4. Send Notification 
       await sendNotification(res.data, log.id)
 
 

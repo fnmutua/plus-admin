@@ -1,6 +1,6 @@
  
 <script setup lang="ts">
-import { onMounted, reactive, computed, watch } from 'vue'
+import { onMounted, reactive, computed, watch, nextTick } from 'vue'
 import {
   ElButton, ElTimeline, ElTimelineItem, ElCol, ElRow, ElForm, ElFormItem, ElInput, ElUpload, ElMessage,ElPopconfirm, ElText,
   ElCard, ElTabs, ElTabPane, ElTable, ElTableColumn, ElTooltip, ElDialog, ElSelect, ElOption, ElIcon, ElCollapse, ElCollapseItem, ElSwitch, ElDatePicker, ElDrawer, ElMessageBox, ElTag, ElAlert,
@@ -184,14 +184,6 @@ const disableFutureDates = (date: Date) => {
   return date.getTime() > today.getTime()
 }
 
-const showResolutionUploadHint = computed(() => {
-  return form.value.new_status === 'Resolved' && (!form.value.fileList || form.value.fileList.length === 0)
-})
-
-const showGeneralUploadHint = computed(() => {
-  if (form.value.new_status === 'Resolved') return false
-  return !form.value.fileList || form.value.fileList.length === 0
-})
 
 
 const showActionButton=ref(true)
@@ -200,6 +192,71 @@ const FullGrievanceData=ref()
 
 const showRefferalField=ref(false)
 const shouldShowReminder=ref(false)
+
+// Computed properties for form visibility
+const isResolvedStatus = computed(() => form.value.new_status === 'Resolved')
+const isReferredStatus = computed(() => form.value.new_status === 'Referred')
+const isExternalReferralStatus = computed(() => form.value.new_status === 'ExternalReferral')
+const showAgreementFields = computed(() => isResolvedStatus.value && form.value.agreement_reached === true)
+const showDisagreementFields = computed(() => isResolvedStatus.value && form.value.agreement_reached === false)
+
+// Dynamic labels based on status
+const actionLabel = computed(() => {
+  const status = form.value.new_status
+  if (!status) return 'Describe the Action Taken'
+  
+  const labels: Record<string, string> = {
+    'Resolved': 'Describe the Resolution Action',
+    'Closed': 'Describe the Closure Details',
+    'Escalated': 'Describe the Escalation Reason',
+    'Referred': 'Describe the Referral Details',
+    'ExternalReferral': 'Describe the External Referral Details',
+    'Investigation': 'Describe the Investigation Action',
+    'Under Review': 'Describe the Review Action',
+    'Returned': 'Describe the Return Reason',
+    'Rejected': 'Describe the Rejection Reason',
+    'Sorting': 'Describe the Sorting Action',
+  }
+  return labels[status] || 'Describe the Action Taken'
+})
+
+const actionPlaceholder = computed(() => {
+  const status = form.value.new_status
+  if (!status) return 'Describe the action taken for this status update'
+  
+  const placeholders: Record<string, string> = {
+    'Resolved': 'Describe the resolution action taken and how the grievance was resolved',
+    'Closed': 'Describe why the grievance is being closed and any final notes',
+    'Escalated': 'Describe why the grievance is being escalated and to which level',
+    'Referred': 'Describe why the grievance is being referred and what action is expected',
+    'ExternalReferral': 'Describe the external referral details and reason for referral',
+    'Investigation': 'Describe the investigation action being taken',
+    'Under Review': 'Describe the review action and current status',
+    'Returned': 'Describe why the grievance is being returned and what needs to be addressed',
+    'Rejected': 'Describe the reason for rejection',
+    'Sorting': 'Describe the sorting action and initial assessment',
+  }
+  return placeholders[status] || 'Describe the action taken for this status update'
+})
+
+const sectionTitle = computed(() => {
+  const status = form.value.new_status
+  if (!status) return 'Action Details'
+  
+  const titles: Record<string, string> = {
+    'Resolved': 'Resolution Details',
+    'Closed': 'Closure Details',
+    'Escalated': 'Escalation Details',
+    'Referred': 'Referral Details',
+    'ExternalReferral': 'External Referral Details',
+    'Investigation': 'Investigation Details',
+    'Under Review': 'Review Details',
+    'Returned': 'Return Details',
+    'Rejected': 'Rejection Details',
+    'Sorting': 'Sorting Details',
+  }
+  return titles[status] || 'Action Details'
+})
 
 // Confirmation dialog state
 const showConfirmationDialog = ref(false)
@@ -274,10 +331,11 @@ const handleConfirmResolution = async () => {
   }
 
   try {
+    // Backend will automatically close the grievance and send SMS
     const res = await confirmGrievanceResolution(confirmationForm.value)
     
     ElMessage({
-      message: (res as any).message || 'Grievance resolution confirmed successfully',
+      message: (res as any).message || 'Grievance resolution confirmed and closed successfully',
       type: 'success'
     })
 
@@ -903,6 +961,7 @@ const form = ref({
 
 
 const dialogFormVisible = ref(false)
+const isSubmittingSuccessfully = ref(false)
 const handlePreview = (file) => {
   console.log('Preview:', file);
 };
@@ -996,109 +1055,139 @@ const submitResolutionForm = async () => {
 
   formInstance.value.validate(async (valid: boolean) => {
     if (valid) {
-      form.value.grievance_id = Grievance.value.id
-      form.value.action_type = form.value.new_status
-      form.value.action_by = userInfo.id  // remember t change 
-      form.value.date_actioned = new Date();
-      form.value.prev_status = Grievance.value.status
-      form.value.action_level = current_user_roles[0] ? current_user_roles[0] : 'settlement'
-      //form.value.action =  'testing referral'
+      try {
+        form.value.grievance_id = Grievance.value.id
+        form.value.action_type = form.value.new_status
+        form.value.action_by = userInfo.id  // remember t change 
+        form.value.date_actioned = new Date();
+        form.value.prev_status = Grievance.value.status
+        form.value.action_level = current_user_roles[0] ? current_user_roles[0] : 'settlement'
+        //form.value.action =  'testing referral'
 
-      let msg = ''
-      if (form.value.new_status == 'Escalated') {
-        if (current_user_roles[0] == 'settlement') {
-          form.value.current_level = 'county';
-          msg = "Your grievance has been escalated to the county.";
-        } else {
-          form.value.current_level = 'national';
-          msg = "Your grievance has been escalated to the national team.";
+        let msg = ''
+        if (form.value.new_status == 'Escalated') {
+          if (current_user_roles[0] == 'settlement') {
+            form.value.current_level = 'county';
+            msg = "Your grievance has been escalated to the county.";
+          } else {
+            form.value.current_level = 'national';
+            msg = "Your grievance has been escalated to the national team.";
+          }
+        } 
+        else if (form.value.new_status == 'Returned') {
+          if (current_user_roles[0] == 'county') {
+            form.value.current_level = 'settlement';
+            msg = "Your grievance has been referred to the settlement Grievance Redress team for resolution.";
+          } else {
+            form.value.current_level = 'county';
+            msg = "Your grievance has been referred to the county team for resolution.";
+          }
         }
-      } 
-      else if (form.value.new_status == 'Returned') {
-        if (current_user_roles[0] == 'county') {
-          form.value.current_level = 'settlement';
-          msg = "Your grievance has been referred to the settlement Grievance Redress team for resolution.";
-        } else {
-          form.value.current_level = 'county';
-          msg = "Your grievance has been referred to the county team for resolution.";
+        else if (form.value.new_status == 'Resolved') {
+          form.value.current_level = Grievance.value.current_level;
+          // Check if user is at national level
+          const isNationalLevel = current_user_roles.includes('national') || isSuperAdmin.value;
+          if (isNationalLevel) {
+            // National GRM resolves - automatically close
+            msg = "Your grievance has been resolved and closed. " + form.value.action;
+          } else {
+            // County or Settlement resolves - subject to confirmation
+            msg = "Your grievance has been resolved, subject to confirmation by KISIP National Team. " + form.value.action;
+          }
         }
-      }
-      else if (form.value.new_status == 'Resolved') {
-        form.value.current_level = Grievance.value.current_level;
-        msg = "Your grievance has been resolved. " + form.value.action;
-      }
-      else if (form.value.new_status == 'Closed') {
-        form.value.current_level = Grievance.value.current_level;
-        msg = "Your grievance has been closed. " + form.value.action;
-      }
-      else if (form.value.new_status == 'Referred') {
-        form.value.current_level = Grievance.value.current_level;
-        msg = "Your grievance has been referred to " + officerLabel.value + " for action. " + form.value.action;
-        form.value.action = 'Referred to ' + officerLabel.value +' : ' + form.value.action;
-      }
-      else {
-        form.value.current_level = Grievance.value.current_level;
-        msg = form.value.action;
-      }
+        else if (form.value.new_status == 'Closed') {
+          form.value.current_level = Grievance.value.current_level;
+          msg = "Your grievance has been closed. " + form.value.action;
+        }
+        else if (form.value.new_status == 'Referred') {
+          form.value.current_level = Grievance.value.current_level;
+          msg = "Your grievance has been referred to " + officerLabel.value + " for action. " + form.value.action;
+          form.value.action = 'Referred to ' + officerLabel.value +' : ' + form.value.action;
+        }
+        else {
+          form.value.current_level = Grievance.value.current_level;
+          msg = form.value.action;
+        }
 
-      console.log(form.value.new_status)
-      console.log(form.value.current_level)
-      console.log(Grievance.value.current_level)
+        console.log(form.value.new_status)
+        console.log(form.value.current_level)
+        console.log(Grievance.value.current_level)
 
-      console.log("checking issue.............",form.value)
-      // Log the action 
+        console.log("checking issue.............",form.value)
+        // Log the action 
 
-      // Create a copy of the form data for logging with the proper message
-      const logData = { ...form.value };
-      logData.action = msg; // Use the proper message instead of the raw action
-      
-      const res = await logGrievanceAction(logData)
+        // Create a copy of the form data for logging with the proper message
+        const logData = { ...form.value };
+        logData.action = msg; // Use the proper message instead of the raw action
+        
+        const res = await logGrievanceAction(logData)
 
 
-      /// Upload fies
-      await uploadFiles(res.data.id, Grievance.value.id)
+        /// Upload fies
+        await uploadFiles(res.data.id, Grievance.value.id)
 
 
-      const formData: any = {
-        code: Grievance.value.code,
-        new_status: form.value.new_status,
-        recipient: Grievance.value.phone,
-        grievance_id: Grievance.value.id,
-        action: msg,
-        current_level: form.value.current_level,
-        current_status_date: new Date(),
-        status_expiry_date: new Date(Date.now() + getStageDuration(form.value.new_status)),
-        action_by: userInfo.id,
-        action_level: current_user_roles[0] ? current_user_roles[0] : 'settlement',
-        reffered_to_officer: form.value.reffered_to_officer , // Extract id or set to null
-      };
+        // Check if user is at national level for auto-closure
+        const isNationalLevel = current_user_roles.includes('national') || isSuperAdmin.value;
+        const shouldAutoClose = isNationalLevel && form.value.new_status === 'Resolved';
+        
+        const formData: any = {
+          code: Grievance.value.code,
+          new_status: shouldAutoClose ? 'Closed' : form.value.new_status,
+          recipient: Grievance.value.phone,
+          grievance_id: Grievance.value.id,
+          action: msg,
+          current_level: form.value.current_level,
+          current_status_date: new Date(),
+          status_expiry_date: new Date(Date.now() + getStageDuration(shouldAutoClose ? 'Closed' : form.value.new_status)),
+          action_by: userInfo.id,
+          action_level: current_user_roles[0] ? current_user_roles[0] : 'settlement',
+          reffered_to_officer: form.value.reffered_to_officer , // Extract id or set to null
+        };
 
-      // Explicitly send resolution field when grievance is resolved
-      // Use the action text directly (without the "Your grievance has been resolved. " prefix)
-      if (form.value.new_status === 'Resolved') {
-        formData.resolution = form.value.action || msg.replace("Your grievance has been resolved. ", "");
-      }
+        // Explicitly send resolution field when grievance is resolved
+        // Use the action text directly (without the "Your grievance has been resolved. " prefix)
+        if (form.value.new_status === 'Resolved') {
+          formData.resolution = form.value.action || msg.replace(/^Your grievance has been resolved[^.]*\.\s*/, "");
+          // If national level, also set status to Closed
+          if (shouldAutoClose) {
+            formData.new_status = 'Closed';
+          }
+        }
 
-     
+       
 
-      console.log('Udpate GRVs',formData)
-      /// udpate the status
-      const updatedGrievance = await updateGrievanceStatus(formData)
+        console.log('Udpate GRVs',formData)
+        /// udpate the status
+        const updatedGrievance = await updateGrievanceStatus(formData)
 
-      await processGrievance()
+        // Success - close drawer immediately
+        isSubmittingSuccessfully.value = true
+        resetForm()
+        dialogFormVisible.value = false
 
-      console.log('Old Grievance.value', Grievance.value)
-      console.log('New Grievance.value', updatedGrievance)
+        // Continue with other operations in background
+        await processGrievance()
+
+        console.log('Old Grievance.value', Grievance.value)
+        console.log('New Grievance.value', updatedGrievance)
  
-      await generatePDFform(Grievance.value, res.data)
+        // Generate PDF in background
+        generatePDFform(Grievance.value, res.data).catch(err => {
+          console.error('PDF generation failed:', err)
+        })
 
-
-      ElMessage({
-        message: res.message,
-        type: 'success'
-      })
-
-      dialogFormVisible.value = false
+        ElMessage({
+          message: res.message || 'Grievance status updated successfully',
+          type: 'success'
+        })
+      } catch (error) {
+        console.error('Error submitting form:', error)
+        ElMessage({
+          message: 'Failed to submit. Please try again.',
+          type: 'error'
+        })
+      }
     } else {
       console.log('is Not Valid')
       ElMessage({
@@ -1519,6 +1608,7 @@ const currentStepRules = computed(() => {
 
 
 const active = ref(0);
+const resolutionStep = ref(0); // Step counter for resolution form
 
 
 
@@ -1734,11 +1824,26 @@ const rules = computed(() => ({
 
 // Watch for status changes to trigger fileList validation when status becomes "Resolved"
 watch(() => form.value.new_status, (newStatus) => {
+  // Reset resolution step when status changes
+  if (newStatus !== 'Resolved') {
+    resolutionStep.value = 0;
+  } else {
+    // Reset to first step when status becomes Resolved
+    resolutionStep.value = 0;
+  }
+  
   if (newStatus === 'Resolved' && dynamicFormRef.value) {
     // Trigger validation after a short delay to ensure form is updated
     setTimeout(() => {
       dynamicFormRef.value?.validateField('fileList');
     }, 100);
+  }
+});
+
+// Watch for drawer opening to reset resolution step
+watch(() => dialogFormVisible.value, (isOpen) => {
+  if (isOpen) {
+    resolutionStep.value = 0;
   }
 });
 
@@ -1883,7 +1988,106 @@ const clear = () => {
   isAdding.value = false
 }
 
+// Helper function to reset form to initial state
+const resetForm = () => {
+  form.value = {
+    grievance_id: null,
+    action_type: null,
+    action_by: null,
+    action: null,
+    reffered_to: null,
+    reffered_to_officer: null,
+    date_actioned: null,
+    prev_status: null,
+    new_status: null,
+    fileList: [],
+    resolution_date: null,
+    filer_present: true,
+    field_verification_conducted: false,
+    field_investigations: null,
+    agreement_reached: false,
+    agreement: null,
+    point_disagreement: null,
+    issues: null,
+  }
+  resolutionStep.value = 0 // Reset resolution step
+  // Clear form validation
+  if (dynamicFormRef.value) {
+    dynamicFormRef.value.clearValidate()
+  }
+}
+
+// Resolution step navigation
+const nextResolutionStep = async () => {
+  const formInstance = dynamicFormRef.value
+  if (!formInstance) return
+  
+  // Check for documentation on Step 3 (Documentation step) - only for resolution status
+  if (resolutionStep.value === 3 && isResolvedStatus.value) {
+    if (!form.value.fileList || form.value.fileList.length === 0) {
+      ElMessageBox.alert(
+        'Please upload the signed resolution form before proceeding. Documentation is required for resolution submissions.',
+        'Documentation Required',
+        {
+          confirmButtonText: 'OK',
+          type: 'warning'
+        }
+      )
+      return // Stop navigation
+    }
+  }
+  
+  // Validate current step fields before proceeding
+  const stepFields: Record<number, string[]> = {
+    0: ['filer_present', 'field_verification_conducted', 'resolution_date'],
+    1: ['field_investigations', 'issues'],
+    2: ['agreement_reached'],
+    3: [], // fileList is checked separately above
+    4: ['action'],
+  }
+  
+  // For step 2, also validate conditional agreement fields
+  if (resolutionStep.value === 2) {
+    if (form.value.agreement_reached === true) {
+      stepFields[2].push('agreement')
+    } else if (form.value.agreement_reached === false) {
+      stepFields[2].push('point_disagreement')
+    }
+  }
+  
+  const fieldsToValidate = stepFields[resolutionStep.value] || []
+  
+  try {
+    if (fieldsToValidate.length > 0) {
+      await Promise.all(fieldsToValidate.map(field => formInstance.validateField(field)))
+    }
+    if (resolutionStep.value < 4) {
+      resolutionStep.value++
+    }
+  } catch (error) {
+    // Validation failed, don't proceed
+    ElMessage({
+      message: 'Please complete all required fields before proceeding',
+      type: 'warning'
+    })
+  }
+}
+
+const prevResolutionStep = () => {
+  if (resolutionStep.value > 0) {
+    resolutionStep.value--
+  }
+}
+
 const handleDrawerClose = (done) => {
+  // If submission was successful, close immediately without confirmation
+  if (isSubmittingSuccessfully.value) {
+    isSubmittingSuccessfully.value = false
+    resetForm()
+    done();
+    return;
+  }
+  
   // Check if there are unsaved changes
   const hasChanges = form.value.new_status || form.value.action || (form.value.fileList && form.value.fileList.length > 0);
   
@@ -1893,32 +2097,13 @@ const handleDrawerClose = (done) => {
       cancelButtonText: 'Cancel',
       type: 'warning',
     }).then(() => {
-      // Reset form
-      form.value = {
-        grievance_id: null,
-        action_type: null,
-        action_by: null,
-        action: null,
-        reffered_to: null,
-        reffered_to_officer: null,
-        date_actioned: null,
-        prev_status: null,
-        new_status: null,
-        fileList: [],
-        filer_present: null,
-        field_verification_conducted: null,
-        resolution_date: null,
-        agreement_reached: null,
-        agreement: null,
-        field_investigations: null,
-        point_disagreement: null,
-        issues: null,
-      };
+      resetForm()
       done();
     }).catch(() => {
       // User cancelled, don't close
     });
   } else {
+    resetForm()
     done();
   }
 }
@@ -2573,216 +2758,328 @@ width="340"
     <div class="drawer-content">
       <el-form :model="form" label-width="auto" ref="dynamicFormRef" :rules="rules" class="grievance-form">
 
-        <el-form-item label="Update Grievance Status" label-position="top" prop="new_status">
-          <el-select v-model="form.new_status" placeholder="Select" style="width: 100%">
-            <el-option v-for="item in StatusOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </el-form-item>
+        <!-- Status Selection Section -->
+        <div class="form-section">
+          <el-form-item label="Update Grievance Status" label-position="top" prop="new_status">
+            <el-select v-model="form.new_status" placeholder="Select status" style="width: 100%">
+              <el-option v-for="item in StatusOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+          </el-form-item>
+        </div>
 
-        <el-form-item v-loading="grmUsersLoading" label="Select Officer" label-position="top" prop="reffered_to_officer" v-if="form.new_status == 'Referred'">
-          <el-select v-model="form.reffered_to_officer" clearable filterable placeholder="Select Officer" :loading="grmUsersLoading" :disabled="grmUsersLoading" @change="handleOfficerChange" style="width: 100%">
-            <el-option
-              v-for="item in grmUsers"
-              :key="item.value"
-              :label="item.label"
-              :value="item.value"
-            />
-            <template #footer>
-              <el-button v-if="!isAdding" text bg size="small" @click="onAddOption">
-                Add Officer
-              </el-button>
-              <template v-else>
-                <el-form :model="formOfficer" label-width="0" :rules="OfficerRules" ref="formRef">
-                  <el-form-item prop="optionName">
-                    <el-input
-                      v-model="formOfficer.optionName"
-                      class="option-input"
-                      placeholder="Name"
-                      size="small"
-                    />
-                  </el-form-item>
-
-                  <el-form-item prop="optionPhone">
-                    <el-input
-                      v-model="formOfficer.optionPhone"
-                      class="option-input"
-                      placeholder="Enter phone number (254.....)" 
-                      size="small"
-                      :onChange="convertPhoneNumberX" 
-                    />
-                  </el-form-item>
-
-                  <el-form-item>
-                    <el-button type="primary" size="small" @click="onConfirm">
-                      Confirm
-                    </el-button>
-                    <el-button size="small" @click="clear">
-                      Cancel
-                    </el-button>
-                  </el-form-item>
-                </el-form>
+        <!-- Referral Section -->
+        <div v-if="isReferredStatus" class="form-section">
+          <el-divider content-position="left">
+            <span class="section-title">{{ sectionTitle }}</span>
+          </el-divider>
+          <el-form-item v-loading="grmUsersLoading" label="Select Officer to Refer To" label-position="top" prop="reffered_to_officer">
+            <el-select v-model="form.reffered_to_officer" clearable filterable placeholder="Select Officer" :loading="grmUsersLoading" :disabled="grmUsersLoading" @change="handleOfficerChange" style="width: 100%">
+              <el-option
+                v-for="item in grmUsers"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
+              <template #footer>
+                <el-button v-if="!isAdding" text bg size="small" @click="onAddOption">
+                  Add Officer
+                </el-button>
+                <template v-else>
+                  <el-form :model="formOfficer" label-width="0" :rules="OfficerRules" ref="formRef">
+                    <el-form-item prop="optionName">
+                      <el-input
+                        v-model="formOfficer.optionName"
+                        class="option-input"
+                        placeholder="Name"
+                        size="small"
+                      />
+                    </el-form-item>
+                    <el-form-item prop="optionPhone">
+                      <el-input
+                        v-model="formOfficer.optionPhone"
+                        class="option-input"
+                        placeholder="Enter phone number (254.....)" 
+                        size="small"
+                        :onChange="convertPhoneNumberX" 
+                      />
+                    </el-form-item>
+                    <el-form-item>
+                      <el-button type="primary" size="small" @click="onConfirm">Confirm</el-button>
+                      <el-button size="small" @click="clear">Cancel</el-button>
+                    </el-form-item>
+                  </el-form>
+                </template>
               </template>
-            </template>
-          </el-select>
-        </el-form-item>
+            </el-select>
+          </el-form-item>
+        </div>
 
-        <el-row :gutter="isMobile ? 0 : 2" v-if="form.new_status == 'Resolved'">
-          <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
-            <el-form-item label="Was Filer Present? " label-position="top" prop="filer_present">
-              <el-select
-                v-model="form.filer_present"
-                placeholder="Select"
-                style="width: 100%"
-                clearable
-              >
-                <el-option
-                  v-for="option in yesNoOptions"
-                  :key="option.value"
-                  :label="option.label"
-                  :value="option.value"
-                />
-              </el-select>
-            </el-form-item>
-          </el-col>
+        <!-- External Referral Section -->
+        <div v-if="isExternalReferralStatus" class="form-section">
+          <el-divider content-position="left">
+            <span class="section-title">{{ sectionTitle }}</span>
+          </el-divider>
+          <el-form-item label="Name of Organization Case Referred To" label-position="top" prop="reffered_to">
+            <el-input type="textarea" :rows="isMobile ? 3 : 2" placeholder="Enter organization name" v-model="form.reffered_to" />
+          </el-form-item>
+        </div>
 
-          <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
-            <el-form-item label="Was field verification of complaint conducted?  " label-position="top" prop="field_verification_conducted">
-              <el-select
-                v-model="form.field_verification_conducted"
-                placeholder="Select"
-                style="width: 100%"
-                clearable
-              >
-                <el-option
-                  v-for="option in yesNoOptions"
-                  :key="option.value"
-                  :label="option.label"
-                  :value="option.value"
-                />
-              </el-select>
-            </el-form-item>
-          </el-col>
+        <!-- Resolution Details Section with Steps -->
+        <div v-if="isResolvedStatus" class="form-section">
+          <el-divider content-position="left">
+            <span class="section-title">Describe the Resolution Action</span>
+          </el-divider>
+          
+          <el-steps 
+            :active="resolutionStep" 
+            finish-status="success" 
+            :class="['resolution-steps', { 'resolution-steps--mobile': isMobile }]"
+            direction="horizontal"
+            :space="isMobile ? 60 : undefined"
+          >
+            <el-step title="Basic Info" :icon="InfoFilled" />
+            <el-step title="Investigation" :icon="Document" />
+            <el-step title="Agreement" :icon="CircleCheck" />
+            <el-step title="Documentation" :icon="Paperclip" />
+            <el-step title="Action Description" :icon="Edit" />
+          </el-steps>
 
-          <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
+          <!-- Step 0: Basic Information -->
+          <div v-if="resolutionStep === 0" class="resolution-step-content">
+            <el-row :gutter="isMobile ? 0 : 16">
+              <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+                <el-form-item label="Was Filer Present?" label-position="top" prop="filer_present">
+                  <el-select v-model="form.filer_present" placeholder="Select" style="width: 100%" clearable>
+                    <el-option v-for="option in yesNoOptions" :key="option.value" :label="option.label" :value="option.value" />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+
+              <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+                <el-form-item label="Was field verification conducted?" label-position="top" prop="field_verification_conducted">
+                  <el-select v-model="form.field_verification_conducted" placeholder="Select" style="width: 100%" clearable>
+                    <el-option v-for="option in yesNoOptions" :key="option.value" :label="option.label" :value="option.value" />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+            </el-row>
+
             <el-form-item label="Date of Resolution" label-position="top" prop="resolution_date">
               <el-date-picker
                 v-model="form.resolution_date"
                 type="date"
-                placeholder="Select"
+                placeholder="Select resolution date"
                 style="width: 100%"
                 :disabled-date="disableFutureDates"
               />
             </el-form-item>
-          </el-col>
-        </el-row>
+          </div>
 
-        <el-form-item v-if="form.new_status == 'Resolved'" label="Findings of field investigation" label-position="top" prop="field_investigations">
-          <el-input type="textarea" :rows="isMobile ? 3 : 2" placeholder="Provide details of the resolution here" v-model="form.field_investigations" />
-        </el-form-item>
+          <!-- Step 1: Investigation & Findings -->
+          <div v-if="resolutionStep === 1" class="resolution-step-content">
+            <el-form-item label="Findings of Field Investigation" label-position="top" prop="field_investigations">
+              <el-input 
+                type="textarea" 
+                :rows="isMobile ? 4 : 5" 
+                placeholder="Describe the findings from the field investigation" 
+                v-model="form.field_investigations" 
+              />
+            </el-form-item>
 
-        <el-row :gutter="isMobile ? 0 : 2" v-if="form.new_status == 'Resolved'">
-          <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
-            <el-form-item label="Was agreement reached on the issues?	" label-position="top" prop="agreement_reached">
-              <el-select
-                v-model="form.agreement_reached"
-                placeholder="Select"
-                style="width: 100%"
-                clearable
-              >
-                <el-option
-                  v-for="option in yesNoOptions"
-                  :key="option.value"
-                  :label="option.label"
-                  :value="option.value"
-                />
+            <!-- <el-form-item label="Issues" label-position="top" prop="issues">
+              <el-input 
+                type="textarea" 
+                :rows="isMobile ? 4 : 5" 
+                placeholder="Describe the issues addressed" 
+                v-model="form.issues" 
+              />
+            </el-form-item> -->
+          </div>
+
+          <!-- Step 2: Agreement Details -->
+          <div v-if="resolutionStep === 2" class="resolution-step-content">
+            <el-form-item label="Was agreement reached on the issues?" label-position="top" prop="agreement_reached">
+              <el-select v-model="form.agreement_reached" placeholder="Select" style="width: 100%" clearable>
+                <el-option v-for="option in yesNoOptions" :key="option.value" :label="option.label" :value="option.value" />
               </el-select>
             </el-form-item>
-          </el-col>
-          <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
-            <el-form-item v-if="form.agreement_reached" label="If agreement was reached, detail the agreement below:" label-position="top" prop="agreement">
-              <el-input type="textarea" :rows="isMobile ? 3 : 2" placeholder="Provide details of agreement here" v-model="form.agreement" />
+
+            <el-form-item v-if="showAgreementFields" label="Agreement Details" label-position="top" prop="agreement">
+              <el-input 
+                type="textarea" 
+                :rows="isMobile ? 4 : 5" 
+                placeholder="Detail the agreement reached" 
+                v-model="form.agreement" 
+              />
             </el-form-item>
 
-            <el-form-item v-if="!form.agreement_reached" label="If agreement was not reached, specify the points of disagreement below" label-position="top" prop="point_disagreement">
-              <el-input type="textarea" :rows="isMobile ? 3 : 2" placeholder="Provide details of disagreement here" v-model="form.point_disagreement" />
+            <el-form-item v-if="showDisagreementFields" label="Points of Disagreement" label-position="top" prop="point_disagreement">
+              <el-input 
+                type="textarea" 
+                :rows="isMobile ? 4 : 5" 
+                placeholder="Specify the points of disagreement" 
+                v-model="form.point_disagreement" 
+              />
             </el-form-item>
-          </el-col>
-        </el-row>
-
-        <el-form-item v-if="form.new_status == 'Resolved'" label="Issues" label-position="top" prop="issues">
-          <el-input type="textarea" :rows="isMobile ? 3 : 2" placeholder="Provide details of the resolution here" v-model="form.issues" />
-        </el-form-item>
-
-        <el-form-item label="Describe the Action Taken" label-position="top" prop="action">
-          <el-input type="textarea" :rows="isMobile ? 3 : 2" placeholder="Provide details of the resolution here" v-model="form.action" />
-        </el-form-item>
-
-        <el-form-item v-if="form.new_status == 'ExternalReferral'" label="Name of organization case reffered to" label-position="top" prop="reffered_to">
-          <el-input type="textarea" :rows="isMobile ? 3 : 2" placeholder="Name of organization" v-model="form.reffered_to" />
-        </el-form-item> 
-
-        <el-form-item 
-          label="Upload Documentation" 
-          label-position="top"
-          prop="fileList"
-          :required="form.new_status === 'Resolved'"
-        >
-          <div style="display: flex; flex-direction: column; gap: 8px;">
-            <div v-if="form.new_status === 'Resolved'" style="margin-bottom: 8px;">
-              <el-button 
-                type="success" 
-                plain 
-                size="small"
-                :icon="Download"
-                @click="downloadResolutionForm"
-              >
-                Download Resolution Form Template
-              </el-button>
-              <el-text type="warning" size="small" style="margin-left: 8px;">
-                <strong>Required:</strong> Please download, fill, sign, and upload the resolution form.
-              </el-text>
-            </div>
-          <el-upload
-            class="upload-demo" 
-            action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" 
-            multiple
-            :on-preview="handlePreview" 
-            :on-remove="handleRemove" 
-            :before-remove="beforeRemove" 
-            :limit="3"
-            v-model:file-list="form.fileList" 
-            :auto-upload="false" 
-            :on-exceed="handleExceed"
-              @change="() => { if (dynamicFormRef) dynamicFormRef.value?.validateField('fileList') }"
-          >
-            <el-button type="primary" plain>
-              <Icon icon="basil:file-upload-outline" width="24" /> Upload Documentation
-            </el-button>
-            <template #tip>
-              <div style="display: flex; flex-direction: column; gap: 4px;">
-                <el-text
-                  v-if="showResolutionUploadHint"
-                  type="warning"
-                  size="small"
-                >
-                  Please upload the signed resolution form (pdf/jpg/png, under 10MB). Attach supporting evidence (minutes, photos, etc.) as needed.
-                </el-text>
-                <el-text
-                  v-else-if="showGeneralUploadHint"
-                  type="info"
-                  size="small"
-                >
-                  Upload supporting documentation (e.g. minutes, forms, photos) — pdf/jpg/png, under 10MB.
-                </el-text>
-              </div>
-            </template>
-          </el-upload>
           </div>
-        </el-form-item>
+
+          <!-- Step 3: Documentation -->
+          <div v-if="resolutionStep === 3" class="resolution-step-content">
+            <el-form-item 
+              label="Upload Documentation" 
+              label-position="top"
+              prop="fileList"
+              :required="true"
+            >
+              <div class="upload-section">
+                <div class="resolution-form-download">
+                  <el-button 
+                    type="success" 
+                    plain 
+                    size="small"
+                    :icon="Download"
+                    @click="downloadResolutionForm"
+                  >
+                    Download Resolution Form Template
+                  </el-button>
+                  <el-text type="warning" size="small" class="required-hint">
+                    <strong>Required:</strong> Please download, fill, sign, and upload the resolution form.
+                  </el-text>
+                </div>
+                <el-upload
+                  class="upload-demo" 
+                  action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" 
+                  multiple
+                  :on-preview="handlePreview" 
+                  :on-remove="handleRemove" 
+                  :before-remove="beforeRemove" 
+                  :limit="3"
+                  v-model:file-list="form.fileList" 
+                  :auto-upload="false" 
+                  :on-exceed="handleExceed"
+                  @change="() => { if (dynamicFormRef) dynamicFormRef.value?.validateField('fileList') }"
+                >
+                  <el-button type="primary" plain>
+                    <Icon icon="basil:file-upload-outline" width="24" /> Upload Documentation
+                  </el-button>
+                  <template #tip>
+                    <div class="upload-tips">
+                      <el-text type="warning" size="small">
+                        Please upload the signed resolution form (pdf/jpg/png, under 10MB). Attach supporting evidence (minutes, photos, etc.) as needed. 
+                        <strong>Required:</strong> Documentation must be uploaded before proceeding to the next step.
+                      </el-text>
+                    </div>
+                  </template>
+                </el-upload>
+              </div>
+            </el-form-item>
+          </div>
+
+          <!-- Step 4: Action Description -->
+          <div v-if="resolutionStep === 4" class="resolution-step-content">
+            <el-form-item :label="actionLabel" label-position="top" prop="action">
+              <el-input 
+                type="textarea" 
+                :rows="isMobile ? 4 : 5" 
+                :placeholder="actionPlaceholder" 
+                v-model="form.action" 
+              />
+            </el-form-item>
+          </div>
+
+          <!-- Resolution Step Navigation -->
+          <div v-if="isResolvedStatus" class="resolution-step-navigation">
+            <el-button 
+              @click="dialogFormVisible = false"
+              :size="isMobile ? 'small' : 'default'"
+            >
+              Cancel
+            </el-button>
+            <div class="resolution-step-navigation-right">
+              <el-button 
+                v-if="resolutionStep > 0" 
+                @click="prevResolutionStep"
+                :size="isMobile ? 'small' : 'default'"
+              >
+                Previous
+              </el-button>
+              <el-button 
+                v-if="resolutionStep < 4" 
+                type="primary" 
+                @click="nextResolutionStep"
+                :size="isMobile ? 'small' : 'default'"
+              >
+                Next
+              </el-button>
+              <el-button 
+                v-if="resolutionStep === 4" 
+                type="primary" 
+                @click="submitResolutionForm"
+                :size="isMobile ? 'small' : 'default'"
+              >
+                Submit
+              </el-button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Action Description Section (for non-Resolved statuses) -->
+        <div class="form-section" v-if="form.new_status && !isResolvedStatus">
+          <el-divider content-position="left">
+            <span class="section-title">{{ sectionTitle }}</span>
+          </el-divider>
+          <el-form-item :label="actionLabel" label-position="top" prop="action">
+            <el-input 
+              type="textarea" 
+              :rows="isMobile ? 4 : 5" 
+              :placeholder="actionPlaceholder" 
+              v-model="form.action" 
+            />
+          </el-form-item>
+        </div> 
+
+        <!-- Documentation Upload Section (for non-Resolved statuses) -->
+        <div v-if="!isResolvedStatus" class="form-section">
+          <el-divider content-position="left">
+            <span class="section-title">Documentation</span>
+          </el-divider>
+          <el-form-item 
+            label="Upload Documentation" 
+            label-position="top"
+            prop="fileList"
+          >
+            <div class="upload-section">
+              <el-upload
+                class="upload-demo" 
+                action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" 
+                multiple
+                :on-preview="handlePreview" 
+                :on-remove="handleRemove" 
+                :before-remove="beforeRemove" 
+                :limit="3"
+                v-model:file-list="form.fileList" 
+                :auto-upload="false" 
+                :on-exceed="handleExceed"
+                @change="() => { if (dynamicFormRef) dynamicFormRef.value?.validateField('fileList') }"
+              >
+                <el-button type="primary" plain>
+                  <Icon icon="basil:file-upload-outline" width="24" /> Upload Documentation
+                </el-button>
+                <template #tip>
+                  <div class="upload-tips">
+                    <el-text type="info" size="small">
+                      Upload supporting documentation (e.g. minutes, forms, photos) — pdf/jpg/png, under 10MB.
+                    </el-text>
+                  </div>
+                </template>
+              </el-upload>
+            </div>
+          </el-form-item>
+        </div>
 
       </el-form>
 
-      <div class="form-actions" :class="{ 'mobile-actions': isMobile }">
+      <div class="form-actions" :class="{ 'mobile-actions': isMobile }" v-if="!isResolvedStatus">
         <el-button 
           @click="dialogFormVisible = false"
           :size="isMobile ? 'small' : 'default'"
@@ -2799,6 +3096,7 @@ width="340"
           Submit
         </el-button>
       </div>
+      <!-- Cancel button is now inside resolution-step-navigation for resolved status -->
     </div>
   </el-drawer>
 
@@ -4164,6 +4462,153 @@ width="340"
 
 .form-step {
   margin-bottom: 16px;
+}
+
+/* Form Section Styling */
+.form-section {
+  margin-bottom: 24px;
+}
+
+.form-section:last-child {
+  margin-bottom: 0;
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.upload-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.resolution-form-download {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px;
+  background-color: var(--el-color-warning-light-9);
+  border-radius: 4px;
+  border-left: 3px solid var(--el-color-warning);
+}
+
+.required-hint {
+  flex: 1;
+  min-width: 0;
+}
+
+.upload-tips {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+/* Resolution Steps Styling */
+.resolution-steps {
+  margin-bottom: 24px;
+  padding: 16px;
+  background-color: var(--el-bg-color-page);
+  border-radius: 8px;
+}
+
+.resolution-steps--mobile {
+  padding: 12px 8px;
+}
+
+.resolution-steps :deep(.el-step__title) {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.resolution-steps :deep(.el-step__head) {
+  width: 32px;
+  height: 32px;
+}
+
+.resolution-steps :deep(.el-step__icon) {
+  width: 32px;
+  height: 32px;
+  font-size: 14px;
+}
+
+.resolution-steps :deep(.el-step__line) {
+  top: 16px;
+}
+
+.resolution-step-content {
+  min-height: 200px;
+  padding: 16px 0;
+}
+
+.resolution-step-navigation {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+
+.resolution-step-navigation-right {
+  display: flex;
+  gap: 12px;
+  margin-left: auto;
+}
+
+@media (max-width: 768px) {
+  .resolution-steps {
+    margin-bottom: 16px;
+    padding: 10px 4px;
+  }
+  
+  .resolution-steps :deep(.el-step__title) {
+    font-size: 11px;
+    display: none;
+  }
+  
+  .resolution-steps :deep(.el-step__head) {
+    width: 28px;
+    height: 28px;
+  }
+  
+  .resolution-steps :deep(.el-step__icon) {
+    width: 28px;
+    height: 28px;
+    font-size: 12px;
+  }
+  
+  .resolution-steps :deep(.el-step__line) {
+    top: 14px;
+  }
+  
+  .resolution-step-content {
+    min-height: 150px;
+    padding: 12px 0;
+  }
+  
+  .resolution-step-navigation {
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 16px;
+  }
+  
+  .resolution-step-navigation-right {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    margin-left: 0;
+  }
+  
+  .resolution-step-navigation .el-button {
+    width: 100%;
+  }
 }
 
 .grievance-form .el-form-item {
