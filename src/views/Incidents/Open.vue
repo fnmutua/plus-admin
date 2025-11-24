@@ -6,6 +6,7 @@ import { Edit, Flag, Clock, Document, Delete, MoreFilled } from '@element-plus/i
 import { getIncidents, createIncident, updateIncident, deleteIncident, getIncidentHistory } from '@/api/incident'
 import { getIncidentDocuments, downloadIncidentFile } from '@/api/incident'
 import { uploadIncidentDocuments } from '@/api/incident'
+import { getCountyAuth, getSettlementByCountyAuth } from '@/api/register'
 import { uuid } from 'vue-uuid'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
@@ -82,6 +83,12 @@ const editDrawer = ref(false)
 const editForm = ref<any>({})
 const active = ref(0)
 const editFormRef = ref<any>(null)
+
+const countiesOptions = ref<Array<{ value: number | string; label: string }>>([])
+const reportSettlementOptions = ref<Array<{ value: number | string; label: string; county_id?: number | string; subcounty_id?: number | string; ward_id?: number | string }>>([])
+const editSettlementOptions = ref<Array<{ value: number | string; label: string; county_id?: number | string; subcounty_id?: number | string; ward_id?: number | string }>>([])
+const reportSettlementsLoading = ref(false)
+const editSettlementsLoading = ref(false)
 
 
 // Action dialog variables
@@ -217,6 +224,94 @@ const fetchList = async () => {
   }
 }
 
+const fetchCounties = async () => {
+  try {
+    const response: any = await getCountyAuth({ model: 'county' } as any)
+    const data = response?.data || []
+    countiesOptions.value = data
+      .map((county: any) => ({ value: county.id, label: county.name }))
+      .sort((a: any, b: any) => Number(a.value) - Number(b.value))
+  } catch (error) {
+    console.error('Failed to load counties', error)
+  }
+}
+
+const loadSettlements = async (countyId: number | string, target: 'report' | 'edit') => {
+  if (target === 'report') {
+    reportSettlementOptions.value = []
+    reportSettlementsLoading.value = true
+  } else {
+    editSettlementOptions.value = []
+    editSettlementsLoading.value = true
+  }
+
+  if (!countyId) {
+    if (target === 'report') {
+      reportSettlementsLoading.value = false
+    } else {
+      editSettlementsLoading.value = false
+    }
+    return
+  }
+
+  try {
+    const response: any = await getSettlementByCountyAuth({ county_id: countyId } as any)
+    const settlements = (response?.data || []).map((item: any) => ({
+      value: item.id,
+      label: item.name,
+      county_id: item.county_id,
+      subcounty_id: item.subcounty_id,
+      ward_id: item.ward_id
+    }))
+
+    if (target === 'report') {
+      reportSettlementOptions.value = settlements
+    } else {
+      editSettlementOptions.value = settlements
+    }
+  } catch (error) {
+    console.error('Failed to fetch settlements', error)
+  } finally {
+    if (target === 'report') {
+      reportSettlementsLoading.value = false
+    } else {
+      editSettlementsLoading.value = false
+    }
+  }
+}
+
+const handleReportCountyChange = async (countyId: number | string) => {
+  reportForm.value.subcounty_id = ''
+  reportForm.value.ward_id = ''
+  reportForm.value.settlement_id = ''
+  await loadSettlements(countyId, 'report')
+}
+
+const handleEditCountyChange = async (countyId: number | string) => {
+  editForm.value.subcounty_id = ''
+  editForm.value.ward_id = ''
+  editForm.value.settlement_id = ''
+  await loadSettlements(countyId, 'edit')
+}
+
+const handleReportSettlementSelect = (settlementId: number | string) => {
+  const selected = reportSettlementOptions.value.find(option => option.value === settlementId)
+  if (selected) {
+    reportForm.value.subcounty_id = selected.subcounty_id || ''
+    reportForm.value.ward_id = selected.ward_id || ''
+    reportForm.value.county_id = selected.county_id || reportForm.value.county_id
+  }
+}
+
+const handleEditSettlementSelect = (settlementId: number | string) => {
+  const selected = editSettlementOptions.value.find(option => option.value === settlementId)
+  if (selected) {
+    editForm.value.subcounty_id = selected.subcounty_id || ''
+    editForm.value.ward_id = selected.ward_id || ''
+    editForm.value.county_id = selected.county_id || editForm.value.county_id
+  }
+}
+
 
 // Report drawer functions
 const openReportDrawer = async () => {
@@ -231,6 +326,10 @@ const openReportDrawer = async () => {
     reported_by: userName,
     reporter_role: userRole,
     reporter_phone: userPhone,
+    county_id: '',
+    settlement_id: '',
+    subcounty_id: '',
+    ward_id: '',
     // Initialize arrays
     incident_types: [],
     mechanisms: [],
@@ -241,6 +340,7 @@ const openReportDrawer = async () => {
     actions_to_avoid: []
   }
   reportActive.value = 0
+  reportSettlementOptions.value = []
   reportDrawer.value = true
 }
 
@@ -253,8 +353,13 @@ const submit = async () => {
   }
 }
 
-const openEditDrawer = (row: any) => {
+const openEditDrawer = async (row: any) => {
   editForm.value = { ...row }
+  // Normalize location fields
+  editForm.value.county_id = editForm.value.county_id || row.county?.id || ''
+  editForm.value.settlement_id = editForm.value.settlement_id || row.settlement?.id || ''
+  editForm.value.subcounty_id = editForm.value.subcounty_id || row.subcounty_id || ''
+  editForm.value.ward_id = editForm.value.ward_id || row.ward_id || ''
   // Initialize arrays if they don't exist
   editForm.value.incident_types = editForm.value.incident_types || []
   editForm.value.mechanisms = editForm.value.mechanisms || []
@@ -265,6 +370,14 @@ const openEditDrawer = (row: any) => {
   editForm.value.actions_to_avoid = editForm.value.actions_to_avoid || []
   // Initialize reporter_role if it doesn't exist
   editForm.value.reporter_role = editForm.value.reporter_role || ''
+
+  if (editForm.value.county_id) {
+    await loadSettlements(editForm.value.county_id, 'edit')
+    handleEditSettlementSelect(editForm.value.settlement_id)
+  } else {
+    editSettlementOptions.value = []
+  }
+
   active.value = 0
   editDrawer.value = true
 }
@@ -502,7 +615,9 @@ const validationRules = {
     location_text: [{ required: true, message: 'Location is required', trigger: 'blur' }],
     reported_by: [{ required: true, message: 'Reported By is required', trigger: 'blur' }],
     reporter_role: [{ required: true, message: 'Reporter Role is required', trigger: 'change' }],
-    reporter_phone: [{ required: true, message: 'Reporter Phone is required', trigger: 'blur' }]
+    reporter_phone: [{ required: true, message: 'Reporter Phone is required', trigger: 'blur' }],
+    county_id: [{ required: true, message: 'County is required', trigger: 'change' }],
+    settlement_id: [{ required: true, message: 'Settlement is required', trigger: 'change' }]
   },
   step1: {
     worker_name: [{ required: true, message: 'Worker Name is required', trigger: 'blur' }],
@@ -584,6 +699,10 @@ const submitReport = async () => {
     formData.reported_by = formData.reported_by || ''
     formData.reporter_role = formData.reporter_role || ''
     formData.reporter_phone = formData.reporter_phone || ''
+    formData.county_id = formData.county_id || ''
+    formData.settlement_id = formData.settlement_id || ''
+    formData.subcounty_id = formData.subcounty_id || ''
+    formData.ward_id = formData.ward_id || ''
     
     const res: any = await createIncident(formData)
     if (res && res.code === '0000') {
@@ -734,6 +853,7 @@ const checkMobile = () => {
 
 onMounted(() => {
   fetchList()
+  fetchCounties()
   checkMobile()
   window.addEventListener('resize', checkMobile)
 })
@@ -1578,6 +1698,40 @@ watch(historyActiveTab, (v) => {
               <ElFormItem label="Location" prop="location_text">
         <ElInput v-model="editForm.location_text" />
       </ElFormItem>
+              <ElFormItem label="County" prop="county_id">
+                <ElSelect
+                  v-model="editForm.county_id"
+                  placeholder="Select county"
+                  filterable
+                  style="width: 100%"
+                  @change="handleEditCountyChange"
+                >
+                  <ElOption
+                    v-for="item in countiesOptions"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                </ElSelect>
+              </ElFormItem>
+              <ElFormItem label="Settlement" prop="settlement_id">
+                <ElSelect
+                  v-model="editForm.settlement_id"
+                  placeholder="Select settlement"
+                  filterable
+                  style="width: 100%"
+                  :disabled="!editForm.county_id"
+                  :loading="editSettlementsLoading"
+                  @change="handleEditSettlementSelect"
+                >
+                  <ElOption
+                    v-for="item in editSettlementOptions"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                </ElSelect>
+              </ElFormItem>
               <ElFormItem label="Reported By" prop="reported_by">
                 <ElInput v-model="editForm.reported_by" />
               </ElFormItem>
@@ -1898,6 +2052,40 @@ watch(historyActiveTab, (v) => {
               </ElFormItem>
               <ElFormItem label="Location" prop="location_text">
                 <ElInput v-model="reportForm.location_text" />
+              </ElFormItem>
+              <ElFormItem label="County" prop="county_id">
+                <ElSelect
+                  v-model="reportForm.county_id"
+                  placeholder="Select county"
+                  filterable
+                  style="width: 100%"
+                  @change="handleReportCountyChange"
+                >
+                  <ElOption
+                    v-for="item in countiesOptions"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                </ElSelect>
+              </ElFormItem>
+              <ElFormItem label="Settlement" prop="settlement_id">
+                <ElSelect
+                  v-model="reportForm.settlement_id"
+                  placeholder="Select settlement"
+                  filterable
+                  style="width: 100%"
+                  :disabled="!reportForm.county_id"
+                  :loading="reportSettlementsLoading"
+                  @change="handleReportSettlementSelect"
+                >
+                  <ElOption
+                    v-for="item in reportSettlementOptions"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                </ElSelect>
               </ElFormItem>
               <ElFormItem label="Reported By" prop="reported_by">
                 <ElInput v-model="reportForm.reported_by" />

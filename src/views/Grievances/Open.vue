@@ -1367,21 +1367,7 @@ const makeOptions = (list) => {
 
 
 console.log('Options---->', indicatorsOptions)
-const editIndicator = (data: TableSlotDefault) => {
-  showSubmitBtn.value = false
-  showEditSaveButton.value = true
-  console.log(data)
-  ruleForm.id = data.row.id
-  ruleForm.title = data.row.title
-  ruleForm.shortTitle = data.row.shortTitle
 
-
-
-  formHeader.value = 'Edit Component'
-
-
-  AddDialogVisible.value = true
-}
 
 
 const DeleteIndicator = async (data: TableSlotDefault) => {
@@ -1577,31 +1563,34 @@ console.log('grmForm.value',grmForm.value)
     if (valid) {
       console.log('Is Valid', grmForm)
 
-      //1. Submit teh greivance 
-      const grv = await generateGrievance(grmForm.value)
-      console.log('res', grv)
+      //1. Submit the grievance and handle the rest of the flow in the promise chain
+      generateGrievance(grmForm.value)
+        .then(async (grv) => {
+          console.log('res', grv)
+          AddDialogVisible.value = false
 
+          // 2 Log the entry
+          let log = await logAction(grv.data)
+          console.log('log', log)
 
-      // 2 Log the entry
-      let log = await logAction(grv.data)
+          // 3. Upload documents 
+          await uploadFiles(log.id, grv.data.id)
 
+          // 4. Send Notification (generates acknowledgment PDF)
+          await sendNotification(grv.data, log.id)
 
-
-      console.log('log', log)
-
-      // 3. Uplaod docuemnts 
-
-      await uploadFiles(log.id, grv.data.id)
-
-      // 4. Send Notification (generates acknowledgment PDF)
-      await sendNotification(grv.data, log.id)
-
-
-      ElMessage({
-        message: grv.message,
-        type: 'success'
-      })
-
+          ElMessage({
+            message: grv.message,
+            type: 'success'
+          })
+        })
+        .catch((error) => {
+          console.error('Failed to submit grievance', error)
+          ElMessage({
+            message: 'Failed to submit grievance. Please try again.',
+            type: 'error'
+          })
+        })
 
     } else {
       console.log('is Not Valid')
@@ -4162,14 +4151,11 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
 
 <template>
   <div class="grievance-dashboard">
-  
     <!-- Main Content Card -->
     <el-card class="main-content-card">
-
       <template #header>
         <div class="card-header">
           <!-- Header Top Row: Title and Actions -->
-     
             <el-row :gutter="12" align="middle" class="header-row">
               <el-col :xs="isMobile ? 4 : 24" :sm="24" :md="2"  :lg="2">
                 <el-button
@@ -4208,7 +4194,6 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
                       <div class="count-number">{{ totalGrievanceCount }}</div>
                       <div class="count-label">Total Grievances</div>
                     </div>
-
                     <DownloadCustom
                       :data="tableDataList"
                       :model="model"
@@ -4245,7 +4230,6 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
               </el-col>
             </el-row>
  
-
         <!-- Header Bottom Row: Status Cards -->
         <div class="status-cards-container" v-if="!isMobile">
           <div class="status-cards">
@@ -4301,7 +4285,6 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
                   </div>
                 </div>
               </el-tooltip>
-              
               <PermissionWrapper 
                 v-else-if="status.value === 'Deleted'"
                 :permissions="['grievance:viewDeleted']"
@@ -4368,7 +4351,6 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
                   <div class="status-count">{{ status.count }}</div>
                 </div>
               </div>
-              
               <PermissionWrapper
                 v-else-if="status.value === 'Deleted'"
                 :permissions="['grievance:viewDeleted']"
@@ -4813,7 +4795,7 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
         :model="grmForm"
         class="grievance-form"
         label-position="top"
-        size="small"
+        
         :rules="currentStepRules"
         ref="dynamicFormRef"
       >
