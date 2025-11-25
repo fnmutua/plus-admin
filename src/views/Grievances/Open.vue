@@ -103,6 +103,7 @@ const settlementOptions = ref<Array<{value: string, label: string, county_id?: s
 const isFilteringSettlements = ref(false)
 
 const isSuperAdmin = ref(userInfo.roles.some(role => role.name === "super_admin"));
+const isRootAdmin = ref(userInfo.roles.some(role => role.name === "root_admin"));
  
 
 console.log("userInfo--->", userInfo)
@@ -1167,87 +1168,107 @@ const fetchSupportingStaffData = async () => {
   }
 }
 
-const getFilteredData = async (selFilters: string[], selfilterValues: any[][]) => {
-
-  const formData: any = {}
-  formData.limit = pageSize.value
-  formData.page = page.value
-  formData.curUser = 1 // Id for logged in user
-  formData.model = model
-  //-Search field--------------------------------------------
-  formData.searchField = 'name'
-  formData.searchKeyword = ''
-  //--Single Filter -----------------------------------------
-
-  formData.assocModel = associated_Model
-
-  // - multiple filters -------------------------------------
-  formData.filters = selFilters
-  formData.filterValues = selfilterValues
-  formData.filterFunctions = filterFunction.value
-
-  // Include grievance_history when viewing deleted or resolved grievances
-  const associatedModels = [...associated_multiple_models]
-  if (activeSegment.value === 'Deleted' || activeSegment.value === 'Resolved') {
-    associatedModels.push('grievance_history')
+const buildGrievanceRequestFormData = (
+  selFilters: string[],
+  selFilterValues: any[][],
+  options: {
+    limit?: number
+    page?: number
+    includeHistory?: boolean
+    searchString?: string
+    excludeDeleted?: boolean
+  } = {}
+) => {
+  const formData: any = {
+    limit: options.limit ?? pageSize.value,
+    page: options.page ?? page.value,
+    curUser: 1,
+    model,
+    searchField: 'name',
+    searchKeyword: options.searchString ?? '',
+    assocModel: associated_Model,
+    filters: [...selFilters],
+    filterValues: selFilterValues.map(value =>
+      Array.isArray(value) ? [...value] : value
+    ),
+    filterFunctions: [],
+    associated_multiple_models: [...associated_multiple_models]
   }
-  formData.associated_multiple_models = associatedModels
 
-  // Ensure filterFunctions array matches the length of filters and all values are arrays
-formData.filterFunctions = [];
-for (let i = 0; i < selfilterValues.length; i++) {
-  const val = selfilterValues[i];
+  const shouldIncludeHistory =
+    options.includeHistory ||
+    activeSegment.value === 'Deleted' ||
+    activeSegment.value === 'Resolved'
+  if (
+    shouldIncludeHistory &&
+    !formData.associated_multiple_models.includes('grievance_history')
+  ) {
+    formData.associated_multiple_models.push('grievance_history')
+  }
 
-    // Always ensure filterValues[i] is an array
-    if (!Array.isArray(val)) {
-      formData.filterValues[i] = [val];
-    } else if (val.length === 0) {
-      // Handle empty arrays - skip this filter
-      continue;
+  const normalizedFilters: string[] = []
+  const normalizedValues: any[][] = []
+  const normalizedFunctions: string[] = []
+
+  for (let i = 0; i < formData.filters.length; i++) {
+    let value = formData.filterValues[i]
+
+    if (!Array.isArray(value)) {
+      value =
+        value === undefined || value === null
+          ? []
+          : [value]
     }
-    
-    // Always use 'in' operator for array-based filtering
-    formData.filterFunctions.push('in');
-  }
-  
-  // Remove any filters that have empty arrays
-  const validIndices = [];
-  for (let i = 0; i < formData.filterValues.length; i++) {
-    if (Array.isArray(formData.filterValues[i]) && formData.filterValues[i].length > 0) {
-      validIndices.push(i);
-    }
-  }
-  
-  // Rebuild arrays with only valid filters
-  formData.filters = validIndices.map(i => formData.filters[i]);
-  formData.filterValues = validIndices.map(i => formData.filterValues[i]);
-  formData.filterFunctions = validIndices.map(i => formData.filterFunctions[i]);
 
-  // Exclude deleted grievances if user doesn't have permission (unless viewing Deleted segment)
-  if (!canViewDeletedGrievances.value && activeSegment.value !== 'Deleted') {
-    const statusIndex = formData.filters.indexOf('status');
+    if (!Array.isArray(value) || value.length === 0) {
+      continue
+    }
+
+    normalizedFilters.push(formData.filters[i])
+    normalizedValues.push(value)
+    normalizedFunctions.push(filterFunction.value[i] || 'in')
+  }
+
+  formData.filters = normalizedFilters
+  formData.filterValues = normalizedValues
+  formData.filterFunctions = normalizedFunctions
+
+  const shouldExcludeDeleted =
+    (!canViewDeletedGrievances.value && activeSegment.value !== 'Deleted') ||
+    options.excludeDeleted
+
+  if (shouldExcludeDeleted) {
+    const statusIndex = formData.filters.indexOf('status')
     if (statusIndex !== -1) {
-      // If status filter exists, ensure 'Deleted' is not included
-      const statusValues = formData.filterValues[statusIndex];
+      const statusValues = formData.filterValues[statusIndex]
       if (Array.isArray(statusValues)) {
-        formData.filterValues[statusIndex] = statusValues.filter(s => s !== 'Deleted');
-        // Remove status filter if no values left
+        formData.filterValues[statusIndex] = statusValues.filter(
+          (s: string) => s !== 'Deleted'
+        )
         if (formData.filterValues[statusIndex].length === 0) {
-          formData.filters.splice(statusIndex, 1);
-          formData.filterValues.splice(statusIndex, 1);
-          formData.filterFunctions.splice(statusIndex, 1);
+          formData.filters.splice(statusIndex, 1)
+          formData.filterValues.splice(statusIndex, 1)
+          formData.filterFunctions.splice(statusIndex, 1)
         }
       }
     } else {
-      // Add filter to exclude deleted grievances using notIn (camelCase as expected by backend)
-      formData.filters.push('status');
-      formData.filterValues.push(['Deleted']);
-      formData.filterFunctions.push('notIn');
+      formData.filters.push('status')
+      formData.filterValues.push(['Deleted'])
+      formData.filterFunctions.push('notIn')
     }
   }
 
-  //-------------------------
-  //console.log(formData)
+  if (options.searchString) {
+    formData.searchString = options.searchString
+  }
+
+  return formData
+}
+
+const getFilteredData = async (selFilters: string[], selfilterValues: any[][]) => {
+  const formData = buildGrievanceRequestFormData(selFilters, selfilterValues, {
+    includeHistory: activeSegment.value === 'Deleted' || activeSegment.value === 'Resolved'
+  })
   const res = await getGrievances(formData)
 
   console.log('After Querry', res)
@@ -3091,7 +3112,13 @@ return formattedText;
 
 
 
- const selectedRows = ref([])
+const selectedRows = ref([])
+const deleteActionOptions = [
+  { label: 'Delete selected permanently', value: 'selected' },
+  { label: 'Delete all (current filters)', value: 'all' }
+]
+const deleteActionValue = ref<string | null>(null)
+const permanentDeleting = ref(false)
 
 function handleSelectionChange(selection) {
   selectedRows.value = selection
@@ -3224,6 +3251,149 @@ const performBulkDelete = async () => {
   } finally {
     deleting.value = false
   }
+}
+
+const handleDeletedActionChange = async (action: string | null) => {
+  if (!action || !isRootAdmin.value || activeSegment.value !== 'Deleted') {
+    return
+  }
+
+  try {
+    if (action === 'selected') {
+      await permanentlyDeleteSelected()
+    } else if (action === 'all') {
+      await permanentlyDeleteAll()
+    }
+  } finally {
+    deleteActionValue.value = null
+  }
+}
+
+const cascadeDeleteGrievances = async (ids: Array<string | number>) => {
+  if (ids.length === 0) {
+    ElMessage({
+      message: 'No grievances to delete',
+      type: 'warning'
+    })
+    return
+  }
+
+  permanentDeleting.value = true
+
+  try {
+    const results = await Promise.allSettled(
+      ids.map(id =>
+        deleteCascade({
+          model: 'grievance',
+          id,
+          permanentDelete: true
+        })
+      )
+    )
+
+    const successful = results.filter(result => result.status === 'fulfilled').length
+    const failed = results.length - successful
+
+    if (successful > 0 && failed === 0) {
+      ElMessage({
+        message: `Deleted ${successful} grievance(s) permanently`,
+        type: 'success'
+      })
+    } else if (successful > 0 && failed > 0) {
+      ElMessage({
+        message: `Deleted ${successful} grievance(s), ${failed} failed`,
+        type: 'warning'
+      })
+    } else {
+      ElMessage({
+        message: 'Failed to delete grievances',
+        type: 'error'
+      })
+    }
+
+    selectedRows.value = []
+    await getFilteredData(filters.value, filterValues.value)
+    await getCounts()
+  } catch (error) {
+    console.error('Error permanently deleting grievances:', error)
+    ElMessage({
+      message: 'Unable to delete grievances. Please try again.',
+      type: 'error'
+    })
+  } finally {
+    permanentDeleting.value = false
+  }
+}
+
+const permanentlyDeleteSelected = async () => {
+  if (selectedRows.value.length === 0) {
+    ElMessage({
+      message: 'Please select at least one grievance',
+      type: 'warning'
+    })
+    return
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      `This will permanently delete ${selectedRows.value.length} selected grievance(s). Continue?`,
+      'Confirm Permanent Delete',
+      {
+        confirmButtonText: 'Delete',
+        cancelButtonText: 'Cancel',
+        type: 'warning'
+      }
+    )
+  } catch (error) {
+    return
+  }
+
+  const ids = selectedRows.value.map(grievance => grievance.id)
+  await cascadeDeleteGrievances(ids)
+}
+
+const fetchAllDeletedGrievanceIds = async (): Promise<Array<string | number>> => {
+  const limit = total.value > 0 ? total.value : 1000
+  const formData = buildGrievanceRequestFormData(filters.value, filterValues.value, {
+    includeHistory: true,
+    limit,
+    page: 1
+  })
+
+  const res = await getGrievances(formData)
+  if (res?.data && Array.isArray(res.data)) {
+    return res.data.map((item: GrievanceType) => item.id)
+  }
+
+  return []
+}
+
+const permanentlyDeleteAll = async () => {
+  if (activeSegment.value !== 'Deleted') {
+    ElMessage({
+      message: 'Permanent delete is only available in the Deleted segment',
+      type: 'warning'
+    })
+    return
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      'This will permanently delete all deleted grievances in the current filter. This action cannot be undone. Continue?',
+      'Delete All Permanently',
+      {
+        confirmButtonText: 'Delete All',
+        cancelButtonText: 'Cancel',
+        type: 'warning',
+        dangerouslyUseHTMLString: false
+      }
+    )
+  } catch (error) {
+    return
+  }
+
+  const ids = await fetchAllDeletedGrievanceIds()
+  await cascadeDeleteGrievances(ids)
 }
 
 const form = ref({
@@ -3371,7 +3541,17 @@ const ReferralRef = ref<FormInstance>()
 
 
 
+const canUseRowSelection = computed(() => {
+  if (activeSegment.value === 'Deleted') {
+    return isRootAdmin.value
+  }
+  return !['Closed', 'Resolved', 'In Court', 'Deleted', 'Rejected'].includes(activeSegment.value)
+})
+
 const isRowSelectable = () => {
+  if (activeSegment.value === 'Deleted') {
+    return isRootAdmin.value
+  }
   return isCountyOrNational.value;
 };
 
@@ -4491,6 +4671,23 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
             >
               Delete ({{ selectedRows.length }})
             </el-button>
+            <el-select
+              v-if="activeSegment === 'Deleted' && isRootAdmin"
+              v-model="deleteActionValue"
+              placeholder="Permanent delete"
+              size="small"
+              class="permanent-delete-select"
+              :loading="permanentDeleting"
+              @change="handleDeletedActionChange"
+            >
+              <el-option
+                v-for="option in deleteActionOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+                :disabled="option.value === 'selected' && selectedRows.length === 0"
+              />
+            </el-select>
         </div>
       </div>
 
@@ -4508,7 +4705,7 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
       >
         <!-- Optional Selection Column for Non-Final Statuses -->
         <el-table-column
-          v-if="!['Closed', 'Resolved', 'In Court', 'Deleted', 'Rejected'].includes(activeSegment)"
+          v-if="canUseRowSelection"
           type="selection"
           width="50"
           :selectable="isRowSelectable"
@@ -4693,7 +4890,7 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
           </div>
           <div class="mobile-card-footer">
             <el-checkbox
-              v-if="isRowSelectable()"
+              v-if="canUseRowSelection && isRowSelectable()"
               :model-value="isRowSelected(row)"
               @change="toggleMobileSelection(row)"
               @click.stop
@@ -6405,6 +6602,10 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
   align-items: center;
 }
 
+.permanent-delete-select {
+  min-width: 190px;
+}
+
 .mobile-quick-actions {
   flex-wrap: wrap;
 }
@@ -7346,4 +7547,5 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
   border: 1px solid #c2e7b0 !important;
 }
 </style>
+
 

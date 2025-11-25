@@ -23,6 +23,16 @@ const crypto = require('crypto');
 
 const op = Sequelize.Op 
 
+const userHasRole = async (userInstance, roleName) => {
+  if (!userInstance || typeof userInstance.getRoles !== 'function') {
+    return false
+  }
+  const roles = await userInstance.getRoles()
+  return roles.some(role => role.name === roleName)
+}
+
+const isRootAdminUser = async (userInstance) => userHasRole(userInstance, 'root_admin')
+
 
 exports.generateGRMCode = async (req, res) => {
   try {
@@ -3487,7 +3497,7 @@ exports._bulkUpdateReferredToOfficer = async (req, res) => {
 
       exports.deleteCascadeGrievance = async (req, res) => {
         try {
-            const { model, id } = req.body;
+            const { model, id, permanentDelete } = req.body;
     
             console.log("Deleting", model, "with ID", id);
     
@@ -3516,38 +3526,15 @@ exports._bulkUpdateReferredToOfficer = async (req, res) => {
                 });
             }
     
-            // For grievance model, implement soft delete instead of hard delete
-            if (model === 'grievance') {
-              console.log('Performing soft delete for grievance...');
-              
-              // Log the deletion action before updating the record
-              // Convert record to JSON to ensure proper serialization
-              await updateGrievanceHistory(record.id, record.toJSON(), req.thisUser.id, "Delete");
-              
-              // Update the grievance record to mark it as deleted
-              await record.update({
-                status: 'Deleted',
-                current_status_date: new Date(),
-                status_expiry_date: new Date(Date.now() + (30 * 24 * 60 * 60 * 1000)) // 30 days from now
-              });
-              
-              console.log('Grievance marked as deleted (soft delete)');
-              
-              // Note: All related records are preserved for audit purposes
-              // grievance_histories, grievance_logs, grievance_documents, etc. remain intact
-            } else {
-              // For other models, use the association-based approach
+            const deleteAssociatedRecords = async () => {
               const associations = Model.associations;
-              
-              // Delete all associated records iteratively
+
               for (const assocName in associations) {
                 const association = associations[assocName];
-                
-                console.log('Processing association:', assocName);
-                
+
                 if (association.target) {
                   const relatedModel = association.target;
-                  
+
                   switch (association.associationType) {
                     case "HasMany":
                     case "HasOne":
@@ -3572,6 +3559,63 @@ exports._bulkUpdateReferredToOfficer = async (req, res) => {
                   }
                 }
               }
+            }
+
+            let allowPermanentGrievanceDelete = false
+            if (permanentDelete) {
+              const currentUser = req.thisUser || (req.userid ? await User.findByPk(req.userid) : null)
+              allowPermanentGrievanceDelete = await isRootAdminUser(currentUser)
+
+              if (!allowPermanentGrievanceDelete) {
+                return res.status(403).send({
+                  message: "Only root admins can permanently delete grievances."
+                })
+              }
+
+              if (model !== 'grievance') {
+                return res.status(400).send({
+                  message: "Permanent delete is only supported for grievances."
+                })
+              }
+
+              if (record.status !== 'Deleted') {
+                return res.status(400).send({
+                  message: "Grievance must be in Deleted status before permanent removal."
+                })
+              }
+            }
+
+            const shouldHardDeleteGrievance = model === 'grievance' && permanentDelete && allowPermanentGrievanceDelete
+
+            // For grievance model, implement soft delete instead of hard delete
+            if (model === 'grievance') {
+              if (shouldHardDeleteGrievance) {
+                console.log('Performing permanent delete for grievance...')
+                await deleteAssociatedRecords()
+                await record.destroy()
+                console.log('Grievance permanently deleted')
+              } else {
+                console.log('Performing soft delete for grievance...');
+                
+                // Log the deletion action before updating the record
+                // Convert record to JSON to ensure proper serialization
+                await updateGrievanceHistory(record.id, record.toJSON(), req.thisUser.id, "Delete");
+                
+                // Update the grievance record to mark it as deleted
+                await record.update({
+                  status: 'Deleted',
+                  current_status_date: new Date(),
+                  status_expiry_date: new Date(Date.now() + (30 * 24 * 60 * 60 * 1000)) // 30 days from now
+                });
+                
+                console.log('Grievance marked as deleted (soft delete)');
+                
+                // Note: All related records are preserved for audit purposes
+                // grievance_histories, grievance_logs, grievance_documents, etc. remain intact
+              }
+            } else {
+              // For other models, use the association-based approach
+              await deleteAssociatedRecords()
             }
 
             // For non-grievance models, perform hard delete
@@ -3609,10 +3653,15 @@ exports._bulkUpdateReferredToOfficer = async (req, res) => {
             }
           }
 
+            const responseMessage =
+              model === 'grievance'
+                ? shouldHardDeleteGrievance
+                  ? `${model} record permanently deleted successfully.`
+                  : `${model} record soft deleted successfully.`
+                : `${model} record deleted successfully.`
+
             res.status(200).send({
-                message: model === 'grievance' 
-                  ? `${model} record soft deleted successfully.` 
-                  : `${model} record deleted successfully.`,
+                message: responseMessage,
                 data: record,
                 code: "0000",
             });
