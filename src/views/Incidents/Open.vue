@@ -79,6 +79,10 @@ const historyList = ref<any[]>([])
 const selectedIncident = ref<any>(null)
 const historyActiveTab = ref('details')
 const activeCollapseItems = ref(['basic'])
+const activeCollapseEditStep2 = ref<string>('')
+const activeCollapseEditStep3 = ref<string>('')
+const activeCollapseReportStep2 = ref<string>('')
+const activeCollapseReportStep3 = ref<string>('')
 const editDrawer = ref(false)
 const editForm = ref<any>({})
 const active = ref(0)
@@ -1689,48 +1693,68 @@ watch(historyActiveTab, (v) => {
               <ElFormItem label="Code" prop="code">
         <ElInput v-model="editForm.code" disabled />
       </ElFormItem>
-              <ElFormItem label="Occurred Date" prop="occurred_date">
-        <ElDatePicker v-model="editForm.occurred_date" type="date" />
-      </ElFormItem>
-              <ElFormItem label="Occurred Time" prop="occurred_time">
-                <ElTimePicker v-model="editForm.occurred_time" />
-      </ElFormItem>
-              <ElFormItem label="Location" prop="location_text">
-        <ElInput v-model="editForm.location_text" />
-      </ElFormItem>
-              <ElFormItem label="County" prop="county_id">
-                <ElSelect
-                  v-model="editForm.county_id"
-                  placeholder="Select county"
-                  filterable
-                  style="width: 100%"
-                  @change="handleEditCountyChange"
-                >
-                  <ElOption
-                    v-for="item in countiesOptions"
-                    :key="item.value"
-                    :label="item.label"
-                    :value="item.value"
-                  />
-                </ElSelect>
+              <ElRow :gutter="16">
+                <ElCol :span="12">
+                  <ElFormItem label="Occurred Date" prop="occurred_date">
+                    <ElDatePicker v-model="editForm.occurred_date" type="date" style="width: 100%" />
+                  </ElFormItem>
+                </ElCol>
+                <ElCol :span="12">
+                  <ElFormItem label="Occurred Time" prop="occurred_time">
+                    <ElTimePicker v-model="editForm.occurred_time" style="width: 100%" />
+                  </ElFormItem>
+                </ElCol>
+              </ElRow>
+              <ElRow :gutter="16">
+                <ElCol :span="12">
+                  <ElFormItem label="County" prop="county_id">
+                    <ElSelect
+                      v-model="editForm.county_id"
+                      placeholder="Select county"
+                      filterable
+                      style="width: 100%"
+                      @change="handleEditCountyChange"
+                    >
+                      <ElOption
+                        v-for="item in countiesOptions"
+                        :key="item.value"
+                        :label="item.label"
+                        :value="item.value"
+                      />
+                    </ElSelect>
+                  </ElFormItem>
+                </ElCol>
+                <ElCol :span="12">
+                  <ElFormItem label="Settlement" prop="settlement_id">
+                    <ElSelect
+                      v-model="editForm.settlement_id"
+                      placeholder="Select settlement"
+                      filterable
+                      style="width: 100%"
+                      :disabled="!editForm.county_id"
+                      :loading="editSettlementsLoading"
+                      @change="handleEditSettlementSelect"
+                    >
+                      <ElOption
+                        v-for="item in editSettlementOptions"
+                        :key="item.value"
+                        :label="item.label"
+                        :value="item.value"
+                      />
+                    </ElSelect>
+                  </ElFormItem>
+                </ElCol>
+              </ElRow>
+              <ElFormItem>
+                <div class="form-helper-text">
+                  <i class="el-icon-info"></i> All KISIP interventions for infrastructure are related to a specific settlement. Please select the settlement associated with this incident.
+                </div>
               </ElFormItem>
-              <ElFormItem label="Settlement" prop="settlement_id">
-                <ElSelect
-                  v-model="editForm.settlement_id"
-                  placeholder="Select settlement"
-                  filterable
-                  style="width: 100%"
-                  :disabled="!editForm.county_id"
-                  :loading="editSettlementsLoading"
-                  @change="handleEditSettlementSelect"
-                >
-                  <ElOption
-                    v-for="item in editSettlementOptions"
-                    :key="item.value"
-                    :label="item.label"
-                    :value="item.value"
-                  />
-                </ElSelect>
+              <ElFormItem label="Location" prop="location_text">
+                <ElInput v-model="editForm.location_text" placeholder="Enter detailed location description" />
+                <div class="form-helper-text">
+                  <i class="el-icon-info"></i> If the incident occurs outside the settlement, please provide a detailed description here but still tag it to the settlement associated with it.
+                </div>
               </ElFormItem>
               <ElFormItem label="Reported By" prop="reported_by">
                 <ElInput v-model="editForm.reported_by" />
@@ -1776,76 +1800,60 @@ watch(historyActiveTab, (v) => {
         <!-- Step 2: Categories -->
         <div v-if="active === 2" class="form-step">
           <ElRow :gutter="20">
-            <!-- Incident Types Card -->
             <ElCol :span="24">
-              <ElCard class="category-card" shadow="hover">
-                <template #header>
-                  <div class="card-header">Incident Types</div>
-                </template>
-                <ElFormItem prop="incident_types">
-                  <ElCheckboxGroup v-model="editForm.incident_types">
-                    <ElRow :gutter="10">
-                      <ElCol v-for="i in incidentTypes" :key="i" :span="24">
-                        <ElCheckbox :label="i" class="checkbox-item">{{ i }}</ElCheckbox>
-                      </ElCol>
-                    </ElRow>
-                  </ElCheckboxGroup>
-                </ElFormItem>
-              </ElCard>
-            </ElCol>
+              <ElCollapse v-model="activeCollapseEditStep2" accordion class="category-collapse">
+                <!-- Incident Types -->
+                <ElCollapseItem name="incident_types" title="Incident Types">
+                  <ElFormItem prop="incident_types">
+                    <ElCheckboxGroup v-model="editForm.incident_types">
+                      <ElRow :gutter="10">
+                        <ElCol v-for="i in incidentTypes" :key="i" :span="24">
+                          <ElCheckbox :label="i" class="checkbox-item">{{ i }}</ElCheckbox>
+                        </ElCol>
+                      </ElRow>
+                    </ElCheckboxGroup>
+                  </ElFormItem>
+                </ElCollapseItem>
 
-            <!-- Mechanism Causing Incident Card -->
-            <ElCol :span="24">
-              <ElCard class="category-card" shadow="hover">
-                <template #header>
-                  <div class="card-header">Mechanism Causing Incident</div>
-                </template>
-                <ElFormItem prop="mechanisms">
-                  <ElCheckboxGroup v-model="editForm.mechanisms">
-                    <ElRow :gutter="10">
-                      <ElCol v-for="m in mechanisms" :key="m" :span="24">
-                        <ElCheckbox :label="m" class="checkbox-item">{{ m }}</ElCheckbox>
-                      </ElCol>
-                    </ElRow>
-                  </ElCheckboxGroup>
-                </ElFormItem>
-              </ElCard>
-            </ElCol>
+                <!-- Mechanism Causing Incident -->
+                <ElCollapseItem name="mechanisms" title="Mechanism Causing Incident">
+                  <ElFormItem prop="mechanisms">
+                    <ElCheckboxGroup v-model="editForm.mechanisms">
+                      <ElRow :gutter="10">
+                        <ElCol v-for="m in mechanisms" :key="m" :span="24">
+                          <ElCheckbox :label="m" class="checkbox-item">{{ m }}</ElCheckbox>
+                        </ElCol>
+                      </ElRow>
+                    </ElCheckboxGroup>
+                  </ElFormItem>
+                </ElCollapseItem>
 
-            <!-- Indirect Causes Card -->
-            <ElCol :span="24">
-              <ElCard class="category-card" shadow="hover">
-                <template #header>
-                  <div class="card-header">Indirect Causes</div>
-                </template>
-                <ElFormItem prop="indirect_causes">
-                  <ElCheckboxGroup v-model="editForm.indirect_causes">
-                    <ElRow :gutter="10">
-                      <ElCol v-for="p in indirectCauses" :key="p" :span="24">
-                        <ElCheckbox :label="p" class="checkbox-item">{{ p }}</ElCheckbox>
-                      </ElCol>
-                    </ElRow>
-                  </ElCheckboxGroup>
-                </ElFormItem>
-              </ElCard>
-            </ElCol>
+                <!-- Indirect Causes -->
+                <ElCollapseItem name="indirect_causes" title="Indirect Causes">
+                  <ElFormItem prop="indirect_causes">
+                    <ElCheckboxGroup v-model="editForm.indirect_causes">
+                      <ElRow :gutter="10">
+                        <ElCol v-for="p in indirectCauses" :key="p" :span="24">
+                          <ElCheckbox :label="p" class="checkbox-item">{{ p }}</ElCheckbox>
+                        </ElCol>
+                      </ElRow>
+                    </ElCheckboxGroup>
+                  </ElFormItem>
+                </ElCollapseItem>
 
-            <!-- Activity Leading to Incident Card -->
-            <ElCol :span="24">
-              <ElCard class="category-card" shadow="hover">
-                <template #header>
-                  <div class="card-header">Activity Leading to Incident</div>
-                </template>
-                <ElFormItem prop="activity_leading">
-                  <ElCheckboxGroup v-model="editForm.activity_leading">
-                    <ElRow :gutter="10">
-                      <ElCol v-for="a in activities" :key="a" :span="24">
-                        <ElCheckbox :label="a" class="checkbox-item">{{ a }}</ElCheckbox>
-                      </ElCol>
-                    </ElRow>
-                  </ElCheckboxGroup>
-                </ElFormItem>
-              </ElCard>
+                <!-- Activity Leading to Incident -->
+                <ElCollapseItem name="activity_leading" title="Activity Leading to Incident">
+                  <ElFormItem prop="activity_leading">
+                    <ElCheckboxGroup v-model="editForm.activity_leading">
+                      <ElRow :gutter="10">
+                        <ElCol v-for="a in activities" :key="a" :span="24">
+                          <ElCheckbox :label="a" class="checkbox-item">{{ a }}</ElCheckbox>
+                        </ElCol>
+                      </ElRow>
+                    </ElCheckboxGroup>
+                  </ElFormItem>
+                </ElCollapseItem>
+              </ElCollapse>
             </ElCol>
           </ElRow>
         </div>
@@ -1853,40 +1861,34 @@ watch(historyActiveTab, (v) => {
         <!-- Step 3: Causes -->
         <div v-if="active === 3" class="form-step">
           <ElRow :gutter="20">
-            <!-- Direct Causes Card -->
             <ElCol :span="24">
-              <ElCard class="category-card" shadow="hover">
-                <template #header>
-                  <div class="card-header">Direct Causes</div>
-                </template>
-                <ElFormItem prop="direct_causes">
-                  <ElCheckboxGroup v-model="editForm.direct_causes">
-                    <ElRow :gutter="10">
-                      <ElCol v-for="j in directCauses" :key="j" :span="24">
-                        <ElCheckbox :label="j" class="checkbox-item">{{ j }}</ElCheckbox>
-                      </ElCol>
-                    </ElRow>
-                  </ElCheckboxGroup>
-                </ElFormItem>
-              </ElCard>
-            </ElCol>
+              <ElCollapse v-model="activeCollapseEditStep3" accordion class="category-collapse">
+                <!-- Direct Causes -->
+                <ElCollapseItem name="direct_causes" title="Direct Causes">
+                  <ElFormItem prop="direct_causes">
+                    <ElCheckboxGroup v-model="editForm.direct_causes">
+                      <ElRow :gutter="10">
+                        <ElCol v-for="j in directCauses" :key="j" :span="24">
+                          <ElCheckbox :label="j" class="checkbox-item">{{ j }}</ElCheckbox>
+                        </ElCol>
+                      </ElRow>
+                    </ElCheckboxGroup>
+                  </ElFormItem>
+                </ElCollapseItem>
 
-            <!-- Root Cause Card -->
-            <ElCol :span="24">
-              <ElCard class="category-card" shadow="hover">
-                <template #header>
-                  <div class="card-header">Root Cause</div>
-                </template>
-                <ElFormItem prop="root_cause">
-                  <ElCheckboxGroup v-model="editForm.root_cause">
-                    <ElRow :gutter="10">
-                      <ElCol v-for="a in rootCauses" :key="a" :span="24">
-                        <ElCheckbox :label="a" class="checkbox-item">{{ a }}</ElCheckbox>
-                      </ElCol>
-                    </ElRow>
-                  </ElCheckboxGroup>
-                </ElFormItem>
-              </ElCard>
+                <!-- Root Cause -->
+                <ElCollapseItem name="root_cause" title="Root Cause">
+                  <ElFormItem prop="root_cause">
+                    <ElCheckboxGroup v-model="editForm.root_cause">
+                      <ElRow :gutter="10">
+                        <ElCol v-for="a in rootCauses" :key="a" :span="24">
+                          <ElCheckbox :label="a" class="checkbox-item">{{ a }}</ElCheckbox>
+                        </ElCol>
+                      </ElRow>
+                    </ElCheckboxGroup>
+                  </ElFormItem>
+                </ElCollapseItem>
+              </ElCollapse>
             </ElCol>
           </ElRow>
         </div>
@@ -2044,48 +2046,68 @@ watch(historyActiveTab, (v) => {
         <div v-if="reportActive === 0" class="form-step">
           <ElRow :gutter="16">
             <ElCol :span="24">
-              <ElFormItem label="Occurred Date" prop="occurred_date">
-                <ElDatePicker v-model="reportForm.occurred_date" type="date" />
-              </ElFormItem>
-              <ElFormItem label="Occurred Time" prop="occurred_time">
-                <ElTimePicker v-model="reportForm.occurred_time" />
+              <ElRow :gutter="16">
+                <ElCol :span="12">
+                  <ElFormItem label="Occurred Date" prop="occurred_date">
+                    <ElDatePicker v-model="reportForm.occurred_date" type="date" style="width: 100%" />
+                  </ElFormItem>
+                </ElCol>
+                <ElCol :span="12">
+                  <ElFormItem label="Occurred Time" prop="occurred_time">
+                    <ElTimePicker v-model="reportForm.occurred_time" style="width: 100%" />
+                  </ElFormItem>
+                </ElCol>
+              </ElRow>
+              <ElRow :gutter="16">
+                <ElCol :span="12">
+                  <ElFormItem label="County" prop="county_id">
+                    <ElSelect
+                      v-model="reportForm.county_id"
+                      placeholder="Select county"
+                      filterable
+                      style="width: 100%"
+                      @change="handleReportCountyChange"
+                    >
+                      <ElOption
+                        v-for="item in countiesOptions"
+                        :key="item.value"
+                        :label="item.label"
+                        :value="item.value"
+                      />
+                    </ElSelect>
+                  </ElFormItem>
+                </ElCol>
+                <ElCol :span="12">
+                  <ElFormItem label="Settlement" prop="settlement_id">
+                    <ElSelect
+                      v-model="reportForm.settlement_id"
+                      placeholder="Select settlement"
+                      filterable
+                      style="width: 100%"
+                      :disabled="!reportForm.county_id"
+                      :loading="reportSettlementsLoading"
+                      @change="handleReportSettlementSelect"
+                    >
+                      <ElOption
+                        v-for="item in reportSettlementOptions"
+                        :key="item.value"
+                        :label="item.label"
+                        :value="item.value"
+                      />
+                    </ElSelect>
+                  </ElFormItem>
+                </ElCol>
+              </ElRow>
+              <ElFormItem>
+                <div class="form-helper-text">
+                  <i class="el-icon-info"></i> All KISIP interventions for infrastructure are related to a specific settlement. Please select the settlement associated with this incident.
+                </div>
               </ElFormItem>
               <ElFormItem label="Location" prop="location_text">
-                <ElInput v-model="reportForm.location_text" />
-              </ElFormItem>
-              <ElFormItem label="County" prop="county_id">
-                <ElSelect
-                  v-model="reportForm.county_id"
-                  placeholder="Select county"
-                  filterable
-                  style="width: 100%"
-                  @change="handleReportCountyChange"
-                >
-                  <ElOption
-                    v-for="item in countiesOptions"
-                    :key="item.value"
-                    :label="item.label"
-                    :value="item.value"
-                  />
-                </ElSelect>
-              </ElFormItem>
-              <ElFormItem label="Settlement" prop="settlement_id">
-                <ElSelect
-                  v-model="reportForm.settlement_id"
-                  placeholder="Select settlement"
-                  filterable
-                  style="width: 100%"
-                  :disabled="!reportForm.county_id"
-                  :loading="reportSettlementsLoading"
-                  @change="handleReportSettlementSelect"
-                >
-                  <ElOption
-                    v-for="item in reportSettlementOptions"
-                    :key="item.value"
-                    :label="item.label"
-                    :value="item.value"
-                  />
-                </ElSelect>
+                <ElInput v-model="reportForm.location_text" placeholder="Enter detailed location description" />
+                <div class="form-helper-text">
+                  <i class="el-icon-info"></i> If the incident occurs outside the settlement, please provide a detailed description here but still tag it to the settlement associated with it.
+                </div>
               </ElFormItem>
               <ElFormItem label="Reported By" prop="reported_by">
                 <ElInput v-model="reportForm.reported_by" />
@@ -2131,76 +2153,60 @@ watch(historyActiveTab, (v) => {
         <!-- Step 2: Categories -->
         <div v-if="reportActive === 2" class="form-step">
           <ElRow :gutter="20">
-            <!-- Incident Types Card -->
             <ElCol :span="24">
-              <ElCard class="category-card" shadow="hover">
-                <template #header>
-                  <div class="card-header">Incident Types</div>
-                </template>
-                <ElFormItem prop="incident_types">
-                  <ElCheckboxGroup v-model="reportForm.incident_types">
-                    <ElRow :gutter="10">
-                      <ElCol v-for="i in incidentTypes" :key="i" :span="24">
-                        <ElCheckbox :label="i" class="checkbox-item">{{ i }}</ElCheckbox>
-                      </ElCol>
-                    </ElRow>
-                  </ElCheckboxGroup>
-                </ElFormItem>
-              </ElCard>
-            </ElCol>
+              <ElCollapse v-model="activeCollapseReportStep2" accordion class="category-collapse">
+                <!-- Incident Types -->
+                <ElCollapseItem name="incident_types" title="Incident Types">
+                  <ElFormItem prop="incident_types">
+                    <ElCheckboxGroup v-model="reportForm.incident_types">
+                      <ElRow :gutter="10">
+                        <ElCol v-for="i in incidentTypes" :key="i" :span="24">
+                          <ElCheckbox :label="i" class="checkbox-item">{{ i }}</ElCheckbox>
+                        </ElCol>
+                      </ElRow>
+                    </ElCheckboxGroup>
+                  </ElFormItem>
+                </ElCollapseItem>
 
-            <!-- Mechanism Causing Incident Card -->
-            <ElCol :span="24">
-              <ElCard class="category-card" shadow="hover">
-                <template #header>
-                  <div class="card-header">Mechanism Causing Incident</div>
-                </template>
-                <ElFormItem prop="mechanisms">
-                  <ElCheckboxGroup v-model="reportForm.mechanisms">
-                    <ElRow :gutter="10">
-                      <ElCol v-for="m in mechanisms" :key="m" :span="24">
-                        <ElCheckbox :label="m" class="checkbox-item">{{ m }}</ElCheckbox>
-                      </ElCol>
-                    </ElRow>
-                  </ElCheckboxGroup>
-                </ElFormItem>
-              </ElCard>
-            </ElCol>
+                <!-- Mechanism Causing Incident -->
+                <ElCollapseItem name="mechanisms" title="Mechanism Causing Incident">
+                  <ElFormItem prop="mechanisms">
+                    <ElCheckboxGroup v-model="reportForm.mechanisms">
+                      <ElRow :gutter="10">
+                        <ElCol v-for="m in mechanisms" :key="m" :span="24">
+                          <ElCheckbox :label="m" class="checkbox-item">{{ m }}</ElCheckbox>
+                        </ElCol>
+                      </ElRow>
+                    </ElCheckboxGroup>
+                  </ElFormItem>
+                </ElCollapseItem>
 
-            <!-- Indirect Causes Card -->
-            <ElCol :span="24">
-              <ElCard class="category-card" shadow="hover">
-                <template #header>
-                  <div class="card-header">Indirect Causes</div>
-                </template>
-                <ElFormItem prop="indirect_causes">
-                  <ElCheckboxGroup v-model="reportForm.indirect_causes">
-                    <ElRow :gutter="10">
-                      <ElCol v-for="p in indirectCauses" :key="p" :span="24">
-                        <ElCheckbox :label="p" class="checkbox-item">{{ p }}</ElCheckbox>
-                      </ElCol>
-                    </ElRow>
-                  </ElCheckboxGroup>
-                </ElFormItem>
-              </ElCard>
-            </ElCol>
+                <!-- Indirect Causes -->
+                <ElCollapseItem name="indirect_causes" title="Indirect Causes">
+                  <ElFormItem prop="indirect_causes">
+                    <ElCheckboxGroup v-model="reportForm.indirect_causes">
+                      <ElRow :gutter="10">
+                        <ElCol v-for="p in indirectCauses" :key="p" :span="24">
+                          <ElCheckbox :label="p" class="checkbox-item">{{ p }}</ElCheckbox>
+                        </ElCol>
+                      </ElRow>
+                    </ElCheckboxGroup>
+                  </ElFormItem>
+                </ElCollapseItem>
 
-            <!-- Activity Leading to Incident Card -->
-            <ElCol :span="24">
-              <ElCard class="category-card" shadow="hover">
-                <template #header>
-                  <div class="card-header">Activity Leading to Incident</div>
-                </template>
-                <ElFormItem prop="activity_leading">
-                  <ElCheckboxGroup v-model="reportForm.activity_leading">
-                    <ElRow :gutter="10">
-                      <ElCol v-for="a in activities" :key="a" :span="24">
-                        <ElCheckbox :label="a" class="checkbox-item">{{ a }}</ElCheckbox>
-                      </ElCol>
-                    </ElRow>
-                  </ElCheckboxGroup>
-                </ElFormItem>
-              </ElCard>
+                <!-- Activity Leading to Incident -->
+                <ElCollapseItem name="activity_leading" title="Activity Leading to Incident">
+                  <ElFormItem prop="activity_leading">
+                    <ElCheckboxGroup v-model="reportForm.activity_leading">
+                      <ElRow :gutter="10">
+                        <ElCol v-for="a in activities" :key="a" :span="24">
+                          <ElCheckbox :label="a" class="checkbox-item">{{ a }}</ElCheckbox>
+                        </ElCol>
+                      </ElRow>
+                    </ElCheckboxGroup>
+                  </ElFormItem>
+                </ElCollapseItem>
+              </ElCollapse>
             </ElCol>
           </ElRow>
         </div>
@@ -2208,40 +2214,34 @@ watch(historyActiveTab, (v) => {
         <!-- Step 3: Causes -->
         <div v-if="reportActive === 3" class="form-step">
           <ElRow :gutter="20">
-            <!-- Direct Causes Card -->
             <ElCol :span="24">
-              <ElCard class="category-card" shadow="hover">
-                <template #header>
-                  <div class="card-header">Direct Causes</div>
-                </template>
-                <ElFormItem prop="direct_causes">
-                  <ElCheckboxGroup v-model="reportForm.direct_causes">
-                    <ElRow :gutter="10">
-                      <ElCol v-for="j in directCauses" :key="j" :span="24">
-                        <ElCheckbox :label="j" class="checkbox-item">{{ j }}</ElCheckbox>
-                      </ElCol>
-                    </ElRow>
-                  </ElCheckboxGroup>
-                </ElFormItem>
-              </ElCard>
-            </ElCol>
+              <ElCollapse v-model="activeCollapseReportStep3" accordion class="category-collapse">
+                <!-- Direct Causes -->
+                <ElCollapseItem name="direct_causes" title="Direct Causes">
+                  <ElFormItem prop="direct_causes">
+                    <ElCheckboxGroup v-model="reportForm.direct_causes">
+                      <ElRow :gutter="10">
+                        <ElCol v-for="j in directCauses" :key="j" :span="24">
+                          <ElCheckbox :label="j" class="checkbox-item">{{ j }}</ElCheckbox>
+                        </ElCol>
+                      </ElRow>
+                    </ElCheckboxGroup>
+                  </ElFormItem>
+                </ElCollapseItem>
 
-            <!-- Root Cause Card -->
-            <ElCol :span="24">
-              <ElCard class="category-card" shadow="hover">
-                <template #header>
-                  <div class="card-header">Root Cause</div>
-                </template>
-                <ElFormItem prop="root_cause">
-                  <ElCheckboxGroup v-model="reportForm.root_cause">
-                    <ElRow :gutter="10">
-                      <ElCol v-for="a in rootCauses" :key="a" :span="24">
-                        <ElCheckbox :label="a" class="checkbox-item">{{ a }}</ElCheckbox>
-                      </ElCol>
-                    </ElRow>
-                  </ElCheckboxGroup>
-                </ElFormItem>
-              </ElCard>
+                <!-- Root Cause -->
+                <ElCollapseItem name="root_cause" title="Root Cause">
+                  <ElFormItem prop="root_cause">
+                    <ElCheckboxGroup v-model="reportForm.root_cause">
+                      <ElRow :gutter="10">
+                        <ElCol v-for="a in rootCauses" :key="a" :span="24">
+                          <ElCheckbox :label="a" class="checkbox-item">{{ a }}</ElCheckbox>
+                        </ElCol>
+                      </ElRow>
+                    </ElCheckboxGroup>
+                  </ElFormItem>
+                </ElCollapseItem>
+              </ElCollapse>
             </ElCol>
           </ElRow>
         </div>
@@ -2707,27 +2707,27 @@ watch(historyActiveTab, (v) => {
 <style scoped>
 /* Drawer Styles */
 .el-drawer__body {
-  padding: 10px 20px 20px 20px;
+  padding: 0.5rem 1rem 1rem 1rem;
 }
 
 .drawer-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 20px;
+  padding: 0.75rem 1rem;
   border-bottom: 1px solid #e4e7ed;
   background-color: #f5f7fa;
 }
 
 /* Drawer title styling */
 .el-drawer__header {
-  padding: 20px 24px;
+  padding: 1rem 1.25rem;
   border-bottom: 2px solid #e4e7ed;
   background-color: #f8f9fa;
 }
 
 .el-drawer__title {
-  font-size: 24px !important;
+  font-size: 1.25rem !important;
   font-weight: 700 !important;
   color: #2c3e50 !important;
   margin: 0 !important;
@@ -2735,16 +2735,23 @@ watch(historyActiveTab, (v) => {
 }
 
 .drawer-content {
-  padding: 10px 0;
+  padding: 0.375rem 0;
 }
 
 /* Form spacing in drawer */
 .el-form {
-  padding: 0 20px;
+  padding: 0 1rem;
 }
 
-.el-form-item {
-  margin-bottom: 16px;
+:deep(.el-form-item) {
+  margin-bottom: 0.75rem;
+}
+
+:deep(.el-form-item__label) {
+  font-size: 0.8125rem;
+  margin-bottom: 0.25rem;
+  line-height: 1.3;
+  padding-bottom: 0.125rem;
 }
 
 /* Timeline styling in history drawer */
@@ -2765,7 +2772,7 @@ watch(historyActiveTab, (v) => {
 
 /* Step-based form styles */
 .form-step {
-  padding: 10px 0;
+  padding: 0.375rem 0;
 }
 
 /* Step Header Styles */
@@ -2773,17 +2780,17 @@ watch(historyActiveTab, (v) => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 20px;
-  margin-bottom: 16px;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.75rem;
   background-color: #f8f9fa;
-  border-radius: 8px;
+  border-radius: 6px;
   border: 1px solid #e9ecef;
 }
 
 .step-title {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 0.625rem;
   flex: 1;
   justify-content: center;
 }
@@ -2792,17 +2799,17 @@ watch(historyActiveTab, (v) => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   background-color: #409eff;
   color: white;
   border-radius: 50%;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 0.75rem;
 }
 
 .step-text {
-  font-size: 20px;
+  font-size: 1rem;
   font-weight: 700;
   color: #2c3e50;
 }
@@ -2836,38 +2843,96 @@ watch(historyActiveTab, (v) => {
 }
 
 .edit-form {
-  max-height: 60vh;
+  max-height: calc(100vh - 280px);
   overflow-y: auto;
-  padding-right: 8px;
+  padding-right: 6px;
 }
 
-/* Category Cards Styling */
+/* Category Collapse Styling */
+.category-collapse {
+  margin-bottom: 0.75rem;
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fff;
+}
+
+:deep(.el-collapse-item) {
+  border-bottom: 1px solid #e4e7ed;
+}
+
+:deep(.el-collapse-item:last-child) {
+  border-bottom: none;
+}
+
+:deep(.el-collapse-item__header) {
+  font-weight: 700;
+  font-size: 0.9375rem;
+  color: #2c3e50;
+  letter-spacing: -0.01em;
+  padding: 0.625rem 0.75rem;
+  background: #fff;
+  transition: all 0.3s ease;
+}
+
+:deep(.el-collapse-item__header:hover) {
+  background: #f5f7fa;
+  color: #409eff;
+}
+
+:deep(.el-collapse-item__header.is-active) {
+  color: #409eff;
+  background: #f5f7fa;
+}
+
+:deep(.el-collapse-item__wrap) {
+  background: #fff;
+  border-bottom: none;
+}
+
+:deep(.el-collapse-item__content) {
+  padding: 0.75rem;
+  color: #303133;
+}
+
+:deep(.el-collapse-item__arrow) {
+  color: #303133;
+  font-weight: 600;
+}
+
+:deep(.el-collapse-item__header.is-active .el-collapse-item__arrow) {
+  color: #409eff;
+}
+
+/* Category Cards Styling (kept for backward compatibility if needed) */
 .category-card {
-  margin-bottom: 20px;
+  margin-bottom: 1rem;
   height: fit-content;
 }
 
 .card-header {
   font-weight: 700;
-  font-size: 18px;
+  font-size: 1rem;
   color: #2c3e50;
 }
 
 .checkbox-item {
   display: flex;
-  align-items: center;
-  margin-bottom: 8px;
+  align-items: flex-start;
+  margin-bottom: 0.375rem;
   margin-right: 0;
 }
 
 .checkbox-item .el-checkbox__label {
-  font-size: 14px;
+  font-size: 0.8125rem;
   line-height: 1.4;
-  padding-left: 8px;
+  padding-left: 0.5rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: normal;
   word-break: break-word;
+  color: #303133;
+  font-weight: 500;
 }
 
 .checkbox-item .el-checkbox {
@@ -2876,7 +2941,7 @@ watch(historyActiveTab, (v) => {
 }
 
 .checkbox-item .el-checkbox__input {
-  margin-top: 2px;
+  margin-top: 0.125rem;
 }
 
 /* Steps navigation */
@@ -2884,10 +2949,10 @@ watch(historyActiveTab, (v) => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 16px;
+  gap: 0.5rem;
   flex-wrap: wrap;
-  padding: 16px;
-  border-top: 1px solid #e4e7ed;
+  padding: 0.75rem;
+  border-top: none;
 }
 
 .nav-left, .nav-center, .nav-right {
@@ -2906,8 +2971,9 @@ watch(historyActiveTab, (v) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 8px 16px;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  font-size: 0.875rem;
 }
 
 .save-button {
@@ -3004,23 +3070,68 @@ watch(historyActiveTab, (v) => {
   
   /* Mobile step header */
   .step-header {
-    padding: 8px 16px;
-    margin-bottom: 12px;
+    padding: 0.5rem 0.625rem;
+    margin-bottom: 0.5rem;
   }
   
   .step-text {
-    font-size: 16px;
+    font-size: 0.875rem;
   }
   
   .step-number {
-    width: 24px;
-    height: 24px;
-    font-size: 12px;
+    width: 20px;
+    height: 20px;
+    font-size: 0.6875rem;
   }
   
   .step-nav-btn {
-    width: 32px;
-    height: 32px;
+    width: 24px;
+    height: 24px;
+  }
+
+  .category-collapse {
+    margin-bottom: 0.5rem;
+  }
+
+  :deep(.el-collapse-item__header) {
+    padding: 0.5rem 0.625rem;
+    font-size: 0.875rem;
+  }
+
+  :deep(.el-collapse-item__content) {
+    padding: 0.625rem;
+  }
+
+  .drawer-content {
+    padding: 0.25rem 0;
+  }
+
+  .el-form {
+    padding: 0 0.75rem;
+  }
+
+  :deep(.el-form-item) {
+    margin-bottom: 0.625rem;
+  }
+
+  .form-step {
+    padding: 0.25rem 0;
+  }
+
+  .edit-form {
+    max-height: calc(100vh - 240px);
+  }
+
+  .el-drawer__body {
+    padding: 0.375rem 0.75rem 0.75rem 0.75rem;
+  }
+
+  .el-drawer__header {
+    padding: 0.75rem 1rem;
+  }
+
+  .el-drawer__title {
+    font-size: 1.125rem !important;
   }
 }
 
@@ -3443,6 +3554,70 @@ watch(historyActiveTab, (v) => {
   /* Ensure proper spacing on mobile */
   .el-table .el-table__cell {
     padding: 8px 4px;
+  }
+}
+
+/* Form Helper Text */
+.form-helper-text {
+  font-size: 0.75rem;
+  color: #606266;
+  margin-top: 0.25rem;
+  line-height: 1.4;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.375rem;
+  padding: 0.375rem 0.625rem;
+  background-color: #f0f9ff;
+  border-left: 3px solid #409eff;
+  border-radius: 4px;
+}
+
+.form-helper-text i {
+  color: #409eff;
+  font-size: 0.875rem;
+  margin-top: 0.125rem;
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .form-helper-text {
+    font-size: 0.75rem;
+    padding: 0.375rem 0.625rem;
+  }
+}
+
+/* Form Info Banner */
+.form-info-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  margin-bottom: 0.75rem;
+  background-color: #e6f7ff;
+  border: 1px solid #91d5ff;
+  border-left: 4px solid #409eff;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: #0050b3;
+}
+
+.form-info-banner i {
+  color: #409eff;
+  font-size: 1rem;
+  margin-top: 0.125rem;
+  flex-shrink: 0;
+}
+
+.form-info-banner strong {
+  font-weight: 600;
+  color: #003a8c;
+}
+
+@media (max-width: 768px) {
+  .form-info-banner {
+    font-size: 0.8125rem;
+    padding: 0.75rem 0.875rem;
   }
 }
 </style>

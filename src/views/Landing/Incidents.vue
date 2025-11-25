@@ -7,6 +7,10 @@
           <el-tab-pane label="File an Incident" name="file">
             <section aria-label="Incident Reporting Process">
               <h1 class="visually-hidden">Report an Incident in Slums and Informal Settlements</h1>
+              <div class="form-info-banner">
+                <i class="el-icon-info"></i>
+                <span>All KISIP interventions for infrastructure are related to a specific settlement. If you have any questions about this form, please contact <strong>Mr. Bundi</strong> or <strong>Ms. Rebecca</strong>.</span>
+              </div>
               <el-steps v-if="!isMobile" :active="active" finish-status="success" :direction="isMobile ? 'vertical' : 'horizontal'" :simple="isMobile" aria-label="Incident reporting steps">
                 <el-step title="Incident Details" />
                 <el-step title="Incident Details(2)" />
@@ -46,9 +50,15 @@
                       <el-select filterable v-model="incidentForm.settlement_id" placeholder="Select Settlement" @change="handleSelectSettlement" style="width:100%">
                         <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
                       </el-select>
+                      <div class="form-helper-text">
+                        <i class="el-icon-info"></i> All KISIP interventions for infrastructure are related to a specific settlement. Please select the settlement associated with this incident.
+                      </div>
                     </el-form-item>
                     <el-form-item label="Location" prop="location_text">
-                      <el-input v-model="incidentForm.location_text" />
+                      <el-input v-model="incidentForm.location_text" placeholder="Enter detailed location description" />
+                      <div class="form-helper-text">
+                        <i class="el-icon-info"></i> If the incident occurs outside the settlement, please provide a detailed description here but still tag it to the settlement associated with it.
+                      </div>
                     </el-form-item>
                   </el-col>
                   <el-col :xs="24" :sm="24" :md="12" :span="12">
@@ -108,132 +118,93 @@
 
                 <!-- Step 3: Categories -->
                 <el-row v-if="active === 2" :gutter="20">
-                  <!-- Incident Types Card -->
                   <el-col :span="24">
-                    <el-card class="category-card" shadow="hover">
-                      <template #header>
-                        <div class="card-header">
-                          <span>Incident Types</span>
-                        </div>
-                      </template>
-                      <el-form-item prop="incident_types">
-                        <el-checkbox-group v-model="incidentForm.incident_types">
-                          <el-row :gutter="10">
-                            <el-col v-for="i in incidentTypes" :key="i" :xs="24" :sm="12" :md="12" :span="12">
-                              <el-checkbox :label="i" class="checkbox-item">{{ i }}</el-checkbox>
-                            </el-col>
-                          </el-row>
-                        </el-checkbox-group>
-                      </el-form-item>
-                    </el-card>
-                  </el-col>
+                    <el-collapse v-model="activeCollapseStep3" accordion class="category-collapse">
+                      <!-- Incident Types -->
+                      <el-collapse-item name="incident_types" title="Incident Types">
+                        <el-form-item prop="incident_types">
+                          <el-checkbox-group v-model="incidentForm.incident_types">
+                            <el-row :gutter="10">
+                              <el-col v-for="i in incidentTypes" :key="i" :xs="24" :sm="12" :md="12" :span="12">
+                                <el-checkbox :label="i" class="checkbox-item">{{ i }}</el-checkbox>
+                              </el-col>
+                            </el-row>
+                          </el-checkbox-group>
+                        </el-form-item>
+                      </el-collapse-item>
 
-                  <!-- Mechanism Causing Incident Card -->
-                  <el-col :span="24">
-                    <el-card class="category-card" shadow="hover">
-                      <template #header>
-                        <div class="card-header">
-                          <span>Mechanism Causing Incident</span>
-                        </div>
-                      </template>
-                      <el-form-item prop="mechanisms">
-                        <el-checkbox-group v-model="incidentForm.mechanisms">
-                          <el-row :gutter="10">
-                            <el-col v-for="m in mechanisms" :key="m" :xs="24" :sm="12" :md="12" :span="12">
-                              <el-checkbox :label="m" class="checkbox-item">{{ m }}</el-checkbox>
-                            </el-col>
-                          </el-row>
-                        </el-checkbox-group>
-                      </el-form-item>
-                    </el-card>
-                  </el-col>
+                      <!-- Mechanism Causing Incident -->
+                      <el-collapse-item name="mechanisms" title="Mechanism Causing Incident">
+                        <el-form-item prop="mechanisms">
+                          <el-checkbox-group v-model="incidentForm.mechanisms">
+                            <el-row :gutter="10">
+                              <el-col v-for="m in mechanisms" :key="m" :xs="24" :sm="12" :md="12" :span="12">
+                                <el-checkbox :label="m" class="checkbox-item">{{ m }}</el-checkbox>
+                              </el-col>
+                            </el-row>
+                          </el-checkbox-group>
+                        </el-form-item>
+                      </el-collapse-item>
 
-                  <!-- Indirect Causesy Card -->
-                  <el-col :span="24">
-                    <el-card class="category-card" shadow="hover">
-                      <template #header>
-                        <div class="card-header">
-                          <span>Indirect Causes</span>
-                        </div>
-                      </template>
-                      <el-form-item prop="indirect_causes">
-                        <el-checkbox-group v-model="incidentForm.indirect_causes">
-                          <el-row :gutter="10">
-                            <el-col v-for="p in indirectCauses" :key="p" :xs="24" :sm="12" :md="12" :span="12">
-                              <el-checkbox :label="p" class="checkbox-item">{{ p }}</el-checkbox>
-                            </el-col>
-                          </el-row>
-                        </el-checkbox-group>
-                      </el-form-item>
-                    </el-card>
-                  </el-col>
+                      <!-- Indirect Causes -->
+                      <el-collapse-item name="indirect_causes" title="Indirect Causes">
+                        <el-form-item prop="indirect_causes">
+                          <el-checkbox-group v-model="incidentForm.indirect_causes">
+                            <el-row :gutter="10">
+                              <el-col v-for="p in indirectCauses" :key="p" :xs="24" :sm="12" :md="12" :span="12">
+                                <el-checkbox :label="p" class="checkbox-item">{{ p }}</el-checkbox>
+                              </el-col>
+                            </el-row>
+                          </el-checkbox-group>
+                        </el-form-item>
+                      </el-collapse-item>
 
-                  <!-- Activity Leading to Incident Card -->
-                  <el-col :span="24">
-                    <el-card class="category-card" shadow="hover">
-                      <template #header>
-                        <div class="card-header">
-                          <span>Activity Leading to Incident</span>
-                        </div>
-                      </template>
-                      <el-form-item prop="activity_leading">
-                        <el-checkbox-group v-model="incidentForm.activity_leading">
-                          <el-row :gutter="10">
-                            <el-col v-for="a in activities" :key="a" :xs="24" :sm="12" :md="12" :span="12">
-                              <el-checkbox :label="a" class="checkbox-item">{{ a }}</el-checkbox>
-                            </el-col>
-                          </el-row>
-                        </el-checkbox-group>
-                      </el-form-item>
-                    </el-card>
+                      <!-- Activity Leading to Incident -->
+                      <el-collapse-item name="activity_leading" title="Activity Leading to Incident">
+                        <el-form-item prop="activity_leading">
+                          <el-checkbox-group v-model="incidentForm.activity_leading">
+                            <el-row :gutter="10">
+                              <el-col v-for="a in activities" :key="a" :xs="24" :sm="12" :md="12" :span="12">
+                                <el-checkbox :label="a" class="checkbox-item">{{ a }}</el-checkbox>
+                              </el-col>
+                            </el-row>
+                          </el-checkbox-group>
+                        </el-form-item>
+                      </el-collapse-item>
+                    </el-collapse>
                   </el-col>
                 </el-row>
 
-                      <!-- Step 3: Categories 2 -->
-            
                  <!-- Step 4: Categories 2 -->
                  <el-row v-if="active === 3" :gutter="20">
-                   
- 
-
-                  <!-- Indirect Causes (Job) Card -->
                   <el-col :span="24">
-                    <el-card class="category-card" shadow="hover">
-                      <template #header>
-                        <div class="card-header">
-                          <span>Direct Causes </span>
-                        </div>
-                      </template>
-                      <el-form-item prop="direct_causes">
-                        <el-checkbox-group v-model="incidentForm.direct_causes">
-                          <el-row :gutter="10">
-                            <el-col v-for="j in directCauses" :key="j" :xs="24" :sm="12" :md="12" :span="12">
-                              <el-checkbox :label="j" class="checkbox-item">{{ j }}</el-checkbox>
-                            </el-col>
-                          </el-row>
-                        </el-checkbox-group>
-                      </el-form-item>
-                    </el-card>
-                  </el-col>
+                    <el-collapse v-model="activeCollapseStep4" accordion class="category-collapse">
+                      <!-- Direct Causes -->
+                      <el-collapse-item name="direct_causes" title="Direct Causes">
+                        <el-form-item prop="direct_causes">
+                          <el-checkbox-group v-model="incidentForm.direct_causes">
+                            <el-row :gutter="10">
+                              <el-col v-for="j in directCauses" :key="j" :xs="24" :sm="12" :md="12" :span="12">
+                                <el-checkbox :label="j" class="checkbox-item">{{ j }}</el-checkbox>
+                              </el-col>
+                            </el-row>
+                          </el-checkbox-group>
+                        </el-form-item>
+                      </el-collapse-item>
 
-                  <!-- Activity Leading to Incident Card -->
-                  <el-col :span="24">
-                    <el-card class="category-card" shadow="hover">
-                      <template #header>
-                        <div class="card-header">
-                          <span>Root Cause</span>
-                        </div>
-                      </template>
-                      <el-form-item prop="root_cause">
-                        <el-checkbox-group v-model="incidentForm.root_cause">
-                          <el-row :gutter="10">
-                            <el-col v-for="a in rootCauses" :key="a" :xs="24" :sm="12" :md="12" :span="12">
-                              <el-checkbox :label="a" class="checkbox-item">{{ a }}</el-checkbox>
-                            </el-col>
-                          </el-row>
-                        </el-checkbox-group>
-                      </el-form-item>
-                    </el-card>
+                      <!-- Root Cause -->
+                      <el-collapse-item name="root_cause" title="Root Cause">
+                        <el-form-item prop="root_cause">
+                          <el-checkbox-group v-model="incidentForm.root_cause">
+                            <el-row :gutter="10">
+                              <el-col v-for="a in rootCauses" :key="a" :xs="24" :sm="12" :md="12" :span="12">
+                                <el-checkbox :label="a" class="checkbox-item">{{ a }}</el-checkbox>
+                              </el-col>
+                            </el-row>
+                          </el-checkbox-group>
+                        </el-form-item>
+                      </el-collapse-item>
+                    </el-collapse>
                   </el-col>
                 </el-row>
 
@@ -360,7 +331,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { ElMessage,ElStep,ElSteps,ElTabPane,ElTabs,ElCheckboxGroup,ElCheckbox,ElDatePicker,ElCol,ElRow,ElDialog,
-  ElTimePicker,ElInput,ElSelect,ElOption,ElTable,ElTableColumn,ElButton,ElCard,ElForm,ElFormItem, ElUpload } from 'element-plus'
+  ElTimePicker,ElInput,ElSelect,ElOption,ElTable,ElTableColumn,ElButton,ElCard,ElForm,ElFormItem, ElUpload, ElCollapse, ElCollapseItem } from 'element-plus'
 import BaseLayout from './BaseLayout.vue'
 import type { FormInstance } from 'element-plus'
  import { createIncident, uploadIncidentDocuments } from '@/api/incident'
@@ -598,6 +569,8 @@ const activeName = ref('file')
 const active = ref(0)
 const tabPosition = ref<'top' | 'left' | 'right' | 'bottom'>('top')
 const incidentFormRef = ref<FormInstance>()
+const activeCollapseStep3 = ref<string>('')
+const activeCollapseStep4 = ref<string>('')
 
 // Responsive helpers
 const isMobile = ref(false)
@@ -845,7 +818,7 @@ const removeAction = (index: number) => {
 }
 
 .incident-container {
-  padding: 4rem 2rem;
+  padding: 1.5rem 1rem;
   background: var(--bg-primary);
   color: var(--text-primary);
   transition: background 0.3s ease, color 0.3s ease;
@@ -855,29 +828,19 @@ const removeAction = (index: number) => {
 :deep(.el-card) {
   max-width: 1280px;
   margin: 0 auto;
-  border-radius: 16px;
+  border-radius: 8px;
   border: 1px solid var(--border-color);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   overflow: hidden;
 }
 
 :deep(.el-card__body) {
-  padding: 2.5rem;
+  padding: 1.5rem;
 }
 
 @media (max-width: 768px) {
   .incident-container {
-    padding: 2rem 1rem;
-  }
-  
-  :deep(.el-card__body) {
-    padding: 1.5rem;
-  }
-}
-
-@media (max-width: 480px) {
-  .incident-container {
-    padding: 1.5rem 1rem;
+    padding: 1rem 0.75rem;
   }
   
   :deep(.el-card__body) {
@@ -885,12 +848,22 @@ const removeAction = (index: number) => {
   }
 }
 
+@media (max-width: 480px) {
+  .incident-container {
+    padding: 0.75rem 0.5rem;
+  }
+  
+  :deep(.el-card__body) {
+    padding: 0.75rem;
+  }
+}
+
 /* Steps Component */
 :deep(.el-steps) {
-  margin-bottom: 2.5rem;
-  padding: 2rem 1.5rem;
+  margin-bottom: 1rem;
+  padding: 1rem 0.75rem;
   background: var(--bg-primary);
-  border-radius: 12px;
+  border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   border: 1px solid var(--border-color);
 }
@@ -932,25 +905,26 @@ const removeAction = (index: number) => {
 
 /* Form Items */
 :deep(.el-form-item) {
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
 }
 
 :deep(.el-form-item__label) {
   font-weight: 600;
   color: var(--text-primary);
-  font-size: 0.9375rem;
-  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+  margin-bottom: 0.375rem;
   letter-spacing: -0.01em;
-  line-height: 1.5;
+  line-height: 1.4;
 }
 
 /* Input Styling */
 :deep(.el-input__wrapper) {
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: 6px;
   transition: all 0.3s ease;
   box-shadow: none;
   background: var(--bg-primary);
+  padding: 0 0.625rem;
 }
 
 :deep(.el-input__wrapper:hover) {
@@ -964,8 +938,8 @@ const removeAction = (index: number) => {
 
 :deep(.el-input__inner) {
   color: var(--text-primary);
-  font-size: 0.9375rem;
-  line-height: 1.5;
+  font-size: 0.875rem;
+  line-height: 1.4;
 }
 
 :deep(.el-input.is-error .el-input__wrapper) {
@@ -984,12 +958,12 @@ const removeAction = (index: number) => {
   background: var(--bg-primary);
   color: var(--text-primary);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: 6px;
   transition: all 0.3s ease;
-  padding: 0.75rem;
-  font-size: 0.9375rem;
+  padding: 0.625rem;
+  font-size: 0.875rem;
   resize: none;
-  line-height: 1.6;
+  line-height: 1.5;
   font-family: inherit;
 }
 
@@ -1015,14 +989,14 @@ const removeAction = (index: number) => {
 :deep(.el-select-dropdown) {
   background: var(--bg-primary);
   border: 1px solid var(--border-color);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
 }
 
 :deep(.el-select-dropdown__item) {
   color: var(--text-primary);
-  font-size: 0.9375rem;
-  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  padding: 0.625rem 0.875rem;
   transition: all 0.2s ease;
 }
 
@@ -1042,7 +1016,7 @@ const removeAction = (index: number) => {
 :deep(.el-time-picker .el-input__wrapper) {
   background: var(--bg-primary);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: 6px;
 }
 
 :deep(.el-date-editor .el-input__wrapper:hover),
@@ -1059,15 +1033,15 @@ const removeAction = (index: number) => {
 :deep(.el-picker-panel) {
   background: var(--bg-primary);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 /* Checkbox Styling */
 :deep(.el-checkbox__label) {
   color: var(--text-primary);
-  font-size: 0.9375rem;
-  line-height: 1.6;
+  font-size: 0.875rem;
+  line-height: 1.5;
   font-weight: 500;
 }
 
@@ -1082,7 +1056,7 @@ const removeAction = (index: number) => {
 
 /* Tabs Styling */
 :deep(.el-tabs__header) {
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
   border-bottom: 1px solid var(--border-color);
 }
 
@@ -1110,10 +1084,10 @@ const removeAction = (index: number) => {
 
 /* Button Styling */
 :deep(.el-button) {
-  padding: 0.875rem 1.5rem;
+  padding: 0.625rem 1.25rem;
   font-weight: 600;
-  font-size: 0.9375rem;
-  border-radius: 8px;
+  font-size: 0.875rem;
+  border-radius: 6px;
   transition: all 0.3s ease;
   letter-spacing: -0.01em;
   border: none;
@@ -1245,15 +1219,15 @@ const removeAction = (index: number) => {
 }
 
 .steps-navigation { 
-  margin-top: 2.5rem; 
+  margin-top: 1rem; 
   display: flex; 
   justify-content: space-between; 
   align-items: center;
-  gap: 1rem;
+  gap: 0.75rem;
   flex-wrap: wrap;
-  padding: 1.5rem;
+  padding: 1rem;
   background: var(--bg-primary);
-  border-radius: 12px;
+  border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   border: 1px solid var(--border-color);
 }
@@ -1265,7 +1239,7 @@ const removeAction = (index: number) => {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  padding: 0.875rem 1.5rem;
+  padding: 0.75rem 1.25rem;
 }
 
 .nav-button i {
@@ -1274,7 +1248,7 @@ const removeAction = (index: number) => {
 
 /* Scrollable form content */
 .form-content-scrollable {
-  max-height: 60vh;
+  max-height: 70vh;
   overflow-y: auto;
   padding-right: 8px;
 }
@@ -1298,7 +1272,63 @@ const removeAction = (index: number) => {
   background: rgba(0, 220, 130, 0.5);
 }
 
-/* Category Cards Styling */
+/* Category Collapse Styling */
+.category-collapse {
+  margin-bottom: 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-primary);
+}
+
+:deep(.el-collapse-item) {
+  border-bottom: 1px solid var(--border-color);
+}
+
+:deep(.el-collapse-item:last-child) {
+  border-bottom: none;
+}
+
+:deep(.el-collapse-item__header) {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  padding: 0.875rem 1rem;
+  background: var(--bg-primary);
+  transition: all 0.3s ease;
+}
+
+:deep(.el-collapse-item__header:hover) {
+  background: var(--bg-secondary);
+  color: #00DC82;
+}
+
+:deep(.el-collapse-item__header.is-active) {
+  color: #00DC82;
+  background: var(--bg-secondary);
+}
+
+:deep(.el-collapse-item__wrap) {
+  background: var(--bg-primary);
+  border-bottom: none;
+}
+
+:deep(.el-collapse-item__content) {
+  padding: 1rem;
+  color: var(--text-primary);
+}
+
+:deep(.el-collapse-item__arrow) {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+:deep(.el-collapse-item__header.is-active .el-collapse-item__arrow) {
+  color: #00DC82;
+}
+
+/* Category Cards Styling (kept for backward compatibility if needed) */
 .category-card {
   margin-bottom: 2rem;
   height: fit-content;
@@ -1342,7 +1372,7 @@ const removeAction = (index: number) => {
 .checkbox-item {
   display: flex;
   align-items: flex-start;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.5rem;
   margin-right: 0;
 }
 
@@ -1357,8 +1387,8 @@ const removeAction = (index: number) => {
 }
 
 .checkbox-item .el-checkbox__label {
-  font-size: 0.9375rem;
-  line-height: 1.6;
+  font-size: 0.875rem;
+  line-height: 1.5;
   padding-left: 0.5rem;
   white-space: normal;
   word-break: break-word;
@@ -1396,6 +1426,29 @@ const removeAction = (index: number) => {
 
 .dark-mode :deep(.el-tabs__active-bar) {
   background-color: #00DC82;
+}
+
+.dark-mode .category-collapse {
+  background: var(--bg-primary);
+  border-color: var(--border-color);
+}
+
+.dark-mode :deep(.el-collapse-item__header) {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.dark-mode :deep(.el-collapse-item__header:hover) {
+  background: var(--bg-secondary);
+}
+
+.dark-mode :deep(.el-collapse-item__wrap) {
+  background: var(--bg-primary);
+}
+
+.dark-mode :deep(.el-collapse-item__content) {
+  background: var(--bg-primary);
+  color: var(--text-primary);
 }
 
 .dark-mode .category-card {
@@ -1470,8 +1523,9 @@ const removeAction = (index: number) => {
 @media (max-width: 768px) {
   .steps-navigation {
     flex-direction: column;
-    gap: 1rem;
-    padding: 1rem;
+    gap: 0.75rem;
+    padding: 0.875rem;
+    margin-top: 0.75rem;
   }
   
   .nav-button {
@@ -1479,12 +1533,13 @@ const removeAction = (index: number) => {
     width: 100%;
     margin: 0;
     min-width: 100%;
-    padding: 0.75rem 1rem;
+    padding: 0.625rem 0.875rem;
     font-size: 0.875rem;
   }
 
   :deep(.el-steps) {
-    padding: 1.5rem 1rem;
+    padding: 0.75rem 0.5rem;
+    margin-bottom: 0.75rem;
   }
 
   :deep(.el-step__title) {
@@ -1497,17 +1552,32 @@ const removeAction = (index: number) => {
   }
 
   .category-card {
-    margin-bottom: 1.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .category-collapse {
+    margin-bottom: 1rem;
+  }
+
+  :deep(.el-collapse-item__header) {
+    padding: 0.75rem 1rem;
+    font-size: 0.9375rem;
+  }
+
+  :deep(.el-collapse-item__content) {
+    padding: 0.875rem;
   }
 }
 
 @media (max-width: 480px) {
   .steps-navigation {
-    padding: 1rem 0.75rem;
+    padding: 0.75rem 0.625rem;
+    margin-top: 0.625rem;
   }
 
   :deep(.el-steps) {
-    padding: 1rem 0.75rem;
+    padding: 0.625rem 0.5rem;
+    margin-bottom: 0.625rem;
   }
 
   :deep(.el-step__title) {
@@ -1528,5 +1598,86 @@ const removeAction = (index: number) => {
 
 .actions-table {
   min-width: 700px;
+}
+
+/* Form Helper Text */
+.form-helper-text {
+  font-size: 0.8125rem;
+  color: #606266;
+  margin-top: 0.375rem;
+  line-height: 1.5;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  background-color: #f0f9ff;
+  border-left: 3px solid #409eff;
+  border-radius: 4px;
+}
+
+.form-helper-text i {
+  color: #409eff;
+  font-size: 0.875rem;
+  margin-top: 0.125rem;
+  flex-shrink: 0;
+}
+
+.dark-mode .form-helper-text {
+  background-color: rgba(64, 158, 255, 0.1);
+  color: var(--text-secondary);
+  border-left-color: #409eff;
+}
+
+.dark-mode .form-helper-text i {
+  color: #409eff;
+}
+
+/* Form Info Banner */
+.form-info-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  margin-bottom: 1rem;
+  background-color: #e6f7ff;
+  border: 1px solid #91d5ff;
+  border-left: 4px solid #409eff;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: #0050b3;
+}
+
+.form-info-banner i {
+  color: #409eff;
+  font-size: 1rem;
+  margin-top: 0.125rem;
+  flex-shrink: 0;
+}
+
+.form-info-banner strong {
+  font-weight: 600;
+  color: #003a8c;
+}
+
+.dark-mode .form-info-banner {
+  background-color: rgba(64, 158, 255, 0.1);
+  border-color: rgba(64, 158, 255, 0.3);
+  color: var(--text-primary);
+}
+
+.dark-mode .form-info-banner i {
+  color: #409eff;
+}
+
+.dark-mode .form-info-banner strong {
+  color: #66b1ff;
+}
+
+@media (max-width: 768px) {
+  .form-info-banner {
+    font-size: 0.8125rem;
+    padding: 0.75rem 0.875rem;
+  }
 }
 </style>
