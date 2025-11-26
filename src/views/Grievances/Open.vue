@@ -3113,11 +3113,6 @@ return formattedText;
 
 
 const selectedRows = ref([])
-const deleteActionOptions = [
-  { label: 'Delete selected permanently', value: 'selected' },
-  { label: 'Delete all (current filters)', value: 'all' }
-]
-const deleteActionValue = ref<string | null>(null)
 const permanentDeleting = ref(false)
 
 function handleSelectionChange(selection) {
@@ -3253,22 +3248,6 @@ const performBulkDelete = async () => {
   }
 }
 
-const handleDeletedActionChange = async (action: string | null) => {
-  if (!action || !isRootAdmin.value || activeSegment.value !== 'Deleted') {
-    return
-  }
-
-  try {
-    if (action === 'selected') {
-      await permanentlyDeleteSelected()
-    } else if (action === 'all') {
-      await permanentlyDeleteAll()
-    }
-  } finally {
-    deleteActionValue.value = null
-  }
-}
-
 const cascadeDeleteGrievances = async (ids: Array<string | number>) => {
   if (ids.length === 0) {
     ElMessage({
@@ -3326,6 +3305,14 @@ const cascadeDeleteGrievances = async (ids: Array<string | number>) => {
 }
 
 const permanentlyDeleteSelected = async () => {
+  if (!isRootAdmin.value || activeSegment.value !== 'Deleted') {
+    ElMessage({
+      message: 'Permanent delete is only available for root admins in the Deleted segment',
+      type: 'warning'
+    })
+    return
+  }
+
   if (selectedRows.value.length === 0) {
     ElMessage({
       message: 'Please select at least one grievance',
@@ -3369,9 +3356,9 @@ const fetchAllDeletedGrievanceIds = async (): Promise<Array<string | number>> =>
 }
 
 const permanentlyDeleteAll = async () => {
-  if (activeSegment.value !== 'Deleted') {
+  if (!isRootAdmin.value || activeSegment.value !== 'Deleted') {
     ElMessage({
-      message: 'Permanent delete is only available in the Deleted segment',
+      message: 'Permanent delete is only available for root admins in the Deleted segment',
       type: 'warning'
     })
     return
@@ -4671,23 +4658,27 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
             >
               Delete ({{ selectedRows.length }})
             </el-button>
-            <el-select
+            <el-button
               v-if="activeSegment === 'Deleted' && isRootAdmin"
-              v-model="deleteActionValue"
-              placeholder="Permanent delete"
+              type="danger"
+              :icon="Delete"
               size="small"
-              class="permanent-delete-select"
               :loading="permanentDeleting"
-              @change="handleDeletedActionChange"
+              :disabled="selectedRows.length === 0"
+              @click="permanentlyDeleteSelected"
             >
-              <el-option
-                v-for="option in deleteActionOptions"
-                :key="option.value"
-                :label="option.label"
-                :value="option.value"
-                :disabled="option.value === 'selected' && selectedRows.length === 0"
-              />
-            </el-select>
+              Delete Selected Permanently ({{ selectedRows.length }})
+            </el-button>
+            <el-button
+              v-if="activeSegment === 'Deleted' && isRootAdmin"
+              type="danger"
+              :icon="Delete"
+              size="small"
+              :loading="permanentDeleting"
+              @click="permanentlyDeleteAll"
+            >
+              Delete All ({{ total }})
+            </el-button>
         </div>
       </div>
 
@@ -6600,10 +6591,6 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
   display: flex;
   gap: 8px;
   align-items: center;
-}
-
-.permanent-delete-select {
-  min-width: 190px;
 }
 
 .mobile-quick-actions {

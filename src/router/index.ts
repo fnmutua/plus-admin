@@ -1748,7 +1748,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         name: 'ModuleSettings',
         component: () => import('@/views/settings/ModuleSettings.vue'),
         meta: {
-          title: 'Module Settings',
+          title: 'SMS Settings',
           icon: 'material-symbols:settings',
           role: ['root_admin', 'super_admin']
         }
