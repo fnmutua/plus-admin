@@ -23,6 +23,21 @@ const crypto = require('crypto');
 
 const op = Sequelize.Op 
 
+const GRIEVANCE_ATTRIBUTE_EXCLUDE = new Set([
+  'latitude',
+  'longitude',
+  'coordinates',
+  'geom',
+  'subcounty',
+  'ward',
+  'users'
+])
+
+const getSanitizedGrievanceAttributes = () =>
+  Object.keys(db.models.grievance.rawAttributes).filter(
+    (attr) => !GRIEVANCE_ATTRIBUTE_EXCLUDE.has(attr.toLowerCase())
+  )
+
 const userHasRole = async (userInstance, roleName) => {
   if (!userInstance || typeof userInstance.getRoles !== 'function') {
     return false
@@ -740,7 +755,8 @@ exports.getGrievances = async (req, res) => {
     distinct: true,
   };
 
-  const attributes = Object.keys(db.models.grievance.rawAttributes);
+  const baseAttributes = getSanitizedGrievanceAttributes();
+  const attributes = [...baseAttributes];
 
   // Role checks
   const hasSuperAdminRole = currentUserRoles.some(role => ['super_admin', 'root_admin','admin','staff'].includes(role.name));
@@ -2883,7 +2899,7 @@ exports._bulkUpdateReferredToOfficer = async (req, res) => {
 
 
     
-      const attributes = Object.keys(db.models.grievance.rawAttributes);
+  const attributes = getSanitizedGrievanceAttributes();
       attributes.push(
         [Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.name'), 'bytea'), '***REDACTED***'), 'name'],
         [Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.national_id'), 'bytea'), '***REDACTED***'), 'national_id']

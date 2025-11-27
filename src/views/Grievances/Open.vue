@@ -378,47 +378,59 @@ const downloadFilters = computed(() => {
   const downloadFiltersList = [...filters.value];
   const downloadFilterValues = filterValues.value.map(arr => [...arr]);
   const downloadFilterFunctions = [...filterFunction.value];
-  
-  // Check if status filter exists
-  const statusIndex = downloadFiltersList.indexOf('status');
-  
-  if (statusIndex !== -1) {
-    // Status filter exists - ensure "Deleted" is not in the values
-    if (Array.isArray(downloadFilterValues[statusIndex])) {
-      downloadFilterValues[statusIndex] = downloadFilterValues[statusIndex].filter(
-        (val: any) => val !== 'Deleted'
-      );
-      // If no values left after filtering, remove the filter
-      if (downloadFilterValues[statusIndex].length === 0) {
-        downloadFiltersList.splice(statusIndex, 1);
-        downloadFilterValues.splice(statusIndex, 1);
-        if (downloadFilterFunctions[statusIndex] !== undefined) {
-          downloadFilterFunctions.splice(statusIndex, 1);
+
+  const isPrivilegedUser =
+    isSuperAdmin.value || isRootAdmin.value || isNationalGRM.value
+
+  const removeFilterAtIndex = (index: number) => {
+    downloadFiltersList.splice(index, 1);
+    downloadFilterValues.splice(index, 1);
+    if (downloadFilterFunctions[index] !== undefined) {
+      downloadFilterFunctions.splice(index, 1);
+    }
+  };
+
+  const stripStatusFilters = () => {
+    let statusIdx = downloadFiltersList.indexOf('status')
+    while (statusIdx !== -1) {
+      removeFilterAtIndex(statusIdx)
+      statusIdx = downloadFiltersList.indexOf('status')
+    }
+  }
+
+  if (isPrivilegedUser) {
+    downloadFiltersList.length = 0
+    downloadFilterValues.length = 0
+    downloadFilterFunctions.length = 0
+  } else {
+    const statusIndex = downloadFiltersList.indexOf('status');
+    let statusFilterPresent = false;
+
+    if (statusIndex !== -1) {
+      const statusValues = downloadFilterValues[statusIndex];
+      if (Array.isArray(statusValues)) {
+        downloadFilterValues[statusIndex] = statusValues.filter(
+          (val: any) => val !== 'Deleted'
+        );
+
+        if (downloadFilterValues[statusIndex].length === 0) {
+          removeFilterAtIndex(statusIndex);
+        } else {
+          statusFilterPresent = true;
         }
       }
     }
-  }
-  
-  // Always add filter to exclude "Deleted" status from downloads
-  const newStatusIndex = downloadFiltersList.indexOf('status');
-  if (newStatusIndex === -1) {
-    // No status filter exists, add one to exclude "Deleted"
-    downloadFiltersList.push('status');
-    downloadFilterValues.push(['Deleted']);
-    downloadFilterFunctions.push('notIn');
-  } else {
-    // Status filter exists, ensure "Deleted" is excluded with notIn
-    // Add a separate notIn filter for "Deleted" if it's not already excluded
-    const hasDeletedExclusion = downloadFilterValues[newStatusIndex]?.includes('Deleted') && 
-                                 downloadFilterFunctions[newStatusIndex] === 'notIn';
-    if (!hasDeletedExclusion) {
-      // Add separate filter to exclude "Deleted"
+
+    // Remove any remaining segment filters (status) before enforcing deleted exclusion
+    stripStatusFilters()
+
+    if (!statusFilterPresent) {
       downloadFiltersList.push('status');
       downloadFilterValues.push(['Deleted']);
       downloadFilterFunctions.push('notIn');
     }
   }
-  
+
   return {
     filters: downloadFiltersList,
     filterValues: downloadFilterValues,
@@ -1266,44 +1278,46 @@ const buildGrievanceRequestFormData = (
 }
 
 const getFilteredData = async (selFilters: string[], selfilterValues: any[][]) => {
+  loading.value = true
   const formData = buildGrievanceRequestFormData(selFilters, selfilterValues, {
     includeHistory: activeSegment.value === 'Deleted' || activeSegment.value === 'Resolved'
   })
-  const res = await getGrievances(formData)
 
-  console.log('After Querry', res)
-  console.log('After Querry - selFilters', selFilters)
-  console.log('After Querry - selfilterValues', selfilterValues)
+  try {
+    const res = await getGrievances(formData)
 
-
+    console.log('After Querry', res)
+    console.log('After Querry - selFilters', selFilters)
+    console.log('After Querry - selfilterValues', selfilterValues)
 
     tableDataList.value = res.data
+    availableFields.value = extractFields(tableDataList.value);
+    total.value = res.total
 
-  availableFields.value = extractFields(tableDataList.value);
+    await fetchSupportingStaffData()
 
-  total.value = res.total
-
-  // Fetch supporting staff data if we have referred grievances
-  await fetchSupportingStaffData()
-
-  // Fetch deletion history data if viewing deleted grievances
-  if (activeSegment.value === 'Deleted') {
-    await fetchDeletionHistory()
-  }
-
-  // Update the count for the current active segment
-  Statuses.value.forEach(status => {
-    if (status.value === activeSegment.value) {
-      status.count = res.total; // Update this count dynamically
+    if (activeSegment.value === 'Deleted') {
+      await fetchDeletionHistory()
     }
-  });
 
-  // Refresh counts after getting filtered data
-  await getCounts()
+    Statuses.value.forEach(status => {
+      if (status.value === activeSegment.value) {
+        status.count = res.total;
+      }
+    });
 
-loading.value = false
+    await getCounts()
 
-  console.log('segment', activeSegment.value)
+    console.log('segment', activeSegment.value)
+  } catch (error) {
+    console.error('Error fetching grievances:', error)
+    ElMessage({
+      message: 'Unable to retrieve grievances. Please try again.',
+      type: 'error'
+    })
+  } finally {
+    loading.value = false
+  }
 }
 
 
@@ -2467,55 +2481,42 @@ const tableRowClassName = (data) => {
 
 const getFilteredBySearchData = async (searchKey) => {
   console.log('getFilteredBySearchData')
-
   console.log('filters', filters);
   console.log('filterValues', filterValues);
+
+  loading.value = true
 
   const formData = {}
   formData.limit = pageSize.value
   formData.page = page.value
-  formData.curUser = 1 // Id for logged in user
+  formData.curUser = 1
   formData.model = model
-
-  //-Search field--------------------------------------------
   formData.searchField = 'name'
   formData.searchString = searchKey
-  //--Single Filter -----------------------------------------
-
-  //formData.assocModel = associated_Model
-
-  // - multiple filters -------------------------------------
   formData.filters = filters.value
   formData.filterValues = filterValues.value
   formData.filterFunctions = filterFunction.value
 
-  // Include grievance_history when viewing deleted grievances
   const associatedModels = [...associated_multiple_models]
   if (activeSegment.value === 'Deleted') {
     associatedModels.push('grievance_history')
   }
   formData.associated_multiple_models = associatedModels
   formData.nested_models = []
-  //formData.cache_key = 'SeacrchByKey_' + search_string.value
 
-  // Ensure filterFunctions array matches the length of filters and all values are arrays
   formData.filterFunctions = [];
   for (let i = 0; i < formData.filterValues.length; i++) {
     const val = formData.filterValues[i];
     
-    // Always ensure filterValues[i] is an array
     if (!Array.isArray(val)) {
       formData.filterValues[i] = [val];
     } else if (val.length === 0) {
-      // Handle empty arrays - skip this filter
       continue;
     }
     
-    // Always use 'in' operator for array-based filtering
     formData.filterFunctions.push('in');
   }
   
-  // Remove any filters that have empty arrays
   const validIndices = [];
   for (let i = 0; i < formData.filterValues.length; i++) {
     if (Array.isArray(formData.filterValues[i]) && formData.filterValues[i].length > 0) {
@@ -2523,20 +2524,16 @@ const getFilteredBySearchData = async (searchKey) => {
     }
   }
   
-  // Rebuild arrays with only valid filters
   formData.filters = validIndices.map(i => formData.filters[i]);
   formData.filterValues = validIndices.map(i => formData.filterValues[i]);
   formData.filterFunctions = validIndices.map(i => formData.filterFunctions[i]);
 
-  // Always exclude deleted grievances from search if user doesn't have permission
   if (!canViewDeletedGrievances.value) {
     const statusIndex = formData.filters.indexOf('status');
     if (statusIndex !== -1) {
-      // If status filter exists, ensure 'Deleted' is not included
       const statusValues = formData.filterValues[statusIndex];
       if (Array.isArray(statusValues)) {
         formData.filterValues[statusIndex] = statusValues.filter(s => s !== 'Deleted');
-        // Remove status filter if no values left
         if (formData.filterValues[statusIndex].length === 0) {
           formData.filters.splice(statusIndex, 1);
           formData.filterValues.splice(statusIndex, 1);
@@ -2544,35 +2541,36 @@ const getFilteredBySearchData = async (searchKey) => {
         }
       }
     } else {
-      // Add filter to exclude deleted grievances using notIn (camelCase as expected by backend)
       formData.filters.push('status');
       formData.filterValues.push(['Deleted']);
       formData.filterFunctions.push('notIn');
     }
   }
 
-  //-------------------------
   console.log('SeacrchByKey_', formData)
 
-  const res = await getByKeyword(formData)
+  try {
+    const res = await getByKeyword(formData)
 
-  console.log('---->', res.data)
+    console.log('---->', res.data)
 
-  tableDataList.value = res.data
-
-  total.value = res.total
-  
-  // Fetch deletion history data if viewing deleted grievances
-  if (activeSegment.value === 'Deleted') {
-    await fetchDeletionHistory()
+    tableDataList.value = res.data
+    total.value = res.total
+    
+    if (activeSegment.value === 'Deleted') {
+      await fetchDeletionHistory()
+    }
+    
+    await getCounts()
+  } catch (error) {
+    console.error('Error searching grievances:', error)
+    ElMessage({
+      message: 'Search failed. Please try again.',
+      type: 'error'
+    })
+  } finally {
+    loading.value = false
   }
-  
-  // Refresh counts after search
-  await getCounts()
-  
-  loading.value = false
-
-
 }
 
 
