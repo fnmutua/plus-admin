@@ -232,7 +232,7 @@ const getKisipTenureSettlementsCountByCounty = async () => {
       feature: {
         dataView: { readOnly: true },
         restore: {},
-        saveAsImage: { show: true, pixelRatio: 4 }
+        saveAsImage: { show: true, pixelRatio: 8 }
       }
     },
     tooltip: {
@@ -436,7 +436,7 @@ const getKisipInfSettlementsCountByCounty = async () => {
       feature: {
         dataView: { readOnly: true },
         restore: {},
-        saveAsImage: { show: true, pixelRatio: 4 }
+        saveAsImage: { show: true, pixelRatio: 8 }
       }
     },
     tooltip: {
@@ -636,7 +636,7 @@ const getKisipInclusionSettlementsCountByCounty = async () => {
       feature: {
         dataView: { readOnly: true },
         restore: {},
-        saveAsImage: { show: true, pixelRatio: 4 }
+        saveAsImage: { show: true, pixelRatio: 8 }
       }
     },
     tooltip: {
@@ -771,7 +771,7 @@ const getCountyGeo = async () => {
         feature: {
           dataView: { readOnly: true },
           restore: {},
-          saveAsImage: { show: true, pixelRatio: 4 }
+          saveAsImage: { show: true, pixelRatio: 8 }
 
         }
       },
@@ -838,7 +838,7 @@ const getCountyGeo = async () => {
         feature: {
           dataView: { readOnly: true },
           restore: {},
-          saveAsImage: { show: true, pixelRatio: 4 }
+          saveAsImage: { show: true, pixelRatio: 8 }
         }
       },
       series: [
@@ -905,7 +905,7 @@ const getCountyGeo = async () => {
         feature: {
           dataView: { readOnly: true },
           restore: {},
-          saveAsImage: { show: true, pixelRatio: 4 }
+          saveAsImage: { show: true, pixelRatio: 8 }
         }
       },
       series: [
@@ -1003,7 +1003,7 @@ const getBeneficiariesByCounty = async () => {
             mark: { show: true },
             dataView: { show: true, readOnly: true },
             restore: { show: true },
-            saveAsImage: { show: true, pixelRatio: 4 }
+            saveAsImage: { show: true, pixelRatio: 8 }
           }
         },
         legend: {
@@ -1180,7 +1180,7 @@ formData.cache_key = 'getRoadsConstructedGravel'
         mark: { show: true },
         dataView: { show: true, readOnly: true },
         restore: { show: true },
-        saveAsImage: { show: true, pixelRatio: 4 }
+        saveAsImage: { show: true, pixelRatio: 8 }
       }
     },
 
@@ -1253,7 +1253,7 @@ formData.cache_key = 'getRoadsConstructedGravel'
         mark: { show: true },
         dataView: { show: true, readOnly: true },
         restore: { show: true },
-        saveAsImage: { show: true, pixelRatio: 4 }
+        saveAsImage: { show: true, pixelRatio: 8 }
       }
     },
 
@@ -1326,7 +1326,7 @@ formData.cache_key = 'getRoadsConstructedGravel'
         mark: { show: true },
         dataView: { show: true, readOnly: true },
         restore: { show: true },
-        saveAsImage: { show: true, pixelRatio: 4 }
+        saveAsImage: { show: true, pixelRatio: 8 }
       }
     },
     legend: {
@@ -1438,7 +1438,7 @@ const getInclusionBeneficiaries = async () => {
         mark: { show: true },
         dataView: { show: true, readOnly: true },
         restore: { show: true },
-        saveAsImage: { show: true, pixelRatio: 4 }
+        saveAsImage: { show: true, pixelRatio: 8 }
       }
     },
     legend: {

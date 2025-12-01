@@ -86,7 +86,7 @@ export const stacklineOptions: EChartsOption = {
       mark: { show: true },
       dataView: { show: true, readOnly: false },
       restore: { show: true },
-      saveAsImage: { show: true, pixelRatio: 4 }
+      saveAsImage: { show: true, pixelRatio: 8 }
     }
   },
   tooltip: {
@@ -771,7 +771,7 @@ export const xmultipleBarChart: EChartsOption = {
       mark: { show: true },
       dataView: { show: true, readOnly: false },
       restore: { show: true },
-      saveAsImage: { show: true, pixelRatio: 4 }
+      saveAsImage: { show: true, pixelRatio: 8 }
     }
   },
   tooltip: {
@@ -877,7 +877,7 @@ export const barMaleFemaleOptions: EChartsOption = {
       mark: { show: true },
       dataView: { show: true, readOnly: false },
       restore: { show: true },
-      saveAsImage: { show: true, pixelRatio: 4 }
+      saveAsImage: { show: true, pixelRatio: 8 }
     }
   },
   grid: {
@@ -964,7 +964,7 @@ export const xstackedbarOptions: EChartsOption = {
       mark: { show: true },
       dataView: { show: true, readOnly: false },
       restore: { show: true },
-      saveAsImage: { show: true, pixelRatio: 4 }
+      saveAsImage: { show: true, pixelRatio: 8 }
     }
   },
   grid: {
@@ -1060,7 +1060,7 @@ export const mapChartOptions: EChartsOption = {
       mark: { show: true },
       dataView: { show: true, readOnly: false },
       restore: { show: true },
-      saveAsImage: { show: true, pixelRatio: 4 }
+      saveAsImage: { show: true, pixelRatio: 8 }
     }
   },
   series: [

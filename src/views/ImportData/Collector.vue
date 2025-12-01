@@ -128,7 +128,7 @@ PieChartOption = {
             mark: { show: true },
             dataView: { show: true, readOnly: false },
             restore: { show: true },
-            saveAsImage: { show: true, pixelRatio: 4 }
+            saveAsImage: { show: true, pixelRatio: 8 }
         }
     },
 

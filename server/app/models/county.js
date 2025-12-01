@@ -11,6 +11,24 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.STRING,
       allowNull: false
     },
+
+    pop_male: {
+      type: DataTypes.INTEGER,
+      allowNull: false
+    },
+    pop_female: {
+      type: DataTypes.INTEGER,
+      allowNull: false
+    },
+    pop_intersex: {
+      type: DataTypes.INTEGER,
+      allowNull: false
+    },
+    pop_total: {
+      type: DataTypes.INTEGER,
+      allowNull: false
+    },
+
     code: {
       type: DataTypes.STRING,
       allowNull: false

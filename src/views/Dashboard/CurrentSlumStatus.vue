@@ -235,7 +235,7 @@ const getAccessTohealth = async () => {
             mark: { show: true },
             dataView: { show: true, readOnly: false },
             restore: { show: true },
-            saveAsImage: { show: true, pixelRatio: 4 }
+            saveAsImage: { show: true, pixelRatio: 8 }
           }
         },
         legend: {
@@ -514,7 +514,7 @@ const getGender = async () => {
         mark: { show: true },
         dataView: { show: true, readOnly: false },
         restore: { show: true },
-        saveAsImage: { show: true, pixelRatio: 4 }
+        saveAsImage: { show: true, pixelRatio: 8 }
       }
     },
     legend: {
@@ -611,7 +611,7 @@ const getRent = async () => {
         mark: { show: true },
         dataView: { show: true, readOnly: false },
         restore: { show: true },
-        saveAsImage: { show: true, pixelRatio: 4 }
+        saveAsImage: { show: true, pixelRatio: 8 }
       }
     },
     legend: {
@@ -699,7 +699,7 @@ const getEmployment = async () => {
             mark: { show: true },
             dataView: { show: true, readOnly: false },
             restore: { show: true },
-            saveAsImage: { show: true, pixelRatio: 4 }
+            saveAsImage: { show: true, pixelRatio: 8 }
           }
         },
         legend: {
@@ -788,7 +788,7 @@ const getOwnershipStatus = async () => {
             mark: { show: true },
             dataView: { show: true, readOnly: false },
             restore: { show: true },
-            saveAsImage: { show: true, pixelRatio: 4 }
+            saveAsImage: { show: true, pixelRatio: 8 }
           }
         },
         legend: {
@@ -904,7 +904,7 @@ const getOwnershipStatusByGender = async () => {
             mark: { show: true },
             dataView: { show: true, readOnly: false },
             restore: { show: true },
-            saveAsImage: { show: true, pixelRatio: 4 }
+            saveAsImage: { show: true, pixelRatio: 8 }
           }
         },
         legend: {
@@ -1070,7 +1070,7 @@ const getEducationByGender = async () => {
             mark: { show: true },
             dataView: { show: true, readOnly: false },
             restore: { show: true },
-            saveAsImage: { show: true, pixelRatio: 4 }
+            saveAsImage: { show: true, pixelRatio: 8 }
           }
         },
         legend: {
@@ -1312,7 +1312,7 @@ const getSanitation = async () => {
             mark: { show: true },
             dataView: { show: true, readOnly: false },
             restore: { show: true },
-            saveAsImage: { show: true, pixelRatio: 4 }
+            saveAsImage: { show: true, pixelRatio: 8 }
           }
         },
         legend: {
@@ -1555,7 +1555,7 @@ const getWater = async () => {
             mark: { show: true },
             dataView: { show: true, readOnly: false },
             restore: { show: true },
-            saveAsImage: { show: true, pixelRatio: 4 }
+            saveAsImage: { show: true, pixelRatio: 8 }
           }
         },
         legend: {
