@@ -384,7 +384,14 @@ const processGrievance = async() => {
   Grievance.value.resolution = res.data.resolution || null
 
 
+  // Hide action button if:
+  // 1. Status is Closed or In Court
+  // 2. Status is Resolved AND current_level is settlement or county (resolved by settlement/county GRM)
+  //    - Once resolved by settlement/county GRM, no further actions should be allowed
+  //    - Only national GRM can confirm the resolution (via separate confirmation button)
   if(Grievance.value.status =='Closed' || Grievance.value.status =='In Court' ) {
+   showActionButton.value=false
+  } else if(Grievance.value.status =='Resolved' && ['settlement', 'county'].includes(Grievance.value.current_level)) {
    showActionButton.value=false
   } else {
     showActionButton.value=true
