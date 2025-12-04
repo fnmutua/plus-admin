@@ -227,8 +227,22 @@ const getUserRoles = async () => {
 };
 
 const pushRoleFilters = () => {
-  // This function is kept for backward compatibility but role filters are now applied in getUserRoles
-  // Role filters are already in filters.value and filterValues.value from getUserRoles
+  // Re-apply role-based filters after status filters are set
+  // This ensures county/settlement users only see their assigned locations
+  roles_filters.forEach(rf => {
+    if (rf.field && rf.value !== null && rf.value !== undefined) {
+      // Check if this filter field is already in the filters array
+      const existingIndex = filters.value.indexOf(rf.field);
+      if (existingIndex === -1) {
+        // Add new filter
+        filters.value.push(rf.field);
+        filterValues.value.push(Array.isArray(rf.value) ? rf.value : [rf.value]);
+      } else {
+        // Update existing filter value (role filters take precedence)
+        filterValues.value[existingIndex] = Array.isArray(rf.value) ? rf.value : [rf.value];
+      }
+    }
+  });
 };
 
 // Location-aware permission checking function
