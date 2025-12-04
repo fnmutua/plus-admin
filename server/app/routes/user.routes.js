@@ -282,6 +282,88 @@ module.exports = function(app) {
 
   /**
    * @swagger
+   * /api/v1/user/grm/settlement:
+   *   post:
+   *     tags: [Users]
+   *     summary: Get settlement GRM users
+   *     description: Retrieve GRM users linked to a specific settlement (roleid: 4, by settlement_id).
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               settlement_id:
+   *                 type: integer
+   *               limit:
+   *                 type: integer
+   *               page:
+   *                 type: integer
+   *     responses:
+   *       200:
+   *         description: Settlement GRM users retrieved successfully
+   */
+  app.post("/api/v1/user/grm/settlement", [authJwt.verifyToken], controller.getSettlementGRMUsers);
+
+  /**
+   * @swagger
+   * /api/v1/user/grm/county:
+   *   post:
+   *     tags: [Users]
+   *     summary: Get county GRM users
+   *     description: Retrieve GRM users linked to a specific county (roleid: 4, by county_id).
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               county_id:
+   *                 type: integer
+   *               limit:
+   *                 type: integer
+   *               page:
+   *                 type: integer
+   *     responses:
+   *       200:
+   *         description: County GRM users retrieved successfully
+   */
+  app.post("/api/v1/user/grm/county", [authJwt.verifyToken], controller.getCountyGRMUsers);
+
+  /**
+   * @swagger
+   * /api/v1/user/grm/national:
+   *   post:
+   *     tags: [Users]
+   *     summary: Get national GRM users
+   *     description: Retrieve GRM users with location_level = 'national' (roleid: 4). No county_id/settlement_id required.
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: false
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               limit:
+   *                 type: integer
+   *               page:
+   *                 type: integer
+   *     responses:
+   *       200:
+   *         description: National GRM users retrieved successfully
+   */
+  app.post("/api/v1/user/grm/national", [authJwt.verifyToken], controller.getNationalGRMUsers);
+
+  /**
+   * @swagger
    * /api/v1/user/by-ids:
    *   post:
    *     tags: [Users]

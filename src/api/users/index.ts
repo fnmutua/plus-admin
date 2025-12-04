@@ -44,6 +44,21 @@ export const getGRMStaffByLocation = (data: UserType): Promise<IResponse<UserTyp
   return request.post({ url: prod + '/api/v1/user/grm/location', data })
 }
 
+export const getSettlementGRMUsers = (data: { settlement_id: number; limit?: number; page?: number }): Promise<IResponse<UserType>> => {
+  console.log('Getting settlement GRM users....', data)
+  return request.post({ url: prod + '/api/v1/user/grm/settlement', data })
+}
+
+export const getCountyGRMUsers = (data: { county_id: number; limit?: number; page?: number }): Promise<IResponse<UserType>> => {
+  console.log('Getting county GRM users....', data)
+  return request.post({ url: prod + '/api/v1/user/grm/county', data })
+}
+
+export const getNationalGRMUsers = (data: { limit?: number; page?: number } = {}): Promise<IResponse<UserType>> => {
+  console.log('Getting national GRM users....', data)
+  return request.post({ url: prod + '/api/v1/user/grm/national', data })
+}
+
 
 
 

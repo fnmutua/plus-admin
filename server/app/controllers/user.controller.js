@@ -1072,6 +1072,176 @@ exports.getGRMUsersByLocation = async (req, res) => {
   }
 };
 
+/**
+ * New, clearer GRM endpoints by level
+ * -----------------------------------------------------------------------------
+ * - getSettlementGRMUsers: GRM Officers linked to a specific settlement_id
+ * - getCountyGRMUsers:     GRM Officers linked to a specific county_id
+ * - getNationalGRMUsers:   GRM Officers with location_level = 'national'
+ */
+
+// Settlement-level GRM officers (requires settlement_id)
+exports.getSettlementGRMUsers = async (req, res) => {
+  try {
+    const { settlement_id, limit = 10000, page = 1 } = req.body;
+
+    if (!settlement_id) {
+      return res.status(400).send({
+        message: 'settlement_id is required to fetch settlement GRM users.',
+      });
+    }
+
+    const findAndCountOptions = {
+      include: [
+        {
+          model: db.models.user_roles,
+          required: true,
+          where: {
+            roleid: 4,
+            settlement_id,
+          },
+        },
+        {
+          model: db.models.county,
+          attributes: ['id', 'name', 'code'],
+          required: false,
+        },
+      ],
+      where: {},
+      limit,
+      offset: (page - 1) * limit,
+      order: [['id', 'DESC']],
+    };
+
+    const { count, rows: grmUsers } = await Users.findAndCountAll(findAndCountOptions);
+
+    const usersWithPhotos = grmUsers.map((user) => {
+      if (user.photo) {
+        user.photo = 'data:image/png;base64,' + user.photo.toString('base64');
+      } else {
+        user.photo = '';
+      }
+      return user;
+    });
+
+    res.status(200).send({
+      data: usersWithPhotos,
+      total: count,
+      code: '0000',
+      message: 'Settlement GRM users retrieved successfully',
+    });
+  } catch (error) {
+    console.error('Error in getSettlementGRMUsers:', error);
+    res.status(500).send({ message: 'Unable to retrieve settlement GRM users. Please try again later.' });
+  }
+};
+
+// County-level GRM officers (requires county_id)
+exports.getCountyGRMUsers = async (req, res) => {
+  try {
+    const { county_id, limit = 10000, page = 1 } = req.body;
+
+    if (!county_id) {
+      return res.status(400).send({
+        message: 'county_id is required to fetch county GRM users.',
+      });
+    }
+
+    const findAndCountOptions = {
+      include: [
+        {
+          model: db.models.user_roles,
+          required: true,
+          where: {
+            roleid: 4,
+            county_id,
+          },
+        },
+        {
+          model: db.models.county,
+          attributes: ['id', 'name', 'code'],
+          required: false,
+        },
+      ],
+      where: {},
+      limit,
+      offset: (page - 1) * limit,
+      order: [['id', 'DESC']],
+    };
+
+    const { count, rows: grmUsers } = await Users.findAndCountAll(findAndCountOptions);
+
+    const usersWithPhotos = grmUsers.map((user) => {
+      if (user.photo) {
+        user.photo = 'data:image/png;base64,' + user.photo.toString('base64');
+      } else {
+        user.photo = '';
+      }
+      return user;
+    });
+
+    res.status(200).send({
+      data: usersWithPhotos,
+      total: count,
+      code: '0000',
+      message: 'County GRM users retrieved successfully',
+    });
+  } catch (error) {
+    console.error('Error in getCountyGRMUsers:', error);
+    res.status(500).send({ message: 'Unable to retrieve county GRM users. Please try again later.' });
+  }
+};
+
+// National-level GRM officers (no county/settlement id required)
+exports.getNationalGRMUsers = async (req, res) => {
+  try {
+    const { limit = 10000, page = 1 } = req.body;
+
+    const findAndCountOptions = {
+      include: [
+        {
+          model: db.models.user_roles,
+          required: true,
+          where: {
+            roleid: 4,
+            location_level: 'national',
+          },
+        },
+        {
+          model: db.models.county,
+          attributes: ['id', 'name', 'code'],
+          required: false,
+        },
+      ],
+      where: {},
+      limit,
+      offset: (page - 1) * limit,
+      order: [['id', 'DESC']],
+    };
+
+    const { count, rows: grmUsers } = await Users.findAndCountAll(findAndCountOptions);
+
+    const usersWithPhotos = grmUsers.map((user) => {
+      if (user.photo) {
+        user.photo = 'data:image/png;base64,' + user.photo.toString('base64');
+      } else {
+        user.photo = '';
+      }
+      return user;
+    });
+
+    res.status(200).send({
+      data: usersWithPhotos,
+      total: count,
+      code: '0000',
+      message: 'National GRM users retrieved successfully',
+    });
+  } catch (error) {
+    console.error('Error in getNationalGRMUsers:', error);
+    res.status(500).send({ message: 'Unable to retrieve national GRM users. Please try again later.' });
+  }
+};
+
 
 
 exports.modelAdminUsers = async (req, res) => {

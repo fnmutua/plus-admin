@@ -28,7 +28,7 @@ import {
 import { getCountyAuth, getSettlementByCountyAuth } from '@/api/register'
 import type { UploadUserFile } from 'element-plus'
 
-import {   getGRMStaffByLocation } from '@/api/users'
+import { getSettlementGRMUsers, getCountyGRMUsers, getNationalGRMUsers } from '@/api/users'
 
 
 import { ref } from 'vue'
@@ -787,41 +787,136 @@ const getGrievanceHistory = async (grievance_id) => {
 const grmUsers=ref([])
 const grmUsersLoading=ref(false)
 const getGRMUsers = async () => {
+  grmUsersLoading.value = true
 
-  grmUsersLoading.value=true
- 
-  const formData = {}
- 
-  formData.model = 'users'
- 
-  // - multiple filters -------------------------------------
-  formData.filters = []
-  formData.filterValues = []
-  formData.associated_multiple_models = ['settlement']
-  formData.currentUser = currentUser
-  formData.county_id = FullGrievanceData.value.county_id
-  formData.settlement_id = FullGrievanceData.value.settlement_id
-  formData.currentUser = currentUser
-  formData.limit = 10000
-  
-  
+  try {
+    const allUsersMap = new Map<number | string, any>()
+    const limit = 10000
 
-  //-------------------------
-  console.log('gettign getGRMStaff users --->', formData)
-  const res = await getGRMStaffByLocation(formData)
+    // 1) Get settlement GRM users if settlement_id exists
+    if (FullGrievanceData.value.settlement_id) {
+      try {
+        console.log('Getting settlement GRM users --->', { settlement_id: FullGrievanceData.value.settlement_id })
+        const settlementRes = await getSettlementGRMUsers({
+          settlement_id: FullGrievanceData.value.settlement_id,
+          limit,
+          page: 1
+        })
+        console.log('After getting settlement GRM users', settlementRes)
+        const settlementUsers = Array.isArray(settlementRes.data) ? settlementRes.data : []
+        settlementUsers.forEach((user: any) => {
+          if (user && user.id != null && !allUsersMap.has(user.id)) {
+            allUsersMap.set(user.id, user)
+          }
+        })
+      } catch (err) {
+        console.warn('Error fetching settlement GRM users:', err)
+      }
+    }
 
-  console.log('After getting getGRMStaff users', res)
-   
-  grmUsersLoading.value=false
+    // 2) Get county GRM users if county_id exists
+    if (FullGrievanceData.value.county_id) {
+      try {
+        console.log('Getting county GRM users --->', { county_id: FullGrievanceData.value.county_id })
+        const countyRes = await getCountyGRMUsers({
+          county_id: FullGrievanceData.value.county_id,
+          limit,
+          page: 1
+        })
+        console.log('After getting county GRM users', countyRes)
+        const countyUsers = Array.isArray(countyRes.data) ? countyRes.data : []
+        countyUsers.forEach((user: any) => {
+          if (user && user.id != null && !allUsersMap.has(user.id)) {
+            allUsersMap.set(user.id, user)
+          }
+        })
+      } catch (err) {
+        console.warn('Error fetching county GRM users:', err)
+      }
+    }
 
-  // Assuming res.data is an array of objects with name and phone
-    grmUsers.value = res.data.map(user => ({
-    label: user.name  + ' (' + user.phone  + ')' ,
-    value: user.id,
-  }));
+    // 3) Get national GRM users (no IDs required)
+    try {
+      console.log('Getting national GRM users --->')
+      const nationalRes = await getNationalGRMUsers({ limit, page: 1 })
+      console.log('After getting national GRM users', nationalRes)
+      const nationalUsers = Array.isArray(nationalRes.data) ? nationalRes.data : []
+      nationalUsers.forEach((user: any) => {
+        if (user && user.id != null && !allUsersMap.has(user.id)) {
+          allUsersMap.set(user.id, user)
+        }
+      })
+    } catch (err) {
+      console.warn('Error fetching national GRM users:', err)
+    }
 
- 
- 
+    const allUsers = Array.from(allUsersMap.values())
+
+    // Helper to infer officer level from API response
+    const getOfficerLevel = (user: any): 'settlement' | 'county' | 'national' => {
+      // Priority 1: Check explicit location_level fields in user_roles array
+      // user_roles can be an array, so check all roles
+      let explicitLevel: string | null = null
+      if (Array.isArray(user?.user_roles)) {
+        const grmRole = user.user_roles.find((role: any) => role.roleid === 4 || role.role?.id === 4)
+        explicitLevel = grmRole?.location_level || grmRole?.user_roles?.location_level || null
+      } else if (user?.user_roles?.location_level) {
+        explicitLevel = user.user_roles.location_level
+      } else if (user?.location_level) {
+        explicitLevel = user.location_level
+      }
+      
+      if (explicitLevel === 'settlement') return 'settlement'
+      if (explicitLevel === 'county') return 'county'
+      if (explicitLevel === 'national') return 'national'
+      
+      // Priority 2: Check if user has settlement_id
+      // This indicates they are a Settlement GRM Officer
+      if (user.settlement_id) {
+        return 'settlement'
+      }
+      
+      // Priority 3: Check if user has county_id but no settlement_id (county level)
+      if (user.county_id && !user.settlement_id) {
+        return 'county'
+      }
+      
+      // Priority 4: Check if user has no county_id and no settlement_id (could be national)
+      if (!user.settlement_id && !user.county_id) {
+        return 'national'
+      }
+      
+      // Default: any officer without a clear level is settlement
+      return 'settlement'
+    }
+
+    const getOfficerRoleLabel = (level: string): string => {
+      if (level === 'settlement') return 'Settlement GRM Officer'
+      if (level === 'county') return 'County GRM Officer'
+      if (level === 'national') return 'National GRM Officer'
+      return 'GRM Officer'
+    }
+
+    // Enrich officers with inferred level and friendly label
+    const enrichedUsers = allUsers.map((user: any) => {
+      const level = getOfficerLevel(user)
+      const roleLabel = getOfficerRoleLabel(level)
+      return {
+        raw: user,
+        level,
+        label: `${user.name} (${roleLabel})`,
+        value: user.id,
+      }
+    })
+
+    // Show everyone we found (settlement, county, national)
+    grmUsers.value = enrichedUsers.map((u) => ({
+      label: u.label,
+      value: u.value,
+    }))
+  } finally {
+    grmUsersLoading.value = false
+  }
 }
 const currentUser = wsCache.get(appStore.getUserInfo)
 
