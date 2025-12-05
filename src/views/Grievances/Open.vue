@@ -668,10 +668,41 @@ const getCounts = async () => {
       }
     });
 
-    // Set 'All' as sum of all non-deleted statuses
+    // Query for "Returned" status count separately (since it's not in Statuses array)
+    let returnedCount = 0;
+    try {
+      const returnedFormData = {
+        model: 'grievance',
+        summaryField: 'id',
+        summaryFunction: 'count',
+        filterField: [...filterField, 'status'],
+        filterValue: [...filterValue, ['Returned']],
+        filterOperator: [...filterOperator, 'in']
+      };
+
+      if (search_string.value && search_string.value.trim()) {
+        returnedFormData.searchField = 'name';
+        returnedFormData.searchString = search_string.value.trim();
+      }
+
+      const returnedResponse = await getSummarybyFieldFromMultipleIncludes(returnedFormData);
+      returnedCount = parseInt(returnedResponse?.Total?.[0]?.count || '0', 10);
+    } catch (error) {
+      console.error('Error fetching Returned status count:', error);
+    }
+
+    // Special handling: Include "Returned" status in "Under Review" count
+    const underReviewStatus = Statuses.value.find(s => s.value === 'Under Review');
+    const investigationCount = statusCounts.find(sc => sc.status === 'Investigation')?.count || 0;
+    const underReviewCount = statusCounts.find(sc => sc.status === 'Under Review')?.count || 0;
+    if (underReviewStatus) {
+      underReviewStatus.count = underReviewCount + investigationCount + returnedCount;
+    }
+
+    // Set 'All' as sum of all non-deleted statuses (including Returned)
     const totalExcludingDeleted = statusCounts
       .filter(sc => sc.status !== 'Deleted')
-      .reduce((sum, sc) => sum + sc.count, 0);
+      .reduce((sum, sc) => sum + sc.count, 0) + returnedCount;
     const allStatus = Statuses.value.find(s => s.value === 'All');
     if (allStatus) allStatus.count = totalExcludingDeleted;
 
@@ -2732,7 +2763,7 @@ const onSegmentClick = async (statusValue?: string) => {
       filterFunction.value.push('in')
     }
     var index = filters.value.indexOf(selectOption)
-    filterValues.value[index] = ['Under Review', 'Investigation']
+    filterValues.value[index] = ['Under Review', 'Investigation', 'Returned']
 
   } else if (activeSegment.value === "Resolved") {
     var selectOption = 'status'
@@ -2750,7 +2781,7 @@ const onSegmentClick = async (statusValue?: string) => {
       filterFunction.value.push('in')
     }
     var index = filters.value.indexOf(selectOption)
-    filterValues.value[index] = ['Escalated', 'Returned']
+    filterValues.value[index] = ['Escalated']
 
   } else if (activeSegment.value === "Closed") {
     var selectOption = 'status'
