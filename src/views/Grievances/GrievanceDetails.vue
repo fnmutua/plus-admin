@@ -159,14 +159,14 @@ const button_disabled = ref(true)
 
 const statusDictionary = [
   { value: 'Sorting', label: 'Sorting', supportedBy: ['Sorting'] },
-  { value: 'Investigation', label: 'Investigate Grievance', supportedBy: ['Sorting', 'Investigation', 'Under Review', 'Escalated', 'Referred'] },
-  { value: 'Under Review', label: 'Under Review (in progress)', supportedBy: ['Sorting', 'Investigation', 'Under Review', 'Escalated', 'Referred'] },
-  { value: 'Escalated', label: 'Escalate', supportedBy: ['Sorting', 'Investigation', 'Under Review', 'Escalated', 'Referred', 'Resolved'] },
-  { value: 'Resolved', label: 'Resolve Grievance', supportedBy: ['Sorting', 'Investigation', 'Under Review', 'Escalated', 'Referred', 'Resolved'] },
-  { value: 'Rejected', label: 'Reject Grievance', supportedBy: ['Sorting', 'Investigation', 'Under Review', 'Escalated', 'Referred'] },
+  { value: 'Investigation', label: 'Investigate Grievance', supportedBy: ['Sorting', 'Investigation', 'Under Review', 'Escalated', 'Referred', 'Returned'] },
+  { value: 'Under Review', label: 'Under Review (in progress)', supportedBy: ['Sorting', 'Investigation', 'Under Review', 'Escalated', 'Referred', 'Returned'] },
+  { value: 'Escalated', label: 'Escalate', supportedBy: ['Sorting', 'Investigation', 'Under Review', 'Escalated', 'Referred', 'Resolved', 'Returned'] },
+  { value: 'Resolved', label: 'Resolve Grievance', supportedBy: ['Sorting', 'Investigation', 'Under Review', 'Escalated', 'Referred', 'Resolved', 'Returned'] },
+  { value: 'Rejected', label: 'Reject Grievance', supportedBy: ['Sorting', 'Investigation', 'Under Review', 'Escalated', 'Referred', 'Returned'] },
   { value: 'In Court', label: 'In Court', supportedBy: ['Resolved'] },
-  { value: 'Referred', label: 'Refer Grievance', supportedBy: ['Sorting', 'Investigation', 'Under Review', 'Escalated', 'Referred', 'Closed'] },
-  { value: 'ExternalReferral', label: 'Refer to External Agency', supportedBy: ['Escalated', 'Referred', 'Resolved', 'Closed'] },
+  { value: 'Referred', label: 'Refer Grievance', supportedBy: ['Sorting', 'Investigation', 'Under Review', 'Escalated', 'Referred', 'Closed', 'Returned'] },
+  { value: 'ExternalReferral', label: 'Refer to External Agency', supportedBy: ['Escalated', 'Referred', 'Resolved', 'Closed', 'Returned'] },
   { value: 'Returned', label: 'Send Back', supportedBy: ['Escalated', 'Referred'] },
   { value: 'Closed', label: 'Close Grievance', supportedBy: ['Resolved', 'Closed'] },
 ]
