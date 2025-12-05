@@ -1051,9 +1051,9 @@ const form = ref({
   // resolution additional apramerts 
   resolution_date: null,
   filer_present: true,
-  field_verification_conducted: false,
+  field_verification_conducted: true,
   field_investigations: null,
-  agreement_reached: false,
+  agreement_reached: true,
   agreement: null,
   point_disagreement: null,
   issues: null,
@@ -1082,6 +1082,42 @@ const beforeRemove = () => {
 
 const handleExceed = () => {
   ElMessage.warning('You can only upload up to 3 files.');
+};
+
+// File validation: only images and documents, max 10MB, no executables
+const beforeUpload = (file: any) => {
+  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB in bytes
+  const fileSize = file.size;
+  const fileName = file.name.toLowerCase();
+  const fileExtension = fileName.split('.').pop();
+
+  // Block executable files
+  const blockedExtensions = ['exe', 'bat', 'cmd', 'com', 'pif', 'scr', 'vbs', 'js', 'jar', 'msi', 'dll', 'sh'];
+  if (blockedExtensions.includes(fileExtension)) {
+    ElMessage.error(`File type .${fileExtension} is not allowed. Please upload only images and documents.`);
+    return false;
+  }
+
+  // Allow images and documents
+  const allowedExtensions = [
+    // Images
+    'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg',
+    // Documents
+    'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'rtf', 'odt', 'ods', 'odp'
+  ];
+
+  if (!allowedExtensions.includes(fileExtension)) {
+    ElMessage.error(`File type .${fileExtension} is not supported. Please upload images (jpg, png, gif) or documents (pdf, doc, docx, etc.).`);
+    return false;
+  }
+
+  // Check file size
+  if (fileSize > MAX_FILE_SIZE) {
+    ElMessage.error(`File size exceeds 10MB limit. Current file size: ${(fileSize / 1024 / 1024).toFixed(2)}MB`);
+    return false;
+  }
+
+  return true;
 };
 
 
@@ -1152,6 +1188,51 @@ function getStageDuration(status) {
 
 const dynamicFormRef = ref<FormInstance>()
 
+// Rollback function to revert status update if later steps fail
+const rollbackStatusUpdate = async (
+  previousStatus: string,
+  previousCurrentLevel: string,
+  previousStatusDate: Date | string | null,
+  previousStatusExpiryDate: Date | string | null
+) => {
+  try {
+    ElMessage({
+      message: 'Reverting status update...',
+      type: 'warning',
+      duration: 2000
+    })
+
+    const rollbackData: any = {
+      code: Grievance.value.code,
+      new_status: previousStatus,
+      recipient: Grievance.value.telephone || Grievance.value.phone,
+      grievance_id: Grievance.value.id,
+      action: 'Status update reverted due to error in subsequent steps',
+      current_level: previousCurrentLevel,
+      current_status_date: previousStatusDate || new Date(),
+      status_expiry_date: previousStatusExpiryDate || new Date(),
+      action_by: userInfo.id,
+      action_level: current_user_roles[0] ? current_user_roles[0] : 'settlement',
+    }
+
+    await updateGrievanceStatus(rollbackData)
+    
+    ElMessage({
+      message: 'Status has been reverted to previous state',
+      type: 'warning',
+      duration: 3000
+    })
+  } catch (rollbackError) {
+    console.error('Error during rollback:', rollbackError)
+    ElMessage({
+      message: 'Failed to revert status. Please contact administrator.',
+      type: 'error',
+      duration: 5000
+    })
+    throw rollbackError
+  }
+}
+
 const submitResolutionForm = async () => {
   const formInstance = dynamicFormRef
 
@@ -1216,22 +1297,16 @@ const submitResolutionForm = async () => {
       console.log(Grievance.value.current_level)
 
       console.log("checking issue.............",form.value)
-      // Log the action 
 
-      // Create a copy of the form data for logging with the proper message
-      const logData = { ...form.value };
-      logData.action = msg; // Use the proper message instead of the raw action
-      
-      const res = await logGrievanceAction(logData)
+      // Store previous state for rollback if needed
+      const previousStatus = Grievance.value.status
+      const previousCurrentLevel = Grievance.value.current_level
+      const previousStatusDate = Grievance.value.current_status_date
+      const previousStatusExpiryDate = Grievance.value.status_expiry_date
 
-
-      /// Upload fies
-      await uploadFiles(res.data.id, Grievance.value.id)
-
-
-        // Check if user is at national level for auto-closure
-        const isNationalLevel = current_user_roles.includes('national') || isSuperAdmin.value;
-        const shouldAutoClose = isNationalLevel && form.value.new_status === 'Resolved';
+      // Check if user is at national level for auto-closure
+      const isNationalLevel = current_user_roles.includes('national') || isSuperAdmin.value;
+      const shouldAutoClose = isNationalLevel && form.value.new_status === 'Resolved';
 
       const formData: any = {
         code: Grievance.value.code,
@@ -1257,11 +1332,139 @@ const submitResolutionForm = async () => {
           }
       }
 
-     
+      // Step 1: Update Status
+      console.log('Starting status update...', formData)
+      ElMessage({
+        message: 'Updating grievance status...',
+        type: 'info',
+        duration: 2000
+      })
+      
+      let updatedGrievance
+      let statusUpdateSuccess = false
+      try {
+        console.log('Calling updateGrievanceStatus with:', formData)
+        updatedGrievance = await updateGrievanceStatus(formData)
+        console.log('updateGrievanceStatus returned:', updatedGrievance)
+        
+        // Check if the response indicates success
+        if (!updatedGrievance) {
+          throw new Error('No response from status update API')
+        }
+        
+        statusUpdateSuccess = true
+        
+        console.log('Status update successful! Response:', updatedGrievance)
+        console.log('About to show success message...')
+        
+        // Show success message immediately - use object syntax for reliability
+        ElMessage({
+          message: 'Status updated successfully',
+          type: 'success',
+          duration: 5000,
+          showClose: false,
+          center: false
+        })
+        console.log('Success message displayed successfully')
+        
+        // Wait to ensure the success message is visible before proceeding
+        await new Promise(resolve => setTimeout(resolve, 2000))
+        console.log('Waited 2 seconds, proceeding to next step')
+      } catch (error) {
+        console.error('Error updating status:', error)
+        ElMessage({
+          message: 'Failed to update status. Error: ' + (error?.response?.data?.message || error?.message || 'Unknown error'),
+          type: 'error',
+          duration: 5000
+        })
+        throw error // Stop execution if status update fails
+      }
 
-      console.log('Udpate GRVs',formData)
-      /// udpate the status
-      const updatedGrievance = await updateGrievanceStatus(formData)
+      // Step 2: Upload Documents (if any)
+      // Note: We need action_id for uploads, so we'll create log entry temporarily
+      // but only show success message after everything is done
+      let actionIdForLogging = null
+      let logRes = null
+      let uploadSuccess = false
+      let loggingSuccess = false
+      const hasFiles = form.value.fileList && form.value.fileList.length > 0
+      
+      try {
+        if (hasFiles) {
+          // Wait longer before showing upload message to ensure status success is visible
+          await new Promise(resolve => setTimeout(resolve, 500))
+          ElMessage({
+            message: 'Uploading documents...',
+            type: 'info',
+            duration: 2000,
+            grouping: true
+          })
+          
+          try {
+            // Create log entry temporarily to get action_id for file uploads
+            // We'll show the success message for logging at the end
+            const logData = { ...form.value };
+            logData.action = msg;
+            logRes = await logGrievanceAction(logData)
+            actionIdForLogging = logRes.data.id
+            loggingSuccess = true
+            
+            await uploadFiles(actionIdForLogging, Grievance.value.id)
+            uploadSuccess = true
+          } catch (error) {
+            console.error('Error uploading documents:', error)
+            // If upload fails, we need to rollback status and delete the log entry if created
+            if (statusUpdateSuccess) {
+              await rollbackStatusUpdate(previousStatus, previousCurrentLevel, previousStatusDate, previousStatusExpiryDate)
+              if (logRes && logRes.data && logRes.data.id) {
+                // Optionally delete the log entry if it was created but upload failed
+                // This would require a delete API endpoint
+                console.warn('Log entry created but upload failed. Log entry ID:', logRes.data.id)
+              }
+              throw new Error('Document upload failed. Status has been reverted.')
+            }
+          }
+        }
+
+        // Step 3: Log Action (only if not already logged for uploads)
+        if (!actionIdForLogging) {
+          // Wait longer before showing logging message
+          await new Promise(resolve => setTimeout(resolve, 500))
+          ElMessage({
+            message: 'Logging action...',
+            type: 'info',
+            duration: 2000,
+            grouping: true
+          })
+          
+          try {
+            const logData = { ...form.value };
+            logData.action = msg;
+            logRes = await logGrievanceAction(logData)
+            actionIdForLogging = logRes.data.id
+            loggingSuccess = true
+          } catch (error) {
+            console.error('Error logging action:', error)
+            // If logging fails, rollback status update
+            if (statusUpdateSuccess) {
+              await rollbackStatusUpdate(previousStatus, previousCurrentLevel, previousStatusDate, previousStatusExpiryDate)
+              if (uploadSuccess && actionIdForLogging) {
+                // Optionally delete uploaded files if logging fails
+                console.warn('Files uploaded but logging failed. Action ID:', actionIdForLogging)
+              }
+              throw new Error('Action logging failed. Status has been reverted.')
+            }
+          }
+        } else {
+          // Log was already created for uploads
+          loggingSuccess = true
+        }
+        
+        // Ensure we have a valid res object for downstream operations
+        const res = logRes || { 
+          data: { id: actionIdForLogging || null }, 
+          message: 'Grievance status updated successfully' 
+        }
 
         // Success - close drawer immediately
         isSubmittingSuccessfully.value = true
@@ -1269,20 +1472,57 @@ const submitResolutionForm = async () => {
         dialogFormVisible.value = false
 
         // Continue with other operations in background
-      await processGrievance()
+        await processGrievance()
 
-      console.log('Old Grievance.value', Grievance.value)
-      console.log('New Grievance.value', updatedGrievance)
+        console.log('Old Grievance.value', Grievance.value)
+        console.log('New Grievance.value', updatedGrievance)
  
-        // Generate PDF in background
-        generatePDFform(Grievance.value, res.data).catch(err => {
-          console.error('PDF generation failed:', err)
-        })
+        // Generate PDF in background (only if we have a valid log entry)
+        if (logRes && logRes.data) {
+          generatePDFform(Grievance.value, logRes.data).catch(err => {
+            console.error('PDF generation failed:', err)
+          })
+        }
 
-      ElMessage({
-          message: res.message || 'Grievance status updated successfully',
-        type: 'success'
-      })
+        // Final summary message
+        let finalMessage = 'Grievance status updated successfully'
+        let messageType: 'success' | 'warning' = 'success'
+        
+        if (hasFiles && uploadSuccess && loggingSuccess) {
+          finalMessage = 'Status updated, documents uploaded, and action logged successfully'
+        } else if (hasFiles && uploadSuccess && !loggingSuccess) {
+          finalMessage = 'Status updated and documents uploaded successfully, but action logging failed'
+          messageType = 'warning'
+        } else if (hasFiles && !uploadSuccess && loggingSuccess) {
+          finalMessage = 'Status updated and action logged successfully, but document upload failed'
+          messageType = 'warning'
+        } else if (hasFiles && !uploadSuccess && !loggingSuccess) {
+          finalMessage = 'Status updated successfully, but document upload and action logging failed'
+          messageType = 'warning'
+        } else if (!hasFiles && loggingSuccess) {
+          finalMessage = 'Status updated and action logged successfully'
+        } else if (!hasFiles && !loggingSuccess) {
+          finalMessage = 'Status updated successfully, but action logging failed'
+          messageType = 'warning'
+        }
+        
+        ElMessage({
+          message: finalMessage,
+          type: messageType,
+          duration: 4000
+        })
+      } catch (rollbackError: any) {
+        // This catch handles rollback errors from Step 2 or Step 3
+        console.error('Rollback error:', rollbackError)
+        ElMessage({
+          message: rollbackError?.message || 'Operation failed and status has been reverted',
+          type: 'error',
+          duration: 5000
+        })
+        // Refresh grievance data to reflect reverted state
+        await processGrievance()
+        throw rollbackError
+      }
       } catch (error) {
         console.error('Error submitting form:', error)
         ElMessage({
@@ -2105,9 +2345,9 @@ const resetForm = () => {
         fileList: [],
         resolution_date: null,
     filer_present: true,
-    field_verification_conducted: false,
+    field_verification_conducted: true,
         field_investigations: null,
-    agreement_reached: false,
+    agreement_reached: true,
     agreement: null,
         point_disagreement: null,
         issues: null,
@@ -3054,7 +3294,9 @@ width="340"
             :on-preview="handlePreview" 
             :on-remove="handleRemove" 
             :before-remove="beforeRemove" 
+            :before-upload="beforeUpload"
             :limit="3"
+            accept=".jpg,.jpeg,.png,.gif,.webp,.bmp,.svg,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.rtf,.odt,.ods,.odp"
             v-model:file-list="form.fileList" 
             :auto-upload="false" 
             :on-exceed="handleExceed"
@@ -3066,7 +3308,7 @@ width="340"
             <template #tip>
                     <div class="upload-tips">
                       <el-text type="warning" size="small">
-                  Please upload the signed resolution form (pdf/jpg/png, under 10MB). Attach supporting evidence (minutes, photos, etc.) as needed.
+                  Please upload the signed resolution form (images: jpg/png/gif, documents: pdf/doc/docx, max 10MB). Executable files (.exe) are not allowed.
                         <strong>Required:</strong> Documentation must be uploaded before proceeding to the next step.
                 </el-text>
                     </div>
@@ -3157,7 +3399,9 @@ width="340"
                 :on-preview="handlePreview" 
                 :on-remove="handleRemove" 
                 :before-remove="beforeRemove" 
+                :before-upload="beforeUpload"
                 :limit="3"
+                accept=".jpg,.jpeg,.png,.gif,.webp,.bmp,.svg,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.rtf,.odt,.ods,.odp"
                 v-model:file-list="form.fileList" 
                 :auto-upload="false" 
                 :on-exceed="handleExceed"
@@ -3169,7 +3413,7 @@ width="340"
                 <template #tip>
                   <div class="upload-tips">
                     <el-text type="info" size="small">
-                  Upload supporting documentation (e.g. minutes, forms, photos) — pdf/jpg/png, under 10MB.
+                  Upload supporting documentation (e.g. minutes, forms, photos) — images: jpg/png/gif, documents: pdf/doc/docx, max 10MB. Executable files (.exe) are not allowed.
                 </el-text>
               </div>
             </template>
@@ -3479,11 +3723,12 @@ width="340"
                     <el-upload
             id="btn20" class="upload-demo"
                       action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :on-preview="handlePreview"
-                      :on-remove="handleRemove" :before-remove="beforeRemove" :limit="3" v-model:file-list="fileList"
+                      :on-remove="handleRemove" :before-remove="beforeRemove" :before-upload="beforeUpload" :limit="3" v-model:file-list="fileList"
+                      accept=".jpg,.jpeg,.png,.gif,.webp,.bmp,.svg,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.rtf,.odt,.ods,.odp"
                       :auto-upload="false" :on-exceed="handleExceed">
                       <el-button type="primary">Upload Supporting Documentation</el-button>
                       <template #tip>
-                        <div class="el-upload__tip">pdf/jpg/png files with a size less than 500KB.</div>
+                        <div class="el-upload__tip">Images and documents only (pdf/jpg/png/doc/docx, etc.), max 10MB. Executable files (.exe) are not allowed.</div>
                       </template>
                     </el-upload>
 

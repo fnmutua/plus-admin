@@ -1444,18 +1444,27 @@ const AddComponent = () => {
 
 
 const uploadFiles = async (action_id, grievance_id) => {
+  if (!fileList.value || fileList.value.length === 0) {
+    console.log('No files to upload')
+    return
+  }
+
   const formData = new FormData();
 
   // Assuming `fileList` is an array of file objects and `grievance_id` is defined
   for (var i = 0; i < fileList.value.length; i++) {
     console.log('------>file', fileList.value[i]);
-    formData.append('files', fileList.value[i].raw);
-    formData.append('format', fileList.value[i].name.split('.').pop());
+    const file = fileList.value[i];
+    if (!file || !file.raw) {
+      throw new Error(`File at index ${i} is missing raw file data`)
+    }
+    formData.append('files', file.raw);
+    formData.append('format', file.name.split('.').pop() || '');
     formData.append('grievance_id', grievance_id);
     formData.append('action_id', action_id);
-    formData.append('protected_file', true);
+    formData.append('protected_file', 'true');
     formData.append('type', 'Supporting Documentation');
-    formData.append('size', (fileList.value[i].raw.size / 1024 / 1024).toFixed(2));
+    formData.append('size', (file.raw.size / 1024 / 1024).toFixed(2));
     formData.append('code', uuid.v4());
   }
 
@@ -1464,13 +1473,14 @@ const uploadFiles = async (action_id, grievance_id) => {
     console.log(`${key}: ${value}`);
   }
 
-  const res = await uploadGrievanceDocuments(formData)
-
-  console.log("Docuemnts Uploaded", res)
-
-
-
-
+  try {
+    const res = await uploadGrievanceDocuments(formData)
+    console.log("Documents Uploaded", res)
+    return res
+  } catch (error) {
+    console.error('Error in uploadGrievanceDocuments:', error)
+    throw error // Re-throw to be caught by caller
+  }
 }
 
 
@@ -1604,26 +1614,67 @@ console.log('grmForm.value',grmForm.value)
           console.log('res', grv)
           AddDialogVisible.value = false
 
-          // 2 Log the entry
-          let log = await logAction(grv.data)
-          console.log('log', log)
+          try {
+            // 2 Log the entry
+            let log
+            try {
+              log = await logAction(grv.data)
+              console.log('log', log)
+            } catch (error) {
+              console.error('Error logging grievance action:', error)
+              ElMessage({
+                message: 'Grievance created but failed to log action. Error: ' + (error?.response?.data?.message || error?.message || 'Unknown error'),
+                type: 'error',
+                duration: 5000
+              })
+              throw error // Re-throw to prevent continuing
+            }
 
-          // 3. Upload documents 
-          await uploadFiles(log.id, grv.data.id)
+            // 3. Upload documents 
+            if (fileList.value && fileList.value.length > 0) {
+              try {
+                await uploadFiles(log.id, grv.data.id)
+                console.log("Documents uploaded successfully")
+              } catch (error) {
+                console.error('Error uploading documents:', error)
+                ElMessage({
+                  message: 'Grievance created and logged, but failed to upload documents. Error: ' + (error?.response?.data?.message || error?.message || 'Unknown error'),
+                  type: 'error',
+                  duration: 5000
+                })
+                // Don't throw - allow notification to proceed
+              }
+            }
 
-          // 4. Send Notification (generates acknowledgment PDF)
-          await sendNotification(grv.data, log.id)
+            // 4. Send Notification (generates acknowledgment PDF)
+            try {
+              await sendNotification(grv.data, log.id)
+            } catch (error) {
+              console.error('Error sending notification:', error)
+              ElMessage({
+                message: 'Grievance processed but failed to send notification. Error: ' + (error?.response?.data?.message || error?.message || 'Unknown error'),
+                type: 'warning',
+                duration: 5000
+              })
+              // Don't throw - main operation succeeded
+            }
 
-          ElMessage({
-            message: grv.message,
-            type: 'success'
-          })
+            ElMessage({
+              message: grv.message,
+              type: 'success'
+            })
+          } catch (error) {
+            // This catches logging errors that were re-thrown
+            console.error('Error in grievance processing:', error)
+            // Error message already shown in specific catch block
+          }
         })
         .catch((error) => {
-          console.error('Failed to submit grievance', error)
+          console.error('Failed to submit grievance:', error)
           ElMessage({
-            message: 'Failed to submit grievance. Please try again.',
-            type: 'error'
+            message: 'Failed to create grievance. Error: ' + (error?.response?.data?.message || error?.message || 'Unknown error. Please try again.'),
+            type: 'error',
+            duration: 5000
           })
         })
 

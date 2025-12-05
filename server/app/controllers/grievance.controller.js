@@ -1010,7 +1010,6 @@ exports.uploadGrievanceDocument = (req, res) => {
         
         var obj = {}
         
-
               if (myFiles.length >1) {
                 obj.grievance_id =req.body.grievance_id[i] 
                 obj.format = req.body.format[i]
@@ -1020,7 +1019,7 @@ exports.uploadGrievanceDocument = (req, res) => {
                 obj.location = myFiles[i].path
                 obj.code = shortid.generate()
                 obj.action_id = req.body.action_id[i] ? req.body.action_id[i] : null
-                obj.type = req.body.type[i] ? req.body.type[i] : 'Documentation'
+                obj.type = (req.body.type && Array.isArray(req.body.type)) ? (req.body.type[i] || 'Documentation') : (req.body.type || 'Documentation')
                 objs.push(obj)
 
               } else {
