@@ -14,14 +14,15 @@ import {
   InfoFilled,
   Filter,
   Download,
-  Files
+  Files,
+  View
 } from '@element-plus/icons-vue'
 
 import { ref, reactive, onMounted, computed } from 'vue'
 import {
   ElPagination, ElInputNumber, ElTable,
   ElTableColumn, ElDropdown, ElDropdownItem, ElDropdownMenu,
-  ElDatePicker, ElTooltip, ElOption, ElDialog, ElForm, ElFormItem, ElUpload, ElInput, FormRules, ElPopconfirm, ElCol, ElRow
+  ElDatePicker, ElTooltip, ElOption, ElDialog, ElForm, ElFormItem, ElUpload, ElInput, FormRules, ElPopconfirm, ElCol, ElRow, ElDescriptions, ElDescriptionsItem
 } from 'element-plus'
 
 import { useRouter } from 'vue-router'
@@ -80,13 +81,13 @@ console.log("showAdminButtons--->", showAdminButtons.value)
 
 const action_buttons = ref([])
 if (showAdminButtons.value) {
-  action_buttons.value = ['edit', 'delete', 'viewOnMap']
+  action_buttons.value = ['edit', 'delete', 'viewOnMap', 'preview']
 } else if (showEditButtons.value) {
 
-  action_buttons.value = ['edit', 'viewOnMap']
+  action_buttons.value = ['edit', 'viewOnMap', 'preview']
 }
 else {
-  action_buttons.value = ['viewOnMap']
+  action_buttons.value = ['viewOnMap', 'preview']
 
 }
 
@@ -221,6 +222,7 @@ const rules = reactive<FormRules>({
 
 const AddDialogVisible = ref(false)
 const ImportDialogVisible = ref(false)
+const PreviewDialog = ref(false)
 const formHeader = ref('Add M&E Report')
 const showSubmitBtn = ref(false)
 const showProcessBtn = ref(true)
@@ -1733,14 +1735,16 @@ console.log('IsMobile', isMobile)
 
 const dialogWidth = ref()
 const actionColumnWidth = ref()
+const previewWindowWidth = ref('40%')
 
 if (isMobile.value) {
   dialogWidth.value = "90%"
   actionColumnWidth.value = "75px"
+  previewWindowWidth.value = "100%"
 } else {
   dialogWidth.value = "45%"
   actionColumnWidth.value = "160px"
-
+  previewWindowWidth.value = "40%"
 }
 
 
@@ -1777,6 +1781,30 @@ function toggleComponent(row) {
 function disabledFutureDates(date) {
   const today = new Date();
   return date.getTime() > today.getTime(); // Disable dates after today
+}
+
+const report = ref({})
+
+const preview = (data: TableSlotDefault) => {
+  console.log('Previewing report:', data)
+  
+  // Populate report data for the preview dialog
+  report.value = {
+    project: data.project?.title || 'N/A',
+    location: data.settlement?.name || 'N/A',
+    indicator: data.indicator_category?.indicator_name || 'N/A',
+    category: data.indicator_category?.category_title || 'N/A',
+    amount: data.amount || 0,
+    progress: data.progress || 0,
+    date: formatDate(data.date),
+    user: data.user?.name || 'N/A',
+    phone: data.user?.phone || 'N/A',
+    comments: data.comments || 'N/A',
+    documents: data.documents || []
+  }
+  
+  // Open the preview dialog
+  PreviewDialog.value = true
 }
 
 
@@ -2456,6 +2484,7 @@ function handleIndicatorsChange(selectedIds) {
               @edit="editReport" 
               @delete="DeleteReport" 
               @view-on-map="showMap"
+              @preview="preview"
               :disabled-buttons="row.geom ? [] : ['viewOnMap']" />
           </PermissionWrapper>
         </template>
@@ -2689,7 +2718,30 @@ class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d
 
   </el-dialog>
 
-
+  <el-dialog v-model="PreviewDialog" title="Report Preview" :width="previewWindowWidth" draggable>
+    <el-descriptions title="" direction="vertical" :column="2" size="small" border>
+      <el-descriptions-item label="Project">{{ report.project }}</el-descriptions-item>
+      <el-descriptions-item label="Settlement">{{ report.location }}</el-descriptions-item>
+      <el-descriptions-item label="Indicator" :span="2">{{ report.indicator }}</el-descriptions-item>
+      <el-descriptions-item label="Category" :span="2">{{ report.category }}</el-descriptions-item>
+      <el-descriptions-item label="Amount">{{ report.amount }}</el-descriptions-item>
+      <el-descriptions-item label="Progress">{{ report.progress }}%</el-descriptions-item>
+      <el-descriptions-item label="Date">{{ report.date }}</el-descriptions-item>
+      <el-descriptions-item label="Submitted By">{{ report.user }}</el-descriptions-item>
+      <el-descriptions-item label="Telephone">{{ report.phone }}</el-descriptions-item>
+      <el-descriptions-item label="Comments" :span="2">{{ report.comments }}</el-descriptions-item>
+      <el-descriptions-item label="Documentation" v-if="report.documents && report.documents.length" :span="2">
+        <div v-for="(doc, index) in report.documents" :key="index">
+          <span>{{ doc.name }}</span>
+        </div>
+      </el-descriptions-item>
+    </el-descriptions>
+    <template #footer>
+      <span class="dialog-footer">
+        <el-button @click="PreviewDialog = false">Close</el-button>
+      </span>
+    </template>
+  </el-dialog>
 
   <el-tour v-model="openHelp" z-index="100000">
     <el-tour-step target="#btn1" title="Project" description="Select the project you want to set up" />
