@@ -482,7 +482,7 @@ const feedbackRules = {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  margin-top: 1.5rem;
+  margin-top: 1rem;
 }
 
 .primary-button {
@@ -537,8 +537,8 @@ const feedbackRules = {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 1.5rem;
-  padding-top: 1.5rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
   border-top: 1px solid var(--border-color);
 }
 
@@ -617,7 +617,7 @@ const feedbackRules = {
 }
 
 :deep(.el-form-item) {
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
 }
 
 :deep(.el-form-item__label) {

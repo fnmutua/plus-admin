@@ -352,7 +352,7 @@ const toPrivacy = () => {
                 />
               </el-form-item>
 
-              <el-form-item prop="organization_name" class="form-field-item" label-position="top">
+              <el-form-item prop="organization_name" class="form-field-item form-field-full" label-position="top">
                 <template #label>
                   <span class="form-label">Organization</span>
                 </template>
@@ -364,7 +364,7 @@ const toPrivacy = () => {
                 />
               </el-form-item>
 
-              <el-form-item prop="phone" class="form-field-item" label-position="top">
+              <el-form-item prop="phone" class="form-field-item form-field-full" label-position="top">
                 <template #label>
                   <span class="form-label">Phone</span>
                 </template>
@@ -400,7 +400,7 @@ const toPrivacy = () => {
                 </el-select>
               </el-form-item>
 
-              <el-form-item prop="agree_terms" class="form-field-item checkbox-item">
+              <el-form-item prop="agree_terms" class="form-field-item checkbox-item form-field-full">
                 <el-checkbox v-model="formData.agree_terms">
                   <span class="checkbox-label">
                     I agree to the
@@ -471,7 +471,7 @@ const toPrivacy = () => {
 
 .auth-container {
   width: 100%;
-  max-width: 420px;
+  max-width: 700px;
   position: relative;
   z-index: 1;
 }
@@ -480,7 +480,7 @@ const toPrivacy = () => {
   background: var(--card-bg);
   border: 1px solid var(--border-color);
   border-radius: 16px;
-  padding: 2.5rem;
+  padding: 1.5rem;
   box-shadow: 
     0 1px 3px rgba(0, 0, 0, 0.08),
     0 10px 40px rgba(0, 0, 0, 0.04);
@@ -496,19 +496,19 @@ const toPrivacy = () => {
 /* Header */
 .auth-header {
   text-align: center;
-  margin-bottom: 1.75rem;
+  margin-bottom: 1rem;
 }
 
 .auth-title {
-  font-size: 1.75rem;
+  font-size: 1.5rem;
   font-weight: 600;
   color: var(--text-primary);
-  margin: 0 0 0.5rem 0;
+  margin: 0 0 0.125rem 0;
   letter-spacing: -0.01em;
 }
 
 .auth-subtitle {
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
   color: var(--text-secondary);
   margin: 0;
 }
@@ -520,15 +520,19 @@ const toPrivacy = () => {
 }
 
 .form-fields {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-  margin-bottom: 1.5rem;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.625rem;
+  margin-bottom: 0.75rem;
 }
 
 .form-field-item {
   margin-bottom: 0 !important;
   width: 100%;
+}
+
+.form-field-full {
+  grid-column: 1 / -1;
 }
 
 :deep(.form-field-item .el-form-item) {
@@ -543,18 +547,18 @@ const toPrivacy = () => {
 }
 
 .form-label {
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 500;
   color: var(--text-primary);
   display: block;
-  margin-bottom: 0.5rem;
-  line-height: 1.4;
+  margin-bottom: 0.25rem;
+  line-height: 1.3;
 }
 
 :deep(.el-form-item__label) {
   padding: 0;
-  margin-bottom: 0.5rem;
-  line-height: 1.4;
+  margin-bottom: 0.25rem;
+  line-height: 1.3;
   width: 100%;
   text-align: left;
 }
@@ -564,10 +568,10 @@ const toPrivacy = () => {
 }
 
 :deep(.el-form-item__error) {
-  font-size: 0.8125rem;
-  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  margin-top: 0.25rem;
   padding-left: 0;
-  line-height: 1.4;
+  line-height: 1.3;
   position: static;
   color: var(--el-color-error);
 }
@@ -579,13 +583,13 @@ const toPrivacy = () => {
 
 :deep(.el-input) {
   width: 100%;
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
 }
 
 :deep(.el-input__wrapper) {
   border-radius: 8px;
   padding: 0 14px;
-  height: 44px;
+  height: 40px;
   background: transparent;
   border: 1px solid var(--border-color);
   transition: all 0.15s ease;
@@ -605,7 +609,7 @@ const toPrivacy = () => {
 
 :deep(.el-input__inner) {
   color: var(--text-primary);
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
   line-height: 1.5;
   padding: 0;
 }
@@ -622,7 +626,7 @@ const toPrivacy = () => {
 :deep(.el-select .el-input__wrapper) {
   border-radius: 8px;
   padding: 0 14px;
-  height: 44px;
+  height: 40px;
   background: transparent;
   border: 1px solid var(--border-color);
   transition: all 0.15s ease;
@@ -646,13 +650,13 @@ const toPrivacy = () => {
 
 :deep(.input-password .el-input) {
   width: 100%;
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
 }
 
 :deep(.input-password .el-input__wrapper) {
   border-radius: 8px;
   padding: 0 14px;
-  height: 44px;
+  height: 40px;
   background: transparent;
   border: 1px solid var(--border-color);
   transition: all 0.15s ease;
@@ -672,7 +676,7 @@ const toPrivacy = () => {
 
 :deep(.input-password .el-input__inner) {
   color: var(--text-primary);
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
   line-height: 1.5;
 }
 
@@ -683,7 +687,7 @@ const toPrivacy = () => {
   background: transparent !important;
   transition: all 0.15s ease;
   width: 100%;
-  height: 44px;
+  height: 40px;
 }
 
 :deep(.vue-tel-input:focus-within) {
@@ -696,7 +700,7 @@ const toPrivacy = () => {
   background: transparent !important;
   border-right: 1px solid var(--border-color);
   border-radius: 8px 0 0 8px;
-  height: 44px;
+  height: 40px;
 }
 
 :deep(.vue-tel-input .vti__input) {
@@ -704,10 +708,10 @@ const toPrivacy = () => {
   background: transparent !important;
   border-radius: 0 8px 8px 0;
   padding: 0 14px;
-  height: 44px;
-  line-height: 44px;
+  height: 40px;
+  line-height: 40px;
   color: var(--text-primary);
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
 }
 
 :deep(.vue-tel-input .vti__dropdown-list) {
@@ -760,8 +764,8 @@ const toPrivacy = () => {
 
 :deep(.el-checkbox__label) {
   color: var(--text-primary);
-  font-size: 0.875rem;
-  line-height: 1.5;
+  font-size: 0.8125rem;
+  line-height: 1.4;
   margin-left: 8px;
   padding-left: 0;
 }
@@ -803,8 +807,8 @@ const toPrivacy = () => {
 }
 
 .auth-button {
-  height: 44px;
-  font-size: 0.9375rem;
+  height: 40px;
+  font-size: 0.875rem;
   font-weight: 600;
   border-radius: 8px;
   background: linear-gradient(135deg, #00DC82 0%, #00B86B 100%);
@@ -826,8 +830,8 @@ const toPrivacy = () => {
 /* Footer */
 .auth-footer {
   text-align: center;
-  padding-top: 1.25rem;
-  margin-top: 1.5rem;
+  padding-top: 0.75rem;
+  margin-top: 0.75rem;
   border-top: 1px solid var(--border-color);
 }
 
@@ -850,13 +854,23 @@ const toPrivacy = () => {
 }
 
 /* Responsive */
+@media (max-width: 768px) {
+  .auth-container {
+    max-width: 420px;
+  }
+
+  .form-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 640px) {
   .auth-page {
     padding: 1rem;
   }
 
   .auth-card {
-    padding: 2rem 1.5rem;
+    padding: 1.25rem 1rem;
     border-radius: 16px;
   }
 

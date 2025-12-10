@@ -13,7 +13,6 @@ import { UserType } from '@/api/login/types'
 import { useValidator } from '@/hooks/web/useValidator'
 import { getUserPermissions, resetUserPassword } from '@/api/users'
 import BaseLayout from './../BaseLayout.vue'
-import { Icon } from '@iconify/vue'
 
 const { required } = useValidator()
 const appStore = useAppStore()
@@ -47,7 +46,7 @@ const resetPasswordLoading = ref(false)
 const resetPasswordRules = {
   email: [
     { required: true, message: 'Please enter your email address', trigger: 'blur' },
-    { type: 'email', message: 'Please enter a valid email address', trigger: ['blur', 'change'] }
+    { type: 'email' as const, message: 'Please enter a valid email address', trigger: ['blur', 'change'] }
   ]
 }
 
@@ -57,7 +56,7 @@ const handleForgotPassword = async () => {
     if (isValid) {
       resetPasswordLoading.value = true
       try {
-        await resetUserPassword(resetPasswordForm as any)
+        await resetUserPassword({ email: resetPasswordForm.email } as any)
         ElMessage.success('Password reset instructions have been sent to your email')
         forgotPasswordDialog.value = false
         resetPasswordForm.email = ''
@@ -175,10 +174,10 @@ const signIn = async () => {
   await formRef?.validate(async (isValid) => {
     if (isValid) {
       loginLoading.value = true
-      const formData: UserType = {
+      const formData = {
         username: loginForm.username,
         password: loginForm.password
-      } as UserType
+      } as any
       try {
         const res: any = await loginApi(formData)
         const selUserDetails = (({ id, name, roles, data, county_id, avatar, phone, photo }) => 
@@ -190,7 +189,7 @@ const signIn = async () => {
           if (appStore.getDynamicRouter) {
             getRole(userDeatilsAfterLogin, formData)
           } else {
-            await permissionStore.generateRoutes('none').catch(() => { })
+            await permissionStore.generateRoutes('none', 'settlement').catch(() => { })
             permissionStore.getAddRouters.forEach((route) => {
               addRoute(route as RouteRecordRaw)
             })
@@ -411,7 +410,7 @@ const toRegister = () => {
   background: var(--card-bg);
   border: 1px solid var(--border-color);
   border-radius: 16px;
-  padding: 2.5rem;
+  padding: 1.75rem;
   box-shadow: 
     0 1px 3px rgba(0, 0, 0, 0.08),
     0 10px 40px rgba(0, 0, 0, 0.04);
@@ -427,14 +426,14 @@ const toRegister = () => {
 /* Header */
 .auth-header {
   text-align: center;
-  margin-bottom: 1.75rem;
+  margin-bottom: 1.25rem;
 }
 
 .auth-title {
-  font-size: 1.75rem;
+  font-size: 1.5rem;
   font-weight: 600;
   color: var(--text-primary);
-  margin: 0 0 0.5rem 0;
+  margin: 0 0 0.25rem 0;
   letter-spacing: -0.01em;
 }
 
@@ -453,7 +452,7 @@ const toRegister = () => {
 .form-fields {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 0.875rem;
   margin-bottom: 0;
 }
 
@@ -463,11 +462,11 @@ const toRegister = () => {
 }
 
 .form-label {
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 500;
   color: var(--text-primary);
   display: block;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.375rem;
   line-height: 1.4;
 }
 
@@ -476,7 +475,7 @@ const toRegister = () => {
   justify-content: space-between;
   align-items: center;
   width: 100%;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.375rem;
 }
 
 .forgot-link {
@@ -500,7 +499,7 @@ const toRegister = () => {
 
 :deep(.el-form-item__label) {
   padding: 0;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.375rem;
   line-height: 1.4;
   width: 100%;
   text-align: left;
@@ -516,8 +515,8 @@ const toRegister = () => {
 }
 
 :deep(.el-form-item__error) {
-  font-size: 0.8125rem;
-  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  margin-top: 0.375rem;
   padding-left: 0;
   line-height: 1.4;
   position: static;
@@ -578,7 +577,7 @@ const toRegister = () => {
 :deep(.input-password .el-input__wrapper) {
   border-radius: 8px;
   padding: 0 14px;
-  height: 44px;
+  height: 40px;
   background: transparent;
   border: 1px solid var(--border-color);
   transition: all 0.15s ease;
@@ -604,7 +603,7 @@ const toRegister = () => {
 
 /* Actions */
 .auth-actions {
-  margin-top: 1.5rem;
+  margin-top: 1rem;
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -612,8 +611,8 @@ const toRegister = () => {
 }
 
 .auth-button {
-  height: 44px;
-  font-size: 0.9375rem;
+  height: 40px;
+  font-size: 0.875rem;
   font-weight: 600;
   border-radius: 8px;
   background: linear-gradient(135deg, #00DC82 0%, #00B86B 100%);
@@ -635,7 +634,7 @@ const toRegister = () => {
 .divider {
   display: flex;
   align-items: center;
-  margin: 1rem 0;
+  margin: 0.75rem 0;
   text-align: center;
   width: 100%;
 }
@@ -655,8 +654,8 @@ const toRegister = () => {
 }
 
 .guest-button {
-  height: 44px;
-  font-size: 0.9375rem;
+  height: 40px;
+  font-size: 0.875rem;
   font-weight: 500;
   border-radius: 8px;
   background: transparent;
@@ -680,8 +679,8 @@ const toRegister = () => {
 /* Footer */
 .auth-footer {
   text-align: center;
-  padding-top: 1.25rem;
-  margin-top: 1.5rem;
+  padding-top: 1rem;
+  margin-top: 1rem;
   border-top: 1px solid var(--border-color);
 }
 
@@ -710,7 +709,7 @@ const toRegister = () => {
   }
 
   .auth-card {
-    padding: 2rem 1.5rem;
+    padding: 1.5rem 1.25rem;
     border-radius: 16px;
   }
 
