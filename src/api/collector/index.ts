@@ -113,6 +113,20 @@ export const getAllSubmissions = (data)  => {
  });
 };
 
+export const createSubmission = (data)  => {
+  return request.post({
+   url: prod + '/api/v1/collector/submissions/create',
+   data    
+ });
+};
+
+export const getSettlements = (data)  => {
+  return request.post({
+   url: prod + '/api/v1/collector/settlements',
+   data    
+ });
+};
+
 export const deleteSubmissions = (data)  => {
   return request.post({
    url: prod + '/api/v1/collector/submissions/delete',

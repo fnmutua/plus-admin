@@ -3,6 +3,7 @@ const db = require('../models')
 
 const Sequelize = require('sequelize')
   var request = require('request');
+const FormData = require('form-data');
 
  const { XMLParser } = require('fast-xml-parser');
  
@@ -1187,6 +1188,174 @@ const url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}
    });
 };
 
+exports.modelCreateSubmission = (req, res) => {
+  const { project, form, token, xml, deviceId } = req.body;
+
+  if (!project || !form || !token || !xml) {
+    return res.status(400).send({
+      error: 'Missing required fields: project, form, token, xml'
+    });
+  }
+
+  const qs = deviceId ? `?deviceID=${encodeURIComponent(deviceId)}` : '';
+  const url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions${qs}`;
+
+  // Ensure the submission XML has the form id attribute on the root <data> node
+  let xmlBody = xml;
+  try {
+    // Ensure the root element has id=<form>. Works for <data> or any root tag.
+    // Find first non-XML-declaration tag.
+    const rootMatch = xmlBody.match(/<(?!\?xml)([a-zA-Z0-9_-]+)([^>]*)>/);
+    if (rootMatch) {
+      const fullMatch = rootMatch[0];
+      const tagName = rootMatch[1];
+      const attrs = rootMatch[2] || '';
+      const withoutId = attrs.replace(/\sid="[^"]*"/i, '');
+      const rebuilt = `<${tagName} id="${form}"${withoutId}>`;
+      xmlBody = xmlBody.replace(fullMatch, rebuilt);
+    }
+
+    // If pcode exists, resolve settlement/county from Central entities and inject names into XML.
+    const pcodeMatch = xmlBody.match(/<pcode>([^<]*)<\/pcode>/i);
+    const pcodeVal = pcodeMatch && pcodeMatch[1] ? pcodeMatch[1].trim() : '';
+    if (pcodeVal) {
+      getEntities(token, project)
+        .then((ents) => {
+          const entity = ents?.value?.find((e) => e.code === pcodeVal);
+          if (entity) {
+            if (entity.sett_name) {
+              xmlBody = xmlBody.replace(/<settlement>[^<]*<\/settlement>/i, `<settlement>${entity.sett_name}</settlement>`);
+            }
+            if (entity.county_name) {
+              xmlBody = xmlBody.replace(/<county>[^<]*<\/county>/i, `<county>${entity.county_name}</county>`);
+            }
+          }
+          submitToCentral(xmlBody);
+        })
+        .catch((err) => {
+          console.warn('Settlement entity lookup failed, submitting as-is', err);
+          submitToCentral(xmlBody);
+        });
+      return; // submit inside callbacks above
+    }
+  } catch (e) {
+    console.warn('Unable to enforce form id on XML, using provided XML', e);
+  }
+
+  // default flow if no async entity lookup is needed
+  submitToCentral(xmlBody);
+
+  function submitToCentral(bodyXml) {
+    const qs = deviceId ? `?deviceID=${encodeURIComponent(deviceId)}` : '';
+    const url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions${qs}`;
+
+    request(
+      {
+        method: 'POST',
+        url,
+        headers: {
+          'Content-Type': 'application/xml',
+          'X-OpenRosa-Version': '1.0',
+          Authorization: `Bearer ${token}`
+        },
+        body: bodyXml
+      },
+      (err, response, body) => {
+        if (err) {
+          console.error('Create submission error:', err);
+          return res.status(500).send({
+            error: 'Failed to create submission',
+            message: err.message
+          });
+        }
+
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          return res.status(200).send({
+            message: 'Submission created successfully',
+            data: body
+          });
+        }
+
+        console.error('Create submission failed:', response.statusCode, body);
+        return res.status(response.statusCode).send({
+          error: 'Failed to create submission',
+          status: response.statusCode,
+          body
+        });
+      }
+    );
+  }
+
+  request(
+    {
+      method: 'POST',
+      url,
+      headers: {
+        'Content-Type': 'application/xml',
+        'X-OpenRosa-Version': '1.0',
+        Authorization: `Bearer ${token}`
+      },
+      body: xmlBody
+    },
+    (err, response, body) => {
+      if (err) {
+        console.error('Create submission error:', err);
+        return res.status(500).send({
+          error: 'Failed to create submission',
+          message: err.message
+        });
+      }
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return res.status(200).send({
+          message: 'Submission created successfully',
+          data: body
+        });
+      }
+
+      console.error('Create submission failed:', response.statusCode, body);
+      return res.status(response.statusCode).send({
+        error: 'Failed to create submission',
+        status: response.statusCode,
+        body
+      });
+    }
+  );
+};
+
+exports.modelGetSettlements = async (req, res) => {
+  const { project, token } = req.body;
+
+  if (!project || !token) {
+    return res.status(400).send({
+      error: 'Missing required fields: project, token'
+    });
+  }
+
+  try {
+    const settlements = await getEntities(token, project);
+    if (!settlements || !settlements.value) {
+      return res.status(500).send({ error: 'Failed to fetch settlements' });
+    }
+    const mapped = settlements.value.map(s => ({
+      id: s.__id,
+      code: s.code,
+      sett_name: s.sett_name,
+      county_name: s.county_name
+    }));
+    return res.status(200).send({
+      data: mapped,
+      code: '0000'
+    });
+  } catch (error) {
+    console.error('Get settlements error:', error);
+    return res.status(500).send({
+      error: 'Failed to fetch settlements',
+      message: error.message
+    });
+  }
+};
+
 
 
 
@@ -1204,7 +1373,7 @@ exports.modelGetCsvSubmissions = (req, res) => {
   }
 
   // Construct the CSV export URL
-  const url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions.csv?groupPaths=false`;
+  const url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions.csv?groupPaths=false&xmlFormId=${encodeURIComponent(form)}`;
  //POST /v1/projects/{projectId}/forms/{xmlFormId}/submissions.csv
 
 

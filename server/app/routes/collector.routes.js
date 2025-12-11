@@ -22,6 +22,7 @@ module.exports = function(app) {
   app.post("/api/v1/collector/project/flat", controller.modelDataCollectorGetFlattened);
   
   app.post("/api/v1/collector/project/submitter", [authJwt.verifyToken, authJwt.isStaffOrAdmin],controller.modelGetSubmitters);
+  app.post("/api/v1/collector/settlements", [authJwt.verifyToken], controller.modelGetSettlements);
  
  
 
@@ -30,6 +31,7 @@ module.exports = function(app) {
 
   app.post("/api/v1/collector/submissions", [authJwt.verifyToken], controller.modelGetSubmissions);
   app.post("/api/v1/collector/submissions/all",  controller.modelGetAllSubmissions);
+  app.post("/api/v1/collector/submissions/create", [authJwt.verifyToken], controller.modelCreateSubmission);
   app.post("/api/v1/collector/submissions/delete",  controller.modelDeleteSubmission);
   app.post("/api/v1/collector/submissions/edit",  controller.modelEditSubmission);
   app.post("/api/v1/collector/submissions/docs",  controller.getSubmissionAttachments);

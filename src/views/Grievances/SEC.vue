@@ -5,19 +5,21 @@
 import { ElButton } from 'element-plus'
 import { Back } from '@element-plus/icons-vue'
 
-import { ref, computed } from 'vue'
+import { ref, computed, reactive } from 'vue'
 import {
   ElPagination, ElInput, ElSelect, ElOption, ElCol,ElTable,ElTableColumn,
-  ElRow, ElCard, ElNotification, ElAlert
+  ElRow, ElCard, ElNotification, ElAlert, ElForm, ElFormItem, ElDrawer, ElSteps, ElStep, ElDescriptions
 } from 'element-plus'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import {
   loginCollector,
-  getSubmissions
+  getSubmissions,
+  createSubmission,
+  getSettlements
 } from '@/api/collector'
-
-import { watch, onMounted, toRaw } from 'vue';
+import { getSettlementListByCounty } from '@/api/settlements'
+import { watch, onMounted } from 'vue';
 
 import DownloadCustom from '@/views/Components/DownloadCustomFields.vue';
 import { useRouter } from 'vue-router'
@@ -46,6 +48,116 @@ const updatePageSize = () => {
   }
 };
 
+const countyListFromSettlements = computed<{ label: string; value: string | number }[]>(() => {
+  const seen = new Map<string, string>()
+  settlementsList.value.forEach((s: SettlementItem) => {
+    const key = s.county_id ? String(s.county_id) : String(s.county_name || '')
+    const label = s.county_name || key
+    if (key && !seen.has(key)) seen.set(key, label)
+  })
+  return Array.from(seen, ([value, label]) => ({
+    label,
+    value: isNaN(Number(value)) ? value : Number(value)
+  }))
+})
+
+const settlementOptionsByCounty = computed<{ label: string; value: string; code: string }[]>(() => {
+  if (!createForm.group_location.county) return []
+  return settlementsList.value
+    .filter((s: SettlementItem) =>
+      s.county_id
+        ? String(s.county_id) === String(createForm.group_location.county)
+        : s.county_name === createForm.group_location.county
+    )
+    .map((s: SettlementItem) => ({ label: s.sett_name, value: s.code, code: s.code }))
+})
+
+const resetCreateForm = () => {
+  createForm.group_location.county = ''
+  createForm.group_location.settlement = ''
+  createForm.group_location.settlement_new = ''
+  createForm.group_location.pcode = ''
+  createForm.sec_officials = [
+    {
+      category: '',
+      name: '',
+      national_id: '',
+      gender: '',
+      mobile: '',
+      sec_position: ''
+    }
+  ]
+  createForm.grp_certification.returning_officer = ''
+  createForm.grp_certification.county_kisip_coordinator = ''
+  createForm.grp_certification.npct_representative = ''
+  createForm.comments = ''
+  createForm.location = ''
+  createForm.photo = null
+  createForm.sec_register = null
+}
+
+const addOfficial = () => {
+  if (createForm.sec_officials.length >= maxOfficials) {
+    ElNotification({
+      title: 'Limit reached',
+    message: `Maximum of ${maxOfficials} officials allowed.`,
+      type: 'warning'
+    })
+    return
+  }
+  createForm.sec_officials.push({
+    category: '',
+    name: '',
+    national_id: '',
+    gender: '',
+    mobile: '',
+    sec_position: ''
+  })
+}
+
+const removeOfficial = (index) => {
+  if (createForm.sec_officials.length === 1) return
+  createForm.sec_officials.splice(index, 1)
+}
+
+const fileToBase64 = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const res = reader.result
+      if (typeof res === 'string') {
+        const commaIndex = res.indexOf(',')
+        resolve((commaIndex >= 0 ? res.slice(commaIndex + 1) : res) as string)
+      } else {
+        reject(new Error('Failed to read file'))
+      }
+    }
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+
+const handlePhotoChange = async (event) => {
+  const file = event.target.files?.[0]
+  if (file) {
+    createForm.photo = {
+      name: file.name,
+      contentType: file.type,
+      base64: await fileToBase64(file)
+    }
+  }
+}
+
+const handleRegisterChange = async (event) => {
+  const file = event.target.files?.[0]
+  if (file) {
+    createForm.sec_register = {
+      name: file.name,
+      contentType: file.type,
+      base64: await fileToBase64(file)
+    }
+  }
+}
+
 
 
 onMounted(async () => {
@@ -62,20 +174,98 @@ onMounted(async () => {
 
 console.log("userInfo--->", userInfo)
 
-const projects = ref([])
-const forms = ref([])
+type SettlementItem = {
+  id: string
+  code: string
+  sett_name: string
+  county_name: string
+  county_id?: string
+}
+
+type SecOfficialType = {
+  category: string
+  name: string
+  national_id: string
+  gender: string
+  mobile: string
+  sec_position: string
+}
+
+type FilePayload = {
+  name: string
+  contentType: string
+  base64: string
+}
+
+type CreateFormType = {
+  group_location: {
+    county: string
+    settlement: string
+    settlement_new: string
+    pcode: string
+  }
+  sec_officials: SecOfficialType[]
+  grp_certification: {
+    returning_officer: string
+    county_kisip_coordinator: string
+    npct_representative: string
+  }
+  comments: string
+  location: string
+  photo: FilePayload | null
+  sec_register: FilePayload | null
+}
+
+const projects = ref<any[]>([])
+const forms = ref<any[]>([])
 const loading = ref(false)
 const fetchingData = ref(false)
 const dataFetchStatus = ref('')
+const settlementsList = ref<SettlementItem[]>([])
+const createDrawerVisible = ref(false)
+const creating = ref(false)
+const creatingStatus = ref('')
+const activeStep = ref(0)
+const maxOfficials = 19
+const validationMessage = ref('')
+
+const createForm = reactive<CreateFormType>({
+  group_location: {
+    county: '',
+    settlement: '',
+    settlement_new: '',
+    pcode: ''
+  },
+  sec_officials: [
+    {
+      category: '',
+      name: '',
+      national_id: '',
+      gender: '',
+      mobile: '',
+      sec_position: ''
+    }
+  ],
+  grp_certification: {
+    returning_officer: '',
+    county_kisip_coordinator: '',
+    npct_representative: ''
+  },
+  comments: '',
+  location: '',
+  photo: null,
+  sec_register: null
+})
 
 
 
 
 
 const loginUserToCollector = async () => {
-  var formData = {}
-  formData.email = "kisip.mis@gmail.com"
-  formData.password = "***REDACTED***"
+  const formData: { email: string; password: string } = {
+    email: 'kisip.mis@gmail.com',
+    password: '***REDACTED***'
+  }
 
   loading.value = true
   fetchingData.value = true
@@ -116,6 +306,7 @@ const loginUserToCollector = async () => {
 
 
       getSecData()
+      fetchSettlements()
 
     })
   } catch (error) {
@@ -133,12 +324,12 @@ const loginUserToCollector = async () => {
 
 }
 
-const sec_officials = ref([])
+const sec_officials = ref<any[]>([])
 
 
 
-const countyOptions = ref([])
-const settlementOptions = ref([])
+const countyOptions = ref<{ label: string; value: string }[]>([])
+const settlementOptions = ref<{ label: string; value: string }[]>([])
 const extractData = async (dataArray) => {
 
   // Extract unique counties and settlements
@@ -215,8 +406,8 @@ const extractData = async (dataArray) => {
     }
   });
 
-  countyOptions.value = Array.from(uniqueCounties).map(county => ({ label: county, value: county }));
-  settlementOptions.value = Array.from(uniqueSettlements).map(settlement => ({ label: settlement, value: settlement }));
+  countyOptions.value = Array.from(uniqueCounties).map((county) => ({ label: String(county), value: String(county) }))
+  settlementOptions.value = Array.from(uniqueSettlements).map((settlement) => ({ label: String(settlement), value: String(settlement) }))
   console.log(countyOptions.value)
 };
 
@@ -278,29 +469,63 @@ const getSecData = async () => {
   }
 };
 
-
-
-const deleteRecord = async (row) => {
-  const formData = {
-    project: "1",
-    form: "sec_officials",
+const fetchSettlements = async () => {
+  const payload = {
+    project: '1',
     token: localStorage.getItem('collectorToken')
-  };
-
-  try {
-    // Await the response from getSubmissions
-    //const response = await deleteSubmissions(formData);
-
-    console.log('Delete Submission\s disabled:');
-
-
-  } catch (error) {
-    // Handle errors here
-    console.error('Delete Error:', error);
   }
-
+  try {
+    const res = await getSettlements(payload)
+    settlementsList.value = res.data || []
+    if (!settlementsList.value.length) {
+      console.warn('Settlements list is empty')
+    }
+  } catch (error) {
+    console.error('Fetch settlements error:', error)
+    ElNotification({
+      title: 'Error',
+      message: 'Failed to fetch settlements list',
+      type: 'error'
+    })
+  }
 }
-const totalItems = ref(); // Total number of rows (initially full dataset)
+
+// Backend path used in Sett.vue: fetch settlements filtered by county from main DB
+const fetchSettlementsByCounty = async (countyId: string | number) => {
+  const numericCountyId = Number(countyId)
+  if (!countyId || Number.isNaN(numericCountyId)) return
+  try {
+    const formData: any = {
+      model: 'settlement',
+      filters: ['county_id'],
+      filterValues: [[numericCountyId]],
+      filterOperator: ['in'],
+      limit: 500,
+      page: 1,
+      returnAll: true
+    }
+    const res = await getSettlementListByCounty(formData)
+    const data: any[] = (res as any).data || (res as any).list || []
+    settlementsList.value = data.map((s: any) => ({
+      id: s.id || s.__id,
+      code: s.code,
+      sett_name: s.name || s.sett_name || s.settlement_name,
+      county_name: s.county?.name || s.county_name,
+      county_id: s.county_id
+    }))
+  } catch (error) {
+    console.error('Fetch settlements by county error:', error)
+    ElNotification({
+      title: 'Error',
+      message: 'Failed to fetch settlements for selected county',
+      type: 'error'
+    })
+  }
+}
+
+
+
+const totalItems = ref<number>(0); // Total number of rows (initially full dataset)
 
 
 console.log("projects--->", projects.value)
@@ -321,6 +546,229 @@ const formatTitle = (attribute) => {
     .toLowerCase() // Convert to lowercase
     .replace(/\b\w/g, char => char.toUpperCase()); // Capitalize first letter of each word
 };
+
+const buildXml = () => {
+  const now = new Date()
+  const start = now.toISOString()
+  const end = now.toISOString()
+  const dateOnly = now.toISOString().slice(0, 10)
+  const selectedEntity = settlementsList.value.find(
+    (s) => s.code === createForm.group_location.settlement
+  )
+  const settlementLabel = selectedEntity?.sett_name || createForm.group_location.settlement
+  const countyLabel =
+    selectedEntity?.county_name ||
+    countyListFromSettlements.value.find((c) => String(c.value) === String(createForm.group_location.county))?.label ||
+    createForm.group_location.county
+
+  const esc = (s = '') =>
+    String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+
+  const officialsXml = createForm.sec_officials
+    .map(
+      (o) => `
+        <sec_officials>
+          <category>${esc(o.category)}</category>
+          <name>${esc(o.name)}</name>
+          <national_id>${esc(o.national_id)}</national_id>
+          <gender>${esc(o.gender)}</gender>
+          <mobile>${esc(o.mobile)}</mobile>
+          <position_select></position_select>
+          <taken_select></taken_select>
+          <sec_position>${esc(o.sec_position)}</sec_position>
+        </sec_officials>`
+    )
+    .join('')
+
+  const uuid = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0
+    const v = c === 'x' ? r : (r & 0x3) | 0x8
+    return v.toString(16)
+  })
+
+  // Instance-only XML as required by Central; settlement uses entity name, code remains in pcode
+  return `<?xml version="1.0"?>
+<data id="sec_officials">
+  <start>${esc(start)}</start>
+  <end>${esc(end)}</end>
+  <today>${esc(dateOnly)}</today>
+  <group_location>
+    <county>${esc(countyLabel)}</county>
+    <settlement>${esc(settlementLabel)}</settlement>
+    <settlement_new>${esc(createForm.group_location.settlement_new)}</settlement_new>
+    <pcode>${esc(createForm.group_location.pcode)}</pcode>
+  </group_location>
+  ${officialsXml}
+  <grp_certification>
+    <returning_officer>${esc(createForm.grp_certification.returning_officer)}</returning_officer>
+    <county_kisip_coordinator>${esc(createForm.grp_certification.county_kisip_coordinator)}</county_kisip_coordinator>
+    <npct_representative>${esc(createForm.grp_certification.npct_representative)}</npct_representative>
+  </grp_certification>
+  <comments>${esc(createForm.comments)}</comments>
+  <location>${esc(createForm.location)}</location>
+  <photo>${createForm.photo ? esc(createForm.photo.name) : ''}</photo>
+  <sec_photo>
+    <sec_register>${createForm.sec_register ? esc(createForm.sec_register.name) : ''}</sec_register>
+  </sec_photo>
+  <meta>
+    <instanceID>uuid:${uuid()}</instanceID>
+  </meta>
+</data>`
+}
+
+const validateOfficialsData = () => {
+  const len = createForm.sec_officials.length
+  if (len !== maxOfficials) {
+    return { ok: false, msg: `Need exactly ${maxOfficials} officials (currently ${len}).` }
+  }
+
+  const positionSet = new Set()
+  const nationalSet = new Set()
+
+  for (let i = 0; i < len; i++) {
+    const o = createForm.sec_officials[i]
+    if (!o.category || !o.name || !o.national_id || !o.gender || !o.mobile || !o.sec_position) {
+      return { ok: false, msg: `Row ${i + 1}: all fields are required.` }
+    }
+
+    if (!['member', 'Ex-official'].includes(o.sec_position)) {
+      if (positionSet.has(o.sec_position)) {
+        return { ok: false, msg: `Role ${o.sec_position} already selected.` }
+      }
+      positionSet.add(o.sec_position)
+    }
+
+    if (nationalSet.has(o.national_id)) {
+      return { ok: false, msg: `National ID ${o.national_id} is duplicated.` }
+    }
+    nationalSet.add(o.national_id)
+  }
+
+  return { ok: true, msg: '' }
+}
+
+const validationState = computed(() => validateOfficialsData())
+const submitDisabled = computed(() => !validationState.value.ok || creating.value)
+
+const isPositionTaken = (pos, rowIndex) => {
+  if (!pos || pos === 'member' || pos === 'Ex-official') return false
+  return createForm.sec_officials.some((o, idx) => idx !== rowIndex && o.sec_position === pos)
+}
+
+const goNext = () => {
+  if (activeStep.value === 0) {
+    if (!createForm.group_location.county || !(createForm.group_location.settlement || createForm.group_location.settlement_new)) {
+      validationMessage.value = 'County and settlement are required.'
+      ElNotification({ title: 'Missing info', message: validationMessage.value, type: 'warning' })
+      return
+    }
+    validationMessage.value = ''
+    activeStep.value = 1
+    return
+  }
+
+  if (activeStep.value === 1) {
+    const state = validateOfficialsData()
+    validationMessage.value = state.msg
+    if (!state.ok) {
+      ElNotification({ title: 'Incomplete officials', message: state.msg, type: 'warning' })
+      return
+    }
+    activeStep.value = 2
+  }
+}
+
+const goPrev = () => {
+  if (activeStep.value > 0) activeStep.value -= 1
+}
+
+const openCreateDrawer = () => {
+  resetCreateForm()
+  activeStep.value = 0
+  createDrawerVisible.value = true
+}
+
+const handleCountyChange = (val: string | number) => {
+  createForm.group_location.county = val ? String(val) : ''
+  createForm.group_location.settlement = ''
+  createForm.group_location.pcode = ''
+  // Fetch settlements from main backend (Sett.vue style) for this county if numeric id exists
+  if (val && !Number.isNaN(Number(val))) {
+    fetchSettlementsByCounty(val)
+  }
+}
+
+const submitCreate = async () => {
+  const state = validateOfficialsData()
+  if (!state.ok) {
+    validationMessage.value = state.msg
+    ElNotification({ title: 'Cannot submit', message: state.msg, type: 'warning' })
+    return
+  }
+
+  creating.value = true
+  creatingStatus.value = 'Submitting SEC record...'
+
+  try {
+    // Update pcode from selected settlement if available
+    const sel = settlementOptionsByCounty.value.find(
+      (s) => s.value === createForm.group_location.settlement
+    )
+    if (sel) {
+      createForm.group_location.pcode = sel.code
+      // ensure settlement holds the selected code while label is used in XML
+      createForm.group_location.settlement = sel.value
+    }
+
+    const xml = buildXml()
+    const attachments: { name: string; content: string; contentType: string }[] = []
+    if (createForm.photo) {
+      attachments.push({
+        name: createForm.photo.name,
+        content: createForm.photo.base64,
+        contentType: createForm.photo.contentType
+      })
+    }
+    if (createForm.sec_register) {
+      attachments.push({
+        name: createForm.sec_register.name,
+        content: createForm.sec_register.base64,
+        contentType: createForm.sec_register.contentType
+      })
+    }
+
+    const payload = {
+      project: '1',
+      form: 'sec_officials',
+      token: localStorage.getItem('collectorToken'),
+      xml,
+      attachments
+    }
+
+    await createSubmission(payload)
+    ElNotification({
+      title: 'Success',
+      message: 'SEC record created',
+      type: 'success'
+    })
+    createDrawerVisible.value = false
+    resetCreateForm()
+    getSecData()
+  } catch (error) {
+    console.error('Create SEC error:', error)
+    ElNotification({
+      title: 'Error',
+      message: 'Failed to create SEC record',
+      type: 'error'
+    })
+  } finally {
+    creating.value = false
+    creatingStatus.value = ''
+  }
+}
 
 const generateColumnsX = (attributes, prefix = 'column-', width = 150) => {
   if (!Array.isArray(attributes)) {
@@ -459,6 +907,24 @@ watch(filteredData, (newValue) => {
   }
 });
 
+watch(
+  () => createForm.group_location.settlement,
+  (val) => {
+    const sel = settlementOptionsByCounty.value.find((s) => s.value === val)
+    if (sel) {
+      createForm.group_location.pcode = sel.code
+    }
+  }
+)
+
+watch(
+  () => createForm.group_location.county,
+  () => {
+    createForm.group_location.settlement = ''
+    createForm.group_location.pcode = ''
+  }
+)
+
 
 const router = useRouter()
 
@@ -503,22 +969,6 @@ const SEC_options =  [
 ]
 
 
- 
-const anyRowSelected=ref(false)
-
-const multipleTableRef = ref()
-const multipleSelection = ref()
-
-const selectable = (row: any) => !row.has_acc;
-const handleSelectionChange = (val: any[]) => {
-  multipleSelection.value = val
-  anyRowSelected.value=true
-
-  multipleSelection.value = val.map(toRaw); // Convert proxies to raw objects
-
-
- }
-
 </script>
 
 <template>
@@ -547,6 +997,12 @@ const handleSelectionChange = (val: any[]) => {
       <el-col :xs="24" :sm="24" :md="2" :lg="2" class="max-w-200px">
         <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
           Back
+        </el-button>
+      </el-col>
+
+      <el-col :xs="24" :sm="24" :md="4" :lg="3">
+        <el-button type="success" @click="openCreateDrawer" style="margin-right: 10px;">
+          Add SEC Record
         </el-button>
       </el-col>
 
@@ -610,11 +1066,9 @@ clearable v-model="search" placeholder="Search by Name, ID, Phone.."
 
 
     <el-table
-      ref="multipleTableRef"
       :data="paginatedData"
       row-key="national_id"
       style="width: 100%"
-      @selection-change="handleSelectionChange"
     >
     
       <el-table-column property="name" label="Name"  sortable />
@@ -645,5 +1099,202 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
     </div>
 
   </el-card>
+
+  <el-drawer v-model="createDrawerVisible" title="Create SEC Record" size="80%">
+    <el-steps :active="activeStep" finish-status="success" align-center style="margin-bottom: 16px;">
+      <el-step title="Location" description="County & settlement" />
+      <el-step title="Officials" description="Up to 19 unique roles" />
+      <el-step title="Review & Submit" />
+    </el-steps>
+
+    <div v-if="activeStep === 0">
+      <el-form label-position="top">
+        <el-row :gutter="10">
+          <el-col :xs="24" :sm="12" :md="12">
+            <el-form-item label="County">
+              <el-select
+                v-model="createForm.group_location.county"
+                filterable
+                clearable
+                placeholder="Select county"
+                @change="handleCountyChange"
+              >
+                <el-option v-for="c in countyListFromSettlements" :key="c.value" :label="c.label" :value="c.value" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24" :sm="12" :md="12">
+            <el-form-item label="Settlement">
+              <el-select v-model="createForm.group_location.settlement" filterable clearable placeholder="Select settlement (code)">
+                <el-option v-for="s in settlementOptionsByCounty" :key="s.value" :label="s.label" :value="s.value" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="10">
+          <el-col :xs="24" :sm="12" :md="12">
+            <el-form-item label="Settlement (new if not listed)">
+              <el-input v-model="createForm.group_location.settlement_new" placeholder="New settlement name" />
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24" :sm="12" :md="12">
+            <el-form-item label="PCODE">
+              <el-input v-model="createForm.group_location.pcode" placeholder="Auto from settlement" readonly />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="10">
+          <el-col :xs="24" :sm="12" :md="12">
+            <el-form-item label="Comments">
+              <el-input v-model="createForm.comments" type="textarea" />
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24" :sm="12" :md="12">
+            <el-form-item label="Location (lat lon alt acc)">
+              <el-input v-model="createForm.location" placeholder="e.g. -1.23 36.82 0 5" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="10">
+          <el-col :xs="24" :sm="12" :md="12">
+            <el-form-item label="Committee Photo">
+              <input type="file" accept="image/*" @change="handlePhotoChange" />
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24" :sm="12" :md="12">
+            <el-form-item label="Register Photo">
+              <input type="file" accept="image/*" @change="handleRegisterChange" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+    </div>
+
+    <div v-else-if="activeStep === 1">
+      <div style="margin-bottom: 10px;">
+        <el-button type="primary" plain @click="addOfficial" :disabled="createForm.sec_officials.length >= maxOfficials">Add Official</el-button>
+        <span style="margin-left: 8px; color: #909399;">Need exactly {{ maxOfficials }} officials; roles unique except Member / Ex-official.</span>
+      </div>
+      <el-alert
+        v-if="!validationState.ok"
+        type="info"
+        :title="validationState.msg || 'Fill all required fields and avoid duplicate roles/IDs.'"
+        show-icon
+        style="margin-bottom: 8px;"
+      />
+      <el-table :data="createForm.sec_officials" border style="width: 100%;">
+        <el-table-column type="index" width="50" label="#" />
+        <el-table-column label="Category">
+          <template #default="{ row }">
+            <el-select v-model="row.category" filterable placeholder="Category">
+              <el-option v-for="item in category_options" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+          </template>
+        </el-table-column>
+        <el-table-column label="Name">
+          <template #default="{ row }">
+            <el-input v-model="row.name" />
+          </template>
+        </el-table-column>
+        <el-table-column label="National ID">
+          <template #default="{ row }">
+            <el-input v-model="row.national_id" />
+          </template>
+        </el-table-column>
+        <el-table-column label="Gender">
+          <template #default="{ row }">
+            <el-select v-model="row.gender" placeholder="Gender">
+              <el-option v-for="g in ['male','female']" :key="g" :label="g" :value="g" />
+            </el-select>
+          </template>
+        </el-table-column>
+        <el-table-column label="Mobile">
+          <template #default="{ row }">
+            <el-input v-model="row.mobile" />
+          </template>
+        </el-table-column>
+        <el-table-column label="Position">
+          <template #default="scope">
+            <el-select v-model="scope.row.sec_position" filterable placeholder="Position">
+              <el-option
+                v-for="item in SEC_options"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+                :disabled="isPositionTaken(item.value, scope.$index)"
+              />
+            </el-select>
+          </template>
+        </el-table-column>
+        <el-table-column width="100" label="Remove">
+          <template #default="{ $index }">
+            <el-button type="danger" size="small" @click="removeOfficial($index)" :disabled="createForm.sec_officials.length <= 1">Remove</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
+
+    <div v-else>
+      <el-alert
+        v-if="!validationState.ok"
+        type="warning"
+        :title="validationState.msg || 'Complete officials list to enable submit.'"
+        show-icon
+        style="margin-bottom: 12px;"
+      />
+      <el-descriptions title="Group Location" :column="2" border>
+        <el-descriptions-item label="County">{{ createForm.group_location.county }}</el-descriptions-item>
+        <el-descriptions-item label="Settlement">
+          {{
+            settlementOptionsByCounty.find((s) => s.value === createForm.group_location.settlement)?.label ||
+            createForm.group_location.settlement
+          }}
+        </el-descriptions-item>
+        <el-descriptions-item label="PCODE">{{ createForm.group_location.pcode }}</el-descriptions-item>
+        <el-descriptions-item label="Comments">{{ createForm.comments }}</el-descriptions-item>
+      </el-descriptions>
+      <el-row :gutter="10" style="margin-top: 12px;">
+        <el-col :xs="24" :sm="12" :md="8">
+          <el-form-item label="Returning Officer">
+            <el-input v-model="createForm.grp_certification.returning_officer" />
+          </el-form-item>
+        </el-col>
+        <el-col :xs="24" :sm="12" :md="8">
+          <el-form-item label="County KISIP Coordinator">
+            <el-input v-model="createForm.grp_certification.county_kisip_coordinator" />
+          </el-form-item>
+        </el-col>
+        <el-col :xs="24" :sm="12" :md="8">
+          <el-form-item label="KISIP NPCT Representative">
+            <el-input v-model="createForm.grp_certification.npct_representative" />
+          </el-form-item>
+        </el-col>
+      </el-row>
+      <div style="margin-top: 12px;">
+        <el-table :data="createForm.sec_officials" border>
+          <el-table-column type="index" width="50" label="#" />
+          <el-table-column prop="name" label="Name" />
+          <el-table-column prop="national_id" label="National ID" />
+          <el-table-column prop="gender" label="Gender" />
+          <el-table-column prop="mobile" label="Mobile" />
+          <el-table-column prop="sec_position" label="Position" />
+          <el-table-column prop="category" label="Category" />
+        </el-table>
+      </div>
+    </div>
+
+    <template #footer>
+      <div style="display: flex; justify-content: space-between; width: 100%;">
+        <div>
+          <el-button @click="createDrawerVisible = false">Cancel</el-button>
+        </div>
+        <div>
+          <el-button v-if="activeStep > 0" @click="goPrev">Previous</el-button>
+          <el-button v-if="activeStep < 2" type="primary" @click="goNext">Next</el-button>
+          <el-button v-else type="primary" :loading="creating" :disabled="submitDisabled" @click="submitCreate">Submit</el-button>
+        </div>
+      </div>
+    </template>
+  </el-drawer>
 
 </template>
