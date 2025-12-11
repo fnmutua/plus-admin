@@ -1190,6 +1190,7 @@ const url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}
 
 exports.modelCreateSubmission = (req, res) => {
   const { project, form, token, xml, deviceId } = req.body;
+  let responded = false;
 
   if (!project || !form || !token || !xml) {
     return res.status(400).send({
@@ -1261,7 +1262,9 @@ exports.modelCreateSubmission = (req, res) => {
         body: bodyXml
       },
       (err, response, body) => {
+        if (responded) return;
         if (err) {
+          responded = true;
           console.error('Create submission error:', err);
           return res.status(500).send({
             error: 'Failed to create submission',
@@ -1270,12 +1273,14 @@ exports.modelCreateSubmission = (req, res) => {
         }
 
         if (response.statusCode >= 200 && response.statusCode < 300) {
+          responded = true;
           return res.status(200).send({
             message: 'Submission created successfully',
             data: body
           });
         }
 
+        responded = true;
         console.error('Create submission failed:', response.statusCode, body);
         return res.status(response.statusCode).send({
           error: 'Failed to create submission',
@@ -1286,41 +1291,6 @@ exports.modelCreateSubmission = (req, res) => {
     );
   }
 
-  request(
-    {
-      method: 'POST',
-      url,
-      headers: {
-        'Content-Type': 'application/xml',
-        'X-OpenRosa-Version': '1.0',
-        Authorization: `Bearer ${token}`
-      },
-      body: xmlBody
-    },
-    (err, response, body) => {
-      if (err) {
-        console.error('Create submission error:', err);
-        return res.status(500).send({
-          error: 'Failed to create submission',
-          message: err.message
-        });
-      }
-
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        return res.status(200).send({
-          message: 'Submission created successfully',
-          data: body
-        });
-      }
-
-      console.error('Create submission failed:', response.statusCode, body);
-      return res.status(response.statusCode).send({
-        error: 'Failed to create submission',
-        status: response.statusCode,
-        body
-      });
-    }
-  );
 };
 
 exports.modelGetSettlements = async (req, res) => {

@@ -4,16 +4,16 @@
 
 import { Plus, Back } from '@element-plus/icons-vue'
 
-import { ref, computed,toRaw, unref } from 'vue'
+import { ref, computed,toRaw, unref, reactive } from 'vue'
 import {
-  ElPagination, ElInput, ElSelect, ElOption, ElButton, ElDialog,ElMessage,
-  ElRow, ElTableV2, ElCard,ElTable,ElTableColumn, ElNotification, ElAlert
+  ElPagination, ElInput, ElSelect, ElOption, ElButton, ElDialog,ElMessage,ElCol,
+  ElRow, ElTableV2, ElCard,ElTable,ElTableColumn, ElNotification, ElAlert, ElDrawer, ElForm, ElFormItem, ElDivider
 } from 'element-plus'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import {
-  loginCollector, deleteSubmissions, editSubmissions,
-  getSubmissions
+  loginCollector, editSubmissions,
+  getSubmissions, createSubmission
 } from '@/api/collector'
 
 import {
@@ -123,33 +123,20 @@ const loginUserToCollector = async () => {
   })
 
   try {
-    await loginCollector(formData).then((response) => {
-      // Assuming the token is in the response data
-      const token = response.token;
-      // Save the token to localStorage
-      localStorage.setItem('collectorToken', token);
-      console.log('collectorToken:', response);
-      const all_projects = JSON.parse(response.data);
-      console.log('projects:', projects);
+    const response = await loginCollector(formData)
+    const token = response.token
+    localStorage.setItem('collectorToken', token)
+    const all_projects = JSON.parse(response.data)
 
-      // loop through each project 
-      all_projects.forEach(function (project) {
-
-        projects.value.push(project)
-
-        project.formList.forEach(function (form) {
-
-          forms.value.push(form)
-
-
-        })
-
+    all_projects.forEach(function (project) {
+      projects.value.push(project)
+      project.formList.forEach(function (form) {
+        forms.value.push(form)
       })
-
-
-      getGRCData()
-
     })
+
+    await getGRCData()
+    await loadSecRoster()
   } catch (error) {
     loading.value = false
     fetchingData.value = false
@@ -171,6 +158,7 @@ const grc_officials = ref([])
 
 const countyOptions = ref([])
 const settlementOptions = ref([])
+const settlementCodeMap = reactive<Record<string, string>>({})
 const extractData = async (dataArray) => {
 
   // Extract unique counties and settlements
@@ -246,12 +234,19 @@ const extractData = async (dataArray) => {
         if (!isDuplicate(newOfficial)) {
           grc_officials.value.push(newOfficial);
         }
+        if (official_details.settlement && official_details.settlement_code) {
+          settlementCodeMap[official_details.settlement] = official_details.settlement_code;
+        }
       });
     }
   });
 
   countyOptions.value = Array.from(uniqueCounties).map(county => ({ label: county, value: county }));
-  settlementOptions.value = Array.from(uniqueSettlements).map(settlement => ({ label: settlement, value: settlement }));
+  settlementOptions.value = Array.from(uniqueSettlements).map(settlement => ({
+    label: settlement,
+    value: settlement,
+    code: settlementCodeMap[settlement] || ''
+  }));
   console.log(countyOptions.value)
 };
 
@@ -342,6 +337,46 @@ const getGRCData = async () => {
 };
 
 
+const loadSecRoster = async () => {
+  const formData = {
+    project: '1',
+    form: 'sec_officials',
+    token: localStorage.getItem('collectorToken')
+  }
+
+  try {
+    const response = await getSubmissions(formData)
+    const seen = new Set()
+    secRoster.value = []
+    response.data.forEach((data) => {
+      if (!data || !Array.isArray(data.sec_officials)) return
+
+      const settlementLabel = data.settlement_name || data.group_location?.settlement || ''
+      const countyLabel = data.group_location?.county || ''
+      data.sec_officials.forEach((official) => {
+        const entry = {
+          settlement: settlementLabel,
+          county: countyLabel,
+          category: official.category || '',
+          gender: official.gender || '',
+          name: official.name || '',
+          sec_position: official.sec_position || '',
+          national_id: official.national_id || '',
+          mobile: official.mobile || ''
+        }
+        const key = `${entry.national_id}-${entry.settlement}-${entry.sec_position}`
+        if (!seen.has(key)) {
+          seen.add(key)
+          secRoster.value.push(entry)
+        }
+      })
+    })
+  } catch (error) {
+    console.error('Error loading SEC roster for GRC creation', error)
+  }
+}
+
+
 const dialogVisible = ref(false)
 
 const options = [
@@ -362,7 +397,99 @@ const options = [
 
 ]
 
+const isNewMemberPositionTaken = (pos, rowIndex) => {
+  if (!pos) return false
+  return newMembers.some((m, idx) => idx !== rowIndex && m.grc_position === pos)
+}
+
 const role = ref()
+
+const secRoster = ref<any[]>([])
+const createDrawerVisible = ref(false)
+const creating = ref(false)
+const grcCreateForm = reactive({
+  group_location: {
+    county: '',
+    settlement: '',
+    settlement_new: '',
+    pcode: ''
+  },
+  sec_selected: [] as string[],
+  comments: '',
+  grp_certification: {
+    returning_officer: '',
+    county_kisip_coordinator: '',
+    npct_representative: ''
+  }
+})
+
+const newMembers = reactive([
+  { name: '', national_id: '', mobile: '', gender: '', grc_position: '' },
+  { name: '', national_id: '', mobile: '', gender: '', grc_position: '' },
+  { name: '', national_id: '', mobile: '', gender: '', grc_position: '' }
+])
+
+const secOptionKey = (o) => o.national_id || `${o.name}-${o.mobile}`
+const availableSecOptions = computed(() =>
+  secRoster.value
+    .filter(
+      (o) =>
+        o.settlement === grcCreateForm.group_location.settlement &&
+        !['chairperson', 'chairman'].includes(String(o.sec_position || '').toLowerCase())
+    )
+    .map((o) => ({
+      label: `${o.name} (${o.sec_position || 'Member'})`,
+      value: secOptionKey(o)
+    }))
+)
+
+const selectedSecMembers = computed(() =>
+  secRoster.value.filter(
+    (o) =>
+      grcCreateForm.sec_selected.includes(secOptionKey(o)) &&
+      o.settlement === grcCreateForm.group_location.settlement
+  )
+)
+
+const resetCreateFormGrc = () => {
+  grcCreateForm.group_location.county = ''
+  grcCreateForm.group_location.settlement = ''
+  grcCreateForm.group_location.settlement_new = ''
+  grcCreateForm.group_location.pcode = ''
+  grcCreateForm.sec_selected = []
+  grcCreateForm.comments = ''
+  grcCreateForm.grp_certification.returning_officer = ''
+  grcCreateForm.grp_certification.county_kisip_coordinator = ''
+  grcCreateForm.grp_certification.npct_representative = ''
+  newMembers.forEach((m) => {
+    m.name = ''
+    m.national_id = ''
+    m.mobile = ''
+    m.gender = ''
+    m.category = ''
+    m.grc_position = ''
+  })
+}
+
+watch(
+  () => grcCreateForm.group_location.county,
+  () => {
+    grcCreateForm.group_location.settlement = ''
+    grcCreateForm.group_location.settlement_new = ''
+    grcCreateForm.group_location.pcode = ''
+    grcCreateForm.sec_selected = []
+  }
+)
+
+watch(
+  () => grcCreateForm.group_location.settlement,
+  () => {
+    grcCreateForm.group_location.settlement_new = ''
+    grcCreateForm.group_location.pcode =
+      settlementCodeMap[grcCreateForm.group_location.settlement] || ''
+    grcCreateForm.sec_selected = []
+  }
+)
 
 
 
@@ -430,10 +557,70 @@ const deleteRecord = async (row) => {
 }
 
 
-const showAddDialog = ref(false)
-const AddRecord = async () => {
-  showAddDialog.value = true
+const AddRecord = () => {
+  resetCreateFormGrc()
+  createDrawerVisible.value = true
+}
 
+const submitCreateGrc = async () => {
+  if (!grcCreateForm.group_location.county || !grcCreateForm.group_location.settlement) {
+    ElNotification({ title: 'Missing info', message: 'County and settlement are required.', type: 'warning' })
+    return
+  }
+
+  if (selectedSecMembers.value.length !== 2) {
+    ElNotification({ title: 'Missing SEC members', message: 'Select exactly 2 SEC members (non-chair) for this settlement.', type: 'warning' })
+    return
+  }
+
+  const newMembersValid = newMembers.every(
+    (m) => m.name && m.national_id && m.mobile && m.gender && m.grc_position
+  )
+
+  if (!newMembersValid) {
+    ElNotification({ title: 'Incomplete new members', message: 'All three new members need name, ID, phone, gender, and position.', type: 'warning' })
+    return
+  }
+
+  const officials = [
+    ...selectedSecMembers.value.map((o) => ({
+      category: o.category,
+      name: o.name,
+      national_id: o.national_id,
+      gender: o.gender,
+      mobile: o.mobile,
+      grc_position: 'member'
+    })),
+    ...newMembers.map((m) => ({
+      ...m
+    }))
+  ]
+
+  if (officials.length !== 5) {
+    ElNotification({ title: 'Need 5 members', message: 'A GRC needs 2 SEC members and 3 new members (total 5).', type: 'warning' })
+    return
+  }
+
+  creating.value = true
+  try {
+    const xml = buildGrcXml(officials)
+    const payload = {
+      project: '1',
+      form: 'grc_officials',
+      token: localStorage.getItem('collectorToken'),
+      xml
+    }
+    await createSubmission(payload)
+    ElNotification({ title: 'Success', message: 'GRC record created', type: 'success' })
+    createDrawerVisible.value = false
+    resetCreateFormGrc()
+    await getGRCData()
+  } catch (error) {
+    console.error('Create GRC error:', error)
+    ElNotification({ title: 'Error', message: 'Failed to create GRC record', type: 'error' })
+  } finally {
+    creating.value = false
+  }
 }
 
 const totalItems = ref(); // Total number of rows (initially full dataset)
@@ -457,6 +644,69 @@ const formatTitle = (attribute) => {
     .toLowerCase() // Convert to lowercase
     .replace(/\b\w/g, char => char.toUpperCase()); // Capitalize first letter of each word
 };
+
+const buildGrcXml = (officials) => {
+  const now = new Date()
+  const start = now.toISOString()
+  const end = now.toISOString()
+  const dateOnly = now.toISOString().slice(0, 10)
+
+  const esc = (s = '') =>
+    String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+
+  const officialsXml = officials
+    .map(
+      (o) => `
+        <grc_officials>
+          <category>${esc(o.category)}</category>
+          <name>${esc(o.name)}</name>
+          <national_id>${esc(o.national_id)}</national_id>
+          <gender>${esc(o.gender)}</gender>
+          <mobile>${esc(o.mobile)}</mobile>
+          <position_select></position_select>
+          <taken_select></taken_select>
+          <grc_position>${esc(o.grc_position)}</grc_position>
+        </grc_officials>`
+    )
+    .join('')
+
+  const uuid = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0
+    const v = c === 'x' ? r : (r & 0x3) | 0x8
+    return v.toString(16)
+  })
+
+  return `<?xml version="1.0"?>
+<data id="grc_officials">
+  <start>${esc(start)}</start>
+  <end>${esc(end)}</end>
+  <today>${esc(dateOnly)}</today>
+  <group_location>
+    <county>${esc(grcCreateForm.group_location.county)}</county>
+    <settlement>${esc(grcCreateForm.group_location.settlement)}</settlement>
+    <settlement_new>${esc(grcCreateForm.group_location.settlement_new)}</settlement_new>
+    <pcode>${esc(grcCreateForm.group_location.pcode)}</pcode>
+  </group_location>
+  ${officialsXml}
+  <grp_certification>
+    <returning_officer>${esc(grcCreateForm.grp_certification.returning_officer)}</returning_officer>
+    <county_kisip_coordinator>${esc(grcCreateForm.grp_certification.county_kisip_coordinator)}</county_kisip_coordinator>
+    <npct_representative>${esc(grcCreateForm.grp_certification.npct_representative)}</npct_representative>
+  </grp_certification>
+  <comments>${esc(grcCreateForm.comments)}</comments>
+  <location></location>
+  <photo></photo>
+  <sec_photo>
+    <grc_register></grc_register>
+  </sec_photo>
+  <meta>
+    <instanceID>uuid:${uuid()}</instanceID>
+  </meta>
+</data>`
+}
 
 const generateColumnsX = (attributes, prefix = 'column-', width = 150) => {
   if (!Array.isArray(attributes)) {
@@ -875,23 +1125,104 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
 
   </el-card>
 
-  <el-dialog v-model="dialogVisible" :title="dialog_title" width="450">
-    <el-select v-model="role" placeholder="Select Role" size="small" style="width: 95%">
-      <el-option v-for="item in options" :key="item.value" :label="item.label" :value="item.value" />
-    </el-select>
+  <el-drawer v-model="createDrawerVisible" title="Create GRC" size="50%">
+    <el-form label-position="top">
+      <el-row :gutter="10">
+        <el-col :xs="24" :sm="12" :md="12">
+          <el-form-item label="County">
+            <el-select v-model="grcCreateForm.group_location.county" filterable clearable placeholder="Select county">
+              <el-option v-for="c in countyOptions" :key="c.value" :label="c.label" :value="c.value" />
+            </el-select>
+          </el-form-item>
+        </el-col>
+        <el-col :xs="24" :sm="12" :md="12">
+          <el-form-item label="Settlement">
+            <el-select
+              v-model="grcCreateForm.group_location.settlement"
+              filterable
+              clearable
+              placeholder="Select settlement"
+            >
+              <el-option v-for="s in settlementOptions" :key="s.value" :label="s.label" :value="s.value" />
+            </el-select>
+          </el-form-item>
+        </el-col>
+      </el-row>
+<!-- 
+      <el-row :gutter="10">
+        <el-col :xs="24" :sm="12" :md="12">
+          <el-form-item label="Settlement Code (optional)">
+            <el-input v-model="grcCreateForm.group_location.pcode" placeholder="Enter settlement code" />
+          </el-form-item>
+        </el-col>
+      </el-row> -->
 
-    <template #footer>
-      <div class="dialog-footer">
-        <el-button @click="dialogVisible = false">Cancel</el-button>
-        <el-button type="primary" @click="editRecordSubmit">
-          Confirm
-        </el-button>
+      <el-divider content-position="left">Pick 2 SEC members (no chairs)</el-divider>
+      <el-select
+        v-model="grcCreateForm.sec_selected"
+        multiple
+        filterable
+        :multiple-limit="2"
+        placeholder="Select exactly 2 SEC members for this settlement"
+        style="width: 100%; margin-bottom: 10px;"
+      >
+        <el-option v-for="opt in availableSecOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+      </el-select>
+
+      <el-table
+        v-if="selectedSecMembers.length"
+        :data="selectedSecMembers"
+        border
+        size="small"
+        style="width: 100%; margin-bottom: 12px;"
+      >
+        <el-table-column prop="name" label="Name" />
+        <el-table-column prop="sec_position" label="SEC Position" />
+        <el-table-column prop="gender" label="Gender" />
+        <el-table-column prop="mobile" label="Phone" />
+      </el-table>
+
+      <el-divider content-position="left">Add 3 new members</el-divider>
+      <el-row v-for="(member, idx) in newMembers" :key="idx" :gutter="10" style="margin-bottom: 8px;">
+        <el-col :xs="24" :sm="12" :md="6">
+          <el-input v-model="member.name" size="small" :placeholder="`Name #${idx + 1}`" />
+        </el-col>
+        <el-col :xs="24" :sm="12" :md="4">
+          <el-input v-model="member.national_id" size="small" placeholder="National ID" />
+        </el-col>
+        <el-col :xs="24" :sm="12" :md="4">
+          <el-input v-model="member.mobile" size="small" placeholder="Phone" />
+        </el-col>
+        <el-col :xs="24" :sm="12" :md="3">
+          <el-select v-model="member.gender" size="small" placeholder="Gender" style="width: 100%;">
+            <el-option label="Male" value="male" />
+            <el-option label="Female" value="female" />
+          </el-select>
+        </el-col>
+        <el-col :xs="24" :sm="12" :md="3">
+          <el-input v-model="member.category" size="small" placeholder="Category" disabled value="Member" />
+        </el-col>
+        <el-col :xs="24" :sm="12" :md="4">
+          <el-select v-model="member.grc_position" size="small" placeholder="GRC Position" style="width: 100%;">
+            <el-option
+              v-for="item in options"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+              :disabled="isNewMemberPositionTaken(item.value, idx)"
+            />
+          </el-select>
+        </el-col>
+      </el-row>
+
+      <div style="text-align: right; margin-top: 12px;">
+        <el-button @click="createDrawerVisible = false">Cancel</el-button>
+        <el-button type="primary" :loading="creating" @click="submitCreateGrc">Submit</el-button>
       </div>
-    </template>
-  </el-dialog>
+    </el-form>
+  </el-drawer>
 
-
-  <el-dialog v-model="showAddDialog" title="Add GRC Member" width="450">
+  <el-dialog v-model="dialogVisible" :title="dialog_title" width="450">
     <el-select v-model="role" placeholder="Select Role" size="small" style="width: 95%">
       <el-option v-for="item in options" :key="item.value" :label="item.label" :value="item.value" />
     </el-select>
