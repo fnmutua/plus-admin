@@ -3,7 +3,7 @@
 
 
 import { ElButton } from 'element-plus'
-import { Back } from '@element-plus/icons-vue'
+import { Back, Plus } from '@element-plus/icons-vue'
 
 import { ref, computed, reactive } from 'vue'
 import {
@@ -91,7 +91,6 @@ const resetCreateForm = () => {
   createForm.grp_certification.county_kisip_coordinator = ''
   createForm.grp_certification.npct_representative = ''
   createForm.comments = ''
-  createForm.location = ''
   createForm.photo = null
   createForm.sec_register = null
 }
@@ -211,7 +210,6 @@ type CreateFormType = {
     npct_representative: string
   }
   comments: string
-  location: string
   photo: FilePayload | null
   sec_register: FilePayload | null
 }
@@ -226,8 +224,12 @@ const createDrawerVisible = ref(false)
 const creating = ref(false)
 const creatingStatus = ref('')
 const activeStep = ref(0)
-const maxOfficials = 19
+const maxOfficials = 18
 const validationMessage = ref('')
+
+const disableSettlementNew = computed(() => !!createForm.group_location.settlement)
+const disableSettlementSelect = computed(() => !!createForm.group_location.settlement_new)
+const disablePcode = computed(() => !!createForm.group_location.settlement)
 
 const createForm = reactive<CreateFormType>({
   group_location: {
@@ -252,7 +254,6 @@ const createForm = reactive<CreateFormType>({
     npct_representative: ''
   },
   comments: '',
-  location: '',
   photo: null,
   sec_register: null
 })
@@ -260,6 +261,25 @@ const createForm = reactive<CreateFormType>({
 
 
 
+
+watch(
+  () => createForm.group_location.settlement,
+  (val) => {
+    if (val) {
+      createForm.group_location.settlement_new = ''
+    }
+  }
+)
+
+watch(
+  () => createForm.group_location.settlement_new,
+  (val) => {
+    if (val) {
+      createForm.group_location.settlement = ''
+      createForm.group_location.pcode = ''
+    }
+  }
+)
 
 const loginUserToCollector = async () => {
   const formData: { email: string; password: string } = {
@@ -608,7 +628,6 @@ const buildXml = () => {
     <npct_representative>${esc(createForm.grp_certification.npct_representative)}</npct_representative>
   </grp_certification>
   <comments>${esc(createForm.comments)}</comments>
-  <location>${esc(createForm.location)}</location>
   <photo>${createForm.photo ? esc(createForm.photo.name) : ''}</photo>
   <sec_photo>
     <sec_register>${createForm.sec_register ? esc(createForm.sec_register.name) : ''}</sec_register>
@@ -665,6 +684,11 @@ const goNext = () => {
       ElNotification({ title: 'Missing info', message: validationMessage.value, type: 'warning' })
       return
     }
+    if (!createForm.group_location.settlement && createForm.group_location.settlement_new && !createForm.group_location.pcode) {
+      validationMessage.value = 'Settlement code is required when adding a new settlement.'
+      ElNotification({ title: 'Missing info', message: validationMessage.value, type: 'warning' })
+      return
+    }
     validationMessage.value = ''
     activeStep.value = 1
     return
@@ -706,6 +730,12 @@ const submitCreate = async () => {
   if (!state.ok) {
     validationMessage.value = state.msg
     ElNotification({ title: 'Cannot submit', message: state.msg, type: 'warning' })
+    return
+  }
+
+  if (!createForm.group_location.settlement && createForm.group_location.settlement_new && !createForm.group_location.pcode) {
+    validationMessage.value = 'Settlement code is required when adding a new settlement.'
+    ElNotification({ title: 'Missing info', message: validationMessage.value, type: 'warning' })
     return
   }
 
@@ -961,7 +991,6 @@ const category_options =  [
 
 const SEC_options =  [
 { "value": "chairperson", "label": "Chairperson" },
-{ "value": "chairman", "label": "Chairman" },
 { "value": "secretary", "label": "Secretary" },
   { "value": "organizing_secretary", "label": "Organizing Secretary" },
   { "value": "vice_chairperson", "label": "Vice Chairperson" },
@@ -974,83 +1003,57 @@ const SEC_options =  [
 <template>
   <el-card>
     <!-- Status Alert -->
-    <el-alert
-      v-if="fetchingData && dataFetchStatus"
-      :title="dataFetchStatus"
-      type="info"
-      :closable="false"
-      show-icon
-      style="margin-bottom: 15px;"
-    >
-      <template #default>
-        <div>
-          <p>{{ dataFetchStatus }}</p>
-          <p style="font-size: 12px; margin-top: 5px; color: #909399;">
-            You can use the filters and search while data is being loaded.
-          </p>
-        </div>
-      </template>
-    </el-alert>
+ 
 
     <div v-loading="loading" element-loading-text="Loading data...">
-    <el-row :gutter="10" style=" margin-bottom:10px;">
-      <el-col :xs="24" :sm="24" :md="2" :lg="2" class="max-w-200px">
+    <el-row
+type="flex" justify="start" :gutter="10"
+      style="display: flex; flex-wrap: nowrap; align-items: center; margin-bottom:10px">
+
+      <div class="max-w-200px">
         <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
           Back
         </el-button>
-      </el-col>
+      </div>
 
-      <el-col :xs="24" :sm="24" :md="4" :lg="3">
-        <el-button type="success" @click="openCreateDrawer" style="margin-right: 10px;">
-          Add SEC Record
-        </el-button>
-      </el-col>
-
-      <el-col :xs="24" :sm="24" :md="12" :lg="3">
-        <el-select
+      <el-select
 v-model="county_value" placeholder="Filter County" clearable filterable
-          style="width: 100%; margin-right: 5px;">
-          <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-      </el-col>
-
-      <el-col :xs="24" :sm="24" :md="12" :lg="4">
-        <el-select
+        style=" margin-right: 5px;  width:250px">
+        <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
+      </el-select>
+      <el-select
 multiple
 v-model="sett_value" placeholder="Filter Settlement" clearable filterable collapse-tags	
-          style="width: 100%; margin-right: 5px;">
-          <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-      </el-col>
+        style=" margin-right: 5px; width:350px">
+        <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
+      </el-select>
 
-      <el-col :xs="24" :sm="24" :md="12" :lg="4">
-        <el-select
+      <el-select
 multiple  v-model="position" placeholder="Filter By Position" clearable filterable collapse-tags	
-          style="width: 100%; margin-right: 5px;">
-          <el-option v-for="item in SEC_options" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-      </el-col>
+        style=" margin-right: 5px; width:350px">
+        <el-option v-for="item in SEC_options" :key="item.value" :label="item.label" :value="item.value" />
+      </el-select>
 
 
-      <el-col :xs="24" :sm="24" :md="12" :lg="4">
-        <el-select
+      <el-select
 multiple
 v-model="category" placeholder="Filter By Category" clearable filterable collapse-tags	
-          style="width: 100%; margin-right: 5px;">
-          <el-option v-for="item in category_options" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-      </el-col>
+        style=" margin-right: 5px; width:350px">
+        <el-option v-for="item in category_options" :key="item.value" :label="item.label" :value="item.value" />
+      </el-select>
 
 
-      <el-col :xs="24" :sm="24" :md="12" :lg="5">
-        <el-input
+      <el-input
 clearable v-model="search" placeholder="Search by Name, ID, Phone.."
-          :onInput="filterTableData" style="width: 100%; margin-right: 15px;" />
-      </el-col>
+        :onInput="filterTableData" style=" margin-right: 15px;" />
 
-      <el-col :xs="24" :sm="24" :md="12" :lg="2">
-        <DownloadCustom :data="paginatedData" :all="sec_officials" />
-      </el-col>
+      <el-tooltip content="Add SEC" placement="top">
+        <el-button type="primary" :icon="Plus" @click="openCreateDrawer" />
+      </el-tooltip>
+
+      <DownloadCustom :data="paginatedData" :all="sec_officials" />
+
+
     </el-row>
 
 
@@ -1100,7 +1103,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
 
   </el-card>
 
-  <el-drawer v-model="createDrawerVisible" title="Create SEC Record" size="80%">
+  <el-drawer v-model="createDrawerVisible" title="Create SEC Record" size="45%">
     <el-steps :active="activeStep" finish-status="success" align-center style="margin-bottom: 16px;">
       <el-step title="Location" description="County & settlement" />
       <el-step title="Officials" description="Up to 19 unique roles" />
@@ -1125,7 +1128,13 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
           </el-col>
           <el-col :xs="24" :sm="12" :md="12">
             <el-form-item label="Settlement">
-              <el-select v-model="createForm.group_location.settlement" filterable clearable placeholder="Select settlement (code)">
+              <el-select
+                v-model="createForm.group_location.settlement"
+                filterable
+                clearable
+                placeholder="Select settlement"
+                :disabled="disableSettlementSelect"
+              >
                 <el-option v-for="s in settlementOptionsByCounty" :key="s.value" :label="s.label" :value="s.value" />
               </el-select>
             </el-form-item>
@@ -1134,12 +1143,20 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
         <el-row :gutter="10">
           <el-col :xs="24" :sm="12" :md="12">
             <el-form-item label="Settlement (new if not listed)">
-              <el-input v-model="createForm.group_location.settlement_new" placeholder="New settlement name" />
+              <el-input
+                v-model="createForm.group_location.settlement_new"
+                placeholder="New settlement name"
+                :disabled="disableSettlementNew"
+              />
             </el-form-item>
           </el-col>
           <el-col :xs="24" :sm="12" :md="12">
-            <el-form-item label="PCODE">
-              <el-input v-model="createForm.group_location.pcode" placeholder="Auto from settlement" readonly />
+            <el-form-item label="Settlement Code">
+              <el-input
+                v-model="createForm.group_location.pcode"
+                placeholder="Enter settlement code"
+                :disabled="disablePcode"
+              />
             </el-form-item>
           </el-col>
         </el-row>
@@ -1147,11 +1164,6 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
           <el-col :xs="24" :sm="12" :md="12">
             <el-form-item label="Comments">
               <el-input v-model="createForm.comments" type="textarea" />
-            </el-form-item>
-          </el-col>
-          <el-col :xs="24" :sm="12" :md="12">
-            <el-form-item label="Location (lat lon alt acc)">
-              <el-input v-model="createForm.location" placeholder="e.g. -1.23 36.82 0 5" />
             </el-form-item>
           </el-col>
         </el-row>
@@ -1172,7 +1184,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
 
     <div v-else-if="activeStep === 1">
       <div style="margin-bottom: 10px;">
-        <el-button type="primary" plain @click="addOfficial" :disabled="createForm.sec_officials.length >= maxOfficials">Add Official</el-button>
+        <el-button type="primary" plain size="small" @click="addOfficial" :disabled="createForm.sec_officials.length >= maxOfficials">Add Official</el-button>
         <span style="margin-left: 8px; color: #909399;">Need exactly {{ maxOfficials }} officials; roles unique except Member / Ex-official.</span>
       </div>
       <el-alert
@@ -1182,40 +1194,40 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
         show-icon
         style="margin-bottom: 8px;"
       />
-      <el-table :data="createForm.sec_officials" border style="width: 100%;">
+      <el-table :data="createForm.sec_officials" border size="small" style="width: 100%;">
         <el-table-column type="index" width="50" label="#" />
         <el-table-column label="Category">
           <template #default="{ row }">
-            <el-select v-model="row.category" filterable placeholder="Category">
+            <el-select v-model="row.category" filterable placeholder="Category" size="small">
               <el-option v-for="item in category_options" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
           </template>
         </el-table-column>
         <el-table-column label="Name">
           <template #default="{ row }">
-            <el-input v-model="row.name" />
+            <el-input v-model="row.name" size="small" />
           </template>
         </el-table-column>
         <el-table-column label="National ID">
           <template #default="{ row }">
-            <el-input v-model="row.national_id" />
+            <el-input v-model="row.national_id" size="small" />
           </template>
         </el-table-column>
         <el-table-column label="Gender">
           <template #default="{ row }">
-            <el-select v-model="row.gender" placeholder="Gender">
+            <el-select v-model="row.gender" placeholder="Gender" size="small">
               <el-option v-for="g in ['male','female']" :key="g" :label="g" :value="g" />
             </el-select>
           </template>
         </el-table-column>
         <el-table-column label="Mobile">
           <template #default="{ row }">
-            <el-input v-model="row.mobile" />
+            <el-input v-model="row.mobile" size="small" />
           </template>
         </el-table-column>
         <el-table-column label="Position">
           <template #default="scope">
-            <el-select v-model="scope.row.sec_position" filterable placeholder="Position">
+            <el-select v-model="scope.row.sec_position" filterable placeholder="Position" size="small">
               <el-option
                 v-for="item in SEC_options"
                 :key="item.value"
