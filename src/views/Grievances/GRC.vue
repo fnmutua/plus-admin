@@ -61,18 +61,23 @@ const mobilePageSize = 5;
 const pageSize = ref(10);
 const currentPage = ref(1);
 const width = ref(1080);
+const isMobile = ref(false);
 
 // Function to update pageSize based on window width
 const updatePageSize = () => {
 
   console.log('window.innerWidth', window.innerWidth)
   width.value = window.innerWidth - 400
+  isMobile.value = window.innerWidth <= mobileBreakpoint
   if (window.innerWidth <= mobileBreakpoint) {
     pageSize.value = mobilePageSize;
   } else {
     pageSize.value = defaultPageSize;
   }
 };
+
+// Computed property for drawer size
+const drawerSize = computed(() => isMobile.value ? '100%' : '50%');
 
 
 
@@ -113,14 +118,6 @@ const loginUserToCollector = async () => {
   fetchingData.value = true
   dataFetchStatus.value = 'Connecting to server and fetching all GRC data...'
 
-  // Show notification that data fetching has started
-  ElNotification({
-    title: 'Fetching Data',
-    message: 'We are fetching all GRC officials data. This may take a moment. You can continue using other features while data loads.',
-    type: 'info',
-    duration: 5000,
-    position: 'top-right'
-  })
 
   try {
     const response = await loginCollector(formData)
@@ -141,13 +138,6 @@ const loginUserToCollector = async () => {
     loading.value = false
     fetchingData.value = false
     dataFetchStatus.value = ''
-    ElNotification({
-      title: 'Error',
-      message: 'Failed to connect to server. Please try again.',
-      type: 'error',
-      duration: 5000,
-      position: 'top-right'
-    })
   }
 
 }
@@ -159,6 +149,7 @@ const grc_officials = ref([])
 const countyOptions = ref([])
 const settlementOptions = ref([])
 const settlementCodeMap = reactive<Record<string, string>>({})
+const settlementCountyMap = reactive<Record<string, string>>({}) // Map settlement to county
 const extractData = async (dataArray) => {
 
   // Extract unique counties and settlements
@@ -214,6 +205,11 @@ const extractData = async (dataArray) => {
       submissionID: data.meta_instanceID
     };
 
+    // Store settlement to county mapping
+    if (official_details.settlement && official_details.settlement !== "N/A" && official_details.county && official_details.county !== "N/A") {
+      settlementCountyMap[official_details.settlement] = official_details.county;
+    }
+
     // Check if grc_officials array exists in each data object
     if (data.grc_officials && Array.isArray(data.grc_officials)) {
       // Loop through the grc_officials array within each data object
@@ -245,7 +241,8 @@ const extractData = async (dataArray) => {
   settlementOptions.value = Array.from(uniqueSettlements).map(settlement => ({
     label: settlement,
     value: settlement,
-    code: settlementCodeMap[settlement] || ''
+    code: settlementCodeMap[settlement] || '',
+    county: settlementCountyMap[settlement] || ''
   }));
   console.log(countyOptions.value)
 };
@@ -309,25 +306,9 @@ const getGRCData = async () => {
     // Update total items
     totalItems.value = grc_officials.value.length
 
-    // Show success notification
-    ElNotification({
-      title: 'Data Loaded Successfully',
-      message: `Successfully loaded ${grc_officials.value.length} GRC official records. You can now filter and search the data.`,
-      type: 'success',
-      duration: 5000,
-      position: 'top-right'
-    })
-
   } catch (error) {
     // Handle errors here
     console.error('Error:', error);
-    ElNotification({
-      title: 'Error Loading Data',
-      message: 'Failed to load GRC officials data. Please try refreshing the page.',
-      type: 'error',
-      duration: 5000,
-      position: 'top-right'
-    })
   } finally {
     // Reset loading state
     loading.value = false;
@@ -429,27 +410,54 @@ const newMembers = reactive([
   { name: '', national_id: '', mobile: '', gender: '', grc_position: '' }
 ])
 
-const secOptionKey = (o) => o.national_id || `${o.name}-${o.mobile}`
-const availableSecOptions = computed(() =>
-  secRoster.value
-    .filter(
-      (o) =>
-        o.settlement === grcCreateForm.group_location.settlement &&
-        !['chairperson', 'chairman'].includes(String(o.sec_position || '').toLowerCase())
-    )
-    .map((o) => ({
-      label: `${o.name} (${o.sec_position || 'Member'})`,
-      value: secOptionKey(o)
-    }))
-)
+const secOptionKey = (o) => {
+  // Create a unique key matching the format used in loadSecRoster
+  // This ensures consistency and uniqueness
+  if (o.national_id && o.national_id !== 'N/A' && o.national_id.trim() !== '') {
+    return `${o.national_id}-${o.settlement}-${o.sec_position}`
+  }
+  // Fallback: use name-mobile-settlement-position for uniqueness when national_id is missing
+  // This should be unique since loadSecRoster already deduplicates
+  return `${o.name || ''}-${o.mobile || ''}-${o.settlement || ''}-${o.sec_position || ''}`
+}
 
-const selectedSecMembers = computed(() =>
-  secRoster.value.filter(
+const availableSecOptions = computed(() => {
+  const filtered = secRoster.value.filter(
     (o) =>
-      grcCreateForm.sec_selected.includes(secOptionKey(o)) &&
-      o.settlement === grcCreateForm.group_location.settlement
+      o.settlement === grcCreateForm.group_location.settlement &&
+      !['chairperson', 'chairman'].includes(String(o.sec_position || '').toLowerCase())
   )
-)
+  // Use a Map to track seen keys and ensure uniqueness
+  const seen = new Map()
+  return filtered
+    .map((o) => {
+      const key = secOptionKey(o)
+      // If we've seen this key before, skip it (shouldn't happen due to loadSecRoster deduplication)
+      if (seen.has(key)) {
+        return null
+      }
+      seen.set(key, true)
+      return {
+        label: `${o.name} (${o.sec_position || 'Member'})`,
+        value: key,
+        originalData: o
+      }
+    })
+    .filter(Boolean) // Remove null entries
+})
+
+const selectedSecMembers = computed(() => {
+  if (!grcCreateForm.sec_selected || grcCreateForm.sec_selected.length === 0) return []
+  
+  // Find members by matching the selected keys
+  return secRoster.value.filter((o) => {
+    const key = secOptionKey(o)
+    return (
+      grcCreateForm.sec_selected.includes(key) &&
+      o.settlement === grcCreateForm.group_location.settlement
+    )
+  })
+})
 
 const resetCreateFormGrc = () => {
   grcCreateForm.group_location.county = ''
@@ -471,6 +479,14 @@ const resetCreateFormGrc = () => {
   })
 }
 
+// Computed property to filter settlements by selected county
+const settlementOptionsByCounty = computed(() => {
+  if (!grcCreateForm.group_location.county) return []
+  return settlementOptions.value.filter(settlement => 
+    settlement.county === grcCreateForm.group_location.county
+  )
+})
+
 watch(
   () => grcCreateForm.group_location.county,
   () => {
@@ -483,10 +499,14 @@ watch(
 
 watch(
   () => grcCreateForm.group_location.settlement,
-  () => {
+  (val) => {
     grcCreateForm.group_location.settlement_new = ''
-    grcCreateForm.group_location.pcode =
-      settlementCodeMap[grcCreateForm.group_location.settlement] || ''
+    if (val) {
+      const selectedSettlement = settlementOptionsByCounty.value.find(s => s.value === val)
+      grcCreateForm.group_location.pcode = selectedSettlement?.code || settlementCodeMap[val] || ''
+    } else {
+      grcCreateForm.group_location.pcode = ''
+    }
     grcCreateForm.sec_selected = []
   }
 )
@@ -564,12 +584,10 @@ const AddRecord = () => {
 
 const submitCreateGrc = async () => {
   if (!grcCreateForm.group_location.county || !grcCreateForm.group_location.settlement) {
-    ElNotification({ title: 'Missing info', message: 'County and settlement are required.', type: 'warning' })
     return
   }
 
   if (selectedSecMembers.value.length !== 2) {
-    ElNotification({ title: 'Missing SEC members', message: 'Select exactly 2 SEC members (non-chair) for this settlement.', type: 'warning' })
     return
   }
 
@@ -578,7 +596,6 @@ const submitCreateGrc = async () => {
   )
 
   if (!newMembersValid) {
-    ElNotification({ title: 'Incomplete new members', message: 'All three new members need name, ID, phone, gender, and position.', type: 'warning' })
     return
   }
 
@@ -597,7 +614,6 @@ const submitCreateGrc = async () => {
   ]
 
   if (officials.length !== 5) {
-    ElNotification({ title: 'Need 5 members', message: 'A GRC needs 2 SEC members and 3 new members (total 5).', type: 'warning' })
     return
   }
 
@@ -611,13 +627,11 @@ const submitCreateGrc = async () => {
       xml
     }
     await createSubmission(payload)
-    ElNotification({ title: 'Success', message: 'GRC record created', type: 'success' })
     createDrawerVisible.value = false
     resetCreateFormGrc()
     await getGRCData()
   } catch (error) {
     console.error('Create GRC error:', error)
-    ElNotification({ title: 'Error', message: 'Failed to create GRC record', type: 'error' })
   } finally {
     creating.value = false
   }
@@ -769,6 +783,21 @@ const county_value = ref()
 const sett_value = ref()
 const position = ref()
 
+// Computed property to filter settlements by selected county in filter section
+const filteredSettlementOptions = computed(() => {
+  if (!county_value.value) return settlementOptions.value
+  return settlementOptions.value.filter(settlement => 
+    settlement.county === county_value.value
+  )
+})
+
+// Watch county filter to clear settlement filter when county changes
+watch(
+  () => county_value.value,
+  () => {
+    sett_value.value = null
+  }
+)
 
 const filteredData = computed(() => {
   // return grc_officials.value; // Return all data if no search term
@@ -1024,46 +1053,72 @@ const handleSelectionChange = (val: any[]) => {
     </el-alert>
 
     <div v-loading="loading" element-loading-text="Loading data...">
-    <el-row
-type="flex" justify="start" gutter="10"
-      style="display: flex; flex-wrap: nowrap; align-items: center; margin-bottom:10px">
+    <el-row :gutter="10" style="margin-bottom: 10px;">
+      <el-col :xs="24" :sm="24" :md="24">
+        <el-row :gutter="10" :style="isMobile ? 'flex-wrap: wrap;' : 'flex-wrap: nowrap; display: flex; align-items: center;'">
+          <el-col :xs="24" :sm="12" :md="3" style="margin-bottom: 8px;">
+            <el-button type="primary" plain :icon="Back" @click="goBack" style="width: 100%;">
+              <span v-if="!isMobile">Back</span>
+            </el-button>
+          </el-col>
 
-      <div class="max-w-200px">
-        <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
-          Back
-        </el-button>
-      </div>
+          <el-col :xs="24" :sm="12" :md="3" style="margin-bottom: 8px;">
+            <el-select
+              v-model="county_value" 
+              placeholder="Filter County" 
+              clearable
+              filterable
+              style="width: 100%;"
+            >
+              <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+          </el-col>
 
+          <el-col :xs="24" :sm="12" :md="4" style="margin-bottom: 8px;">
+            <el-select
+              v-model="sett_value" 
+              placeholder="Filter Settlement" 
+              clearable 
+              filterable
+              :disabled="!county_value"
+              style="width: 100%;"
+            >
+              <el-option v-for="item in filteredSettlementOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+          </el-col>
 
-      <el-select
-v-model="county_value" placeholder="Filter County" style=" margin-right: 5px;  width:250px" clearable
-        filterable>
-        <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
-      <el-select
-v-model="sett_value" placeholder="Filter Settlement" clearable filterable
-        style=" margin-right: 5px; width:350px">
-        <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
+          <el-col :xs="24" :sm="12" :md="3" style="margin-bottom: 8px;">
+            <el-select
+              v-model="position" 
+              placeholder="Filter Position" 
+              clearable 
+              filterable
+              style="width: 100%;"
+            >
+              <el-option v-for="item in options" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+          </el-col>
 
-      <el-select
-v-model="position" placeholder="Filter positions" clearable filterable
-        style=" margin-right: 5px; width:350px">
-        <el-option v-for="item in options" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
+          <el-col :xs="24" :sm="12" :md="3" style="margin-bottom: 8px;">
+            <el-input
+              clearable 
+              v-model="search" 
+              placeholder="Search..."
+              :onInput="filterTableData" 
+              style="width: 100%;"
+            />
+          </el-col>
 
-      <el-input
-clearable v-model="search" placeholder="Search by Name, ID, Phone,County or Settlement"
-        :onInput="filterTableData" style=" margin-right: 15px;" />
-
-      <el-tooltip content="Add GRC" placement="top">
-        <el-button v-if="showEditButtons" :onClick="AddRecord" type="primary" :icon="Plus" />
-      </el-tooltip>
-
-
-      <DownloadCustom :data="paginatedData" :all="grc_officials" />
-
-
+          <el-col :xs="24" :sm="24" :md="4" style="margin-bottom: 8px; margin-left: auto;">
+            <div style="display: flex; gap: 8px; justify-content: flex-end;">
+              <el-tooltip content="Add GRC" placement="top">
+                <el-button v-if="showEditButtons" :onClick="AddRecord" type="primary" :icon="Plus" />
+              </el-tooltip>
+              <DownloadCustom :data="paginatedData" :all="grc_officials" />
+            </div>
+          </el-col>
+        </el-row>
+      </el-col>
     </el-row>
 
 
@@ -1107,7 +1162,14 @@ clearable v-model="search" placeholder="Search by Name, ID, Phone,County or Sett
           </div>
         </template>
       </el-table-v2> -->
-      <el-button style="margin-top: 20px;" v-if="anyRowSelected " @click="getSelectedRows">Generate Accounts</el-button>
+      <el-button 
+        style="margin-top: 20px; width: 100%;" 
+        v-if="anyRowSelected" 
+        @click="getSelectedRows"
+        :size="isMobile ? 'default' : 'default'"
+      >
+        Generate Accounts
+      </el-button>
 
     </div>
 
@@ -1116,16 +1178,24 @@ clearable v-model="search" placeholder="Search by Name, ID, Phone,County or Sett
       <!-- Pagination component -->
 
       <el-pagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-        v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100,1000,10000]" :total="totalItems" :background="true"
-        @size-change="handlePageSizeChange" @current-change="handlePageChange" class="mt-4" />
+        :layout="isMobile ? 'prev, pager, next' : 'sizes, prev, pager, next, total'" 
+        v-model:currentPage="currentPage"
+        v-model:page-size="pageSize" 
+        :page-sizes="[5, 10, 15, 20, 50, 100,1000,10000]" 
+        :total="totalItems" 
+        :background="true"
+        :small="isMobile"
+        @size-change="handlePageSizeChange" 
+        @current-change="handlePageChange" 
+        class="mt-4" 
+      />
 
     </div>
     </div>
 
   </el-card>
 
-  <el-drawer v-model="createDrawerVisible" title="Create GRC" size="50%">
+  <el-drawer v-model="createDrawerVisible" title="Create GRC" :size="drawerSize" :direction="isMobile ? 'btt' : 'rtl'">
     <el-form label-position="top">
       <el-row :gutter="10">
         <el-col :xs="24" :sm="12" :md="12">
@@ -1142,8 +1212,9 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
               filterable
               clearable
               placeholder="Select settlement"
+              :disabled="!grcCreateForm.group_location.county"
             >
-              <el-option v-for="s in settlementOptions" :key="s.value" :label="s.label" :value="s.value" />
+              <el-option v-for="s in settlementOptionsByCounty" :key="s.value" :label="s.label" :value="s.value" />
             </el-select>
           </el-form-item>
         </el-col>
@@ -1169,29 +1240,31 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
         <el-option v-for="opt in availableSecOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
       </el-select>
 
-      <el-table
-        v-if="selectedSecMembers.length"
-        :data="selectedSecMembers"
-        border
-        size="small"
-        style="width: 100%; margin-bottom: 12px;"
-      >
-        <el-table-column prop="name" label="Name" />
-        <el-table-column prop="sec_position" label="SEC Position" />
-        <el-table-column prop="gender" label="Gender" />
-        <el-table-column prop="mobile" label="Phone" />
-      </el-table>
+      <div style="overflow-x: auto; margin-bottom: 12px;">
+        <el-table
+          v-if="selectedSecMembers.length"
+          :data="selectedSecMembers"
+          border
+          size="small"
+          style="width: 100%; min-width: 500px;"
+        >
+          <el-table-column prop="name" label="Name" />
+          <el-table-column prop="sec_position" label="SEC Position" />
+          <el-table-column prop="gender" label="Gender" />
+          <el-table-column prop="mobile" label="Phone" />
+        </el-table>
+      </div>
 
       <el-divider content-position="left">Add 3 new members</el-divider>
       <el-row v-for="(member, idx) in newMembers" :key="idx" :gutter="10" style="margin-bottom: 8px;">
-        <el-col :xs="24" :sm="12" :md="6">
-          <el-input v-model="member.name" size="small" :placeholder="`Name #${idx + 1}`" />
+        <el-col :xs="24" :sm="24" :md="6">
+          <el-input v-model="member.name" size="small" :placeholder="`Name #${idx + 1}`" style="width: 100%;" />
         </el-col>
         <el-col :xs="24" :sm="12" :md="4">
-          <el-input v-model="member.national_id" size="small" placeholder="National ID" />
+          <el-input v-model="member.national_id" size="small" placeholder="National ID" style="width: 100%;" />
         </el-col>
         <el-col :xs="24" :sm="12" :md="4">
-          <el-input v-model="member.mobile" size="small" placeholder="Phone" />
+          <el-input v-model="member.mobile" size="small" placeholder="Phone" style="width: 100%;" />
         </el-col>
         <el-col :xs="24" :sm="12" :md="3">
           <el-select v-model="member.gender" size="small" placeholder="Gender" style="width: 100%;">
@@ -1200,7 +1273,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
           </el-select>
         </el-col>
         <el-col :xs="24" :sm="12" :md="3">
-          <el-input v-model="member.category" size="small" placeholder="Category" disabled value="Member" />
+          <el-input v-model="member.category" size="small" placeholder="Category" disabled value="Member" style="width: 100%;" />
         </el-col>
         <el-col :xs="24" :sm="12" :md="4">
           <el-select v-model="member.grc_position" size="small" placeholder="GRC Position" style="width: 100%;">
@@ -1215,14 +1288,14 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
         </el-col>
       </el-row>
 
-      <div style="text-align: right; margin-top: 12px;">
-        <el-button @click="createDrawerVisible = false">Cancel</el-button>
-        <el-button type="primary" :loading="creating" @click="submitCreateGrc">Submit</el-button>
+      <div :style="isMobile ? 'display: flex; flex-direction: column; gap: 8px; margin-top: 12px;' : 'text-align: right; margin-top: 12px;'">
+        <el-button @click="createDrawerVisible = false" :style="isMobile ? 'width: 100%;' : ''">Cancel</el-button>
+        <el-button type="primary" :loading="creating" @click="submitCreateGrc" :style="isMobile ? 'width: 100%;' : ''">Submit</el-button>
       </div>
     </el-form>
   </el-drawer>
 
-  <el-dialog v-model="dialogVisible" :title="dialog_title" width="450">
+  <el-dialog v-model="dialogVisible" :title="dialog_title" :width="isMobile ? '90%' : '450'">
     <el-select v-model="role" placeholder="Select Role" size="small" style="width: 95%">
       <el-option v-for="item in options" :key="item.value" :label="item.label" :value="item.value" />
     </el-select>

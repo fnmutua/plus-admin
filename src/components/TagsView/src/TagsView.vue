@@ -144,6 +144,7 @@ const tagLinksRefs = useTemplateRefsList<RouterLinkProps>()
 
 const moveToTarget = (currentTag: RouteLocationNormalizedLoaded) => {
   const wrap$ = unref(scrollbarRef)?.wrap$
+  if (!wrap$) return
   let firstTag: Nullable<RouterLinkProps> = null
   let lastTag: Nullable<RouterLinkProps> = null
 
@@ -153,7 +154,7 @@ const moveToTarget = (currentTag: RouteLocationNormalizedLoaded) => {
     firstTag = tagList[0]
     lastTag = tagList[tagList.length - 1]
   }
-  if ((firstTag?.to as RouteLocationNormalizedLoaded).fullPath === currentTag.fullPath) {
+  if (firstTag && (firstTag.to as RouteLocationNormalizedLoaded).fullPath === currentTag.fullPath) {
     // 直接滚动到0的位置
     const { start } = useScrollTo({
       el: wrap$!,
@@ -162,7 +163,7 @@ const moveToTarget = (currentTag: RouteLocationNormalizedLoaded) => {
       duration: 500
     })
     start()
-  } else if ((lastTag?.to as RouteLocationNormalizedLoaded).fullPath === currentTag.fullPath) {
+  } else if (lastTag && (lastTag.to as RouteLocationNormalizedLoaded).fullPath === currentTag.fullPath) {
     // 滚动到最后的位置
     const { start } = useScrollTo({
       el: wrap$!,
