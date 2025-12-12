@@ -745,43 +745,95 @@ const prepareSheetData = (officialsArray) => {
     [columns, ...grc_officials]  // GRC Officials
   ];
 };
-const DownloadXlsx = async ( ) => {  
-
-  //console.log('paginatedData',paginatedData.value)
-
-  const secSheetData = prepareSheetData(paginatedData.value);
- //   const grcSheetData = prepareSheetData(paginatedData.value.grc_officials, false);
-
-
- const calculateColumnWidths = (data, headers) => {
-    // Initialize column widths based on header lengths
-    const widths = headers.map(header => header.value.length);
-
-    // Iterate over the data rows
-    data.forEach(row => {
-        headers.forEach((  index) => {
-           
-            const cellValue = row[index]?.value ?? ''; // Extract value from data row
-            const valueLength = cellValue.toString().length; // Length of the cell value
-            widths[index] = Math.max(widths[index], valueLength); // Update column width
-        });
-    });
-
+const calculateColumnWidths = (data, headers) => {
+  // Initialize column widths based on header lengths
+  const widths = headers.map((header, idx) => {
+    let maxWidth = header.value.length;
+    // Iterate over the data rows (skip first row which is headers)
+    for (let i = 1; i < data.length; i++) {
+      const cellValue = data[i][idx]?.value ?? '';
+      const valueLength = cellValue.toString().length;
+      maxWidth = Math.max(maxWidth, valueLength);
+    }
     // Ensure widths are within a reasonable limit
-    return widths.map(width => Math.min(width + 2, 50)); // Add padding and cap width
+    return Math.min(maxWidth + 2, 50);
+  });
+  return widths;
 };
 
-const sec_col_widths = calculateColumnWidths(secSheetData[0],secSheetData[0][1])
-const grc_col_widths = calculateColumnWidths(secSheetData[1],secSheetData[1][1])
+const DownloadXlsx = async () => {  
+  try {
+    // Make sure GRC officials are merged onto SEC records before export
+    await mergeOfficials(sec_officials.value, grc_officials.value);
 
-console.log('col_width',sec_col_widths)
+    // Use filteredData to export all filtered results, not just current page
+    const secSheetData = prepareSheetData(filteredData.value);
 
+    // Calculate column widths for both sheets
+    const secHeaders = secSheetData[0][0];
+    const grcHeaders = secSheetData[1][0];
+    const sec_col_widths = calculateColumnWidths(secSheetData[0], secHeaders);
+    const grc_col_widths = calculateColumnWidths(secSheetData[1], grcHeaders);
 
-await writeXlsxFile([secSheetData[0] , secSheetData[1]], {
-  columns: [sec_col_widths.map((width) => ({ width })), grc_col_widths.map((width) => ({ width }))],  
-  sheets: ['SEC', 'GRC'],
-    fileName: 'sec_grc.xlsx'
-})
+    console.log('col_width', sec_col_widths);
+
+    await writeXlsxFile([secSheetData[0], secSheetData[1]], {
+      columns: [
+        sec_col_widths.map((width) => ({ width })), 
+        grc_col_widths.map((width) => ({ width }))
+      ],  
+      sheets: ['SEC', 'GRC'],
+      fileName: 'sec_grc.xlsx'
+    });
+
+    ElMessage.success('Excel file downloaded successfully');
+  } catch (error) {
+    console.error('Error downloading Excel:', error);
+    ElMessage.error('Failed to download Excel file');
+  }
+}
+
+const downloadSettlementXlsx = async (row) => {
+  try {
+    // Make sure GRC officials are merged onto SEC records before export
+    await mergeOfficials(sec_officials.value, grc_officials.value);
+
+    // Filter data to only include this specific settlement
+    const settlementData = sec_officials.value.filter(item => 
+      item.settlement === row.settlement && item.county === row.county
+    );
+
+    if (settlementData.length === 0) {
+      ElMessage.warning('No data found for this settlement');
+      return;
+    }
+
+    const secSheetData = prepareSheetData(settlementData);
+
+    // Calculate column widths for both sheets
+    const secHeaders = secSheetData[0][0];
+    const grcHeaders = secSheetData[1][0];
+    const sec_col_widths = calculateColumnWidths(secSheetData[0], secHeaders);
+    const grc_col_widths = calculateColumnWidths(secSheetData[1], grcHeaders);
+
+    // Create filename with settlement name (sanitize for filename)
+    const settlementName = (row.settlement || 'settlement').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    const fileName = `${settlementName}_sec_grc.xlsx`;
+
+    await writeXlsxFile([secSheetData[0], secSheetData[1]], {
+      columns: [
+        sec_col_widths.map((width) => ({ width })), 
+        grc_col_widths.map((width) => ({ width }))
+      ],  
+      sheets: ['SEC', 'GRC'],
+      fileName: fileName
+    });
+
+    ElMessage.success(`Excel file for ${row.settlement} downloaded successfully`);
+  } catch (error) {
+    console.error('Error downloading Excel:', error);
+    ElMessage.error('Failed to download Excel file');
+  }
 }
 
  // Computed property to filter settlement options based on selected county
@@ -877,13 +929,6 @@ const downloadFile = async (data) => {
   formData.responseType = 'blob';
  
 
-
- 
-  // token,   
-
-  // Add a flag to track if the download has started
-
-
   // Attach a 'beforeunload' event listener to the window
   window.addEventListener('beforeunload', () => {
     if (viewLoading.value) {
@@ -896,32 +941,52 @@ const downloadFile = async (data) => {
     const response = await downloadSubmissionAttachments(formData);
     console.log(response);
 
-   //const url = window.URL.createObjectURL(new Blob([response.data ]));
+    // response.data should already be a Blob when responseType is 'blob'
+    // Get file extension to determine MIME type
+    const fileExtension = data.name.split('.').pop().toLowerCase();
+    const mimeTypes = {
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'png': 'image/png',
+      'gif': 'image/gif',
+      'pdf': 'application/pdf',
+      'doc': 'application/msword',
+      'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'xls': 'application/vnd.ms-excel',
+      'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'txt': 'text/plain',
+      'csv': 'text/csv'
+    };
+    const mimeType = mimeTypes[fileExtension] || 'application/octet-stream';
 
+    // Create blob from response data (it should already be a Blob)
+    let blob;
+    if (response.data instanceof Blob) {
+      blob = response.data;
+    } else if (response.data instanceof ArrayBuffer) {
+      blob = new Blob([response.data], { type: mimeType });
+    } else {
+      // Fallback: convert to blob
+      blob = new Blob([response.data], { type: mimeType });
+    }
 
-
-      // Convert the binary data to an ArrayBuffer
-      const bufferArray = new Uint8Array(response.data ).buffer;
-
-
-      // Step 4: Create a Blob from the ArrayBuffer, specifying the file type
-      const blob = new Blob([bufferArray], {
-        type: "image/jpeg",
-      });
-
-      const url = URL.createObjectURL(blob);
-
-   // const url = window.URL.createObjectURL(new Blob([await response.data.data.blob()]));
-   console.log(url)
+    const url = URL.createObjectURL(blob);
+    console.log(url);
 
     const link = document.createElement('a');
     link.href = url;
     link.setAttribute('download', data.name);
     document.body.appendChild(link);
     link.click();
+    
+    // Clean up
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
     viewLoading.value = false;
   } catch (error) {
-    ElMessage.error('Failed');
+    console.error('Download error:', error);
+    ElMessage.error('Failed to download file');
     viewLoading.value = false;
   }
 };
@@ -967,8 +1032,11 @@ const downloadFile = async (data) => {
       />
     </el-select> 
       <el-input clearable  v-model="search" placeholder="Search by Name, ID ,Phone, Position, Category..." :onInput="filterTableData" style=" margin-right: 15px;" />
-      <el-tooltip content="Add GRC" placement="top">   <el-button v-if="showEditButtons" :onClick="AddRecord" type="primary" :icon="Plus" style=" margin-right: 15px;"/> </el-tooltip>
-      <el-tooltip content="Download" placement="top">   <el-button v-if="showEditButtons" :onClick="DownloadXlsx" type="primary" :icon="Download" /> </el-tooltip>
+      <!-- <el-tooltip content="Add GRC" placement="top">   <el-button v-if="showEditButtons" :onClick="AddRecord" type="primary" :icon="Plus" style=" margin-right: 15px;"/> </el-tooltip> -->
+      <el-button v-if="showEditButtons" @click="DownloadXlsx" type="primary" style=" margin-right: 15px;">
+        <el-icon style="margin-right: 5px;"><Download /></el-icon>
+        Download
+      </el-button>
 
       <!-- <DownloadCustom    :data="paginatedData"   :all="sec_officials" /> -->
      </el-row>
@@ -1022,9 +1090,10 @@ const downloadFile = async (data) => {
     <el-table-column label="Date" prop="date" />
     <el-table-column fixed="right" label="" min-width="40">
       <template #default="props">
-        <el-button type="primary" plain @click="handleEdit(props.row)"> Edit
-      <el-icon class="el-icon--right"><Edit /> </el-icon>
-    </el-button>
+        <el-button type="primary" plain @click="downloadSettlementXlsx(props.row)">
+          <el-icon style="margin-right: 5px;"><Download /></el-icon>
+          Download
+        </el-button>
        </template>
     </el-table-column>
   </el-table>

@@ -188,9 +188,11 @@ export const uploadSubmissionAttachment = (params: {
 
 
 export const downloadSubmissionAttachments = (data)  => {
+  const { responseType, ...requestData } = data;
   return request.post({
    url: prod + '/api/v1/collector/submissions/download',
-   data    
+   data: requestData,
+   responseType: responseType || 'blob'
  });
 };
 
