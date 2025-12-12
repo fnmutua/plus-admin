@@ -13,7 +13,7 @@ import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import {
   loginCollector, editSubmissions,
-  getSubmissions, createSubmission
+  getSubmissions, getSettlements, createSubmission
 } from '@/api/collector'
 
 import {
@@ -53,6 +53,22 @@ const showAdminButtons = ref(appStore.getAdminButtons)
 const showEditButtons = ref(appStore.getEditButtons)
 
 
+
+const fileToBase64 = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const res = reader.result
+      if (typeof res === 'string') {
+        const commaIndex = res.indexOf(',')
+        resolve((commaIndex >= 0 ? res.slice(commaIndex + 1) : res) as string)
+      } else {
+        reject(new Error('Failed to read file'))
+      }
+    }
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
 
 
 const mobileBreakpoint = 768;
@@ -104,6 +120,7 @@ const forms = ref([])
 const loading = ref(false)
 const fetchingData = ref(false)
 const dataFetchStatus = ref('')
+const settlementsList = ref<any[]>([])
 
 
 
@@ -134,6 +151,7 @@ const loginUserToCollector = async () => {
 
     await getGRCData()
     await loadSecRoster()
+    await fetchSettlements()
   } catch (error) {
     loading.value = false
     fetchingData.value = false
@@ -357,6 +375,51 @@ const loadSecRoster = async () => {
   }
 }
 
+const fetchSettlements = async () => {
+  const payload = {
+    project: '1',
+    token: localStorage.getItem('collectorToken')
+  }
+  try {
+    const res = await getSettlements(payload)
+    settlementsList.value = res.data || []
+
+    // Normalize into options for selects/filters
+    const settlementOpts = settlementsList.value.map((s: any) => {
+      const label = s.sett_name || s.name || s.settlement_name || ''
+      const county = s.county_name || s.county || ''
+      const code = s.code || s.pcode || ''
+      return {
+        label,
+        value: label,
+        code,
+        county
+      }
+    }).filter((s: any) => s.label)
+
+    // Update settlement and county options with normalized list
+    settlementOptions.value = settlementOpts
+    const seenCounty = new Map<string, string>()
+    settlementOpts.forEach((s: any) => {
+      if (s.county && !seenCounty.has(s.county)) {
+        seenCounty.set(s.county, s.county)
+      }
+      if (s.label && s.code) {
+        settlementCodeMap[s.label] = s.code
+      }
+      if (s.label && s.county) {
+        settlementCountyMap[s.label] = s.county
+      }
+    })
+    countyOptions.value = Array.from(seenCounty, ([value, label]) => ({
+      label,
+      value
+    }))
+  } catch (error) {
+    console.error('Fetch settlements error (GRC):', error)
+  }
+}
+
 
 const dialogVisible = ref(false)
 
@@ -401,7 +464,23 @@ const grcCreateForm = reactive({
     returning_officer: '',
     county_kisip_coordinator: '',
     npct_representative: ''
-  }
+  },
+  photo: null as
+    | {
+        file: File
+        name: string
+        contentType: string
+        base64?: string
+      }
+    | null,
+  grc_register: null as
+    | {
+        file: File
+        name: string
+        contentType: string
+        base64?: string
+      }
+    | null
 })
 
 const newMembers = reactive([
@@ -469,6 +548,8 @@ const resetCreateFormGrc = () => {
   grcCreateForm.grp_certification.returning_officer = ''
   grcCreateForm.grp_certification.county_kisip_coordinator = ''
   grcCreateForm.grp_certification.npct_representative = ''
+  grcCreateForm.photo = null
+  grcCreateForm.grc_register = null
   newMembers.forEach((m) => {
     m.name = ''
     m.national_id = ''
@@ -477,6 +558,30 @@ const resetCreateFormGrc = () => {
     m.category = ''
     m.grc_position = ''
   })
+}
+
+const handlePhotoChange = async (event) => {
+  const file = event.target.files?.[0]
+  if (file) {
+    grcCreateForm.photo = {
+      file,
+      name: file.name,
+      contentType: file.type,
+      base64: await fileToBase64(file)
+    }
+  }
+}
+
+const handleRegisterChange = async (event) => {
+  const file = event.target.files?.[0]
+  if (file) {
+    grcCreateForm.grc_register = {
+      file,
+      name: file.name,
+      contentType: file.type,
+      base64: await fileToBase64(file)
+    }
+  }
 }
 
 // Computed property to filter settlements by selected county
@@ -619,12 +724,34 @@ const submitCreateGrc = async () => {
 
   creating.value = true
   try {
-    const xml = buildGrcXml(officials)
+    const attachments: { name: string; content: string; contentType: string }[] = []
+    if (grcCreateForm.photo?.base64) {
+      attachments.push({
+        name: grcCreateForm.photo.name,
+        content: grcCreateForm.photo.base64,
+        contentType: grcCreateForm.photo.contentType
+      })
+    }
+    const registerNames: string[] = []
+    if (grcCreateForm.grc_register?.base64) {
+      attachments.push({
+        name: grcCreateForm.grc_register.name,
+        content: grcCreateForm.grc_register.base64,
+        contentType: grcCreateForm.grc_register.contentType
+      })
+      registerNames.push(grcCreateForm.grc_register.name)
+    }
+
+    const { xml } = buildGrcXml(officials, registerNames)
+
+    console.log('GRC submit payload attachments:', attachments.map((a) => a.name))
+
     const payload = {
       project: '1',
       form: 'grc_officials',
       token: localStorage.getItem('collectorToken'),
-      xml
+      xml,
+      attachments
     }
     await createSubmission(payload)
     createDrawerVisible.value = false
@@ -659,7 +786,7 @@ const formatTitle = (attribute) => {
     .replace(/\b\w/g, char => char.toUpperCase()); // Capitalize first letter of each word
 };
 
-const buildGrcXml = (officials) => {
+const buildGrcXml = (officials, registerNames: string[] = []) => {
   const now = new Date()
   const start = now.toISOString()
   const end = now.toISOString()
@@ -692,8 +819,16 @@ const buildGrcXml = (officials) => {
     const v = c === 'x' ? r : (r & 0x3) | 0x8
     return v.toString(16)
   })
+  const instanceId = `uuid:${uuid()}`
 
-  return `<?xml version="1.0"?>
+  const secPhotoNames = registerNames.length ? registerNames : [grcCreateForm.grc_register?.name].filter(Boolean)
+  const registerXml = secPhotoNames
+    .map(
+      (name) => ` <grc_register>${esc(name)}</grc_register> `
+    )
+    .join('')
+
+  const xml = `<?xml version="1.0"?>
 <data id="grc_officials">
   <start>${esc(start)}</start>
   <end>${esc(end)}</end>
@@ -712,14 +847,13 @@ const buildGrcXml = (officials) => {
   </grp_certification>
   <comments>${esc(grcCreateForm.comments)}</comments>
   <location></location>
-  <photo></photo>
-  <sec_photo>
-    <grc_register></grc_register>
-  </sec_photo>
+  <photo>${esc(grcCreateForm.photo?.name)}</photo>
+  ${registerXml}
   <meta>
-    <instanceID>uuid:${uuid()}</instanceID>
+    <instanceID>${esc(instanceId)}</instanceID>
   </meta>
 </data>`
+  return { xml, instanceId }
 }
 
 const generateColumnsX = (attributes, prefix = 'column-', width = 150) => {
@@ -1285,6 +1419,25 @@ const handleSelectionChange = (val: any[]) => {
               :disabled="isNewMemberPositionTaken(item.value, idx)"
             />
           </el-select>
+        </el-col>
+      </el-row>
+
+      <el-row :gutter="10" style="margin-top: 8px;">
+        <el-col :xs="24" :sm="12" :md="12">
+          <el-form-item label="GRC Photo">
+            <input type="file" accept="image/*" @change="handlePhotoChange" />
+            <div v-if="grcCreateForm.photo" style="font-size: 12px; color: #606266; margin-top: 4px;">
+              {{ grcCreateForm.photo.name }}
+            </div>
+          </el-form-item>
+        </el-col>
+        <el-col :xs="24" :sm="12" :md="12">
+          <el-form-item label="Signed list (PDF or photo)">
+            <input type="file" accept="image/*,.pdf" @change="handleRegisterChange" />
+            <div v-if="grcCreateForm.grc_register" style="font-size: 12px; color: #606266; margin-top: 4px;">
+              {{ grcCreateForm.grc_register.name }}
+            </div>
+          </el-form-item>
         </el-col>
       </el-row>
 

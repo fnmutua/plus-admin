@@ -476,7 +476,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
               name: 'sec_grc',
               meta: {
                 title: 'SEC/GRC',
-                hidden: true,
+                hidden: false,
                 icon:'fluent:people-team-16-filled',
                 role: ['root_admin','admin', 'super_admin', 'monitoring' , 'staff' ,'monitoring','grm'] ,
                 locationLevel:['national','county' ],

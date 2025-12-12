@@ -15,8 +15,8 @@ import { useCache } from '@/hooks/web/useCache'
 import {
   loginCollector,
   getSubmissions,
-  createSubmission,
-  getSettlements
+  getSettlements,
+  createSubmission
 } from '@/api/collector'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { watch, onMounted } from 'vue';
@@ -139,6 +139,7 @@ const handlePhotoChange = async (event) => {
   const file = event.target.files?.[0]
   if (file) {
     createForm.photo = {
+      file,
       name: file.name,
       contentType: file.type,
       base64: await fileToBase64(file)
@@ -150,6 +151,7 @@ const handleRegisterChange = async (event) => {
   const file = event.target.files?.[0]
   if (file) {
     createForm.sec_register = {
+      file,
       name: file.name,
       contentType: file.type,
       base64: await fileToBase64(file)
@@ -191,6 +193,7 @@ type SecOfficialType = {
 }
 
 type FilePayload = {
+  file: File
   name: string
   contentType: string
   base64: string
@@ -535,7 +538,7 @@ const formatTitle = (attribute) => {
     .replace(/\b\w/g, char => char.toUpperCase()); // Capitalize first letter of each word
 };
 
-const buildXml = () => {
+const buildXml = (registerNames: string[] = []) => {
   const now = new Date()
   const start = now.toISOString()
   const end = now.toISOString()
@@ -576,9 +579,18 @@ const buildXml = () => {
     const v = c === 'x' ? r : (r & 0x3) | 0x8
     return v.toString(16)
   })
+  const instanceId = `uuid:${uuid()}`
+
+  const secPhotoNames = registerNames.length ? registerNames : [createForm.sec_register?.name].filter(Boolean)
+  const secPhotoXml = secPhotoNames
+    .map(
+      (name) => `
+    <sec_register>${esc(name)}</sec_register>`
+    )
+    .join('')
 
   // Instance-only XML as required by Central; settlement uses entity name, code remains in pcode
-  return `<?xml version="1.0"?>
+  const xml = `<?xml version="1.0"?>
 <data id="sec_officials">
   <start>${esc(start)}</start>
   <end>${esc(end)}</end>
@@ -597,13 +609,12 @@ const buildXml = () => {
   </grp_certification>
   <comments>${esc(createForm.comments)}</comments>
   <photo>${createForm.photo ? esc(createForm.photo.name) : ''}</photo>
-  <sec_photo>
-    <sec_register>${createForm.sec_register ? esc(createForm.sec_register.name) : ''}</sec_register>
-  </sec_photo>
+  ${secPhotoXml}
   <meta>
-    <instanceID>uuid:${uuid()}</instanceID>
+    <instanceID>${esc(instanceId)}</instanceID>
   </meta>
 </data>`
+  return { xml, instanceId }
 }
 
 const validateOfficialsData = () => {
@@ -716,22 +727,25 @@ const submitCreate = async () => {
       createForm.group_location.settlement = sel.value
     }
 
-    const xml = buildXml()
     const attachments: { name: string; content: string; contentType: string }[] = []
-    if (createForm.photo) {
+    if (createForm.photo?.base64) {
       attachments.push({
         name: createForm.photo.name,
         content: createForm.photo.base64,
         contentType: createForm.photo.contentType
       })
     }
-    if (createForm.sec_register) {
+    const registerNames: string[] = []
+    if (createForm.sec_register?.base64) {
       attachments.push({
         name: createForm.sec_register.name,
         content: createForm.sec_register.base64,
         contentType: createForm.sec_register.contentType
       })
+      registerNames.push(createForm.sec_register.name)
     }
+
+    const { xml } = buildXml(registerNames)
 
     const payload = {
       project: '1',

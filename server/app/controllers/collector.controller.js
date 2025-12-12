@@ -1189,8 +1189,29 @@ const url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}
 };
 
 exports.modelCreateSubmission = (req, res) => {
-  const { project, form, token, xml, deviceId } = req.body;
+  const { project, form, token, xml, deviceId, attachments } = req.body;
   let responded = false;
+
+  if (Array.isArray(attachments)) {
+    console.log('Incoming attachments:', attachments.map((a) => a && a.name));
+  }
+
+  if (xml && typeof xml === 'string') {
+    const regSnippet = xml.match(/<sec_photo[\s\S]*?<\/sec_photo>/i);
+    console.log('XML sec_photo snippet:', regSnippet ? regSnippet[0] : 'none');
+    const photoVal = xml.match(/<photo>([^<]*)<\/photo>/i);
+    const regVals = [...xml.matchAll(/<grc_register>([^<]*)<\/grc_register>/gi)].map((m) => m[1]);
+    console.log('XML photo value:', photoVal ? photoVal[1] : 'none', 'XML grc_register values:', regVals);
+  }
+
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const getInstanceId = (bodyXml, response) => {
+    const fromXml = String(bodyXml || '').match(/<instanceID>([^<]+)<\/instanceID>/i);
+    if (fromXml && fromXml[1]) return fromXml[1];
+    const fromHeader = response && response.headers && (response.headers['x-odk-instance-id'] || response.headers['x-odk-instanceid']);
+    if (fromHeader) return fromHeader;
+    return null;
+  };
 
   if (!project || !form || !token || !xml) {
     return res.status(400).send({
@@ -1246,7 +1267,7 @@ exports.modelCreateSubmission = (req, res) => {
   // default flow if no async entity lookup is needed
   submitToCentral(xmlBody);
 
-  function submitToCentral(bodyXml) {
+  async function submitToCentral(bodyXml) {
     const qs = deviceId ? `?deviceID=${encodeURIComponent(deviceId)}` : '';
     const url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions${qs}`;
 
@@ -1261,7 +1282,7 @@ exports.modelCreateSubmission = (req, res) => {
         },
         body: bodyXml
       },
-      (err, response, body) => {
+      async (err, response, body) => {
         if (responded) return;
         if (err) {
           responded = true;
@@ -1273,6 +1294,112 @@ exports.modelCreateSubmission = (req, res) => {
         }
 
         if (response.statusCode >= 200 && response.statusCode < 300) {
+          // If attachments are provided, upload them sequentially after checking expected list
+          if (Array.isArray(attachments) && attachments.length) {
+            try {
+              const instanceId = getInstanceId(bodyXml, response);
+              console.log('Attachment upload pipeline -> instanceID:', instanceId);
+              if (!instanceId) {
+                console.warn('No instanceID found; skipping attachment upload');
+              }
+
+              // Fetch expected attachments from Central to use canonical filenames
+              const fetchExpected = () =>
+                new Promise((resolveList, rejectList) => {
+                  const listUrl = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions/${encodeURIComponent(instanceId)}/attachments`;
+                  request(
+                    {
+                      method: 'GET',
+                      url: listUrl,
+                      headers: {
+                        Authorization: `Bearer ${token}`
+                      },
+                      json: true
+                    },
+                    (lErr, lRes, lBody) => {
+                      if (lErr) return rejectList(lErr);
+                      if (lRes.statusCode >= 200 && lRes.statusCode < 300) return resolveList(lBody || []);
+                      return rejectList(new Error(`List attachments failed ${lRes.statusCode}: ${JSON.stringify(lBody)}`));
+                    }
+                  );
+                });
+
+              const fetchExpectedWithRetries = async (tries = 5) => {
+                let lastErr = null;
+                for (let i = 0; i < tries; i++) {
+                  try {
+                    const res = await fetchExpected();
+                    if (Array.isArray(res) && res.length) return res;
+                  } catch (err) {
+                    lastErr = err;
+                  }
+                  await sleep(1000);
+                }
+                if (lastErr) throw lastErr;
+                return [];
+              };
+
+              for (const att of attachments) {
+                if (!att || !att.name || !att.content) continue;
+                if (!instanceId) continue;
+                const uploadName = att.name;
+                const uploadUrl = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions/${encodeURIComponent(instanceId)}/attachments/${encodeURIComponent(uploadName)}`;
+                console.log('Uploading attachment (no expected check)', uploadName, 'for instanceID', instanceId, 'origName', att.name);
+
+                const uploadOnce = () =>
+                  new Promise((resolveUpload, rejectUpload) => {
+                    request(
+                      {
+                        method: 'POST',
+                        url: uploadUrl,
+                        headers: {
+                          'Content-Type': att.contentType || 'application/octet-stream',
+                          Authorization: `Bearer ${token}`
+                        },
+                        body: Buffer.from(att.content, 'base64')
+                      },
+                      (uErr, uRes, uBody) => {
+                        if (uErr) return rejectUpload(uErr);
+                        if (uRes.statusCode >= 200 && uRes.statusCode < 300) {
+                          return resolveUpload(uBody);
+                        }
+                        console.error('Attachment upload response failed', {
+                          uploadName,
+                          status: uRes?.statusCode,
+                          body: uBody
+                        });
+                        return rejectUpload(new Error(`Attach failed ${uRes.statusCode}: ${uBody}`));
+                      }
+                    );
+                  });
+
+                try {
+                  await uploadOnce();
+                } catch (firstErr) {
+                  // retry once after brief delay (addresses eventual consistency 404)
+                  await sleep(800);
+                  try {
+                    await uploadOnce();
+                  } catch (secondErr) {
+                    console.error('Attachment upload failed after retry', {
+                      uploadName,
+                      instanceId,
+                      status: secondErr?.message
+                    });
+                    throw secondErr;
+                  }
+                }
+              }
+            } catch (attachErr) {
+              responded = true;
+              console.error('Attachment upload failed:', attachErr);
+              return res.status(500).send({
+                error: 'Submission created but attachment upload failed',
+                message: attachErr.message
+              });
+            }
+          }
+
           responded = true;
           return res.status(200).send({
             message: 'Submission created successfully',
