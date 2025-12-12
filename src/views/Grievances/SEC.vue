@@ -147,6 +147,16 @@ const handlePhotoChange = async (event) => {
   }
 }
 
+const photoInputRef = ref<HTMLInputElement | null>(null)
+const registerInputRef = ref<HTMLInputElement | null>(null)
+
+const clearPhoto = () => {
+  createForm.photo = null
+  if (photoInputRef.value) {
+    photoInputRef.value.value = ''
+  }
+}
+
 const handleRegisterChange = async (event) => {
   const file = event.target.files?.[0]
   if (file) {
@@ -156,6 +166,13 @@ const handleRegisterChange = async (event) => {
       contentType: file.type,
       base64: await fileToBase64(file)
     }
+  }
+}
+
+const clearRegister = () => {
+  createForm.sec_register = null
+  if (registerInputRef.value) {
+    registerInputRef.value.value = ''
   }
 }
 
@@ -1205,7 +1222,7 @@ const SEC_options =  [
           </el-col>
         </el-row>
         <el-row :gutter="10">
-          <el-col :xs="24" :sm="12" :md="12">
+          <el-col :xs="24" :sm="24" :md="24">
             <el-form-item label="Comments">
               <el-input v-model="createForm.comments" type="textarea" />
             </el-form-item>
@@ -1214,12 +1231,20 @@ const SEC_options =  [
         <el-row :gutter="10">
           <el-col :xs="24" :sm="12" :md="12">
             <el-form-item label="Committee Photo">
-              <input type="file" accept="image/*" @change="handlePhotoChange" />
+              <input ref="photoInputRef" type="file" accept="image/*" @change="handlePhotoChange" />
+            <div v-if="createForm.photo" style="margin-top: 6px; display: flex; align-items: center; gap: 8px; font-size: 12px; color: #606266;">
+              <span>{{ createForm.photo.name }}</span>
+              <el-button type="text" size="small" @click="clearPhoto">Remove</el-button>
+            </div>
             </el-form-item>
           </el-col>
           <el-col :xs="24" :sm="12" :md="12">
             <el-form-item label="Register Photo">
-              <input type="file" accept="image/*" @change="handleRegisterChange" />
+              <input ref="registerInputRef" type="file" accept="image/*" @change="handleRegisterChange" />
+            <div v-if="createForm.sec_register" style="margin-top: 6px; display: flex; align-items: center; gap: 8px; font-size: 12px; color: #606266;">
+              <span>{{ createForm.sec_register.name }}</span>
+              <el-button type="text" size="small" @click="clearRegister">Remove</el-button>
+            </div>
             </el-form-item>
           </el-col>
         </el-row>

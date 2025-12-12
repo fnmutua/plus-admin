@@ -572,6 +572,16 @@ const handlePhotoChange = async (event) => {
   }
 }
 
+const photoInputRef = ref<HTMLInputElement | null>(null)
+const registerInputRef = ref<HTMLInputElement | null>(null)
+
+const clearPhoto = () => {
+  grcCreateForm.photo = null
+  if (photoInputRef.value) {
+    photoInputRef.value.value = ''
+  }
+}
+
 const handleRegisterChange = async (event) => {
   const file = event.target.files?.[0]
   if (file) {
@@ -581,6 +591,13 @@ const handleRegisterChange = async (event) => {
       contentType: file.type,
       base64: await fileToBase64(file)
     }
+  }
+}
+
+const clearRegister = () => {
+  grcCreateForm.grc_register = null
+  if (registerInputRef.value) {
+    registerInputRef.value.value = ''
   }
 }
 
@@ -1425,17 +1442,19 @@ const handleSelectionChange = (val: any[]) => {
       <el-row :gutter="10" style="margin-top: 8px;">
         <el-col :xs="24" :sm="12" :md="12">
           <el-form-item label="GRC Photo">
-            <input type="file" accept="image/*" @change="handlePhotoChange" />
-            <div v-if="grcCreateForm.photo" style="font-size: 12px; color: #606266; margin-top: 4px;">
-              {{ grcCreateForm.photo.name }}
+            <input ref="photoInputRef" type="file" accept="image/*" @change="handlePhotoChange" />
+            <div v-if="grcCreateForm.photo" style="font-size: 12px; color: #606266; margin-top: 4px; display: flex; align-items: center; gap: 8px;">
+              <span>{{ grcCreateForm.photo.name }}</span>
+              <el-button type="text" size="small" @click="clearPhoto">Remove</el-button>
             </div>
           </el-form-item>
         </el-col>
         <el-col :xs="24" :sm="12" :md="12">
           <el-form-item label="Signed list (PDF or photo)">
-            <input type="file" accept="image/*,.pdf" @change="handleRegisterChange" />
-            <div v-if="grcCreateForm.grc_register" style="font-size: 12px; color: #606266; margin-top: 4px;">
-              {{ grcCreateForm.grc_register.name }}
+            <input ref="registerInputRef" type="file" accept="image/*,.pdf" @change="handleRegisterChange" />
+            <div v-if="grcCreateForm.grc_register" style="font-size: 12px; color: #606266; margin-top: 4px; display: flex; align-items: center; gap: 8px;">
+              <span>{{ grcCreateForm.grc_register.name }}</span>
+              <el-button type="text" size="small" @click="clearRegister">Remove</el-button>
             </div>
           </el-form-item>
         </el-col>
