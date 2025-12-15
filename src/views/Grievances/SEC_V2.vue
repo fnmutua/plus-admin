@@ -12,7 +12,7 @@ import {
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import {
-    loginCollector,deleteSubmissions,getSubmissionAttachments,downloadSubmissionAttachments,
+    loginCollector,deleteSubmissions,getSubmissionAttachments,downloadSubmissionAttachments,uploadSubmissionAttachment,
     getSubmissions, getSubmissionXml, updateSubmissionXml} from '@/api/collector'
 
 import { watch,onMounted } from 'vue';
@@ -1356,33 +1356,35 @@ const finalResponse = {
 
 console.log('finalResponse',finalResponse)
 
-// Get GRC 
+// Get GRC (if exists)
 console.log('GRC',row.grc_officials)
-const grcForm = {
-    project: "1",
-    form: "grc_officials",
-    submissionID: row.grc_officials[0].instance_id,
-    token: localStorage.getItem('collectorToken')
+let grcResponse = { attachments: [] as any[] }
+if (row.grc_officials && row.grc_officials.length > 0 && row.grc_officials[0].instance_id) {
+  const grcForm = {
+      project: "1",
+      form: "grc_officials",
+      submissionID: row.grc_officials[0].instance_id,
+      token: localStorage.getItem('collectorToken')
+    };
+  
+  const grc = await getSubmissionAttachments(grcForm);
+
+  // Ensure response.attachments is an array and append the fields
+  grcResponse = {
+    attachments: grc.attachments.map(attachment => ({
+      ...attachment, // Spread the original attachment data
+      submissionID: grcForm.submissionID, // Add submissionID
+      category: 'GRC', // Add submissionID
+      form:'grc_officials',
+      project: grcForm.project // Add project
+    })),
   };
- 
-    const grc = await getSubmissionAttachments(grcForm);
-
-
- // Ensure response.attachments is an array and append the fields
-const grcResponse = {
-  attachments: grc.attachments.map(attachment => ({
-    ...attachment, // Spread the original attachment data
-    submissionID: grcForm.submissionID, // Add submissionID
-    category: 'GRC', // Add submissionID
-    form:'grc_officials',
-    project: grcForm.project // Add project
-  })),
-};
+}
 
  
 
 
- // Merging arrays and removing duplicates based on 'submissionID'
+// Merging arrays and removing duplicates based on 'submissionID'
 const mergedArray = finalResponse.attachments.concat(grcResponse.attachments).filter((item, index, self) =>
   index === self.findIndex((t) => t.submissionID === item.submissionID)
 );
@@ -1395,6 +1397,22 @@ console.log('mergedDocumentstsArray',documents.value)
 }
 
 const viewLoading =ref(false)
+
+const fileToBase64 = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const res = reader.result
+      if (typeof res === 'string') {
+        const commaIndex = res.indexOf(',')
+        resolve((commaIndex >= 0 ? res.slice(commaIndex + 1) : res) as string)
+      } else {
+        reject(new Error('Failed to read file'))
+      }
+    }
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
 
 const downloadFile = async (data) => {
   console.log(data);
@@ -1470,7 +1488,37 @@ const downloadFile = async (data) => {
   }
 };
 
+const removeDocument = (doc) => {
+  // For now, only remove from local list; Central API does not support deleting single attachments
+  documents.value = documents.value.filter(
+    (d) => !(d.submissionID === doc.submissionID && d.name === doc.name && d.category === doc.category)
+  )
+}
 
+const handleUploadForDoc = async (event: Event, doc: any) => {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+  if (!file) return
+
+  try {
+    const base64 = await fileToBase64(file)
+    await uploadSubmissionAttachment({
+      project: doc.project,
+      form: doc.form,
+      token: localStorage.getItem('collectorToken'),
+      submissionID: doc.submissionID,
+      attachmentName: doc.name,
+      base64,
+      contentType: file.type
+    })
+    ElMessage.success('Document uploaded successfully')
+    // clear file input
+    target.value = ''
+  } catch (error) {
+    console.error('Upload document error:', error)
+    ElMessage.error('Failed to upload document')
+  }
+}
 
 </script>
 
@@ -1573,8 +1621,21 @@ const downloadFile = async (data) => {
                   </el-tab-pane>
                   <el-tab-pane >
                     <template #label> Documents  </template>
-                    <div v-for="(doc, index) in documents" :key="index" style="margin-left: 25px">
-                      <el-button  @click="downloadFile(doc)"   link type="primary" size="small" :icon="Download">{{ doc.name }}  -  {{ doc.category }} </el-button>
+                    <div
+                      v-for="(doc, index) in documents"
+                      :key="index"
+                      style="margin-left: 25px; display: flex; align-items: center; gap: 8px; margin-bottom: 4px;"
+                    >
+                      <el-button
+                        @click="downloadFile(doc)"
+                        link
+                        type="primary"
+                        size="small"
+                        :icon="Download"
+                      >
+                        {{ doc.name }}  -  {{ doc.category }}
+                      </el-button>
+                     
                     </div>
                   </el-tab-pane>
                 </el-tabs>  

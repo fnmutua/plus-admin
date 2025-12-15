@@ -1876,6 +1876,67 @@ exports.getSubmissionAttachments = (req, res) => {
   });
 };
 
+
+// Upload or replace a single attachment for a submission in Central
+exports.uploadSubmissionAttachment = (req, res) => {
+  const { project, form, token, submissionID, attachmentName, base64, contentType } = req.body;
+
+  if (!project || !form || !token || !submissionID || !attachmentName || !base64) {
+    return res.status(400).send({
+      error: 'Missing required fields: project, form, token, submissionID, attachmentName, base64'
+    });
+  }
+
+  const url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions/${submissionID}/attachments/${encodeURIComponent(attachmentName)}`;
+
+  let buffer;
+  try {
+    buffer = Buffer.from(base64, 'base64');
+  } catch (e) {
+    console.error('Invalid base64 for attachment upload', e);
+    return res.status(400).send({
+      error: 'Invalid base64 attachment payload',
+      message: e.message
+    });
+  }
+
+  request(
+    {
+      method: 'POST',
+      url,
+      headers: {
+        'Content-Type': contentType || 'application/octet-stream',
+        Authorization: `Bearer ${token}`
+      },
+      body: buffer,
+      encoding: null
+    },
+    (error, response, body) => {
+      if (error) {
+        console.error('Upload attachment error:', error);
+        return res.status(500).send({
+          error: 'Failed to upload attachment',
+          message: error.message
+        });
+      }
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return res.status(200).send({
+          message: 'Attachment uploaded successfully',
+          code: '0000'
+        });
+      }
+
+      console.error('Upload attachment failed:', response.statusCode, body);
+      return res.status(response.statusCode).send({
+        error: 'Failed to upload attachment',
+        status: response.statusCode,
+        body
+      });
+    }
+  );
+};
+
  
 const path = require('path');
 

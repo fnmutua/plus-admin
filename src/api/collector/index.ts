@@ -175,29 +175,11 @@ export const getSubmissionAttachments = (data)  => {
  });
 };
 
-export const uploadSubmissionAttachment = (params: {
-  projectId: string | number
-  formId: string
-  instanceId: string
-  filename: string
-  file: File | Blob
-}) => {
-  const { projectId, formId, instanceId, filename, file } = params
-
-  const formData = new FormData()
-  // Use a fixed field name so backend can read multipart; include filename hint
-  formData.append('file', file, filename)
-
+export const uploadSubmissionAttachment = (data) => {
   return request.post({
-    url: `https://collector.kesmis.go.ke/v1/projects/${projectId}/forms/${formId}/submissions/${instanceId}/attachments/${encodeURIComponent(filename)}`,
-    data: formData,
-    // Let browser set boundary for multipart/form-data
-    headersType: undefined,
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem('collectorToken') || ''}`
-    },
-    transformRequest: [(d) => d]
-  })
+   url: prod + '/api/v1/collector/submissions/attachments/upload',
+   data    
+ });
 }
 
 
