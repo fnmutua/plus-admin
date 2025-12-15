@@ -959,6 +959,8 @@ exports.modelGetSubmissions = async (req, res) => {
             meta_instanceID: submission.meta?.instanceID,
             // overall submission instanceId used to address the logical submission
             overallInstanceId: submission.__id || submission.meta?.instanceID,
+            // for GRC inline editing, expose the logical submission id from Central listing
+            grc_overallInstanceId: submission.instanceId,
             meta : submission.__system,
             settlement_name: entitiesMap.get(submission.group_location?.pcode) || 'Unknown', // Append settlement name
             county_name: entitiesCountyMap.get(submission.group_location?.pcode) || 'Unknown', // Append county name

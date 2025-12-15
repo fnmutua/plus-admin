@@ -97,6 +97,26 @@ const editForm = reactive({
   npct_representative: ''
 })
 
+// Inline edit state for GRC officials
+const grcEditDialogVisible = ref(false)
+const grcEditLoading = ref(false)
+const grcSaveLoading = ref(false)
+const grcEditOverallId = ref('')
+const grcEditCurrentVersionId = ref('')
+const grcEditOfficialId = ref('')
+const grcEditXml = ref('')
+const grcEditForm = reactive({
+  name: '',
+  national_id: '',
+  gender: '',
+  mobile: '',
+  category: '',
+  grc_position: '',
+  returning_officer: '',
+  county_kisip_coordinator: '',
+  npct_representative: ''
+})
+
 const inlineCategoryOptions = [
   { value: 'structure_owner', label: 'Structure Owner' },
   { value: 'tenant', label: 'Tenant' },
@@ -304,6 +324,7 @@ const extractGRCData = async (dataArray) => {
     const date = data.date  || "N/A";
     const key = data.meta_instanceID  || "N/A";
     const instance_id = data.meta_instanceID  || "N/A";
+    const overallInstanceId = data.grc_overallInstanceId || data.overallInstanceId || instance_id;
     
     // Create a unique key based on county and settlement
    // const key = createKey(county, settlement);
@@ -321,6 +342,7 @@ const extractGRCData = async (dataArray) => {
           npct_representative,
           date, 
           instance_id,
+          overallInstanceId,
           grc_officials: [] // Initialize empty array for officials
         });
       }
@@ -338,7 +360,8 @@ const extractGRCData = async (dataArray) => {
           returning_officer: data.grp_certification?.returning_officer || "N/A",
           npct_representative: data.grp_certification?.npct_representative || "N/A",
           date: data.date || "N/A",
-          instance_id: data.meta_instanceID 
+          instance_id: data.meta_instanceID,
+          overallInstanceId
         };
 
         // Add the official to the sec_officials array of the respective county and settlement
@@ -692,15 +715,37 @@ const openEditSec = (overallId: string, currentId: string, nationalId?: string) 
   startInlineSecEdit(overallId, currentId, nationalId)
 }
 
-const openEditGrc = (instanceId: string) => {
-  if (!grcFormId.value || !instanceId) {
+const openEditGrc = (overallId: string, currentId: string, nationalId?: string) => {
+  if (!grcFormId.value || !overallId) {
     ElMessage.error('Cannot open GRC edit form: missing form link or instance id.')
     return
   }
-  const normId = normalizeInstanceId(instanceId)
-  const returnUrl = buildReturnUrl(grcXmlId.value, normId)
-  const url = `https://collector.kesmis.go.ke/-/edit/${encodeURIComponent(grcFormId.value)}?instance_id=${encodeURIComponent(normId)}&return_url=${encodeURIComponent(returnUrl)}`
-  window.open(url, '_blank')
+  startInlineGrcEdit(overallId, currentId, nationalId)
+}
+
+const startInlineGrcEdit = async (overallId: string, currentId: string, officialId?: string) => {
+  grcEditOverallId.value = normalizeInstanceId(overallId)
+  grcEditCurrentVersionId.value = normalizeInstanceId(currentId)
+  grcEditOfficialId.value = officialId || ''
+  grcEditDialogVisible.value = true
+  grcEditLoading.value = true
+  try {
+    const xml = await fetchSubmissionXml(grcEditOverallId.value, grcXmlId.value)
+    grcEditXml.value = xml
+    const parsed = parseGrcXml(xml, grcEditOfficialId.value)
+    if (!parsed) {
+      ElMessage.error('Could not find this GRC official in the submission XML.')
+      grcEditDialogVisible.value = false
+      return
+    }
+    Object.assign(grcEditForm, parsed)
+  } catch (e) {
+    console.error('Fetch GRC submission XML failed', e)
+    ElMessage.error('Failed to load GRC submission for edit.')
+    grcEditDialogVisible.value = false
+  } finally {
+    grcEditLoading.value = false
+  }
 }
 
 const startInlineSecEdit = async (overallId: string, currentId: string, officialId?: string) => {
@@ -769,6 +814,38 @@ const parseSecXml = (xmlStr: string, nationalId: string) => {
     gender: get('gender'),
     mobile: get('mobile'),
     sec_position: get('sec_position'),
+    returning_officer: getCert('returning_officer'),
+    county_kisip_coordinator: getCert('county_kisip_coordinator'),
+    npct_representative: getCert('npct_representative')
+  }
+}
+
+const parseGrcXml = (xmlStr: string, nationalId: string) => {
+  const parser = new DOMParser()
+  const doc = parser.parseFromString(xmlStr, 'text/xml')
+  const officials = Array.from(doc.getElementsByTagName('grc_officials'))
+  const target = officials.find((el) => {
+    const id = el.getElementsByTagName('national_id')?.[0]?.textContent || ''
+    return nationalId ? id === nationalId : !!id
+  }) || officials[0]
+  if (!target) return null
+  const get = (tag: string) => target.getElementsByTagName(tag)?.[0]?.textContent || ''
+  const root = doc.documentElement
+  const grpCert =
+    (Array.from(root.getElementsByTagName('*')) as Element[]).find(
+      (el) => el.localName === 'grp_certification'
+    ) || null
+  const getCert = (tag: string) =>
+    grpCert
+      ? ((grpCert.getElementsByTagName(tag)?.[0]?.textContent as string) || '')
+      : ''
+  return {
+    category: get('category'),
+    name: get('name'),
+    national_id: get('national_id'),
+    gender: get('gender'),
+    mobile: get('mobile'),
+    grc_position: get('grc_position'),
     returning_officer: getCert('returning_officer'),
     county_kisip_coordinator: getCert('county_kisip_coordinator'),
     npct_representative: getCert('npct_representative')
@@ -875,6 +952,126 @@ const buildUpdatedSecXml = (xmlStr: string, instanceId: string, formData: any, n
   deprecated.textContent = currentInstanceId
 
   // assign a new instanceID for this version to avoid 409 conflicts
+  const newIdCore = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0
+    const v = c === 'x' ? r : (r & 0x3) | 0x8
+    return v.toString(16)
+  })
+  const newInstanceId = `uuid:${newIdCore}`
+  if (instanceNode) {
+    instanceNode.textContent = newInstanceId
+  } else {
+    const newNode = doc.createElement('instanceID')
+    newNode.textContent = newInstanceId
+    meta.appendChild(newNode)
+  }
+
+  return new XMLSerializer().serializeToString(doc)
+}
+
+const saveInlineGrcEdit = async () => {
+  if (!grcEditXml.value || !grcEditOverallId.value) {
+    ElMessage.error('Nothing to save.')
+    return
+  }
+  grcSaveLoading.value = true
+  try {
+    const updatedXml = buildUpdatedGrcXml(
+      grcEditXml.value,
+      grcEditCurrentVersionId.value,
+      grcEditForm,
+      grcEditOfficialId.value
+    )
+    await updateSubmissionXml({
+      project: '1',
+      form: grcXmlId.value,
+      token: localStorage.getItem('collectorToken'),
+      submissionID: grcEditOverallId.value,
+      xml: updatedXml
+    })
+    ElMessage.success('GRC submission updated')
+    grcEditDialogVisible.value = false
+    await getSecData()
+    await getGRCData()
+  } catch (e: any) {
+    console.error('Save GRC edit failed', e)
+    ElMessage.error(e?.message || 'Failed to save')
+  } finally {
+    grcSaveLoading.value = false
+  }
+}
+
+const buildUpdatedGrcXml = (xmlStr: string, instanceId: string, formData: any, nationalId: string) => {
+  const parser = new DOMParser()
+  const doc = parser.parseFromString(xmlStr, 'text/xml')
+  const officials = Array.from(doc.getElementsByTagName('grc_officials'))
+  const target = officials.find((el) => {
+    const id = el.getElementsByTagName('national_id')?.[0]?.textContent || ''
+    return nationalId ? id === nationalId : !!id
+  }) || officials[0]
+  if (!target) throw new Error('GRC official not found in XML')
+  const set = (tag: string, val: string) => {
+    let node = target.getElementsByTagName(tag)?.[0]
+    if (!node) {
+      node = doc.createElement(tag)
+      target.appendChild(node)
+    }
+    node.textContent = val || ''
+  }
+  set('category', formData.category)
+  set('name', formData.name)
+  set('national_id', formData.national_id)
+  set('gender', formData.gender)
+  set('mobile', formData.mobile)
+  set('grc_position', formData.grc_position)
+
+  // update grp_certification at root level
+  const root = doc.documentElement
+  let grpCert =
+    (Array.from(root.getElementsByTagName('*')) as Element[]).find(
+      (el) => el.localName === 'grp_certification'
+    ) || null
+  if (!grpCert) {
+    grpCert = doc.createElement('grp_certification')
+    root.appendChild(grpCert)
+  }
+  const setCert = (tag: string, val: string) => {
+    let node = grpCert!.getElementsByTagName(tag)?.[0]
+    if (!node) {
+      node = doc.createElement(tag)
+      grpCert!.appendChild(node)
+    }
+    node.textContent = val || ''
+  }
+  setCert('returning_officer', formData.returning_officer)
+  setCert('county_kisip_coordinator', formData.county_kisip_coordinator)
+  setCert('npct_representative', formData.npct_representative)
+
+  // add/update deprecatedID in meta and rotate instanceID
+  let meta: Element | null =
+    (Array.from(root.getElementsByTagName('*')) as Element[]).find(
+      (el) => el.localName === 'meta'
+    ) || null
+  if (!meta) {
+    meta = doc.createElement('meta')
+    root.appendChild(meta)
+  }
+  const instanceNode: Element | undefined =
+    (Array.from(meta.getElementsByTagName('*')) as Element[]).find(
+      (el) => el.localName === 'instanceID'
+    ) || undefined
+  const currentInstanceId = (instanceNode && instanceNode.textContent) || instanceId
+
+  let deprecated: Element | undefined =
+    (Array.from(meta.getElementsByTagName('*')) as Element[]).find(
+      (el) => el.localName === 'deprecatedID'
+    ) || undefined
+  if (!deprecated) {
+    deprecated = doc.createElement('deprecatedID')
+    meta.appendChild(deprecated)
+  }
+  deprecated.textContent = currentInstanceId
+
   const newIdCore = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0
     const v = c === 'x' ? r : (r & 0x3) | 0x8
@@ -1368,7 +1565,7 @@ const downloadFile = async (data) => {
                               link
                               type="primary"
                               size="small"
-                              @click="openEditGrc(scope.row.instance_id)"
+                              @click="openEditGrc(scope.row.overallInstanceId, scope.row.instance_id, scope.row.national_id)"
                             >Edit</el-button>
                           </template>
                         </el-table-column>
@@ -1503,6 +1700,73 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       <div class="dialog-footer">
         <el-button @click="editDialogVisible = false">Cancel</el-button>
         <el-button type="primary" :loading="saveLoading" @click="saveInlineSecEdit">Save</el-button>
+      </div>
+    </template>
+  </el-dialog>
+
+  <el-dialog
+    v-model="grcEditDialogVisible"
+    title="Edit GRC Official"
+    width="500"
+  >
+    <el-tabs type="border-card" v-loading="grcEditLoading">
+      <el-tab-pane label="Official Details">
+        <el-form label-position="top">
+          <el-form-item label="Official Name">
+            <el-input v-model="grcEditForm.name" />
+          </el-form-item>
+          <el-form-item label="National ID Number">
+            <el-input v-model="grcEditForm.national_id" />
+          </el-form-item>
+          <el-form-item label="Gender">
+            <el-select v-model="grcEditForm.gender" placeholder="Gender">
+              <el-option label="male" value="male" />
+              <el-option label="female" value="female" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="Mobile Phone">
+            <el-input v-model="grcEditForm.mobile" />
+          </el-form-item>
+          <el-form-item label="Category">
+            <el-select v-model="grcEditForm.category" placeholder="Select category">
+              <el-option
+                v-for="item in inlineCategoryOptions"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="GRC Position">
+            <el-select v-model="grcEditForm.grc_position" placeholder="Select GRC position">
+              <el-option
+                v-for="item in inlineSecPositionOptions"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
+          </el-form-item>
+        </el-form>
+      </el-tab-pane>
+      <el-tab-pane label="Certification">
+        <el-form label-position="top">
+          <el-form-item label="Returning Officer*">
+            <el-input v-model="grcEditForm.returning_officer" />
+          </el-form-item>
+          <el-form-item label="County KISIP Coordinator*">
+            <el-input v-model="grcEditForm.county_kisip_coordinator" />
+          </el-form-item>
+          <el-form-item label="KISIP NPCT Representative">
+            <el-input v-model="grcEditForm.npct_representative" />
+          </el-form-item>
+        </el-form>
+      </el-tab-pane>
+    </el-tabs>
+    <template #footer>
+      <div class="dialog-footer">
+        <el-button @click="grcEditDialogVisible = false">Cancel</el-button>
+        <el-button type="primary" :loading="grcSaveLoading" @click="saveInlineGrcEdit">Save</el-button>
       </div>
     </template>
   </el-dialog>
