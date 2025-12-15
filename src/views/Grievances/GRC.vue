@@ -12,8 +12,8 @@ import {
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import {
-  loginCollector, editSubmissions,
-  getSubmissions, getSettlements, createSubmission
+  loginCollector, deleteSubmissions, editSubmissions,
+  getSubmissions, createSubmission
 } from '@/api/collector'
 
 import {
@@ -54,22 +54,6 @@ const showEditButtons = ref(appStore.getEditButtons)
 
 
 
-const fileToBase64 = (file: File): Promise<string> =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => {
-      const res = reader.result
-      if (typeof res === 'string') {
-        const commaIndex = res.indexOf(',')
-        resolve((commaIndex >= 0 ? res.slice(commaIndex + 1) : res) as string)
-      } else {
-        reject(new Error('Failed to read file'))
-      }
-    }
-    reader.onerror = reject
-    reader.readAsDataURL(file)
-  })
-
 
 const mobileBreakpoint = 768;
 const defaultPageSize = 10;
@@ -77,23 +61,18 @@ const mobilePageSize = 5;
 const pageSize = ref(10);
 const currentPage = ref(1);
 const width = ref(1080);
-const isMobile = ref(false);
 
 // Function to update pageSize based on window width
 const updatePageSize = () => {
 
   console.log('window.innerWidth', window.innerWidth)
   width.value = window.innerWidth - 400
-  isMobile.value = window.innerWidth <= mobileBreakpoint
   if (window.innerWidth <= mobileBreakpoint) {
     pageSize.value = mobilePageSize;
   } else {
     pageSize.value = defaultPageSize;
   }
 };
-
-// Computed property for drawer size
-const drawerSize = computed(() => isMobile.value ? '100%' : '50%');
 
 
 
@@ -120,7 +99,6 @@ const forms = ref([])
 const loading = ref(false)
 const fetchingData = ref(false)
 const dataFetchStatus = ref('')
-const settlementsList = ref<any[]>([])
 
 
 
@@ -135,6 +113,14 @@ const loginUserToCollector = async () => {
   fetchingData.value = true
   dataFetchStatus.value = 'Connecting to server and fetching all GRC data...'
 
+  // Show notification that data fetching has started
+  ElNotification({
+    title: 'Fetching Data',
+    message: 'We are fetching all GRC officials data. This may take a moment. You can continue using other features while data loads.',
+    type: 'info',
+    duration: 5000,
+    position: 'top-right'
+  })
 
   try {
     const response = await loginCollector(formData)
@@ -151,11 +137,17 @@ const loginUserToCollector = async () => {
 
     await getGRCData()
     await loadSecRoster()
-    await fetchSettlements()
   } catch (error) {
     loading.value = false
     fetchingData.value = false
     dataFetchStatus.value = ''
+    ElNotification({
+      title: 'Error',
+      message: 'Failed to connect to server. Please try again.',
+      type: 'error',
+      duration: 5000,
+      position: 'top-right'
+    })
   }
 
 }
@@ -166,8 +158,6 @@ const grc_officials = ref([])
 
 const countyOptions = ref([])
 const settlementOptions = ref([])
-const settlementCodeMap = reactive<Record<string, string>>({})
-const settlementCountyMap = reactive<Record<string, string>>({}) // Map settlement to county
 const extractData = async (dataArray) => {
 
   // Extract unique counties and settlements
@@ -223,11 +213,6 @@ const extractData = async (dataArray) => {
       submissionID: data.meta_instanceID
     };
 
-    // Store settlement to county mapping
-    if (official_details.settlement && official_details.settlement !== "N/A" && official_details.county && official_details.county !== "N/A") {
-      settlementCountyMap[official_details.settlement] = official_details.county;
-    }
-
     // Check if grc_officials array exists in each data object
     if (data.grc_officials && Array.isArray(data.grc_officials)) {
       // Loop through the grc_officials array within each data object
@@ -248,20 +233,12 @@ const extractData = async (dataArray) => {
         if (!isDuplicate(newOfficial)) {
           grc_officials.value.push(newOfficial);
         }
-        if (official_details.settlement && official_details.settlement_code) {
-          settlementCodeMap[official_details.settlement] = official_details.settlement_code;
-        }
       });
     }
   });
 
   countyOptions.value = Array.from(uniqueCounties).map(county => ({ label: county, value: county }));
-  settlementOptions.value = Array.from(uniqueSettlements).map(settlement => ({
-    label: settlement,
-    value: settlement,
-    code: settlementCodeMap[settlement] || '',
-    county: settlementCountyMap[settlement] || ''
-  }));
+  settlementOptions.value = Array.from(uniqueSettlements).map(settlement => ({ label: settlement, value: settlement }));
   console.log(countyOptions.value)
 };
 
@@ -324,9 +301,25 @@ const getGRCData = async () => {
     // Update total items
     totalItems.value = grc_officials.value.length
 
+    // Show success notification
+    ElNotification({
+      title: 'Data Loaded Successfully',
+      message: `Successfully loaded ${grc_officials.value.length} GRC official records. You can now filter and search the data.`,
+      type: 'success',
+      duration: 5000,
+      position: 'top-right'
+    })
+
   } catch (error) {
     // Handle errors here
     console.error('Error:', error);
+    ElNotification({
+      title: 'Error Loading Data',
+      message: 'Failed to load GRC officials data. Please try refreshing the page.',
+      type: 'error',
+      duration: 5000,
+      position: 'top-right'
+    })
   } finally {
     // Reset loading state
     loading.value = false;
@@ -375,51 +368,6 @@ const loadSecRoster = async () => {
   }
 }
 
-const fetchSettlements = async () => {
-  const payload = {
-    project: '1',
-    token: localStorage.getItem('collectorToken')
-  }
-  try {
-    const res = await getSettlements(payload)
-    settlementsList.value = res.data || []
-
-    // Normalize into options for selects/filters
-    const settlementOpts = settlementsList.value.map((s: any) => {
-      const label = s.sett_name || s.name || s.settlement_name || ''
-      const county = s.county_name || s.county || ''
-      const code = s.code || s.pcode || ''
-      return {
-        label,
-        value: label,
-        code,
-        county
-      }
-    }).filter((s: any) => s.label)
-
-    // Update settlement and county options with normalized list
-    settlementOptions.value = settlementOpts
-    const seenCounty = new Map<string, string>()
-    settlementOpts.forEach((s: any) => {
-      if (s.county && !seenCounty.has(s.county)) {
-        seenCounty.set(s.county, s.county)
-      }
-      if (s.label && s.code) {
-        settlementCodeMap[s.label] = s.code
-      }
-      if (s.label && s.county) {
-        settlementCountyMap[s.label] = s.county
-      }
-    })
-    countyOptions.value = Array.from(seenCounty, ([value, label]) => ({
-      label,
-      value
-    }))
-  } catch (error) {
-    console.error('Fetch settlements error (GRC):', error)
-  }
-}
-
 
 const dialogVisible = ref(false)
 
@@ -464,23 +412,7 @@ const grcCreateForm = reactive({
     returning_officer: '',
     county_kisip_coordinator: '',
     npct_representative: ''
-  },
-  photo: null as
-    | {
-        file: File
-        name: string
-        contentType: string
-        base64?: string
-      }
-    | null,
-  grc_register: null as
-    | {
-        file: File
-        name: string
-        contentType: string
-        base64?: string
-      }
-    | null
+  }
 })
 
 const newMembers = reactive([
@@ -489,54 +421,27 @@ const newMembers = reactive([
   { name: '', national_id: '', mobile: '', gender: '', grc_position: '' }
 ])
 
-const secOptionKey = (o) => {
-  // Create a unique key matching the format used in loadSecRoster
-  // This ensures consistency and uniqueness
-  if (o.national_id && o.national_id !== 'N/A' && o.national_id.trim() !== '') {
-    return `${o.national_id}-${o.settlement}-${o.sec_position}`
-  }
-  // Fallback: use name-mobile-settlement-position for uniqueness when national_id is missing
-  // This should be unique since loadSecRoster already deduplicates
-  return `${o.name || ''}-${o.mobile || ''}-${o.settlement || ''}-${o.sec_position || ''}`
-}
-
-const availableSecOptions = computed(() => {
-  const filtered = secRoster.value.filter(
-    (o) =>
-      o.settlement === grcCreateForm.group_location.settlement &&
-      !['chairperson', 'chairman'].includes(String(o.sec_position || '').toLowerCase())
-  )
-  // Use a Map to track seen keys and ensure uniqueness
-  const seen = new Map()
-  return filtered
-    .map((o) => {
-      const key = secOptionKey(o)
-      // If we've seen this key before, skip it (shouldn't happen due to loadSecRoster deduplication)
-      if (seen.has(key)) {
-        return null
-      }
-      seen.set(key, true)
-      return {
-        label: `${o.name} (${o.sec_position || 'Member'})`,
-        value: key,
-        originalData: o
-      }
-    })
-    .filter(Boolean) // Remove null entries
-})
-
-const selectedSecMembers = computed(() => {
-  if (!grcCreateForm.sec_selected || grcCreateForm.sec_selected.length === 0) return []
-  
-  // Find members by matching the selected keys
-  return secRoster.value.filter((o) => {
-    const key = secOptionKey(o)
-    return (
-      grcCreateForm.sec_selected.includes(key) &&
-      o.settlement === grcCreateForm.group_location.settlement
+const secOptionKey = (o) => o.national_id || `${o.name}-${o.mobile}`
+const availableSecOptions = computed(() =>
+  secRoster.value
+    .filter(
+      (o) =>
+        o.settlement === grcCreateForm.group_location.settlement &&
+        !['chairperson', 'chairman'].includes(String(o.sec_position || '').toLowerCase())
     )
-  })
-})
+    .map((o) => ({
+      label: `${o.name} (${o.sec_position || 'Member'})`,
+      value: secOptionKey(o)
+    }))
+)
+
+const selectedSecMembers = computed(() =>
+  secRoster.value.filter(
+    (o) =>
+      grcCreateForm.sec_selected.includes(secOptionKey(o)) &&
+      o.settlement === grcCreateForm.group_location.settlement
+  )
+)
 
 const resetCreateFormGrc = () => {
   grcCreateForm.group_location.county = ''
@@ -548,8 +453,6 @@ const resetCreateFormGrc = () => {
   grcCreateForm.grp_certification.returning_officer = ''
   grcCreateForm.grp_certification.county_kisip_coordinator = ''
   grcCreateForm.grp_certification.npct_representative = ''
-  grcCreateForm.photo = null
-  grcCreateForm.grc_register = null
   newMembers.forEach((m) => {
     m.name = ''
     m.national_id = ''
@@ -559,55 +462,6 @@ const resetCreateFormGrc = () => {
     m.grc_position = ''
   })
 }
-
-const handlePhotoChange = async (event) => {
-  const file = event.target.files?.[0]
-  if (file) {
-    grcCreateForm.photo = {
-      file,
-      name: file.name,
-      contentType: file.type,
-      base64: await fileToBase64(file)
-    }
-  }
-}
-
-const photoInputRef = ref<HTMLInputElement | null>(null)
-const registerInputRef = ref<HTMLInputElement | null>(null)
-
-const clearPhoto = () => {
-  grcCreateForm.photo = null
-  if (photoInputRef.value) {
-    photoInputRef.value.value = ''
-  }
-}
-
-const handleRegisterChange = async (event) => {
-  const file = event.target.files?.[0]
-  if (file) {
-    grcCreateForm.grc_register = {
-      file,
-      name: file.name,
-      contentType: file.type,
-      base64: await fileToBase64(file)
-    }
-  }
-}
-
-const clearRegister = () => {
-  grcCreateForm.grc_register = null
-  if (registerInputRef.value) {
-    registerInputRef.value.value = ''
-  }
-}
-
-// Computed property to filter settlements by selected county
-const settlementOptionsByCounty = computed(() => {
-  if (!grcCreateForm.group_location.county) return []
-  return settlementOptions.value.filter(settlement => 
-    settlement.county === grcCreateForm.group_location.county
-  )
-})
 
 watch(
   () => grcCreateForm.group_location.county,
@@ -621,14 +475,9 @@ watch(
 
 watch(
   () => grcCreateForm.group_location.settlement,
-  (val) => {
+  () => {
     grcCreateForm.group_location.settlement_new = ''
-    if (val) {
-      const selectedSettlement = settlementOptionsByCounty.value.find(s => s.value === val)
-      grcCreateForm.group_location.pcode = selectedSettlement?.code || settlementCodeMap[val] || ''
-    } else {
-      grcCreateForm.group_location.pcode = ''
-    }
+    grcCreateForm.group_location.pcode = ''
     grcCreateForm.sec_selected = []
   }
 )
@@ -706,10 +555,12 @@ const AddRecord = () => {
 
 const submitCreateGrc = async () => {
   if (!grcCreateForm.group_location.county || !grcCreateForm.group_location.settlement) {
+    ElNotification({ title: 'Missing info', message: 'County and settlement are required.', type: 'warning' })
     return
   }
 
-  if (selectedSecMembers.value.length !== 2) {
+  if (selectedSecMembers.value.length < 2) {
+    ElNotification({ title: 'Missing SEC members', message: 'Select at least 2 SEC members (non-chair) for this settlement.', type: 'warning' })
     return
   }
 
@@ -718,6 +569,7 @@ const submitCreateGrc = async () => {
   )
 
   if (!newMembersValid) {
+    ElNotification({ title: 'Incomplete new members', message: 'All three new members need name, ID, phone, gender, and position.', type: 'warning' })
     return
   }
 
@@ -735,47 +587,23 @@ const submitCreateGrc = async () => {
     }))
   ]
 
-  if (officials.length !== 5) {
-    return
-  }
-
   creating.value = true
   try {
-    const attachments: { name: string; content: string; contentType: string }[] = []
-    if (grcCreateForm.photo?.base64) {
-      attachments.push({
-        name: grcCreateForm.photo.name,
-        content: grcCreateForm.photo.base64,
-        contentType: grcCreateForm.photo.contentType
-      })
-    }
-    const registerNames: string[] = []
-    if (grcCreateForm.grc_register?.base64) {
-      attachments.push({
-        name: grcCreateForm.grc_register.name,
-        content: grcCreateForm.grc_register.base64,
-        contentType: grcCreateForm.grc_register.contentType
-      })
-      registerNames.push(grcCreateForm.grc_register.name)
-    }
-
-    const { xml } = buildGrcXml(officials, registerNames)
-
-    console.log('GRC submit payload attachments:', attachments.map((a) => a.name))
-
+    const xml = buildGrcXml(officials)
     const payload = {
       project: '1',
       form: 'grc_officials',
       token: localStorage.getItem('collectorToken'),
-      xml,
-      attachments
+      xml
     }
     await createSubmission(payload)
+    ElNotification({ title: 'Success', message: 'GRC record created', type: 'success' })
     createDrawerVisible.value = false
     resetCreateFormGrc()
     await getGRCData()
   } catch (error) {
     console.error('Create GRC error:', error)
+    ElNotification({ title: 'Error', message: 'Failed to create GRC record', type: 'error' })
   } finally {
     creating.value = false
   }
@@ -803,7 +631,7 @@ const formatTitle = (attribute) => {
     .replace(/\b\w/g, char => char.toUpperCase()); // Capitalize first letter of each word
 };
 
-const buildGrcXml = (officials, registerNames: string[] = []) => {
+const buildGrcXml = (officials) => {
   const now = new Date()
   const start = now.toISOString()
   const end = now.toISOString()
@@ -836,16 +664,8 @@ const buildGrcXml = (officials, registerNames: string[] = []) => {
     const v = c === 'x' ? r : (r & 0x3) | 0x8
     return v.toString(16)
   })
-  const instanceId = `uuid:${uuid()}`
 
-  const secPhotoNames = registerNames.length ? registerNames : [grcCreateForm.grc_register?.name].filter(Boolean)
-  const registerXml = secPhotoNames
-    .map(
-      (name) => ` <grc_register>${esc(name)}</grc_register> `
-    )
-    .join('')
-
-  const xml = `<?xml version="1.0"?>
+  return `<?xml version="1.0"?>
 <data id="grc_officials">
   <start>${esc(start)}</start>
   <end>${esc(end)}</end>
@@ -864,13 +684,14 @@ const buildGrcXml = (officials, registerNames: string[] = []) => {
   </grp_certification>
   <comments>${esc(grcCreateForm.comments)}</comments>
   <location></location>
-  <photo>${esc(grcCreateForm.photo?.name)}</photo>
-  ${registerXml}
+  <photo></photo>
+  <sec_photo>
+    <grc_register></grc_register>
+  </sec_photo>
   <meta>
-    <instanceID>${esc(instanceId)}</instanceID>
+    <instanceID>uuid:${uuid()}</instanceID>
   </meta>
 </data>`
-  return { xml, instanceId }
 }
 
 const generateColumnsX = (attributes, prefix = 'column-', width = 150) => {
@@ -934,21 +755,6 @@ const county_value = ref()
 const sett_value = ref()
 const position = ref()
 
-// Computed property to filter settlements by selected county in filter section
-const filteredSettlementOptions = computed(() => {
-  if (!county_value.value) return settlementOptions.value
-  return settlementOptions.value.filter(settlement => 
-    settlement.county === county_value.value
-  )
-})
-
-// Watch county filter to clear settlement filter when county changes
-watch(
-  () => county_value.value,
-  () => {
-    sett_value.value = null
-  }
-)
 
 const filteredData = computed(() => {
   // return grc_officials.value; // Return all data if no search term
@@ -1204,72 +1010,46 @@ const handleSelectionChange = (val: any[]) => {
     </el-alert>
 
     <div v-loading="loading" element-loading-text="Loading data...">
-    <el-row :gutter="10" style="margin-bottom: 10px;">
-      <el-col :xs="24" :sm="24" :md="24">
-        <el-row :gutter="10" :style="isMobile ? 'flex-wrap: wrap;' : 'flex-wrap: nowrap; display: flex; align-items: center;'">
-          <el-col :xs="24" :sm="12" :md="3" style="margin-bottom: 8px;">
-            <el-button type="primary" plain :icon="Back" @click="goBack" style="width: 100%;">
-              <span v-if="!isMobile">Back</span>
-            </el-button>
-          </el-col>
+    <el-row
+type="flex" justify="start" gutter="10"
+      style="display: flex; flex-wrap: nowrap; align-items: center; margin-bottom:10px">
 
-          <el-col :xs="24" :sm="12" :md="3" style="margin-bottom: 8px;">
-            <el-select
-              v-model="county_value" 
-              placeholder="Filter County" 
-              clearable
-              filterable
-              style="width: 100%;"
-            >
-              <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
-            </el-select>
-          </el-col>
+      <div class="max-w-200px">
+        <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
+          Back
+        </el-button>
+      </div>
 
-          <el-col :xs="24" :sm="12" :md="4" style="margin-bottom: 8px;">
-            <el-select
-              v-model="sett_value" 
-              placeholder="Filter Settlement" 
-              clearable 
-              filterable
-              :disabled="!county_value"
-              style="width: 100%;"
-            >
-              <el-option v-for="item in filteredSettlementOptions" :key="item.value" :label="item.label" :value="item.value" />
-            </el-select>
-          </el-col>
 
-          <el-col :xs="24" :sm="12" :md="3" style="margin-bottom: 8px;">
-            <el-select
-              v-model="position" 
-              placeholder="Filter Position" 
-              clearable 
-              filterable
-              style="width: 100%;"
-            >
-              <el-option v-for="item in options" :key="item.value" :label="item.label" :value="item.value" />
-            </el-select>
-          </el-col>
+      <el-select
+v-model="county_value" placeholder="Filter County" style=" margin-right: 5px;  width:250px" clearable
+        filterable>
+        <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
+      </el-select>
+      <el-select
+v-model="sett_value" placeholder="Filter Settlement" clearable filterable
+        style=" margin-right: 5px; width:350px">
+        <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
+      </el-select>
 
-          <el-col :xs="24" :sm="12" :md="3" style="margin-bottom: 8px;">
-            <el-input
-              clearable 
-              v-model="search" 
-              placeholder="Search..."
-              :onInput="filterTableData" 
-              style="width: 100%;"
-            />
-          </el-col>
+      <el-select
+v-model="position" placeholder="Filter positions" clearable filterable
+        style=" margin-right: 5px; width:350px">
+        <el-option v-for="item in options" :key="item.value" :label="item.label" :value="item.value" />
+      </el-select>
 
-          <el-col :xs="24" :sm="24" :md="4" style="margin-bottom: 8px; margin-left: auto;">
-            <div style="display: flex; gap: 8px; justify-content: flex-end;">
-              <el-tooltip content="Add GRC" placement="top">
-                <el-button v-if="showEditButtons" :onClick="AddRecord" type="primary" :icon="Plus" />
-              </el-tooltip>
-              <DownloadCustom :data="paginatedData" :all="grc_officials" />
-            </div>
-          </el-col>
-        </el-row>
-      </el-col>
+      <el-input
+clearable v-model="search" placeholder="Search by Name, ID, Phone,County or Settlement"
+        :onInput="filterTableData" style=" margin-right: 15px;" />
+
+      <el-tooltip content="Add GRC" placement="top">
+        <el-button v-if="showEditButtons" :onClick="AddRecord" type="primary" :icon="Plus" />
+      </el-tooltip>
+
+
+      <DownloadCustom :data="paginatedData" :all="grc_officials" />
+
+
     </el-row>
 
 
@@ -1313,14 +1093,7 @@ const handleSelectionChange = (val: any[]) => {
           </div>
         </template>
       </el-table-v2> -->
-      <el-button 
-        style="margin-top: 20px; width: 100%;" 
-        v-if="anyRowSelected" 
-        @click="getSelectedRows"
-        :size="isMobile ? 'default' : 'default'"
-      >
-        Generate Accounts
-      </el-button>
+      <el-button style="margin-top: 20px;" v-if="anyRowSelected " @click="getSelectedRows">Generate Accounts</el-button>
 
     </div>
 
@@ -1329,24 +1102,16 @@ const handleSelectionChange = (val: any[]) => {
       <!-- Pagination component -->
 
       <el-pagination
-        :layout="isMobile ? 'prev, pager, next' : 'sizes, prev, pager, next, total'" 
-        v-model:currentPage="currentPage"
-        v-model:page-size="pageSize" 
-        :page-sizes="[5, 10, 15, 20, 50, 100,1000,10000]" 
-        :total="totalItems" 
-        :background="true"
-        :small="isMobile"
-        @size-change="handlePageSizeChange" 
-        @current-change="handlePageChange" 
-        class="mt-4" 
-      />
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+        v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100,1000,10000]" :total="totalItems" :background="true"
+        @size-change="handlePageSizeChange" @current-change="handlePageChange" class="mt-4" />
 
     </div>
     </div>
 
   </el-card>
 
-  <el-drawer v-model="createDrawerVisible" title="Create GRC" :size="drawerSize" :direction="isMobile ? 'btt' : 'rtl'">
+  <el-drawer v-model="createDrawerVisible" title="Create GRC" size="50%">
     <el-form label-position="top">
       <el-row :gutter="10">
         <el-col :xs="24" :sm="12" :md="12">
@@ -1363,9 +1128,8 @@ const handleSelectionChange = (val: any[]) => {
               filterable
               clearable
               placeholder="Select settlement"
-              :disabled="!grcCreateForm.group_location.county"
             >
-              <el-option v-for="s in settlementOptionsByCounty" :key="s.value" :label="s.label" :value="s.value" />
+              <el-option v-for="s in settlementOptions" :key="s.value" :label="s.label" :value="s.value" />
             </el-select>
           </el-form-item>
         </el-col>
@@ -1391,31 +1155,29 @@ const handleSelectionChange = (val: any[]) => {
         <el-option v-for="opt in availableSecOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
       </el-select>
 
-      <div style="overflow-x: auto; margin-bottom: 12px;">
-        <el-table
-          v-if="selectedSecMembers.length"
-          :data="selectedSecMembers"
-          border
-          size="small"
-          style="width: 100%; min-width: 500px;"
-        >
-          <el-table-column prop="name" label="Name" />
-          <el-table-column prop="sec_position" label="SEC Position" />
-          <el-table-column prop="gender" label="Gender" />
-          <el-table-column prop="mobile" label="Phone" />
-        </el-table>
-      </div>
+      <el-table
+        v-if="selectedSecMembers.length"
+        :data="selectedSecMembers"
+        border
+        size="small"
+        style="width: 100%; margin-bottom: 12px;"
+      >
+        <el-table-column prop="name" label="Name" />
+        <el-table-column prop="sec_position" label="SEC Position" />
+        <el-table-column prop="gender" label="Gender" />
+        <el-table-column prop="mobile" label="Phone" />
+      </el-table>
 
       <el-divider content-position="left">Add 3 new members</el-divider>
       <el-row v-for="(member, idx) in newMembers" :key="idx" :gutter="10" style="margin-bottom: 8px;">
-        <el-col :xs="24" :sm="24" :md="6">
-          <el-input v-model="member.name" size="small" :placeholder="`Name #${idx + 1}`" style="width: 100%;" />
+        <el-col :xs="24" :sm="12" :md="6">
+          <el-input v-model="member.name" size="small" :placeholder="`Name #${idx + 1}`" />
         </el-col>
         <el-col :xs="24" :sm="12" :md="4">
-          <el-input v-model="member.national_id" size="small" placeholder="National ID" style="width: 100%;" />
+          <el-input v-model="member.national_id" size="small" placeholder="National ID" />
         </el-col>
         <el-col :xs="24" :sm="12" :md="4">
-          <el-input v-model="member.mobile" size="small" placeholder="Phone" style="width: 100%;" />
+          <el-input v-model="member.mobile" size="small" placeholder="Phone" />
         </el-col>
         <el-col :xs="24" :sm="12" :md="3">
           <el-select v-model="member.gender" size="small" placeholder="Gender" style="width: 100%;">
@@ -1424,7 +1186,7 @@ const handleSelectionChange = (val: any[]) => {
           </el-select>
         </el-col>
         <el-col :xs="24" :sm="12" :md="3">
-          <el-input v-model="member.category" size="small" placeholder="Category" disabled value="Member" style="width: 100%;" />
+          <el-input v-model="member.category" size="small" placeholder="Category" disabled value="Member" />
         </el-col>
         <el-col :xs="24" :sm="12" :md="4">
           <el-select v-model="member.grc_position" size="small" placeholder="GRC Position" style="width: 100%;">
@@ -1439,35 +1201,14 @@ const handleSelectionChange = (val: any[]) => {
         </el-col>
       </el-row>
 
-      <el-row :gutter="10" style="margin-top: 8px;">
-        <el-col :xs="24" :sm="12" :md="12">
-          <el-form-item label="GRC Photo">
-            <input ref="photoInputRef" type="file" accept="image/*" @change="handlePhotoChange" />
-            <div v-if="grcCreateForm.photo" style="font-size: 12px; color: #606266; margin-top: 4px; display: flex; align-items: center; gap: 8px;">
-              <span>{{ grcCreateForm.photo.name }}</span>
-              <el-button type="text" size="small" @click="clearPhoto">Remove</el-button>
-            </div>
-          </el-form-item>
-        </el-col>
-        <el-col :xs="24" :sm="12" :md="12">
-          <el-form-item label="Signed list (PDF or photo)">
-            <input ref="registerInputRef" type="file" accept="image/*,.pdf" @change="handleRegisterChange" />
-            <div v-if="grcCreateForm.grc_register" style="font-size: 12px; color: #606266; margin-top: 4px; display: flex; align-items: center; gap: 8px;">
-              <span>{{ grcCreateForm.grc_register.name }}</span>
-              <el-button type="text" size="small" @click="clearRegister">Remove</el-button>
-            </div>
-          </el-form-item>
-        </el-col>
-      </el-row>
-
-      <div :style="isMobile ? 'display: flex; flex-direction: column; gap: 8px; margin-top: 12px;' : 'text-align: right; margin-top: 12px;'">
-        <el-button @click="createDrawerVisible = false" :style="isMobile ? 'width: 100%;' : ''">Cancel</el-button>
-        <el-button type="primary" :loading="creating" @click="submitCreateGrc" :style="isMobile ? 'width: 100%;' : ''">Submit</el-button>
+      <div style="text-align: right; margin-top: 12px;">
+        <el-button @click="createDrawerVisible = false">Cancel</el-button>
+        <el-button type="primary" :loading="creating" @click="submitCreateGrc">Submit</el-button>
       </div>
     </el-form>
   </el-drawer>
 
-  <el-dialog v-model="dialogVisible" :title="dialog_title" :width="isMobile ? '90%' : '450'">
+  <el-dialog v-model="dialogVisible" :title="dialog_title" width="450">
     <el-select v-model="role" placeholder="Select Role" size="small" style="width: 95%">
       <el-option v-for="item in options" :key="item.value" :label="item.label" :value="item.value" />
     </el-select>

@@ -2,7 +2,7 @@
 <script setup lang="ts">
 
 
-import { ElButton } from 'element-plus';
+import { ElButton } from 'element-plus'
 import { Back, Plus } from '@element-plus/icons-vue'
 
 import { ref, computed, reactive } from 'vue'
@@ -15,8 +15,8 @@ import { useCache } from '@/hooks/web/useCache'
 import {
   loginCollector,
   getSubmissions,
-  getSettlements,
-  createSubmission
+  createSubmission,
+  getSettlements
 } from '@/api/collector'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { watch, onMounted } from 'vue';
@@ -35,23 +35,18 @@ const mobilePageSize = 5;
 const pageSize = ref(18);
 const currentPage = ref(1);
 const width = ref(1080);
-const isMobile = ref(false);
 
 // Function to update pageSize based on window width
 const updatePageSize = () => {
 
   console.log('window.innerWidth', window.innerWidth)
   width.value = window.innerWidth - 400
-  isMobile.value = window.innerWidth <= mobileBreakpoint
   if (window.innerWidth <= mobileBreakpoint) {
     pageSize.value = mobilePageSize;
   } else {
     pageSize.value = defaultPageSize;
   }
 };
-
-// Computed property for drawer size
-const drawerSize = computed(() => isMobile.value ? '100%' : '45%');
 
 const countyListFromSettlements = computed<{ label: string; value: string | number }[]>(() => {
   const seen = new Map<string, string>()
@@ -101,9 +96,6 @@ const resetCreateForm = () => {
 }
 
 const addOfficial = () => {
-  if (createForm.sec_officials.length >= maxOfficials) {
-    return
-  }
   createForm.sec_officials.push({
     category: '',
     name: '',
@@ -139,21 +131,10 @@ const handlePhotoChange = async (event) => {
   const file = event.target.files?.[0]
   if (file) {
     createForm.photo = {
-      file,
       name: file.name,
       contentType: file.type,
       base64: await fileToBase64(file)
     }
-  }
-}
-
-const photoInputRef = ref<HTMLInputElement | null>(null)
-const registerInputRef = ref<HTMLInputElement | null>(null)
-
-const clearPhoto = () => {
-  createForm.photo = null
-  if (photoInputRef.value) {
-    photoInputRef.value.value = ''
   }
 }
 
@@ -161,18 +142,10 @@ const handleRegisterChange = async (event) => {
   const file = event.target.files?.[0]
   if (file) {
     createForm.sec_register = {
-      file,
       name: file.name,
       contentType: file.type,
       base64: await fileToBase64(file)
     }
-  }
-}
-
-const clearRegister = () => {
-  createForm.sec_register = null
-  if (registerInputRef.value) {
-    registerInputRef.value.value = ''
   }
 }
 
@@ -210,7 +183,6 @@ type SecOfficialType = {
 }
 
 type FilePayload = {
-  file: File
   name: string
   contentType: string
   base64: string
@@ -244,7 +216,6 @@ const createDrawerVisible = ref(false)
 const creating = ref(false)
 const creatingStatus = ref('')
 const activeStep = ref(0)
-const maxOfficials = 18
 const validationMessage = ref('')
 
 const disableSettlementNew = computed(() => !!createForm.group_location.settlement)
@@ -311,6 +282,14 @@ const loginUserToCollector = async () => {
   fetchingData.value = true
   dataFetchStatus.value = 'Connecting to server and fetching all SEC data...'
 
+  // Show notification that data fetching has started
+  ElNotification({
+    title: 'Fetching Data',
+    message: 'We are fetching all SEC officials data. This may take a moment. You can continue using other features while data loads.',
+    type: 'info',
+    duration: 5000,
+    position: 'top-right'
+  })
 
   try {
     await loginCollector(formData).then((response) => {
@@ -345,6 +324,13 @@ const loginUserToCollector = async () => {
     loading.value = false
     fetchingData.value = false
     dataFetchStatus.value = ''
+    ElNotification({
+      title: 'Error',
+      message: 'Failed to connect to server. Please try again.',
+      type: 'error',
+      duration: 5000,
+      position: 'top-right'
+    })
   }
 
 }
@@ -354,8 +340,7 @@ const sec_officials = ref<any[]>([])
 
 
 const countyOptions = ref<{ label: string; value: string }[]>([])
-const settlementOptions = ref<{ label: string; value: string; county: string }[]>([])
-const settlementCountyMap = reactive<Record<string, string>>({}) // Map settlement to county
+const settlementOptions = ref<{ label: string; value: string }[]>([])
 const extractData = async (dataArray) => {
 
   // Extract unique counties and settlements
@@ -396,10 +381,6 @@ const extractData = async (dataArray) => {
     //Extratc Settleemnts 
     if (data.settlement_name) {
       uniqueSettlements.add(data.settlement_name);
-      // Store settlement to county mapping
-      if (data.group_location?.county) {
-        settlementCountyMap[data.settlement_name] = data.group_location.county;
-      }
     }
 
 
@@ -437,11 +418,7 @@ const extractData = async (dataArray) => {
   });
 
   countyOptions.value = Array.from(uniqueCounties).map((county) => ({ label: String(county), value: String(county) }))
-  settlementOptions.value = Array.from(uniqueSettlements).map((settlement) => ({ 
-    label: String(settlement), 
-    value: String(settlement),
-    county: settlementCountyMap[settlement] || ''
-  }))
+  settlementOptions.value = Array.from(uniqueSettlements).map((settlement) => ({ label: String(settlement), value: String(settlement) }))
   console.log(countyOptions.value)
 };
 
@@ -476,9 +453,25 @@ const getSecData = async () => {
     // Update total items
     totalItems.value = sec_officials.value.length
 
+    // Show success notification
+    ElNotification({
+      title: 'Data Loaded Successfully',
+      message: `Successfully loaded ${sec_officials.value.length} SEC official records. You can now filter and search the data.`,
+      type: 'success',
+      duration: 5000,
+      position: 'top-right'
+    })
+
   } catch (error) {
     // Handle errors here
     console.error('Error:', error);
+    ElNotification({
+      title: 'Error Loading Data',
+      message: 'Failed to load SEC officials data. Please try refreshing the page.',
+      type: 'error',
+      duration: 5000,
+      position: 'top-right'
+    })
   } finally {
     // Reset loading state
     loading.value = false;
@@ -500,6 +493,11 @@ const fetchSettlements = async () => {
     }
   } catch (error) {
     console.error('Fetch settlements error:', error)
+    ElNotification({
+      title: 'Error',
+      message: 'Failed to fetch settlements list',
+      type: 'error'
+    })
   }
 }
 
@@ -528,6 +526,11 @@ const fetchSettlementsByCounty = async (countyId: string | number) => {
     }))
   } catch (error) {
     console.error('Fetch settlements by county error:', error)
+    ElNotification({
+      title: 'Error',
+      message: 'Failed to fetch settlements for selected county',
+      type: 'error'
+    })
   }
 }
 
@@ -555,7 +558,7 @@ const formatTitle = (attribute) => {
     .replace(/\b\w/g, char => char.toUpperCase()); // Capitalize first letter of each word
 };
 
-const buildXml = (registerNames: string[] = []) => {
+const buildXml = () => {
   const now = new Date()
   const start = now.toISOString()
   const end = now.toISOString()
@@ -596,18 +599,9 @@ const buildXml = (registerNames: string[] = []) => {
     const v = c === 'x' ? r : (r & 0x3) | 0x8
     return v.toString(16)
   })
-  const instanceId = `uuid:${uuid()}`
-
-  const secPhotoNames = registerNames.length ? registerNames : [createForm.sec_register?.name].filter(Boolean)
-  const secPhotoXml = secPhotoNames
-    .map(
-      (name) => `
-    <sec_register>${esc(name)}</sec_register>`
-    )
-    .join('')
 
   // Instance-only XML as required by Central; settlement uses entity name, code remains in pcode
-  const xml = `<?xml version="1.0"?>
+  return `<?xml version="1.0"?>
 <data id="sec_officials">
   <start>${esc(start)}</start>
   <end>${esc(end)}</end>
@@ -626,20 +620,17 @@ const buildXml = (registerNames: string[] = []) => {
   </grp_certification>
   <comments>${esc(createForm.comments)}</comments>
   <photo>${createForm.photo ? esc(createForm.photo.name) : ''}</photo>
-  ${secPhotoXml}
+  <sec_photo>
+    <sec_register>${createForm.sec_register ? esc(createForm.sec_register.name) : ''}</sec_register>
+  </sec_photo>
   <meta>
-    <instanceID>${esc(instanceId)}</instanceID>
+    <instanceID>uuid:${uuid()}</instanceID>
   </meta>
 </data>`
-  return { xml, instanceId }
 }
 
 const validateOfficialsData = () => {
   const len = createForm.sec_officials.length
-  if (len !== maxOfficials) {
-    return { ok: false, msg: `Need exactly ${maxOfficials} officials (currently ${len}).` }
-  }
-
   const positionSet = new Set()
   const nationalSet = new Set()
 
@@ -677,10 +668,12 @@ const goNext = () => {
   if (activeStep.value === 0) {
     if (!createForm.group_location.county || !(createForm.group_location.settlement || createForm.group_location.settlement_new)) {
       validationMessage.value = 'County and settlement are required.'
+      ElNotification({ title: 'Missing info', message: validationMessage.value, type: 'warning' })
       return
     }
     if (!createForm.group_location.settlement && createForm.group_location.settlement_new && !createForm.group_location.pcode) {
       validationMessage.value = 'Settlement code is required when adding a new settlement.'
+      ElNotification({ title: 'Missing info', message: validationMessage.value, type: 'warning' })
       return
     }
     validationMessage.value = ''
@@ -692,6 +685,7 @@ const goNext = () => {
     const state = validateOfficialsData()
     validationMessage.value = state.msg
     if (!state.ok) {
+      ElNotification({ title: 'Incomplete officials', message: state.msg, type: 'warning' })
       return
     }
     activeStep.value = 2
@@ -722,11 +716,13 @@ const submitCreate = async () => {
   const state = validateOfficialsData()
   if (!state.ok) {
     validationMessage.value = state.msg
+    ElNotification({ title: 'Cannot submit', message: state.msg, type: 'warning' })
     return
   }
 
   if (!createForm.group_location.settlement && createForm.group_location.settlement_new && !createForm.group_location.pcode) {
     validationMessage.value = 'Settlement code is required when adding a new settlement.'
+    ElNotification({ title: 'Missing info', message: validationMessage.value, type: 'warning' })
     return
   }
 
@@ -744,25 +740,22 @@ const submitCreate = async () => {
       createForm.group_location.settlement = sel.value
     }
 
+    const xml = buildXml()
     const attachments: { name: string; content: string; contentType: string }[] = []
-    if (createForm.photo?.base64) {
+    if (createForm.photo) {
       attachments.push({
         name: createForm.photo.name,
         content: createForm.photo.base64,
         contentType: createForm.photo.contentType
       })
     }
-    const registerNames: string[] = []
-    if (createForm.sec_register?.base64) {
+    if (createForm.sec_register) {
       attachments.push({
         name: createForm.sec_register.name,
         content: createForm.sec_register.base64,
         contentType: createForm.sec_register.contentType
       })
-      registerNames.push(createForm.sec_register.name)
     }
-
-    const { xml } = buildXml(registerNames)
 
     const payload = {
       project: '1',
@@ -773,11 +766,21 @@ const submitCreate = async () => {
     }
 
     await createSubmission(payload)
+    ElNotification({
+      title: 'Success',
+      message: 'SEC record created',
+      type: 'success'
+    })
     createDrawerVisible.value = false
     resetCreateForm()
     getSecData()
   } catch (error) {
     console.error('Create SEC error:', error)
+    ElNotification({
+      title: 'Error',
+      message: 'Failed to create SEC record',
+      type: 'error'
+    })
   } finally {
     creating.value = false
     creatingStatus.value = ''
@@ -845,23 +848,6 @@ const county_value = ref()
 const sett_value = ref()
 const position = ref()
 const category = ref()
-
-// Computed property to filter settlements by selected county in filter section
-const filteredSettlementOptions = computed(() => {
-  if (!county_value.value) return settlementOptions.value
-  return settlementOptions.value.filter(settlement => 
-    settlement.county === county_value.value
-  )
-})
-
-// Watch county filter to clear settlement filter when county changes
-watch(
-  () => county_value.value,
-  () => {
-    sett_value.value = []
-  }
-)
-
 const filteredData = computed(() => {
   //const searchTerm = search.value.toLowerCase();
   // if (searchTerm) {
@@ -1004,109 +990,57 @@ const SEC_options =  [
 <template>
   <el-card>
     <!-- Status Alert -->
-    <el-alert
-      v-if="fetchingData && dataFetchStatus"
-      :title="dataFetchStatus"
-      type="info"
-      :closable="false"
-      show-icon
-      style="margin-bottom: 15px;"
-    >
-      <template #default>
-        <div>
-          <p>{{ dataFetchStatus }}</p>
-          <p style="font-size: 12px; margin-top: 5px; color: #909399;">
-            You can use the filters and search while data is being loaded.
-          </p>
-        </div>
-      </template>
-    </el-alert>
+ 
 
     <div v-loading="loading" element-loading-text="Loading data...">
-    <el-row :gutter="10" style="margin-bottom: 10px;">
-      <el-col :xs="24" :sm="24" :md="24">
-        <el-row :gutter="10" :style="isMobile ? 'flex-wrap: wrap;' : 'flex-wrap: nowrap; display: flex; align-items: center;'">
-          <el-col :xs="24" :sm="12" :md="3" style="margin-bottom: 8px;">
-            <el-button type="primary" plain :icon="Back" @click="goBack" style="width: 100%;">
-              <span v-if="!isMobile">Back</span>
-            </el-button>
-          </el-col>
+    <el-row
+type="flex" justify="start" :gutter="10"
+      style="display: flex; flex-wrap: nowrap; align-items: center; margin-bottom:10px">
 
-          <el-col :xs="24" :sm="12" :md="3" style="margin-bottom: 8px;">
-            <el-select
-              v-model="county_value" 
-              placeholder="Filter County" 
-              clearable 
-              filterable
-              style="width: 100%;"
-            >
-              <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
-            </el-select>
-          </el-col>
+      <div class="max-w-200px">
+        <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
+          Back
+        </el-button>
+      </div>
 
-          <el-col :xs="24" :sm="12" :md="3" style="margin-bottom: 8px;">
-            <el-select
-              multiple
-              v-model="sett_value" 
-              placeholder="Filter Settlement" 
-              clearable 
-              filterable 
-              collapse-tags
-              :disabled="!county_value"
-              style="width: 100%;"
-            >
-              <el-option v-for="item in filteredSettlementOptions" :key="item.value" :label="item.label" :value="item.value" />
-            </el-select>
-          </el-col>
+      <el-select
+v-model="county_value" placeholder="Filter County" clearable filterable
+        style=" margin-right: 5px;  width:250px">
+        <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
+      </el-select>
+      <el-select
+multiple
+v-model="sett_value" placeholder="Filter Settlement" clearable filterable collapse-tags	
+        style=" margin-right: 5px; width:350px">
+        <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
+      </el-select>
 
-          <el-col :xs="24" :sm="12" :md="3" style="margin-bottom: 8px;">
-            <el-select
-              multiple
-              v-model="position" 
-              placeholder="Filter Position" 
-              clearable 
-              filterable 
-              collapse-tags
-              style="width: 100%;"
-            >
-              <el-option v-for="item in SEC_options" :key="item.value" :label="item.label" :value="item.value" />
-            </el-select>
-          </el-col>
+      <el-select
+multiple  v-model="position" placeholder="Filter By Position" clearable filterable collapse-tags	
+        style=" margin-right: 5px; width:350px">
+        <el-option v-for="item in SEC_options" :key="item.value" :label="item.label" :value="item.value" />
+      </el-select>
 
-          <el-col :xs="24" :sm="12" :md="3" style="margin-bottom: 8px;">
-            <el-select
-              multiple
-              v-model="category" 
-              placeholder="Filter Category" 
-              clearable 
-              filterable 
-              collapse-tags
-              style="width: 100%;"
-            >
-              <el-option v-for="item in category_options" :key="item.value" :label="item.label" :value="item.value" />
-            </el-select>
-          </el-col>
 
-          <el-col :xs="24" :sm="12" :md="2" style="margin-bottom: 8px;">
-            <el-input
-              clearable 
-              v-model="search" 
-              placeholder="Search..."
-              :onInput="filterTableData" 
-              style="width: 100%;"
-            />
-          </el-col>
+      <el-select
+multiple
+v-model="category" placeholder="Filter By Category" clearable filterable collapse-tags	
+        style=" margin-right: 5px; width:350px">
+        <el-option v-for="item in category_options" :key="item.value" :label="item.label" :value="item.value" />
+      </el-select>
 
-          <el-col :xs="24" :sm="24" :md="4" style="margin-bottom: 8px; margin-left: auto;">
-            <div style="display: flex; gap: 8px; justify-content: flex-end;">
-              <el-tooltip content="Add SEC" placement="top">
-                <el-button type="primary" :icon="Plus" @click="openCreateDrawer" />
-              </el-tooltip>
-              <DownloadCustom :data="paginatedData" :all="sec_officials" />
-            </div>
-          </el-col>
-        </el-row>
-      </el-col>
+
+      <el-input
+clearable v-model="search" placeholder="Search by Name, ID, Phone.."
+        :onInput="filterTableData" style=" margin-right: 15px;" />
+
+      <el-tooltip content="Add SEC" placement="top">
+        <el-button type="primary" :icon="Plus" @click="openCreateDrawer" />
+      </el-tooltip>
+
+      <DownloadCustom :data="paginatedData" :all="sec_officials" />
+
+
     </el-row>
 
 
@@ -1147,27 +1081,19 @@ const SEC_options =  [
       <!-- Pagination component -->
 
       <el-pagination
-        :layout="isMobile ? 'prev, pager, next' : 'sizes, prev, pager, next, total'" 
-        v-model:currentPage="currentPage"
-        v-model:page-size="pageSize" 
-        :page-sizes="[5, 10,  20, 50, 100,1000,10000]" 
-        :total="totalItems" 
-        :background="true"
-        :small="isMobile"
-        @size-change="handlePageSizeChange" 
-        @current-change="handlePageChange" 
-        class="mt-4" 
-      />
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+        v-model:page-size="pageSize" :page-sizes="[5, 10,  20, 50, 100,1000,10000]" :total="totalItems" :background="true"
+        @size-change="handlePageSizeChange" @current-change="handlePageChange" class="mt-4" />
 
     </div>
     </div>
 
   </el-card>
 
-  <el-drawer v-model="createDrawerVisible" title="Create SEC Record" :size="drawerSize" :direction="isMobile ? 'btt' : 'rtl'">
-    <el-steps v-if="!isMobile" :active="activeStep" finish-status="success" align-center style="margin-bottom: 16px;">
+  <el-drawer v-model="createDrawerVisible" title="Create SEC Record" size="45%">
+    <el-steps :active="activeStep" finish-status="success" align-center style="margin-bottom: 16px;">
       <el-step title="Location" description="County & settlement" />
-      <el-step title="Officials" description="Up to 19 unique roles" />
+      <el-step title="Officials" description="Officials list" />
       <el-step title="Review & Submit" />
     </el-steps>
 
@@ -1222,7 +1148,7 @@ const SEC_options =  [
           </el-col>
         </el-row>
         <el-row :gutter="10">
-          <el-col :xs="24" :sm="24" :md="24">
+          <el-col :xs="24" :sm="12" :md="12">
             <el-form-item label="Comments">
               <el-input v-model="createForm.comments" type="textarea" />
             </el-form-item>
@@ -1231,20 +1157,12 @@ const SEC_options =  [
         <el-row :gutter="10">
           <el-col :xs="24" :sm="12" :md="12">
             <el-form-item label="Committee Photo">
-              <input ref="photoInputRef" type="file" accept="image/*" @change="handlePhotoChange" />
-            <div v-if="createForm.photo" style="margin-top: 6px; display: flex; align-items: center; gap: 8px; font-size: 12px; color: #606266;">
-              <span>{{ createForm.photo.name }}</span>
-              <el-button type="text" size="small" @click="clearPhoto">Remove</el-button>
-            </div>
+              <input type="file" accept="image/*" @change="handlePhotoChange" />
             </el-form-item>
           </el-col>
           <el-col :xs="24" :sm="12" :md="12">
             <el-form-item label="Register Photo">
-              <input ref="registerInputRef" type="file" accept="image/*" @change="handleRegisterChange" />
-            <div v-if="createForm.sec_register" style="margin-top: 6px; display: flex; align-items: center; gap: 8px; font-size: 12px; color: #606266;">
-              <span>{{ createForm.sec_register.name }}</span>
-              <el-button type="text" size="small" @click="clearRegister">Remove</el-button>
-            </div>
+              <input type="file" accept="image/*" @change="handleRegisterChange" />
             </el-form-item>
           </el-col>
         </el-row>
@@ -1253,8 +1171,8 @@ const SEC_options =  [
 
     <div v-else-if="activeStep === 1">
       <div style="margin-bottom: 10px;">
-        <el-button type="primary" plain size="small" @click="addOfficial" :disabled="createForm.sec_officials.length >= maxOfficials">Add Official</el-button>
-        <span style="margin-left: 8px; color: #909399;">Need exactly {{ maxOfficials }} officials; roles unique except Member / Ex-official.</span>
+        <el-button type="primary" plain size="small" @click="addOfficial">Add Official</el-button>
+        <span style="margin-left: 8px; color: #909399;">Roles must be unique except Member / Ex-official.</span>
       </div>
       <el-alert
         v-if="!validationState.ok"
@@ -1263,8 +1181,7 @@ const SEC_options =  [
         show-icon
         style="margin-bottom: 8px;"
       />
-      <div style="overflow-x: auto;">
-        <el-table :data="createForm.sec_officials" border size="small" style="width: 100%; min-width: 800px;">
+      <el-table :data="createForm.sec_officials" border size="small" style="width: 100%;">
         <el-table-column type="index" width="50" label="#" />
         <el-table-column label="Category">
           <template #default="{ row }">
@@ -1308,16 +1225,12 @@ const SEC_options =  [
             </el-select>
           </template>
         </el-table-column>
-        <el-table-column :width="isMobile ? 80 : 100" label="Remove">
+        <el-table-column width="100" label="Remove">
           <template #default="{ $index }">
-            <el-button type="danger" size="small" @click="removeOfficial($index)" :disabled="createForm.sec_officials.length <= 1">
-              <span v-if="!isMobile">Remove</span>
-              <span v-else>×</span>
-            </el-button>
+            <el-button type="danger" size="small" @click="removeOfficial($index)" :disabled="createForm.sec_officials.length <= 1">Remove</el-button>
           </template>
         </el-table-column>
       </el-table>
-      </div>
     </div>
 
     <div v-else>
@@ -1328,7 +1241,7 @@ const SEC_options =  [
         show-icon
         style="margin-bottom: 12px;"
       />
-      <el-descriptions title="Group Location" :column="isMobile ? 1 : 2" border>
+      <el-descriptions title="Group Location" :column="2" border>
         <el-descriptions-item label="County">{{ createForm.group_location.county }}</el-descriptions-item>
         <el-descriptions-item label="Settlement">
           {{
@@ -1356,8 +1269,8 @@ const SEC_options =  [
           </el-form-item>
         </el-col>
       </el-row>
-      <div style="margin-top: 12px; overflow-x: auto;">
-        <el-table :data="createForm.sec_officials" border style="min-width: 700px;">
+      <div style="margin-top: 12px;">
+        <el-table :data="createForm.sec_officials" border>
           <el-table-column type="index" width="50" label="#" />
           <el-table-column prop="name" label="Name" />
           <el-table-column prop="national_id" label="National ID" />
@@ -1370,14 +1283,14 @@ const SEC_options =  [
     </div>
 
     <template #footer>
-      <div :style="isMobile ? 'display: flex; flex-direction: column; gap: 8px; width: 100%;' : 'display: flex; justify-content: space-between; width: 100%;'">
-        <div :style="isMobile ? 'display: flex; justify-content: center; width: 100%;' : ''">
-          <el-button @click="createDrawerVisible = false" :style="isMobile ? 'width: 100%;' : ''">Cancel</el-button>
+      <div style="display: flex; justify-content: space-between; width: 100%;">
+        <div>
+          <el-button @click="createDrawerVisible = false">Cancel</el-button>
         </div>
-        <div :style="isMobile ? 'display: flex; flex-direction: column; gap: 8px; width: 100%;' : 'display: flex; gap: 8px;'">
-          <el-button v-if="activeStep > 0" @click="goPrev" :style="isMobile ? 'width: 100%;' : ''">Previous</el-button>
-          <el-button v-if="activeStep < 2" type="primary" @click="goNext" :style="isMobile ? 'width: 100%;' : ''">Next</el-button>
-          <el-button v-else type="primary" :loading="creating" :disabled="submitDisabled" @click="submitCreate" :style="isMobile ? 'width: 100%;' : ''">Submit</el-button>
+        <div>
+          <el-button v-if="activeStep > 0" @click="goPrev">Previous</el-button>
+          <el-button v-if="activeStep < 2" type="primary" @click="goNext">Next</el-button>
+          <el-button v-else type="primary" :loading="creating" :disabled="submitDisabled" @click="submitCreate">Submit</el-button>
         </div>
       </div>
     </template>
