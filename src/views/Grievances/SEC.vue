@@ -1003,34 +1003,34 @@ type="flex" justify="start" :gutter="10"
         </el-button>
       </div>
 
-      <el-select
+        <el-select
 v-model="county_value" placeholder="Filter County" clearable filterable
         style=" margin-right: 5px;  width:250px">
-        <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
-      <el-select
+          <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+        <el-select
 multiple
 v-model="sett_value" placeholder="Filter Settlement" clearable filterable collapse-tags	
         style=" margin-right: 5px; width:350px">
-        <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
+          <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
 
-      <el-select
+        <el-select
 multiple  v-model="position" placeholder="Filter By Position" clearable filterable collapse-tags	
         style=" margin-right: 5px; width:350px">
-        <el-option v-for="item in SEC_options" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
+          <el-option v-for="item in SEC_options" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
 
 
-      <el-select
+        <el-select
 multiple
 v-model="category" placeholder="Filter By Category" clearable filterable collapse-tags	
         style=" margin-right: 5px; width:350px">
-        <el-option v-for="item in category_options" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
+          <el-option v-for="item in category_options" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
 
 
-      <el-input
+        <el-input
 clearable v-model="search" placeholder="Search by Name, ID, Phone.."
         :onInput="filterTableData" style=" margin-right: 15px;" />
 
@@ -1038,7 +1038,7 @@ clearable v-model="search" placeholder="Search by Name, ID, Phone.."
         <el-button type="primary" :icon="Plus" @click="openCreateDrawer" />
       </el-tooltip>
 
-      <DownloadCustom :data="paginatedData" :all="sec_officials" />
+        <DownloadCustom :data="paginatedData" :all="sec_officials" />
 
 
     </el-row>

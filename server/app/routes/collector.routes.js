@@ -34,6 +34,8 @@ module.exports = function(app) {
   app.post("/api/v1/collector/submissions/create", [authJwt.verifyToken], controller.modelCreateSubmission);
   app.post("/api/v1/collector/submissions/delete",  controller.modelDeleteSubmission);
   app.post("/api/v1/collector/submissions/edit",  controller.modelEditSubmission);
+  app.post("/api/v1/collector/submissions/xml",  controller.modelGetSubmissionXml);
+  app.post("/api/v1/collector/submissions/update",  controller.modelUpdateSubmissionXml);
   app.post("/api/v1/collector/submissions/docs",  controller.getSubmissionAttachments);
   app.post("/api/v1/collector/submissions/download",  controller.downloadSubmissionAttachment);
 

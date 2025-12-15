@@ -120,6 +120,20 @@ export const createSubmission = (data)  => {
  });
 };
 
+export const getSubmissionXml = (data) => {
+  return request.post({
+    url: prod + '/api/v1/collector/submissions/xml',
+    data
+  });
+};
+
+export const updateSubmissionXml = (data) => {
+  return request.post({
+    url: prod + '/api/v1/collector/submissions/update',
+    data
+  });
+};
+
 // OpenRosa-compatible multipart submission (XML + attachments in one call)
 export const submitOpenRosa = (projectId: string | number, formData: FormData) => {
   return request.post({

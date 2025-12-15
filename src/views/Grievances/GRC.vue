@@ -128,12 +128,12 @@ const loginUserToCollector = async () => {
     localStorage.setItem('collectorToken', token)
     const all_projects = JSON.parse(response.data)
 
-    all_projects.forEach(function (project) {
-      projects.value.push(project)
-      project.formList.forEach(function (form) {
-        forms.value.push(form)
+      all_projects.forEach(function (project) {
+        projects.value.push(project)
+        project.formList.forEach(function (form) {
+          forms.value.push(form)
+        })
       })
-    })
 
     await getGRCData()
     await loadSecRoster()
@@ -1118,7 +1118,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
           <el-form-item label="County">
             <el-select v-model="grcCreateForm.group_location.county" filterable clearable placeholder="Select county">
               <el-option v-for="c in countyOptions" :key="c.value" :label="c.label" :value="c.value" />
-            </el-select>
+    </el-select>
           </el-form-item>
         </el-col>
         <el-col :xs="24" :sm="12" :md="12">

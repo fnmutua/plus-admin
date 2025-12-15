@@ -955,7 +955,10 @@ exports.modelGetSubmissions = async (req, res) => {
             pcode: submission.group_location?.pcode,
             sec_officials: submission.sec_officials,
             grc_officials: submission.grc_officials,
+            // current version instanceId from submission XML metadata
             meta_instanceID: submission.meta?.instanceID,
+            // overall submission instanceId used to address the logical submission
+            overallInstanceId: submission.__id || submission.meta?.instanceID,
             meta : submission.__system,
             settlement_name: entitiesMap.get(submission.group_location?.pcode) || 'Unknown', // Append settlement name
             county_name: entitiesCountyMap.get(submission.group_location?.pcode) || 'Unknown', // Append county name
@@ -1726,8 +1729,100 @@ exports.modelEditSubmission = (req, res) => {
   });
 };
 
+// Fetch raw XML for a single submission from Central
+exports.modelGetSubmissionXml = (req, res) => {
+  const { project, form, token, submissionID } = req.body;
 
- 
+  if (!project || !form || !token || !submissionID) {
+    return res.status(400).send({
+      error: 'Missing required fields: project, form, token, submissionID'
+    });
+  }
+
+  const url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions/${submissionID}.xml`;
+
+  request(
+    {
+      method: 'GET',
+      url,
+      headers: {
+        'Content-Type': 'application/xml',
+        Authorization: `Bearer ${token}`
+      }
+    },
+    (error, response, body) => {
+      if (error) {
+        console.error('Get submission XML error:', error);
+        return res.status(500).send({
+          error: 'Failed to fetch submission XML',
+          message: error.message
+        });
+      }
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return res.status(200).send({
+          xml: body
+        });
+      }
+
+      console.error('Get submission XML failed:', response.statusCode, body);
+      return res.status(response.statusCode).send({
+        error: 'Failed to fetch submission XML',
+        status: response.statusCode,
+        body
+      });
+    }
+  );
+};
+
+// Update submission XML via Central PUT endpoint
+exports.modelUpdateSubmissionXml = (req, res) => {
+  const { project, form, token, submissionID, xml } = req.body;
+
+  if (!project || !form || !token || !submissionID || !xml) {
+    return res.status(400).send({
+      error: 'Missing required fields: project, form, token, submissionID, xml'
+    });
+  }
+
+  const url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions/${submissionID}`;
+
+  request(
+    {
+      method: 'PUT',
+      url,
+      headers: {
+        'Content-Type': 'application/xml',
+        Authorization: `Bearer ${token}`
+      },
+      body: xml
+    },
+    (error, response, body) => {
+      if (error) {
+        console.error('Update submission XML error:', error);
+        return res.status(500).send({
+          error: 'Failed to update submission XML',
+          message: error.message
+        });
+      }
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return res.status(200).send({
+          message: 'Submission updated successfully',
+          body
+        });
+      }
+
+      console.error('Update submission XML failed:', response.statusCode, body);
+      return res.status(response.statusCode).send({
+        error: 'Failed to update submission XML',
+        status: response.statusCode,
+        body
+      });
+    }
+  );
+};
+
 exports.getSubmissionAttachments = (req, res) => {
   // Extract necessary fields from the request body
   const { project, form, token, submissionID } = req.body;
