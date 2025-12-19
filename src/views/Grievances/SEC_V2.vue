@@ -137,7 +137,8 @@ const inlineSecPositionOptions = [
   { value: 'secretary', label: 'Secretary' },
   { value: 'organizing_secretary', label: 'Organizing Secretary' },
   { value: 'vice_chairperson', label: 'Vice Chairperson' },
-  { value: 'member', label: 'Member' }
+  { value: 'member', label: 'Member' },
+  { value: 'ex_officio', label: 'Ex-Officio' }
 ]
  
  
