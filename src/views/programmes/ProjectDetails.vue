@@ -3,7 +3,7 @@ import { onMounted, computed, watch, reactive } from 'vue'
 import {
   ElButton, ElDivider, ElTimeline, ElTimelineItem, ElCol, ElRow, ElCheckbox, ElInput, ElOptionGroup, ElForm, ElFormItem, ElUpload, ElMessage,
   ElCard, ElTabs, ElTabPane, ElTable, ElTableColumn, ElTooltip, ElDialog, ElSelect, ElOption, ElDescriptions,
-  ElDescriptionsItem, ElText, ElDatePicker, ElPopconfirm, ElStep, ElSteps, FormRules, ElSelectV2, ElInputNumber,ElSwitch,
+  ElDescriptionsItem, ElText, ElDatePicker, ElPopconfirm, ElStep, ElSteps, FormRules, ElSelectV2, ElInputNumber, ElSwitch, ElPagination,
 } from 'element-plus'
 // Locally
 import { logGrievanceAction, updateGrievanceStatus } from '@/api/grievance'
@@ -101,8 +101,17 @@ const Grievance = ref(
 
 
 const projectDocuments = ref([])
+const projectDocumentsTotal = ref(0)
 
 const projectLogs = ref([])
+
+// Pagination state for Locations tab
+const locationCurrentPage = ref(1)
+const locationPageSize = ref(10)
+
+// Pagination state for Documentation tab
+const docsCurrentPage = ref(1)
+const docsPageSize = ref(10)
 
 //// ------------------parameters -----------------------////
 
@@ -372,7 +381,11 @@ const getprojectDisbursements = async (project_id) => {
 
 
 
-const getLocations = async (project_id) => {
+const getLocations = async (
+  project_id,
+  page = locationCurrentPage.value,
+  size = locationPageSize.value
+) => {
 
   const formData = {}
   formData.model = 'project_location'
@@ -387,12 +400,27 @@ const getLocations = async (project_id) => {
   // - multiple filters -------------------------------------
   formData.filters = ['project_id']
   formData.filterValues = [[project_id]]
+  if (page && size) {
+    formData.page = page
+    formData.limit = size
+  }
 
   //formData.cache_key = 'SeacrchByKey_' + search_string.value
 
   const res = await getSettlementListByCounty(formData)
 
-  projectLocations.value = res.data
+  const incoming = res.data || []
+  if (page && page > 1 && Array.isArray(projectLocations.value)) {
+    const existingIds = new Set(projectLocations.value.map((loc: any) => loc.id))
+    const merged = [
+      ...projectLocations.value,
+      ...incoming.filter((loc: any) => !existingIds.has(loc.id))
+    ]
+    projectLocations.value = merged
+  } else {
+    projectLocations.value = incoming
+  }
+  projectLocationsTotal.value = res.total ?? projectLocations.value.length
 
 
   console.log('Locations:', project_id, res)
@@ -401,48 +429,58 @@ const getLocations = async (project_id) => {
 
  
 
-const getProjectDocuments = async (field, fieldValue) => {
-  const formData = {};
-  formData.model = 'document';
-  // -Search field--------------------------------------------
-  // formData.searchKeyword = project_id; // Uncomment and define if necessary
-  formData.excludeGeom = false;
-  formData.associated_multiple_models = [];
+const getProjectDocuments = async (
+  field,
+  fieldValue,
+  options: { paginate?: boolean; page?: number; size?: number } = {}
+) => {
+  const paginate = options.paginate !== false
+  const page = options.page ?? docsCurrentPage.value
+  const size = options.size ?? docsPageSize.value
+
+  const formData: any = {}
+  formData.model = 'document'
+  formData.excludeGeom = false
+  formData.associated_multiple_models = []
 
   // - multiple filters -------------------------------------
-  formData.filters = [field];
-  formData.filterValues = [fieldValue];
-
-  // formData.cache_key = 'SeacrchByKey_' + search_string.value; // Uncomment and define if necessary
+  formData.filters = [field]
+  formData.filterValues = [fieldValue]
+  if (paginate) {
+    formData.page = page
+    formData.limit = size
+  }
 
   try {
-    const res = await getSettlementListByCounty(formData);
+    const res = await getSettlementListByCounty(formData as any)
 
-   
+    const docsData = (res as any)?.data || []
+    projectDocumentsTotal.value = (res as any)?.total ?? docsData.length
 
-    console.log('DocCategories.value------------', DocCategories.value)
-    const enrichedDocs = res.data.map(doc => {
-    const match = DocCategories.value.find(item => item.id == doc.category);
+    const enrichedDocs = docsData.map((doc: any) => {
+      const match = DocCategories.value.find((item: any) => item.id == doc.category)
+      if (match) {
+        doc.type = match.type
+      }
+      return doc
+    })
 
-    console.log('match------------',doc, match)
-
-    if (match) {
-      doc.type = match.type;
+    // When paginating, append to existing docs to keep earlier pages in memory.
+    if (paginate && page > 1 && Array.isArray(projectDocuments.value)) {
+      const existingIds = new Set(projectDocuments.value.map((doc: any) => doc.id))
+      const merged = [
+        ...projectDocuments.value,
+        ...enrichedDocs.filter((doc: any) => !existingIds.has(doc.id))
+      ]
+      projectDocuments.value = merged
+    } else if (paginate) {
+      projectDocuments.value = enrichedDocs
     }
-    return doc;
-  });
 
-
-
-
-console.log('enrichedDocs',enrichedDocs)
-
-
-
-    return enrichedDocs || []; // Return the result data or an empty array if no data
+    return enrichedDocs || [] // Return the result data or an empty array if no data
   } catch (error) {
-    console.error('Error fetching project documents:', error);
-    return []; // Return an empty array if there is an error
+    console.error('Error fetching project documents:', error)
+    return [] // Return an empty array if there is an error
   }
 };
 
@@ -486,7 +524,7 @@ const getIndicatorCategoryReports = async (projectId) => {
   const indicatorReportIds = res.data.map(item => item.id);
   console.log('indicatorReportIds',indicatorReportIds)
 
- const reportDocs = await getProjectDocuments('report_id', indicatorReportIds)
+ const reportDocs = await getProjectDocuments('report_id', indicatorReportIds, { paginate: false })
 
       
       // Check if the documents from reportDocs already exist in projectDocuments.value
@@ -756,6 +794,7 @@ const projectFullData = ref()
 const projectTeamData = ref()
 const projectContractors = ref()
 const projectLocations = ref([])
+const projectLocationsTotal = ref(0)
 const projectDisbursements = ref()
 
 // Clock-in related data
@@ -816,10 +855,14 @@ onMounted(async () => {
 
   getActivities()
   getContractors(route.params.id)
-  getLocations(route.params.id)
+  await getLocations(route.params.id, locationCurrentPage.value, locationPageSize.value)
   getProjecteam(route.params.id)
   getProjecContractors(route.params.id)
-  projectDocuments.value = await getProjectDocuments('project_id', [route.params.id])
+  projectDocuments.value = await getProjectDocuments(
+    'project_id',
+    [route.params.id],
+    { paginate: true, page: docsCurrentPage.value, size: docsPageSize.value }
+  )
 
   getprojectDisbursements(route.params.id)
 
@@ -1131,6 +1174,58 @@ function toFeatureCollection(array) {
 
 const locationsGeometry = ref()
 
+// Computed data for paginated Locations
+const paginatedProjectLocations = computed(() => {
+  const list = Array.isArray(projectLocations.value) ? projectLocations.value : []
+  const start = (locationCurrentPage.value - 1) * locationPageSize.value
+  const end = start + locationPageSize.value
+  return list.slice(start, end)
+})
+
+// Computed data for paginated Documentation
+const paginatedProjectDocuments = computed(() => {
+  const list = Array.isArray(projectDocuments.value) ? projectDocuments.value : []
+  const start = (docsCurrentPage.value - 1) * docsPageSize.value
+  const end = start + docsPageSize.value
+  return list.slice(start, end)
+})
+
+// Pagination handlers
+const handleLocationPageChange = async (page: number) => {
+  locationCurrentPage.value = page
+  await getLocations(project_id.value, page, locationPageSize.value)
+}
+
+const handleLocationSizeChange = async (size: number) => {
+  locationPageSize.value = size
+  locationCurrentPage.value = 1
+  await getLocations(project_id.value, locationCurrentPage.value, size)
+}
+
+const handleDocsPageChange = async (page: number) => {
+  docsCurrentPage.value = page
+  await getProjectDocuments(
+    'project_id',
+    [project_id.value],
+    { paginate: true, page, size: docsPageSize.value }
+  )
+}
+
+const handleDocsSizeChange = async (size: number) => {
+  docsPageSize.value = size
+  docsCurrentPage.value = 1
+  await getProjectDocuments(
+    'project_id',
+    [project_id.value],
+    { paginate: true, page: docsCurrentPage.value, size }
+  )
+}
+
+// Utility to compute running index across pages
+const rowNumber = (index: number, page: number, size: number) => {
+  return (page - 1) * size + index + 1
+}
+
 const handleTabClick = (tab) => {
   console.log('Tab clicked:', tab.props);
   localStorage.setItem('activeTab', tab.props.name);
@@ -1226,10 +1321,12 @@ const submitMoreDocuments = async () => {
 
     }
 
-    // addMoreDocuments.value = false
-
     const res = await uploadFilesBatch(formData)
-       const updatedDocs = await getProjectDocuments('project_id', [route.params.id])
+       const updatedDocs = await getProjectDocuments(
+        'project_id',
+        [route.params.id],
+        { paginate: true, page: docsCurrentPage.value, size: docsPageSize.value }
+      )
 
         // Check if the documents from updatedDocs already exist in projectDocuments.value
         const uniqueUpdatedDocs = updatedDocs.filter(doc => {
@@ -1249,6 +1346,8 @@ const submitMoreDocuments = async () => {
     if (res.code === "0000") {
       loadingPosting.value = false
       addMoreDocuments.value = false
+      // Clear selected files after successful upload
+      morefileList.value = []
     }
 
   }
@@ -2967,7 +3066,7 @@ const SaveLocation = async () => {
   console.log('loc_res', loc_res);
 
   // After processing, update locations and reset the selection options
-  getLocations(project_id.value);
+  await getLocations(project_id.value, locationCurrentPage.value, locationPageSize.value);
 
   // Empty the locations and reset other states
   extra_locations.value = [];
@@ -3690,8 +3789,12 @@ v-for="item in projectDescription" :key="item.property"
         </el-button>
 
 
-        <el-table :data="projectLocations" border>
-          <el-table-column label="#" width="60" type="index" />
+        <el-table :data="paginatedProjectLocations" border>
+          <el-table-column label="#" width="70">
+            <template #default="{ $index }">
+              {{ rowNumber($index, locationCurrentPage, locationPageSize) }}
+            </template>
+          </el-table-column>
 
           <el-table-column label="County" prop="county.name" />
           <el-table-column label="Subcounty" prop="subcounty.name" />
@@ -3710,6 +3813,19 @@ v-for="item in projectDescription" :key="item.property"
             </template>
           </el-table-column>
         </el-table>
+
+        <ElPagination
+          v-if="projectLocations && projectLocations.length"
+          layout="sizes, prev, pager, next, total"
+          v-model:currentPage="locationCurrentPage"
+          v-model:page-size="locationPageSize"
+          :page-sizes="[5, 10, 20, 50, 100]"
+          :total="projectLocationsTotal"
+          :background="true"
+          class="mt-3"
+          @size-change="handleLocationSizeChange"
+          @current-change="handleLocationPageChange"
+        />
 
    
         <el-dialog
@@ -3855,8 +3971,12 @@ v-model="projectScopeChecked" :label="activity.id" @change="toggleActivity()"
 
       <el-tab-pane label="Documentation" name="documents">
         <el-card>
-          <el-table :data="projectDocuments" style="width: 100%">
-            <el-table-column type="index" width="50" />
+          <el-table :data="paginatedProjectDocuments" style="width: 100%">
+            <el-table-column label="#" width="70">
+              <template #default="{ $index }">
+                {{ rowNumber($index, docsCurrentPage, docsPageSize) }}
+              </template>
+            </el-table-column>
             <el-table-column prop="name" label="Name" />
             <el-table-column prop="type" label="Type" />
             <el-table-column prop="createdAt" label="Uploaded" />
@@ -3877,6 +3997,19 @@ v-model="projectScopeChecked" :label="activity.id" @change="toggleActivity()"
               </template>
             </el-table-column>
           </el-table>
+
+          <ElPagination
+            v-if="projectDocuments && projectDocuments.length"
+            layout="sizes, prev, pager, next, total"
+            v-model:currentPage="docsCurrentPage"
+            v-model:page-size="docsPageSize"
+            :page-sizes="[5, 10, 20, 50, 100]"
+            :total="projectDocumentsTotal"
+            :background="true"
+            class="mt-3"
+            @size-change="handleDocsSizeChange"
+            @current-change="handleDocsPageChange"
+          />
           <el-button plain @click="toggleComponent(Project)" style=" margin-top:10px">
             <Icon icon="fa-solid:upload" style=" margin-right:10px" />
             Upload

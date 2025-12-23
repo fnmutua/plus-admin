@@ -1907,7 +1907,7 @@ const hoveredRow = ref(null);
     <el-row type="flex" justify="start" gutter="10" style="display: flex; flex-wrap: nowrap; align-items: center; width: 100%;">
       <div class="max-w-200px">
         <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
-          Back
+           Back
         </el-button>
       </div>
       <!-- Title Search -->
