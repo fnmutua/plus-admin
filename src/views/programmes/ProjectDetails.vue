@@ -118,8 +118,9 @@ const docsPageSize = ref(10)
 //const associated_Model = ''
 
 
-const associated_multiple_models = ['county', 'subcounty', 'ward', 'component', 'programme', "document", "project_team", "project_contractor", "project_location", 'document']
-const nested_models = ['document', 'document_category'] // The mother, then followed by the child
+// Exclude documents from the initial project load; fetch documents separately by project id
+const associated_multiple_models = ['county', 'subcounty', 'ward', 'component', 'programme', 'project_team', 'project_contractor', 'project_location']
+const nested_models = [] // no nested documents on initial load
 
 function formatSentence(text) {
   // Replace underscores and periods with spaces
@@ -454,8 +455,18 @@ const getProjectDocuments = async (
   try {
     const res = await getSettlementListByCounty(formData as any)
 
-    const docsData = (res as any)?.data || []
-    projectDocumentsTotal.value = (res as any)?.total ?? docsData.length
+    const resAny: any = res as any
+    const docsData = resAny?.data || []
+    const totalFromApi =
+      resAny?.total ??
+      resAny?.totalCount ??
+      resAny?.count ??
+      resAny?.results?.total ??
+      resAny?.results?.totalCount ??
+      resAny?.results?.count ??
+      resAny?.pagination?.total ??
+      resAny?.meta?.total
+    projectDocumentsTotal.value = totalFromApi ?? docsData.length
 
     const enrichedDocs = docsData.map((doc: any) => {
       const match = DocCategories.value.find((item: any) => item.id == doc.category)
@@ -840,7 +851,11 @@ onMounted(async () => {
   projectFullData.value = res.data
   project_title.value = projectFullData.value.title
   console.log('full projec data', res.data)
-  projectDocuments.value = res.data.documents
+  projectDocuments.value = []
+  projectDocumentsTotal.value =
+    res.data?.total_documents ??
+    res.data?.documents?.length ??
+    projectDocuments.value.length
   projectScope.value = res.data.activities
   projectTeamData.value = res.data.project_teams
 
@@ -1041,10 +1056,12 @@ const uploadFiles = async (action_id, grievance_id) => {
 }
 
 const viewLoading = ref(false)
+const downloadingDocId = ref<number | null>(null)
 
 const downloadFile = async (data) => {
   console.log(data);
   viewLoading.value = true;
+  downloadingDocId.value = data.id || null
   const formData = {};
   formData.filename = data.name;
   formData.doc_id = data.id;
@@ -1072,9 +1089,11 @@ const downloadFile = async (data) => {
     document.body.appendChild(link);
     link.click();
     viewLoading.value = false;
+    downloadingDocId.value = null
   } catch (error) {
     ElMessage.error('Failed');
     viewLoading.value = false;
+    downloadingDocId.value = null
   }
 };
 
@@ -1226,7 +1245,7 @@ const rowNumber = (index: number, page: number, size: number) => {
   return (page - 1) * size + index + 1
 }
 
-const handleTabClick = (tab) => {
+const handleTabClick = async (tab) => {
   console.log('Tab clicked:', tab.props);
   localStorage.setItem('activeTab', tab.props.name);
 
@@ -1244,6 +1263,15 @@ const handleTabClick = (tab) => {
   if (tab.props.name === 'Scope') {
     projectScopeChecked.value = projectScope.value.map(activity => activity.id);
 
+  }
+
+  if (tab.props.name === 'documents') {
+    // Always load/refresh documents when Documentation tab is opened
+    await getProjectDocuments(
+      'project_id',
+      [project_id.value],
+      { paginate: true, page: docsCurrentPage.value, size: docsPageSize.value }
+    )
   }
 
   if (tab.props.name === 'clockin') {
@@ -3980,11 +4008,26 @@ v-model="projectScopeChecked" :label="activity.id" @change="toggleActivity()"
             <el-table-column prop="name" label="Name" />
             <el-table-column prop="type" label="Type" />
             <el-table-column prop="createdAt" label="Uploaded" />
+            <el-table-column label="Size (MB)">
+              <template #default="{ row }">
+                {{
+                  row.size
+                    ? Number(row.size).toFixed(2)
+                    : (row.raw?.size ? (row.raw.size / 1024 / 1024).toFixed(2) : '—')
+                }}
+              </template>
+            </el-table-column>
             <el-table-column fixed="right" label="">
               <template #default="scope">
-                <el-button plain @click="downloadFile(scope.row)">
+                <el-button
+                  plain
+                  :loading="downloadingDocId === scope.row.id"
+                  :disabled="downloadingDocId === scope.row.id"
+                  @click="downloadFile(scope.row)"
+                >
                   <Icon icon="fa-solid:download" style="  margin-right: 5px;" />
-                  Download
+                  <span v-if="downloadingDocId === scope.row.id">Downloading…</span>
+                  <span v-else>Download</span>
                 </el-button>
               </template>
             </el-table-column>

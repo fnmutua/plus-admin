@@ -25,6 +25,7 @@ const documents = ref<SharedDocument[]>([])
 const shareFound = ref(true)
 const shareError = ref<string | null>(null)
 const expiresAt = ref<string | null>(null)
+const downloadingDocId = ref<number | null>(null)
 
 const formatDate = (dateString: string) => {
   if (!dateString) return 'N/A'
@@ -143,6 +144,7 @@ const fetchSharedDocuments = async () => {
 
 const handleDownload = async (document: SharedDocument): Promise<boolean> => {
   try {
+    downloadingDocId.value = document.id
     const token = route.params.token as string
     //ElMessage.info(`Downloading ${document.name}...`)
     
@@ -165,9 +167,11 @@ const handleDownload = async (document: SharedDocument): Promise<boolean> => {
     window.URL.revokeObjectURL(url)
     
     ElMessage.success(`Download completed: ${fileName}`)
+    downloadingDocId.value = null
     return true
   } catch (error: any) {
     console.error('Error downloading file:', error)
+    downloadingDocId.value = null
     
     // Close any existing messages so the error is visible
     try { (ElMessage as any).closeAll && (ElMessage as any).closeAll() } catch {}
@@ -341,10 +345,13 @@ onMounted(() => {
                       plain
                       size="small"
                       :icon="Download"
+                :loading="downloadingDocId === doc.id"
+                :disabled="downloadingDocId === doc.id"
                       @click="handleDownload(doc)"
                       class="mt-3 w-full"
                     >
-                      Download
+                <span v-if="downloadingDocId === doc.id">Downloading…</span>
+                <span v-else>Download</span>
                     </el-button>
                   </div>
                 </div>
@@ -391,9 +398,12 @@ onMounted(() => {
                     plain
                     size="small"
                     :icon="Download"
+                  :loading="downloadingDocId === row.id"
+                  :disabled="downloadingDocId === row.id"
                     @click="handleDownload(row)"
                   >
-                    Download
+                    <span v-if="downloadingDocId === row.id">Downloading…</span>
+                    <span v-else>Download</span>
                   </el-button>
                 </template>
               </el-table-column>
