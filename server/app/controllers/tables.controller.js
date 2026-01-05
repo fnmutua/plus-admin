@@ -7606,35 +7606,47 @@ exports.mergeDuplicates = async (req, res) => {
   const { primaryId, duplicateIds, model } = req.body;
   try {
     const Model = db.models[model];
+    const updatedModels = [];
 
     // Loop through all associations of the model
     for (const associationName in Model.associations) {
       const association = Model.associations[associationName];
 
-      // Check if the association has a foreign key that points to this model
-      if (association.foreignKey) {
+      // Only process HasMany associations (where foreign key is on the target model)
+      // This ensures we update references FROM other models TO this model
+      if (association.associationType === 'HasMany' && association.foreignKey) {
         const associatedModel = association.target;
 
         // Update the foreign key in the associated model to point to the primary record
-        await associatedModel.update(
+        // This changes settlement_id from duplicateIds to primaryId in all related tables
+        const updateResult = await associatedModel.update(
           { [association.foreignKey]: primaryId },
           { where: { [association.foreignKey]: duplicateIds } }
         );
+        
+        // Track which models were updated
+        if (updateResult && updateResult[0] > 0) {
+          updatedModels.push({
+            model: associatedModel.name,
+            foreignKey: association.foreignKey,
+            updatedCount: updateResult[0]
+          });
+        }
       }
     }
 
     // Delete the duplicate records
     await Model.destroy({ where: { id: duplicateIds } });
 
-    //res.json({ message: "Records merged successfully." });
-
     res.status(200).send({
       message: "Records merged successfully.",
-      code: '0000'
-
-  });
+      code: '0000',
+      updatedReferences: updatedModels,
+      updatedCount: updatedModels.length
+    });
 
   } catch (error) {
+    console.error('Error merging duplicates:', error);
     res.status(500).json({ error: error.message });
   }
 };

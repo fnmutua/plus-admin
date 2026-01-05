@@ -6,7 +6,6 @@ import {
   ElButton, ElSelect, FormInstance, ElTabs, ElTabPane, ElDialog, ElInputNumber,ElCollapse,ElCollapseItem,
   ElInput, ElBadge, ElForm, ElDescriptions, ElDescriptionsItem, ElFormItem, ElUpload, ElCard, ElPopconfirm, ElTable, ElCol, ElRow,
   ElTableColumn, UploadUserFile, ElDropdown, ElDropdownMenu, ElDropdownItem, ElStep, ElSteps, ElCheckbox, ElIcon, ElDatePicker,ElCheckboxGroup,
-  ElRadio, ElRadioGroup, ElAlert, ElDivider,
 } from 'element-plus'
 import { ElMessage, ElSegmented, ElMessageBox } from 'element-plus'
 import { Position, Plus, Delete, Edit, Filter, InfoFilled, CopyDocument, Clock, Search, Setting, Back, Loading, CircleCheck, Message, CircleClose, Warning, View, RefreshLeft } from '@element-plus/icons-vue'
@@ -323,18 +322,62 @@ const getSettlementActionButtons = (settlement: any): string[] => {
     buttons.push('decommission');
   }
 
-  // Add merge button if user can edit (merge requires edit permission)
-  if (canUserAccessSettlement(settlement, 'edit')) {
-    buttons.push('merge');
-  }
-
   return buttons;
 };
 
-// Fixed action column width since we're using a dropdown menu
-const actionColumnWidth = computed(() => {
-  return isMobile.value ? '80px' : '100px';
+// Calculate dynamic action column width based on button count
+const getActionColumnWidth = (maxButtons): string => {
+  // Mobile responsiveness
+  const isMobileView = isMobile.value;
+  
+  // Base width for the column header and padding
+  const baseWidth = isMobileView ? 60 : 80;
+  // Width per button (considering button size + margin)
+  const buttonWidth = isMobileView ? 35 : 45;
+  // Minimum width to ensure readability
+  const minWidth = isMobileView ? 80 : 120;
+  
+  const calculatedWidth = baseWidth + (maxButtons * buttonWidth);
+  return `${Math.max(calculatedWidth, minWidth)}px`;
+};
+
+// Get maximum number of buttons across all settlements for current segment
+const getMaxButtonCount = computed(() => {
+  let maxCount = 0;
+  let dataToCheck: any[] = [];
+  
+  // Get the appropriate data array based on active segment
+  switch (activeSegment.value) {
+    case 'Approved':
+      dataToCheck = tableDataList.value;
+      break;
+    case 'New':
+      dataToCheck = tableDataListNew.value;
+      break;
+    case 'Rejected':
+      dataToCheck = tableDataListRejected.value;
+      break;
+    case 'Decommissioned':
+      dataToCheck = decommSettlements.value;
+      break;
+    default:
+      dataToCheck = [];
+  }
+  
+  // Calculate max button count across all settlements
+  dataToCheck.forEach(settlement => {
+    const buttonCount = getSettlementActionButtons(settlement).length;
+    if (buttonCount > maxCount) {
+      maxCount = buttonCount;
+    }
+  });
+  
+  // Ensure minimum of 1 button (viewOnMap is usually always present)
+  return Math.max(maxCount, 1);
 });
+
+// Dynamic action column width for current segment
+const actionColumnWidth = computed(() => getActionColumnWidth(getMaxButtonCount.value));
 
 // Form setup
 const ruleFormRef = ref<FormInstance>()
@@ -995,14 +1038,6 @@ const RejectDialog = ref(false)
 const settlement_raw = ref({})
 const DecommissionDialog = ref(false)
 const decommissionReason = ref('')
-const MergeDialog = ref(false)
-const MergeConfirmDialog = ref(false)
-const currentSettlementForMerge = ref<any>(null)
-const mergeSearchQuery = ref('')
-const mergeSearchResults = ref<any[]>([])
-const mergeSearchLoading = ref(false)
-const selectedSettlementForMerge = ref<any>(null)
-const mergePrimaryId = ref<number | null>(null)
 
 const Review = (data: TableSlotDefault) => {
   ShowReviewDialog.value = true
@@ -1558,124 +1593,6 @@ const handleDecommission = async (data: TableSlotDefault) => {
   DecommissionDialog.value = true
   ruleForm.id = data.id
   ruleForm.name = data.name
-}
-
-const handleMerge = async (data: any) => {
-  // Check if user can edit this settlement
-  if (!canUserAccessSettlement(data, 'edit')) {
-    ElMessage({
-      message: 'You do not have permission to merge this settlement.',
-      type: 'warning',
-    });
-    return;
-  }
-  
-  currentSettlementForMerge.value = data
-  mergePrimaryId.value = data.id
-  selectedSettlementForMerge.value = null
-  mergeSearchQuery.value = ''
-  mergeSearchResults.value = []
-  MergeDialog.value = true
-}
-
-const searchSettlementsForMerge = async (keyword = '') => {
-  const query = keyword || mergeSearchQuery.value?.trim()
-  
-  if (!query || query.length < 2) {
-    mergeSearchResults.value = []
-    return
-  }
-  
-  mergeSearchLoading.value = true
-  try {
-    const formData: any = {
-      curUser: 1,
-      model: 'settlement',
-      searchField: 'name',
-      searchKeyword: query,
-      excludeGeom: false,
-      excludeGeomAssoc: true,
-      associated_multiple_models: ['county', 'subcounty', 'ward'],
-      filters: ['isActive'],
-      filterValues: [['true']]
-    }
-    
-    const res = await searchByKeyWord(formData)
-    
-    // Filter out the current settlement from results
-    mergeSearchResults.value = (res.data || []).filter((s: any) => s.id !== currentSettlementForMerge.value.id)
-  } catch (error) {
-    console.error('Error searching settlements:', error)
-    ElMessage.error('Failed to search settlements')
-    mergeSearchResults.value = []
-  } finally {
-    mergeSearchLoading.value = false
-  }
-}
-
-// Watch for settlement selection to set default primary
-watch(selectedSettlementForMerge, (newValue) => {
-  if (newValue && currentSettlementForMerge.value) {
-    // Default to current settlement as primary when a settlement is selected
-    mergePrimaryId.value = currentSettlementForMerge.value.id
-  }
-})
-
-const showMergeConfirmation = () => {
-  if (!selectedSettlementForMerge.value) {
-    ElMessage.warning('Please select a settlement to merge with')
-    return
-  }
-  
-  if (!mergePrimaryId.value) {
-    ElMessage.warning('Please select which settlement should be the primary record')
-    return
-  }
-  
-  MergeConfirmDialog.value = true
-}
-
-const confirmMerge = async () => {
-  try {
-    const primaryId = mergePrimaryId.value
-    const duplicateId = mergePrimaryId.value === currentSettlementForMerge.value.id 
-      ? selectedSettlementForMerge.value.id 
-      : currentSettlementForMerge.value.id
-    
-    const formData = {
-      model: 'settlement',
-      primaryId: primaryId,
-      duplicateIds: [duplicateId]
-    }
-    
-    const res = await mergeDuplicates(formData)
-    
-    if (res.code === '0000') {
-      ElMessage.success({
-        message: 'Settlements merged successfully! All references (documents, roads, projects, facilities, etc.) have been updated.',
-        duration: 5000,
-        showClose: true
-      })
-      MergeDialog.value = false
-      MergeConfirmDialog.value = false
-      
-      // Refresh the current segment data
-      await getNewOrRejectedSettlements(activeSegment.value)
-      await getCounts()
-      
-      // Reset merge state
-      currentSettlementForMerge.value = null
-      selectedSettlementForMerge.value = null
-      mergeSearchQuery.value = ''
-      mergeSearchResults.value = []
-      mergePrimaryId.value = null
-    } else {
-      ElMessage.error('Failed to merge settlements')
-    }
-  } catch (error: any) {
-    console.error('Error merging settlements:', error)
-    ElMessage.error(error?.response?.data?.message || 'Failed to merge settlements. Please try again.')
-  }
 }
 
 const confirmDecommission = async () => {
@@ -2835,7 +2752,7 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
           <template #default="{ row }">
             <TableActions
               :item="row" :buttons="getSettlementActionButtons(row)" @view-on-map="handleViewOnMap" @edit="handleEdit"
-              @review="Review" @delete="handleDelete" @decommission="handleDecommission" @merge="handleMerge" />
+              @review="Review" @delete="handleDelete" @decommission="handleDecommission" />
           </template>
         </el-table-column>
 
@@ -3385,221 +3302,6 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
           <el-button @click="DecommissionDialog = false">Cancel</el-button>
           <el-button type="warning" @click="confirmDecommission">
             Decommission
-          </el-button>
-        </span>
-      </template>
-    </el-dialog>
-
-    <!-- Merge Settlement Dialog -->
-    <el-dialog v-model="MergeDialog" title="Merge Settlement" width="90%" :close-on-click-modal="false">
-      <div v-if="currentSettlementForMerge">
-        <el-row :gutter="20">
-          <!-- Current Settlement Details -->
-          <el-col :span="12">
-            <el-card shadow="hover">
-              <template #header>
-                <div style="display: flex; align-items: center; justify-content: space-between;">
-                  <span><strong>Current Settlement</strong></span>
-                  <el-radio v-model="mergePrimaryId" :label="currentSettlementForMerge.id">
-                    Set as Primary
-                  </el-radio>
-                </div>
-              </template>
-              <el-descriptions :column="1" border size="small">
-                <el-descriptions-item label="ID">{{ currentSettlementForMerge.id }}</el-descriptions-item>
-                <el-descriptions-item label="Name">{{ currentSettlementForMerge.name }}</el-descriptions-item>
-                <el-descriptions-item label="Code">{{ currentSettlementForMerge.code || 'N/A' }}</el-descriptions-item>
-                <el-descriptions-item label="Location">
-                  <span v-if="currentSettlementForMerge.ward && currentSettlementForMerge.subcounty && currentSettlementForMerge.county">
-                    {{ currentSettlementForMerge.ward.name }} ward, {{ currentSettlementForMerge.subcounty.name }} subcounty, {{ currentSettlementForMerge.county.name }}
-                  </span>
-                  <span v-else>N/A</span>
-                </el-descriptions-item>
-                <el-descriptions-item label="Population">{{ currentSettlementForMerge.population || 'N/A' }}</el-descriptions-item>
-                <el-descriptions-item label="Area (HA)">{{ currentSettlementForMerge.area ? Number(currentSettlementForMerge.area).toFixed(2) : 'N/A' }}</el-descriptions-item>
-                <el-descriptions-item label="Type">{{ currentSettlementForMerge.settlement_type || 'N/A' }}</el-descriptions-item>
-                <el-descriptions-item label="Status">{{ currentSettlementForMerge.isApproved || 'N/A' }}</el-descriptions-item>
-              </el-descriptions>
-            </el-card>
-          </el-col>
-
-          <!-- Search and Selected Settlement -->
-          <el-col :span="12">
-            <el-card shadow="hover">
-              <template #header>
-                <div style="display: flex; align-items: center; justify-content: space-between;">
-                  <span><strong>Merge With</strong></span>
-                  <el-radio 
-                    v-if="selectedSettlementForMerge" 
-                    v-model="mergePrimaryId" 
-                    :label="selectedSettlementForMerge.id">
-                    Set as Primary
-                  </el-radio>
-                </div>
-              </template>
-              
-              <!-- Search Input -->
-              <div style="margin-bottom: 15px;">
-                <el-select
-                  v-model="selectedSettlementForMerge"
-                  filterable
-                  remote
-                  :remote-method="searchSettlementsForMerge"
-                  :loading="mergeSearchLoading"
-                  placeholder="Search for settlement to merge with..."
-                  clearable
-                  @clear="mergeSearchResults = []; selectedSettlementForMerge = null; mergeSearchQuery = ''"
-                  style="width: 100%"
-                  value-key="id">
-                  <el-option
-                    v-for="item in mergeSearchResults"
-                    :key="item.id"
-                    :label="item.name"
-                    :value="item">
-                    <div style="display: flex; align-items: center;">
-                      <span style="flex: 1; text-align: left;">{{ item.name }}</span>
-                      <span style="flex: 2; color: var(--el-text-color-secondary); font-size: 13px; text-align: right;">
-                        <span v-if="item.ward && item.subcounty && item.county">
-                          {{ item.ward.name }}, {{ item.subcounty.name }}, {{ item.county.name }}
-                        </span>
-                        <span v-else>N/A</span>
-                      </span>
-                    </div>
-                  </el-option>
-                </el-select>
-              </div>
-
-
-              <!-- Selected Settlement Details -->
-              <div v-if="selectedSettlementForMerge" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e4e7ed;">
-                <el-descriptions :column="1" border size="small" title="Selected Settlement">
-                  <el-descriptions-item label="ID">{{ selectedSettlementForMerge.id }}</el-descriptions-item>
-                  <el-descriptions-item label="Name">{{ selectedSettlementForMerge.name }}</el-descriptions-item>
-                  <el-descriptions-item label="Code">{{ selectedSettlementForMerge.code || 'N/A' }}</el-descriptions-item>
-                  <el-descriptions-item label="Location">
-                    <span v-if="selectedSettlementForMerge.ward && selectedSettlementForMerge.subcounty && selectedSettlementForMerge.county">
-                      {{ selectedSettlementForMerge.ward.name }} ward, {{ selectedSettlementForMerge.subcounty.name }} subcounty, {{ selectedSettlementForMerge.county.name }}
-                    </span>
-                    <span v-else>N/A</span>
-                  </el-descriptions-item>
-                  <el-descriptions-item label="Population">{{ selectedSettlementForMerge.population || 'N/A' }}</el-descriptions-item>
-                  <el-descriptions-item label="Area (HA)">{{ selectedSettlementForMerge.area ? Number(selectedSettlementForMerge.area).toFixed(2) : 'N/A' }}</el-descriptions-item>
-                  <el-descriptions-item label="Type">{{ selectedSettlementForMerge.settlement_type || 'N/A' }}</el-descriptions-item>
-                  <el-descriptions-item label="Status">{{ selectedSettlementForMerge.isApproved || 'N/A' }}</el-descriptions-item>
-                </el-descriptions>
-              </div>
-            </el-card>
-          </el-col>
-        </el-row>
-
-        <!-- Warning Message -->
-        <el-alert
-          v-if="selectedSettlementForMerge && mergePrimaryId"
-          :title="`Merging: Settlement ID ${mergePrimaryId === currentSettlementForMerge.id ? selectedSettlementForMerge.id : currentSettlementForMerge.id} will be merged into Settlement ID ${mergePrimaryId}`"
-          type="warning"
-          :closable="false"
-          style="margin-top: 20px;">
-          <template #default>
-            <p style="margin: 0;">
-              The selected primary settlement will be kept. The other settlement's data will be merged into it, 
-              and all references will be updated. This action cannot be undone.
-            </p>
-          </template>
-        </el-alert>
-      </div>
-
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="MergeDialog = false">Cancel</el-button>
-          <el-button 
-            type="primary" 
-            :disabled="!selectedSettlementForMerge || !mergePrimaryId"
-            @click="showMergeConfirmation">
-            Merge Settlements
-          </el-button>
-        </span>
-      </template>
-    </el-dialog>
-
-    <!-- Merge Confirmation Dialog -->
-    <el-dialog 
-      v-model="MergeConfirmDialog" 
-      title="Confirm Merge Settlement" 
-      width="600px"
-      :close-on-click-modal="false">
-      <div v-if="currentSettlementForMerge && selectedSettlementForMerge && mergePrimaryId">
-        <el-alert
-          type="warning"
-          :closable="false"
-          style="margin-bottom: 20px;">
-          <template #title>
-            <strong>This action cannot be undone!</strong>
-          </template>
-        </el-alert>
-
-        <div style="margin-bottom: 20px;">
-          <p><strong>Primary Settlement (will be kept):</strong></p>
-          <p style="padding-left: 20px; color: #409EFF;">
-            ID: {{ mergePrimaryId }} - 
-            {{ mergePrimaryId === currentSettlementForMerge.id ? currentSettlementForMerge.name : selectedSettlementForMerge.name }}
-          </p>
-        </div>
-
-        <div style="margin-bottom: 20px;">
-          <p><strong>Settlement to be merged (will be deleted):</strong></p>
-          <p style="padding-left: 20px; color: #F56C6C;">
-            ID: {{ mergePrimaryId === currentSettlementForMerge.id ? selectedSettlementForMerge.id : currentSettlementForMerge.id }} - 
-            {{ mergePrimaryId === currentSettlementForMerge.id ? selectedSettlementForMerge.name : currentSettlementForMerge.name }}
-          </p>
-        </div>
-
-        <el-divider />
-
-        <div style="margin-bottom: 20px;">
-          <p><strong>The following references will be automatically updated to point to the primary settlement:</strong></p>
-          <ul style="padding-left: 30px; line-height: 2;">
-            <li>Documents</li>
-            <li>Roads</li>
-            <li>Road Assets</li>
-            <li>Projects</li>
-            <li>Health Facilities</li>
-            <li>Education Facilities</li>
-            <li>Water Points</li>
-            <li>Piped Water</li>
-            <li>Sewer Systems</li>
-            <li>Powerlines</li>
-            <li>Railways</li>
-            <li>Floodlights</li>
-            <li>Crime Hotspots</li>
-            <li>Police Stations</li>
-            <li>Hazard Zones</li>
-            <li>Community Halls</li>
-            <li>Community Projects</li>
-            <li>Masts</li>
-            <li>Streetlights</li>
-            <li>Dumping Sites</li>
-            <li>Other Facilities</li>
-            <li>And any other entities linked to this settlement</li>
-          </ul>
-        </div>
-
-        <el-alert
-          type="info"
-          :closable="false">
-          <template #default>
-            All foreign key references pointing to the settlement being merged will be updated to reference the primary settlement. 
-            The merged settlement record will be permanently deleted.
-          </template>
-        </el-alert>
-      </div>
-
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="MergeConfirmDialog = false">Cancel</el-button>
-          <el-button 
-            type="primary" 
-            @click="confirmMerge">
-            Confirm Merge
           </el-button>
         </span>
       </template>

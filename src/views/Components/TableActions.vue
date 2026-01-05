@@ -1,162 +1,115 @@
 <template>
   <div>
-    <!-- For medium and large screens -->
-    <div class="actions-buttons" v-if="!isSmallScreen">
-
-
-      <el-tooltip content="Edit" placement="top">
-        <el-button
-v-if="buttons.includes('edit')" type="success" size="small" :icon="Edit" @click="onEdit(item)"
-          plain />
-      </el-tooltip>
-
-      <el-tooltip content="View on Map" placement="top">
-        <el-button
-v-if="buttons.includes('viewOnMap')" type="warning" size="small" :icon="Position"
-          @click="onViewOnMap(item)" plain />
-      </el-tooltip>
-
-      <el-tooltip content="Review" placement="top">
-        <el-button
-v-if="buttons.includes('review')" type="primary" size="small" :icon="View" @click="onReview(item)"
-          plain />
-      </el-tooltip>
-
-      <el-tooltip content="Download" placement="top">
-        <el-button
-v-if="buttons.includes('download')" type="info" size="small" :icon="Download"
-          @click="onDownload(item)" plain />
-      </el-tooltip>
-
-      <el-tooltip content="Share" placement="top">
-        <el-button
-v-if="buttons.includes('share')" type="primary" size="small" :icon="TopRight"
-          @click="onShare(item)" plain />
-      </el-tooltip>
-
-      <el-tooltip content="Preview" placement="top">
-        <el-button
-v-if="buttons.includes('preview')" type="warning" size="small" :icon="TopRight"
-          @click="onPreview(item)" plain />
-      </el-tooltip>
-
-
-      <el-tooltip content="Delete" placement="top">
-        <template #default>
-          <el-popconfirm
-width="300" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
-            icon-color="#626AEF" title="Are you sure to delete this record?" @confirm="onDelete(item)">
-            <template #reference>
-              <el-button v-if="buttons.includes('delete')" type="danger" size="small" :icon="Delete" plain />
-            </template>
-          </el-popconfirm>
-        </template>
-      </el-tooltip>
-
-      <el-tooltip content="Decommission" placement="top">
-        <template #default>
-          <el-popconfirm
-width="300" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
-            icon-color="#E6A23C" title="Are you sure to decommission this settlement?" @confirm="onDecommission(item)">
-            <template #reference>
-              <el-button v-if="buttons.includes('decommission')" type="warning" size="small" :icon="TakeawayBox" />
-            </template>
-          </el-popconfirm>
-        </template>
-      </el-tooltip>
-
-      <el-tooltip content="Add Geometry" placement="top">
-        <el-button
-          v-if="buttons.includes('addGeometry')" 
-          type="success" 
-          size="small" 
-          :icon="Position" 
-          @click="onAddGeometry(item)" />
-      </el-tooltip>
-
-
-    </div>
-
-    <!-- For small screens -->
-
-    <el-dropdown trigger="click" v-else>
-      <span class="el-dropdown-link">
-        Actions <el-icon class="el-icon--right">
-          <ArrowDown />
-        </el-icon>
-      </span>
+    <el-dropdown trigger="click" placement="bottom-end">
+      <el-button type="primary" size="small" :icon="Setting" circle />
       <template #dropdown>
         <el-dropdown-menu>
-          <el-dropdown-item v-if="buttons.includes('edit')" @click="onEdit(item)">
-            <el-icon>
-              <Edit />
-            </el-icon>
-
-          </el-dropdown-item>
-          <el-dropdown-item v-if="buttons.includes('viewOnMap')" @click="onViewOnMap(item)">
-            <el-icon>
-              <Position />
-            </el-icon>
+          <!-- View Actions -->
+          <el-dropdown-item 
+            v-if="buttons.includes('viewOnMap')" 
+            @click="onViewOnMap(item)"
+            divided>
+            <el-icon><Position /></el-icon>
+            <span style="margin-left: 8px;">View on Map</span>
           </el-dropdown-item>
 
-          <el-dropdown-item v-if="buttons.includes('review')" @click="onReview(item)">
-            <el-icon>
-              <View />
-            </el-icon>
+          <el-dropdown-item 
+            v-if="buttons.includes('preview')" 
+            @click="onPreview(item)">
+            <el-icon><TopRight /></el-icon>
+            <span style="margin-left: 8px;">Preview</span>
           </el-dropdown-item>
 
-          <el-dropdown-item v-if="buttons.includes('preview')" @click="onPreview(item)">
-            <el-icon>
-              <TopRight />
-            </el-icon>
+          <!-- Edit Actions -->
+          <el-dropdown-item 
+            v-if="buttons.includes('edit')" 
+            @click="onEdit(item)"
+            :divided="!buttons.includes('viewOnMap') && !buttons.includes('preview')">
+            <el-icon><Edit /></el-icon>
+            <span style="margin-left: 8px;">Edit</span>
           </el-dropdown-item>
 
-
-          <el-dropdown-item v-if="buttons.includes('delete')" @click="onDelete(item)">
-            <el-icon>
-              <Delete />
-            </el-icon>
+          <el-dropdown-item 
+            v-if="buttons.includes('addGeometry')" 
+            @click="onAddGeometry(item)">
+            <el-icon><Position /></el-icon>
+            <span style="margin-left: 8px;">Add Geometry</span>
           </el-dropdown-item>
 
-          <el-dropdown-item v-if="buttons.includes('decommission')" @click="onDecommission(item)">
-            <el-icon>
-              <TakeawayBox />
-            </el-icon>
+          <el-dropdown-item 
+            v-if="buttons.includes('merge')" 
+            @click="onMerge(item)">
+            <el-icon><TopRight /></el-icon>
+            <span style="margin-left: 8px;">Merge with Another</span>
           </el-dropdown-item>
 
-          <el-dropdown-item v-if="buttons.includes('addGeometry')" @click="onAddGeometry(item)">
-            <el-icon>
-              <Position />
-            </el-icon>
+          <!-- Review Actions -->
+          <el-dropdown-item 
+            v-if="buttons.includes('review')" 
+            @click="onReview(item)"
+            :divided="!buttons.includes('edit') && !buttons.includes('addGeometry')">
+            <el-icon><View /></el-icon>
+            <span style="margin-left: 8px;">Review</span>
           </el-dropdown-item>
 
-
-
-          <el-dropdown-item v-if="buttons.includes('download')" @click="onDownload(item)">
-            <el-icon>
-              <Download />
-            </el-icon>
+          <!-- Share/Download Actions -->
+          <el-dropdown-item 
+            v-if="buttons.includes('download')" 
+            @click="onDownload(item)"
+            :divided="!buttons.includes('review')">
+            <el-icon><Download /></el-icon>
+            <span style="margin-left: 8px;">Download</span>
           </el-dropdown-item>
 
-          <el-dropdown-item v-if="buttons.includes('share')" @click="onShare(item)">
-            <el-icon>
-              <TopRight />
-            </el-icon>
+          <el-dropdown-item 
+            v-if="buttons.includes('share')" 
+            @click="onShare(item)">
+            <el-icon><TopRight /></el-icon>
+            <span style="margin-left: 8px;">Share</span>
           </el-dropdown-item>
 
+          <!-- Dangerous Actions (with dividers and confirmation) -->
+          <el-dropdown-item 
+            v-if="buttons.includes('decommission')" 
+            @click="onDecommission(item)"
+            divided
+            class="danger-action">
+            <el-icon><TakeawayBox /></el-icon>
+            <span style="margin-left: 8px;">Decommission</span>
+          </el-dropdown-item>
 
-
+          <el-dropdown-item 
+            v-if="buttons.includes('delete')" 
+            @click="handleDeleteClick(item)"
+            class="danger-action">
+            <el-icon><Delete /></el-icon>
+            <span style="margin-left: 8px;">Delete</span>
+          </el-dropdown-item>
         </el-dropdown-menu>
       </template>
     </el-dropdown>
 
+    <!-- Confirmation Dialog for Delete -->
+    <el-dialog
+      v-model="deleteDialogVisible"
+      title="Confirm Delete"
+      width="400px"
+      :before-close="handleDeleteCancel">
+      <p>Are you sure you want to delete this record? This action cannot be undone.</p>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="handleDeleteCancel">Cancel</el-button>
+          <el-button type="danger" @click="confirmDelete">Delete</el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script lang="ts" setup>
-import { ref, onMounted, watch, defineProps, onUnmounted, PropType } from 'vue';
-import { ElButton, ElIcon, ElDropdown, ElDropdownMenu, ElDropdownItem, ElTooltip, ElPopconfirm } from 'element-plus';
-import { ArrowDown, Edit, TopRight, Position, Delete, InfoFilled, View, Download, TakeawayBox } from '@element-plus/icons-vue';
+import { ref, PropType } from 'vue';
+import { ElButton, ElIcon, ElDropdown, ElDropdownMenu, ElDropdownItem, ElDialog } from 'element-plus';
+import { Setting, Edit, TopRight, Position, Delete, View, Download, TakeawayBox } from '@element-plus/icons-vue';
 
 const props = defineProps({
   item: Object,
@@ -166,24 +119,11 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(["edit", "viewOnMap", "review", "preview", "delete", "download", "decommission", "addGeometry", "share"]);
+const emit = defineEmits(["edit", "viewOnMap", "review", "preview", "delete", "download", "decommission", "addGeometry", "share", "merge"]);
 
-
- console.log('Table Actions:::::', props)
-
-
-
-
-watch(
-  () => ({
-    item: props.item,
-    buttons: props.buttons,
-  }),
-  () => {
-    // Watcher for debugging if needed
-  },
-  { immediate: true }
-);
+// Confirmation dialog state for delete
+const deleteDialogVisible = ref(false);
+const pendingAction = ref<{ type: string; item: any } | null>(null);
 
 const onEdit = (item) => {
   emit("edit", item);
@@ -193,11 +133,6 @@ const onViewOnMap = (item) => {
   emit("viewOnMap", item);
 };
 
-const onDelete = (item) => {
-  emit("delete", item);
-};
-
-
 const onReview = (item) => {
   emit("review", item);
 };
@@ -205,7 +140,6 @@ const onReview = (item) => {
 const onPreview = (item) => {
   emit("preview", item);
 };
-
 
 const onDownload = (item) => {
   emit("download", item);
@@ -215,45 +149,45 @@ const onShare = (item) => {
   emit("share", item);
 };
 
-const onDecommission = (item) => {
-  emit("decommission", item);
-};
-
 const onAddGeometry = (item) => {
   emit("addGeometry", item);
 };
 
-
-const isSmallScreen = ref(false);
-
-
-const handleResize = () => {
-  isSmallScreen.value = window.innerWidth <= 768; // Small screen breakpoint
+const onMerge = (item) => {
+  emit("merge", item);
 };
 
-onMounted(() => {
-  handleResize();
-  window.addEventListener("resize", handleResize);
-});
+const onDecommission = (item) => {
+  emit("decommission", item);
+};
 
-onUnmounted(() => {
-  window.removeEventListener("resize", handleResize);
-});
+// Handle delete with confirmation
+const handleDeleteClick = (item) => {
+  pendingAction.value = { type: 'delete', item };
+  deleteDialogVisible.value = true;
+};
+
+const confirmDelete = () => {
+  if (pendingAction.value && pendingAction.value.type === 'delete') {
+    emit("delete", pendingAction.value.item);
+    deleteDialogVisible.value = false;
+    pendingAction.value = null;
+  }
+};
+
+const handleDeleteCancel = () => {
+  deleteDialogVisible.value = false;
+  pendingAction.value = null;
+};
 
 </script>
 
 <style scoped>
-.actions-buttons {
-  display: flex;
-  gap: 8px;
+.danger-action {
+  color: var(--el-color-danger);
 }
-</style>
 
-<style scoped>
-.example-showcase .el-dropdown-link {
-  cursor: pointer;
-  color: var(--el-color-primary);
-  display: flex;
-  align-items: center;
+.danger-action:hover {
+  background-color: var(--el-color-danger-light-9);
 }
 </style>
