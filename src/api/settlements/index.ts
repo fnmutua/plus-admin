@@ -420,6 +420,10 @@ export const revertHistory = (data: SettlementType): Promise<IResponse<Settlemen
   return request.post({ url: prod + '/api/v1/edit/revert', data })
 }
 
+export const revertMerge = (data: SettlementType): Promise<IResponse<SettlementType>> => {
+  return request.post({ url: prod + '/api/v1/edit/revertMerge', data })
+}
+
 export const getSettlementMapData = (data: { settlementId: string }): Promise<IResponse<any>> => {
   return request.post({ url: prod + '/api/v1/data/geo/multiple', data })
 }

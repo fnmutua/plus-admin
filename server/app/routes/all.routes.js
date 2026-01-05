@@ -2331,6 +2331,58 @@ module.exports = function (app) {
   
   /**
    * @swagger
+   * /api/v1/edit/revertMerge:
+   *   post:
+   *     tags: [Data]
+   *     summary: Revert a merge operation
+   *     description: Restore a settlement that was merged into another settlement. This recreates the merged settlement and restores its data.
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - history_id
+   *             properties:
+   *               history_id:
+   *                 type: integer
+   *                 description: ID of the merge history record to revert
+   *                 example: 123
+   *     responses:
+   *       200:
+   *         description: Merge reverted successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 message:
+   *                   type: string
+   *                   example: "Merge reverted successfully. Settlement restored."
+   *                 code:
+   *                   type: string
+   *                   example: "0000"
+   *                 restored_settlement:
+   *                   type: object
+   *                   properties:
+   *                     id:
+   *                       type: integer
+   *                     name:
+   *                       type: string
+   *       400:
+   *         description: Bad request - invalid history record or already reverted
+   *       404:
+   *         description: History record or primary settlement not found
+   *       500:
+   *         description: Internal server error
+   */
+  app.post('/api/v1/edit/revertMerge', [authJwt.verifyToken, hasDynamicPermission('update')], controller.revertMerge)
+  
+  /**
+   * @swagger
    * /api/v1/delete/cascade:
    *   post:
    *     tags: [Data]

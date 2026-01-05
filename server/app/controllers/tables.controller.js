@@ -7855,7 +7855,115 @@ exports.revertEdits = async (req, res) => {
   }
 };
 
+exports.revertMerge = async (req, res) => {
+  const { history_id } = req.body;
+  const userId = req.thisUser ? req.thisUser.id : null;
 
+  try {
+    // Find the history record by primary key
+    const history = await db.models.settlement_history.findByPk(history_id);
+    if (!history) {
+      return res.status(404).send({
+        message: 'History record not found',
+        code: '1001'
+      });
+    }
+
+    // Verify this is a merge operation
+    if (history.change_type !== 'Merge') {
+      return res.status(400).send({
+        message: 'This history record is not a merge operation',
+        code: '1002'
+      });
+    }
+
+    // Check if already reverted
+    if (history.status === 'Reverted') {
+      return res.status(400).send({
+        message: 'This merge has already been reverted',
+        code: '1003'
+      });
+    }
+
+    const { changes } = history;
+    const beforeData = changes.before; // The duplicate settlement data before merge
+    const primaryData = changes.primary_record; // The primary settlement it was merged into
+    const duplicateId = changes.duplicate_id;
+
+    if (!beforeData || !primaryData) {
+      return res.status(400).send({
+        message: 'Invalid merge history data',
+        code: '1004'
+      });
+    }
+
+    // Check if primary settlement still exists
+    const primarySettlement = await db.models.settlement.findByPk(primaryData.id);
+    if (!primarySettlement) {
+      return res.status(404).send({
+        message: 'Primary settlement no longer exists. Cannot revert merge.',
+        code: '1005'
+      });
+    }
+
+    // Check if duplicate settlement already exists (shouldn't happen, but safety check)
+    const existingDuplicate = await db.models.settlement.findByPk(duplicateId);
+    if (existingDuplicate) {
+      return res.status(400).send({
+        message: 'Settlement with this ID already exists. Cannot restore.',
+        code: '1006'
+      });
+    }
+
+    // Recreate the duplicate settlement from beforeData
+    const restoredSettlement = await db.models.settlement.create({
+      ...beforeData,
+      id: duplicateId // Preserve original ID
+    });
+
+    // Update history status to Reverted
+    await history.update({ 
+      status: 'Reverted',
+      changes: {
+        ...changes,
+        reverted_at: new Date().toISOString(),
+        reverted_by: userId,
+        restored_settlement_id: duplicateId
+      }
+    });
+
+    // Create a new history entry for the restore operation
+    await db.models.settlement_history.create({
+      settlement_id: duplicateId,
+      changed_by: userId,
+      change_type: 'Restore',
+      changes: {
+        before: null, // Settlement didn't exist
+        after: restoredSettlement.toJSON(),
+        restored_from_merge: history_id,
+        original_primary: primaryData.id
+      },
+      status: 'Open'
+    });
+
+    res.status(200).send({
+      message: 'Merge reverted successfully. Settlement restored.',
+      code: '0000',
+      restored_settlement: {
+        id: restoredSettlement.id,
+        name: restoredSettlement.name
+      },
+      note: 'Settlement has been restored. Note: Foreign key references (documents, roads, etc.) that were updated during merge remain pointing to the primary settlement. Manual review may be needed to restore original associations.',
+    });
+
+  } catch (error) {
+    console.error('Error reverting merge:', error);
+    res.status(500).send({
+      message: 'An error occurred while reverting merge: ' + error.message,
+      code: '0004'
+    });
+  }
+};
 
 exports.deleteCascade = async (req, res) => {
   try {

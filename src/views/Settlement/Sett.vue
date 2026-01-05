@@ -14,7 +14,7 @@ import { ArrowLeft, ArrowRight, UploadFilled, Postcard, TopRight, Lock, Guide, T
 import { ref, reactive, computed, nextTick, watch } from 'vue'
 import { ElPagination, ElTooltip, ElOption } from 'element-plus'
 import { useRouter } from 'vue-router'
-import { DeleteRecord, updateOneRecord, revertHistory, deleteDocument } from '@/api/settlements'
+import { DeleteRecord, updateOneRecord, revertHistory, deleteDocument, revertMerge } from '@/api/settlements'
 import { useAppStore } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import { defineAsyncComponent, onMounted } from 'vue';
@@ -1651,9 +1651,14 @@ const confirmMerge = async () => {
     const res = await mergeDuplicates(formData)
     
     if (res.code === '0000') {
+      const mergeHistoryInfo = res.mergeHistory || []
+      const historyMessage = mergeHistoryInfo.length > 0 
+        ? ` Merge has been tracked in history (ID: ${mergeHistoryInfo[0].history_id}). You can restore it if needed.`
+        : ''
+      
       ElMessage.success({
-        message: 'Settlements merged successfully! All references (documents, roads, projects, facilities, etc.) have been updated.',
-        duration: 5000,
+        message: 'Settlements merged successfully! All references (documents, roads, projects, facilities, etc.) have been updated.' + historyMessage,
+        duration: 6000,
         showClose: true
       })
       MergeDialog.value = false
@@ -3420,7 +3425,7 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
                 <el-descriptions-item label="Type">{{ currentSettlementForMerge.settlement_type || 'N/A' }}</el-descriptions-item>
                 <el-descriptions-item label="Status">{{ currentSettlementForMerge.isApproved || 'N/A' }}</el-descriptions-item>
               </el-descriptions>
-            </el-card>
+  </el-card>
           </el-col>
 
           <!-- Search and Selected Settlement -->
@@ -3589,6 +3594,8 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
           <template #default>
             All foreign key references pointing to the settlement being merged will be updated to reference the primary settlement. 
             The merged settlement record will be permanently deleted.
+            <br /><br />
+            <strong>Note:</strong> This merge operation will be tracked in history, allowing you to restore the merged settlement if needed.
           </template>
         </el-alert>
       </div>
