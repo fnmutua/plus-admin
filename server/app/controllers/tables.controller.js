@@ -7644,6 +7644,9 @@ exports.mergeDuplicates = async (req, res) => {
       });
     }
 
+    // Store affected associations for each duplicate (for restoration)
+    const affectedAssociations = {};
+    
     // Loop through all associations of the model
     for (const associationName in Model.associations) {
       const association = Model.associations[associationName];
@@ -7652,6 +7655,31 @@ exports.mergeDuplicates = async (req, res) => {
       // This ensures we update references FROM other models TO this model
       if (association.associationType === 'HasMany' && association.foreignKey) {
         const associatedModel = association.target;
+
+        // Find all affected records BEFORE updating (for restoration tracking)
+        const primaryKeyField = associatedModel.primaryKeyAttribute || 'id';
+        for (const duplicateId of duplicateIds) {
+          const affectedRecords = await associatedModel.findAll({
+            where: { [association.foreignKey]: duplicateId },
+            attributes: [primaryKeyField] // Only get primary keys to save space
+          });
+          
+          if (affectedRecords.length > 0) {
+            if (!affectedAssociations[duplicateId]) {
+              affectedAssociations[duplicateId] = {};
+            }
+            if (!affectedAssociations[duplicateId][associatedModel.name]) {
+              affectedAssociations[duplicateId][associatedModel.name] = {
+                foreignKey: association.foreignKey,
+                primaryKey: primaryKeyField,
+                recordIds: []
+              };
+            }
+            affectedAssociations[duplicateId][associatedModel.name].recordIds.push(
+              ...affectedRecords.map(r => r[primaryKeyField])
+            );
+          }
+        }
 
         // Update the foreign key in the associated model to point to the primary record
         // This changes settlement_id from duplicateIds to primaryId in all related tables
@@ -7686,7 +7714,9 @@ exports.mergeDuplicates = async (req, res) => {
           primary_record: primaryRecord.toJSON(), // The primary settlement it's merged into
           duplicate_id: duplicate.id,
           primary_id: primaryId,
-          merged_at: new Date().toISOString()
+          merged_at: new Date().toISOString(),
+          // Store affected associations for restoration
+          affected_associations: affectedAssociations[duplicate.id] || {}
         },
         status: 'Open'
       });
@@ -7920,7 +7950,30 @@ exports.revertEdits = async (req, res) => {
 
 exports.revertMerge = async (req, res) => {
   const { history_id } = req.body;
-  const userId = req.thisUser ? req.thisUser.id : null;
+  
+  // Try multiple ways to get user ID (set by authJwt.verifyToken middleware)
+  let userId = req.thisUser?.id || req.userid || req.body.userId;
+  
+  // If still no user ID, try to extract from token
+  if (!userId) {
+    try {
+      const jwt = require('jsonwebtoken');
+      const config = require('../config/auth.config.js');
+      const token = req.headers['x-access-token'];
+      if (token) {
+        const decoded = jwt.verify(token, config.secret);
+        userId = decoded.id;
+      }
+    } catch (err) {
+      // Token extraction failed, will use null
+    }
+  }
+  
+  // If we still don't have a user ID, use a default system user (1)
+  if (!userId) {
+    console.warn('revertMerge: No user ID found in request, using system user (1)');
+    userId = 1; // System user fallback
+  }
 
   try {
     // Find the history record by primary key
@@ -7984,6 +8037,59 @@ exports.revertMerge = async (req, res) => {
       id: duplicateId // Preserve original ID
     });
 
+    // Restore affected associations back to the restored settlement
+    const affectedAssociations = changes.affected_associations || {};
+    const restoredAssociations = {};
+    let totalRestored = 0;
+
+    for (const [modelName, associationData] of Object.entries(affectedAssociations)) {
+      if (!associationData || !associationData.recordIds || associationData.recordIds.length === 0) {
+        continue;
+      }
+
+      const AssociatedModel = db.models[modelName];
+      if (!AssociatedModel) {
+        console.warn(`Model ${modelName} not found, skipping association restoration`);
+        continue;
+      }
+
+      const foreignKey = associationData.foreignKey;
+      const primaryKeyField = associationData.primaryKey || AssociatedModel.primaryKeyAttribute || 'id';
+      const recordIds = associationData.recordIds;
+
+      try {
+        // Restore associations: update records that were moved to primary back to restored settlement
+        // Only restore records that currently point to the primary settlement
+        // (they might have been manually changed, so we only restore what we moved)
+        const restoreResult = await AssociatedModel.update(
+          { [foreignKey]: duplicateId },
+          { 
+            where: { 
+              [primaryKeyField]: recordIds,
+              [foreignKey]: primaryData.id // Only restore records that still point to primary
+            }
+          }
+        );
+
+        const restoredCount = restoreResult[0] || 0;
+        if (restoredCount > 0) {
+          restoredAssociations[modelName] = {
+            foreignKey: foreignKey,
+            restoredCount: restoredCount,
+            totalRecords: recordIds.length
+          };
+          totalRestored += restoredCount;
+        }
+      } catch (error) {
+        console.error(`Error restoring associations for model ${modelName}:`, error);
+        restoredAssociations[modelName] = {
+          foreignKey: foreignKey,
+          error: error.message,
+          totalRecords: recordIds.length
+        };
+      }
+    }
+
     // Update history status to Reverted
     await history.update({ 
       status: 'Reverted',
@@ -7991,7 +8097,9 @@ exports.revertMerge = async (req, res) => {
         ...changes,
         reverted_at: new Date().toISOString(),
         reverted_by: userId,
-        restored_settlement_id: duplicateId
+        restored_settlement_id: duplicateId,
+        restored_associations: restoredAssociations,
+        total_associations_restored: totalRestored
       }
     });
 
@@ -8010,13 +8118,17 @@ exports.revertMerge = async (req, res) => {
     });
 
     res.status(200).send({
-      message: 'Merge reverted successfully. Settlement restored.',
+      message: 'Merge reverted successfully. Settlement and associations restored.',
       code: '0000',
       restored_settlement: {
         id: restoredSettlement.id,
         name: restoredSettlement.name
       },
-      note: 'Settlement has been restored. Note: Foreign key references (documents, roads, etc.) that were updated during merge remain pointing to the primary settlement. Manual review may be needed to restore original associations.',
+      restored_associations: restoredAssociations,
+      total_associations_restored: totalRestored,
+      note: totalRestored > 0 
+        ? `Settlement has been restored along with ${totalRestored} association(s) (documents, roads, projects, facilities, etc.) that were moved back to this settlement.`
+        : 'Settlement has been restored. Some associations may have been manually changed and were not automatically restored.',
     });
 
   } catch (error) {

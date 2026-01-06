@@ -2483,7 +2483,17 @@ const RevertEdits = async (data: TableSlotDefault) => {
   if (data.merge_type === 'Merge') {
     const res = await revertMerge(formData);
     if (res.code === '0000') {
-      ElMessage.success('Merge reverted successfully. Settlement restored.');
+      const totalRestored = res.total_associations_restored || 0;
+      const message = totalRestored > 0
+        ? `Merge reverted successfully! Settlement restored along with ${totalRestored} association(s) (documents, roads, projects, facilities, etc.).`
+        : res.note || 'Merge reverted successfully. Settlement restored.';
+      
+      ElMessage.success({
+        message: message,
+        duration: 6000,
+        showClose: true
+      });
+      
       // Refresh the deleted settlements list
       await getSettlmentHistory();
       // Refresh counts
