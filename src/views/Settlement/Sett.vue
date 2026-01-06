@@ -1668,6 +1668,11 @@ const confirmMerge = async () => {
       await getNewOrRejectedSettlements(activeSegment.value)
       await getCounts()
       
+      // Refresh deleted settlements list if on Deleted tab, or refresh it anyway to keep it updated
+      if (activeSegment.value === 'Deleted') {
+        await getSettlmentHistory()
+      }
+      
       // Reset merge state
       currentSettlementForMerge.value = null
       selectedSettlementForMerge.value = null
@@ -2441,18 +2446,27 @@ const onSegmentClick = async () => {
 const getSettlmentHistory = async () => {
   deletedSettlements.value = []
   const model = 'settlement_history'
+  
+  // Fetch both Delete and Merge history records
   const formData = {}
   formData.model = model
   formData.searchField = 'name'
   formData.excludeGeom = false
   formData.associated_multiple_models = ['users']
   formData.filters = ['change_type', 'status']
-  formData.filterValues = [['Delete'], ['Open']]
+  // Include both 'Delete' and 'Merge' change types
+  formData.filterValues = [['Delete', 'Merge'], ['Open']]
   const res = await getSettlementListByCounty(formData)
   res.data.forEach((item) => {
     const beforeObject = item.changes?.before;
     if (beforeObject) {
       beforeObject.history_id = item.id;
+      // For merge records, add merge metadata
+      if (item.change_type === 'Merge') {
+        beforeObject.merged_into = item.changes?.primary_record;
+        beforeObject.merge_type = 'Merge';
+        beforeObject.primary_id = item.changes?.primary_id;
+      }
       deletedSettlements.value.push(beforeObject);
     }
   });
@@ -2464,7 +2478,27 @@ const RevertEdits = async (data: TableSlotDefault) => {
     model: 'settlement',
     history_id: data.history_id,
   };
-  const res = await revertHistory(formData);
+  
+  // Use revertMerge if this is a merge record, otherwise use revertHistory
+  if (data.merge_type === 'Merge') {
+    const res = await revertMerge(formData);
+    if (res.code === '0000') {
+      ElMessage.success('Merge reverted successfully. Settlement restored.');
+      // Refresh the deleted settlements list
+      await getSettlmentHistory();
+      // Refresh counts
+      await getCounts();
+    }
+  } else {
+    const res = await revertHistory(formData);
+    if (res.code === '0000') {
+      ElMessage.success('Settlement restored successfully.');
+      // Refresh the deleted settlements list
+      await getSettlmentHistory();
+      // Refresh counts
+      await getCounts();
+    }
+  }
 };
 
 
@@ -2566,6 +2600,12 @@ async function mergeGroupRecords(group) {
         if (cidx !== -1) duplicateRecords.value.splice(cidx, 1)
       }
     }
+    // Refresh deleted settlements list if on Deleted tab
+    if (activeSegment.value === 'Deleted') {
+      await getSettlmentHistory()
+    }
+    // Refresh counts
+    await getCounts()
   }
   group._mergeState.selected = []
   group._mergeState.primary = null
@@ -3081,6 +3121,20 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="page"
       <el-table table-layout="auto"  :data="deletedSettlements" :show-overflow-tooltip="true" style="width: 100% ; margin-top: 10px;"  border  >
         <el-table-column type="index" width="50" />
         <el-table-column label="Name" width="200" prop="name" sortable />     
+        <el-table-column label="Type" width="120">
+          <template #default="{ row }">
+            <el-tag v-if="row.merge_type === 'Merge'" type="warning" size="small">Merged</el-tag>
+            <el-tag v-else type="danger" size="small">Deleted</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="Merged Into" width="200" v-if="deletedSettlements.some(s => s.merge_type === 'Merge')">
+          <template #default="{ row }">
+            <span v-if="row.merge_type === 'Merge' && row.merged_into">
+              {{ row.merged_into.name }} (ID: {{ row.merged_into.id }})
+            </span>
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
         <el-table-column label="Population" prop="population" sortable />
         <el-table-column label="Area(HA)" prop="area" sortable :formatter="row => Number(row.area).toFixed(2)" />
         <el-table-column label="Created" prop="updatedAt" sortable :formatter="formatDate" />

@@ -7604,9 +7604,45 @@ exports.findPotentialDuplicates = async (req, res) => {
 
 exports.mergeDuplicates = async (req, res) => {
   const { primaryId, duplicateIds, model } = req.body;
+  
+  // Try multiple ways to get user ID (set by authJwt.verifyToken middleware)
+  const userId = req.thisUser?.id || req.userid || req.body.userId;
+  
+  // If still no user ID, try to extract from token
+  let finalUserId = userId;
+  if (!finalUserId) {
+    try {
+      const jwt = require('jsonwebtoken');
+      const config = require('../config/auth.config.js');
+      const token = req.headers['x-access-token'];
+      if (token) {
+        const decoded = jwt.verify(token, config.secret);
+        finalUserId = decoded.id;
+      }
+    } catch (err) {
+      // Token extraction failed, will handle below
+    }
+  }
+  
+  // If we still don't have a user ID, use a default system user (1) or return error
+  if (!finalUserId) {
+    console.warn('mergeDuplicates: No user ID found in request, using system user (1)');
+    finalUserId = 1; // System user fallback
+  }
+  
   try {
     const Model = db.models[model];
     const updatedModels = [];
+    const mergeHistoryRecords = [];
+
+    // Get primary record data before merge
+    const primaryRecord = await Model.findByPk(primaryId);
+    if (!primaryRecord) {
+      return res.status(404).send({
+        message: 'Primary record not found',
+        code: '1001'
+      });
+    }
 
     // Loop through all associations of the model
     for (const associationName in Model.associations) {
@@ -7635,6 +7671,32 @@ exports.mergeDuplicates = async (req, res) => {
       }
     }
 
+    // Get duplicate records data before deletion (for history)
+    const duplicateRecords = await Model.findAll({ where: { id: duplicateIds } });
+    
+    // Create history records for each duplicate being merged
+    for (const duplicate of duplicateRecords) {
+      const historyRecord = await db.models.settlement_history.create({
+        settlement_id: null, // Settlement is being deleted
+        changed_by: finalUserId,
+        change_type: 'Merge',
+        changes: {
+          before: duplicate.toJSON(), // The duplicate settlement data
+          after: null, // Settlement is deleted
+          primary_record: primaryRecord.toJSON(), // The primary settlement it's merged into
+          duplicate_id: duplicate.id,
+          primary_id: primaryId,
+          merged_at: new Date().toISOString()
+        },
+        status: 'Open'
+      });
+      mergeHistoryRecords.push({
+        history_id: historyRecord.id,
+        duplicate_id: duplicate.id,
+        duplicate_name: duplicate.name || `ID: ${duplicate.id}`
+      });
+    }
+
     // Delete the duplicate records
     await Model.destroy({ where: { id: duplicateIds } });
 
@@ -7642,7 +7704,8 @@ exports.mergeDuplicates = async (req, res) => {
       message: "Records merged successfully.",
       code: '0000',
       updatedReferences: updatedModels,
-      updatedCount: updatedModels.length
+      updatedCount: updatedModels.length,
+      mergeHistory: mergeHistoryRecords
     });
 
   } catch (error) {
