@@ -4410,52 +4410,54 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
       destroy-on-close
       :close-on-click-modal="false"
       :show-close="true">
-      <div v-if="locationUpdateSettlement" style="height: 100%; display: flex; flex-direction: column;">
-        <el-card style="margin-bottom: 15px;">
-          <el-descriptions :column="2" border size="small">
-            <el-descriptions-item label="Settlement ID">{{ locationUpdateSettlement.id }}</el-descriptions-item>
-            <el-descriptions-item label="Name">{{ locationUpdateSettlement.name }}</el-descriptions-item>
-            <el-descriptions-item label="Code">{{ locationUpdateSettlement.code || 'N/A' }}</el-descriptions-item>
-            <el-descriptions-item label="Location">
-              <span v-if="locationUpdateSettlement.ward && locationUpdateSettlement.subcounty && locationUpdateSettlement.county">
-                {{ locationUpdateSettlement.ward.name }} ward, {{ locationUpdateSettlement.subcounty.name }} subcounty, {{ locationUpdateSettlement.county.name }}
-              </span>
-              <span v-else>N/A</span>
-            </el-descriptions-item>
-          </el-descriptions>
-        </el-card>
+      <div v-if="locationUpdateSettlement" style="height: calc(100vh - 60px); display: flex; flex-direction: column; overflow: hidden;">
+        <div style="flex: 1; overflow-y: auto; padding-right: 10px;">
+          <el-card style="margin-bottom: 15px;">
+            <el-descriptions :column="2" border size="small">
+              <el-descriptions-item label="Settlement ID">{{ locationUpdateSettlement.id }}</el-descriptions-item>
+              <el-descriptions-item label="Name">{{ locationUpdateSettlement.name }}</el-descriptions-item>
+              <el-descriptions-item label="Code">{{ locationUpdateSettlement.code || 'N/A' }}</el-descriptions-item>
+              <el-descriptions-item label="Location">
+                <span v-if="locationUpdateSettlement.ward && locationUpdateSettlement.subcounty && locationUpdateSettlement.county">
+                  {{ locationUpdateSettlement.ward.name }} ward, {{ locationUpdateSettlement.subcounty.name }} subcounty, {{ locationUpdateSettlement.county.name }}
+                </span>
+                <span v-else>N/A</span>
+              </el-descriptions-item>
+            </el-descriptions>
+          </el-card>
 
-        <el-alert
-          type="info"
-          :closable="false"
-          style="margin-bottom: 15px;">
-          <template #default>
-            <p style="margin: 0;">
-              <strong>Instructions:</strong> 
-              <span v-if="locationUpdateSettlement?.geom?.type === 'Point' || locationUpdateSettlement?.geom?.type === 'MultiPoint'">
-                Current geometry is a Point (shown as blue marker). Draw a polygon to convert it to a polygon boundary.
-              </span>
-              <span v-else>
-                Use the drawing tools above the map to draw or edit the settlement boundary, or upload a polygon GeoJSON/shapefile. 
-                You can click on the polygon to edit its shape. 
-              </span>
-              When finished, click "Save Location" to update only the geometry (saved as Polygon).
-            </p>
-          </template>
-        </el-alert>
+          <el-alert
+            type="info"
+            :closable="false"
+            style="margin-bottom: 15px;">
+            <template #default>
+              <p style="margin: 0;">
+                <strong>Instructions:</strong> 
+                <span v-if="locationUpdateSettlement?.geom?.type === 'Point' || locationUpdateSettlement?.geom?.type === 'MultiPoint'">
+                  Current geometry is a Point (shown as blue marker). Draw a polygon to convert it to a polygon boundary.
+                </span>
+                <span v-else>
+                  Use the drawing tools above the map to draw or edit the settlement boundary, or upload a polygon GeoJSON/shapefile. 
+                  You can click on the polygon to edit its shape. 
+                </span>
+                When finished, click "Save Location" to update only the geometry (saved as Polygon).
+              </p>
+            </template>
+          </el-alert>
 
-        <div style="margin-bottom: 15px; display: flex; justify-content: flex-end;">
-          <el-button type="primary" :icon="UploadFilled" @click="locationUpdateShowUploadDialog = true">
-            Upload GeoJSON/Shapefile
-          </el-button>
+          <div style="margin-bottom: 15px; display: flex; justify-content: flex-end;">
+            <el-button type="primary" :icon="UploadFilled" @click="locationUpdateShowUploadDialog = true">
+              Upload GeoJSON/Shapefile
+            </el-button>
+          </div>
+
+          <div 
+            ref="locationUpdateMapContainer" 
+            style="min-height: 500px; width: 100%; border: 1px solid #e4e7ed; border-radius: 4px; margin-bottom: 15px;">
+          </div>
         </div>
 
-        <div 
-          ref="locationUpdateMapContainer" 
-          style="flex: 1; min-height: 500px; width: 100%; border: 1px solid #e4e7ed; border-radius: 4px;">
-        </div>
-
-        <div style="margin-top: 15px; display: flex; justify-content: flex-end; gap: 10px;">
+        <div style="padding-top: 15px; border-top: 1px solid #e4e7ed; display: flex; justify-content: flex-end; gap: 10px; flex-shrink: 0;">
           <el-button @click="handleLocationDrawerClose">Cancel</el-button>
           <el-button 
             type="primary" 
