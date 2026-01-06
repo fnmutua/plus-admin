@@ -1003,6 +1003,10 @@ const mergeSearchResults = ref<any[]>([])
 const mergeSearchLoading = ref(false)
 const selectedSettlementForMerge = ref<any>(null)
 const mergePrimaryId = ref<number | null>(null)
+const selectedSettlements = ref<any[]>([])
+const selectedSettlementsNew = ref<any[]>([])
+const selectedSettlementsRejected = ref<any[]>([])
+const selectedSettlementsDecommissioned = ref<any[]>([])
 
 const Review = (data: TableSlotDefault) => {
   ShowReviewDialog.value = true
@@ -1578,6 +1582,60 @@ const handleMerge = async (data: any) => {
   MergeDialog.value = true
 }
 
+const handleSelectionChange = (selection: any[]) => {
+  if (activeSegment.value === 'Approved') {
+    selectedSettlements.value = selection
+  } else if (activeSegment.value === 'New') {
+    selectedSettlementsNew.value = selection
+  } else if (activeSegment.value === 'Rejected') {
+    selectedSettlementsRejected.value = selection
+  } else if (activeSegment.value === 'Decommissioned') {
+    selectedSettlementsDecommissioned.value = selection
+  }
+}
+
+const getSelectedSettlements = () => {
+  if (activeSegment.value === 'Approved') {
+    return selectedSettlements.value
+  } else if (activeSegment.value === 'New') {
+    return selectedSettlementsNew.value
+  } else if (activeSegment.value === 'Rejected') {
+    return selectedSettlementsRejected.value
+  } else if (activeSegment.value === 'Decommissioned') {
+    return selectedSettlementsDecommissioned.value
+  }
+  return []
+}
+
+const handleMergeFromSelection = async () => {
+  const selected = getSelectedSettlements()
+  
+  if (selected.length !== 2) {
+    ElMessage.warning('Please select exactly 2 settlements to merge')
+    return
+  }
+  
+  // Check permissions for both settlements
+  const canMergeFirst = canUserAccessSettlement(selected[0], 'edit')
+  const canMergeSecond = canUserAccessSettlement(selected[1], 'edit')
+  
+  if (!canMergeFirst || !canMergeSecond) {
+    ElMessage({
+      message: 'You do not have permission to merge one or both of the selected settlements.',
+      type: 'warning',
+    });
+    return;
+  }
+  
+  // Set first selected as primary, second as the one to merge
+  currentSettlementForMerge.value = selected[0]
+  selectedSettlementForMerge.value = selected[1]
+  mergePrimaryId.value = selected[0].id
+  mergeSearchQuery.value = ''
+  mergeSearchResults.value = []
+  MergeDialog.value = true
+}
+
 const searchSettlementsForMerge = async (keyword = '') => {
   const query = keyword || mergeSearchQuery.value?.trim()
   
@@ -1679,6 +1737,12 @@ const confirmMerge = async () => {
       mergeSearchQuery.value = ''
       mergeSearchResults.value = []
       mergePrimaryId.value = null
+      
+      // Clear selected settlements
+      selectedSettlements.value = []
+      selectedSettlementsNew.value = []
+      selectedSettlementsRejected.value = []
+      selectedSettlementsDecommissioned.value = []
     } else {
       ElMessage.error('Failed to merge settlements')
     }
@@ -2808,8 +2872,10 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
       <el-table
 table-layout="auto" 
 :data="tableDataList" @row-dblclick="handleRowDblClick" :show-overflow-tooltip="true" fit 
-        style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName" @expand-change="handleExpand" row-key="id"   :expand-row-keys="expandedRowKeys">
+        style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName" @expand-change="handleExpand" row-key="id"   :expand-row-keys="expandedRowKeys"
+        @selection-change="handleSelectionChange">
 
+        <el-table-column type="selection" width="55" :selectable="(row) => canUserAccessSettlement(row, 'edit')" />
         <el-table-column type="expand">
           <template #default="props">
 
@@ -2895,11 +2961,43 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
         </el-table-column>
 
       </el-table>
+      
+      <!-- Merge button for selected settlements -->
+      <div v-if="selectedSettlements.length === 2" style="margin-top: 10px; margin-bottom: 10px;">
+        <el-button 
+          type="danger" plain
+          :icon="TakeawayBox"
+          @click="handleMergeFromSelection">
+          Merge({{ selectedSettlements[0].name }} + {{ selectedSettlements[1].name }})
+        </el-button>
+        <el-button 
+          type="info" 
+          plain
+          @click="selectedSettlements = []">
+          Clear Selection
+        </el-button>
+      </div>
 
       <ElPagination
 layout="sizes, prev, pager, next, total" v-model:currentPage="page"
       v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100,1000,2000]" :total="totalApproved" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+
+      <!-- Merge button for selected settlements (bottom) -->
+      <!-- <div v-if="selectedSettlements.length === 2" style="margin-top: 10px;">
+        <el-button 
+          type="primary" 
+          :icon="TakeawayBox"
+          @click="handleMergeFromSelection">
+          Merge Selected Settlements ({{ selectedSettlements[0].name }} + {{ selectedSettlements[1].name }})
+        </el-button>
+        <el-button 
+          type="info" 
+          plain
+          @click="selectedSettlements = []">
+          Clear Selection
+        </el-button>
+      </div> -->
 
     </div>
 
@@ -2907,7 +3005,9 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="page"
     <div v-if="activeSegment === 'New'">
       <el-table
 :data="tableDataListNew" :show-overflow-tooltip="true" style="width: 100% ; margin-top: 10px;" border
-        :row-class-name="tableRowClassName" @expand-change="handleExpand" row-key="id"   :expand-row-keys="expandedRowKeys">
+        :row-class-name="tableRowClassName" @expand-change="handleExpand" row-key="id"   :expand-row-keys="expandedRowKeys"
+        @selection-change="handleSelectionChange">
+        <el-table-column type="selection" width="55" :selectable="(row) => canUserAccessSettlement(row, 'edit')" />
         <el-table-column type="expand">
           <template #default="props">
 
@@ -2977,13 +3077,30 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
 layout="sizes, prev, pager, next, total" v-model:currentPage="page"
       v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100,1000,2000]" :total="totalPending" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+
+      <!-- Merge button for selected settlements (bottom) -->
+      <!-- <div v-if="selectedSettlementsNew.length === 2" style="margin-top: 10px;">
+        <el-button 
+          type="primary" 
+          :icon="TakeawayBox"
+          @click="handleMergeFromSelection">
+          Merge Selected Settlements ({{ selectedSettlementsNew[0].name }} + {{ selectedSettlementsNew[1].name }})
+        </el-button>
+        <el-button 
+          type="info" 
+          plain
+          @click="selectedSettlementsNew = []">
+          Clear Selection
+        </el-button>
+      </div> -->
     </div>
 
     <div v-if="activeSegment === 'Rejected'">
-
       <el-table
 :data="tableDataListRejected" :show-overflow-tooltip="true" style="width: 100% ; margin-top: 10px;"
-        border :row-class-name="tableRowClassName" @expand-change="handleExpand" row-key="id"   :expand-row-keys="expandedRowKeys">
+        border :row-class-name="tableRowClassName" @expand-change="handleExpand" row-key="id"   :expand-row-keys="expandedRowKeys"
+        @selection-change="handleSelectionChange">
+        <el-table-column type="selection" width="55" :selectable="(row) => canUserAccessSettlement(row, 'edit')" />
         <el-table-column type="expand">
           <template #default="props">
             <div m="4">
@@ -3048,16 +3165,33 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" ci
 layout="sizes, prev, pager, next, total" v-model:currentPage="page"
       v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100,1000,2000]" :total="totalRejected" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+
+      <!-- Merge button for selected settlements (bottom) -->
+      <!-- <div v-if="selectedSettlementsRejected.length === 2" style="margin-top: 10px;">
+        <el-button 
+          type="primary" 
+          :icon="TakeawayBox"
+          @click="handleMergeFromSelection">
+          Merge Selected Settlements ({{ selectedSettlementsRejected[0].name }} + {{ selectedSettlementsRejected[1].name }})
+        </el-button>
+        <el-button 
+          type="info" 
+          plain
+          @click="selectedSettlementsRejected = []">
+          Clear Selection
+        </el-button>
+      </div> -->
     </div>
 
 
     <div v-if="activeSegment === 'Decommissioned'">
-
         <el-table
 :data="decommSettlements" :show-overflow-tooltip="true" style="width: 100% ; margin-top: 10px;"
           border :row-class-name="tableRowClassName" @expand-change="handleExpand" row-key="id"  :expand-row-keys="expandedRowKeys"
           @row-dblclick="handleRowDblClick"
+          @selection-change="handleSelectionChange"
         >
+          <el-table-column type="selection" width="55" :selectable="(row) => canUserAccessSettlement(row, 'edit')" />
           <el-table-column type="expand">
             <template #default="props">
               <div m="4">
@@ -3118,10 +3252,26 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" ci
         </el-table>
 
 
-        <ElPagination
+      <ElPagination
 layout="sizes, prev, pager, next, total" v-model:currentPage="page"
-        v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100,1000,2000]" :total="decommSettlementsCount" :background="true"
-        @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+      v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100,1000,2000]" :total="decommSettlementsCount" :background="true"
+      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+
+      <!-- Merge button for selected settlements (bottom) -->
+      <!-- <div v-if="selectedSettlementsDecommissioned.length === 2" style="margin-top: 10px;">
+        <el-button 
+          type="primary" 
+          :icon="TakeawayBox"
+          @click="handleMergeFromSelection">
+          Merge Selected Settlements ({{ selectedSettlementsDecommissioned[0].name }} + {{ selectedSettlementsDecommissioned[1].name }})
+        </el-button>
+        <el-button 
+          type="info" 
+          plain
+          @click="selectedSettlementsDecommissioned = []">
+          Clear Selection
+        </el-button>
+      </div> -->
     </div>
 
 
@@ -3507,38 +3657,6 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
                 </div>
               </template>
               
-              <!-- Search Input -->
-              <div style="margin-bottom: 15px;">
-                <el-select
-                  v-model="selectedSettlementForMerge"
-                  filterable
-                  remote
-                  :remote-method="searchSettlementsForMerge"
-                  :loading="mergeSearchLoading"
-                  placeholder="Search for settlement to merge with..."
-                  clearable
-                  @clear="mergeSearchResults = []; selectedSettlementForMerge = null; mergeSearchQuery = ''"
-                  style="width: 100%"
-                  value-key="id">
-                  <el-option
-                    v-for="item in mergeSearchResults"
-                    :key="item.id"
-                    :label="item.name"
-                    :value="item">
-                    <div style="display: flex; align-items: center;">
-                      <span style="flex: 1; text-align: left;">{{ item.name }}</span>
-                      <span style="flex: 2; color: var(--el-text-color-secondary); font-size: 13px; text-align: right;">
-                        <span v-if="item.ward && item.subcounty && item.county">
-                          {{ item.ward.name }}, {{ item.subcounty.name }}, {{ item.county.name }}
-                        </span>
-                        <span v-else>N/A</span>
-                      </span>
-                    </div>
-                  </el-option>
-                </el-select>
-              </div>
-
-
               <!-- Selected Settlement Details -->
               <div v-if="selectedSettlementForMerge" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e4e7ed;">
                 <el-descriptions :column="1" border size="small" title="Selected Settlement">
@@ -3597,14 +3715,14 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
       width="600px"
       :close-on-click-modal="false">
       <div v-if="currentSettlementForMerge && selectedSettlementForMerge && mergePrimaryId">
-        <el-alert
+        <!-- <el-alert
           type="warning"
           :closable="false"
           style="margin-bottom: 20px;">
           <template #title>
             <strong>This action cannot be undone!</strong>
           </template>
-        </el-alert>
+        </el-alert> -->
 
         <div style="margin-bottom: 20px;">
           <p><strong>Primary Settlement (will be kept):</strong></p>
@@ -3624,42 +3742,19 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
 
         <el-divider />
 
-        <div style="margin-bottom: 20px;">
-          <p><strong>The following references will be automatically updated to point to the primary settlement:</strong></p>
-          <ul style="padding-left: 30px; line-height: 2;">
-            <li>Documents</li>
-            <li>Roads</li>
-            <li>Road Assets</li>
-            <li>Projects</li>
-            <li>Health Facilities</li>
-            <li>Education Facilities</li>
-            <li>Water Points</li>
-            <li>Piped Water</li>
-            <li>Sewer Systems</li>
-            <li>Powerlines</li>
-            <li>Railways</li>
-            <li>Floodlights</li>
-            <li>Crime Hotspots</li>
-            <li>Police Stations</li>
-            <li>Hazard Zones</li>
-            <li>Community Halls</li>
-            <li>Community Projects</li>
-            <li>Masts</li>
-            <li>Streetlights</li>
-            <li>Dumping Sites</li>
-            <li>Other Facilities</li>
-            <li>And any other entities linked to this settlement</li>
-          </ul>
-        </div>
-
         <el-alert
           type="info"
           :closable="false">
           <template #default>
-            All foreign key references pointing to the settlement being merged will be updated to reference the primary settlement. 
-            The merged settlement record will be permanently deleted.
-            <br /><br />
-            <strong>Note:</strong> This merge operation will be tracked in history, allowing you to restore the merged settlement if needed.
+            <p style="margin: 0 0 10px 0;">
+              <strong>All associated data will be automatically updated:</strong> All references (documents, roads, projects, facilities, and any other entities linked to the settlement being merged) will be automatically updated to point to the primary settlement.
+            </p>
+            <p style="margin: 0 0 10px 0;">
+              The merged settlement record will be permanently deleted, but this operation is tracked in history, allowing you to restore the merged settlement and all its associations if needed.
+            </p>
+            <p style="margin: 0;">
+              <strong>Note:</strong> This action cannot be undone, but you can restore it from the Deleted tab if needed.
+            </p>
           </template>
         </el-alert>
       </div>
