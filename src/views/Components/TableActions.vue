@@ -43,6 +43,13 @@
             <span style="margin-left: 8px;">Merge with Another</span>
           </el-dropdown-item>
 
+          <el-dropdown-item 
+            v-if="buttons.includes('updateLocation')" 
+            @click="onUpdateLocation(item)">
+            <el-icon><Location /></el-icon>
+            <span style="margin-left: 8px;">Update Location</span>
+          </el-dropdown-item>
+
           <!-- Review Actions -->
           <el-dropdown-item 
             v-if="buttons.includes('review')" 
@@ -109,7 +116,7 @@
 <script lang="ts" setup>
 import { ref, PropType } from 'vue';
 import { ElButton, ElIcon, ElDropdown, ElDropdownMenu, ElDropdownItem, ElDialog } from 'element-plus';
-import { Setting, Edit, TopRight, Position, Delete, View, Download, TakeawayBox } from '@element-plus/icons-vue';
+import { Setting, Edit, TopRight, Position, Delete, View, Download, TakeawayBox, Location } from '@element-plus/icons-vue';
 
 const props = defineProps({
   item: Object,
@@ -119,7 +126,7 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(["edit", "viewOnMap", "review", "preview", "delete", "download", "decommission", "addGeometry", "share", "merge"]);
+const emit = defineEmits(["edit", "viewOnMap", "review", "preview", "delete", "download", "decommission", "addGeometry", "share", "merge", "updateLocation"]);
 
 // Confirmation dialog state for delete
 const deleteDialogVisible = ref(false);
@@ -155,6 +162,10 @@ const onAddGeometry = (item) => {
 
 const onMerge = (item) => {
   emit("merge", item);
+};
+
+const onUpdateLocation = (item) => {
+  emit("updateLocation", item);
 };
 
 const onDecommission = (item) => {

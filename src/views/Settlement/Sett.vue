@@ -6,10 +6,10 @@ import {
   ElButton, ElSelect, FormInstance, ElTabs, ElTabPane, ElDialog, ElInputNumber,ElCollapse,ElCollapseItem,
   ElInput, ElBadge, ElForm, ElDescriptions, ElDescriptionsItem, ElFormItem, ElUpload, ElCard, ElPopconfirm, ElTable, ElCol, ElRow,
   ElTableColumn, UploadUserFile, ElDropdown, ElDropdownMenu, ElDropdownItem, ElStep, ElSteps, ElCheckbox, ElIcon, ElDatePicker,ElCheckboxGroup,
-  ElRadio, ElRadioGroup, ElAlert, ElDivider,
+  ElRadio, ElRadioGroup, ElAlert, ElDivider, ElDrawer,
 } from 'element-plus'
 import { ElMessage, ElSegmented, ElMessageBox } from 'element-plus'
-import { Position, Plus, Delete, Edit, Filter, InfoFilled, CopyDocument, Clock, Search, Setting, Back, Loading, CircleCheck, Message, CircleClose, Warning, View, RefreshLeft } from '@element-plus/icons-vue'
+import { Position, Plus, Delete, Edit, Filter, InfoFilled, CopyDocument, Clock, Search, Setting, Back, Loading, CircleCheck, Message, CircleClose, Warning, View, RefreshLeft, Location } from '@element-plus/icons-vue'
 import { ArrowLeft, ArrowRight, UploadFilled, Postcard, TopRight, Lock, Guide, TakeawayBox } from '@element-plus/icons-vue'
 import { ref, reactive, computed, nextTick, watch } from 'vue'
 import { ElPagination, ElTooltip, ElOption } from 'element-plus'
@@ -326,6 +326,11 @@ const getSettlementActionButtons = (settlement: any): string[] => {
   // Add merge button if user can edit (merge requires edit permission)
   if (canUserAccessSettlement(settlement, 'edit')) {
     buttons.push('merge');
+  }
+
+  // Add update location button if user can edit and settlement has geometry
+  if (canUserAccessSettlement(settlement, 'edit') && (settlement.geom || settlement.hasGeom)) {
+    buttons.push('updateLocation');
   }
 
   return buttons;
@@ -1594,6 +1599,430 @@ const handleMerge = async (data: any) => {
   mergeSearchQuery.value = ''
   mergeSearchResults.value = []
   MergeDialog.value = true
+}
+
+const locationUpdateDrawer = ref(false)
+const locationUpdateSettlement = ref<any>(null)
+const locationUpdateMap = ref<any>(null)
+const locationUpdateMapContainer = ref<HTMLElement | null>(null)
+const locationUpdateDrawingManager = ref<any>(null)
+const locationUpdatePolygon = ref<any>(null)
+const locationUpdateLoading = ref(false)
+const locationUpdateFileList = ref<UploadUserFile[]>([])
+const locationUpdateShowUploadDialog = ref(false)
+
+const handleUpdateLocation = async (data: any) => {
+  // Check if user can edit this settlement
+  if (!canUserAccessSettlement(data, 'edit')) {
+    ElMessage({
+      message: 'You do not have permission to update location for this settlement.',
+      type: 'warning',
+    });
+    return;
+  }
+  
+  locationUpdateSettlement.value = data
+  locationUpdateDrawer.value = true
+  
+  // Initialize map after drawer is opened
+  await nextTick()
+  setTimeout(() => {
+    initializeLocationUpdateMap()
+  }, 300)
+}
+
+const initializeLocationUpdateMap = async () => {
+  if (!locationUpdateMapContainer.value) {
+    console.error('Map container not found')
+    return
+  }
+
+  try {
+    // Load Google Maps API
+    const { Loader } = await import('@googlemaps/js-api-loader')
+    const googleMapsApiKey = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
+    
+    const loader = new Loader({
+      apiKey: googleMapsApiKey,
+      version: 'weekly',
+      libraries: ['drawing', 'geometry'],
+      region: 'KE',
+      language: 'en'
+    })
+
+    await loader.load()
+
+    if (!window.google || !window.google.maps) {
+      throw new Error('Google Maps API not loaded properly')
+    }
+
+    // Get existing geometry center or default
+    let center = { lat: 1.137451, lng: 37.137343 }
+    let zoom = 8
+    
+    if (locationUpdateSettlement.value?.geom) {
+      const geom = locationUpdateSettlement.value.geom
+      if (geom.type === 'Point') {
+        center = { lat: geom.coordinates[1], lng: geom.coordinates[0] }
+        zoom = 15
+      } else if (geom.type === 'Polygon' || geom.type === 'MultiPolygon') {
+        const centroid = turf.centroid(geom)
+        center = { lat: centroid.geometry.coordinates[1], lng: centroid.geometry.coordinates[0] }
+        zoom = 13
+      }
+    }
+
+    // Initialize map
+    locationUpdateMap.value = new google.maps.Map(locationUpdateMapContainer.value, {
+      center: center,
+      zoom: zoom,
+      mapTypeId: google.maps.MapTypeId.ROADMAP,
+      mapTypeControl: true,
+      streetViewControl: true,
+      fullscreenControl: true
+    })
+
+    // Initialize drawing manager
+    if (google.maps.drawing) {
+      locationUpdateDrawingManager.value = new google.maps.drawing.DrawingManager({
+        drawingMode: null,
+        drawingControl: true,
+        drawingControlOptions: {
+          position: google.maps.ControlPosition.TOP_CENTER,
+          drawingModes: [google.maps.drawing.OverlayType.POLYGON]
+        },
+        polygonOptions: {
+          fillColor: '#FF0000',
+          fillOpacity: 0.2,
+          strokeWeight: 2,
+          strokeColor: '#FF0000',
+          clickable: true,
+          editable: true,
+          draggable: false,
+          zIndex: 1
+        }
+      })
+
+      locationUpdateDrawingManager.value.setMap(locationUpdateMap.value)
+
+      // Load existing geometry
+      if (locationUpdateSettlement.value?.geom) {
+        loadExistingLocationGeometry()
+      }
+
+      // Listen for polygon completion
+      google.maps.event.addListener(locationUpdateDrawingManager.value, 'polygoncomplete', (polygon: any) => {
+        // Remove previous polygon if exists
+        if (locationUpdatePolygon.value) {
+          locationUpdatePolygon.value.setMap(null)
+        }
+        
+        locationUpdatePolygon.value = polygon
+        
+        // Make polygon editable
+        polygon.setEditable(true)
+        polygon.setDraggable(false)
+      })
+    }
+  } catch (error: any) {
+    console.error('Error initializing map:', error)
+    ElMessage.error('Failed to load map. Please try again.')
+  }
+}
+
+const loadExistingLocationGeometry = () => {
+  if (!locationUpdateMap.value || !locationUpdateSettlement.value?.geom) return
+
+  const geom = locationUpdateSettlement.value.geom
+  
+  try {
+    if (geom.type === 'Polygon' || geom.type === 'MultiPolygon') {
+      const coordinates = geom.type === 'Polygon' 
+        ? geom.coordinates[0].map((coord: number[]) => ({ lat: coord[1], lng: coord[0] }))
+        : geom.coordinates[0][0].map((coord: number[]) => ({ lat: coord[1], lng: coord[0] }))
+
+      if (locationUpdatePolygon.value) {
+        locationUpdatePolygon.value.setMap(null)
+      }
+
+      locationUpdatePolygon.value = new google.maps.Polygon({
+        paths: coordinates,
+        fillColor: '#FF0000',
+        fillOpacity: 0.2,
+        strokeWeight: 2,
+        strokeColor: '#FF0000',
+        editable: true,
+        draggable: false,
+        map: locationUpdateMap.value
+      })
+
+      // Fit map to polygon bounds
+      const bounds = new google.maps.LatLngBounds()
+      coordinates.forEach((coord: any) => bounds.extend(coord))
+      locationUpdateMap.value.fitBounds(bounds)
+    }
+  } catch (error) {
+    console.error('Error loading existing geometry:', error)
+  }
+}
+
+const saveLocationUpdate = async () => {
+  if (!locationUpdatePolygon.value) {
+    ElMessage.warning('Please draw or edit the polygon on the map')
+    return
+  }
+
+  try {
+    locationUpdateLoading.value = true
+
+    // Get polygon paths
+    const paths = locationUpdatePolygon.value.getPath()
+    const coordinates: number[][] = []
+    
+    paths.forEach((latLng: any) => {
+      coordinates.push([latLng.lng(), latLng.lat()])
+    })
+
+    // Close the polygon (first point = last point)
+    if (coordinates.length > 0) {
+      const firstCoord = coordinates[0]
+      if (coordinates[coordinates.length - 1][0] !== firstCoord[0] || 
+          coordinates[coordinates.length - 1][1] !== firstCoord[1]) {
+        coordinates.push([firstCoord[0], firstCoord[1]])
+      }
+    }
+
+    const geom = {
+      type: 'Polygon',
+      coordinates: [coordinates]
+    }
+
+    // Update settlement geometry only
+    const formData = {
+      id: locationUpdateSettlement.value.id,
+      model: 'settlement',
+      geom: geom
+    }
+
+    const result = await updateOneRecord(formData)
+    
+    if (result) {
+      ElMessage.success('Location updated successfully')
+      
+      // Update the settlement in the current list
+      const updateSettlementInList = (list: any[]) => {
+        const index = list.findIndex((s: any) => s.id === locationUpdateSettlement.value.id)
+        if (index !== -1) {
+          list[index].geom = geom
+        }
+      }
+
+      if (activeSegment.value === 'Approved') {
+        updateSettlementInList(tableDataList.value)
+      } else if (activeSegment.value === 'New') {
+        updateSettlementInList(tableDataListNew.value)
+      } else if (activeSegment.value === 'Rejected') {
+        updateSettlementInList(tableDataListRejected.value)
+      } else if (activeSegment.value === 'Decommissioned') {
+        updateSettlementInList(decommSettlements.value)
+      }
+
+      // Close drawer and cleanup
+      locationUpdateDrawer.value = false
+      cleanupLocationUpdateMap()
+    }
+  } catch (error: any) {
+    console.error('Error updating location:', error)
+    ElMessage.error(error?.response?.data?.message || 'Failed to update location. Please try again.')
+  } finally {
+    locationUpdateLoading.value = false
+  }
+}
+
+const cleanupLocationUpdateMap = () => {
+  if (locationUpdatePolygon.value) {
+    locationUpdatePolygon.value.setMap(null)
+    locationUpdatePolygon.value = null
+  }
+  if (locationUpdateDrawingManager.value) {
+    locationUpdateDrawingManager.value.setMap(null)
+    locationUpdateDrawingManager.value = null
+  }
+  if (locationUpdateMap.value) {
+    locationUpdateMap.value = null
+  }
+  locationUpdateSettlement.value = null
+  locationUpdateFileList.value = []
+  locationUpdateShowUploadDialog.value = false
+}
+
+const readLocationUpdateJson = (event: any) => {
+  console.log('Reading JSON file for location update....', event)
+  let str = event.target.result
+  let json = JSON.parse(str)
+  
+  const targetProj = "+proj=longlat +datum=WGS84 +no_defs"
+  let sourceProj
+  let epsgCode
+  let crsProp = json.crs ? json.crs.properties.name : null;
+  
+  if (crsProp && crsProp.includes('EPSG')) {
+    epsgCode = crsProp.match(/EPSG::(\d+)/)[1]
+  } else {
+    epsgCode = 4326
+  }
+  
+  if (epsgCode == 21037) {
+    sourceProj = "+proj=utm + zone=37 + south + a=6378249.145 + rf=293.465 + towgs84=-160,-6,-302,0,0,0,0 + units=m + no_defs";
+  } else if (epsgCode == 21097) {
+    sourceProj = "+proj=utm + zone=37 + north + a=6378249.145 + rf=293.465 + towgs84=-157,-2,-299,0,0,0,0 + units=m + no_defs";
+  } else if (epsgCode == 21036) {
+    sourceProj = "+proj=utm + zone=36 + south + a=6378249.145 + rf=293.465 + towgs84=-160,-6,-302,0,0,0,0 + units=m + no_defs";
+  } else if (epsgCode == 21096) {
+    sourceProj = "+proj=utm + zone=36 + north + a=6378249.145 + rf=293.465 + towgs84=-160,-6,-302,0,0,0,0 + units=m + no_defs";
+  } else {
+    sourceProj = "+proj=longlat +datum=WGS84 +no_defs"
+  }
+  
+  proj4.defs("SOURCE_CRS", sourceProj);
+  proj4.defs("WGS84", targetProj);
+  
+  if (json.features && json.features.length != 1) {
+    ElMessage.warning('Please upload a file with only one feature. This one has ' + json.features.length + ' features')
+    return
+  }
+  
+  if (json.features && json.features.length === 1) {
+    const geometry = json.features[0].geometry;
+    
+    if (geometry.type === "Polygon") {
+      geometry.coordinates[0] = geometry.coordinates[0].map((coordinate: number[]) => {
+        return proj4("SOURCE_CRS", "WGS84", coordinate);
+      });
+    } else if (geometry.type === "MultiPolygon") {
+      geometry.coordinates.forEach((polygon: number[][][]) => {
+        polygon[0] = polygon[0].map((coordinate: number[]) => {
+          return proj4("SOURCE_CRS", "WGS84", coordinate);
+        });
+      });
+    }
+    
+    let geom = {
+      type: json.features[0].geometry.type,
+      coordinates: geometry.coordinates
+    }
+    
+    // Update polygon on map
+    updateLocationUpdatePolygon(geom)
+    locationUpdateShowUploadDialog.value = false
+  } else if (json.type === 'FeatureCollection' && json.features) {
+    // Handle FeatureCollection
+    if (json.features.length !== 1) {
+      ElMessage.warning('Please upload a file with only one feature. This one has ' + json.features.length + ' features')
+      return
+    }
+    const geometry = json.features[0].geometry;
+    let geom = {
+      type: geometry.type,
+      coordinates: geometry.coordinates
+    }
+    updateLocationUpdatePolygon(geom)
+    locationUpdateShowUploadDialog.value = false
+  } else {
+    ElMessage.error('Invalid GeoJSON format. Please ensure the file contains a valid Feature or FeatureCollection.')
+  }
+}
+
+const readLocationUpdateShp = async (file: File) => {
+  console.log('Reading Shapefile for location update....')
+  
+  readShapefileAndConvertToGeoJSON(file)
+    .then((geojson) => {
+      if (geojson.length != 1) {
+        ElMessage.warning('Please upload a file with only one feature. This one has ' + geojson.length + ' features')
+        return
+      }
+      
+      let geomX = {
+        type: geojson[0].geometry.type,
+        coordinates: geojson[0].geometry.coordinates,
+      }
+      
+      // Update polygon on map
+      updateLocationUpdatePolygon(geomX)
+      locationUpdateShowUploadDialog.value = false
+    })
+    .catch((error) => {
+      console.error(error)
+      ElMessage.error('Invalid files. Check your zipped file to contain (.shp, .dbf and .prj) or a proper kml/kmz')
+    })
+}
+
+const updateLocationUpdatePolygon = (geom: any) => {
+  if (!locationUpdateMap.value) {
+    ElMessage.warning('Map not initialized. Please wait for the map to load.')
+    return
+  }
+  
+  try {
+    if (geom.type === 'Polygon' || geom.type === 'MultiPolygon') {
+      const coordinates = geom.type === 'Polygon' 
+        ? geom.coordinates[0].map((coord: number[]) => ({ lat: coord[1], lng: coord[0] }))
+        : geom.coordinates[0][0].map((coord: number[]) => ({ lat: coord[1], lng: coord[0] }))
+
+      // Remove previous polygon if exists
+      if (locationUpdatePolygon.value) {
+        locationUpdatePolygon.value.setMap(null)
+      }
+
+      // Create new polygon
+      locationUpdatePolygon.value = new google.maps.Polygon({
+        paths: coordinates,
+        fillColor: '#FF0000',
+        fillOpacity: 0.2,
+        strokeWeight: 2,
+        strokeColor: '#FF0000',
+        editable: true,
+        draggable: false,
+        map: locationUpdateMap.value
+      })
+
+      // Fit map to polygon bounds
+      const bounds = new google.maps.LatLngBounds()
+      coordinates.forEach((coord: any) => bounds.extend(coord))
+      locationUpdateMap.value.fitBounds(bounds)
+      
+      ElMessage.success('Geometry loaded successfully. You can edit it by clicking on the polygon.')
+    } else {
+      ElMessage.warning('Only Polygon or MultiPolygon geometries are supported.')
+    }
+  } catch (error) {
+    console.error('Error updating polygon:', error)
+    ElMessage.error('Failed to load geometry on map.')
+  }
+}
+
+const handleLocationUpdateUploadGeo = async (uploadFile: any) => {
+  console.log('Upload for location update>>>', uploadFile)
+  
+  var fileType = uploadFile.name.split('.').pop()?.toLowerCase()
+  var rfile = uploadFile.raw
+  
+  if (!rfile) {
+    ElMessage.error('File not found')
+    return
+  }
+  
+  let reader = new FileReader()
+  
+  if (fileType === 'geojson' || fileType === 'json') {
+    reader.onload = readLocationUpdateJson
+    reader.readAsText(rfile)
+  } else if (fileType === 'zip' || fileType === 'kml' || fileType === 'kmz') {
+    readLocationUpdateShp(rfile)
+  } else {
+    ElMessage.error('Only GeoJSON, KML, KMZ or zipped shapefiles are supported at the moment')
+  }
 }
 
 const handleSelectionChange = (selection: any[]) => {
@@ -3022,7 +3451,7 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
           <template #default="{ row }">
             <TableActions
               :item="row" :buttons="getSettlementActionButtons(row)" @view-on-map="handleViewOnMap" @edit="handleEdit"
-              @review="Review" @delete="handleDelete" @decommission="handleDecommission" @merge="handleMerge" />
+              @review="Review" @delete="handleDelete" @decommission="handleDecommission" @merge="handleMerge" @update-location="handleUpdateLocation" />
           </template>
         </el-table-column>
 
@@ -3133,7 +3562,7 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
             <!-- Example 1: Only Edit and Delete buttons -->
             <TableActions
 :item="row" :buttons="getSettlementActionButtons(row)" @edit="handleEdit" @review="Review"
-              @delete="handleDelete" @view-on-map="handleViewOnMap" @decommission="handleDecommission" />
+              @delete="handleDelete" @view-on-map="handleViewOnMap" @decommission="handleDecommission" @update-location="handleUpdateLocation" />
 
           </template>
         </el-table-column>
@@ -3219,7 +3648,7 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" ci
             <!-- Example 1: Only Edit and Delete buttons -->
             <TableActions
 :item="row" :buttons="getSettlementActionButtons(row)" @edit="handleEdit" @review="Review"
-              @delete="handleDelete" @view-on-map="handleViewOnMap" @decommission="handleDecommission" />
+              @delete="handleDelete" @view-on-map="handleViewOnMap" @decommission="handleDecommission" @update-location="handleUpdateLocation" />
 
           </template>
         </el-table-column>
@@ -3884,6 +4313,95 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
             <el-button type="primary" @click="handleDateChange">Confirm</el-button>
           </span>
         </template>
+    </el-dialog>
+
+    <!-- Location Update Drawer -->
+    <el-drawer
+      v-model="locationUpdateDrawer"
+      title="Update Settlement Location"
+      :size="isMobile ? '100%' : '60%'"
+      :before-close="cleanupLocationUpdateMap"
+      destroy-on-close>
+      <div v-if="locationUpdateSettlement" style="height: 100%; display: flex; flex-direction: column;">
+        <el-card style="margin-bottom: 15px;">
+          <el-descriptions :column="2" border size="small">
+            <el-descriptions-item label="Settlement ID">{{ locationUpdateSettlement.id }}</el-descriptions-item>
+            <el-descriptions-item label="Name">{{ locationUpdateSettlement.name }}</el-descriptions-item>
+            <el-descriptions-item label="Code">{{ locationUpdateSettlement.code || 'N/A' }}</el-descriptions-item>
+            <el-descriptions-item label="Location">
+              <span v-if="locationUpdateSettlement.ward && locationUpdateSettlement.subcounty && locationUpdateSettlement.county">
+                {{ locationUpdateSettlement.ward.name }} ward, {{ locationUpdateSettlement.subcounty.name }} subcounty, {{ locationUpdateSettlement.county.name }}
+              </span>
+              <span v-else>N/A</span>
+            </el-descriptions-item>
+          </el-descriptions>
+        </el-card>
+
+        <el-alert
+          type="info"
+          :closable="false"
+          style="margin-bottom: 15px;">
+          <template #default>
+            <p style="margin: 0;">
+              <strong>Instructions:</strong> Use the drawing tools above the map to draw or edit the settlement boundary, 
+              or upload a GeoJSON/shapefile. You can click on the polygon to edit its shape. When finished, click "Save Location" to update only the geometry.
+            </p>
+          </template>
+        </el-alert>
+
+        <div style="margin-bottom: 15px; display: flex; justify-content: flex-end;">
+          <el-button type="primary" :icon="UploadFilled" @click="locationUpdateShowUploadDialog = true">
+            Upload GeoJSON/Shapefile
+          </el-button>
+        </div>
+
+        <div 
+          ref="locationUpdateMapContainer" 
+          style="flex: 1; min-height: 500px; width: 100%; border: 1px solid #e4e7ed; border-radius: 4px;">
+        </div>
+
+        <div style="margin-top: 15px; display: flex; justify-content: flex-end; gap: 10px;">
+          <el-button @click="cleanupLocationUpdateMap(); locationUpdateDrawer = false">Cancel</el-button>
+          <el-button 
+            type="primary" 
+            :loading="locationUpdateLoading"
+            @click="saveLocationUpdate">
+            Save Location
+          </el-button>
+        </div>
+      </div>
+    </el-drawer>
+
+    <!-- Upload Dialog for Location Update -->
+    <el-dialog 
+      v-model="locationUpdateShowUploadDialog" 
+      title="Upload GeoJSON/Shapefile/KML/KMZ" 
+      width="400px">
+      <el-upload
+        v-model:file-list="locationUpdateFileList"
+        class="upload-demo"
+        action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
+        :auto-upload="false"
+        :show-file-list="true"
+        :on-change="handleLocationUpdateUploadGeo"
+        :limit="1">
+        <template #trigger>
+          <el-button type="primary">
+            <el-icon><UploadFilled /></el-icon>
+            Select File
+          </el-button>
+        </template>
+        <template #tip>
+          <div class="el-upload__tip">
+            Supported formats: GeoJSON (.geojson, .json), Shapefile (.zip), KML (.kml), KMZ (.kmz)
+          </div>
+        </template>
+      </el-upload>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="locationUpdateShowUploadDialog = false">Close</el-button>
+        </span>
+      </template>
     </el-dialog>
 
 </template>
