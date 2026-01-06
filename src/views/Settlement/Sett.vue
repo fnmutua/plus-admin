@@ -1610,30 +1610,80 @@ const getSelectedSettlements = () => {
 const handleMergeFromSelection = async () => {
   const selected = getSelectedSettlements()
   
-  if (selected.length !== 2) {
-    ElMessage.warning('Please select exactly 2 settlements to merge')
+  if (selected.length < 2) {
+    ElMessage.warning('Please select at least 2 settlements to merge')
     return
   }
   
-  // Check permissions for both settlements
-  const canMergeFirst = canUserAccessSettlement(selected[0], 'edit')
-  const canMergeSecond = canUserAccessSettlement(selected[1], 'edit')
-  
-  if (!canMergeFirst || !canMergeSecond) {
+  const primary = selected[0]
+  const duplicates = selected.slice(1)
+
+  // Check permissions for all settlements
+  const unauthorized = selected.filter(s => !canUserAccessSettlement(s, 'edit'))
+  if (unauthorized.length > 0) {
     ElMessage({
-      message: 'You do not have permission to merge one or both of the selected settlements.',
+      message: 'You do not have permission to merge one or more of the selected settlements.',
       type: 'warning',
     });
     return;
   }
-  
-  // Set first selected as primary, second as the one to merge
-  currentSettlementForMerge.value = selected[0]
-  selectedSettlementForMerge.value = selected[1]
-  mergePrimaryId.value = selected[0].id
-  mergeSearchQuery.value = ''
-  mergeSearchResults.value = []
-  MergeDialog.value = true
+
+  // Confirm with user
+  try {
+    await ElMessageBox.confirm(
+      `You are about to merge ${selected.length} settlements.\n\n` +
+      `Primary (kept): ${primary.name} (ID: ${primary.id})\n` +
+      `To be merged into it: ${duplicates.map(d => `${d.name} (ID: ${d.id})`).join(', ')}\n\n` +
+      `All associated data (documents, roads, projects, facilities, etc.) will be moved to the primary settlement.`,
+      'Confirm Merge',
+      {
+        type: 'warning',
+        confirmButtonText: 'Merge',
+        cancelButtonText: 'Cancel',
+      }
+    )
+  } catch {
+    // User cancelled
+    return
+  }
+
+  try {
+    const formData = {
+      model: 'settlement',
+      primaryId: primary.id,
+      duplicateIds: duplicates.map(d => d.id),
+    }
+
+    const res = await mergeDuplicates(formData)
+
+    if (res.code === '0000') {
+      const mergeHistoryInfo = res.mergeHistory || []
+      const historyMessage = mergeHistoryInfo.length > 0 
+        ? ` Merge has been tracked in history (e.g. ID: ${mergeHistoryInfo[0].history_id}). You can restore merged settlements if needed.`
+        : ''
+
+      ElMessage.success({
+        message: `Settlements merged successfully! All references (documents, roads, projects, facilities, etc.) have been updated.${historyMessage}`,
+        duration: 6000,
+        showClose: true,
+      })
+
+      // Refresh current segment data and counts
+      await getNewOrRejectedSettlements(activeSegment.value)
+      await getCounts()
+
+      // Clear selected settlements
+      selectedSettlements.value = []
+      selectedSettlementsNew.value = []
+      selectedSettlementsRejected.value = []
+      selectedSettlementsDecommissioned.value = []
+    } else {
+      ElMessage.error('Failed to merge settlements')
+    }
+  } catch (error: any) {
+    console.error('Error merging settlements from selection:', error)
+    ElMessage.error(error?.response?.data?.message || 'Failed to merge settlements. Please try again.')
+  }
 }
 
 const searchSettlementsForMerge = async (keyword = '') => {
@@ -2963,7 +3013,7 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
       </el-table>
       
       <!-- Merge button for selected settlements -->
-      <div v-if="selectedSettlements.length === 2" style="margin-top: 10px; margin-bottom: 10px;">
+      <div v-if="selectedSettlements.length >= 2" style="margin-top: 10px; margin-bottom: 10px;">
         <el-button 
           type="danger" plain
           :icon="TakeawayBox"

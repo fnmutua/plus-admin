@@ -192,11 +192,11 @@ module.exports = function (sequelize, DataTypes) {
       timestamps: true,
       indexes: [
         
-        {
-          name: 'household_key',
-          unique: true,
-          fields: ['respondents_name',  'age', 'gender',   'settlement_id', 'ward_id']
-        },
+        // {
+        //   name: 'household_key',
+        //   unique: true,
+        //   fields: ['respondents_name',  'age', 'gender',   'settlement_id', 'ward_id']
+        // },
   
       ]
 
