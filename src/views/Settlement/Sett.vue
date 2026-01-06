@@ -1554,9 +1554,12 @@ const DeleteSettlement = (data: TableSlotDefault) => {
   }
 }
 
-const handleDelete = (data: TableSlotDefault) => {
+const handleDelete = async (data: any) => {
   // Check if user can delete this settlement
-  if (!canUserAccessSettlement(data, 'delete')) {
+  // Handle both TableSlotDefault format and direct item format
+  const settlement = data.row || data;
+  
+  if (!canUserAccessSettlement(settlement, 'delete')) {
     ElMessage({
       message: 'You do not have permission to delete this settlement.',
       type: 'warning',
@@ -1564,20 +1567,79 @@ const handleDelete = (data: TableSlotDefault) => {
     return;
   }
 
-  let formData = {}
-  formData.id = data.id
-  formData.model = model
-  DeleteRecord(formData).then(response => {
-    let index = tableDataList.value.indexOf(data);
-    if (index !== -1) {
-      tableDataList.value.splice(index, 1);
+  try {
+    const formData: any = {
+      id: settlement.id,
+      model: model
+    };
+
+    // Delete documents first if they exist
+    if (settlement.documents && settlement.documents.length > 0) {
+      formData.filesToDelete = settlement.documents;
+      try {
+        await deleteDocument(formData);
+      } catch (docError) {
+        console.warn('Error deleting documents:', docError);
+        // Continue with settlement deletion even if document deletion fails
+      }
     }
-  }).catch(error => {
-    console.log(error)
-  });
-  if (data.documents.length > 0) {
-    formData.filesToDelete = data.documents
-    deleteDocument(formData)
+
+    // Delete the settlement record
+    const response = await DeleteRecord(formData);
+
+    if (response && response.code === '0000') {
+      ElMessage.success('Settlement deleted successfully. It has been moved to the Deleted tab and can be restored later.');
+
+      // Remove from the appropriate list based on active segment
+      const settlementId = settlement.id;
+      
+      if (activeSegment.value === 'Approved') {
+        const index = tableDataList.value.findIndex((item: any) => item.id === settlementId);
+        if (index !== -1) {
+          tableDataList.value.splice(index, 1);
+        }
+      } else if (activeSegment.value === 'New') {
+        const index = tableDataListNew.value.findIndex((item: any) => item.id === settlementId);
+        if (index !== -1) {
+          tableDataListNew.value.splice(index, 1);
+        }
+      } else if (activeSegment.value === 'Rejected') {
+        const index = tableDataListRejected.value.findIndex((item: any) => item.id === settlementId);
+        if (index !== -1) {
+          tableDataListRejected.value.splice(index, 1);
+        }
+      } else if (activeSegment.value === 'Decommissioned') {
+        const index = decommSettlements.value.findIndex((item: any) => item.id === settlementId);
+        if (index !== -1) {
+          decommSettlements.value.splice(index, 1);
+        }
+      }
+
+      // Refresh counts
+      await getCounts();
+
+      // Refresh deleted settlements list if on Deleted tab
+      if (activeSegment.value === 'Deleted') {
+        await getSettlmentHistory();
+      }
+    } else {
+      const errorMessage = response?.message || 'Failed to delete settlement';
+      ElMessage.error(errorMessage);
+    }
+  } catch (error: any) {
+    console.error('Error deleting settlement:', error);
+    const errorMessage = error?.response?.data?.message || error?.message || 'Failed to delete settlement. Please try again.';
+    
+    // Check if it's a dependency error
+    if (error?.response?.data?.code === 'DEPENDENCY_FOUND') {
+      ElMessage.error({
+        message: errorMessage,
+        duration: 6000,
+        showClose: true
+      });
+    } else {
+      ElMessage.error(errorMessage);
+    }
   }
 }
 
@@ -1615,6 +1677,8 @@ const locationUpdateMarker = ref<any>(null)
 const locationUpdateLoading = ref(false)
 const locationUpdateFileList = ref<UploadUserFile[]>([])
 const locationUpdateShowUploadDialog = ref(false)
+const locationUpdateOriginalGeometry = ref<any>(null)
+const locationUpdateGeometryChanged = ref(false)
 
 const handleUpdateLocation = async (data: any) => {
   // Check if user can edit this settlement
@@ -1627,6 +1691,9 @@ const handleUpdateLocation = async (data: any) => {
   }
   
   locationUpdateSettlement.value = data
+  // Store original geometry for comparison
+  locationUpdateOriginalGeometry.value = data.geom ? JSON.parse(JSON.stringify(data.geom)) : null
+  locationUpdateGeometryChanged.value = false
   locationUpdateDrawer.value = true
   
   // Initialize map after drawer is opened
@@ -1736,6 +1803,19 @@ const initializeLocationUpdateMap = async () => {
         // Make polygon editable
         polygon.setEditable(true)
         polygon.setDraggable(false)
+        
+        // Listen for geometry changes
+        polygon.getPath().addListener('set_at', checkGeometryChanged)
+        polygon.getPath().addListener('insert_at', checkGeometryChanged)
+        polygon.getPath().addListener('remove_at', checkGeometryChanged)
+        
+        // Check if geometry changed from original
+        checkGeometryChanged()
+        
+        // Listen for geometry changes
+        polygon.getPath().addListener('set_at', checkGeometryChanged)
+        polygon.getPath().addListener('insert_at', checkGeometryChanged)
+        polygon.getPath().addListener('remove_at', checkGeometryChanged)
       })
     }
   } catch (error: any) {
@@ -1775,11 +1855,19 @@ const loadExistingLocationGeometry = () => {
         draggable: false,
         map: locationUpdateMap.value
       })
+      
+      // Listen for geometry changes
+      locationUpdatePolygon.value.getPath().addListener('set_at', checkGeometryChanged)
+      locationUpdatePolygon.value.getPath().addListener('insert_at', checkGeometryChanged)
+      locationUpdatePolygon.value.getPath().addListener('remove_at', checkGeometryChanged)
 
       // Fit map to polygon bounds
       const bounds = new google.maps.LatLngBounds()
       coordinates.forEach((coord: any) => bounds.extend(coord))
       locationUpdateMap.value.fitBounds(bounds)
+      
+      // Check if geometry changed from original
+      checkGeometryChanged()
     } else if (geom.type === 'Point' || (geom.type === 'MultiPoint' && geom.coordinates.length > 0)) {
       // Handle Point geometry - show marker (read-only display, user must draw polygon to update)
       const position = geom.type === 'Point'
@@ -1893,10 +1981,55 @@ const saveLocationUpdate = async () => {
 
 const handleLocationDrawerClose = (done?: () => void) => {
   cleanupLocationUpdateMap()
-  if (done) {
+  if (done && typeof done === 'function') {
     done() // Call done callback to actually close the drawer
   } else {
     locationUpdateDrawer.value = false
+  }
+}
+
+const checkGeometryChanged = () => {
+  if (!locationUpdatePolygon.value) {
+    // If no polygon exists, check if original had geometry
+    locationUpdateGeometryChanged.value = locationUpdateOriginalGeometry.value !== null
+    return
+  }
+  
+  try {
+    const paths = locationUpdatePolygon.value.getPath()
+    const coordinates: number[][] = []
+    
+    paths.forEach((latLng: any) => {
+      coordinates.push([latLng.lng(), latLng.lat()])
+    })
+    
+    // Close the polygon (first point = last point)
+    if (coordinates.length > 0) {
+      const firstCoord = coordinates[0]
+      if (coordinates[coordinates.length - 1][0] !== firstCoord[0] || 
+          coordinates[coordinates.length - 1][1] !== firstCoord[1]) {
+        coordinates.push([firstCoord[0], firstCoord[1]])
+      }
+    }
+    
+    const currentGeom = {
+      type: 'Polygon',
+      coordinates: [coordinates]
+    }
+    
+    // Compare with original geometry
+    if (!locationUpdateOriginalGeometry.value) {
+      // Original had no geometry, so any polygon is a change
+      locationUpdateGeometryChanged.value = true
+    } else {
+      // Deep compare geometries
+      const originalStr = JSON.stringify(locationUpdateOriginalGeometry.value)
+      const currentStr = JSON.stringify(currentGeom)
+      locationUpdateGeometryChanged.value = originalStr !== currentStr
+    }
+  } catch (error) {
+    console.error('Error checking geometry change:', error)
+    locationUpdateGeometryChanged.value = false
   }
 }
 
@@ -1917,6 +2050,8 @@ const cleanupLocationUpdateMap = () => {
     locationUpdateMap.value = null
   }
   locationUpdateSettlement.value = null
+  locationUpdateOriginalGeometry.value = null
+  locationUpdateGeometryChanged.value = false
   locationUpdateFileList.value = []
   locationUpdateShowUploadDialog.value = false
 }
@@ -2072,11 +2207,19 @@ const updateLocationUpdatePolygon = (geom: any) => {
         draggable: false,
         map: locationUpdateMap.value
       })
+      
+      // Listen for geometry changes
+      locationUpdatePolygon.value.getPath().addListener('set_at', checkGeometryChanged)
+      locationUpdatePolygon.value.getPath().addListener('insert_at', checkGeometryChanged)
+      locationUpdatePolygon.value.getPath().addListener('remove_at', checkGeometryChanged)
 
       // Fit map to polygon bounds
       const bounds = new google.maps.LatLngBounds()
       coordinates.forEach((coord: any) => bounds.extend(coord))
       locationUpdateMap.value.fitBounds(bounds)
+      
+      // Check if geometry changed from original
+      checkGeometryChanged()
       
       ElMessage.success('Polygon loaded successfully. You can edit it by clicking on the polygon.')
     } else {
@@ -4410,9 +4553,9 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
       destroy-on-close
       :close-on-click-modal="false"
       :show-close="true">
-      <div v-if="locationUpdateSettlement" style="height: calc(100vh - 60px); display: flex; flex-direction: column; overflow: hidden;">
-        <div style="flex: 1; overflow-y: auto; padding-right: 10px;">
-          <el-card style="margin-bottom: 15px;">
+      <div v-if="locationUpdateSettlement" style="height: 100%; display: flex; flex-direction: column; overflow: hidden;">
+        <div style="flex: 1; overflow-y: auto; padding-right: 10px; min-height: 0;">
+          <el-card style="margin-bottom: 10px;">
             <el-descriptions :column="2" border size="small">
               <el-descriptions-item label="Settlement ID">{{ locationUpdateSettlement.id }}</el-descriptions-item>
               <el-descriptions-item label="Name">{{ locationUpdateSettlement.name }}</el-descriptions-item>
@@ -4429,7 +4572,7 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
           <el-alert
             type="info"
             :closable="false"
-            style="margin-bottom: 15px;">
+            style="margin-bottom: 10px;">
             <template #default>
               <p style="margin: 0;">
                 <strong>Instructions:</strong> 
@@ -4445,27 +4588,32 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
             </template>
           </el-alert>
 
-          <div style="margin-bottom: 15px; display: flex; justify-content: flex-end;">
+          <div style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
             <el-button type="primary" :icon="UploadFilled" @click="locationUpdateShowUploadDialog = true">
               Upload GeoJSON/Shapefile
             </el-button>
+            <div style="display: flex; gap: 10px;">
+              <el-button 
+                @click="handleLocationDrawerClose">
+                Cancel
+              </el-button>
+              <el-button 
+                type="primary" 
+                :loading="locationUpdateLoading"
+                :disabled="!locationUpdateGeometryChanged"
+                @click="saveLocationUpdate">
+                Save Location
+              </el-button>
+            </div>
           </div>
 
           <div 
             ref="locationUpdateMapContainer" 
-            style="min-height: 500px; width: 100%; border: 1px solid #e4e7ed; border-radius: 4px; margin-bottom: 15px;">
+            style="height: 650px; width: 100%; border: 1px solid #e4e7ed; border-radius: 4px; margin-bottom: 10px;">
           </div>
         </div>
 
-        <div style="padding-top: 15px; border-top: 1px solid #e4e7ed; display: flex; justify-content: flex-end; gap: 10px; flex-shrink: 0;">
-          <el-button @click="handleLocationDrawerClose">Cancel</el-button>
-          <el-button 
-            type="primary" 
-            :loading="locationUpdateLoading"
-            @click="saveLocationUpdate">
-            Save Location
-          </el-button>
-        </div>
+     
       </div>
     </el-drawer>
 

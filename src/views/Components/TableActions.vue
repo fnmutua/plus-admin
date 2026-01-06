@@ -100,11 +100,38 @@
     <el-dialog
       v-model="deleteDialogVisible"
       title="Confirm Delete"
-      width="400px"
-      :before-close="handleDeleteCancel">
-      <p>Are you sure you want to delete this record? This action cannot be undone.</p>
+      width="450px"
+      :before-close="handleDeleteCancel"
+      :modal="true"
+      :modal-append-to-body="true"
+      :append-to-body="true"
+      :close-on-click-modal="false"
+      :close-on-press-escape="true"
+      :z-index="3000"
+      align-center
+      class="delete-confirm-dialog">
+      <div style="padding: 10px 0;">
+        <el-alert
+          type="warning"
+          :closable="false"
+          style="margin-bottom: 20px;">
+          <template #title>
+            <div style="font-size: 14px; line-height: 1.6;">
+              <p v-if="pendingAction?.item" style="margin: 0 0 8px 0;">
+                Are you sure you want to delete <strong style="color: #E6A23C;">{{ pendingAction.item.name || 'this settlement' }}</strong>?
+              </p>
+              <p v-else style="margin: 0 0 8px 0;">
+                Are you sure you want to delete this record?
+              </p>
+              <p style="margin: 0; font-size: 13px; color: #606266;">
+                This action will move it to the Deleted tab and can be restored later.
+              </p>
+            </div>
+          </template>
+        </el-alert>
+      </div>
       <template #footer>
-        <span class="dialog-footer">
+        <span class="dialog-footer" style="display: flex; justify-content: flex-end; gap: 10px;">
           <el-button @click="handleDeleteCancel">Cancel</el-button>
           <el-button type="danger" @click="confirmDelete">Delete</el-button>
         </span>
@@ -115,7 +142,7 @@
 
 <script lang="ts" setup>
 import { ref, PropType } from 'vue';
-import { ElButton, ElIcon, ElDropdown, ElDropdownMenu, ElDropdownItem, ElDialog } from 'element-plus';
+import { ElButton, ElIcon, ElDropdown, ElDropdownMenu, ElDropdownItem, ElDialog, ElAlert } from 'element-plus';
 import { Setting, Edit, TopRight, Position, Delete, View, Download, TakeawayBox, Location } from '@element-plus/icons-vue';
 
 const props = defineProps({
@@ -200,5 +227,41 @@ const handleDeleteCancel = () => {
 
 .danger-action:hover {
   background-color: var(--el-color-danger-light-9);
+}
+</style>
+
+<style>
+/* Ensure delete dialog appears on top and doesn't affect table */
+.delete-confirm-dialog {
+  z-index: 3000 !important;
+}
+
+.delete-confirm-dialog.el-dialog {
+  position: fixed !important;
+  margin: 0 !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+}
+
+/* Ensure overlay is on top */
+.delete-confirm-dialog + .el-overlay {
+  z-index: 2999 !important;
+}
+
+/* Prevent dialog from affecting table layout */
+:deep(.delete-confirm-dialog) {
+  z-index: 3000 !important;
+}
+
+:deep(.delete-confirm-dialog + .el-overlay) {
+  z-index: 2999 !important;
+}
+
+/* Center dialog wrapper */
+:deep(.delete-confirm-dialog.el-dialog__wrapper) {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 </style>
