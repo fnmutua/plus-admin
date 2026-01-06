@@ -448,6 +448,9 @@ const getCounts = async () => {
  
 onMounted(async () => {
   window.addEventListener('resize', updatePageSize);
+  window.addEventListener('resize', () => {
+    windowWidth.value = window.innerWidth
+  });
   updatePageSize();
   await getUserRoles(); // Initialize role-based filters first
   
@@ -542,6 +545,7 @@ const fileUploadList = ref<UploadUserFile[]>([])
 const { t } = useI18n()
 const isMobile = computed(() => appStore.getMobile)
 const reviewWindowWidth = ref(isMobile.value ? "100%" : "40%")
+const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1024)
 
 const handleClear = async () => {
   // Preserve role-based location filters before clearing
@@ -1877,14 +1881,22 @@ const saveLocationUpdate = async () => {
       }
 
       // Close drawer and cleanup
-      locationUpdateDrawer.value = false
-      cleanupLocationUpdateMap()
+      handleLocationDrawerClose()
     }
   } catch (error: any) {
     console.error('Error updating location:', error)
     ElMessage.error(error?.response?.data?.message || 'Failed to update location. Please try again.')
   } finally {
     locationUpdateLoading.value = false
+  }
+}
+
+const handleLocationDrawerClose = (done?: () => void) => {
+  cleanupLocationUpdateMap()
+  if (done) {
+    done() // Call done callback to actually close the drawer
+  } else {
+    locationUpdateDrawer.value = false
   }
 }
 
@@ -4393,9 +4405,11 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
     <el-drawer
       v-model="locationUpdateDrawer"
       title="Update Settlement Location"
-      :size="isMobile ? '100%' : '60%'"
-      :before-close="cleanupLocationUpdateMap"
-      destroy-on-close>
+      :size="isMobile || windowWidth <= 1024 ? '100%' : '60%'"
+      :before-close="handleLocationDrawerClose"
+      destroy-on-close
+      :close-on-click-modal="false"
+      :show-close="true">
       <div v-if="locationUpdateSettlement" style="height: 100%; display: flex; flex-direction: column;">
         <el-card style="margin-bottom: 15px;">
           <el-descriptions :column="2" border size="small">
@@ -4442,7 +4456,7 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
         </div>
 
         <div style="margin-top: 15px; display: flex; justify-content: flex-end; gap: 10px;">
-          <el-button @click="cleanupLocationUpdateMap(); locationUpdateDrawer = false">Cancel</el-button>
+          <el-button @click="handleLocationDrawerClose">Cancel</el-button>
           <el-button 
             type="primary" 
             :loading="locationUpdateLoading"
