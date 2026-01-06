@@ -3108,6 +3108,7 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
       limit = 10,
       page = 1,
       cache_key,
+      returnAll = false,
     } = req.body;
 
     if (!modelName) {
@@ -3124,10 +3125,12 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
     const decryptKey = '***REDACTED***';
 
 
-    const parsedLimit = parseInt(limit, 10);
-    const parsedPage = parseInt(page, 10);
-    if (isNaN(parsedLimit) || parsedLimit < 1 || isNaN(parsedPage) || parsedPage < 1) {
-      return res.status(400).json({ message: 'Invalid limit or page number', code: 'INVALID_PAGINATION' });
+    let parsedLimit = parseInt(limit, 10);
+    let parsedPage = parseInt(page, 10);
+    if (!returnAll) {
+      if (isNaN(parsedLimit) || parsedLimit < 1 || isNaN(parsedPage) || parsedPage < 1) {
+        return res.status(400).json({ message: 'Invalid limit or page number', code: 'INVALID_PAGINATION' });
+      }
     }
 
     const baseQuery = { where: {} };
@@ -3243,8 +3246,6 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
       where: baseQuery.where,
       include: includeModels,
       order: [['createdAt', 'DESC']],
-      limit: parsedLimit,
-      offset: (parsedPage - 1) * parsedLimit,
       distinct: true,
       attributes: hasGeomColumn ? {
       //  exclude: ['geom'],
@@ -3253,6 +3254,11 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
         ]
       } : undefined
     };
+
+    if (!returnAll) {
+      query.limit = parsedLimit;
+      query.offset = (parsedPage - 1) * parsedLimit;
+    }
 
 
   // Handle attribute selection (no decryption)
@@ -7658,10 +7664,44 @@ exports.mergeDuplicates = async (req, res) => {
 
         // Find all affected records BEFORE updating (for restoration tracking)
         const primaryKeyField = associatedModel.primaryKeyAttribute || 'id';
+
+        // Determine if model has project_location composite fields
+        const hasProjectLocationFields =
+          ['project_id', 'ward_id', 'subcounty_id', 'county_id', 'location_type']
+            .every(f => Object.prototype.hasOwnProperty.call(associatedModel.rawAttributes || {}, f));
+
+        // Build attributes list safely
+        const baseAttributes = [primaryKeyField];
+        const extraProjectLocationAttrs = hasProjectLocationFields
+          ? ['project_id', 'ward_id', 'subcounty_id', 'county_id', 'location_type']
+          : [];
+        const attributes = Array.from(new Set([...baseAttributes, ...extraProjectLocationAttrs]));
+
+        // Track records we should skip updating (to avoid unique violations), per association
+        const skipRecordIds = [];
+
+        // For project_location, preload existing keys for the primary and track batch keys across ALL duplicates
+        let existingKeys = null;
+        let batchKeys = null;
+        if (associatedModel.tableName === 'project_location' && hasProjectLocationFields) {
+          const primaryExisting = await associatedModel.findAll({
+            where: { [association.foreignKey]: primaryId },
+            attributes,
+            raw: true
+          });
+          existingKeys = new Set(
+            primaryExisting.map(r =>
+              `${r.project_id}|${r.ward_id}|${r.subcounty_id}|${r.county_id}|${r.location_type}`
+            )
+          );
+          batchKeys = new Set();
+        }
+
         for (const duplicateId of duplicateIds) {
           const affectedRecords = await associatedModel.findAll({
             where: { [association.foreignKey]: duplicateId },
-            attributes: [primaryKeyField] // Only get primary keys to save space
+            attributes,
+            raw: true
           });
           
           if (affectedRecords.length > 0) {
@@ -7678,14 +7718,42 @@ exports.mergeDuplicates = async (req, res) => {
             affectedAssociations[duplicateId][associatedModel.name].recordIds.push(
               ...affectedRecords.map(r => r[primaryKeyField])
             );
+
+            // Special handling for project_location unique constraint:
+            // If moving rows would violate unique_project_location, SKIP those duplicate rows (do not update them).
+            if (associatedModel.tableName === 'project_location' && hasProjectLocationFields) {
+              for (const row of affectedRecords) {
+                const key = `${row.project_id}|${row.ward_id}|${row.subcounty_id}|${row.county_id}|${row.location_type}`;
+
+                // If key already exists on primary or within duplicates being processed, skip updating this row
+                if ((existingKeys && existingKeys.has(key)) || (batchKeys && batchKeys.has(key))) {
+                  const deleteId = row[primaryKeyField];
+                  if (deleteId !== undefined && deleteId !== null) {
+                    skipRecordIds.push(deleteId);
+                  }
+                  continue;
+                }
+
+                // Otherwise, keep and mark the key as seen to avoid intra-duplicate collisions
+                if (batchKeys) {
+                  batchKeys.add(key);
+                }
+              }
+            }
           }
         }
 
         // Update the foreign key in the associated model to point to the primary record
         // This changes settlement_id from duplicateIds to primaryId in all related tables
+        const updateWhere = { [association.foreignKey]: duplicateIds };
+        // If we have skipRecordIds (for project_location conflicts), exclude them from update
+        if (skipRecordIds.length > 0) {
+          updateWhere[primaryKeyField] = { [op.notIn]: skipRecordIds };
+        }
+
         const updateResult = await associatedModel.update(
           { [association.foreignKey]: primaryId },
-          { where: { [association.foreignKey]: duplicateIds } }
+          { where: updateWhere }
         );
         
         // Track which models were updated

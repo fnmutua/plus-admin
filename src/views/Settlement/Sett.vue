@@ -517,6 +517,13 @@ const duplicateRecords = ref<CountyDuplicate[]>([])
 const duplicateTotal = ref(0)
 const deletedSettlements = ref([])
 const deletedSettlementsCount = ref(0)
+const handleDeletedPageChange = (p: number) => {
+  deletedPage.value = p
+}
+const handleDeletedSizeChange = (s: number) => {
+  deletedPageSize.value = s
+  deletedPage.value = 1
+}
 const decommSettlements = ref([])
 const decommSettlementsCount = ref(0)
 const tableDataList = ref([])
@@ -1007,6 +1014,13 @@ const selectedSettlements = ref<any[]>([])
 const selectedSettlementsNew = ref<any[]>([])
 const selectedSettlementsRejected = ref<any[]>([])
 const selectedSettlementsDecommissioned = ref<any[]>([])
+const deletedPage = ref(1)
+const deletedPageSize = ref(10)
+const deletedPageData = computed(() => {
+  const start = (deletedPage.value - 1) * deletedPageSize.value
+  const end = start + deletedPageSize.value
+  return deletedSettlements.value.slice(start, end)
+})
 
 const Review = (data: TableSlotDefault) => {
   ShowReviewDialog.value = true
@@ -2570,6 +2584,8 @@ const getSettlmentHistory = async () => {
   formData.filters = ['change_type', 'status']
   // Include both 'Delete' and 'Merge' change types
   formData.filterValues = [['Delete', 'Merge'], ['Open']]
+  // Fetch all records to allow client-side pagination on the Deleted tab
+  formData.returnAll = true
   const res = await getSettlementListByCounty(formData)
   res.data.forEach((item) => {
     const beforeObject = item.changes?.before;
@@ -3328,7 +3344,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="page"
 
 
     <div v-if="activeSegment === 'Deleted'">
-      <el-table table-layout="auto"  :data="deletedSettlements" :show-overflow-tooltip="true" style="width: 100% ; margin-top: 10px;"  border  >
+      <el-table table-layout="auto"  :data="deletedPageData" :show-overflow-tooltip="true" style="width: 100% ; margin-top: 10px;"  border  >
         <el-table-column type="index" width="50" />
         <el-table-column label="Name" width="200" prop="name" sortable />     
         <el-table-column label="Type" width="120">
@@ -3377,7 +3393,16 @@ type="primary" size="small" :icon="View" @click="DeleteReview(row)"
 
       </el-table>
 
-     
+      <ElPagination
+        layout="sizes, prev, pager, next, total" 
+        v-model:current-page="deletedPage"
+        v-model:page-size="deletedPageSize" 
+        :page-sizes="[5, 10, 15, 20, 50, 100, 1000, 2000]" 
+        :total="deletedSettlementsCount" 
+        :background="true"
+        @size-change="(size) => { deletedPageSize = size; deletedPage = 1; }"
+        @current-change="(page) => { deletedPage = page; }" 
+        class="mt-4" />
 
     </div>
 
