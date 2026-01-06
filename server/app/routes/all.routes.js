@@ -1155,6 +1155,7 @@ module.exports = function (app) {
    *         description: Record not found
    */
   app.post('/api/v1/data/one/geo', [authJwt.verifyToken, hasDynamicPermission('read')], controller.modelOneGeo)
+  app.post('/api/v1/data/admin-units-from-coords', [authJwt.verifyToken], controller.getAdminUnitsFromCoordinates)
 
   /**
    * @swagger

@@ -123,6 +123,12 @@ export const getOneGeo = (data: SettlementType): Promise<IResponse<SettlementTyp
   return request.post({ url: prod + '/api/v1/data/one/geo', data })
 }
 
+export const getAdminUnitsFromCoordinates = (
+  data: { lat: number; lon: number }
+): Promise<IResponse<any>> => {
+  return request.post({ url: prod + '/api/v1/data/admin-units-from-coords', data })
+}
+
 export const getCountFilter = (data: SettlementType): Promise<IResponse<SettlementType>> => {
   //console.log('Number of Settlements....', data)
   return request.post({ url: prod + '/api/v1/data/count/filter', data })

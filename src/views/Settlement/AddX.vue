@@ -49,14 +49,23 @@ v-for="option in field.options" :key="option.value" :label="option.label"
 
 
 
-              <el-select
-v-else-if="field.type === 'select' && field.adminUnit && field.name === 'county_id'"
-                v-model="formData[field.name]" :filterable="true" collapse-tags placeholder="County"
-                @change="getFieldChangeHandler(field.name)">
-                <el-option
-v-for="option in countyOptions" :key="option.value" :label="option.label"
-                  :value="option.value" />
-              </el-select>
+              <div v-else-if="field.type === 'select' && field.adminUnit && field.name === 'county_id'" style="display: flex; gap: 8px; align-items: center;">
+                <el-select
+                  v-model="formData[field.name]" :filterable="true" collapse-tags placeholder="County"
+                  @change="getFieldChangeHandler(field.name)" style="flex: 1;">
+                  <el-option
+                    v-for="option in countyOptions" :key="option.value" :label="option.label"
+                    :value="option.value" />
+                </el-select>
+                <el-button 
+                  v-if="currentStep === 0"
+                  type="primary" 
+                  size="small" 
+                  @click="showLookupDialog = true"
+                  :icon="Search"
+                  circle
+                  title="Lookup location by coordinates" />
+              </div>
 
               <el-select
 v-else-if="field.type === 'select' && field.adminUnit && field.name === 'subcounty_id'"
@@ -192,6 +201,36 @@ v-model:file-list="fileList" class="upload-demo"
 
     </el-dialog>
 
+    <!-- Lookup Location Dialog -->
+    <el-dialog v-model="showLookupDialog" title="Lookup Location by Coordinates" width="500px">
+      <el-form :model="{ lat: lookupLat, lon: lookupLon }" label-width="100px">
+        <el-form-item label="Latitude">
+          <el-input-number 
+            v-model="lookupLat" 
+            :precision="6" 
+            :step="0.000001" 
+            placeholder="e.g., -1.2921" 
+            style="width: 100%;" />
+        </el-form-item>
+        <el-form-item label="Longitude">
+          <el-input-number 
+            v-model="lookupLon" 
+            :precision="6" 
+            :step="0.000001" 
+            placeholder="e.g., 36.8219" 
+            style="width: 100%;" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="showLookupDialog = false">Cancel</el-button>
+          <el-button type="primary" @click="lookupAdminUnits" :loading="lookupLoading">
+            Lookup Location
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
+
   </div>
 
   <el-tour v-model="isTourVisible" :z-index="100000" :on-close="endTour">
@@ -222,7 +261,7 @@ import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 
 import { Loader } from '@googlemaps/js-api-loader'
-import { CreateRecord, DeleteRecord, updateOneRecord, getOneGeo, getOneSettlement, uploadDocuments, getfilteredGeo, duplicatePreCheck } from '@/api/settlements'
+import { CreateRecord, DeleteRecord, updateOneRecord, getOneGeo, getOneSettlement, uploadDocuments, getfilteredGeo, duplicatePreCheck, getAdminUnitsFromCoordinates } from '@/api/settlements'
 
 import * as turf from '@turf/turf'
 import {
@@ -243,7 +282,7 @@ import proj4 from 'proj4';
 import { countyOptions } from './common';
 
 import { Icon } from '@iconify/vue';
-import { InfoFilled, Back } from '@element-plus/icons-vue'
+import { InfoFilled, Back, Search } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 
@@ -553,6 +592,10 @@ const selectAdmin = ref()
 const settOptionsFiltered = ref([])
 const settlement_id = ref()
 const area_ha = ref(0)
+const lookupLat = ref<number | null>(null)
+const lookupLon = ref<number | null>(null)
+const lookupLoading = ref(false)
+const showLookupDialog = ref(false)
 
 
 const onSelectCounty = (county_id) => {
@@ -2563,6 +2606,63 @@ const handleChangeLocation = async (value: any) => {
   console.log('location field changed:', formData);
 
 };
+
+const lookupAdminUnits = async () => {
+  if (!lookupLat.value || !lookupLon.value) {
+    ElMessage.warning('Please enter both latitude and longitude')
+    return
+  }
+
+  lookupLoading.value = true
+  try {
+    const response = await getAdminUnitsFromCoordinates({
+      lat: lookupLat.value,
+      lon: lookupLon.value
+    })
+
+    if (response.code === '0000' && response.data) {
+      const { county_id, subcounty_id, ward_id, county_name, subcounty_name, ward_name } = response.data
+      
+      // Set the form data
+      formData.county_id = county_id
+      formData.subcounty_id = subcounty_id
+      formData.ward_id = ward_id
+      
+      // Filter options based on selected county
+      subcountyOptionsFiltered.value = subcountyOptions.value.filter((obj: any) => obj.county_id == county_id)
+      wardOptionsFiltered.value = wardOptions.value.filter((obj: any) => obj.subcounty_id == subcounty_id)
+      settOptionsFiltered.value = settlementOptionsV2.value.filter((obj: any) => obj.ward_id == ward_id)
+      
+      // Check permissions
+      if (newRecord.value && !canCreateInLocation(county_id, subcounty_id, ward_id)) {
+        ElMessage({
+          message: 'You do not have permission to create settlements in this location.',
+          type: 'warning',
+        })
+        // Clear the fields if no permission
+        formData.county_id = null
+        formData.subcounty_id = null
+        formData.ward_id = null
+        return
+      }
+      
+      // Load geometry for the ward
+      await handleChangeLocation([county_id, subcounty_id, ward_id])
+      
+      ElMessage.success(`Location found: ${ward_name}, ${subcounty_name}, ${county_name}`)
+      
+      // Close the dialog on success
+      showLookupDialog.value = false
+    } else {
+      ElMessage.error(response.message || 'Failed to find location for the provided coordinates')
+    }
+  } catch (error: any) {
+    console.error('Error looking up admin units:', error)
+    ElMessage.error(error?.response?.data?.message || 'Failed to lookup location. Please check your coordinates.')
+  } finally {
+    lookupLoading.value = false
+  }
+}
 
 
 

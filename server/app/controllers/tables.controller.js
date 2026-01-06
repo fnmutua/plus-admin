@@ -10761,3 +10761,101 @@ async function createChunksFromText(text, filename) {
     return [];
   }
 }
+
+// Get admin units (ward, subcounty, county) from lat/lon coordinates
+exports.getAdminUnitsFromCoordinates = async (req, res) => {
+  try {
+    const { lat, lon } = req.body;
+    
+    // Validate input
+    if (lat === undefined || lat === null || lat === '' || 
+        lon === undefined || lon === null || lon === '') {
+      return res.status(400).send({ 
+        message: 'Latitude and longitude are required and cannot be empty',
+        code: 'MISSING_COORDINATES'
+      });
+    }
+
+    // Convert to numbers and validate
+    const latitude = parseFloat(lat);
+    const longitude = parseFloat(lon);
+    
+    if (isNaN(latitude) || isNaN(longitude)) {
+      return res.status(400).send({ 
+        message: 'Latitude and longitude must be valid numbers',
+        code: 'INVALID_COORDINATES'
+      });
+    }
+
+    // Validate coordinate ranges
+    if (latitude < -90 || latitude > 90) {
+      return res.status(400).send({ 
+        message: 'Latitude must be between -90 and 90 degrees',
+        code: 'INVALID_LATITUDE'
+      });
+    }
+
+    if (longitude < -180 || longitude > 180) {
+      return res.status(400).send({ 
+        message: 'Longitude must be between -180 and 180 degrees',
+        code: 'INVALID_LONGITUDE'
+      });
+    }
+
+    console.log('Searching for admin units at coordinates:', latitude, longitude);
+
+    // Use PostGIS spatial query to find the ward containing the point
+    // Using parameterized query to prevent SQL injection
+    const query = `
+      SELECT 
+        w.id as ward_id,
+        w.name as ward_name,
+        sc.id as subcounty_id,
+        sc.name as subcounty_name,
+        c.id as county_id,
+        c.name as county_name
+      FROM ward w
+      LEFT JOIN subcounty sc ON w.subcounty_id = sc.id
+      LEFT JOIN county c ON w.county_id = c.id
+      WHERE ST_Contains(w.geom, ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326))
+      LIMIT 1
+    `;
+
+    const result = await db.sequelize.query(query, {
+      replacements: { longitude, latitude },
+      type: db.sequelize.QueryTypes.SELECT
+    });
+
+    if (!result || result.length === 0) {
+      return res.status(404).send({ 
+        message: 'No ward found for the provided coordinates',
+        code: 'WARD_NOT_FOUND'
+      });
+    }
+
+    const wardData = result[0];
+
+    // Format the response
+    const response = {
+      ward_id: wardData.ward_id,
+      ward_name: wardData.ward_name,
+      subcounty_id: wardData.subcounty_id,
+      subcounty_name: wardData.subcounty_name,
+      county_id: wardData.county_id,
+      county_name: wardData.county_name
+    };
+
+    res.status(200).send({
+      data: response,
+      code: '0000',
+      message: 'Admin units retrieved successfully'
+    });
+
+  } catch (error) {
+    console.error('Error in getAdminUnitsFromCoordinates:', error);
+    res.status(500).send({ 
+      message: 'Internal server error while processing location request',
+      code: 'INTERNAL_ERROR'
+    });
+  }
+}
