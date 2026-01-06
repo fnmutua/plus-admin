@@ -1607,6 +1607,7 @@ const locationUpdateMap = ref<any>(null)
 const locationUpdateMapContainer = ref<HTMLElement | null>(null)
 const locationUpdateDrawingManager = ref<any>(null)
 const locationUpdatePolygon = ref<any>(null)
+const locationUpdateMarker = ref<any>(null)
 const locationUpdateLoading = ref(false)
 const locationUpdateFileList = ref<UploadUserFile[]>([])
 const locationUpdateShowUploadDialog = ref(false)
@@ -1708,10 +1709,19 @@ const initializeLocationUpdateMap = async () => {
       // Load existing geometry
       if (locationUpdateSettlement.value?.geom) {
         loadExistingLocationGeometry()
+      } else {
+        // If no geometry, allow drawing/uploading
+        ElMessage.info('No existing geometry found. You can draw a polygon or upload a polygon file.')
       }
 
       // Listen for polygon completion
       google.maps.event.addListener(locationUpdateDrawingManager.value, 'polygoncomplete', (polygon: any) => {
+        // Remove marker if exists (shouldn't happen, but safety check)
+        if (locationUpdateMarker.value) {
+          locationUpdateMarker.value.setMap(null)
+          locationUpdateMarker.value = null
+        }
+        
         // Remove previous polygon if exists
         if (locationUpdatePolygon.value) {
           locationUpdatePolygon.value.setMap(null)
@@ -1741,6 +1751,12 @@ const loadExistingLocationGeometry = () => {
         ? geom.coordinates[0].map((coord: number[]) => ({ lat: coord[1], lng: coord[0] }))
         : geom.coordinates[0][0].map((coord: number[]) => ({ lat: coord[1], lng: coord[0] }))
 
+      // Remove marker if exists
+      if (locationUpdateMarker.value) {
+        locationUpdateMarker.value.setMap(null)
+        locationUpdateMarker.value = null
+      }
+
       if (locationUpdatePolygon.value) {
         locationUpdatePolygon.value.setMap(null)
       }
@@ -1760,6 +1776,39 @@ const loadExistingLocationGeometry = () => {
       const bounds = new google.maps.LatLngBounds()
       coordinates.forEach((coord: any) => bounds.extend(coord))
       locationUpdateMap.value.fitBounds(bounds)
+    } else if (geom.type === 'Point' || (geom.type === 'MultiPoint' && geom.coordinates.length > 0)) {
+      // Handle Point geometry - show marker (read-only display, user must draw polygon to update)
+      const position = geom.type === 'Point'
+        ? { lat: geom.coordinates[1], lng: geom.coordinates[0] }
+        : { lat: geom.coordinates[0][1], lng: geom.coordinates[0][0] }
+
+      // Remove polygon if exists
+      if (locationUpdatePolygon.value) {
+        locationUpdatePolygon.value.setMap(null)
+        locationUpdatePolygon.value = null
+      }
+
+      if (locationUpdateMarker.value) {
+        locationUpdateMarker.value.setMap(null)
+      }
+
+      // Show marker as read-only reference (not draggable)
+      locationUpdateMarker.value = new google.maps.Marker({
+        position: position,
+        map: locationUpdateMap.value,
+        draggable: false, // Read-only
+        title: `${locationUpdateSettlement.value.name || 'Settlement'} - Current Point Location (draw polygon to update)`,
+        icon: {
+          url: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+          scaledSize: new google.maps.Size(32, 32)
+        }
+      })
+
+      // Center map on marker
+      locationUpdateMap.value.setCenter(position)
+      locationUpdateMap.value.setZoom(15)
+
+      ElMessage.info('Current geometry is a Point. Please draw a polygon to update it to a polygon boundary.')
     }
   } catch (error) {
     console.error('Error loading existing geometry:', error)
@@ -1768,7 +1817,7 @@ const loadExistingLocationGeometry = () => {
 
 const saveLocationUpdate = async () => {
   if (!locationUpdatePolygon.value) {
-    ElMessage.warning('Please draw or edit the polygon on the map')
+    ElMessage.warning('Please draw or edit a polygon on the map')
     return
   }
 
@@ -1844,6 +1893,10 @@ const cleanupLocationUpdateMap = () => {
     locationUpdatePolygon.value.setMap(null)
     locationUpdatePolygon.value = null
   }
+  if (locationUpdateMarker.value) {
+    locationUpdateMarker.value.setMap(null)
+    locationUpdateMarker.value = null
+  }
   if (locationUpdateDrawingManager.value) {
     locationUpdateDrawingManager.value.setMap(null)
     locationUpdateDrawingManager.value = null
@@ -1892,45 +1945,51 @@ const readLocationUpdateJson = (event: any) => {
     return
   }
   
+  // Validate: Only accept Polygon geometry types
+  let geometry: any = null
+  
   if (json.features && json.features.length === 1) {
-    const geometry = json.features[0].geometry;
-    
-    if (geometry.type === "Polygon") {
-      geometry.coordinates[0] = geometry.coordinates[0].map((coordinate: number[]) => {
-        return proj4("SOURCE_CRS", "WGS84", coordinate);
-      });
-    } else if (geometry.type === "MultiPolygon") {
-      geometry.coordinates.forEach((polygon: number[][][]) => {
-        polygon[0] = polygon[0].map((coordinate: number[]) => {
-          return proj4("SOURCE_CRS", "WGS84", coordinate);
-        });
-      });
-    }
-    
-    let geom = {
-      type: json.features[0].geometry.type,
-      coordinates: geometry.coordinates
-    }
-    
-    // Update polygon on map
-    updateLocationUpdatePolygon(geom)
-    locationUpdateShowUploadDialog.value = false
+    geometry = json.features[0].geometry;
   } else if (json.type === 'FeatureCollection' && json.features) {
-    // Handle FeatureCollection
     if (json.features.length !== 1) {
       ElMessage.warning('Please upload a file with only one feature. This one has ' + json.features.length + ' features')
       return
     }
-    const geometry = json.features[0].geometry;
-    let geom = {
-      type: geometry.type,
-      coordinates: geometry.coordinates
-    }
-    updateLocationUpdatePolygon(geom)
-    locationUpdateShowUploadDialog.value = false
+    geometry = json.features[0].geometry;
+  } else if (json.type === 'Feature' && json.geometry) {
+    geometry = json.geometry;
   } else {
     ElMessage.error('Invalid GeoJSON format. Please ensure the file contains a valid Feature or FeatureCollection.')
+    return
   }
+  
+  // Reject non-Polygon geometries
+  if (geometry.type !== 'Polygon' && geometry.type !== 'MultiPolygon') {
+    ElMessage.error(`Geometry type "${geometry.type}" is not supported. Only Polygon or MultiPolygon geometries are accepted.`)
+    return
+  }
+  
+  // Transform coordinates for Polygon/MultiPolygon
+  if (geometry.type === "Polygon") {
+    geometry.coordinates[0] = geometry.coordinates[0].map((coordinate: number[]) => {
+      return proj4("SOURCE_CRS", "WGS84", coordinate);
+    });
+  } else if (geometry.type === "MultiPolygon") {
+    geometry.coordinates.forEach((polygon: number[][][]) => {
+      polygon[0] = polygon[0].map((coordinate: number[]) => {
+        return proj4("SOURCE_CRS", "WGS84", coordinate);
+      });
+    });
+  }
+  
+  let geom = {
+    type: geometry.type,
+    coordinates: geometry.coordinates
+  }
+  
+  // Update polygon on map
+  updateLocationUpdatePolygon(geom)
+  locationUpdateShowUploadDialog.value = false
 }
 
 const readLocationUpdateShp = async (file: File) => {
@@ -1943,8 +2002,16 @@ const readLocationUpdateShp = async (file: File) => {
         return
       }
       
+      const geometryType = geojson[0].geometry.type
+      
+      // Reject non-Polygon geometries
+      if (geometryType !== 'Polygon' && geometryType !== 'MultiPolygon') {
+        ElMessage.error(`Geometry type "${geometryType}" is not supported. Only Polygon or MultiPolygon geometries are accepted.`)
+        return
+      }
+      
       let geomX = {
-        type: geojson[0].geometry.type,
+        type: geometryType,
         coordinates: geojson[0].geometry.coordinates,
       }
       
@@ -1965,10 +2032,17 @@ const updateLocationUpdatePolygon = (geom: any) => {
   }
   
   try {
+    // Only accept Polygon or MultiPolygon geometries
     if (geom.type === 'Polygon' || geom.type === 'MultiPolygon') {
       const coordinates = geom.type === 'Polygon' 
         ? geom.coordinates[0].map((coord: number[]) => ({ lat: coord[1], lng: coord[0] }))
         : geom.coordinates[0][0].map((coord: number[]) => ({ lat: coord[1], lng: coord[0] }))
+
+      // Remove marker if exists
+      if (locationUpdateMarker.value) {
+        locationUpdateMarker.value.setMap(null)
+        locationUpdateMarker.value = null
+      }
 
       // Remove previous polygon if exists
       if (locationUpdatePolygon.value) {
@@ -1992,12 +2066,12 @@ const updateLocationUpdatePolygon = (geom: any) => {
       coordinates.forEach((coord: any) => bounds.extend(coord))
       locationUpdateMap.value.fitBounds(bounds)
       
-      ElMessage.success('Geometry loaded successfully. You can edit it by clicking on the polygon.')
+      ElMessage.success('Polygon loaded successfully. You can edit it by clicking on the polygon.')
     } else {
-      ElMessage.warning('Only Polygon or MultiPolygon geometries are supported.')
+      ElMessage.warning('Only Polygon or MultiPolygon geometries are accepted. Please upload a file with polygon geometry.')
     }
   } catch (error) {
-    console.error('Error updating polygon:', error)
+    console.error('Error updating geometry:', error)
     ElMessage.error('Failed to load geometry on map.')
   }
 }
@@ -4343,8 +4417,15 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
           style="margin-bottom: 15px;">
           <template #default>
             <p style="margin: 0;">
-              <strong>Instructions:</strong> Use the drawing tools above the map to draw or edit the settlement boundary, 
-              or upload a GeoJSON/shapefile. You can click on the polygon to edit its shape. When finished, click "Save Location" to update only the geometry.
+              <strong>Instructions:</strong> 
+              <span v-if="locationUpdateSettlement?.geom?.type === 'Point' || locationUpdateSettlement?.geom?.type === 'MultiPoint'">
+                Current geometry is a Point (shown as blue marker). Draw a polygon to convert it to a polygon boundary.
+              </span>
+              <span v-else>
+                Use the drawing tools above the map to draw or edit the settlement boundary, or upload a polygon GeoJSON/shapefile. 
+                You can click on the polygon to edit its shape. 
+              </span>
+              When finished, click "Save Location" to update only the geometry (saved as Polygon).
             </p>
           </template>
         </el-alert>
