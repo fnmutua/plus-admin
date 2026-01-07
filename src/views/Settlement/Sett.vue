@@ -328,8 +328,8 @@ const getSettlementActionButtons = (settlement: any): string[] => {
     buttons.push('merge');
   }
 
-  // Add update location button if user can edit and settlement has geometry
-  if (canUserAccessSettlement(settlement, 'edit') && (settlement.geom || settlement.hasGeom)) {
+  // Add update location button if user can edit (available for all settlements)
+  if (canUserAccessSettlement(settlement, 'edit')) {
     buttons.push('updateLocation');
   }
 
@@ -1640,6 +1640,122 @@ const handleDelete = async (data: any) => {
     } else {
       ElMessage.error(errorMessage);
     }
+  }
+}
+
+const handleDeleteCascade = async () => {
+  const selected = getSelectedSettlements()
+  
+  if (selected.length < 1) {
+    ElMessage.warning('Please select at least one settlement to delete')
+    return
+  }
+
+  // Confirm with user
+  try {
+    await ElMessageBox.confirm(
+      `You are about to permanently delete ${selected.length} settlement(s) with all associated data (cascade delete).\n\n` +
+      `Settlements to delete:\n${selected.map(s => `- ${s.name} (ID: ${s.id})`).join('\n')}\n\n` +
+      `This action will delete all related data including documents, roads, projects, facilities, and any other associations.\n\n` +
+      `⚠️ WARNING: This action cannot be undone!`,
+      'Confirm Cascade Delete',
+      {
+        type: 'warning',
+        confirmButtonText: 'Delete Permanently',
+        cancelButtonText: 'Cancel',
+        dangerouslyUseHTMLString: false,
+        distinguishCancelAndClose: true
+      }
+    )
+  } catch {
+    // User cancelled
+    return
+  }
+
+  try {
+    const deletePromises = selected.map(async (settlement) => {
+      const formData: any = {
+        id: settlement.id,
+        model: model,
+        cascade: true // Flag for cascade delete
+      }
+
+      // Delete documents first if they exist
+      if (settlement.documents && settlement.documents.length > 0) {
+        formData.filesToDelete = settlement.documents
+        try {
+          await deleteDocument(formData)
+        } catch (docError) {
+          console.warn(`Error deleting documents for settlement ${settlement.id}:`, docError)
+          // Continue with settlement deletion even if document deletion fails
+        }
+      }
+
+      // Delete the settlement record with cascade
+      return DeleteRecord(formData)
+    })
+
+    const results = await Promise.allSettled(deletePromises)
+    
+    let successCount = 0
+    let failCount = 0
+    const failedSettlements: string[] = []
+
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled' && result.value?.code === '0000') {
+        successCount++
+      } else {
+        failCount++
+        failedSettlements.push(selected[index].name)
+      }
+    })
+
+    // Remove successfully deleted settlements from the appropriate list
+    const settlementIds = selected
+      .filter((_, index) => results[index].status === 'fulfilled' && results[index].value?.code === '0000')
+      .map(s => s.id)
+
+    if (activeSegment.value === 'Approved') {
+      tableDataList.value = tableDataList.value.filter((item: any) => !settlementIds.includes(item.id))
+    } else if (activeSegment.value === 'New') {
+      tableDataListNew.value = tableDataListNew.value.filter((item: any) => !settlementIds.includes(item.id))
+    } else if (activeSegment.value === 'Rejected') {
+      tableDataListRejected.value = tableDataListRejected.value.filter((item: any) => !settlementIds.includes(item.id))
+    } else if (activeSegment.value === 'Decommissioned') {
+      decommSettlements.value = decommSettlements.value.filter((item: any) => !settlementIds.includes(item.id))
+    }
+
+    // Clear selected settlements
+    selectedSettlements.value = []
+    selectedSettlementsNew.value = []
+    selectedSettlementsRejected.value = []
+    selectedSettlementsDecommissioned.value = []
+
+    // Refresh counts
+    await getCounts()
+
+    // Refresh deleted settlements list if on Deleted tab
+    if (activeSegment.value === 'Deleted') {
+      await getSettlmentHistory()
+    }
+
+    // Show results
+    if (failCount === 0) {
+      ElMessage.success({
+        message: `Successfully deleted ${successCount} settlement(s) with all associated data.`,
+        duration: 5000,
+        showClose: true
+      })
+    } else {
+      ElMessage.warning({
+        message: `Deleted ${successCount} settlement(s). Failed to delete ${failCount} settlement(s): ${failedSettlements.join(', ')}`,
+        duration: 8000,
+        showClose: true
+      })
+    }
+  } catch (error: any) {
+    console.error('Error in cascade delete:', error)
+    ElMessage.error(error?.response?.data?.message || 'Failed to delete settlements. Please try again.')
   }
 }
 
@@ -3338,6 +3454,21 @@ function getGeometryIcon(row) {
   return { icon: 'ep:warning',   tooltip: 'Unknown geometry' };
 }
 
+// Helper to sort by geometry (has geometry = 1, no geometry = 0)
+function sortByGeometry(a, b) {
+  // Get geometry priority: Polygon=2, Point=1, No geometry=0
+  const getGeometryPriority = (row) => {
+    if (!row.geom || !row.geom.type) return 0;
+    if (row.geom.type === 'Polygon' || row.geom.type === 'MultiPolygon') return 2;
+    if (row.geom.type === 'Point' || row.geom.type === 'MultiPoint') return 1;
+    return 0;
+  };
+  
+  const aPriority = getGeometryPriority(a);
+  const bPriority = getGeometryPriority(b);
+  return bPriority - aPriority; // Higher priority (Polygon) first
+}
+
 // Helper to group duplicates by name
 function groupedByName(duplicates) {
   const groups = {};
@@ -3612,7 +3743,7 @@ table-layout="auto"
           </template>
         </el-table-column>
         <!-- NEW: Geometry Icon Column -->
-        <el-table-column label="Geom" width="60">
+        <el-table-column label="Geom" width="60" sortable :sort-method="sortByGeometry">
           <template #default="{ row }">
             <el-tooltip :content="getGeometryIcon(row).tooltip" placement="top">
               <Icon :icon="getGeometryIcon(row).icon" :color="getGeometryIcon(row).color" width="24" height="24" />
@@ -3702,6 +3833,16 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
         </el-button>
       </div>
 
+      <!-- Delete Cascade button for super admins -->
+      <div v-if="isSuperAdmin && selectedSettlements.length >= 1" style="margin-top: 10px; margin-bottom: 10px;">
+        <el-button 
+          type="danger"
+          :icon="Delete"
+          @click="handleDeleteCascade">
+          Delete Cascade ({{ selectedSettlements.length }} selected)
+        </el-button>
+      </div>
+
       <ElPagination
 layout="sizes, prev, pager, next, total" v-model:currentPage="page"
       v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100,1000,2000]" :total="totalApproved" :background="true"
@@ -3743,7 +3884,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="page"
           </template>
         </el-table-column>
         <!-- NEW: Geometry Icon Column -->
-        <el-table-column label="Geom" width="60">
+        <el-table-column label="Geom" width="60" sortable :sort-method="sortByGeometry">
           <template #default="{ row }">
             <el-tooltip :content="getGeometryIcon(row).tooltip" placement="top">
               <Icon :icon="getGeometryIcon(row).icon" :color="getGeometryIcon(row).color" width="24" height="24" />
@@ -3801,6 +3942,16 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
 layout="sizes, prev, pager, next, total" v-model:currentPage="page"
       v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100,1000,2000]" :total="totalPending" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+
+      <!-- Delete Cascade button for super admins -->
+      <div v-if="isSuperAdmin && selectedSettlementsNew.length >= 1" style="margin-top: 10px; margin-bottom: 10px;">
+        <el-button 
+          type="danger"
+          :icon="Delete"
+          @click="handleDeleteCascade">
+          Delete Cascade ({{ selectedSettlementsNew.length }} selected)
+        </el-button>
+      </div>
 
       <!-- Merge button for selected settlements (bottom) -->
       <!-- <div v-if="selectedSettlementsNew.length === 2" style="margin-top: 10px;">
@@ -3889,6 +4040,16 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" ci
 layout="sizes, prev, pager, next, total" v-model:currentPage="page"
       v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100,1000,2000]" :total="totalRejected" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+
+      <!-- Delete Cascade button for super admins -->
+      <div v-if="isSuperAdmin && selectedSettlementsRejected.length >= 1" style="margin-top: 10px; margin-bottom: 10px;">
+        <el-button 
+          type="danger"
+          :icon="Delete"
+          @click="handleDeleteCascade">
+          Delete Cascade ({{ selectedSettlementsRejected.length }} selected)
+        </el-button>
+      </div>
 
       <!-- Merge button for selected settlements (bottom) -->
       <!-- <div v-if="selectedSettlementsRejected.length === 2" style="margin-top: 10px;">
@@ -3980,6 +4141,16 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" ci
 layout="sizes, prev, pager, next, total" v-model:currentPage="page"
       v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100,1000,2000]" :total="decommSettlementsCount" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+
+      <!-- Delete Cascade button for super admins -->
+      <div v-if="isSuperAdmin && selectedSettlementsDecommissioned.length >= 1" style="margin-top: 10px; margin-bottom: 10px;">
+        <el-button 
+          type="danger"
+          :icon="Delete"
+          @click="handleDeleteCascade">
+          Delete Cascade ({{ selectedSettlementsDecommissioned.length }} selected)
+        </el-button>
+      </div>
 
       <!-- Merge button for selected settlements (bottom) -->
       <!-- <div v-if="selectedSettlementsDecommissioned.length === 2" style="margin-top: 10px;">

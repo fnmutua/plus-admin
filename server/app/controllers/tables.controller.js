@@ -2530,10 +2530,15 @@ exports.modelDeleteOneRecord = async (req, res) => {
  
     // Check for dependencies in associated models
     const associations = Object.keys(model.associations);
+    const cascadeDelete = req.body.cascade === true;
 
 
  
     console.log('associations',associations)
+    console.log('cascadeDelete', cascadeDelete)
+
+    // Track deleted associations for cascade delete
+    const deletedAssociations = [];
 
     for (let i = 0; i < associations.length; i++) {
       const associationName = associations[i];
@@ -2560,11 +2565,31 @@ exports.modelDeleteOneRecord = async (req, res) => {
         });
     
         console.log('dependentRowsCount', dependentRowsCount,associationName);
+        
+        // If cascade delete is enabled, delete all dependent records
+        if (cascadeDelete && dependentRowsCount > 0) {
+          try {
+            const deletedCount = await mdl.destroy({
+              where: {
+                [association.foreignKey]: record.id
+              }
+            });
+            deletedAssociations.push({
+              model: association.target.name,
+              count: deletedCount
+            });
+            console.log(`Cascade deleted ${deletedCount} ${association.target.name}(s)`);
+          } catch (deleteError) {
+            console.error(`Error cascade deleting ${association.target.name}:`, deleteError);
+            // Continue with other associations even if one fails
+          }
+        }
       } else {
         dependentRowsCount = 0;
       }
     
-      if (dependentRowsCount > 0) {
+      // Only return error if cascade is not enabled and dependencies exist
+      if (!cascadeDelete && dependentRowsCount > 0) {
         return res.status(500).send({
           message: `Cannot delete '${modelName}' record, it has ${dependentRowsCount} dependent ${association.target.name}(s)`,
           code: 'DEPENDENCY_FOUND'
@@ -2588,9 +2613,17 @@ exports.modelDeleteOneRecord = async (req, res) => {
 
  
 
+    // Build response message
+    let message = 'Delete successful';
+    if (cascadeDelete && deletedAssociations.length > 0) {
+      const deletedSummary = deletedAssociations.map(a => `${a.count} ${a.model}(s)`).join(', ');
+      message = `Delete successful. Cascade deleted: ${deletedSummary}`;
+    }
+
     res.status(200).send({
-      message: 'Delete successful',
-      code: '0000'
+      message: message,
+      code: '0000',
+      cascadeDeleted: cascadeDelete ? deletedAssociations : undefined
     });
   } catch (err) {
     console.error(err);
