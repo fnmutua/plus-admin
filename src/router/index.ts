@@ -658,7 +658,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           {
             path: 'road/add',
             //component: 'views/Facilities/Roads/Add',
-            component: () => import('@/views/Facilities/Roads/AddX.vue'),
+            component: () => import('@/views/Facilities/Roads/AddRoadNew.vue'),
             name: 'AddRoadX',
             meta: { hidden: true, title: 'Add', noCache: true }
           },
@@ -760,7 +760,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           {
             path: 'pipedwater/add',
          //component: 'views/Facilities/Water/Water',
-         component: () => import('@/views/Facilities/PipedWater/AddX.vue'),
+         component: () => import('@/views/Facilities/PipedWater/AddPipedWaterNew.vue'),
             name: 'PipedWaterAddX',
             meta: {
               icon: 'ic:sharp-water-drop',
@@ -829,7 +829,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
                 },
                 {
                   path: 'sewer/add',
-                  component: () => import('@/views/Facilities/Sewer/AddX.vue'),
+                  component: () => import('@/views/Facilities/Sewer/AddSewerNew.vue'),
                   name: 'AddSewer',
                   meta: { hidden: true, title: 'Add', noCache: true, icon: 'ant-design:plus-square-filled' }
                 },

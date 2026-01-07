@@ -174,7 +174,7 @@ module.exports = function (sequelize, DataTypes) {
       police_response_time: DataTypes.STRING,
       community_security_progs: DataTypes.STRING,
       community_security_progs_member: DataTypes.STRING,
-      security_recommendations: DataTypes.STRING,
+      security_recommendations: DataTypes.TEXT,
       disasters: DataTypes.STRING,
       disaster_rank1: DataTypes.STRING,
       disaster_rank2: DataTypes.STRING,
