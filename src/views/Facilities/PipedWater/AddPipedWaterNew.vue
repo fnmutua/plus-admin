@@ -224,7 +224,7 @@ const initializeMap = async () => {
     const loader = new Loader({
       apiKey: googleMapsApiKey,
       version: 'weekly',
-      libraries: ['drawing', 'geometry'],
+      libraries: ['drawing', 'geometry', 'places'],
       region: 'KE',
       language: 'en'
     })

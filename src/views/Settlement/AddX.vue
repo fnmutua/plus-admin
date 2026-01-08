@@ -553,7 +553,7 @@ const googleMapsApiKey = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
 const loader = new Loader({
   apiKey: googleMapsApiKey,
   version: 'weekly',
-  libraries: ['drawing', 'geometry'],
+  libraries: ['drawing', 'geometry', 'places'],
   region: 'KE',
   language: 'en'
 })

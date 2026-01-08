@@ -110,9 +110,9 @@ const router = useRouter()
 // Step management
 const currentStep = ref(0)
 const steps = [
-  { title: 'Select Location', description: 'Choose county and settlement' },
-  { title: 'Mark Location', description: 'Click on the map to mark school location' },
-  { title: 'Complete Details', description: 'Fill in school information' }
+  { title: 'County', description: '' },
+  { title: 'Mark on Map', description: '' },
+  { title: 'Submit', description: '' }
 ]
 
 // Step 1: Location Selection - Only County and Settlement
@@ -520,7 +520,8 @@ const initializeMap = async () => {
       mapTypeId: window.google.maps.MapTypeId.ROADMAP,
       mapTypeControl: true,
       streetViewControl: true,
-      fullscreenControl: true
+      fullscreenControl: true,
+      disableDoubleClickZoom: true
     })
 
     // Add settlement boundary
@@ -696,6 +697,7 @@ const initializeMap = async () => {
 
     // Listen for map clicks to place marker (only when in placement mode)
     mapClickListener.value = map.value.addListener('click', placeMarker)
+    map.value.addListener('dblclick', placeMarker)
   } catch (error) {
     console.error('Error initializing Google Maps:', error)
     ElMessage.error('Failed to load map')
@@ -941,22 +943,20 @@ const resetMarker = () => {
       <!-- Header -->
       <template #header>
         <div class="header-content">
-          <el-button :icon="ArrowLeft" @click="goBack" text>Back</el-button>
-          <h2>Add New Education Facility</h2>
+          <div class="header-top">
+            <el-button :icon="ArrowLeft" @click="goBack" text>Back</el-button>
+            <h2>Add New Education Facility</h2>
+          </div>
+          <el-steps :active="currentStep" finish-status="success" align-center class="header-steps">
+            <el-step
+              v-for="(step, index) in steps"
+              :key="index"
+              :title="step.title"
+              :description="step.description"
+            />
+          </el-steps>
         </div>
       </template>
-
-      <!-- Steps Indicator -->
-      <el-steps :active="currentStep" finish-status="success" align-center class="steps-indicator">
-        <el-step
-          v-for="(step, index) in steps"
-          :key="index"
-          :title="step.title"
-          :description="step.description"
-        />
-      </el-steps>
-
-      <el-divider />
 
       <!-- Step 1: Location Selection - Only County and Settlement -->
       <div v-if="currentStep === 0" class="step-content">
@@ -1012,26 +1012,6 @@ const resetMarker = () => {
 
       <!-- Step 2: Map with Click to Place Marker -->
       <div v-if="currentStep === 1" class="step-content map-step">
-        <div class="map-instructions">
-          <el-alert 
-            :type="markerPlacementMode ? 'warning' : 'info'" 
-            :closable="false">
-            <template #default>
-              <span v-if="markerPlacementMode">
-                <strong>Marker Placement Mode Active:</strong> Click on the map inside the settlement boundary to place the marker.
-              </span>
-              <span v-else-if="schoolMarker">
-                Marker placed. You can drag it to adjust position, or delete it to place a new one.
-              </span>
-              <span v-else-if="existingSchools.length > 0">
-                {{ existingSchools.length }} existing school(s) loaded. Click on a blue marker to edit, or click "Add Marker" to create a new school.
-              </span>
-              <span v-else>
-                Click "Add Marker" button to enable marker placement, then click on the map inside the settlement boundary.
-              </span>
-            </template>
-          </el-alert>
-        </div>
         <div ref="mapContainer" class="map-container"></div>
         <div class="map-controls">
           <el-button 
@@ -1386,6 +1366,12 @@ const resetMarker = () => {
 
 .header-content {
   display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.header-top {
+  display: flex;
   align-items: center;
   gap: 15px;
 }
@@ -1393,6 +1379,10 @@ const resetMarker = () => {
 .header-content h2 {
   margin: 0;
   font-size: 24px;
+}
+
+.header-steps {
+  width: 100%;
 }
 
 .steps-indicator {
@@ -1414,7 +1404,7 @@ const resetMarker = () => {
 
 .map-container {
   width: 100%;
-  height: 600px;
+  height: 520px;
   border-radius: 4px;
   overflow: hidden;
   border: 1px solid var(--el-border-color-lighter);
@@ -1436,7 +1426,7 @@ const resetMarker = () => {
 
 @media (max-width: 768px) {
   .map-container {
-    height: 400px;
+    height: 340px;
   }
 
   .step-content {
