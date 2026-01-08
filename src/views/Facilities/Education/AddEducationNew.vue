@@ -1230,7 +1230,7 @@ const resetMarker = () => {
           <el-input-number v-model="schoolForm.classroom_count" :min="0" style="width: 100%" />
         </el-form-item>
 
-        <el-form-item label="Permanent Classrooms Count">
+        <el-form-item label="#Permanent Classrooms">
           <el-input-number v-model="schoolForm.permanent_classrooms_count" :min="0" style="width: 100%" />
         </el-form-item>
 

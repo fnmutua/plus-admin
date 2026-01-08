@@ -24,17 +24,14 @@ import {
   ElRow,
   ElCol,
   ElDivider,
-  ElAlert
+  ElAlert,
+  ElDatePicker
 } from 'element-plus'
 import { ArrowLeft, Check, Plus, Delete } from '@element-plus/icons-vue'
 import * as turf from '@turf/turf'
 import { getOneGeo, getSettlementListByCounty } from '@/api/settlements'
 import { CreateRecord, updateOneRecord } from '@/api/settlements'
 import { countyOptions, settlementOptionsV2 } from './common/index'
-import {
-  SchoolLevelOptions,
-  mhmOptions
-} from './common/index'
 
 // Ownership options from mapping_tool_rennaisance_questions.json (sponsor_type)
 const generalOwnershipLocal = [
@@ -67,8 +64,8 @@ const router = useRouter()
 const currentStep = ref(0)
 const steps = [
   { title: 'Select Location', description: 'Choose county and settlement' },
-  { title: 'Mark Location', description: 'Click on the map to mark school location' },
-  { title: 'Complete Details', description: 'Fill in school information' }
+  { title: 'Mark Location', description: 'Click on the map to mark facility location' },
+  { title: 'Complete Details', description: 'Fill in facility information' }
 ]
 
 // Step 1: Location Selection - Only County and Settlement
@@ -81,79 +78,49 @@ const settlementGeometryCache = ref<Map<number, boolean>>(new Map())
 // Step 2: Map
 const map = ref<any>(null)
 const settlementPolygon = ref<any>(null)
-const schoolMarker = ref<any>(null)
-const existingSchoolMarkers = ref<Map<number, any>>(new Map())
+const facilityMarker = ref<any>(null)
+const existingFacilityMarkers = ref<Map<number, any>>(new Map())
 const settlementGeo = ref<any>(null)
-const schoolGeometry = ref<any>(null)
+const facilityGeometry = ref<any>(null)
 const mapContainer = ref<HTMLDivElement | null>(null)
 const markerPlacementMode = ref(false)
 const mapClickListener = ref<any>(null)
-const existingSchools = ref<any[]>([])
-const loadingSchools = ref(false)
+const existingFacilities = ref<any[]>([])
+const loadingFacilities = ref(false)
 const isEditMode = ref(false)
-const editingSchoolId = ref<number | null>(null)
+const editingFacilityId = ref<number | null>(null)
 
 // Step 3: Form Drawer
 const drawerVisible = ref(false)
 const formRef = ref<FormInstance>()
-const schoolForm = reactive({
+const facilityForm = reactive({
   name: '',
-  registration_number: '',
+  type: '',
+  condition: '',
+  frequency: '',
+  type_waste: '',
+  cost_per_use: null,
+  number_stances: null,
+  number_staff: null,
+  number_phases: '',
+  size_reserve: null,
+  rating: '',
+  number_vehicles: null,
+  date_install: null,
+  height: null,
+  ownership_type: '',
+  hazard: '',
+  owner: '',
   settlement_id: '',
   county_id: '',
   subcounty_id: '',
   ward_id: '',
-  education_category: [],
-  registration_status: '',
-  ownership_type: '',
-  ownership_details: '',
-  boarding_type: '',
-  land_ownership_status: '',
-  respondent_name: '',
-  respondent_phone: '',
-  enrolled_boys_count: null,
-  enrolled_girls_count: null,
-  student_source: '',
-  male_teachers_count: null,
-  female_teachers_count: null,
-  classroom_count: null,
-  classroom_condition: '',
-  boys_toilets_count: null,
-  girls_toilets_count: null,
-  handwashing_stations_count: null,
-  toilet_condition: '',
-  fees_paid_by_students: '',
-  term_1_fees_amount: null,
-  term_2_fees_amount: null,
-  term_3_fees_amount: null,
-  dropout_count: null,
-  dropout_reasons: '',
-  retention_efforts: '',
-  retention_efforts_reasons: '',
-  sanitary_pads_provision: '',
-  sanitary_pads_provider: '',
-  sanitary_pads_bins: '',
-  teaching_aids_available: '',
-  boreholes_count: null,
-  water_tanks_count: null,
-  permanent_classrooms_count: null,
-  bom_teachers_count: null,
-  compound_fence_status: '',
-  school_challenges: '',
-  parcel_has_title: '',
-  parcel_size_hectares: null,
-  efforts_for_student_retention: '',
-  additional_comments: '',
-  distance_in_meters: null,
   geom: null
 })
 
 const formRules = reactive({
-  name: [{ required: true, message: 'School name is required', trigger: 'blur' }],
-  settlement_id: [{ required: true, message: 'Settlement is required', trigger: 'blur' }],
-  registration_number: [{ required: false, message: 'Registration number', trigger: 'blur' }],
-  registration_status: [{ required: false, message: 'Registration status', trigger: 'change' }],
-  ownership_type: [{ required: false, message: 'Ownership type', trigger: 'change' }]
+  name: [{ required: true, message: 'Facility name is required', trigger: 'blur' }],
+  settlement_id: [{ required: true, message: 'Settlement is required', trigger: 'blur' }]
 })
 
 // Check if settlement has valid geometry (Polygon/MultiPolygon, not Point)
@@ -255,18 +222,18 @@ const handleSettlementChange = async (settlementId: any) => {
       // Update form with selected values
       const settlement = (settlementOptionsV2.value || []).find((s: any) => s.value === settlementId)
       if (settlement) {
-        schoolForm.settlement_id = settlementId
-        schoolForm.county_id = settlement.county_id || ''
-        schoolForm.subcounty_id = settlement.subcounty_id || ''
-        schoolForm.ward_id = settlement.ward_id || ''
+        facilityForm.settlement_id = settlementId
+        facilityForm.county_id = settlement.county_id || ''
+        facilityForm.subcounty_id = settlement.subcounty_id || ''
+        facilityForm.ward_id = settlement.ward_id || ''
       }
 
       // Move to step 2: Map
       currentStep.value = 1
       await nextTick()
       await initializeMap()
-      // Load existing schools for this settlement
-      await loadExistingSchools(settlementId)
+      // Load existing facilities for this settlement
+      await loadExistingFacilities(settlementId)
     } else {
       ElMessage.error('Settlement has no boundary geometry')
     }
@@ -276,20 +243,20 @@ const handleSettlementChange = async (settlementId: any) => {
   }
 }
 
-// Load existing schools for the settlement
-const loadExistingSchools = async (settlementId: number) => {
-  loadingSchools.value = true
-  existingSchools.value = []
+// Load existing facilities for the settlement
+const loadExistingFacilities = async (settlementId: number) => {
+  loadingFacilities.value = true
+  existingFacilities.value = []
   
   // Clear existing markers
-  existingSchoolMarkers.value.forEach((marker) => {
+  existingFacilityMarkers.value.forEach((marker) => {
     marker.setMap(null)
   })
-  existingSchoolMarkers.value.clear()
+  existingFacilityMarkers.value.clear()
 
   try {
     const formData = {
-      model: 'education_facility',
+      model: 'other_facility',
       filters: ['settlement_id'],
       filterValues: [[settlementId]],
       associated_multiple_models: ['settlement', 'county', 'subcounty', 'ward']
@@ -298,21 +265,21 @@ const loadExistingSchools = async (settlementId: number) => {
     const res = await getSettlementListByCounty(formData)
     
     if (res.data && res.data.length > 0) {
-      existingSchools.value = res.data
+      existingFacilities.value = res.data
       
-      // Add markers for existing schools
-      existingSchools.value.forEach((school: any) => {
-        if (school.geom && school.geom.type === 'Point' && school.geom.coordinates) {
+      // Add markers for existing facilities
+      existingFacilities.value.forEach((facility: any) => {
+        if (facility.geom && facility.geom.type === 'Point' && facility.geom.coordinates) {
           const position = {
-            lat: school.geom.coordinates[1],
-            lng: school.geom.coordinates[0]
+            lat: facility.geom.coordinates[1],
+            lng: facility.geom.coordinates[0]
           }
 
           const marker = new window.google.maps.Marker({
             position: position,
             map: map.value,
             draggable: false,
-            title: school.name || 'School',
+            title: facility.name || 'Facility',
             icon: {
               url: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',
               scaledSize: new window.google.maps.Size(35, 35)
@@ -320,95 +287,59 @@ const loadExistingSchools = async (settlementId: number) => {
             zIndex: 1
           })
 
-          // Add click listener to edit school
+          // Add click listener to edit facility
           marker.addListener('click', () => {
-            editSchool(school)
+            editFacility(facility)
           })
 
-          // Store marker with school ID
-          existingSchoolMarkers.value.set(school.id, marker)
+          // Store marker with facility ID
+          existingFacilityMarkers.value.set(facility.id, marker)
         }
       })
 
-      if (existingSchools.value.length > 0) {
-        ElMessage.success(`Loaded ${existingSchools.value.length} existing school(s)`)
+      if (existingFacilities.value.length > 0) {
+        ElMessage.success(`Loaded ${existingFacilities.value.length} existing facility(ies)`)
       }
     }
   } catch (error) {
-    console.error('Error loading existing schools:', error)
-    ElMessage.warning('Failed to load existing schools')
+    console.error('Error loading existing facilities:', error)
+    ElMessage.warning('Failed to load existing facilities')
   } finally {
-    loadingSchools.value = false
+    loadingFacilities.value = false
   }
 }
 
-// Edit existing school
-const editSchool = (school: any) => {
+// Edit existing facility
+const editFacility = (facility: any) => {
   isEditMode.value = true
-  editingSchoolId.value = school.id
+  editingFacilityId.value = facility.id
 
-  // Populate form with school data
-  schoolForm.name = school.name || ''
-  schoolForm.registration_number = school.registration_number || ''
-  schoolForm.settlement_id = school.settlement_id || ''
-  schoolForm.county_id = school.county_id || ''
-  schoolForm.subcounty_id = school.subcounty_id || ''
-  schoolForm.ward_id = school.ward_id || ''
-  // Handle education_category as comma-separated string or array
-  if (school.education_category) {
-    schoolForm.education_category = typeof school.education_category === 'string' 
-      ? school.education_category.split(',').map((cat: string) => cat.trim()).filter((cat: string) => cat)
-      : Array.isArray(school.education_category) 
-        ? school.education_category 
-        : []
-  } else {
-    schoolForm.education_category = []
-  }
-  schoolForm.registration_status = school.registration_status || ''
-  schoolForm.ownership_type = school.ownership_type || ''
-  schoolForm.ownership_details = school.ownership_details || ''
-  schoolForm.boarding_type = school.boarding_type || ''
-  schoolForm.land_ownership_status = school.land_ownership_status || ''
-  schoolForm.respondent_name = school.respondent_name || ''
-  schoolForm.respondent_phone = school.respondent_phone || ''
-  schoolForm.enrolled_boys_count = school.enrolled_boys_count || null
-  schoolForm.enrolled_girls_count = school.enrolled_girls_count || null
-  schoolForm.student_source = school.student_source || ''
-  schoolForm.male_teachers_count = school.male_teachers_count || null
-  schoolForm.female_teachers_count = school.female_teachers_count || null
-  schoolForm.classroom_count = school.classroom_count || null
-  schoolForm.classroom_condition = school.classroom_condition || ''
-  schoolForm.boys_toilets_count = school.boys_toilets_count || null
-  schoolForm.girls_toilets_count = school.girls_toilets_count || null
-  schoolForm.handwashing_stations_count = school.handwashing_stations_count || null
-  schoolForm.toilet_condition = school.toilet_condition || ''
-  schoolForm.fees_paid_by_students = school.fees_paid_by_students || ''
-  schoolForm.term_1_fees_amount = school.term_1_fees_amount || null
-  schoolForm.term_2_fees_amount = school.term_2_fees_amount || null
-  schoolForm.term_3_fees_amount = school.term_3_fees_amount || null
-  schoolForm.dropout_count = school.dropout_count || null
-  schoolForm.dropout_reasons = school.dropout_reasons || ''
-  schoolForm.retention_efforts = school.retention_efforts || ''
-  schoolForm.retention_efforts_reasons = school.retention_efforts_reasons || ''
-  schoolForm.sanitary_pads_provision = school.sanitary_pads_provision || ''
-  schoolForm.sanitary_pads_provider = school.sanitary_pads_provider || ''
-  schoolForm.sanitary_pads_bins = school.sanitary_pads_bins || ''
-  schoolForm.teaching_aids_available = school.teaching_aids_available || ''
-  schoolForm.boreholes_count = school.boreholes_count || null
-  schoolForm.water_tanks_count = school.water_tanks_count || null
-  schoolForm.permanent_classrooms_count = school.permanent_classrooms_count || null
-  schoolForm.bom_teachers_count = school.bom_teachers_count || null
-  schoolForm.compound_fence_status = school.compound_fence_status || ''
-  schoolForm.school_challenges = school.school_challenges || ''
-  schoolForm.parcel_has_title = school.parcel_has_title || ''
-  schoolForm.parcel_size_hectares = school.parcel_size_hectares || null
-  schoolForm.efforts_for_student_retention = school.efforts_for_student_retention || ''
-  schoolForm.additional_comments = school.additional_comments || ''
-  schoolForm.distance_in_meters = school.distance_in_meters || null
-  schoolForm.geom = school.geom || null
+  // Populate form with facility data
+  facilityForm.name = facility.name || ''
+  facilityForm.type = facility.type || ''
+  facilityForm.condition = facility.condition || ''
+  facilityForm.frequency = facility.frequency || ''
+  facilityForm.type_waste = facility.type_waste || ''
+  facilityForm.cost_per_use = facility.cost_per_use || null
+  facilityForm.number_stances = facility.number_stances || null
+  facilityForm.number_staff = facility.number_staff || null
+  facilityForm.number_phases = facility.number_phases || ''
+  facilityForm.size_reserve = facility.size_reserve || null
+  facilityForm.rating = facility.rating || ''
+  facilityForm.number_vehicles = facility.number_vehicles || null
+  facilityForm.date_install = facility.date_install || null
+  facilityForm.height = facility.height || null
+  facilityForm.ownership_type = facility.ownership_type || ''
+  facilityForm.hazard = facility.hazard || ''
+  facilityForm.owner = facility.owner || ''
+  facilityForm.settlement_id = facility.settlement_id || ''
+  facilityForm.county_id = facility.county_id || ''
+  facilityForm.subcounty_id = facility.subcounty_id || ''
+  facilityForm.ward_id = facility.ward_id || ''
+  facilityForm.geom = facility.geom || null
 
   // Update marker to show it's being edited
-  const marker = existingSchoolMarkers.value.get(school.id)
+  const marker = existingFacilityMarkers.value.get(facility.id)
   if (marker) {
     marker.setIcon({
       url: 'http://maps.google.com/mapfiles/ms/icons/yellow-dot.png',
@@ -417,11 +348,11 @@ const editSchool = (school: any) => {
     marker.setZIndex(1000)
   }
 
-  // Center map on school
-  if (school.geom && school.geom.coordinates) {
+  // Center map on facility
+  if (facility.geom && facility.geom.coordinates) {
     map.value.setCenter({
-      lat: school.geom.coordinates[1],
-      lng: school.geom.coordinates[0]
+      lat: facility.geom.coordinates[1],
+      lng: facility.geom.coordinates[0]
     })
     map.value.setZoom(16)
   }
@@ -552,16 +483,16 @@ const initializeMap = async () => {
       }
 
       // Remove existing marker if any
-      if (schoolMarker.value) {
-        schoolMarker.value.setMap(null)
+      if (facilityMarker.value) {
+        facilityMarker.value.setMap(null)
       }
 
       // Create new marker (different color for new vs existing)
-      schoolMarker.value = new window.google.maps.Marker({
+      facilityMarker.value = new window.google.maps.Marker({
         position: position,
         map: map.value,
         draggable: true,
-        title: 'New School Location - Click to edit',
+        title: 'New Facility Location - Click to edit',
         icon: {
           url: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png',
           scaledSize: new window.google.maps.Size(40, 40)
@@ -576,29 +507,29 @@ const initializeMap = async () => {
         crs: { type: 'name', properties: { name: 'EPSG:4326' } }
       }
 
-      schoolGeometry.value = geometry
-      schoolForm.geom = geometry
+      facilityGeometry.value = geometry
+      facilityForm.geom = geometry
 
       // Add click listener to open form drawer
-      schoolMarker.value.addListener('click', () => {
-        // Ensure we're not in edit mode for existing school
+      facilityMarker.value.addListener('click', () => {
+        // Ensure we're not in edit mode for existing facility
         if (!isEditMode.value) {
           // Ensure geometry is synced with marker position
-          const position = schoolMarker.value.getPosition()
+          const position = facilityMarker.value.getPosition()
           if (position) {
-            schoolForm.geom = {
+            facilityForm.geom = {
               type: 'Point',
               coordinates: [position.lng(), position.lat()],
               crs: { type: 'name', properties: { name: 'EPSG:4326' } }
             }
-            schoolGeometry.value = schoolForm.geom
+            facilityGeometry.value = facilityForm.geom
           }
           drawerVisible.value = true
         }
       })
 
       // Listen for marker drag to update geometry
-      schoolMarker.value.addListener('dragend', (dragEvent: any) => {
+      facilityMarker.value.addListener('dragend', (dragEvent: any) => {
         const newPosition = {
           lat: dragEvent.latLng.lat(),
           lng: dragEvent.latLng.lng()
@@ -626,9 +557,9 @@ const initializeMap = async () => {
           if (!isInside) {
             ElMessage.warning('Marker must remain inside the settlement boundary')
             // Reset to previous position
-            schoolMarker.value.setPosition({
-              lat: schoolGeometry.value.coordinates[1],
-              lng: schoolGeometry.value.coordinates[0]
+            facilityMarker.value.setPosition({
+              lat: facilityGeometry.value.coordinates[1],
+              lng: facilityGeometry.value.coordinates[0]
             })
             return
           }
@@ -639,8 +570,8 @@ const initializeMap = async () => {
           coordinates: [newPosition.lng, newPosition.lat],
           crs: { type: 'name', properties: { name: 'EPSG:4326' } }
         }
-        schoolGeometry.value = newGeometry
-        schoolForm.geom = newGeometry
+        facilityGeometry.value = newGeometry
+        facilityForm.geom = newGeometry
       })
 
       // Disable placement mode after placing marker
@@ -665,15 +596,15 @@ const submitForm = async () => {
   await formRef.value.validate(async (valid) => {
     if (valid) {
       // Check if marker exists or geometry is set
-      if (!schoolMarker.value && !schoolForm.geom) {
-        ElMessage.error('Please mark the school location on the map')
+      if (!facilityMarker.value && !facilityForm.geom) {
+        ElMessage.error('Please mark the facility location on the map')
         return
       }
       
       // If marker exists but geometry is not set, get it from marker
-      if (schoolMarker.value && !schoolForm.geom) {
-        const position = schoolMarker.value.getPosition()
-        schoolForm.geom = {
+      if (facilityMarker.value && !facilityForm.geom) {
+        const position = facilityMarker.value.getPosition()
+        facilityForm.geom = {
           type: 'Point',
           coordinates: [position.lng(), position.lat()],
           crs: { type: 'name', properties: { name: 'EPSG:4326' } }
@@ -681,39 +612,31 @@ const submitForm = async () => {
       }
 
       try {
-        // Convert education_category array to comma-separated string
-        const formDataToSubmit = {
-          ...schoolForm,
-          education_category: Array.isArray(schoolForm.education_category) 
-            ? schoolForm.education_category.join(',') 
-            : schoolForm.education_category || ''
-        }
-
-        if (isEditMode.value && editingSchoolId.value) {
-          // Update existing school
+        if (isEditMode.value && editingFacilityId.value) {
+          // Update existing facility
           const formData = {
-            ...formDataToSubmit,
-            id: editingSchoolId.value,
-            model: 'education_facility'
+            ...facilityForm,
+            id: editingFacilityId.value,
+            model: 'other_facility'
           }
 
           const res = await updateOneRecord(formData)
           
           if (res.code === '0000') {
-            ElMessage.success('Education facility updated successfully')
-            // Reload schools to reflect changes
-            await loadExistingSchools(schoolForm.settlement_id)
+            ElMessage.success('Other facility updated successfully')
+            // Reload facilities to reflect changes
+            await loadExistingFacilities(facilityForm.settlement_id)
             // Reset form
             resetForm()
             drawerVisible.value = false
           } else {
-            ElMessage.error('Failed to update education facility')
+            ElMessage.error('Failed to update other facility')
           }
         } else {
-          // Create new school
+          // Create new facility
           const formData = {
-            ...formDataToSubmit,
-            model: 'education_facility',
+            ...facilityForm,
+            model: 'other_facility',
             code: uuid.v4(),
             isApproved: 'Pending',
             createdBy: userInfo.id
@@ -722,19 +645,19 @@ const submitForm = async () => {
           const res = await CreateRecord(formData)
           
           if (res.code === '0000') {
-            ElMessage.success('Education facility created successfully')
-            // Reload schools to show the new one
-            await loadExistingSchools(schoolForm.settlement_id)
+            ElMessage.success('Other facility created successfully')
+            // Reload facilities to show the new one
+            await loadExistingFacilities(facilityForm.settlement_id)
             // Reset form
             resetForm()
             drawerVisible.value = false
           } else {
-            ElMessage.error('Failed to create education facility')
+            ElMessage.error('Failed to create other facility')
           }
         }
       } catch (error) {
-        console.error('Error saving education facility:', error)
-        ElMessage.error('Failed to save education facility')
+        console.error('Error saving other facility:', error)
+        ElMessage.error('Failed to save other facility')
       }
     }
   })
@@ -743,63 +666,36 @@ const submitForm = async () => {
 // Reset form to create mode
 const resetForm = () => {
   isEditMode.value = false
-  editingSchoolId.value = null
+  editingFacilityId.value = null
   
   // Remove new marker if exists
-  if (schoolMarker.value) {
-    schoolMarker.value.setMap(null)
-    schoolMarker.value = null
+  if (facilityMarker.value) {
+    facilityMarker.value.setMap(null)
+    facilityMarker.value = null
   }
   
   // Reset form fields
-  schoolForm.name = ''
-  schoolForm.registration_number = ''
-  schoolForm.education_category = []
-  schoolForm.registration_status = ''
-  schoolForm.ownership_type = ''
-  schoolForm.ownership_details = ''
-  schoolForm.boarding_type = ''
-  schoolForm.land_ownership_status = ''
-  schoolForm.respondent_name = ''
-  schoolForm.respondent_phone = ''
-  schoolForm.enrolled_boys_count = null
-  schoolForm.enrolled_girls_count = null
-  schoolForm.student_source = ''
-  schoolForm.male_teachers_count = null
-  schoolForm.female_teachers_count = null
-  schoolForm.classroom_count = null
-  schoolForm.classroom_condition = ''
-  schoolForm.boys_toilets_count = null
-  schoolForm.girls_toilets_count = null
-  schoolForm.handwashing_stations_count = null
-  schoolForm.toilet_condition = ''
-  schoolForm.fees_paid_by_students = ''
-  schoolForm.term_1_fees_amount = null
-  schoolForm.term_2_fees_amount = null
-  schoolForm.term_3_fees_amount = null
-  schoolForm.dropout_count = null
-  schoolForm.dropout_reasons = ''
-  schoolForm.retention_efforts = ''
-  schoolForm.retention_efforts_reasons = ''
-  schoolForm.sanitary_pads_provision = ''
-  schoolForm.sanitary_pads_provider = ''
-  schoolForm.sanitary_pads_bins = ''
-  schoolForm.teaching_aids_available = ''
-  schoolForm.boreholes_count = null
-  schoolForm.water_tanks_count = null
-  schoolForm.permanent_classrooms_count = null
-  schoolForm.bom_teachers_count = null
-  schoolForm.compound_fence_status = ''
-  schoolForm.school_challenges = ''
-  schoolForm.parcel_has_title = ''
-  schoolForm.parcel_size_hectares = null
-  schoolForm.efforts_for_student_retention = ''
-  schoolForm.additional_comments = ''
-  schoolForm.distance_in_meters = null
-  schoolForm.geom = null
+  facilityForm.name = ''
+  facilityForm.type = ''
+  facilityForm.condition = ''
+  facilityForm.frequency = ''
+  facilityForm.type_waste = ''
+  facilityForm.cost_per_use = null
+  facilityForm.number_stances = null
+  facilityForm.number_staff = null
+  facilityForm.number_phases = ''
+  facilityForm.size_reserve = null
+  facilityForm.rating = ''
+  facilityForm.number_vehicles = null
+  facilityForm.date_install = null
+  facilityForm.height = null
+  facilityForm.ownership_type = ''
+  facilityForm.hazard = ''
+  facilityForm.owner = ''
+  facilityForm.geom = null
   
   // Reset existing markers to blue
-  existingSchoolMarkers.value.forEach((marker) => {
+  existingFacilityMarkers.value.forEach((marker) => {
     marker.setIcon({
       url: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',
       scaledSize: new window.google.maps.Size(35, 35)
@@ -820,9 +716,9 @@ const goBack = () => {
         window.google.maps.event.removeListener(mapClickListener.value)
         mapClickListener.value = null
       }
-      if (schoolMarker.value) {
-        schoolMarker.value.setMap(null)
-        schoolMarker.value = null
+      if (facilityMarker.value) {
+        facilityMarker.value.setMap(null)
+        facilityMarker.value = null
       }
       if (settlementPolygon.value) {
         settlementPolygon.value.setMap(null)
@@ -830,17 +726,17 @@ const goBack = () => {
       }
       map.value = null
       settlementGeo.value = null
-      schoolGeometry.value = null
-      schoolForm.geom = null
+      facilityGeometry.value = null
+      facilityForm.geom = null
       markerPlacementMode.value = false
-      // Clear existing schools
-      existingSchoolMarkers.value.forEach((marker) => {
+      // Clear existing facilities
+      existingFacilityMarkers.value.forEach((marker) => {
         marker.setMap(null)
       })
-      existingSchoolMarkers.value.clear()
-      existingSchools.value = []
+      existingFacilityMarkers.value.clear()
+      existingFacilities.value = []
       isEditMode.value = false
-      editingSchoolId.value = null
+      editingFacilityId.value = null
     }
   } else {
     router.back()
@@ -851,11 +747,11 @@ const goBack = () => {
 const closeDrawer = () => {
   drawerVisible.value = false
   // If not in edit mode, reset the new marker
-  if (!isEditMode.value && schoolMarker.value) {
-    schoolMarker.value.setMap(null)
-    schoolMarker.value = null
-    schoolGeometry.value = null
-    schoolForm.geom = null
+  if (!isEditMode.value && facilityMarker.value) {
+    facilityMarker.value.setMap(null)
+    facilityMarker.value = null
+    facilityGeometry.value = null
+    facilityForm.geom = null
   }
   // If in edit mode, just close - don't reset
 }
@@ -866,14 +762,14 @@ const enableMarkerPlacement = () => {
   ElMessage.info('Click on the map to place the marker inside the settlement boundary')
 }
 
-// Delete marker (only for new marker, not existing schools)
+// Delete marker (only for new marker, not existing facilities)
 const deleteMarker = () => {
-  if (schoolMarker.value) {
-    schoolMarker.value.setMap(null)
-    schoolMarker.value = null
+  if (facilityMarker.value) {
+    facilityMarker.value.setMap(null)
+    facilityMarker.value = null
   }
-  schoolGeometry.value = null
-  schoolForm.geom = null
+  facilityGeometry.value = null
+  facilityForm.geom = null
   drawerVisible.value = false
   markerPlacementMode.value = false
   
@@ -892,13 +788,13 @@ const resetMarker = () => {
 </script>
 
 <template>
-  <div class="add-education-container">
+  <div class="add-other-container">
     <el-card>
       <!-- Header -->
       <template #header>
         <div class="header-content">
           <el-button :icon="ArrowLeft" @click="goBack" text>Back</el-button>
-          <h2>Add New Education Facility</h2>
+          <h2>Add New Other Facility</h2>
         </div>
       </template>
 
@@ -976,11 +872,11 @@ const resetMarker = () => {
               <span v-if="markerPlacementMode">
                 <strong>Marker Placement Mode Active:</strong> Click on the map inside the settlement boundary to place the marker.
               </span>
-              <span v-else-if="schoolMarker">
+              <span v-else-if="facilityMarker">
                 Marker placed. You can drag it to adjust position, or delete it to place a new one.
               </span>
-              <span v-else-if="existingSchools.length > 0">
-                {{ existingSchools.length }} existing school(s) loaded. Click on a blue marker to edit, or click "Add Marker" to create a new school.
+              <span v-else-if="existingFacilities.length > 0">
+                {{ existingFacilities.length }} existing facility(ies) loaded. Click on a blue marker to edit, or click "Add Marker" to create a new facility.
               </span>
               <span v-else>
                 Click "Add Marker" button to enable marker placement, then click on the map inside the settlement boundary.
@@ -1002,7 +898,7 @@ const resetMarker = () => {
             type="danger" 
             @click="deleteMarker" 
             size="small" 
-            :disabled="!schoolMarker">
+            :disabled="!facilityMarker">
             <el-icon style="margin-right: 5px;"><Delete /></el-icon>
             Delete Marker
           </el-button>
@@ -1010,35 +906,35 @@ const resetMarker = () => {
       </div>
     </el-card>
 
-    <!-- Step 3: Form Drawer (opens after placing marker or clicking existing school) -->
+    <!-- Step 3: Form Drawer (opens after placing marker or clicking existing facility) -->
     <el-drawer
       v-model="drawerVisible"
-      :title="isEditMode ? 'Edit Education Facility' : 'New Education Facility Details'"
+      :title="isEditMode ? 'Edit Other Facility' : 'New Other Facility Details'"
       :size="isMobile ? '100%' : '600px'"
       direction="rtl"
       :before-close="closeDrawer"
     >
       <el-form
         ref="formRef"
-        :model="schoolForm"
+        :model="facilityForm"
         :rules="formRules"
         label-width="180px"
         label-position="left"
       >
         <el-divider content-position="left">Basic Information</el-divider>
 
-        <el-form-item label="School Name" prop="name">
-          <el-input v-model="schoolForm.name" placeholder="Enter school name" />
+        <el-form-item label="Facility Name" prop="name">
+          <el-input v-model="facilityForm.name" placeholder="Enter facility name" />
         </el-form-item>
 
-        <el-form-item label="Registration Number">
-          <el-input v-model="schoolForm.registration_number" placeholder="Enter registration number" />
+        <el-form-item label="Facility Type">
+          <el-input v-model="facilityForm.type" placeholder="Enter facility type" />
         </el-form-item>
 
-        <el-form-item label="Registration Status">
-          <el-select v-model="schoolForm.registration_status" placeholder="Select registration status" filterable style="width: 100%">
+        <el-form-item label="Condition">
+          <el-select v-model="facilityForm.condition" placeholder="Select condition" filterable style="width: 100%">
             <el-option
-              v-for="item in regOptions"
+              v-for="item in conditionFacilityOptions"
               :key="item.value"
               :label="item.label"
               :value="item.value"
@@ -1046,28 +942,61 @@ const resetMarker = () => {
           </el-select>
         </el-form-item>
 
-        <el-form-item label="Education Category">
-          <el-select 
-            v-model="schoolForm.education_category" 
-            placeholder="Select education category(s)" 
-            filterable 
-            multiple
-            collapse-tags
-            collapse-tags-tooltip
-            style="width: 100%">
-            <el-option
-              v-for="item in categoryOptions"
-              :key="item.value"
-              :label="item.label"
-              :value="item.value"
-            />
-          </el-select>
+        <el-form-item label="Frequency">
+          <el-input v-model="facilityForm.frequency" placeholder="Enter frequency" />
+        </el-form-item>
+
+        <el-form-item label="Type of Waste">
+          <el-input v-model="facilityForm.type_waste" placeholder="Enter type of waste" />
+        </el-form-item>
+
+        <el-form-item label="Cost per Use">
+          <el-input-number v-model="facilityForm.cost_per_use" :min="0" style="width: 100%" />
+        </el-form-item>
+
+        <el-form-item label="Number of Stances">
+          <el-input-number v-model="facilityForm.number_stances" :min="0" style="width: 100%" />
+        </el-form-item>
+
+        <el-form-item label="Number of Staff">
+          <el-input-number v-model="facilityForm.number_staff" :min="0" style="width: 100%" />
+        </el-form-item>
+
+        <el-form-item label="Number of Phases">
+          <el-input v-model="facilityForm.number_phases" placeholder="Enter number of phases" />
+        </el-form-item>
+
+        <el-form-item label="Size Reserve">
+          <el-input-number v-model="facilityForm.size_reserve" :min="0" style="width: 100%" />
+        </el-form-item>
+
+        <el-form-item label="Rating">
+          <el-input v-model="facilityForm.rating" placeholder="Enter rating" />
+        </el-form-item>
+
+        <el-form-item label="Number of Vehicles">
+          <el-input-number v-model="facilityForm.number_vehicles" :min="0" style="width: 100%" />
+        </el-form-item>
+
+        <el-form-item label="Date Installed">
+          <el-date-picker
+            v-model="facilityForm.date_install"
+            type="date"
+            placeholder="Select date"
+            style="width: 100%"
+            format="YYYY-MM-DD"
+            value-format="YYYY-MM-DD"
+          />
+        </el-form-item>
+
+        <el-form-item label="Height">
+          <el-input-number v-model="facilityForm.height" :min="0" style="width: 100%" />
         </el-form-item>
 
         <el-form-item label="Ownership Type">
-          <el-select v-model="schoolForm.ownership_type" placeholder="Select ownership type" filterable style="width: 100%">
+          <el-select v-model="facilityForm.ownership_type" placeholder="Select ownership type" filterable style="width: 100%">
             <el-option
-              v-for="item in generalOwnership"
+              v-for="item in generalOwnershipLocal"
               :key="item.value"
               :label="item.label"
               :value="item.value"
@@ -1075,209 +1004,12 @@ const resetMarker = () => {
           </el-select>
         </el-form-item>
 
-        <el-form-item label="Ownership Details">
-          <el-input v-model="schoolForm.ownership_details" placeholder="Enter ownership details" />
+        <el-form-item label="Hazard">
+          <el-input v-model="facilityForm.hazard" placeholder="Enter hazard information" />
         </el-form-item>
 
-        <el-form-item label="Boarding Type">
-          <el-select v-model="schoolForm.boarding_type" placeholder="Select boarding type" filterable style="width: 100%">
-            <el-option label="Boarding" value="Boarding" />
-            <el-option label="Day" value="Day" />
-            <el-option label="Mixed" value="Mixed" />
-          </el-select>
-        </el-form-item>
-
-        <el-form-item label="Land Ownership Status">
-          <el-select v-model="schoolForm.land_ownership_status" placeholder="Select land ownership status" filterable style="width: 100%">
-            <el-option label="Owned" value="Owned" />
-            <el-option label="Leased" value="Leased" />
-            <el-option label="Rented" value="Rented" />
-            <el-option label="Other" value="Other" />
-          </el-select>
-        </el-form-item>
-
-        <el-form-item label="Respondent Name">
-          <el-input v-model="schoolForm.respondent_name" placeholder="Enter respondent name" />
-        </el-form-item>
-
-        <el-form-item label="Respondent Phone">
-          <el-input v-model="schoolForm.respondent_phone" placeholder="Enter respondent phone" />
-        </el-form-item>
-
-        <el-divider content-position="left">Enrollment</el-divider>
-
-        <el-form-item label="Enrolled Boys Count">
-          <el-input-number v-model="schoolForm.enrolled_boys_count" :min="0" style="width: 100%" />
-        </el-form-item>
-
-        <el-form-item label="Enrolled Girls Count">
-          <el-input-number v-model="schoolForm.enrolled_girls_count" :min="0" style="width: 100%" />
-        </el-form-item>
-
-        <el-form-item label="Student Source">
-          <el-input v-model="schoolForm.student_source" placeholder="Enter student source" />
-        </el-form-item>
-
-        <el-form-item label="Male Teachers Count">
-          <el-input-number v-model="schoolForm.male_teachers_count" :min="0" style="width: 100%" />
-        </el-form-item>
-
-        <el-form-item label="Female Teachers Count">
-          <el-input-number v-model="schoolForm.female_teachers_count" :min="0" style="width: 100%" />
-        </el-form-item>
-
-        <el-form-item label="BOM Teachers Count">
-          <el-input-number v-model="schoolForm.bom_teachers_count" :min="0" style="width: 100%" />
-        </el-form-item>
-
-        <el-form-item label="Dropout Count">
-          <el-input-number v-model="schoolForm.dropout_count" :min="0" style="width: 100%" />
-        </el-form-item>
-
-        <el-form-item label="Dropout Reasons">
-          <el-input v-model="schoolForm.dropout_reasons" type="textarea" :rows="2" placeholder="Enter dropout reasons" />
-        </el-form-item>
-
-        <el-form-item label="Retention Efforts">
-          <el-input v-model="schoolForm.retention_efforts" type="textarea" :rows="2" placeholder="Enter retention efforts" />
-        </el-form-item>
-
-        <el-form-item label="Retention Efforts Reasons">
-          <el-input v-model="schoolForm.retention_efforts_reasons" type="textarea" :rows="2" placeholder="Enter retention efforts reasons" />
-        </el-form-item>
-
-        <el-form-item label="Efforts for Student Retention">
-          <el-input v-model="schoolForm.efforts_for_student_retention" type="textarea" :rows="2" placeholder="Enter efforts for student retention" />
-        </el-form-item>
-
-        <el-divider content-position="left">Fees Information</el-divider>
-
-        <el-form-item label="Fees Paid by Students">
-          <el-input v-model="schoolForm.fees_paid_by_students" placeholder="Enter fees paid by students" />
-        </el-form-item>
-
-        <el-form-item label="Term 1 Fees Amount">
-          <el-input-number v-model="schoolForm.term_1_fees_amount" :min="0" :precision="2" style="width: 100%" />
-        </el-form-item>
-
-        <el-form-item label="Term 2 Fees Amount">
-          <el-input-number v-model="schoolForm.term_2_fees_amount" :min="0" :precision="2" style="width: 100%" />
-        </el-form-item>
-
-        <el-form-item label="Term 3 Fees Amount">
-          <el-input-number v-model="schoolForm.term_3_fees_amount" :min="0" :precision="2" style="width: 100%" />
-        </el-form-item>
-
-        <el-divider content-position="left">Facilities</el-divider>
-
-        <el-form-item label="Classroom Count">
-          <el-input-number v-model="schoolForm.classroom_count" :min="0" style="width: 100%" />
-        </el-form-item>
-
-        <el-form-item label="Permanent Classrooms Count">
-          <el-input-number v-model="schoolForm.permanent_classrooms_count" :min="0" style="width: 100%" />
-        </el-form-item>
-
-        <el-form-item label="Classroom Condition">
-          <el-select v-model="schoolForm.classroom_condition" placeholder="Select classroom condition" filterable style="width: 100%">
-            <el-option label="Good" value="Good" />
-            <el-option label="Fair" value="Fair" />
-            <el-option label="Poor" value="Poor" />
-            <el-option label="Very Poor" value="Very Poor" />
-          </el-select>
-        </el-form-item>
-
-        <el-form-item label="Boys Toilets Count">
-          <el-input-number v-model="schoolForm.boys_toilets_count" :min="0" style="width: 100%" />
-        </el-form-item>
-
-        <el-form-item label="Girls Toilets Count">
-          <el-input-number v-model="schoolForm.girls_toilets_count" :min="0" style="width: 100%" />
-        </el-form-item>
-
-        <el-form-item label="Toilet Condition">
-          <el-select v-model="schoolForm.toilet_condition" placeholder="Select toilet condition" filterable style="width: 100%">
-            <el-option label="Good" value="Good" />
-            <el-option label="Fair" value="Fair" />
-            <el-option label="Poor" value="Poor" />
-            <el-option label="Very Poor" value="Very Poor" />
-          </el-select>
-        </el-form-item>
-
-        <el-form-item label="Handwashing Stations">
-          <el-input-number v-model="schoolForm.handwashing_stations_count" :min="0" style="width: 100%" />
-        </el-form-item>
-
-        <el-divider content-position="left">Menstrual Hygiene Management</el-divider>
-
-        <el-form-item label="Sanitary Pads Provision">
-          <el-select v-model="schoolForm.sanitary_pads_provision" placeholder="Select sanitary pads provision" filterable style="width: 100%">
-            <el-option label="Yes" value="Yes" />
-            <el-option label="No" value="No" />
-          </el-select>
-        </el-form-item>
-
-        <el-form-item label="Sanitary Pads Provider">
-          <el-input v-model="schoolForm.sanitary_pads_provider" placeholder="Enter sanitary pads provider" />
-        </el-form-item>
-
-        <el-form-item label="Sanitary Pads Bins">
-          <el-select v-model="schoolForm.sanitary_pads_bins" placeholder="Select sanitary pads bins" filterable style="width: 100%">
-            <el-option label="Yes" value="Yes" />
-            <el-option label="No" value="No" />
-          </el-select>
-        </el-form-item>
-
-        <el-divider content-position="left">Water and Infrastructure</el-divider>
-
-        <el-form-item label="Boreholes Count">
-          <el-input-number v-model="schoolForm.boreholes_count" :min="0" style="width: 100%" />
-        </el-form-item>
-
-        <el-form-item label="Water Tanks Count">
-          <el-input-number v-model="schoolForm.water_tanks_count" :min="0" style="width: 100%" />
-        </el-form-item>
-
-        <el-form-item label="Compound Fence Status">
-          <el-select v-model="schoolForm.compound_fence_status" placeholder="Select compound fence status" filterable style="width: 100%">
-            <el-option label="Fenced" value="Fenced" />
-            <el-option label="Partially Fenced" value="Partially Fenced" />
-            <el-option label="Not Fenced" value="Not Fenced" />
-          </el-select>
-        </el-form-item>
-
-        <el-form-item label="Teaching Aids Available">
-          <el-select v-model="schoolForm.teaching_aids_available" placeholder="Select teaching aids available" filterable style="width: 100%">
-            <el-option label="Yes" value="Yes" />
-            <el-option label="No" value="No" />
-          </el-select>
-        </el-form-item>
-
-        <el-divider content-position="left">Property Information</el-divider>
-
-        <el-form-item label="Parcel Has Title">
-          <el-select v-model="schoolForm.parcel_has_title" placeholder="Select parcel has title" filterable style="width: 100%">
-            <el-option label="Yes" value="Yes" />
-            <el-option label="No" value="No" />
-          </el-select>
-        </el-form-item>
-
-        <el-form-item label="Parcel Size (Hectares)">
-          <el-input-number v-model="schoolForm.parcel_size_hectares" :min="0" :precision="2" style="width: 100%" />
-        </el-form-item>
-
-        <el-form-item label="Distance in Meters">
-          <el-input-number v-model="schoolForm.distance_in_meters" :min="0" :precision="2" style="width: 100%" />
-        </el-form-item>
-
-        <el-divider content-position="left">Additional Information</el-divider>
-
-        <el-form-item label="School Challenges">
-          <el-input v-model="schoolForm.school_challenges" type="textarea" :rows="3" placeholder="Enter school challenges" />
-        </el-form-item>
-
-        <el-form-item label="Additional Comments">
-          <el-input v-model="schoolForm.additional_comments" type="textarea" :rows="3" placeholder="Enter additional comments" />
+        <el-form-item label="Owner/Operator">
+          <el-input v-model="facilityForm.owner" placeholder="Enter owner/operator" />
         </el-form-item>
       </el-form>
 
@@ -1292,7 +1024,7 @@ const resetMarker = () => {
             Cancel Edit
           </el-button>
           <el-button type="primary" @click="submitForm" :icon="Check">
-            {{ isEditMode ? 'Update Education Facility' : 'Save Education Facility' }}
+            {{ isEditMode ? 'Update Other Facility' : 'Save Other Facility' }}
           </el-button>
         </div>
       </template>
@@ -1301,7 +1033,7 @@ const resetMarker = () => {
 </template>
 
 <style scoped>
-.add-education-container {
+.add-other-container {
   padding: 20px;
 }
 
