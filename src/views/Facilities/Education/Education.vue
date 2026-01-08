@@ -158,8 +158,8 @@ const model = 'settlement'
 const educationFacilityModel = 'education_facility'
 
 // Store education facilities for each settlement
-const settlementEducationFacilities = reactive<Record<number, any[]>>({})
-const loadingFacilities = reactive<Record<number, boolean>>({})
+const settlementEducationFacilities = ref<Record<number, any[]>>({})
+const loadingFacilities = ref<Record<number, boolean>>({})
 
 // Drawer state for map
 const mapDrawerVisible = ref(false)
@@ -467,11 +467,11 @@ const removeReviewButton = () => {
 
 // Load education facilities for a specific settlement
 const loadEducationFacilitiesForSettlement = async (settlementId: number) => {
-  if (loadingFacilities[settlementId] || settlementEducationFacilities[settlementId]) {
-    return settlementEducationFacilities[settlementId] || []
+  if (settlementEducationFacilities.value[settlementId]) {
+    return settlementEducationFacilities.value[settlementId]
   }
 
-  loadingFacilities[settlementId] = true
+  loadingFacilities.value[settlementId] = true
   try {
     const formData = {
       limit: 1000,
@@ -486,14 +486,14 @@ const loadEducationFacilitiesForSettlement = async (settlementId: number) => {
     }
 
     const res = await getSettlementListByCounty(formData)
-    settlementEducationFacilities[settlementId] = res.data || []
+    settlementEducationFacilities.value[settlementId] = res.data || []
     return res.data || []
   } catch (error) {
     console.error('Error loading education facilities:', error)
     ElMessage.error('Failed to load education facilities')
     return []
   } finally {
-    loadingFacilities[settlementId] = false
+    loadingFacilities.value[settlementId] = false
   }
 }
 
@@ -542,8 +542,10 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   // Now load education facilities counts for display
   if (res.data && res.data.length > 0) {
     await Promise.all(res.data.map(async (settlement: any) => {
-      await loadEducationFacilitiesForSettlement(settlement.id)
+      const facilities = await loadEducationFacilitiesForSettlement(settlement.id)
+      console.log(`Loaded ${facilities.length} facilities for settlement ${settlement.id} (${settlement.name})`)
     }))
+    console.log('All facilities loaded. settlementEducationFacilities:', settlementEducationFacilities.value)
   }
 
   console.log('activeSegment.value', activeSegment.value)
