@@ -1,96 +1,46 @@
 <!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
 
-import { getSettlementListByCounty } from '@/api/settlements'
-import { DeleteRecord, updateOneRecord, deleteDocument } from '@/api/settlements'
+declare global {
+  interface Window {
+    google: any
+  }
+}
 
-import { getCountyListApi } from '@/api/counties'
+import { getSettlementListByCounty, DeleteRecord, updateOneRecord, getOneGeo, deleteDocument, getAllGeo, getfilteredGeo, CreateRecord } from '@/api/settlements'
+import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
+import { getFile, getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
 import {
   ElButton, ElSelect, MessageParamsWithType, UploadProps, ElDescriptions, ElDescriptionsItem, ElCol, ElRow, ElCard,
-  ElOptionGroup, ElOption, FormInstance
-} from 'element-plus'
-import { ElMessage, ElCollapse, ElCollapseItem, ElInput, ElBadge, ElSegmented } from 'element-plus'
-import { computed, onMounted } from 'vue'
-import xlsx from "json-as-xlsx"
-import { getFile } from '@/api/summary'
-import {
-  searchByKeyWord
-} from '@/api/settlements'
-import { getListWithoutGeo } from '@/api/counties'
-
-import {  getSummarybyFieldFromMultipleIncludes  } from '@/api/summary'
-
-import {   getOneGeo  } from '@/api/settlements'
-
-import {
-  Position,
-  TopRight,
-  User,
-  Plus,
-  Edit,
-  Delete,
-  View,
-  Download,
-  Filter,
-  InfoFilled, Back, Search,
-  MessageBox
-} from '@element-plus/icons-vue'
-
-import {
-  Apple,
-  Cherry,
-  Grape,
-  Orange,
-  Pear,
-  Watermelon, CircleClose, Message, CircleCheck,
-} from '@element-plus/icons-vue'
-
-
-import { ref, reactive, nextTick } from 'vue'
-import {
+  ElOptionGroup, ElOption, FormInstance, ElMessage, ElCollapse, ElCollapseItem, ElInput, ElBadge, ElSegmented,
   ElPagination, ElTooltip, ElTabPane, ElTabs, ElTable, ElTableColumn, ElDialog, ElUpload, ElIcon,
-  ElPopconfirm, ElDivider, ElDropdown, ElDropdownItem, ElDropdownMenu, ElForm, ElFormItem, ElEmpty
+  ElPopconfirm, ElDivider, ElDropdown, ElDropdownItem, ElDropdownMenu, ElForm, ElFormItem, ElEmpty, ElDrawer,
+  ElInputNumber, ElSteps, ElStep
 } from 'element-plus'
+import { computed, ref, reactive, nextTick, defineAsyncComponent, type Ref } from 'vue'
+import xlsx from "json-as-xlsx"
+
+import {
+  Position, TopRight, User, Plus, Edit, Delete, View, Download, Filter, InfoFilled, Back, Search,
+  MessageBox, Apple, Cherry, Grape, Orange, Pear, Watermelon, CircleClose, Message, CircleCheck, StarFilled, Loading, Check
+} from '@element-plus/icons-vue'
+
+
 
 import { useRouter, useRoute } from 'vue-router'
 import exportFromJSON from 'export-from-json'
+  
 
 
-
-import { featureGroup } from 'leaflet'
-
-import { getAllGeo } from '@/api/settlements'
-
-import { StarFilled } from '@element-plus/icons-vue'
-//import { MapboxMap, MapboxNavigationControl, MapboxMarker, MapboxGeolocateControl, MapboxGeocoder } from '@studiometa/vue-mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
-
-
-
-import '@mapbox/mapbox-gl-geocoder/lib/mapbox-gl-geocoder.css';
+import { Loader } from '@googlemaps/js-api-loader'
+import bbox from '@turf/bbox'
 import * as turf from '@turf/turf'
-import { uuid } from 'vue-uuid'
-
-import FontawesomeMarker from "mapbox-gl-fontawesome-markers";
-
-
-import mapboxgl from "mapbox-gl";
-import 'mapbox-gl/dist/mapbox-gl.css'
 import { feature } from '@turf/turf'
 
-import { Icon } from '@iconify/vue';
-import * as Iconify from '@iconify/iconify';
-import IconifyIcon from '@iconify/vue';
-
-import { MapboxLayerSwitcherControl, MapboxLayerDefinition } from "mapbox-layer-switcher";
-
-import "mapbox-layer-switcher/styles.css";
-
-import { countyOptions, subcountyOptions, settlementOptionsV2, LevelOptions, ownsershipOptions, regOptions, HCFTypeOptions } from './../common/index.ts'
+import { countyOptions, subcountyOptions, settlementOptionsV2, LevelOptions, ownsershipOptions, regOptions, HCFTypeOptions, SchoolLevelOptions } from './../common/index'
 
 import UploadComponent from '@/views/Components/UploadComponent.vue';
-import { defineAsyncComponent } from 'vue';
-
+ 
 import TableActions from '@/views/Components/TableActions.vue';
 
 import ListDocuments from '@/views/Components/ListDocuments.vue';
@@ -98,7 +48,6 @@ import DownloadAll from '@/views/Components/DownloadAll.vue';
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 
 
-import { useAppStore } from '@/store/modules/app'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import PermissionWrapper from '@/components/PermissionWrapper.vue'
@@ -113,8 +62,11 @@ const userInfo = wsCache.get(appStore.getUserInfo)
 const showAdminButtons = ref(appStore.getAdminButtons)
 const showEditButtons = ref(appStore.getEditButtons)
 
+// For settlements, show 'viewOnMap' and 'addFacility' actions
+const action_buttons = ref<string[]>(['viewOnMap', 'addFacility']);
 
-const action_buttons = ref(['edit', 'viewOnMap', 'delete', 'review']);
+// Google Maps API Key
+const googleMapsApiKey = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
 
 console.log('action_buttons', action_buttons.value);
 
@@ -126,17 +78,6 @@ console.log('action_buttons', action_buttons.value);
 
 console.log("userInfo--->", userInfo)
 console.log("showAdminButtons--->", showAdminButtons.value)
-
-
-
-const MapBoxToken =
-  'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg'
-mapboxgl.accessToken = MapBoxToken;
-
-const morefileList = ref<UploadUserFile[]>([])
-
-
-
 
 const tableDataListNew = ref([])
 const tableDataListRejected = ref([])
@@ -187,16 +128,6 @@ const options = ref([
 
 
 
-// Map 
-const polygons = ref([]) as Ref<[number, number][][]>
-const shp = []
-const geoLoaded = ref(false)
-
-const markerLatlon = ref([])
-const markerProperties = ref([])
-
-const markers = ref()
-
 const { push } = useRouter()
 
 
@@ -204,15 +135,12 @@ const { push } = useRouter()
 const countiesOptions = ref([])
 const settlementOptions = ref([])
 const settlements = ref([])
-const filteredSettlements = ref([])
 const page = ref(1)
 const pSize = ref(6)
 const selCounties = []
 const loading = ref(true)
 const pageSize = ref(6)
 const currentPage = ref(1)
-const downloadLoading = ref(false)
-
 
 const tableDataList = ref([])
 //// ------------------parameters -----------------------////
@@ -223,13 +151,209 @@ const tableDataList = ref([])
 const filters = ref(['isApproved'])
 const filterValues = ref([['Approved']])  // make sure the inner array is array
 
-
-var tblData = []
 const associated_Model = ''
 const associated_multiple_models = ['settlement', 'users', 'county', 'subcounty', 'ward']
 
-const model = 'education_facility'
-const model_parent_key = 'settlement_id'
+const model = 'settlement'
+const educationFacilityModel = 'education_facility'
+
+// Store education facilities for each settlement
+const settlementEducationFacilities = reactive<Record<number, any[]>>({})
+const loadingFacilities = reactive<Record<number, boolean>>({})
+
+// Drawer state for map
+const mapDrawerVisible = ref(false)
+const mapDrawerSettlement = ref<any>(null)
+const mapDrawerContainer = ref<HTMLElement | null>(null)
+const googleMap = ref<any>(null)
+const settlementPolygon = ref<any>(null)
+const educationFacilityMarkers = ref<any[]>([])
+const settlementGeo = ref<any>(null)
+const educationFacilitiesGeo = ref<any>(null)
+// Store facility data with markers for editing
+const facilityMarkerDataMap = ref<Map<any, any>>(new Map())
+
+// Facility form drawer state
+const facilityDrawerVisible = ref(false)
+const facilityFormRef = ref<FormInstance>()
+const editingFacilityId = ref<number | null>(null)
+const isEditMode = ref(false)
+
+// Facility form data - adapted from AddEducationNew.vue
+const facilityForm = reactive({
+  name: '',
+  registration_number: '',
+  settlement_id: '',
+  county_id: '',
+  subcounty_id: '',
+  ward_id: '',
+  education_category: [],
+  registration_status: '',
+  ownership_type: '',
+  ownership_details: '',
+  boarding_type: '',
+  land_ownership_status: '',
+  respondent_name: '',
+  respondent_phone: '',
+  enrolled_boys_count: null,
+  enrolled_girls_count: null,
+  student_source: '',
+  male_teachers_count: null,
+  female_teachers_count: null,
+  classroom_count: null,
+  classroom_condition: '',
+  boys_toilets_count: null,
+  girls_toilets_count: null,
+  handwashing_stations_count: null,
+  toilet_condition: '',
+  fees_paid_by_students: '',
+  term_1_fees_amount: null,
+  term_2_fees_amount: null,
+  term_3_fees_amount: null,
+  dropout_count: null,
+  dropout_reasons: '',
+  retention_efforts: '',
+  retention_efforts_reasons: '',
+  sanitary_pads_provision: '',
+  sanitary_pads_provider: '',
+  sanitary_pads_bins: '',
+  teaching_aids_available: '',
+  boreholes_count: null,
+  water_tanks_count: null,
+  permanent_classrooms_count: null,
+  bom_teachers_count: null,
+  compound_fence_status: '',
+  school_challenges: '',
+  parcel_has_title: '',
+  parcel_size_hectares: null,
+  efforts_for_student_retention: '',
+  additional_comments: '',
+  distance_in_meters: null,
+  geom: null
+})
+
+const facilityFormRules = reactive({
+  name: [{ required: true, message: 'School name is required', trigger: 'blur' }],
+  settlement_id: [{ required: true, message: 'Settlement is required', trigger: 'blur' }]
+})
+
+// Form options - using SchoolLevelOptions for education
+const categoryOptionsLocal = [
+  { label: 'Pre-Primary 1 and 2 (PP1 and PP2)', value: 'pre_primary' },
+  { label: 'Lower Primary (Grade 1-3 )', value: 'lower_primary' },
+  { label: 'Upper Primary (Grade 4-6)', value: 'upper_primary' },
+  { label: 'Junior School (Grade 7-9 )', value: 'junior_school' },
+  { label: 'Senior School(Grade 10-12)', value: 'senior_school' },
+  { label: 'Technical Vocational Education and Training(TVET)', value: 'tvet' }
+]
+
+const regOptionsLocal = [
+  { label: 'Unregistered', value: 'unregistred' },
+  { label: 'Registered', value: 'registered' },
+  { label: 'Awaiting Registration', value: 'awaiting_registration' }
+]
+
+const generalOwnershipLocal = [
+  { label: 'Government', value: 'government' },
+  { label: 'CBO/NGO', value: 'ngo' },
+  { label: 'Individual', value: 'individual' },
+  { label: 'Community', value: 'community' }
+]
+
+const tenancyOptionsLocal = [
+  { label: 'Rented', value: 'rented' },
+  { label: 'Owned', value: 'owned' }
+]
+
+const boardingTypeOptions = [
+  { label: 'Day', value: 'day' },
+  { label: 'Boarding', value: 'boarding' },
+  { label: 'Both', value: 'both' }
+]
+
+const yesNoOptions = [
+  { label: 'Yes', value: 'Yes' },
+  { label: 'No', value: 'No' },
+  { label: "I don't know", value: 'unknown' }
+]
+
+const yesNoPlainOptions = [
+  { label: 'Yes', value: 'yes' },
+  { label: 'No', value: 'no' }
+]
+
+const conditionFacilityOptions = [
+  { label: 'Good', value: 'Good' },
+  { label: 'Fair', value: 'Fair' },
+  { label: 'Poor', value: 'Poor' },
+  { label: 'Critical', value: 'Critical' }
+]
+
+// Full legend items based on school categories
+const allLegendItems = ref([
+  {
+    label: "Pre-Primary / ECD",
+    color: "#a6cee3",
+    key: "pre_primary"
+  },
+  {
+    label: "Primary School",
+    color: '#1f78b4',
+    key: "primary"
+  },
+  {
+    label: "Secondary School",
+    color: '#b2df8a',
+    key: "secondary"
+  },
+  {
+    label: "Village Polytechnique",
+    color: '#33a02c',
+    key: "polytechnic"
+  },
+  {
+    label: "Adult Education",
+    color: '#fb9a99',
+    key: "adult_school"
+  },
+  {
+    label: "School for Disabled",
+    color: '#e31a1c',
+    key: "school_for_disabled"
+  },
+  {
+    label: "School for Deaf",
+    color: '#fdbf6f',
+    key: "school_for_deaf"
+  },
+  {
+    label: "School for Blind",
+    color: "#ff7f00",
+    key: "school_for_blind"
+  },
+  {
+    label: "Others/Unknown",
+    color: "#969696",
+    key: "other"
+  }
+])
+
+// Track which facility categories are present in the current map
+const presentFacilityCategories = reactive<string[]>([])
+
+// Computed property for dynamic legend - only show items that are present
+const legendItems = computed(() => {
+  if (presentFacilityCategories.length === 0) {
+    return []
+  }
+  
+  // Convert to Set for efficient lookup
+  const categoriesSet = new Set(presentFacilityCategories)
+  
+  return allLegendItems.value.filter(item => {
+    return categoriesSet.has(item.key)
+  })
+})
 //// ------------------parameters -----------------------////
 
 const currentRoute = useRoute(); // Access current route using useRoute
@@ -341,12 +465,44 @@ const removeReviewButton = () => {
 
 
 
+// Load education facilities for a specific settlement
+const loadEducationFacilitiesForSettlement = async (settlementId: number) => {
+  if (loadingFacilities[settlementId] || settlementEducationFacilities[settlementId]) {
+    return settlementEducationFacilities[settlementId] || []
+  }
+
+  loadingFacilities[settlementId] = true
+  try {
+    const formData = {
+      limit: 1000,
+      page: 1,
+      curUser: 1,
+      model: educationFacilityModel,
+      searchField: 'name',
+      searchKeyword: '',
+      filters: ['settlement_id'],
+      filterValues: [[settlementId]],
+      associated_multiple_models: ['settlement', 'county', 'subcounty', 'ward', 'users']
+    }
+
+    const res = await getSettlementListByCounty(formData)
+    settlementEducationFacilities[settlementId] = res.data || []
+    return res.data || []
+  } catch (error) {
+    console.error('Error loading education facilities:', error)
+    ElMessage.error('Failed to load education facilities')
+    return []
+  } finally {
+    loadingFacilities[settlementId] = false
+  }
+}
+
 const getFilteredData = async (selFilters, selfilterValues) => {
-  const formData = {}
+  const formData: any = {}
   formData.limit = pSize.value
   formData.page = page.value
   formData.curUser = 1 // Id for logged in user
-  formData.model = model
+  formData.model = model // Now using 'settlement'
   //-Search field--------------------------------------------
   formData.searchField = 'name'
   formData.searchKeyword = ''
@@ -355,27 +511,50 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   formData.assocModel = associated_Model
 
   // - multiple filters -------------------------------------
-  formData.filters = selFilters
-  formData.filterValues = selfilterValues
-  formData.associated_multiple_models = associated_multiple_models
+  // Remove isApproved from settlement filters since we'll filter by nested model
+  const settlementFilters = selFilters.filter((f: string) => f !== 'isApproved')
+  const settlementFilterValues = selfilterValues.filter((_: any, index: number) => selFilters[index] !== 'isApproved')
+  
+  // Set settlement-level filters (county, subcounty, ward, etc.)
+  formData.filters = settlementFilters.length > 0 ? settlementFilters : []
+  formData.filterValues = settlementFilterValues.length > 0 ? settlementFilterValues : []
+  formData.associated_multiple_models = ['county', 'subcounty', 'ward']
+  
+  // Use nested_models to filter settlements that have education facilities with the specified approval status
+  // This ensures backend filtering - only settlements with matching education facilities are returned
+  const isApprovedIndex = selFilters.indexOf('isApproved')
+  if (isApprovedIndex !== -1 && selfilterValues[isApprovedIndex] && selfilterValues[isApprovedIndex].length > 0) {
+    formData.nested_models = [{
+      model: educationFacilityModel,
+      field: 'isApproved',
+      values: selfilterValues[isApprovedIndex],
+      requireMatch: true // Only return settlements that have education facilities matching the status
+    }]
+  }
 
 
 
   const res = await getSettlementListByCounty(formData)
 
-  console.log('After Querry', res)
-  //tableDataList.value = res.data
+  console.log('After Query - Settlements with Education Facilities (backend filtered):', res)
 
+  // Backend should have already filtered to only settlements with education facilities
+  // Now load education facilities counts for display
+  if (res.data && res.data.length > 0) {
+    await Promise.all(res.data.map(async (settlement: any) => {
+      await loadEducationFacilitiesForSettlement(settlement.id)
+    }))
+  }
 
   console.log('activeSegment.value', activeSegment.value)
   if (activeSegment.value == 'Approved') {
-    tableDataList.value = res.data
-    total.value = res.total
+    tableDataList.value = res.data || []
+    total.value = res.total || 0
     removeReviewButton()
 
   } else if (activeSegment.value == 'New') {
-    tableDataListNew.value = res.data
-    totalNew.value = res.total
+    tableDataListNew.value = res.data || []
+    totalNew.value = res.total || 0
 
     if (!action_buttons.value.includes('review')) {
       action_buttons.value.push('review');
@@ -383,8 +562,8 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
   }
   else if (activeSegment.value == 'Rejected') {
-    tableDataListRejected.value = res.data
-    totalRejected.value = res.total
+    tableDataListRejected.value = res.data || []
+    totalRejected.value = res.total || 0
     removeReviewButton()
 
   }
@@ -397,8 +576,9 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
 const statuses = ref([])
 const getSummaryStatus = async () => {
+  // Get count of settlements that have education facilities with different approval statuses
   const formData = {}
-  formData.model = 'education_facility'
+  formData.model = educationFacilityModel
   formData.summaryFunction = 'count'
   formData.summaryField = 'isApproved'
   formData.groupFields = ['isApproved']
@@ -525,46 +705,18 @@ const makeSettlementOptions = (list) => {
 
 
 const getGeo = async () => {
-
+  // This function is kept for backward compatibility but is no longer used
+  // for map rendering since we're using Google Maps in the drawer
   const formData = {}
   formData.model = model
-
 
   console.log(formData)
   const res = await getAllGeo(formData)
 
-
-
-  if (res.data[0].json_build_object) {
-
-
+  if (res.data[0]?.json_build_object) {
     facilityGeo.value = res.data[0].json_build_object
-    console.log('Geo Returns---', res.data[0].json_build_object.features[0].geometry.coordinates)
-    console.log("Facility Geo", facilityGeo)
-
-
-
-    //markerLatlon.value = res.data[0].json_build_object.features[0].geometry.coordinates
-    geoLoaded.value = true
-
-
-    for (let i in res.data[0].json_build_object.features) {
-
-      console.log(res.data[0].json_build_object.features[i].geometry.coordinates)
-      markerLatlon.value.push(res.data[0].json_build_object.features[i].geometry.coordinates)
-
-      var markProp = {}
-      markProp.name = res.data[0].json_build_object.features[i].properties.name
-      markerProperties.value.push(markProp)
-
-
-    }
-    console.log(markerProperties)
-
+    console.log('Geo Returns---', res.data[0].json_build_object)
   }
-
-
-
 }
 
 
@@ -575,18 +727,16 @@ getModelOptions()
 getInterventionsAll()
 getGeo()
 
-
-const loadMap = (mapCenter) => {
-
-  if (mapCenter.length === 0) {
-    var centerPosition = [37.137343, 1.137451]
-    var zoom = 6
-  } else {
-    var centerPosition = mapCenter
-    var zoom = 12
+const onSegmentClick = async () => {
+  console.log(activeSegment.value);
+  if (activeSegment.value === "Map") {
+    // Map functionality is now handled via the drawer in flyTo function
+    // This segment click handler can be removed or repurposed if needed
   }
-  var nmap = new mapboxgl.Map({
-    container: "mapContainer",
+
+  if (activeSegment.value === "Approved") {
+
+    var selectOption = 'isApproved'
     style: "mapbox://styles/mapbox/streets-v12",
     center: centerPosition, // starting position
     zoom: zoom,
@@ -767,13 +917,8 @@ const loadMap = (mapCenter) => {
 const onSegmentClick = async () => {
   console.log(activeSegment.value);
   if (activeSegment.value === "Map") {
-    // Wait for the DOM to update
-    await nextTick();
-
-    // Optionally delay further to ensure complete rendering
-    setTimeout(() => {
-      loadMap([]);
-    }, 100); // Adjust delay time as needed
+    // Map functionality is now handled via the drawer in flyTo function
+    // This segment click handler can be removed or repurposed if needed
   }
 
   if (activeSegment.value === "Approved") {
@@ -862,43 +1007,17 @@ const viewProfile = (data: TableSlotDefault) => {
 const activeTab = ref('list')
 
 
+// Open map drawer for settlement
 const flyTo = async (data: TableSlotDefault) => {
   try {
-    const geoForm: any = {
-      model,
-      id: data.id
-    };
-
-    console.log("Requesting geometry for:", geoForm);
-
-    const res = await getOneGeo(geoForm);
-
-    const features = res?.data?.[0]?.json_build_object?.features;
-    if (!features || features.length === 0) {
-      ElMessage.error("No geometry found for this location.");
-      return;
-    }
-
-    const geometry = features[0]?.geometry;
-    const coordinates = geometry?.coordinates;
-
-    if (!coordinates || coordinates.length < 2) {
-      ElMessage.error("Invalid geometry data.");
-      return;
-    }
-
-    console.log("Coordinates:", coordinates);
-
-    activeTab.value = 'map';
-    activeSegment.value = 'Map';
-
-    setTimeout(() => {
-      loadMap([coordinates[0], coordinates[1], data.name]);
-    }, 100);
-
+    mapDrawerSettlement.value = data
+    mapDrawerVisible.value = true
+    
+    await nextTick()
+    await initializeMapDrawer(data)
   } catch (error) {
-    console.error("Error loading geometry:", error);
-    ElMessage.error("Failed to load geometry. Please try again.");
+    console.error("Error opening map drawer:", error);
+    ElMessage.error("Failed to open map. Please try again.");
   }
 };
 
@@ -1003,7 +1122,8 @@ const getDocumentTypes = async () => {
 getDocumentTypes()
 
 
-const legendItems = [
+// Static legend items for Map tab (not the drawer)
+const mapTabLegendItems = [
   {
     color: '#a6cee3',
     label: 'Nursery school / ECD'
@@ -1082,6 +1202,7 @@ const handleDeleteConfirmation = (data) => {
 
 }
 const formheader = ref('Edit Facility')
+const reviewWindowWidth = ref('50%')
 
 //*****************************Create**************************** */
 
@@ -1171,7 +1292,7 @@ const Review = (data: TableSlotDefault) => {
   ruleForm.geom = data.geom
 
 
-  formHeader.value = "Review"
+  formheader.value = "Review"
 
 }
 
@@ -1257,7 +1378,11 @@ const DocumentComponentProps = ref({
 });
 
 
-function handleExpand(row) {
+const handleExpand = async (row: any) => {
+  // Load education facilities for this settlement
+  await loadEducationFacilitiesForSettlement(row.id)
+  
+  // Handle documents (existing functionality)
   dynamicDocumentComponent.value = null; // Unload the component
   rowData.value = row
   DocumentComponentProps.value.data = row
@@ -1574,12 +1699,463 @@ const searchByNewName = async () => {
 
 
 
-const AddFacility = () => {
-  push({
-    name: 'AddEducationNew'
+const AddFacility = (data?: TableSlotDefault) => {
+  if (data) {
+    // If settlement data is provided, preload county and settlement
+    push({
+      name: 'AddEducationNew',
+      query: {
+        county_id: data.county_id || data.county?.id || '',
+        settlement_id: data.id || ''
+      }
+    })
+  } else {
+    // No data provided, just navigate to add page
+    push({
+      name: 'AddEducationNew'
+    })
+  }
+}
+
+const handleAddFacility = (row: any) => {
+  AddFacility(row)
+}
+
+// Initialize Google Maps in drawer
+const initializeMapDrawer = async (settlement: any) => {
+  if (!mapDrawerContainer.value) {
+    await nextTick()
+  }
+  
+  if (!mapDrawerContainer.value) {
+    ElMessage.error("Map container not found")
+    return
+  }
+
+  try {
+    // Load Google Maps API
+    const loader = new Loader({
+      apiKey: googleMapsApiKey,
+      version: 'weekly',
+      libraries: ['drawing', 'geometry', 'places'],
+      region: 'KE',
+      language: 'en'
+    })
+
+    await loader.load()
+
+    if (!window.google || !window.google.maps) {
+      throw new Error('Google Maps API not loaded properly')
+    }
+
+    // Get settlement geometry
+    const geoForm: any = {
+      model: 'settlement',
+      id: settlement.id
+    }
+
+    const res = await getOneGeo(geoForm)
+    const geoData = res?.data?.[0]?.json_build_object
+    const features = geoData?.features
+    
+    // Check if features is null or empty
+    if (!features || (Array.isArray(features) && features.length === 0)) {
+      ElMessage.warning("No boundary geometry found for this settlement. Showing map with facilities only.")
+      settlementGeo.value = null
+    } else {
+      settlementGeo.value = geoData
+    }
+
+    // Get center and bounds
+    let center = { lat: 1.137451, lng: 37.137343 }
+    let zoom = 8
+
+    if (settlementGeo.value && settlementGeo.value.features && settlementGeo.value.features.length > 0) {
+      try {
+        const bboxResult = turf.bbox(settlementGeo.value)
+        center = {
+          lat: (bboxResult[1] + bboxResult[3]) / 2,
+          lng: (bboxResult[0] + bboxResult[2]) / 2
+        }
+        zoom = 13
+      } catch (error) {
+        console.warn('Error calculating bbox, using default center:', error)
+      }
+    }
+
+    // Initialize map
+    googleMap.value = new window.google.maps.Map(mapDrawerContainer.value, {
+      center: center,
+      zoom: zoom,
+      mapTypeId: window.google.maps.MapTypeId.ROADMAP,
+      mapTypeControl: true,
+      streetViewControl: true,
+      fullscreenControl: true
+    })
+
+    // Add settlement boundary only if features exist
+    if (settlementGeo.value && settlementGeo.value.features && settlementGeo.value.features.length > 0) {
+      const feature = settlementGeo.value.features[0]
+      if (feature && feature.geometry && (feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon')) {
+        try {
+          const paths = feature.geometry.type === 'Polygon'
+            ? feature.geometry.coordinates[0].map((coord: number[]) => ({
+                lat: coord[1],
+                lng: coord[0]
+              }))
+            : feature.geometry.coordinates[0][0].map((coord: number[]) => ({
+                lat: coord[1],
+                lng: coord[0]
+              }))
+
+          settlementPolygon.value = new window.google.maps.Polygon({
+            paths: paths,
+            strokeColor: '#FF0000',
+            strokeOpacity: 0.6,
+            strokeWeight: 2,
+            fillColor: '#FF0000',
+            fillOpacity: 0, // Transparent fill
+            map: googleMap.value
+          })
+
+          // Fit bounds to settlement
+          const pathBounds = new window.google.maps.LatLngBounds()
+          paths.forEach((path: any) => {
+            pathBounds.extend(path)
+          })
+          googleMap.value.fitBounds(pathBounds)
+        } catch (error) {
+          console.error('Error drawing settlement boundary:', error)
+          ElMessage.warning('Could not draw settlement boundary, but map is still available')
+        }
+      }
+    }
+
+    // Wait for map to be ready before loading facilities
+    const loadFacilitiesWhenReady = async () => {
+      await loadEducationFacilitiesOnMap(settlement.id)
+    }
+
+    // Use idle event to ensure map is fully loaded
+    googleMap.value.addListener('idle', loadFacilitiesWhenReady)
+    
+    // Also try loading immediately in case map is already idle
+    setTimeout(loadFacilitiesWhenReady, 500)
+
+  } catch (error) {
+    console.error("Error initializing map:", error)
+    ElMessage.error("Failed to initialize map. Please try again.")
+  }
+}
+
+// Load education facilities on map
+const loadEducationFacilitiesOnMap = async (settlementId: number) => {
+  try {
+    // Clear existing markers and reset present categories
+    educationFacilityMarkers.value.forEach(marker => marker.setMap(null))
+    educationFacilityMarkers.value = []
+    presentFacilityCategories.length = 0
+
+    if (!googleMap.value) {
+      console.error('Google map not initialized')
+      return
+    }
+
+    console.log('Loading education facilities for settlement:', settlementId)
+
+    // First, try to get facilities from already loaded data
+    const facilities = await loadEducationFacilitiesForSettlement(settlementId)
+    console.log('Loaded facilities:', facilities.length)
+
+    // Get education facilities GeoJSON
+    const formData: any = {
+      model: educationFacilityModel,
+      columnFilterField: 'settlement_id',
+      selectedParents: settlementId,
+      filtredGeoIds: [settlementId]
+    }
+
+    const res = await getfilteredGeo(formData)
+    
+    console.log('Education facilities Geo response:', res)
+    
+    // Handle different response structures
+    let geoJsonData = null
+    
+    if (res && res.data) {
+      if (Array.isArray(res.data) && res.data.length > 0) {
+        const firstItem = res.data[0]
+        
+        if (Array.isArray(firstItem) && firstItem.length > 0) {
+          if (firstItem[0] && firstItem[0].json_build_object) {
+            geoJsonData = firstItem[0].json_build_object
+          }
+        } else if (firstItem && firstItem.json_build_object) {
+          geoJsonData = firstItem.json_build_object
+        } else if (firstItem && firstItem.type === 'FeatureCollection') {
+          geoJsonData = firstItem
+        }
+      }
+    }
+    
+    console.log('Extracted GeoJSON data:', geoJsonData)
+    
+    if (!geoJsonData) {
+      console.log('No GeoJSON data found for education facilities')
+      ElMessage.info('No education facilities with geometry data found for this settlement.')
+      return
+    }
+    
+    if (geoJsonData.features === null || (Array.isArray(geoJsonData.features) && geoJsonData.features.length === 0)) {
+      console.log('GeoJSON features is null or empty')
+      ElMessage.info('No education facilities with geometry data found for this settlement.')
+      educationFacilitiesGeo.value = null
+      return
+    }
+    
+    educationFacilitiesGeo.value = geoJsonData
+    const features = geoJsonData.features || []
+    
+    if (features.length === 0) {
+      ElMessage.info('No education facilities found with geometry for this settlement.')
+      educationFacilitiesGeo.value = null
+      return
+    }
+    
+    // Process features and create markers
+    features.forEach((feature: any) => {
+      if (feature.geometry && feature.geometry.type === 'Point') {
+        const coords = feature.geometry.coordinates
+        if (!coords || coords.length < 2) {
+          return
+        }
+        
+        const [lng, lat] = coords
+        // Get category from properties - education facilities use 'category' or 'education_category'
+        let category = (feature.properties?.category || feature.properties?.education_category || 'other').toLowerCase().trim()
+        
+        // Normalize category values
+        if (!category || category === 'n/a' || category === 'na') {
+          category = 'other'
+        }
+        
+        // Track this facility category for dynamic legend
+        if (!presentFacilityCategories.includes(category)) {
+          presentFacilityCategories.push(category)
+        }
+        
+        // Get color based on category
+        const colorMap: Record<string, string> = {
+          'pre_primary': '#a6cee3',
+          'primary': '#1f78b4',
+          'secondary': '#b2df8a',
+          'polytechnic': '#33a02c',
+          'adult_school': '#fb9a99',
+          'school_for_disabled': '#e31a1c',
+          'school_for_deaf': '#fdbf6f',
+          'school_for_blind': '#ff7f00',
+          'other': '#969696'
+        }
+        
+        const color = colorMap[category] || colorMap['other']
+        
+        try {
+          const marker = new window.google.maps.Marker({
+            position: { lat, lng },
+            map: googleMap.value,
+            title: feature.properties?.name || 'Education Facility',
+            icon: {
+              path: window.google.maps.SymbolPath.CIRCLE,
+              scale: 12,
+              fillColor: color,
+              fillOpacity: 0.9,
+              strokeColor: '#ffffff',
+              strokeWeight: 2,
+              strokeOpacity: 1
+            }
+          })
+
+          const categoryLabel = allLegendItems.value.find(item => item.key === category)?.label || category
+          const infoWindow = new window.google.maps.InfoWindow({
+            content: `
+              <div style="padding: 8px; min-width: 200px;">
+                <h3 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600;">${feature.properties?.name || 'Education Facility'}</h3>
+                <p style="margin: 0 0 5px 0; font-size: 12px;"><strong>Category:</strong> ${categoryLabel}</p>
+                ${feature.properties?.ownership_type ? `<p style="margin: 5px 0 0 0; font-size: 12px;"><strong>Ownership:</strong> ${feature.properties.ownership_type}</p>` : ''}
+                ${feature.properties?.registration_status ? `<p style="margin: 5px 0 0 0; font-size: 12px;"><strong>Status:</strong> ${feature.properties.registration_status}</p>` : ''}
+              </div>
+            `
+          })
+
+          facilityMarkerDataMap.value.set(marker, feature.properties)
+          
+          marker.addListener('click', () => {
+            openFacilityForm(feature.properties)
+          })
+
+          educationFacilityMarkers.value.push(marker)
+        } catch (markerError) {
+          console.error('Error creating marker:', markerError, feature)
+        }
+      }
+    })
+    
+    if (educationFacilityMarkers.value.length === 0) {
+      ElMessage.info('No education facilities with valid Point geometry found')
+    } else {
+      ElMessage.success(`Loaded ${educationFacilityMarkers.value.length} education facilities on map`)
+    }
+  } catch (error) {
+    console.error("Error loading education facilities on map:", error)
+    ElMessage.error("Failed to load education facilities on map: " + (error as Error).message)
+  }
+}
+
+// Open facility form drawer for editing
+const openFacilityForm = (facilityData: any) => {
+  isEditMode.value = true
+  editingFacilityId.value = facilityData.id || null
+  
+  // Populate form with facility data
+  facilityForm.name = facilityData.name || ''
+  facilityForm.registration_number = facilityData.registration_number || ''
+  facilityForm.settlement_id = facilityData.settlement_id || mapDrawerSettlement.value?.id || ''
+  facilityForm.county_id = facilityData.county_id || mapDrawerSettlement.value?.county_id || ''
+  facilityForm.subcounty_id = facilityData.subcounty_id || mapDrawerSettlement.value?.subcounty_id || ''
+  facilityForm.ward_id = facilityData.ward_id || mapDrawerSettlement.value?.ward_id || ''
+  facilityForm.education_category = Array.isArray(facilityData.education_category) ? facilityData.education_category : (facilityData.category ? [facilityData.category] : [])
+  facilityForm.registration_status = facilityData.registration_status || ''
+  facilityForm.ownership_type = facilityData.ownership_type || ''
+  facilityForm.ownership_details = facilityData.ownership_details || ''
+  facilityForm.boarding_type = facilityData.boarding_type || ''
+  facilityForm.land_ownership_status = facilityData.land_ownership_status || ''
+  facilityForm.respondent_name = facilityData.respondent_name || ''
+  facilityForm.respondent_phone = facilityData.respondent_phone || ''
+  facilityForm.enrolled_boys_count = facilityData.enrolled_boys_count || null
+  facilityForm.enrolled_girls_count = facilityData.enrolled_girls_count || null
+  facilityForm.student_source = facilityData.student_source || ''
+  facilityForm.male_teachers_count = facilityData.male_teachers_count || null
+  facilityForm.female_teachers_count = facilityData.female_teachers_count || null
+  facilityForm.classroom_count = facilityData.classroom_count || null
+  facilityForm.classroom_condition = facilityData.classroom_condition || ''
+  facilityForm.boys_toilets_count = facilityData.boys_toilets_count || null
+  facilityForm.girls_toilets_count = facilityData.girls_toilets_count || null
+  facilityForm.handwashing_stations_count = facilityData.handwashing_stations_count || null
+  facilityForm.toilet_condition = facilityData.toilet_condition || ''
+  facilityForm.fees_paid_by_students = facilityData.fees_paid_by_students || ''
+  facilityForm.term_1_fees_amount = facilityData.term_1_fees_amount || null
+  facilityForm.term_2_fees_amount = facilityData.term_2_fees_amount || null
+  facilityForm.term_3_fees_amount = facilityData.term_3_fees_amount || null
+  facilityForm.dropout_count = facilityData.dropout_count || null
+  facilityForm.dropout_reasons = facilityData.dropout_reasons || ''
+  facilityForm.retention_efforts = facilityData.retention_efforts || ''
+  facilityForm.retention_efforts_reasons = facilityData.retention_efforts_reasons || ''
+  facilityForm.sanitary_pads_provision = facilityData.sanitary_pads_provision || ''
+  facilityForm.sanitary_pads_provider = facilityData.sanitary_pads_provider || ''
+  facilityForm.sanitary_pads_bins = facilityData.sanitary_pads_bins || ''
+  facilityForm.teaching_aids_available = facilityData.teaching_aids_available || ''
+  facilityForm.boreholes_count = facilityData.boreholes_count || null
+  facilityForm.water_tanks_count = facilityData.water_tanks_count || null
+  facilityForm.permanent_classrooms_count = facilityData.permanent_classrooms_count || null
+  facilityForm.bom_teachers_count = facilityData.bom_teachers_count || null
+  facilityForm.compound_fence_status = facilityData.compound_fence_status || ''
+  facilityForm.school_challenges = facilityData.school_challenges || ''
+  facilityForm.parcel_has_title = facilityData.parcel_has_title || ''
+  facilityForm.parcel_size_hectares = facilityData.parcel_size_hectares || null
+  facilityForm.efforts_for_student_retention = facilityData.efforts_for_student_retention || ''
+  facilityForm.additional_comments = facilityData.additional_comments || ''
+  facilityForm.distance_in_meters = facilityData.distance_in_meters || null
+  
+  facilityDrawerVisible.value = true
+}
+
+// Submit facility form
+const submitFacilityForm = async () => {
+  if (!facilityFormRef.value) return
+  
+  await facilityFormRef.value.validate(async (valid: boolean) => {
+    if (valid) {
+      try {
+        const formData: any = {
+          ...facilityForm,
+          model: educationFacilityModel
+        }
+        
+        if (isEditMode.value && editingFacilityId.value) {
+          formData.id = editingFacilityId.value
+          const res = await updateOneRecord(formData)
+          if (res.status === 'success') {
+            ElMessage.success('Education facility updated successfully')
+            // Reload facilities on map and in table
+            if (mapDrawerSettlement.value) {
+              await loadEducationFacilitiesOnMap(mapDrawerSettlement.value.id)
+              await loadEducationFacilitiesForSettlement(mapDrawerSettlement.value.id)
+            }
+            await getFilteredData(filters.value, filterValues.value)
+            closeFacilityDrawer()
+          } else {
+            ElMessage.error('Failed to update education facility')
+          }
+        } else {
+          const res = await CreateRecord(formData)
+          if (res.status === 'success') {
+            ElMessage.success('Education facility created successfully')
+            // Reload facilities on map and in table
+            if (mapDrawerSettlement.value) {
+              await loadEducationFacilitiesOnMap(mapDrawerSettlement.value.id)
+              await loadEducationFacilitiesForSettlement(mapDrawerSettlement.value.id)
+            }
+            await getFilteredData(filters.value, filterValues.value)
+            closeFacilityDrawer()
+          } else {
+            ElMessage.error('Failed to create education facility')
+          }
+        }
+      } catch (error) {
+        console.error('Error submitting facility form:', error)
+        ElMessage.error('Failed to save education facility')
+      }
+    }
   })
 }
 
+// Reset facility form
+const resetFacilityForm = () => {
+  isEditMode.value = false
+  editingFacilityId.value = null
+  Object.keys(facilityForm).forEach(key => {
+    if (Array.isArray(facilityForm[key])) {
+      facilityForm[key] = []
+    } else if (typeof facilityForm[key] === 'number') {
+      facilityForm[key] = null
+    } else {
+      facilityForm[key] = ''
+    }
+  })
+  facilityForm.geom = null
+}
+
+// Close facility drawer
+const closeFacilityDrawer = () => {
+  facilityDrawerVisible.value = false
+  resetFacilityForm()
+}
+
+// Close drawer handler
+const handleMapDrawerClose = () => {
+  mapDrawerVisible.value = false
+  facilityDrawerVisible.value = false
+  // Clean up markers
+  educationFacilityMarkers.value.forEach(marker => marker.setMap(null))
+  educationFacilityMarkers.value = []
+  presentFacilityCategories.length = 0
+  settlementPolygon.value = null
+  googleMap.value = null
+  mapDrawerSettlement.value = null
+  settlementGeo.value = null
+  educationFacilitiesGeo.value = null
+  facilityMarkerDataMap.value.clear()
+}
 
 const editFacility = (data: TableSlotDefault) => {
   push({
@@ -1666,7 +2242,7 @@ v-model="search_string" clearable :onClear="handleClear"
 
           <el-tooltip content="Add Facility" placement="top">
             <PermissionWrapper :permissions="'education_facility:create'">
-              <el-button :onClick="AddFacility" type="primary" :icon="Plus" />
+              <el-button @click="AddFacility" type="primary" :icon="Plus" />
             </PermissionWrapper>
           </el-tooltip>
 
@@ -1708,40 +2284,70 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
       <el-table :data="tableDataList" style="width: 100%; margin-top: 10px;" border @expand-change="handleExpand">
         <el-table-column type="expand">
           <template #default="props">
-            <div m="4">
-              <h3>Documents</h3>
-              <div>
-                <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
+            <div style="padding: 20px;">
+              <h3>Education Facilities in {{ props.row.name }}</h3>
+              <div v-if="loadingFacilities[props.row.id]" style="text-align: center; padding: 20px;">
+                <el-icon class="is-loading"><Loading /></el-icon>
+                <span>Loading education facilities...</span>
               </div>
-              <el-button
-style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success"
-                :icon="Plus" circle @click="toggleComponent(props.row)" />
+              <el-table 
+                v-else
+                :data="settlementEducationFacilities[props.row.id] || []" 
+                style="width: 100%;" 
+                border
+                size="small"
+              >
+                <el-table-column label="Facility Name" prop="name" />
+                <el-table-column label="Category" prop="category" />
+                <el-table-column label="Ownership" prop="ownership_type" />
+                <el-table-column label="Status" prop="isApproved">
+                  <template #default="scope">
+                    <el-tag 
+                      :type="scope.row.isApproved === 'Approved' ? 'success' : scope.row.isApproved === 'Rejected' ? 'danger' : 'warning'"
+                    >
+                      {{ scope.row.isApproved }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column label="Actions" width="200">
+                  <template #default="{ row }">
+                    <PermissionWrapper :permissions="['education_facility:update', 'education_facility:delete']">
+                      <el-button size="small" type="primary" :icon="Edit" @click="editFacility(row)" />
+                      <el-button size="small" type="danger" :icon="Delete" @click="DeleteFacility(row)" />
+                    </PermissionWrapper>
+                  </template>
+                </el-table-column>
+              </el-table>
+              <div v-if="!loadingFacilities[props.row.id] && (!settlementEducationFacilities[props.row.id] || settlementEducationFacilities[props.row.id].length === 0)" style="text-align: center; padding: 20px;">
+                <el-empty description="No education facilities found in this settlement" />
+              </div>
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="Name" prop="name" sortable />
+        <el-table-column label="Settlement Name" prop="name" sortable />
         <el-table-column label="Location" sortable>
           <template #default="scope">
-            <span>{{ scope.row.ward.name }} ward, {{ scope.row.subcounty.name }} subcounty, {{ scope.row.county.name
+            <span>{{ scope.row.ward?.name || 'N/A' }} ward, {{ scope.row.subcounty?.name || 'N/A' }} subcounty, {{ scope.row.county?.name || 'N/A'
               }} County</span>
           </template>
         </el-table-column>
-
+        <el-table-column label="Education Facilities Count" sortable>
+          <template #default="scope">
+            <el-badge :value="settlementEducationFacilities[scope.row.id]?.length || 0" class="item" />
+          </template>
+        </el-table-column>
 
         <el-table-column label="Actions" width="250">
           <template #default="{ row }">
-            <PermissionWrapper :permissions="['education_facility:update', 'education_facility:delete', 'education_facility:review']">
               <TableActions
-                :item="row" :buttons="action_buttons" @view-on-map="flyTo" @edit="editFacility"
-                @delete="DeleteFacility" @review="Review" />
-            </PermissionWrapper>
+              :item="row" :buttons="action_buttons" @view-on-map="flyTo" @add-facility="handleAddFacility" />
           </template>
         </el-table-column>
 
       </el-table>
 
       <div v-if="!tableDataList || tableDataList.length === 0" class="no-data-message">
-        <el-empty description="No approved education facilities found" />
+        <el-empty description="No settlements with approved education facilities found" />
       </div>
 
       <ElPagination
@@ -1763,39 +2369,70 @@ style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" ty
       <el-table :data="tableDataListNew" style="width: 100%; margin-top: 10px;" border @expand-change="handleExpand">
         <el-table-column type="expand">
           <template #default="props">
-            <div m="4">
-              <h3>Documents</h3>
-              <div>
-                <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
+            <div style="padding: 20px;">
+              <h3>Education Facilities in {{ props.row.name }}</h3>
+              <div v-if="loadingFacilities[props.row.id]" style="text-align: center; padding: 20px;">
+                <el-icon class="is-loading"><Loading /></el-icon>
+                <span>Loading education facilities...</span>
               </div>
-              <el-button
-style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success"
-                :icon="Plus" circle @click="toggleComponent(props.row)" />
+              <el-table 
+                v-else
+                :data="settlementEducationFacilities[props.row.id] || []" 
+                style="width: 100%;" 
+                border
+                size="small"
+              >
+                <el-table-column label="Facility Name" prop="name" />
+                <el-table-column label="Category" prop="category" />
+                <el-table-column label="Ownership" prop="ownership_type" />
+                <el-table-column label="Status" prop="isApproved">
+                  <template #default="scope">
+                    <el-tag 
+                      :type="scope.row.isApproved === 'Approved' ? 'success' : scope.row.isApproved === 'Rejected' ? 'danger' : 'warning'"
+                    >
+                      {{ scope.row.isApproved }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column label="Actions" width="200">
+                  <template #default="{ row }">
+                    <PermissionWrapper :permissions="['education_facility:update', 'education_facility:delete']">
+                      <el-button size="small" type="primary" :icon="Edit" @click="editFacility(row)" />
+                      <el-button size="small" type="danger" :icon="Delete" @click="DeleteFacility(row)" />
+                    </PermissionWrapper>
+                  </template>
+                </el-table-column>
+              </el-table>
+              <div v-if="!loadingFacilities[props.row.id] && (!settlementEducationFacilities[props.row.id] || settlementEducationFacilities[props.row.id].length === 0)" style="text-align: center; padding: 20px;">
+                <el-empty description="No education facilities found in this settlement" />
+              </div>
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="Name" prop="name" sortable />
+        <el-table-column label="Settlement Name" prop="name" sortable />
         <el-table-column label="Location" sortable>
           <template #default="scope">
-            <span>{{ scope.row.ward.name }} ward, {{ scope.row.subcounty.name }} subcounty, {{ scope.row.county.name
+            <span>{{ scope.row.ward?.name || 'N/A' }} ward, {{ scope.row.subcounty?.name || 'N/A' }} subcounty, {{ scope.row.county?.name || 'N/A'
               }} County</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="Education Facilities Count" sortable>
+          <template #default="scope">
+            <el-badge :value="settlementEducationFacilities[scope.row.id]?.length || 0" class="item" />
           </template>
         </el-table-column>
 
         <el-table-column label="Actions" width="250">
           <template #default="{ row }">
-            <PermissionWrapper :permissions="['education_facility:update', 'education_facility:delete', 'education_facility:review']">
               <TableActions
-                :item="row" :buttons="action_buttons" @view-on-map="flyTo" @edit="editFacility" @review="Review"
-                @delete="DeleteFacility" />
-            </PermissionWrapper>
+              :item="row" :buttons="action_buttons" @view-on-map="flyTo" @add-facility="handleAddFacility" />
           </template>
         </el-table-column>
 
       </el-table>
 
       <div v-if="!tableDataListNew || tableDataListNew.length === 0" class="no-data-message">
-        <el-empty description="No new education facilities found" />
+        <el-empty description="No settlements with new education facilities found" />
       </div>
 
       <ElPagination
@@ -1818,32 +2455,63 @@ style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" ty
         @expand-change="handleExpand">
         <el-table-column type="expand">
           <template #default="props">
-            <div m="4">
-              <h3>Documents</h3>
-              <div>
-                <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
+            <div style="padding: 20px;">
+              <h3>Education Facilities in {{ props.row.name }}</h3>
+              <div v-if="loadingFacilities[props.row.id]" style="text-align: center; padding: 20px;">
+                <el-icon class="is-loading"><Loading /></el-icon>
+                <span>Loading education facilities...</span>
               </div>
-              <el-button
-style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success"
-                :icon="Plus" circle @click="toggleComponent(props.row)" />
+              <el-table 
+                v-else
+                :data="settlementEducationFacilities[props.row.id] || []" 
+                style="width: 100%;" 
+                border
+                size="small"
+              >
+                <el-table-column label="Facility Name" prop="name" />
+                <el-table-column label="Category" prop="category" />
+                <el-table-column label="Ownership" prop="ownership_type" />
+                <el-table-column label="Status" prop="isApproved">
+                  <template #default="scope">
+                    <el-tag 
+                      :type="scope.row.isApproved === 'Approved' ? 'success' : scope.row.isApproved === 'Rejected' ? 'danger' : 'warning'"
+                    >
+                      {{ scope.row.isApproved }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column label="Actions" width="200">
+                  <template #default="{ row }">
+                    <PermissionWrapper :permissions="['education_facility:update', 'education_facility:delete']">
+                      <el-button size="small" type="primary" :icon="Edit" @click="editFacility(row)" />
+                      <el-button size="small" type="danger" :icon="Delete" @click="DeleteFacility(row)" />
+                    </PermissionWrapper>
+                  </template>
+                </el-table-column>
+              </el-table>
+              <div v-if="!loadingFacilities[props.row.id] && (!settlementEducationFacilities[props.row.id] || settlementEducationFacilities[props.row.id].length === 0)" style="text-align: center; padding: 20px;">
+                <el-empty description="No education facilities found in this settlement" />
+              </div>
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="Name" prop="name" sortable />
+        <el-table-column label="Settlement Name" prop="name" sortable />
         <el-table-column label="Location" sortable>
           <template #default="scope">
-            <span>{{ scope.row.ward.name }} ward, {{ scope.row.subcounty.name }} subcounty, {{ scope.row.county.name
+            <span>{{ scope.row.ward?.name || 'N/A' }} ward, {{ scope.row.subcounty?.name || 'N/A' }} subcounty, {{ scope.row.county?.name || 'N/A'
               }} County</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="Education Facilities Count" sortable>
+          <template #default="scope">
+            <el-badge :value="settlementEducationFacilities[scope.row.id]?.length || 0" class="item" />
           </template>
         </el-table-column>
 
         <el-table-column label="Actions" width="250">
           <template #default="{ row }">
-            <PermissionWrapper :permissions="['education_facility:update', 'education_facility:delete', 'education_facility:review']">
               <TableActions
-                :item="row" :buttons="action_buttons" @view-on-map="flyTo" @edit="editFacility"
-                @delete="DeleteFacility" />
-            </PermissionWrapper>
+              :item="row" :buttons="action_buttons" @view-on-map="flyTo" @add-facility="handleAddFacility" />
           </template>
         </el-table-column>
 
@@ -1852,7 +2520,7 @@ style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" ty
       </el-table>
 
       <div v-if="!tableDataListRejected || tableDataListRejected.length === 0" class="no-data-message">
-        <el-empty description="No rejected education facilities found" />
+        <el-empty description="No settlements with rejected education facilities found" />
       </div>
 
       <ElPagination
@@ -1877,7 +2545,7 @@ style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" ty
           <el-collapse>
             <el-collapse-item title="LEGEND">
               <div class="legend">
-                <div v-for="item in legendItems" :key="item.label" class="legend-item">
+                <div v-for="item in mapTabLegendItems" :key="item.label" class="legend-item">
                   <div class="circle-color" :style="{ backgroundColor: item.color }"></div>
                   <div class="legend-label">{{ item.label }}</div>
                 </div>
@@ -1968,7 +2636,7 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
 
 
 
-  <el-dialog v-model="ShowReviewDialog" @close="handleClose" :title="formHeader" :width="reviewWindowWidth" draggable>
+  <el-dialog v-model="ShowReviewDialog" @close="handleClose" :title="formheader" :width="reviewWindowWidth" draggable>
     <el-descriptions title="" direction="vertical" :column="2" size="small" border>
       <el-descriptions-item label="Name">{{ facility_raw.name }}</el-descriptions-item>
       <el-descriptions-item label="Status" :span="2">{{ facility_raw.reg_status }}</el-descriptions-item>
@@ -1997,6 +2665,181 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
     </template>
   </el-dialog>
 
+  <!-- Map Drawer -->
+  <el-drawer
+    v-model="mapDrawerVisible"
+    title="Settlement Map with Education Facilities"
+    direction="rtl"
+    :size="isMobile ? '100%' : '60%'"
+    :before-close="handleMapDrawerClose"
+    class="map-drawer"
+  >
+    <template #header>
+      <div class="drawer-header-mobile">
+        <span class="drawer-title">{{ mapDrawerSettlement?.name || 'Settlement Map' }}</span>
+        <el-button type="danger" size="default" @click="handleMapDrawerClose" class="close-btn-mobile">Close</el-button>
+      </div>
+    </template>
+    
+    <div v-if="mapDrawerSettlement" class="map-container-wrapper">
+      <div ref="mapDrawerContainer" class="map-container"></div>
+      
+      <!-- Legend - Dynamically shows only facility categories present on map -->
+      <div v-if="legendItems && legendItems.length > 0" class="map-legend">
+        <h4 class="legend-title">Education Facility Categories</h4>
+        <template v-for="item in legendItems" :key="item.key">
+          <div class="legend-item">
+            <div 
+              class="legend-circle"
+              :style="{ backgroundColor: item.color }"
+            ></div>
+            <span class="legend-label">{{ item.label }}</span>
+          </div>
+        </template>
+      </div>
+    </div>
+  </el-drawer>
+
+  <!-- Facility Form Drawer for Editing -->
+  <el-drawer
+    v-model="facilityDrawerVisible"
+    :title="isEditMode ? 'Edit Education Facility' : 'Education Facility Details'"
+    direction="rtl"
+    :size="isMobile ? '100%' : '600px'"
+    :before-close="closeFacilityDrawer"
+    class="facility-form-drawer"
+  >
+    <el-form
+      ref="facilityFormRef"
+      :model="facilityForm"
+      :rules="facilityFormRules"
+      :label-width="isMobile ? '0px' : '180px'"
+      :label-position="isMobile ? 'top' : 'left'"
+      class="facility-form-mobile"
+    >
+      <el-divider content-position="left">Basic Information</el-divider>
+
+      <el-form-item label="School Name" prop="name">
+        <el-input v-model="facilityForm.name" placeholder="Enter school name" />
+      </el-form-item>
+
+      <el-form-item label="Registration Number">
+        <el-input v-model="facilityForm.registration_number" placeholder="Enter registration number" />
+      </el-form-item>
+
+      <el-form-item label="Education Category">
+        <el-select v-model="facilityForm.education_category" placeholder="Select category" filterable multiple style="width: 100%">
+          <el-option
+            v-for="item in categoryOptionsLocal"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="Registration Status">
+        <el-select v-model="facilityForm.registration_status" placeholder="Select registration status" filterable style="width: 100%">
+          <el-option
+            v-for="item in regOptionsLocal"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="Ownership Type">
+        <el-select v-model="facilityForm.ownership_type" placeholder="Select ownership type" filterable style="width: 100%">
+          <el-option
+            v-for="item in generalOwnershipLocal"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="Boarding Type">
+        <el-select v-model="facilityForm.boarding_type" placeholder="Select boarding type" filterable style="width: 100%">
+          <el-option
+            v-for="item in boardingTypeOptions"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </el-form-item>
+
+      <el-divider content-position="left">Enrollment</el-divider>
+
+      <el-form-item label="Enrolled Boys">
+        <el-input-number v-model="facilityForm.enrolled_boys_count" :min="0" style="width: 100%" />
+      </el-form-item>
+
+      <el-form-item label="Enrolled Girls">
+        <el-input-number v-model="facilityForm.enrolled_girls_count" :min="0" style="width: 100%" />
+      </el-form-item>
+
+      <el-divider content-position="left">Staff</el-divider>
+
+      <el-form-item label="Male Teachers">
+        <el-input-number v-model="facilityForm.male_teachers_count" :min="0" style="width: 100%" />
+      </el-form-item>
+
+      <el-form-item label="Female Teachers">
+        <el-input-number v-model="facilityForm.female_teachers_count" :min="0" style="width: 100%" />
+      </el-form-item>
+
+      <el-divider content-position="left">Infrastructure</el-divider>
+
+      <el-form-item label="Classrooms">
+        <el-input-number v-model="facilityForm.classroom_count" :min="0" style="width: 100%" />
+      </el-form-item>
+
+      <el-form-item label="Classroom Condition">
+        <el-select v-model="facilityForm.classroom_condition" placeholder="Select condition" filterable style="width: 100%">
+          <el-option
+            v-for="item in conditionFacilityOptions"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="Boys Toilets">
+        <el-input-number v-model="facilityForm.boys_toilets_count" :min="0" style="width: 100%" />
+      </el-form-item>
+
+      <el-form-item label="Girls Toilets">
+        <el-input-number v-model="facilityForm.girls_toilets_count" :min="0" style="width: 100%" />
+      </el-form-item>
+
+      <el-divider content-position="left">Additional Information</el-divider>
+
+      <el-form-item label="Respondent Name">
+        <el-input v-model="facilityForm.respondent_name" placeholder="Enter respondent name" />
+      </el-form-item>
+
+      <el-form-item label="Respondent Phone">
+        <el-input v-model="facilityForm.respondent_phone" placeholder="Enter respondent phone" />
+      </el-form-item>
+
+      <el-form-item label="School Challenges">
+        <el-input v-model="facilityForm.school_challenges" type="textarea" :rows="3" placeholder="Enter challenges" />
+      </el-form-item>
+    </el-form>
+
+    <template #footer>
+      <div class="drawer-footer-mobile">
+        <el-button @click="closeFacilityDrawer" class="footer-btn">Cancel</el-button>
+        <el-button type="primary" @click="submitFacilityForm" :icon="Check" class="footer-btn">
+          {{ isEditMode ? 'Update Education Facility' : 'Save Education Facility' }}
+        </el-button>
+      </div>
+    </template>
+  </el-drawer>
 
 </template>
 
@@ -2005,6 +2848,220 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
   width: 100%;
   height: 65vh;
   /* Set the height to 75% of the viewport height */
+}
+
+/* Mobile-optimized drawer styles */
+.drawer-header-mobile {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 0 8px;
+}
+
+.drawer-title {
+  font-size: 16px;
+  font-weight: 600;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-right: 12px;
+}
+
+.close-btn-mobile {
+  min-width: 60px;
+  padding: 8px 16px;
+}
+
+.map-container-wrapper {
+  height: calc(100vh - 120px);
+  position: relative;
+  width: 100%;
+}
+
+.map-container {
+  width: 100%;
+  height: 100%;
+}
+
+.map-legend {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  background: white;
+  padding: 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+  z-index: 1000;
+  max-width: 280px;
+}
+
+.legend-title {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.legend-circle {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  margin-right: 12px;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  flex-shrink: 0;
+}
+
+.legend-label {
+  font-size: 12px;
+  color: #333;
+  line-height: 1.4;
+}
+
+.facility-form-mobile {
+  padding-bottom: 20px;
+}
+
+.drawer-footer-mobile {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 20px;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+
+.footer-btn {
+  min-width: 100px;
+}
+
+/* Mobile-specific styles */
+@media (max-width: 768px) {
+  .map-container-wrapper {
+    height: calc(100vh - 100px);
+  }
+
+  .map-legend {
+    bottom: 10px;
+    right: 10px;
+    left: 10px;
+    max-width: none;
+    padding: 12px;
+    max-height: 40vh;
+    overflow-y: auto;
+  }
+
+  .legend-title {
+    font-size: 13px;
+    margin-bottom: 10px;
+  }
+
+  .legend-item {
+    margin-bottom: 8px;
+  }
+
+  .legend-circle {
+    width: 16px;
+    height: 16px;
+    margin-right: 10px;
+  }
+
+  .legend-label {
+    font-size: 11px;
+  }
+
+  .drawer-title {
+    font-size: 14px;
+  }
+
+  .close-btn-mobile {
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+
+  .facility-form-mobile :deep(.el-form-item) {
+    margin-bottom: 18px;
+  }
+
+  .facility-form-mobile :deep(.el-form-item__label) {
+    font-size: 13px;
+    margin-bottom: 6px;
+    padding-bottom: 0;
+  }
+
+  .facility-form-mobile :deep(.el-input),
+  .facility-form-mobile :deep(.el-select),
+  .facility-form-mobile :deep(.el-input-number) {
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+
+  .facility-form-mobile :deep(.el-button) {
+    width: 100%;
+    margin-top: 10px;
+    padding: 12px;
+    font-size: 15px;
+  }
+
+  .facility-form-mobile :deep(.el-divider) {
+    margin: 20px 0;
+  }
+
+  .facility-form-mobile :deep(.el-divider__text) {
+    font-size: 14px;
+  }
+
+  .drawer-footer-mobile {
+    flex-direction: column;
+    padding: 15px;
+    gap: 10px;
+  }
+
+  .footer-btn {
+    width: 100%;
+    margin: 0;
+  }
+}
+
+/* Tablet styles */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .map-legend {
+    max-width: 240px;
+    padding: 12px;
+  }
+
+  .legend-label {
+    font-size: 11px;
+  }
+}
+
+/* Ensure drawers are scrollable on mobile */
+:deep(.el-drawer__body) {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Improve touch targets */
+@media (max-width: 768px) {
+  :deep(.el-button) {
+    min-height: 44px; /* iOS recommended touch target */
+  }
+
+  :deep(.el-select),
+  :deep(.el-input) {
+    min-height: 44px;
+  }
+
+  :deep(.el-input__inner),
+  :deep(.el-input__wrapper) {
+    min-height: 44px;
+  }
 }
 </style>
 

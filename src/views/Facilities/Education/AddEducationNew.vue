@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // @ts-nocheck
-import { ref, reactive, nextTick, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, reactive, nextTick, computed, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 
 declare global {
   interface Window {
@@ -106,6 +106,7 @@ const userInfo = wsCache.get(appStore.getUserInfo)
 const isMobile = computed(() => appStore.getMobile)
 
 const router = useRouter()
+const route = useRoute()
 
 // Step management
 const currentStep = ref(0)
