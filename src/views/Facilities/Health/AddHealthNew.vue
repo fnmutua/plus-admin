@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // @ts-nocheck
-import { ref, reactive, nextTick, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, reactive, nextTick, computed, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 
 declare global {
   interface Window {
@@ -99,6 +99,7 @@ const userInfo = wsCache.get(appStore.getUserInfo)
 const isMobile = computed(() => appStore.getMobile)
 
 const router = useRouter()
+const route = useRoute()
 
 // Step management
 const currentStep = ref(0)
@@ -848,6 +849,26 @@ const goBack = () => {
     router.back()
   }
 }
+
+// Preload county and settlement from query parameters
+onMounted(async () => {
+  const countyId = route.query.county_id as string
+  const settlementId = route.query.settlement_id as string
+  
+  if (countyId) {
+    selectedCounty.value = parseInt(countyId)
+    
+    // If settlement is provided via query, skip geometry checking and directly load it
+    if (settlementId) {
+      // Skip geometry checking - directly load the settlement
+      selectedSettlement.value = parseInt(settlementId)
+      await handleSettlementChange(parseInt(settlementId))
+    } else {
+      // Only check geometry if settlement is not provided (user needs to select one)
+      await handleCountyChange(parseInt(countyId))
+    }
+  }
+})
 
 // Close drawer and reset if not in edit mode
 const closeDrawer = () => {

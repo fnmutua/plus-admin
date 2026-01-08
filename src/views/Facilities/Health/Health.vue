@@ -1,7 +1,7 @@
 <!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
 
-import { getSettlementListByCounty, DeleteRecord, updateOneRecord, getOneGeo, deleteDocument, searchByKeyWord, getAllGeo } from '@/api/settlements'
+import { getSettlementListByCounty, DeleteRecord, updateOneRecord, getOneGeo, deleteDocument, searchByKeyWord, getAllGeo, getfilteredGeo, CreateRecord } from '@/api/settlements'
 import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
 import { getFile, getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
 
@@ -9,12 +9,13 @@ import {
   ElButton, ElSelect, MessageParamsWithType, UploadProps, ElDescriptions, ElDescriptionsItem, ElCol, ElRow, ElCard,
   ElOptionGroup, ElOption, FormInstance, ElMessage, ElCollapse, ElCollapseItem, ElInput, ElBadge, ElSegmented,
   ElPagination, ElTooltip, ElTabPane, ElTabs, ElTable, ElTableColumn, ElDialog, ElUpload, ElIcon,
-  ElPopconfirm, ElDivider, ElDropdown, ElDropdownItem, ElDropdownMenu, ElForm, ElFormItem, ElEmpty
+  ElPopconfirm, ElDivider, ElDropdown, ElDropdownItem, ElDropdownMenu, ElForm, ElFormItem, ElEmpty, ElDrawer,
+  ElInputNumber, ElSteps, ElStep
 } from 'element-plus'
 
 import {
   Position, TopRight, User, Plus, Edit, Delete, View, Download, Filter, InfoFilled, Back, Search,
-  MessageBox, Apple, Cherry, Grape, Orange, Pear, Watermelon, CircleClose, Message, CircleCheck, StarFilled
+  MessageBox, Apple, Cherry, Grape, Orange, Pear, Watermelon, CircleClose, Message, CircleCheck, StarFilled, Loading, Check
 } from '@element-plus/icons-vue'
 
 import { computed, onMounted, ref, reactive, nextTick, defineAsyncComponent } from 'vue'
@@ -22,22 +23,9 @@ import { useRouter, useRoute } from 'vue-router'
 
 import xlsx from "json-as-xlsx"
 import exportFromJSON from 'export-from-json'
-import { featureGroup } from 'leaflet'
 import bbox from '@turf/bbox'
 import * as turf from '@turf/turf'
 import { feature } from '@turf/turf'
-import { uuid } from 'vue-uuid'
-import FontawesomeMarker from "mapbox-gl-fontawesome-markers"
-import mapboxgl from "mapbox-gl"
-import { Icon } from '@iconify/vue'
-import * as Iconify from '@iconify/iconify'
-import IconifyIcon from '@iconify/vue'
-import { MapboxLayerSwitcherControl, MapboxLayerDefinition } from "mapbox-layer-switcher"
-
-// CSS imports
-import 'mapbox-gl/dist/mapbox-gl.css'
-import '@mapbox/mapbox-gl-geocoder/lib/mapbox-gl-geocoder.css'
-import "mapbox-layer-switcher/styles.css"
 
 import { countyOptions, subcountyOptions, settlementOptionsV2, LevelOptions, ownsershipOptions, regOptions, HCFTypeOptions } from './../common/index'
 
@@ -58,24 +46,16 @@ const userInfo = wsCache.get(appStore.getUserInfo)
 const showAdminButtons = ref(appStore.getAdminButtons)
 const showEditButtons = ref(appStore.getEditButtons)
 
-const action_buttons = ref<string[]>([]);
-
-if (showAdminButtons.value) {
-  action_buttons.value = ['edit', 'viewOnMap', 'delete'];
-} else if (showEditButtons.value) {
-  action_buttons.value = ['edit', 'viewOnMap'];
-} else {
-  action_buttons.value = ['viewOnMap'];
-}
+// For settlements, show 'viewOnMap' and 'addFacility' actions
+const action_buttons = ref<string[]>(['viewOnMap', 'addFacility']);
 
 console.log('action_buttons', action_buttons.value);
 
 console.log("userInfo--->", userInfo)
 console.log("showAdminButtons--->", showAdminButtons.value)
 
-const MapBoxToken =
-  'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg'
-mapboxgl.accessToken = MapBoxToken;
+// Google Maps API Key
+const googleMapsApiKey = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
 
 const morefileList = ref<any[]>([])
 
@@ -151,7 +131,8 @@ var tblData = []
 const associated_Model = ''
 const associated_multiple_models = ['settlement', 'users', 'county', 'subcounty', 'ward']
 
-const model = 'health_facility'
+const model = 'settlement' // Changed to settlement for listing
+const healthFacilityModel = 'health_facility'
 const model_parent_key = 'settlement_id'
 
 const currentRoute = useRoute(); // Access current route using useRoute
@@ -190,8 +171,9 @@ const handleSelectCounty = async (county_id: any) => {
 
 const statuses = ref([])
 const getSummaryStatus = async () => {
+  // Get count of settlements that have health facilities with different approval statuses
   const formData = {}
-  formData.model = 'health_facility'
+  formData.model = healthFacilityModel
   formData.summaryFunction = 'count'
   formData.summaryField = 'isApproved'
   formData.groupFields = ['isApproved']
@@ -261,12 +243,48 @@ const removeReviewButton = () => {
   console.log('action_buttons after removing review:', action_buttons.value);
 };
 
+// Store health facilities for each settlement
+const settlementHealthFacilities = ref<Record<number, any[]>>({})
+const loadingFacilities = ref<Record<number, boolean>>({})
+
+// Load health facilities for a settlement
+const loadHealthFacilitiesForSettlement = async (settlementId: number) => {
+  if (settlementHealthFacilities.value[settlementId]) {
+    return settlementHealthFacilities.value[settlementId]
+  }
+
+  loadingFacilities.value[settlementId] = true
+  try {
+    const formData = {
+      limit: 1000,
+      page: 1,
+      curUser: 1,
+      model: healthFacilityModel,
+      searchField: 'name',
+      searchKeyword: '',
+      filters: ['settlement_id'],
+      filterValues: [[settlementId]],
+      associated_multiple_models: ['settlement', 'county', 'subcounty', 'ward', 'users']
+    }
+
+    const res = await getSettlementListByCounty(formData)
+    settlementHealthFacilities.value[settlementId] = res.data || []
+    return res.data || []
+  } catch (error) {
+    console.error('Error loading health facilities:', error)
+    ElMessage.error('Failed to load health facilities')
+    return []
+  } finally {
+    loadingFacilities.value[settlementId] = false
+  }
+}
+
 const getFilteredData = async (selFilters, selfilterValues) => {
-  const formData = {}
+  const formData: any = {}
   formData.limit = pSize.value
   formData.page = page.value
   formData.curUser = 1 // Id for logged in user
-  formData.model = model
+  formData.model = model // Now using 'settlement'
   //-Search field--------------------------------------------
   formData.searchField = 'name'
   formData.searchKeyword = ''
@@ -275,24 +293,50 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   formData.assocModel = associated_Model
 
   // - multiple filters -------------------------------------
-  formData.filters = selFilters
-  formData.filterValues = selfilterValues
-  formData.associated_multiple_models = associated_multiple_models
+  // Remove isApproved from settlement filters since we'll filter by nested model
+  const settlementFilters = selFilters.filter((f: string) => f !== 'isApproved')
+  const settlementFilterValues = selfilterValues.filter((_: any, index: number) => selFilters[index] !== 'isApproved')
+  
+  // Set settlement-level filters (county, subcounty, ward, etc.)
+  formData.filters = settlementFilters.length > 0 ? settlementFilters : []
+  formData.filterValues = settlementFilterValues.length > 0 ? settlementFilterValues : []
+  formData.associated_multiple_models = ['county', 'subcounty', 'ward']
+  
+  // Use nested_models to filter settlements that have health facilities with the specified approval status
+  // This ensures backend filtering - only settlements with matching health facilities are returned
+  const isApprovedIndex = selFilters.indexOf('isApproved')
+  const approvalStatus = isApprovedIndex !== -1 ? selfilterValues[isApprovedIndex] : null
+  
+  formData.nested_models = [{
+    model: healthFacilityModel,
+    foreignKey: 'settlement_id',
+    localKey: 'id',
+    filters: approvalStatus ? ['isApproved'] : [],
+    filterValues: approvalStatus ? [approvalStatus] : [],
+    requireMatch: true // Ensure settlement must have at least one matching health facility
+  }]
 
   const res = await getSettlementListByCounty(formData)
 
-  console.log('After Querry', res)
-  //tableDataList.value = res.data
+  console.log('After Query - Settlements with Health Facilities (backend filtered):', res)
+
+  // Backend should have already filtered to only settlements with health facilities
+  // Now load health facilities counts for display
+  if (res.data && res.data.length > 0) {
+    await Promise.all(res.data.map(async (settlement: any) => {
+      await loadHealthFacilitiesForSettlement(settlement.id)
+    }))
+  }
 
   console.log('activeSegment.value', activeSegment.value)
   if (activeSegment.value == 'Approved') {
-    tableDataList.value = res.data
-    total.value = res.total
+    tableDataList.value = res.data || []
+    total.value = res.total || 0
     removeReviewButton()
 
   } else if (activeSegment.value == 'New' && showAdminButtons.value) {
-    tableDataListNew.value = res.data
-    totalNew.value = res.total
+    tableDataListNew.value = res.data || []
+    totalNew.value = res.total || 0
 
     if (!action_buttons.value.includes('review')) {
       action_buttons.value.push('review');
@@ -300,8 +344,8 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
   }
   else if (activeSegment.value == 'Rejected' && showAdminButtons.value) {
-    tableDataListRejected.value = res.data
-    totalRejected.value = res.total
+    tableDataListRejected.value = res.data || []
+    totalRejected.value = res.total || 0
     removeReviewButton()
 
   }
@@ -627,13 +671,9 @@ const onSegmentClick = async () => {
 
   
   if (activeSegment.value === "Map") {
-    // Wait for the DOM to update
-    await nextTick();
-
-    // Optionally delay further to ensure complete rendering
-    setTimeout(() => {
-      loadMap([]);
-    }, 100); // Adjust delay time as needed
+    // Map view is now handled through the drawer when clicking "View on Map"
+    // This segment can show a general overview if needed
+    ElMessage.info("Click 'View on Map' on a settlement to see its map")
   }
 
   if (activeSegment.value === "Approved") {
@@ -719,46 +759,639 @@ const viewProfile = (data: TableSlotDefault) => {
   })
 }
 
-const activeTab = ref('list')
+// Drawer state for map
+const mapDrawerVisible = ref(false)
+const mapDrawerSettlement = ref<any>(null)
+const mapDrawerContainer = ref<HTMLElement | null>(null)
+const googleMap = ref<any>(null)
+const settlementPolygon = ref<any>(null)
+const healthFacilityMarkers = ref<any[]>([])
+const settlementGeo = ref<any>(null)
+const healthFacilitiesGeo = ref<any>(null)
+// Store facility data with markers for editing
+const facilityMarkerDataMap = ref<Map<any, any>>(new Map())
+
+// Marker placement for adding new facilities
+
+// Facility form drawer state
+const facilityDrawerVisible = ref(false)
+const facilityFormRef = ref<FormInstance>()
+const editingFacilityId = ref<number | null>(null)
+const isEditMode = ref(false)
+
+// Facility form data - similar to AddHealthNew.vue
+const facilityForm = reactive({
+  name: '',
+  facility_number: '',
+  settlement_id: '',
+  county_id: '',
+  subcounty_id: '',
+  ward_id: '',
+  level: '',
+  registration_status: '',
+  ownership_type: '',
+  owner: '',
+  land_ownership: '',
+  land_title_available: '',
+  land_parcel_size: null,
+  condition: '',
+  num_inpatient: null,
+  outpatient_visits_per_day: null,
+  maternity_deliveries_per_day: null,
+  antenatal_immunizations_per_day: null,
+  general_beds: null,
+  maternity_beds: null,
+  pediatric_beds: null,
+  total_beds: null,
+  occupancy_rate: null,
+  number_doctors: null,
+  number_clinical_officers: null,
+  number_pharmacists: null,
+  number_nurses: null,
+  number_midwives: null,
+  number_other_staff: null,
+  services_offered: '',
+  referral_destinations: '',
+  referral_distance_km: null,
+  referrals_per_day: null,
+  has_ambulance: '',
+  source_of_drugs: '',
+  common_ailments: '',
+  source_of_patients: '',
+  challenges: '',
+  respondent_name: '',
+  respondent_phone: '',
+  distance_meters: null,
+  geom: null
+})
+
+const facilityFormRules = reactive({
+  name: [{ required: true, message: 'Facility name is required', trigger: 'blur' }],
+  settlement_id: [{ required: true, message: 'Settlement is required', trigger: 'blur' }]
+})
+
+// Form options from AddHealthNew.vue
+const LevelOptionsLocal = [
+  { label: 'LEVEL 1 – Community Facilities', value: 'level_1' },
+  { label: 'LEVEL 2 – Health Dispensaries', value: 'level_2' },
+  { label: 'LEVEL 3 – Health Centres', value: 'level_3' },
+  { label: 'LEVEL 4 – County Hospitals', value: 'level_4' },
+  { label: 'LEVEL 5 – County Referral Hospitals', value: 'level_5' },
+  { label: 'LEVEL 6 – National Referral Hospitals', value: 'level_6' }
+]
+
+const regOptionsLocal = [
+  { label: 'Unregistered', value: 'unregistred' },
+  { label: 'Registered', value: 'registered' },
+  { label: 'Awaiting Registration', value: 'awaiting_registration' }
+]
+
+const generalOwnershipLocal = [
+  { label: 'Government', value: 'government' },
+  { label: 'CBO/NGO', value: 'ngo' },
+  { label: 'Individual', value: 'individual' },
+  { label: 'Community', value: 'community' }
+]
+
+const tenancyOptionsLocal = [
+  { label: 'Rented', value: 'rented' },
+  { label: 'Owned', value: 'owned' }
+]
+
+const yesNoOptions = [
+  { label: 'Yes', value: 'Yes' },
+  { label: 'No', value: 'No' },
+  { label: "I don't know", value: 'unknown' }
+]
+
+const yesNoPlainOptions = [
+  { label: 'Yes', value: 'yes' },
+  { label: 'No', value: 'no' }
+]
+
+const conditionFacilityOptions = [
+  { label: 'Good', value: 'Good' },
+  { label: 'Fair', value: 'Fair' },
+  { label: 'Poor', value: 'Poor' },
+  { label: 'Critical', value: 'Critical' }
+]
+
+// Open map drawer for settlement
 const flyTo = async (data: TableSlotDefault) => {
   try {
-    const geoForm: any = {
-      model,
-      id: data.id
-    };
-
-    console.log("Requesting geometry for:", geoForm);
-
-    const res = await getOneGeo(geoForm);
-
-    const features = res?.data?.[0]?.json_build_object?.features;
-    if (!features || features.length === 0) {
-      ElMessage.error("No geometry found for this location.");
-      return;
-    }
-
-    const geometry = features[0]?.geometry;
-    const coordinates = geometry?.coordinates;
-
-    if (!coordinates || coordinates.length < 2) {
-      ElMessage.error("Invalid geometry data.");
-      return;
-    }
-
-    console.log("Coordinates:", coordinates);
-
-    activeTab.value = 'map';
-    activeSegment.value = 'Map';
-
-    setTimeout(() => {
-      loadMap([coordinates[0], coordinates[1], data.name]);
-    }, 100);
-
+    mapDrawerSettlement.value = data
+    mapDrawerVisible.value = true
+    
+    await nextTick()
+    await initializeMapDrawer(data)
   } catch (error) {
-    console.error("Error loading geometry:", error);
-    ElMessage.error("Failed to load geometry. Please try again.");
+    console.error("Error opening map drawer:", error);
+    ElMessage.error("Failed to open map. Please try again.");
   }
 };
+
+// Initialize Google Maps in drawer
+const initializeMapDrawer = async (settlement: any) => {
+  if (!mapDrawerContainer.value) {
+    await nextTick()
+  }
+  
+  if (!mapDrawerContainer.value) {
+    ElMessage.error("Map container not found")
+    return
+  }
+
+  try {
+    // Load Google Maps API
+    const { Loader } = await import('@googlemaps/js-api-loader')
+    
+    const loader = new Loader({
+      apiKey: googleMapsApiKey,
+      version: 'weekly',
+      libraries: ['drawing', 'geometry', 'places'],
+      region: 'KE',
+      language: 'en'
+    })
+
+    await loader.load()
+
+    if (!window.google || !window.google.maps) {
+      throw new Error('Google Maps API not loaded properly')
+    }
+
+    // Get settlement geometry
+    const geoForm: any = {
+      model: 'settlement',
+      id: settlement.id
+    }
+
+    const res = await getOneGeo(geoForm)
+    const geoData = res?.data?.[0]?.json_build_object
+    const features = geoData?.features
+    
+    // Check if features is null or empty
+    if (!features || (Array.isArray(features) && features.length === 0)) {
+      ElMessage.warning("No boundary geometry found for this settlement. Showing map with facilities only.")
+      settlementGeo.value = null
+    } else {
+      settlementGeo.value = geoData
+    }
+
+    // Get center and bounds
+    let center = { lat: 1.137451, lng: 37.137343 }
+    let zoom = 8
+
+    if (settlementGeo.value && settlementGeo.value.features && settlementGeo.value.features.length > 0) {
+      try {
+        const bboxResult = turf.bbox(settlementGeo.value)
+        center = {
+          lat: (bboxResult[1] + bboxResult[3]) / 2,
+          lng: (bboxResult[0] + bboxResult[2]) / 2
+        }
+        zoom = 13
+      } catch (error) {
+        console.warn('Error calculating bbox, using default center:', error)
+      }
+    }
+
+    // Initialize map
+    googleMap.value = new window.google.maps.Map(mapDrawerContainer.value, {
+      center: center,
+      zoom: zoom,
+      mapTypeId: window.google.maps.MapTypeId.ROADMAP,
+      mapTypeControl: true,
+      streetViewControl: true,
+      fullscreenControl: true
+    })
+
+    // Add settlement boundary only if features exist
+    if (settlementGeo.value && settlementGeo.value.features && settlementGeo.value.features.length > 0) {
+      const feature = settlementGeo.value.features[0]
+      if (feature && feature.geometry && (feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon')) {
+        try {
+          const paths = feature.geometry.type === 'Polygon'
+            ? feature.geometry.coordinates[0].map((coord: number[]) => ({
+                lat: coord[1],
+                lng: coord[0]
+              }))
+            : feature.geometry.coordinates[0][0].map((coord: number[]) => ({
+                lat: coord[1],
+                lng: coord[0]
+              }))
+
+          settlementPolygon.value = new window.google.maps.Polygon({
+            paths: paths,
+            strokeColor: '#FF0000',
+            strokeOpacity: 0.6,
+            strokeWeight: 2,
+            fillColor: '#FF0000',
+            fillOpacity: 0, // Transparent fill
+            map: googleMap.value
+          })
+
+          // Fit bounds to settlement
+          const pathBounds = new window.google.maps.LatLngBounds()
+          paths.forEach((path: any) => {
+            pathBounds.extend(path)
+          })
+          googleMap.value.fitBounds(pathBounds)
+        } catch (error) {
+          console.error('Error drawing settlement boundary:', error)
+          ElMessage.warning('Could not draw settlement boundary, but map is still available')
+        }
+      }
+    }
+
+    // Wait for map to be ready before loading facilities
+    const loadFacilitiesWhenReady = async () => {
+      await loadHealthFacilitiesOnMap(settlement.id)
+    }
+
+    // Use idle event to ensure map is fully loaded
+    googleMap.value.addListener('idle', loadFacilitiesWhenReady)
+    
+    // Also try loading immediately in case map is already idle
+    setTimeout(loadFacilitiesWhenReady, 500)
+
+  } catch (error) {
+    console.error("Error initializing map:", error)
+    ElMessage.error("Failed to initialize map. Please try again.")
+  }
+}
+
+// Load health facilities on map
+const loadHealthFacilitiesOnMap = async (settlementId: number) => {
+  try {
+    // Clear existing markers and reset present levels
+    healthFacilityMarkers.value.forEach(marker => marker.setMap(null))
+    healthFacilityMarkers.value = []
+    presentFacilityLevels.length = 0
+
+    if (!googleMap.value) {
+      console.error('Google map not initialized')
+      return
+    }
+
+    console.log('Loading health facilities for settlement:', settlementId)
+
+    // First, try to get facilities from already loaded data
+    const facilities = await loadHealthFacilitiesForSettlement(settlementId)
+    console.log('Loaded facilities:', facilities.length)
+
+    // Get health facilities GeoJSON
+    const formData: any = {
+      model: healthFacilityModel,
+      columnFilterField: 'settlement_id',
+      selectedParents: settlementId,
+      filtredGeoIds: [settlementId]
+    }
+
+    const res = await getfilteredGeo(formData)
+    
+    console.log('Health facilities Geo response:', res)
+    console.log('Response data:', res?.data)
+    console.log('Response data[0]:', res?.data?.[0])
+    console.log('Response data[0][0]:', res?.data?.[0]?.[0])
+    
+    // Handle different response structures
+    let geoJsonData = null
+    
+    // Check if response is wrapped in data property
+    if (res && res.data) {
+      // Check if it's an array of arrays (nested structure like [[{json_build_object}], {...}])
+      if (Array.isArray(res.data) && res.data.length > 0) {
+        const firstItem = res.data[0]
+        console.log('First item:', firstItem, 'Is array:', Array.isArray(firstItem))
+        
+        // Check if first item is an array (nested structure)
+        if (Array.isArray(firstItem) && firstItem.length > 0) {
+          console.log('First item[0]:', firstItem[0])
+          if (firstItem[0] && firstItem[0].json_build_object) {
+            geoJsonData = firstItem[0].json_build_object
+            console.log('Found GeoJSON in nested array structure')
+          }
+        } 
+        // Check if first item has json_build_object directly
+        else if (firstItem && firstItem.json_build_object) {
+          geoJsonData = firstItem.json_build_object
+          console.log('Found GeoJSON in first item')
+        }
+        // Check if first item itself is the GeoJSON object
+        else if (firstItem && firstItem.type === 'FeatureCollection') {
+          geoJsonData = firstItem
+          console.log('Found GeoJSON as FeatureCollection directly')
+        }
+      }
+    }
+    // Check if response is directly an array
+    else if (Array.isArray(res) && res.length > 0) {
+      const firstItem = res[0]
+      if (Array.isArray(firstItem) && firstItem.length > 0 && firstItem[0].json_build_object) {
+        geoJsonData = firstItem[0].json_build_object
+      } else if (firstItem && firstItem.json_build_object) {
+        geoJsonData = firstItem.json_build_object
+      } else if (firstItem && firstItem.type === 'FeatureCollection') {
+        geoJsonData = firstItem
+      }
+    }
+    
+    console.log('Extracted GeoJSON data:', geoJsonData)
+    console.log('GeoJSON features:', geoJsonData?.features)
+    
+    // Check if features is null (similar to settlement response)
+    if (geoJsonData && geoJsonData.features !== undefined) {
+      // Handle null features case
+      if (geoJsonData.features === null) {
+        console.warn('GeoJSON features is null')
+        ElMessage.warning('No health facilities geometry data found (features is null)')
+        return
+      }
+      
+      healthFacilitiesGeo.value = geoJsonData
+      
+      const features = geoJsonData.features || []
+      
+      console.log('Health facilities features count:', features.length)
+      console.log('Health facilities features:', features)
+      
+      if (features.length === 0) {
+        console.warn('No features found in GeoJSON')
+        ElMessage.warning('No health facilities found with geometry for this settlement')
+        return
+      }
+      
+      features.forEach((feature: any, index: number) => {
+        console.log(`Processing feature ${index}:`, feature)
+        
+        if (feature.geometry && feature.geometry.type === 'Point') {
+          const coords = feature.geometry.coordinates
+          if (!coords || coords.length < 2) {
+            console.warn('Invalid coordinates:', coords)
+            return
+          }
+          
+          const [lng, lat] = coords
+          // Handle "N/A" level and normalize level names
+          let level = (feature.properties?.level || 'unknown').toLowerCase().trim()
+          if (level === 'n/a' || level === 'na') {
+            level = 'unknown'
+          }
+          
+          // Track this facility level for dynamic legend
+          if (!presentFacilityLevels.includes(level)) {
+            presentFacilityLevels.push(level)
+            console.log('Added facility level to legend:', level, 'Total levels:', presentFacilityLevels.length)
+          }
+          
+          console.log(`Creating marker at [${lat}, ${lng}] for ${feature.properties?.name || 'Unknown'} (${level})`)
+          
+          // Get color based on level
+          const colorMap: Record<string, string> = {
+            'dispensary': '#a6cee3',
+            'clinic': '#1f78b4',
+            'health_center': '#b2df8a',
+            'hospital': '#33a02c',
+            'laboratory': '#e31a1c',
+            'maternity': '#fdbf6f',
+            'chemist': '#ff7f00',
+            'pharmacy': '#ff7f00',
+            'unknown': 'gray',
+            'n/a': 'gray'
+          }
+          
+          const color = colorMap[level] || 'gray'
+          
+          try {
+            const marker = new window.google.maps.Marker({
+              position: { lat, lng },
+              map: googleMap.value,
+              title: feature.properties?.name || 'Health Facility',
+              icon: {
+                path: window.google.maps.SymbolPath.CIRCLE,
+                scale: 12,
+                fillColor: color,
+                fillOpacity: 1,
+                strokeColor: 'white',
+                strokeWeight: 2
+              }
+            })
+
+            // Add info window
+            const infoWindow = new window.google.maps.InfoWindow({
+              content: `
+                <div style="padding: 5px;">
+                  <h3 style="margin: 0 0 5px 0;">${feature.properties?.name || 'Health Facility'}</h3>
+                  <p style="margin: 0;"><strong>Level:</strong> ${level}</p>
+                  ${feature.properties?.ownership_type ? `<p style="margin: 5px 0 0 0;"><strong>Ownership:</strong> ${feature.properties.ownership_type}</p>` : ''}
+                </div>
+              `
+            })
+
+            // Store facility data with marker
+            facilityMarkerDataMap.value.set(marker, feature.properties)
+            
+            marker.addListener('click', () => {
+              // Open form drawer for editing
+              openFacilityForm(feature.properties)
+            })
+
+            healthFacilityMarkers.value.push(marker)
+            console.log(`Marker created successfully for ${feature.properties?.name}`)
+          } catch (markerError) {
+            console.error('Error creating marker:', markerError, feature)
+          }
+        } else {
+          console.warn('Feature is not a Point:', feature.geometry?.type)
+        }
+      })
+      
+      console.log('Total markers created:', healthFacilityMarkers.value.length)
+      console.log('Present facility levels:', presentFacilityLevels)
+      console.log('Legend items computed:', legendItems.value)
+      
+      if (healthFacilityMarkers.value.length === 0) {
+        ElMessage.warning('No health facilities with valid Point geometry found')
+      } else {
+        ElMessage.success(`Loaded ${healthFacilityMarkers.value.length} health facilities on map`)
+      }
+    } else {
+      console.log('No GeoJSON data found for health facilities')
+      console.log('Response structure:', res)
+      ElMessage.warning('No health facilities geometry data found')
+    }
+  } catch (error) {
+    console.error("Error loading health facilities on map:", error)
+    ElMessage.error("Failed to load health facilities on map: " + (error as Error).message)
+  }
+}
+
+
+// Open facility form drawer for editing
+const openFacilityForm = (facilityData: any) => {
+  isEditMode.value = true
+  editingFacilityId.value = facilityData.id || null
+  
+  // Populate form with facility data
+  facilityForm.name = facilityData.name || ''
+  facilityForm.facility_number = facilityData.facility_number || ''
+  facilityForm.settlement_id = facilityData.settlement_id || mapDrawerSettlement.value?.id || ''
+  facilityForm.county_id = facilityData.county_id || mapDrawerSettlement.value?.county_id || ''
+  facilityForm.subcounty_id = facilityData.subcounty_id || mapDrawerSettlement.value?.subcounty_id || ''
+  facilityForm.ward_id = facilityData.ward_id || mapDrawerSettlement.value?.ward_id || ''
+  facilityForm.level = facilityData.level || ''
+  facilityForm.registration_status = facilityData.registration_status || ''
+  facilityForm.ownership_type = facilityData.ownership_type || ''
+  facilityForm.owner = facilityData.owner || ''
+  facilityForm.land_ownership = facilityData.land_ownership || ''
+  facilityForm.land_title_available = facilityData.land_title_available || ''
+  facilityForm.land_parcel_size = facilityData.land_parcel_size || null
+  facilityForm.condition = facilityData.condition || ''
+  facilityForm.num_inpatient = facilityData.num_inpatient || null
+  facilityForm.outpatient_visits_per_day = facilityData.outpatient_visits_per_day || null
+  facilityForm.maternity_deliveries_per_day = facilityData.maternity_deliveries_per_day || null
+  facilityForm.antenatal_immunizations_per_day = facilityData.antenatal_immunizations_per_day || null
+  facilityForm.general_beds = facilityData.general_beds || null
+  facilityForm.maternity_beds = facilityData.maternity_beds || null
+  facilityForm.pediatric_beds = facilityData.pediatric_beds || null
+  facilityForm.total_beds = facilityData.total_beds || null
+  facilityForm.occupancy_rate = facilityData.occupancy_rate || null
+  facilityForm.number_doctors = facilityData.number_doctors || null
+  facilityForm.number_clinical_officers = facilityData.number_clinical_officers || null
+  facilityForm.number_pharmacists = facilityData.number_pharmacists || null
+  facilityForm.number_nurses = facilityData.number_nurses || null
+  facilityForm.number_midwives = facilityData.number_midwives || null
+  facilityForm.number_other_staff = facilityData.number_other_staff || null
+  facilityForm.services_offered = facilityData.services_offered || ''
+  facilityForm.referral_destinations = facilityData.referral_destinations || ''
+  facilityForm.referral_distance_km = facilityData.referral_distance_km || null
+  facilityForm.referrals_per_day = facilityData.referrals_per_day || null
+  facilityForm.has_ambulance = facilityData.has_ambulance || ''
+  facilityForm.source_of_drugs = facilityData.source_of_drugs || ''
+  facilityForm.common_ailments = facilityData.common_ailments || ''
+  facilityForm.source_of_patients = facilityData.source_of_patients || ''
+  facilityForm.challenges = facilityData.challenges || ''
+  facilityForm.respondent_name = facilityData.respondent_name || ''
+  facilityForm.respondent_phone = facilityData.respondent_phone || ''
+  facilityForm.distance_meters = facilityData.distance_meters || null
+  facilityForm.geom = facilityData.geom || null
+  
+  facilityDrawerVisible.value = true
+}
+
+// Submit facility form
+const submitFacilityForm = async () => {
+  if (!facilityFormRef.value) return
+  
+  await facilityFormRef.value.validate(async (valid) => {
+    if (valid) {
+      try {
+        const formDataToSubmit = {
+          ...facilityForm,
+          model: 'health_facility'
+        }
+        
+        if (isEditMode.value && editingFacilityId.value) {
+          // Update existing facility
+          const formData = {
+            ...formDataToSubmit,
+            id: editingFacilityId.value
+          }
+          
+          const res = await updateOneRecord(formData)
+          
+          if (res.code === '0000') {
+            ElMessage.success('Health facility updated successfully')
+            // Reload facilities on map
+            if (mapDrawerSettlement.value) {
+              await loadHealthFacilitiesOnMap(mapDrawerSettlement.value.id)
+            }
+            // Reload facilities list if expanded
+            if (facilityForm.settlement_id) {
+              await loadHealthFacilitiesForSettlement(facilityForm.settlement_id)
+            }
+            resetFacilityForm()
+            facilityDrawerVisible.value = false
+          } else {
+            ElMessage.error('Failed to update health facility')
+          }
+        } else {
+          // Create new facility
+          const { uuid } = await import('vue-uuid')
+          
+          const formData = {
+            ...formDataToSubmit,
+            code: uuid.v4(),
+            isApproved: 'Pending',
+            created_by: userInfo.id
+          }
+          
+          const res = await CreateRecord(formData as any)
+          
+          if (res.code === '0000') {
+            ElMessage.success('Health facility created successfully')
+            // Reload facilities on map
+            if (mapDrawerSettlement.value) {
+              await loadHealthFacilitiesOnMap(mapDrawerSettlement.value.id)
+            }
+            // Reload facilities list if expanded
+            if (facilityForm.settlement_id) {
+              await loadHealthFacilitiesForSettlement(facilityForm.settlement_id)
+            }
+            resetFacilityForm()
+            facilityDrawerVisible.value = false
+          } else {
+            ElMessage.error('Failed to create health facility')
+          }
+        }
+      } catch (error) {
+        console.error('Error saving health facility:', error)
+        ElMessage.error('Failed to save health facility')
+      }
+    }
+  })
+}
+
+// Reset facility form
+const resetFacilityForm = () => {
+  isEditMode.value = false
+  editingFacilityId.value = null
+  
+  // Reset form fields
+  Object.keys(facilityForm).forEach(key => {
+    if (typeof facilityForm[key as keyof typeof facilityForm] === 'string') {
+      facilityForm[key as keyof typeof facilityForm] = '' as any
+    } else if (typeof facilityForm[key as keyof typeof facilityForm] === 'number') {
+      facilityForm[key as keyof typeof facilityForm] = null as any
+    } else {
+      facilityForm[key as keyof typeof facilityForm] = null as any
+    }
+  })
+}
+
+// Close facility drawer
+const closeFacilityDrawer = () => {
+  facilityDrawerVisible.value = false
+  resetFacilityForm()
+}
+
+// Close drawer handler
+const handleMapDrawerClose = () => {
+  mapDrawerVisible.value = false
+  facilityDrawerVisible.value = false
+  // Clean up markers
+  healthFacilityMarkers.value.forEach(marker => marker.setMap(null))
+  healthFacilityMarkers.value = []
+  facilityMarkerDataMap.value.clear()
+  presentFacilityLevels.length = 0 // Clear present levels when closing
+  
+  if (settlementPolygon.value) {
+    settlementPolygon.value.setMap(null)
+    settlementPolygon.value = null
+  }
+  googleMap.value = null
+  mapDrawerSettlement.value = null
+  resetFacilityForm()
+}
 
 
 
@@ -864,49 +1497,80 @@ getDocumentTypes()
 
 
 
-const legendItems = [
+// Full legend items with all possible facility types
+const allLegendItems = ref([
   {
-    "label": "Dispensary",
-    "color": "#a6cee3"
+    label: "Dispensary",
+    color: "#a6cee3",
+    key: "dispensary"
   },
   {
-    "label": "Clinic",
-    "color": '#1f78b4'
+    label: "Clinic",
+    color: '#1f78b4',
+    key: "clinic"
   },
   {
-    "label": "Health Center",
-    "color": '#b2df8a'
+    label: "Health Center",
+    color: '#b2df8a',
+    key: "health_center"
   },
   {
-    "label": "Hospital",
-    "color": '#33a02c'
+    label: "Hospital",
+    color: '#33a02c',
+    key: "hospital"
   },
   {
-    "label": "Laboratory",
-    "color": '#e31a1c'
-  },
-
-  {
-    "label": "Maternity",
-    "color": '#fdbf6f'
-  },
-
-  {
-    "label": "Pharmacy",
-    "color": "#ff7f00"
+    label: "Laboratory",
+    color: '#e31a1c',
+    key: "laboratory"
   },
 
   {
-    "label": "Others",
-    "color": "gray"
+    label: "Maternity",
+    color: '#fdbf6f',
+    key: "maternity"
+  },
+
+  {
+    label: "Pharmacy",
+    color: "#ff7f00",
+    key: "pharmacy"
+  },
+  {
+    label: "Chemist",
+    color: "#ff7f00",
+    key: "chemist"
+  },
+  {
+    label: "Others",
+    color: "gray",
+    key: "unknown"
   }
 
 
 
 
 
-]
+])
 
+// Track which facility levels are present in the current map
+// Using reactive for better Vue reactivity
+const presentFacilityLevels = reactive<string[]>([])
+
+// Computed property for dynamic legend - only show items that are present
+const legendItems = computed(() => {
+  if (presentFacilityLevels.length === 0) {
+    return []
+  }
+  
+  // Convert to Set for efficient lookup
+  const levelsSet = new Set(presentFacilityLevels)
+  
+  return allLegendItems.value.filter(item => {
+    // Check if this legend item's key matches any present facility level
+    return levelsSet.has(item.key)
+  })
+})
 
 const DeleteFacility = async (data: TableSlotDefault) => {
   console.log('-----> Deleting Facility:', data);
@@ -1153,13 +1817,16 @@ const DocumentComponentProps = ref({
 });
 
 
-function handleExpand(row) {
-  dynamicDocumentComponent.value = null; // Unload the component
-  rowData.value = row
-  DocumentComponentProps.value.data = row
-  setTimeout(() => {
-    dynamicDocumentComponent.value = documentComponent; // Load the component
-  }, 100); // 0.1 seconds
+// Handle expand for settlement row - show health facilities
+const expandedSettlements = ref<Set<number>>(new Set())
+const handleExpand = async (row: any, expanded: boolean) => {
+  if (expanded) {
+    expandedSettlements.value.add(row.id)
+    // Load health facilities for this settlement
+    await loadHealthFacilitiesForSettlement(row.id)
+  } else {
+    expandedSettlements.value.delete(row.id)
+  }
 }
 
 
@@ -1515,10 +2182,27 @@ const searchByNewName = async () => {
 
 
 
-const AddFacility = (data: TableSlotDefault) => {
-  push({
-    name: 'AddHealthNew'
-  })
+const AddFacility = (data?: TableSlotDefault) => {
+  if (data) {
+    // If settlement data is provided, preload county and settlement
+    push({
+      name: 'AddHealthNew',
+      query: {
+        county_id: data.county_id || data.county?.id || '',
+        settlement_id: data.id || ''
+      }
+    })
+  } else {
+    // No data provided, just navigate to add page
+    push({
+      name: 'AddHealthNew'
+    })
+  }
+}
+
+// Handler for add facility action from table
+const handleAddFacility = (row: any) => {
+  AddFacility(row)
 }
 
 
@@ -1698,40 +2382,71 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
       <el-table :data="tableDataList" style="width: 100%; margin-top: 10px;" border @expand-change="handleExpand">
         <el-table-column type="expand">
           <template #default="props">
-            <div m="4">
-              <h3>Documents</h3>
-              <div>
-                <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
+            <div style="padding: 20px;">
+              <h3>Health Facilities in {{ props.row.name }}</h3>
+              <div v-if="loadingFacilities[props.row.id]" style="text-align: center; padding: 20px;">
+                <el-icon class="is-loading"><Loading /></el-icon>
+                <span>Loading health facilities...</span>
               </div>
-              <el-button
-style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success"
-                :icon="Plus" circle @click="toggleComponent(props.row)" />
+              <el-table 
+                v-else
+                :data="settlementHealthFacilities[props.row.id] || []" 
+                style="width: 100%;" 
+                border
+                size="small"
+              >
+                <el-table-column label="Facility Name" prop="name" />
+                <el-table-column label="Level" prop="level" />
+                <el-table-column label="Type" prop="facility_type" />
+                <el-table-column label="Ownership" prop="ownership_type" />
+                <el-table-column label="Status" prop="isApproved">
+                  <template #default="scope">
+                    <el-tag 
+                      :type="scope.row.isApproved === 'Approved' ? 'success' : scope.row.isApproved === 'Rejected' ? 'danger' : 'warning'"
+                    >
+                      {{ scope.row.isApproved }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column label="Actions" width="200">
+                  <template #default="{ row }">
+                    <PermissionWrapper :permissions="['health_facility:update', 'health_facility:delete']">
+                      <el-button size="small" type="primary" :icon="Edit" @click="editFacility(row)" />
+                      <el-button size="small" type="danger" :icon="Delete" @click="DeleteFacility(row)" />
+                    </PermissionWrapper>
+                  </template>
+                </el-table-column>
+              </el-table>
+              <div v-if="!loadingFacilities[props.row.id] && (!settlementHealthFacilities[props.row.id] || settlementHealthFacilities[props.row.id].length === 0)" style="text-align: center; padding: 20px;">
+                <el-empty description="No health facilities found in this settlement" />
+              </div>
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="Name" prop="name" sortable />
+        <el-table-column label="Settlement Name" prop="name" sortable />
         <el-table-column label="Location" sortable>
           <template #default="scope">
-            <span>{{ scope.row.ward.name }} ward, {{ scope.row.subcounty.name }} subcounty, {{ scope.row.county.name
+            <span>{{ scope.row.ward?.name || 'N/A' }} ward, {{ scope.row.subcounty?.name || 'N/A' }} subcounty, {{ scope.row.county?.name || 'N/A'
               }} County</span>
           </template>
         </el-table-column>
-
+        <el-table-column label="Health Facilities Count" sortable>
+          <template #default="scope">
+            <el-badge :value="settlementHealthFacilities[scope.row.id]?.length || 0" class="item" />
+          </template>
+        </el-table-column>
 
         <el-table-column label="Actions" width="250">
           <template #default="{ row }">
-            <PermissionWrapper :permissions="['health_facility:update', 'health_facility:delete']">
               <TableActions
-                :item="row" :buttons="action_buttons" @view-on-map="flyTo" @edit="editFacility"
-                @delete="DeleteFacility" />
-            </PermissionWrapper>
+              :item="row" :buttons="action_buttons" @view-on-map="flyTo" @add-facility="handleAddFacility" />
           </template>
         </el-table-column>
 
       </el-table>
 
       <div v-if="!tableDataList || tableDataList.length === 0" class="no-data-message">
-        <el-empty description="No approved health facilities found" />
+        <el-empty description="No settlements with approved health facilities found" />
       </div>
 
       <ElPagination
@@ -1763,32 +2478,62 @@ style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" ty
 
       <el-table-column type="expand">
         <template #default="props">
-          <div m="4">
-            <h3>Documents</h3>
-            <div>
-              <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
+          <div style="padding: 20px;">
+            <h3>Health Facilities in {{ props.row.name }}</h3>
+            <div v-if="loadingFacilities[props.row.id]" style="text-align: center; padding: 20px;">
+              <el-icon class="is-loading"><Loading /></el-icon>
+              <span>Loading health facilities...</span>
             </div>
-            <el-button
-              style="margin-left: 10px;margin-top: 5px"
+            <el-table 
+              v-else
+              :data="settlementHealthFacilities[props.row.id] || []" 
+              style="width: 100%;" 
+              border
               size="small"
-              v-if="showEditButtons"
-              type="success"
-              :icon="Plus"
-              circle
-              @click="toggleComponent(props.row)"
-            />
+            >
+              <el-table-column label="Facility Name" prop="name" />
+              <el-table-column label="Level" prop="level" />
+              <el-table-column label="Type" prop="facility_type" />
+              <el-table-column label="Ownership" prop="ownership_type" />
+              <el-table-column label="Status" prop="isApproved">
+                <template #default="scope">
+                  <el-tag 
+                    :type="scope.row.isApproved === 'Approved' ? 'success' : scope.row.isApproved === 'Rejected' ? 'danger' : 'warning'"
+                  >
+                    {{ scope.row.isApproved }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column label="Actions" width="250">
+                <template #default="{ row }">
+                  <PermissionWrapper :permissions="['health_facility:update', 'health_facility:delete']">
+                    <el-button size="small" type="primary" :icon="Edit" @click="editFacility(row)" />
+                    <el-button size="small" type="warning" :icon="View" @click="Review(row)" />
+                    <el-button size="small" type="danger" :icon="Delete" @click="DeleteFacility(row)" />
+                  </PermissionWrapper>
+                </template>
+              </el-table-column>
+            </el-table>
+            <div v-if="!loadingFacilities[props.row.id] && (!settlementHealthFacilities[props.row.id] || settlementHealthFacilities[props.row.id].length === 0)" style="text-align: center; padding: 20px;">
+              <el-empty description="No health facilities found in this settlement" />
+            </div>
           </div>
         </template>
       </el-table-column>
 
-      <el-table-column label="Name" prop="name" sortable />
+      <el-table-column label="Settlement Name" prop="name" sortable />
       <el-table-column label="Location" sortable>
         <template #default="scope">
           <span>
-            {{ scope.row.ward.name }} ward,
-            {{ scope.row.subcounty.name }} subcounty,
-            {{ scope.row.county.name }} County
+            {{ scope.row.ward?.name || 'N/A' }} ward,
+            {{ scope.row.subcounty?.name || 'N/A' }} subcounty,
+            {{ scope.row.county?.name || 'N/A' }} County
           </span>
+        </template>
+      </el-table-column>
+      <el-table-column label="Health Facilities Count" sortable>
+        <template #default="scope">
+          <el-badge :value="settlementHealthFacilities[scope.row.id]?.length || 0" class="item" />
         </template>
       </el-table-column>
 
@@ -1835,6 +2580,7 @@ style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" ty
                 :item="row"
                 :buttons="action_buttons"
                 @view-on-map="flyTo"
+                @add-facility="handleAddFacility"
                 @edit="editFacility"
                 @review="Review"
                 @delete="DeleteFacility"
@@ -1867,32 +2613,64 @@ style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" ty
         @expand-change="handleExpand">
         <el-table-column type="expand">
           <template #default="props">
-            <div m="4">
-              <h3>Documents</h3>
-              <div>
-                <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
+            <div style="padding: 20px;">
+              <h3>Health Facilities in {{ props.row.name }}</h3>
+              <div v-if="loadingFacilities[props.row.id]" style="text-align: center; padding: 20px;">
+                <el-icon class="is-loading"><Loading /></el-icon>
+                <span>Loading health facilities...</span>
               </div>
-              <el-button
-style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success"
-                :icon="Plus" circle @click="toggleComponent(props.row)" />
+              <el-table 
+                v-else
+                :data="settlementHealthFacilities[props.row.id] || []" 
+                style="width: 100%;" 
+                border
+                size="small"
+              >
+                <el-table-column label="Facility Name" prop="name" />
+                <el-table-column label="Level" prop="level" />
+                <el-table-column label="Type" prop="facility_type" />
+                <el-table-column label="Ownership" prop="ownership_type" />
+                <el-table-column label="Status" prop="isApproved">
+                  <template #default="scope">
+                    <el-tag 
+                      :type="scope.row.isApproved === 'Approved' ? 'success' : scope.row.isApproved === 'Rejected' ? 'danger' : 'warning'"
+                    >
+                      {{ scope.row.isApproved }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column label="Actions" width="200">
+                  <template #default="{ row }">
+                    <PermissionWrapper :permissions="['health_facility:update', 'health_facility:delete']">
+                      <el-button size="small" type="primary" :icon="Edit" @click="editFacility(row)" />
+                      <el-button size="small" type="danger" :icon="Delete" @click="DeleteFacility(row)" />
+                    </PermissionWrapper>
+                  </template>
+                </el-table-column>
+              </el-table>
+              <div v-if="!loadingFacilities[props.row.id] && (!settlementHealthFacilities[props.row.id] || settlementHealthFacilities[props.row.id].length === 0)" style="text-align: center; padding: 20px;">
+                <el-empty description="No health facilities found in this settlement" />
+              </div>
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="Name" prop="name" sortable />
+        <el-table-column label="Settlement Name" prop="name" sortable />
         <el-table-column label="Location" sortable>
           <template #default="scope">
-            <span>{{ scope.row.ward.name }} ward, {{ scope.row.subcounty.name }} subcounty, {{ scope.row.county.name
+            <span>{{ scope.row.ward?.name || 'N/A' }} ward, {{ scope.row.subcounty?.name || 'N/A' }} subcounty, {{ scope.row.county?.name || 'N/A'
               }} County</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="Health Facilities Count" sortable>
+          <template #default="scope">
+            <el-badge :value="settlementHealthFacilities[scope.row.id]?.length || 0" class="item" />
           </template>
         </el-table-column>
 
         <el-table-column label="Actions" width="250">
           <template #default="{ row }">
-            <PermissionWrapper :permissions="['health_facility:update', 'health_facility:delete']">
               <TableActions
-                :item="row" :buttons="action_buttons" @view-on-map="flyTo" @edit="editFacility"
-                @delete="DeleteFacility" />
-            </PermissionWrapper>
+              :item="row" :buttons="action_buttons" @view-on-map="flyTo" @add-facility="handleAddFacility" />
           </template>
         </el-table-column>
 
@@ -1909,46 +2687,11 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
 
 
     <div v-if="activeSegment === 'Map'">
-      <div id="mapContainer" class="basemap" style="width: 100%; margin-top: 10px;"></div>
-      <div id="floating-div">
-        <el-card>
-          <el-collapse>
-            <el-collapse-item title="LEGEND">
-              <div class="legend">
-                <div v-for="item in legendItems" :key="item.label" class="legend-item">
-                  <div class="circle-color" :style="{ backgroundColor: item.color }"></div>
-                  <div class="legend-label">{{ item.label }}</div>
-                </div>
-              </div>
-            </el-collapse-item>
-          </el-collapse>
-        </el-card>
+      <el-empty description="Click 'View on Map' on a settlement to see its map with health facilities" />
       </div>
 
-    </div>
 
-    
-    <div v-if="activeSegment === 'FilteredMap'">
-      <div id="mapContainer" class="basemap" style="width: 100%; margin-top: 10px;"></div>
-      <div id="floating-div">
-        <el-card>
-          <el-collapse>
-            <el-collapse-item title="LEGEND">
-              <div class="legend">
-                <div v-for="item in legendItems" :key="item.label" class="legend-item">
-                  <div class="circle-color" :style="{ backgroundColor: item.color }"></div>
-                  <div class="legend-label">{{ item.label }}</div>
-                </div>
-              </div>
-            </el-collapse-item>
-          </el-collapse>
         </el-card>
-      </div>
-
-    </div>
-
-
-  </el-card>
 
 
   <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formheader" width="400px" draggable>
@@ -2056,6 +2799,269 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
     </template>
   </el-dialog>
 
+  <!-- Map Drawer -->
+  <el-drawer
+    v-model="mapDrawerVisible"
+    title="Settlement Map with Health Facilities"
+    direction="rtl"
+    size="60%"
+    :before-close="handleMapDrawerClose"
+  >
+    <template #header>
+      <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+        <span>{{ mapDrawerSettlement?.name || 'Settlement Map' }}</span>
+        <el-button type="danger" @click="handleMapDrawerClose">Close</el-button>
+      </div>
+    </template>
+    
+    <div v-if="mapDrawerSettlement" style="height: calc(100vh - 120px); position: relative;">
+      <div ref="mapDrawerContainer" style="width: 100%; height: 100%;"></div>
+      
+      <!-- Legend - Dynamically shows only facility types present on map -->
+      <div v-if="legendItems && legendItems.length > 0" style="position: absolute; bottom: 20px; right: 20px; background: white; padding: 15px; border-radius: 5px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 1000; max-width: 200px;">
+        <h4 style="margin: 0 0 10px 0; font-size: 14px; font-weight: 600;">Legend</h4>
+        <div v-for="item in legendItems" :key="item.label" style="display: flex; align-items: center; margin-bottom: 8px;">
+          <div :style="{ width: '16px', height: '16px', borderRadius: '50%', backgroundColor: item.color, marginRight: '10px', border: '2px solid white', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }"></div>
+          <span style="font-size: 12px; color: #333;">{{ item.label }}</span>
+        </div>
+      </div>
+    </div>
+  </el-drawer>
+
+  <!-- Facility Form Drawer for Editing -->
+  <el-drawer
+    v-model="facilityDrawerVisible"
+    :title="isEditMode ? 'Edit Health Facility' : 'Health Facility Details'"
+    direction="rtl"
+    size="600px"
+    :before-close="closeFacilityDrawer"
+  >
+    <el-form
+      ref="facilityFormRef"
+      :model="facilityForm"
+      :rules="facilityFormRules"
+      label-width="180px"
+      label-position="left"
+    >
+      <el-divider content-position="left">Basic Information</el-divider>
+
+      <el-form-item label="Facility Name" prop="name">
+        <el-input v-model="facilityForm.name" placeholder="Enter facility name" />
+      </el-form-item>
+
+      <el-form-item label="Facility Number">
+        <el-input v-model="facilityForm.facility_number" placeholder="Enter facility number" />
+      </el-form-item>
+
+      <el-form-item label="Level">
+        <el-select v-model="facilityForm.level" placeholder="Select level" filterable style="width: 100%">
+          <el-option
+            v-for="item in LevelOptionsLocal"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="Registration Status">
+        <el-select v-model="facilityForm.registration_status" placeholder="Select registration status" filterable style="width: 100%">
+          <el-option
+            v-for="item in regOptionsLocal"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="Ownership Type">
+        <el-select v-model="facilityForm.ownership_type" placeholder="Select ownership type" filterable style="width: 100%">
+          <el-option
+            v-for="item in generalOwnershipLocal"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="Owner">
+        <el-input v-model="facilityForm.owner" placeholder="Enter owner" />
+      </el-form-item>
+
+      <el-form-item label="Land Ownership">
+        <el-select v-model="facilityForm.land_ownership" placeholder="Select land ownership" filterable style="width: 100%">
+          <el-option
+            v-for="item in tenancyOptionsLocal"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="Land Title Available">
+        <el-select v-model="facilityForm.land_title_available" placeholder="Select land title available" filterable style="width: 100%">
+          <el-option
+            v-for="item in yesNoOptions"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="Land Parcel Size">
+        <el-input-number v-model="facilityForm.land_parcel_size" :min="0" :precision="2" style="width: 100%" />
+      </el-form-item>
+
+      <el-form-item label="Condition">
+        <el-select v-model="facilityForm.condition" placeholder="Select condition" filterable style="width: 100%">
+          <el-option
+            v-for="item in conditionFacilityOptions"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </el-form-item>
+
+      <el-divider content-position="left">Capacity</el-divider>
+
+      <el-form-item label="Number of Inpatients">
+        <el-input-number v-model="facilityForm.num_inpatient" :min="0" style="width: 100%" />
+      </el-form-item>
+
+      <el-form-item label="Outpatient Visits/Day">
+        <el-input-number v-model="facilityForm.outpatient_visits_per_day" :min="0" style="width: 100%" />
+      </el-form-item>
+
+      <el-form-item label="Maternity Deliveries/Day">
+        <el-input-number v-model="facilityForm.maternity_deliveries_per_day" :min="0" style="width: 100%" />
+      </el-form-item>
+
+      <el-form-item label="Immunizations/Day">
+        <el-input-number v-model="facilityForm.antenatal_immunizations_per_day" :min="0" style="width: 100%" />
+      </el-form-item>
+
+      <el-divider content-position="left">Beds</el-divider>
+
+      <el-form-item label="General Beds">
+        <el-input-number v-model="facilityForm.general_beds" :min="0" style="width: 100%" />
+      </el-form-item>
+
+      <el-form-item label="Maternity Beds">
+        <el-input-number v-model="facilityForm.maternity_beds" :min="0" style="width: 100%" />
+      </el-form-item>
+
+      <el-form-item label="Pediatric Beds">
+        <el-input-number v-model="facilityForm.pediatric_beds" :min="0" style="width: 100%" />
+      </el-form-item>
+
+      <el-form-item label="Total Beds">
+        <el-input-number v-model="facilityForm.total_beds" :min="0" style="width: 100%" />
+      </el-form-item>
+
+      <el-form-item label="Occupancy Rate">
+        <el-input-number v-model="facilityForm.occupancy_rate" :min="0" :max="100" :precision="2" style="width: 100%" />
+      </el-form-item>
+
+      <el-divider content-position="left">Staff</el-divider>
+
+      <el-form-item label="Number of Doctors">
+        <el-input-number v-model="facilityForm.number_doctors" :min="0" style="width: 100%" />
+      </el-form-item>
+
+      <el-form-item label="Number of Clinical Officers">
+        <el-input-number v-model="facilityForm.number_clinical_officers" :min="0" style="width: 100%" />
+      </el-form-item>
+
+      <el-form-item label="Number of Pharmacists">
+        <el-input-number v-model="facilityForm.number_pharmacists" :min="0" style="width: 100%" />
+      </el-form-item>
+
+      <el-form-item label="Number of Nurses">
+        <el-input-number v-model="facilityForm.number_nurses" :min="0" style="width: 100%" />
+      </el-form-item>
+
+      <el-form-item label="Number of Midwives">
+        <el-input-number v-model="facilityForm.number_midwives" :min="0" style="width: 100%" />
+      </el-form-item>
+
+      <el-form-item label="Number of Other Staff">
+        <el-input-number v-model="facilityForm.number_other_staff" :min="0" style="width: 100%" />
+      </el-form-item>
+
+      <el-divider content-position="left">Services & Referrals</el-divider>
+
+      <el-form-item label="Services Offered">
+        <el-input v-model="facilityForm.services_offered" type="textarea" :rows="3" placeholder="Enter services offered" />
+      </el-form-item>
+
+      <el-form-item label="Referral Destinations">
+        <el-input v-model="facilityForm.referral_destinations" type="textarea" :rows="2" placeholder="Enter referral destinations" />
+      </el-form-item>
+
+      <el-form-item label="Referral Distance (km)">
+        <el-input-number v-model="facilityForm.referral_distance_km" :min="0" :precision="2" style="width: 100%" />
+      </el-form-item>
+
+      <el-form-item label="Referrals per Day">
+        <el-input-number v-model="facilityForm.referrals_per_day" :min="0" style="width: 100%" />
+      </el-form-item>
+
+      <el-form-item label="Has Ambulance">
+        <el-select v-model="facilityForm.has_ambulance" placeholder="Select has ambulance" filterable style="width: 100%">
+          <el-option
+            v-for="item in yesNoPlainOptions"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="Source of Drugs">
+        <el-input v-model="facilityForm.source_of_drugs" placeholder="Enter source of drugs" />
+      </el-form-item>
+
+      <el-form-item label="Common Ailments">
+        <el-input v-model="facilityForm.common_ailments" type="textarea" :rows="2" placeholder="Enter common ailments" />
+      </el-form-item>
+
+      <el-form-item label="Source of Patients">
+        <el-input v-model="facilityForm.source_of_patients" placeholder="Enter source of patients" />
+      </el-form-item>
+
+      <el-divider content-position="left">Additional Information</el-divider>
+
+      <el-form-item label="Respondent Name">
+        <el-input v-model="facilityForm.respondent_name" placeholder="Enter respondent name" />
+      </el-form-item>
+
+      <el-form-item label="Respondent Phone">
+        <el-input v-model="facilityForm.respondent_phone" placeholder="Enter respondent phone" />
+      </el-form-item>
+
+      <el-form-item label="Distance (Meters)">
+        <el-input-number v-model="facilityForm.distance_meters" :min="0" :precision="2" style="width: 100%" />
+      </el-form-item>
+
+      <el-form-item label="Challenges">
+        <el-input v-model="facilityForm.challenges" type="textarea" :rows="3" placeholder="Enter challenges" />
+      </el-form-item>
+    </el-form>
+
+    <template #footer>
+      <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 20px; border-top: 1px solid var(--el-border-color-lighter);">
+        <el-button @click="closeFacilityDrawer">Cancel</el-button>
+        <el-button type="primary" @click="submitFacilityForm" :icon="Check">
+          {{ isEditMode ? 'Update Health Facility' : 'Save Health Facility' }}
+        </el-button>
+      </div>
+    </template>
+  </el-drawer>
 
 </template>
 
@@ -2208,3 +3214,4 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
   }
 }
 </style>
+ 
