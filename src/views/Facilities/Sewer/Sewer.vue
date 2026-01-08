@@ -41,7 +41,7 @@ import {
   Grape,
   Orange,
   Pear,
-  Watermelon, CircleClose, Message, CircleCheck,
+  Watermelon, CircleClose, Message, CircleCheck, Loading
 } from '@element-plus/icons-vue'
 
 
@@ -113,15 +113,8 @@ const showAdminButtons = ref(appStore.getAdminButtons)
 const showEditButtons = ref(appStore.getEditButtons)
 
 
-const action_buttons = ref<string[]>([])
-
-if (showAdminButtons.value) {
-  action_buttons.value = ['edit', 'viewOnMap', 'delete'];
-} else if (showEditButtons.value) {
-  action_buttons.value = ['edit', 'viewOnMap'];
-} else {
-  action_buttons.value = ['viewOnMap'];
-}
+// For settlements, show 'viewOnMap' and 'addFacility' actions
+const action_buttons = ref<string[]>(['viewOnMap', 'addFacility']);
 
 
 
@@ -157,8 +150,9 @@ const total = ref(0)
 
 const statuses = ref([])
 const getSummaryStatus = async () => {
+  // Get count of settlements that have sewer facilities with different approval statuses
   const formData = {}
-  formData.model = 'sewer'
+  formData.model = sewerFacilityModel
   formData.summaryFunction = 'count'
   formData.summaryField = 'isApproved'
   formData.groupFields = ['isApproved']
@@ -261,7 +255,8 @@ var tblData = []
 const associated_Model = ''
 const associated_multiple_models = ['settlement', 'users', 'county', 'subcounty', 'ward']
 
-const model = 'sewer'
+const model = 'settlement'
+const sewerFacilityModel = 'sewer'
 const model_parent_key = 'settlement_id'
 //// ------------------parameters -----------------------////
 
@@ -372,6 +367,42 @@ const removeReviewButton = () => {
   console.log('action_buttons after removing review:', action_buttons.value);
 };
 
+// Store sewer facilities for each settlement
+const settlementSewerFacilities = ref<Record<number, any[]>>({})
+const loadingFacilities = ref<Record<number, boolean>>({})
+
+// Load sewer facilities for a specific settlement
+const loadSewerFacilitiesForSettlement = async (settlementId: number) => {
+  if (settlementSewerFacilities.value[settlementId]) {
+    return settlementSewerFacilities.value[settlementId]
+  }
+
+  loadingFacilities.value[settlementId] = true
+  try {
+    const formData = {
+      limit: 1000,
+      page: 1,
+      curUser: 1,
+      model: sewerFacilityModel,
+      searchField: 'name',
+      searchKeyword: '',
+      filters: ['settlement_id'],
+      filterValues: [[settlementId]],
+      associated_multiple_models: ['settlement', 'county', 'subcounty', 'ward', 'users']
+    }
+
+    const res = await getSettlementListByCounty(formData)
+    settlementSewerFacilities.value[settlementId] = res.data || []
+    return res.data || []
+  } catch (error) {
+    console.error('Error loading sewer facilities:', error)
+    ElMessage.error('Failed to load sewer facilities')
+    return []
+  } finally {
+    loadingFacilities.value[settlementId] = false
+  }
+}
+
 
 
 const getFilteredData = async (selFilters, selfilterValues) => {
@@ -379,7 +410,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   formData.limit = pSize.value
   formData.page = page.value
   formData.curUser = 1 // Id for logged in user
-  formData.model = model
+  formData.model = model // Now using 'settlement'
   //-Search field--------------------------------------------
   formData.searchField = 'name'
   formData.searchKeyword = ''
@@ -388,27 +419,50 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   formData.assocModel = associated_Model
 
   // - multiple filters -------------------------------------
-  formData.filters = selFilters
-  formData.filterValues = selfilterValues
-  formData.associated_multiple_models = associated_multiple_models
-
-
+  // Remove isApproved from settlement filters since we'll filter by nested model
+  const settlementFilters = selFilters.filter((f: string) => f !== 'isApproved')
+  const settlementFilterValues = selfilterValues.filter((_: any, index: number) => selFilters[index] !== 'isApproved')
+  
+  // Set settlement-level filters (county, subcounty, ward, etc.)
+  formData.filters = settlementFilters.length > 0 ? settlementFilters : []
+  formData.filterValues = settlementFilterValues.length > 0 ? settlementFilterValues : []
+  formData.associated_multiple_models = ['county', 'subcounty', 'ward']
+  
+  // Use nested_models to filter settlements that have sewer facilities with the specified approval status
+  // This ensures backend filtering - only settlements with matching sewer facilities are returned
+  const isApprovedIndex = selFilters.indexOf('isApproved')
+  if (isApprovedIndex !== -1 && selfilterValues[isApprovedIndex] && selfilterValues[isApprovedIndex].length > 0) {
+    formData.nested_models = [{
+      model: sewerFacilityModel,
+      field: 'isApproved',
+      values: selfilterValues[isApprovedIndex],
+      requireMatch: true // Only return settlements that have sewer facilities matching the status
+    }]
+  }
 
   const res = await getSettlementListByCounty(formData)
 
-  console.log('After Querry', res)
-  //tableDataList.value = res.data
+  console.log('After Query - Settlements with Sewer Facilities (backend filtered):', res)
 
+  // Backend should have already filtered to only settlements with sewer facilities
+  // Now load sewer facilities counts for display
+  if (res.data && res.data.length > 0) {
+    await Promise.all(res.data.map(async (settlement: any) => {
+      const facilities = await loadSewerFacilitiesForSettlement(settlement.id)
+      console.log(`Loaded ${facilities.length} facilities for settlement ${settlement.id} (${settlement.name})`)
+    }))
+    console.log('All facilities loaded. settlementSewerFacilities:', settlementSewerFacilities.value)
+  }
 
   console.log('activeSegment.value', activeSegment.value)
   if (activeSegment.value == 'Approved') {
-    tableDataList.value = res.data
-    total.value = res.total
+    tableDataList.value = res.data || []
+    total.value = res.total || 0
     removeReviewButton()
 
   } else if (activeSegment.value == 'New' && showAdminButtons.value) {
-    tableDataListNew.value = res.data
-    totalNew.value = res.total
+    tableDataListNew.value = res.data || []
+    totalNew.value = res.total || 0
 
     if (!action_buttons.value.includes('review')) {
       action_buttons.value.push('review');
@@ -416,8 +470,8 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
   }
   else if (activeSegment.value == 'Rejected' && showAdminButtons.value) {
-    tableDataListRejected.value = res.data
-    totalRejected.value = res.total
+    tableDataListRejected.value = res.data || []
+    totalRejected.value = res.total || 0
     removeReviewButton()
 
   }
@@ -1190,7 +1244,11 @@ const DocumentComponentProps = ref({
 });
 
 
-function handleExpand(row) {
+const handleExpand = async (row: any) => {
+  // Load sewer facilities for this settlement
+  await loadSewerFacilitiesForSettlement(row.id)
+  
+  // Handle documents (existing functionality)
   dynamicDocumentComponent.value = null; // Unload the component
   rowData.value = row
   DocumentComponentProps.value.data = row
@@ -1513,6 +1571,16 @@ const AddFacility = () => {
   })
 }
 
+const handleAddFacility = (item: any) => {
+  push({
+    name: 'AddSewerNew',
+    query: {
+      county_id: item.county_id,
+      settlement_id: item.id
+    }
+  })
+}
+
 
 const editFacility = (data: TableSlotDefault) => {
 
@@ -1643,43 +1711,72 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
     </div>
 
     <div v-if="activeSegment === 'Approved'">
-      <el-table :data="tableDataList" style="width: 100%; margin-top: 10px;" border @expand-change="handleExpand">
+      <el-table :data="tableDataList" style="width: 100%; margin-top: 10px;" border @expand-change="handleExpand" row-key="id">
         <el-table-column type="expand">
           <template #default="props">
-            <div m="4">
-              <h3>Documents</h3>
-              <div>
-                <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
+            <div style="padding: 20px;">
+              <h3>Sewer Facilities in {{ props.row.name }}</h3>
+              <div v-if="loadingFacilities[props.row.id]" style="text-align: center; padding: 20px;">
+                <el-icon class="is-loading"><Loading /></el-icon>
+                <span>Loading sewer facilities...</span>
               </div>
-              <el-button
-style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success"
-                :icon="Plus" circle @click="toggleComponent(props.row)" />
+              <el-table 
+                v-else
+                :data="settlementSewerFacilities[props.row.id] || []" 
+                style="width: 100%;" 
+                border
+                size="small"
+              >
+                <el-table-column label="Facility Name" prop="name" />
+                <el-table-column label="Type" prop="facility_type" />
+                <el-table-column label="Status" prop="isApproved">
+                  <template #default="scope">
+                    <el-tag 
+                      :type="scope.row.isApproved === 'Approved' ? 'success' : scope.row.isApproved === 'Rejected' ? 'danger' : 'warning'"
+                    >
+                      {{ scope.row.isApproved }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column label="Actions" width="200">
+                  <template #default="{ row }">
+                    <PermissionWrapper :permissions="['sewer:update', 'sewer:delete']">
+                      <el-button size="small" type="primary" :icon="Edit" @click="editFacility(row)" />
+                      <el-button size="small" type="danger" :icon="Delete" @click="DeleteFacility(row)" />
+                    </PermissionWrapper>
+                  </template>
+                </el-table-column>
+              </el-table>
+              <div v-if="!loadingFacilities[props.row.id] && (!settlementSewerFacilities[props.row.id] || settlementSewerFacilities[props.row.id].length === 0)" style="text-align: center; padding: 20px;">
+                <el-empty description="No sewer facilities found in this settlement" />
+              </div>
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="Name" prop="name" sortable />
+        <el-table-column label="Settlement Name" prop="name" sortable />
         <el-table-column label="Location" sortable>
           <template #default="scope">
-            <span>{{ scope.row.ward.name }} ward, {{ scope.row.subcounty.name }} subcounty, {{ scope.row.county.name
+            <span>{{ scope.row.ward?.name || 'N/A' }} ward, {{ scope.row.subcounty?.name || 'N/A' }} subcounty, {{ scope.row.county?.name || 'N/A'
               }} County</span>
           </template>
         </el-table-column>
-
+        <el-table-column label="Sewer Facilities Count" sortable>
+          <template #default="scope">
+            <el-badge :value="settlementSewerFacilities[scope.row.id]?.length || 0" class="item" />
+          </template>
+        </el-table-column>
 
         <el-table-column label="Actions" width="250">
           <template #default="{ row }">
-            <PermissionWrapper :permissions="['sewer:update', 'sewer:delete']">
               <TableActions
-                :item="row" :buttons="action_buttons" @view-on-map="flyTo" @edit="editFacility"
-                @delete="DeleteFacility" />
-            </PermissionWrapper>
+              :item="row" :buttons="action_buttons" @view-on-map="flyTo" @add-facility="handleAddFacility" />
           </template>
         </el-table-column>
 
       </el-table>
 
       <div v-if="!tableDataList || tableDataList.length === 0" class="no-data-message">
-        <el-empty description="No approved sewer facilities found" />
+        <el-empty description="No settlements with approved sewer facilities found" />
       </div>
 
       <ElPagination
@@ -1698,42 +1795,73 @@ style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" ty
 
 
     <div v-if="activeSegment === 'New'">
-      <el-table :data="tableDataListNew" style="width: 100%; margin-top: 10px;" border @expand-change="handleExpand">
+      <el-table :data="tableDataListNew" style="width: 100%; margin-top: 10px;" border @expand-change="handleExpand" row-key="id">
         <el-table-column type="expand">
           <template #default="props">
-            <div m="4">
-              <h3>Documents</h3>
-              <div>
-                <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
+            <div style="padding: 20px;">
+              <h3>Sewer Facilities in {{ props.row.name }}</h3>
+              <div v-if="loadingFacilities[props.row.id]" style="text-align: center; padding: 20px;">
+                <el-icon class="is-loading"><Loading /></el-icon>
+                <span>Loading sewer facilities...</span>
               </div>
-              <el-button
-style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success"
-                :icon="Plus" circle @click="toggleComponent(props.row)" />
+              <el-table 
+                v-else
+                :data="settlementSewerFacilities[props.row.id] || []" 
+                style="width: 100%;" 
+                border
+                size="small"
+              >
+                <el-table-column label="Facility Name" prop="name" />
+                <el-table-column label="Type" prop="facility_type" />
+                <el-table-column label="Status" prop="isApproved">
+                  <template #default="scope">
+                    <el-tag 
+                      :type="scope.row.isApproved === 'Approved' ? 'success' : scope.row.isApproved === 'Rejected' ? 'danger' : 'warning'"
+                    >
+                      {{ scope.row.isApproved }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column label="Actions" width="200">
+                  <template #default="{ row }">
+                    <PermissionWrapper :permissions="['sewer:update', 'sewer:delete', 'sewer:review']">
+                      <el-button size="small" type="primary" :icon="Edit" @click="editFacility(row)" />
+                      <el-button size="small" type="danger" :icon="Delete" @click="DeleteFacility(row)" />
+                      <el-button size="small" type="warning" @click="Review(row)" />
+                    </PermissionWrapper>
+                  </template>
+                </el-table-column>
+              </el-table>
+              <div v-if="!loadingFacilities[props.row.id] && (!settlementSewerFacilities[props.row.id] || settlementSewerFacilities[props.row.id].length === 0)" style="text-align: center; padding: 20px;">
+                <el-empty description="No sewer facilities found in this settlement" />
+              </div>
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="Name" prop="name" sortable />
+        <el-table-column label="Settlement Name" prop="name" sortable />
         <el-table-column label="Location" sortable>
           <template #default="scope">
-            <span>{{ scope.row.ward.name }} ward, {{ scope.row.subcounty.name }} subcounty, {{ scope.row.county.name
+            <span>{{ scope.row.ward?.name || 'N/A' }} ward, {{ scope.row.subcounty?.name || 'N/A' }} subcounty, {{ scope.row.county?.name || 'N/A'
               }} County</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="Sewer Facilities Count" sortable>
+          <template #default="scope">
+            <el-badge :value="settlementSewerFacilities[scope.row.id]?.length || 0" class="item" />
           </template>
         </el-table-column>
 
         <el-table-column label="Actions" width="250">
           <template #default="{ row }">
-            <PermissionWrapper :permissions="['sewer:update', 'sewer:delete', 'sewer:review']">
               <TableActions
-                :item="row" :buttons="action_buttons" @view-on-map="flyTo" @edit="editFacility" @review="Review"
-                @delete="DeleteFacility" />
-            </PermissionWrapper>
+              :item="row" :buttons="action_buttons" @view-on-map="flyTo" @add-facility="handleAddFacility" />
           </template>
         </el-table-column>
 
       </el-table>
 
       <div v-if="!tableDataListNew || tableDataListNew.length === 0" class="no-data-message">
-        <el-empty description="No new sewer facilities found" />
+        <el-empty description="No settlements with new sewer facilities found" />
       </div>
 
       <ElPagination
@@ -1753,35 +1881,65 @@ style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" ty
 
       <el-table
         :data="tableDataListRejected" style="width: 100%; margin-top: 10px;" border
-        @expand-change="handleExpand">
+        @expand-change="handleExpand" row-key="id">
         <el-table-column type="expand">
           <template #default="props">
-            <div m="4">
-              <h3>Documents</h3>
-              <div>
-                <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
+            <div style="padding: 20px;">
+              <h3>Sewer Facilities in {{ props.row.name }}</h3>
+              <div v-if="loadingFacilities[props.row.id]" style="text-align: center; padding: 20px;">
+                <el-icon class="is-loading"><Loading /></el-icon>
+                <span>Loading sewer facilities...</span>
               </div>
-              <el-button
-style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success"
-                :icon="Plus" circle @click="toggleComponent(props.row)" />
+              <el-table 
+                v-else
+                :data="settlementSewerFacilities[props.row.id] || []" 
+                style="width: 100%;" 
+                border
+                size="small"
+              >
+                <el-table-column label="Facility Name" prop="name" />
+                <el-table-column label="Type" prop="facility_type" />
+                <el-table-column label="Status" prop="isApproved">
+                  <template #default="scope">
+                    <el-tag 
+                      :type="scope.row.isApproved === 'Approved' ? 'success' : scope.row.isApproved === 'Rejected' ? 'danger' : 'warning'"
+                    >
+                      {{ scope.row.isApproved }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column label="Actions" width="200">
+                  <template #default="{ row }">
+                    <PermissionWrapper :permissions="['sewer:update', 'sewer:delete']">
+                      <el-button size="small" type="primary" :icon="Edit" @click="editFacility(row)" />
+                      <el-button size="small" type="danger" :icon="Delete" @click="DeleteFacility(row)" />
+                    </PermissionWrapper>
+                  </template>
+                </el-table-column>
+              </el-table>
+              <div v-if="!loadingFacilities[props.row.id] && (!settlementSewerFacilities[props.row.id] || settlementSewerFacilities[props.row.id].length === 0)" style="text-align: center; padding: 20px;">
+                <el-empty description="No sewer facilities found in this settlement" />
+              </div>
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="Name" prop="name" sortable />
+        <el-table-column label="Settlement Name" prop="name" sortable />
         <el-table-column label="Location" sortable>
           <template #default="scope">
-            <span>{{ scope.row.ward.name }} ward, {{ scope.row.subcounty.name }} subcounty, {{ scope.row.county.name
+            <span>{{ scope.row.ward?.name || 'N/A' }} ward, {{ scope.row.subcounty?.name || 'N/A' }} subcounty, {{ scope.row.county?.name || 'N/A'
               }} County</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="Sewer Facilities Count" sortable>
+          <template #default="scope">
+            <el-badge :value="settlementSewerFacilities[scope.row.id]?.length || 0" class="item" />
           </template>
         </el-table-column>
 
         <el-table-column label="Actions" width="250">
           <template #default="{ row }">
-            <PermissionWrapper :permissions="['sewer:update', 'sewer:delete']">
               <TableActions
-                :item="row" :buttons="action_buttons" @view-on-map="flyTo" @edit="editFacility"
-                @delete="DeleteFacility" />
-            </PermissionWrapper>
+              :item="row" :buttons="action_buttons" @view-on-map="flyTo" @add-facility="handleAddFacility" />
           </template>
         </el-table-column>
 

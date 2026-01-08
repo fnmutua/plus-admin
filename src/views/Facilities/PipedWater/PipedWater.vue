@@ -14,7 +14,7 @@ import {
 
 import {
   Position, TopRight, User, Plus, Edit, Delete, View, Download, Filter, InfoFilled, Back, Search,
-  MessageBox, Apple, Cherry, Grape, Orange, Pear, Watermelon, CircleClose, Message, CircleCheck, StarFilled
+  MessageBox, Apple, Cherry, Grape, Orange, Pear, Watermelon, CircleClose, Message, CircleCheck, StarFilled, Loading
 } from '@element-plus/icons-vue'
 
 import { computed, onMounted, ref, reactive, nextTick, defineAsyncComponent } from 'vue'
@@ -57,22 +57,16 @@ const userInfo = wsCache.get(appStore.getUserInfo)
 const showAdminButtons = ref(appStore.getAdminButtons)
 const showEditButtons = ref(appStore.getEditButtons)
 
-const action_buttons = ref<string[]>([])
-
-if (showAdminButtons.value) {
-  action_buttons.value = ['edit', 'viewOnMap', 'delete']
-} else if (showEditButtons.value) {
-  action_buttons.value = ['edit', 'viewOnMap']
-} else {
-  action_buttons.value = ['viewOnMap']
-}
+// For settlements, show 'viewOnMap' and 'addFacility' actions
+const action_buttons = ref<string[]>(['viewOnMap', 'addFacility'])
 
 console.log('action_buttons', action_buttons.value)
 
 const statuses = ref([])
 const getSummaryStatus = async () => {
+  // Get count of settlements that have piped water facilities with different approval statuses
   const formData: Record<string, any> = {}
-  formData.model = 'piped_water'
+  formData.model = pipedWaterFacilityModel
   formData.summaryFunction = 'count'
   formData.summaryField = 'isApproved'
   formData.groupFields = ['isApproved']
@@ -171,7 +165,8 @@ var tblData = []
 const associated_Model = ''
 const associated_multiple_models = ['settlement', 'users', 'county', 'subcounty', 'ward']
 
-const model = 'piped_water'
+const model = 'settlement'
+const pipedWaterFacilityModel = 'piped_water'
 const model_parent_key = 'settlement_id'
 
 const currentRoute = useRoute() // Access current route using useRoute
@@ -260,12 +255,48 @@ const removeReviewButton = () => {
   console.log('action_buttons after removing review:', action_buttons.value)
 }
 
+// Store piped water facilities for each settlement
+const settlementPipedWaterFacilities = ref<Record<number, any[]>>({})
+const loadingFacilities = ref<Record<number, boolean>>({})
+
+// Load piped water facilities for a specific settlement
+const loadPipedWaterFacilitiesForSettlement = async (settlementId: number) => {
+  if (settlementPipedWaterFacilities.value[settlementId]) {
+    return settlementPipedWaterFacilities.value[settlementId]
+  }
+
+  loadingFacilities.value[settlementId] = true
+  try {
+    const formData = {
+      limit: 1000,
+      page: 1,
+      curUser: 1,
+      model: pipedWaterFacilityModel,
+      searchField: 'name',
+      searchKeyword: '',
+      filters: ['settlement_id'],
+      filterValues: [[settlementId]],
+      associated_multiple_models: ['settlement', 'county', 'subcounty', 'ward', 'users']
+    }
+
+    const res = await getSettlementListByCounty(formData)
+    settlementPipedWaterFacilities.value[settlementId] = res.data || []
+    return res.data || []
+  } catch (error) {
+    console.error('Error loading piped water facilities:', error)
+    ElMessage.error('Failed to load piped water facilities')
+    return []
+  } finally {
+    loadingFacilities.value[settlementId] = false
+  }
+}
+
 const getFilteredData = async (selFilters, selfilterValues) => {
   const formData = {}
   formData.limit = pSize.value
   formData.page = page.value
   formData.curUser = 1 // Id for logged in user
-  formData.model = model
+  formData.model = model // Now using 'settlement'
   //-Search field--------------------------------------------
   formData.searchField = 'name'
   formData.searchKeyword = ''
@@ -274,27 +305,50 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   formData.assocModel = associated_Model
 
   // - multiple filters -------------------------------------
-  formData.filters = selFilters
-  formData.filterValues = selfilterValues
-  formData.associated_multiple_models = associated_multiple_models
-
-
+  // Remove isApproved from settlement filters since we'll filter by nested model
+  const settlementFilters = selFilters.filter((f: string) => f !== 'isApproved')
+  const settlementFilterValues = selfilterValues.filter((_: any, index: number) => selFilters[index] !== 'isApproved')
+  
+  // Set settlement-level filters (county, subcounty, ward, etc.)
+  formData.filters = settlementFilters.length > 0 ? settlementFilters : []
+  formData.filterValues = settlementFilterValues.length > 0 ? settlementFilterValues : []
+  formData.associated_multiple_models = ['county', 'subcounty', 'ward']
+  
+  // Use nested_models to filter settlements that have piped water facilities with the specified approval status
+  // This ensures backend filtering - only settlements with matching piped water facilities are returned
+  const isApprovedIndex = selFilters.indexOf('isApproved')
+  if (isApprovedIndex !== -1 && selfilterValues[isApprovedIndex] && selfilterValues[isApprovedIndex].length > 0) {
+    formData.nested_models = [{
+      model: pipedWaterFacilityModel,
+      field: 'isApproved',
+      values: selfilterValues[isApprovedIndex],
+      requireMatch: true // Only return settlements that have piped water facilities matching the status
+    }]
+  }
 
   const res = await getSettlementListByCounty(formData)
 
-  console.log('After Querry', res)
-  //tableDataList.value = res.data
+  console.log('After Query - Settlements with Piped Water Facilities (backend filtered):', res)
 
+  // Backend should have already filtered to only settlements with piped water facilities
+  // Now load piped water facilities counts for display
+  if (res.data && res.data.length > 0) {
+    await Promise.all(res.data.map(async (settlement: any) => {
+      const facilities = await loadPipedWaterFacilitiesForSettlement(settlement.id)
+      console.log(`Loaded ${facilities.length} facilities for settlement ${settlement.id} (${settlement.name})`)
+    }))
+    console.log('All facilities loaded. settlementPipedWaterFacilities:', settlementPipedWaterFacilities.value)
+  }
 
   console.log('activeSegment.value', activeSegment.value)
   if (activeSegment.value == 'Approved') {
-    tableDataList.value = res.data
-    total.value = res.total
+    tableDataList.value = res.data || []
+    total.value = res.total || 0
     removeReviewButton()
 
   } else if (activeSegment.value == 'New' && showAdminButtons.value) {
-    tableDataListNew.value = res.data
-    totalNew.value = res.total
+    tableDataListNew.value = res.data || []
+    totalNew.value = res.total || 0
 
     if (!action_buttons.value.includes('review')) {
       action_buttons.value.push('review')
@@ -302,8 +356,8 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
   }
   else if (activeSegment.value == 'Rejected' && showAdminButtons.value) {
-    tableDataListRejected.value = res.data
-    totalRejected.value = res.total
+    tableDataListRejected.value = res.data || []
+    totalRejected.value = res.total || 0
     removeReviewButton()
 
   }
@@ -1077,7 +1131,11 @@ const DocumentComponentProps = ref({
 });
 
 
-function handleExpand(row) {
+const handleExpand = async (row: any) => {
+  // Load piped water facilities for this settlement
+  await loadPipedWaterFacilitiesForSettlement(row.id)
+  
+  // Handle documents (existing functionality)
   dynamicDocumentComponent.value = null; // Unload the component
   rowData.value = row
   DocumentComponentProps.value.data = row
@@ -1445,6 +1503,16 @@ const AddFacility = () => {
   })
 }
 
+const handleAddFacility = (item: any) => {
+  push({
+    name: 'AddPipedWaterNew',
+    query: {
+      county_id: item.county_id,
+      settlement_id: item.id
+    }
+  })
+}
+
 
 const editFacility = (data: TableSlotDefault) => {
 
@@ -1573,43 +1641,72 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
     </div>
 
     <div v-if="activeSegment === 'Approved'">
-      <el-table :data="tableDataList" style="width: 100%; margin-top: 10px;" border @expand-change="handleExpand">
+      <el-table :data="tableDataList" style="width: 100%; margin-top: 10px;" border @expand-change="handleExpand" row-key="id">
         <el-table-column type="expand">
           <template #default="props">
-            <div m="4">
-              <h3>Documents</h3>
-              <div>
-                <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
+            <div style="padding: 20px;">
+              <h3>Piped Water Facilities in {{ props.row.name }}</h3>
+              <div v-if="loadingFacilities[props.row.id]" style="text-align: center; padding: 20px;">
+                <el-icon class="is-loading"><Loading /></el-icon>
+                <span>Loading piped water facilities...</span>
               </div>
-              <el-button
-style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success"
-                :icon="Plus" circle @click="toggleComponent(props.row)" />
+              <el-table 
+                v-else
+                :data="settlementPipedWaterFacilities[props.row.id] || []" 
+                style="width: 100%;" 
+                border
+                size="small"
+              >
+                <el-table-column label="Facility Name" prop="name" />
+                <el-table-column label="Type" prop="facility_type" />
+                <el-table-column label="Status" prop="isApproved">
+                  <template #default="scope">
+                    <el-tag 
+                      :type="scope.row.isApproved === 'Approved' ? 'success' : scope.row.isApproved === 'Rejected' ? 'danger' : 'warning'"
+                    >
+                      {{ scope.row.isApproved }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column label="Actions" width="200">
+                  <template #default="{ row }">
+                    <PermissionWrapper :permissions="['piped_water:update', 'piped_water:delete']">
+                      <el-button size="small" type="primary" :icon="Edit" @click="editFacility(row)" />
+                      <el-button size="small" type="danger" :icon="Delete" @click="DeleteFacility(row)" />
+                    </PermissionWrapper>
+                  </template>
+                </el-table-column>
+              </el-table>
+              <div v-if="!loadingFacilities[props.row.id] && (!settlementPipedWaterFacilities[props.row.id] || settlementPipedWaterFacilities[props.row.id].length === 0)" style="text-align: center; padding: 20px;">
+                <el-empty description="No piped water facilities found in this settlement" />
+              </div>
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="Name" prop="name" sortable />
+        <el-table-column label="Settlement Name" prop="name" sortable />
         <el-table-column label="Location" sortable>
           <template #default="scope">
-            <span>{{ scope.row.ward.name }} ward, {{ scope.row.subcounty.name }} subcounty, {{ scope.row.county.name
+            <span>{{ scope.row.ward?.name || 'N/A' }} ward, {{ scope.row.subcounty?.name || 'N/A' }} subcounty, {{ scope.row.county?.name || 'N/A'
               }} County</span>
           </template>
         </el-table-column>
-
+        <el-table-column label="Piped Water Facilities Count" sortable>
+          <template #default="scope">
+            <el-badge :value="settlementPipedWaterFacilities[scope.row.id]?.length || 0" class="item" />
+          </template>
+        </el-table-column>
 
         <el-table-column label="Actions" width="250">
           <template #default="{ row }">
-            <PermissionWrapper :permissions="['piped_water:update', 'piped_water:delete']">
               <TableActions
-                :item="row" :buttons="action_buttons" @view-on-map="flyTo" @edit="editFacility"
-                @delete="DeleteFacility" />
-            </PermissionWrapper>
+              :item="row" :buttons="action_buttons" @view-on-map="flyTo" @add-facility="handleAddFacility" />
           </template>
         </el-table-column>
 
       </el-table>
 
       <div v-if="!tableDataList || tableDataList.length === 0" class="no-data-message">
-        <el-empty description="No approved piped water facilities found" />
+        <el-empty description="No settlements with approved piped water facilities found" />
       </div>
 
       <ElPagination
@@ -1628,42 +1725,73 @@ style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" ty
 
 
     <div v-if="activeSegment === 'New'">
-      <el-table :data="tableDataListNew" style="width: 100%; margin-top: 10px;" border @expand-change="handleExpand">
+      <el-table :data="tableDataListNew" style="width: 100%; margin-top: 10px;" border @expand-change="handleExpand" row-key="id">
         <el-table-column type="expand">
           <template #default="props">
-            <div m="4">
-              <h3>Documents</h3>
-              <div>
-                <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
+            <div style="padding: 20px;">
+              <h3>Piped Water Facilities in {{ props.row.name }}</h3>
+              <div v-if="loadingFacilities[props.row.id]" style="text-align: center; padding: 20px;">
+                <el-icon class="is-loading"><Loading /></el-icon>
+                <span>Loading piped water facilities...</span>
               </div>
-              <el-button
-style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success"
-                :icon="Plus" circle @click="toggleComponent(props.row)" />
+              <el-table 
+                v-else
+                :data="settlementPipedWaterFacilities[props.row.id] || []" 
+                style="width: 100%;" 
+                border
+                size="small"
+              >
+                <el-table-column label="Facility Name" prop="name" />
+                <el-table-column label="Type" prop="facility_type" />
+                <el-table-column label="Status" prop="isApproved">
+                  <template #default="scope">
+                    <el-tag 
+                      :type="scope.row.isApproved === 'Approved' ? 'success' : scope.row.isApproved === 'Rejected' ? 'danger' : 'warning'"
+                    >
+                      {{ scope.row.isApproved }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column label="Actions" width="200">
+                  <template #default="{ row }">
+                    <PermissionWrapper :permissions="['piped_water:update', 'piped_water:delete', 'piped_water:review']">
+                      <el-button size="small" type="primary" :icon="Edit" @click="editFacility(row)" />
+                      <el-button size="small" type="danger" :icon="Delete" @click="DeleteFacility(row)" />
+                      <el-button size="small" type="warning" @click="Review(row)" />
+                    </PermissionWrapper>
+                  </template>
+                </el-table-column>
+              </el-table>
+              <div v-if="!loadingFacilities[props.row.id] && (!settlementPipedWaterFacilities[props.row.id] || settlementPipedWaterFacilities[props.row.id].length === 0)" style="text-align: center; padding: 20px;">
+                <el-empty description="No piped water facilities found in this settlement" />
+              </div>
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="Name" prop="name" sortable />
+        <el-table-column label="Settlement Name" prop="name" sortable />
         <el-table-column label="Location" sortable>
           <template #default="scope">
-            <span>{{ scope.row.ward.name }} ward, {{ scope.row.subcounty.name }} subcounty, {{ scope.row.county.name
+            <span>{{ scope.row.ward?.name || 'N/A' }} ward, {{ scope.row.subcounty?.name || 'N/A' }} subcounty, {{ scope.row.county?.name || 'N/A'
               }} County</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="Piped Water Facilities Count" sortable>
+          <template #default="scope">
+            <el-badge :value="settlementPipedWaterFacilities[scope.row.id]?.length || 0" class="item" />
           </template>
         </el-table-column>
 
         <el-table-column label="Actions" width="250">
           <template #default="{ row }">
-            <PermissionWrapper :permissions="['piped_water:update', 'piped_water:delete']">
               <TableActions
-                :item="row" :buttons="action_buttons" @view-on-map="flyTo" @edit="editFacility" @review="Review"
-                @delete="DeleteFacility" />
-            </PermissionWrapper>
+              :item="row" :buttons="action_buttons" @view-on-map="flyTo" @add-facility="handleAddFacility" />
           </template>
         </el-table-column>
 
       </el-table>
 
       <div v-if="!tableDataListNew || tableDataListNew.length === 0" class="no-data-message">
-        <el-empty description="No new piped water facilities found" />
+        <el-empty description="No settlements with new piped water facilities found" />
       </div>
 
       <ElPagination
@@ -1683,35 +1811,65 @@ style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" ty
 
       <el-table
         :data="tableDataListRejected" style="width: 100%; margin-top: 10px;" border
-        @expand-change="handleExpand">
+        @expand-change="handleExpand" row-key="id">
         <el-table-column type="expand">
           <template #default="props">
-            <div m="4">
-              <h3>Documents</h3>
-              <div>
-                <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
+            <div style="padding: 20px;">
+              <h3>Piped Water Facilities in {{ props.row.name }}</h3>
+              <div v-if="loadingFacilities[props.row.id]" style="text-align: center; padding: 20px;">
+                <el-icon class="is-loading"><Loading /></el-icon>
+                <span>Loading piped water facilities...</span>
               </div>
-              <el-button
-                style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success"
-                :icon="Plus" circle @click="toggleComponent(props.row)" />
+              <el-table 
+                v-else
+                :data="settlementPipedWaterFacilities[props.row.id] || []" 
+                style="width: 100%;" 
+                border
+                size="small"
+              >
+                <el-table-column label="Facility Name" prop="name" />
+                <el-table-column label="Type" prop="facility_type" />
+                <el-table-column label="Status" prop="isApproved">
+                  <template #default="scope">
+                    <el-tag 
+                      :type="scope.row.isApproved === 'Approved' ? 'success' : scope.row.isApproved === 'Rejected' ? 'danger' : 'warning'"
+                    >
+                      {{ scope.row.isApproved }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column label="Actions" width="200">
+                  <template #default="{ row }">
+                    <PermissionWrapper :permissions="['piped_water:update', 'piped_water:delete']">
+                      <el-button size="small" type="primary" :icon="Edit" @click="editFacility(row)" />
+                      <el-button size="small" type="danger" :icon="Delete" @click="DeleteFacility(row)" />
+                    </PermissionWrapper>
+                  </template>
+                </el-table-column>
+              </el-table>
+              <div v-if="!loadingFacilities[props.row.id] && (!settlementPipedWaterFacilities[props.row.id] || settlementPipedWaterFacilities[props.row.id].length === 0)" style="text-align: center; padding: 20px;">
+                <el-empty description="No piped water facilities found in this settlement" />
+              </div>
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="Name" prop="name" sortable />
+        <el-table-column label="Settlement Name" prop="name" sortable />
         <el-table-column label="Location" sortable>
           <template #default="scope">
-            <span>{{ scope.row.ward.name }} ward, {{ scope.row.subcounty.name }} subcounty, {{ scope.row.county.name
+            <span>{{ scope.row.ward?.name || 'N/A' }} ward, {{ scope.row.subcounty?.name || 'N/A' }} subcounty, {{ scope.row.county?.name || 'N/A'
               }} County</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="Piped Water Facilities Count" sortable>
+          <template #default="scope">
+            <el-badge :value="settlementPipedWaterFacilities[scope.row.id]?.length || 0" class="item" />
           </template>
         </el-table-column>
 
         <el-table-column label="Actions" width="250">
           <template #default="{ row }">
-            <PermissionWrapper :permissions="['piped_water:update', 'piped_water:delete']">
               <TableActions
-                :item="row" :buttons="action_buttons" @view-on-map="flyTo" @edit="editFacility"
-                @delete="DeleteFacility" />
-            </PermissionWrapper>
+              :item="row" :buttons="action_buttons" @view-on-map="flyTo" @add-facility="handleAddFacility" />
           </template>
         </el-table-column>
 
