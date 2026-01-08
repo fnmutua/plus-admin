@@ -1576,7 +1576,7 @@ const searchByNewName = async () => {
 
 const AddFacility = () => {
   push({
-    name: 'AddEducationX'
+    name: 'AddEducationNew'
   })
 }
 

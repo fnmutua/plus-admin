@@ -560,6 +560,12 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             meta: { hidden: true, title: 'Add', noCache: true }
           },
           {
+            path: 'health/addNew',
+            component: () => import('@/views/Facilities/Health/AddHealthNew.vue'),
+            name: 'AddHealthNew',
+            meta: { hidden: true, title: 'Add Health Facility', noCache: true }
+          },
+          {
             path: 'health/map/:id',
           //  component: 'views/Facilities/Health/HealthMap',
             component: () => import('@/views/Facilities/Health/HealthMap.vue'),
@@ -612,6 +618,13 @@ export const adminRoutes: AppRouteRecordRaw[] = [
     
             name: 'AddEducationX',
             meta: { hidden: true, title: 'Add', props:true,  noCache: true }
+          },
+
+          {
+            path: 'edu/addNew',
+            component: () => import('@/views/Facilities/Education/AddEducationNew.vue'),
+            name: 'AddEducationNew',
+            meta: { hidden: true, title: 'Add Education Facility', noCache: true }
           },
 
 
@@ -808,6 +821,12 @@ export const adminRoutes: AppRouteRecordRaw[] = [
               title: 'Water Point Profile'
             }
           },
+          {
+            path: 'water/addNew',
+            component: () => import('@/views/Facilities/Water/AddWaterNew.vue'),
+            name: 'AddWaterNew',
+            meta: { hidden: true, title: 'Add Water Point', noCache: true }
+          },
     
          ]
          
@@ -870,6 +889,12 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         name: 'AddOtherX',
         meta: { hidden: true, title: 'Add Facility', noCache: true }
           },
+      {
+        path: 'other/addNew',
+        component: () => import('@/views/Facilities/Other/AddOtherNew.vue'),
+        name: 'AddOtherNew',
+        meta: { hidden: true, title: 'Add Other Facility', noCache: true }
+      },
           {
             path: 'other/map/:id',
           //  component: 'views/Facilities/Sewer/SewerMap',

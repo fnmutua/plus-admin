@@ -1629,14 +1629,14 @@ const searchByNewName = async () => {
 
 const AddFacility = () => {
   push({
-    name: 'AddOtherX'
+    name: 'AddOtherNew'
   })
 }
 
 
 const editFacility = (data: TableSlotDefault) => {
   push({
-    name: 'AddOtherX',
+    name: 'AddOtherNew',
     query: { id: data.id }
 
   });

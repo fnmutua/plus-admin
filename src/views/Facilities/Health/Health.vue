@@ -976,7 +976,7 @@ const editFacility = (data: TableSlotDefault) => {
 
 
   push({
-    name: 'AddhealthX',
+    name: 'AddHealthNew',
     query: { id: data.id }
 
   });
@@ -1517,7 +1517,7 @@ const searchByNewName = async () => {
 
 const AddFacility = (data: TableSlotDefault) => {
   push({
-    name: 'AddhealthX'
+    name: 'AddHealthNew'
   })
 }
 

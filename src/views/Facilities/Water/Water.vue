@@ -1614,7 +1614,7 @@ const searchByNewName = async () => {
 
 const AddFacility = () => {
   push({
-    name: 'AddWaterPoint'
+    name: 'AddWaterNew'
   })
 }
 
@@ -1622,7 +1622,7 @@ const AddFacility = () => {
 const editFacility = (data: TableSlotDefault) => {
 
   push({
-    name: 'AddWaterPoint',
+    name: 'AddWaterNew',
     query: { id: data.id }
 
   });

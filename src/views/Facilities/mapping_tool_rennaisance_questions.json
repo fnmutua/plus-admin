@@ -1,0 +1,3883 @@
+{
+  "form_title": "Mapping Tool ",
+  "questions": [
+    {
+      "name": "SurveyDate",
+      "type": "today"
+    },
+    {
+      "name": "uuid_record",
+      "type": "calculate",
+      "calculation": "once(string(format-date-time(now(), '%Y%m%d%H%M%S%3')))"
+    },
+    {
+      "name": "header",
+      "type": "note",
+      "label": "<h2 style=\"text-aligncenter\">&nbsp;</h2> <h2 style=\"text-aligncenter\"><strong>MINISTRY OF LANDS, HOUSING AND URBAN DEVELOPMENT</strong></h2> <h2 style=\"text-aligncenter\"><strong>State Department of Housing and Urban Development</strong></h2> <p style=\"text-aligncenter\"><span style=\"font-size12pt\"><span style=\"font-family&quot;Times New Roman&quot;,serif\"><strong><span style=\"font-family&quot;Calibri&quot;,sans-serif\">SECOND KENYA INFORMAL SETTLEMENTS IMPROVEMENT PROJECT (KISIP2) </span></strong></span></span></p> <p style=\"text-aligncenter\"><strong><u>Mapping Questionaire</u></strong></p> <p style=\"text-aligncenter\"><u>2024</u></p> <p style=\"text-aligncenter\">&nbsp;</p>",
+      "hint": " "
+    },
+    {
+      "name": "county",
+      "type": "select_one_from_file county_admin.csv",
+      "label": "County",
+      "appearance": "minimal",
+      "required": "yes",
+      "select_type": "select_one_from_file",
+      "choice_list_file": "county_admin.csv"
+    },
+    {
+      "name": "settlement_name",
+      "type": "select_one_from_file settlements.csv",
+      "label": "Settlement",
+      "hint": "\"Search for an existing settlement by typing in part of their  name. If the settlement  is not found, leave this question blank and go to the next screen to register them.\"",
+      "appearance": "minimal search",
+      "required": "yes",
+      "choice_filter": "county=${county}",
+      "select_type": "select_one_from_file",
+      "choice_list_file": "settlements.csv"
+    },
+    {
+      "name": "pcode",
+      "type": "calculate",
+      "calculation": "pulldata('settlements', 'code', 'name',  ${settlement_name})"
+    },
+    {
+      "name": "feature_type",
+      "type": "select_one list_settlement_features_to_map_feature_to_map",
+      "label": "Feature Type",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "list_settlement_features_to_map_feature_to_map",
+      "options": [
+        {
+          "name": "infrastructure",
+          "label": "Physical Infrastructure",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "water",
+          "label": "Water/Sewer",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "public_facility",
+          "label": "Public Facilities",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "natural_physical_feature",
+          "label": "Natural/Physical Features",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "disaster_zone",
+          "label": "Disaster Zones",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "solid_waste",
+          "label": "Solid Waste",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "crime_violence",
+          "label": "Crime and Violence",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "type_infrastructure",
+      "type": "select_one type_infrastructure",
+      "label": "Type of infrastructure",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "type_infrastructure",
+      "options": [
+        {
+          "name": "road",
+          "label": "Road",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "road_furniture",
+          "label": "Road Asset",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "powerline",
+          "label": "Powerline",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "powerline_assets",
+          "label": "Powerline Asset",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "telecommunication",
+          "label": "Telecommunication",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "railway",
+          "label": "Railway",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "railway_assets",
+          "label": "Railway Asset",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "floodlightsstreetlights",
+          "label": "Floodlights/Streetlights",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "community_projects",
+          "label": "Community Project",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "RD_Name",
+      "type": "text",
+      "label": "Name of Road",
+      "hint": "From-To",
+      "required": "yes"
+    },
+    {
+      "name": "RD_Road_Number",
+      "type": "text",
+      "label": "Road Number"
+    },
+    {
+      "name": "RD_Road_Width_m",
+      "type": "decimal",
+      "label": "Road Width (m)",
+      "hint": "Estimate (meters)",
+      "required": "yes"
+    },
+    {
+      "name": "RD_Surface_Type",
+      "type": "select_one CWSurf_Type_list",
+      "label": "Surface Type",
+      "appearance": "minimal",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "CWSurf_Type_list",
+      "options": [
+        {
+          "name": "asphalt",
+          "label": "Asphalt",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "surface_dressing",
+          "label": "Surface Dressing",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "gravel",
+          "label": "Gravel",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "earth",
+          "label": "Earth",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "concrete_jt",
+          "label": "Jointed Concrete",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "concrete_bl",
+          "label": "Concrete Blocks",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "concrete_rein",
+          "label": "Reinforced Concrete",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "brick",
+          "label": "Brick",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "set_stone",
+          "label": "Cobble stone road",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "track",
+          "label": "Unimproved road with tyre tracks visible",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "other",
+          "label": "Other(Rater to provide description and Photo)",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "RD_Surface_Condition",
+      "type": "select_one condition_list",
+      "label": "Surface Condition",
+      "appearance": "minimal",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "condition_list",
+      "options": [
+        {
+          "name": "Under construction ",
+          "label": "Under construction ",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Broken/not in use",
+          "label": "Broken/not in use",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Operational ",
+          "label": "Operational ",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Decomissioned",
+          "label": "Decomissioned",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "RD_Traffic",
+      "type": "select_one usage_list",
+      "label": "Traffic",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "usage_list",
+      "options": [
+        {
+          "name": "busy",
+          "label": "Busy",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "used",
+          "label": "Used",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "rare",
+          "label": "Rare",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "Rd_direction",
+      "type": "select_one direction_list",
+      "label": "Direction of Travel",
+      "appearance": "minimal",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "direction_list",
+      "options": [
+        {
+          "name": "One Way",
+          "label": "One Way",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Two Way",
+          "label": "Two Way",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "RD_drainage_location",
+      "type": "select_one draingae_side_list",
+      "label": "Drainage Location",
+      "appearance": "minimal",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "draingae_side_list",
+      "options": [
+        {
+          "name": "One Side",
+          "label": "One Side",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Both Sides",
+          "label": "Both Sides",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": null,
+          "label": null,
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "RD_drainage_condition",
+      "type": "select_one condition_list",
+      "label": "Drainage Condition",
+      "appearance": "minimal",
+      "required": "yes",
+      "relevant": "not(selected(${RD_drainage_location}, 'None'))",
+      "select_type": "select_one",
+      "choice_list_name": "condition_list",
+      "options": [
+        {
+          "name": "Under construction ",
+          "label": "Under construction ",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Broken/not in use",
+          "label": "Broken/not in use",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Operational ",
+          "label": "Operational ",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Decomissioned",
+          "label": "Decomissioned",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "RD_reserve_encroachment",
+      "type": "select_one  yes_no_plain",
+      "label": "Has there been infiltration of the road reserve by families in the settlement?",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "yes_no_plain",
+      "options": [
+        {
+          "name": "yes",
+          "label": "Yes",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "no",
+          "label": "No",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "RF_Name",
+      "type": "text",
+      "label": "Name/Place name ",
+      "required": "yes"
+    },
+    {
+      "name": "RF_Type",
+      "type": "select_one road_asset_list",
+      "label": "Type",
+      "appearance": "minimal",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "road_asset_list",
+      "options": [
+        {
+          "name": "Bridge",
+          "label": "Bridge",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Culvert",
+          "label": "Culvert",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Bus_Stop",
+          "label": "Bus Stop",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Boda_Shed",
+          "label": "Boda Shed",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Streetlights ",
+          "label": "Streetlights ",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "RF_Condition",
+      "type": "select_one condition_list",
+      "label": "Condition",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "condition_list",
+      "options": [
+        {
+          "name": "Under construction ",
+          "label": "Under construction ",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Broken/not in use",
+          "label": "Broken/not in use",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Operational ",
+          "label": "Operational ",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Decomissioned",
+          "label": "Decomissioned",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "PL_Name",
+      "type": "text",
+      "label": "Name/Place name ",
+      "required": "yes"
+    },
+    {
+      "name": "PL_Phases",
+      "type": "select_one phase_list",
+      "label": "Phases",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "phase_list",
+      "options": [
+        {
+          "name": "single",
+          "label": "Single phase",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "3-phase",
+          "label": "3-Phase",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "PL_Type_of_Supply",
+      "type": "select_one power_list",
+      "label": "Type of Supply",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "power_list",
+      "options": [
+        {
+          "name": "hv",
+          "label": "High Voltage",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "mv",
+          "label": "Medium Voltage",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "lv",
+          "label": "Low Voltage",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "PA_Name",
+      "type": "text",
+      "label": "Name",
+      "required": "yes"
+    },
+    {
+      "name": "PA_Identifier",
+      "type": "text",
+      "label": "Identifier"
+    },
+    {
+      "name": "PA_Type",
+      "type": "select_one  asset_type",
+      "label": "Type",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "asset_type",
+      "options": [
+        {
+          "name": "transformer",
+          "label": "Transformer",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "pylon",
+          "label": "Pylon",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "substation",
+          "label": "Substation",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "PA_Condition",
+      "type": "select_one condition_list",
+      "label": "Condition",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "condition_list",
+      "options": [
+        {
+          "name": "Under construction ",
+          "label": "Under construction ",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Broken/not in use",
+          "label": "Broken/not in use",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Operational ",
+          "label": "Operational ",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Decomissioned",
+          "label": "Decomissioned",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "PA_Rating",
+      "type": "select_one power_list",
+      "label": "Rating",
+      "select_type": "select_one",
+      "choice_list_name": "power_list",
+      "options": [
+        {
+          "name": "hv",
+          "label": "High Voltage",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "mv",
+          "label": "Medium Voltage",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "lv",
+          "label": "Low Voltage",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "TC_Name",
+      "type": "text",
+      "label": "Name/Place name ",
+      "required": "yes"
+    },
+    {
+      "name": "TC_Type",
+      "type": "text",
+      "label": "Type",
+      "required": "yes"
+    },
+    {
+      "name": "TC_Condition",
+      "type": "select_one condition_list",
+      "label": "Condition",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "condition_list",
+      "options": [
+        {
+          "name": "Under construction ",
+          "label": "Under construction ",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Broken/not in use",
+          "label": "Broken/not in use",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Operational ",
+          "label": "Operational ",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Decomissioned",
+          "label": "Decomissioned",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "RL_Name",
+      "type": "text",
+      "label": "Name/Place name ",
+      "required": "yes"
+    },
+    {
+      "name": "RL_Number_of_Tracks",
+      "type": "decimal",
+      "label": "Number of Tracks",
+      "required": "yes"
+    },
+    {
+      "name": "RL_Reserve_Width_m",
+      "type": "decimal",
+      "label": "Reserve Width (m)",
+      "required": "yes"
+    },
+    {
+      "name": "RL_Traffic",
+      "type": "select_one usage_list",
+      "label": "Traffic",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "usage_list",
+      "options": [
+        {
+          "name": "busy",
+          "label": "Busy",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "used",
+          "label": "Used",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "rare",
+          "label": "Rare",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "RL_reserve_encroachment",
+      "type": "select_one  yes_no_plain",
+      "label": "Has the railway reserve been infiltrated by families in this settlement?",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "yes_no_plain",
+      "options": [
+        {
+          "name": "yes",
+          "label": "Yes",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "no",
+          "label": "No",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "RL_track_condition",
+      "type": "select_one condition_list",
+      "label": "Rail tracks Condition  ",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "condition_list",
+      "options": [
+        {
+          "name": "Under construction ",
+          "label": "Under construction ",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Broken/not in use",
+          "label": "Broken/not in use",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Operational ",
+          "label": "Operational ",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Decomissioned",
+          "label": "Decomissioned",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "RL_reseve_condition",
+      "type": "select_one reserve_list",
+      "label": "Reserve Condition",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "reserve_list",
+      "options": [
+        {
+          "name": "Fenced ",
+          "label": "Fenced ",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Open ",
+          "label": "Open ",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Bushy ",
+          "label": "Bushy ",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Cleared ",
+          "label": "Cleared ",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "RA_Name",
+      "type": "text",
+      "label": "Name/Place name ",
+      "required": "yes"
+    },
+    {
+      "name": "RA_Type",
+      "type": "select_one rail_assety_type",
+      "label": "Type",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "rail_assety_type",
+      "options": [
+        {
+          "name": "bridge",
+          "label": "Bridge",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "crossing",
+          "label": "Crossing",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "RA_Condition",
+      "type": "select_one condition_list",
+      "label": "Condition",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "condition_list",
+      "options": [
+        {
+          "name": "Under construction ",
+          "label": "Under construction ",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Broken/not in use",
+          "label": "Broken/not in use",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Operational ",
+          "label": "Operational ",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Decomissioned",
+          "label": "Decomissioned",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "FS_Name",
+      "type": "text",
+      "label": "Name/Place name ",
+      "required": "yes"
+    },
+    {
+      "name": "FS_Rating",
+      "type": "decimal",
+      "label": "Rating (Watts)"
+    },
+    {
+      "name": "FS_Height",
+      "type": "decimal",
+      "label": "Height(Meters)",
+      "hint": "Estimate",
+      "required": "yes"
+    },
+    {
+      "name": "FS_Date_Installed",
+      "type": "date",
+      "label": "Date Installed",
+      "appearance": "month-year"
+    },
+    {
+      "name": "FS_Sponsor_Owner_Type",
+      "type": "select_one sponsor_type or_other",
+      "label": "Sponsor/Owner Type",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "sponsor_type or_other",
+      "options": []
+    },
+    {
+      "name": "FS_Sponsor_Owner",
+      "type": "text",
+      "label": "Sponsor/Owner",
+      "required": "yes"
+    },
+    {
+      "name": "FS_Condition",
+      "type": "select_one condition_list",
+      "label": "Condition",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "condition_list",
+      "options": [
+        {
+          "name": "Under construction ",
+          "label": "Under construction ",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Broken/not in use",
+          "label": "Broken/not in use",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Operational ",
+          "label": "Operational ",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Decomissioned",
+          "label": "Decomissioned",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "CP_Name",
+      "type": "text",
+      "label": "Name",
+      "required": "yes"
+    },
+    {
+      "name": "CP_Type",
+      "type": "text",
+      "label": "Type",
+      "required": "yes"
+    },
+    {
+      "name": "CP_Number_of_Persons_Served",
+      "type": "decimal",
+      "label": "Number of Persons Served",
+      "required": "yes"
+    },
+    {
+      "name": "CP_Usage_Fee",
+      "type": "decimal",
+      "label": "Usage Fee",
+      "required": "yes"
+    },
+    {
+      "name": "CP_Condition",
+      "type": "select_one condition_list",
+      "label": "Condition",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "condition_list",
+      "options": [
+        {
+          "name": "Under construction ",
+          "label": "Under construction ",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Broken/not in use",
+          "label": "Broken/not in use",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Operational ",
+          "label": "Operational ",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Decomissioned",
+          "label": "Decomissioned",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "CP_Number_of_Staff",
+      "type": "decimal",
+      "label": "Number of Staff"
+    },
+    {
+      "name": "CP_Ownership",
+      "type": "select_one sponsor_type",
+      "label": "Ownership",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "sponsor_type",
+      "options": [
+        {
+          "name": "government",
+          "label": "Government",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "ngo",
+          "label": "CBO/NGO",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "individual",
+          "label": "Individual",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "community",
+          "label": "Community",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "CP_Owner",
+      "type": "text",
+      "label": "Owner/Operator",
+      "required": "yes"
+    },
+    {
+      "name": "type_water_inf",
+      "type": "select_one type_water or_other",
+      "label": "Type of Water facility",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "type_water or_other",
+      "options": []
+    },
+    {
+      "name": "WP_Name",
+      "type": "text",
+      "label": "Name",
+      "required": "yes"
+    },
+    {
+      "name": "WP_Type",
+      "type": "select_one wp_type",
+      "label": "Type",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "wp_type",
+      "options": [
+        {
+          "name": "kiosk",
+          "label": "Water Kiosk",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "public_tap",
+          "label": "Public Tap",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "borehole",
+          "label": "Borehole",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "spring",
+          "label": "Spring",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "well",
+          "label": "Dug Well",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "WP_Depth",
+      "type": "decimal",
+      "label": "Depth",
+      "hint": "Meters",
+      "required": "yes",
+      "relevant": "${WP_Type}='borehole' or  ${WP_Type}='well' "
+    },
+    {
+      "name": "WP_Capacity",
+      "type": "decimal",
+      "label": "Capacity (Liters/M3/s)",
+      "required": "yes"
+    },
+    {
+      "name": "WP_Condition",
+      "type": "select_one condition_list",
+      "label": "Condition",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "condition_list",
+      "options": [
+        {
+          "name": "Under construction ",
+          "label": "Under construction ",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Broken/not in use",
+          "label": "Broken/not in use",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Operational ",
+          "label": "Operational ",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Decomissioned",
+          "label": "Decomissioned",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "WP_Cost_of_20_litre_Jerrican",
+      "type": "decimal",
+      "label": "Cost of 20 litre Jerrican",
+      "required": "yes"
+    },
+    {
+      "name": "WP_Name_of_Provider",
+      "type": "text",
+      "label": "Name of Provider",
+      "required": "yes"
+    },
+    {
+      "name": "WP_availability",
+      "type": "select_one frequency_list2",
+      "label": "Availability",
+      "select_type": "select_one",
+      "choice_list_name": "frequency_list2",
+      "options": [
+        {
+          "name": "Daily",
+          "label": "Daily",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Twice_a_week",
+          "label": "Twice a week",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Once_a_week",
+          "label": "Once a week",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Rarely",
+          "label": "Rarely",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "WP_Ownership",
+      "type": "select_one sponsor_type",
+      "label": "Ownership",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "sponsor_type",
+      "options": [
+        {
+          "name": "government",
+          "label": "Government",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "ngo",
+          "label": "CBO/NGO",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "individual",
+          "label": "Individual",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "community",
+          "label": "Community",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "WP_Owner",
+      "type": "text",
+      "label": "Owner/Operator",
+      "required": "yes"
+    },
+    {
+      "name": "WT_Name",
+      "type": "text",
+      "label": "Name",
+      "required": "yes"
+    },
+    {
+      "name": "WT_Type",
+      "type": "select_one tank_types or_other",
+      "label": "Type",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "tank_types or_other",
+      "options": []
+    },
+    {
+      "name": "WT_Capacity",
+      "type": "decimal",
+      "label": "Capacity (Liters)",
+      "required": "yes"
+    },
+    {
+      "name": "WT_Condition",
+      "type": "select_one condition_list",
+      "label": "Condition",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "condition_list",
+      "options": [
+        {
+          "name": "Under construction ",
+          "label": "Under construction ",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Broken/not in use",
+          "label": "Broken/not in use",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Operational ",
+          "label": "Operational ",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Decomissioned",
+          "label": "Decomissioned",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "WT_Name_of_Provider",
+      "type": "text",
+      "label": "Name of Provider",
+      "required": "yes"
+    },
+    {
+      "name": "WT_Ownership",
+      "type": "select_one sponsor_type",
+      "label": "Ownership",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "sponsor_type",
+      "options": [
+        {
+          "name": "government",
+          "label": "Government",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "ngo",
+          "label": "CBO/NGO",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "individual",
+          "label": "Individual",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "community",
+          "label": "Community",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "WT_Owner",
+      "type": "text",
+      "label": "Owner/Operator",
+      "required": "yes"
+    },
+    {
+      "name": "WR_Name",
+      "type": "text",
+      "label": "Name of Scheme",
+      "required": "yes"
+    },
+    {
+      "name": "WR_Number_of_Connections",
+      "type": "decimal",
+      "label": "Number of Connections",
+      "required": "yes"
+    },
+    {
+      "name": "WR_Number_of_Persons_Served",
+      "type": "decimal",
+      "label": "Number of Persons Served",
+      "required": "yes"
+    },
+    {
+      "name": "WR_Length",
+      "type": "decimal",
+      "label": "Length (Km)",
+      "required": "yes"
+    },
+    {
+      "name": "WR_Condition",
+      "type": "select_one condition_list",
+      "label": "Condition",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "condition_list",
+      "options": [
+        {
+          "name": "Under construction ",
+          "label": "Under construction ",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Broken/not in use",
+          "label": "Broken/not in use",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Operational ",
+          "label": "Operational ",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Decomissioned",
+          "label": "Decomissioned",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "WR_Name_of_Provider",
+      "type": "text",
+      "label": "Name of Provider",
+      "required": "yes"
+    },
+    {
+      "name": "WR_Ownership",
+      "type": "select_one sponsor_type",
+      "label": "Ownership",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "sponsor_type",
+      "options": [
+        {
+          "name": "government",
+          "label": "Government",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "ngo",
+          "label": "CBO/NGO",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "individual",
+          "label": "Individual",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "community",
+          "label": "Community",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "WR_Owner",
+      "type": "text",
+      "label": "Owner/Operator",
+      "required": "yes"
+    },
+    {
+      "name": "SL_Name",
+      "type": "text",
+      "label": "Name of Scheme",
+      "required": "yes"
+    },
+    {
+      "name": "SL_Number_of_Connections",
+      "type": "decimal",
+      "label": "Number of Connections",
+      "required": "yes"
+    },
+    {
+      "name": "SL_Number_of_Persons_Served",
+      "type": "decimal",
+      "label": "Number of Persons Served",
+      "required": "yes"
+    },
+    {
+      "name": "SL_Length",
+      "type": "decimal",
+      "label": "Length",
+      "required": "yes"
+    },
+    {
+      "name": "SL_Condition",
+      "type": "select_one condition_list",
+      "label": "Condition",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "condition_list",
+      "options": [
+        {
+          "name": "Under construction ",
+          "label": "Under construction ",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Broken/not in use",
+          "label": "Broken/not in use",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Operational ",
+          "label": "Operational ",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Decomissioned",
+          "label": "Decomissioned",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "SL_Name_of_Provider",
+      "type": "text",
+      "label": "Name of Provider",
+      "required": "yes"
+    },
+    {
+      "name": "SL_Ownership",
+      "type": "select_one sponsor_type",
+      "label": "Ownership",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "sponsor_type",
+      "options": [
+        {
+          "name": "government",
+          "label": "Government",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "ngo",
+          "label": "CBO/NGO",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "individual",
+          "label": "Individual",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "community",
+          "label": "Community",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "SL_Owner",
+      "type": "text",
+      "label": "Owner/Operator",
+      "required": "yes"
+    },
+    {
+      "name": "type_public_fac",
+      "type": "select_one type_public_facility",
+      "label": "Type of Public Facility",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "type_public_facility",
+      "options": [
+        {
+          "name": "education_institutions",
+          "label": "Education Institution",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "health_facilities",
+          "label": "Health Facility",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "communitysocial_halls",
+          "label": "Community/Social hall",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "religious_institutions",
+          "label": "Religious Institution",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "police_stationsposts_local_admi",
+          "label": "Police(Stn/Post)",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "public_sanitation",
+          "label": "Public Sanitation Facility",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "handwashing_shower",
+          "label": "Handwashing/Shower",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "other_public_facility",
+          "label": "Other Public Facility",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "educ_Name",
+      "type": "text",
+      "label": "Name School/Education facility",
+      "required": "yes"
+    },
+    {
+      "name": "name_educ_respondent",
+      "type": "text",
+      "label": "Name of the education facility representative interviewed",
+      "required": "yes"
+    },
+    {
+      "name": "tel_educ_respondent",
+      "type": "text",
+      "label": "Telephone of respondent"
+    },
+    {
+      "name": "educ_Category",
+      "type": "select_multiple sch_category",
+      "label": "Category",
+      "required": "yes",
+      "select_type": "select_multiple",
+      "choice_list_name": "sch_category",
+      "options": [
+        {
+          "name": "pre_primary",
+          "label": "Pre-Primary 1 and 2 (PP1 and PP2)",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "lower_primary",
+          "label": "Lower Primary (Grade 1-3 )",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "upper_primary",
+          "label": "Upper Primary (Grade 4-6)",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "junior_school",
+          "label": "Junior School (Grade 7-9 )",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "senior_school",
+          "label": "Senior School(Grade 10-12)",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "tvet",
+          "label": "Technical Vocational Education and Training(TVET)",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "educ_Registration_Status",
+      "type": "select_one reg_status",
+      "label": "Registration Status",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "reg_status",
+      "options": [
+        {
+          "name": "unregistred",
+          "label": "Unregistered",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "registered",
+          "label": "Registered",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "awaiting_registration",
+          "label": "Awaiting Registration",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "educ_Registration_no",
+      "type": "text",
+      "label": "Registration Number",
+      "relevant": "${educ_Registration_Status}='registered'"
+    },
+    {
+      "name": "educ_Ownership",
+      "type": "select_one sponsor_type",
+      "label": "Ownership",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "sponsor_type",
+      "options": [
+        {
+          "name": "government",
+          "label": "Government",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "ngo",
+          "label": "CBO/NGO",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "individual",
+          "label": "Individual",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "community",
+          "label": "Community",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "educ_Owner",
+      "type": "text",
+      "label": "Owner",
+      "required": "yes"
+    },
+    {
+      "name": "educ_day_boarding",
+      "type": "select_one day_boarding",
+      "label": "Type of School",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "day_boarding",
+      "options": [
+        {
+          "name": "day",
+          "label": "Day",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "boarding",
+          "label": "Boarding",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "both",
+          "label": "Both",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "educ_land",
+      "type": "select_one rent_owned_land",
+      "label": "Is the school on rented space or own land ",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "rent_owned_land",
+      "options": [
+        {
+          "name": "rented",
+          "label": "Rented",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "owned",
+          "label": "Owned",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "educ_parcel_has_title",
+      "type": "select_one yes_no",
+      "label": "Does the parcel where the school is located have a title deed?",
+      "hint": "We want to know if any survey and titling has happened in this settlement.",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "yes_no",
+      "options": [
+        {
+          "name": "Yes",
+          "label": "Yes",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "No",
+          "label": "No",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "unknown",
+          "label": "I don’t know",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "educ_parcel_size",
+      "type": "decimal",
+      "label": "How large is the parcel?",
+      "hint": "Ha",
+      "required": "yes"
+    },
+    {
+      "name": "educ_Enrolled_Boys_or_Males",
+      "type": "decimal",
+      "label": "Enrolled Boys or Males",
+      "required": "yes"
+    },
+    {
+      "name": "educ_Enrolled_Girls_or_Females",
+      "type": "decimal",
+      "label": "Enrolled Girls or Females",
+      "required": "yes"
+    },
+    {
+      "name": "educ_src_students",
+      "type": "select_multiple customer_options",
+      "label": "Where do majority of your students come from?",
+      "hint": " ",
+      "required": "yes",
+      "select_type": "select_multiple",
+      "choice_list_name": "customer_options",
+      "options": [
+        {
+          "name": "inside_settlement",
+          "label": " Inside this settlement",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Outside__settlement",
+          "label": "Outside this settlement",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "inside_and_outside",
+          "label": "Inside and Outside this settlement",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "educ_male_teachers",
+      "type": "integer",
+      "label": "Number of Male Teachers",
+      "required": "yes"
+    },
+    {
+      "name": "educ_female_teachers",
+      "type": "integer",
+      "label": "Number of Female Teachers",
+      "required": "yes"
+    },
+    {
+      "name": "educ_Number_of_Classrooms",
+      "type": "decimal",
+      "label": "Number of Classrooms",
+      "hint": "Observe/Request to be shown",
+      "required": "yes"
+    },
+    {
+      "name": "educ_Condition_classroom",
+      "type": "select_one condition_facility",
+      "label": "Classrooms Condition",
+      "hint": "Observe/Request to be shown",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "condition_facility",
+      "options": [
+        {
+          "name": "Good",
+          "label": "Good",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Fair",
+          "label": "Fair",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Poor",
+          "label": "Poor",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Critical",
+          "label": "Critical",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "educ_Number_of_Toilets_for_Boys",
+      "type": "decimal",
+      "label": "Number of Toilets for Boys",
+      "hint": "Observe/Request to be shown",
+      "required": "yes"
+    },
+    {
+      "name": "educ_Number_of_Toilets_for_Girls",
+      "type": "decimal",
+      "label": "Number of Toilets for Girls",
+      "hint": "Observe/Request to be shown",
+      "required": "yes"
+    },
+    {
+      "name": "educ_Number_of_Handwashing_Stations",
+      "type": "decimal",
+      "label": "Number of working Handwashing Stations",
+      "hint": "Observe/Request to be shown",
+      "required": "yes"
+    },
+    {
+      "name": "educ_Condition_toilets",
+      "type": "select_one condition_facility",
+      "label": "Toilets Condition",
+      "hint": "Observe/Request to be shown",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "condition_facility",
+      "options": [
+        {
+          "name": "Good",
+          "label": "Good",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Fair",
+          "label": "Fair",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Poor",
+          "label": "Poor",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Critical",
+          "label": "Critical",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "students_pay_fees",
+      "type": "select_one yes_no_plain",
+      "label": "Do students pay fees?",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "yes_no_plain",
+      "options": [
+        {
+          "name": "yes",
+          "label": "Yes",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "no",
+          "label": "No",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "fees",
+      "type": "note",
+      "label": "If yes, how much fees per student per term:",
+      "relevant": "${students_pay_fees}='yes'"
+    },
+    {
+      "name": "term_1_fees",
+      "type": "integer",
+      "label": "Term 1 fees",
+      "hint": "Ksh.",
+      "required": "yes",
+      "relevant": "${students_pay_fees}='yes'"
+    },
+    {
+      "name": "term_2_fees",
+      "type": "integer",
+      "label": "Term 2 fees",
+      "hint": "Ksh.",
+      "required": "yes",
+      "relevant": "${students_pay_fees}='yes'"
+    },
+    {
+      "name": "term_3_fees",
+      "type": "integer",
+      "label": "Term 3 fees",
+      "hint": "Ksh.",
+      "required": "yes",
+      "relevant": "${students_pay_fees}='yes'"
+    },
+    {
+      "name": "num_dropout",
+      "type": "integer",
+      "label": "Approximately how many students dropped out of the school last yea",
+      "required": "yes"
+    },
+    {
+      "name": "reasons_dropout",
+      "type": "select_multiple dropout_list or_other",
+      "label": "What were the reasons for their drop out:",
+      "required": "yes",
+      "select_type": "select_multiple",
+      "choice_list_name": "dropout_list or_other",
+      "options": []
+    },
+    {
+      "name": "retain_efforts",
+      "type": "select_one yes_no_plain",
+      "label": "Has the school made efforts to retain its students?",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "yes_no_plain",
+      "options": [
+        {
+          "name": "yes",
+          "label": "Yes",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "no",
+          "label": "No",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "what_efforts",
+      "type": "select_multiple effort_list or_other",
+      "label": "What efforts?",
+      "required": "yes",
+      "relevant": "${retain_efforts}='yes'",
+      "select_type": "select_multiple",
+      "choice_list_name": "effort_list or_other",
+      "options": []
+    },
+    {
+      "name": "no_efforts_reasons",
+      "type": "text",
+      "label": "if No, why?",
+      "required": "yes",
+      "relevant": "${retain_efforts}='no'"
+    },
+    {
+      "name": "sanitary_pads_provided",
+      "type": "select_one  yes_no_plain",
+      "label": "Are Sanitary Pads  provided freely to girl students at the school?",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "yes_no_plain",
+      "options": [
+        {
+          "name": "yes",
+          "label": "Yes",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "no",
+          "label": "No",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "sanitary_pads_provider",
+      "type": "text",
+      "label": "If yes, who provides?",
+      "hint": " Name of organization",
+      "relevant": "${sanitary_pads_provided}='yes'"
+    },
+    {
+      "name": "sanitary_pads_bins",
+      "type": "select_one  yes_no_plain",
+      "label": "Does the school have Saniatry pad disposal bins? ",
+      "required": "yes",
+      "relevant": "${sanitary_pads_provided}='yes'",
+      "select_type": "select_one",
+      "choice_list_name": "yes_no_plain",
+      "options": [
+        {
+          "name": "yes",
+          "label": "Yes",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "no",
+          "label": "No",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "teaching_aids",
+      "type": "select_multiple teaching_aids_list or_other",
+      "label": "What type of teaching aids does the school use?",
+      "required": "yes",
+      "select_type": "select_multiple",
+      "choice_list_name": "teaching_aids_list or_other",
+      "options": []
+    },
+    {
+      "name": "num_boreholes",
+      "type": "integer",
+      "label": "Number of Boreholes"
+    },
+    {
+      "name": "num_water_tanks",
+      "type": "integer",
+      "label": "Number of Water tanks"
+    },
+    {
+      "name": "num_permanet_classrooms",
+      "type": "integer",
+      "label": "Number of Permanent classrooms"
+    },
+    {
+      "name": "num_bom_teachers",
+      "type": "integer",
+      "label": "Number of non-TSC teachers"
+    },
+    {
+      "name": "fenced_compound",
+      "type": "select_one yes_no",
+      "label": "Fenced compound",
+      "select_type": "select_one",
+      "choice_list_name": "yes_no",
+      "options": [
+        {
+          "name": "Yes",
+          "label": "Yes",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "No",
+          "label": "No",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "unknown",
+          "label": "I don’t know",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "school_challenges",
+      "type": "select_multiple sch_challenges or_other",
+      "label": "Challenges encountered by the school",
+      "appearance": "minimal",
+      "required": "yes",
+      "select_type": "select_multiple",
+      "choice_list_name": "sch_challenges or_other",
+      "options": []
+    },
+    {
+      "name": "HF_Name",
+      "type": "text",
+      "label": "Name",
+      "required": "yes"
+    },
+    {
+      "name": "name_HF_respondent",
+      "type": "text",
+      "label": "Name of the health facility representative interviewed",
+      "required": "yes"
+    },
+    {
+      "name": "tel_HF_respondent",
+      "type": "text",
+      "label": "Telephone of respondent"
+    },
+    {
+      "name": "HF_Ownership",
+      "type": "select_one sponsor_type",
+      "label": "Ownership",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "sponsor_type",
+      "options": [
+        {
+          "name": "government",
+          "label": "Government",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "ngo",
+          "label": "CBO/NGO",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "individual",
+          "label": "Individual",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "community",
+          "label": "Community",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "HF_Owner",
+      "type": "text",
+      "label": "What is name of owner?",
+      "required": "yes",
+      "relevant": "${HF_Ownership}='ngo' or ${HF_Ownership}='individual'  or ${HF_Ownership}='community' ",
+      "choice_filter": " "
+    },
+    {
+      "name": "HF_Level",
+      "type": "select_one hcf_levels",
+      "label": "Facility Level",
+      "appearance": "minimal",
+      "required": "yes",
+      "relevant": "${HF_Ownership}='government' ",
+      "select_type": "select_one",
+      "choice_list_name": "hcf_levels",
+      "options": [
+        {
+          "name": "level_1",
+          "label": "LEVEL 1 – Community Facilities",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "level_2",
+          "label": "LEVEL 2 – Health Dispensaries",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "level_3",
+          "label": "LEVEL 3 – Health Centres",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "level_4",
+          "label": "LEVEL 4 – County Hospitals",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "level_5",
+          "label": "LEVEL 5 – County Referral Hospitals",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "level_6",
+          "label": "LEVEL 6 – National Referral Hospitals",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "HF_Registration_Status",
+      "type": "select_one reg_status",
+      "label": "Registration Status",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "reg_status",
+      "options": [
+        {
+          "name": "unregistred",
+          "label": "Unregistered",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "registered",
+          "label": "Registered",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "awaiting_registration",
+          "label": "Awaiting Registration",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "HF_parcel_has_title",
+      "type": "select_one yes_no",
+      "label": "Does the parcel where the health facility is located have a title deed?",
+      "hint": "We want to know if any survey and titling has happened in this settlement.",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "yes_no",
+      "options": [
+        {
+          "name": "Yes",
+          "label": "Yes",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "No",
+          "label": "No",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "unknown",
+          "label": "I don’t know",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "HF_parcel_size",
+      "type": "decimal",
+      "label": "How large is the parcel?",
+      "hint": "Ha",
+      "required": "yes"
+    },
+    {
+      "name": "HF_land",
+      "type": "select_one rent_owned_land",
+      "label": "Is the health facility on rented space or own land ",
+      "hint": " ",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "rent_owned_land",
+      "options": [
+        {
+          "name": "rented",
+          "label": "Rented",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "owned",
+          "label": "Owned",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "HF_services",
+      "type": "select_multiple services_offered or_other",
+      "label": "What services do you offer? ",
+      "appearance": "minimal",
+      "select_type": "select_multiple",
+      "choice_list_name": "services_offered or_other",
+      "options": []
+    },
+    {
+      "name": "num_outpatient",
+      "type": "integer",
+      "label": "Number Out-patients per month",
+      "required": "yes"
+    },
+    {
+      "name": "num_inpatient",
+      "type": "integer",
+      "label": "Number of In-patient per month",
+      "required": "yes",
+      "relevant": "selected(${HF_services}, 'In-patient')"
+    },
+    {
+      "name": "num_maternity_deliveries",
+      "type": "integer",
+      "label": "Number of Maternity deliveries per month",
+      "required": "yes",
+      "relevant": "selected(${HF_services}, 'In-patient')"
+    },
+    {
+      "name": "num_antenatal_immunization",
+      "type": "integer",
+      "label": "Number Ante natal/immunization cases per month ",
+      "required": "yes"
+    },
+    {
+      "name": "num_refferals",
+      "type": "integer",
+      "label": "Number of Referrals per month ",
+      "required": "yes"
+    },
+    {
+      "name": "num_gen_beds",
+      "type": "integer",
+      "label": "Number of  General patients beds",
+      "required": "yes",
+      "relevant": "selected(${HF_services}, 'In-patient')"
+    },
+    {
+      "name": "num_maternity_beds",
+      "type": "integer",
+      "label": "Number of  Maternity beds",
+      "required": "yes",
+      "relevant": "selected(${HF_services}, 'In-patient')"
+    },
+    {
+      "name": "num_pediatric_beds",
+      "type": "integer",
+      "label": "Number of  Pediatric beds",
+      "required": "yes",
+      "relevant": "selected(${HF_services}, 'In-patient')"
+    },
+    {
+      "name": "occupancy_rate",
+      "type": "decimal",
+      "label": "Average Rate of occupancy per day (%)",
+      "hint": "0-100%",
+      "required": "yes",
+      "relevant": "selected(${HF_services}, 'In-patient')"
+    },
+    {
+      "name": "common_ailments",
+      "type": "select_multiple ailments_list or_other",
+      "label": "What are the common ailments handled by the health facility?",
+      "appearance": "minimal",
+      "select_type": "select_multiple",
+      "choice_list_name": "ailments_list or_other",
+      "options": []
+    },
+    {
+      "name": "hcf_src_patients",
+      "type": "select_one customer_options",
+      "label": "Where do majority of your patients come from?",
+      "hint": " ",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "customer_options",
+      "options": [
+        {
+          "name": "inside_settlement",
+          "label": " Inside this settlement",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Outside__settlement",
+          "label": "Outside this settlement",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "inside_and_outside",
+          "label": "Inside and Outside this settlement",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "num_doctor",
+      "type": "integer",
+      "label": "Number of Doctors",
+      "required": "yes"
+    },
+    {
+      "name": "num_pharmacist",
+      "type": "integer",
+      "label": "Number of Pharmacists",
+      "required": "yes"
+    },
+    {
+      "name": "num_clincial_officer",
+      "type": "integer",
+      "label": "Number of Clinical Officers",
+      "required": "yes"
+    },
+    {
+      "name": "num_midwives",
+      "type": "integer",
+      "label": "Number of Midwives",
+      "required": "yes"
+    },
+    {
+      "name": "num_nurses",
+      "type": "integer",
+      "label": "Number of Nurses",
+      "required": "yes"
+    },
+    {
+      "name": "num_other",
+      "type": "integer",
+      "label": "Number of Non-Medical Staff",
+      "required": "yes"
+    },
+    {
+      "name": "referal_destination",
+      "type": "text",
+      "label": "If this is not a referral hospital where are referrals made to?",
+      "required": "yes"
+    },
+    {
+      "name": "referal_distance",
+      "type": "decimal",
+      "label": "Distance to referral facility ",
+      "hint": "Kms",
+      "required": "yes"
+    },
+    {
+      "name": "source_drugs",
+      "type": "text",
+      "label": "Source of Drugs",
+      "required": "yes"
+    },
+    {
+      "name": "hcf_has_ambulance",
+      "type": "select_one  yes_no_plain",
+      "label": "Does the health facility have an ambulance?",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "yes_no_plain",
+      "options": [
+        {
+          "name": "yes",
+          "label": "Yes",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "no",
+          "label": "No",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "HF_condition",
+      "type": "select_one condition_facility",
+      "label": "Facility Condition",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "condition_facility",
+      "options": [
+        {
+          "name": "Good",
+          "label": "Good",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Fair",
+          "label": "Fair",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Poor",
+          "label": "Poor",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Critical",
+          "label": "Critical",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "hcf_challenges",
+      "type": "select_multiple hcf_challenge_list or_other",
+      "label": "Challenges encountered by the facility",
+      "appearance": "minimal",
+      "required": "yes",
+      "select_type": "select_multiple",
+      "choice_list_name": "hcf_challenge_list or_other",
+      "options": []
+    },
+    {
+      "name": "CS_Name",
+      "type": "text",
+      "label": "Name",
+      "required": "yes"
+    },
+    {
+      "name": "CS_Use",
+      "type": "text",
+      "label": "Used for?",
+      "required": "yes"
+    },
+    {
+      "name": "CS_Usage_Fee",
+      "type": "decimal",
+      "label": "Usage Fee",
+      "required": "yes"
+    },
+    {
+      "name": "CS_Condition",
+      "type": "select_one condition_facility",
+      "label": "Facility Condition",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "condition_facility",
+      "options": [
+        {
+          "name": "Good",
+          "label": "Good",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Fair",
+          "label": "Fair",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Poor",
+          "label": "Poor",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Critical",
+          "label": "Critical",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "CS_Ownership",
+      "type": "select_one sponsor_type",
+      "label": "Ownership",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "sponsor_type",
+      "options": [
+        {
+          "name": "government",
+          "label": "Government",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "ngo",
+          "label": "CBO/NGO",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "individual",
+          "label": "Individual",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "community",
+          "label": "Community",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "CS_Owner",
+      "type": "text",
+      "label": "Owner/Operator",
+      "required": "yes"
+    },
+    {
+      "name": "RI_Name",
+      "type": "text",
+      "label": "Name",
+      "required": "yes"
+    },
+    {
+      "name": "PC_Name",
+      "type": "text",
+      "label": "Name",
+      "required": "yes"
+    },
+    {
+      "name": "PC_Type",
+      "type": "select_one station_type",
+      "label": "Type",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "station_type",
+      "options": [
+        {
+          "name": "police_post",
+          "label": "Police Post",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "police_station",
+          "label": "Police Station",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "chief_camp",
+          "label": "Chiefs Camp",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "PC_Number_of_Officers",
+      "type": "decimal",
+      "label": "Number of Officers",
+      "required": "yes"
+    },
+    {
+      "name": "PC_Number_of_Vehicles",
+      "type": "decimal",
+      "label": "Number of Vehicles",
+      "required": "yes"
+    },
+    {
+      "name": "PC_Condition",
+      "type": "select_one condition_facility",
+      "label": "Facility Condition",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "condition_facility",
+      "options": [
+        {
+          "name": "Good",
+          "label": "Good",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Fair",
+          "label": "Fair",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Poor",
+          "label": "Poor",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Critical",
+          "label": "Critical",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "PS_Name",
+      "type": "text",
+      "label": "Name",
+      "required": "yes"
+    },
+    {
+      "name": "PS_stances",
+      "type": "integer",
+      "label": "Number of toilet stances (doors)",
+      "required": "yes"
+    },
+    {
+      "name": "PS_Usage_Fee",
+      "type": "decimal",
+      "label": "Fee per single use ",
+      "required": "yes"
+    },
+    {
+      "name": "PS_Condition",
+      "type": "select_one condition_facility",
+      "label": "Facility Condition",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "condition_facility",
+      "options": [
+        {
+          "name": "Good",
+          "label": "Good",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Fair",
+          "label": "Fair",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Poor",
+          "label": "Poor",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Critical",
+          "label": "Critical",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "PS_Ownership",
+      "type": "select_one sponsor_type",
+      "label": "Ownership",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "sponsor_type",
+      "options": [
+        {
+          "name": "government",
+          "label": "Government",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "ngo",
+          "label": "CBO/NGO",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "individual",
+          "label": "Individual",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "community",
+          "label": "Community",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "PS_Owner",
+      "type": "text",
+      "label": "Owner/Operator",
+      "required": "yes"
+    },
+    {
+      "name": "HS_Type",
+      "type": "text",
+      "label": "Type",
+      "required": "yes"
+    },
+    {
+      "name": "HS_water_soap",
+      "type": "select_one avail_soap_water",
+      "label": "Water and Soap Available?",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "avail_soap_water",
+      "options": [
+        {
+          "name": "yes",
+          "label": "Yes",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "partly",
+          "label": "Water, No Soap",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "none",
+          "label": null,
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "HS_Usage_Fee",
+      "type": "decimal",
+      "label": "Fee per single use ",
+      "required": "yes"
+    },
+    {
+      "name": "HS_Condition",
+      "type": "select_one condition_facility",
+      "label": "Facility Condition",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "condition_facility",
+      "options": [
+        {
+          "name": "Good",
+          "label": "Good",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Fair",
+          "label": "Fair",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Poor",
+          "label": "Poor",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Critical",
+          "label": "Critical",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "HS_Ownership",
+      "type": "select_one sponsor_type",
+      "label": "Ownership",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "sponsor_type",
+      "options": [
+        {
+          "name": "government",
+          "label": "Government",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "ngo",
+          "label": "CBO/NGO",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "individual",
+          "label": "Individual",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "community",
+          "label": "Community",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "HS_Owner",
+      "type": "text",
+      "label": "Owner/Operator",
+      "required": "yes"
+    },
+    {
+      "name": "OP_Name",
+      "type": "text",
+      "label": "Name",
+      "required": "yes"
+    },
+    {
+      "name": "OP_Type",
+      "type": "text",
+      "label": "Type",
+      "required": "yes"
+    },
+    {
+      "name": "OP_Use",
+      "type": "text",
+      "label": "Use",
+      "required": "yes"
+    },
+    {
+      "name": "OP_Usage_Fee",
+      "type": "decimal",
+      "label": "Fee per single use ",
+      "required": "yes"
+    },
+    {
+      "name": "OP_Condition",
+      "type": "select_one condition_facility",
+      "label": "Facility Condition",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "condition_facility",
+      "options": [
+        {
+          "name": "Good",
+          "label": "Good",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Fair",
+          "label": "Fair",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Poor",
+          "label": "Poor",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Critical",
+          "label": "Critical",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "OP_Ownership",
+      "type": "select_one sponsor_type",
+      "label": "Ownership",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "sponsor_type",
+      "options": [
+        {
+          "name": "government",
+          "label": "Government",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "ngo",
+          "label": "CBO/NGO",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "individual",
+          "label": "Individual",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "community",
+          "label": "Community",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "OP_Owner",
+      "type": "text",
+      "label": "Owner/Operator",
+      "required": "yes"
+    },
+    {
+      "name": "type_natural",
+      "type": "select_one type_natural",
+      "label": "Type of Natural/Physical Feature",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "type_natural",
+      "options": [
+        {
+          "name": "river",
+          "label": "River",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "forest",
+          "label": "Forests",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "wetland",
+          "label": "Wetland",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "other_points_of_interest",
+          "label": "Point of interest",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "RS_Name",
+      "type": "text",
+      "label": "Name",
+      "required": "yes"
+    },
+    {
+      "name": "river_Condition",
+      "type": "select_one condition_other",
+      "label": "River Condition",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "condition_other",
+      "options": [
+        {
+          "name": "Good",
+          "label": "Good  – Pristine and largely untouched by human activities.",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Fair",
+          "label": "Fair – Some human activities present but still functional and stable.",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Poor",
+          "label": "Poor – Significant stress due to urbanization, pollution, or climate change.",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Critical",
+          "label": "Critical – Heavily degraded with severe ecological imbalance.",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "FW_Name",
+      "type": "text",
+      "label": "Name",
+      "required": "yes"
+    },
+    {
+      "name": "FW_Condition",
+      "type": "select_one condition_other",
+      "label": "Forest Condition",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "condition_other",
+      "options": [
+        {
+          "name": "Good",
+          "label": "Good  – Pristine and largely untouched by human activities.",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Fair",
+          "label": "Fair – Some human activities present but still functional and stable.",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Poor",
+          "label": "Poor – Significant stress due to urbanization, pollution, or climate change.",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Critical",
+          "label": "Critical – Heavily degraded with severe ecological imbalance.",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "WeT_Name",
+      "type": "text",
+      "label": "Name of wetland",
+      "required": "yes"
+    },
+    {
+      "name": "WeT_Condition",
+      "type": "select_one condition_other",
+      "label": "Wetland Condition",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "condition_other",
+      "options": [
+        {
+          "name": "Good",
+          "label": "Good  – Pristine and largely untouched by human activities.",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Fair",
+          "label": "Fair – Some human activities present but still functional and stable.",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Poor",
+          "label": "Poor – Significant stress due to urbanization, pollution, or climate change.",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Critical",
+          "label": "Critical – Heavily degraded with severe ecological imbalance.",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "PN_Name",
+      "type": "text",
+      "label": "Name",
+      "required": "yes"
+    },
+    {
+      "name": "PN_Type",
+      "type": "text",
+      "label": "Type",
+      "required": "yes"
+    },
+    {
+      "name": "Other_Condition",
+      "type": "select_one condition_facility",
+      "label": "POI Condition",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "condition_facility",
+      "options": [
+        {
+          "name": "Good",
+          "label": "Good",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Fair",
+          "label": "Fair",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Poor",
+          "label": "Poor",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Critical",
+          "label": "Critical",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "type_disaster",
+      "type": "select_one type_disaster",
+      "label": "Type of Disaster Feature",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "type_disaster",
+      "options": [
+        {
+          "name": "areas_prone_to_these_disasters",
+          "label": "Areas Prone to Disasters",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "evacuation_locations_safety_zon",
+          "label": "Disaster Evacuation Zones",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "structures_vulnerable_to_disast",
+          "label": "Disaster Vulnerable Structures",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "actors",
+          "label": "Disaster Response Actors",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "AP_Name",
+      "type": "text",
+      "label": "Name of Place/location",
+      "required": "yes"
+    },
+    {
+      "name": "AP_Type_of_Hazard",
+      "type": "select_multiple  disaster_type or_other",
+      "label": "Type of Hazard",
+      "required": "yes",
+      "select_type": "select_multiple",
+      "choice_list_name": "disaster_type or_other",
+      "options": []
+    },
+    {
+      "name": "AP_Nature_Past_or_Potential",
+      "type": "select_one list_page_6_areas_prone_to_these_disasters_nature",
+      "label": "Nature",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "list_page_6_areas_prone_to_these_disasters_nature",
+      "options": [
+        {
+          "name": "Past",
+          "label": "Past/Current",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Potential",
+          "label": "Potential",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "AP_Number_of_Affected_Persons",
+      "type": "decimal",
+      "label": "Number of Affected Persons (approx)",
+      "required": "yes"
+    },
+    {
+      "name": "AP_Frequency",
+      "type": "select_one  frequency_list",
+      "label": "Frequency of occurrence",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "frequency_list",
+      "options": [
+        {
+          "name": "Always",
+          "label": "Always",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Very_Often",
+          "label": "Very Often",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Sometimes",
+          "label": "Sometimes",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Rarely",
+          "label": "Rarely",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "AP_Approximate_Cost",
+      "type": "decimal",
+      "label": "Approximate Damage Cost"
+    },
+    {
+      "name": "EL_Name",
+      "type": "text",
+      "label": "Name of place/location",
+      "required": "yes"
+    },
+    {
+      "name": "EL_Type",
+      "type": "select_one list_page_6_evacuation_locations_safety_zon_field_159",
+      "label": "Type",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "list_page_6_evacuation_locations_safety_zon_field_159",
+      "options": [
+        {
+          "name": "Safety_Zones",
+          "label": "Safety Zones",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Recovery_Zones",
+          "label": "Recovery Zones",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "EL_Condition",
+      "type": "select_one condition_facility",
+      "label": "Condition",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "condition_facility",
+      "options": [
+        {
+          "name": "Good",
+          "label": "Good",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Fair",
+          "label": "Fair",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Poor",
+          "label": "Poor",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Critical",
+          "label": "Critical",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "SV_Name",
+      "type": "text",
+      "label": "Name of structure",
+      "required": "yes"
+    },
+    {
+      "name": "SV_Type",
+      "type": "text",
+      "label": "Type",
+      "required": "yes"
+    },
+    {
+      "name": "SV_Structure_Use",
+      "type": "text",
+      "label": "Structure Use",
+      "required": "yes"
+    },
+    {
+      "name": "AC_Name",
+      "type": "text",
+      "label": "Name of actor",
+      "required": "yes"
+    },
+    {
+      "name": "AC_Type_Area_of_Operation",
+      "type": "text",
+      "label": "Type (Area of Focus)",
+      "required": "yes"
+    },
+    {
+      "name": "type_crime",
+      "type": "select_multiple type_crime",
+      "label": "Crime Aspect",
+      "appearance": "minimal",
+      "required": "yes",
+      "select_type": "select_multiple",
+      "choice_list_name": "type_crime",
+      "options": [
+        {
+          "name": "crime_hotspots",
+          "label": "Crime Hotspot",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "gang_zones",
+          "label": "Gang Zone",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "security_installations_structur",
+          "label": "Security Installation",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "CH_Name",
+      "type": "text",
+      "label": "Name of the area (spot)",
+      "required": "yes"
+    },
+    {
+      "name": "CH_Crime_Type",
+      "type": "select_one crime_list",
+      "label": "Crime Type",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "crime_list",
+      "options": [
+        {
+          "name": "theft",
+          "label": "Theft",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "burglary",
+          "label": "Burglary",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "mugging",
+          "label": "Mugging",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "murder",
+          "label": "Murder",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "assault",
+          "label": "Assault",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "rape",
+          "label": "Rape",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "child_abduction",
+          "label": "Child_Abduction",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "child_abuse",
+          "label": "Child_Abuse",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "terrorism",
+          "label": "Terrorism",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "armed_robbery",
+          "label": "Armed_Robbery",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "CH_Frequency",
+      "type": "select_one frequency_list",
+      "label": "Frequency",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "frequency_list",
+      "options": [
+        {
+          "name": "Always",
+          "label": "Always",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Very_Often",
+          "label": "Very Often",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Sometimes",
+          "label": "Sometimes",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Rarely",
+          "label": "Rarely",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "CH_Crime_Target",
+      "type": "select_multiple crime_target_list",
+      "label": "Crime Target",
+      "required": "yes",
+      "select_type": "select_multiple",
+      "choice_list_name": "crime_target_list",
+      "options": [
+        {
+          "name": "men",
+          "label": "Men",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "women",
+          "label": "Women",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "youth",
+          "label": "Youth",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "children",
+          "label": "Children",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "pwd",
+          "label": "People with Disability",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "elderly",
+          "label": "The Elderly",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "CH_Offender_Type",
+      "type": "text",
+      "label": "Offender Type",
+      "required": "yes"
+    },
+    {
+      "name": "CH_Time_of_Day",
+      "type": "select_multiple crime_time_list",
+      "label": "Time of Day",
+      "required": "yes",
+      "select_type": "select_multiple",
+      "choice_list_name": "crime_time_list",
+      "options": [
+        {
+          "name": "morning",
+          "label": "Morning",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "during_Day",
+          "label": "During the Day",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "evening",
+          "label": "Evening/Afternoon",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "late_night",
+          "label": "Late Night",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "CH_Approximate_Number_of_Victims_per_month",
+      "type": "decimal",
+      "label": "Approximate Number of Victims per month",
+      "required": "yes"
+    },
+    {
+      "name": "GZ_Gang_Name",
+      "type": "text",
+      "label": "Gang Name",
+      "required": "yes"
+    },
+    {
+      "name": "GZ_Crime_Type",
+      "type": "select_one crime_list",
+      "label": "Crime Type",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "crime_list",
+      "options": [
+        {
+          "name": "theft",
+          "label": "Theft",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "burglary",
+          "label": "Burglary",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "mugging",
+          "label": "Mugging",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "murder",
+          "label": "Murder",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "assault",
+          "label": "Assault",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "rape",
+          "label": "Rape",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "child_abduction",
+          "label": "Child_Abduction",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "child_abuse",
+          "label": "Child_Abuse",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "terrorism",
+          "label": "Terrorism",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "armed_robbery",
+          "label": "Armed_Robbery",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "SI_Name",
+      "type": "text",
+      "label": "Name of Installation",
+      "required": "yes"
+    },
+    {
+      "name": "SI_Type",
+      "type": "text",
+      "label": "Type",
+      "required": "yes"
+    },
+    {
+      "name": "SI_Condition",
+      "type": "select_one condition_facility",
+      "label": "Facility Condition",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "condition_facility",
+      "options": [
+        {
+          "name": "Good",
+          "label": "Good",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Fair",
+          "label": "Fair",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Poor",
+          "label": "Poor",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Critical",
+          "label": "Critical",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "SI_Ownership",
+      "type": "select_one sponsor_type",
+      "label": "Ownership",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "sponsor_type",
+      "options": [
+        {
+          "name": "government",
+          "label": "Government",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "ngo",
+          "label": "CBO/NGO",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "individual",
+          "label": "Individual",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "community",
+          "label": "Community",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "SI_Owner",
+      "type": "text",
+      "label": "Owner/Operator",
+      "required": "yes"
+    },
+    {
+      "name": "type_waste",
+      "type": "select_one type_waste",
+      "label": "Solid Waste Feature",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "type_waste",
+      "options": [
+        {
+          "name": "dumping_sites",
+          "label": "Dumping Site",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "collection_points_allocated_lan",
+          "label": "Waste Collection Point",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "waste_management_projectsinstal",
+          "label": "Waste Management Project",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "waste_collection_route",
+          "label": "Waste Collection Route",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "DS_Name",
+      "type": "text",
+      "label": "Name of dumping site",
+      "required": "yes"
+    },
+    {
+      "name": "DS_Type",
+      "type": "select_one dumping_site_type_list or_other",
+      "label": "Type",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "dumping_site_type_list or_other",
+      "options": []
+    },
+    {
+      "name": "DS_Status",
+      "type": "select_one condition_facility",
+      "label": "Condition",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "condition_facility",
+      "options": [
+        {
+          "name": "Good",
+          "label": "Good",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Fair",
+          "label": "Fair",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Poor",
+          "label": "Poor",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Critical",
+          "label": "Critical",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "DS_Type_of_Waste",
+      "type": "select_multiple waste_type or_other",
+      "label": "Type of Waste",
+      "required": "yes",
+      "select_type": "select_multiple",
+      "choice_list_name": "waste_type or_other",
+      "options": []
+    },
+    {
+      "name": "DS_Year_Established",
+      "type": "date",
+      "label": "Year Established",
+      "appearance": "year",
+      "required": "yes"
+    },
+    {
+      "name": "CW_Name",
+      "type": "text",
+      "label": "Name of place",
+      "required": "yes"
+    },
+    {
+      "name": "CW_Condition",
+      "type": "select_one condition_facility",
+      "label": "Condition",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "condition_facility",
+      "options": [
+        {
+          "name": "Good",
+          "label": "Good",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Fair",
+          "label": "Fair",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Poor",
+          "label": "Poor",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Critical",
+          "label": "Critical",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "CW_Type_of_Waste",
+      "type": "select_multiple waste_type",
+      "label": "Type of Waste",
+      "required": "yes",
+      "select_type": "select_multiple",
+      "choice_list_name": "waste_type",
+      "options": [
+        {
+          "name": "domestic",
+          "label": "Domestic",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "industrial",
+          "label": "Industrial",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "medical",
+          "label": "Medical",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "mix",
+          "label": "Mixture of Wastes",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "CW_Year_Established",
+      "type": "date",
+      "label": "Year Established",
+      "appearance": "year",
+      "required": "yes"
+    },
+    {
+      "name": "CW_Service_Provider",
+      "type": "text",
+      "label": "Service Provider",
+      "required": "yes"
+    },
+    {
+      "name": "WM_Name",
+      "type": "text",
+      "label": "Name of Installation",
+      "required": "yes"
+    },
+    {
+      "name": "WM_Type",
+      "type": "select_one dumping_site_type_list or_other",
+      "label": "Type",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "dumping_site_type_list or_other",
+      "options": []
+    },
+    {
+      "name": "WM_Condition",
+      "type": "select_one condition_facility",
+      "label": "Status",
+      "required": "yes",
+      "select_type": "select_one",
+      "choice_list_name": "condition_facility",
+      "options": [
+        {
+          "name": "Good",
+          "label": "Good",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Fair",
+          "label": "Fair",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Poor",
+          "label": "Poor",
+          "Unnamed: 8": 1
+        },
+        {
+          "name": "Critical",
+          "label": "Critical",
+          "Unnamed: 8": 1
+        }
+      ]
+    },
+    {
+      "name": "WM_Type_of_Waste",
+      "type": "select_multiple waste_type or_other",
+      "label": "Type of Waste",
+      "required": "yes",
+      "select_type": "select_multiple",
+      "choice_list_name": "waste_type or_other",
+      "options": []
+    },
+    {
+      "name": "WM_Year_Established",
+      "type": "date",
+      "label": "Year Established",
+      "appearance": "year",
+      "required": "yes"
+    },
+    {
+      "name": "WM_Number_of_Staff",
+      "type": "decimal",
+      "label": "Number of Staff",
+      "required": "yes"
+    },
+    {
+      "name": "WC_Name",
+      "type": "text",
+      "label": "Name",
+      "required": "yes"
+    },
+    {
+      "name": "WC_Provider",
+      "type": "text",
+      "label": "Provider",
+      "required": "yes"
+    },
+    {
+      "name": "photo",
+      "type": "image",
+      "label": "Take an identifying photo of this  ${feature_type}  facility",
+      "hint": "Should be wide, landscape and capturing as much detail as possible. Ensure the name of the facility is clearly visible.",
+      "required": "yes"
+    },
+    {
+      "name": "comments",
+      "type": "text",
+      "label": "Provide any additional comments here",
+      "required": "False"
+    },
+    {
+      "name": "geo",
+      "type": "geopoint",
+      "label": "Location",
+      "required": "yes"
+    },
+    {
+      "name": "note_geo",
+      "type": "note",
+      "label": "Poor GPS accuracy (>5m)!",
+      "hint": "Please wait for GPS to lock an accuracy of 5m or below",
+      "required": "True",
+      "relevant": "selected-at(${geo}, 3) > 5"
+    },
+    {
+      "name": "geoline",
+      "type": "geotrace",
+      "label": "Trace the feature",
+      "hint": "Walk along the feature.",
+      "required": "yes"
+    }
+  ]
+}
