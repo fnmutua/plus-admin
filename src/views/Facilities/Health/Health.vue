@@ -18,7 +18,7 @@ import {
   MessageBox, Apple, Cherry, Grape, Orange, Pear, Watermelon, CircleClose, Message, CircleCheck, StarFilled, Loading, Check
 } from '@element-plus/icons-vue'
 
-import { computed, onMounted, ref, reactive, nextTick, defineAsyncComponent } from 'vue'
+import { computed, onMounted, onUnmounted, ref, reactive, nextTick, defineAsyncComponent } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 
 import xlsx from "json-as-xlsx"
@@ -39,12 +39,14 @@ import { useAppStore, useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import PermissionWrapper from '@/components/PermissionWrapper.vue'
 
+
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
 
 const showAdminButtons = ref(appStore.getAdminButtons)
 const showEditButtons = ref(appStore.getEditButtons)
+const isMobile = computed(() => appStore.getMobile)
 
 // For settlements, show 'viewOnMap' and 'addFacility' actions
 const action_buttons = ref<string[]>(['viewOnMap', 'addFacility']);
@@ -759,6 +761,21 @@ const viewProfile = (data: TableSlotDefault) => {
   })
 }
 
+// Mobile detection
+//const isMobile = ref(false)
+const checkMobile = () => {
+  isMobile.value = window.innerWidth < 768
+}
+
+onMounted(() => {
+  checkMobile()
+  window.addEventListener('resize', checkMobile)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', checkMobile)
+})
+
 // Drawer state for map
 const mapDrawerVisible = ref(false)
 const mapDrawerSettlement = ref<any>(null)
@@ -1098,25 +1115,43 @@ const loadHealthFacilitiesOnMap = async (settlementId: number) => {
     console.log('Extracted GeoJSON data:', geoJsonData)
     console.log('GeoJSON features:', geoJsonData?.features)
     
-    // Check if features is null (similar to settlement response)
-    if (geoJsonData && geoJsonData.features !== undefined) {
-      // Handle null features case
-      if (geoJsonData.features === null) {
-        console.warn('GeoJSON features is null')
-        ElMessage.warning('No health facilities geometry data found (features is null)')
-        return
-      }
-      
-      healthFacilitiesGeo.value = geoJsonData
-      
-      const features = geoJsonData.features || []
-      
-      console.log('Health facilities features count:', features.length)
-      console.log('Health facilities features:', features)
+    // Check if we have valid GeoJSON data
+    if (!geoJsonData) {
+      console.log('No GeoJSON data found for health facilities')
+      ElMessage.info('No health facilities with geometry data found for this settlement.')
+      return
+    }
+    
+    // Check if features is null or empty - this means no facilities have geometry
+    if (geoJsonData.features === null || (Array.isArray(geoJsonData.features) && geoJsonData.features.length === 0)) {
+      console.log('GeoJSON features is null or empty - no facilities with geometry')
+      ElMessage.info('No health facilities with geometry data found for this settlement.')
+      healthFacilitiesGeo.value = null
+      return
+    }
+    
+    // We have valid features, proceed with processing
+    healthFacilitiesGeo.value = geoJsonData
+    
+    const features = geoJsonData.features || []
+    
+    console.log('Health facilities features count:', features.length)
+    console.log('Health facilities features:', features)
+    
+    if (features.length === 0) {
+      console.log('No features found in GeoJSON array')
+      ElMessage.info('No health facilities found with geometry for this settlement.')
+      healthFacilitiesGeo.value = null
+      return
+    }
+    
+    // Process features and create markers
+    if (features && features.length > 0) {
       
       if (features.length === 0) {
         console.warn('No features found in GeoJSON')
-        ElMessage.warning('No health facilities found with geometry for this settlement')
+        ElMessage.info('No health facilities found with geometry for this settlement. You can still add new facilities.')
+        healthFacilitiesGeo.value = null
         return
       }
       
@@ -1131,10 +1166,26 @@ const loadHealthFacilitiesOnMap = async (settlementId: number) => {
           }
           
           const [lng, lat] = coords
-          // Handle "N/A" level and normalize level names
-          let level = (feature.properties?.level || 'unknown').toLowerCase().trim()
-          if (level === 'n/a' || level === 'na') {
+          // Normalize level from properties - use level field which should be level_1 through level_6
+          let level = (feature.properties?.level || feature.properties?.facility_level || 'unknown').toLowerCase().trim()
+          
+          // Handle various formats and normalize to level_X format
+          if (level === 'n/a' || level === 'na' || level === '' || !level) {
             level = 'unknown'
+          } else if (!level.startsWith('level_')) {
+            // Try to map old format to new format
+            const levelMapping: Record<string, string> = {
+              'dispensary': 'level_2',
+              'clinic': 'level_1',
+              'health_center': 'level_3',
+              'health centre': 'level_3',
+              'hospital': 'level_4',
+              'laboratory': 'unknown',
+              'maternity': 'unknown',
+              'chemist': 'unknown',
+              'pharmacy': 'unknown'
+            }
+            level = levelMapping[level] || 'unknown'
           }
           
           // Track this facility level for dynamic legend
@@ -1145,44 +1196,56 @@ const loadHealthFacilitiesOnMap = async (settlementId: number) => {
           
           console.log(`Creating marker at [${lat}, ${lng}] for ${feature.properties?.name || 'Unknown'} (${level})`)
           
-          // Get color based on level
+          // Get color based on level - using distinct colors for each level from JSON
           const colorMap: Record<string, string> = {
-            'dispensary': '#a6cee3',
-            'clinic': '#1f78b4',
-            'health_center': '#b2df8a',
-            'hospital': '#33a02c',
-            'laboratory': '#e31a1c',
-            'maternity': '#fdbf6f',
-            'chemist': '#ff7f00',
-            'pharmacy': '#ff7f00',
-            'unknown': 'gray',
-            'n/a': 'gray'
+            'level_1': '#a6cee3',      // Light blue - Community Facilities
+            'level_2': '#1f78b4',      // Blue - Health Dispensaries
+            'level_3': '#b2df8a',      // Light green - Health Centres
+            'level_4': '#33a02c',      // Green - County Hospitals
+            'level_5': '#fb9a99',      // Pink - County Referral Hospitals
+            'level_6': '#e31a1c',      // Red - National Referral Hospitals
+            'unknown': '#969696'       // Gray - Unknown/Other
           }
           
-          const color = colorMap[level] || 'gray'
+          const color = colorMap[level] || colorMap['unknown']
           
           try {
+            // Determine marker size based on level (higher levels = larger markers)
+            const sizeMap: Record<string, number> = {
+              'level_1': 10,
+              'level_2': 11,
+              'level_3': 12,
+              'level_4': 14,
+              'level_5': 16,
+              'level_6': 18,
+              'unknown': 10
+            }
+            const markerSize = sizeMap[level] || sizeMap['unknown']
+            
             const marker = new window.google.maps.Marker({
               position: { lat, lng },
               map: googleMap.value,
               title: feature.properties?.name || 'Health Facility',
               icon: {
                 path: window.google.maps.SymbolPath.CIRCLE,
-                scale: 12,
+                scale: markerSize,
                 fillColor: color,
-                fillOpacity: 1,
-                strokeColor: 'white',
-                strokeWeight: 2
+                fillOpacity: 0.9,
+                strokeColor: '#ffffff',
+                strokeWeight: 2,
+                strokeOpacity: 1
               }
             })
 
-            // Add info window
+            // Add info window with formatted level name
+            const levelLabel = allLegendItems.value.find(item => item.key === level)?.label || level
             const infoWindow = new window.google.maps.InfoWindow({
               content: `
-                <div style="padding: 5px;">
-                  <h3 style="margin: 0 0 5px 0;">${feature.properties?.name || 'Health Facility'}</h3>
-                  <p style="margin: 0;"><strong>Level:</strong> ${level}</p>
-                  ${feature.properties?.ownership_type ? `<p style="margin: 5px 0 0 0;"><strong>Ownership:</strong> ${feature.properties.ownership_type}</p>` : ''}
+                <div style="padding: 8px; min-width: 200px;">
+                  <h3 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600;">${feature.properties?.name || 'Health Facility'}</h3>
+                  <p style="margin: 0 0 5px 0; font-size: 12px;"><strong>Level:</strong> ${levelLabel}</p>
+                  ${feature.properties?.ownership_type ? `<p style="margin: 5px 0 0 0; font-size: 12px;"><strong>Ownership:</strong> ${feature.properties.ownership_type}</p>` : ''}
+                  ${feature.properties?.registration_status ? `<p style="margin: 5px 0 0 0; font-size: 12px;"><strong>Status:</strong> ${feature.properties.registration_status}</p>` : ''}
                 </div>
               `
             })
@@ -1210,14 +1273,10 @@ const loadHealthFacilitiesOnMap = async (settlementId: number) => {
       console.log('Legend items computed:', legendItems.value)
       
       if (healthFacilityMarkers.value.length === 0) {
-        ElMessage.warning('No health facilities with valid Point geometry found')
+        ElMessage.info('No health facilities with valid Point geometry found')
       } else {
         ElMessage.success(`Loaded ${healthFacilityMarkers.value.length} health facilities on map`)
       }
-    } else {
-      console.log('No GeoJSON data found for health facilities')
-      console.log('Response structure:', res)
-      ElMessage.warning('No health facilities geometry data found')
     }
   } catch (error) {
     console.error("Error loading health facilities on map:", error)
@@ -1400,7 +1459,6 @@ const handleMapDrawerClose = () => {
 
 
 
-const isMobile = computed(() => appStore.getMobile)
 
 console.log('IsMobile', isMobile)
 
@@ -1497,53 +1555,41 @@ getDocumentTypes()
 
 
 
-// Full legend items with all possible facility types
+// Full legend items based on JSON facility levels (hcf_levels)
 const allLegendItems = ref([
   {
-    label: "Dispensary",
+    label: "LEVEL 1 – Community Facilities",
     color: "#a6cee3",
-    key: "dispensary"
+    key: "level_1"
   },
   {
-    label: "Clinic",
+    label: "LEVEL 2 – Health Dispensaries",
     color: '#1f78b4',
-    key: "clinic"
+    key: "level_2"
   },
   {
-    label: "Health Center",
+    label: "LEVEL 3 – Health Centres",
     color: '#b2df8a',
-    key: "health_center"
+    key: "level_3"
   },
   {
-    label: "Hospital",
+    label: "LEVEL 4 – County Hospitals",
     color: '#33a02c',
-    key: "hospital"
+    key: "level_4"
   },
   {
-    label: "Laboratory",
+    label: "LEVEL 5 – County Referral Hospitals",
+    color: '#fb9a99',
+    key: "level_5"
+  },
+  {
+    label: "LEVEL 6 – National Referral Hospitals",
     color: '#e31a1c',
-    key: "laboratory"
-  },
-
-  {
-    label: "Maternity",
-    color: '#fdbf6f',
-    key: "maternity"
-  },
-
-  {
-    label: "Pharmacy",
-    color: "#ff7f00",
-    key: "pharmacy"
+    key: "level_6"
   },
   {
-    label: "Chemist",
-    color: "#ff7f00",
-    key: "chemist"
-  },
-  {
-    label: "Others",
-    color: "gray",
+    label: "Others/Unknown",
+    color: "#969696",
     key: "unknown"
   }
 
@@ -2804,25 +2850,29 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
     v-model="mapDrawerVisible"
     title="Settlement Map with Health Facilities"
     direction="rtl"
-    size="60%"
+    :size="isMobile ? '100%' : '60%'"
     :before-close="handleMapDrawerClose"
+    class="map-drawer"
   >
     <template #header>
-      <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-        <span>{{ mapDrawerSettlement?.name || 'Settlement Map' }}</span>
-        <el-button type="danger" @click="handleMapDrawerClose">Close</el-button>
+      <div class="drawer-header-mobile">
+        <span class="drawer-title">{{ mapDrawerSettlement?.name || 'Settlement Map' }}</span>
+        <el-button type="danger" size="default" @click="handleMapDrawerClose" class="close-btn-mobile">Close</el-button>
       </div>
     </template>
     
-    <div v-if="mapDrawerSettlement" style="height: calc(100vh - 120px); position: relative;">
-      <div ref="mapDrawerContainer" style="width: 100%; height: 100%;"></div>
+    <div v-if="mapDrawerSettlement" class="map-container-wrapper">
+      <div ref="mapDrawerContainer" class="map-container"></div>
       
       <!-- Legend - Dynamically shows only facility types present on map -->
-      <div v-if="legendItems && legendItems.length > 0" style="position: absolute; bottom: 20px; right: 20px; background: white; padding: 15px; border-radius: 5px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 1000; max-width: 200px;">
-        <h4 style="margin: 0 0 10px 0; font-size: 14px; font-weight: 600;">Legend</h4>
-        <div v-for="item in legendItems" :key="item.label" style="display: flex; align-items: center; margin-bottom: 8px;">
-          <div :style="{ width: '16px', height: '16px', borderRadius: '50%', backgroundColor: item.color, marginRight: '10px', border: '2px solid white', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }"></div>
-          <span style="font-size: 12px; color: #333;">{{ item.label }}</span>
+      <div v-if="legendItems && legendItems.length > 0" class="map-legend">
+        <h4 class="legend-title">Facility Levels</h4>
+        <div v-for="item in legendItems" :key="item.key" class="legend-item">
+          <div 
+            class="legend-circle"
+            :style="{ backgroundColor: item.color }"
+          ></div>
+          <span class="legend-label">{{ item.label }}</span>
         </div>
       </div>
     </div>
@@ -2833,15 +2883,17 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
     v-model="facilityDrawerVisible"
     :title="isEditMode ? 'Edit Health Facility' : 'Health Facility Details'"
     direction="rtl"
-    size="600px"
+    :size="isMobile ? '100%' : '600px'"
     :before-close="closeFacilityDrawer"
+    class="facility-form-drawer"
   >
     <el-form
       ref="facilityFormRef"
       :model="facilityForm"
       :rules="facilityFormRules"
-      label-width="180px"
-      label-position="left"
+      :label-width="isMobile ? '0px' : '180px'"
+      :label-position="isMobile ? 'top' : 'left'"
+      class="facility-form-mobile"
     >
       <el-divider content-position="left">Basic Information</el-divider>
 
@@ -3054,9 +3106,9 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
     </el-form>
 
     <template #footer>
-      <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 20px; border-top: 1px solid var(--el-border-color-lighter);">
-        <el-button @click="closeFacilityDrawer">Cancel</el-button>
-        <el-button type="primary" @click="submitFacilityForm" :icon="Check">
+      <div class="drawer-footer-mobile">
+        <el-button @click="closeFacilityDrawer" class="footer-btn">Cancel</el-button>
+        <el-button type="primary" @click="submitFacilityForm" :icon="Check" class="footer-btn">
           {{ isEditMode ? 'Update Health Facility' : 'Save Health Facility' }}
         </el-button>
       </div>
@@ -3070,6 +3122,220 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
   width: 100%;
   height: 65vh;
   /* Set the height to 75% of the viewport height */
+}
+
+/* Mobile-optimized drawer styles */
+.drawer-header-mobile {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 0 8px;
+}
+
+.drawer-title {
+  font-size: 16px;
+  font-weight: 600;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-right: 12px;
+}
+
+.close-btn-mobile {
+  min-width: 60px;
+  padding: 8px 16px;
+}
+
+.map-container-wrapper {
+  height: calc(100vh - 120px);
+  position: relative;
+  width: 100%;
+}
+
+.map-container {
+  width: 100%;
+  height: 100%;
+}
+
+.map-legend {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  background: white;
+  padding: 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+  z-index: 1000;
+  max-width: 280px;
+}
+
+.legend-title {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.legend-circle {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  margin-right: 12px;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  flex-shrink: 0;
+}
+
+.legend-label {
+  font-size: 12px;
+  color: #333;
+  line-height: 1.4;
+}
+
+.facility-form-mobile {
+  padding-bottom: 20px;
+}
+
+.drawer-footer-mobile {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 20px;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+
+.footer-btn {
+  min-width: 100px;
+}
+
+/* Mobile-specific styles */
+@media (max-width: 768px) {
+  .map-container-wrapper {
+    height: calc(100vh - 100px);
+  }
+
+  .map-legend {
+    bottom: 10px;
+    right: 10px;
+    left: 10px;
+    max-width: none;
+    padding: 12px;
+    max-height: 40vh;
+    overflow-y: auto;
+  }
+
+  .legend-title {
+    font-size: 13px;
+    margin-bottom: 10px;
+  }
+
+  .legend-item {
+    margin-bottom: 8px;
+  }
+
+  .legend-circle {
+    width: 16px;
+    height: 16px;
+    margin-right: 10px;
+  }
+
+  .legend-label {
+    font-size: 11px;
+  }
+
+  .drawer-title {
+    font-size: 14px;
+  }
+
+  .close-btn-mobile {
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+
+  .facility-form-mobile :deep(.el-form-item) {
+    margin-bottom: 18px;
+  }
+
+  .facility-form-mobile :deep(.el-form-item__label) {
+    font-size: 13px;
+    margin-bottom: 6px;
+    padding-bottom: 0;
+  }
+
+  .facility-form-mobile :deep(.el-input),
+  .facility-form-mobile :deep(.el-select),
+  .facility-form-mobile :deep(.el-input-number) {
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+
+  .facility-form-mobile :deep(.el-button) {
+    width: 100%;
+    margin-top: 10px;
+    padding: 12px;
+    font-size: 15px;
+  }
+
+  .facility-form-mobile :deep(.el-divider) {
+    margin: 20px 0;
+  }
+
+  .facility-form-mobile :deep(.el-divider__text) {
+    font-size: 14px;
+  }
+
+  .drawer-footer-mobile {
+    flex-direction: column;
+    padding: 15px;
+    gap: 10px;
+  }
+
+  .footer-btn {
+    width: 100%;
+    margin: 0;
+  }
+}
+
+/* Tablet styles */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .map-legend {
+    max-width: 240px;
+    padding: 12px;
+  }
+
+  .legend-label {
+    font-size: 11px;
+  }
+}
+
+/* Ensure drawers are scrollable on mobile */
+:deep(.el-drawer__body) {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Improve touch targets */
+@media (max-width: 768px) {
+  :deep(.el-button) {
+    min-height: 44px; /* iOS recommended touch target */
+  }
+
+  :deep(.el-select),
+  :deep(.el-input) {
+    min-height: 44px;
+  }
+
+  :deep(.el-input__inner),
+  :deep(.el-input__wrapper) {
+    min-height: 44px;
+  }
 }
 </style>
 
@@ -3214,4 +3480,5 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
   }
 }
 </style>
+ 
  
