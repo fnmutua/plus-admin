@@ -32,12 +32,62 @@ import { getOneGeo, getSettlementListByCounty } from '@/api/settlements'
 import { CreateRecord, updateOneRecord } from '@/api/settlements'
 import { countyOptions, settlementOptionsV2 } from '../common/index'
 import {
-  LevelOptions,
-  regOptions,
   ownsershipOptions,
-  HCFTypeOptions,
-  generalOwnership
+  HCFTypeOptions
 } from '../common/index'
+
+// Health facility level options from mapping_tool_rennaisance_questions.json (hcf_levels)
+const LevelOptionsLocal = [
+  { label: 'LEVEL 1 – Community Facilities', value: 'level_1' },
+  { label: 'LEVEL 2 – Health Dispensaries', value: 'level_2' },
+  { label: 'LEVEL 3 – Health Centres', value: 'level_3' },
+  { label: 'LEVEL 4 – County Hospitals', value: 'level_4' },
+  { label: 'LEVEL 5 – County Referral Hospitals', value: 'level_5' },
+  { label: 'LEVEL 6 – National Referral Hospitals', value: 'level_6' }
+]
+
+// Registration status options from mapping_tool_rennaisance_questions.json (reg_status)
+const regOptionsLocal = [
+  { label: 'Unregistered', value: 'unregistred' },
+  { label: 'Registered', value: 'registered' },
+  { label: 'Awaiting Registration', value: 'awaiting_registration' }
+]
+
+// Ownership options from mapping_tool_rennaisance_questions.json (sponsor_type)
+const generalOwnershipLocal = [
+  { label: 'Government', value: 'government' },
+  { label: 'CBO/NGO', value: 'ngo' },
+  { label: 'Individual', value: 'individual' },
+  { label: 'Community', value: 'community' }
+]
+
+// Land ownership options from mapping_tool_rennaisance_questions.json (rent_owned_land)
+const tenancyOptionsLocal = [
+  { label: 'Rented', value: 'rented' },
+  { label: 'Owned', value: 'owned' }
+]
+
+// Yes/No options from mapping_tool_rennaisance_questions.json (yes_no)
+const yesNoOptions = [
+  { label: 'Yes', value: 'Yes' },
+  { label: 'No', value: 'No' },
+  { label: "I don't know", value: 'unknown' }
+]
+
+// Yes/No Plain options from mapping_tool_rennaisance_questions.json (yes_no_plain)
+const yesNoPlainOptions = [
+  { label: 'Yes', value: 'yes' },
+  { label: 'No', value: 'no' }
+]
+
+// Condition options from mapping_tool_rennaisance_questions.json (condition_facility)
+const conditionFacilityOptions = [
+  { label: 'Good', value: 'Good' },
+  { label: 'Fair', value: 'Fair' },
+  { label: 'Poor', value: 'Poor' },
+  { label: 'Critical', value: 'Critical' }
+]
+
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import type { FormInstance } from 'element-plus'
@@ -988,7 +1038,7 @@ const resetMarker = () => {
         <el-form-item label="Level">
           <el-select v-model="facilityForm.level" placeholder="Select level" filterable style="width: 100%">
             <el-option
-              v-for="item in LevelOptions"
+              v-for="item in LevelOptionsLocal"
               :key="item.value"
               :label="item.label"
               :value="item.value"
@@ -999,7 +1049,7 @@ const resetMarker = () => {
         <el-form-item label="Registration Status">
           <el-select v-model="facilityForm.registration_status" placeholder="Select registration status" filterable style="width: 100%">
             <el-option
-              v-for="item in regOptions"
+              v-for="item in regOptionsLocal"
               :key="item.value"
               :label="item.label"
               :value="item.value"
@@ -1010,7 +1060,7 @@ const resetMarker = () => {
         <el-form-item label="Ownership Type">
           <el-select v-model="facilityForm.ownership_type" placeholder="Select ownership type" filterable style="width: 100%">
             <el-option
-              v-for="item in ownsershipOptions"
+              v-for="item in generalOwnershipLocal"
               :key="item.value"
               :label="item.label"
               :value="item.value"
@@ -1024,17 +1074,23 @@ const resetMarker = () => {
 
         <el-form-item label="Land Ownership">
           <el-select v-model="facilityForm.land_ownership" placeholder="Select land ownership" filterable style="width: 100%">
-            <el-option label="Owned" value="Owned" />
-            <el-option label="Leased" value="Leased" />
-            <el-option label="Rented" value="Rented" />
-            <el-option label="Other" value="Other" />
+            <el-option
+              v-for="item in tenancyOptionsLocal"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
           </el-select>
         </el-form-item>
 
         <el-form-item label="Land Title Available">
           <el-select v-model="facilityForm.land_title_available" placeholder="Select land title available" filterable style="width: 100%">
-            <el-option label="Yes" value="Yes" />
-            <el-option label="No" value="No" />
+            <el-option
+              v-for="item in yesNoOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
           </el-select>
         </el-form-item>
 
@@ -1044,9 +1100,12 @@ const resetMarker = () => {
 
         <el-form-item label="Condition">
           <el-select v-model="facilityForm.condition" placeholder="Select condition" filterable style="width: 100%">
-            <el-option label="Good" value="Good" />
-            <el-option label="Fair" value="Fair" />
-            <el-option label="Poor" value="Poor" />
+            <el-option
+              v-for="item in conditionFacilityOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
             <el-option label="Very Poor" value="Very Poor" />
           </el-select>
         </el-form-item>
@@ -1057,15 +1116,15 @@ const resetMarker = () => {
           <el-input-number v-model="facilityForm.num_inpatient" :min="0" style="width: 100%" />
         </el-form-item>
 
-        <el-form-item label="Outpatient Visits per Day">
+        <el-form-item label="Outpatient Visits/Day">
           <el-input-number v-model="facilityForm.outpatient_visits_per_day" :min="0" style="width: 100%" />
         </el-form-item>
 
-        <el-form-item label="Maternity Deliveries per Day">
+        <el-form-item label="Maternity Deliveries/Day">
           <el-input-number v-model="facilityForm.maternity_deliveries_per_day" :min="0" style="width: 100%" />
         </el-form-item>
 
-        <el-form-item label="Antenatal Immunizations per Day">
+        <el-form-item label="Immunizations/Day">
           <el-input-number v-model="facilityForm.antenatal_immunizations_per_day" :min="0" style="width: 100%" />
         </el-form-item>
 
@@ -1137,8 +1196,12 @@ const resetMarker = () => {
 
         <el-form-item label="Has Ambulance">
           <el-select v-model="facilityForm.has_ambulance" placeholder="Select has ambulance" filterable style="width: 100%">
-            <el-option label="Yes" value="Yes" />
-            <el-option label="No" value="No" />
+            <el-option
+              v-for="item in yesNoPlainOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
           </el-select>
         </el-form-item>
 

@@ -30,13 +30,49 @@ import * as turf from '@turf/turf'
 import { getOneGeo } from '@/api/settlements'
 import { CreateRecord } from '@/api/settlements'
 import { countyOptions, settlementOptionsV2 } from './common/index'
-import {
-  SurfaceTypeOtions,
-  RdClassOptions,
-  drainageTypeOtions,
-  FacilityConditionOptions
-} from './common/index'
 import { useAppStoreWithOut } from '@/store/modules/app'
+
+// Surface type options from mapping_tool_rennaisance_questions.json (CWSurf_Type_list)
+const SurfaceTypeOtionsLocal = [
+  { label: 'Asphalt', value: 'asphalt' },
+  { label: 'Surface Dressing', value: 'surface_dressing' },
+  { label: 'Gravel', value: 'gravel' },
+  { label: 'Earth', value: 'earth' },
+  { label: 'Jointed Concrete', value: 'concrete_jt' },
+  { label: 'Concrete Blocks', value: 'concrete_bl' },
+  { label: 'Reinforced Concrete', value: 'concrete_rein' },
+  { label: 'Brick', value: 'brick' },
+  { label: 'Cobble stone road', value: 'set_stone' },
+  { label: 'Unimproved road with tyre tracks visible', value: 'track' },
+  { label: 'Other(Rater to provide description and Photo)', value: 'other' }
+]
+
+// Condition options from mapping_tool_rennaisance_questions.json (condition_list)
+const conditionOptionsLocal = [
+  { label: 'Under construction ', value: 'Under construction ' },
+  { label: 'Broken/not in use', value: 'Broken/not in use' },
+  { label: 'Operational ', value: 'Operational ' },
+  { label: 'Decomissioned', value: 'Decomissioned' }
+]
+
+// Drainage location options from mapping_tool_rennaisance_questions.json (draingae_side_list)
+const drainageTypeOtionsLocal = [
+  { label: 'One Side', value: 'One Side' },
+  { label: 'Both Sides', value: 'Both Sides' }
+]
+
+// Traffic options from mapping_tool_rennaisance_questions.json (usage_list)
+const trafficOptions = [
+  { label: 'Busy', value: 'busy' },
+  { label: 'Used', value: 'used' },
+  { label: 'Rare', value: 'rare' }
+]
+
+// Direction options from mapping_tool_rennaisance_questions.json (direction_list)
+const directionOptions = [
+  { label: 'One Way', value: 'One Way' },
+  { label: 'Two Way', value: 'Two Way' }
+]
 import { useCache } from '@/hooks/web/useCache'
 import type { FormInstance } from 'element-plus'
 import shortid from 'shortid'
@@ -100,16 +136,6 @@ const formRules = reactive({
   width: [{ required: true, message: 'Road width is required', trigger: 'blur' }],
   surfaceType: [{ required: true, message: 'Surface type is required', trigger: 'change' }]
 })
-
-const directionOptions = [
-  { label: 'One Way', value: 'One Way' },
-  { label: 'Two Way', value: 'Two Way' }
-]
-
-const trafficOptions = [
-  { label: 'Busy', value: 'Busy' },
-  { label: 'Light', value: 'Light' }
-]
 
 // Check if settlement has valid geometry (Polygon/MultiPolygon, not Point)
 const checkSettlementGeometry = async (settlementId: number): Promise<boolean> => {
@@ -595,7 +621,7 @@ const resetDrawing = () => {
         <el-form-item label="Surface Type" prop="surfaceType">
           <el-select v-model="roadForm.surfaceType" placeholder="Select surface type" filterable style="width: 100%">
             <el-option
-              v-for="item in SurfaceTypeOtions"
+              v-for="item in SurfaceTypeOtionsLocal"
               :key="item.value"
               :label="item.label"
               :value="item.value"
@@ -606,7 +632,7 @@ const resetDrawing = () => {
         <el-form-item label="Surface Condition">
           <el-select v-model="roadForm.surfaceCondition" placeholder="Select condition" filterable style="width: 100%">
             <el-option
-              v-for="item in FacilityConditionOptions"
+              v-for="item in conditionOptionsLocal"
               :key="item.value"
               :label="item.label"
               :value="item.value"
@@ -616,10 +642,10 @@ const resetDrawing = () => {
 
         <el-divider content-position="left">Drainage</el-divider>
 
-        <el-form-item label="Drainage Type">
-          <el-select v-model="roadForm.drainage" placeholder="Select drainage type" filterable style="width: 100%">
+        <el-form-item label="Drainage Location">
+          <el-select v-model="roadForm.drainage" placeholder="Select drainage location" filterable style="width: 100%">
             <el-option
-              v-for="item in drainageTypeOtions"
+              v-for="item in drainageTypeOtionsLocal"
               :key="item.value"
               :label="item.label"
               :value="item.value"
@@ -630,7 +656,7 @@ const resetDrawing = () => {
         <el-form-item label="Drainage Condition">
           <el-select v-model="roadForm.drainageCondition" placeholder="Select condition" filterable style="width: 100%">
             <el-option
-              v-for="item in FacilityConditionOptions"
+              v-for="item in conditionOptionsLocal"
               :key="item.value"
               :label="item.label"
               :value="item.value"

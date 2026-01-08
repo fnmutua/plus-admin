@@ -33,19 +33,23 @@ import { CreateRecord, updateOneRecord } from '@/api/settlements'
 import { countyOptions, settlementOptionsV2 } from './common/index'
 import {
   SchoolLevelOptions,
-  regOptions,
-  mhmOptions,
-  tenancyOptions,
-  generalOwnership
+  mhmOptions
 } from './common/index'
 
-// Education category options
-const categoryOptions = [
-  { label: 'Primary', value: 'Primary' },
-  { label: 'Secondary', value: 'Secondary' },
-  { label: 'Tertiary', value: 'Tertiary' },
-  { label: 'Vocational', value: 'Vocational' },
-  { label: 'Special Needs', value: 'Special Needs' }
+// Ownership options from mapping_tool_rennaisance_questions.json (sponsor_type)
+const generalOwnershipLocal = [
+  { label: 'Government', value: 'government' },
+  { label: 'CBO/NGO', value: 'ngo' },
+  { label: 'Individual', value: 'individual' },
+  { label: 'Community', value: 'community' }
+]
+
+// Condition options from mapping_tool_rennaisance_questions.json (condition_facility)
+const conditionFacilityOptions = [
+  { label: 'Good', value: 'Good' },
+  { label: 'Fair', value: 'Fair' },
+  { label: 'Poor', value: 'Poor' },
+  { label: 'Critical', value: 'Critical' }
 ]
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'

@@ -33,20 +33,68 @@ import { CreateRecord, updateOneRecord } from '@/api/settlements'
 import { countyOptions, settlementOptionsV2 } from './common/index'
 import {
   SchoolLevelOptions,
-  regOptions,
-  mhmOptions,
-  tenancyOptions,
-  generalOwnership
+  mhmOptions
 } from './common/index'
 
-// Education category options
+// Education category options from mapping_tool_rennaisance_questions.json (sch_category)
 const categoryOptions = [
-  { label: 'Primary', value: 'Primary' },
-  { label: 'Secondary', value: 'Secondary' },
-  { label: 'Tertiary', value: 'Tertiary' },
-  { label: 'Vocational', value: 'Vocational' },
-  { label: 'Special Needs', value: 'Special Needs' }
+  { label: 'Pre-Primary 1 and 2 (PP1 and PP2)', value: 'pre_primary' },
+  { label: 'Lower Primary (Grade 1-3 )', value: 'lower_primary' },
+  { label: 'Upper Primary (Grade 4-6)', value: 'upper_primary' },
+  { label: 'Junior School (Grade 7-9 )', value: 'junior_school' },
+  { label: 'Senior School(Grade 10-12)', value: 'senior_school' },
+  { label: 'Technical Vocational Education and Training(TVET)', value: 'tvet' }
 ]
+
+// Registration status options from mapping_tool_rennaisance_questions.json (reg_status)
+const regOptionsLocal = [
+  { label: 'Unregistered', value: 'unregistred' },
+  { label: 'Registered', value: 'registered' },
+  { label: 'Awaiting Registration', value: 'awaiting_registration' }
+]
+
+// Ownership options from mapping_tool_rennaisance_questions.json (sponsor_type)
+const generalOwnershipLocal = [
+  { label: 'Government', value: 'government' },
+  { label: 'CBO/NGO', value: 'ngo' },
+  { label: 'Individual', value: 'individual' },
+  { label: 'Community', value: 'community' }
+]
+
+// Land ownership options from mapping_tool_rennaisance_questions.json (rent_owned_land)
+const tenancyOptionsLocal = [
+  { label: 'Rented', value: 'rented' },
+  { label: 'Owned', value: 'owned' }
+]
+
+// Day/Boarding options from mapping_tool_rennaisance_questions.json (day_boarding)
+const boardingTypeOptions = [
+  { label: 'Day', value: 'day' },
+  { label: 'Boarding', value: 'boarding' },
+  { label: 'Both', value: 'both' }
+]
+
+// Yes/No options from mapping_tool_rennaisance_questions.json (yes_no)
+const yesNoOptions = [
+  { label: 'Yes', value: 'Yes' },
+  { label: 'No', value: 'No' },
+  { label: "I don't know", value: 'unknown' }
+]
+
+// Yes/No Plain options from mapping_tool_rennaisance_questions.json (yes_no_plain)
+const yesNoPlainOptions = [
+  { label: 'Yes', value: 'yes' },
+  { label: 'No', value: 'no' }
+]
+
+// Condition options from mapping_tool_rennaisance_questions.json (condition_facility)
+const conditionFacilityOptions = [
+  { label: 'Good', value: 'Good' },
+  { label: 'Fair', value: 'Fair' },
+  { label: 'Poor', value: 'Poor' },
+  { label: 'Critical', value: 'Critical' }
+]
+
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import type { FormInstance } from 'element-plus'
@@ -1034,7 +1082,7 @@ const resetMarker = () => {
         <el-form-item label="Registration Status">
           <el-select v-model="schoolForm.registration_status" placeholder="Select registration status" filterable style="width: 100%">
             <el-option
-              v-for="item in regOptions"
+              v-for="item in regOptionsLocal"
               :key="item.value"
               :label="item.label"
               :value="item.value"
@@ -1063,7 +1111,7 @@ const resetMarker = () => {
         <el-form-item label="Ownership Type">
           <el-select v-model="schoolForm.ownership_type" placeholder="Select ownership type" filterable style="width: 100%">
             <el-option
-              v-for="item in generalOwnership"
+              v-for="item in generalOwnershipLocal"
               :key="item.value"
               :label="item.label"
               :value="item.value"
@@ -1077,18 +1125,23 @@ const resetMarker = () => {
 
         <el-form-item label="Boarding Type">
           <el-select v-model="schoolForm.boarding_type" placeholder="Select boarding type" filterable style="width: 100%">
-            <el-option label="Boarding" value="Boarding" />
-            <el-option label="Day" value="Day" />
-            <el-option label="Mixed" value="Mixed" />
+            <el-option
+              v-for="item in boardingTypeOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
           </el-select>
         </el-form-item>
 
         <el-form-item label="Land Ownership Status">
           <el-select v-model="schoolForm.land_ownership_status" placeholder="Select land ownership status" filterable style="width: 100%">
-            <el-option label="Owned" value="Owned" />
-            <el-option label="Leased" value="Leased" />
-            <el-option label="Rented" value="Rented" />
-            <el-option label="Other" value="Other" />
+            <el-option
+              v-for="item in tenancyOptionsLocal"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
           </el-select>
         </el-form-item>
 
@@ -1148,8 +1201,15 @@ const resetMarker = () => {
 
         <el-divider content-position="left">Fees Information</el-divider>
 
-        <el-form-item label="Fees Paid by Students">
-          <el-input v-model="schoolForm.fees_paid_by_students" placeholder="Enter fees paid by students" />
+        <el-form-item label="Do Students Pay Fees?">
+          <el-select v-model="schoolForm.fees_paid_by_students" placeholder="Select if students pay fees" filterable style="width: 100%">
+            <el-option
+              v-for="item in yesNoPlainOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
         </el-form-item>
 
         <el-form-item label="Term 1 Fees Amount">
@@ -1176,10 +1236,12 @@ const resetMarker = () => {
 
         <el-form-item label="Classroom Condition">
           <el-select v-model="schoolForm.classroom_condition" placeholder="Select classroom condition" filterable style="width: 100%">
-            <el-option label="Good" value="Good" />
-            <el-option label="Fair" value="Fair" />
-            <el-option label="Poor" value="Poor" />
-            <el-option label="Very Poor" value="Very Poor" />
+            <el-option
+              v-for="item in conditionFacilityOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
           </el-select>
         </el-form-item>
 
@@ -1193,10 +1255,12 @@ const resetMarker = () => {
 
         <el-form-item label="Toilet Condition">
           <el-select v-model="schoolForm.toilet_condition" placeholder="Select toilet condition" filterable style="width: 100%">
-            <el-option label="Good" value="Good" />
-            <el-option label="Fair" value="Fair" />
-            <el-option label="Poor" value="Poor" />
-            <el-option label="Very Poor" value="Very Poor" />
+            <el-option
+              v-for="item in conditionFacilityOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
           </el-select>
         </el-form-item>
 
@@ -1208,8 +1272,12 @@ const resetMarker = () => {
 
         <el-form-item label="Sanitary Pads Provision">
           <el-select v-model="schoolForm.sanitary_pads_provision" placeholder="Select sanitary pads provision" filterable style="width: 100%">
-            <el-option label="Yes" value="Yes" />
-            <el-option label="No" value="No" />
+            <el-option
+              v-for="item in yesNoPlainOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
           </el-select>
         </el-form-item>
 
@@ -1219,8 +1287,12 @@ const resetMarker = () => {
 
         <el-form-item label="Sanitary Pads Bins">
           <el-select v-model="schoolForm.sanitary_pads_bins" placeholder="Select sanitary pads bins" filterable style="width: 100%">
-            <el-option label="Yes" value="Yes" />
-            <el-option label="No" value="No" />
+            <el-option
+              v-for="item in yesNoPlainOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
           </el-select>
         </el-form-item>
 
@@ -1234,18 +1306,25 @@ const resetMarker = () => {
           <el-input-number v-model="schoolForm.water_tanks_count" :min="0" style="width: 100%" />
         </el-form-item>
 
-        <el-form-item label="Compound Fence Status">
+        <el-form-item label="Fenced Compound">
           <el-select v-model="schoolForm.compound_fence_status" placeholder="Select compound fence status" filterable style="width: 100%">
-            <el-option label="Fenced" value="Fenced" />
-            <el-option label="Partially Fenced" value="Partially Fenced" />
-            <el-option label="Not Fenced" value="Not Fenced" />
+            <el-option
+              v-for="item in yesNoOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
           </el-select>
         </el-form-item>
 
         <el-form-item label="Teaching Aids Available">
           <el-select v-model="schoolForm.teaching_aids_available" placeholder="Select teaching aids available" filterable style="width: 100%">
-            <el-option label="Yes" value="Yes" />
-            <el-option label="No" value="No" />
+            <el-option
+              v-for="item in yesNoPlainOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
           </el-select>
         </el-form-item>
 
@@ -1253,8 +1332,12 @@ const resetMarker = () => {
 
         <el-form-item label="Parcel Has Title">
           <el-select v-model="schoolForm.parcel_has_title" placeholder="Select parcel has title" filterable style="width: 100%">
-            <el-option label="Yes" value="Yes" />
-            <el-option label="No" value="No" />
+            <el-option
+              v-for="item in yesNoOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
           </el-select>
         </el-form-item>
 

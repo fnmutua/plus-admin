@@ -44,6 +44,7 @@ const isMobile = computed(() => appStore.getMobile)
 const router = useRouter()
 
 // Options from mapping_tool_rennaisance_questions.json
+// WP_Type (wp_type)
 const waterPointTypeOptions = [
   { value: 'kiosk', label: 'Water Kiosk' },
   { value: 'public_tap', label: 'Public Tap' },
@@ -52,13 +53,15 @@ const waterPointTypeOptions = [
   { value: 'well', label: 'Dug Well' }
 ]
 
+// Condition options from mapping_tool_rennaisance_questions.json (condition_list)
 const conditionOptions = [
-  { value: 'Under construction ', label: 'Under construction' },
+  { value: 'Under construction ', label: 'Under construction ' },
   { value: 'Broken/not in use', label: 'Broken/not in use' },
-  { value: 'Operational ', label: 'Operational' },
+  { value: 'Operational ', label: 'Operational ' },
   { value: 'Decomissioned', label: 'Decomissioned' }
 ]
 
+// Availability options from mapping_tool_rennaisance_questions.json (frequency_list2)
 const availabilityOptions = [
   { value: 'Daily', label: 'Daily' },
   { value: 'Twice_a_week', label: 'Twice a week' },
@@ -66,6 +69,7 @@ const availabilityOptions = [
   { value: 'Rarely', label: 'Rarely' }
 ]
 
+// Ownership options from mapping_tool_rennaisance_questions.json (sponsor_type)
 const ownershipOptions = [
   { value: 'government', label: 'Government' },
   { value: 'ngo', label: 'CBO/NGO' },

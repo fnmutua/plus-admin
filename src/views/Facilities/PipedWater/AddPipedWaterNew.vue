@@ -30,8 +30,23 @@ import * as turf from '@turf/turf'
 import { getOneGeo } from '@/api/settlements'
 import { CreateRecord } from '@/api/settlements'
 import { countyOptions, settlementOptionsV2 } from './common/index'
-import { FacilityConditionOptions, generalOwnership } from './common/index'
 import { useAppStoreWithOut } from '@/store/modules/app'
+
+// Condition options from mapping_tool_rennaisance_questions.json (condition_list) - for WR (Water Reticulation)
+const conditionOptionsLocal = [
+  { label: 'Under construction ', value: 'Under construction ' },
+  { label: 'Broken/not in use', value: 'Broken/not in use' },
+  { label: 'Operational ', value: 'Operational ' },
+  { label: 'Decomissioned', value: 'Decomissioned' }
+]
+
+// Ownership options from mapping_tool_rennaisance_questions.json (sponsor_type)
+const generalOwnershipLocal = [
+  { label: 'Government', value: 'government' },
+  { label: 'CBO/NGO', value: 'ngo' },
+  { label: 'Individual', value: 'individual' },
+  { label: 'Community', value: 'community' }
+]
 import { useCache } from '@/hooks/web/useCache'
 import type { FormInstance } from 'element-plus'
 import shortid from 'shortid'
@@ -518,7 +533,7 @@ const resetDrawing = () => {
         <el-form-item label="Ownership Type">
           <el-select v-model="pipedWaterForm.ownership_type" placeholder="Select ownership" filterable style="width: 100%">
             <el-option
-              v-for="item in generalOwnership"
+              v-for="item in generalOwnershipLocal"
               :key="item.value"
               :label="item.label"
               :value="item.value"
@@ -533,7 +548,7 @@ const resetDrawing = () => {
         <el-form-item label="Condition">
           <el-select v-model="pipedWaterForm.condition" placeholder="Select condition" filterable style="width: 100%">
             <el-option
-              v-for="item in FacilityConditionOptions"
+              v-for="item in conditionOptionsLocal"
               :key="item.value"
               :label="item.label"
               :value="item.value"
