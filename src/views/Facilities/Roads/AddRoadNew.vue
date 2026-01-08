@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // @ts-nocheck
-import { ref, reactive, nextTick, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, reactive, nextTick, computed, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 
 declare global {
   interface Window {
@@ -83,6 +83,35 @@ const userInfo = wsCache.get(appStore.getUserInfo)
 const isMobile = computed(() => appStore.getMobile)
 
 const router = useRouter()
+const route = useRoute()
+
+// Handle query parameters on mount
+onMounted(async () => {
+  const countyId = route.query.county_id as string
+  const settlementId = route.query.settlement_id as string
+
+  if (countyId) {
+    selectedCounty.value = parseInt(countyId)
+
+    if (settlementId) {
+      // If settlement is provided, directly load it and skip geometry checks for other settlements
+      // Set filteredSettlements to include only the selected settlement
+      const settlement = (settlementOptionsV2.value || []).find((s: any) => s.value === parseInt(settlementId))
+      if (settlement) {
+        filteredSettlements.value = [settlement]
+        selectedSettlement.value = parseInt(settlementId)
+        await nextTick()
+        await handleSettlementChange(parseInt(settlementId))
+      } else {
+        ElMessage.error('Selected settlement not found.')
+        await handleCountyChange(parseInt(countyId)) // Fallback to loading all settlements for county
+      }
+    } else {
+      // Only county provided, proceed with normal county change to filter settlements by geometry
+      await handleCountyChange(parseInt(countyId))
+    }
+  }
+})
 
 // Step management
 const currentStep = ref(0)

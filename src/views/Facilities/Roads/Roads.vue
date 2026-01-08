@@ -1,16 +1,16 @@
 <!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
 
-import { getSettlementListByCounty,getOneGeo } from '@/api/settlements'
+import { getSettlementListByCounty,getOneGeo, getfilteredGeo, CreateRecord } from '@/api/settlements'
 import { DeleteRecord, updateOneRecord, deleteDocument } from '@/api/settlements'
 
 import { getCountyListApi } from '@/api/counties'
 import {
   ElButton, ElSelect, MessageParamsWithType, UploadProps, ElDescriptions, ElDescriptionsItem, ElCol, ElRow, ElCard,
-  ElOptionGroup, ElOption, FormInstance
+  ElOptionGroup, ElOption, FormInstance,ElDrawer
 } from 'element-plus'
 import { ElMessage, ElCollapse, ElCollapseItem, ElInput, ElBadge, ElSegmented } from 'element-plus'
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, onUnmounted } from 'vue'
 import xlsx from "json-as-xlsx"
 import { getFile } from '@/api/summary'
 import {
@@ -102,19 +102,50 @@ import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import PermissionWrapper from '@/components/PermissionWrapper.vue'
 
-
+declare global {
+  interface Window {
+    google: any
+  }
+}
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
 
-
 const showAdminButtons = ref(appStore.getAdminButtons)
 const showEditButtons = ref(appStore.getEditButtons)
+const isMobile = computed(() => appStore.getMobile)
 
+// Google Maps API Key
+const googleMapsApiKey = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
 
 // For settlements, show 'viewOnMap' and 'addFacility' actions
 const action_buttons = ref<string[]>(['viewOnMap', 'addFacility']);
+
+// Mobile detection
+const checkMobile = () => {
+  isMobile.value = window.innerWidth < 768
+}
+
+onMounted(() => {
+  checkMobile()
+  window.addEventListener('resize', checkMobile)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', checkMobile)
+})
+
+// Drawer state for map
+const mapDrawerVisible = ref(false)
+const mapDrawerSettlement = ref<any>(null)
+const mapDrawerContainer = ref<HTMLElement | null>(null)
+const googleMap = ref<any>(null)
+const settlementPolygon = ref<any>(null)
+const roadMarkers = ref<any[]>([])
+const settlementGeo = ref<any>(null)
+const roadsGeo = ref<any>(null)
+const facilityMarkerDataMap = ref<Map<any, any>>(new Map())
 
 
 
@@ -956,48 +987,347 @@ const viewProfile = (data: TableSlotDefault) => {
   })
 }
 
-const activeTab = ref('list')
-
+// Open map drawer for settlement
 const flyTo = async (data: TableSlotDefault) => {
-
-
-  const geoForm: any = {
-      model,
-      id: data.id
-    };
-
-  const res = await getOneGeo(geoForm);
-
-    const features = res?.data?.[0]?.json_build_object
-    if (!features ) {
-      ElMessage.error("No geometry found for this location.");
-      return;
-    }
-
-
-
-  console.log(features)
- 
-
-
-  console.log('On Click.....',features  );
-  activeTab.value = 'map';
-  activeSegment.value = 'Map';
-
-  setTimeout(() => {
-    // loadMap([data.geom.coordinates[0], data.geom.coordinates[1], data.name]);
-    loadMap([features, data.name])
-  }, 100); // Adjust delay time as needed
+  try {
+    mapDrawerSettlement.value = data
+    mapDrawerVisible.value = true
+    
+    await nextTick()
+    await initializeMapDrawer(data)
+  } catch (error) {
+    console.error("Error opening map drawer:", error);
+    ElMessage.error("Failed to open map. Please try again.");
+  }
 };
 
+// Initialize Google Maps in drawer
+const initializeMapDrawer = async (settlement: any) => {
+  if (!mapDrawerContainer.value) {
+    await nextTick()
+  }
+  
+  if (!mapDrawerContainer.value) {
+    ElMessage.error("Map container not found")
+    return
+  }
+
+  try {
+    // Load Google Maps API
+    const { Loader } = await import('@googlemaps/js-api-loader')
+    
+    const loader = new Loader({
+      apiKey: googleMapsApiKey,
+      version: 'weekly',
+      libraries: ['drawing', 'geometry', 'places'],
+      region: 'KE',
+      language: 'en'
+    })
+
+    await loader.load()
+
+    if (!window.google || !window.google.maps) {
+      throw new Error('Google Maps API not loaded properly')
+    }
+
+    // Get settlement geometry
+    const geoForm: any = {
+      model: 'settlement',
+      id: settlement.id
+    }
+
+    const res = await getOneGeo(geoForm)
+    const geoData = res?.data?.[0]?.json_build_object
+    const features = geoData?.features
+    
+    // Check if features is null or empty
+    if (!features || (Array.isArray(features) && features.length === 0)) {
+      ElMessage.warning("No boundary geometry found for this settlement. Showing map with roads only.")
+      settlementGeo.value = null
+    } else {
+      settlementGeo.value = geoData
+    }
+
+    // Get center and bounds
+    let center = { lat: 1.137451, lng: 37.137343 }
+    let zoom = 8
+
+    if (settlementGeo.value && settlementGeo.value.features && settlementGeo.value.features.length > 0) {
+      try {
+        const bboxResult = turf.bbox(settlementGeo.value)
+        center = {
+          lat: (bboxResult[1] + bboxResult[3]) / 2,
+          lng: (bboxResult[0] + bboxResult[2]) / 2
+        }
+        zoom = 13
+      } catch (error) {
+        console.warn('Error calculating bbox, using default center:', error)
+      }
+    }
+
+    // Initialize map
+    googleMap.value = new window.google.maps.Map(mapDrawerContainer.value, {
+      center: center,
+      zoom: zoom,
+      mapTypeId: window.google.maps.MapTypeId.ROADMAP,
+      mapTypeControl: true,
+      streetViewControl: true,
+      fullscreenControl: true
+    })
+
+    // Add settlement boundary only if features exist
+    if (settlementGeo.value && settlementGeo.value.features && settlementGeo.value.features.length > 0) {
+      const feature = settlementGeo.value.features[0]
+      if (feature && feature.geometry && (feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon')) {
+        try {
+          const paths = feature.geometry.type === 'Polygon'
+            ? feature.geometry.coordinates[0].map((coord: number[]) => ({
+                lat: coord[1],
+                lng: coord[0]
+              }))
+            : feature.geometry.coordinates[0][0].map((coord: number[]) => ({
+                lat: coord[1],
+                lng: coord[0]
+              }))
+
+          settlementPolygon.value = new window.google.maps.Polygon({
+            paths: paths,
+            strokeColor: '#FF0000',
+            strokeOpacity: 0.6,
+            strokeWeight: 2,
+            fillColor: '#FF0000',
+            fillOpacity: 0, // Transparent fill
+            map: googleMap.value
+          })
+
+          // Fit bounds to settlement
+          const pathBounds = new window.google.maps.LatLngBounds()
+          paths.forEach((path: any) => {
+            pathBounds.extend(path)
+          })
+          googleMap.value.fitBounds(pathBounds)
+        } catch (error) {
+          console.error('Error drawing settlement boundary:', error)
+          ElMessage.warning('Could not draw settlement boundary, but map is still available')
+        }
+      }
+    }
+
+    // Wait for map to be ready before loading roads
+    const loadRoadsWhenReady = async () => {
+      await loadRoadsOnMap(settlement.id)
+    }
+
+    // Use idle event to ensure map is fully loaded
+    googleMap.value.addListener('idle', loadRoadsWhenReady)
+    
+    // Also try loading immediately in case map is already idle
+    setTimeout(loadRoadsWhenReady, 500)
+
+  } catch (error) {
+    console.error("Error initializing map:", error)
+    ElMessage.error("Failed to initialize map. Please try again.")
+  }
+}
+
+// Load roads on map
+const loadRoadsOnMap = async (settlementId: number) => {
+  try {
+    // Clear existing polylines
+    roadMarkers.value.forEach(polyline => polyline.setMap(null))
+    roadMarkers.value = []
+
+    if (!googleMap.value) {
+      console.error('Google map not initialized')
+      return
+    }
+
+    console.log('Loading roads for settlement:', settlementId)
+
+    // Get roads GeoJSON
+    const formData: any = {
+      model: roadFacilityModel,
+      columnFilterField: 'settlement_id',
+      selectedParents: settlementId,
+      filtredGeoIds: [settlementId]
+    }
+
+    const res = await getfilteredGeo(formData)
+    
+    console.log('Roads Geo response:', res)
+    
+    // Handle different response structures
+    let geoJsonData = null
+    
+    if (res && res.data) {
+      if (Array.isArray(res.data) && res.data.length > 0) {
+        const firstItem = res.data[0]
+        
+        if (Array.isArray(firstItem) && firstItem.length > 0) {
+          if (firstItem[0] && firstItem[0].json_build_object) {
+            geoJsonData = firstItem[0].json_build_object
+          }
+        } else if (firstItem && firstItem.json_build_object) {
+          geoJsonData = firstItem.json_build_object
+        } else if (firstItem && firstItem.type === 'FeatureCollection') {
+          geoJsonData = firstItem
+        }
+      }
+    } else if (Array.isArray(res) && res.length > 0) {
+      const firstItem = res[0]
+      if (Array.isArray(firstItem) && firstItem.length > 0 && firstItem[0].json_build_object) {
+        geoJsonData = firstItem[0].json_build_object
+      } else if (firstItem && firstItem.json_build_object) {
+        geoJsonData = firstItem.json_build_object
+      } else if (firstItem && firstItem.type === 'FeatureCollection') {
+        geoJsonData = firstItem
+      }
+    }
+    
+    console.log('Extracted GeoJSON data:', geoJsonData)
+    
+    if (!geoJsonData) {
+      console.log('No GeoJSON data found for roads')
+      ElMessage.info('No roads with geometry data found for this settlement.')
+      return
+    }
+    
+    if (geoJsonData.features === null || (Array.isArray(geoJsonData.features) && geoJsonData.features.length === 0)) {
+      console.log('GeoJSON features is null or empty')
+      ElMessage.info('No roads with geometry data found for this settlement.')
+      roadsGeo.value = null
+      return
+    }
+    
+    roadsGeo.value = geoJsonData
+    const features = geoJsonData.features || []
+    
+    console.log('Roads features count:', features.length)
+    
+    if (features.length === 0) {
+      ElMessage.info('No roads found with geometry for this settlement.')
+      roadsGeo.value = null
+      return
+    }
+    
+    // Process features and create polylines
+    features.forEach((feature: any) => {
+      if (feature.geometry && (feature.geometry.type === 'LineString' || feature.geometry.type === 'MultiLineString')) {
+        const coords = feature.geometry.coordinates
+        if (!coords || coords.length === 0) {
+          console.warn('Invalid coordinates:', coords)
+          return
+        }
+        
+        // Get surface type for color
+        const surfaceType = (feature.properties?.surface_type || feature.properties?.surfaceType || 'unknown').toLowerCase()
+        
+        // Color map based on surface type
+        const colorMap: Record<string, string> = {
+          'asphalt': '#FF0000',
+          'surface_dressing': '#800080',
+          'gravel': '#b2df8a',
+          'earth': '#33a02c',
+          'concrete_jt': '#fb9a99',
+          'concrete_bl': '#fb9a99',
+          'concrete_rein': '#fb9a99',
+          'brick': '#ff7f00',
+          'set_stone': '#ff7f00',
+          'track': '#ff7f00',
+          'other': '#969696',
+          'unknown': '#969696'
+        }
+        
+        const color = colorMap[surfaceType] || colorMap['unknown']
+        
+        try {
+          let path: any[] = []
+          
+          if (feature.geometry.type === 'LineString') {
+            path = coords.map((coord: number[]) => ({
+              lat: coord[1],
+              lng: coord[0]
+            }))
+          } else if (feature.geometry.type === 'MultiLineString') {
+            // Use first line string
+            path = coords[0].map((coord: number[]) => ({
+              lat: coord[1],
+              lng: coord[0]
+            }))
+          }
+          
+          const polyline = new window.google.maps.Polyline({
+            path: path,
+            geodesic: true,
+            strokeColor: color,
+            strokeOpacity: 0.8,
+            strokeWeight: 4,
+            map: googleMap.value
+          })
+          
+          // Store road data with polyline
+          facilityMarkerDataMap.value.set(polyline, feature.properties)
+          
+          // Add click listener to show info
+          polyline.addListener('click', () => {
+            const infoWindow = new window.google.maps.InfoWindow({
+              content: `
+                <div style="padding: 8px; min-width: 200px;">
+                  <h3 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600;">${feature.properties?.name || 'Road'}</h3>
+                  ${feature.properties?.surface_type ? `<p style="margin: 0 0 5px 0; font-size: 12px;"><strong>Surface:</strong> ${feature.properties.surface_type}</p>` : ''}
+                  ${feature.properties?.rd_drainage_condition ? `<p style="margin: 5px 0 0 0; font-size: 12px;"><strong>Drainage:</strong> ${feature.properties.rd_drainage_condition}</p>` : ''}
+                </div>
+              `
+            })
+            infoWindow.setPosition(path[Math.floor(path.length / 2)])
+            infoWindow.open(googleMap.value)
+          })
+          
+          roadMarkers.value.push(polyline)
+        } catch (error) {
+          console.error('Error creating polyline:', error, feature)
+        }
+      } else {
+        console.warn('Feature is not a LineString:', feature.geometry?.type)
+      }
+    })
+    
+    console.log('Total polylines created:', roadMarkers.value.length)
+    
+    if (roadMarkers.value.length === 0) {
+      ElMessage.info('No roads with valid LineString geometry found')
+    } else {
+      ElMessage.success(`Loaded ${roadMarkers.value.length} roads on map`)
+    }
+  } catch (error) {
+    console.error("Error loading roads on map:", error)
+    ElMessage.error("Failed to load roads on map: " + (error as Error).message)
+  }
+}
+
+// Close drawer handler
+const handleMapDrawerClose = () => {
+  mapDrawerVisible.value = false
+  // Clean up polylines
+  roadMarkers.value.forEach(polyline => polyline.setMap(null))
+  roadMarkers.value = []
+  facilityMarkerDataMap.value.clear()
+  
+  if (settlementPolygon.value) {
+    settlementPolygon.value.setMap(null)
+    settlementPolygon.value = null
+  }
+  googleMap.value = null
+  mapDrawerSettlement.value = null
+}
 
 
 
 
 
 
-const isMobile = computed(() => appStore.getMobile)
 
+ 
 console.log('IsMobile', isMobile)
 
 const dialogWidth = ref()
@@ -2102,6 +2432,27 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
     </div>
 
 
+  <!-- Map Drawer -->
+  <el-drawer
+    v-model="mapDrawerVisible"
+    title="Settlement Map with Roads"
+    direction="rtl"
+    :size="isMobile ? '100%' : '60%'"
+    :before-close="handleMapDrawerClose"
+    class="map-drawer"
+  >
+    <template #header>
+      <div class="drawer-header-mobile">
+        <span class="drawer-title">{{ mapDrawerSettlement?.name || 'Settlement Map' }}</span>
+        <el-button type="danger" size="default" @click="handleMapDrawerClose" class="close-btn-mobile">Close</el-button>
+      </div>
+    </template>
+    
+    <div v-if="mapDrawerSettlement" class="map-container-wrapper">
+      <div ref="mapDrawerContainer" class="map-container"></div>
+    </div>
+  </el-drawer>
+
     <div v-if="activeSegment === 'Map'">
       <div id="mapContainer" class="basemap" style="width: 100%; margin-top: 10px;"></div>
       <div id="floating-div">
@@ -2378,6 +2729,53 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
     /* Allow wrapping on smaller screens */
     overflow: visible;
     /* Allow the text to flow properly */
+  }
+}
+
+.map-container-wrapper {
+  position: relative;
+  width: 100%;
+  height: calc(100vh - 120px);
+}
+
+.map-container {
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
+}
+
+.map-drawer :deep(.el-drawer__body) {
+  padding: 0;
+}
+
+.drawer-header-mobile {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.drawer-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.close-btn-mobile {
+  padding: 8px 16px;
+}
+
+@media (max-width: 768px) {
+  .map-container-wrapper {
+    height: calc(100vh - 100px);
+  }
+
+  .drawer-title {
+    font-size: 14px;
+  }
+
+  .close-btn-mobile {
+    padding: 6px 12px;
+    font-size: 13px;
   }
 }
 </style>
