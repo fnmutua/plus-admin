@@ -418,6 +418,44 @@ const getCounts = async () => {
     })
   }
   
+  // Add user-selected location filters (county, subcounty, ward)
+  if (selectedCounty.value.length > 0) {
+    const existingIndex = filterFields.indexOf('county_id')
+    if (existingIndex === -1) {
+      filterFields.push('county_id')
+      filterValues.push(selectedCounty.value)
+      filterOperators.push('in')
+    } else {
+      // Merge with existing county filter (role-based might have set it)
+      const existingValue = filterValues[existingIndex]
+      filterValues[existingIndex] = [...new Set([...existingValue, ...selectedCounty.value])]
+    }
+  }
+  
+  if (selectedSubCounty.value.length > 0) {
+    const existingIndex = filterFields.indexOf('subcounty_id')
+    if (existingIndex === -1) {
+      filterFields.push('subcounty_id')
+      filterValues.push(selectedSubCounty.value)
+      filterOperators.push('in')
+    } else {
+      const existingValue = filterValues[existingIndex]
+      filterValues[existingIndex] = [...new Set([...existingValue, ...selectedSubCounty.value])]
+    }
+  }
+  
+  if (selectedWard.value.length > 0) {
+    const existingIndex = filterFields.indexOf('ward_id')
+    if (existingIndex === -1) {
+      filterFields.push('ward_id')
+      filterValues.push(selectedWard.value)
+      filterOperators.push('in')
+    } else {
+      const existingValue = filterValues[existingIndex]
+      filterValues[existingIndex] = [...new Set([...existingValue, ...selectedWard.value])]
+    }
+  }
+  
   // Only add filterField, filterValue, and filterOperator if we have filters
   if (filterFields.length > 0) {
     formData.filterField = filterFields
@@ -603,7 +641,9 @@ const handleClear = async () => {
   value5.value = []
   value6.value = []
   dateRange.value = []
+  // Reset both page refs to ensure pagination resets
   currentPage.value = 1
+  page.value = 1
 
   // Restore role-based location filters
   roleBasedLocationFilters.forEach(locFilter => {
@@ -612,6 +652,9 @@ const handleClear = async () => {
   })
 
   localStorage.removeItem('settlementFilters'); // Clear stored filters
+  // Update counts after clearing filters
+  await getCounts()
+  // Reset to segment data (not search results) to get correct totals
   await getAllSetllementsInitially(activeSegment.value)
 }
 
@@ -701,6 +744,44 @@ const getSettlementCount = async () => {
         }
       }
     })
+  }
+  
+  // Add user-selected location filters (county, subcounty, ward)
+  if (selectedCounty.value.length > 0) {
+    const existingIndex = filterFields.indexOf('county_id')
+    if (existingIndex === -1) {
+      filterFields.push('county_id')
+      filterValues.push(selectedCounty.value)
+      filterOperators.push('in')
+    } else {
+      // Merge with existing county filter (role-based might have set it)
+      const existingValue = filterValues[existingIndex]
+      filterValues[existingIndex] = [...new Set([...existingValue, ...selectedCounty.value])]
+    }
+  }
+  
+  if (selectedSubCounty.value.length > 0) {
+    const existingIndex = filterFields.indexOf('subcounty_id')
+    if (existingIndex === -1) {
+      filterFields.push('subcounty_id')
+      filterValues.push(selectedSubCounty.value)
+      filterOperators.push('in')
+    } else {
+      const existingValue = filterValues[existingIndex]
+      filterValues[existingIndex] = [...new Set([...existingValue, ...selectedSubCounty.value])]
+    }
+  }
+  
+  if (selectedWard.value.length > 0) {
+    const existingIndex = filterFields.indexOf('ward_id')
+    if (existingIndex === -1) {
+      filterFields.push('ward_id')
+      filterValues.push(selectedWard.value)
+      filterOperators.push('in')
+    } else {
+      const existingValue = filterValues[existingIndex]
+      filterValues[existingIndex] = [...new Set([...existingValue, ...selectedWard.value])]
+    }
   }
   
   // Only add filterField, filterValue, and filterOperator if we have filters
@@ -993,8 +1074,9 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   formData.searchField = 'name'
   formData.searchKeyword = ''
   formData.assocModel = associated_Model
-  formData.filters = selFilters
-  formData.filterValues = selfilterValues
+  // Use filters.value and filterValues.value after pushRoleFilters() to ensure role filters are applied
+  formData.filters = filters.value
+  formData.filterValues = filterValues.value
   formData.associated_multiple_models = associated_multiple_models
   formData.nested_models = nested_models
   formData.dateRange = dateRange.value
@@ -1190,27 +1272,34 @@ const getFilteredBySearchData = async (tab, searchKey) => {
   formData.model = model
   formData.searchField = 'name'
   formData.searchKeyword = searchKey
-  formData.returnAll = true
+  // Remove returnAll to enable proper pagination - the API will return paginated results
   formData.filters = filters.value
   formData.filterValues = filterValues.value
   formData.associated_multiple_models = associated_multiple_models
   formData.nested_models = nested_models
   const res = await searchByKeyWord(formData)
   searchLoading.value = false
+  // Use res.total (lowercase) for paginated results, or res.Total if available
+  // The total should represent the total count of matching records for pagination
+  const totalCount = res.total !== undefined ? res.total : (res.Total !== undefined ? res.Total : (res.data ? res.data.length : 0))
+  
   if (tab === 'Approved') {
     tableDataList.value = res.data
-    totalApproved.value = res.Total
+    totalApproved.value = totalCount
+    total.value = totalCount
   } else if (tab === 'New') {
     tableDataListNew.value = res.data
-    totalPending.value = res.Total
+    totalPending.value = totalCount
+    total.value = totalCount
   } else if (tab === 'Decommissioned') {
     decommSettlements.value = res.data
-    decommSettlementsCount.value = res.Total
+    decommSettlementsCount.value = totalCount
+    total.value = totalCount
   } else {
     tableDataListRejected.value = res.data
-    totalRejected.value = res.Total
+    totalRejected.value = totalCount
+    total.value = totalCount
   }
-  total.value = res.total
   loading.value = false
 }
 
@@ -1219,7 +1308,15 @@ const searchLoading = ref(false)
 const searchByNewName = async () => {
   const query = search_string.value?.trim()
 
-  if (!query || query.length < 4) {
+  // If search is cleared (empty), reset to segment data
+  if (!query || query.length === 0) {
+    page.value = 1
+    await getAllSetllementsInitially(activeSegment.value)
+    saveFiltersToStorage()
+    return
+  }
+
+  if (query.length < 4) {
     ElMessage.warning("Please enter at least 4 characters to search.")
     return
   }
@@ -1230,6 +1327,7 @@ const searchByNewName = async () => {
   }
 
   searchLoading.value = true
+  page.value = 1 // Reset to first page when searching
   await getFilteredBySearchData(activeSegment.value, query)
 
   saveFiltersToStorage()
@@ -1342,6 +1440,9 @@ const filterByCounty = async (county_id: any) => {
 
   saveFiltersToStorage()
 
+  // Update counts with new location filters
+  await getCounts()
+
   if (search_string.value) {
     await getFilteredBySearchData(activeSegment.value, search_string.value)
   } else {
@@ -1363,6 +1464,9 @@ const filterBySubCounty = async (subcounty_id: any) => {
 
   saveFiltersToStorage()
 
+  // Update counts with new location filters
+  await getCounts()
+
   if (search_string.value) {
     await getFilteredBySearchData(activeSegment.value, search_string.value)
   } else {
@@ -1381,6 +1485,9 @@ const filterByWard = async (ward_id: any) => {
   }
 
   saveFiltersToStorage()
+
+  // Update counts with new location filters
+  await getCounts()
 
   if (search_string.value) {
     await getFilteredBySearchData(activeSegment.value, search_string.value)
@@ -2484,6 +2591,25 @@ const searchSettlementsForMerge = async (keyword = '') => {
   
   mergeSearchLoading.value = true
   try {
+    // Build filters with role-based filters
+    const mergeFilters: string[] = ['isActive']
+    const mergeFilterValues: any[][] = [['true']]
+    
+    // Apply role-based filters
+    if (roles_filters.length > 0) {
+      roles_filters.forEach(rf => {
+        if (rf.field && rf.value !== null && rf.value !== undefined) {
+          const existingIndex = mergeFilters.indexOf(rf.field)
+          if (existingIndex === -1) {
+            mergeFilters.push(rf.field)
+            mergeFilterValues.push(Array.isArray(rf.value) ? rf.value : [rf.value])
+          } else {
+            mergeFilterValues[existingIndex] = Array.isArray(rf.value) ? rf.value : [rf.value]
+          }
+        }
+      })
+    }
+    
     const formData: any = {
       curUser: 1,
       model: 'settlement',
@@ -2492,8 +2618,8 @@ const searchSettlementsForMerge = async (keyword = '') => {
       excludeGeom: false,
       excludeGeomAssoc: true,
       associated_multiple_models: ['county', 'subcounty', 'ward'],
-      filters: ['isActive'],
-      filterValues: [['true']]
+      filters: mergeFilters,
+      filterValues: mergeFilterValues
     }
     
     const res = await searchByKeyWord(formData)
@@ -2631,13 +2757,16 @@ const showSelectFields = ref(false)
 const selectedFields = ref([])
 
 const getFilteredDownloadData = async (selFilters, selfilterValues) => {
+  // Apply role filters before downloading
+  pushRoleFilters()
   const formData = {}
   formData.model = model
   formData.searchField = 'name'
   formData.searchKeyword = ''
   formData.assocModel = associated_Model
-  formData.filters = selFilters
-  formData.filterValues = selfilterValues
+  // Use filters.value and filterValues.value after pushRoleFilters() to ensure role filters are applied
+  formData.filters = filters.value
+  formData.filterValues = filterValues.value
   formData.associated_multiple_models = associated_multiple_models
   formData.nested_models = nested_models
   formData.dateRange = dateRange.value
@@ -2654,27 +2783,23 @@ const handleDownloadGeoData = async () => {
   try {
     downloadGeoLoading.value = true;
     
-    // Prepare filters based on active segment
-    let segmentFilters = filters.value;
-    let segmentFilterValues = filterValues.value;
-    
-    // Set status filter based on active segment
+    // Set status filter based on active segment first
     if (activeSegment.value === 'New') {
-      segmentFilters = ['isApproved', 'isActive', ...filters.value.filter(f => f !== 'isApproved' && f !== 'isActive')];
-      segmentFilterValues = [['Pending'], ['true'], ...filterValues.value.filter((_, i) => filters.value[i] !== 'isApproved' && filters.value[i] !== 'isActive')];
+      filters.value = ['isApproved', 'isActive', ...filters.value.filter(f => f !== 'isApproved' && f !== 'isActive')];
+      filterValues.value = [['Pending'], ['true'], ...filterValues.value.filter((_, i) => filters.value[i] !== 'isApproved' && filters.value[i] !== 'isActive')];
     } else if (activeSegment.value === 'Rejected') {
-      segmentFilters = ['isApproved', 'isActive', ...filters.value.filter(f => f !== 'isApproved' && f !== 'isActive')];
-      segmentFilterValues = [['Rejected'], ['true'], ...filterValues.value.filter((_, i) => filters.value[i] !== 'isApproved' && filters.value[i] !== 'isActive')];
+      filters.value = ['isApproved', 'isActive', ...filters.value.filter(f => f !== 'isApproved' && f !== 'isActive')];
+      filterValues.value = [['Rejected'], ['true'], ...filterValues.value.filter((_, i) => filters.value[i] !== 'isApproved' && filters.value[i] !== 'isActive')];
     } else if (activeSegment.value === 'Decommissioned') {
-      segmentFilters = ['isApproved', 'isActive', ...filters.value.filter(f => f !== 'isApproved' && f !== 'isActive')];
-      segmentFilterValues = [['Decommissioned'], ['true'], ...filterValues.value.filter((_, i) => filters.value[i] !== 'isApproved' && filters.value[i] !== 'isActive')];
+      filters.value = ['isApproved', 'isActive', ...filters.value.filter(f => f !== 'isApproved' && f !== 'isActive')];
+      filterValues.value = [['Decommissioned'], ['true'], ...filterValues.value.filter((_, i) => filters.value[i] !== 'isApproved' && filters.value[i] !== 'isActive')];
     } else {
       // Approved
-      segmentFilters = ['isApproved', 'isActive', ...filters.value.filter(f => f !== 'isApproved' && f !== 'isActive')];
-      segmentFilterValues = [['Approved'], ['true'], ...filterValues.value.filter((_, i) => filters.value[i] !== 'isApproved' && filters.value[i] !== 'isActive')];
+      filters.value = ['isApproved', 'isActive', ...filters.value.filter(f => f !== 'isApproved' && f !== 'isActive')];
+      filterValues.value = [['Approved'], ['true'], ...filterValues.value.filter((_, i) => filters.value[i] !== 'isApproved' && filters.value[i] !== 'isActive')];
     }
     
-    // Apply role filters
+    // Apply role filters (this will update filters.value and filterValues.value)
     pushRoleFilters();
     
     // Fetch ALL filtered settlements (not just current page)
@@ -2686,8 +2811,8 @@ const handleDownloadGeoData = async () => {
       searchField: 'name',
       searchKeyword: search_string.value || '',
       assocModel: associated_Model,
-      filters: segmentFilters,
-      filterValues: segmentFilterValues,
+      filters: filters.value,
+      filterValues: filterValues.value,
       associated_multiple_models: associated_multiple_models,
       nested_models: nested_models,
       dateRange: dateRange.value,
@@ -3349,19 +3474,104 @@ const getSettlmentHistory = async () => {
   deletedSettlements.value = []
   const model = 'settlement_history'
   
+  // Build filters array with role-based filters
+  const historyFilters: string[] = ['change_type', 'status']
+  const historyFilterValues: any[][] = [['Delete', 'Merge'], ['Open']]
+  
+  // Apply role-based filters (county, settlement, location filters)
+  if (roles_filters.length > 0) {
+    roles_filters.forEach(rf => {
+      if (rf.field && rf.value !== null && rf.value !== undefined) {
+        // For history records, we need to filter by the original settlement's fields
+        // The history model might have settlement_id or we need to filter by changes.before fields
+        // Check if this filter field is already in the filters array
+        const existingIndex = historyFilters.indexOf(rf.field);
+        if (existingIndex === -1) {
+          // Add new filter - for history, we might need to use a different field name
+          // If it's county_id, settlement history might have it directly or in changes.before
+          historyFilters.push(rf.field);
+          historyFilterValues.push(Array.isArray(rf.value) ? rf.value : [rf.value]);
+        } else {
+          // Update existing filter value (role filters take precedence)
+          historyFilterValues[existingIndex] = Array.isArray(rf.value) ? rf.value : [rf.value];
+        }
+      }
+    });
+  }
+  
+  // Also apply user-selected location filters if they exist
+  if (selectedCounty.value.length > 0) {
+    const countyIndex = historyFilters.indexOf('county_id');
+    if (countyIndex === -1) {
+      historyFilters.push('county_id');
+      historyFilterValues.push(selectedCounty.value);
+    } else {
+      historyFilterValues[countyIndex] = selectedCounty.value;
+    }
+  }
+  
+  if (selectedSubCounty.value.length > 0) {
+    const subcountyIndex = historyFilters.indexOf('subcounty_id');
+    if (subcountyIndex === -1) {
+      historyFilters.push('subcounty_id');
+      historyFilterValues.push(selectedSubCounty.value);
+    } else {
+      historyFilterValues[subcountyIndex] = selectedSubCounty.value;
+    }
+  }
+  
+  if (selectedWard.value.length > 0) {
+    const wardIndex = historyFilters.indexOf('ward_id');
+    if (wardIndex === -1) {
+      historyFilters.push('ward_id');
+      historyFilterValues.push(selectedWard.value);
+    } else {
+      historyFilterValues[wardIndex] = selectedWard.value;
+    }
+  }
+  
   // Fetch both Delete and Merge history records
   const formData = {}
   formData.model = model
   formData.searchField = 'name'
   formData.excludeGeom = false
   formData.associated_multiple_models = ['users']
-  formData.filters = ['change_type', 'status']
-  // Include both 'Delete' and 'Merge' change types
-  formData.filterValues = [['Delete', 'Merge'], ['Open']]
+  formData.filters = historyFilters
+  formData.filterValues = historyFilterValues
   // Fetch all records to allow client-side pagination on the Deleted tab
   formData.returnAll = true
   const res = await getSettlementListByCounty(formData)
-  res.data.forEach((item) => {
+  
+  // Additional client-side filtering by role if needed (for nested data in changes.before)
+  let filteredData = res.data;
+  if (roles_filters.length > 0 && !isSuperAdmin.value && !isNationalStaff.value) {
+    filteredData = res.data.filter((item: any) => {
+      const beforeObject = item.changes?.before;
+      if (!beforeObject) return false;
+      
+      // Check each role filter against the before object
+      return roles_filters.every(rf => {
+        if (!rf.field || rf.value === null || rf.value === undefined) return true;
+        
+        if (rf.field === 'county_id') {
+          return Array.isArray(rf.value) 
+            ? rf.value.includes(beforeObject.county_id)
+            : beforeObject.county_id === rf.value;
+        } else if (rf.field === 'id') {
+          // Settlement ID filter
+          return Array.isArray(rf.value)
+            ? rf.value.includes(beforeObject.id)
+            : beforeObject.id === rf.value;
+        } else if (rf.field === 'location_id') {
+          // Subcounty or ward level
+          return beforeObject.subcounty_id === rf.value || beforeObject.ward_id === rf.value;
+        }
+        return true;
+      });
+    });
+  }
+  
+  filteredData.forEach((item: any) => {
     const beforeObject = item.changes?.before;
     if (beforeObject) {
       beforeObject.history_id = item.id;
@@ -3432,6 +3642,9 @@ const handleDateChange = async () => {
 
   saveFiltersToStorage()
   DateDialogVisible.value = false
+
+  // Update counts with new date filters
+  await getCounts()
 
   if (search_string.value) {
     await getFilteredBySearchData(activeSegment.value, search_string.value)
