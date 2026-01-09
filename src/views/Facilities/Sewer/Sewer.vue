@@ -1,16 +1,16 @@
 <!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
 
-import { getSettlementListByCounty,getOneGeo } from '@/api/settlements'
+import { getSettlementListByCounty, getOneGeo, getfilteredGeo } from '@/api/settlements'
 import { DeleteRecord, updateOneRecord, deleteDocument } from '@/api/settlements'
 
 import { getCountyListApi } from '@/api/counties'
 import {
   ElButton, ElSelect, MessageParamsWithType, UploadProps, ElDescriptions, ElDescriptionsItem, ElCol, ElRow, ElCard,
-  ElOptionGroup, ElOption, FormInstance
+  ElOptionGroup, ElOption, FormInstance, ElDrawer, ElInputNumber
 } from 'element-plus'
 import { ElMessage, ElCollapse, ElCollapseItem, ElInput, ElBadge, ElSegmented } from 'element-plus'
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import xlsx from "json-as-xlsx"
 import { getFile } from '@/api/summary'
 import {
@@ -41,7 +41,7 @@ import {
   Grape,
   Orange,
   Pear,
-  Watermelon, CircleClose, Message, CircleCheck, Loading
+  Watermelon, CircleClose, Message, CircleCheck, Loading, Check
 } from '@element-plus/icons-vue'
 
 
@@ -85,7 +85,7 @@ import { MapboxLayerSwitcherControl, MapboxLayerDefinition } from "mapbox-layer-
 
 import "mapbox-layer-switcher/styles.css";
 
-import { countyOptions, subcountyOptions, settlementOptionsV2, LevelOptions, ownsershipOptions, regOptions, HCFTypeOptions } from './../common/index'
+import { countyOptions, subcountyOptions, settlementOptionsV2, LevelOptions, ownsershipOptions, regOptions, HCFTypeOptions, generalOwnership, pipeOptions } from './../common/index'
 
 import UploadComponent from '@/views/Components/UploadComponent.vue';
 import { defineAsyncComponent } from 'vue';
@@ -877,37 +877,460 @@ const activeTab = ref('list')
 
  
 
+// Google Maps API Key
+const googleMapsApiKey = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
+
+// Drawer state for map
+const mapDrawerVisible = ref(false)
+const mapDrawerSettlement = ref<any>(null)
+const mapDrawerContainer = ref<HTMLElement | null>(null)
+const googleMap = ref<any>(null)
+const settlementPolygon = ref<any>(null)
+const facilityPolylines = ref<any[]>([])
+const settlementGeo = ref<any>(null)
+const facilitiesGeo = ref<any>(null)
+const facilityMarkerDataMap = ref<Map<any, any>>(new Map())
+
+declare global {
+  interface Window {
+    google: any
+  }
+}
+
+// Open map drawer for settlement
 const flyTo = async (data: TableSlotDefault) => {
+  try {
+    mapDrawerSettlement.value = data
+    mapDrawerVisible.value = true
+    
+    await nextTick()
+    await initializeMapDrawer(data)
+  } catch (error) {
+    console.error("Error opening map drawer:", error);
+    ElMessage.error("Failed to open map. Please try again.");
+  }
+};
 
-
-const geoForm: any = {
-    model,
-    id: data.id
-  };
-
-const res = await getOneGeo(geoForm);
-
-  const features = res?.data?.[0]?.json_build_object
-  if (!features ) {
-    ElMessage.error("No geometry found for this location.");
-    return;
+// Initialize Google Maps in drawer
+const initializeMapDrawer = async (settlement: any) => {
+  if (!mapDrawerContainer.value) {
+    await nextTick()
+  }
+  
+  if (!mapDrawerContainer.value) {
+    ElMessage.error("Map container not found")
+    return
   }
 
+  try {
+    // Load Google Maps API
+    const { Loader } = await import('@googlemaps/js-api-loader')
+    
+    const loader = new Loader({
+      apiKey: googleMapsApiKey,
+      version: 'weekly',
+      libraries: ['drawing', 'geometry', 'places'],
+      region: 'KE',
+      language: 'en'
+    })
 
+    await loader.load()
 
-console.log(features)
+    if (!window.google || !window.google.maps) {
+      throw new Error('Google Maps API not loaded properly')
+    }
 
+    // Get settlement geometry
+    const geoForm: any = {
+      model: 'settlement',
+      id: settlement.id
+    }
 
+    const res = await getOneGeo(geoForm)
+    const geoData = res?.data?.[0]?.json_build_object
+    const features = geoData?.features
+    
+    // Check if features is null or empty
+    if (!features || (Array.isArray(features) && features.length === 0)) {
+      ElMessage.warning("No boundary geometry found for this settlement. Showing map with facilities only.")
+      settlementGeo.value = null
+    } else {
+      settlementGeo.value = geoData
+    }
 
-console.log('On Click.....',features  );
-activeTab.value = 'map';
-activeSegment.value = 'Map';
+    // Get center and bounds
+    let center = { lat: 1.137451, lng: 37.137343 }
+    let zoom = 8
 
-setTimeout(() => {
-  // loadMap([data.geom.coordinates[0], data.geom.coordinates[1], data.name]);
-  loadMap([features, data.name])
-}, 100); // Adjust delay time as needed
-};
+    if (settlementGeo.value && settlementGeo.value.features && settlementGeo.value.features.length > 0) {
+      try {
+        const bboxResult = turf.bbox(settlementGeo.value)
+        center = {
+          lat: (bboxResult[1] + bboxResult[3]) / 2,
+          lng: (bboxResult[0] + bboxResult[2]) / 2
+        }
+        zoom = 13
+      } catch (error) {
+        console.warn('Error calculating bbox, using default center:', error)
+      }
+    }
+
+    // Initialize map
+    googleMap.value = new window.google.maps.Map(mapDrawerContainer.value, {
+      center: center,
+      zoom: zoom,
+      mapTypeId: window.google.maps.MapTypeId.ROADMAP,
+      mapTypeControl: true,
+      streetViewControl: true,
+      fullscreenControl: true
+    })
+
+    // Add settlement boundary only if features exist
+    if (settlementGeo.value && settlementGeo.value.features && settlementGeo.value.features.length > 0) {
+      const feature = settlementGeo.value.features[0]
+      if (feature && feature.geometry && (feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon')) {
+        try {
+          const paths = feature.geometry.type === 'Polygon'
+            ? feature.geometry.coordinates[0].map((coord: number[]) => ({
+                lat: coord[1],
+                lng: coord[0]
+              }))
+            : feature.geometry.coordinates[0][0].map((coord: number[]) => ({
+                lat: coord[1],
+                lng: coord[0]
+              }))
+
+          settlementPolygon.value = new window.google.maps.Polygon({
+            paths: paths,
+            strokeColor: '#FF0000',
+            strokeOpacity: 0.6,
+            strokeWeight: 2,
+            fillColor: '#FF0000',
+            fillOpacity: 0,
+            map: googleMap.value
+          })
+
+          // Fit bounds to settlement
+          const pathBounds = new window.google.maps.LatLngBounds()
+          paths.forEach((path: any) => {
+            pathBounds.extend(path)
+          })
+          googleMap.value.fitBounds(pathBounds)
+        } catch (error) {
+          console.error('Error drawing settlement boundary:', error)
+          ElMessage.warning('Could not draw settlement boundary, but map is still available')
+        }
+      }
+    }
+
+    // Wait for map to be ready before loading facilities
+    const loadFacilitiesWhenReady = async () => {
+      await loadFacilitiesOnMap(settlement.id)
+    }
+
+    // Use idle event to ensure map is fully loaded
+    googleMap.value.addListener('idle', loadFacilitiesWhenReady)
+    
+    // Also try loading immediately in case map is already idle
+    setTimeout(loadFacilitiesWhenReady, 500)
+
+    // Trigger map resize after drawer animation completes
+    setTimeout(() => {
+      if (googleMap.value) {
+        window.google.maps.event.trigger(googleMap.value, 'resize')
+        // Re-center and fit bounds after resize
+        if (settlementPolygon.value) {
+          const pathBounds = new window.google.maps.LatLngBounds()
+          const feature = settlementGeo.value.features[0]
+          if (feature && feature.geometry) {
+            const paths = feature.geometry.type === 'Polygon'
+              ? feature.geometry.coordinates[0].map((coord: number[]) => ({
+                  lat: coord[1],
+                  lng: coord[0]
+                }))
+              : feature.geometry.coordinates[0][0].map((coord: number[]) => ({
+                  lat: coord[1],
+                  lng: coord[0]
+                }))
+            paths.forEach((path: any) => {
+              pathBounds.extend(path)
+            })
+            googleMap.value.fitBounds(pathBounds)
+          }
+        }
+      }
+    }, 300)
+
+  } catch (error) {
+    console.error("Error initializing map:", error)
+    ElMessage.error("Failed to initialize map. Please try again.")
+  }
+}
+
+// Load facilities on map
+const loadFacilitiesOnMap = async (settlementId: number) => {
+  try {
+    // Clear existing polylines
+    facilityPolylines.value.forEach(polyline => polyline.setMap(null))
+    facilityPolylines.value = []
+
+    if (!googleMap.value) {
+      console.error('Google map not initialized')
+      return
+    }
+
+    console.log('Loading sewer facilities for settlement:', settlementId)
+
+    // Get facilities GeoJSON
+    const formData: any = {
+      model: sewerFacilityModel,
+      columnFilterField: 'settlement_id',
+      selectedParents: settlementId,
+      filtredGeoIds: [settlementId]
+    }
+
+    const res = await getfilteredGeo(formData)
+    
+    console.log('Facilities Geo response:', res)
+    
+    // Handle different response structures
+    let geoJsonData = null
+    
+    if (res && res.data) {
+      if (Array.isArray(res.data) && res.data.length > 0) {
+        const firstItem = res.data[0]
+        
+        if (Array.isArray(firstItem) && firstItem.length > 0) {
+          if (firstItem[0] && firstItem[0].json_build_object) {
+            geoJsonData = firstItem[0].json_build_object
+          }
+        } else if (firstItem && firstItem.json_build_object) {
+          geoJsonData = firstItem.json_build_object
+        } else if (firstItem && firstItem.type === 'FeatureCollection') {
+          geoJsonData = firstItem
+        }
+      }
+    } else if (Array.isArray(res) && res.length > 0) {
+      const firstItem = res[0]
+      if (Array.isArray(firstItem) && firstItem.length > 0 && firstItem[0].json_build_object) {
+        geoJsonData = firstItem[0].json_build_object
+      } else if (firstItem && firstItem.json_build_object) {
+        geoJsonData = firstItem.json_build_object
+      } else if (firstItem && firstItem.type === 'FeatureCollection') {
+        geoJsonData = firstItem
+      }
+    }
+    
+    console.log('Extracted GeoJSON data:', geoJsonData)
+    
+    if (!geoJsonData) {
+      console.log('No GeoJSON data found for facilities')
+      ElMessage.info('No facilities with geometry data found for this settlement.')
+      return
+    }
+    
+    if (geoJsonData.features === null || (Array.isArray(geoJsonData.features) && geoJsonData.features.length === 0)) {
+      console.log('GeoJSON features is null or empty')
+      ElMessage.info('No facilities with geometry data found for this settlement.')
+      facilitiesGeo.value = null
+      return
+    }
+    
+    facilitiesGeo.value = geoJsonData
+    const features = geoJsonData.features || []
+    
+    console.log('Facilities features count:', features.length)
+    
+    if (features.length === 0) {
+      ElMessage.info('No facilities found with geometry for this settlement.')
+      facilitiesGeo.value = null
+      return
+    }
+    
+    // Process features and create polylines
+    features.forEach((feature: any) => {
+      if (feature.geometry && (feature.geometry.type === 'LineString' || feature.geometry.type === 'MultiLineString')) {
+        const coords = feature.geometry.coordinates
+        if (!coords || coords.length === 0) {
+          console.warn('Invalid coordinates:', coords)
+          return
+        }
+        
+        try {
+          let path: any[] = []
+          
+          if (feature.geometry.type === 'LineString') {
+            path = coords.map((coord: number[]) => ({
+              lat: coord[1],
+              lng: coord[0]
+            }))
+          } else if (feature.geometry.type === 'MultiLineString') {
+            // Use first line string
+            path = coords[0].map((coord: number[]) => ({
+              lat: coord[1],
+              lng: coord[0]
+            }))
+          }
+          
+          const polyline = new window.google.maps.Polyline({
+            path: path,
+            geodesic: true,
+            strokeColor: '#8B4513',
+            strokeOpacity: 0.8,
+            strokeWeight: 4,
+            map: googleMap.value
+          })
+          
+          // Store facility data with polyline
+          facilityMarkerDataMap.value.set(polyline, feature.properties)
+          
+          // Add click listener to open facility form drawer
+          polyline.addListener('click', async () => {
+            const facilityProperties = feature.properties || {}
+            const facilityId = facilityProperties.id || facilityProperties.sewer_id
+            
+            if (facilityId) {
+              // Fetch full facility data to ensure we have all fields
+              try {
+                const formData: any = {
+                  limit: 1,
+                  page: 1,
+                  curUser: 1,
+                  model: sewerFacilityModel,
+                  searchField: 'id',
+                  searchKeyword: facilityId.toString(),
+                  filters: ['id'],
+                  filterValues: [[facilityId]],
+                  associated_multiple_models: ['settlement', 'county', 'subcounty', 'ward', 'users']
+                }
+                
+                const facilityRes = await getSettlementListByCounty(formData)
+                
+                if (facilityRes.data && facilityRes.data.length > 0) {
+                  // Ensure settlement_id is set from map drawer if missing
+                  const facilityData = facilityRes.data[0]
+                  if (!facilityData.settlement_id && mapDrawerSettlement.value?.id) {
+                    facilityData.settlement_id = mapDrawerSettlement.value.id
+                  }
+                  if (!facilityData.county_id && mapDrawerSettlement.value?.county_id) {
+                    facilityData.county_id = mapDrawerSettlement.value.county_id
+                  }
+                  if (!facilityData.subcounty_id && mapDrawerSettlement.value?.subcounty_id) {
+                    facilityData.subcounty_id = mapDrawerSettlement.value.subcounty_id
+                  }
+                  if (!facilityData.ward_id && mapDrawerSettlement.value?.ward_id) {
+                    facilityData.ward_id = mapDrawerSettlement.value.ward_id
+                  }
+                  
+                  // Open drawer with full facility data
+                  openSewerForm(facilityData)
+                } else {
+                  // Fallback: use properties if full data not available
+                  const fallbackData = {
+                    ...facilityProperties,
+                    settlement_id: facilityProperties.settlement_id || mapDrawerSettlement.value?.id || '',
+                    county_id: facilityProperties.county_id || mapDrawerSettlement.value?.county_id || '',
+                    subcounty_id: facilityProperties.subcounty_id || mapDrawerSettlement.value?.subcounty_id || '',
+                    ward_id: facilityProperties.ward_id || mapDrawerSettlement.value?.ward_id || ''
+                  }
+                  ElMessage.warning('Could not load full facility data. Using available information.')
+                  openSewerForm(fallbackData)
+                }
+              } catch (error) {
+                console.error('Error fetching facility data:', error)
+                // Fallback: use properties directly with settlement context
+                const fallbackData = {
+                  ...facilityProperties,
+                  settlement_id: facilityProperties.settlement_id || mapDrawerSettlement.value?.id || '',
+                  county_id: facilityProperties.county_id || mapDrawerSettlement.value?.county_id || '',
+                  subcounty_id: facilityProperties.subcounty_id || mapDrawerSettlement.value?.subcounty_id || '',
+                  ward_id: facilityProperties.ward_id || mapDrawerSettlement.value?.ward_id || ''
+                }
+                openSewerForm(fallbackData)
+              }
+            } else {
+              // No ID available, use properties directly with settlement context
+              const fallbackData = {
+                ...facilityProperties,
+                settlement_id: facilityProperties.settlement_id || mapDrawerSettlement.value?.id || '',
+                county_id: facilityProperties.county_id || mapDrawerSettlement.value?.county_id || '',
+                subcounty_id: facilityProperties.subcounty_id || mapDrawerSettlement.value?.subcounty_id || '',
+                ward_id: facilityProperties.ward_id || mapDrawerSettlement.value?.ward_id || ''
+              }
+              ElMessage.warning('Facility ID not found. Some fields may be missing.')
+              openSewerForm(fallbackData)
+            }
+          })
+          
+          facilityPolylines.value.push(polyline)
+        } catch (error) {
+          console.error('Error creating polyline:', error, feature)
+        }
+      } else {
+        console.warn('Feature is not a LineString:', feature.geometry?.type)
+      }
+    })
+    
+    console.log('Total polylines created:', facilityPolylines.value.length)
+    
+    if (facilityPolylines.value.length === 0) {
+      ElMessage.info('No facilities with valid LineString geometry found')
+    } else {
+      ElMessage.success(`Loaded ${facilityPolylines.value.length} facilities on map`)
+    }
+  } catch (error) {
+    console.error("Error loading facilities on map:", error)
+    ElMessage.error("Failed to load facilities on map: " + (error as Error).message)
+  }
+}
+
+// Watch for drawer visibility changes to trigger map resize
+watch(mapDrawerVisible, (newVal) => {
+  if (newVal && googleMap.value) {
+    // Wait for drawer animation to complete before resizing
+    setTimeout(() => {
+      if (googleMap.value) {
+        window.google.maps.event.trigger(googleMap.value, 'resize')
+        // Re-center map after resize
+        if (settlementPolygon.value && settlementGeo.value && settlementGeo.value.features && settlementGeo.value.features.length > 0) {
+          const feature = settlementGeo.value.features[0]
+          if (feature && feature.geometry) {
+            const pathBounds = new window.google.maps.LatLngBounds()
+            const paths = feature.geometry.type === 'Polygon'
+              ? feature.geometry.coordinates[0].map((coord: number[]) => ({
+                  lat: coord[1],
+                  lng: coord[0]
+                }))
+              : feature.geometry.coordinates[0][0].map((coord: number[]) => ({
+                  lat: coord[1],
+                  lng: coord[0]
+                }))
+            paths.forEach((path: any) => {
+              pathBounds.extend(path)
+            })
+            googleMap.value.fitBounds(pathBounds)
+          }
+        }
+      }
+    }, 350)
+  }
+})
+
+// Close drawer handler
+const handleMapDrawerClose = () => {
+  mapDrawerVisible.value = false
+  // Clean up polylines
+  facilityPolylines.value.forEach(polyline => polyline.setMap(null))
+  facilityPolylines.value = []
+  facilityMarkerDataMap.value.clear()
+  
+  if (settlementPolygon.value) {
+    settlementPolygon.value.setMap(null)
+    settlementPolygon.value = null
+  }
+  googleMap.value = null
+  mapDrawerSettlement.value = null
+}
 
 
 
@@ -1582,17 +2005,147 @@ const handleAddFacility = (item: any) => {
 }
 
 
+// Sewer form drawer state
+const sewerDrawerVisible = ref(false)
+const sewerFormRef = ref<FormInstance>()
+const editingSewerId = ref<number | null>(null)
+const isEditMode = ref(false)
+
+// Sewer form data
+const sewerForm = reactive({
+  name: '',
+  pipe_type: '',
+  pipe_size: '',
+  provider: '',
+  provider_category: '',
+  condition: '',
+  number_of_connections: 0,
+  settlement_id: '',
+  county_id: '',
+  subcounty_id: '',
+  ward_id: '',
+  geom: null
+})
+
+// Condition options
+const conditionOptionsLocal = [
+  { label: 'Under construction ', value: 'Under construction ' },
+  { label: 'Broken/not in use', value: 'Broken/not in use' },
+  { label: 'Operational ', value: 'Operational ' },
+  { label: 'Decomissioned', value: 'Decomissioned' }
+]
+
+// Pipe type options
+const pipeOptionsLocal = pipeOptions || [
+  { label: 'Plastic', value: 'plastic' },
+  { label: 'Concrete', value: 'concrete' },
+  { label: 'Cast-Iron', value: 'cast_iron' }
+]
+
+// Ownership options
+const generalOwnershipLocal = generalOwnership || [
+  { label: 'Government', value: 'government' },
+  { label: 'CBO/NGO', value: 'ngo' },
+  { label: 'Individual', value: 'individual' },
+  { label: 'Community', value: 'community' }
+]
+
+// Sewer form validation rules
+const sewerFormRules = reactive({
+  name: [{ required: true, message: 'Sewer name is required', trigger: 'blur' }],
+  settlement_id: [{ required: true, message: 'Settlement is required', trigger: 'blur' }]
+})
+
+// Open sewer form drawer for editing
+const openSewerForm = (facilityData: any) => {
+  isEditMode.value = true
+  editingSewerId.value = facilityData.id || null
+  
+  // Populate form with facility data
+  sewerForm.name = facilityData.name || ''
+  sewerForm.pipe_type = facilityData.pipe_type || ''
+  sewerForm.pipe_size = facilityData.pipe_size || ''
+  sewerForm.provider = facilityData.provider || ''
+  sewerForm.provider_category = facilityData.provider_category || ''
+  sewerForm.condition = facilityData.condition || ''
+  sewerForm.number_of_connections = facilityData.number_of_connections || 0
+  sewerForm.settlement_id = facilityData.settlement_id || ''
+  sewerForm.county_id = facilityData.county_id || ''
+  sewerForm.subcounty_id = facilityData.subcounty_id || ''
+  sewerForm.ward_id = facilityData.ward_id || ''
+  sewerForm.geom = facilityData.geom || null
+  
+  sewerDrawerVisible.value = true
+}
+
+// Submit sewer form
+const submitSewerForm = async () => {
+  if (!sewerFormRef.value) return
+  
+  await sewerFormRef.value.validate(async (valid) => {
+    if (valid) {
+      try {
+        const formDataToSubmit = {
+          ...sewerForm,
+          model: sewerFacilityModel
+        }
+        
+        if (isEditMode.value && editingSewerId.value) {
+          // Update existing facility
+          formDataToSubmit.id = editingSewerId.value
+          
+          const res = await updateOneRecord(formDataToSubmit)
+          
+          if (res.code === '0000') {
+            ElMessage.success('Sewer facility updated successfully')
+            
+            // Refresh the data
+            await getFilteredData(filters.value, filterValues.value)
+            
+            // Reload facilities for the settlement if available
+            if (sewerForm.settlement_id) {
+              await loadSewerFacilitiesForSettlement(sewerForm.settlement_id)
+            }
+            
+            sewerDrawerVisible.value = false
+          } else {
+            ElMessage.error('Failed to update sewer facility')
+          }
+        } else {
+          ElMessage.error('Invalid edit mode')
+        }
+      } catch (error) {
+        console.error('Error saving sewer facility:', error)
+        ElMessage.error('Failed to save sewer facility')
+      }
+    }
+  })
+}
+
+// Reset sewer form
+const resetSewerForm = () => {
+  isEditMode.value = false
+  editingSewerId.value = null
+  Object.keys(sewerForm).forEach(key => {
+    if (typeof sewerForm[key as keyof typeof sewerForm] === 'string') {
+      sewerForm[key as keyof typeof sewerForm] = '' as any
+    } else if (typeof sewerForm[key as keyof typeof sewerForm] === 'number') {
+      sewerForm[key as keyof typeof sewerForm] = 0 as any
+    } else {
+      sewerForm[key as keyof typeof sewerForm] = null as any
+    }
+  })
+}
+
+// Close sewer drawer
+const closeSewerDrawer = () => {
+  sewerDrawerVisible.value = false
+  resetSewerForm()
+}
+
 const editFacility = (data: TableSlotDefault) => {
-
-  push({
-    name: 'AddSewer',
-    query: { id: data.id }
-
-  });
-
-
-
-
+  // Open drawer with sewer form for editing
+  openSewerForm(data)
 }
 
 
@@ -1727,7 +2280,13 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
                 border
                 size="small"
               >
-                <el-table-column label="Facility Name" prop="name" />
+                <el-table-column label="Facility Name" prop="name">
+                  <template #default="scope">
+                    <el-button type="primary" link @click="openSewerForm(scope.row)">
+                      {{ scope.row.name || 'N/A' }}
+                    </el-button>
+                  </template>
+                </el-table-column>
                 <el-table-column label="Type" prop="facility_type" />
                 <el-table-column label="Status" prop="isApproved">
                   <template #default="scope">
@@ -1811,7 +2370,13 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
                 border
                 size="small"
               >
-                <el-table-column label="Facility Name" prop="name" />
+                <el-table-column label="Facility Name" prop="name">
+                  <template #default="scope">
+                    <el-button type="primary" link @click="openSewerForm(scope.row)">
+                      {{ scope.row.name || 'N/A' }}
+                    </el-button>
+                  </template>
+                </el-table-column>
                 <el-table-column label="Type" prop="facility_type" />
                 <el-table-column label="Status" prop="isApproved">
                   <template #default="scope">
@@ -1897,7 +2462,13 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
                 border
                 size="small"
               >
-                <el-table-column label="Facility Name" prop="name" />
+                <el-table-column label="Facility Name" prop="name">
+                  <template #default="scope">
+                    <el-button type="primary" link @click="openSewerForm(scope.row)">
+                      {{ scope.row.name || 'N/A' }}
+                    </el-button>
+                  </template>
+                </el-table-column>
                 <el-table-column label="Type" prop="facility_type" />
                 <el-table-column label="Status" prop="isApproved">
                   <template #default="scope">
@@ -1965,6 +2536,33 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
 
 
     <div v-if="activeSegment === 'Map'">
+      <el-empty description="Click 'View on Map' on a settlement to see its map with facilities" />
+    </div>
+
+  </el-card>
+
+  <!-- Map Drawer -->
+  <el-drawer
+    v-model="mapDrawerVisible"
+    title="Settlement Map with Sewer Facilities"
+    direction="rtl"
+    :size="isMobile ? '100%' : '60%'"
+    :before-close="handleMapDrawerClose"
+    class="map-drawer"
+  >
+    <template #header>
+      <div class="drawer-header-mobile">
+        <span class="drawer-title">{{ mapDrawerSettlement?.name || 'Settlement Map' }}</span>
+        <el-button type="danger" size="default" @click="handleMapDrawerClose" class="close-btn-mobile">Close</el-button>
+      </div>
+    </template>
+    
+    <div v-if="mapDrawerSettlement" class="map-container-wrapper">
+      <div ref="mapDrawerContainer" class="map-container"></div>
+    </div>
+  </el-drawer>
+
+  <div v-if="activeSegment === 'Map' && false" style="display: none;">
       <div id="mapContainer" class="basemap" style="width: 100%; margin-top: 10px;"></div>
       <div id="floating-div">
         <el-card>
@@ -1980,10 +2578,7 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
           </el-collapse>
         </el-card>
       </div>
-
-    </div>
-
-  </el-card>
+  </div>
 
 
   <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formheader" width="400px" draggable>
@@ -2091,6 +2686,84 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
     </template>
   </el-dialog>
 
+  <!-- Sewer Form Drawer for Editing -->
+  <el-drawer
+    v-model="sewerDrawerVisible"
+    :title="isEditMode ? 'Edit Sewer Facility' : 'Sewer Facility Details'"
+    direction="rtl"
+    :size="isMobile ? '100%' : '600px'"
+    :before-close="closeSewerDrawer"
+    class="sewer-form-drawer"
+  >
+    <el-form
+      ref="sewerFormRef"
+      :model="sewerForm"
+      :rules="sewerFormRules"
+      :label-width="isMobile ? '0px' : '180px'"
+      :label-position="isMobile ? 'top' : 'left'"
+      class="sewer-form-mobile"
+    >
+      <el-divider content-position="left">Basic Information</el-divider>
+
+      <el-form-item label="Name" prop="name">
+        <el-input v-model="sewerForm.name" placeholder="Enter sewer line name" />
+      </el-form-item>
+
+      <el-form-item label="Pipe Type">
+        <el-select v-model="sewerForm.pipe_type" placeholder="Select pipe type" filterable style="width: 100%">
+          <el-option
+            v-for="item in pipeOptionsLocal"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="Pipe Size">
+        <el-input v-model="sewerForm.pipe_size" placeholder="Enter pipe size" />
+      </el-form-item>
+
+      <el-form-item label="Provider Category">
+        <el-select v-model="sewerForm.provider_category" placeholder="Select provider" filterable style="width: 100%">
+          <el-option
+            v-for="item in generalOwnershipLocal"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="Service Provider">
+        <el-input v-model="sewerForm.provider" placeholder="Enter service provider" />
+      </el-form-item>
+
+      <el-form-item label="Condition">
+        <el-select v-model="sewerForm.condition" placeholder="Select condition" filterable style="width: 100%">
+          <el-option
+            v-for="item in conditionOptionsLocal"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="Number of Connections">
+        <el-input-number v-model="sewerForm.number_of_connections" :min="0" style="width: 100%" />
+      </el-form-item>
+    </el-form>
+
+    <template #footer>
+      <div class="drawer-footer">
+        <el-button @click="closeSewerDrawer" class="footer-btn">Cancel</el-button>
+        <el-button type="primary" @click="submitSewerForm" :icon="Check" class="footer-btn">
+          {{ isEditMode ? 'Update Facility' : 'Save Facility' }}
+        </el-button>
+      </div>
+    </template>
+  </el-drawer>
 
 </template>
 
@@ -2203,6 +2876,89 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
 .item {
   margin-top: 10px;
   margin-right: 40px;
+}
+
+.sewer-form-drawer :deep(.el-drawer__body) {
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.sewer-form-mobile {
+  padding: 0;
+}
+
+.drawer-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 20px;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+
+.footer-btn {
+  min-width: 100px;
+}
+
+@media (max-width: 768px) {
+  .sewer-form-drawer :deep(.el-drawer__body) {
+    padding: 15px;
+  }
+
+  .drawer-footer {
+    padding: 15px;
+    flex-direction: column;
+  }
+
+  .footer-btn {
+    width: 100%;
+  }
+}
+
+.map-container-wrapper {
+  position: relative;
+  width: 100%;
+  height: calc(100vh - 120px);
+}
+
+.map-container {
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
+}
+
+.map-drawer :deep(.el-drawer__body) {
+  padding: 0;
+}
+
+.drawer-header-mobile {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.drawer-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.close-btn-mobile {
+  padding: 8px 16px;
+}
+
+@media (max-width: 768px) {
+  .map-container-wrapper {
+    height: calc(100vh - 100px);
+  }
+
+  .drawer-title {
+    font-size: 14px;
+  }
+
+  .close-btn-mobile {
+    padding: 6px 12px;
+    font-size: 13px;
+  }
 }
 </style>
 

@@ -1,16 +1,16 @@
 <!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
 
-import { getSettlementListByCounty,getOneGeo } from '@/api/settlements'
+import { getSettlementListByCounty, getOneGeo, getfilteredGeo } from '@/api/settlements'
 import { DeleteRecord, updateOneRecord, deleteDocument } from '@/api/settlements'
 
 import { getCountyListApi } from '@/api/counties'
 import {
   ElButton, ElSelect, MessageParamsWithType, UploadProps, ElDescriptions, ElDescriptionsItem, ElCol, ElRow, ElCard,
-  ElOptionGroup, ElOption, FormInstance
+  ElOptionGroup, ElOption, FormInstance, ElDrawer, ElInputNumber
 } from 'element-plus'
 import { ElMessage, ElCollapse, ElCollapseItem, ElInput, ElBadge, ElSegmented } from 'element-plus'
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import xlsx from "json-as-xlsx"
 import { getFile } from '@/api/summary'
 import {
@@ -41,7 +41,7 @@ import {
   Grape,
   Orange,
   Pear,
-  Watermelon, CircleClose, Message, CircleCheck, Loading
+  Watermelon, CircleClose, Message, CircleCheck, Loading, Check
 } from '@element-plus/icons-vue'
 
 
@@ -916,45 +916,455 @@ const viewProfile = (data: TableSlotDefault) => {
 
 const activeTab = ref('list')
 
+// Google Maps API Key
+const googleMapsApiKey = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
+
+// Drawer state for map
+const mapDrawerVisible = ref(false)
+const mapDrawerSettlement = ref<any>(null)
+const mapDrawerContainer = ref<HTMLElement | null>(null)
+const googleMap = ref<any>(null)
+const settlementPolygon = ref<any>(null)
+const facilityMarkers = ref<any[]>([])
+const settlementGeo = ref<any>(null)
+const facilitiesGeo = ref<any>(null)
+const facilityMarkerDataMap = ref<Map<any, any>>(new Map())
+
+declare global {
+  interface Window {
+    google: any
+  }
+}
+
+// Open map drawer for settlement
 const flyTo = async (data: TableSlotDefault) => {
   try {
-    const geoForm: any = {
-      model,
-      id: data.id
-    };
-
-    console.log("Requesting geometry for:", geoForm);
-
-    const res = await getOneGeo(geoForm);
-
-    const features = res?.data?.[0]?.json_build_object?.features;
-    if (!features || features.length === 0) {
-      ElMessage.error("No geometry found for this location.");
-      return;
-    }
-
-    const geometry = features[0]?.geometry;
-    const coordinates = geometry?.coordinates;
-
-    if (!coordinates || coordinates.length < 2) {
-      ElMessage.error("Invalid geometry data.");
-      return;
-    }
-
-    console.log("Coordinates:", coordinates);
-
-    activeTab.value = 'map';
-    activeSegment.value = 'Map';
-
-    setTimeout(() => {
-      loadMap([coordinates[0], coordinates[1], data.name]);
-    }, 100);
-
+    mapDrawerSettlement.value = data
+    mapDrawerVisible.value = true
+    
+    await nextTick()
+    await initializeMapDrawer(data)
   } catch (error) {
-    console.error("Error loading geometry:", error);
-    ElMessage.error("Failed to load geometry. Please try again.");
+    console.error("Error opening map drawer:", error);
+    ElMessage.error("Failed to open map. Please try again.");
   }
 };
+
+// Initialize Google Maps in drawer
+const initializeMapDrawer = async (settlement: any) => {
+  if (!mapDrawerContainer.value) {
+    await nextTick()
+  }
+  
+  if (!mapDrawerContainer.value) {
+    ElMessage.error("Map container not found")
+    return
+  }
+
+  try {
+    // Load Google Maps API
+    const { Loader } = await import('@googlemaps/js-api-loader')
+    
+    const loader = new Loader({
+      apiKey: googleMapsApiKey,
+      version: 'weekly',
+      libraries: ['drawing', 'geometry', 'places'],
+      region: 'KE',
+      language: 'en'
+    })
+
+    await loader.load()
+
+    if (!window.google || !window.google.maps) {
+      throw new Error('Google Maps API not loaded properly')
+    }
+
+    // Get settlement geometry
+    const geoForm: any = {
+      model: 'settlement',
+      id: settlement.id
+    }
+
+    const res = await getOneGeo(geoForm)
+    const geoData = res?.data?.[0]?.json_build_object
+    const features = geoData?.features
+    
+    // Check if features is null or empty
+    if (!features || (Array.isArray(features) && features.length === 0)) {
+      ElMessage.warning("No boundary geometry found for this settlement. Showing map with facilities only.")
+      settlementGeo.value = null
+    } else {
+      settlementGeo.value = geoData
+    }
+
+    // Get center and bounds
+    let center = { lat: 1.137451, lng: 37.137343 }
+    let zoom = 8
+
+    if (settlementGeo.value && settlementGeo.value.features && settlementGeo.value.features.length > 0) {
+      try {
+        const bboxResult = turf.bbox(settlementGeo.value)
+        center = {
+          lat: (bboxResult[1] + bboxResult[3]) / 2,
+          lng: (bboxResult[0] + bboxResult[2]) / 2
+        }
+        zoom = 13
+      } catch (error) {
+        console.warn('Error calculating bbox, using default center:', error)
+      }
+    }
+
+    // Initialize map
+    googleMap.value = new window.google.maps.Map(mapDrawerContainer.value, {
+      center: center,
+      zoom: zoom,
+      mapTypeId: window.google.maps.MapTypeId.ROADMAP,
+      mapTypeControl: true,
+      streetViewControl: true,
+      fullscreenControl: true
+    })
+
+    // Add settlement boundary only if features exist
+    if (settlementGeo.value && settlementGeo.value.features && settlementGeo.value.features.length > 0) {
+      const feature = settlementGeo.value.features[0]
+      if (feature && feature.geometry && (feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon')) {
+        try {
+          const paths = feature.geometry.type === 'Polygon'
+            ? feature.geometry.coordinates[0].map((coord: number[]) => ({
+                lat: coord[1],
+                lng: coord[0]
+              }))
+            : feature.geometry.coordinates[0][0].map((coord: number[]) => ({
+                lat: coord[1],
+                lng: coord[0]
+              }))
+
+          settlementPolygon.value = new window.google.maps.Polygon({
+            paths: paths,
+            strokeColor: '#FF0000',
+            strokeOpacity: 0.6,
+            strokeWeight: 2,
+            fillColor: '#FF0000',
+            fillOpacity: 0,
+            map: googleMap.value
+          })
+
+          // Fit bounds to settlement
+          const pathBounds = new window.google.maps.LatLngBounds()
+          paths.forEach((path: any) => {
+            pathBounds.extend(path)
+          })
+          googleMap.value.fitBounds(pathBounds)
+        } catch (error) {
+          console.error('Error drawing settlement boundary:', error)
+          ElMessage.warning('Could not draw settlement boundary, but map is still available')
+        }
+      }
+    }
+
+    // Wait for map to be ready before loading facilities
+    const loadFacilitiesWhenReady = async () => {
+      await loadFacilitiesOnMap(settlement.id)
+    }
+
+    // Use idle event to ensure map is fully loaded
+    googleMap.value.addListener('idle', loadFacilitiesWhenReady)
+    
+    // Also try loading immediately in case map is already idle
+    setTimeout(loadFacilitiesWhenReady, 500)
+
+    // Trigger map resize after drawer animation completes
+    setTimeout(() => {
+      if (googleMap.value) {
+        window.google.maps.event.trigger(googleMap.value, 'resize')
+        // Re-center and fit bounds after resize
+        if (settlementPolygon.value) {
+          const pathBounds = new window.google.maps.LatLngBounds()
+          const feature = settlementGeo.value.features[0]
+          if (feature && feature.geometry) {
+            const paths = feature.geometry.type === 'Polygon'
+              ? feature.geometry.coordinates[0].map((coord: number[]) => ({
+                  lat: coord[1],
+                  lng: coord[0]
+                }))
+              : feature.geometry.coordinates[0][0].map((coord: number[]) => ({
+                  lat: coord[1],
+                  lng: coord[0]
+                }))
+            paths.forEach((path: any) => {
+              pathBounds.extend(path)
+            })
+            googleMap.value.fitBounds(pathBounds)
+          }
+        }
+      }
+    }, 300)
+
+  } catch (error) {
+    console.error("Error initializing map:", error)
+    ElMessage.error("Failed to initialize map. Please try again.")
+  }
+}
+
+// Load facilities on map
+const loadFacilitiesOnMap = async (settlementId: number) => {
+  try {
+    // Clear existing markers
+    facilityMarkers.value.forEach(marker => marker.setMap(null))
+    facilityMarkers.value = []
+
+    if (!googleMap.value) {
+      console.error('Google map not initialized')
+      return
+    }
+
+    console.log('Loading water point facilities for settlement:', settlementId)
+
+    // Get facilities GeoJSON
+    const formData: any = {
+      model: waterFacilityModel,
+      columnFilterField: 'settlement_id',
+      selectedParents: settlementId,
+      filtredGeoIds: [settlementId]
+    }
+
+    const res = await getfilteredGeo(formData)
+    
+    console.log('Facilities Geo response:', res)
+    
+    // Handle different response structures
+    let geoJsonData = null
+    
+    if (res && res.data) {
+      if (Array.isArray(res.data) && res.data.length > 0) {
+        const firstItem = res.data[0]
+        
+        if (Array.isArray(firstItem) && firstItem.length > 0) {
+          if (firstItem[0] && firstItem[0].json_build_object) {
+            geoJsonData = firstItem[0].json_build_object
+          }
+        } else if (firstItem && firstItem.json_build_object) {
+          geoJsonData = firstItem.json_build_object
+        } else if (firstItem && firstItem.type === 'FeatureCollection') {
+          geoJsonData = firstItem
+        }
+      }
+    } else if (Array.isArray(res) && res.length > 0) {
+      const firstItem = res[0]
+      if (Array.isArray(firstItem) && firstItem.length > 0 && firstItem[0].json_build_object) {
+        geoJsonData = firstItem[0].json_build_object
+      } else if (firstItem && firstItem.json_build_object) {
+        geoJsonData = firstItem.json_build_object
+      } else if (firstItem && firstItem.type === 'FeatureCollection') {
+        geoJsonData = firstItem
+      }
+    }
+    
+    console.log('Extracted GeoJSON data:', geoJsonData)
+    
+    if (!geoJsonData) {
+      console.log('No GeoJSON data found for facilities')
+      ElMessage.info('No facilities with geometry data found for this settlement.')
+      return
+    }
+    
+    if (geoJsonData.features === null || (Array.isArray(geoJsonData.features) && geoJsonData.features.length === 0)) {
+      console.log('GeoJSON features is null or empty')
+      ElMessage.info('No facilities with geometry data found for this settlement.')
+      facilitiesGeo.value = null
+      return
+    }
+    
+    facilitiesGeo.value = geoJsonData
+    const features = geoJsonData.features || []
+    
+    console.log('Facilities features count:', features.length)
+    
+    if (features.length === 0) {
+      ElMessage.info('No facilities found with geometry for this settlement.')
+      facilitiesGeo.value = null
+      return
+    }
+    
+    // Process features and create markers (water points are Point geometry)
+    features.forEach((feature: any) => {
+      if (feature.geometry && (feature.geometry.type === 'Point' || feature.geometry.type === 'MultiPoint')) {
+        const coords = feature.geometry.coordinates
+        if (!coords || coords.length < 2) {
+          console.warn('Invalid coordinates:', coords)
+          return
+        }
+        
+        try {
+          const position = {
+            lat: coords[1],
+            lng: coords[0]
+          }
+          
+          const marker = new window.google.maps.Marker({
+            position: position,
+            map: googleMap.value,
+            title: feature.properties?.name || 'Water Point',
+            icon: {
+              path: window.google.maps.SymbolPath.CIRCLE,
+              scale: 8,
+              fillColor: '#0066ff',
+              fillOpacity: 1,
+              strokeColor: '#ffffff',
+              strokeWeight: 2
+            }
+          })
+          
+          // Store facility data with marker
+          facilityMarkerDataMap.value.set(marker, feature.properties)
+          
+          // Add click listener to open facility form drawer
+          marker.addListener('click', async () => {
+            const facilityProperties = feature.properties || {}
+            const facilityId = facilityProperties.id || facilityProperties.water_point_id
+            
+            if (facilityId) {
+              // Fetch full facility data to ensure we have all fields
+              try {
+                const formData: any = {
+                  limit: 1,
+                  page: 1,
+                  curUser: 1,
+                  model: waterFacilityModel,
+                  searchField: 'id',
+                  searchKeyword: facilityId.toString(),
+                  filters: ['id'],
+                  filterValues: [[facilityId]],
+                  associated_multiple_models: ['settlement', 'county', 'subcounty', 'ward', 'users']
+                }
+                
+                const facilityRes = await getSettlementListByCounty(formData)
+                
+                if (facilityRes.data && facilityRes.data.length > 0) {
+                  // Ensure settlement_id is set from map drawer if missing
+                  const facilityData = facilityRes.data[0]
+                  if (!facilityData.settlement_id && mapDrawerSettlement.value?.id) {
+                    facilityData.settlement_id = mapDrawerSettlement.value.id
+                  }
+                  if (!facilityData.county_id && mapDrawerSettlement.value?.county_id) {
+                    facilityData.county_id = mapDrawerSettlement.value.county_id
+                  }
+                  if (!facilityData.subcounty_id && mapDrawerSettlement.value?.subcounty_id) {
+                    facilityData.subcounty_id = mapDrawerSettlement.value.subcounty_id
+                  }
+                  if (!facilityData.ward_id && mapDrawerSettlement.value?.ward_id) {
+                    facilityData.ward_id = mapDrawerSettlement.value.ward_id
+                  }
+                  
+                  // Open drawer with full facility data
+                  openWaterForm(facilityData)
+                } else {
+                  // Fallback: use properties if full data not available
+                  const fallbackData = {
+                    ...facilityProperties,
+                    settlement_id: facilityProperties.settlement_id || mapDrawerSettlement.value?.id || '',
+                    county_id: facilityProperties.county_id || mapDrawerSettlement.value?.county_id || '',
+                    subcounty_id: facilityProperties.subcounty_id || mapDrawerSettlement.value?.subcounty_id || '',
+                    ward_id: facilityProperties.ward_id || mapDrawerSettlement.value?.ward_id || ''
+                  }
+                  ElMessage.warning('Could not load full facility data. Using available information.')
+                  openWaterForm(fallbackData)
+                }
+              } catch (error) {
+                console.error('Error fetching facility data:', error)
+                // Fallback: use properties directly with settlement context
+                const fallbackData = {
+                  ...facilityProperties,
+                  settlement_id: facilityProperties.settlement_id || mapDrawerSettlement.value?.id || '',
+                  county_id: facilityProperties.county_id || mapDrawerSettlement.value?.county_id || '',
+                  subcounty_id: facilityProperties.subcounty_id || mapDrawerSettlement.value?.subcounty_id || '',
+                  ward_id: facilityProperties.ward_id || mapDrawerSettlement.value?.ward_id || ''
+                }
+                openWaterForm(fallbackData)
+              }
+            } else {
+              // No ID available, use properties directly with settlement context
+              const fallbackData = {
+                ...facilityProperties,
+                settlement_id: facilityProperties.settlement_id || mapDrawerSettlement.value?.id || '',
+                county_id: facilityProperties.county_id || mapDrawerSettlement.value?.county_id || '',
+                subcounty_id: facilityProperties.subcounty_id || mapDrawerSettlement.value?.subcounty_id || '',
+                ward_id: facilityProperties.ward_id || mapDrawerSettlement.value?.ward_id || ''
+              }
+              ElMessage.warning('Facility ID not found. Some fields may be missing.')
+              openWaterForm(fallbackData)
+            }
+          })
+          
+          facilityMarkers.value.push(marker)
+        } catch (error) {
+          console.error('Error creating marker:', error, feature)
+        }
+      } else {
+        console.warn('Feature is not a Point:', feature.geometry?.type)
+      }
+    })
+    
+    console.log('Total markers created:', facilityMarkers.value.length)
+    
+    if (facilityMarkers.value.length === 0) {
+      ElMessage.info('No facilities with valid Point geometry found')
+    } else {
+      ElMessage.success(`Loaded ${facilityMarkers.value.length} facilities on map`)
+    }
+  } catch (error) {
+    console.error("Error loading facilities on map:", error)
+    ElMessage.error("Failed to load facilities on map: " + (error as Error).message)
+  }
+}
+
+// Watch for drawer visibility changes to trigger map resize
+watch(mapDrawerVisible, (newVal) => {
+  if (newVal && googleMap.value) {
+    // Wait for drawer animation to complete before resizing
+    setTimeout(() => {
+      if (googleMap.value) {
+        window.google.maps.event.trigger(googleMap.value, 'resize')
+        // Re-center map after resize
+        if (settlementPolygon.value && settlementGeo.value && settlementGeo.value.features && settlementGeo.value.features.length > 0) {
+          const feature = settlementGeo.value.features[0]
+          if (feature && feature.geometry) {
+            const pathBounds = new window.google.maps.LatLngBounds()
+            const paths = feature.geometry.type === 'Polygon'
+              ? feature.geometry.coordinates[0].map((coord: number[]) => ({
+                  lat: coord[1],
+                  lng: coord[0]
+                }))
+              : feature.geometry.coordinates[0][0].map((coord: number[]) => ({
+                  lat: coord[1],
+                  lng: coord[0]
+                }))
+            paths.forEach((path: any) => {
+              pathBounds.extend(path)
+            })
+            googleMap.value.fitBounds(pathBounds)
+          }
+        }
+      }
+    }, 350)
+  }
+})
+
+// Close drawer handler
+const handleMapDrawerClose = () => {
+  mapDrawerVisible.value = false
+  // Clean up markers
+  facilityMarkers.value.forEach(marker => marker.setMap(null))
+  facilityMarkers.value = []
+  facilityMarkerDataMap.value.clear()
+  
+  if (settlementPolygon.value) {
+    settlementPolygon.value.setMap(null)
+    settlementPolygon.value = null
+  }
+  googleMap.value = null
+  mapDrawerSettlement.value = null
+}
 
 
 
@@ -1687,15 +2097,167 @@ const handleAddFacility = (item: any) => {
 }
 
 
+// Water form drawer state
+const waterDrawerVisible = ref(false)
+const waterFormRef = ref<FormInstance>()
+const editingWaterId = ref<number | null>(null)
+const isEditMode = ref(false)
+
+// Water form data
+const waterForm = reactive({
+  name: '',
+  type: '',
+  capacity: '',
+  depth: null,
+  ownership_type: '',
+  owner: '',
+  catchment: '',
+  price: null,
+  condition: '',
+  availability: '',
+  name_of_provider: '',
+  cost_of_20_litre_jerrican: null,
+  settlement_id: '',
+  county_id: '',
+  subcounty_id: '',
+  ward_id: '',
+  geom: null
+})
+
+// Water point type options
+const waterPointTypeOptions = [
+  { value: 'kiosk', label: 'Water Kiosk' },
+  { value: 'public_tap', label: 'Public Tap' },
+  { value: 'borehole', label: 'Borehole' },
+  { value: 'spring', label: 'Spring' },
+  { value: 'well', label: 'Dug Well' }
+]
+
+// Condition options
+const conditionOptions = [
+  { value: 'Under construction ', label: 'Under construction ' },
+  { value: 'Broken/not in use', label: 'Broken/not in use' },
+  { value: 'Operational ', label: 'Operational ' },
+  { value: 'Decomissioned', label: 'Decomissioned' }
+]
+
+// Availability options
+const availabilityOptions = [
+  { value: 'Daily', label: 'Daily' },
+  { value: 'Twice_a_week', label: 'Twice a week' },
+  { value: 'Once_a_week', label: 'Once a week' },
+  { value: 'Rarely', label: 'Rarely' }
+]
+
+// Ownership options
+const ownershipOptions = [
+  { value: 'government', label: 'Government' },
+  { value: 'ngo', label: 'CBO/NGO' },
+  { value: 'individual', label: 'Individual' },
+  { value: 'community', label: 'Community' }
+]
+
+// Water form validation rules
+const waterFormRules = reactive({
+  name: [{ required: true, message: 'Water point name is required', trigger: 'blur' }],
+  settlement_id: [{ required: true, message: 'Settlement is required', trigger: 'blur' }]
+})
+
+// Open water form drawer for editing
+const openWaterForm = (facilityData: any) => {
+  isEditMode.value = true
+  editingWaterId.value = facilityData.id || null
+  
+  // Populate form with facility data
+  waterForm.name = facilityData.name || ''
+  waterForm.type = facilityData.type || ''
+  waterForm.capacity = facilityData.capacity || ''
+  waterForm.depth = facilityData.depth || null
+  waterForm.ownership_type = facilityData.ownership_type || ''
+  waterForm.owner = facilityData.owner || ''
+  waterForm.catchment = facilityData.catchment || ''
+  waterForm.price = facilityData.price || null
+  waterForm.condition = facilityData.condition || ''
+  waterForm.availability = facilityData.availability || ''
+  waterForm.name_of_provider = facilityData.name_of_provider || ''
+  waterForm.cost_of_20_litre_jerrican = facilityData.cost_of_20_litre_jerrican || null
+  waterForm.settlement_id = facilityData.settlement_id || ''
+  waterForm.county_id = facilityData.county_id || ''
+  waterForm.subcounty_id = facilityData.subcounty_id || ''
+  waterForm.ward_id = facilityData.ward_id || ''
+  waterForm.geom = facilityData.geom || null
+  
+  waterDrawerVisible.value = true
+}
+
+// Submit water form
+const submitWaterForm = async () => {
+  if (!waterFormRef.value) return
+  
+  await waterFormRef.value.validate(async (valid) => {
+    if (valid) {
+      try {
+        const formDataToSubmit = {
+          ...waterForm,
+          model: waterFacilityModel
+        }
+        
+        if (isEditMode.value && editingWaterId.value) {
+          // Update existing facility
+          formDataToSubmit.id = editingWaterId.value
+          
+          const res = await updateOneRecord(formDataToSubmit)
+          
+          if (res.code === '0000') {
+            ElMessage.success('Water point updated successfully')
+            
+            // Refresh the data
+            await getFilteredData(filters.value, filterValues.value)
+            
+            // Reload facilities for the settlement if available
+            if (waterForm.settlement_id) {
+              await loadWaterFacilitiesForSettlement(waterForm.settlement_id)
+            }
+            
+            waterDrawerVisible.value = false
+          } else {
+            ElMessage.error('Failed to update water point')
+          }
+        } else {
+          ElMessage.error('Invalid edit mode')
+        }
+      } catch (error) {
+        console.error('Error saving water point:', error)
+        ElMessage.error('Failed to save water point')
+      }
+    }
+  })
+}
+
+// Reset water form
+const resetWaterForm = () => {
+  isEditMode.value = false
+  editingWaterId.value = null
+  Object.keys(waterForm).forEach(key => {
+    if (typeof waterForm[key as keyof typeof waterForm] === 'string') {
+      waterForm[key as keyof typeof waterForm] = '' as any
+    } else if (typeof waterForm[key as keyof typeof waterForm] === 'number') {
+      waterForm[key as keyof typeof waterForm] = null as any
+    } else {
+      waterForm[key as keyof typeof waterForm] = null as any
+    }
+  })
+}
+
+// Close water drawer
+const closeWaterDrawer = () => {
+  waterDrawerVisible.value = false
+  resetWaterForm()
+}
+
 const editFacility = (data: TableSlotDefault) => {
-
-  push({
-    name: 'AddWaterNew',
-    query: { id: data.id }
-
-  });
-
-
+  // Open drawer with water form for editing
+  openWaterForm(data)
 }
 
 
@@ -1831,7 +2393,13 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
                 border
                 size="small"
               >
-                <el-table-column label="Facility Name" prop="name" />
+                <el-table-column label="Facility Name" prop="name">
+                  <template #default="scope">
+                    <el-button type="primary" link @click="openWaterForm(scope.row)">
+                      {{ scope.row.name || 'N/A' }}
+                    </el-button>
+                  </template>
+                </el-table-column>
                 <el-table-column label="Type" prop="facility_type" />
                 <el-table-column label="Status" prop="isApproved">
                   <template #default="scope">
@@ -1915,7 +2483,13 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
                 border
                 size="small"
               >
-                <el-table-column label="Facility Name" prop="name" />
+                <el-table-column label="Facility Name" prop="name">
+                  <template #default="scope">
+                    <el-button type="primary" link @click="openWaterForm(scope.row)">
+                      {{ scope.row.name || 'N/A' }}
+                    </el-button>
+                  </template>
+                </el-table-column>
                 <el-table-column label="Type" prop="facility_type" />
                 <el-table-column label="Status" prop="isApproved">
                   <template #default="scope">
@@ -2001,7 +2575,13 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
                 border
                 size="small"
               >
-                <el-table-column label="Facility Name" prop="name" />
+                <el-table-column label="Facility Name" prop="name">
+                  <template #default="scope">
+                    <el-button type="primary" link @click="openWaterForm(scope.row)">
+                      {{ scope.row.name || 'N/A' }}
+                    </el-button>
+                  </template>
+                </el-table-column>
                 <el-table-column label="Type" prop="facility_type" />
                 <el-table-column label="Status" prop="isApproved">
                   <template #default="scope">
@@ -2069,6 +2649,33 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
 
 
     <div v-if="activeSegment === 'Map'">
+      <el-empty description="Click 'View on Map' on a settlement to see its map with facilities" />
+    </div>
+
+  </el-card>
+
+  <!-- Map Drawer -->
+  <el-drawer
+    v-model="mapDrawerVisible"
+    title="Settlement Map with Water Points"
+    direction="rtl"
+    :size="isMobile ? '100%' : '60%'"
+    :before-close="handleMapDrawerClose"
+    class="map-drawer"
+  >
+    <template #header>
+      <div class="drawer-header-mobile">
+        <span class="drawer-title">{{ mapDrawerSettlement?.name || 'Settlement Map' }}</span>
+        <el-button type="danger" size="default" @click="handleMapDrawerClose" class="close-btn-mobile">Close</el-button>
+      </div>
+    </template>
+    
+    <div v-if="mapDrawerSettlement" class="map-container-wrapper">
+      <div ref="mapDrawerContainer" class="map-container"></div>
+    </div>
+  </el-drawer>
+
+  <div v-if="activeSegment === 'Map' && false" style="display: none;">
       <div id="mapContainer" class="basemap" style="width: 100%; margin-top: 10px;"></div>
       <div id="floating-div">
         <el-card>
@@ -2084,11 +2691,7 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
           </el-collapse>
         </el-card>
       </div>
-
-    </div>
-
-  </el-card>
-
+  </div>
 
   <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formheader" width="400px" draggable>
     <el-row :gutter="10">
@@ -2195,6 +2798,111 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
     </template>
   </el-dialog>
 
+  <!-- Water Form Drawer for Editing -->
+  <el-drawer
+    v-model="waterDrawerVisible"
+    :title="isEditMode ? 'Edit Water Point' : 'Water Point Details'"
+    direction="rtl"
+    :size="isMobile ? '100%' : '600px'"
+    :before-close="closeWaterDrawer"
+    class="water-form-drawer"
+  >
+    <el-form
+      ref="waterFormRef"
+      :model="waterForm"
+      :rules="waterFormRules"
+      :label-width="isMobile ? '0px' : '180px'"
+      :label-position="isMobile ? 'top' : 'left'"
+      class="water-form-mobile"
+    >
+      <el-divider content-position="left">Basic Information</el-divider>
+
+      <el-form-item label="Water Point Name" prop="name">
+        <el-input v-model="waterForm.name" placeholder="Enter water point name" />
+      </el-form-item>
+
+      <el-form-item label="Type">
+        <el-select v-model="waterForm.type" placeholder="Select water point type" filterable style="width: 100%">
+          <el-option
+            v-for="item in waterPointTypeOptions"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="Capacity">
+        <el-input v-model="waterForm.capacity" placeholder="Enter capacity" />
+      </el-form-item>
+
+      <el-form-item label="Depth (Meters)" v-if="waterForm.type === 'borehole' || waterForm.type === 'well'">
+        <el-input-number v-model="waterForm.depth" :min="0" :precision="2" style="width: 100%" />
+      </el-form-item>
+
+      <el-form-item label="Ownership Type">
+        <el-select v-model="waterForm.ownership_type" placeholder="Select ownership type" filterable style="width: 100%">
+          <el-option
+            v-for="item in ownershipOptions"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="Owner">
+        <el-input v-model="waterForm.owner" placeholder="Enter owner" />
+      </el-form-item>
+
+      <el-form-item label="Catchment">
+        <el-input v-model="waterForm.catchment" placeholder="Enter catchment" />
+      </el-form-item>
+
+      <el-form-item label="Price">
+        <el-input-number v-model="waterForm.price" :min="0" style="width: 100%" />
+      </el-form-item>
+
+      <el-form-item label="Condition">
+        <el-select v-model="waterForm.condition" placeholder="Select condition" filterable style="width: 100%">
+          <el-option
+            v-for="item in conditionOptions"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="Availability">
+        <el-select v-model="waterForm.availability" placeholder="Select availability" filterable style="width: 100%">
+          <el-option
+            v-for="item in availabilityOptions"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="Name of Provider">
+        <el-input v-model="waterForm.name_of_provider" placeholder="Enter name of provider" />
+      </el-form-item>
+
+      <el-form-item label="Cost of 20 Litre Jerrican">
+        <el-input-number v-model="waterForm.cost_of_20_litre_jerrican" :min="0" :precision="2" style="width: 100%" />
+      </el-form-item>
+    </el-form>
+
+    <template #footer>
+      <div class="drawer-footer">
+        <el-button @click="closeWaterDrawer" class="footer-btn">Cancel</el-button>
+        <el-button type="primary" @click="submitWaterForm" :icon="Check" class="footer-btn">
+          {{ isEditMode ? 'Update Water Point' : 'Save Water Point' }}
+        </el-button>
+      </div>
+    </template>
+  </el-drawer>
 
 </template>
 
@@ -2299,6 +3007,89 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
 .item {
   margin-top: 10px;
   margin-right: 40px;
+}
+
+.water-form-drawer :deep(.el-drawer__body) {
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.water-form-mobile {
+  padding: 0;
+}
+
+.drawer-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 20px;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+
+.footer-btn {
+  min-width: 100px;
+}
+
+@media (max-width: 768px) {
+  .water-form-drawer :deep(.el-drawer__body) {
+    padding: 15px;
+  }
+
+  .drawer-footer {
+    padding: 15px;
+    flex-direction: column;
+  }
+
+  .footer-btn {
+    width: 100%;
+  }
+}
+
+.map-container-wrapper {
+  position: relative;
+  width: 100%;
+  height: calc(100vh - 120px);
+}
+
+.map-container {
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
+}
+
+.map-drawer :deep(.el-drawer__body) {
+  padding: 0;
+}
+
+.drawer-header-mobile {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.drawer-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.close-btn-mobile {
+  padding: 8px 16px;
+}
+
+@media (max-width: 768px) {
+  .map-container-wrapper {
+    height: calc(100vh - 100px);
+  }
+
+  .drawer-title {
+    font-size: 14px;
+  }
+
+  .close-btn-mobile {
+    padding: 6px 12px;
+    font-size: 13px;
+  }
 }
 </style>
 
