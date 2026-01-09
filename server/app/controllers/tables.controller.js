@@ -3169,24 +3169,86 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
     const baseQuery = { where: {} };
 
     const hasGeomColumn = Object.keys(Model.rawAttributes).includes('geom');
+    const isProjectModel = modelName === 'project';
 
     // Handle column filters
     if (filters.length > 0 && filterValues.length === filters.length) {
       const modelAttributes = Object.keys(Model.rawAttributes).filter(attr => !hasGeomColumn || attr !== 'geom');
-      const validFilters = filters
-        .map((filter, i) => ({
-          field: filter,
-          value: filterValues[i],
-        }))
-        .filter(({ field }) => modelAttributes.includes(field));
+      
+      // Special handling for project model: filter through project_location using EXISTS subqueries (faster)
+      if (isProjectModel) {
+        const projectLocationFilters = [];
+        const directFilters = [];
+        
+        filters.forEach((filter, i) => {
+          const value = filterValues[i];
+          
+          // Filter through project_location for county_id and settlement_id (projects don't have these fields directly)
+          if (filter === 'county_id') {
+            const countyIds = Array.isArray(value) ? value : [value];
+            const countyIdConditions = countyIds.map(countyId => {
+              const countyIdInt = parseInt(countyId);
+              if (isNaN(countyIdInt)) {
+                console.error(`Invalid county_id value: ${countyId}`);
+                return null;
+              }
+              return literal(`EXISTS (SELECT 1 FROM project_location pl WHERE pl.project_id = "${Model.tableName}".id AND pl.county_id = ${countyIdInt})`);
+            }).filter(cond => cond !== null);
+            
+            if (countyIdConditions.length > 0) {
+              projectLocationFilters.push({ [Sequelize.Op.or]: countyIdConditions });
+            }
+          } else if (filter === 'settlement_id') {
+            const settlementIds = Array.isArray(value) ? value : [value];
+            const settlementIdConditions = settlementIds.map(settlementId => {
+              const settlementIdInt = parseInt(settlementId);
+              if (isNaN(settlementIdInt)) {
+                console.error(`Invalid settlement_id value: ${settlementId}`);
+                return null;
+              }
+              return literal(`EXISTS (SELECT 1 FROM project_location pl WHERE pl.project_id = "${Model.tableName}".id AND pl.settlement_id = ${settlementIdInt})`);
+            }).filter(cond => cond !== null);
+            
+            if (settlementIdConditions.length > 0) {
+              projectLocationFilters.push({ [Sequelize.Op.or]: settlementIdConditions });
+            }
+          } else if (modelAttributes.includes(filter)) {
+            // Direct field filters for project model (e.g., component_id, status, etc.)
+            directFilters.push({ field: filter, value: value });
+          }
+        });
+        
+        // Combine project_location filters and direct filters
+        const allFilters = [];
+        if (projectLocationFilters.length > 0) {
+          allFilters.push(...projectLocationFilters);
+        }
+        if (directFilters.length > 0) {
+          allFilters.push(...directFilters.map(({ field, value }) => ({ [field]: value })));
+        }
+        
+        if (allFilters.length > 0) {
+          baseQuery.where = {
+            [Sequelize.Op.and]: allFilters
+          };
+        }
+      } else {
+        // Standard filtering for other models
+        const validFilters = filters
+          .map((filter, i) => ({
+            field: filter,
+            value: filterValues[i],
+          }))
+          .filter(({ field }) => modelAttributes.includes(field));
 
-      if (validFilters.length === 0) {
-        return res.status(400).json({ message: 'No valid filter fields provided', code: 'INVALID_FILTERS' });
+        if (validFilters.length === 0) {
+          return res.status(400).json({ message: 'No valid filter fields provided', code: 'INVALID_FILTERS' });
+        }
+
+        baseQuery.where = {
+          [Sequelize.Op.and]: validFilters.map(({ field, value }) => ({ [field]: value })),
+        };
       }
-
-      baseQuery.where = {
-        [Op.and]: validFilters.map(({ field, value }) => ({ [field]: value })),
-      };
     }
 
     // Handle date range filter for createdAt

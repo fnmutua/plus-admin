@@ -113,9 +113,15 @@ const updatePageSize = () => {
 };
 
 // Set up event listener on mount
-onMounted(() => {
+onMounted(async () => {
   window.addEventListener('resize', updatePageSize);
   updatePageSize(); // Initial check
+  
+  // Initialize role-based filters
+  await getUserRoles();
+  
+  // Load projects with role filters applied
+  await getAllProjects();
 });
 
 
@@ -126,6 +132,115 @@ if (userInfo.roles.includes("staff") || userInfo.roles.includes("admin")
   || userInfo.roles.includes("county_admin") || userInfo.roles.includes("national_monitoring")) {
   showEditButtons.value = true;
 }
+
+// User and role setup for county filtering
+const isSuperAdmin = ref(
+  userInfo.roles?.some((role: any) => role.name === "super_admin" || role.name === "root_admin")
+);
+const isNationalStaff = ref(false)
+const isCountyStaff = ref(false)
+
+// Process user roles for county filtering
+let processedRoles: any[] = []
+let roles_filters: { role: string; field: string | null; value: any }[] = [];
+
+const getUserRoles = async () => {
+  // Clear existing role filters
+  roles_filters = [];
+
+  processedRoles = (userInfo.roles || []).map((role: any) => {
+    let field: string | null = null;
+    let fieldvalue: any = null;
+    const level = role.user_roles?.location_level;
+    
+    if (level === "county") {
+      isNationalStaff.value = false;
+      // For projects, filter EXCLUSIVELY by county_id through project_location
+      // Projects don't have a direct county_id field, so filtering must go through project_location.county_id
+      // The backend needs to handle this by filtering projects where EXISTS (SELECT 1 FROM project_location WHERE project_location.project_id = project.id AND project_location.county_id = countyId)
+      // NOTE: Backend must have special handling for 'project' model to filter through project_location association
+      field = "county_id"; // Filter through project_location.county_id (backend must handle this)
+      fieldvalue = role.user_roles.county_id;
+      isCountyStaff.value = true;
+    } else if (level === "settlement") {
+      isNationalStaff.value = false;
+      // Filter EXCLUSIVELY by settlement_id through project_location
+      // Projects don't have a direct settlement_id field, so filtering must go through project_location.settlement_id
+      // The backend needs to handle this by filtering projects where EXISTS (SELECT 1 FROM project_location WHERE project_location.project_id = project.id AND project_location.settlement_id = settlementId)
+      field = "settlement_id"; // Filter through project_location.settlement_id (backend must handle this)
+      fieldvalue = role.user_roles.settlement_id;
+    } else if (level === "national" || level === null) {
+      isNationalStaff.value = true;
+      return {
+        role: role.name,
+        model: "national",
+        field: null,
+        fieldvalue: null
+      };
+    } else {
+      field = "location_id";
+      fieldvalue = role.user_roles.location_id;
+    }
+    return {
+      role: role.name,
+      model: level,
+      field: field,
+      fieldvalue: fieldvalue
+    };
+  }).filter((role: any) => role !== null);
+
+  // Determine roles_filters
+  if (isSuperAdmin.value) {
+    roles_filters = [];
+  } else {
+    const applicableRoles = processedRoles.filter((role: any) => role.model !== "national");
+    roles_filters = applicableRoles.map((role: any) => ({
+      role: role.role,
+      field: role.field,
+      value: role.fieldvalue
+    }));
+  }
+
+  // Populate filters and filterValues from roles_filters
+  roles_filters.forEach((rf: any) => {
+    if (rf.field && rf.value !== null && rf.value !== undefined) {
+      if (!filters.includes(rf.field)) {
+        filters.push(rf.field);
+      }
+      const index = filters.indexOf(rf.field);
+      if (filterValues[index]) {
+        filterValues.splice(index, 1);
+      }
+      filterValues.splice(index, 0, Array.isArray(rf.value) ? rf.value : [rf.value]);
+    }
+  });
+
+  console.log('isSuperAdmin.value', isSuperAdmin.value);
+  console.log('isNationalStaff.value', isNationalStaff.value);
+  console.log('isCountyStaff.value', isCountyStaff.value);
+  console.log('roles_filters --', roles_filters);
+  console.log('filters', filters);
+  console.log('filterValues', filterValues);
+};
+
+const pushRoleFilters = () => {
+  // Re-apply role-based filters after other filters are set
+  // This ensures county/settlement users only see their assigned locations
+  roles_filters.forEach((rf: any) => {
+    if (rf.field && rf.value !== null && rf.value !== undefined) {
+      // Check if this filter field is already in the filters array
+      const existingIndex = filters.indexOf(rf.field);
+      if (existingIndex === -1) {
+        // Add new filter
+        filters.push(rf.field);
+        filterValues.push(Array.isArray(rf.value) ? rf.value : [rf.value]);
+      } else {
+        // Update existing filter value (role filters take precedence)
+        filterValues[existingIndex] = Array.isArray(rf.value) ? rf.value : [rf.value];
+      }
+    }
+  });
+};
 
 const { push } = useRouter()
 const value1 = ref<any[]>([])
@@ -206,6 +321,17 @@ const handleClear = async () => {
   loading.value = true
 
   try {
+    // Preserve role-based filters before clearing
+    const roleBasedFilters: string[] = []
+    const roleBasedFilterValues: any[] = []
+    
+    roles_filters.forEach((rf: any) => {
+      if (rf.field && rf.value !== null && rf.value !== undefined) {
+        roleBasedFilters.push(rf.field)
+        roleBasedFilterValues.push(Array.isArray(rf.value) ? rf.value : [rf.value])
+      }
+    })
+    
     // clear all the filters -------
     filterValues = []
     filters = ['component_id']
@@ -215,6 +341,18 @@ const handleClear = async () => {
     value4.value = []
     value5.value = []
     value40.value = []
+
+    // Restore role-based filters
+    roleBasedFilters.forEach((filterField, index) => {
+      if (!filters.includes(filterField)) {
+        filters.push(filterField)
+      }
+      const filterIndex = filters.indexOf(filterField)
+      if (filterValues[filterIndex]) {
+        filterValues.splice(filterIndex, 1)
+      }
+      filterValues.splice(filterIndex, 0, roleBasedFilterValues[index])
+    })
 
     pageSize.value = 5
     currentPage.value = 1
@@ -295,6 +433,9 @@ const destructure = (obj) => {
 
 const getFilteredData = async (selFilters, selfilterValues) => {
   try {
+    // Apply role-based filters
+    pushRoleFilters();
+    
     const formData: any = {
       limit: pageSize.value,
       page: page.value,
@@ -303,14 +444,18 @@ const getFilteredData = async (selFilters, selfilterValues) => {
       searchField: 'name',
       searchKeyword: '',
       assocModel: associated_Model,
-      filters: selFilters,
-      filterValues: selfilterValues,
+      filters: filters, // Use filters after pushRoleFilters()
+      filterValues: filterValues, // Use filterValues after pushRoleFilters()
       associated_multiple_models: associated_multiple_models
       // Removed nested_models completely for better performance
     }
 
     //------------------------- 
     console.log('Fetching project data with minimal associations...')
+    console.log('Project filters (should filter through project_location):', filters)
+    console.log('Project filterValues:', filterValues)
+    // NOTE: Backend must handle county_id/settlement_id filters for 'project' model by filtering through project_location
+    // Backend should use: EXISTS (SELECT 1 FROM project_location WHERE project_location.project_id = project.id AND project_location.county_id = ?)
     const res = await getSettlementListByCounty(formData as any)
 
     console.log('After Query - minimal associations loaded', res)
@@ -598,6 +743,9 @@ const showUploadDialog = ref(false)
 
 const getFilteredBySearchData = async (searchString) => {
   try {
+    // Apply role-based filters
+    pushRoleFilters();
+    
     const formData: any = {
       limit: pageSize.value,
       page: page.value,
@@ -605,8 +753,8 @@ const getFilteredBySearchData = async (searchString) => {
       model: model,
       searchField: 'title',
       searchKeyword: searchString,
-      filters: filters,
-      filterValues: filterValues,
+      filters: filters, // Use filters after pushRoleFilters()
+      filterValues: filterValues, // Use filterValues after pushRoleFilters()
       associated_multiple_models: associated_multiple_models
     }
 
