@@ -224,15 +224,35 @@ exports.createIncident = async (req, res) => {
 
 exports.getIncidents = async (req, res) => {
   try {
-    const { page = 1, pageSize = 10, keyword } = req.body || {}
-    const where = {}
-    if (keyword) {
-      where[Sequelize.Op.or] = [
-        { description: { [Sequelize.Op.iLike]: `%${keyword}%` } },
-        { code: { [Sequelize.Op.iLike]: `%${keyword}%` } },
-        { location_text: { [Sequelize.Op.iLike]: `%${keyword}%` } }
-      ]
+    const { page = 1, pageSize = 10, keyword, county_id, settlement_id } = req.body || {}
+    const whereConditions = []
+    
+    // Add county filter if provided
+    if (county_id) {
+      whereConditions.push({ county_id: county_id })
     }
+    
+    // Add settlement filter if provided
+    if (settlement_id) {
+      whereConditions.push({ settlement_id: settlement_id })
+    }
+    
+    // Add keyword search conditions
+    if (keyword) {
+      whereConditions.push({
+        [Sequelize.Op.or]: [
+          { description: { [Sequelize.Op.iLike]: `%${keyword}%` } },
+          { code: { [Sequelize.Op.iLike]: `%${keyword}%` } },
+          { location_text: { [Sequelize.Op.iLike]: `%${keyword}%` } }
+        ]
+      })
+    }
+    
+    // Build final where clause
+    const where = whereConditions.length > 0 
+      ? { [Sequelize.Op.and]: whereConditions }
+      : {}
+    
     const { rows, count } = await db.models.incident.findAndCountAll({
       where,
       order: [['createdAt', 'DESC']],

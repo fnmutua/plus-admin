@@ -27,6 +27,44 @@ const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const currentUser = computed(() => wsCache.get(appStore.getUserInfo))
 
+// User location-based filtering
+const isSuperAdmin = computed(() => {
+  return currentUser.value?.roles?.some((role: any) => 
+    role.name === 'super_admin' || role.name === 'root_admin'
+  ) || false
+})
+
+const hasNationalAccess = computed(() => {
+  return currentUser.value?.roles?.some((role: any) => 
+    role.user_roles?.location_level === 'national'
+  ) || false
+})
+
+const userCountyRole = computed(() => {
+  return currentUser.value?.roles?.find((role: any) => 
+    role.user_roles?.location_level === 'county'
+  )
+})
+
+const userCountyId = computed(() => {
+  return userCountyRole.value?.user_roles?.county_id || null
+})
+
+const userSettlementRole = computed(() => {
+  return currentUser.value?.roles?.find((role: any) => 
+    role.user_roles?.location_level === 'settlement'
+  )
+})
+
+const userSettlementId = computed(() => {
+  return userSettlementRole.value?.user_roles?.settlement_id || null
+})
+
+// Check if user should be restricted to their county
+const isCountyRestricted = computed(() => {
+  return !isSuperAdmin.value && !hasNationalAccess.value && !!userCountyId.value
+})
+
 // Function to get current user's role for pre-population
 const getCurrentUserRole = () => {
   const user = currentUser.value
@@ -208,7 +246,21 @@ const statusOptions = [
 const fetchList = async () => {
   loading.value = true
   try {
-    const res: any = await getIncidents({ page: page.value, pageSize: pageSize.value, keyword: keyword.value })
+    const requestData: any = { 
+      page: page.value, 
+      pageSize: pageSize.value, 
+      keyword: keyword.value 
+    }
+    
+    // Add county filter for county-restricted users
+    if (isCountyRestricted.value && userCountyId.value) {
+      requestData.county_id = userCountyId.value
+    } else if (userSettlementId.value && !isSuperAdmin.value && !hasNationalAccess.value) {
+      // For settlement-restricted users, filter by settlement_id
+      requestData.settlement_id = userSettlementId.value
+    }
+    
+    const res: any = await getIncidents(requestData)
     const incidents = res.data || []
     
     // Check for documents for each incident
@@ -232,7 +284,14 @@ const fetchCounties = async () => {
   try {
     const response: any = await getCountyAuth({ model: 'county' } as any)
     const data = response?.data || []
-    countiesOptions.value = data
+    
+    // Filter counties for county-restricted users
+    let filteredData = data
+    if (isCountyRestricted.value && userCountyId.value) {
+      filteredData = data.filter((county: any) => county.id === userCountyId.value)
+    }
+    
+    countiesOptions.value = filteredData
       .map((county: any) => ({ value: county.id, label: county.name }))
       .sort((a: any, b: any) => Number(a.value) - Number(b.value))
   } catch (error) {
@@ -258,15 +317,30 @@ const loadSettlements = async (countyId: number | string, target: 'report' | 'ed
     return
   }
 
+  // Ensure county-restricted users can only load settlements from their county
+  const effectiveCountyId = isCountyRestricted.value && userCountyId.value 
+    ? userCountyId.value 
+    : countyId
+
   try {
-    const response: any = await getSettlementByCountyAuth({ county_id: countyId } as any)
-    const settlements = (response?.data || []).map((item: any) => ({
+    const response: any = await getSettlementByCountyAuth({ county_id: effectiveCountyId } as any)
+    let settlements = (response?.data || []).map((item: any) => ({
       value: item.id,
       label: item.name,
       county_id: item.county_id,
       subcounty_id: item.subcounty_id,
       ward_id: item.ward_id
     }))
+
+    // Additional client-side filtering for county-restricted users
+    if (isCountyRestricted.value && userCountyId.value) {
+      settlements = settlements.filter((item: any) => item.county_id === userCountyId.value)
+    }
+    
+    // Filter by settlement for settlement-restricted users
+    if (userSettlementId.value && !isSuperAdmin.value && !hasNationalAccess.value) {
+      settlements = settlements.filter((item: any) => item.value === userSettlementId.value)
+    }
 
     if (target === 'report') {
       reportSettlementOptions.value = settlements
@@ -285,6 +359,13 @@ const loadSettlements = async (countyId: number | string, target: 'report' | 'ed
 }
 
 const handleReportCountyChange = async (countyId: number | string) => {
+  // Prevent county change for county-restricted users
+  if (isCountyRestricted.value && userCountyId.value && countyId !== userCountyId.value) {
+    ElMessage.warning('You can only report incidents for your assigned county.')
+    reportForm.value.county_id = userCountyId.value
+    return
+  }
+  
   reportForm.value.subcounty_id = ''
   reportForm.value.ward_id = ''
   reportForm.value.settlement_id = ''
@@ -292,6 +373,13 @@ const handleReportCountyChange = async (countyId: number | string) => {
 }
 
 const handleEditCountyChange = async (countyId: number | string) => {
+  // Prevent county change for county-restricted users
+  if (isCountyRestricted.value && userCountyId.value && countyId !== userCountyId.value) {
+    ElMessage.warning('You can only edit incidents from your assigned county.')
+    editForm.value.county_id = userCountyId.value
+    return
+  }
+  
   editForm.value.subcounty_id = ''
   editForm.value.ward_id = ''
   editForm.value.settlement_id = ''
@@ -324,13 +412,18 @@ const openReportDrawer = async () => {
   const userName = currentUser.value?.name || ''
   const userPhone = currentUser.value?.phone || ''
   
+  // Pre-select county for county-restricted users
+  const defaultCountyId = isCountyRestricted.value && userCountyId.value 
+    ? userCountyId.value 
+    : ''
+  
   reportForm.value = { 
     occurred_date: new Date(), 
     reported_date: new Date(),
     reported_by: userName,
     reporter_role: userRole,
     reporter_phone: userPhone,
-    county_id: '',
+    county_id: defaultCountyId,
     settlement_id: '',
     subcounty_id: '',
     ward_id: '',
@@ -345,6 +438,17 @@ const openReportDrawer = async () => {
   }
   reportActive.value = 0
   reportSettlementOptions.value = []
+  
+  // Load settlements if county is pre-selected
+  if (defaultCountyId) {
+    await loadSettlements(defaultCountyId, 'report')
+  }
+  
+  // Show notification for county-restricted users
+  if (isCountyRestricted.value) {
+    ElMessage.info('Only incidents from your assigned county can be reported.')
+  }
+  
   reportDrawer.value = true
 }
 
@@ -358,6 +462,24 @@ const submit = async () => {
 }
 
 const openEditDrawer = async (row: any) => {
+  // Validate county restriction for county-restricted users
+  const incidentCountyId = row.county_id || row.county?.id
+  if (isCountyRestricted.value && userCountyId.value) {
+    if (incidentCountyId !== userCountyId.value) {
+      ElMessage.error('You can only edit incidents from your assigned county.')
+      return
+    }
+  }
+  
+  // Validate settlement restriction for settlement-restricted users
+  const incidentSettlementId = row.settlement_id || row.settlement?.id
+  if (userSettlementId.value && !isSuperAdmin.value && !hasNationalAccess.value) {
+    if (incidentSettlementId !== userSettlementId.value) {
+      ElMessage.error('You can only edit incidents from your assigned settlement.')
+      return
+    }
+  }
+  
   editForm.value = { ...row }
   // Normalize location fields
   editForm.value.county_id = editForm.value.county_id || row.county?.id || ''
@@ -387,6 +509,31 @@ const openEditDrawer = async (row: any) => {
 }
 
 const submitEdit = async () => {
+  // Validate county restriction for county-restricted users
+  if (isCountyRestricted.value && userCountyId.value) {
+    if (editForm.value.county_id !== userCountyId.value) {
+      ElMessage.error('Cannot update incident: The selected county is outside your assigned county. Please select your assigned county only.')
+      return
+    }
+    
+    // Validate settlement belongs to user's county
+    const selectedSettlement = editSettlementOptions.value.find(
+      (opt: any) => opt.value === editForm.value.settlement_id
+    )
+    if (selectedSettlement && selectedSettlement.county_id !== userCountyId.value) {
+      ElMessage.error('Cannot update incident: The selected settlement is outside your assigned county.')
+      return
+    }
+  }
+  
+  // Validate settlement restriction for settlement-restricted users
+  if (userSettlementId.value && !isSuperAdmin.value && !hasNationalAccess.value) {
+    if (editForm.value.settlement_id !== userSettlementId.value) {
+      ElMessage.error('Cannot update incident: You can only edit incidents for your assigned settlement.')
+      return
+    }
+  }
+  
   const res: any = await updateIncident(editForm.value)
   if (res && res.code === '0000') {
     // Upload any selected documents for edit
@@ -401,6 +548,24 @@ const submitEdit = async () => {
 }
 
 const handleDelete = async (row: any) => {
+  // Validate county restriction for county-restricted users
+  const incidentCountyId = row.county_id || row.county?.id
+  if (isCountyRestricted.value && userCountyId.value) {
+    if (incidentCountyId !== userCountyId.value) {
+      ElMessage.error('You can only delete incidents from your assigned county.')
+      return
+    }
+  }
+  
+  // Validate settlement restriction for settlement-restricted users
+  const incidentSettlementId = row.settlement_id || row.settlement?.id
+  if (userSettlementId.value && !isSuperAdmin.value && !hasNationalAccess.value) {
+    if (incidentSettlementId !== userSettlementId.value) {
+      ElMessage.error('You can only delete incidents from your assigned settlement.')
+      return
+    }
+  }
+  
   try {
     await ElMessageBox.confirm('Are you sure you want to delete this incident?', 'Warning', {
       confirmButtonText: 'Yes',
@@ -439,6 +604,24 @@ const handleMobileAction = (command: string, row: any) => {
 }
 
 const openHistoryDrawer = async (row: any) => {
+  // Validate county restriction for county-restricted users
+  const incidentCountyId = row.county_id || row.county?.id
+  if (isCountyRestricted.value && userCountyId.value) {
+    if (incidentCountyId !== userCountyId.value) {
+      ElMessage.error('You can only view history of incidents from your assigned county.')
+      return
+    }
+  }
+  
+  // Validate settlement restriction for settlement-restricted users
+  const incidentSettlementId = row.settlement_id || row.settlement?.id
+  if (userSettlementId.value && !isSuperAdmin.value && !hasNationalAccess.value) {
+    if (incidentSettlementId !== userSettlementId.value) {
+      ElMessage.error('You can only view history of incidents from your assigned settlement.')
+      return
+    }
+  }
+  
   selectedIncident.value = row
   try {
     const res: any = await getIncidentHistory({ incident_id: row.id })
@@ -661,6 +844,32 @@ const reportCurrentStepRules = computed(() => validationRules[`step${reportActiv
 const submitReport = async () => {
   try {
     await reportFormRef.value?.validate()
+    
+    // Validate county restriction for county-restricted users
+    if (isCountyRestricted.value && userCountyId.value) {
+      if (reportForm.value.county_id !== userCountyId.value) {
+        ElMessage.error('Cannot report incident: The selected county is outside your assigned county. Please select your assigned county only.')
+        return
+      }
+      
+      // Validate settlement belongs to user's county
+      const selectedSettlement = reportSettlementOptions.value.find(
+        (opt: any) => opt.value === reportForm.value.settlement_id
+      )
+      if (selectedSettlement && selectedSettlement.county_id !== userCountyId.value) {
+        ElMessage.error('Cannot report incident: The selected settlement is outside your assigned county.')
+        return
+      }
+    }
+    
+    // Validate settlement restriction for settlement-restricted users
+    if (userSettlementId.value && !isSuperAdmin.value && !hasNationalAccess.value) {
+      if (reportForm.value.settlement_id !== userSettlementId.value) {
+        ElMessage.error('Cannot report incident: You can only report incidents for your assigned settlement.')
+        return
+      }
+    }
+    
     saving.value = true
     
     // Prepare form data with proper field types
@@ -789,6 +998,24 @@ const removeReportAction = (index: number) => {
 
 // Status update functions
 const openStatusDialog = (row: any) => {
+  // Validate county restriction for county-restricted users
+  const incidentCountyId = row.county_id || row.county?.id
+  if (isCountyRestricted.value && userCountyId.value) {
+    if (incidentCountyId !== userCountyId.value) {
+      ElMessage.error('You can only change status of incidents from your assigned county.')
+      return
+    }
+  }
+  
+  // Validate settlement restriction for settlement-restricted users
+  const incidentSettlementId = row.settlement_id || row.settlement?.id
+  if (userSettlementId.value && !isSuperAdmin.value && !hasNationalAccess.value) {
+    if (incidentSettlementId !== userSettlementId.value) {
+      ElMessage.error('You can only change status of incidents from your assigned settlement.')
+      return
+    }
+  }
+  
   selectedIncidentForStatus.value = row
   statusForm.value = {
     status: row.status || 'open',
@@ -932,13 +1159,31 @@ const uploadDocuments = async (incidentId: number, files: any[]) => {
 // PDF generation function
 const generatePDF = async (incidentData: any) => {
   try {
-    ElMessage.info('Generating PDF report...')
-    
     // Use provided incident data or fallback to selectedIncident
     const incident = incidentData || selectedIncident.value
     if (!incident) {
       throw new Error('No incident data available')
     }
+    
+    // Validate county restriction for county-restricted users
+    const incidentCountyId = incident.county_id || incident.county?.id
+    if (isCountyRestricted.value && userCountyId.value) {
+      if (incidentCountyId !== userCountyId.value) {
+        ElMessage.error('You can only generate PDF reports for incidents from your assigned county.')
+        return
+      }
+    }
+    
+    // Validate settlement restriction for settlement-restricted users
+    const incidentSettlementId = incident.settlement_id || incident.settlement?.id
+    if (userSettlementId.value && !isSuperAdmin.value && !hasNationalAccess.value) {
+      if (incidentSettlementId !== userSettlementId.value) {
+        ElMessage.error('You can only generate PDF reports for incidents from your assigned settlement.')
+        return
+      }
+    }
+    
+    ElMessage.info('Generating PDF report...')
     
     // Ensure documents and history are loaded
     if (docs.value.length === 0) {
@@ -1713,6 +1958,7 @@ watch(historyActiveTab, (v) => {
                       placeholder="Select county"
                       filterable
                       style="width: 100%"
+                      :disabled="isCountyRestricted"
                       @change="handleEditCountyChange"
                     >
                       <ElOption
@@ -1722,6 +1968,9 @@ watch(historyActiveTab, (v) => {
                         :value="item.value"
                       />
                     </ElSelect>
+                    <div v-if="isCountyRestricted" class="form-helper-text">
+                      <i class="el-icon-info"></i> You can only edit incidents from your assigned county.
+                    </div>
                   </ElFormItem>
                 </ElCol>
                 <ElCol :span="12">
@@ -2066,6 +2315,7 @@ watch(historyActiveTab, (v) => {
                       placeholder="Select county"
                       filterable
                       style="width: 100%"
+                      :disabled="isCountyRestricted"
                       @change="handleReportCountyChange"
                     >
                       <ElOption
@@ -2075,6 +2325,9 @@ watch(historyActiveTab, (v) => {
                         :value="item.value"
                       />
                     </ElSelect>
+                    <div v-if="isCountyRestricted" class="form-helper-text">
+                      <i class="el-icon-info"></i> You can only report incidents for your assigned county.
+                    </div>
                   </ElFormItem>
                 </ElCol>
                 <ElCol :span="12">

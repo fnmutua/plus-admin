@@ -6142,22 +6142,45 @@ exports.getDocumentRepository = async (req, res) => {
     }
 
     // Add user permission filters
-    if (userFilters.length > 0) {
+    // Check if user is a national officer (no location-based filters in userFilters)
+    const hasLocationFilter = userFilters.some(filter => 
+      filter.field === 'county_id' || filter.field === 'settlement_id'
+    );
+    const isNationalOfficer = userFilters.length === 0 || !hasLocationFilter;
+    
+    if (userFilters.length > 0 && !isNationalOfficer) {
       const userConditions = [];
       let countyFilterValue = null;
+      
+      let settlementFilterValue = null;
       
       userFilters.forEach(filter => {
         if (filter.field === 'county_id') {
           countyFilterValue = filter.value;
           // We'll handle county_id filtering separately using subqueries for efficiency
         } else if (filter.field === 'settlement_id') {
-          // Direct filter on document's settlement_id
-          userConditions.push({ settlement_id: filter.value });
+          settlementFilterValue = filter.value;
+          // We'll handle settlement_id filtering separately to include projects
         } else {
           // For other fields, apply directly (fallback)
           userConditions.push({ [filter.field]: filter.value });
         }
       });
+      
+      // Handle settlement_id filtering (including projects through project_location)
+      if (settlementFilterValue !== null) {
+        const settlementId = parseInt(settlementFilterValue);
+        if (isNaN(settlementId)) {
+          console.error('getDocumentRepository - Invalid settlement_id value:', settlementFilterValue);
+        } else {
+          // Filter documents directly linked to settlement OR through projects
+          const settlementFilterConditions = [
+            { settlement_id: settlementId },
+            literal(`EXISTS (SELECT 1 FROM project_location pl WHERE pl.project_id = document.project_id AND pl.settlement_id = ${settlementId})`)
+          ];
+          userConditions.push({ [Op.or]: settlementFilterConditions });
+        }
+      }
       
       // Handle county_id filtering using subqueries (more efficient than multiple LEFT JOINs)
       if (countyFilterValue !== null) {
@@ -6169,6 +6192,7 @@ exports.getDocumentRepository = async (req, res) => {
           // Build EXISTS subqueries for each entity type that can be linked to documents
           // Using Sequelize literal for raw SQL subqueries
           // Note: road_asset doesn't have county_id directly, it links through road_id to road table
+          // Projects are linked through project_location table
           const countyFilterConditions = [
             literal(`EXISTS (SELECT 1 FROM settlement s WHERE s.id = document.settlement_id AND s.county_id = ${countyId})`),
             literal(`EXISTS (SELECT 1 FROM health_facility hf WHERE hf.id = document.health_facility_id AND hf.county_id = ${countyId})`),
@@ -6177,7 +6201,9 @@ exports.getDocumentRepository = async (req, res) => {
             literal(`EXISTS (SELECT 1 FROM road_asset ra INNER JOIN road r2 ON ra.road_id = r2.id WHERE ra.id = document.road_asset_id AND r2.county_id = ${countyId})`),
             literal(`EXISTS (SELECT 1 FROM water_point wp WHERE wp.id = document.water_point_id AND wp.county_id = ${countyId})`),
             literal(`EXISTS (SELECT 1 FROM sewer s WHERE s.id = document.sewer_id AND s.county_id = ${countyId})`),
-            literal(`EXISTS (SELECT 1 FROM other_facility of WHERE of.id = document.other_facility_id AND of.county_id = ${countyId})`)
+            literal(`EXISTS (SELECT 1 FROM other_facility of WHERE of.id = document.other_facility_id AND of.county_id = ${countyId})`),
+            // Project documents: filter through project_location table
+            literal(`EXISTS (SELECT 1 FROM project_location pl WHERE pl.project_id = document.project_id AND pl.county_id = ${countyId})`)
           ];
           
           // Combine all county filter conditions with OR
@@ -6194,6 +6220,8 @@ exports.getDocumentRepository = async (req, res) => {
         }
         console.log('getDocumentRepository - Applied user filters for county:', countyFilterValue);
       }
+    } else if (isNationalOfficer) {
+      console.log('getDocumentRepository - National officer detected, skipping location-based filters');
     }
 
     // Add search conditions
