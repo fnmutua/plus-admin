@@ -5993,6 +5993,7 @@ exports.getDocumentRepository = async (req, res) => {
       sortOrder = 'DESC',
       excludePhotos = false,
       excludeFormats = [],
+      includeFormats = null, // New parameter to include only specific formats (e.g., for photos)
       uploaderFilter = null,
       dateFilter = null
     } = req.body;
@@ -6055,10 +6056,29 @@ exports.getDocumentRepository = async (req, res) => {
       );
     }
 
+    // Add format inclusion filter (for photos tab - include only specific formats)
+    if (includeFormats && Array.isArray(includeFormats) && includeFormats.length > 0) {
+      // Normalize formats to lowercase for consistent matching
+      const lowerFormats = includeFormats.map((f) => f.toLowerCase());
+      // Use Op.in for efficient format filtering
+      // Note: This assumes formats are stored consistently (lowercase) in the database
+      const formatFilter = { format: { [Op.in]: lowerFormats } };
+      if (baseQuery.where) {
+        baseQuery.where = { [Op.and]: [baseQuery.where, formatFilter] };
+      } else {
+        baseQuery.where = formatFilter;
+      }
+      console.log('getDocumentRepository - Applied format inclusion filter for formats:', lowerFormats);
+    }
+    
     // Add photo exclusion filter
     if (excludePhotos && excludeFormats.length > 0) {
       const photoFilter = { format: { [Op.notIn]: excludeFormats } };
-      baseQuery.where = photoFilter;
+      if (baseQuery.where) {
+        baseQuery.where = { [Op.and]: [baseQuery.where, photoFilter] };
+      } else {
+        baseQuery.where = photoFilter;
+      }
       console.log('getDocumentRepository - Applied photo exclusion filter:', photoFilter);
     }
 

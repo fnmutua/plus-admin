@@ -1869,7 +1869,7 @@ const loadDocumentsByTab = async () => {
         userFilters: roles_filters.length > 0 ? roles_filters : undefined,
         sortBy: sortOption.value === 'popularity' ? 'downloadCount' : 'createdAt',
         sortOrder: 'DESC',
-        formatFilter: imageFormats // Send image formats to server
+        includeFormats: imageFormats // Include only image formats for photos tab
       }
 
       console.log('Loading photos with requestData:', requestData)
