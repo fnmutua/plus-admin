@@ -4415,7 +4415,7 @@ exports.checkDocuments = async (req, res) => {
 
       results.push({
         name,
-        document_id: existingDoc.id,
+        document_id: existingDoc ? existingDoc.id : null,
         exists: !!existingDoc,
         message: existingDoc ? 'Document already exists' : 'Document does not exist'
       });
