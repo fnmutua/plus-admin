@@ -6174,20 +6174,27 @@ exports.getDocumentRepository = async (req, res) => {
           console.error('getDocumentRepository - Invalid settlement_id value:', settlementFilterValue);
         } else {
           // Filter documents directly linked to settlement OR through projects
-          // When filtering through project_location, also verify county_id if county restriction exists
-          let projectLocationCondition;
+          // Note: project_location may not always have settlement_id (can be linked at county/subcounty/ward level)
+          // So we check: project_location.settlement_id OR (if county filter exists) project_location.county_id
+          const projectLocationConditions = [];
+          
+          // Always check for project_locations with matching settlement_id
+          projectLocationConditions.push(
+            literal(`EXISTS (SELECT 1 FROM project_location pl WHERE pl.project_id = document.project_id AND pl.settlement_id = ${settlementId})`)
+          );
+          
+          // If county filter exists, also include project_locations with matching county_id
+          // (since the settlement belongs to that county, and project_location might not have settlement_id)
           if (countyFilterValue !== null) {
             const countyId = parseInt(countyFilterValue);
-            // Ensure project_location matches both settlement_id AND county_id
-            projectLocationCondition = literal(`EXISTS (SELECT 1 FROM project_location pl WHERE pl.project_id = document.project_id AND pl.settlement_id = ${settlementId} AND pl.county_id = ${countyId})`);
-          } else {
-            // Only filter by settlement_id in project_location
-            projectLocationCondition = literal(`EXISTS (SELECT 1 FROM project_location pl WHERE pl.project_id = document.project_id AND pl.settlement_id = ${settlementId})`);
+            projectLocationConditions.push(
+              literal(`EXISTS (SELECT 1 FROM project_location pl WHERE pl.project_id = document.project_id AND pl.county_id = ${countyId})`)
+            );
           }
           
           const settlementFilterConditions = [
             { settlement_id: settlementId },
-            projectLocationCondition
+            { [Op.or]: projectLocationConditions }
           ];
           userConditions.push({ [Op.or]: settlementFilterConditions });
         }
