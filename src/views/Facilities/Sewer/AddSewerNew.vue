@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // @ts-nocheck
-import { ref, reactive, nextTick, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, reactive, nextTick, computed, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 
 declare global {
   interface Window {
@@ -63,7 +63,90 @@ const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
 const isMobile = computed(() => appStore.getMobile)
 
+// User location-based filtering
+const isSuperAdmin = computed(() => {
+  return userInfo?.roles?.some((role: any) => 
+    role.name === 'super_admin' || role.name === 'root_admin'
+  ) || false
+})
+
+const hasNationalAccess = computed(() => {
+  return userInfo?.roles?.some((role: any) => 
+    role.user_roles?.location_level === 'national'
+  ) || false
+})
+
+const userCountyRole = computed(() => {
+  return userInfo?.roles?.find((role: any) => 
+    role.user_roles?.location_level === 'county'
+  )
+})
+
+const userCountyId = computed(() => {
+  return userCountyRole.value?.user_roles?.county_id || null
+})
+
+const userSettlementRole = computed(() => {
+  return userInfo?.roles?.find((role: any) => 
+    role.user_roles?.location_level === 'settlement'
+  )
+})
+
+const userSettlementId = computed(() => {
+  return userSettlementRole.value?.user_roles?.settlement_id || null
+})
+
+// Check if user should be restricted to their county
+const isCountyRestricted = computed(() => {
+  return !isSuperAdmin.value && !hasNationalAccess.value && !!userCountyId.value
+})
+
+// Filtered county options based on user's location restriction
+const filteredCountyOptions = computed(() => {
+  if (!isCountyRestricted.value || !userCountyId.value) {
+    // No restriction - show all counties
+    return countyOptions.value || []
+  }
+  
+  // User is restricted to their county - filter to show only their county
+  return (countyOptions.value || []).filter((county: any) => 
+    county.value === userCountyId.value
+  )
+})
+
 const router = useRouter()
+const route = useRoute()
+
+// Initialize user county on mount
+onMounted(async () => {
+  // Check route query params first (from Sewer.vue AddFacility function)
+  const routeCountyId = route.query.county_id
+  const routeSettlementId = route.query.settlement_id
+  
+  if (routeCountyId) {
+    selectedCounty.value = Array.isArray(routeCountyId) ? parseInt(routeCountyId[0]) : parseInt(routeCountyId as string)
+    // Trigger county change to load settlements
+    await handleCountyChange(selectedCounty.value)
+    if (routeSettlementId) {
+      selectedSettlement.value = Array.isArray(routeSettlementId) ? parseInt(routeSettlementId[0]) : parseInt(routeSettlementId as string)
+      // Trigger settlement change to proceed to map
+      await handleSettlementChange(selectedSettlement.value)
+    }
+  } else if (isCountyRestricted.value && userCountyId.value) {
+    // Pre-select user's county if restricted
+    selectedCounty.value = userCountyId.value
+    await handleCountyChange(userCountyId.value)
+  } else if (userSettlementId.value && !isSuperAdmin.value && !hasNationalAccess.value) {
+    // User restricted to settlement - find county from settlement
+    const settlement = (settlementOptionsV2.value || []).find((s: any) => s.value === userSettlementId.value)
+    if (settlement && settlement.county_id) {
+      selectedCounty.value = settlement.county_id
+      await handleCountyChange(settlement.county_id)
+      selectedSettlement.value = userSettlementId.value
+      await handleSettlementChange(userSettlementId.value)
+    }
+  }
+})
 
 // Step management
 const currentStep = ref(0)
@@ -151,10 +234,22 @@ const handleCountyChange = async (countyId: any) => {
   
   if (!countyId) return
 
+  // Enforce county restriction
+  if (isCountyRestricted.value && userCountyId.value && countyId !== userCountyId.value) {
+    ElMessage.error('You can only select facilities in your assigned county')
+    selectedCounty.value = userCountyId.value
+    return
+  }
+
   checkingGeometry.value = true
   
   try {
-    const countySettlements = (settlementOptionsV2.value || []).filter((item: any) => item.county_id === countyId)
+    let countySettlements = (settlementOptionsV2.value || []).filter((item: any) => item.county_id === countyId)
+    
+    // If user is restricted to a specific settlement, filter to that settlement only
+    if (userSettlementId.value && !isSuperAdmin.value && !hasNationalAccess.value) {
+      countySettlements = countySettlements.filter((item: any) => item.value === userSettlementId.value)
+    }
     
     const geometryChecks = await Promise.all(
       countySettlements.map(async (settlement: any) => {
@@ -367,6 +462,30 @@ const submitForm = async () => {
       }
 
       try {
+        // Enforce county restriction for non-admin users
+        if (isCountyRestricted.value && userCountyId.value) {
+          if (sewerForm.county_id && sewerForm.county_id !== userCountyId.value) {
+            ElMessage.error('You can only create facilities in your assigned county')
+            return
+          }
+          // Force county_id to user's county
+          sewerForm.county_id = userCountyId.value
+        }
+        
+        // Enforce settlement restriction for settlement-level users
+        if (userSettlementId.value && !isSuperAdmin.value && !hasNationalAccess.value) {
+          if (sewerForm.settlement_id && sewerForm.settlement_id !== userSettlementId.value) {
+            ElMessage.error('You can only create facilities in your assigned settlement')
+            return
+          }
+          // Force settlement_id to user's settlement
+          sewerForm.settlement_id = userSettlementId.value
+          // Also ensure county matches
+          if (userCountyId.value) {
+            sewerForm.county_id = userCountyId.value
+          }
+        }
+        
         const formData = {
           ...sewerForm,
           model: 'sewer',
@@ -469,15 +588,19 @@ const resetDrawing = () => {
                   filterable
                   clearable
                   @change="handleCountyChange"
+                  :disabled="isCountyRestricted"
                   style="width: 100%"
                 >
                   <el-option
-                    v-for="item in countyOptions"
+                    v-for="item in filteredCountyOptions"
                     :key="item.value"
                     :label="item.label"
                     :value="item.value"
                   />
                 </el-select>
+                <div v-if="isCountyRestricted" style="font-size: 12px; color: #909399; margin-top: 5px;">
+                  You are restricted to your assigned county
+                </div>
               </el-form-item>
             </el-col>
 

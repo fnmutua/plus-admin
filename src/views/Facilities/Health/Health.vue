@@ -48,10 +48,55 @@ const showAdminButtons = ref(appStore.getAdminButtons)
 const showEditButtons = ref(appStore.getEditButtons)
 const isMobile = computed(() => appStore.getMobile)
 
+// User location-based filtering
+const isSuperAdmin = computed(() => {
+  return userInfo?.roles?.some((role: any) => 
+    role.name === 'super_admin' || role.name === 'root_admin'
+  ) || false
+})
+
+const hasNationalAccess = computed(() => {
+  return userInfo?.roles?.some((role: any) => 
+    role.user_roles?.location_level === 'national'
+  ) || false
+})
+
+const userCountyRole = computed(() => {
+  return userInfo?.roles?.find((role: any) => 
+    role.user_roles?.location_level === 'county'
+  )
+})
+
+const userCountyId = computed(() => {
+  return userCountyRole.value?.user_roles?.county_id || null
+})
+
+const userSettlementRole = computed(() => {
+  return userInfo?.roles?.find((role: any) => 
+    role.user_roles?.location_level === 'settlement'
+  )
+})
+
+const userSettlementId = computed(() => {
+  return userSettlementRole.value?.user_roles?.settlement_id || null
+})
+
+// Check if user should be restricted to their county
+const isCountyRestricted = computed(() => {
+  return !isSuperAdmin.value && !hasNationalAccess.value && !!userCountyId.value
+})
+
 // For settlements, show 'viewOnMap' and 'addFacility' actions
 const action_buttons = ref<string[]>(['viewOnMap', 'addFacility']);
 
 console.log('action_buttons', action_buttons.value);
+console.log('User location info:', {
+  isSuperAdmin: isSuperAdmin.value,
+  hasNationalAccess: hasNationalAccess.value,
+  userCountyId: userCountyId.value,
+  userSettlementId: userSettlementId.value,
+  isCountyRestricted: isCountyRestricted.value
+})
 
 console.log("userInfo--->", userInfo)
 console.log("showAdminButtons--->", showAdminButtons.value)
@@ -63,9 +108,15 @@ const morefileList = ref<any[]>([])
 
 const tableDataListNew = ref([])
 const tableDataListRejected = ref([])
+// Pagination totals (settlements count)
 const totalRejected = ref(0)
 const totalNew = ref(0)
 const total = ref(0)
+
+// Segment badge counts (health facilities count)
+const badgeCountApproved = ref(0)
+const badgeCountNew = ref(0)
+const badgeCountRejected = ref(0)
 
 const activeSegment = ref('Approved')
 
@@ -74,32 +125,24 @@ const options = ref([
     label: 'Approved',
     value: 'Approved',
     icon: CircleCheck,
-    count: total,
+    count: badgeCountApproved, // Show facilities count in badge
     disabled:false,
   },
   {
     label: 'New',
     value: 'New',
     icon: Message,
-    count: totalNew,
+    count: badgeCountNew, // Show facilities count in badge
     disabled: !showAdminButtons.value
   },
   {
     label: 'Rejected',
     value: 'Rejected',
     icon: CircleClose,
-    count: totalRejected,
+    count: badgeCountRejected, // Show facilities count in badge
     disabled: !showAdminButtons.value
   },
 
-  {
-    label: 'Map',
-    value: 'Map',
-    icon: Position,
-    count: total,
-    disabled:false,
-
-  },
 ])
 
 const polygons = ref<[number, number][][]>([])
@@ -174,21 +217,36 @@ const handleSelectCounty = async (county_id: any) => {
 const statuses = ref([])
 const getSummaryStatus = async () => {
   // Get count of settlements that have health facilities with different approval statuses
-  const formData = {}
+  const formData: any = {}
   formData.model = healthFacilityModel
   formData.summaryFunction = 'count'
   formData.summaryField = 'isApproved'
   formData.groupFields = ['isApproved']
+  
+  // Apply county restriction if user is county-restricted - using filters/filterValues only
+  if (isCountyRestricted.value && userCountyId.value) {
+    formData.filters = ['county_id']
+    formData.filterValues = [[userCountyId.value]]
+  } else if (userSettlementId.value && !isSuperAdmin.value && !hasNationalAccess.value) {
+    formData.filters = ['settlement_id']
+    formData.filterValues = [[userSettlementId.value]]
+  }
+  
   const response = await getSummarybyFieldFromMultipleIncludes(formData);
   statuses.value = response.Total.reduce((acc, item) => {
     acc[item.isApproved] = parseInt(item.count, 10); // Convert count to a number
     return acc;
   }, {});
-  console.log('Data xcounty', statuses.value)
+  console.log('Facilities count by status (for badges):', statuses.value)
 
-  totalRejected.value = statuses.value.Rejected !== undefined ? statuses.value.Rejected : 0;
-  totalNew.value = statuses.value.Pending !== undefined ? statuses.value.Pending : 0;
-  total.value = statuses.value.Approved !== undefined ? statuses.value.Approved : 0;
+  // Set segment badge counts (health facilities count)
+  badgeCountApproved.value = statuses.value.Approved !== undefined ? statuses.value.Approved : 0;
+  badgeCountNew.value = statuses.value.Pending !== undefined ? statuses.value.Pending : 0;
+  badgeCountRejected.value = statuses.value.Rejected !== undefined ? statuses.value.Rejected : 0;
+  
+  // NOTE: Pagination totals (total.value, totalNew.value, totalRejected.value) are set in getFilteredData()
+  // and represent SETTLEMENTS count - these are NOT updated here
+  // Badge counts show facilities count, pagination uses settlements count
 
 }
 getSummaryStatus()
@@ -200,7 +258,10 @@ const handleClear = async () => {
   value5.value = null
   value6.value = null
 
+  // Reset and sync pagination
   pSize.value = 5
+  pageSize.value = 5
+  page.value = 1
   currentPage.value = 1
   // Retain only the first element in filters and filterValues
   filters.value = filters.value.slice(0, 1);
@@ -211,11 +272,15 @@ const handleClear = async () => {
 const onPageChange = async (selPage: any) => {
   console.log('on change change: selected   ', selCounties)
   page.value = selPage
+  currentPage.value = selPage
   getFilteredData(filters.value, filterValues.value)
 }
 
 const onPageSizeChange = async (size: any) => {
   pSize.value = size
+  pageSize.value = size
+  page.value = 1 // Reset to first page when page size changes
+  currentPage.value = 1
   getFilteredData(filters.value, filterValues.value)
 }
 
@@ -257,6 +322,16 @@ const loadHealthFacilitiesForSettlement = async (settlementId: number) => {
 
   loadingFacilities.value[settlementId] = true
   try {
+    // Build filters array
+    const facilityFilters: string[] = ['settlement_id']
+    const facilityFilterValues: any[] = [[settlementId]]
+    
+    // Apply county restriction if user is county-restricted
+    if (isCountyRestricted.value && userCountyId.value) {
+      facilityFilters.push('county_id')
+      facilityFilterValues.push([userCountyId.value])
+    }
+    
     const formData = {
       limit: 1000,
       page: 1,
@@ -264,8 +339,8 @@ const loadHealthFacilitiesForSettlement = async (settlementId: number) => {
       model: healthFacilityModel,
       searchField: 'name',
       searchKeyword: '',
-      filters: ['settlement_id'],
-      filterValues: [[settlementId]],
+      filters: facilityFilters,
+      filterValues: facilityFilterValues,
       associated_multiple_models: ['settlement', 'county', 'subcounty', 'ward', 'users']
     }
 
@@ -295,11 +370,71 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   formData.assocModel = associated_Model
 
   // - multiple filters -------------------------------------
-  // Remove isApproved from settlement filters since we'll filter by nested model
-  const settlementFilters = selFilters.filter((f: string) => f !== 'isApproved')
-  const settlementFilterValues = selfilterValues.filter((_: any, index: number) => selFilters[index] !== 'isApproved')
+  // FIRST: Apply location-based filtering based on user role (SERVER-SIDE FILTERING)
+  // This ensures the filter is applied before any other filters
+  let settlementFilters: string[] = []
+  let settlementFilterValues: any[] = []
   
-  // Set settlement-level filters (county, subcounty, ward, etc.)
+  // Apply user location restriction FIRST (server-side filtering)
+  if (isCountyRestricted.value && userCountyId.value) {
+    // User is restricted to their county - ALWAYS apply this filter server-side
+    settlementFilters.push('county_id')
+    settlementFilterValues.push([userCountyId.value])
+    console.log('Applying server-side county restriction filter:', userCountyId.value)
+  } else if (userSettlementId.value && !isSuperAdmin.value && !hasNationalAccess.value) {
+    // User is restricted to their settlement - ALWAYS apply this filter server-side
+    settlementFilters.push('settlement_id')
+    settlementFilterValues.push([userSettlementId.value])
+    console.log('Applying server-side settlement restriction filter:', userSettlementId.value)
+  }
+  
+  // THEN: Add other filters (excluding isApproved which is handled by nested_models)
+  selFilters.forEach((filter: string, index: number) => {
+    if (filter !== 'isApproved') {
+      // For county-restricted users, preserve the county_id restriction and don't override it
+      if (filter === 'county_id' && isCountyRestricted.value && userCountyId.value) {
+        // Ensure county restriction is maintained - don't override with manual selection
+        const countyIndex = settlementFilters.indexOf('county_id')
+        if (countyIndex !== -1) {
+          // County restriction already applied, ensure it uses the restricted county ID
+          settlementFilterValues[countyIndex] = [userCountyId.value]
+        }
+        // Skip adding this filter again as it's already handled by restriction
+        return
+      }
+      
+      // Check if filter already exists (to avoid duplicates)
+      const existingIndex = settlementFilters.indexOf(filter)
+      if (existingIndex === -1) {
+        settlementFilters.push(filter)
+        settlementFilterValues.push(selfilterValues[index])
+      } else {
+        // If filter exists, merge values (for multi-select filters)
+        const existingValues = settlementFilterValues[existingIndex]
+        const newValues = selfilterValues[index]
+        if (Array.isArray(existingValues) && Array.isArray(newValues)) {
+          settlementFilterValues[existingIndex] = [...new Set([...existingValues, ...newValues])]
+        } else {
+          settlementFilterValues[existingIndex] = newValues
+        }
+      }
+    }
+  })
+  
+  // Final check: Ensure county restriction is always present for county-restricted users
+  if (isCountyRestricted.value && userCountyId.value) {
+    const countyIndex = settlementFilters.indexOf('county_id')
+    if (countyIndex === -1) {
+      // Add county restriction if it's missing
+      settlementFilters.unshift('county_id')
+      settlementFilterValues.unshift([userCountyId.value])
+    } else {
+      // Ensure the value is correct
+      settlementFilterValues[countyIndex] = [userCountyId.value]
+    }
+  }
+  
+  // Set settlement-level filters (county, subcounty, ward, etc.) - SERVER-SIDE FILTERING
   formData.filters = settlementFilters.length > 0 ? settlementFilters : []
   formData.filterValues = settlementFilterValues.length > 0 ? settlementFilterValues : []
   formData.associated_multiple_models = ['county', 'subcounty', 'ward']
@@ -321,8 +456,10 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   const res = await getSettlementListByCounty(formData)
 
   console.log('After Query - Settlements with Health Facilities (backend filtered):', res)
+  console.log('Total settlements with health facilities:', res.total)
 
   // Backend should have already filtered to only settlements with health facilities
+  // res.total represents the total count of SETTLEMENTS (not facilities) that have health facilities matching the filters
   // Now load health facilities counts for display
   if (res.data && res.data.length > 0) {
     await Promise.all(res.data.map(async (settlement: any) => {
@@ -330,25 +467,41 @@ const getFilteredData = async (selFilters, selfilterValues) => {
     }))
   }
 
+  // Sync pagination variables after fetching
+  currentPage.value = page.value
+  pageSize.value = pSize.value
+
   console.log('activeSegment.value', activeSegment.value)
   if (activeSegment.value == 'Approved') {
     tableDataList.value = res.data || []
+    // Use res.total which is the total count of SETTLEMENTS with health facilities (for pagination)
     total.value = res.total || 0
+    console.log('Setting total (settlements count) for Approved:', total.value)
     removeReviewButton()
+    // Update summary status to keep segment counts in sync with county restrictions
+    await getSummaryStatus()
 
   } else if (activeSegment.value == 'New' && showAdminButtons.value) {
     tableDataListNew.value = res.data || []
+    // Use res.total which is the total count of SETTLEMENTS with health facilities (for pagination)
     totalNew.value = res.total || 0
+    console.log('Setting totalNew (settlements count) for New:', totalNew.value)
 
     if (!action_buttons.value.includes('review')) {
       action_buttons.value.push('review');
     }
+    // Update summary status to keep segment counts in sync with county restrictions
+    await getSummaryStatus()
 
   }
   else if (activeSegment.value == 'Rejected' && showAdminButtons.value) {
     tableDataListRejected.value = res.data || []
+    // Use res.total which is the total count of SETTLEMENTS with health facilities (for pagination)
     totalRejected.value = res.total || 0
+    console.log('Setting totalRejected (settlements count) for Rejected:', totalRejected.value)
     removeReviewButton()
+    // Update summary status to keep segment counts in sync with county restrictions
+    await getSummaryStatus()
 
   }
 
@@ -483,6 +636,30 @@ const getGeo = async () => {
 
 getCountyNames()
 getModelOptions()
+// Initialize user county filter after options are loaded
+const initializeUserCountyFilter = async () => {
+  await nextTick()
+  if (isCountyRestricted.value && userCountyId.value) {
+    // Pre-select user's county
+    value4.value = [userCountyId.value]
+    // Trigger county filter to load subcounties
+    await filterByCounty(userCountyId.value)
+    console.log('Initialized county filter for user:', userCountyId.value)
+    // Refresh summary status to get county-restricted totals
+    await getSummaryStatus()
+  } else if (userSettlementId.value && !isSuperAdmin.value && !hasNationalAccess.value) {
+    // User restricted to settlement - filter will be applied in getFilteredData
+    console.log('User restricted to settlement:', userSettlementId.value)
+    // Refresh summary status to get settlement-restricted totals
+    await getSummaryStatus()
+  }
+}
+
+// Initialize user county filter after a short delay to ensure options are loaded
+setTimeout(() => {
+  initializeUserCountyFilter()
+}, 500)
+
 getInterventionsAll()
 getGeo()
 
@@ -672,12 +849,6 @@ const onSegmentClick = async () => {
   console.log(activeSegment.value);
 
   
-  if (activeSegment.value === "Map") {
-    // Map view is now handled through the drawer when clicking "View on Map"
-    // This segment can show a general overview if needed
-    ElMessage.info("Click 'View on Map' on a settlement to see its map")
-  }
-
   if (activeSegment.value === "Approved") {
 
     var selectOption = 'isApproved'
@@ -1061,6 +1232,13 @@ const loadHealthFacilitiesOnMap = async (settlementId: number) => {
       columnFilterField: 'settlement_id',
       selectedParents: settlementId,
       filtredGeoIds: [settlementId]
+    }
+    
+    // Apply county restriction if user is county-restricted
+    if (isCountyRestricted.value && userCountyId.value) {
+      formData.columnFilterField = 'county_id'
+      formData.selectedParents = userCountyId.value
+      formData.filtredGeoIds = [userCountyId.value]
     }
 
     const res = await getfilteredGeo(formData)
@@ -1684,6 +1862,16 @@ const showAddSaveButton = ref(true)
 const AddDialogVisible = ref(false)
 const editFacility = async (data: TableSlotDefault) => {
   try {
+    // Build filters array
+    const facilityFilters: string[] = ['id']
+    const facilityFilterValues: any[] = [[data.id]]
+    
+    // Apply county restriction if user is county-restricted
+    if (isCountyRestricted.value && userCountyId.value) {
+      facilityFilters.push('county_id')
+      facilityFilterValues.push([userCountyId.value])
+    }
+    
     // Fetch full facility data with all associations
     const formData = {
       limit: 1,
@@ -1692,8 +1880,8 @@ const editFacility = async (data: TableSlotDefault) => {
       model: healthFacilityModel,
       searchField: 'id',
       searchKeyword: data.id.toString(),
-      filters: ['id'],
-      filterValues: [[data.id]],
+      filters: facilityFilters,
+      filterValues: facilityFilterValues,
       associated_multiple_models: ['settlement', 'county', 'subcounty', 'ward', 'users']
     }
     
@@ -1962,9 +2150,13 @@ const getFilteredBySearchData = async (searchKey) => {
 
 
 
+  // Reset pagination when search is performed
+  page.value = 1
+  currentPage.value = 1
+  
   searchLoading.value = true
   const formData = {}
-  formData.limit = pageSize.value
+  formData.limit = pSize.value
   formData.page = page.value
   formData.curUser = 1 // Id for logged in user
   formData.model = model
@@ -1988,6 +2180,10 @@ const getFilteredBySearchData = async (searchKey) => {
 
   const res = await searchByKeyWord(formData)
   searchLoading.value = false
+
+  // Sync pagination variables after fetching
+  currentPage.value = page.value
+  pageSize.value = pSize.value
 
   console.log('activeSegment.value', activeSegment.value)
   if (activeSegment.value == 'Approved') {
@@ -2084,6 +2280,9 @@ const filterByCounty = async (county_id: any) => {
   value5.value = null; // Clear the subcounty properly
   value6.value = null; // Clear the ward properly
 
+  // Reset pagination when filters change
+  page.value = 1
+  currentPage.value = 1
 
   if (search_string.value) {
     getFilteredBySearchData(search_string.value)
@@ -2136,6 +2335,10 @@ const filterBySubCounty = async (subcounty_id: any) => {
 
   // value6.value = null   // clear the ward sr 
 
+  // Reset pagination when filters change
+  page.value = 1
+  currentPage.value = 1
+
   if (search_string.value) {
     getFilteredBySearchData(search_string.value)
   }
@@ -2176,7 +2379,9 @@ const filterByWard = async (ward_id: any) => {
 
   }
 
-
+  // Reset pagination when filters change
+  page.value = 1
+  currentPage.value = 1
 
   if (search_string.value) {
     getFilteredBySearchData(search_string.value)
@@ -2219,6 +2424,9 @@ const searchByNewName = async () => {
   //value3.value = filterString
   //search_string.value = filterString
 
+  // Reset pagination when search changes
+  page.value = 1
+  currentPage.value = 1
 
   if (search_string.value) {
 
@@ -2232,21 +2440,29 @@ const searchByNewName = async () => {
 
 
 const AddFacility = (data?: TableSlotDefault) => {
+  const queryParams: any = {}
+  
   if (data) {
-    // If settlement data is provided, preload county and settlement
-    push({
-      name: 'AddHealthNew',
-      query: {
-        county_id: data.county_id || data.county?.id || '',
-        settlement_id: data.id || ''
-      }
-    })
-  } else {
-    // No data provided, just navigate to add page
-    push({
-      name: 'AddHealthNew'
-    })
+    // If settlement data is provided, use that county and settlement
+    queryParams.county_id = data.county_id || data.county?.id || ''
+    queryParams.settlement_id = data.id || ''
+  } else if (isCountyRestricted.value && userCountyId.value) {
+    // User is restricted to their county - pre-select it
+    queryParams.county_id = userCountyId.value
+    console.log('Pre-selecting user county for new facility:', userCountyId.value)
+  } else if (userSettlementId.value && !isSuperAdmin.value && !hasNationalAccess.value) {
+    // User is restricted to their settlement
+    queryParams.settlement_id = userSettlementId.value
+    // Also get county from settlement if possible
+    if (userCountyId.value) {
+      queryParams.county_id = userCountyId.value
+    }
   }
+  
+  push({
+    name: 'AddHealthNew',
+    query: queryParams
+  })
 }
 
 // Handler for add facility action from table
@@ -2346,7 +2562,8 @@ const bulkReview = () => {
       <el-col :xs="24" :sm="24" :md="12" :lg="5">
         <el-select
 size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear" multiple clearable
-          filterable collapse-tags placeholder="By County" style=" margin-right: 5px;">
+          filterable collapse-tags placeholder="By County" style=" margin-right: 5px;"
+          :disabled="isCountyRestricted">
           <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
 
@@ -2733,11 +2950,6 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
         @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
 
     </div>
-
-
-    <div v-if="activeSegment === 'Map'">
-      <el-empty description="Click 'View on Map' on a settlement to see its map with health facilities" />
-      </div>
 
 
         </el-card>

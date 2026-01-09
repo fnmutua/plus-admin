@@ -68,7 +68,52 @@ const action_buttons = ref<string[]>(['viewOnMap', 'addFacility']);
 // Google Maps API Key
 const googleMapsApiKey = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
 
+// User location-based filtering
+const isSuperAdmin = computed(() => {
+  return userInfo?.roles?.some((role: any) => 
+    role.name === 'super_admin' || role.name === 'root_admin'
+  ) || false
+})
+
+const hasNationalAccess = computed(() => {
+  return userInfo?.roles?.some((role: any) => 
+    role.user_roles?.location_level === 'national'
+  ) || false
+})
+
+const userCountyRole = computed(() => {
+  return userInfo?.roles?.find((role: any) => 
+    role.user_roles?.location_level === 'county'
+  )
+})
+
+const userCountyId = computed(() => {
+  return userCountyRole.value?.user_roles?.county_id || null
+})
+
+const userSettlementRole = computed(() => {
+  return userInfo?.roles?.find((role: any) => 
+    role.user_roles?.location_level === 'settlement'
+  )
+})
+
+const userSettlementId = computed(() => {
+  return userSettlementRole.value?.user_roles?.settlement_id || null
+})
+
+// Check if user should be restricted to their county
+const isCountyRestricted = computed(() => {
+  return !isSuperAdmin.value && !hasNationalAccess.value && !!userCountyId.value
+})
+
 console.log('action_buttons', action_buttons.value);
+console.log('User location info:', {
+  isSuperAdmin: isSuperAdmin.value,
+  hasNationalAccess: hasNationalAccess.value,
+  userCountyId: userCountyId.value,
+  userSettlementId: userSettlementId.value,
+  isCountyRestricted: isCountyRestricted.value
+})
 
 
 
@@ -81,11 +126,15 @@ console.log("showAdminButtons--->", showAdminButtons.value)
 
 const tableDataListNew = ref([])
 const tableDataListRejected = ref([])
+// Pagination totals (settlements count)
 const totalRejected = ref(0)
 const totalNew = ref(0)
 const total = ref(0)
 
-
+// Segment badge counts (education facilities count)
+const badgeCountApproved = ref(0)
+const badgeCountNew = ref(0)
+const badgeCountRejected = ref(0)
 
 const activeSegment = ref('Approved')
 
@@ -94,31 +143,22 @@ const options = ref([
     label: 'Approved',
     value: 'Approved',
     icon: CircleCheck,
-    count: total,
+    count: badgeCountApproved, // Show facilities count in badge
     disabled:false,
   },
   {
     label: 'New',
     value: 'New',
     icon: Message,
-    count: totalNew,
+    count: badgeCountNew, // Show facilities count in badge
     disabled: false
   },
   {
     label: 'Rejected',
     value: 'Rejected',
     icon: CircleClose,
-    count: totalRejected,
+    count: badgeCountRejected, // Show facilities count in badge
     disabled: false
-  },
-
-  {
-    label: 'Map',
-    value: 'Map',
-    icon: Position,
-    count: total,
-    disabled:false,
-
   },
 ])
 
@@ -415,7 +455,10 @@ const handleClear = async () => {
   value5.value = null
   value6.value = null
 
+  // Reset and sync pagination
   pSize.value = 5
+  pageSize.value = 5
+  page.value = 1
   currentPage.value = 1
   // Retain only the first element in filters and filterValues
   filters.value = filters.value.slice(0, 1);
@@ -428,11 +471,15 @@ const handleClear = async () => {
 const onPageChange = async (selPage: any) => {
   console.log('on change change: selected   ', selCounties)
   page.value = selPage
+  currentPage.value = selPage
   getFilteredData(filters.value, filterValues.value)
 }
 
 const onPageSizeChange = async (size: any) => {
   pSize.value = size
+  pageSize.value = size
+  page.value = 1 // Reset to first page when page size changes
+  currentPage.value = 1
   getFilteredData(filters.value, filterValues.value)
 }
 
@@ -473,6 +520,16 @@ const loadEducationFacilitiesForSettlement = async (settlementId: number) => {
 
   loadingFacilities.value[settlementId] = true
   try {
+    // Build filters array
+    const facilityFilters: string[] = ['settlement_id']
+    const facilityFilterValues: any[] = [[settlementId]]
+    
+    // Apply county restriction if user is county-restricted
+    if (isCountyRestricted.value && userCountyId.value) {
+      facilityFilters.push('county_id')
+      facilityFilterValues.push([userCountyId.value])
+    }
+    
     const formData = {
       limit: 1000,
       page: 1,
@@ -480,8 +537,8 @@ const loadEducationFacilitiesForSettlement = async (settlementId: number) => {
       model: educationFacilityModel,
       searchField: 'name',
       searchKeyword: '',
-      filters: ['settlement_id'],
-      filterValues: [[settlementId]],
+      filters: facilityFilters,
+      filterValues: facilityFilterValues,
       associated_multiple_models: ['settlement', 'county', 'subcounty', 'ward', 'users']
     }
 
@@ -511,11 +568,71 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   formData.assocModel = associated_Model
 
   // - multiple filters -------------------------------------
-  // Remove isApproved from settlement filters since we'll filter by nested model
-  const settlementFilters = selFilters.filter((f: string) => f !== 'isApproved')
-  const settlementFilterValues = selfilterValues.filter((_: any, index: number) => selFilters[index] !== 'isApproved')
+  // FIRST: Apply location-based filtering based on user role (SERVER-SIDE FILTERING)
+  // This ensures the filter is applied before any other filters
+  let settlementFilters: string[] = []
+  let settlementFilterValues: any[] = []
   
-  // Set settlement-level filters (county, subcounty, ward, etc.)
+  // Apply user location restriction FIRST (server-side filtering)
+  if (isCountyRestricted.value && userCountyId.value) {
+    // User is restricted to their county - ALWAYS apply this filter server-side
+    settlementFilters.push('county_id')
+    settlementFilterValues.push([userCountyId.value])
+    console.log('Applying server-side county restriction filter:', userCountyId.value)
+  } else if (userSettlementId.value && !isSuperAdmin.value && !hasNationalAccess.value) {
+    // User is restricted to their settlement - ALWAYS apply this filter server-side
+    settlementFilters.push('settlement_id')
+    settlementFilterValues.push([userSettlementId.value])
+    console.log('Applying server-side settlement restriction filter:', userSettlementId.value)
+  }
+  
+  // THEN: Add other filters (excluding isApproved which is handled by nested_models)
+  selFilters.forEach((filter: string, index: number) => {
+    if (filter !== 'isApproved') {
+      // For county-restricted users, preserve the county_id restriction and don't override it
+      if (filter === 'county_id' && isCountyRestricted.value && userCountyId.value) {
+        // Ensure county restriction is maintained - don't override with manual selection
+        const countyIndex = settlementFilters.indexOf('county_id')
+        if (countyIndex !== -1) {
+          // County restriction already applied, ensure it uses the restricted county ID
+          settlementFilterValues[countyIndex] = [userCountyId.value]
+        }
+        // Skip adding this filter again as it's already handled by restriction
+        return
+      }
+      
+      // Check if filter already exists (to avoid duplicates)
+      const existingIndex = settlementFilters.indexOf(filter)
+      if (existingIndex === -1) {
+        settlementFilters.push(filter)
+        settlementFilterValues.push(selfilterValues[index])
+      } else {
+        // If filter exists, merge values (for multi-select filters)
+        const existingValues = settlementFilterValues[existingIndex]
+        const newValues = selfilterValues[index]
+        if (Array.isArray(existingValues) && Array.isArray(newValues)) {
+          settlementFilterValues[existingIndex] = [...new Set([...existingValues, ...newValues])]
+        } else {
+          settlementFilterValues[existingIndex] = newValues
+        }
+      }
+    }
+  })
+  
+  // Final check: Ensure county restriction is always present for county-restricted users
+  if (isCountyRestricted.value && userCountyId.value) {
+    const countyIndex = settlementFilters.indexOf('county_id')
+    if (countyIndex === -1) {
+      // Add county restriction if it's missing
+      settlementFilters.unshift('county_id')
+      settlementFilterValues.unshift([userCountyId.value])
+    } else {
+      // Ensure the value is correct
+      settlementFilterValues[countyIndex] = [userCountyId.value]
+    }
+  }
+  
+  // Set settlement-level filters (county, subcounty, ward, etc.) - SERVER-SIDE FILTERING
   formData.filters = settlementFilters.length > 0 ? settlementFilters : []
   formData.filterValues = settlementFilterValues.length > 0 ? settlementFilterValues : []
   formData.associated_multiple_models = ['county', 'subcounty', 'ward']
@@ -548,25 +665,41 @@ const getFilteredData = async (selFilters, selfilterValues) => {
     console.log('All facilities loaded. settlementEducationFacilities:', settlementEducationFacilities.value)
   }
 
+  // Sync pagination variables after fetching
+  currentPage.value = page.value
+  pageSize.value = pSize.value
+
   console.log('activeSegment.value', activeSegment.value)
   if (activeSegment.value == 'Approved') {
     tableDataList.value = res.data || []
+    // Use res.total which is the total count of SETTLEMENTS with education facilities (for pagination)
     total.value = res.total || 0
+    console.log('Setting total (settlements count) for Approved:', total.value)
     removeReviewButton()
+    // Update summary status to keep segment counts in sync with county restrictions
+    await getSummaryStatus()
 
   } else if (activeSegment.value == 'New') {
     tableDataListNew.value = res.data || []
+    // Use res.total which is the total count of SETTLEMENTS with education facilities (for pagination)
     totalNew.value = res.total || 0
+    console.log('Setting totalNew (settlements count) for New:', totalNew.value)
 
     if (!action_buttons.value.includes('review')) {
       action_buttons.value.push('review');
     }
+    // Update summary status to keep segment counts in sync with county restrictions
+    await getSummaryStatus()
 
   }
   else if (activeSegment.value == 'Rejected') {
     tableDataListRejected.value = res.data || []
+    // Use res.total which is the total count of SETTLEMENTS with education facilities (for pagination)
     totalRejected.value = res.total || 0
+    console.log('Setting totalRejected (settlements count) for Rejected:', totalRejected.value)
     removeReviewButton()
+    // Update summary status to keep segment counts in sync with county restrictions
+    await getSummaryStatus()
 
   }
 
@@ -579,21 +712,36 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 const statuses = ref([])
 const getSummaryStatus = async () => {
   // Get count of settlements that have education facilities with different approval statuses
-  const formData = {}
+  const formData: any = {}
   formData.model = educationFacilityModel
   formData.summaryFunction = 'count'
   formData.summaryField = 'isApproved'
   formData.groupFields = ['isApproved']
+  
+  // Apply county restriction if user is county-restricted - using filters/filterValues only
+  if (isCountyRestricted.value && userCountyId.value) {
+    formData.filters = ['county_id']
+    formData.filterValues = [[userCountyId.value]]
+  } else if (userSettlementId.value && !isSuperAdmin.value && !hasNationalAccess.value) {
+    formData.filters = ['settlement_id']
+    formData.filterValues = [[userSettlementId.value]]
+  }
+  
   const response = await getSummarybyFieldFromMultipleIncludes(formData);
   statuses.value = response.Total.reduce((acc, item) => {
     acc[item.isApproved] = parseInt(item.count, 10); // Convert count to a number
     return acc;
   }, {});
-  console.log('Data xcounty', statuses.value)
+  console.log('Facilities count by status (for badges):', statuses.value)
 
-  totalRejected.value = statuses.value.Rejected !== undefined ? statuses.value.Rejected : 0;
-  totalNew.value = statuses.value.Pending !== undefined ? statuses.value.Pending : 0;
-  total.value = statuses.value.Approved !== undefined ? statuses.value.Approved : 0;
+  // Set segment badge counts (education facilities count)
+  badgeCountApproved.value = statuses.value.Approved !== undefined ? statuses.value.Approved : 0;
+  badgeCountNew.value = statuses.value.Pending !== undefined ? statuses.value.Pending : 0;
+  badgeCountRejected.value = statuses.value.Rejected !== undefined ? statuses.value.Rejected : 0;
+  
+  // NOTE: Pagination totals (total.value, totalNew.value, totalRejected.value) are set in getFilteredData()
+  // and represent SETTLEMENTS count - these are NOT updated here
+  // Badge counts show facilities count, pagination uses settlements count
 
 
 }
@@ -726,6 +874,30 @@ const getGeo = async () => {
 getCountyNames()
 
 getModelOptions()
+// Initialize user county filter after options are loaded
+const initializeUserCountyFilter = async () => {
+  await nextTick()
+  if (isCountyRestricted.value && userCountyId.value) {
+    // Pre-select user's county
+    value4.value = [userCountyId.value]
+    // Trigger county filter to load subcounties
+    await filterByCounty(userCountyId.value)
+    console.log('Initialized county filter for user:', userCountyId.value)
+    // Refresh summary status to get county-restricted totals
+    await getSummaryStatus()
+  } else if (userSettlementId.value && !isSuperAdmin.value && !hasNationalAccess.value) {
+    // User restricted to settlement - filter will be applied in getFilteredData
+    console.log('User restricted to settlement:', userSettlementId.value)
+    // Refresh summary status to get settlement-restricted totals
+    await getSummaryStatus()
+  }
+}
+
+// Initialize user county filter after a short delay to ensure options are loaded
+setTimeout(() => {
+  initializeUserCountyFilter()
+}, 500)
+
 getInterventionsAll()
 getGeo()
  
@@ -734,10 +906,6 @@ getGeo()
 
 const onSegmentClick = async () => {
   console.log(activeSegment.value);
-  if (activeSegment.value === "Map") {
-    // Map functionality is now handled via the drawer in flyTo function
-    // This segment click handler can be removed or repurposed if needed
-  }
 
   if (activeSegment.value === "Approved") {
 
@@ -1370,6 +1538,9 @@ const filterByCounty = async (county_id: any) => {
   value5.value = null; // Clear the subcounty properly
   value6.value = null; // Clear the ward properly
 
+  // Reset pagination when filters change
+  page.value = 1
+  currentPage.value = 1
 
   if (search_string.value) {
     getFilteredBySearchData(search_string.value)
@@ -1422,6 +1593,10 @@ const filterBySubCounty = async (subcounty_id: any) => {
 
   // value6.value = null   // clear the ward sr 
 
+  // Reset pagination when filters change
+  page.value = 1
+  currentPage.value = 1
+
   if (search_string.value) {
     getFilteredBySearchData(search_string.value)
   }
@@ -1462,7 +1637,9 @@ const filterByWard = async (ward_id: any) => {
 
   }
 
-
+  // Reset pagination when filters change
+  page.value = 1
+  currentPage.value = 1
 
   if (search_string.value) {
     getFilteredBySearchData(search_string.value)
@@ -1505,6 +1682,9 @@ const searchByNewName = async () => {
   //value3.value = filterString
   //search_string.value = filterString
 
+  // Reset pagination when search changes
+  page.value = 1
+  currentPage.value = 1
 
   if (search_string.value) {
 
@@ -1518,21 +1698,29 @@ const searchByNewName = async () => {
 
 
 const AddFacility = (data?: TableSlotDefault) => {
+  const queryParams: any = {}
+  
   if (data) {
-    // If settlement data is provided, preload county and settlement
-    push({
-      name: 'AddEducationNew',
-      query: {
-        county_id: data.county_id || data.county?.id || '',
-        settlement_id: data.id || ''
-      }
-    })
-  } else {
-    // No data provided, just navigate to add page
-    push({
-      name: 'AddEducationNew'
-    })
+    // If settlement data is provided, use that county and settlement
+    queryParams.county_id = data.county_id || data.county?.id || ''
+    queryParams.settlement_id = data.id || ''
+  } else if (isCountyRestricted.value && userCountyId.value) {
+    // User is restricted to their county - pre-select it
+    queryParams.county_id = userCountyId.value
+    console.log('Pre-selecting user county for new facility:', userCountyId.value)
+  } else if (userSettlementId.value && !isSuperAdmin.value && !hasNationalAccess.value) {
+    // User is restricted to their settlement
+    queryParams.settlement_id = userSettlementId.value
+    // Also get county from settlement if possible
+    if (userCountyId.value) {
+      queryParams.county_id = userCountyId.value
+    }
   }
+  
+  push({
+    name: 'AddEducationNew',
+    query: queryParams
+  })
 }
 
 const handleAddFacility = (row: any) => {
@@ -1692,6 +1880,13 @@ const loadEducationFacilitiesOnMap = async (settlementId: number) => {
       selectedParents: settlementId,
       filtredGeoIds: [settlementId]
     }
+    
+    // Apply county restriction if user is county-restricted
+    if (isCountyRestricted.value && userCountyId.value) {
+      formData.columnFilterField = 'county_id'
+      formData.selectedParents = userCountyId.value
+      formData.filtredGeoIds = [userCountyId.value]
+    }
 
     const res = await getfilteredGeo(formData)
     
@@ -1838,7 +2033,22 @@ const openFacilityForm = (facilityData: any) => {
   facilityForm.name = facilityData.name || ''
   facilityForm.registration_number = facilityData.registration_number || ''
   facilityForm.settlement_id = facilityData.settlement_id || mapDrawerSettlement.value?.id || ''
-  facilityForm.county_id = facilityData.county_id || mapDrawerSettlement.value?.county_id || ''
+  
+  // Enforce county restriction when editing
+  if (isCountyRestricted.value && userCountyId.value) {
+    facilityForm.county_id = userCountyId.value
+  } else {
+    facilityForm.county_id = facilityData.county_id || mapDrawerSettlement.value?.county_id || ''
+  }
+  
+  // Enforce settlement restriction when editing
+  if (userSettlementId.value && !isSuperAdmin.value && !hasNationalAccess.value) {
+    facilityForm.settlement_id = userSettlementId.value
+    if (userCountyId.value) {
+      facilityForm.county_id = userCountyId.value
+    }
+  }
+  
   facilityForm.subcounty_id = facilityData.subcounty_id || mapDrawerSettlement.value?.subcounty_id || ''
   facilityForm.ward_id = facilityData.ward_id || mapDrawerSettlement.value?.ward_id || ''
   facilityForm.education_category = Array.isArray(facilityData.education_category) ? facilityData.education_category : (facilityData.category ? [facilityData.category] : [])
@@ -1897,6 +2107,30 @@ const submitFacilityForm = async () => {
         const formData: any = {
           ...facilityForm,
           model: educationFacilityModel
+        }
+        
+        // Enforce county restriction for non-admin users
+        if (isCountyRestricted.value && userCountyId.value) {
+          if (formData.county_id && formData.county_id !== userCountyId.value) {
+            ElMessage.error('You can only create facilities in your assigned county')
+            return
+          }
+          // Force county_id to user's county
+          formData.county_id = userCountyId.value
+        }
+        
+        // Enforce settlement restriction for settlement-level users
+        if (userSettlementId.value && !isSuperAdmin.value && !hasNationalAccess.value) {
+          if (formData.settlement_id && formData.settlement_id !== userSettlementId.value) {
+            ElMessage.error('You can only create facilities in your assigned settlement')
+            return
+          }
+          // Force settlement_id to user's settlement
+          formData.settlement_id = userSettlementId.value
+          // Also ensure county matches
+          if (userCountyId.value) {
+            formData.county_id = userCountyId.value
+          }
         }
         
         // Convert education_category array to comma-separated string
@@ -1986,6 +2220,16 @@ const handleMapDrawerClose = () => {
 
 const editFacility = async (data: TableSlotDefault) => {
   try {
+    // Build filters array
+    const facilityFilters: string[] = ['id']
+    const facilityFilterValues: any[] = [[data.id]]
+    
+    // Apply county restriction if user is county-restricted
+    if (isCountyRestricted.value && userCountyId.value) {
+      facilityFilters.push('county_id')
+      facilityFilterValues.push([userCountyId.value])
+    }
+    
     // Fetch full facility data with all associations
     const formData = {
       limit: 1,
@@ -1994,8 +2238,8 @@ const editFacility = async (data: TableSlotDefault) => {
       model: educationFacilityModel,
       searchField: 'id',
       searchKeyword: data.id.toString(),
-      filters: ['id'],
-      filterValues: [[data.id]],
+      filters: facilityFilters,
+      filterValues: facilityFilterValues,
       associated_multiple_models: ['settlement', 'county', 'subcounty', 'ward', 'users']
     }
     
@@ -2052,7 +2296,8 @@ const filteredSegments = computed(() => {
       <el-col :xs="24" :sm="24" :md="12" :lg="5">
         <el-select
 size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear" multiple clearable
-          filterable collapse-tags placeholder="By County" style=" margin-right: 5px;">
+          filterable collapse-tags placeholder="By County" style=" margin-right: 5px;"
+          :disabled="isCountyRestricted">
           <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
 
@@ -2389,27 +2634,6 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
         class="mt-4" />
 
     </div>
-
-
-    <div v-if="activeSegment === 'Map'">
-      <div id="mapContainer" class="basemap" style="width: 100%; margin-top: 10px;"></div>
-      <div id="floating-div">
-        <el-card>
-          <el-collapse>
-            <el-collapse-item title="LEGEND">
-              <div class="legend">
-                <div v-for="item in mapTabLegendItems" :key="item.label" class="legend-item">
-                  <div class="circle-color" :style="{ backgroundColor: item.color }"></div>
-                  <div class="legend-label">{{ item.label }}</div>
-                </div>
-              </div>
-            </el-collapse-item>
-          </el-collapse>
-        </el-card>
-      </div>
-
-    </div>
-
   </el-card>
 
 
