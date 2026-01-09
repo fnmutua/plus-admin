@@ -144,19 +144,22 @@ const getSummaryStatus = async () => {
         return
       }
       
+      // Ensure filterValues.value[index] is an array (wrap single values)
+      const filterValue = filterValues.value[index]
+      const normalizedValue = Array.isArray(filterValue) ? filterValue : [filterValue]
+      
       // Check if filter already exists (to avoid duplicates)
       const existingIndex = summaryFilters.indexOf(filter)
       if (existingIndex === -1) {
         summaryFilters.push(filter)
-        summaryFilterValues.push(filterValues.value[index])
+        summaryFilterValues.push(normalizedValue)
       } else {
         // If filter exists, merge values (for multi-select filters)
         const existingValues = summaryFilterValues[existingIndex]
-        const newValues = filterValues.value[index]
-        if (Array.isArray(existingValues) && Array.isArray(newValues)) {
-          summaryFilterValues[existingIndex] = [...new Set([...existingValues, ...newValues])]
+        if (Array.isArray(existingValues) && Array.isArray(normalizedValue)) {
+          summaryFilterValues[existingIndex] = [...new Set([...existingValues, ...normalizedValue])]
         } else {
-          summaryFilterValues[existingIndex] = newValues
+          summaryFilterValues[existingIndex] = normalizedValue
         }
       }
     }
@@ -178,6 +181,12 @@ const getSummaryStatus = async () => {
     formData.filters = summaryFilters
     formData.filterValues = summaryFilterValues
   }
+  
+  console.log('getSummaryStatus - Applied filters:', summaryFilters)
+  console.log('getSummaryStatus - Applied filterValues:', summaryFilterValues)
+  console.log('getSummaryStatus - Current filters.value:', filters.value)
+  console.log('getSummaryStatus - Current filterValues.value:', filterValues.value)
+  console.log('getSummaryStatus - formData:', formData)
   
   const response = await getSummarybyFieldFromMultipleIncludes(formData)
   
