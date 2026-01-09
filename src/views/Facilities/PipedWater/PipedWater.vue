@@ -109,112 +109,38 @@ console.log('User location info:', {
 
 const statuses = ref([])
 const getSummaryStatus = async () => {
-  // Get count of piped water facilities with different approval statuses
-  const formData: Record<string, any> = {}
+  // Get count of settlements that have piped water facilities with different approval statuses
+  const formData: any = {}
   formData.model = pipedWaterFacilityModel
   formData.summaryFunction = 'count'
   formData.summaryField = 'isApproved'
   formData.groupFields = ['isApproved']
   
-  // Build filters array similar to getFilteredData to apply same filters
-  let summaryFilters: string[] = []
-  let summaryFilterValues: any[] = []
-  
-  // FIRST: Apply location-based filtering based on user role (SERVER-SIDE FILTERING)
+  // Apply county restriction if user is county-restricted - using filters/filterValues only
   if (isCountyRestricted.value && userCountyId.value) {
-    // User is restricted to their county - ALWAYS apply this filter server-side
-    summaryFilters.push('county_id')
-    summaryFilterValues.push([userCountyId.value])
+    formData.filters = ['county_id']
+    formData.filterValues = [[userCountyId.value]]
   } else if (userSettlementId.value && !isSuperAdmin.value && !hasNationalAccess.value) {
-    // User is restricted to their settlement - ALWAYS apply this filter server-side
-    summaryFilters.push('settlement_id')
-    summaryFilterValues.push([userSettlementId.value])
+    formData.filters = ['settlement_id']
+    formData.filterValues = [[userSettlementId.value]]
   }
   
-  // THEN: Add other filters from current filter selections (excluding isApproved)
-  filters.value.forEach((filter: string, index: number) => {
-    if (filter !== 'isApproved') {
-      // For county-restricted users, preserve the county_id restriction and don't override it
-      if (filter === 'county_id' && isCountyRestricted.value && userCountyId.value) {
-        // Ensure county restriction is maintained - don't override with manual selection
-        const countyIndex = summaryFilters.indexOf('county_id')
-        if (countyIndex !== -1) {
-          summaryFilterValues[countyIndex] = [userCountyId.value]
-        }
-        return
-      }
-      
-      // Ensure filterValues.value[index] is an array (wrap single values)
-      const filterValue = filterValues.value[index]
-      const normalizedValue = Array.isArray(filterValue) ? filterValue : [filterValue]
-      
-      // Check if filter already exists (to avoid duplicates)
-      const existingIndex = summaryFilters.indexOf(filter)
-      if (existingIndex === -1) {
-        summaryFilters.push(filter)
-        summaryFilterValues.push(normalizedValue)
-      } else {
-        // If filter exists, merge values (for multi-select filters)
-        const existingValues = summaryFilterValues[existingIndex]
-        if (Array.isArray(existingValues) && Array.isArray(normalizedValue)) {
-          summaryFilterValues[existingIndex] = [...new Set([...existingValues, ...normalizedValue])]
-        } else {
-          summaryFilterValues[existingIndex] = normalizedValue
-        }
-      }
-    }
-  })
-  
-  // Final check: Ensure county restriction is always present for county-restricted users
-  if (isCountyRestricted.value && userCountyId.value) {
-    const countyIndex = summaryFilters.indexOf('county_id')
-    if (countyIndex === -1) {
-      summaryFilters.unshift('county_id')
-      summaryFilterValues.unshift([userCountyId.value])
-    } else {
-      summaryFilterValues[countyIndex] = [userCountyId.value]
-    }
-  }
-  
-  // Apply filters to formData
-  if (summaryFilters.length > 0) {
-    formData.filters = summaryFilters
-    formData.filterValues = summaryFilterValues
-  }
-  
-  console.log('getSummaryStatus - Applied filters:', summaryFilters)
-  console.log('getSummaryStatus - Applied filterValues:', summaryFilterValues)
-  console.log('getSummaryStatus - Current filters.value:', filters.value)
-  console.log('getSummaryStatus - Current filterValues.value:', filterValues.value)
-  console.log('getSummaryStatus - formData:', formData)
-  
-  const response = await getSummarybyFieldFromMultipleIncludes(formData)
-  
-  // Initialize statuses object to empty - this ensures we start fresh
-  statuses.value = {}
-  
-  // Process response.Total array to build status counts - only if response exists and has Total array
-  if (response && response.Total && Array.isArray(response.Total) && response.Total.length > 0) {
-    response.Total.forEach((item: any) => {
-      if (item.isApproved && item.count !== undefined) {
-        statuses.value[item.isApproved] = parseInt(item.count, 10) || 0
-      }
-    })
-  }
-  
+  const response = await getSummarybyFieldFromMultipleIncludes(formData);
+  statuses.value = response.Total.reduce((acc, item) => {
+    acc[item.isApproved] = parseInt(item.count, 10); // Convert count to a number
+    return acc;
+  }, {});
   console.log('Facilities count by status (for badges):', statuses.value)
-  console.log('Response Total:', response?.Total)
 
-  // Set segment badge counts (piped water facilities count) - ensure they're numbers and reset to 0 if no data
-  badgeCountApproved.value = (statuses.value.Approved !== undefined && statuses.value.Approved !== null) ? Number(statuses.value.Approved) : 0
-  badgeCountNew.value = (statuses.value.Pending !== undefined && statuses.value.Pending !== null) ? Number(statuses.value.Pending) : 0
-  badgeCountRejected.value = (statuses.value.Rejected !== undefined && statuses.value.Rejected !== null) ? Number(statuses.value.Rejected) : 0
-  
-  console.log('Badge counts - Approved:', badgeCountApproved.value, 'New:', badgeCountNew.value, 'Rejected:', badgeCountRejected.value)
+  // Set segment badge counts (piped water facilities count)
+  badgeCountApproved.value = statuses.value.Approved !== undefined ? statuses.value.Approved : 0;
+  badgeCountNew.value = statuses.value.Pending !== undefined ? statuses.value.Pending : 0;
+  badgeCountRejected.value = statuses.value.Rejected !== undefined ? statuses.value.Rejected : 0;
   
   // NOTE: Pagination totals (total.value, totalNew.value, totalRejected.value) are set in getFilteredData()
   // and represent SETTLEMENTS count - these are NOT updated here
   // Badge counts show facilities count, pagination uses settlements count
+
 }
 getSummaryStatus()
 
