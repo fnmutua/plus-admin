@@ -522,7 +522,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         name: 'Facilities',
         meta: {
           hidden: false,
-          role: ['root_admin',  'super_admin'   ] ,
+          role: ['root_admin','admin', 'super_admin', 'monitoring' , 'staff' ] ,
+          locationLevel:['national','county','settlement'],
 
           title: 'Facilities',
           icon:'ic:outline-local-convenience-store',

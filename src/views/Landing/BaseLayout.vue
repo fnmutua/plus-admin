@@ -108,6 +108,11 @@ import { ElMain, ElMenu, ElMenuItem, ElContainer, ElFooter, ElHeader } from 'ele
 import { Icon } from '@iconify/vue';
 import { useCache } from '@/hooks/web/useCache';
 import { useAppStoreWithOut } from '@/store/modules/app';
+import { usePermissionStoreWithOut } from '@/store/modules/permission';
+import { useDictStoreWithOut } from '@/store/modules/dict';
+import { useLocaleStoreWithOut } from '@/store/modules/locale';
+import { useTagsViewStore } from '@/store/modules/tagsView';
+import { resetRouter } from '@/router';
 import { loginOutApi } from '@/api/login';
 
 // Enable scrolling for landing page
@@ -132,6 +137,10 @@ onBeforeUnmount(() => {
 const router = useRouter();
 const { wsCache } = useCache();
 const appStore = useAppStoreWithOut();
+const permissionStore = usePermissionStoreWithOut();
+const dictStore = useDictStoreWithOut();
+const localeStore = useLocaleStoreWithOut();
+const tagsViewStore = useTagsViewStore();
 
 // Get current year for copyright
 const currentYear = new Date().getFullYear();
@@ -271,16 +280,38 @@ const handleLoginOrLogout = async () => {
     try {
       const userInfo = wsCache.get(appStore.getUserInfo);
       if (userInfo) {
-        await loginOutApi(userInfo);
+        const userId = userInfo && userInfo.id ? userInfo.id : null;
+        await loginOutApi({ userId });
       }
     } catch (error) {
       console.error('Logout API call failed:', error);
       // Continue with logout even if API fails
     }
     
+    // Clear all storage first
     wsCache.clear();
     localStorage.clear();
     sessionStorage.clear();
+    
+    // Clear Cache storage (browser Cache API)
+    if ('caches' in window) {
+      const cacheNames = await caches.keys();
+      await Promise.all(cacheNames.map(name => caches.delete(name)));
+    }
+    
+    // Reset all Pinia stores to clear in-memory state
+    tagsViewStore.$reset();
+    appStore.$reset();
+    permissionStore.$reset();
+    dictStore.$reset();
+    localeStore.$reset();
+    
+    // Clear tags view manually (in case $reset doesn't clear it properly)
+    tagsViewStore.delAllViews();
+    
+    // Reset router to clear dynamic routes
+    resetRouter();
+    
     router.push('/login');
   } else {
     router.push('/login');
