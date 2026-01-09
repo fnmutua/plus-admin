@@ -26,6 +26,52 @@ const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
 
+// User location-based filtering
+const isSuperAdmin = computed(() => {
+  return userInfo?.roles?.some((role: any) => 
+    role.name === 'super_admin' || role.name === 'root_admin'
+  ) || false
+})
+
+const hasNationalAccess = computed(() => {
+  return userInfo?.roles?.some((role: any) => 
+    role.user_roles?.location_level === 'national'
+  ) || false
+})
+
+const userCountyRole = computed(() => {
+  return userInfo?.roles?.find((role: any) => 
+    role.user_roles?.location_level === 'county'
+  )
+})
+
+const userCountyId = computed(() => {
+  return userCountyRole.value?.user_roles?.county_id || null
+})
+
+const userSettlementRole = computed(() => {
+  return userInfo?.roles?.find((role: any) => 
+    role.user_roles?.location_level === 'settlement'
+  )
+})
+
+const userSettlementId = computed(() => {
+  return userSettlementRole.value?.user_roles?.settlement_id || null
+})
+
+// Check if user should be restricted to their county
+const isCountyRestricted = computed(() => {
+  return !isSuperAdmin.value && !hasNationalAccess.value && !!userCountyId.value
+})
+
+console.log('Document.vue - User location info:', {
+  isSuperAdmin: isSuperAdmin.value,
+  hasNationalAccess: hasNationalAccess.value,
+  userCountyId: userCountyId.value,
+  userSettlementId: userSettlementId.value,
+  isCountyRestricted: isCountyRestricted.value
+})
+
 // Type definitions
 interface FileMetadata {
   name: string;
@@ -153,6 +199,27 @@ getDocumentTypes();
     const associatedModels = model === 'settlement' ? ['county', 'subcounty','ward'] : 
                             ['project', 'contractor', 'road', 'road_asset'].includes(model) ? [] : 
                             ['county', 'subcounty', 'ward'];
+    
+    // Build filters array for server-side filtering
+    let filters: string[] = []
+    let filterValues: any[] = []
+    
+    // Apply county restriction if user is county-restricted (unless super admin or national admin)
+    if (isCountyRestricted.value && userCountyId.value) {
+      // For models that have county_id field, apply county restriction
+      if (associatedModels.includes('county') || model === 'settlement') {
+        filters.push('county_id')
+        filterValues.push([userCountyId.value])
+        console.log('Applying county restriction filter for model:', model, 'county_id:', userCountyId.value)
+      }
+    } else if (userSettlementId.value && !isSuperAdmin.value && !hasNationalAccess.value) {
+      // User is restricted to their settlement
+      if (model === 'settlement') {
+        filters.push('settlement_id')
+        filterValues.push([userSettlementId.value])
+        console.log('Applying settlement restriction filter:', userSettlementId.value)
+      }
+    }
      
     const formData = {
       curUser: 1,
@@ -162,8 +229,8 @@ getDocumentTypes();
       excludeGeom: false,
       excludeGeomAssoc: true,
       associated_multiple_models: associatedModels,
-      filters: [],
-      filterValues: [],
+      filters: filters,
+      filterValues: filterValues,
     };
 
     const response = model === 'households' 
@@ -175,18 +242,45 @@ getDocumentTypes();
     }
 
     console.log('response.data',response.data)
-    parentOptions.value = response.data
-      .filter((item: any) => item.id !== userInfo.id || model !== 'settlement')
-      .map((item: any) => ({
-        value: item.id,
-        label: item.name || item.title || item.contract_number || 'Unknown',
-        county: item.county?.name,
-        subcounty: item.subcounty?.name,
-        ward: item.ward?.name,
-        ward_id: item.ward?.id,
-        subcounty_id: item.subcounty?.id,
-        county_id: item.county?.id,
-      }));
+    
+    // Filter results based on user restrictions
+    let filteredData = response.data.filter((item: any) => {
+      // Exclude current user's settlement if model is settlement
+      if (model === 'settlement' && item.id === userInfo.id) {
+        return false
+      }
+      
+      // Apply county restriction for county-restricted users
+      if (isCountyRestricted.value && userCountyId.value) {
+        // Check if item has county_id and it matches user's county
+        const itemCountyId = item.county_id || item.county?.id
+        if (itemCountyId && itemCountyId !== userCountyId.value) {
+          return false
+        }
+      }
+      
+      // Apply settlement restriction for settlement-restricted users
+      if (userSettlementId.value && !isSuperAdmin.value && !hasNationalAccess.value && model === 'settlement') {
+        if (item.id !== userSettlementId.value) {
+          return false
+        }
+      }
+      
+      return true
+    })
+    
+    parentOptions.value = filteredData.map((item: any) => ({
+      value: item.id,
+      label: item.name || item.title || item.contract_number || 'Unknown',
+      county: item.county?.name,
+      subcounty: item.subcounty?.name,
+      ward: item.ward?.name,
+      ward_id: item.ward?.id,
+      subcounty_id: item.subcounty?.id,
+      county_id: item.county_id || item.county?.id,
+    }));
+    
+    console.log('Filtered parent options:', parentOptions.value.length, 'out of', response.data.length)
   } catch (err) {
     console.error('Error fetching parent options:', err);
     ElMessage.error(err.message || 'Failed to load parent options');
@@ -364,6 +458,29 @@ const handleExceed: UploadProps['onExceed'] = (files, uploadFiles) => {
 const remapFileMetadata = () => {
 
   canImport.value = fileList.value.length > 0;
+
+  // Validate parent selections for county-restricted users
+  if (isCountyRestricted.value && userCountyId.value && targetModel.value !== 'other_documents') {
+    const invalidMappings = fieldMappings.value.filter((mapping, index) => {
+      if (!mapping.parent_id) return false // Skip if no parent selected
+      
+      const selectedParent = parentOptions.value.find(opt => opt.value === mapping.parent_id)
+      if (!selectedParent) return false // Skip if parent not found (shouldn't happen)
+      
+      // Check if selected parent is in user's county
+      const parentCountyId = selectedParent.county_id
+      if (parentCountyId && parentCountyId !== userCountyId.value) {
+        return true // Invalid - parent is outside user's county
+      }
+      return false
+    })
+    
+    if (invalidMappings.length > 0) {
+      ElMessage.error('Cannot import: Some files are mapped to entities outside your assigned county. Please select entities from your county only.');
+      canImport.value = false
+      return
+    }
+  }
 
   fileMetadata.value = fileList.value.map((file, index) => {
     const mapping = fieldMappings.value[index];
