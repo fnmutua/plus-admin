@@ -6174,9 +6174,20 @@ exports.getDocumentRepository = async (req, res) => {
           console.error('getDocumentRepository - Invalid settlement_id value:', settlementFilterValue);
         } else {
           // Filter documents directly linked to settlement OR through projects
+          // When filtering through project_location, also verify county_id if county restriction exists
+          let projectLocationCondition;
+          if (countyFilterValue !== null) {
+            const countyId = parseInt(countyFilterValue);
+            // Ensure project_location matches both settlement_id AND county_id
+            projectLocationCondition = literal(`EXISTS (SELECT 1 FROM project_location pl WHERE pl.project_id = document.project_id AND pl.settlement_id = ${settlementId} AND pl.county_id = ${countyId})`);
+          } else {
+            // Only filter by settlement_id in project_location
+            projectLocationCondition = literal(`EXISTS (SELECT 1 FROM project_location pl WHERE pl.project_id = document.project_id AND pl.settlement_id = ${settlementId})`);
+          }
+          
           const settlementFilterConditions = [
             { settlement_id: settlementId },
-            literal(`EXISTS (SELECT 1 FROM project_location pl WHERE pl.project_id = document.project_id AND pl.settlement_id = ${settlementId})`)
+            projectLocationCondition
           ];
           userConditions.push({ [Op.or]: settlementFilterConditions });
         }
@@ -6192,7 +6203,7 @@ exports.getDocumentRepository = async (req, res) => {
           // Build EXISTS subqueries for each entity type that can be linked to documents
           // Using Sequelize literal for raw SQL subqueries
           // Note: road_asset doesn't have county_id directly, it links through road_id to road table
-          // Projects are linked through project_location table
+          // Projects are linked through project_location table - use project_location.county_id
           const countyFilterConditions = [
             literal(`EXISTS (SELECT 1 FROM settlement s WHERE s.id = document.settlement_id AND s.county_id = ${countyId})`),
             literal(`EXISTS (SELECT 1 FROM health_facility hf WHERE hf.id = document.health_facility_id AND hf.county_id = ${countyId})`),
@@ -6202,7 +6213,7 @@ exports.getDocumentRepository = async (req, res) => {
             literal(`EXISTS (SELECT 1 FROM water_point wp WHERE wp.id = document.water_point_id AND wp.county_id = ${countyId})`),
             literal(`EXISTS (SELECT 1 FROM sewer s WHERE s.id = document.sewer_id AND s.county_id = ${countyId})`),
             literal(`EXISTS (SELECT 1 FROM other_facility of WHERE of.id = document.other_facility_id AND of.county_id = ${countyId})`),
-            // Project documents: filter through project_location table
+            // Project documents: filter through project_location table using project_location.county_id
             literal(`EXISTS (SELECT 1 FROM project_location pl WHERE pl.project_id = document.project_id AND pl.county_id = ${countyId})`)
           ];
           
