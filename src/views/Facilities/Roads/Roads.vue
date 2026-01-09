@@ -10,7 +10,7 @@ import {
   ElOptionGroup, ElOption, FormInstance,ElDrawer
 } from 'element-plus'
 import { ElMessage, ElCollapse, ElCollapseItem, ElInput, ElBadge, ElSegmented } from 'element-plus'
-import { computed, onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted, watch } from 'vue'
 import xlsx from "json-as-xlsx"
 import { getFile } from '@/api/summary'
 import {
@@ -41,14 +41,14 @@ import {
   Grape,
   Orange,
   Pear,
-  Watermelon, CircleClose, Message, CircleCheck, Loading
+  Watermelon, CircleClose, Message, CircleCheck, Loading, Check
 } from '@element-plus/icons-vue'
 
 
 import { ref, reactive, nextTick } from 'vue'
 import {
   ElPagination, ElTooltip, ElTabPane, ElTabs, ElTable, ElTableColumn, ElDialog, ElUpload, ElIcon,
-  ElPopconfirm, ElDivider, ElDropdown, ElDropdownItem, ElDropdownMenu, ElForm, ElFormItem, ElEmpty
+  ElPopconfirm, ElDivider, ElDropdown, ElDropdownItem, ElDropdownMenu, ElForm, ElFormItem, ElEmpty, ElInputNumber
 } from 'element-plus'
 
 import { useRouter, useRoute } from 'vue-router'
@@ -85,7 +85,7 @@ import { MapboxLayerSwitcherControl, MapboxLayerDefinition } from "mapbox-layer-
 
 import "mapbox-layer-switcher/styles.css";
 
-import { countyOptions, subcountyOptions, settlementOptionsV2, LevelOptions, ownsershipOptions, regOptions, HCFTypeOptions } from './../common/index'
+import { countyOptions, subcountyOptions, settlementOptionsV2, LevelOptions, ownsershipOptions, regOptions, HCFTypeOptions, RdClassOptions } from './../common/index'
 
 import UploadComponent from '@/views/Components/UploadComponent.vue';
 import { defineAsyncComponent } from 'vue';
@@ -894,15 +894,8 @@ const loadMap = (roadDetails) => {
 
 const onSegmentClick = async () => {
   console.log(activeSegment.value);
-  if (activeSegment.value === "Map") {
-    // Wait for the DOM to update
-    await nextTick();
-
-    // Optionally delay further to ensure complete rendering
-    setTimeout(() => {
-      loadMap([]);
-    }, 100); // Adjust delay time as needed
-  }
+  // Map segment now shows empty state - no need to load map here
+  // Map is only shown in drawer when clicking "View on Map"
 
   if (activeSegment.value === "Approved") {
 
@@ -1124,6 +1117,33 @@ const initializeMapDrawer = async (settlement: any) => {
     // Also try loading immediately in case map is already idle
     setTimeout(loadRoadsWhenReady, 500)
 
+    // Trigger map resize after drawer animation completes
+    setTimeout(() => {
+      if (googleMap.value) {
+        window.google.maps.event.trigger(googleMap.value, 'resize')
+        // Re-center and fit bounds after resize
+        if (settlementPolygon.value) {
+          const pathBounds = new window.google.maps.LatLngBounds()
+          const feature = settlementGeo.value.features[0]
+          if (feature && feature.geometry) {
+            const paths = feature.geometry.type === 'Polygon'
+              ? feature.geometry.coordinates[0].map((coord: number[]) => ({
+                  lat: coord[1],
+                  lng: coord[0]
+                }))
+              : feature.geometry.coordinates[0][0].map((coord: number[]) => ({
+                  lat: coord[1],
+                  lng: coord[0]
+                }))
+            paths.forEach((path: any) => {
+              pathBounds.extend(path)
+            })
+            googleMap.value.fitBounds(pathBounds)
+          }
+        }
+      }
+    }, 300)
+
   } catch (error) {
     console.error("Error initializing map:", error)
     ElMessage.error("Failed to initialize map. Please try again.")
@@ -1268,19 +1288,87 @@ const loadRoadsOnMap = async (settlementId: number) => {
           // Store road data with polyline
           facilityMarkerDataMap.value.set(polyline, feature.properties)
           
-          // Add click listener to show info
-          polyline.addListener('click', () => {
-            const infoWindow = new window.google.maps.InfoWindow({
-              content: `
-                <div style="padding: 8px; min-width: 200px;">
-                  <h3 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600;">${feature.properties?.name || 'Road'}</h3>
-                  ${feature.properties?.surface_type ? `<p style="margin: 0 0 5px 0; font-size: 12px;"><strong>Surface:</strong> ${feature.properties.surface_type}</p>` : ''}
-                  ${feature.properties?.rd_drainage_condition ? `<p style="margin: 5px 0 0 0; font-size: 12px;"><strong>Drainage:</strong> ${feature.properties.rd_drainage_condition}</p>` : ''}
-                </div>
-              `
-            })
-            infoWindow.setPosition(path[Math.floor(path.length / 2)])
-            infoWindow.open(googleMap.value)
+          // Add click listener to open road form drawer
+          polyline.addListener('click', async () => {
+            const roadProperties = feature.properties || {}
+            const roadId = roadProperties.id || roadProperties.road_id
+            
+            // Close map drawer if open to show road form drawer
+            if (mapDrawerVisible.value) {
+              // Don't close map drawer, just open road drawer on top
+            }
+            
+            if (roadId) {
+              // Fetch full road data to ensure we have all fields
+              try {
+                const formData: any = {
+                  limit: 1,
+                  page: 1,
+                  curUser: 1,
+                  model: roadFacilityModel,
+                  searchField: 'id',
+                  searchKeyword: roadId.toString(),
+                  filters: ['id'],
+                  filterValues: [[roadId]],
+                  associated_multiple_models: ['settlement', 'county', 'subcounty', 'ward', 'users']
+                }
+                
+                const roadRes = await getSettlementListByCounty(formData)
+                
+                if (roadRes.data && roadRes.data.length > 0) {
+                  // Ensure settlement_id is set from map drawer if missing
+                  const roadData = roadRes.data[0]
+                  if (!roadData.settlement_id && mapDrawerSettlement.value?.id) {
+                    roadData.settlement_id = mapDrawerSettlement.value.id
+                  }
+                  if (!roadData.county_id && mapDrawerSettlement.value?.county_id) {
+                    roadData.county_id = mapDrawerSettlement.value.county_id
+                  }
+                  if (!roadData.subcounty_id && mapDrawerSettlement.value?.subcounty_id) {
+                    roadData.subcounty_id = mapDrawerSettlement.value.subcounty_id
+                  }
+                  if (!roadData.ward_id && mapDrawerSettlement.value?.ward_id) {
+                    roadData.ward_id = mapDrawerSettlement.value.ward_id
+                  }
+                  
+                  // Open drawer with full road data
+                  openRoadForm(roadData)
+                } else {
+                  // Fallback: use properties if full data not available
+                  const fallbackData = {
+                    ...roadProperties,
+                    settlement_id: roadProperties.settlement_id || mapDrawerSettlement.value?.id || '',
+                    county_id: roadProperties.county_id || mapDrawerSettlement.value?.county_id || '',
+                    subcounty_id: roadProperties.subcounty_id || mapDrawerSettlement.value?.subcounty_id || '',
+                    ward_id: roadProperties.ward_id || mapDrawerSettlement.value?.ward_id || ''
+                  }
+                  ElMessage.warning('Could not load full road data. Using available information.')
+                  openRoadForm(fallbackData)
+                }
+              } catch (error) {
+                console.error('Error fetching road data:', error)
+                // Fallback: use properties directly with settlement context
+                const fallbackData = {
+                  ...roadProperties,
+                  settlement_id: roadProperties.settlement_id || mapDrawerSettlement.value?.id || '',
+                  county_id: roadProperties.county_id || mapDrawerSettlement.value?.county_id || '',
+                  subcounty_id: roadProperties.subcounty_id || mapDrawerSettlement.value?.subcounty_id || '',
+                  ward_id: roadProperties.ward_id || mapDrawerSettlement.value?.ward_id || ''
+                }
+                openRoadForm(fallbackData)
+              }
+            } else {
+              // No ID available, use properties directly with settlement context
+              const fallbackData = {
+                ...roadProperties,
+                settlement_id: roadProperties.settlement_id || mapDrawerSettlement.value?.id || '',
+                county_id: roadProperties.county_id || mapDrawerSettlement.value?.county_id || '',
+                subcounty_id: roadProperties.subcounty_id || mapDrawerSettlement.value?.subcounty_id || '',
+                ward_id: roadProperties.ward_id || mapDrawerSettlement.value?.ward_id || ''
+              }
+              ElMessage.warning('Road ID not found. Some fields may be missing.')
+              openRoadForm(fallbackData)
+            }
           })
           
           roadMarkers.value.push(polyline)
@@ -1305,6 +1393,38 @@ const loadRoadsOnMap = async (settlementId: number) => {
   }
 }
 
+// Watch for drawer visibility changes to trigger map resize
+watch(mapDrawerVisible, (newVal) => {
+  if (newVal && googleMap.value) {
+    // Wait for drawer animation to complete before resizing
+    setTimeout(() => {
+      if (googleMap.value) {
+        window.google.maps.event.trigger(googleMap.value, 'resize')
+        // Re-center map after resize
+        if (settlementPolygon.value && settlementGeo.value && settlementGeo.value.features && settlementGeo.value.features.length > 0) {
+          const feature = settlementGeo.value.features[0]
+          if (feature && feature.geometry) {
+            const pathBounds = new window.google.maps.LatLngBounds()
+            const paths = feature.geometry.type === 'Polygon'
+              ? feature.geometry.coordinates[0].map((coord: number[]) => ({
+                  lat: coord[1],
+                  lng: coord[0]
+                }))
+              : feature.geometry.coordinates[0][0].map((coord: number[]) => ({
+                  lat: coord[1],
+                  lng: coord[0]
+                }))
+            paths.forEach((path: any) => {
+              pathBounds.extend(path)
+            })
+            googleMap.value.fitBounds(pathBounds)
+          }
+        }
+      }
+    }, 350)
+  }
+})
+
 // Close drawer handler
 const handleMapDrawerClose = () => {
   mapDrawerVisible.value = false
@@ -1319,6 +1439,173 @@ const handleMapDrawerClose = () => {
   }
   googleMap.value = null
   mapDrawerSettlement.value = null
+}
+
+// Road form drawer state
+const roadDrawerVisible = ref(false)
+const roadFormRef = ref<FormInstance>()
+const editingRoadId = ref<number | null>(null)
+const isEditMode = ref(false)
+
+// Road form data - similar to AddRoadNew.vue
+const roadForm = reactive({
+  name: '',
+  rdNum: '',
+  rdClass: '',
+  rdReserve: 0,
+  surfaceType: '',
+  surfaceCondition: '',
+  traffic: '',
+  direction: '',
+  drainage: '',
+  drainageCondition: '',
+  width: 0,
+  settlement_id: '',
+  county_id: '',
+  subcounty_id: '',
+  ward_id: '',
+  geom: null
+})
+
+// Surface type options from AddRoadNew.vue
+const SurfaceTypeOtionsLocal = [
+  { label: 'Asphalt', value: 'asphalt' },
+  { label: 'Surface Dressing', value: 'surface_dressing' },
+  { label: 'Gravel', value: 'gravel' },
+  { label: 'Earth', value: 'earth' },
+  { label: 'Jointed Concrete', value: 'concrete_jt' },
+  { label: 'Concrete Blocks', value: 'concrete_bl' },
+  { label: 'Reinforced Concrete', value: 'concrete_rein' },
+  { label: 'Brick', value: 'brick' },
+  { label: 'Cobble stone road', value: 'set_stone' },
+  { label: 'Unimproved road with tyre tracks visible', value: 'track' },
+  { label: 'Other(Rater to provide description and Photo)', value: 'other' }
+]
+
+// Condition options
+const conditionOptionsLocal = [
+  { label: 'Under construction ', value: 'Under construction ' },
+  { label: 'Broken/not in use', value: 'Broken/not in use' },
+  { label: 'Operational ', value: 'Operational ' },
+  { label: 'Decomissioned', value: 'Decomissioned' }
+]
+
+// Drainage location options
+const drainageTypeOtionsLocal = [
+  { label: 'One Side', value: 'One Side' },
+  { label: 'Both Sides', value: 'Both Sides' }
+]
+
+// Traffic options
+const trafficOptions = [
+  { label: 'Busy', value: 'busy' },
+  { label: 'Used', value: 'used' },
+  { label: 'Rare', value: 'rare' }
+]
+
+// Direction options
+const directionOptions = [
+  { label: 'One Way', value: 'One Way' },
+  { label: 'Two Way', value: 'Two Way' }
+]
+
+// Road form validation rules
+const roadFormRules = reactive({
+  name: [{ required: true, message: 'Road name is required', trigger: 'blur' }],
+  settlement_id: [{ required: true, message: 'Settlement is required', trigger: 'blur' }],
+  width: [{ required: true, message: 'Road width is required', trigger: 'blur' }],
+  surfaceType: [{ required: true, message: 'Surface type is required', trigger: 'change' }]
+})
+
+// Open road form drawer for editing
+const openRoadForm = (roadData: any) => {
+  isEditMode.value = true
+  editingRoadId.value = roadData.id || null
+  
+  // Populate form with road data
+  roadForm.name = roadData.name || ''
+  roadForm.rdNum = roadData.rdNum || roadData.rd_num || ''
+  roadForm.rdClass = roadData.rdClass || roadData.rd_class || ''
+  roadForm.rdReserve = roadData.rdReserve || roadData.rd_reserve || 0
+  roadForm.surfaceType = roadData.surfaceType || roadData.surface_type || ''
+  roadForm.surfaceCondition = roadData.surfaceCondition || roadData.surface_condition || ''
+  roadForm.traffic = roadData.traffic || ''
+  roadForm.direction = roadData.direction || ''
+  roadForm.drainage = roadData.drainage || ''
+  roadForm.drainageCondition = roadData.drainageCondition || roadData.rd_drainage_condition || ''
+  roadForm.width = roadData.width || 0
+  roadForm.settlement_id = roadData.settlement_id || ''
+  roadForm.county_id = roadData.county_id || ''
+  roadForm.subcounty_id = roadData.subcounty_id || ''
+  roadForm.ward_id = roadData.ward_id || ''
+  roadForm.geom = roadData.geom || null
+  
+  roadDrawerVisible.value = true
+}
+
+// Submit road form
+const submitRoadForm = async () => {
+  if (!roadFormRef.value) return
+  
+  await roadFormRef.value.validate(async (valid) => {
+    if (valid) {
+      try {
+        const formDataToSubmit = {
+          ...roadForm,
+          model: roadFacilityModel
+        }
+        
+        if (isEditMode.value && editingRoadId.value) {
+          // Update existing road
+          formDataToSubmit.id = editingRoadId.value
+          
+          const res = await updateOneRecord(formDataToSubmit)
+          
+          if (res.code === '0000') {
+            ElMessage.success('Road updated successfully')
+            
+            // Refresh the data
+            await getFilteredData(filters.value, filterValues.value)
+            
+            // Reload roads for the settlement if available
+            if (roadForm.settlement_id) {
+              await loadRoadsForSettlement(roadForm.settlement_id)
+            }
+            
+            roadDrawerVisible.value = false
+          } else {
+            ElMessage.error('Failed to update road')
+          }
+        } else {
+          ElMessage.error('Invalid edit mode')
+        }
+      } catch (error) {
+        console.error('Error saving road:', error)
+        ElMessage.error('Failed to save road')
+      }
+    }
+  })
+}
+
+// Reset road form
+const resetRoadForm = () => {
+  isEditMode.value = false
+  editingRoadId.value = null
+  Object.keys(roadForm).forEach(key => {
+    if (typeof roadForm[key as keyof typeof roadForm] === 'string') {
+      roadForm[key as keyof typeof roadForm] = '' as any
+    } else if (typeof roadForm[key as keyof typeof roadForm] === 'number') {
+      roadForm[key as keyof typeof roadForm] = 0 as any
+    } else {
+      roadForm[key as keyof typeof roadForm] = null as any
+    }
+  })
+}
+
+// Close road drawer
+const closeRoadDrawer = () => {
+  roadDrawerVisible.value = false
+  resetRoadForm()
 }
 
 
@@ -2050,16 +2337,8 @@ const handleAddFacility = (item: any) => {
 
 
 const editFacility = (data: TableSlotDefault) => {
-
-  push({
-    name: 'AddRoadX',
-    query: { id: data.id }
-
-  });
-
-
-
-
+  // Open drawer with road form for editing
+  openRoadForm(data)
 }
 
 
@@ -2192,7 +2471,13 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
                 border
                 size="small"
               >
-                <el-table-column label="Road Name" prop="name" />
+                <el-table-column label="Road Name" prop="name">
+                  <template #default="scope">
+                    <el-button type="primary" link @click="openRoadForm(scope.row)">
+                      {{ scope.row.name || 'N/A' }}
+                    </el-button>
+                  </template>
+                </el-table-column>
                 <el-table-column label="Surface Type" prop="surface_type" />
                 <el-table-column label="Drainage Condition" prop="rd_drainage_condition" />
                 <el-table-column label="Status" prop="isApproved">
@@ -2277,7 +2562,13 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
                 border
                 size="small"
               >
-                <el-table-column label="Road Name" prop="name" />
+                <el-table-column label="Road Name" prop="name">
+                  <template #default="scope">
+                    <el-button type="primary" link @click="openRoadForm(scope.row)">
+                      {{ scope.row.name || 'N/A' }}
+                    </el-button>
+                  </template>
+                </el-table-column>
                 <el-table-column label="Surface Type" prop="surface_type" />
                 <el-table-column label="Drainage Condition" prop="rd_drainage_condition" />
                 <el-table-column label="Status" prop="isApproved">
@@ -2364,7 +2655,13 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
                 border
                 size="small"
               >
-                <el-table-column label="Road Name" prop="name" />
+                <el-table-column label="Road Name" prop="name">
+                  <template #default="scope">
+                    <el-button type="primary" link @click="openRoadForm(scope.row)">
+                      {{ scope.row.name || 'N/A' }}
+                    </el-button>
+                  </template>
+                </el-table-column>
                 <el-table-column label="Surface Type" prop="surface_type" />
                 <el-table-column label="Drainage Condition" prop="rd_drainage_condition" />
                 <el-table-column label="Status" prop="isApproved">
@@ -2454,25 +2751,139 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
   </el-drawer>
 
     <div v-if="activeSegment === 'Map'">
-      <div id="mapContainer" class="basemap" style="width: 100%; margin-top: 10px;"></div>
-      <div id="floating-div">
-        <el-card>
-          <el-collapse>
-            <el-collapse-item title="LEGEND">
-              <div class="legend">
-                <div v-for="item in legendItems" :key="item.label" class="legend-item">
-                  <div class="circle-color" :style="{ backgroundColor: item.color }"></div>
-                  <div class="legend-label">{{ item.label }}</div>
-                </div>
-              </div>
-            </el-collapse-item>
-          </el-collapse>
-        </el-card>
-      </div>
-
+      <el-empty description="Click 'View on Map' on a settlement to see its map with roads" />
     </div>
 
   </el-card>
+
+  <!-- Road Form Drawer for Editing -->
+  <el-drawer
+    v-model="roadDrawerVisible"
+    :title="isEditMode ? 'Edit Road' : 'Road Details'"
+    direction="rtl"
+    :size="isMobile ? '100%' : '600px'"
+    :before-close="closeRoadDrawer"
+    class="road-form-drawer"
+  >
+    <el-form
+      ref="roadFormRef"
+      :model="roadForm"
+      :rules="roadFormRules"
+      :label-width="isMobile ? '0px' : '180px'"
+      :label-position="isMobile ? 'top' : 'left'"
+      class="road-form-mobile"
+    >
+      <el-divider content-position="left">Basic Information</el-divider>
+
+      <el-form-item label="Road Name" prop="name">
+        <el-input v-model="roadForm.name" placeholder="Enter road name" />
+      </el-form-item>
+
+      <el-form-item label="Road Number">
+        <el-input v-model="roadForm.rdNum" placeholder="Enter road number" />
+      </el-form-item>
+
+      <el-form-item label="Road Class">
+        <el-select v-model="roadForm.rdClass" placeholder="Select class" filterable style="width: 100%">
+          <el-option
+            v-for="item in RdClassOptions"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="Road Width (m)" prop="width">
+        <el-input-number v-model="roadForm.width" :min="0" :precision="2" style="width: 100%" />
+      </el-form-item>
+
+      <el-form-item label="Road Reserve (m)">
+        <el-input-number v-model="roadForm.rdReserve" :min="0" :precision="2" style="width: 100%" />
+      </el-form-item>
+
+      <el-divider content-position="left">Surface & Condition</el-divider>
+
+      <el-form-item label="Surface Type" prop="surfaceType">
+        <el-select v-model="roadForm.surfaceType" placeholder="Select surface type" filterable style="width: 100%">
+          <el-option
+            v-for="item in SurfaceTypeOtionsLocal"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="Surface Condition">
+        <el-select v-model="roadForm.surfaceCondition" placeholder="Select condition" filterable style="width: 100%">
+          <el-option
+            v-for="item in conditionOptionsLocal"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </el-form-item>
+
+      <el-divider content-position="left">Drainage</el-divider>
+
+      <el-form-item label="Drainage Location">
+        <el-select v-model="roadForm.drainage" placeholder="Select drainage location" filterable style="width: 100%">
+          <el-option
+            v-for="item in drainageTypeOtionsLocal"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="Drainage Condition">
+        <el-select v-model="roadForm.drainageCondition" placeholder="Select condition" filterable style="width: 100%">
+          <el-option
+            v-for="item in conditionOptionsLocal"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </el-form-item>
+
+      <el-divider content-position="left">Traffic</el-divider>
+
+      <el-form-item label="Traffic">
+        <el-select v-model="roadForm.traffic" placeholder="Select traffic level" filterable style="width: 100%">
+          <el-option
+            v-for="item in trafficOptions"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="Direction">
+        <el-select v-model="roadForm.direction" placeholder="Select direction" filterable style="width: 100%">
+          <el-option
+            v-for="item in directionOptions"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </el-form-item>
+    </el-form>
+
+    <template #footer>
+      <div class="drawer-footer">
+        <el-button @click="closeRoadDrawer" class="footer-btn">Cancel</el-button>
+        <el-button type="primary" @click="submitRoadForm" :icon="Check" class="footer-btn">
+          {{ isEditMode ? 'Update Road' : 'Save Road' }}
+        </el-button>
+      </div>
+    </template>
+  </el-drawer>
 
 
   <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formheader" width="400px" draggable>
@@ -2776,6 +3187,42 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
   .close-btn-mobile {
     padding: 6px 12px;
     font-size: 13px;
+  }
+}
+
+.road-form-drawer :deep(.el-drawer__body) {
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.road-form-mobile {
+  padding: 0;
+}
+
+.drawer-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 20px;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+
+.footer-btn {
+  min-width: 100px;
+}
+
+@media (max-width: 768px) {
+  .road-form-drawer :deep(.el-drawer__body) {
+    padding: 15px;
+  }
+
+  .drawer-footer {
+    padding: 15px;
+    flex-direction: column;
+  }
+
+  .footer-btn {
+    width: 100%;
   }
 }
 </style>
