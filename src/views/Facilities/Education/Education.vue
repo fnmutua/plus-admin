@@ -1899,6 +1899,15 @@ const submitFacilityForm = async () => {
           model: educationFacilityModel
         }
         
+        // Convert education_category array to comma-separated string
+        if (Array.isArray(formData.education_category)) {
+          formData.education_category = formData.education_category.join(',')
+        } else if (formData.education_category && typeof formData.education_category === 'object') {
+          formData.education_category = Object.values(formData.education_category).join(',')
+        } else if (!formData.education_category) {
+          formData.education_category = ''
+        }
+        
         if (isEditMode.value && editingFacilityId.value) {
           formData.id = editingFacilityId.value
           const res = await updateOneRecord(formData)
@@ -1975,14 +1984,40 @@ const handleMapDrawerClose = () => {
   facilityMarkerDataMap.value.clear()
 }
 
-const editFacility = (data: TableSlotDefault) => {
-  push({
-    name: 'AddEducationX',
-    query: { id: data.id }
-
-  });
-
-
+const editFacility = async (data: TableSlotDefault) => {
+  try {
+    // Fetch full facility data with all associations
+    const formData = {
+      limit: 1,
+      page: 1,
+      curUser: 1,
+      model: educationFacilityModel,
+      searchField: 'id',
+      searchKeyword: data.id.toString(),
+      filters: ['id'],
+      filterValues: [[data.id]],
+      associated_multiple_models: ['settlement', 'county', 'subcounty', 'ward', 'users']
+    }
+    
+    try {
+      const res = await getSettlementListByCounty(formData)
+      const facilityData = res?.data?.[0]
+      
+      if (facilityData) {
+        openFacilityForm(facilityData)
+      } else {
+        // Fallback to using data from table if fetch fails
+        openFacilityForm(data)
+      }
+    } catch (error) {
+      console.error('Error fetching facility data:', error)
+      // Fallback to using data from table
+      openFacilityForm(data)
+    }
+  } catch (error) {
+    console.error('Error opening facility form:', error)
+    ElMessage.error('Failed to open facility form')
+  }
 }
 
 

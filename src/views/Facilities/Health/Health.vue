@@ -1682,37 +1682,40 @@ const showEditSaveButton = ref(false)
 const showAddSaveButton = ref(true)
 
 const AddDialogVisible = ref(false)
-const editFacility = (data: TableSlotDefault) => {
-
-
-  push({
-    name: 'AddHealthNew',
-    query: { id: data.id }
-
-  });
-
-  // handleSelectCounty(data.county_id)
-
-  // showEditSaveButton.value = true
-
-  // console.log(data)
-
-  // currentRow.value = data.id
-
-  // ruleForm.id = data.id
-  // ruleForm.name = data.name
-  // ruleForm.county_id = data.county_id
-  // ruleForm.settlement_id = data.settlement_id
-  // ruleForm.subcounty_id = data.subcounty_id
-  // ruleForm.facility_type = data.facility_type
-  // ruleForm.reg_status = data.reg_status
-  // ruleForm.level = data.level
-  // ruleForm.ownership_type = data.ownership_type
-  // ruleForm.number_beds = data.number_beds
-  // ruleForm.geom = data.geom
-
-  // morefileList.value = data.documents
-  // AddDialogVisible.value = true
+const editFacility = async (data: TableSlotDefault) => {
+  try {
+    // Fetch full facility data with all associations
+    const formData = {
+      limit: 1,
+      page: 1,
+      curUser: 1,
+      model: healthFacilityModel,
+      searchField: 'id',
+      searchKeyword: data.id.toString(),
+      filters: ['id'],
+      filterValues: [[data.id]],
+      associated_multiple_models: ['settlement', 'county', 'subcounty', 'ward', 'users']
+    }
+    
+    try {
+      const res = await getSettlementListByCounty(formData)
+      const facilityData = res?.data?.[0]
+      
+      if (facilityData) {
+        openFacilityForm(facilityData)
+      } else {
+        // Fallback to using data from table if fetch fails
+        openFacilityForm(data)
+      }
+    } catch (error) {
+      console.error('Error fetching facility data:', error)
+      // Fallback to using data from table
+      openFacilityForm(data)
+    }
+  } catch (error) {
+    console.error('Error opening facility form:', error)
+    ElMessage.error('Failed to open facility form')
+  }
 }
 
 

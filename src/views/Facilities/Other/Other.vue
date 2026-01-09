@@ -11,7 +11,6 @@ import {
 } from 'element-plus'
 import { ElMessage, ElCollapse, ElCollapseItem, ElInput, ElBadge, ElSegmented } from 'element-plus'
 import { computed, onMounted, watch } from 'vue'
-import xlsx from "json-as-xlsx"
 import { getFile } from '@/api/summary'
 import {
   searchByKeyWord
