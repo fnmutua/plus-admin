@@ -1299,6 +1299,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           title: 'Document Shares',
           hidden: false,
           role: ['root_admin','admin', 'super_admin', 'monitoring', 'staff' ] ,
+          locationLevel:['national' ],
           icon:'material-symbols:share'
         }
       },

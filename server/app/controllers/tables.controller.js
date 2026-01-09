@@ -6007,29 +6007,31 @@ exports.getDocumentRepository = async (req, res) => {
     const offset = (page - 1) * limit;
     
     // Build base query with includes
-    const baseQuery = {
-      include: [
-        {
-          model: db.models.document_type,
-          as: 'document_type',
-          attributes: ['id', 'type', 'group']
-        },
-        {
-          model: db.models.settlement,
-          as: 'settlement',
-          attributes: ['id', 'name'],
-          include: [{
-            model: db.models.county,
-            as: 'county',
-            attributes: ['id', 'name']
-          }]
-        },
-        {
-          model: db.models.users,
-          as: 'user',
+    const baseIncludes = [
+      {
+        model: db.models.document_type,
+        as: 'document_type',
+        attributes: ['id', 'type', 'group']
+      },
+      {
+        model: db.models.settlement,
+        as: 'settlement',
+        attributes: ['id', 'name'],
+        include: [{
+          model: db.models.county,
+          as: 'county',
           attributes: ['id', 'name']
-        }
-      ],
+        }]
+      },
+      {
+        model: db.models.users,
+        as: 'user',
+        attributes: ['id', 'name']
+      }
+    ];
+    
+    const baseQuery = {
+      include: baseIncludes,
       attributes: [
         'id', 'name', 'category', 'format', 'size', 'location', 
         'protectedFile', 'createdBy', 'createdAt', 'updatedAt', 'downloadCount'
@@ -6141,13 +6143,56 @@ exports.getDocumentRepository = async (req, res) => {
 
     // Add user permission filters
     if (userFilters.length > 0) {
-      const userConditions = userFilters.map(filter => ({
-        [filter.field]: filter.value
-      }));
-      if (baseQuery.where) {
-        baseQuery.where = { [Op.and]: [baseQuery.where, { [Op.or]: userConditions }] };
-      } else {
-        baseQuery.where = { [Op.or]: userConditions };
+      const userConditions = [];
+      let countyFilterValue = null;
+      
+      userFilters.forEach(filter => {
+        if (filter.field === 'county_id') {
+          countyFilterValue = filter.value;
+          // We'll handle county_id filtering separately using subqueries for efficiency
+        } else if (filter.field === 'settlement_id') {
+          // Direct filter on document's settlement_id
+          userConditions.push({ settlement_id: filter.value });
+        } else {
+          // For other fields, apply directly (fallback)
+          userConditions.push({ [filter.field]: filter.value });
+        }
+      });
+      
+      // Handle county_id filtering using subqueries (more efficient than multiple LEFT JOINs)
+      if (countyFilterValue !== null) {
+        // Ensure county_id is a valid integer for safety
+        const countyId = parseInt(countyFilterValue);
+        if (isNaN(countyId)) {
+          console.error('getDocumentRepository - Invalid county_id value:', countyFilterValue);
+        } else {
+          // Build EXISTS subqueries for each entity type that can be linked to documents
+          // Using Sequelize literal for raw SQL subqueries
+          // Note: road_asset doesn't have county_id directly, it links through road_id to road table
+          const countyFilterConditions = [
+            literal(`EXISTS (SELECT 1 FROM settlement s WHERE s.id = document.settlement_id AND s.county_id = ${countyId})`),
+            literal(`EXISTS (SELECT 1 FROM health_facility hf WHERE hf.id = document.health_facility_id AND hf.county_id = ${countyId})`),
+            literal(`EXISTS (SELECT 1 FROM education_facility ef WHERE ef.id = document.education_facility_id AND ef.county_id = ${countyId})`),
+            literal(`EXISTS (SELECT 1 FROM road r WHERE r.id = document.road_id AND r.county_id = ${countyId})`),
+            literal(`EXISTS (SELECT 1 FROM road_asset ra INNER JOIN road r2 ON ra.road_id = r2.id WHERE ra.id = document.road_asset_id AND r2.county_id = ${countyId})`),
+            literal(`EXISTS (SELECT 1 FROM water_point wp WHERE wp.id = document.water_point_id AND wp.county_id = ${countyId})`),
+            literal(`EXISTS (SELECT 1 FROM sewer s WHERE s.id = document.sewer_id AND s.county_id = ${countyId})`),
+            literal(`EXISTS (SELECT 1 FROM other_facility of WHERE of.id = document.other_facility_id AND of.county_id = ${countyId})`)
+          ];
+          
+          // Combine all county filter conditions with OR
+          userConditions.push({ [Op.or]: countyFilterConditions });
+        }
+      }
+      
+      if (userConditions.length > 0) {
+        const userWhere = userConditions.length === 1 ? userConditions[0] : { [Op.and]: userConditions };
+        if (baseQuery.where) {
+          baseQuery.where = { [Op.and]: [baseQuery.where, userWhere] };
+        } else {
+          baseQuery.where = userWhere;
+        }
+        console.log('getDocumentRepository - Applied user filters for county:', countyFilterValue);
       }
     }
 

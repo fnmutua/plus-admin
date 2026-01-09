@@ -155,6 +155,38 @@ const roles_filters = isSuperAdmin ? [] : processedRoles.filter(role => role.mod
   value: role.fieldvalue
 }))
 
+// User location-based filtering (computed properties)
+const hasNationalAccess = computed(() => {
+  return userInfo?.roles?.some((role: UserRole) => 
+    role.user_roles?.location_level === 'national'
+  ) || false
+})
+
+const userCountyRole = computed(() => {
+  return userInfo?.roles?.find((role: UserRole) => 
+    role.user_roles?.location_level === 'county'
+  )
+})
+
+const userCountyId = computed(() => {
+  return userCountyRole.value?.user_roles?.county_id || null
+})
+
+const userSettlementRole = computed(() => {
+  return userInfo?.roles?.find((role: UserRole) => 
+    role.user_roles?.location_level === 'settlement'
+  )
+})
+
+const userSettlementId = computed(() => {
+  return userSettlementRole.value?.user_roles?.settlement_id || null
+})
+
+// Check if user should be restricted to their county
+const isCountyRestricted = computed(() => {
+  return !isSuperAdmin && !hasNationalAccess.value && !!userCountyId.value
+})
+
 // Get user permissions
 const userPermissions = userInfo.permissions || []
 
@@ -884,6 +916,27 @@ const getparentOptions = async (keyword?: string) => {
       ['project', 'contractor', 'road', 'road_asset'].includes(theParentModel.value) ? [] :
       ['county', 'subcounty', 'ward']
 
+    // Build filters array for server-side filtering
+    let filters: string[] = []
+    let filterValues: any[] = []
+    
+    // Apply county restriction if user is county-restricted (unless super admin or national admin)
+    if (isCountyRestricted.value && userCountyId.value) {
+      // For models that have county_id field, apply county restriction
+      if (associatedModels.includes('county') || theParentModel.value === 'settlement') {
+        filters.push('county_id')
+        filterValues.push([userCountyId.value])
+        console.log('Applying county restriction filter for model:', theParentModel.value, 'county_id:', userCountyId.value)
+      }
+    } else if (userSettlementId.value && !isSuperAdmin && !hasNationalAccess.value) {
+      // User is restricted to their settlement
+      if (theParentModel.value === 'settlement') {
+        filters.push('settlement_id')
+        filterValues.push([userSettlementId.value])
+        console.log('Applying settlement restriction filter:', userSettlementId.value)
+      }
+    }
+
     const formData = {
       curUser: 1,
       model: theParentModel.value,
@@ -892,8 +945,8 @@ const getparentOptions = async (keyword?: string) => {
       excludeGeom: false,
       excludeGeomAssoc: true,
       associated_multiple_models: associatedModels,
-      filters: [],
-      filterValues: [],
+      filters: filters,
+      filterValues: filterValues,
       limit: 100,
       page: 1,
     }
@@ -902,7 +955,28 @@ const getparentOptions = async (keyword?: string) => {
     const data = (response as any).data
     
     if (data && data.length > 0) {
-      parentOptions.value = data.map((item: any) => ({
+      // Filter results based on user restrictions (client-side additional filtering)
+      let filteredData = data.filter((item: any) => {
+        // Apply county restriction for county-restricted users
+        if (isCountyRestricted.value && userCountyId.value) {
+          // Check if item has county_id and it matches user's county
+          const itemCountyId = item.county_id || item.county?.id
+          if (itemCountyId && itemCountyId !== userCountyId.value) {
+            return false
+          }
+        }
+        
+        // Apply settlement restriction for settlement-restricted users
+        if (userSettlementId.value && !isSuperAdmin && !hasNationalAccess.value && theParentModel.value === 'settlement') {
+          if (item.id !== userSettlementId.value) {
+            return false
+          }
+        }
+        
+        return true
+      })
+      
+      parentOptions.value = filteredData.map((item: any) => ({
         value: item.id,
         label: item.name || item.title || item.contract_number || 'Unknown',
         county: item.county?.name,
@@ -937,6 +1011,11 @@ function remoteFetchParents(kw: string) {
 const handleSelectType = async (type: string) => {
   theParentModel.value = type
   console.log('Selected.....>', type)
+
+  // Notify county-restricted users about filtering
+  if (isCountyRestricted.value && type !== 'other_documents') {
+    ElMessage.info('Only entities from your assigned county are available.')
+  }
 
   disable_submit.value = false
   if (type === 'settlement') {
@@ -1087,6 +1166,18 @@ const getDocumentTypes = async () => {
 
 const handleSubmitData = async () => {
   try {
+    // Validate parent selection for county-restricted users
+    if (isCountyRestricted.value && userCountyId.value && documentForm.parent_id && theParentModel.value !== 'other_documents') {
+      const selectedParent = parentOptions.value.find(opt => opt.value === documentForm.parent_id)
+      if (selectedParent) {
+        const parentCountyId = selectedParent.county_id
+        if (parentCountyId && parentCountyId !== userCountyId.value) {
+          ElMessage.error('Cannot update: The selected entity is outside your assigned county. Please select an entity from your county only.');
+          return;
+        }
+      }
+    }
+    
     // Update the document with the new nested structure
     (documentForm as any).edited_name = documentForm.name + '.' + documentForm.format;
     (documentForm as any).model = 'document';
@@ -1473,6 +1564,12 @@ const importHandleFileUpload = (uploadFile) => {
 const importHandleSelectModel = async (model: string) => {
   importTargetModel.value = model;
   importParentOptions.value = [];
+  
+  // Notify county-restricted users about filtering
+  if (isCountyRestricted.value && model !== 'other_documents') {
+    ElMessage.info('Only entities from your assigned county are available.');
+  }
+  
   const mappedFieldId = IMPORT_MODEL_MAPPINGS[model] || undefined;
   importFieldMappings.value = importFileList.value.map((_, index) => ({
     fileIndex: index,
@@ -1485,6 +1582,28 @@ const importHandleSelectModel = async (model: string) => {
       const associatedModels = model === 'settlement' ? ['county', 'subcounty', 'ward'] :
         ['project', 'contractor', 'road', 'road_asset'].includes(model) ? [] :
         ['county', 'subcounty', 'ward'];
+      
+      // Build filters array for server-side filtering
+      let filters: string[] = []
+      let filterValues: any[] = []
+      
+      // Apply county restriction if user is county-restricted (unless super admin or national admin)
+      if (isCountyRestricted.value && userCountyId.value) {
+        // For models that have county_id field, apply county restriction
+        if (associatedModels.includes('county') || model === 'settlement') {
+          filters.push('county_id')
+          filterValues.push([userCountyId.value])
+          console.log('Applying county restriction filter for import model:', model, 'county_id:', userCountyId.value)
+        }
+      } else if (userSettlementId.value && !isSuperAdmin && !hasNationalAccess.value) {
+        // User is restricted to their settlement
+        if (model === 'settlement') {
+          filters.push('settlement_id')
+          filterValues.push([userSettlementId.value])
+          console.log('Applying settlement restriction filter for import:', userSettlementId.value)
+        }
+      }
+      
       const formData = {
         curUser: 1,
         model: model,
@@ -1493,13 +1612,34 @@ const importHandleSelectModel = async (model: string) => {
         excludeGeom: false,
         excludeGeomAssoc: true,
         associated_multiple_models: associatedModels,
-        filters: [],
-        filterValues: [],
+        filters: filters,
+        filterValues: filterValues,
       };
       const response = await searchByKeyWord(formData as any);
       const data = (response as any).data;
       if (data && data.length > 0) {
-        importParentOptions.value = data.map((item: any) => ({
+        // Filter results based on user restrictions (client-side additional filtering)
+        let filteredData = data.filter((item: any) => {
+          // Apply county restriction for county-restricted users
+          if (isCountyRestricted.value && userCountyId.value) {
+            // Check if item has county_id and it matches user's county
+            const itemCountyId = item.county_id || item.county?.id
+            if (itemCountyId && itemCountyId !== userCountyId.value) {
+              return false
+            }
+          }
+          
+          // Apply settlement restriction for settlement-restricted users
+          if (userSettlementId.value && !isSuperAdmin && !hasNationalAccess.value && model === 'settlement') {
+            if (item.id !== userSettlementId.value) {
+              return false
+            }
+          }
+          
+          return true
+        })
+        
+        importParentOptions.value = filteredData.map((item: any) => ({
           value: item.id,
           label: item.name || item.title || item.contract_number || 'Unknown',
           county: item.county?.name,
@@ -1561,6 +1701,29 @@ const importFiles = async () => {
       }
       if (importTargetModel.value !== 'other_documents' && !mapping.parent_id) {
         ElMessage.error('Please select a parent entity for all files.');
+        importLoading.value.import = false;
+        return;
+      }
+    }
+    
+    // Validate parent selections for county-restricted users
+    if (isCountyRestricted.value && userCountyId.value && importTargetModel.value !== 'other_documents') {
+      const invalidMappings = importFieldMappings.value.filter((mapping) => {
+        if (!mapping.parent_id) return false // Skip if no parent selected
+        
+        const selectedParent = importParentOptions.value.find(opt => opt.value === mapping.parent_id)
+        if (!selectedParent) return false // Skip if parent not found (shouldn't happen)
+        
+        // Check if selected parent is in user's county
+        const parentCountyId = selectedParent.county_id
+        if (parentCountyId && parentCountyId !== userCountyId.value) {
+          return true // Invalid - parent is outside user's county
+        }
+        return false
+      })
+      
+      if (invalidMappings.length > 0) {
+        ElMessage.error('Cannot import: Some files are mapped to entities outside your assigned county. Please select entities from your county only.');
         importLoading.value.import = false;
         return;
       }
