@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import {
   ElRow, ElCol, ElCard, ElDivider, ElTabs, ElTabPane, ElSkeleton, ElCascader, ElCascaderPanel, 
-  ElCascaderPanelContext, ElSelect, ElOption,ElEmpty,ElCollapse,ElCollapseItem
+  ElCascaderPanelContext, ElSelect, ElOption,ElEmpty,ElCollapse,ElCollapseItem, ElIcon
 } from 'element-plus'
+import { Loading } from '@element-plus/icons-vue'
 
 import { ref,computed, reactive, watch, onMounted } from 'vue'
 
@@ -101,7 +102,26 @@ watch(
 const activeTab = ref();
 const loading = ref(true)
 const cardLoading = ref(true)
+const chartsLoading = ref(true)
+const dashboardLoading = ref(true)
+const chartLoadingMessages = ref(new Map()) // Track loading messages for individual charts
 
+// Helper functions for chart loading states
+const setChartLoading = (chartId, message = 'Loading chart...') => {
+  chartLoadingMessages.value.set(chartId, message)
+}
+
+const setChartLoaded = (chartId) => {
+  chartLoadingMessages.value.delete(chartId)
+}
+
+const isChartLoading = (chartId) => {
+  return chartLoadingMessages.value.has(chartId)
+}
+
+const getChartLoadingMessage = (chartId) => {
+  return chartLoadingMessages.value.get(chartId) || 'Loading chart...'
+}
 
 const cards = ref([])
 const tabs = ref([])
@@ -1243,8 +1263,16 @@ const getCardData = async () => {
 }
 
 const getCards = async () => {
-  getCardData()
-  cardLoading.value = false
+  try {
+    cardLoading.value = true
+    await getCardData()
+    // Wait a bit for all card promises to resolve
+    await new Promise(resolve => setTimeout(resolve, 500))
+  } catch (error) {
+    console.error('Error loading cards:', error)
+  } finally {
+    cardLoading.value = false
+  }
 }
 
 
@@ -1255,23 +1283,23 @@ const getCards = async () => {
 
 
 const getCharts = async (section_id) => {
-
-  const formData = {}
-  formData.curUser = 1 // Id for logged in user
-  formData.model = 'dashboard_section_chart'
-  //-Search field--------------------------------------------
-  formData.searchField = 'title'
-  formData.searchKeyword = ''
-  formData.filters = ['dashboard_section_id']
-  formData.filterValues = [[section_id]]
-  //--Single Filter -----------------------------------------
-  formData.associated_multiple_models = ['dashboard_section']
-  //const nested_models = ['indicator_category', 'indicator'] // The mother, then followed by the child
-  formData.nested_models = ['indicator', 'activity']
-
-  //-------------------------
-  const charts = reactive([]);
   try {
+    chartsLoading.value = true
+    const formData = {}
+    formData.curUser = 1 // Id for logged in user
+    formData.model = 'dashboard_section_chart'
+    //-Search field--------------------------------------------
+    formData.searchField = 'title'
+    formData.searchKeyword = ''
+    formData.filters = ['dashboard_section_id']
+    formData.filterValues = [[section_id]]
+    //--Single Filter -----------------------------------------
+    formData.associated_multiple_models = ['dashboard_section']
+    //const nested_models = ['indicator_category', 'indicator'] // The mother, then followed by the child
+    formData.nested_models = ['indicator', 'activity']
+
+    //-------------------------
+    const charts = reactive([]);
     const response = await getSettlementListByCounty(formData);
     //  const charts = response.data;
     console.log('Getting the charts ', response.data)
@@ -1279,6 +1307,8 @@ const getCharts = async (section_id) => {
 
     response.data.forEach(function async(thisChart) {
       console.log('This Chart:', thisChart)
+      // Set initial loading state for this chart
+      setChartLoading(thisChart.id, 'Preparing chart...')
 
 
 
@@ -1288,6 +1318,9 @@ const getCharts = async (section_id) => {
  async function processPieChart() {
   const promises = [async function () {
     console.log('processPieChart:', thisChart.card_model, thisChart.card_model_field, thisChart.aggregation);
+    
+    // Set loading state for this chart
+    setChartLoading(thisChart.id, 'Loading pie chart data...');
 
     try {
       const cdata = await xgetSummaryMultipleParentsGrouped(thisChart);
@@ -1346,6 +1379,7 @@ const getCharts = async (section_id) => {
   console.log('Loop completed');
 
   charts.push(thisChart);
+  setChartLoaded(thisChart.id); // Mark chart as loaded
 }
 
 
@@ -1353,6 +1387,9 @@ const getCharts = async (section_id) => {
       async function processSimpleBarChart() {
         const promises = [async function () {
           console.log('This chart details:', thisChart.card_model, thisChart.card_model_field, thisChart.aggregation);
+          
+          // Set loading state for this chart
+          setChartLoading(thisChart.id, 'Loading bar chart data...');
 
           try {
 
@@ -1405,6 +1442,7 @@ const getCharts = async (section_id) => {
 
 
         charts.push(thisChart)
+        setChartLoaded(thisChart.id); // Mark chart as loaded
         // Continue with the rest of your code here
       }
 
@@ -1464,6 +1502,7 @@ const getCharts = async (section_id) => {
 
 
         charts.push(thisChart)
+        setChartLoaded(thisChart.id); // Mark chart as loaded
         // Continue with the rest of your code here
       }
 
@@ -1550,6 +1589,7 @@ const getCharts = async (section_id) => {
 
 
         charts.push(thisChart)
+        setChartLoaded(thisChart.id); // Mark chart as loaded
         // Continue with the rest of your code here
       }
 
@@ -1624,6 +1664,7 @@ const getCharts = async (section_id) => {
         console.log('Loop completed');
 
         charts.push(thisChart)
+        setChartLoaded(thisChart.id); // Mark chart as loaded
         // Continue with the rest of your code here
       }
 
@@ -1695,6 +1736,7 @@ const getCharts = async (section_id) => {
 
 
         charts.push(thisChart)
+        setChartLoaded(thisChart.id); // Mark chart as loaded
         // Continue with the rest of your code here
       }
       // function to process processMultiBarChart charts 
@@ -1767,6 +1809,7 @@ const getCharts = async (section_id) => {
 
 
         charts.push(thisChart)
+        setChartLoaded(thisChart.id); // Mark chart as loaded
         // Continue with the rest of your code here
       }
 
@@ -1866,6 +1909,7 @@ const getCharts = async (section_id) => {
 
 
         charts.push(thisChart)
+        setChartLoaded(thisChart.id); // Mark chart as loaded
         // Continue with the rest of your code here
       }
       // function to process processMultiBarChart charts 
@@ -1999,6 +2043,7 @@ const getCharts = async (section_id) => {
 
 
         charts.push(thisChart)
+        setChartLoaded(thisChart.id); // Mark chart as loaded
         // Continue with the rest of your code here
       }
  
@@ -2075,6 +2120,7 @@ const getCharts = async (section_id) => {
 
 
         charts.push(thisChart)
+        setChartLoaded(thisChart.id); // Mark chart as loaded
         // Continue with the rest of your code here
       }
 
@@ -2148,6 +2194,7 @@ const getCharts = async (section_id) => {
 
 
         charts.push(thisChart)
+        setChartLoaded(thisChart.id); // Mark chart as loaded
         // Continue with the rest of your code here
       }
       // function to process processMultiBarChart charts 
@@ -2214,6 +2261,7 @@ const getCharts = async (section_id) => {
 
 
         charts.push(thisChart)
+        setChartLoaded(thisChart.id); // Mark chart as loaded
         // Continue with the rest of your code here
       }
       // function to process processMultiBarChart charts 
@@ -2280,6 +2328,7 @@ const getCharts = async (section_id) => {
 
 
         charts.push(thisChart)
+        setChartLoaded(thisChart.id); // Mark chart as loaded
         // Continue with the rest of your code here
       }
 
@@ -2345,6 +2394,7 @@ const getCharts = async (section_id) => {
 
 
         charts.push(thisChart)
+        setChartLoaded(thisChart.id); // Mark chart as loaded
         // Continue with the rest of your code here
       }
       // function to process processMultiBarChart charts 
@@ -2418,6 +2468,7 @@ const getCharts = async (section_id) => {
 
 
         charts.push(thisChart)
+        setChartLoaded(thisChart.id); // Mark chart as loaded
         // Continue with the rest of your code here
       }
 
@@ -2517,6 +2568,7 @@ const getCharts = async (section_id) => {
 
 
         charts.push(thisChart)
+        setChartLoaded(thisChart.id); // Mark chart as loaded
         // Continue with the rest of your code here
       }
 
@@ -2609,10 +2661,13 @@ const getCharts = async (section_id) => {
 
     // console.log('charts  :', charts)
     //return charts;
-    return charts.sort((a, b) => a.id - b.id);
+    const sortedCharts = charts.sort((a, b) => a.id - b.id);
+    chartsLoading.value = false; // Mark charts as loaded
+    return sortedCharts;
   } catch (error) {
     // Handle any errors that occur during the asynchronous operation
     console.error(error);
+    chartsLoading.value = false; // Mark charts as loaded even on error
     //return null; // or any default value you prefer
     return []; // or any default value you prefer
   }
@@ -2808,17 +2863,32 @@ const getCountySubcounty = async () => {
 ////-----------------------------------------------------------------------------------
 
 
-getCountySubcountySep()
-//getCountySubcounty()
-getCards()
-getTabs()
+// Initialize dashboard with proper loading states
+const initializeDashboard = async () => {
+  try {
+    dashboardLoading.value = true
+    loading.value = true
+    
+    // Load data in parallel where possible
+    await Promise.all([
+      getCountySubcountySep(),
+      getCards(),
+      getTabs()
+    ])
+    
+    console.log('Dashboard initialized')
+  } catch (error) {
+    console.error('Error initializing dashboard:', error)
+  } finally {
+    dashboardLoading.value = false
+    loading.value = false
+  }
+}
 
+initializeDashboard()
 
 onMounted(() => {
-
-
   console.log(activeTab)
-  loading.value = false
 });
 
 
@@ -2829,8 +2899,12 @@ const handleClear = async () => {
   selectSubCounty.value=null
   selectCounty.value = null
 
-  getCards()
-  getTabs()
+  cardLoading.value = true
+  chartsLoading.value = true
+  await Promise.all([
+    getCards(),
+    getTabs()
+  ])
 }
 
 
@@ -2848,9 +2922,13 @@ console.log(selectedCounties.value);  // [1]
   filterLevel.value = 'county'
  
   }
-  getCards()
-  getTabs()
-console.log('filterLevel.value', selectedCounties.value)
+  cardLoading.value = true
+  chartsLoading.value = true
+  await Promise.all([
+    getCards(),
+    getTabs()
+  ])
+  console.log('filterLevel.value', selectedCounties.value)
      
 }
 
@@ -2870,8 +2948,12 @@ selectedSubCounties.value = subcountyId;
 
 
 }  
-getCards()
-  getTabs()    
+  cardLoading.value = true
+  chartsLoading.value = true
+  await Promise.all([
+    getCards(),
+    getTabs()
+  ])
 }
 
 
@@ -2984,7 +3066,7 @@ const activeCollapse = ref([])
 </script>
 
 <template>
-  <div class="dashboard-container">
+  <div class="dashboard-container" v-loading="dashboardLoading" element-loading-text="Loading dashboard..." element-loading-spinner="el-icon-loading" element-loading-background="rgba(0, 0, 0, 0.8)">
     <el-collapse v-model="activeCollapse">
       <el-collapse-item name="filters">
         <template #title>
@@ -3040,9 +3122,12 @@ const activeCollapse = ref([])
     </el-collapse>
 
     <el-row :gutter="16" class="cards-row">
+      <el-col v-if="cards.length === 0 && !cardLoading" :span="24">
+        <el-empty description="No cards available" />
+      </el-col>
       <el-col v-for="(card) in cards" :key="card.id" :span="24 / cards.length" :xs="24" :sm="12" :md="8" :lg="6">
         <div class="tabs-container">
-          <ElSkeleton :loading="cardLoading" animated>
+          <ElSkeleton :loading="cardLoading || !card.value" animated>
             <el-card shadow="hover" class="stat-card" :body-style="{ padding: '0' }">
               <div class="card-content">
                 <div class="icon-container" :style="{ backgroundColor: card.iconColor + '15' }">
@@ -3066,9 +3151,12 @@ const activeCollapse = ref([])
       <el-tab-pane v-for="(tab) in tabs" :name="tab.name" :key="tab.id" :label="tab.label">
         <div class="tab-content-scrollable">
           <el-row :gutter="20">
-            <template v-if="tab.cards && tab.cards.length > 0">
+            <el-col v-if="(!tab.charts || tab.charts.length === 0) && !chartsLoading" :span="24">
+              <el-empty description="No charts available for this section" />
+            </el-col>
+            <template v-if="tab.charts && tab.charts.length > 0">
               <el-col
-                v-for="(chart) in tab.cards"
+                v-for="(chart) in tab.charts"
                 :key="chart.id"
                 :span="12"
                 :xl="12"
@@ -3079,7 +3167,15 @@ const activeCollapse = ref([])
               >
                 <div class="charts-container">
                   <el-card class="chart-card">
-                    <ElSkeleton :loading="loading" animated>
+                    <ElSkeleton :loading="chartsLoading || isChartLoading(chart.id)" animated>
+                      <template #template>
+                        <div class="chart-loading-container">
+                          <div class="chart-loading-spinner">
+                            <el-icon class="is-loading"><Loading /></el-icon>
+                          </div>
+                          <div class="chart-loading-text">{{ getChartLoadingMessage(chart.id) }}</div>
+                        </div>
+                      </template>
                       <template v-if="chart.chart">
                         <v-chart v-if="chart.type==7" :id="chart.id" class="chart" :option="chart.chart" height="400" autoresize /> 
                         <apexchart v-if="chart.type!=7 && chart.type!=8" :options="chart.chart" :series="chart.chart.series" :type="getChartType(chart.type)" height="350" autoresize/>
@@ -3095,6 +3191,22 @@ const activeCollapse = ref([])
                 </div>
               </el-col>
             </template>
+            <el-col v-else-if="chartsLoading" :span="24">
+              <div class="charts-container">
+                <el-card class="chart-card">
+                  <ElSkeleton :loading="true" animated>
+                    <template #template>
+                      <div class="chart-loading-container">
+                        <div class="chart-loading-spinner">
+                          <el-icon class="is-loading"><Loading /></el-icon>
+                        </div>
+                        <div class="chart-loading-text">Loading charts...</div>
+                      </div>
+                    </template>
+                  </ElSkeleton>
+                </el-card>
+              </div>
+            </el-col>
             <el-col v-else :span="24">
               <div class="charts-container">
                 <el-card class="chart-card empty-state">
@@ -3369,6 +3481,26 @@ const activeCollapse = ref([])
 
 .filter-icon {
   color: #606266;
+}
+
+.chart-loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 400px;
+  gap: 16px;
+}
+
+.chart-loading-spinner {
+  font-size: 24px;
+  color: var(--el-color-primary);
+}
+
+.chart-loading-text {
+  font-size: 14px;
+  color: var(--el-text-color-regular);
+  text-align: center;
 }
 
 
