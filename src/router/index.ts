@@ -300,7 +300,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       title: t('Data'),
       icon: 'mdi:map-legend',
       alwaysShow: true,
- 
+      role: ['root_admin', 'admin', 'super_admin', 'monitoring'  ,'staff' ,'monitoring','grm'] ,
     },
     children: [
       {
@@ -320,10 +320,13 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             path: 'list',
             component: () => import('@/views/Settlement/Sett.vue'),
             name: 'List',
+
             meta: {
               title: 'Settlements',
               affix: true,
-              icon:'material-symbols:format-list-bulleted-rounded'
+              icon:'material-symbols:format-list-bulleted-rounded',
+              role: ['root_admin', 'admin', 'super_admin', 'monitoring'  ,'staff' ,'monitoring','grm'] ,
+
             }
           },
        
