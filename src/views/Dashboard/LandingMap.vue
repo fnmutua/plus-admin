@@ -315,8 +315,6 @@ onMounted(async () => {
       console.log('County-restricted user detected, auto-setting county:', userCountyId.value)
       // Set county value as array
       county.value = [userCountyId.value]
-      // Load subcounties for the county
-      await getSubcountiesForCounty(userCountyId.value)
       // Automatically trigger county change handler to load subcounties
       await handleChangeCounty([userCountyId.value])
     }
@@ -1122,74 +1120,46 @@ const handleChangeCounty = async (countyIds: number | number[]) => {
     await removeSettlementLayers()
     await addSettlementLayers()
 
-    // Get and add subcounty boundaries for all selected counties
-    try {
-      const subcountyGeoForm: any = {}
-      subcountyGeoForm.model = 'subcounty'
-      subcountyGeoForm.columnFilterField = 'county_id'
-      subcountyGeoForm.filtredGeoIds = countyArray
-
-      const subcountyRes = await getfilteredGeo(subcountyGeoForm)
-      console.log('Subcounty API response:', subcountyRes)
-      
-      if (subcountyRes.data && subcountyRes.data.length > 0) {
-        const subcountyGeoData = subcountyRes.data[0].json_build_object
-        console.log('Subcounty geo data for counties:', subcountyGeoData)
-
-        // Add subcounty source and layer
-        map.value.addSource('Subcounty', {
-          type: 'geojson',
-          data: subcountyGeoData,
-        });
-
-        map.value.addLayer({
-          id: 'Subcounty',
-          type: 'line',
-          source: 'Subcounty',
-          paint: {
-            'line-color': 'purple',
-            'line-opacity': 1,
-            'line-width': 0.5,
-          },
-        }, 'settlementLabel');
-      } else {
-        console.log('No subcounty data found for counties:', countyArray);
-      }
-
-      console.log('Subcounty layer added for counties');
-    } catch (error) {
-      console.error('Error adding subcounty layer for counties:', error);
-    }
-
-    // Get subcounty options for all selected counties
+    // Get subcounties for all selected counties and load their boundaries
+    const allSubcountyIds: number[] = []
+    subCountyOptions.value = [] // Clear existing options
+    
     for (const countyId of countyArray) {
-      await getListWithoutGeo({
-        params: {
-          curUser: 1,
-          model: 'subcounty',
-          assocModel: 'county',
-          searchField: 'county_id',
-          searchKeyword: countyId,
-          sort: 'ASC'
-        }
-      }).then((response: { data: any }) => {
-        console.log('selecy county response:', response)
-        const ret = response.data
-
-        const coptions = [];
-        ret.forEach((data) => {
+      try {
+        const res = await getListWithoutGeo({
+          params: {
+            curUser: 1,
+            model: 'subcounty',
+            assocModel: 'county',
+            searchField: 'county_id',
+            searchKeyword: countyId,
+            sort: 'ASC'
+          }
+        })
+        
+        const ret = res.data
+        ret.forEach((data: any) => {
           const option = {
             value: data.id,
-            label: data.name,
-          };
-          coptions.push(option);
-        });
-
-        // Sort the options array by value
-        coptions.sort((a, b) => a.value - b.value);
-
-        subCountyOptions.value = coptions
-      })
+            label: data.name
+          }
+          // Avoid duplicates
+          if (!subCountyOptions.value.find(opt => opt.value === option.value)) {
+            subCountyOptions.value.push(option)
+            allSubcountyIds.push(data.id)
+          }
+        })
+      } catch (error) {
+        console.error(`Error fetching subcounties for county ${countyId}:`, error)
+      }
+    }
+    
+    // Sort options
+    subCountyOptions.value.sort((a, b) => a.value - b.value)
+    
+    // Load all subcounty geometries at once
+    if (allSubcountyIds.length > 0) {
+      await loadSubcountyGeometries(allSubcountyIds)
     }
   }
 }
@@ -1282,11 +1252,12 @@ const loadSubcountyGeometries = async (subcountyIds: number[]) => {
       type: 'line',
       source: 'Subcounty',
       paint: {
-        'line-color': 'purple',
+        'line-color': 'blue',
         'line-opacity': 1,
-        'line-width': 0.5
+        'line-width': 1,
+        'line-dasharray': [2, 2]
       }
-    }, 'settlementLabel')
+    })
 
     console.log('Subcounty boundaries loaded successfully')
   } catch (error) {
