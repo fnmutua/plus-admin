@@ -1073,7 +1073,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
          title: 'Activities',
          icon:'icon-park-outline:activity-source',
          role: ['root_admin','admin', 'super_admin', 'monitoring'  ,'staff' ] ,
-         locationLevel:['national','county' ],
+         locationLevel:['national' ],
        }
        },
          {
@@ -1155,7 +1155,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             meta: {
               title: 'Reports(New)',
               role: ['root_admin','admin', 'super_admin', 'monitoring' ,'staff' ] ,
-              locationLevel:['national'  ],
+              locationLevel:['national','county'  ],
 
               icon:'carbon:result-new',
             }
@@ -1168,7 +1168,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             name: 'PastReports',
             meta: {
               title: 'Reports',
-              locationLevel:['national'  ],
+              locationLevel:['national' ,'county' ],
               role: ['root_admin','admin', 'super_admin', 'monitoring'  ,'staff' ] ,
 
               icon:'mdi:file-document-plus',
@@ -1183,6 +1183,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             meta: {
               title: 'Evaluations',
                role: ['root_admin','admin', 'super_admin', 'monitoring', 'staff' ] ,
+               locationLevel:['national'   ],
 
               icon:'solar:list-check-bold',
             }
@@ -1196,6 +1197,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
               title: 'Add Evaluation',
               hidden: true,
                role: ['root_admin','admin', 'super_admin', 'monitoring' ,'staff' ] ,
+               locationLevel:['national'   ],
 
               icon:'mdi:file-document-plus',
             }
@@ -1214,6 +1216,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           title: 'Beneficiaries',
           icon:'ph:users-fill',
           role: ['root_admin','admin', 'super_admin', 'monitoring', 'staff' ] ,
+          locationLevel:['national'  ],
 
           hidden: false
         }

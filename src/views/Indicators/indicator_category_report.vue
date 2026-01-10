@@ -69,6 +69,41 @@ const { wsCache } = useCache()
 const appStore = useAppStore()
 const userInfo = wsCache.get(appStore.getUserInfo)
 
+// User location-based filtering
+const isSuperAdmin = computed(() => {
+  return userInfo?.roles?.some((role: any) => 
+    role.name === 'super_admin' || role.name === 'root_admin'
+  ) || false
+})
+
+const hasNationalAccess = computed(() => {
+  return userInfo?.roles?.some((role: any) => 
+    role.user_roles?.location_level === 'national'
+  ) || false
+})
+
+const userCountyRole = computed(() => {
+  return userInfo?.roles?.find((role: any) => 
+    role.user_roles?.location_level === 'county'
+  )
+})
+
+const userCountyId = computed(() => {
+  return userCountyRole.value?.user_roles?.county_id || null
+})
+
+// Check if user should be restricted to their county
+const isCountyRestricted = computed(() => {
+  return !isSuperAdmin.value && !hasNationalAccess.value && !!userCountyId.value
+})
+
+console.log('indicator_category_report.vue - User location info:', {
+  isSuperAdmin: isSuperAdmin.value,
+  hasNationalAccess: hasNationalAccess.value,
+  userCountyId: userCountyId.value,
+  isCountyRestricted: isCountyRestricted.value
+})
+
 const showAdminButtons = ref(appStore.getAdminButtons)
 const showEditButtons = ref(appStore.getEditButtons)
 const downloadLoading = ref(false)
@@ -474,6 +509,21 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   // - multiple filters -------------------------------------
   formData.filters = selFilters
   formData.filterValues = selfilterValues
+  
+  // Apply county restriction if user is county-restricted (unless super admin or national admin)
+  if (isCountyRestricted.value && userCountyId.value) {
+    const countyIndex = formData.filters.indexOf('county_id')
+    if (countyIndex !== -1) {
+      // Update existing county_id filter
+      formData.filterValues[countyIndex] = [userCountyId.value]
+    } else {
+      // Add new county_id filter
+      formData.filters.push('county_id')
+      formData.filterValues.push([userCountyId.value])
+    }
+    console.log('Applying county restriction filter for indicator reports, county_id:', userCountyId.value)
+  }
+  
   formData.associated_multiple_models = associated_multiple_models
   formData.nested_models = nested_models
 
