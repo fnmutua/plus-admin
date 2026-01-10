@@ -1253,30 +1253,30 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         }
       },
       
-      {
-        path: 'ai-chat',
-        component: () => import('@/views/AI/DocumentChat.vue'),
-        name: 'DocumentAIChat',
-        meta: {
-          title: 'AI Chat',
-          hidden: false,
-          role: ['root_admin','admin', 'super_admin', 'monitoring', 'staff'  ] ,
-          icon:'material-symbols:smart-toy'
-        }
-      },
+      // {
+      //   path: 'ai-chat',
+      //   component: () => import('@/views/AI/DocumentChat.vue'),
+      //   name: 'DocumentAIChat',
+      //   meta: {
+      //     title: 'AI Chat',
+      //     hidden: false,
+      //     role: ['root_admin','admin', 'super_admin', 'monitoring', 'staff'  ] ,
+      //     icon:'material-symbols:smart-toy'
+      //   }
+      // },
       
-      {
-        path: 'cleanup',
-      //  component: 'views/Users/County',
-        component: () => import('@/views/Repository/DeleteDocuments.vue'),
-        name: 'RepositoryCleanup',
-        meta: {
-          title: 'Cleanup',
-          hidden: false,
-           role: ['root_admin','admin', 'super_admin' ] ,
-          icon:'fluent:delete-32-filled'
-        }
-      },
+      // {
+      //   path: 'cleanup',
+      // //  component: 'views/Users/County',
+      //   component: () => import('@/views/Repository/DeleteDocuments.vue'),
+      //   name: 'RepositoryCleanup',
+      //   meta: {
+      //     title: 'Cleanup',
+      //     hidden: false,
+      //      role: ['root_admin','admin', 'super_admin' ] ,
+      //     icon:'fluent:delete-32-filled'
+      //   }
+      // },
 
 
      
