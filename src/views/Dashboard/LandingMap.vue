@@ -834,6 +834,20 @@ const getSubsetGeo = async (model: string, filterFields: string[], filterValues:
     return
   }
 
+  // Early return if no active filters
+  const hasActiveFilters = filterFields.some((field, index) => {
+    const value = filterValues[index]
+    return value && (Array.isArray(value) ? value.length > 0 : true)
+  })
+  
+  if (!hasActiveFilters) {
+    // No filters active, show all data
+    geojson.value = await computeCentroids(allProjectsGeo.value)
+    await removeSettlementLayers()
+    await addSettlementLayers()
+    return
+  }
+
   // Assuming allProjectsGeo is already defined
   const filteredGeoJson = {
     type: "FeatureCollection",  // Wrapping the result in a FeatureCollection format
@@ -882,15 +896,14 @@ const getSubsetGeo = async (model: string, filterFields: string[], filterValues:
     await removeSettlementLayers()
     await addSettlementLayers()
   } else {
-    // Only show warning if we actually have filters applied
-    const hasActiveFilters = filterFields.some((field, index) => {
-      const value = filterValues[index]
-      return value && (Array.isArray(value) ? value.length > 0 : true)
-    })
-    
+    // Only show warning if we actually have active filters and no data found
     if (hasActiveFilters) {
       ElMessage.warning('No data for the selected filters')
     }
+    // Still show all data even if filtered result is empty
+    geojson.value = await computeCentroids(allProjectsGeo.value)
+    await removeSettlementLayers()
+    await addSettlementLayers()
   }
 }
 
