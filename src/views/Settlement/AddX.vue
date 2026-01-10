@@ -837,16 +837,35 @@ onMounted(async () => {
   }
   
   // Ensure toolbar is added after a delay even if missed in the main flow
-  setTimeout(() => {
-    if (googleMap.value && !document.querySelector('.google-map-unified-toolbar')) {
-      try {
-        addUnifiedToolbar();
-        console.log('Toolbar added via fallback timer');
-      } catch (error) {
-        console.error('Failed to add toolbar via fallback timer:', error);
+  // Use multiple attempts with increasing delays to handle various timing scenarios
+  const addToolbarWithRetries = (attempt = 1, maxAttempts = 5) => {
+    const delay = attempt * 1000; // 1s, 2s, 3s, 4s, 5s
+    setTimeout(() => {
+      if (googleMap.value) {
+        const existingToolbar = document.querySelector('.google-map-unified-toolbar');
+        if (!existingToolbar) {
+          try {
+            addUnifiedToolbar();
+            console.log(`Toolbar added via fallback timer (attempt ${attempt})`);
+          } catch (error) {
+            console.error(`Failed to add toolbar via fallback timer (attempt ${attempt}):`, error);
+            // Retry if not at max attempts
+            if (attempt < maxAttempts) {
+              addToolbarWithRetries(attempt + 1, maxAttempts);
+            }
+          }
+        } else {
+          console.log('Toolbar already exists, skipping fallback timer');
+        }
+      } else if (attempt < maxAttempts) {
+        // Map not ready yet, retry
+        addToolbarWithRetries(attempt + 1, maxAttempts);
       }
-    }
-  }, 3000);
+    }, delay);
+  };
+  
+  // Start the retry process
+  addToolbarWithRetries();
 })
 
 
@@ -1391,6 +1410,25 @@ const loadMap = async () => {
           }
           
           ElMessage.info('Basic map loaded. Drawing features are not available.');
+          
+          // Add toolbar even when drawing manager fails
+          setTimeout(() => {
+            try {
+              addUnifiedToolbar();
+              console.log('Toolbar added after drawing manager error');
+            } catch (toolbarError) {
+              console.error('Error adding toolbar after drawing manager error:', toolbarError);
+              // Retry after a longer delay
+              setTimeout(() => {
+                try {
+                  addUnifiedToolbar();
+                  console.log('Toolbar added on retry after drawing manager error');
+                } catch (retryError) {
+                  console.error('Failed to add toolbar on retry:', retryError);
+                }
+              }, 1000);
+            }
+          }, 500);
         } catch (basicError) {
           console.error("Error setting up basic map functionality:", basicError);
         }
@@ -1815,14 +1853,28 @@ const addUnifiedToolbar = () => {
     return;
   }
   
-  // Check if toolbar already exists
-  const controls = googleMap.value.controls[google.maps.ControlPosition.TOP_LEFT];
-  const existingToolbar = Array.from(controls).find(control => 
-    control.className === 'google-map-unified-toolbar'
-  );
-  
-  if (existingToolbar) {
-    return; // Toolbar already exists, don't add another one
+  // Check if toolbar already exists - with safer array handling
+  try {
+    const controls = googleMap.value.controls[google.maps.ControlPosition.TOP_LEFT];
+    
+    // Ensure controls is an array-like object
+    if (!controls) {
+      console.warn('Control position TOP_LEFT not available, will create it');
+    } else {
+      // Safely check for existing toolbar
+      const controlsArray = Array.isArray(controls) ? controls : Array.from(controls || []);
+      const existingToolbar = controlsArray.find(control => 
+        control && control.className === 'google-map-unified-toolbar'
+      );
+      
+      if (existingToolbar) {
+        console.log('Toolbar already exists, skipping creation');
+        return; // Toolbar already exists, don't add another one
+      }
+    }
+  } catch (error) {
+    console.warn('Error checking for existing toolbar, proceeding to create:', error);
+    // Continue to create toolbar even if check fails
   }
   
   // Function to get current theme colors
@@ -1978,25 +2030,37 @@ const addUnifiedToolbar = () => {
      </div>
    `;
   
-     // Add event listeners
+     // Add event listeners - ensure all buttons exist
    const panTool = toolbar.querySelector('#pan-tool');
    const drawTool = toolbar.querySelector('#draw-tool');
    const uploadTool = toolbar.querySelector('#upload-tool');
    const mapTypeTool = toolbar.querySelector('#map-type-tool');
    const satelliteTool = toolbar.querySelector('#satellite-tool');
    
+   // Validate all buttons exist
+   if (!panTool || !drawTool || !uploadTool || !mapTypeTool || !satelliteTool) {
+     console.error('One or more toolbar buttons not found:', {
+       panTool: !!panTool,
+       drawTool: !!drawTool,
+       uploadTool: !!uploadTool,
+       mapTypeTool: !!mapTypeTool,
+       satelliteTool: !!satelliteTool
+     });
+     return; // Exit if buttons are missing
+   }
+   
    // Disable draw tool if drawing library is not available
-   if (drawTool && !window.google?.maps?.drawing) {
-     drawTool.disabled = true;
-     drawTool.style.cursor = 'not-allowed';
-     drawTool.style.opacity = '0.6';
+   if (!window.google?.maps?.drawing) {
+     (drawTool as HTMLButtonElement).disabled = true;
+     (drawTool as HTMLButtonElement).style.cursor = 'not-allowed';
+     (drawTool as HTMLButtonElement).style.opacity = '0.6';
    }
   
   // Pan tool functionality
   panTool.addEventListener('click', () => {
     // Reset all button styles
-    panTool.style.background = '#4CAF50';
-    drawTool.style.background = '#2196F3';
+    (panTool as HTMLButtonElement).style.background = '#4CAF50';
+    (drawTool as HTMLButtonElement).style.background = '#2196F3';
     
     // Set drawing mode to null (pan mode)
     if (drawingManager.value) {
@@ -2014,8 +2078,8 @@ const addUnifiedToolbar = () => {
   // Draw tool functionality
   drawTool.addEventListener('click', () => {
     // Reset all button styles
-    panTool.style.background = '#4CAF50';
-    drawTool.style.background = '#1976D2';
+    (panTool as HTMLButtonElement).style.background = '#4CAF50';
+    (drawTool as HTMLButtonElement).style.background = '#1976D2';
     
     // Check if drawing manager is available
     if (drawingManager.value && window.google.maps.drawing) {
@@ -2030,7 +2094,7 @@ const addUnifiedToolbar = () => {
     } else {
       ElMessage.warning('Drawing functionality is not available. Please refresh the page or check your internet connection.');
       // Reset button style
-      drawTool.style.background = '#2196F3';
+      (drawTool as HTMLButtonElement).style.background = '#2196F3';
     }
   });
   
@@ -2042,10 +2106,10 @@ const addUnifiedToolbar = () => {
    // Map type tool functionality
    mapTypeTool.addEventListener('click', () => {
      // Reset all button styles
-     panTool.style.background = '#4CAF50';
-     drawTool.style.background = '#2196F3';
-     mapTypeTool.style.background = '#7B1FA2';
-     satelliteTool.style.background = '#607D8B';
+     (panTool as HTMLButtonElement).style.background = '#4CAF50';
+     (drawTool as HTMLButtonElement).style.background = '#2196F3';
+     (mapTypeTool as HTMLButtonElement).style.background = '#7B1FA2';
+     (satelliteTool as HTMLButtonElement).style.background = '#607D8B';
      
      // Set map type to roadmap
      if (googleMap.value) {
@@ -2058,10 +2122,10 @@ const addUnifiedToolbar = () => {
    // Satellite tool functionality
    satelliteTool.addEventListener('click', () => {
      // Reset all button styles
-     panTool.style.background = '#4CAF50';
-     drawTool.style.background = '#2196F3';
-     mapTypeTool.style.background = '#9C27B0';
-     satelliteTool.style.background = '#455A64';
+     (panTool as HTMLButtonElement).style.background = '#4CAF50';
+     (drawTool as HTMLButtonElement).style.background = '#2196F3';
+     (mapTypeTool as HTMLButtonElement).style.background = '#9C27B0';
+     (satelliteTool as HTMLButtonElement).style.background = '#455A64';
      
      // Set map type to satellite
      if (googleMap.value) {
@@ -2074,18 +2138,39 @@ const addUnifiedToolbar = () => {
    // Add hover effects
    [panTool, drawTool, uploadTool, mapTypeTool, satelliteTool].forEach(button => {
      button.addEventListener('mouseenter', () => {
-       button.style.opacity = '0.8';
+       (button as HTMLButtonElement).style.opacity = '0.8';
      });
      button.addEventListener('mouseleave', () => {
-       button.style.opacity = '1';
+       (button as HTMLButtonElement).style.opacity = '1';
      });
    });
   
-  // Add to map
-  googleMap.value.controls[google.maps.ControlPosition.TOP_LEFT].push(toolbar);
+  // Add to map - ensure controls array exists
+  try {
+    const controlPosition = google.maps.ControlPosition.TOP_LEFT;
+    if (!googleMap.value.controls[controlPosition]) {
+      // Initialize the control position if it doesn't exist
+      googleMap.value.controls[controlPosition] = [];
+    }
+    googleMap.value.controls[controlPosition].push(toolbar);
+    console.log('Toolbar successfully added to map controls');
+  } catch (error) {
+    console.error('Error adding toolbar to map controls:', error);
+    // Try alternative method - append directly to map container
+    const mapContainer = document.getElementById('mapContainer');
+    if (mapContainer) {
+      mapContainer.appendChild(toolbar);
+      console.log('Toolbar added directly to map container as fallback');
+    } else {
+      console.error('Could not add toolbar - map container not found');
+      return;
+    }
+  }
   
   // Set initial state to pan mode
-  panTool.click();
+  if (panTool) {
+    (panTool as HTMLButtonElement).click();
+  }
   
   // Listen for theme changes
   const observer = new MutationObserver((mutations) => {

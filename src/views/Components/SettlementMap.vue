@@ -1174,19 +1174,51 @@ const drawerVisible = ref(false)
 const drawerTitle = ref('')
 const drawerData = ref<any[]>([])
 
+// Helper function to format numbers to 2 decimal places
+const formatNumber = (value: any): any => {
+  if (value === null || value === undefined || value === '') {
+    return value
+  }
+  const num = Number(value)
+  if (isNaN(num)) {
+    return value
+  }
+  // Check if it's a whole number
+  if (Number.isInteger(num)) {
+    return num.toString()
+  }
+  // Round to 2 decimal places
+  return num.toFixed(2)
+}
+
 const onPolygonClick = (feature) => {
   // Close any existing popups
   infowindow.value = false
   PointInfowindow.value = false
   
-  // Prepare drawer data
+  // Prepare drawer data - exclude geom and geometry properties
   const filteredProperties = Object.fromEntries(
-    Object.entries(feature.properties || {}).filter(([_, value]) => value)
+    Object.entries(feature.properties || {}).filter(([key, value]) => {
+      // Exclude falsy values
+      if (!value) return false
+      // Exclude geom and geometry properties
+      const lowerKey = key.toLowerCase()
+      if (lowerKey === 'geom' || lowerKey === 'geometry' || lowerKey.includes('geometry')) {
+        return false
+      }
+      // Exclude geometry objects (has type and coordinates)
+      if (typeof value === 'object' && value !== null && !Array.isArray(value) && !(value instanceof Date)) {
+        if ('type' in value && 'coordinates' in value) {
+          return false
+        }
+      }
+      return true
+    })
   )
   
   drawerData.value = Object.entries(filteredProperties).map(([key, value]) => ({
     field: key,
-    value: value
+    value: formatNumber(value)
   }))
   
   drawerTitle.value = 'Feature Details'
@@ -1204,14 +1236,29 @@ const onPointClick = (feature) => {
   infowindow.value = false
   PointInfowindow.value = false
   
-  // Prepare drawer data
+  // Prepare drawer data - exclude geom and geometry properties
   const filteredProperties = Object.fromEntries(
-    Object.entries(feature.properties || {}).filter(([_, value]) => value)
+    Object.entries(feature.properties || {}).filter(([key, value]) => {
+      // Exclude falsy values
+      if (!value) return false
+      // Exclude geom and geometry properties
+      const lowerKey = key.toLowerCase()
+      if (lowerKey === 'geom' || lowerKey === 'geometry' || lowerKey.includes('geometry')) {
+        return false
+      }
+      // Exclude geometry objects (has type and coordinates)
+      if (typeof value === 'object' && value !== null && !Array.isArray(value) && !(value instanceof Date)) {
+        if ('type' in value && 'coordinates' in value) {
+          return false
+        }
+      }
+      return true
+    })
   )
   
   drawerData.value = Object.entries(filteredProperties).map(([key, value]) => ({
     field: key,
-    value: value
+    value: formatNumber(value)
   }))
   
   // Set appropriate title based on feature type

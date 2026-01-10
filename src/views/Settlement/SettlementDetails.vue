@@ -1303,6 +1303,7 @@ const excludeFields = ref([
   'ward_id',
   'code',
   'validation_check_sch',
+  'geom',
   // add any other keys you want omitted
 ]);
 const priorityFields = ['respondents_name', 'telephone'];
@@ -1316,12 +1317,40 @@ const humanize = key =>
 
 // Computed: build table rows
 const filteredData = computed(() => {
+  // Safety check: return empty array if raw.value is not an object
+  if (!raw.value || typeof raw.value !== 'object' || Array.isArray(raw.value)) {
+    return [];
+  }
+  
   // 1. All valid entries
   const entries = Object.entries(raw.value).filter(
-    ([key, val]) =>
-      val !== null &&
-      val !== '' &&
-      !excludeFields.value.includes(key)
+    ([key, val]) => {
+      // Skip if value is null, empty, or undefined
+      if (val === null || val === '' || val === undefined) {
+        return false;
+      }
+      
+      // Skip if key is in excludeFields (includes 'geom')
+      if (excludeFields.value.includes(key)) {
+        return false;
+      }
+      
+      // Explicitly exclude geom and geometry (case-insensitive check)
+      const lowerKey = key.toLowerCase();
+      if (lowerKey === 'geom' || lowerKey === 'geometry' || lowerKey.includes('geometry')) {
+        return false;
+      }
+      
+      // Skip if value is a geometry object (has type and coordinates properties)
+      if (typeof val === 'object' && val !== null && !Array.isArray(val) && !(val instanceof Date)) {
+        if ('type' in val && 'coordinates' in val) {
+          // This looks like a GeoJSON geometry object
+          return false;
+        }
+      }
+      
+      return true;
+    }
   );
 
   // 2. Extract priority rows (in order), if present
