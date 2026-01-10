@@ -1609,7 +1609,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       icon: 'wpf:usershield',
       alwaysShow: true,
       role: ['root_admin','admin', 'super_admin', 'admin',],
-      locationLevel:['national'],
+      locationLevel:['national','county'],
 
     },
     children: [
@@ -1623,8 +1623,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           title: 'All',
           hidden: false,
           icon: 'teenyicons:users-outline',
-           role: ['root_admin','admin', 'super_admin'   ] 
- 
+           role: ['root_admin','admin', 'super_admin'   ] ,
+           locationLevel:['national','county'],
         }
       },
       {
@@ -1636,8 +1636,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           title: 'Admin',
           hidden: false,
           icon: 'mdi:shield-user',
-           role: ['root_admin', 'super_admin'   ] 
-
+           role: ['root_admin', 'super_admin'   ] ,
+           locationLevel:['national' ],
         }
       },
       
@@ -1651,8 +1651,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           title: 'GRM',
           hidden: false,
           icon: 'flowbite:user-headset-solid',
-           role: ['root_admin','admin', 'super_admin'   ] 
-
+           role: ['root_admin','admin', 'super_admin'   ],
+           locationLevel:['national' ],
         }
       },
       
@@ -1665,8 +1665,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           title: 'Support',
           hidden: false,
           icon: 'mdi:account-cog',
-           role: ['root_admin','admin', 'super_admin'   ] 
-
+           role: ['root_admin','admin', 'super_admin'   ]   ,
+           locationLevel:['national' ],
         }
       },
 

@@ -9,14 +9,15 @@ import DownloadAll from '@/views/Components/DownloadAll.vue';
 
 import {
   ElButton, ElSwitch, ElSelect, ElDialog, ElDropdown, ElDropdownItem, ElMessage,
-  ElFormItem, ElForm, ElInput, ElTable, ElTableColumn, ElAvatar, ElRow, ElPagination, ElTooltip, ElOption, ElCard, ElCol, ElIcon
+  ElFormItem, ElForm, ElInput, ElTable, ElTableColumn, ElAvatar, ElRow, ElPagination, ElTooltip, ElOption, ElCard, ElCol, ElIcon, ElTag
 } from 'element-plus'
 import {
   Position,
   Edit,
   Back,
   Plus,
-  ArrowDown
+  ArrowDown,
+  InfoFilled
 } from '@element-plus/icons-vue'
 
 import { ref, onMounted, computed } from 'vue'
@@ -50,6 +51,38 @@ const currentUser = wsCache.get(appStore.getUserInfo)
 
 const showAdminButtons = ref(appStore.getAdminButtons)
 
+// County Admin Detection
+const isSuperAdmin = computed(() => {
+  return currentUser?.roles?.some((role: any) => 
+    ['super_admin', 'root_admin'].includes(role.name) ||
+    (role.name === 'admin' && role.user_roles?.location_level === 'national')
+  ) || false
+})
+
+// Check if user has admin role with county location level
+const isCountyAdmin = computed(() => {
+  return currentUser?.roles?.some((role: any) => 
+    ['admin', 'staff'].includes(role.name) && 
+    role.user_roles?.location_level === 'county'
+  ) || false
+})
+
+const userCountyRole = computed(() => {
+  return currentUser?.roles?.find((role: any) => 
+    role.user_roles?.location_level === 'county'
+  )
+})
+
+const userCountyId = computed(() => {
+  return userCountyRole.value?.user_roles?.county_id || null
+})
+
+// Check if user should be restricted to their county
+// County admins are users with admin/staff role at county level (not super_admin or national admin)
+const isCountyRestricted = computed(() => {
+  return isCountyAdmin.value && !!userCountyId.value
+})
+
 
 
 const { push } = useRouter()
@@ -59,6 +92,7 @@ var value3 = ref([])
 const countiesOptions = ref([])
 const RolesOptions = ref([])
 const FilteredRolesOptions = ref([])
+const AvailableRolesOptions = ref([]) // Roles that can be assigned (subordinate roles)
 
 
 const settlementOptions = ref([])
@@ -160,8 +194,14 @@ const handleClear = async () => {
   pageSize.value = 5
   currentPage.value = 1
   tblData = []
-  //----run the get data--------
-  getInterventionsAll()
+  
+  // If county admin, re-apply their county filter
+  if (isCountyRestricted.value && userCountyId.value) {
+    handleSelectCounty([userCountyId.value])
+  } else {
+    //----run the get data--------
+    getInterventionsAll()
+  }
 }
 
 const handleSelectCounty = async (county_id: any) => {
@@ -288,10 +328,8 @@ const getRoles = async () => {
 
   console.log('Get Roles.....', res.data)
 
-
+  // Get all roles for display
   res.data.forEach(function (arrayItem) {
-
-
     //  generate the filter options
     var opt = {}
     opt.value = arrayItem.id
@@ -301,7 +339,15 @@ const getRoles = async () => {
     FilteredRolesOptions.value.push(opt)
   })
 
+  // Get subordinate roles (roles that can be assigned by current user)
+  // This is already filtered by the backend API endpoint
+  AvailableRolesOptions.value = res.data.map((arrayItem: any) => ({
+    value: arrayItem.id,
+    label: arrayItem.name
+  }))
+
   console.log('RolesOptions', RolesOptions)
+  console.log('AvailableRolesOptions (subordinate roles)', AvailableRolesOptions)
 }
 
 const getSettlementsOptions = async () => {
@@ -330,6 +376,17 @@ const activateDeactivate = async (data: TableSlotDefault) => {
   if (!userPermissions.includes('user:activate')) {
     ElMessage.error('You do not have permission to activate/deactivate users')
     return
+  }
+  
+  // If county admin, validate that the user belongs to their county
+  if (isCountyRestricted.value && userCountyId.value) {
+    const userCountyIdFromRow = data.row.county_id || data.row.county?.id
+    if (userCountyIdFromRow && userCountyIdFromRow !== userCountyId.value) {
+      ElMessage.error('You can only activate/deactivate users within your county.')
+      // Revert the switch state
+      data.row.isactive = !data.row.isactive
+      return
+    }
   }
   
   // Set loading state for this specific user
@@ -451,10 +508,24 @@ const searchByName = async (filterString: any) => {
   getFilteredBySearchData(searchString.value)
 }
 
-getRoles()
-getCountyNames()
-getSettlementsOptions()
-getInterventionsAll()
+// Initialize county admin restrictions
+const initializeCountyAdminRestrictions = async () => {
+  await getRoles()
+  await getCountyNames()
+  await getSettlementsOptions()
+  
+  // If county admin, auto-filter by their county
+  if (isCountyRestricted.value && userCountyId.value) {
+    console.log('County Admin detected, auto-filtering by county:', userCountyId.value)
+    // Set the county filter
+    value2.value = [userCountyId.value]
+    handleSelectCounty([userCountyId.value])
+  } else {
+    getInterventionsAll()
+  }
+}
+
+initializeCountyAdminRestrictions()
 
 
 
@@ -471,6 +542,15 @@ const AddUser = () => {
 
 const EditUser = async (data: TableSlotDefault) => {
   console.log(data)
+
+  // If county admin, validate that the user belongs to their county
+  if (isCountyRestricted.value && userCountyId.value) {
+    const userCountyIdFromRow = data.row.county_id || data.row.county?.id
+    if (userCountyIdFromRow && userCountyIdFromRow !== userCountyId.value) {
+      ElMessage.error('You can only manage users within your county.')
+      return
+    }
+  }
 
   tmp_roles.value = []
   form.value.id = data.row.id
@@ -650,16 +730,23 @@ const handleChangeLevel = async (level) => {
 
 
 const addRole = () => {
-  const this_role = {
+  const this_role: any = {
     userid: form.value.id,
     roleid: null,
     location_level: null,
-    county_id: null,
+    county_id: isCountyRestricted.value && userCountyId.value ? userCountyId.value : null,
     settlement_id: null
 
   }
 
   console.log('this_role', this_role)
+  
+  // If county admin, set default location level to county
+  if (isCountyRestricted.value && userCountyId.value) {
+    this_role.location_level = 'county'
+    handleChangeLevel('county')
+  }
+  
   // Add a new role object with default values to the roles array
   tmp_roles.value.push(this_role);
 }
@@ -673,6 +760,26 @@ const removeRole = (index) => {
 
 const validateForm = () => {
   let isValid = true; // To track if the form is valid
+
+  // If county admin, validate that all roles are within their county
+  if (isCountyRestricted.value && userCountyId.value) {
+    tmp_roles.value.forEach(role => {
+      // County admins can only assign roles within their county
+      if (role.location_level === "county" || role.location_level === "settlement") {
+        if (role.county_id && role.county_id !== userCountyId.value) {
+          console.error('Error: County admin can only assign roles within their county.');
+          ElMessage.error('You can only assign roles within your county.');
+          isValid = false;
+        }
+      }
+      // County admins cannot assign national-level roles
+      if (role.location_level === "national") {
+        console.error('Error: County admin cannot assign national-level roles.');
+        ElMessage.error('County admins cannot assign national-level roles.');
+        isValid = false;
+      }
+    });
+  }
 
   tmp_roles.value.forEach(role => {
     if (role.location_level === "national") {
@@ -780,10 +887,24 @@ const updateUser = () => {
 
       <!-- Title Search -->
       <el-select
-style="  margin-right: 10px;" v-model="value2" :onChange="handleSelectCounty" :onClear="handleClear"
-        multiple clearable filterable collapse-tags placeholder="Filter by County">
+        v-if="!isCountyRestricted"
+        style="  margin-right: 10px;" 
+        v-model="value2" 
+        :onChange="handleSelectCounty" 
+        :onClear="handleClear"
+        multiple 
+        clearable 
+        filterable 
+        collapse-tags 
+        placeholder="Filter by County">
         <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
+      <!-- Show county name for county admins (read-only) -->
+      <el-tooltip v-else content="You can only manage users in your county" placement="top">
+        <el-tag type="info" style="margin-right: 10px;">
+          County: {{ countiesOptions.find((c: any) => c.value === userCountyId)?.label || 'Your County' }}
+        </el-tag>
+      </el-tooltip>
 
       <el-select
 v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
@@ -939,10 +1060,14 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
                 placeholder="Select County"
                 clearable
                 filterable
+                :disabled="isCountyRestricted"
                 :style="{ width: '100%' }">
                 <el-option :value="0" label="Not Applicable" />
                 <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
+              <el-tooltip v-if="isCountyRestricted" content="County admins can only manage users in their county" placement="top">
+                <el-icon style="margin-left: 5px; color: #909399; cursor: help;"><InfoFilled /></el-icon>
+              </el-tooltip>
             </el-form-item>
           </el-col>
         </el-row>
@@ -954,9 +1079,18 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
           <el-table-column prop="role" label="Role" :width="isMobile ? 120 : 150">
             <template #default="{ row }">
               <el-select
-v-model="row.roleid" placeholder="Select Role" size="small" :style="{ width: isMobile ? '100%' : '100%' }" searchable
+                v-model="row.roleid" 
+                placeholder="Select Role" 
+                size="small" 
+                :style="{ width: isMobile ? '100%' : '100%' }" 
+                searchable
                 filterable>
-                <el-option v-for="item in RolesOptions" :key="item.value" :label="item.label" :value="item.value" />
+                <!-- Use AvailableRolesOptions (subordinate roles) instead of all roles -->
+                <el-option 
+                  v-for="item in AvailableRolesOptions.length > 0 ? AvailableRolesOptions : RolesOptions" 
+                  :key="item.value" 
+                  :label="item.label" 
+                  :value="item.value" />
               </el-select>
             </template>
           </el-table-column>
@@ -976,16 +1110,34 @@ v-model="row.location_level" placeholder="Select level" size="small" filterable
                 v-model="row.county_id" 
                 placeholder="County" 
                 clearable 
-                :disabled="isNationalLevel" 
+                :disabled="isNationalLevel || isCountyRestricted" 
                 filterable
                 @change="async (countyId) => { 
                   row.settlement_id = null; 
                   settlementOptions.value = []; 
                   if (countyId) await searchSettlements('', countyId); 
+                  // If county admin, ensure county_id matches their county
+                  if (isCountyRestricted.value && userCountyId.value && countyId !== userCountyId.value) {
+                    ElMessage.warning('You can only assign roles within your county.')
+                    row.county_id = userCountyId.value
+                  }
                 }" 
                 size="small" 
                 :style="{ width: '100%' }">
-                <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
+                <!-- If county admin, only show their county -->
+                <template v-if="isCountyRestricted && userCountyId">
+                  <el-option 
+                    :key="userCountyId" 
+                    :label="countiesOptions.find((c: any) => c.value === userCountyId)?.label || 'Your County'" 
+                    :value="userCountyId" />
+                </template>
+                <template v-else>
+                  <el-option 
+                    v-for="item in countiesOptions" 
+                    :key="item.value" 
+                    :label="item.label" 
+                    :value="item.value" />
+                </template>
               </el-select>
             </template>
           </el-table-column>

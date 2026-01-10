@@ -712,6 +712,43 @@ export const usePermissionStore = defineStore('permission', {
         await loadDashboardsImmediately();
       }
       return dashboardsLoaded.value;
+    },
+    
+    // Clear all dynamic routes and reset to initial state
+    clearDynamicRoutes() {
+      console.log('Clearing all dynamic routes...');
+      
+      // Clear all dynamic route data
+      programmeComponentOptions.value = [];
+      dynamicDashbaordOptions.value = [];
+      components.value = [];
+      dashboardsLoaded.value = false;
+      
+      // Clear subprograms
+      subprograms.value[0].children = [];
+      
+      // Remove dynamic dashboards from adminRoutes[0].children (Dashboard route)
+      if (adminRoutes[0]?.children) {
+        adminRoutes[0].children = adminRoutes[0].children.filter(route => 
+          !route.path?.startsWith('status_')
+        );
+      }
+      
+      // Remove subprogrammes route from adminRoutes
+      const subprogrammesIndex = adminRoutes.findIndex(
+        route => route.path === '/subprogrammes'
+      );
+      if (subprogrammesIndex >= 0) {
+        adminRoutes.splice(subprogrammesIndex, 1);
+      }
+      
+      // Clear store state
+      this.addRouters = [];
+      this.routers = [];
+      this.menuTabRouters = [];
+      this.isAddRouters = false;
+      
+      console.log('All dynamic routes cleared');
     }
   }
   

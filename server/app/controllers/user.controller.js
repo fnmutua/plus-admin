@@ -379,6 +379,25 @@ exports.modelCountyUsers = async (req, res) => {
 
     console.log('Current User Roles:', currentUserRoles);
 
+    // Check if user is a county admin (has admin/staff role with county location level)
+    // County admins are users with 'admin' or 'staff' role at county level (not super_admin or national admin)
+    const isCountyAdmin = currentUserRoles.some(role => 
+      ['admin', 'staff'].includes(role.name) && 
+      role.user_roles && 
+      role.user_roles.location_level === 'county'
+    );
+    
+    // Get county_id from county admin role
+    const adminCountyId = isCountyAdmin 
+      ? currentUserRoles.find(role => 
+          ['admin', 'staff'].includes(role.name) && 
+          role.user_roles && 
+          role.user_roles.location_level === 'county'
+        )?.user_roles?.county_id
+      : null;
+
+    console.log('Is County Admin:', isCountyAdmin, 'County ID:', adminCountyId);
+
     // Extract unique subordinate role IDs from the current user roles
     const uniqueSubordinates = [
       ...new Set(currentUserRoles.flatMap(role => role.subordinates || []))
@@ -386,15 +405,24 @@ exports.modelCountyUsers = async (req, res) => {
 
     console.log('Allowed Role IDs:', uniqueSubordinates);
 
+    // Build user_roles where clause
+    const userRolesWhere = {
+      roleid: { [Op.in]: uniqueSubordinates }
+    };
+
+    // If county admin, filter by county_id in user_roles
+    if (isCountyAdmin && adminCountyId) {
+      userRolesWhere.county_id = adminCountyId;
+      console.log('Filtering by county_id for county admin:', adminCountyId);
+    }
+
     // Query options
     const findAndCountOptions = {
       include: [
         {
           model: db.models.user_roles,
           required: true,
-          where: {
-            roleid: { [Op.in]: uniqueSubordinates } // No more exclusion of roleid = 0
-          }
+          where: userRolesWhere
         },
         {
           model: db.models.county,

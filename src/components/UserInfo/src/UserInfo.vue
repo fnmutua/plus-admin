@@ -73,6 +73,9 @@ const loginOut = () => {
         await Promise.all(cacheNames.map(name => caches.delete(name)));
       }
       
+      // Clear dynamic routes first (before resetting store)
+      permissionStore.clearDynamicRoutes()
+      
       // Reset all Pinia stores to clear in-memory state
       tagsViewStore.$reset()
       appStore.$reset()
