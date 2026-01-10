@@ -315,6 +315,8 @@ onMounted(async () => {
       console.log('County-restricted user detected, auto-setting county:', userCountyId.value)
       // Set county value as array
       county.value = [userCountyId.value]
+      // Load subcounties for the county
+      await getSubcountiesForCounty(userCountyId.value)
       // Automatically trigger county change handler to load subcounties
       await handleChangeCounty([userCountyId.value])
     }
@@ -1192,7 +1194,105 @@ const handleChangeCounty = async (countyIds: number | number[]) => {
   }
 }
 
+// Get subcounties for a county and load their boundaries
+const getSubcountiesForCounty = async (countyId: number) => {
+  try {
+    const res = await getListWithoutGeo({
+      params: {
+        curUser: 1,
+        model: 'subcounty',
+        assocModel: 'county',
+        searchField: 'county_id',
+        searchKeyword: countyId,
+        sort: 'ASC'
+      }
+    })
+    
+    const ret = res.data
+    const coptions = []
+    ret.forEach((data) => {
+      const option = {
+        value: data.id,
+        label: data.name
+      }
+      coptions.push(option)
+    })
+    
+    coptions.sort((a, b) => a.value - b.value)
+    subCountyOptions.value = coptions
 
+    // Load subcounty geometries and display them
+    await loadSubcountyGeometries(ret.map(item => item.id))
+  } catch (error) {
+    console.error('Error fetching subcounties:', error)
+  }
+}
+
+// Load subcounty geometries and display them on map
+const loadSubcountyGeometries = async (subcountyIds: number[]) => {
+  try {
+    if (subcountyIds.length === 0) {
+      console.log('No subcounty IDs to load')
+      return
+    }
+
+    console.log('Loading subcounty geometries:', subcountyIds)
+
+    // Remove existing subcounty layers
+    if (map.value.getLayer('Subcounty')) {
+      map.value.removeLayer('Subcounty')
+    }
+    if (map.value.getSource('Subcounty')) {
+      map.value.removeSource('Subcounty')
+    }
+
+    // Get subcounty geometries for all subcounties
+    const subcountyPromises = subcountyIds.map(async (subcountyId) => {
+      try {
+        const geoForm: any = { model: 'subcounty', id: subcountyId }
+        const res = await getOneGeo(geoForm)
+        return res.data[0].json_build_object
+      } catch (error) {
+        console.error(`Error loading subcounty ${subcountyId}:`, error)
+        return null
+      }
+    })
+
+    const subcountyGeometries = (await Promise.all(subcountyPromises)).filter(geo => geo !== null)
+
+    if (subcountyGeometries.length === 0) {
+      console.log('No subcounty geometries loaded')
+      return
+    }
+
+    // Combine all subcounty geometries into one feature collection
+    const combinedSubcountyGeo = {
+      type: 'FeatureCollection',
+      features: subcountyGeometries.flatMap(geo => geo.features || [geo])
+    }
+
+    // Add combined subcounty layer to map
+    map.value.addSource('Subcounty', {
+      type: 'geojson',
+      data: combinedSubcountyGeo
+    })
+
+    map.value.addLayer({
+      id: 'Subcounty',
+      type: 'line',
+      source: 'Subcounty',
+      paint: {
+        'line-color': 'purple',
+        'line-opacity': 1,
+        'line-width': 0.5
+      }
+    }, 'settlementLabel')
+
+    console.log('Subcounty boundaries loaded successfully')
+  } catch (error) {
+    console.error('Error loading subcounty geometries:', error)
+  }
+}
 
 const handleChangeSubcounty = async (subcountyIds: number | number[]) => {
   // Handle both single value and array
