@@ -1,15 +1,29 @@
 
 <template>
   <div class="floating-collapse">
-    <el-select v-model="county"  placeholder="Filter by County"  @change="handleChangeCounty" filterable clearable>
-        <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
+    <el-select 
+      multiple
+      v-model="county"  
+      placeholder="Filter by County"  
+      @change="handleChangeCounty" 
+      filterable 
+      :clearable="!isCountyRestricted"
+      :disabled="isCountyRestricted"
+    >
+      <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
+    </el-select>
     <el-select
-clearable filterable v-model="subcounty"  placeholder="Filter by Subcounty"  
-      @change="handleChangeSubcounty" :onClear="ResetFilters">
+      multiple
+      clearable 
+      filterable 
+      v-model="subcounty"  
+      placeholder="Filter by Subcounty"  
+      @change="handleChangeSubcounty" 
+      :onClear="ResetFilters"
+    >
       <el-option v-for="item in subCountyOptions" :key="item.value" :label="item.label" :value="item.value" />
     </el-select>
-    <el-button    @click="ResetFilters"> Reset Filters</el-button>
+    <el-button @click="ResetFilters"> Reset Filters</el-button>
    </div>
 
   
@@ -46,6 +60,7 @@ import { computed } from 'vue'
 import { getAllGeo, getOneGeo, streamGeo, getfilteredGeo} from '@/api/settlements'
 import { getListWithoutGeo } from '@/api/counties'
 import { getOneSettlement } from '@/api/settlements'
+import { useCache } from '@/hooks/web/useCache'
 
  
 // Removed unused variables for optimization
@@ -159,16 +174,52 @@ const MapBoxToken =
 mapboxgl.accessToken = MapBoxToken;
 
 const appStore = useAppStoreWithOut()
+const { wsCache } = useCache()
+const userInfo = wsCache.get(appStore.getUserInfo)
+
+// User location-based filtering
+const isSuperAdmin = computed(() => {
+  return userInfo?.roles?.some((role: any) => 
+    role.name === 'super_admin' || role.name === 'root_admin'
+  ) || false
+})
+
+const hasNationalAccess = computed(() => {
+  return userInfo?.roles?.some((role: any) => 
+    role.user_roles?.location_level === 'national'
+  ) || false
+})
+
+const userCountyRole = computed(() => {
+  return userInfo?.roles?.find((role: any) => 
+    role.user_roles?.location_level === 'county'
+  )
+})
+
+const userCountyId = computed(() => {
+  return userCountyRole.value?.user_roles?.county_id || null
+})
+
+// Check if user should be restricted to their county
+const isCountyRestricted = computed(() => {
+  return !isSuperAdmin.value && !hasNationalAccess.value && !!userCountyId.value
+})
 
 const isMobile = computed(() => appStore.getMobile)
 
 console.log('isMobile', isMobile.value)
+console.log('LandingMap.vue - User location info:', {
+  isSuperAdmin: isSuperAdmin.value,
+  hasNationalAccess: hasNationalAccess.value,
+  userCountyId: userCountyId.value,
+  isCountyRestricted: isCountyRestricted.value
+})
 
 // Removed unused dialogWidth variable
 
 
 
-const county = ref<number | undefined>(undefined)
+const county = ref<number[]>([])
 const polyFarms = ref<any>(null)
 const countyGeo = ref<any>(null)
 const geojson = ref<any>({ type: 'FeatureCollection', features: [] })
@@ -258,6 +309,15 @@ onMounted(async () => {
 
     await getCounty()
     console.log('get cunty done....')
+
+    // For county-restricted users, automatically set county and load subcounties
+    if (isCountyRestricted.value && userCountyId.value) {
+      console.log('County-restricted user detected, auto-setting county:', userCountyId.value)
+      // Set county value as array
+      county.value = [userCountyId.value]
+      // Automatically trigger county change handler to load subcounties
+      await handleChangeCounty([userCountyId.value])
+    }
 
     mapLoading.value=false
 
@@ -538,30 +598,31 @@ bounds.value = turf.bbox((geojson.value))
 
 
 const removeSettlementLayers = async () => {
+  // Check and remove layers only if they exist
+  const layersToRemove = ['clusters', 'cluster-count', 'unclustered-point', 'polyFarms', 'settlementLabel']
+  
+  layersToRemove.forEach(layerId => {
+    if (map.value.getLayer(layerId)) {
+      try {
+        map.value.removeLayer(layerId)
+      } catch (error) {
+        console.warn(`Error removing layer ${layerId}:`, error)
+      }
+    }
+  })
 
- 
-  //
-  console.log(' removing clusters.......')
-  map.value.removeLayer('clusters');
- //
- console.log('removing...cluster-count....')
-  map.value.removeLayer('cluster-count');
-
-  console.log('removing...unclustered-count....')
-  map.value.removeLayer('unclustered-point');
-
-  console.log('removing...polyFarms....')
-  map.value.removeLayer('polyFarms');
-
-
-  console.log('removing...settlementLabel....')
-  map.value.removeLayer('settlementLabel');
-
-
-  map.value.removeSource('farmers');
-  map.value.removeSource('polyFarms');
-
-
+  // Check and remove sources only if they exist
+  const sourcesToRemove = ['farmers', 'polyFarms']
+  
+  sourcesToRemove.forEach(sourceId => {
+    if (map.value.getSource(sourceId)) {
+      try {
+        map.value.removeSource(sourceId)
+      } catch (error) {
+        console.warn(`Error removing source ${sourceId}:`, error)
+      }
+    }
+  })
 }
 
  
@@ -612,7 +673,7 @@ async function computeCentroids(featureCollection: any) {
 const allProjectsGeo = ref<any>({ type: 'FeatureCollection', features: [] })
 
 const getFarmGeo = async () => {
-  const params = {
+  const params: any = {
     // Your request parameters here
     // For example, if you have query parameters, you can add them here
     model: 'settlement',
@@ -621,19 +682,24 @@ const getFarmGeo = async () => {
    excludeGeoFromAssociations :'true'
   };
 
+  // Apply county restriction if user is county-restricted
+  if (isCountyRestricted.value && userCountyId.value) {
+    params.filters = ['county_id']
+    params.filterValues = [[userCountyId.value]]
+    console.log('Applying county restriction filter for settlements, county_id:', userCountyId.value)
+  }
+
   try {
     // Call the streamGeo function
     console.log('-------x-------------')
     const response = await streamGeo({ params });
     console.log(response.data.data)
    
-  geojson.value = await computeCentroids(response.data.data);
+    geojson.value = await computeCentroids(response.data.data);
 
-  allProjectsGeo.value = JSON.parse(JSON.stringify(geojson.value)); // Deep copy of the GeoJSON data
+    allProjectsGeo.value = JSON.parse(JSON.stringify(geojson.value)); // Deep copy of the GeoJSON data
 
-    
-
-  } catch (error) {
+  } catch (error: any) {
     // Handle errors
     console.error('Error fetching data:', error.message);
   }
@@ -754,53 +820,78 @@ const getCountyGeo = async () => {
 const getSubsetGeo = async (model: string, filterFields: string[], filterValues: any[]) => {
   console.log('Get all settlements  for this subcounty ', geojson.value)
 
-
-
- // Assuming allProjectsGeo is already defined
-const filteredGeoJson = {
-  type: "FeatureCollection",  // Wrapping the result in a FeatureCollection format
-  features: allProjectsGeo.value.features
-    .filter((feature) => {
-      // Loop over the filterFields and filterValues to apply all filters
-      return filterFields.every((field, index) => {
-        const value = filterValues[index];
-        return feature.properties[field] == value; // Check if feature's property matches the filter value
-      });
-    })
-    .map((feature) => {
-      // Return a plain object without the geojson structure
-      return {
-        type: feature.type,
-        geometry: feature.geometry, // Keep geometry
-        properties: { ...feature.properties } // Return properties as a plain object
-      };
-    })
-};
-
-console.log(filteredGeoJson);
-
-
-
-
-  // const res = await getfilteredGeo(formData)
-
-   console.log('filtered Geo:', filteredGeoJson)
-
-   if (Array.isArray(filteredGeoJson.features) && filteredGeoJson.features.length > 0) {
- 
-
-    geojson.value = await computeCentroids(filteredGeoJson);
-
-     // Check if the 'farms' layer already exists, and remove it if it does
+  // If no filters, return all data
+  if (!filterFields || filterFields.length === 0) {
+    geojson.value = await computeCentroids(allProjectsGeo.value)
     await removeSettlementLayers()
     await addSettlementLayers()
-  }
-  else {
-    ElMessage.warning('No data')
-   // geojson.value =  allProjectsGeo.value
-    
+    return
   }
 
+  // Check if we have valid data
+  if (!allProjectsGeo.value || !allProjectsGeo.value.features || allProjectsGeo.value.features.length === 0) {
+    console.warn('No settlement data available')
+    return
+  }
+
+  // Assuming allProjectsGeo is already defined
+  const filteredGeoJson = {
+    type: "FeatureCollection",  // Wrapping the result in a FeatureCollection format
+    features: allProjectsGeo.value.features
+      .filter((feature) => {
+        // Loop over the filterFields and filterValues to apply all filters
+        return filterFields.every((field, index) => {
+          const expectedValue = filterValues[index]
+          const featureValue = feature.properties[field]
+          
+          // Skip if filter value is empty or null
+          if (!expectedValue || (Array.isArray(expectedValue) && expectedValue.length === 0)) {
+            return true // Include this feature (no filter applied for this field)
+          }
+          
+          // Handle array values (multiple selections)
+          if (Array.isArray(expectedValue)) {
+            // Convert both to strings for comparison to handle type mismatches
+            const featureValueStr = String(featureValue)
+            return expectedValue.some(val => String(val) === featureValueStr)
+          }
+          
+          // Handle single value (backward compatibility)
+          // Use loose equality to handle type mismatches (string vs number)
+          return String(featureValue) == String(expectedValue)
+        });
+      })
+      .map((feature) => {
+        // Return a plain object without the geojson structure
+        return {
+          type: feature.type,
+          geometry: feature.geometry, // Keep geometry
+          properties: { ...feature.properties } // Return properties as a plain object
+        };
+      })
+  };
+
+  console.log(filteredGeoJson);
+
+  console.log('filtered Geo:', filteredGeoJson)
+
+  if (Array.isArray(filteredGeoJson.features) && filteredGeoJson.features.length > 0) {
+    geojson.value = await computeCentroids(filteredGeoJson);
+
+    // Check if the 'farms' layer already exists, and remove it if it does
+    await removeSettlementLayers()
+    await addSettlementLayers()
+  } else {
+    // Only show warning if we actually have filters applied
+    const hasActiveFilters = filterFields.some((field, index) => {
+      const value = filterValues[index]
+      return value && (Array.isArray(value) ? value.length > 0 : true)
+    })
+    
+    if (hasActiveFilters) {
+      ElMessage.warning('No data for the selected filters')
+    }
+  }
 }
 
 
@@ -810,21 +901,29 @@ const subCountyOptions = ref<Array<{value: number, label: string}>>([])
  
 
 const getCounty = async () => {
-  const res = await getListWithoutGeo({
-    params: {
-      //   pageIndex: 1,
-      //  limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'county',
-      searchField: 'name',
-      searchKeyword: '',
-      sort: 'ASC',
-     cache_key : 'new_list_no_geo'
-    }
-  }).then((response: { data: any }) => {
+  const params: any = {
+    //   pageIndex: 1,
+    //  limit: 100,
+    curUser: 1, // Id for logged in user
+    model: 'county',
+    searchField: 'name',
+    searchKeyword: '',
+    sort: 'ASC',
+    cache_key : 'new_list_no_geo'
+  }
+
+  // Apply county restriction if user is county-restricted
+  if (isCountyRestricted.value && userCountyId.value) {
+    params.filters = ['id']
+    params.filterValues = [[userCountyId.value]]
+    console.log('Applying county restriction filter for county list, county_id:', userCountyId.value)
+  }
+
+  const res = await getListWithoutGeo({ params }).then((response: { data: any }) => {
     console.log('Received county response:', response)
     const ret = response.data
 
+    countyOptions.value = [] // Clear existing options
     ret.forEach((data) => {
       const option = {
         value: data.id,
@@ -832,10 +931,6 @@ const getCounty = async () => {
       };
       countyOptions.value.push(option);
     });
-
-
-
-
   })
 }
 
@@ -846,14 +941,25 @@ const getCounty = async () => {
 
  
 
-const subcounty = ref<number | undefined>(undefined)
+const subcounty = ref<number[]>([])
 
 const ResetFilters = async () => {
   console.log('clear filters')
+  
+  // For county-restricted users, preserve the county filter
+  if (isCountyRestricted.value && userCountyId.value) {
+    // Only reset subcounty, keep county
+    subcounty.value = []
+    subCountyOptions.value = []
     
-    county.value=undefined
-    subcounty.value=undefined
-    subCountyOptions.value=[]
+    // Re-apply county filter
+    await handleChangeCounty([userCountyId.value])
+    return
+  }
+    
+  county.value = []
+  subcounty.value = []
+  subCountyOptions.value = []
         mapLoading.value=true
         mapLoadingText.value = 'Refreshing Settlements...'
         //await getFarmGeo()
@@ -902,8 +1008,8 @@ const ResetFilters = async () => {
       }
 
 
-      removeSettlementLayers()
-      addSettlementLayers()
+      await removeSettlementLayers()
+      await addSettlementLayers()
       
 
 
@@ -932,238 +1038,257 @@ const downloadGeoJSON = () => {
 
  
 
-const handleChangeCounty = async (county: number) => {
+const handleChangeCounty = async (countyIds: number | number[]) => {
+  // Handle both single value and array
+  const countyArray = Array.isArray(countyIds) ? countyIds : (countyIds ? [countyIds] : [])
 
-// get farms for this subcounty 
-if (county) {
-
-  const geoForm: any = {}
-  geoForm.model = 'county'
-  geoForm.id = county
-
-  console.log(geoForm)
- 
   // Clear subcounty selection and boundaries when county changes
-  subcounty.value = undefined
+  subcounty.value = []
   subCountyOptions.value = []
 
-  await getSubsetGeo('settlement', ['county_id'], [[county]])
+  if (countyArray.length > 0) {
+    await getSubsetGeo('settlement', ['county_id'], [countyArray])
 
-  // get subcounty shape
-  const res = await getOneGeo(geoForm)
-
-  countyGeo.value = res.data[0].json_build_object
-
-  // Clear existing subcounty boundaries
-  if (map.value.getLayer('Subcounty')) {
-    map.value.removeLayer('Subcounty');
-  }
-  if (map.value.getSource('Subcounty')) {
-    map.value.removeSource('Subcounty');
-  }
-
-  // Check if the 'County' layers already exist, and remove them if they do
-  if (map.value.getLayer('county')) {
-    map.value.removeLayer('county');
-  }
-  if (map.value.getSource('County')) {
-    map.value.removeSource('County');
-  }
-
-  map.value.addSource('County', {
-    type: 'geojson',
-    data: countyGeo.value,
-  });
-
-  console.log('Adding county layers with data:', countyGeo.value);
-
-  // Add county outline layer
-  map.value.addLayer({
-    id: 'county',
-    type: 'line',
-    source: 'County',
-    paint: {
-      'line-color': 'red',
-      'line-opacity': 1,
-      'line-width': 0.5,
-    },
-  }, 'settlementLabel'); // Add before settlement labels
-
-  var bounds = turf.bbox(countyGeo.value);
-  map.value.fitBounds(bounds, { padding: 20 });
-
-
-  removeSettlementLayers()
-  addSettlementLayers()
-
-  // Get and add subcounty boundaries for the selected county
-  try {
-    const subcountyGeoForm: any = {}
-    subcountyGeoForm.model = 'subcounty'
-    subcountyGeoForm.columnFilterField = 'county_id'
-    subcountyGeoForm.filtredGeoIds = [county]
-
-    const subcountyRes = await getfilteredGeo(subcountyGeoForm)
-    console.log('Subcounty API response:', subcountyRes)
-    
-    if (subcountyRes.data && subcountyRes.data.length > 0) {
-      const subcountyGeoData = subcountyRes.data[0].json_build_object
-      console.log('Subcounty geo data for county:', subcountyGeoData)
-
-      // Add subcounty source and layer
-      map.value.addSource('Subcounty', {
-        type: 'geojson',
-        data: subcountyGeoData,
-      });
-
-      map.value.addLayer({
-        id: 'Subcounty',
-        type: 'line',
-        source: 'Subcounty',
-        paint: {
-          'line-color': 'purple',
-          'line-opacity': 1,
-          'line-width': 0.5,
-        },
-      }, 'settlementLabel');
-    } else {
-      console.log('No subcounty data found for county:', county);
+    // Load geometries for all selected counties
+    const countyGeometries = []
+    for (const countyId of countyArray) {
+      try {
+        const geoForm: any = {}
+        geoForm.model = 'county'
+        geoForm.id = countyId
+        const res = await getOneGeo(geoForm)
+        const countyGeoData = res.data[0].json_build_object
+        if (countyGeoData.features) {
+          countyGeometries.push(...countyGeoData.features)
+        } else {
+          countyGeometries.push(countyGeoData)
+        }
+      } catch (error) {
+        console.error(`Error loading county ${countyId}:`, error)
+      }
     }
 
-    console.log('Subcounty layer added for county');
-  } catch (error) {
-    console.error('Error adding subcounty layer for county:', error);
-  }
+    if (countyGeometries.length > 0) {
+      // Combine all county geometries into one feature collection
+      const combinedCountyGeo = {
+        type: 'FeatureCollection',
+        features: countyGeometries
+      }
+      countyGeo.value = combinedCountyGeo
 
- await getListWithoutGeo({
-    params: {
-      //   pageIndex: 1,
-      //  limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'subcounty',
-      assocModel: 'county',
-      searchField: 'county_id',
-      searchKeyword: county,
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('selecy county response:', response)
-    const ret = response.data
-
-    const coptions = [];
-    ret.forEach((data) => {
-      const option = {
-        value: data.id,
-        label: data.name,
-        
-      };
-      coptions.push(option);
-    });
-
-    // Sort the options array by value
-    coptions.sort((a, b) => a.value - b.value);
-
-   
-    subCountyOptions.value = coptions
-
-   })
-
-
-}
-  
-};
-
-
-
-const handleChangeSubcounty = async (subcounty: number) => {
-
-  // get farms for this subcounty 
-  if (subcounty) {
-
-    const geoForm: any = {}
-    geoForm.model = 'subcounty'
-    geoForm.id = subcounty
-
-    console.log(geoForm)
-
-    // get farmers for this subcounty 
-   // await getFilteredSubcountyCounts(subcounty)
-
-
-     await getSubsetGeo('settlement', ['subcounty_id'], [[subcounty]])
-
-    // get subcounty shape
-    const res = await getOneGeo(geoForm)
-
-    subcountyGeo.value = res.data[0].json_build_object
-
-    console.log('Subcounty geo data:', subcountyGeo.value)
-
-    // Check if the 'Subcounty' layer already exists, and remove it if it does
-    if (map.value.getLayer('Subcounty')) {
-      map.value.removeLayer('Subcounty');
-    }
-    if (map.value.getSource('Subcounty')) {
-      map.value.removeSource('Subcounty');
-    }
-
-    // Add subcounty source and layer
-    try {
-      map.value.addSource('Subcounty', {
-        type: 'geojson',
-        data: subcountyGeo.value,
-      });
-
-      map.value.addLayer({
-        id: 'Subcounty',
-        type: 'line',
-        source: 'Subcounty',
-        paint: {
-          'line-color': 'purple',
-          'line-opacity': 1,
-          'line-width': 0.5,
-        },
-      }, 'settlementLabel'); // Add before settlement labels to ensure visibility
-
-      console.log('Subcounty layer added successfully');
-    } catch (error) {
-      console.error('Error adding subcounty layer:', error);
-    }
-
-    var bounds = turf.bbox(subcountyGeo.value);
-    map.value.fitBounds(bounds, { padding: 20 });
-
-    // Remove and re-add settlement layers to ensure proper ordering
-    removeSettlementLayers()
-    addSettlementLayers()
-
-    // Re-add subcounty layer after settlement layers to ensure it's on top
-    if (map.value.getSource('Subcounty')) {
+      // Clear existing subcounty boundaries
       if (map.value.getLayer('Subcounty')) {
         map.value.removeLayer('Subcounty');
       }
+      if (map.value.getSource('Subcounty')) {
+        map.value.removeSource('Subcounty');
+      }
+
+      // Check if the 'County' layers already exist, and remove them if they do
+      if (map.value.getLayer('county')) {
+        map.value.removeLayer('county');
+      }
+      if (map.value.getSource('County')) {
+        map.value.removeSource('County');
+      }
+
+      map.value.addSource('County', {
+        type: 'geojson',
+        data: combinedCountyGeo,
+      });
+
+      console.log('Adding county layers with data:', combinedCountyGeo);
+
+      // Add county outline layer
       map.value.addLayer({
-        id: 'Subcounty',
+        id: 'county',
         type: 'line',
-        source: 'Subcounty',
+        source: 'County',
         paint: {
-          'line-color': 'purple',
+          'line-color': 'red',
           'line-opacity': 1,
           'line-width': 0.5,
         },
-      }, 'settlementLabel');
+      }, 'settlementLabel'); // Add before settlement labels
+
+      // Fit map to all selected counties bounds
+      const bounds = turf.bbox(combinedCountyGeo);
+      map.value.fitBounds(bounds, { padding: 20 });
     }
 
-    // map.value.addSource('polyFarms', {
-    //   type: 'geojson',
-    //    data: polyFarms.value,
 
-    // });
+    await removeSettlementLayers()
+    await addSettlementLayers()
 
+    // Get and add subcounty boundaries for all selected counties
+    try {
+      const subcountyGeoForm: any = {}
+      subcountyGeoForm.model = 'subcounty'
+      subcountyGeoForm.columnFilterField = 'county_id'
+      subcountyGeoForm.filtredGeoIds = countyArray
 
+      const subcountyRes = await getfilteredGeo(subcountyGeoForm)
+      console.log('Subcounty API response:', subcountyRes)
+      
+      if (subcountyRes.data && subcountyRes.data.length > 0) {
+        const subcountyGeoData = subcountyRes.data[0].json_build_object
+        console.log('Subcounty geo data for counties:', subcountyGeoData)
+
+        // Add subcounty source and layer
+        map.value.addSource('Subcounty', {
+          type: 'geojson',
+          data: subcountyGeoData,
+        });
+
+        map.value.addLayer({
+          id: 'Subcounty',
+          type: 'line',
+          source: 'Subcounty',
+          paint: {
+            'line-color': 'purple',
+            'line-opacity': 1,
+            'line-width': 0.5,
+          },
+        }, 'settlementLabel');
+      } else {
+        console.log('No subcounty data found for counties:', countyArray);
+      }
+
+      console.log('Subcounty layer added for counties');
+    } catch (error) {
+      console.error('Error adding subcounty layer for counties:', error);
+    }
+
+    // Get subcounty options for all selected counties
+    for (const countyId of countyArray) {
+      await getListWithoutGeo({
+        params: {
+          curUser: 1,
+          model: 'subcounty',
+          assocModel: 'county',
+          searchField: 'county_id',
+          searchKeyword: countyId,
+          sort: 'ASC'
+        }
+      }).then((response: { data: any }) => {
+        console.log('selecy county response:', response)
+        const ret = response.data
+
+        const coptions = [];
+        ret.forEach((data) => {
+          const option = {
+            value: data.id,
+            label: data.name,
+          };
+          coptions.push(option);
+        });
+
+        // Sort the options array by value
+        coptions.sort((a, b) => a.value - b.value);
+
+        subCountyOptions.value = coptions
+      })
+    }
   }
+}
 
-};
+
+
+const handleChangeSubcounty = async (subcountyIds: number | number[]) => {
+  // Handle both single value and array
+  const subcountyArray = Array.isArray(subcountyIds) ? subcountyIds : (subcountyIds ? [subcountyIds] : [])
+
+  // get farms for this subcounty 
+  if (subcountyArray.length > 0) {
+    await getSubsetGeo('settlement', ['subcounty_id'], [subcountyArray])
+
+    // Load geometries for all selected subcounties
+    const subcountyGeometries = []
+    for (const subcountyId of subcountyArray) {
+      try {
+        const geoForm: any = {}
+        geoForm.model = 'subcounty'
+        geoForm.id = subcountyId
+        const res = await getOneGeo(geoForm)
+        const subcountyGeoData = res.data[0].json_build_object
+        if (subcountyGeoData.features) {
+          subcountyGeometries.push(...subcountyGeoData.features)
+        } else {
+          subcountyGeometries.push(subcountyGeoData)
+        }
+      } catch (error) {
+        console.error(`Error loading subcounty ${subcountyId}:`, error)
+      }
+    }
+
+    if (subcountyGeometries.length > 0) {
+      // Combine all subcounty geometries into one feature collection
+      const combinedSubcountyGeo = {
+        type: 'FeatureCollection',
+        features: subcountyGeometries
+      }
+      subcountyGeo.value = combinedSubcountyGeo
+
+      console.log('Subcounty geo data:', combinedSubcountyGeo)
+
+      // Check if the 'Subcounty' layer already exists, and remove it if it does
+      if (map.value.getLayer('Subcounty')) {
+        map.value.removeLayer('Subcounty');
+      }
+      if (map.value.getSource('Subcounty')) {
+        map.value.removeSource('Subcounty');
+      }
+
+      // Add subcounty source and layer
+      try {
+        map.value.addSource('Subcounty', {
+          type: 'geojson',
+          data: combinedSubcountyGeo,
+        });
+
+        map.value.addLayer({
+          id: 'Subcounty',
+          type: 'line',
+          source: 'Subcounty',
+          paint: {
+            'line-color': 'purple',
+            'line-opacity': 1,
+            'line-width': 0.5,
+          },
+        }, 'settlementLabel'); // Add before settlement labels to ensure visibility
+
+        console.log('Subcounty layer added successfully');
+      } catch (error) {
+        console.error('Error adding subcounty layer:', error);
+      }
+
+      // Fit map to all selected subcounties bounds
+      const bounds = turf.bbox(combinedSubcountyGeo);
+      map.value.fitBounds(bounds, { padding: 20 });
+
+      // Remove and re-add settlement layers to ensure proper ordering
+      await removeSettlementLayers()
+      await addSettlementLayers()
+
+      // Re-add subcounty layer after settlement layers to ensure it's on top
+      if (map.value.getSource('Subcounty')) {
+        if (map.value.getLayer('Subcounty')) {
+          map.value.removeLayer('Subcounty');
+        }
+        map.value.addLayer({
+          id: 'Subcounty',
+          type: 'line',
+          source: 'Subcounty',
+          paint: {
+            'line-color': 'purple',
+            'line-opacity': 1,
+            'line-width': 0.5,
+          },
+        }, 'settlementLabel');
+      }
+    }
+  }
+}
 
 
 

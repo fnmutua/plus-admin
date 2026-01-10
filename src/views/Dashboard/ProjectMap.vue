@@ -1,14 +1,39 @@
 <template>
   <div class="floating-collapse">
-    <el-select clearable filterable v-model="implementer" placeholder="Filter by Implementer" @change="handleChangeImplementer" :onClear="ResetFilters">
+    <el-select 
+      multiple 
+      clearable 
+      filterable 
+      v-model="implementer" 
+      placeholder="Filter by Programme" 
+      @change="handleChangeImplementer" 
+      :onClear="ResetFilters"
+    >
       <el-option v-for="item in implementerOptions" :key="item.value" :label="item.label" :value="item.value" />
     </el-select>
 
-    <el-select v-model="county" placeholder="Filter by County" @change="handleChangeCounty" filterable clearable :onClear="ResetFilters">
-        <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
+    <el-select 
+      multiple
+      v-model="county" 
+      placeholder="Filter by County" 
+      @change="handleChangeCounty" 
+      filterable 
+      :clearable="!isCountyRestricted"
+      :disabled="isCountyRestricted"
+      :onClear="ResetFilters"
+    >
+      <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
+    </el-select>
     
-    <el-select clearable filterable v-model="subcounty" placeholder="Filter by Subcounty" @change="handleChangeSubcounty" :onClear="ResetFilters">
+    <el-select 
+      multiple
+      clearable 
+      filterable 
+      v-model="subcounty" 
+      placeholder="Filter by Subcounty" 
+      @change="handleChangeSubcounty" 
+      :onClear="ResetFilters"
+    >
       <el-option v-for="item in subCountyOptions" :key="item.value" :label="item.label" :value="item.value" />
     </el-select>
 
@@ -85,16 +110,55 @@ import { ElButton, ElSelect, ElOption, ElMessage, ElDrawer, ElDescriptions, ElDe
 import mapboxgl from "mapbox-gl"
 import 'mapbox-gl/dist/mapbox-gl.css'
 import * as turf from '@turf/turf'
-import { useAppStore } from '@/store/modules/app'
+import { useAppStore, useAppStoreWithOut } from '@/store/modules/app'
 import { computed } from 'vue'
 import { getOneGeo, streamGeo, getAllGeo } from '@/api/settlements'
 import { getListWithoutGeo } from '@/api/counties'
 import { getOneSettlement } from '@/api/settlements'
 import { useRouter } from 'vue-router'
+import { useCache } from '@/hooks/web/useCache'
 
 // User and role setup
 const appStore = useAppStore()
 const router = useRouter()
+const { wsCache } = useCache()
+const appStoreWithOut = useAppStoreWithOut()
+const userInfo = wsCache.get(appStoreWithOut.getUserInfo)
+
+// User location-based filtering
+const isSuperAdmin = computed(() => {
+  return userInfo?.roles?.some((role: any) => 
+    role.name === 'super_admin' || role.name === 'root_admin'
+  ) || false
+})
+
+const hasNationalAccess = computed(() => {
+  return userInfo?.roles?.some((role: any) => 
+    role.user_roles?.location_level === 'national'
+  ) || false
+})
+
+const userCountyRole = computed(() => {
+  return userInfo?.roles?.find((role: any) => 
+    role.user_roles?.location_level === 'county'
+  )
+})
+
+const userCountyId = computed(() => {
+  return userCountyRole.value?.user_roles?.county_id || null
+})
+
+// Check if user should be restricted to their county
+const isCountyRestricted = computed(() => {
+  return !isSuperAdmin.value && !hasNationalAccess.value && !!userCountyId.value
+})
+
+console.log('ProjectMap.vue - User location info:', {
+  isSuperAdmin: isSuperAdmin.value,
+  hasNationalAccess: hasNationalAccess.value,
+  userCountyId: userCountyId.value,
+  isCountyRestricted: isCountyRestricted.value
+})
  
 // Map and data refs
 const map = ref()
@@ -147,10 +211,17 @@ const isDarkMode = appStore.getIsDark
 
 // Step 1: Get project_locations with geo
 const getProjectLocations = async () => {
-  const data = {
+  const data: any = {
     model: 'project_location',
     // associatedModels: 'project',
     // excludeGeoFromAssociations: 'true'
+  }
+
+  // Apply county restriction if user is county-restricted (unless super admin or national admin)
+  if (isCountyRestricted.value && userCountyId.value) {
+    data.filters = ['county_id']
+    data.filterValues = [[userCountyId.value]]
+    console.log('Applying county restriction filter for project locations, county_id:', userCountyId.value)
   }
 
   try {
@@ -386,18 +457,26 @@ const removeSettlementLayers = async () => {
 // Get county list
 const getCounty = async () => {
   try {
-  const res = await getListWithoutGeo({
-    params: {
-        curUser: 1,
+    const params: any = {
+      curUser: 1,
       model: 'county',
       searchField: 'name',
       searchKeyword: '',
       sort: 'ASC',
-        cache_key: 'new_list_no_geo'
+      cache_key: 'new_list_no_geo'
     }
-    })
+
+    // Apply county restriction if user is county-restricted
+    if (isCountyRestricted.value && userCountyId.value) {
+      params.filters = ['id']
+      params.filterValues = [[userCountyId.value]]
+      console.log('Applying county restriction filter for county list, county_id:', userCountyId.value)
+    }
+
+    const res = await getListWithoutGeo({ params })
 
     const ret = res.data
+    countyOptions.value = [] // Clear existing options
     ret.forEach((data) => {
       const option = {
         value: data.id,
@@ -533,27 +612,35 @@ const handleChangeCounty = async (countyId) => {
 }
 
 // Handle subcounty change
-const handleChangeSubcounty = async (subcountyId) => {
+const handleChangeSubcounty = async (subcountyIds) => {
   const field = 'subcounty_id'
-  const value = [subcountyId]
+  const value = Array.isArray(subcountyIds) ? subcountyIds : (subcountyIds ? [subcountyIds] : [])
 
   const index = filterFields.value.indexOf(field)
   if (index !== -1) {
-    filterValues.value.splice(index, 1, value)
+    if (value.length > 0) {
+      filterValues.value.splice(index, 1, value)
+    } else {
+      // Remove filter if no subcounties selected
+      filterFields.value.splice(index, 1)
+      filterValues.value.splice(index, 1)
+    }
   } else {
-    filterFields.value.push(field)
-    filterValues.value.push(value)
+    if (value.length > 0) {
+      filterFields.value.push(field)
+      filterValues.value.push(value)
+    }
   }
 
-  if (subcountyId) {
+  if (value.length > 0) {
     mapLoading.value = true
     mapLoadingText.value = 'Loading subcounty data...'
     
     try {
       await getSubsetGeo(filterFields.value, filterValues.value)
       
-      // Load and display the selected subcounty geometry
-      await loadSubcountyGeometries([subcountyId])
+      // Load and display the selected subcounty geometries
+      await loadSubcountyGeometries(value)
       
       await removeSettlementLayers()
       await addSettlementLayers()
@@ -563,30 +650,35 @@ const handleChangeSubcounty = async (subcountyId) => {
     } finally {
       mapLoading.value = false
     }
+  } else {
+    // If no subcounties selected, reset filters
+    await getSubsetGeo(filterFields.value, filterValues.value)
   }
 }
 
 // Handle implementer change
-const handleChangeImplementer = async (implementerId) => {
+const handleChangeImplementer = async (implementerIds) => {
   const field = 'implementer'
-  const value = [implementerId]
+  const value = Array.isArray(implementerIds) ? implementerIds : (implementerIds ? [implementerIds] : [])
 
   const index = filterFields.value.indexOf(field)
   if (index !== -1) {
-    const existingValue = filterValues.value[index]
-    const isSame = JSON.stringify(existingValue) === JSON.stringify(value)
-
-    if (!isSame) {
-      filterValues.value.splice(index, 1, value) // update value if changed
+    if (value.length > 0) {
+      filterValues.value.splice(index, 1, value)
+    } else {
+      // Remove filter if no implementers selected
+      filterFields.value.splice(index, 1)
+      filterValues.value.splice(index, 1)
     }
-    // else do nothing (already filtered)
   } else {
-    filterFields.value.push(field)
-    filterValues.value.push(value)
+    if (value.length > 0) {
+      filterFields.value.push(field)
+      filterValues.value.push(value)
+    }
   }
 
   // If no implementer selected, restore all county options and reset filters
-  if (!implementerId) {
+  if (value.length === 0) {
     // Restore all county options
     await getCounty()
     
@@ -924,12 +1016,42 @@ const loadSubcountyGeometries = async (subcountyIds) => {
 
 // Get subset geo based on filters
 const getSubsetGeo = async (filterFields, filterValues) => {
-  const filteredFeatures = allProjectsGeo.value.features.filter(feature =>
-    filterFields.every((field, index) => {
+  // If no filters, return all data
+  if (!filterFields || filterFields.length === 0) {
+    geojson.value = await computeCentroids(allProjectsGeo.value)
+    await removeSettlementLayers()
+    await addSettlementLayers()
+    return
+  }
+
+  // Check if we have valid data
+  if (!allProjectsGeo.value || !allProjectsGeo.value.features || allProjectsGeo.value.features.length === 0) {
+    console.warn('No project data available')
+    return
+  }
+
+  const filteredFeatures = allProjectsGeo.value.features.filter(feature => {
+    return filterFields.every((field, index) => {
       const expectedValue = filterValues[index]
-      return feature.properties[field] == expectedValue
+      const featureValue = feature.properties[field]
+      
+      // Skip if filter value is empty or null
+      if (!expectedValue || (Array.isArray(expectedValue) && expectedValue.length === 0)) {
+        return true // Include this feature (no filter applied for this field)
+      }
+      
+      // Handle array values (multiple selections)
+      if (Array.isArray(expectedValue)) {
+        // Convert both to strings for comparison to handle type mismatches
+        const featureValueStr = String(featureValue)
+        return expectedValue.some(val => String(val) === featureValueStr)
+      }
+      
+      // Handle single value (backward compatibility)
+      // Use loose equality to handle type mismatches (string vs number)
+      return String(featureValue) == String(expectedValue)
     })
-  )
+  })
 
   const filteredGeoJson = {
     type: "FeatureCollection",
@@ -945,35 +1067,67 @@ const getSubsetGeo = async (filterFields, filterValues) => {
     await removeSettlementLayers()
     await addSettlementLayers()
   } else {
-    ElMessage.warning('No data for the selected filters. Resetting...')
-    geojson.value = allProjectsGeo.value
+    // Only show warning if we actually have filters applied
+    const hasActiveFilters = filterFields.some((field, index) => {
+      const value = filterValues[index]
+      return value && (Array.isArray(value) ? value.length > 0 : true)
+    })
+    
+    if (hasActiveFilters) {
+      ElMessage.warning('No data for the selected filters. Resetting...')
+    }
+    geojson.value = await computeCentroids(allProjectsGeo.value)
+    await removeSettlementLayers()
+    await addSettlementLayers()
   }
 }
 
 // Reset filters
 const ResetFilters = async () => {
-  county.value = null
-  subcounty.value = null
-  subCountyOptions.value = []
-  implementer.value = null
-  filterFields.value = []
-  filterValues.value = []
+  // For county-restricted users, preserve the county filter
+  if (isCountyRestricted.value && userCountyId.value) {
+    // Only reset subcounty and implementer, keep county
+    subcounty.value = []
+    implementer.value = []
+    
+    // Reset filter fields but keep county_id
+    const countyIndex = filterFields.value.indexOf('county_id')
+    if (countyIndex !== -1) {
+      // Keep county_id filter, remove others
+      filterFields.value = ['county_id']
+      filterValues.value = [[userCountyId.value]]
+    }
+    
+    // Reload subcounties for the county
+    await getSubcountiesForCounty(userCountyId.value)
+    
+    // Re-apply county filter
+    await handleChangeCounty([userCountyId.value])
+  } else {
+    // For non-restricted users, reset everything
+    county.value = []
+    subcounty.value = []
+    subCountyOptions.value = []
+    implementer.value = []
+    filterFields.value = []
+    filterValues.value = []
 
-  // Remove county layer
-  if (map.value.getLayer('county')) {
-    map.value.removeLayer('county')
+    // Remove county layer
+    if (map.value.getLayer('county')) {
+      map.value.removeLayer('county')
+    }
+    if (map.value.getSource('County')) {
+      map.value.removeSource('County')
+    }
+
+    mapLoading.value = true
+    mapLoadingText.value = 'Refreshing Project Locations...'
+    geojson.value = allProjectsGeo.value
+    mapLoading.value = false
+
+    await removeSettlementLayers()
+    await addSettlementLayers()
   }
-  if (map.value.getSource('County')) {
-    map.value.removeSource('County')
-  }
-
-  mapLoading.value = true
-  mapLoadingText.value = 'Refreshing Project Locations...'
-  geojson.value = allProjectsGeo.value
-  mapLoading.value = false
-
-  await removeSettlementLayers()
-  await addSettlementLayers()
 }
 
 // Initialize map
@@ -998,6 +1152,23 @@ const initializeMap = () => {
     mapLoading.value = true
     await getProjectLocations()
     await getImplementers()
+    
+    // For county-restricted users, automatically set county and load subcounties
+    if (isCountyRestricted.value && userCountyId.value) {
+      console.log('County-restricted user detected, auto-setting county:', userCountyId.value)
+      // Set county value as array
+      county.value = [userCountyId.value]
+      // Load counties list first if not already loaded
+      if (countyOptions.value.length === 0) {
+        await getCounty()
+      }
+      // Automatically trigger county change handler to load subcounties
+      await handleChangeCounty([userCountyId.value])
+    } else {
+      // For non-restricted users, just load counties list
+      await getCounty()
+    }
+    
     mapLoading.value = false
   })
 

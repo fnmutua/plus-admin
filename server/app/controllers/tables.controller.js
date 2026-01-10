@@ -1469,19 +1469,74 @@ exports.modelCreateOneRecord = (req, res) => {
  
 exports.modelAllGeo = async (req, res) => {
   var reg_model = req.body.model
+  
+  // Extract filters and filterValues from request body
+  const filters = req.body.filters || []
+  const filterValues = req.body.filterValues || []
+  
+  // Build WHERE clause for filters
+  let whereClause = "geom IS NOT NULL"
+  
+  if (filters.length > 0 && filterValues.length === filters.length) {
+    // Validate model exists
+    const modelDefinition = db.models[reg_model]
+    if (!modelDefinition) {
+      return res.status(400).send({
+        error: `Model ${reg_model} not found`,
+        code: 'MODEL_NOT_FOUND'
+      })
+    }
+    
+    // Get valid column names from the model to prevent SQL injection
+    const validColumns = Object.keys(modelDefinition.rawAttributes)
+    
+    // Build filter conditions
+    const filterConditions = []
+    filters.forEach((filter, i) => {
+      // Validate filter field exists in model
+      if (!validColumns.includes(filter)) {
+        console.warn(`Filter field ${filter} not found in model ${reg_model}, skipping...`)
+        return
+      }
+      
+      const values = Array.isArray(filterValues[i]) ? filterValues[i] : [filterValues[i]]
+      
+      if (values.length === 1) {
+        // Single value - use = operator
+        const value = typeof values[0] === 'string' ? `'${values[0].replace(/'/g, "''")}'` : values[0]
+        filterConditions.push(`${filter} = ${value}`)
+      } else if (values.length > 1) {
+        // Multiple values - use IN operator
+        const escapedValues = values.map(v => {
+          return typeof v === 'string' ? `'${v.replace(/'/g, "''")}'` : v
+        })
+        filterConditions.push(`${filter} IN (${escapedValues.join(', ')})`)
+      }
+    })
+    
+    if (filterConditions.length > 0) {
+      whereClause = filterConditions.join(' AND ') + ' AND ' + whereClause
+    }
+  }
    
   var qry2 =
   "SELECT row_to_json(fc) AS json_build_object FROM (SELECT 'FeatureCollection' AS type, array_to_json(array_agg(f)) AS features FROM (SELECT 'Feature' AS type, ST_AsGeoJSON(geom, 8)::json AS geometry, json_strip_nulls(row_to_json(" + reg_model + ")) AS properties FROM " +
-  reg_model + " WHERE geom IS NOT NULL) AS f) AS fc";
+  reg_model + " WHERE " + whereClause + ") AS f) AS fc";
 
-   
+  console.log("req.body.filters:", filters)
+  console.log("req.body.filterValues:", filterValues)
   console.log("req.body.cache_key",)
 
 
 
   if (req.body.cache_key && req.body.cache_key != '') { 
 
-    const cache_key = req.body.cache_key;   
+    // Include filters in cache key to ensure different filter combinations get different cache entries
+    let cache_key = req.body.cache_key
+    if (filters.length > 0 && filterValues.length === filters.length) {
+      const filterKey = filters.map((f, i) => `${f}:${JSON.stringify(filterValues[i])}`).join('|')
+      cache_key = `${req.body.cache_key}_filters_${filterKey}`
+    }
     const cacheDuration = 3600; // Cache duration in seconds
 
     
