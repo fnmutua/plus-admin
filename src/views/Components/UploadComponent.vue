@@ -53,18 +53,36 @@ const DocTypesFiltered = ref([])
 const DocTypesAll = ref([])
 
 // File validation
-const maxFileSize = 50 * 1024 * 1024 // 50MB
+const maxFileSize = 5 * 1024 * 1024 * 1024 // 5GB
 const maxFiles = 10
+const allowedExtensions = ['xls', 'xlsx', 'pdf', 'zip', 'rar', 'doc', 'docx', 'png', 'jpg', 'jpeg', 'tiff', 'tif', 'csv', 'txt', 'json', 'geojson', 'kml', 'kmz', 'ppt', 'pptx', 'dwg', 'dxf', 'dgn']
 const allowedTypes = {
-  images: ['image/png', 'image/jpeg', 'image/jpg'],
+  images: ['image/png', 'image/jpeg', 'image/jpg', 'image/tiff', 'image/tif'],
   documents: [
-    'application/pdf',
-    'application/vnd.ms-excel',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'application/zip',
-    'application/x-zip-compressed'
+    'application/vnd.ms-excel', // .xls
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+    'application/pdf', // .pdf
+    'application/zip', // .zip
+    'application/x-rar-compressed', // .rar
+    'application/x-zip-compressed',
+    'application/vnd.rar', // .rar (alternative)
+    'application/msword', // .doc
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+    'text/csv', // .csv
+    'text/plain', // .txt
+    'application/json', // .json
+    'application/vnd.geo+json', // .geojson
+    'application/vnd.google-earth.kml+xml', // .kml
+    'application/vnd.google-earth.kmz', // .kmz
+    'application/vnd.ms-powerpoint', // .ppt
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx
+    'application/dwg', // .dwg
+    'image/vnd.dwg', // .dwg (alternative)
+    'application/dxf', // .dxf
+    'image/vnd.dxf', // .dxf (alternative)
+    'application/dgn', // .dgn
+    'image/vnd.dgn', // .dgn (alternative)
+    'application/octet-stream' // Generic binary for CAD files
   ]
 }
 
@@ -74,7 +92,8 @@ const isPhotoCategory = computed(() => {
 })
 
 const allowedMimeTypes = computed(() => {
-  return isPhotoCategory.value ? allowedTypes.images : allowedTypes.documents
+  // Return all allowed types regardless of category
+  return [...allowedTypes.images, ...allowedTypes.documents]
 })
 
 const totalFileSize = computed(() => {
@@ -151,13 +170,15 @@ const validateFile = (file) => {
   
   // Check file size
   if (file.size > maxFileSize) {
-    errors.push(`File size exceeds 50MB limit`)
+    errors.push(`File size exceeds 5GB limit`)
   }
   
-  // Check file type
-  if (!allowedMimeTypes.value.includes(file.type)) {
-    const expectedTypes = isPhotoCategory.value ? 'PNG, JPG' : 'PDF, Excel, Word, ZIP'
-    errors.push(`File type not allowed. Expected: ${expectedTypes}`)
+  // Check file type by extension and MIME type
+  const fileExtension = file.name.split('.').pop()?.toLowerCase()
+  const isValidType = allowedMimeTypes.value.includes(file.type) || allowedExtensions.includes(fileExtension || '')
+  
+  if (!isValidType) {
+    errors.push(`File type not supported. Supported formats: ${allowedExtensions.join(', ')}`)
   }
   
   return errors
@@ -389,7 +410,7 @@ onMounted(() => {
               <p class="file-limits">
                 Max {{ maxFiles }} files, {{ formatFileSize(maxFileSize) }} each
                 <br />
-                {{ isPhotoCategory ? 'PNG, JPG' : 'PDF, Excel, Word, ZIP' }}
+                Supported: {{ allowedExtensions.join(', ') }}
               </p>
             </div>
             
@@ -442,7 +463,7 @@ onMounted(() => {
             ref="fileInput"
             type="file"
             multiple
-            :accept="isPhotoCategory ? 'image/*' : '.pdf,.xls,.xlsx,.doc,.docx,.zip'"
+            :accept="allowedExtensions.map(ext => `.${ext}`).join(',')"
             @change="handleFileSelect($event.target.files)"
             style="display: none"
           />

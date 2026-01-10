@@ -523,10 +523,11 @@ const componentProps = ref({
 
 function toggleComponent() {
   console.log('model data', model)
-  console.log('Compnnent data', profile)
+  console.log('Settlement ID', route.params.id)
 
   componentProps.value.showDialog = true
-  componentProps.value.data = profile
+  // Pass settlement ID in data object
+  componentProps.value.data = { id: route.params.id }
 
 
   dynamicComponent.value = null; // Unload the component
@@ -1499,12 +1500,207 @@ const startMapLoadingTimeout = () => {
   }, 10000); // 10 second fallback
 };
 
-const generatePDFReport = () => {
+// Facilities summary data
+const facilitiesSummary = ref({
+  health: { count: 0 },
+  education: { count: 0 },
+  water: { count: 0 },
+  piped_water: { count: 0, length: 0 },
+  sewer: { count: 0, length: 0 },
+  road: { count: 0, length: 0 },
+  other: { count: 0 }
+})
+
+// Projects data for PDF
+const settlementProjects = ref<Array<{ title: string }>>([])
+
+// Fetch projects for settlement
+const fetchSettlementProjects = async (settlementId: string | number | string[]) => {
+  // Ensure settlementId is a single value
+  const id = Array.isArray(settlementId) ? settlementId[0] : settlementId
+  
   try {
+    const formData = {
+      model: 'project_location',
+      searchField: 'name',
+      searchKeyword: '',
+      filters: ['settlement_id'],
+      filterValues: [[id]],
+      associated_multiple_models: ['project'],
+    }
+
+    const res = await getSettlementListByCounty(formData)
+    const projectLocations = res.data || []
+    
+    // Extract unique projects (in case a project appears multiple times)
+    const uniqueProjects = new Map()
+    projectLocations.forEach((location: any) => {
+      if (location.project && location.project.title) {
+        uniqueProjects.set(location.project.id, {
+          title: location.project.title
+        })
+      }
+    })
+    
+    settlementProjects.value = Array.from(uniqueProjects.values())
+    return settlementProjects.value
+  } catch (error) {
+    console.error('Error fetching settlement projects:', error)
+    settlementProjects.value = []
+    return []
+  }
+}
+
+// Fetch facilities data for settlement
+const fetchFacilitiesSummary = async (settlementId: string | number | string[]) => {
+  // Ensure settlementId is a single value
+  const id = Array.isArray(settlementId) ? settlementId[0] : settlementId
+  const facilityModels = [
+    { model: 'health_facility', key: 'health' },
+    { model: 'education_facility', key: 'education' },
+    { model: 'water_point', key: 'water' },
+    { model: 'piped_water', key: 'piped_water', isLinear: true },
+    { model: 'sewer', key: 'sewer', isLinear: true },
+    { model: 'road', key: 'road', isLinear: true },
+    { model: 'other_facility', key: 'other' }
+  ]
+
+  const summary = {
+    health: { count: 0 },
+    education: { count: 0 },
+    water: { count: 0 },
+    piped_water: { count: 0, length: 0 },
+    sewer: { count: 0, length: 0 },
+    road: { count: 0, length: 0 },
+    other: { count: 0 }
+  }
+
+  try {
+    // Fetch all facilities in parallel
+    const promises = facilityModels.map(async ({ model, key, isLinear }) => {
+      try {
+        const formData = {
+          limit: 10000,
+          page: 1,
+          curUser: 1,
+          model: model,
+          searchField: 'name',
+          searchKeyword: '',
+          filters: ['settlement_id'],
+          filterValues: [[id]],
+          excludeGeom: !isLinear // Include geometry for linear features
+        }
+
+        const res = await getSettlementListByCounty(formData)
+        const facilities = res.data || []
+
+        summary[key].count = facilities.length
+
+        // Calculate total length for linear features
+        if (isLinear && facilities.length > 0) {
+          let totalLength = 0
+          facilities.forEach((facility: any) => {
+            if (facility.geom) {
+              try {
+                const length = turf.length(facility.geom, { units: 'kilometers' })
+                totalLength += length
+              } catch (error) {
+                console.warn(`Error calculating length for ${model} facility:`, error)
+              }
+            }
+          })
+          summary[key].length = totalLength
+        }
+      } catch (error) {
+        console.error(`Error fetching ${model}:`, error)
+      }
+    })
+
+    await Promise.all(promises)
+    facilitiesSummary.value = summary
+    return summary
+  } catch (error) {
+    console.error('Error fetching facilities summary:', error)
+    return summary
+  }
+}
+
+// Helper function to format numbers to 2 decimal places
+const formatNumber = (value: any): string => {
+  if (value === null || value === undefined || value === '') {
+    return ''
+  }
+  const num = Number(value)
+  if (isNaN(num)) {
+    return String(value)
+  }
+  // Check if it's a whole number
+  if (Number.isInteger(num)) {
+    return num.toString()
+  }
+  // Round to 2 decimal places
+  return num.toFixed(2)
+}
+
+// Helper function to load image as base64
+const loadImageAsBase64 = (url: string): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = img.width
+      canvas.height = img.height
+      const ctx = canvas.getContext('2d')
+      if (ctx) {
+        ctx.drawImage(img, 0, 0)
+        try {
+          const base64 = canvas.toDataURL('image/png')
+          resolve(base64)
+        } catch (error) {
+          reject(error)
+        }
+      } else {
+        reject(new Error('Could not get canvas context'))
+      }
+    }
+    img.onerror = reject
+    img.src = url
+  })
+}
+
+const generatePDFReport = async () => {
+  try {
+    // Fetch facilities summary and projects first
+    ElMessage.info('Generating PDF report...')
+    await Promise.all([
+      fetchFacilitiesSummary(route.params.id),
+      fetchSettlementProjects(route.params.id)
+    ])
+    
     const doc = new jsPDF()
     
-    // Start content from top of page
-    const startY = 10
+    // Load and add GOK logo
+    let logoBase64: string | null = null
+    try {
+      const logoUrl = '/gok.png'
+      logoBase64 = await loadImageAsBase64(logoUrl)
+      
+      // Add logo at the top (centered, 30mm width, auto height)
+      if (logoBase64) {
+        const logoWidth = 30
+        const logoHeight = (logoWidth * 0.75) // Maintain aspect ratio (adjust as needed)
+        const pageWidth = doc.internal.pageSize.getWidth()
+        const logoX = (pageWidth - logoWidth) / 2
+        
+        doc.addImage(logoBase64, 'PNG', logoX, 5, logoWidth, logoHeight)
+      }
+    } catch (error) {
+      console.warn('Could not load GOK logo:', error)
+    }
+    
+    // Start content below logo (logo ends at ~27.5mm, add 5mm spacing = 32.5mm)
+    const startY = logoBase64 ? 33 : 10
     
     // Title with better styling
     doc.setFontSize(18)
@@ -1522,9 +1718,10 @@ const generatePDFReport = () => {
     doc.setTextColor(100)
     doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 105, startY + 24, { align: 'center' })
     
-    // Separator with better color
+    // Separator with better color - aligned with table width (10mm margins)
     doc.setDrawColor(41, 128, 185)
-    doc.line(15, startY + 30, 195, startY + 30)
+    const pageWidth = doc.internal.pageSize.getWidth()
+    doc.line(10, startY + 30, pageWidth - 10, startY + 30)
 
     // Key Metrics Summary
     doc.setFontSize(14)
@@ -1536,29 +1733,26 @@ const generatePDFReport = () => {
       startY: startY + 45,
       head: [['Metric', 'Value']],
       body: [
-        ['Population', profile.population],
-        ['Area', `${Number(profile.area).toFixed(2)} Ha.`],
-        ['Households', profile.num_households],
-        ['Avg. HH Size', profile.avg_household_size]
+        ['Population', formatNumber(profile.population)],
+        ['Area', `${formatNumber(profile.area)} Ha.`],
+        ['Households', formatNumber(profile.num_households)],
+        ['Avg. HH Size', formatNumber(profile.avg_household_size)]
       ],
       theme: 'grid',
       headStyles: { fillColor: [41, 128, 185], textColor: 255 },
       styles: { fontSize: 10 },
-      columnStyles: {
-        0: { cellWidth: 50 },
-        1: { cellWidth: 30 }
-      },
-      margin: { left: 15, right: 15 }
+      margin: { left: 10, right: 10 },
+      tableWidth: 'auto'
     })
 
     // Settlement Details in two columns
     doc.setFontSize(14)
     doc.setTextColor(41, 128, 185)
-    doc.text('Settlement Details', 15, doc.lastAutoTable.finalY + 15)
+    doc.text('Settlement Details', 15, (doc as any).lastAutoTable.finalY + 15)
     doc.setTextColor(0)
 
     autoTable(doc, {
-      startY: doc.lastAutoTable.finalY + 20,
+      startY: (doc as any).lastAutoTable.finalY + 20,
       head: [['Field', 'Value']],
       body: [
         ['Type', profile.settlement_type],
@@ -1569,41 +1763,38 @@ const generatePDFReport = () => {
         ['Development', profile.development],
         ['Structures', profile.structure_types],
         ['Materials', profile.typical_building_materials],
-        ['Dist to Town', `${profile.dist_town} km`],
-        ['Dist to Road', `${profile.dist_trunk} km`],
+        ['Dist to Town', `${formatNumber(profile.dist_town)} km`],
+        ['Dist to Road', `${formatNumber(profile.dist_trunk)} km`],
         ['Hazards', profile.main_env_hazards]
       ],
       theme: 'grid',
       headStyles: { fillColor: [41, 128, 185], textColor: 255 },
       styles: { fontSize: 9 },
-      columnStyles: {
-        0: { cellWidth: 50 },
-        1: { cellWidth: 100 }
-      },
-      margin: { left: 15, right: 15 }
+      margin: { left: 10, right: 10 },
+      tableWidth: 'auto'
     })
 
-    // Housing & Utilities in two columns
+    // Socio-Economic Profile in two columns
     doc.setFontSize(14)
     doc.setTextColor(41, 128, 185)
-    doc.text('Housing & Utilities', 15, doc.lastAutoTable.finalY + 15)
+    doc.text('Socio-Economic Profile', 15, (doc as any).lastAutoTable.finalY + 15)
     doc.setTextColor(0)
 
     autoTable(doc, {
-      startY: doc.lastAutoTable.finalY + 20,
+      startY: (doc as any).lastAutoTable.finalY + 20,
       head: [['Field', 'Value']],
       body: [
-        ['HH Count', housing.num_households],
-        ['HH Size', housing.avg_household_size],
+        ['HH Count', formatNumber(housing.num_households)],
+        ['HH Size', formatNumber(housing.avg_household_size)],
         ['Structures', housing.structure_types],
         ['Development', housing.development],
         ['Materials', housing.typical_building_materials],
-        ['Avg Rent', housing.avg_rent],
-        ['Ownership', housing.plot_ownership_ratio],
-        ['Tenancy', housing.plot_tenant_ratio],
+        ['Avg Rent', formatNumber(housing.avg_rent)],
+        ['Ownership', formatNumber(housing.plot_ownership_ratio)],
+        ['Tenancy', formatNumber(housing.plot_tenant_ratio)],
         ['Electricity', utilities.electricity_availability ? 'Yes' : 'No'],
         ['Water', utilities.piped_water_availability ? 'Yes' : 'No'],
-        ['Income', utilities.median_household_income],
+        ['Income', formatNumber(utilities.median_household_income)],
         ['Wayleave', utilities.on_wayleave ? 'Yes' : 'No'],
         ['Road Reserve', utilities.on_road_reserve ? 'Yes' : 'No'],
         ['Near River', utilities.near_river ? 'Yes' : 'No'],
@@ -1612,12 +1803,68 @@ const generatePDFReport = () => {
       theme: 'grid',
       headStyles: { fillColor: [41, 128, 185], textColor: 255 },
       styles: { fontSize: 9 },
-      columnStyles: {
-        0: { cellWidth: 50 },
-        1: { cellWidth: 100 }
-      },
-      margin: { left: 15, right: 15 }
+      margin: { left: 10, right: 10 },
+      tableWidth: 'auto'
     })
+
+    // Facilities Summary
+    doc.setFontSize(14)
+    doc.setTextColor(41, 128, 185)
+    const facilitiesY = (doc as any).lastAutoTable.finalY + 15
+    doc.text('Facilities Summary', 15, facilitiesY)
+    doc.setTextColor(0)
+
+    // Prepare facilities data
+    const facilitiesBody = [
+      ['Health Facilities', facilitiesSummary.value.health.count.toString()],
+      ['Education Facilities', facilitiesSummary.value.education.count.toString()],
+      ['Water Points', facilitiesSummary.value.water.count.toString()],
+      ['Piped Water', `${facilitiesSummary.value.piped_water.count} (${facilitiesSummary.value.piped_water.length.toFixed(2)} km)`],
+      ['Sewer', `${facilitiesSummary.value.sewer.count} (${facilitiesSummary.value.sewer.length.toFixed(2)} km)`],
+      ['Roads', `${facilitiesSummary.value.road.count} (${facilitiesSummary.value.road.length.toFixed(2)} km)`],
+      ['Other Facilities', facilitiesSummary.value.other.count.toString()]
+    ]
+
+    autoTable(doc, {
+      startY: facilitiesY + 5,
+      head: [['Facility Type', 'Count / Length']],
+      body: facilitiesBody,
+      theme: 'grid',
+      headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+      styles: { fontSize: 9 },
+      margin: { left: 10, right: 10 },
+      tableWidth: 'auto'
+    })
+
+    // Intervention Projects Section
+    if (settlementProjects.value.length > 0) {
+      doc.setFontSize(14)
+      doc.setTextColor(41, 128, 185)
+      const projectsY = (doc as any).lastAutoTable.finalY + 15
+      doc.text('Intervention Projects', 15, projectsY)
+      doc.setTextColor(0)
+
+      // Prepare projects data - just titles
+      const projectsBody = settlementProjects.value.map((project, index) => [
+        (index + 1).toString(),
+        project.title
+      ])
+
+      autoTable(doc, {
+        startY: projectsY + 5,
+        head: [['#', 'Project Title']],
+        body: projectsBody,
+        theme: 'grid',
+        headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+        styles: { fontSize: 9 },
+        margin: { left: 10, right: 10 },
+        tableWidth: 'auto',
+        columnStyles: {
+          0: { cellWidth: 15 }, // Narrow column for numbers
+          1: { cellWidth: 'auto' } // Auto width for project titles
+        }
+      })
+    }
 
     // Add footer
     doc.setFontSize(8)
@@ -1768,10 +2015,29 @@ const generatePDFReport = () => {
              <el-tab-pane  v-if="canUserAccessSettlement({id: route.params.id, county_id: profile.county_id}, 'view')" label="Documents" name="documents">
 
                   <div>
-            <!-- Filter Input -->
-           <el-input
-v-model="searchQuery" type="text" placeholder="Search documents..." style="width: 100%"
-             :prefix-icon="Search" clearable />
+            <!-- Filter Input and Upload Button -->
+            <el-row :gutter="10" style="margin-bottom: 10px;">
+              <el-col :span="canUserAccessSettlement({id: route.params.id, county_id: profile.county_id}, 'edit') ? 20 : 24">
+                <el-input
+                  v-model="searchQuery" 
+                  type="text" 
+                  placeholder="Search documents..." 
+                  style="width: 100%"
+                  :prefix-icon="Search" 
+                  clearable 
+                />
+              </el-col>
+              <el-col v-if="canUserAccessSettlement({id: route.params.id, county_id: profile.county_id}, 'edit')" :span="4">
+                <el-button 
+                  type="primary" 
+                  :icon="Upload" 
+                  @click="toggleComponent"
+                  style="width: 100%"
+                >
+                  Upload
+                </el-button>
+              </el-col>
+            </el-row>
 
            <!-- Photos Section (Collapsible) -->
            <div v-if="photos.length > 0" :class="[prefixCls, 'bg-[var(--el-color-white)] dark:(bg-[var(--el-bg-color)] border-[var(--el-border-color)] border-1px) mb-4']">
