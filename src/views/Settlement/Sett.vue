@@ -3682,6 +3682,27 @@ function sortByGeometry(a, b) {
   return bPriority - aPriority; // Higher priority (Polygon) first
 }
 
+// Helper to get settlement type label
+function getSettlementTypeLabel(type) {
+  if (!type) return 'N/A';
+  
+  // Handle string values from database
+  if (typeof type === 'string') {
+    const typeMap = {
+      'slum': 'Slum',
+      'informal_settlement': 'Informal Settlement',
+      'informal settlement': 'Informal Settlement',
+      'Informal Settlement': 'Informal Settlement',
+      'Slum': 'Slum'
+    };
+    return typeMap[type.toLowerCase()] || type; // Return original if not mapped
+  }
+  
+  // Handle numeric values (legacy support)
+  const typeOption = typeOptions.find(opt => opt.value === type);
+  return typeOption ? typeOption.label : 'Unknown';
+}
+
 // Helper to group duplicates by name
 function groupedByName(duplicates) {
   const groups = {};
@@ -4000,6 +4021,12 @@ type="primary" v-show="isCopyIconVisible(row)" size="small" :icon="Clock" circle
           </template>
         </el-table-column>
 
+        <el-table-column label="Type" prop="settlement_type" sortable width="150">
+          <template #default="{ row }">
+            {{ getSettlementTypeLabel(row.settlement_type) }}
+          </template>
+        </el-table-column>
+
         <el-table-column label="Population" prop="population" sortable />
         <el-table-column label="Area(HA)" prop="area" sortable :formatter="row => Number(row.area).toFixed(2)" />
         <el-table-column label="Created" prop="updatedAt" sortable :formatter="formatDate" />
@@ -4120,6 +4147,11 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="page"
               }}</span>
           </template>
         </el-table-column>
+        <el-table-column label="Type" prop="settlement_type" sortable width="150">
+          <template #default="{ row }">
+            {{ getSettlementTypeLabel(row.settlement_type) }}
+          </template>
+        </el-table-column>
         <el-table-column label="Population" prop="population" sortable />
         <el-table-column label="Area(HA)" prop="area" sortable :formatter="row => Number(row.area).toFixed(2)" />
         <el-table-column label="Created" prop="updatedAt" sortable :formatter="formatDate" />
@@ -4216,6 +4248,11 @@ style="margin-left: 10px; margin-top: 5px" size="small" v-if="showAdminButtons" 
           <template #default="scope">
             <span>{{ scope.row.ward.name }} ward, {{ scope.row.subcounty.name }} subcounty, {{ scope.row.county.name
               }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="Type" prop="settlement_type" sortable width="150">
+          <template #default="{ row }">
+            {{ getSettlementTypeLabel(row.settlement_type) }}
           </template>
         </el-table-column>
         <el-table-column label="Population" prop="population" sortable />
@@ -4319,6 +4356,11 @@ style="margin-left: 10px; margin-top: 5px" size="small" v-if="showAdminButtons" 
                 }}</span>
             </template>
           </el-table-column>
+          <el-table-column label="Type" prop="settlement_type" sortable width="150">
+            <template #default="{ row }">
+              {{ getSettlementTypeLabel(row.settlement_type) }}
+            </template>
+          </el-table-column>
           <el-table-column label="Population" prop="population" sortable />
           <el-table-column label="Area(HA)" prop="area" sortable :formatter="row => Number(row.area).toFixed(2)" />
           <el-table-column label="Created" prop="updatedAt" sortable :formatter="formatDate" />
@@ -4389,10 +4431,15 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="page"
       <el-table table-layout="auto"  :data="deletedPageData" :show-overflow-tooltip="true" style="width: 100% ; margin-top: 10px;"  border  >
         <el-table-column type="index" width="50" />
         <el-table-column label="Name" width="200" prop="name" sortable />     
-        <el-table-column label="Type" width="120">
+        <el-table-column label="Status" width="120">
           <template #default="{ row }">
             <el-tag v-if="row.merge_type === 'Merge'" type="warning" size="small">Merged</el-tag>
             <el-tag v-else type="danger" size="small">Deleted</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="Type" prop="settlement_type" sortable width="150">
+          <template #default="{ row }">
+            {{ getSettlementTypeLabel(row.settlement_type) }}
           </template>
         </el-table-column>
         <el-table-column label="Merged Into" width="200" v-if="deletedSettlements.some(s => s.merge_type === 'Merge')">
@@ -4493,6 +4540,11 @@ type="primary" size="small" :icon="View" @click="DeleteReview(row)"
                   <div v-if="row.county">{{ row.county.name }}</div>
                   <div v-else-if="row.county_id">County ID: {{ row.county_id }}</div>
                 </div>
+              </template>
+            </el-table-column>
+            <el-table-column label="Type" prop="settlement_type" width="150" sortable>
+              <template #default="{ row }">
+                {{ getSettlementTypeLabel(row.settlement_type) }}
               </template>
             </el-table-column>
             <el-table-column label="Population" prop="population" width="120" />

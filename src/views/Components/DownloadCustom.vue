@@ -273,12 +273,12 @@ const extractFields = (data) => {
               fieldsByModel[modelName] = new Set();
             }
             fieldsByModel[modelName].add(fullPath);
-            console.log(`Adding nested field: ${fullPath} to model: ${modelName}`);
+            //console.log(`Adding nested field: ${fullPath} to model: ${modelName}`);
           }
         } else {
           if (!isGeoField(fullPath)) {
             if (typeof obj[key] === "object" && obj[key] !== null) {
-              console.log(`Found nested object: ${key}`, obj[key]);
+              //console.log(`Found nested object: ${key}`, obj[key]);
               if (Array.isArray(obj[key])) {
                 if (obj[key].length > 0 && typeof obj[key][0] === "object") {
                   traverse(obj[key][0], fullPath, true); // Nested array
@@ -293,7 +293,7 @@ const extractFields = (data) => {
                 fieldsByModel[modelName] = new Set();
               }
               fieldsByModel[modelName].add(fullPath);
-              console.log(`Adding main field: ${fullPath} to model: ${modelName}`);
+              //console.log(`Adding main field: ${fullPath} to model: ${modelName}`);
             }
           }
         }
