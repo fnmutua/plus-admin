@@ -345,11 +345,17 @@ function flattenPlain(obj, parentKey = '') {
 
 
 
-async function getEntities(token, project) {
-  console.log('getEntities',project )
+async function getEntities(token, project, countyFilter = null) {
+  console.log('getEntities', project, 'countyFilter:', countyFilter)
   return new Promise((resolve, reject) => {
     //const url = 'https://collector.kesmis.go.ke/v1/projects/' + project + '/datasets/settlements.svc/Entities';
-    const url = 'https://collector.kesmis.go.ke/v1/projects/1/datasets/settlements.svc/Entities'; // get entites from Project 1
+    let url = 'https://collector.kesmis.go.ke/v1/projects/1/datasets/settlements.svc/Entities'; // get entites from Project 1
+
+    // Add county filtering to the OData query if specified
+    if (countyFilter) {
+      const countyODataFilter = `county_name eq '${countyFilter}'`;
+      url += `?$filter=${encodeURIComponent(countyODataFilter)}`;
+    }
 
     request({
       method: 'GET',
@@ -364,7 +370,7 @@ async function getEntities(token, project) {
       } else if (response.statusCode === 200) {
         const dataset = JSON.parse(body);
           resolve(dataset);
-         
+
 
       } else {
         reject(`Error: Status Code ${response.statusCode}`);
@@ -818,80 +824,32 @@ exports.modelDataCollectorCSVWithMedia = (req, res) => {
 exports.modelGetSubmissions = async (req, res) => {
  
    // Extract email and password from req.body
-   const { project, form, token } = req.body;
+   const { project, form, token, filters, filterValues, filterOperator } = req.body;
 
-   // Get user info for filtering
-   let userFilter = null;
-   let userCountyName = null;
-   let userSettlementCode = null;
-   let userSettlementName = null;
-   
-   if (req.userid) {
-     try {
-       const User = db.user;
-       const user = await User.findByPk(req.userid);
-       if (user) {
-         const roles = await user.getRoles();
-         // Check if user has national level access
-         const hasNationalAccess = roles.some(role => {
-           return role.user_roles?.location_level === 'national' || 
-                  ['super_admin', 'root_admin', 'admin', 'staff'].includes(role.name);
-         });
+   console.log('modelGetSubmissions - Request received:');
+   console.log('  - Project:', project);
+   console.log('  - Form:', form);
+   console.log('  - Frontend filters:', filters);
+   console.log('  - Frontend filterValues:', filterValues);
+   console.log('  - Frontend filterOperator:', filterOperator);
 
-         if (!hasNationalAccess) {
-           // Find the first non-national role to determine filter
-           const locationRole = roles.find(role => {
-             const locationLevel = role.user_roles?.location_level;
-             return locationLevel === 'county' || locationLevel === 'settlement';
-           });
+  // Build URL without OData filter - we'll filter on backend after fetching all data
+  let url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}.svc/Submissions?%24expand=*`;
 
-           if (locationRole && locationRole.user_roles) {
-             userFilter = {
-               location_level: locationRole.user_roles.location_level,
-               county_id: locationRole.user_roles.county_id,
-               settlement_id: locationRole.user_roles.settlement_id
-             };
+  // Extract county name from request filters for backend filtering
+  let countyNameToFilter = null;
+  if (filters && Array.isArray(filters) && filterValues && Array.isArray(filterValues)) {
+    const countyIndex = filters.indexOf('county');
+    if (countyIndex !== -1 && filterValues[countyIndex] && Array.isArray(filterValues[countyIndex]) && filterValues[countyIndex].length > 0) {
+      countyNameToFilter = filterValues[countyIndex][0]; // Get first county value
+      console.log('modelGetSubmissions - County filter will be applied on backend:');
+      console.log('  - County Name from request:', countyNameToFilter);
+    }
+  }
+  
+  console.log('modelGetSubmissions - Fetching all data from ODK Central:');
+  console.log('  - Final URL:', url);
 
-             // Get county name if filtering by county
-             if (userFilter.location_level === 'county' && userFilter.county_id) {
-               try {
-                 const County = db.models.county || db.county;
-                 const userCounty = await County.findByPk(userFilter.county_id);
-                 if (userCounty) {
-                   userCountyName = userCounty.name;
-                 }
-               } catch (countyError) {
-                 console.error('Error getting county info:', countyError);
-               }
-             }
-
-             // Get settlement info if filtering by settlement
-             if (userFilter.location_level === 'settlement' && userFilter.settlement_id) {
-               try {
-                 const Settlement = db.models.settlement || db.settlement;
-                 const userSettlement = await Settlement.findByPk(userFilter.settlement_id);
-                 if (userSettlement) {
-                   userSettlementCode = userSettlement.code;
-                   userSettlementName = userSettlement.name;
-                 }
-               } catch (settlementError) {
-                 console.error('Error getting settlement info:', settlementError);
-               }
-             }
-           }
-         }
-       }
-     } catch (userError) {
-       console.error('Error getting user info for filtering:', userError);
-       // Continue without filtering if there's an error
-     }
-   }
-
-  // let url 
- //  url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions`;
- const url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}.svc/Submissions?%24expand=*`;
-
- 
   //const baseUrl = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}.svc/Submissions`;
   //const url = `${baseUrl}?%24expand=*&%24filter=year(__system/createdAt) lt year(now())`;
 
@@ -929,7 +887,7 @@ exports.modelGetSubmissions = async (req, res) => {
 
 
           //console.log('SEC data....',objs)
-          // Retrieve entities
+          // Retrieve entities (used as lookup table to map settlement codes to names)
           let entities = await getEntities(token, project);
          // console.log(entities)
 
@@ -946,7 +904,7 @@ exports.modelGetSubmissions = async (req, res) => {
  
 
         // Select only the desired fields and map settlements
-        let filteredData = objs.map(submission => {
+        let mappedData = objs.map(submission => {
           return {
             id: submission.id,
             date: submission.today,
@@ -967,25 +925,28 @@ exports.modelGetSubmissions = async (req, res) => {
           };
         });
 
-        // Apply user-based filtering if user is not national level
-        if (userFilter) {
-          filteredData = filteredData.filter(submission => {
-            if (userFilter.location_level === 'county' && userCountyName) {
-              // Filter by county name
-              const submissionCounty = submission.county_name || submission.group_location?.county;
-              return submissionCounty === userCountyName;
-            } else if (userFilter.location_level === 'settlement') {
-              // Filter by settlement code or name
-              const submissionPcode = submission.pcode;
-              const submissionSettlementName = submission.settlement_name;
-              return (userSettlementCode && submissionPcode === userSettlementCode) ||
-                     (userSettlementName && submissionSettlementName === userSettlementName);
-            }
-            return true;
+        // Filter by county name if provided (backend filtering since ODK Central $filter doesn't support nested paths)
+        let filteredData = mappedData;
+        if (countyNameToFilter) {
+          filteredData = mappedData.filter(item => {
+            // Match against county_name from entities map (most reliable)
+            const matchesCountyName = item.county_name && 
+              item.county_name.toLowerCase().trim() === countyNameToFilter.toLowerCase().trim();
+            
+            // Also check group_location.county as fallback
+            const matchesGroupLocation = item.group_location?.county && 
+              item.group_location.county.toLowerCase().trim() === countyNameToFilter.toLowerCase().trim();
+            
+            return matchesCountyName || matchesGroupLocation;
           });
+          
+          console.log('modelGetSubmissions - Backend filtering applied:');
+          console.log('  - Total submissions fetched:', mappedData.length);
+          console.log('  - Filtered by county:', countyNameToFilter);
+          console.log('  - Filtered submissions count:', filteredData.length);
+        } else {
+          console.log('modelGetSubmissions - No county filter, returning all submissions:', mappedData.length);
         }
-
-   
 
      
           res.status(200).send({
@@ -1332,9 +1293,6 @@ exports.modelGetSettlements = async (req, res) => {
 };
 
 
-
-
- 
 // Function to get CSV submissions and send as a downloadable file
 exports.modelGetCsvSubmissions = (req, res) => {
   // Extract project, form, and token from req.body
@@ -1396,10 +1354,6 @@ exports.modelGetCsvSubmissions = (req, res) => {
   });
 };
 
-
-
-
- 
 
  
 exports.modelGetGeoJsonSubmissions = (req, res) => {

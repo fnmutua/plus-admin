@@ -34,8 +34,8 @@ module.exports = function (app) {
   })
 
   // County endpoints
-  app.get('/api/v1/adminunits/counties', [authJwt.verifyToken, isAdminRole], controller.getCounties)
-  app.get('/api/v1/adminunits/counties/:id', [authJwt.verifyToken, isAdminRole], controller.getCountyById)
+  app.get('/api/v1/adminunits/counties', [authJwt.verifyToken,], controller.getCounties)
+  app.get('/api/v1/adminunits/counties/:id', [authJwt.verifyToken], controller.getCountyById)
   app.post('/api/v1/adminunits/counties', [authJwt.verifyToken, isAdminRole], controller.createCounty)
   app.put('/api/v1/adminunits/counties/:id', [authJwt.verifyToken, isAdminRole], controller.updateCounty)
 

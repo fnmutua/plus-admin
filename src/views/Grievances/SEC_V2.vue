@@ -20,6 +20,7 @@ import { watch,onMounted } from 'vue';
 
 
 import { useRouter } from 'vue-router'
+import { getCountyByIdApi } from '@/api/adminunits'
  
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
@@ -390,11 +391,52 @@ const extractGRCData = async (dataArray) => {
 
 const getSecData = async () => {  
   // Define the formData object with necessary fields
-  const formData = {
+  const formData: any = {
     project: "1",
     form: "sec_officials",
     token: localStorage.getItem('collectorToken')
   };
+
+  // Add county filtering if user is county level (following SEC.vue pattern)
+  if (userInfo && userInfo.roles) {
+    const countyRole = userInfo.roles.find(role =>
+      role.user_roles?.location_level === "county" && role.user_roles?.county_id
+    );
+
+    if (countyRole) {
+      let countyName: string | null = null;
+
+      // Try to get county name from countyOptions if already populated (from previous load)
+      const countyData = countyOptions.value.find(c =>
+        String(c.value) === String(countyRole.user_roles.county_id)
+      );
+
+      if (countyData) {
+        countyName = countyData.label;
+        console.log('SEC_V2 - County name from countyOptions:', countyName);
+      } else {
+        // Fetch county name from API (countyOptions not populated yet on first load)
+        try {
+          const countyResponse = await getCountyByIdApi(countyRole.user_roles.county_id);
+          if (countyResponse && countyResponse.data) {
+            countyName = countyResponse.data.name;
+            console.log('SEC_V2 - Fetched county name from API:', countyName);
+          }
+        } catch (error) {
+          console.error('SEC_V2 - Error fetching county name:', error);
+        }
+      }
+
+      if (countyName) {
+        formData.filters = ['county'];
+        formData.filterValues = [[countyName]];
+        formData.filterOperator = ['in'];
+        console.log('SEC_V2 - Adding county filter to request:', { filters: formData.filters, filterValues: formData.filterValues });
+      } else {
+        console.warn('SEC_V2 - County name not found for county_id:', countyRole.user_roles.county_id);
+      }
+    }
+  }
 
   // Set loading state
  /// loading.value = true;
@@ -453,11 +495,50 @@ const mergeOfficials = (sec_officials, grc_officials) => {
  
 const getGRCData = async () => {  
   // Define the formData object with necessary fields
-  const formData = {
+  const formData: any = {
     project: "1",
     form: "grc_officials",
     token: localStorage.getItem('collectorToken')
   };
+
+  // Add county filtering if user is county level (same as getSecData)
+  if (userInfo && userInfo.roles) {
+    const countyRole = userInfo.roles.find(role =>
+      role.user_roles?.location_level === "county" && role.user_roles?.county_id
+    );
+
+    if (countyRole) {
+      let countyName: string | null = null;
+
+      // Try to get county name from countyOptions if already populated
+      const countyData = countyOptions.value.find(c =>
+        String(c.value) === String(countyRole.user_roles.county_id)
+      );
+
+      if (countyData) {
+        countyName = countyData.label;
+        console.log('SEC_V2 getGRCData - County name from countyOptions:', countyName);
+      } else {
+        // Fetch county name from API
+        try {
+          const countyResponse = await getCountyByIdApi(countyRole.user_roles.county_id);
+          if (countyResponse && countyResponse.data) {
+            countyName = countyResponse.data.name;
+            console.log('SEC_V2 getGRCData - Fetched county name from API:', countyName);
+          }
+        } catch (error) {
+          console.error('SEC_V2 getGRCData - Error fetching county name:', error);
+        }
+      }
+
+      if (countyName) {
+        formData.filters = ['county'];
+        formData.filterValues = [[countyName]];
+        formData.filterOperator = ['in'];
+        console.log('SEC_V2 getGRCData - Adding county filter to request:', { filters: formData.filters, filterValues: formData.filterValues });
+      }
+    }
+  }
 
   // Set loading state
  /// loading.value = true;

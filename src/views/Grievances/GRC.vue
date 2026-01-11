@@ -36,6 +36,7 @@ import type { CheckboxValueType, Column } from 'element-plus'
 import type { FunctionalComponent } from 'vue'
 
 import { getOneByCode } from '@/api/settlements'
+import { getCountyByIdApi } from '@/api/adminunits'
 
 import { Icon } from '@iconify/vue';
 import PermissionWrapper from '@/components/PermissionWrapper.vue';
@@ -246,11 +247,52 @@ const extractData = async (dataArray) => {
 
 const getGRCData = async () => {
   // Define the formData object with necessary fields
-  const formData = {
+  const formData: any = {
     project: "1",
     form: "grc_officials",
     token: localStorage.getItem('collectorToken')
   };
+
+  // Add county filtering if user is county level (following SEC.vue pattern)
+  if (userInfo && userInfo.roles) {
+    const countyRole = userInfo.roles.find(role =>
+      role.user_roles?.location_level === "county" && role.user_roles?.county_id
+    );
+
+    if (countyRole) {
+      let countyName: string | null = null;
+
+      // Try to get county name from countyOptions if already populated (from previous load)
+      const countyData = countyOptions.value.find(c =>
+        String(c.value) === String(countyRole.user_roles.county_id)
+      );
+
+      if (countyData) {
+        countyName = countyData.label;
+        console.log('GRC - County name from countyOptions:', countyName);
+      } else {
+        // Fetch county name from API (countyOptions not populated yet on first load)
+        try {
+          const countyResponse = await getCountyByIdApi(countyRole.user_roles.county_id);
+          if (countyResponse && countyResponse.data) {
+            countyName = countyResponse.data.name;
+            console.log('GRC - Fetched county name from API:', countyName);
+          }
+        } catch (error) {
+          console.error('GRC - Error fetching county name:', error);
+        }
+      }
+
+      if (countyName) {
+        formData.filters = ['county'];
+        formData.filterValues = [[countyName]];
+        formData.filterOperator = ['in'];
+        console.log('GRC - Adding county filter to request:', { filters: formData.filters, filterValues: formData.filterValues });
+      } else {
+        console.warn('GRC - County name not found for county_id:', countyRole.user_roles.county_id);
+      }
+    }
+  }
 
   // Update status message
   dataFetchStatus.value = 'Processing and extracting GRC officials data...'
@@ -330,10 +372,49 @@ const getGRCData = async () => {
 
 
 const loadSecRoster = async () => {
-  const formData = {
+  const formData: any = {
     project: '1',
     form: 'sec_officials',
     token: localStorage.getItem('collectorToken')
+  }
+
+  // Add county filtering if user is county level (same as getGRCData)
+  if (userInfo && userInfo.roles) {
+    const countyRole = userInfo.roles.find(role =>
+      role.user_roles?.location_level === "county" && role.user_roles?.county_id
+    );
+
+    if (countyRole) {
+      let countyName: string | null = null;
+
+      // Try to get county name from countyOptions if already populated
+      const countyData = countyOptions.value.find(c =>
+        String(c.value) === String(countyRole.user_roles.county_id)
+      );
+
+      if (countyData) {
+        countyName = countyData.label;
+        console.log('GRC loadSecRoster - County name from countyOptions:', countyName);
+      } else {
+        // Fetch county name from API
+        try {
+          const countyResponse = await getCountyByIdApi(countyRole.user_roles.county_id);
+          if (countyResponse && countyResponse.data) {
+            countyName = countyResponse.data.name;
+            console.log('GRC loadSecRoster - Fetched county name from API:', countyName);
+          }
+        } catch (error) {
+          console.error('GRC loadSecRoster - Error fetching county name:', error);
+        }
+      }
+
+      if (countyName) {
+        formData.filters = ['county'];
+        formData.filterValues = [[countyName]];
+        formData.filterOperator = ['in'];
+        console.log('GRC loadSecRoster - Adding county filter to request:', { filters: formData.filters, filterValues: formData.filterValues });
+      }
+    }
   }
 
   try {

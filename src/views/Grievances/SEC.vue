@@ -19,6 +19,7 @@ import {
   getSettlements
 } from '@/api/collector'
 import { getSettlementListByCounty } from '@/api/settlements'
+import { getCountyByIdApi } from '@/api/adminunits'
 import { watch, onMounted } from 'vue';
 
 import DownloadCustom from '@/views/Components/DownloadCustomFields.vue';
@@ -292,34 +293,32 @@ const loginUserToCollector = async () => {
   })
 
   try {
-    await loginCollector(formData).then((response) => {
-      // Assuming the token is in the response data
-      const token = response.token;
-      // Save the token to localStorage
-      localStorage.setItem('collectorToken', token);
-      console.log('collectorToken:', response);
-      const all_projects = JSON.parse(response.data);
-      console.log('projects:', projects);
+    const response = await loginCollector(formData);
+    // Assuming the token is in the response data
+    const token = response.token;
+    // Save the token to localStorage
+    localStorage.setItem('collectorToken', token);
+    console.log('collectorToken:', response);
+    const all_projects = JSON.parse(response.data);
+    console.log('projects:', projects);
 
-      // loop through each project 
-      all_projects.forEach(function (project) {
+    // loop through each project
+    all_projects.forEach(function (project) {
 
-        projects.value.push(project)
+      projects.value.push(project)
 
-        project.formList.forEach(function (form) {
+      project.formList.forEach(function (form) {
 
-          forms.value.push(form)
+        forms.value.push(form)
 
-
-        })
 
       })
 
-
-      getSecData()
-      fetchSettlements()
-
     })
+
+
+    await fetchSettlements()
+    getSecData()
   } catch (error) {
     loading.value = false
     fetchingData.value = false
@@ -426,11 +425,51 @@ const extractData = async (dataArray) => {
 
 const getSecData = async () => {
   // Define the formData object with necessary fields
-  const formData = {
+  const formData: any = {
     project: "1",
     form: "sec_officials",
     token: localStorage.getItem('collectorToken')
   };
+
+  // Add county filtering if user is county level (following Sett.vue pattern)
+  if (userInfo && userInfo.roles) {
+    const countyRole = userInfo.roles.find(role =>
+      role.user_roles?.location_level === "county" && role.user_roles?.county_id
+    );
+
+    if (countyRole) {
+      let countyName: string | null = null;
+      
+      // Get county name - first check if it exists in countyOptions (used in select dropdown)
+      // Fetch county name from API to match against countyOptions
+      try {
+        const countyResponse = await getCountyByIdApi(countyRole.user_roles.county_id);
+        if (countyResponse && countyResponse.data) {
+          const fetchedCountyName = countyResponse.data.name;
+          
+          // Check if this county name exists in countyOptions
+          const countyInOptions = countyOptions.value.find(c =>
+            c.value === fetchedCountyName || c.label === fetchedCountyName
+          );
+          
+          // Use the county name from countyOptions if found, otherwise use the fetched name
+          countyName = countyInOptions ? (countyInOptions.value || countyInOptions.label) : fetchedCountyName;
+          console.log('County name for filter:', countyName, countyInOptions ? '(found in countyOptions)' : '(from API)');
+        }
+      } catch (error) {
+        console.error('Error fetching county name:', error);
+      }
+
+      if (countyName) {
+        formData.filters = ['county'];
+        formData.filterValues = [[countyName]];
+        formData.filterOperator = ['in'];
+        console.log('Adding county filter to request:', { filters: formData.filters, filterValues: formData.filterValues });
+      } else {
+        console.warn('County name not found for county_id:', countyRole.user_roles.county_id);
+      }
+    }
+  }
 
   // Update status message
   dataFetchStatus.value = 'Processing and extracting SEC officials data...'
@@ -481,9 +520,46 @@ const getSecData = async () => {
 };
 
 const fetchSettlements = async () => {
-  const payload = {
+  const payload: any = {
     project: '1',
     token: localStorage.getItem('collectorToken')
+  }
+
+  // Add county filtering if user is county level
+  if (userInfo && userInfo.roles) {
+    const countyRole = userInfo.roles.find(role =>
+      role.user_roles?.location_level === "county" && role.user_roles?.county_id
+    );
+
+    if (countyRole) {
+      let countyName: string | null = null;
+      
+      // First try to get county name from countyListFromSettlements
+      const countyData = countyListFromSettlements.value.find(c =>
+        String(c.value) === String(countyRole.user_roles.county_id)
+      );
+
+      if (countyData) {
+        countyName = countyData.label;
+      } else {
+        // Fallback: fetch county name from API
+        try {
+          const countyResponse = await getCountyByIdApi(countyRole.user_roles.county_id);
+          if (countyResponse && countyResponse.data) {
+            countyName = countyResponse.data.name;
+          }
+        } catch (error) {
+          console.error('Error fetching county name:', error);
+        }
+      }
+
+      if (countyName) {
+        // For settlements, filter by county_name
+        payload.filters = ['county_name'];
+        payload.filterValues = [[countyName]];
+        payload.filterOperator = ['in'];
+      }
+    }
   }
   try {
     const res = await getSettlements(payload)
