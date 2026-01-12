@@ -2128,7 +2128,7 @@ const AddFacility = (data?: any) => {
   }
   
   push({
-    name: 'AddPipedWaterNew',
+    name: 'PipedWaterAddX',
     query: queryParams
   })
 }
@@ -2346,7 +2346,7 @@ v-model="search_string" clearable :onClear="handleClear"
 
           <el-tooltip content="Add Facility" placement="top">
             <PermissionWrapper :permissions="'piped_water:create'">
-              <el-button :onClick="AddFacility" type="primary" :icon="Plus" />
+              <el-button @click="AddFacility" type="primary" :icon="Plus" />
             </PermissionWrapper>
           </el-tooltip>
 

@@ -2605,7 +2605,7 @@ const AddFacility = (data?: any) => {
   }
   
   push({
-    name: 'AddRoadNew',
+    name: 'AddRoadX',
     query: queryParams
   })
 }
@@ -2696,7 +2696,7 @@ v-model="search_string" clearable :onClear="handleClear"
 
           <el-tooltip content="Add Facility" placement="top">
             <PermissionWrapper :permissions="'road:create'">
-              <el-button :onClick="AddFacility" type="primary" :icon="Plus" />
+              <el-button @click="AddFacility" type="primary" :icon="Plus" />
             </PermissionWrapper>
           </el-tooltip>
 

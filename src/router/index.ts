@@ -366,6 +366,17 @@ export const adminRoutes: AppRouteRecordRaw[] = [
               icon:'bi:house-add',
               title: 'AddSettX'
             }
+          },
+          {
+            path: 'addnew',
+            component: () => import('@/views/Settlement/AddSettlementNew.vue'),
+            name: 'AddSettlementNew',
+            meta: {
+              hidden: true,
+              props: true,
+              icon:'bi:house-add',
+              title: 'Add Settlement'
+            }
           }, 
           {
             path: 'parcel',

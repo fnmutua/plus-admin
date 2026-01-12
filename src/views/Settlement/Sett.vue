@@ -1558,7 +1558,7 @@ const AddSettlement = () => {
     return;
   }
   
-  push({ name: 'AddSettlementX' })
+  push({ name: 'AddSettlementNew' })
 }
 
 const AddDialogVisible = ref(false)
@@ -1566,7 +1566,7 @@ const formHeader = ref('Edit Settlement')
 
 const editSettlement = (data: TableSlotDefault) => {
   push({
-    name: 'AddSettlementX',
+    name: 'AddSettlementNew',
     query: { id: data.row.id }
   });
   showEditSaveButton.value = true
@@ -1610,7 +1610,7 @@ const handleEdit = (data) => {
   }
 
   push({
-    name: 'AddSettlementX',
+    name: 'AddSettlementNew',
     query: { id: data.id }
   });
   showEditSaveButton.value = true
