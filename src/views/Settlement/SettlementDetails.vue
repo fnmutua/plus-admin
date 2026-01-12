@@ -104,6 +104,40 @@ const canUserAccessSettlement = (settlement: any, action: 'edit' | 'delete' | 'v
   });
 };
 
+// Household-specific permission checking function
+const canUserAccessHouseholds = (settlement: any): boolean => {
+  // Super admins can access everything
+  if (isSuperAdmin.value) {
+    return true;
+  }
+
+  // Get user permissions
+  const userPermissions = userInfo.permissions || [];
+  
+  // Check if user has households:read permission or all permissions
+  const hasHouseholdPermission = userPermissions.includes('households:read') || 
+                                 userPermissions.includes('*.*.*');
+  
+  if (!hasHouseholdPermission) {
+    return false;
+  }
+
+  // Check location-based access - user must have access to this settlement
+  return processedRoles.some(role => {
+    if (!role.field) {
+      // National/Regional level - has access to all settlements
+      return true;
+    }
+    
+    if (role.field === "settlement_id") {
+      return settlement.id === role.value;
+    } else if (role.field === "county_id") {
+      return settlement.county_id === role.value;
+    }
+    return false;
+  });
+};
+
 const showAdminButtons = ref(appStore.getAdminButtons)
 const showEditButtons = ref(appStore.getEditButtons)
 
@@ -122,6 +156,7 @@ const profile = reactive({
   name: '',
   settlement_type: '',
   county: '',
+  county_id: null,
   subcounty: '',
   ward: '',
   population: '',
@@ -395,6 +430,7 @@ const getFilteredData = async (selFilters: string[], selfilterValues: any[][]) =
     profile.name = settlementData.name || '';
     profile.settlement_type = settlementData.settlement_type || '';
     profile.county = settlementData.county?.name || '';
+    profile.county_id = settlementData.county_id || settlementData.county?.id || null;
     profile.subcounty = settlementData.subcounty?.name || '';
     profile.ward = settlementData.ward?.name || '';
     profile.population = settlementData.population || '';
@@ -2180,7 +2216,7 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
 
       </el-tab-pane>
 
-    <el-tab-pane  v-if="canUserAccessSettlement({id: route.params.id, county_id: profile.county_id}, 'view')" label="Households" name="Households">
+    <el-tab-pane  v-if="canUserAccessHouseholds({id: route.params.id, county_id: profile.county_id})" label="Households" name="Households">
    
         <el-card>
           <el-row :gutter="10" style="margin-bottom:10px">
