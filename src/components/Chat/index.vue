@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick, watch, onUnmounted } from 'vue'
-import { ElButton, ElInput, ElDrawer, ElAvatar } from 'element-plus'
+import { ElButton, ElInput, ElDrawer, ElAvatar, ElAlert, ElTooltip } from 'element-plus'
 import { Icon } from '@iconify/vue'
 import { useAppStore } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
@@ -22,8 +22,9 @@ const isConnected = ref(false)
 const chatContainer = ref<HTMLElement>()
 const unreadCount = ref(0)
 const showUsersSidebar = ref(false)
-const activeConversation = ref<string>('general') // 'general' or user ID
-const lastReadTimestamp = ref<number>(Date.now()) // Track when user last read messages
+const activeConversation = ref<string | null>(null) // user ID for direct messages
+const connectionError = ref<string | null>(null)
+const isReconnecting = ref(false)
 
 // WebSocket connection
 let ws: WebSocket | null = null
@@ -40,16 +41,39 @@ const currentUser = computed(() => {
 })
 
 // WebSocket connection
+let reconnectAttempts = 0
+const maxReconnectAttempts = 10
+let reconnectTimeout: NodeJS.Timeout | null = null
+
 const connectWebSocket = () => {
   try {
     // Use environment variable for WebSocket URL, fallback to localhost for development
-    const wsUrl = 'wss://kesmis.go.ke/chat'
+    const wsUrl = import.meta.env.VITE_CHAT_WS_URL || 
+                  (window.location.protocol === 'https:' ? 'wss://kesmis.go.ke/chat' : 'ws://localhost:3001/chat')
     console.log('Connecting to WebSocket:', wsUrl)
+    
+    // Close existing connection if any
+    if (ws && ws.readyState !== WebSocket.CLOSED) {
+      ws.close()
+    }
+    
+    isReconnecting.value = reconnectAttempts > 0
+    connectionError.value = null
+    
     ws = new WebSocket(wsUrl)
     
     ws.onopen = () => {
       console.log('WebSocket connected')
       isConnected.value = true
+      reconnectAttempts = 0 // Reset reconnect attempts on successful connection
+      isReconnecting.value = false
+      connectionError.value = null
+      
+      // Clear any pending reconnect timeout
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout)
+        reconnectTimeout = null
+      }
       
       // Send join message
       ws?.send(JSON.stringify({
@@ -57,14 +81,8 @@ const connectWebSocket = () => {
         user: currentUser.value
       }))
       
-      // Request initial message history
-      setTimeout(() => {
-        ws?.send(JSON.stringify({
-          type: 'get_messages',
-          conversation: activeConversation.value === 'general' ? 'general' : activeConversation.value,
-          user_id: currentUser.value.id
-        }))
-      }, 500) // Small delay to ensure join is processed first
+      // Request initial message history when a conversation is selected
+      // Will be requested when user selects a conversation
     }
     
     ws.onmessage = (event) => {
@@ -76,20 +94,57 @@ const connectWebSocket = () => {
       }
     }
     
-    ws.onclose = () => {
-      console.log('WebSocket disconnected')
+    ws.onclose = (event) => {
+      console.log('WebSocket disconnected', event.code, event.reason)
       isConnected.value = false
-      setTimeout(connectWebSocket, 3000)
+      
+      // Set error message based on close code
+      if (event.code === 1006) {
+        connectionError.value = 'Connection failed. Please ensure the chat server is running.'
+      } else if (event.code === 1000) {
+        // Normal closure, no error
+        connectionError.value = null
+      } else {
+        connectionError.value = `Connection closed (code: ${event.code})`
+      }
+      
+      // Only attempt to reconnect if we haven't exceeded max attempts
+      // Don't reconnect if it was a normal closure (code 1000) or if we're unmounting
+      if (reconnectAttempts < maxReconnectAttempts && event.code !== 1000) {
+        reconnectAttempts++
+        isReconnecting.value = true
+        // Exponential backoff: 1s, 2s, 4s, 8s, 16s, etc., max 30s
+        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts - 1), 30000)
+        console.log(`Attempting to reconnect in ${delay}ms (attempt ${reconnectAttempts}/${maxReconnectAttempts})`)
+        
+        reconnectTimeout = setTimeout(() => {
+          connectWebSocket()
+        }, delay)
+      } else if (reconnectAttempts >= maxReconnectAttempts) {
+        isReconnecting.value = false
+        connectionError.value = 'Failed to connect after multiple attempts. Please check if the chat server is running and refresh the page.'
+        console.error('Max reconnection attempts reached. Please refresh the page.')
+      }
     }
     
     ws.onerror = (error) => {
       console.error('WebSocket error:', error)
       isConnected.value = false
+      connectionError.value = 'Connection error. Please check if the chat server is running.'
     }
   } catch (error) {
     console.error('Failed to connect to WebSocket:', error)
     isConnected.value = false
+    connectionError.value = 'Failed to establish connection. Please check your network and server status.'
   }
+}
+
+// Manual reconnect function
+const manualReconnect = () => {
+  reconnectAttempts = 0
+  isReconnecting.value = false
+  connectionError.value = null
+  connectWebSocket()
 }
 
 // Handle incoming WebSocket messages
@@ -97,16 +152,38 @@ const handleWebSocketMessage = (data: any) => {
   switch (data.type) {
     case 'message':
       if (data.message) {
+        // Parse timestamp properly - handle string, Date object, or number
+        let timestamp: Date
+        if (data.message.timestamp) {
+          if (data.message.timestamp instanceof Date) {
+            timestamp = data.message.timestamp
+          } else if (typeof data.message.timestamp === 'string') {
+            timestamp = new Date(data.message.timestamp)
+          } else if (typeof data.message.timestamp === 'number') {
+            timestamp = new Date(data.message.timestamp)
+          } else {
+            timestamp = new Date()
+          }
+        } else {
+          timestamp = new Date()
+        }
+        
+        // Validate timestamp
+        if (isNaN(timestamp.getTime())) {
+          console.warn('Invalid timestamp received, using current time:', data.message.timestamp)
+          timestamp = new Date()
+        }
+        
         const message = {
           id: data.message.id || Date.now(),
           content: data.message.content,
           sender: data.message.sender,
-          timestamp: new Date(data.message.timestamp || Date.now()),
+          timestamp: timestamp,
           receiver_id: data.message.receiver_id,
           isRead: false // Mark new messages as unread
         }
         
-        console.log('Received message:', message)
+        console.log('Received message:', message, 'Original timestamp:', data.message.timestamp)
         
         // Check if message already exists to prevent duplicates
         const existingMessage = chatMessages.value.find(msg => 
@@ -134,13 +211,37 @@ const handleWebSocketMessage = (data: any) => {
       if (data.messages) {
         console.log('Received message history:', data.messages)
         // Load existing messages from database
-        const formattedMessages = data.messages.map((msg: any) => ({
-          id: msg.id,
-          content: msg.content,
-          sender: msg.sender,
-          timestamp: new Date(msg.timestamp),
-          receiver_id: msg.receiver_id
-        }))
+        const formattedMessages = data.messages.map((msg: any) => {
+          // Parse timestamp properly
+          let timestamp: Date
+          if (msg.timestamp) {
+            if (msg.timestamp instanceof Date) {
+              timestamp = msg.timestamp
+            } else if (typeof msg.timestamp === 'string') {
+              timestamp = new Date(msg.timestamp)
+            } else if (typeof msg.timestamp === 'number') {
+              timestamp = new Date(msg.timestamp)
+            } else {
+              timestamp = new Date()
+            }
+          } else {
+            timestamp = new Date()
+          }
+          
+          // Validate timestamp
+          if (isNaN(timestamp.getTime())) {
+            console.warn('Invalid timestamp in message history:', msg.timestamp)
+            timestamp = new Date()
+          }
+          
+          return {
+            id: msg.id,
+            content: msg.content,
+            sender: msg.sender,
+            timestamp: timestamp,
+            receiver_id: msg.receiver_id
+          }
+        })
         
         chatMessages.value = formattedMessages
         nextTick(() => {
@@ -153,14 +254,38 @@ const handleWebSocketMessage = (data: any) => {
       if (data.messages) {
         console.log('Received conversation messages:', data.messages)
         // Load messages for specific conversation
-        const formattedMessages = data.messages.map((msg: any) => ({
-          id: msg.id,
-          content: msg.content,
-          sender: msg.sender,
-          timestamp: new Date(msg.timestamp),
-          receiver_id: msg.receiver_id,
-          isRead: true // Mark existing conversation messages as read
-        }))
+        const formattedMessages = data.messages.map((msg: any) => {
+          // Parse timestamp properly
+          let timestamp: Date
+          if (msg.timestamp) {
+            if (msg.timestamp instanceof Date) {
+              timestamp = msg.timestamp
+            } else if (typeof msg.timestamp === 'string') {
+              timestamp = new Date(msg.timestamp)
+            } else if (typeof msg.timestamp === 'number') {
+              timestamp = new Date(msg.timestamp)
+            } else {
+              timestamp = new Date()
+            }
+          } else {
+            timestamp = new Date()
+          }
+          
+          // Validate timestamp
+          if (isNaN(timestamp.getTime())) {
+            console.warn('Invalid timestamp in conversation messages:', msg.timestamp)
+            timestamp = new Date()
+          }
+          
+          return {
+            id: msg.id,
+            content: msg.content,
+            sender: msg.sender,
+            timestamp: timestamp,
+            receiver_id: msg.receiver_id,
+            isRead: true // Mark existing conversation messages as read
+          }
+        })
         
         chatMessages.value = formattedMessages
         nextTick(() => {
@@ -198,17 +323,33 @@ const handleWebSocketMessage = (data: any) => {
         updateBadgeCount()
       }
       break
+      
+    case 'message_read':
+      // Message was read by recipient - update message status
+      if (data.messageId) {
+        const message = chatMessages.value.find(msg => msg.id === data.messageId)
+        if (message) {
+          message.isRead = true
+          console.log('Message marked as read:', data.messageId)
+        }
+      }
+      break
+      
+    case 'error':
+      console.error('WebSocket error from server:', data.message)
+      // Could show a user-friendly error message here
+      break
   }
 }
 
 // Send message
 const sendMessage = () => {
-  if (!currentMessage.value.trim()) return
+  if (!currentMessage.value.trim() || !activeConversation.value) return
   
   const message = {
     content: currentMessage.value,
     sender: currentUser.value,
-    receiver_id: activeConversation.value === 'general' ? null : activeConversation.value,
+    receiver_id: activeConversation.value,
     timestamp: new Date()
   }
   
@@ -220,7 +361,7 @@ const sendMessage = () => {
     ws.send(JSON.stringify({
       type: 'message',
       message: message,
-      to: activeConversation.value === 'general' ? 'all' : activeConversation.value
+      to: activeConversation.value
     }))
   }
 }
@@ -243,18 +384,43 @@ const scrollToBottom = () => {
 // Format timestamp
 const formatTimestamp = (timestamp: any) => {
   if (!timestamp) return 'Unknown'
-  const date = new Date(timestamp)
-  if (isNaN(date.getTime())) return 'Unknown'
   
-  return new Intl.DateTimeFormat('en-US', {
-    hour: '2-digit',
-    minute: '2-digit'
-  }).format(date)
+  // Handle different timestamp formats
+  let date: Date
+  if (timestamp instanceof Date) {
+    date = timestamp
+  } else if (typeof timestamp === 'string' || typeof timestamp === 'number') {
+    date = new Date(timestamp)
+  } else {
+    return 'Unknown'
+  }
+  
+  // Check if date is valid
+  if (isNaN(date.getTime())) {
+    console.warn('Invalid timestamp:', timestamp)
+    return 'Unknown'
+  }
+  
+  try {
+    return new Intl.DateTimeFormat('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    }).format(date)
+  } catch (error) {
+    console.error('Error formatting timestamp:', error, timestamp)
+    return 'Unknown'
+  }
 }
 
 // Open chat modal
 const openModal = () => {
   visible.value = true
+  
+  // If no conversation is selected, show users sidebar
+  if (!activeConversation.value) {
+    showUsersSidebar.value = true
+  }
   
   // Mark all messages as read when chat opens
   chatMessages.value.forEach(msg => {
@@ -268,20 +434,22 @@ const openModal = () => {
   emit('updateUnreadCount', 0)
   
   // Mark messages as read for current conversation
-  markMessagesAsRead()
-  
-  // Request message history when chat opens
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({
-      type: 'get_messages',
-      conversation: activeConversation.value === 'general' ? 'general' : activeConversation.value,
-      user_id: currentUser.value.id
-    }))
+  if (activeConversation.value) {
+    markMessagesAsRead()
+    
+    // Request message history when chat opens if a conversation is selected
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'get_messages',
+        conversation: activeConversation.value,
+        user_id: currentUser.value.id
+      }))
+    }
+    
+    nextTick(() => {
+      scrollToBottom()
+    })
   }
-  
-  nextTick(() => {
-    scrollToBottom()
-  })
 }
 
 // Close chat modal
@@ -298,28 +466,34 @@ defineExpose({
 
 // Mark messages as read when viewed
 const markMessagesAsRead = () => {
-  if (!visible.value) return // Only mark as read when chat is open
+  if (!visible.value || !activeConversation.value) return // Only mark as read when chat is open and conversation is selected
   
   let hasChanges = false
+  const messagesToMarkRead: any[] = []
   
   chatMessages.value.forEach(msg => {
     if (msg.sender.id !== currentUser.value.id && !msg.isRead) {
-      if (activeConversation.value === 'general') {
-        // For team chat, mark messages without receiver_id as read
-        if (!msg.receiver_id) {
-          msg.isRead = true
-          hasChanges = true
-        }
-      } else {
-        // For direct messages, mark messages between these users as read
-        if ((msg.sender.id === activeConversation.value && msg.receiver_id === currentUser.value.id) ||
-            (msg.sender.id === currentUser.value.id && msg.receiver_id === activeConversation.value)) {
-          msg.isRead = true
-          hasChanges = true
-        }
+      // For direct messages, mark messages between these users as read
+      if ((msg.sender.id === activeConversation.value && msg.receiver_id === currentUser.value.id) ||
+          (msg.sender.id === currentUser.value.id && msg.receiver_id === activeConversation.value)) {
+        msg.isRead = true
+        hasChanges = true
+        messagesToMarkRead.push(msg.id)
       }
     }
   })
+  
+  // Notify server about read messages
+  if (messagesToMarkRead.length > 0 && ws && ws.readyState === WebSocket.OPEN) {
+    const websocket = ws // Store reference to avoid null check issues
+    messagesToMarkRead.forEach(messageId => {
+      websocket.send(JSON.stringify({
+        type: 'message_read',
+        messageId: messageId,
+        readBy: currentUser.value.id
+      }))
+    })
+  }
   
   // Update counter if any messages were marked as read
   if (hasChanges) {
@@ -339,7 +513,7 @@ const switchConversation = (conversationId: string) => {
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({
       type: 'get_messages',
-      conversation: conversationId === 'general' ? 'general' : conversationId,
+      conversation: conversationId,
       user_id: currentUser.value.id
     }))
   }
@@ -351,9 +525,11 @@ const switchConversation = (conversationId: string) => {
 
 // Update badge count
 const updateBadgeCount = () => {
-  // Only count unread messages from others
+  // Only count unread direct messages from others
   const totalUnreadCount = chatMessages.value.filter(msg => 
-    msg.sender.id !== currentUser.value.id && !msg.isRead
+    msg.sender.id !== currentUser.value.id && 
+    !msg.isRead &&
+    msg.receiver_id === currentUser.value.id // Only direct messages to current user
   ).length
   
   unreadCount.value = totalUnreadCount
@@ -362,16 +538,14 @@ const updateBadgeCount = () => {
 
 // Filtered messages for active conversation
 const filteredMessages = computed(() => {
-  if (activeConversation.value === 'general') {
-    // Team chat: show messages without receiver_id
-    return chatMessages.value.filter(msg => !msg.receiver_id)
-  } else {
-    // Direct messages: show messages between these two users
-    return chatMessages.value.filter(msg => 
-      (msg.sender.id === activeConversation.value && msg.receiver_id === currentUser.value.id) ||
-      (msg.sender.id === currentUser.value.id && msg.receiver_id === activeConversation.value)
-    )
+  if (!activeConversation.value) {
+    return []
   }
+  // Direct messages: show messages between these two users
+  return chatMessages.value.filter(msg => 
+    (msg.sender.id === activeConversation.value && msg.receiver_id === currentUser.value.id) ||
+    (msg.sender.id === currentUser.value.id && msg.receiver_id === activeConversation.value)
+  )
 })
 
 // Mobile responsive
@@ -380,19 +554,18 @@ const drawerSize = computed(() => isMobile.value ? '100%' : '25%')
 
 // Active conversation info
 const activeConversationInfo = computed(() => {
-  if (activeConversation.value === 'general') {
+  if (!activeConversation.value) {
     return {
-      title: 'Team Chat',
+      title: 'Select a user to chat',
       subtitle: `${onlineUsers.value.length} online`,
-      icon: 'material-symbols:forum'
-    }
-  } else {
-    const user = onlineUsers.value.find(u => u.id === activeConversation.value)
-    return {
-      title: user?.name || 'Direct Message',
-      subtitle: 'online',
       icon: 'material-symbols:person'
     }
+  }
+  const user = onlineUsers.value.find(u => u.id === activeConversation.value)
+  return {
+    title: user?.name || 'Direct Message',
+    subtitle: 'online',
+    icon: 'material-symbols:person'
   }
 })
 
@@ -402,8 +575,16 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  // Clear reconnect timeout
+  if (reconnectTimeout) {
+    clearTimeout(reconnectTimeout)
+    reconnectTimeout = null
+  }
+  
+  // Close WebSocket connection
   if (ws) {
-    ws.close()
+    ws.close(1000, 'Component unmounting') // Normal closure
+    ws = null
   }
 })
 
@@ -416,34 +597,23 @@ watch(chatMessages, () => {
 
 // Watch for drawer visibility changes
 watch(visible, (newVisible) => {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return
+  
   if (newVisible) {
     // Send drawer state to server with current conversation
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({
-        type: 'drawer_state',
-        isOpen: true,
-        conversationId: activeConversation.value
-      }));
-    }
+    ws.send(JSON.stringify({
+      type: 'drawer_state',
+      isOpen: true,
+      conversationId: activeConversation.value || null
+    }));
   } else {
     // Send drawer closed state
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({
-        type: 'drawer_state',
-        isOpen: false
-      }));
-    }
+    ws.send(JSON.stringify({
+      type: 'drawer_state',
+      isOpen: false
+    }));
   }
 });
-
-// Get unread count for team chat
-const getTeamUnreadCount = () => {
-  const count = chatMessages.value.filter(msg => 
-    msg.sender.id !== currentUser.value.id && !msg.isRead && !msg.receiver_id
-  ).length;
-  console.log('Team unread count:', count, chatMessages.value);
-  return count;
-};
 
 // Get unread count for individual user
 const getUserUnreadCount = (userId: string) => {
@@ -506,7 +676,23 @@ const getUserUnreadCount = (userId: string) => {
           </div>
           
           <!-- Connection Status -->
-          <Icon v-if="!isConnected" icon="material-symbols:wifi-off" width="16" color="#f56c6c" title="Offline" />
+          <el-tooltip 
+            v-if="!isConnected && isReconnecting" 
+            :content="`Reconnecting... (attempt ${reconnectAttempts}/${maxReconnectAttempts})`" 
+            placement="bottom"
+          >
+            <Icon icon="material-symbols:sync" width="16" color="#e6a23c" class="rotating" />
+          </el-tooltip>
+          <el-tooltip 
+            v-else-if="!isConnected" 
+            :content="connectionError || 'Disconnected'" 
+            placement="bottom"
+          >
+            <Icon icon="material-symbols:wifi-off" width="16" color="#f56c6c" />
+          </el-tooltip>
+          <el-tooltip v-else content="Connected" placement="bottom">
+            <Icon icon="material-symbols:wifi" width="16" color="#67c23a" />
+          </el-tooltip>
         </div>
       </div>
     </template>
@@ -525,24 +711,6 @@ const getUserUnreadCount = (userId: string) => {
         </div>
         
         <div class="sidebar-content">
-          <!-- Team Chat -->
-          <div 
-            class="conversation-item"
-            :class="{ active: activeConversation === 'general' }"
-            @click="switchConversation('general')"
-          >
-            <div>
-              <Icon icon="material-symbols:forum" width="24" color="var(--el-color-primary)" />
-              <span>Team Chat</span>
-            </div>
-            <div 
-              v-if="getTeamUnreadCount() > 0" 
-              class="unread-badge"
-            >
-              {{ getTeamUnreadCount() }}
-            </div>
-          </div>
-          
           <!-- Direct Messages -->
           <div 
             v-for="user in onlineUsers" 
@@ -567,12 +735,43 @@ const getUserUnreadCount = (userId: string) => {
 
       <!-- Chat Area -->
       <div class="chat-area" :class="{ 'hidden': showUsersSidebar }">
+        <!-- Connection Error Banner -->
+        <div v-if="connectionError && !isReconnecting" class="connection-error-banner">
+          <el-alert
+            :title="connectionError"
+            type="error"
+            :closable="false"
+            show-icon
+          >
+            <template #default>
+              <div class="error-actions">
+                <el-button size="small" type="primary" @click="manualReconnect">
+                  Retry Connection
+                </el-button>
+              </div>
+            </template>
+          </el-alert>
+        </div>
+        
+        <!-- Reconnecting Banner -->
+        <div v-if="isReconnecting" class="connection-status-banner">
+          <el-alert
+            :title="`Reconnecting... (attempt ${reconnectAttempts}/${maxReconnectAttempts})`"
+            type="warning"
+            :closable="false"
+            show-icon
+          />
+        </div>
+        
         <!-- Messages -->
         <div ref="chatContainer" class="chat-messages" @scroll="markMessagesAsRead">
-          <div v-if="filteredMessages.length === 0" class="no-messages">
+          <div v-if="!activeConversation" class="no-messages">
             <Icon icon="material-symbols:chat-bubble-outline" width="48" color="var(--el-text-color-placeholder)" />
-            <p v-if="activeConversation === 'general'">No messages in team chat yet. Start the conversation!</p>
-            <p v-else>No messages with this user yet. Start the conversation!</p>
+            <p>Select a user from the sidebar to start chatting</p>
+          </div>
+          <div v-else-if="filteredMessages.length === 0" class="no-messages">
+            <Icon icon="material-symbols:chat-bubble-outline" width="48" color="var(--el-text-color-placeholder)" />
+            <p>No messages with this user yet. Start the conversation!</p>
           </div>
           
           <div v-for="message in filteredMessages" :key="message.id" class="message-container">
@@ -617,7 +816,7 @@ const getUserUnreadCount = (userId: string) => {
             <el-button 
               @click="sendMessage" 
               type="primary" 
-              :disabled="!currentMessage.trim()"
+              :disabled="!currentMessage.trim() || !activeConversation"
               class="send-button"
             >
               <Icon icon="material-symbols:send" width="16" />
@@ -918,6 +1117,31 @@ const getUserUnreadCount = (userId: string) => {
 
 .send-button {
   flex-shrink: 0;
+}
+
+/* Connection Status Banners */
+.connection-error-banner,
+.connection-status-banner {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--el-border-color-light);
+}
+
+.error-actions {
+  margin-top: 8px;
+}
+
+/* Rotating animation for reconnecting icon */
+.rotating {
+  animation: rotate 2s linear infinite;
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Responsive */
