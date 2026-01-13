@@ -795,7 +795,25 @@ const getUserUnreadCount = (userId: string) => {
                   {{ message.sender.name }}
                 </div>
                 <div class="message-text">{{ message.content }}</div>
-                <div class="message-time">{{ formatTimestamp(message.timestamp) }}</div>
+                <div class="message-time">
+                  {{ formatTimestamp(message.timestamp) }}
+                  <span v-if="message.sender.id === currentUser.id" class="message-status">
+                    <Icon 
+                      v-if="message.isRead" 
+                      icon="material-symbols:done-all" 
+                      width="16" 
+                      color="#409eff" 
+                      class="status-icon read"
+                    />
+                    <Icon 
+                      v-else 
+                      icon="material-symbols:done-all" 
+                      width="16" 
+                      color="#909399" 
+                      class="status-icon"
+                    />
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -1096,6 +1114,23 @@ const getUserUnreadCount = (userId: string) => {
   font-size: 11px;
   opacity: 0.6;
   margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.message-status {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 4px;
+}
+
+.status-icon {
+  flex-shrink: 0;
+}
+
+.status-icon.read {
+  color: #409eff !important;
 }
 
 .chat-input-container {
