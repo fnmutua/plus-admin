@@ -1,13 +1,12 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 import type { App } from 'vue'
-import { Layout, getParentLayout, } from '@/utils/routerHelper'
+import { Layout} from '@/utils/routerHelper'
 import { useI18n } from '@/hooks/web/useI18n'
 
  
 const { t } = useI18n()
 
- 
 
 export const constantRouterMap: AppRouteRecordRaw[] = [
   {
@@ -519,8 +518,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
                 title: 'SEC/GRC',
                 hidden: false,
                 icon:'fluent:people-team-16-filled',
-                role: ['root_admin','admin', 'super_admin', 'monitoring' , 'staff' ,'monitoring','grm'] ,
-                locationLevel:['national','county' ],
+                role: ['root_admin','admin', 'super_admin','grm'] ,
+                locationLevel:['national' ],
     
               },
              },
