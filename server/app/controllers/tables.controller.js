@@ -1377,6 +1377,71 @@ exports.modelCreateOneRecord = (req, res) => {
 
   }
 
+  // Remove undefined fields to prevent SQL parameter mismatches
+  Object.keys(obj).forEach(key => {
+    if (obj[key] === undefined) {
+      delete obj[key];
+    }
+  });
+
+  // Convert empty strings to null for integer/float fields to prevent SQL errors
+  // Get model definition to check field types
+  if (db.models[reg_model] && db.models[reg_model].rawAttributes) {
+    const modelAttributes = db.models[reg_model].rawAttributes;
+    Object.keys(obj).forEach(key => {
+      // Convert empty strings to null
+      if (obj[key] === '' || obj[key] === '') {
+        const attr = modelAttributes[key];
+        if (attr) {
+          // Check if it's an integer or float type
+          const typeStr = attr.type ? attr.type.toString() : '';
+          const typeName = attr.type && attr.type.constructor ? attr.type.constructor.name : '';
+          
+          // Check for integer types
+          if (typeName === 'INTEGER' || typeName === 'BIGINT' || 
+              typeStr.includes('INTEGER') || typeStr.includes('INT')) {
+            obj[key] = null;
+          }
+          // Check for float/decimal types
+          else if (typeName === 'FLOAT' || typeName === 'DOUBLE' || typeName === 'DECIMAL' ||
+                   typeStr.includes('FLOAT') || typeStr.includes('DECIMAL') || typeStr.includes('DOUBLE')) {
+            obj[key] = null;
+          }
+        } else {
+          // If attribute not found but value is empty string, convert to null for safety
+          // (common integer field names pattern)
+          if (key.includes('_id') || key.includes('id') || 
+              key.includes('count') || key.includes('number') || 
+              key.includes('beds') || key.includes('rate') || 
+              key.includes('distance') || key.includes('size')) {
+            obj[key] = null;
+          }
+        }
+      }
+    });
+  } else {
+    // Fallback: convert empty strings to null for common integer field patterns
+    Object.keys(obj).forEach(key => {
+      if (obj[key] === '' || obj[key] === '') {
+        if (key.includes('_id') || key.includes('id') || 
+            key.includes('count') || key.includes('number') || 
+            key.includes('beds') || key.includes('rate') || 
+            key.includes('distance') || key.includes('size') ||
+            key.includes('per_day') || key.includes('inpatient') ||
+            key.includes('doctors') || key.includes('officers') ||
+            key.includes('pharmacists') || key.includes('nurses') ||
+            key.includes('midwives') || key.includes('staff')) {
+          obj[key] = null;
+        }
+      }
+    });
+  }
+
+  // Ensure photo_filename is set to null if not provided (for health_facility model)
+  if (reg_model === 'health_facility' && !obj.hasOwnProperty('photo_filename')) {
+    obj.photo_filename = null;
+  }
+
   console.log('One record... Edited---s-', obj)
 
   if (!obj.id) {
@@ -2448,6 +2513,69 @@ exports.modelEditOneRecord = (req, res) => {
   var reg_model = req.body.model;
   console.log('Editing thus record',req.body)
 
+  // Convert empty strings to null for integer/float fields to prevent SQL errors
+  var updateObj = { ...req.body };
+  delete updateObj.model;
+  delete updateObj.id;
+
+  // Remove undefined fields
+  Object.keys(updateObj).forEach(key => {
+    if (updateObj[key] === undefined) {
+      delete updateObj[key];
+    }
+  });
+
+  // Convert empty strings to null for integer/float fields
+  if (db.models[reg_model] && db.models[reg_model].rawAttributes) {
+    const modelAttributes = db.models[reg_model].rawAttributes;
+    Object.keys(updateObj).forEach(key => {
+      if (updateObj[key] === '' || updateObj[key] === '') {
+        const attr = modelAttributes[key];
+        if (attr) {
+          const typeStr = attr.type ? attr.type.toString() : '';
+          const typeName = attr.type && attr.type.constructor ? attr.type.constructor.name : '';
+          
+          if (typeName === 'INTEGER' || typeName === 'BIGINT' || 
+              typeStr.includes('INTEGER') || typeStr.includes('INT')) {
+            updateObj[key] = null;
+          }
+          else if (typeName === 'FLOAT' || typeName === 'DOUBLE' || typeName === 'DECIMAL' ||
+                   typeStr.includes('FLOAT') || typeStr.includes('DECIMAL') || typeStr.includes('DOUBLE')) {
+            updateObj[key] = null;
+          }
+        } else {
+          // Fallback for common integer field patterns
+          if (key.includes('_id') || key.includes('id') || 
+              key.includes('count') || key.includes('number') || 
+              key.includes('beds') || key.includes('rate') || 
+              key.includes('distance') || key.includes('size') ||
+              key.includes('per_day') || key.includes('inpatient') ||
+              key.includes('doctors') || key.includes('officers') ||
+              key.includes('pharmacists') || key.includes('nurses') ||
+              key.includes('midwives') || key.includes('staff')) {
+            updateObj[key] = null;
+          }
+        }
+      }
+    });
+  } else {
+    // Fallback: convert empty strings to null for common integer field patterns
+    Object.keys(updateObj).forEach(key => {
+      if (updateObj[key] === '' || updateObj[key] === '') {
+        if (key.includes('_id') || key.includes('id') || 
+            key.includes('count') || key.includes('number') || 
+            key.includes('beds') || key.includes('rate') || 
+            key.includes('distance') || key.includes('size') ||
+            key.includes('per_day') || key.includes('inpatient') ||
+            key.includes('doctors') || key.includes('officers') ||
+            key.includes('pharmacists') || key.includes('nurses') ||
+            key.includes('midwives') || key.includes('staff')) {
+          updateObj[key] = null;
+        }
+      }
+    });
+  }
+
 
 
 
@@ -2493,7 +2621,7 @@ exports.modelEditOneRecord = (req, res) => {
 
       console.log("Edit", result);
       if (result) {
-        result.set(req.body);
+        result.set(updateObj);
         await result.save(); // Wait for the record to be saved
 
        
