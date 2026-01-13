@@ -531,7 +531,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       {
         path: 'facilities',
         component: Layout,
-        redirect: '/facility/all',
+        redirect: '/facilities/all',
         name: 'Facilities',
         meta: {
           hidden: false,
@@ -543,6 +543,17 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           alwaysShow: false
         },
         children: [
+          {
+            path: 'add',
+            component: () => import('@/views/Facilities/AddFacility.vue'),
+            name: 'AddFacility',
+            meta: {
+              hidden: false,
+              icon: 'ph:shield-plus-bold',
+              title: 'Add Facility',
+              noCache: true
+            }
+          },
           {
             path: 'all',
          //   component: 'views/Map/index',

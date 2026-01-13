@@ -9,7 +9,7 @@ import {
 import { useRoute } from 'vue-router'
 import {
   getSettlementListByCounty} from '@/api/settlements'
-import { Back, Upload, Search, Edit, More, RefreshLeft, Picture, Download, Loading } from '@element-plus/icons-vue'
+import { Back, Upload, Search, Edit, More, RefreshLeft, Picture, Download, Loading, Plus } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { getFile } from '@/api/summary'
 import jsPDF from 'jspdf'
@@ -495,6 +495,16 @@ onMounted(async () => {
 
 const router = useRouter()
 
+// Navigate to add facility page with settlement and county info
+const addFacility = () => {
+  push({
+    name: 'AddFacility',
+    query: {
+      county_id: profile.county_id || '',
+      settlement_id: route.params.id || ''
+    }
+  })
+}
 
 const goBack = () => {
   // Add your logic to handle the back action
@@ -2066,6 +2076,15 @@ const generatePDFReport = async () => {
               <p>Loading settlement map data...</p>
               <p class="loading-subtitle">This may take a few moments while we fetch all layers</p>
             </div>
+          </div>
+          <div style="margin-bottom: 10px;" v-if="canUserAccessSettlement({id: route.params.id, county_id: profile.county_id}, 'edit')">
+            <el-button 
+              type="primary" 
+              @click="addFacility"
+              :icon="Plus"
+            >
+              Add Facility
+            </el-button>
           </div>
           <SettlementMap
             :settlementId="settlementId"
