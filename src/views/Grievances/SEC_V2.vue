@@ -8,7 +8,7 @@ import { Plus, Back, Download, Edit, Delete} from '@element-plus/icons-vue'
 import { ref,computed,reactive } from 'vue'
 import {
   ElPagination, ElInput,ElSelect,ElOption,ElTable,ElTableColumn, ElTabPane,ElTabs,ElOptionGroup, ElForm,ElFormItem,
-  ElRow, ElTableV2, ElCard, ElDialog,ElIcon,ElButton,ElMessage, ElMessageBox} from 'element-plus'
+  ElRow, ElTableV2, ElCard, ElDialog,ElIcon,ElButton,ElMessage, ElMessageBox, ElDivider, ElAlert} from 'element-plus'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import {
@@ -145,6 +145,8 @@ const grcAddOverallId = ref('')
 const grcAddCurrentId = ref('')
 const grcAddXml = ref('')
 const grcAddRowData = ref<any>(null) // Store row data for creating new GRC submission
+const grcAddSecRoster = ref<any[]>([]) // SEC roster for GRC member selection
+const grcAddSecSelected = ref<string[]>([]) // Selected SEC members for GRC
 const grcAddForm = reactive({
   name: '',
   national_id: '',
@@ -192,35 +194,28 @@ const loginUserToCollector = async () => {
     loading.value=true
 
 
-    await loginCollector(formData).then((response) => {
-        // Assuming the token is in the response data
-        const token = response.token;
-        // Save the token to localStorage
-        localStorage.setItem('collectorToken', token);
-        console.log('collectorToken:', response);
-        const all_projects = JSON.parse(response.data);
-        console.log('projects:', projects);
+    const response = await loginCollector(formData)
+    // Assuming the token is in the response data
+    const token = response.token;
+    // Save the token to localStorage
+    localStorage.setItem('collectorToken', token);
+    console.log('collectorToken:', response);
+    const all_projects = JSON.parse(response.data);
+    console.log('projects:', projects);
 
-        // loop through each project 
-        all_projects.forEach(  function (project) {
-            
-          projects.value.push(project)
+    // loop through each project 
+    all_projects.forEach(function (project) {
+      projects.value.push(project)
 
-            project.formList.forEach(function (form) {
-                
-              if(form.xmlFormId=="sec_officials" || form.xmlFormId=="grc_officials")
-              forms.value.push(form)
-
-
-            })
-
-        })
-
-
-          getSecData()
-          getGRCData()
-         
+      project.formList.forEach(function (form) {
+        if(form.xmlFormId=="sec_officials" || form.xmlFormId=="grc_officials")
+          forms.value.push(form)
+      })
     })
+
+    // Load SEC data first, then GRC data (which merges them)
+    await getSecData()
+    await getGRCData()
 
 console.log( 'forms.value', forms.value)
 
@@ -506,32 +501,43 @@ const getSecData = async () => {
 
 
 const mergeOfficials = (sec_officials, grc_officials) => {
-  // Loop through each sec_official entry
- 
-  sec_officials.forEach(secRecord => {
-    const { date, county, settlement,settlement_code } = secRecord;
+  // Ensure both arrays exist
+  if (!sec_officials || !Array.isArray(sec_officials)) {
+    console.warn('mergeOfficials: sec_officials is not an array')
+    return
+  }
+  if (!grc_officials || !Array.isArray(grc_officials)) {
+    console.warn('mergeOfficials: grc_officials is not an array')
+    return
+  }
 
-    // Find matching grc_official record by date, county, and settlement
+  console.log('mergeOfficials: Merging', sec_officials.length, 'SEC records with', grc_officials.length, 'GRC records')
+  
+  // Loop through each sec_official entry
+  sec_officials.forEach(secRecord => {
+    const { settlement_code } = secRecord;
+
+    // Find matching grc_official record by settlement_code
     const matchingGrcRecord = grc_officials.find(grcRecord => 
       grcRecord.settlement_code == settlement_code 
-      // &&
-      // grcRecord.county === county &&
-      // grcRecord.settlement === settlement
     );
 
-  //  console.log("matchingGrcRecord....",matchingGrcRecord.grc_officials)
-
-
     // If a matching grc_official record is found, copy its officials to sec_officials
-    if (matchingGrcRecord && matchingGrcRecord.grc_officials) {
-    
-
-      // Merge the GRC officials into the SEC officials array (this assumes simple concatenation)
+    if (matchingGrcRecord && matchingGrcRecord.grc_officials && Array.isArray(matchingGrcRecord.grc_officials)) {
+      // Merge the GRC officials into the SEC officials array
       secRecord.grc_officials = [
         ...matchingGrcRecord.grc_officials
       ];
+      console.log('mergeOfficials: Merged', matchingGrcRecord.grc_officials.length, 'GRC officials for settlement', settlement_code)
+    } else {
+      // Ensure grc_officials array exists even if no match found
+      if (!secRecord.grc_officials) {
+        secRecord.grc_officials = []
+      }
     }
   });
+  
+  console.log('mergeOfficials: Merge complete')
 };
  
 const getGRCData = async () => {  
@@ -596,8 +602,16 @@ const getGRCData = async () => {
     // Log the extracted data
     console.log(grc_officials.value); 
 
-    console.log('mergeOfficials.....')
-    await mergeOfficials(sec_officials.value, grc_officials.value)
+    // Ensure SEC data is loaded before merging
+    if (!sec_officials.value || sec_officials.value.length === 0) {
+      console.warn('getGRCData: SEC data not loaded yet, waiting...')
+      // Wait a bit and try again (SEC data should be loading)
+      await new Promise(resolve => setTimeout(resolve, 500))
+    }
+
+    console.log('Merging officials...')
+    mergeOfficials(sec_officials.value, grc_officials.value)
+    console.log('Merge complete. SEC records with GRC:', sec_officials.value.filter(r => r.grc_officials && r.grc_officials.length > 0).length)
 
   } catch (error) {
     // Handle errors here
@@ -849,6 +863,80 @@ const openAddSec = (overallId: string, currentId: string) => {
     })
 }
 
+const loadSecRosterForGrc = async (county: string, settlement: string) => {
+  // Use already loaded SEC data instead of fetching again
+  grcAddSecRoster.value = []
+  
+  if (!sec_officials.value || !Array.isArray(sec_officials.value)) {
+    console.warn('SEC officials data not loaded yet')
+    return
+  }
+
+  const seen = new Set()
+  
+  // Filter SEC officials from the same settlement and county
+  sec_officials.value.forEach((secRecord) => {
+    // Match by settlement and county (case-insensitive, trim whitespace)
+    const recordSettlement = (secRecord.settlement || '').trim()
+    const recordCounty = (secRecord.county || '').trim()
+    const targetSettlement = (settlement || '').trim()
+    const targetCounty = (county || '').trim()
+    
+    if (recordSettlement === targetSettlement && recordCounty === targetCounty) {
+      // This record matches, extract all SEC officials
+      if (secRecord.sec_officials && Array.isArray(secRecord.sec_officials)) {
+        secRecord.sec_officials.forEach((official) => {
+          const entry = {
+            settlement: recordSettlement,
+            county: recordCounty,
+            category: official.category || '',
+            gender: official.gender || '',
+            name: official.name || '',
+            sec_position: official.sec_position || '',
+            national_id: official.national_id || '',
+            mobile: official.mobile || ''
+          }
+          const key = `${entry.national_id}-${entry.settlement}-${entry.sec_position}`
+          if (!seen.has(key)) {
+            seen.add(key)
+            grcAddSecRoster.value.push(entry)
+          }
+        })
+      }
+    }
+  })
+  
+  console.log('Loaded SEC roster for GRC:', {
+    county,
+    settlement,
+    count: grcAddSecRoster.value.length,
+    officials: grcAddSecRoster.value
+  })
+}
+
+const grcAddSecOptionKey = (o: any) => o.national_id || `${o.name}-${o.mobile}`
+const grcAddAvailableSecOptions = computed(() => {
+  if (!grcAddSecRoster.value || !Array.isArray(grcAddSecRoster.value)) return []
+  return grcAddSecRoster.value
+    .filter(
+      (o) =>
+        !['chairperson', 'chairman'].includes(String(o.sec_position || '').toLowerCase())
+    )
+    .map((o) => ({
+      label: `${o.name} (${o.sec_position || 'Member'})`,
+      value: grcAddSecOptionKey(o)
+    }))
+})
+
+const grcAddSelectedSecMembers = computed(() => {
+  if (!grcAddSecRoster.value || !Array.isArray(grcAddSecRoster.value)) return []
+  if (!grcAddSecSelected.value || !Array.isArray(grcAddSecSelected.value)) return []
+  return grcAddSecRoster.value.filter(
+    (o) =>
+      grcAddSecSelected.value.includes(grcAddSecOptionKey(o))
+  )
+})
+
 const openAddGrc = async (row: any) => {
   // Check if GRC submission exists for this settlement
   const grcExists = row.grc_officials && row.grc_officials.length > 0 && row.grc_officials[0].overallInstanceId
@@ -868,6 +956,10 @@ const openAddGrc = async (row: any) => {
     county_kisip_coordinator: row.coordinator || '',
     npct_representative: row.npct_representative || ''
   })
+  
+  // Reset SEC selection
+  grcAddSecSelected.value = []
+  grcAddSecRoster.value = []
   
   try {
     if (grcExists) {
@@ -897,6 +989,9 @@ const openAddGrc = async (row: any) => {
         coordinator: row.coordinator || '',
         npct_representative: row.npct_representative || ''
       }
+      
+      // Load SEC roster for this settlement (only when creating new GRC)
+      await loadSecRosterForGrc(row.county || '', row.settlement || '')
     }
   } catch (e) {
     console.error('Fetch GRC submission XML failed', e)
@@ -1785,7 +1880,7 @@ const saveInlineSecAdd = async () => {
   }
 }
 
-const buildNewGrcXml = (rowData: any, formData: any) => {
+const buildNewGrcXml = (rowData: any, formData: any, selectedSecMembers: any[] = []) => {
   const now = new Date()
   const start = now.toISOString()
   const end = now.toISOString()
@@ -1797,17 +1892,41 @@ const buildNewGrcXml = (rowData: any, formData: any) => {
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
 
-  const officialXml = `
-    <grc_officials>
-      <category>${esc(formData.category)}</category>
-      <name>${esc(formData.name)}</name>
-      <national_id>${esc(formData.national_id)}</national_id>
-      <gender>${esc(formData.gender)}</gender>
-      <mobile>${esc(formData.mobile)}</mobile>
-      <position_select></position_select>
-      <taken_select></taken_select>
-      <grc_position>${esc(formData.grc_position)}</grc_position>
-    </grc_officials>`
+  // Build officials array: selected SEC members (as members) + new official
+  const officials = [
+    ...selectedSecMembers.map((o) => ({
+      category: o.category,
+      name: o.name,
+      national_id: o.national_id,
+      gender: o.gender,
+      mobile: o.mobile,
+      grc_position: 'member'
+    })),
+    {
+      category: formData.category,
+      name: formData.name,
+      national_id: formData.national_id,
+      gender: formData.gender,
+      mobile: formData.mobile,
+      grc_position: formData.grc_position
+    }
+  ]
+
+  const officialsXml = officials
+    .map(
+      (o) => `
+        <grc_officials>
+          <category>${esc(o.category)}</category>
+          <name>${esc(o.name)}</name>
+          <national_id>${esc(o.national_id)}</national_id>
+          <gender>${esc(o.gender)}</gender>
+          <mobile>${esc(o.mobile)}</mobile>
+          <position_select></position_select>
+          <taken_select></taken_select>
+          <grc_position>${esc(o.grc_position)}</grc_position>
+        </grc_officials>`
+    )
+    .join('')
 
   const uuid = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0
@@ -1826,7 +1945,7 @@ const buildNewGrcXml = (rowData: any, formData: any) => {
     <settlement_new></settlement_new>
     <pcode>${esc(rowData.settlement_code)}</pcode>
   </group_location>
-  ${officialXml}
+  ${officialsXml}
   <grp_certification>
     <returning_officer>${esc(formData.returning_officer)}</returning_officer>
     <county_kisip_coordinator>${esc(formData.county_kisip_coordinator)}</county_kisip_coordinator>
@@ -1845,20 +1964,25 @@ const buildNewGrcXml = (rowData: any, formData: any) => {
 }
 
 const saveInlineGrcAdd = async () => {
+  // Validate SEC members selection (only when creating new GRC)
+  if (!grcAddOverallId.value) {
+    if (!grcAddSecSelected.value || grcAddSecSelected.value.length !== 2) {
+      ElMessage.error('Please select exactly 2 SEC members (excluding chairs)')
+      return
+    }
+    
+    if (grcAddSelectedSecMembers.value.length !== 2) {
+      ElMessage.error('Please select exactly 2 SEC members (excluding chairs)')
+      return
+    }
+  }
+  
   grcAddSaving.value = true
   try {
-    console.log('Save GRC Add - Debug:', {
-      hasRowData: !!grcAddRowData.value,
-      rowData: grcAddRowData.value,
-      hasXml: !!grcAddXml.value,
-      hasOverallId: !!grcAddOverallId.value,
-      formData: grcAddForm
-    })
-    
     if (grcAddRowData.value && grcAddRowData.value.county && grcAddRowData.value.settlement) {
       // Creating new GRC submission
-      console.log('Creating new GRC submission')
-      const newXml = buildNewGrcXml(grcAddRowData.value, grcAddForm)
+      // Include selected SEC members
+      const newXml = buildNewGrcXml(grcAddRowData.value, grcAddForm, grcAddSelectedSecMembers.value)
       const response = await createSubmission({
         project: '1',
         form: grcXmlId.value,
@@ -1867,11 +1991,11 @@ const saveInlineGrcAdd = async () => {
       })
       ElMessage.success('GRC official added successfully')
       grcAddDialogVisible.value = false
+      grcAddSecSelected.value = []
       await getSecData()
       await getGRCData()
     } else if (grcAddXml.value && grcAddOverallId.value) {
       // Updating existing GRC submission
-      console.log('Updating existing GRC submission')
       const updatedXml = buildAddedGrcXml(grcAddXml.value, grcAddCurrentId.value, grcAddForm)
       await updateSubmissionXml({
         project: '1',
@@ -1885,12 +2009,6 @@ const saveInlineGrcAdd = async () => {
       await getSecData()
       await getGRCData()
     } else {
-      console.error('Nothing to save - conditions not met:', {
-        hasRowData: !!grcAddRowData.value,
-        rowData: grcAddRowData.value,
-        hasXml: !!grcAddXml.value,
-        hasOverallId: !!grcAddOverallId.value
-      })
       ElMessage.error('Nothing to save. Please check that all required fields are filled.')
     }
   } catch (e: any) {
@@ -2139,7 +2257,15 @@ const downloadSettlementXlsx = async (row) => {
 const documents =ref([])
  async function handleExpand(row) {
   documents.value=[]
-  console.log(row)
+  console.log('Expanding row:', row)
+  
+  // Check if GRC data is available
+  if (!row.grc_officials) {
+    console.warn('Row has no grc_officials property, initializing empty array')
+    row.grc_officials = []
+  } else {
+    console.log('Row GRC officials count:', row.grc_officials.length)
+  }
  
    // Define the formData object with necessary fields
    const secForm = {
@@ -2757,9 +2883,71 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
   <el-dialog
     v-model="grcAddDialogVisible"
     title="Add GRC Official"
-    width="500"
+    width="700"
   >
     <el-tabs type="border-card" v-loading="grcAddLoading">
+      <el-tab-pane label="SEC Members (Required)" v-if="!grcAddOverallId.value">
+        <el-form label-position="top">
+          <el-form-item 
+            label="Select SEC Members (exactly 2, excluding chairs)" 
+            :required="true"
+            :error="grcAddSecSelected.length !== 2 ? 'Please select exactly 2 SEC members (excluding chairs)' : ''"
+          >
+            <el-select
+              v-model="grcAddSecSelected"
+              multiple
+              filterable
+              :multiple-limit="2"
+              placeholder="Select exactly 2 SEC members from this settlement"
+              style="width: 100%;"
+            >
+              <el-option
+                v-for="opt in grcAddAvailableSecOptions"
+                :key="opt.value"
+                :label="opt.label"
+                :value="opt.value"
+              />
+            </el-select>
+            <div style="margin-top: 5px; font-size: 12px; color: #909399;">
+              Selected: {{ grcAddSecSelected.length }} / 2 required
+            </div>
+          </el-form-item>
+          <el-table
+            v-if="grcAddSelectedSecMembers && grcAddSelectedSecMembers.length > 0"
+            :data="grcAddSelectedSecMembers"
+            border
+            size="small"
+            style="width: 100%; margin-top: 10px;"
+          >
+            <el-table-column prop="name" label="Name" />
+            <el-table-column prop="sec_position" label="SEC Position" />
+            <el-table-column prop="gender" label="Gender" />
+            <el-table-column prop="mobile" label="Phone" />
+          </el-table>
+          <el-alert
+            v-if="!grcAddSecRoster || grcAddSecRoster.length === 0"
+            title="No SEC members found"
+            type="error"
+            :closable="false"
+            style="margin-top: 10px;"
+          >
+            <template #default>
+              No SEC members found for this settlement. You must have at least 2 SEC members (excluding chairs) to create a GRC.
+            </template>
+          </el-alert>
+          <el-alert
+            v-else-if="grcAddAvailableSecOptions && grcAddAvailableSecOptions.length < 2"
+            title="Insufficient SEC members"
+            type="warning"
+            :closable="false"
+            style="margin-top: 10px;"
+          >
+            <template #default>
+              Only {{ grcAddAvailableSecOptions.length }} SEC member(s) available (excluding chairs). You need at least 2 to create a GRC.
+            </template>
+          </el-alert>
+        </el-form>
+      </el-tab-pane>
       <el-tab-pane label="Official Details">
         <el-form label-position="top">
           <el-form-item label="Official Name">
