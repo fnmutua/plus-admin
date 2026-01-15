@@ -802,6 +802,7 @@ const getSettlementCount = async () => {
 
 const getNewOrRejectedSettlements = async (tab) => {
   loadingGetData.value = true
+  // Set status filters first
   if (tab === 'New') {
     filters.value = ['isApproved', 'isActive']
     filterValues.value = [['Pending'], ['true']]
@@ -815,55 +816,51 @@ const getNewOrRejectedSettlements = async (tab) => {
     filters.value = ['isApproved', 'isActive']
     filterValues.value = [['Approved'], ['true']]
   }
-  if (selectedCounty.value.length > 0) {
-    var selectOption = 'county_id'
-    if (!filters.value.includes(selectOption)) {
-      filters.value.push(selectOption)
-    }
-    var index = filters.value.indexOf(selectOption)
-    if (filterValues[index]) {
-      filterValues.value.splice(index, 1)
-    }
-    if (!filterValues.value.includes(selectedCounty.value)) {
-      filterValues.value.splice(index, 0, selectedCounty.value)
-    }
-    if (selectedCounty.value.length === 0) {
-      filters.value.splice(index, 1)
-    }
-  }
-  if (selectedSubCounty.value.length > 0) {
-    var selectOption = 'subcounty_id'
-    if (!filters.value.includes(selectOption)) {
-      filters.value.push(selectOption)
-    }
-    var index = filters.value.indexOf(selectOption)
-    if (filterValues[index]) {
-      filterValues.value.splice(index, 1)
-    }
-    if (!filterValues.value.includes(selectedSubCounty.value)) {
-      filterValues.value.splice(index, 0, selectedSubCounty.value)
-    }
-    if (selectedSubCounty.value.length === 0) {
-      filters.value.splice(index, 1)
-    }
-  }
-  if (selectedWard.value.length > 0) {
-    var selectOption = 'ward_id'
-    if (!filters.value.includes(selectOption)) {
-      filters.value.push(selectOption)
-    }
-    var index = filters.value.indexOf(selectOption)
-    if (filterValues[index]) {
-      filterValues.value.splice(index, 1)
-    }
-    if (!filterValues.value.includes(selectedWard.value)) {
-      filterValues.value.splice(index, 0, selectedWard.value)
-    }
-    if (selectedWard.value.length === 0) {
-      filters.value.splice(index, 1)
-    }
-  }
+  
+  // Apply role-based filters first (this ensures county staff only see their county)
   pushRoleFilters()
+  
+  // Add user-selected location filters only if they don't conflict with role filters
+  // For county staff, selectedCounty is already set by role, so we skip manual addition
+  if (selectedCounty.value.length > 0 && !isCountyStaff.value) {
+    const countyIndex = filters.value.indexOf('county_id')
+    if (countyIndex === -1) {
+      filters.value.push('county_id')
+      filterValues.value.push(selectedCounty.value)
+    } else {
+      // Merge with existing county filter (role-based might have set it)
+      const existingValue = filterValues.value[countyIndex]
+      filterValues.value[countyIndex] = Array.isArray(existingValue) 
+        ? [...new Set([...existingValue, ...selectedCounty.value])]
+        : selectedCounty.value
+    }
+  }
+  
+  if (selectedSubCounty.value.length > 0) {
+    const subcountyIndex = filters.value.indexOf('subcounty_id')
+    if (subcountyIndex === -1) {
+      filters.value.push('subcounty_id')
+      filterValues.value.push(selectedSubCounty.value)
+    } else {
+      const existingValue = filterValues.value[subcountyIndex]
+      filterValues.value[subcountyIndex] = Array.isArray(existingValue)
+        ? [...new Set([...existingValue, ...selectedSubCounty.value])]
+        : selectedSubCounty.value
+    }
+  }
+  
+  if (selectedWard.value.length > 0) {
+    const wardIndex = filters.value.indexOf('ward_id')
+    if (wardIndex === -1) {
+      filters.value.push('ward_id')
+      filterValues.value.push(selectedWard.value)
+    } else {
+      const existingValue = filterValues.value[wardIndex]
+      filterValues.value[wardIndex] = Array.isArray(existingValue)
+        ? [...new Set([...existingValue, ...selectedWard.value])]
+        : selectedWard.value
+    }
+  }
   const formData = {}
   formData.limit = pageSize.value
   formData.page = page.value
@@ -908,52 +905,57 @@ const getNewOrRejectedSettlements = async (tab) => {
 const getPotentialDuplicates = async () => {
   loadingGetData.value = true
   loadingGetDataMsg.value = 'Checking for duplicate data.. Please wait.......'
-  if (selectedCounty.value.length > 0) {
-    var selectOption = 'county_id'
-    if (!filters.value.includes(selectOption)) {
-      filters.value.push(selectOption)
-    }
-    var index = filters.value.indexOf(selectOption)
-    if (filterValues[index]) {
-      filterValues.value.splice(index, 1)
-    }
-    if (!filterValues.value.includes(selectedCounty.value)) {
-      filterValues.value.splice(index, 0, selectedCounty.value)
-    }
-    if (selectedCounty.value.length === 0) {
-      filters.value.splice(index, 1)
-    }
+  
+  // Ensure isActive filter is set
+  if (!filters.value.includes('isActive')) {
+    filters.value.push('isActive')
+    filterValues.value.push(['true'])
   }
-  if (selectedSubCounty.value.length > 0) {
-    var selectOption = 'subcounty_id'
-    if (!filters.value.includes(selectOption)) {
-      filters.value.push(selectOption)
-    }
-    var index = filters.value.indexOf(selectOption)
-    if (filterValues[index]) {
-      filterValues.value.splice(index, 1)
-    }
-    if (!filterValues.value.includes(selectedSubCounty.value)) {
-      filterValues.value.splice(index, 0, selectedSubCounty.value)
-    }
-    if (selectedSubCounty.value.length === 0) {
-      filters.value.splice(index, 1)
-    }
-  }
-  if (selectedWard.value.length > 0) {
-    var selectOption = 'ward_id'
-    if (!filters.value.includes(selectOption)) {
-      filters.value.push(selectOption)
-    }
-    var index = filters.value.indexOf(selectOption)
-    if (filterValues[index]) {
-      filterValues.value.splice(index, 0, selectedWard.value)
-    }
-    if (selectedWard.value.length === 0) {
-      filters.value.splice(index, 1)
-    }
-  }
+  
+  // Apply role-based filters first (this ensures county staff only see their county)
   pushRoleFilters()
+  
+  // Add user-selected location filters only if they don't conflict with role filters
+  // For county staff, selectedCounty is already set by role, so we skip manual addition
+  if (selectedCounty.value.length > 0 && !isCountyStaff.value) {
+    const countyIndex = filters.value.indexOf('county_id')
+    if (countyIndex === -1) {
+      filters.value.push('county_id')
+      filterValues.value.push(selectedCounty.value)
+    } else {
+      // Merge with existing county filter (role-based might have set it)
+      const existingValue = filterValues.value[countyIndex]
+      filterValues.value[countyIndex] = Array.isArray(existingValue)
+        ? [...new Set([...existingValue, ...selectedCounty.value])]
+        : selectedCounty.value
+    }
+  }
+  
+  if (selectedSubCounty.value.length > 0) {
+    const subcountyIndex = filters.value.indexOf('subcounty_id')
+    if (subcountyIndex === -1) {
+      filters.value.push('subcounty_id')
+      filterValues.value.push(selectedSubCounty.value)
+    } else {
+      const existingValue = filterValues.value[subcountyIndex]
+      filterValues.value[subcountyIndex] = Array.isArray(existingValue)
+        ? [...new Set([...existingValue, ...selectedSubCounty.value])]
+        : selectedSubCounty.value
+    }
+  }
+  
+  if (selectedWard.value.length > 0) {
+    const wardIndex = filters.value.indexOf('ward_id')
+    if (wardIndex === -1) {
+      filters.value.push('ward_id')
+      filterValues.value.push(selectedWard.value)
+    } else {
+      const existingValue = filterValues.value[wardIndex]
+      filterValues.value[wardIndex] = Array.isArray(existingValue)
+        ? [...new Set([...existingValue, ...selectedWard.value])]
+        : selectedWard.value
+    }
+  }
   const formData: any = {}
   formData.limit = pageSize.value
   formData.page = page.value
@@ -1065,7 +1067,68 @@ function getLatLonFromGeom(geom) {
 
 const getFilteredData = async (selFilters, selfilterValues) => {
   loadingGetData.value = true
+  
+  // Ensure status filters are set based on active segment
+  if (activeSegment.value === 'New') {
+    filters.value = ['isApproved', 'isActive']
+    filterValues.value = [['Pending'], ['true']]
+  } else if (activeSegment.value === 'Rejected') {
+    filters.value = ['isApproved', 'isActive']
+    filterValues.value = [['Rejected'], ['true']]
+  } else if (activeSegment.value === 'Decommissioned') {
+    filters.value = ['isApproved', 'isActive']
+    filterValues.value = [['Decommissioned'], ['true']]
+  } else {
+    // Approved
+    filters.value = ['isApproved', 'isActive']
+    filterValues.value = [['Approved'], ['true']]
+  }
+  
+  // Apply role-based filters first (this ensures county staff only see their county)
   pushRoleFilters()
+  
+  // Add user-selected location filters only if they don't conflict with role filters
+  // For county staff, selectedCounty is already set by role, so we skip manual addition
+  if (selectedCounty.value.length > 0 && !isCountyStaff.value) {
+    const countyIndex = filters.value.indexOf('county_id')
+    if (countyIndex === -1) {
+      filters.value.push('county_id')
+      filterValues.value.push(selectedCounty.value)
+    } else {
+      // Merge with existing county filter (role-based might have set it)
+      const existingValue = filterValues.value[countyIndex]
+      filterValues.value[countyIndex] = Array.isArray(existingValue)
+        ? [...new Set([...existingValue, ...selectedCounty.value])]
+        : selectedCounty.value
+    }
+  }
+  
+  if (selectedSubCounty.value.length > 0) {
+    const subcountyIndex = filters.value.indexOf('subcounty_id')
+    if (subcountyIndex === -1) {
+      filters.value.push('subcounty_id')
+      filterValues.value.push(selectedSubCounty.value)
+    } else {
+      const existingValue = filterValues.value[subcountyIndex]
+      filterValues.value[subcountyIndex] = Array.isArray(existingValue)
+        ? [...new Set([...existingValue, ...selectedSubCounty.value])]
+        : selectedSubCounty.value
+    }
+  }
+  
+  if (selectedWard.value.length > 0) {
+    const wardIndex = filters.value.indexOf('ward_id')
+    if (wardIndex === -1) {
+      filters.value.push('ward_id')
+      filterValues.value.push(selectedWard.value)
+    } else {
+      const existingValue = filterValues.value[wardIndex]
+      filterValues.value[wardIndex] = Array.isArray(existingValue)
+        ? [...new Set([...existingValue, ...selectedWard.value])]
+        : selectedWard.value
+    }
+  }
+  
   const formData = {}
   formData.limit = pageSize.value
   formData.page = page.value
@@ -1080,7 +1143,6 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   formData.associated_multiple_models = associated_multiple_models
   formData.nested_models = nested_models
   formData.dateRange = dateRange.value
-
 
   const res = await getSettlementListByCounty(formData)
   tableDataList.value = res.data
@@ -1232,39 +1294,56 @@ const handleViewOnMap = (data) => {
 const showPagination = ref(true)
 
 const getFilteredBySearchData = async (tab, searchKey) => {
-  if (selectedCounty.value.length > 0) {
-    var selectOption = 'county_id'
-    if (!filters.value.includes(selectOption)) {
-      filters.value.push(selectOption)
-    }
-    var index = filters.value.indexOf(selectOption)
-    if (filterValues[index]) {
-      filterValues.value.splice(index, 1)
-    }
-    if (!filterValues.value.includes(selectedCounty.value)) {
-      filterValues.value.splice(index, 0, selectedCounty.value)
-    }
-    if (selectedCounty.value.length === 0) {
-      filters.value.splice(index, 1)
-    }
+  // Ensure status filters are set
+  if (!filters.value.includes('isActive')) {
+    filters.value.push('isActive')
+    filterValues.value.push(['true'])
   }
-  if (selectedSubCounty.value.length > 0) {
-    var selectOption = 'subcounty_id'
-    if (!filters.value.includes(selectOption)) {
-      filters.value.push(selectOption)
-    }
-    var index = filters.value.indexOf(selectOption)
-    if (filterValues[index]) {
-      filterValues.value.splice(index, 1)
-    }
-    if (!filterValues.value.includes(selectedSubCounty.value)) {
-      filterValues.value.splice(index, 0, selectedSubCounty.value)
-    }
-    if (selectedSubCounty.value.length === 0) {
-      filters.value.splice(index, 1)
-    }
-  }
+  
+  // Apply role-based filters first (this ensures county staff only see their county)
   pushRoleFilters()
+  
+  // Add user-selected location filters only if they don't conflict with role filters
+  // For county staff, selectedCounty is already set by role, so we skip manual addition
+  if (selectedCounty.value.length > 0 && !isCountyStaff.value) {
+    const countyIndex = filters.value.indexOf('county_id')
+    if (countyIndex === -1) {
+      filters.value.push('county_id')
+      filterValues.value.push(selectedCounty.value)
+    } else {
+      // Merge with existing county filter (role-based might have set it)
+      const existingValue = filterValues.value[countyIndex]
+      filterValues.value[countyIndex] = Array.isArray(existingValue)
+        ? [...new Set([...existingValue, ...selectedCounty.value])]
+        : selectedCounty.value
+    }
+  }
+  
+  if (selectedSubCounty.value.length > 0) {
+    const subcountyIndex = filters.value.indexOf('subcounty_id')
+    if (subcountyIndex === -1) {
+      filters.value.push('subcounty_id')
+      filterValues.value.push(selectedSubCounty.value)
+    } else {
+      const existingValue = filterValues.value[subcountyIndex]
+      filterValues.value[subcountyIndex] = Array.isArray(existingValue)
+        ? [...new Set([...existingValue, ...selectedSubCounty.value])]
+        : selectedSubCounty.value
+    }
+  }
+  
+  if (selectedWard.value.length > 0) {
+    const wardIndex = filters.value.indexOf('ward_id')
+    if (wardIndex === -1) {
+      filters.value.push('ward_id')
+      filterValues.value.push(selectedWard.value)
+    } else {
+      const existingValue = filterValues.value[wardIndex]
+      filterValues.value[wardIndex] = Array.isArray(existingValue)
+        ? [...new Set([...existingValue, ...selectedWard.value])]
+        : selectedWard.value
+    }
+  }
   const formData = {}
   formData.limit = pageSize.value
   formData.page = page.value
@@ -2838,10 +2917,11 @@ const handleDownloadGeoData = async () => {
     ElMessage.info(`Preparing geospatial data for ${settlementIds.length} settlement(s)...`);
     
     // Call the API to download geospatial data
+    // Pass the filters and filterValues that include role-based filters
     const { blob, shareLink, documentId } = await downloadSettlementsGeoData({
       settlementIds: settlementIds,
-      filters: segmentFilters,
-      filterValues: segmentFilterValues
+      filters: filters.value,
+      filterValues: filterValues.value
     });
     
     console.log('Share link received:', shareLink);
