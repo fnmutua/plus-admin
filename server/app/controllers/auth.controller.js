@@ -711,7 +711,7 @@ exports.reset = (req, res) => {
 
         console.log('sending mail')
 
-        transporter.sendMail(mailOptions, (err, response) => {
+        transporter.sendMail(mailOptions, async (err, response) => {
           if (err) {
             console.error('Error sending reset password email: ', err)
             return res.status(500).send({
@@ -720,8 +720,23 @@ exports.reset = (req, res) => {
             })
           } else {
             console.log('Reset password email sent successfully: ', response)
+            
+            // Send SMS notification to user's phone if available
+            if (user.phone) {
+              try {
+                const smsMessage = `KeSMIS Password Reset\n\nHello ${username},\n\nYou requested to reset your password. Click this link to reset (expires in 24 hours):\n${resetLink}\n\nIf you didn't request this, please ignore this message.\n\nKeSMIS Team`
+                await sendNotification(user.phone, smsMessage)
+                console.log('Password reset SMS sent successfully to:', user.phone)
+              } catch (smsError) {
+                console.error('Error sending password reset SMS:', smsError)
+                // Don't fail the request if SMS fails, email was already sent
+              }
+            } else {
+              console.log('User does not have a phone number, skipping SMS notification')
+            }
+            
             res.status(200).send({
-              message: 'Password reset instructions have been sent to your email address.',
+              message: 'Password reset instructions have been sent to your email address' + (user.phone ? ' and phone number' : '') + '.',
               code: "0000"
             })
           }

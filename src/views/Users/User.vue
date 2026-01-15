@@ -896,8 +896,8 @@ const updateUser = () => {
 const passwordResetLoading = ref(false)
 
 const handlePasswordReset = async () => {
-  if (!form.value.email) {
-    ElMessage.warning('User email is required for password reset')
+  if (!form.value.email && !form.value.phone) {
+    ElMessage.warning('User email or phone number is required for password reset')
     return
   }
 
@@ -1240,11 +1240,11 @@ v-model="row.location_level" placeholder="Select level" size="small" filterable
       <template #footer>
         <span class="dialog-footer" style="display: flex; justify-content: space-between; align-items: center;">
           <div>
-            <el-button 
-              type="warning" 
+            <el-button
+              type="warning"
               :loading="passwordResetLoading"
               @click="handlePasswordReset"
-              :disabled="!form.email">
+              :disabled="!form.email && !form.phone">
               Reset Password
             </el-button>
           </div>

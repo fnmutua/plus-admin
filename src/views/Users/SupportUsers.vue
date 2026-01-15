@@ -14,11 +14,12 @@ import {
   Position,
   Edit,
   Back,
-  Plus} from '@element-plus/icons-vue'
+  Plus,
+  InfoFilled} from '@element-plus/icons-vue'
 
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { activateUserApi, updateUserApi, getSupportStaff } from '@/api/users'
+import { activateUserApi, updateUserApi, getSupportStaff, resetUserPassword } from '@/api/users'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import xlsx from "json-as-xlsx"
@@ -50,6 +51,25 @@ const currentUser = wsCache.get(appStore.getUserInfo)
 
 const showAdminButtons = ref(appStore.getAdminButtons)
 const showEditButtons = ref(appStore.getEditButtons)
+
+// Check if current user can edit email (national admin, super admin, or root admin at county/national levels)
+const canEditEmail = computed(() => {
+  return currentUser?.roles?.some((role: any) => {
+    // Super admin or root admin
+    if (['super_admin', 'root_admin'].includes(role.name)) {
+      return true
+    }
+    // National admin (admin role at national level)
+    if (role.name === 'admin' && role.user_roles?.location_level === 'national') {
+      return true
+    }
+    // County admin (admin role at county level)
+    if (role.name === 'admin' && role.user_roles?.location_level === 'county') {
+      return true
+    }
+    return false
+  }) || false
+})
 
 const { push } = useRouter()
 const value1 = ref([])
@@ -737,6 +757,27 @@ const updateUser = () => {
     ElMessage.error("Please fill out the required fields correctly.")
   }
 }
+
+// Password reset functionality
+const passwordResetLoading = ref(false)
+
+const handlePasswordReset = async () => {
+  if (!form.value.email && !form.value.phone) {
+    ElMessage.warning('User email or phone number is required for password reset')
+    return
+  }
+
+  try {
+    passwordResetLoading.value = true
+    await resetUserPassword({ email: form.value.email })
+    ElMessage.success('Password reset email has been sent to the user')
+  } catch (error: any) {
+    console.error('Error resetting password:', error)
+    ElMessage.error(error?.response?.data?.message || 'Failed to send password reset email')
+  } finally {
+    passwordResetLoading.value = false
+  }
+}
 </script>
 
 <template>
@@ -879,7 +920,14 @@ const updateUser = () => {
 
           <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
             <el-form-item label="Email" :label-width="formLabelWidth">
-              <el-input v-model="form.email" autocomplete="off" disabled />
+              <el-input 
+                v-model="form.email" 
+                autocomplete="off" 
+                :disabled="!canEditEmail"
+                type="email" />
+              <el-tooltip v-if="!canEditEmail" content="Only national admins, super admins, and root admins can edit email addresses" placement="top">
+                <el-icon style="margin-left: 5px; color: #909399; cursor: help;"><InfoFilled /></el-icon>
+              </el-tooltip>
             </el-form-item>
           </el-col>
 
@@ -986,11 +1034,22 @@ const updateUser = () => {
       </el-form>
 
       <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="dialogFormVisible = false">Cancel</el-button>
-          <PermissionWrapper :permissions="['user:update']">
-            <el-button type="primary" @click="updateUser">Confirm</el-button>
-          </PermissionWrapper>
+        <span class="dialog-footer" style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <el-button 
+              type="warning" 
+              :loading="passwordResetLoading"
+              @click="handlePasswordReset"
+              :disabled="!form.email && !form.phone">
+              Reset Password
+            </el-button>
+          </div>
+          <div>
+            <el-button @click="dialogFormVisible = false">Cancel</el-button>
+            <PermissionWrapper :permissions="['user:update']">
+              <el-button type="primary" @click="updateUser">Confirm</el-button>
+            </PermissionWrapper>
+          </div>
         </span>
       </template>
     </el-dialog>

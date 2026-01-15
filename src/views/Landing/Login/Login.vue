@@ -56,12 +56,14 @@ const handleForgotPassword = async () => {
     if (isValid) {
       resetPasswordLoading.value = true
       try {
-        await resetUserPassword({ email: resetPasswordForm.email } as any)
-        ElMessage.success('Password reset instructions have been sent to your email')
+        const response = await resetUserPassword({ email: resetPasswordForm.email } as any)
+        // Check if response indicates SMS was also sent
+        const message = response?.data?.message || response?.message || 'Password reset instructions have been sent to your email'
+        ElMessage.success(message)
         forgotPasswordDialog.value = false
         resetPasswordForm.email = ''
       } catch (error: any) {
-        ElMessage.error(error?.message || 'Failed to send reset email. Please try again.')
+        ElMessage.error(error?.response?.data?.message || error?.message || 'Failed to send reset email. Please try again.')
       } finally {
         resetPasswordLoading.value = false
       }
