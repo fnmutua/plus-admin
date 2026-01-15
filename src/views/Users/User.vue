@@ -22,7 +22,7 @@ import {
 
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { activateUserApi, updateUserApi, getCountyStaff } from '@/api/users'
+import { activateUserApi, updateUserApi, getCountyStaff, resetUserPassword } from '@/api/users'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 
@@ -81,6 +81,25 @@ const userCountyId = computed(() => {
 // County admins are users with admin/staff role at county level (not super_admin or national admin)
 const isCountyRestricted = computed(() => {
   return isCountyAdmin.value && !!userCountyId.value
+})
+
+// Check if current user can edit email (national admin, super admin, or root admin at county/national levels)
+const canEditEmail = computed(() => {
+  return currentUser?.roles?.some((role: any) => {
+    // Super admin or root admin
+    if (['super_admin', 'root_admin'].includes(role.name)) {
+      return true
+    }
+    // National admin (admin role at national level)
+    if (role.name === 'admin' && role.user_roles?.location_level === 'national') {
+      return true
+    }
+    // County admin (admin role at county level)
+    if (role.name === 'admin' && role.user_roles?.location_level === 'county') {
+      return true
+    }
+    return false
+  }) || false
 })
 
 
@@ -845,7 +864,11 @@ const updateUser = () => {
         console.log('updated  tableDataList.value', tableDataList.value)
       }
 
+      ElMessage.success('User updated successfully')
 
+    }).catch((error) => {
+      console.error('Error updating user:', error)
+      ElMessage.error('Failed to update user')
     })
 
     dialogFormVisible.value = false
@@ -867,6 +890,36 @@ const updateUser = () => {
 
 
 
+}
+
+// Password reset functionality
+const passwordResetLoading = ref(false)
+
+const handlePasswordReset = async () => {
+  if (!form.value.email) {
+    ElMessage.warning('User email is required for password reset')
+    return
+  }
+
+  // If county admin, validate that the user belongs to their county
+  if (isCountyRestricted.value && userCountyId.value) {
+    const userCountyIdFromRow = form.value.county_id
+    if (userCountyIdFromRow && userCountyIdFromRow !== userCountyId.value) {
+      ElMessage.error('You can only reset passwords for users within your county.')
+      return
+    }
+  }
+
+  try {
+    passwordResetLoading.value = true
+    await resetUserPassword({ email: form.value.email })
+    ElMessage.success('Password reset email has been sent to the user')
+  } catch (error: any) {
+    console.error('Error resetting password:', error)
+    ElMessage.error(error?.response?.data?.message || 'Failed to send password reset email')
+  } finally {
+    passwordResetLoading.value = false
+  }
 }
 
 </script>
@@ -1031,7 +1084,14 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
 
           <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
             <el-form-item label="Email" :label-width="formLabelWidth">
-              <el-input v-model="form.email" autocomplete="off" disabled />
+              <el-input 
+                v-model="form.email" 
+                autocomplete="off" 
+                :disabled="!canEditEmail"
+                type="email" />
+              <el-tooltip v-if="!canEditEmail" content="Only national admins, super admins, and root admins can edit email addresses" placement="top">
+                <el-icon style="margin-left: 5px; color: #909399; cursor: help;"><InfoFilled /></el-icon>
+              </el-tooltip>
             </el-form-item>
           </el-col>
 
@@ -1178,9 +1238,20 @@ v-model="row.location_level" placeholder="Select level" size="small" filterable
       </el-form>
 
       <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="dialogFormVisible = false">Cancel</el-button>
-          <el-button type="primary" @click="updateUser">Confirm</el-button>
+        <span class="dialog-footer" style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <el-button 
+              type="warning" 
+              :loading="passwordResetLoading"
+              @click="handlePasswordReset"
+              :disabled="!form.email">
+              Reset Password
+            </el-button>
+          </div>
+          <div>
+            <el-button @click="dialogFormVisible = false">Cancel</el-button>
+            <el-button type="primary" @click="updateUser">Confirm</el-button>
+          </div>
         </span>
       </template>
     </el-dialog>
