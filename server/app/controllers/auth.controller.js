@@ -30,6 +30,11 @@ function formatPhoneNumber(phoneNumber) {
   console.log(phoneNumber)
   let formattedNumber = phoneNumber.toString();
 
+  // Remove any '+' prefix if present
+  if (formattedNumber.startsWith('+')) {
+    formattedNumber = formattedNumber.substring(1);
+  }
+
   // Check if the phone number starts with '254'
   if (formattedNumber.startsWith('254')) {
     return formattedNumber; // Phone number is already in the correct format
