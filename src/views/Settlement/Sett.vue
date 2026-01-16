@@ -84,9 +84,16 @@ const loadFiltersFromStorage = () => {
     const filterState = JSON.parse(savedFilters)
     
     // Only restore county if user is not county staff (county staff county is set by getUserRoles)
+    // For county staff, ensure their role-based county is preserved and not overwritten
     if (!isCountyStaff.value) {
       selectedCounty.value = filterState.selectedCounty || []
       value4.value = filterState.value4 || []
+    } else {
+      // For county staff, ensure value4 matches selectedCounty (which was set by getUserRoles)
+      // This prevents the flash where value4 might be temporarily different
+      if (selectedCounty.value.length > 0) {
+        value4.value = selectedCounty.value
+      }
     }
     
     selectedSubCounty.value = filterState.selectedSubCounty || []
@@ -110,6 +117,11 @@ const loadFiltersFromStorage = () => {
     
     value5.value = filterState.value5 || []
     value6.value = filterState.value6 || []
+  } else {
+    // If no saved filters, ensure county staff has value4 synced with selectedCounty
+    if (isCountyStaff.value && selectedCounty.value.length > 0) {
+      value4.value = selectedCounty.value
+    }
   }
 }
 
@@ -535,7 +547,20 @@ onMounted(async () => {
     activeSegment.value = 'Approved'
   }
   
+  // For county staff, sync value4 with selectedCounty immediately after getUserRoles
+  // This prevents the flash where value4 might be empty or different
+  if (isCountyStaff.value && selectedCounty.value.length > 0) {
+    value4.value = selectedCounty.value
+  }
+  
   await loadFiltersFromStorage(); // Restore filters (will merge with role filters)
+  
+  // After loading from storage, ensure county staff value4 is still synced
+  // This prevents flash if loadFiltersFromStorage somehow changed it
+  if (isCountyStaff.value && selectedCounty.value.length > 0) {
+    value4.value = selectedCounty.value
+  }
+  
   await getCounts(); // Wait for counts to be calculated with role filters
   getSettlmentHistory();
 
@@ -3378,6 +3403,8 @@ function handlePageChange(page) {
 }
 
 const handleRowDblClick = (row) => {
+  // Save current filter state before navigation to prevent flash on return
+  saveFiltersToStorage()
   push({
     name: 'SettlementDetails',
     params: { id: row.id }
@@ -3465,6 +3492,17 @@ watch(activeSegment, (newValue) => {
     activeSegment.value = 'Approved'
   }
 })
+
+// Watch selectedCounty for county staff to keep value4 in sync and prevent flash
+watch(selectedCounty, (newValue) => {
+  if (isCountyStaff.value && newValue && newValue.length > 0) {
+    // Ensure value4 is always synced with selectedCounty for county staff
+    // This prevents the flash when filters are loaded/restored
+    if (JSON.stringify(value4.value) !== JSON.stringify(newValue)) {
+      value4.value = newValue
+    }
+  }
+}, { immediate: true, deep: true })
 
 const onSegmentClick = async () => {
   // Prevent non-national users from changing segments
