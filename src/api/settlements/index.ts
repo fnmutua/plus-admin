@@ -98,19 +98,38 @@ export const _streamAllGeo = (data: SettlementType): Promise<AxiosResponse<Settl
 
  
  
-export const streamGeo = async ({ params }: AxiosConfig): Promise<AxiosResponse<NodeJS.ReadableStream>> => {
+export const streamGeo = async ({ params }: AxiosConfig): Promise<IResponse<any>> => {
   try {
-    const response = await axios.get<NodeJS.ReadableStream>(
+    // Serialize filters and filterValues as JSON strings for query params
+    const queryParams: any = { ...params };
+    
+    if (queryParams.filters && Array.isArray(queryParams.filters)) {
+      queryParams.filters = JSON.stringify(queryParams.filters);
+    }
+    
+    if (queryParams.filterValues && Array.isArray(queryParams.filterValues)) {
+      queryParams.filterValues = JSON.stringify(queryParams.filterValues);
+    }
+
+    const response = await axios.get<{ data: any; code: string }>(
       prod + '/api/v1/data/stream/geo',
       {
-        params,
-        responseType: 'stream', // Set the responseType to 'stream'
+        params: queryParams,
+        responseType: 'json', // Changed to json for better performance
       }
     );
 
-    return response;
-  } catch (error) {
-    throw new Error(`Error streaming data `);
+    // Transform response to match IResponse format
+    // Backend returns { data: geojson, code: '0000' }
+    // IResponse uses 'results' property
+    return {
+      results: response.data.data,
+      code: response.data.code || '0000',
+      message: 'Success',
+    } as IResponse<any>;
+  } catch (error: any) {
+    console.error('Error streaming geo data:', error);
+    throw new Error(`Error streaming data: ${error.message || 'Unknown error'}`);
   }
 };
 

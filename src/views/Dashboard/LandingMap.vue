@@ -331,6 +331,8 @@ onMounted(async () => {
       });
 
       // Add county outline layer
+      // Check if settlementLabel exists before using it as beforeId
+      const beforeIdCounty = map.value.getLayer('settlementLabel') ? 'settlementLabel' : undefined;
       map.value.addLayer({
         id: 'county',
         type: 'line',
@@ -340,7 +342,7 @@ onMounted(async () => {
           'line-opacity': 1,
           'line-width': 0.5,
         },
-      }, 'settlementLabel');
+      }, beforeIdCounty);
     }
 
 
@@ -470,129 +472,162 @@ onMounted(async () => {
 
 
 const addSettlementLayers = async () => {
-  map.value.addSource('farmers', {
-    type: 'geojson',
-    // Point to GeoJSON data. This example visualizes all M1.0+ earthquakes
-    // from 12/22/15 to 1/21/16 as logged by USGS' Earthquake hazards program.
-    data: geojson.value,
-    cluster: true,
-    clusterMaxZoom: 14, // Max zoom to cluster points on
-    clusterRadius: 50 // Radius of each cluster when clustering points (defaults to 50)
-  });
-
-
-
-  map.value.addSource('polyFarms', {
-    type: 'geojson',
-    // Point to GeoJSON data. This example visualizes all M1.0+ earthquakes
-    // from 12/22/15 to 1/21/16 as logged by USGS' Earthquake hazards program.
-    data: polyFarms.value,
-
-  });
-
-
-
-
-  map.value.addLayer({
-    id: 'polyFarms',
-    type: 'line',
-    source: 'polyFarms',
-    paint: {
-      'line-color': 'green',
-      'line-opacity': 1,
-      'line-width': 2,
-    },
-  },
-  );
-
-  map.value.addLayer({
-    id: 'clusters',
-    type: 'circle',
-    source: 'farmers',
-    filter: ['has', 'point_count'],
-    paint: {
-      // Use step expressions (https://docs.mapbox.com/style-spec/reference/expressions/#step)
-      // with three steps to implement three types of circles:
-      //   * Blue, 20px circles when point count is less than 100
-      //   * Yellow, 30px circles when point count is between 100 and 750
-      //   * Pink, 40px circles when point count is greater than or equal to 750
-      'circle-color': [
-            'step',
-            ['get', 'point_count'],
-            'rgba(81, 187, 214, 0.47)', // Blue with 67% transparency for less than 5 points
-            5,
-            'rgba(241, 240, 117, 0.47)', // Yellow with 67% transparency for 5 to 10 points
-            10,
-            'rgba(242, 140, 177, 0.47)' // Pink with 67% transparency for 10 or more points
-        ],
-      'circle-radius': [
-        'step',
-        ['get', 'point_count'],
-        20,
-        5,
-        30,
-        10,
-        40
-      ],
-      'circle-stroke-width': 2,
-      'circle-stroke-color': 'white'
-    }
-  },
-  );
-
-  map.value.addLayer({
-    id: 'cluster-count',
-    type: 'symbol',
-    source: 'farmers',
-    filter: ['has', 'point_count'],
-    layout: {
-      'text-field': ['get', 'point_count_abbreviated'],
-      'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
-      'text-size': 12
-    }
-  },
-  );
-
-
-  map.value.addLayer({
-    id: 'unclustered-point',
-    type: 'circle',
-    source: 'farmers',
-    filter: ['!', ['has', 'point_count']],
-    paint: {
-      'circle-color': 'green',
-      'circle-radius': 8,
-      'circle-stroke-width': 2,
-      'circle-stroke-color': 'white'
-    }
-  },
-
-  );
-
-
-  map.value.addLayer({
-  'id': 'settlementLabel',
-  'type': 'symbol',
-  'source': 'farmers',
-  'layout': {
-    'text-field': [
-      'concat',
-      ['to-string', ['get', 'name']] 
-    ],
-    'text-size': 12,
-    'text-offset': [0, 1]
-  },
-  'paint': {
-    'text-color': 'red',
-    'text-halo-color': 'white', // Add white halo color
-    'text-halo-width': 1 // Set the width of the halo
+  // Check if sources exist before adding them
+  if (map.value.getSource('farmers')) {
+    // Update existing source
+    (map.value.getSource('farmers') as any).setData(geojson.value);
+  } else {
+    // Add new source
+    map.value.addSource('farmers', {
+      type: 'geojson',
+      data: geojson.value,
+      cluster: true,
+      clusterMaxZoom: 14, // Max zoom to cluster points on
+      clusterRadius: 50 // Radius of each cluster when clustering points (defaults to 50)
+    });
   }
-});
+
+  // Check if polyFarms source exists before adding it
+  if (map.value.getSource('polyFarms')) {
+    // Update existing source
+    (map.value.getSource('polyFarms') as any).setData(polyFarms.value);
+  } else {
+    // Add new source
+    map.value.addSource('polyFarms', {
+      type: 'geojson',
+      data: polyFarms.value,
+    });
+  }
 
 
-bounds.value = turf.bbox((geojson.value))
-    console.log("From geo", bounds.value)
-    map.value.fitBounds(bounds.value, { padding: 20 })
+
+
+  // Add layers only if they don't exist
+  if (!map.value.getLayer('polyFarms')) {
+    map.value.addLayer({
+      id: 'polyFarms',
+      type: 'line',
+      source: 'polyFarms',
+      paint: {
+        'line-color': 'green',
+        'line-opacity': 1,
+        'line-width': 2,
+      },
+    });
+  }
+
+  if (!map.value.getLayer('clusters')) {
+    map.value.addLayer({
+      id: 'clusters',
+      type: 'circle',
+      source: 'farmers',
+      filter: ['has', 'point_count'],
+      paint: {
+        // Use step expressions (https://docs.mapbox.com/style-spec/reference/expressions/#step)
+        // with three steps to implement three types of circles:
+        //   * Blue, 20px circles when point count is less than 100
+        //   * Yellow, 30px circles when point count is between 100 and 750
+        //   * Pink, 40px circles when point count is greater than or equal to 750
+        'circle-color': [
+              'step',
+              ['get', 'point_count'],
+              'rgba(81, 187, 214, 0.47)', // Blue with 67% transparency for less than 5 points
+              5,
+              'rgba(241, 240, 117, 0.47)', // Yellow with 67% transparency for 5 to 10 points
+              10,
+              'rgba(242, 140, 177, 0.47)' // Pink with 67% transparency for 10 or more points
+          ],
+        'circle-radius': [
+          'step',
+          ['get', 'point_count'],
+          20,
+          5,
+          30,
+          10,
+          40
+        ],
+        'circle-stroke-width': 2,
+        'circle-stroke-color': 'white'
+      }
+    });
+  }
+
+  if (!map.value.getLayer('cluster-count')) {
+    map.value.addLayer({
+      id: 'cluster-count',
+      type: 'symbol',
+      source: 'farmers',
+      filter: ['has', 'point_count'],
+      layout: {
+        'text-field': ['get', 'point_count_abbreviated'],
+        'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
+        'text-size': 12
+      }
+    });
+  }
+
+  if (!map.value.getLayer('unclustered-point')) {
+    map.value.addLayer({
+      id: 'unclustered-point',
+      type: 'circle',
+      source: 'farmers',
+      filter: ['!', ['has', 'point_count']],
+      paint: {
+        'circle-color': 'green',
+        'circle-radius': 8,
+        'circle-stroke-width': 2,
+        'circle-stroke-color': 'white'
+      }
+    });
+  }
+
+  if (!map.value.getLayer('settlementLabel')) {
+    map.value.addLayer({
+      'id': 'settlementLabel',
+      'type': 'symbol',
+      'source': 'farmers',
+      'layout': {
+        'text-field': [
+          'concat',
+          ['to-string', ['get', 'name']] 
+        ],
+        'text-size': 12,
+        'text-offset': [0, 1]
+      },
+      'paint': {
+        'text-color': 'red',
+        'text-halo-color': 'white', // Add white halo color
+        'text-halo-width': 1 // Set the width of the halo
+      }
+    });
+  }
+
+
+    // Only calculate bounds if we have valid features
+    if (geojson.value && geojson.value.features && geojson.value.features.length > 0) {
+      try {
+        bounds.value = turf.bbox(geojson.value);
+        console.log("From geo", bounds.value);
+        
+        // Validate bounds before fitting
+        if (bounds.value && 
+            bounds.value.length === 4 &&
+            isFinite(bounds.value[0]) && isFinite(bounds.value[1]) &&
+            isFinite(bounds.value[2]) && isFinite(bounds.value[3]) &&
+            bounds.value[0] >= -180 && bounds.value[0] <= 180 &&
+            bounds.value[2] >= -180 && bounds.value[2] <= 180 &&
+            bounds.value[1] >= -90 && bounds.value[1] <= 90 &&
+            bounds.value[3] >= -90 && bounds.value[3] <= 90) {
+          map.value.fitBounds(bounds.value, { padding: 20 });
+        } else {
+          console.warn('[addSettlementLayers] Invalid bounds, skipping fitBounds');
+        }
+      } catch (error) {
+        console.warn('[addSettlementLayers] Error calculating bounds:', error);
+      }
+    } else {
+      console.warn('[addSettlementLayers] No features to calculate bounds');
+    }
 
 }
 
@@ -674,34 +709,57 @@ const allProjectsGeo = ref<any>({ type: 'FeatureCollection', features: [] })
 
 const getFarmGeo = async () => {
   const params: any = {
-    // Your request parameters here
-    // For example, if you have query parameters, you can add them here
     model: 'settlement',
-  //  cache_key: 'project_location_geo',
-   associatedModels :'county',
-   excludeGeoFromAssociations :'true'
+    // Removed associatedModels and excludeGeoFromAssociations as they're not used in optimized backend
   };
 
   // Apply county restriction if user is county-restricted
   if (isCountyRestricted.value && userCountyId.value) {
-    params.filters = ['county_id']
-    params.filterValues = [[userCountyId.value]]
-    console.log('Applying county restriction filter for settlements, county_id:', userCountyId.value)
+    params.filters = ['county_id'];
+    params.filterValues = [[userCountyId.value]];
+    console.log('[getFarmGeo] Applying county restriction filter, county_id:', userCountyId.value);
   }
 
   try {
-    // Call the streamGeo function
-    console.log('-------x-------------')
+    mapLoadingText.value = 'Loading settlements...';
+    console.log('[getFarmGeo] Fetching settlements with params:', params);
+    
     const response = await streamGeo({ params });
-    console.log(response.data.data)
-   
-    geojson.value = await computeCentroids(response.data.data);
+    
+    // Handle response structure - IResponse uses 'results' property
+    const geoData = response.results;
+    
+    if (!geoData || !geoData.features) {
+      console.warn('[getFarmGeo] No features in response');
+      geojson.value = { type: 'FeatureCollection', features: [] };
+      allProjectsGeo.value = { type: 'FeatureCollection', features: [] };
+      return;
+    }
 
-    allProjectsGeo.value = JSON.parse(JSON.stringify(geojson.value)); // Deep copy of the GeoJSON data
+    console.log(`[getFarmGeo] Received ${geoData.features.length} features`);
+   
+    // Compute centroids for non-point geometries
+    geojson.value = await computeCentroids(geoData);
+
+    // Deep copy using JSON method (structuredClone may fail with complex GeoJSON objects)
+    try {
+      allProjectsGeo.value = JSON.parse(JSON.stringify(geojson.value));
+    } catch (error) {
+      console.warn('[getFarmGeo] Error copying geojson, using shallow copy:', error);
+      // Fallback to shallow copy if JSON serialization fails
+      allProjectsGeo.value = {
+        type: geojson.value.type,
+        features: [...geojson.value.features]
+      };
+    }
+
+    console.log(`[getFarmGeo] Processed ${geojson.value.features.length} features`);
 
   } catch (error: any) {
-    // Handle errors
-    console.error('Error fetching data:', error.message);
+    console.error('[getFarmGeo] Error fetching data:', error.message);
+    ElMessage.error('Failed to load settlements. Please try again.');
+    geojson.value = { type: 'FeatureCollection', features: [] };
+    allProjectsGeo.value = { type: 'FeatureCollection', features: [] };
   }
 };
  
@@ -1007,18 +1065,20 @@ const ResetFilters = async () => {
           data: countyGeo.value,
         });
 
-        // Add county outline layer
-        map.value.addLayer({
-          id: 'county',
-          type: 'line',
-          source: 'County',
-          paint: {
-            'line-color': 'red',
-            'line-opacity': 1,
-            'line-width': 0.5,
-          },
-        }, 'settlementLabel');
-      }
+      // Add county outline layer
+      // Check if settlementLabel exists before using it as beforeId
+      const beforeIdCountyInit = map.value.getLayer('settlementLabel') ? 'settlementLabel' : undefined;
+      map.value.addLayer({
+        id: 'county',
+        type: 'line',
+        source: 'County',
+        paint: {
+          'line-color': 'red',
+          'line-opacity': 1,
+          'line-width': 0.5,
+        },
+      }, beforeIdCountyInit);
+    }
 
 
       await removeSettlementLayers()
@@ -1113,6 +1173,8 @@ const handleChangeCounty = async (countyIds: number | number[]) => {
       console.log('Adding county layers with data:', combinedCountyGeo);
 
       // Add county outline layer
+      // Check if settlementLabel exists before using it as beforeId
+      const beforeId = map.value.getLayer('settlementLabel') ? 'settlementLabel' : undefined;
       map.value.addLayer({
         id: 'county',
         type: 'line',
@@ -1122,11 +1184,28 @@ const handleChangeCounty = async (countyIds: number | number[]) => {
           'line-opacity': 1,
           'line-width': 0.5,
         },
-      }, 'settlementLabel'); // Add before settlement labels
+      }, beforeId); // Add before settlement labels if they exist
 
       // Fit map to all selected counties bounds
-      const bounds = turf.bbox(combinedCountyGeo);
-      map.value.fitBounds(bounds, { padding: 20 });
+      try {
+        if (combinedCountyGeo && combinedCountyGeo.features && combinedCountyGeo.features.length > 0) {
+          const bounds = turf.bbox(combinedCountyGeo);
+          // Validate bounds before fitting
+          if (bounds && bounds.length === 4 &&
+              isFinite(bounds[0]) && isFinite(bounds[1]) &&
+              isFinite(bounds[2]) && isFinite(bounds[3]) &&
+              bounds[0] >= -180 && bounds[0] <= 180 &&
+              bounds[2] >= -180 && bounds[2] <= 180 &&
+              bounds[1] >= -90 && bounds[1] <= 90 &&
+              bounds[3] >= -90 && bounds[3] <= 90) {
+            map.value.fitBounds(bounds, { padding: 20 });
+          } else {
+            console.warn('[handleChangeCounty] Invalid bounds, skipping fitBounds');
+          }
+        }
+      } catch (error) {
+        console.warn('[handleChangeCounty] Error calculating bounds:', error);
+      }
     }
 
 
@@ -1330,6 +1409,7 @@ const handleChangeSubcounty = async (subcountyIds: number | number[]) => {
           data: combinedSubcountyGeo,
         });
 
+        const beforeIdSubcounty = map.value.getLayer('settlementLabel') ? 'settlementLabel' : undefined;
         map.value.addLayer({
           id: 'Subcounty',
           type: 'line',
@@ -1339,7 +1419,7 @@ const handleChangeSubcounty = async (subcountyIds: number | number[]) => {
             'line-opacity': 1,
             'line-width': 0.5,
           },
-        }, 'settlementLabel'); // Add before settlement labels to ensure visibility
+        }, beforeIdSubcounty); // Add before settlement labels to ensure visibility
 
         console.log('Subcounty layer added successfully');
       } catch (error) {
@@ -1347,8 +1427,25 @@ const handleChangeSubcounty = async (subcountyIds: number | number[]) => {
       }
 
       // Fit map to all selected subcounties bounds
-      const bounds = turf.bbox(combinedSubcountyGeo);
-      map.value.fitBounds(bounds, { padding: 20 });
+      try {
+        if (combinedSubcountyGeo && combinedSubcountyGeo.features && combinedSubcountyGeo.features.length > 0) {
+          const bounds = turf.bbox(combinedSubcountyGeo);
+          // Validate bounds before fitting
+          if (bounds && bounds.length === 4 &&
+              isFinite(bounds[0]) && isFinite(bounds[1]) &&
+              isFinite(bounds[2]) && isFinite(bounds[3]) &&
+              bounds[0] >= -180 && bounds[0] <= 180 &&
+              bounds[2] >= -180 && bounds[2] <= 180 &&
+              bounds[1] >= -90 && bounds[1] <= 90 &&
+              bounds[3] >= -90 && bounds[3] <= 90) {
+            map.value.fitBounds(bounds, { padding: 20 });
+          } else {
+            console.warn('[handleChangeSubcounty] Invalid bounds, skipping fitBounds');
+          }
+        }
+      } catch (error) {
+        console.warn('[handleChangeSubcounty] Error calculating bounds:', error);
+      }
 
       // Remove and re-add settlement layers to ensure proper ordering
       await removeSettlementLayers()
@@ -1359,6 +1456,7 @@ const handleChangeSubcounty = async (subcountyIds: number | number[]) => {
         if (map.value.getLayer('Subcounty')) {
           map.value.removeLayer('Subcounty');
         }
+        const beforeIdSubcountyReadd = map.value.getLayer('settlementLabel') ? 'settlementLabel' : undefined;
         map.value.addLayer({
           id: 'Subcounty',
           type: 'line',
@@ -1368,7 +1466,7 @@ const handleChangeSubcounty = async (subcountyIds: number | number[]) => {
             'line-opacity': 1,
             'line-width': 0.5,
           },
-        }, 'settlementLabel');
+        }, beforeIdSubcountyReadd);
       }
     }
   }
