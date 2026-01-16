@@ -197,18 +197,23 @@ const getUserRoles = async () => {
   if (isSuperAdmin.value) {
     roles_filters = [];
     showAdminButtons.value = true
-  } else if (processedRoles.some(role => role.role === "admin")) {
-    showAdminButtons.value = true
-  } else if (processedRoles.some(role => role.role === "staff")) {
-    showAdminButtons.value = true
   } else {
+    // For admin/staff/other roles, still apply location-based filters if they exist
     const applicableRoles = processedRoles.filter(role => role.model !== "national");
     roles_filters = applicableRoles.map(role => ({
       role: role.role,
       field: role.field === 'settlement_id' ? 'id' : role.field,
       value: role.fieldvalue
     }));
-    showAdminButtons.value = false
+    
+    // Set admin buttons based on role
+    if (processedRoles.some(role => role.role === "admin")) {
+      showAdminButtons.value = true
+    } else if (processedRoles.some(role => role.role === "staff")) {
+      showAdminButtons.value = true
+    } else {
+      showAdminButtons.value = false
+    }
   }
 
   // Populate filters and filterValues from roles_filters
@@ -230,6 +235,7 @@ const getUserRoles = async () => {
 const pushRoleFilters = () => {
   // Re-apply role-based filters after status filters are set
   // This ensures county/settlement users only see their assigned locations
+  // Role filters take precedence and should always be applied for county/settlement level users
   roles_filters.forEach(rf => {
     if (rf.field && rf.value !== null && rf.value !== undefined) {
       // Check if this filter field is already in the filters array
@@ -239,11 +245,43 @@ const pushRoleFilters = () => {
         filters.value.push(rf.field);
         filterValues.value.push(Array.isArray(rf.value) ? rf.value : [rf.value]);
       } else {
-        // Update existing filter value (role filters take precedence)
-        filterValues.value[existingIndex] = Array.isArray(rf.value) ? rf.value : [rf.value];
+        // Update existing filter value (role filters take precedence for county/settlement level users)
+        // For county-level users, always use role filter value to ensure they only see their county
+        if (rf.field === 'county_id' && isCountyStaff.value) {
+          filterValues.value[existingIndex] = Array.isArray(rf.value) ? rf.value : [rf.value];
+        } else if (rf.field === 'id' && !isNationalStaff.value && !isSuperAdmin.value) {
+          // For settlement-level users, always use role filter
+          filterValues.value[existingIndex] = Array.isArray(rf.value) ? rf.value : [rf.value];
+        } else {
+          // For other cases, merge values if arrays, otherwise use role filter
+          const existingValue = filterValues.value[existingIndex];
+          const roleValue = Array.isArray(rf.value) ? rf.value : [rf.value];
+          if (Array.isArray(existingValue)) {
+            // Merge arrays, but role filter values take precedence
+            filterValues.value[existingIndex] = roleValue;
+          } else {
+            filterValues.value[existingIndex] = roleValue;
+          }
+        }
       }
     }
   });
+  
+  // Final check: Ensure county filter is always present for county-level users
+  if (isCountyStaff.value && roles_filters.some(rf => rf.field === 'county_id')) {
+    const countyFilter = roles_filters.find(rf => rf.field === 'county_id');
+    if (countyFilter && countyFilter.value !== null && countyFilter.value !== undefined) {
+      const countyIndex = filters.value.indexOf('county_id');
+      if (countyIndex === -1) {
+        // Add county filter if missing
+        filters.value.push('county_id');
+        filterValues.value.push(Array.isArray(countyFilter.value) ? countyFilter.value : [countyFilter.value]);
+      } else {
+        // Ensure county filter value is correct
+        filterValues.value[countyIndex] = Array.isArray(countyFilter.value) ? countyFilter.value : [countyFilter.value];
+      }
+    }
+  }
 };
 
 // Location-aware permission checking function
@@ -663,16 +701,19 @@ const addMoreDocuments = ref(false)
 
 const onPageChange = async (selPage: any) => {
   page.value = selPage
+  // Set status filters - role filters will be applied in getNewOrRejectedSettlements/getFilteredBySearchData
   if (activeSegment.value == 'Approved') {
-    filters.value = [  'isApproved', 'isActive']
-    filterValues.value = [ ['Approved'], ['true']]
+    filters.value = ['isApproved', 'isActive']
+    filterValues.value = [['Approved'], ['true']]
   } else if (activeSegment.value == 'New') {
-    filters.value = [  'isApproved', 'isActive']
-    filterValues.value = [ ['Pending'], ['true']]
+    filters.value = ['isApproved', 'isActive']
+    filterValues.value = [['Pending'], ['true']]
   } else if (activeSegment.value == 'Rejected') {
-    filters.value = [  'isApproved', 'isActive']
-    filterValues.value = [ ['Rejected'], ['true']]
+    filters.value = ['isApproved', 'isActive']
+    filterValues.value = [['Rejected'], ['true']]
   }
+  // Apply role filters to ensure county filter is preserved for county-level users
+  pushRoleFilters()
   saveFiltersToStorage();
   if (search_string.value) {
     getFilteredBySearchData(activeSegment.value, search_string.value)
@@ -683,16 +724,19 @@ const onPageChange = async (selPage: any) => {
 
 const onPageSizeChange = async (size: any) => {
   pageSize.value = size
+  // Set status filters - role filters will be applied in getNewOrRejectedSettlements/getFilteredBySearchData
   if (activeSegment.value === 'Approved') {
-    filters.value = [  'isApproved', 'isActive']
-    filterValues.value = [ ['Approved'], ['true']]
+    filters.value = ['isApproved', 'isActive']
+    filterValues.value = [['Approved'], ['true']]
   } else if (activeSegment.value === 'New') {
-    filters.value = [  'isApproved', 'isActive']
-    filterValues.value = [ ['Pending'], ['true']]
+    filters.value = ['isApproved', 'isActive']
+    filterValues.value = [['Pending'], ['true']]
   } else if (activeSegment.value === 'Rejected') {
-    filters.value = [  'isApproved', 'isActive']
-    filterValues.value = [ ['Rejected'], ['true']]
+    filters.value = ['isApproved', 'isActive']
+    filterValues.value = [['Rejected'], ['true']]
   }
+  // Apply role filters to ensure county filter is preserved for county-level users
+  pushRoleFilters()
   saveFiltersToStorage();
   if (search_string.value) {
     getFilteredBySearchData(activeSegment.value, search_string.value)
@@ -802,6 +846,7 @@ const getSettlementCount = async () => {
 
 const getNewOrRejectedSettlements = async (tab) => {
   loadingGetData.value = true
+  // Set status filters first
   if (tab === 'New') {
     filters.value = ['isApproved', 'isActive']
     filterValues.value = [['Pending'], ['true']]
@@ -815,54 +860,47 @@ const getNewOrRejectedSettlements = async (tab) => {
     filters.value = ['isApproved', 'isActive']
     filterValues.value = [['Approved'], ['true']]
   }
-  if (selectedCounty.value.length > 0) {
+  
+  // Apply role-based filters FIRST to ensure county/settlement restrictions are always present
+  pushRoleFilters()
+  
+  // Then add user-selected location filters (only if not county staff, as county staff should be restricted to their county)
+  if (!isCountyStaff.value && selectedCounty.value.length > 0) {
     var selectOption = 'county_id'
     if (!filters.value.includes(selectOption)) {
       filters.value.push(selectOption)
-    }
-    var index = filters.value.indexOf(selectOption)
-    if (filterValues[index]) {
-      filterValues.value.splice(index, 1)
-    }
-    if (!filterValues.value.includes(selectedCounty.value)) {
-      filterValues.value.splice(index, 0, selectedCounty.value)
-    }
-    if (selectedCounty.value.length === 0) {
-      filters.value.splice(index, 1)
+      filterValues.value.push(selectedCounty.value)
+    } else {
+      // Update existing county filter (but role filter takes precedence for county staff)
+      var index = filters.value.indexOf(selectOption)
+      // For non-county staff, allow user selection to override
+      filterValues.value[index] = selectedCounty.value
     }
   }
+  
   if (selectedSubCounty.value.length > 0) {
     var selectOption = 'subcounty_id'
     if (!filters.value.includes(selectOption)) {
       filters.value.push(selectOption)
-    }
-    var index = filters.value.indexOf(selectOption)
-    if (filterValues[index]) {
-      filterValues.value.splice(index, 1)
-    }
-    if (!filterValues.value.includes(selectedSubCounty.value)) {
-      filterValues.value.splice(index, 0, selectedSubCounty.value)
-    }
-    if (selectedSubCounty.value.length === 0) {
-      filters.value.splice(index, 1)
+      filterValues.value.push(selectedSubCounty.value)
+    } else {
+      var index = filters.value.indexOf(selectOption)
+      filterValues.value[index] = selectedSubCounty.value
     }
   }
+  
   if (selectedWard.value.length > 0) {
     var selectOption = 'ward_id'
     if (!filters.value.includes(selectOption)) {
       filters.value.push(selectOption)
-    }
-    var index = filters.value.indexOf(selectOption)
-    if (filterValues[index]) {
-      filterValues.value.splice(index, 1)
-    }
-    if (!filterValues.value.includes(selectedWard.value)) {
-      filterValues.value.splice(index, 0, selectedWard.value)
-    }
-    if (selectedWard.value.length === 0) {
-      filters.value.splice(index, 1)
+      filterValues.value.push(selectedWard.value)
+    } else {
+      var index = filters.value.indexOf(selectOption)
+      filterValues.value[index] = selectedWard.value
     }
   }
+  
+  // Final check: Ensure role filters are still applied (in case user selections overwrote them)
   pushRoleFilters()
   const formData = {}
   formData.limit = pageSize.value
@@ -908,51 +946,47 @@ const getNewOrRejectedSettlements = async (tab) => {
 const getPotentialDuplicates = async () => {
   loadingGetData.value = true
   loadingGetDataMsg.value = 'Checking for duplicate data.. Please wait.......'
-  if (selectedCounty.value.length > 0) {
+  
+  // Apply role-based filters FIRST to ensure county/settlement restrictions are always present
+  pushRoleFilters()
+  
+  // Then add user-selected location filters (only if not county staff, as county staff should be restricted to their county)
+  if (!isCountyStaff.value && selectedCounty.value.length > 0) {
     var selectOption = 'county_id'
     if (!filters.value.includes(selectOption)) {
       filters.value.push(selectOption)
-    }
-    var index = filters.value.indexOf(selectOption)
-    if (filterValues[index]) {
-      filterValues.value.splice(index, 1)
-    }
-    if (!filterValues.value.includes(selectedCounty.value)) {
-      filterValues.value.splice(index, 0, selectedCounty.value)
-    }
-    if (selectedCounty.value.length === 0) {
-      filters.value.splice(index, 1)
+      filterValues.value.push(selectedCounty.value)
+    } else {
+      // Update existing county filter (but role filter takes precedence for county staff)
+      var index = filters.value.indexOf(selectOption)
+      // For non-county staff, allow user selection to override
+      filterValues.value[index] = selectedCounty.value
     }
   }
+  
   if (selectedSubCounty.value.length > 0) {
     var selectOption = 'subcounty_id'
     if (!filters.value.includes(selectOption)) {
       filters.value.push(selectOption)
-    }
-    var index = filters.value.indexOf(selectOption)
-    if (filterValues[index]) {
-      filterValues.value.splice(index, 1)
-    }
-    if (!filterValues.value.includes(selectedSubCounty.value)) {
-      filterValues.value.splice(index, 0, selectedSubCounty.value)
-    }
-    if (selectedSubCounty.value.length === 0) {
-      filters.value.splice(index, 1)
+      filterValues.value.push(selectedSubCounty.value)
+    } else {
+      var index = filters.value.indexOf(selectOption)
+      filterValues.value[index] = selectedSubCounty.value
     }
   }
+  
   if (selectedWard.value.length > 0) {
     var selectOption = 'ward_id'
     if (!filters.value.includes(selectOption)) {
       filters.value.push(selectOption)
-    }
-    var index = filters.value.indexOf(selectOption)
-    if (filterValues[index]) {
-      filterValues.value.splice(index, 0, selectedWard.value)
-    }
-    if (selectedWard.value.length === 0) {
-      filters.value.splice(index, 1)
+      filterValues.value.push(selectedWard.value)
+    } else {
+      var index = filters.value.indexOf(selectOption)
+      filterValues.value[index] = selectedWard.value
     }
   }
+  
+  // Final check: Ensure role filters are still applied (in case user selections overwrote them)
   pushRoleFilters()
   const formData: any = {}
   formData.limit = pageSize.value
@@ -1232,38 +1266,35 @@ const handleViewOnMap = (data) => {
 const showPagination = ref(true)
 
 const getFilteredBySearchData = async (tab, searchKey) => {
-  if (selectedCounty.value.length > 0) {
+  // Apply role-based filters FIRST to ensure county/settlement restrictions are always present
+  pushRoleFilters()
+  
+  // Then add user-selected location filters (only if not county staff, as county staff should be restricted to their county)
+  if (!isCountyStaff.value && selectedCounty.value.length > 0) {
     var selectOption = 'county_id'
     if (!filters.value.includes(selectOption)) {
       filters.value.push(selectOption)
-    }
-    var index = filters.value.indexOf(selectOption)
-    if (filterValues[index]) {
-      filterValues.value.splice(index, 1)
-    }
-    if (!filterValues.value.includes(selectedCounty.value)) {
-      filterValues.value.splice(index, 0, selectedCounty.value)
-    }
-    if (selectedCounty.value.length === 0) {
-      filters.value.splice(index, 1)
+      filterValues.value.push(selectedCounty.value)
+    } else {
+      // Update existing county filter (but role filter takes precedence for county staff)
+      var index = filters.value.indexOf(selectOption)
+      // For non-county staff, allow user selection to override
+      filterValues.value[index] = selectedCounty.value
     }
   }
+  
   if (selectedSubCounty.value.length > 0) {
     var selectOption = 'subcounty_id'
     if (!filters.value.includes(selectOption)) {
       filters.value.push(selectOption)
-    }
-    var index = filters.value.indexOf(selectOption)
-    if (filterValues[index]) {
-      filterValues.value.splice(index, 1)
-    }
-    if (!filterValues.value.includes(selectedSubCounty.value)) {
-      filterValues.value.splice(index, 0, selectedSubCounty.value)
-    }
-    if (selectedSubCounty.value.length === 0) {
-      filters.value.splice(index, 1)
+      filterValues.value.push(selectedSubCounty.value)
+    } else {
+      var index = filters.value.indexOf(selectOption)
+      filterValues.value[index] = selectedSubCounty.value
     }
   }
+  
+  // Final check: Ensure role filters are still applied (in case user selections overwrote them)
   pushRoleFilters()
   const formData = {}
   formData.limit = pageSize.value
@@ -3454,6 +3485,9 @@ const onSegmentClick = async () => {
     filters.value = ['isApproved', 'isActive']
     filterValues.value = [[selected], ['true']]
   }
+  
+  // Apply role filters to ensure county filter is preserved for county-level users
+  pushRoleFilters()
 
   saveFiltersToStorage()
 

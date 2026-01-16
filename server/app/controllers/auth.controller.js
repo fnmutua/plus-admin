@@ -49,7 +49,7 @@ async function sendSMS(sms_obj, admins_phones) {
   // Check if SMS is enabled for auth module
   const smsEnabled = await isAuthSMSEnabled()
   if (!smsEnabled) {
-    console.log('SMS sending is disabled for auth module. Skipping SMS notification.')
+    console.log('[SMS Registration] SMS sending is disabled for auth module. Skipping SMS notification.')
     return
   }
 
@@ -63,33 +63,38 @@ async function sendSMS(sms_obj, admins_phones) {
     "Please review the account at the following link: " +
     "https://kesmis.go.ke/users/new";
 
+  console.log(`[SMS Registration] Attempting to send registration SMS to ${admins_phones.length} admin(s) for user ${sms_obj.name} (${sms_obj.phone})`);
    
-// Send SMS to each admin in the `admins` list
-for (const phone of admins_phones) {
-  // Check if phone number exists and is valid (not null or undefined)
-  if (phone) {
-    const requestData = {
-      apikey: "***REDACTED***", // Replace with your actual API key
-   partnerID: '12108', // Replace with your actual partner ID
-      shortcode: "KISIP",
-      message: adminMessage,
-      mobile: formatPhoneNumber(phone), // Send the message to the admin's phone number
-    };
+  // Send SMS to each admin in the `admins` list
+  for (const phone of admins_phones) {
+    // Check if phone number exists and is valid (not null or undefined)
+    if (phone && typeof phone === 'string' && phone.trim() !== '') {
+      let formattedPhone;
+      try {
+        formattedPhone = formatPhoneNumber(phone);
+      } catch (error) {
+        console.error(`[SMS Registration] Error formatting admin phone number ${phone}:`, error);
+        continue;
+      }
 
-    try {
-      const response = await axios.post(url, requestData);
-      console.log(`Message sent to admin (${phone}):`, response.data);
-    } catch (error) {
-      console.error(`Error sending message to admin (${phone}):`, error);
+      const requestData = {
+        apikey: "***REDACTED***", // Replace with your actual API key
+        partnerID: '12108', // Replace with your actual partner ID
+        shortcode: "KISIP",
+        message: adminMessage,
+        mobile: formattedPhone, // Send the message to the admin's phone number
+      };
+
+      try {
+        const response = await axios.post(url, requestData);
+        console.log(`[SMS Registration] Message sent successfully to admin (${phone}):`, response.data);
+      } catch (error) {
+        console.error(`[SMS Registration] Error sending message to admin (${phone}):`, error.message || error);
+      }
+    } else {
+      console.warn(`[SMS Registration] Admin phone number is invalid: ${phone}`);
     }
-  } else {
-    console.warn(`Admin ${phone} does not have a valid phone number.`);
   }
-}
-
-
-  
- 
 }
 
 
@@ -97,7 +102,7 @@ async function sendNotification(phone_number, message) {
   // Check if SMS is enabled for auth module
   const smsEnabled = await isAuthSMSEnabled()
   if (!smsEnabled) {
-    console.log('SMS sending is disabled for auth module. Skipping SMS notification.')
+    console.log('[SMS] SMS sending is disabled for auth module. Skipping SMS notification.')
     return
   }
 
@@ -106,7 +111,21 @@ async function sendNotification(phone_number, message) {
 
   // Check if phone number and message are valid
   if (!phone_number || !message) {
-    console.warn("Invalid input: phone_number or message is missing.");
+    console.warn("[SMS] Invalid input: phone_number or message is missing.", { phone_number: !!phone_number, message: !!message });
+    return;
+  }
+
+  // Validate phone number is not empty string
+  if (typeof phone_number === 'string' && phone_number.trim() === '') {
+    console.warn("[SMS] Phone number is empty string.");
+    return;
+  }
+
+  let formattedPhone;
+  try {
+    formattedPhone = formatPhoneNumber(phone_number);
+  } catch (error) {
+    console.error(`[SMS] Error formatting phone number ${phone_number}:`, error);
     return;
   }
 
@@ -115,15 +134,16 @@ async function sendNotification(phone_number, message) {
     partnerID: "12108", // Replace with your actual partner ID
     shortcode: "KISIP",
     message: message,
-    mobile: formatPhoneNumber(phone_number), // Format the phone number
+    mobile: formattedPhone, // Format the phone number
   };
 
   try {
+    console.log(`[SMS] Attempting to send SMS to ${formattedPhone} (original: ${phone_number})`);
     const response = await axios.post(url, requestData);
-    console.log(`Message sent to ${phone_number}:`, response.data);
+    console.log(`[SMS] Message sent successfully to ${phone_number}:`, response.data);
     return response.data; // Return response for further handling if needed
   } catch (error) {
-    console.error(`Error sending message to ${phone_number}:`, error);
+    console.error(`[SMS] Error sending message to ${phone_number}:`, error.message || error);
     throw error; // Rethrow error for caller to handle
   }
 }
@@ -377,36 +397,56 @@ exports.updateUser = async (req, res) => {
 exports.modelActivateUser = async (req, res) => {
   try {
     const { model } = req.query;
-    const { id, isactive } = req.body;
+    const { id, isactive, phone } = req.body;
+
+    console.log(`[User Activation] Starting activation/deactivation process for user ${id}, isactive: ${isactive}, model: ${model}`);
+    console.log(`[User Activation] Request body phone: ${phone || 'N/A'}`);
 
     // Find the user by ID
     const user = await db.models[model].findOne({ where: { id } });
 
     if (!user) {
+      console.error(`[User Activation] User not found with ID ${id}`);
       return res.status(404).send({
         message: 'User not found',
         code: '0001'
       });
     }
 
+    console.log(`[User Activation] User found: ${user.name} (ID: ${user.id}), current isactive: ${user.isactive}, phone: ${user.phone || 'N/A'}`);
+
     // Update the status field
     user.isactive = isactive;
 
     // Save the updated record
     await user.save();
+    console.log(`[User Activation] User status saved: isactive = ${isactive}`);
+
+    // Reload user to ensure we have the latest data
+    await user.reload();
+    console.log(`[User Activation] User reloaded, phone after reload: ${user.phone || 'N/A'}`);
+
+    // Use phone from database, or fallback to request body, or use user object phone
+    const phoneNumber = user.phone || phone || (req.body.phone ? req.body.phone : null);
+    console.log(`[User Activation] Phone number to use: ${phoneNumber || 'N/A'} (from: ${user.phone ? 'database' : phone ? 'request body' : 'none'})`);
 
     // Send SMS notification to the user's phone number
-    if (user.phone) {
+    const hasPhone = phoneNumber && typeof phoneNumber === 'string' && phoneNumber.trim() !== '';
+    console.log(`[User Activation] Phone check - hasPhone: ${hasPhone}, phone value: ${phoneNumber}, type: ${typeof phoneNumber}, isactive: ${isactive}`);
+    
+    if (hasPhone) {
       const statusText = isactive ? 'activated' : 'deactivated';
       const message = `Dear ${user.name || 'User'}, your KeSMIS account has been ${statusText}.`;
       try {
-        await sendNotification(user.phone, message);
+        console.log(`[User Activation] Attempting to send SMS to user ${user.id} (${user.name}) at ${phoneNumber}, isactive: ${isactive}, statusText: ${statusText}`);
+        await sendNotification(phoneNumber, message);
+        console.log(`[User Activation] SMS sent successfully to user ${user.id} (${statusText})`);
       } catch (error) {
         // Log SMS error but don't affect the response
-        console.error(`Failed to send SMS to ${user.phone}:`, smsError.message);
+        console.error(`[User Activation] Failed to send SMS to ${phoneNumber} for user ${user.id}:`, error.message || error);
       }
     } else {
-      console.warn(`No phone number found for user ID ${user.id}`);
+      console.warn(`[User Activation] No valid phone number found for user ID ${user.id} (phone from DB: ${user.phone}, phone from body: ${phone}, isactive: ${isactive})`);
     }
 
     const requestBaseUrl = `${req.protocol}://${req.get('host')}`;
@@ -1594,22 +1634,37 @@ exports.signupViaApp = async (req, res) => {
     // Send OTP via external service (Leopard)
     const smsEnabled = await isAuthSMSEnabled()
     if (smsEnabled) {
-      const url = "https://quicksms.advantasms.com/api/services/sendotp/";
-      const requestData = {
-        apikey: '***REDACTED***',
-        partnerID: '12108',
-        shortcode: 'KISIP',
-        message: 'Your registration code is: ' + otpCode + '.',
-        mobile: req.body.phone,
-      };
+      if (!req.body.phone || req.body.phone.trim() === '') {
+        console.warn('[SMS Registration] No phone number provided for user registration');
+      } else {
+        const url = "https://quicksms.advantasms.com/api/services/sendotp/";
+        let formattedPhone;
+        try {
+          formattedPhone = formatPhoneNumber(req.body.phone);
+        } catch (error) {
+          console.error(`[SMS Registration] Error formatting phone number ${req.body.phone}:`, error);
+          formattedPhone = req.body.phone; // Fallback to original
+        }
 
-      axios.post(url, requestData)
-      .then(response => {
-        console.log('Response:', response.data);
-      })
-      .catch(error => {
-        console.error('Error:', error);
-      });
+        const requestData = {
+          apikey: '***REDACTED***',
+          partnerID: '12108',
+          shortcode: 'KISIP',
+          message: 'Your registration code is: ' + otpCode + '.',
+          mobile: formattedPhone,
+        };
+
+        console.log(`[SMS Registration] Attempting to send OTP SMS to ${formattedPhone} (original: ${req.body.phone})`);
+        axios.post(url, requestData)
+        .then(response => {
+          console.log('[SMS Registration] OTP SMS sent successfully:', response.data);
+        })
+        .catch(error => {
+          console.error('[SMS Registration] Error sending OTP SMS:', error.message || error);
+        });
+      }
+    } else {
+      console.log('[SMS Registration] SMS sending is disabled for auth module. Skipping OTP SMS.');
     }
 
     // Send response to client
@@ -1729,24 +1784,39 @@ exports.signupGRC = async (req, res) => {
     // Send OTP via external service (Leopard)
     const smsEnabled = await isAuthSMSEnabled()
     if (smsEnabled) {
-      const url = "https://quicksms.advantasms.com/api/services/sendotp/";
-      const requestData = {
-        apikey: '***REDACTED***',
-        partnerID: '12108',
-        shortcode: 'KISIP',
-        //message: 'Your registration code is: ' + otpCode + '.',
-       // message: 'An account has been set up for you to manage Grievances from your settlement. Please download the Slum Mapper app from the Play Store(Android or IOS) and log in using the given OTP: ' + otpCode + '.',
-        message: `Hi ${name}, an account has been set up for you to manage grievances from your settlement. Please download the Slum Mapper app from the Play Store - https://play.google.com/store/apps/details?id=co.ke.ags.slum.mapper  and log in using your phone as username: ${phone} and password:${password}. A version for IOS is  available for Iphone users.`,
-        mobile: req.body.phone,
-      };
+      if (!req.body.phone || req.body.phone.trim() === '') {
+        console.warn('[SMS Registration GRC] No phone number provided for user registration');
+      } else {
+        const url = "https://quicksms.advantasms.com/api/services/sendotp/";
+        let formattedPhone;
+        try {
+          formattedPhone = formatPhoneNumber(req.body.phone);
+        } catch (error) {
+          console.error(`[SMS Registration GRC] Error formatting phone number ${req.body.phone}:`, error);
+          formattedPhone = req.body.phone; // Fallback to original
+        }
 
-      axios.post(url, requestData)
-      .then(response => {
-        console.log('Response:', response.data);
-      })
-      .catch(error => {
-        console.error('Error:', error);
-      });
+        const requestData = {
+          apikey: '***REDACTED***',
+          partnerID: '12108',
+          shortcode: 'KISIP',
+          //message: 'Your registration code is: ' + otpCode + '.',
+         // message: 'An account has been set up for you to manage Grievances from your settlement. Please download the Slum Mapper app from the Play Store(Android or IOS) and log in using the given OTP: ' + otpCode + '.',
+          message: `Hi ${name}, an account has been set up for you to manage grievances from your settlement. Please download the Slum Mapper app from the Play Store - https://play.google.com/store/apps/details?id=co.ke.ags.slum.mapper  and log in using your phone as username: ${phone} and password:${password}. A version for IOS is  available for Iphone users.`,
+          mobile: formattedPhone,
+        };
+
+        console.log(`[SMS Registration GRC] Attempting to send registration SMS to ${formattedPhone} (original: ${req.body.phone})`);
+        axios.post(url, requestData)
+        .then(response => {
+          console.log('[SMS Registration GRC] Registration SMS sent successfully:', response.data);
+        })
+        .catch(error => {
+          console.error('[SMS Registration GRC] Error sending registration SMS:', error.message || error);
+        });
+      }
+    } else {
+      console.log('[SMS Registration GRC] SMS sending is disabled for auth module. Skipping registration SMS.');
     }
 
     // Send response to client
@@ -1867,24 +1937,39 @@ exports.signupGRM = async (req, res) => {
     // Send OTP via external service (Leopard)
     const smsEnabled = await isAuthSMSEnabled()
     if (smsEnabled) {
-      const url = "https://quicksms.advantasms.com/api/services/sendotp/";
-      const requestData = {
-        apikey: '***REDACTED***',
-        partnerID: '12108',
-        shortcode: 'KISIP',
-        //message: 'Your registration code is: ' + otpCode + '.',
-       // message: 'An account has been set up for you to manage Grievances from your settlement. Please download the Slum Mapper app from the Play Store(Android or IOS) and log in using the given OTP: ' + otpCode + '.',
-        message: `Hi ${name}, an account has been set up for you to manage grievances from your component/county/settlement. Please log in  on https://kesmis.go.ke using your phone as username: ${phone} and password:${password}.`,
-        mobile: req.body.phone,
-      };
+      if (!req.body.phone || req.body.phone.trim() === '') {
+        console.warn('[SMS Registration GRM] No phone number provided for user registration');
+      } else {
+        const url = "https://quicksms.advantasms.com/api/services/sendotp/";
+        let formattedPhone;
+        try {
+          formattedPhone = formatPhoneNumber(req.body.phone);
+        } catch (error) {
+          console.error(`[SMS Registration GRM] Error formatting phone number ${req.body.phone}:`, error);
+          formattedPhone = req.body.phone; // Fallback to original
+        }
 
-      axios.post(url, requestData)
-      .then(response => {
-        console.log('Response:', response.data);
-      })
-      .catch(error => {
-        console.error('Error:', error);
-      });
+        const requestData = {
+          apikey: '***REDACTED***',
+          partnerID: '12108',
+          shortcode: 'KISIP',
+          //message: 'Your registration code is: ' + otpCode + '.',
+         // message: 'An account has been set up for you to manage Grievances from your settlement. Please download the Slum Mapper app from the Play Store(Android or IOS) and log in using the given OTP: ' + otpCode + '.',
+          message: `Hi ${name}, an account has been set up for you to manage grievances from your component/county/settlement. Please log in  on https://kesmis.go.ke using your phone as username: ${phone} and password:${password}.`,
+          mobile: formattedPhone,
+        };
+
+        console.log(`[SMS Registration GRM] Attempting to send registration SMS to ${formattedPhone} (original: ${req.body.phone})`);
+        axios.post(url, requestData)
+        .then(response => {
+          console.log('[SMS Registration GRM] Registration SMS sent successfully:', response.data);
+        })
+        .catch(error => {
+          console.error('[SMS Registration GRM] Error sending registration SMS:', error.message || error);
+        });
+      }
+    } else {
+      console.log('[SMS Registration GRM] SMS sending is disabled for auth module. Skipping registration SMS.');
     }
 
     // Send response to client
