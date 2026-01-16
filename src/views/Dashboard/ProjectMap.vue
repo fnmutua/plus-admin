@@ -246,7 +246,18 @@ const getProjectLocations = async () => {
     }
     
     geojson.value = await computeCentroids(geoData)
-    allProjectsGeo.value = JSON.parse(JSON.stringify(geojson.value))
+    
+    // Deep copy using JSON method (structuredClone may fail with complex GeoJSON objects)
+    try {
+      allProjectsGeo.value = JSON.parse(JSON.stringify(geojson.value))
+    } catch (error) {
+      console.warn('[getProjectLocations] Error copying geojson, using shallow copy:', error)
+      // Fallback to shallow copy if JSON serialization fails
+      allProjectsGeo.value = {
+        type: geojson.value.type,
+        features: [...geojson.value.features]
+      }
+    }
     
     // Add project locations to map immediately
     await addSettlementLayers()
@@ -306,30 +317,31 @@ const getCountyGeoFromLocations = async () => {
 const addCountyLayer = () => {
   if (!map.value || !countyGeo.value) return
   
-  // Remove existing county layer if it exists
-  if (map.value.getLayer('county')) {
-    map.value.removeLayer('county')
-  }
+  // Check if source exists before adding
   if (map.value.getSource('County')) {
-    map.value.removeSource('County')
+    // Update existing source
+    (map.value.getSource('County') as any).setData(countyGeo.value)
+  } else {
+    // Add new source
+    map.value.addSource('County', {
+      type: 'geojson',
+      data: countyGeo.value
+    })
   }
   
-  // Add county source and layer
-  map.value.addSource('County', {
-    type: 'geojson',
-    data: countyGeo.value
-  })
-  
-  map.value.addLayer({
-    id: 'county',
-    type: 'line',
-    source: 'County',
-    paint: {
-      'line-color': 'red',
-      'line-opacity': 1,
-      'line-width': 2
-    }
-  })
+  // Check if layer exists before adding
+  if (!map.value.getLayer('county')) {
+    map.value.addLayer({
+      id: 'county',
+      type: 'line',
+      source: 'County',
+      paint: {
+        'line-color': 'red',
+        'line-opacity': 1,
+        'line-width': 2
+      }
+    })
+  }
 }
 
 // Compute centroids for non-point features
@@ -386,50 +398,74 @@ const addSettlementLayers = async () => {
     return
   }
   
-  // Add project locations source (all converted to points/centroids)
-  map.value.addSource('projectLocations', {
-    type: 'geojson',
-    data: geojson.value
-  })
+  // Check if source exists before adding
+  if (map.value.getSource('projectLocations')) {
+    // Update existing source
+    (map.value.getSource('projectLocations') as any).setData(geojson.value)
+  } else {
+    // Add new source
+    map.value.addSource('projectLocations', {
+      type: 'geojson',
+      data: geojson.value
+    })
+  }
 
   // Add project location points (all features are now points/centroids)
-  map.value.addLayer({
-    id: 'projectLocations',
-    type: 'circle',
-    source: 'projectLocations',
-    paint: {
-      'circle-color': 'green',
-      'circle-radius': 8,
-      'circle-stroke-width': 2,
-      'circle-stroke-color': 'white'
-    }
-  })
+  if (!map.value.getLayer('projectLocations')) {
+    map.value.addLayer({
+      id: 'projectLocations',
+      type: 'circle',
+      source: 'projectLocations',
+      paint: {
+        'circle-color': 'green',
+        'circle-radius': 8,
+        'circle-stroke-width': 2,
+        'circle-stroke-color': 'white'
+      }
+    })
+  }
 
   // Add project location labels
-  map.value.addLayer({
-    id: 'projectLabels',
-    type: 'symbol',
-    source: 'projectLocations',
-    layout: {
-      'text-field': ['concat', ['to-string', ['get', 'name']]],
-    'text-size': 12,
-    'text-offset': [0, 1]
-  },
-    paint: {
-    'text-color': 'red',
-      'text-halo-color': 'white',
-      'text-halo-width': 1
-    }
-  })
+  if (!map.value.getLayer('projectLabels')) {
+    map.value.addLayer({
+      id: 'projectLabels',
+      type: 'symbol',
+      source: 'projectLocations',
+      layout: {
+        'text-field': ['concat', ['to-string', ['get', 'name']]],
+        'text-size': 12,
+        'text-offset': [0, 1]
+      },
+      paint: {
+        'text-color': 'red',
+        'text-halo-color': 'white',
+        'text-halo-width': 1
+      }
+    })
+  }
 
-  // Fit map to bounds
+  // Fit map to bounds with validation
   if (geojson.value.features.length > 0) {
-    const bounds = turf.bbox(geojson.value)
-    const cameraOptions = map.value.cameraForBounds(bounds, { padding: 5 })
-
-  if (cameraOptions) {
-      cameraOptions.zoom = cameraOptions.zoom - 1
-      map.value.easeTo(cameraOptions)
+    try {
+      const bounds = turf.bbox(geojson.value)
+      // Validate bounds before fitting
+      if (bounds && bounds.length === 4 &&
+          isFinite(bounds[0]) && isFinite(bounds[1]) &&
+          isFinite(bounds[2]) && isFinite(bounds[3]) &&
+          bounds[0] >= -180 && bounds[0] <= 180 &&
+          bounds[2] >= -180 && bounds[2] <= 180 &&
+          bounds[1] >= -90 && bounds[1] <= 90 &&
+          bounds[3] >= -90 && bounds[3] <= 90) {
+        const cameraOptions = map.value.cameraForBounds(bounds, { padding: 5 })
+        if (cameraOptions) {
+          cameraOptions.zoom = cameraOptions.zoom - 1
+          map.value.easeTo(cameraOptions)
+        }
+      } else {
+        console.warn('[addSettlementLayers] Invalid bounds, skipping fitBounds')
+      }
+    } catch (error) {
+      console.warn('[addSettlementLayers] Error calculating bounds:', error)
     }
   }
 }
@@ -567,26 +603,52 @@ const handleChangeCounty = async (countyId) => {
       const res = await getOneGeo(geoForm)
       const selectedCountyGeo = res.data[0].json_build_object
 
-      // Add the selected county to map
-    map.value.addSource('County', {
-      type: 'geojson',
-        data: selectedCountyGeo
-      })
+      // Check if source exists before adding
+      if (map.value.getSource('County')) {
+        // Update existing source
+        (map.value.getSource('County') as any).setData(selectedCountyGeo)
+      } else {
+        // Add new source
+        map.value.addSource('County', {
+          type: 'geojson',
+          data: selectedCountyGeo
+        })
+      }
 
-    map.value.addLayer({
-      id: 'county',
-      type: 'line',
-      source: 'County',
-      paint: {
-        'line-color': 'red',
-        'line-opacity': 1,
-          'line-width': 2
+      // Check if layer exists before adding
+      if (!map.value.getLayer('county')) {
+        map.value.addLayer({
+          id: 'county',
+          type: 'line',
+          source: 'County',
+          paint: {
+            'line-color': 'red',
+            'line-opacity': 1,
+            'line-width': 2
+          }
+        })
+      }
+
+      // Fit map to selected county bounds with validation
+      try {
+        if (selectedCountyGeo && selectedCountyGeo.features && selectedCountyGeo.features.length > 0) {
+          const bounds = turf.bbox(selectedCountyGeo)
+          // Validate bounds before fitting
+          if (bounds && bounds.length === 4 &&
+              isFinite(bounds[0]) && isFinite(bounds[1]) &&
+              isFinite(bounds[2]) && isFinite(bounds[3]) &&
+              bounds[0] >= -180 && bounds[0] <= 180 &&
+              bounds[2] >= -180 && bounds[2] <= 180 &&
+              bounds[1] >= -90 && bounds[1] <= 90 &&
+              bounds[3] >= -90 && bounds[3] <= 90) {
+            map.value.fitBounds(bounds, { padding: 20 })
+          } else {
+            console.warn('[handleChangeCounty] Invalid bounds, skipping fitBounds')
+          }
         }
-      })
-
-      // Fit map to selected county bounds
-      const bounds = turf.bbox(selectedCountyGeo)
-      map.value.fitBounds(bounds, { padding: 20 })
+      } catch (error) {
+        console.warn('[handleChangeCounty] Error calculating bounds:', error)
+      }
 
       // Filter project locations for selected county
       await getSubsetGeo(filterFields.value, filterValues.value)
@@ -776,26 +838,52 @@ const loadCountiesFromFilteredProjects = async () => {
       features: countyGeometries.flatMap(geo => geo.features || [geo])
     }
 
-    // Add combined county layer to map
-  map.value.addSource('County', {
-    type: 'geojson',
-      data: combinedCountyGeo
-    })
+    // Check if source exists before adding
+    if (map.value.getSource('County')) {
+      // Update existing source
+      (map.value.getSource('County') as any).setData(combinedCountyGeo)
+    } else {
+      // Add new source
+      map.value.addSource('County', {
+        type: 'geojson',
+        data: combinedCountyGeo
+      })
+    }
 
-  map.value.addLayer({
-    id: 'county',
-    type: 'line',
-    source: 'County',
-    paint: {
-      'line-color': 'red',
-      'line-opacity': 1,
-        'line-width': 2
+    // Check if layer exists before adding
+    if (!map.value.getLayer('county')) {
+      map.value.addLayer({
+        id: 'county',
+        type: 'line',
+        source: 'County',
+        paint: {
+          'line-color': 'red',
+          'line-opacity': 1,
+          'line-width': 2
+        }
+      })
+    }
+
+    // Fit map to show all relevant counties with validation
+    try {
+      if (combinedCountyGeo && combinedCountyGeo.features && combinedCountyGeo.features.length > 0) {
+        const bounds = turf.bbox(combinedCountyGeo)
+        // Validate bounds before fitting
+        if (bounds && bounds.length === 4 &&
+            isFinite(bounds[0]) && isFinite(bounds[1]) &&
+            isFinite(bounds[2]) && isFinite(bounds[3]) &&
+            bounds[0] >= -180 && bounds[0] <= 180 &&
+            bounds[2] >= -180 && bounds[2] <= 180 &&
+            bounds[1] >= -90 && bounds[1] <= 90 &&
+            bounds[3] >= -90 && bounds[3] <= 90) {
+          map.value.fitBounds(bounds, { padding: 20 })
+        } else {
+          console.warn('[loadCountiesFromFilteredProjects] Invalid bounds, skipping fitBounds')
+        }
       }
-    })
-
-    // Fit map to show all relevant counties
-    const bounds = turf.bbox(combinedCountyGeo)
-    map.value.fitBounds(bounds, { padding: 20 })
+    } catch (error) {
+      console.warn('[loadCountiesFromFilteredProjects] Error calculating bounds:', error)
+    }
 
   } catch (error) {
     console.error('Error loading counties from filtered projects:', error)
@@ -958,14 +1046,6 @@ const loadSubcountyGeometries = async (subcountyIds) => {
 
     console.log('Loading subcounty geometries:', subcountyIds)
 
-    // Remove existing subcounty layers
-    if (map.value.getLayer('Subcounty')) {
-      map.value.removeLayer('Subcounty')
-    }
-    if (map.value.getSource('Subcounty')) {
-      map.value.removeSource('Subcounty')
-    }
-
     // Get subcounty geometries for all subcounties
     const subcountyPromises = subcountyIds.map(async (subcountyId) => {
       try {
@@ -982,6 +1062,13 @@ const loadSubcountyGeometries = async (subcountyIds) => {
 
     if (subcountyGeometries.length === 0) {
       console.log('No subcounty geometries loaded')
+      // Remove existing layers if no data
+      if (map.value.getLayer('Subcounty')) {
+        map.value.removeLayer('Subcounty')
+      }
+      if (map.value.getSource('Subcounty')) {
+        map.value.removeSource('Subcounty')
+      }
       return
     }
 
@@ -991,23 +1078,32 @@ const loadSubcountyGeometries = async (subcountyIds) => {
       features: subcountyGeometries.flatMap(geo => geo.features || [geo])
     }
 
-    // Add combined subcounty layer to map
-    map.value.addSource('Subcounty', {
-      type: 'geojson',
-      data: combinedSubcountyGeo
-    })
+    // Check if source exists before adding
+    if (map.value.getSource('Subcounty')) {
+      // Update existing source
+      (map.value.getSource('Subcounty') as any).setData(combinedSubcountyGeo)
+    } else {
+      // Add new source
+      map.value.addSource('Subcounty', {
+        type: 'geojson',
+        data: combinedSubcountyGeo
+      })
+    }
 
-    map.value.addLayer({
-      id: 'Subcounty',
-      type: 'line',
-      source: 'Subcounty',
-      paint: {
-        'line-color': 'blue',
-        'line-opacity': 1,
-        'line-width': 1,
-        'line-dasharray': [2, 2]
-      }
-    })
+    // Check if layer exists before adding
+    if (!map.value.getLayer('Subcounty')) {
+      map.value.addLayer({
+        id: 'Subcounty',
+        type: 'line',
+        source: 'Subcounty',
+        paint: {
+          'line-color': 'blue',
+          'line-opacity': 1,
+          'line-width': 1,
+          'line-dasharray': [2, 2]
+        }
+      })
+    }
 
   } catch (error) {
     console.error('Error loading subcounty geometries:', error)
