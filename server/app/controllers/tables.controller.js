@@ -2049,8 +2049,82 @@ exports.modelOneGeo = async (req, res) => {
       code: '0000',
       message: 'Shapes found. Loading...'
     })
-    // console.log('Found ...', json[0].json_build_object)
-  } 
+  }
+}
+
+// Get settlements with boundary geometry (Polygon/MultiPolygon) for a county
+// This is optimized to only check geometry type, not fetch full geometry
+exports.getSettlementsWithBoundaryGeometry = async (req, res) => {
+  try {
+    const { county_id, settlement_ids } = req.body
+    
+    if (!county_id && !settlement_ids) {
+      return res.status(400).json({
+        message: 'Either county_id or settlement_ids is required',
+        code: 'MISSING_PARAMETER',
+      })
+    }
+
+    let query
+    let replacements = {}
+
+    if (settlement_ids && Array.isArray(settlement_ids) && settlement_ids.length > 0) {
+      // Check specific settlement IDs
+      // Use IN clause with array for better Sequelize compatibility
+      query = `
+        SELECT 
+          id,
+          name,
+          county_id,
+          ST_GeometryType(geom) as geometry_type
+        FROM settlement
+        WHERE geom IS NOT NULL 
+          AND id IN (:settlement_ids)
+          AND (ST_GeometryType(geom) = 'ST_Polygon' OR ST_GeometryType(geom) = 'ST_MultiPolygon')
+      `
+      replacements = { settlement_ids: settlement_ids }
+    } else if (county_id) {
+      // Check all settlements in a county
+      query = `
+        SELECT 
+          id,
+          name,
+          county_id,
+          ST_GeometryType(geom) as geometry_type
+        FROM settlement
+        WHERE geom IS NOT NULL 
+          AND county_id = :county_id
+          AND (ST_GeometryType(geom) = 'ST_Polygon' OR ST_GeometryType(geom) = 'ST_MultiPolygon')
+      `
+      replacements = { county_id }
+    } else {
+      return res.status(400).json({
+        message: 'Invalid parameters',
+        code: 'INVALID_PARAMETER',
+      })
+    }
+
+    const results = await db.sequelize.query(query, {
+      replacements,
+      type: db.sequelize.QueryTypes.SELECT,
+    })
+
+    // Return just the IDs for quick filtering
+    const settlementIds = results.map(row => row.id)
+
+    return res.status(200).json({
+      message: 'Settlements with boundary geometry retrieved successfully',
+      data: settlementIds,
+      code: '0000',
+    })
+  } catch (error) {
+    console.error('❌ Error in getSettlementsWithBoundaryGeometry:', error)
+    return res.status(500).json({
+      message: 'Failed to fetch settlements with boundary geometry',
+      error: error.message,
+      code: 'SERVER_ERROR',
+    })
+  }
 }
 
  

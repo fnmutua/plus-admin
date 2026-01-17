@@ -30,8 +30,7 @@ import {
 } from 'element-plus'
 import { ArrowLeft, Plus, Delete, Check, MoreFilled } from '@element-plus/icons-vue'
 import * as turf from '@turf/turf'
-import { getOneGeo } from '@/api/settlements'
-import { CreateRecord } from '@/api/settlements'
+import { getOneGeo, CreateRecord, getSettlementMapData, updateOneRecord, getSettlementsWithBoundaryGeometry } from '@/api/settlements'
 import { 
   countyOptions, 
   settlementOptionsV2,
@@ -107,6 +106,18 @@ const facilityTypes = [
   { label: 'Piped Water', value: 'pipedwater', model: 'piped_water', geometryType: 'line' },
   { label: 'Sewer', value: 'sewer', model: 'sewer', geometryType: 'line' },
   { label: 'Road', value: 'road', model: 'road', geometryType: 'line' },
+  { label: 'Railway', value: 'railway', model: 'railway', geometryType: 'line' },
+  { label: 'Powerline', value: 'powerline', model: 'powerline', geometryType: 'line' },
+  { label: 'Stream', value: 'stream', model: 'stream', geometryType: 'line' },
+  { label: 'Police Station', value: 'police', model: 'police_station', geometryType: 'point' },
+  { label: 'Community Hall', value: 'communityhall', model: 'community_hall', geometryType: 'point' },
+  { label: 'Crime Hotspot', value: 'crimehotspot', model: 'crime_hotspot', geometryType: 'point' },
+  { label: 'Dumping Site', value: 'dumpingsite', model: 'dumping_site', geometryType: 'point' },
+  { label: 'Floodlight', value: 'floodlight', model: 'floodlight', geometryType: 'point' },
+  { label: 'Street Light', value: 'streetlight', model: 'streetlight', geometryType: 'point' },
+  { label: 'Mast/Telecommunication', value: 'mast', model: 'mast', geometryType: 'point' },
+  { label: 'Road Asset', value: 'roadasset', model: 'road_asset', geometryType: 'point' },
+  { label: 'Hazard Zone', value: 'hazardzone', model: 'hazard_zone', geometryType: 'point' },
   { label: 'Other Facility', value: 'other', model: 'other_facility', geometryType: 'point' }
 ]
 
@@ -169,6 +180,11 @@ const mapClickListener = ref<any>(null)
 const drawerVisible = ref(false)
 const selectedFacilityType = ref<string>('')
 const formRef = ref<FormInstance>()
+
+// Editing state
+const isEditingMode = ref(false)
+const editingFacilityId = ref<number | null>(null)
+const editingFacilityModel = ref<string>('')
 
 // Unified form with all fields
 const facilityForm = reactive({
@@ -305,7 +321,80 @@ const facilityForm = reactive({
   number_vehicles: null,
   date_install: null,
   height: null,
-  hazard: ''
+  hazard: '',
+  
+  // Railway fields
+  number_of_tracks: null,
+  reserve_width_m: null,
+  traffic_railway: '',
+  reserve_encroached: '',
+  rail_tracks_condition: '',
+  reserve_condition: '',
+  
+  // Powerline fields
+  pl_phases: '',
+  pl_type_of_supply: '',
+  
+  // Stream fields
+  stream_width: null,
+  
+  // Police Station fields
+  pc_type: '',
+  pc_number_of_officers: null,
+  pc_number_of_vehicles: null,
+  pc_condition: '',
+  
+  // Community Hall fields
+  community_hall_use: '',
+  community_hall_usage_fee: null,
+  community_hall_condition: '',
+  community_hall_ownership: '',
+  community_hall_owner: '',
+  
+  // Crime Hotspot fields
+  ch_crime_type: '',
+  ch_frequency: '',
+  ch_crime_target: '',
+  ch_offender_type: '',
+  ch_time_of_day: '',
+  ch_num_victims: null,
+  
+  // Dumping Site fields
+  ds_type: '',
+  ds_status: '',
+  ds_type_of_waste: '',
+  ds_year_established: null,
+  
+  // Floodlight fields
+  floodlight_condition: '',
+  floodlight_rating_watts: null,
+  floodlight_height_meters: null,
+  floodlight_date_installed: null,
+  floodlight_sponsor_owner_type: '',
+  floodlight_sponsor_owner: '',
+  
+  // Street Light fields
+  streetlight_road_name: '',
+  streetlight_type: '',
+  streetlight_condition: '',
+  
+  // Mast fields
+  mast_tc_type: '',
+  mast_tc_condition: '',
+  
+  // Road Asset fields
+  road_asset_type: '',
+  road_asset_condition: '',
+  road_id: null,
+  
+  // Hazard Zone fields
+  hazard_zone_place_name: '',
+  hazard_zone_hazard_type: '',
+  hazard_zone_nature: '',
+  hazard_zone_number_of_affected_persons: null,
+  hazard_zone_frequency_of_occurrence: '',
+  hazard_zone_damage_cost: null,
+  hazard_zone_comment: ''
 })
 
 const formRules = reactive({
@@ -425,34 +514,120 @@ const boardingTypeOptions = [
 // Road Options
 const RdClassOptionsLocal = RdClassOptions || []
 
-// Check if settlement has valid geometry
+// Railway Options
+const railwayTrafficOptions = [
+  { label: 'Busy', value: 'busy' },
+  { label: 'Used', value: 'used' },
+  { label: 'Rare', value: 'rare' }
+]
+
+const reserveConditionOptions = [
+  { label: 'Fenced', value: 'Fenced ' },
+  { label: 'Open', value: 'Open ' },
+  { label: 'Bushy', value: 'Bushy ' },
+  { label: 'Cleared', value: 'Cleared ' }
+]
+
+// Powerline Options
+const powerlinePhaseOptions = [
+  { label: 'Single phase', value: 'single' },
+  { label: '3-Phase', value: '3-phase' }
+]
+
+const powerlineSupplyOptions = [
+  { label: 'High Voltage', value: 'hv' },
+  { label: 'Medium Voltage', value: 'mv' },
+  { label: 'Low Voltage', value: 'lv' }
+]
+
+// Police Station Options
+const policeTypeOptions = [
+  { label: 'Police Post', value: 'police_post' },
+  { label: 'Police Station', value: 'police_station' },
+  { label: 'Chiefs Camp', value: 'chief_camp' }
+]
+
+// Crime Hotspot Options
+const crimeTypeOptions = [
+  { label: 'Theft', value: 'theft' },
+  { label: 'Burglary', value: 'burglary' },
+  { label: 'Mugging', value: 'mugging' },
+  { label: 'Murder', value: 'murder' },
+  { label: 'Assault', value: 'assault' },
+  { label: 'Rape', value: 'rape' },
+  { label: 'Child_Abduction', value: 'child_abduction' },
+  { label: 'Child_Abuse', value: 'child_abuse' },
+  { label: 'Terrorism', value: 'terrorism' },
+  { label: 'Armed_Robbery', value: 'armed_robbery' }
+]
+
+const frequencyOptions = [
+  { label: 'Always', value: 'Always' },
+  { label: 'Very Often', value: 'Very_Often' },
+  { label: 'Sometimes', value: 'Sometimes' },
+  { label: 'Rarely', value: 'Rarely' }
+]
+
+const crimeTargetOptions = [
+  { label: 'Men', value: 'men' },
+  { label: 'Women', value: 'women' },
+  { label: 'Youth', value: 'youth' },
+  { label: 'Children', value: 'children' },
+  { label: 'People with Disability', value: 'pwd' },
+  { label: 'The Elderly', value: 'elderly' }
+]
+
+const timeOfDayOptions = [
+  { label: 'Morning', value: 'morning' },
+  { label: 'During the Day', value: 'during_Day' },
+  { label: 'Evening/Afternoon', value: 'evening' },
+  { label: 'Late Night', value: 'late_night' }
+]
+
+// Dumping Site Options
+const dumpingSiteTypeOptions = [
+  { label: 'Official', value: 'official' },
+  { label: 'Unofficial', value: 'unofficial' },
+  { label: 'Temporary', value: 'temporary' }
+]
+
+const wasteTypeOptions = [
+  { label: 'Domestic', value: 'domestic' },
+  { label: 'Industrial', value: 'industrial' },
+  { label: 'Medical', value: 'medical' },
+  { label: 'Mixture of Wastes', value: 'mix' }
+]
+
+// Road Asset Options
+const roadAssetTypeOptions = [
+  { label: 'Bridge', value: 'Bridge' },
+  { label: 'Culvert', value: 'Culvert' },
+  { label: 'Bus Stop', value: 'Bus_Stop' },
+  { label: 'Boda Shed', value: 'Boda_Shed' },
+  { label: 'Streetlights', value: 'Streetlights ' }
+]
+
+// Hazard Zone Options
+const hazardNatureOptions = [
+  { label: 'Past/Current', value: 'Past' },
+  { label: 'Potential', value: 'Potential' }
+]
+
+const hazardConditionOptions = [
+  { label: 'Good', value: 'Good' },
+  { label: 'Fair', value: 'Fair' },
+  { label: 'Poor', value: 'Poor' },
+  { label: 'Critical', value: 'Critical' }
+]
+
+// Check if settlement has valid geometry (using cache)
 const checkSettlementGeometry = async (settlementId: number): Promise<boolean> => {
   if (settlementGeometryCache.value.has(settlementId)) {
     return settlementGeometryCache.value.get(settlementId) || false
   }
-
-  try {
-    const formData = {
-      model: 'settlement',
-      id: settlementId
-    }
-    const res = await getOneGeo(formData)
-
-    if (res.data[0]?.json_build_object?.features?.length > 0) {
-      const feature = res.data[0].json_build_object.features[0]
-      const geometryType = feature.geometry?.type
-      const hasValidGeometry = geometryType === 'Polygon' || geometryType === 'MultiPolygon'
-      settlementGeometryCache.value.set(settlementId, hasValidGeometry)
-      return hasValidGeometry
-    }
-    
-    settlementGeometryCache.value.set(settlementId, false)
-    return false
-  } catch (error) {
-    console.error(`Error checking geometry for settlement ${settlementId}:`, error)
-    settlementGeometryCache.value.set(settlementId, false)
-    return false
-  }
+  // This function is now only used for cache lookup
+  // The actual checking is done via batch endpoint
+  return false
 }
 
 // Handle county selection
@@ -477,23 +652,44 @@ const handleCountyChange = async (countyId: any) => {
       countySettlements = countySettlements.filter((item: any) => item.value === userSettlementId.value)
     }
     
-    const geometryChecks = await Promise.all(
-      countySettlements.map(async (settlement: any) => {
-        const hasValidGeometry = await checkSettlementGeometry(settlement.value)
-        return { settlement, hasValidGeometry }
+    // Use batch endpoint to quickly get settlements with boundary geometry
+    const settlementIds = countySettlements.map((s: any) => s.value)
+    
+    if (settlementIds.length === 0) {
+      filteredSettlements.value = []
+      checkingGeometry.value = false
+      return
+    }
+    
+    const res = await getSettlementsWithBoundaryGeometry({ 
+      settlement_ids: settlementIds 
+    })
+    
+    if (res.code === '0000' && res.data) {
+      const validSettlementIds = new Set(res.data)
+      
+      // Cache the results
+      settlementIds.forEach((id: number) => {
+        settlementGeometryCache.value.set(id, validSettlementIds.has(id))
       })
-    )
-    
-    filteredSettlements.value = geometryChecks
-      .filter(({ hasValidGeometry }) => hasValidGeometry)
-      .map(({ settlement }) => settlement)
-    
-    if (filteredSettlements.value.length === 0) {
-      ElMessage.warning('No settlements with boundary geometry found for this county')
+      
+      // Filter settlements to only those with valid geometry
+      filteredSettlements.value = countySettlements.filter((settlement: any) => 
+        validSettlementIds.has(settlement.value)
+      )
+      
+      if (filteredSettlements.value.length === 0) {
+        ElMessage.warning('No settlements with boundary geometry found for this county')
+      }
+    } else {
+      console.error('Failed to fetch settlements with boundary geometry')
+      ElMessage.error('Failed to filter settlements')
+      filteredSettlements.value = []
     }
   } catch (error) {
     console.error('Error filtering settlements:', error)
     ElMessage.error('Failed to filter settlements')
+    filteredSettlements.value = []
   } finally {
     checkingGeometry.value = false
   }
@@ -502,6 +698,9 @@ const handleCountyChange = async (countyId: any) => {
 // Handle settlement selection and proceed to map
 const handleSettlementChange = async (settlementId: any) => {
   if (!settlementId) return
+
+  // Clear existing facilities when settlement changes
+  clearExistingFacilities()
 
   try {
     const formData = {
@@ -859,6 +1058,348 @@ const initializeMap = async () => {
     console.error('Error initializing Google Maps:', error)
     ElMessage.error('Failed to load map')
   }
+  
+  // Load existing facilities after map is initialized
+  if (selectedSettlement.value) {
+    await loadExistingFacilities()
+  }
+}
+
+// Load existing facilities for the settlement
+const loadExistingFacilities = async () => {
+  if (!selectedSettlement.value || !map.value) return
+  
+  try {
+    console.log('🔄 Loading existing facilities for settlement:', selectedSettlement.value)
+    const res = await getSettlementMapData({ settlementId: String(selectedSettlement.value) })
+    
+    if (!res?.data) {
+      console.log('No facility data received')
+      return
+    }
+    
+    const mapData = res.data
+    console.log('✅ Received facility data:', Object.keys(mapData))
+    
+    // Icon mapping for different facility types
+    const iconMap: Record<string, string> = {
+      health_facility: 'icons/hospital-2.png',
+      education_facility: 'icons/school.png',
+      water_point: 'icons/waterdrop.png',
+      mast: 'icons/tower.png',
+      streetlight: 'icons/lighthouse-2.png',
+      dumping_site: 'icons/landfill.png',
+      hazard_zone: 'icons/caution.png',
+      community_project: 'icons/country.png',
+      community_hall: 'icons/communitycentre.png',
+      police_station: 'icons/police.png',
+      crime_hotspot: 'icons/theft.png',
+      floodlight: 'icons/lighthouse-2.png',
+      road_asset: 'icons/road.png',
+      other_facility: 'icons/amphitheater.png'
+    }
+    
+    // Line styles for linear facilities
+    const lineStyles: Record<string, any> = {
+      road: { strokeColor: 'red', strokeWeight: 3, strokeOpacity: 1 },
+      powerline: { strokeColor: 'green', strokeWeight: 3, strokeOpacity: 1 },
+      sewer: { strokeColor: '#4B0082', strokeWeight: 3, strokeOpacity: 1 },
+      piped_water: { strokeColor: '#00BFFF', strokeWeight: 3, strokeOpacity: 1 },
+      railway: { strokeColor: '#8B4513', strokeWeight: 4, strokeOpacity: 1 },
+      stream: { strokeColor: '#1E90FF', strokeWeight: 2, strokeOpacity: 0.8 }
+    }
+    
+    // Process point facilities
+    const pointModels = ['health_facility', 'education_facility', 'water_point', 'streetlight', 
+                        'crime_hotspot', 'community_project', 'community_hall', 'police_station', 
+                        'mast', 'dumping_site', 'hazard_zone', 'floodlight', 'road_asset', 'other_facility']
+    
+    pointModels.forEach(model => {
+      if (mapData[model]?.features?.length) {
+        mapData[model].features.forEach((feature: any) => {
+          if (feature.geometry?.type === 'Point') {
+            const [lng, lat] = feature.geometry.coordinates
+            const position = { lat, lng }
+            const iconUrl = iconMap[model] || 'icons/amphitheater.png'
+            
+            const marker = new window.google.maps.Marker({
+              position: position,
+              map: map.value,
+              icon: {
+                url: iconUrl,
+                scaledSize: new window.google.maps.Size(30, 30),
+                anchor: new window.google.maps.Point(15, 15)
+              },
+              title: feature.properties?.name || model,
+              zIndex: 500
+            })
+            
+            // Add click listener to edit facility
+            marker.addListener('click', () => {
+              editExistingFacility(feature, model, 'point')
+            })
+            
+            existingFacilityMarkers.value.set(feature.properties?.id || feature.id, marker)
+          }
+        })
+      }
+    })
+    
+    // Process linear facilities
+    const lineModels = ['road', 'powerline', 'sewer', 'piped_water', 'railway', 'stream']
+    
+    lineModels.forEach(model => {
+      if (mapData[model]?.features?.length) {
+        mapData[model].features.forEach((feature: any) => {
+          if (feature.geometry?.type === 'LineString' || feature.geometry?.type === 'MultiLineString') {
+            const lines = feature.geometry.type === 'LineString' 
+              ? [feature.geometry.coordinates] 
+              : feature.geometry.coordinates
+            
+            lines.forEach((line: number[][]) => {
+              const path = line.map(([lng, lat]) => ({ lat, lng }))
+              const style = lineStyles[model] || { strokeColor: '#999999', strokeWeight: 3, strokeOpacity: 0.8 }
+              
+              const polyline = new window.google.maps.Polyline({
+                path: path,
+                map: map.value,
+                ...style,
+                zIndex: 500
+              })
+              
+              // Add click listener to edit facility
+              polyline.addListener('click', () => {
+                editExistingFacility(feature, model, 'line')
+              })
+              
+              existingFacilityPolylines.value.set(feature.properties?.id || feature.id, polyline)
+            })
+          }
+        })
+      }
+    })
+    
+    console.log(`✅ Loaded ${existingFacilityMarkers.value.size} point facilities and ${existingFacilityPolylines.value.size} linear facilities`)
+  } catch (error) {
+    console.error('Error loading existing facilities:', error)
+    ElMessage.warning('Failed to load some existing facilities')
+  }
+}
+
+// Edit existing facility
+const editExistingFacility = (feature: any, model: string, geometryType: 'point' | 'line') => {
+  const properties = feature.properties || {}
+  const facilityId = properties.id || feature.id
+  
+  // Determine facility type from model
+  const facilityTypeMap: Record<string, string> = {
+    health_facility: 'health',
+    education_facility: 'education',
+    water_point: 'water',
+    piped_water: 'pipedwater',
+    sewer: 'sewer',
+    road: 'road',
+    railway: 'railway',
+    powerline: 'powerline',
+    stream: 'stream',
+    police_station: 'police',
+    community_hall: 'communityhall',
+    crime_hotspot: 'crimehotspot',
+    dumping_site: 'dumpingsite',
+    floodlight: 'floodlight',
+    streetlight: 'streetlight',
+    mast: 'mast',
+    road_asset: 'roadasset',
+    hazard_zone: 'hazardzone',
+    other_facility: 'other'
+  }
+  
+  selectedFacilityType.value = facilityTypeMap[model] || ''
+  isEditingMode.value = true
+  editingFacilityId.value = facilityId
+  editingFacilityModel.value = model
+  
+  // Populate form with existing data
+  // First, copy all matching properties
+  Object.keys(facilityForm).forEach(key => {
+    if (properties[key] !== undefined && properties[key] !== null) {
+      facilityForm[key] = properties[key]
+    }
+  })
+  
+  // Map database field names to form field names for new facilities
+  if (model === 'railway') {
+    facilityForm.name = properties.Name_Place_name || properties.name || ''
+    facilityForm.number_of_tracks = properties.Number_of_Tracks
+    facilityForm.reserve_width_m = properties.Reserve_Width_m
+    facilityForm.traffic_railway = properties.Traffic
+    facilityForm.reserve_encroached = properties.reserve_encroached
+    facilityForm.rail_tracks_condition = properties.Rail_tracks_Condition
+    facilityForm.reserve_condition = properties.Reserve_Condition
+  } else if (model === 'powerline') {
+    facilityForm.name = properties.PL_Name || properties.name || ''
+    facilityForm.pl_phases = properties.PL_Phases
+    facilityForm.pl_type_of_supply = properties.PL_Type_of_Supply
+  } else if (model === 'stream') {
+    facilityForm.stream_width = properties.width
+  } else if (model === 'police_station') {
+    facilityForm.name = properties.PC_Name || properties.name || ''
+    facilityForm.pc_type = properties.PC_Type
+    facilityForm.pc_number_of_officers = properties.PC_Number_of_Officers
+    facilityForm.pc_number_of_vehicles = properties.PC_Number_of_Vehicles
+    facilityForm.pc_condition = properties.PC_Condition
+  } else if (model === 'community_hall') {
+    facilityForm.name = properties.community_hall_name || properties.name || ''
+    facilityForm.community_hall_use = properties.use
+    facilityForm.community_hall_usage_fee = properties.usage_fee
+    facilityForm.community_hall_condition = properties.condition
+    facilityForm.community_hall_ownership = properties.ownership
+    facilityForm.community_hall_owner = properties.owner
+  } else if (model === 'crime_hotspot') {
+    facilityForm.name = properties.CH_Name || properties.name || ''
+    facilityForm.ch_crime_type = properties.CH_Crime_Type
+    facilityForm.ch_frequency = properties.CH_Frequency
+    facilityForm.ch_crime_target = properties.CH_Crime_Target
+    facilityForm.ch_offender_type = properties.CH_Offender_Type
+    facilityForm.ch_time_of_day = properties.CH_Time_of_Day
+    facilityForm.ch_num_victims = properties.CH_num_victims
+  } else if (model === 'dumping_site') {
+    facilityForm.name = properties.DS_Name || properties.name || ''
+    facilityForm.ds_type = properties.DS_Type
+    facilityForm.ds_status = properties.DS_Status
+    facilityForm.ds_type_of_waste = properties.DS_Type_of_Waste
+    facilityForm.ds_year_established = properties.DS_Year_Established
+  } else if (model === 'floodlight') {
+    facilityForm.name = properties.Place_name || properties.name || ''
+    facilityForm.floodlight_condition = properties.Condition
+    facilityForm.floodlight_rating_watts = properties.Rating_Watts
+    facilityForm.floodlight_height_meters = properties.Height_Meters
+    facilityForm.floodlight_date_installed = properties.Date_Installed
+    facilityForm.floodlight_sponsor_owner_type = properties.Sponsor_Owner_Type
+    facilityForm.floodlight_sponsor_owner = properties.Sponsor_Owner
+  } else if (model === 'streetlight') {
+    facilityForm.streetlight_road_name = properties.road_name || ''
+    facilityForm.streetlight_type = properties.type
+    facilityForm.streetlight_condition = properties.condition
+    facilityForm.name = properties.road_name || properties.name || ''
+  } else if (model === 'mast') {
+    facilityForm.name = properties.TC_Name || properties.name || ''
+    facilityForm.mast_tc_type = properties.TC_Type
+    facilityForm.mast_tc_condition = properties.TC_Condition
+  } else if (model === 'road_asset') {
+    facilityForm.road_asset_type = properties.asset_type
+    facilityForm.road_asset_condition = properties.asset_condition
+    facilityForm.road_id = properties.road_id
+  } else if (model === 'hazard_zone') {
+    facilityForm.name = properties.place_name || properties.name || ''
+    facilityForm.hazard_zone_place_name = properties.place_name
+    facilityForm.hazard_zone_hazard_type = properties.hazard_type
+    facilityForm.hazard_zone_nature = properties.nature
+    facilityForm.hazard_zone_number_of_affected_persons = properties.number_of_affected_persons
+    facilityForm.hazard_zone_frequency_of_occurrence = properties.frequency_of_occurrence
+    facilityForm.hazard_zone_damage_cost = properties.damage_cost
+    facilityForm.hazard_zone_comment = properties.comment
+  }
+  
+  // Set geometry
+  if (geometryType === 'point' && feature.geometry?.type === 'Point') {
+    const [lng, lat] = feature.geometry.coordinates
+    facilityForm.geom = {
+      type: 'Point',
+      coordinates: [lng, lat],
+      crs: { type: 'name', properties: { name: 'EPSG:4326' } }
+    }
+    
+    // Create or update marker
+    if (facilityMarker.value) {
+      facilityMarker.value.setMap(null)
+    }
+    facilityMarker.value = new window.google.maps.Marker({
+      position: { lat, lng },
+      map: map.value,
+      draggable: true,
+      icon: {
+        url: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png',
+        scaledSize: new window.google.maps.Size(40, 40)
+      },
+      zIndex: 1000
+    })
+    
+    // Add drag listener
+    facilityMarker.value.addListener('dragend', (dragEvent: any) => {
+      const newPosition = {
+        lat: dragEvent.latLng.lat(),
+        lng: dragEvent.latLng.lng()
+      }
+      facilityForm.geom = {
+        type: 'Point',
+        coordinates: [newPosition.lng, newPosition.lat],
+        crs: { type: 'name', properties: { name: 'EPSG:4326' } }
+      }
+    })
+  } else if (geometryType === 'line' && (feature.geometry?.type === 'LineString' || feature.geometry?.type === 'MultiLineString')) {
+    const lines = feature.geometry.type === 'LineString' 
+      ? [feature.geometry.coordinates] 
+      : feature.geometry.coordinates
+    
+    if (lines.length > 0) {
+      const path = lines[0].map(([lng, lat]) => ({ lat, lng }))
+      
+      if (facilityPolyline.value) {
+        facilityPolyline.value.setMap(null)
+      }
+      
+      facilityPolyline.value = new window.google.maps.Polyline({
+        path: path,
+        map: map.value,
+        strokeColor: '#ff0000',
+        strokeWeight: 4,
+        strokeOpacity: 1.0,
+        editable: true,
+        zIndex: 1000
+      })
+      
+      // Update geometry when polyline is edited
+      facilityPolyline.value.addListener('set_at', () => updatePolylineGeometry())
+      facilityPolyline.value.addListener('insert_at', () => updatePolylineGeometry())
+      facilityPolyline.value.addListener('remove_at', () => updatePolylineGeometry())
+      
+      // Set initial geometry
+      updatePolylineGeometry()
+    }
+  }
+  
+  drawerVisible.value = true
+}
+
+// Update polyline geometry when edited
+const updatePolylineGeometry = () => {
+  if (!facilityPolyline.value) return
+  
+  const path = facilityPolyline.value.getPath()
+  const coordinates: number[][] = []
+  
+  path.forEach((latLng: any) => {
+    coordinates.push([latLng.lng(), latLng.lat()])
+  })
+  
+  if (selectedFacilityType.value === 'pipedwater' || selectedFacilityType.value === 'powerline' || selectedFacilityType.value === 'railway') {
+    facilityForm.geom = {
+      type: 'MultiLineString',
+      coordinates: [coordinates],
+      crs: { type: 'name', properties: { name: 'EPSG:4326' } }
+    }
+  } else {
+    facilityForm.geom = {
+      type: 'LineString',
+      coordinates: coordinates,
+      crs: { type: 'name', properties: { name: 'EPSG:4326' } }
+    }
+  }
+  
+  // Recalculate length
+  const length = turf.length({ type: 'LineString', coordinates }, { units: 'meters' })
+  facilityForm.length = Math.round(length * 100) / 100
 }
 
 // Enable marker placement mode
@@ -940,6 +1481,23 @@ const closeDrawer = () => {
   drawerVisible.value = false
   // Don't reset marker or facility type - allow reopening
   markerPlacementMode.value = false
+  // Reset editing mode when closing drawer
+  if (isEditingMode.value) {
+    isEditingMode.value = false
+    editingFacilityId.value = null
+    editingFacilityModel.value = ''
+    // Clear the editing marker/polyline
+    if (facilityMarker.value) {
+      facilityMarker.value.setMap(null)
+      facilityMarker.value = null
+    }
+    if (facilityPolyline.value) {
+      facilityPolyline.value.setMap(null)
+      facilityPolyline.value = null
+    }
+    facilityForm.geom = null
+    resetForm()
+  }
 }
 
 // Open drawer (can be called to reopen after closing)
@@ -969,8 +1527,33 @@ const handleMenuCommand = (command: string) => {
   }
 }
 
+// Clear existing facilities from map
+const clearExistingFacilities = () => {
+  // Clear markers
+  existingFacilityMarkers.value.forEach((marker) => {
+    if (window.google?.maps) {
+      window.google.maps.event.clearInstanceListeners(marker)
+    }
+    marker.setMap(null)
+  })
+  existingFacilityMarkers.value.clear()
+  
+  // Clear polylines
+  existingFacilityPolylines.value.forEach((polyline) => {
+    if (window.google?.maps) {
+      window.google.maps.event.clearInstanceListeners(polyline)
+    }
+    polyline.setMap(null)
+  })
+  existingFacilityPolylines.value.clear()
+}
+
 // Reset form
 const resetForm = () => {
+  // Reset editing state
+  isEditingMode.value = false
+  editingFacilityId.value = null
+  editingFacilityModel.value = ''
   // Store location fields before reset
   const savedSettlementId = facilityForm.settlement_id
   const savedCountyId = facilityForm.county_id
@@ -1303,6 +1886,98 @@ const submitForm = async () => {
             width: facilityForm.width,
             length: facilityForm.length
           })
+        } else if (selectedFacilityType.value === 'railway') {
+          Object.assign(formDataToSubmit, {
+            Name_Place_name: facilityForm.name,
+            Number_of_Tracks: facilityForm.number_of_tracks,
+            Reserve_Width_m: facilityForm.reserve_width_m,
+            Traffic: facilityForm.traffic_railway,
+            reserve_encroached: facilityForm.reserve_encroached,
+            Rail_tracks_Condition: facilityForm.rail_tracks_condition,
+            Reserve_Condition: facilityForm.reserve_condition
+          })
+        } else if (selectedFacilityType.value === 'powerline') {
+          Object.assign(formDataToSubmit, {
+            PL_Name: facilityForm.name,
+            PL_Phases: facilityForm.pl_phases,
+            PL_Type_of_Supply: facilityForm.pl_type_of_supply
+          })
+        } else if (selectedFacilityType.value === 'stream') {
+          Object.assign(formDataToSubmit, {
+            width: facilityForm.stream_width
+          })
+        } else if (selectedFacilityType.value === 'police') {
+          Object.assign(formDataToSubmit, {
+            PC_Name: facilityForm.name,
+            PC_Type: facilityForm.pc_type,
+            PC_Number_of_Officers: facilityForm.pc_number_of_officers,
+            PC_Number_of_Vehicles: facilityForm.pc_number_of_vehicles,
+            PC_Condition: facilityForm.pc_condition
+          })
+        } else if (selectedFacilityType.value === 'communityhall') {
+          Object.assign(formDataToSubmit, {
+            community_hall_name: facilityForm.name,
+            use: facilityForm.community_hall_use,
+            usage_fee: facilityForm.community_hall_usage_fee,
+            condition: facilityForm.community_hall_condition,
+            ownership: facilityForm.community_hall_ownership,
+            owner: facilityForm.community_hall_owner
+          })
+        } else if (selectedFacilityType.value === 'crimehotspot') {
+          Object.assign(formDataToSubmit, {
+            CH_Name: facilityForm.name,
+            CH_Crime_Type: facilityForm.ch_crime_type,
+            CH_Frequency: facilityForm.ch_frequency,
+            CH_Crime_Target: facilityForm.ch_crime_target,
+            CH_Offender_Type: facilityForm.ch_offender_type,
+            CH_Time_of_Day: facilityForm.ch_time_of_day,
+            CH_num_victims: facilityForm.ch_num_victims
+          })
+        } else if (selectedFacilityType.value === 'dumpingsite') {
+          Object.assign(formDataToSubmit, {
+            DS_Name: facilityForm.name,
+            DS_Type: facilityForm.ds_type,
+            DS_Status: facilityForm.ds_status,
+            DS_Type_of_Waste: facilityForm.ds_type_of_waste,
+            DS_Year_Established: facilityForm.ds_year_established
+          })
+        } else if (selectedFacilityType.value === 'floodlight') {
+          Object.assign(formDataToSubmit, {
+            Place_name: facilityForm.name,
+            Condition: facilityForm.floodlight_condition,
+            Rating_Watts: facilityForm.floodlight_rating_watts,
+            Height_Meters: facilityForm.floodlight_height_meters,
+            Date_Installed: facilityForm.floodlight_date_installed,
+            Sponsor_Owner_Type: facilityForm.floodlight_sponsor_owner_type,
+            Sponsor_Owner: facilityForm.floodlight_sponsor_owner
+          })
+        } else if (selectedFacilityType.value === 'streetlight') {
+          Object.assign(formDataToSubmit, {
+            road_name: facilityForm.streetlight_road_name,
+            type: facilityForm.streetlight_type,
+            condition: facilityForm.streetlight_condition
+          })
+        } else if (selectedFacilityType.value === 'mast') {
+          Object.assign(formDataToSubmit, {
+            TC_Name: facilityForm.name,
+            TC_Type: facilityForm.mast_tc_type,
+            TC_Condition: facilityForm.mast_tc_condition
+          })
+        } else if (selectedFacilityType.value === 'roadasset') {
+          Object.assign(formDataToSubmit, {
+            asset_type: facilityForm.road_asset_type,
+            asset_condition: facilityForm.road_asset_condition
+          })
+        } else if (selectedFacilityType.value === 'hazardzone') {
+          Object.assign(formDataToSubmit, {
+            place_name: facilityForm.hazard_zone_place_name || facilityForm.name,
+            hazard_type: facilityForm.hazard_zone_hazard_type,
+            nature: facilityForm.hazard_zone_nature,
+            number_of_affected_persons: facilityForm.hazard_zone_number_of_affected_persons,
+            frequency_of_occurrence: facilityForm.hazard_zone_frequency_of_occurrence,
+            damage_cost: facilityForm.hazard_zone_damage_cost,
+            comment: facilityForm.hazard_zone_comment
+          })
         } else if (selectedFacilityType.value === 'other') {
           Object.assign(formDataToSubmit, {
             type: facilityForm.type,
@@ -1324,26 +1999,53 @@ const submitForm = async () => {
           })
         }
 
-        const res = await CreateRecord(formDataToSubmit)
-        
-        if (res.code === '0000') {
-          ElMessage.success('Facility created successfully')
-          // Add marker to map
-          if (facilityMarker.value && facilityForm.geom) {
-            facilityMarker.value.setIcon({
-              url: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',
-              scaledSize: new window.google.maps.Size(35, 35)
-            })
-            facilityMarker.value.setDraggable(false)
-            facilityMarker.value.setZIndex(1)
+        let res
+        if (isEditingMode.value && editingFacilityId.value) {
+          // Update existing facility
+          formDataToSubmit.id = editingFacilityId.value
+          res = await updateOneRecord(formDataToSubmit)
+          
+          if (res.code === '0000') {
+            ElMessage.success('Facility updated successfully')
+            // Reload existing facilities to reflect changes
+            await clearExistingFacilities()
+            await loadExistingFacilities()
+            // Reset form and editing state
+            resetForm()
+            isEditingMode.value = false
+            editingFacilityId.value = null
+            editingFacilityModel.value = ''
+            drawerVisible.value = false
+            markerPlacementMode.value = false
+          } else {
+            ElMessage.error('Failed to update facility')
           }
-          // Reset form but keep facility type selected for next entry
-          resetForm()
-          drawerVisible.value = false
-          // Keep selectedFacilityType so user can add another facility of same type
-          markerPlacementMode.value = false
         } else {
-          ElMessage.error('Failed to create facility')
+          // Create new facility
+          res = await CreateRecord(formDataToSubmit)
+          
+          if (res.code === '0000') {
+            ElMessage.success('Facility created successfully')
+            // Add marker to map
+            if (facilityMarker.value && facilityForm.geom) {
+              facilityMarker.value.setIcon({
+                url: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+                scaledSize: new window.google.maps.Size(35, 35)
+              })
+              facilityMarker.value.setDraggable(false)
+              facilityMarker.value.setZIndex(1)
+            }
+            // Reload existing facilities to show the new one
+            await clearExistingFacilities()
+            await loadExistingFacilities()
+            // Reset form but keep facility type selected for next entry
+            resetForm()
+            drawerVisible.value = false
+            // Keep selectedFacilityType so user can add another facility of same type
+            markerPlacementMode.value = false
+          } else {
+            ElMessage.error('Failed to create facility')
+          }
         }
       } catch (error) {
         console.error('Error saving facility:', error)
@@ -1585,7 +2287,7 @@ onMounted(async () => {
     <!-- Form Drawer (opens after placing marker) -->
     <el-drawer
       v-model="drawerVisible"
-      title="Add Facility"
+      :title="isEditingMode ? 'Edit Facility' : 'Add Facility'"
       :size="isMobile ? '100%' : '600px'"
       direction="rtl"
       :before-close="closeDrawer"
@@ -1603,6 +2305,7 @@ onMounted(async () => {
             v-model="selectedFacilityType"
             placeholder="Select facility type"
             filterable
+            :disabled="isEditingMode"
             style="width: 100%"
           >
             <el-option
@@ -2146,6 +2849,251 @@ onMounted(async () => {
               <el-input v-model="facilityForm.owner" placeholder="Enter owner/operator" />
             </el-form-item>
           </template>
+
+          <!-- Railway Fields -->
+          <template v-if="selectedFacilityType === 'railway'">
+            <el-form-item label="Number of Tracks">
+              <el-input-number v-model="facilityForm.number_of_tracks" :min="0" style="width: 100%" />
+            </el-form-item>
+            <el-form-item label="Reserve Width (m)">
+              <el-input-number v-model="facilityForm.reserve_width_m" :min="0" :precision="2" style="width: 100%" />
+            </el-form-item>
+            <el-form-item label="Traffic">
+              <el-select v-model="facilityForm.traffic_railway" placeholder="Select traffic" filterable style="width: 100%">
+                <el-option v-for="item in railwayTrafficOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="Reserve Encroached">
+              <el-select v-model="facilityForm.reserve_encroached" placeholder="Select reserve encroached" filterable style="width: 100%">
+                <el-option v-for="item in yesNoPlainOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="Rail Tracks Condition">
+              <el-select v-model="facilityForm.rail_tracks_condition" placeholder="Select condition" filterable style="width: 100%">
+                <el-option v-for="item in conditionOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="Reserve Condition">
+              <el-select v-model="facilityForm.reserve_condition" placeholder="Select reserve condition" filterable style="width: 100%">
+                <el-option v-for="item in reserveConditionOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </el-form-item>
+          </template>
+
+          <!-- Powerline Fields -->
+          <template v-if="selectedFacilityType === 'powerline'">
+            <el-form-item label="Phases">
+              <el-select v-model="facilityForm.pl_phases" placeholder="Select phases" filterable style="width: 100%">
+                <el-option v-for="item in powerlinePhaseOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="Type of Supply">
+              <el-select v-model="facilityForm.pl_type_of_supply" placeholder="Select type of supply" filterable style="width: 100%">
+                <el-option v-for="item in powerlineSupplyOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </el-form-item>
+          </template>
+
+          <!-- Stream Fields -->
+          <template v-if="selectedFacilityType === 'stream'">
+            <el-form-item label="Width">
+              <el-input-number v-model="facilityForm.stream_width" :min="0" :precision="2" style="width: 100%" />
+            </el-form-item>
+          </template>
+
+          <!-- Police Station Fields -->
+          <template v-if="selectedFacilityType === 'police'">
+            <el-form-item label="Type">
+              <el-select v-model="facilityForm.pc_type" placeholder="Select type" filterable style="width: 100%">
+                <el-option v-for="item in policeTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="Number of Officers">
+              <el-input-number v-model="facilityForm.pc_number_of_officers" :min="0" style="width: 100%" />
+            </el-form-item>
+            <el-form-item label="Number of Vehicles">
+              <el-input v-model="facilityForm.pc_number_of_vehicles" placeholder="Enter number of vehicles" />
+            </el-form-item>
+            <el-form-item label="Condition">
+              <el-select v-model="facilityForm.pc_condition" placeholder="Select condition" filterable style="width: 100%">
+                <el-option v-for="item in conditionFacilityOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </el-form-item>
+          </template>
+
+          <!-- Community Hall Fields -->
+          <template v-if="selectedFacilityType === 'communityhall'">
+            <el-form-item label="Use">
+              <el-input v-model="facilityForm.community_hall_use" placeholder="Enter use" />
+            </el-form-item>
+            <el-form-item label="Usage Fee">
+              <el-input-number v-model="facilityForm.community_hall_usage_fee" :min="0" :precision="2" style="width: 100%" />
+            </el-form-item>
+            <el-form-item label="Condition">
+              <el-select v-model="facilityForm.community_hall_condition" placeholder="Select condition" filterable style="width: 100%">
+                <el-option v-for="item in conditionFacilityOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="Ownership">
+              <el-select v-model="facilityForm.community_hall_ownership" placeholder="Select ownership" filterable style="width: 100%">
+                <el-option v-for="item in ownershipOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="Owner">
+              <el-input v-model="facilityForm.community_hall_owner" placeholder="Enter owner" />
+            </el-form-item>
+          </template>
+
+          <!-- Crime Hotspot Fields -->
+          <template v-if="selectedFacilityType === 'crimehotspot'">
+            <el-form-item label="Crime Type">
+              <el-select v-model="facilityForm.ch_crime_type" placeholder="Select crime type" filterable style="width: 100%">
+                <el-option v-for="item in crimeTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="Frequency">
+              <el-select v-model="facilityForm.ch_frequency" placeholder="Select frequency" filterable style="width: 100%">
+                <el-option v-for="item in frequencyOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="Crime Target">
+              <el-input v-model="facilityForm.ch_crime_target" placeholder="Enter crime target (comma-separated)" />
+            </el-form-item>
+            <el-form-item label="Offender Type">
+              <el-input v-model="facilityForm.ch_offender_type" placeholder="Enter offender type" />
+            </el-form-item>
+            <el-form-item label="Time of Day">
+              <el-input v-model="facilityForm.ch_time_of_day" placeholder="Enter time of day (comma-separated)" />
+            </el-form-item>
+            <el-form-item label="Number of Victims per Month">
+              <el-input-number v-model="facilityForm.ch_num_victims" :min="0" style="width: 100%" />
+            </el-form-item>
+          </template>
+
+          <!-- Dumping Site Fields -->
+          <template v-if="selectedFacilityType === 'dumpingsite'">
+            <el-form-item label="Type">
+              <el-input v-model="facilityForm.ds_type" placeholder="Enter type" />
+            </el-form-item>
+            <el-form-item label="Status">
+              <el-select v-model="facilityForm.ds_status" placeholder="Select status" filterable style="width: 100%">
+                <el-option v-for="item in conditionFacilityOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="Type of Waste">
+              <el-input v-model="facilityForm.ds_type_of_waste" placeholder="Enter type of waste (comma-separated)" />
+            </el-form-item>
+            <el-form-item label="Year Established">
+              <el-date-picker
+                v-model="facilityForm.ds_year_established"
+                type="year"
+                placeholder="Select year"
+                style="width: 100%"
+                format="YYYY"
+                value-format="YYYY"
+              />
+            </el-form-item>
+          </template>
+
+          <!-- Floodlight Fields -->
+          <template v-if="selectedFacilityType === 'floodlight'">
+            <el-form-item label="Condition">
+              <el-select v-model="facilityForm.floodlight_condition" placeholder="Select condition" filterable style="width: 100%">
+                <el-option v-for="item in conditionOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="Rating (Watts)">
+              <el-input-number v-model="facilityForm.floodlight_rating_watts" :min="0" :precision="2" style="width: 100%" />
+            </el-form-item>
+            <el-form-item label="Height (Meters)">
+              <el-input-number v-model="facilityForm.floodlight_height_meters" :min="0" :precision="2" style="width: 100%" />
+            </el-form-item>
+            <el-form-item label="Date Installed">
+              <el-date-picker
+                v-model="facilityForm.floodlight_date_installed"
+                type="month"
+                placeholder="Select month"
+                style="width: 100%"
+                format="YYYY-MM"
+                value-format="YYYY-MM"
+              />
+            </el-form-item>
+            <el-form-item label="Sponsor/Owner Type">
+              <el-select v-model="facilityForm.floodlight_sponsor_owner_type" placeholder="Select sponsor/owner type" filterable style="width: 100%">
+                <el-option v-for="item in ownershipOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="Sponsor/Owner">
+              <el-input v-model="facilityForm.floodlight_sponsor_owner" placeholder="Enter sponsor/owner" />
+            </el-form-item>
+          </template>
+
+          <!-- Street Light Fields -->
+          <template v-if="selectedFacilityType === 'streetlight'">
+            <el-form-item label="Road Name">
+              <el-input v-model="facilityForm.streetlight_road_name" placeholder="Enter road name" />
+            </el-form-item>
+            <el-form-item label="Type">
+              <el-input v-model="facilityForm.streetlight_type" placeholder="Enter type" />
+            </el-form-item>
+            <el-form-item label="Condition">
+              <el-select v-model="facilityForm.streetlight_condition" placeholder="Select condition" filterable style="width: 100%">
+                <el-option v-for="item in conditionOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </el-form-item>
+          </template>
+
+          <!-- Mast Fields -->
+          <template v-if="selectedFacilityType === 'mast'">
+            <el-form-item label="Type">
+              <el-input v-model="facilityForm.mast_tc_type" placeholder="Enter type" />
+            </el-form-item>
+            <el-form-item label="Condition">
+              <el-select v-model="facilityForm.mast_tc_condition" placeholder="Select condition" filterable style="width: 100%">
+                <el-option v-for="item in conditionOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </el-form-item>
+          </template>
+
+          <!-- Road Asset Fields -->
+          <template v-if="selectedFacilityType === 'roadasset'">
+            <el-form-item label="Asset Type">
+              <el-select v-model="facilityForm.road_asset_type" placeholder="Select asset type" filterable style="width: 100%">
+                <el-option v-for="item in roadAssetTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="Condition">
+              <el-select v-model="facilityForm.road_asset_condition" placeholder="Select condition" filterable style="width: 100%">
+                <el-option v-for="item in conditionOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </el-form-item>
+          </template>
+
+          <!-- Hazard Zone Fields -->
+          <template v-if="selectedFacilityType === 'hazardzone'">
+            <el-form-item label="Hazard Type">
+              <el-input v-model="facilityForm.hazard_zone_hazard_type" placeholder="Enter hazard type (comma-separated)" />
+            </el-form-item>
+            <el-form-item label="Nature">
+              <el-select v-model="facilityForm.hazard_zone_nature" placeholder="Select nature" filterable style="width: 100%">
+                <el-option v-for="item in hazardNatureOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="Number of Affected Persons">
+              <el-input-number v-model="facilityForm.hazard_zone_number_of_affected_persons" :min="0" style="width: 100%" />
+            </el-form-item>
+            <el-form-item label="Frequency of Occurrence">
+              <el-select v-model="facilityForm.hazard_zone_frequency_of_occurrence" placeholder="Select frequency" filterable style="width: 100%">
+                <el-option v-for="item in frequencyOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="Damage Cost">
+              <el-input-number v-model="facilityForm.hazard_zone_damage_cost" :min="0" :precision="2" style="width: 100%" />
+            </el-form-item>
+            <el-form-item label="Comment">
+              <el-input v-model="facilityForm.hazard_zone_comment" type="textarea" :rows="3" placeholder="Enter comment" />
+            </el-form-item>
+          </template>
         </template>
       </el-form>
 
@@ -2157,7 +3105,7 @@ onMounted(async () => {
             type="primary" 
             @click="submitForm" 
             :icon="Check">
-            Save Facility
+            {{ isEditingMode ? 'Update Facility' : 'Save Facility' }}
           </el-button>
         </div>
       </template>
@@ -2211,7 +3159,7 @@ onMounted(async () => {
 
 .map-container {
   width: 100%;
-  height: 520px;
+  height: 67vh;
   border-radius: 4px;
   overflow: hidden;
   border: 1px solid var(--el-border-color-lighter);
@@ -2294,7 +3242,7 @@ onMounted(async () => {
   }
 
   .map-container {
-    height: 340px;
+    height: 67vh;
   }
 
   .step-content {

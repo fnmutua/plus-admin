@@ -453,6 +453,10 @@ export const getSettlementMapData = (data: { settlementId: string }): Promise<IR
   return request.post({ url: prod + '/api/v1/data/geo/multiple', data })
 }
 
+export const getSettlementsWithBoundaryGeometry = (data: { county_id?: number; settlement_ids?: number[] }): Promise<IResponse<number[]>> => {
+  return request.post({ url: prod + '/api/v1/data/settlements/with-boundary-geometry', data })
+}
+
 // Download geospatial data for multiple settlements as zip
 export const downloadSettlementsGeoData = (data: { settlementIds: number[], filters?: any[], filterValues?: any[] }): Promise<{ blob: Blob, shareLink: string | null, documentId: number | null }> => {
   return request.post({ 
