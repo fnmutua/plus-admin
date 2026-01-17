@@ -33,6 +33,11 @@ import {
 import { uploadToGeoServer, deleteLayer, EditLayerDetails } from '@/api/geoserver';
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 import PermissionWrapper from '@/components/PermissionWrapper.vue';
+import { countyOptions } from '@/views/Facilities/common/index';
+import { getOneGeo } from '@/api/settlements';
+import { useAppStoreWithOut } from '@/store/modules/app';
+import { useCache } from '@/hooks/web/useCache';
+import * as turf from '@turf/turf';
 import axios from 'axios';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
@@ -84,9 +89,44 @@ const serverUrl =  'https://kesmis.go.ke/geoserver/kisip';
 // Note: Now using direct REST API call to https://kesmis.go.ke/geoserver/rest/layers.json
 
 console.log('serverUrl',serverUrl)
+
+// User location-based filtering
+const { wsCache } = useCache();
+const appStore = useAppStoreWithOut();
+const userInfo = wsCache.get(appStore.getUserInfo);
+
+const isSuperAdmin = computed(() => {
+  return userInfo?.roles?.some((role: any) => 
+    role.name === 'super_admin' || role.name === 'root_admin'
+  ) || false;
+});
+
+const hasNationalAccess = computed(() => {
+  return userInfo?.roles?.some((role: any) => 
+    role.user_roles?.location_level === 'national'
+  ) || false;
+});
+
+const userCountyRole = computed(() => {
+  return userInfo?.roles?.find((role: any) => 
+    role.user_roles?.location_level === 'county'
+  );
+});
+
+const userCountyId = computed(() => {
+  return userCountyRole.value?.user_roles?.county_id || null;
+});
+
+const isCountyRestricted = computed(() => {
+  return !isSuperAdmin.value && !hasNationalAccess.value && !!userCountyId.value;
+});
+
 // Reactive refs
 const selOptions = ref<SelectOption[]>([]);
 const tableDataList = ref<Layer[]>([]);
+const allLayers = ref<Layer[]>([]); // Store all layers for filtering
+const selectedCounty = ref<number | undefined>(undefined);
+const countyGeometry = ref<any>(null); // Store county geometry for spatial filtering
 const layerName = ref<string>();
 const bounds = ref<Layer['bbox']>();
 const AddDialogVisible = ref(false);
@@ -282,9 +322,10 @@ const handleSelectLayer = async (lyr: string) => {
     layerName.value = lyr;
     DialogTitle.value = lyr;
 
-    // Get layer information from the already loaded table data
-    const filteredLayers = tableDataList.value.filter((layer) => layer.name === lyr);
-    bounds.value = filteredLayers[0]?.bbox;
+    // Get layer information from the already loaded table data (check both filtered and all layers)
+    const matchingFilteredLayers = filteredLayers.value.filter((layer) => layer.name === lyr);
+    const allLayersMatch = allLayers.value.filter((layer) => layer.name === lyr);
+    bounds.value = matchingFilteredLayers[0]?.bbox || allLayersMatch[0]?.bbox;
     
     if (!bounds.value) {
       ElMessage.error('No bounds found for this layer');
@@ -490,8 +531,10 @@ const deleteLayerStore = async (layer: string) => {
     form.value.storeName = layer;
     const res = await deleteLayer(form.value);
     if (res && res.code === '0000') {
+      allLayers.value = allLayers.value.filter((item) => item.name !== layer);
       tableDataList.value = tableDataList.value.filter((item) => item.name !== layer);
-      totalItems.value = tableDataList.value.length;
+      selOptions.value = selOptions.value.filter((item) => item.value !== layer);
+      totalItems.value = filteredLayers.value.length;
       ElMessage.success('Layer deleted successfully');
     } else {
       ElMessage.error('Deletion failed');
@@ -531,33 +574,46 @@ const saveEdits = async () => {
       EditDialogVisible.value = false;
 
       // Update the table row with the submitted data
-      const layerName = form.value.newLayerName || form.value.oldLayerName;
+      const updatedLayerName = form.value.newLayerName || form.value.oldLayerName || '';
       const layerIndex = tableDataList.value.findIndex(layer => layer.name === form.value.oldLayerName);
       
-      if (layerIndex !== -1) {
+      if (layerIndex !== -1 && updatedLayerName) {
         // Update the layer in the table with the submitted data
         const updatedLayers = [...tableDataList.value];
         updatedLayers[layerIndex] = {
-          name: layerName,
-          title: layerName, // Use the new name as title
+          name: updatedLayerName,
+          title: updatedLayerName, // Use the new name as title
           crs: [form.value.newCrs || 'EPSG:4326'],
           bbox: tableDataList.value[layerIndex].bbox, // Keep existing bbox
         };
         tableDataList.value = updatedLayers;
+        
+        // Also update allLayers
+        const allLayersIndex = allLayers.value.findIndex(layer => layer.name === form.value.oldLayerName);
+        if (allLayersIndex !== -1) {
+          const updatedAllLayers = [...allLayers.value];
+          updatedAllLayers[allLayersIndex] = {
+            name: updatedLayerName,
+            title: updatedLayerName,
+            crs: [form.value.newCrs || 'EPSG:4326'],
+            bbox: allLayers.value[allLayersIndex].bbox,
+          };
+          allLayers.value = updatedAllLayers;
+        }
         
         // Also update the select options
         const optionIndex = selOptions.value.findIndex(option => option.value === form.value.oldLayerName);
         if (optionIndex !== -1) {
           const updatedOptions = [...selOptions.value];
           updatedOptions[optionIndex] = {
-            value: layerName,
-            label: layerName,
+            value: updatedLayerName,
+            label: updatedLayerName,
             bbox: tableDataList.value[layerIndex].bbox,
           };
           selOptions.value = updatedOptions;
         }
         
-        console.log(`✅ Updated table row for layer: ${layerName} with CRS: ${form.value.newCrs}`);
+        console.log(`✅ Updated table row for layer: ${updatedLayerName} with CRS: ${form.value.newCrs}`);
       } else {
         console.warn(`❌ Layer ${form.value.oldLayerName} not found in table for update`);
       }
@@ -586,13 +642,109 @@ const handlePageSizeChange = (newSize: number) => {
   currentPage.value = 1;
 };
 
+// Check if imagery layer bounding box intersects with county geometry
+const bboxIntersectsCounty = (layerBbox: Layer['bbox'], countyGeo: any): boolean => {
+  if (!layerBbox || !countyGeo) return false;
+  
+  try {
+    // Create a bounding box polygon from the imagery layer's bbox
+    const layerBboxPolygon = turf.bboxPolygon([
+      layerBbox.westBoundLongitude,
+      layerBbox.southBoundLatitude,
+      layerBbox.eastBoundLongitude,
+      layerBbox.northBoundLatitude
+    ]);
+    
+    // Get county features (handle both FeatureCollection and single Feature)
+    const countyFeatures = countyGeo.features || [countyGeo];
+    
+    // Check if layer bbox intersects with any county feature
+    for (const feature of countyFeatures) {
+      if (feature.geometry) {
+        const countyFeature = turf.feature(feature.geometry);
+        
+        // Check for intersection
+        if (turf.intersect(layerBboxPolygon, countyFeature)) {
+          return true;
+        }
+        
+        // Also check if layer bbox is completely within county
+        if (turf.booleanContains(countyFeature, layerBboxPolygon)) {
+          return true;
+        }
+        
+        // Check if county is within layer bbox (layer covers the county)
+        if (turf.booleanContains(layerBboxPolygon, countyFeature)) {
+          return true;
+        }
+      }
+    }
+    
+    return false;
+  } catch (error) {
+    console.warn('Error checking bbox intersection:', error);
+    return false;
+  }
+};
+
+// Filter layers by county based on bounding box intersection
+const filterLayersByCounty = (layers: Layer[], countyGeo: any): Layer[] => {
+  if (!countyGeo) return layers;
+  
+  return layers.filter(layer => {
+    return bboxIntersectsCounty(layer.bbox, countyGeo);
+  });
+};
+
+// Computed filtered layers
+const filteredLayers = computed(() => {
+  if (!selectedCounty.value || !countyGeometry.value) {
+    return allLayers.value;
+  }
+  return filterLayersByCounty(allLayers.value, countyGeometry.value);
+});
+
 // Computed paginated data
 const paginatedData = computed(() => {
-  if (!tableDataList.value.length) return [];
+  if (!filteredLayers.value.length) return [];
   const startIndex = (currentPage.value - 1) * pageSize.value;
   const endIndex = startIndex + pageSize.value;
-  return tableDataList.value.slice(startIndex, endIndex);
+  return filteredLayers.value.slice(startIndex, endIndex);
 });
+
+// Computed filtered select options
+const filteredSelOptions = computed(() => {
+  if (!selectedCounty.value) {
+    return selOptions.value;
+  }
+  const filtered = filterLayersByCounty(allLayers.value, selectedCounty.value);
+  return filtered.map((l: Layer) => ({ value: l.name, label: l.name, bbox: l.bbox }));
+});
+
+// Handle county selection change
+const handleCountyChange = async (countyId: number | undefined) => {
+  selectedCounty.value = countyId;
+  currentPage.value = 1; // Reset to first page when filter changes
+  
+  if (countyId) {
+    try {
+      // Fetch county geometry for spatial filtering
+      const geoForm: any = { model: 'county', id: countyId };
+      const res: any = await getOneGeo(geoForm);
+      countyGeometry.value = res.data?.[0]?.json_build_object || res.data || null;
+      
+      if (!countyGeometry.value) {
+        ElMessage.warning('Could not load county geometry for filtering');
+      }
+    } catch (error) {
+      console.error('Error loading county geometry:', error);
+      ElMessage.error('Failed to load county geometry');
+      countyGeometry.value = null;
+    }
+  } else {
+    countyGeometry.value = null;
+  }
+};
 
 // Navigation
 const goBack = () => {
@@ -766,6 +918,7 @@ onMounted(() => {
         throw new Error('No valid layers could be processed');
       }
       
+      allLayers.value = glayers;
       tableDataList.value = glayers;
       totalItems.value = glayers.length;
       loading.value = false;
@@ -778,6 +931,15 @@ onMounted(() => {
         label: layer.name,
         bbox: layer.bbox,
       }));
+      
+      // Apply county filter if one is selected or if user is county-restricted
+      if (selectedCounty.value) {
+        await handleCountyChange(selectedCounty.value);
+      } else if (isCountyRestricted.value && userCountyId.value) {
+        // Auto-select user's county if they are county-restricted
+        selectedCounty.value = userCountyId.value;
+        await handleCountyChange(userCountyId.value);
+      }
       
       if (skippedCount > 0) {
         ElMessage.success(`Loaded ${glayers.length} imagery layers (${skippedCount} layers skipped due to errors)`);
@@ -806,6 +968,7 @@ onMounted(() => {
         }
       ];
       
+      allLayers.value = mockLayers;
       tableDataList.value = mockLayers;
       totalItems.value = mockLayers.length;
       selOptions.value = mockLayers.map(layer => ({
@@ -954,6 +1117,23 @@ const xdownloadImagery = (layerName) => {
       </div>
 
       <el-select
+        v-model="selectedCounty"
+        @change="handleCountyChange"
+        clearable
+        filterable
+        placeholder="Filter by County"
+        style="margin-right: 5px; min-width: 200px"
+        :disabled="isCountyRestricted"
+      >
+        <el-option 
+          v-for="item in countyOptions" 
+          :key="(item as any).value" 
+          :label="(item as any).label" 
+          :value="(item as any).value" 
+        />
+      </el-select>
+
+      <el-select
         v-model="layerName"
         @change="handleSelectLayer"
         clearable
@@ -962,7 +1142,7 @@ const xdownloadImagery = (layerName) => {
         placeholder="Select Imagery"
         style="margin-right: 5px"
       >
-        <el-option v-for="item in selOptions" :key="item.value" :label="item.label" :value="item.value" />
+        <el-option v-for="item in filteredSelOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
 
       <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px">
@@ -1040,12 +1220,15 @@ const xdownloadImagery = (layerName) => {
       v-model:current-page="currentPage"
       v-model:page-size="pageSize"
       :page-sizes="[2, 5, 10, 15, 20, 50, 100]"
-      :total="totalItems"
+      :total="filteredLayers.length"
       :background="true"
       @size-change="handlePageSizeChange"
       @current-change="handlePageChange"
       class="mt-4"
     />
+    <div v-if="selectedCounty" style="margin-top: 10px; font-size: 12px; color: #909399; text-align: center;">
+      Showing {{ filteredLayers.length }} of {{ allLayers.length }} imagery layers
+    </div>
   </el-card>
 
   <el-drawer v-model="AddDialogVisible" :title="DialogTitle" size="75%" direction="rtl">

@@ -975,85 +975,111 @@ const initializeMap = async () => {
     map.value.addListener('dblclick', placeMarker)
 
     // Initialize DrawingManager for line facilities (will be activated when needed)
-    drawingManager.value = new window.google.maps.drawing.DrawingManager({
-      drawingMode: null,
-      drawingControl: false,
-      polylineOptions: {
-        strokeColor: '#ff0000',
-        strokeWeight: 4,
-        strokeOpacity: 1.0
-      }
-    })
-    drawingManager.value.setMap(map.value)
-
-    // Listen for polyline completion
-    window.google.maps.event.addListener(
-      drawingManager.value,
-      'overlaycomplete',
-      (event: any) => {
-        if (event.type === window.google.maps.drawing.OverlayType.POLYLINE) {
-          const polyline = event.overlay
-          facilityPolyline.value = polyline
-
-          // Convert Google Maps Polyline to GeoJSON
-          const path = polyline.getPath()
-          const coordinates: number[][] = []
-          
-          path.forEach((latLng: any) => {
-            coordinates.push([latLng.lng(), latLng.lat()])
+    // Use a helper function to initialize DrawingManager when the library is ready
+    const initDrawingManager = () => {
+      if (window.google?.maps?.drawing?.DrawingManager) {
+        try {
+          drawingManager.value = new window.google.maps.drawing.DrawingManager({
+            drawingMode: null,
+            drawingControl: false,
+            polylineOptions: {
+              strokeColor: '#ff0000',
+              strokeWeight: 4,
+              strokeOpacity: 1.0
+            }
           })
-
-          // Determine geometry type based on facility type
-          let geometry: any
-          if (selectedFacilityType.value === 'pipedwater') {
-            // Piped water uses MultiLineString
-            geometry = {
-              type: 'MultiLineString',
-              coordinates: [coordinates],
-              crs: { type: 'name', properties: { name: 'EPSG:4326' } }
-            }
-          } else {
-            // Roads and sewers use LineString
-            geometry = {
-              type: 'LineString',
-              coordinates: coordinates,
-              crs: { type: 'name', properties: { name: 'EPSG:4326' } }
-            }
-          }
-
-          facilityGeometry.value = geometry
-          facilityForm.geom = geometry
-
-          // Calculate length in meters (always calculate for line geometries)
-          const length = turf.length({ type: 'LineString', coordinates }, { units: 'meters' })
-          const lengthRounded = Math.round(length * 100) / 100 // Round to 2 decimal places
-          console.log('Line length:', lengthRounded, 'meters')
+          drawingManager.value.setMap(map.value)
           
-          // Always store length when a line is drawn (will be used for roads, sewers, piped water)
-          facilityForm.length = lengthRounded
+          // Listen for polyline completion
+          window.google.maps.event.addListener(
+            drawingManager.value,
+            'overlaycomplete',
+            (event: any) => {
+              if (event.type === window.google.maps.drawing.OverlayType.POLYLINE) {
+                const polyline = event.overlay
+                facilityPolyline.value = polyline
 
-          // Disable drawing mode
-          drawingManager.value?.setDrawingMode(null)
-          lineDrawingMode.value = false
+                // Convert Google Maps Polyline to GeoJSON
+                const path = polyline.getPath()
+                const coordinates: number[][] = []
+                
+                path.forEach((latLng: any) => {
+                  coordinates.push([latLng.lng(), latLng.lat()])
+                })
 
-          // Add click listener to open drawer
-          polyline.addListener('click', () => {
-            drawerVisible.value = true
-          })
+                // Determine geometry type based on facility type
+                let geometry: any
+                if (selectedFacilityType.value === 'pipedwater' || 
+                    selectedFacilityType.value === 'powerline' || 
+                    selectedFacilityType.value === 'railway') {
+                  // These use MultiLineString
+                  geometry = {
+                    type: 'MultiLineString',
+                    coordinates: [coordinates],
+                    crs: { type: 'name', properties: { name: 'EPSG:4326' } }
+                  }
+                } else {
+                  // Roads, sewers, streams use LineString
+                  geometry = {
+                    type: 'LineString',
+                    coordinates: coordinates,
+                    crs: { type: 'name', properties: { name: 'EPSG:4326' } }
+                  }
+                }
 
-          // If a point facility type was selected but we drew a line, reset selection
-          if (selectedFacilityType.value) {
-            const facilityType = facilityTypes.find(f => f.value === selectedFacilityType.value)
-            if (facilityType?.geometryType === 'point') {
-              selectedFacilityType.value = ''
+                facilityGeometry.value = geometry
+                facilityForm.geom = geometry
+
+                // Calculate length in meters (always calculate for line geometries)
+                const length = turf.length({ type: 'LineString', coordinates }, { units: 'meters' })
+                const lengthRounded = Math.round(length * 100) / 100 // Round to 2 decimal places
+                console.log('Line length:', lengthRounded, 'meters')
+                
+                // Always store length when a line is drawn (will be used for roads, sewers, piped water)
+                facilityForm.length = lengthRounded
+
+                // Disable drawing mode
+                drawingManager.value?.setDrawingMode(null)
+                lineDrawingMode.value = false
+
+                // Add click listener to open drawer
+                polyline.addListener('click', () => {
+                  drawerVisible.value = true
+                })
+
+                // If a point facility type was selected but we drew a line, reset selection
+                if (selectedFacilityType.value) {
+                  const facilityType = facilityTypes.find(f => f.value === selectedFacilityType.value)
+                  if (facilityType?.geometryType === 'point') {
+                    selectedFacilityType.value = ''
+                  }
+                }
+                
+                // Open drawer
+                drawerVisible.value = true
+              }
             }
-          }
-          
-          // Open drawer
-          drawerVisible.value = true
+          )
+          return true
+        } catch (error) {
+          console.error('Error initializing DrawingManager:', error)
+          drawingManager.value = null
+          return false
         }
       }
-    )
+      return false
+    }
+    
+    // Try to initialize immediately
+    if (!initDrawingManager()) {
+      // If not ready, try again after a short delay
+      setTimeout(() => {
+        if (!initDrawingManager()) {
+          console.warn('Drawing library not loaded yet. DrawingManager will be initialized when needed.')
+          drawingManager.value = null
+        }
+      }, 200)
+    }
   } catch (error) {
     console.error('Error initializing Google Maps:', error)
     ElMessage.error('Failed to load map')
@@ -1415,9 +1441,107 @@ const enableMarkerPlacement = () => {
 
 // Enable line drawing mode
 const enableLineDrawing = () => {
-  if (!drawingManager.value || !window.google) {
+  if (!map.value || !window.google || !window.google.maps) {
     ElMessage.error('Map not initialized. Please wait for the map to load.')
     return
+  }
+  
+  // Check if Drawing library is loaded
+  if (!window.google.maps.drawing || !window.google.maps.drawing.DrawingManager) {
+    ElMessage.error('Drawing library not loaded. Please refresh the page.')
+    return
+  }
+  
+  // Initialize drawingManager if it doesn't exist
+  if (!drawingManager.value) {
+    try {
+      drawingManager.value = new window.google.maps.drawing.DrawingManager({
+        drawingMode: null,
+        drawingControl: false,
+        polylineOptions: {
+          strokeColor: '#ff0000',
+          strokeWeight: 4,
+          strokeOpacity: 1.0
+        }
+      })
+      drawingManager.value.setMap(map.value)
+      
+      // Listen for polyline completion
+      window.google.maps.event.addListener(
+        drawingManager.value,
+        'overlaycomplete',
+        (event: any) => {
+          if (event.type === window.google.maps.drawing.OverlayType.POLYLINE) {
+            const polyline = event.overlay
+            facilityPolyline.value = polyline
+
+            // Convert Google Maps Polyline to GeoJSON
+            const path = polyline.getPath()
+            const coordinates: number[][] = []
+            
+            path.forEach((latLng: any) => {
+              coordinates.push([latLng.lng(), latLng.lat()])
+            })
+
+            // Determine geometry type based on facility type
+            let geometry: any
+            if (selectedFacilityType.value === 'pipedwater' || 
+                selectedFacilityType.value === 'powerline' || 
+                selectedFacilityType.value === 'railway') {
+              // These use MultiLineString
+              geometry = {
+                type: 'MultiLineString',
+                coordinates: [coordinates],
+                crs: { type: 'name', properties: { name: 'EPSG:4326' } }
+              }
+            } else {
+              // Roads, sewers, streams use LineString
+              geometry = {
+                type: 'LineString',
+                coordinates: coordinates,
+                crs: { type: 'name', properties: { name: 'EPSG:4326' } }
+              }
+            }
+
+            facilityGeometry.value = geometry
+            facilityForm.geom = geometry
+
+            // Calculate length
+            const length = turf.length({ type: 'LineString', coordinates }, { units: 'meters' })
+            facilityForm.length = Math.round(length * 100) / 100
+
+            // Disable drawing mode
+            drawingManager.value?.setDrawingMode(null)
+            lineDrawingMode.value = false
+
+            // Add click listener to open drawer
+            polyline.addListener('click', () => {
+              drawerVisible.value = true
+            })
+
+            // If a point facility type was selected but we drew a line, reset selection
+            if (selectedFacilityType.value) {
+              const facilityType = facilityTypes.find(f => f.value === selectedFacilityType.value)
+              if (facilityType?.geometryType === 'point') {
+                selectedFacilityType.value = ''
+              }
+            }
+            
+            // Open drawer
+            drawerVisible.value = true
+          }
+        }
+      )
+    } catch (error) {
+      console.error('Error initializing DrawingManager:', error)
+      ElMessage.error('Failed to initialize drawing tools. Please refresh the page.')
+      return
+    }
+  }
+  
+  // Ensure drawingManager is attached to the map
+  if (drawingManager.value.getMap() !== map.value) {
+    drawingManager.value.setMap(map.value)
   }
   
   // Disable marker placement if active
@@ -1430,9 +1554,15 @@ const enableLineDrawing = () => {
   }
   
   // Enable polyline drawing mode
-  lineDrawingMode.value = true
-  drawingManager.value.setDrawingMode(window.google.maps.drawing.OverlayType.POLYLINE)
-  ElMessage.info('Click on the map to start drawing. Double-click to finish the line.')
+  try {
+    lineDrawingMode.value = true
+    drawingManager.value.setDrawingMode(window.google.maps.drawing.OverlayType.POLYLINE)
+    ElMessage.info('Click on the map to start drawing. Double-click to finish the line.')
+  } catch (error) {
+    console.error('Error enabling line drawing:', error)
+    ElMessage.error('Failed to enable line drawing. Please try again.')
+    lineDrawingMode.value = false
+  }
 }
 
 // Delete marker
