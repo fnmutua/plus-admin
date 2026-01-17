@@ -1517,7 +1517,7 @@ const editSettlement = () => {
   }
 
   push({
-    name: 'AddSettlementX',
+    name: 'AddSettlementNew',
     query: { id: route.params.id }
 
   });
@@ -1967,14 +1967,22 @@ const generatePDFReport = async () => {
 
     <!-- Header Section -->
     <template #header>
-      <div class="card-header" style="display: flex; align-items: center; justify-content: space-between;">
-        <div>
-          <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
+      <div class="card-header">
+        <div class="card-header-content">
+          <el-button type="primary" plain :icon="Back" @click="goBack" class="back-button">
             Back
           </el-button>
-          {{ profile.name }} Settlement, {{ profile.subcounty }} Subcounty, {{ profile.county }} County
+          <div class="settlement-title">
+            {{ profile.name }} Settlement, {{ profile.subcounty }} Subcounty, {{ profile.county }} County
+          </div>
         </div>
-        <el-button v-if="showAdminButtons && canUserAccessSettlement({id: route.params.id, county_id: profile.county_id}, 'edit')" type="success" :icon="Edit" @click="editSettlement">
+        <el-button 
+          v-if="showAdminButtons && canUserAccessSettlement({id: route.params.id, county_id: profile.county_id}, 'edit')" 
+          type="success" 
+          :icon="Edit" 
+          @click="editSettlement"
+          class="edit-button"
+        >
           Edit
         </el-button>
       </div>
@@ -2533,12 +2541,44 @@ width="300" title="Are you sure to delete this project?"
 
 .card-header {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
   font-weight: bold;
   font-size: 1.2rem;
   color: var(--card-header-color);
   background-color: var(--card-header-bg);
-  padding: 10px;
+  padding: 4px 10px;
   border-radius: 5px;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.card-header-content {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.back-button {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  height: auto;
+}
+
+.settlement-title {
+  flex: 1;
+  min-width: 0;
+  word-wrap: break-word;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.edit-button {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  height: auto;
 }
 
 
@@ -3014,6 +3054,35 @@ width="300" title="Are you sure to delete this project?"
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
+  .card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    padding: 6px;
+    font-size: 1rem;
+  }
+
+  .card-header-content {
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .settlement-title {
+    line-height: 1.2;
+    width: 100%;
+    margin: 0;
+  }
+
+  .back-button,
+  .edit-button {
+    width: 100%;
+    justify-content: center;
+    padding: 3px 8px;
+    height: auto;
+  }
+
   .photo-grid {
     grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
     gap: 12px;

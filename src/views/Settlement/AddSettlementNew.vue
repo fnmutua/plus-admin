@@ -20,8 +20,6 @@ import {
   ElDrawer,
   ElMessage,
   ElMessageBox,
-  ElSteps,
-  ElStep,
   ElRow,
   ElCol,
   ElDivider,
@@ -90,11 +88,6 @@ const filteredCountyOptions = computed(() => {
 
 // Step management
 const currentStep = ref(0)
-const steps = [
-  { title: 'Location', description: 'Select County and Ward' },
-  { title: 'Mark on Map', description: 'Draw settlement boundary' },
-  { title: 'Submit', description: 'Complete settlement details' }
-]
 
 // Step 1: Location Selection - County and Ward
 const selectedCounty = ref<any>(null)
@@ -927,6 +920,11 @@ const submitForm = async () => {
           if (res.code === '0000') {
             ElMessage.success('Settlement updated successfully')
             clearFormAndGeometry()
+            
+            // Redirect to settlement list after successful edit
+            router.push({
+              name: 'List'
+            })
           } else {
             ElMessage.error('Failed to update settlement')
           }
@@ -1381,18 +1379,19 @@ onMounted(async () => {
       <!-- Header -->
       <template #header>
         <div class="header-content">
-          <div class="header-top">
-            <el-button :icon="ArrowLeft" @click="goBack" text>Back</el-button>
-            <h2>{{ isEditMode ? 'Edit Settlement' : 'Add New Settlement' }}</h2>
+          <el-button :icon="ArrowLeft" @click="goBack" text size="small">Back</el-button>
+          <h2 class="header-title">{{ isEditMode ? 'Edit Settlement' : 'Add New Settlement' }}</h2>
+          <div class="header-actions">
+            <el-button 
+              v-if="currentStep === 1" 
+              type="primary" 
+              :icon="UploadFilled" 
+              @click="showUploadDialog = true" 
+              size="small"
+            >
+              Upload GeoJSON/Shapefile
+            </el-button>
           </div>
-          <el-steps :active="currentStep" finish-status="success" align-center class="header-steps">
-            <el-step
-              v-for="(step, index) in steps"
-              :key="index"
-              :title="step.title"
-              :description="step.description"
-            />
-          </el-steps>
         </div>
       </template>
 
@@ -1450,13 +1449,6 @@ onMounted(async () => {
 
       <!-- Step 2: Map with Drawing Tools -->
       <div v-if="currentStep === 1" class="step-content map-step">
-        
-        <div style="margin-bottom: 10px; display: flex; gap: 10px;">
-          <el-button type="primary" :icon="UploadFilled" @click="showUploadDialog = true">
-            Upload GeoJSON/Shapefile
-          </el-button>
-        </div>
-        
         <div ref="mapContainer" class="map-container"></div>
       </div>
     </el-card>
@@ -1771,42 +1763,60 @@ onMounted(async () => {
 
 <style scoped>
 .add-settlement-container {
-  padding: 20px;
+  padding: 8px;
 }
 
 .header-content {
   display: flex;
-  flex-direction: column;
-  gap: 15px;
+  align-items: center;
+  gap: 8px;
+  justify-content: space-between;
 }
 
-.header-top {
+.header-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1;
+  flex: 1;
+}
+
+.header-actions {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 8px;
 }
 
-.header-content h2 {
-  margin: 0;
-  font-size: 24px;
-}
-
-.header-steps {
-  width: 100%;
+/* Reduce el-card header padding */
+:deep(.el-card__header) {
+  padding: 12px 16px;
 }
 
 .step-content {
-  padding: 20px 0;
+  padding: 12px 0;
   min-height: 400px;
 }
 
 .map-step {
   position: relative;
+  padding: 0;
+  margin: 0;
+}
+
+/* Card body padding */
+:deep(.el-card__body) {
+  padding: 16px;
+}
+
+/* When map step is active, set body padding to 8px */
+.add-settlement-container:has(.map-step) :deep(.el-card__body) {
+  padding: 8px;
 }
 
 .map-container {
   width: 100%;
-  height: 520px;
+  height: calc(67vh);
+  min-height: 60vh;
   border-radius: 4px;
   overflow: hidden;
   border: 1px solid var(--el-border-color-lighter);
@@ -1821,11 +1831,25 @@ onMounted(async () => {
 }
 
 @media (max-width: 768px) {
+  .add-settlement-container {
+    padding: 6px;
+  }
+
+  .header-title {
+    font-size: 14px;
+  }
+
+  :deep(.el-card__header) {
+    padding: 8px 12px;
+  }
+
   .map-container {
-    height: 340px;
+    height: calc(67vh);
+    min-height: 60vh;
   }
 
   .step-content {
+    padding: 8px 0;
     min-height: 300px;
   }
 }

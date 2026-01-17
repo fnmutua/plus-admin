@@ -3907,42 +3907,42 @@ duplicateRecords.value.forEach(county => {
       <el-col :xs="24" :sm="24" :md="2" :lg="2" class="max-w-200px">
 
         <div class="max-w-200px">
-          <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
+          <el-button type="primary" plain :icon="Back" @click="goBack" size="small" style="margin-right: 10px;">
             Back
           </el-button>
         </div>
       </el-col>
 
-      <el-col :xs="24" :sm="24" :md="12" :lg="4" v-if="isNationalStaff || isSuperAdmin">
+      <el-col :xs="24" :sm="24" :md="11" :lg="3" v-if="isNationalStaff || isSuperAdmin">
         <el-select
 size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear" multiple clearable
-          filterable collapse-tags placeholder="By County" style=" margin-right: 5px;">
+          filterable collapse-tags placeholder="By County" style="width: 100%; margin-right: 5px;">
           <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </el-col>
 
-      <el-col :xs="24" :sm="24" :md="12" :lg="4">
+      <el-col :xs="24" :sm="24" :md="11" :lg="3">
         <el-select
 :disabled="!value5" size="default" v-model="value5" :onChange="filterBySubCounty" multiple
-          clearable filterable collapse-tags placeholder="By Subcounty" style=" margin-right: 5px;">
+          clearable filterable collapse-tags placeholder="By Subcounty" style="width: 100%; margin-right: 5px;">
           <el-option v-for="item in subcountiesOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </el-col>
 
-      <el-col :xs="24" :sm="24" :md="12" :lg="4">
+      <el-col :xs="24" :sm="24" :md="11" :lg="3">
         <el-select
 :disabled="!value6" size="default" v-model="value6" :onChange="filterByWard" multiple
-          clearable filterable collapse-tags placeholder="By Ward" style=" margin-right: 5px;">
+          clearable filterable collapse-tags placeholder="By Ward" style="width: 100%; margin-right: 5px;">
           <el-option v-for="item in wardOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </el-col>
 
-      <el-col :xs="24" :sm="24" :md="12" :lg="5">
+      <el-col :xs="24" :sm="24" :md="11" :lg="4">
 
         <el-input
 v-model="search_string" clearable :onClear="handleClear"
-          placeholder="Search by name (or part of it).." @change="searchByNewName" class="input-with-select"
-          style=" margin-right: 5px;">
+          placeholder="Search " @change="searchByNewName" class="input-with-select"
+          style="width: 100%; margin-right: 5px;">
           <template #append>
             <el-button v-loading="searchLoading" :icon="Search" :onClick="searchByNewName" />
           </template>
@@ -3952,9 +3952,9 @@ v-model="search_string" clearable :onClear="handleClear"
        
 
 
-      <el-col :xs="24" :sm="24" :md="12" :lg="4">
+      <el-col :xs="24" :sm="24" :md="24" :lg="9">
 
-        <div style="display: flex; align-items: left; gap: 5px;  ">
+        <div style="display: flex; align-items: center; gap: 2px; flex-wrap: wrap;">
 
           <el-tooltip content="Filter By Date" placement="top">
             <el-button @click="DateDialogVisible = true">
@@ -4030,24 +4030,22 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
 
 
     <div v-if="activeSegment === 'Approved'">
+      <el-alert
+        type="info"
+        :closable="false"
+        :show-icon="false"
+        style="margin-top: 8px; margin-bottom: 4px; padding: 6px 12px;">
+        <template #default>
+          <span style="font-size: 12px;">💡 Double-click on any row to view settlement details</span>
+        </template>
+      </el-alert>
       <el-table
-table-layout="auto" 
-:data="tableDataList" @row-dblclick="handleRowDblClick" :show-overflow-tooltip="true" fit 
-        style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName" @expand-change="handleExpand" row-key="id"   :expand-row-keys="expandedRowKeys"
+        table-layout="auto" 
+        :data="tableDataList" @row-dblclick="handleRowDblClick" :show-overflow-tooltip="true" fit 
+        style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName" row-key="id"
         @selection-change="handleSelectionChange">
 
         <el-table-column type="selection" width="55" :selectable="(row) => canUserAccessSettlement(row, 'edit')" />
-        <el-table-column type="expand">
-          <template #default="props">
-
-            <div>
-              <list-documents
-:is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
-                @open-dialog="toggleComponent(props.row)" />
-            </div>
-
-          </template>
-        </el-table-column>
         <!-- NEW: Geometry Icon Column -->
         <el-table-column label="Geom" width="60" sortable :sort-method="sortByGeometry">
           <template #default="{ row }">
@@ -4069,20 +4067,7 @@ table-layout="auto"
 
         <el-table-column label="Name" prop="name" sortable>
           <template #default="{ row }">
-            <div style="position: relative;" @mouseenter="showCopyIcon(row)" @mouseleave="hideCopyIcon(row)">
-              <span>{{ row.name }}</span>
-
-              <el-tooltip class="item" effect="dark" content="History" placement="top">
-                <el-button
-type="primary" v-show="isCopyIconVisible(row)" size="small" :icon="Clock" circle
-                  style="position: absolute; top: 55%; right: 0; transform: translateY(-50%); margin-left: 5px;"
-                  @click="handleRowDblClick(row)" />
-
-              </el-tooltip>
-
-            </div>
-
-
+            <span>{{ row.name }}</span>
           </template>
         </el-table-column>
 
@@ -4182,19 +4167,9 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="page"
     <div v-if="activeSegment === 'New'">
       <el-table
 :data="tableDataListNew" :show-overflow-tooltip="true" style="width: 100% ; margin-top: 10px;" border
-        :row-class-name="tableRowClassName" @expand-change="handleExpand" row-key="id"   :expand-row-keys="expandedRowKeys"
+        :row-class-name="tableRowClassName" row-key="id"
         @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="55" :selectable="(row) => canUserAccessSettlement(row, 'edit')" />
-        <el-table-column type="expand">
-          <template #default="props">
-
-            <div> <list-documents
-:is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
-                @open-dialog="toggleComponent(props.row)" />
-            </div>
-
-          </template>
-        </el-table-column>
         <!-- NEW: Geometry Icon Column -->
         <el-table-column label="Geom" width="60" sortable :sort-method="sortByGeometry">
           <template #default="{ row }">
@@ -4293,19 +4268,6 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="page"
         border :row-class-name="tableRowClassName" @expand-change="handleExpand" row-key="id"   :expand-row-keys="expandedRowKeys"
         @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="55" :selectable="(row) => canUserAccessSettlement(row, 'edit')" />
-        <el-table-column type="expand">
-          <template #default="props">
-            <div m="4">
-              <h3>Documents</h3>
-              <div>
-                <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
-              </div>
-              <el-button
-style="margin-left: 10px; margin-top: 5px" size="small" v-if="showAdminButtons" type="success"
-                :icon="Plus" circle @click="toggleComponent(props.row)" />
-            </div>
-          </template>
-        </el-table-column>
         <el-table-column label="Id" width="80" prop="id" sortable>
           <template #default="scope">
             <div v-if="scope.row.documents.length > 0" style="display: inline-flex; align-items: center;">
@@ -4392,26 +4354,22 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="page"
 
 
     <div v-if="activeSegment === 'Decommissioned'">
+        <el-alert
+          type="info"
+          :closable="false"
+          show-icon
+          style="margin-top: 10px; margin-bottom: 5px;">
+          <template #default>
+            <span style="font-size: 13px;">💡 Double-click on any row to view settlement details</span>
+          </template>
+        </el-alert>
         <el-table
-:data="decommSettlements" :show-overflow-tooltip="true" style="width: 100% ; margin-top: 10px;"
-          border :row-class-name="tableRowClassName" @expand-change="handleExpand" row-key="id"  :expand-row-keys="expandedRowKeys"
+          :data="decommSettlements" :show-overflow-tooltip="true" style="width: 100% ; margin-top: 10px;"
+          border :row-class-name="tableRowClassName" row-key="id"
           @row-dblclick="handleRowDblClick"
           @selection-change="handleSelectionChange"
         >
           <el-table-column type="selection" width="55" :selectable="(row) => canUserAccessSettlement(row, 'edit')" />
-          <el-table-column type="expand">
-            <template #default="props">
-              <div m="4">
-                <h3>Documents</h3>
-                <div>
-                  <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
-                </div>
-                <el-button
-style="margin-left: 10px; margin-top: 5px" size="small" v-if="showAdminButtons" type="success"
-                  :icon="Plus" circle @click="toggleComponent(props.row)" />
-              </div>
-            </template>
-          </el-table-column>
           <el-table-column label="Id" width="80" prop="id" sortable>
             <template #default="scope">
               <div v-if="scope.row.documents.length > 0" style="display: inline-flex; align-items: center;">
