@@ -19,8 +19,6 @@ import {
   ElInputNumber,
   ElDrawer,
   ElMessage,
-  ElSteps,
-  ElStep,
   ElRow,
   ElCol,
   ElDivider,
@@ -1417,15 +1415,12 @@ onMounted(async () => {
       <!-- Header -->
       <template #header>
         <div class="header-content">
-          <el-button :icon="ArrowLeft" @click="goBack" text size="small">Back</el-button>
-           <el-steps :active="currentStep" finish-status="success" class="header-steps" :class="{ 'hide-on-mobile': isMobile }">
-            <el-step
-              v-for="(step, index) in steps"
-              :key="index"
-              :title="step.title"
-              :description="step.description"
-            />
-          </el-steps>
+          <el-button type="primary" plain :icon="ArrowLeft" @click="goBack" class="back-button">
+            Back
+          </el-button>
+          <div class="header-title">
+            Add Facility
+          </div>
         </div>
       </template>
 
@@ -2172,35 +2167,37 @@ onMounted(async () => {
 
 <style scoped>
 .add-facility-container {
-  padding: 20px;
+  padding: 6px;
 }
 
 .add-facility-container :deep(.el-card__body) {
-  padding: 10px 20px;
+  padding: 16px;
 }
 
 .header-content {
   display: flex;
-  flex-direction: row;
   align-items: center;
-  gap: 20px;
-  padding: 0;
+  gap: 8px;
+  justify-content: space-between;
 }
 
-.header-content h2 {
+.header-title {
   margin: 0;
-  font-size: 18px;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.header-steps {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1;
   flex: 1;
-  min-width: 0;
 }
 
-.hide-on-mobile {
-  display: none;
+.back-button {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  height: auto;
+}
+
+/* Reduce el-card header padding */
+:deep(.el-card__header) {
+  padding: 8px 12px;
 }
 
 .step-content {
@@ -2284,16 +2281,24 @@ onMounted(async () => {
 }
 
 @media (max-width: 768px) {
+  .add-facility-container {
+    padding: 6px;
+  }
+
+  .header-title {
+    font-size: 14px;
+  }
+
+  :deep(.el-card__header) {
+    padding: 8px 12px;
+  }
+
   .map-container {
     height: 340px;
   }
 
   .step-content {
     min-height: 300px;
-  }
-
-  .hide-on-mobile {
-    display: none !important;
   }
 
   .map-controls {
