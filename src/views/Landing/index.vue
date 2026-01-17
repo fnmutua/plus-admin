@@ -164,6 +164,127 @@
                               </div>
                             </div>
                           </el-carousel-item>
+                          <el-carousel-item>
+                            <div class="preview-chart map-chart">
+                              <div class="map-chart-container">
+                                <svg
+                                  viewBox="0 0 200 150"
+                                  class="map-svg"
+                                >
+                                  <!-- Background -->
+                                  <rect
+                                    x="0"
+                                    y="0"
+                                    width="200"
+                                    height="150"
+                                    fill="#E8F5E9"
+                                  />
+                                  <!-- Land/Area shapes -->
+                                  <path
+                                    d="M 20 30 L 60 25 L 80 50 L 70 80 L 40 85 L 15 60 Z"
+                                    fill="#C8E6C9"
+                                    stroke="#81C784"
+                                    stroke-width="1"
+                                  />
+                                  <path
+                                    d="M 100 20 L 150 15 L 180 40 L 170 70 L 130 75 L 95 50 Z"
+                                    fill="#C8E6C9"
+                                    stroke="#81C784"
+                                    stroke-width="1"
+                                  />
+                                  <path
+                                    d="M 50 90 L 120 85 L 150 110 L 140 130 L 80 135 L 45 110 Z"
+                                    fill="#C8E6C9"
+                                    stroke="#81C784"
+                                    stroke-width="1"
+                                  />
+                                  <!-- Markers/Pins -->
+                                  <circle
+                                    cx="50"
+                                    cy="50"
+                                    r="4"
+                                    fill="#00DC82"
+                                  />
+                                  <circle
+                                    cx="50"
+                                    cy="50"
+                                    r="2"
+                                    fill="#FFFFFF"
+                                  />
+                                  <circle
+                                    cx="130"
+                                    cy="45"
+                                    r="4"
+                                    fill="#409EFF"
+                                  />
+                                  <circle
+                                    cx="130"
+                                    cy="45"
+                                    r="2"
+                                    fill="#FFFFFF"
+                                  />
+                                  <circle
+                                    cx="100"
+                                    cy="100"
+                                    r="4"
+                                    fill="#E6A23C"
+                                  />
+                                  <circle
+                                    cx="100"
+                                    cy="100"
+                                    r="2"
+                                    fill="#FFFFFF"
+                                  />
+                                  <!-- Grid lines -->
+                                  <line
+                                    x1="0"
+                                    y1="50"
+                                    x2="200"
+                                    y2="50"
+                                    stroke="#BDBDBD"
+                                    stroke-width="0.5"
+                                    opacity="0.3"
+                                  />
+                                  <line
+                                    x1="0"
+                                    y1="100"
+                                    x2="200"
+                                    y2="100"
+                                    stroke="#BDBDBD"
+                                    stroke-width="0.5"
+                                    opacity="0.3"
+                                  />
+                                  <line
+                                    x1="50"
+                                    y1="0"
+                                    x2="50"
+                                    y2="150"
+                                    stroke="#BDBDBD"
+                                    stroke-width="0.5"
+                                    opacity="0.3"
+                                  />
+                                  <line
+                                    x1="100"
+                                    y1="0"
+                                    x2="100"
+                                    y2="150"
+                                    stroke="#BDBDBD"
+                                    stroke-width="0.5"
+                                    opacity="0.3"
+                                  />
+                                  <line
+                                    x1="150"
+                                    y1="0"
+                                    x2="150"
+                                    y2="150"
+                                    stroke="#BDBDBD"
+                                    stroke-width="0.5"
+                                    opacity="0.3"
+                                  />
+                                </svg>
+                              </div>
+                            </div>
+                          </el-carousel-item>
                         </el-carousel>
                       </div>
                     </div>
@@ -927,6 +1048,31 @@ AvgHHSize();
   height: 100%;
   max-width: 150px;
   max-height: 150px;
+}
+
+/* Map Chart Styles */
+.map-chart {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 0.5rem;
+  box-sizing: border-box;
+}
+
+.map-chart-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.map-svg {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
 }
 
 /* Features Section */
