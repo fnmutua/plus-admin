@@ -11250,3 +11250,387 @@ exports.getAdminUnitsFromCoordinates = async (req, res) => {
     });
   }
 }
+
+// ============================================
+// OPTIMIZED MAP ENDPOINTS
+// ============================================
+
+/**
+ * Get optimized settlements with pre-computed centroids and server-side filtering
+ * Returns only point geometries (centroids) for better performance
+ */
+exports.getOptimizedSettlements = async (req, res) => {
+  try {
+    const { 
+      model = 'settlement',
+      filters = [],
+      filterValues = [],
+      includeCentroids = true,
+      includePolygons = false
+    } = req.query;
+
+    // Parse filters if they're JSON strings
+    let parsedFilters = filters;
+    let parsedFilterValues = filterValues;
+    
+    if (typeof filters === 'string') {
+      try {
+        parsedFilters = JSON.parse(filters);
+      } catch (e) {
+        parsedFilters = [filters];
+      }
+    }
+    
+    if (typeof filterValues === 'string') {
+      try {
+        parsedFilterValues = JSON.parse(filterValues);
+      } catch (e) {
+        parsedFilterValues = [filterValues];
+      }
+    }
+
+    // Validate model exists
+    const modelDefinition = db.models[model];
+    if (!modelDefinition) {
+      return res.status(400).send({
+        error: `Model ${model} not found`,
+        code: 'MODEL_NOT_FOUND'
+      });
+    }
+
+    // Build WHERE clause
+    let whereClause = "geom IS NOT NULL AND ST_IsEmpty(geom) = false";
+    
+    if (parsedFilters.length > 0 && parsedFilterValues.length === parsedFilters.length) {
+      const validColumns = Object.keys(modelDefinition.rawAttributes);
+      const filterConditions = [];
+      
+      parsedFilters.forEach((filter, i) => {
+        if (!validColumns.includes(filter)) {
+          console.warn(`Filter field ${filter} not found in model ${model}, skipping...`);
+          return;
+        }
+        
+        const values = Array.isArray(parsedFilterValues[i]) 
+          ? parsedFilterValues[i] 
+          : [parsedFilterValues[i]];
+        
+        if (values.length === 1) {
+          const value = typeof values[0] === 'string' 
+            ? `'${values[0].replace(/'/g, "''")}'` 
+            : values[0];
+          filterConditions.push(`${filter} = ${value}`);
+        } else if (values.length > 1) {
+          const escapedValues = values.map(v => 
+            typeof v === 'string' ? `'${v.replace(/'/g, "''")}'` : v
+          );
+          filterConditions.push(`${filter} IN (${escapedValues.join(', ')})`);
+        }
+      });
+      
+      if (filterConditions.length > 0) {
+        whereClause = filterConditions.join(' AND ') + ' AND ' + whereClause;
+      }
+    }
+
+    // Get columns for properties
+    const columnsQuery = `
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = :table
+        AND column_name != 'geom'
+    `;
+    const columnResults = await db.sequelize.query(columnsQuery, {
+      replacements: { table: model },
+      type: db.sequelize.QueryTypes.SELECT,
+    });
+
+    const columns = columnResults.map(row => `"${row.column_name}"`).join(', ');
+    const propertiesClause = columns 
+      ? `json_strip_nulls(row_to_json((SELECT x FROM (SELECT ${columns}) x))) AS properties`
+      : `json_build_object('id', id) AS properties`;
+
+    // Build optimized query - compute centroids on backend for non-point geometries
+    const geometryClause = includeCentroids
+      ? `CASE 
+          WHEN ST_GeometryType(geom) = 'ST_Point' THEN ST_AsGeoJSON(geom, 8)::json
+          ELSE ST_AsGeoJSON(ST_Centroid(geom), 8)::json
+        END AS geometry`
+      : `ST_AsGeoJSON(geom, 8)::json AS geometry`;
+
+    const qry = `
+      SELECT row_to_json(fc) AS json_build_object 
+      FROM (
+        SELECT 'FeatureCollection' AS type, 
+               array_to_json(array_agg(f)) AS features 
+        FROM (
+          SELECT 'Feature' AS type,
+                 ${geometryClause},
+                 ${propertiesClause}
+          FROM ${model}
+          WHERE ${whereClause}
+        ) AS f
+      ) AS fc
+    `;
+
+    console.log(`[getOptimizedSettlements] Fetching ${model} with ${parsedFilters.length} filters`);
+
+    const result_geo = await db.sequelize.query(qry, {
+      type: db.sequelize.QueryTypes.SELECT,
+      mapToModel: false,
+    });
+
+    const geojson = result_geo[0]?.json_build_object || { type: 'FeatureCollection', features: [] };
+
+    console.log(`[getOptimizedSettlements] Returning ${geojson.features?.length || 0} features`);
+
+    res.status(200).send({
+      data: geojson,
+      code: '0000',
+      message: 'Success'
+    });
+
+  } catch (error) {
+    console.error('Error in getOptimizedSettlements:', error);
+    res.status(500).send({
+      message: 'Internal server error',
+      code: 'SERVER_ERROR',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Get batch geometries for multiple IDs (counties, subcounties, etc.)
+ * Optimized for loading multiple geometries at once
+ */
+exports.getBatchGeometries = async (req, res) => {
+  try {
+    const { model, ids, cache_key } = req.body;
+
+    if (!model) {
+      return res.status(400).send({
+        error: 'Model parameter is required',
+        code: 'MISSING_MODEL'
+      });
+    }
+
+    // Validate model exists
+    const modelDefinition = db.models[model];
+    if (!modelDefinition) {
+      return res.status(400).send({
+        error: `Model ${model} not found`,
+        code: 'MODEL_NOT_FOUND'
+      });
+    }
+
+    let whereClause = "geom IS NOT NULL AND ST_IsEmpty(geom) = false";
+    
+    // If IDs provided, filter by them
+    if (ids && Array.isArray(ids) && ids.length > 0) {
+      const idList = ids.map(id => typeof id === 'string' ? `'${id.replace(/'/g, "''")}'` : id).join(', ');
+      whereClause = `id IN (${idList}) AND ${whereClause}`;
+    }
+
+    // Build optimized query
+    const qry = `
+      SELECT row_to_json(fc) AS json_build_object 
+      FROM (
+        SELECT 'FeatureCollection' AS type, 
+               array_to_json(array_agg(f)) AS features 
+        FROM (
+          SELECT 'Feature' AS type,
+                 ST_AsGeoJSON(geom, 8)::json AS geometry,
+                 json_build_object('id', id, 'name', name) AS properties
+          FROM ${model}
+          WHERE ${whereClause}
+        ) AS f
+      ) AS fc
+    `;
+
+    console.log(`[getBatchGeometries] Fetching ${model}${ids ? ` with ${ids.length} IDs` : ' (all)'}`);
+
+    const result_geo = await db.sequelize.query(qry, {
+      type: db.sequelize.QueryTypes.SELECT,
+      mapToModel: false,
+    });
+
+    const geojson = result_geo[0]?.json_build_object || { type: 'FeatureCollection', features: [] };
+
+    console.log(`[getBatchGeometries] Returning ${geojson.features?.length || 0} features`);
+
+    res.status(200).send({
+      data: geojson,
+      code: '0000',
+      message: 'Success'
+    });
+
+  } catch (error) {
+    console.error('Error in getBatchGeometries:', error);
+    res.status(500).send({
+      message: 'Internal server error',
+      code: 'SERVER_ERROR',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Get counties list (optimized, no geometry)
+ */
+exports.getCountiesList = async (req, res) => {
+  try {
+    const { 
+      model = 'county',
+      filters = [],
+      filterValues = [],
+      cache_key
+    } = req.query;
+
+    // Parse filters if they're JSON strings
+    let parsedFilters = filters;
+    let parsedFilterValues = filterValues;
+    
+    if (typeof filters === 'string') {
+      try {
+        parsedFilters = JSON.parse(filters);
+      } catch (e) {
+        parsedFilters = [filters];
+      }
+    }
+    
+    if (typeof filterValues === 'string') {
+      try {
+        parsedFilterValues = JSON.parse(filterValues);
+      } catch (e) {
+        parsedFilterValues = [filterValues];
+      }
+    }
+
+    // Validate model exists
+    const modelDefinition = db.models[model];
+    if (!modelDefinition) {
+      return res.status(400).send({
+        error: `Model ${model} not found`,
+        code: 'MODEL_NOT_FOUND'
+      });
+    }
+
+    // Build WHERE clause
+    let whereClause = "1=1";
+    
+    if (parsedFilters.length > 0 && parsedFilterValues.length === parsedFilters.length) {
+      const validColumns = Object.keys(modelDefinition.rawAttributes);
+      const filterConditions = [];
+      
+      parsedFilters.forEach((filter, i) => {
+        if (!validColumns.includes(filter)) {
+          return;
+        }
+        
+        const values = Array.isArray(parsedFilterValues[i]) 
+          ? parsedFilterValues[i] 
+          : [parsedFilterValues[i]];
+        
+        if (values.length === 1) {
+          const value = typeof values[0] === 'string' 
+            ? `'${values[0].replace(/'/g, "''")}'` 
+            : values[0];
+          filterConditions.push(`${filter} = ${value}`);
+        } else if (values.length > 1) {
+          const escapedValues = values.map(v => 
+            typeof v === 'string' ? `'${v.replace(/'/g, "''")}'` : v
+          );
+          filterConditions.push(`${filter} IN (${escapedValues.join(', ')})`);
+        }
+      });
+      
+      if (filterConditions.length > 0) {
+        whereClause = filterConditions.join(' AND ');
+      }
+    }
+
+    // Query without geometry for better performance
+    const qry = `
+      SELECT id, name, code
+      FROM ${model}
+      WHERE ${whereClause}
+      ORDER BY name ASC
+    `;
+
+    const results = await db.sequelize.query(qry, {
+      type: db.sequelize.QueryTypes.SELECT,
+      mapToModel: false,
+    });
+
+    res.status(200).send({
+      data: results,
+      code: '0000',
+      message: 'Success'
+    });
+
+  } catch (error) {
+    console.error('Error in getCountiesList:', error);
+    res.status(500).send({
+      message: 'Internal server error',
+      code: 'SERVER_ERROR',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Get subcounties list for a county (optimized, no geometry)
+ */
+exports.getSubcountiesList = async (req, res) => {
+  try {
+    const { 
+      model = 'subcounty',
+      county_id
+    } = req.query;
+
+    if (!county_id) {
+      return res.status(400).send({
+        error: 'county_id parameter is required',
+        code: 'MISSING_COUNTY_ID'
+      });
+    }
+
+    // Validate model exists
+    const modelDefinition = db.models[model];
+    if (!modelDefinition) {
+      return res.status(400).send({
+        error: `Model ${model} not found`,
+        code: 'MODEL_NOT_FOUND'
+      });
+    }
+
+    // Query without geometry for better performance
+    const qry = `
+      SELECT id, name, code, county_id
+      FROM ${model}
+      WHERE county_id = :county_id
+      ORDER BY name ASC
+    `;
+
+    const results = await db.sequelize.query(qry, {
+      replacements: { county_id },
+      type: db.sequelize.QueryTypes.SELECT,
+      mapToModel: false,
+    });
+
+    res.status(200).send({
+      data: results,
+      code: '0000',
+      message: 'Success'
+    });
+
+  } catch (error) {
+    console.error('Error in getSubcountiesList:', error);
+    res.status(500).send({
+      message: 'Internal server error',
+      code: 'SERVER_ERROR',
+      error: error.message
+    });
+  }
+};

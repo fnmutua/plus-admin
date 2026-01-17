@@ -1061,6 +1061,156 @@ module.exports = function (app) {
    *         description: Bad request - invalid model
    */
   app.get('/api/v1/data/stream/geo',  controller.streamAllGeo)
+
+  /**
+   * @swagger
+   * /api/v1/data/optimized/settlements:
+   *   get:
+   *     tags: [Data]
+   *     summary: Get optimized settlements with pre-computed centroids
+   *     description: Retrieve settlements with server-side filtering and centroids computed on backend for better performance.
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - name: model
+   *         in: query
+   *         required: false
+   *         description: Model name (default: settlement)
+   *         schema:
+   *           type: string
+   *       - name: filters
+   *         in: query
+   *         required: false
+   *         description: JSON array of filter field names
+   *         schema:
+   *           type: string
+   *       - name: filterValues
+   *         in: query
+   *         required: false
+   *         description: JSON array of filter values (corresponding to filters)
+   *         schema:
+   *           type: string
+   *       - name: includeCentroids
+   *         in: query
+   *         required: false
+   *         description: Compute centroids for non-point geometries (default: true)
+   *         schema:
+   *           type: boolean
+   *     responses:
+   *       200:
+   *         description: Optimized settlements retrieved successfully
+   *       400:
+   *         description: Bad request
+   *       500:
+   *         description: Internal server error
+   */
+  app.get('/api/v1/data/optimized/settlements', [authJwt.verifyToken], controller.getOptimizedSettlements)
+
+  /**
+   * @swagger
+   * /api/v1/data/optimized/batch-geo:
+   *   post:
+   *     tags: [Data]
+   *     summary: Get batch geometries for multiple IDs
+   *     description: Retrieve geometries for multiple records at once (counties, subcounties, etc.) for better performance.
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - model
+   *             properties:
+   *               model:
+   *                 type: string
+   *                 description: Model name (county, subcounty, etc.)
+   *               ids:
+   *                 type: array
+   *                 items:
+   *                   type: integer
+   *                 description: Array of IDs to fetch geometries for (optional, fetches all if not provided)
+   *     responses:
+   *       200:
+   *         description: Batch geometries retrieved successfully
+   *       400:
+   *         description: Bad request
+   *       500:
+   *         description: Internal server error
+   */
+  app.post('/api/v1/data/optimized/batch-geo', [authJwt.verifyToken], controller.getBatchGeometries)
+
+  /**
+   * @swagger
+   * /api/v1/data/optimized/counties:
+   *   get:
+   *     tags: [Data]
+   *     summary: Get counties list (optimized, no geometry)
+   *     description: Retrieve counties list without geometry for better performance in dropdowns.
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - name: model
+   *         in: query
+   *         required: false
+   *         description: Model name (default: county)
+   *         schema:
+   *           type: string
+   *       - name: filters
+   *         in: query
+   *         required: false
+   *         description: JSON array of filter field names
+   *         schema:
+   *           type: string
+   *       - name: filterValues
+   *         in: query
+   *         required: false
+   *         description: JSON array of filter values
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: Counties list retrieved successfully
+   *       400:
+   *         description: Bad request
+   *       500:
+   *         description: Internal server error
+   */
+  app.get('/api/v1/data/optimized/counties', [authJwt.verifyToken], controller.getCountiesList)
+
+  /**
+   * @swagger
+   * /api/v1/data/optimized/subcounties:
+   *   get:
+   *     tags: [Data]
+   *     summary: Get subcounties list for a county (optimized, no geometry)
+   *     description: Retrieve subcounties list for a specific county without geometry for better performance.
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - name: model
+   *         in: query
+   *         required: false
+   *         description: Model name (default: subcounty)
+   *         schema:
+   *           type: string
+   *       - name: county_id
+   *         in: query
+   *         required: true
+   *         description: County ID to get subcounties for
+   *         schema:
+   *           type: integer
+   *     responses:
+   *       200:
+   *         description: Subcounties list retrieved successfully
+   *       400:
+   *         description: Bad request
+   *       500:
+   *         description: Internal server error
+   */
+  app.get('/api/v1/data/optimized/subcounties', [authJwt.verifyToken], controller.getSubcountiesList)
   
   /**
    * @swagger

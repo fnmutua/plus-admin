@@ -261,7 +261,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       },
       {
         path: 'map',
-        component: () => import('@/views/Dashboard/LandingMap.vue'),
+        component: () => import('@/views/Dashboard/LandingMapOptimized.vue'),
         name: 'LandingMap',
         meta: {
           title: t('Map'),
