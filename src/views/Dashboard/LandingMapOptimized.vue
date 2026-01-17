@@ -1,27 +1,47 @@
 <template>
   <div class="floating-collapse">
-    <el-select 
-      multiple
-      v-model="county"  
-      placeholder="Filter by County"  
-      @change="handleChangeCounty" 
-      filterable 
-      :clearable="!isCountyRestricted"
-      :disabled="isCountyRestricted"
-    >
-      <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
-    </el-select>
-    <el-select
-      multiple
-      clearable 
-      filterable 
-      v-model="subcounty"  
-      placeholder="Filter by Subcounty"  
-      @change="handleChangeSubcounty" 
-    >
-      <el-option v-for="item in subCountyOptions" :key="item.value" :label="item.label" :value="item.value" />
-    </el-select>
-    <el-button @click="resetFilters"> Reset Filters</el-button>
+    <el-collapse v-model="activeCollapse">
+      <el-collapse-item name="filters">
+        <template #title>
+          <div class="filter-header">
+            <Icon icon="mdi:filter-variant" width="20" class="filter-icon" />
+            <span>Filters</span>
+          </div>
+        </template>
+        <div class="filters-wrapper">
+          <div class="filters-container">
+            <el-select 
+              multiple
+              v-model="county"  
+              placeholder="Filter by County"  
+              @change="handleChangeCounty" 
+              filterable 
+              :clearable="!isCountyRestricted"
+              :disabled="isCountyRestricted"
+              class="filter-select compact-select"
+              teleported
+              popper-class="filter-select-dropdown"
+            >
+              <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+            <el-select
+              multiple
+              clearable 
+              filterable 
+              v-model="subcounty"  
+              placeholder="Filter by Subcounty"  
+              @change="handleChangeSubcounty"
+              class="filter-select compact-select"
+              teleported
+              popper-class="filter-select-dropdown"
+            >
+              <el-option v-for="item in subCountyOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+            <el-button @click="resetFilters" class="reset-button compact-button">Reset Filters</el-button>
+          </div>
+        </div>
+      </el-collapse-item>
+    </el-collapse>
   </div>
 
   <div v-loading="mapLoading" :element-loading-text="mapLoadingText" id="map" class="map"></div>
@@ -30,7 +50,8 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
 import { ref, watch, onMounted, computed } from 'vue'
-import { ElButton, ElSelect, ElOption, ElMessage } from 'element-plus'
+import { ElButton, ElSelect, ElOption, ElMessage, ElCollapse, ElCollapseItem } from 'element-plus'
+import { Icon } from '@iconify/vue'
 import mapboxgl from "mapbox-gl"
 import 'mapbox-gl/dist/mapbox-gl.css'
 import * as turf from '@turf/turf'
@@ -82,6 +103,9 @@ const map = ref<mapboxgl.Map | null>(null)
 const mapLoading = ref(false)
 const mapLoadingText = ref('Loading map....')
 const isDarkMode = computed(() => appStore.getIsDark)
+
+// Collapse state - closed by default on all screen sizes
+const activeCollapse = ref<string[]>([])
 
 // Data state
 const county = ref<number[]>([])
@@ -200,22 +224,30 @@ const loadSettlements = async (filters?: { countyIds?: number[], subcountyIds?: 
       includePolygons: false  // Don't need full polygons for map view
     }
 
-    // Apply user restrictions
+    // Build filter arrays
+    const filterFields: string[] = []
+    const filterValues: any[] = []
+
+    // Apply user restrictions first (for county-restricted users)
     if (isCountyRestricted.value && userCountyId.value) {
-      params.filters = ['county_id']
-      params.filterValues = [[userCountyId.value]]
-    } else if (filters) {
-      // Apply provided filters
-      if (filters.countyIds && filters.countyIds.length > 0) {
-        params.filters = ['county_id']
-        params.filterValues = [filters.countyIds]
-      }
-      if (filters.subcountyIds && filters.subcountyIds.length > 0) {
-        params.filters = params.filters ? [...params.filters, 'subcounty_id'] : ['subcounty_id']
-        params.filterValues = params.filterValues 
-          ? [...params.filterValues, filters.subcountyIds]
-          : [filters.subcountyIds]
-      }
+      filterFields.push('county_id')
+      filterValues.push([userCountyId.value])
+    } else if (filters?.countyIds && filters.countyIds.length > 0) {
+      // Apply county filter for non-restricted users
+      filterFields.push('county_id')
+      filterValues.push(filters.countyIds)
+    }
+
+    // Apply subcounty filter (works for both restricted and non-restricted users)
+    if (filters?.subcountyIds && filters.subcountyIds.length > 0) {
+      filterFields.push('subcounty_id')
+      filterValues.push(filters.subcountyIds)
+    }
+
+    // Set filters if any were added
+    if (filterFields.length > 0) {
+      params.filters = filterFields
+      params.filterValues = filterValues
     }
 
     const response = await getOptimizedSettlements({ params })
@@ -379,7 +411,10 @@ const addSettlementLayers = async () => {
       if (bounds && bounds.length === 4 &&
           isFinite(bounds[0]) && isFinite(bounds[1]) &&
           isFinite(bounds[2]) && isFinite(bounds[3])) {
-        map.value.fitBounds(bounds as [number, number, number, number], { padding: 20 })
+        // Responsive padding based on screen size
+        const isMobile = window.innerWidth <= 768
+        const padding = isMobile ? 50 : 20
+        map.value.fitBounds(bounds as [number, number, number, number], { padding })
       }
     } catch (error) {
       console.warn('Error fitting bounds:', error)
@@ -458,31 +493,53 @@ const handleChangeSubcounty = debounce(async (subcountyIds: number | number[]) =
 
   const subcountyArray = Array.isArray(subcountyIds) ? subcountyIds : (subcountyIds ? [subcountyIds] : [])
 
-  if (subcountyArray.length > 0) {
-    try {
-      mapLoading.value = true
-      mapLoadingText.value = 'Loading filtered settlements...'
+  try {
+    mapLoading.value = true
+    mapLoadingText.value = 'Loading filtered settlements...'
 
-      // Load settlements with subcounty filter
-      await loadSettlements({ 
-        countyIds: county.value,
-        subcountyIds: subcountyArray 
-      })
+    // Remove subcounty layer if subcounty is cleared
+    if (subcountyArray.length === 0) {
+      if (map.value.getLayer('Subcounty')) {
+        map.value.removeLayer('Subcounty')
+      }
+      if (map.value.getSource('Subcounty')) {
+        map.value.removeSource('Subcounty')
+      }
+    }
 
-      // Load subcounty geometries
+    // Load settlements with filters (county and/or subcounty)
+    // For county-restricted users, county restriction is handled in loadSettlements
+    await loadSettlements({ 
+      countyIds: (!isCountyRestricted.value && county.value.length > 0) ? county.value : undefined,
+      subcountyIds: subcountyArray.length > 0 ? subcountyArray : undefined
+    })
+
+    // Load subcounty geometries if subcounties are selected
+    if (subcountyArray.length > 0) {
       const subcountyGeos = await loadSubcountyGeometries(subcountyArray)
-
       await addSettlementLayers()
       if (subcountyGeos) {
         addSubcountyLayer(subcountyGeos)
       }
-
-      mapLoading.value = false
-    } catch (error: any) {
-      console.error('Error changing subcounty:', error)
-      ElMessage.error('Failed to load subcounty data')
-      mapLoading.value = false
+    } else {
+      // If no subcounty selected, reload with county filter and restore county layer
+      await addSettlementLayers()
+      if (county.value.length > 0) {
+        const countyGeos = await loadCountyGeometries(county.value)
+        if (countyGeos) {
+          addCountyLayer(countyGeos)
+        }
+      } else if (countyGeo.value) {
+        // Restore full county layer if no county filter
+        addCountyLayer(countyGeo.value)
+      }
     }
+
+    mapLoading.value = false
+  } catch (error: any) {
+    console.error('Error changing subcounty:', error)
+    ElMessage.error('Failed to load subcounty data')
+    mapLoading.value = false
   }
 }, 300)
 
@@ -634,7 +691,7 @@ const getClickedSettlement = async (id: number) => {
 
     const area = settlement.area || 'N/A'
     const countyName = settlement.county?.name || 'N/A'
-    const roundedArea = area !== 'N/A' ? parseFloat(area).toFixed(2) + 'm²' : 'N/A'
+    const roundedArea = area !== 'N/A' ? parseFloat(area).toFixed(2) + 'Ha.' : 'N/A'
     const name = settlement.name
     const sett_id = settlement.id
 
@@ -645,31 +702,31 @@ const getClickedSettlement = async (id: number) => {
       <div style="
         background: ${isDarkMode.value ? '#444' : '#91c949'};
         color: ${isDarkMode.value ? '#fff' : '#000'};
-        padding: 10px 12px;
+        padding: 8px 10px;
         font-weight: 700;
         text-align: center;
-        font-size: 15px;
+        font-size: clamp(13px, 2.5vw, 15px);
       ">
         <u>Settlement Details</u>
       </div>
       <div style="
-        padding: 10px 12px;
+        padding: 8px 10px;
         font-family: 'Source Sans Pro', 'Helvetica Neue', sans-serif;
-        font-size: 14px;
+        font-size: clamp(12px, 2.5vw, 14px);
         color: ${isDarkMode.value ? '#f0f0f0' : '#333'};
         background: ${isDarkMode.value ? '#2c2c2c' : '#fff'};
       ">
-        <div style="margin-bottom: 6px;">
+        <div style="margin-bottom: 5px; word-wrap: break-word;">
           <span style="font-weight: bold;">Name:</span>
-          <span>${name}</span>
+          <span> ${name}</span>
         </div>
-        <div style="margin-bottom: 6px;">
+        <div style="margin-bottom: 5px;">
           <span style="font-weight: bold;">Area:</span>
-          <span>${roundedArea}</span>
+          <span> ${roundedArea}</span>
         </div>
-        <div>
+        <div style="word-wrap: break-word;">
           <span style="font-weight: bold;">County:</span>
-          <span>${countyName}</span>
+          <span> ${countyName}</span>
         </div>
       </div>
     `
@@ -690,10 +747,10 @@ const getClickedSettlement = async (id: number) => {
 
 <style scoped>
 .floating-collapse {
-  position: fixed;
+  position: fixed !important;
   top: 110px;
   left: 255px;
-  z-index: 1000;
+  z-index: 10000 !important;
   background-color: rgba(255, 255, 255, 0.95);
   color: #333;
   border-radius: 8px;
@@ -703,6 +760,11 @@ const getClickedSettlement = async (id: number) => {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  max-height: calc(100vh - 130px);
+  overflow-y: auto;
+  overflow-x: visible;
+  pointer-events: auto;
+  transform: translateZ(0);
 }
 
 .dark .floating-collapse {
@@ -711,18 +773,146 @@ const getClickedSettlement = async (id: number) => {
   box-shadow: 0 4px 12px rgba(255, 255, 255, 0.05);
 }
 
-.floating-collapse .el-select,
-.floating-collapse .el-button {
-  width: 95%;
+:deep(.el-collapse) {
+  border: none;
+  margin: 0;
+}
+
+:deep(.el-collapse-item__header) {
+  border-radius: 8px;
+  padding: 0 16px;
+  font-size: 16px;
+  font-weight: 500;
+  color: #303133;
+  border: none;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+  height: 48px;
+  line-height: 48px;
+  background-color: transparent;
+}
+
+:deep(.el-collapse-item__wrap) {
+  border: none;
+}
+
+:deep(.el-collapse-item__content) {
+  padding: 0;
+  margin-top: 12px;
+}
+
+.filter-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-icon {
+  color: #606266;
+}
+
+.filters-wrapper {
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+  background: var(--el-bg-color);
+}
+
+.filters-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filter-select {
+  width: 100% !important;
+  position: relative;
+  z-index: auto;
+}
+
+.compact-select :deep(.el-input__wrapper) {
+  padding-top: 4px;
+  padding-bottom: 4px;
+  min-height: 32px;
+}
+
+.compact-select :deep(.el-input__inner) {
+  height: 24px;
+  line-height: 24px;
+  font-size: 13px;
+}
+
+.reset-button {
+  width: 100%;
+}
+
+.compact-button {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+/* Ensure select dropdowns appear on top - use global styles for poppers */
+
+.reset-button {
+  width: 100%;
+  margin-top: 8px;
 }
 
 #map {
   height: 95vh;
+  width: 100%;
+  position: relative;
+  z-index: 1;
 }
 
-@media (max-width: 600px) {
+/* Tablet styles */
+@media (max-width: 1024px) {
   .floating-collapse {
-    display: none;
+    left: 20px;
+    top: 80px;
+    width: 260px;
+    max-width: calc(100vw - 40px);
+  }
+}
+
+/* Mobile styles */
+@media (max-width: 768px) {
+  .floating-collapse {
+    left: 10px;
+    right: 10px;
+    top: 70px;
+    width: auto;
+    max-width: none;
+    padding: 12px;
+    gap: 0;
+    z-index: 50 !important; /* Lower z-index on mobile to not obstruct sidebar */
+  }
+
+  .filters-wrapper {
+    padding: 12px;
+  }
+
+  .filters-container {
+    gap: 12px;
+  }
+
+  #map {
+    height: calc(100vh - 60px);
+    min-height: 400px;
+  }
+}
+
+/* Small mobile styles */
+@media (max-width: 480px) {
+  .floating-collapse {
+    top: 60px;
+    padding: 10px;
+    gap: 8px;
+    border-radius: 6px;
+    z-index: 50 !important; /* Lower z-index on mobile to not obstruct sidebar */
+  }
+
+  #map {
+    height: calc(100vh - 50px);
   }
 }
 </style>
@@ -736,5 +926,34 @@ const getClickedSettlement = async (id: number) => {
   font: 400 15px/22px 'Source Sans Pro', 'Helvetica Neue', sans-serif;
   padding: 0;
   width: 180px;
+  max-width: calc(100vw - 40px);
+}
+
+/* Global styles for select dropdowns to appear on top */
+.el-select-dropdown,
+.el-popper,
+.el-select__popper {
+  z-index: 10001 !important;
+}
+
+.filter-select-dropdown {
+  z-index: 10001 !important;
+}
+
+/* Mobile popup adjustments */
+@media (max-width: 768px) {
+  .mapboxgl-popup-content {
+    width: 160px;
+    font-size: 14px;
+    line-height: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .mapboxgl-popup-content {
+    width: 140px;
+    font-size: 13px;
+    line-height: 18px;
+  }
 }
 </style>

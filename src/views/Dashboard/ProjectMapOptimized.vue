@@ -1,40 +1,60 @@
 <template>
   <div class="floating-collapse">
-    <el-select 
-      multiple 
-      clearable 
-      filterable 
-      v-model="implementer" 
-      placeholder="Filter by Programme" 
-      @change="handleChangeImplementer" 
-    >
-      <el-option v-for="item in implementerOptions" :key="item.value" :label="item.label" :value="item.value" />
-    </el-select>
-
-    <el-select 
-      multiple
-      v-model="county" 
-      placeholder="Filter by County" 
-      @change="handleChangeCounty" 
-      filterable 
-      :clearable="!isCountyRestricted"
-      :disabled="isCountyRestricted"
-    >
-      <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
-    </el-select>
-    
-    <el-select 
-      multiple
-      clearable 
-      filterable 
-      v-model="subcounty" 
-      placeholder="Filter by Subcounty" 
-      @change="handleChangeSubcounty" 
-    >
-      <el-option v-for="item in subCountyOptions" :key="item.value" :label="item.label" :value="item.value" />
-    </el-select>
-
-    <el-button @click="resetFilters"> Reset Filters</el-button>
+    <el-collapse v-model="activeCollapse">
+      <el-collapse-item name="filters">
+        <template #title>
+          <div class="filter-header">
+            <Icon icon="mdi:filter-variant" width="20" class="filter-icon" />
+            <span>Filters</span>
+          </div>
+        </template>
+        <div class="filters-wrapper">
+          <div class="filters-container">
+            <el-select 
+              multiple 
+              clearable 
+              filterable 
+              v-model="implementer" 
+              placeholder="Filter by Programme" 
+              @change="handleChangeImplementer"
+              class="filter-select compact-select"
+              teleported
+              popper-class="filter-select-dropdown"
+            >
+              <el-option v-for="item in implementerOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+            <el-select 
+              multiple
+              v-model="county" 
+              placeholder="Filter by County" 
+              @change="handleChangeCounty" 
+              filterable 
+              :clearable="!isCountyRestricted"
+              :disabled="isCountyRestricted"
+              class="filter-select compact-select"
+              teleported
+              popper-class="filter-select-dropdown"
+            >
+              <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+            <el-select 
+              multiple
+              clearable 
+              filterable 
+              v-model="subcounty" 
+              placeholder="Filter by Subcounty" 
+              @change="handleChangeSubcounty"
+              class="filter-select compact-select"
+              teleported
+              popper-class="filter-select-dropdown"
+            >
+              <el-option v-for="item in subCountyOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+            <el-button @click="resetFilters" class="reset-button compact-button">Reset Filters</el-button>
+          </div>
+        </div>
+      </el-collapse-item>
+    </el-collapse>
   </div>
 
   <div v-loading="mapLoading" :element-loading-text="mapLoadingText" id="map" class="map"></div>
@@ -44,7 +64,7 @@
     v-model="drawerVisible"
     title="Project Location Details"
     direction="rtl"
-    size="400px"
+    :size="drawerSize"
     :before-close="handleDrawerClose"
   >
     <div v-if="projectDetails.projectTitle" class="project-details">
@@ -99,7 +119,8 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted, computed } from 'vue'
-import { ElButton, ElSelect, ElOption, ElMessage, ElDrawer, ElDescriptions, ElDescriptionsItem } from 'element-plus'
+import { ElButton, ElSelect, ElOption, ElMessage, ElDrawer, ElDescriptions, ElDescriptionsItem, ElCollapse, ElCollapseItem } from 'element-plus'
+import { Icon } from '@iconify/vue'
 import mapboxgl from "mapbox-gl"
 import 'mapbox-gl/dist/mapbox-gl.css'
 import * as turf from '@turf/turf'
@@ -155,6 +176,9 @@ const map = ref<mapboxgl.Map | null>(null)
 const mapLoading = ref(false)
 const mapLoadingText = ref('Loading map....')
 const isDarkMode = computed(() => appStore.getIsDark)
+
+// Collapse state - closed by default on all screen sizes
+const activeCollapse = ref<string[]>([])
 
 // Filter refs
 const county = ref<number[]>([])
@@ -305,32 +329,36 @@ const loadProjectLocations = async (filters?: {
       includePolygons: false
     }
 
-    // Apply user restrictions
+    // Build filter arrays
+    const filterFields: string[] = []
+    const filterValues: any[] = []
+
+    // Apply user restrictions first (for county-restricted users)
     if (isCountyRestricted.value && userCountyId.value) {
-      params.filters = ['county_id']
-      params.filterValues = [[userCountyId.value]]
-    } else if (filters) {
-      // Apply provided filters
-      const filterFields: string[] = []
-      const filterValues: any[] = []
+      filterFields.push('county_id')
+      filterValues.push([userCountyId.value])
+    } else if (filters?.countyIds && filters.countyIds.length > 0) {
+      // Apply county filter for non-restricted users
+      filterFields.push('county_id')
+      filterValues.push(filters.countyIds)
+    }
 
-      if (filters.countyIds && filters.countyIds.length > 0) {
-        filterFields.push('county_id')
-        filterValues.push(filters.countyIds)
-      }
-      if (filters.subcountyIds && filters.subcountyIds.length > 0) {
-        filterFields.push('subcounty_id')
-        filterValues.push(filters.subcountyIds)
-      }
-      if (filters.implementerIds && filters.implementerIds.length > 0) {
-        filterFields.push('implementer')
-        filterValues.push(filters.implementerIds)
-      }
+    // Apply subcounty filter (works for both restricted and non-restricted users)
+    if (filters?.subcountyIds && filters.subcountyIds.length > 0) {
+      filterFields.push('subcounty_id')
+      filterValues.push(filters.subcountyIds)
+    }
 
-      if (filterFields.length > 0) {
-        params.filters = filterFields
-        params.filterValues = filterValues
-      }
+    // Apply implementer filter (works for both restricted and non-restricted users)
+    if (filters?.implementerIds && filters.implementerIds.length > 0) {
+      filterFields.push('implementer')
+      filterValues.push(filters.implementerIds)
+    }
+
+    // Set filters if any were added
+    if (filterFields.length > 0) {
+      params.filters = filterFields
+      params.filterValues = filterValues
     }
 
     const response = await getOptimizedProjectLocations({ params })
@@ -459,7 +487,10 @@ const addProjectLayers = async () => {
       if (bounds && bounds.length === 4 &&
           isFinite(bounds[0]) && isFinite(bounds[1]) &&
           isFinite(bounds[2]) && isFinite(bounds[3])) {
-        map.value.fitBounds(bounds as [number, number, number, number], { padding: 20 })
+        // Responsive padding based on screen size
+        const isMobile = window.innerWidth <= 768
+        const padding = isMobile ? 50 : 20
+        map.value.fitBounds(bounds as [number, number, number, number], { padding })
       }
     } catch (error) {
       console.warn('Error fitting bounds:', error)
@@ -540,30 +571,54 @@ const handleChangeSubcounty = debounce(async (subcountyIds: number | number[]) =
 
   const subcountyArray = Array.isArray(subcountyIds) ? subcountyIds : (subcountyIds ? [subcountyIds] : [])
 
-  if (subcountyArray.length > 0) {
-    try {
-      mapLoading.value = true
-      mapLoadingText.value = 'Loading filtered project locations...'
+  try {
+    mapLoading.value = true
+    mapLoadingText.value = 'Loading filtered project locations...'
 
-      await loadProjectLocations({ 
-        countyIds: county.value,
-        subcountyIds: subcountyArray,
-        implementerIds: implementer.value
-      })
+    // Remove subcounty layer if subcounty is cleared
+    if (subcountyArray.length === 0) {
+      if (map.value.getLayer('Subcounty')) {
+        map.value.removeLayer('Subcounty')
+      }
+      if (map.value.getSource('Subcounty')) {
+        map.value.removeSource('Subcounty')
+      }
+    }
 
+    // Load project locations with filters (county, subcounty, and/or implementer)
+    // For county-restricted users, county restriction is handled in loadProjectLocations
+    await loadProjectLocations({ 
+      countyIds: (!isCountyRestricted.value && county.value.length > 0) ? county.value : undefined,
+      subcountyIds: subcountyArray.length > 0 ? subcountyArray : undefined,
+      implementerIds: implementer.value.length > 0 ? implementer.value : undefined
+    })
+
+    // Load subcounty geometries if subcounties are selected
+    if (subcountyArray.length > 0) {
       const subcountyGeos = await loadSubcountyGeometries(subcountyArray)
       await addProjectLayers()
-      
       if (subcountyGeos) {
         addSubcountyLayer(subcountyGeos)
       }
-
-      mapLoading.value = false
-    } catch (error: any) {
-      console.error('Error changing subcounty:', error)
-      ElMessage.error('Failed to load subcounty data')
-      mapLoading.value = false
+    } else {
+      // If no subcounty selected, reload with county/implementer filter and restore county layer
+      await addProjectLayers()
+      if (county.value.length > 0) {
+        const countyGeos = await loadCountyGeometries(county.value)
+        if (countyGeos) {
+          addCountyLayer(countyGeos)
+        }
+      } else if (countyGeo.value) {
+        // Restore full county layer if no county filter
+        addCountyLayer(countyGeo.value)
+      }
     }
+
+    mapLoading.value = false
+  } catch (error: any) {
+    console.error('Error changing subcounty:', error)
+    ElMessage.error('Failed to load subcounty data')
+    mapLoading.value = false
   }
 }, 300)
 
@@ -755,7 +810,10 @@ const loadCountiesFromFilteredProjects = async () => {
         if (bounds && bounds.length === 4 &&
             isFinite(bounds[0]) && isFinite(bounds[1]) &&
             isFinite(bounds[2]) && isFinite(bounds[3])) {
-          map.value?.fitBounds(bounds as [number, number, number, number], { padding: 20 })
+          // Responsive padding based on screen size
+          const isMobile = window.innerWidth <= 768
+          const padding = isMobile ? 50 : 20
+          map.value?.fitBounds(bounds as [number, number, number, number], { padding })
         }
       } catch (error) {
         console.warn('Error fitting bounds:', error)
@@ -878,14 +936,26 @@ const goToSettlementDetails = () => {
 const isSettlement = computed(() => {
   return projectDetails.value.settlementId || projectDetails.value.locationType === 'settlement'
 })
+
+// Responsive drawer size
+const drawerSize = computed(() => {
+  if (typeof window !== 'undefined') {
+    if (window.innerWidth <= 480) {
+      return '90%'
+    } else if (window.innerWidth <= 768) {
+      return '85%'
+    }
+  }
+  return '400px'
+})
 </script>
 
 <style scoped>
 .floating-collapse {
-  position: fixed;
+  position: fixed !important;
   top: 110px;
   left: 255px;
-  z-index: 1000;
+  z-index: 10000 !important;
   background-color: rgba(255, 255, 255, 0.95);
   color: #333;
   border-radius: 8px;
@@ -895,6 +965,11 @@ const isSettlement = computed(() => {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  max-height: calc(100vh - 130px);
+  overflow-y: auto;
+  overflow-x: visible;
+  pointer-events: auto;
+  transform: translateZ(0);
 }
 
 .dark .floating-collapse {
@@ -903,13 +978,94 @@ const isSettlement = computed(() => {
   box-shadow: 0 4px 12px rgba(255, 255, 255, 0.05);
 }
 
-.floating-collapse .el-select,
-.floating-collapse .el-button {
-  width: 95%;
+:deep(.el-collapse) {
+  border: none;
+  margin: 0;
+}
+
+:deep(.el-collapse-item__header) {
+  border-radius: 8px;
+  padding: 0 16px;
+  font-size: 16px;
+  font-weight: 500;
+  color: #303133;
+  border: none;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+  height: 48px;
+  line-height: 48px;
+  background-color: transparent;
+}
+
+:deep(.el-collapse-item__wrap) {
+  border: none;
+}
+
+:deep(.el-collapse-item__content) {
+  padding: 0;
+  margin-top: 12px;
+}
+
+.filter-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-icon {
+  color: #606266;
+}
+
+.filters-wrapper {
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+  background: var(--el-bg-color);
+}
+
+.filters-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filter-select {
+  width: 100% !important;
+  position: relative;
+  z-index: auto;
+}
+
+.compact-select :deep(.el-input__wrapper) {
+  padding-top: 4px;
+  padding-bottom: 4px;
+  min-height: 32px;
+}
+
+.compact-select :deep(.el-input__inner) {
+  height: 24px;
+  line-height: 24px;
+  font-size: 13px;
+}
+
+.compact-button {
+  margin-top: 4px;
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+.reset-button {
+  width: 100%;
+}
+
+.compact-button {
+  padding: 6px 12px;
+  font-size: 13px;
 }
 
 #map {
   height: 95vh;
+  width: 100%;
+  position: relative;
+  z-index: 1;
 }
 
 .project-details {
@@ -927,9 +1083,63 @@ const isSettlement = computed(() => {
   padding-bottom: 8px;
 }
 
-@media (max-width: 600px) {
+/* Tablet styles */
+@media (max-width: 1024px) {
   .floating-collapse {
-    display: none;
+    left: 20px;
+    top: 80px;
+    width: 260px;
+    max-width: calc(100vw - 40px);
+  }
+}
+
+/* Mobile styles */
+@media (max-width: 768px) {
+  .floating-collapse {
+    left: 10px;
+    right: 10px;
+    top: 70px;
+    width: auto;
+    max-width: none;
+    padding: 12px;
+    gap: 0;
+    z-index: 50 !important; /* Lower z-index on mobile to not obstruct sidebar */
+  }
+
+  .filters-wrapper {
+    padding: 12px;
+  }
+
+  .filters-container {
+    gap: 12px;
+  }
+
+  #map {
+    height: calc(100vh - 60px);
+    min-height: 400px;
+  }
+
+  .project-details {
+    padding: 15px;
+  }
+}
+
+/* Small mobile styles */
+@media (max-width: 480px) {
+  .floating-collapse {
+    top: 60px;
+    padding: 10px;
+    gap: 8px;
+    border-radius: 6px;
+    z-index: 50 !important; /* Lower z-index on mobile to not obstruct sidebar */
+  }
+
+  #map {
+    height: calc(100vh - 50px);
+  }
+
+  .project-details {
+    padding: 10px;
   }
 }
 </style>
@@ -945,5 +1155,16 @@ const isSettlement = computed(() => {
 
 .element-loading-text {
   color: green;
+}
+
+/* Global styles for select dropdowns to appear on top */
+.el-select-dropdown,
+.el-popper,
+.el-select__popper {
+  z-index: 10001 !important;
+}
+
+.filter-select-dropdown {
+  z-index: 10001 !important;
 }
 </style>
