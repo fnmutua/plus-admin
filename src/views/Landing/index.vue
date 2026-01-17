@@ -92,12 +92,79 @@
                         <div class="table-row"></div>
                         <div class="table-row"></div>
                       </div>
-                      <div class="preview-chart">
-                        <div class="chart-bar" style="height: 60%"></div>
-                        <div class="chart-bar" style="height: 80%"></div>
-                        <div class="chart-bar" style="height: 45%"></div>
-                        <div class="chart-bar" style="height: 90%"></div>
-                        <div class="chart-bar" style="height: 70%"></div>
+                      <div class="preview-chart-container">
+                        <el-carousel 
+                          :interval="4000" 
+                          :height="'180px'"
+                          indicator-position="none"
+                          arrow="never"
+                          class="chart-carousel"
+                        >
+                          <el-carousel-item>
+                            <div class="preview-chart">
+                              <div class="chart-bar" style="height: 60%"></div>
+                              <div class="chart-bar" style="height: 80%"></div>
+                              <div class="chart-bar" style="height: 45%"></div>
+                              <div class="chart-bar" style="height: 90%"></div>
+                              <div class="chart-bar" style="height: 70%"></div>
+                            </div>
+                          </el-carousel-item>
+                          <el-carousel-item>
+                            <div class="preview-chart pie-chart">
+                              <div class="pie-chart-container">
+                                <svg
+                                  viewBox="0 0 100 100"
+                                  class="pie-svg"
+                                >
+                                  <circle
+                                    cx="50"
+                                    cy="50"
+                                    r="45"
+                                    fill="none"
+                                    stroke="#00DC82"
+                                    stroke-width="10"
+                                    stroke-dasharray="70.7 282.6"
+                                    stroke-dashoffset="0"
+                                    transform="rotate(-90 50 50)"
+                                  />
+                                  <circle
+                                    cx="50"
+                                    cy="50"
+                                    r="45"
+                                    fill="none"
+                                    stroke="#409EFF"
+                                    stroke-width="10"
+                                    stroke-dasharray="70.7 282.6"
+                                    stroke-dashoffset="-70.7"
+                                    transform="rotate(-90 50 50)"
+                                  />
+                                  <circle
+                                    cx="50"
+                                    cy="50"
+                                    r="45"
+                                    fill="none"
+                                    stroke="#E6A23C"
+                                    stroke-width="10"
+                                    stroke-dasharray="70.7 282.6"
+                                    stroke-dashoffset="-141.4"
+                                    transform="rotate(-90 50 50)"
+                                  />
+                                  <circle
+                                    cx="50"
+                                    cy="50"
+                                    r="45"
+                                    fill="none"
+                                    stroke="#F56C6C"
+                                    stroke-width="10"
+                                    stroke-dasharray="70.7 282.6"
+                                    stroke-dashoffset="-212.1"
+                                    transform="rotate(-90 50 50)"
+                                  />
+                                </svg>
+                              </div>
+                            </div>
+                          </el-carousel-item>
+                        </el-carousel>
                       </div>
                     </div>
                   </div>
@@ -318,6 +385,8 @@ import {
   ElCol,
   ElRow,
   ElCard,
+  ElCarousel,
+  ElCarouselItem,
 } from 'element-plus';
 import BaseLayout from './BaseLayout.vue';
 import { Lock, Monitor } from '@element-plus/icons-vue';
@@ -760,7 +829,8 @@ AvgHHSize();
   padding: 1.5rem;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1rem;
+  min-height: 0;
 }
 
 .preview-header {
@@ -783,29 +853,80 @@ AvgHHSize();
 .preview-table {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.5rem;
+  flex-shrink: 0;
 }
 
 .table-row {
-  height: 8px;
+  height: 6px;
   background: var(--border-color);
   border-radius: 4px;
   opacity: 0.6;
 }
 
+.preview-chart-container {
+  margin-top: auto;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+}
+
+.chart-carousel {
+  width: 100%;
+  height: 100%;
+}
+
+.chart-carousel :deep(.el-carousel__container) {
+  height: 180px;
+}
+
+.chart-carousel :deep(.el-carousel__item) {
+  height: 180px;
+}
+
 .preview-chart {
   display: flex;
   align-items: flex-end;
-  gap: 0.5rem;
-  height: 120px;
-  margin-top: auto;
+  gap: 0.75rem;
+  height: 100%;
+  justify-content: center;
+  padding: 1rem;
+  box-sizing: border-box;
 }
 
 .chart-bar {
   flex: 1;
   background: linear-gradient(180deg, #00DC82 0%, #00B86B 100%);
   border-radius: 4px 4px 0 0;
-  min-height: 20px;
+  min-height: 30px;
+  min-width: 0;
+}
+
+/* Pie Chart Styles */
+.pie-chart {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 1rem;
+  box-sizing: border-box;
+}
+
+.pie-chart-container {
+  width: 150px;
+  height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.pie-svg {
+  width: 100%;
+  height: 100%;
+  max-width: 150px;
+  max-height: 150px;
 }
 
 /* Features Section */
