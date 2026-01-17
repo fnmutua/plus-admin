@@ -1976,15 +1976,26 @@ const generatePDFReport = async () => {
             {{ profile.name }} Settlement, {{ profile.subcounty }} Subcounty, {{ profile.county }} County
           </div>
         </div>
-        <el-button 
-          v-if="showAdminButtons && canUserAccessSettlement({id: route.params.id, county_id: profile.county_id}, 'edit')" 
-          type="success" 
-          :icon="Edit" 
-          @click="editSettlement"
-          class="edit-button"
-        >
-          Edit
-        </el-button>
+        <div class="header-actions">
+          <el-button 
+            v-if="showAdminButtons && canUserAccessSettlement({id: route.params.id, county_id: profile.county_id}, 'edit')" 
+            type="success" 
+            :icon="Edit" 
+            @click="editSettlement"
+            class="edit-button"
+          >
+            Edit
+          </el-button>
+          <el-button 
+            v-if="canUserAccessSettlement({id: route.params.id, county_id: profile.county_id}, 'edit')" 
+            type="primary" 
+            :icon="Plus" 
+            @click="addFacility"
+            class="add-facility-button"
+          >
+            Add Facility
+          </el-button>
+        </div>
       </div>
     </template>
 
@@ -2084,15 +2095,6 @@ const generatePDFReport = async () => {
               <p>Loading settlement map data...</p>
               <p class="loading-subtitle">This may take a few moments while we fetch all layers</p>
             </div>
-          </div>
-          <div style="margin-bottom: 10px;" v-if="canUserAccessSettlement({id: route.params.id, county_id: profile.county_id}, 'edit')">
-            <el-button 
-              type="primary" 
-              @click="addFacility"
-              :icon="Plus"
-            >
-              Add Facility
-            </el-button>
           </div>
           <SettlementMap
             :settlementId="settlementId"
@@ -2575,7 +2577,20 @@ width="300" title="Are you sure to delete this project?"
   margin: 0;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 .edit-button {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  height: auto;
+}
+
+.add-facility-button {
   flex-shrink: 0;
   padding: 2px 8px;
   height: auto;
@@ -3075,8 +3090,15 @@ width="300" title="Are you sure to delete this project?"
     margin: 0;
   }
 
+  .header-actions {
+    width: 100%;
+    flex-direction: column;
+    gap: 4px;
+  }
+
   .back-button,
-  .edit-button {
+  .edit-button,
+  .add-facility-button {
     width: 100%;
     justify-content: center;
     padding: 3px 8px;
