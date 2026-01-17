@@ -1211,6 +1211,76 @@ module.exports = function (app) {
    *         description: Internal server error
    */
   app.get('/api/v1/data/optimized/subcounties', [authJwt.verifyToken], controller.getSubcountiesList)
+
+  /**
+   * @swagger
+   * /api/v1/data/optimized/project-locations:
+   *   get:
+   *     tags: [Data]
+   *     summary: Get optimized project locations with pre-computed centroids
+   *     description: Retrieve project locations with server-side filtering and centroids computed on backend for better performance.
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - name: model
+   *         in: query
+   *         required: false
+   *         description: Model name (default: project_location)
+   *         schema:
+   *           type: string
+   *       - name: filters
+   *         in: query
+   *         required: false
+   *         description: JSON array of filter field names
+   *         schema:
+   *           type: string
+   *       - name: filterValues
+   *         in: query
+   *         required: false
+   *         description: JSON array of filter values (corresponding to filters)
+   *         schema:
+   *           type: string
+   *       - name: includeCentroids
+   *         in: query
+   *         required: false
+   *         description: Compute centroids for non-point geometries (default: true)
+   *         schema:
+   *           type: boolean
+   *     responses:
+   *       200:
+   *         description: Optimized project locations retrieved successfully
+   *       400:
+   *         description: Bad request
+   *       500:
+   *         description: Internal server error
+   */
+  app.get('/api/v1/data/optimized/project-locations', [authJwt.verifyToken], controller.getOptimizedProjectLocations)
+
+  /**
+   * @swagger
+   * /api/v1/data/optimized/implementers:
+   *   get:
+   *     tags: [Data]
+   *     summary: Get implementers list (optimized, no geometry)
+   *     description: Retrieve programme_implementation list without geometry for better performance in dropdowns.
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - name: model
+   *         in: query
+   *         required: false
+   *         description: Model name (default: programme_implementation)
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: Implementers list retrieved successfully
+   *       400:
+   *         description: Bad request
+   *       500:
+   *         description: Internal server error
+   */
+  app.get('/api/v1/data/optimized/implementers', [authJwt.verifyToken], controller.getImplementersList)
   
   /**
    * @swagger

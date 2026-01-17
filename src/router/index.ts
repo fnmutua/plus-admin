@@ -275,7 +275,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
 
       {
         path: 'prjmap',
-        component: () => import('@/views/Dashboard/ProjectMap.vue'),
+        component: () => import('@/views/Dashboard/ProjectMapOptimized.vue'),
         name: 'ProjectMap',
         meta: {
           title: t('Projects'),
