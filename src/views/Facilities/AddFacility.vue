@@ -23,12 +23,9 @@ import {
   ElCol,
   ElDivider,
   ElDatePicker,
-  ElAlert,
-  ElDropdown,
-  ElDropdownMenu,
-  ElDropdownItem
+  ElAlert
 } from 'element-plus'
-import { ArrowLeft, Plus, Delete, Check, MoreFilled } from '@element-plus/icons-vue'
+import { ArrowLeft, Plus, Delete, Check, Edit ,Minus, AddLocation} from '@element-plus/icons-vue'
 import * as turf from '@turf/turf'
 import { getOneGeo, CreateRecord, getSettlementMapData, updateOneRecord, getSettlementsWithBoundaryGeometry } from '@/api/settlements'
 import { 
@@ -1568,14 +1565,32 @@ const enableLineDrawing = () => {
 // Delete marker
 const deleteMarker = () => {
   if (facilityMarker.value) {
-    // Remove all event listeners
+    const marker = facilityMarker.value
+    
+    // Remove all event listeners first
     if (window.google && window.google.maps) {
-      window.google.maps.event.clearInstanceListeners(facilityMarker.value)
+      try {
+        window.google.maps.event.clearInstanceListeners(marker)
+      } catch (e) {
+        console.warn('Error clearing marker listeners:', e)
+      }
     }
-    // Remove from map
-    facilityMarker.value.setMap(null)
+    
+    // Remove from map - call multiple times to ensure removal
+    try {
+      if (marker.getMap()) {
+        marker.setMap(null)
+      }
+      // Force removal
+      marker.setMap(null)
+    } catch (e) {
+      console.warn('Error removing marker from map:', e)
+    }
+    
+    // Clear the reference
     facilityMarker.value = null
   }
+  
   // Clear geometry
   facilityForm.geom = null
   facilityGeometry.value = null
@@ -2219,6 +2234,14 @@ onMounted(async () => {
   const routeCountyId = route.query.county_id
   const routeSettlementId = route.query.settlement_id
   
+  // Wait for settlementOptionsV2 to be loaded (with timeout)
+  let retries = 0
+  const maxRetries = 10
+  while ((!settlementOptionsV2.value || settlementOptionsV2.value.length === 0) && retries < maxRetries) {
+    await new Promise(resolve => setTimeout(resolve, 100))
+    retries++
+  }
+  
   if (routeCountyId) {
     selectedCounty.value = Array.isArray(routeCountyId) ? parseInt(routeCountyId[0]) : parseInt(routeCountyId as string)
     await handleCountyChange(selectedCounty.value)
@@ -2250,8 +2273,50 @@ onMounted(async () => {
           <el-button type="primary" plain :icon="ArrowLeft" @click="goBack" class="back-button">
             Back
           </el-button>
-          <div class="header-title">
-            Add Facility
+          <h2 class="header-title">Add Facility</h2>
+          <div class="header-actions">
+            <template v-if="currentStep === 1">
+              <el-button 
+                type="primary" 
+                :icon="AddLocation"
+                @click="enableMarkerPlacement" 
+                size="small"
+                :disabled="markerPlacementMode"
+                :circle="isMobile"
+                class="action-button">
+                <span class="action-text">Add Point</span>
+              </el-button>
+              <el-button 
+                v-if="facilityMarker"
+                type="danger" 
+                :icon="Delete"
+                @click="deleteMarker" 
+                size="small"
+                :circle="isMobile"
+                class="action-button">
+                <span class="action-text">Delete Point</span>
+              </el-button>
+              <el-button 
+                type="success" 
+                :icon="Minus"
+                @click="enableLineDrawing" 
+                size="small"
+                :disabled="lineDrawingMode"
+                :circle="isMobile"
+                class="action-button">
+                <span class="action-text">Draw Line</span>
+              </el-button>
+              <el-button 
+                v-if="facilityPolyline"
+                type="warning" 
+                :icon="Delete"
+                @click="deleteLine" 
+                size="small"
+                :circle="isMobile"
+                class="action-button">
+                <span class="action-text">Delete Line</span>
+              </el-button>
+            </template>
           </div>
         </div>
       </template>
@@ -2315,102 +2380,6 @@ onMounted(async () => {
       <!-- Step 2: Map with Click to Place Marker -->
       <div v-if="currentStep === 1" class="step-content map-step">
         <div ref="mapContainer" class="map-container"></div>
-        <div class="map-controls">
-          <!-- Desktop: Show all buttons -->
-          <div class="map-controls-buttons desktop-controls">
-            <!-- Point controls - always visible -->
-            <el-button 
-              type="primary" 
-              @click="enableMarkerPlacement" 
-              size="small" 
-              :disabled="markerPlacementMode">
-              <el-icon style="margin-right: 5px;"><Plus /></el-icon>
-              Add Point
-            </el-button>
-            <el-button 
-              v-if="facilityMarker"
-              type="danger" 
-              @click="deleteMarker" 
-              size="small">
-              <el-icon style="margin-right: 5px;"><Delete /></el-icon>
-              Delete Point
-            </el-button>
-            
-            <!-- Line controls - always visible -->
-            <el-button 
-              type="success" 
-              @click="enableLineDrawing" 
-              size="small" 
-              :disabled="lineDrawingMode">
-              <el-icon style="margin-right: 5px;"><Plus /></el-icon>
-              Draw Line
-            </el-button>
-            <el-button 
-              v-if="facilityPolyline"
-              type="warning" 
-              @click="deleteLine" 
-              size="small">
-              <el-icon style="margin-right: 5px;"><Delete /></el-icon>
-              Delete Line
-            </el-button>
-          </div>
-          
-          <!-- Mobile: Show dropdown menu -->
-          <el-dropdown 
-            class="mobile-controls" 
-            trigger="click" 
-            placement="bottom-end"
-            @command="handleMenuCommand">
-            <el-button 
-              type="primary" 
-              size="small" 
-              circle
-              :icon="MoreFilled" />
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item 
-                  command="add-point" 
-                  :disabled="markerPlacementMode">
-                  <el-icon><Plus /></el-icon>
-                  <span style="margin-left: 8px;">Add Point</span>
-                </el-dropdown-item>
-                <el-dropdown-item 
-                  v-if="facilityMarker"
-                  command="delete-point" 
-                  divided>
-                  <el-icon><Delete /></el-icon>
-                  <span style="margin-left: 8px;">Delete Point</span>
-                </el-dropdown-item>
-                <el-dropdown-item 
-                  command="draw-line" 
-                  :disabled="lineDrawingMode">
-                  <el-icon><Plus /></el-icon>
-                  <span style="margin-left: 8px;">Draw Line</span>
-                </el-dropdown-item>
-                <el-dropdown-item 
-                  v-if="facilityPolyline"
-                  command="delete-line" 
-                  divided>
-                  <el-icon><Delete /></el-icon>
-                  <span style="margin-left: 8px;">Delete Line</span>
-                </el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
-          
-          <!-- Status messages -->
-          <div class="map-controls-messages hide-messages-on-mobile">
-            <div v-if="facilityMarker" class="status-message">
-              Click the marker to open the form
-            </div>
-            <div v-if="facilityPolyline" class="status-message">
-              Click the line to open the form
-            </div>
-            <div v-if="lineDrawingMode" class="status-message status-message-active">
-              Click to start drawing. Double-click to finish.
-            </div>
-          </div>
-        </div>
       </div>
     </el-card>
 
@@ -3252,11 +3221,23 @@ onMounted(async () => {
   padding: 16px;
 }
 
+/* When map step is active, set body padding to 8px */
+.add-facility-container:has(.map-step) :deep(.el-card__body) {
+  padding: 8px;
+}
+
 .header-content {
   display: flex;
   align-items: center;
-  gap: 8px;
   justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  position: relative;
+}
+
+.back-button {
+  flex: 0 0 auto;
+  min-width: fit-content;
 }
 
 .header-title {
@@ -3264,18 +3245,60 @@ onMounted(async () => {
   font-size: 16px;
   font-weight: 600;
   line-height: 1;
-  flex: 1;
+  text-align: center;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
 }
 
-.back-button {
-  flex-shrink: 0;
-  padding: 2px 8px;
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  min-width: fit-content;
+  position: relative;
+  z-index: 1;
+}
+
+/* Desktop: button with icon and text */
+.action-button {
+  min-width: auto;
+  width: auto;
   height: auto;
+  padding: 5px 12px;
+  border-radius: 4px;
+  position: relative;
+  z-index: 2;
+  cursor: pointer;
+}
+
+.action-button .action-text {
+  display: inline;
+  margin-left: 4px;
+  pointer-events: none;
+}
+
+/* Desktop: ensure text is visible */
+@media (min-width: 769px) {
+  .action-button {
+    min-width: auto;
+    width: auto;
+    height: auto;
+    padding: 5px 12px;
+    border-radius: 4px;
+  }
+  
+  .action-button .action-text {
+    display: inline;
+    margin-left: 4px;
+  }
 }
 
 /* Reduce el-card header padding */
 :deep(.el-card__header) {
-  padding: 8px 12px;
+  padding: 12px 16px;
 }
 
 .step-content {
@@ -3285,6 +3308,8 @@ onMounted(async () => {
 
 .map-step {
   position: relative;
+  padding: 0;
+  margin: 0;
 }
 
 .map-container {
@@ -3294,60 +3319,6 @@ onMounted(async () => {
   overflow: hidden;
   border: 1px solid var(--el-border-color-lighter);
   position: relative;
-}
-
-.map-step {
-  position: relative;
-}
-
-.map-controls {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 1000;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-width: calc(100% - 20px);
-  background: var(--el-bg-color);
-  padding: 10px;
-  border-radius: 6px;
-  box-shadow: var(--el-box-shadow);
-  border: 1px solid var(--el-border-color-lighter);
-  pointer-events: auto;
-}
-
-.map-controls-buttons {
-  display: flex;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.desktop-controls {
-  display: flex;
-}
-
-.mobile-controls {
-  display: none;
-}
-
-.map-controls-messages {
-  display: flex;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.status-message {
-  font-size: 11px;
-  color: var(--el-text-color-secondary);
-  align-self: center;
-  text-align: right;
-}
-
-.status-message-active {
-  color: var(--el-color-primary);
 }
 
 .drawer-footer {
@@ -3363,8 +3334,32 @@ onMounted(async () => {
     padding: 6px;
   }
 
+  .header-content {
+    gap: 4px;
+  }
+
   .header-title {
     font-size: 14px;
+  }
+
+  .back-button {
+    font-size: 12px;
+    padding: 4px 8px;
+  }
+
+  .action-button {
+    min-width: 32px;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    position: relative;
+    z-index: 2;
+    cursor: pointer;
+  }
+  
+  .action-button .action-text {
+    display: none;
+    pointer-events: none;
   }
 
   :deep(.el-card__header) {
@@ -3377,40 +3372,6 @@ onMounted(async () => {
 
   .step-content {
     min-height: 300px;
-  }
-
-  .map-controls {
-    top: auto;
-    bottom: 10px;
-    left: 10px;
-    right: auto;
-    padding: 8px;
-    gap: 6px;
-  }
-
-  .desktop-controls {
-    display: none !important;
-  }
-
-  .mobile-controls {
-    display: block !important;
-  }
-
-  .hide-messages-on-mobile {
-    display: none !important;
-  }
-
-  .map-controls-messages {
-    justify-content: center;
-    text-align: center;
-    gap: 4px;
-    margin-top: 4px;
-  }
-
-  .status-message {
-    font-size: 10px;
-    width: 100%;
-    text-align: center;
   }
 }
 </style>
