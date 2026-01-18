@@ -1,14 +1,4 @@
 <template>
-  <!-- Mobile filter toggle button -->
-  <el-button 
-    v-if="isMobile" 
-    class="mobile-filter-toggle"
-    :type="filtersVisible ? 'primary' : 'default'"
-    @click="toggleFilters"
-    circle
-  >
-    <Icon :icon="filtersVisible ? 'mdi:close' : 'mdi:filter-variant'" width="20" />
-  </el-button>
 
   <!-- Mobile overlay -->
   <div 
@@ -71,7 +61,7 @@
 
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
-import { ref, watch, onMounted, computed } from 'vue'
+import { ref, watch, onMounted, computed, type Ref } from 'vue'
 import { ElButton, ElSelect, ElOption, ElMessage, ElCollapse, ElCollapseItem } from 'element-plus'
 import { Icon } from '@iconify/vue'
 import mapboxgl from "mapbox-gl"
@@ -133,19 +123,27 @@ const activeCollapse = ref<string[]>([])
 const filtersVisible = ref(false)
 const isMobile = ref(window.innerWidth <= 768)
 
+
+// Store filter control reference
+const filterControlRef = ref<mapboxgl.IControl | null>(null)
+
 // Update mobile state on resize
 const updateMobileState = () => {
   isMobile.value = window.innerWidth <= 768
-  if (!isMobile.value) {
-    filtersVisible.value = false // Auto-close on desktop
+  // Keep control on both desktop and mobile, just adjust filter panel behavior
+  if (!isMobile.value && filtersVisible.value) {
+    // On desktop, filters panel stays visible (floating), no need to close
   }
 }
 
-// Toggle filters on mobile
+// Toggle filters (works for both desktop and mobile)
 const toggleFilters = () => {
   filtersVisible.value = !filtersVisible.value
   if (filtersVisible.value) {
     activeCollapse.value = ['filters'] // Auto-expand when opened
+  } else if (!isMobile.value) {
+    // On desktop, when closing, also collapse the panel
+    activeCollapse.value = []
   }
 }
 
@@ -158,11 +156,11 @@ if (typeof window !== 'undefined') {
     if (isMobile.value && filtersVisible.value) {
       const target = e.target as HTMLElement
       const filtersPanel = document.querySelector('.floating-collapse')
-      const toggleButton = document.querySelector('.mobile-filter-toggle')
+      const filterControl = document.querySelector('.filter-control')
       
-      if (filtersPanel && toggleButton && 
+      if (filtersPanel && filterControl && 
           !filtersPanel.contains(target) && 
-          !toggleButton.contains(target)) {
+          !filterControl.contains(target)) {
         filtersVisible.value = false
       }
     }
@@ -181,6 +179,67 @@ const countyGeo = ref<any>(null)
 // Mapbox token
 const MapBoxToken = 'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg'
 mapboxgl.accessToken = MapBoxToken
+
+// Create custom filter control for Mapbox
+const createFilterControl = (onClick: () => void, isVisible: Ref<boolean>) => {
+  class FilterControl implements mapboxgl.IControl {
+    private _container: HTMLElement
+    private _button: HTMLButtonElement
+
+    constructor() {
+      this._container = document.createElement('div')
+      this._container.className = 'mapboxgl-ctrl mapboxgl-ctrl-group filter-control'
+      
+      this._button = document.createElement('button')
+      this._button.className = 'mapboxgl-ctrl-icon filter-control-button'
+      this._button.type = 'button'
+      this._button.setAttribute('aria-label', 'Toggle Filters')
+      this._button.innerHTML = `
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/>
+        </svg>
+      `
+      
+      this._button.addEventListener('click', onClick)
+      
+      // Watch for visibility changes to update icon
+      watch(isVisible, (visible) => {
+        if (visible) {
+          this._button.innerHTML = `
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          `
+          this._button.classList.add('active')
+        } else {
+          this._button.innerHTML = `
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/>
+            </svg>
+          `
+          this._button.classList.remove('active')
+        }
+      }, { immediate: true })
+      
+      this._container.appendChild(this._button)
+    }
+
+    onAdd(_map: mapboxgl.Map): HTMLElement {
+      return this._container
+    }
+
+    onRemove(): void {
+      this._container.parentNode?.removeChild(this._container)
+    }
+
+    getDefaultPosition(): string {
+      return 'top-right'
+    }
+  }
+
+  return new FilterControl()
+}
 
 // Initialize map
 onMounted(async () => {
@@ -203,6 +262,11 @@ onMounted(async () => {
       showUserHeading: true
     })
   )
+
+  // Add custom filter control (works for both desktop and mobile)
+  const filterControl = createFilterControl(toggleFilters, filtersVisible)
+  map.value.addControl(filterControl, 'top-right')
+  filterControlRef.value = filterControl
 
   // Watch for dark mode changes
   watch(
@@ -937,16 +1001,36 @@ const getClickedSettlement = async (id: number) => {
 }
 
 /* Mobile filter toggle button */
-.mobile-filter-toggle {
-  position: fixed !important;
-  top: 100px;
-  left: 10px;
-  z-index: 10002 !important;
-  width: 44px;
-  height: 44px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  background: white;
-  border: 1px solid #e4e7ed;
+/* Custom filter control styles */
+.filter-control {
+  margin-top: 10px;
+}
+
+.filter-control-button {
+  width: 29px;
+  height: 29px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.filter-control-button:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.dark .filter-control-button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.filter-control-button.active {
+  background-color: #409eff;
+  color: white;
+}
+
+.dark .filter-control-button.active {
+  background-color: #409eff;
 }
 
 .dark .mobile-filter-toggle {
@@ -1025,10 +1109,9 @@ const getClickedSettlement = async (id: number) => {
 
 /* Small mobile styles */
 @media (max-width: 480px) {
-  .mobile-filter-toggle {
-    top: 90px;
-    width: 40px;
-    height: 40px;
+  .filter-control-button {
+    width: 27px;
+    height: 27px;
   }
 
   .floating-collapse {
