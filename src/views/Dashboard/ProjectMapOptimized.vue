@@ -1,5 +1,27 @@
 <template>
-  <div class="floating-collapse">
+  <!-- Mobile filter toggle button -->
+  <el-button 
+    v-if="isMobile" 
+    class="mobile-filter-toggle"
+    :type="filtersVisible ? 'primary' : 'default'"
+    @click="toggleFilters"
+    circle
+  >
+    <Icon :icon="filtersVisible ? 'mdi:close' : 'mdi:filter-variant'" width="20" />
+  </el-button>
+
+  <!-- Mobile overlay -->
+  <div 
+    v-if="isMobile && filtersVisible" 
+    class="mobile-overlay"
+    @click="filtersVisible = false"
+  ></div>
+
+  <!-- Filters panel -->
+  <div 
+    class="floating-collapse" 
+    :class="{ 'mobile-open': filtersVisible && isMobile, 'mobile-closed': !filtersVisible && isMobile }"
+  >
     <el-collapse v-model="activeCollapse">
       <el-collapse-item name="filters">
         <template #title>
@@ -179,6 +201,46 @@ const isDarkMode = computed(() => appStore.getIsDark)
 
 // Collapse state - closed by default on all screen sizes
 const activeCollapse = ref<string[]>([])
+
+// Mobile filter visibility
+const filtersVisible = ref(false)
+const isMobile = ref(window.innerWidth <= 768)
+
+// Update mobile state on resize
+const updateMobileState = () => {
+  isMobile.value = window.innerWidth <= 768
+  if (!isMobile.value) {
+    filtersVisible.value = false // Auto-close on desktop
+  }
+}
+
+// Toggle filters on mobile
+const toggleFilters = () => {
+  filtersVisible.value = !filtersVisible.value
+  if (filtersVisible.value) {
+    activeCollapse.value = ['filters'] // Auto-expand when opened
+  }
+}
+
+// Watch for window resize
+if (typeof window !== 'undefined') {
+  window.addEventListener('resize', updateMobileState)
+  
+  // Close filters when clicking outside on mobile
+  document.addEventListener('click', (e) => {
+    if (isMobile.value && filtersVisible.value) {
+      const target = e.target as HTMLElement
+      const filtersPanel = document.querySelector('.floating-collapse')
+      const toggleButton = document.querySelector('.mobile-filter-toggle')
+      
+      if (filtersPanel && toggleButton && 
+          !filtersPanel.contains(target) && 
+          !toggleButton.contains(target)) {
+        filtersVisible.value = false
+      }
+    }
+  })
+}
 
 // Filter refs
 const county = ref<number[]>([])
@@ -1093,17 +1155,77 @@ const drawerSize = computed(() => {
   }
 }
 
+/* Mobile filter toggle button */
+.mobile-filter-toggle {
+  position: fixed !important;
+  top: 100px;
+  left: 10px;
+  z-index: 10002 !important;
+  width: 44px;
+  height: 44px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  background: white;
+  border: 1px solid #e4e7ed;
+}
+
+.dark .mobile-filter-toggle {
+  background: #2c2c2c;
+  border-color: #4c4c4c;
+  color: #f0f0f0;
+}
+
 /* Mobile styles */
 @media (max-width: 768px) {
   .floating-collapse {
-    left: 10px;
-    right: 10px;
-    top: 70px;
-    width: auto;
-    max-width: none;
-    padding: 12px;
+    position: fixed !important;
+    left: 0;
+    top: 0;
+    width: 280px;
+    max-width: 85vw;
+    height: 100vh;
+    max-height: 100vh;
+    padding: 16px;
     gap: 0;
-    z-index: 50 !important; /* Lower z-index on mobile to not obstruct sidebar */
+    z-index: 10001 !important;
+    background-color: rgba(255, 255, 255, 0.98);
+    box-shadow: 2px 0 12px rgba(0, 0, 0, 0.15);
+    transform: translateX(-100%);
+    transition: transform 0.3s ease-in-out;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .dark .floating-collapse {
+    background-color: rgba(30, 30, 30, 0.98);
+  }
+
+  .floating-collapse.mobile-open {
+    transform: translateX(0);
+  }
+
+  .floating-collapse.mobile-closed {
+    transform: translateX(-100%);
+  }
+
+  /* Mobile overlay */
+  .mobile-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 10000 !important;
+    animation: fadeIn 0.3s ease-in-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
 
   .filters-wrapper {
@@ -1126,12 +1248,16 @@ const drawerSize = computed(() => {
 
 /* Small mobile styles */
 @media (max-width: 480px) {
+  .mobile-filter-toggle {
+    top: 90px;
+    width: 40px;
+    height: 40px;
+  }
+
   .floating-collapse {
-    top: 60px;
-    padding: 10px;
-    gap: 8px;
-    border-radius: 6px;
-    z-index: 50 !important; /* Lower z-index on mobile to not obstruct sidebar */
+    width: 260px;
+    max-width: 90vw;
+    padding: 12px;
   }
 
   #map {
