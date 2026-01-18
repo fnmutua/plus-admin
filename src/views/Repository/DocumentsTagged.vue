@@ -929,7 +929,8 @@ const documentForm = reactive({
   category: undefined as number | undefined, // This will be the document type/category (Report, Checklist, etc.)
   parent_id: undefined as number | undefined, // This will be the specific parent ID (settlement, facility, etc.)
   format: '',
-  document_type_id: undefined as number | undefined // This will be the document type (Report, Checklist, etc.)
+  document_type_id: undefined as number | undefined, // This will be the document type (Report, Checklist, etc.)
+  originalName: '' // Store original file name for renaming
 })
 
 const docCategories = ref<any[]>([])
@@ -1175,7 +1176,7 @@ const handleSelectType = async (type: string) => {
   console.log(theParentModel.value)
 }
 
-const editDocument = (data: Document) => {
+const editDocument = async (data: Document) => {
   console.log('Edit', data)
 
   // Reset form state
@@ -1185,6 +1186,10 @@ const editDocument = (data: Document) => {
   hide_parent.value = false
   disable_submit.value = true
   parentTitle.value = "Parent (selected)"
+
+  // Store original file name (with extension) for file renaming
+  const originalFileName = (data as any).name || ''
+  documentForm.originalName = originalFileName
 
   // Copy all properties from data to documentForm
   for (const key in data) {
@@ -1200,13 +1205,114 @@ const editDocument = (data: Document) => {
     }
   }
 
-  console.log('documentForm', documentForm)
+  // Set document type/category - check multiple possible locations
+  if (data.document_type?.id) {
+    documentForm.category = data.document_type.id
+  } else if ((data as any)['document_type.id']) {
+    documentForm.category = (data as any)['document_type.id']
+  } else if ((data as any).document_type_id) {
+    documentForm.category = (data as any).document_type_id
+  } else if ((data as any).category && typeof (data as any).category === 'number') {
+    documentForm.category = (data as any).category
+  }
+
+  // Determine parent model and ID from document data
+  const docData = data as any
+  
+  // Mapping from field names to parent model types
+  const fieldToModelMap: { [key: string]: string } = {
+    'settlement_id': 'settlement',
+    'beneficiary_id': 'beneficiary',
+    'project_id': 'project',
+    'contractor_id': 'contractor',
+    'health_facility_id': 'health_facility',
+    'education_facility_id': 'education_facility',
+    'road_id': 'road',
+    'road_asset_id': 'road_asset',
+    'water_point_id': 'water_point',
+    'sewer_id': 'sewer',
+    'other_facility_id': 'other_facility',
+    'indicator_category_report': 'indicator_category_report'
+  }
+
+  // Check for parent ID - first check direct fields, then nested objects, then flattened keys
+  let foundParentModel: string | null = null
+  let foundParentId: number | null = null
+
+  // Check direct ID fields first (e.g., settlement_id, project_id)
+  for (const [field, model] of Object.entries(fieldToModelMap)) {
+    if (docData[field] !== undefined && docData[field] !== null) {
+      foundParentModel = model
+      foundParentId = typeof docData[field] === 'number' ? docData[field] : parseInt(docData[field])
+      break
+    }
+  }
+
+  // If not found, check nested objects (e.g., settlement.id)
+  if (!foundParentModel) {
+    if (docData.settlement?.id || docData['settlement.id']) {
+      foundParentModel = 'settlement'
+      foundParentId = docData.settlement?.id || docData['settlement.id']
+    } else if (docData.project?.id || docData['project.id']) {
+      foundParentModel = 'project'
+      foundParentId = docData.project?.id || docData['project.id']
+    } else if (docData.beneficiary?.id || docData['beneficiary.id']) {
+      foundParentModel = 'beneficiary'
+      foundParentId = docData.beneficiary?.id || docData['beneficiary.id']
+    } else if (docData.health_facility?.id || docData['health_facility.id']) {
+      foundParentModel = 'health_facility'
+      foundParentId = docData.health_facility?.id || docData['health_facility.id']
+    } else if (docData.education_facility?.id || docData['education_facility.id']) {
+      foundParentModel = 'education_facility'
+      foundParentId = docData.education_facility?.id || docData['education_facility.id']
+    } else if (docData.road?.id || docData['road.id']) {
+      foundParentModel = 'road'
+      foundParentId = docData.road?.id || docData['road.id']
+    } else if (docData.road_asset?.id || docData['road_asset.id']) {
+      foundParentModel = 'road_asset'
+      foundParentId = docData.road_asset?.id || docData['road_asset.id']
+    } else if (docData.water_point?.id || docData['water_point.id']) {
+      foundParentModel = 'water_point'
+      foundParentId = docData.water_point?.id || docData['water_point.id']
+    } else if (docData.sewer?.id || docData['sewer.id']) {
+      foundParentModel = 'sewer'
+      foundParentId = docData.sewer?.id || docData['sewer.id']
+    } else if (docData.other_facility?.id || docData['other_facility.id']) {
+      foundParentModel = 'other_facility'
+      foundParentId = docData.other_facility?.id || docData['other_facility.id']
+    }
+  }
+
+  // Use handleSelectType to set up the form properly (this sets theParentModel, document_field, parentTitle, etc.)
+  if (foundParentModel) {
+    handleSelectType(foundParentModel)
+    // Wait for parent options to load if not other_documents (handleSelectType calls getparentOptions but doesn't await it)
+    if (foundParentModel !== 'other_documents') {
+      await getparentOptions()
+    }
+    // Set parent_id after options are loaded
+    if (foundParentId) {
+      await nextTick()
+      documentForm.parent_id = foundParentId
+    }
+  } else {
+    // No parent found, set to other_documents
+    handleSelectType('other_documents')
+  }
+
+  // Enable submit button
+  disable_submit.value = false
+
+  console.log('documentForm after edit setup', documentForm)
+  console.log('theParentModel:', theParentModel.value)
+  console.log('document_field:', document_field.value)
+  console.log('parent_id:', documentForm.parent_id)
   documentName.value = "Editing: " + data.name
 
   dialogVisible.value = true
 
   // Load document types from database
-  getDocumentTypes()
+  await getDocumentTypes()
 }
 
 const handleClose = () => {
@@ -1268,11 +1374,31 @@ const handleSubmitData = async () => {
       }
     }
     
+    // Build new file name with extension
+    const newFileName = documentForm.name + '.' + documentForm.format;
+    
+    // Get original file name (stored when edit dialog was opened)
+    const originalFileName = documentForm.originalName || ''
+    const hasNameChanged = originalFileName && originalFileName !== newFileName
+    
     // Update the document with the new nested structure
-    (documentForm as any).edited_name = documentForm.name + '.' + documentForm.format;
+    (documentForm as any).edited_name = newFileName;
     (documentForm as any).model = 'document';
     (documentForm as any).document_field = document_field.value;
     (documentForm as any).theParentModel = theParentModel.value;
+    
+    // Always send oldFileName if available - helps backend locate the correct file for renaming
+    // This is especially important for subsequent renames where the database name might not match the actual file
+    if (originalFileName) {
+      (documentForm as any).oldFileName = originalFileName;
+      if (hasNameChanged) {
+        console.log('File name changed from', originalFileName, 'to', newFileName);
+      } else {
+        console.log('File name unchanged:', originalFileName);
+      }
+    } else {
+      console.warn('Warning: Original file name not available - backend will use database name');
+    }
     
     // Set the parent_id based on the selected parent
     if (documentForm.parent_id) {
@@ -1287,7 +1413,7 @@ const handleSubmitData = async () => {
     await updateOneRecord(documentForm as any)
  
     dialogVisible.value = false;
-    ElMessage.success('Document updated successfully');
+    ElMessage.success('Document updated successfully' + (hasNameChanged ? ' and file renamed' : ''));
     
     // Reload the documents to reflect changes
     await loadDocumentRepository();

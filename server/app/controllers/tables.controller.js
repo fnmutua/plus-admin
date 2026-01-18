@@ -2675,17 +2675,74 @@ exports.modelEditOneRecord = (req, res) => {
         await result.setActivities(list_activities);
       }
 
+      // Handle document file renaming if name changed
       if (reg_model === 'document' && req.body.edited_name) {
-        const oldFilePath = `/data/uploads/${result.name}`;
+        // Prioritize oldFileName from frontend (most reliable), then try result.name, then result.location
+        let oldFileName = req.body.oldFileName;
+        
+        if (!oldFileName) {
+          // Try to get from database name
+          oldFileName = result.name;
+        }
+        
+        // If still no oldFileName, try to extract from location field
+        if (!oldFileName && result.location) {
+          // Extract filename from location path
+          const pathParts = result.location.split('/');
+          oldFileName = pathParts[pathParts.length - 1];
+        }
+        
+        const oldFilePath = `/data/uploads/${oldFileName}`;
         const newFilePath = `/data/uploads/${req.body.edited_name}`;
         
-        fs.rename(oldFilePath, newFilePath, (err) => {
-          if (err) {
-            console.log('Error renaming the file:', err);
-          } else {
-            console.log('File renamed successfully.');
+        // Only rename if the file name actually changed
+        if (oldFileName && oldFileName !== req.body.edited_name) {
+          try {
+            // Check if new file already exists (to avoid overwriting)
+            if (fs.existsSync(newFilePath)) {
+              console.log('Warning: New file already exists at', newFilePath, '- skipping rename to avoid overwrite');
+            } else if (fs.existsSync(oldFilePath)) {
+              // Use promises version for better async handling - ensure it completes before DB update
+              await fs.promises.rename(oldFilePath, newFilePath);
+              console.log('File renamed successfully from', oldFileName, 'to', req.body.edited_name);
+            } else {
+              // File not found at expected location - try to find it
+              console.log('Warning: Old file not found at', oldFilePath);
+              
+              // Try alternative: check if file is already at new location (maybe rename already happened)
+              if (fs.existsSync(newFilePath)) {
+                console.log('File already exists at new location - no rename needed');
+              } else {
+                // Try to find file by searching in uploads directory (last resort)
+                try {
+                  const uploadsDir = '/data/uploads';
+                  const files = await fs.promises.readdir(uploadsDir);
+                  const matchingFile = files.find(f => f === oldFileName || f.startsWith(oldFileName.split('.')[0]));
+                  
+                  if (matchingFile) {
+                    const foundFilePath = `${uploadsDir}/${matchingFile}`;
+                    await fs.promises.rename(foundFilePath, newFilePath);
+                    console.log('File found and renamed from', matchingFile, 'to', req.body.edited_name);
+                  } else {
+                    console.log('Could not locate file for renaming - file may have been deleted or moved');
+                  }
+                } catch (searchErr) {
+                  console.error('Error searching for file:', searchErr);
+                }
+              }
+            }
+          } catch (err) {
+            console.error('Error renaming the file:', err);
+            console.error('Old path:', oldFilePath);
+            console.error('New path:', newFilePath);
+            // Don't throw error - continue with database update even if file rename fails
+            // The file might have been moved or deleted already
           }
-        });
+        } else if (oldFileName === req.body.edited_name) {
+          console.log('File name unchanged - no rename needed');
+        } else {
+          console.log('Warning: Could not determine old file name for renaming');
+        }
       }
      
       if (reg_model === 'settlement' ) { 

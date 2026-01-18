@@ -3342,6 +3342,56 @@ onMounted(async () => {
   position: relative;
 }
 
+/* Customize default Google Maps map type control */
+.map-container :deep(.gm-style-mtc) {
+  font-size: 12px !important;
+}
+
+.map-container :deep(.gm-style-mtc button) {
+  font-size: 12px !important;
+  padding: 4px 8px !important;
+  line-height: 1.2 !important;
+}
+
+/* The *second-level* dropdown/list items: "Satellite", "Terrain", etc */
+.map-container :deep(.gm-style .gm-style-mtc [role="menu"] [role="menuitem"]),
+.map-container :deep(.gm-style .gm-style-mtc [role="menuitem"]) {
+  font-size: 12px !important;
+  line-height: 1.2 !important;
+}
+
+.map-container :deep(.gm-style-mtc div) {
+  font-size: 12px !important;
+}
+
+/* Customize labels menu dropdown */
+.map-container :deep(.gm-style-mtc-bubble) {
+  font-size: 11px !important;
+}
+
+.map-container :deep(.gm-style-mtc-bubble div) {
+  font-size: 11px !important;
+}
+
+.map-container :deep(.gm-style-mtc-bubble button) {
+  font-size: 11px !important;
+  padding: 4px 8px !important;
+  line-height: 1.2 !important;
+}
+
+.map-container :deep(.gm-style-mtc-bubble-content) {
+  font-size: 11px !important;
+}
+
+.map-container :deep(.gm-style-mtc-bubble-content div) {
+  font-size: 11px !important;
+}
+
+.map-container :deep(.gm-style-mtc-bubble-content button) {
+  font-size: 11px !important;
+  padding: 4px 8px !important;
+}
+
 .drawer-footer {
   display: flex;
   justify-content: flex-end;
@@ -3393,6 +3443,47 @@ onMounted(async () => {
 
   .step-content {
     min-height: 300px;
+  }
+
+  /* Map type control mobile styles */
+  .map-container :deep(.gm-style-mtc) {
+    font-size: 10px !important;
+  }
+
+  .map-container :deep(.gm-style-mtc button) {
+    font-size: 10px !important;
+    padding: 3px 6px !important;
+  }
+
+  .map-container :deep(.gm-style-mtc div) {
+    font-size: 10px !important;
+  }
+
+  /* Labels menu mobile styles */
+  .map-container :deep(.gm-style-mtc-bubble) {
+    font-size: 10px !important;
+  }
+
+  .map-container :deep(.gm-style-mtc-bubble div) {
+    font-size: 10px !important;
+  }
+
+  .map-container :deep(.gm-style-mtc-bubble button) {
+    font-size: 10px !important;
+    padding: 3px 6px !important;
+  }
+
+  .map-container :deep(.gm-style-mtc-bubble-content) {
+    font-size: 10px !important;
+  }
+
+  .map-container :deep(.gm-style-mtc-bubble-content div) {
+    font-size: 10px !important;
+  }
+
+  .map-container :deep(.gm-style-mtc-bubble-content button) {
+    font-size: 10px !important;
+    padding: 3px 6px !important;
   }
 }
 </style>

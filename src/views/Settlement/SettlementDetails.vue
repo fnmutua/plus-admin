@@ -8,7 +8,9 @@ import {
 } from 'element-plus'
 import { useRoute } from 'vue-router'
 import {
-  getSettlementListByCounty} from '@/api/settlements'
+  getSettlementListByCounty,
+  DeleteRecord
+} from '@/api/settlements'
 import { Back, Upload, Search, Edit, More, RefreshLeft, Picture, Download, Loading, Plus } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { getFile } from '@/api/summary'
@@ -60,6 +62,19 @@ const userInfo = wsCache.get(appStore.getUserInfo)
 const isSuperAdmin = ref(
   userInfo.roles.some(role => role.name === "super_admin" || role.name === "root_admin")
 );
+
+// Check if user is a county user (not super admin or national/regional)
+const isCountyUser = computed(() => {
+  if (isSuperAdmin.value) {
+    return false;
+  }
+  // Check if user has county-level role and no national/regional access
+  const hasCountyRole = userInfo.roles.some(role => role.user_roles?.location_level === "county");
+  const hasNationalAccess = userInfo.roles.some(role => 
+    role.user_roles?.location_level === "national" || role.user_roles?.location_level === "regional"
+  );
+  return hasCountyRole && !hasNationalAccess;
+});
 
 // Process user roles for location-based permissions
 const processedRoles = userInfo.roles.map(role => {
@@ -1524,6 +1539,42 @@ const editSettlement = () => {
 
 }
 
+const deleteSettlement = async () => {
+  // Check if user can delete this settlement
+  const settlementData = {
+    id: route.params.id,
+    county_id: profile.county_id || null
+  };
+  
+  if (!canUserAccessSettlement(settlementData, 'delete')) {
+    ElMessage({
+      message: 'You do not have permission to delete this settlement.',
+      type: 'warning',
+    });
+    return;
+  }
+
+  try {
+    const formData: any = {
+      id: route.params.id,
+      model: 'settlement'
+    };
+
+    const response = await DeleteRecord(formData);
+
+    if (response && response.code === '0000') {
+      ElMessage.success('Settlement deleted successfully');
+      // Navigate back to settlement list
+      router.push({ name: 'List' });
+    } else {
+      ElMessage.error('Failed to delete settlement');
+    }
+  } catch (error) {
+    console.error('Error deleting settlement:', error);
+    ElMessage.error('Failed to delete settlement');
+  }
+}
+
  
 const searchName =ref('')
 
@@ -2385,15 +2436,17 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
         </el-table>
       </el-tab-pane>
 
-      <el-tab-pane  v-if="canUserAccessSettlement({id: route.params.id, county_id: profile.county_id}, 'delete')" label="Settings" name="Settings">
+      <el-tab-pane  v-if="!isCountyUser && canUserAccessSettlement({id: route.params.id, county_id: profile.county_id}, 'delete')" label="Settings" name="Settings">
         <el-popconfirm
-width="300" title="Are you sure to delete this project?"
-          @confirm="DeleteProject(projectFullData.id)">
+          width="300" 
+          title="Are you sure to delete this settlement?"
+          @confirm="deleteSettlement">
           <template #reference>
             <el-button style="color: red; border-color: red; margin-left: 5px; margin-bottom: 5px;" plain>
               <Icon icon="material-symbols:delete" style="color: red;" />
               Delete Settlement
-            </el-button> </template>
+            </el-button>
+          </template>
         </el-popconfirm>
 
       </el-tab-pane>
