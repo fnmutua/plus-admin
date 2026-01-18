@@ -3512,14 +3512,16 @@ const Statuses = computed(() => [
     value: 'Rejected',
     icon: CircleClose,
     count: totalRejected,
-    hidden: !(isNationalStaff.value || isSuperAdmin.value || isCountyAdmin.value) || !showAdminButtons.value
+    // Hide for county admin/staff, only show for national/super admin
+    hidden: !(isNationalStaff.value || isSuperAdmin.value) || !showAdminButtons.value || isCountyAdmin.value
   },
   {
     label: 'Duplicates',
     value: 'Duplicates',
     icon: Warning,
     count: duplicateTotal,
-    hidden: !(isNationalStaff.value || isSuperAdmin.value || isCountyAdmin.value) || !showAdminButtons.value
+    // Hide for county admin/staff, only show for national/super admin
+    hidden: !(isNationalStaff.value || isSuperAdmin.value) || !showAdminButtons.value || isCountyAdmin.value
   },
   {
     label: 'Decommissioned',

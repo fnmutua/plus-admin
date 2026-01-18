@@ -20,6 +20,8 @@ import {
   ElDrawer,
   ElMessage,
   ElMessageBox,
+  ElUpload,
+  ElDialog,
   ElRow,
   ElCol,
   ElDivider,
@@ -97,7 +99,7 @@ const checkingGeometry = ref(false)
 
 // Step 2: Map
 const map = ref<any>(null)
-const wardPolygon = ref<any>(null)
+const wardPolygon = ref<any[]>([])
 const settlementPolygon = ref<any>(null)
 const wardGeo = ref<any>(null)
 const settlementGeometry = ref<any>(null)
@@ -413,7 +415,7 @@ const initializeMap = async () => {
         // Listen for polygon completion
         window.google.maps.event.addListener(drawingManager.value, 'polygoncomplete', (polygon: any) => {
           // Check if polygon is within ward boundary (for new records)
-          if (!isEditMode.value && wardPolygon.value) {
+          if (!isEditMode.value && wardPolygon.value && wardPolygon.value.length > 0) {
             const isWithin = checkPolygonWithinWard(polygon)
             if (!isWithin) {
               polygon.setMap(null)
@@ -470,6 +472,11 @@ const initializeMap = async () => {
           polygon.getPath().addListener('insert_at', () => updatePolygonGeometry(polygon))
           polygon.getPath().addListener('remove_at', () => updatePolygonGeometry(polygon))
 
+          // Add click listener to open drawer when polygon is clicked
+          polygon.addListener('click', () => {
+            drawerVisible.value = true
+          })
+
           ElMessage.success('Settlement boundary drawn successfully!')
           
           // Update delete button state
@@ -515,34 +522,74 @@ const loadWardBoundary = () => {
     if (features && features.length > 0) {
       const feature = features[0]
       if (feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon') {
-        const paths = feature.geometry.type === 'Polygon'
-          ? feature.geometry.coordinates[0].map((coord: number[]) => ({
-              lat: coord[1],
-              lng: coord[0]
-            }))
-          : feature.geometry.coordinates[0][0].map((coord: number[]) => ({
-              lat: coord[1],
-              lng: coord[0]
-            }))
-
-        wardPolygon.value = new window.google.maps.Polygon({
-          paths: paths,
-          strokeColor: '#3388ff',
-          strokeOpacity: 1.0,
-          strokeWeight: 3,
-          fillColor: '#3388ff',
-          fillOpacity: 0.1,
-          map: map.value,
-          clickable: false,
-          draggable: false
+        // Clear existing ward polygons
+        wardPolygon.value.forEach(p => {
+          if (p) p.setMap(null)
         })
+        wardPolygon.value = []
 
-        // Fit map to ward bounds
         const bounds = new window.google.maps.LatLngBounds()
-        paths.forEach((path: any) => {
-          bounds.extend(path)
-        })
-        map.value.fitBounds(bounds)
+
+        if (feature.geometry.type === 'Polygon') {
+          // Single Polygon - create one polygon
+          const paths = feature.geometry.coordinates[0].map((coord: number[]) => ({
+            lat: coord[1],
+            lng: coord[0]
+          }))
+
+          const polygon = new window.google.maps.Polygon({
+            paths: paths,
+            strokeColor: '#3388ff',
+            strokeOpacity: 1.0,
+            strokeWeight: 3,
+            fillColor: '#3388ff',
+            fillOpacity: 0.1,
+            map: map.value,
+            clickable: false,
+            draggable: false
+          })
+
+          wardPolygon.value.push(polygon)
+
+          // Add to bounds
+          paths.forEach((path: any) => {
+            bounds.extend(path)
+          })
+        } else if (feature.geometry.type === 'MultiPolygon') {
+          // MultiPolygon - create a polygon for each polygon in the MultiPolygon
+          feature.geometry.coordinates.forEach((polygonCoords: number[][][]) => {
+            // Each polygon in MultiPolygon has its own coordinates array
+            // The first array is the outer ring
+            const paths = polygonCoords[0].map((coord: number[]) => ({
+              lat: coord[1],
+              lng: coord[0]
+            }))
+
+            const polygon = new window.google.maps.Polygon({
+              paths: paths,
+              strokeColor: '#3388ff',
+              strokeOpacity: 1.0,
+              strokeWeight: 3,
+              fillColor: '#3388ff',
+              fillOpacity: 0.1,
+              map: map.value,
+              clickable: false,
+              draggable: false
+            })
+
+            wardPolygon.value.push(polygon)
+
+            // Add to bounds
+            paths.forEach((path: any) => {
+              bounds.extend(path)
+            })
+          })
+        }
+
+        // Fit map to all ward bounds
+        if (!bounds.isEmpty()) {
+          map.value.fitBounds(bounds)
+        }
       }
     }
   } catch (error) {
@@ -591,6 +638,11 @@ const loadSettlementBoundary = () => {
       settlementPolygon.value.getPath().addListener('insert_at', () => updatePolygonGeometry(settlementPolygon.value))
       settlementPolygon.value.getPath().addListener('remove_at', () => updatePolygonGeometry(settlementPolygon.value))
 
+      // Add click listener to open drawer when polygon is clicked
+      settlementPolygon.value.addListener('click', () => {
+        drawerVisible.value = true
+      })
+
       // Update delete button state
       updateDeleteButtonState()
 
@@ -603,7 +655,7 @@ const loadSettlementBoundary = () => {
 }
 
 const checkPolygonWithinWard = (polygon: any): boolean => {
-  if (!wardPolygon.value || !wardGeo.value) return true
+  if (!wardPolygon.value || wardPolygon.value.length === 0 || !wardGeo.value) return true
 
   try {
     const paths = polygon.getPath()
@@ -611,10 +663,14 @@ const checkPolygonWithinWard = (polygon: any): boolean => {
 
     paths.forEach((latLng: any) => {
       const point = new window.google.maps.LatLng(latLng.lat(), latLng.lng())
-      const isInside = window.google.maps.geometry.poly.containsLocation(
-        point,
-        wardPolygon.value
-      )
+      // For MultiPolygon, check if point is inside ANY of the ward polygons
+      let isInside = false
+      for (const wardPoly of wardPolygon.value) {
+        if (window.google.maps.geometry.poly.containsLocation(point, wardPoly)) {
+          isInside = true
+          break
+        }
+      }
       if (!isInside) {
         allInside = false
       }
@@ -1000,9 +1056,11 @@ const goBack = () => {
     currentStep.value--
     if (currentStep.value === 0) {
       // Clean up map
-      if (wardPolygon.value) {
-        wardPolygon.value.setMap(null)
-        wardPolygon.value = null
+      if (wardPolygon.value && wardPolygon.value.length > 0) {
+        wardPolygon.value.forEach(p => {
+          if (p) p.setMap(null)
+        })
+        wardPolygon.value = []
       }
       if (settlementPolygon.value) {
         settlementPolygon.value.setMap(null)
@@ -1088,10 +1146,12 @@ const clearFormAndGeometry = () => {
   drawnPolygons.value.forEach(p => p.setMap(null))
   drawnPolygons.value = []
   
-  // Clear ward polygon
-  if (wardPolygon.value) {
-    wardPolygon.value.setMap(null)
-    wardPolygon.value = null
+  // Clear ward polygons
+  if (wardPolygon.value && wardPolygon.value.length > 0) {
+    wardPolygon.value.forEach(p => {
+      if (p) p.setMap(null)
+    })
+    wardPolygon.value = []
   }
   
   // Close drawer
@@ -1235,6 +1295,10 @@ const readJsonFile = (event: any) => {
         drawerVisible.value = true
       })
     }
+    
+    // Close upload dialog on successful load
+    showUploadDialog.value = false
+    ElMessage.success('Boundary loaded successfully')
   }
 }
 
@@ -1288,6 +1352,10 @@ const readShapefile = async (file: File) => {
             drawerVisible.value = true
           })
         }
+        
+        // Close upload dialog on successful load
+        showUploadDialog.value = false
+        ElMessage.success('Boundary loaded successfully')
       }
     })
     .catch((error) => {
@@ -1298,6 +1366,12 @@ const readShapefile = async (file: File) => {
 
 const showUploadDialog = ref(false)
 const fileList = ref([])
+
+const handleUploadClick = () => {
+  console.log('Upload clicked')
+  showUploadDialog.value = true
+  console.log('Show upload dialog', showUploadDialog.value)
+}
 
 // Initialize on mount
 onMounted(async () => {
@@ -1399,17 +1473,19 @@ onMounted(async () => {
       <!-- Header -->
       <template #header>
         <div class="header-content">
-          <el-button :icon="ArrowLeft" @click="goBack" text size="small">Back</el-button>
-          <h2 class="header-title">{{ isEditMode ? 'Edit Settlement' : 'Add New Settlement' }}</h2>
+          <el-button :icon="ArrowLeft" @click="goBack" text class="back-button">Back</el-button>
+          <h2 class="header-title">{{ isEditMode ? 'EditSettlement' : 'Add Settlement' }}</h2>
           <div class="header-actions">
             <el-button 
               v-if="currentStep === 1" 
               type="primary" 
               :icon="UploadFilled" 
-              @click="showUploadDialog = true" 
+              @click="handleUploadClick" 
               size="small"
+              :circle="isMobile"
+              class="upload-button"
             >
-              Upload GeoJSON/Shapefile
+              <span class="upload-text">Upload boundary file</span>
             </el-button>
           </div>
         </div>
@@ -1751,7 +1827,9 @@ onMounted(async () => {
     <el-dialog 
       v-model="showUploadDialog" 
       title="Upload GeoJSON/Shapefile/KML/KMZ" 
-      width="400px">
+      :width="isMobile ? '90%' : '400px'"
+      :close-on-click-modal="false"
+      class="upload-dialog">
       <el-upload
         v-model:file-list="fileList"
         class="upload-demo"
@@ -1761,9 +1839,9 @@ onMounted(async () => {
         :on-change="handleUploadGeo"
         :limit="1">
         <template #trigger>
-          <el-button type="primary">
+          <el-button type="primary" :size="isMobile ? 'default' : 'default'" class="upload-select-button">
             <el-icon><UploadFilled /></el-icon>
-            Select File
+            <span class="upload-button-text">Select File</span>
           </el-button>
         </template>
         <template #tip>
@@ -1774,7 +1852,7 @@ onMounted(async () => {
       </el-upload>
       <template #footer>
         <span class="dialog-footer">
-          <el-button @click="showUploadDialog = false">Close</el-button>
+          <el-button @click="showUploadDialog = false" :size="isMobile ? 'default' : 'default'">Close</el-button>
         </span>
       </template>
     </el-dialog>
@@ -1789,8 +1867,15 @@ onMounted(async () => {
 .header-content {
   display: flex;
   align-items: center;
-  gap: 8px;
   justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  position: relative;
+}
+
+.back-button {
+  flex: 0 0 auto;
+  min-width: fit-content;
 }
 
 .header-title {
@@ -1798,13 +1883,55 @@ onMounted(async () => {
   font-size: 16px;
   font-weight: 600;
   line-height: 1;
-  flex: 1;
+  text-align: center;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
 }
 
 .header-actions {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex: 0 0 auto;
+  min-width: fit-content;
+  position: relative;
+  z-index: 1;
+}
+
+/* Desktop: button with icon and text */
+.upload-button {
+  min-width: auto;
+  width: auto;
+  height: auto;
+  padding: 5px 12px;
+  border-radius: 4px;
+  position: relative;
+  z-index: 2;
+  cursor: pointer;
+}
+
+.upload-button .upload-text {
+  display: inline;
+  margin-left: 4px;
+  pointer-events: none;
+}
+
+/* Desktop: ensure text is visible */
+@media (min-width: 769px) {
+  .upload-button {
+    min-width: auto;
+    width: auto;
+    height: auto;
+    padding: 5px 12px;
+    border-radius: 4px;
+  }
+  
+  .upload-button .upload-text {
+    display: inline;
+    margin-left: 4px;
+  }
 }
 
 /* Reduce el-card header padding */
@@ -1860,13 +1987,70 @@ onMounted(async () => {
   border-top: 1px solid var(--el-border-color-lighter);
 }
 
+/* Upload Dialog Styles */
+.upload-dialog {
+  max-width: 100%;
+}
+
+.upload-dialog :deep(.el-dialog__body) {
+  padding: 20px;
+}
+
+.upload-select-button {
+  width: 100%;
+  justify-content: center;
+}
+
+.upload-button-text {
+  margin-left: 6px;
+}
+
+.upload-demo :deep(.el-upload) {
+  width: 100%;
+}
+
+.upload-demo :deep(.el-upload-dragger) {
+  width: 100%;
+}
+
+.upload-demo :deep(.el-upload__tip) {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 8px;
+  line-height: 1.5;
+}
+
 @media (max-width: 768px) {
   .add-settlement-container {
     padding: 6px;
   }
 
+  .header-content {
+    gap: 4px;
+  }
+
   .header-title {
     font-size: 14px;
+  }
+
+  .back-button {
+    font-size: 12px;
+    padding: 4px 8px;
+  }
+
+  .upload-button {
+    min-width: 32px;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    position: relative;
+    z-index: 2;
+    cursor: pointer;
+  }
+  
+  .upload-button .upload-text {
+    display: none;
+    pointer-events: none;
   }
 
   :deep(.el-card__header) {
@@ -1881,6 +2065,53 @@ onMounted(async () => {
   .step-content {
     padding: 8px 0;
     min-height: 300px;
+  }
+
+  /* Upload Dialog Mobile Styles */
+  .upload-dialog :deep(.el-dialog) {
+    margin: 5vh auto !important;
+    max-width: 90% !important;
+  }
+
+  .upload-dialog :deep(.el-dialog__header) {
+    padding: 15px 15px 10px;
+  }
+
+  .upload-dialog :deep(.el-dialog__title) {
+    font-size: 16px;
+    line-height: 1.4;
+  }
+
+  .upload-dialog :deep(.el-dialog__body) {
+    padding: 15px;
+  }
+
+  .upload-dialog :deep(.el-dialog__footer) {
+    padding: 10px 15px;
+  }
+
+  .upload-select-button {
+    width: 100%;
+    padding: 10px 16px;
+    font-size: 14px;
+  }
+
+  .upload-button-text {
+    margin-left: 6px;
+  }
+
+  .upload-demo :deep(.el-upload__tip) {
+    font-size: 11px;
+    margin-top: 10px;
+    padding: 0 4px;
+  }
+
+  .upload-demo :deep(.el-upload-list) {
+    margin-top: 10px;
+  }
+
+  .upload-demo :deep(.el-upload-list__item) {
+    margin-top: 8px;
   }
 }
 </style>
