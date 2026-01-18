@@ -223,6 +223,43 @@ const getUserRoles = async () => {
   console.log('filterValues', filterValues);
 };
 
+// Permission checking function for projects
+const canUserDeleteProject = (project: any): boolean => {
+  // Super admins and root admins can delete any project
+  if (isSuperAdmin.value) {
+    return true;
+  }
+
+  // National staff can delete any project
+  if (isNationalStaff.value) {
+    return true;
+  }
+
+  // Check if user has global project:delete permission
+  const userPermissions = userInfo.permissions || [];
+  if (userPermissions.includes('*.*.*') || userPermissions.includes('project:delete')) {
+    // If the project has a createdBy field, check if the current user created it
+    const projectCreatedBy = project.createdBy || project.created_by;
+    if (projectCreatedBy === userInfo.id) {
+      return true;
+    }
+
+    // For county staff, check if they are a county admin and the project is in their county
+    const countyRole = userInfo.roles.find((role: any) => role.user_roles?.location_level === 'county' && role.name === 'admin');
+    if (countyRole && countyRole.user_roles?.county_id) {
+      // Check if project has locations in the user's county
+      if (project.project_locations && Array.isArray(project.project_locations)) {
+        return project.project_locations.some((loc: any) => loc.county_id === countyRole.user_roles.county_id);
+      }
+      // Fallback: check if project has county_id directly
+      if (project.county_id === countyRole.user_roles.county_id) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 const pushRoleFilters = () => {
   // Re-apply role-based filters after other filters are set
   // This ensures county/settlement users only see their assigned locations
@@ -935,6 +972,16 @@ const editProject = async (data: TableSlotDefault) => {
 
 
 const DeleteProject = (data: any) => {
+  if (!canUserDeleteProject(data)) {
+    ElMessage({
+      message: 'You do not have permission to delete this project. Only Super Admins, National Staff, or the County Admin who created this project can delete it.',
+      type: 'warning',
+      duration: 5000,
+      showClose: true
+    });
+    return;
+  }
+
   console.log('----->', data)
   let formData: any = {
     id: data.id,

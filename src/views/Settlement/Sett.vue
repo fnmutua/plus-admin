@@ -138,6 +138,19 @@ const isNationalStaff = ref(false)
 const isCountyStaff = ref(false)
 const thisHistory = ref()
 
+// Check if user is a public user
+const isPublicUser = computed(() => {
+  return userInfo.roles.some(role => role.name === "public" || role.name === "Public")
+})
+
+// Check if user is a county admin
+const isCountyAdmin = computed(() => {
+  return userInfo.roles.some(role => 
+    (role.name === "admin" || role.name === "staff") && 
+    role.user_roles?.location_level === "county"
+  )
+})
+
 const action_buttons = computed<string[]>(() => {
   let buttons: string[] = [];
   if (showAdminButtons.value) {
@@ -298,12 +311,59 @@ const pushRoleFilters = () => {
 
 // Location-aware permission checking function
 const canUserAccessSettlement = (settlement: any, action: 'edit' | 'delete' | 'create'): boolean => {
-  // Super admins can access everything
+  // Super admins and root admins can access everything
   if (isSuperAdmin.value) {
     return true;
   }
 
-  // Check if user has the required global permission
+  // For delete action, apply stricter rules
+  if (action === 'delete') {
+    // Check if user is national staff/admin (national level access)
+    if (isNationalStaff.value) {
+      // Check if user has admin role at national level
+      const hasNationalAdminRole = userInfo.roles.some(role => 
+        (role.name === "admin" || role.name === "staff") && 
+        (role.user_roles?.location_level === "national" || role.user_roles?.location_level === null)
+      );
+      if (hasNationalAdminRole) {
+        return true;
+      }
+    }
+
+    // Check if user has global settlement:delete permission
+    const userPermissions = userInfo.permissions || [];
+    if (userPermissions.includes('*.*.*') || userPermissions.includes('settlement:delete')) {
+      // If the settlement has a createdBy field, check if the current user created it
+      const settlementCreatedBy = settlement.createdBy || settlement.created_by;
+      if (settlementCreatedBy === userInfo.id) {
+        return true;
+      }
+
+      // For county staff, check if they are a county admin and the settlement is in their county
+      // AND they created the settlement
+      const countyAdminRole = userInfo.roles.find(role => 
+        (role.name === "admin" || role.name === "staff") && 
+        role.user_roles?.location_level === "county" &&
+        role.user_roles?.county_id
+      );
+
+      if (countyAdminRole && settlement) {
+        const userCountyId = countyAdminRole.user_roles.county_id;
+        const settlementCountyId = settlement.county_id;
+        const settlementCreatedBy = settlement.createdBy || settlement.created_by;
+
+        // Allow delete if: user is county admin/staff AND settlement is in their county AND user created it
+        if (settlementCountyId === userCountyId && settlementCreatedBy === userInfo.id) {
+          return true;
+        }
+      }
+    }
+
+    // No other users can delete
+    return false;
+  }
+
+  // Check if user has the required global permission (for edit/create)
   const userPermissions = userInfo.permissions || [];
   const requiredPermissions = {
     edit: 'settlement:update',
@@ -328,7 +388,7 @@ const canUserAccessSettlement = (settlement: any, action: 'edit' | 'delete' | 'c
     );
   }
 
-  // For edit/delete actions, check location-based access
+  // For edit actions, check location-based access
   return processedRoles.some(role => {
     if (role.model === 'national') {
       return true; // National level access
@@ -542,8 +602,8 @@ onMounted(async () => {
   updatePageSize();
   await getUserRoles(); // Initialize role-based filters first
   
-  // Ensure non-national users always see Approved segment
-  if (!isNationalStaff.value && !isSuperAdmin.value) {
+  // Ensure non-national/non-admin users always see Approved segment
+  if (!isNationalStaff.value && !isSuperAdmin.value && !isCountyAdmin.value) {
     activeSegment.value = 'Approved'
   }
   
@@ -1605,10 +1665,10 @@ const handleClose = () => {
 }
 
 const AddSettlement = () => {
-  // Check if user can create settlements
-  if (!canUserAccessSettlement({}, 'create')) {
+  // Check if user is public user
+  if (isPublicUser.value) {
     ElMessage({
-      message: 'You do not have permission to create settlements.',
+      message: 'Public users do not have permission to create settlements.',
       type: 'warning',
     });
     return;
@@ -1724,8 +1784,10 @@ const handleDelete = async (data: any) => {
   
   if (!canUserAccessSettlement(settlement, 'delete')) {
     ElMessage({
-      message: 'You do not have permission to delete this settlement.',
+      message: 'You do not have permission to delete this settlement. Only national/super/root admins or county staff who created the settlement can delete it.',
       type: 'warning',
+      duration: 5000,
+      showClose: true
     });
     return;
   }
@@ -1814,11 +1876,28 @@ const handleDeleteCascade = async () => {
     return
   }
 
+  // Filter settlements that user can delete
+  const deletableSettlements = selected.filter(s => canUserAccessSettlement(s, 'delete'))
+  const unauthorizedSettlements = selected.filter(s => !canUserAccessSettlement(s, 'delete'))
+
+  if (unauthorizedSettlements.length > 0) {
+    ElMessage.warning({
+      message: `You do not have permission to delete ${unauthorizedSettlements.length} of the selected settlement(s). Only national/super/root admins or county staff who created the settlements can delete them.`,
+      duration: 6000,
+      showClose: true
+    })
+  }
+
+  if (deletableSettlements.length < 1) {
+    ElMessage.warning('None of the selected settlements can be deleted. Only national/super/root admins or county staff who created the settlements can delete them.')
+    return
+  }
+
   // Confirm with user
   try {
     await ElMessageBox.confirm(
-      `You are about to permanently delete ${selected.length} settlement(s) with all associated data (cascade delete).\n\n` +
-      `Settlements to delete:\n${selected.map(s => `- ${s.name} (ID: ${s.id})`).join('\n')}\n\n` +
+      `You are about to permanently delete ${deletableSettlements.length} settlement(s) with all associated data (cascade delete).\n\n` +
+      `Settlements to delete:\n${deletableSettlements.map(s => `- ${s.name} (ID: ${s.id})`).join('\n')}\n\n` +
       `This action will delete all related data including documents, roads, projects, facilities, and any other associations.\n\n` +
       `⚠️ WARNING: This action cannot be undone!`,
       'Confirm Cascade Delete',
@@ -1836,7 +1915,7 @@ const handleDeleteCascade = async () => {
   }
 
   try {
-    const deletePromises = selected.map(async (settlement) => {
+    const deletePromises = deletableSettlements.map(async (settlement) => {
       const formData: any = {
         id: settlement.id,
         model: model,
@@ -1869,12 +1948,12 @@ const handleDeleteCascade = async () => {
         successCount++
       } else {
         failCount++
-        failedSettlements.push(selected[index].name)
+        failedSettlements.push(deletableSettlements[index].name)
       }
     })
 
     // Remove successfully deleted settlements from the appropriate list
-    const settlementIds = selected
+    const settlementIds = deletableSettlements
       .filter((_, index) => results[index].status === 'fulfilled' && results[index].value?.code === '0000')
       .map(s => s.id)
 
@@ -3426,35 +3505,35 @@ const Statuses = computed(() => [
     value: 'New',
     icon: Message,
     count: totalPending,
-    hidden: !isNationalStaff.value || !showAdminButtons.value
+    hidden: !(isNationalStaff.value || isSuperAdmin.value || isCountyAdmin.value) || !showAdminButtons.value
   },
   {
     label: 'Rejected',
     value: 'Rejected',
     icon: CircleClose,
     count: totalRejected,
-    hidden: !isNationalStaff.value || !showAdminButtons.value
+    hidden: !(isNationalStaff.value || isSuperAdmin.value || isCountyAdmin.value) || !showAdminButtons.value
   },
   {
     label: 'Duplicates',
     value: 'Duplicates',
     icon: Warning,
     count: duplicateTotal,
-    hidden: !isNationalStaff.value || !showAdminButtons.value
+    hidden: !(isNationalStaff.value || isSuperAdmin.value || isCountyAdmin.value) || !showAdminButtons.value
   },
   {
     label: 'Decommissioned',
     value: 'Decommissioned',
     icon: Delete,
     count: decommSettlementsCount,
-    hidden: !isNationalStaff.value || !isSuperAdmin.value
+    hidden: !(isNationalStaff.value || isSuperAdmin.value || isCountyAdmin.value)
   },
   {
     label: 'Deleted',
     value: 'Deleted',
     icon: Delete,
     count: deletedSettlementsCount,
-    hidden: !isNationalStaff.value || !isSuperAdmin.value
+    hidden: !(isNationalStaff.value || isSuperAdmin.value || isCountyAdmin.value)
   },
 ])
 
@@ -3486,9 +3565,9 @@ const getThisHistory = async (sett_id) => {
 };
  
 
-// Watch activeSegment to ensure non-national users always stay on Approved
+// Watch activeSegment to ensure non-national/non-admin users always stay on Approved
 watch(activeSegment, (newValue) => {
-  if (!isNationalStaff.value && !isSuperAdmin.value && newValue !== 'Approved') {
+  if (!isNationalStaff.value && !isSuperAdmin.value && !isCountyAdmin.value && newValue !== 'Approved') {
     activeSegment.value = 'Approved'
   }
 })
@@ -3505,8 +3584,8 @@ watch(selectedCounty, (newValue) => {
 }, { immediate: true, deep: true })
 
 const onSegmentClick = async () => {
-  // Prevent non-national users from changing segments
-  if (!isNationalStaff.value && !isSuperAdmin.value) {
+  // Prevent non-national/non-admin users from changing segments
+  if (!isNationalStaff.value && !isSuperAdmin.value && !isCountyAdmin.value) {
     activeSegment.value = 'Approved'
     return
   }
@@ -3975,7 +4054,7 @@ v-model="search_string" clearable :onClear="handleClear"
 
 
           <el-tooltip content="Add Settlement" placement="top">
-            <el-button v-if="canUserAccessSettlement({}, 'create')" :onClick="AddSettlement" type="primary" :icon="Plus" />
+            <el-button v-if="!isPublicUser" :onClick="AddSettlement" type="primary" :icon="Plus" />
           </el-tooltip>
           
           <el-tooltip content="Clear" placement="top">
@@ -4011,7 +4090,7 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
     </el-row>
 
 
-    <div class="custom-style" v-if="isNationalStaff || isSuperAdmin">
+    <div class="custom-style" v-if="isNationalStaff || isSuperAdmin || isCountyAdmin">
 
       <el-segmented v-model="activeSegment" :options="filteredSegments" block :onChange="onSegmentClick">
         <template #default="{ item }">

@@ -75,6 +75,259 @@ const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
 
+// Role checking setup
+const isSuperAdmin = ref(
+  userInfo.roles?.some((role: any) => role.name === "super_admin" || role.name === "root_admin")
+)
+const isNationalStaff = computed(() => {
+  return userInfo?.roles?.some((role: any) => 
+    role.user_roles?.location_level === 'national'
+  ) || false
+})
+
+// Process user roles for permission checking
+let processedRoles: any[] = []
+if (userInfo.roles) {
+  processedRoles = userInfo.roles.map((role: any) => {
+    const level = role.user_roles?.location_level;
+    return {
+      role: role.name,
+      model: level,
+      field: level === 'county' ? 'county_id' : level === 'settlement' ? 'settlement_id' : null,
+      fieldvalue: level === 'county' ? role.user_roles?.county_id : level === 'settlement' ? role.user_roles?.settlement_id : null
+    };
+  }).filter((role: any) => role !== null);
+}
+
+// Permission checking functions
+const canUserDeleteProject = (project: any): boolean => {
+  // Return false if project is undefined or null
+  if (!project) {
+    return false;
+  }
+
+  // Super admins and root admins can delete any project
+  if (isSuperAdmin.value) {
+    return true;
+  }
+
+  // National staff can delete any project
+  if (isNationalStaff.value) {
+    return true;
+  }
+
+  // Check if user has global project:delete permission
+  const userPermissions = userInfo.permissions || [];
+  if (userPermissions.includes('*.*.*') || userPermissions.includes('project:delete')) {
+    // If the project has a createdBy field, check if the current user created it
+    const projectCreatedBy = project.createdBy || project.created_by;
+    if (projectCreatedBy === userInfo.id) {
+      return true;
+    }
+
+    // For county staff, check if they are a county admin and the project is in their county
+    const countyRole = userInfo.roles.find((role: any) => role.user_roles?.location_level === 'county' && role.name === 'admin');
+    if (countyRole && countyRole.user_roles?.county_id) {
+      // Check if project has locations in the user's county
+      if (project.project_locations && Array.isArray(project.project_locations)) {
+        return project.project_locations.some((loc: any) => loc.county_id === countyRole.user_roles.county_id);
+      }
+      // Fallback: check if project has county_id directly
+      if (project.county_id === countyRole.user_roles.county_id) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+const canUserDeleteDocument = (document: any): boolean => {
+  // Return false if document is undefined or null
+  if (!document) {
+    return false;
+  }
+
+  // Super admins and root admins can delete any document
+  if (isSuperAdmin.value) {
+    return true;
+  }
+
+  // National staff can delete any document
+  if (isNationalStaff.value) {
+    return true;
+  }
+
+  // Check if user has global document:delete permission
+  const userPermissions = userInfo.permissions || [];
+  if (userPermissions.includes('*.*.*') || userPermissions.includes('document:delete')) {
+    // If the document has a createdBy field, check if the current user created it
+    if (document.createdBy === userInfo.id) {
+      return true;
+    }
+
+    // For county staff, check if they are a county admin and the document is in their county
+    const countyRole = userInfo.roles.find((role: any) => role.user_roles?.location_level === 'county' && role.name === 'admin');
+    if (countyRole && countyRole.user_roles?.county_id) {
+      // If the document is associated with a settlement, check the settlement's county_id
+      if (document.settlement?.county_id === countyRole.user_roles.county_id) {
+        return true;
+      }
+      // If the document is associated with a project, check project locations
+      if (document.project?.project_locations && Array.isArray(document.project.project_locations)) {
+        return document.project.project_locations.some((loc: any) => loc.county_id === countyRole.user_roles.county_id);
+      }
+    }
+  }
+  return false;
+}
+
+const canUserDeleteProjectLocation = (location: any): boolean => {
+  // Return false if location is undefined or null
+  if (!location) {
+    return false;
+  }
+
+  // Super admins and root admins can delete any location
+  if (isSuperAdmin.value) {
+    return true;
+  }
+
+  // National staff can delete any location
+  if (isNationalStaff.value) {
+    return true;
+  }
+
+  // Check if user has global permission
+  const userPermissions = userInfo.permissions || [];
+  if (userPermissions.includes('*.*.*') || userPermissions.includes('project_location:delete')) {
+    // If the location has a createdBy field, check if the current user created it
+    if (location.createdBy === userInfo.id) {
+      return true;
+    }
+
+    // For county staff, check if they are a county admin and the location is in their county
+    const countyRole = userInfo.roles.find((role: any) => role.user_roles?.location_level === 'county' && role.name === 'admin');
+    if (countyRole && countyRole.user_roles?.county_id) {
+      if (location.county_id === countyRole.user_roles.county_id) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+const canUserDeleteTeamMember = (member: any): boolean => {
+  // Super admins and root admins can delete any team member
+  if (isSuperAdmin.value) {
+    return true;
+  }
+
+  // National staff can delete any team member
+  if (isNationalStaff.value) {
+    return true;
+  }
+
+  // Check if user has global permission
+  const userPermissions = userInfo.permissions || [];
+  if (userPermissions.includes('*.*.*') || userPermissions.includes('project_team:delete')) {
+    // If the member has a createdBy field, check if the current user created it
+    if (member.createdBy === userInfo.id) {
+      return true;
+    }
+
+    // For county staff, check if they are a county admin
+    const countyRole = userInfo.roles.find((role: any) => role.user_roles?.location_level === 'county' && role.name === 'admin');
+    if (countyRole) {
+      return true; // County admins can delete team members in their projects
+    }
+  }
+  return false;
+}
+
+const canUserDeleteContractor = (contractor: any): boolean => {
+  // Super admins and root admins can delete any contractor
+  if (isSuperAdmin.value) {
+    return true;
+  }
+
+  // National staff can delete any contractor
+  if (isNationalStaff.value) {
+    return true;
+  }
+
+  // Check if user has global permission
+  const userPermissions = userInfo.permissions || [];
+  if (userPermissions.includes('*.*.*') || userPermissions.includes('project_contractor:delete')) {
+    // If the contractor has a createdBy field, check if the current user created it
+    if (contractor.createdBy === userInfo.id) {
+      return true;
+    }
+
+    // For county staff, check if they are a county admin
+    const countyRole = userInfo.roles.find((role: any) => role.user_roles?.location_level === 'county' && role.name === 'admin');
+    if (countyRole) {
+      return true; // County admins can delete contractors in their projects
+    }
+  }
+  return false;
+}
+
+const canUserDeleteDisbursement = (disbursement: any): boolean => {
+  // Super admins and root admins can delete any disbursement
+  if (isSuperAdmin.value) {
+    return true;
+  }
+
+  // National staff can delete any disbursement
+  if (isNationalStaff.value) {
+    return true;
+  }
+
+  // Check if user has global permission
+  const userPermissions = userInfo.permissions || [];
+  if (userPermissions.includes('*.*.*') || userPermissions.includes('disbursement:delete')) {
+    // If the disbursement has a createdBy field, check if the current user created it
+    if (disbursement.createdBy === userInfo.id) {
+      return true;
+    }
+
+    // For county staff, check if they are a county admin
+    const countyRole = userInfo.roles.find((role: any) => role.user_roles?.location_level === 'county' && role.name === 'admin');
+    if (countyRole) {
+      return true; // County admins can delete disbursements in their projects
+    }
+  }
+  return false;
+}
+
+const canUserDeleteTask = (task: any): boolean => {
+  // Super admins and root admins can delete any task
+  if (isSuperAdmin.value) {
+    return true;
+  }
+
+  // National staff can delete any task
+  if (isNationalStaff.value) {
+    return true;
+  }
+
+  // Check if user has global permission
+  const userPermissions = userInfo.permissions || [];
+  if (userPermissions.includes('*.*.*') || userPermissions.includes('project_task:delete')) {
+    // If the task has a createdBy field, check if the current user created it
+    if (task.createdBy === userInfo.id) {
+      return true;
+    }
+
+    // For county staff, check if they are a county admin
+    const countyRole = userInfo.roles.find((role: any) => role.user_roles?.location_level === 'county' && role.name === 'admin');
+    if (countyRole) {
+      return true; // County admins can delete tasks in their projects
+    }
+  }
+  return false;
+}
+
 
 
 
@@ -473,6 +726,8 @@ const getProjectDocuments = async (
       if (match) {
         doc.type = match.type
       }
+      // Set deletable property based on permissions
+      doc.deletable = canUserDeleteDocument(doc)
       return doc
     })
 
@@ -1362,6 +1617,11 @@ const submitMoreDocuments = async () => {
           return !projectDocuments.value.some(existingDoc => existingDoc.id === doc.id);
         });
 
+        // Ensure deletable property is set for newly uploaded documents
+        uniqueUpdatedDocs.forEach(doc => {
+          doc.deletable = canUserDeleteDocument(doc)
+        })
+
         // Push only the unique documents that don't exist yet
         if (uniqueUpdatedDocs.length > 0) {
           projectDocuments.value.push(...uniqueUpdatedDocs);
@@ -1536,6 +1796,15 @@ const updateTeam = async () => {
 }
 
 const RemoveTeamMember = async (row) => {
+  if (!canUserDeleteTeamMember(row)) {
+    ElMessage({
+      message: 'You do not have permission to delete this team member. Only Super Admins, National Staff, or the County Admin who created this team member can delete it.',
+      type: 'warning',
+      duration: 5000,
+      showClose: true
+    });
+    return;
+  }
 
   let formData = {}
   formData.id = row.id
@@ -1864,6 +2133,15 @@ const updateContractor = async () => {
 
 
 const RemoveContractor = async (row) => {
+  if (!canUserDeleteContractor(row)) {
+    ElMessage({
+      message: 'You do not have permission to delete this contractor. Only Super Admins, National Staff, or the County Admin who created this contractor can delete it.',
+      type: 'warning',
+      duration: 5000,
+      showClose: true
+    });
+    return;
+  }
 
   let formData = {}
   formData.id = row.id
@@ -1885,6 +2163,15 @@ const RemoveContractor = async (row) => {
 
 
 const RemoveDocument = async (row) => {
+  if (!canUserDeleteDocument(row)) {
+    ElMessage({
+      message: 'You do not have permission to delete this document. Only Super Admins, National Staff, or the County Admin who created this document can delete it.',
+      type: 'warning',
+      duration: 5000,
+      showClose: true
+    });
+    return;
+  }
 
   let formData = {}
   formData.id = row.id
@@ -1904,6 +2191,15 @@ const RemoveDocument = async (row) => {
 
 
 const RemoveDisbursement = async (row) => {
+  if (!canUserDeleteDisbursement(row)) {
+    ElMessage({
+      message: 'You do not have permission to delete this disbursement. Only Super Admins, National Staff, or the County Admin who created this disbursement can delete it.',
+      type: 'warning',
+      duration: 5000,
+      showClose: true
+    });
+    return;
+  }
 
   let formData = {}
   formData.id = row.id
@@ -2288,6 +2584,16 @@ const handleEdit = async (task) => {
 
 // Delete task handler
 const handleDelete = async (row) => {
+  if (!canUserDeleteTask(row)) {
+    ElMessage({
+      message: 'You do not have permission to delete this task. Only Super Admins, National Staff, or the County Admin who created this task can delete it.',
+      type: 'warning',
+      duration: 5000,
+      showClose: true
+    });
+    return;
+  }
+
   console.log('Delete task:', row);
   // You can prompt for confirmation and delete the record
   // Implement the actual delete logic here (e.g., API call)
@@ -2465,6 +2771,17 @@ const handleDownload = async () => {
 const activeName = ref('details')
 
 const DeleteProject = async (id) => {
+  const project = projectFullData.value;
+  if (!canUserDeleteProject(project)) {
+    ElMessage({
+      message: 'You do not have permission to delete this project. Only Super Admins, National Staff, or the County Admin who created this project can delete it.',
+      type: 'warning',
+      duration: 5000,
+      showClose: true
+    });
+    return;
+  }
+
   let formData = {};
   formData.id = id;
   formData.model = 'project';
@@ -2921,6 +3238,16 @@ const submitForm = async (formEl: FormInstance | undefined) => {
 
 
 const DeleteProjectLocation = (data) => {
+  if (!canUserDeleteProjectLocation(data.row)) {
+    ElMessage({
+      message: 'You do not have permission to delete this project location. Only Super Admins, National Staff, or the County Admin who created this location can delete it.',
+      type: 'warning',
+      duration: 5000,
+      showClose: true
+    });
+    return;
+  }
+
   console.log('----->', data)
   let formData = {}
   formData.id = data.row.id
@@ -3788,7 +4115,8 @@ function formatLocation(item) {
                 </el-button>
 
                 <el-popconfirm
-width="300" title="Are you sure to delete this project?"
+                  v-if="canUserDeleteProject(projectFullData)"
+                  width="300" title="Are you sure to delete this project?"
                   @confirm="DeleteProject(projectFullData.id)">
                   <template #reference>
                     <el-button type="danger" plain>
@@ -3835,7 +4163,9 @@ v-for="item in projectDescription" :key="item.property"
                 Edit Location 
               </el-button>
 
-              <el-button size="small" type="danger" :icon="Delete" @click="DeleteProjectLocation(scope)" plain>
+              <el-button 
+                v-if="canUserDeleteProjectLocation(scope.row)"
+                size="small" type="danger" :icon="Delete" @click="DeleteProjectLocation(scope)" plain>
                 Delete
               </el-button>
             </template>
@@ -4033,7 +4363,9 @@ v-model="projectScopeChecked" :label="activity.id" @change="toggleActivity()"
             </el-table-column>
             <el-table-column fixed="right" label="">
               <template #default="scope">
-                <el-button plain type="danger" @click="RemoveDocument(scope.row)">
+                <el-button 
+                  v-if="canUserDeleteDocument(scope.row)"
+                  plain type="danger" @click="RemoveDocument(scope.row)">
                   <Icon icon="material-symbols-light:delete-outline" style="  margin-right: 5px;" />
                   Remove
                 </el-button>
@@ -4075,7 +4407,9 @@ v-model="projectScopeChecked" :label="activity.id" @change="toggleActivity()"
             <el-table-column prop="role" label="Role" />
             <el-table-column fixed="right" label="">
               <template #default="scope">
-                <el-button plain type="danger" @click="RemoveTeamMember(scope.row)">
+                <el-button 
+                  v-if="canUserDeleteTeamMember(scope.row)"
+                  plain type="danger" @click="RemoveTeamMember(scope.row)">
                   <Icon icon="material-symbols-light:delete-outline" style="  margin-right: 5px;" />
                   Remove
                 </el-button>
@@ -4202,7 +4536,9 @@ v-model="projectScopeChecked" :label="activity.id" @change="toggleActivity()"
 
             <el-table-column fixed="right" label="">
               <template #default="scope">
-                <el-button plain type="danger" @click="RemoveContractor(scope.row)">
+                <el-button 
+                  v-if="canUserDeleteContractor(scope.row)"
+                  plain type="danger" @click="RemoveContractor(scope.row)">
                   <Icon icon="material-symbols-light:delete-outline" style="  margin-right: 5px;" />
                   Remove
                 </el-button>
@@ -4230,7 +4566,9 @@ v-model="projectScopeChecked" :label="activity.id" @change="toggleActivity()"
             <el-table-column prop="certificate" label="IPC" />
             <el-table-column fixed="right" label="">
               <template #default="scope">
-                <el-button plain type="danger" @click="RemoveDisbursement(scope.row)">
+                <el-button 
+                  v-if="canUserDeleteDisbursement(scope.row)"
+                  plain type="danger" @click="RemoveDisbursement(scope.row)">
                   <Icon icon="material-symbols-light:delete-outline" style="  margin-right: 5px;" />
                   Remove
                 </el-button>

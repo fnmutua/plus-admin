@@ -386,115 +386,121 @@ const initializeMap = async () => {
       loadWardBoundary()
     }
 
-    // Initialize drawing manager
-    if (window.google.maps.drawing) {
-      drawingManager.value = new window.google.maps.drawing.DrawingManager({
-        drawingMode: null,
-        drawingControl: true,
-        drawingControlOptions: {
-          position: window.google.maps.ControlPosition.TOP_CENTER,
-          drawingModes: [window.google.maps.drawing.OverlayType.POLYGON]
-        },
-        polygonOptions: {
-          fillColor: '#FF0000',
-          fillOpacity: 0.2,
-          strokeWeight: 2,
-          strokeColor: '#FF0000',
-          clickable: true,
-          editable: true,
-          draggable: false,
-          zIndex: 1
-        }
-      })
+    // Initialize drawing manager after map is ready
+    window.google.maps.event.addListenerOnce(map.value, 'idle', () => {
+      if (window.google.maps.drawing) {
+        drawingManager.value = new window.google.maps.drawing.DrawingManager({
+          drawingMode: null,
+          drawingControl: true,
+          drawingControlOptions: {
+            position: window.google.maps.ControlPosition.TOP_CENTER,
+            drawingModes: [window.google.maps.drawing.OverlayType.POLYGON]
+          },
+          polygonOptions: {
+            fillColor: '#FF0000',
+            fillOpacity: 0.2,
+            strokeWeight: 2,
+            strokeColor: '#FF0000',
+            clickable: true,
+            editable: true,
+            draggable: false,
+            zIndex: 1
+          }
+        })
 
-      drawingManager.value.setMap(map.value)
-      
-      // Add delete button to drawing controls container after a delay to ensure controls are rendered
-      // Use multiple attempts to ensure button is added
-      setTimeout(() => {
-        addDeleteControl()
-      }, 300)
-      
-      // Also try after map is fully idle
-      window.google.maps.event.addListenerOnce(map.value, 'idle', () => {
+        drawingManager.value.setMap(map.value)
+        
+        // Listen for polygon completion
+        window.google.maps.event.addListener(drawingManager.value, 'polygoncomplete', (polygon: any) => {
+          // Check if polygon is within ward boundary (for new records)
+          if (!isEditMode.value && wardPolygon.value) {
+            const isWithin = checkPolygonWithinWard(polygon)
+            if (!isWithin) {
+              polygon.setMap(null)
+              ElMessage.error('Settlement must be drawn within the ward boundary!')
+              return
+            }
+          }
+
+          // Remove previous polygons
+          drawnPolygons.value.forEach(p => p.setMap(null))
+          drawnPolygons.value = []
+
+          drawnPolygons.value.push(polygon)
+          
+          // Make polygon editable
+          polygon.setEditable(true)
+          
+          // Convert to GeoJSON
+          const paths = polygon.getPath()
+          const coordinates: number[][] = []
+          
+          paths.forEach((latLng: any) => {
+            coordinates.push([latLng.lng(), latLng.lat()])
+          })
+
+          // Close the polygon
+          if (coordinates.length > 0) {
+            const firstCoord = coordinates[0]
+            if (coordinates[coordinates.length - 1][0] !== firstCoord[0] || 
+                coordinates[coordinates.length - 1][1] !== firstCoord[1]) {
+              coordinates.push([firstCoord[0], firstCoord[1]])
+            }
+          }
+
+          const geom = {
+            type: 'Polygon',
+            coordinates: [coordinates]
+          }
+
+          settlementGeometry.value = geom
+          settlementForm.geom = geom
+
+          // Calculate area
+          try {
+            const areaSquareMeters = turf.area(geom)
+            const areaHectares = areaSquareMeters / 10000
+            settlementForm.area = parseFloat(areaHectares.toFixed(4))
+          } catch (error) {
+            console.error('Error calculating area:', error)
+          }
+
+          // Listen for geometry changes
+          polygon.getPath().addListener('set_at', () => updatePolygonGeometry(polygon))
+          polygon.getPath().addListener('insert_at', () => updatePolygonGeometry(polygon))
+          polygon.getPath().addListener('remove_at', () => updatePolygonGeometry(polygon))
+
+          ElMessage.success('Settlement boundary drawn successfully!')
+          
+          // Update delete button state
+          updateDeleteButtonState()
+          
+          // Open drawer to fill in details (same as edit mode)
+          // Use nextTick to ensure the polygon is fully rendered before opening drawer
+          nextTick(() => {
+            drawerVisible.value = true
+          })
+        })
+        
+        // Add delete button to drawing controls container after a delay to ensure controls are rendered
+        // Use multiple attempts to ensure button is added
+        setTimeout(() => {
+          addDeleteControl()
+        }, 300)
+        
+        // Also try after a longer delay to ensure controls are fully rendered
         setTimeout(() => {
           // Check if button already exists, if not add it
           const existingDeleteBtn = document.querySelector('button[title*="Delete drawn settlement boundary"]')
           if (!existingDeleteBtn) {
             addDeleteControl()
           }
-        }, 500)
-      })
-
-      // Listen for polygon completion
-      window.google.maps.event.addListener(drawingManager.value, 'polygoncomplete', (polygon: any) => {
-        // Check if polygon is within ward boundary (for new records)
-        if (!isEditMode.value && wardPolygon.value) {
-          const isWithin = checkPolygonWithinWard(polygon)
-          if (!isWithin) {
-            polygon.setMap(null)
-            ElMessage.error('Settlement must be drawn within the ward boundary!')
-            return
-          }
-        }
-
-        // Remove previous polygons
-        drawnPolygons.value.forEach(p => p.setMap(null))
-        drawnPolygons.value = []
-
-        drawnPolygons.value.push(polygon)
-        
-        // Make polygon editable
-        polygon.setEditable(true)
-        
-        // Convert to GeoJSON
-        const paths = polygon.getPath()
-        const coordinates: number[][] = []
-        
-        paths.forEach((latLng: any) => {
-          coordinates.push([latLng.lng(), latLng.lat()])
-        })
-
-        // Close the polygon
-        if (coordinates.length > 0) {
-          const firstCoord = coordinates[0]
-          if (coordinates[coordinates.length - 1][0] !== firstCoord[0] || 
-              coordinates[coordinates.length - 1][1] !== firstCoord[1]) {
-            coordinates.push([firstCoord[0], firstCoord[1]])
-          }
-        }
-
-        const geom = {
-          type: 'Polygon',
-          coordinates: [coordinates]
-        }
-
-        settlementGeometry.value = geom
-        settlementForm.geom = geom
-
-        // Calculate area
-        try {
-          const areaSquareMeters = turf.area(geom)
-          const areaHectares = areaSquareMeters / 10000
-          settlementForm.area = parseFloat(areaHectares.toFixed(4))
-        } catch (error) {
-          console.error('Error calculating area:', error)
-        }
-
-        // Listen for geometry changes
-        polygon.getPath().addListener('set_at', () => updatePolygonGeometry(polygon))
-        polygon.getPath().addListener('insert_at', () => updatePolygonGeometry(polygon))
-        polygon.getPath().addListener('remove_at', () => updatePolygonGeometry(polygon))
-
-        ElMessage.success('Settlement boundary drawn successfully!')
-        
-        // Update delete button state
-        updateDeleteButtonState()
-        
-        // Open drawer
-        drawerVisible.value = true
-      })
-    }
+        }, 800)
+      } else {
+        console.error('Google Maps Drawing library not loaded')
+        ElMessage.error('Drawing tools are not available. Please refresh the page.')
+      }
+    })
   } catch (error: any) {
     console.error('Error initializing Google Maps:', error)
     ElMessage.error('Failed to load map')
@@ -1222,6 +1228,13 @@ const readJsonFile = (event: any) => {
     
     // Update delete button state
     updateDeleteButtonState()
+    
+    // Open drawer to fill in details (for create mode)
+    if (!isEditMode.value) {
+      nextTick(() => {
+        drawerVisible.value = true
+      })
+    }
   }
 }
 
@@ -1268,6 +1281,13 @@ const readShapefile = async (file: File) => {
         
         // Update delete button state
         updateDeleteButtonState()
+        
+        // Open drawer to fill in details (for create mode)
+        if (!isEditMode.value) {
+          nextTick(() => {
+            drawerVisible.value = true
+          })
+        }
       }
     })
     .catch((error) => {
@@ -1820,6 +1840,16 @@ onMounted(async () => {
   border-radius: 4px;
   overflow: hidden;
   border: 1px solid var(--el-border-color-lighter);
+  position: relative;
+}
+
+/* Ensure Google Maps drawing controls are visible */
+:deep(.gmnoprint) {
+  z-index: 1000 !important;
+}
+
+:deep(.gm-style .gmnoprint) {
+  z-index: 1000 !important;
 }
 
 .drawer-footer {

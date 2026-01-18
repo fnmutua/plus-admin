@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // @ts-nocheck
-import { ref, onMounted, watch, computed, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, watch, computed, nextTick } from 'vue'
 import { ElButton, ElTable, ElTableColumn, ElMessage, ElCollapse, ElCollapseItem, ElCheckbox, ElCheckboxGroup, ElDrawer, ElDescriptions, ElDescriptionsItem } from 'element-plus'
 import { GoogleMap, Polygon, InfoWindow, Marker, Polyline, Circle } from 'vue3-google-map'
 import * as turf from '@turf/turf'
@@ -1291,6 +1291,33 @@ const filteredProperties = computed(() => {
   )
 })
 
+// Window width for responsive design
+const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1024)
+
+// Update window width on resize
+const updateWindowWidth = () => {
+  if (typeof window !== 'undefined') {
+    windowWidth.value = window.innerWidth
+  }
+}
+
+// Responsive drawer size for mobile optimization
+const drawerSize = computed(() => {
+  if (windowWidth.value < 768) return '90%'
+  if (windowWidth.value < 1024) return '60%'
+  return '40%'
+})
+
+// Responsive descriptions column count
+const descriptionsColumn = computed(() => {
+  return 1 // Always 1 column for better mobile readability
+})
+
+// Responsive label min width
+const labelMinWidth = computed(() => {
+  return windowWidth.value < 768 ? '100px' : '120px'
+})
+
 const parcelsVisible = ref(true)
 const toggleParcels = (visible: boolean) => {
   parcelsVisible.value = visible
@@ -1828,6 +1855,12 @@ watch(userLocation, (newLocation) => {
 })
 
 onMounted(async () => {
+  // Setup window resize listener for responsive drawer
+  if (typeof window !== 'undefined') {
+    window.addEventListener('resize', updateWindowWidth)
+    updateWindowWidth()
+  }
+
   watch(
     () => mapRef.value?.ready,
     async (ready) => {
@@ -1853,6 +1886,13 @@ onMounted(async () => {
       }
     }
   )
+})
+
+// Cleanup resize listener on unmount
+onUnmounted(() => {
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('resize', updateWindowWidth)
+  }
 })
  
  const downloadGeo = async () => {
@@ -2080,27 +2120,28 @@ const loadMapData = async () => {
         v-model="drawerVisible"
         :title="drawerTitle"
         direction="rtl"
-        size="40%"
+        :size="drawerSize"
         :before-close="closeDrawer"
         :close-on-click-modal="true"
         :close-on-press-escape="true"
         :z-index="10000"
         :modal="false"
         :append-to-body="true"
+        class="feature-drawer"
       >
-        <div v-if="drawerData.length > 0">
-          <ElDescriptions :column="1" border>
+        <div v-if="drawerData.length > 0" class="drawer-content">
+          <ElDescriptions :column="descriptionsColumn" border class="feature-descriptions">
             <ElDescriptionsItem 
               v-for="item in drawerData" 
               :key="item.field"
               :label="item.field"
-              :label-style="{ fontWeight: 'bold', minWidth: '120px' }"
+              :label-style="{ fontWeight: 'bold', minWidth: labelMinWidth }"
             >
               <template #default>
-                <span v-if="typeof item.value === 'object'">
+                <span v-if="typeof item.value === 'object'" class="drawer-value">
                   {{ JSON.stringify(item.value) }}
                 </span>
-                <span v-else>
+                <span v-else class="drawer-value">
                   {{ item.value }}
                 </span>
               </template>
@@ -2474,5 +2515,105 @@ const loadMapData = async () => {
 /* Dark mode for drawer */
 .dark .no-data {
   color: #ccc;
+}
+
+/* Mobile-optimized drawer styles */
+.feature-drawer {
+  transition: all 0.3s ease;
+}
+
+.drawer-content {
+  padding: 0;
+  overflow-y: auto;
+  max-height: calc(100vh - 60px);
+}
+
+.feature-descriptions {
+  width: 100%;
+}
+
+.feature-descriptions :deep(.el-descriptions__label) {
+  font-size: 14px;
+  word-break: break-word;
+}
+
+.feature-descriptions :deep(.el-descriptions__content) {
+  font-size: 14px;
+  word-break: break-word;
+}
+
+.drawer-value {
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Mobile-specific styles */
+@media (max-width: 768px) {
+  .feature-drawer :deep(.el-drawer__body) {
+    padding: 15px;
+  }
+
+  .feature-descriptions :deep(.el-descriptions__label) {
+    font-size: 13px;
+    min-width: 100px !important;
+    padding: 8px 10px;
+  }
+
+  .feature-descriptions :deep(.el-descriptions__content) {
+    font-size: 13px;
+    padding: 8px 10px;
+  }
+
+  .feature-descriptions :deep(.el-descriptions__table) {
+    font-size: 13px;
+  }
+
+  .feature-descriptions :deep(.el-descriptions__table th),
+  .feature-descriptions :deep(.el-descriptions__table td) {
+    padding: 8px 10px;
+  }
+
+  .drawer-content {
+    max-height: calc(100vh - 80px);
+  }
+
+  .no-data {
+    padding: 15px;
+    font-size: 14px;
+  }
+}
+
+/* Tablet-specific styles */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .feature-drawer :deep(.el-drawer__body) {
+    padding: 20px;
+  }
+
+  .feature-descriptions :deep(.el-descriptions__label) {
+    font-size: 14px;
+  }
+
+  .feature-descriptions :deep(.el-descriptions__content) {
+    font-size: 14px;
+  }
+}
+
+/* Ensure drawer is touch-friendly on mobile */
+@media (max-width: 768px) {
+  .feature-drawer :deep(.el-drawer__header) {
+    padding: 15px;
+    margin-bottom: 10px;
+  }
+
+  .feature-drawer :deep(.el-drawer__title) {
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .feature-drawer :deep(.el-drawer__close-btn) {
+    font-size: 20px;
+    width: 32px;
+    height: 32px;
+  }
 }
 </style>

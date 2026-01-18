@@ -148,7 +148,13 @@ const processedRoles: ProcessedRole[] = userInfo.roles.map((role: UserRole) => {
   }
 }).filter(role => role !== null) as ProcessedRole[]
 
-const isSuperAdmin = userInfo.roles.some(role => role.name === "super_admin")
+const isSuperAdmin = userInfo.roles.some(role => role.name === "super_admin" || role.name === "root_admin")
+const isNationalStaff = computed(() => {
+  return userInfo?.roles?.some((role: UserRole) => 
+    (role.name === "admin" || role.name === "staff") && 
+    (role.user_roles?.location_level === "national" || role.user_roles?.location_level === null)
+  ) || false
+})
 const roles_filters = isSuperAdmin ? [] : processedRoles.filter(role => role.model !== "national").map(role => ({
   role: role.role,
   field: role.field,
@@ -187,6 +193,44 @@ const isCountyRestricted = computed(() => {
   return !isSuperAdmin && !hasNationalAccess.value && !!userCountyId.value
 })
 
+// Document delete permission checking function
+const canUserDeleteDocument = (document: Document): boolean => {
+  // Super admins and root admins can delete everything
+  if (isSuperAdmin) {
+    return true;
+  }
+
+  // Check if user is national staff/admin (national level access)
+  if (isNationalStaff.value) {
+    return true;
+  }
+
+  // Check if user has global document:delete permission
+  const userPermissions = userInfo.permissions || [];
+  if (userPermissions.includes('*.*.*') || userPermissions.includes('document:delete')) {
+    // If the document has a createdBy field, check if the current user created it
+    if (document.createdBy === userInfo.id) {
+      return true;
+    }
+
+    // For county staff, check if they are a county admin and the document is in their county
+    const countyRole = userInfo.roles.find(role => 
+      role.user_roles?.location_level === 'county' && 
+      role.name === 'admin'
+    );
+    if (countyRole && countyRole.user_roles?.county_id) {
+      // If the document is associated with a settlement, check the settlement's county_id
+      const documentCountyId = document.settlement?.county?.id;
+      if (documentCountyId === countyRole.user_roles.county_id) {
+        return true;
+      }
+    }
+  }
+
+  // No other users can delete
+  return false;
+};
+
 // Get user permissions
 const userPermissions = userInfo.permissions || []
 
@@ -213,6 +257,26 @@ const setActionButtons = () => {
   
   console.log('action_buttons', action_buttons.value)
   console.log('userPermissions', userPermissions)
+}
+
+// Get action buttons for a specific document (to hide delete if user can't delete it)
+const getDocumentActionButtons = (document: Document): string[] => {
+  const buttons: string[] = []
+  
+  // Always allow preview/download/share for all users
+  buttons.push('preview', 'download', 'share')
+  
+  // Check for edit permission
+  if (userPermissions.includes('document:update')) {
+    buttons.push('edit')
+  }
+  
+  // Check for delete permission - only show if user can actually delete this document
+  if (userPermissions.includes('document:delete') && canUserDeleteDocument(document)) {
+    buttons.push('delete')
+  }
+  
+  return buttons
 }
 
 // Initialize action buttons
@@ -453,7 +517,7 @@ const loadDocumentRepository = async (params: any = {}) => {
       
       // Add deletable property based on permissions
       documents.value.forEach(doc => {
-        doc.deletable = doc.createdBy === userInfo.id || showAdminButtons.value
+        doc.deletable = canUserDeleteDocument(doc)
       })
 
       // Update action buttons after documents are loaded
@@ -709,6 +773,17 @@ const viewDocument = async (data: Document) => {
 }
 
 const removeDocument = async (data: Document) => {
+  // Check if user can delete this document
+  if (!canUserDeleteDocument(data)) {
+    ElMessage({
+      message: 'You do not have permission to delete this document. Only national/super/root admins or county admins who created the document can delete it.',
+      type: 'warning',
+      duration: 5000,
+      showClose: true
+    });
+    return;
+  }
+
   try {
     const formData = {
       id: data.id,
@@ -722,6 +797,21 @@ const removeDocument = async (data: Document) => {
     if (index !== -1) {
       documents.value.splice(index, 1)
     }
+    
+    // Also remove from filtered documents/photos if they exist
+    const filteredIndex = filteredDocuments.value.findIndex(doc => doc.id === data.id)
+    if (filteredIndex !== -1) {
+      filteredDocuments.value.splice(filteredIndex, 1)
+    }
+    
+    const photoIndex = filteredPhotos.value.findIndex(doc => doc.id === data.id)
+    if (photoIndex !== -1) {
+      filteredPhotos.value.splice(photoIndex, 1)
+    }
+    
+    // Update total count
+    totalDocs.value = Math.max(0, totalDocs.value - 1)
+    totalDocuments.value = Math.max(0, totalDocuments.value - 1)
     
     ElMessage.success('Document deleted successfully')
   } catch (error) {
@@ -1503,32 +1593,44 @@ const IMPORT_MODEL_MAPPINGS = {
 
 // Add file upload handler for import drawer
 const importBeforeUpload = (file) => {
+  // Check file type and size - matching ImportData/Document.vue
+  const fileExtension = file.name.split('.').pop()?.toLowerCase();
+  const allowedExtensions = ['xls', 'xlsx', 'pdf', 'zip', 'rar', 'doc', 'docx', 'png', 'jpg', 'jpeg', 'tiff', 'tif', 'csv', 'txt', 'json', 'geojson', 'kml', 'kmz', 'ppt', 'pptx', 'dwg', 'dxf', 'dgn'];
   const types = [
-    'application/vnd.ms-excel',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'application/pdf',
-    'application/zip',
-    'application/x-rar-compressed',
+    'application/vnd.ms-excel', // .xls
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+    'application/pdf', // .pdf
+    'application/zip', // .zip
+    'application/x-rar-compressed', // .rar
     'application/x-zip-compressed',
-    'application/vnd.rar',
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'image/png',
-    'image/jpeg',
-    'image/tiff',
-    'text/csv',
-    'text/plain',
-    'application/json',
-    'application/vnd.geo+json',
-    'application/vnd.google-earth.kml+xml',
-    'application/vnd.google-earth.kmz',
-    'application/vnd.ms-powerpoint',
-    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'application/vnd.rar', // .rar (alternative)
+    'application/msword', // .doc
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+    'image/png', // .png
+    'image/jpeg', // .jpg/.jpeg
+    'image/tiff', // .tiff
+    'image/tif', // .tif
+    'text/csv', // .csv
+    'text/plain', // .txt
+    'application/json', // .json
+    'application/vnd.geo+json', // .geojson
+    'application/vnd.google-earth.kml+xml', // .kml
+    'application/vnd.google-earth.kmz', // .kmz
+    'application/vnd.ms-powerpoint', // .ppt
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx
+    'application/dwg', // .dwg
+    'image/vnd.dwg', // .dwg (alternative)
+    'application/dxf', // .dxf
+    'image/vnd.dxf', // .dxf (alternative)
+    'application/dgn', // .dgn
+    'image/vnd.dgn', // .dgn (alternative)
+    'application/octet-stream', // Generic binary for CAD files
   ];
-  const isValidType = types.includes(file.type);
+  
+  const isValidType = types.includes(file.type) || allowedExtensions.includes(fileExtension || '');
   const isLt50M = file.size / 1024 / 1024 < 5000;
   if (!isValidType) {
-    ElMessage.error(`${file.type} file type is not allowed`);
+    ElMessage.error(`File type not supported. Supported formats: ${allowedExtensions.join(', ')}`);
     return false;
   }
   if (!isLt50M) {
@@ -1750,7 +1852,7 @@ const importFiles = async () => {
       const metadata = importFileMetadata.value[index];
       formData.append('files', file.raw);
       formData.append('model', 'document');
-      formData.append('createdBy', '1'); // Use actual user ID if available
+      formData.append('createdBy', userInfo.id.toString());
       formData.append('format', metadata.format);
       formData.append('category', metadata.type);
       if (metadata.field_id && metadata[metadata.field_id]) {
@@ -1778,6 +1880,8 @@ const importFiles = async () => {
       ElMessage.success(`Files imported successfully! ${importFileList.value.length} files imported.`);
       importDrawerVisible.value = false;
       await loadDocumentRepository();
+      // Refresh filtered documents to ensure deletable property is set
+      await loadDocumentsByTab();
     } else {
       ElMessage.warning(`Imported ${importFileList.value.length - (resData.failedCount || 0)} of ${importFileList.value.length} files successfully.`);
     }
@@ -1850,6 +1954,13 @@ const loadDocumentsByTab = async () => {
       const formatLower = format.toLowerCase()
       return !imageFormats.includes(formatLower)
     })
+    
+    // Ensure deletable property is set for all filtered documents
+    filteredDocuments.value.forEach(doc => {
+      if (doc.deletable === undefined) {
+        doc.deletable = canUserDeleteDocument(doc)
+      }
+    })
   } else if (activeTab.value === 'photos') {
     // For photos tab, make a server request to get only photo documents
     try {
@@ -1909,6 +2020,12 @@ const loadDocumentsByTab = async () => {
         }
         
         filteredPhotos.value = allDocuments
+        
+        // Add deletable property based on permissions
+        filteredPhotos.value.forEach(doc => {
+          doc.deletable = canUserDeleteDocument(doc)
+        })
+        
         console.log('Photos loaded from server:', filteredPhotos.value.length)
         console.log('Photo documents:', filteredPhotos.value)
       } else {
@@ -2169,7 +2286,7 @@ const handleTabChange = async (tabName: string) => {
  
             <TableActions 
               :item="row" 
-              :buttons="action_buttons" 
+              :buttons="getDocumentActionButtons(row)" 
               @edit="editDocument" 
               @delete="removeDocument" 
               @preview="viewDocument" 
@@ -2230,7 +2347,7 @@ const handleTabChange = async (tabName: string) => {
                    <Icon icon="material-symbols:visibility" width="14" />
                  </el-button>
                     <el-button 
-               
+                     v-if="canUserDeleteDocument(photo)"
                      size="small" 
                      type="danger" 
                      plain 
@@ -2623,14 +2740,15 @@ const handleTabChange = async (tabName: string) => {
             :auto-upload="false"
             :show-file-list="true"
             :on-change="importHandleFileUpload"
+            :before-upload="importBeforeUpload"
             :limit="20"
             :multiple="true"
-            accept=".xls,.xlsx,.pdf,.zip,.doc,.docx,.png,.jpg,.csv,.json,.geojson,.ppt,.pptx,.rar,.tif,.txt"
+            accept=".xls,.xlsx,.pdf,.zip,.doc,.docx,.png,.jpg,.jpeg,.csv,.json,.geojson,.ppt,.pptx,.rar,.tif,.tiff,.txt,.kml,.kmz,.dwg,.dxf,.dgn"
           >
             <el-button type="primary">Upload Files</el-button>
           </el-upload>
         </PermissionWrapper>
-        <p class="text-sm text-gray-500 mt-2">Supported formats: .xls, .xlsx, .pdf, .zip, .doc, .docx, .png, .jpg, .csv, .json, .geojson, .ppt, .pptx, .rar, .tif, .txt</p>
+        <p class="text-sm text-gray-500 mt-2">Supported formats: .xls, .xlsx, .pdf, .zip, .doc, .docx, .png, .jpg, .jpeg, .csv, .json, .geojson, .ppt, .pptx, .rar, .tif, .tiff, .txt, .kml, .kmz, .dwg, .dxf, .dgn</p>
       </div>
       <div v-if="importStep === 1" class="mt-4">
         <el-select
