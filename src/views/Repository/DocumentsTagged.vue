@@ -1378,8 +1378,8 @@ const handleSubmitData = async () => {
     const newFileName = documentForm.name + '.' + documentForm.format;
     
     // Get original file name (stored when edit dialog was opened)
-    const originalFileName = documentForm.originalName || ''
-    const hasNameChanged = originalFileName && originalFileName !== newFileName
+    const originalFileName: string = (documentForm as any).originalName || '';
+    const hasNameChanged: boolean = !!originalFileName && originalFileName !== newFileName;
     
     // Update the document with the new nested structure
     (documentForm as any).edited_name = newFileName;
@@ -1550,8 +1550,9 @@ const getFileIcon = (format: string) => {
     case 'doc':
     case 'docx':
       return 'vscode-icons:file-type-word2'
-    case 'xls':
-    case 'xlsx':
+      case 'csv':
+      case 'xls':
+      case 'xlsx':
       return 'vscode-icons:file-type-excel2'
     case 'ppt':
     case 'pptx':
@@ -1581,8 +1582,6 @@ const getFileIcon = (format: string) => {
     case 'dwg':
     case 'dxf':
       return 'vscode-icons:file-type-cad'
-    case 'csv':
-      return 'vscode-icons:file-type-csv'
     case 'json':
       return 'vscode-icons:file-type-json'
     case 'xml':
@@ -1608,8 +1607,74 @@ const getFileIcon = (format: string) => {
     case 'md':
       return 'vscode-icons:file-type-markdown'
     default:
-      return 'vscode-icons:file-type-document'
+      // Default icon for unlisted file types
+      return 'material-symbols:description'
   }
+}
+
+// Document type icon helper function
+const getDocumentTypeIcon = (document: Document) => {
+  const doc = document as any
+  
+  // Check if document has type information (handle both nested and flattened formats)
+  let docType = ''
+  let docGroup = ''
+  
+  if (doc.document_type?.type) {
+    docType = doc.document_type.type.toLowerCase()
+  } else if (doc['document_type.type']) {
+    docType = doc['document_type.type'].toLowerCase()
+  }
+  
+  if (doc.document_type?.group) {
+    docGroup = doc.document_type.group.toLowerCase()
+  } else if (doc['document_type.group']) {
+    docGroup = doc['document_type.group'].toLowerCase()
+  }
+  
+  // Check for specific document types first
+  if (docType.includes('report') || docGroup.includes('reports')) {
+    return 'material-symbols:description'
+  }
+  if (docType.includes('checklist') || docGroup.includes('checklists')) {
+    return 'material-symbols:checklist'
+  }
+  if (docType.includes('map') || docGroup.includes('maps')) {
+    return 'material-symbols:map'
+  }
+  if (docType.includes('plan') || docGroup.includes('plans')) {
+    return 'material-symbols:architecture'
+  }
+  if (docType.includes('engineering') || docGroup.includes('engineering')) {
+    return 'material-symbols:engineering'
+  }
+  if (docType.includes('data') || docGroup.includes('data')) {
+    return 'material-symbols:database'
+  }
+  if (docType.includes('photo') || docType.includes('image') || docGroup.includes('photos')) {
+    return 'material-symbols:photo'
+  }
+  if (docType.includes('contract') || docGroup.includes('contracts')) {
+    return 'material-symbols:description'
+  }
+  if (docType.includes('meeting') || docType.includes('minutes')) {
+    return 'material-symbols:meeting-room'
+  }
+  if (docType.includes('invoice') || docType.includes('receipt')) {
+    return 'material-symbols:receipt'
+  }
+  if (docType.includes('certificate') || docType.includes('license')) {
+    return 'material-symbols:verified'
+  }
+  if (docType.includes('form') || docType.includes('application')) {
+    return 'material-symbols:description'
+  }
+  if (docType.includes('other') || docGroup.includes('other')) {
+    return 'material-symbols:folder'
+  }
+  
+  // Default icon for other document types
+  return 'material-symbols:description'
 }
 
 
@@ -2394,6 +2459,7 @@ const handleTabChange = async (tabName: string) => {
                       <el-table-column prop="name" label="Title" min-width="300" show-overflow-tooltip>
                   <template #default="{ row }">
                     <div class="file-icon clickable-file" @click="downloadFile(row)">
+                      <!-- File format icon (PDF, XLSX, ZIP, etc.) -->
                       <Icon :icon="getFileIcon(row.format)" width="20" />
                       <span class="file-link document-title">{{ row.name }}</span>
                     </div>
