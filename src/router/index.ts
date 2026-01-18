@@ -1027,7 +1027,19 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             meta: {
               title: 'Excel',
               icon: 'bi:filetype-xlsx',
-    
+              hidden:  true,
+
+            }
+          },
+         
+          {
+            path: 'docs',
+        //    component: 'views/ImportData/excel',
+            component: () => import('@/views/ImportData/Document.vue'),
+            name: 'ImportDocuments',
+            meta: {
+              title: 'Documents',
+              icon: 'mdi:file-upload-outline',
             }
           },
           {
@@ -1036,21 +1048,10 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             component: () => import('@/views/ImportData/geo.vue'),
             name: 'Importgeo',
             meta: {
-              title: 'Import GIS Data',
+              title: 'GIS Data',
               icon: 'mdi:file-location-outline',
             }
           },
-          {
-            path: 'docs',
-        //    component: 'views/ImportData/excel',
-            component: () => import('@/views/ImportData/Document.vue'),
-            name: 'ImportDocuments',
-            meta: {
-              title: 'Import Documents',
-              icon: 'mdi:file-upload-outline',
-            }
-          },
-
           {
             path: 'collector',
         //    component: 'views/ImportData/excel',

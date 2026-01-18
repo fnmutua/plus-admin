@@ -29,7 +29,7 @@ import {
   ElCheckbox,
   ElCheckboxGroup
 } from 'element-plus'
-import { ArrowLeft, Check, Plus, Delete, UploadFilled } from '@element-plus/icons-vue'
+import { ArrowLeft, Check, Plus, Delete, UploadFilled, Back, Edit } from '@element-plus/icons-vue'
 import * as turf from '@turf/turf'
 import { getOneGeo, getSettlementListByCounty, getOneSettlement } from '@/api/settlements'
 import { CreateRecord, updateOneRecord, duplicatePreCheck } from '@/api/settlements'
@@ -108,6 +108,7 @@ const drawingManager = ref<any>(null)
 const drawnPolygons = ref<any[]>([])
 const isEditMode = ref(false)
 const editingSettlementId = ref<number | null>(null)
+const isDrawingMode = ref(false)
 
 // Step 3: Form Drawer
 const drawerVisible = ref(false)
@@ -368,15 +369,77 @@ const initializeMap = async () => {
       zoom = 13
     }
 
-    // Initialize map
+    // Initialize map with satellite as default
     map.value = new window.google.maps.Map(mapContainer.value, {
       center: center,
       zoom: zoom,
-      mapTypeId: window.google.maps.MapTypeId.ROADMAP,
+      mapTypeId: window.google.maps.MapTypeId.SATELLITE,
       mapTypeControl: true,
       streetViewControl: true,
       fullscreenControl: true,
       disableDoubleClickZoom: true
+    })
+    
+    // Ensure base map layers have lowest z-index
+    nextTick(() => {
+      const mapDiv = mapContainer.value
+      if (mapDiv) {
+        // Target the map tile layers (base map)
+        const tileLayers = mapDiv.querySelectorAll('div[style*="position: absolute"]')
+        tileLayers.forEach((layer: any) => {
+          if (layer.style && !layer.classList.contains('gmnoprint')) {
+            const zIndex = parseInt(layer.style.zIndex || '0')
+            // Only modify base tile layers (typically have lower z-index)
+            if (zIndex < 1000) {
+              layer.style.zIndex = '1'
+            }
+          }
+        })
+        
+        // Ensure overlay layers (where polygons render) have higher z-index
+        const overlayLayers = mapDiv.querySelectorAll('div[style*="z-index"]')
+        overlayLayers.forEach((layer: any) => {
+          if (layer.style) {
+            const zIndex = parseInt(layer.style.zIndex || '0')
+            // If it's an overlay layer (higher z-index), ensure it's above base
+            if (zIndex >= 100) {
+              layer.style.zIndex = Math.max(zIndex, 1000).toString()
+            }
+          }
+        })
+      }
+    })
+
+    // Ensure polygons stay above base layers when map type changes
+    window.google.maps.event.addListener(map.value, 'maptypeid_changed', () => {
+      // Ensure base layers stay at lowest z-index
+      setTimeout(() => {
+        const mapDiv = mapContainer.value
+        if (mapDiv) {
+          // Set base tile layers to lowest z-index
+          const tileLayers = mapDiv.querySelectorAll('div[style*="position: absolute"]')
+          tileLayers.forEach((layer: any) => {
+            if (layer.style && !layer.classList.contains('gmnoprint')) {
+              const zIndex = parseInt(layer.style.zIndex || '0')
+              // Base tile layers should be at z-index 1
+              if (zIndex < 100) {
+                layer.style.zIndex = '1'
+              }
+            }
+          })
+        }
+        
+        // Update z-index for all polygons to ensure they're above base layers
+        if (settlementPolygon.value) {
+          settlementPolygon.value.setOptions({ zIndex: 1000000 })
+        }
+        wardPolygon.value.forEach(poly => {
+          poly.setOptions({ zIndex: 1000000 })
+        })
+        drawnPolygons.value.forEach(poly => {
+          poly.setOptions({ zIndex: 1000000 })
+        })
+      }, 150)
     })
 
     // Add ward boundary (for new records) or settlement boundary (for edit)
@@ -393,11 +456,7 @@ const initializeMap = async () => {
       if (window.google.maps.drawing) {
         drawingManager.value = new window.google.maps.drawing.DrawingManager({
           drawingMode: null,
-          drawingControl: true,
-          drawingControlOptions: {
-            position: window.google.maps.ControlPosition.TOP_CENTER,
-            drawingModes: [window.google.maps.drawing.OverlayType.POLYGON]
-          },
+          drawingControl: false, // Disable default controls - we'll use custom buttons
           polygonOptions: {
             fillColor: '#FF0000',
             fillOpacity: 0.2,
@@ -406,7 +465,7 @@ const initializeMap = async () => {
             clickable: true,
             editable: true,
             draggable: false,
-            zIndex: 1
+            zIndex: 1000000
           }
         })
 
@@ -429,6 +488,9 @@ const initializeMap = async () => {
           drawnPolygons.value = []
 
           drawnPolygons.value.push(polygon)
+          
+          // Set z-index to appear above base layers
+          polygon.setOptions({ zIndex: 1000000 })
           
           // Make polygon editable
           polygon.setEditable(true)
@@ -458,13 +520,10 @@ const initializeMap = async () => {
           settlementGeometry.value = geom
           settlementForm.geom = geom
 
-          // Calculate area
-          try {
-            const areaSquareMeters = turf.area(geom)
-            const areaHectares = areaSquareMeters / 10000
-            settlementForm.area = parseFloat(areaHectares.toFixed(4))
-          } catch (error) {
-            console.error('Error calculating area:', error)
+          // Calculate area in hectares
+          const areaHectares = calculateAreaInHectares(geom)
+          if (areaHectares !== null) {
+            settlementForm.area = areaHectares
           }
 
           // Listen for geometry changes
@@ -479,30 +538,23 @@ const initializeMap = async () => {
 
           ElMessage.success('Settlement boundary drawn successfully!')
           
-          // Update delete button state
-          updateDeleteButtonState()
+          // Exit drawing mode after completion
+          drawingManager.value.setDrawingMode(null)
+          isDrawingMode.value = false
           
           // Open drawer to fill in details (same as edit mode)
-          // Use nextTick to ensure the polygon is fully rendered before opening drawer
+          // Use nextTick and additional delay for mobile to ensure drawer opens properly
           nextTick(() => {
-            drawerVisible.value = true
+            if (isMobile.value) {
+              // On mobile, add a slight delay to ensure drawer opens properly
+              setTimeout(() => {
+                drawerVisible.value = true
+              }, 300)
+            } else {
+              drawerVisible.value = true
+            }
           })
         })
-        
-        // Add delete button to drawing controls container after a delay to ensure controls are rendered
-        // Use multiple attempts to ensure button is added
-        setTimeout(() => {
-          addDeleteControl()
-        }, 300)
-        
-        // Also try after a longer delay to ensure controls are fully rendered
-        setTimeout(() => {
-          // Check if button already exists, if not add it
-          const existingDeleteBtn = document.querySelector('button[title*="Delete drawn settlement boundary"]')
-          if (!existingDeleteBtn) {
-            addDeleteControl()
-          }
-        }, 800)
       } else {
         console.error('Google Maps Drawing library not loaded')
         ElMessage.error('Drawing tools are not available. Please refresh the page.')
@@ -513,6 +565,7 @@ const initializeMap = async () => {
     ElMessage.error('Failed to load map')
   }
 }
+
 
 const loadWardBoundary = () => {
   if (!map.value || !wardGeo.value) return
@@ -546,7 +599,8 @@ const loadWardBoundary = () => {
             fillOpacity: 0.1,
             map: map.value,
             clickable: false,
-            draggable: false
+            draggable: false,
+            zIndex: 1000000
           })
 
           wardPolygon.value.push(polygon)
@@ -574,7 +628,8 @@ const loadWardBoundary = () => {
               fillOpacity: 0.1,
               map: map.value,
               clickable: false,
-              draggable: false
+              draggable: false,
+              zIndex: 1000000
             })
 
             wardPolygon.value.push(polygon)
@@ -623,7 +678,8 @@ const loadSettlementBoundary = () => {
         map: map.value,
         clickable: true,
         editable: true,
-        draggable: false
+        draggable: false,
+        zIndex: 1000000
       })
 
       // Fit map to settlement bounds
@@ -643,8 +699,6 @@ const loadSettlementBoundary = () => {
         drawerVisible.value = true
       })
 
-      // Update delete button state
-      updateDeleteButtonState()
 
       // Open drawer
       drawerVisible.value = true
@@ -711,194 +765,41 @@ const updatePolygonGeometry = (polygon: any) => {
     settlementGeometry.value = geom
     settlementForm.geom = geom
 
-    // Calculate area
-    try {
-      const areaSquareMeters = turf.area(geom)
-      const areaHectares = areaSquareMeters / 10000
-      settlementForm.area = parseFloat(areaHectares.toFixed(4))
-    } catch (error) {
-      console.error('Error calculating area:', error)
+    // Calculate area in hectares
+    const areaHectares = calculateAreaInHectares(geom)
+    if (areaHectares !== null) {
+      settlementForm.area = areaHectares
     }
   } catch (error) {
     console.error('Error updating polygon geometry:', error)
   }
 }
 
-// Add custom delete control to map
-const deleteControlDiv = ref<HTMLDivElement | null>(null)
-const deleteButton = ref<HTMLButtonElement | null>(null)
 
-const addDeleteControl = () => {
-  if (!map.value) return
-
-  // Find the drawing controls container
-  const findDrawingControls = () => {
-    // First check if delete button already exists somewhere - reuse its container
-    const existingDeleteBtn = document.querySelector('button[data-delete-settlement-btn="true"]')
-    if (existingDeleteBtn && existingDeleteBtn.parentElement) {
-      return existingDeleteBtn.parentElement
-    }
-    
-    // Google Maps drawing controls are in a div positioned at TOP_CENTER
-    // They have buttons with specific structure
-    const allControls = document.querySelectorAll('.gmnoprint')
-    
-    for (const control of allControls) {
-      const buttons = control.querySelectorAll('button')
-      if (buttons.length >= 1) {
-        // Check if buttons have drawing control structure (pan and polygon buttons)
-        // Drawing controls typically have buttons with specific titles or icons
-        const buttonTitles = Array.from(buttons).map(btn => btn.getAttribute('title') || btn.innerHTML).join(' ').toLowerCase()
-        
-        // Look for pan and polygon indicators, or any button that looks like a drawing control
-        if (buttonTitles.includes('pan') || buttonTitles.includes('polygon') || 
-            buttonTitles.includes('draw') || buttonTitles.includes('hand') ||
-            control.querySelector('div[style*="display: flex"]') ||
-            control.querySelector('div[style*="display:inline"]')) {
-          // Check if delete button already exists
-          if (!control.querySelector('button[data-delete-settlement-btn="true"]') &&
-              !control.querySelector('button[title*="Delete"]')) {
-            return control
-          }
-        }
-      }
-    }
-    
-    // Alternative: look for divs at TOP_CENTER position that contain buttons
-    const topCenterControls = Array.from(document.querySelectorAll('div')).filter(div => {
-      const buttons = div.querySelectorAll('button')
-      return buttons.length >= 1 && 
-             (div.classList.contains('gmnoprint') || 
-              div.parentElement?.classList.contains('gmnoprint'))
-    })
-    
-    if (topCenterControls.length > 0) {
-      const control = topCenterControls[0]
-      if (!control.querySelector('button[data-delete-settlement-btn="true"]') &&
-          !control.querySelector('button[title*="Delete"]')) {
-        return control
-      }
-    }
-    
-    return null
-  }
-
-  // Try to find drawing controls, retry if not found immediately
-  let drawingControlsContainer = findDrawingControls()
-  if (!drawingControlsContainer) {
-    // Try multiple times with increasing delays
-    const tryAddButton = (attempt: number, maxAttempts = 5) => {
-      setTimeout(() => {
-        drawingControlsContainer = findDrawingControls()
-        if (drawingControlsContainer) {
-          addDeleteButtonToContainer(drawingControlsContainer)
-        } else if (attempt < maxAttempts) {
-          tryAddButton(attempt + 1, maxAttempts)
-        } else {
-          console.warn('Could not find drawing controls container after', maxAttempts, 'attempts')
-        }
-      }, attempt * 200) // Increasing delay: 200ms, 400ms, 600ms, etc.
-    }
-    tryAddButton(1)
-    return
-  }
-
-  addDeleteButtonToContainer(drawingControlsContainer)
-}
-
-const addDeleteButtonToContainer = (container: Element) => {
-  // Check if button already exists in this container
-  const existingBtn = container.querySelector('button[title*="Delete drawn settlement boundary"]')
-  if (existingBtn) {
-    deleteButton.value = existingBtn as HTMLButtonElement
-    updateDeleteButtonState()
-    return
-  }
+// Toggle drawing mode
+const toggleDrawingMode = () => {
+  if (!drawingManager.value) return
   
-  // Create delete button that matches Google Maps drawing controls style
-  const btn = document.createElement('button')
-  btn.type = 'button'
-  btn.style.cssText = `
-    background-color: #fff;
-    border: 1px solid #ccc;
-    border-radius: 2px;
-    width: 28px;
-    height: 28px;
-    cursor: pointer;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
-    transition: background-color 0.2s, opacity 0.2s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    margin-left: 2px;
-  `
-  btn.innerHTML = `
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M6 19C6 20.1 6.9 21 8 21H16C17.1 21 18 20.1 18 19V7H6V19ZM19 4H15.5L14.5 3H9.5L8.5 4H5V6H19V4Z" fill="#666"/>
-    </svg>
-  `
-  btn.title = 'Delete drawn settlement boundary'
-  btn.setAttribute('data-delete-settlement-btn', 'true') // Add identifier
-  deleteButton.value = btn
-  
-  // Hover effect
-  btn.onmouseenter = () => {
-    if (!btn.disabled) {
-      btn.style.backgroundColor = '#f5f5f5'
-      btn.style.borderColor = '#999'
-    }
-  }
-  btn.onmouseleave = () => {
-    if (!btn.disabled) {
-      btn.style.backgroundColor = '#fff'
-      btn.style.borderColor = '#ccc'
-    }
-  }
-  
-  // Click handler
-  btn.onclick = () => {
-    deleteDrawnShape()
-  }
-  
-  // Update button state
-  updateDeleteButtonState()
-  
-  // Append to the drawing controls container
-  container.appendChild(btn)
-  deleteControlDiv.value = container as HTMLDivElement
-}
-
-// Update delete button enabled/disabled state
-const updateDeleteButtonState = () => {
-  if (!deleteButton.value) return
-  
-  const hasShape = drawnPolygons.value.length > 0 || settlementPolygon.value !== null
-  
-  if (hasShape) {
-    deleteButton.value.disabled = false
-    deleteButton.value.style.opacity = '1'
-    deleteButton.value.style.cursor = 'pointer'
-    // Update icon color to red when enabled
-    const svg = deleteButton.value.querySelector('svg path')
-    if (svg) {
-      svg.setAttribute('fill', '#dc3545')
-    }
+  if (isDrawingMode.value) {
+    // Exit drawing mode
+    drawingManager.value.setDrawingMode(null)
+    isDrawingMode.value = false
   } else {
-    deleteButton.value.disabled = true
-    deleteButton.value.style.opacity = '0.5'
-    deleteButton.value.style.cursor = 'not-allowed'
-    // Update icon color to gray when disabled
-    const svg = deleteButton.value.querySelector('svg path')
-    if (svg) {
-      svg.setAttribute('fill', '#999')
-    }
+    // Enter drawing mode
+    drawingManager.value.setDrawingMode(window.google.maps.drawing.OverlayType.POLYGON)
+    isDrawingMode.value = true
   }
 }
 
 // Delete drawn shape function
 const deleteDrawnShape = () => {
   let hasDeleted = false
+  
+  // Exit drawing mode if active
+  if (isDrawingMode.value && drawingManager.value) {
+    drawingManager.value.setDrawingMode(null)
+    isDrawingMode.value = false
+  }
   
   // Delete drawn polygons
   if (drawnPolygons.value.length > 0) {
@@ -923,9 +824,6 @@ const deleteDrawnShape = () => {
     settlementForm.area = null
     drawerVisible.value = false
     ElMessage.success('Settlement boundary deleted')
-    
-    // Update delete button state
-    updateDeleteButtonState()
   } else {
     ElMessage.info('No shape to delete')
   }
@@ -1006,6 +904,11 @@ const submitForm = async () => {
             if (res.code === '0000') {
               ElMessage.success('Settlement created successfully')
               clearFormAndGeometry()
+              
+              // Redirect to settlement list after successful creation
+              router.push({
+                name: 'List'
+              })
             } else {
               ElMessage.error('Failed to create settlement')
             }
@@ -1030,6 +933,11 @@ const submitForm = async () => {
                 CreateRecord(formDataToSubmit).then(() => {
                   ElMessage.success('Settlement created successfully')
                   clearFormAndGeometry()
+                  
+                  // Redirect to settlement list after successful creation
+                  router.push({
+                    name: 'List'
+                  })
                 }).catch((err) => {
                   console.error('Error creating record:', err)
                   ElMessage.error('Failed to create settlement')
@@ -1085,6 +993,37 @@ const goBack = () => {
 // Close drawer
 const closeDrawer = () => {
   drawerVisible.value = false
+}
+
+// Calculate area in hectares from GeoJSON geometry
+// turf.area() returns area in square meters (m²)
+// 1 hectare = 10,000 square meters
+const calculateAreaInHectares = (geometry: any): number | null => {
+  try {
+    if (!geometry || !geometry.type || !geometry.coordinates) {
+      console.error('Invalid geometry for area calculation')
+      return null
+    }
+
+    // Ensure geometry is in GeoJSON format
+    const geom = {
+      type: geometry.type,
+      coordinates: geometry.coordinates
+    }
+
+    // turf.area() calculates area on a sphere (Earth's surface) in square meters
+    // It uses the WGS84 ellipsoid for accurate calculations
+    const areaSquareMeters = turf.area(geom)
+    
+    // Convert square meters to hectares (1 hectare = 10,000 m²)
+    const areaHectares = areaSquareMeters / 10000
+    
+    // Return rounded to 4 decimal places for precision
+    return parseFloat(areaHectares.toFixed(4))
+  } catch (error) {
+    console.error('Error calculating area:', error)
+    return null
+  }
 }
 
 // Clear form and geometry
@@ -1170,8 +1109,6 @@ const clearFormAndGeometry = () => {
   isEditMode.value = false
   editingSettlementId.value = null
   
-  // Update delete button state
-  updateDeleteButtonState()
   
   // Reset form validation
   if (formRef.value) {
@@ -1286,9 +1223,6 @@ const readJsonFile = (event: any) => {
     // Load new geometry
     loadSettlementBoundary()
     
-    // Update delete button state
-    updateDeleteButtonState()
-    
     // Open drawer to fill in details (for create mode)
     if (!isEditMode.value) {
       nextTick(() => {
@@ -1325,13 +1259,10 @@ const readShapefile = async (file: File) => {
       settlementGeometry.value = geomX
       settlementForm.geom = geomX
       
-      // Calculate area
-      try {
-        const areaSquareMeters = turf.area(geomX)
-        const areaHectares = areaSquareMeters / 10000
-        settlementForm.area = parseFloat(areaHectares.toFixed(4))
-      } catch (error) {
-        console.error('Error calculating area:', error)
+      // Calculate area in hectares
+      const areaHectares = calculateAreaInHectares(geomX)
+      if (areaHectares !== null) {
+        settlementForm.area = areaHectares
       }
       
       // Update map
@@ -1344,8 +1275,6 @@ const readShapefile = async (file: File) => {
         loadSettlementBoundary()
         
         // Update delete button state
-        updateDeleteButtonState()
-        
         // Open drawer to fill in details (for create mode)
         if (!isEditMode.value) {
           nextTick(() => {
@@ -1423,13 +1352,10 @@ onMounted(async () => {
         settlementGeometry.value = curData.geom
         settlementForm.geom = curData.geom
         
-        // Calculate area
-        try {
-          const areaSquareMeters = turf.area(curData.geom)
-          const areaHectares = areaSquareMeters / 10000
-          settlementForm.area = parseFloat(areaHectares.toFixed(4))
-        } catch (error) {
-          console.error('Error calculating area:', error)
+        // Calculate area in hectares
+        const areaHectares = calculateAreaInHectares(curData.geom)
+        if (areaHectares !== null) {
+          settlementForm.area = areaHectares
         }
       }
       
@@ -1473,9 +1399,35 @@ onMounted(async () => {
       <!-- Header -->
       <template #header>
         <div class="header-content">
-          <el-button :icon="ArrowLeft" @click="goBack" text class="back-button">Back</el-button>
+ 
+          <el-button type="primary" plain :icon="Back" @click="goBack" class="back-button">
+            Back
+          </el-button>
+
           <h2 class="header-title">{{ isEditMode ? 'EditSettlement' : 'Add Settlement' }}</h2>
           <div class="header-actions">
+            <el-button 
+              v-if="currentStep === 1" 
+              :type="isDrawingMode ? 'success' : 'default'"
+              :icon="Edit" 
+              @click="toggleDrawingMode" 
+              size="small"
+              :circle="isMobile"
+              class="draw-button"
+            >
+              <span class="draw-text">Draw</span>
+            </el-button>
+            <el-button 
+              v-if="currentStep === 1 && (drawnPolygons.length > 0 || settlementPolygon)" 
+              type="danger" 
+              :icon="Delete" 
+              @click="deleteDrawnShape" 
+              size="small"
+              :circle="isMobile"
+              class="delete-button"
+            >
+              <span class="delete-text">Delete</span>
+            </el-button>
             <el-button 
               v-if="currentStep === 1" 
               type="primary" 
@@ -1901,6 +1853,8 @@ onMounted(async () => {
 }
 
 /* Desktop: button with icon and text */
+.draw-button,
+.delete-button,
 .upload-button {
   min-width: auto;
   width: auto;
@@ -1912,6 +1866,8 @@ onMounted(async () => {
   cursor: pointer;
 }
 
+.draw-button .draw-text,
+.delete-button .delete-text,
 .upload-button .upload-text {
   display: inline;
   margin-left: 4px;
@@ -1920,6 +1876,8 @@ onMounted(async () => {
 
 /* Desktop: ensure text is visible */
 @media (min-width: 769px) {
+  .draw-button,
+  .delete-button,
   .upload-button {
     min-width: auto;
     width: auto;
@@ -1928,6 +1886,8 @@ onMounted(async () => {
     border-radius: 4px;
   }
   
+  .draw-button .draw-text,
+  .delete-button .delete-text,
   .upload-button .upload-text {
     display: inline;
     margin-left: 4px;
@@ -1979,12 +1939,71 @@ onMounted(async () => {
   z-index: 1000 !important;
 }
 
+/* Customize default Google Maps map type control */
+.map-container :deep(.gm-style-mtc) {
+  font-size: 12px !important;
+}
+
+.map-container :deep(.gm-style-mtc button) {
+  font-size: 12px !important;
+  padding: 4px 8px !important;
+  line-height: 1.2 !important;
+}
+
+/* The *second-level* dropdown/list items: "Satellite", "Terrain", etc */
+.map-container :deep(.gm-style .gm-style-mtc [role="menu"] [role="menuitem"]),
+.map-container :deep(.gm-style .gm-style-mtc [role="menuitem"]) {
+  font-size: 12px !important;
+  line-height: 1.2 !important;
+}
+
+.map-container :deep(.gm-style-mtc div) {
+  font-size: 12px !important;
+}
+
+/* Customize labels menu dropdown */
+.map-container :deep(.gm-style-mtc-bubble) {
+  font-size: 11px !important;
+}
+
+.map-container :deep(.gm-style-mtc-bubble div) {
+  font-size: 11px !important;
+}
+
+.map-container :deep(.gm-style-mtc-bubble button) {
+  font-size: 11px !important;
+  padding: 4px 8px !important;
+  line-height: 1.2 !important;
+}
+
+.map-container :deep(.gm-style-mtc-bubble-content) {
+  font-size: 11px !important;
+}
+
+.map-container :deep(.gm-style-mtc-bubble-content div) {
+  font-size: 11px !important;
+}
+
+.map-container :deep(.gm-style-mtc-bubble-content button) {
+  font-size: 11px !important;
+  padding: 4px 8px !important;
+}
+
 .drawer-footer {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
   padding: 20px;
   border-top: 1px solid var(--el-border-color-lighter);
+}
+
+/* Ensure drawer is visible on mobile */
+:deep(.el-drawer) {
+  z-index: 3000 !important;
+}
+
+:deep(.el-drawer__wrapper) {
+  z-index: 3000 !important;
 }
 
 /* Upload Dialog Styles */
@@ -2038,6 +2057,8 @@ onMounted(async () => {
     padding: 4px 8px;
   }
 
+  .draw-button,
+  .delete-button,
   .upload-button {
     min-width: 32px;
     width: 32px;
@@ -2048,6 +2069,8 @@ onMounted(async () => {
     cursor: pointer;
   }
   
+  .draw-button .draw-text,
+  .delete-button .delete-text,
   .upload-button .upload-text {
     display: none;
     pointer-events: none;
@@ -2112,6 +2135,61 @@ onMounted(async () => {
 
   .upload-demo :deep(.el-upload-list__item) {
     margin-top: 8px;
+  }
+
+  /* Map type control mobile styles */
+  .map-container :deep(.gm-style-mtc) {
+    font-size: 10px !important;
+  }
+
+  .map-container :deep(.gm-style-mtc button) {
+    font-size: 10px !important;
+    padding: 3px 6px !important;
+  }
+
+  .map-container :deep(.gm-style-mtc div) {
+    font-size: 10px !important;
+  }
+
+  /* Labels menu mobile styles */
+  .map-container :deep(.gm-style-mtc-bubble) {
+    font-size: 10px !important;
+  }
+
+  .map-container :deep(.gm-style-mtc-bubble div) {
+    font-size: 10px !important;
+  }
+
+  .map-container :deep(.gm-style-mtc-bubble button) {
+    font-size: 10px !important;
+    padding: 3px 6px !important;
+  }
+
+  .map-container :deep(.gm-style-mtc-bubble-content) {
+    font-size: 10px !important;
+  }
+
+  .map-container :deep(.gm-style-mtc-bubble-content div) {
+    font-size: 10px !important;
+  }
+
+  .map-container :deep(.gm-style-mtc-bubble-content button) {
+    font-size: 10px !important;
+    padding: 3px 6px !important;
+  }
+
+  /* Ensure drawer is visible and properly sized on mobile */
+  :deep(.el-drawer) {
+    z-index: 3000 !important;
+    width: 100% !important;
+  }
+
+  :deep(.el-drawer__wrapper) {
+    z-index: 3000 !important;
+  }
+
+  .drawer-footer {
+    padding: 15px;
   }
 }
 </style>

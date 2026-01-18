@@ -1519,7 +1519,6 @@ const editSettlement = () => {
   push({
     name: 'AddSettlementNew',
     query: { id: route.params.id }
-
   });
 
 
