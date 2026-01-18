@@ -1566,25 +1566,46 @@ const enableLineDrawing = () => {
 const deleteMarker = () => {
   if (facilityMarker.value) {
     const marker = facilityMarker.value
+    const markerPosition = marker.getPosition()
     
-    // Remove all event listeners first
+    // Hide marker first
+    try {
+      marker.setVisible(false)
+    } catch (e) {
+      // Ignore if marker is already removed
+    }
+    
+    // Remove all event listeners
     if (window.google && window.google.maps) {
       try {
         window.google.maps.event.clearInstanceListeners(marker)
       } catch (e) {
-        console.warn('Error clearing marker listeners:', e)
+        // Ignore errors
       }
     }
     
-    // Remove from map - call multiple times to ensure removal
+    // Remove from map - multiple attempts
     try {
+      marker.setMap(null)
+      // Force removal
       if (marker.getMap()) {
         marker.setMap(null)
       }
-      // Force removal
-      marker.setMap(null)
     } catch (e) {
-      console.warn('Error removing marker from map:', e)
+      console.error('Error removing marker:', e)
+    }
+    
+    // If editing, also check existingFacilityMarkers
+    if (isEditingMode.value && editingFacilityId.value) {
+      const existingMarker = existingFacilityMarkers.value.get(editingFacilityId.value)
+      if (existingMarker) {
+        try {
+          existingMarker.setMap(null)
+          existingFacilityMarkers.value.delete(editingFacilityId.value)
+        } catch (e) {
+          // Ignore errors
+        }
+      }
     }
     
     // Clear the reference
