@@ -10,7 +10,7 @@ import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick } from
 import { useCache } from '@/hooks/web/useCache'
 import { deleteDocument, updateOneRecord } from '@/api/settlements'
 import moment from "moment"
-import { getFile } from '@/api/summary'
+import { getFile, getPhoto } from '@/api/summary'
 import { askAIDocument, getAIProviders, getAIModels, processExistingDocumentsWithAI } from '@/api/ai'
 import { useAppStore } from '@/store/modules/app'
 import TableActions from '@/views/Components/TableActions.vue'
@@ -2123,6 +2123,7 @@ const importDrawerSize = computed(() => isMobile.value ? '100%' : '40%')
 const imageFormats = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'webp', 'tiff', 'tif']
 const filteredDocuments = ref<Document[]>([])
 const filteredPhotos = ref<Document[]>([])
+const photoPreviewUrls = ref<Map<number, string>>(new Map())
 
 const documentsCount = computed(() => filteredDocuments.value.length)
 const photosCount = computed(() => filteredPhotos.value.length)
@@ -2217,6 +2218,9 @@ const loadDocumentsByTab = async () => {
           doc.deletable = canUserDeleteDocument(doc)
         })
         
+        // Load photo preview URLs
+        await loadPhotoPreviews(allDocuments)
+        
         console.log('Photos loaded from server:', filteredPhotos.value.length)
         console.log('Photo documents:', filteredPhotos.value)
       } else {
@@ -2233,14 +2237,63 @@ const loadDocumentsByTab = async () => {
   }
 }
 
-// Photo handling functions
-const getPhotoPreview = (photo: Document) => {
-  // For now, return a placeholder. In a real implementation, you'd generate a thumbnail URL
-  return `data:image/svg+xml;base64,${btoa(`
+// Load photo previews for all photos using the new photo endpoint
+const loadPhotoPreviews = async (photos: Document[]) => {
+  const placeholder = `data:image/svg+xml;base64,${btoa(`
     <svg width="200" height="150" xmlns="http://www.w3.org/2000/svg">
       <rect width="200" height="150" fill="#f0f0f0"/>
-      <text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="#999" font-family="Arial" font-size="14">
-        ${photo.format.toUpperCase()}
+      <text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="#999" font-family="Arial" font-size="12">
+        Loading...
+      </text>
+    </svg>
+  `)}`
+  
+  // Set placeholder for all photos first
+  photos.forEach(photo => {
+    if (!photoPreviewUrls.value.has(photo.id)) {
+      photoPreviewUrls.value.set(photo.id, placeholder)
+    }
+  })
+  
+  // Load actual images in parallel using the new photo endpoint
+  const loadPromises = photos.map(async (photo) => {
+    try {
+      // Use the new photo endpoint with doc_id
+      const response = await getPhoto({ doc_id: photo.id })
+      
+      // Create blob URL from response
+      const blobData = new Blob([response.data], { 
+        type: response.headers['content-type'] || `image/${photo.format}` 
+      })
+      const url = window.URL.createObjectURL(blobData)
+      
+      // Update the URL in the reactive map
+      photoPreviewUrls.value.set(photo.id, url)
+    } catch (error) {
+      console.error('Error loading photo preview for', photo.id, error)
+      // Keep placeholder on error
+      const errorPlaceholder = `data:image/svg+xml;base64,${btoa(`
+        <svg width="200" height="150" xmlns="http://www.w3.org/2000/svg">
+          <rect width="200" height="150" fill="#f0f0f0"/>
+          <text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="#999" font-family="Arial" font-size="12">
+            Image not available
+          </text>
+        </svg>
+      `)}`
+      photoPreviewUrls.value.set(photo.id, errorPlaceholder)
+    }
+  })
+  
+  await Promise.all(loadPromises)
+}
+
+// Photo handling functions - returns cached URL synchronously
+const getPhotoPreview = (photo: Document): string => {
+  return photoPreviewUrls.value.get(photo.id) || `data:image/svg+xml;base64,${btoa(`
+    <svg width="200" height="150" xmlns="http://www.w3.org/2000/svg">
+      <rect width="200" height="150" fill="#f0f0f0"/>
+      <text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="#999" font-family="Arial" font-size="12">
+        Loading...
       </text>
     </svg>
   `)}`

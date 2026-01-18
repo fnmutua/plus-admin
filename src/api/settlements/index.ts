@@ -345,10 +345,13 @@ export const getDocumentRepository = (
   // Handle photo filtering based on request
   const requestData = { ...data }
   
-  if (data.formatFilter) {
-    // If formatFilter is provided, include only those formats (for photos)
-    requestData.includeFormats = data.formatFilter
+  // Check if includeFormats or formatFilter is provided (for photos)
+  if (data.includeFormats || data.formatFilter) {
+    // If includeFormats or formatFilter is provided, include only those formats (for photos)
+    requestData.includeFormats = data.includeFormats || data.formatFilter
     requestData.excludePhotos = false
+    // Remove excludeFormats when including specific formats
+    delete requestData.excludeFormats
   } else {
     // Default behavior: exclude photos
     requestData.excludePhotos = true

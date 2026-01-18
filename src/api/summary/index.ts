@@ -46,4 +46,9 @@ export const getFile= (data: any) => {
    return request.post({ url: prod + '/api/v1/download',  data , responseType: 'blob' })
 }
 
+export const getPhoto = (data: any) => {
+  // Get photo/image for display (not download)
+  return request.post({ url: prod + '/api/v1/photo', data, responseType: 'blob' })
+}
+
  

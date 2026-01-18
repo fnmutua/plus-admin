@@ -2475,6 +2475,8 @@ module.exports = function (app) {
   app.post('/api/v1/documents/raw', [authJwt.verifyToken, hasPermission('document:read')], controller.getRawDocuments)
   app.post('/api/v1/documents/raw/delete', [authJwt.verifyToken, hasPermission('document:delete')], controller.DeleteRawDocuments)
   app.post('/api/v1/download', [authJwt.verifyToken, hasPermission('document:read')], controller.downloadFile)
+  // Get photo/image for display
+  app.post('/api/v1/photo', [authJwt.verifyToken, hasPermission('document:read')], controller.getPhoto)
   // Create a document share link and send email
   app.post('/api/v1/documents/share', [authJwt.verifyToken, hasPermission('document:read')], controller.createDocumentShare)
   

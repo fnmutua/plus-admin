@@ -5588,6 +5588,135 @@ exports.downloadFile = (req, res) => {
   });
 };
 
+// Get photo/image file for display (not download)
+exports.getPhoto = async (req, res) => {
+  try {
+    const { doc_id, filename } = req.body;
+    console.log('getPhoto request:', { doc_id, filename });
+    
+    if (!doc_id && !filename) {
+      return res.status(400).send({
+        message: 'Either doc_id or filename is required',
+        code: '4001'
+      });
+    }
+
+    let filePath;
+    let doc = null;
+    
+    // If doc_id is provided, get the document from database
+    if (doc_id) {
+      doc = await db.models.document.findByPk(doc_id);
+      if (!doc) {
+        return res.status(404).send({
+          message: 'Document not found',
+          code: '4041'
+        });
+      }
+      
+      // Use document location if available and exists
+      if (doc.location && fs.existsSync(doc.location)) {
+        filePath = doc.location;
+        console.log(`Using document location: ${filePath}`);
+      } else {
+        // Construct filename from name and format property
+        let fileName = doc.name || '';
+        console.log(`Document name: ${fileName}, format: ${doc.format}`);
+        
+        // Check if name already has extension
+        if (!/\.\w+$/.test(fileName) && doc.format) {
+          // Append format as extension if not present
+          fileName = fileName + '.' + doc.format;
+          console.log(`Constructed filename with format: ${fileName}`);
+        }
+        
+        filePath = path.join('/data/uploads', fileName);
+        console.log(`Constructed file path: ${filePath}`);
+      }
+    } else {
+      // Use filename directly
+      filePath = path.join('/data/uploads', filename);
+    }
+
+    // Check if file exists, try alternative paths if not found
+    if (!fs.existsSync(filePath)) {
+      console.log(`Photo file not found at: ${filePath}`);
+      // Try alternative paths if doc was loaded
+      if (doc) {
+        // Try with just the name (if we added format, try without)
+        const altPath1 = path.join('/data/uploads', doc.name);
+        if (fs.existsSync(altPath1)) {
+          filePath = altPath1;
+          console.log(`Found photo at alternative path: ${altPath1}`);
+        } else if (doc.format && !altPath1.includes('.')) {
+          // Try name + format if name doesn't have extension
+          const altPath2 = path.join('/data/uploads', doc.name + '.' + doc.format);
+          if (fs.existsSync(altPath2)) {
+            filePath = altPath2;
+            console.log(`Found photo at alternative path: ${altPath2}`);
+          }
+        }
+      }
+      
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).send({
+          message: 'File not found',
+          code: '4042'
+        });
+      }
+    }
+
+    // Get file extension to determine content type
+    // First try from file path, then from document format property
+    let ext = path.extname(filePath).toLowerCase().slice(1);
+    if (!ext && doc && doc.format) {
+      ext = doc.format.toLowerCase();
+    }
+    
+    const contentTypes = {
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'png': 'image/png',
+      'gif': 'image/gif',
+      'bmp': 'image/bmp',
+      'svg': 'image/svg+xml',
+      'webp': 'image/webp',
+      'tiff': 'image/tiff',
+      'tif': 'image/tiff'
+    };
+    
+    const contentType = contentTypes[ext] || 'image/jpeg';
+    
+    // Set headers for image display (not download)
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+    res.setHeader('Content-Disposition', 'inline'); // Display in browser, not download
+    
+    console.log(`Sending photo: ${filePath}, Content-Type: ${contentType}`);
+    
+    // Send the file
+    res.sendFile(path.resolve(filePath), (err) => {
+      if (err) {
+        console.error('Error sending photo:', err);
+        if (!res.headersSent) {
+          res.status(500).send({
+            message: 'Failed to load photo',
+            code: '5001'
+          });
+        }
+      } else {
+        console.log(`Photo sent successfully: ${filePath}`);
+      }
+    });
+  } catch (error) {
+    console.error('Error in getPhoto:', error);
+    res.status(500).send({
+      message: 'Failed to load photo',
+      code: '5002'
+    });
+  }
+};
+
 // Create a public share link for one or more documents and send via email
 exports.createDocumentShare = async (req, res) => {
   try {
@@ -6382,6 +6511,7 @@ exports.getDocumentRepository = async (req, res) => {
     console.log('getDocumentRepository - dateFilter:', dateFilter);
     console.log('getDocumentRepository - excludePhotos:', excludePhotos);
     console.log('getDocumentRepository - excludeFormats:', excludeFormats);
+    console.log('getDocumentRepository - includeFormats:', includeFormats);
 
     const offset = (page - 1) * limit;
     
