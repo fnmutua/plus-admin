@@ -4,13 +4,15 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { onMounted, defineAsyncComponent, ref, reactive, computed, watch } from 'vue'
 import {
   ElInput, ElButton, ElTabPane, ElTabs, ElCard, ElTable, ElTableColumn, ElMessage, ElDrawer, ElImage,  ElSelect,
-  ElIcon, ElPopconfirm, ElPagination,ElRow,ElCol,ElDialog
+  ElIcon, ElPopconfirm, ElPagination,ElRow,ElCol,ElDialog, ElForm, ElFormItem, ElOption, ElOptionGroup
 } from 'element-plus'
 import { useRoute } from 'vue-router'
 import {
   getSettlementListByCounty,
-  DeleteRecord
+  DeleteRecord,
+  updateOneRecord
 } from '@/api/settlements'
+import { getCountyListApi } from '@/api/counties'
 import { Back, Upload, Search, Edit, More, RefreshLeft, Picture, Download, Loading, Plus } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { getFile } from '@/api/summary'
@@ -500,6 +502,7 @@ onMounted(async () => {
   await getIndicatorCategoryReports(route.params.id)
   await getSettlmentHistory(route.params.id)
   await getProjectLocations(route.params.id)
+  await fetchDocumentTypes()
   console.log(settlement)
   
   // Always load map data on mount to avoid waiting when user switches to Location tab
@@ -2004,6 +2007,90 @@ const generatePDFReport = async () => {
   }
 }
 
+// Document category edit functionality
+const editDocumentDialogVisible = ref(false)
+const documentTypes = ref<Array<{ value: number; label: string; group: string }>>([])
+const documentTypeGroups = ref<Array<{ label: string; options: Array<{ value: number; label: string }> }>>([])
+const currentDocument = ref<any>(null)
+const editDocumentForm = reactive({
+  id: null as number | null,
+  category: undefined as number | undefined  // document.category field references document_type.id
+})
+
+// Fetch document types grouped by category
+const fetchDocumentTypes = async () => {
+  try {
+    const res = await getCountyListApi({
+      params: {
+        pageIndex: 1,
+        limit: 1000,
+        curUser: 1,
+        model: 'document_type',
+        searchField: 'type',
+        searchKeyword: '',
+        sort: 'ASC'
+      }
+    })
+    
+    const ret = res.data
+    // Group document types by their 'group' field (which represents the category)
+    const nestedData = ret.reduce((acc: any, cur: any) => {
+      const group = cur.group || 'Other'
+      if (!acc[group]) {
+        acc[group] = []
+      }
+      acc[group].push({ value: cur.id, label: cur.type })
+      return acc
+    }, {})
+
+    documentTypeGroups.value = Object.entries(nestedData).map(([label, options]: [string, any]) => ({
+      label,
+      options
+    }))
+  } catch (error) {
+    console.error('Error fetching document types:', error)
+    ElMessage.error('Failed to load document types')
+  }
+}
+
+// Open edit dialog
+const openEditDocumentDialog = (doc: any) => {
+  currentDocument.value = doc
+  editDocumentForm.id = doc.id
+  // Get category from various possible locations (document.category references document_type.id)
+  editDocumentForm.category = doc.category || 
+                               doc['document_type.id'] || 
+                               doc.document_type?.id || 
+                               undefined
+  editDocumentDialogVisible.value = true
+}
+
+// Update document category (updates document.category which references document_type.id)
+const updateDocumentCategory = async () => {
+  if (!editDocumentForm.id || !editDocumentForm.category) {
+    ElMessage.warning('Please select a document type')
+    return
+  }
+
+  try {
+    const formData = {
+      id: editDocumentForm.id,
+      model: 'document',
+      category: editDocumentForm.category  // document.category field references document_type.id
+    }
+
+    await updateOneRecord(formData as any)
+    ElMessage.success('Document category updated successfully')
+    editDocumentDialogVisible.value = false
+    
+    // Reload settlement data to refresh documents
+    await getFilteredData(filters, filterValues)
+  } catch (error) {
+    console.error('Error updating document category:', error)
+    ElMessage.error('Failed to update document category')
+  }
+}
+
 </script>
 
 <template>
@@ -2246,12 +2333,22 @@ v-for="(docs, type) in filteredGroupedDocuments" :key="type"
                    <el-table-column type="index" width="50" />
                    <el-table-column prop="name" label="Name" />
                    <el-table-column prop="createdAt" label="Uploaded" />
-                   <el-table-column fixed="right" label="">
+                   <el-table-column fixed="right" label="" width="200">
                      <template #default="scope">
                        <el-button plain :loading="loadingStates[scope.row.id]" @click="downloadFile(scope.row)">
                          <Icon icon="fa-solid:download" style="margin-right: 5px;" />
                          Download
-                         </el-button>
+                       </el-button>
+                       <el-button 
+                         v-if="isSuperAdmin && canUserAccessSettlement({id: route.params.id, county_id: profile.county_id}, 'edit')" 
+                         plain 
+                         type="primary" 
+                         :icon="Edit" 
+                         @click="openEditDocumentDialog(scope.row)"
+                         style="margin-left: 8px;"
+                       >
+                         Edit
+                       </el-button>
                      </template>
                    </el-table-column>
                  </el-table>
@@ -2562,6 +2659,48 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
              Download
            </el-button>
          </div>
+       </div>
+     </template>
+   </el-dialog>
+
+   <!-- Edit Document Category Dialog -->
+   <el-dialog
+     v-model="editDocumentDialogVisible"
+     title="Edit Document Category"
+     width="500px"
+     :close-on-click-modal="false"
+   >
+     <el-form :model="editDocumentForm" label-width="150px">
+       <el-form-item label="Document Name">
+         <el-input :value="currentDocument?.name" disabled />
+       </el-form-item>
+       <el-form-item label="Document Type (Category)" required>
+         <el-select
+           v-model="editDocumentForm.category"
+           placeholder="Select document type"
+           style="width: 100%"
+           filterable
+           clearable
+         >
+           <el-option-group
+             v-for="group in documentTypeGroups"
+             :key="group.label"
+             :label="group.label"
+           >
+             <el-option
+               v-for="option in group.options"
+               :key="option.value"
+               :label="option.label"
+               :value="option.value"
+             />
+           </el-option-group>
+         </el-select>
+       </el-form-item>
+     </el-form>
+     <template #footer>
+       <div class="dialog-footer">
+         <el-button @click="editDocumentDialogVisible = false">Cancel</el-button>
+         <el-button type="primary" @click="updateDocumentCategory">Update</el-button>
        </div>
      </template>
    </el-dialog>
