@@ -1528,16 +1528,24 @@ exports.settlementByCountyController = (req, res) => {
   const reg_model = 'settlement';
   const countyId = req.body.county_id || req.body.countyId; // accept either key
   const page = parseInt(req.body.page, 10) || 1;
-  const limit = parseInt(req.body.limit, 10) || 100;
-  const offset = (page - 1) * limit;
+  const limitParam = req.body.limit ? parseInt(req.body.limit, 10) : null;
+  // Only apply pagination if limit is explicitly provided, otherwise return all results
+  const limit = limitParam || null;
+  const offset = limit ? (page - 1) * limit : null;
 
   const queryOptions = {
     attributes: { exclude: ['geom'] },
-    limit,
-    offset,
     order: [['id', 'ASC']],
     where: {}
   };
+
+  // Only add limit and offset if pagination is requested
+  if (limit !== null) {
+    queryOptions.limit = limit;
+    if (offset !== null) {
+      queryOptions.offset = offset;
+    }
+  }
 
   if (countyId) {
     queryOptions.where.county_id = countyId;
@@ -1549,8 +1557,8 @@ exports.settlementByCountyController = (req, res) => {
       res.status(200).send({
         data: list.rows,
         total: list.count,
-        page,
-        limit,
+        page: limit ? page : 1,
+        limit: limit || list.count,
         code: '0000'
       });
     })
