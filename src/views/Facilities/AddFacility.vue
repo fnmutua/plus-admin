@@ -173,6 +173,11 @@ const markerPlacementMode = ref(false)
 const lineDrawingMode = ref(false)
 const mapClickListener = ref<any>(null)
 
+// Fly to coordinates state
+const flyDialogVisible = ref(false)
+const flyToCoordsInput = ref('')
+const flyMarker = ref<any>(null)
+
 // Drawer state
 const drawerVisible = ref(false)
 const selectedFacilityType = ref<string>('')
@@ -1199,7 +1204,17 @@ const loadExistingFacilities = async () => {
                 editExistingFacility(feature, model, 'line')
               })
               
-              existingFacilityPolylines.value.set(feature.properties?.id || feature.id, polyline)
+              // Store possibly multiple polylines per facility id (for MultiLineString)
+              const key = feature.properties?.id || feature.id
+              const existing = existingFacilityPolylines.value.get(key)
+              if (Array.isArray(existing)) {
+                existing.push(polyline)
+                existingFacilityPolylines.value.set(key, existing)
+              } else if (existing) {
+                existingFacilityPolylines.value.set(key, [existing, polyline])
+              } else {
+                existingFacilityPolylines.value.set(key, [polyline])
+              }
             })
           }
         })
@@ -1371,11 +1386,35 @@ const editExistingFacility = (feature: any, model: string, geometryType: 'point'
     
     if (lines.length > 0) {
       const path = lines[0].map(([lng, lat]) => ({ lat, lng }))
-      
+
+      // Remove any existing editable polyline
       if (facilityPolyline.value) {
         facilityPolyline.value.setMap(null)
       }
-      
+
+      // Remove the original stored polyline(s) for this facility (so only the editable one remains)
+      if (facilityId && existingFacilityPolylines.value.has(facilityId)) {
+        const originals = existingFacilityPolylines.value.get(facilityId)
+        if (Array.isArray(originals)) {
+          originals.forEach((pl: any) => {
+            if (pl) {
+              try {
+                pl.setMap(null)
+              } catch (e) {
+                // ignore
+              }
+            }
+          })
+        } else if (originals) {
+          try {
+            originals.setMap(null)
+          } catch (e) {
+            // ignore
+          }
+        }
+        existingFacilityPolylines.value.delete(facilityId)
+      }
+
       facilityPolyline.value = new window.google.maps.Polyline({
         path: path,
         map: map.value,
@@ -1386,10 +1425,16 @@ const editExistingFacility = (feature: any, model: string, geometryType: 'point'
         zIndex: 1000
       })
       
-      // Update geometry when polyline is edited
-      facilityPolyline.value.addListener('set_at', () => updatePolylineGeometry())
-      facilityPolyline.value.addListener('insert_at', () => updatePolylineGeometry())
-      facilityPolyline.value.addListener('remove_at', () => updatePolylineGeometry())
+      // Click editable line to reopen attributes drawer (without resetting geometry)
+      facilityPolyline.value.addListener('click', () => {
+        drawerVisible.value = true
+      })
+
+      // Update geometry when polyline vertices are edited
+      const editPath = facilityPolyline.value.getPath()
+      editPath.addListener('set_at', () => updatePolylineGeometry())
+      editPath.addListener('insert_at', () => updatePolylineGeometry())
+      editPath.addListener('remove_at', () => updatePolylineGeometry())
       
       // Set initial geometry
       updatePolylineGeometry()
@@ -1536,6 +1581,12 @@ const enableLineDrawing = async () => {
               }
             }
             
+            // Listen for vertex edits on the polyline path
+            const editPath = polyline.getPath()
+            editPath.addListener('set_at', () => updatePolylineGeometry())
+            editPath.addListener('insert_at', () => updatePolylineGeometry())
+            editPath.addListener('remove_at', () => updatePolylineGeometry())
+            
             // Open drawer
             drawerVisible.value = true
           }
@@ -1678,6 +1729,78 @@ const closeDrawer = () => {
   }
 }
 
+// Hide drawer but keep editing / geometry so user can adjust vertices on map
+const hideDrawerForVertexEdit = () => {
+  drawerVisible.value = false
+  if (facilityPolyline.value && window.google?.maps) {
+    try {
+      facilityPolyline.value.setEditable(true)
+    } catch (e) {
+      console.warn('Failed to ensure editable polyline for vertex editing', e)
+    }
+  }
+}
+
+// Fly to coordinates
+const flyToCoordinates = () => {
+  const raw = (flyToCoordsInput.value || '').trim()
+  if (!raw) {
+    ElMessage.error('Enter coordinates as "lat, lon"')
+    return
+  }
+
+  // Allow comma or whitespace separated
+  const parts = raw.replace(/[\s;]+/g, ',').split(',').map(p => p.trim()).filter(Boolean)
+  if (parts.length < 2) {
+    ElMessage.error('Enter coordinates as "lat, lon" (e.g., -1.2921, 36.8219)')
+    return
+  }
+
+  const lat = parseFloat(parts[0])
+  const lng = parseFloat(parts[1])
+
+  if (Number.isNaN(lat) || Number.isNaN(lng)) {
+    ElMessage.error('Invalid numbers. Use "lat, lon" (e.g., -1.2921, 36.8219)')
+    return
+  }
+
+  if (!map.value || !window.google?.maps) {
+    ElMessage.error('Map not ready yet')
+    return
+  }
+
+  const target = new window.google.maps.LatLng(lat, lng)
+  map.value.panTo(target)
+  const targetZoom = 16
+  if (typeof map.value.getZoom === 'function') {
+    const currentZoom = map.value.getZoom()
+    map.value.setZoom(Math.max(currentZoom || targetZoom, targetZoom))
+  } else {
+    map.value.setZoom(targetZoom)
+  }
+
+  // Drop/update a blue marker at the target
+  try {
+    if (flyMarker.value) {
+      flyMarker.value.setMap(null)
+    }
+    flyMarker.value = new window.google.maps.Marker({
+      position: target,
+      map: map.value,
+      icon: {
+        url: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+        scaledSize: new window.google.maps.Size(40, 40),
+      },
+      title: `Lat: ${lat}, Lng: ${lng}`,
+      zIndex: 2000,
+    })
+  } catch (e) {
+    console.warn('Failed to place fly-to marker', e)
+  }
+
+  flyDialogVisible.value = false
+}
+
 // Open drawer (can be called to reopen after closing)
 const openDrawer = () => {
   if (facilityMarker.value || facilityForm.geom) {
@@ -1717,11 +1840,21 @@ const clearExistingFacilities = () => {
   existingFacilityMarkers.value.clear()
   
   // Clear polylines
-  existingFacilityPolylines.value.forEach((polyline) => {
-    if (window.google?.maps) {
-      window.google.maps.event.clearInstanceListeners(polyline)
+  existingFacilityPolylines.value.forEach((polylines) => {
+    if (Array.isArray(polylines)) {
+      polylines.forEach((polyline: any) => {
+        if (!polyline) return
+        if (window.google?.maps) {
+          window.google.maps.event.clearInstanceListeners(polyline)
+        }
+        polyline.setMap(null)
+      })
+    } else if (polylines) {
+      if (window.google?.maps) {
+        window.google.maps.event.clearInstanceListeners(polylines)
+      }
+      polylines.setMap(null)
     }
-    polyline.setMap(null)
   })
   existingFacilityPolylines.value.clear()
 }
@@ -2354,6 +2487,27 @@ onMounted(async () => {
                 :circle="isMobile"
                 class="action-button">
                 <span class="action-text">Delete Line</span>
+              </el-button>
+              <el-button 
+                v-if="facilityPolyline && !drawerVisible"
+                type="info" 
+                :icon="Edit"
+                @click="drawerVisible = true" 
+                size="small"
+                :circle="isMobile"
+                class="action-button">
+                <span class="action-text">Show Attributes</span>
+              </el-button>
+              <el-button 
+                v-if="currentStep === 1" 
+                type="info" 
+                :icon="Plus" 
+                @click="flyDialogVisible = true" 
+                size="small"
+                :circle="isMobile"
+                class="action-button"
+              >
+                <span class="action-text">Fly to coords</span>
               </el-button>
             </template>
           </div>
@@ -3237,6 +3391,9 @@ onMounted(async () => {
 
       <template #footer>
         <div class="drawer-footer">
+          <el-button v-if="facilityPolyline" @click="hideDrawerForVertexEdit">
+            Hide to Edit Line
+          </el-button>
           <el-button @click="closeDrawer">Cancel</el-button>
           <el-button 
             v-if="selectedFacilityType"
@@ -3248,6 +3405,26 @@ onMounted(async () => {
         </div>
       </template>
     </el-drawer>
+
+    <!-- Fly to coordinates dialog -->
+    <el-dialog
+      v-model="flyDialogVisible"
+      title="Fly to Coordinates"
+      width="360px"
+      :close-on-click-modal="false"
+    >
+      <el-input
+        v-model="flyToCoordsInput"
+        placeholder="Enter lat, lon (e.g., -1.2921, 36.8219)"
+        clearable
+      />
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="flyDialogVisible = false">Cancel</el-button>
+          <el-button type="primary" @click="flyToCoordinates">Fly</el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
