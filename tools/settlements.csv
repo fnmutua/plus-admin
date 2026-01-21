@@ -1,0 +1,67 @@
+id,name,county_id,subcounty_id,ward_id,settlement_type,area,code
+719,Kisumu ndogo,47,281,1405,Slum,0,sett826
+703,Kariobangi,47,281,1401,Slum,0,sett809
+670,Langata Phase 1,47,277,1381,Slum,0,sett770
+568,Mathare,47,281,1402,Slum,0,sett729
+482,Mukuru Sinai,47,287,1431,Slum,1.618744,sett553
+477,Mukuru Kingston,47,289,1439,Slum,2.02343,sett551
+475,Kya'ngombe,47,277,1384,Slum,0,sett544
+474,Mukuru kwa Njenga,47,282,1406,Slum,2.02343,sett548
+473,Embakasi Sokoni,47,282,1409,Slum,1.214058,sett545
+472,Mohra Moldana,47,289,1439,Slum,0,sett543
+471,Maili saba,47,280,1399,Slum,0,sett542
+468,Mukuru Sisal,47,289,1439,Slum,0,sett539
+467,Pipeline,47,282,1410,Slum,0,sett538
+466,Kariobangi light industries,47,281,1401,Slum,0,sett537
+464,Nyayo,47,285,1423,Slum,0,sett536
+460,Highridge,47,274,1367,Slum,0,sett533
+458,Quarry squatters village,47,289,1439,Slum,0,sett527
+456,Clay village,47,289,1439,Slum,0,sett526
+455,Stage 29/30,47,289,1439,Slum,0,sett525
+450,Zimmerman B (power village),47,279,1393,Slum,0,sett520
+449,Kamae village,47,289,1439,Slum,0,sett519
+448,Shape corner,47,280,1398,Slum,0,sett516
+447,Githurai majengo,47,288,1434,Slum,0,sett518
+446,Kwale,47,279,1394,Slum,0,sett517
+435,Kasarani,47,280,1398,Slum,0,sett857
+431,Eastleigh/ Mukunda,47,288,1435,Slum,0,sett500
+429,Garole,47,289,1439,Slum,0,sett496
+427,Gikomba,47,288,1434,Slum,0,sett497
+425,Toi Market,47,278,1389,Slum,2.428116,sett494
+424,Gachui,47,288,1437,Slum,6.07029,sett492
+422,kaburi,47,276,1379,Slum,0,sett490
+421,Kandatu,47,289,1439,Slum,0,sett489
+420,kirugi/Murio mbogo,47,279,1393,Slum,0,sett488
+417,Riruta satelite,47,276,1378,Slum,0,sett485
+415,wanyee close,47,276,1377,Slum,16.18744,sett483
+414,Kongo,47,289,1441,Slum,4.04686,sett482
+413,Kawangware,47,275,1373,Slum,8.09372,sett481
+407,Maragoli,47,274,1366,Slum,10.11715,sett477
+406,Southlands,47,277,1383,Slum,4.04686,sett473
+405,Bangladesh,47,289,1439,Slum,1.214058,sett474
+403,Kisumu Ndogo,47,277,1381,Slum,0,sett535
+402,Makina,47,278,1388,Slum,1.214058,sett468
+401,Gatwikira,47,278,1390,Slum,2.02343,sett470
+400,Lindi,47,278,1387,Slum,1.214058,sett466
+395,Laini Saba,47,278,1386,Slum,1.214058,sett463
+394,Quarry/ Raila estate,47,277,1383,Slum,4.04686,sett460
+393,Riverside Mbagathi,47,275,1374,Slum,0,sett461
+392,Plot 10,47,282,1409,Slum,0,sett459
+391,Mtumba,47,289,1440,slum,3,sett458
+385,Maziwa,47,275,1371,Slum,1.214058,sett451
+384,Mukuru Kayaba,47,289,1443,Slum,4.04686,sett550
+381,Maasai XX,47,277,1383,slum,1.618744,mugRUHZxS62NVLSzvkPqNR
+380,Kanaro,47,289,1439,slum,1.618744,sett444
+370,Mathare kyamutisya,47,281,1402,Slum,0,sett434
+362,Mathare 3A,47,281,1402,Slum,0,sett428
+359,Mathare 2A,47,281,1402,Slum,0,sett427
+356,Grogon Huruma,47,290,1448,Slum,0,sett419
+353,Kosovo,47,284,1419,Slum,0,sett422
+350,Corner Mbaya,47,280,1400,Slum,0,sett416
+347,Bondeni,47,289,1439,Slum,0,sett415
+344,Suswa,47,274,1367,Slum,0,sett413
+341,Ndumboini,47,274,1366,Slum,0,sett411
+297,Nairobi,47,289,1439,slum,2.02343,sett327
+200,Majengo,47,288,1434,Slum,0,sett501
+198,Soko Mjinga,47,275,1372,Slum,6,sett194
+0,Fremo-orig2,47,275,1371,Informal Settlement,5,urHpa9Pd2cAnU5b9KFHtmv

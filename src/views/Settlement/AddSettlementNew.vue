@@ -109,10 +109,13 @@ const drawnPolygons = ref<any[]>([])
 const isEditMode = ref(false)
 const editingSettlementId = ref<number | null>(null)
 const isDrawingMode = ref(false)
+const flyMarker = ref<any>(null)
 
 // Step 3: Form Drawer
 const drawerVisible = ref(false)
 const formRef = ref<FormInstance>()
+const flyDialogVisible = ref(false)
+const flyToCoordsInput = ref('')
 const settlementForm = reactive({
   name: '',
   county_id: '',
@@ -592,11 +595,11 @@ const loadWardBoundary = () => {
 
           const polygon = new window.google.maps.Polygon({
             paths: paths,
-            strokeColor: '#3388ff',
+            strokeColor: '#000000',
             strokeOpacity: 1.0,
             strokeWeight: 3,
-            fillColor: '#3388ff',
-            fillOpacity: 0.1,
+            fillColor: '#000000',
+            fillOpacity: 0,
             map: map.value,
             clickable: false,
             draggable: false,
@@ -621,11 +624,11 @@ const loadWardBoundary = () => {
 
             const polygon = new window.google.maps.Polygon({
               paths: paths,
-              strokeColor: '#3388ff',
+              strokeColor: '#000000',
               strokeOpacity: 1.0,
               strokeWeight: 3,
-              fillColor: '#3388ff',
-              fillOpacity: 0.1,
+              fillColor: '#000000',
+              fillOpacity: 0,
               map: map.value,
               clickable: false,
               draggable: false,
@@ -827,6 +830,66 @@ const deleteDrawnShape = () => {
   } else {
     ElMessage.info('No shape to delete')
   }
+}
+
+// Fly to coordinates provided as "lat, lon"
+const flyToCoordinates = () => {
+  const raw = (flyToCoordsInput.value || '').trim()
+  if (!raw) {
+    ElMessage.error('Enter coordinates as "lat, lon"')
+    return
+  }
+
+  // Allow comma or whitespace separated
+  const parts = raw.replace(/[\s;]+/g, ',').split(',').map(p => p.trim()).filter(Boolean)
+  if (parts.length < 2) {
+    ElMessage.error('Enter coordinates as "lat, lon" (e.g., -1.2921, 36.8219)')
+    return
+  }
+
+  const lat = parseFloat(parts[0])
+  const lng = parseFloat(parts[1])
+
+  if (Number.isNaN(lat) || Number.isNaN(lng)) {
+    ElMessage.error('Invalid numbers. Use "lat, lon" (e.g., -1.2921, 36.8219)')
+    return
+  }
+
+  if (!map.value || !window.google?.maps) {
+    ElMessage.error('Map not ready yet')
+    return
+  }
+
+  const target = new window.google.maps.LatLng(lat, lng)
+  map.value.panTo(target)
+  const targetZoom = 16
+  if (typeof map.value.getZoom === 'function') {
+    const currentZoom = map.value.getZoom()
+    map.value.setZoom(Math.max(currentZoom || targetZoom, targetZoom))
+  } else {
+    map.value.setZoom(targetZoom)
+  }
+
+  // Drop/update a blue marker at the target
+  try {
+    if (flyMarker.value) {
+      flyMarker.value.setMap(null)
+    }
+    flyMarker.value = new window.google.maps.Marker({
+      position: target,
+      map: map.value,
+      icon: {
+        url: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+        scaledSize: new window.google.maps.Size(40, 40),
+      },
+      title: `Lat: ${lat}, Lng: ${lng}`,
+      zIndex: 2000,
+    })
+  } catch (e) {
+    console.warn('Failed to place fly-to marker', e)
+  }
+
+  flyDialogVisible.value = false
 }
 
 // Submit form
@@ -1418,6 +1481,17 @@ onMounted(async () => {
               <span class="draw-text">Draw</span>
             </el-button>
             <el-button 
+              v-if="currentStep === 1" 
+              type="info" 
+              :icon="Plus" 
+              @click="flyDialogVisible = true" 
+              size="small"
+              :circle="isMobile"
+              class="draw-button"
+            >
+              <span class="draw-text">Fly to coords</span>
+            </el-button>
+            <el-button 
               v-if="currentStep === 1 && (drawnPolygons.length > 0 || settlementPolygon)" 
               type="danger" 
               :icon="Delete" 
@@ -1774,6 +1848,26 @@ onMounted(async () => {
         </div>
       </template>
     </el-drawer>
+
+    <!-- Fly to coordinates dialog -->
+    <el-dialog
+      v-model="flyDialogVisible"
+      title="Fly to Coordinates"
+      width="360px"
+      :close-on-click-modal="false"
+    >
+      <el-input
+        v-model="flyToCoordsInput"
+        placeholder="Enter lat, lon (e.g., -1.2921, 36.8219)"
+        clearable
+      />
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="flyDialogVisible = false">Cancel</el-button>
+          <el-button type="primary" @click="flyToCoordinates">Fly</el-button>
+        </span>
+      </template>
+    </el-dialog>
 
     <!-- Upload Dialog -->
     <el-dialog 

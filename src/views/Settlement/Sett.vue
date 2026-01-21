@@ -797,8 +797,6 @@ const onPageChange = async (selPage: any) => {
     filters.value = ['isApproved', 'isActive']
     filterValues.value = [['Rejected'], ['true']]
   }
-  // Apply role filters to ensure county filter is preserved for county-level users
-  pushRoleFilters()
   saveFiltersToStorage();
   if (search_string.value) {
     getFilteredBySearchData(activeSegment.value, search_string.value)
@@ -820,8 +818,6 @@ const onPageSizeChange = async (size: any) => {
     filters.value = ['isApproved', 'isActive']
     filterValues.value = [['Rejected'], ['true']]
   }
-  // Apply role filters to ensure county filter is preserved for county-level users
-  pushRoleFilters()
   saveFiltersToStorage();
   if (search_string.value) {
     getFilteredBySearchData(activeSegment.value, search_string.value)
@@ -999,7 +995,6 @@ const getNewOrRejectedSettlements = async (tab) => {
   formData.filterValues = filterValues.value
   formData.associated_multiple_models = associated_multiple_models
   formData.nested_models = nested_models
-  formData.nested_models = nested_models
   formData.dateRange = dateRange.value
   
 
@@ -1019,12 +1014,15 @@ const getNewOrRejectedSettlements = async (tab) => {
   } else {
     tableDataList.value = res.data
     totalApproved.value = res.total
-    res.data.forEach(function (arrayItem) {
-      var dd = flattenJSON(arrayItem)
-      flattenedData.value.push(dd)
-    })
-    var obj = flattenJSON(res.data[0])
-    model_fields.value = Object.keys(obj);
+    // Only build flattenedData/model_fields once to avoid heavy work on every page change
+    if (!flattenedData.value.length && res.data.length) {
+      res.data.forEach(function (arrayItem) {
+        var dd = flattenJSON(arrayItem)
+        flattenedData.value.push(dd)
+      })
+      var obj = flattenJSON(res.data[0])
+      model_fields.value = Object.keys(obj);
+    }
   }
 }
 

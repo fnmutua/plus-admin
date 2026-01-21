@@ -3588,8 +3588,6 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
       return res.status(400).json({ message: 'dateRange must be an array with two dates', code: 'INVALID_DATE_RANGE' });
     }
 
-    const total = await Model.count(baseQuery);
-
     const includeModels = [];
 
     for (const assocModel of associated_multiple_models) {
@@ -3675,12 +3673,11 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
   // Handle attribute selection (no decryption)
 if (isHouseholdsModel) {
   query.attributes = {
+    // For households we still exclude geom and add derived fields
     exclude: hasGeomColumn ? ['geom'] : [],
     include: [
-      // just pull the raw column values
       'respondents_name',
       'telephone',
-      // if you still want the hasGeom flag:
       ...(hasGeomColumn
         ? [[
             db.sequelize.literal(
@@ -3692,9 +3689,9 @@ if (isHouseholdsModel) {
     ],
   };
 } else if (hasGeomColumn) {
-  // Default: exclude geom and include hasGeom flag
+  // For most models (including settlement), keep full geom and just add hasGeom flag
   query.attributes = {
-  //  exclude: ['geom'],
+    //  exclude: ['geom'],
     include: [
       [
         db.sequelize.literal(
@@ -3727,7 +3724,7 @@ if (isHouseholdsModel) {
             fromCache: true,
             cache_key,
             data: result.data,
-            total,
+            total: result.total,
             code: '0000',
           });
         }
@@ -3736,7 +3733,7 @@ if (isHouseholdsModel) {
       const response = await Model.findAndCountAll(query);
       const cacheData = {
         data: response.rows,
-        total,
+        total: response.count,
         lastModified: Date.now(),
       };
       await redisClient.set(cache_key, JSON.stringify(cacheData), { EX: cacheDuration });
@@ -3745,7 +3742,7 @@ if (isHouseholdsModel) {
         fromCache: false,
         cache_key,
         data: response.rows,
-        total,
+        total: response.count,
         code: '0000',
       });
     }
@@ -3754,7 +3751,7 @@ if (isHouseholdsModel) {
     return res.status(200).json({
       fromCache: false,
       data: response.rows,
-      total,
+      total: response.count,
       code: '0000',
     });
 

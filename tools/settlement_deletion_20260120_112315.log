@@ -1,0 +1,5 @@
+2026-01-20 11:23:15,748 - INFO - API Configuration:
+2026-01-20 11:23:15,748 - INFO -   Host: http://localhost
+2026-01-20 11:23:15,748 - INFO -   Username: x***REDACTED***
+2026-01-20 11:23:15,749 - INFO -   Password: ***SET***
+2026-01-20 11:23:15,804 - ERROR - Login failed (status 404): {"message":"User Not found."}
