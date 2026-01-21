@@ -973,7 +973,15 @@ const initializeMap = async () => {
 
     // Initialize DrawingManager for line facilities (will be activated when needed)
     // Use a helper function to initialize DrawingManager when the library is ready
-    const initDrawingManager = () => {
+    const initDrawingManager = async () => {
+      // Wait for drawing library to be available
+      let retries = 0
+      const maxRetries = 20
+      while ((!window.google?.maps?.drawing?.DrawingManager) && retries < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, 100))
+        retries++
+      }
+      
       if (window.google?.maps?.drawing?.DrawingManager) {
         try {
           drawingManager.value = new window.google.maps.drawing.DrawingManager({
@@ -1064,19 +1072,14 @@ const initializeMap = async () => {
           return false
         }
       }
+      console.warn('Drawing library not loaded after waiting. DrawingManager will be initialized when needed.')
       return false
     }
     
-    // Try to initialize immediately
-    if (!initDrawingManager()) {
-      // If not ready, try again after a short delay
-      setTimeout(() => {
-        if (!initDrawingManager()) {
-          console.warn('Drawing library not loaded yet. DrawingManager will be initialized when needed.')
-          drawingManager.value = null
-        }
-      }, 200)
-    }
+    // Initialize DrawingManager asynchronously (don't block map initialization)
+    initDrawingManager().catch(error => {
+      console.error('Error initializing DrawingManager:', error)
+    })
   } catch (error) {
     console.error('Error initializing Google Maps:', error)
     ElMessage.error('Failed to load map')
@@ -1437,15 +1440,23 @@ const enableMarkerPlacement = () => {
 }
 
 // Enable line drawing mode
-const enableLineDrawing = () => {
+const enableLineDrawing = async () => {
   if (!map.value || !window.google || !window.google.maps) {
     ElMessage.error('Map not initialized. Please wait for the map to load.')
     return
   }
   
-  // Check if Drawing library is loaded
+  // Wait for Drawing library to be available (with retry)
+  let retries = 0
+  const maxRetries = 10
+  while ((!window.google.maps.drawing || !window.google.maps.drawing.DrawingManager) && retries < maxRetries) {
+    await new Promise(resolve => setTimeout(resolve, 100))
+    retries++
+  }
+  
+  // Check if Drawing library is loaded after waiting
   if (!window.google.maps.drawing || !window.google.maps.drawing.DrawingManager) {
-    ElMessage.error('Drawing library not loaded. Please refresh the page.')
+    ElMessage.error('Drawing library not loaded. Please wait a moment and try again.')
     return
   }
   
