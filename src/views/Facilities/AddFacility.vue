@@ -25,7 +25,7 @@ import {
   ElDatePicker,
   ElAlert
 } from 'element-plus'
-import { ArrowLeft, Plus, Delete, Check, Edit ,Minus, AddLocation} from '@element-plus/icons-vue'
+import { ArrowLeft, Plus, Delete, Check, Edit ,Minus, AddLocation, Crop} from '@element-plus/icons-vue'
 import * as turf from '@turf/turf'
 import { getOneGeo, CreateRecord, getSettlementMapData, updateOneRecord, getSettlementsWithBoundaryGeometry } from '@/api/settlements'
 import { 
@@ -163,7 +163,8 @@ const map = ref<any>(null)
 const settlementPolygon = ref<any>(null)
 const facilityMarker = ref<any>(null)
 const facilityPolyline = ref<any>(null) // For line facilities
-const drawingManager = ref<any>(null) // For line drawing
+const facilityPolygon = ref<any>(null) // For polygon facilities
+const drawingManager = ref<any>(null) // For line/polygon drawing
 const existingFacilityMarkers = ref<Map<number, any>>(new Map())
 const existingFacilityPolylines = ref<Map<number, any>>(new Map())
 const settlementGeo = ref<any>(null)
@@ -171,6 +172,7 @@ const facilityGeometry = ref<any>(null)
 const mapContainer = ref<HTMLDivElement | null>(null)
 const markerPlacementMode = ref(false)
 const lineDrawingMode = ref(false)
+const polygonDrawingMode = ref(false)
 const mapClickListener = ref<any>(null)
 
 // Drawer state
@@ -192,6 +194,7 @@ const facilityForm = reactive({
   subcounty_id: '',
   ward_id: '',
   geom: null,
+  area: null, // Area in square meters (for polygons)
   
   // Health Facility fields
   facility_number: '',
@@ -1435,6 +1438,11 @@ const enableMarkerPlacement = () => {
     drawingManager.value.setDrawingMode(null)
     lineDrawingMode.value = false
   }
+  // Disable polygon drawing if active
+  if (polygonDrawingMode.value && drawingManager.value && window.google) {
+    drawingManager.value.setDrawingMode(null)
+    polygonDrawingMode.value = false
+  }
   markerPlacementMode.value = true
   ElMessage.info('Click on the map to place the marker inside the settlement boundary')
 }
@@ -1561,6 +1569,12 @@ const enableLineDrawing = async () => {
     }
   }
   
+  // Disable polygon drawing if active
+  if (polygonDrawingMode.value && drawingManager.value) {
+    drawingManager.value.setDrawingMode(null)
+    polygonDrawingMode.value = false
+  }
+  
   // Enable polyline drawing mode
   try {
     lineDrawingMode.value = true
@@ -1651,6 +1665,179 @@ const deleteLine = () => {
     drawingManager.value.setDrawingMode(null)
   }
   // Don't reset selectedFacilityType - allow reopening
+}
+
+// Area measurement in hectares
+const measuredArea = ref<number | null>(null)
+
+// Enable polygon drawing mode for area measurement
+const enablePolygonDrawing = async () => {
+  if (!map.value || !window.google || !window.google.maps) {
+    ElMessage.error('Map not initialized. Please wait for the map to load.')
+    return
+  }
+  
+  // Wait for Drawing library to be available (with retry)
+  let retries = 0
+  const maxRetries = 10
+  while ((!window.google.maps.drawing || !window.google.maps.drawing.DrawingManager) && retries < maxRetries) {
+    await new Promise(resolve => setTimeout(resolve, 100))
+    retries++
+  }
+  
+  // Check if Drawing library is loaded after waiting
+  if (!window.google.maps.drawing || !window.google.maps.drawing.DrawingManager) {
+    ElMessage.error('Drawing library not loaded. Please wait a moment and try again.')
+    return
+  }
+  
+  // Initialize drawingManager if it doesn't exist
+  if (!drawingManager.value) {
+    try {
+      drawingManager.value = new window.google.maps.drawing.DrawingManager({
+        drawingMode: null,
+        drawingControl: false,
+        polygonOptions: {
+          fillColor: '#3388ff',
+          fillOpacity: 0.2,
+          strokeColor: '#3388ff',
+          strokeWeight: 3,
+          strokeOpacity: 1.0,
+          clickable: false,
+          draggable: false,
+          editable: true
+        }
+      })
+      drawingManager.value.setMap(map.value)
+      
+      // Listen for polygon completion
+      window.google.maps.event.addListener(
+        drawingManager.value,
+        'overlaycomplete',
+        (event: any) => {
+          if (event.type === window.google.maps.drawing.OverlayType.POLYGON) {
+            const polygon = event.overlay
+            facilityPolygon.value = polygon
+
+            // Convert Google Maps Polygon to GeoJSON
+            const paths = polygon.getPath()
+            const coordinates: number[][] = []
+            
+            paths.forEach((latLng: any) => {
+              coordinates.push([latLng.lng(), latLng.lat()])
+            })
+            
+            // Close the polygon (first point = last point)
+            if (coordinates.length > 0 && 
+                (coordinates[0][0] !== coordinates[coordinates.length - 1][0] || 
+                 coordinates[0][1] !== coordinates[coordinates.length - 1][1])) {
+              coordinates.push([coordinates[0][0], coordinates[0][1]])
+            }
+
+            // Create GeoJSON polygon
+            const geoJsonPolygon = {
+              type: 'Polygon',
+              coordinates: [coordinates]
+            }
+
+            // Calculate area in square meters using turf
+            const areaSquareMeters = turf.area(geoJsonPolygon)
+            // Convert to hectares (1 hectare = 10,000 square meters)
+            const areaHectares = areaSquareMeters / 10000
+            measuredArea.value = Math.round(areaHectares * 100) / 100 // Round to 2 decimal places
+
+            // Disable drawing mode
+            drawingManager.value?.setDrawingMode(null)
+            polygonDrawingMode.value = false
+
+            // Add click listener to show area
+            polygon.addListener('click', () => {
+              ElMessage.info(`Area: ${measuredArea.value} hectares`)
+            })
+
+            // Update area when polygon is edited
+            const updateArea = () => {
+              const paths = polygon.getPath()
+              const coords: number[][] = []
+              paths.forEach((latLng: any) => {
+                coords.push([latLng.lng(), latLng.lat()])
+              })
+              if (coords.length > 0 && 
+                  (coords[0][0] !== coords[coords.length - 1][0] || 
+                   coords[0][1] !== coords[coords.length - 1][1])) {
+                coords.push([coords[0][0], coords[0][1]])
+              }
+              const updatedPolygon = { type: 'Polygon', coordinates: [coords] }
+              const areaM2 = turf.area(updatedPolygon)
+              measuredArea.value = Math.round((areaM2 / 10000) * 100) / 100
+            }
+
+            polygon.getPath().addListener('set_at', updateArea)
+            polygon.getPath().addListener('insert_at', updateArea)
+            polygon.getPath().addListener('remove_at', updateArea)
+
+            ElMessage.success(`Area measured: ${measuredArea.value} hectares`)
+          }
+        }
+      )
+    } catch (error) {
+      console.error('Error initializing DrawingManager:', error)
+      ElMessage.error('Failed to initialize drawing tools. Please refresh the page.')
+      return
+    }
+  }
+  
+  // Ensure drawingManager is attached to the map
+  if (drawingManager.value.getMap() !== map.value) {
+    drawingManager.value.setMap(map.value)
+  }
+  
+  // Disable other modes if active
+  if (markerPlacementMode.value) {
+    markerPlacementMode.value = false
+    if (mapClickListener.value) {
+      window.google.maps.event.removeListener(mapClickListener.value)
+      mapClickListener.value = null
+    }
+  }
+  if (lineDrawingMode.value && drawingManager.value) {
+    drawingManager.value.setDrawingMode(null)
+    lineDrawingMode.value = false
+  }
+  
+  // Enable polygon drawing mode
+  try {
+    polygonDrawingMode.value = true
+    drawingManager.value.setDrawingMode(window.google.maps.drawing.OverlayType.POLYGON)
+    ElMessage.info('Click on the map to start drawing polygon. Double-click to finish.')
+  } catch (error) {
+    console.error('Error enabling polygon drawing:', error)
+    ElMessage.error('Failed to enable polygon drawing. Please try again.')
+    polygonDrawingMode.value = false
+  }
+}
+
+// Delete polygon
+const deletePolygon = () => {
+  if (facilityPolygon.value) {
+    // Remove all event listeners
+    if (window.google && window.google.maps) {
+      window.google.maps.event.clearInstanceListeners(facilityPolygon.value)
+      const path = facilityPolygon.value.getPath()
+      if (path && path.addListener) {
+        window.google.maps.event.clearInstanceListeners(path)
+      }
+    }
+    // Remove from map
+    facilityPolygon.value.setMap(null)
+    facilityPolygon.value = null
+  }
+  // Clear area measurement
+  measuredArea.value = null
+  polygonDrawingMode.value = false
+  if (drawingManager.value && window.google) {
+    drawingManager.value.setDrawingMode(null)
+  }
 }
 
 // Close drawer (but keep facility type selected for reopening)
@@ -2246,6 +2433,14 @@ const goBack = () => {
         facilityMarker.value.setMap(null)
         facilityMarker.value = null
       }
+      if (facilityPolyline.value) {
+        facilityPolyline.value.setMap(null)
+        facilityPolyline.value = null
+      }
+      if (facilityPolygon.value) {
+        facilityPolygon.value.setMap(null)
+        facilityPolygon.value = null
+      }
       if (settlementPolygon.value) {
         settlementPolygon.value.setMap(null)
         settlementPolygon.value = null
@@ -2255,6 +2450,9 @@ const goBack = () => {
       facilityGeometry.value = null
       facilityForm.geom = null
       markerPlacementMode.value = false
+      lineDrawingMode.value = false
+      polygonDrawingMode.value = false
+      measuredArea.value = null
     }
   } else {
     router.back()
@@ -2348,6 +2546,26 @@ onMounted(async () => {
                 class="action-button">
                 <span class="action-text">Delete Line</span>
               </el-button>
+              <el-button 
+                type="info" 
+                :icon="Crop"
+                @click="enablePolygonDrawing" 
+                size="small"
+                :disabled="polygonDrawingMode"
+                :circle="isMobile"
+                class="action-button">
+                <span class="action-text">Measure Area</span>
+              </el-button>
+              <el-button 
+                v-if="facilityPolygon"
+                type="warning" 
+                :icon="Delete"
+                @click="deletePolygon" 
+                size="small"
+                :circle="isMobile"
+                class="action-button">
+                <span class="action-text">Clear Area</span>
+              </el-button>
             </template>
           </div>
         </div>
@@ -2411,6 +2629,14 @@ onMounted(async () => {
 
       <!-- Step 2: Map with Click to Place Marker -->
       <div v-if="currentStep === 1" class="step-content map-step">
+        <el-alert
+          v-if="measuredArea !== null"
+          :title="`Measured Area: ${measuredArea} hectares`"
+          type="success"
+          :closable="false"
+          show-icon
+          style="margin-bottom: 8px;"
+        />
         <div ref="mapContainer" class="map-container"></div>
       </div>
     </el-card>
