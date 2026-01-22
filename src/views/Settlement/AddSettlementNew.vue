@@ -101,6 +101,7 @@ const checkingGeometry = ref(false)
 const map = ref<any>(null)
 const wardPolygon = ref<any[]>([])
 const settlementPolygon = ref<any>(null)
+const settlementMarker = ref<any>(null)
 const wardGeo = ref<any>(null)
 const settlementGeometry = ref<any>(null)
 const mapContainer = ref<HTMLDivElement | null>(null)
@@ -356,12 +357,22 @@ const initializeMap = async () => {
 
     if (isEditMode.value && settlementGeometry.value) {
       // For edit mode, use settlement geometry
-      const bounds = turf.bbox(settlementGeometry.value)
-      center = {
-        lat: (bounds[1] + bounds[3]) / 2,
-        lng: (bounds[0] + bounds[2]) / 2
+      if (settlementGeometry.value.type === 'Point') {
+        // For Point geometry, center on the point
+        center = {
+          lat: settlementGeometry.value.coordinates[1],
+          lng: settlementGeometry.value.coordinates[0]
+        }
+        zoom = 15
+      } else {
+        // For Polygon/MultiPolygon, use bounds
+        const bounds = turf.bbox(settlementGeometry.value)
+        center = {
+          lat: (bounds[1] + bounds[3]) / 2,
+          lng: (bounds[0] + bounds[2]) / 2
+        }
+        zoom = 15
       }
-      zoom = 15
     } else if (wardGeo.value) {
       // For new mode, use ward geometry
       const bounds = turf.bbox(wardGeo.value)
@@ -432,9 +443,12 @@ const initializeMap = async () => {
           })
         }
         
-        // Update z-index for all polygons to ensure they're above base layers
+        // Update z-index for all polygons and markers to ensure they're above base layers
         if (settlementPolygon.value) {
           settlementPolygon.value.setOptions({ zIndex: 1000000 })
+        }
+        if (settlementMarker.value) {
+          settlementMarker.value.setOptions({ zIndex: 2000 })
         }
         wardPolygon.value.forEach(poly => {
           poly.setOptions({ zIndex: 1000000 })
@@ -445,9 +459,9 @@ const initializeMap = async () => {
       }, 150)
     })
 
-    // Add ward boundary (for new records) or settlement boundary (for edit)
+    // Add ward boundary (for new records) or settlement boundary/marker (for edit)
     if (isEditMode.value && settlementGeometry.value) {
-      // Load existing settlement boundary
+      // Load existing settlement boundary or marker
       loadSettlementBoundary()
     } else if (wardGeo.value) {
       // Load ward boundary as guide
@@ -660,7 +674,57 @@ const loadSettlementBoundary = () => {
 
   try {
     const geom = settlementGeometry.value
-    if (geom.type === 'Polygon' || geom.type === 'MultiPolygon') {
+    
+    // Handle Point geometry
+    if (geom.type === 'Point') {
+      const [lng, lat] = geom.coordinates
+      const position = { lat, lng }
+      
+      // Remove existing marker if any
+      if (settlementMarker.value) {
+        settlementMarker.value.setMap(null)
+        settlementMarker.value = null
+      }
+      
+      // Create draggable marker
+      settlementMarker.value = new window.google.maps.Marker({
+        position: position,
+        map: map.value,
+        draggable: true,
+        clickable: true,
+        title: 'Settlement Location',
+        icon: {
+          url: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png',
+          scaledSize: new window.google.maps.Size(40, 40),
+        },
+        zIndex: 2000
+      })
+      
+      // Center map on marker
+      map.value.setCenter(position)
+      map.value.setZoom(15)
+      
+      // Listen for marker drag end to update geometry
+      settlementMarker.value.addListener('dragend', () => {
+        const newPosition = settlementMarker.value.getPosition()
+        const newGeom = {
+          type: 'Point',
+          coordinates: [newPosition.lng(), newPosition.lat()]
+        }
+        settlementGeometry.value = newGeom
+        settlementForm.geom = newGeom
+      })
+      
+      // Add click listener to open drawer when marker is clicked
+      settlementMarker.value.addListener('click', () => {
+        drawerVisible.value = true
+      })
+      
+      // Open drawer
+      drawerVisible.value = true
+    } 
+    // Handle Polygon and MultiPolygon geometry
+    else if (geom.type === 'Polygon' || geom.type === 'MultiPolygon') {
       const paths = geom.type === 'Polygon'
         ? geom.coordinates[0].map((coord: number[]) => ({
             lat: coord[1],
@@ -820,6 +884,13 @@ const deleteDrawnShape = () => {
     hasDeleted = true
   }
   
+  // Delete settlement marker (for point geometry)
+  if (settlementMarker.value) {
+    settlementMarker.value.setMap(null)
+    settlementMarker.value = null
+    hasDeleted = true
+  }
+  
   // Clear geometry data
   if (hasDeleted) {
     settlementGeometry.value = null
@@ -900,7 +971,7 @@ const submitForm = async () => {
     if (valid) {
       // Check if geometry exists
       if (!settlementForm.geom && !settlementGeometry.value) {
-        ElMessage.error('Please draw the settlement boundary on the map')
+        ElMessage.error('Please draw the settlement boundary or place a marker on the map')
         return
       }
 
@@ -944,7 +1015,10 @@ const submitForm = async () => {
             ElMessage.success('Settlement updated successfully')
             clearFormAndGeometry()
             
-            // Redirect to settlement list after successful edit
+            // Mark that we're navigating from edit page
+            sessionStorage.setItem('navigatingFromEdit', 'true')
+            
+            // Navigate to settlement list page - it will load all filters on mount
             router.push({
               name: 'List'
             })
@@ -1037,6 +1111,10 @@ const goBack = () => {
         settlementPolygon.value.setMap(null)
         settlementPolygon.value = null
       }
+      if (settlementMarker.value) {
+        settlementMarker.value.setMap(null)
+        settlementMarker.value = null
+      }
       drawnPolygons.value.forEach(p => p.setMap(null))
       drawnPolygons.value = []
       if (drawingManager.value) {
@@ -1065,6 +1143,11 @@ const calculateAreaInHectares = (geometry: any): number | null => {
   try {
     if (!geometry || !geometry.type || !geometry.coordinates) {
       console.error('Invalid geometry for area calculation')
+      return null
+    }
+
+    // Point geometry has no area
+    if (geometry.type === 'Point' || geometry.type === 'MultiPoint') {
       return null
     }
 
@@ -1140,10 +1223,14 @@ const clearFormAndGeometry = () => {
   // Clear geometry
   settlementGeometry.value = null
   
-  // Remove polygons from map
+  // Remove polygons and markers from map
   if (settlementPolygon.value) {
     settlementPolygon.value.setMap(null)
     settlementPolygon.value = null
+  }
+  if (settlementMarker.value) {
+    settlementMarker.value.setMap(null)
+    settlementMarker.value = null
   }
   drawnPolygons.value.forEach(p => p.setMap(null))
   drawnPolygons.value = []
@@ -1276,9 +1363,14 @@ const readJsonFile = (event: any) => {
   
   // Update map
   if (map.value) {
-    // Remove existing polygons
+    // Remove existing polygons and markers
     if (settlementPolygon.value) {
       settlementPolygon.value.setMap(null)
+      settlementPolygon.value = null
+    }
+    if (settlementMarker.value) {
+      settlementMarker.value.setMap(null)
+      settlementMarker.value = null
     }
     drawnPolygons.value.forEach(p => p.setMap(null))
     drawnPolygons.value = []
@@ -1332,6 +1424,11 @@ const readShapefile = async (file: File) => {
       if (map.value) {
         if (settlementPolygon.value) {
           settlementPolygon.value.setMap(null)
+          settlementPolygon.value = null
+        }
+        if (settlementMarker.value) {
+          settlementMarker.value.setMap(null)
+          settlementMarker.value = null
         }
         drawnPolygons.value.forEach(p => p.setMap(null))
         drawnPolygons.value = []
@@ -1492,7 +1589,7 @@ onMounted(async () => {
               <span class="draw-text">Fly to coords</span>
             </el-button>
             <el-button 
-              v-if="currentStep === 1 && (drawnPolygons.length > 0 || settlementPolygon)" 
+              v-if="currentStep === 1 && (drawnPolygons.length > 0 || settlementPolygon || settlementMarker)" 
               type="danger" 
               :icon="Delete" 
               @click="deleteDrawnShape" 

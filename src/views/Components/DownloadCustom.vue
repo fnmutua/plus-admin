@@ -340,10 +340,10 @@ watch(
 
     if (data && data.length > 0) {
       tableDataList.value = data;
-      console.log('DownloadCustom - Received data:', data);
-      console.log('DownloadCustom - First record structure:', data[0]);
+      //console.log('DownloadCustom - Received data:', data);
+     // console.log('DownloadCustom - First record structure:', data[0]);
       availableFields.value = extractFields(tableDataList.value);
-      console.log('DownloadCustom - Extracted fields:', availableFields.value);
+     // console.log('DownloadCustom - Extracted fields:', availableFields.value);
     }
 
     if (model) {
@@ -352,7 +352,7 @@ watch(
 
     if (associated_models && associated_models.length > 0) {
       associated_models.value = associated_models;
-      console.log('DownloadCustom - Associated models:', associated_models);
+      //console.log('DownloadCustom - Associated models:', associated_models);
       // Additional logic for handling associated models
      }
   },
