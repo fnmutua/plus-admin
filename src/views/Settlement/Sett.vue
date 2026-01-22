@@ -4336,12 +4336,19 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
         @selection-change="handleSelectionChange">
 
         <el-table-column type="selection" width="55" :selectable="(row) => canUserAccessSettlement(row, 'edit')" />
-        <!-- NEW: Geometry Icon Column -->
-        <el-table-column label="Geom" width="60" sortable :sort-method="sortByGeometry">
+        <!-- NEW: Geometry Icon Column with Infrastructure Badge -->
+        <el-table-column label="Geom" width="70" sortable :sort-method="sortByGeometry">
           <template #default="{ row }">
-            <el-tooltip :content="getGeometryIcon(row).tooltip" placement="top">
-              <Icon :icon="getGeometryIcon(row).icon" :color="getGeometryIcon(row).color" width="24" height="24" />
-            </el-tooltip>
+            <el-badge 
+              :is-dot="true" 
+              :hidden="!(row.hasRoads || row.hasFacilities)"
+              class="item">
+              <el-tooltip 
+                :content="(row.hasRoads || row.hasFacilities) ? 'Profiled' : getGeometryIcon(row).tooltip" 
+                placement="top">
+                <Icon :icon="getGeometryIcon(row).icon" :color="getGeometryIcon(row).color" width="24" height="24" />
+              </el-tooltip>
+            </el-badge>
           </template>
         </el-table-column>
 
@@ -4460,12 +4467,20 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="page"
         :row-class-name="tableRowClassName" row-key="id"
         @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="55" :selectable="(row) => canUserAccessSettlement(row, 'edit')" />
-        <!-- NEW: Geometry Icon Column -->
-        <el-table-column label="Geom" width="60" sortable :sort-method="sortByGeometry">
+        <!-- NEW: Geometry Icon Column with Infrastructure Badge -->
+        <el-table-column label="Geom" width="70" sortable :sort-method="sortByGeometry">
           <template #default="{ row }">
-            <el-tooltip :content="getGeometryIcon(row).tooltip" placement="top">
-              <Icon :icon="getGeometryIcon(row).icon" :color="getGeometryIcon(row).color" width="24" height="24" />
-            </el-tooltip>
+            <el-badge 
+              :is-dot="true" 
+              :
+              :hidden="!(row.hasRoads || row.hasFacilities)"
+              class="item">
+              <el-tooltip 
+                :content="(row.hasRoads || row.hasFacilities) ? 'Profiled' : getGeometryIcon(row).tooltip" 
+                placement="top">
+                <Icon :icon="getGeometryIcon(row).icon" :color="getGeometryIcon(row).color" width="24" height="24" />
+              </el-tooltip>
+            </el-badge>
           </template>
         </el-table-column>
         <el-table-column label="Id" width="80" prop="id" sortable>

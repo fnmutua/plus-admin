@@ -3730,30 +3730,136 @@ if (isHouseholdsModel) {
         }
       }
 
-      const response = await Model.findAndCountAll(query);
-      const cacheData = {
-        data: response.rows,
-        total: response.count,
-        lastModified: Date.now(),
-      };
-      await redisClient.set(cache_key, JSON.stringify(cacheData), { EX: cacheDuration });
-
-      return res.status(200).json({
-        fromCache: false,
-        cache_key,
-        data: response.rows,
-        total: response.count,
-        code: '0000',
-      });
-    }
-
     const response = await Model.findAndCountAll(query);
+    
+    // Add hasRoads and hasFacilities flags for settlement model
+    let processedData = response.rows;
+    if (modelName === 'settlement' && processedData.length > 0) {
+      const settlementIds = processedData.map(s => s.id).filter(id => id != null);
+      
+      if (settlementIds.length > 0) {
+        // Check for roads and facilities inside settlements using PostGIS spatial containment
+        const checkQuery = `
+          SELECT 
+            s.id,
+            CASE WHEN EXISTS (
+              SELECT 1 FROM road r 
+              WHERE r.geom IS NOT NULL
+              AND s.geom IS NOT NULL
+              AND ST_Contains(s.geom, r.geom)
+            ) THEN true ELSE false END as has_roads,
+            CASE WHEN EXISTS (
+              SELECT 1 FROM other_facility of 
+              WHERE of.geom IS NOT NULL
+              AND s.geom IS NOT NULL
+              AND ST_Contains(s.geom, of.geom)
+            ) THEN true ELSE false END as has_facilities
+          FROM settlement s
+          WHERE s.id IN (:settlementIds)
+        `;
+        
+        const checkResults = await db.sequelize.query(checkQuery, {
+          replacements: { settlementIds },
+          type: db.sequelize.QueryTypes.SELECT,
+        });
+        
+        // Create a map for quick lookup
+        const flagsMap = {};
+        checkResults.forEach(row => {
+          flagsMap[row.id] = {
+            hasRoads: row.has_roads || false,
+            hasFacilities: row.has_facilities || false
+          };
+        });
+        
+        // Add flags to each settlement
+        processedData = processedData.map(settlement => {
+          const flags = flagsMap[settlement.id] || { hasRoads: false, hasFacilities: false };
+          return {
+            ...settlement.toJSON ? settlement.toJSON() : settlement,
+            hasRoads: flags.hasRoads,
+            hasFacilities: flags.hasFacilities
+          };
+        });
+      }
+    }
+    
+    const cacheData = {
+      data: processedData,
+      total: response.count,
+      lastModified: Date.now(),
+    };
+    await redisClient.set(cache_key, JSON.stringify(cacheData), { EX: cacheDuration });
+
     return res.status(200).json({
       fromCache: false,
-      data: response.rows,
+      cache_key,
+      data: processedData,
       total: response.count,
       code: '0000',
     });
+  }
+
+  const response = await Model.findAndCountAll(query);
+  
+  // Add hasRoads and hasFacilities flags for settlement model
+  let processedData = response.rows;
+  if (modelName === 'settlement' && processedData.length > 0) {
+    const settlementIds = processedData.map(s => s.id).filter(id => id != null);
+    
+    if (settlementIds.length > 0) {
+      // Check for roads and facilities inside settlements using PostGIS spatial containment
+      const checkQuery = `
+        SELECT 
+          s.id,
+          CASE WHEN EXISTS (
+            SELECT 1 FROM road r 
+            WHERE r.geom IS NOT NULL
+            AND s.geom IS NOT NULL
+            AND ST_Contains(s.geom, r.geom)
+          ) THEN true ELSE false END as has_roads,
+          CASE WHEN EXISTS (
+            SELECT 1 FROM other_facility of 
+            WHERE of.geom IS NOT NULL
+            AND s.geom IS NOT NULL
+            AND ST_Contains(s.geom, of.geom)
+          ) THEN true ELSE false END as has_facilities
+        FROM settlement s
+        WHERE s.id IN (:settlementIds)
+      `;
+      
+      const checkResults = await db.sequelize.query(checkQuery, {
+        replacements: { settlementIds },
+        type: db.sequelize.QueryTypes.SELECT,
+      });
+      
+      // Create a map for quick lookup
+      const flagsMap = {};
+      checkResults.forEach(row => {
+        flagsMap[row.id] = {
+          hasRoads: row.has_roads || false,
+          hasFacilities: row.has_facilities || false
+        };
+      });
+      
+      // Add flags to each settlement
+      processedData = processedData.map(settlement => {
+        const flags = flagsMap[settlement.id] || { hasRoads: false, hasFacilities: false };
+        return {
+          ...settlement.toJSON ? settlement.toJSON() : settlement,
+          hasRoads: flags.hasRoads,
+          hasFacilities: flags.hasFacilities
+        };
+      });
+    }
+  }
+  
+  return res.status(200).json({
+    fromCache: false,
+    data: processedData,
+    total: response.count,
+    code: '0000',
+  });
 
   } catch (error) {
     console.error('Error in modelPaginatedDatafilterByColumn:', {
