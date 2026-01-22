@@ -4471,8 +4471,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="page"
         <el-table-column label="Geom" width="70" sortable :sort-method="sortByGeometry">
           <template #default="{ row }">
             <el-badge 
-              :is-dot="true" 
-              :
+              :is-dot="true"
               :hidden="!(row.hasRoads || row.hasFacilities)"
               class="item">
               <el-tooltip 
