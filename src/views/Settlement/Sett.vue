@@ -2124,6 +2124,8 @@ const handleDeleteCascade = async () => {
   }
 
   try {
+    deleteCascadeLoading.value = true
+    await nextTick() // Ensure Vue updates the reactive state
     const deletePromises = deletableSettlements.map(async (settlement) => {
       const formData: any = {
         id: settlement.id,
@@ -2207,6 +2209,8 @@ const handleDeleteCascade = async () => {
   } catch (error: any) {
     console.error('Error in cascade delete:', error)
     ElMessage.error(error?.response?.data?.message || 'Failed to delete settlements. Please try again.')
+  } finally {
+    deleteCascadeLoading.value = false
   }
 }
 
@@ -3122,6 +3126,7 @@ const getFilteredDownloadData = async (selFilters, selfilterValues) => {
 
 const downloadLoading = ref(false);
 const downloadGeoLoading = ref(false);
+const deleteCascadeLoading = ref(false);
 
 const handleDownloadGeoData = async () => {
   try {
@@ -4431,7 +4436,9 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
       <div v-if="isSuperAdmin && selectedSettlements.length >= 1" style="margin-top: 10px; margin-bottom: 10px;">
         <el-button 
           type="danger"
-          :icon="Delete"
+          :icon="deleteCascadeLoading ? undefined : Delete"
+          :loading="deleteCascadeLoading"
+          :disabled="deleteCascadeLoading"
           @click="handleDeleteCascade">
           Delete Cascade ({{ selectedSettlements.length }} selected)
         </el-button>
@@ -4543,7 +4550,9 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="page"
       <div v-if="isSuperAdmin && selectedSettlementsNew.length >= 1" style="margin-top: 10px; margin-bottom: 10px;">
         <el-button 
           type="danger"
-          :icon="Delete"
+          :icon="deleteCascadeLoading ? undefined : Delete"
+          :loading="deleteCascadeLoading"
+          :disabled="deleteCascadeLoading"
           @click="handleDeleteCascade">
           Delete Cascade ({{ selectedSettlementsNew.length }} selected)
         </el-button>
@@ -4633,7 +4642,9 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="page"
       <div v-if="isSuperAdmin && selectedSettlementsRejected.length >= 1" style="margin-top: 10px; margin-bottom: 10px;">
         <el-button 
           type="danger"
-          :icon="Delete"
+          :icon="deleteCascadeLoading ? undefined : Delete"
+          :loading="deleteCascadeLoading"
+          :disabled="deleteCascadeLoading"
           @click="handleDeleteCascade">
           Delete Cascade ({{ selectedSettlementsRejected.length }} selected)
         </el-button>
@@ -4735,7 +4746,9 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="page"
       <div v-if="isSuperAdmin && selectedSettlementsDecommissioned.length >= 1" style="margin-top: 10px; margin-bottom: 10px;">
         <el-button 
           type="danger"
-          :icon="Delete"
+          :icon="deleteCascadeLoading ? undefined : Delete"
+          :loading="deleteCascadeLoading"
+          :disabled="deleteCascadeLoading"
           @click="handleDeleteCascade">
           Delete Cascade ({{ selectedSettlementsDecommissioned.length }} selected)
         </el-button>
