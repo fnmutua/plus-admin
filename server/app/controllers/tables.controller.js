@@ -2127,7 +2127,113 @@ exports.getSettlementsWithBoundaryGeometry = async (req, res) => {
   }
 }
 
- 
+// Get neighboring settlements - returns only id, name, and boundary geometry for fast loading
+exports.getNeighboringSettlements = async (req, res) => {
+  try {
+    const { settlementId, bbox, expansionFactor = 0.2 } = req.body
+
+    if (!settlementId) {
+      return res.status(400).json({
+        message: 'settlementId is required',
+        code: 'MISSING_PARAMETER',
+      })
+    }
+
+    // Get current settlement to find county_id and calculate bbox if not provided
+    const currentSettlementQuery = `
+      SELECT 
+        id,
+        county_id,
+        ST_AsGeoJSON(geom)::json as geom,
+        ST_XMin(ST_Envelope(geom)) as minLng,
+        ST_YMin(ST_Envelope(geom)) as minLat,
+        ST_XMax(ST_Envelope(geom)) as maxLng,
+        ST_YMax(ST_Envelope(geom)) as maxLat
+      FROM settlement 
+      WHERE id = :settlementId AND geom IS NOT NULL
+    `
+
+    const currentSettlement = await db.sequelize.query(currentSettlementQuery, {
+      replacements: { settlementId },
+      type: db.sequelize.QueryTypes.SELECT,
+    })
+
+    if (!currentSettlement || currentSettlement.length === 0) {
+      return res.status(404).json({
+        message: 'Settlement not found or has no geometry',
+        code: 'NOT_FOUND',
+      })
+    }
+
+    const countyId = currentSettlement[0].county_id
+    if (!countyId) {
+      return res.status(400).json({
+        message: 'Settlement has no county_id',
+        code: 'INVALID_DATA',
+      })
+    }
+
+    // Calculate expanded bbox if not provided
+    let expandedBbox = bbox
+    if (!expandedBbox) {
+      const b = currentSettlement[0]
+      const lngRange = b.maxLng - b.minLng
+      const latRange = b.maxLat - b.minLat
+      expandedBbox = {
+        minLng: b.minLng - (lngRange * expansionFactor),
+        minLat: b.minLat - (latRange * expansionFactor),
+        maxLng: b.maxLng + (lngRange * expansionFactor),
+        maxLat: b.maxLat + (latRange * expansionFactor),
+      }
+    }
+
+    // Query neighboring settlements - only return id, name, and geom
+    // Filter by county, exclude current settlement, only Polygon/MultiPolygon, intersect with bbox
+    const query = `
+      SELECT 
+        s.id,
+        s.name,
+        ST_AsGeoJSON(s.geom)::json as geom
+      FROM settlement s
+      WHERE s.county_id = :countyId
+        AND s.id != :settlementId
+        AND s.geom IS NOT NULL
+        AND (ST_GeometryType(s.geom) = 'ST_Polygon' OR ST_GeometryType(s.geom) = 'ST_MultiPolygon')
+        AND ST_Intersects(
+          s.geom,
+          ST_MakeEnvelope(:minLng, :minLat, :maxLng, :maxLat, 4326)
+        )
+      LIMIT 100
+    `
+
+    const neighbors = await db.sequelize.query(query, {
+      replacements: {
+        countyId,
+        settlementId,
+        minLng: expandedBbox.minLng,
+        minLat: expandedBbox.minLat,
+        maxLng: expandedBbox.maxLng,
+        maxLat: expandedBbox.maxLat,
+      },
+      type: db.sequelize.QueryTypes.SELECT,
+    })
+
+    return res.status(200).json({
+      message: 'Neighboring settlements retrieved successfully',
+      code: '0000',
+      data: neighbors || [],
+    })
+  } catch (error) {
+    console.error('❌ Error in getNeighboringSettlements:', error)
+    return res.status(500).json({
+      message: 'Failed to fetch neighboring settlements',
+      code: 'SERVER_ERROR',
+      error: error.message,
+    })
+  }
+}
+
+
  
 
 
@@ -3739,6 +3845,9 @@ if (isHouseholdsModel) {
       
       if (settlementIds.length > 0) {
         // Check for roads and facilities inside settlements using PostGIS spatial containment
+        // has_facilities checks for: health_facility, education_facility, water_point, piped_water, sewer, other_facility
+        // For linear features (piped_water, sewer, road), use ST_Intersects since they may cross boundaries
+        // For point/polygon features, use ST_Contains for containment check
         const checkQuery = `
           SELECT 
             s.id,
@@ -3746,9 +3855,34 @@ if (isHouseholdsModel) {
               SELECT 1 FROM road r 
               WHERE r.geom IS NOT NULL
               AND s.geom IS NOT NULL
-              AND ST_Contains(s.geom, r.geom)
+              AND ST_Intersects(s.geom, r.geom)
             ) THEN true ELSE false END as has_roads,
             CASE WHEN EXISTS (
+              SELECT 1 FROM health_facility hf 
+              WHERE hf.geom IS NOT NULL
+              AND s.geom IS NOT NULL
+              AND ST_Contains(s.geom, hf.geom)
+            ) OR EXISTS (
+              SELECT 1 FROM education_facility ef 
+              WHERE ef.geom IS NOT NULL
+              AND s.geom IS NOT NULL
+              AND ST_Contains(s.geom, ef.geom)
+            ) OR EXISTS (
+              SELECT 1 FROM water_point wp 
+              WHERE wp.geom IS NOT NULL
+              AND s.geom IS NOT NULL
+              AND ST_Contains(s.geom, wp.geom)
+            ) OR EXISTS (
+              SELECT 1 FROM piped_water pw 
+              WHERE pw.geom IS NOT NULL
+              AND s.geom IS NOT NULL
+              AND ST_Intersects(s.geom, pw.geom)
+            ) OR EXISTS (
+              SELECT 1 FROM sewer sv 
+              WHERE sv.geom IS NOT NULL
+              AND s.geom IS NOT NULL
+              AND ST_Intersects(s.geom, sv.geom)
+            ) OR EXISTS (
               SELECT 1 FROM other_facility of 
               WHERE of.geom IS NOT NULL
               AND s.geom IS NOT NULL
@@ -3809,6 +3943,9 @@ if (isHouseholdsModel) {
     
     if (settlementIds.length > 0) {
       // Check for roads and facilities inside settlements using PostGIS spatial containment
+      // has_facilities checks for: health_facility, education_facility, water_point, piped_water, sewer, other_facility
+      // For linear features (piped_water, sewer, road), use ST_Intersects since they may cross boundaries
+      // For point/polygon features, use ST_Contains for containment check
       const checkQuery = `
         SELECT 
           s.id,
@@ -3816,9 +3953,34 @@ if (isHouseholdsModel) {
             SELECT 1 FROM road r 
             WHERE r.geom IS NOT NULL
             AND s.geom IS NOT NULL
-            AND ST_Contains(s.geom, r.geom)
+            AND ST_Intersects(s.geom, r.geom)
           ) THEN true ELSE false END as has_roads,
           CASE WHEN EXISTS (
+            SELECT 1 FROM health_facility hf 
+            WHERE hf.geom IS NOT NULL
+            AND s.geom IS NOT NULL
+            AND ST_Contains(s.geom, hf.geom)
+          ) OR EXISTS (
+            SELECT 1 FROM education_facility ef 
+            WHERE ef.geom IS NOT NULL
+            AND s.geom IS NOT NULL
+            AND ST_Contains(s.geom, ef.geom)
+          ) OR EXISTS (
+            SELECT 1 FROM water_point wp 
+            WHERE wp.geom IS NOT NULL
+            AND s.geom IS NOT NULL
+            AND ST_Contains(s.geom, wp.geom)
+          ) OR EXISTS (
+            SELECT 1 FROM piped_water pw 
+            WHERE pw.geom IS NOT NULL
+            AND s.geom IS NOT NULL
+            AND ST_Intersects(s.geom, pw.geom)
+          ) OR EXISTS (
+            SELECT 1 FROM sewer sv 
+            WHERE sv.geom IS NOT NULL
+            AND s.geom IS NOT NULL
+            AND ST_Intersects(s.geom, sv.geom)
+          ) OR EXISTS (
             SELECT 1 FROM other_facility of 
             WHERE of.geom IS NOT NULL
             AND s.geom IS NOT NULL

@@ -4,7 +4,7 @@ import { ref, onMounted, onUnmounted, watch, computed, nextTick } from 'vue'
 import { ElButton, ElTable, ElTableColumn, ElMessage, ElCollapse, ElCollapseItem, ElCheckbox, ElCheckboxGroup, ElDrawer, ElDescriptions, ElDescriptionsItem } from 'element-plus'
 import { GoogleMap, Polygon, InfoWindow, Marker, Polyline, Circle } from 'vue3-google-map'
 import * as turf from '@turf/turf'
-import { getSettlementMapData } from '@/api/settlements'
+import { getSettlementMapData, getNeighboringSettlements } from '@/api/settlements'
 import { Icon } from '@iconify/vue'
 import axios from 'axios'
 import { useAppStore } from '@/store/modules/app'
@@ -107,6 +107,10 @@ const schools = ref<any[]>([])
 const water_points = ref<any[]>([])
 const structures = ref<any[]>([])
 const other_points = ref<any[]>([])
+const neighboringSettlements = ref<any[]>([])
+const neighboringSettlementLabels = ref<any[]>([])
+const currentZoom = ref(8) // Default zoom level
+const MIN_ZOOM_FOR_LABELS = 16 // Hide labels when zoom is below this level
 
 const isLoading = ref(false)
 const mapLoading = ref(true)
@@ -128,6 +132,7 @@ const layerFeatureCounts = ref({
   water_points: 0,
   structures: 0,
   other_points: 0,
+  neighboringSettlements: 0,
 })
 
 const legendItems = [
@@ -337,6 +342,8 @@ const loadSelectedLayersWithProgress = async (layers: string[]) => {
   water_points.value = []
   structures.value = []
   other_points.value = []
+  neighboringSettlements.value = []
+  neighboringSettlementLabels.value = []
 
   // Reset feature counts
   layerFeatureCounts.value = {
@@ -349,6 +356,7 @@ const loadSelectedLayersWithProgress = async (layers: string[]) => {
     water_points: 0,
     structures: 0,
     other_points: 0,
+    neighboringSettlements: 0,
   }
 
   updateLoadingStatus('Fetching settlement data...', 15)
@@ -743,6 +751,8 @@ const loadSelectedLayers = async (layers: string[]) => {
    water_points.value = []
   structures.value = []
   other_points.value = []
+  neighboringSettlements.value = []
+  neighboringSettlementLabels.value = []
 
   // Reset feature counts
   layerFeatureCounts.value = {
@@ -755,6 +765,7 @@ const loadSelectedLayers = async (layers: string[]) => {
      water_points: 0,
     structures: 0,
     other_points: 0,
+    neighboringSettlements: 0,
   }
 
   // Fetch all data in one call
@@ -1487,6 +1498,229 @@ const getSettlementBbox = () => {
   }
 }
 
+// Get bbox from current map viewport bounds
+const getMapViewportBbox = (): { minLng: number; minLat: number; maxLng: number; maxLat: number } | null => {
+  if (!mapRef.value?.map || !mapReady.value) {
+    return null
+  }
+
+  try {
+    const bounds = mapRef.value.map.getBounds()
+    if (!bounds) return null
+
+    const ne = bounds.getNorthEast()
+    const sw = bounds.getSouthWest()
+
+    return {
+      minLng: sw.lng(),
+      minLat: sw.lat(),
+      maxLng: ne.lng(),
+      maxLat: ne.lat()
+    }
+  } catch (error) {
+    console.error('Error getting map viewport bbox:', error)
+    return null
+  }
+}
+
+// Fetch neighboring settlements based on bbox - using dedicated backend endpoint
+// Returns the number of settlements loaded, or 0 if none/failed
+// silent: if true, suppresses console logs (for dynamic updates)
+const fetchNeighboringSettlements = async (customBbox?: { minLng: number; minLat: number; maxLng: number; maxLat: number }, silent = false): Promise<number> => {
+  let bbox = customBbox || getSettlementBbox()
+  
+  // If no bbox provided and map is ready, use viewport bbox
+  if (!bbox && mapReady.value && mapRef.value?.map) {
+    bbox = getMapViewportBbox()
+  }
+
+  if (!bbox || !mapReady.value || !window.google?.maps) {
+    if (!silent) {
+      console.log('⚠️ No bbox available or map not ready for neighboring settlements')
+    }
+    return 0
+  }
+
+  try {
+    if (!silent) {
+      console.log('🔄 Fetching neighboring settlements from backend...')
+    }
+    
+    const res = await getNeighboringSettlements({
+      settlementId: props.settlementId,
+      bbox: bbox,
+      expansionFactor: 0.2 // 20% expansion
+    })
+    
+    // Handle response structure - API returns { data: [...], code: '0000', message: '...' }
+    const responseData = res as any
+    const settlements = responseData?.data || responseData?.results || []
+    
+    if (!Array.isArray(settlements) || settlements.length === 0) {
+      if (!silent) {
+        console.log('ℹ️ No neighboring settlements found')
+      }
+      return 0
+    }
+
+    const neighboringSettlementsData: any[] = []
+    const neighboringLabelsData: any[] = []
+
+    for (const settlement of settlements) {
+      // Check if settlement has geometry
+      if (!settlement.geom) {
+        continue
+      }
+
+      // Check if geometry is Polygon or MultiPolygon
+      const geomType = settlement.geom.type
+      if (geomType !== 'Polygon' && geomType !== 'MultiPolygon') {
+        continue
+      }
+
+      // Process polygon geometry
+      let coordinates = settlement.geom.coordinates
+      if (geomType === 'MultiPolygon') {
+        coordinates = coordinates.flat()
+      }
+
+      coordinates.forEach((polygonCoordinates: number[][]) => {
+        const paths = polygonCoordinates.map(([lng, lat]) => {
+          const point = { lat, lng }
+          return point
+        }).filter((path: { lng: number; lat: number }) => isFinite(path.lng) && isFinite(path.lat))
+
+        if (paths.length > 0) {
+          // Use polyline for dotted pink outline (close the path by adding first point at end)
+          const closedPath = [...paths, paths[0]]
+          neighboringSettlementsData.push({
+            id: `neighbor-${settlement.id}`,
+            path: closedPath,
+            strokeColor: '#FF69B4',
+            strokeOpacity: 0.5,
+            strokeWeight: 1,
+            type: 'polyline',
+            // Create dotted pattern using icons - small dots with pink
+            icons: [{
+              icon: {
+                path: google.maps.SymbolPath.CIRCLE,
+                scale: 2,
+                fillColor: '#FF69B4',
+                fillOpacity: 0.5,
+                strokeColor: '#FF69B4',
+                strokeWeight: 0.3
+              },
+              offset: '0%',
+              repeat: '8px'
+            }],
+            properties: {
+              id: settlement.id,
+              name: settlement.name || 'Unnamed Settlement'
+            }
+          })
+
+          // Calculate centroid for label (only once per settlement, not per polygon)
+          if (neighboringLabelsData.findIndex(l => l.properties?.id === settlement.id) === -1) {
+            try {
+              const centroidPoint = turf.centroid(settlement.geom)
+              const [lng, lat] = centroidPoint.geometry.coordinates
+              const settlementName = settlement.name || 'Unnamed'
+              
+              // Create text-only marker with HTML content for text wrapping
+              // Split long names into multiple lines (max 20 chars per line)
+              const maxCharsPerLine = 20
+              const words = settlementName.split(' ')
+              const lines: string[] = []
+              let currentLine = ''
+              
+              words.forEach(word => {
+                if ((currentLine + word).length <= maxCharsPerLine) {
+                  currentLine = currentLine ? `${currentLine} ${word}` : word
+                } else {
+                  if (currentLine) lines.push(currentLine)
+                  currentLine = word
+                }
+              })
+              if (currentLine) lines.push(currentLine)
+              
+              const wrappedText = lines.join('\n')
+              
+              neighboringLabelsData.push({
+                id: `neighbor-label-${settlement.id}`,
+                position: { lat, lng },
+                // Use transparent icon to hide default marker
+                icon: {
+                  url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+                    <svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>
+                  `),
+                  scaledSize: new google.maps.Size(1, 1),
+                  anchor: new google.maps.Point(0.5, 0.5)
+                },
+                // Label with wrapped text (newlines in label text)
+                label: {
+                  text: wrappedText,
+                  color: '#FF69B4',
+                  fontSize: '12px',
+                  fontWeight: '500'
+                },
+                properties: {
+                  id: settlement.id,
+                  name: settlementName
+                }
+              })
+            } catch (error) {
+              console.warn(`Error calculating centroid for settlement ${settlement.id}:`, error)
+            }
+          }
+        }
+      })
+    }
+
+    neighboringSettlements.value = neighboringSettlementsData
+    neighboringSettlementLabels.value = neighboringLabelsData
+    layerFeatureCounts.value.neighboringSettlements = neighboringSettlementsData.length
+
+    const count = neighboringSettlementsData.length
+    if (!silent) {
+      console.log(`✅ Loaded ${count} neighboring settlements`)
+    }
+    return count
+  } catch (error: any) {
+    // Handle case where backend endpoint doesn't exist yet (404) or other errors
+    if (!silent) {
+      if (error?.response?.status === 404) {
+        console.log('ℹ️ Neighboring settlements endpoint not yet implemented on backend')
+      } else if (error?.response?.data?.message) {
+        console.error('❌ Error fetching neighboring settlements:', error.response.data.message)
+      } else if (error?.message) {
+        console.error('❌ Error fetching neighboring settlements:', error.message)
+      } else {
+        console.error('❌ Error fetching neighboring settlements:', error)
+      }
+    }
+    return 0
+  }
+}
+
+// Debounced function to fetch neighbors on map view changes
+let neighborFetchTimeout: NodeJS.Timeout | null = null
+const fetchNeighborsOnViewChange = () => {
+  // Clear existing timeout
+  if (neighborFetchTimeout) {
+    clearTimeout(neighborFetchTimeout)
+  }
+  
+  // Set new timeout
+  neighborFetchTimeout = setTimeout(async () => {
+    if (!mapReady.value || !mapRef.value?.map) return
+    
+    const viewportBbox = getMapViewportBbox()
+    if (viewportBbox) {
+      await fetchNeighboringSettlements(viewportBbox, true) // silent update
+    }
+  }, 500) // Wait 500ms after user stops panning/zooming
+}
+
 const geoserverUrl = 'https://kesmis.go.ke/geoserver'
 
 // Cache for REST API layers to avoid repeated requests
@@ -1868,6 +2102,34 @@ onMounted(async () => {
         mapReady.value = true
         await loadMapData()
         
+        // Setup event listeners for pan and zoom to update neighboring settlements
+        if (mapRef.value?.map) {
+          // Update current zoom level
+          currentZoom.value = mapRef.value.map.getZoom() || 8
+          
+          // Listen to bounds changes (pan and zoom)
+          const boundsListener = mapRef.value.map.addListener('bounds_changed', () => {
+            fetchNeighborsOnViewChange()
+          })
+          mapEventListeners.push(boundsListener)
+          
+          // Also listen to zoom changes for immediate updates
+          const zoomListener = mapRef.value.map.addListener('zoom_changed', () => {
+            // Update zoom level
+            if (mapRef.value?.map) {
+              currentZoom.value = mapRef.value.map.getZoom() || 8
+            }
+            fetchNeighborsOnViewChange()
+          })
+          mapEventListeners.push(zoomListener)
+          
+          // Listen to drag end for pan updates
+          const dragListener = mapRef.value.map.addListener('dragend', () => {
+            fetchNeighborsOnViewChange()
+          })
+          mapEventListeners.push(dragListener)
+        }
+        
         // Setup dark mode watcher
         const isDark = computed(() => appStore.getIsDark)
         watch(
@@ -1888,10 +2150,27 @@ onMounted(async () => {
   )
 })
 
-// Cleanup resize listener on unmount
+// Store map event listeners for cleanup
+const mapEventListeners: google.maps.MapsEventListener[] = []
+
+// Cleanup resize listener and map event listeners on unmount
 onUnmounted(() => {
   if (typeof window !== 'undefined') {
     window.removeEventListener('resize', updateWindowWidth)
+  }
+  
+  // Remove map event listeners
+  if (mapRef.value?.map && mapEventListeners.length > 0) {
+    mapEventListeners.forEach(listener => {
+      google.maps.event.removeListener(listener)
+    })
+    mapEventListeners.length = 0
+  }
+  
+  // Clear any pending neighbor fetch timeout
+  if (neighborFetchTimeout) {
+    clearTimeout(neighborFetchTimeout)
+    neighborFetchTimeout = null
   }
 })
  
@@ -1974,20 +2253,34 @@ const loadMapData = async () => {
     updateLoadingStatus('Setting up map controls...', 90)
     setupMapTypeControl()
     
-    updateLoadingStatus('Map ready!', 100)
-    
-    // Load imagery in the background without blocking the main loading
+    // Load neighboring settlements in the background
     setTimeout(async () => {
       try {
-        console.log('🔄 Loading satellite imagery in background...')
-        await addWmsLayer()
-        selectedImageryLayers.value = [...availableImageryLayers.value]
-        toggleImageryGroup(selectedImageryLayers.value)
-        console.log('✅ Satellite imagery loaded successfully')
+        console.log('🔄 Loading neighboring settlements...')
+        const count = await fetchNeighboringSettlements()
+        if (count > 0) {
+          console.log(`✅ Successfully loaded ${count} neighboring settlements`)
+        }
       } catch (error) {
-        console.error('❌ Error loading satellite imagery:', error)
+        console.error('❌ Error loading neighboring settlements:', error)
       }
-    }, 100) // Small delay to let the map render first
+    }, 500)
+    
+    updateLoadingStatus('Map ready!', 100)
+    
+    // DISABLED: Load imagery in the background without blocking the main loading
+    // TODO: Move drone imagery processing to backend - currently disabled due to performance
+    // setTimeout(async () => {
+    //   try {
+    //     console.log('🔄 Loading satellite imagery in background...')
+    //     await addWmsLayer()
+    //     selectedImageryLayers.value = [...availableImageryLayers.value]
+    //     toggleImageryGroup(selectedImageryLayers.value)
+    //     console.log('✅ Satellite imagery loaded successfully')
+    //   } catch (error) {
+    //     console.error('❌ Error loading satellite imagery:', error)
+    //   }
+    // }, 100) // Small delay to let the map render first
     await new Promise(resolve => setTimeout(resolve, 500)) // Brief pause to show completion
     
   } catch (error) {
@@ -2063,11 +2356,26 @@ const loadMapData = async () => {
         </div>
 
         <div v-if="settVisibile">
-          <Polygon v-for="polygon in polygons" :key="polygon.id" :options="polygon" @click="onPolygonClick(polygon)" />
+          <Polygon v-for="polygon in polygons.filter(p => p.type !== 'point')" :key="polygon.id" :options="polygon" @click="onPolygonClick(polygon)" />
         </div>
 
-        <div v-if="settVisibile">
-          <Marker v-for="polygon in polygons" :key="polygon.id" :options="polygon" @click="onPolygonClick(polygon)" />
+        <!-- Neighboring Settlements (as dotted red polylines) -->
+        <div>
+          <Polyline 
+            v-for="neighbor in neighboringSettlements" 
+            :key="neighbor.id" 
+            :options="neighbor" 
+            @click="onPointClick(neighbor)" 
+          />
+        </div>
+
+        <!-- Neighboring Settlement Labels (only show when zoomed in enough) -->
+        <div v-if="currentZoom >= MIN_ZOOM_FOR_LABELS">
+          <Marker 
+            v-for="label in neighboringSettlementLabels" 
+            :key="label.id" 
+            :options="label" 
+          />
         </div>
 
         <div v-if="parcelsVisible">
@@ -2215,6 +2523,9 @@ const loadMapData = async () => {
             <ElCheckbox v-model="settVisibile" @change="toggleSettlement">
               Boundary ({{ layerFeatureCounts.settlement }})
             </ElCheckbox>
+            <div v-if="layerFeatureCounts.neighboringSettlements > 0" style="margin-top: 8px; padding-left: 8px; font-size: 12px; color: #666;">
+              Neighboring Settlements: {{ layerFeatureCounts.neighboringSettlements }}
+            </div>
           </ElCollapseItem>
         </ElCollapse>
       </div>
@@ -2615,5 +2926,14 @@ const loadMapData = async () => {
     width: 32px;
     height: 32px;
   }
+}
+
+/* Neighbor label text wrapping - Google Maps labels don't natively support wrapping,
+   but this helps with styling if using custom overlays */
+:deep(.neighbor-label-text) {
+  white-space: normal !important;
+  word-wrap: break-word !important;
+  max-width: 150px !important;
+  text-align: center !important;
 }
 </style>

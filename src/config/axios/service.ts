@@ -104,8 +104,9 @@ service.interceptors.response.use(
 
     
      //ElMessage.error(error.response.data.message )   /// Revist Felix 
+     const errorMessage = error?.response?.data?.message || error?.message || 'An error occurred'
      ElMessage({
-      message: error.response.data.message,
+      message: errorMessage,
       type: 'error',
       duration:5000,
     })    // felix - show message on success request 

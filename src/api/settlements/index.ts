@@ -460,6 +460,15 @@ export const getSettlementsWithBoundaryGeometry = (data: { county_id?: number; s
   return request.post({ url: prod + '/api/v1/data/settlements/with-boundary-geometry', data })
 }
 
+// Get neighboring settlements - returns only id, name, and boundary geometry for fast loading
+export const getNeighboringSettlements = (data: { 
+  settlementId: string | number
+  bbox?: { minLng: number; minLat: number; maxLng: number; maxLat: number }
+  expansionFactor?: number
+}): Promise<IResponse<Array<{ id: number; name: string; geom: any }>>> => {
+  return request.post({ url: prod + '/api/v1/data/settlements/neighbors', data })
+}
+
 // Download geospatial data for multiple settlements as zip
 export const downloadSettlementsGeoData = (data: { settlementIds: number[], filters?: any[], filterValues?: any[] }): Promise<{ blob: Blob, shareLink: string | null, documentId: number | null }> => {
   return request.post({ 
