@@ -469,6 +469,14 @@ export const getNeighboringSettlements = (data: {
   return request.post({ url: prod + '/api/v1/data/settlements/neighbors', data })
 }
 
+// Get imagery layers for a settlement - returns layer names that intersect with settlement bbox
+export const getSettlementImageryLayers = (data: {
+  settlementId: string | number
+  bbox?: { minLng: number; minLat: number; maxLng: number; maxLat: number }
+}): Promise<IResponse<string[]>> => {
+  return request.post({ url: prod + '/api/v1/data/settlements/imagery', data })
+}
+
 // Download geospatial data for multiple settlements as zip
 export const downloadSettlementsGeoData = (data: { settlementIds: number[], filters?: any[], filterValues?: any[] }): Promise<{ blob: Blob, shareLink: string | null, documentId: number | null }> => {
   return request.post({ 

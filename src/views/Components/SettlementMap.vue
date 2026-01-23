@@ -4,7 +4,7 @@ import { ref, onMounted, onUnmounted, watch, computed, nextTick } from 'vue'
 import { ElButton, ElTable, ElTableColumn, ElMessage, ElCollapse, ElCollapseItem, ElCheckbox, ElCheckboxGroup, ElDrawer, ElDescriptions, ElDescriptionsItem } from 'element-plus'
 import { GoogleMap, Polygon, InfoWindow, Marker, Polyline, Circle } from 'vue3-google-map'
 import * as turf from '@turf/turf'
-import { getSettlementMapData, getNeighboringSettlements } from '@/api/settlements'
+import { getSettlementMapData, getNeighboringSettlements, getSettlementImageryLayers } from '@/api/settlements'
 import { Icon } from '@iconify/vue'
 import axios from 'axios'
 import { useAppStore } from '@/store/modules/app'
@@ -1913,17 +1913,23 @@ const imageryLayerObjects = ref<Record<string, google.maps.ImageMapType>>({})
 
 const addWmsLayer = async () => {
   const bbox = getSettlementBbox()
-  if (!bbox) {
-    console.log('⚠️ No bbox available, skipping WMS layer')
+  if (!bbox || !props.settlementId) {
+    console.log('⚠️ No bbox or settlementId available, skipping WMS layer')
     return
   }
   
   try {
     updateLoadingStatus('Loading satellite imagery...', 95)
     
-    const layerList = await getRestLayers(bbox)
-    if (!layerList || !mapRef.value?.map) {
-      console.log('⚠️ No REST API layers found or map not ready')
+    // Use backend endpoint to get intersecting imagery layers
+    const response = await getSettlementImageryLayers({
+      settlementId: props.settlementId,
+      bbox
+    })
+    
+    const layerList = response.data || response.results || []
+    if (!layerList || layerList.length === 0 || !mapRef.value?.map) {
+      console.log('⚠️ No imagery layers found for this settlement or map not ready')
       return
     }
     
@@ -2268,19 +2274,19 @@ const loadMapData = async () => {
     
     updateLoadingStatus('Map ready!', 100)
     
-    // DISABLED: Load imagery in the background without blocking the main loading
-    // TODO: Move drone imagery processing to backend - currently disabled due to performance
-    // setTimeout(async () => {
-    //   try {
-    //     console.log('🔄 Loading satellite imagery in background...')
-    //     await addWmsLayer()
-    //     selectedImageryLayers.value = [...availableImageryLayers.value]
-    //     toggleImageryGroup(selectedImageryLayers.value)
-    //     console.log('✅ Satellite imagery loaded successfully')
-    //   } catch (error) {
-    //     console.error('❌ Error loading satellite imagery:', error)
-    //   }
-    // }, 100) // Small delay to let the map render first
+    // Load imagery in the background without blocking the main loading
+    // Now using dedicated backend endpoint for fast processing
+    setTimeout(async () => {
+      try {
+        console.log('🔄 Loading satellite imagery in background...')
+        await addWmsLayer()
+        selectedImageryLayers.value = [...availableImageryLayers.value]
+        toggleImageryGroup(selectedImageryLayers.value)
+        console.log('✅ Satellite imagery loaded successfully')
+      } catch (error) {
+        console.error('❌ Error loading satellite imagery:', error)
+      }
+    }, 100) // Small delay to let the map render first
     await new Promise(resolve => setTimeout(resolve, 500)) // Brief pause to show completion
     
   } catch (error) {

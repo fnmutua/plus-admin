@@ -1377,6 +1377,7 @@ module.exports = function (app) {
   app.post('/api/v1/data/one/geo', [authJwt.verifyToken, hasDynamicPermission('read')], controller.modelOneGeo)
   app.post('/api/v1/data/settlements/with-boundary-geometry', [authJwt.verifyToken], controller.getSettlementsWithBoundaryGeometry)
   app.post('/api/v1/data/settlements/neighbors', [authJwt.verifyToken], controller.getNeighboringSettlements)
+  app.post('/api/v1/data/settlements/imagery', [authJwt.verifyToken], controller.getSettlementImageryLayers)
   app.post('/api/v1/data/admin-units-from-coords', [authJwt.verifyToken], controller.getAdminUnitsFromCoordinates)
 
   /**

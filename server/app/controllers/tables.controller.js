@@ -1013,6 +1013,203 @@ function safeParseAndSanitize(jsonStr) {
   }
 }
 
+// Get imagery layers for a settlement
+exports.getSettlementImageryLayers = async (req, res) => {
+  try {
+    const { settlementId, bbox } = req.body
+
+    if (!settlementId) {
+      return res.status(400).json({
+        message: 'settlementId is required',
+        code: 'MISSING_PARAMETER',
+      })
+    }
+
+    // Get settlement bbox from database if not provided
+    let settlementBbox = bbox
+    if (!settlementBbox) {
+      const bboxQuery = `
+        SELECT 
+          ST_XMin(ST_Envelope(geom)) as minLng,
+          ST_YMin(ST_Envelope(geom)) as minLat,
+          ST_XMax(ST_Envelope(geom)) as maxLng,
+          ST_YMax(ST_Envelope(geom)) as maxLat
+        FROM settlement 
+        WHERE id = :settlementId AND geom IS NOT NULL
+      `
+
+      const bboxResult = await db.sequelize.query(bboxQuery, {
+        replacements: { settlementId },
+        type: db.sequelize.QueryTypes.SELECT,
+      })
+
+      if (!bboxResult || bboxResult.length === 0) {
+        return res.status(404).json({
+          message: 'Settlement not found or has no geometry',
+          code: 'NOT_FOUND',
+        })
+      }
+
+      settlementBbox = {
+        minLng: parseFloat(bboxResult[0].minLng),
+        minLat: parseFloat(bboxResult[0].minLat),
+        maxLng: parseFloat(bboxResult[0].maxLng),
+        maxLat: parseFloat(bboxResult[0].maxLat),
+      }
+    }
+
+    // GeoServer configuration
+    const GEO_SERVER_URL = 'https://kesmis.go.ke/geoserver'
+    const WORKSPACE = 'kisip'
+    const username = 'admin'
+    const password = '***REDACTED***'
+
+    // Fetch all layers from GeoServer REST API
+    const restApiUrl = `${GEO_SERVER_URL}/rest/layers.json`
+    const layersResponse = await axios.get(restApiUrl, {
+      timeout: 15000,
+      headers: {
+        'Accept': 'application/json, */*'
+      },
+      auth: {
+        username,
+        password
+      }
+    })
+
+    const jsonData = layersResponse.data
+
+    if (!jsonData || typeof jsonData !== 'object' || !jsonData.layers) {
+      return res.status(500).json({
+        message: 'Invalid response from GeoServer REST API',
+        code: 'GEO_SERVER_ERROR',
+      })
+    }
+
+    let layers = jsonData.layers.layer
+
+    // Handle case where there's only one layer (not an array)
+    if (!Array.isArray(layers)) {
+      layers = layers ? [layers] : []
+    }
+
+    if (layers.length === 0) {
+      return res.status(200).json({
+        message: 'No layers found',
+        code: '0000',
+        data: [],
+      })
+    }
+
+    // Process layers and fetch detailed information for each
+    const intersectingLayers = []
+
+    // Process layers in batches to avoid overwhelming the server
+    const batchSize = 10
+    for (let i = 0; i < layers.length; i += batchSize) {
+      const batch = layers.slice(i, i + batchSize)
+      
+      const batchPromises = batch.map(async (layer) => {
+        try {
+          // Skip layers without name
+          if (!layer.name) {
+            return null
+          }
+
+          // Fetch detailed layer information
+          const layerDetailsUrl = `${GEO_SERVER_URL}/rest/layers/${WORKSPACE}:${layer.name}.json`
+          
+          try {
+            const layerResponse = await axios.get(layerDetailsUrl, {
+              timeout: 10000,
+              headers: { 'Accept': 'application/json, */*' },
+              auth: { username, password }
+            })
+
+            if (layerResponse.status === 200 && layerResponse.data.layer && layerResponse.data.layer.resource) {
+              // Follow the resource href to get detailed information
+              let resourceUrl = layerResponse.data.layer.resource.href
+              resourceUrl = resourceUrl.replace("http://", "https://")
+              
+              const resourceResponse = await axios.get(resourceUrl, {
+                timeout: 10000,
+                headers: { 'Accept': 'application/json, */*' },
+                auth: { username, password }
+              })
+
+              if (resourceResponse.status === 200) {
+                const resourceData = resourceResponse.data
+                const dataSource = resourceData.coverage || resourceData.featureType
+                
+                // Extract bounding box information
+                let layerBbox = null
+
+                if (dataSource && dataSource.latLonBoundingBox) {
+                  const latLonBbox = dataSource.latLonBoundingBox
+                  layerBbox = {
+                    minx: latLonBbox.minx || -180,
+                    miny: latLonBbox.miny || -90,
+                    maxx: latLonBbox.maxx || 180,
+                    maxy: latLonBbox.maxy || 90
+                  }
+                } else if (dataSource && dataSource.nativeBoundingBox) {
+                  const nativeBbox = dataSource.nativeBoundingBox
+                  layerBbox = {
+                    minx: nativeBbox.minx || -180,
+                    miny: nativeBbox.miny || -90,
+                    maxx: nativeBbox.maxx || 180,
+                    maxy: nativeBbox.maxy || 90
+                  }
+                }
+
+                if (layerBbox) {
+                  // Check if layer bbox intersects with settlement bbox
+                  const intersects =
+                    settlementBbox.minLng < layerBbox.maxx &&
+                    settlementBbox.maxLng > layerBbox.minx &&
+                    settlementBbox.minLat < layerBbox.maxy &&
+                    settlementBbox.maxLat > layerBbox.miny
+
+                  if (intersects) {
+                    return {
+                      name: layer.name,
+                      title: layer.title || layer.name,
+                      value: `kisip:${layer.name}`,
+                    }
+                  }
+                }
+              }
+            }
+          } catch (error) {
+            // Silently skip layers that fail to fetch
+            console.warn(`Error fetching details for layer ${layer.name}:`, error.message)
+            return null
+          }
+        } catch (error) {
+          console.warn(`Error processing layer ${layer.name}:`, error.message)
+          return null
+        }
+        return null
+      })
+
+      const batchResults = await Promise.all(batchPromises)
+      intersectingLayers.push(...batchResults.filter(layer => layer !== null))
+    }
+
+    return res.status(200).json({
+      message: 'Imagery layers retrieved successfully',
+      code: '0000',
+      data: intersectingLayers.map(layer => layer.value), // Return just the layer names in format "kisip:layername"
+    })
+  } catch (error) {
+    console.error('❌ Error in getSettlementImageryLayers:', error)
+    return res.status(500).json({
+      message: 'Failed to fetch imagery layers',
+      code: 'SERVER_ERROR',
+      error: error.message,
+    })
+  }
+}
 
 
  
