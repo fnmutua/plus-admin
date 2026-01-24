@@ -112,6 +112,12 @@ const editingSettlementId = ref<number | null>(null)
 const isDrawingMode = ref(false)
 const flyMarker = ref<any>(null)
 
+// Neighboring settlements
+const neighboringSettlements = ref<any[]>([])
+const neighboringSettlementLabels = ref<any[]>([])
+const currentZoom = ref(8)
+const MIN_ZOOM_FOR_LABELS = 16 // Hide labels when zoom is below this level
+
 // Step 3: Form Drawer
 const drawerVisible = ref(false)
 const formRef = ref<FormInstance>()
@@ -468,6 +474,17 @@ const initializeMap = async () => {
       loadWardBoundary()
     }
 
+    // Update current zoom level
+    currentZoom.value = map.value.getZoom() || 8
+    
+    // Listen to zoom changes - update labels immediately
+    window.google.maps.event.addListener(map.value, 'zoom_changed', () => {
+      if (map.value) {
+        currentZoom.value = map.value.getZoom() || 8
+        updateNeighborLabelVisibility()
+      }
+    })
+
     // Initialize drawing manager after map is ready
     window.google.maps.event.addListenerOnce(map.value, 'idle', () => {
       if (window.google.maps.drawing) {
@@ -662,11 +679,267 @@ const loadWardBoundary = () => {
         if (!bounds.isEmpty()) {
           map.value.fitBounds(bounds)
         }
+        
+        // Load neighboring settlements after ward boundary is loaded
+        setTimeout(() => {
+          fetchNeighboringSettlementsForWard()
+        }, 500)
       }
     }
   } catch (error) {
     console.error('Error loading ward boundary:', error)
   }
+}
+
+// Fetch neighboring settlements for the ward - simplified: just get all settlements in the ward
+const fetchNeighboringSettlementsForWard = async (silent = false) => {
+  if (!selectedWard.value || !map.value || !window.google?.maps) {
+    if (!silent) {
+      console.log('⚠️ No ward selected or map not ready for neighboring settlements')
+    }
+    return 0
+  }
+
+  try {
+    if (!silent) {
+      console.log('🔄 Fetching settlements for ward...')
+    }
+    
+    // Get all settlements in this ward using filters
+    const formData = {
+      limit: 1000, // Get all settlements in the ward
+      page: 1,
+      curUser: 1,
+      model: 'settlement',
+      filters: ['ward_id'],
+      filterValues: [[selectedWard.value]],
+      returnAll: true // Get all results, not just one page
+    }
+    
+    const res = await getSettlementListByCounty(formData)
+    
+    const settlements = res.data || []
+    
+    if (!Array.isArray(settlements) || settlements.length === 0) {
+      if (!silent) {
+        console.log('ℹ️ No settlements found in this ward')
+      }
+      return 0
+    }
+    
+    // Get geometries for all settlements
+    const settlementIds = settlements.map((s: any) => s.id).filter((id: any) => id != null)
+    
+    if (settlementIds.length === 0) {
+      if (!silent) {
+        console.log('ℹ️ No valid settlement IDs found')
+      }
+      return 0
+    }
+    
+    // Fetch geometries for these settlements
+    const geoPromises = settlementIds.map(async (id: number) => {
+      try {
+        const geoRes = await getOneGeo({
+          model: 'settlement',
+          id: String(id)
+        })
+        if (geoRes.data[0]?.json_build_object?.features?.[0]) {
+          const feature = geoRes.data[0].json_build_object.features[0]
+          return {
+            id: id,
+            name: settlements.find((s: any) => s.id === id)?.name || 'Unnamed',
+            geom: feature.geometry
+          }
+        }
+        return null
+      } catch (error) {
+        console.warn(`Error fetching geometry for settlement ${id}:`, error)
+        return null
+      }
+    })
+    
+    const settlementsWithGeo = (await Promise.all(geoPromises)).filter(s => s !== null)
+    
+    if (settlementsWithGeo.length === 0) {
+      if (!silent) {
+        console.log('ℹ️ No settlements with geometry found')
+      }
+      return 0
+    }
+
+    // Clear existing neighboring settlements
+    neighboringSettlements.value.forEach(polyline => {
+      if (polyline) polyline.setMap(null)
+    })
+    neighboringSettlements.value = []
+    
+    neighboringSettlementLabels.value.forEach(marker => {
+      if (marker) marker.setMap(null)
+    })
+    neighboringSettlementLabels.value = []
+
+    for (const settlement of settlementsWithGeo) {
+      // Check if settlement has geometry
+      if (!settlement.geom) {
+        continue
+      }
+
+      // Check if geometry is Polygon or MultiPolygon
+      const geomType = settlement.geom.type
+      if (geomType !== 'Polygon' && geomType !== 'MultiPolygon') {
+        continue
+      }
+
+      // Process polygon geometry
+      let coordinates = settlement.geom.coordinates
+      if (geomType === 'MultiPolygon') {
+        coordinates = coordinates.flat()
+      }
+
+      coordinates.forEach((polygonCoordinates: number[][]) => {
+        const paths = polygonCoordinates.map((coord: number[]) => {
+          const [lng, lat] = coord
+          return { lat, lng }
+        }).filter((path: { lng: number; lat: number }) => isFinite(path.lng) && isFinite(path.lat))
+
+        if (paths.length > 0) {
+          // Add a light filled polygon for better visibility on satellite imagery
+          const fillPolygon = new window.google.maps.Polygon({
+            paths: paths,
+            fillColor: '#FF69B4',
+            fillOpacity: 0.15, // Light fill that's visible on satellite imagery
+            strokeColor: 'transparent', // No stroke on fill polygon
+            strokeWeight: 0,
+            map: map.value,
+            zIndex: 400, // Behind the dotted outline
+            clickable: false
+          })
+          
+          // Use polyline for dotted pink outline (close the path by adding first point at end)
+          const closedPath = [...paths, paths[0]]
+          const polyline = new window.google.maps.Polyline({
+            path: closedPath,
+            strokeColor: '#FF69B4',
+            strokeOpacity: 0.7,
+            strokeWeight: 2,
+            // Create dotted pattern using icons - larger, more prominent pink dots
+            icons: [{
+              icon: {
+                path: window.google.maps.SymbolPath.CIRCLE,
+                scale: 2.5,
+                fillColor: '#FF69B4',
+                fillOpacity: 0.6, // More visible dots
+                strokeColor: '#FF69B4',
+                strokeWeight: 1.5
+              },
+              offset: '0%',
+              repeat: '12px'
+            }],
+            map: map.value,
+            zIndex: 500, // Above the fill polygon
+            clickable: false
+          })
+          
+          // Store both the fill polygon and the outline polyline
+          neighboringSettlements.value.push(fillPolygon)
+          neighboringSettlements.value.push(polyline)
+
+          // Calculate centroid for label (only once per settlement, not per polygon)
+          if (neighboringSettlementLabels.value.findIndex(l => l.properties?.id === settlement.id) === -1) {
+            try {
+              const geomFeature = {
+                type: 'Feature',
+                geometry: settlement.geom
+              }
+              const centroidPoint = turf.centroid(geomFeature)
+              const [lng, lat] = centroidPoint.geometry.coordinates
+              const settlementName = settlement.name || 'Unnamed'
+              
+              // Create text-only marker with HTML content for text wrapping
+              // Split long names into multiple lines (max 20 chars per line)
+              const maxCharsPerLine = 20
+              const words = settlementName.split(' ')
+              const lines: string[] = []
+              let currentLine = ''
+              
+              words.forEach(word => {
+                if ((currentLine + word).length <= maxCharsPerLine) {
+                  currentLine = currentLine ? `${currentLine} ${word}` : word
+                } else {
+                  if (currentLine) lines.push(currentLine)
+                  currentLine = word
+                }
+              })
+              if (currentLine) lines.push(currentLine)
+              
+              const wrappedText = lines.join('\n')
+              
+              const marker = new window.google.maps.Marker({
+                position: { lat, lng },
+                map: currentZoom.value >= MIN_ZOOM_FOR_LABELS ? map.value : null,
+                // Use transparent icon to hide default marker
+                icon: {
+                  url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+                    <svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>
+                  `),
+                  scaledSize: new window.google.maps.Size(1, 1),
+                  anchor: new window.google.maps.Point(0.5, 0.5)
+                },
+                // Label with wrapped text (newlines in label text)
+                label: {
+                  text: wrappedText,
+                  color: '#FF69B4',
+                  fontSize: '12px',
+                  fontWeight: '500'
+                },
+                zIndex: 1000,
+                clickable: false
+              })
+              
+              marker.properties = {
+                id: settlement.id,
+                name: settlementName
+              }
+              
+              neighboringSettlementLabels.value.push(marker)
+            } catch (error) {
+              console.warn(`Error calculating centroid for settlement ${settlement.id}:`, error)
+            }
+          }
+        }
+      })
+    }
+
+    const count = neighboringSettlements.value.length
+    if (!silent) {
+      console.log(`✅ Loaded ${count} settlements from ward`)
+    }
+    return count
+  } catch (error: any) {
+    if (!silent) {
+      if (error?.response?.data?.message) {
+        console.error('❌ Error fetching settlements for ward:', error.response.data.message)
+      } else if (error?.message) {
+        console.error('❌ Error fetching settlements for ward:', error.message)
+      } else {
+        console.error('❌ Error fetching settlements for ward:', error)
+      }
+    }
+    return 0
+  }
+}
+
+// Update neighbor label visibility based on zoom level
+const updateNeighborLabelVisibility = () => {
+  if (!map.value) return
+  
+  const shouldShow = currentZoom.value >= MIN_ZOOM_FOR_LABELS
+  neighboringSettlementLabels.value.forEach(marker => {
+    if (marker) {
+      marker.setMap(shouldShow ? map.value : null)
+    }
+  })
 }
 
 const loadSettlementBoundary = () => {
@@ -722,6 +995,11 @@ const loadSettlementBoundary = () => {
       
       // Open drawer
       drawerVisible.value = true
+      
+      // Load neighboring settlements for context
+      setTimeout(() => {
+        fetchNeighboringSettlementsForWard()
+      }, 500)
     } 
     // Handle Polygon and MultiPolygon geometry
     else if (geom.type === 'Polygon' || geom.type === 'MultiPolygon') {
@@ -766,9 +1044,13 @@ const loadSettlementBoundary = () => {
         drawerVisible.value = true
       })
 
-
       // Open drawer
       drawerVisible.value = true
+      
+      // Load neighboring settlements for context
+      setTimeout(() => {
+        fetchNeighboringSettlementsForWard()
+      }, 500)
     }
   } catch (error) {
     console.error('Error loading settlement boundary:', error)
@@ -1117,6 +1399,17 @@ const goBack = () => {
       }
       drawnPolygons.value.forEach(p => p.setMap(null))
       drawnPolygons.value = []
+      
+      // Clean up neighboring settlements
+      neighboringSettlements.value.forEach(polyline => {
+        if (polyline) polyline.setMap(null)
+      })
+      neighboringSettlements.value = []
+      neighboringSettlementLabels.value.forEach(marker => {
+        if (marker) marker.setMap(null)
+      })
+      neighboringSettlementLabels.value = []
+      
       if (drawingManager.value) {
         drawingManager.value.setMap(null)
         drawingManager.value = null
@@ -1242,6 +1535,16 @@ const clearFormAndGeometry = () => {
     })
     wardPolygon.value = []
   }
+  
+  // Clean up neighboring settlements
+  neighboringSettlements.value.forEach(polyline => {
+    if (polyline) polyline.setMap(null)
+  })
+  neighboringSettlements.value = []
+  neighboringSettlementLabels.value.forEach(marker => {
+    if (marker) marker.setMap(null)
+  })
+  neighboringSettlementLabels.value = []
   
   // Close drawer
   drawerVisible.value = false

@@ -1,0 +1,225 @@
+a_id,lefft,b_id,rright,county_id,overlap_sqkm
+951,Jeza B1,952,Jeza B2,2,0.00
+128,Rusinga Old Town,512,Nyagina ,43,0.10
+29,Kaango Mosquito,713,Kunda kindu,15,0.00
+29,Kaango Mosquito,714,Mosquito,15,0.08
+29,Kaango Mosquito,711,Mjini,15,0.00
+13,Kibokoni M17E,14,M26 Kibokoni,3,0.03
+13,Kibokoni M17E,148,M27,3,0.00
+205,Kibundani,956,Basra(Mombasa),1,0.00
+205,Kibundani,633,Vyemani,1,0.36
+206,Kikambala,631,Mweza Mtongwe,1,0.11
+1295,Mwakingali A Embakasi,1296,Mlekenyi,6,0.00
+246,Jua Kali,872,Bora Imani,4,0.00
+397,Silanga,1569,Silanga village-kibra,47,0.04
+1503,Bandarini,1529,Muoroto Simitini,1,0.00
+261,Napetet,733,Napetet (Mission A+B+C),23,0.08
+1750,Kamagar,1753,Nyamasare,41,0.06
+1540,Donholm_Mukuru Viwandani,1545,Riverside - Mukuru Viwandani,47,0.00
+1540,Donholm_Mukuru Viwandani,1618,Milimani - Mukuru Viwandani,47,0.00
+374,Kaloleni,1205,Makongeni (Val),47,0.01
+374,Kaloleni,1315,Agare Village,47,0.00
+300,Bins-Mukuru Kwa Reuben,1638,Kariobangi- Mukuru Kwa Reuben,47,0.00
+300,Bins-Mukuru Kwa Reuben,1625,Gatoto-mukuru kwa reuben,47,0.00
+300,Bins-Mukuru Kwa Reuben,1652,Feed the children mukuru kwa reuben,47,0.00
+328,Sofia Kati,1287,Upper Sofia,6,0.00
+360,Mathare 3C,1602,Mathare 3A/Bondeni,47,0.00
+360,Mathare 3C,367,Mathare No.10,47,0.00
+354,Kwa Kariuki,372,Mabatini,47,0.00
+565,Kalahari,1492,Mathare (Chaani),1,0.00
+357,Mlango Kubwa,1324,Mathare Kiamutisya,47,0.00
+492,Kuon Gi Dek,1750,Kamagar,41,0.06
+492,Kuon Gi Dek,1753,Nyamasare,41,0.10
+1604,Gitathuru A,1605,Grogon A- Korogocho,47,0.00
+1604,Gitathuru A,1606,Grogon B - Korogocho,47,0.00
+621,Jamvi La Wageni,622,Bofu,1,0.00
+1612,RAP,1613,Mukuru Kwa Reuben-Railway,47,0.00
+1612,RAP,1628,Wesinya_mukuru kwa Reuben,47,0.00
+8,Mwatate,9,Chaani,1,0.00
+10,Kwa Hakatsa,587,Jitoni/Bawazir,1,0.00
+210,Ngunyumu village,1604,Gitathuru A,47,0.00
+210,Ngunyumu village,1606,Grogon B - Korogocho,47,0.00
+210,Ngunyumu village,1634,Gitathuru Ngomongo- Korogocho,47,0.00
+245,Mwangaza,957,Ghala,4,0.00
+245,Mwangaza,1261,Bulla Secondary,4,0.00
+240,Hola Mission,1262,Mji wa Wazee,4,0.00
+182,Jeza B,951,Jeza B1,2,0.22
+182,Jeza B,952,Jeza B2,2,0.15
+234,Mlekenyi/Aseko,1296,Mlekenyi,6,0.05
+234,Mlekenyi/Aseko,1295,Mwakingali A Embakasi,6,0.00
+234,Mlekenyi/Aseko,1290,Aseko-Wenimwana,6,0.14
+1593,Bedjose,1597,Sigei,47,0.00
+1593,Bedjose,1594,Kisumu Ndogo (Land mawe),47,0.00
+1593,Bedjose,1600,Mandazi Road,47,0.00
+768,Majaoni,1003,Shanzu Wayani,1,0.15
+299,Ntepes,301,Sordo,25,0.00
+299,Ntepes,1680,Embakasi,25,0.83
+279,Masingo,1474,Juakali Kefinco,37,0.03
+598,Vikobani,603,Ufuta,1,0.00
+606,Barani Magogoni,643,Muoroto msikitini,1,0.00
+259,Nabute,739,AIC Lower A,23,0.11
+615,Harambee,631,Mweza Mtongwe,1,0.00
+298,Treetop,299,Ntepes,25,0.39
+6,Kindunguni,206,Kikambala,1,0.00
+6,Kindunguni,623,Mwatsalafu,1,0.04
+6,Kindunguni,631,Mweza Mtongwe,1,0.17
+9,Chaani,1492,Mathare (Chaani),1,0.01
+9,Chaani,565,Kalahari,1,0.03
+585,Gana hola,644,Burukenge,1,0.02
+875,Mwatate Old Market,1265,Kariobangi ,6,0.00
+875,Mwatate Old Market,1279,Soko ya Zamani,6,0.06
+1170,Potopoto,1683,Labuiywo,29,0.00
+633,Vyemani,956,Basra(Mombasa),1,0.18
+639,Muoroto Makaaani,642,Muoroto Winners,1,0.00
+646,Muoroto Paradise,1529,Muoroto Simitini,1,0.00
+651,Athiko,653,Sare,44,0.08
+821,Mjini Swahili Village,990,Kariobangi,16,0.00
+713,Kunda kindu,714,Mosquito,15,0.00
+26,Makhanu Phase 1,28,Makhanu Phase 2,7,0.00
+1292,Mwakingali A - Shabaa,1295,Mwakingali A Embakasi,6,0.00
+25,Iskadek phase 2,760,Bulla mzuri,7,0.00
+25,Iskadek phase 2,1300,Bulla Bura,7,0.00
+25,Iskadek phase 2,1301,Bulla Rahma,7,0.00
+27,County phase 1,30,County phase 2,7,0.00
+58,Maili Nne,1202,Kingongo (Herbert),27,0.00
+61,Bondeni (Kisumu),170,Bondeni,42,0.10
+204,Okwanyo A,1654,Okwanyo,44,0.07
+22,Bulla Riig Phase 2,1298,Bulla Guduud,7,0.01
+1597,Sigei,1600,Mandazi Road,47,0.00
+23,Iskadek phase 1,25,Iskadek phase 2,7,0.00
+23,Iskadek phase 1,1266,Bulla Hagar,7,0.00
+23,Iskadek phase 1,30,County phase 2,7,0.00
+23,Iskadek phase 1,760,Bulla mzuri,7,0.00
+23,Iskadek phase 1,1302,Bula Hodhan & Bula College,7,0.00
+1548,Gateway - Mukuru Kwa Reuben,1612,RAP,47,0.00
+1548,Gateway - Mukuru Kwa Reuben,1613,Mukuru Kwa Reuben-Railway,47,0.00
+3,Kambi Moto,1597,Sigei,47,0.00
+3,Kambi Moto,1603,Crescent,47,0.00
+5,Kisumu Ndogo (Mombasa),616,Mnazi Mmoja,1,0.00
+5,Kisumu Ndogo (Mombasa),617,Shauri Yako,1,0.00
+11,Muyeye I,24,Muyeye II,3,0.00
+15,Jiwe Leupe,1498,Jiwe Leupe Blue Bay,3,0.13
+416,Githembe,1633,Kinyanjui,47,0.00
+1544,MCC-Mukuru Kwa Njenga,1547,Zone 48- Mukuru kwa Njenga,47,0.00
+1544,MCC-Mukuru Kwa Njenga,1553,Moto moto- Mukuru Kwa Njenga,47,0.00
+21,Namu phase 2,25,Iskadek phase 2,7,0.00
+21,Namu phase 2,1299,Bulla Dekaburey,7,0.00
+21,Namu phase 2,1300,Bulla Bura,7,0.00
+20,Bulla Riig Phase 1,22,Bulla Riig Phase 2,7,0.03
+19,Namu phase 1,25,Iskadek phase 2,7,0.00
+19,Namu phase 1,23,Iskadek phase 1,7,0.00
+19,Namu phase 1,21,Namu phase 2,7,0.00
+19,Namu phase 1,30,County phase 2,7,0.00
+28,Makhanu Phase 2,1302,Bula Hodhan & Bula College,7,0.00
+147,Kisumu Ndogo-Korogocho,457,Korogocho A,47,0.00
+147,Kisumu Ndogo-Korogocho,459,Korogocho B,47,0.00
+147,Kisumu Ndogo-Korogocho,1591,Nyayo-Korogocho,47,0.00
+174,Manyatta (Kona Mbaya),175,Manyatta B,42,0.01
+203,Jiw Dendi,653,Sare,44,0.11
+176,Nyawita,178,Migosi,42,0.01
+194,Kwa Mang'eli,195,Kwa Nzomo,16,0.00
+211,Pumwani Majengo,430,Kinyago/ Kanuku,47,0.00
+211,Pumwani Majengo,1614,Blue Estate,47,0.00
+211,Pumwani Majengo,1623,Kitui Village,47,0.03
+331,Motobo,1668,Milimani,35,0.00
+335,Kunda kindu,336,Malawi,17,0.00
+345,Kaptagat Village,1611,Kasarani-Westlands,47,0.00
+348,Ghetto,1610,Huruma Ngei Phase 1,47,0.00
+361,Mathare 3B,1602,Mathare 3A/Bondeni,47,0.00
+361,Mathare 3B,371,Village 2,47,0.00
+367,Mathare No.10,368,Mathare Mashimoni,47,0.00
+364,Mathare 4B,366,Mathare Gitathuru,47,0.00
+1283,Birikani Runda,1284,Birikani A,6,0.00
+1283,Birikani Runda,1286,Birikani (Kati),6,0.00
+368,Mathare Mashimoni,372,Mabatini,47,0.00
+387,Sinai,1624,Sinai Reli - Mukuru Viwandani,47,0.00
+387,Sinai,1619,Jamaica_Mukuru Viwandani,47,0.00
+388,Kisii Village,1312,Hazina Sokoni,47,0.00
+388,Kisii Village,1314,Fuata Nyayo,47,0.00
+1284,Birikani A,1286,Birikani (Kati),6,0.00
+377,Kingstone,1551,Uchumi -Mukuru Viwandani,47,0.00
+377,Kingstone,1601,Tetrapak,47,0.00
+379,Mariguini,1314,Fuata Nyayo,47,0.00
+382,Lunga Lunga,1619,Jamaica_Mukuru Viwandani,47,0.00
+382,Lunga Lunga,1618,Milimani - Mukuru Viwandani,47,0.00
+396,Soweto East - Langata,1582,Laini saba_kibra,47,0.00
+404,Soweto West _village,1577,Subra-Kibra,47,0.00
+404,Soweto West _village,1576,Raila-Lang'ata,47,0.00
+404,Soweto West _village,1587,Kianda-Kibra,47,0.00
+398,Mashimoni -Kibra,1583,Lindi unit A and B - Kibra,47,0.00
+398,Mashimoni -Kibra,1575,Kambi Muru - kibera(Nairobi),47,0.00
+398,Mashimoni -Kibra,1582,Laini saba_kibra,47,0.00
+412,Seldom,1324,Mathare Kiamutisya,47,0.00
+426,Kanguku-Waithaka,1541,Kandutu,47,0.00
+426,Kanguku-Waithaka,1650,Moria Mbogo,47,0.00
+457,Korogocho A,459,Korogocho B,47,0.00
+457,Korogocho A,1589,Highridge-Korogocho,47,0.00
+459,Korogocho B,1604,Gitathuru A,47,0.00
+459,Korogocho B,1589,Highridge-Korogocho,47,0.00
+459,Korogocho B,1605,Grogon A- Korogocho,47,0.00
+476,Diamond-Mukuru Kwa Reuben,1552,Kosovo-Mukuru kwa Reuben,47,0.00
+476,Diamond-Mukuru Kwa Reuben,1613,Mukuru Kwa Reuben-Railway,47,0.00
+476,Diamond-Mukuru Kwa Reuben,1628,Wesinya_mukuru kwa Reuben,47,0.00
+1289,Mwakingali A-Intex,1294,Mlambenyi,6,0.00
+1289,Mwakingali A-Intex,1295,Mwakingali A Embakasi,6,0.00
+1289,Mwakingali A-Intex,1292,Mwakingali A - Shabaa,6,0.00
+1290,Aseko-Wenimwana,1296,Mlekenyi,6,0.00
+572,Kipevu B,1488,Kipevu A,1,0.00
+711,Mjini,714,Mosquito,15,0.00
+760,Bulla mzuri,1302,Bula Hodhan & Bula College,7,0.00
+1278,Bura Ndogo - Majengo Mapya,1517,Bura Ndogo A(Maweni),6,0.00
+1299,Bulla Dekaburey,1300,Bulla Bura,7,0.00
+1300,Bulla Bura,1301,Bulla Rahma,7,0.00
+1316,Paradise B,1319,Paradise C,47,0.00
+1320,Paradise A,1624,Sinai Reli - Mukuru Viwandani,47,0.00
+1511,Bombay India,1512,Kashmir Kandahari,5,0.00
+1486,Njoro,1523,Tabora,3,0.00
+1539,Ririe-kwa Reuben,1630,Kijiji Mpya-Kwa Reuben,47,0.00
+1539,Ririe-kwa Reuben,1552,Kosovo-Mukuru kwa Reuben,47,0.00
+1539,Ririe-kwa Reuben,1629,Simbacool-kwa reuben,47,0.00
+1539,Ririe-kwa Reuben,1652,Feed the children mukuru kwa reuben,47,0.00
+1546,Wanyee Close,1639,Riruta East (Mutindwa),47,0.00
+1547,Zone 48- Mukuru kwa Njenga,1553,Moto moto- Mukuru Kwa Njenga,47,0.00
+1547,Zone 48- Mukuru kwa Njenga,1631,Wape Wape-Mukuru Kwa Njenga,47,0.00
+1551,Uchumi -Mukuru Viwandani,1601,Tetrapak,47,0.00
+1552,Kosovo-Mukuru kwa Reuben,1613,Mukuru Kwa Reuben-Railway,47,0.00
+1553,Moto moto- Mukuru Kwa Njenga,1616,Riara-Mukuru Kwa Njenga,47,0.00
+1553,Moto moto- Mukuru Kwa Njenga,1631,Wape Wape-Mukuru Kwa Njenga,47,0.00
+1554,Sisal-Mukuru kwa Njenga,1555,Milimani-Mukuru Kwa Njenga,47,0.00
+1554,Sisal-Mukuru kwa Njenga,1627,Vietnam-Mukuru kwa Njenga,47,0.00
+1555,Milimani-Mukuru Kwa Njenga,1616,Riara-Mukuru Kwa Njenga,47,0.00
+1555,Milimani-Mukuru Kwa Njenga,1627,Vietnam-Mukuru kwa Njenga,47,0.00
+1555,Milimani-Mukuru Kwa Njenga,1631,Wape Wape-Mukuru Kwa Njenga,47,0.00
+1556,Magithondia,1580,Soko Mjinga-Kawangware,47,0.00
+1561,Brazil_langata,1592,Gatwikera_Kibra,47,0.00
+1565,Wilson-Ministry,1566,Wilson-KAA,47,0.00
+1569,Silanga village-kibra,1583,Lindi unit A and B - Kibra,47,0.00
+1569,Silanga village-kibra,1582,Laini saba_kibra,47,0.00
+1570,Kisumu ndogo - kibera,1592,Gatwikera_Kibra,47,0.00
+1570,Kisumu ndogo - kibera,1575,Kambi Muru - kibera(Nairobi),47,0.00
+1577,Subra-Kibra,1592,Gatwikera_Kibra,47,0.00
+1576,Raila-Lang'ata,1592,Gatwikera_Kibra,47,0.00
+1576,Raila-Lang'ata,1577,Subra-Kibra,47,0.00
+1576,Raila-Lang'ata,1587,Kianda-Kibra,47,0.00
+1578,DC village -kibra,1584,Makina village-kibra,47,0.00
+1578,DC village -kibra,1585,Kambi lendu--kibra,47,0.00
+1578,DC village -kibra,1590,Makongeni _Kibra,47,0.00
+1584,Makina village-kibra,1585,Kambi lendu--kibra,47,0.00
+1584,Makina village-kibra,1590,Makongeni _Kibra,47,0.00
+1588,Kichinjio - Kibera,1590,Makongeni _Kibra,47,0.00
+1589,Highridge-Korogocho,1604,Gitathuru A,47,0.00
+1594,Kisumu Ndogo (Land mawe),1598,Owino Road,47,0.00
+1594,Kisumu Ndogo (Land mawe),1600,Mandazi Road,47,0.00
+1638,Kariobangi- Mukuru Kwa Reuben,1652,Feed the children mukuru kwa reuben,47,0.00
+1605,Grogon A- Korogocho,1606,Grogon B - Korogocho,47,0.00
+1607,Komarock Juakali Artisan,1608,Kanguruwe,47,0.00
+1609,Malaika Village,1611,Kasarani-Westlands,47,0.00
+1616,Riara-Mukuru Kwa Njenga,1627,Vietnam-Mukuru kwa Njenga,47,0.00
+1617,Mugunda,1620,Mlolongo (Eastleigh South),47,0.00
+1621,Mombasa zone-mukuru kwa Ruben,1638,Kariobangi- Mukuru Kwa Reuben,47,0.00
+1621,Mombasa zone-mukuru kwa Ruben,1625,Gatoto-mukuru kwa reuben,47,0.00
+1621,Mombasa zone-mukuru kwa Ruben,1652,Feed the children mukuru kwa reuben,47,0.00
+1625,Gatoto-mukuru kwa reuben,1638,Kariobangi- Mukuru Kwa Reuben,47,0.00
+1629,Simbacool-kwa reuben,1630,Kijiji Mpya-Kwa Reuben,47,0.00
+1633,Kinyanjui,1639,Riruta East (Mutindwa),47,0.00
+1669,Baraka,1678,Majengo Talai 2 ,35,0.00
