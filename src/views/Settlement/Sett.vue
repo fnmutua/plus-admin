@@ -13,11 +13,11 @@ import { Position, Plus, Delete, Edit, Filter, InfoFilled, CopyDocument, Clock, 
 import { ArrowLeft, ArrowRight, UploadFilled, Postcard, TopRight, Lock, Guide, TakeawayBox } from '@element-plus/icons-vue'
 import { ref, reactive, computed, nextTick, watch } from 'vue'
 import { ElPagination, ElTooltip, ElOption } from 'element-plus'
-import { useRouter, useRoute } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { DeleteRecord, updateOneRecord, revertHistory, deleteDocument, revertMerge } from '@/api/settlements'
 import { useAppStore } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
-import { defineAsyncComponent, onMounted, onActivated } from 'vue';
+import { defineAsyncComponent, onMounted } from 'vue';
 import xlsx from "json-as-xlsx"
 import { searchByKeyWord } from '@/api/settlements'
 import readShapefileAndConvertToGeoJSON from '@/utils/readShapefile'
@@ -82,53 +82,24 @@ const loadFiltersFromStorage = () => {
 
   if (savedFilters) {
     const filterState = JSON.parse(savedFilters)
-    
-    // Only restore county if user is not county staff (county staff county is set by getUserRoles)
-    // For county staff, ensure their role-based county is preserved and not overwritten
+
+    // Restore county only for non-county staff; county staff stay locked to role county
     if (!isCountyStaff.value) {
       selectedCounty.value = filterState.selectedCounty || []
       value4.value = filterState.value4 || []
-    } else {
-      // For county staff, ensure value4 matches selectedCounty (which was set by getUserRoles)
-      // This prevents the flash where value4 might be temporarily different
-      if (selectedCounty.value.length > 0) {
-        value4.value = selectedCounty.value
-      }
-    }
-    
-    selectedSubCounty.value = filterState.selectedSubCounty || []
-    selectedWard.value = filterState.selectedWard || []
-    search_string.value = filterState.search_string || ''
-    
-    // Merge saved filters with role-based filters (role filters take precedence)
-    const savedFiltersArray = filterState.filters || []
-    const savedFilterValues = filterState.filterValues || []
-    
-    // Get role-based filter fields
-    const roleFilterFields = roles_filters.map(rf => rf.field).filter(Boolean)
-    
-    // Add or update saved filters that are not role-based
-    savedFiltersArray.forEach((filter: string, index: number) => {
-      if (!roleFilterFields.includes(filter)) {
-        const existingIndex = filters.value.indexOf(filter)
-        if (existingIndex === -1) {
-          // Filter doesn't exist, add it
-          filters.value.push(filter)
-          filterValues.value.push(savedFilterValues[index] || [])
-        } else {
-          // Filter already exists, update its value (unless it's a role filter)
-          filterValues.value[existingIndex] = savedFilterValues[index] || []
-        }
-      }
-    })
-    
-    value5.value = filterState.value5 || []
-    value6.value = filterState.value6 || []
-  } else {
-    // If no saved filters, ensure county staff has value4 synced with selectedCounty
-    if (isCountyStaff.value && selectedCounty.value.length > 0) {
+    } else if (selectedCounty.value.length > 0) {
       value4.value = selectedCounty.value
     }
+
+    selectedSubCounty.value = filterState.selectedSubCounty || []
+    selectedWard.value = filterState.selectedWard || []
+    search_string.value = (filterState.search_string || '').trim()
+    filters.value = filterState.filters || []
+    filterValues.value = filterState.filterValues || []
+    value5.value = filterState.value5 || []
+    value6.value = filterState.value6 || []
+  } else if (isCountyStaff.value && selectedCounty.value.length > 0) {
+    value4.value = selectedCounty.value
   }
 }
 
@@ -609,259 +580,85 @@ const getCounts = async () => {
   }
 }
 
+const applyStatusFilters = () => {
+  const statusMap: Record<string, string> = {
+    Approved: 'Approved',
+    New: 'Pending',
+    Rejected: 'Rejected',
+    Decommissioned: 'Decommissioned',
+  }
+  const selected = statusMap[activeSegment.value]
+  if (selected) {
+    const keptFilters: string[] = []
+    const keptValues: any[][] = []
+    filters.value.forEach((filter, index) => {
+      if (filter === 'isApproved' || filter === 'isActive') return
+      keptFilters.push(filter)
+      keptValues.push(filterValues.value[index] ?? [])
+    })
+    filters.value = ['isApproved', 'isActive', ...keptFilters]
+    filterValues.value = [[selected], ['true'], ...keptValues]
+  }
+}
+
  
 onMounted(async () => {
-  console.log('🟢 Settlement List Page MOUNTED')
-  const currentRoute = useRoute()
-  console.log('📍 Mounted - Current route name:', currentRoute.name)
-  console.log('📍 Mounted - Current route path:', currentRoute.path)
-  console.log('📍 Mounted - Document referrer:', document.referrer)
-  console.log('📍 Mounted - Window location:', window.location.href)
-  console.log('📍 Mounted - Previous route name:', previousRouteName.value)
-  console.log('📍 Mounted - Route query:', currentRoute.query)
-  
-  window.addEventListener('resize', updatePageSize);
+  window.addEventListener('resize', updatePageSize)
   window.addEventListener('resize', () => {
     windowWidth.value = window.innerWidth
-  });
-  updatePageSize();
-  await getUserRoles(); // Initialize role-based filters first
-  
+  })
+  updatePageSize()
+  await getUserRoles()
+
   // Ensure non-national/non-admin users always see Approved segment
   if (!isNationalStaff.value && !isSuperAdmin.value && !isCountyAdmin.value) {
     activeSegment.value = 'Approved'
   }
-  
+
   // For county staff, sync value4 with selectedCounty immediately after getUserRoles
-  // This prevents the flash where value4 might be empty or different
   if (isCountyStaff.value && selectedCounty.value.length > 0) {
     value4.value = selectedCounty.value
   }
-  
-  await loadFiltersFromStorage(); // Restore filters (will merge with role filters)
-  
+
+  loadFiltersFromStorage()
+
   // After loading from storage, ensure county staff value4 is still synced
-  // This prevents flash if loadFiltersFromStorage somehow changed it
   if (isCountyStaff.value && selectedCounty.value.length > 0) {
     value4.value = selectedCounty.value
   }
-  
-  await getCounts(); // Wait for counts to be calculated with role filters
-  getSettlmentHistory();
 
-  // Check if any filters were restored from storage
+  await getCounts()
+  getSettlmentHistory()
+
+  const hasSavedSearch = !!search_string.value
   const hasRestoredFilters =
     selectedCounty.value.length > 0 ||
     selectedSubCounty.value.length > 0 ||
     selectedWard.value.length > 0 ||
-    search_string.value ||
-    filters.value.length > 0;
+    filters.value.length > 0
 
-  // Apply restored filters if they exist
-  if (hasRestoredFilters) {
-    if (selectedCounty.value.length > 0) {
-      await getSubCountyNames();
-      if (selectedSubCounty.value.length > 0) {
-        await getWardNames();
-      }
+  if (selectedCounty.value.length > 0) {
+    await getSubCountyNames()
+    if (selectedSubCounty.value.length > 0) {
+      await getWardNames()
     }
+  }
 
-
-    if (search_string.value) {
-    await getFilteredBySearchData(activeSegment.value, search_string.value)
-  } else {
+  if (hasSavedSearch) {
+    await searchByNewName(true)
+  } else if (hasRestoredFilters) {
     await getNewOrRejectedSettlements(activeSegment.value)
-  }
-
-    // Fetch data based on restored filters
-  //  await getNewOrRejectedSettlements(activeSegment.value);
   } else {
-    // No filters restored, fetch initial settlements
-    await getAllSetllementsInitially(activeSegment.value);
+    await getAllSetllementsInitially(activeSegment.value)
   }
-  
-  // Check if we're coming from edit page using sessionStorage
-  const navigatingFromEdit = sessionStorage.getItem('navigatingFromEdit') === 'true'
-  const isFromEdit = navigatingFromEdit || 
-                     document.referrer.includes('add') || 
-                     document.referrer.includes('edit') ||
-                     previousRouteName.value === 'AddSettlementNew' ||
-                     previousRouteName.value === 'AddSettlement' ||
-                     previousRouteName.value === 'AddSettlementX' ||
-                     currentRoute.query.from === 'edit'
-  
-  console.log('📍 Is from edit page?', isFromEdit)
-  console.log('📍 Navigating from edit (sessionStorage):', navigatingFromEdit)
-  console.log('📍 Previous route:', previousRouteName.value)
-  console.log('📍 Document referrer:', document.referrer)
-  
-  // Clear the sessionStorage flag
-  if (navigatingFromEdit) {
-    sessionStorage.removeItem('navigatingFromEdit')
-  }
-  
-  // If we came from edit page, ensure filters are reloaded and data refreshed
-  if (isFromEdit) {
-    console.log('🔄 Coming from edit page - Reloading filters and data')
-    await reloadFiltersAndData()
-  }
-});
-
-// Reload filters when component is activated (for keep-alive cached components)
-onActivated(async () => {
-  const currentRoute = useRoute()
-  console.log('🔵 Settlement List Page ACTIVATED')
-  console.log('📍 Current route name:', currentRoute.name)
-  console.log('📍 Current route path:', currentRoute.path)
-  console.log('📍 Current route fullPath:', currentRoute.fullPath)
-  console.log('📍 Route query:', currentRoute.query)
-  console.log('📍 Route params:', currentRoute.params)
-  console.log('📍 Navigation from (history.state):', window.history.state)
-  console.log('📍 Document referrer:', document.referrer)
-  console.log('📍 Window location:', window.location.href)
-  
-  // Simply reload filters from storage and refresh data when landing on the page
-  const savedFilters = localStorage.getItem('settlementFilters')
-  console.log('💾 Saved filters in storage:', savedFilters ? 'EXISTS' : 'NOT FOUND')
-  if (savedFilters) {
-    console.log('💾 Saved filters content:', JSON.parse(savedFilters))
-  }
-  
-  await loadFiltersFromStorage();
-  
-  console.log('✅ Filters loaded - County:', selectedCounty.value, 'SubCounty:', selectedSubCounty.value, 'Ward:', selectedWard.value)
-  console.log('✅ Filters array:', filters.value)
-  console.log('✅ Filter values:', filterValues.value)
-  
-  // Ensure role-based filters are applied
-  pushRoleFilters();
-  
-  // Sync value4 for county staff
-  if (isCountyStaff.value && selectedCounty.value.length > 0) {
-    value4.value = selectedCounty.value
-  }
-  
-  // Check if any filters were restored
-  const hasRestoredFilters =
-    selectedCounty.value.length > 0 ||
-    selectedSubCounty.value.length > 0 ||
-    selectedWard.value.length > 0 ||
-    search_string.value ||
-    filters.value.length > 0;
-
-  // Apply restored filters and refresh data
-  if (hasRestoredFilters) {
-    if (selectedCounty.value.length > 0) {
-      await getSubCountyNames();
-      if (selectedSubCounty.value.length > 0) {
-        await getWardNames();
-      }
-    }
-
-    if (search_string.value) {
-      await getFilteredBySearchData(activeSegment.value, search_string.value)
-    } else {
-      await getNewOrRejectedSettlements(activeSegment.value)
-    }
-  } else {
-    // No filters restored, fetch initial settlements
-    await getAllSetllementsInitially(activeSegment.value);
-  }
-});
+})
 
  
 
 
-const route = useRoute()
 const { push } = useRouter()
 const page = ref(1)
 const loading = ref(true)
-
-// Track previous route name
-const previousRouteName = ref<string | null>(null)
-
-// Watch route changes to track navigation
-watch(() => route.name, (newName, oldName) => {
-  console.log('🔄 Route changed - From:', oldName, 'To:', newName)
-  previousRouteName.value = oldName as string | null
-}, { immediate: true })
-
-// Watch for navigation to List page and reload filters
-watch(() => route.name, async (newName, oldName) => {
-  // If we're navigating TO the List page from edit or other pages
-  if (newName === 'List' && oldName && oldName !== 'List') {
-    console.log('✅ Navigating to List page from:', oldName, '- Reloading filters')
-    await reloadFiltersAndData()
-  }
-}, { immediate: false })
-
-// Function to reload filters and refresh data
-const reloadFiltersAndData = async () => {
-  const savedFilters = localStorage.getItem('settlementFilters')
-  console.log('💾 Saved filters in storage:', savedFilters ? 'EXISTS' : 'NOT FOUND')
-  
-  if (savedFilters) {
-    const filterState = JSON.parse(savedFilters)
-    console.log('💾 Parsed filter state:', filterState)
-    console.log('💾 Before load - County:', selectedCounty.value, 'SubCounty:', selectedSubCounty.value, 'Ward:', selectedWard.value)
-    console.log('💾 Before load - Filters:', filters.value, 'FilterValues:', filterValues.value)
-    
-    // Reset filters to status filters first (based on active segment)
-    if (activeSegment.value == 'Approved') {
-      filters.value = ['isApproved', 'isActive']
-      filterValues.value = [['Approved'], ['true']]
-    } else if (activeSegment.value == 'New') {
-      filters.value = ['isApproved', 'isActive']
-      filterValues.value = [['Pending'], ['true']]
-    } else if (activeSegment.value == 'Rejected') {
-      filters.value = ['isApproved', 'isActive']
-      filterValues.value = [['Rejected'], ['true']]
-    }
-    
-    // Now load filters from storage (will merge with status filters)
-    await loadFiltersFromStorage();
-    pushRoleFilters();
-    
-    console.log('💾 After load - County:', selectedCounty.value, 'SubCounty:', selectedSubCounty.value, 'Ward:', selectedWard.value)
-    console.log('💾 After load - Filters:', filters.value, 'FilterValues:', filterValues.value)
-    
-    // Sync value4 for county staff
-    if (isCountyStaff.value && selectedCounty.value.length > 0) {
-      value4.value = selectedCounty.value
-    }
-    
-    // Check if any filters were restored
-    const hasRestoredFilters =
-      selectedCounty.value.length > 0 ||
-      selectedSubCounty.value.length > 0 ||
-      selectedWard.value.length > 0 ||
-      search_string.value ||
-      (filters.value.length > 2); // More than just status filters
-
-    console.log('💾 Has restored filters?', hasRestoredFilters)
-
-    // Apply restored filters and refresh data
-    if (hasRestoredFilters) {
-      if (selectedCounty.value.length > 0) {
-        await getSubCountyNames();
-        if (selectedSubCounty.value.length > 0) {
-          await getWardNames();
-        }
-      }
-
-      if (search_string.value) {
-        await getFilteredBySearchData(activeSegment.value, search_string.value)
-      } else {
-        await getNewOrRejectedSettlements(activeSegment.value)
-      }
-    } else {
-      // No filters restored, fetch initial settlements
-      await getAllSetllementsInitially(activeSegment.value);
-    }
-  } else {
-    console.log('⚠️ No saved filters found in storage')
-  }
-}
 const currentPage = ref(1)
 const enableSubcounty = ref(false)
 const total = ref(0)
@@ -1560,6 +1357,9 @@ const handleViewOnMap = (data) => {
 const showPagination = ref(true)
 
 const getFilteredBySearchData = async (tab, searchKey) => {
+  // Ensure segment status filters are set before searching
+  applyStatusFilters()
+
   // Apply role-based filters FIRST to ensure county/settlement restrictions are always present
   pushRoleFilters()
   
@@ -1630,21 +1430,24 @@ const getFilteredBySearchData = async (tab, searchKey) => {
 
 const searchLoading = ref(false)
 
-const searchByNewName = async () => {
+const searchByNewName = async (force = false) => {
   const query = search_string.value?.trim()
 
   // If search is cleared (empty), reset to segment data
   if (!query || query.length === 0) {
+    search_string.value = ''
     page.value = 1
     await getAllSetllementsInitially(activeSegment.value)
     saveFiltersToStorage()
     return
   }
 
-  if (query.length < 4) {
+  if (!force && query.length < 4) {
     ElMessage.warning("Please enter at least 4 characters to search.")
     return
   }
+
+  search_string.value = query
 
   if (!filters.value.includes('isActive')) {
     filters.value.push('isActive')

@@ -43,3 +43,6 @@ BEGIN
     RAISE NOTICE '% updated rows: %', fac_table, updated_count;
   END LOOP;
 END $$;
+
+
+-- psql -h localhost -p 5432 -U postgres -d kesmis -f tools/update_facilities__settlement_id.sql
