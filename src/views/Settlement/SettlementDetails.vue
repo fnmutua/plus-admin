@@ -10,7 +10,8 @@ import { useRoute } from 'vue-router'
 import {
   getSettlementListByCounty,
   DeleteRecord,
-  updateOneRecord
+  updateOneRecord,
+  getNeighboringSettlements
 } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
 import { Back, Upload, Search, Edit, More, RefreshLeft, Picture, Download, Loading, Plus } from '@element-plus/icons-vue'
@@ -1800,8 +1801,83 @@ const loadImageAsBase64 = (url: string): Promise<string> => {
 // Google Maps API Key
 const GoogleMapsApiKey = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
 
+// Fetch neighboring settlements for PDF map
+const fetchNeighboringSettlementsForPDF = async (settlementId: string | number | string[], settlementGeom: any): Promise<any[]> => {
+  try {
+    // Calculate bbox from settlement geometry
+    const id = Array.isArray(settlementId) ? settlementId[0] : settlementId
+    
+    if (!settlementGeom) return []
+    
+    const bbox = turf.bbox(settlementGeom)
+    const bboxObj = {
+      minLng: bbox[0],
+      minLat: bbox[1],
+      maxLng: bbox[2],
+      maxLat: bbox[3]
+    }
+    
+    const res = await getNeighboringSettlements({
+      settlementId: id,
+      bbox: bboxObj,
+      expansionFactor: 0.3 // 30% expansion to get nearby settlements
+    })
+    
+    const responseData = res as any
+    const settlements = responseData?.data || responseData?.results || []
+    
+    if (!Array.isArray(settlements)) return []
+    
+    // Filter settlements with valid polygon geometries
+    return settlements.filter((s: any) => 
+      s.geom && (s.geom.type === 'Polygon' || s.geom.type === 'MultiPolygon')
+    )
+  } catch (error) {
+    console.error('Error fetching neighboring settlements for PDF:', error)
+    return []
+  }
+}
+
+// Helper function to extract path coordinates from geometry (for Google Maps Static API)
+const extractPathCoordinates = (geometry: any, maxPoints = 100): string[] => {
+  if (!geometry) return []
+  
+  let geom = geometry
+  if (geometry.type === 'Feature') {
+    geom = geometry.geometry
+  }
+  
+  // Simplify if needed
+  try {
+    const feature = { type: 'Feature', geometry: geom, properties: {} }
+    const simplified = turf.simplify(feature, { tolerance: 0.0002, highQuality: false })
+    geom = simplified.geometry
+  } catch (e) {
+    // Use original if simplification fails
+  }
+  
+  let coords: number[][] = []
+  
+  if (geom.type === 'Polygon') {
+    coords = geom.coordinates[0]
+  } else if (geom.type === 'MultiPolygon') {
+    coords = geom.coordinates[0][0]
+  } else {
+    return []
+  }
+  
+  // Limit number of points to avoid URL length issues
+  if (coords.length > maxPoints) {
+    const step = Math.ceil(coords.length / maxPoints)
+    coords = coords.filter((_: any, i: number) => i % step === 0)
+  }
+  
+  // Convert to lat,lng format for Google Maps
+  return coords.map((coord: number[]) => `${coord[1]},${coord[0]}`)
+}
+
 // Helper function to generate Google Maps Static Image URL with settlement boundary
-const generateStaticMapUrl = (geometry: any, width = 600, height = 400): string | null => {
+const generateStaticMapUrl = (geometry: any, width = 600, height = 400, neighboringSettlements: any[] = []): string | null => {
   if (!geometry) return null;
   
   try {
@@ -1889,33 +1965,57 @@ const generateStaticMapUrl = (geometry: any, width = 600, height = 400): string 
     const strokeColor = '0xFF0000FF'; // Red, fully opaque
     const fillColor = '0xFF000033';   // Red, ~20% opacity
     
-    // Build the URL
-    let url = `https://maps.googleapis.com/maps/api/staticmap?center=${centerLat},${centerLng}&zoom=${zoom}&size=${width}x${height}&scale=2&maptype=roadmap&path=color:${strokeColor}|fillcolor:${fillColor}|weight:2|${pathString}&key=${GoogleMapsApiKey}`;
+    // Build base URL with main settlement
+    let url = `https://maps.googleapis.com/maps/api/staticmap?center=${centerLat},${centerLng}&zoom=${zoom}&size=${width}x${height}&scale=2&maptype=roadmap`;
+    
+    // Add neighboring settlements first (so main settlement draws on top)
+    // Use pink/magenta color with no fill for neighbors (simulates dotted appearance)
+    const neighborStrokeColor = '0xFF6666CC'; // Light red/pink, semi-transparent
+    
+    for (const neighbor of neighboringSettlements.slice(0, 5)) { // Limit to 5 neighbors to avoid URL length issues
+      const neighborCoords = extractPathCoordinates(neighbor.geom, 30); // Fewer points for neighbors
+      if (neighborCoords.length > 0) {
+        const neighborPath = neighborCoords.join('|');
+        url += `&path=color:${neighborStrokeColor}|weight:1|${neighborPath}`;
+      }
+    }
+    
+    // Add main settlement polygon (solid red with fill)
+    url += `&path=color:${strokeColor}|fillcolor:${fillColor}|weight:3|${pathString}`;
+    
+    // Add API key
+    url += `&key=${GoogleMapsApiKey}`;
     
     // Check URL length - Google has ~8KB limit
     if (url.length > 8000) {
-      console.warn('URL too long, simplifying geometry further...');
-      // Try more aggressive simplification
-      try {
-        const feature = { type: 'Feature', geometry: geom, properties: {} };
-        const moreSimplified = turf.simplify(feature, { tolerance: 0.001, highQuality: false });
-        const simplerGeom = moreSimplified.geometry;
-        
-        let simplerPathCoords: string[] = [];
-        if (simplerGeom.type === 'Polygon') {
-          const ring = simplerGeom.coordinates[0];
-          simplerPathCoords = ring.map((coord: number[]) => `${coord[1]},${coord[0]}`);
-        } else if (simplerGeom.type === 'MultiPolygon') {
-          const ring = simplerGeom.coordinates[0][0];
-          simplerPathCoords = ring.map((coord: number[]) => `${coord[1]},${coord[0]}`);
+      console.warn('URL too long, removing neighbors and simplifying...');
+      
+      // Try without neighbors first
+      url = `https://maps.googleapis.com/maps/api/staticmap?center=${centerLat},${centerLng}&zoom=${zoom}&size=${width}x${height}&scale=2&maptype=roadmap&path=color:${strokeColor}|fillcolor:${fillColor}|weight:2|${pathString}&key=${GoogleMapsApiKey}`;
+      
+      // If still too long, simplify main settlement
+      if (url.length > 8000) {
+        try {
+          const feature = { type: 'Feature', geometry: geom, properties: {} };
+          const moreSimplified = turf.simplify(feature, { tolerance: 0.001, highQuality: false });
+          const simplerGeom = moreSimplified.geometry;
+          
+          let simplerPathCoords: string[] = [];
+          if (simplerGeom.type === 'Polygon') {
+            const ring = simplerGeom.coordinates[0];
+            simplerPathCoords = ring.map((coord: number[]) => `${coord[1]},${coord[0]}`);
+          } else if (simplerGeom.type === 'MultiPolygon') {
+            const ring = simplerGeom.coordinates[0][0];
+            simplerPathCoords = ring.map((coord: number[]) => `${coord[1]},${coord[0]}`);
+          }
+          
+          if (simplerPathCoords.length > 0) {
+            pathString = simplerPathCoords.join('|');
+            url = `https://maps.googleapis.com/maps/api/staticmap?center=${centerLat},${centerLng}&zoom=${zoom}&size=${width}x${height}&scale=2&maptype=roadmap&path=color:${strokeColor}|fillcolor:${fillColor}|weight:2|${pathString}&key=${GoogleMapsApiKey}`;
+          }
+        } catch (e) {
+          console.warn('Aggressive simplification failed:', e);
         }
-        
-        if (simplerPathCoords.length > 0) {
-          pathString = simplerPathCoords.join('|');
-          url = `https://maps.googleapis.com/maps/api/staticmap?center=${centerLat},${centerLng}&zoom=${zoom}&size=${width}x${height}&scale=2&maptype=roadmap&path=color:${strokeColor}|fillcolor:${fillColor}|weight:2|${pathString}&key=${GoogleMapsApiKey}`;
-        }
-      } catch (e) {
-        console.warn('Aggressive simplification failed:', e);
       }
       
       // If still too long, fall back to no polygon
@@ -1933,8 +2033,8 @@ const generateStaticMapUrl = (geometry: any, width = 600, height = 400): string 
 }
 
 // Helper function to fetch map image as base64
-const fetchMapAsBase64 = async (geometry: any): Promise<string | null> => {
-  const mapUrl = generateStaticMapUrl(geometry, 580, 400);
+const fetchMapAsBase64 = async (geometry: any, neighboringSettlements: any[] = []): Promise<string | null> => {
+  const mapUrl = generateStaticMapUrl(geometry, 580, 400, neighboringSettlements);
   if (!mapUrl) return null;
   
   try {
@@ -2197,9 +2297,14 @@ const generatePDFReport = async () => {
       const page2Width = doc.internal.pageSize.getWidth()
       doc.line(10, page2StartY + 25, page2Width - 10, page2StartY + 25)
       
-      // Try to fetch and add the map
+      // Try to fetch and add the map with neighboring settlements
       try {
-        const mapBase64 = await fetchMapAsBase64(settGeom.value)
+        // Fetch neighboring settlements for the map
+        ElMessage.info('Fetching neighboring settlements...')
+        const neighbors = await fetchNeighboringSettlementsForPDF(route.params.id, settGeom.value)
+        console.log(`Found ${neighbors.length} neighboring settlements for PDF map`)
+        
+        const mapBase64 = await fetchMapAsBase64(settGeom.value, neighbors)
         
         if (mapBase64) {
           // Map dimensions and positioning
@@ -2216,10 +2321,66 @@ const generatePDFReport = async () => {
           // Add the map image
           doc.addImage(mapBase64, 'PNG', mapX, mapY, mapWidth, mapHeight)
           
+          // Add labels for neighboring settlements on the map
+          if (neighbors.length > 0) {
+            // Calculate map projection parameters
+            const centroid = turf.centroid(settGeom.value)
+            const mapCenterLng = centroid.geometry.coordinates[0]
+            const mapCenterLat = centroid.geometry.coordinates[1]
+            
+            // Calculate zoom from bbox
+            const bbox = turf.bbox(settGeom.value)
+            const bboxWidth = Math.abs(bbox[2] - bbox[0])
+            const bboxHeight = Math.abs(bbox[3] - bbox[1])
+            const maxDim = Math.max(bboxWidth, bboxHeight)
+            
+            let mapZoom = 15
+            if (maxDim > 0.5) mapZoom = 9
+            else if (maxDim > 0.2) mapZoom = 10
+            else if (maxDim > 0.1) mapZoom = 11
+            else if (maxDim > 0.05) mapZoom = 12
+            else if (maxDim > 0.02) mapZoom = 13
+            else if (maxDim > 0.01) mapZoom = 14
+            else if (maxDim > 0.005) mapZoom = 15
+            else mapZoom = 16
+            
+            // Function to convert lat/lng to pixel position on the map image
+            const latLngToPixel = (lat: number, lng: number) => {
+              // Mercator projection constants
+              const TILE_SIZE = 256
+              const scale = Math.pow(2, mapZoom)
+              
+              // Convert to world coordinates
+              const worldX = ((lng + 180) / 360) * TILE_SIZE
+              const siny = Math.sin((lat * Math.PI) / 180)
+              const worldY = ((0.5 - Math.log((1 + siny) / (1 - siny)) / (4 * Math.PI)) * TILE_SIZE)
+              
+              // Convert center to world coordinates
+              const centerWorldX = ((mapCenterLng + 180) / 360) * TILE_SIZE
+              const centerSiny = Math.sin((mapCenterLat * Math.PI) / 180)
+              const centerWorldY = ((0.5 - Math.log((1 + centerSiny) / (1 - centerSiny)) / (4 * Math.PI)) * TILE_SIZE)
+              
+              // Calculate pixel offset from center (map image is 580x400 pixels, scaled 2x = 1160x800)
+              const pixelX = (worldX - centerWorldX) * scale
+              const pixelY = (worldY - centerWorldY) * scale
+              
+              // Convert to PDF coordinates (map image dimensions in mm)
+              // The static map is 580x400 @2x scale = effective 1160x800 pixels displayed as 180x125mm
+              const pdfX = mapX + (mapWidth / 2) + (pixelX / 1160) * mapWidth
+              const pdfY = mapY + (mapHeight / 2) + (pixelY / 800) * mapHeight
+              
+              return { x: pdfX, y: pdfY }
+            }
+            
+          }
+          
           // Map caption
           doc.setFontSize(10)
           doc.setTextColor(100)
-          doc.text('Settlement Boundary (shown in red)', 105, mapY + mapHeight + 8, { align: 'center' })
+          const captionText = neighbors.length > 0 
+            ? 'Settlement Boundary (red) with neighboring settlements'
+            : 'Settlement Boundary (shown in red)'
+          doc.text(captionText, 105, mapY + mapHeight + 8, { align: 'center' })
           
           // Location details below map
           const detailsY = mapY + mapHeight + 20
