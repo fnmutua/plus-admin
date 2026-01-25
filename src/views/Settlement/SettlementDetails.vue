@@ -997,6 +997,9 @@ const downloadLoading = ref(false)
 // Map loading state
 const mapLoading = ref(true)
 
+// PDF generation loading state
+const pdfLoading = ref(false)
+
 // Group documents by `document_type.type` (excluding photos)
 const groupedDocuments = computed(() => {
   const nonPhotoDocs = settlementDocuments.value.filter(doc => {
@@ -2062,9 +2065,9 @@ const fetchMapAsBase64 = async (geometry: any, neighboringSettlements: any[] = [
 }
 
 const generatePDFReport = async () => {
+  pdfLoading.value = true
   try {
     // Fetch facilities summary and projects first
-    ElMessage.info('Generating PDF report...')
     await Promise.all([
       fetchFacilitiesSummary(route.params.id),
       fetchSettlementProjects(route.params.id)
@@ -2378,7 +2381,7 @@ const generatePDFReport = async () => {
           doc.setFontSize(10)
           doc.setTextColor(100)
           const captionText = neighbors.length > 0 
-            ? 'Settlement Boundary (red) with neighboring settlements'
+            ? 'Settlement Boundary (red) with neighboring settlements (outline)'
             : 'Settlement Boundary (shown in red)'
           doc.text(captionText, 105, mapY + mapHeight + 8, { align: 'center' })
           
@@ -2462,6 +2465,8 @@ const generatePDFReport = async () => {
   } catch (error) {
     console.error('Error generating PDF:', error)
     ElMessage.error('Failed to generate PDF report: ' + error)
+  } finally {
+    pdfLoading.value = false
   }
 }
 
@@ -2600,9 +2605,12 @@ const updateDocumentCategory = async () => {
       <el-tab-pane label="Profile" name="profile">
         <!-- Location Section -->
         <div class="flex justify-end mb-4">
-          <el-button type="primary" @click="generatePDFReport">
-            <Icon icon="material-symbols:download" style="margin-right: 5px;" />
-            Download Facts
+          <el-button type="primary" @click="generatePDFReport" :loading="pdfLoading" :disabled="pdfLoading">
+            <template #loading>
+              <el-icon class="is-loading" style="margin-right: 5px;"><Loading /></el-icon>
+            </template>
+            <Icon v-if="!pdfLoading" icon="material-symbols:download" style="margin-right: 5px;" />
+            {{ pdfLoading ? 'Generating...' : 'Download Facts' }}
           </el-button>
         </div>
         <div :class="[prefixCls, 'bg-[var(--el-color-white)] dark:(bg-[var(--el-bg-color)] border-[var(--el-border-color)] border-1px)']">
