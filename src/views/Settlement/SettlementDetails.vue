@@ -1797,7 +1797,10 @@ const loadImageAsBase64 = (url: string): Promise<string> => {
   })
 }
 
-// Helper function to generate Mapbox Static Image URL with settlement boundary
+// Google Maps API Key
+const GoogleMapsApiKey = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
+
+// Helper function to generate Google Maps Static Image URL with settlement boundary
 const generateStaticMapUrl = (geometry: any, width = 600, height = 400): string | null => {
   if (!geometry) return null;
   
@@ -1812,7 +1815,7 @@ const generateStaticMapUrl = (geometry: any, width = 600, height = 400): string 
     
     if (!geom) return null;
     
-    // Simplify geometry if it has too many points (Mapbox URL limit ~8KB)
+    // Simplify geometry if it has too many points (Google has URL limit ~8KB)
     let simplifiedGeom = geom;
     try {
       const feature = { type: 'Feature', geometry: geom, properties: {} };
@@ -1823,25 +1826,14 @@ const generateStaticMapUrl = (geometry: any, width = 600, height = 400): string 
       console.warn('Could not simplify geometry:', e);
     }
     
-    // Create the GeoJSON Feature with styling properties
-    const geoJsonFeature = {
-      type: 'Feature',
-      geometry: simplifiedGeom,
-      properties: {
-        'stroke': '#ff0000',
-        'stroke-width': 3,
-        'stroke-opacity': 1,
-        'fill': '#ff0000',
-        'fill-opacity': 0.2
-      }
-    };
-    
-    // Calculate center and zoom from geometry
-    const centroid = turf.centroid(geoJsonFeature);
-    const bbox = turf.bbox(geoJsonFeature);
-    const center = centroid.geometry.coordinates;
+    // Calculate center from geometry
+    const centroidFeature = turf.centroid({ type: 'Feature', geometry: simplifiedGeom, properties: {} });
+    const center = centroidFeature.geometry.coordinates;
+    const centerLat = center[1];
+    const centerLng = center[0];
     
     // Calculate zoom level based on bounding box size
+    const bbox = turf.bbox({ type: 'Feature', geometry: simplifiedGeom, properties: {} });
     const bboxWidth = Math.abs(bbox[2] - bbox[0]);
     const bboxHeight = Math.abs(bbox[3] - bbox[1]);
     const maxDim = Math.max(bboxWidth, bboxHeight);
@@ -1856,49 +1848,83 @@ const generateStaticMapUrl = (geometry: any, width = 600, height = 400): string 
     else if (maxDim > 0.005) zoom = 15;
     else zoom = 16;
     
-    // Encode the GeoJSON - need to double-encode for the URL
-    const geoJsonString = JSON.stringify(geoJsonFeature);
-    const encodedGeoJson = encodeURIComponent(geoJsonString);
+    // Extract coordinates and convert to Google Maps path format
+    // Google uses lat,lng order (opposite of GeoJSON which is lng,lat)
+    let pathCoords: string[] = [];
     
-    // Check URL length - Mapbox has ~8KB limit
-    if (encodedGeoJson.length > 7000) {
-      console.warn('GeoJSON too large, simplifying further...');
+    if (simplifiedGeom.type === 'Polygon') {
+      // Get the outer ring (first ring)
+      const ring = simplifiedGeom.coordinates[0];
+      pathCoords = ring.map((coord: number[]) => `${coord[1]},${coord[0]}`);
+    } else if (simplifiedGeom.type === 'MultiPolygon') {
+      // Get the first polygon's outer ring
+      const ring = simplifiedGeom.coordinates[0][0];
+      pathCoords = ring.map((coord: number[]) => `${coord[1]},${coord[0]}`);
+    } else if (simplifiedGeom.type === 'Point') {
+      // For points, just show the location with a marker
+      const url = `https://maps.googleapis.com/maps/api/staticmap?center=${centerLat},${centerLng}&zoom=${zoom}&size=${width}x${height}&scale=2&maptype=roadmap&markers=color:red|${centerLat},${centerLng}&key=${GoogleMapsApiKey}`;
+      return url;
+    } else if (simplifiedGeom.type === 'LineString') {
+      // For lines, draw the path
+      const coords = simplifiedGeom.coordinates;
+      pathCoords = coords.map((coord: number[]) => `${coord[1]},${coord[0]}`);
+      const pathString = pathCoords.join('|');
+      const url = `https://maps.googleapis.com/maps/api/staticmap?center=${centerLat},${centerLng}&zoom=${zoom}&size=${width}x${height}&scale=2&maptype=roadmap&path=color:0xFF0000FF|weight:3|${pathString}&key=${GoogleMapsApiKey}`;
+      return url;
+    }
+    
+    // Check if we have valid path coordinates
+    if (pathCoords.length === 0) {
+      // Fallback: just show the location without polygon
+      const url = `https://maps.googleapis.com/maps/api/staticmap?center=${centerLat},${centerLng}&zoom=${zoom}&size=${width}x${height}&scale=2&maptype=roadmap&key=${GoogleMapsApiKey}`;
+      return url;
+    }
+    
+    // Build the path string for Google Maps (pipe-separated)
+    let pathString = pathCoords.join('|');
+    
+    // Google Maps Static API path format:
+    // path=color:0xRRGGBBAA|fillcolor:0xRRGGBBAA|weight:N|point1|point2|...
+    // Color format: 0xRRGGBBAA (red, green, blue, alpha)
+    const strokeColor = '0xFF0000FF'; // Red, fully opaque
+    const fillColor = '0xFF000033';   // Red, ~20% opacity
+    
+    // Build the URL
+    let url = `https://maps.googleapis.com/maps/api/staticmap?center=${centerLat},${centerLng}&zoom=${zoom}&size=${width}x${height}&scale=2&maptype=roadmap&path=color:${strokeColor}|fillcolor:${fillColor}|weight:2|${pathString}&key=${GoogleMapsApiKey}`;
+    
+    // Check URL length - Google has ~8KB limit
+    if (url.length > 8000) {
+      console.warn('URL too long, simplifying geometry further...');
       // Try more aggressive simplification
       try {
         const feature = { type: 'Feature', geometry: geom, properties: {} };
         const moreSimplified = turf.simplify(feature, { tolerance: 0.001, highQuality: false });
-        const simpleGeoJsonFeature = {
-          type: 'Feature',
-          geometry: moreSimplified.geometry,
-          properties: {
-            'stroke': '#ff0000',
-            'stroke-width': 3,
-            'stroke-opacity': 1,
-            'fill': '#ff0000',
-            'fill-opacity': 0.2
-          }
-        };
-        const simpleGeoJsonString = JSON.stringify(simpleGeoJsonFeature);
-        const simpleEncodedGeoJson = encodeURIComponent(simpleGeoJsonString);
+        const simplerGeom = moreSimplified.geometry;
         
-        if (simpleEncodedGeoJson.length < 7000) {
-          // Use explicit center and zoom with overlay
-          const url = `https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/geojson(${simpleEncodedGeoJson})/${center[0]},${center[1]},${zoom},0/${width}x${height}@2x?access_token=${MapBoxToken}`;
-          return url;
+        let simplerPathCoords: string[] = [];
+        if (simplerGeom.type === 'Polygon') {
+          const ring = simplerGeom.coordinates[0];
+          simplerPathCoords = ring.map((coord: number[]) => `${coord[1]},${coord[0]}`);
+        } else if (simplerGeom.type === 'MultiPolygon') {
+          const ring = simplerGeom.coordinates[0][0];
+          simplerPathCoords = ring.map((coord: number[]) => `${coord[1]},${coord[0]}`);
+        }
+        
+        if (simplerPathCoords.length > 0) {
+          pathString = simplerPathCoords.join('|');
+          url = `https://maps.googleapis.com/maps/api/staticmap?center=${centerLat},${centerLng}&zoom=${zoom}&size=${width}x${height}&scale=2&maptype=roadmap&path=color:${strokeColor}|fillcolor:${fillColor}|weight:2|${pathString}&key=${GoogleMapsApiKey}`;
         }
       } catch (e) {
         console.warn('Aggressive simplification failed:', e);
       }
       
-      // Fallback: just show the location without boundary overlay
-      const url = `https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/${center[0]},${center[1]},${zoom},0/${width}x${height}@2x?access_token=${MapBoxToken}`;
-      return url;
+      // If still too long, fall back to no polygon
+      if (url.length > 8000) {
+        url = `https://maps.googleapis.com/maps/api/staticmap?center=${centerLat},${centerLng}&zoom=${zoom}&size=${width}x${height}&scale=2&maptype=roadmap&markers=color:red|${centerLat},${centerLng}&key=${GoogleMapsApiKey}`;
+      }
     }
     
-    // Build URL with explicit center and zoom (more reliable than auto)
-    const url = `https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/geojson(${encodedGeoJson})/${center[0]},${center[1]},${zoom},0/${width}x${height}@2x?access_token=${MapBoxToken}`;
-    
-    console.log('Static map URL length:', url.length);
+    console.log('Google Static Map URL length:', url.length);
     return url;
   } catch (error) {
     console.error('Error generating static map URL:', error);
