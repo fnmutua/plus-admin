@@ -1797,6 +1797,144 @@ const loadImageAsBase64 = (url: string): Promise<string> => {
   })
 }
 
+// Helper function to generate Mapbox Static Image URL with settlement boundary
+const generateStaticMapUrl = (geometry: any, width = 600, height = 400): string | null => {
+  if (!geometry) return null;
+  
+  try {
+    // Handle both raw geometry and GeoJSON Feature
+    let geom = geometry;
+    if (geometry.type === 'Feature') {
+      geom = geometry.geometry;
+    } else if (geometry.type === 'FeatureCollection') {
+      geom = geometry.features[0]?.geometry;
+    }
+    
+    if (!geom) return null;
+    
+    // Simplify geometry if it has too many points (Mapbox URL limit ~8KB)
+    let simplifiedGeom = geom;
+    try {
+      const feature = { type: 'Feature', geometry: geom, properties: {} };
+      // Simplify with tolerance of 0.0001 degrees (~10m)
+      const simplified = turf.simplify(feature, { tolerance: 0.0001, highQuality: true });
+      simplifiedGeom = simplified.geometry;
+    } catch (e) {
+      console.warn('Could not simplify geometry:', e);
+    }
+    
+    // Create the GeoJSON Feature with styling properties
+    const geoJsonFeature = {
+      type: 'Feature',
+      geometry: simplifiedGeom,
+      properties: {
+        'stroke': '#ff0000',
+        'stroke-width': 3,
+        'stroke-opacity': 1,
+        'fill': '#ff0000',
+        'fill-opacity': 0.2
+      }
+    };
+    
+    // Calculate center and zoom from geometry
+    const centroid = turf.centroid(geoJsonFeature);
+    const bbox = turf.bbox(geoJsonFeature);
+    const center = centroid.geometry.coordinates;
+    
+    // Calculate zoom level based on bounding box size
+    const bboxWidth = Math.abs(bbox[2] - bbox[0]);
+    const bboxHeight = Math.abs(bbox[3] - bbox[1]);
+    const maxDim = Math.max(bboxWidth, bboxHeight);
+    
+    let zoom = 15;
+    if (maxDim > 0.5) zoom = 9;
+    else if (maxDim > 0.2) zoom = 10;
+    else if (maxDim > 0.1) zoom = 11;
+    else if (maxDim > 0.05) zoom = 12;
+    else if (maxDim > 0.02) zoom = 13;
+    else if (maxDim > 0.01) zoom = 14;
+    else if (maxDim > 0.005) zoom = 15;
+    else zoom = 16;
+    
+    // Encode the GeoJSON - need to double-encode for the URL
+    const geoJsonString = JSON.stringify(geoJsonFeature);
+    const encodedGeoJson = encodeURIComponent(geoJsonString);
+    
+    // Check URL length - Mapbox has ~8KB limit
+    if (encodedGeoJson.length > 7000) {
+      console.warn('GeoJSON too large, simplifying further...');
+      // Try more aggressive simplification
+      try {
+        const feature = { type: 'Feature', geometry: geom, properties: {} };
+        const moreSimplified = turf.simplify(feature, { tolerance: 0.001, highQuality: false });
+        const simpleGeoJsonFeature = {
+          type: 'Feature',
+          geometry: moreSimplified.geometry,
+          properties: {
+            'stroke': '#ff0000',
+            'stroke-width': 3,
+            'stroke-opacity': 1,
+            'fill': '#ff0000',
+            'fill-opacity': 0.2
+          }
+        };
+        const simpleGeoJsonString = JSON.stringify(simpleGeoJsonFeature);
+        const simpleEncodedGeoJson = encodeURIComponent(simpleGeoJsonString);
+        
+        if (simpleEncodedGeoJson.length < 7000) {
+          // Use explicit center and zoom with overlay
+          const url = `https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/geojson(${simpleEncodedGeoJson})/${center[0]},${center[1]},${zoom},0/${width}x${height}@2x?access_token=${MapBoxToken}`;
+          return url;
+        }
+      } catch (e) {
+        console.warn('Aggressive simplification failed:', e);
+      }
+      
+      // Fallback: just show the location without boundary overlay
+      const url = `https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/${center[0]},${center[1]},${zoom},0/${width}x${height}@2x?access_token=${MapBoxToken}`;
+      return url;
+    }
+    
+    // Build URL with explicit center and zoom (more reliable than auto)
+    const url = `https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/geojson(${encodedGeoJson})/${center[0]},${center[1]},${zoom},0/${width}x${height}@2x?access_token=${MapBoxToken}`;
+    
+    console.log('Static map URL length:', url.length);
+    return url;
+  } catch (error) {
+    console.error('Error generating static map URL:', error);
+    return null;
+  }
+}
+
+// Helper function to fetch map image as base64
+const fetchMapAsBase64 = async (geometry: any): Promise<string | null> => {
+  const mapUrl = generateStaticMapUrl(geometry, 580, 400);
+  if (!mapUrl) return null;
+  
+  try {
+    // Fetch the image
+    const response = await fetch(mapUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch map: ${response.status}`);
+    }
+    
+    const blob = await response.blob();
+    
+    // Convert blob to base64
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        resolve(reader.result as string);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    console.error('Error fetching map image:', error);
+    return null;
+  }
+}
+
 const generatePDFReport = async () => {
   try {
     // Fetch facilities summary and projects first
@@ -1994,12 +2132,145 @@ const generatePDFReport = async () => {
       })
     }
 
-    // Add footer
+    // Add footer on page 1
     doc.setFontSize(8)
     doc.setTextColor(100)
     doc.text('source: www.kesmis.go.ke', 105, 280, { align: 'center' })
 
+    // ============ PAGE 2: Settlement Location Map ============
+    if (settGeom.value) {
+      ElMessage.info('Adding map to PDF...')
+      
+      // Add new page
+      doc.addPage()
+      
+      // Add logo to page 2 as well
+      if (logoBase64) {
+        const logoWidth = 30
+        const logoHeight = (logoWidth * 0.75)
+        const pageWidth = doc.internal.pageSize.getWidth()
+        const logoX = (pageWidth - logoWidth) / 2
+        doc.addImage(logoBase64, 'PNG', logoX, 5, logoWidth, logoHeight)
+      }
+      
+      const page2StartY = logoBase64 ? 33 : 10
+      
+      // Page 2 Title
+      doc.setFontSize(18)
+      doc.setTextColor(41, 128, 185)
+      doc.text('Settlement Location', 105, page2StartY, { align: 'center' })
+      
+      // Settlement name subtitle
+      doc.setFontSize(12)
+      doc.setTextColor(0)
+      doc.text(`${profile.name} Settlement`, 105, page2StartY + 10, { align: 'center' })
+      doc.text(`${profile.subcounty} Subcounty, ${profile.county} County`, 105, page2StartY + 17, { align: 'center' })
+      
+      // Separator line
+      doc.setDrawColor(41, 128, 185)
+      const page2Width = doc.internal.pageSize.getWidth()
+      doc.line(10, page2StartY + 25, page2Width - 10, page2StartY + 25)
+      
+      // Try to fetch and add the map
+      try {
+        const mapBase64 = await fetchMapAsBase64(settGeom.value)
+        
+        if (mapBase64) {
+          // Map dimensions and positioning
+          const mapWidth = 180 // mm
+          const mapHeight = 125 // mm (maintaining ~1.44 aspect ratio)
+          const mapX = (page2Width - mapWidth) / 2
+          const mapY = page2StartY + 35
+          
+          // Add border around map
+          doc.setDrawColor(200, 200, 200)
+          doc.setLineWidth(0.5)
+          doc.rect(mapX - 1, mapY - 1, mapWidth + 2, mapHeight + 2)
+          
+          // Add the map image
+          doc.addImage(mapBase64, 'PNG', mapX, mapY, mapWidth, mapHeight)
+          
+          // Map caption
+          doc.setFontSize(10)
+          doc.setTextColor(100)
+          doc.text('Settlement Boundary (shown in red)', 105, mapY + mapHeight + 8, { align: 'center' })
+          
+          // Location details below map
+          const detailsY = mapY + mapHeight + 20
+          doc.setFontSize(12)
+          doc.setTextColor(41, 128, 185)
+          doc.text('Location Details', 15, detailsY)
+          doc.setTextColor(0)
+          
+          // Calculate centroid for coordinates display
+          const centroid = turf.centroid(settGeom.value)
+          const coords = centroid.geometry.coordinates
+          
+          autoTable(doc, {
+            startY: detailsY + 5,
+            head: [['Property', 'Value']],
+            body: [
+              ['County', profile.county || 'N/A'],
+              ['Sub-County', profile.subcounty || 'N/A'],
+              ['Ward', profile.ward || 'N/A'],
+              ['Area', `${formatNumber(profile.area)} Ha.`],
+              ['Coordinates', `${coords[1].toFixed(6)}°N, ${coords[0].toFixed(6)}°E`]
+            ],
+            theme: 'grid',
+            headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+            styles: { fontSize: 10 },
+            margin: { left: 10, right: 10 },
+            tableWidth: 'auto'
+          })
+        } else {
+          // Map could not be loaded - show placeholder message
+          doc.setFontSize(12)
+          doc.setTextColor(150)
+          doc.text('Map could not be loaded. The settlement geometry may be too complex for static rendering.', 105, page2StartY + 60, { align: 'center', maxWidth: 170 })
+          
+          // Still show location details
+          const detailsY = page2StartY + 90
+          doc.setFontSize(12)
+          doc.setTextColor(41, 128, 185)
+          doc.text('Location Details', 15, detailsY)
+          doc.setTextColor(0)
+          
+          const centroid = turf.centroid(settGeom.value)
+          const coords = centroid.geometry.coordinates
+          
+          autoTable(doc, {
+            startY: detailsY + 5,
+            head: [['Property', 'Value']],
+            body: [
+              ['County', profile.county || 'N/A'],
+              ['Sub-County', profile.subcounty || 'N/A'],
+              ['Ward', profile.ward || 'N/A'],
+              ['Area', `${formatNumber(profile.area)} Ha.`],
+              ['Coordinates', `${coords[1].toFixed(6)}°N, ${coords[0].toFixed(6)}°E`]
+            ],
+            theme: 'grid',
+            headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+            styles: { fontSize: 10 },
+            margin: { left: 10, right: 10 },
+            tableWidth: 'auto'
+          })
+        }
+      } catch (mapError) {
+        console.error('Error adding map to PDF:', mapError)
+        // Show error message on page 2
+        doc.setFontSize(12)
+        doc.setTextColor(150)
+        doc.text('Map could not be generated.', 105, page2StartY + 60, { align: 'center' })
+      }
+      
+      // Add footer on page 2
+      doc.setFontSize(8)
+      doc.setTextColor(100)
+      doc.text('source: www.kesmis.go.ke', 105, 280, { align: 'center' })
+    }
+
     // Save the PDF
+    ElMessage.success('PDF generated successfully!')
     doc.save(`${profile.name}_Settlement_Facts.pdf`)
   } catch (error) {
     console.error('Error generating PDF:', error)
