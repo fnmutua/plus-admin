@@ -583,6 +583,46 @@ module.exports = function (app) {
    */
   app.post('/api/v1/summary/county/counts', [authJwt.verifyToken], controller.countsByCounty)
 
+  // Detailed facility counts for a county (used by mobile app ListPage)
+  /**
+   * @swagger
+   * /api/v1/summary/county/facilities:
+   *   post:
+   *     tags: [Summary]
+   *     summary: Facility counts for a county
+   *     description: Returns counts for all key facilities (settlements, schools, health, water, sewer, power, security, environment, infrastructure, reports) for a given county.
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required: [county_id]
+   *             properties:
+   *               county_id:
+   *                 type: integer
+   *                 example: 47
+   *               cache_key:
+   *                 type: string
+   *                 example: county_facility_counts_47
+   *     responses:
+   *       200:
+   *         description: Facility counts retrieved
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 counts:
+   *                   type: object
+   *                 code:
+   *                   type: string
+   *                   example: '0000'
+   */
+  app.post('/api/v1/summary/county/facilities', [authJwt.verifyToken], controller.countsByCountyFacilities)
+
  
   
 }

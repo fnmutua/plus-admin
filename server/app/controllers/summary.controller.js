@@ -752,6 +752,186 @@ exports.countsByCounty = async (req, res) => {
   }
 };
 
+/**
+ * Return counts for all key facilities per county.
+ * Used by the mobile app ListPage to show totals on landing.
+ *
+ * Body: { county_id: number, cache_key?: string }
+ */
+exports.countsByCountyFacilities = async (req, res) => {
+  try {
+    const countyId = req.body.county_id;
+    if (!countyId && countyId !== 0) {
+      return res.status(400).send({ message: 'county_id is required', code: '4001' });
+    }
+
+    const cacheKey = req.body.cache_key || `county_facility_counts_${countyId}`;
+
+    // Try cache first
+    let cached;
+    try {
+      cached = await redisClient.get(cacheKey);
+    } catch (e) {
+      // ignore cache errors
+    }
+    if (cached) {
+      return res.status(200).send({ fromCache: true, counts: JSON.parse(cached), code: '0000' });
+    }
+
+    // Core settlement & amenities
+    const settlementsPromise = db.models.settlement.count({ where: { county_id: countyId } });
+    const schoolsPromise = db.models.education_facility
+      ? db.models.education_facility.count({ where: { county_id: countyId } })
+      : Promise.resolve(0);
+    const healthFacilitiesPromise = db.models.health_facility
+      ? db.models.health_facility.count({ where: { county_id: countyId } })
+      : Promise.resolve(0);
+
+    // Water & sewer
+    const pipedWaterPromise = db.models.piped_water
+      ? db.models.piped_water.count({ where: { county_id: countyId } })
+      : Promise.resolve(0);
+    const waterPointPromise = db.models.water_point
+      ? db.models.water_point.count({ where: { county_id: countyId } })
+      : Promise.resolve(0);
+    const sewerPromise = db.models.sewer
+      ? db.models.sewer.count({ where: { county_id: countyId } })
+      : Promise.resolve(0);
+
+    // Other amenities
+    const otherFacilityPromise = db.models.other_facility
+      ? db.models.other_facility.count({ where: { county_id: countyId } })
+      : Promise.resolve(0);
+    const communityHallPromise = db.models.community_hall
+      ? db.models.community_hall.count({ where: { county_id: countyId } })
+      : Promise.resolve(0);
+
+    // Electricity & lighting
+    const powerlinePromise = db.models.powerline
+      ? db.models.powerline.count({ where: { county_id: countyId } })
+      : Promise.resolve(0);
+    const floodlightPromise = db.models.floodlight
+      ? db.models.floodlight.count({ where: { county_id: countyId } })
+      : Promise.resolve(0);
+    const mastPromise = db.models.mast
+      ? db.models.mast.count({ where: { county_id: countyId } })
+      : Promise.resolve(0);
+    const streetlightPromise = db.models.streetlight
+      ? db.models.streetlight.count({ where: { county_id: countyId } })
+      : Promise.resolve(0);
+
+    // Security
+    const policePromise = db.models.police
+      ? db.models.police.count({ where: { county_id: countyId } })
+      : Promise.resolve(0);
+    const crimeHotspotPromise = db.models.crime_hotspot
+      ? db.models.crime_hotspot.count({ where: { county_id: countyId } })
+      : Promise.resolve(0);
+    const grievancesPromise = db.models.grievance
+      ? db.models.grievance.count({ where: { county_id: countyId } })
+      : Promise.resolve(0);
+
+    // Environment
+    const hazardZonePromise = db.models.hazard_zone
+      ? db.models.hazard_zone.count({ where: { county_id: countyId } })
+      : Promise.resolve(0);
+    const dumpingSitePromise = db.models.dumping_site
+      ? db.models.dumping_site.count({ where: { county_id: countyId } })
+      : Promise.resolve(0);
+
+    // Infrastructure
+    const roadsPromise = db.models.road
+      ? db.models.road.count({ where: { county_id: countyId } })
+      : Promise.resolve(0);
+    const railwayPromise = db.models.railway
+      ? db.models.railway.count({ where: { county_id: countyId } })
+      : Promise.resolve(0);
+
+    // Monitoring reports (indicator_category_report)
+    const reportsPromise = db.models.indicator_category_report
+      ? db.models.indicator_category_report.count({ where: { county_id: countyId } })
+      : Promise.resolve(0);
+
+    const [
+      settlements,
+      schools,
+      healthFacilities,
+      pipedWater,
+      waterPoints,
+      sewer,
+      otherFacilities,
+      communityHalls,
+      powerlines,
+      floodlights,
+      masts,
+      streetlights,
+      police,
+      crimeHotspots,
+      grievances,
+      hazardZones,
+      dumpingSites,
+      roads,
+      railways,
+      reports,
+    ] = await Promise.all([
+      settlementsPromise,
+      schoolsPromise,
+      healthFacilitiesPromise,
+      pipedWaterPromise,
+      waterPointPromise,
+      sewerPromise,
+      otherFacilityPromise,
+      communityHallPromise,
+      powerlinePromise,
+      floodlightPromise,
+      mastPromise,
+      streetlightPromise,
+      policePromise,
+      crimeHotspotPromise,
+      grievancesPromise,
+      hazardZonePromise,
+      dumpingSitePromise,
+      roadsPromise,
+      railwayPromise,
+      reportsPromise,
+    ]);
+
+    const result = {
+      settlements,
+      schools,
+      health_facilities: healthFacilities,
+      piped_water: pipedWater,
+      water_points: waterPoints,
+      sewer,
+      other_facilities: otherFacilities,
+      community_halls: communityHalls,
+      powerlines,
+      floodlights,
+      masts,
+      streetlights,
+      police,
+      crime_hotspots: crimeHotspots,
+      grievances,
+      hazard_zones: hazardZones,
+      dumping_sites: dumpingSites,
+      roads,
+      railways,
+      reports,
+    };
+
+    try {
+      await redisClient.set(cacheKey, JSON.stringify(result), { EX: 300, NX: true });
+    } catch (e) {
+      // ignore cache set errors
+    }
+
+    return res.status(200).send({ fromCache: false, counts: result, code: '0000' });
+  } catch (error) {
+    console.error('countsByCountyFacilities error', error);
+    return res.status(500).send({ message: 'Failed to get facility counts', code: '5000' });
+  }
+};
+
 exports._sumModelAssociatedMultipleModels = async (req, res) => {
 
   var reg_model = req.body.model;
