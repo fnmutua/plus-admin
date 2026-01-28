@@ -80,7 +80,7 @@ module.exports = (sequelize) => {
     },
   }, {
     tableName: 'railway',
-    timestamps: false,
+    timestamps: true,
    
   });
 
