@@ -2,6 +2,12 @@ const { DataTypes } = require('sequelize');
 
 module.exports = (sequelize) => {
   const Police = sequelize.define('police_station', {
+    id: {
+      autoIncrement: true,
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      primaryKey: true
+    },
     
    
     PC_Name: {

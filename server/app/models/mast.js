@@ -2,6 +2,12 @@ const { DataTypes } = require('sequelize');
 
 module.exports = (sequelize) => {
   const Mast = sequelize.define('mast', {
+    id: {
+      autoIncrement: true,
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      primaryKey: true
+    },
     
     TC_Name: {
       type: DataTypes.STRING,

@@ -2,7 +2,12 @@ const { DataTypes } = require('sequelize');
 
 module.exports = (sequelize) => {
   const Streetlight = sequelize.define('streetlight', {
-    
+    id: {
+      autoIncrement: true,
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      primaryKey: true
+    },
 
     road_name: {
       type: DataTypes.STRING,
