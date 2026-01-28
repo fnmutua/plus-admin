@@ -13,11 +13,11 @@ import { Position, Plus, Delete, Edit, Filter, InfoFilled, CopyDocument, Clock, 
 import { ArrowLeft, ArrowRight, UploadFilled, Postcard, TopRight, Lock, Guide, TakeawayBox } from '@element-plus/icons-vue'
 import { ref, reactive, computed, nextTick, watch } from 'vue'
 import { ElPagination, ElTooltip, ElOption } from 'element-plus'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { DeleteRecord, updateOneRecord, revertHistory, deleteDocument, revertMerge } from '@/api/settlements'
 import { useAppStore } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
-import { defineAsyncComponent, onMounted } from 'vue';
+import { defineAsyncComponent, onMounted, onActivated } from 'vue';
 import xlsx from "json-as-xlsx"
 import { searchByKeyWord } from '@/api/settlements'
 import readShapefileAndConvertToGeoJSON from '@/utils/readShapefile'
@@ -83,13 +83,9 @@ const loadFiltersFromStorage = () => {
   if (savedFilters) {
     const filterState = JSON.parse(savedFilters)
 
-    // Restore county only for non-county staff; county staff stay locked to role county
-    if (!isCountyStaff.value) {
-      selectedCounty.value = filterState.selectedCounty || []
-      value4.value = filterState.value4 || []
-    } else if (selectedCounty.value.length > 0) {
-      value4.value = selectedCounty.value
-    }
+    // Always restore county from saved filters (role-based restrictions are already enforced in getUserRoles)
+    selectedCounty.value = filterState.selectedCounty || []
+    value4.value = filterState.value4 || []
 
     selectedSubCounty.value = filterState.selectedSubCounty || []
     selectedWard.value = filterState.selectedWard || []
@@ -99,7 +95,16 @@ const loadFiltersFromStorage = () => {
     value5.value = filterState.value5 || []
     value6.value = filterState.value6 || []
   } else if (isCountyStaff.value && selectedCounty.value.length > 0) {
+    // No saved filters; for county staff ensure UI reflects their role county
     value4.value = selectedCounty.value
+  }
+
+  // Normalize to arrays so .length checks work even if a primitive id was stored
+  if (selectedCounty.value && !Array.isArray(selectedCounty.value)) {
+    selectedCounty.value = [selectedCounty.value]
+  }
+  if (value4.value && !Array.isArray(value4.value)) {
+    value4.value = [value4.value]
   }
 }
 
@@ -602,6 +607,42 @@ const applyStatusFilters = () => {
 }
 
  
+const loadDataWithCurrentFilters = async () => {
+  // If a county_id is present in the route query (e.g. coming back from AddSettlementNew),
+  // use it to restore the county filter and persist it.
+  const queryCounty = route.query.county_id
+  if (queryCounty && !isCountyStaff.value) {
+    const countyId = Array.isArray(queryCounty) ? queryCounty[0] : queryCounty
+    if (countyId) {
+      selectedCounty.value = [countyId]
+      value4.value = [countyId]
+      saveFiltersToStorage()
+    }
+  }
+
+  const hasSavedSearch = !!search_string.value
+  const hasRestoredFilters =
+    selectedCounty.value.length > 0 ||
+    selectedSubCounty.value.length > 0 ||
+    selectedWard.value.length > 0 ||
+    filters.value.length > 0
+
+  if (selectedCounty.value.length > 0) {
+    await getSubCountyNames()
+    if (selectedSubCounty.value.length > 0) {
+      await getWardNames()
+    }
+  }
+
+  if (hasSavedSearch) {
+    await searchByNewName(true)
+  } else if (hasRestoredFilters) {
+    await getNewOrRejectedSettlements(activeSegment.value)
+  } else {
+    await getAllSetllementsInitially(activeSegment.value)
+  }
+}
+
 onMounted(async () => {
   window.addEventListener('resize', updatePageSize)
   window.addEventListener('resize', () => {
@@ -629,34 +670,27 @@ onMounted(async () => {
 
   await getCounts()
   getSettlmentHistory()
+  await loadDataWithCurrentFilters()
+})
 
-  const hasSavedSearch = !!search_string.value
-  const hasRestoredFilters =
-    selectedCounty.value.length > 0 ||
-    selectedSubCounty.value.length > 0 ||
-    selectedWard.value.length > 0 ||
-    filters.value.length > 0
+// When navigating back from AddSettlementNew or details, re-apply stored filters and reload data
+onActivated(async () => {
+  loadFiltersFromStorage()
 
-  if (selectedCounty.value.length > 0) {
-    await getSubCountyNames()
-    if (selectedSubCounty.value.length > 0) {
-      await getWardNames()
-    }
+  if (isCountyStaff.value && selectedCounty.value.length > 0) {
+    value4.value = selectedCounty.value
   }
 
-  if (hasSavedSearch) {
-    await searchByNewName(true)
-  } else if (hasRestoredFilters) {
-    await getNewOrRejectedSettlements(activeSegment.value)
-  } else {
-    await getAllSetllementsInitially(activeSegment.value)
-  }
+  await getCounts()
+  getSettlmentHistory()
+  await loadDataWithCurrentFilters()
 })
 
  
 
 
 const { push } = useRouter()
+const route = useRoute()
 const page = ref(1)
 const loading = ref(true)
 const currentPage = ref(1)
@@ -942,17 +976,24 @@ const getNewOrRejectedSettlements = async (tab) => {
   // Apply role-based filters FIRST to ensure county/settlement restrictions are always present
   pushRoleFilters()
   
+  // Normalize county selection to array
+  const countyFilterArray = Array.isArray(selectedCounty.value)
+    ? selectedCounty.value
+    : (selectedCounty.value !== null && selectedCounty.value !== undefined
+        ? [selectedCounty.value]
+        : [])
+
   // Then add user-selected location filters (only if not county staff, as county staff should be restricted to their county)
-  if (!isCountyStaff.value && selectedCounty.value.length > 0) {
+  if (!isCountyStaff.value && countyFilterArray.length > 0) {
     var selectOption = 'county_id'
     if (!filters.value.includes(selectOption)) {
       filters.value.push(selectOption)
-      filterValues.value.push(selectedCounty.value)
+      filterValues.value.push(countyFilterArray)
     } else {
       // Update existing county filter (but role filter takes precedence for county staff)
       var index = filters.value.indexOf(selectOption)
       // For non-county staff, allow user selection to override
-      filterValues.value[index] = selectedCounty.value
+      filterValues.value[index] = countyFilterArray
     }
   }
   
@@ -1041,17 +1082,24 @@ const getPotentialDuplicates = async () => {
   // Apply role-based filters FIRST to ensure county/settlement restrictions are always present
   pushRoleFilters()
   
+  // Normalize county selection to array
+  const countyFilterArray = Array.isArray(selectedCounty.value)
+    ? selectedCounty.value
+    : (selectedCounty.value !== null && selectedCounty.value !== undefined
+        ? [selectedCounty.value]
+        : [])
+
   // Then add user-selected location filters (only if not county staff, as county staff should be restricted to their county)
-  if (!isCountyStaff.value && selectedCounty.value.length > 0) {
+  if (!isCountyStaff.value && countyFilterArray.length > 0) {
     var selectOption = 'county_id'
     if (!filters.value.includes(selectOption)) {
       filters.value.push(selectOption)
-      filterValues.value.push(selectedCounty.value)
+      filterValues.value.push(countyFilterArray)
     } else {
       // Update existing county filter (but role filter takes precedence for county staff)
       var index = filters.value.indexOf(selectOption)
       // For non-county staff, allow user selection to override
-      filterValues.value[index] = selectedCounty.value
+      filterValues.value[index] = countyFilterArray
     }
   }
   

@@ -2799,9 +2799,15 @@ v-for="(docs, type) in filteredGroupedDocuments" :key="type"
                    <el-table-column type="index" width="50" />
                    <el-table-column prop="name" label="Name" />
                    <el-table-column prop="createdAt" label="Uploaded" />
-                   <el-table-column fixed="right" label="" width="200">
-                     <template #default="scope">
-                       <el-button plain :loading="loadingStates[scope.row.id]" @click="downloadFile(scope.row)">
+                  <el-table-column fixed="right" label="" width="220">
+                   <template #default="scope">
+                     <div class="doc-actions">
+                       <el-button
+                         plain
+                         :loading="loadingStates[scope.row.id]"
+                         @click="downloadFile(scope.row)"
+                         class="doc-action-button"
+                       >
                          <Icon icon="fa-solid:download" style="margin-right: 5px;" />
                          Download
                        </el-button>
@@ -2811,12 +2817,13 @@ v-for="(docs, type) in filteredGroupedDocuments" :key="type"
                          type="primary" 
                          :icon="Edit" 
                          @click="openEditDocumentDialog(scope.row)"
-                         style="margin-left: 8px;"
+                         class="doc-action-button"
                        >
                          Edit
                        </el-button>
-                     </template>
-                   </el-table-column>
+                     </div>
+                   </template>
+                 </el-table-column>
                  </el-table>
                </div>
              </ElCollapseTransition>
@@ -3367,6 +3374,19 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
   font-size: 1rem;
   font-weight: 300;
   color: #2e0dc2;
+}
+
+/* Document actions alignment */
+.doc-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+}
+
+.doc-action-button {
+  padding: 4px 10px;
+  height: auto;
 }
 
 .success-background {

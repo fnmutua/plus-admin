@@ -1300,9 +1300,12 @@ const submitForm = async () => {
             // Mark that we're navigating from edit page
             sessionStorage.setItem('navigatingFromEdit', 'true')
             
-            // Navigate to settlement list page - it will load all filters on mount
+            // Navigate to settlement list page - preserve county filter via query
             router.push({
-              name: 'List'
+              name: 'List',
+              query: {
+                county_id: settlementForm.county_id
+              }
             })
           } else {
             ElMessage.error('Failed to update settlement')
@@ -1324,9 +1327,12 @@ const submitForm = async () => {
               ElMessage.success('Settlement created successfully')
               clearFormAndGeometry()
               
-              // Redirect to settlement list after successful creation
+              // Redirect to settlement list after successful creation - preserve county filter via query
               router.push({
-                name: 'List'
+                name: 'List',
+                query: {
+                  county_id: settlementForm.county_id
+                }
               })
             } else {
               ElMessage.error('Failed to create settlement')
@@ -1353,9 +1359,12 @@ const submitForm = async () => {
                   ElMessage.success('Settlement created successfully')
                   clearFormAndGeometry()
                   
-                  // Redirect to settlement list after successful creation
+                  // Redirect to settlement list after successful creation - preserve county filter via query
                   router.push({
-                    name: 'List'
+                    name: 'List',
+                    query: {
+                      county_id: settlementForm.county_id
+                    }
                   })
                 }).catch((err) => {
                   console.error('Error creating record:', err)
