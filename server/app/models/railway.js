@@ -1,7 +1,13 @@
 const { DataTypes } = require('sequelize');
 
 module.exports = (sequelize) => {
-  const Railway = sequelize.define('Railway', {
+  const Railway = sequelize.define('railway', {
+    id: {
+      autoIncrement: true,
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      primaryKey: true
+    },
    
     photo: {
       type: DataTypes.STRING,
