@@ -816,13 +816,13 @@ exports.countsByCountyFacilities = async (req, res) => {
     const mastPromise = db.models.mast
       ? db.models.mast.count({ where: { county_id: countyId } })
       : Promise.resolve(0);
-    const streetlightPromise = db.models.streetlight
-      ? db.models.streetlight.count({ where: { county_id: countyId } })
+    const streetlightPromise = db.models.street_light
+      ? db.models.street_light.count({ where: { county_id: countyId } })
       : Promise.resolve(0);
 
     // Security
-    const policePromise = db.models.police
-      ? db.models.police.count({ where: { county_id: countyId } })
+    const policePromise = db.models.police_station
+      ? db.models.police_station.count({ where: { county_id: countyId } })
       : Promise.resolve(0);
     const crimeHotspotPromise = db.models.crime_hotspot
       ? db.models.crime_hotspot.count({ where: { county_id: countyId } })
