@@ -215,6 +215,12 @@ module.exports = function (sequelize, DataTypes) {
         allowNull: true,
         defaultValue:false
       },   
+      
+      has_facilities: {
+        type: DataTypes.BOOLEAN,
+        allowNull: true,
+        defaultValue: false
+      },
   
     
     },

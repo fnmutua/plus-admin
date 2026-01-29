@@ -3994,7 +3994,12 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
 
       if (Array.isArray(fields) && fields.length > 0) {
         // Client requested specific fields
-        const baseFields = fields.filter((f) => !(excludeGeom && f === 'geom'));
+        // Filter out computed/virtual fields that don't exist in the database
+        // hasFacilities and hasRoads are computed after the query for settlement model
+        const computedFields = modelName === 'settlement' ? ['hasFacilities', 'hasRoads'] : [];
+        const baseFields = fields.filter((f) => 
+          !(excludeGeom && f === 'geom') && !computedFields.includes(f)
+        );
         const attrs = [...baseFields];
         if (hasGeomLiteral && !excludeGeom) {
           attrs.push(hasGeomLiteral);
@@ -4213,12 +4218,15 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
       });
       
       // Add flags to each settlement
+      // Note: has_facilities is now stored in the database, but we still compute it here for real-time accuracy
+      // The computed value will override the stored value to ensure data is always current
       processedData = processedData.map(settlement => {
+        const settlementData = settlement.toJSON ? settlement.toJSON() : settlement;
         const flags = flagsMap[settlement.id] || { hasRoads: false, hasFacilities: false };
         return {
-          ...settlement.toJSON ? settlement.toJSON() : settlement,
+          ...settlementData,
           hasRoads: flags.hasRoads,
-          hasFacilities: flags.hasFacilities
+          hasFacilities: flags.hasFacilities !== undefined ? flags.hasFacilities : (settlementData.has_facilities || false)
         };
       });
     }
@@ -8154,11 +8162,22 @@ exports.getAllListforDownload = async (req, res) => {
   // Handle selected fields if provided
   const selectedFields = req.body.selectedFields || [];
   if (selectedFields.length > 0) {
+    // Filter out computed/virtual fields that don't exist in the database
+    // hasFacilities is computed on-the-fly for settlement model
+    const computedFields = reg_model === 'settlement' ? ['hasFacilities', 'hasRoads'] : [];
+    const filteredSelectedFields = selectedFields.filter(field => {
+      // Remove computed fields from main model fields (not nested)
+      if (!field.includes('.')) {
+        return !computedFields.includes(field);
+      }
+      return true; // Keep nested fields as-is
+    });
+    
     // Separate main model fields from nested/associated model fields
     const mainModelFields = [];
     const nestedFieldsMap = {}; // Map of model name to array of fields
     
-    selectedFields.forEach(field => {
+    filteredSelectedFields.forEach(field => {
       if (field.includes('.')) {
         // This is a nested field (e.g., "county.name")
         const parts = field.split('.');
