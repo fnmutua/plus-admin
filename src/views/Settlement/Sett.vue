@@ -470,7 +470,17 @@ const ruleForm = reactive({
 const mobileBreakpoint = 768;
 const defaultPageSize = 10;
 const mobilePageSize = 5;
+const basePageSizes = [5, 10, 15, 20, 50, 100];
 const pageSize = ref(defaultPageSize);
+
+// Helper to build page-size options and include an "All" option equal to current total
+const getPageSizes = (totalCount: number) => {
+  const sizes = [...basePageSizes];
+  if (typeof totalCount === 'number' && totalCount > 0 && !sizes.includes(totalCount)) {
+    sizes.push(totalCount);
+  }
+  return sizes;
+};
 
 const updatePageSize = () => {
   if (window.innerWidth <= mobileBreakpoint) {
@@ -1173,8 +1183,10 @@ const getPotentialDuplicates = async () => {
   })
   // Debug log
   console.log('duplicateRecords', JSON.parse(JSON.stringify(duplicateRecords.value)))
-  duplicateTotal.value = duplicateRecords.value.length
-  total.value = duplicateRecords.value.length
+  // Use backend total for pagination when available, fall back to local grouped count
+  const backendTotal = (res as any)?.total
+  duplicateTotal.value = typeof backendTotal === 'number' ? backendTotal : duplicateRecords.value.length
+  total.value = typeof backendTotal === 'number' ? backendTotal : duplicateRecords.value.length
   loadingGetData.value = false
   loadingGetDataMsg.value = 'Loading the data.. Please wait.......'
 }
@@ -3004,7 +3016,8 @@ const handleDownloadGeoData = async () => {
     
     // Fetch ALL filtered settlements (not just current page)
     const formData: any = {
-      limit: 10000, // Large limit to get all settlements
+      // Keep a high cap but only fetch lightweight records (IDs only, no geom)
+      limit: 10000,
       page: 1,
       curUser: 1,
       model: model,
@@ -3013,8 +3026,10 @@ const handleDownloadGeoData = async () => {
       assocModel: associated_Model,
       filters: filters.value,
       filterValues: filterValues.value,
-      associated_multiple_models: associated_multiple_models,
-      nested_models: nested_models,
+      associated_multiple_models: [],      // avoid heavy joins for export lookup
+      nested_models: [],                   // no nested models needed to get IDs
+      fields: ['id'],                      // only fetch settlement IDs
+      excludeGeom: true,                   // explicitly skip geometry in this query
       dateRange: dateRange.value,
       returnAll: true
     };
@@ -4296,8 +4311,8 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
       </div>
 
       <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="page"
-      v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100,1000,2000]" :total="totalApproved" :background="true"
+      layout="sizes, prev, pager, next, total" v-model:currentPage="page"
+      v-model:page-size="pageSize" :page-sizes="getPageSizes(totalApproved)" :total="totalApproved" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
 
       <!-- Merge button for selected settlements (bottom) -->
@@ -4393,8 +4408,8 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
 
       </el-table>
       <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="page"
-      v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100,1000,2000]" :total="totalPending" :background="true"
+      layout="sizes, prev, pager, next, total" v-model:currentPage="page"
+      v-model:page-size="pageSize" :page-sizes="getPageSizes(totalPending)" :total="totalPending" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
 
       <!-- Delete Cascade button for super admins -->
@@ -4485,8 +4500,8 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" ci
 
 
       <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="page"
-      v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100,1000,2000]" :total="totalRejected" :background="true"
+      layout="sizes, prev, pager, next, total" v-model:currentPage="page"
+      v-model:page-size="pageSize" :page-sizes="getPageSizes(totalRejected)" :total="totalRejected" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
 
       <!-- Delete Cascade button for super admins -->
@@ -4589,8 +4604,8 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" ci
 
 
       <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="page"
-      v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100,1000,2000]" :total="decommSettlementsCount" :background="true"
+      layout="sizes, prev, pager, next, total" v-model:currentPage="page"
+      v-model:page-size="pageSize" :page-sizes="getPageSizes(decommSettlementsCount)" :total="decommSettlementsCount" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
 
       <!-- Delete Cascade button for super admins -->
@@ -4772,14 +4787,14 @@ type="primary" size="small" :icon="View" @click="DeleteReview(row)"
     </el-collapse-item>
   </el-collapse>
   <el-pagination
-    background 
-    class="mt-4" 
-    layout="sizes, prev, pager, next, jumper" 
-    :total="duplicateRecords.length"
-    :page-size="pageSize" 
-    :page-sizes="[5, 10, 15, 20, 50, 100,1000,2000]" 
-    @current-change="handlePageChange" 
-    @size-change="onPageSizeChange" />
+  background 
+  class="mt-4" 
+  layout="sizes, prev, pager, next, jumper" 
+  :total="duplicateTotal"
+  :page-size="pageSize" 
+  :page-sizes="getPageSizes(duplicateTotal)" 
+  @current-change="handlePageChange" 
+  @size-change="onPageSizeChange" />
 </div>
 
 

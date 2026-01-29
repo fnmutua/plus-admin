@@ -3761,6 +3761,9 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
       page = 1,
       cache_key,
       returnAll = false,
+      // Optional performance hints from client
+      excludeGeom = false,
+      fields = null,
     } = req.body;
 
     if (!modelName) {
@@ -3959,55 +3962,63 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
       include: includeModels,
       order: [['createdAt', 'DESC']],
       distinct: true,
-      attributes: hasGeomColumn ? {
-      //  exclude: ['geom'],
-        include: [
-          [db.sequelize.literal(`CASE WHEN "${Model.tableName}"."geom" IS NOT NULL THEN true ELSE false END`), 'hasGeom']
-        ]
-      } : undefined
     };
+
+    // Handle attribute selection
+    if (isHouseholdsModel) {
+      // Households: keep existing optimized projection
+      query.attributes = {
+        exclude: hasGeomColumn ? ['geom'] : [],
+        include: [
+          'respondents_name',
+          'telephone',
+          ...(hasGeomColumn
+            ? [[
+                db.sequelize.literal(
+                  `CASE WHEN "${Model.tableName}"."geom" IS NOT NULL THEN true ELSE false END`
+                ),
+                'hasGeom',
+              ]]
+            : []),
+        ],
+      };
+    } else {
+      const hasGeomLiteral = hasGeomColumn
+        ? [
+            db.sequelize.literal(
+              `CASE WHEN "${Model.tableName}"."geom" IS NOT NULL THEN true ELSE false END`
+            ),
+            'hasGeom',
+          ]
+        : null;
+
+      if (Array.isArray(fields) && fields.length > 0) {
+        // Client requested specific fields
+        const baseFields = fields.filter((f) => !(excludeGeom && f === 'geom'));
+        const attrs = [...baseFields];
+        if (hasGeomLiteral && !excludeGeom) {
+          attrs.push(hasGeomLiteral);
+        }
+        query.attributes = attrs;
+      } else if (hasGeomColumn) {
+        // Default: select all columns, optionally excluding geom, and add hasGeom flag
+        const exclude = excludeGeom ? ['geom'] : [];
+        query.attributes = {
+          exclude,
+          include: hasGeomLiteral ? [hasGeomLiteral] : [],
+        };
+      } else if (excludeGeom) {
+        // Defensive: if model has no geom but flag is set, still try to exclude
+        query.attributes = {
+          exclude: ['geom'],
+        };
+      }
+    }
 
     if (!returnAll) {
       query.limit = parsedLimit;
       query.offset = (parsedPage - 1) * parsedLimit;
     }
-
-
-  // Handle attribute selection (no decryption)
-if (isHouseholdsModel) {
-  query.attributes = {
-    // For households we still exclude geom and add derived fields
-    exclude: hasGeomColumn ? ['geom'] : [],
-    include: [
-      'respondents_name',
-      'telephone',
-      ...(hasGeomColumn
-        ? [[
-            db.sequelize.literal(
-              `CASE WHEN "${Model.tableName}"."geom" IS NOT NULL THEN true ELSE false END`
-            ),
-            'hasGeom',
-          ]]
-        : []),
-    ],
-  };
-} else if (hasGeomColumn) {
-  // For most models (including settlement), keep full geom and just add hasGeom flag
-  query.attributes = {
-    //  exclude: ['geom'],
-    include: [
-      [
-        db.sequelize.literal(
-          `CASE WHEN "${Model.tableName}"."geom" IS NOT NULL THEN true ELSE false END`
-        ),
-        'hasGeom',
-      ],
-    ],
-  };
-}
-
-
-
 
 
 

@@ -136,51 +136,73 @@ const isMobile = computed(() => {
 
 
  
- // Function to extract latitude and longitude using turf for centroid or first point
- function getLatLonFromGeom(geom) {
-  if (!geom || !geom.type || !geom.coordinates) {
+// Function to extract latitude and longitude using turf for centroid or first point
+function getLatLonFromGeom(geom) {
+  // Basic shape/keys check
+  if (!geom || !geom.type || geom.coordinates == null) {
     return { latitude: null, longitude: null };
   }
 
-  switch (geom.type) {
-    case 'Point':
-      // If geometry is a Point, return the coordinates directly
-      return {
-        latitude: geom.coordinates[1].toFixed(5),
-        longitude: geom.coordinates[0].toFixed(5)
-      };
+  // Helper to ensure coordinates are numeric
+  const coordsFlat = geom.type === 'Point'
+    ? [geom.coordinates]
+    : Array.isArray(geom.coordinates)
+      ? geom.coordinates.flat(Infinity)
+      : [];
 
-    case 'MultiPoint':
-      // For MultiPoint, return the first point's coordinates
-      if (geom.coordinates.length > 0) {
+  const allNumbers = coordsFlat.every((c) =>
+    Array.isArray(c)
+      ? c.every((n) => typeof n === 'number' && Number.isFinite(n))
+      : typeof c === 'number' && Number.isFinite(c)
+  );
+
+  if (!allNumbers || coordsFlat.length === 0) {
+    return { latitude: null, longitude: null };
+  }
+
+  try {
+    switch (geom.type) {
+      case 'Point':
         return {
-          latitude: geom.coordinates[0][1].toFixed(5),
-          longitude: geom.coordinates[0][0].toFixed(5)
+          latitude: geom.coordinates[1].toFixed(5),
+          longitude: geom.coordinates[0].toFixed(5),
+        };
+
+      case 'MultiPoint':
+        if (geom.coordinates.length > 0) {
+          return {
+            latitude: geom.coordinates[0][1].toFixed(5),
+            longitude: geom.coordinates[0][0].toFixed(5),
+          };
+        }
+        return { latitude: null, longitude: null };
+
+      case 'Polygon':
+      case 'MultiPolygon': {
+        const polygonCentroid = turf.centroid(geom);
+        const [lon, lat] = polygonCentroid.geometry.coordinates;
+        return {
+          latitude: lat.toFixed(5),
+          longitude: lon.toFixed(5),
         };
       }
-      return { latitude: null, longitude: null };
 
-    case 'Polygon':
-    case 'MultiPolygon':
-      // Use turf to calculate the centroid for Polygon and MultiPolygon
-      const polygonCentroid = turf.centroid(geom);
-      return {
-        latitude: polygonCentroid.geometry.coordinates[1].toFixed(5),
-        longitude: polygonCentroid.geometry.coordinates[0].toFixed(5)
-      };
+      case 'LineString':
+      case 'MultiLineString': {
+        const lineCentroid = turf.centroid(geom);
+        const [lon, lat] = lineCentroid.geometry.coordinates;
+        return {
+          latitude: lat.toFixed(5),
+          longitude: lon.toFixed(5),
+        };
+      }
 
-    case 'LineString':
-    case 'MultiLineString':
-      // Use turf to calculate the centroid for LineString and MultiLineString
-      const lineCentroid = turf.centroid(geom);
-      return {
-        latitude: lineCentroid.geometry.coordinates[1].toFixed(5),
-        longitude: lineCentroid.geometry.coordinates[0].toFixed(5)
-      };
-
-    default:
-      // For unsupported types, return null
-      return { latitude: null, longitude: null };
+      default:
+        return { latitude: null, longitude: null };
+    }
+  } catch (e) {
+    console.warn('Skipping invalid geometry in getLatLonFromGeom', geom, e);
+    return { latitude: null, longitude: null };
   }
 }
 
