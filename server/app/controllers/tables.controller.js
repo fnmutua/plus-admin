@@ -3992,13 +3992,13 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
           ]
         : null;
 
+      // Virtual/computed fields that don't exist in database - exclude them
+      const virtualFields = ['latitude', 'longitude', 'user', 'coordinates'];
+      
       if (Array.isArray(fields) && fields.length > 0) {
         // Client requested specific fields
-        // Filter out computed/virtual fields that don't exist in the database
-        // hasFacilities and hasRoads are computed after the query for settlement model
-        const computedFields = modelName === 'settlement' ? ['hasFacilities', 'hasRoads'] : [];
         const baseFields = fields.filter((f) => 
-          !(excludeGeom && f === 'geom') && !computedFields.includes(f)
+          !(excludeGeom && f === 'geom') && !virtualFields.includes(f)
         );
         const attrs = [...baseFields];
         if (hasGeomLiteral && !excludeGeom) {
@@ -4006,8 +4006,10 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
         }
         query.attributes = attrs;
       } else if (hasGeomColumn) {
-        // Default: select all columns, optionally excluding geom, and add hasGeom flag
-        const exclude = excludeGeom ? ['geom'] : [];
+        // Default: select all columns, optionally excluding geom and virtual fields, and add hasGeom flag
+        const exclude = excludeGeom 
+          ? ['geom', ...virtualFields] 
+          : virtualFields;
         query.attributes = {
           exclude,
           include: hasGeomLiteral ? [hasGeomLiteral] : [],
@@ -4015,7 +4017,12 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
       } else if (excludeGeom) {
         // Defensive: if model has no geom but flag is set, still try to exclude
         query.attributes = {
-          exclude: ['geom'],
+          exclude: ['geom', ...virtualFields],
+        };
+      } else if (modelName === 'settlement') {
+        // For settlement model, always exclude virtual fields even if no geom exclusion
+        query.attributes = {
+          exclude: virtualFields,
         };
       }
     }
@@ -4051,85 +4058,7 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
 
     const response = await Model.findAndCountAll(query);
     
-    // Add hasRoads and hasFacilities flags for settlement model
-    let processedData = response.rows;
-    if (modelName === 'settlement' && processedData.length > 0) {
-      const settlementIds = processedData.map(s => s.id).filter(id => id != null);
-      
-      if (settlementIds.length > 0) {
-        // Check for roads and facilities inside settlements using PostGIS spatial containment
-        // has_facilities checks for: health_facility, education_facility, water_point, piped_water, sewer, other_facility
-        // For linear features (piped_water, sewer, road), use ST_Intersects since they may cross boundaries
-        // For point/polygon features, use ST_Contains for containment check
-        const checkQuery = `
-          SELECT 
-            s.id,
-            CASE WHEN EXISTS (
-              SELECT 1 FROM road r 
-              WHERE r.geom IS NOT NULL
-              AND s.geom IS NOT NULL
-              AND ST_Intersects(s.geom, r.geom)
-            ) THEN true ELSE false END as has_roads,
-            CASE WHEN EXISTS (
-              SELECT 1 FROM health_facility hf 
-              WHERE hf.geom IS NOT NULL
-              AND s.geom IS NOT NULL
-              AND ST_Contains(s.geom, hf.geom)
-            ) OR EXISTS (
-              SELECT 1 FROM education_facility ef 
-              WHERE ef.geom IS NOT NULL
-              AND s.geom IS NOT NULL
-              AND ST_Contains(s.geom, ef.geom)
-            ) OR EXISTS (
-              SELECT 1 FROM water_point wp 
-              WHERE wp.geom IS NOT NULL
-              AND s.geom IS NOT NULL
-              AND ST_Contains(s.geom, wp.geom)
-            ) OR EXISTS (
-              SELECT 1 FROM piped_water pw 
-              WHERE pw.geom IS NOT NULL
-              AND s.geom IS NOT NULL
-              AND ST_Intersects(s.geom, pw.geom)
-            ) OR EXISTS (
-              SELECT 1 FROM sewer sv 
-              WHERE sv.geom IS NOT NULL
-              AND s.geom IS NOT NULL
-              AND ST_Intersects(s.geom, sv.geom)
-            ) OR EXISTS (
-              SELECT 1 FROM other_facility of 
-              WHERE of.geom IS NOT NULL
-              AND s.geom IS NOT NULL
-              AND ST_Contains(s.geom, of.geom)
-            ) THEN true ELSE false END as has_facilities
-          FROM settlement s
-          WHERE s.id IN (:settlementIds)
-        `;
-        
-        const checkResults = await db.sequelize.query(checkQuery, {
-          replacements: { settlementIds },
-          type: db.sequelize.QueryTypes.SELECT,
-        });
-        
-        // Create a map for quick lookup
-        const flagsMap = {};
-        checkResults.forEach(row => {
-          flagsMap[row.id] = {
-            hasRoads: row.has_roads || false,
-            hasFacilities: row.has_facilities || false
-          };
-        });
-        
-        // Add flags to each settlement
-        processedData = processedData.map(settlement => {
-          const flags = flagsMap[settlement.id] || { hasRoads: false, hasFacilities: false };
-          return {
-            ...settlement.toJSON ? settlement.toJSON() : settlement,
-            hasRoads: flags.hasRoads,
-            hasFacilities: flags.hasFacilities
-          };
-        });
-      }
-    }
+    const processedData = response.rows.map(row => row.toJSON ? row.toJSON() : row);
     
     const cacheData = {
       data: processedData,
@@ -4149,88 +4078,7 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
 
   const response = await Model.findAndCountAll(query);
   
-  // Add hasRoads and hasFacilities flags for settlement model
-  let processedData = response.rows;
-  if (modelName === 'settlement' && processedData.length > 0) {
-    const settlementIds = processedData.map(s => s.id).filter(id => id != null);
-    
-    if (settlementIds.length > 0) {
-      // Check for roads and facilities inside settlements using PostGIS spatial containment
-      // has_facilities checks for: health_facility, education_facility, water_point, piped_water, sewer, other_facility
-      // For linear features (piped_water, sewer, road), use ST_Intersects since they may cross boundaries
-      // For point/polygon features, use ST_Contains for containment check
-      const checkQuery = `
-        SELECT 
-          s.id,
-          CASE WHEN EXISTS (
-            SELECT 1 FROM road r 
-            WHERE r.geom IS NOT NULL
-            AND s.geom IS NOT NULL
-            AND ST_Intersects(s.geom, r.geom)
-          ) THEN true ELSE false END as has_roads,
-          CASE WHEN EXISTS (
-            SELECT 1 FROM health_facility hf 
-            WHERE hf.geom IS NOT NULL
-            AND s.geom IS NOT NULL
-            AND ST_Contains(s.geom, hf.geom)
-          ) OR EXISTS (
-            SELECT 1 FROM education_facility ef 
-            WHERE ef.geom IS NOT NULL
-            AND s.geom IS NOT NULL
-            AND ST_Contains(s.geom, ef.geom)
-          ) OR EXISTS (
-            SELECT 1 FROM water_point wp 
-            WHERE wp.geom IS NOT NULL
-            AND s.geom IS NOT NULL
-            AND ST_Contains(s.geom, wp.geom)
-          ) OR EXISTS (
-            SELECT 1 FROM piped_water pw 
-            WHERE pw.geom IS NOT NULL
-            AND s.geom IS NOT NULL
-            AND ST_Intersects(s.geom, pw.geom)
-          ) OR EXISTS (
-            SELECT 1 FROM sewer sv 
-            WHERE sv.geom IS NOT NULL
-            AND s.geom IS NOT NULL
-            AND ST_Intersects(s.geom, sv.geom)
-          ) OR EXISTS (
-            SELECT 1 FROM other_facility of 
-            WHERE of.geom IS NOT NULL
-            AND s.geom IS NOT NULL
-            AND ST_Contains(s.geom, of.geom)
-          ) THEN true ELSE false END as has_facilities
-        FROM settlement s
-        WHERE s.id IN (:settlementIds)
-      `;
-      
-      const checkResults = await db.sequelize.query(checkQuery, {
-        replacements: { settlementIds },
-        type: db.sequelize.QueryTypes.SELECT,
-      });
-      
-      // Create a map for quick lookup
-      const flagsMap = {};
-      checkResults.forEach(row => {
-        flagsMap[row.id] = {
-          hasRoads: row.has_roads || false,
-          hasFacilities: row.has_facilities || false
-        };
-      });
-      
-      // Add flags to each settlement
-      // Note: has_facilities is now stored in the database, but we still compute it here for real-time accuracy
-      // The computed value will override the stored value to ensure data is always current
-      processedData = processedData.map(settlement => {
-        const settlementData = settlement.toJSON ? settlement.toJSON() : settlement;
-        const flags = flagsMap[settlement.id] || { hasRoads: false, hasFacilities: false };
-        return {
-          ...settlementData,
-          hasRoads: flags.hasRoads,
-          hasFacilities: flags.hasFacilities !== undefined ? flags.hasFacilities : (settlementData.has_facilities || false)
-        };
-      });
-    }
-  }
+  const processedData = response.rows.map(row => row.toJSON ? row.toJSON() : row);
   
   return res.status(200).json({
     fromCache: false,
@@ -8162,9 +8010,8 @@ exports.getAllListforDownload = async (req, res) => {
   // Handle selected fields if provided
   const selectedFields = req.body.selectedFields || [];
   if (selectedFields.length > 0) {
-    // Filter out computed/virtual fields that don't exist in the database
-    // hasFacilities is computed on-the-fly for settlement model
-    const computedFields = reg_model === 'settlement' ? ['hasFacilities', 'hasRoads'] : [];
+    // Filter out virtual fields that don't exist in the database
+    const computedFields = reg_model === 'settlement' ? ['hasRoads'] : [];
     const filteredSelectedFields = selectedFields.filter(field => {
       // Remove computed fields from main model fields (not nested)
       if (!field.includes('.')) {

@@ -1074,13 +1074,19 @@ const getNewOrRejectedSettlements = async (tab) => {
     tableDataList.value = res.data
     totalApproved.value = res.total
     // Only build flattenedData/model_fields once to avoid heavy work on every page change
+    // Process in batches to avoid blocking UI for large datasets
     if (!flattenedData.value.length && res.data.length) {
-      res.data.forEach(function (arrayItem) {
-        var dd = flattenJSON(arrayItem)
-        flattenedData.value.push(dd)
-      })
-      var obj = flattenJSON(res.data[0])
-      model_fields.value = Object.keys(obj);
+      // Process first item immediately to get model_fields
+      if (res.data[0]) {
+        var obj = flattenJSON(res.data[0])
+        model_fields.value = Object.keys(obj);
+        flattenedData.value.push(obj)
+      }
+      
+      // Process remaining items in batches to avoid blocking UI
+      if (res.data.length > 1) {
+        processFlatteningInBatches(res.data.slice(1))
+      }
     }
   }
 }
@@ -1210,6 +1216,25 @@ const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
 
 const model_fields = ref<string[]>([])
 const flattenedData = ref<any[]>([])
+
+// Process flattening in batches to avoid blocking UI for large datasets
+const processFlatteningInBatches = async (data: any[], batchSize = 10) => {
+  // Process items in batches
+  for (let i = 0; i < data.length; i += batchSize) {
+    const batch = data.slice(i, i + batchSize)
+    
+    // Process batch synchronously
+    batch.forEach((arrayItem) => {
+      const dd = flattenJSON(arrayItem)
+      flattenedData.value.push(dd)
+    })
+    
+    // Yield to browser to prevent UI blocking (except for last batch)
+    if (i + batchSize < data.length) {
+      await new Promise(resolve => setTimeout(resolve, 0))
+    }
+  }
+}
 
 function getLatLonFromGeom(geom) {
   if (!geom || !geom.type || !geom.coordinates) {
