@@ -8044,13 +8044,15 @@ exports.getAllListforDownload = async (req, res) => {
 
   // Handle selected fields if provided
   const selectedFields = req.body.selectedFields || [];
+  // Virtual/computed fields that don't exist in database - must be excluded
+  const virtualFields = ['latitude', 'longitude', 'coordinates', 'user'];
   if (selectedFields.length > 0) {
     // Filter out virtual fields that don't exist in the database
     const computedFields = reg_model === 'settlement' ? ['hasRoads'] : [];
     const filteredSelectedFields = selectedFields.filter(field => {
-      // Remove computed fields from main model fields (not nested)
+      // Remove computed fields and virtual fields from main model fields (not nested)
       if (!field.includes('.')) {
-        return !computedFields.includes(field);
+        return !computedFields.includes(field) && !virtualFields.includes(field);
       }
       return true; // Keep nested fields as-is
     });
@@ -8071,8 +8073,10 @@ exports.getAllListforDownload = async (req, res) => {
         }
         nestedFieldsMap[modelName].push(fieldName);
       } else {
-        // This is a main model field
-        mainModelFields.push(field);
+        // This is a main model field - ensure it's not a virtual field
+        if (!virtualFields.includes(field)) {
+          mainModelFields.push(field);
+        }
       }
     });
 
@@ -8083,9 +8087,17 @@ exports.getAllListforDownload = async (req, res) => {
         const includeAttributes = [];
         const excludeFields = ['latitude', 'longitude', 'coordinates', 'name']; // exclude encrypted name
         
-        // Add all selected fields except name and national_id (we'll handle those separately)
+        // Get the model to verify fields exist
+        const Model = db.models[reg_model];
+        const modelAttributes = Model ? Object.keys(Model.rawAttributes) : [];
+        
+        // Add all selected fields except name, national_id, and virtual fields
+        // Also verify the field exists in the model
         mainModelFields.forEach(field => {
-          if (field !== 'name' && field !== 'national_id') {
+          if (field !== 'name' && 
+              field !== 'national_id' && 
+              !virtualFields.includes(field) &&
+              modelAttributes.includes(field)) {
             includeAttributes.push(field);
           }
         });
@@ -8120,9 +8132,23 @@ exports.getAllListforDownload = async (req, res) => {
         };
       } else {
         // For other models, just use the selected fields
+        // Get the model to verify fields exist
+        const Model = db.models[reg_model];
+        const modelAttributes = Model ? Object.keys(Model.rawAttributes) : [];
+        
+        // Ensure virtual fields are filtered out and only include fields that exist in the model
+        const validMainModelFields = mainModelFields.filter(field => {
+          // Exclude virtual fields
+          if (virtualFields.includes(field)) {
+            return false;
+          }
+          // Only include fields that actually exist in the model
+          return modelAttributes.includes(field);
+        });
+        
         baseQuery.attributes = {
-          include: mainModelFields,
-          exclude: ['latitude', 'longitude', 'coordinates']
+          include: validMainModelFields,
+          exclude: virtualFields
         };
       }
     }

@@ -471,13 +471,15 @@ const ruleForm = reactive({
 const mobileBreakpoint = 768;
 const defaultPageSize = 10;
 const mobilePageSize = 5;
-const basePageSizes = [5, 10, 15, 20, 50, 100,500,1000];
+// Limit max page size to 100 for performance - anything above causes lag
+const basePageSizes = [5, 10, 15, 20, 50, 100];
 const pageSize = ref(defaultPageSize);
 
-// Helper to build page-size options and include an "All" option equal to current total
+// Helper to build page-size options - cap at 100 for performance
 const getPageSizes = (totalCount: number) => {
   const sizes = [...basePageSizes];
-  if (typeof totalCount === 'number' && totalCount > 0 && !sizes.includes(totalCount)) {
+  // Don't add "All" option if totalCount > 100 to prevent performance issues
+  if (typeof totalCount === 'number' && totalCount > 0 && totalCount <= 100 && !sizes.includes(totalCount)) {
     sizes.push(totalCount);
   }
   return sizes;
@@ -2998,23 +3000,39 @@ const showSelectFields = ref(false)
 const selectedFields = ref([])
 
 const getFilteredDownloadData = async (selFilters, selfilterValues) => {
-  // Apply role filters before downloading
+  // For filtered downloads, fetch data WITH geometry so we can compute latitude/longitude in frontend
+  // This ensures computed properties are available for download
   pushRoleFilters()
   const formData = {}
   formData.model = model
   formData.searchField = 'name'
-  formData.searchKeyword = ''
+  formData.searchKeyword = search_string.value || ''
   formData.assocModel = associated_Model
-  // Use filters.value and filterValues.value after pushRoleFilters() to ensure role filters are applied
   formData.filters = filters.value
   formData.filterValues = filterValues.value
   formData.associated_multiple_models = associated_multiple_models
   formData.nested_models = nested_models
   formData.dateRange = dateRange.value
-
+  // Don't exclude geometry for filtered downloads - we need it to compute latitude/longitude
+  formData.excludeGeom = false
 
   const res = await getSettlementListByCounty(formData)
-  return res.data
+  
+  // Compute latitude/longitude from geometry for each record
+  const dataWithComputed = res.data.map(item => {
+    if (item.geom) {
+      const { latitude, longitude } = getLatLonFromGeom(item.geom)
+      return {
+        ...item,
+        latitude: latitude || item.latitude,
+        longitude: longitude || item.longitude,
+        coordinates: (latitude && longitude) ? [parseFloat(longitude), parseFloat(latitude)] : item.coordinates
+      }
+    }
+    return item
+  })
+  
+  return dataWithComputed
 }
 
 const downloadLoading = ref(false);
@@ -3190,14 +3208,28 @@ const handleDownloadSelectFields = async () => {
   downloadLoading.value = true;
   try {
     let dataToDownload = []
-    if (filters.value.length > 2 && filterValues.value.length > 1) {
+    // Always use browser data for filtered downloads (includes computed properties)
+    // Only query backend if we need ALL data (not filtered)
+    const hasFilters = filters.value.length > 2 && filterValues.value.length > 1
+    if (hasFilters || search_string.value) {
+      // Use filtered data from browser (includes computed properties like latitude, longitude)
       const downData = await getFilteredDownloadData(filters.value, filterValues.value)
       downData.forEach(function (arrayItem) {
         var dd = flattenJSON(arrayItem)
         dataToDownload.push(dd)
       })
     } else {
-      dataToDownload.push(...flattenedData.value)
+      // No filters - use flattened data from browser if available, otherwise query backend
+      if (flattenedData.value.length > 0) {
+        dataToDownload.push(...flattenedData.value)
+      } else {
+        // Fallback: query backend for all data (will exclude virtual fields)
+        const downData = await getFilteredDownloadData(filters.value, filterValues.value)
+        downData.forEach(function (arrayItem) {
+          var dd = flattenJSON(arrayItem)
+          dataToDownload.push(dd)
+        })
+      }
     }
     let fields = []
     for (let i = 0; i < selectedFields.value.length; i++) {
@@ -3916,33 +3948,36 @@ const handleDateChange = async () => {
   }
 }
 
-// Helper to get geometry icon
+// Memoized geometry icon map for performance
+const geometryIconMap = {
+  'none': { icon: 'ep:warning', tooltip: 'No geometry' },
+  'Point': { icon: 'mdi:map-marker', tooltip: 'Point geometry' },
+  'Polygon': { icon: 'material-symbols:map-outline-sharp', tooltip: 'Polygon geometry' },
+  'LineString': { icon: 'mdi:vector-line', tooltip: 'LineString geometry' },
+  'default': { icon: 'ep:warning', tooltip: 'Unknown geometry' }
+};
+
+// Helper to get geometry icon - optimized with memoization
 function getGeometryIcon(row) {
   // Use geomType property from backend (Polygon, Point, LineString, or none)
   const geomType = row.geomType;
   
-  if (!geomType || geomType === 'none') {
-    return { icon: 'ep:warning',  tooltip: 'No geometry' };
+  // Fast lookup from map
+  if (geomType && geometryIconMap[geomType]) {
+    return geometryIconMap[geomType];
   }
-  if (geomType === 'Point') {
-    return { icon: 'mdi:map-marker',  tooltip: 'Point geometry' };
-  }
-  if (geomType === 'Polygon') {
-    return { icon: 'material-symbols:map-outline-sharp',  tooltip: 'Polygon geometry' };
-  }
-  if (geomType === 'LineString') {
-    return { icon: 'mdi:vector-line',  tooltip: 'LineString geometry' };
-  }
+  
   // Fallback to checking geom.type if geomType is not available (backward compatibility)
   if (row.geom && row.geom.type) {
     if (row.geom.type === 'Point' || row.geom.type === 'MultiPoint') {
-      return { icon: 'mdi:map-marker',  tooltip: 'Point geometry' };
+      return geometryIconMap['Point'];
     }
     if (row.geom.type === 'Polygon' || row.geom.type === 'MultiPolygon') {
-      return { icon: 'material-symbols:map-outline-sharp',  tooltip: 'Polygon geometry' };
+      return geometryIconMap['Polygon'];
     }
   }
-  return { icon: 'ep:warning',   tooltip: 'Unknown geometry' };
+  
+  return geometryIconMap['none'];
 }
 
 // Helper to sort by geometry (has geometry = 1, no geometry = 0)
@@ -3966,25 +4001,35 @@ function sortByGeometry(a, b) {
   return bPriority - aPriority; // Higher priority (Polygon) first
 }
 
-// Helper to get settlement type label
+// Memoized settlement type map for performance
+const settlementTypeMap: Record<string, string> = {
+  'slum': 'Slum',
+  'informal_settlement': 'Informal Settlement',
+  'informal settlement': 'Informal Settlement',
+  'Informal Settlement': 'Informal Settlement',
+  'Slum': 'Slum',
+  '1': 'Slum',
+  '2': 'Informal Settlement'
+};
+
+// Helper to get settlement type label - optimized with memoization
 function getSettlementTypeLabel(type) {
   if (!type) return 'N/A';
   
-  // Handle string values from database
-  if (typeof type === 'string') {
-    const typeMap = {
-      'slum': 'Slum',
-      'informal_settlement': 'Informal Settlement',
-      'informal settlement': 'Informal Settlement',
-      'Informal Settlement': 'Informal Settlement',
-      'Slum': 'Slum'
-    };
-    return typeMap[type.toLowerCase()] || type; // Return original if not mapped
+  // Fast lookup from map
+  const key = typeof type === 'string' ? type.toLowerCase() : String(type);
+  if (settlementTypeMap[key]) {
+    return settlementTypeMap[key];
   }
   
   // Handle numeric values (legacy support)
-  const typeOption = typeOptions.find(opt => opt.value === type);
-  return typeOption ? typeOption.label : 'Unknown';
+  if (typeof type === 'number') {
+    const typeOption = typeOptions.find(opt => opt.value === type);
+    return typeOption ? typeOption.label : 'Unknown';
+  }
+  
+  // Return original if not mapped
+  return type;
 }
 
 // Helper to group duplicates by name
@@ -4252,10 +4297,10 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
         </template>
       </el-alert>
       <el-table
-        table-layout="auto" 
+        table-layout="fixed" 
         :data="tableDataList" @row-dblclick="handleRowDblClick" :show-overflow-tooltip="true" fit 
         style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName" row-key="id"
-        @selection-change="handleSelectionChange">
+        @selection-change="handleSelectionChange" :lazy="false" :default-sort="{ prop: 'id', order: 'descending' }">
 
         <el-table-column type="selection" width="55" :selectable="(row) => canUserAccessSettlement(row, 'edit')" />
         <!-- NEW: Geometry Icon Column with Infrastructure Badge -->
@@ -4387,7 +4432,8 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
 
     <div v-if="activeSegment === 'New'">
       <el-table
-:data="tableDataListNew" :show-overflow-tooltip="true" style="width: 100% ; margin-top: 10px;" border
+        table-layout="fixed"
+        :data="tableDataListNew" :show-overflow-tooltip="true" style="width: 100% ; margin-top: 10px;" border
         :row-class-name="tableRowClassName" row-key="id"
         @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="55" :selectable="(row) => canUserAccessSettlement(row, 'edit')" />
@@ -4494,7 +4540,8 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
 
     <div v-if="activeSegment === 'Rejected'">
       <el-table
-:data="tableDataListRejected" :show-overflow-tooltip="true" style="width: 100% ; margin-top: 10px;"
+        table-layout="fixed"
+        :data="tableDataListRejected" :show-overflow-tooltip="true" style="width: 100% ; margin-top: 10px;"
         border :row-class-name="tableRowClassName" @expand-change="handleExpand" row-key="id"   :expand-row-keys="expandedRowKeys"
         @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="55" :selectable="(row) => canUserAccessSettlement(row, 'edit')" />
@@ -4596,6 +4643,7 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" ci
           </template>
         </el-alert>
         <el-table
+          table-layout="fixed"
           :data="decommSettlements" :show-overflow-tooltip="true" style="width: 100% ; margin-top: 10px;"
           border :row-class-name="tableRowClassName" row-key="id"
           @row-dblclick="handleRowDblClick"
@@ -4692,7 +4740,7 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" ci
 
 
     <div v-if="activeSegment === 'Deleted'">
-      <el-table table-layout="auto"  :data="deletedPageData" :show-overflow-tooltip="true" style="width: 100% ; margin-top: 10px;"  border  >
+      <el-table table-layout="fixed"  :data="deletedPageData" :show-overflow-tooltip="true" style="width: 100% ; margin-top: 10px;"  border  >
         <el-table-column type="index" width="50" />
         <el-table-column label="Name" width="200" prop="name" sortable />     
         <el-table-column label="Status" width="120">

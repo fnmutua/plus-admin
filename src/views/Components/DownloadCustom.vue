@@ -86,10 +86,10 @@
     <!-- Drawer Footer -->
     <div class="drawer-footer">
       <el-button @click="showDownloadDialog = false">Cancel</el-button>
-      <el-button type="primary" @click="downloadCSV" :loading="loading">
+      <el-button type="primary" @click="downloadCSV" :loading="downloadFilteredLoading">
         Download Filtered<el-icon class="el-icon--right"><Filter /></el-icon>
       </el-button>
-      <el-button type="primary" @click="downloadAll" :loading="loading">
+      <el-button type="primary" @click="downloadAll" :loading="downloadAllLoading">
         Download All <el-icon class="el-icon--right"><Document /></el-icon>
       </el-button>
     </div>
@@ -125,6 +125,9 @@ const availableFields = ref([]);
 const currentModel = ref();
 const associated_models = ref();
 
+// Separate loading states for each download button
+const downloadFilteredLoading = ref(false);
+const downloadAllLoading = ref(false);
 
 const checkAll = ref(false);
 const activeCollapse = ref([]);
@@ -207,16 +210,39 @@ function getLatLonFromGeom(geom) {
 }
 
 
-// Function to process the res.data and add latitude/longitude using turf
+// Function to process the res.data and add computed properties (latitude, longitude, coordinates) using turf
  function addLatLonToData(data) {
   for (const item of data) {
     const geometry = item.geom; // Assuming the geometry is in `item.geom`
-    const { latitude, longitude } = getLatLonFromGeom(geometry);
-    item.latitude = latitude;
-    item.longitude = longitude;
+    
+    // Compute from geometry if available
+    if (geometry) {
+      const { latitude, longitude } = getLatLonFromGeom(geometry);
+      
+      // Add latitude and longitude (overwrite if already present to ensure accuracy)
+      item.latitude = latitude;
+      item.longitude = longitude;
+      
+      // Add coordinates as [longitude, latitude] array
+      if (latitude && longitude) {
+        item.coordinates = [parseFloat(longitude), parseFloat(latitude)];
+      }
+    } else if (item.latitude && item.longitude) {
+      // If geometry is missing but we have lat/lon, compute coordinates from them
+      if (!item.coordinates) {
+        item.coordinates = [parseFloat(item.longitude), parseFloat(item.latitude)];
+      }
+    } else if (item.longitude && item.latitude === undefined) {
+      // Handle case where longitude might be first (some APIs return [lon, lat])
+      if (Array.isArray(item.longitude)) {
+        item.coordinates = item.longitude;
+        item.longitude = item.longitude[0];
+        item.latitude = item.longitude[1];
+      }
+    }
   }
 
-  return data; // Return the modified data with lat/lon added
+  return data; // Return the modified data with computed properties added
 }
 
 
@@ -353,7 +379,7 @@ const extractFields = (data) => {
 
 watch(
   () => ({
-    data: addLatLonToData (props.data),
+    data: props.data,
     model: props.model,
     associated_models: props.associated_models,
   }),
@@ -361,7 +387,10 @@ watch(
     const { data, model, associated_models } = newProps;
 
     if (data && data.length > 0) {
-      tableDataList.value = data;
+      // Add computed properties (latitude, longitude, coordinates) from geometry
+      // This ensures filtered downloads have computed fields even if they weren't in the original data
+      const dataWithComputed = addLatLonToData([...data]);
+      tableDataList.value = dataWithComputed;
       //console.log('DownloadCustom - Received data:', data);
      // console.log('DownloadCustom - First record structure:', data[0]);
       availableFields.value = extractFields(tableDataList.value);
@@ -421,9 +450,13 @@ const downloadCSV = async () => {
   if (!selectedFields.value.length) {
     return ElMessage.warning("Please select at least one field.");
   }
+  downloadFilteredLoading.value = true;
   emit('download-start');
   try {
-    const extractedData = extractData(tableDataList.value, selectedFields.value);
+    // Download Filtered: Use data already displayed in browser (from props.data)
+    // This includes computed properties like latitude, longitude, coordinates
+    const browserData = props.data || [];
+    const extractedData = extractData(browserData, selectedFields.value);
     // Clean up the field names and prepare column headers
     const columns = selectedFields.value.map((field) => {
       let cleanedField = field.replace(/[^a-zA-Z0-9]/g, ' ');
@@ -459,6 +492,7 @@ const downloadCSV = async () => {
       columns: columnWidths.map((width) => ({ width })),
     });
   } finally {
+    downloadFilteredLoading.value = false;
     emit('download-end');
   }
 };
@@ -466,6 +500,7 @@ const downloadCSV = async () => {
 
 
 const getFilteredData = async (selectedFieldsList = []) => {
+  // Download All: Query backend for all data (respects filters but gets all matching records)
   const formData = {};
 
   formData.model = props.model;
@@ -483,21 +518,20 @@ const getFilteredData = async (selectedFieldsList = []) => {
   }
 
   const res = await getAllForDownload(formData);
-  console.log('User download All', res);
-  //tableDataList.value = res.data;
-  tableDataList.value  = await addLatLonToData (res.data )
-  console.log( tableDataList.value)
-
+  // Compute latitude/longitude from geometry in frontend
+  return addLatLonToData(res.data);
 }
 
 const downloadAll = async () => {
   if (!selectedFields.value.length) {
     return ElMessage.warning("Please select at least one field.");
   }
+  downloadAllLoading.value = true;
   emit('download-start');
   try {
-    await getFilteredData(selectedFields.value);
-    const extractedData = extractData(tableDataList.value, selectedFields.value);
+    // Download All: Query backend for all data
+    const backendData = await getFilteredData(selectedFields.value);
+    const extractedData = extractData(backendData, selectedFields.value);
     const columns = selectedFields.value.map((field) => {
       let cleanedField = field.replace(/[^a-zA-Z0-9]/g, ' ');
       const words = cleanedField.split(/\s+/).filter(word => word);
@@ -532,6 +566,7 @@ const downloadAll = async () => {
       columns: columnWidths.map((width) => ({ width })),
     });
   } finally {
+    downloadAllLoading.value = false;
     emit('download-end');
   }
 };
