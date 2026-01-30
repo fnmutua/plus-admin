@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // @ts-nocheck
-import { ref, reactive, nextTick, computed, onMounted } from 'vue'
+import { ref, reactive, nextTick, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 
 declare global {
@@ -144,9 +144,11 @@ const settlementForm = reactive({
   code: '',
   surveyed: null,
   land_status: null,
+  land_status_planning: [],
+  land_status_survey: [],
   parcel_owner_type: null,
   pop_density: null,
-  landuse: null,
+  landuse: [],
   near_river: null,
   on_wayleave: null,
   on_road_reserve: null,
@@ -199,23 +201,45 @@ const parcelOwnershipOptions = [
   { label: 'Community', value: 'community' }
 ]
 
-const landStatusOptions = [
-  { label: 'Registered', value: 'registered' },
-  { label: 'Unregistered', value: 'unregistered' },
-  { label: 'Disputed', value: 'disputed' }
+// Land status options - split into planning and survey components for multiple selection
+const planningStatusOptions = [
+  { label: 'Planned', value: 'Planned' },
+  { label: 'Unplanned', value: 'Unplanned' }
+]
+
+const surveyStatusOptions = [
+  { label: 'Surveyed', value: 'Surveyed' },
+  { label: 'Unsurveyed', value: 'Unsurveyed' }
+]
+
+// Landuse options matching SQL normalized values (supports multiple selection)
+const landuseOptions = [
+  { label: 'Mixed', value: 'Mixed' },
+  { label: 'Residential', value: 'Residential' },
+  { label: 'Commercial', value: 'Commercial' },
+  { label: 'Industrial', value: 'Industrial' },
+  { label: 'Educational', value: 'Educational' },
+  { label: 'Public Purpose', value: 'Public Purpose' },
+  { label: 'Public Utility', value: 'Public Utility' },
+  { label: 'Transportation', value: 'Transportation' },
+  { label: 'Agricultural', value: 'Agricultural' },
+  { label: 'Undeveloped', value: 'Undeveloped' },
+  { label: 'Conservation', value: 'Conservation' },
+  { label: 'Other', value: 'Other' }
 ]
 
 const parcelOwnerTypeOptions = [
-  { label: 'Individual', value: 'individual' },
-  { label: 'Government', value: 'government' },
-  { label: 'Community', value: 'community' },
-  { label: 'Corporate', value: 'corporate' }
+  { label: 'Unknown', value: 'Unknown' },
+  { label: 'Private', value: 'Private' },
+  { label: 'Public', value: 'Public' },
+  { label: 'Communal', value: 'Communal' },
+  { label: 'Mixed', value: 'Mixed' }
 ]
 
 const structureTypesOptions = [
-  { label: 'Temporary', value: 'temporary' },
-  { label: 'Semi Permanent', value: 'semi_permanent' },
-  { label: 'Permanent', value: 'permanent' }
+  { label: 'Permanent', value: 'Permanent' },
+  { label: 'Semi-permanent', value: 'Semi-permanent' },
+  { label: 'Temporary', value: 'Temporary' }
 ]
 
 const levelDevtOptions = [
@@ -224,11 +248,42 @@ const levelDevtOptions = [
 ]
 
 const buildingMaterialsOptions = [
-  { label: 'Mud', value: 'mud' },
-  { label: 'Timber', value: 'timber' },
-  { label: 'Iron Sheet', value: 'iron_sheet' },
-  { label: 'Blocks/Stone', value: 'blocks_stone' }
+  { label: 'Stone/Blocks', value: 'Stone/Blocks' },
+  { label: 'Mud', value: 'Mud' },
+  { label: 'Timber/Wood', value: 'Timber/Wood' },
+  { label: 'Iron sheets', value: 'Iron sheets' },
+  { label: 'Earth', value: 'Earth' },
+  { label: 'Cement', value: 'Cement' },
+  { label: 'Tiles', value: 'Tiles' },
+  { label: 'Grass', value: 'Grass' },
+  { label: 'Plastic/Polythene', value: 'Plastic/Polythene' },
+  { label: 'Concrete/Slab', value: 'Concrete/Slab' },
+  { label: 'Terrazzo', value: 'Terrazzo' },
+  { label: 'Other', value: 'Other' }
 ]
+
+// Watch land_status_planning and land_status_survey to combine into land_status
+watch(
+  [() => settlementForm.land_status_planning, () => settlementForm.land_status_survey],
+  () => {
+    if (settlementForm.land_status_planning.length === 0 && settlementForm.land_status_survey.length === 0) {
+      settlementForm.land_status = null
+      return
+    }
+    
+    const planning = settlementForm.land_status_planning.join(', ')
+    const survey = settlementForm.land_status_survey.join(', ')
+    
+    if (planning && survey) {
+      settlementForm.land_status = `${planning}, ${survey}`
+    } else if (planning) {
+      settlementForm.land_status = planning
+    } else if (survey) {
+      settlementForm.land_status = survey
+    }
+  },
+  { deep: true }
+)
 
 // Handle county selection
 const handleCountyChange = async (countyId: any) => {
@@ -1273,14 +1328,17 @@ const submitForm = async () => {
         const formDataToSubmit = {
           ...settlementForm,
           structure_types: Array.isArray(settlementForm.structure_types) 
-            ? settlementForm.structure_types.join(',') 
+            ? settlementForm.structure_types.join(', ') 
             : settlementForm.structure_types || '',
           development: Array.isArray(settlementForm.development) 
-            ? settlementForm.development.join(',') 
+            ? settlementForm.development.join(', ') 
             : settlementForm.development || '',
           typical_building_materials: Array.isArray(settlementForm.typical_building_materials) 
-            ? settlementForm.typical_building_materials.join(',') 
-            : settlementForm.typical_building_materials || ''
+            ? settlementForm.typical_building_materials.join(', ') 
+            : settlementForm.typical_building_materials || '',
+          landuse: Array.isArray(settlementForm.landuse) 
+            ? settlementForm.landuse.join(', ') 
+            : settlementForm.landuse || ''
         }
 
         if (isEditMode.value && editingSettlementId.value) {
@@ -1498,9 +1556,11 @@ const clearFormAndGeometry = () => {
     code: '',
     surveyed: null,
     land_status: null,
+    land_status_planning: [],
+    land_status_survey: [],
     parcel_owner_type: null,
     pop_density: null,
-    landuse: null,
+    landuse: [],
     near_river: null,
     on_wayleave: null,
     on_road_reserve: null,
@@ -1814,6 +1874,36 @@ onMounted(async () => {
         settlementForm.typical_building_materials = []
       }
       
+      // Parse land_status into planning and survey components
+      if (curData.land_status && typeof curData.land_status === 'string') {
+        const landStatus = curData.land_status
+        settlementForm.land_status_planning = []
+        settlementForm.land_status_survey = []
+        
+        if (landStatus.includes('Planned')) {
+          settlementForm.land_status_planning.push('Planned')
+        }
+        if (landStatus.includes('Unplanned')) {
+          settlementForm.land_status_planning.push('Unplanned')
+        }
+        if (landStatus.includes('Surveyed')) {
+          settlementForm.land_status_survey.push('Surveyed')
+        }
+        if (landStatus.includes('Unsurveyed')) {
+          settlementForm.land_status_survey.push('Unsurveyed')
+        }
+      } else {
+        settlementForm.land_status_planning = []
+        settlementForm.land_status_survey = []
+      }
+      
+      // Parse landuse from string to array
+      if (curData.landuse && typeof curData.landuse === 'string') {
+        settlementForm.landuse = curData.landuse.split(',').map((s: string) => s.trim()).filter((s: string) => s)
+      } else if (!curData.landuse) {
+        settlementForm.landuse = []
+      }
+      
       // Set location
       selectedCounty.value = curData.county_id
       await handleCountyChange(curData.county_id)
@@ -2064,14 +2154,30 @@ onMounted(async () => {
         </el-form-item>
 
         <el-form-item label="Land Status">
-          <el-select v-model="settlementForm.land_status" placeholder="Select land status" filterable style="width: 100%">
-            <el-option
-              v-for="item in landStatusOptions"
-              :key="item.value"
-              :label="item.label"
-              :value="item.value"
-            />
-          </el-select>
+          <div style="margin-bottom: 10px;">
+            <div style="font-weight: 500; margin-bottom: 8px;">Planning Status:</div>
+            <el-checkbox-group v-model="settlementForm.land_status_planning">
+              <el-checkbox
+                v-for="item in planningStatusOptions"
+                :key="item.value"
+                :label="item.value"
+              >
+                {{ item.label }}
+              </el-checkbox>
+            </el-checkbox-group>
+          </div>
+          <div>
+            <div style="font-weight: 500; margin-bottom: 8px;">Survey Status:</div>
+            <el-checkbox-group v-model="settlementForm.land_status_survey">
+              <el-checkbox
+                v-for="item in surveyStatusOptions"
+                :key="item.value"
+                :label="item.value"
+              >
+                {{ item.label }}
+              </el-checkbox>
+            </el-checkbox-group>
+          </div>
         </el-form-item>
 
         <el-form-item label="Parcel Owner Type">
@@ -2092,7 +2198,20 @@ onMounted(async () => {
         </el-form-item>
 
         <el-form-item label="Pre-Dominant Landuse">
-          <el-input v-model="settlementForm.landuse" placeholder="Enter landuse" />
+          <el-select 
+            v-model="settlementForm.landuse" 
+            placeholder="Select landuse" 
+            filterable 
+            multiple
+            style="width: 100%"
+          >
+            <el-option
+              v-for="item in landuseOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
         </el-form-item>
 
         <el-form-item label="Near River?">
