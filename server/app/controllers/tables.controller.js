@@ -3992,6 +3992,22 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
           ]
         : null;
 
+      // Add geometry type literal for models with geometry column
+      const geomTypeLiteral = hasGeomColumn
+        ? [
+            db.sequelize.literal(
+              `CASE 
+                WHEN "${Model.tableName}"."geom" IS NULL THEN 'none'
+                WHEN ST_GeometryType("${Model.tableName}"."geom") IN ('ST_Point', 'ST_MultiPoint') THEN 'Point'
+                WHEN ST_GeometryType("${Model.tableName}"."geom") IN ('ST_Polygon', 'ST_MultiPolygon') THEN 'Polygon'
+                WHEN ST_GeometryType("${Model.tableName}"."geom") IN ('ST_LineString', 'ST_MultiLineString') THEN 'LineString'
+                ELSE 'none'
+              END`
+            ),
+            'geomType',
+          ]
+        : null;
+
       // Virtual/computed fields that don't exist in database - exclude them
       const virtualFields = ['latitude', 'longitude', 'user', 'coordinates'];
       
@@ -4004,15 +4020,25 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
         if (hasGeomLiteral && !excludeGeom) {
           attrs.push(hasGeomLiteral);
         }
+        if (geomTypeLiteral) {
+          attrs.push(geomTypeLiteral);
+        }
         query.attributes = attrs;
       } else if (hasGeomColumn) {
-        // Default: select all columns, optionally excluding geom and virtual fields, and add hasGeom flag
+        // Default: select all columns, optionally excluding geom and virtual fields, and add hasGeom flag and geomType
         const exclude = excludeGeom 
           ? ['geom', ...virtualFields] 
           : virtualFields;
+        const include = [];
+        if (hasGeomLiteral) {
+          include.push(hasGeomLiteral);
+        }
+        if (geomTypeLiteral) {
+          include.push(geomTypeLiteral);
+        }
         query.attributes = {
           exclude,
-          include: hasGeomLiteral ? [hasGeomLiteral] : [],
+          include,
         };
       } else if (excludeGeom) {
         // Defensive: if model has no geom but flag is set, still try to exclude
@@ -4693,7 +4719,16 @@ exports.modelPaginatedDatafilterBykeyWord = async (req, res) => {
       attributes: hasGeomColumn ? {
        // exclude: ['geom'],
         include: [
-          [db.sequelize.literal(`CASE WHEN "${Model.tableName}"."geom" IS NOT NULL THEN true ELSE false END`), 'hasGeom']
+          [db.sequelize.literal(`CASE WHEN "${Model.tableName}"."geom" IS NOT NULL THEN true ELSE false END`), 'hasGeom'],
+          [db.sequelize.literal(
+            `CASE 
+              WHEN "${Model.tableName}"."geom" IS NULL THEN 'none'
+              WHEN ST_GeometryType("${Model.tableName}"."geom") IN ('ST_Point', 'ST_MultiPoint') THEN 'Point'
+              WHEN ST_GeometryType("${Model.tableName}"."geom") IN ('ST_Polygon', 'ST_MultiPolygon') THEN 'Polygon'
+              WHEN ST_GeometryType("${Model.tableName}"."geom") IN ('ST_LineString', 'ST_MultiLineString') THEN 'LineString'
+              ELSE 'none'
+            END`
+          ), 'geomType']
         ]
       } : undefined,
     };

@@ -400,8 +400,9 @@ const canUserAccessSettlement = (settlement: any, action: 'edit' | 'delete' | 'c
 const getSettlementActionButtons = (settlement: any): string[] => {
   let buttons: string[] = [];
   
-  // Always show view on map if settlement has geometry
-  if (settlement.geom || settlement.hasGeom) {
+  // Always show view on map if settlement has geometry (use geomType or fallback to hasGeom/geom)
+  const hasGeometry = settlement.geomType && settlement.geomType !== 'none' || settlement.hasGeom || settlement.geom;
+  if (hasGeometry) {
     buttons.push('viewOnMap');
   }
 
@@ -470,7 +471,7 @@ const ruleForm = reactive({
 const mobileBreakpoint = 768;
 const defaultPageSize = 10;
 const mobilePageSize = 5;
-const basePageSizes = [5, 10, 15, 20, 50, 100];
+const basePageSizes = [5, 10, 15, 20, 50, 100,500,1000];
 const pageSize = ref(defaultPageSize);
 
 // Helper to build page-size options and include an "All" option equal to current total
@@ -1055,7 +1056,7 @@ const getNewOrRejectedSettlements = async (tab) => {
   formData.associated_multiple_models = associated_multiple_models
   formData.nested_models = nested_models
   formData.dateRange = dateRange.value
-  
+  formData.excludeGeom = true // Exclude geometry for table performance
 
 
   const res = await getSettlementListByCounty(formData)
@@ -1290,6 +1291,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   formData.associated_multiple_models = associated_multiple_models
   formData.nested_models = nested_models
   formData.dateRange = dateRange.value
+  formData.excludeGeom = true // Exclude geometry for table performance
 
 
   const res = await getSettlementListByCounty(formData)
@@ -1425,7 +1427,9 @@ const viewOnMap = (data: TableSlotDefault) => {
 
 const handleViewOnMap = (data) => {
   console.log(data)
-  if (data.geom || data.hasGeom) {
+  // Check if settlement has geometry using geomType or fallback to hasGeom/geom
+  const hasGeometry = data.geomType && data.geomType !== 'none' || data.hasGeom || data.geom;
+  if (hasGeometry) {
     push({
       path: '/settlement/map/:id',
       name: 'SettlementMap',
@@ -1487,6 +1491,7 @@ const getFilteredBySearchData = async (tab, searchKey) => {
   formData.filterValues = filterValues.value
   formData.associated_multiple_models = associated_multiple_models
   formData.nested_models = nested_models
+  formData.excludeGeom = true // Exclude geometry for table performance
   const res = await searchByKeyWord(formData)
   searchLoading.value = false
   // Use res.total (lowercase) for paginated results, or res.Total if available
@@ -3913,25 +3918,46 @@ const handleDateChange = async () => {
 
 // Helper to get geometry icon
 function getGeometryIcon(row) {
-  if (!row.geom || !row.geom.type) {
+  // Use geomType property from backend (Polygon, Point, LineString, or none)
+  const geomType = row.geomType;
+  
+  if (!geomType || geomType === 'none') {
     return { icon: 'ep:warning',  tooltip: 'No geometry' };
   }
-  if (row.geom.type === 'Point' || row.geom.type === 'MultiPoint') {
+  if (geomType === 'Point') {
     return { icon: 'mdi:map-marker',  tooltip: 'Point geometry' };
   }
-  if (row.geom.type === 'Polygon' || row.geom.type === 'MultiPolygon') {
+  if (geomType === 'Polygon') {
     return { icon: 'material-symbols:map-outline-sharp',  tooltip: 'Polygon geometry' };
+  }
+  if (geomType === 'LineString') {
+    return { icon: 'mdi:vector-line',  tooltip: 'LineString geometry' };
+  }
+  // Fallback to checking geom.type if geomType is not available (backward compatibility)
+  if (row.geom && row.geom.type) {
+    if (row.geom.type === 'Point' || row.geom.type === 'MultiPoint') {
+      return { icon: 'mdi:map-marker',  tooltip: 'Point geometry' };
+    }
+    if (row.geom.type === 'Polygon' || row.geom.type === 'MultiPolygon') {
+      return { icon: 'material-symbols:map-outline-sharp',  tooltip: 'Polygon geometry' };
+    }
   }
   return { icon: 'ep:warning',   tooltip: 'Unknown geometry' };
 }
 
 // Helper to sort by geometry (has geometry = 1, no geometry = 0)
 function sortByGeometry(a, b) {
-  // Get geometry priority: Polygon=2, Point=1, No geometry=0
+  // Get geometry priority: Polygon=2, Point=1, LineString=1, No geometry=0
   const getGeometryPriority = (row) => {
-    if (!row.geom || !row.geom.type) return 0;
-    if (row.geom.type === 'Polygon' || row.geom.type === 'MultiPolygon') return 2;
-    if (row.geom.type === 'Point' || row.geom.type === 'MultiPoint') return 1;
+    const geomType = row.geomType;
+    if (!geomType || geomType === 'none') return 0;
+    if (geomType === 'Polygon') return 2;
+    if (geomType === 'Point' || geomType === 'LineString') return 1;
+    // Fallback to checking geom.type if geomType is not available (backward compatibility)
+    if (row.geom && row.geom.type) {
+      if (row.geom.type === 'Polygon' || row.geom.type === 'MultiPolygon') return 2;
+      if (row.geom.type === 'Point' || row.geom.type === 'MultiPoint') return 1;
+    }
     return 0;
   };
   
