@@ -87,6 +87,11 @@ export const sendAcknowledgement= (data: any) => {
    // console.log('filters....', data)
     return request.post({ url: prod + '/api/v1/pdf',  data })
  }
+
+export const generateResolutionForm= (data: any) => {
+   // Generate resolution form with blob response
+    return request.post({ url: prod + '/api/v1/pdf',  data, responseType: 'blob' })
+ }
  
  export const deleteCascade= (data: any) => {
    // console.log('filters....', data)

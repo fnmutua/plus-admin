@@ -16,7 +16,7 @@ import { Icon } from '@iconify/vue';
 import PermissionWrapper from '@/components/PermissionWrapper.vue';
 import {
   Download, CaretRight, Check, Close, Lock, Notification, Microphone,Delete,Edit,ArrowLeft,RefreshLeft,
-  ArrowRight, Document, Plus, Paperclip, InfoFilled, CircleCheck,
+  ArrowRight, Document, Plus, Paperclip, InfoFilled, CircleCheck, UploadFilled,
 } from '@element-plus/icons-vue'
 
 import {
@@ -301,9 +301,15 @@ const getResolutionDocuments = computed(() => {
     doc.action_id === resolutionLogId
   )
   
-  // Also check nested documents in the log
+  // Also check nested documents in the log and deduplicate by id
   if ((resolutionLog as any).grievance_documents && Array.isArray((resolutionLog as any).grievance_documents) && (resolutionLog as any).grievance_documents.length > 0) {
-    return [...resolutionDocs, ...(resolutionLog as any).grievance_documents]
+    const nestedDocs = (resolutionLog as any).grievance_documents
+    const existingIds = new Set(resolutionDocs.map((doc: any) => doc.id).filter((id: any) => id != null))
+    
+    // Only add nested documents that don't already exist in resolutionDocs
+    const uniqueNestedDocs = nestedDocs.filter((doc: any) => !doc.id || !existingIds.has(doc.id))
+    
+    return [...resolutionDocs, ...uniqueNestedDocs]
   }
   
   return resolutionDocs
@@ -387,11 +393,13 @@ const processGrievance = async() => {
   // Hide action button if:
   // 1. Status is Closed or In Court
   // 2. Status is Resolved AND current_level is settlement or county (resolved by settlement/county GRM)
-  //    - Once resolved by settlement/county GRM, no further actions should be allowed
+  //    - Once resolved by settlement/county GRM, no further actions should be allowed for non-national users
+  //    - National GRM can still see the action button to close or perform other actions
   //    - Only national GRM can confirm the resolution (via separate confirmation button)
   if(Grievance.value.status =='Closed' || Grievance.value.status =='In Court' ) {
    showActionButton.value=false
-  } else if(Grievance.value.status =='Resolved' && ['settlement', 'county'].includes(Grievance.value.current_level)) {
+  } else if(Grievance.value.status =='Resolved' && ['settlement', 'county'].includes(Grievance.value.current_level) && !isNationalGRM.value) {
+   // Hide button for non-national users when resolved at settlement/county level
    showActionButton.value=false
   } else {
     showActionButton.value=true
@@ -1064,6 +1072,16 @@ const form = ref({
 
 const dialogFormVisible = ref(false)
 const isSubmittingSuccessfully = ref(false)
+const showSupportingDocDialog = ref(false)
+const supportingDocFileList = ref([])
+const supportingDocType = ref('Supporting Documentation')
+
+const documentTypes = [
+  { label: 'Supporting Documentation', value: 'Supporting Documentation' },
+  { label: 'Acknowledgement', value: 'Acknowledgement' },
+  { label: 'Resolution Document', value: 'Resolution Document' },
+  { label: 'Other', value: 'Other' }
+]
 const handlePreview = (file) => {
   console.log('Preview:', file);
 };
@@ -1572,6 +1590,84 @@ const uploadFiles = async (action_id, grievance_id) => {
 
 
 }
+
+const uploadSupportingDocuments = async () => {
+  if (!supportingDocFileList.value || supportingDocFileList.value.length === 0) {
+    ElMessage({
+      message: 'Please select at least one file to upload',
+      type: 'warning'
+    })
+    return
+  }
+
+  try {
+    const formData = new FormData()
+    const grievance_id = Grievance.value.id
+
+    for (var i = 0; i < supportingDocFileList.value.length; i++) {
+      const file = supportingDocFileList.value[i]
+      formData.append('files', file.raw)
+      formData.append('format', file.name.split('.').pop())
+      formData.append('grievance_id', grievance_id)
+      formData.append('protected_file', 'true')
+      formData.append('type', supportingDocType.value)
+      formData.append('size', (file.raw.size / 1024 / 1024).toFixed(2))
+      formData.append('code', uuid.v4())
+    }
+
+    ElMessage({
+      message: 'Uploading documents...',
+      type: 'info',
+      duration: 2000
+    })
+
+    const res = await uploadGrievanceDocuments(formData)
+    console.log("Supporting Documents Uploaded", res)
+
+    ElMessage({
+      message: 'Documents uploaded successfully',
+      type: 'success'
+    })
+
+    // Refresh grievance data to show new documents
+    await processGrievance()
+    
+    // Reset and close dialog
+    supportingDocFileList.value = []
+    supportingDocType.value = 'Supporting Documentation'
+    showSupportingDocDialog.value = false
+  } catch (error: any) {
+    console.error('Error uploading supporting documents:', error)
+    ElMessage({
+      message: error.response?.data?.message || 'Failed to upload documents. Please try again.',
+      type: 'error'
+    })
+  }
+}
+
+const handleSupportingDocRemove = (file, fileList) => {
+  supportingDocFileList.value = fileList
+}
+
+const handleSupportingDocExceed = () => {
+  ElMessage.warning('Maximum number of files exceeded')
+}
+
+const beforeSupportingDocUpload = (file: any) => {
+  const isValidType = ['application/pdf', 'image/jpeg', 'image/png', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'].includes(file.type)
+  const isLt10M = file.size / 1024 / 1024 < 10
+
+  if (!isValidType) {
+    ElMessage.error('Document must be PDF, Word, or Image format!')
+    return false
+  }
+  if (!isLt10M) {
+    ElMessage.error('Document size must be smaller than 10MB!')
+    return false
+  }
+  return true
+}
+
 const formatDate = (dateString) => {
   const date = new Date(dateString);
   return new Intl.DateTimeFormat('en-US', {
@@ -2591,7 +2687,7 @@ const formData = {}
           </div>
 
 
-  <template #header v-if="showActionButton">
+  <template #header v-if="showActionButton || Grievance.status === 'Resolved'">
     <div class="dialog-footer">
       <PermissionWrapper :permissions="['grievance:update']">
         <el-tooltip
@@ -2599,6 +2695,7 @@ const formData = {}
           placement="top"
         >
           <el-button
+            v-if="Grievance.status !== 'Resolved'"
             :disabled="button_disabled"
             :type="button_color"
             @click="dialogFormVisible = true"
@@ -2610,7 +2707,7 @@ const formData = {}
         </el-tooltip>
       </PermissionWrapper>
       <el-button
-        v-if="shouldShowReminder"
+        v-if="shouldShowReminder && Grievance.status !== 'Resolved'"
         type="warning"
         plain
         @click="sendReminder(FullGrievanceData)"
@@ -2680,9 +2777,22 @@ const formData = {}
       </el-tab-pane>
       <el-tab-pane label="Supporting Documentation" name="documents">
         <el-card>
+          <div style="margin-bottom: 15px;">
+            <PermissionWrapper :permissions="['grievance:update']">
+              <el-button type="primary" @click="showSupportingDocDialog = true">
+                <Icon icon="fa-solid:upload" style="margin-right: 5px;" />
+                Upload Documentation
+              </el-button>
+            </PermissionWrapper>
+          </div>
           <el-table :data="GrievanceDocuments" style="width: 100%">
             <el-table-column type="index" width="50" />
             <el-table-column prop="name" label="Name" />
+            <el-table-column prop="type" label="Type" width="180">
+              <template #default="scope">
+                <el-tag size="small" type="info">{{ scope.row.type || 'N/A' }}</el-tag>
+              </template>
+            </el-table-column>
             <el-table-column prop="createdAt" label="Uploaded" />
             <el-table-column fixed="right" label="">
               <template #default="scope">
@@ -3794,27 +3904,37 @@ width="340"
     class="confirmation-drawer"
   >
     <div class="drawer-header">
-      <div class="drawer-header-content">
-        <h3>Confirm Resolution</h3>
-        <p>{{ FullGrievanceData?.code }} &mdash; {{ FullGrievanceData?.description }}</p>
+      <div class="header-content">
+        <div class="header-icon">
+          <el-icon :size="isMobile ? 20 : 24">
+            <Check />
+          </el-icon>
+        </div>
+        <div class="header-text">
+          <h3>Confirm Resolution</h3>
+        </div>
       </div>
-      <el-button type="text" @click="showConfirmationDialog = false" class="drawer-close-btn">
-        <el-icon><Close /></el-icon>
+      <el-button type="text" @click="showConfirmationDialog = false" class="close-button">
+        <el-icon :size="isMobile ? 18 : 20">
+          <Close />
+        </el-icon>
       </el-button>
     </div>
 
     <div class="drawer-body">
+    <!-- Grievance Info Section -->
+    <div class="grievance-info-section">
+      <div class="grievance-code">{{ FullGrievanceData?.code }}</div>
+      <div class="grievance-description">{{ FullGrievanceData?.description }}</div>
+    </div>
+
     <el-form :model="confirmationForm" label-position="top" class="confirmation-form">
-      <el-form-item label="Grievance Code">
-        <span>{{ FullGrievanceData?.code }}</span>
-      </el-form-item>
-      
       <el-form-item label="Confirmation Notes">
         <el-input
           v-model="confirmationForm.confirmation_notes"
           type="textarea"
-          :rows="4"
-          placeholder="Add any notes about the confirmation (optional)"
+          :rows="3"
+          placeholder="Optional notes"
         />
       </el-form-item>
       
@@ -3881,9 +4001,7 @@ width="340"
         style="margin-bottom: 20px;"
       >
         <template #title>
-          <div>
-            <strong>Note:</strong> No documents are attached to this resolution. You may want to verify the resolution before confirming.
-          </div>
+          No documents attached. Verify resolution before confirming.
         </template>
       </el-alert>
       
@@ -3893,9 +4011,7 @@ width="340"
         style="margin-bottom: 20px;"
       >
         <template #title>
-          <div>
-            <strong>Note:</strong> By confirming this resolution, you are verifying that the grievance has been properly resolved at the {{ formatSentence(confirmationForm.confirmation_level) }} level.
-          </div>
+          Confirming verifies this grievance is properly resolved at {{ formatSentence(confirmationForm.confirmation_level) }} level.
         </template>
       </el-alert>
     </el-form>
@@ -3909,6 +4025,63 @@ width="340"
       </div>
     </div>
   </el-drawer>
+
+  <!-- Supporting Documentation Upload Dialog -->
+  <el-dialog
+    v-model="showSupportingDocDialog"
+    title="Upload Supporting Documentation"
+    :width="isMobile ? '95%' : '600px'"
+    :close-on-click-modal="false"
+    :close-on-press-escape="true"
+  >
+    <el-form>
+      <el-form-item label="Document Type" label-position="top" required>
+        <el-select 
+          v-model="supportingDocType" 
+          placeholder="Select document type" 
+          style="width: 100%"
+        >
+          <el-option
+            v-for="type in documentTypes"
+            :key="type.value"
+            :label="type.label"
+            :value="type.value"
+          />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="Select Files" label-position="top">
+        <el-upload
+          v-model:file-list="supportingDocFileList"
+          :auto-upload="false"
+          :before-upload="beforeSupportingDocUpload"
+          :on-remove="handleSupportingDocRemove"
+          :on-exceed="handleSupportingDocExceed"
+          :limit="10"
+          multiple
+          drag
+        >
+          <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+          <div class="el-upload__text">
+            Drop file here or <em>click to upload</em>
+          </div>
+          <template #tip>
+            <div class="el-upload__tip">
+              Supported formats: PDF, Word, Images (JPEG, PNG). Max file size: 10MB. Maximum 10 files.
+            </div>
+          </template>
+        </el-upload>
+      </el-form-item>
+    </el-form>
+    
+    <template #footer>
+      <span class="dialog-footer">
+        <el-button @click="showSupportingDocDialog = false">Cancel</el-button>
+        <el-button type="primary" @click="uploadSupportingDocuments" :disabled="supportingDocFileList.length === 0 || !supportingDocType">
+          Upload
+        </el-button>
+      </span>
+    </template>
+  </el-dialog>
 
 </template>
 <style scoped>
@@ -5630,6 +5803,61 @@ width="340"
   
   .mobile-detail-resolution .mobile-detail-value {
     font-size: 10px;
+  }
+}
+
+/* Grievance Info Section in Confirmation Dialog */
+.grievance-info-section {
+  padding: 16px 20px;
+  background-color: var(--el-bg-color-page);
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  margin-bottom: 20px;
+}
+
+.grievance-code {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  margin-bottom: 8px;
+  letter-spacing: 0.3px;
+}
+
+.grievance-description {
+  font-size: 14px;
+  color: var(--el-text-color-regular);
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+@media (max-width: 768px) {
+  .grievance-info-section {
+    padding: 12px 16px;
+    margin-bottom: 16px;
+  }
+  
+  .grievance-code {
+    font-size: 14px;
+    margin-bottom: 6px;
+  }
+  
+  .grievance-description {
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .grievance-info-section {
+    padding: 10px 12px;
+    margin-bottom: 12px;
+  }
+  
+  .grievance-code {
+    font-size: 13px;
+    margin-bottom: 5px;
+  }
+  
+  .grievance-description {
+    font-size: 12px;
   }
 }
 </style>

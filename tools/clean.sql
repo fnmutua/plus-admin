@@ -593,3 +593,9 @@ GROUP BY parcel_owner_type
 ORDER BY COUNT(*) DESC;
 
 COMMIT;
+
+
+
+SELECT
+  SUM(ST_Length(ST_Transform(geom, 21036)))/1000  AS total_roads_km
+FROM road;

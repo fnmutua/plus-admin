@@ -229,11 +229,11 @@ const landuseOptions = [
 ]
 
 const parcelOwnerTypeOptions = [
-  { label: 'Unknown', value: 'Unknown' },
   { label: 'Private', value: 'Private' },
   { label: 'Public', value: 'Public' },
-  { label: 'Communal', value: 'Communal' },
-  { label: 'Mixed', value: 'Mixed' }
+  { label: 'Community', value: 'Community' },
+  { label: 'Unknown', value: 'Unknown' },
+
 ]
 
 const structureTypesOptions = [
@@ -2128,9 +2128,13 @@ onMounted(async () => {
         </el-form-item>
 
         <el-form-item label="Parcel Owner">
-          <el-select v-model="settlementForm.parcel_owner" placeholder="Select parcel owner" filterable style="width: 100%">
+          <el-input v-model="settlementForm.parcel_owner" placeholder="Enter parcel owner name" />
+        </el-form-item>
+
+        <el-form-item label="Parcel Owner Type">
+          <el-select v-model="settlementForm.parcel_owner_type" placeholder="Select parcel owner type" filterable style="width: 100%">
             <el-option
-              v-for="item in parcelOwnershipOptions"
+              v-for="item in parcelOwnerTypeOptions"
               :key="item.value"
               :label="item.label"
               :value="item.value"
@@ -2178,17 +2182,6 @@ onMounted(async () => {
               </el-checkbox>
             </el-checkbox-group>
           </div>
-        </el-form-item>
-
-        <el-form-item label="Parcel Owner Type">
-          <el-select v-model="settlementForm.parcel_owner_type" placeholder="Select parcel owner type" filterable style="width: 100%">
-            <el-option
-              v-for="item in parcelOwnerTypeOptions"
-              :key="item.value"
-              :label="item.label"
-              :value="item.value"
-            />
-          </el-select>
         </el-form-item>
 
         <el-divider content-position="left">Physical Characteristics</el-divider>

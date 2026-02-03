@@ -102,8 +102,20 @@ exports.generatePDF = async (req, res) => {
     // Define the upload path
     const uploadPath = path.join(uploadDir, uniqueFilename);
 
-  
-    // Save the PDF to the /data/uploads directory
+    // Check if client wants blob response (for download before saving)
+    const returnBlob = formData.returnBlob === true || formData.returnBlob === 'true';
+    
+    if (returnBlob) {
+      // Return PDF blob directly for download
+      const sanitizedFilename = uniqueFilename.replace(/[^a-zA-Z0-9-.]/g, '_');
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${sanitizedFilename}"`);
+      res.setHeader('Content-Length', pdfBytes.length);
+      res.status(200).send(Buffer.from(pdfBytes));
+      return;
+    }
+
+    // Save the PDF to the /data/uploads directory (only if not returning blob)
     fs.writeFileSync(uploadPath, pdfBytes);
 
     console.log(`PDF saved successfully at ${uploadPath}`);
