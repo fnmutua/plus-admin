@@ -136,6 +136,7 @@ const subcountiesOptions = ref([])
 const selectedWard=ref()
 const selectedCategories =ref([])
 const selectedConfirmationStatus = ref<string | null>(null)
+const selectedProjectPhase = ref<string | null>(null)
 const activeSegment = ref('All')
 
 
@@ -731,6 +732,7 @@ const saveFiltersToLocalStorage = () => {
     selectedWard: selectedWard.value,
     selectedCategories: selectedCategories.value,
     selectedConfirmationStatus: selectedConfirmationStatus.value,
+    selectedProjectPhase: selectedProjectPhase.value,
     activeSegment: activeSegment.value,
   }));
 };
@@ -754,6 +756,7 @@ const loadFiltersFromLocalStorage = async () => {
       selectedWard.value = parsed.selectedWard || null;
       selectedCategories.value = parsed.selectedCategories || [];
       selectedConfirmationStatus.value = parsed.selectedConfirmationStatus || null;
+      selectedProjectPhase.value = parsed.selectedProjectPhase || null;
       activeSegment.value = parsed.activeSegment || 'All';
 
       console.log('Mounting gettign',selectedCounty.value )
@@ -800,6 +803,10 @@ const loadFiltersFromLocalStorage = async () => {
                 filterByConfirmationStatus(selectedConfirmationStatus.value)
             }
 
+      if(selectedProjectPhase.value)  {
+                filterByProjectPhase(selectedProjectPhase.value)
+            }
+
 
             
 
@@ -830,6 +837,7 @@ const loadFiltersFromLocalStorage = async () => {
       selectedWard.value = null;
       selectedCategories.value = [];
       selectedConfirmationStatus.value = null;
+      selectedProjectPhase.value = null;
       activeSegment.value = 'Sorting';
     }
   }
@@ -974,6 +982,7 @@ const handleClear = async () => {
   selectedCategories.value = []
   referredOfficerSearch.value = ''
   selectedConfirmationStatus.value = null
+  selectedProjectPhase.value = null
   search_string.value = ''
 
   // Restore role-based location filters
@@ -3814,6 +3823,42 @@ const filterByConfirmationStatus = async (status: string | null) => {
   }
 }
 
+// Filter by project phase
+const filterByProjectPhase = async (phase: string | null) => {
+  if (phase !== null && phase !== undefined) {
+    selectedProjectPhase.value = phase;
+  }
+
+  const selectOption = 'project_phase';
+  const index = filters.value.indexOf(selectOption);
+
+  if (selectedProjectPhase.value) {
+    // Ensure the filter key exists
+    if (!filters.value.includes(selectOption)) {
+      filters.value.push(selectOption);
+      filterFunction.value.push('eq');
+    }
+
+    // Set filter value
+    const filterIndex = filters.value.indexOf(selectOption);
+    filterValues.value[filterIndex] = [selectedProjectPhase.value];
+  } else {
+    // Remove filter if no phase selected
+    if (index !== -1) {
+      filters.value.splice(index, 1);
+      filterFunction.value.splice(index, 1);
+      filterValues.value.splice(index, 1);
+    }
+  }
+
+  if (search_string.value) {
+    getFilteredBySearchData(search_string.value);
+  } else {
+    getFilteredData(filters.value, filterValues.value);
+    getCounts();
+  }
+}
+
 // New reactive variables for improved UX
 const isFiltersOpen = ref(false)
 const searchQuery = ref('')
@@ -3830,7 +3875,8 @@ const hasActiveFilters = computed(() => {
          selectedSubCounty.value || 
          selectedWard.value || 
          referredOfficerSearch.value ||
-         selectedConfirmationStatus.value
+         selectedConfirmationStatus.value ||
+         selectedProjectPhase.value
 })
 
 const activeFilterCount = computed(() => {
@@ -3841,6 +3887,7 @@ const activeFilterCount = computed(() => {
   if (selectedWard.value) count++
   if (referredOfficerSearch.value) count++
   if (selectedConfirmationStatus.value) count++
+  if (selectedProjectPhase.value) count++
   return count
 })
 
@@ -3858,6 +3905,11 @@ const getSubCountyLabel = (subCountyValue: string) => {
 const getWardLabel = (wardValue: string) => {
   const ward = wardOptions.value.find(w => w.value === wardValue)
   return ward ? ward.label : wardValue
+}
+
+const getProjectPhaseLabel = (phaseValue: string) => {
+  const phase = projectPhaseOptions.find(p => p.value === phaseValue)
+  return phase ? phase.label : phaseValue
 }
 
 // Debounced search function
@@ -4101,6 +4153,11 @@ const clearConfirmationStatusFilter = () => {
   filterByConfirmationStatus(null)
 }
 
+const clearProjectPhaseFilter = () => {
+  selectedProjectPhase.value = null
+  filterByProjectPhase(null)
+}
+
 // Clear all filters method
 const clearAllFilters = async () => {
   // Get role-based location filters from user roles
@@ -4148,6 +4205,7 @@ const clearAllFilters = async () => {
   selectedWard.value = null
   referredOfficerSearch.value = ''
   selectedConfirmationStatus.value = null
+  selectedProjectPhase.value = null
   search_string.value = ''
   
   // Clear the underlying filter arrays, but preserve role-based location filters
@@ -4191,6 +4249,11 @@ const applyFiltersAndClose = async () => {
   // Apply confirmation status filter if it has a value
   if (selectedConfirmationStatus.value) {
     await filterByConfirmationStatus(selectedConfirmationStatus.value)
+  }
+  
+  // Apply project phase filter if it has a value
+  if (selectedProjectPhase.value) {
+    await filterByProjectPhase(selectedProjectPhase.value)
   }
   
   // Apply officer search if it has a value
@@ -4697,6 +4760,15 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
               @close="clearConfirmationStatusFilter"
             >
               Confirmation: {{ selectedConfirmationStatus === 'confirmed' ? 'Confirmed' : 'Awaiting' }}
+            </el-tag>
+            <el-tag 
+              v-if="selectedProjectPhase" 
+              size="small" 
+              type="info" 
+              closable 
+              @close="clearProjectPhaseFilter"
+            >
+              Project Phase: {{ getProjectPhaseLabel(selectedProjectPhase) }}
             </el-tag>
           </div>
         </div>
@@ -5828,9 +5900,29 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
               :value="item.value"
             />
           </el-select>
-          <el-text type="info" size="small" style="display: block; margin-top: 4px;">
+          <!-- <el-text type="info" size="small" style="display: block; margin-top: 4px;">
             Filter resolved grievances by confirmation status
-          </el-text>
+          </el-text> -->
+        </div>
+
+        <!-- Project Phase Filter -->
+        <div class="filter-item">
+          <label class="filter-label">Project Phase</label>
+          <el-select
+            v-model="selectedProjectPhase"
+            clearable
+            placeholder="Select project phase"
+            size="small"
+            style="width: 100%"
+            @change="filterByProjectPhase"
+          >
+            <el-option
+              v-for="item in projectPhaseOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
         </div>
 
       </div>
