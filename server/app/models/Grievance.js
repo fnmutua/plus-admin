@@ -130,6 +130,11 @@ module.exports = function (sequelize) {
         type: DataTypes.DATE,
         allowNull: true
       },
+      date_logged: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
+      },
       date_resolved: {
         type: DataTypes.DATE,
         allowNull: true

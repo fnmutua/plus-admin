@@ -130,7 +130,7 @@ v-for="item in settlementOptions" :key="item.value" :label="item.label"
                           format="YYYY-MM-DD"
                           :disabled-date="disableFutureDates"
                         />
-                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Select the date when the grievance was reported. Defaults to today.</el-text>
+                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Select the date when the grievance was reported.</el-text>
                       </el-form-item>
 
                       <el-form-item id="btn13" label="Complaint Type">
@@ -456,7 +456,7 @@ const grmForm = ref<GrievanceForm>({
   reporter_name: '',
   reporter_phone: '',
   project_phase: 'KISIP 2',
-  date_reported: new Date(),
+  date_reported: undefined,
 });
 
 
@@ -479,6 +479,7 @@ const validationRules = ({
   step2: {
     county_id: [{ required: true, message: 'County is required', trigger: 'change' }],
     settlement_id: [{ required: true, message: 'Settlement is required', trigger: 'change' }],
+    date_reported: [{ required: true, message: 'Date reported is required', trigger: 'change' }],
   },
 
   step3: {
@@ -777,12 +778,6 @@ const submitForm = async () => {
       console.log('Is Valid', grmForm)
 
 
-      // Use date_reported from form, or default to today if not set
-      if (!grmForm.value.date_reported) {
-        grmForm.value.date_reported = new Date();
-      }
- 
-
       if(grmForm.value.isInCourt) {
         grmForm.value.status = 'In Court'
       } else {
@@ -922,8 +917,8 @@ const resetForm = () => {
   const formRef = dynamicFormRef.value;
   if (formRef) {
     formRef.resetFields();
-    // Reset date_reported to today after reset
-    grmForm.value.date_reported = new Date();
+    // Reset date_reported to undefined after reset
+    grmForm.value.date_reported = undefined;
   }
 };
 

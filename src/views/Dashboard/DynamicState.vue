@@ -1305,7 +1305,7 @@ const getCharts = async (section_id) => {
     console.log('Getting the charts ', response.data)
 
 
-    response.data.forEach(function async(thisChart) {
+    response.data.forEach(async (thisChart) => {
       console.log('This Chart:', thisChart)
       // Set initial loading state for this chart
       setChartLoading(thisChart.id, 'Preparing chart...')
@@ -2578,24 +2578,24 @@ const getCharts = async (section_id) => {
       // Run the approriate funtion 
       if (thisChart.type == 1 && thisChart.category=="Status"  ) {
         console.log('processSimpleBarChart')
-        processSimpleBarChart()
+        await processSimpleBarChart()
       }
 
       else if (thisChart.type == 2 && thisChart.category=="Status") {
-        processMultiBarChart();
+        await processMultiBarChart();
       }
 
       else if ((thisChart.type == 3 || thisChart.type == 10) && thisChart.category=="Status") {
-        processPieChart();
+        await processPieChart();
       }
 
       else if (thisChart.type == 4 && thisChart.category=="Status") {
-        processStackedBarChart();
+        await processStackedBarChart();
       }
 
 
       else if (thisChart.type == 9 && thisChart.category=="Status") {
-        processStackedBarChartAbs();
+        await processStackedBarChartAbs();
       }
 
 
@@ -2603,19 +2603,19 @@ const getCharts = async (section_id) => {
 
 
       else if (thisChart.type == 5 && thisChart.category=="Status") {
-        processLineChart();
+        await processLineChart();
       }
 
       else if (thisChart.type == 6 && thisChart.category=="Status") {
-        processStackLineChart();
+        await processStackLineChart();
       }
 
       else if (thisChart.type == 7 && thisChart.category=="Status") {
-        processMapChart();
+        await processMapChart();
       }
 
       else if (thisChart.type == 8 && thisChart.category=="Status") {
-        processPyramid();
+        await processPyramid();
       }
 
 
@@ -2623,51 +2623,46 @@ const getCharts = async (section_id) => {
 
       if (thisChart.type == 1 && thisChart.category=="Intervention"  ) {
         console.log('processSimpleBarChart')
-        processSimpleBarChart2()
+        await processSimpleBarChart2()
       }
 
       else if (thisChart.type == 2 && thisChart.category=="Intervention") {
-        processMultiBarChart2();
+        await processMultiBarChart2();
       }
 
       else if ((thisChart.type == 3 || thisChart.type == 10 )&& thisChart.category=="Intervention") {
-        processPieChart2();
+        await processPieChart2();
       }
 
       else if (thisChart.type == 4 && thisChart.category=="Intervention") {
-        processStackedBarChart2();
+        await processStackedBarChart2();
       }
 
       else if (thisChart.type == 5 && thisChart.category=="Intervention") {
-        processLineChart2();
+        await processLineChart2();
       }
 
       else if (thisChart.type == 6 && thisChart.category=="Intervention") {
-        processStackLineChart2();
+        await processStackLineChart2();
       }
 
       else if (thisChart.type == 7 && thisChart.category=="Intervention") {
-        processMapChart2();
+        await processMapChart2();
       }
 
       else if (thisChart.type == 8 && thisChart.category=="Intervention") {
-        processPyramid();
+        await processPyramid();
       }
-
 
     })
 
 
-
     // console.log('charts  :', charts)
     //return charts;
-    const sortedCharts = charts.sort((a, b) => a.id - b.id);
-    chartsLoading.value = false; // Mark charts as loaded
-    return sortedCharts;
+    return charts.sort((a, b) => a.id - b.id);
   } catch (error) {
     // Handle any errors that occur during the asynchronous operation
     console.error(error);
-    chartsLoading.value = false; // Mark charts as loaded even on error
     //return null; // or any default value you prefer
     return []; // or any default value you prefer
   }
@@ -2677,54 +2672,55 @@ const getCharts = async (section_id) => {
 
 
 const getSectionsData = async () => {
+  try {
+    var filters = ['dashboard_id']
+    var filterValues = [[dashboard_id.value]]  // make sure the inner array is array
+    const formData = {}
+    formData.curUser = 1 // Id for logged in user
+    formData.model = 'dashboard_section'
+    //-Search field--------------------------------------------
+    formData.searchField = 'title'
+    formData.searchKeyword = ''
+    //--Single Filter -----------------------------------------
+    formData.associated_multiple_models = []
+    formData.filters = filters
+    formData.filterValues = filterValues
 
-  var filters = ['dashboard_id']
-  var filterValues = [[dashboard_id.value]]  // make sure the inner array is array
-  const formData = {}
-  formData.curUser = 1 // Id for logged in user
-  formData.model = 'dashboard_section'
-  //-Search field--------------------------------------------
-  formData.searchField = 'title'
-  formData.searchKeyword = ''
-  //--Single Filter -----------------------------------------
-  formData.associated_multiple_models = []
-  formData.filters = filters
-  formData.filterValues = filterValues
-
-  //-------------------------
-  //console.log(formData)
-  const res = await getSettlementListByCounty(formData)
-
-
-  console.log('sections>>', tabs.value)
-  //activeTab.value = tabs.value[0].name;
-  console.log('activeTab', tabs.value[0])
+    //-------------------------
+    //console.log(formData)
+    const res = await getSettlementListByCounty(formData)
 
 
-  async function processSectionsData() {
-    const promises = res.data.map(async function (arrayItem) {
-      let tab = {};
-      tab.label = arrayItem.title;
-      tab.name = arrayItem.title;
-      tab.cards = await getCharts(arrayItem.id);
-      return tab;
-    });
+    console.log('sections>>', tabs.value)
+    //activeTab.value = tabs.value[0].name;
+    console.log('activeTab', tabs.value[0])
 
-    tabs.value = await Promise.all(promises);
-    console.log('sections', tabs.value);
-    activeTab.value = tabs.value[0] ? tabs.value[0].name : ''
-    console.log('activeTab', activeTab.value);
-    tabs.value.sort((a, b) => a.id - b.id);
 
+    async function processSectionsData() {
+      const promises = res.data.map(async function (arrayItem) {
+        let tab = {};
+        tab.label = arrayItem.title;
+        tab.name = arrayItem.title;
+        tab.charts = await getCharts(arrayItem.id);
+        return tab;
+      });
+
+      tabs.value = await Promise.all(promises);
+      console.log('sections', tabs.value);
+      activeTab.value = tabs.value[0] ? tabs.value[0].name : ''
+      console.log('activeTab', activeTab.value);
+      tabs.value.sort((a, b) => a.id - b.id);
+
+    }
+
+    await processSectionsData();
+
+  } catch (error) {
+    console.error('Error loading sections data:', error);
+  } finally {
+    chartsLoading.value = false;
   }
-
-  processSectionsData();
-
-
-
 }
-
-
 const getTabs = async () => {
   // return Cards
   await getSectionsData()

@@ -1606,9 +1606,6 @@ const disableFutureDates = (date: Date) => {
 }
 
 const submitForm = async () => {
-  if (!grmForm.value.date_reported) {
-  grmForm.value.date_reported = new Date();
-  }
   grmForm.value.status = 'Sorting'
 
   grmForm.value.current_status_date=new Date();
@@ -1959,6 +1956,7 @@ const validationRules = ({
   step2: {
     county_id: [{ required: true, message: 'County is required', trigger: 'change' }],
     settlement_id: [{ required: true, message: 'Settlement is required', trigger: 'change' }],
+    date_reported: [{ required: true, message: 'Date reported is required', trigger: 'change' }],
   },
 
   step3: {
