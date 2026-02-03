@@ -2721,6 +2721,7 @@ const getSectionsData = async () => {
     chartsLoading.value = false;
   }
 }
+
 const getTabs = async () => {
   // return Cards
   await getSectionsData()
@@ -3062,7 +3063,7 @@ const activeCollapse = ref([])
 </script>
 
 <template>
-  <div class="dashboard-container" v-loading="dashboardLoading" element-loading-text="Loading dashboard..." element-loading-spinner="el-icon-loading" element-loading-background="rgba(0, 0, 0, 0.8)">
+  <div class="dashboard-container">
     <el-collapse v-model="activeCollapse">
       <el-collapse-item name="filters">
         <template #title>
