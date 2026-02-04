@@ -179,6 +179,14 @@ const Statuses = ref([
     description: 'All grievances regardless of status'
   },
   {
+    label: 'Received (All)',
+    value: 'ReceivedAll',
+    icon: Postcard,
+    count: 0,
+    hidden: false,
+    description: 'All received grievances excluding deleted items'
+  },
+  {
     label: 'Sorting',
     value: 'Sorting',
     icon: Postcard,
@@ -705,7 +713,15 @@ const getCounts = async () => {
       .filter(sc => sc.status !== 'Deleted')
       .reduce((sum, sc) => sum + sc.count, 0) + returnedCount;
     const allStatus = Statuses.value.find(s => s.value === 'All');
-    if (allStatus) allStatus.count = totalExcludingDeleted;
+    if (allStatus) {
+      allStatus.count = totalExcludingDeleted;
+    }
+    
+    // Set 'ReceivedAll' count same as 'All' (all non-deleted statuses)
+    const receivedAllStatus = Statuses.value.find(s => s.value === 'ReceivedAll');
+    if (receivedAllStatus) {
+      receivedAllStatus.count = totalExcludingDeleted;
+    }
 
     console.log('Updated status counts:', statusCounts, 'All:', totalExcludingDeleted);
   } catch (error) {
@@ -1285,28 +1301,38 @@ const buildGrievanceRequestFormData = (
   formData.filterValues = normalizedValues
   formData.filterFunctions = normalizedFunctions
 
+  // Don't exclude deleted when "All" is selected and user has permission
   const shouldExcludeDeleted =
-    (!canViewDeletedGrievances.value && activeSegment.value !== 'Deleted') ||
-    options.excludeDeleted
+    (activeSegment.value === 'All' && canViewDeletedGrievances.value) 
+      ? false // Don't exclude deleted when "All" is selected and user has permission
+      : ((!canViewDeletedGrievances.value && activeSegment.value !== 'Deleted') ||
+         options.excludeDeleted)
 
   if (shouldExcludeDeleted) {
     const statusIndex = formData.filters.indexOf('status')
     if (statusIndex !== -1) {
       const statusValues = formData.filterValues[statusIndex]
       if (Array.isArray(statusValues)) {
-        formData.filterValues[statusIndex] = statusValues.filter(
-          (s: string) => s !== 'Deleted'
-        )
-        if (formData.filterValues[statusIndex].length === 0) {
-          formData.filters.splice(statusIndex, 1)
-          formData.filterValues.splice(statusIndex, 1)
-          formData.filterFunctions.splice(statusIndex, 1)
+        // For "All" segment, if user has permission, don't filter out 'Deleted' (it's already in the list)
+        // For other segments or if user doesn't have permission, filter out 'Deleted'
+        if (activeSegment.value !== 'All' || !canViewDeletedGrievances.value) {
+          formData.filterValues[statusIndex] = statusValues.filter(
+            (s: string) => s !== 'Deleted'
+          )
+          if (formData.filterValues[statusIndex].length === 0) {
+            formData.filters.splice(statusIndex, 1)
+            formData.filterValues.splice(statusIndex, 1)
+            formData.filterFunctions.splice(statusIndex, 1)
+          }
         }
       }
     } else {
-      formData.filters.push('status')
-      formData.filterValues.push(['Deleted'])
-      formData.filterFunctions.push('notIn')
+      // Only add notIn filter if "All" is not selected, or if user doesn't have permission
+      if (activeSegment.value !== 'All' || !canViewDeletedGrievances.value) {
+        formData.filters.push('status')
+        formData.filterValues.push(['Deleted'])
+        formData.filterFunctions.push('notIn')
+      }
     }
   }
 
@@ -1332,7 +1358,6 @@ const getFilteredData = async (selFilters: string[], selfilterValues: any[][]) =
 
     tableDataList.value = res.data
     availableFields.value = extractFields(tableDataList.value);
-    total.value = res.total
 
     await fetchSupportingStaffData()
 
@@ -1340,13 +1365,16 @@ const getFilteredData = async (selFilters: string[], selfilterValues: any[][]) =
       await fetchDeletionHistory()
     }
 
-    Statuses.value.forEach(status => {
-      if (status.value === activeSegment.value) {
-        status.count = res.total;
-      }
-    });
-
+    // Get counts for all segments
     await getCounts()
+    
+    // Set pagination total from the active segment's count (which is calculated correctly)
+    const activeSegmentStatus = Statuses.value.find(s => s.value === activeSegment.value);
+    if (activeSegmentStatus) {
+      total.value = activeSegmentStatus.count;
+    } else {
+      total.value = res.total; // Fallback to query result if segment not found
+    }
 
     console.log('segment', activeSegment.value)
   } catch (error) {
@@ -2752,8 +2780,31 @@ const onSegmentClick = async (statusValue?: string) => {
   }
 
   if (activeSegment.value === "All") {
-    // For "All" grievances, don't add any status filter
-    console.log('Showing all grievances')
+    // For "All" grievances, explicitly include all statuses
+    var selectOption = 'status'
+    if (!filters.value.includes(selectOption)) {
+      filters.value.push(selectOption)
+      filterFunction.value.push('in')
+    }
+    var index = filters.value.indexOf(selectOption)
+    // Include all statuses - the shouldExcludeDeleted logic will handle deleted if needed
+    const allStatuses = ['Sorting', 'Under Review', 'Investigation', 'Returned', 'Resolved', 'Escalated', 'Closed', 'Referred', 'ExternalReferral', 'In Court', 'Rejected']
+    // Only include 'Deleted' if user has permission to view deleted grievances
+    if (canViewDeletedGrievances.value) {
+      allStatuses.push('Deleted')
+    }
+    filterValues.value[index] = allStatuses
+    console.log('Showing all grievances with all statuses:', allStatuses, 'filters:', filters.value, 'filterValues:', filterValues.value)
+  } else if (activeSegment.value === "ReceivedAll") {
+    // For "Received (All)", exclude deleted items explicitly
+    var selectOption = 'status'
+    if (!filters.value.includes(selectOption)) {
+      filters.value.push(selectOption)
+      filterFunction.value.push('notIn')
+    }
+    var index = filters.value.indexOf(selectOption)
+    filterValues.value[index] = ['Deleted']
+    console.log('Showing all received grievances excluding deleted')
   } else if (activeSegment.value === "Sorting") {
     var selectOption = 'status'
     if (!filters.value.includes(selectOption)) {
