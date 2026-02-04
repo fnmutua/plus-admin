@@ -2888,10 +2888,9 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
               </el-col>
             </el-row>
   
-          <el-table :data="households" border  >
+          <el-table :data="households" border>
             <el-table-column type="index" width="50" />
-            <el-table-column label="Name" prop="respondents_name" width="350" sortable />
-             <el-table-column label="Gender" prop="gender" sortable />
+            <el-table-column label="Gender" prop="gender" sortable />
             <el-table-column label="Age" prop="age" sortable />
             <el-table-column label="Household Size" prop="hh_size" sortable />
             <el-table-column fixed="right" label="Actions">

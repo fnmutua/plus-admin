@@ -123,20 +123,15 @@ exports.getAllHouseholds = (req, res) => {
   
 
     console.log('getting households---->')
-    var attributes = []
-    for( let key in   db.models.households.rawAttributes ){
-         attributes.push(key)
-     }
-  //   console.log('attributes',attributes)
-     var index = attributes.indexOf('name');
-     if (index !== -1) {
-        attributes.splice(index, 1);
-     }
-
-    let encrytpedField = [sequelize.fn('PGP_SYM_DECRYPT', sequelize.cast(sequelize.col('households.name'), 'bytea'),'***REDACTED***'),'name']
-
-    attributes.push(encrytpedField)
-    qry.attributes=attributes
+    // Build attributes list excluding sensitive identifiers
+    const attributes = []
+    for (const key in db.models.households.rawAttributes) {
+      if (!['name', 'phone', 'national_id'].includes(key)) {
+        attributes.push(key)
+      }
+    }
+    // Do NOT add decrypted name/phone/national_id back – keep them server-side only
+    qry.attributes = attributes
     qry.order = [['id', 'DESC']]
 
 
@@ -248,20 +243,15 @@ exports.getHouseholdsfilterByColumn = (req, res) => {
   
     console.log('getting households---33->')
 
-
-    var attributes = []
-    for( let key in db.models.households.rawAttributes ){
-         attributes.push(key)
+    // Build attributes list excluding sensitive identifiers
+    const attributes = []
+    for (const key in db.models.households.rawAttributes) {
+      if (!['name', 'phone', 'national_id'].includes(key)) {
+        attributes.push(key)
+      }
     }
-    
-  //   console.log('attributes',attributes)
-     var index = attributes.indexOf('name');
-     if (index !== -1) {
-        attributes.splice(index, 1);
-     }
-    let encrytpedField = [sequelize.fn('PGP_SYM_DECRYPT', sequelize.cast(sequelize.col('households.name'), 'bytea'),'***REDACTED***'),'name']
-    attributes.push(encrytpedField)
-  qry.attributes = attributes
+    // Do NOT add decrypted name/phone/national_id back – keep them server-side only
+    qry.attributes = attributes
   qry.order = [['id', 'DESC']]
 
   db.models.households.findAndCountAll(qry).then((list) => {
@@ -404,19 +394,15 @@ exports.getOneHousehold = (req, res) => {
     }
     qry.where = { id: { [op.eq]: req.body.id } } // Exclude the logged in user returing in the list
     console.log('Descryptiing ')
-    var attributes = []
-    for( let key in db.models.households.rawAttributes ){
-         attributes.push(key)
-     }
-  //   console.log('attributes',attributes)
-     var index = attributes.indexOf('name');
-     if (index !== -1) {
-        attributes.splice(index, 1);
-     }
-    let encrytpedField = [sequelize.fn('PGP_SYM_DECRYPT', sequelize.cast(sequelize.col('households.name'), 'bytea'),'***REDACTED***'),'name']
-
-    attributes.push(encrytpedField)
-    qry.attributes=attributes
+    // Build attributes list excluding sensitive identifiers
+    const attributes = []
+    for (const key in db.models.households.rawAttributes) {
+      if (!['name', 'phone', 'national_id'].includes(key)) {
+        attributes.push(key)
+      }
+    }
+    // Do NOT expose decrypted identifiers on single-record fetch either
+    qry.attributes = attributes
 
     db.models.households.findOne(qry).then((thisRecord) => {
       res.status(200).send({

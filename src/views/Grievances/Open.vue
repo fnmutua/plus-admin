@@ -137,7 +137,8 @@ const selectedWard=ref()
 const selectedCategories =ref([])
 const selectedConfirmationStatus = ref<string | null>(null)
 const selectedProjectPhase = ref<string | null>(null)
-const activeSegment = ref('All')
+// Default landing segment: show all received (non-deleted) grievances
+const activeSegment = ref('ReceivedAll')
 
 
 
@@ -1046,8 +1047,8 @@ const onPageSizeChange = async (size: any) => {
 }
 
 const getInterventionsAll = async () => {
-  // Don't add any status filter for "All" grievances
-  getFilteredData(filters.value, filterValues.value)
+  // Default landing view: use the "Received (All)" segment logic
+  await onSegmentClick('ReceivedAll')
 }
 
 const flattenJSON = (obj = {}, res = {}, extraKey = '') => {

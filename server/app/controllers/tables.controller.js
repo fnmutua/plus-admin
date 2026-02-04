@@ -2843,6 +2843,15 @@ exports.modelOneRecord = (req, res) => {
 
   qry.where = { id: { [op.eq]: req.body.id } };
 
+  // For households, exclude sensitive identifier fields from the response
+  if (reg_model === 'households') {
+    const Model = db.models[reg_model];
+    const allAttrs = Object.keys(Model.rawAttributes);
+    qry.attributes = allAttrs.filter(
+      (attr) => !['name', 'phone', 'national_id'].includes(attr)
+    );
+  }
+
   db.models[reg_model].findOne(qry).then((thisRecord) => {
     res.status(200).send({
       data: thisRecord,
@@ -2867,6 +2876,15 @@ exports.modelOneRecordByCode = (req, res) => {
    
 
   qry.where = { code: { [op.eq]: req.body.code } };
+
+  // For households, exclude sensitive identifier fields from the response
+  if (reg_model === 'households') {
+    const Model = db.models[reg_model];
+    const allAttrs = Object.keys(Model.rawAttributes);
+    qry.attributes = allAttrs.filter(
+      (attr) => !['name', 'phone', 'national_id'].includes(attr)
+    );
+  }
 
   db.models[reg_model].findOne(qry).then((thisRecord) => {
     res.status(200).send({
@@ -3966,21 +3984,26 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
 
     // Handle attribute selection
     if (isHouseholdsModel) {
-      // Households: keep existing optimized projection
+      // Households: explicitly exclude sensitive identifier fields
+      const allAttrs = Object.keys(Model.rawAttributes);
+      const sensitiveFields = ['name', 'respondents_name', 'telephone', 'phone', 'national_id'];
+      const excludeFields = [
+        ...(hasGeomColumn ? ['geom'] : []),
+        ...sensitiveFields.filter((attr) => allAttrs.includes(attr)),
+      ];
+
       query.attributes = {
-        exclude: hasGeomColumn ? ['geom'] : [],
-        include: [
-          'respondents_name',
-          'telephone',
-          ...(hasGeomColumn
-            ? [[
+        exclude: excludeFields,
+        ...(hasGeomColumn
+          ? {
+              include: [[
                 db.sequelize.literal(
                   `CASE WHEN "${Model.tableName}"."geom" IS NOT NULL THEN true ELSE false END`
                 ),
                 'hasGeom',
-              ]]
-            : []),
-        ],
+              ]],
+            }
+          : {}),
       };
     } else {
       const hasGeomLiteral = hasGeomColumn
