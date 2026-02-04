@@ -827,8 +827,8 @@ exports.getGrievances = async (req, res) => {
 
   // Additional filters
   filters.forEach((filter, index) => {
-    const value = filterValues[index];
-    const functionType = filterFunctions[index] || 'eq';
+    let value = filterValues[index];
+    let functionType = filterFunctions[index] || 'eq';
 
     const operatorMap = {
       eq: op.eq,
@@ -842,6 +842,26 @@ exports.getGrievances = async (req, res) => {
       gte: op.gte,
       lte: op.lte
     };
+
+    // Normalize array values to avoid "varchar = text[]" errors.
+    // - If function is 'eq' and value is a single-element array, unwrap it.
+    // - If function is 'eq' or 'ne' and value is a multi-element array,
+    //   switch to 'in' / 'notIn' accordingly so Sequelize generates an IN clause.
+    if (Array.isArray(value)) {
+      if (functionType === 'eq') {
+        if (value.length === 1) {
+          value = value[0];
+        } else {
+          functionType = 'in';
+        }
+      } else if (functionType === 'ne') {
+        if (value.length === 1) {
+          value = value[0];
+        } else {
+          functionType = 'notIn';
+        }
+      }
+    }
 
     // Handle nested field filters (e.g., $users.name$)
     if (filter.includes('$') && filter.includes('.')) {

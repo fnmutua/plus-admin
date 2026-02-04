@@ -1329,6 +1329,11 @@ const getCharts = async (section_id) => {
       const isDonut = thisChart.type == '10'; // Custom flag you can define
        console.log('isDonut',isDonut)
 
+        const filterLabel = getActiveFilterLabel();
+        const titleText = filterLabel
+          ? `${thisChart.title} - ${filterLabel}`
+          : thisChart.title;
+
         const UpdatedPieOptionsMultiple = {
           ...pieOptions,
           chart: {
@@ -1337,7 +1342,7 @@ const getCharts = async (section_id) => {
           },
           title: {
             ...pieOptions.title,
-            text: thisChart.title
+            text: titleText
           },
           labels: cdata[0],
           series: cdata[1],
@@ -2065,11 +2070,16 @@ const getCharts = async (section_id) => {
             var cdata = await getSummaryChart(thisChart)   // first array is the categories // second is the data
             console.log('PIEx', cdata[1])
 
+            const filterLabel = getActiveFilterLabel();
+            const titleText = filterLabel
+              ? `${thisChart.title} - ${filterLabel}`
+              : thisChart.title;
+
             const UpdatedPieOptionsMultiple = {
               ...pieOptions,
               title: {
                 ...pieOptions.title,
-                text: thisChart.title
+                text: titleText
               },
 
               series: {
@@ -2734,6 +2744,33 @@ const countyList = ref([])
 const subCountyList = ref([])
 const filteredSubCountyList = ref([])
 
+
+function getActiveFilterLabel() {
+  // No filter text for national level
+  if (filterLevel.value === 'national') {
+    return ''
+  }
+
+  // County level: list selected counties
+  if (filterLevel.value === 'county' && selectedCounties.value?.length) {
+    const labels = countyList.value
+      .filter((c: any) => selectedCounties.value.includes(c.value))
+      .map((c: any) => c.label)
+
+    return labels.length ? labels.join(', ') : ''
+  }
+
+  // Subcounty level: list selected subcounties
+  if (filterLevel.value === 'subcounty' && selectedSubCounties.value?.length) {
+    const labels = subCountyList.value
+      .filter((s: any) => selectedSubCounties.value.includes(s.value))
+      .map((s: any) => s.label)
+
+    return labels.length ? labels.join(', ') : ''
+  }
+
+  return ''
+}
 
 const getCountySubcountySep = async () => {
     // initialize every time its called
