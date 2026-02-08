@@ -11,7 +11,8 @@ import {
   getSettlementListByCounty,
   DeleteRecord,
   updateOneRecord,
-  getNeighboringSettlements
+  getNeighboringSettlements,
+  getSettlementMapData
 } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
 import { Back, Upload, Search, Edit, More, RefreshLeft, Picture, Download, Loading, Plus } from '@element-plus/icons-vue'
@@ -499,17 +500,21 @@ const getFilteredData = async (selFilters: string[], selfilterValues: any[][]) =
 const settlementId=ref(route.params.id)
 
 onMounted(async () => {
+  mapLoading.value = true
+  startMapLoadingTimeout()
   getFilteredData(filters, filterValues)
-  await getIndicatorCategoryReports(route.params.id)
-  await getSettlmentHistory(route.params.id)
-  await getProjectLocations(route.params.id)
-  await fetchDocumentTypes()
+  // Pre-fetch map data in parallel so Location tab can show map without fetching again
+  const mapDataPromise = getSettlementMapData({ settlementId: route.params.id })
+    .then((res: any) => { initialMapData.value = res?.data ?? null })
+    .catch(() => { initialMapData.value = null })
+  await Promise.all([
+    mapDataPromise,
+    getIndicatorCategoryReports(route.params.id),
+    getSettlmentHistory(route.params.id),
+    getProjectLocations(route.params.id),
+    fetchDocumentTypes()
+  ])
   console.log(settlement)
-  
-  // Always load map data on mount to avoid waiting when user switches to Location tab
-  // The SettlementMap component will start loading immediately and emit 'layers-loaded' when ready
-  mapLoading.value = true;
-  startMapLoadingTimeout();
 })
 
 const router = useRouter()
@@ -996,6 +1001,8 @@ const downloadLoading = ref(false)
 
 // Map loading state
 const mapLoading = ref(true)
+// Pre-fetched map data so SettlementMap doesn't fetch again when Location tab is shown
+const initialMapData = ref(null)
 
 // PDF generation loading state
 const pdfLoading = ref(false)
@@ -2701,6 +2708,7 @@ const updateDocumentCategory = async () => {
           </div>
           <SettlementMap
             :settlementId="settlementId"
+            :initial-map-data="initialMapData"
             @layers-loaded="onLayersLoaded"
             :class="{ 'map-hidden': mapLoading }"
           />  

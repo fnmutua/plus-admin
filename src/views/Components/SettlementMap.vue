@@ -75,9 +75,13 @@ const debounce = (func: Function, wait: number) => {
   }
 }
 
-const props = defineProps<{
-  settlementId: string
-}>()
+const props = withDefaults(
+  defineProps<{
+    settlementId: string
+    initialMapData?: Record<string, any> | null
+  }>(),
+  { initialMapData: null }
+)
 
 const emit = defineEmits<{
   'layers-loaded': []
@@ -120,6 +124,7 @@ const dataLoading = ref(false)
 const loadingProgress = ref(0)
 const loadingStatus = ref('')
 const showProgressOverlay = ref(false)
+const hasLoadedMapData = ref(false)
 
 // Track feature counts
 const layerFeatureCounts = ref({
@@ -216,25 +221,9 @@ const updateLoadingStatus = (status: string, progress: number) => {
   console.log(`📊 ${Math.round(progress)}% - ${status}`)
 }
 
-// Fetch functions - Consolidated approach
-const fetchAllSettlementData = async (): Promise<SettlementMapData | null> => {
-  isLoading.value = true
-  try {
-    console.log('🔄 Fetching consolidated settlement data...')
-    const res = await getSettlementMapData({ settlementId: props.settlementId })
-    
-    console.log('🔍 API Response:', res)
-    
-    // Handle the actual response structure
-    const responseData = res as any
-    if (!responseData?.data) {
-      throw new Error('No settlement data received')
-    }
-
-    const mapData = responseData.data
-    console.log('✅ Received consolidated data:', Object.keys(mapData))
-
-    // Process settlement data
+// Apply API response shape to internal state (shared by fetch and preloaded path)
+const applyMapDataToState = (mapData: SettlementMapData) => {
+  // Process settlement data
     if (mapData.settlement?.features?.length) {
       title.value = mapData.settlement.features[0].properties.name
       features.value = mapData.settlement.features
@@ -306,15 +295,32 @@ const fetchAllSettlementData = async (): Promise<SettlementMapData | null> => {
       parcels: mapData.parcel?.features?.length || 0,
       parcelLabels: mapData.parcel?.features?.length || 0,
       roads: mapData.road?.features?.length || 0,
-      hospitals: 0, // Will be calculated from point features
-      schools: 0,   // Will be calculated from point features
-      water_points: 0, // Will be calculated from point features
+      hospitals: 0,
+      schools: 0,
+      water_points: 0,
       structures: mapData.structure?.features?.length || 0,
       other_points: allPointFeatures.length
     }
+}
 
+// Fetch functions - Consolidated approach (or use preloaded data when provided by parent)
+const fetchAllSettlementData = async (preloadedMapData?: SettlementMapData | null): Promise<SettlementMapData | null> => {
+  if (preloadedMapData) {
+    applyMapDataToState(preloadedMapData)
+    return preloadedMapData
+  }
+  isLoading.value = true
+  try {
+    console.log('🔄 Fetching consolidated settlement data...')
+    const res = await getSettlementMapData({ settlementId: props.settlementId })
+    const responseData = res as any
+    if (!responseData?.data) {
+      throw new Error('No settlement data received')
+    }
+    const mapData = responseData.data
+    console.log('✅ Received consolidated data:', Object.keys(mapData))
+    applyMapDataToState(mapData)
     return mapData
-
   } catch (error) {
     console.error('❌ Error fetching consolidated settlement data:', error)
     ElMessage({ message: 'Failed to load settlement data', type: 'error' })
@@ -359,9 +365,8 @@ const loadSelectedLayersWithProgress = async (layers: string[]) => {
     neighboringSettlements: 0,
   }
 
-  updateLoadingStatus('Fetching settlement data...', 15)
-  // Fetch all data in one call
-  const allData = await fetchAllSettlementData()
+  updateLoadingStatus(props.initialMapData ? 'Preparing map...' : 'Fetching settlement data...', 15)
+  const allData = await fetchAllSettlementData(props.initialMapData ?? undefined)
   if (!allData) {
     console.error('❌ Failed to fetch settlement data')
     return
@@ -540,9 +545,8 @@ const loadSelectedLayersWithProgress = async (layers: string[]) => {
           }
         })
         
-        // Yield control more frequently for point features
         if (i + featureChunkSize < features.length) {
-          await new Promise(resolve => setTimeout(resolve, 2))
+          await new Promise(resolve => setTimeout(resolve, 0))
         }
       }
 
@@ -678,9 +682,8 @@ const loadSelectedLayersWithProgress = async (layers: string[]) => {
           }
         })
         
-        // Yield control more frequently for linear features (they can be complex)
         if (i + linearChunkSize < features.length) {
-          await new Promise(resolve => setTimeout(resolve, 5))
+          await new Promise(resolve => setTimeout(resolve, 0))
         }
       }
 
@@ -700,21 +703,13 @@ const loadSelectedLayersWithProgress = async (layers: string[]) => {
 
   updateLoadingStatus('Finalizing features...', 82)
   
-  // Force Vue to update the DOM with new features in batches
+  // Force Vue to update the DOM with new features
   await nextTick()
   
-  updateLoadingStatus('Rendering map features...', 85)
-  
-  // Allow UI to update before the potentially heavy rendering
-  await new Promise(resolve => setTimeout(resolve, 50))
-  
   updateLoadingStatus('Adjusting map view...', 88)
-  // Fit the map to all features
+  // Fit the map to all features (map will animate bounds; don't block for it)
   if (polygons.value.length || parcels.value.length || roads.value.length || schools.value.length || water_points.value.length || structures.value.length || other_points.value.length) {
     mapRef.value?.map.fitBounds(bounds)
-    
-    // Give the map time to adjust bounds before continuing
-    await new Promise(resolve => setTimeout(resolve, 100))
   }
 
   // After fitting to bounds, check if there's exactly one settlement
@@ -1109,8 +1104,7 @@ const processFeaturesInChunks = async (features: any[], processor: (feature: any
       progressCallback(progress)
     }
     
-    // Yield control more frequently to prevent UI blocking
-    await new Promise(resolve => setTimeout(resolve, 5))
+    await new Promise(resolve => setTimeout(resolve, 0))
   }
 }
 
@@ -2134,8 +2128,10 @@ onMounted(async () => {
             fetchNeighborsOnViewChange()
           })
           mapEventListeners.push(dragListener)
+          // Single initial fetch for neighboring settlements (debounced 500ms)
+          fetchNeighborsOnViewChange()
         }
-        
+
         // Setup dark mode watcher
         const isDark = computed(() => appStore.getIsDark)
         watch(
@@ -2243,52 +2239,31 @@ const setLoading = (loading: boolean) => {
 
 // Optimized loading function with progressive feedback
 const loadMapData = async () => {
-  if (isProcessing.value) return
-  
+  if (isProcessing.value || hasLoadedMapData.value) return
+  hasLoadedMapData.value = true
   isProcessing.value = true
   setLoading(true)
   showProgressOverlay.value = true
-  
+
   try {
     updateLoadingStatus('Initializing map...', 0)
-    
-    // Load all layers together but with progressive status updates
     updateLoadingStatus('Fetching map data...', 10)
     await loadSelectedLayersWithProgress(['settlement', 'parcels', 'structures', 'other_points'])
-    
     updateLoadingStatus('Setting up map controls...', 90)
     setupMapTypeControl()
-    
-    // Load neighboring settlements in the background
-    setTimeout(async () => {
-      try {
-        console.log('🔄 Loading neighboring settlements...')
-        const count = await fetchNeighboringSettlements()
-        if (count > 0) {
-          console.log(`✅ Successfully loaded ${count} neighboring settlements`)
-        }
-      } catch (error) {
-        console.error('❌ Error loading neighboring settlements:', error)
-      }
-    }, 500)
-    
     updateLoadingStatus('Map ready!', 100)
-    
-    // Load imagery in the background without blocking the main loading
-    // Now using dedicated backend endpoint for fast processing
+
+    // Neighboring settlements: one debounced fetch after listeners are attached (see onMounted)
+    // Imagery: load in background without blocking
     setTimeout(async () => {
       try {
-        console.log('🔄 Loading satellite imagery in background...')
         await addWmsLayer()
         selectedImageryLayers.value = [...availableImageryLayers.value]
         toggleImageryGroup(selectedImageryLayers.value)
-        console.log('✅ Satellite imagery loaded successfully')
       } catch (error) {
         console.error('❌ Error loading satellite imagery:', error)
       }
-    }, 100) // Small delay to let the map render first
-    await new Promise(resolve => setTimeout(resolve, 500)) // Brief pause to show completion
-    
+    }, 50)
   } catch (error) {
     console.error('Error loading map data:', error)
     ElMessage.error('Failed to load map data')
