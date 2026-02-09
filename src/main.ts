@@ -29,8 +29,20 @@ import { setupRouter } from './router'
 import { setupPermission } from './directives'
 
 import { createApp } from 'vue'
+
+// ECharts + vue-echarts setup
 import * as echarts from 'echarts'
-import { registerTheme } from 'echarts/core'
+import { CanvasRenderer } from 'echarts/renderers'
+import { MapChart, BarChart, LineChart, PieChart, GaugeChart } from 'echarts/charts'
+import {
+  TitleComponent,
+  TooltipComponent,
+  LegendComponent,
+  ToolboxComponent,
+  GridComponent,
+  VisualMapComponent,
+  GeoComponent,
+} from 'echarts/components'
 
 import VueApexCharts from 'vue3-apexcharts'
 import VChart, { THEME_KEY } from 'vue-echarts'
@@ -58,9 +70,24 @@ const head = createHead()
 
 import romaTheme from './theme.json' // ✅ Ensure path and tsconfig.json support this
 
-// ✅ Register the ECharts theme
-//echarts.registerTheme('roma', romaTheme)
-registerTheme('roma', romaTheme)
+// ✅ Register ECharts modules & theme on the same instance vue-echarts uses
+// Using full 'echarts' import ensures we're registering on the same instance
+echarts.use([
+  CanvasRenderer,
+  MapChart,
+  BarChart,
+  LineChart,
+  PieChart,
+  GaugeChart,
+  TitleComponent,
+  TooltipComponent,
+  LegendComponent,
+  ToolboxComponent,
+  GridComponent,
+  VisualMapComponent,
+  GeoComponent,
+])
+echarts.registerTheme('roma', romaTheme)
 
 // 创建实例
 const setupAll = async () => {

@@ -7,7 +7,6 @@ import { Loading } from '@element-plus/icons-vue'
 
 import { ref,computed, reactive, watch, onMounted } from 'vue'
 
-import { use } from "echarts/core";
 
 
 import { Icon } from '@iconify/vue';
@@ -16,7 +15,7 @@ import {
   pieOptions, simpleBarChart, multipleBarChart, stacklineOptions, mapChartOptions,pyramidOptions,
   lineOptions, stackedbarOptions, barMaleFemaleOptions,stackedbarOptionsAbs
 } from './chart-types'
-import { EChartsOption, registerMap } from 'echarts'
+import * as echarts from 'echarts'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountFilter, getSumFilter } from '@/api/settlements'
 import { useI18n } from '@/hooks/web/useI18n'
@@ -32,16 +31,6 @@ import { useRoute } from 'vue-router'
 
 
 
-import { CanvasRenderer } from 'echarts/renderers';
-import { PieChart, GaugeChart, BarChart, LineChart, MapChart } from 'echarts/charts';
-import {
-  TitleComponent,
-  TooltipComponent,
-  LegendComponent,
-  ToolboxComponent,
-  GridComponent,
-  VisualMapComponent,
-} from 'echarts/components';
 import VChart, { THEME_KEY } from 'vue-echarts';
 import { provide } from 'vue';
 
@@ -62,22 +51,6 @@ const isDark = computed(() => appStore.getIsDark)
 
 
 const colorPalette = ['#ff007f', '#0000ff'];  // Male-Female
- 
-
-use([
-  GaugeChart,
-  CanvasRenderer,
-  PieChart,
-  LineChart,
-  BarChart,
-  MapChart,
-  TitleComponent,
-  TooltipComponent,
-  LegendComponent,
-  ToolboxComponent,
-  GridComponent,
-  VisualMapComponent,
-]);
 
 provide(THEME_KEY, 'light');
 
@@ -165,7 +138,14 @@ const getCountyGeo = async () => {
     const y_coord = (bbox[1] + bbox[3]) / 2;
     aspect.value = Math.cos(y_coord * Math.PI / 180);
     //   console.log(aspect.value)
-    registerMap('KE', countyGeo.value);
+    echarts.registerMap('KE', countyGeo.value);
+    console.log('✅ Map registered: KE', countyGeo.value.features?.length, 'features');
+    // Log ALL feature names to help debug name matching
+    if (countyGeo.value.features?.length > 0) {
+      const allGeoNames = countyGeo.value.features.map((f: any) => f.properties?.name || f.properties?.NAME || f.properties?.Name || Object.values(f.properties || {})[0] || 'no name');
+      console.log('ALL geoJSON feature names:', allGeoNames);
+      console.log('First feature properties:', countyGeo.value.features[0]?.properties);
+    }
 
 
   }
@@ -175,28 +155,58 @@ const getCountyGeo = async () => {
 
 
 const getSubsetGeo = async (model, filterFields, filterValues) => {
-  console.log('Get all parcels for this settlement ')
+  try {
+    console.log('Get all parcels for this settlement - START', { model, filterFields, filterValues })
 
-  const formData = {}
-  formData.model = model
-  formData.columnFilterField = filterFields
-  formData.selectedParents = filterValues
-  formData.id = filterValues
+    const formData = {}
+    formData.model = model
+    formData.columnFilterField = filterFields
+    formData.selectedParents = filterValues
+    formData.id = filterValues
 
-  console.log(formData)
-  const res = await getfilteredGeo(formData)
+    console.log('getSubsetGeo - calling API with formData:', formData)
+    const res = await getfilteredGeo(formData)
+    console.log('getSubsetGeo - API response received:', res)
 
-  console.log('filtered Geo:', res.data[0].json_build_object.features)
-  var collection = turf.featureCollection(res.data[0].json_build_object.features);
-  console.log('collection Geo:', collection)
-  subCountyGeo.value = collection
-  var bbox = turf.bbox(subCountyGeo.value);
-  const y_coord = (bbox[1] + bbox[3]) / 2;
-  aspect.value = Math.cos(y_coord * Math.PI / 180);
+    // Extract geoJSON from multiple possible shapes
+    let geoJSON: any | null = null
+    const data = res?.data
 
-  console.log('collection aspect:', aspect.value)
-  registerMap('KE', subCountyGeo.value);
+    // Shape 1: data[0] is an array of rows: [ { json_build_object: {...} } ]
+    if (Array.isArray(data?.[0]) && data[0][0]?.json_build_object) {
+      geoJSON = data[0][0].json_build_object
+    }
 
+    // Shape 2: data[0] is directly the object: { json_build_object: {...} }
+    if (!geoJSON && data?.[0]?.json_build_object) {
+      geoJSON = data[0].json_build_object
+    }
+
+    // Shape 3: PostgreSQL Result object at data[1].rows[0].json_build_object
+    if (!geoJSON && data?.[1]?.rows?.[0]?.json_build_object) {
+      geoJSON = data[1].rows[0].json_build_object
+    }
+
+    if (!geoJSON || !geoJSON.features) {
+      console.error('getSubsetGeo - Invalid geoJSON structure:', res)
+      throw new Error('Invalid geo response structure')
+    }
+
+    console.log('filtered Geo features:', geoJSON.features)
+    var collection = turf.featureCollection(geoJSON.features);
+    console.log('collection Geo:', collection)
+    subCountyGeo.value = collection
+    var bbox = turf.bbox(subCountyGeo.value);
+    const y_coord = (bbox[1] + bbox[3]) / 2;
+    aspect.value = Math.cos(y_coord * Math.PI / 180);
+
+    console.log('collection aspect:', aspect.value)
+    // Do NOT register the map here; caller decides which map name to use
+    console.log('getSubsetGeo - COMPLETED successfully')
+  } catch (error) {
+    console.error('getSubsetGeo - ERROR:', error)
+    throw error // Re-throw so caller knows it failed
+  }
 }
 
 ///// ----------------Pocess the statistics card---------------------------------------
@@ -465,7 +475,7 @@ const getSummaryForEntity = async (card) => {
 
   try {
     const response01 = await getSummarybyFieldFromMultipleIncludes(formData);
-    console.log("Entity Cards summary", response01)
+   // console.log("Entity Cards summary", response01)
     const amount = response01.Total[0][aggregMethod] ? parseInt(response01.Total[0][aggregMethod]) : 0
     return amount;
   } catch (error) {
@@ -482,14 +492,14 @@ function xtransformData(data, chartType, aggregationMethod, cfield) {
   const uniqueNames = [...new Set(data.map(item => item.name))];
   uniqueNames.sort();
 
-  console.log('uniqueNames', uniqueNames)
-  console.log('uniqueCategoryTitlesxdata', data)
+  //console.log('uniqueNames', uniqueNames)
+  //console.log('uniqueCategoryTitlesxdata', data)
 
 
   const uniqueCategoryTitles = [...new Set(data.map(item => item[cfield]))];
   uniqueCategoryTitles.sort();
 
-  console.log('uniqueCategoryTitles', uniqueCategoryTitles)
+ // console.log('uniqueCategoryTitles', uniqueCategoryTitles)
 
   // Loop through categories and create the resulting object, padding as needed
   const result = uniqueCategoryTitles.map(category => {
@@ -498,9 +508,9 @@ function xtransformData(data, chartType, aggregationMethod, cfield) {
     uniqueNames.map(name => {
       const filteredData = data.filter(item => item[cfield] === category && item.name === name);
 
-      console.log("Filtred", filteredData)
+      //console.log("Filtred", filteredData)
       let arr = filteredData.length > 0 ? filteredData.map(item => (item[aggregationMethod] ? parseInt(item[aggregationMethod]) : 0)) : [0]
-      console.log("arr", arr)
+      //console.log("arr", arr)
       dataArr.push(arr[0])
 
 
@@ -1815,7 +1825,7 @@ const getCharts = async (section_id) => {
       // function to process processMultiBarChart charts 
       async function processMapChart() {
         const promises = [async function () {
-          console.log('This chart details:', thisChart.card_model, thisChart.card_model_field, thisChart.aggregation);
+          console.log('This  map chart details:', thisChart.card_model, thisChart.card_model_field, thisChart.aggregation);
 
           try {
 
@@ -1839,51 +1849,140 @@ const getCharts = async (section_id) => {
               MaxMin = [Math.min(...values), Math.max(...values)]
             }
 
-            await getCountyGeo()
-            //await getSubsetGeo(model,filterFields, filterValues)
-            if (selectedCounties.value.length > 0 && filterLevel.value === 'county') {
-              await getSubsetGeo('subcounty', ['county_id'], selectedCounties.value)
-
-
-              
+            // Determine which geo level to use based on filters
+            // Capture current filter values to avoid closure issues
+            const currentFilterLevel = filterLevel.value;
+            const currentSelectedCounties = selectedCounties.value;
+            const currentSelectedSubCounties = selectedSubCounties.value;
+            
+            console.log('filterLevel 0001', currentFilterLevel)
+            console.log('selectedCounties 0001', currentSelectedCounties)
+            console.log('currentSelectedCounties length', currentSelectedCounties.length)
+            
+            let geoToUse = null;
+            let mapName = 'KE_county'; // default: national counties
+            
+            if (currentSelectedCounties.length > 0 && currentFilterLevel == 'county') {
+              // Counties selected -> show subcounties within those counties
+              console.log('About to call getSubsetGeo for subcounty...')
+              try {
+                await getSubsetGeo('subcounty', ['county_id'], currentSelectedCounties)
+                geoToUse = subCountyGeo.value;
+                mapName = 'KE_subcounty';
+                console.log('✅ Using subcounty-level geo (filtered by counties)', geoToUse?.features?.length, 'features');
+              } catch (error) {
+                console.error('Failed to get subcounty geo, falling back to county geo:', error)
+                await getCountyGeo()
+                geoToUse = countyGeo.value;
+                mapName = 'KE_county';
+              }
+            } else if (currentSelectedSubCounties.length > 0 && currentFilterLevel === 'subcounty') {
+              // Subcounties selected -> show wards within those subcounties
+              console.log('About to call getSubsetGeo for ward...')
+              try {
+                await getSubsetGeo('ward', ['subcounty_id'], currentSelectedSubCounties)
+                geoToUse = subCountyGeo.value;
+                mapName = 'KE_ward';
+                console.log('✅ Using ward-level geo (filtered by subcounties)', geoToUse?.features?.length, 'features');
+              } catch (error) {
+                console.error('Failed to get ward geo, falling back to county geo:', error)
+                await getCountyGeo()
+                geoToUse = countyGeo.value;
+                mapName = 'KE_county';
+              }
+            } else {
+              // National level - use full county geo (47 counties)
+              await getCountyGeo()
+              geoToUse = countyGeo.value;
+              mapName = 'KE_county';
+              console.log('✅ Using county-level geo (national - 47 counties)');
             }
-            if (selectedSubCounties.value.length > 0 && filterLevel.value === 'subcounty') {
-              await getSubsetGeo('ward', ['subcounty_id'], selectedSubCounties.value)
-
+            
+            // Register the appropriate geo with a specific name
+            if (geoToUse && geoToUse.features) {
+              echarts.registerMap(mapName, geoToUse);
+              console.log(`✅ Map registered: ${mapName}`, geoToUse.features.length, 'features');
             }
 
+            console.log('apsect 0002', aspect.value)
 
-            console.log('apsect', aspect.value)
-
-
+            // Build map option like the official USA example, but for KE
             const UpdatedMapOtions = {
-              ...mapChartOptions,
               title: {
-                ...mapChartOptions.title,
-                text: thisChart.title
+                text: thisChart.title,
+                subtext: 'National Slum Database',
+                left: 'right'
+              },
+              tooltip: {
+                trigger: 'item',
+                showDelay: 0,
+                transitionDuration: 0.2
               },
               visualMap: {
-                ...mapChartOptions.visualMap,
+                left: 'right',
                 min: MaxMin[0],
-                max: MaxMin[1]
-
+                max: MaxMin[1],
+                inRange: {
+                  color: [
+                    '#313695',
+                    '#4575b4',
+                    '#74add1',
+                    '#abd9e9',
+                    '#e0f3f8',
+                    '#ffffbf',
+                    '#fee090',
+                    '#fdae61',
+                    '#f46d43',
+                    '#d73027',
+                    '#a50026'
+                  ]
+                },
+                text: ['High', 'Low'],
+                calculable: true
               },
-              // visualMap: {
-              //   ...mapChartOptions.visualMap,
-              //   max: MaxMin[1]
-              // },
-
+              toolbox: {
+                show: true,
+                left: 'left',
+                top: 'top',
+                feature: {
+                  dataView: { readOnly: false },
+                  restore: {},
+                  saveAsImage: {}
+                }
+              },
               series: [
                 {
-                  ...mapChartOptions.series[0],
-                  data: mapData,
-                  aspectScale: aspect.value
+                  name: thisChart.title,
+                  type: 'map',
+                  roam: true,
+                  map: mapName,
+                  aspectScale: aspect.value,
+                  emphasis: {
+                    label: {
+                      show: true
+                    }
+                  },
+                  data: mapData
                 }
-              ],
-
+              ]
             };
             // sort the data such that the graphs start and end proper
 
+            console.log('UpdatedMapOtions 0003', UpdatedMapOtions)
+            console.log('mapData 0003', mapData)
+            const allMapDataNames = mapData.map((d: any) => d.name);
+            console.log('ALL mapData names:', allMapDataNames);
+            // Check name matching
+            if (countyGeo.value?.features) {
+              const allGeoNames = countyGeo.value.features.map((f: any) => f.properties?.name || f.properties?.NAME || f.properties?.Name || Object.values(f.properties || {})[0] || 'no name');
+              const matched = allMapDataNames.filter(name => allGeoNames.includes(name));
+              const unmatched = allMapDataNames.filter(name => !allGeoNames.includes(name));
+              console.log('✅ Matched names:', matched.length, matched);
+              console.log('❌ Unmatched names:', unmatched.length, unmatched);
+            }
+            // Verify map is registered
+            const registeredMaps = (echarts as any).getMap ? (echarts as any).getMap('KE') : null;
+            console.log('Map KE registered?', registeredMaps ? 'YES' : 'NO', registeredMaps ? `(${registeredMaps.geoJSON?.features?.length} features)` : '');
             thisChart.chart = UpdatedMapOtions
 
             // show no data 
@@ -2495,7 +2594,7 @@ const getCharts = async (section_id) => {
    // function to process processMultiBarChart charts 
    async function processMapChart2() {
         const promises = thisChart.indicators.map(async function (indicator) {
-          console.log('This processLineChart:', indicator)
+          console.log('This processMapChart2:', indicator)
 
           try {
             //  console.log("bar", getIndicatorConfigurations(indicator.id)) 
@@ -2521,52 +2620,125 @@ const getCharts = async (section_id) => {
               const values = mapData.map(d => d.value)
               MaxMin = [Math.min(...values), Math.max(...values)]
             }
-            await getCountyGeo()
-            //await getSubsetGeo(model,filterFields, filterValues)
-            if (selectedCounties.value.length > 0 && filterLevel.value === 'county') {
-              await getSubsetGeo('subcounty', ['county_id'], selectedCounties.value)
-
-
-              
+            // Determine which geo level to use based on filters
+            // Capture current filter values to avoid closure issues
+            const currentFilterLevel = filterLevel.value;
+            const currentSelectedCounties = selectedCounties.value;
+            const currentSelectedSubCounties = selectedSubCounties.value;
+            
+            console.log('filterLevel 0002', currentFilterLevel)
+            console.log('selectedCounties 0002', currentSelectedCounties)
+            console.log('selectedSubCounties 0002', currentSelectedSubCounties)
+            
+            let geoToUse = null;
+            let mapName = 'KE_county'; // default: national counties
+            
+            if (currentSelectedCounties.length > 0 && currentFilterLevel === 'county') {
+              // Counties selected -> show subcounties within those counties
+              console.log('About to call getSubsetGeo for subcounty (intervention)...')
+              try {
+                await getSubsetGeo('subcounty', ['county_id'], currentSelectedCounties)
+                geoToUse = subCountyGeo.value;
+                mapName = 'KE_subcounty';
+                console.log('✅ Using subcounty-level geo (filtered by counties)', geoToUse?.features?.length, 'features');
+              } catch (error) {
+                console.error('Failed to get subcounty geo, falling back to county geo:', error)
+                await getCountyGeo()
+                geoToUse = countyGeo.value;
+                mapName = 'KE_county';
+              }
+            } else if (currentSelectedSubCounties.length > 0 && currentFilterLevel === 'subcounty') {
+              // Subcounties selected -> show wards within those subcounties
+              console.log('About to call getSubsetGeo for ward (intervention)...')
+              try {
+                await getSubsetGeo('ward', ['subcounty_id'], currentSelectedSubCounties)
+                geoToUse = subCountyGeo.value;
+                mapName = 'KE_ward';
+                console.log('✅ Using ward-level geo (filtered by subcounties)', geoToUse?.features?.length, 'features');
+              } catch (error) {
+                console.error('Failed to get ward geo, falling back to county geo:', error)
+                await getCountyGeo()
+                geoToUse = countyGeo.value;
+                mapName = 'KE_county';
+              }
+            } else {
+              // National level - use full county geo (47 counties)
+              await getCountyGeo()
+              geoToUse = countyGeo.value;
+              mapName = 'KE_county';
+              console.log('✅ Using county-level geo (national - 47 counties)');
             }
-            if (selectedSubCounties.value.length > 0 && filterLevel.value === 'subcounty') {
-              await getSubsetGeo('ward', ['subcounty_id'], selectedSubCounties.value)
-
+            
+            // Register the appropriate geo with a specific name
+            if (geoToUse && geoToUse.features) {
+              echarts.registerMap(mapName, geoToUse);
+              console.log(`✅ Map registered: ${mapName}`, geoToUse.features.length, 'features');
             }
 
+            console.log('apsect 0001',aspect.value)
 
-
-            console.log('apsect',aspect.value)
-
-
+            // Build map option like the official USA example, but for KE
             const UpdatedMapOtions = {
-              ...mapChartOptions,
               title: {
-                ...mapChartOptions.title,
-                text: thisChart.title
+                text: thisChart.title,
+                subtext: 'National Slum Database',
+                left: 'right'
+              },
+              tooltip: {
+                trigger: 'item',
+                showDelay: 0,
+                transitionDuration: 0.2
               },
               visualMap: {
-                ...mapChartOptions.visualMap,
+                left: 'right',
                 min: MaxMin[0],
-                max: MaxMin[1]
-
+                max: MaxMin[1],
+                inRange: {
+                  color: [
+                    '#313695',
+                    '#4575b4',
+                    '#74add1',
+                    '#abd9e9',
+                    '#e0f3f8',
+                    '#ffffbf',
+                    '#fee090',
+                    '#fdae61',
+                    '#f46d43',
+                    '#d73027',
+                    '#a50026'
+                  ]
+                },
+                text: ['High', 'Low'],
+                calculable: true
               },
-              // visualMap: {
-              //   ...mapChartOptions.visualMap,
-              //   max: MaxMin[1]
-              // },
-
+              toolbox: {
+                show: true,
+                left: 'left',
+                top: 'top',
+                feature: {
+                  dataView: { readOnly: false },
+                  restore: {},
+                  saveAsImage: {}
+                }
+              },
               series: [
                 {
-                  ...mapChartOptions.series[0],
-                  data: mapData,
-                  aspectScale: aspect.value
+                  name: thisChart.title,
+                  type: 'map',
+                  roam: true,
+                  map: mapName,
+                  aspectScale: aspect.value,
+                  emphasis: {
+                    label: {
+                      show: true
+                    }
+                  },
+                  data: mapData
                 }
-              ],
-
+              ]
             };
             // sort the data such that the graphs start and end proper
-
+            console.log('UpdatedMapOtions', UpdatedMapOtions)
             thisChart.chart = UpdatedMapOtions
             
             // show no data 
@@ -2594,7 +2766,7 @@ const getCharts = async (section_id) => {
         // The loop has completed and all promises have been resolved/rejected
         console.log('Loop completed');
 
-
+        
 
 
 
@@ -3232,7 +3404,9 @@ const activeCollapse = ref([])
                         </div>
                       </template>
                       <template v-if="chart.chart">
-                        <v-chart v-if="chart.type==7" :id="chart.id" class="chart" :option="chart.chart" height="400" autoresize /> 
+                        <div v-if="chart.type==7" :id="`map-container-${chart.id}`" style="width: 100%; height: 400px;">
+                          <v-chart :id="chart.id" class="chart" :option="chart.chart" style="width: 100%; height: 100%;" autoresize />
+                        </div> 
                         <apexchart v-if="chart.type!=7 && chart.type!=8" :options="chart.chart" :series="Array.isArray(chart.chart.series) ? chart.chart.series : []" :type="getChartType(chart.type)" height="350" autoresize/>
                         <apexchart v-if="chart.type==8" type="bar" :options="chart.chart.chartOptions" :series="Array.isArray(chart.chart.series) ? chart.chart.series : []" height="350" autoresize />
                       </template>

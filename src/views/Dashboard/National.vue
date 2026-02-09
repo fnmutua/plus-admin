@@ -3,13 +3,13 @@ import {
   ElRow, ElCol, ElCard, ElEmpty, ElTabs, ElTabPane, ElSkeleton, ElCascader, ElCascaderPanel, ElCascaderPanelContext, ElSelect, ElOption, ElCollapse, ElCollapseItem
 } from 'element-plus'
 import { ref, reactive, watch, onBeforeMount, onMounted } from 'vue'
-import { use } from "echarts/core";
 import { Icon } from '@iconify/vue';
 import {
   pieOptions,  multipleBarChart, stacklineOptions, mapChartOptions,treemapOptions,pyramidOptions,
   lineOptions, stackedbarOptions, barMaleFemaleOptions, simpleBarChart,stackedbarOptionsAbs
 } from './chart-types'
-import { EChartsOption, registerMap } from 'echarts'
+import type { EChartsOption } from 'echarts'
+import * as echarts from 'echarts'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountFilter, getSumFilter } from '@/api/settlements'
 import { useI18n } from '@/hooks/web/useI18n'
@@ -21,16 +21,6 @@ import * as turf from '@turf/turf'
 import { getAllGeo } from '@/api/settlements'
 import { useRoute } from 'vue-router'
 import VueApexCharts from "vue3-apexcharts"
-import { CanvasRenderer } from 'echarts/renderers';
-import { PieChart, GaugeChart, BarChart, LineChart, } from 'echarts/charts';
-import {
-  TitleComponent,
-  TooltipComponent,
-  LegendComponent,
-  ToolboxComponent,
-  GridComponent,
-
-} from 'echarts/components';
 import VChart, { THEME_KEY } from 'vue-echarts';
 import { provide } from 'vue';
 import { getRoutesList } from '@/api/settlements'
@@ -39,21 +29,6 @@ import { useRouter } from 'vue-router'
 import { FullScreen, Loading } from '@element-plus/icons-vue'
 
 const { push } = useRouter()
-
- 
-
-use([
-  GaugeChart,
-  CanvasRenderer,
-  PieChart,
-  LineChart,
-  BarChart,
-  TitleComponent,
-  TooltipComponent,
-  LegendComponent,
-  ToolboxComponent,
-  GridComponent
-]);
 
  
 const theme = inject(THEME_KEY)
@@ -215,7 +190,7 @@ const getCountyGeo = async () => {
         aspect.value = Math.cos(y_coord * Math.PI / 180);
         //   console.log(aspect.value)
 
-        registerMap('KE', res.data[0].json_build_object);
+        echarts.registerMap('KE', res.data[0].json_build_object);
         fmap.value=true
         console.log('fmap',fmap.value)
       }
@@ -248,7 +223,7 @@ const getSubsetGeo = async (model, filterFields, filterValues) => {
   aspect.value = Math.cos(y_coord * Math.PI / 180);
 
   console.log('collection aspect:', aspect.value)
-  registerMap('KE', subCountyGeo.value);
+  echarts.registerMap('KE', subCountyGeo.value);
 
 }
 
