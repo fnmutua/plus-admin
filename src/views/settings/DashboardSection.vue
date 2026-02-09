@@ -111,21 +111,21 @@ const columns: TableColumn[] = [
   {
     field: 'id',
     label: t('Id'),
-
   },
-
+  {
+    field: 'dashboard.title',
+    label: t('Dashboard'),
+    sortable: true
+  },
   {
     field: 'title',
-    label: t('Title')
+    label: t('Title'),
+    sortable: true
   },
-
-
-   
   {
     field: 'action',
     label: t('Actions')
   }
-
 ]
 const handleClear = async () => {
   console.log('cleared....')
@@ -539,7 +539,7 @@ const goBack = () => {
 
             <!-- Title Search -->
             <el-select
-v-model="value3" :onChange="handleSeleectDashboard" :onClear="handleClear" multiple clearable filterable
+v-model="value3" @change="handleSeleectDashboard" @clear="handleClear" multiple clearable filterable
                     collapse-tags placeholder="Search Dashboard" style="margin-right: 10px;">
                     <el-option v-for="item in DashBoardOptions" :key="item.value" :label="item.label" :value="item.value" />
                   </el-select>

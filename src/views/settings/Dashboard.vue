@@ -573,12 +573,12 @@ const openHelp = ref(false)
 
     <el-table :data="tableDataList" style="width: 100%">
       <el-table-column label="#" type="index" width="50" />
-      <el-table-column label="Title" prop="title" />
-      <el-table-column label="Description" prop="description" />
+      <el-table-column label="Dashboard" prop="title" sortable />
+      <el-table-column label="Description" prop="description" sortable />
       <el-table-column align="right">
         <template #header>
           <el-input
-v-model="searchKeyword" size="small" :onChange="remoteMethod" :onBlur="remoteMethod" :onClear="handleClear"
+v-model="searchKeyword" size="small" @change="remoteMethod" @blur="remoteMethod" @clear="handleClear"
             placeholder="Type to search" />
         </template>
         <template #default="scope">
@@ -628,7 +628,7 @@ confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
 
       <el-form-item id="btn2" label="Type" prop="type">
         <el-select
-v-model="ruleForm.type" :onClear="handleClear" clearable filterable collapse-tags
+v-model="ruleForm.type" @clear="handleClear" clearable filterable collapse-tags
           placeholder="Select Type of dashboard">
           <el-option v-for="item in typeOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>

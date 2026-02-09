@@ -687,15 +687,24 @@ const handleDownload = async (row) => {
 
     // Await the response from getGeoSubmissions
     const response = await getGeoSubmissions(formData);
-      loadingStates.value[row.xmlFormId] = false;
-    // Extract GeoJSON data (FeatureCollection)
-    const geojsonData = response.data;
-    if (!geojsonData || geojsonData.type !== 'FeatureCollection') {
+    loadingStates.value[row.xmlFormId] = false;
+
+    // Extract GeoJSON data (FeatureCollection), handling both wrapped and raw responses
+    const rawData = response.data;
+    const geojsonData =
+      rawData && rawData.type === 'FeatureCollection'
+        ? rawData
+        : rawData && rawData.data && rawData.data.type === 'FeatureCollection'
+        ? rawData.data
+        : null;
+
+    if (!geojsonData) {
       throw new Error('Invalid GeoJSON data received');
     }
 
-    // Stringify the GeoJSON object
-    const data = JSON.stringify(geojsonData);
+    // Ensure we serialize a proper GeoJSON object/string
+    const data =
+      typeof geojsonData === 'string' ? geojsonData : JSON.stringify(geojsonData);
 
     // Create a Blob from the GeoJSON string
     const blob = new Blob([data], { type: 'application/geo+json' });

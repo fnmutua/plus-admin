@@ -1424,7 +1424,7 @@ exports.modelGetGeoJsonSubmissions = (req, res) => {
   );
 };
 
- // Convert OData submissions to GeoJSON, dynamically detecting GeoJSON geometry field and type
+// Convert OData submissions to GeoJSON, dynamically detecting GeoJSON geometry field and type
 function convertToGeoJSON2(submissions) {
   // Valid GeoJSON geometry types
   const validGeometryTypes = [
@@ -1438,92 +1438,113 @@ function convertToGeoJSON2(submissions) {
 
   return {
     type: 'FeatureCollection',
-    features: submissions
-      .filter(sub => {
-        // Find the GeoJSON geometry field (e.g., location, geopoint, etc.)
-        const geometryField = Object.keys(sub).find(
-          key =>
-            sub[key] &&
-            typeof sub[key] === 'object' &&
-            validGeometryTypes.includes(sub[key].type) &&
-            Array.isArray(sub[key].coordinates) &&
-            isValidCoordinates(sub[key].type, sub[key].coordinates)
-        );
-        return !!geometryField; // Only include submissions with a valid GeoJSON geometry
-      })
-      .map(sub => {
-        // Initialize properties object
-        const properties = {};
+    features: submissions.map(sub => {
+      // Initialize properties object
+      const properties = {};
 
-        // Find the GeoJSON geometry field
-        const geometryField = Object.keys(sub).find(
-          key =>
-            sub[key] &&
-            typeof sub[key] === 'object' &&
-            validGeometryTypes.includes(sub[key].type) &&
-            Array.isArray(sub[key].coordinates) &&
-            isValidCoordinates(sub[key].type, sub[key].coordinates)
-        );
+      // Try to find an explicit GeoJSON geometry field
+      let geometryField = Object.keys(sub).find(
+        key =>
+          sub[key] &&
+          typeof sub[key] === 'object' &&
+          validGeometryTypes.includes(sub[key].type) &&
+          Array.isArray(sub[key].coordinates) &&
+          isValidCoordinates(sub[key].type, sub[key].coordinates)
+      );
 
-        // Define reserved keys to exclude (include the geometry field dynamically)
-        const reservedKeys = ['meta', '__system', 'photos', geometryField].filter(Boolean);
+      let geometry = geometryField ? sub[geometryField] : null;
 
-        // Dynamically include all top-level properties (non-objects or non-reserved)
-        Object.keys(sub).forEach(key => {
-          if (!reservedKeys.includes(key) && (typeof sub[key] !== 'object' || sub[key] === null)) {
-            properties[key] = sub[key];
+      // If no explicit GeoJSON geometry, try to build a Point from lat/lon-like fields
+      if (!geometry) {
+        const lowerKeys = Object.keys(sub).reduce((acc, k) => {
+          acc[k.toLowerCase()] = k;
+          return acc;
+        }, {});
+
+        const latKey =
+          lowerKeys['latitude'] ||
+          lowerKeys['lat'] ||
+          null;
+        const lonKey =
+          lowerKeys['longitude'] ||
+          lowerKeys['lon'] ||
+          lowerKeys['lng'] ||
+          null;
+
+        if (latKey && lonKey) {
+          const lat = Number(sub[latKey]);
+          const lon = Number(sub[lonKey]);
+          if (Number.isFinite(lat) && Number.isFinite(lon)) {
+            geometry = {
+              type: 'Point',
+              coordinates: [lon, lat],
+            };
           }
+        }
+      }
+
+      // Define reserved keys to exclude (include the geometry field dynamically if present)
+      const reservedKeys = ['meta', '__system', 'photos'];
+      if (geometryField) {
+        reservedKeys.push(geometryField);
+      }
+
+      // Dynamically include all top-level properties (non-objects or non-reserved)
+      Object.keys(sub).forEach(key => {
+        if (!reservedKeys.includes(key) && (typeof sub[key] !== 'object' || sub[key] === null)) {
+          properties[key] = sub[key];
+        }
+      });
+
+      // Dynamically flatten all nested objects (excluding reserved keys)
+      Object.keys(sub).forEach(key => {
+        if (
+          !reservedKeys.includes(key) &&
+          sub[key] &&
+          typeof sub[key] === 'object' &&
+          !Array.isArray(sub[key])
+        ) {
+          Object.assign(properties, sub[key]);
+        }
+      });
+
+      // Include relevant fields from meta
+      if (sub.meta && typeof sub.meta === 'object') {
+        properties.instanceID = sub.meta.instanceID;
+      }
+
+      // Include relevant fields from __system
+      if (sub.__system && typeof sub.__system === 'object') {
+        Object.assign(properties, {
+          submissionDate: sub.__system.submissionDate,
+          submitterId: sub.__system.submitterId,
+          submitterName: sub.__system.submitterName,
+          attachmentsPresent: sub.__system.attachmentsPresent,
+          attachmentsExpected: sub.__system.attachmentsExpected,
+          status: sub.__system.status,
+          reviewState: sub.__system.reviewState,
+          deviceId: sub.__system.deviceId,
+          edits: sub.__system.edits,
+          formVersion: sub.__system.formVersion,
         });
+      }
 
-        // Dynamically flatten all nested objects (excluding reserved keys)
-        Object.keys(sub).forEach(key => {
-          if (
-            !reservedKeys.includes(key) &&
-            sub[key] &&
-            typeof sub[key] === 'object' &&
-            !Array.isArray(sub[key])
-          ) {
-            Object.assign(properties, sub[key]);
-          }
-        });
+      // Include photos as an array of photo names (if needed)
+      if (sub.photos && Array.isArray(sub.photos)) {
+        properties.photos = sub.photos.map(photo => photo.photo);
+      }
 
-        // Include relevant fields from meta
-        if (sub.meta && typeof sub.meta === 'object') {
-          properties.instanceID = sub.meta.instanceID;
-        }
+      // Include geometry properties (e.g., accuracy)
+      if (geometryField && sub[geometryField]?.properties?.accuracy) {
+        properties.location_accuracy = sub[geometryField].properties.accuracy;
+      }
 
-        // Include relevant fields from __system
-        if (sub.__system && typeof sub.__system === 'object') {
-          Object.assign(properties, {
-            submissionDate: sub.__system.submissionDate,
-            submitterId: sub.__system.submitterId,
-            submitterName: sub.__system.submitterName,
-            attachmentsPresent: sub.__system.attachmentsPresent,
-            attachmentsExpected: sub.__system.attachmentsExpected,
-            status: sub.__system.status,
-            reviewState: sub.__system.reviewState,
-            deviceId: sub.__system.deviceId,
-            edits: sub.__system.edits,
-            formVersion: sub.__system.formVersion,
-          });
-        }
-
-        // Include photos as an array of photo names (if needed)
-        if (sub.photos && Array.isArray(sub.photos)) {
-          properties.photos = sub.photos.map(photo => photo.photo);
-        }
-
-        // Include geometry properties (e.g., accuracy)
-        if (sub[geometryField]?.properties?.accuracy) {
-          properties.location_accuracy = sub[geometryField].properties.accuracy;
-        }
-
-        return {
-          type: 'Feature',
-          geometry: sub[geometryField], // Use the detected GeoJSON geometry
-          properties,
-        };
-      }),
+      return {
+        type: 'Feature',
+        geometry: geometry || null,
+        properties,
+      };
+    }),
   };
 }
 

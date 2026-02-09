@@ -179,6 +179,16 @@ aggregationOptionsFiltered.value = aggregationOptions
 
 
 let tableDataList = ref<any[]>([])
+// keep track of currently selected dashboard ids for optional client-side filtering
+const selectedDashboardIds = ref<any[]>([])
+
+const sortByDashboard = (a: any, b: any) => {
+  const titleA = (a?.dashboard_section?.dashboard?.title || '').toString().toLowerCase()
+  const titleB = (b?.dashboard_section?.dashboard?.title || '').toString().toLowerCase()
+  if (titleA < titleB) return -1
+  if (titleA > titleB) return 1
+  return 0
+}
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
 
@@ -240,6 +250,18 @@ const handleClear = async () => {
 }
 
 
+// Normalize dashboard id(s) to an array of ids
+const normalizeDashboardIds = (dashboard_id: any) => {
+  if (Array.isArray(dashboard_id)) {
+    return dashboard_id
+  }
+  if (dashboard_id === null || dashboard_id === undefined || dashboard_id === '') {
+    return []
+  }
+  return [dashboard_id]
+}
+
+
 
 const handleSelectDashboard = async (indicator: any) => {
   var selectOption = 'dashboard_id'
@@ -268,6 +290,7 @@ const handleSelectDashboard = async (indicator: any) => {
 
   getFilteredData(filters, filterValues)
 }
+
 
 
 
@@ -341,7 +364,19 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   const res = await getSettlementListByCounty(formData)
 
   console.log('After cards', res)
-  tableDataList.value = res.data
+
+  // base data from API
+  let rows = res.data || []
+
+  // extra client-side filter by dashboard if API doesn't apply it
+  if (selectedDashboardIds.value && selectedDashboardIds.value.length > 0) {
+    rows = rows.filter((row: any) => {
+      const dashId = row?.dashboard_section?.dashboard_id || row?.dashboard_id
+      return selectedDashboardIds.value.includes(dashId)
+    })
+  }
+
+  tableDataList.value = rows
   total.value = res.total
 
   tblData = [] // reset the table data
@@ -1121,7 +1156,19 @@ getIndicatorCategories()
 const isInterventionsDashboard = ref(false)
 const handleFilterDashboards = async (dashboard_id) => {
   console.log('filtreing teh aggregators.....', dashboard_id)
-  let selDashboard = dashboardOptions.value.filter(item => item.value == dashboard_id);
+  const normalizedIds = normalizeDashboardIds(dashboard_id)
+  if (normalizedIds.length === 0) {
+    selectedDashboardIds.value = []
+    DashBoardSectionFilterdOptions.value = DashBoardSectionOptions.value
+    // Clear dashboard filter from the list
+    await handleSelectDashboard([])
+    return
+  }
+
+  // remember which dashboards are selected for optional client-side filtering
+  selectedDashboardIds.value = normalizedIds
+
+  let selDashboard = dashboardOptions.value.filter(item => normalizedIds.includes(item.value));
 
   console.log('selDashboard', selDashboard[0].type)
 
@@ -1134,10 +1181,12 @@ const handleFilterDashboards = async (dashboard_id) => {
 
   // }
 
-  DashBoardSectionFilterdOptions.value = DashBoardSectionOptions.value.filter(option => option.dashboard_id == dashboard_id);
+  DashBoardSectionFilterdOptions.value = DashBoardSectionOptions.value.filter(option =>
+    normalizedIds.includes(option.dashboard_id)
+  );
 
-
-  // handleSelectDashboard(dashboard_id)
+  // Also apply filter to the charts list
+  await handleSelectDashboard(normalizedIds)
 }
 
 
@@ -1947,13 +1996,13 @@ watch(
 
       <!-- Title Search -->
       <el-select
-v-model="value5" :onChange="handleFilterDashboards" :onClear="handleClear" multiple clearable
+v-model="value5" @change="handleFilterDashboards" @clear="handleClear" multiple clearable
         filterable collapse-tags placeholder="Search Dashboard" style="width: 35%; margin-right: 10px;">
         <el-option v-for="item in dashboardOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
 
       <el-select
-v-model="value3" :onChange="handleSelectDashboardSection" :onClear="handleClear" multiple clearable
+v-model="value3" @change="handleSelectDashboardSection" @clear="handleClear" multiple clearable
         filterable collapse-tags placeholder="Search Dashboard Section" style="width: 35%; margin-right: 10px;">
         <el-option
 v-for="item in DashBoardSectionFilterdOptions" :key="item.value" :label="item.label"
@@ -2003,6 +2052,12 @@ v-for="item in DashBoardSectionFilterdOptions" :key="item.value" :label="item.la
           <Icon v-if="scope.row.type === 9" width="24" icon="ic:baseline-stacked-bar-chart" />
           <Icon v-if="scope.row.type === 10" width="24" icon="ic:sharp-donut-large" />
           <Icon v-if="scope.row.type === 11" width="24" icon="oi:grid-three-up" />
+        </template>
+      </el-table-column>
+
+      <el-table-column label="Dashboard" :sort-method="sortByDashboard" sortable>
+        <template #default="scope">
+          <span>{{ scope.row.dashboard_section?.dashboard?.title || '-' }}</span>
         </template>
       </el-table-column>
 
@@ -2079,7 +2134,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
           <el-form-item id="btn1" label="Dashboard" prop="dashboard_id">
             <el-select
 v-model="ruleForm.dashboard_id" filterable placeholder="Select"
-              :onChange="handleFilterDashboards">
+              @change="handleFilterDashboards">
               <el-option v-for="item in dashboardOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
           </el-form-item>
@@ -2113,15 +2168,15 @@ v-for="item in DashBoardSectionFilterdOptions" :key="item.value" :label="item.la
           </el-form-item>
           <el-form-item id="btn6" label="Entity" v-if="ruleForm.category === 'Status'" prop="card_model">
             <el-select
-v-model="ruleForm.card_model" :onClear="handleClear" clearable filterable collapse-tags
-              :onChange="handleSelectModel" placeholder="Select Entity to summarize" style="width: 100%;">
+v-model="ruleForm.card_model" @clear="handleClear" clearable filterable collapse-tags
+              @change="handleSelectModel" placeholder="Select Entity to summarize" style="width: 100%;">
               <el-option v-for="item in ModelOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
           </el-form-item>
 
           <el-form-item id="btn7" v-if="ruleForm.category === 'Status' && ruleForm.card_model" label="Field" prop="card_model_field">
             <el-select
-v-model="ruleForm.card_model_field" :onClear="handleClear" clearable filterable collapse-tags
+v-model="ruleForm.card_model_field" @clear="handleClear" clearable filterable collapse-tags
               placeholder="Field to summarize">
               <el-option v-for="item in fieldSet" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
@@ -2150,8 +2205,8 @@ v-for="item in IndicatorCategoryOptions" :key="item.value" :label="item.label"
         <el-col :span="12">
           <el-form-item id="btn11" v-if="ruleForm.category" label="Chart Type" prop="type">
             <el-select
-style="width: 100%;" v-model="ruleForm.type" :onClear="handleClear" clearable filterable
-              collapse-tags :onChange="handleSelectChart" placeholder="Select Type of Chart">
+style="width: 100%;" v-model="ruleForm.type" @clear="handleClear" clearable filterable
+              collapse-tags @change="handleSelectChart" placeholder="Select Type of Chart">
               <el-option v-for="item in chartOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
           </el-form-item>
@@ -2159,7 +2214,7 @@ style="width: 100%;" v-model="ruleForm.type" :onClear="handleClear" clearable fi
 
           <el-form-item id="btn12" v-if="ruleForm.category" label="Aggregation" prop="aggregation">
             <el-select
-size="default" v-model="ruleForm.aggregation" :onClear="handleClear" clearable filterable
+size="default" v-model="ruleForm.aggregation" @clear="handleClear" clearable filterable
               collapse-tags placeholder="Select">
               <el-option
 v-for="item in aggregationOptionsFiltered" :key="item.value" :label="item.label"

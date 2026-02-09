@@ -1819,9 +1819,26 @@ const getCharts = async (section_id) => {
 
           try {
 
-            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart ); // first array is the categories // second is the data
-            console.log('map data', cdata)
-            var MaxMin = cdata[0]
+            const cdata = await xgetSummaryMultipleParentsGrouped(thisChart ); // first array is the categories // second is the data
+            console.log('map data raw', cdata)
+            const rawRange = Array.isArray(cdata?.[0]) ? cdata[0] : [0, 0]
+            const rawData = Array.isArray(cdata?.[1]) ? cdata[1] : []
+
+            // Clean and sanitize map data: require a valid name and numeric value
+            const mapData = rawData
+              .filter((item: any) => item && item.name != null && item.value != null && !isNaN(Number(item.value)))
+              .map((item: any) => ({
+                name: item.name,
+                value: Number(item.value)
+              }))
+
+            // Fallback min/max if not provided or if data is empty
+            let MaxMin = rawRange
+            if ((!Array.isArray(rawRange) || rawRange.length < 2) && mapData.length) {
+              const values = mapData.map(d => d.value)
+              MaxMin = [Math.min(...values), Math.max(...values)]
+            }
+
             await getCountyGeo()
             //await getSubsetGeo(model,filterFields, filterValues)
             if (selectedCounties.value.length > 0 && filterLevel.value === 'county') {
@@ -1859,7 +1876,7 @@ const getCharts = async (section_id) => {
               series: [
                 {
                   ...mapChartOptions.series[0],
-                  data: cdata[1],
+                  data: mapData,
                   aspectScale: aspect.value
                 }
               ],
@@ -1870,7 +1887,7 @@ const getCharts = async (section_id) => {
             thisChart.chart = UpdatedMapOtions
 
             // show no data 
-            if (cdata[1].length === 0) {
+            if (mapData.length === 0) {
               thisChart.chart.graphic = [{
                 type: 'text',
                 left: 'center',
@@ -2485,9 +2502,25 @@ const getCharts = async (section_id) => {
             //  get the indicator configruation IDS for the indicators in this chart. These could be 1 or more 
             var ids = await getIndicatorConfigurations(indicator.id)
             console.log("line-IDS", ids)
-            var cdata = await getSummaryChartIIntervention(ids, thisChart)   // first array is the categories // second is the data
-            console.log('map data', cdata)
-            var MaxMin = cdata[0]
+            const cdata = await getSummaryChartIIntervention(ids, thisChart)   // first array is the categories // second is the data
+            console.log('map data raw (intervention)', cdata)
+            const rawRange = Array.isArray(cdata?.[0]) ? cdata[0] : [0, 0]
+            const rawData = Array.isArray(cdata?.[1]) ? cdata[1] : []
+
+            // Clean and sanitize map data: require a valid name and numeric value
+            const mapData = rawData
+              .filter((item: any) => item && item.name != null && item.value != null && !isNaN(Number(item.value)))
+              .map((item: any) => ({
+                name: item.name,
+                value: Number(item.value)
+              }))
+
+            // Fallback min/max if not provided or if data is empty
+            let MaxMin = rawRange
+            if ((!Array.isArray(rawRange) || rawRange.length < 2) && mapData.length) {
+              const values = mapData.map(d => d.value)
+              MaxMin = [Math.min(...values), Math.max(...values)]
+            }
             await getCountyGeo()
             //await getSubsetGeo(model,filterFields, filterValues)
             if (selectedCounties.value.length > 0 && filterLevel.value === 'county') {
@@ -2526,7 +2559,7 @@ const getCharts = async (section_id) => {
               series: [
                 {
                   ...mapChartOptions.series[0],
-                  data: cdata[1],
+                  data: mapData,
                   aspectScale: aspect.value
                 }
               ],
@@ -2537,7 +2570,7 @@ const getCharts = async (section_id) => {
             thisChart.chart = UpdatedMapOtions
             
             // show no data 
-            if (cdata[1].length===0) {
+            if (mapData.length===0) {
               thisChart.chart.graphic= [{
             type: 'text',
             left: 'center',
