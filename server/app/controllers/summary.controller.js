@@ -28,6 +28,32 @@ const sequelize = new Sequelize(config.DB, config.USER, config.PASSWORD, {
 
 let redisClient;
 
+/**
+ * If the group field is a date/createdAt column, return [literal, alias] that strips time and
+ * timezone (UTC date only) so counts group by calendar day. The alias preserves the key the
+ * frontend expects (e.g. "createdAt"). Otherwise return the field as-is.
+ * @param {string} field - e.g. "indicator_category_report.createdAt" or "model.date"
+ * @returns {[object, string]|string} [sequelize.literal, alias] for date-only, or original field
+ */
+function formatGroupFieldAsDateOnly(field) {
+  const lower = (field || '').toString().toLowerCase();
+  const isCreatedAt = lower === 'createdat' || lower.endsWith('.createdat');
+  const isDate = lower === 'date' || lower.endsWith('.date');
+  if (!isCreatedAt && !isDate) return field;
+  const parts = field.split('.');
+  const col = parts.pop();
+  const tableRef = parts.length ? parts.join('.') : null;
+  const quotedCol = `"${col}"`;
+  const quotedRef = tableRef ? `"${tableRef}".${quotedCol}` : quotedCol;
+  const literal = sequelize.literal(`TO_CHAR(${quotedRef} AT TIME ZONE 'UTC', 'YYYY-MM-DD')`);
+  return [literal, col];
+}
+
+/** For group by: use the expression only (literal), not the alias. */
+function groupByExpr(g) {
+  return Array.isArray(g) ? g[0] : g;
+}
+
 (async () => {
  // redisClient = redis.createClient();
   const url = process.env.REDIS_URL || 'redis://localhost:6379';
@@ -309,8 +335,9 @@ exports.sumModelByColumn = async (req, res) => {
   };
 
   if (groupField && groupField.length > 0) {
-    qry.attributes = [...groupField, [sequelize.fn(summaryFunction, sequelize.col(summaryField)), summaryFunction]];
-    qry.group = [...groupField];
+    const formattedGroup = groupField.map((f) => formatGroupFieldAsDateOnly(f));
+    qry.attributes = [...formattedGroup, [sequelize.fn(summaryFunction, sequelize.col(summaryField)), summaryFunction]];
+    qry.group = formattedGroup.map(groupByExpr);
   }
 
   if (filterColumn && filterValue) {
@@ -977,42 +1004,16 @@ exports._sumModelAssociatedMultipleModels = async (req, res) => {
 
   if (req.body.groupFields) {
     for (let i = 0; i < req.body.groupFields.length; i++) {
-      let field = req.body.groupFields[i];
-      let formattedField;
-  
-      // Format the date field before pushing it into groupfields
-      if (field === "indicator_category_report.createdAt") {
-        // Apply TO_CHAR to format the date without the time part
-        formattedField = sequelize.literal(`TO_CHAR("indicator_category_report"."createdAt", 'YYYY-MM-DD')`);
-        //formattedField = sequelize.fn('date_trunc', 'day', sequelize.col('indicator_category_report.createdAt'));
-
-      } else if(field === "indicator_category_report.date")  {
-
-        formattedField = sequelize.literal(`TO_CHAR("indicator_category_report"."date", 'YYYY-MM-DD')`);
-
-      }
-      
-      else {
-        // Escape and quote the field name to respect capitalization
-        formattedField = field
-      }
-  
-      groupfields.push(formattedField);
+      const field = req.body.groupFields[i];
+      groupfields.push(formatGroupFieldAsDateOnly(field));
     }
-
-    
-
-
   }
-  
-  
-
 
   // Add group fields to the query if provided
   if (groupFields && Array.isArray(groupFields)) {
-    qry.attributes= [...groupfields],
-    qry.group= [...groupfields],
-    qry.raw=true
+    qry.attributes = [...groupfields];
+    qry.group = groupfields.map(groupByExpr);
+    qry.raw = true
     
 
 
@@ -1287,37 +1288,12 @@ let groupfields = []
 
   if (req.body.groupFields) {
     for (let i = 0; i < req.body.groupFields.length; i++) {
-      let field = req.body.groupFields[i];
-      let formattedField;
-  
-      // Format the date field before pushing it into groupfields
-      if (field === "indicator_category_report.createdAt") {
-        // Apply TO_CHAR to format the date without the time part
-        formattedField = sequelize.literal(`TO_CHAR("indicator_category_report"."createdAt", 'YYYY-MM-DD')`);
-        //formattedField = sequelize.fn('date_trunc', 'day', sequelize.col('indicator_category_report.createdAt'));
-
-      } else if(field === "indicator_category_report.date")  {
-
-        formattedField = sequelize.literal(`TO_CHAR("indicator_category_report"."date", 'YYYY-MM-DD')`);
-
-      }
-      
-      else {
-        // Escape and quote the field name to respect capitalization
-        formattedField = field
-      }
-  
-      groupfields.push(formattedField);
+      const field = req.body.groupFields[i];
+      groupfields.push(formatGroupFieldAsDateOnly(field));
     }
-
-    
-
-
   }
-  
-  
 
- /// overwrite groupinng for production
+  /// overwrite groupinng for production
  if(reg_model == 'production' &&  req.body.summaryField =='production.product_type_id'){
   //  groupfields = ['product_type.title']
 
@@ -1334,27 +1310,18 @@ let groupfields = []
   }
   
 
-  // Add group fields to the query if provided
+  // Add group fields to the query if provided (attributes keep [literal, alias] for result keys; group uses expression only)
   if (req.body.groupFields && Array.isArray(req.body.groupFields)) {
-    qry.attributes= [...groupfields],
-    qry.group= [...groupfields],
-    qry.raw=true
-    
-
-
+    qry.attributes = [...groupfields];
+    qry.group = groupfields.map(groupByExpr);
+    qry.raw = true;
   }
   else {
-    
-  //    qry.attributes= [...groupfields,[sequelize.fn(summaryFunction, sequelize.col(summaryField)), summaryFunction]],
-      qry.raw=true
-   
-
+    qry.raw = true;
   }
 
-
-
-  console.log('-----------*************---------------')
- console.log(groupfields)
+  console.log('-----------*************---------------');
+  console.log(groupfields);
 
   // Add summary calculation to the query attributes
   if (summaryField && summaryFunction) {
@@ -1726,19 +1693,19 @@ exports.dsumModelAssociatedMultipleModels = async (req, res) => {
   
   if (req.body.groupFields) {
     for (let i = 0; i < req.body.groupFields.length; i++) {
-      let field = req.body.groupFields[i]
-      groupfields.push(field)
+      const field = req.body.groupFields[i];
+      groupfields.push(formatGroupFieldAsDateOnly(field));
     }
-    
-    console.log("groupfields, ",groupfields)
-    console.log("summaryFunction, ",summaryFunction)
-    console.log("FilterValues, ",req.body.filterValue)
+
+    console.log("groupfields, ", groupfields);
+    console.log("summaryFunction, ", summaryFunction);
+    console.log("FilterValues, ", req.body.filterValue);
 
     var qry = {
-      attributes: [...groupfields,[sequelize.fn(summaryFunction, sequelize.col(summaryField)), summaryFunction]],
-      group: [...groupfields],
+      attributes: [...groupfields, [sequelize.fn(summaryFunction, sequelize.col(summaryField)), summaryFunction]],
+      group: groupfields.map(groupByExpr),
       raw: true
-    }
+    };
   } else {
     var qry = {
       attributes: [...groupfields,[sequelize.fn(summaryFunction, sequelize.col(summaryField)), summaryFunction]],

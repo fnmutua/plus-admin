@@ -33,14 +33,14 @@ import { useRoute } from 'vue-router'
 
 
 import { CanvasRenderer } from 'echarts/renderers';
-import { PieChart, GaugeChart, BarChart, LineChart, } from 'echarts/charts';
+import { PieChart, GaugeChart, BarChart, LineChart, MapChart } from 'echarts/charts';
 import {
   TitleComponent,
   TooltipComponent,
   LegendComponent,
   ToolboxComponent,
   GridComponent,
-
+  VisualMapComponent,
 } from 'echarts/components';
 import VChart, { THEME_KEY } from 'vue-echarts';
 import { provide } from 'vue';
@@ -70,11 +70,13 @@ use([
   PieChart,
   LineChart,
   BarChart,
+  MapChart,
   TitleComponent,
   TooltipComponent,
   LegendComponent,
   ToolboxComponent,
-  GridComponent
+  GridComponent,
+  VisualMapComponent,
 ]);
 
 provide(THEME_KEY, 'light');
@@ -689,18 +691,17 @@ for (const item of filters ) {
 
     if (chartType == 5) {
       console.log('Data line chart ', amount)
-
-      const keys = amount.reduce((allKeys, obj) => {
-        return allKeys.concat(Object.keys(obj));
-      }, []);
-
-      const uniqueKeys = [...new Set(keys)];
-      const values = {};
-      uniqueKeys.forEach(key => {
-        values[key] = amount.map(obj => obj[key] || null);
-      });
-      categoryArray = values.createdAt
-      seriesData = values[cAggregation]
+      // Aggregate by date so one point per date (sum when backend grouped by date + county/etc.)
+      const dateSums = {};
+      for (const obj of amount) {
+        const d = obj.createdAt != null ? String(obj.createdAt).trim() : '';
+        if (!d) continue;
+        const val = obj[cAggregation] != null ? Number(obj[cAggregation]) : 0;
+        dateSums[d] = (dateSums[d] || 0) + (Number.isNaN(val) ? 0 : val);
+      }
+      const sortedDates = Object.keys(dateSums).sort();
+      categoryArray = sortedDates;
+      seriesData = sortedDates.map((d) => dateSums[d]);
     }
 
    
@@ -708,37 +709,29 @@ for (const item of filters ) {
  
     else if (chartType == 6 ) {
       console.log('Multi-line chart ', amount)
-      //  Step 1: Extract and sort unique dates in ascending order
-      const dates = [...new Set(amount.map(item => item.createdAt))].sort();
-
-      // Step 2: Rearrange the data
-      const result = {};
-
+      // Aggregate by series and date (sum when backend returned multiple rows per date)
+      const bySeriesAndDate = {};
       for (const item of amount) {
-        const { createdAt, cAggregation } = item;
-        //     console.log('xxxx',item,item[cfield])
-
-        if (!result[item[cfield]]) {
-          result[item[cfield]] = {
-            name: item[cfield],
-            type: 'line',
-            stack: 'Total',
-            data: []
-          };
-        }
-
-        const dateIndex = dates.indexOf(createdAt);
-        result[item[cfield]].data.push([dateIndex, Number(cAggregation)]);
-
+        const d = item.createdAt != null ? String(item.createdAt).trim() : '';
+        if (!d) continue;
+        const seriesName = item[cfield];
+        if (!bySeriesAndDate[seriesName]) bySeriesAndDate[seriesName] = {};
+        const val = item[cAggregation] != null ? Number(item[cAggregation]) : 0;
+        bySeriesAndDate[seriesName][d] = (bySeriesAndDate[seriesName][d] || 0) + (Number.isNaN(val) ? 0 : val);
       }
-
-
+      const dates = [...new Set(amount.map((item) => item.createdAt).filter(Boolean))].sort();
+      const result = {};
+      for (const seriesName of Object.keys(bySeriesAndDate)) {
+        result[seriesName] = {
+          name: seriesName,
+          type: 'line',
+          stack: 'Total',
+          data: dates.map((d, i) => [i, bySeriesAndDate[seriesName][d] || 0])
+        };
+      }
       seriesData = Object.values(result);
-      categoryArray = dates
+      categoryArray = dates;
       console.log('seriesData>>>>6', seriesData);
-
-
-
     }
 
     else if (chartType == 3 || chartType ==10) {
@@ -1033,18 +1026,17 @@ formData.ignoreEmpty = ignoreEmpty
  
     if (chartType == 5) {
       console.log('Data line chart ', amount)
-
-      const keys = amount.reduce((allKeys, obj) => {
-        return allKeys.concat(Object.keys(obj));
-      }, []);
-
-      const uniqueKeys = [...new Set(keys)];
-      const values = {};
-      uniqueKeys.forEach(key => {
-        values[key] = amount.map(obj => obj[key] || null);
-      });
-      categoryArray = values.createdAt
-      seriesData = values[cAggregation]
+      // Aggregate by date so one point per date (sum when backend grouped by date + county/etc.)
+      const dateSums = {};
+      for (const obj of amount) {
+        const d = obj.createdAt != null ? String(obj.createdAt).trim() : '';
+        if (!d) continue;
+        const val = obj[cAggregation] != null ? Number(obj[cAggregation]) : 0;
+        dateSums[d] = (dateSums[d] || 0) + (Number.isNaN(val) ? 0 : val);
+      }
+      const sortedDates = Object.keys(dateSums).sort();
+      categoryArray = sortedDates;
+      seriesData = sortedDates.map((d) => dateSums[d]);
     }
 
    
@@ -1052,37 +1044,29 @@ formData.ignoreEmpty = ignoreEmpty
  
     else if (chartType == 6 ) {
       console.log('Multi-line chart ', amount)
-      //  Step 1: Extract and sort unique dates in ascending order
-      const dates = [...new Set(amount.map(item => item.createdAt))].sort();
-
-      // Step 2: Rearrange the data
-      const result = {};
-
+      // Aggregate by series and date (sum when backend returned multiple rows per date)
+      const bySeriesAndDate = {};
       for (const item of amount) {
-        const { createdAt, cAggregation } = item;
-        //     console.log('xxxx',item,item[cfield])
-
-        if (!result[item[cfield]]) {
-          result[item[cfield]] = {
-            name: item[cfield],
-            type: 'line',
-            stack: 'Total',
-            data: []
-          };
-        }
-
-        const dateIndex = dates.indexOf(createdAt);
-        result[item[cfield]].data.push([dateIndex, Number(cAggregation)]);
-
+        const d = item.createdAt != null ? String(item.createdAt).trim() : '';
+        if (!d) continue;
+        const seriesName = item[cfield];
+        if (!bySeriesAndDate[seriesName]) bySeriesAndDate[seriesName] = {};
+        const val = item[cAggregation] != null ? Number(item[cAggregation]) : 0;
+        bySeriesAndDate[seriesName][d] = (bySeriesAndDate[seriesName][d] || 0) + (Number.isNaN(val) ? 0 : val);
       }
-
-
+      const dates = [...new Set(amount.map((item) => item.createdAt).filter(Boolean))].sort();
+      const result = {};
+      for (const seriesName of Object.keys(bySeriesAndDate)) {
+        result[seriesName] = {
+          name: seriesName,
+          type: 'line',
+          stack: 'Total',
+          data: dates.map((d, i) => [i, bySeriesAndDate[seriesName][d] || 0])
+        };
+      }
       seriesData = Object.values(result);
-      categoryArray = dates
+      categoryArray = dates;
       console.log('seriesData>>>>6', seriesData);
-
-
-
     }
 
     else if (chartType == 3 || chartType ==10) {
@@ -1682,10 +1666,13 @@ const getCharts = async (section_id) => {
 
           try {
 
-            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart ); // first array is the categories // second is the data
+            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart);
+            // Normalize: API can return [] on error or null; ensure [categories, seriesData]
+            var categories = Array.isArray(cdata?.[0]) ? cdata[0] : [];
+            var seriesData = Array.isArray(cdata?.[1]) ? cdata[1] : [];
+            // Sanitize line series: no null/undefined/NaN (use 0)
+            var safeData = seriesData.map((v) => (v != null && !Number.isNaN(Number(v)) ? Number(v) : 0));
             console.log('Multi[e]', cdata);
-
-
 
             const UpdatedBarOptionsMultiple = {
               ...lineOptions,
@@ -1693,22 +1680,24 @@ const getCharts = async (section_id) => {
                 ...lineOptions.title,
                 text: thisChart.title
               },
-              xAxis: {
-                ...lineOptions.xAxis,
-                data: cdata[0]  // categories as recieved 
+              xaxis: {
+                ...lineOptions.xaxis,
+                categories
               },
-              series: {
-                ...lineOptions.series[0],
-                data: cdata[1],  // categories as recieved 
-                name: thisChart.card_model_field
-              },
+              series: [
+                {
+                  ...lineOptions.series[0],
+                  name: thisChart.card_model_field || 'Series',
+                  data: safeData
+                }
+              ],
             };
 
 
             thisChart.chart = UpdatedBarOptionsMultiple
 
-            // show no data 
-            if (cdata[1].length === 0) {
+            // show no data
+            if (safeData.length === 0) {
               thisChart.chart.graphic = [{
                 type: 'text',
                 left: 'center',
@@ -1751,15 +1740,19 @@ const getCharts = async (section_id) => {
 
           try {
 
-            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart ); // first array is the categories // second is the data
+            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart);
+            var categories = Array.isArray(cdata?.[0]) ? cdata[0] : [];
+            var seriesData = Array.isArray(cdata?.[1]) ? cdata[1] : [];
             console.log('Multi[e]', cdata);
 
-
-            // sort the data such that the graphs start and end proper
-
-
-            cdata[1].forEach(obj => {
-              obj.data.sort((a, b) => a[0] - b[0]); // theres a nested data array 
+            // sort and sanitize: each series has .data = [[x,y], ...]; filter nulls and sort
+            seriesData.forEach((obj) => {
+              if (obj && Array.isArray(obj.data)) {
+                obj.data = obj.data
+                  .filter((p) => p != null && Array.isArray(p) && p.length >= 2)
+                  .map((p) => [Number(p[0]) || 0, Number(p[1]) ?? 0]);
+                obj.data.sort((a, b) => a[0] - b[0]);
+              }
             });
 
             const UpdatedBarOptionsMultiple = {
@@ -1770,11 +1763,11 @@ const getCharts = async (section_id) => {
               },
               xAxis: {
                 ...stacklineOptions.xAxis,
-                data: cdata[0]  // categories as recieved 
+                data: categories
               },
 
             };
-            UpdatedBarOptionsMultiple.series = cdata[1]
+            UpdatedBarOptionsMultiple.series = seriesData;
 
 
             console.log("old chart", stacklineOptions)
@@ -1782,8 +1775,8 @@ const getCharts = async (section_id) => {
 
             thisChart.chart = UpdatedBarOptionsMultiple
 
-            // show no data 
-            if (cdata[1].length === 0) {
+            // show no data
+            if (seriesData.length === 0) {
               thisChart.chart.graphic = [{
                 type: 'text',
                 left: 'center',
@@ -1863,20 +1856,15 @@ const getCharts = async (section_id) => {
               //   max: MaxMin[1]
               // },
 
-              series: {
-                ...mapChartOptions.series[0],
-                data: cdata[1],  // categories as recieved ,
-                aspectScale: aspect.value
-              },
-              // series: {
-              //   ...mapChartOptions.series[0],
-              //   aspectScale: 0.88  // categories as recieved 
-              // },
-
+              series: [
+                {
+                  ...mapChartOptions.series[0],
+                  data: cdata[1],
+                  aspectScale: aspect.value
+                }
+              ],
 
             };
-            //   UpdatedMapOtions.series[0].aspectScale=aspect.value
-
             // sort the data such that the graphs start and end proper
 
             thisChart.chart = UpdatedMapOtions
@@ -2348,11 +2336,12 @@ const getCharts = async (section_id) => {
           console.log('This processLineChart:', indicator)
 
           try {
-            //  console.log("bar", getIndicatorConfigurations(indicator.id)) 
-            //  get the indicator configruation IDS for the indicators in this chart. These could be 1 or more 
             var ids = await getIndicatorConfigurations(indicator.id)
             console.log("line-IDS", ids)
-            var cdata = await getSummaryChartIIntervention(ids, thisChart)   // first array is the categories // second is the data
+            var cdata = await getSummaryChartIIntervention(ids, thisChart)
+            var categories = Array.isArray(cdata?.[0]) ? cdata[0] : [];
+            var seriesData = Array.isArray(cdata?.[1]) ? cdata[1] : [];
+            var safeData = seriesData.map((v) => (v != null && !Number.isNaN(Number(v)) ? Number(v) : 0));
             console.log('lichecrt data', cdata)
 
             const UpdatedBarOptionsMultiple = {
@@ -2361,33 +2350,35 @@ const getCharts = async (section_id) => {
                 ...lineOptions.title,
                 text: thisChart.title
               },
-              xAxis: {
-                ...lineOptions.xAxis,
-                data: cdata[0]  // categories as recieved 
+              xaxis: {
+                ...lineOptions.xaxis,
+                categories
               },
-              series: {
-                ...lineOptions.series[0],
-                data: cdata[1]  // categories as recieved 
-              },
+              series: [
+                {
+                  ...lineOptions.series[0],
+                  name: thisChart.card_model_field || 'Series',
+                  data: safeData
+                }
+              ],
             };
 
 
             thisChart.chart = UpdatedBarOptionsMultiple
-            
-            // show no data 
-            if (cdata[1].length===0) {
-              thisChart.chart.graphic= [{
-            type: 'text',
-            left: 'center',
-            top: 'middle',
-            style: {
-              text: 'No data  available',
-              fill: '#999',
-              fontSize: 16
-                },
-                z: 100 // Higher z value to place it on top
 
-          }]
+            // show no data
+            if (safeData.length === 0) {
+              thisChart.chart.graphic = [{
+                type: 'text',
+                left: 'center',
+                top: 'middle',
+                style: {
+                  text: 'No data  available',
+                  fill: '#999',
+                  fontSize: 16
+                },
+                z: 100
+              }]
             }
 
           } catch (error) {
@@ -2413,43 +2404,45 @@ const getCharts = async (section_id) => {
           console.log('This processLineChart:', indicator)
 
           try {
-            //  console.log("bar", getIndicatorConfigurations(indicator.id)) 
-            //  get the indicator configruation IDS for the indicators in this chart. These could be 1 or more 
             var ids = await getIndicatorConfigurations(indicator.id)
             console.log("line-IDS", ids)
-            var cdata = await getSummaryMultipleParentsGrouped(ids, thisChart)   // first array is the categories // second is the data
-            console.log('lichecrt data', cdata)
+            var cdata = await getSummaryChartIIntervention(ids, thisChart)
+            var categories = Array.isArray(cdata?.[0]) ? cdata[0] : [];
+            var seriesData = Array.isArray(cdata?.[1]) ? cdata[1] : [];
+            console.log('lichecrt data', cdata);
 
+            // sort and sanitize nested data
+            seriesData.forEach((obj) => {
+              if (obj && Array.isArray(obj.data)) {
+                obj.data = obj.data
+                  .filter((p) => p != null && Array.isArray(p) && p.length >= 2)
+                  .map((p) => [Number(p[0]) || 0, Number(p[1]) ?? 0]);
+                obj.data.sort((a, b) => a[0] - b[0]);
+              }
+            });
 
-            // sort the data such that the graphs start and end proper
-            
-                       
-            cdata[1].forEach(obj => {
-              obj.data.sort((a, b) => a[0] - b[0]); // theres a nested data array 
-          });
- 
             const UpdatedBarOptionsMultiple = {
               ...stacklineOptions,
               title: {
                 ...stacklineOptions.title,
                 text: thisChart.title
               },
-             xAxis: {
-                 ...stacklineOptions.xAxis,
-                  data: cdata[0]  // categories as recieved 
-                },
-           
+              xAxis: {
+                ...stacklineOptions.xAxis,
+                data: categories
+              },
+
             };
-            UpdatedBarOptionsMultiple.series=cdata[1]
+            UpdatedBarOptionsMultiple.series = seriesData;
 
 
-            console.log("old chart",stacklineOptions)
-            console.log("New chart",UpdatedBarOptionsMultiple)
+            console.log("old chart", stacklineOptions)
+            console.log("New chart", UpdatedBarOptionsMultiple)
 
             thisChart.chart = UpdatedBarOptionsMultiple
-            
-            // show no data 
-            if (cdata[1].length===0) {
+
+            // show no data
+            if (seriesData.length === 0) {
               thisChart.chart.graphic= [{
             type: 'text',
             left: 'center',
@@ -2530,22 +2523,17 @@ const getCharts = async (section_id) => {
               //   max: MaxMin[1]
               // },
 
-              series: {
-                ...mapChartOptions.series[0],
-                data: cdata[1],  // categories as recieved ,
-                aspectScale: aspect.value
-              },
-              // series: {
-              //   ...mapChartOptions.series[0],
-              //   aspectScale: 0.88  // categories as recieved 
-              // },
-             
+              series: [
+                {
+                  ...mapChartOptions.series[0],
+                  data: cdata[1],
+                  aspectScale: aspect.value
+                }
+              ],
 
             };
-         //   UpdatedMapOtions.series[0].aspectScale=aspect.value
-
             // sort the data such that the graphs start and end proper
-  
+
             thisChart.chart = UpdatedMapOtions
             
             // show no data 
@@ -3212,8 +3200,8 @@ const activeCollapse = ref([])
                       </template>
                       <template v-if="chart.chart">
                         <v-chart v-if="chart.type==7" :id="chart.id" class="chart" :option="chart.chart" height="400" autoresize /> 
-                        <apexchart v-if="chart.type!=7 && chart.type!=8" :options="chart.chart" :series="chart.chart.series" :type="getChartType(chart.type)" height="350" autoresize/>
-                        <apexchart v-if="chart.type==8" type="bar" :options="chart.chart.chartOptions" :series="chart.chart.series" height="350" autoresize />
+                        <apexchart v-if="chart.type!=7 && chart.type!=8" :options="chart.chart" :series="Array.isArray(chart.chart.series) ? chart.chart.series : []" :type="getChartType(chart.type)" height="350" autoresize/>
+                        <apexchart v-if="chart.type==8" type="bar" :options="chart.chart.chartOptions" :series="Array.isArray(chart.chart.series) ? chart.chart.series : []" height="350" autoresize />
                       </template>
                       <template v-else>
                         <div class="empty-state-content">
