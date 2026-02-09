@@ -1712,7 +1712,7 @@ const onAddItem = () => {
   tableData.value.push({
     field: null,
     operation: null,
-    value: null
+    value: []
   })
 
 
@@ -2208,9 +2208,15 @@ v-for="item in functionOptions" :key="item.value" :label="item.label"
               <el-table-column prop="value" label="Value">
                 <template #default="scope">
                   <el-select
-v-model="scope.row.value" placeholder="Select Value" filterable allow-create multiple
-                    collapse-tags-tooltip collapse-tags :onChange="saveFilter">
-                    <el-option v-for="item in fieldOptions" :key="item.value" :label="item.label" :value="item.value" />
+                    :model-value="Array.isArray(scope.row.value) ? scope.row.value : (scope.row.value != null ? [scope.row.value] : [])"
+                    @update:model-value="(val) => { scope.row.value = val; saveFilter(); }"
+                    placeholder="Select or type to add value(s)"
+                    filterable
+                    allow-create
+                    multiple
+                    collapse-tags-tooltip
+                    collapse-tags>
+                    <el-option v-for="item in fieldOptions" :key="String(item.value)" :label="String(item.label)" :value="item.value" />
                   </el-select>
                 </template>
               </el-table-column>
