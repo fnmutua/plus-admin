@@ -15,7 +15,7 @@ import {
   pieOptions, simpleBarChart, multipleBarChart, stacklineOptions, mapChartOptions,pyramidOptions,
   lineOptions, stackedbarOptions, barMaleFemaleOptions,stackedbarOptionsAbs
 } from './chart-types'
-import * as echarts from 'echarts'
+import { registerMap, getMap } from 'echarts/core'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountFilter, getSumFilter } from '@/api/settlements'
 import { useI18n } from '@/hooks/web/useI18n'
@@ -138,13 +138,15 @@ const getCountyGeo = async () => {
     const y_coord = (bbox[1] + bbox[3]) / 2;
     aspect.value = Math.cos(y_coord * Math.PI / 180);
     //   console.log(aspect.value)
-    echarts.registerMap('KE', countyGeo.value);
+    registerMap('KE', countyGeo.value);
     console.log('✅ Map registered: KE', countyGeo.value.features?.length, 'features');
-    // Log ALL feature names to help debug name matching
+    // Log feature property keys and names to help debug data linkage
     if (countyGeo.value.features?.length > 0) {
+      const firstProps = countyGeo.value.features[0]?.properties;
+      console.log('🗺️ GeoJSON property KEYS:', Object.keys(firstProps || {}));
+      console.log('🗺️ First feature properties:', firstProps);
       const allGeoNames = countyGeo.value.features.map((f: any) => f.properties?.name || f.properties?.NAME || f.properties?.Name || Object.values(f.properties || {})[0] || 'no name');
-      console.log('ALL geoJSON feature names:', allGeoNames);
-      console.log('First feature properties:', countyGeo.value.features[0]?.properties);
+      console.log('🗺️ ALL geoJSON feature names:', allGeoNames);
     }
 
 
@@ -1898,9 +1900,24 @@ const getCharts = async (section_id) => {
               console.log('✅ Using county-level geo (national - 47 counties)');
             }
             
+            // Detect the GeoJSON name property (ECharts defaults to 'name')
+            let geoNameProperty = 'name';
+            if (geoToUse && geoToUse.features && geoToUse.features[0]?.properties) {
+              const props = geoToUse.features[0].properties;
+              if (props.name !== undefined) geoNameProperty = 'name';
+              else if (props.NAME !== undefined) geoNameProperty = 'NAME';
+              else if (props.Name !== undefined) geoNameProperty = 'Name';
+              else {
+                // Fallback: use the first string property
+                const firstStringKey = Object.keys(props).find(k => typeof props[k] === 'string');
+                if (firstStringKey) geoNameProperty = firstStringKey;
+              }
+              console.log('🗺️ Detected geoNameProperty:', geoNameProperty, '| First feature props:', props);
+            }
+
             // Register the appropriate geo with a specific name
             if (geoToUse && geoToUse.features) {
-              echarts.registerMap(mapName, geoToUse);
+              registerMap(mapName, geoToUse);
               console.log(`✅ Map registered: ${mapName}`, geoToUse.features.length, 'features');
             }
 
@@ -1956,6 +1973,7 @@ const getCharts = async (section_id) => {
                   type: 'map',
                   roam: true,
                   map: mapName,
+                  nameProperty: geoNameProperty,
                   aspectScale: aspect.value,
                   emphasis: {
                     label: {
@@ -1969,20 +1987,22 @@ const getCharts = async (section_id) => {
             // sort the data such that the graphs start and end proper
 
             console.log('UpdatedMapOtions 0003', UpdatedMapOtions)
-            console.log('mapData 0003', mapData)
-            const allMapDataNames = mapData.map((d: any) => d.name);
-            console.log('ALL mapData names:', allMapDataNames);
-            // Check name matching
-            if (countyGeo.value?.features) {
-              const allGeoNames = countyGeo.value.features.map((f: any) => f.properties?.name || f.properties?.NAME || f.properties?.Name || Object.values(f.properties || {})[0] || 'no name');
+            console.log('mapData 0003 (first 5):', mapData.slice(0, 5))
+            // Check name matching using actual geoToUse and detected property
+            if (geoToUse?.features) {
+              const allGeoNames = geoToUse.features.map((f: any) => f.properties?.[geoNameProperty] || 'no name');
+              const allMapDataNames = mapData.map((d: any) => d.name);
               const matched = allMapDataNames.filter(name => allGeoNames.includes(name));
               const unmatched = allMapDataNames.filter(name => !allGeoNames.includes(name));
-              console.log('✅ Matched names:', matched.length, matched);
-              console.log('❌ Unmatched names:', unmatched.length, unmatched);
+              console.log(`🗺️ Name matching (prop=${geoNameProperty}):`, matched.length, 'matched,', unmatched.length, 'unmatched');
+              if (unmatched.length > 0) console.log('❌ Unmatched data names:', unmatched);
+              if (matched.length === 0 && allMapDataNames.length > 0) {
+                console.log('⚠️ ZERO matches! Geo names sample:', allGeoNames.slice(0, 5), '| Data names sample:', allMapDataNames.slice(0, 5));
+              }
             }
             // Verify map is registered
-            const registeredMaps = (echarts as any).getMap ? (echarts as any).getMap('KE') : null;
-            console.log('Map KE registered?', registeredMaps ? 'YES' : 'NO', registeredMaps ? `(${registeredMaps.geoJSON?.features?.length} features)` : '');
+            const registeredMaps = getMap ? getMap(mapName) : null;
+            console.log(`Map ${mapName} registered?`, registeredMaps ? 'YES' : 'NO', registeredMaps ? `(${registeredMaps.geoJSON?.features?.length} features)` : '');
             thisChart.chart = UpdatedMapOtions
 
             // show no data 
@@ -2669,9 +2689,23 @@ const getCharts = async (section_id) => {
               console.log('✅ Using county-level geo (national - 47 counties)');
             }
             
+            // Detect the GeoJSON name property (ECharts defaults to 'name')
+            let geoNameProperty2 = 'name';
+            if (geoToUse && geoToUse.features && geoToUse.features[0]?.properties) {
+              const props = geoToUse.features[0].properties;
+              if (props.name !== undefined) geoNameProperty2 = 'name';
+              else if (props.NAME !== undefined) geoNameProperty2 = 'NAME';
+              else if (props.Name !== undefined) geoNameProperty2 = 'Name';
+              else {
+                const firstStringKey = Object.keys(props).find(k => typeof props[k] === 'string');
+                if (firstStringKey) geoNameProperty2 = firstStringKey;
+              }
+              console.log('🗺️ [map2] Detected geoNameProperty:', geoNameProperty2, '| First feature props:', props);
+            }
+
             // Register the appropriate geo with a specific name
             if (geoToUse && geoToUse.features) {
-              echarts.registerMap(mapName, geoToUse);
+              registerMap(mapName, geoToUse);
               console.log(`✅ Map registered: ${mapName}`, geoToUse.features.length, 'features');
             }
 
@@ -2727,6 +2761,7 @@ const getCharts = async (section_id) => {
                   type: 'map',
                   roam: true,
                   map: mapName,
+                  nameProperty: geoNameProperty2,
                   aspectScale: aspect.value,
                   emphasis: {
                     label: {
@@ -2738,7 +2773,7 @@ const getCharts = async (section_id) => {
               ]
             };
             // sort the data such that the graphs start and end proper
-            console.log('UpdatedMapOtions', UpdatedMapOtions)
+            console.log('UpdatedMapOtions [map2]', UpdatedMapOtions)
             thisChart.chart = UpdatedMapOtions
             
             // show no data 

@@ -110,6 +110,8 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
       }
     },
     resolve: {
+      // Ensure echarts/core is always the same instance (source code & vue-echarts)
+      dedupe: ['echarts', 'echarts/core'],
       extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json', '.less', '.css'],
       alias: [
         {
@@ -183,7 +185,12 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
         'axios',
         'qs',
         'echarts',
+        'echarts/core',
+        'echarts/renderers',
+        'echarts/charts',
+        'echarts/components',
         'echarts-wordcloud',
+        'vue-echarts',
         'intro.js',
         'qrcode',
         '@wangeditor/editor',

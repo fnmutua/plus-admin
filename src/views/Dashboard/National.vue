@@ -9,7 +9,7 @@ import {
   lineOptions, stackedbarOptions, barMaleFemaleOptions, simpleBarChart,stackedbarOptionsAbs
 } from './chart-types'
 import type { EChartsOption } from 'echarts'
-import * as echarts from 'echarts'
+import { registerMap } from 'echarts/core'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountFilter, getSumFilter } from '@/api/settlements'
 import { useI18n } from '@/hooks/web/useI18n'
@@ -190,7 +190,7 @@ const getCountyGeo = async () => {
         aspect.value = Math.cos(y_coord * Math.PI / 180);
         //   console.log(aspect.value)
 
-        echarts.registerMap('KE', res.data[0].json_build_object);
+        registerMap('KE', res.data[0].json_build_object);
         fmap.value=true
         console.log('fmap',fmap.value)
       }
@@ -223,7 +223,7 @@ const getSubsetGeo = async (model, filterFields, filterValues) => {
   aspect.value = Math.cos(y_coord * Math.PI / 180);
 
   console.log('collection aspect:', aspect.value)
-  echarts.registerMap('KE', subCountyGeo.value);
+  registerMap('KE', subCountyGeo.value);
 
 }
 

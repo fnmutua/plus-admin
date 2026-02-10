@@ -11,7 +11,7 @@ import { Icon } from '@iconify/vue';
 
 import { pieOptions, simpleBarChart, multipleBarChart,stacklineOptions, mapChartOptions, barOptionsMultiple, lineOptions, barMaleFemaleOptions } from './chart-types'
 import type { EChartsOption } from 'echarts'
-import * as echarts from 'echarts'
+import { registerMap } from 'echarts/core'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountFilter, getSumFilter } from '@/api/settlements'
 import { useI18n } from '@/hooks/web/useI18n'
@@ -118,7 +118,7 @@ const getCountyGeo = async () => {
     const y_coord = (bbox[1] + bbox[3]) / 2;
     aspect.value = Math.cos(y_coord * Math.PI / 180);
     //   console.log(aspect.value)
-    echarts.registerMap('KE', countyGeo.value);
+    registerMap('KE', countyGeo.value);
 
 
   }
@@ -148,7 +148,7 @@ const getSubsetGeo = async (model,filterFields, filterValues) => {
   aspect.value = Math.cos(y_coord * Math.PI / 180);
 
   console.log('collection aspect:', aspect.value)
-  echarts.registerMap('KE', subCountyGeo.value);
+  registerMap('KE', subCountyGeo.value);
 
 }
 

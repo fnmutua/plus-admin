@@ -31,7 +31,9 @@ import { setupPermission } from './directives'
 import { createApp } from 'vue'
 
 // ECharts + vue-echarts setup
-import * as echarts from 'echarts'
+// IMPORTANT: use() must come from 'echarts/core' so vue-echarts (which also
+// imports from 'echarts/core') sees the registered renderers/charts/components.
+import { use, registerTheme } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
 import { MapChart, BarChart, LineChart, PieChart, GaugeChart } from 'echarts/charts'
 import {
@@ -70,9 +72,8 @@ const head = createHead()
 
 import romaTheme from './theme.json' // ✅ Ensure path and tsconfig.json support this
 
-// ✅ Register ECharts modules & theme on the same instance vue-echarts uses
-// Using full 'echarts' import ensures we're registering on the same instance
-echarts.use([
+// ✅ Register ECharts modules & theme on echarts/core – the same instance vue-echarts uses
+use([
   CanvasRenderer,
   MapChart,
   BarChart,
@@ -87,7 +88,7 @@ echarts.use([
   VisualMapComponent,
   GeoComponent,
 ])
-echarts.registerTheme('roma', romaTheme)
+registerTheme('roma', romaTheme)
 
 // 创建实例
 const setupAll = async () => {
