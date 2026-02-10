@@ -2785,6 +2785,7 @@ const handleMergeFromSelection = async () => {
     return
   }
 
+  mergeLoading.value = true
   try {
     const formData = {
       model: 'settlement',
@@ -2821,6 +2822,8 @@ const handleMergeFromSelection = async () => {
   } catch (error: any) {
     console.error('Error merging settlements from selection:', error)
     ElMessage.error(error?.response?.data?.message || 'Failed to merge settlements. Please try again.')
+  } finally {
+    mergeLoading.value = false
   }
 }
 
@@ -2901,6 +2904,7 @@ const showMergeConfirmation = () => {
 }
 
 const confirmMerge = async () => {
+  mergeLoading.value = true
   try {
     const primaryId = mergePrimaryId.value
     const duplicateId = mergePrimaryId.value === currentSettlementForMerge.value.id 
@@ -2956,6 +2960,8 @@ const confirmMerge = async () => {
   } catch (error: any) {
     console.error('Error merging settlements:', error)
     ElMessage.error(error?.response?.data?.message || 'Failed to merge settlements. Please try again.')
+  } finally {
+    mergeLoading.value = false
   }
 }
 
@@ -2993,6 +2999,76 @@ const confirmDecommission = async () => {
       message: 'Failed to decommission settlement. Please try again.',
       type: 'error'
     });
+  }
+}
+
+const handleBatchDecommission = () => {
+  const selected = getSelectedSettlements()
+  if (selected.length < 1) {
+    ElMessage.warning('Please select at least 1 settlement to decommission')
+    return
+  }
+  batchDecommissionReason.value = ''
+  BatchDecommissionDialog.value = true
+}
+
+const confirmBatchDecommission = async () => {
+  const selected = getSelectedSettlements()
+  if (selected.length < 1) return
+
+  decommissionBatchLoading.value = true
+  try {
+    let successCount = 0
+    let failCount = 0
+
+    for (const settlement of selected) {
+      try {
+        const formData = {
+          id: settlement.id,
+          isApproved: 'Decommissioned',
+          model: 'settlement',
+          reviewerId: userInfo.id,
+          decommission_reason: batchDecommissionReason.value
+        }
+        await updateOneRecord(formData)
+        successCount++
+      } catch (error) {
+        console.error(`Failed to decommission settlement ${settlement.id}:`, error)
+        failCount++
+      }
+    }
+
+    // Update counts and refresh data
+    await getCounts()
+    await getNewOrRejectedSettlements(activeSegment.value)
+
+    BatchDecommissionDialog.value = false
+    batchDecommissionReason.value = ''
+
+    // Clear selections
+    selectedSettlements.value = []
+    selectedSettlementsNew.value = []
+    selectedSettlementsRejected.value = []
+    selectedSettlementsDecommissioned.value = []
+
+    if (failCount === 0) {
+      ElMessage.success({
+        message: `${successCount} settlement(s) decommissioned successfully!`,
+        duration: 4000,
+        showClose: true
+      })
+    } else {
+      ElMessage.warning({
+        message: `${successCount} decommissioned, ${failCount} failed. Please check and retry.`,
+        duration: 6000,
+        showClose: true
+      })
+    }
+  } catch (error) {
+    console.error('Error in batch decommission:', error)
+    ElMessage.error('Failed to decommission settlements. Please try again.')
+  } finally {
+    decommissionBatchLoading.value = false
   }
 }
 
@@ -3038,6 +3114,10 @@ const getFilteredDownloadData = async (selFilters, selfilterValues) => {
 const downloadLoading = ref(false);
 const downloadGeoLoading = ref(false);
 const deleteCascadeLoading = ref(false);
+const mergeLoading = ref(false);
+const decommissionBatchLoading = ref(false);
+const BatchDecommissionDialog = ref(false);
+const batchDecommissionReason = ref('');
 
 const handleDownloadGeoData = async () => {
   try {
@@ -3575,12 +3655,17 @@ const mergeRecords = async () => {
   formData.model = 'settlement'
   formData.primaryId = primaryRecord.value
   formData.duplicateIds = toMergeRecords.value
-  const res = await mergeDuplicates(formData)
-  if (res.code == '0000') {
-    const rowIndex = duplicateRecords.value.indexOf(expandedRow.value);
-    if (rowIndex !== -1) {
-      duplicateRecords.value.splice(rowIndex, 1);
+  mergeLoading.value = true
+  try {
+    const res = await mergeDuplicates(formData)
+    if (res.code == '0000') {
+      const rowIndex = duplicateRecords.value.indexOf(expandedRow.value);
+      if (rowIndex !== -1) {
+        duplicateRecords.value.splice(rowIndex, 1);
+      }
     }
+  } finally {
+    mergeLoading.value = false
   }
   primaryRecord.value = null;
   selectedRecords.value = [];
@@ -4080,27 +4165,32 @@ async function mergeGroupRecords(group) {
     primaryId: primary,
     duplicateIds: toMerge
   }
-  const res = await mergeDuplicates(formData)
-  if (res.code == '0000') {
-    // Remove this group from UI
-    const countyGroup = duplicateRecords.value.find(cg => cg.groups.includes(group))
-    if (countyGroup) {
-      const idx = countyGroup.groups.indexOf(group)
-      if (idx !== -1) countyGroup.groups.splice(idx, 1)
-      if (countyGroup.groups.length === 0) {
-        const cidx = duplicateRecords.value.indexOf(countyGroup)
-        if (cidx !== -1) duplicateRecords.value.splice(cidx, 1)
+  mergeLoading.value = true
+  try {
+    const res = await mergeDuplicates(formData)
+    if (res.code == '0000') {
+      // Remove this group from UI
+      const countyGroup = duplicateRecords.value.find(cg => cg.groups.includes(group))
+      if (countyGroup) {
+        const idx = countyGroup.groups.indexOf(group)
+        if (idx !== -1) countyGroup.groups.splice(idx, 1)
+        if (countyGroup.groups.length === 0) {
+          const cidx = duplicateRecords.value.indexOf(countyGroup)
+          if (cidx !== -1) duplicateRecords.value.splice(cidx, 1)
+        }
       }
+      // Refresh deleted settlements list if on Deleted tab
+      if (activeSegment.value === 'Deleted') {
+        await getSettlmentHistory()
+      }
+      // Refresh counts
+      await getCounts()
     }
-    // Refresh deleted settlements list if on Deleted tab
-    if (activeSegment.value === 'Deleted') {
-      await getSettlmentHistory()
-    }
-    // Refresh counts
-    await getCounts()
+    group._mergeState.selected = []
+    group._mergeState.primary = null
+  } finally {
+    mergeLoading.value = false
   }
-  group._mergeState.selected = []
-  group._mergeState.primary = null
 }
 
 duplicateRecords.value.forEach(county => {
@@ -4382,20 +4472,31 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
       <div v-if="selectedSettlements.length >= 2" style="margin-top: 10px; margin-bottom: 10px;">
         <el-button 
           type="danger" plain
-          :icon="TakeawayBox"
+          :icon="mergeLoading ? undefined : TakeawayBox"
+          :loading="mergeLoading"
+          :disabled="mergeLoading"
           @click="handleMergeFromSelection">
           Merge({{ selectedSettlements[0].name }} + {{ selectedSettlements[1].name }})
         </el-button>
         <el-button 
           type="info" 
           plain
+          :disabled="mergeLoading"
           @click="selectedSettlements = []">
           Clear Selection
         </el-button>
       </div>
 
-      <!-- Delete Cascade button for super admins -->
-      <div v-if="isSuperAdmin && selectedSettlements.length >= 1" style="margin-top: 10px; margin-bottom: 10px;">
+      <!-- Super admin batch actions -->
+      <div v-if="isSuperAdmin && selectedSettlements.length >= 1" style="margin-top: 10px; margin-bottom: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
+        <el-button 
+          type="warning"
+          :icon="decommissionBatchLoading ? undefined : CircleClose"
+          :loading="decommissionBatchLoading"
+          :disabled="decommissionBatchLoading"
+          @click="handleBatchDecommission">
+          Decommission ({{ selectedSettlements.length }} selected)
+        </el-button>
         <el-button 
           type="danger"
           :icon="deleteCascadeLoading ? undefined : Delete"
@@ -4877,7 +4978,7 @@ type="primary" size="small" :icon="View" @click="DeleteReview(row)"
             <el-select v-model="group._mergeState.primary" placeholder="Select primary record" style="width: 220px; margin-right: 8px;">
               <el-option v-for="rec in group._mergeState.selected" :key="rec.id" :label="rec.name + ' (ID:' + rec.id + ')'" :value="rec.id" />
             </el-select>
-            <el-button type="success" :disabled="!group._mergeState.primary" @click="mergeGroupRecords(group)">
+            <el-button type="success" :disabled="!group._mergeState.primary || mergeLoading" :loading="mergeLoading" @click="mergeGroupRecords(group)">
               Merge Selected
             </el-button>
           </div>
@@ -5090,6 +5191,49 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
       </template>
     </el-dialog>
 
+    <!-- Batch Decommission Dialog -->
+    <el-dialog v-model="BatchDecommissionDialog" title="Batch Decommission Settlements" width="500px" :close-on-click-modal="false">
+      <el-alert
+        type="warning"
+        :closable="false"
+        style="margin-bottom: 20px;">
+        <template #title>
+          <strong>You are about to decommission {{ getSelectedSettlements().length }} settlement(s)</strong>
+        </template>
+        <template #default>
+          <ul style="margin: 8px 0 0 0; padding-left: 20px;">
+            <li v-for="s in getSelectedSettlements().slice(0, 10)" :key="s.id">
+              {{ s.name }} (ID: {{ s.id }})
+            </li>
+            <li v-if="getSelectedSettlements().length > 10">
+              ... and {{ getSelectedSettlements().length - 10 }} more
+            </li>
+          </ul>
+        </template>
+      </el-alert>
+      <el-form>
+        <el-form-item label="Reason for Decommission">
+          <el-input 
+            v-model="batchDecommissionReason" 
+            type="textarea" 
+            :rows="3"
+            placeholder="Please provide a reason for decommissioning these settlements..." />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button :disabled="decommissionBatchLoading" @click="BatchDecommissionDialog = false">Cancel</el-button>
+          <el-button 
+            type="warning" 
+            :loading="decommissionBatchLoading"
+            :disabled="decommissionBatchLoading"
+            @click="confirmBatchDecommission">
+            Decommission ({{ getSelectedSettlements().length }})
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
+
     <!-- Merge Settlement Dialog -->
     <el-dialog v-model="MergeDialog" title="Merge Settlement" width="90%" :close-on-click-modal="false">
       <div v-if="currentSettlementForMerge">
@@ -5178,10 +5322,11 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
 
       <template #footer>
         <span class="dialog-footer">
-          <el-button @click="MergeDialog = false">Cancel</el-button>
+          <el-button :disabled="mergeLoading" @click="MergeDialog = false">Cancel</el-button>
           <el-button 
             type="primary" 
-            :disabled="!selectedSettlementForMerge || !mergePrimaryId"
+            :disabled="!selectedSettlementForMerge || !mergePrimaryId || mergeLoading"
+            :loading="mergeLoading"
             @click="showMergeConfirmation">
             Merge Settlements
           </el-button>
@@ -5242,9 +5387,11 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
 
       <template #footer>
         <span class="dialog-footer">
-          <el-button @click="MergeConfirmDialog = false">Cancel</el-button>
+          <el-button :disabled="mergeLoading" @click="MergeConfirmDialog = false">Cancel</el-button>
           <el-button 
             type="primary" 
+            :loading="mergeLoading"
+            :disabled="mergeLoading"
             @click="confirmMerge">
             Confirm Merge
           </el-button>
