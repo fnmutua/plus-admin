@@ -9,7 +9,7 @@ import {
   lineOptions, stackedbarOptions, barMaleFemaleOptions, simpleBarChart,stackedbarOptionsAbs
 } from './chart-types'
 import type { EChartsOption } from 'echarts'
-import { registerMap } from 'echarts/core'
+import { registerMap, getMap } from 'echarts/core'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountFilter, getSumFilter } from '@/api/settlements'
 import { useI18n } from '@/hooks/web/useI18n'
@@ -191,6 +191,15 @@ const getCountyGeo = async () => {
         //   console.log(aspect.value)
 
         registerMap('KE', res.data[0].json_build_object);
+        console.log('✅ Map registered: KE', countyGeo.value.features?.length, 'features');
+        // Log feature property keys and names to help debug data linkage
+        if (countyGeo.value.features?.length > 0) {
+          const firstProps = countyGeo.value.features[0]?.properties;
+          console.log('🗺️ GeoJSON property KEYS:', Object.keys(firstProps || {}));
+          console.log('🗺️ First feature properties:', firstProps);
+          const allGeoNames = countyGeo.value.features.map((f: any) => f.properties?.name || f.properties?.NAME || f.properties?.Name || Object.values(f.properties || {})[0] || 'no name');
+          console.log('🗺️ ALL geoJSON feature names:', allGeoNames);
+        }
         fmap.value=true
         console.log('fmap',fmap.value)
       }
@@ -203,28 +212,58 @@ const getCountyGeo = async () => {
 
 
 const getSubsetGeo = async (model, filterFields, filterValues) => {
-  console.log('Get all parcels for this settlement ')
+  try {
+    console.log('Get all parcels for this settlement - START', { model, filterFields, filterValues })
 
-  const formData = {}
-  formData.model = model
-  formData.columnFilterField = filterFields
-  formData.selectedParents = filterValues
-  formData.id = filterValues
+    const formData = {}
+    formData.model = model
+    formData.columnFilterField = filterFields
+    formData.selectedParents = filterValues
+    formData.id = filterValues
 
-  console.log(formData)
-  const res = await getfilteredGeo(formData)
+    console.log('getSubsetGeo - calling API with formData:', formData)
+    const res = await getfilteredGeo(formData)
+    console.log('getSubsetGeo - API response received:', res)
 
-  console.log('filtered Geo:', res.data[0].json_build_object.features)
-  var collection = turf.featureCollection(res.data[0].json_build_object.features);
-  console.log('collection Geo:', collection)
-  subCountyGeo.value = collection
-  var bbox = turf.bbox(subCountyGeo.value);
-  const y_coord = (bbox[1] + bbox[3]) / 2;
-  aspect.value = Math.cos(y_coord * Math.PI / 180);
+    // Extract geoJSON from multiple possible shapes
+    let geoJSON: any | null = null
+    const data = res?.data
 
-  console.log('collection aspect:', aspect.value)
-  registerMap('KE', subCountyGeo.value);
+    // Shape 1: data[0] is an array of rows: [ { json_build_object: {...} } ]
+    if (Array.isArray(data?.[0]) && data[0][0]?.json_build_object) {
+      geoJSON = data[0][0].json_build_object
+    }
 
+    // Shape 2: data[0] is directly the object: { json_build_object: {...} }
+    if (!geoJSON && data?.[0]?.json_build_object) {
+      geoJSON = data[0].json_build_object
+    }
+
+    // Shape 3: PostgreSQL Result object at data[1].rows[0].json_build_object
+    if (!geoJSON && data?.[1]?.rows?.[0]?.json_build_object) {
+      geoJSON = data[1].rows[0].json_build_object
+    }
+
+    if (!geoJSON || !geoJSON.features) {
+      console.error('getSubsetGeo - Invalid geoJSON structure:', res)
+      throw new Error('Invalid geo response structure')
+    }
+
+    console.log('filtered Geo features:', geoJSON.features)
+    var collection = turf.featureCollection(geoJSON.features);
+    console.log('collection Geo:', collection)
+    subCountyGeo.value = collection
+    var bbox = turf.bbox(subCountyGeo.value);
+    const y_coord = (bbox[1] + bbox[3]) / 2;
+    aspect.value = Math.cos(y_coord * Math.PI / 180);
+
+    console.log('collection aspect:', aspect.value)
+    // Do NOT register the map here; caller decides which map name to use
+    console.log('getSubsetGeo - COMPLETED successfully')
+  } catch (error) {
+    console.error('getSubsetGeo - ERROR:', error)
+    throw error // Re-throw so caller knows it failed
+  }
 }
 
 ///// ----------------Pocess the statistics card---------------------------------------
@@ -1442,7 +1481,7 @@ async function processTreemapChart() {
       // function to process processMultiBarChart charts 
       async function processMapChart() {
         const promises = [async function () {
-          console.log('This chart details:', thisChart.card_model, thisChart.card_model_field, thisChart.aggregation);
+          console.log('This map chart details:', thisChart.card_model, thisChart.card_model_field, thisChart.aggregation);
 
           try {
 
@@ -1465,54 +1504,158 @@ async function processTreemapChart() {
               const values = mapData.map(d => d.value)
               MaxMin = [Math.min(...values), Math.max(...values)]
             }
-           // await getCountyGeo()
-            //await getSubsetGeo(model,filterFields, filterValues)
-            if (selectedCounties.value.length > 0 && filterLevel.value === 'county') {
-              await getSubsetGeo('subcounty', ['county_id'], selectedCounties.value)
 
+            // Determine which geo level to use based on filters
+            // Capture current filter values to avoid closure issues
+            const currentFilterLevel = filterLevel.value;
+            const currentSelectedCounties = selectedCounties.value;
+            const currentSelectedSubCounties = selectedSubCounties.value;
+            
+            console.log('filterLevel 0001', currentFilterLevel)
+            console.log('selectedCounties 0001', currentSelectedCounties)
+            console.log('currentSelectedCounties length', currentSelectedCounties.length)
+            
+            let geoToUse = null;
+            let mapName = 'KE_county'; // default: national counties
+            
+            if (currentSelectedCounties.length > 0 && currentFilterLevel == 'county') {
+              // Counties selected -> show subcounties within those counties
+              console.log('About to call getSubsetGeo for subcounty...')
+              try {
+                await getSubsetGeo('subcounty', ['county_id'], currentSelectedCounties)
+                geoToUse = subCountyGeo.value;
+                mapName = 'KE_subcounty';
+                console.log('✅ Using subcounty-level geo (filtered by counties)', geoToUse?.features?.length, 'features');
+              } catch (error) {
+                console.error('Failed to get subcounty geo, falling back to county geo:', error)
+                await getCountyGeo()
+                geoToUse = countyGeo.value;
+                mapName = 'KE_county';
+              }
+            } else if (currentSelectedSubCounties.length > 0 && currentFilterLevel === 'subcounty') {
+              // Subcounties selected -> show wards within those subcounties
+              console.log('About to call getSubsetGeo for ward...')
+              try {
+                await getSubsetGeo('ward', ['subcounty_id'], currentSelectedSubCounties)
+                geoToUse = subCountyGeo.value;
+                mapName = 'KE_ward';
+                console.log('✅ Using ward-level geo (filtered by subcounties)', geoToUse?.features?.length, 'features');
+              } catch (error) {
+                console.error('Failed to get ward geo, falling back to county geo:', error)
+                await getCountyGeo()
+                geoToUse = countyGeo.value;
+                mapName = 'KE_county';
+              }
+            } else {
+              // National level - use full county geo (47 counties)
+              await getCountyGeo()
+              geoToUse = countyGeo.value;
+              mapName = 'KE_county';
+              console.log('✅ Using county-level geo (national - 47 counties)');
             }
-            if (selectedSubCounties.value.length > 0 && filterLevel.value === 'subcounty') {
-              await getSubsetGeo('ward', ['subcounty_id'], selectedSubCounties.value)
-
+            
+            // Detect the GeoJSON name property (ECharts defaults to 'name')
+            let geoNameProperty = 'name';
+            if (geoToUse && geoToUse.features && geoToUse.features[0]?.properties) {
+              const props = geoToUse.features[0].properties;
+              if (props.name !== undefined) geoNameProperty = 'name';
+              else if (props.NAME !== undefined) geoNameProperty = 'NAME';
+              else if (props.Name !== undefined) geoNameProperty = 'Name';
+              else {
+                // Fallback: use the first string property
+                const firstStringKey = Object.keys(props).find(k => typeof props[k] === 'string');
+                if (firstStringKey) geoNameProperty = firstStringKey;
+              }
+              console.log('🗺️ Detected geoNameProperty:', geoNameProperty, '| First feature props:', props);
             }
 
+            // Register the appropriate geo with a specific name
+            if (geoToUse && geoToUse.features) {
+              registerMap(mapName, geoToUse);
+              console.log(`✅ Map registered: ${mapName}`, geoToUse.features.length, 'features');
+            }
 
-            console.log('apsect', aspect.value)
+            console.log('apsect 0002', aspect.value)
 
-
+            // Build map option like the official USA example, but for KE
             const UpdatedMapOtions = {
-              ...mapChartOptions,
               title: {
-                ...mapChartOptions.title,
-                text: thisChart.title
+                text: thisChart.title,
+                subtext: 'National Slum Database',
+                left: 'right'
+              },
+              tooltip: {
+                trigger: 'item',
+                showDelay: 0,
+                transitionDuration: 0.2
               },
               visualMap: {
-                ...mapChartOptions.visualMap,
+                left: 'right',
                 min: MaxMin[0],
-                max: MaxMin[1]
-
+                max: MaxMin[1],
+                inRange: {
+                  color: [
+                    '#313695',
+                    '#4575b4',
+                    '#74add1',
+                    '#abd9e9',
+                    '#e0f3f8',
+                    '#ffffbf',
+                    '#fee090',
+                    '#fdae61',
+                    '#f46d43',
+                    '#d73027',
+                    '#a50026'
+                  ]
+                },
+                text: ['High', 'Low'],
+                calculable: true
               },
-              // visualMap: {
-              //   ...mapChartOptions.visualMap,
-              //   max: MaxMin[1]
-              // },
-
-              series: {
-                ...mapChartOptions.series[0],
-                data: mapData,  // cleaned data
-                aspectScale: aspect.value
+              toolbox: {
+                show: true,
+                left: 'left',
+                top: 'top',
+                feature: {
+                  dataView: { readOnly: false },
+                  restore: {},
+                  saveAsImage: {}
+                }
               },
-              // series: {
-              //   ...mapChartOptions.series[0],
-              //   aspectScale: 0.88  // categories as recieved 
-              // },
-
-
+              series: [
+                {
+                  name: thisChart.title,
+                  type: 'map',
+                  roam: true,
+                  map: mapName,
+                  nameProperty: geoNameProperty,
+                  aspectScale: aspect.value,
+                  emphasis: {
+                    label: {
+                      show: true
+                    }
+                  },
+                  data: mapData
+                }
+              ]
             };
-            //   UpdatedMapOtions.series[0].aspectScale=aspect.value
 
-            // sort the data such that the graphs start and end proper
-
+            console.log('UpdatedMapOtions 0003', UpdatedMapOtions)
+            console.log('mapData 0003 (first 5):', mapData.slice(0, 5))
+            // Check name matching using actual geoToUse and detected property
+            if (geoToUse?.features) {
+              const allGeoNames = geoToUse.features.map((f: any) => f.properties?.[geoNameProperty] || 'no name');
+              const allMapDataNames = mapData.map((d: any) => d.name);
+              const matched = allMapDataNames.filter(name => allGeoNames.includes(name));
+              const unmatched = allMapDataNames.filter(name => !allGeoNames.includes(name));
+              console.log(`🗺️ Name matching (prop=${geoNameProperty}):`, matched.length, 'matched,', unmatched.length, 'unmatched');
+              if (unmatched.length > 0) console.log('❌ Unmatched data names:', unmatched);
+              if (matched.length === 0 && allMapDataNames.length > 0) {
+                console.log('⚠️ ZERO matches! Geo names sample:', allGeoNames.slice(0, 5), '| Data names sample:', allMapDataNames.slice(0, 5));
+              }
+            }
+            // Verify map is registered
+            const registeredMaps = getMap ? getMap(mapName) : null;
+            console.log(`Map ${mapName} registered?`, registeredMaps ? 'YES' : 'NO', registeredMaps ? `(${registeredMaps.geoJSON?.features?.length} features)` : '');
             thisChart.chart = UpdatedMapOtions
 
             // show no data 
@@ -2276,43 +2419,52 @@ const toggleFullscreen = (event: Event, chartId: string) => {
                             <div class="chart-loading-text">{{ getChartLoadingMessage(chart.id) }}</div>
                           </div>
                         </template>
-                        <v-chart v-if="chart.type==7" :id="chart.id" class="chart" :option="chart.chart" height="400" autoresize /> 
-                        <div v-if="chart.type!=7 && chart.type!=8" class="chart-wrapper">
-                          <div class="chart-actions">
-                            <el-button 
-                              class="fullscreen-btn" 
-                              @click="toggleFullscreen($event, chart.id)"
-                              :icon="FullScreen"
-                              circle
+                        <template v-if="chart.chart">
+                          <div v-if="chart.type==7" :id="`map-container-${chart.id}`" style="width: 100%; height: 400px;">
+                            <v-chart :id="chart.id" class="chart" :option="chart.chart" style="width: 100%; height: 100%;" autoresize />
+                          </div> 
+                          <div v-if="chart.type!=7 && chart.type!=8" class="chart-wrapper">
+                            <div class="chart-actions">
+                              <el-button 
+                                class="fullscreen-btn" 
+                                @click="toggleFullscreen($event, chart.id)"
+                                :icon="FullScreen"
+                                circle
+                              />
+                            </div>
+                            <apexchart 
+                              :id="chart.id"
+                              :options="chart.chart" 
+                              :series="Array.isArray(chart.chart.series) ? chart.chart.series : []" 
+                              :type="getChartType(chart.type)" 
+                              height="300" 
+                              autoresize
                             />
                           </div>
-                          <apexchart 
-                            :id="chart.id"
-                            :options="chart.chart" 
-                            :series="chart.chart.series" 
-                            :type="getChartType(chart.type)" 
-                            height="300" 
-                            autoresize
-                          />
-                        </div>
-                        <div v-if="chart.type==8" class="chart-wrapper">
-                          <div class="chart-actions">
-                            <el-button 
-                              class="fullscreen-btn" 
-                              @click="toggleFullscreen($event, chart.id)"
-                              :icon="FullScreen"
-                              circle
+                          <div v-if="chart.type==8" class="chart-wrapper">
+                            <div class="chart-actions">
+                              <el-button 
+                                class="fullscreen-btn" 
+                                @click="toggleFullscreen($event, chart.id)"
+                                :icon="FullScreen"
+                                circle
+                              />
+                            </div>
+                            <apexchart 
+                              :id="chart.id"
+                              type="bar" 
+                              :options="chart.chart.chartOptions" 
+                              :series="Array.isArray(chart.chart.series) ? chart.chart.series : []" 
+                              height="300" 
+                              autoresize 
                             />
                           </div>
-                          <apexchart 
-                            :id="chart.id"
-                            type="bar" 
-                            :options="chart.chart.chartOptions" 
-                            :series="chart.chart.series" 
-                            height="300" 
-                            autoresize 
-                          />
-                        </div>
+                        </template>
+                        <template v-else>
+                          <div class="empty-state-content">
+                            <el-empty description="No data available for this chart" />
+                          </div>
+                        </template>
                       </ElSkeleton>
                     </el-card>
                   </div>
