@@ -285,6 +285,63 @@ watch(
   { deep: true }
 )
 
+// Computed subcounty display name (inferred from ward)
+const subcountyDisplayName = computed(() => {
+  if (!settlementForm.subcounty_id) return ''
+  const sc = (subcountyOptions.value || []).find((s: any) => s.value === settlementForm.subcounty_id)
+  return sc ? sc.label : `Subcounty ID: ${settlementForm.subcounty_id}`
+})
+
+// Handle county change in the drawer form (doesn't navigate to map)
+const handleDrawerCountyChange = async (countyId: any) => {
+  // Clear ward and subcounty
+  settlementForm.ward_id = ''
+  settlementForm.subcounty_id = ''
+  selectedWard.value = null
+  
+  if (!countyId) {
+    settlementForm.county_id = ''
+    filteredWards.value = []
+    return
+  }
+  
+  settlementForm.county_id = countyId
+  selectedCounty.value = countyId
+  
+  // Load wards for this county
+  await handleCountyChange(countyId)
+}
+
+// Handle ward change in the drawer form (infers subcounty, doesn't navigate)
+const handleDrawerWardChange = (wardId: any) => {
+  if (!wardId) {
+    settlementForm.ward_id = ''
+    settlementForm.subcounty_id = ''
+    return
+  }
+  
+  settlementForm.ward_id = wardId
+  selectedWard.value = wardId
+  
+  // Find the ward to get its subcounty_id
+  const ward = filteredWards.value.find((w: any) => w.value === wardId) ||
+               (wardOptions.value || []).find((w: any) => w.value === wardId)
+  
+  if (ward && ward.subcounty_id) {
+    settlementForm.subcounty_id = ward.subcounty_id
+    console.log('Inferred subcounty_id from ward:', ward.subcounty_id)
+  } else {
+    // Fallback: try subcountyOptions
+    const subcounty = (subcountyOptions.value || []).find((sc: any) => {
+      return sc.county_id === selectedCounty.value
+    })
+    if (subcounty) {
+      settlementForm.subcounty_id = subcounty.value
+      console.log('Fallback subcounty_id:', subcounty.value)
+    }
+  }
+}
+
 // Handle county selection
 const handleCountyChange = async (countyId: any) => {
   selectedWard.value = null
@@ -2119,6 +2176,56 @@ onMounted(async () => {
 
         <el-form-item label="Description">
           <el-input v-model="settlementForm.description" type="textarea" :rows="3" placeholder="Enter description" />
+        </el-form-item>
+
+        <el-divider content-position="left">Location</el-divider>
+
+        <el-form-item label="County" prop="county_id">
+          <el-select
+            v-model="settlementForm.county_id"
+            placeholder="Select County"
+            filterable
+            clearable
+            :disabled="isCountyRestricted"
+            @change="handleDrawerCountyChange"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="item in filteredCountyOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+          <div v-if="isCountyRestricted" style="font-size: 12px; color: #909399; margin-top: 5px;">
+            You are restricted to your assigned county
+          </div>
+        </el-form-item>
+
+        <el-form-item label="Ward" prop="ward_id">
+          <el-select
+            v-model="settlementForm.ward_id"
+            placeholder="Select Ward"
+            filterable
+            clearable
+            :disabled="!settlementForm.county_id"
+            @change="handleDrawerWardChange"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="item in filteredWards"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="Subcounty">
+          <el-input :model-value="subcountyDisplayName" disabled placeholder="Auto-inferred from ward" style="width: 100%" />
+          <div style="font-size: 12px; color: #909399; margin-top: 5px;">
+            Automatically determined from the selected ward
+          </div>
         </el-form-item>
 
         <el-divider content-position="left">Parcel Information</el-divider>
