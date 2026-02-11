@@ -1,16 +1,14 @@
 <script setup lang="ts">
-import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
 import { getSettlementListByCounty, getHHsByCounty, uploadFilesBatch} from '@/api/settlements'
-import { getCountyListApi } from '@/api/counties'
+import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
 import {
-  ElButton, ElSelect, FormInstance, ElLink, MessageParamsWithType, ElTabs, ElTabPane, ElDialog, ElInputNumber,
-  ElInput, ElDatePicker, ElForm, ElFormItem, ElUpload, ElCascader, FormRules, ElPopconfirm, ElTable, ElCol, ElRow,
-  ElTableColumn, UploadUserFile, ElDropdown, ElDropdownItem, ElDropdownMenu,ElOptionGroup
+  ElButton, ElSelect, FormInstance, ElDialog, ElForm, ElFormItem, ElCard, ElTable, ElRow, ElCol,
+  ElTableColumn, UploadUserFile, ElDropdown, ElDropdownItem, ElDropdownMenu, ElInput, ElDrawer
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
-import { Position, TopRight, Plus, User, Download, Delete, Edit, Filter, InfoFilled } from '@element-plus/icons-vue'
+import { Position, TopRight, Plus, User, Download, Delete, Edit, Filter, InfoFilled, Back, More, CircleCloseFilled } from '@element-plus/icons-vue'
 
 import { ref, reactive, computed, h } from 'vue'
 import { ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
@@ -24,7 +22,6 @@ import { uuid } from 'vue-uuid'
 import { getFile } from '@/api/summary'
 import PermissionWrapper from '@/components/PermissionWrapper.vue'
 
-import xlsx from "json-as-xlsx"
 import { getAllGeo } from '@/api/settlements'
 import {
   searchByKeyWord
@@ -52,7 +49,7 @@ import { MapboxLayerSwitcherControl } from "mapbox-layer-switcher";
 import "mapbox-layer-switcher/styles.css";
 
 import * as enums from '@/utils/enums'
-import DownloadAll from '@/views/Components/DownloadAll.vue';
+import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 
 import { getFilteredHouseholdsByColumn, getFilteredHouseholdsBykeyword, updateHousehold } from '@/api/households'
 import UploadComponent from '@/views/Components/UploadComponent.vue';
@@ -72,7 +69,7 @@ mapboxgl.accessToken = MapBoxToken;
 
 
 
-const searchString = ref()
+const searchString = ref('')
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
@@ -82,7 +79,9 @@ const userInfo = wsCache.get(appStore.getUserInfo)
 const showAdminButtons =  ref(appStore.getAdminButtons)
 const showEditButtons =  ref(appStore.getEditButtons)
 
-const { push } = useRouter()
+const router = useRouter()
+const { push } = router
+const goBack = () => router?.back()
 const value1 = ref([])
 const value2 = ref([])
 var value3 = ref([])
@@ -101,6 +100,7 @@ const interventionsOptions = ref([])
 
 
 const settlementOptions = ref([])
+const countiesOptions = ref([])
 const page = ref(1)
 const pSize = ref(5)
 const selCounties = []
@@ -138,50 +138,88 @@ const { t } = useI18n()
 
 
 const handleClear = async () => {
-  console.log('cleared....')
-
-  // clear all the fileters -------
   filterValues = []
   filters = []
   value1.value = ''
-  value2.value = ''
+  value2.value = []
   value3.value = ''
-  value4.value = ''
-  value5.value = ''
-
+  value4.value = []
+  value5.value = []
+  settOptions.value = []
   pSize.value = 5
   currentPage.value = 1
   tblData.value = []
-  //----run the get data--------
+  searchString.value = ''
   getAllBeneficiaries()
 }
 
-const filterBySettlement = async (title: any) => {
-  var selectOption = 'settlement_id'
-  if (!filters.includes(selectOption)) {
-    filters.push(selectOption)
+// Helper to add/update a filter in the filters/filterValues arrays
+const updateFilter = (filterKey: string, values: any[], filtersArr: string[], filterValuesArr: any[]) => {
+  const idx = filtersArr.indexOf(filterKey)
+  if (values.length > 0) {
+    if (idx === -1) {
+      filtersArr.push(filterKey)
+      filterValuesArr.push(values)
+    } else {
+      filterValuesArr[idx] = values
+    }
+  } else if (idx !== -1) {
+    filtersArr.splice(idx, 1)
+    filterValuesArr.splice(idx, 1)
   }
-  var index = filters.indexOf(selectOption) // 1
-  console.log('intervention_type_id : index--->', index)
+}
 
-  // clear previously selected
-  if (filterValues[index]) {
-    // filterValues[index].length = 0
-    filterValues.splice(index, 1)
-  }
-
-  if (!filterValues.includes(title) && title.length > 0) {
-    filterValues.splice(index, 0, title) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
-  }
-
-  // expunge the filter if the filter values are null
-  if (title.length === 0) {
-    filters.splice(index, 1)
-  }
-
-  console.log('FilterValues:', filterValues)
-
+const handleSelectCounty = async (countyIds: any) => {
+  updateFilter('county_id', countyIds || [], filters, filterValues)
+  value4.value = [] // clear settlement when county changes
+  updateFilter('settlement_id', [], filters, filterValues)
+  await loadSettlementsByCounty(countyIds)
   getFilteredData(filters, filterValues)
+}
+
+const filterBySettlement = async (settlementIds: any) => {
+  updateFilter('settlement_id', settlementIds || [], filters, filterValues)
+  getFilteredData(filters, filterValues)
+}
+
+const filterByGender = async (genders: any) => {
+  updateFilter('gender', genders || [], filters, filterValues)
+  getFilteredData(filters, filterValues)
+}
+
+// Load settlements for selected county/counties
+const settlementSearchLoading = ref(false)
+const loadSettlementsByCounty = async (countyIds: any) => {
+  if (!countyIds || (Array.isArray(countyIds) && countyIds.length === 0)) {
+    settOptions.value = []
+    return
+  }
+  const ids = Array.isArray(countyIds) ? countyIds : [countyIds]
+  settlementSearchLoading.value = true
+  try {
+    const formData = {
+      curUser: 1,
+      model: 'settlement',
+      searchField: 'name',
+      searchKeyword: '',
+      excludeGeom: true,
+      excludeGeomAssoc: true,
+      associated_multiple_models: ['county'],
+      filters: ['county_id'],
+      filterValues: [ids],
+      currentUser: userInfo
+    }
+    const res = await searchByKeyWord(formData)
+    settOptions.value = (res.data || []).map((item: any) => ({
+      value: item.id,
+      label: item.name
+    }))
+  } catch (error) {
+    console.error('Error loading settlements:', error)
+    settOptions.value = []
+  } finally {
+    settlementSearchLoading.value = false
+  }
 }
 
 
@@ -315,18 +353,17 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
   tblData = [] // reset the table data
   console.log("gettign HHS.........")
+  loading.value = true
   await getFilteredHouseholdsByColumn(formData)
     .then((response) => {
-      console.log('Received HHS:', response)
       tableDataList.value = response.data
       total.value = response.total
-
     })
     .catch(function (error) {
-      console.log('error', error.response.data.message);
-      open(error.response.data.message)
-      ElMessage.error('Upload Cancelled...')
-
+      console.log('error', error?.response?.data?.message || error)
+      ElMessage.error(error?.response?.data?.message || 'Failed to load households')
+    })
+    .finally(() => {
       loading.value = false
     })
 }
@@ -381,7 +418,7 @@ const getHouseholds = async () => {
     ret.forEach(function (arrayItem: { id: string; type: string }) {
       var opt = {}
       opt.value = arrayItem.id
-      opt.label = arrayItem.name + '| ' + arrayItem.gender + ' | ' + arrayItem.national_id
+      opt.label = (arrayItem.code || arrayItem.id) + ' | ' + (arrayItem.gender || '') + ' | ' + arrayItem.id
       //  console.log(countyOpt)
       houseHoldOptions.value.push(opt)
     })
@@ -535,38 +572,31 @@ const getProgrammeOptions = async () => {
 const settOptions = ref([])
 
 const getCountyNames = async () => {
-  const res = await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'settlement',
-      searchField: 'name',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var countyOpt = {}
-      countyOpt.value = arrayItem.id
-      countyOpt.label = arrayItem.name  
-      //  console.log(countyOpt)
-      settOptions.value.push(countyOpt)
+  try {
+    const response = await getListWithoutGeo({
+      params: {
+        pageIndex: 1,
+        limit: 100,
+        curUser: 1,
+        model: 'county',
+        searchField: '',
+        searchKeyword: '',
+        sort: 'ASC'
+      }
     })
-  })
+    const ret = Array.isArray(response?.data) ? response.data : response?.data?.data ?? []
+    countiesOptions.value = ret.map((item: any) => ({ value: item.id, label: item.name }))
+  } catch (err) {
+    console.error('Error loading counties:', err)
+    countiesOptions.value = []
+  }
 }
 
 getBeneficiaryType()
 getHouseholds()
 
 //getInterventionTypes()
-getSettlementsOptions()
+// Settlements loaded only when county changes (via handleSelectCounty → loadSettlementsByCounty)
 getAllBeneficiaries()
 getInterventions()
 getProgrammeOptions()
@@ -585,6 +615,7 @@ console.log('Options---->', interVentionTypeOptions)
 ///----------------------------------------------------------------------------------
 
 const ruleFormRef = ref<FormInstance>()
+const rules = {}
 const ruleForm = reactive({
   id: '',
   settlement_id: '',
@@ -718,7 +749,6 @@ const handleClose = () => {
 
 
 
-const activeName = ref('list')
 const AddHH = () => {
   push({
     path: '/settlement/hh/add',
@@ -728,6 +758,66 @@ const AddHH = () => {
 
 const AddDialogVisible = ref(false)
 
+// Drawer for household details
+const detailDrawer = ref(false)
+const raw = ref()
+
+const excludeFields = ref([
+  'id', 'county_id', 'settlement_id', 'subcounty_id', 'ward_id', 'code', 'geom',
+  'documents', 'createdAt', 'updatedAt',
+  'respondents_name', 'name', 'telephone', 'national_id', 'phone'
+])
+const priorityFields = ['gender', 'age', 'hh_size', 'settlement', 'settlement_county']
+
+const humanize = (key) =>
+  key.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())
+
+const flattenForDisplay = (obj, prefix = '') => {
+  const result = {}
+  for (const key in obj) {
+    if (!Object.prototype.hasOwnProperty.call(obj, key)) continue
+    const val = obj[key]
+    const fullKey = prefix ? `${prefix}_${key}` : key
+    if (val === null || val === undefined || val === '') continue
+    if (typeof val === 'object' && !Array.isArray(val) && !(val instanceof Date)) {
+      if ('type' in val && 'coordinates' in val) continue // skip geom
+      if (val.name !== undefined) {
+        result[fullKey] = val.name
+        if (val.county?.name) result[`${fullKey}_county`] = val.county.name
+      } else if (val.id !== undefined) {
+        result[fullKey] = val.id
+      } else {
+        Object.assign(result, flattenForDisplay(val, fullKey))
+      }
+    } else {
+      result[fullKey] = val
+    }
+  }
+  return result
+}
+
+const filteredData = computed(() => {
+  if (!raw.value || typeof raw.value !== 'object' || Array.isArray(raw.value)) return []
+  const flat = flattenForDisplay(raw.value)
+  const entries = Object.entries(flat).filter(
+    ([key]) => !excludeFields.value.includes(key)
+  )
+  const priorityRows = priorityFields
+    .map((key) => entries.find(([k]) => k === key))
+    .filter((e): e is [string, unknown] => !!e)
+  const otherRows = entries
+    .filter(([k]) => !priorityFields.includes(k))
+    .sort(([a], [b]) => humanize(a).localeCompare(humanize(b)))
+  return [...priorityRows, ...otherRows].map(([key, val]) => ({
+    field: humanize(key),
+    value: val
+  }))
+})
+
+const showHHDetails = (data: TableSlotDefault) => {
+  raw.value = data.row
+  detailDrawer.value = true
+}
 
 const editHH = (data: TableSlotDefault) => {
   formheader.value = 'Edit Household'
@@ -768,61 +858,6 @@ const removeDocument = (data: TableSlotDefault) => {
   formData.filesToDelete = [data.name]
   deleteDocument(formData)
 }
-
- 
-
-const DownloadXlsx = async () => {
-  console.log(tableDataList.value)
-
-  // change here !
-  let fields = [
-    { label: "S/No", value: "index" }, // Top level data
-    { label: "Name", value: "name" }, // Top level data
-    { label: "Gender", value: "gender" }, // Custom format
-    { label: "Settlement", value: "settlement" }, // Run functions
-    { label: "Ownership Status", value: "owner_tenant" }, // Run functions
-
-
-  ]
-
-
-  // Preprae the data object 
-  var dataObj = {}
-  dataObj.sheet = 'data'
-  dataObj.columns = fields
-
-  let dataHolder = []
-  // loop through the table data and sort the data 
-  // change here !
-  for (let i = 0; i < tableDataList.value.length; i++) {
-    let thisRecord = {}
-    tableDataList.value[i]
-    thisRecord.index = i + 1
-    thisRecord.name = tableDataList.value[i].name
-    thisRecord.settlement = tableDataList.value[i].settlement.name
-    thisRecord.gender = tableDataList.value[i].gender
-    thisRecord.owner_tenant = tableDataList.value[i].owner_tenant
-
-
-    dataHolder.push(thisRecord)
-  }
-  dataObj.content = dataHolder
-
-
-
-
-  let settings = {
-    fileName: model, // Name of the resulting spreadsheet
-    writeMode: "writeFile", // The available parameters are 'WriteFile' and 'write'. This setting is optional. Useful in such cases https://docs.sheetjs.com/docs/solutions/output#example-remote-file
-    writeOptions: {}, // Style options from https://docs.sheetjs.com/docs/api/write-options
-  }
-
-  // Enclose in array since the fucntion expects an array of sheets
-  xlsx([dataObj], settings) //  download the excel file
-
-}
-
-
 
 const downloadFile = async (data) => {
 
@@ -989,139 +1024,90 @@ function handleExpand(row) {
 </script>
 
 <template>
-  <ContentWrap :title="t('Households')" :message="t('Use the filters to subset')">
-
-    
+  <el-card>
     <div v-if="dynamicComponent">
       <upload-component :is="dynamicComponent" v-bind="componentProps"/>
     </div>
 
-
-
-     <el-row>
-      <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-        <div style="display: inline-block; margin-right: 5px">
-          <el-select
-size="default" v-model="value4" :onChange="filterBySettlement" :onClear="handleClear" multiple
-            clearable filterable collapse-tags placeholder="By Settlement">
-            <el-option v-for="item in settOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>         
-        </div>
-        
-        <div style="display: inline-block; margin-right: 5px">
-          <el-select  
-size="default" v-model="value3" multiple clearable filterable remote :remote-method="searchByName"
-            reserve-keyword placeholder="Search by Name" />
-        </div>
-
-      </el-col>
-      <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
-        <div style="display: inline-block; margin-top: 5px">
-          <div style="display: inline-block; margin-left: 20px">
-            <el-button :onClick="handleClear" type="primary" :icon="Filter" />
+    <div v-loading="loading" element-loading-text="Loading households...">
+      <el-row :gutter="10" style="margin-bottom: 10px">
+        <el-col :span="24">
+          <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; justify-content: space-between">
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex: 1; min-width: 0">
+              <el-button type="primary" plain :icon="Back" @click="goBack">Back</el-button>
+              <el-select
+                v-model="value2"
+                @change="handleSelectCounty"
+                @clear="handleSelectCounty([])"
+                placeholder="Filter by County"
+                clearable
+                filterable
+                multiple
+                collapse-tags
+                style="width: 180px">
+                <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+              <el-select
+                v-model="value4"
+                @change="filterBySettlement"
+                @clear="filterBySettlement([])"
+                :placeholder="(value2 && value2.length) ? 'Filter by Settlement' : 'Select county first'"
+                clearable
+                filterable
+                multiple
+                collapse-tags
+                :disabled="!value2 || value2.length === 0"
+                :loading="settlementSearchLoading"
+                style="width: 180px">
+                <el-option v-for="item in settOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+               
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center">
+              <el-button type="primary" :icon="Filter" @click="handleClear"  >Clear</el-button>
+              <DownloadCustom
+                :data="tableDataList"
+                :model="model"
+                :associated_models="associated_multiple_models"
+                :filters="filters"
+                :filter-values="filterValues" />
+            </div>
           </div>
+        </el-col>
+      </el-row>
 
-          <div v-if="showAdminButtons" style="display: inline-block; margin-left: 20px">
-            <PermissionWrapper :permissions="'households:create'">
-              <el-tooltip content="Add Household" placement="top">
-                <el-button :onClick="AddHH" type="primary" :icon="Plus" />
-              </el-tooltip>
-            </PermissionWrapper>
-          </div>
-
-          <div style="display: inline-block; margin-left: 20px">
-            <el-tooltip content="Download" placement="top">
-              <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
-            </el-tooltip>
-          </div>
-          <DownloadAll  v-if="showAdminButtons"   :model="model" :associated_models="associated_multiple_models"/>
-
-        </div>
-      </el-col>
-    </el-row>
-
-
-    <el-tabs @tab-click="onMap" v-model="activeName" type="border-card">
-      <el-tab-pane label="List" name="list">
-
-     
-        <el-table :data="tableDataList" style="width: 100%; margin-top: 10px;" border   :row-class-name="tableRowClassName" @expand-change="handleExpand">
-          <el-table-column type="expand">
-            <template #default="props">
-              <div m="4">
-                <h3>Documents</h3>
-                <div>
-                  <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
-                </div>
-                 <el-button style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success" :icon="Plus" circle @click="toggleComponent(props.row)" />
-              </div>
-            </template>
-          </el-table-column>
-          <el-table-column label="#" width="200" prop="id" sortable />
-          <el-table-column label="Name" width="200" prop="name" sortable />
-
-          <el-table-column label="Gender" prop="gender" sortable />
-          <el-table-column label="Ownership Status" prop="owner_tenant" sortable />
-          <el-table-column label="Settlement" prop="settlement.name" sortable />
-
-
-          <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
+      <el-table :data="tableDataList" border row-key="id" style="width: 100%">
+        <el-table-column type="index" width="50" />
+        <el-table-column label="Gender" prop="gender" sortable />
+        <el-table-column label="Age" prop="age" sortable />
+        <el-table-column label="Household Size" prop="hh_size" sortable />
+        <el-table-column label="Settlement" sortable>
+          <template #default="{ row }">
+            {{ row.settlement?.name || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column fixed="right" label="Actions" width="100">
             <template #default="scope">
-
-              <el-dropdown v-if="isMobile">
-                <span class="el-dropdown-link">
-                  <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
-                </span>
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item
-v-if="showAdminButtons" @click="editHH(scope as TableSlotDefault)"
-                      :icon="Edit">Edit</el-dropdown-item>
-                    <el-dropdown-item
-v-if="showAdminButtons" @click="DeleteHH(scope.row as TableSlotDefault)"
-                      :icon="Delete" color="red">Delete</el-dropdown-item>
-
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
-
-
-              <div v-else>
-
-
-
-                <el-tooltip content="Edit" placement="top">
-                  <el-button
-v-if="showAdminButtons" type="success" :icon="Edit"
-                    @click="editHH(scope as TableSlotDefault)" circle />
-                </el-tooltip>
-
-                <el-tooltip content="Delete" placement="top">
-                  <el-popconfirm
-confirm-button-text="Yes" cancel-button-text="No" width="220" :icon="InfoFilled"
-                    icon-color="#626AEF" title="Are you sure to delete this household?"
-                    @confirm="DeleteHH(scope.row as TableSlotDefault)">
-                    <template #reference>
-                      <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
-                    </template>
-                  </el-popconfirm>
-                </el-tooltip>
-
-              </div>
-
+              <el-tooltip content="More Details" placement="top">
+                <el-button type="success" size="small" :icon="More" @click="showHHDetails(scope as TableSlotDefault)" plain />
+              </el-tooltip>
             </template>
           </el-table-column>
+      </el-table>
 
-        </el-table>
-
-        <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-          v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 100]" :total="total" :background="true"
-          @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
-      </el-tab-pane>
-
-     
-    </el-tabs>
+      <div style="margin-top: 20px;">
+        <el-pagination
+          layout="sizes, prev, pager, next, total"
+          v-model:currentPage="currentPage"
+          v-model:page-size="pageSize"
+          :page-sizes="[5, 10, 20, 50, 100]"
+          :total="total"
+          :background="true"
+          @size-change="onPageSizeChange"
+          @current-change="onPageChange"
+          class="mt-4" />
+      </div>
+    </div>
 
 
 
@@ -1166,18 +1152,28 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       </template>
     </el-dialog>
 
-  
-
-  </ContentWrap>
+    <el-drawer v-model="detailDrawer" :show-close="false">
+      <template #header="{ close, titleId, titleClass }">
+        <h4 :id="titleId" :class="titleClass">Household Record</h4>
+        <el-button type="danger" @click="close">
+          <el-icon class="el-icon--left"><CircleCloseFilled /></el-icon>
+          Close
+        </el-button>
+      </template>
+      <el-table :data="filteredData" stripe style="width: 100%">
+        <el-table-column prop="field" label="" width="200" />
+        <el-table-column prop="value" label="" />
+      </el-table>
+    </el-drawer>
+  </el-card>
 </template>
  
 
 
 
 <style scoped>
-.basemap {
-  width: 100%;
-  height: 75vh;
+.max-w-200px {
+  max-width: 200px;
 }
 </style>
 

@@ -126,7 +126,7 @@ exports.getAllHouseholds = (req, res) => {
     // Build attributes list excluding sensitive identifiers
     const attributes = []
     for (const key in db.models.households.rawAttributes) {
-      if (!['name', 'phone', 'national_id'].includes(key)) {
+      if (!['name', 'phone', 'national_id', 'respondents_name', 'telephone'].includes(key)) {
         attributes.push(key)
       }
     }
@@ -246,7 +246,7 @@ exports.getHouseholdsfilterByColumn = (req, res) => {
     // Build attributes list excluding sensitive identifiers
     const attributes = []
     for (const key in db.models.households.rawAttributes) {
-      if (!['name', 'phone', 'national_id'].includes(key)) {
+      if (!['name', 'phone', 'national_id', 'respondents_name', 'telephone'].includes(key)) {
         attributes.push(key)
       }
     }
@@ -322,19 +322,14 @@ exports.getHouseholdsfilterBykeyWord = (req, res) => {
     }
   
     console.log('getting households---->')
-    var attributes = []
-    for( let key in db.models.households.rawAttributes ){
-         attributes.push(key)
+    // Build attributes list excluding sensitive identifiers – never return name, respondents_name, phone, national_id
+    const attributes = []
+    for (const key in db.models.households.rawAttributes) {
+      if (!['name', 'phone', 'national_id', 'respondents_name', 'telephone'].includes(key)) {
+        attributes.push(key)
+      }
     }
-    
-  //   console.log('attributes',attributes)
-     var index = attributes.indexOf('name');
-     if (index !== -1) {
-        attributes.splice(index, 1);
-     }
-    let encrytpedField = [sequelize.fn('PGP_SYM_DECRYPT', sequelize.cast(sequelize.col('households.name'), 'bytea'),'***REDACTED***'),'name']
-    attributes.push(encrytpedField)
-    qry.attributes=attributes
+    qry.attributes = attributes
       
     qry.order = [['id', 'DESC']]
 
@@ -397,7 +392,7 @@ exports.getOneHousehold = (req, res) => {
     // Build attributes list excluding sensitive identifiers
     const attributes = []
     for (const key in db.models.households.rawAttributes) {
-      if (!['name', 'phone', 'national_id'].includes(key)) {
+      if (!['name', 'phone', 'national_id', 'respondents_name', 'telephone'].includes(key)) {
         attributes.push(key)
       }
     }

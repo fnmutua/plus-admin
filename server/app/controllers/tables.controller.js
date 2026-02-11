@@ -2848,7 +2848,7 @@ exports.modelOneRecord = (req, res) => {
     const Model = db.models[reg_model];
     const allAttrs = Object.keys(Model.rawAttributes);
     qry.attributes = allAttrs.filter(
-      (attr) => !['name', 'phone', 'national_id'].includes(attr)
+      (attr) => !['name', 'phone', 'national_id', 'respondents_name', 'telephone'].includes(attr)
     );
   }
 
@@ -2882,7 +2882,7 @@ exports.modelOneRecordByCode = (req, res) => {
     const Model = db.models[reg_model];
     const allAttrs = Object.keys(Model.rawAttributes);
     qry.attributes = allAttrs.filter(
-      (attr) => !['name', 'phone', 'national_id'].includes(attr)
+      (attr) => !['name', 'phone', 'national_id', 'respondents_name', 'telephone'].includes(attr)
     );
   }
 
@@ -4305,23 +4305,12 @@ exports.modelPaginatedDatafilterByColumnNoGeo = async (req, res) => {
      
                console.log('getting households--x2-->')
                var attributes = []
-          
-               for( let key in   db.models[reg_model].rawAttributes ){
-                 attributes.push(key)
-             }
-             //   console.log('attributes',attributes)
-               var index = attributes.indexOf('name');
-               if (index !== -1) {
-                   attributes.splice(index, 1);
+               for (const key in db.models[reg_model].rawAttributes) {
+                 if (!['name', 'phone', 'national_id', 'respondents_name', 'telephone'].includes(key)) {
+                   attributes.push(key)
+                 }
                }
-     
-               let encrytpedField = [sequelize.fn('PGP_SYM_DECRYPT', sequelize.cast(sequelize.col('household.name'), 'bytea'),'***REDACTED***'),'name']
-               attributes.push(encrytpedField)
-       
-           console.log('these attributes', attributes)
-       
-               
-       qry.attributes = attributes
+               qry.attributes = attributes
        qry.attributes.exclude = ['password', 'resetPasswordExpires', 'resetPasswordToken','geom'] 
      } else {
  
@@ -4595,21 +4584,12 @@ exports.modelPaginatedDatafilterByColumnM2M = (req, res) => {
      
                console.log('getting households--3-->')
                var attributes = []
-          
-               for( let key in   db.models[reg_model].rawAttributes ){
-                 attributes.push(key)
-             }
-             //   console.log('attributes',attributes)
-               var index = attributes.indexOf('name');
-               if (index !== -1) {
-                   attributes.splice(index, 1);
+               for (const key in db.models[reg_model].rawAttributes) {
+                 if (!['name', 'phone', 'national_id', 'respondents_name', 'telephone'].includes(key)) {
+                   attributes.push(key)
+                 }
                }
-     
-               let encrytpedField = [sequelize.fn('PGP_SYM_DECRYPT', sequelize.cast(sequelize.col('household.name'), 'bytea'),'***REDACTED***'),'name']
-                 attributes.push(encrytpedField)
-       
-               
-       qry.attributes = attributes
+               qry.attributes = attributes
        qry.attributes.exclude = ['password', 'resetPasswordExpires', 'resetPasswordToken'] 
       }
   }
@@ -7883,9 +7863,13 @@ exports.getAllListforDownload = async (req, res) => {
           ],
           exclude: ['latitude', 'longitude', 'coordinates', 'name'] // exclude encrypted name
         }
-      : {
-          exclude: ['latitude', 'longitude', 'coordinates']
-        }
+      : reg_model === 'households'
+        ? Object.keys(db.models[reg_model].rawAttributes).filter(
+            attr => !['name', 'phone', 'national_id', 'respondents_name', 'telephone', 'geom'].includes(attr)
+          )
+        : {
+            exclude: ['latitude', 'longitude', 'coordinates']
+          }
   };
 
   // Apply county filtering for grievance model based on user roles
@@ -8158,17 +8142,24 @@ exports.getAllListforDownload = async (req, res) => {
         // Get the model to verify fields exist
         const Model = db.models[reg_model];
         const modelAttributes = Model ? Object.keys(Model.rawAttributes) : [];
-        
+
+        // For households, never return name, respondents_name, phone, national_id, telephone
+        const householdSensitiveFields = ['name', 'phone', 'national_id', 'respondents_name', 'telephone'];
+
         // Ensure virtual fields are filtered out and only include fields that exist in the model
         const validMainModelFields = mainModelFields.filter(field => {
           // Exclude virtual fields
           if (virtualFields.includes(field)) {
             return false;
           }
+          // For households, exclude sensitive identifier fields
+          if (reg_model === 'households' && householdSensitiveFields.includes(field)) {
+            return false;
+          }
           // Only include fields that actually exist in the model
           return modelAttributes.includes(field);
         });
-        
+
         baseQuery.attributes = {
           include: validMainModelFields,
           exclude: virtualFields

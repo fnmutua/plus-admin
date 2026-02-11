@@ -412,8 +412,10 @@ export const adminRoutes: AppRouteRecordRaw[] = [
               name: String
             },
             meta: {
-              hidden: true,
+              hidden: false,
               icon:'mdi:house-circle',
+              role: ['root_admin',  'super_admin'] ,
+              locationLevel:['national'],
               title: 'Households'
             }
           },  
