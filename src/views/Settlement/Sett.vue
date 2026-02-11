@@ -3183,8 +3183,8 @@ const handleDownloadGeoData = async () => {
     // Call the API to download geospatial data
     const { blob, shareLink, documentId } = await downloadSettlementsGeoData({
       settlementIds: settlementIds,
-      filters: segmentFilters,
-      filterValues: segmentFilterValues
+      filters: filters.value,
+      filterValues: filterValues.value
     });
     
     console.log('Share link received:', shareLink);
@@ -3239,7 +3239,7 @@ const handleDownloadGeoData = async () => {
           <p style="margin-bottom: 15px; font-size: 14px; color: #333;">
             <strong>Download started!</strong> Your geospatial data is being downloaded.
           </p>
-          <p style="margin-bottom: 10px; font-weight: 600; color: #409EFF;">Share Link (No Expiry):</p>
+          <p style="margin-bottom: 10px; font-weight: 600; color: #409EFF;">Share Link:</p>
           <div style="background: #f5f7fa; padding: 12px; border-radius: 4px; margin: 10px 0; border: 1px solid #e4e7ed;">
             <p style="word-break: break-all; margin: 0; font-family: monospace; font-size: 13px; color: #303133;">
               ${finalShareLink}
@@ -3249,9 +3249,7 @@ const handleDownloadGeoData = async () => {
             <p style="margin: 0; font-size: 12px; color: #909399;">
               ${clipboardSuccess ? '✓ Link copied to clipboard. You can paste it in an email or share it with others.' : 'Click the link above to copy it, or select and copy the text.'}
             </p>
-            <p style="margin: 8px 0 0 0; font-size: 12px; color: #909399;">
-              This link never expires and provides public access to download the geospatial data.
-            </p>
+           
           </div>
         </div>`,
         'Geospatial Data Share Link',

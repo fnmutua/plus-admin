@@ -17,13 +17,12 @@ import {
   Back,
   Plus,
   ArrowDown,
-  InfoFilled,
-  Lock
+  InfoFilled
 } from '@element-plus/icons-vue'
 
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { activateUserApi, updateUserApi, getCountyStaff, resetUserPassword } from '@/api/users'
+import { activateUserApi, updateUserApi, getCountyStaff, getUsersLastLogin, resetUserPassword } from '@/api/users'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 
@@ -458,6 +457,9 @@ const getFilteredBySearchData = async (searchString) => {
 
   console.log('After -----x ------Querry', res)
   tableDataList.value = res.data
+  res.data.forEach(user => {
+    user.last_login = undefined // undefined = loading, null = never, Date = last login
+  })
 
   //tableDataList_orig.value = res.data // back for post filter
 
@@ -466,6 +468,9 @@ const getFilteredBySearchData = async (searchString) => {
 
   tblData = [] // reset the table data
 
+  setTimeout(() => {
+    fetchLastLoginForVisibleUsers()
+  }, 100)
 }
 
 
@@ -499,6 +504,9 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   console.log('After getting all users', res)
   tableDataList.value = res.data
   tableDataList_orig.value = res.data // back for post filter
+  res.data.forEach(user => {
+    user.last_login = undefined // undefined = loading, null = never, Date = last login
+  })
 
   total.value = res.total   // instead of usign the erronues total reurned due to left/right joins
 
@@ -518,6 +526,53 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
   console.log('TBL-4f', tblData)
   loading.value = false
+
+  setTimeout(() => {
+    fetchLastLoginForVisibleUsers()
+  }, 100)
+}
+
+// Format date for display
+const formatDate = (dateString: string | Date | null) => {
+  if (!dateString) return null
+  try {
+    const date = new Date(dateString)
+    if (isNaN(date.getTime())) return null
+    return date.toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  } catch (error) {
+    console.error('Error formatting date:', error)
+    return null
+  }
+}
+
+// Fetch last login for currently visible users (non-blocking, background)
+const fetchLastLoginForVisibleUsers = async () => {
+  try {
+    const currentUsers = tableDataList.value
+    if (!currentUsers || currentUsers.length === 0) return
+
+    const userIds = currentUsers.map(user => user.id).filter(id => id != null)
+    if (userIds.length === 0) return
+
+    const response = await getUsersLastLogin(userIds)
+    const lastLoginMap = response.data || {}
+
+    currentUsers.forEach(user => {
+      if (user.id && lastLoginMap[user.id] !== undefined) {
+        user.last_login = lastLoginMap[user.id]
+      } else if (user.id && user.last_login === undefined) {
+        user.last_login = null
+      }
+    })
+  } catch (error) {
+    console.error('Error fetching last login for visible users:', error)
+  }
 }
 
 const searchByName = async (filterString: any) => {
@@ -893,8 +948,7 @@ const updateUser = () => {
 
 }
 
-// Password reset functionality
-const passwordResetLoading = ref(false)
+// Row-level password reset
 const resetPasswordLoadingStates = reactive<Record<number, boolean>>({})
 
 const handleRowPasswordReset = async (row: { id: number; email?: string; phone?: string; name?: string }) => {
@@ -911,34 +965,6 @@ const handleRowPasswordReset = async (row: { id: number; email?: string; phone?:
     ElMessage.error(error?.response?.data?.message || 'Failed to send reset instructions')
   } finally {
     resetPasswordLoadingStates[row.id] = false
-  }
-}
-
-const handlePasswordReset = async () => {
-  if (!form.value.email && !form.value.phone) {
-    ElMessage.warning('User email or phone number is required for password reset')
-    return
-  }
-
-  // If county admin, validate that the user belongs to their county
-  if (isCountyRestricted.value && userCountyId.value) {
-    const userCountyIdFromRow = form.value.county_id
-    if (userCountyIdFromRow && userCountyIdFromRow !== userCountyId.value) {
-      ElMessage.error('You can only reset passwords for users within your county.')
-      return
-    }
-  }
-
-  try {
-    passwordResetLoading.value = true
-    const payload = form.value.email ? { email: form.value.email } : { phone: form.value.phone }
-    await resetUserPassword(payload)
-    ElMessage.success('Password reset instructions have been sent to the user')
-  } catch (error: any) {
-    console.error('Error resetting password:', error)
-    ElMessage.error(error?.response?.data?.message || 'Failed to send password reset instructions')
-  } finally {
-    passwordResetLoading.value = false
   }
 }
 
@@ -1024,6 +1050,15 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
       <el-table-column label="Country" prop="country_name" sortable />
       <el-table-column label="Organization" prop="organization_name" sortable />
       <el-table-column label="County" prop="county.name" sortable />
+      <el-table-column label="Last Login" width="180" sortable>
+        <template #default="scope">
+          <span v-if="scope.row.last_login">
+            {{ formatDate(scope.row.last_login) }}
+          </span>
+          <span v-else-if="scope.row.last_login === null" style="color: #999;">Never</span>
+          <span v-else style="color: #ccc; font-style: italic;">Loading...</span>
+        </template>
+      </el-table-column>
       <el-table-column fixed="right" :label="isMobile ? '' : 'Operations'" :width="actionColumnWidth">
         <template #default="scope">
 
@@ -1059,7 +1094,7 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
                   :disabled="(!scope.row.email && !scope.row.phone) || resetPasswordLoadingStates[scope.row.id]"
                   @click="handleRowPasswordReset(scope.row)"
                 >
-                  <el-icon><Lock /></el-icon>
+                  <Icon icon="material-symbols:lock-reset" />
                   <span style="margin-left: 8px;">Reset Password</span>
                 </el-dropdown-item>
               </el-dropdown-menu>
@@ -1067,8 +1102,7 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
           </el-dropdown>
 
 
-          <div v-else>
-
+          <div v-else class="operations-row">
             <PermissionWrapper :permissions="['user:activate']">
               <el-tooltip content="Activate" placement="top">
                 <el-switch
@@ -1088,13 +1122,14 @@ v-model="scope.row.isactive" @click="activateDeactivate(scope as TableSlotDefaul
               <span>
                 <ElButton
                   type="warning"
-                  :icon="Lock"
                   size="small"
                   circle
                   :loading="resetPasswordLoadingStates[scope.row.id]"
                   :disabled="!scope.row.email && !scope.row.phone"
                   @click="handleRowPasswordReset(scope.row)"
-                />
+                >
+                  <Icon icon="material-symbols:lock-reset" />
+                </ElButton>
               </span>
             </el-tooltip>
 
@@ -1279,20 +1314,9 @@ v-model="row.location_level" placeholder="Select level" size="small" filterable
       </el-form>
 
       <template #footer>
-        <span class="dialog-footer" style="display: flex; justify-content: space-between; align-items: center;">
-          <div>
-            <el-button
-              type="warning"
-              :loading="passwordResetLoading"
-              @click="handlePasswordReset"
-              :disabled="!form.email && !form.phone">
-              Reset Password
-            </el-button>
-          </div>
-          <div>
-            <el-button @click="dialogFormVisible = false">Cancel</el-button>
-            <el-button type="primary" @click="updateUser">Confirm</el-button>
-          </div>
+        <span class="dialog-footer">
+          <el-button @click="dialogFormVisible = false">Cancel</el-button>
+          <el-button type="primary" @click="updateUser">Confirm</el-button>
         </span>
       </template>
     </el-dialog>
@@ -1325,6 +1349,13 @@ v-model="row.location_level" placeholder="Select level" size="small" filterable
 }
 
 .my-switch {
-  margin-right: 10px;
+  margin-right: 0;
+}
+
+.operations-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
 }
 </style>

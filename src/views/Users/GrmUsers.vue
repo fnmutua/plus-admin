@@ -16,8 +16,7 @@ import {
   Back,
   Plus,
   ArrowDown,
-  InfoFilled,
-  Lock
+  InfoFilled
 } from '@element-plus/icons-vue'
 
 import { ref, reactive, onMounted, computed } from 'vue'
@@ -1240,8 +1239,7 @@ const updateUser = () => {
 
 }
 
-// Password reset functionality
-const passwordResetLoading = ref(false)
+// Row-level password reset
 const resetPasswordLoadingStates = reactive<Record<number, boolean>>({})
 
 const handleRowPasswordReset = async (row: { id: number; email?: string; phone?: string; name?: string }) => {
@@ -1258,25 +1256,6 @@ const handleRowPasswordReset = async (row: { id: number; email?: string; phone?:
     ElMessage.error(error?.response?.data?.message || 'Failed to send reset instructions')
   } finally {
     resetPasswordLoadingStates[row.id] = false
-  }
-}
-
-const handlePasswordReset = async () => {
-  if (!form.value.email && !form.value.phone) {
-    ElMessage.warning('User email or phone number is required for password reset')
-    return
-  }
-
-  try {
-    passwordResetLoading.value = true
-    const payload = form.value.email ? { email: form.value.email } : { phone: form.value.phone }
-    await resetUserPassword(payload)
-    ElMessage.success('Password reset instructions have been sent to the user')
-  } catch (error: any) {
-    console.error('Error resetting password:', error)
-    ElMessage.error(error?.response?.data?.message || 'Failed to send password reset instructions')
-  } finally {
-    passwordResetLoading.value = false
   }
 }
 
@@ -1392,7 +1371,7 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
                   :disabled="(!scope.row.email && !scope.row.phone) || resetPasswordLoadingStates[scope.row.id]"
                   @click="handleRowPasswordReset(scope.row)"
                 >
-                  <el-icon><Lock /></el-icon>
+                  <Icon icon="material-symbols:lock-reset" />
                   <span style="margin-left: 8px;">Reset Password</span>
                 </el-dropdown-item>
               </el-dropdown-menu>
@@ -1400,7 +1379,7 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
           </el-dropdown>
 
 
-          <div v-else>
+          <div v-else class="operations-row">
             <el-tooltip v-if="showAdminButtons" content="Activate" placement="top">
             <PermissionWrapper :permissions="['user:activate']">
                 <el-switch
@@ -1429,13 +1408,14 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
               <span>
                 <ElButton
                   type="warning"
-                  :icon="Lock"
                   size="small"
                   circle
                   :loading="resetPasswordLoadingStates[scope.row.id]"
                   :disabled="!scope.row.email && !scope.row.phone"
                   @click="handleRowPasswordReset(scope.row)"
-                />
+                >
+                  <Icon icon="material-symbols:lock-reset" />
+                </ElButton>
               </span>
             </el-tooltip>
           </div>
@@ -1519,7 +1499,7 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
                   :disabled="(!scope.row.email && !scope.row.phone) || resetPasswordLoadingStates[scope.row.id]"
                   @click="handleRowPasswordReset(scope.row)"
                 >
-                  <el-icon><Lock /></el-icon>
+                  <Icon icon="material-symbols:lock-reset" />
                   <span style="margin-left: 8px;">Reset Password</span>
                 </el-dropdown-item>
               </el-dropdown-menu>
@@ -1527,7 +1507,7 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
           </el-dropdown>
 
 
-          <div v-else>
+          <div v-else class="operations-row">
             <el-tooltip v-if="showAdminButtons" content="Activate" placement="top">
               <PermissionWrapper :permissions="['user:activate']">
                 <el-switch
@@ -1556,13 +1536,14 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
               <span>
                 <ElButton
                   type="warning"
-                  :icon="Lock"
                   size="small"
                   circle
                   :loading="resetPasswordLoadingStates[scope.row.id]"
                   :disabled="!scope.row.email && !scope.row.phone"
                   @click="handleRowPasswordReset(scope.row)"
-                />
+                >
+                  <Icon icon="material-symbols:lock-reset" />
+                </ElButton>
               </span>
             </el-tooltip>
           </div>
@@ -1649,7 +1630,7 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
                   :disabled="(!scope.row.email && !scope.row.phone) || resetPasswordLoadingStates[scope.row.id]"
                   @click="handleRowPasswordReset(scope.row)"
                 >
-                  <el-icon><Lock /></el-icon>
+                  <Icon icon="material-symbols:lock-reset" />
                   <span style="margin-left: 8px;">Reset Password</span>
                 </el-dropdown-item>
               </el-dropdown-menu>
@@ -1657,7 +1638,7 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
           </el-dropdown>
 
 
-          <div v-else>
+          <div v-else class="operations-row">
             <el-tooltip v-if="showAdminButtons" content="Activate" placement="top">
             <PermissionWrapper :permissions="['user:activate']">
                 <el-switch
@@ -1686,13 +1667,14 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
               <span>
                 <ElButton
                   type="warning"
-                  :icon="Lock"
                   size="small"
                   circle
                   :loading="resetPasswordLoadingStates[scope.row.id]"
                   :disabled="!scope.row.email && !scope.row.phone"
                   @click="handleRowPasswordReset(scope.row)"
-                />
+                >
+                  <Icon icon="material-symbols:lock-reset" />
+                </ElButton>
               </span>
             </el-tooltip>
           </div>
@@ -1852,22 +1834,11 @@ v-model="row.location_level" placeholder="Select level" size="small" filterable
       </el-form>
 
       <template #footer>
-        <span class="dialog-footer" style="display: flex; justify-content: space-between; align-items: center;">
-          <div>
-            <el-button 
-              type="warning" 
-              :loading="passwordResetLoading"
-              @click="handlePasswordReset"
-              :disabled="!form.email && !form.phone">
-              Reset Password
-            </el-button>
-          </div>
-          <div>
-            <el-button @click="dialogFormVisible = false">Cancel</el-button>
-            <PermissionWrapper :permissions="['user:update']">
-              <el-button type="primary" @click="updateUser">Confirm</el-button>
-            </PermissionWrapper>
-          </div>
+        <span class="dialog-footer">
+          <el-button @click="dialogFormVisible = false">Cancel</el-button>
+          <PermissionWrapper :permissions="['user:update']">
+            <el-button type="primary" @click="updateUser">Confirm</el-button>
+          </PermissionWrapper>
         </span>
       </template>
     </el-dialog>
@@ -1900,6 +1871,13 @@ v-model="row.location_level" placeholder="Select level" size="small" filterable
 }
 
 .my-switch {
-  margin-right: 10px;
+  margin-right: 0;
+}
+
+.operations-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
 }
 </style>
