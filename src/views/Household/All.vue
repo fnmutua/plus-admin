@@ -1066,6 +1066,7 @@ function handleExpand(row) {
             <div style="display: flex; gap: 8px; align-items: center">
               <el-button type="primary" :icon="Filter" @click="handleClear"  >Clear</el-button>
               <DownloadCustom
+                v-if="(value2?.length) || (value4?.length) || (value5?.length)"
                 :data="tableDataList"
                 :model="model"
                 :associated_models="associated_multiple_models"
