@@ -455,7 +455,7 @@ exports.modelActivateUser = async (req, res) => {
     }
 
     const requestBaseUrl = `${req.protocol}://${req.get('host')}`;
-    const frontendBaseUrl = getFrontendBaseUrl(requestBaseUrl);
+    const frontendBaseUrl = getFrontendBaseUrl(requestBaseUrl, req);
 
     // Send email notification to the user
     if (user.email) {
@@ -608,191 +608,156 @@ exports.updateByUser = (req, res) => {
 
 
 
-exports.reset = (req, res) => {
-  let username
-  console.log('Reset password....', req.headers)
-  console.log(req.body)
-  if (req.body.email === '') {
-    res.status(400).send('email required')
+exports.reset = async (req, res) => {
+  const emailOrPhone = (req.body.email || req.body.phone || '').trim()
+  console.log('Reset password....', req.headers, req.body)
+
+  if (!emailOrPhone) {
+    return res.status(400).send({ message: 'Email or phone number is required.' })
   }
-  /* console.error(req.body.email); */
-  User.findOne({ where: { email: req.body.email } })
-    .then((user) => {
-      //      console.log("Reset fr:", user)
-      if (user === null) {
-        console.error('email not in database')
-        // res.status(403).send('email not in db');
-        return res.status(404).send({ message: 'User Not found.' })
-      } else {
-        username=user.username
-        var token = jwt.sign({ id: user.id }, config.secret, {
-          expiresIn: 86400 // 24 hours
-        })
 
-        try {
-          const result = User.update(
-            { resetPasswordToken: token, resetPasswordExpires: Date.now() + 86400000 },
-            { where: { email: req.body.email } }
-          )
-          console.log(result)
-        } catch (err) {
-          console.log(err)
-        }
+  const isEmail = emailOrPhone.includes('@')
+  let user = null
 
-        console.log('rESET-tOKEN', req)
-        //   console.log(user)
+  try {
+    if (isEmail) {
+      user = await User.findOne({ where: { email: emailOrPhone } })
+    } else {
+      const normalizedPhone = formatPhoneNumber(emailOrPhone)
+      const phoneVariants = [
+        normalizedPhone,
+        '+' + normalizedPhone,
+        '0' + normalizedPhone.substring(3)
+      ]
+      user = await User.findOne({
+        where: { [Op.or]: phoneVariants.map(p => ({ phone: p })) }
+      })
+    }
 
-        var transporter = nodemailer.createTransport({
-          service: 'gmail',
-          auth: {
-            user: process.env.EMAIL_USER || 'kisip.mis@gmail.com',
-            pass: process.env.EMAIL_PASS || 'ycoxaqavmfiqljjg'
-          }
-        }) // initialize create Transport service
+    if (!user) {
+      console.error(isEmail ? 'Email not in database' : 'Phone not in database')
+      return res.status(404).send({ message: 'User not found.' })
+    }
 
+    const username = user.username
+    const token = jwt.sign({ id: user.id }, config.secret, { expiresIn: 86400 })
+    await User.update(
+      { resetPasswordToken: token, resetPasswordExpires: Date.now() + 86400000 },
+      { where: { id: user.id } }
+    )
 
-        const CLIENT_URL = req.protocol + '://' + req.get('host')
-        const resetLink = CLIENT_URL + '/#/reset/' + token
-        
-        console.log('Reset-URL', CLIENT_URL)
-        console.log('Reset-Link', resetLink)
-        
-        const mailOptions = {
-          from: process.env.EMAIL_FROM || 'kisip.mis@gmail.com',
-          to: `${req.body.email}`,
-          subject: 'Reset Your Password - KeSMIS',
-          html: `
-            <!DOCTYPE html>
-            <html lang="en">
-            <head>
-              <meta charset="UTF-8">
-              <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <title>Reset Your Password</title>
-            </head>
-            <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
-              <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #f5f5f5; padding: 20px;">
-                <tr>
-                  <td align="center">
-                    <table role="presentation" style="max-width: 600px; width: 100%; border-collapse: collapse; background-color: #ffffff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); overflow: hidden;">
-                      <!-- Header -->
-                      <tr>
-                        <td style="background: linear-gradient(135deg, #00DC82 0%, #00B86B 100%); padding: 40px 30px; text-align: center;">
-                          <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 600; letter-spacing: -0.5px;">
-                            Reset Your Password
-                          </h1>
-                        </td>
-                      </tr>
-                      
-                      <!-- Content -->
-                      <tr>
-                        <td style="padding: 40px 30px;">
-                          <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 1.6; color: #333333;">
-                            Hello <strong>${username}</strong>,
-                          </p>
-                          
-                          <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 1.6; color: #333333;">
-                            You are receiving this email because you (or someone else) have requested to reset the password for your KeSMIS account.
-                          </p>
-                          
-                          <p style="margin: 0 0 30px 0; font-size: 16px; line-height: 1.6; color: #333333;">
-                            Please click the button below to reset your password. This link will expire in <strong>24 hours</strong>.
-                          </p>
-                          
-                          <!-- Reset Button -->
-                          <table role="presentation" style="width: 100%; border-collapse: collapse; margin: 30px 0;">
-                            <tr>
-                              <td align="center">
-                                <a href="${resetLink}" style="display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #00DC82 0%, #00B86B 100%); color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(0, 220, 130, 0.3);">
-                                  Reset Password
-                                </a>
-                              </td>
-                            </tr>
-                          </table>
-                          
-                          <!-- Alternative Link -->
-                          <p style="margin: 30px 0 20px 0; font-size: 14px; line-height: 1.6; color: #666666; text-align: center;">
-                            Or copy and paste this link into your browser:
-                          </p>
-                          <p style="margin: 0 0 30px 0; font-size: 13px; line-height: 1.6; color: #00DC82; word-break: break-all; text-align: center; padding: 12px; background-color: #f8f9fa; border-radius: 6px;">
-                            ${resetLink}
-                          </p>
-                          
-                          <!-- Warning Box -->
-                          <div style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 16px; border-radius: 6px; margin: 30px 0;">
-                            <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #856404;">
-                              <strong>⚠️ Important:</strong> If you did not request this password reset, please ignore this email. Your password will remain unchanged and no changes will be made to your account.
-                            </p>
-                          </div>
-                          
-                          <p style="margin: 30px 0 0 0; font-size: 14px; line-height: 1.6; color: #666666;">
-                            For security reasons, this link will expire in 24 hours. If you need to reset your password after that, please request a new reset link.
-                          </p>
-                        </td>
-                      </tr>
-                      
-                      <!-- Footer -->
-                      <tr>
-                        <td style="background-color: #f8f9fa; padding: 30px; text-align: center; border-top: 1px solid #e9ecef;">
-                          <p style="margin: 0 0 10px 0; font-size: 14px; color: #666666;">
-                            If you have any questions or need assistance, please contact our support team.
-                          </p>
-                          <p style="margin: 0; font-size: 14px; color: #666666;">
-                            Best regards,<br>
-                            <strong style="color: #00DC82;">KeSMIS Team</strong>
-                          </p>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-              </table>
-            </body>
-            </html>
-          `,
-          // Plain text fallback
-          text: `Reset Your Password - KeSMIS\n\nHello ${username},\n\nYou are receiving this because you (or someone else) have requested the reset of the password for your account.\n\nPlease click on the following link, or paste this into your browser to complete the process within 24 hours:\n\n${resetLink}\n\nIf you did not request this, please ignore this email and your password will remain unchanged.\n\nBest regards,\nKeSMIS Team`
-        };
-        
+    const requestBaseUrl = `${req.protocol}://${req.get('host')}`
+    const frontendBaseUrl = getFrontendBaseUrl(requestBaseUrl, req)
+    const resetLink = `${frontendBaseUrl}/#/reset/${token}`
+    console.log('Reset-Link', resetLink)
 
-        console.log('sending mail')
-
-        transporter.sendMail(mailOptions, async (err, response) => {
-          if (err) {
-            console.error('Error sending reset password email: ', err)
-            return res.status(500).send({
-              message: 'Failed to send reset password email. Please try again later.',
-              code: "1001"
-            })
-          } else {
-            console.log('Reset password email sent successfully: ', response)
-            
-            // Send SMS notification to user's phone if available
-            if (user.phone) {
-              try {
-                const smsMessage = `KeSMIS Password Reset\n\nHello ${username},\n\nYou requested to reset your password. Click this link to reset (expires in 24 hours):\n${resetLink}\n\nIf you didn't request this, please ignore this message.\n\nKeSMIS Team`
-                await sendNotification(user.phone, smsMessage)
-                console.log('Password reset SMS sent successfully to:', user.phone)
-              } catch (smsError) {
-                console.error('Error sending password reset SMS:', smsError)
-                // Don't fail the request if SMS fails, email was already sent
-              }
-            } else {
-              console.log('User does not have a phone number, skipping SMS notification')
-            }
-            
-            res.status(200).send({
-              message: 'Password reset instructions have been sent to your email address' + (user.phone ? ' and phone number' : '') + '.',
-              code: "0000"
-            })
-          }
-        })
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER || 'kisip.mis@gmail.com',
+        pass: process.env.EMAIL_PASS || 'ycoxaqavmfiqljjg'
       }
     })
-    .catch((error) => {
-      if (error.response) {
-        console.log(error.response.data) // => the response payload
+
+    const mailOptions = {
+      from: process.env.EMAIL_FROM || 'kisip.mis@gmail.com',
+      to: user.email,
+      subject: 'Reset Your Password - KeSMIS',
+      html: `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Reset Your Password</title>
+        </head>
+        <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
+          <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #f5f5f5; padding: 20px;">
+            <tr>
+              <td align="center">
+                <table role="presentation" style="max-width: 600px; width: 100%; border-collapse: collapse; background-color: #ffffff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); overflow: hidden;">
+                  <tr>
+                    <td style="background: linear-gradient(135deg, #00DC82 0%, #00B86B 100%); padding: 40px 30px; text-align: center;">
+                      <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 600;">Reset Your Password</h1>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 40px 30px;">
+                      <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 1.6; color: #333333;">Hello <strong>${username}</strong>,</p>
+                      <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 1.6; color: #333333;">You requested to reset the password for your KeSMIS account. This link expires in <strong>24 hours</strong>.</p>
+                      <table role="presentation" style="width: 100%; border-collapse: collapse; margin: 30px 0;">
+                        <tr>
+                          <td align="center">
+                            <a href="${resetLink}" style="display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #00DC82 0%, #00B86B 100%); color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">Reset Password</a>
+                          </td>
+                        </tr>
+                      </table>
+                      <p style="margin: 0 0 30px 0; font-size: 13px; line-height: 1.6; color: #00DC82; word-break: break-all; text-align: center; padding: 12px; background-color: #f8f9fa; border-radius: 6px;">${resetLink}</p>
+                      <div style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 16px; border-radius: 6px;">
+                        <p style="margin: 0; font-size: 14px; color: #856404;">If you did not request this, please ignore this email.</p>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="background-color: #f8f9fa; padding: 30px; text-align: center; border-top: 1px solid #e9ecef;">
+                      <p style="margin: 0; font-size: 14px; color: #666666;">Best regards,<br><strong style="color: #00DC82;">KeSMIS Team</strong></p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+        </html>
+      `,
+      text: `Reset Your Password - KeSMIS\n\nHello ${username},\n\nYou requested to reset your password. Click this link (expires in 24 hours):\n${resetLink}\n\nIf you did not request this, please ignore this email.\n\nKeSMIS Team`
+    }
+
+    let emailSent = false
+    let smsSent = false
+
+    if (user.email) {
+      try {
+        await transporter.sendMail(mailOptions)
+        emailSent = true
+        console.log('Password reset email sent to:', user.email)
+      } catch (err) {
+        console.error('Error sending reset password email:', err)
       }
+    }
+
+    if (user.phone) {
+      try {
+        const smsMessage = `KeSMIS Password Reset: Hello ${username}, reset your password here (expires in 24h): ${resetLink} - KeSMIS Team`
+        await sendNotification(user.phone, smsMessage)
+        smsSent = true
+        console.log('Password reset SMS sent to:', user.phone)
+      } catch (smsError) {
+        console.error('Error sending password reset SMS:', smsError)
+      }
+    }
+
+    if (!emailSent && !smsSent) {
+      return res.status(500).send({
+        message: 'User has no email or phone on file. Cannot send reset instructions.',
+        code: '1001'
+      })
+    }
+
+    const channels = []
+    if (emailSent) channels.push('email')
+    if (smsSent) channels.push('phone')
+    return res.status(200).send({
+      message: `Password reset instructions have been sent to your ${channels.join(' and ')}.`,
+      code: '0000'
     })
+  } catch (error) {
+    console.error('Reset password error:', error)
+    return res.status(500).send({
+      message: 'An error occurred. Please try again later.',
+      code: '1001'
+    })
+  }
 }
 
 
@@ -2329,15 +2294,45 @@ async function sendAcknowledgementEmail(userEmail, userName, username) {
   }
 }
 
-function getFrontendBaseUrl(preferredUrl) {
-  const base =
+function isLocalhost(urlOrHost) {
+  if (!urlOrHost || typeof urlOrHost !== 'string') return false;
+  try {
+    const u = urlOrHost.startsWith('http') ? new URL(urlOrHost) : new URL(`http://${urlOrHost}`);
+    const h = (u.hostname || '').toLowerCase();
+    return h === 'localhost' || h === '127.0.0.1';
+  } catch (_) {
+    return false;
+  }
+}
+
+function getFrontendBaseUrl(preferredUrl, req) {
+  const PRODUCTION_URL = 'https://kesmis.go.ke';
+  const trim = (s) => (s && s.endsWith('/') ? s.slice(0, -1) : s);
+
+  // 1. Explicit env config (required when API and frontend are on different hosts)
+  const fromEnv =
     process.env.FRONTEND_URL ||
     process.env.APP_HOST ||
-    process.env.VITE_APP_HOST ||
-    preferredUrl ||
-    'https://kesmis.go.ke';
-
-  return base.endsWith('/') ? base.slice(0, -1) : base;
+    process.env.VITE_APP_HOST;
+  if (fromEnv && !isLocalhost(fromEnv)) {
+    return trim(fromEnv);
+  }
+  // 2. Derive from request Origin/Referer when admin activates from frontend
+  if (req) {
+    const origin = req.get('Origin') || req.get('Referer');
+    if (origin && !isLocalhost(origin)) {
+      try {
+        const url = new URL(origin);
+        return `${url.protocol}//${url.host}`;
+      } catch (_) {}
+    }
+  }
+  // 3. preferredUrl (req host) - skip if localhost (avoids sending localhost in prod emails)
+  if (preferredUrl && !isLocalhost(preferredUrl)) {
+    return trim(preferredUrl);
+  }
+  // 4. Default to production URL - never send localhost in production
+  return PRODUCTION_URL;
 }
 
 // Function to send activation email to user
@@ -2382,7 +2377,7 @@ async function sendActivationEmail(userEmail, userName, username, baseUrl) {
             </div>
             
             <div style="text-align: center; margin-top: 25px;">
-              <a href="${getFrontendBaseUrl(baseUrl)}/login" 
+              <a href="${baseUrl}/#/login" 
                  style="background-color: #28a745; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">
                 Login to Your Account
               </a>

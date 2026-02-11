@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { reactive, ref, unref, watch } from 'vue'
+import { computed, reactive, ref, unref, watch } from 'vue'
 import { useI18n } from '@/hooks/web/useI18n'
-import { ElButton, ElLink, ElDialog, ElForm, ElFormItem, ElInput, FormInstance, ElMessage, ElTooltip } from 'element-plus'
+import { ElButton, ElLink, ElDialog, ElForm, ElFormItem, ElInput, ElTabs, ElTabPane, FormInstance, ElMessage, ElTooltip } from 'element-plus'
 import { InputPassword } from '@/components/InputPassword'
 import { loginApi } from '@/api/login'
 import { useCache } from '@/hooks/web/useCache'
@@ -12,6 +12,7 @@ import type { RouteLocationNormalizedLoaded, RouteRecordRaw } from 'vue-router'
 import { UserType } from '@/api/login/types'
 import { useValidator } from '@/hooks/web/useValidator'
 import { resetUserPassword, setUserFeedback, getUserPermissions } from '@/api/users'
+import { validateKenyanPhone } from '@/utils/phoneValidation'
 import { uuid } from 'vue-uuid'
 import { Icon } from '@iconify/vue';
 
@@ -37,9 +38,39 @@ const rules = {
 }
 
 const dialogFormVisible = ref(false)
+const resetPasswordLoading = ref(false)
+const resetPasswordTab = ref<'email' | 'phone'>('email')
+const resetPasswordFormRef = ref<FormInstance>()
 const resetPasswordForm = reactive({
   email: '',
+  phone: ''
 })
+
+const resetPasswordRules = computed(() => ({
+  email: [
+    { required: true, message: 'Please enter your email address', trigger: 'blur' },
+    { type: 'email' as const, message: 'Please enter a valid email address', trigger: ['blur', 'change'] }
+  ],
+    phone: [
+      { required: true, message: 'Please enter your phone number', trigger: 'blur' },
+      {
+        validator: (_: unknown, value: string, callback: (err?: Error) => void) => {
+          if (!value) return callback()
+          let normalized = value.replace(/[\s\-\(\)\.]/g, '')
+          if (normalized.startsWith('254')) normalized = '+' + normalized
+          else if (normalized.startsWith('0')) normalized = '+254' + normalized.slice(1)
+          else if (normalized.startsWith('7') && normalized.length === 9) normalized = '+254' + normalized
+          const result = validateKenyanPhone(normalized)
+          if (!result.isValid) {
+            callback(new Error(result.error || 'Invalid phone number'))
+          } else {
+            callback()
+          }
+        },
+        trigger: ['blur', 'change']
+      }
+    ]
+}))
 
 const toPrivacy = () => {
   push({
@@ -265,8 +296,32 @@ const guestLogin = async () => {
 
 // toRegister is handled by parent component via emit
 
-const reset = () => {
-  resetUserPassword(resetPasswordForm as any)
+const reset = async () => {
+  const formRef = unref(resetPasswordFormRef)
+  const field = resetPasswordTab.value
+  const val = (field === 'email' ? resetPasswordForm.email : resetPasswordForm.phone || '').trim()
+  if (!val) {
+    ElMessage.warning(`Please enter your ${field === 'email' ? 'email address' : 'phone number'}`)
+    return
+  }
+  try {
+    await formRef?.validateField(field)
+  } catch {
+    return
+  }
+  resetPasswordLoading.value = true
+  try {
+    const payload = field === 'email' ? { email: val } : { phone: val }
+    await resetUserPassword(payload as any)
+    ElMessage.success('Password reset instructions have been sent. Check your email and/or phone.')
+    dialogFormVisible.value = false
+    resetPasswordForm.email = ''
+    resetPasswordForm.phone = ''
+  } catch (error: any) {
+    ElMessage.error(error?.response?.data?.message || 'Failed to send reset instructions. Please try again.')
+  } finally {
+    resetPasswordLoading.value = false
+  }
 }
 
 
@@ -408,24 +463,39 @@ const feedbackRules = {
   </div>
 
   <el-dialog
-    title="Please Enter your Email"
+    title="Reset Password"
     v-model="dialogFormVisible"
-    width="25%"
+    width="400px"
     :center="true"
+    @closed="resetPasswordForm.email = ''; resetPasswordForm.phone = ''"
   >
-    <el-form :model="resetPasswordForm">
-      <el-row>
-        <el-col :xs="24" :sm="12">
-          <el-form-item label="Email" prop="email">
-            <el-input v-model="resetPasswordForm.email"/>
+    <el-form ref="resetPasswordFormRef" :model="resetPasswordForm" :rules="resetPasswordRules" label-position="top">
+      <el-tabs v-model="resetPasswordTab" class="reset-tabs">
+        <el-tab-pane label="Email" name="email">
+          <el-form-item label="Email address" prop="email">
+            <el-input
+              v-model="resetPasswordForm.email"
+              type="email"
+              placeholder="e.g. user@example.com"
+              clearable
+            />
           </el-form-item>
-        </el-col>
-      </el-row>
+        </el-tab-pane>
+        <el-tab-pane label="Phone" name="phone">
+          <el-form-item label="Phone number" prop="phone">
+            <el-input
+              v-model="resetPasswordForm.phone"
+              placeholder="+254712345678, 0712345678, or 712345678"
+              clearable
+            />
+          </el-form-item>
+        </el-tab-pane>
+      </el-tabs>
     </el-form>
-    <div style="text-align: center">
+    <template #footer>
       <el-button @click="dialogFormVisible = false">Cancel</el-button>
-      <el-button type="primary" @click="reset">Submit</el-button>
-    </div>
+      <el-button type="primary" :loading="resetPasswordLoading" @click="reset">Submit</el-button>
+    </template>
   </el-dialog>
 
   <el-dialog
@@ -470,6 +540,13 @@ const feedbackRules = {
 </template>
 
 <style lang="less" scoped>
+.reset-tabs :deep(.el-tabs__content) {
+  padding: 0;
+}
+.reset-tabs :deep(.el-tabs__header) {
+  margin-bottom: 1rem;
+}
+
 .login-form-container {
   width: 100%;
 }

@@ -16,9 +16,11 @@ import {
   Back,
   Plus,
   ArrowDown,
-  InfoFilled} from '@element-plus/icons-vue'
+  InfoFilled,
+  Lock
+} from '@element-plus/icons-vue'
 
-import { ref, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { activateUserApi, updateUserApi, getGRMStaff, getUsersLastLogin, resetUserPassword } from '@/api/users'
 import { useAppStoreWithOut } from '@/store/modules/app'
@@ -1240,6 +1242,24 @@ const updateUser = () => {
 
 // Password reset functionality
 const passwordResetLoading = ref(false)
+const resetPasswordLoadingStates = reactive<Record<number, boolean>>({})
+
+const handleRowPasswordReset = async (row: { id: number; email?: string; phone?: string; name?: string }) => {
+  if (!row.email && !row.phone) {
+    ElMessage.warning(`${row.name || 'User'} has no email or phone on file. Cannot send reset instructions.`)
+    return
+  }
+  try {
+    resetPasswordLoadingStates[row.id] = true
+    const payload = row.email ? { email: row.email } : { phone: row.phone }
+    await resetUserPassword(payload)
+    ElMessage.success(`Password reset instructions sent to ${row.name || 'user'}`)
+  } catch (error: any) {
+    ElMessage.error(error?.response?.data?.message || 'Failed to send reset instructions')
+  } finally {
+    resetPasswordLoadingStates[row.id] = false
+  }
+}
 
 const handlePasswordReset = async () => {
   if (!form.value.email && !form.value.phone) {
@@ -1249,11 +1269,12 @@ const handlePasswordReset = async () => {
 
   try {
     passwordResetLoading.value = true
-    await resetUserPassword({ email: form.value.email })
-    ElMessage.success('Password reset email has been sent to the user')
+    const payload = form.value.email ? { email: form.value.email } : { phone: form.value.phone }
+    await resetUserPassword(payload)
+    ElMessage.success('Password reset instructions have been sent to the user')
   } catch (error: any) {
     console.error('Error resetting password:', error)
-    ElMessage.error(error?.response?.data?.message || 'Failed to send password reset email')
+    ElMessage.error(error?.response?.data?.message || 'Failed to send password reset instructions')
   } finally {
     passwordResetLoading.value = false
   }
@@ -1367,6 +1388,13 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
                     <span style="margin-left: 8px;">Edit</span>
                   </el-dropdown-item>
                 </PermissionWrapper>
+                <el-dropdown-item
+                  :disabled="(!scope.row.email && !scope.row.phone) || resetPasswordLoadingStates[scope.row.id]"
+                  @click="handleRowPasswordReset(scope.row)"
+                >
+                  <el-icon><Lock /></el-icon>
+                  <span style="margin-left: 8px;">Reset Password</span>
+                </el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -1394,6 +1422,22 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
                 <ElButton type="primary" :icon="Edit" size="small" @click="EditUser(scope as TableSlotDefault)" circle />
               </el-tooltip>
             </PermissionWrapper>
+            <el-tooltip
+              :content="(!scope.row.email && !scope.row.phone) ? 'No email or phone on file' : 'Reset password'"
+              placement="top"
+            >
+              <span>
+                <ElButton
+                  type="warning"
+                  :icon="Lock"
+                  size="small"
+                  circle
+                  :loading="resetPasswordLoadingStates[scope.row.id]"
+                  :disabled="!scope.row.email && !scope.row.phone"
+                  @click="handleRowPasswordReset(scope.row)"
+                />
+              </span>
+            </el-tooltip>
           </div>
 
         </template>
@@ -1471,6 +1515,13 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
                 <PermissionWrapper :permissions="['user:update']">
                   <el-dropdown-item @click="EditUser(scope as TableSlotDefault)" :icon="Position">Edit</el-dropdown-item>
                 </PermissionWrapper>
+                <el-dropdown-item
+                  :disabled="(!scope.row.email && !scope.row.phone) || resetPasswordLoadingStates[scope.row.id]"
+                  @click="handleRowPasswordReset(scope.row)"
+                >
+                  <el-icon><Lock /></el-icon>
+                  <span style="margin-left: 8px;">Reset Password</span>
+                </el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -1498,6 +1549,22 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
                 <ElButton type="primary" :icon="Edit" size="small" @click="EditUser(scope as TableSlotDefault)" circle />
               </el-tooltip>
             </PermissionWrapper>
+            <el-tooltip
+              :content="(!scope.row.email && !scope.row.phone) ? 'No email or phone on file' : 'Reset password'"
+              placement="top"
+            >
+              <span>
+                <ElButton
+                  type="warning"
+                  :icon="Lock"
+                  size="small"
+                  circle
+                  :loading="resetPasswordLoadingStates[scope.row.id]"
+                  :disabled="!scope.row.email && !scope.row.phone"
+                  @click="handleRowPasswordReset(scope.row)"
+                />
+              </span>
+            </el-tooltip>
           </div>
 
         </template>
@@ -1578,6 +1645,13 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
                     <span style="margin-left: 8px;">Edit</span>
                   </el-dropdown-item>
                 </PermissionWrapper>
+                <el-dropdown-item
+                  :disabled="(!scope.row.email && !scope.row.phone) || resetPasswordLoadingStates[scope.row.id]"
+                  @click="handleRowPasswordReset(scope.row)"
+                >
+                  <el-icon><Lock /></el-icon>
+                  <span style="margin-left: 8px;">Reset Password</span>
+                </el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -1585,7 +1659,7 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
 
           <div v-else>
             <el-tooltip v-if="showAdminButtons" content="Activate" placement="top">
-              <PermissionWrapper :permissions="['user:activate']">
+            <PermissionWrapper :permissions="['user:activate']">
                 <el-switch
                   v-model="scope.row.isactive" 
                   @click="activateDeactivate(scope as TableSlotDefault)"
@@ -1605,6 +1679,22 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
                 <ElButton type="primary" :icon="Edit" size="small" @click="EditUser(scope as TableSlotDefault)" circle />
               </el-tooltip>
             </PermissionWrapper>
+            <el-tooltip
+              :content="(!scope.row.email && !scope.row.phone) ? 'No email or phone on file' : 'Reset password'"
+              placement="top"
+            >
+              <span>
+                <ElButton
+                  type="warning"
+                  :icon="Lock"
+                  size="small"
+                  circle
+                  :loading="resetPasswordLoadingStates[scope.row.id]"
+                  :disabled="!scope.row.email && !scope.row.phone"
+                  @click="handleRowPasswordReset(scope.row)"
+                />
+              </span>
+            </el-tooltip>
           </div>
 
         </template>
@@ -1612,7 +1702,7 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
 
         </el-table>
 
-    <ElPagination
+        <ElPagination
           layout="sizes, prev, pager, next, total" 
           v-model:currentPage="getCurrentPage"
           v-model:page-size="pageSize" 

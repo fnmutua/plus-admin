@@ -209,7 +209,7 @@ module.exports = function (app) {
    *     tags:
    *       - Authentication
    *     summary: Reset password
-   *     description: Send password reset email/SMS
+   *     description: Send password reset link via email and/or SMS. Accepts either email or phone number (+254...).
    *     requestBody:
    *       required: true
    *       content:
@@ -220,10 +220,13 @@ module.exports = function (app) {
    *               email:
    *                 type: string
    *                 format: email
-   *                 description: User's email address
+   *                 description: User's email address (use email OR phone)
+   *               phone:
+   *                 type: string
+   *                 description: User's phone number (e.g. +254712345678, 254712345678, 0712345678)
    *     responses:
    *       200:
-   *         description: Password reset email sent
+   *         description: Password reset instructions sent to email and/or phone
    *         content:
    *           application/json:
    *             schema:
