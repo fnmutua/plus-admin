@@ -4,7 +4,20 @@
       <div class="section-header">
         <h2 class="section-title">Settlement Register</h2>
         <p class="section-subtitle">
-          Search and explore informal settlements.
+          Search and explore
+          <el-popover placement="top" trigger="hover" :width="320" popper-class="register-help-popover">
+            <template #reference>
+              <span class="definition-trigger">slums</span>
+            </template>
+            <div class="register-help-definition">Densely populated settlements characterized by complete lack of secure tenure, overcrowding, substandard housing, inadequate infrastructure and services, high poverty levels, and exposure to environmental and social risks.</div>
+          </el-popover>
+          and
+          <el-popover placement="top" trigger="hover" :width="320" popper-class="register-help-popover">
+            <template #reference>
+              <span class="definition-trigger">informal settlements</span>
+            </template>
+            <div class="register-help-definition">Residential areas developed outside approved planning and regulatory frameworks, typically with partially secure or insecure tenure, unapproved layouts, and limited access to basic services exhibiting slum-like conditions.</div>
+          </el-popover>.
         </p>
       </div>
     </div>
@@ -75,8 +88,87 @@
             />
           </el-select>
           <el-button @click="resetFilters">Reset</el-button>
+          <el-button type="info" plain @click="helpDialogVisible = true">
+            <Icon icon="mdi:help-circle-outline" class="help-icon" />
+            Help
+          </el-button>
         </div>
       </div>
+
+      <el-dialog
+        v-model="helpDialogVisible"
+        title="How to use the Settlements register"
+        width="480px"
+        class="register-help-dialog"
+        :show-close="false"
+        :close-on-click-modal="true"
+      >
+        <template #header>
+          <div class="register-help-dialog-header">
+            <Icon icon="mdi:help-circle" class="register-help-dialog-header-icon" />
+            <span>How to use the Settlements register</span>
+          </div>
+        </template>
+        <div class="register-help-content">
+          <p class="register-help-intro">
+            Use the list and map to explore
+            <el-popover placement="top" trigger="hover" :width="320" popper-class="register-help-popover">
+              <template #reference>
+                <span class="definition-trigger">slums</span>
+              </template>
+              <div class="register-help-definition">Densely populated settlements characterized by complete lack of secure tenure, overcrowding, substandard housing, inadequate infrastructure and services, high poverty levels, and exposure to environmental and social risks.</div>
+            </el-popover>
+            and
+            <el-popover placement="top" trigger="hover" :width="320" popper-class="register-help-popover">
+              <template #reference>
+                <span class="definition-trigger">informal settlements</span>
+              </template>
+              <div class="register-help-definition">Residential areas developed outside approved planning and regulatory frameworks, typically with partially secure or insecure tenure, unapproved layouts, and limited access to basic services exhibiting slum-like conditions.</div>
+            </el-popover>.
+          </p>
+          <h4><Icon icon="mdi:format-list-bulleted" class="register-help-heading-icon" /> List (table)</h4>
+          <ul>
+            <li>
+              <Icon icon="mdi:magnify" class="register-help-li-icon" />
+              Search by settlement name using the search box, or filter by County, Subcounty, and Ward.
+            </li>
+            <li>
+              <Icon icon="mdi:reload" class="register-help-li-icon" />
+              Click <strong>Search</strong> to update results. Use <strong>Reset</strong> to clear filters.
+            </li>
+            <li>
+              <Icon icon="mdi:map-marker" class="register-help-li-icon" />
+              Click <strong>View on map</strong> to open the Map tab at that settlement.
+            </li>
+          </ul>
+          <h4><Icon icon="mdi:map" class="register-help-heading-icon" /> Map</h4>
+          <ul>
+            <li>
+              <Icon icon="mdi:map-marker-radius" class="register-help-li-icon" />
+              Select a county (or search by name) to load settlements on the map.
+            </li>
+            <li>
+              <Icon icon="mdi:cursor-default-click" class="register-help-li-icon" />
+              Click a point or boundary to see basic details in a popup.
+            </li>
+            <li>
+              <Icon icon="mdi:satellite-variant" class="register-help-li-icon" />
+              Switch between Streets and Satellite using the map control.
+            </li>
+          </ul>
+          <p class="register-help-register">
+            For more detailed data and full access to the platform, please
+            <RouterLink :to="{ name: 'Register' }" class="register-help-register-link" @click="helpDialogVisible = false">
+              register an account
+            </RouterLink>.
+          </p>
+        </div>
+        <template #footer>
+          <div class="register-help-dialog-footer">
+            <el-button class="close" @click="helpDialogVisible = false">Close</el-button>
+          </div>
+        </template>
+      </el-dialog>
 
       <el-tabs v-model="activeRegisterTab" class="register-tabs" @tab-change="onRegisterTabChange">
         <el-tab-pane label="List" name="table">
@@ -164,7 +256,9 @@ import {
   ElPagination,
   ElTabs,
   ElTabPane,
-  ElCard
+  ElCard,
+  ElDialog,
+  ElPopover
 } from 'element-plus'
 import { Icon } from '@iconify/vue'
 import mapboxgl from 'mapbox-gl'
@@ -219,6 +313,7 @@ const geojson = ref<any>({ type: 'FeatureCollection', features: [] })
 const boundariesGeoJson = ref<any>({ type: 'FeatureCollection', features: [] })
 const mapLoading = ref(false)
 const mapLoadingText = ref('Load map by selecting a county or searching')
+const helpDialogVisible = ref(false)
 
 const showMapOverlay = computed(() => {
   if (mapLoading.value) return true
@@ -926,6 +1021,14 @@ onUnmounted(() => {
   line-height: 1.6;
 }
 
+.definition-trigger {
+  cursor: help;
+  border-bottom: 1px dotted currentColor;
+}
+.definition-trigger:hover {
+  color: #00b368;
+}
+
 /* Map popup – card style and close button (Mapbox injects into map container) */
 :deep(.register-map-popup.mapboxgl-popup) {
   filter: drop-shadow(0 4px 20px rgba(0, 0, 0, 0.15));
@@ -1104,6 +1207,145 @@ onUnmounted(() => {
   width: 160px;
 }
 
+.help-icon {
+  margin-right: 4px;
+  vertical-align: -0.2em;
+}
+
+/* Help dialog – green header wraps title + close */
+.register-help-dialog :deep(.el-dialog__header) {
+  padding: 0;
+  margin: 0;
+  background: linear-gradient(135deg, #00DC82 0%, #00b368 100%) !important;
+  border-radius: 4px 4px 0 0;
+  position: relative;
+}
+.register-help-dialog-header {
+  background: linear-gradient(135deg, #00DC82 0%, #00b368 100%);
+  color: #fff;
+  padding: 14px 16px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 4px 4px 0 0;
+}
+.register-help-dialog-header-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+  opacity: 0.95;
+}
+.register-help-dialog :deep(.el-dialog__body) {
+  padding: 12px 16px 12px;
+}
+.register-help-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 4px;
+}
+.register-help-dialog-footer .close {
+  min-width: 80px;
+}
+.register-help-content {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--el-text-color-primary, #303133);
+}
+.register-help-intro {
+  margin: 0 0 0.75rem;
+  font-size: 0.8125rem;
+}
+.register-help-content h4 {
+  margin: 0.75rem 0 0.4rem;
+  font-size: 0.875rem;
+  color: var(--el-text-color-primary, #303133);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--el-border-color, #dcdfe6);
+  text-decoration: none;
+}
+.register-help-heading-icon {
+  font-size: 1rem;
+  color: #00DC82;
+  flex-shrink: 0;
+}
+.register-help-content ul {
+  margin: 0;
+  padding-left: 1.25rem;
+  list-style: none;
+}
+.register-help-content li {
+  margin-bottom: 0.4rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 0.8125rem;
+  padding-left: 0.25rem;
+}
+.register-help-li-icon {
+  font-size: 1rem;
+  color: #00DC82;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.register-help-register {
+  margin: 1rem 0 0;
+  padding: 0.6rem 0.85rem;
+  background: var(--el-fill-color-light, #f5f7fa);
+  border-radius: 8px;
+  font-size: 0.8125rem;
+}
+.register-help-register-link {
+  color: #00b368;
+  font-weight: 600;
+  text-decoration: none;
+}
+.register-help-register-link:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+  .register-help-dialog :deep(.el-dialog) {
+    width: 95% !important;
+    max-width: 95%;
+    margin: 10px auto;
+  }
+  .register-help-dialog-header {
+    padding: 12px 16px;
+    font-size: 0.875rem;
+  }
+  .register-help-dialog-header-icon {
+    font-size: 1.1rem;
+  }
+  .register-help-dialog :deep(.el-dialog__body) {
+    padding: 10px 12px 14px;
+  }
+  .register-help-content,
+  .register-help-content li {
+    font-size: 0.8125rem;
+  }
+  .register-help-intro {
+    font-size: 0.75rem;
+  }
+  .register-help-content h4 {
+    font-size: 0.8125rem;
+    margin-top: 0.6rem;
+  }
+  .register-help-heading-icon,
+  .register-help-li-icon {
+    font-size: 0.95rem;
+  }
+  .register-help-register {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+  }
+}
+
 .register-table-wrap {
   margin-bottom: 1.5rem;
   border-radius: 8px;
@@ -1273,5 +1515,15 @@ onUnmounted(() => {
   .filter-select {
     width: 100%;
   }
+}
+</style>
+
+<style>
+/* Popover is portaled to body – unscoped for .register-help-popover */
+.register-help-popover .register-help-definition {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--el-text-color-primary, #303133);
+  margin: 0;
 }
 </style>
