@@ -190,6 +190,7 @@ const mapStyle = ref<'streets' | 'satellite'>('streets')
 const currentSingleSettlementFeature = ref<any>(null)
 let map: mapboxgl.Map | null = null
 let currentPopup: mapboxgl.Popup | null = null
+let popupRequestId = 0
 
 const MAP_STYLE_STREETS_LIGHT = 'mapbox://styles/mapbox/light-v11'
 const MAP_STYLE_STREETS_DARK = 'mapbox://styles/mapbox/dark-v11'
@@ -221,6 +222,7 @@ const mapLoadingText = ref('Load map by selecting a county or searching')
 
 const showMapOverlay = computed(() => {
   if (mapLoading.value) return true
+  if (currentSingleSettlementFeature.value) return false
   const hasFilter = selectedCounty.value != null || (searchKeyword.value?.trim() || '').length > 0
   return !hasFilter
 })
@@ -436,6 +438,8 @@ function fitMapToTableSettlements() {
 }
 
 async function onBoundaryClick(e: any) {
+  e.originalEvent?.stopPropagation()
+  e.originalEvent?.stopImmediatePropagation()
   const f = e.features?.[0]
   const id = f?.properties?.id
   if (!id) return
@@ -574,6 +578,8 @@ function ensureSingleSettlementLayer() {
 }
 
 async function onSingleSettlementClick(e: any) {
+  e.originalEvent?.stopPropagation()
+  e.originalEvent?.stopImmediatePropagation()
   const f = e.features?.[0]
   const id = f?.properties?.id
   if (!id) return
@@ -582,12 +588,14 @@ async function onSingleSettlementClick(e: any) {
 }
 
 async function showPopupForSettlement(id: number, lngLat: { lng: number; lat: number }) {
+  const myRequestId = ++popupRequestId
   if (currentPopup) {
     currentPopup.remove()
     currentPopup = null
   }
   try {
     const res = await getPublicRegisterSettlement(id)
+    if (myRequestId !== popupRequestId) return
     const s = res?.data ?? res?.results
     if (!s) return
     const name = s.name || 'Settlement'
@@ -597,7 +605,7 @@ async function showPopupForSettlement(id: number, lngLat: { lng: number; lat: nu
     const wardName = s.ward?.name || '–'
     const settlementType = s.settlement_type || '–'
     const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
-    currentPopup = new mapboxgl.Popup({
+    const popup = new mapboxgl.Popup({
       closeButton: true,
       closeOnClick: false,
       className: isMobile ? 'register-map-popup register-map-popup--mobile' : 'register-map-popup',
@@ -610,6 +618,7 @@ async function showPopupForSettlement(id: number, lngLat: { lng: number; lat: nu
         `<div class="register-popup">
           <header class="register-popup-header">
             <h3 class="register-popup-title">${escapeHtml(name)}</h3>
+            <button type="button" class="register-popup-close" aria-label="Close">&times;</button>
           </header>
           <div class="register-popup-body">
             <div class="register-popup-row"><span class="register-popup-label">Type</span><span class="register-popup-value">${escapeHtml(settlementType)}</span></div>
@@ -621,7 +630,18 @@ async function showPopupForSettlement(id: number, lngLat: { lng: number; lat: nu
         </div>`
       )
       .addTo(map!)
-    currentPopup.on('close', () => { currentPopup = null })
+    currentPopup = popup
+    popup.on('open', () => {
+      const el = popup.getElement()
+      const closeBtn = el?.querySelector('.register-popup-close')
+      if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+          popup.remove()
+          currentPopup = null
+        })
+      }
+    })
+    popup.on('close', () => { currentPopup = null })
   } catch (err) {
     console.error('Popup error:', err)
   }
@@ -669,10 +689,13 @@ function resetMapView() {
     currentPopup.remove()
     currentPopup = null
   }
+  const singleSrc = map.getSource('single-settlement') as mapboxgl.GeoJSONSource
+  if (singleSrc) singleSrc.setData({ type: 'FeatureCollection', features: [] })
   map.flyTo({ center: MAP_INITIAL_CENTER, zoom: MAP_INITIAL_ZOOM, duration: 500 })
 }
 
 function resetFilters() {
+  currentSingleSettlementFeature.value = null
   searchKeyword.value = ''
   selectedCounty.value = null
   selectedSubcounty.value = null
@@ -746,6 +769,8 @@ function addRegisterMapLayers() {
       }
     })
     map.on('click', 'unclustered-point', async (e: any) => {
+      e.originalEvent?.stopPropagation()
+      e.originalEvent?.stopImmediatePropagation()
       const id = e.features[0]?.properties?.id
       if (!id) return
       const coords = e.features[0].geometry?.coordinates
@@ -766,9 +791,13 @@ function addRegisterMapLayers() {
   }
   updateBoundariesLayer()
   ensureSingleSettlementLayer()
-  if (currentSingleSettlementFeature.value) {
-    const src = map.getSource('single-settlement') as mapboxgl.GeoJSONSource
-    if (src) src.setData({ type: 'FeatureCollection', features: [currentSingleSettlementFeature.value] })
+  const src = map.getSource('single-settlement') as mapboxgl.GeoJSONSource
+  if (src) {
+    if (currentSingleSettlementFeature.value) {
+      src.setData({ type: 'FeatureCollection', features: [currentSingleSettlementFeature.value] })
+    } else {
+      src.setData({ type: 'FeatureCollection', features: [] })
+    }
   }
 }
 
@@ -933,6 +962,7 @@ onUnmounted(() => {
   color: var(--text-primary, #303133);
 }
 :deep(.register-popup-header) {
+  position: relative;
   background: linear-gradient(135deg, #00DC82 0%, #00b368 100%);
   padding: 14px 36px 14px 16px;
 }
@@ -943,6 +973,28 @@ onUnmounted(() => {
   line-height: 1.3;
   color: #fff;
   letter-spacing: -0.01em;
+}
+:deep(.register-popup-close) {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+:deep(.register-popup-close:hover) {
+  background: rgba(255, 255, 255, 0.4);
 }
 :deep(.register-popup-body) {
   padding: 12px 16px;
@@ -978,6 +1030,13 @@ onUnmounted(() => {
 }
 :deep(.register-map-popup--mobile .register-popup-header) {
   padding: 8px 28px 8px 10px;
+}
+:deep(.register-map-popup--mobile .register-popup-close) {
+  top: 4px;
+  right: 4px;
+  width: 24px;
+  height: 24px;
+  font-size: 18px;
 }
 :deep(.register-map-popup--mobile .register-popup-title) {
   font-size: 0.9rem;
