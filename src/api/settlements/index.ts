@@ -353,9 +353,9 @@ export const getDocumentRepository = (
     // Remove excludeFormats when including specific formats
     delete requestData.excludeFormats
   } else {
-    // Default behavior: exclude photos
+    // Default behavior: exclude photos (must match frontend imageFormats so list count matches pagination)
     requestData.excludePhotos = true
-    requestData.excludeFormats = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'tiff', 'tif']
+    requestData.excludeFormats = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'webp', 'tiff', 'tif']
   }
   
   console.log('getDocumentRepository API - sending requestData:', requestData)

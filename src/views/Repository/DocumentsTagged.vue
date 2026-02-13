@@ -317,6 +317,7 @@ const drawerSearchTerm = ref('')
 const uploaderCounts = ref<{ [key: string]: { id: number, name: string, count: number } }>({})
 const activeFilterTab = ref('category')
 const uploadersLoading = ref(false)
+const photosLoading = ref(false)
 
 // Tab management
 const activeTab = ref('documents')
@@ -395,7 +396,7 @@ const formatText = (str: string | number) => {
   })
 }
 
-// Main data loading function
+// Main data loading function (Documents tab: request excludes image formats so list count matches pagination)
 const loadDocumentRepository = async (params: any = {}) => {
   loading.value = true
   loadingText.value = 'Loading documents...'
@@ -415,6 +416,7 @@ const loadDocumentRepository = async (params: any = {}) => {
       userFilters: roles_filters.length > 0 ? roles_filters : undefined,
       sortBy: sortOption.value === 'popularity' ? 'downloadCount' : 'createdAt',
       sortOrder: 'DESC', // Ensure latest uploads appear first for date, most popular first for popularity
+      excludeFormats: imageFormats, // explicit so backend returns only non-image docs and total matches list
       ...params
     }
 
@@ -1732,16 +1734,20 @@ const filteredCategoryCounts = computed(() => {
   return filtered
 })
 
-// Computed property to show filtered vs total documents
+// Computed property to show filtered vs total (use displayed list length so it matches what users see)
 const displayInfo = computed(() => {
-  const filteredCount = documents.value.length
   const totalCount = totalDocs.value
-  
-  if (filteredCount === totalCount) {
-    return `Showing ${filteredCount} documents`
-  } else {
-    return `Showing ${filteredCount} of ${totalCount} documents`
+  const displayedCount = activeTab.value === 'documents'
+    ? filteredDocuments.value.length
+    : filteredPhotos.value.length
+  if (displayedCount === totalCount || totalCount <= 0) {
+    return activeTab.value === 'documents'
+      ? `Showing ${displayedCount} document${displayedCount !== 1 ? 's' : ''}`
+      : `Showing ${displayedCount} photo${displayedCount !== 1 ? 's' : ''}`
   }
+  return activeTab.value === 'documents'
+    ? `Showing ${displayedCount} of ${totalCount} documents`
+    : `Showing ${displayedCount} of ${totalCount} photos`
 })
 
 const importDrawerVisible = ref(false)
@@ -2153,12 +2159,11 @@ const loadDocumentsByTab = async () => {
         doc.deletable = canUserDeleteDocument(doc)
       }
     })
-  } else if (activeTab.value === 'photos') {
-    // For photos tab, make a server request to get only photo documents
+} else if (activeTab.value === 'photos') {
+    // For photos tab, make a server request to get only photo documents (non-blocking)
     try {
-      loading.value = true
-      loadingText.value = 'Loading photos...'
-      
+      photosLoading.value = true
+
       const requestData = {
         page: currentPage.value,
         limit: pageSize.value,
@@ -2232,7 +2237,7 @@ const loadDocumentsByTab = async () => {
       ElMessage.error('Failed to load photos')
       filteredPhotos.value = []
     } finally {
-      loading.value = false
+      photosLoading.value = false
     }
   }
 }
@@ -2330,7 +2335,7 @@ const handleTabChange = async (tabName: string) => {
 </script>
 
 <template>
-  <el-card v-loading="loading" :element-loading-text="loadingText">
+  <el-card v-loading="loading && activeTab !== 'photos'" :element-loading-text="loadingText">
     <!-- Card Header -->
     <template #header>
       <div>
@@ -2356,7 +2361,7 @@ const handleTabChange = async (tabName: string) => {
               <Icon icon="material-symbols:search" width="16" />
             </template>
             <template #append>
-              <el-button @click="handleSearch" type="primary" :loading="loading">
+              <el-button @click="handleSearch" type="primary" :loading="loading || photosLoading">
                 Search
               </el-button>
             </template>
@@ -2554,8 +2559,11 @@ const handleTabChange = async (tabName: string) => {
            </span>
          </template>
          
-         <!-- Photos Grid -->
-         <div v-if="filteredPhotos.length === 0 && !loading" style="text-align: center; padding: 40px; color: #909399;">
+         <!-- Photos: non-blocking loading (no full-screen spinner) -->
+         <div v-if="photosLoading && filteredPhotos.length === 0" style="text-align: center; padding: 24px; color: #909399;">
+           <span style="font-size: 14px;">Loading photos...</span>
+         </div>
+         <div v-else-if="filteredPhotos.length === 0" style="text-align: center; padding: 40px; color: #909399;">
            <Icon icon="material-symbols:photo" width="48" style="margin-bottom: 16px; opacity: 0.5;" />
            <p>No photos found</p>
          </div>

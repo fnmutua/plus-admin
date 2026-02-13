@@ -1034,23 +1034,14 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             }
           },
          
-          {
-            path: 'docs',
-        //    component: 'views/ImportData/excel',
-            component: () => import('@/views/ImportData/Document.vue'),
-            name: 'ImportDocuments',
-            meta: {
-              title: 'Documents',
-              icon: 'mdi:file-upload-outline',
-            }
-          },
+         
           {
             path: 'geo',
             //component: 'views/ImportData/geo',
             component: () => import('@/views/ImportData/geo.vue'),
             name: 'Importgeo',
             meta: {
-              title: 'GIS Data',
+              title: 'Import GIS Data',
               icon: 'mdi:file-location-outline',
             }
           },
@@ -1277,6 +1268,17 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           role: ['root_admin','admin', 'super_admin', 'monitoring', 'staff'  ] ,
 
           icon:'bi:clipboard2-data-fill'
+        }
+      },
+
+      {
+        path: 'import',
+    //    component: 'views/ImportData/excel',
+        component: () => import('@/views/ImportData/Document.vue'),
+        name: 'ImportDocuments',
+        meta: {
+          title: 'Import',
+          icon: 'mdi:file-upload-outline',
         }
       },
       
