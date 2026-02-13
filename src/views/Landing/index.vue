@@ -379,6 +379,9 @@
         </div>
                   </section>
 
+      <!-- Settlement Register: search, table (name, population, county, subcounty, ward), map with gradual load -->
+      <SettlementRegister />
+
       <!-- How It Works Section -->
       <section id="how-it-works" ref="howItWorksSection" class="how-it-works-section">
         <div class="section-container">
@@ -510,6 +513,7 @@ import {
   ElCarouselItem,
 } from 'element-plus';
 import BaseLayout from './BaseLayout.vue';
+import SettlementRegister from './SettlementRegister.vue';
 import { Lock, Monitor } from '@element-plus/icons-vue';
 import { Icon } from '@iconify/vue';
 import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary';

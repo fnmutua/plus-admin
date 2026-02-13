@@ -21,9 +21,13 @@
                   <Icon icon="mdi:star-outline" />
                   <span>Features</span>
                 </div>
+                <div class="menu-item" :class="{ 'is-active': activeIndex === 'register' }" @click="scrollToSection('register')">
+                  <Icon icon="mdi:format-list-bulleted" />
+                  <span>Settlements</span>
+                </div>
                 <div class="menu-item" :class="{ 'is-active': activeIndex === 'how-it-works' }" @click="scrollToSection('how-it-works')">
                   <Icon icon="mdi:information-outline" />
-                  <span>How it works</span>
+                  <span>Access</span>
                 </div>
                 <div class="menu-item" :class="{ 'is-active': activeIndex === '3' }" @click="handleSelect('3')">
                   <Icon icon="mdi:file-document-outline" />
@@ -55,7 +59,8 @@
               >
                 <el-menu-item index="1">Home</el-menu-item>
                 <el-menu-item index="features" @click="scrollToSection('features')">Features</el-menu-item>
-                <el-menu-item index="how-it-works" @click="scrollToSection('how-it-works')">How it works</el-menu-item>
+                <el-menu-item index="register" @click="scrollToSection('register')">Settlements</el-menu-item>
+                <el-menu-item index="how-it-works" @click="scrollToSection('how-it-works')">Access</el-menu-item>
                 <el-menu-item index="3" @click="handleSelect('3')">Grievances</el-menu-item>
                 <el-menu-item index="7" @click="toggleDark" class="theme-toggle">
                   <Icon :icon="isDark ? 'carbon:moon' : 'carbon:sun'" inline />
@@ -213,6 +218,7 @@ const handleScroll = () => {
 const updateActiveMenuItem = () => {
   const sections = [
     { id: 'features', index: 'features' },
+    { id: 'register', index: 'register' },
     { id: 'how-it-works', index: 'how-it-works' },
     { id: 'grievances', index: '3' },
   ];
@@ -332,6 +338,8 @@ const scrollToSection = async (sectionId: string) => {
   // Update active index immediately for better UX
   if (sectionId === 'features') {
     activeIndex.value = 'features';
+  } else if (sectionId === 'register') {
+    activeIndex.value = 'register';
   } else if (sectionId === 'how-it-works') {
     activeIndex.value = 'how-it-works';
   }

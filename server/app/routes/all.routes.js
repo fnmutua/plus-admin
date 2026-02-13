@@ -2495,6 +2495,15 @@ module.exports = function (app) {
   app.get('/api/public/share/:token', controller.getPublicShare)
   app.get('/api/public/share/:token/download/:documentId', controller.downloadSharedFile)
 
+  // Public settlement register (no auth) – landing page
+  app.get('/api/public/register/counties', controller.getPublicRegisterCounties)
+  app.get('/api/public/register/subcounties', controller.getPublicRegisterSubcounties)
+  app.get('/api/public/register/wards', controller.getPublicRegisterWards)
+  app.get('/api/public/register/settlements', controller.getPublicRegisterSettlements)
+  app.get('/api/public/register/settlements/map', controller.getPublicRegisterSettlementsMap)
+  app.get('/api/public/register/settlements/:id/map', controller.getPublicRegisterSettlementMap)
+  app.get('/api/public/register/settlements/:id', controller.getPublicRegisterSettlement)
+
   /**
    * @swagger
    * /api/v1/edit/revert:

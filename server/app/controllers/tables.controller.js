@@ -12075,6 +12075,235 @@ exports.getOptimizedSettlements = async (req, res) => {
   }
 };
 
+// ========== Public Register (no auth) – landing page settlement register ==========
+
+const PUBLIC_SETTLEMENT_WHERE = {
+  isApproved: 'Approved',
+  isActive: 'true'  // DB column is varchar, not boolean
+};
+
+/** GET /api/public/register/counties – list counties (no auth) */
+exports.getPublicRegisterCounties = async (req, res) => {
+  try {
+    const rows = await db.models.county.findAll({
+      attributes: ['id', 'name'],
+      order: [['name', 'ASC']]
+    });
+    res.status(200).json({ data: rows, code: '0000' });
+  } catch (error) {
+    console.error('getPublicRegisterCounties:', error);
+    res.status(500).json({ message: 'Internal server error', code: 'SERVER_ERROR' });
+  }
+};
+
+/** GET /api/public/register/subcounties?county_id= – list subcounties (no auth) */
+exports.getPublicRegisterSubcounties = async (req, res) => {
+  try {
+    const countyId = req.query.county_id;
+    if (!countyId) {
+      return res.status(400).json({ message: 'county_id required', code: 'INVALID_INPUT' });
+    }
+    const rows = await db.models.subcounty.findAll({
+      attributes: ['id', 'name'],
+      where: { county_id: countyId },
+      order: [['name', 'ASC']]
+    });
+    res.status(200).json({ data: rows, code: '0000' });
+  } catch (error) {
+    console.error('getPublicRegisterSubcounties:', error);
+    res.status(500).json({ message: 'Internal server error', code: 'SERVER_ERROR' });
+  }
+};
+
+/** GET /api/public/register/wards?subcounty_id= – list wards (no auth) */
+exports.getPublicRegisterWards = async (req, res) => {
+  try {
+    const subcountyId = req.query.subcounty_id;
+    if (!subcountyId) {
+      return res.status(400).json({ message: 'subcounty_id required', code: 'INVALID_INPUT' });
+    }
+    const rows = await db.models.ward.findAll({
+      attributes: ['id', 'name'],
+      where: { subcounty_id: subcountyId },
+      order: [['name', 'ASC']]
+    });
+    res.status(200).json({ data: rows, code: '0000' });
+  } catch (error) {
+    console.error('getPublicRegisterWards:', error);
+    res.status(500).json({ message: 'Internal server error', code: 'SERVER_ERROR' });
+  }
+};
+
+/** GET /api/public/register/settlements – paginated list (no auth), approved only */
+exports.getPublicRegisterSettlements = async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 10));
+    const search = (req.query.search || '').toString().trim();
+    const countyId = req.query.county_id ? parseInt(req.query.county_id, 10) : null;
+    const subcountyId = req.query.subcounty_id ? parseInt(req.query.subcounty_id, 10) : null;
+    const wardId = req.query.ward_id ? parseInt(req.query.ward_id, 10) : null;
+
+    const where = { ...PUBLIC_SETTLEMENT_WHERE };
+    if (countyId && !isNaN(countyId)) where.county_id = countyId;
+    if (subcountyId && !isNaN(subcountyId)) where.subcounty_id = subcountyId;
+    if (wardId && !isNaN(wardId)) where.ward_id = wardId;
+    if (search) where.name = { [op.iLike]: `%${search}%` };
+
+    const { count, rows } = await db.models.settlement.findAndCountAll({
+      where,
+      attributes: ['id', 'name', 'population', 'settlement_type'],
+      include: [
+        { model: db.models.county, as: 'county', attributes: ['id', 'name'] },
+        { model: db.models.subcounty, as: 'subcounty', attributes: ['id', 'name'] },
+        { model: db.models.ward, as: 'ward', attributes: ['id', 'name'] }
+      ],
+      limit,
+      offset: (page - 1) * limit,
+      order: [['name', 'ASC']],
+      distinct: true
+    });
+
+    res.status(200).json({ data: rows, total: count, code: '0000' });
+  } catch (error) {
+    console.error('getPublicRegisterSettlements:', error);
+    res.status(500).json({ message: 'Internal server error', code: 'SERVER_ERROR' });
+  }
+};
+
+/** GET /api/public/register/settlements/map – GeoJSON centroids or full boundaries (no auth), approved only */
+exports.getPublicRegisterSettlementsMap = async (req, res) => {
+  try {
+    const countyId = req.query.county_id ? parseInt(req.query.county_id, 10) : null;
+    const subcountyId = req.query.subcounty_id ? parseInt(req.query.subcounty_id, 10) : null;
+    const wardId = req.query.ward_id ? parseInt(req.query.ward_id, 10) : null;
+    const search = (req.query.search || '').toString().trim();
+    const includePolygons = req.query.polygons === '1' || req.query.polygons === 'true';
+    const limit = includePolygons
+      ? Math.min(500, Math.max(1, parseInt(req.query.limit, 10) || 300))
+      : Math.min(5000, Math.max(1, parseInt(req.query.limit, 10) || 2000));
+
+    let whereClause = '"isApproved" = \'Approved\' AND "isActive" = \'true\' AND geom IS NOT NULL AND ST_IsEmpty(geom) = false';
+    const replacements = { lim: limit };
+    if (countyId && !isNaN(countyId)) {
+      whereClause += ' AND county_id = :countyId';
+      replacements.countyId = countyId;
+    }
+    if (subcountyId && !isNaN(subcountyId)) {
+      whereClause += ' AND subcounty_id = :subcountyId';
+      replacements.subcountyId = subcountyId;
+    }
+    if (wardId && !isNaN(wardId)) {
+      whereClause += ' AND ward_id = :wardId';
+      replacements.wardId = wardId;
+    }
+    if (search) {
+      whereClause += ' AND name ILIKE :searchTerm';
+      replacements.searchTerm = '%' + search + '%';
+    }
+
+    const geometryExpr = includePolygons
+      ? 'ST_AsGeoJSON(geom, 8)::json'
+      : `CASE WHEN ST_GeometryType(geom) = 'ST_Point' THEN ST_AsGeoJSON(geom, 8)::json ELSE ST_AsGeoJSON(ST_Centroid(geom), 8)::json END`;
+    const propsExpr = includePolygons
+      ? "json_build_object('id', id, 'name', name)"
+      : "json_build_object('id', id)";
+
+    const qry = `
+      SELECT row_to_json(fc) AS json_build_object
+      FROM (
+        SELECT 'FeatureCollection' AS type,
+               array_to_json(array_agg(f)) AS features
+        FROM (
+          SELECT 'Feature' AS type,
+                 ${geometryExpr} AS geometry,
+                 ${propsExpr} AS properties
+          FROM settlement
+          WHERE ${whereClause}
+          LIMIT :lim
+        ) AS f
+      ) AS fc
+    `;
+    const result_geo = await db.sequelize.query(qry, {
+      replacements,
+      type: db.sequelize.QueryTypes.SELECT,
+      mapToModel: false
+    });
+    const geojson = result_geo[0]?.json_build_object || { type: 'FeatureCollection', features: [] };
+    res.status(200).json(geojson);
+  } catch (error) {
+    console.error('getPublicRegisterSettlementsMap:', error);
+    res.status(500).json({ type: 'FeatureCollection', features: [], message: error.message });
+  }
+};
+
+/** GET /api/public/register/settlements/:id/map – one settlement as GeoJSON feature (full polygon or point), no auth */
+exports.getPublicRegisterSettlementMap = async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: 'Invalid id', code: 'INVALID_INPUT' });
+    }
+    const whereClause = '"isApproved" = \'Approved\' AND "isActive" = \'true\' AND id = :id AND geom IS NOT NULL AND ST_IsEmpty(geom) = false';
+    const qry = `
+      SELECT row_to_json(f) AS feature
+      FROM (
+        SELECT 'Feature' AS type,
+               CASE WHEN ST_GeometryType(geom) = 'ST_Point' THEN ST_AsGeoJSON(geom, 8)::json ELSE ST_AsGeoJSON(geom, 8)::json END AS geometry,
+               json_build_object('id', id, 'name', name) AS properties
+        FROM settlement
+        WHERE ${whereClause}
+        LIMIT 1
+      ) AS f
+    `;
+    const result = await db.sequelize.query(qry, {
+      replacements: { id },
+      type: db.sequelize.QueryTypes.SELECT,
+      mapToModel: false
+    });
+    let feature = result[0]?.feature;
+    if (!feature) {
+      return res.status(404).json({ message: 'Settlement not found or has no geometry', code: 'NOT_FOUND' });
+    }
+    if (typeof feature === 'string') {
+      try { feature = JSON.parse(feature); } catch (e) { return res.status(500).json({ message: 'Invalid geometry', code: 'SERVER_ERROR' }); }
+    }
+    if (feature && typeof feature.geometry === 'string') {
+      try { feature.geometry = JSON.parse(feature.geometry); } catch (e) {}
+    }
+    res.status(200).json(feature);
+  } catch (error) {
+    console.error('getPublicRegisterSettlementMap:', error);
+    res.status(500).json({ message: 'Internal server error', code: 'SERVER_ERROR' });
+  }
+};
+
+/** GET /api/public/register/settlements/:id – one settlement (no auth), approved only */
+exports.getPublicRegisterSettlement = async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: 'Invalid id', code: 'INVALID_INPUT' });
+    }
+    const row = await db.models.settlement.findOne({
+      where: { id, ...PUBLIC_SETTLEMENT_WHERE },
+      attributes: ['id', 'name', 'population', 'settlement_type'],
+      include: [
+        { model: db.models.county, as: 'county', attributes: ['id', 'name'] },
+        { model: db.models.subcounty, as: 'subcounty', attributes: ['id', 'name'] },
+        { model: db.models.ward, as: 'ward', attributes: ['id', 'name'] }
+      ]
+    });
+    if (!row) {
+      return res.status(404).json({ message: 'Not found', code: 'NOT_FOUND' });
+    }
+    res.status(200).json({ data: row, code: '0000' });
+  } catch (error) {
+    console.error('getPublicRegisterSettlement:', error);
+    res.status(500).json({ message: 'Internal server error', code: 'SERVER_ERROR' });
+  }
+};
+
 /**
  * Get batch geometries for multiple IDs (counties, subcounties, etc.)
  * Optimized for loading multiple geometries at once
