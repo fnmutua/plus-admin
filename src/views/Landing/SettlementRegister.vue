@@ -179,7 +179,7 @@ import {
   getPublicRegisterWards
 } from '@/api/register-public'
 
-mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || ''
+//mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || ''
 
 const mapContainerRef = ref<HTMLElement | null>(null)
 const activeRegisterTab = ref<'table' | 'map'>('table')
