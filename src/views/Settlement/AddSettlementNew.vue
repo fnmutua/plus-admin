@@ -185,7 +185,13 @@ const formRules = reactive({
   name: [{ required: true, message: 'Settlement name is required', trigger: 'blur' }],
   county_id: [{ required: true, message: 'County is required', trigger: 'blur' }],
   ward_id: [{ required: true, message: 'Ward is required', trigger: 'blur' }],
-  settlement_type: [{ required: true, message: 'Settlement type is required', trigger: 'change' }]
+  settlement_type: [{ required: true, message: 'Settlement type is required', trigger: 'change' }],
+  climate_region: [{ required: true, message: 'Region (climate) is required', trigger: 'change' }],
+  soil_type: [{ required: true, message: 'Soil type is required', trigger: 'change' }],
+  land_cover: [{ required: true, message: 'Land cover is required', trigger: 'change' }],
+  altitude_range: [{ required: true, message: 'Altitude range is required', trigger: 'change' }],
+  proximity_to_river: [{ required: true, message: 'Proximity to river is required', trigger: 'change' }],
+  proximity_to_flood_plain: [{ required: true, message: 'Proximity to flood plain is required', trigger: 'change' }]
 })
 
 // Settlement type options
@@ -490,7 +496,7 @@ const initializeMap = async () => {
   try {
     // Load Google Maps API
     const { Loader } = await import('@googlemaps/js-api-loader')
-    const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''
+    const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
     
     const loader = new Loader({
       apiKey: googleMapsApiKey,
@@ -2606,7 +2612,7 @@ onMounted(async () => {
           </span>
         </el-divider>
 
-        <el-form-item label="Region">
+        <el-form-item label="Region" prop="climate_region" required>
           <el-select v-model="settlementForm.climate_region" placeholder="Select region" filterable clearable style="width: 100%">
             <el-option
               v-for="item in vulnerabilityOptions.climate_region"
@@ -2617,7 +2623,7 @@ onMounted(async () => {
           </el-select>
         </el-form-item>
 
-        <el-form-item label="Soil Type">
+        <el-form-item label="Soil Type" prop="soil_type" required>
           <el-select v-model="settlementForm.soil_type" placeholder="Select soil type" filterable clearable style="width: 100%">
             <el-option
               v-for="item in vulnerabilityOptions.soil_type"
@@ -2628,7 +2634,7 @@ onMounted(async () => {
           </el-select>
         </el-form-item>
 
-        <el-form-item label="Land Cover">
+        <el-form-item label="Land Cover" prop="land_cover" required>
           <el-select v-model="settlementForm.land_cover" placeholder="Select land cover" filterable clearable style="width: 100%">
             <el-option
               v-for="item in vulnerabilityOptions.land_cover"
@@ -2639,7 +2645,7 @@ onMounted(async () => {
           </el-select>
         </el-form-item>
 
-        <el-form-item label="Altitude Range (m)">
+        <el-form-item label="Altitude Range (m)" prop="altitude_range" required>
           <el-select v-model="settlementForm.altitude_range" placeholder="Select altitude range" filterable clearable style="width: 100%">
             <el-option
               v-for="item in vulnerabilityOptions.altitude_range"
@@ -2650,7 +2656,7 @@ onMounted(async () => {
           </el-select>
         </el-form-item>
 
-        <el-form-item label="Proximity to River (m)">
+        <el-form-item label="Proximity to River (m)" prop="proximity_to_river" required>
           <el-select v-model="settlementForm.proximity_to_river" placeholder="Select proximity to river" filterable clearable style="width: 100%">
             <el-option
               v-for="item in vulnerabilityOptions.proximity_to_river"
@@ -2661,7 +2667,7 @@ onMounted(async () => {
           </el-select>
         </el-form-item>
 
-        <el-form-item label="Proximity to Flood Plain (m)">
+        <el-form-item label="Proximity to Flood Plain (m)" prop="proximity_to_flood_plain" required>
           <el-select v-model="settlementForm.proximity_to_flood_plain" placeholder="Select proximity to flood plain" filterable clearable style="width: 100%">
             <el-option
               v-for="item in vulnerabilityOptions.proximity_to_flood_plain"

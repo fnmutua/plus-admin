@@ -1828,7 +1828,7 @@ const loadImageAsBase64 = (url: string): Promise<string> => {
 }
 
 // Google Maps API Key
-const GoogleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''
+const GoogleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
 
 // Fetch neighboring settlements for PDF map
 const fetchNeighboringSettlementsForPDF = async (settlementId: string | number | string[], settlementGeom: any): Promise<any[]> => {
