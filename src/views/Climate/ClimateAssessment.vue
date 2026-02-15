@@ -56,7 +56,7 @@
                   <div class="rating-section">
                     <ElTag :type="ratingType" size="large" class="rating-tag">
                       <ElIcon class="rating-icon"><WarningFilled /></ElIcon>
-                      Vulnerability: {{ assessment.vulnerability_rating }}
+                      Vulnerability: {{ overallScore != null ? overallScore : '—' }}{{ assessment.vulnerability_rating ? ` (${formatVulnerabilityRating(assessment.vulnerability_rating)})` : '' }}
                     </ElTag>
                   </div>
                 </div>
@@ -239,9 +239,35 @@ const activeCategoryByTab = ref<Record<string, string>>({
   adaptive_capacity: ''
 })
 
+const formatVulnerabilityRating = (r: string | null | undefined) =>
+  r ? String(r).toUpperCase() : ''
+
+const overallScore = computed(() => {
+  const a = assessment.value
+  if (!a) return null
+  const raw = [
+    a.hazard_score,
+    a.exposure_score,
+    a.sensitivity_score,
+    a.adaptive_capacity_score
+  ]
+  const valid: number[] = []
+  for (const s of raw) {
+    const n = typeof s === 'number' ? s : (s != null && s !== '' ? Number(s) : NaN)
+    if (typeof n === 'number' && !Number.isNaN(n)) valid.push(n)
+  }
+  if (valid.length === 0) return null
+  const avg = valid.reduce((sum, s) => sum + s, 0) / valid.length
+  return Math.round(avg * 100) / 100
+})
+
 const overallTabLabel = computed(() => {
   const r = assessment.value?.vulnerability_rating
-  return r ? `Overall Score (${r})` : 'Overall Score'
+  const score = overallScore.value
+  if (score != null && r) return `Overall Score (${score} – ${formatVulnerabilityRating(r)})`
+  if (r) return `Overall Score (${formatVulnerabilityRating(r)})`
+  if (score != null) return `Overall Score (${score})`
+  return 'Overall Score'
 })
 
 const ratingType = computed(() => {

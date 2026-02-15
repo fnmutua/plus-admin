@@ -3,7 +3,7 @@ import { Descriptions } from '@/components/Descriptions'
 import { useI18n } from '@/hooks/web/useI18n'
 import { onMounted, defineAsyncComponent, ref, reactive, computed, watch } from 'vue'
 import {
-  ElInput, ElButton, ElTabPane, ElTabs, ElCard, ElTable, ElTableColumn, ElMessage, ElDrawer, ElImage,  ElSelect,
+  ElInput, ElButton, ElTabPane, ElTabs, ElCard, ElTable, ElTableColumn, ElMessage, ElDrawer, ElImage,  ElSelect,ElDivider,
   ElIcon, ElPopconfirm, ElPagination,ElRow,ElCol,ElDialog, ElForm, ElFormItem, ElOption, ElOptionGroup, ElTag, ElDescriptions, ElDescriptionsItem
 } from 'element-plus'
 import { useRoute } from 'vue-router'
@@ -15,7 +15,7 @@ import {
   getSettlementMapData
 } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
-import { Back, Upload, Search, Edit, More, RefreshLeft, Picture, Download, Loading, Plus } from '@element-plus/icons-vue'
+import { Back, Upload, Search, Edit, More, RefreshLeft, Picture, Download, Loading, Plus, Lightning, Location, TrendCharts, SetUp, InfoFilled } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { getFile } from '@/api/summary'
 import jsPDF from 'jspdf'
@@ -29,6 +29,7 @@ import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 import {
   searchByKeyWord
 } from '@/api/settlements'
+import { listAssessments } from '@/api/climate-assessment'
 
 
 import { ElCollapseTransition, ElTooltip } from 'element-plus'
@@ -224,6 +225,9 @@ const vulnerability = reactive({
   vulnerability_total_score: null as number | null,
   vulnerability_rating: ''
 })
+
+const climateAssessment = ref<any>(null)
+const vulnerabilityScoresDrawerOpen = ref(false)
 
 const schemaProfile = reactive<DescriptionsSchema[]>([
   {
@@ -526,12 +530,19 @@ onMounted(async () => {
   const mapDataPromise = getSettlementMapData({ settlementId: route.params.id })
     .then((res: any) => { initialMapData.value = res?.data ?? null })
     .catch(() => { initialMapData.value = null })
+  const sid = Number(route.params.id)
+  const climatePromise = sid ? listAssessments({ settlement_id: sid }).then((r: any) => {
+    if (r?.code === '0000' && r?.data?.length) climateAssessment.value = r.data[0]
+    else climateAssessment.value = null
+  }).catch(() => { climateAssessment.value = null }) : Promise.resolve()
+
   await Promise.all([
     mapDataPromise,
     getIndicatorCategoryReports(route.params.id),
     getSettlmentHistory(route.params.id),
     getProjectLocations(route.params.id),
-    fetchDocumentTypes()
+    fetchDocumentTypes(),
+    climatePromise
   ])
   console.log(settlement)
 })
@@ -961,14 +972,24 @@ const getHouseholds = async () => {
 }
 
  
-const clickTab = (tab) => {
+const clickTab = async (tab) => {
   console.log('Tab clicked:', tab.props);
   localStorage.setItem('activeTab', tab.props.name);
 
   if (tab.props.name === 'Households') {
-    // Load households data when tab is clicked
     console.log('get households...')
     getHouseholds()
+  }
+  if (tab.props.name === 'vulnerability') {
+    const sid = Number(route.params.id)
+    if (sid) {
+      try {
+        const r = await listAssessments({ settlement_id: sid })
+        climateAssessment.value = r?.code === '0000' && r?.data?.length ? r.data[0] : null
+      } catch {
+        climateAssessment.value = null
+      }
+    }
   }
 };
 
@@ -1782,6 +1803,38 @@ const fetchFacilitiesSummary = async (settlementId: string | number | string[]) 
     return summary
   }
 }
+
+// Vulnerability rating → Element Plus tag type (LOW=green, MEDIUM=orange, HIGH=red)
+const getVulnerabilityRatingType = (rating: string | null | undefined): 'danger' | 'warning' | 'success' => {
+  const r = rating?.toUpperCase?.()
+  if (r === 'HIGH') return 'danger'
+  if (r === 'MEDIUM') return 'warning'
+  return 'success'
+}
+
+// Display rating in consistent uppercase (HIGH, MEDIUM, LOW)
+const formatVulnerabilityRating = (rating: string | null | undefined): string =>
+  rating ? String(rating).toUpperCase() : ''
+
+// Tool B overall score = average of the four dimension scores (0–100)
+const climateAssessmentOverallScore = computed(() => {
+  const a = climateAssessment.value
+  if (!a) return null
+  const raw = [
+    a.hazard_score,
+    a.exposure_score,
+    a.sensitivity_score,
+    a.adaptive_capacity_score
+  ]
+  const valid: number[] = []
+  for (const s of raw) {
+    const n = typeof s === 'number' ? s : (s != null && s !== '' ? Number(s) : NaN)
+    if (typeof n === 'number' && !Number.isNaN(n)) valid.push(n)
+  }
+  if (valid.length === 0) return null
+  const avg = valid.reduce((sum, s) => sum + s, 0) / valid.length
+  return Math.round(avg * 100) / 100
+})
 
 // Helper function to format numbers to 2 decimal places
 const formatNumber = (value: any): string => {
@@ -2947,50 +3000,145 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
       <el-tab-pane label="Vulnerability" name="vulnerability">
         <div :class="[prefixCls, 'bg-[var(--el-color-white)] dark:(bg-[var(--el-bg-color)] border-[var(--el-border-color)] border-1px)']">
           <div class="p-4">
-            <div class="mb-4 flex justify-between items-center">
-              <h4 class="text-sm font-medium text-gray-500 m-0">Vulnerability Assessment</h4>
-              <el-button
-                type="primary"
-                size="small"
-                @click="$router.push({ name: 'ClimateAssessmentSettlement', params: { id: String(settlementId || settlement?.id) } })"
-              >
-                KISIP Tool B Questionnaire
-              </el-button>
+            <!-- KISIP Tool A (GIS-based) -->
+            <div class="mb-6">
+              <div class="mb-4 flex justify-between items-center flex-wrap gap-2">
+                <div class="flex items-center gap-2">
+                  <h4 class="text-sm font-medium text-gray-500 m-0">Tool A – GIS-based Vulnerability Assessment</h4>
+                  <el-tag
+                    v-if="vulnerability.vulnerability_total_score != null || vulnerability.vulnerability_rating"
+                    :type="getVulnerabilityRatingType(vulnerability.vulnerability_rating)"
+                    size="small"
+                  >
+                    SCORE {{ vulnerability.vulnerability_total_score ?? '—' }}{{ vulnerability.vulnerability_rating ? ` (${formatVulnerabilityRating(vulnerability.vulnerability_rating)})` : '' }}
+                  </el-tag>
+                </div>
+                <el-button type="info" plain :icon="InfoFilled" size="small" @click="vulnerabilityScoresDrawerOpen = true">
+                  Score Interpretation
+                </el-button>
+              </div>
+              <div v-if="!vulnerability.vulnerability_total_score && !vulnerability.vulnerability_rating" class="mb-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <p class="text-gray-500 text-sm m-0">No GIS-based vulnerability assessment recorded. Edit the settlement to add vulnerability attributes and compute the score.</p>
+              </div>
+               <el-descriptions :column="2" border size="small">
+                <el-descriptions-item label="Climate">{{ vulnerability.climate_region || '—' }}</el-descriptions-item>
+                <el-descriptions-item label="Soil Type">{{ vulnerability.soil_type || '—' }}</el-descriptions-item>
+                <el-descriptions-item label="Land Cover">{{ vulnerability.land_cover || '—' }}</el-descriptions-item>
+                <el-descriptions-item label="Altitude Range">{{ vulnerability.altitude_range || '—' }}</el-descriptions-item>
+                <el-descriptions-item label="Proximity to River">{{ vulnerability.proximity_to_river || '—' }}</el-descriptions-item>
+                <el-descriptions-item label="Proximity to Flood Plain">{{ vulnerability.proximity_to_flood_plain || '—' }}</el-descriptions-item>
+              </el-descriptions>
             </div>
-            <div v-if="vulnerability.vulnerability_total_score != null || vulnerability.vulnerability_rating" class="mb-6">
-              <div
-                class="vulnerability-score-display inline-flex items-center gap-3 px-4 py-3 rounded-lg border-l-4"
-                :class="{
-                  'rating-high': vulnerability.vulnerability_rating === 'HIGH',
-                  'rating-medium': vulnerability.vulnerability_rating === 'MEDIUM',
-                  'rating-low': vulnerability.vulnerability_rating === 'LOW'
-                }"
-              >
-                <span class="text-lg font-semibold">{{ vulnerability.vulnerability_total_score ?? '—' }}</span>
-                <span class="text-sm text-gray-500">Total Score</span>
-                <el-tag
-                  v-if="vulnerability.vulnerability_rating"
-                  :type="vulnerability.vulnerability_rating === 'HIGH' ? 'danger' : vulnerability.vulnerability_rating === 'MEDIUM' ? 'warning' : 'success'"
-                  size="large"
+
+            <el-divider />
+
+            <!-- KISIP Tool B (Climate Risk & Vulnerability Questionnaire) -->
+            <div class="mb-6">
+              <div class="mb-4 flex justify-between items-center flex-wrap gap-2">
+                <div class="flex items-center gap-2">
+                  <h4 class="text-sm font-medium text-gray-500 m-0">Tool B – Climate Risk & Vulnerability Assessment</h4>
+                  <el-tag
+                    v-if="climateAssessmentOverallScore != null || climateAssessment?.vulnerability_rating"
+                    :type="getVulnerabilityRatingType(climateAssessment?.vulnerability_rating)"
+                    size="small"
+                  >
+                    SCORE {{ climateAssessmentOverallScore != null ? climateAssessmentOverallScore : '—' }}{{ climateAssessment?.vulnerability_rating ? ` (${formatVulnerabilityRating(climateAssessment.vulnerability_rating)})` : '' }}
+                  </el-tag>
+                </div>
+                <el-button
+                  type="primary"
+                  size="small"
+                  @click="push({ name: 'ClimateAssessmentSettlement', params: { id: String(route.params.id) } })"
                 >
-                  {{ vulnerability.vulnerability_rating }}
-                </el-tag>
+                  {{ climateAssessment ? 'Open Questionnaire' : 'Start KISIP Tool B Questionnaire' }}
+                </el-button>
+              </div>
+              <div v-if="climateAssessment?.vulnerability_rating" class="mb-4">
+                <el-row :gutter="12">
+                  <el-col :span="6">
+                    <div class="toolb-score-card toolb-hazard" role="button" tabindex="0" @click="push({ name: 'ClimateAssessmentSettlement', params: { id: String(route.params.id) } })" @keydown.enter="push({ name: 'ClimateAssessmentSettlement', params: { id: String(route.params.id) } })">
+                      <el-icon class="toolb-icon"><Lightning /></el-icon>
+                      <div class="toolb-text">
+                        <span class="toolb-label">Hazard</span>
+                        <span class="toolb-value">{{ climateAssessment.hazard_score ?? '—' }}</span>
+                      </div>
+                    </div>
+                  </el-col>
+                  <el-col :span="6">
+                    <div class="toolb-score-card toolb-exposure" role="button" tabindex="0" @click="push({ name: 'ClimateAssessmentSettlement', params: { id: String(route.params.id) } })" @keydown.enter="push({ name: 'ClimateAssessmentSettlement', params: { id: String(route.params.id) } })">
+                      <el-icon class="toolb-icon"><Location /></el-icon>
+                      <div class="toolb-text">
+                        <span class="toolb-label">Exposure</span>
+                        <span class="toolb-value">{{ climateAssessment.exposure_score ?? '—' }}</span>
+                      </div>
+                    </div>
+                  </el-col>
+                  <el-col :span="6">
+                    <div class="toolb-score-card toolb-sensitivity" role="button" tabindex="0" @click="push({ name: 'ClimateAssessmentSettlement', params: { id: String(route.params.id) } })" @keydown.enter="push({ name: 'ClimateAssessmentSettlement', params: { id: String(route.params.id) } })">
+                      <el-icon class="toolb-icon"><TrendCharts /></el-icon>
+                      <div class="toolb-text">
+                        <span class="toolb-label">Sensitivity</span>
+                        <span class="toolb-value">{{ climateAssessment.sensitivity_score ?? '—' }}</span>
+                      </div>
+                    </div>
+                  </el-col>
+                  <el-col :span="6">
+                    <div class="toolb-score-card toolb-adaptive" role="button" tabindex="0" @click="push({ name: 'ClimateAssessmentSettlement', params: { id: String(route.params.id) } })" @keydown.enter="push({ name: 'ClimateAssessmentSettlement', params: { id: String(route.params.id) } })">
+                      <el-icon class="toolb-icon"><SetUp /></el-icon>
+                      <div class="toolb-text">
+                        <span class="toolb-label">Adaptive Capacity</span>
+                        <span class="toolb-value">{{ climateAssessment.adaptive_capacity_score ?? '—' }}</span>
+                      </div>
+                    </div>
+                  </el-col>
+                </el-row>
+              </div>
+              <div v-else class="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <p class="text-gray-500 text-sm m-0">No KISIP Tool B assessment yet. Click the button above to complete the climate risk questionnaire.</p>
               </div>
             </div>
-            <div v-else class="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-              <p class="text-gray-500 text-sm">No vulnerability assessment recorded. Edit the settlement to add vulnerability attributes and compute the score.</p>
-            </div>
-            <h4 class="text-sm font-medium text-gray-500 mb-3">Assessment Attributes</h4>
-            <el-descriptions :column="2" border size="small">
-              <el-descriptions-item label="Region">{{ vulnerability.climate_region || '—' }}</el-descriptions-item>
-              <el-descriptions-item label="Soil Type">{{ vulnerability.soil_type || '—' }}</el-descriptions-item>
-              <el-descriptions-item label="Land Cover">{{ vulnerability.land_cover || '—' }}</el-descriptions-item>
-              <el-descriptions-item label="Altitude Range">{{ vulnerability.altitude_range || '—' }}</el-descriptions-item>
-              <el-descriptions-item label="Proximity to River">{{ vulnerability.proximity_to_river || '—' }}</el-descriptions-item>
-              <el-descriptions-item label="Proximity to Flood Plain">{{ vulnerability.proximity_to_flood_plain || '—' }}</el-descriptions-item>
-            </el-descriptions>
           </div>
         </div>
+
+        <el-drawer
+          v-model="vulnerabilityScoresDrawerOpen"
+          title="Understanding the Two Vulnerability Scores"
+          direction="rtl"
+          size="420px"
+        >
+          <div class="vuln-scores-info">
+            <div class="vuln-scores-section">
+              <h4 class="vuln-scores-heading">
+                <el-icon><Location /></el-icon>
+                KISIP Tool A – GIS-based Assessment
+              </h4>
+              <p>Uses spatial and environmental attributes of the settlement to compute vulnerability:</p>
+              <ul class="vuln-scores-list">
+                <li><strong>Climate region</strong> – temperature, rainfall, drought patterns</li>
+                <li><strong>Soil type</strong> – erosion and landslide susceptibility</li>
+                <li><strong>Land cover</strong> – exposure to hazards</li>
+                <li><strong>Altitude range</strong> – flood and landslide risk</li>
+                <li><strong>Proximity to river</strong> – flooding exposure</li>
+                <li><strong>Proximity to flood plain</strong> – flood risk</li>
+              </ul>
+              <p>Each attribute is scored against a vulnerability matrix. The total score is mapped to a rating (LOW, MEDIUM, HIGH) using configurable thresholds. Edit the settlement to add or change these attributes.</p>
+            </div>
+            <div class="vuln-scores-section">
+              <h4 class="vuln-scores-heading">
+                <el-icon><Lightning /></el-icon>
+                KISIP Tool B – Climate Risk &amp; Vulnerability Questionnaire
+              </h4>
+              <p>Uses a structured questionnaire across four dimensions (0–100 each):</p>
+              <ul class="vuln-scores-list">
+                <li><strong>Hazard</strong> – severity and frequency of climate hazards</li>
+                <li><strong>Exposure</strong> – how much the community and assets are exposed</li>
+                <li><strong>Sensitivity</strong> – susceptibility to climate impacts</li>
+                <li><strong>Adaptive Capacity</strong> – ability to cope and adapt (higher score = lower capacity)</li>
+              </ul>
+              <p>The overall rating is the average of the four dimension scores: <strong>Low</strong> (0–33), <strong>Medium</strong> (34–66), <strong>High</strong> (67–100). Click &quot;Open Questionnaire&quot; to complete or view the assessment.</p>
+            </div>
+          </div>
+        </el-drawer>
       </el-tab-pane>
 
       <el-tab-pane label="Indicators" name="Indicator">
@@ -3334,21 +3482,104 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
   height: auto;
 }
 
+.toolb-score-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  background: var(--el-fill-color-light);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.toolb-score-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+.toolb-icon {
+  flex-shrink: 0;
+  font-size: 1.25rem;
+}
+.toolb-hazard .toolb-icon { color: var(--el-color-warning); }
+.toolb-exposure .toolb-icon { color: var(--el-color-primary); }
+.toolb-sensitivity .toolb-icon { color: var(--el-color-danger); }
+.toolb-adaptive .toolb-icon { color: var(--el-color-success); }
+.toolb-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+.toolb-label {
+  font-size: 0.85rem;
+  color: var(--el-text-color-secondary);
+  line-height: 1.2;
+}
+.toolb-value {
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
 .vulnerability-score-display {
-  border-left-color: #e4e7ed;
-  background: #fafafa;
+  border-left-color: var(--el-border-color);
+  background: var(--el-fill-color-light);
   &.rating-high {
-    border-left-color: #f56c6c;
-    background: #fef0f0;
+    border-left-color: var(--el-color-danger);
+    background: var(--el-color-danger-light-9);
   }
   &.rating-medium {
-    border-left-color: #e6a23c;
-    background: #fdf6ec;
+    border-left-color: var(--el-color-warning);
+    background: var(--el-color-warning-light-9);
   }
   &.rating-low {
-    border-left-color: #67c23a;
-    background: #f0f9eb;
+    border-left-color: var(--el-color-success);
+    background: var(--el-color-success-light-9);
   }
+}
+
+.vuln-scores-info {
+  padding: 0 4px;
+  font-size: 0.8rem;
+}
+.vuln-scores-section {
+  margin-bottom: 20px;
+}
+.vuln-scores-section:last-child {
+  margin-bottom: 0;
+}
+.vuln-scores-heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.vuln-scores-heading .el-icon {
+  color: var(--el-color-primary);
+  font-size: 0.9rem;
+}
+.vuln-scores-section p {
+  margin: 0 0 6px;
+  color: var(--el-text-color-regular);
+  line-height: 1.55;
+  font-size: 0.8rem;
+}
+.vuln-scores-section p:last-of-type {
+  margin-bottom: 0;
+}
+.vuln-scores-list {
+  margin: 6px 0;
+  padding-left: 18px;
+  list-style-type: disc;
+  list-style-position: outside;
+  color: var(--el-text-color-regular);
+  line-height: 1.6;
+  font-size: 0.8rem;
+}
+.vuln-scores-list li {
+  margin-bottom: 4px;
 }
 
 .basemap {
