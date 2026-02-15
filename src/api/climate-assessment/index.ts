@@ -23,9 +23,9 @@ export interface ClimateAssessment {
 
 export interface AssessmentQuestions {
   hazard: { label: string; categories: Array<{ key: string; label: string; questions: Array<{ key: string; label: string; hint?: string; answers: Record<string, number> }> }> }
-  exposure: { label: string; categories: Array<{ key: string; label: string; questions: Array<{ key: string; label: string; answers: Record<string, number> }> }> }
-  sensitivity: { label: string; categories: Array<{ key: string; label: string; questions: Array<{ key: string; label: string; answers: Record<string, number> }> }> }
-  adaptive_capacity: { label: string; categories: Array<{ key: string; label: string; questions: Array<{ key: string; label: string; answers: Record<string, number> }> }> }
+  exposure: { label: string; categories: Array<{ key: string; label: string; questions: Array<{ key: string; label: string; hint?: string; answers: Record<string, number> }> }> }
+  sensitivity: { label: string; categories: Array<{ key: string; label: string; questions: Array<{ key: string; label: string; hint?: string; answers: Record<string, number> }> }> }
+  adaptive_capacity: { label: string; categories: Array<{ key: string; label: string; questions: Array<{ key: string; label: string; hint?: string; answers: Record<string, number> }> }> }
 }
 
 export const getQuestions = (): Promise<{ code: string; data: AssessmentQuestions; message: string }> => {
