@@ -337,8 +337,23 @@ db.models.settlement.hasMany(db.models.project_location, {
 
 db.models.project_location.belongsTo(db.models.settlement, {
   foreignKey: 'settlement_id'
+})
+
+// Climate assessment (KISIP Tool B)
+db.models.settlement.hasMany(db.models.climate_assessment, {
+  foreignKey: 'settlement_id'
+})
+db.models.climate_assessment.belongsTo(db.models.settlement, {
+  foreignKey: 'settlement_id'
+})
+db.models.climate_assessment.belongsTo(db.models.users, {
+  foreignKey: 'assessor_id',
+  as: 'assessor'
+})
+db.models.users.hasMany(db.models.climate_assessment, {
+  foreignKey: 'assessor_id',
+  as: 'climateAssessments'
 }) 
- 
 
 
 

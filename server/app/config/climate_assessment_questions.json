@@ -1,0 +1,295 @@
+{
+  "hazard": {
+    "label": "Current Hazards",
+    "categories": [
+      {
+        "key": "temperature",
+        "label": "Temperature",
+        "questions": [
+          {
+            "key": "temperature_1",
+            "label": "Are extreme temperatures frequently experienced in the settlement?",
+            "hint": "During the year (across seasons), is temperature higher/lower than usual?",
+            "answers": { "Yes, higher than usual": 3, "Yes, lower than usual": 2, "No, not really": 0 }
+          },
+          {
+            "key": "temperature_2",
+            "label": "Are the temperature intensities increasing?",
+            "hint": "Over multiple years (i.e. trend), is temperature higher/lower than usual?",
+            "answers": { "Yes, increasing": 3, "No, not really": 0 }
+          },
+          {
+            "key": "temperature_3",
+            "label": "Are there effects on community members being attributed to extreme temperature?",
+            "hint": "How often do you experience heat-related effects e.g. heat stress, heat strokes?",
+            "answers": { "Yes": 3, "No": 0 }
+          }
+        ]
+      },
+      {
+        "key": "precipitation",
+        "label": "Intense Precipitation",
+        "questions": [
+          {
+            "key": "precipitation_1",
+            "label": "Are heavy rainfall events prevalent in this settlement?",
+            "hint": "During the year (across seasons), is rainfall higher/lower than usual?",
+            "answers": { "Yes, higher than usual": 3, "Yes, lower than usual": 2, "No, not really": 0 }
+          },
+          {
+            "key": "precipitation_2",
+            "label": "Are rainfall intensities and/or durations increasing?",
+            "answers": { "Yes, increasing": 3, "No, not really": 0 }
+          },
+          {
+            "key": "precipitation_3",
+            "label": "Are there significant effects on the community being attributed to rainfall?",
+            "answers": { "Yes": 3, "No": 0 }
+          }
+        ]
+      },
+      {
+        "key": "droughts",
+        "label": "Droughts",
+        "questions": [
+          {
+            "key": "droughts_1",
+            "label": "Are droughts frequently experienced in the area?",
+            "hint": "Do you often experience droughts?",
+            "answers": { "Yes": 3, "No": 0 }
+          },
+          {
+            "key": "droughts_2",
+            "label": "If droughts do occur, do they occur at the same time each year?",
+            "answers": { "Yes": 2, "No": 1 }
+          },
+          {
+            "key": "droughts_3",
+            "label": "If droughts do occur, is the extent and intensity increasing?",
+            "answers": { "Yes": 3, "No change": 0 }
+          },
+          {
+            "key": "droughts_4",
+            "label": "Are there significant effects on the community being attributed to droughts?",
+            "answers": { "Yes": 3, "No": 0 }
+          }
+        ]
+      },
+      {
+        "key": "flooding",
+        "label": "Flooding",
+        "questions": [
+          {
+            "key": "flooding_1",
+            "label": "Are seasonal floods prevalent in the settlement?",
+            "answers": { "Yes": 3, "No": 0 }
+          },
+          {
+            "key": "flooding_2",
+            "label": "If seasonal floods do occur, do they occur at the same time each year?",
+            "answers": { "Yes": 2, "No": 1 }
+          },
+          {
+            "key": "flooding_3",
+            "label": "If floods do occur, is the intensity increasing?",
+            "answers": { "Yes, more than 4 days": 3, "Yes, but less than 4 days": 2, "No": 0 }
+          },
+          {
+            "key": "flooding_4",
+            "label": "If floods do occur, is the spatial extent increasing?",
+            "answers": { "More than half": 3, "Less than half": 2, "No": 0 }
+          },
+          {
+            "key": "flooding_5",
+            "label": "Are there significant effects on the community being attributed to rain floods?",
+            "answers": { "Yes": 3, "No": 0, "Not applicable": 0 }
+          }
+        ]
+      },
+      {
+        "key": "flash_floods",
+        "label": "Flash Floods",
+        "questions": [
+          {
+            "key": "flash_floods_1",
+            "label": "Are flash floods prevalent in the settlement?",
+            "answers": { "Yes": 3, "No": 0 }
+          },
+          {
+            "key": "flash_floods_2",
+            "label": "If flash floods do occur, do they occur at the same time each year?",
+            "answers": { "Yes": 2, "No": 1 }
+          },
+          {
+            "key": "flash_floods_3",
+            "label": "If flash floods do occur, is the intensity increasing?",
+            "answers": { "Yes, more than 4 days": 3, "Yes, but less than 4 days": 2, "No": 0 }
+          },
+          {
+            "key": "flash_floods_4",
+            "label": "If flash floods do occur, is the extent increasing?",
+            "answers": { "More than half": 3, "Less than half": 2, "No": 0 }
+          },
+          {
+            "key": "flash_floods_5",
+            "label": "Is the population affected by flash floods?",
+            "answers": { "Yes": 3, "No": 0, "Not applicable": 0 }
+          }
+        ]
+      },
+      {
+        "key": "storms",
+        "label": "Storms & Upper Winds",
+        "questions": [
+          {
+            "key": "storms_1",
+            "label": "Are there frequent storm events experienced in the settlement?",
+            "answers": { "Yes": 3, "No, not really": 0 }
+          },
+          {
+            "key": "storms_2",
+            "label": "Is there increase in frequency and intensity of storms?",
+            "answers": { "Yes": 3, "No, not really": 0 }
+          },
+          {
+            "key": "storms_3",
+            "label": "Are there significant effects on the community being attributed to storms?",
+            "answers": { "Yes": 3, "No": 0 }
+          }
+        ]
+      },
+      {
+        "key": "pollution",
+        "label": "Pollution",
+        "questions": [
+          {
+            "key": "pollution_1",
+            "label": "Is there pollution experienced in the settlement (land, soil, water)?",
+            "answers": { "All three": 3, "Two of them": 2, "Only one": 1, "None": 0 }
+          },
+          {
+            "key": "pollution_2",
+            "label": "Is there an increase of the pollution?",
+            "answers": { "Increase": 3, "Decrease": 0, "No change": 1 }
+          },
+          {
+            "key": "pollution_3",
+            "label": "Are there significant effects on the community being attributed to pollution?",
+            "answers": { "Yes": 3, "No": 0 }
+          }
+        ]
+      },
+      {
+        "key": "lui",
+        "label": "Land Use (LUI)",
+        "questions": [
+          {
+            "key": "lui_1",
+            "label": "Is there inadequate use of land in sensitive or risky areas?",
+            "hint": "Unstable soils, high ground water tables, steep slopes",
+            "answers": { "Yes": 3, "No": 0 }
+          },
+          {
+            "key": "lui_2",
+            "label": "Are significant impacts on people attributed to sensitive/risky land use?",
+            "answers": { "Yes": 3, "No": 0 }
+          },
+          {
+            "key": "lui_3",
+            "label": "Are people settled in sensitive and risky areas aware of the dangers?",
+            "answers": { "Yes": 1, "No": 2 }
+          }
+        ]
+      }
+    ]
+  },
+  "exposure": {
+    "label": "Current Exposure",
+    "categories": [
+      {
+        "key": "livelihoods",
+        "label": "Livelihoods",
+        "questions": [
+          { "key": "livelihoods_food_security", "label": "Do climatic conditions noticeably impact food production output?", "answers": { "Yes, significantly": 3, "Yes, somewhat": 2, "Not noticed": 0 } },
+          { "key": "livelihoods_grazing", "label": "Is grazing land and/or farmland affected by climate or inadequate land use?", "answers": { "Yes": 3, "Not noticed": 0 } },
+          { "key": "livelihoods_crops", "label": "Are crops adversely impacted by climate (drought, hail, landslides, flooding)?", "answers": { "Yes": 3, "Not noticed": 0 } },
+          { "key": "livelihoods_livestock", "label": "Is livestock adversely impacted by changing climate or severe weather?", "answers": { "Yes": 3, "Not noticed": 0 } },
+          { "key": "livelihoods_fishstock", "label": "Is fishstock depleting due to climate or environmental pollution?", "answers": { "Yes": 3, "Not noticed": 0 } }
+        ]
+      },
+      {
+        "key": "health_safety",
+        "label": "Health & Safety",
+        "questions": [
+          { "key": "health_borne_diseases", "label": "Are water or vector-borne diseases prevalent and linked to climate?", "answers": { "Yes": 3, "No": 0 } },
+          { "key": "health_slupc", "label": "Is settlement layout/planning affecting climate resilience?", "answers": { "Yes": 3, "No": 0 } }
+        ]
+      },
+      {
+        "key": "assets_utilities",
+        "label": "Assets and Utilities",
+        "questions": [
+          { "key": "assets_housing", "label": "Is housing affected by climate hazards (floods, storms)?", "answers": { "Yes": 3, "No": 0 } },
+          { "key": "assets_public_facilities", "label": "Are public facilities affected by climate hazards?", "answers": { "Yes": 3, "No": 0 } },
+          { "key": "assets_water", "label": "Is water supply affected by climate (drought, floods)?", "answers": { "Yes": 3, "No": 0 } }
+        ]
+      },
+      {
+        "key": "potable_water",
+        "label": "Potable Water",
+        "questions": [
+          { "key": "water_access", "label": "Is access to potable water affected by climate?", "answers": { "Yes": 3, "No": 0 } },
+          { "key": "water_quality", "label": "Is water quality affected by climate events?", "answers": { "Yes": 3, "No": 0 } }
+        ]
+      },
+      {
+        "key": "ebs",
+        "label": "Environment (EBS)",
+        "questions": [
+          { "key": "ebs_soil", "label": "Is soil quality/erosion affected by climate?", "answers": { "Yes": 3, "No": 0 } },
+          { "key": "ebs_landcover", "label": "Is land cover/vegetation affected by climate?", "answers": { "Yes": 3, "No": 0 } }
+        ]
+      }
+    ]
+  },
+  "sensitivity": {
+    "label": "Current Sensitivity",
+    "categories": [
+      {
+        "key": "livelihoods",
+        "label": "Livelihoods",
+        "questions": [
+          { "key": "sens_food_security", "label": "Are access and cost of food changing with extreme weather events?", "answers": { "Yes, significantly": 3, "Yes, somewhat": 2, "Not noticed": 0 } },
+          { "key": "sens_grazing", "label": "Is grazing land getting scarcer or more distant?", "answers": { "Yes": 3, "No": 0 } },
+          { "key": "sens_crops", "label": "Are most households dependent on subsistence farming for food?", "answers": { "High Dependancy": 3, "Low Dependancy": 1 } },
+          { "key": "sens_livestock", "label": "Are most households dependent on own livestock for food?", "answers": { "High Dependancy": 3, "Low Dependancy": 1 } },
+          { "key": "sens_fishstock", "label": "Are most households dependent on fishing for food?", "answers": { "High Dependancy": 3, "Low Dependancy": 1 } }
+        ]
+      }
+    ]
+  },
+  "adaptive_capacity": {
+    "label": "Current Adaptive Capacity",
+    "categories": [
+      {
+        "key": "livelihoods",
+        "label": "Livelihoods",
+        "questions": [
+          { "key": "adapt_food_security", "label": "Are there adequate areas formally available for urban agriculture?", "answers": { "Yes": 0, "No": 3 } },
+          { "key": "adapt_grazing", "label": "Are there adequate areas formally available for grazing?", "answers": { "Yes": 0, "No": 3 } },
+          { "key": "adapt_crops", "label": "Are there mechanisms to diversify crops and protect harvest from weather?", "answers": { "Yes": 0, "No": 3 } },
+          { "key": "adapt_livestock", "label": "Are there mechanisms to rescue and relocate animals from hazards?", "answers": { "Yes": 0, "No": 3 } },
+          { "key": "adapt_fishstock", "label": "Are there mechanisms to prevent overfishing and support alternatives?", "answers": { "Yes": 0, "No": 3 } }
+        ]
+      }
+    ]
+  },
+  "scoring": {
+    "dimensionWeights": { "hazard": 1, "exposure": 1, "sensitivity": 1, "adaptive_capacity": 1 },
+    "ratingThresholds": [
+      { "rating": "Low", "minScore": 0, "maxScore": 33 },
+      { "rating": "Medium", "minScore": 34, "maxScore": 66 },
+      { "rating": "High", "minScore": 67, "maxScore": null }
+    ]
+  }
+}

@@ -270,6 +270,7 @@ require('./server/app/routes/project.routes')(app)
 require('./server/app/routes/videoStream.routes')(app)
 require('./server/app/routes/adminunits.routes')(app)
 require('./server/app/routes/settings.routes')(app)
+require('./server/app/routes/climate_assessment.routes')(app)
 
 // set port, listen for requests
 

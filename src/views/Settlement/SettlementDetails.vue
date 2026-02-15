@@ -2947,8 +2947,17 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
       <el-tab-pane label="Vulnerability" name="vulnerability">
         <div :class="[prefixCls, 'bg-[var(--el-color-white)] dark:(bg-[var(--el-bg-color)] border-[var(--el-border-color)] border-1px)']">
           <div class="p-4">
+            <div class="mb-4 flex justify-between items-center">
+              <h4 class="text-sm font-medium text-gray-500 m-0">Vulnerability Assessment</h4>
+              <el-button
+                type="primary"
+                size="small"
+                @click="$router.push({ name: 'ClimateAssessmentSettlement', params: { id: String(settlementId || settlement?.id) } })"
+              >
+                KISIP Tool B Questionnaire
+              </el-button>
+            </div>
             <div v-if="vulnerability.vulnerability_total_score != null || vulnerability.vulnerability_rating" class="mb-6">
-              <h4 class="text-sm font-medium text-gray-500 mb-2">Vulnerability Assessment</h4>
               <div
                 class="vulnerability-score-display inline-flex items-center gap-3 px-4 py-3 rounded-lg border-l-4"
                 :class="{

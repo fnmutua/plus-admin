@@ -105,6 +105,7 @@ require('./server/app/routes/project.routes')(app)
 require('./server/app/routes/videoStream.routes')(app)
 require('./server/app/routes/adminunits.routes')(app)
 require('./server/app/routes/settings.routes')(app)
+require('./server/app/routes/climate_assessment.routes')(app)
 
 // Static middleware should come AFTER API routes
 app.use(express.static(path.join(__dirname, '/dist-pro')))

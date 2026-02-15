@@ -378,6 +378,12 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             }
           }, 
           {
+            path: ':id/climate-assessment',
+            component: () => import('@/views/Climate/ClimateAssessment.vue'),
+            name: 'ClimateAssessmentSettlement',
+            meta: { hidden: true, title: 'Climate Assessment' }
+          },
+          {
             path: 'parcel',
            // component: 'views/Parcel/index',
             component: () => import('@/views/Parcel/index.vue'),
