@@ -595,6 +595,38 @@ ORDER BY COUNT(*) DESC;
 COMMIT;
 
 
+-- Clean household gender
+BEGIN;
+UPDATE households
+SET gender = 'Male'
+WHERE gender IS NOT NULL
+  AND btrim(gender) <> ''
+  AND (
+       lower(btrim(gender)) IN ('male', 'm', '1')
+    OR lower(gender) LIKE 'male%'
+  );
+
+UPDATE grievance
+SET gender = 'Female'
+WHERE gender IS NOT NULL
+  AND btrim(gender) <> ''
+  AND (
+       lower(btrim(gender)) IN ('female', 'f', '2')
+    OR lower(gender) LIKE 'female%'
+  );
+
+UPDATE grievance
+SET gender = 'Unknown'
+WHERE gender IS NULL
+   OR btrim(gender) = ''
+   OR lower(btrim(gender)) IN ('n/a', 'na', 'unknown', 'other', '-');
+
+SELECT gender, COUNT(*)
+FROM grievance
+GROUP BY gender
+ORDER BY COUNT(*) DESC;
+COMMIT;
+
 
 SELECT
   SUM(ST_Length(ST_Transform(geom, 21036)))/1000  AS total_roads_km

@@ -34,6 +34,7 @@ if (typeof globalThis.fetch === 'undefined') {
 }
 
 const db = require('../models')
+const { computeSettlementVulnerability } = require('../utils/vulnerability')
 const config = require('../config/db.config.js')
 ///const config = require("../config/db.config.js");
 const Sequelize = require('sequelize')
@@ -1061,8 +1062,8 @@ exports.getSettlementImageryLayers = async (req, res) => {
     // GeoServer configuration
     const GEO_SERVER_URL = 'https://kesmis.go.ke/geoserver'
     const WORKSPACE = 'kisip'
-    const username = 'admin'
-    const password = '***REDACTED***'
+    const username = process.env.GEOSERVER_USERNAME || 'admin'
+    const password = process.env.GEOSERVER_PASSWORD || ''
 
     // Fetch all layers from GeoServer REST API
     const restApiUrl = `${GEO_SERVER_URL}/rest/layers.json`
@@ -1543,7 +1544,7 @@ async function logEvents(log_object) {
 
  
 
-exports.modelCreateOneRecord = (req, res) => {
+exports.modelCreateOneRecord = async (req, res) => {
 
   console.log(req.thisUser.id)
   let token = req.headers["x-access-token"];
@@ -1639,16 +1640,33 @@ exports.modelCreateOneRecord = (req, res) => {
     obj.photo_filename = null;
   }
 
+  // Compute vulnerability score for settlement when attributes are present
+  if (reg_model === 'settlement') {
+    try {
+      const { total_score, rating } = await computeSettlementVulnerability(db, {
+        climate_region: obj.climate_region,
+        soil_type: obj.soil_type,
+        land_cover: obj.land_cover,
+        altitude_range: obj.altitude_range,
+        proximity_to_river: obj.proximity_to_river,
+        proximity_to_flood_plain: obj.proximity_to_flood_plain
+      });
+      if (total_score != null) obj.vulnerability_total_score = total_score;
+      if (rating) obj.vulnerability_rating = rating;
+    } catch (err) {
+      console.warn('Vulnerability score computation failed:', err.message);
+    }
+  }
+
   console.log('One record... Edited---s-', obj)
 
   if (!obj.id) {
     delete obj.id;
   }
- 
-  
-  db.models[reg_model]
-  .create(obj)
-  .then(async function (item) {
+  delete obj.checkFields; // Used for duplicate check only, not a model field
+
+  try {
+  const item = await db.models[reg_model].create(obj)
     // Special for projects where we store the project-activity relation
     console.log('temI', item)
   
@@ -1686,8 +1704,7 @@ exports.modelCreateOneRecord = (req, res) => {
     // Process the created record for AI
     console.log('Processing record for AI >>>>>>>>>>>>>>>>>', item)
     await processRecordForAI(item, reg_model);
-  })
-  .catch(async function (error) {
+  } catch (error) {
     // handle error;
     console.log('error0--90----->', error);
     event.status= 'failed' 
@@ -1709,26 +1726,9 @@ exports.modelCreateOneRecord = (req, res) => {
         message: 'An unexpected error occurred while creating the record.'
       });
     }
-
-
-
-      
-  
- 
-  });
-  
-
+  }
 }
 
-
- 
- 
-
-
-
-
- 
- 
 exports.modelAllGeo = async (req, res) => {
   var reg_model = req.body.model
   
@@ -2809,9 +2809,7 @@ db.models[reg_model].findAll({
   .catch((error) => {
     console.error('Error fetching records:', error);
     res.status(500).send({ message: 'Getting Parents failed' })
-
   });
-
 };
 
  
@@ -2980,6 +2978,23 @@ exports.modelEditOneRecord = (req, res) => {
   db.models[reg_model].findOne({ where: { id: req.body.id } })
     .then(async (result) => {
 
+      // Compute vulnerability score for settlement when attributes are present
+      if (reg_model === 'settlement') {
+        try {
+          const { total_score, rating } = await computeSettlementVulnerability(db, {
+            climate_region: updateObj.climate_region ?? req.body.climate_region,
+            soil_type: updateObj.soil_type ?? req.body.soil_type,
+            land_cover: updateObj.land_cover ?? req.body.land_cover,
+            altitude_range: updateObj.altitude_range ?? req.body.altitude_range,
+            proximity_to_river: updateObj.proximity_to_river ?? req.body.proximity_to_river,
+            proximity_to_flood_plain: updateObj.proximity_to_flood_plain ?? req.body.proximity_to_flood_plain
+          });
+          if (total_score != null) updateObj.vulnerability_total_score = total_score;
+          if (rating) updateObj.vulnerability_rating = rating;
+        } catch (err) {
+          console.warn('Vulnerability score computation failed:', err.message);
+        }
+      }
 
       // Special for projects where we store the project-activity relation
       if (reg_model === 'project') {

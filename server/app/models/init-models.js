@@ -87,6 +87,8 @@ var _article= require('./article')
 var _settlement_history= require('./settlement_history')
 var _grievance_history= require('./grievance_history')
 var _module_settings= require('./module_settings')
+var _vulnerability_matrix= require('./vulnerability_matrix')
+var _vulnerability_rating_threshold= require('./vulnerability_rating_threshold')
  
 
 var _disbursement= require('./disbursements')
@@ -206,6 +208,8 @@ function initModels(sequelize) {
   var settlement_history = _settlement_history(sequelize, DataTypes)
   var grievance_history = _grievance_history(sequelize, DataTypes)
   var module_settings = _module_settings(sequelize, DataTypes)
+  var vulnerability_matrix = _vulnerability_matrix(sequelize, DataTypes)
+  var vulnerability_rating_threshold = _vulnerability_rating_threshold(sequelize, DataTypes)
   var disbursement = _disbursement(sequelize, DataTypes)
   var project_contractor = _project_contractor(sequelize, DataTypes)
   var project_team = _project_team(sequelize, DataTypes)
@@ -309,7 +313,8 @@ var role = _role(sequelize, DataTypes)
     grievance, incident, incident_history,
     grievance_log,disbursement,project_contractor,project_team,project_clockin,
      grievance_resolution,grievance_escalation,grievance_document, incident_document, grievance_notification,article,
-     settlement_history,grievance_history, programme,permissions,role_permissions,role,module_settings
+     settlement_history,grievance_history, programme,permissions,role_permissions,role,module_settings,
+     vulnerability_matrix,vulnerability_rating_threshold
 
   }
 }

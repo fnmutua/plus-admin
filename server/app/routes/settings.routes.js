@@ -13,7 +13,13 @@ module.exports = function (app) {
   app.post('/api/v1/settings/get', [authJwt.verifyToken, hasPermission('settings:read')], controller.getSetting)
   app.post('/api/v1/settings/update', [authJwt.verifyToken, hasPermission('settings:update')], controller.updateSetting)
   app.post('/api/v1/settings/bulk-update', [authJwt.verifyToken, hasPermission('settings:update')], controller.bulkUpdateSettings)
-  
-  console.log('Settings routes registered: /api/v1/settings/all, /api/v1/settings/get, /api/v1/settings/update, /api/v1/settings/bulk-update')
+
+  app.get('/api/v1/settings/vulnerability-matrix', [authJwt.verifyToken, hasPermission('settings:read')], controller.getVulnerabilityMatrix)
+  app.post('/api/v1/settings/vulnerability-matrix', [authJwt.verifyToken, hasPermission('settings:update')], controller.bulkUpdateVulnerabilityMatrix)
+  app.get('/api/v1/settings/vulnerability-rating-thresholds', [authJwt.verifyToken, hasPermission('settings:read')], controller.getVulnerabilityRatingThresholds)
+  app.post('/api/v1/settings/vulnerability-rating-thresholds', [authJwt.verifyToken, hasPermission('settings:update')], controller.bulkUpdateVulnerabilityRatingThresholds)
+  app.post('/api/v1/settings/vulnerability-compute', [authJwt.verifyToken], controller.computeVulnerabilityScore)
+
+  console.log('Settings routes registered: /api/v1/settings/all, /api/v1/settings/get, /api/v1/settings/update, /api/v1/settings/bulk-update, /api/v1/settings/vulnerability-matrix')
 }
 

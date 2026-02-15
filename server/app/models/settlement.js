@@ -221,6 +221,48 @@ module.exports = function (sequelize, DataTypes) {
         allowNull: true,
         defaultValue: false
       },
+
+      // Vulnerability assessment (KISIP Tool A)
+      climate_region: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        comment: 'Climate region for vulnerability scoring',
+      },
+      soil_type: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        comment: 'Soil type for vulnerability scoring',
+      },
+      land_cover: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        comment: 'Land cover for vulnerability scoring',
+      },
+      altitude_range: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        comment: 'Altitude range for vulnerability scoring',
+      },
+      proximity_to_river: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        comment: 'Proximity to river for vulnerability scoring',
+      },
+      proximity_to_flood_plain: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        comment: 'Proximity to flood plain for vulnerability scoring',
+      },
+      vulnerability_total_score: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        comment: 'Computed total vulnerability score',
+      },
+      vulnerability_rating: {
+        type: DataTypes.STRING(32),
+        allowNull: true,
+        comment: 'Computed rating: LOW, MEDIUM, HIGH',
+      },
   
     
     },

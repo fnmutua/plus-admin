@@ -1814,6 +1814,16 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         }
       },
       {
+        path: 'climate-settings',
+        name: 'ClimateSettings',
+        component: () => import('@/views/settings/VulnerabilitySettings.vue'),
+        meta: {
+          title: 'Climate Settings',
+          icon: 'mdi:earth',
+          role: ['root_admin', 'super_admin']
+        }
+      },
+      {
         path: 'common',
         component: Layout,
         redirect: '/data/settlement',

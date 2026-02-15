@@ -4,7 +4,7 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { onMounted, defineAsyncComponent, ref, reactive, computed, watch } from 'vue'
 import {
   ElInput, ElButton, ElTabPane, ElTabs, ElCard, ElTable, ElTableColumn, ElMessage, ElDrawer, ElImage,  ElSelect,
-  ElIcon, ElPopconfirm, ElPagination,ElRow,ElCol,ElDialog, ElForm, ElFormItem, ElOption, ElOptionGroup
+  ElIcon, ElPopconfirm, ElPagination,ElRow,ElCol,ElDialog, ElForm, ElFormItem, ElOption, ElOptionGroup, ElTag, ElDescriptions, ElDescriptionsItem
 } from 'element-plus'
 import { useRoute } from 'vue-router'
 import {
@@ -162,10 +162,8 @@ const showEditButtons = ref(appStore.getEditButtons)
 
 console.log('showAdminButtons',showAdminButtons.value)
 
-const MapBoxToken = 'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg'
-mapboxgl.accessToken = MapBoxToken;
-
-
+const mapboxToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || ''
+mapboxgl.accessToken = mapboxToken
 
 const route = useRoute()
 
@@ -214,6 +212,17 @@ const utilities = reactive({
   on_road_reserve: false,
   near_river: false,
   encumbrance: ''
+})
+
+const vulnerability = reactive({
+  climate_region: '',
+  soil_type: '',
+  land_cover: '',
+  altitude_range: '',
+  proximity_to_river: '',
+  proximity_to_flood_plain: '',
+  vulnerability_total_score: null as number | null,
+  vulnerability_rating: ''
 })
 
 const schemaProfile = reactive<DescriptionsSchema[]>([
@@ -467,6 +476,16 @@ const getFilteredData = async (selFilters: string[], selfilterValues: any[][]) =
     profile.dist_trunk = settlementData.dist_trunk || '';
     profile.main_env_hazards = settlementData.main_env_hazards || '';
     profile.general_location = settlementData.general_location || '';
+
+    // Set vulnerability assessment data
+    vulnerability.climate_region = settlementData.climate_region || '';
+    vulnerability.soil_type = settlementData.soil_type || '';
+    vulnerability.land_cover = settlementData.land_cover || '';
+    vulnerability.altitude_range = settlementData.altitude_range || '';
+    vulnerability.proximity_to_river = settlementData.proximity_to_river || '';
+    vulnerability.proximity_to_flood_plain = settlementData.proximity_to_flood_plain || '';
+    vulnerability.vulnerability_total_score = settlementData.vulnerability_total_score ?? null;
+    vulnerability.vulnerability_rating = settlementData.vulnerability_rating || '';
 
     // Set housing data
     housing.num_households = settlementData.num_households || '';
@@ -1809,7 +1828,7 @@ const loadImageAsBase64 = (url: string): Promise<string> => {
 }
 
 // Google Maps API Key
-const GoogleMapsApiKey = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
+const GoogleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''
 
 // Fetch neighboring settlements for PDF map
 const fetchNeighboringSettlementsForPDF = async (settlementId: string | number | string[], settlementGeom: any): Promise<any[]> => {
@@ -2696,7 +2715,6 @@ const updateDocumentCategory = async () => {
         </div>
       </el-tab-pane>
 
-
       <el-tab-pane label="Location" name="map">
         <div class="map-container-wrapper">
           <div v-if="mapLoading" class="map-loading-container">
@@ -2924,6 +2942,46 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
     />
         </el-card>
 
+      </el-tab-pane>
+
+      <el-tab-pane label="Vulnerability" name="vulnerability">
+        <div :class="[prefixCls, 'bg-[var(--el-color-white)] dark:(bg-[var(--el-bg-color)] border-[var(--el-border-color)] border-1px)']">
+          <div class="p-4">
+            <div v-if="vulnerability.vulnerability_total_score != null || vulnerability.vulnerability_rating" class="mb-6">
+              <h4 class="text-sm font-medium text-gray-500 mb-2">Vulnerability Assessment</h4>
+              <div
+                class="vulnerability-score-display inline-flex items-center gap-3 px-4 py-3 rounded-lg border-l-4"
+                :class="{
+                  'rating-high': vulnerability.vulnerability_rating === 'HIGH',
+                  'rating-medium': vulnerability.vulnerability_rating === 'MEDIUM',
+                  'rating-low': vulnerability.vulnerability_rating === 'LOW'
+                }"
+              >
+                <span class="text-lg font-semibold">{{ vulnerability.vulnerability_total_score ?? '—' }}</span>
+                <span class="text-sm text-gray-500">Total Score</span>
+                <el-tag
+                  v-if="vulnerability.vulnerability_rating"
+                  :type="vulnerability.vulnerability_rating === 'HIGH' ? 'danger' : vulnerability.vulnerability_rating === 'MEDIUM' ? 'warning' : 'success'"
+                  size="large"
+                >
+                  {{ vulnerability.vulnerability_rating }}
+                </el-tag>
+              </div>
+            </div>
+            <div v-else class="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <p class="text-gray-500 text-sm">No vulnerability assessment recorded. Edit the settlement to add vulnerability attributes and compute the score.</p>
+            </div>
+            <h4 class="text-sm font-medium text-gray-500 mb-3">Assessment Attributes</h4>
+            <el-descriptions :column="2" border size="small">
+              <el-descriptions-item label="Region">{{ vulnerability.climate_region || '—' }}</el-descriptions-item>
+              <el-descriptions-item label="Soil Type">{{ vulnerability.soil_type || '—' }}</el-descriptions-item>
+              <el-descriptions-item label="Land Cover">{{ vulnerability.land_cover || '—' }}</el-descriptions-item>
+              <el-descriptions-item label="Altitude Range">{{ vulnerability.altitude_range || '—' }}</el-descriptions-item>
+              <el-descriptions-item label="Proximity to River">{{ vulnerability.proximity_to_river || '—' }}</el-descriptions-item>
+              <el-descriptions-item label="Proximity to Flood Plain">{{ vulnerability.proximity_to_flood_plain || '—' }}</el-descriptions-item>
+            </el-descriptions>
+          </div>
+        </div>
       </el-tab-pane>
 
       <el-tab-pane label="Indicators" name="Indicator">
@@ -3267,6 +3325,22 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
   height: auto;
 }
 
+.vulnerability-score-display {
+  border-left-color: #e4e7ed;
+  background: #fafafa;
+  &.rating-high {
+    border-left-color: #f56c6c;
+    background: #fef0f0;
+  }
+  &.rating-medium {
+    border-left-color: #e6a23c;
+    background: #fdf6ec;
+  }
+  &.rating-low {
+    border-left-color: #67c23a;
+    background: #f0f9eb;
+  }
+}
 
 .basemap {
   width: 100%;

@@ -27,11 +27,14 @@ import {
   ElDivider,
   ElAlert,
   ElCheckbox,
-  ElCheckboxGroup
+  ElCheckboxGroup,
+  ElPopover,
+  ElIcon
 } from 'element-plus'
-import { ArrowLeft, Check, Plus, Delete, UploadFilled, Back, Edit } from '@element-plus/icons-vue'
+import { ArrowLeft, Check, Plus, Delete, UploadFilled, Back, Edit, QuestionFilled } from '@element-plus/icons-vue'
 import * as turf from '@turf/turf'
 import { getOneGeo, getSettlementListByCounty, getOneSettlement } from '@/api/settlements'
+import { getVulnerabilityMatrix, computeVulnerabilityScore } from '@/api/settings'
 import { CreateRecord, updateOneRecord, duplicatePreCheck } from '@/api/settlements'
 import { countyOptions, wardOptions, subcountyOptions } from './common/index'
 import { getListWithoutGeo } from '@/api/counties'
@@ -167,7 +170,15 @@ const settlementForm = reactive({
   avg_rent: null,
   main_env_hazards: null,
   general_location: null,
-  comments: null
+  comments: null,
+  climate_region: null,
+  soil_type: null,
+  land_cover: null,
+  altitude_range: null,
+  proximity_to_river: null,
+  proximity_to_flood_plain: null,
+  vulnerability_total_score: null,
+  vulnerability_rating: null
 })
 
 const formRules = reactive({
@@ -232,9 +243,35 @@ const parcelOwnerTypeOptions = [
   { label: 'Private', value: 'Private' },
   { label: 'Public', value: 'Public' },
   { label: 'Community', value: 'Community' },
-  { label: 'Unknown', value: 'Unknown' },
-
+  { label: 'Unknown', value: 'Unknown' }
 ]
+
+// Vulnerability assessment options (from vulnerability_matrix, fallback from KISIP Tool A)
+const vulnerabilityOptions = ref<Record<string, { label: string; value: string }[]>>({
+  climate_region: [],
+  soil_type: [],
+  land_cover: [],
+  altitude_range: [],
+  proximity_to_river: [],
+  proximity_to_flood_plain: []
+})
+
+const computedScore = ref<{ total_score: number | null; rating: string | null } | null>(null)
+
+/** Rating tag type: red (HIGH), amber (MEDIUM), green (LOW) - matches Vulnerability Settings */
+const vulnerabilityRatingType = computed(() => {
+  const r = computedScore.value?.rating ?? settlementForm.vulnerability_rating
+  return r === 'HIGH' ? 'danger' : r === 'MEDIUM' ? 'warning' : 'success'
+})
+
+const VULNERABILITY_FALLBACK: Record<string, string[]> = {
+  climate_region: ['Af>Tropical', 'Am> Tropical', 'Aw> Tropical', 'BSh> Arid', 'BSk> Arid', 'BWh> Arid', 'Cfa> Temperate', 'Cfb> Temperate', 'Csb> Temperate', 'Cwa> Temperate', 'Cwb> Temperate'],
+  soil_type: ['Clay', 'Sand', 'Loam', 'Rock'],
+  land_cover: ['Bare Land', 'Natural Terrestrial Vegetation', 'Agricultural Land', 'Water-bodies'],
+  altitude_range: ['<750', 'Between 751-1800', '>1800'],
+  proximity_to_river: ['<2000', 'Between 2001-5999', '>6000'],
+  proximity_to_flood_plain: ['<4500', 'Between 4501-6000', '>6000']
+}
 
 const structureTypesOptions = [
   { label: 'Permanent', value: 'Permanent' },
@@ -453,7 +490,7 @@ const initializeMap = async () => {
   try {
     // Load Google Maps API
     const { Loader } = await import('@googlemaps/js-api-loader')
-    const googleMapsApiKey = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
+    const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''
     
     const loader = new Loader({
       apiKey: googleMapsApiKey,
@@ -1395,7 +1432,17 @@ const submitForm = async () => {
             : settlementForm.typical_building_materials || '',
           landuse: Array.isArray(settlementForm.landuse) 
             ? settlementForm.landuse.join(', ') 
-            : settlementForm.landuse || ''
+            : settlementForm.landuse || '',
+          // Explicitly include vulnerability fields so backend receives them for score computation
+          climate_region: settlementForm.climate_region || null,
+          soil_type: settlementForm.soil_type || null,
+          land_cover: settlementForm.land_cover || null,
+          altitude_range: settlementForm.altitude_range || null,
+          proximity_to_river: settlementForm.proximity_to_river || null,
+          proximity_to_flood_plain: settlementForm.proximity_to_flood_plain || null,
+          // Send computed score/rating as fallback (backend recomputes and overwrites)
+          vulnerability_total_score: (computedScore.value?.total_score ?? settlementForm.vulnerability_total_score) ?? null,
+          vulnerability_rating: (computedScore.value?.rating ?? settlementForm.vulnerability_rating) || null
         }
 
         if (isEditMode.value && editingSettlementId.value) {
@@ -1636,7 +1683,15 @@ const clearFormAndGeometry = () => {
     avg_rent: null,
     main_env_hazards: null,
     general_location: null,
-    comments: null
+    comments: null,
+    climate_region: null,
+    soil_type: null,
+    land_cover: null,
+    altitude_range: null,
+  proximity_to_river: null,
+  proximity_to_flood_plain: null,
+  vulnerability_total_score: null,
+  vulnerability_rating: null
   })
   
   // Clear geometry
@@ -1891,8 +1946,72 @@ const handleUploadClick = () => {
   console.log('Show upload dialog', showUploadDialog.value)
 }
 
+// Compute vulnerability score when attributes change
+watch(
+  () => [
+    settlementForm.climate_region,
+    settlementForm.soil_type,
+    settlementForm.land_cover,
+    settlementForm.altitude_range,
+    settlementForm.proximity_to_river,
+    settlementForm.proximity_to_flood_plain
+  ],
+  async (vals) => {
+    const hasAll = vals.every((v) => v && String(v).trim())
+    if (!hasAll) {
+      computedScore.value = null
+      return
+    }
+    try {
+      const res = await computeVulnerabilityScore({
+        climate_region: settlementForm.climate_region,
+        soil_type: settlementForm.soil_type,
+        land_cover: settlementForm.land_cover,
+        altitude_range: settlementForm.altitude_range,
+        proximity_to_river: settlementForm.proximity_to_river,
+        proximity_to_flood_plain: settlementForm.proximity_to_flood_plain
+      })
+      if (res.code === '0000') {
+        computedScore.value = res.data
+      } else {
+        computedScore.value = null
+      }
+    } catch {
+      computedScore.value = null
+    }
+  },
+  { deep: true }
+)
+
+// Load vulnerability matrix options for dropdowns
+const loadVulnerabilityOptions = async () => {
+  const fallback = Object.fromEntries(
+    Object.entries(VULNERABILITY_FALLBACK).map(([k, vals]) => [
+      k,
+      vals.map((v) => ({ label: v, value: v }))
+    ])
+  )
+  try {
+    const res = await getVulnerabilityMatrix()
+    if (res.code === '0000' && res.data?.length) {
+      const grouped: Record<string, { label: string; value: string }[]> = {}
+      for (const row of res.data) {
+        const t = row.attribute_type
+        if (!grouped[t]) grouped[t] = []
+        grouped[t].push({ label: row.attribute_value, value: row.attribute_value })
+      }
+      vulnerabilityOptions.value = { ...fallback, ...grouped }
+    } else {
+      vulnerabilityOptions.value = fallback
+    }
+  } catch {
+    vulnerabilityOptions.value = fallback
+  }
+}
+
 // Initialize on mount
 onMounted(async () => {
+  await loadVulnerabilityOptions()
   // Check if editing (route has id)
   const settlementId = route.query.id
   
@@ -2462,6 +2581,113 @@ onMounted(async () => {
           <el-input v-model="settlementForm.general_location" placeholder="Enter general location" />
         </el-form-item>
 
+        <el-divider content-position="left">
+          <span class="inline-flex items-center gap-1">
+            Vulnerability Assessment
+            <el-popover placement="right" :width="420" trigger="hover">
+              <template #default>
+                <div class="vulnerability-help-popover">
+                  <p class="text-sm font-medium mb-2">Each attribute contributes to the vulnerability score (KISIP Tool A):</p>
+                  <ul class="text-xs space-y-2">
+                    <li><strong>Region</strong> — Köppen climate classification (e.g. Tropical, Arid, Temperate). Options: {{ (vulnerabilityOptions.climate_region || []).map(o => o.label).join(', ') || '—' }}</li>
+                    <li><strong>Soil Type</strong> — Affects erosion and drainage. Options: {{ (vulnerabilityOptions.soil_type || []).map(o => o.label).join(', ') || '—' }}</li>
+                    <li><strong>Land Cover</strong> — Surface type affecting runoff. Options: {{ (vulnerabilityOptions.land_cover || []).map(o => o.label).join(', ') || '—' }}</li>
+                    <li><strong>Altitude Range (m)</strong> — Elevation bands. Options: {{ (vulnerabilityOptions.altitude_range || []).map(o => o.label).join(', ') || '—' }}</li>
+                    <li><strong>Proximity to River (m)</strong> — Distance to nearest river. Options: {{ (vulnerabilityOptions.proximity_to_river || []).map(o => o.label).join(', ') || '—' }}</li>
+                    <li><strong>Proximity to Flood Plain (m)</strong> — Distance to flood plain. Options: {{ (vulnerabilityOptions.proximity_to_flood_plain || []).map(o => o.label).join(', ') || '—' }}</li>
+                  </ul>
+                  <p class="text-xs mt-2 text-gray-500">Fill all 6 to compute the score. Ratings: LOW (green), MEDIUM (amber), HIGH (red).</p>
+                </div>
+              </template>
+              <template #reference>
+                <el-icon class="cursor-help text-gray-500" :size="16"><QuestionFilled /></el-icon>
+              </template>
+            </el-popover>
+          </span>
+        </el-divider>
+
+        <el-form-item label="Region">
+          <el-select v-model="settlementForm.climate_region" placeholder="Select region" filterable clearable style="width: 100%">
+            <el-option
+              v-for="item in vulnerabilityOptions.climate_region"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="Soil Type">
+          <el-select v-model="settlementForm.soil_type" placeholder="Select soil type" filterable clearable style="width: 100%">
+            <el-option
+              v-for="item in vulnerabilityOptions.soil_type"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="Land Cover">
+          <el-select v-model="settlementForm.land_cover" placeholder="Select land cover" filterable clearable style="width: 100%">
+            <el-option
+              v-for="item in vulnerabilityOptions.land_cover"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="Altitude Range (m)">
+          <el-select v-model="settlementForm.altitude_range" placeholder="Select altitude range" filterable clearable style="width: 100%">
+            <el-option
+              v-for="item in vulnerabilityOptions.altitude_range"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="Proximity to River (m)">
+          <el-select v-model="settlementForm.proximity_to_river" placeholder="Select proximity to river" filterable clearable style="width: 100%">
+            <el-option
+              v-for="item in vulnerabilityOptions.proximity_to_river"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="Proximity to Flood Plain (m)">
+          <el-select v-model="settlementForm.proximity_to_flood_plain" placeholder="Select proximity to flood plain" filterable clearable style="width: 100%">
+            <el-option
+              v-for="item in vulnerabilityOptions.proximity_to_flood_plain"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="Vulnerability Score">
+          <template v-if="computedScore || settlementForm.vulnerability_total_score != null">
+            <div class="vulnerability-score-display" :class="`rating-${(computedScore?.rating ?? settlementForm.vulnerability_rating)?.toLowerCase()}`">
+              <el-input :model-value="String(computedScore?.total_score ?? settlementForm.vulnerability_total_score ?? '—')" disabled style="width: 80px; margin-right: 8px" />
+              <el-tag
+                v-if="(computedScore?.rating ?? settlementForm.vulnerability_rating)"
+                :type="vulnerabilityRatingType"
+                size="small"
+              >
+                {{ computedScore?.rating ?? settlementForm.vulnerability_rating }}
+              </el-tag>
+            </div>
+          </template>
+          <span v-else style="font-size: 13px; color: #909399;">Fill all 6 attributes above to compute</span>
+        </el-form-item>
+
         <el-form-item label="Comments/Remarks">
           <el-input v-model="settlementForm.comments" type="textarea" :rows="3" placeholder="Enter comments" />
         </el-form-item>
@@ -2534,6 +2760,44 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.vulnerability-score-display {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border-left: 4px solid #e4e7ed;
+  background: #fafafa;
+}
+
+.vulnerability-score-display.rating-high {
+  border-left-color: #f56c6c;
+  background: #fef0f0;
+}
+
+.vulnerability-score-display.rating-medium {
+  border-left-color: #e6a23c;
+  background: #fdf6ec;
+}
+
+.vulnerability-score-display.rating-low {
+  border-left-color: #67c23a;
+  background: #f0f9eb;
+}
+
+.vulnerability-help-popover ul {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+}
+.vulnerability-help-popover li {
+  padding: 4px 0;
+  border-bottom: 1px solid #eee;
+}
+.vulnerability-help-popover li:last-child {
+  border-bottom: none;
+}
+
 .add-settlement-container {
   padding: 8px;
 }

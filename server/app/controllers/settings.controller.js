@@ -1,6 +1,7 @@
 const db = require('../models')
 const Sequelize = require('sequelize')
 const { Op } = Sequelize
+const { computeSettlementVulnerability } = require('../utils/vulnerability')
 
 /**
  * Get all module settings
@@ -235,6 +236,161 @@ exports.bulkUpdateSettings = async (req, res) => {
     res.status(500).send({
       code: '9999',
       message: 'Failed to update settings',
+      error: error.message
+    })
+  }
+}
+
+/**
+ * Get vulnerability weight matrix
+ */
+exports.getVulnerabilityMatrix = async (req, res) => {
+  try {
+    const rows = await db.models.vulnerability_matrix.findAll({
+      order: [['attribute_type', 'ASC'], ['sort_order', 'ASC']]
+    })
+    res.status(200).send({
+      code: '0000',
+      data: rows,
+      message: 'Vulnerability matrix retrieved successfully'
+    })
+  } catch (error) {
+    console.error('Error fetching vulnerability matrix:', error)
+    res.status(500).send({
+      code: '9999',
+      message: 'Failed to retrieve vulnerability matrix',
+      error: error.message
+    })
+  }
+}
+
+/**
+ * Bulk update vulnerability weight matrix
+ */
+exports.bulkUpdateVulnerabilityMatrix = async (req, res) => {
+  try {
+    const { rows } = req.body
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return res.status(400).send({
+        code: '1001',
+        message: 'Rows array is required'
+      })
+    }
+    for (const row of rows) {
+      const { id, score_temperature, score_rainfall, score_drought, score_soil_erosion,
+        score_land_slide, score_food_insecurity, score_pollution, score_moisture_content,
+        score_flash_floods, score_flooding } = row
+      if (!id) continue
+      const updateData = {}
+      const scoreFields = ['score_temperature', 'score_rainfall', 'score_drought', 'score_soil_erosion',
+        'score_land_slide', 'score_food_insecurity', 'score_pollution', 'score_moisture_content',
+        'score_flash_floods', 'score_flooding']
+      for (const f of scoreFields) {
+        if (row[f] !== undefined && row[f] !== null) updateData[f] = row[f]
+      }
+      if (Object.keys(updateData).length) {
+        await db.models.vulnerability_matrix.update(updateData, { where: { id } })
+      }
+    }
+    res.status(200).send({
+      code: '0000',
+      data: { updated: rows.length },
+      message: 'Vulnerability matrix updated successfully'
+    })
+  } catch (error) {
+    console.error('Error updating vulnerability matrix:', error)
+    res.status(500).send({
+      code: '9999',
+      message: 'Failed to update vulnerability matrix',
+      error: error.message
+    })
+  }
+}
+
+/**
+ * Get vulnerability rating thresholds
+ */
+exports.getVulnerabilityRatingThresholds = async (req, res) => {
+  try {
+    const rows = await db.models.vulnerability_rating_threshold.findAll({
+      order: [['sort_order', 'ASC']]
+    })
+    res.status(200).send({
+      code: '0000',
+      data: rows,
+      message: 'Rating thresholds retrieved successfully'
+    })
+  } catch (error) {
+    console.error('Error fetching rating thresholds:', error)
+    res.status(500).send({
+      code: '9999',
+      message: 'Failed to retrieve rating thresholds',
+      error: error.message
+    })
+  }
+}
+
+/**
+ * Bulk update vulnerability rating thresholds
+ */
+exports.bulkUpdateVulnerabilityRatingThresholds = async (req, res) => {
+  try {
+    const { rows } = req.body
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return res.status(400).send({
+        code: '1001',
+        message: 'Rows array is required'
+      })
+    }
+    for (const row of rows) {
+      const { id, min_score, max_score } = row
+      if (!id) continue
+      const updateData = {}
+      if (min_score !== undefined && min_score !== null) updateData.min_score = min_score
+      if (max_score !== undefined) updateData.max_score = max_score === '' || max_score === null ? null : max_score
+      if (Object.keys(updateData).length) {
+        await db.models.vulnerability_rating_threshold.update(updateData, { where: { id } })
+      }
+    }
+    res.status(200).send({
+      code: '0000',
+      data: { updated: rows.length },
+      message: 'Rating thresholds updated successfully'
+    })
+  } catch (error) {
+    console.error('Error updating rating thresholds:', error)
+    res.status(500).send({
+      code: '9999',
+      message: 'Failed to update rating thresholds',
+      error: error.message
+    })
+  }
+}
+
+/**
+ * Compute vulnerability score from attribute values (for preview)
+ */
+exports.computeVulnerabilityScore = async (req, res) => {
+  try {
+    const { climate_region, soil_type, land_cover, altitude_range, proximity_to_river, proximity_to_flood_plain } = req.body
+    const { total_score, rating } = await computeSettlementVulnerability(db, {
+      climate_region,
+      soil_type,
+      land_cover,
+      altitude_range,
+      proximity_to_river,
+      proximity_to_flood_plain
+    })
+    res.status(200).send({
+      code: '0000',
+      data: { total_score, rating },
+      message: 'Score computed successfully'
+    })
+  } catch (error) {
+    console.error('Error computing vulnerability score:', error)
+    res.status(500).send({
+      code: '9999',
+      message: 'Failed to compute score',
       error: error.message
     })
   }
