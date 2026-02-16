@@ -2514,9 +2514,8 @@ const loadMapData = async () => {
       <ElButton circle title="Locate Me" class="geolocate-btn" plain @click="locateMe">
         <Icon icon="mage:location-fill" />
       </ElButton>
-    <ElButton title="Download Geographic Data" class="download-btn" plain @click="downloadGeo">
-      <Icon icon="solar:download-bold" />
-      Download Data
+    <ElButton circle title="Download {{ title }} Data" class="download-btn" plain @click="downloadGeo">
+      <Icon icon="mdi:download" />
       </ElButton>
     </div>
 </template>

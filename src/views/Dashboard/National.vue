@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import {
-  ElRow, ElCol, ElCard, ElEmpty, ElTabs, ElTabPane, ElSkeleton, ElCascader, ElCascaderPanel, ElCascaderPanelContext, ElSelect, ElOption, ElCollapse, ElCollapseItem
+  ElRow, ElCol, ElCard, ElEmpty, ElTabs, ElTabPane, ElSkeleton, ElCascader, ElCascaderPanel, ElCascaderPanelContext, ElSelect, ElOption, ElCollapse, ElCollapseItem, ElButton, ElDrawer
 } from 'element-plus'
-import { ref, reactive, watch, onBeforeMount, onMounted } from 'vue'
+import { ref, reactive, watch, onBeforeMount, onMounted, onBeforeUnmount } from 'vue'
 import { Icon } from '@iconify/vue';
 import {
   pieOptions,  multipleBarChart, stacklineOptions, mapChartOptions,treemapOptions,pyramidOptions,
@@ -26,7 +26,7 @@ import { provide } from 'vue';
 import { getRoutesList } from '@/api/settlements'
 import { inject } from 'vue'
 import { useRouter } from 'vue-router'
-import { FullScreen, Loading } from '@element-plus/icons-vue'
+import { Loading, Download } from '@element-plus/icons-vue'
 
 const { push } = useRouter()
 
@@ -126,7 +126,64 @@ const geoLoading = ref(true)
 const chartsLoading = ref(true)
 const dashboardLoading = ref(true)
 const chartLoadingMessages = ref(new Map()) // Track loading messages for individual charts
-const activeCollapse = ref([ ])
+const filtersVisible = ref(false)
+const tempCounty = ref([])
+const tempSubCounty = ref([])
+
+// Toggle filters visibility
+const toggleFilters = () => {
+  filtersVisible.value = !filtersVisible.value
+  if (filtersVisible.value) {
+    // Store current values when opening
+    tempCounty.value = [...selectCounty.value]
+    tempSubCounty.value = [...selectSubCounty.value]
+  }
+}
+
+// Cancel filter changes
+const cancelFilters = () => {
+  // Restore original values
+  selectCounty.value = [...tempCounty.value]
+  selectSubCounty.value = [...tempSubCounty.value]
+  filtersVisible.value = false
+}
+
+// Handle drawer close (for before-close prop)
+const handleDrawerClose = (done: () => void) => {
+  // Just close the drawer without clearing filter values
+  filtersVisible.value = false
+  done()
+}
+
+// Confirm and apply filters
+const confirmFilters = () => {
+  // Apply filters based on what's selected
+  if (selectCounty.value.length > 0) {
+    filterCounty(selectCounty.value)
+    // If subcounty is also selected, apply it after county
+    if (selectSubCounty.value.length > 0) {
+      setTimeout(() => {
+        filterSubCounty(selectSubCounty.value)
+      }, 100)
+    }
+  } else if (selectSubCounty.value.length > 0) {
+    // Only subcounty selected
+    filterSubCounty(selectSubCounty.value)
+  } else {
+    // Both cleared - reset all
+    handleClear()
+  }
+  filtersVisible.value = false
+}
+
+// Listen for filter toggle event from TagsView
+onMounted(() => {
+  window.addEventListener('toggle-national-filters', toggleFilters)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('toggle-national-filters', toggleFilters)
+})
 
 // Helper functions for chart loading states
 const setChartLoading = (chartId, message = 'Loading chart...') => {
@@ -153,6 +210,9 @@ const selectedCounties = ref([])
 const selectedSubCounties = ref([])
 const selectedWards = ref([])
 const options = ref([])
+
+// Selected settlement for download
+const selectedSettlement = ref<{name: string, value: number, chartId: string} | null>(null)
 
 const props = {
   expandTrigger: 'hover' as const,
@@ -787,14 +847,20 @@ formData.ignoreEmpty = ignoreEmpty
 
 }
 
+// Request ID to track current request and prevent race conditions
+let currentCardRequestId = 0
+
 const getCardData = async () => {
+  // Increment request ID for this request
+  currentCardRequestId++
+  const requestId = currentCardRequestId
 
   var filters = ['dashboard_id']
   var filterValues = [[dashboard_id.value]]  // make sure the inner array is array
 
-
-
+  // Clear cards at the start of a new request
   cards.value = []
+
   const formData = {}
   // formData.limit = 10
   // formData.page = 1
@@ -813,6 +879,12 @@ const getCardData = async () => {
   //console.log(formData)
   const res = await getSettlementListByCounty(formData)
 
+  // Check if this request is still the latest one
+  if (requestId !== currentCardRequestId) {
+    console.log('Request outdated, ignoring results')
+    return
+  }
+
   // cards.value = res.data
  
   res.data.forEach(function async(arrayItem) {
@@ -824,23 +896,44 @@ const getCardData = async () => {
       var cardSymbol = ''
        }
 
-
+    // Check if card already exists to prevent duplicates
+    const existingCardIndex = cards.value.findIndex(c => c.id === arrayItem.id)
+    
+    if (existingCardIndex === -1) {
+      // Initialize card with default value immediately
+      let card = { ...arrayItem }
+      card.value = undefined // Will be set when promise resolves
+      card.symbol = cardSymbol
+      
+      // Add card to array immediately so it shows up (with loading state)
+      cards.value.push(card)
+      cards.value.sort((a, b) => a.id - b.id);
+    } else {
+      // Card already exists, just update the symbol and reset value to undefined for reload
+      cards.value[existingCardIndex].value = undefined
+      cards.value[existingCardIndex].symbol = cardSymbol
+    }
 
     var result = getSummary(arrayItem)
   //  var result = getSummary(arrayItem.card_model, arrayItem.card_model_field, arrayItem.aggregation)
 
       result.then((crd) => {
+          // Check if this request is still the latest one before adding card
+          if (requestId !== currentCardRequestId) {
+            console.log('Request outdated, ignoring card result')
+            return
+          }
+
           console.log('resultx',crd); // "Promise resolved!"
-          let card = arrayItem
 
-          card.value = crd
-          card.symbol=cardSymbol
-
-          console.log('resultx2',card)
-
-
-          cards.value.push(card)
-          cards.value.sort((a, b) => a.id - b.id);
+          // Find the card in the array and update it
+          const cardIndex = cards.value.findIndex(c => c.id === arrayItem.id)
+          if (cardIndex !== -1) {
+            // Ensure value is set (0 is valid, null/undefined are not)
+            cards.value[cardIndex].value = (crd !== null && crd !== undefined) ? crd : 0
+            cards.value[cardIndex].symbol = cardSymbol
+            cards.value.sort((a, b) => a.id - b.id);
+          }
 
           console.log('Sorted',  cards.value)
 
@@ -859,7 +952,9 @@ const getCardData = async () => {
 
 
   console.log('After Querry', res)
-  cards.value.sort((a, b) => a.id - b.id);
+  if (requestId === currentCardRequestId) {
+    cards.value.sort((a, b) => a.id - b.id);
+  }
 
 }
 
@@ -2312,66 +2407,90 @@ const xhandleCardClick = async (card) => {
   }
 };
 
-const toggleFullscreen = (event: Event, chartId: string) => {
-  const chartContainer = document.getElementById(chartId)?.closest('.chart-wrapper');
-  if (chartContainer) {
-    if (document.fullscreenElement) {
-      document.exitFullscreen();
-    } else {
-      chartContainer.requestFullscreen();
-    }
+
+// Handle map click to select settlement
+const handleMapClick = (params: any, chartId: string) => {
+  if (params && params.name) {
+    selectedSettlement.value = {
+      name: params.name,
+      value: params.value || 0,
+      chartId: chartId
+    };
   }
+};
+
+// Download settlement data
+const downloadSettlementData = async () => {
+  if (!selectedSettlement.value) return;
+  
+  const settlement = selectedSettlement.value;
+  const data = {
+    location: settlement.name,
+    value: settlement.value,
+    timestamp: new Date().toISOString()
+  };
+  
+  const dataStr = JSON.stringify(data, null, 2);
+  const blob = new Blob([dataStr], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${settlement.name.replace(/\s+/g, '_')}_data.json`;
+  document.body.appendChild(link);
+  link.click();
+  
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 };
 
 </script>
 
 <template>
   <div class="dashboard-container" v-loading="dashboardLoading" element-loading-text="Loading dashboard..." element-loading-spinner="el-icon-loading" element-loading-background="rgba(0, 0, 0, 0.8)">
-    <el-collapse v-model="activeCollapse">
-      <el-collapse-item name="filters">
-        <template #title>
-          <div class="filter-header">
-            <Icon icon="mdi:filter-variant" width="20" class="filter-icon" />
-            <span>Filters</span>
-          </div>
-        </template>
-        <div class="filters-wrapper">
-          <div class="filters-container">
-            <div class="filter-group">
-              <label class="filter-label">County</label>
-              <el-select 
-                class="filter-select"
-                @change="filterCounty" 
-                :onClear="handleClear" 
-                v-model="selectCounty" 
-                multiple 
-                clearable 
-                filterable 
-                collapse-tags 
-                placeholder="Select County">
-                <el-option v-for="item in countyList" :key="item.value" :label="item.label" :value="item.value" />
-              </el-select>
-            </div>
-
-            <div class="filter-group">
-              <label class="filter-label">Constituency</label>
-              <el-select 
-                class="filter-select"
-                @change="filterSubCounty" 
-                :onClear="handleClear" 
-                v-model="selectSubCounty" 
-                clearable 
-                multiple 
-                filterable 
-                collapse-tags 
-                placeholder="Select Constituency">
-                <el-option v-for="item in filteredSubCountyList" :key="item.value" :label="item.label" :value="item.value" />
-              </el-select>
-            </div>
-          </div>
+    <!-- Filter Drawer -->
+    <el-drawer
+      v-model="filtersVisible"
+      title="Filters"
+      direction="rtl"
+      size="300px"
+      :before-close="handleDrawerClose"
+    >
+      <div class="filter-drawer-content">
+        <div class="filter-group">
+          <label class="filter-label">County</label>
+          <el-select 
+            class="filter-select"
+            v-model="selectCounty" 
+            multiple 
+            clearable 
+            filterable 
+            collapse-tags 
+            placeholder="Select County"
+            size="default">
+            <el-option v-for="item in countyList" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
         </div>
-      </el-collapse-item>
-    </el-collapse>
+        <div class="filter-group">
+          <label class="filter-label">Constituency</label>
+          <el-select 
+            class="filter-select"
+            v-model="selectSubCounty" 
+            clearable 
+            multiple 
+            filterable 
+            collapse-tags 
+            placeholder="Select Constituency"
+            size="default">
+            <el-option v-for="item in filteredSubCountyList" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </div>
+        <div class="filter-drawer-actions">
+          <el-button @click="cancelFilters">Cancel</el-button>
+          <el-button type="primary" @click="confirmFilters">Confirm</el-button>
+        </div>
+      </div>
+    </el-drawer>
 
     <el-row :gutter="16" class="cards-row">
       <el-col v-if="cards.length === 0 && !cardLoading" :span="24">
@@ -2379,7 +2498,7 @@ const toggleFullscreen = (event: Event, chartId: string) => {
       </el-col>
       <el-col v-for="(card) in cards" :key="card.id" :span="24 / cards.length" :xs="24" :sm="12" :md="8" :lg="6">
         <div class="tabs-container">
-          <ElSkeleton :loading="cardLoading" animated>
+          <ElSkeleton :loading="cardLoading || card.value === undefined || card.value === null" animated>
             <el-card shadow="hover" class="stat-card" :body-style="{ padding: '0' }">
               <div class="card-content">
                 <div class="icon-container" :style="{ backgroundColor: card.iconColor + '15' }">
@@ -2420,18 +2539,30 @@ const toggleFullscreen = (event: Event, chartId: string) => {
                           </div>
                         </template>
                         <template v-if="chart.chart">
-                          <div v-if="chart.type==7" :id="`map-container-${chart.id}`" style="width: 100%; height: 400px;">
-                            <v-chart :id="chart.id" class="chart" :option="chart.chart" style="width: 100%; height: 100%;" autoresize />
+                          <div v-if="chart.type==7" :id="`map-container-${chart.id}`" style="width: 100%; height: 400px; position: relative;">
+                            <v-chart 
+                              :id="chart.id" 
+                              class="chart" 
+                              :option="chart.chart" 
+                              style="width: 100%; height: 100%;" 
+                              autoresize 
+                              @click="(params) => handleMapClick(params, chart.id)"
+                            />
+                            <div 
+                              v-if="selectedSettlement && selectedSettlement.chartId === chart.id" 
+                              class="settlement-download-btn"
+                            >
+                              <el-button 
+                                type="primary" 
+                                :icon="Download" 
+                                @click="downloadSettlementData"
+                                size="small"
+                              >
+                                Download {{ selectedSettlement.name }} Data
+                              </el-button>
+                            </div>
                           </div> 
                           <div v-if="chart.type!=7 && chart.type!=8" class="chart-wrapper">
-                            <div class="chart-actions">
-                              <el-button 
-                                class="fullscreen-btn" 
-                                @click="toggleFullscreen($event, chart.id)"
-                                :icon="FullScreen"
-                                circle
-                              />
-                            </div>
                             <apexchart 
                               :id="chart.id"
                               :options="chart.chart" 
@@ -2442,14 +2573,6 @@ const toggleFullscreen = (event: Event, chartId: string) => {
                             />
                           </div>
                           <div v-if="chart.type==8" class="chart-wrapper">
-                            <div class="chart-actions">
-                              <el-button 
-                                class="fullscreen-btn" 
-                                @click="toggleFullscreen($event, chart.id)"
-                                :icon="FullScreen"
-                                circle
-                              />
-                            </div>
                             <apexchart 
                               :id="chart.id"
                               type="bar" 
@@ -2761,30 +2884,43 @@ const toggleFullscreen = (event: Event, chartId: string) => {
   color: #606266;
 }
 
+.filter-drawer-content {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.filter-drawer-content .filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filter-drawer-content .filter-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--el-text-color-primary);
+}
+
+.filter-drawer-content .filter-select {
+  width: 100%;
+}
+
+.filter-drawer-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+
 .chart-wrapper {
   position: relative;
   width: 100%;
 }
 
-.chart-actions {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 10;
-  display: flex;
-  gap: 8px;
-}
-
-.fullscreen-btn {
-  background: rgba(255, 255, 255, 0.9);
-  border: none;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.fullscreen-btn:hover {
-  background: rgba(255, 255, 255, 1);
-  transform: scale(1.05);
-}
 
 /* Dark mode styles */
 @media (prefers-color-scheme: dark) {
@@ -2808,15 +2944,6 @@ const toggleFullscreen = (event: Event, chartId: string) => {
   
   .filter-label {
     color: var(--el-text-color-regular);
-  }
-  
-  .fullscreen-btn {
-    background: rgba(30, 30, 30, 0.9);
-    color: #fff;
-  }
-  
-  .fullscreen-btn:hover {
-    background: rgba(40, 40, 40, 1);
   }
 }
 

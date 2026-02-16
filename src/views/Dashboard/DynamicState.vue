@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import {
   ElRow, ElCol, ElCard, ElDivider, ElTabs, ElTabPane, ElSkeleton, ElCascader, ElCascaderPanel, 
-  ElCascaderPanelContext, ElSelect, ElOption,ElEmpty,ElCollapse,ElCollapseItem, ElIcon
+  ElCascaderPanelContext, ElSelect, ElOption,ElEmpty,ElCollapse,ElCollapseItem, ElIcon, ElDrawer, ElButton
 } from 'element-plus'
 import { Loading } from '@element-plus/icons-vue'
 
-import { ref,computed, reactive, watch, onMounted } from 'vue'
+import { ref,computed, reactive, watch, onMounted, onBeforeUnmount } from 'vue'
 
 
 
@@ -320,11 +320,18 @@ console.log('Filter FormData : ', formData)
 
 try {
   const response01 = await getSummarybyFieldFromMultipleIncludes(formData);
-  console.log("Cards sumamrye", response01.Total[0].sum)
+  
+  // Handle null/empty response
+  if (!response01 || !response01.Total || !Array.isArray(response01.Total) || response01.Total.length === 0) {
+    console.log('No data returned from backend for intervention card')
+    return 0;
+  }
+  
+  console.log("Cards sumamrye", response01.Total[0]?.sum)
   console.log('indicator_category_id', indicator_category_id)
 
  // const response = await getSumFilter(sumQuery);
-  const amount = response01.Total[0].sum ? parseInt(response01.Total[0].sum) : 0
+  const amount = response01.Total[0]?.sum ? parseInt(response01.Total[0].sum) : 0
   //console.log('Cumulative Data', response.data)
 
   return amount;
@@ -402,8 +409,15 @@ const getSummaryForIndicator = async (card) => {
   
   try {
     const response01 = await getSummarybyFieldFromMultipleIncludes(formData);
-    console.log("Indicator Cards summary", response01.Total[0].sum)
-    const amount = response01.Total[0].sum ? parseInt(response01.Total[0].sum) : 0
+    
+    // Handle null/empty response
+    if (!response01 || !response01.Total || !Array.isArray(response01.Total) || response01.Total.length === 0) {
+      console.log('No data returned from backend for indicator card')
+      return 0;
+    }
+    
+    console.log("Indicator Cards summary", response01.Total[0]?.sum)
+    const amount = response01.Total[0]?.sum ? parseInt(response01.Total[0].sum) : 0
     return amount;
   } catch (error) {
     console.error(error);
@@ -477,8 +491,17 @@ const getSummaryForEntity = async (card) => {
 
   try {
     const response01 = await getSummarybyFieldFromMultipleIncludes(formData);
+    
+    // Handle null/empty response
+    if (!response01 || !response01.Total || !Array.isArray(response01.Total) || response01.Total.length === 0) {
+      console.log('No data returned from backend for entity card:', selectModel)
+      return 0;
+    }
+    
+    // Check if the aggregation method result exists
+    const resultValue = response01.Total[0]?.[aggregMethod]
+    const amount = (resultValue !== null && resultValue !== undefined) ? parseInt(resultValue) : 0
    // console.log("Entity Cards summary", response01)
-    const amount = response01.Total[0][aggregMethod] ? parseInt(response01.Total[0][aggregMethod]) : 0
     return amount;
   } catch (error) {
     console.error(error);
@@ -1213,6 +1236,24 @@ const getCardData = async () => {
       var cardSymbol = ''
        }
 
+    // Check if card already exists to prevent duplicates
+    const existingCardIndex = cards.value.findIndex(c => c.id === arrayItem.id)
+    
+    if (existingCardIndex === -1) {
+      // Initialize card with default value immediately
+      let card = { ...arrayItem }
+      card.value = undefined // Will be set when promise resolves
+      card.symbol = cardSymbol
+      
+      // Add card to array immediately so it shows up (with loading state)
+      cards.value.push(card)
+      cards.value.sort((a, b) => a.id - b.id);
+    } else {
+      // Card already exists, just update the symbol and reset value to undefined for reload
+      cards.value[existingCardIndex].value = undefined
+      cards.value[existingCardIndex].symbol = cardSymbol
+    }
+
        let result
     if (arrayItem.category=='Intervention') {
       result = getSummaryIfIntervention(arrayItem)
@@ -1223,31 +1264,36 @@ const getCardData = async () => {
 
     }
  
-    // result.then((crd) => {
-    //   console.log('resultx',crd); // "Promise resolved!"
-    //   let card = arrayItem
-    //   card.value = crd
-    //   card.symbol=cardSymbol
-    //   cards.value.push(card)
-    // });
+    // Create a promise with timeout to prevent hanging forever
+    const timeoutPromise = new Promise((resolve) => {
+      setTimeout(() => resolve(0), 10000) // 10 second timeout
+    })
 
-    result.then((crd) => {
-      console.log('resultx',crd); // "Promise resolved!"
-      let card = arrayItem
+    Promise.race([result, timeoutPromise])
+      .then((crd) => {
+        console.log('resultx',crd); // "Promise resolved!"
 
-      card.value = crd
-      card.symbol=cardSymbol
+        // Find the card in the array and update it
+        const cardIndex = cards.value.findIndex(c => c.id === arrayItem.id)
+        if (cardIndex !== -1) {
+          // Ensure value is set (0 is valid, null/undefined are not)
+          cards.value[cardIndex].value = (crd !== null && crd !== undefined) ? crd : 0
+          cards.value[cardIndex].symbol = cardSymbol
+          cards.value.sort((a, b) => a.id - b.id);
+        }
 
-      console.log('resultx2',card)
-
-
-      cards.value.push(card)
-      cards.value.sort((a, b) => a.id - b.id);
-
-      console.log('Sorted',  cards.value)
-
-
-    });
+        console.log('Sorted',  cards.value)
+      })
+      .catch((error) => {
+        console.error('Error loading card:', arrayItem.id, error)
+        // Update card with default value 0 on error
+        const cardIndex = cards.value.findIndex(c => c.id === arrayItem.id)
+        if (cardIndex !== -1) {
+          cards.value[cardIndex].value = 0
+          cards.value[cardIndex].symbol = cardSymbol
+          cards.value.sort((a, b) => a.id - b.id);
+        }
+      });
 
 
   })
@@ -3163,10 +3209,18 @@ const handleClear = async () => {
 
   cardLoading.value = true
   chartsLoading.value = true
-  await Promise.all([
-    getCards(),
-    getTabs()
-  ])
+  try {
+    await Promise.all([
+      getCards(),
+      getTabs()
+    ])
+  } catch (error) {
+    console.error('Error in handleClear:', error)
+  } finally {
+    // Ensure loading states are cleared
+    cardLoading.value = false
+    chartsLoading.value = false
+  }
 }
 
 
@@ -3186,10 +3240,18 @@ console.log(selectedCounties.value);  // [1]
   }
   cardLoading.value = true
   chartsLoading.value = true
-  await Promise.all([
-    getCards(),
-    getTabs()
-  ])
+  try {
+    await Promise.all([
+      getCards(),
+      getTabs()
+    ])
+  } catch (error) {
+    console.error('Error in filterCounty:', error)
+  } finally {
+    // Ensure loading states are cleared
+    cardLoading.value = false
+    chartsLoading.value = false
+  }
   console.log('filterLevel.value', selectedCounties.value)
      
 }
@@ -3212,10 +3274,18 @@ selectedSubCounties.value = subcountyId;
 }  
   cardLoading.value = true
   chartsLoading.value = true
-  await Promise.all([
-    getCards(),
-    getTabs()
-  ])
+  try {
+    await Promise.all([
+      getCards(),
+      getTabs()
+    ])
+  } catch (error) {
+    console.error('Error in filterSubCounty:', error)
+  } finally {
+    // Ensure loading states are cleared
+    cardLoading.value = false
+    chartsLoading.value = false
+  }
 }
 
 
@@ -3323,65 +3393,126 @@ const handleCardClick = async (card) => {
   }
 };
 
-const activeCollapse = ref([])
+const filtersVisible = ref(false)
+const tempCounty = ref([])
+const tempSubCounty = ref([])
+
+// Toggle filters visibility
+const toggleFilters = () => {
+  filtersVisible.value = !filtersVisible.value
+  if (filtersVisible.value) {
+    // Store current values when opening
+    tempCounty.value = [...selectCounty.value]
+    tempSubCounty.value = [...selectSubCounty.value]
+  }
+}
+
+// Cancel filter changes
+const cancelFilters = () => {
+  // Restore original values
+  selectCounty.value = [...tempCounty.value]
+  selectSubCounty.value = [...tempSubCounty.value]
+  filtersVisible.value = false
+}
+
+// Handle drawer close (for before-close prop)
+const handleDrawerClose = (done: () => void) => {
+  // Just close the drawer without clearing filter values
+  filtersVisible.value = false
+  done()
+}
+
+// Confirm and apply filters
+const confirmFilters = () => {
+  // Apply filters based on what's selected
+  if (selectCounty.value.length > 0) {
+    filterCounty(selectCounty.value)
+    // If subcounty is also selected, apply it after county
+    if (selectSubCounty.value.length > 0) {
+      setTimeout(() => {
+        filterSubCounty(selectSubCounty.value)
+      }, 100)
+    }
+  } else if (selectSubCounty.value.length > 0) {
+    // Only subcounty selected
+    filterSubCounty(selectSubCounty.value)
+  } else {
+    // Both cleared - reset all
+    handleClear()
+  }
+  filtersVisible.value = false
+}
+
+// Listen for filter toggle event from TagsView
+onMounted(() => {
+  window.addEventListener('toggle-dynamic-state-filters', toggleFilters)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('toggle-dynamic-state-filters', toggleFilters)
+})
 
 </script>
 
 <template>
   <div class="dashboard-container">
-    <el-collapse v-model="activeCollapse">
-      <el-collapse-item name="filters">
-        <template #title>
-          <div class="filter-header">
-            <Icon icon="mdi:filter-variant" width="20" class="filter-icon" />
-            <span>Filters</span>
-          </div>
-        </template>
-        <div class="filters-wrapper">
-          <div class="filters-container">
-            <div class="filter-group">
-              <label class="filter-label">County</label>
-              <el-select 
-                class="filter-select"
-                @change="filterCounty" 
-                @clear="handleClear" 
-                v-model="selectCounty" 
-                multiple 
-                clearable 
-                filterable 
-                collapse-tags 
-                placeholder="Select County">
-                <el-option 
-                  v-for="item in countyList" 
-                  :key="item.value" 
-                  :label="item.label" 
-                  :value="item.value" />
-              </el-select>
-            </div>
-
-            <div class="filter-group">
-              <label class="filter-label">Constituency</label>
-              <el-select 
-                class="filter-select"
-                @change="filterSubCounty" 
-                @clear="handleClear" 
-                v-model="selectSubCounty" 
-                clearable 
-                multiple 
-                filterable 
-                collapse-tags 
-                placeholder="Select Constituency">
-                <el-option 
-                  v-for="item in filteredSubCountyList" 
-                  :key="item.value" 
-                  :label="item.label" 
-                  :value="item.value" />
-              </el-select>
-            </div>
-          </div>
+    <!-- Filter Drawer -->
+    <el-drawer
+      v-model="filtersVisible"
+      title="Filters"
+      direction="rtl"
+      size="300px"
+      :before-close="handleDrawerClose"
+    >
+      <div class="filter-panel-content">
+        <div class="filter-group">
+          <label class="filter-label">County</label>
+          <el-select 
+            class="filter-select"
+            @change="filterCounty" 
+            @clear="handleClear" 
+            v-model="selectCounty" 
+            multiple 
+            clearable 
+            filterable 
+            collapse-tags 
+            placeholder="Select County"
+            size="small">
+            <el-option 
+              v-for="item in countyList" 
+              :key="item.value" 
+              :label="item.label" 
+              :value="item.value" />
+          </el-select>
         </div>
-      </el-collapse-item>
-    </el-collapse>
+
+        <div class="filter-group">
+          <label class="filter-label">Constituency</label>
+          <el-select 
+            class="filter-select"
+            @change="filterSubCounty" 
+            @clear="handleClear" 
+            v-model="selectSubCounty" 
+            clearable 
+            multiple 
+            filterable 
+            collapse-tags 
+            placeholder="Select Constituency"
+            size="small">
+            <el-option 
+              v-for="item in filteredSubCountyList" 
+              :key="item.value" 
+              :label="item.label" 
+              :value="item.value" />
+          </el-select>
+        </div>
+
+        <div class="filter-panel-actions">
+          <el-button @click="cancelFilters" size="small">Cancel</el-button>
+          <el-button type="primary" @click="confirmFilters" size="small">Confirm</el-button>
+        </div>
+      </div>
+    </el-drawer>
 
     <el-row :gutter="16" class="cards-row">
       <el-col v-if="cards.length === 0 && !cardLoading" :span="24">
@@ -3389,7 +3520,7 @@ const activeCollapse = ref([])
       </el-col>
       <el-col v-for="(card) in cards" :key="card.id" :span="24 / cards.length" :xs="24" :sm="12" :md="8" :lg="6">
         <div class="tabs-container">
-          <ElSkeleton :loading="cardLoading || !card.value" animated>
+          <ElSkeleton :loading="cardLoading || card.value === undefined || card.value === null" animated>
             <el-card shadow="hover" class="stat-card" :body-style="{ padding: '0' }">
               <div class="card-content">
                 <div class="icon-container" :style="{ backgroundColor: card.iconColor + '15' }">
@@ -3745,6 +3876,26 @@ const activeCollapse = ref([])
 
 .filter-icon {
   color: #606266;
+}
+
+.filter-panel-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 8px 0;
+}
+
+.filter-panel-content .filter-select {
+  width: 100%;
+}
+
+.filter-panel-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--el-border-color-lighter);
 }
 
 .chart-loading-container {

@@ -9,6 +9,7 @@
 
   <!-- Filters panel -->
   <div 
+    v-if="filtersVisible"
     class="floating-collapse" 
     :class="{ 'mobile-open': filtersVisible && isMobile, 'mobile-closed': !filtersVisible && isMobile }"
   >

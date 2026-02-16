@@ -253,6 +253,34 @@ const move = (to: number) => {
   start()
 }
 
+// Toggle filters for National page
+const toggleNationalFilters = () => {
+  // Emit event to parent or use provide/inject
+  // For now, we'll dispatch a custom event that National.vue can listen to
+  window.dispatchEvent(new CustomEvent('toggle-national-filters'))
+}
+
+// Toggle filters for DynamicState page
+const toggleDynamicStateFilters = () => {
+  // Dispatch a custom event that DynamicState.vue can listen to
+  window.dispatchEvent(new CustomEvent('toggle-dynamic-state-filters'))
+}
+
+// Check if current route is a DynamicState route
+const isDynamicStateRoute = computed(() => {
+  const path = currentRoute.value.path || ''
+  const name = currentRoute.value.name || ''
+  const meta = currentRoute.value.meta || {}
+  
+  // Check if path contains 'status_' (case insensitive)
+  const hasStatusPath = path.toLowerCase().includes('status_')
+  
+  // Check if it has dashboard_id in meta and is not National route
+  const hasDashboardId = !!meta.dashboard_id && name !== 'National'
+  
+  return hasStatusPath || hasDashboardId
+})
+
 onMounted(() => {
   initTags()
   addTags()
@@ -379,6 +407,20 @@ v-if="
       class="w-[var(--tags-view-height)] h-[var(--tags-view-height)] text-center leading-[var(--tags-view-height)] cursor-pointer"
       @click="refreshSelectedTag(selectedTag)">
       <Icon icon="ant-design:reload-outlined" :color="appStore.getIsDark ? 'var(--el-text-color-regular)' : '#333'" />
+    </span>
+    <span
+      v-if="currentRoute.name === 'National'"
+      :class="`${prefixCls}__tool`"
+      class="w-[var(--tags-view-height)] h-[var(--tags-view-height)] text-center leading-[var(--tags-view-height)] cursor-pointer"
+      @click="toggleNationalFilters">
+      <Icon icon="mdi:filter-variant" :color="appStore.getIsDark ? 'var(--el-text-color-regular)' : '#333'" />
+    </span>
+    <span
+      v-if="isDynamicStateRoute"
+      :class="`${prefixCls}__tool`"
+      class="w-[var(--tags-view-height)] h-[var(--tags-view-height)] text-center leading-[var(--tags-view-height)] cursor-pointer"
+      @click="toggleDynamicStateFilters">
+      <Icon icon="mdi:filter-variant" :color="appStore.getIsDark ? 'var(--el-text-color-regular)' : '#333'" />
     </span>
     <ContextMenu
 trigger="click" :schema="[
