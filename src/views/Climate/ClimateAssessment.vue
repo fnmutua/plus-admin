@@ -178,7 +178,7 @@
               </div>
             </ElTabPane>
 
-            <!-- Overall Score tab (last) -->
+            <!-- Overall Score tab -->
             <ElTabPane name="overall" :label="overallTabLabel">
               <div class="tab-content overall-score-content">
                 <div class="scores-grid" v-if="assessment.vulnerability_rating || assessment.risk_rating">
@@ -266,6 +266,60 @@
                 <p v-else class="score-placeholder">
                   Complete the questionnaire and click "Save & Compute Scores" to see the overall assessment.
                 </p>
+              </div>
+            </ElTabPane>
+
+            <!-- Documentation tab -->
+            <ElTabPane name="docs" label="Documentation">
+              <div class="tab-content">
+                <div class="docs-header-row">
+                  <ElInput
+                    v-model="docsSearch"
+                    placeholder="Search documents..."
+                    clearable
+                    size="small"
+                    style="max-width: 260px;"
+                  />
+                </div>
+
+                <!-- Upload dialog component -->
+                <div v-if="docsUploadComponent">
+                  <component
+                    :is="docsUploadComponent"
+                    v-bind="docsUploadProps"
+                    @upload-complete="handleDocsUploadComplete"
+                  />
+                </div>
+
+                <!-- Documents list -->
+                <div class="docs-list-wrapper">
+                  <div v-if="docsLoading" class="docs-loading">
+                    <ElIcon class="docs-loading-icon"><Loading /></ElIcon>
+                    <span>Loading documents...</span>
+                  </div>
+                  <div v-else-if="docsError" class="docs-error">
+                    <ElIcon class="docs-error-icon"><WarningFilled /></ElIcon>
+                    <span>{{ docsError }}</span>
+                  </div>
+                  <div v-else-if="!docsListData.documents?.length">
+                    <ElEmpty description="No documentation uploaded yet." />
+                  </div>
+                  <div v-else-if="docsListComponent">
+                    <component
+                      :is="docsListComponent"
+                      :data="docsListViewData"
+                      docmodel="settlement"
+                      field="settlement_id"
+                      :hide-import="true"
+                    />
+                  </div>
+                </div>
+
+                <div class="docs-footer-row">
+                  <ElButton type="info" plain @click="openDocsUpload">
+                    Upload Documentation
+                  </ElButton>
+                </div>
               </div>
             </ElTabPane>
           </ElTabs>
@@ -358,7 +412,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, defineAsyncComponent } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useCache } from '@/hooks/web/useCache'
 import { useAppStoreWithOut } from '@/store/modules/app'
@@ -382,7 +436,7 @@ import {
   ElTable,
   ElTableColumn
 } from 'element-plus'
-import { Back, Lightning, Location, TrendCharts, SetUp, WarningFilled, InfoFilled, Document } from '@element-plus/icons-vue'
+import { Back, Lightning, Location, TrendCharts, SetUp, WarningFilled, InfoFilled, Document, Loading } from '@element-plus/icons-vue'
 import {
   getQuestions,
   getAssessment,
@@ -392,6 +446,7 @@ import {
   type ClimateAssessment,
   type AssessmentQuestions
 } from '@/api/climate-assessment'
+import { getSettlementListByCounty } from '@/api/settlements'
 
 const route = useRoute()
 const router = useRouter()
@@ -538,6 +593,90 @@ const assessorName = computed(() => {
   return a.name || a.username || a.email || `User #${a.id}`
 })
 
+// Documentation upload (reuses generic UploadComponent, linked to the settlement)
+const docsUploadOpen = ref(false)
+const DocsUploadChild = defineAsyncComponent(() => import('@/views/Components/UploadComponent.vue'))
+const docsUploadComponent = ref<any | null>(null)
+const docsUploadProps = ref({
+  message: 'Climate assessment documentation',
+  showDialog: docsUploadOpen,
+  data: { id: null as number | null },
+  umodel: 'settlement',
+  field: 'settlement_id',
+  filterOptions: '' as string | undefined
+})
+
+const docsLoading = ref(false)
+const docsError = ref('')
+const docsListData = ref<{ documents: any[] }>({ documents: [] })
+const docsSearch = ref('')
+const docsListViewData = computed(() => {
+  const q = docsSearch.value.trim().toLowerCase()
+  if (!q) return { documents: docsListData.value.documents }
+  const filtered = (docsListData.value.documents || []).filter((d: any) =>
+    String(d.name || '').toLowerCase().includes(q)
+  )
+  return { documents: filtered }
+})
+const DocsListChild = defineAsyncComponent(() => import('@/views/Components/ListDocuments.vue'))
+const docsListComponent = ref<any | null>(null)
+const docsLoadedOnce = ref(false)
+
+const loadDocumentation = async () => {
+  const sid = assessment.value?.settlement_id
+  if (!sid) {
+    docsError.value = 'Settlement is required before loading documentation.'
+    docsListData.value = { documents: [] }
+    return
+  }
+  docsLoading.value = true
+  docsError.value = ''
+  try {
+    const formData: any = {
+      limit: 1000,
+      page: 1,
+      curUser: 1,
+      model: 'document',
+      searchField: 'name',
+      searchKeyword: '',
+      filters: ['settlement_id'],
+      filterValues: [[sid]],
+      associated_multiple_models: ['document_type'],
+      nested_models: []
+    }
+    const res: any = await getSettlementListByCounty(formData as any)
+    const data = res?.data ?? res?.results ?? []
+    docsListData.value = { documents: Array.isArray(data) ? data : [] }
+    docsLoadedOnce.value = true
+    if (!docsListComponent.value) docsListComponent.value = DocsListChild
+  } catch (e: any) {
+    console.error('Failed to load documentation for assessment', e)
+    docsError.value = e?.message || 'Failed to load documentation'
+    docsListData.value = { documents: [] }
+  } finally {
+    docsLoading.value = false
+  }
+}
+
+const openDocsUpload = () => {
+  const sid = assessment.value?.settlement_id
+  if (!sid) {
+    ElMessage.error('Settlement is required before uploading documentation.')
+    return
+  }
+  docsUploadProps.value.data = { id: sid }
+  docsUploadProps.value.showDialog = true
+  docsUploadComponent.value = null
+  docsUploadOpen.value = true
+  setTimeout(() => {
+    docsUploadComponent.value = DocsUploadChild
+  }, 100)
+}
+
+const handleDocsUploadComplete = async () => {
+  await loadDocumentation()
+}
+
 let saveTimeout: ReturnType<typeof setTimeout> | null = null
 const debouncedSave = () => {
   if (saveTimeout) clearTimeout(saveTimeout)
@@ -635,7 +774,13 @@ const goBack = () => {
   }
 }
 
-watch(activeTab, () => {
+watch(activeTab, async () => {
+  if (activeTab.value === 'docs') {
+    if (!docsLoadedOnce.value && !docsLoading.value) {
+      await loadDocumentation()
+    }
+    return
+  }
   if (activeTab.value === 'howto' || activeTab.value === 'overall') return
   const cats = questionsConfig.value?.[activeTab.value]?.categories || []
   const firstKey = cats[0]?.key ?? ''
@@ -873,10 +1018,26 @@ onMounted(async () => {
 .assessment-actions {
   display: flex;
   gap: 8px;
-  justify-content: flex-end;
+  justify-content: space-between;
   padding-top: 16px;
   margin-top: 16px;
   border-top: 1px solid var(--el-border-color);
+}
+
+.docs-header-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.docs-list-wrapper {
+  margin-top: 8px;
+}
+
+.docs-footer-row {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-start;
 }
 .collapse-title {
   font-weight: 500;

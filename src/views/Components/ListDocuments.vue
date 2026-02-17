@@ -32,7 +32,11 @@ const props = defineProps({
   showDialog: Boolean,
   data: Array,
   docmodel: String,
-  field: String
+  field: String,
+  hideImport: {
+    type: Boolean,
+    default: false
+  }
 })
 const { show } = toRefs(props)
 
@@ -314,6 +318,7 @@ const addDocument = () => {
       <div style="display: flex; justify-content: space-between; align-items: center;">
         <span>Actions</span>
         <el-button
+          v-if="!props.hideImport"
           size="small"
           type="primary"
           :icon="UploadFilled"
