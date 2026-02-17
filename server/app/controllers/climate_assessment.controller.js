@@ -1,4 +1,5 @@
 const db = require('../models')
+const { Op } = require('sequelize')
 const path = require('path')
 const fs = require('fs')
 
@@ -73,16 +74,27 @@ exports.getQuestions = async (req, res) => {
 
 exports.list = async (req, res) => {
   try {
-    const { settlement_id } = req.query
+    const { settlement_id, county_id } = req.query
     const where = {}
     if (settlement_id) where.settlement_id = settlement_id
+    if (county_id) {
+      // Support comma-separated (county_id=1,2,3) or single value; repeated keys often collapse to one in query
+      const raw = typeof county_id === 'string' && county_id.includes(',')
+        ? county_id.split(',').map((s) => s.trim())
+        : Array.isArray(county_id)
+          ? county_id.map((s) => String(s))
+          : [String(county_id)]
+      const numIds = raw.map((id) => parseInt(id, 10)).filter((n) => !Number.isNaN(n))
+      if (numIds.length) where.county_id = { [Op.in]: numIds }
+    }
 
     const assessments = await db.models.climate_assessment.findAll({
       where,
       order: [['assessed_at', 'DESC'], ['created_at', 'DESC']],
       include: [
-        { model: db.models.settlement, attributes: ['id', 'name', 'code'] },
-        { model: db.models.users, as: 'assessor', attributes: ['id', 'username', 'email'] },
+        { model: db.models.settlement, attributes: ['id', 'name', 'code', 'county_id'] },
+        { model: db.models.county, attributes: ['id', 'name'] },
+        { model: db.models.users, as: 'assessor', attributes: ['id', 'name', 'username', 'email'] },
       ],
     })
 
@@ -106,8 +118,9 @@ exports.getOne = async (req, res) => {
     const { id } = req.params
     const assessment = await db.models.climate_assessment.findByPk(id, {
       include: [
-        { model: db.models.settlement, attributes: ['id', 'name', 'code'] },
-        { model: db.models.users, as: 'assessor', attributes: ['id', 'username', 'email'] },
+        { model: db.models.settlement, attributes: ['id', 'name', 'code', 'county_id'] },
+        { model: db.models.county, attributes: ['id', 'name'] },
+        { model: db.models.users, as: 'assessor', attributes: ['id', 'name', 'username', 'email'] },
       ],
     })
 
@@ -144,9 +157,22 @@ exports.create = async (req, res) => {
       })
     }
 
+    const settlement = await db.models.settlement.findByPk(settlement_id, {
+      attributes: ['id', 'county_id'],
+    })
+    if (!settlement) {
+      return res.status(400).json({
+        message: 'Settlement not found',
+        code: 'NOT_FOUND',
+      })
+    }
+
+    // Auth middleware sets req.userid (lowercase); some code uses req.userId
+    const assessorId = req.userid ?? req.userId ?? req.thisUser?.id ?? null
     const assessment = await db.models.climate_assessment.create({
       settlement_id,
-      assessor_id: req.userId || null,
+      county_id: settlement.county_id || null,
+      assessor_id: assessorId,
       assessed_at: assessed_at || new Date(),
       status: 'draft',
       hazard_responses: {},
@@ -155,9 +181,17 @@ exports.create = async (req, res) => {
       adaptive_capacity_responses: {},
     })
 
+    // Return with assessor loaded so client gets username
+    const withAssessor = await db.models.climate_assessment.findByPk(assessment.id, {
+      include: [
+        { model: db.models.settlement, attributes: ['id', 'name', 'code', 'county_id'] },
+        { model: db.models.county, attributes: ['id', 'name'] },
+        { model: db.models.users, as: 'assessor', attributes: ['id', 'name', 'username', 'email'] },
+      ],
+    })
     return res.status(201).json({
       message: 'Climate assessment created',
-      data: assessment,
+      data: withAssessor || assessment,
       code: '0000',
     })
   } catch (error) {

@@ -4,10 +4,10 @@ const { hasPermission } = require('../middleware/permission')
 
 module.exports = function (app) {
   app.get('/api/v1/climate-assessment/questions', [authJwt.verifyToken], controller.getQuestions)
-  app.get('/api/v1/climate-assessment', [authJwt.verifyToken, hasPermission('settlement:read')], controller.list)
-  app.get('/api/v1/climate-assessment/:id', [authJwt.verifyToken, hasPermission('settlement:read')], controller.getOne)
-  app.post('/api/v1/climate-assessment', [authJwt.verifyToken, hasPermission('settlement:create')], controller.create)
-  app.put('/api/v1/climate-assessment/:id', [authJwt.verifyToken, hasPermission('settlement:update')], controller.update)
-  app.post('/api/v1/climate-assessment/:id/compute-scores', [authJwt.verifyToken, hasPermission('settlement:update')], controller.computeScores)
-  app.delete('/api/v1/climate-assessment/:id', [authJwt.verifyToken, hasPermission('settlement:delete')], controller.delete)
+  app.get('/api/v1/climate-assessment', [authJwt.verifyToken, hasPermission('climate_assessment:read')], controller.list)
+  app.get('/api/v1/climate-assessment/:id', [authJwt.verifyToken, hasPermission('climate_assessment:read')], controller.getOne)
+  app.post('/api/v1/climate-assessment', [authJwt.verifyToken, hasPermission('climate_assessment:create')], controller.create)
+  app.put('/api/v1/climate-assessment/:id', [authJwt.verifyToken, hasPermission('climate_assessment:update')], controller.update)
+  app.post('/api/v1/climate-assessment/:id/compute-scores', [authJwt.verifyToken, hasPermission('climate_assessment:update')], controller.computeScores)
+  app.delete('/api/v1/climate-assessment/:id', [authJwt.verifyToken, hasPermission('climate_assessment:delete')], controller.delete)
 }

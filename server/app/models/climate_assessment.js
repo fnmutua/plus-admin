@@ -16,6 +16,13 @@ module.exports = function (sequelize, DataTypes) {
         references: { model: 'settlement', key: 'id' },
         onDelete: 'CASCADE',
       },
+      county_id: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        references: { model: 'county', key: 'id' },
+        onUpdate: 'CASCADE',
+        onDelete: 'SET NULL',
+      },
       assessor_id: {
         type: DataTypes.INTEGER,
         allowNull: true,
@@ -77,6 +84,7 @@ module.exports = function (sequelize, DataTypes) {
       indexes: [
         { name: 'climate_assessment_pkey', unique: true, fields: [{ name: 'id' }] },
         { name: 'climate_assessment_settlement_idx', fields: ['settlement_id'] },
+        { name: 'climate_assessment_county_id_idx', fields: ['county_id'] },
         { name: 'climate_assessment_status_idx', fields: ['status'] },
       ],
     }

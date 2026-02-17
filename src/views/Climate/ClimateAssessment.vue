@@ -4,8 +4,7 @@
       <template #header>
         <div class="card-header">
           <div class="header-top">
-            <ElButton text type="primary" @click="goBack">
-              <ElIcon><ArrowLeft /></ElIcon>
+            <ElButton type="primary" plain :icon="Back" size="small" style="margin-right: 10px;" @click="goBack">
               Back
             </ElButton>
             <h2>Climate Risk & Vulnerability Assessment (Tool B)</h2>
@@ -13,7 +12,9 @@
               Score Interpretation
             </ElButton>
           </div>
-          <p v-if="contextName" class="context-name">{{ contextName }}</p>
+          <p v-if="countyName || settlementName || assessorName" class="context-name">
+            County: {{ countyName || '—' }} | Settlement: {{ settlementName || '—' }} | Assessor: {{ assessorName || '—' }}
+          </p>
         </div>
       </template>
 
@@ -116,7 +117,7 @@
               </div>
             </ElTabPane>
           </ElTabs>
-          <div class="assessment-actions">
+          <div v-if="canSave" class="assessment-actions">
             <ElButton type="primary" :loading="saving" @click="saveAssessment">
               Save & Compute Scores
             </ElButton>
@@ -193,6 +194,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useCache } from '@/hooks/web/useCache'
+import { useAppStoreWithOut } from '@/store/modules/app'
 import {
   ElCard,
   ElButton,
@@ -210,7 +213,7 @@ import {
   ElEmpty,
   ElMessage
 } from 'element-plus'
-import { ArrowLeft, Lightning, Location, TrendCharts, SetUp, WarningFilled, InfoFilled } from '@element-plus/icons-vue'
+import { Back, Lightning, Location, TrendCharts, SetUp, WarningFilled, InfoFilled } from '@element-plus/icons-vue'
 import {
   getQuestions,
   getAssessment,
@@ -223,6 +226,16 @@ import {
 
 const route = useRoute()
 const router = useRouter()
+const { wsCache } = useCache()
+const appStore = useAppStoreWithOut()
+const userPermissions = computed(() => {
+  const info = wsCache.get(appStore.getUserInfo)
+  return (info?.permissions ?? []) as string[]
+})
+const canSave = computed(() => {
+  const perms = userPermissions.value
+  return perms.length > 0 && (perms[0] === '*.*.*' || perms.includes('climate_assessment:update'))
+})
 
 const dimensions = ['hazard', 'exposure', 'sensitivity', 'adaptive_capacity']
 
@@ -316,11 +329,13 @@ const responses = ref<Record<string, Record<string, string>>>({
   adaptive_capacity: {}
 })
 
-const contextName = computed(() => {
-  if (assessment.value?.settlement) {
-    return `${assessment.value.settlement.name} (${assessment.value.settlement.code})`
-  }
-  return ''
+const countyName = computed(() => assessment.value?.county?.name ?? '')
+const settlementName = computed(() => assessment.value?.settlement?.name ?? '')
+
+const assessorName = computed(() => {
+  const a = assessment.value?.assessor
+  if (!a) return ''
+  return a.name || a.username || a.email || `User #${a.id}`
 })
 
 let saveTimeout: ReturnType<typeof setTimeout> | null = null
@@ -467,6 +482,11 @@ onMounted(async () => {
   margin: 4px 0 12px;
   color: var(--el-text-color-secondary);
   font-size: 0.85rem;
+}
+.assessor-name {
+  margin: 0 0 12px;
+  color: var(--el-text-color-secondary);
+  font-size: 0.8rem;
 }
 .assessment-tabs {
   margin-top: 0;

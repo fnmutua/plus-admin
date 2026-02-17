@@ -5,6 +5,7 @@ const prod = import.meta.env.VITE_APP_HOST
 export interface ClimateAssessment {
   id: number
   settlement_id: number
+  county_id?: number | null
   assessor_id?: number | null
   assessed_at?: string | null
   status: string
@@ -17,8 +18,9 @@ export interface ClimateAssessment {
   exposure_responses?: Record<string, string>
   sensitivity_responses?: Record<string, string>
   adaptive_capacity_responses?: Record<string, string>
-  settlement?: { id: number; name: string; code: string }
-  assessor?: { id: number; username: string; email: string }
+  settlement?: { id: number; name: string; code: string; county_id?: number }
+  county?: { id: number; name: string }
+  assessor?: { id: number; name?: string; username: string; email: string }
 }
 
 export interface AssessmentQuestions {
@@ -34,7 +36,7 @@ export const getQuestions = (): Promise<{ code: string; data: AssessmentQuestion
   })
 }
 
-export const listAssessments = (params?: { settlement_id?: number }): Promise<{ code: string; data: ClimateAssessment[]; message: string }> => {
+export const listAssessments = (params?: { settlement_id?: number; county_id?: number | number[] | string }): Promise<{ code: string; data: ClimateAssessment[]; message: string }> => {
   return request.get({
     url: prod + '/api/v1/climate-assessment',
     params

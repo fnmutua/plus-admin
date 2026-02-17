@@ -328,7 +328,16 @@ export const adminRoutes: AppRouteRecordRaw[] = [
 
             }
           },
-       
+          {
+            path: 'climate-assessments',
+            component: () => import('@/views/Climate/ClimateAssessmentList.vue'),
+            name: 'ClimateAssessmentList',
+            meta: {
+              title: 'Assessments',
+              icon: 'mdi:earth',
+              role: ['root_admin', 'super_admin', 'admin', 'staff', 'support', 'monitoring', 'grm'],
+            }
+          },
           {
             path: ':id',
           //  component: 'views/Settlement/SettlementDetails',
@@ -381,7 +390,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             path: ':id/climate-assessment',
             component: () => import('@/views/Climate/ClimateAssessment.vue'),
             name: 'ClimateAssessmentSettlement',
-            meta: { hidden: true, title: 'Climate Assessment' }
+            meta: { hidden: true, title: 'Climate Risk & Vulnerability Assessment' }
           },
           {
             path: 'parcel',

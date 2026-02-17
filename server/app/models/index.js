@@ -346,6 +346,12 @@ db.models.settlement.hasMany(db.models.climate_assessment, {
 db.models.climate_assessment.belongsTo(db.models.settlement, {
   foreignKey: 'settlement_id'
 })
+db.models.county.hasMany(db.models.climate_assessment, {
+  foreignKey: 'county_id'
+})
+db.models.climate_assessment.belongsTo(db.models.county, {
+  foreignKey: 'county_id'
+})
 db.models.climate_assessment.belongsTo(db.models.users, {
   foreignKey: 'assessor_id',
   as: 'assessor'
