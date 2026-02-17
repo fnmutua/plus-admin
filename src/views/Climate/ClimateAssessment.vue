@@ -24,42 +24,66 @@
             <ElTabPane name="overall" :label="overallTabLabel">
               <div class="tab-content overall-score-content">
                 <div class="scores-grid" v-if="assessment.vulnerability_rating || assessment.risk_rating">
-                  <ElRow :gutter="16">
-                    <ElCol :span="6">
+                  <ElRow :gutter="12">
+                    <ElCol :xs="12" :sm="12" :md="6">
                       <div :class="['score-card', 'score-card-hazard', scoreLevel('hazard', assessment.hazard_score)]" role="button" tabindex="0" @click="activeTab = 'hazard'" @keydown.enter="activeTab = 'hazard'">
-                        <ElIcon class="score-icon"><Lightning /></ElIcon>
-                        <span class="score-label">Hazard</span>
-                        <span class="score-value">{{ formatDimScore(assessment.hazard_score) }}</span>
-                        <span class="score-range"><span class="range-best">1 best</span> · <span class="range-worst">3 worst</span></span>
+                        <ElStatistic :value="dimScoreNum(assessment.hazard_score)" :precision="2">
+                          <template #title>
+                            <ElIcon class="score-icon"><Lightning /></ElIcon>
+                            <span>Hazard</span>
+                          </template>
+                          <template #suffix>
+                            <span class="score-range">/ 3</span>
+                          </template>
+                        </ElStatistic>
+                        <span class="score-range-line"><span class="range-best">1 best</span> · <span class="range-worst">3 worst</span></span>
                       </div>
                     </ElCol>
-                    <ElCol :span="6">
+                    <ElCol :xs="12" :sm="12" :md="6">
                       <div :class="['score-card', 'score-card-exposure', scoreLevel('exposure', assessment.exposure_score)]" role="button" tabindex="0" @click="activeTab = 'exposure'" @keydown.enter="activeTab = 'exposure'">
-                        <ElIcon class="score-icon"><Location /></ElIcon>
-                        <span class="score-label">Exposure</span>
-                        <span class="score-value">{{ formatDimScore(assessment.exposure_score) }}</span>
-                        <span class="score-range"><span class="range-best">1 best</span> · <span class="range-worst">3 worst</span></span>
+                        <ElStatistic :value="dimScoreNum(assessment.exposure_score)" :precision="2">
+                          <template #title>
+                            <ElIcon class="score-icon"><Location /></ElIcon>
+                            <span>Exposure</span>
+                          </template>
+                          <template #suffix>
+                            <span class="score-range">/ 3</span>
+                          </template>
+                        </ElStatistic>
+                        <span class="score-range-line"><span class="range-best">1 best</span> · <span class="range-worst">3 worst</span></span>
                       </div>
                     </ElCol>
-                    <ElCol :span="6">
+                    <ElCol :xs="12" :sm="12" :md="6">
                       <div :class="['score-card', 'score-card-sensitivity', scoreLevel('sensitivity', assessment.sensitivity_score)]" role="button" tabindex="0" @click="activeTab = 'sensitivity'" @keydown.enter="activeTab = 'sensitivity'">
-                        <ElIcon class="score-icon"><TrendCharts /></ElIcon>
-                        <span class="score-label">Sensitivity</span>
-                        <span class="score-value">{{ formatDimScore(assessment.sensitivity_score) }}</span>
-                        <span class="score-range"><span class="range-best">1 best</span> · <span class="range-worst">3 worst</span></span>
+                        <ElStatistic :value="dimScoreNum(assessment.sensitivity_score)" :precision="2">
+                          <template #title>
+                            <ElIcon class="score-icon"><TrendCharts /></ElIcon>
+                            <span>Sensitivity</span>
+                          </template>
+                          <template #suffix>
+                            <span class="score-range">/ 3</span>
+                          </template>
+                        </ElStatistic>
+                        <span class="score-range-line"><span class="range-best">1 best</span> · <span class="range-worst">3 worst</span></span>
                       </div>
                     </ElCol>
-                    <ElCol :span="6">
+                    <ElCol :xs="12" :sm="12" :md="6">
                       <div :class="['score-card', 'score-card-adaptive', scoreLevel('adaptive_capacity', assessment.adaptive_capacity_score)]" role="button" tabindex="0" @click="activeTab = 'adaptive_capacity'" @keydown.enter="activeTab = 'adaptive_capacity'">
-                        <ElIcon class="score-icon"><SetUp /></ElIcon>
-                        <span class="score-label">Adaptive Capacity</span>
-                        <span class="score-value">{{ formatDimScore(assessment.adaptive_capacity_score) }}</span>
-                        <span class="score-range"><span class="range-best">3 best</span> · <span class="range-worst">1 worst</span></span>
+                        <ElStatistic :value="dimScoreNum(assessment.adaptive_capacity_score)" :precision="2">
+                          <template #title>
+                            <ElIcon class="score-icon"><SetUp /></ElIcon>
+                            <span>Adaptive Capacity</span>
+                          </template>
+                          <template #suffix>
+                            <span class="score-range">/ 3</span>
+                          </template>
+                        </ElStatistic>
+                        <span class="score-range-line"><span class="range-best">3 best</span> · <span class="range-worst">1 worst</span></span>
                       </div>
                     </ElCol>
                   </ElRow>
-                  <ElRow :gutter="16" class="rating-row">
-                    <ElCol :span="12">
+                  <ElRow :gutter="12" class="rating-row">
+                    <ElCol :xs="24" :sm="12">
                       <div class="rating-section">
                         <span class="rating-title">Vulnerability</span>
                         <ElTag :type="vulnRatingType" size="large" class="rating-tag">
@@ -69,7 +93,7 @@
                         <span class="rating-desc">AVG(Sensitivity) − AVG(Adaptive Capacity)</span>
                       </div>
                     </ElCol>
-                    <ElCol :span="12">
+                    <ElCol :xs="24" :sm="12">
                       <div class="rating-section">
                         <span class="rating-title">Risk</span>
                         <ElTag :type="riskRatingType" size="large" class="rating-tag">
@@ -245,7 +269,8 @@ import {
   ElRow,
   ElCol,
   ElEmpty,
-  ElMessage
+  ElMessage,
+  ElStatistic
 } from 'element-plus'
 import { Back, Lightning, Location, TrendCharts, SetUp, WarningFilled, InfoFilled } from '@element-plus/icons-vue'
 import {
@@ -289,10 +314,11 @@ const activeCategoryByTab = ref<Record<string, string>>({
 const formatRatingLabel = (r: string | null | undefined) =>
   r ? String(r).charAt(0).toUpperCase() + String(r).slice(1).toLowerCase() : ''
 
-const formatDimScore = (score: number | string | null | undefined) => {
-  if (score == null || score === '') return '–'
+/** Numeric value for ElStatistic (returns 0 when no score yet) */
+const dimScoreNum = (score: number | string | null | undefined): number => {
+  if (score == null || score === '') return 0
   const n = typeof score === 'number' ? score : Number(score)
-  return Number.isNaN(n) ? '–' : n.toFixed(2)
+  return Number.isNaN(n) ? 0 : n
 }
 
 const formatRatingValue = (score: number | string | null | undefined) => {
@@ -556,46 +582,43 @@ onMounted(async () => {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 .score-icon {
-  display: block;
-  font-size: 2rem;
-  margin-bottom: 8px;
+  font-size: 1.4rem;
+  vertical-align: middle;
+  margin-right: 4px;
 }
 .score-card-hazard .score-icon { color: var(--el-color-warning); }
 .score-card-exposure .score-icon { color: var(--el-color-primary); }
 .score-card-sensitivity .score-icon { color: var(--el-color-danger); }
 .score-card-adaptive .score-icon { color: var(--el-color-success); }
 
-/* ── score-level backgrounds ── */
-.score-card.level-low {
-  background: var(--el-color-success-light-9, #f0f9eb);
-  border: 1px solid var(--el-color-success-light-5, #b3e19d);
-}
-.score-card.level-low .score-value { color: var(--el-color-success); }
-
-.score-card.level-medium {
-  background: var(--el-color-warning-light-9, #fdf6ec);
-  border: 1px solid var(--el-color-warning-light-5, #f3d19e);
-}
-.score-card.level-medium .score-value { color: var(--el-color-warning-dark-2, #b88230); }
-
-.score-card.level-high {
-  background: var(--el-color-danger-light-9, #fef0f0);
-  border: 1px solid var(--el-color-danger-light-5, #fab6b6);
-}
-.score-card.level-high .score-value { color: var(--el-color-danger); }
-.score-card .score-label {
-  display: block;
-  font-size: 0.8rem;
+/* ElStatistic overrides inside score cards */
+.score-card :deep(.el-statistic__head) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: 0.82rem;
   color: var(--el-text-color-secondary);
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
-.score-card .score-value {
-  font-size: 1.5rem;
-  font-weight: 600;
+.score-card :deep(.el-statistic__content) {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 2px;
+}
+.score-card :deep(.el-statistic__number) {
+  font-size: 1.65rem;
+  font-weight: 700;
 }
 .score-range {
+  font-size: 0.85rem;
+  font-weight: 400;
+  color: var(--el-text-color-placeholder);
+}
+.score-range-line {
   display: block;
-  margin-top: 6px;
+  margin-top: 8px;
   font-size: 0.65rem;
   color: var(--el-text-color-placeholder);
   letter-spacing: 0.02em;
@@ -608,6 +631,25 @@ onMounted(async () => {
   color: var(--el-color-danger);
   font-weight: 600;
 }
+
+/* ── score-level backgrounds ── */
+.score-card.level-low {
+  background: var(--el-color-success-light-9, #f0f9eb);
+  border: 1px solid var(--el-color-success-light-5, #b3e19d);
+}
+.score-card.level-low :deep(.el-statistic__number) { color: var(--el-color-success); }
+
+.score-card.level-medium {
+  background: var(--el-color-warning-light-9, #fdf6ec);
+  border: 1px solid var(--el-color-warning-light-5, #f3d19e);
+}
+.score-card.level-medium :deep(.el-statistic__number) { color: var(--el-color-warning-dark-2, #b88230); }
+
+.score-card.level-high {
+  background: var(--el-color-danger-light-9, #fef0f0);
+  border: 1px solid var(--el-color-danger-light-5, #fab6b6);
+}
+.score-card.level-high :deep(.el-statistic__number) { color: var(--el-color-danger); }
 .rating-row {
   margin-top: 8px;
 }
@@ -745,5 +787,88 @@ onMounted(async () => {
 .q-select {
   flex-shrink: 0;
   width: 180px;
+}
+
+/* ── Mobile optimisations ── */
+@media (max-width: 768px) {
+  .score-card {
+    padding: 14px 10px;
+    border-radius: 10px;
+    margin-bottom: 10px;
+  }
+  .score-card :deep(.el-statistic__number) {
+    font-size: 1.35rem;
+  }
+  .score-card :deep(.el-statistic__head) {
+    font-size: 0.75rem;
+  }
+  .score-icon {
+    font-size: 1.15rem;
+  }
+  .score-range {
+    font-size: 0.75rem;
+  }
+  .score-range-line {
+    margin-top: 5px;
+    font-size: 0.6rem;
+  }
+  .overall-score-content {
+    padding: 12px 0;
+  }
+  .scores-grid {
+    gap: 12px;
+  }
+  .rating-row {
+    margin-top: 4px;
+  }
+  .rating-section {
+    margin-bottom: 12px;
+  }
+  .rating-tag {
+    padding: 6px 12px;
+    font-size: 0.85rem;
+  }
+  .header-top {
+    gap: 8px;
+  }
+  .card-header h2 {
+    font-size: 0.95rem;
+  }
+  .question-inline {
+    flex-direction: column;
+    gap: 6px;
+  }
+  .q-select {
+    width: 100%;
+  }
+  .assessment-actions {
+    flex-direction: column;
+  }
+  .assessment-actions .el-button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .score-card {
+    padding: 12px 8px;
+    border-radius: 8px;
+  }
+  .score-card :deep(.el-statistic__number) {
+    font-size: 1.2rem;
+  }
+  .score-card :deep(.el-statistic__head) {
+    font-size: 0.7rem;
+    gap: 2px;
+  }
+  .score-icon {
+    font-size: 1rem;
+  }
+  .card-header h2 {
+    font-size: 0.85rem;
+  }
+  .context-name {
+    font-size: 0.75rem;
+  }
 }
 </style>
