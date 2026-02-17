@@ -13,7 +13,10 @@ export interface ClimateAssessment {
   exposure_score?: number | null
   sensitivity_score?: number | null
   adaptive_capacity_score?: number | null
+  vulnerability_score?: number | null
   vulnerability_rating?: string | null
+  risk_score?: number | null
+  risk_rating?: string | null
   hazard_responses?: Record<string, string>
   exposure_responses?: Record<string, string>
   sensitivity_responses?: Record<string, string>

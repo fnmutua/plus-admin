@@ -13,6 +13,10 @@ function getQuestionsConfig() {
   return questionsConfig
 }
 
+/**
+ * Compute the raw 1–3 average score for a single dimension.
+ * Returns the mean of all answered question scores (1–3 scale), or null if nothing answered.
+ */
 function computeDimensionScore(responses, dimension) {
   const config = getQuestionsConfig()
   const dimConfig = config[dimension]
@@ -20,7 +24,6 @@ function computeDimensionScore(responses, dimension) {
 
   let total = 0
   let count = 0
-  const maxPerQuestion = 3
   for (const cat of dimConfig.categories) {
     for (const q of cat.questions || []) {
       const answer = responses?.[q.key]
@@ -34,24 +37,54 @@ function computeDimensionScore(responses, dimension) {
     }
   }
   if (count === 0) return null
-  const normalized = (total / (count * maxPerQuestion)) * 100
-  return Math.round(normalized * 100) / 100
+  // Return raw average on the 1–3 scale (matching the Excel)
+  return Math.round((total / count) * 100) / 100
 }
 
-function computeVulnerabilityRating(scores) {
-  const config = getQuestionsConfig()
-  const thresholds = config.scoring?.ratingThresholds || []
-  const total = (scores.hazard || 0) + (scores.exposure || 0) + (scores.sensitivity || 0) + (scores.adaptive_capacity || 0)
-  const avg = total / 4
+/**
+ * Vulnerability = AVG(Sensitivity) − AVG(Adaptive Capacity)
+ * Range: [−2, +2]
+ * Thresholds: Low ≤ −0.6, Medium (−0.6, 0.6), High ≥ 0.6
+ */
+function computeVulnerability(sensitivityAvg, adaptiveCapacityAvg) {
+  if (sensitivityAvg == null || adaptiveCapacityAvg == null) return { score: null, rating: null }
+  const score = Math.round((sensitivityAvg - adaptiveCapacityAvg) * 100) / 100
+  let rating = null
+  if (score <= -0.6) rating = 'Low'
+  else if (score >= 0.6) rating = 'High'
+  else rating = 'Medium'
+  return { score, rating }
+}
 
-  for (const t of thresholds) {
-    const minS = t.min_score ?? t.minScore ?? 0
-    const maxS = t.max_score ?? t.maxScore
-    const minOk = avg >= minS
-    const maxOk = maxS == null || avg <= maxS
-    if (minOk && maxOk) return t.rating
+/**
+ * Risk = AVG(Hazard) + (Exposure × NormalizedVulnerability) / 3
+ * where NormalizedVulnerability = (vulnerability_score + 3) / 2
+ * Thresholds: Low ≤ 2.17, Medium (2.17, 3.83), High ≥ 3.83
+ */
+function computeRisk(hazardAvg, exposureAvg, vulnerabilityScore) {
+  if (hazardAvg == null || exposureAvg == null || vulnerabilityScore == null) return { score: null, rating: null }
+  const normVuln = (vulnerabilityScore + 3) / 2
+  const score = Math.round((hazardAvg + (exposureAvg * normVuln) / 3) * 100) / 100
+  let rating = null
+  if (score <= 2.17) rating = 'Low'
+  else if (score >= 3.83) rating = 'High'
+  else rating = 'Medium'
+  return { score, rating }
+}
+
+/**
+ * Compute all scores from the four dimension averages.
+ * Returns { vulnerability_score, vulnerability_rating, risk_score, risk_rating }.
+ */
+function computeAllRatings(dimScores) {
+  const vuln = computeVulnerability(dimScores.sensitivity, dimScores.adaptive_capacity)
+  const risk = computeRisk(dimScores.hazard, dimScores.exposure, vuln.score)
+  return {
+    vulnerability_score: vuln.score,
+    vulnerability_rating: vuln.rating,
+    risk_score: risk.score,
+    risk_rating: risk.rating,
   }
-  return null
 }
 
 exports.getQuestions = async (req, res) => {
@@ -247,18 +280,33 @@ exports.update = async (req, res) => {
     updateData.exposure_score = computeDimensionScore(responses.exposure, 'exposure')
     updateData.sensitivity_score = computeDimensionScore(responses.sensitivity, 'sensitivity')
     updateData.adaptive_capacity_score = computeDimensionScore(responses.adaptive_capacity, 'adaptive_capacity')
-    updateData.vulnerability_rating = computeVulnerabilityRating({
+
+    const dimScores = {
       hazard: updateData.hazard_score ?? assessment.hazard_score,
       exposure: updateData.exposure_score ?? assessment.exposure_score,
       sensitivity: updateData.sensitivity_score ?? assessment.sensitivity_score,
       adaptive_capacity: updateData.adaptive_capacity_score ?? assessment.adaptive_capacity_score,
-    })
+    }
+    const ratings = computeAllRatings(dimScores)
+    updateData.vulnerability_score = ratings.vulnerability_score
+    updateData.vulnerability_rating = ratings.vulnerability_rating
+    updateData.risk_score = ratings.risk_score
+    updateData.risk_rating = ratings.risk_rating
 
     await assessment.update(updateData)
 
+    // Reload with associations so the response includes settlement, county, assessor
+    const updated = await db.models.climate_assessment.findByPk(id, {
+      include: [
+        { model: db.models.settlement, attributes: ['id', 'name', 'code', 'county_id'] },
+        { model: db.models.county, attributes: ['id', 'name'] },
+        { model: db.models.users, as: 'assessor', attributes: ['id', 'name', 'username', 'email'] },
+      ],
+    })
+
     return res.status(200).json({
       message: 'Climate assessment updated',
-      data: assessment,
+      data: updated,
       code: '0000',
     })
   } catch (error) {
@@ -282,25 +330,32 @@ exports.computeScores = async (req, res) => {
       })
     }
 
-    const scores = {
+    const dimScores = {
       hazard: computeDimensionScore(assessment.hazard_responses, 'hazard'),
       exposure: computeDimensionScore(assessment.exposure_responses, 'exposure'),
       sensitivity: computeDimensionScore(assessment.sensitivity_responses, 'sensitivity'),
       adaptive_capacity: computeDimensionScore(assessment.adaptive_capacity_responses, 'adaptive_capacity'),
     }
-    const rating = computeVulnerabilityRating(scores)
+    const ratings = computeAllRatings(dimScores)
 
     await assessment.update({
-      hazard_score: scores.hazard,
-      exposure_score: scores.exposure,
-      sensitivity_score: scores.sensitivity,
-      adaptive_capacity_score: scores.adaptive_capacity,
-      vulnerability_rating: rating,
+      hazard_score: dimScores.hazard,
+      exposure_score: dimScores.exposure,
+      sensitivity_score: dimScores.sensitivity,
+      adaptive_capacity_score: dimScores.adaptive_capacity,
+      vulnerability_score: ratings.vulnerability_score,
+      vulnerability_rating: ratings.vulnerability_rating,
+      risk_score: ratings.risk_score,
+      risk_rating: ratings.risk_rating,
     })
 
     return res.status(200).json({
       message: 'Scores computed',
-      data: { ...assessment.toJSON(), ...scores, vulnerability_rating: rating },
+      data: {
+        ...assessment.toJSON(),
+        ...dimScores,
+        ...ratings,
+      },
       code: '0000',
     })
   } catch (error) {

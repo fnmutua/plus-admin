@@ -23,43 +23,63 @@
           <ElTabs v-model="activeTab" type="border-card" class="assessment-tabs">
             <ElTabPane name="overall" :label="overallTabLabel">
               <div class="tab-content overall-score-content">
-                <div class="scores-grid" v-if="assessment.vulnerability_rating">
+                <div class="scores-grid" v-if="assessment.vulnerability_rating || assessment.risk_rating">
                   <ElRow :gutter="16">
                     <ElCol :span="6">
-                      <div class="score-card score-card-hazard" role="button" tabindex="0" @click="activeTab = 'hazard'" @keydown.enter="activeTab = 'hazard'">
+                      <div :class="['score-card', 'score-card-hazard', scoreLevel('hazard', assessment.hazard_score)]" role="button" tabindex="0" @click="activeTab = 'hazard'" @keydown.enter="activeTab = 'hazard'">
                         <ElIcon class="score-icon"><Lightning /></ElIcon>
                         <span class="score-label">Hazard</span>
-                        <span class="score-value">{{ assessment.hazard_score ?? '–' }}</span>
+                        <span class="score-value">{{ formatDimScore(assessment.hazard_score) }}</span>
+                        <span class="score-range"><span class="range-best">1 best</span> · <span class="range-worst">3 worst</span></span>
                       </div>
                     </ElCol>
                     <ElCol :span="6">
-                      <div class="score-card score-card-exposure" role="button" tabindex="0" @click="activeTab = 'exposure'" @keydown.enter="activeTab = 'exposure'">
+                      <div :class="['score-card', 'score-card-exposure', scoreLevel('exposure', assessment.exposure_score)]" role="button" tabindex="0" @click="activeTab = 'exposure'" @keydown.enter="activeTab = 'exposure'">
                         <ElIcon class="score-icon"><Location /></ElIcon>
                         <span class="score-label">Exposure</span>
-                        <span class="score-value">{{ assessment.exposure_score ?? '–' }}</span>
+                        <span class="score-value">{{ formatDimScore(assessment.exposure_score) }}</span>
+                        <span class="score-range"><span class="range-best">1 best</span> · <span class="range-worst">3 worst</span></span>
                       </div>
                     </ElCol>
                     <ElCol :span="6">
-                      <div class="score-card score-card-sensitivity" role="button" tabindex="0" @click="activeTab = 'sensitivity'" @keydown.enter="activeTab = 'sensitivity'">
+                      <div :class="['score-card', 'score-card-sensitivity', scoreLevel('sensitivity', assessment.sensitivity_score)]" role="button" tabindex="0" @click="activeTab = 'sensitivity'" @keydown.enter="activeTab = 'sensitivity'">
                         <ElIcon class="score-icon"><TrendCharts /></ElIcon>
                         <span class="score-label">Sensitivity</span>
-                        <span class="score-value">{{ assessment.sensitivity_score ?? '–' }}</span>
+                        <span class="score-value">{{ formatDimScore(assessment.sensitivity_score) }}</span>
+                        <span class="score-range"><span class="range-best">1 best</span> · <span class="range-worst">3 worst</span></span>
                       </div>
                     </ElCol>
                     <ElCol :span="6">
-                      <div class="score-card score-card-adaptive" role="button" tabindex="0" @click="activeTab = 'adaptive_capacity'" @keydown.enter="activeTab = 'adaptive_capacity'">
+                      <div :class="['score-card', 'score-card-adaptive', scoreLevel('adaptive_capacity', assessment.adaptive_capacity_score)]" role="button" tabindex="0" @click="activeTab = 'adaptive_capacity'" @keydown.enter="activeTab = 'adaptive_capacity'">
                         <ElIcon class="score-icon"><SetUp /></ElIcon>
                         <span class="score-label">Adaptive Capacity</span>
-                        <span class="score-value">{{ assessment.adaptive_capacity_score ?? '–' }}</span>
+                        <span class="score-value">{{ formatDimScore(assessment.adaptive_capacity_score) }}</span>
+                        <span class="score-range"><span class="range-best">3 best</span> · <span class="range-worst">1 worst</span></span>
                       </div>
                     </ElCol>
                   </ElRow>
-                  <div class="rating-section">
-                    <ElTag :type="ratingType" size="large" class="rating-tag">
-                      <ElIcon class="rating-icon"><WarningFilled /></ElIcon>
-                      Vulnerability: {{ overallScore != null ? overallScore : '—' }}{{ assessment.vulnerability_rating ? ` (${formatVulnerabilityRating(assessment.vulnerability_rating)})` : '' }}
-                    </ElTag>
-                  </div>
+                  <ElRow :gutter="16" class="rating-row">
+                    <ElCol :span="12">
+                      <div class="rating-section">
+                        <span class="rating-title">Vulnerability</span>
+                        <ElTag :type="vulnRatingType" size="large" class="rating-tag">
+                          <ElIcon class="rating-icon"><WarningFilled /></ElIcon>
+                          {{ formatRatingValue(assessment.vulnerability_score) }}{{ assessment.vulnerability_rating ? ` (${formatRatingLabel(assessment.vulnerability_rating)})` : '' }}
+                        </ElTag>
+                        <span class="rating-desc">AVG(Sensitivity) − AVG(Adaptive Capacity)</span>
+                      </div>
+                    </ElCol>
+                    <ElCol :span="12">
+                      <div class="rating-section">
+                        <span class="rating-title">Risk</span>
+                        <ElTag :type="riskRatingType" size="large" class="rating-tag">
+                          <ElIcon class="rating-icon"><WarningFilled /></ElIcon>
+                          {{ formatRatingValue(assessment.risk_score) }}{{ assessment.risk_rating ? ` (${formatRatingLabel(assessment.risk_rating)})` : '' }}
+                        </ElTag>
+                        <span class="rating-desc">Hazard + (Exposure × NormVuln) / 3</span>
+                      </div>
+                    </ElCol>
+                  </ElRow>
                 </div>
                 <p v-else class="score-placeholder">
                   Complete the questionnaire and click "Save & Compute Scores" to see the overall assessment.
@@ -143,47 +163,61 @@
             How to Interpret the Scores
           </h3>
           <p class="info-intro">
-            KISIP Tool B uses a 0–100 scale for each dimension. Higher scores generally indicate greater climate risk, except for Adaptive Capacity (see below).
+            KISIP Tool B uses a <strong>1–3 scale</strong> for each dimension, following the RVAT Excel methodology. Each answer maps to 1 (Low), 2 (Medium), or 3 (High). Vulnerability and Risk are computed from cross-dimensional formulas.
           </p>
         </div>
         <div class="info-section">
           <h4 class="info-subheading">
             <ElIcon class="info-dim-icon hazard"><Lightning /></ElIcon>
-            Hazard (0–100)
+            Hazard (1–3)
           </h4>
-          <p>Measures the severity and frequency of climate hazards (temperature extremes, precipitation, droughts, flooding, etc.). <strong>Higher = more severe/frequent hazards.</strong></p>
+          <p>Average severity and frequency of climate hazards (temperature, precipitation, droughts, flooding, storms, pollution, etc.). <strong>3 = severe/frequent hazards, 1 = low.</strong></p>
         </div>
         <div class="info-section">
           <h4 class="info-subheading">
             <ElIcon class="info-dim-icon exposure"><Location /></ElIcon>
-            Exposure (0–100)
+            Exposure (1–3)
           </h4>
-          <p>Measures how much the community and its assets (livelihoods, health, housing, water, environment) are exposed to climate impacts. <strong>Higher = greater exposure.</strong></p>
+          <p>How much the community and its assets (livelihoods, health, housing, water, environment, institutions) are exposed to climate impacts. <strong>3 = high exposure, 1 = low.</strong></p>
         </div>
         <div class="info-section">
           <h4 class="info-subheading">
             <ElIcon class="info-dim-icon sensitivity"><TrendCharts /></ElIcon>
-            Sensitivity (0–100)
+            Sensitivity (1–3)
           </h4>
-          <p>Measures how susceptible the community is to climate impacts (e.g. dependence on subsistence farming, grazing, fishing). <strong>Higher = more sensitive.</strong></p>
+          <p>How susceptible the community is to climate impacts (dependence on subsistence farming, health risks, infrastructure fragility). <strong>3 = highly sensitive, 1 = low.</strong></p>
         </div>
         <div class="info-section">
           <h4 class="info-subheading">
             <ElIcon class="info-dim-icon adaptive"><SetUp /></ElIcon>
-            Adaptive Capacity (0–100)
+            Adaptive Capacity (1–3)
           </h4>
-          <p>Measures the community’s ability to cope and adapt (e.g. crop diversification, animal rescue, overfishing controls). <strong>Higher = lower capacity</strong> (more vulnerable). This dimension uses inverted scoring: “Yes” to good mechanisms = 0, “No” = 3.</p>
+          <p>The community's ability to cope and adapt (crop diversification, early warning, DRM plans, financial buffers). <strong>3 = good capacity, 1 = poor capacity.</strong> This dimension is positively scored — higher is better.</p>
         </div>
         <div class="info-section">
           <h4 class="info-subheading">
             <ElIcon class="info-dim-icon rating"><WarningFilled /></ElIcon>
-            Vulnerability Rating
+            Vulnerability
           </h4>
-          <p>The overall rating is the average of the four dimension scores:</p>
+          <p><code>Vulnerability = AVG(Sensitivity) − AVG(Adaptive Capacity)</code></p>
+          <p>Range: −2 to +2. Negative means adaptive capacity outweighs sensitivity.</p>
           <ul class="info-list">
-            <li><strong>Low</strong> (0–33): Lower vulnerability</li>
-            <li><strong>Medium</strong> (34–66): Moderate vulnerability</li>
-            <li><strong>High</strong> (67–100): Higher vulnerability</li>
+            <li><strong>Low</strong> (≤ −0.6): Good capacity, low sensitivity</li>
+            <li><strong>Medium</strong> (−0.6 to +0.6): Moderate vulnerability</li>
+            <li><strong>High</strong> (≥ +0.6): Sensitivity outweighs capacity</li>
+          </ul>
+        </div>
+        <div class="info-section">
+          <h4 class="info-subheading">
+            <ElIcon class="info-dim-icon risk"><WarningFilled /></ElIcon>
+            Risk
+          </h4>
+          <p><code>Risk = AVG(Hazard) + (Exposure × NormVuln) / 3</code></p>
+          <p>where <code>NormVuln = (Vulnerability + 3) / 2</code></p>
+          <ul class="info-list">
+            <li><strong>Low</strong> (≤ 2.17): Lower overall climate risk</li>
+            <li><strong>Medium</strong> (2.17 – 3.83): Moderate risk</li>
+            <li><strong>High</strong> (≥ 3.83): High climate risk</li>
           </ul>
         </div>
       </div>
@@ -252,43 +286,50 @@ const activeCategoryByTab = ref<Record<string, string>>({
   adaptive_capacity: ''
 })
 
-const formatVulnerabilityRating = (r: string | null | undefined) =>
-  r ? String(r).toUpperCase() : ''
+const formatRatingLabel = (r: string | null | undefined) =>
+  r ? String(r).charAt(0).toUpperCase() + String(r).slice(1).toLowerCase() : ''
 
-const overallScore = computed(() => {
-  const a = assessment.value
-  if (!a) return null
-  const raw = [
-    a.hazard_score,
-    a.exposure_score,
-    a.sensitivity_score,
-    a.adaptive_capacity_score
-  ]
-  const valid: number[] = []
-  for (const s of raw) {
-    const n = typeof s === 'number' ? s : (s != null && s !== '' ? Number(s) : NaN)
-    if (typeof n === 'number' && !Number.isNaN(n)) valid.push(n)
-  }
-  if (valid.length === 0) return null
-  const avg = valid.reduce((sum, s) => sum + s, 0) / valid.length
-  return Math.round(avg * 100) / 100
-})
+const formatDimScore = (score: number | string | null | undefined) => {
+  if (score == null || score === '') return '–'
+  const n = typeof score === 'number' ? score : Number(score)
+  return Number.isNaN(n) ? '–' : n.toFixed(2)
+}
+
+const formatRatingValue = (score: number | string | null | undefined) => {
+  if (score == null || score === '') return '—'
+  const n = typeof score === 'number' ? score : Number(score)
+  return Number.isNaN(n) ? '—' : n.toFixed(2)
+}
 
 const overallTabLabel = computed(() => {
-  const r = assessment.value?.vulnerability_rating
-  const score = overallScore.value
-  if (score != null && r) return `Overall Score (${score} – ${formatVulnerabilityRating(r)})`
-  if (r) return `Overall Score (${formatVulnerabilityRating(r)})`
-  if (score != null) return `Overall Score (${score})`
+  const vr = assessment.value?.vulnerability_rating
+  const rr = assessment.value?.risk_rating
+  if (vr && rr) return `Overall (Vuln: ${formatRatingLabel(vr)} · Risk: ${formatRatingLabel(rr)})`
+  if (vr) return `Overall (Vuln: ${formatRatingLabel(vr)})`
   return 'Overall Score'
 })
 
-const ratingType = computed(() => {
-  const r = assessment.value?.vulnerability_rating?.toUpperCase()
-  if (r === 'HIGH') return 'danger'
-  if (r === 'MEDIUM') return 'warning'
+const ratingTypeForString = (r: string | null | undefined) => {
+  const upper = r?.toUpperCase()
+  if (upper === 'HIGH') return 'danger'
+  if (upper === 'MEDIUM') return 'warning'
   return 'success'
-})
+}
+
+const vulnRatingType = computed(() => ratingTypeForString(assessment.value?.vulnerability_rating))
+const riskRatingType = computed(() => ratingTypeForString(assessment.value?.risk_rating))
+
+/** Return a severity level class based on dimension score (1-3 scale).
+ *  For Adaptive Capacity the polarity is inverted (3 = good). */
+const scoreLevel = (dim: string, score: number | string | null | undefined): string => {
+  if (score == null || score === '') return ''
+  const n = typeof score === 'number' ? score : Number(score)
+  if (Number.isNaN(n)) return ''
+  const isAC = dim === 'adaptive_capacity'
+  if (n >= 2.33) return isAC ? 'level-low' : 'level-high'
+  if (n >= 1.67) return 'level-medium'
+  return isAC ? 'level-high' : 'level-low'
+}
 
 const tabLabels = computed(() => {
   const labels: Record<string, string> = {}
@@ -299,7 +340,7 @@ const tabLabels = computed(() => {
     const score = a?.[scoreKey]
     const numScore = typeof score === 'number' ? score : (score != null ? Number(score) : null)
     if (numScore != null && !Number.isNaN(numScore)) {
-      labels[dim] = `${label} (${numScore})`
+      labels[dim] = `${label} (${numScore.toFixed(2)})`
     } else {
       labels[dim] = label
     }
@@ -523,6 +564,25 @@ onMounted(async () => {
 .score-card-exposure .score-icon { color: var(--el-color-primary); }
 .score-card-sensitivity .score-icon { color: var(--el-color-danger); }
 .score-card-adaptive .score-icon { color: var(--el-color-success); }
+
+/* ── score-level backgrounds ── */
+.score-card.level-low {
+  background: var(--el-color-success-light-9, #f0f9eb);
+  border: 1px solid var(--el-color-success-light-5, #b3e19d);
+}
+.score-card.level-low .score-value { color: var(--el-color-success); }
+
+.score-card.level-medium {
+  background: var(--el-color-warning-light-9, #fdf6ec);
+  border: 1px solid var(--el-color-warning-light-5, #f3d19e);
+}
+.score-card.level-medium .score-value { color: var(--el-color-warning-dark-2, #b88230); }
+
+.score-card.level-high {
+  background: var(--el-color-danger-light-9, #fef0f0);
+  border: 1px solid var(--el-color-danger-light-5, #fab6b6);
+}
+.score-card.level-high .score-value { color: var(--el-color-danger); }
 .score-card .score-label {
   display: block;
   font-size: 0.8rem;
@@ -533,8 +593,40 @@ onMounted(async () => {
   font-size: 1.5rem;
   font-weight: 600;
 }
+.score-range {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.65rem;
+  color: var(--el-text-color-placeholder);
+  letter-spacing: 0.02em;
+}
+.range-best {
+  color: var(--el-color-success);
+  font-weight: 600;
+}
+.range-worst {
+  color: var(--el-color-danger);
+  font-weight: 600;
+}
+.rating-row {
+  margin-top: 8px;
+}
 .rating-section {
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.rating-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+.rating-desc {
+  font-size: 0.7rem;
+  color: var(--el-text-color-secondary);
+  font-family: monospace;
 }
 .rating-tag {
   display: inline-flex;
@@ -589,6 +681,7 @@ onMounted(async () => {
 .info-dim-icon.sensitivity { color: var(--el-color-danger); }
 .info-dim-icon.adaptive { color: var(--el-color-success); }
 .info-dim-icon.rating { color: var(--el-color-info); }
+.info-dim-icon.risk { color: var(--el-color-danger); }
 .info-section p {
   margin: 0;
   color: var(--el-text-color-regular);

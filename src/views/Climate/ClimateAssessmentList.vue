@@ -65,10 +65,18 @@
             <ElTag :type="statusTagType(row.status)" size="small">{{ row.status }}</ElTag>
           </template>
         </ElTableColumn>
-        <ElTableColumn label="Overall" width="160">
+        <ElTableColumn label="Vulnerability" width="130">
           <template #default="{ row }">
-            <ElTag v-if="row.vulnerability_rating || overallScoreForRow(row) != null" :type="ratingTagType(row.vulnerability_rating)" size="small">
-              {{ row.vulnerability_rating || '—' }}{{ overallScoreForRow(row) != null ? ` (${overallScoreForRow(row)})` : '' }}
+            <ElTag v-if="row.vulnerability_rating" :type="ratingTagType(row.vulnerability_rating)" size="small">
+              {{ row.vulnerability_rating }}{{ row.vulnerability_score != null ? ` (${Number(row.vulnerability_score).toFixed(2)})` : '' }}
+            </ElTag>
+            <span v-else class="muted">—</span>
+          </template>
+        </ElTableColumn>
+        <ElTableColumn label="Risk" width="130">
+          <template #default="{ row }">
+            <ElTag v-if="row.risk_rating" :type="ratingTagType(row.risk_rating)" size="small">
+              {{ row.risk_rating }}{{ row.risk_score != null ? ` (${Number(row.risk_score).toFixed(2)})` : '' }}
             </ElTag>
             <span v-else class="muted">—</span>
           </template>
@@ -322,23 +330,6 @@ async function handleDeleteAssessment(row: ClimateAssessment) {
   } catch (e: any) {
     ElMessage.error(e?.message ?? 'Failed to delete assessment')
   }
-}
-
-function overallScoreForRow(row: ClimateAssessment): number | null {
-  const raw = [
-    row.hazard_score,
-    row.exposure_score,
-    row.sensitivity_score,
-    row.adaptive_capacity_score,
-  ]
-  const valid: number[] = []
-  for (const s of raw) {
-    const n = typeof s === 'number' ? s : (s != null && s !== '' ? Number(s) : NaN)
-    if (typeof n === 'number' && !Number.isNaN(n)) valid.push(n)
-  }
-  if (valid.length === 0) return null
-  const avg = valid.reduce((sum, s) => sum + s, 0) / valid.length
-  return Math.round(avg * 100) / 100
 }
 
 function ratingTagType(rating: string | null | undefined): 'success' | 'warning' | 'danger' | 'info' {

@@ -8,21 +8,31 @@
         "questions": [
           {
             "key": "temperature_1",
-            "label": "Are extreme temperatures frequently experienced in the settlement?",
+            "label": "Are extreme temperatures frequentlly experienced in the settlement?",
             "hint": "During the year (across seasons), is temperature higher/lower than usual?",
-            "answers": { "Yes, higher than usual": 3, "Yes, lower than usual": 2, "No, not really": 0 }
+            "answers": {
+              "Yes, higher than usual": 3,
+              "Yes, lower than usual": 2,
+              "No, not really": 1
+            }
           },
           {
             "key": "temperature_2",
-            "label": "Are the temperature intensities increasing?",
+            "label": "Are the tempereture intensities increasing?",
             "hint": "Over multiple years (i.e. trend), is temperature higher/lower than usual?",
-            "answers": { "Yes, increasing": 3, "No, not really": 0 }
+            "answers": {
+              "Yes, increasing": 3,
+              "No, not really": 1
+            }
           },
           {
             "key": "temperature_3",
             "label": "Are there effects on community members being attributed to extreme temperature?",
-            "hint": "How often do you experience heat-related effects e.g. heat stress, heat strokes?",
-            "answers": { "Yes": 3, "No": 0 }
+            "hint": "How often do you experience heat-related effects e.g. heat-related stress, heat srokes, effects on elderly?",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
           }
         ]
       },
@@ -34,17 +44,29 @@
             "key": "precipitation_1",
             "label": "Are heavy rainfall events prevalent in this settlement?",
             "hint": "During the year (across seasons), is rainfall higher/lower than usual?",
-            "answers": { "Yes, higher than usual": 3, "Yes, lower than usual": 2, "No, not really": 0 }
+            "answers": {
+              "Yes, higher than usual": 3,
+              "Yes, lower than usual": 2,
+              "No, not really": 1
+            }
           },
           {
             "key": "precipitation_2",
             "label": "Are rainfall intensities and/or durations increasing?",
-            "answers": { "Yes, increasing": 3, "No, not really": 0 }
+            "hint": "Over multiple years (i.e. trend), is rainfall higher/lower than usual?",
+            "answers": {
+              "Yes, increasing": 3,
+              "No, not really": 1
+            }
           },
           {
             "key": "precipitation_3",
-            "label": "Are there significant effects on the community being attributed to rainfall?",
-            "answers": { "Yes": 3, "No": 0 }
+            "label": "Are there significant effects on the community being attributed to extreme rainfalls?",
+            "hint": "Are there rainfall effects, example, destruction of crops, houses and normal daily activities?",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
           }
         ]
       },
@@ -56,22 +78,37 @@
             "key": "droughts_1",
             "label": "Are droughts frequently experienced in the area?",
             "hint": "Do you often experience droughts?",
-            "answers": { "Yes": 3, "No": 0 }
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
           },
           {
             "key": "droughts_2",
-            "label": "If droughts do occur, do they occur at the same time each year?",
-            "answers": { "Yes": 2, "No": 1 }
+            "label": "If droughts do occur, do they occur at the same time of the year?",
+            "hint": "Is the timing of droughts consistent?",
+            "answers": {
+              "Yes": 2,
+              "No": 1
+            }
           },
           {
             "key": "droughts_3",
-            "label": "If droughts do occur, is the extent and intensity increasing?",
-            "answers": { "Yes": 3, "No change": 0 }
+            "label": "If droughts do occur, is the extent and intensity of the drought changing?",
+            "hint": "Are droughts getting worse or better?",
+            "answers": {
+              "Yes": 3,
+              "No change": 1
+            }
           },
           {
-            "key": "droughts_4",
+            "key": "precipitation_3_2",
             "label": "Are there significant effects on the community being attributed to droughts?",
-            "answers": { "Yes": 3, "No": 0 }
+            "hint": "Is the population affected  by droughts, example daily activities, livihood?",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
           }
         ]
       },
@@ -81,28 +118,50 @@
         "questions": [
           {
             "key": "flooding_1",
-            "label": "Are seasonal floods prevalent in the settlement?",
-            "answers": { "Yes": 3, "No": 0 }
+            "label": "Are seasonal floods prevalent in in the settlement?",
+            "hint": "Do you often experience rain floods",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
           },
           {
             "key": "flooding_2",
-            "label": "If seasonal floods do occur, do they occur at the same time each year?",
-            "answers": { "Yes": 2, "No": 1 }
+            "label": "If seasonal floods do occur, do they occur at the same time of the year?",
+            "hint": "Is the timing of rain floods consistent?",
+            "answers": {
+              "Yes": 2,
+              "No": 1
+            }
           },
           {
             "key": "flooding_3",
-            "label": "If floods do occur, is the intensity increasing?",
-            "answers": { "Yes, more than 4 days": 3, "Yes, but less than 4 days": 2, "No": 0 }
+            "label": "If floods do occur, is the intensity icreasing?",
+            "hint": "Are rain floods getting worse (more impact/intensity) or better (less impact/intensity)?",
+            "answers": {
+              "Yes, more than 4 days": 3,
+              "Yes, but less than 4 days": 2,
+              "No": 1
+            }
           },
           {
             "key": "flooding_4",
-            "label": "If floods do occur, is the spatial extent increasing?",
-            "answers": { "More than half": 3, "Less than half": 2, "No": 0 }
+            "label": "If floods do occur, is the spatial extent increasing ?",
+            "hint": "Are rain floods getting worse (more impact/intensity) or better (less impact/intensity)?",
+            "answers": {
+              "More than half": 3,
+              "Less than half": 2,
+              "No": 1
+            }
           },
           {
-            "key": "flooding_5",
-            "label": "Are there significant effects on the community being attributed to rain floods?",
-            "answers": { "Yes": 3, "No": 0, "Not applicable": 0 }
+            "key": "precipitation_3_3",
+            "label": "Are there significant effects on the community being attributed to seasonal floods?",
+            "hint": "Is the population affected by rain floods?",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
           }
         ]
       },
@@ -113,27 +172,49 @@
           {
             "key": "flash_floods_1",
             "label": "Are flash floods prevalent in the settlement?",
-            "answers": { "Yes": 3, "No": 0 }
+            "hint": "Do you often experience flash floods?",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
           },
           {
             "key": "flash_floods_2",
-            "label": "If flash floods do occur, do they occur at the same time each year?",
-            "answers": { "Yes": 2, "No": 1 }
+            "label": "If flash floods do occur, do they occur at the same time of the year?",
+            "hint": "Is the timing of flash floods consistent?",
+            "answers": {
+              "Yes": 2,
+              "No": 1
+            }
           },
           {
             "key": "flash_floods_3",
-            "label": "If flash floods do occur, is the intensity increasing?",
-            "answers": { "Yes, more than 4 days": 3, "Yes, but less than 4 days": 2, "No": 0 }
+            "label": "If flash floods do occur, is the intensity of the flash floods changing?",
+            "hint": "Are flash floods getting worse (more impact/intensity) or better (less impact/intensity)?",
+            "answers": {
+              "Yes, more than 4 days": 3,
+              "Yes, but less than 4 days": 2,
+              "No": 1
+            }
           },
           {
-            "key": "flash_floods_4",
-            "label": "If flash floods do occur, is the extent increasing?",
-            "answers": { "More than half": 3, "Less than half": 2, "No": 0 }
+            "key": "flash_floods_3_2",
+            "label": "If flash floods do occur, is the extent of the flash floods changing?",
+            "hint": "Are flash floods getting worse (more impact/intensity) or better (less impact/intensity)?",
+            "answers": {
+              "Yes, more than 4 days": 3,
+              "Yes, but less than 4 days": 2,
+              "No": 1
+            }
           },
           {
-            "key": "flash_floods_5",
-            "label": "Is the population affected by flash floods?",
-            "answers": { "Yes": 3, "No": 0, "Not applicable": 0 }
+            "key": "precipitation_3_4",
+            "label": "Are there significant effects on the community being attributed to flash floods?",
+            "hint": "Is the population affected by flash floods?",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
           }
         ]
       },
@@ -144,17 +225,29 @@
           {
             "key": "storms_1",
             "label": "Are there frequent storm events experienced in the settlement?",
-            "answers": { "Yes": 3, "No, not really": 0 }
+            "hint": "During the year (across seasons), is storms/cyclones higher/lower than usual?",
+            "answers": {
+              "Yes": 3,
+              "No, not really": 1
+            }
           },
           {
             "key": "storms_2",
-            "label": "Is there increase in frequency and intensity of storms?",
-            "answers": { "Yes": 3, "No, not really": 0 }
+            "label": "Is there increase in frequency and intensity of storms being noted in the settlement?",
+            "hint": "Over multiple years (i.e. trend), is storms/cyclones higher/lower than usual?",
+            "answers": {
+              "Yes": 3,
+              "No, not really": 1
+            }
           },
           {
-            "key": "storms_3",
+            "key": "precipitation_3_5",
             "label": "Are there significant effects on the community being attributed to storms?",
-            "answers": { "Yes": 3, "No": 0 }
+            "hint": "Are there storms/cyclones effects, example, destruction of crops, houses and normal daily activities?",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
           }
         ]
       },
@@ -164,40 +257,149 @@
         "questions": [
           {
             "key": "pollution_1",
-            "label": "Is there pollution experienced in the settlement (land, soil, water)?",
-            "answers": { "All three": 3, "Two of them": 2, "Only one": 1, "None": 0 }
+            "label": "Is there pollution experienced in the settlement for land, water or soil?",
+            "hint": "Is there pollution to land, soil and water or combination of two or all?",
+            "answers": {
+              "All three": 3,
+              "Two of them": 2,
+              "Only one": 1,
+              "None": 1
+            }
           },
           {
             "key": "pollution_2",
-            "label": "Is there an increase of the pollution?",
-            "answers": { "Increase": 3, "Decrease": 0, "No change": 1 }
+            "label": "For the selected above, is there an increase of this pollution being noted in the settlement?",
+            "hint": "Is the polution aspect increasing or decreasing?",
+            "answers": {
+              "Increase": 3,
+              "Decrease": 1,
+              "No change": 1
+            }
           },
           {
-            "key": "pollution_3",
-            "label": "Are there significant effects on the community being attributed to pollution?",
-            "answers": { "Yes": 3, "No": 0 }
+            "key": "precipitation_3_6",
+            "label": "Are there significant effects on the community being attributed to this pollution?",
+            "hint": "Are you impacted by pollution that affects daily activities of the population?",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
           }
         ]
       },
       {
         "key": "lui",
-        "label": "Land Use (LUI)",
+        "label": "LUI",
         "questions": [
           {
             "key": "lui_1",
-            "label": "Is there inadequate use of land in sensitive or risky areas?",
-            "hint": "Unstable soils, high ground water tables, steep slopes",
-            "answers": { "Yes": 3, "No": 0 }
+            "label": "Is there inadequate use of land in sensitive or risky zones?",
+            "hint": "Are there unstable soils, high ground water tables, wetland within the settlement?",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
           },
           {
             "key": "lui_2",
-            "label": "Are significant impacts on people attributed to sensitive/risky land use?",
-            "answers": { "Yes": 3, "No": 0 }
+            "label": "Are significant impacts on people attributed to settling in inadequate or risky areas?",
+            "hint": "Are adverse imacts directly related to risk zones",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
           },
           {
             "key": "lui_3",
-            "label": "Are people settled in sensitive and risky areas aware of the dangers?",
-            "answers": { "Yes": 1, "No": 2 }
+            "label": "Are people settld in sensitive and risky areas aware of the dangers involved in settling there?",
+            "hint": "Do the settlers know the dangers and precautions?",
+            "answers": {
+              "Yes": 1,
+              "No": 2
+            }
+          }
+        ]
+      },
+      {
+        "key": "other_factors",
+        "label": "Other Factors",
+        "questions": [
+          {
+            "key": "other_factors_fire_wildfires",
+            "label": "How frequent are there fires/wild fires experienced in the area that adversely affect the community?",
+            "hint": "Is the population impacted by fire in and around your area?",
+            "answers": {
+              "Often": 3,
+              "Sometimes": 2,
+              "Not applicable": 1
+            }
+          },
+          {
+            "key": "other_factors_lightning",
+            "label": "How frequent is there lightning experienced in the area that adversely affects the community?",
+            "hint": "Is the population impacted by lightening in and around your area?",
+            "answers": {
+              "Often": 3,
+              "Sometimes": 2,
+              "Not applicable": 1
+            }
+          },
+          {
+            "key": "other_factors_snow",
+            "label": "How frequent is are there hailstorms experienced in the area that adversely affect the community?",
+            "hint": "Is the population impacted by snowfall in and around your area?",
+            "answers": {
+              "Often": 3,
+              "Sometimes": 2,
+              "Not applicable": 1
+            }
+          },
+          {
+            "key": "other_factors_hail",
+            "label": "How frequent is are there snowfalls experienced in the area that adversely affect the community?",
+            "hint": "Is the population impacted by hail in and around your area?",
+            "answers": {
+              "Often": 3,
+              "Sometimes": 2,
+              "Not applicable": 1
+            }
+          },
+          {
+            "key": "other_factors_ea_or_va",
+            "label": "How frequent is there earthquakes/volcanic activities experienced in the area that adversely affect the community?",
+            "hint": "Is the population impacted by earthquakes/volcanic activities  in and around your area?",
+            "answers": {
+              "Often": 3,
+              "Sometimes": 2,
+              "Not applicable": 1
+            }
+          },
+          {
+            "key": "other_factors_soil_extraction",
+            "label": "Are there considerable amounts of soil being extracted in particular locations of the area (e.g. fo brick making etc)?",
+            "hint": "Consider extraction for building,road construction etc.",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "other_factors_deforestation",
+            "label": "Is there considerable deforestation taking place in the area/the proximity of the area?",
+            "hint": "Tree cutting for energy source, construction etc",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "other_factors_ubarnization",
+            "label": "Is there significant urbanisatiotn taking place in the area?",
+            "hint": "Increasing the built up area and impermeable surfaces ?",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
           }
         ]
       }
@@ -210,44 +412,522 @@
         "key": "livelihoods",
         "label": "Livelihoods",
         "questions": [
-          { "key": "livelihoods_food_security", "label": "Do climatic conditions noticeably impact food production output?", "answers": { "Yes, significantly": 3, "Yes, somewhat": 2, "Not noticed": 0 } },
-          { "key": "livelihoods_grazing", "label": "Is grazing land and/or farmland affected by climate or inadequate land use?", "answers": { "Yes": 3, "Not noticed": 0 } },
-          { "key": "livelihoods_crops", "label": "Are crops adversely impacted by climate (drought, hail, landslides, flooding)?", "answers": { "Yes": 3, "Not noticed": 0 } },
-          { "key": "livelihoods_livestock", "label": "Is livestock adversely impacted by changing climate or severe weather?", "answers": { "Yes": 3, "Not noticed": 0 } },
-          { "key": "livelihoods_fishstock", "label": "Is fishstock depleting due to climate or environmental pollution?", "answers": { "Yes": 3, "Not noticed": 0 } }
+          {
+            "key": "livelihoods_food_security",
+            "label": "Do the actual climatic conditions noticeably impact the food production output?",
+            "hint": "Consider food security at different at different times of the year (i.e. rainy season)?",
+            "answers": {
+              "Yes, significantly": 3,
+              "Yes, somewhat": 2,
+              "Not noticed": 1
+            }
+          },
+          {
+            "key": "livelihoods_grazing",
+            "label": "Is grazing land and / or farmland affected by the climate and / or inadequate land use",
+            "hint": "Consider continued availability of sufficient gras for grazing",
+            "answers": {
+              "Yes": 3,
+              "Not noticed": 1
+            }
+          },
+          {
+            "key": "livelihoods_crops",
+            "label": "Are crops adversely impacted by the climate, e.g. by drought, hale, landslides, flooding etc?",
+            "hint": "Consider protection of crops in view of climate and weather related events",
+            "answers": {
+              "Yes": 3,
+              "Not noticed": 1
+            }
+          },
+          {
+            "key": "livelihoods_livestock",
+            "label": "Is livestock adversely impacted by the changing climate and severe weather events or by environmental pollution?",
+            "hint": "Consider capability to maintain health and safety  of livestock",
+            "answers": {
+              "Yes": 3,
+              "Not noticed": 1
+            }
+          },
+          {
+            "key": "livelihoods_fishstock",
+            "label": "Is fishstock depleting by the changing climate and severe weather events, ocean warming or environmental pollution?",
+            "hint": "Consider health and continued availability of fishstock",
+            "answers": {
+              "Yes": 3,
+              "Not noticed": 1
+            }
+          },
+          {
+            "key": "exp_local_commerce",
+            "label": "Are floods/extreme temperatures/water shortages noticeably affecting business success?",
+            "hint": "Consider resilience of SME's",
+            "answers": {
+              "Yes, significantly": 3,
+              "Yes, somewhat": 2,
+              "Not noticed": 1
+            }
+          },
+          {
+            "key": "exp_gender",
+            "label": "Are men and women equally adversely impacted (if impacted at all) by the challenges resulting from changing climate?",
+            "hint": "Consider effects of changung climate on gender based activity",
+            "answers": {
+              "Women more affected": 3,
+              "Equally affected": 1,
+              "Men more affected": 2
+            }
+          },
+          {
+            "key": "exp_conviviality",
+            "label": "Are peace and conviviality adversely impacted due to the challenges resulting from changing climate?",
+            "hint": "Consider peace in the community",
+            "answers": {
+              "Yes, significantly": 3,
+              "Yes, somewhat": 2,
+              "Not noticed": 1
+            }
+          },
+          {
+            "key": "exp_education",
+            "label": "Is there any effeects on the regularity of education cthat result from changing climate and severe weather evants?",
+            "hint": "Consider continued access to education independent from climate and weather events",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "exp_wfi_wfdu",
+            "label": "Is water availability for uses other than human consumption adversely affected by changing climate and sevee weather events?",
+            "hint": "Consider access to water for household uses and irrigation",
+            "answers": {
+              "Yes, significantly": 3,
+              "Yes, somewhat": 2,
+              "Not noticed": 1
+            }
+          },
+          {
+            "key": "exp_atf_i",
+            "label": "Is household financial demand increasing due to the challenges resulting fom changing climate and severe weather events?",
+            "hint": "Consider changing financial needs due to climate and weather events",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "exp_disaster_events",
+            "label": "Have climate related and extreme weather events caused disasters/emergencies that affected the community before",
+            "hint": "This includes impacts from temperature, rainfall, droughts and/or floods",
+            "answers": {
+              "Yes, significantly": 3,
+              "Yes, somewhat": 2,
+              "Not noticed": 1
+            }
+          }
         ]
       },
       {
         "key": "health_safety",
         "label": "Health & Safety",
         "questions": [
-          { "key": "health_borne_diseases", "label": "Are water or vector-borne diseases prevalent and linked to climate?", "answers": { "Yes": 3, "No": 0 } },
-          { "key": "health_slupc", "label": "Is settlement layout/planning affecting climate resilience?", "answers": { "Yes": 3, "No": 0 } }
+          {
+            "key": "health_borne_diseases",
+            "label": "Have climate related events and conditions affected larger portions of the community with diseases?",
+            "hint": "Water-borne diseases include typhoid fever, cholera, leptospirosis and hepatitis A; Vector diseases include malaria, dengue fever, yellow fever, and West Nile Fever",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "health_slupc",
+            "label": "Have climate related events increased risky conditions for large portions of the community based on their location ?",
+            "hint": "Consider changes to the safety of housing locations",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "exp_swm",
+            "label": "Is solid waste dumped in uncontrolled manner and locations ?",
+            "hint": "Consider inconsiderate depositing of solid waste in the public real, inside drainages, manholes, etc",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "exp_lwm",
+            "label": "Is liquid waste deposited in uncontrolled manner and locations ?",
+            "hint": "Consider grey water discharge and open defecatio in the public realm",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "exp_aths",
+            "label": "Are there adequate health services accessible within the location and to every household?",
+            "hint": "Consider accessibility, staffing, and quality of health facilities and services",
+            "answers": {
+              "Most Residents Have": 3,
+              "Half Residents Have": 2,
+              "Almost Nobody Has": 1
+            }
+          },
+          {
+            "key": "exp_athe",
+            "label": "Is the general settlement environment (air, water, soil, etc) perceived as healthy and intact?",
+            "hint": "Consider perceived cleanliness of air, water and soils, and any measurements of pollution as available",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          }
         ]
       },
       {
         "key": "assets_utilities",
         "label": "Assets and Utilities",
         "questions": [
-          { "key": "assets_housing", "label": "Is housing affected by climate hazards (floods, storms)?", "answers": { "Yes": 3, "No": 0 } },
-          { "key": "assets_public_facilities", "label": "Are public facilities affected by climate hazards?", "answers": { "Yes": 3, "No": 0 } },
-          { "key": "assets_water", "label": "Is water supply affected by climate (drought, floods)?", "answers": { "Yes": 3, "No": 0 } }
+          {
+            "key": "assets_housing",
+            "label": "Are climate related events affecting the safety of homes",
+            "hint": "Consider changes to the safety of housing structures",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "assets_public_facilities",
+            "label": "Are public community facilities impacted by climate hazards",
+            "hint": "This includes critical facilities, particularly health facilities, schools and essential community services",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "exp_swd",
+            "label": "Is there absence of functional constructed storm water drainage channels?",
+            "hint": "This refers to constructed drainages and natural or constructed infiltration areas",
+            "answers": {
+              "Most Residents Have": 3,
+              "Half Residents Have": 2,
+              "Almost Nobody Has": 1
+            }
+          },
+          {
+            "key": "exp_sanitary_facilities",
+            "label": "Are pit latrines and / or open defecation the primary sanitation mode?",
+            "hint": "This is specific to household sanitation",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "exp_sewer_lines",
+            "label": "Are sewers absent, dysfunctional, exposed to floods, or households not connected?",
+            "hint": "This refers to the functionality of sewer lines, if any",
+            "answers": {
+              "Most Residents Have": 3,
+              "Half Residents Have": 2,
+              "Almost Nobody Has": 1
+            }
+          },
+          {
+            "key": "exp_power_lines_supply",
+            "label": "Is power supply infrastructure exposed to extreme weather events (overhead power lines, location in flood plains etc), or located underground nearby soil extraction areas",
+            "hint": "This refers to the design and location of power lines to judge its resiliency",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "exp_energy_for_hh_use",
+            "label": "Is there access to electricity at HH level",
+            "hint": "This refers to the prevalent use of charcoal and wood",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "assets_water",
+            "label": "Are there (functional) water pipes in the settlement ?",
+            "hint": "This is about availability of piped water supply network",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "exp_pwt",
+            "label": "Have functionality or reliability of potable water treatment facilities serving the area been impacted by climate hazards?",
+            "hint": "Consider location and protection of water storage of any",
+            "answers": {
+              "Yes, significantly": 3,
+              "Yes, somewhat": 2,
+              "Not noticed": 1
+            }
+          },
+          {
+            "key": "exp_water_storage",
+            "label": "Is water storage safely located and protected or is water storage impacted by climate events?",
+            "hint": "Consider location and protection of water teatment facilities relevant to the water supply of the area",
+            "answers": {
+              "Yes, significantly": 3,
+              "Yes, somewhat": 2,
+              "Not noticed": 1
+            }
+          },
+          {
+            "key": "exp_r_t",
+            "label": "Are accessibility / mobility compromised during extreme weather events and roads and transport infrastructure impacted by floods, land slides, high temperaturs, or other climate-induced events?",
+            "hint": "Consider all weather access to households and critical facilities",
+            "answers": {
+              "Yes, significantly": 3,
+              "Yes, somewhat": 2,
+              "Not noticed": 1
+            }
+          },
+          {
+            "key": "exp_communication",
+            "label": "Is communication infrastructure in the settlement (fiber optic cables, wireless hotspots, etc) safely located and protected, if any",
+            "hint": "Consider location and protection of critical commuication infrastructure",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          }
         ]
       },
       {
         "key": "potable_water",
-        "label": "Potable Water",
+        "label": "Potable water",
         "questions": [
-          { "key": "water_access", "label": "Is access to potable water affected by climate?", "answers": { "Yes": 3, "No": 0 } },
-          { "key": "water_quality", "label": "Is water quality affected by climate events?", "answers": { "Yes": 3, "No": 0 } }
+          {
+            "key": "water_access",
+            "label": "Is potable water accessible at all times, or scarcities often being faced?",
+            "hint": "This refers to water needed for drinking, its safety and quantity",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "exp_scarcities",
+            "label": "is potable water access impacted by severe climate related events, e.g. flooding, drought?",
+            "hint": "This refers to water needed for drinking, its safety and quantity",
+            "answers": {
+              "Yes, significantly": 3,
+              "Yes, somewhat": 2,
+              "Not noticed": 1
+            }
+          },
+          {
+            "key": "water_quality",
+            "label": "Is the quality of the potable water accessible to the community adequate",
+            "hint": "This refers to water needed for drinking, its safety and quantity",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          }
         ]
       },
       {
         "key": "ebs",
-        "label": "Environment (EBS)",
+        "label": "EBS",
         "questions": [
-          { "key": "ebs_soil", "label": "Is soil quality/erosion affected by climate?", "answers": { "Yes": 3, "No": 0 } },
-          { "key": "ebs_landcover", "label": "Is land cover/vegetation affected by climate?", "answers": { "Yes": 3, "No": 0 } }
+          {
+            "key": "ebs_soil",
+            "label": "Is the commuity settling on sandy or clayey soils?",
+            "hint": "Both types of soils pose risks depending on the topography ad weather events",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "exp_lc_p",
+            "label": "Are there adequate natural areas where water infiltration is enabled, and the amounts of surface runoff that is not infiltrating and not increasing?",
+            "hint": "Consider natural infiltration areas and capacities",
+            "answers": {
+              "Most Residents Have": 3,
+              "Half Residents Have": 2,
+              "Almost Nobody Has": 1
+            }
+          },
+          {
+            "key": "ebs_landcover",
+            "label": "Is there mature natural vegetation in the area and is the vegetative cover well conserved to not reduce ?",
+            "hint": "Consider noticeable changes to vegetative cover",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "exp_wetland",
+            "label": "Are natural wetlands being respected and kept clean and unbuilt/preserved, and not disturbed by inadequate uses?",
+            "hint": "Consider maintained functionality of wetlands",
+            "answers": {
+              "Most Residents Have": 3,
+              "Half Residents Have": 2,
+              "Almost Nobody Has": 1
+            }
+          },
+          {
+            "key": "exp_biodiversity",
+            "label": "Are there green corridors allowing uncostrained passege of wild animals outside of the settlement?",
+            "hint": "Consider noticeable changes to biodiversity",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "exp_nwb",
+            "label": "Is the settlement located in proximity to a water body and do households settle within the riperian corridor?",
+            "hint": "Consider respect to the natural seasonal changes of the water body",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "exp_sea",
+            "label": "Is the sea level increasing?",
+            "hint": "Consider noticeable changes to sea level",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "exp_ef",
+            "label": "Is inadequate land use causing environmental and land degradation? Is there risk of environmental contamination from release of hazardous substances during extreme weather events",
+            "hint": "Consider unmitigated release of hazardous substances",
+            "answers": {
+              "Most Residents Have": 3,
+              "Half Residents Have": 2,
+              "Almost Nobody Has": 1
+            }
+          },
+          {
+            "key": "exp_land_use",
+            "label": "Is construction taking place in hazardous / risky areas or are land use sensitivities respected",
+            "hint": "Consider respect to risk areas",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "exp_topography",
+            "label": "Is the settlement located on steep terrain?",
+            "hint": "Consider respect to risk areas",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          }
+        ]
+      },
+      {
+        "key": "institutions",
+        "label": "Institutions",
+        "questions": [
+          {
+            "key": "exp_ews",
+            "label": "Is there a functional early warning system/mechanim/arrangement to warn the community about disaster risks?",
+            "hint": "Consider EWS, evacuation plans and awareess",
+            "answers": {
+              "Most Residents Have": 3,
+              "Half Residents Have": 2,
+              "Almost Nobody Has": 1
+            }
+          },
+          {
+            "key": "exp_a_i",
+            "label": "Are extreme weather events affeecting the communities by surprise?",
+            "hint": "Consider access to weather information and warning",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "exp_ec",
+            "label": "Is there regular interaction between the community and the county government?",
+            "hint": "Consider communication mechanisms and frequencies",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "exp_r_rp",
+            "label": "Is the community considered in county governance and finances budgeted to ensure public responsibilities of the county in the settlement location?",
+            "hint": "Consider reflection of priorities in CIDP's",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "exp_hfo",
+            "label": "Are there adequate health facilities, with adequate personell, equipment and materials ?",
+            "hint": "Consider access to health facilities and adequate sevices",
+            "answers": {
+              "Most Residents Have": 3,
+              "Half Residents Have": 2,
+              "Almost Nobody Has": 1
+            }
+          },
+          {
+            "key": "exp_dp",
+            "label": "Are the locations of all critical infrastructure identified and measures in place to protect it?",
+            "hint": "Consider DRM plans, evacuation plans and awareness",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "exp_dr",
+            "label": "Are disaster response measures planned and budgeted for and food, water and hygiene predispositioned?",
+            "hint": "Consider DRM plans and budgets",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "exp_pfr",
+            "label": "Are recovey finances budgeted for?",
+            "hint": "Consider recovery budgets",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "exp_pfm",
+            "label": "Is maintenance and repair of public infrastructures institutionalised and are the responsibilities clear?",
+            "hint": "Consider functionality of maintenance",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          }
         ]
       }
     ]
@@ -259,11 +939,502 @@
         "key": "livelihoods",
         "label": "Livelihoods",
         "questions": [
-          { "key": "sens_food_security", "label": "Are access and cost of food changing with extreme weather events?", "answers": { "Yes, significantly": 3, "Yes, somewhat": 2, "Not noticed": 0 } },
-          { "key": "sens_grazing", "label": "Is grazing land getting scarcer or more distant?", "answers": { "Yes": 3, "No": 0 } },
-          { "key": "sens_crops", "label": "Are most households dependent on subsistence farming for food?", "answers": { "High Dependancy": 3, "Low Dependancy": 1 } },
-          { "key": "sens_livestock", "label": "Are most households dependent on own livestock for food?", "answers": { "High Dependancy": 3, "Low Dependancy": 1 } },
-          { "key": "sens_fishstock", "label": "Are most households dependent on fishing for food?", "answers": { "High Dependancy": 3, "Low Dependancy": 1 } }
+          {
+            "key": "sens_food_security",
+            "label": "Are access and cost of food changing with extreme weather events?",
+            "hint": "Consider food security at different at different times of the year (i.e. rainy season)?",
+            "answers": {
+              "Yes, significantly": 3,
+              "Yes, somewhat": 2,
+              "Not noticed": 1
+            }
+          },
+          {
+            "key": "sens_grazing",
+            "label": "Is grazing land getting scarcer or more distant",
+            "hint": "Consider availability of pasture to feed livestock",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "sens_crops",
+            "label": "Are most households dependent on subsistance farming (crops) for food (not buying)?",
+            "hint": "Consider dependency on subsistence agriculture for majority of households",
+            "answers": {
+              "High Dependancy": 3,
+              "Low Dependancy": 1
+            }
+          },
+          {
+            "key": "sens_crops_2",
+            "label": "Are most households dependent on own livestock for food (not buying)?",
+            "hint": "Consider dependency on own livestock keeping for majority of households",
+            "answers": {
+              "High Dependancy": 3,
+              "Low Dependancy": 1
+            }
+          },
+          {
+            "key": "sens_crops_3",
+            "label": "Are most households dependent on fishing for food (not buying)?",
+            "hint": "Consider dependency on fishing for majority of households",
+            "answers": {
+              "High Dependancy": 3,
+              "Low Dependancy": 1
+            }
+          },
+          {
+            "key": "sens_local_commerce",
+            "label": "Are extreme weather events interrupting secure livelihood, business and incomes for large portions of the communityand lead to economically precarious situations ?",
+            "hint": "Consider dependency on economic activities that are sensitive to climate hazards and severe weather",
+            "answers": {
+              "High Dependancy": 3,
+              "Low Dependancy": 1
+            }
+          },
+          {
+            "key": "sens_gender",
+            "label": "Are women highly dependent on undertaking business inside the settlement?",
+            "hint": "Consider location of the income generaing activity and sensitivity to climae related hazard",
+            "answers": {
+              "High Dependancy": 3,
+              "Low Dependancy": 1
+            }
+          },
+          {
+            "key": "sens_conviviality",
+            "label": "Do resource scarcities that result from cilmate related events or conditions frequently lead to conflicts within the community/or with other communities?",
+            "hint": "Consider conflict and dispute raised due to climate related hazards",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "sens_education",
+            "label": "Are large percentages of children frequently unable to reach/attend school due to climate related and severe weather events?",
+            "hint": "Consider dependency of education services on climate conditions",
+            "answers": {
+              "High Dependancy": 3,
+              "Low Dependancy": 1
+            }
+          },
+          {
+            "key": "sens_wfiwfdu",
+            "label": "Are there water scarcities often being faced that negatively impact farming, livestock keeping and business?",
+            "hint": "Consider dependency of access to water on climate conditions",
+            "answers": {
+              "High Dependancy": 3,
+              "Low Dependancy": 1
+            }
+          },
+          {
+            "key": "sens_atfi",
+            "label": "Does the community have access to financial services, health insurance and disaster risk insurance?",
+            "hint": "Consider financial buffers for periods of interrupted income or effects on health",
+            "answers": {
+              "High Dependancy": 3,
+              "Low Dependancy": 1
+            }
+          },
+          {
+            "key": "sens_disaster_events",
+            "label": "How would the impact of climate related disaster be rated, if it were to occur ?",
+            "hint": "This includes impacts from temperature, rainfall, droughts and/or floods",
+            "answers": {
+              "High Dependancy": 3,
+              "Low Dependancy": 1
+            }
+          }
+        ]
+      },
+      {
+        "key": "health_safety",
+        "label": "Health & Safety",
+        "questions": [
+          {
+            "key": "sens_borne_diseases",
+            "label": "Are health incidences increasing and may be related to the impact of changing extreme weather events?",
+            "hint": "Compare in relation to the past",
+            "answers": {
+              "High Sensitivity": 3,
+              "Low Sensitivity": 1
+            }
+          },
+          {
+            "key": "sens_slupc",
+            "label": "Are safety incidences increasing and may be related to the impact of changes of extreme weather events?",
+            "hint": "Compare in relation to the past",
+            "answers": {
+              "High Sensitivity": 3,
+              "Low Sensitivity": 1
+            }
+          },
+          {
+            "key": "sens_swm",
+            "label": "Is solid waste adequately managed, and unmanaged waste is not increasing the adverse impacts of severe weather events ?",
+            "hint": "Consider mitigation efforts for solid waste not to block drainages and water infiltraion capacities",
+            "answers": {
+              "High Sensitivity": 3,
+              "Low Sensitivity": 1
+            }
+          },
+          {
+            "key": "sens_lwm",
+            "label": "Is untreated waste water released into the environment from industries or domestic uses ?",
+            "hint": "Consider floodwaters mobilizing faecal sludges and other pollutants",
+            "answers": {
+              "High Sensitivity": 3,
+              "Low Sensitivity": 1
+            }
+          },
+          {
+            "key": "sens_aths",
+            "label": "Are health services inaccessible or dysfunctional during climate related and severe weather events?",
+            "hint": "Consider uninterrupted health services",
+            "answers": {
+              "High Sensitivity": 3,
+              "Low Sensitivity": 1
+            }
+          },
+          {
+            "key": "sens_athe",
+            "label": "Are there common sources of pollution that originate from human activity?",
+            "hint": "Consider prevalence of use of biomass for cooking, waste burning and indoor use of pesticides, and industrial pollution",
+            "answers": {
+              "High Sensitivity": 3,
+              "Low Sensitivity": 1
+            }
+          }
+        ]
+      },
+      {
+        "key": "assets_utilities",
+        "label": "Assets and Utilities",
+        "questions": [
+          {
+            "key": "sens_housing",
+            "label": "Are foundations stable, walls protected from moisture and roof fixtures adequate?",
+            "hint": "Consider protection of biult structures",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "sens_public_facilities",
+            "label": "Are public facilities inaccessible or dysfunctional due to climate related and severe weather events?",
+            "hint": "Consider all weather accessibility and operations of public services",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "sens_swd",
+            "label": "Are drainages under-dimensioned or incomplete?",
+            "hint": "Consider drainage overflows or faulty outlet designs",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "sens_sanitary_facilities",
+            "label": "Are sanitation facilities often submerged in water and feaces carried by flood and storm water ?",
+            "hint": "This is specific to household sanitation",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "sens_sewer_lines",
+            "label": "Are there sewer lines existing, which are however under-dimensioned (overflowing) or stagnant (e.g. from water shortage)?",
+            "hint": "Assess functionality of sewers if any",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "sens_power_lines",
+            "label": "is energy supply regularly impacted / interrupted in relation to extreme weather events?",
+            "hint": "Consider reliability of power supply from grid",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "sens_energy_households",
+            "label": "Do most HHs depend on biomass for cooking",
+            "hint": "Consider household connections and reliability of supply",
+            "answers": {
+              "High Dependancy": 3,
+              "Low Dependancy": 1
+            }
+          },
+          {
+            "key": "sens_water_pipes",
+            "label": "are water pipes functional during and after extreme weather events?",
+            "hint": "Consider resiliency of water pipes network",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "sens_pwt",
+            "label": "is water treatment of piped water ensured at all times ?",
+            "hint": "Consider safety of piped water",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "sens_water_storage",
+            "label": "Does the community rely on water storage infrastructure",
+            "hint": "Consider use of water storage to bridge unreliable supply",
+            "answers": {
+              "High Dependancy": 3,
+              "Low Dependancy": 1
+            }
+          },
+          {
+            "key": "sens_r_t",
+            "label": "Is there a high density of road network ?",
+            "hint": "Assess proportion of roads network and potentilly destabilized soils",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "sens_communications",
+            "label": "is communication reliability an issue during/after extreme weather events ?",
+            "hint": "Consider reliability of communication networks",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          }
+        ]
+      },
+      {
+        "key": "potable_water",
+        "label": "Potable water",
+        "questions": [
+          {
+            "key": "sens_water_access",
+            "label": "is access to water impacted by changing climate and extreme weather events?",
+            "hint": "This refers to water for drinking",
+            "answers": {
+              "High Sensitivity": 3,
+              "Low Sensitivity": 1
+            }
+          },
+          {
+            "key": "sens_water_quantities",
+            "label": "is water supply regularly impacted / interrupted in relation to extreme weather events?",
+            "hint": "This refers to water for drinking",
+            "answers": {
+              "High Sensitivity": 3,
+              "Low Sensitivity": 1
+            }
+          },
+          {
+            "key": "sens_water_quality",
+            "label": "is water quality impacted by changing climate and extreme weather events?",
+            "hint": "This refers to water for drinking",
+            "answers": {
+              "High Sensitivity": 3,
+              "Low Sensitivity": 1
+            }
+          }
+        ]
+      },
+      {
+        "key": "ebs",
+        "label": "EBS",
+        "questions": [
+          {
+            "key": "sens_soil",
+            "label": "Are there erosion and/or frequent landslides taking place?",
+            "hint": "This refers to soil instabilities",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "sens_lc_p",
+            "label": "Are large areas burnt deliberately or from disasters (changes infiltration capacity of soil)",
+            "hint": "This looks into future risks of reduced infiltration capacities",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "sens_nw",
+            "label": "Is there deforestation/land clearing taking place",
+            "hint": "This looks into future risks of soil destabilisation, loss of vegetative cover, and effects of increasing temperatures",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "sens_wetlands",
+            "label": "is the wetland water level often unbalanced (dryer or wetter than usual)",
+            "hint": "Consider observed imbalance",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "sens_biodiversity",
+            "label": "Is inadequate land use causing loss of biodiversity and/or loss of environmentally protected land?",
+            "hint": "Consider observations",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "sens_rivers",
+            "label": "Do intense rains cause flooding from the nearly water bodies? Do households settle within riperian corridors",
+            "hint": "Consider changing river courses",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "sens_sea",
+            "label": "Are housing and livelihood depending on a stable sea level ?",
+            "hint": "Consider location of settlement in relation to sea level",
+            "answers": {
+              "High Sensitivity": 3,
+              "Low Sensitivity": 1
+            }
+          },
+          {
+            "key": "sens_ef",
+            "label": "Is environmental contamination from waste and effluents (e.g water bodies) intensifying due to extreme weather events",
+            "hint": "Consider carrying of wastes due to increasing flood levels",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "sens_land_use",
+            "label": "Is heat increasing and windflow declining within the built up area?",
+            "hint": "Consider heat and wind flow",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "sens_topography",
+            "label": "Are there low lying settlement areas that flood for a long time because the water cannot drain off, or located within flow paths of storm water",
+            "hint": "Consider effect of topography in relation to the settlement location",
+            "answers": {
+              "High Sensitivity": 3,
+              "Low Sensitivity": 1
+            }
+          }
+        ]
+      },
+      {
+        "key": "institutions",
+        "label": "Institutions",
+        "questions": [
+          {
+            "key": "sens_ews",
+            "label": "Is there a mechansim that provides location based real time information/data to trigger early warning needs?",
+            "hint": "This inquires about ease of access to real time weather data and related warnings",
+            "answers": {
+              "High Dependancy": 3,
+              "Low Dependancy": 1
+            }
+          },
+          {
+            "key": "sens_a_i",
+            "label": "Are the county and the community regularly engaging with each other to ensure risk and vulnerability reduction?",
+            "hint": "This inquires about the interaction between the county and the community",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "sens_local_government",
+            "label": "Is the community aware of the role of the ecosystem in reducing flood hazards though natural infiltration, heat islands through vegetatation cover, destruction through wind blockage, food security etc....",
+            "hint": "This inquires about climate risk awareness among the community members",
+            "answers": {
+              "High Sensitivity": 3,
+              "Low Sensitivity": 1
+            }
+          },
+          {
+            "key": "sens_participation",
+            "label": "Are there budgeted ressources effectively directed toward the planned activities to benefit the settlement ?",
+            "hint": "This inquires about budget execution",
+            "answers": {
+              "High Sensitivity": 3,
+              "Low Sensitivity": 1
+            }
+          },
+          {
+            "key": "sens_hrp",
+            "label": "Are the health services functional and accessible during severe climate and weather evants?",
+            "hint": "Tis targets functionality of health facilities as critical facilties",
+            "answers": {
+              "High Sensitivity": 3,
+              "Low Sensitivity": 1
+            }
+          },
+          {
+            "key": "sens_erd",
+            "label": "Can residents access evacuation centers or alternative shelter if needed and have safe evacuation routes been identified ?",
+            "answers": {
+              "High Sensitivity": 3,
+              "Low Sensitivity": 1
+            }
+          },
+          {
+            "key": "sens_dr",
+            "label": "Can residents access aid and assistance in case of disaster if needed ?",
+            "answers": {
+              "Yes": 3,
+              "No": 1
+            }
+          },
+          {
+            "key": "sens_rr",
+            "label": "Is disbursement for recovery funds clear and effective?",
+            "answers": {
+              "High Sensitivity": 3,
+              "Low Sensitivity": 1
+            }
+          },
+          {
+            "key": "sens_pfm",
+            "label": "Is maintenance and repair of public infrastructures budgeted for and the disbursement meachnism is clear?",
+            "hint": "This is a verificaiton of budgeting at County level",
+            "answers": {
+              "High Sensitivity": 3,
+              "Low Sensitivity": 1
+            }
+          }
         ]
       }
     ]
@@ -275,21 +1446,626 @@
         "key": "livelihoods",
         "label": "Livelihoods",
         "questions": [
-          { "key": "adapt_food_security", "label": "Are there adequate areas formally available for urban agriculture?", "answers": { "Yes": 0, "No": 3 } },
-          { "key": "adapt_grazing", "label": "Are there adequate areas formally available for grazing?", "answers": { "Yes": 0, "No": 3 } },
-          { "key": "adapt_crops", "label": "Are there mechanisms to diversify crops and protect harvest from weather?", "answers": { "Yes": 0, "No": 3 } },
-          { "key": "adapt_livestock", "label": "Are there mechanisms to rescue and relocate animals from hazards?", "answers": { "Yes": 0, "No": 3 } },
-          { "key": "adapt_fishstock", "label": "Are there mechanisms to prevent overfishing and support alternatives?", "answers": { "Yes": 0, "No": 3 } }
+          {
+            "key": "adapt_food_security",
+            "label": "Are there adequate areas formally available to practice urban agriculture",
+            "hint": "Consider provisions in LPLUDP's and Community Development Plans",
+            "answers": {
+              "Yes": 3,
+              "Sometimes": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_food_security_2",
+            "label": "Are there adequate areas formally available for grazing",
+            "hint": "Consider provisions in LPLUDP's and Community Development Plans",
+            "answers": {
+              "Yes": 3,
+              "Sometimes": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_crops",
+            "label": "Are there mechanims to diversify crops, share unaffected crops and farming locations, and store harvest to protect it?",
+            "hint": "Consider crop protection from weather events and capacity to diversify crops",
+            "answers": {
+              "Yes": 3,
+              "Unknown": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_livestock",
+            "label": "Are there adequate areas identofied and mechanisms to timely rescue and relocate animals to minimise imact from hazards",
+            "hint": "Consider provisions in LPLUDP's, Community Development Plans and Evacuation Plans",
+            "answers": {
+              "Yes": 3,
+              "Unknown": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_fishstock",
+            "label": "Are there meachnisms that prevent overfishing (monitoring, net size regulations…) and support fishermen with alternatives, such as fish farming",
+            "hint": "Consider provisions in LPLUDP's and Community Development Plans",
+            "answers": {
+              "Yes": 3,
+              "Sometimes": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_local_commerce",
+            "label": "Are there diverse economic opportunities in the area?",
+            "hint": "Consider mixed uses opportunities and access to small business units",
+            "answers": {
+              "Yes": 3,
+              "Sometimes": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_gender",
+            "label": "Are there mechanisms to ensure privacy, safety and access to reproductve health care for women at all times?",
+            "hint": "Consider access to health care services and DRM plans",
+            "answers": {
+              "Yes": 3,
+              "Sometimes": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_connectivity",
+            "label": "Is there a mechanism to mitigate disputes over diminuished resources before escalation?",
+            "hint": "Consider activities and capacities of SEC's, GRC's, Environmental and Land Courts (ELC), and public awareness and information",
+            "answers": {
+              "Yes": 3,
+              "Unknown": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_education",
+            "label": "Are there mechanisms for children to receive education at all times?",
+            "hint": "Consider access to education, DRM plans, and provisions to ensure protection of schools from hazards",
+            "answers": {
+              "Yes": 3,
+              "Sometimes": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_wfiwfdu",
+            "label": "Are there provisions to harvest and store rain and surface water for irrigation during dry periods?",
+            "hint": "Consider rain and surface water harvesting and storage available to subsistence farmers",
+            "answers": {
+              "Yes": 3,
+              "Unknown": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_atfi",
+            "label": "Are most households health insured and insured for cases of disaster ?",
+            "hint": "Consider rate of health insurance and provisions to help accsess disaster insurance",
+            "answers": {
+              "Yes": 3,
+              "Unknown": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_disaster_events",
+            "label": "Is the community aware of the evacuation routes and evacuation centers, and trained for cases of disaster?",
+            "hint": "Consider availability and awareness of evacuaiotn plans and response mechanisms",
+            "answers": {
+              "Yes": 3,
+              "Sometimes": 2,
+              "No": 1
+            }
+          }
+        ]
+      },
+      {
+        "key": "health_safety",
+        "label": "Health & Safety",
+        "questions": [
+          {
+            "key": "adapt_borne_diseases",
+            "label": "Are communities supported to protect and keep healthy during climate related hazards or extreme weather events?",
+            "hint": "Consider provisions in Community Development Plans, budgets and awareness and information",
+            "answers": {
+              "Yes": 3,
+              "Sometimes": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_slupc",
+            "label": "Is land use planning and enforcement functional and awareness raised about areas at risk?",
+            "hint": "Consider public awareness of hazardous zones",
+            "answers": {
+              "Yes": 3,
+              "Unknown": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_swm",
+            "label": "Is there effective solid waste management ?",
+            "hint": "Consider SWM plans and functionality of SWM",
+            "answers": {
+              "Yes": 3,
+              "Sometimes": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_lwm",
+            "label": "Is there adequate sanitation that is not vulnerable to severe weather events ?",
+            "hint": "Sanitation solutions respond to the hydrological conditions and are resilient",
+            "answers": {
+              "Yes": 3,
+              "Sometimes": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_aths",
+            "label": "Is there a mechanism that maintains or immediately recovers access to health services when adversely affected ?",
+            "hint": "Consider DRM plans, evacuaiton plans, and disaster response times and recovery budgets",
+            "answers": {
+              "Yes": 3,
+              "Unknown": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_athe",
+            "label": "Is the county holding industrial polluters accountable ?",
+            "hint": "Consider enforcement of environmental regulatioons",
+            "answers": {
+              "Yes": 3,
+              "Sometimes": 2,
+              "No": 1
+            }
+          }
+        ]
+      },
+      {
+        "key": "assets_utilities",
+        "label": "Assets and Utilities",
+        "questions": [
+          {
+            "key": "adapt_housing",
+            "label": "Is there access to a reinstatement program or mechanism for damaged or lost shelter for affected community members ?",
+            "hint": "Consider access to finance for home recovery after disaster",
+            "answers": {
+              "Yes": 3,
+              "Unknown": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_public_facilities",
+            "label": "Is here a mechanism that maintains or immediately recovers access to critical public services when adversely affected ?",
+            "hint": "Consider immediate recovery of critical infrastucture",
+            "answers": {
+              "Yes": 3,
+              "Unknown": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_swd",
+            "label": "Are storm water flows fully planned and managed from source up to outlet/for the whole watershed/including use of natural infiltration?",
+            "hint": "Consider storm water management planning based on location based hydrological assessment",
+            "answers": {
+              "Yes": 3,
+              "Unknown": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_sanitary_facilities",
+            "label": "Are sanitary facilities adequate and properly designed in respect of ground water protection?",
+            "hint": "This is specific to household sanitation; consider techncial assistance to ensure adequacy",
+            "answers": {
+              "Yes": 3,
+              "Unknown": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_sewer_lines",
+            "label": "Are sewers properly designed in respect of ground water protection and fit for the local situaiton (and capability to connect)?",
+            "hint": "Consider adequate infrastucture planning based on location based hydrological assessment",
+            "answers": {
+              "Yes": 3,
+              "Unknown": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_power_lines",
+            "label": "Are there means to continously maintain the functionality of the most critical services and to provide access to energy, such as hospitals?",
+            "hint": "Consider immediate recovery of critical infrastucture",
+            "answers": {
+              "Yes": 3,
+              "Unknown": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_energy_households",
+            "label": "Are there programs that facilitate access to alternative, green and renewable sources of energy for lighting and cooking ?",
+            "hint": "Consider grid and solar kits",
+            "answers": {
+              "Yes": 3,
+              "Unknown": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_water_pipes",
+            "label": "Are water pipes properly planned and the layout and access points fit for the local situation?",
+            "hint": "Consider adequate infrastucture planning based on location based hydrological assessment",
+            "answers": {
+              "Yes": 3,
+              "Unknown": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_pwt",
+            "label": "Is the relevant water treatment facility protected from hazards by the provider?",
+            "hint": "Consider infrastructure protection measures",
+            "answers": {
+              "Yes": 3,
+              "Unknown": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_water_storage",
+            "label": "Is water storage available, protected from hazards ?",
+            "hint": "Consider availability of water storage and its protetcton",
+            "answers": {
+              "Yes": 3,
+              "Unknown": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_roads_transport",
+            "label": "Is the settlement accessible in all weather conditions (access to/and within)?",
+            "hint": "Consider adequate infrastucture planning based on location based hydrological assessment",
+            "answers": {
+              "Yes": 3,
+              "Unknown": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_communications",
+            "label": "Is access to communication ensured in all weather conditions ?",
+            "hint": "Consider adequate infrastucture planning based on location based hydrological assessment",
+            "answers": {
+              "Yes": 3,
+              "Unknown": 2,
+              "No": 1
+            }
+          }
+        ]
+      },
+      {
+        "key": "potable_water",
+        "label": "Potable water",
+        "questions": [
+          {
+            "key": "adapt_water_access",
+            "label": "Are there provisions to ensure access to water in the case of emergencies/scarcities?",
+            "hint": "This includes prepositioning of water for drinking",
+            "answers": {
+              "Yes": 3,
+              "Unknown": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_water_access_2",
+            "label": "Are there provisions to ensure sufficient quantities of water in dry seasons / during interruted water supply ?",
+            "hint": "This includes prepositioning of water for drinking",
+            "answers": {
+              "Yes": 3,
+              "Unknown": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_water_access_3",
+            "label": "Are there provisions to ensure drinking water quality ?",
+            "hint": "This includes prepositioning of water for drinking",
+            "answers": {
+              "Yes": 3,
+              "Unknown": 2,
+              "No": 1
+            }
+          }
+        ]
+      },
+      {
+        "key": "ebs",
+        "label": "EBS",
+        "questions": [
+          {
+            "key": "adapt_soil",
+            "label": "Are geological assessments provenly considered in land use planning and engineeing designs?",
+            "hint": "Consider adequate planning and design based on location based assessment",
+            "answers": {
+              "Yes": 3,
+              "Unknown": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_lcp",
+            "label": "Is sufficient permeability considered in the settlement plans as part of storm water management and infiltration ?",
+            "hint": "Consider areas that allow for infiltration",
+            "answers": {
+              "Yes": 3,
+              "Unknown": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_nw",
+            "label": "Is sufficient vegetation considered in the settlement plans as part of mitigation of extreme heat?",
+            "hint": "Consider vegetative cover",
+            "answers": {
+              "Yes": 3,
+              "Unknown": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_wetlands",
+            "label": "Are wetlands considred as part of the settlement plans and enforcement to maintain their natural functionality?",
+            "hint": "Consider respect to wetland areas",
+            "answers": {
+              "Yes": 3,
+              "Unknown": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_biodiversity",
+            "label": "Are areas for undisturbed habitat/nisting/ and migrational routes respected as part of the settlement plans for conservation purposes and to mitigate human wildlife conflict ?",
+            "hint": "Consider respect to natural habitat",
+            "answers": {
+              "Yes": 3,
+              "Unknown": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_rivers",
+            "label": "Is the river bed and flood plain of the nearby water body respected and/or springs protected from pollution?",
+            "hint": "Consider respect to natural water flows",
+            "answers": {
+              "Yes": 3,
+              "Unknown": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_sea",
+            "label": "Is the sea and tidal movements respected in the settlement plans ?",
+            "hint": "Consider respect to tidal flows",
+            "answers": {
+              "Yes": 3,
+              "Unknown": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_bwb",
+            "label": "Are there environmnetal awareness programs conducted, and industrial polluters held responsible?",
+            "hint": "Consider awareness for environmental regulations",
+            "answers": {
+              "Yes": 3,
+              "Unknown": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_land_use",
+            "label": "Are land use planning and enforcement by the local government effective and discourage settlement on inadequate land / in risky areas, and is the public aware of the importance in disaster risk reduction?",
+            "hint": "Consider respect to hazardous areas and awareness",
+            "answers": {
+              "Yes": 3,
+              "Unknown": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_topography",
+            "label": "Are there vegetative soil stabilisation measures combined with adaptive road network planning and storm water management planning?",
+            "hint": "Consider erosion control measures",
+            "answers": {
+              "Yes": 3,
+              "Unknown": 2,
+              "No": 1
+            }
+          }
+        ]
+      },
+      {
+        "key": "institutions",
+        "label": "Institutions",
+        "questions": [
+          {
+            "key": "adapt_ews",
+            "label": "Is there an Early Warning System with SOP's, responsibilities assigned and the community trained to respond in cases if emergency?",
+            "hint": "Consider existence of plan and awareness of its content",
+            "answers": {
+              "Yes": 3,
+              "Unknown": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_a_i",
+            "label": "Is access to climate related information and understanding facilitated, such as warnings of weather events?",
+            "hint": "Consider climate change awareness",
+            "answers": {
+              "Yes": 3,
+              "Unknown": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_local_government",
+            "label": "Does the local government effectively communicate to the community during disasters (is there a mechanism)?",
+            "hint": "Consider evacuatio plans and disaster response mechanims",
+            "answers": {
+              "Yes": 3,
+              "Unknown": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_participation",
+            "label": "Is there an established ressource planning and budgeting process at county level which is transparent to the community ?",
+            "hint": "Consider participatory CIDP pocess and budgeting",
+            "answers": {
+              "Yes": 3,
+              "Unknown": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_hrp",
+            "label": "Is there a mechanism to ensure accessibility and functionaility of health services at all times (including access to water, electricity, food and personnell)?",
+            "hint": "Consider maintained access to water, electricity, personnel and supplies",
+            "answers": {
+              "Yes": 3,
+              "Unknown": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_erd",
+            "label": "Are there DRM plans, evacuation plans and evaculation centers for cases of disaster, and the neccessary supplies predispositioned?",
+            "hint": "Consider availability and awareness",
+            "answers": {
+              "Yes": 3,
+              "Unknown": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_rr",
+            "label": "Is there a mechanism to quickly mobilise disaster response staff and budget in case of emergency?",
+            "hint": "Consider responsibilities and equipment",
+            "answers": {
+              "Yes": 3,
+              "Unknown": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_pcm",
+            "label": "Does the local government have the capacity and finance to quickly respond to disasters and access resources for disaster recovery in case of emergency?",
+            "hint": "Consider access to funds in emergency situations",
+            "answers": {
+              "Yes": 3,
+              "Unknown": 2,
+              "No": 1
+            }
+          },
+          {
+            "key": "adapt_pcm_2",
+            "label": "Does the local government have the capacity and finance to manage and maintain / reinstate damaged infrastructure, and is infrastructue maintenance institutionalised?",
+            "hint": "Consider access to funds for repairs",
+            "answers": {
+              "Yes": 3,
+              "Unknown": 2,
+              "No": 1
+            }
+          }
         ]
       }
     ]
   },
   "scoring": {
-    "dimensionWeights": { "hazard": 1, "exposure": 1, "sensitivity": 1, "adaptive_capacity": 1 },
-    "ratingThresholds": [
-      { "rating": "Low", "minScore": 0, "maxScore": 33 },
-      { "rating": "Medium", "minScore": 34, "maxScore": 66 },
-      { "rating": "High", "minScore": 67, "maxScore": null }
+    "dimensionWeights": {
+      "hazard": 1,
+      "exposure": 1,
+      "sensitivity": 1,
+      "adaptive_capacity": 1
+    },
+    "perQuestionThresholds": [
+      {
+        "rating": "Low",
+        "value": 1
+      },
+      {
+        "rating": "Medium",
+        "value": 2
+      },
+      {
+        "rating": "High",
+        "value": 3
+      }
+    ],
+    "adaptiveCapacityThresholds": [
+      {
+        "rating": "Poor",
+        "value": 1
+      },
+      {
+        "rating": "Average",
+        "value": 2
+      },
+      {
+        "rating": "Good",
+        "value": 3
+      }
+    ],
+    "vulnerabilityFormula": "AVG(sensitivity) - AVG(adaptive_capacity)",
+    "vulnerabilityThresholds": [
+      {
+        "rating": "Low",
+        "maxScore": -0.6
+      },
+      {
+        "rating": "Medium",
+        "minScore": -0.6,
+        "maxScore": 0.6
+      },
+      {
+        "rating": "High",
+        "minScore": 0.6
+      }
+    ],
+    "riskFormula": "AVG(hazard) + (exposure * ((vulnerability + 3) / 2)) / 3",
+    "riskThresholds": [
+      {
+        "rating": "Low",
+        "maxScore": 2.17
+      },
+      {
+        "rating": "Medium",
+        "minScore": 2.17,
+        "maxScore": 3.83
+      },
+      {
+        "rating": "High",
+        "minScore": 3.83
+      }
     ]
   }
 }

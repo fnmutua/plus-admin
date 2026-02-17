@@ -54,7 +54,19 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.DECIMAL(10, 2),
         allowNull: true,
       },
+      vulnerability_score: {
+        type: DataTypes.DECIMAL(10, 4),
+        allowNull: true,
+      },
       vulnerability_rating: {
+        type: DataTypes.STRING(32),
+        allowNull: true,
+      },
+      risk_score: {
+        type: DataTypes.DECIMAL(10, 4),
+        allowNull: true,
+      },
+      risk_rating: {
         type: DataTypes.STRING(32),
         allowNull: true,
       },

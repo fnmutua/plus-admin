@@ -1,0 +1,658 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?><comments xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:xr="http://schemas.microsoft.com/office/spreadsheetml/2014/revision"><authors><author>tc={001d6def-345d-41d4-8a25-7b3cfba17148}</author><author>tc={03e5d218-03a4-4fa6-a94a-813c567cbb53}</author><author>tc={054d8d7b-d61b-4dfc-a34c-d542a1ca3cf7}</author><author>tc={072b6bda-6cea-4f72-a00a-90e60605f4bb}</author><author>tc={0aba59ae-6b21-41a8-b529-2bb3db089732}</author><author>tc={0e4935bb-df6d-4cd0-a25b-4504d0481eb3}</author><author>tc={10225b50-0a88-41ba-8725-f92b06cf74f5}</author><author>tc={1c86d451-6f00-4084-956d-08b964ed0d2c}</author><author>tc={1d3961ec-09bb-4f9f-afc4-9ed9e69badbe}</author><author>tc={1d8bb28c-9fe6-4783-944a-b6412782f658}</author><author>tc={21b994ef-ca86-450a-b314-bd815c8419bb}</author><author>tc={21d376da-db7b-4edf-88bd-2da4e94be4a3}</author><author>tc={2cf4f0e7-d3f0-4838-b26a-314ae171e63f}</author><author>tc={2d6deb4b-5606-42d7-9abd-c15328f8683b}</author><author>tc={2e57ef2e-ac43-4b08-bc69-9480983d1c2d}</author><author>tc={2fd42362-7b17-4fa6-a822-bce10a8d16ae}</author><author>tc={327cea64-cdd6-4603-951c-a7efd54a5b12}</author><author>tc={3482fcbb-bfdd-4a84-b1fc-7e281ac207ea}</author><author>tc={35bdaf51-f342-46b0-9ca7-d941c47d950e}</author><author>tc={3f1d468e-60ed-44e1-949e-a952d037e1b6}</author><author>tc={439e43e6-c315-4aca-8007-36c72029aeec}</author><author>tc={47bcf272-17ef-40a1-b42e-d25b45e19c46}</author><author>tc={4e62ba5a-0d40-4048-bf17-bf78f297cdee}</author><author>tc={504104ca-04ed-40bc-bd16-fa6d0f192090}</author><author>tc={50467406-c9c5-48b1-8fb4-033258ee8d33}</author><author>tc={51a0bd49-fc04-40a9-93dc-c6580c58d96a}</author><author>tc={56e9ff81-4fc4-4ccb-bc2e-e69b6edea0b9}</author><author>tc={576250c6-0b50-4aef-8f87-6178a7115ed4}</author><author>tc={5a844197-db1a-43b0-9236-f60262adc84f}</author><author>tc={5dc4ef03-b3d1-40fe-9811-fb832a1450b0}</author><author>tc={5ddb640b-a8f4-4646-8d68-41c61b308568}</author><author>tc={60927e4a-25b9-4d24-ac67-198f469e54ab}</author><author>tc={66bfc6d6-ab73-4d0e-a0cd-94dc073ced26}</author><author>tc={6ac70a1d-13ff-4493-8c24-1b3dc7beb9db}</author><author>tc={73063e88-36ff-4cc6-963c-93b4211ae261}</author><author>tc={75f31647-962c-4b94-96bd-c4aaf8cc132d}</author><author>tc={7676b475-e3fb-4678-9647-f56c689233bf}</author><author>tc={7e910980-8de9-4df6-b033-b8a14d9aae1d}</author><author>tc={7fbe65d1-1f69-45dd-8a8e-bfaaf5df59e6}</author><author>tc={83d767ca-07c2-4bdf-9f34-f8aadab13075}</author><author>tc={83dccafd-b4dd-4709-b19d-624915ece2cc}</author><author>tc={88260e84-5c84-45b6-93ce-9b331ed852ae}</author><author>tc={8b3488ee-08e6-4a6b-8b2f-39537d5da394}</author><author>tc={8e2a6713-c616-4d95-8c5d-ccf8538ba709}</author><author>tc={9006e602-c14d-48f6-a891-756faf2dacd1}</author><author>tc={9bdd5d13-181b-4698-ab89-d7c4f07f2a8d}</author><author>tc={9cd571d7-6f42-415c-8b94-b10dc15206ce}</author><author>tc={a16e1190-d912-4a73-abfc-c10b21b2819f}</author><author>tc={a35e8191-012f-490e-a770-1788a923d844}</author><author>tc={ae35986e-8704-40d2-b48b-5512596f0e41}</author><author>tc={b5bb1700-0cc1-40a8-aae9-e289e8559a01}</author><author>tc={b5ceba74-9ee7-48e9-91e1-a3709d2067bc}</author><author>tc={b64de722-ed49-496a-ac71-9af5f2e96626}</author><author>tc={bdf8b0f9-153b-4c5a-9971-3051b4e310d7}</author><author>tc={c157e6fe-a204-442d-9892-f54f88262edd}</author><author>tc={c40936d2-3b01-4ca5-8b74-6ecbd556a738}</author><author>tc={c77b8ea3-1608-4342-8d4f-a7cdedd2384e}</author><author>tc={c8636315-e032-4594-9063-cedc866cc029}</author><author>tc={ca59a3a8-c621-4fd8-8119-435af30a9b4b}</author><author>tc={cbd95974-1653-4752-9c9a-f1c76626569b}</author><author>tc={cfd41f03-7787-4e7c-be2d-3ac04ec6abcb}</author><author>tc={d36d57d2-7d74-43f6-99f3-f017a396f9f1}</author><author>tc={d6fe3d50-fc93-4a40-9afc-49eba626fd21}</author><author>tc={e3bfd2f8-f990-4785-bcc9-1ced4ddb01bc}</author><author>tc={e44960ed-b8ba-4b49-ad1e-2b43dcd369fd}</author><author>tc={eed0ef58-2fdc-4cc2-8469-b12de7f46e06}</author><author>tc={f697dd7d-4e34-43db-bba3-70f6158d109a}</author><author>tc={f85fef35-a115-4c75-a34e-45933e46116c}</author><author>tc={faaa74f2-eaaf-4fd7-9565-eeef7ffebc3a}</author><author>tc={fc0ed1be-a3b4-43d1-8edb-b1dceae340d9}</author><author>tc={fd562298-55fd-4e1f-a95b-b5e7afe89fad}</author><author>tc={fe2f2e25-f22f-412f-be9e-f675c01fc2e6}</author><author>tc={fe80178d-dbe8-4940-81f4-1a6764978a98}</author></authors><commentList><comment authorId="0" xr:uid="{001d6def-345d-41d4-8a25-7b3cfba17148}" ref="I15"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Natural vegetation
+</t></text></comment><comment authorId="1" xr:uid="{03e5d218-03a4-4fa6-a94a-813c567cbb53}" ref="C94"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Public finance / Maintenance
+</t></text></comment><comment authorId="2" xr:uid="{054d8d7b-d61b-4dfc-a34c-d542a1ca3cf7}" ref="C68"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Roads and transport/mobility
+</t></text></comment><comment authorId="3" xr:uid="{072b6bda-6cea-4f72-a00a-90e60605f4bb}" ref="C77"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Natural Vegetation
+</t></text></comment><comment authorId="4" xr:uid="{0aba59ae-6b21-41a8-b529-2bb3db089732}" ref="Z16"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Disaster response
+</t></text></comment><comment authorId="5" xr:uid="{0e4935bb-df6d-4cd0-a25b-4504d0481eb3}" ref="AA22"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Acces to finance / insurance
+</t></text></comment><comment authorId="6" xr:uid="{10225b50-0a88-41ba-8725-f92b06cf74f5}" ref="G13"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Storm water drainage
+</t></text></comment><comment authorId="7" xr:uid="{1c86d451-6f00-4084-956d-08b964ed0d2c}" ref="L23"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Solid waste management
+</t></text></comment><comment authorId="8" xr:uid="{1d3961ec-09bb-4f9f-afc4-9ed9e69badbe}" ref="C89"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Resources / resources planning
+</t></text></comment><comment authorId="9" xr:uid="{1d8bb28c-9fe6-4783-944a-b6412782f658}" ref="C51"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Water Borne / vector borne / heat born diseases
+</t></text></comment><comment authorId="10" xr:uid="{21b994ef-ca86-450a-b314-bd815c8419bb}" ref="AB27"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Public finance / Maintenance
+</t></text></comment><comment authorId="11" xr:uid="{21d376da-db7b-4edf-88bd-2da4e94be4a3}" ref="F27"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Awareness and information
+</t></text></comment><comment authorId="12" xr:uid="{2cf4f0e7-d3f0-4838-b26a-314ae171e63f}" ref="I26"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Natural vegetation
+</t></text></comment><comment authorId="13" xr:uid="{2d6deb4b-5606-42d7-9abd-c15328f8683b}" ref="D16"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Early warning system or mechanism
+</t></text></comment><comment authorId="14" xr:uid="{2e57ef2e-ac43-4b08-bc69-9480983d1c2d}" ref="F15"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Land cover and permeability
+</t></text></comment><comment authorId="15" xr:uid="{2fd42362-7b17-4fa6-a822-bce10a8d16ae}" ref="L16"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Resources / resources planning
+</t></text></comment><comment authorId="16" xr:uid="{327cea64-cdd6-4603-951c-a7efd54a5b12}" ref="S23"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Liquid waste management
+</t></text></comment><comment authorId="17" xr:uid="{3482fcbb-bfdd-4a84-b1fc-7e281ac207ea}" ref="Y24"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Potable water treatment
+</t></text></comment><comment authorId="18" xr:uid="{35bdaf51-f342-46b0-9ca7-d941c47d950e}" ref="C48"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Acces to finance / insurance
+</t></text></comment><comment authorId="19" xr:uid="{3f1d468e-60ed-44e1-949e-a952d037e1b6}" ref="D23"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Water Borne / vector borne / heat born diseases
+</t></text></comment><comment authorId="20" xr:uid="{439e43e6-c315-4aca-8007-36c72029aeec}" ref="Z15"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Ecosystem functionalyty / Riparian reserves
+</t></text></comment><comment authorId="21" xr:uid="{47bcf272-17ef-40a1-b42e-d25b45e19c46}" ref="G24"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Storm water drainage
+</t></text></comment><comment authorId="22" xr:uid="{4e62ba5a-0d40-4048-bf17-bf78f297cdee}" ref="L12"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Solid waste management
+</t></text></comment><comment authorId="23" xr:uid="{504104ca-04ed-40bc-bd16-fa6d0f192090}" ref="F16"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Awareness and information
+</t></text></comment><comment authorId="24" xr:uid="{50467406-c9c5-48b1-8fb4-033258ee8d33}" ref="C60"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Storm water drainage
+</t></text></comment><comment authorId="25" xr:uid="{51a0bd49-fc04-40a9-93dc-c6580c58d96a}" ref="AA11"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Acces to finance / insurance
+</t></text></comment><comment authorId="26" xr:uid="{56e9ff81-4fc4-4ccb-bc2e-e69b6edea0b9}" ref="AA12"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Access to healthy environment
+</t></text></comment><comment authorId="27" xr:uid="{576250c6-0b50-4aef-8f87-6178a7115ed4}" ref="C56"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Access to healthy environment
+</t></text></comment><comment authorId="28" xr:uid="{5a844197-db1a-43b0-9236-f60262adc84f}" ref="C54"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Liquid waste management
+</t></text></comment><comment authorId="29" xr:uid="{5dc4ef03-b3d1-40fe-9811-fb832a1450b0}" ref="Z11"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Water for irrigation/and other domestic uses
+</t></text></comment><comment authorId="30" xr:uid="{5ddb640b-a8f4-4646-8d68-41c61b308568}" ref="Y13"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Potable water treatment
+</t></text></comment><comment authorId="31" xr:uid="{60927e4a-25b9-4d24-ac67-198f469e54ab}" ref="Z26"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Ecosystem functionalyty / Riparian reserves
+</t></text></comment><comment authorId="32" xr:uid="{66bfc6d6-ab73-4d0e-a0cd-94dc073ced26}" ref="Y23"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Access to health services
+</t></text></comment><comment authorId="33" xr:uid="{6ac70a1d-13ff-4493-8c24-1b3dc7beb9db}" ref="AA27"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Public finance / recovery grants
+</t></text></comment><comment authorId="34" xr:uid="{73063e88-36ff-4cc6-963c-93b4211ae261}" ref="S12"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Liquid waste management
+</t></text></comment><comment authorId="35" xr:uid="{75f31647-962c-4b94-96bd-c4aaf8cc132d}" ref="L27"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Resources / resources planning
+</t></text></comment><comment authorId="36" xr:uid="{7676b475-e3fb-4678-9647-f56c689233bf}" ref="C76"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Land cover and permeability
+</t></text></comment><comment authorId="37" xr:uid="{7e910980-8de9-4df6-b033-b8a14d9aae1d}" ref="P16"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Health facilities operations
+</t></text></comment><comment authorId="38" xr:uid="{7fbe65d1-1f69-45dd-8a8e-bfaaf5df59e6}" ref="C80"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Natural water bodies
+</t></text></comment><comment authorId="39" xr:uid="{83d767ca-07c2-4bdf-9f34-f8aadab13075}" ref="C91"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Disaster preparedness
+</t></text></comment><comment authorId="40" xr:uid="{83dccafd-b4dd-4709-b19d-624915ece2cc}" ref="Y12"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Access to health services
+</t></text></comment><comment authorId="41" xr:uid="{88260e84-5c84-45b6-93ce-9b331ed852ae}" ref="AA16"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Public finance / recovery grants
+</t></text></comment><comment authorId="42" xr:uid="{8b3488ee-08e6-4a6b-8b2f-39537d5da394}" ref="D12"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Water Borne / vector borne / heat born diseases
+</t></text></comment><comment authorId="43" xr:uid="{8e2a6713-c616-4d95-8c5d-ccf8538ba709}" ref="C92"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Disaster response
+</t></text></comment><comment authorId="44" xr:uid="{9006e602-c14d-48f6-a891-756faf2dacd1}" ref="C87"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Awareness and information
+</t></text></comment><comment authorId="45" xr:uid="{9bdd5d13-181b-4698-ab89-d7c4f07f2a8d}" ref="P9"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Ecology, biodiversity and settlement realm
+</t></text></comment><comment authorId="46" xr:uid="{9cd571d7-6f42-415c-8b94-b10dc15206ce}" ref="D27"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Early warning system or mechanism
+</t></text></comment><comment authorId="47" xr:uid="{a16e1190-d912-4a73-abfc-c10b21b2819f}" ref="C53"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Solid waste management
+</t></text></comment><comment authorId="48" xr:uid="{a35e8191-012f-490e-a770-1788a923d844}" ref="AA24"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Roads and transport/mobility
+</t></text></comment><comment authorId="49" xr:uid="{ae35986e-8704-40d2-b48b-5512596f0e41}" ref="Z22"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Water for irrigation/and other domestic uses
+</t></text></comment><comment authorId="50" xr:uid="{b5bb1700-0cc1-40a8-aae9-e289e8559a01}" ref="X16"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Disaster preparedness
+</t></text></comment><comment authorId="51" xr:uid="{b5ceba74-9ee7-48e9-91e1-a3709d2067bc}" ref="Z27"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Disaster response
+</t></text></comment><comment authorId="52" xr:uid="{b64de722-ed49-496a-ac71-9af5f2e96626}" ref="C52"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Safety/Land use planning and control
+</t></text></comment><comment authorId="53" xr:uid="{bdf8b0f9-153b-4c5a-9971-3051b4e310d7}" ref="G23"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Safety/Land use planning and control
+</t></text></comment><comment authorId="54" xr:uid="{c157e6fe-a204-442d-9892-f54f88262edd}" ref="C47"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Water for irrigation/and other domestic uses
+</t></text></comment><comment authorId="55" xr:uid="{c40936d2-3b01-4ca5-8b74-6ecbd556a738}" ref="C86"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Early warning system or mechanism
+</t></text></comment><comment authorId="56" xr:uid="{c77b8ea3-1608-4342-8d4f-a7cdedd2384e}" ref="I27"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Engagement county-community
+</t></text></comment><comment authorId="57" xr:uid="{c8636315-e032-4594-9063-cedc866cc029}" ref="G12"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Safety/Land use planning and control
+</t></text></comment><comment authorId="58" xr:uid="{ca59a3a8-c621-4fd8-8119-435af30a9b4b}" ref="F26"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Land cover and permeability
+</t></text></comment><comment authorId="59" xr:uid="{cbd95974-1653-4752-9c9a-f1c76626569b}" ref="C66"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Potable water treatment
+</t></text></comment><comment authorId="60" xr:uid="{cfd41f03-7787-4e7c-be2d-3ac04ec6abcb}" ref="W15"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Natural water bodies
+</t></text></comment><comment authorId="61" xr:uid="{d36d57d2-7d74-43f6-99f3-f017a396f9f1}" ref="C82"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Ecosystem functionalyty / Riparian reserves
+</t></text></comment><comment authorId="62" xr:uid="{d6fe3d50-fc93-4a40-9afc-49eba626fd21}" ref="C90"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Health facilities operations
+</t></text></comment><comment authorId="63" xr:uid="{e3bfd2f8-f990-4785-bcc9-1ced4ddb01bc}" ref="AA23"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Access to healthy environment
+</t></text></comment><comment authorId="64" xr:uid="{e44960ed-b8ba-4b49-ad1e-2b43dcd369fd}" ref="AB16"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Public finance / Maintenance
+</t></text></comment><comment authorId="65" xr:uid="{eed0ef58-2fdc-4cc2-8469-b12de7f46e06}" ref="W26"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Natural water bodies
+</t></text></comment><comment authorId="66" xr:uid="{f697dd7d-4e34-43db-bba3-70f6158d109a}" ref="C88"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Engagement county-community
+</t></text></comment><comment authorId="67" xr:uid="{f85fef35-a115-4c75-a34e-45933e46116c}" ref="P27"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Health facilities operations
+</t></text></comment><comment authorId="68" xr:uid="{faaa74f2-eaaf-4fd7-9565-eeef7ffebc3a}" ref="AA13"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Roads and transport/mobility
+</t></text></comment><comment authorId="69" xr:uid="{fc0ed1be-a3b4-43d1-8edb-b1dceae340d9}" ref="X27"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Disaster preparedness
+</t></text></comment><comment authorId="70" xr:uid="{fd562298-55fd-4e1f-a95b-b5e7afe89fad}" ref="C93"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Public finance / recovery grants
+</t></text></comment><comment authorId="71" xr:uid="{fe2f2e25-f22f-412f-be9e-f675c01fc2e6}" ref="C55"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Access to health services
+</t></text></comment><comment authorId="72" xr:uid="{fe80178d-dbe8-4940-81f4-1a6764978a98}" ref="I16"><text><t xml:space="preserve">[Threaded comment]
+ Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+Comment:
+	[Threaded comment]
+
+Your version of Excel allows you to read this threaded comment; however, any edits to it will get removed if the file is opened in a newer version of Excel. Learn more: https://go.microsoft.com/fwlink/?linkid=870924
+
+Comment:
+    Engagement county-community
+</t></text></comment></commentList></comments>
