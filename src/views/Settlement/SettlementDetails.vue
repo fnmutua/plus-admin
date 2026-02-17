@@ -1816,6 +1816,17 @@ const getVulnerabilityRatingType = (rating: string | null | undefined): 'danger'
 const formatVulnerabilityRating = (rating: string | null | undefined): string =>
   rating ? String(rating).toUpperCase() : ''
 
+// Score-level class for Tool B cards (1-3 scale). AC polarity is inverted.
+const toolbScoreLevel = (dim: string, score: any): string => {
+  if (score == null || score === '') return ''
+  const n = typeof score === 'number' ? score : Number(score)
+  if (Number.isNaN(n)) return ''
+  const isAC = dim === 'adaptive_capacity'
+  if (n >= 2.33) return isAC ? 'toolb-level-low' : 'toolb-level-high'
+  if (n >= 1.67) return 'toolb-level-medium'
+  return isAC ? 'toolb-level-high' : 'toolb-level-low'
+}
+
 // Tool B overall score = average of the four dimension scores (0–100)
 const climateAssessmentOverallScore = computed(() => {
   const a = climateAssessment.value
@@ -3056,7 +3067,7 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
               <div v-if="climateAssessment?.vulnerability_rating" class="mb-4">
                 <el-row :gutter="12">
                   <el-col :span="6">
-                    <div class="toolb-score-card toolb-hazard" role="button" tabindex="0" @click="push({ name: 'ClimateAssessmentSettlement', params: { id: String(route.params.id) } })" @keydown.enter="push({ name: 'ClimateAssessmentSettlement', params: { id: String(route.params.id) } })">
+                    <div :class="['toolb-score-card', 'toolb-hazard', toolbScoreLevel('hazard', climateAssessment.hazard_score)]" role="button" tabindex="0" @click="push({ name: 'ClimateAssessmentSettlement', params: { id: String(route.params.id) } })" @keydown.enter="push({ name: 'ClimateAssessmentSettlement', params: { id: String(route.params.id) } })">
                       <el-icon class="toolb-icon"><Lightning /></el-icon>
                       <div class="toolb-text">
                         <span class="toolb-label">Hazard</span>
@@ -3065,7 +3076,7 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
                     </div>
                   </el-col>
                   <el-col :span="6">
-                    <div class="toolb-score-card toolb-exposure" role="button" tabindex="0" @click="push({ name: 'ClimateAssessmentSettlement', params: { id: String(route.params.id) } })" @keydown.enter="push({ name: 'ClimateAssessmentSettlement', params: { id: String(route.params.id) } })">
+                    <div :class="['toolb-score-card', 'toolb-exposure', toolbScoreLevel('exposure', climateAssessment.exposure_score)]" role="button" tabindex="0" @click="push({ name: 'ClimateAssessmentSettlement', params: { id: String(route.params.id) } })" @keydown.enter="push({ name: 'ClimateAssessmentSettlement', params: { id: String(route.params.id) } })">
                       <el-icon class="toolb-icon"><Location /></el-icon>
                       <div class="toolb-text">
                         <span class="toolb-label">Exposure</span>
@@ -3074,7 +3085,7 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
                     </div>
                   </el-col>
                   <el-col :span="6">
-                    <div class="toolb-score-card toolb-sensitivity" role="button" tabindex="0" @click="push({ name: 'ClimateAssessmentSettlement', params: { id: String(route.params.id) } })" @keydown.enter="push({ name: 'ClimateAssessmentSettlement', params: { id: String(route.params.id) } })">
+                    <div :class="['toolb-score-card', 'toolb-sensitivity', toolbScoreLevel('sensitivity', climateAssessment.sensitivity_score)]" role="button" tabindex="0" @click="push({ name: 'ClimateAssessmentSettlement', params: { id: String(route.params.id) } })" @keydown.enter="push({ name: 'ClimateAssessmentSettlement', params: { id: String(route.params.id) } })">
                       <el-icon class="toolb-icon"><TrendCharts /></el-icon>
                       <div class="toolb-text">
                         <span class="toolb-label">Sensitivity</span>
@@ -3083,7 +3094,7 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
                     </div>
                   </el-col>
                   <el-col :span="6">
-                    <div class="toolb-score-card toolb-adaptive" role="button" tabindex="0" @click="push({ name: 'ClimateAssessmentSettlement', params: { id: String(route.params.id) } })" @keydown.enter="push({ name: 'ClimateAssessmentSettlement', params: { id: String(route.params.id) } })">
+                    <div :class="['toolb-score-card', 'toolb-adaptive', toolbScoreLevel('adaptive_capacity', climateAssessment.adaptive_capacity_score)]" role="button" tabindex="0" @click="push({ name: 'ClimateAssessmentSettlement', params: { id: String(route.params.id) } })" @keydown.enter="push({ name: 'ClimateAssessmentSettlement', params: { id: String(route.params.id) } })">
                       <el-icon class="toolb-icon"><SetUp /></el-icon>
                       <div class="toolb-text">
                         <span class="toolb-label">Adaptive Capacity</span>
@@ -3520,6 +3531,28 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
   font-weight: 600;
   line-height: 1.3;
 }
+
+/* Score-level coloring for Tool B cards */
+.toolb-score-card.toolb-level-low {
+  background: var(--el-color-success-light-9, #f0f9eb);
+  border: 1px solid var(--el-color-success-light-5, #b3e19d);
+}
+.toolb-score-card.toolb-level-low .toolb-value,
+.toolb-score-card.toolb-level-low .toolb-icon { color: var(--el-color-success); }
+
+.toolb-score-card.toolb-level-medium {
+  background: var(--el-color-warning-light-9, #fdf6ec);
+  border: 1px solid var(--el-color-warning-light-5, #f3d19e);
+}
+.toolb-score-card.toolb-level-medium .toolb-value,
+.toolb-score-card.toolb-level-medium .toolb-icon { color: var(--el-color-warning-dark-2, #b88230); }
+
+.toolb-score-card.toolb-level-high {
+  background: var(--el-color-danger-light-9, #fef0f0);
+  border: 1px solid var(--el-color-danger-light-5, #fab6b6);
+}
+.toolb-score-card.toolb-level-high .toolb-value,
+.toolb-score-card.toolb-level-high .toolb-icon { color: var(--el-color-danger); }
 
 .vulnerability-score-display {
   border-left-color: var(--el-border-color);

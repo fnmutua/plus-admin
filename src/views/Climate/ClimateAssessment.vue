@@ -21,6 +21,164 @@
       <div v-loading="loading" class="assessment-content">
         <template v-if="assessment">
           <ElTabs v-model="activeTab" type="border-card" class="assessment-tabs">
+            <!-- How To tab (first) -->
+            <ElTabPane name="howto" label="Instructions">
+              <div class="tab-content methodology-content">
+                <h3 class="method-heading">
+                  <ElIcon><Document /></ElIcon>
+                  KISIP Tool B — Scoring Methodology
+                </h3>
+                <p class="method-intro">
+                  This assessment follows the <strong>KISIP RVAT (Risk &amp; Vulnerability Assessment Tool)</strong> Excel methodology.
+                  Every question is scored on a <strong>1 – 3 scale</strong>. The final Vulnerability and Risk ratings are computed
+                  from cross-dimensional formulas described below.
+                </p>
+
+                <!-- Scale -->
+                <div class="method-section">
+                  <h4 class="method-subheading">Per-Question Scoring Scale</h4>
+                  <ElTable :data="scaleTableData" border size="small" class="method-table">
+                    <ElTableColumn prop="score" label="Score" width="80" align="center" />
+                    <ElTableColumn prop="meaning" label="Meaning" />
+                  </ElTable>
+                  <p class="method-note">
+                    <strong>Note:</strong> Adaptive Capacity uses <em>inverted</em> polarity —
+                    <strong>3 = Good</strong> capacity (positive), <strong>1 = Poor</strong> capacity. All other dimensions treat 3 as the most severe/exposed/sensitive.
+                  </p>
+                </div>
+
+                <!-- Dimensions -->
+                <div class="method-section">
+                  <h4 class="method-subheading">Dimension Scores</h4>
+                  <p>Each dimension score is the <strong>simple average</strong> of all per-question scores within that dimension (range 1.00 – 3.00).</p>
+                  <ElTable :data="dimensionTableData" border size="small" class="method-table">
+                    <ElTableColumn prop="dimension" label="Dimension" width="180" />
+                    <ElTableColumn prop="formula" label="Formula" />
+                    <ElTableColumn prop="interpretation" label="Interpretation" />
+                  </ElTable>
+                </div>
+
+                <!-- Vulnerability -->
+                <div class="method-section">
+                  <h4 class="method-subheading">
+                    <ElIcon class="method-icon vuln"><WarningFilled /></ElIcon>
+                    Vulnerability
+                  </h4>
+                  <div class="method-formula-box">
+                    <code>Vulnerability = AVG(Sensitivity) − AVG(Adaptive Capacity)</code>
+                  </div>
+                  <p>Range: <strong>−2</strong> to <strong>+2</strong>. A negative value means adaptive capacity outweighs sensitivity (good). A positive value means the community is vulnerable.</p>
+                  <ElTable :data="vulnThresholdData" border size="small" class="method-table">
+                    <ElTableColumn prop="rating" label="Rating" width="120" align="center" />
+                    <ElTableColumn prop="range" label="Score Range" width="160" align="center" />
+                    <ElTableColumn prop="meaning" label="Meaning" />
+                  </ElTable>
+                  <p class="method-note">
+                    <strong>Category-level vulnerability</strong> is also computed per sub-category:<br />
+                    <code>Category Vulnerability = AVG(Sensitivity<sub>cat</sub>) − AVG(Adaptive Capacity<sub>cat</sub>)</code>
+                  </p>
+                </div>
+
+                <!-- Risk -->
+                <div class="method-section">
+                  <h4 class="method-subheading">
+                    <ElIcon class="method-icon risk"><WarningFilled /></ElIcon>
+                    Risk
+                  </h4>
+                  <div class="method-formula-box">
+                    <code>Risk = AVG(Hazard) + ( Exposure × NormVuln ) / 3</code>
+                  </div>
+                  <p>where <code>NormVuln = (Vulnerability + 3) / 2</code>, which normalises the −2…+2 vulnerability range into a 0.5…2.5 positive multiplier.</p>
+                  <ElTable :data="riskThresholdData" border size="small" class="method-table">
+                    <ElTableColumn prop="rating" label="Rating" width="120" align="center" />
+                    <ElTableColumn prop="range" label="Score Range" width="160" align="center" />
+                    <ElTableColumn prop="meaning" label="Meaning" />
+                  </ElTable>
+                  <p class="method-note">
+                    <strong>Category-level risk</strong> = AVERAGE of all subcategory risk scores.
+                  </p>
+                </div>
+
+                <!-- Recommendations -->
+                <div class="method-section">
+                  <h4 class="method-subheading">Flagging &amp; Recommendations</h4>
+                  <p>
+                    Subcategories rated <ElTag type="danger" size="small">High</ElTag> are automatically flagged on the
+                    Responses sheet. The Excel recommends addressing these through:
+                  </p>
+                  <ul class="method-list">
+                    <li><strong>Planning</strong> — integrate findings into settlement/county planning</li>
+                    <li><strong>Designs</strong> — climate-proof infrastructure designs for the settlement</li>
+                    <li><strong>Community Development Plan</strong> — community-level adaptation and resilience actions</li>
+                  </ul>
+                </div>
+
+                <!-- Workflow -->
+                <div class="method-section">
+                  <h4 class="method-subheading">Workflow</h4>
+                  <ol class="method-list">
+                    <li>Complete all questions across <strong>Hazard</strong>, <strong>Exposure</strong>, <strong>Sensitivity</strong>, and <strong>Adaptive Capacity</strong> tabs.</li>
+                    <li>Click <strong>"Save &amp; Compute Scores"</strong> — the system calculates dimension averages, vulnerability, and risk.</li>
+                    <li>Review the <strong>Overall</strong> tab for summary scores and ratings.</li>
+                    <li>Address any <ElTag type="danger" size="small">High</ElTag> rated dimensions through appropriate planning interventions.</li>
+                  </ol>
+                </div>
+              </div>
+            </ElTabPane>
+
+            <!-- Dimension tabs -->
+            <ElTabPane
+              v-for="dim in dimensions"
+              :key="dim"
+              :name="dim"
+              :label="tabLabels[dim]"
+            >
+              <div class="tab-content">
+                <ElCollapse v-model="activeCategoryByTab[dim]" accordion>
+                    <ElCollapseItem
+                      v-for="cat in (questionsConfig?.[dim]?.categories || [])"
+                      :key="cat.key"
+                      :name="cat.key"
+                    >
+                      <template #title>
+                        <span class="collapse-title">{{ cat.label }}</span>
+                        <span class="collapse-count">
+                          {{ answeredCount(dim, cat) }}/{{ (cat.questions || []).length }}
+                        </span>
+                      </template>
+                      <div class="questions-compact">
+                        <div
+                          v-for="q in (cat.questions || [])"
+                          :key="q.key"
+                          class="question-inline"
+                        >
+                          <div class="q-text">
+                            <span class="q-label">{{ q.label }}</span>
+                            <span v-if="q.hint" class="q-hint">{{ q.hint }}</span>
+                          </div>
+                          <ElSelect
+                            v-model="responses[dim][q.key]"
+                            placeholder="Select"
+                            clearable
+                            size="small"
+                            class="q-select"
+                            @change="debouncedSave"
+                          >
+                            <ElOption
+                              v-for="(_, opt) in q.answers"
+                              :key="opt"
+                              :label="opt"
+                              :value="opt"
+                            />
+                          </ElSelect>
+                        </div>
+                      </div>
+                    </ElCollapseItem>
+                  </ElCollapse>
+              </div>
+            </ElTabPane>
+
+            <!-- Overall Score tab (last) -->
             <ElTabPane name="overall" :label="overallTabLabel">
               <div class="tab-content overall-score-content">
                 <div class="scores-grid" v-if="assessment.vulnerability_rating || assessment.risk_rating">
@@ -108,56 +266,6 @@
                 <p v-else class="score-placeholder">
                   Complete the questionnaire and click "Save & Compute Scores" to see the overall assessment.
                 </p>
-              </div>
-            </ElTabPane>
-            <ElTabPane
-              v-for="dim in dimensions"
-              :key="dim"
-              :name="dim"
-              :label="tabLabels[dim]"
-            >
-              <div class="tab-content">
-                <ElCollapse v-model="activeCategoryByTab[dim]" accordion>
-                    <ElCollapseItem
-                      v-for="cat in (questionsConfig?.[dim]?.categories || [])"
-                      :key="cat.key"
-                      :name="cat.key"
-                    >
-                      <template #title>
-                        <span class="collapse-title">{{ cat.label }}</span>
-                        <span class="collapse-count">
-                          {{ answeredCount(dim, cat) }}/{{ (cat.questions || []).length }}
-                        </span>
-                      </template>
-                      <div class="questions-compact">
-                        <div
-                          v-for="q in (cat.questions || [])"
-                          :key="q.key"
-                          class="question-inline"
-                        >
-                          <div class="q-text">
-                            <span class="q-label">{{ q.label }}</span>
-                            <span v-if="q.hint" class="q-hint">{{ q.hint }}</span>
-                          </div>
-                          <ElSelect
-                            v-model="responses[dim][q.key]"
-                            placeholder="Select"
-                            clearable
-                            size="small"
-                            class="q-select"
-                            @change="debouncedSave"
-                          >
-                            <ElOption
-                              v-for="(_, opt) in q.answers"
-                              :key="opt"
-                              :label="opt"
-                              :value="opt"
-                            />
-                          </ElSelect>
-                        </div>
-                      </div>
-                    </ElCollapseItem>
-                  </ElCollapse>
               </div>
             </ElTabPane>
           </ElTabs>
@@ -270,9 +378,11 @@ import {
   ElCol,
   ElEmpty,
   ElMessage,
-  ElStatistic
+  ElStatistic,
+  ElTable,
+  ElTableColumn
 } from 'element-plus'
-import { Back, Lightning, Location, TrendCharts, SetUp, WarningFilled, InfoFilled } from '@element-plus/icons-vue'
+import { Back, Lightning, Location, TrendCharts, SetUp, WarningFilled, InfoFilled, Document } from '@element-plus/icons-vue'
 import {
   getQuestions,
   getAssessment,
@@ -298,11 +408,34 @@ const canSave = computed(() => {
 
 const dimensions = ['hazard', 'exposure', 'sensitivity', 'adaptive_capacity']
 
+/* ── Static table data for the Methodology tab ── */
+const scaleTableData = [
+  { score: '1', meaning: 'Low — minimal severity, exposure, sensitivity, or poor adaptive capacity' },
+  { score: '2', meaning: 'Medium — moderate level' },
+  { score: '3', meaning: 'High — severe / frequent (or Good adaptive capacity for AC)' }
+]
+const dimensionTableData = [
+  { dimension: 'Hazard', formula: 'AVG of all hazard questions', interpretation: '3 = severe hazards, 1 = low' },
+  { dimension: 'Exposure', formula: 'AVG of all exposure questions', interpretation: '3 = high exposure, 1 = low' },
+  { dimension: 'Sensitivity', formula: 'AVG of all sensitivity questions', interpretation: '3 = highly sensitive, 1 = low' },
+  { dimension: 'Adaptive Capacity', formula: 'AVG of all AC questions', interpretation: '3 = good capacity (positive), 1 = poor' }
+]
+const vulnThresholdData = [
+  { rating: 'Low', range: '≤ −0.6', meaning: 'Adaptive capacity outweighs sensitivity — community is resilient' },
+  { rating: 'Medium', range: '−0.6 to +0.6', meaning: 'Moderate vulnerability — some gaps in adaptive capacity' },
+  { rating: 'High', range: '≥ +0.6', meaning: 'Sensitivity outweighs capacity — community is vulnerable' }
+]
+const riskThresholdData = [
+  { rating: 'Low', range: '≤ 2.17', meaning: 'Lower overall climate risk' },
+  { rating: 'Medium', range: '2.17 – 3.83', meaning: 'Moderate climate risk' },
+  { rating: 'High', range: '≥ 3.83', meaning: 'High climate risk — immediate attention needed' }
+]
+
 const loading = ref(false)
 const saving = ref(false)
 const assessment = ref<ClimateAssessment | null>(null)
 const questionsConfig = ref<AssessmentQuestions | null>(null)
-const activeTab = ref<string>('overall')
+const activeTab = ref<string>('howto')
 const infoDrawerOpen = ref(false)
 const activeCategoryByTab = ref<Record<string, string>>({
   hazard: '',
@@ -503,7 +636,7 @@ const goBack = () => {
 }
 
 watch(activeTab, () => {
-  if (activeTab.value === 'overall') return
+  if (activeTab.value === 'howto' || activeTab.value === 'overall') return
   const cats = questionsConfig.value?.[activeTab.value]?.categories || []
   const firstKey = cats[0]?.key ?? ''
   if (!activeCategoryByTab.value[activeTab.value]) {
@@ -789,6 +922,90 @@ onMounted(async () => {
   width: 180px;
 }
 
+/* ── Methodology tab ── */
+.methodology-content {
+  max-width: 100%;
+  margin: 0;
+  padding: 20px 8px;
+  line-height: 1.7;
+  color: var(--el-text-color-regular);
+  font-size: 0.9rem;
+}
+.method-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--el-text-color-primary);
+}
+.method-heading .el-icon {
+  color: var(--el-color-primary);
+  font-size: 1.2rem;
+}
+.method-intro {
+  margin: 0 0 24px;
+}
+.method-section {
+  margin-bottom: 28px;
+}
+.method-section:last-child {
+  margin-bottom: 0;
+}
+.method-subheading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+.method-icon.vuln { color: var(--el-color-warning); }
+.method-icon.risk { color: var(--el-color-danger); }
+.method-formula-box {
+  background: var(--el-fill-color-light);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  text-align: center;
+}
+.method-formula-box code {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--el-color-primary);
+}
+.method-table {
+  margin: 12px 0;
+}
+.method-note {
+  margin-top: 10px;
+  padding: 10px 14px;
+  background: var(--el-color-info-light-9, #f4f4f5);
+  border-left: 3px solid var(--el-color-info);
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+.method-note code {
+  font-size: 0.82rem;
+  background: rgba(0,0,0,0.04);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+.method-list {
+  margin: 8px 0 0;
+  padding-left: 22px;
+  line-height: 2;
+}
+.method-section p {
+  margin: 0 0 8px;
+}
+.method-section p:last-child {
+  margin-bottom: 0;
+}
+
 /* ── Mobile optimisations ── */
 @media (max-width: 768px) {
   .score-card {
@@ -846,6 +1063,22 @@ onMounted(async () => {
   }
   .assessment-actions .el-button {
     width: 100%;
+  }
+  .methodology-content {
+    padding: 12px 4px;
+    font-size: 0.85rem;
+  }
+  .method-heading {
+    font-size: 1rem;
+  }
+  .method-formula-box {
+    padding: 10px 12px;
+  }
+  .method-formula-box code {
+    font-size: 0.82rem;
+  }
+  .method-table {
+    font-size: 0.8rem;
   }
 }
 
