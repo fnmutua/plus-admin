@@ -41,6 +41,13 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.INTEGER,
       allowNull: true
     },
+    climate_assessment_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: { model: 'climate_assessment', key: 'id' },
+      onDelete: 'SET NULL',
+      onUpdate: 'CASCADE'
+    },
     
 
 

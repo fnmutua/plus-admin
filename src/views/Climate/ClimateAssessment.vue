@@ -308,8 +308,8 @@
                     <component
                       :is="docsListComponent"
                       :data="docsListViewData"
-                      docmodel="settlement"
-                      field="settlement_id"
+                      docmodel="document"
+                      field="climate_assessment_id"
                       :hide-import="true"
                     />
                   </div>
@@ -516,10 +516,13 @@ const formatRatingValue = (score: number | string | null | undefined) => {
 }
 
 const overallTabLabel = computed(() => {
-  const vr = assessment.value?.vulnerability_rating
   const rr = assessment.value?.risk_rating
-  if (vr && rr) return `Overall (Vuln: ${formatRatingLabel(vr)} · Risk: ${formatRatingLabel(rr)})`
-  if (vr) return `Overall (Vuln: ${formatRatingLabel(vr)})`
+  if (rr) {
+    const upper = String(rr).toUpperCase()
+    if (upper === 'MEDIUM' || upper === 'HIGH') {
+      return `Overall (Risk: ${formatRatingLabel(rr)})`
+    }
+  }
   return 'Overall Score'
 })
 
@@ -593,7 +596,7 @@ const assessorName = computed(() => {
   return a.name || a.username || a.email || `User #${a.id}`
 })
 
-// Documentation upload (reuses generic UploadComponent, linked to the settlement)
+// Documentation upload (linked to the climate assessment)
 const docsUploadOpen = ref(false)
 const DocsUploadChild = defineAsyncComponent(() => import('@/views/Components/UploadComponent.vue'))
 const docsUploadComponent = ref<any | null>(null)
@@ -601,8 +604,8 @@ const docsUploadProps = ref({
   message: 'Climate assessment documentation',
   showDialog: docsUploadOpen,
   data: { id: null as number | null },
-  umodel: 'settlement',
-  field: 'settlement_id',
+  umodel: 'document',
+  field: 'climate_assessment_id',
   filterOptions: '' as string | undefined
 })
 
@@ -623,9 +626,9 @@ const docsListComponent = ref<any | null>(null)
 const docsLoadedOnce = ref(false)
 
 const loadDocumentation = async () => {
-  const sid = assessment.value?.settlement_id
-  if (!sid) {
-    docsError.value = 'Settlement is required before loading documentation.'
+  const aid = assessment.value?.id
+  if (!aid) {
+    docsError.value = 'Assessment must be saved before loading documentation.'
     docsListData.value = { documents: [] }
     return
   }
@@ -639,8 +642,8 @@ const loadDocumentation = async () => {
       model: 'document',
       searchField: 'name',
       searchKeyword: '',
-      filters: ['settlement_id'],
-      filterValues: [[sid]],
+      filters: ['climate_assessment_id'],
+      filterValues: [[aid]],
       associated_multiple_models: ['document_type'],
       nested_models: []
     }
@@ -659,12 +662,12 @@ const loadDocumentation = async () => {
 }
 
 const openDocsUpload = () => {
-  const sid = assessment.value?.settlement_id
-  if (!sid) {
-    ElMessage.error('Settlement is required before uploading documentation.')
+  const aid = assessment.value?.id
+  if (!aid) {
+    ElMessage.error('Please save the assessment first to link documents to it.')
     return
   }
-  docsUploadProps.value.data = { id: sid }
+  docsUploadProps.value.data = { id: aid }
   docsUploadProps.value.showDialog = true
   docsUploadComponent.value = null
   docsUploadOpen.value = true
