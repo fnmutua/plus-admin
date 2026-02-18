@@ -1,0 +1,1428 @@
+const fs = require('fs');
+const path = require('path');
+
+// Load the questions config
+const questionsPath = path.join(__dirname, '../server/app/config/climate_assessment_questions.json');
+const questions = JSON.parse(fs.readFileSync(questionsPath, 'utf8'));
+
+// Subcategory-specific recommendations
+const subcategoryRecommendations = {
+  // Livelihoods subcategories
+  'livelihoods_food_security': {
+    Low: {
+      planning: [
+        'Monitor food production patterns and seasonal variations',
+        'Maintain current food security planning measures'
+      ],
+      designs: [
+        'Maintain current food storage infrastructure design standards'
+      ],
+      communityDevelopmentPlans: [
+        'Maintain current food security awareness programs',
+        'Monitor food availability throughout the year'
+      ]
+    },
+    Medium: {
+      planning: [
+        'Assess food production vulnerabilities and plan for diversification',
+        'Plan for food storage facilities in strategic locations',
+        'Consider food security in land use planning'
+      ],
+      designs: [
+        'Design improved food storage facilities with climate-resilient features',
+        'Design systems for food preservation and processing'
+      ],
+      communityDevelopmentPlans: [
+        'Develop programs to support food production diversification',
+        'Provide training on climate-resilient food production practices',
+        'Facilitate access to improved seeds and farming inputs'
+      ]
+    },
+    High: {
+      planning: [
+        'Prioritize food security in all land use planning decisions',
+        'Plan for emergency food reserves and distribution systems',
+        'Develop comprehensive food security protection plans',
+        'Plan for food production areas protected from climate hazards'
+      ],
+      designs: [
+        'Design climate-resilient food storage facilities with temperature control',
+        'Design irrigation systems for food production',
+        'Design protective structures for food crops'
+      ],
+      communityDevelopmentPlans: [
+        'Develop emergency food distribution programs',
+        'Create awareness programs on food security and climate impacts',
+        'Facilitate access to climate-resilient crop varieties',
+        'Develop programs for food production diversification and alternative food sources'
+      ]
+    }
+  },
+  'livelihoods_grazing': {
+    Low: {
+      planning: [
+        'Monitor grazing land conditions and availability',
+        'Maintain current grazing land use planning'
+      ],
+      designs: [
+        'Maintain current grazing infrastructure design standards'
+      ],
+      communityDevelopmentPlans: [
+        'Maintain current grazing land management practices',
+        'Monitor grazing land quality and availability'
+      ]
+    },
+    Medium: {
+      planning: [
+        'Assess grazing land vulnerabilities and plan for protection',
+        'Plan for designated grazing areas with adequate water access',
+        'Consider rotational grazing systems in land use planning'
+      ],
+      designs: [
+        'Design water points for livestock in grazing areas',
+        'Design fencing and boundary markers for grazing areas'
+      ],
+      communityDevelopmentPlans: [
+        'Develop programs for sustainable grazing land management',
+        'Provide training on rotational grazing and land restoration',
+        'Facilitate access to improved grazing practices'
+      ]
+    },
+    High: {
+      planning: [
+        'Prioritize grazing land protection in land use planning',
+        'Plan for protected grazing areas with adequate water sources',
+        'Develop comprehensive grazing land management plans',
+        'Plan for alternative grazing areas during extreme weather',
+        'Mitigate land use conversion of grazing areas'
+      ],
+      designs: [
+        'Design water retention systems for grazing areas',
+        'Design protective measures for grazing land from erosion',
+        'Design infrastructure for livestock movement and access'
+      ],
+      communityDevelopmentPlans: [
+        'Develop programs for grazing land restoration and protection',
+        'Create awareness programs on sustainable grazing practices',
+        'Facilitate access to water sources for livestock in grazing areas',
+        'Develop emergency grazing plans for extreme weather events'
+      ]
+    }
+  },
+  'livelihoods_crops': {
+    Low: {
+      planning: [
+        'Monitor crop production and climate impacts',
+        'Maintain current crop production planning'
+      ],
+      designs: [
+        'Maintain current crop protection infrastructure design standards'
+      ],
+      communityDevelopmentPlans: [
+        'Maintain current crop production support programs',
+        'Monitor crop yields and climate impacts'
+      ]
+    },
+    Medium: {
+      planning: [
+        'Assess crop vulnerabilities and plan for protection measures',
+        'Plan for crop storage facilities',
+        'Consider crop diversification in land use planning'
+      ],
+      designs: [
+        'Design protective structures for crops (greenhouses, shade nets)',
+        'Design irrigation systems for crop production',
+        'Design crop storage facilities'
+      ],
+      communityDevelopmentPlans: [
+        'Develop programs to support crop diversification',
+        'Provide training on climate-resilient crop varieties',
+        'Facilitate access to improved seeds and farming inputs'
+      ]
+    },
+    High: {
+      planning: [
+        'Prioritize crop protection in land use planning',
+        'Plan for protected crop production areas',
+        'Develop comprehensive crop protection plans',
+        'Plan for crop storage and processing facilities'
+      ],
+      designs: [
+        'Design climate-resilient crop protection structures',
+        'Design irrigation systems that function during water scarcity',
+        'Design crop storage facilities with climate control',
+        'Design drainage systems to protect crops from flooding'
+      ],
+      communityDevelopmentPlans: [
+        'Develop programs to support crop diversification and climate-resilient varieties',
+        'Create awareness programs on crop protection and climate impacts',
+        'Facilitate access to climate-resilient seeds and farming techniques',
+        'Develop emergency crop protection programs for extreme weather events'
+      ]
+    }
+  },
+  'livelihoods_livestock': {
+    Low: {
+      planning: [
+        'Monitor livestock health and climate impacts',
+        'Maintain current livestock management planning'
+      ],
+      designs: [
+        'Maintain current livestock infrastructure design standards'
+      ],
+      communityDevelopmentPlans: [
+        'Maintain current livestock health programs',
+        'Monitor livestock conditions and climate impacts'
+      ]
+    },
+    Medium: {
+      planning: [
+        'Assess livestock vulnerabilities and plan for protection',
+        'Plan for livestock shelter and water access',
+        'Consider livestock health in infrastructure planning'
+      ],
+      designs: [
+        'Design livestock shelters with climate-resilient features',
+        'Design water points for livestock',
+        'Design feed storage facilities'
+      ],
+      communityDevelopmentPlans: [
+        'Develop programs for livestock health management',
+        'Provide training on climate-resilient livestock practices',
+        'Facilitate access to veterinary services and feed'
+      ]
+    },
+    High: {
+      planning: [
+        'Prioritize livestock protection in planning',
+        'Plan for protected livestock areas with adequate shelter',
+        'Develop comprehensive livestock protection plans',
+        'Plan for livestock evacuation during extreme weather'
+      ],
+      designs: [
+        'Design climate-resilient livestock shelters',
+        'Design water systems for livestock during droughts',
+        'Design feed storage facilities with climate protection',
+        'Design infrastructure for livestock movement and evacuation'
+      ],
+      communityDevelopmentPlans: [
+        'Develop programs for livestock health and protection',
+        'Create awareness programs on livestock protection and climate impacts',
+        'Facilitate access to veterinary services and emergency livestock care',
+        'Develop emergency livestock evacuation and shelter programs'
+      ]
+    }
+  },
+  'livelihoods_fishstock': {
+    Low: {
+      planning: [
+        'Monitor fish stock levels and water quality',
+        'Maintain current fisheries management planning'
+      ],
+      designs: [
+        'Maintain current fisheries infrastructure design standards'
+      ],
+      communityDevelopmentPlans: [
+        'Maintain current fisheries management programs',
+        'Monitor fish stock levels and water quality'
+      ]
+    },
+    Medium: {
+      planning: [
+        'Assess fish stock vulnerabilities and plan for protection',
+        'Plan for water quality protection measures',
+        'Consider sustainable fishing practices in planning'
+      ],
+      designs: [
+        'Design water quality monitoring systems',
+        'Design fish storage and processing facilities'
+      ],
+      communityDevelopmentPlans: [
+        'Develop programs for sustainable fisheries management',
+        'Provide training on sustainable fishing practices',
+        'Facilitate access to fish storage and processing facilities'
+      ]
+    },
+    High: {
+      planning: [
+        'Prioritize fish stock protection in planning',
+        'Plan for protected fishing areas and water quality management',
+        'Develop comprehensive fisheries protection plans',
+        'Plan for alternative livelihoods when fish stocks decline'
+      ],
+      designs: [
+        'Design water quality protection and monitoring systems',
+        'Design fish storage and processing facilities with climate protection',
+        'Design infrastructure for sustainable fishing practices'
+      ],
+      communityDevelopmentPlans: [
+        'Develop programs for fish stock protection and restoration',
+        'Create awareness programs on sustainable fishing and climate impacts',
+        'Facilitate access to alternative livelihoods when fish stocks decline',
+        'Develop emergency fisheries protection programs'
+      ]
+    }
+  },
+  'exp_local_commerce': {
+    Low: {
+      planning: [
+        'Monitor business resilience to climate impacts',
+        'Maintain current commercial area planning'
+      ],
+      designs: [
+        'Maintain current commercial infrastructure design standards'
+      ],
+      communityDevelopmentPlans: [
+        'Maintain current business support programs',
+        'Monitor business impacts from climate events'
+      ]
+    },
+    Medium: {
+      planning: [
+        'Assess business vulnerabilities and plan for protection',
+        'Plan for market infrastructure with climate protection',
+        'Consider business continuity in infrastructure planning'
+      ],
+      designs: [
+        'Design market infrastructure with climate-resilient features',
+        'Design storage facilities for businesses',
+        'Design water and power systems for commercial areas'
+      ],
+      communityDevelopmentPlans: [
+        'Develop programs to support business resilience',
+        'Provide training on climate-resilient business practices',
+        'Facilitate access to finance for business climate adaptation'
+      ]
+    },
+    High: {
+      planning: [
+        'Prioritize business protection in planning',
+        'Plan for protected commercial areas with climate-resilient infrastructure',
+        'Develop comprehensive business continuity plans',
+        'Plan for market infrastructure protected from climate hazards'
+      ],
+      designs: [
+        'Design climate-resilient market infrastructure',
+        'Design storage and processing facilities for businesses',
+        'Design backup systems for water and power in commercial areas'
+      ],
+      communityDevelopmentPlans: [
+        'Develop programs to support business resilience and recovery',
+        'Create awareness programs on business climate adaptation',
+        'Facilitate access to finance and insurance for businesses',
+        'Develop emergency business support programs for climate disasters'
+      ]
+    }
+  },
+  'exp_gender': {
+    Low: {
+      planning: [
+        'Monitor gender impacts of climate change',
+        'Maintain gender-responsive planning processes'
+      ],
+      designs: [
+        'Maintain gender-responsive infrastructure design standards'
+      ],
+      communityDevelopmentPlans: [
+        'Maintain gender-sensitive programs',
+        'Monitor gender-differentiated climate impacts'
+      ]
+    },
+    Medium: {
+      planning: [
+        'Assess gender vulnerabilities and plan for gender-responsive measures',
+        'Plan for gender-inclusive infrastructure and services',
+        'Consider gender-differentiated needs in planning'
+      ],
+      designs: [
+        'Design infrastructure that responds to gender-based needs',
+        'Design safe and accessible facilities for all genders',
+        'Design spaces that consider gender-specific requirements'
+      ],
+      communityDevelopmentPlans: [
+        'Develop programs that address gender-differentiated climate impacts',
+        'Provide training on gender-responsive climate adaptation',
+        'Facilitate gender-inclusive participation in climate programs'
+      ]
+    },
+    High: {
+      planning: [
+        'Prioritize gender-responsive planning in all decisions',
+        'Plan for gender-inclusive infrastructure and services',
+        'Develop comprehensive gender-responsive climate adaptation plans',
+        'Ensure gender considerations in all planning processes'
+      ],
+      designs: [
+        'Design infrastructure that specifically addresses gender-based needs',
+        'Design safe spaces and facilities for vulnerable genders',
+        'Design accessible infrastructure for all genders and abilities'
+      ],
+      communityDevelopmentPlans: [
+        'Develop comprehensive programs addressing gender-differentiated climate impacts',
+        'Create awareness programs on gender and climate change',
+        'Facilitate gender-inclusive participation and leadership in climate programs',
+        'Develop emergency programs that consider gender-differentiated needs'
+      ]
+    }
+  },
+  'exp_conviviality': {
+    Low: {
+      planning: [
+        'Monitor community peace and social cohesion',
+        'Maintain conflict-sensitive planning processes'
+      ],
+      designs: [
+        'Maintain community-friendly infrastructure design'
+      ],
+      communityDevelopmentPlans: [
+        'Maintain peace-building programs',
+        'Monitor community relations and climate-related tensions'
+      ]
+    },
+    Medium: {
+      planning: [
+        'Assess climate-related conflict risks and plan for mitigation',
+        'Plan for community spaces that promote social cohesion',
+        'Consider conflict-sensitive approaches in planning'
+      ],
+      designs: [
+        'Design community spaces that promote interaction and peace',
+        'Design infrastructure that reduces resource competition',
+        'Design safe spaces for community dialogue'
+      ],
+      communityDevelopmentPlans: [
+        'Develop programs to address climate-related conflict triggers',
+        'Provide training on conflict resolution and peace-building',
+        'Facilitate community dialogue on resource sharing'
+      ]
+    },
+    High: {
+      planning: [
+        'Prioritize conflict prevention in all planning decisions',
+        'Plan for community spaces that promote peace and social cohesion',
+        'Develop comprehensive conflict-sensitive planning approaches',
+        'Plan for resource sharing mechanisms to reduce competition'
+      ],
+      designs: [
+        'Design community infrastructure that promotes peace and interaction',
+        'Design resource-sharing facilities to reduce competition',
+        'Design safe spaces for conflict resolution and dialogue'
+      ],
+      communityDevelopmentPlans: [
+        'Develop comprehensive programs to address climate-related conflicts',
+        'Create awareness programs on conflict prevention and peace-building',
+        'Facilitate community dialogue and mediation programs',
+        'Develop emergency conflict resolution mechanisms for climate disasters'
+      ]
+    }
+  },
+  'exp_education': {
+    Low: {
+      planning: [
+        'Monitor education continuity during climate events',
+        'Maintain current school infrastructure planning'
+      ],
+      designs: [
+        'Maintain current school infrastructure design standards'
+      ],
+      communityDevelopmentPlans: [
+        'Maintain current education continuity programs',
+        'Monitor school access during climate events'
+      ]
+    },
+    Medium: {
+      planning: [
+        'Assess school vulnerabilities and plan for protection',
+        'Plan for schools in safe locations with all-weather access',
+        'Consider education continuity in infrastructure planning'
+      ],
+      designs: [
+        'Design schools with climate-resilient features',
+        'Design all-weather access to schools',
+        'Design backup systems for school operations'
+      ],
+      communityDevelopmentPlans: [
+        'Develop programs to ensure education continuity',
+        'Provide training on climate-resilient school operations',
+        'Facilitate access to education during climate disruptions'
+      ]
+    },
+    High: {
+      planning: [
+        'Prioritize education protection in planning',
+        'Plan for schools in safe locations with all-weather access',
+        'Develop comprehensive education continuity plans',
+        'Plan for alternative learning spaces during climate disasters'
+      ],
+      designs: [
+        'Design climate-resilient school infrastructure',
+        'Design all-weather access roads to schools',
+        'Design backup systems for water, power, and communication in schools',
+        'Design alternative learning spaces for emergency situations'
+      ],
+      communityDevelopmentPlans: [
+        'Develop comprehensive programs to ensure education continuity',
+        'Create awareness programs on education and climate impacts',
+        'Facilitate access to alternative learning during climate disruptions',
+        'Develop emergency education programs for climate disasters'
+      ]
+    }
+  },
+  'exp_wfi_wfdu': {
+    Low: {
+      planning: [
+        'Monitor water availability for irrigation and household use',
+        'Maintain current water infrastructure planning'
+      ],
+      designs: [
+        'Maintain current water infrastructure design standards'
+      ],
+      communityDevelopmentPlans: [
+        'Maintain current water access programs',
+        'Monitor water availability for non-drinking uses'
+      ]
+    },
+    Medium: {
+      planning: [
+        'Assess water availability vulnerabilities and plan for protection',
+        'Plan for water storage and distribution for irrigation',
+        'Consider water conservation in planning'
+      ],
+      designs: [
+        'Design water storage systems for irrigation and household use',
+        'Design water distribution systems for non-drinking uses',
+        'Design water conservation systems'
+      ],
+      communityDevelopmentPlans: [
+        'Develop programs to support water access for irrigation and household use',
+        'Provide training on water conservation practices',
+        'Facilitate access to water storage and distribution systems'
+      ]
+    },
+    High: {
+      planning: [
+        'Prioritize water security for irrigation and household use in planning',
+        'Plan for water storage and distribution systems',
+        'Develop comprehensive water management plans',
+        'Plan for alternative water sources during scarcity'
+      ],
+      designs: [
+        'Design climate-resilient water storage systems for irrigation and household use',
+        'Design water distribution networks for non-drinking uses',
+        'Design water conservation and recycling systems',
+        'Design backup water systems for critical uses'
+      ],
+      communityDevelopmentPlans: [
+        'Develop comprehensive programs to support water access for irrigation and household use',
+        'Create awareness programs on water conservation and management',
+        'Facilitate access to water storage, distribution, and conservation systems',
+        'Develop emergency water supply programs for climate disasters'
+      ]
+    }
+  },
+  'exp_atf_i': {
+    Low: {
+      planning: [
+        'Monitor household financial needs related to climate',
+        'Maintain current financial support planning'
+      ],
+      designs: [
+        'Maintain current financial infrastructure design standards'
+      ],
+      communityDevelopmentPlans: [
+        'Maintain current financial support programs',
+        'Monitor household financial impacts from climate events'
+      ]
+    },
+    Medium: {
+      planning: [
+        'Assess financial vulnerabilities and plan for support mechanisms',
+        'Plan for financial services infrastructure',
+        'Consider financial resilience in planning'
+      ],
+      designs: [
+        'Design infrastructure to support financial services access',
+        'Design communication systems for financial services'
+      ],
+      communityDevelopmentPlans: [
+        'Develop programs to support household financial resilience',
+        'Provide training on financial planning and climate adaptation',
+        'Facilitate access to microfinance and financial services'
+      ]
+    },
+    High: {
+      planning: [
+        'Prioritize financial support in planning',
+        'Plan for financial services infrastructure and access',
+        'Develop comprehensive financial resilience plans',
+        'Plan for emergency financial assistance mechanisms'
+      ],
+      designs: [
+        'Design infrastructure to support financial services access',
+        'Design communication systems for financial services during disasters'
+      ],
+      communityDevelopmentPlans: [
+        'Develop comprehensive programs to support household financial resilience',
+        'Create awareness programs on financial planning and climate adaptation',
+        'Facilitate access to microfinance, insurance, and emergency financial assistance',
+        'Develop emergency financial support programs for climate disasters'
+      ]
+    }
+  },
+  'exp_disaster_events': {
+    Low: {
+      planning: [
+        'Monitor disaster risks and preparedness',
+        'Maintain current disaster preparedness planning'
+      ],
+      designs: [
+        'Maintain current disaster-resilient infrastructure design standards'
+      ],
+      communityDevelopmentPlans: [
+        'Maintain current disaster preparedness programs',
+        'Monitor disaster risks and community preparedness'
+      ]
+    },
+    Medium: {
+      planning: [
+        'Assess disaster vulnerabilities and plan for protection',
+        'Plan for evacuation routes and safe areas',
+        'Consider disaster resilience in infrastructure planning'
+      ],
+      designs: [
+        'Design disaster-resilient infrastructure',
+        'Design evacuation routes and safe areas',
+        'Design early warning systems'
+      ],
+      communityDevelopmentPlans: [
+        'Develop programs to improve disaster preparedness',
+        'Provide training on disaster response and evacuation',
+        'Facilitate access to early warning information'
+      ]
+    },
+    High: {
+      planning: [
+        'Prioritize disaster preparedness in all planning decisions',
+        'Plan for comprehensive disaster risk reduction measures',
+        'Develop comprehensive disaster management plans',
+        'Plan for evacuation routes, safe areas, and emergency shelters'
+      ],
+      designs: [
+        'Design highly disaster-resilient infrastructure',
+        'Design comprehensive evacuation routes and safe areas',
+        'Design early warning and communication systems',
+        'Design emergency shelters and facilities'
+      ],
+      communityDevelopmentPlans: [
+        'Develop comprehensive disaster preparedness and response programs',
+        'Create awareness programs on disaster risks and preparedness',
+        'Facilitate access to early warning systems and emergency information',
+        'Develop emergency response and evacuation programs for climate disasters'
+      ]
+    }
+  },
+  // Health & Safety subcategories
+  'health_borne_diseases': {
+    Low: {
+      planning: ['Monitor disease patterns and climate impacts', 'Maintain current health surveillance planning'],
+      designs: ['Maintain current health facility design standards'],
+      communityDevelopmentPlans: ['Maintain current disease prevention programs', 'Monitor disease incidence']
+    },
+    Medium: {
+      planning: ['Assess disease vulnerabilities and plan for prevention', 'Plan for improved water and sanitation infrastructure', 'Consider disease prevention in infrastructure planning'],
+      designs: ['Design improved water and sanitation systems', 'Design health facilities with climate-resilient features'],
+      communityDevelopmentPlans: ['Develop programs for disease prevention and control', 'Provide training on water-borne and vector-borne disease prevention', 'Facilitate access to health services']
+    },
+    High: {
+      planning: ['Prioritize disease prevention in all planning decisions', 'Plan for comprehensive water and sanitation infrastructure', 'Develop comprehensive disease prevention plans', 'Plan for health facilities in safe locations'],
+      designs: ['Design climate-resilient water and sanitation systems', 'Design health facilities protected from climate hazards', 'Design drainage systems to prevent water-borne diseases'],
+      communityDevelopmentPlans: ['Develop comprehensive disease prevention and control programs', 'Create awareness programs on water-borne and vector-borne diseases', 'Facilitate access to health services and emergency care', 'Develop emergency disease response programs']
+    }
+  },
+  'health_slupc': {
+    Low: {
+      planning: ['Monitor housing location safety and climate impacts', 'Maintain current housing safety planning'],
+      designs: ['Maintain current housing design standards'],
+      communityDevelopmentPlans: ['Maintain current housing safety awareness programs']
+    },
+    Medium: {
+      planning: ['Assess housing location vulnerabilities and plan for protection', 'Plan for safe housing locations', 'Consider housing safety in land use planning'],
+      designs: ['Design housing with climate-resilient features', 'Design protective measures for housing in risky areas'],
+      communityDevelopmentPlans: ['Develop programs for housing safety and relocation', 'Provide training on safe housing practices', 'Facilitate access to safe housing options']
+    },
+    High: {
+      planning: ['Prioritize housing safety in all planning decisions', 'Plan for relocation from high-risk areas', 'Develop comprehensive housing safety plans', 'Plan for safe housing locations with all-weather access'],
+      designs: ['Design climate-resilient housing structures', 'Design protective measures for housing in high-risk areas', 'Design infrastructure for safe housing locations'],
+      communityDevelopmentPlans: ['Develop comprehensive housing safety and relocation programs', 'Create awareness programs on housing risks and safety', 'Facilitate access to safe housing and relocation support', 'Develop emergency housing programs for climate disasters']
+    }
+  },
+  'exp_swm': {
+    Low: {
+      planning: ['Monitor solid waste management practices', 'Maintain current waste management planning'],
+      designs: ['Maintain current waste management infrastructure design standards'],
+      communityDevelopmentPlans: ['Maintain current waste management programs', 'Monitor waste disposal practices']
+    },
+    Medium: {
+      planning: ['Assess waste management vulnerabilities and plan for improvement', 'Plan for proper waste collection and disposal facilities', 'Consider waste management in infrastructure planning'],
+      designs: ['Design improved waste collection and disposal systems', 'Design waste management infrastructure with climate-resilient features'],
+      communityDevelopmentPlans: ['Develop programs for proper waste management', 'Provide training on waste reduction and proper disposal', 'Facilitate access to waste collection services']
+    },
+    High: {
+      planning: ['Prioritize waste management in all planning decisions', 'Plan for comprehensive waste collection and disposal systems', 'Develop comprehensive waste management plans', 'Plan for waste management facilities in safe locations'],
+      designs: ['Design climate-resilient waste management infrastructure', 'Design waste collection systems protected from climate hazards', 'Design drainage systems to prevent waste blocking'],
+      communityDevelopmentPlans: ['Develop comprehensive waste management programs', 'Create awareness programs on waste reduction and proper disposal', 'Facilitate access to waste collection and disposal services', 'Develop emergency waste management programs for climate disasters']
+    }
+  },
+  'exp_lwm': {
+    Low: {
+      planning: ['Monitor liquid waste management practices', 'Maintain current liquid waste management planning'],
+      designs: ['Maintain current liquid waste infrastructure design standards'],
+      communityDevelopmentPlans: ['Maintain current liquid waste management programs']
+    },
+    Medium: {
+      planning: ['Assess liquid waste vulnerabilities and plan for improvement', 'Plan for proper liquid waste treatment and disposal', 'Consider liquid waste management in infrastructure planning'],
+      designs: ['Design improved liquid waste treatment systems', 'Design grey water treatment and disposal systems'],
+      communityDevelopmentPlans: ['Develop programs for proper liquid waste management', 'Provide training on grey water treatment and disposal', 'Facilitate access to liquid waste treatment facilities']
+    },
+    High: {
+      planning: ['Prioritize liquid waste management in all planning decisions', 'Plan for comprehensive liquid waste treatment systems', 'Develop comprehensive liquid waste management plans', 'Plan for liquid waste treatment facilities in safe locations'],
+      designs: ['Design climate-resilient liquid waste treatment infrastructure', 'Design grey water treatment systems protected from climate hazards', 'Design drainage systems to prevent liquid waste contamination'],
+      communityDevelopmentPlans: ['Develop comprehensive liquid waste management programs', 'Create awareness programs on grey water treatment and disposal', 'Facilitate access to liquid waste treatment facilities', 'Develop emergency liquid waste management programs']
+    }
+  },
+  'exp_aths': {
+    Low: {
+      planning: ['Monitor health service accessibility', 'Maintain current health facility planning'],
+      designs: ['Maintain current health facility design standards'],
+      communityDevelopmentPlans: ['Maintain current health service programs']
+    },
+    Medium: {
+      planning: ['Assess health service gaps and plan for improvement', 'Plan for improved health facility accessibility', 'Consider health service access in infrastructure planning'],
+      designs: ['Design improved health facilities with better accessibility', 'Design all-weather access to health facilities'],
+      communityDevelopmentPlans: ['Develop programs to improve health service access', 'Provide training on health service utilization', 'Facilitate access to health services']
+    },
+    High: {
+      planning: ['Prioritize health service access in all planning decisions', 'Plan for comprehensive health facility network', 'Develop comprehensive health service access plans', 'Plan for health facilities in safe, accessible locations'],
+      designs: ['Design climate-resilient health facilities with universal access', 'Design all-weather access roads to health facilities', 'Design backup systems for health facilities'],
+      communityDevelopmentPlans: ['Develop comprehensive programs to improve health service access', 'Create awareness programs on health service availability', 'Facilitate access to health services and emergency care', 'Develop emergency health service programs']
+    }
+  },
+  'exp_athe': {
+    Low: {
+      planning: ['Monitor environmental health conditions', 'Maintain current environmental health planning'],
+      designs: ['Maintain current environmental protection design standards'],
+      communityDevelopmentPlans: ['Maintain current environmental health programs']
+    },
+    Medium: {
+      planning: ['Assess environmental health vulnerabilities and plan for improvement', 'Plan for environmental protection measures', 'Consider environmental health in infrastructure planning'],
+      designs: ['Design improved environmental protection systems', 'Design air and water quality monitoring systems'],
+      communityDevelopmentPlans: ['Develop programs for environmental health protection', 'Provide training on environmental health practices', 'Facilitate access to environmental health information']
+    },
+    High: {
+      planning: ['Prioritize environmental health in all planning decisions', 'Plan for comprehensive environmental protection measures', 'Develop comprehensive environmental health plans', 'Plan for pollution control and environmental restoration'],
+      designs: ['Design climate-resilient environmental protection infrastructure', 'Design air and water quality protection systems', 'Design pollution control and treatment systems'],
+      communityDevelopmentPlans: ['Develop comprehensive environmental health protection programs', 'Create awareness programs on environmental health and pollution', 'Facilitate access to environmental health services', 'Develop emergency environmental health response programs']
+    }
+  },
+  // Assets and Utilities subcategories
+  'assets_housing': {
+    Low: {
+      planning: ['Monitor housing safety and climate impacts', 'Maintain current housing safety planning'],
+      designs: ['Maintain current housing design standards'],
+      communityDevelopmentPlans: ['Maintain current housing safety programs']
+    },
+    Medium: {
+      planning: ['Assess housing vulnerabilities and plan for protection', 'Plan for climate-resilient housing', 'Consider housing safety in infrastructure planning'],
+      designs: ['Design housing with climate-resilient features', 'Design protective measures for housing'],
+      communityDevelopmentPlans: ['Develop programs for housing safety improvement', 'Provide training on climate-resilient housing practices', 'Facilitate access to housing improvement support']
+    },
+    High: {
+      planning: ['Prioritize housing safety in all planning decisions', 'Plan for climate-resilient housing standards', 'Develop comprehensive housing protection plans', 'Plan for housing relocation from high-risk areas'],
+      designs: ['Design highly climate-resilient housing structures', 'Design protective measures for housing in high-risk areas', 'Design infrastructure for safe housing locations'],
+      communityDevelopmentPlans: ['Develop comprehensive housing safety and improvement programs', 'Create awareness programs on housing risks and protection', 'Facilitate access to housing improvement and relocation support', 'Develop emergency housing programs for climate disasters']
+    }
+  },
+  'assets_public_facilities': {
+    Low: {
+      planning: ['Monitor public facility resilience and climate impacts', 'Maintain current public facility planning'],
+      designs: ['Maintain current public facility design standards'],
+      communityDevelopmentPlans: ['Maintain current public facility management programs']
+    },
+    Medium: {
+      planning: ['Assess public facility vulnerabilities and plan for protection', 'Plan for climate-resilient public facilities', 'Consider public facility safety in infrastructure planning'],
+      designs: ['Design public facilities with climate-resilient features', 'Design protective measures for public facilities'],
+      communityDevelopmentPlans: ['Develop programs for public facility resilience', 'Provide training on public facility management', 'Facilitate access to public facilities']
+    },
+    High: {
+      planning: ['Prioritize public facility protection in all planning decisions', 'Plan for highly climate-resilient public facilities', 'Develop comprehensive public facility protection plans', 'Plan for public facilities in safe locations'],
+      designs: ['Design highly climate-resilient public facility infrastructure', 'Design protective measures for public facilities in high-risk areas', 'Design backup systems for public facilities'],
+      communityDevelopmentPlans: ['Develop comprehensive public facility resilience programs', 'Create awareness programs on public facility access and safety', 'Facilitate access to public facilities during climate events', 'Develop emergency public facility programs']
+    }
+  },
+  'exp_swd': {
+    Low: {
+      planning: ['Monitor storm water drainage functionality', 'Maintain current drainage planning'],
+      designs: ['Maintain current drainage design standards'],
+      communityDevelopmentPlans: ['Maintain current drainage maintenance programs']
+    },
+    Medium: {
+      planning: ['Assess drainage vulnerabilities and plan for improvement', 'Plan for improved storm water drainage systems', 'Consider drainage in infrastructure planning'],
+      designs: ['Design improved storm water drainage systems', 'Design natural infiltration areas'],
+      communityDevelopmentPlans: ['Develop programs for drainage maintenance', 'Provide training on drainage management', 'Facilitate community participation in drainage maintenance']
+    },
+    High: {
+      planning: ['Prioritize drainage in all planning decisions', 'Plan for comprehensive storm water drainage systems', 'Develop comprehensive drainage management plans', 'Plan for natural infiltration areas'],
+      designs: ['Design comprehensive storm water drainage systems', 'Design natural infiltration and retention systems', 'Design drainage systems protected from climate hazards'],
+      communityDevelopmentPlans: ['Develop comprehensive drainage management programs', 'Create awareness programs on drainage importance', 'Facilitate community participation in drainage maintenance', 'Develop emergency drainage response programs']
+    }
+  },
+  'exp_sanitary_facilities': {
+    Low: {
+      planning: ['Monitor sanitary facility adequacy', 'Maintain current sanitation planning'],
+      designs: ['Maintain current sanitary facility design standards'],
+      communityDevelopmentPlans: ['Maintain current sanitation programs']
+    },
+    Medium: {
+      planning: ['Assess sanitation vulnerabilities and plan for improvement', 'Plan for improved sanitary facilities', 'Consider sanitation in infrastructure planning'],
+      designs: ['Design improved sanitary facilities', 'Design climate-resilient sanitation systems'],
+      communityDevelopmentPlans: ['Develop programs for improved sanitation', 'Provide training on proper sanitation practices', 'Facilitate access to improved sanitary facilities']
+    },
+    High: {
+      planning: ['Prioritize sanitation in all planning decisions', 'Plan for comprehensive sanitary facility network', 'Develop comprehensive sanitation plans', 'Plan for sanitary facilities in safe locations'],
+      designs: ['Design climate-resilient sanitary facilities', 'Design elevated sanitation systems for flood-prone areas', 'Design sanitation systems protected from climate hazards'],
+      communityDevelopmentPlans: ['Develop comprehensive sanitation improvement programs', 'Create awareness programs on proper sanitation practices', 'Facilitate access to improved sanitary facilities', 'Develop emergency sanitation programs']
+    }
+  },
+  'exp_sewer_lines': {
+    Low: {
+      planning: ['Monitor sewer system functionality', 'Maintain current sewer system planning'],
+      designs: ['Maintain current sewer system design standards'],
+      communityDevelopmentPlans: ['Maintain current sewer system maintenance programs']
+    },
+    Medium: {
+      planning: ['Assess sewer system vulnerabilities and plan for improvement', 'Plan for improved sewer systems', 'Consider sewer systems in infrastructure planning'],
+      designs: ['Design improved sewer systems', 'Design climate-resilient sewer infrastructure'],
+      communityDevelopmentPlans: ['Develop programs for sewer system maintenance', 'Provide training on sewer system management', 'Facilitate access to sewer connections']
+    },
+    High: {
+      planning: ['Prioritize sewer systems in all planning decisions', 'Plan for comprehensive sewer system network', 'Develop comprehensive sewer system plans', 'Plan for sewer systems in safe locations'],
+      designs: ['Design climate-resilient sewer systems', 'Design sewer systems protected from floods', 'Design backup systems for sewer functionality'],
+      communityDevelopmentPlans: ['Develop comprehensive sewer system improvement programs', 'Create awareness programs on sewer system importance', 'Facilitate access to sewer connections', 'Develop emergency sewer system response programs']
+    }
+  },
+  'exp_power_lines_supply': {
+    Low: {
+      planning: ['Monitor power infrastructure resilience', 'Maintain current power infrastructure planning'],
+      designs: ['Maintain current power infrastructure design standards'],
+      communityDevelopmentPlans: ['Maintain current power infrastructure maintenance programs']
+    },
+    Medium: {
+      planning: ['Assess power infrastructure vulnerabilities and plan for protection', 'Plan for improved power infrastructure', 'Consider power infrastructure in planning'],
+      designs: ['Design improved power infrastructure', 'Design climate-resilient power systems'],
+      communityDevelopmentPlans: ['Develop programs for power infrastructure maintenance', 'Provide training on power infrastructure safety', 'Facilitate access to reliable power supply']
+    },
+    High: {
+      planning: ['Prioritize power infrastructure protection in all planning decisions', 'Plan for highly climate-resilient power infrastructure', 'Develop comprehensive power infrastructure protection plans', 'Plan for underground power lines in high-risk areas'],
+      designs: ['Design highly climate-resilient power infrastructure', 'Design underground power lines for flood-prone areas', 'Design backup power systems'],
+      communityDevelopmentPlans: ['Develop comprehensive power infrastructure protection programs', 'Create awareness programs on power infrastructure safety', 'Facilitate access to reliable power supply', 'Develop emergency power response programs']
+    }
+  },
+  'exp_energy_for_hh_use': {
+    Low: {
+      planning: ['Monitor household energy access', 'Maintain current energy access planning'],
+      designs: ['Maintain current energy infrastructure design standards'],
+      communityDevelopmentPlans: ['Maintain current energy access programs']
+    },
+    Medium: {
+      planning: ['Assess energy access gaps and plan for improvement', 'Plan for improved household energy access', 'Consider renewable energy in planning'],
+      designs: ['Design improved energy infrastructure', 'Design renewable energy systems'],
+      communityDevelopmentPlans: ['Develop programs for improved household energy access', 'Provide training on renewable energy use', 'Facilitate access to clean energy sources']
+    },
+    High: {
+      planning: ['Prioritize household energy access in all planning decisions', 'Plan for comprehensive household energy network', 'Develop comprehensive energy access plans', 'Plan for renewable energy systems'],
+      designs: ['Design climate-resilient household energy infrastructure', 'Design renewable energy systems (solar, wind)', 'Design backup energy systems'],
+      communityDevelopmentPlans: ['Develop comprehensive household energy access programs', 'Create awareness programs on clean energy use', 'Facilitate access to renewable energy sources', 'Develop emergency energy supply programs']
+    }
+  },
+  'assets_water': {
+    Low: {
+      planning: ['Monitor water pipe network functionality', 'Maintain current water infrastructure planning'],
+      designs: ['Maintain current water infrastructure design standards'],
+      communityDevelopmentPlans: ['Maintain current water infrastructure maintenance programs']
+    },
+    Medium: {
+      planning: ['Assess water infrastructure vulnerabilities and plan for improvement', 'Plan for improved water pipe network', 'Consider water infrastructure in planning'],
+      designs: ['Design improved water infrastructure', 'Design climate-resilient water systems'],
+      communityDevelopmentPlans: ['Develop programs for water infrastructure maintenance', 'Provide training on water infrastructure management', 'Facilitate access to piped water supply']
+    },
+    High: {
+      planning: ['Prioritize water infrastructure in all planning decisions', 'Plan for comprehensive water pipe network', 'Develop comprehensive water infrastructure plans', 'Plan for water infrastructure in safe locations'],
+      designs: ['Design climate-resilient water infrastructure', 'Design water systems protected from climate hazards', 'Design backup water supply systems'],
+      communityDevelopmentPlans: ['Develop comprehensive water infrastructure improvement programs', 'Create awareness programs on water infrastructure importance', 'Facilitate access to piped water supply', 'Develop emergency water supply programs']
+    }
+  },
+  'exp_pwt': {
+    Low: {
+      planning: ['Monitor water treatment facility functionality', 'Maintain current water treatment planning'],
+      designs: ['Maintain current water treatment facility design standards'],
+      communityDevelopmentPlans: ['Maintain current water treatment programs']
+    },
+    Medium: {
+      planning: ['Assess water treatment vulnerabilities and plan for protection', 'Plan for improved water treatment facilities', 'Consider water treatment in infrastructure planning'],
+      designs: ['Design improved water treatment facilities', 'Design climate-resilient water treatment systems'],
+      communityDevelopmentPlans: ['Develop programs for water treatment facility maintenance', 'Provide training on water treatment management', 'Facilitate access to treated water']
+    },
+    High: {
+      planning: ['Prioritize water treatment in all planning decisions', 'Plan for highly climate-resilient water treatment facilities', 'Develop comprehensive water treatment protection plans', 'Plan for water treatment facilities in safe locations'],
+      designs: ['Design highly climate-resilient water treatment infrastructure', 'Design water treatment facilities protected from climate hazards', 'Design backup water treatment systems'],
+      communityDevelopmentPlans: ['Develop comprehensive water treatment protection programs', 'Create awareness programs on water treatment importance', 'Facilitate access to treated water', 'Develop emergency water treatment programs']
+    }
+  },
+  'exp_water_storage': {
+    Low: {
+      planning: ['Monitor water storage facility safety', 'Maintain current water storage planning'],
+      designs: ['Maintain current water storage design standards'],
+      communityDevelopmentPlans: ['Maintain current water storage programs']
+    },
+    Medium: {
+      planning: ['Assess water storage vulnerabilities and plan for protection', 'Plan for improved water storage facilities', 'Consider water storage in infrastructure planning'],
+      designs: ['Design improved water storage facilities', 'Design climate-resilient water storage systems'],
+      communityDevelopmentPlans: ['Develop programs for water storage facility maintenance', 'Provide training on water storage management', 'Facilitate access to water storage']
+    },
+    High: {
+      planning: ['Prioritize water storage in all planning decisions', 'Plan for highly climate-resilient water storage facilities', 'Develop comprehensive water storage protection plans', 'Plan for water storage facilities in safe locations'],
+      designs: ['Design highly climate-resilient water storage infrastructure', 'Design water storage facilities protected from climate hazards', 'Design backup water storage systems'],
+      communityDevelopmentPlans: ['Develop comprehensive water storage protection programs', 'Create awareness programs on water storage importance', 'Facilitate access to water storage', 'Develop emergency water storage programs']
+    }
+  },
+  'exp_r_t': {
+    Low: {
+      planning: ['Monitor road and transport infrastructure resilience', 'Maintain current transport infrastructure planning'],
+      designs: ['Maintain current transport infrastructure design standards'],
+      communityDevelopmentPlans: ['Maintain current transport infrastructure maintenance programs']
+    },
+    Medium: {
+      planning: ['Assess transport infrastructure vulnerabilities and plan for improvement', 'Plan for improved road and transport infrastructure', 'Consider all-weather access in planning'],
+      designs: ['Design improved transport infrastructure', 'Design all-weather roads'],
+      communityDevelopmentPlans: ['Develop programs for transport infrastructure maintenance', 'Provide training on transport infrastructure management', 'Facilitate access to transport services']
+    },
+    High: {
+      planning: ['Prioritize transport infrastructure in all planning decisions', 'Plan for comprehensive all-weather road network', 'Develop comprehensive transport infrastructure plans', 'Plan for alternative transport routes'],
+      designs: ['Design highly climate-resilient transport infrastructure', 'Design all-weather roads protected from climate hazards', 'Design alternative transport routes'],
+      communityDevelopmentPlans: ['Develop comprehensive transport infrastructure improvement programs', 'Create awareness programs on transport infrastructure importance', 'Facilitate access to transport services', 'Develop emergency transport response programs']
+    }
+  },
+  'exp_communication': {
+    Low: {
+      planning: ['Monitor communication infrastructure resilience', 'Maintain current communication infrastructure planning'],
+      designs: ['Maintain current communication infrastructure design standards'],
+      communityDevelopmentPlans: ['Maintain current communication infrastructure maintenance programs']
+    },
+    Medium: {
+      planning: ['Assess communication infrastructure vulnerabilities and plan for protection', 'Plan for improved communication infrastructure', 'Consider communication in infrastructure planning'],
+      designs: ['Design improved communication infrastructure', 'Design climate-resilient communication systems'],
+      communityDevelopmentPlans: ['Develop programs for communication infrastructure maintenance', 'Provide training on communication infrastructure management', 'Facilitate access to communication services']
+    },
+    High: {
+      planning: ['Prioritize communication infrastructure in all planning decisions', 'Plan for highly climate-resilient communication infrastructure', 'Develop comprehensive communication infrastructure protection plans', 'Plan for backup communication systems'],
+      designs: ['Design highly climate-resilient communication infrastructure', 'Design communication systems protected from climate hazards', 'Design backup communication systems'],
+      communityDevelopmentPlans: ['Develop comprehensive communication infrastructure protection programs', 'Create awareness programs on communication infrastructure importance', 'Facilitate access to communication services', 'Develop emergency communication response programs']
+    }
+  },
+  // Potable water subcategories
+  'water_access': {
+    Low: {
+      planning: ['Monitor potable water access', 'Maintain current water access planning'],
+      designs: ['Maintain current water access infrastructure design standards'],
+      communityDevelopmentPlans: ['Maintain current water access programs']
+    },
+    Medium: {
+      planning: ['Assess water access gaps and plan for improvement', 'Plan for improved potable water access', 'Consider water access in infrastructure planning'],
+      designs: ['Design improved water access infrastructure', 'Design water distribution systems'],
+      communityDevelopmentPlans: ['Develop programs for improved water access', 'Provide training on water access management', 'Facilitate access to potable water']
+    },
+    High: {
+      planning: ['Prioritize water access in all planning decisions', 'Plan for comprehensive potable water access network', 'Develop comprehensive water access plans', 'Plan for multiple water sources'],
+      designs: ['Design climate-resilient water access infrastructure', 'Design water distribution systems protected from climate hazards', 'Design backup water access systems'],
+      communityDevelopmentPlans: ['Develop comprehensive water access improvement programs', 'Create awareness programs on water access importance', 'Facilitate access to potable water', 'Develop emergency water access programs']
+    }
+  },
+  'exp_scarcities': {
+    Low: {
+      planning: ['Monitor water scarcity patterns', 'Maintain current water scarcity planning'],
+      designs: ['Maintain current water scarcity mitigation design standards'],
+      communityDevelopmentPlans: ['Maintain current water scarcity programs']
+    },
+    Medium: {
+      planning: ['Assess water scarcity vulnerabilities and plan for mitigation', 'Plan for water storage and conservation', 'Consider water scarcity in infrastructure planning'],
+      designs: ['Design water storage systems', 'Design water conservation systems'],
+      communityDevelopmentPlans: ['Develop programs for water scarcity mitigation', 'Provide training on water conservation', 'Facilitate access to water storage']
+    },
+    High: {
+      planning: ['Prioritize water scarcity mitigation in all planning decisions', 'Plan for comprehensive water storage and conservation systems', 'Develop comprehensive water scarcity mitigation plans', 'Plan for alternative water sources'],
+      designs: ['Design climate-resilient water storage systems', 'Design water conservation and recycling systems', 'Design alternative water source systems'],
+      communityDevelopmentPlans: ['Develop comprehensive water scarcity mitigation programs', 'Create awareness programs on water conservation', 'Facilitate access to water storage and conservation systems', 'Develop emergency water supply programs']
+    }
+  },
+  'water_quality': {
+    Low: {
+      planning: ['Monitor water quality', 'Maintain current water quality planning'],
+      designs: ['Maintain current water quality treatment design standards'],
+      communityDevelopmentPlans: ['Maintain current water quality programs']
+    },
+    Medium: {
+      planning: ['Assess water quality vulnerabilities and plan for improvement', 'Plan for water quality treatment and monitoring', 'Consider water quality in infrastructure planning'],
+      designs: ['Design improved water quality treatment systems', 'Design water quality monitoring systems'],
+      communityDevelopmentPlans: ['Develop programs for water quality improvement', 'Provide training on water quality management', 'Facilitate access to water quality testing']
+    },
+    High: {
+      planning: ['Prioritize water quality in all planning decisions', 'Plan for comprehensive water quality treatment systems', 'Develop comprehensive water quality protection plans', 'Plan for water quality monitoring'],
+      designs: ['Design climate-resilient water quality treatment systems', 'Design water quality protection systems', 'Design water quality monitoring systems'],
+      communityDevelopmentPlans: ['Develop comprehensive water quality improvement programs', 'Create awareness programs on water quality importance', 'Facilitate access to water quality testing and treatment', 'Develop emergency water quality response programs']
+    }
+  },
+  // EBS subcategories
+  'ebs_soil': {
+    Low: {
+      planning: ['Monitor soil conditions', 'Maintain current soil management planning'],
+      designs: ['Maintain current soil protection design standards'],
+      communityDevelopmentPlans: ['Maintain current soil management programs']
+    },
+    Medium: {
+      planning: ['Assess soil vulnerabilities and plan for protection', 'Plan for soil stabilization measures', 'Consider soil conditions in infrastructure planning'],
+      designs: ['Design soil stabilization systems', 'Design erosion control measures'],
+      communityDevelopmentPlans: ['Develop programs for soil protection', 'Provide training on soil management', 'Facilitate access to soil improvement techniques']
+    },
+    High: {
+      planning: ['Prioritize soil protection in all planning decisions', 'Plan for comprehensive soil stabilization measures', 'Develop comprehensive soil protection plans', 'Plan for avoiding settlement on risky soils'],
+      designs: ['Design comprehensive soil stabilization systems', 'Design erosion control and soil protection measures', 'Design infrastructure adapted to soil conditions'],
+      communityDevelopmentPlans: ['Develop comprehensive soil protection programs', 'Create awareness programs on soil risks and protection', 'Facilitate access to soil improvement techniques', 'Develop emergency soil protection programs']
+    }
+  },
+  'exp_lc_p': {
+    Low: {
+      planning: ['Monitor land cover and permeability', 'Maintain current land cover planning'],
+      designs: ['Maintain current permeability design standards'],
+      communityDevelopmentPlans: ['Maintain current land cover programs']
+    },
+    Medium: {
+      planning: ['Assess land cover vulnerabilities and plan for improvement', 'Plan for natural infiltration areas', 'Consider permeability in infrastructure planning'],
+      designs: ['Design natural infiltration areas', 'Design permeable surfaces'],
+      communityDevelopmentPlans: ['Develop programs for land cover protection', 'Provide training on land cover management', 'Facilitate access to land cover improvement techniques']
+    },
+    High: {
+      planning: ['Prioritize land cover protection in all planning decisions', 'Plan for comprehensive natural infiltration areas', 'Develop comprehensive land cover protection plans', 'Plan for permeable surfaces'],
+      designs: ['Design comprehensive natural infiltration systems', 'Design permeable surfaces and green infrastructure', 'Design land cover protection measures'],
+      communityDevelopmentPlans: ['Develop comprehensive land cover protection programs', 'Create awareness programs on land cover importance', 'Facilitate access to land cover improvement techniques', 'Develop emergency land cover protection programs']
+    }
+  },
+  'ebs_landcover': {
+    Low: {
+      planning: ['Monitor vegetative cover', 'Maintain current vegetation planning'],
+      designs: ['Maintain current vegetation design standards'],
+      communityDevelopmentPlans: ['Maintain current vegetation programs']
+    },
+    Medium: {
+      planning: ['Assess vegetation vulnerabilities and plan for protection', 'Plan for vegetation restoration', 'Consider vegetation in infrastructure planning'],
+      designs: ['Design vegetation restoration systems', 'Design tree planting programs'],
+      communityDevelopmentPlans: ['Develop programs for vegetation protection', 'Provide training on vegetation management', 'Facilitate access to tree planting']
+    },
+    High: {
+      planning: ['Prioritize vegetation protection in all planning decisions', 'Plan for comprehensive vegetation restoration', 'Develop comprehensive vegetation protection plans', 'Plan for tree planting and vegetation cover'],
+      designs: ['Design comprehensive vegetation restoration systems', 'Design tree planting and vegetation cover programs', 'Design vegetation protection measures'],
+      communityDevelopmentPlans: ['Develop comprehensive vegetation protection programs', 'Create awareness programs on vegetation importance', 'Facilitate access to tree planting and vegetation restoration', 'Develop emergency vegetation protection programs']
+    }
+  },
+  'exp_wetland': {
+    Low: {
+      planning: ['Monitor wetland conditions', 'Maintain current wetland protection planning'],
+      designs: ['Maintain current wetland protection design standards'],
+      communityDevelopmentPlans: ['Maintain current wetland protection programs']
+    },
+    Medium: {
+      planning: ['Assess wetland vulnerabilities and plan for protection', 'Plan for wetland restoration', 'Consider wetlands in infrastructure planning'],
+      designs: ['Design wetland protection systems', 'Design wetland restoration measures'],
+      communityDevelopmentPlans: ['Develop programs for wetland protection', 'Provide training on wetland management', 'Facilitate access to wetland restoration']
+    },
+    High: {
+      planning: ['Prioritize wetland protection in all planning decisions', 'Plan for comprehensive wetland protection', 'Develop comprehensive wetland protection plans', 'Plan for wetland restoration'],
+      designs: ['Design comprehensive wetland protection systems', 'Design wetland restoration measures', 'Design infrastructure to avoid wetland disturbance'],
+      communityDevelopmentPlans: ['Develop comprehensive wetland protection programs', 'Create awareness programs on wetland importance', 'Facilitate access to wetland restoration', 'Develop emergency wetland protection programs']
+    }
+  },
+  'exp_biodiversity': {
+    Low: {
+      planning: ['Monitor biodiversity conditions', 'Maintain current biodiversity protection planning'],
+      designs: ['Maintain current biodiversity protection design standards'],
+      communityDevelopmentPlans: ['Maintain current biodiversity protection programs']
+    },
+    Medium: {
+      planning: ['Assess biodiversity vulnerabilities and plan for protection', 'Plan for biodiversity corridors', 'Consider biodiversity in infrastructure planning'],
+      designs: ['Design biodiversity corridors', 'Design wildlife-friendly infrastructure'],
+      communityDevelopmentPlans: ['Develop programs for biodiversity protection', 'Provide training on biodiversity management', 'Facilitate access to biodiversity conservation']
+    },
+    High: {
+      planning: ['Prioritize biodiversity protection in all planning decisions', 'Plan for comprehensive biodiversity corridors', 'Develop comprehensive biodiversity protection plans', 'Plan for wildlife-friendly infrastructure'],
+      designs: ['Design comprehensive biodiversity corridors', 'Design wildlife-friendly infrastructure', 'Design biodiversity protection measures'],
+      communityDevelopmentPlans: ['Develop comprehensive biodiversity protection programs', 'Create awareness programs on biodiversity importance', 'Facilitate access to biodiversity conservation', 'Develop emergency biodiversity protection programs']
+    }
+  },
+  'exp_nwb': {
+    Low: {
+      planning: ['Monitor proximity to water bodies', 'Maintain current riparian protection planning'],
+      designs: ['Maintain current riparian protection design standards'],
+      communityDevelopmentPlans: ['Maintain current riparian protection programs']
+    },
+    Medium: {
+      planning: ['Assess riparian vulnerabilities and plan for protection', 'Plan for riparian corridor protection', 'Consider water bodies in infrastructure planning'],
+      designs: ['Design riparian protection systems', 'Design infrastructure to respect riparian corridors'],
+      communityDevelopmentPlans: ['Develop programs for riparian protection', 'Provide training on riparian management', 'Facilitate access to riparian protection information']
+    },
+    High: {
+      planning: ['Prioritize riparian protection in all planning decisions', 'Plan for comprehensive riparian corridor protection', 'Develop comprehensive riparian protection plans', 'Plan for relocation from riparian areas'],
+      designs: ['Design comprehensive riparian protection systems', 'Design infrastructure to avoid riparian disturbance', 'Design relocation measures for riparian settlements'],
+      communityDevelopmentPlans: ['Develop comprehensive riparian protection programs', 'Create awareness programs on riparian importance', 'Facilitate access to riparian protection and relocation support', 'Develop emergency riparian protection programs']
+    }
+  },
+  'exp_sea': {
+    Low: {
+      planning: ['Monitor sea level changes', 'Maintain current coastal protection planning'],
+      designs: ['Maintain current coastal protection design standards'],
+      communityDevelopmentPlans: ['Maintain current coastal protection programs']
+    },
+    Medium: {
+      planning: ['Assess coastal vulnerabilities and plan for protection', 'Plan for coastal protection measures', 'Consider sea level rise in infrastructure planning'],
+      designs: ['Design coastal protection systems', 'Design infrastructure adapted to sea level rise'],
+      communityDevelopmentPlans: ['Develop programs for coastal protection', 'Provide training on coastal management', 'Facilitate access to coastal protection information']
+    },
+    High: {
+      planning: ['Prioritize coastal protection in all planning decisions', 'Plan for comprehensive coastal protection measures', 'Develop comprehensive coastal protection plans', 'Plan for relocation from coastal areas'],
+      designs: ['Design comprehensive coastal protection systems', 'Design infrastructure adapted to sea level rise', 'Design relocation measures for coastal settlements'],
+      communityDevelopmentPlans: ['Develop comprehensive coastal protection programs', 'Create awareness programs on sea level rise', 'Facilitate access to coastal protection and relocation support', 'Develop emergency coastal protection programs']
+    }
+  },
+  'exp_ef': {
+    Low: {
+      planning: ['Monitor environmental degradation', 'Maintain current environmental protection planning'],
+      designs: ['Maintain current environmental protection design standards'],
+      communityDevelopmentPlans: ['Maintain current environmental protection programs']
+    },
+    Medium: {
+      planning: ['Assess environmental degradation vulnerabilities and plan for mitigation', 'Plan for environmental restoration', 'Consider environmental protection in infrastructure planning'],
+      designs: ['Design environmental protection systems', 'Design pollution control measures'],
+      communityDevelopmentPlans: ['Develop programs for environmental protection', 'Provide training on environmental management', 'Facilitate access to environmental protection information']
+    },
+    High: {
+      planning: ['Prioritize environmental protection in all planning decisions', 'Plan for comprehensive environmental restoration', 'Develop comprehensive environmental protection plans', 'Plan for pollution control'],
+      designs: ['Design comprehensive environmental protection systems', 'Design pollution control and treatment measures', 'Design infrastructure to prevent environmental degradation'],
+      communityDevelopmentPlans: ['Develop comprehensive environmental protection programs', 'Create awareness programs on environmental degradation', 'Facilitate access to environmental protection and restoration', 'Develop emergency environmental protection programs']
+    }
+  },
+  'exp_land_use': {
+    Low: {
+      planning: ['Monitor land use compliance', 'Maintain current land use planning'],
+      designs: ['Maintain current land use design standards'],
+      communityDevelopmentPlans: ['Maintain current land use programs']
+    },
+    Medium: {
+      planning: ['Assess land use vulnerabilities and plan for improvement', 'Plan for land use enforcement', 'Consider land use compliance in planning'],
+      designs: ['Design land use compliance systems', 'Design infrastructure to respect land use regulations'],
+      communityDevelopmentPlans: ['Develop programs for land use compliance', 'Provide training on land use regulations', 'Facilitate access to land use information']
+    },
+    High: {
+      planning: ['Prioritize land use compliance in all planning decisions', 'Plan for comprehensive land use enforcement', 'Develop comprehensive land use compliance plans', 'Plan for avoiding construction in risky areas'],
+      designs: ['Design comprehensive land use compliance systems', 'Design infrastructure to avoid risky areas', 'Design relocation measures for risky settlements'],
+      communityDevelopmentPlans: ['Develop comprehensive land use compliance programs', 'Create awareness programs on land use regulations', 'Facilitate access to land use information and relocation support', 'Develop emergency land use compliance programs']
+    }
+  },
+  'exp_topography': {
+    Low: {
+      planning: ['Monitor topography risks', 'Maintain current topography planning'],
+      designs: ['Maintain current topography design standards'],
+      communityDevelopmentPlans: ['Maintain current topography programs']
+    },
+    Medium: {
+      planning: ['Assess topography vulnerabilities and plan for protection', 'Plan for slope stabilization', 'Consider topography in infrastructure planning'],
+      designs: ['Design slope stabilization systems', 'Design infrastructure adapted to topography'],
+      communityDevelopmentPlans: ['Develop programs for topography management', 'Provide training on topography risks', 'Facilitate access to topography protection information']
+    },
+    High: {
+      planning: ['Prioritize topography protection in all planning decisions', 'Plan for comprehensive slope stabilization', 'Develop comprehensive topography protection plans', 'Plan for avoiding construction on steep slopes'],
+      designs: ['Design comprehensive slope stabilization systems', 'Design infrastructure adapted to steep terrain', 'Design relocation measures for steep slope settlements'],
+      communityDevelopmentPlans: ['Develop comprehensive topography protection programs', 'Create awareness programs on topography risks', 'Facilitate access to topography protection and relocation support', 'Develop emergency topography protection programs']
+    }
+  },
+  // Institutions subcategories
+  'exp_ews': {
+    Low: {
+      planning: ['Monitor early warning system functionality', 'Maintain current early warning planning'],
+      designs: ['Maintain current early warning system design standards'],
+      communityDevelopmentPlans: ['Maintain current early warning programs']
+    },
+    Medium: {
+      planning: ['Assess early warning vulnerabilities and plan for improvement', 'Plan for improved early warning systems', 'Consider early warning in infrastructure planning'],
+      designs: ['Design improved early warning systems', 'Design communication systems for warnings'],
+      communityDevelopmentPlans: ['Develop programs for early warning system improvement', 'Provide training on early warning response', 'Facilitate access to early warning information']
+    },
+    High: {
+      planning: ['Prioritize early warning systems in all planning decisions', 'Plan for comprehensive early warning network', 'Develop comprehensive early warning plans', 'Plan for multiple warning channels'],
+      designs: ['Design comprehensive early warning systems', 'Design multiple communication channels for warnings', 'Design backup warning systems'],
+      communityDevelopmentPlans: ['Develop comprehensive early warning system programs', 'Create awareness programs on early warning importance', 'Facilitate access to early warning information', 'Develop emergency early warning response programs']
+    }
+  },
+  'exp_a_i': {
+    Low: {
+      planning: ['Monitor access to weather information', 'Maintain current information access planning'],
+      designs: ['Maintain current information infrastructure design standards'],
+      communityDevelopmentPlans: ['Maintain current information access programs']
+    },
+    Medium: {
+      planning: ['Assess information access gaps and plan for improvement', 'Plan for improved weather information access', 'Consider information access in infrastructure planning'],
+      designs: ['Design improved information infrastructure', 'Design communication systems for information'],
+      communityDevelopmentPlans: ['Develop programs for improved information access', 'Provide training on accessing weather information', 'Facilitate access to weather information']
+    },
+    High: {
+      planning: ['Prioritize information access in all planning decisions', 'Plan for comprehensive weather information network', 'Develop comprehensive information access plans', 'Plan for multiple information channels'],
+      designs: ['Design comprehensive information infrastructure', 'Design multiple communication channels for information', 'Design backup information systems'],
+      communityDevelopmentPlans: ['Develop comprehensive information access programs', 'Create awareness programs on accessing weather information', 'Facilitate access to weather information', 'Develop emergency information access programs']
+    }
+  },
+  'exp_ec': {
+    Low: {
+      planning: ['Monitor community-government interaction', 'Maintain current engagement planning'],
+      designs: ['Maintain current engagement infrastructure design standards'],
+      communityDevelopmentPlans: ['Maintain current engagement programs']
+    },
+    Medium: {
+      planning: ['Assess engagement gaps and plan for improvement', 'Plan for improved community-government interaction', 'Consider engagement in infrastructure planning'],
+      designs: ['Design improved engagement infrastructure', 'Design communication systems for engagement'],
+      communityDevelopmentPlans: ['Develop programs for improved community-government interaction', 'Provide training on engagement processes', 'Facilitate access to government services']
+    },
+    High: {
+      planning: ['Prioritize community-government interaction in all planning decisions', 'Plan for comprehensive engagement mechanisms', 'Develop comprehensive engagement plans', 'Plan for regular interaction channels'],
+      designs: ['Design comprehensive engagement infrastructure', 'Design multiple communication channels for engagement', 'Design feedback systems'],
+      communityDevelopmentPlans: ['Develop comprehensive engagement programs', 'Create awareness programs on engagement processes', 'Facilitate access to government services', 'Develop emergency engagement programs']
+    }
+  },
+  'exp_r_rp': {
+    Low: {
+      planning: ['Monitor community representation in governance', 'Maintain current representation planning'],
+      designs: ['Maintain current representation infrastructure design standards'],
+      communityDevelopmentPlans: ['Maintain current representation programs']
+    },
+    Medium: {
+      planning: ['Assess representation gaps and plan for improvement', 'Plan for improved community representation', 'Consider representation in planning'],
+      designs: ['Design improved representation infrastructure', 'Design communication systems for representation'],
+      communityDevelopmentPlans: ['Develop programs for improved community representation', 'Provide training on governance participation', 'Facilitate access to governance processes']
+    },
+    High: {
+      planning: ['Prioritize community representation in all planning decisions', 'Plan for comprehensive representation mechanisms', 'Develop comprehensive representation plans', 'Plan for community participation in governance'],
+      designs: ['Design comprehensive representation infrastructure', 'Design multiple communication channels for representation', 'Design feedback systems'],
+      communityDevelopmentPlans: ['Develop comprehensive representation programs', 'Create awareness programs on governance participation', 'Facilitate access to governance processes', 'Develop emergency representation programs']
+    }
+  },
+  'exp_hfo': {
+    Low: {
+      planning: ['Monitor health facility adequacy', 'Maintain current health facility planning'],
+      designs: ['Maintain current health facility design standards'],
+      communityDevelopmentPlans: ['Maintain current health facility programs']
+    },
+    Medium: {
+      planning: ['Assess health facility gaps and plan for improvement', 'Plan for improved health facilities', 'Consider health facilities in infrastructure planning'],
+      designs: ['Design improved health facilities', 'Design health facilities with adequate resources'],
+      communityDevelopmentPlans: ['Develop programs for improved health facilities', 'Provide training on health facility management', 'Facilitate access to health facilities']
+    },
+    High: {
+      planning: ['Prioritize health facilities in all planning decisions', 'Plan for comprehensive health facility network', 'Develop comprehensive health facility plans', 'Plan for health facilities with adequate personnel and equipment'],
+      designs: ['Design comprehensive health facilities', 'Design health facilities with adequate resources', 'Design backup health facilities'],
+      communityDevelopmentPlans: ['Develop comprehensive health facility improvement programs', 'Create awareness programs on health facility importance', 'Facilitate access to health facilities', 'Develop emergency health facility programs']
+    }
+  },
+  'exp_dp': {
+    Low: {
+      planning: ['Monitor critical infrastructure identification', 'Maintain current infrastructure protection planning'],
+      designs: ['Maintain current infrastructure protection design standards'],
+      communityDevelopmentPlans: ['Maintain current infrastructure protection programs']
+    },
+    Medium: {
+      planning: ['Assess infrastructure protection gaps and plan for improvement', 'Plan for improved infrastructure identification and protection', 'Consider infrastructure protection in planning'],
+      designs: ['Design improved infrastructure protection systems', 'Design infrastructure marking and protection'],
+      communityDevelopmentPlans: ['Develop programs for infrastructure identification and protection', 'Provide training on infrastructure protection', 'Facilitate access to infrastructure protection information']
+    },
+    High: {
+      planning: ['Prioritize infrastructure protection in all planning decisions', 'Plan for comprehensive infrastructure identification and protection', 'Develop comprehensive infrastructure protection plans', 'Plan for critical infrastructure protection measures'],
+      designs: ['Design comprehensive infrastructure protection systems', 'Design infrastructure marking and protection measures', 'Design backup infrastructure systems'],
+      communityDevelopmentPlans: ['Develop comprehensive infrastructure protection programs', 'Create awareness programs on infrastructure protection', 'Facilitate access to infrastructure protection information', 'Develop emergency infrastructure protection programs']
+    }
+  },
+  'exp_dr': {
+    Low: {
+      planning: ['Monitor disaster response preparedness', 'Maintain current disaster response planning'],
+      designs: ['Maintain current disaster response infrastructure design standards'],
+      communityDevelopmentPlans: ['Maintain current disaster response programs']
+    },
+    Medium: {
+      planning: ['Assess disaster response gaps and plan for improvement', 'Plan for improved disaster response measures', 'Consider disaster response in infrastructure planning'],
+      designs: ['Design improved disaster response infrastructure', 'Design disaster response facilities'],
+      communityDevelopmentPlans: ['Develop programs for improved disaster response', 'Provide training on disaster response', 'Facilitate access to disaster response resources']
+    },
+    High: {
+      planning: ['Prioritize disaster response in all planning decisions', 'Plan for comprehensive disaster response measures', 'Develop comprehensive disaster response plans', 'Plan for disaster response resources and facilities'],
+      designs: ['Design comprehensive disaster response infrastructure', 'Design disaster response facilities and resources', 'Design backup disaster response systems'],
+      communityDevelopmentPlans: ['Develop comprehensive disaster response programs', 'Create awareness programs on disaster response', 'Facilitate access to disaster response resources', 'Develop emergency disaster response programs']
+    }
+  },
+  'exp_pfr': {
+    Low: {
+      planning: ['Monitor recovery finance availability', 'Maintain current recovery finance planning'],
+      designs: ['Maintain current recovery finance infrastructure design standards'],
+      communityDevelopmentPlans: ['Maintain current recovery finance programs']
+    },
+    Medium: {
+      planning: ['Assess recovery finance gaps and plan for improvement', 'Plan for improved recovery finance mechanisms', 'Consider recovery finance in planning'],
+      designs: ['Design improved recovery finance infrastructure', 'Design recovery finance systems'],
+      communityDevelopmentPlans: ['Develop programs for improved recovery finance', 'Provide training on accessing recovery finance', 'Facilitate access to recovery finance']
+    },
+    High: {
+      planning: ['Prioritize recovery finance in all planning decisions', 'Plan for comprehensive recovery finance mechanisms', 'Develop comprehensive recovery finance plans', 'Plan for recovery finance resources'],
+      designs: ['Design comprehensive recovery finance infrastructure', 'Design recovery finance systems and resources', 'Design backup recovery finance systems'],
+      communityDevelopmentPlans: ['Develop comprehensive recovery finance programs', 'Create awareness programs on accessing recovery finance', 'Facilitate access to recovery finance', 'Develop emergency recovery finance programs']
+    }
+  },
+  'exp_pfm': {
+    Low: {
+      planning: ['Monitor infrastructure maintenance systems', 'Maintain current maintenance planning'],
+      designs: ['Maintain current maintenance infrastructure design standards'],
+      communityDevelopmentPlans: ['Maintain current maintenance programs']
+    },
+    Medium: {
+      planning: ['Assess maintenance gaps and plan for improvement', 'Plan for improved infrastructure maintenance', 'Consider maintenance in infrastructure planning'],
+      designs: ['Design improved maintenance infrastructure', 'Design maintenance systems'],
+      communityDevelopmentPlans: ['Develop programs for improved infrastructure maintenance', 'Provide training on infrastructure maintenance', 'Facilitate access to maintenance resources']
+    },
+    High: {
+      planning: ['Prioritize infrastructure maintenance in all planning decisions', 'Plan for comprehensive maintenance systems', 'Develop comprehensive maintenance plans', 'Plan for maintenance resources and responsibilities'],
+      designs: ['Design comprehensive maintenance infrastructure', 'Design maintenance systems and resources', 'Design backup maintenance systems'],
+      communityDevelopmentPlans: ['Develop comprehensive maintenance programs', 'Create awareness programs on infrastructure maintenance', 'Facilitate access to maintenance resources', 'Develop emergency maintenance programs']
+    }
+  }
+};
+
+// Generate recommendations structure
+const generateRecommendations = () => {
+  const recommendations = {
+    exposure: {}
+  };
+  
+  const dim = 'exposure';
+  const dimConfig = questions[dim];
+  if (!dimConfig || !dimConfig.categories) return recommendations;
+  
+  for (const cat of dimConfig.categories) {
+    if (!cat.questions || cat.questions.length === 0) continue;
+    
+    recommendations.exposure[cat.key] = {
+      label: cat.label,
+      subcategories: {}
+    };
+    
+    for (const q of cat.questions) {
+      const subcatKey = q.key;
+      const subcatRecs = subcategoryRecommendations[subcatKey];
+      
+      if (subcatRecs) {
+        recommendations.exposure[cat.key].subcategories[subcatKey] = {
+          label: getSubcategoryLabel(subcatKey),
+          ratings: subcatRecs
+        };
+      }
+    }
+  }
+  
+  return recommendations;
+};
+
+// Get subcategory label
+const getSubcategoryLabel = (questionKey) => {
+  const subcategoryMap = {
+    // Livelihoods
+    'livelihoods_food_security': 'Food Security',
+    'livelihoods_grazing': 'Grazing/Farm Land',
+    'livelihoods_crops': 'Crops',
+    'livelihoods_livestock': 'Livestock',
+    'livelihoods_fishstock': 'Fishstock',
+    'exp_local_commerce': 'Local commerce',
+    'exp_gender': 'Gender',
+    'exp_conviviality': 'Conviviality',
+    'exp_education': 'Education',
+    'exp_wfi_wfdu': 'WFI/WFDU',
+    'exp_atf_i': 'ATF/I',
+    'exp_disaster_events': 'Disaster Events',
+    // Health & Safety
+    'health_borne_diseases': 'Borne Diseases',
+    'health_slupc': 'SLUP&C',
+    'exp_swm': 'SWM',
+    'exp_lwm': 'LWM',
+    'exp_aths': 'ATHS',
+    'exp_athe': 'ATHE',
+    // Assets and Utilities
+    'assets_housing': 'Housing',
+    'assets_public_facilities': 'Public facilities',
+    'exp_swd': 'SWD',
+    'exp_sanitary_facilities': 'Sanitary facilities',
+    'exp_sewer_lines': 'Sewer lines',
+    'exp_power_lines_supply': 'Power lines/supply',
+    'exp_energy_for_hh_use': 'Energy for HH use',
+    'assets_water': 'Water pipes',
+    'exp_pwt': 'PWT',
+    'exp_water_storage': 'Water Storage',
+    'exp_r_t': 'R & T',
+    'exp_communication': 'Communication',
+    // Potable water
+    'water_access': 'Access',
+    'exp_scarcities': 'Scarcities',
+    'water_quality': 'Quality',
+    // EBS
+    'ebs_soil': 'Soil',
+    'exp_lc_p': 'LC & P',
+    'ebs_landcover': 'NV',
+    'exp_wetland': 'Wetland',
+    'exp_biodiversity': 'Biodiversity',
+    'exp_nwb': 'NWB',
+    'exp_sea': 'Sea',
+    'exp_ef': 'EF',
+    'exp_land_use': 'Land use',
+    'exp_topography': 'Topography',
+    // Institutions
+    'exp_ews': 'EWS',
+    'exp_a_i': 'A & I',
+    'exp_ec': 'EC',
+    'exp_r_rp': 'R/RP',
+    'exp_hfo': 'HFO',
+    'exp_dp': 'DP',
+    'exp_dr': 'DR',
+    'exp_pfr': 'PFR',
+    'exp_pfm': 'PFM',
+  };
+  return subcategoryMap[questionKey] || questionKey;
+};
+
+// Generate the recommendations
+const newRecs = generateRecommendations();
+
+// Save to file
+const outputPath = path.join(__dirname, '../server/app/config/climate_assessment_dimension_recommendations.json');
+fs.writeFileSync(outputPath, JSON.stringify(newRecs, null, 2));
+
+console.log('✅ Generated subcategory-specific recommendations');
+console.log(`📁 Saved to: ${outputPath}`);
+
+// Show summary
+let totalSubcategories = 0;
+Object.keys(newRecs.exposure || {}).forEach(catKey => {
+  const subcatCount = Object.keys(newRecs.exposure[catKey].subcategories || {}).length;
+  totalSubcategories += subcatCount;
+  console.log(`  ${catKey}: ${subcatCount} subcategories`);
+});
+
+console.log(`\n📊 Total: ${totalSubcategories} subcategories with specific recommendations`);

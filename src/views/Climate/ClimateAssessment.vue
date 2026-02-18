@@ -269,6 +269,144 @@
               </div>
             </ElTabPane>
 
+            <!-- Recommendations tab -->
+            <ElTabPane name="recommendations" label="Recommendations">
+              <div class="tab-content recommendations-content">
+                <div v-if="!assessment || !assessment.vulnerability_rating" class="score-placeholder">
+                  Complete the questionnaire and click "Save & Compute Scores" to see recommendations.
+                </div>
+                <div v-else>
+                  <div class="rec-download-section">
+                    <ElButton type="primary" :icon="Download" @click="downloadRecommendationsExcel">
+                      Download(Excel)
+                    </ElButton>
+                  </div>
+                  <ElTabs v-model="activeRecType" class="rec-type-tabs">
+                    <ElTabPane name="planning" label="Planning">
+                      <div class="rec-table-wrapper">
+                        <ElTable :data="getRecommendationsTableData('planning')" border stripe height="400" style="width: 100%">
+                          <ElTableColumn prop="category" label="Category" width="180" fixed="left">
+                            <template #default="{ row }">
+                              <div v-if="row.category" class="rec-cat-cell">
+                                <span>{{ row.category }}</span>
+                                <ElTag v-if="row.categoryRating" :type="getCategoryRatingTagType(row.dimensionKey, row.categoryKey)" size="small" style="margin-left: 6px;">
+                                  {{ row.categoryRating }}
+                                </ElTag>
+                              </div>
+                            </template>
+                          </ElTableColumn>
+                          <ElTableColumn prop="subcategory" label="Subcategory" width="400">
+                            <template #default="{ row }">
+                              <div v-if="row.subcategory" class="rec-subcat-cell">
+                                <span>{{ row.subcategory }}</span>
+                                <ElTag 
+                                  :type="row.subcategoryRating === 'High' ? 'danger' : (row.subcategoryRating === 'Medium' ? 'warning' : 'success')" 
+                                  size="small" 
+                                  style="margin-left: 6px;"
+                                >
+                                  {{ row.subcategoryRating || '—' }}
+                                </ElTag>
+                              </div>
+                              <span v-else class="rec-no-subcat">—</span>
+                            </template>
+                          </ElTableColumn>
+                          <ElTableColumn prop="recommendations" label="Recommendations" min-width="500">
+                            <template #default="{ row }">
+                              <ul class="rec-table-list">
+                                <li v-for="(rec, idx) in row.recommendations" :key="idx">
+                                  {{ rec }}
+                                </li>
+                              </ul>
+                            </template>
+                          </ElTableColumn>
+                        </ElTable>
+                      </div>
+                    </ElTabPane>
+                    <ElTabPane name="designs" label="Design">
+                      <div class="rec-table-wrapper">
+                        <ElTable :data="getRecommendationsTableData('designs')" border stripe height="400" style="width: 100%">
+                          <ElTableColumn prop="category" label="Category" width="180" fixed="left">
+                            <template #default="{ row }">
+                              <div v-if="row.category" class="rec-cat-cell">
+                                <span>{{ row.category }}</span>
+                                <ElTag v-if="row.categoryRating" :type="getCategoryRatingTagType(row.dimensionKey, row.categoryKey)" size="small" style="margin-left: 6px;">
+                                  {{ row.categoryRating }}
+                                </ElTag>
+                              </div>
+                            </template>
+                          </ElTableColumn>
+                          <ElTableColumn prop="subcategory" label="Subcategory" width="400">
+                            <template #default="{ row }">
+                              <div v-if="row.subcategory" class="rec-subcat-cell">
+                                <span>{{ row.subcategory }}</span>
+                                <ElTag 
+                                  :type="row.subcategoryRating === 'High' ? 'danger' : (row.subcategoryRating === 'Medium' ? 'warning' : 'success')" 
+                                  size="small" 
+                                  style="margin-left: 6px;"
+                                >
+                                  {{ row.subcategoryRating || '—' }}
+                                </ElTag>
+                              </div>
+                              <span v-else class="rec-no-subcat">—</span>
+                            </template>
+                          </ElTableColumn>
+                          <ElTableColumn prop="recommendations" label="Recommendations" min-width="500">
+                            <template #default="{ row }">
+                              <ul class="rec-table-list">
+                                <li v-for="(rec, idx) in row.recommendations" :key="idx">
+                                  {{ rec }}
+                                </li>
+                              </ul>
+                            </template>
+                          </ElTableColumn>
+                        </ElTable>
+                      </div>
+                    </ElTabPane>
+                    <ElTabPane name="communityDevelopmentPlans" label="Community Development Plans">
+                      <div class="rec-table-wrapper">
+                        <ElTable :data="getRecommendationsTableData('communityDevelopmentPlans')" border stripe height="400" style="width: 100%">
+                          <ElTableColumn prop="category" label="Category" width="180" fixed="left">
+                            <template #default="{ row }">
+                              <div v-if="row.category" class="rec-cat-cell">
+                                <span>{{ row.category }}</span>
+                                <ElTag v-if="row.categoryRating" :type="getCategoryRatingTagType(row.dimensionKey, row.categoryKey)" size="small" style="margin-left: 6px;">
+                                  {{ row.categoryRating }}
+                                </ElTag>
+                              </div>
+                            </template>
+                          </ElTableColumn>
+                          <ElTableColumn prop="subcategory" label="Subcategory" width="400">
+                            <template #default="{ row }">
+                              <div v-if="row.subcategory" class="rec-subcat-cell">
+                                <span>{{ row.subcategory }}</span>
+                                <ElTag 
+                                  :type="row.subcategoryRating === 'High' ? 'danger' : (row.subcategoryRating === 'Medium' ? 'warning' : 'success')" 
+                                  size="small" 
+                                  style="margin-left: 6px;"
+                                >
+                                  {{ row.subcategoryRating || '—' }}
+                                </ElTag>
+                              </div>
+                              <span v-else class="rec-no-subcat">—</span>
+                            </template>
+                          </ElTableColumn>
+                          <ElTableColumn prop="recommendations" label="Recommendations" min-width="500">
+                            <template #default="{ row }">
+                              <ul class="rec-table-list">
+                                <li v-for="(rec, idx) in row.recommendations" :key="idx">
+                                  {{ rec }}
+                                </li>
+                              </ul>
+                            </template>
+                          </ElTableColumn>
+                        </ElTable>
+                      </div>
+                    </ElTabPane>
+                  </ElTabs>
+                </div>
+              </div>
+            </ElTabPane>
+
             <!-- Documentation tab -->
             <ElTabPane name="docs" label="Documentation">
               <div class="tab-content">
@@ -436,7 +574,8 @@ import {
   ElTable,
   ElTableColumn
 } from 'element-plus'
-import { Back, Lightning, Location, TrendCharts, SetUp, WarningFilled, InfoFilled, Document, Loading } from '@element-plus/icons-vue'
+import { Back, Lightning, Location, TrendCharts, SetUp, WarningFilled, InfoFilled, Document, Loading, Download } from '@element-plus/icons-vue'
+import * as XLSX from 'xlsx'
 import {
   getQuestions,
   getAssessment,
@@ -595,6 +734,474 @@ const assessorName = computed(() => {
   if (!a) return ''
   return a.name || a.username || a.email || `User #${a.id}`
 })
+
+// Recommendations
+const recommendationsData = ref<any>(null)
+const activeRecType = ref<string>('planning')
+
+// Load recommendations JSON
+const loadRecommendations = async () => {
+  try {
+    const response = await fetch('/climate_assessment_dimension_recommendations.json')
+    if (response.ok) {
+      recommendationsData.value = await response.json()
+    } else {
+      console.warn('Recommendations file not found, recommendations will not be available')
+    }
+  } catch (e) {
+    console.error('Failed to load recommendations', e)
+  }
+}
+
+// Compute category score for a specific dimension and category
+const computeCategoryScore = (dim: string, catKey: string): number | null => {
+  const dimConfig = questionsConfig.value?.[dim]
+  if (!dimConfig || !dimConfig.categories) return null
+  
+  const cat = dimConfig.categories.find((c: any) => c.key === catKey)
+  if (!cat || !cat.questions) return null
+  
+  let total = 0
+  let count = 0
+  for (const q of cat.questions) {
+    const answer = responses.value[dim]?.[q.key]
+    if (answer != null && answer !== '') {
+      const score = q.answers?.[answer]
+      if (typeof score === 'number') {
+        total += score
+        count++
+      }
+    }
+  }
+  if (count === 0) return null
+  return Math.round((total / count) * 100) / 100
+}
+
+// Map question keys to subcategory labels
+const getSubcategoryLabel = (dim: string, catKey: string, questionKey: string): string => {
+  // First try to get label from recommendations data
+  if (recommendationsData.value?.[dim]?.[catKey]?.subcategories?.[questionKey]?.label) {
+    return recommendationsData.value[dim][catKey].subcategories[questionKey].label
+  }
+  
+  // Fallback to hardcoded mapping
+  const subcategoryMap: Record<string, string> = {
+    // Livelihoods subcategories
+    'livelihoods_food_security': 'Food Security',
+    'livelihoods_grazing': 'Grazing/Farm Land',
+    'livelihoods_crops': 'Crops',
+    'livelihoods_livestock': 'Livestock',
+    'livelihoods_fishstock': 'Fishstock',
+    'exp_local_commerce': 'Local Commerce',
+    'exp_gender': 'Gender',
+    'exp_conviviality': 'Conviviality',
+    'exp_education': 'Education',
+    'exp_wfi_wfdu': 'Water For Irrigation / Water For Domestic Use',
+    'exp_atf_i': 'Access to Finance / Income',
+    'exp_disaster_events': 'Disaster Events',
+    // Health & Safety
+    'health_borne_diseases': 'Borne Diseases',
+    'health_slupc': 'Safety, Location, Urban Planning & Conditions',
+    'exp_swm': 'Solid Waste Management',
+    'exp_lwm': 'Liquid Waste Management',
+    'exp_aths': 'Adequate Health Services',
+    'exp_athe': 'Assessment of The Healthy Environment',
+    // Assets and Utilities
+    'assets_housing': 'Housing',
+    'assets_public_facilities': 'Public Facilities',
+    'exp_swd': 'Storm Water Drainage',
+    'exp_sanitary_facilities': 'Sanitary Facilities',
+    'exp_sewer_lines': 'Sewer Lines',
+    'exp_power_lines_supply': 'Power Lines/Supply',
+    'exp_energy_for_hh_use': 'Energy for Household Use',
+    'assets_water': 'Water Pipes',
+    'exp_pwt': 'Potable Water Treatment',
+    'exp_water_storage': 'Water Storage',
+    'exp_r_t': 'Roads & Transport',
+    'exp_communication': 'Communication',
+    // Potable water
+    'water_access': 'Access',
+    'exp_scarcities': 'Scarcities',
+    'water_quality': 'Quality',
+    // EBS
+    'ebs_soil': 'Soil',
+    'exp_lc_p': 'Land Cover & Permeability',
+    'ebs_landcover': 'Natural Vegetation',
+    'exp_wetland': 'Wetland',
+    'exp_biodiversity': 'Biodiversity',
+    'exp_nwb': 'Near Water Body',
+    'exp_sea': 'Sea',
+    'exp_ef': 'Environmental Factors',
+    'exp_land_use': 'Land use',
+    'exp_topography': 'Topography',
+    // Institutions
+    'exp_ews': 'Early Warning System',
+    'exp_a_i': 'Awareness & Information',
+    'exp_ec': 'Engagement & Communication',
+    'exp_r_rp': 'Representation & Reflection in Planning',
+    'exp_hfo': 'Health Facilities Operations',
+    'exp_dp': 'Disaster Preparedness',
+    'exp_dr': 'Disaster Response',
+    'exp_pfr': 'Post-Flood Recovery',
+    'exp_pfm': 'Public Facilities Maintenance',
+  }
+  return subcategoryMap[questionKey] || questionKey
+}
+
+// Compute subcategory score (single question score)
+const computeSubcategoryScore = (dim: string, questionKey: string): number | null => {
+  const answer = responses.value[dim]?.[questionKey]
+  if (answer == null || answer === '') return null
+  const dimConfig = questionsConfig.value?.[dim]
+  if (!dimConfig || !dimConfig.categories) return null
+  
+  for (const cat of dimConfig.categories) {
+    const q = cat.questions?.find((q: any) => q.key === questionKey)
+    if (q) {
+      const score = q.answers?.[answer]
+      if (typeof score === 'number') {
+        return score
+      }
+    }
+  }
+  return null
+}
+
+// Get subcategory rating
+const getSubcategoryRating = (dim: string, questionKey: string): string => {
+  const score = computeSubcategoryScore(dim, questionKey)
+  const isAC = dim === 'adaptive_capacity'
+  return scoreToRating(score, isAC)
+}
+
+// Determine rating from score (1-3 scale)
+const scoreToRating = (score: number | null, isAdaptiveCapacity: boolean): string => {
+  if (score == null) return 'Low'
+  if (isAdaptiveCapacity) {
+    // Inverted for adaptive capacity: High score = Low rating (good), Low score = High rating (bad)
+    if (score >= 2.33) return 'Low' // Good capacity
+    if (score >= 1.67) return 'Medium'
+    return 'High' // Poor capacity
+  } else {
+    // Normal: High score = High rating (bad), Low score = Low rating (good)
+    if (score >= 2.33) return 'High'
+    if (score >= 1.67) return 'Medium'
+    return 'Low'
+  }
+}
+
+// Get category rating
+const getCategoryRating = (dim: string, catKey: string): string => {
+  const score = computeCategoryScore(dim, catKey)
+  const isAC = dim === 'adaptive_capacity'
+  return scoreToRating(score, isAC)
+}
+
+// Get subcategory recommendations (based on subcategory's individual rating)
+const getSubcategoryRecommendations = (dim: string, catKey: string, subcategoryKey: string) => {
+  if (!recommendationsData.value || !recommendationsData.value[dim]) return null
+  const dimRecs = recommendationsData.value[dim]
+  if (!dimRecs[catKey] || !dimRecs[catKey].subcategories) return null
+  
+  const subcatRecs = dimRecs[catKey].subcategories[subcategoryKey]
+  if (!subcatRecs) return null
+  
+  // Get rating based on subcategory's individual score
+  const rating = getSubcategoryRating(dim, subcategoryKey)
+  return subcatRecs.ratings?.[rating] || null
+}
+
+// Get category recommendations (fallback for categories without subcategories)
+const getCategoryRecommendations = (dim: string, catKey: string) => {
+  if (!recommendationsData.value || !recommendationsData.value[dim]) return null
+  const dimRecs = recommendationsData.value[dim]
+  if (!dimRecs[catKey]) return null
+  
+  // Check if it has the old structure (ratings directly) or new structure (subcategories)
+  if (dimRecs[catKey].ratings) {
+    const rating = getCategoryRating(dim, catKey)
+    return dimRecs[catKey].ratings?.[rating] || null
+  }
+  
+  return null
+}
+
+// Get dimension score
+const getDimensionScore = (dim: string): number | null => {
+  const a = assessment.value
+  if (!a) return null
+  const scoreKey = `${dim}_score` as keyof ClimateAssessment
+  const score = a[scoreKey]
+  if (score == null) return null
+  const n = typeof score === 'number' ? score : Number(score)
+  return Number.isNaN(n) ? null : n
+}
+
+// Get dimension score tag type
+const dimScoreTagType = (dim: string) => {
+  const score = getDimensionScore(dim)
+  if (score == null) return 'info'
+  const isAC = dim === 'adaptive_capacity'
+  if (isAC) {
+    if (score >= 2.33) return 'success'
+    if (score >= 1.67) return 'warning'
+    return 'danger'
+  } else {
+    if (score >= 2.33) return 'danger'
+    if (score >= 1.67) return 'warning'
+    return 'success'
+  }
+}
+
+// Get category rating tag type
+const getCategoryRatingTagType = (dim: string, catKey: string) => {
+  const rating = getCategoryRating(dim, catKey)
+  if (rating === 'High') return 'danger'
+  if (rating === 'Medium') return 'warning'
+  return 'success'
+}
+
+// Get recommendations table data for a specific type (planning, designs, communityDevelopmentPlans)
+// Only includes exposure dimension categories and subcategories
+const getRecommendationsTableData = (type: 'planning' | 'designs' | 'communityDevelopmentPlans') => {
+  const tableData: any[] = []
+  
+  if (!recommendationsData.value || !questionsConfig.value) return tableData
+  
+  // Only process exposure dimension
+  const dim = 'exposure'
+  const dimConfig = questionsConfig.value[dim]
+  if (!dimConfig || !dimConfig.categories) return tableData
+  
+  for (const cat of dimConfig.categories) {
+    const catRating = getCategoryRating(dim, cat.key)
+    let isFirstRowInCategory = true
+    
+    // If category has questions, show subcategories (one row per question)
+    if (cat.questions && cat.questions.length > 0) {
+      for (const q of cat.questions) {
+        // Get subcategory-specific recommendations based on subcategory's rating
+        const subcatRecs = getSubcategoryRecommendations(dim, cat.key, q.key)
+        if (!subcatRecs) continue
+        
+        const typeRecs = subcatRecs[type] || []
+        if (typeRecs.length === 0) continue
+        
+        const subcatLabel = getSubcategoryLabel(dim, cat.key, q.key)
+        const subcatScore = computeSubcategoryScore(dim, q.key)
+        const subcatRating = getSubcategoryRating(dim, q.key)
+        const subcatScoreStr = subcatScore != null ? `${subcatScore.toFixed(2)} / 3` : '—'
+        
+        tableData.push({
+          dimensionKey: dim,
+          categoryKey: cat.key,
+          category: isFirstRowInCategory ? cat.label : '', // Only show category on first row
+          categoryRating: isFirstRowInCategory ? catRating : '', // Only show rating on first row
+          isFirstRowInCategory: isFirstRowInCategory,
+          subcategoryKey: q.key,
+          subcategory: subcatLabel,
+          subcategoryScore: subcatScoreStr,
+          subcategoryRating: subcatRating,
+          recommendations: typeRecs // Subcategory-specific recommendations based on subcategory rating
+        })
+        
+        isFirstRowInCategory = false
+      }
+    } else {
+      // No subcategories, show category-level (fallback)
+      const recs = getCategoryRecommendations(dim, cat.key)
+      if (!recs) continue
+      
+      const typeRecs = recs[type] || []
+      if (typeRecs.length === 0) continue
+      
+      tableData.push({
+        dimensionKey: dim,
+        categoryKey: cat.key,
+        category: cat.label,
+        categoryRating: catRating,
+        isFirstRowInCategory: true,
+        subcategoryKey: null,
+        subcategory: null,
+        subcategoryScore: null,
+        subcategoryRating: null,
+        recommendations: typeRecs
+      })
+    }
+  }
+  
+  return tableData
+}
+
+// Download recommendations as Excel file
+const downloadRecommendationsExcel = () => {
+  if (!recommendationsData.value || !questionsConfig.value) {
+    ElMessage.warning('Recommendations data not available')
+    return
+  }
+
+  const workbook = XLSX.utils.book_new()
+  
+  // Create Summary sheet first
+  const summaryData = [
+    { 'Field': 'Settlement Name', 'Value': assessment.value?.settlement?.name || 'N/A' },
+    { 'Field': 'County', 'Value': assessment.value?.county?.name || 'N/A' },
+    { 'Field': 'Assessed At', 'Value': assessment.value?.assessed_at ? new Date(assessment.value.assessed_at).toLocaleDateString() : 'N/A' },
+    { 'Field': 'Assessor', 'Value': assessorName.value || 'N/A' },
+    { 'Field': '', 'Value': '' }, // Empty row
+    { 'Field': 'Dimension Scores', 'Value': '' },
+    { 'Field': 'Hazard Score', 'Value': formatRatingValue(assessment.value?.hazard_score) },
+    { 'Field': 'Exposure Score', 'Value': formatRatingValue(assessment.value?.exposure_score) },
+    { 'Field': 'Sensitivity Score', 'Value': formatRatingValue(assessment.value?.sensitivity_score) },
+    { 'Field': 'Adaptive Capacity Score', 'Value': formatRatingValue(assessment.value?.adaptive_capacity_score) },
+    { 'Field': '', 'Value': '' }, // Empty row
+    { 'Field': 'Vulnerability', 'Value': '' },
+    { 'Field': 'Vulnerability Score', 'Value': formatRatingValue(assessment.value?.vulnerability_score) },
+    { 'Field': 'Vulnerability Rating', 'Value': assessment.value?.vulnerability_rating ? formatRatingLabel(assessment.value.vulnerability_rating) : 'N/A' },
+    { 'Field': '', 'Value': '' }, // Empty row
+    { 'Field': 'Risk', 'Value': '' },
+    { 'Field': 'Risk Score', 'Value': formatRatingValue(assessment.value?.risk_score) },
+    { 'Field': 'Risk Rating', 'Value': assessment.value?.risk_rating ? formatRatingLabel(assessment.value.risk_rating) : 'N/A' }
+  ]
+
+  // Add coordinates if available (check settlement geometry)
+  const settlement = assessment.value?.settlement as any
+  if (settlement?.centroid || settlement?.geometry || settlement?.latitude || settlement?.longitude) {
+    const lat = settlement.latitude || settlement.centroid?.lat || settlement.geometry?.coordinates?.[1] || ''
+    const lon = settlement.longitude || settlement.centroid?.lon || settlement.geometry?.coordinates?.[0] || ''
+    if (lat && lon) {
+      summaryData.push({ 'Field': '', 'Value': '' })
+      summaryData.push({ 'Field': 'Coordinates', 'Value': '' })
+      summaryData.push({ 'Field': 'Latitude', 'Value': String(lat) })
+      summaryData.push({ 'Field': 'Longitude', 'Value': String(lon) })
+      summaryData.push({ 'Field': 'Centroid', 'Value': `${lat}, ${lon}` })
+    }
+  }
+
+  // Convert to array of arrays format (no headers)
+  const summaryArray = summaryData.map(row => [row.Field, row.Value])
+  const summaryWorksheet = XLSX.utils.aoa_to_sheet(summaryArray)
+  summaryWorksheet['!cols'] = [
+    { wch: 30 }, // Field column
+    { wch: 40 }  // Value column
+  ]
+  
+  // Style headers and labels
+  const summaryRange = XLSX.utils.decode_range(summaryWorksheet['!ref'] || 'A1')
+  for (let row = 0; row <= summaryRange.e.r; row++) {
+    const fieldAddress = XLSX.utils.encode_cell({ r: row, c: 0 })
+    const valueAddress = XLSX.utils.encode_cell({ r: row, c: 1 })
+    
+    // Bold the Field column
+    if (summaryWorksheet[fieldAddress]) {
+      if (!summaryWorksheet[fieldAddress].s) summaryWorksheet[fieldAddress].s = {}
+      if (!summaryWorksheet[fieldAddress].s.font) summaryWorksheet[fieldAddress].s.font = {}
+      summaryWorksheet[fieldAddress].s.font.bold = true
+    }
+    
+    // Bold section headers (empty value means it's a section header)
+    if (summaryWorksheet[valueAddress] && summaryWorksheet[valueAddress].v === '') {
+      if (!summaryWorksheet[valueAddress].s) summaryWorksheet[valueAddress].s = {}
+      if (!summaryWorksheet[valueAddress].s.font) summaryWorksheet[valueAddress].s.font = {}
+      summaryWorksheet[valueAddress].s.font.bold = true
+    }
+  }
+  
+  XLSX.utils.book_append_sheet(workbook, summaryWorksheet, 'Summary')
+  
+  // Create sheets for each type
+  const types = [
+    { key: 'planning', label: 'Planning' },
+    { key: 'designs', label: 'Design' },
+    { key: 'communityDevelopmentPlans', label: 'Community Development Plans' }
+  ]
+
+  types.forEach(type => {
+    const tableData = getRecommendationsTableData(type.key as 'planning' | 'designs' | 'communityDevelopmentPlans')
+    
+    // Transform data for Excel - one row per recommendation
+    const excelData: any[] = []
+    tableData.forEach(row => {
+      if (Array.isArray(row.recommendations) && row.recommendations.length > 0) {
+        // First recommendation gets category and subcategory
+        excelData.push({
+          'Category': row.category || '',
+          'Subcategory': row.subcategory || '',
+          'Recommendations': `• ${row.recommendations[0]}`
+        })
+        // Remaining recommendations get empty category/subcategory
+        for (let i = 1; i < row.recommendations.length; i++) {
+          excelData.push({
+            'Category': '',
+            'Subcategory': '',
+            'Recommendations': `• ${row.recommendations[i]}`
+          })
+        }
+      } else if (row.recommendations) {
+        // Single recommendation
+        excelData.push({
+          'Category': row.category || '',
+          'Subcategory': row.subcategory || '',
+          'Recommendations': `• ${row.recommendations}`
+        })
+      }
+    })
+
+    // Create worksheet
+    const worksheet = XLSX.utils.json_to_sheet(excelData)
+    
+    // Set column widths
+    worksheet['!cols'] = [
+      { wch: 25 }, // Category
+      { wch: 40 }, // Subcategory
+      { wch: 80 }  // Recommendations
+    ]
+    
+    // Style headers (row 0) - make them bold
+    const headerRow = 0
+    const headerCells = ['A', 'B', 'C'] // Category, Subcategory, Recommendations
+    headerCells.forEach((col, idx) => {
+      const cellAddress = `${col}${headerRow + 1}` // XLSX uses 1-based indexing
+      if (!worksheet[cellAddress]) return
+      if (!worksheet[cellAddress].s) worksheet[cellAddress].s = {}
+      if (!worksheet[cellAddress].s.font) worksheet[cellAddress].s.font = {}
+      worksheet[cellAddress].s.font.bold = true
+    })
+    
+    // Style category and subcategory cells - make them bold
+    const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1')
+    for (let row = 1; row <= range.e.r; row++) {
+      // Category column (A)
+      const catAddress = XLSX.utils.encode_cell({ r: row, c: 0 })
+      if (worksheet[catAddress] && worksheet[catAddress].v) {
+        if (!worksheet[catAddress].s) worksheet[catAddress].s = {}
+        if (!worksheet[catAddress].s.font) worksheet[catAddress].s.font = {}
+        worksheet[catAddress].s.font.bold = true
+      }
+      
+      // Subcategory column (B)
+      const subcatAddress = XLSX.utils.encode_cell({ r: row, c: 1 })
+      if (worksheet[subcatAddress] && worksheet[subcatAddress].v) {
+        if (!worksheet[subcatAddress].s) worksheet[subcatAddress].s = {}
+        if (!worksheet[subcatAddress].s.font) worksheet[subcatAddress].s.font = {}
+        worksheet[subcatAddress].s.font.bold = true
+      }
+    }
+
+    // Add worksheet to workbook
+    XLSX.utils.book_append_sheet(workbook, worksheet, type.label)
+  })
+
+  // Generate filename with assessment info
+  const settlementName = assessment.value?.settlement?.name || 'Assessment'
+  const assessmentId = assessment.value?.id || 'new'
+  const filename = `Climate_Recommendations_${settlementName}_${assessmentId}_${new Date().toISOString().split('T')[0]}.xlsx`
+
+  // Download file
+  XLSX.writeFile(workbook, filename)
+  
+  ElMessage.success('Recommendations downloaded successfully')
+}
 
 // Documentation upload (linked to the climate assessment)
 const docsUploadOpen = ref(false)
@@ -794,6 +1401,7 @@ watch(activeTab, async () => {
 
 onMounted(async () => {
   await loadQuestions()
+  await loadRecommendations()
   await loadOrCreateAssessment()
   for (const dim of dimensions) {
     const cats = questionsConfig.value?.[dim]?.categories || []
@@ -1042,6 +1650,68 @@ onMounted(async () => {
   display: flex;
   justify-content: flex-start;
 }
+
+/* ── Recommendations tab ── */
+.recommendations-content {
+  padding: 8px 0;
+}
+.rec-type-tabs {
+  margin-top: 4px;
+}
+.rec-download-section {
+  margin-bottom: 4px;
+  display: flex;
+  justify-content: flex-end;
+}
+.rec-table-wrapper {
+  margin-top: 16px;
+}
+.rec-dim-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+}
+.rec-dim-icon-small {
+  font-size: 1rem;
+}
+.rec-dim-icon-small.hazard { color: var(--el-color-warning); }
+.rec-dim-icon-small.exposure { color: var(--el-color-primary); }
+.rec-dim-icon-small.sensitivity { color: var(--el-color-danger); }
+.rec-dim-icon-small.adaptive_capacity { color: var(--el-color-success); }
+.rec-cat-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  padding: 8px 0;
+  border-bottom: 2px solid var(--el-border-color);
+}
+.rec-subcat-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+}
+.rec-no-subcat {
+  color: var(--el-text-color-placeholder);
+  font-style: italic;
+}
+.rec-table-list {
+  margin: 0;
+  padding-left: 20px;
+  list-style-type: disc;
+}
+.rec-table-list li {
+  margin-bottom: 6px;
+  line-height: 1.6;
+  color: var(--el-text-color-regular);
+  font-size: 0.9rem;
+}
+.rec-table-list li:last-child {
+  margin-bottom: 0;
+}
+
 .collapse-title {
   font-weight: 500;
 }
