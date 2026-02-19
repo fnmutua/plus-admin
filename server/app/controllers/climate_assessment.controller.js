@@ -250,6 +250,7 @@ exports.update = async (req, res) => {
       adaptive_capacity_responses,
       status,
       assessed_at,
+      geom,
     } = req.body
 
     const assessment = await db.models.climate_assessment.findByPk(id)
@@ -267,6 +268,7 @@ exports.update = async (req, res) => {
     if (adaptive_capacity_responses !== undefined) updateData.adaptive_capacity_responses = adaptive_capacity_responses
     if (status !== undefined) updateData.status = status
     if (assessed_at !== undefined) updateData.assessed_at = assessed_at
+    if (geom !== undefined && geom && geom.type === 'Point' && Array.isArray(geom.coordinates) && geom.coordinates.length >= 2) updateData.geom = geom
 
     const responses = {
       hazard: assessment.hazard_responses || {},
