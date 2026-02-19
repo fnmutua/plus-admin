@@ -21,6 +21,8 @@ export interface ClimateAssessment {
   exposure_responses?: Record<string, string>
   sensitivity_responses?: Record<string, string>
   adaptive_capacity_responses?: Record<string, string>
+  /** GeoJSON Point for assessment location: { type: 'Point', coordinates: [lng, lat] } */
+  geom?: { type: string; coordinates: [number, number] } | null
   settlement?: { id: number; name: string; code: string; county_id?: number }
   county?: { id: number; name: string }
   assessor?: { id: number; name?: string; username: string; email: string }

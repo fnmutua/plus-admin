@@ -407,6 +407,23 @@
               </div>
             </ElTabPane>
 
+            <!-- Map tab: settlement map + assessment location marker -->
+            <ElTabPane name="map" label="Map">
+              <div class="tab-content map-tab-content">
+                <template v-if="assessment?.settlement_id">
+                  <div class="settlement-map-wrapper">
+                    <SettlementMap
+                      :settlement-id="String(assessment.settlement_id)"
+                      :initial-map-data="assessmentMapData"
+                      :assessment-point="assessmentGeomForMap"
+                    />
+                  </div>
+                  <p v-if="!assessmentGeomForMap" class="map-hint">Capture location in the mobile app to see the assessment point on the map.</p>
+                </template>
+                <p v-else class="score-placeholder">No settlement linked to this assessment.</p>
+              </div>
+            </ElTabPane>
+
             <!-- Documentation tab -->
             <ElTabPane name="docs" label="Documentation">
               <div class="tab-content">
@@ -585,7 +602,8 @@ import {
   type ClimateAssessment,
   type AssessmentQuestions
 } from '@/api/climate-assessment'
-import { getSettlementListByCounty } from '@/api/settlements'
+import { getSettlementListByCounty, getSettlementMapData } from '@/api/settlements'
+import SettlementMap from '@/views/Components/SettlementMap.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -631,6 +649,8 @@ const assessment = ref<ClimateAssessment | null>(null)
 const questionsConfig = ref<AssessmentQuestions | null>(null)
 const activeTab = ref<string>('howto')
 const infoDrawerOpen = ref(false)
+/** Pre-fetched settlement map data for the Map tab (same pattern as SettlementDetails) */
+const assessmentMapData = ref<Record<string, any> | null>(null)
 const activeCategoryByTab = ref<Record<string, string>>({
   hazard: '',
   exposure: '',
@@ -717,6 +737,13 @@ const assessmentId = computed(() => {
 const settlementId = computed(() => {
   const id = route.params.id ?? route.params.settlementId
   return id ? Number(id) : null
+})
+
+/** GeoJSON Point for assessment location marker, or null if not set */
+const assessmentGeomForMap = computed(() => {
+  const geom = (assessment.value as any)?.geom
+  if (!geom || geom.type !== 'Point' || !Array.isArray(geom.coordinates) || geom.coordinates.length < 2) return null
+  return { type: 'Point' as const, coordinates: geom.coordinates as [number, number] }
 })
 
 const responses = ref<Record<string, Record<string, string>>>({
@@ -1302,6 +1329,21 @@ const loadQuestions = async () => {
   }
 }
 
+/** Load settlement map data for the Map tab when assessment has settlement_id */
+const loadAssessmentMapData = async () => {
+  const sid = assessment.value?.settlement_id
+  if (!sid) {
+    assessmentMapData.value = null
+    return
+  }
+  try {
+    const res: any = await getSettlementMapData({ settlementId: String(sid) })
+    assessmentMapData.value = res?.data ?? null
+  } catch {
+    assessmentMapData.value = null
+  }
+}
+
 const loadOrCreateAssessment = async () => {
   loading.value = true
   try {
@@ -1310,15 +1352,20 @@ const loadOrCreateAssessment = async () => {
       if (res.code === '0000') {
         assessment.value = res.data
         syncResponsesFromAssessment(res.data)
+        await loadAssessmentMapData()
       }
     } else if (settlementId.value) {
       const listRes = await listAssessments({ settlement_id: settlementId.value })
       if (listRes.code === '0000' && listRes.data?.length) {
         assessment.value = listRes.data[0]
         syncResponsesFromAssessment(listRes.data[0])
+        await loadAssessmentMapData()
       } else {
         const createRes = await createAssessment({ settlement_id: settlementId.value })
-        if (createRes.code === '0000') assessment.value = createRes.data
+        if (createRes.code === '0000') {
+          assessment.value = createRes.data
+          await loadAssessmentMapData()
+        }
       }
     } else {
       ElMessage.error('Settlement or project location required')
@@ -1449,6 +1496,17 @@ onMounted(async () => {
 }
 .tab-content {
   padding-top: 12px;
+}
+.map-tab-content .settlement-map-wrapper {
+  width: 100%;
+  height: 60vh;
+  min-height: 400px;
+  position: relative;
+}
+.map-tab-content .map-hint {
+  margin-top: 8px;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
 }
 .overall-score-content {
   padding: 24px 0;

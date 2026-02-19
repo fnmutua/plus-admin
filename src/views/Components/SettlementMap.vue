@@ -79,8 +79,10 @@ const props = withDefaults(
   defineProps<{
     settlementId: string
     initialMapData?: Record<string, any> | null
+    /** Optional GeoJSON Point for assessment location marker: { type: 'Point', coordinates: [lng, lat] } */
+    assessmentPoint?: { type: string; coordinates: [number, number] } | null
   }>(),
-  { initialMapData: null }
+  { initialMapData: null, assessmentPoint: null }
 )
 
 const emit = defineEmits<{
@@ -2060,6 +2062,27 @@ const userLocationMarker = computed(() => ({
   }
 }))
 
+/** Assessment location marker when assessmentPoint prop is provided (GeoJSON Point: [lng, lat]) */
+const assessmentLocationMarker = computed(() => {
+  const pt = props.assessmentPoint
+  if (!pt || pt.type !== 'Point' || !Array.isArray(pt.coordinates) || pt.coordinates.length < 2) return null
+  const g = typeof google !== 'undefined' ? google : (window as any).google
+  if (!g?.maps?.SymbolPath) return null
+  const [lng, lat] = pt.coordinates
+  return {
+    position: { lat, lng },
+    title: 'Assessment location',
+    icon: {
+      path: g.maps.SymbolPath.CIRCLE,
+      scale: 10,
+      fillColor: '#E65100',
+      fillOpacity: 1,
+      strokeColor: '#ffffff',
+      strokeWeight: 2,
+    }
+  }
+})
+
 const circleOpacity = ref(0.5)
 const circleRadius = ref(20)
 
@@ -2331,6 +2354,7 @@ const loadMapData = async () => {
         />
 
         <Marker v-if="userLocation" :options="userLocationMarker" />
+        <Marker v-if="assessmentLocationMarker" :options="assessmentLocationMarker" />
 
         <div v-if="StructureVisible">
           <Polygon v-for="structure in structures" :key="structure.id" :options="structure" />
