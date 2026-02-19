@@ -10,6 +10,11 @@ module.exports = function (sequelize, DataTypes) {
         allowNull: false,
         primaryKey: true,
       },
+      code: {
+        type: DataTypes.STRING(64),
+        allowNull: true,
+        comment: 'Used for document upload lookup (e.g. batch/pcode); set to String(id)',
+      },
       settlement_id: {
         type: DataTypes.INTEGER,
         allowNull: false,
@@ -95,6 +100,7 @@ module.exports = function (sequelize, DataTypes) {
       underscored: true,
       indexes: [
         { name: 'climate_assessment_pkey', unique: true, fields: [{ name: 'id' }] },
+        { name: 'climate_assessment_code_idx', unique: true, fields: ['code'] },
         { name: 'climate_assessment_settlement_idx', fields: ['settlement_id'] },
         { name: 'climate_assessment_county_id_idx', fields: ['county_id'] },
         { name: 'climate_assessment_status_idx', fields: ['status'] },

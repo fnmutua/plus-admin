@@ -214,6 +214,9 @@ exports.create = async (req, res) => {
       adaptive_capacity_responses: {},
     })
 
+    // Set code for document upload lookup (batch/pcode finds by code)
+    await assessment.update({ code: String(assessment.id) })
+
     // Return with assessor loaded so client gets username
     const withAssessor = await db.models.climate_assessment.findByPk(assessment.id, {
       include: [
