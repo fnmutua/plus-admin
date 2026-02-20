@@ -50,7 +50,7 @@
               <el-menu
                 v-if="!isCompactScreen"
                 mode="horizontal"
-                active-text-color="#00DC82"
+                active-text-color="#ffffff"
                 class="el-menu-demo"
                 :default-active="activeIndex"
                 @select="handleSelect"
@@ -739,14 +739,14 @@ nav {
 }
 
 .menu-item.is-active {
-  background: linear-gradient(135deg, rgba(0, 220, 130, 0.1), rgba(0, 220, 130, 0.15));
-  color: #00DC82;
+  background: linear-gradient(135deg, rgba(0, 220, 130, 0.25), rgba(0, 220, 130, 0.35));
+  color: #ffffff;
   font-weight: 600;
   box-shadow: inset 4px 0 0 #00DC82;
 }
 
 .menu-item.is-active .iconify {
-  color: #00DC82;
+  color: #ffffff;
   opacity: 1;
 }
 
@@ -984,13 +984,13 @@ nav {
 }
 
 .dark-mode .menu-item.is-active {
-  background: linear-gradient(135deg, rgba(0, 220, 130, 0.2), rgba(0, 220, 130, 0.25));
-  color: #00DC82;
+  background: linear-gradient(135deg, rgba(0, 220, 130, 0.25), rgba(0, 220, 130, 0.35));
+  color: #ffffff;
   box-shadow: inset 4px 0 0 #00DC82;
 }
 
 .dark-mode .menu-item.is-active .iconify {
-  color: #00DC82;
+  color: #ffffff;
   opacity: 1;
 }
 
