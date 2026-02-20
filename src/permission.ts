@@ -1,4 +1,5 @@
 import router from './router';
+import { trackPageVisit } from '@/api/register-public';
 import { useAppStoreWithOut } from '@/store/modules/app';
 import { useCache } from '@/hooks/web/useCache';
 import type { RouteRecordRaw } from 'vue-router';
@@ -121,4 +122,29 @@ router.afterEach((to) => {
   useTitle(to?.meta?.title as string);
   done(); // End Progress
   loadDone();
+
+  // Track page visit for all routes (fire-and-forget)
+  const path = to.path || '/';
+  const pageName = (to.meta?.title as string) || path;
+  let sessionId = '';
+  try {
+    sessionId = sessionStorage.getItem('visit_session_id') || '';
+    if (!sessionId) {
+      sessionId = `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+      sessionStorage.setItem('visit_session_id', sessionId);
+    }
+  } catch {
+    sessionId = `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+  }
+  const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+  const deviceType = /Mobile|Android|iPhone|iPad/i.test(ua) ? (/iPad|Tablet/i.test(ua) ? 'tablet' : 'mobile') : 'desktop';
+  trackPageVisit({
+    path,
+    page_name: pageName,
+    referrer: typeof document !== 'undefined' ? document.referrer || undefined : undefined,
+    user_agent: ua || undefined,
+    device_type: deviceType,
+    query_string: to.fullPath?.includes('?') ? to.fullPath.split('?')[1] : undefined,
+    session_id: sessionId
+  });
 });

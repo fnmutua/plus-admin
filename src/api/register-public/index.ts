@@ -126,3 +126,22 @@ export function getPublicRegisterSubcounties(countyId: number): Promise<{ data?:
 export function getPublicRegisterWards(subcountyId: number): Promise<{ data?: { id: number; name: string }[] }> {
   return publicGet(`/api/public/register/wards?subcounty_id=${subcountyId}`)
 }
+
+/** Page visit tracking. No auth. Fire-and-forget. */
+export function trackPageVisit(payload: {
+  path: string
+  page_name?: string
+  referrer?: string
+  user_agent?: string
+  device_type?: string
+  query_string?: string
+  session_id?: string
+}): Promise<void> {
+  return axios
+    .post(prod + '/api/public/track-visit', payload, {
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 5000
+    })
+    .then(() => {})
+    .catch(() => {}) // Silent fail – analytics should not break the app
+}

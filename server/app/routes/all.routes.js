@@ -2498,6 +2498,9 @@ module.exports = function (app) {
   // Public files (no auth) – like logo
   app.get('/api/public/tool-a', controller.getPublicToolA)
 
+  // Page visit tracking (no auth) – landing analytics
+  app.post('/api/public/track-visit', controller.trackPageVisit)
+
   // Public settlement register (no auth) – landing page
   app.get('/api/public/register/counties', controller.getPublicRegisterCounties)
   app.get('/api/public/register/subcounties', controller.getPublicRegisterSubcounties)

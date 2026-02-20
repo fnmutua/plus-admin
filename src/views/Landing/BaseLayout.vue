@@ -1039,7 +1039,7 @@ nav {
   z-index: -1;
 }
 
-.hero > * {
+.hero * {
   position: relative;
   z-index: 1;
 }

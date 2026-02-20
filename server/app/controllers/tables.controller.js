@@ -12097,6 +12097,32 @@ const PUBLIC_SETTLEMENT_WHERE = {
   isActive: 'true'  // DB column is varchar, not boolean
 };
 
+/** POST /api/public/track-visit – record page visit (no auth) */
+exports.trackPageVisit = async (req, res) => {
+  try {
+    const { path: visitPath, page_name, referrer, user_agent, device_type, query_string, session_id } = req.body || {};
+    if (!visitPath || typeof visitPath !== 'string') {
+      return res.status(400).json({ message: 'path is required', code: 'INVALID_INPUT' });
+    }
+    const ip = req.ip || req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.connection?.remoteAddress || null;
+    await db.models.page_visit.create({
+      path: visitPath.substring(0, 500),
+      page_name: page_name ? String(page_name).substring(0, 100) : null,
+      referrer: referrer ? String(referrer).substring(0, 1000) : null,
+      user_agent: user_agent ? String(user_agent).substring(0, 500) : null,
+      device_type: device_type ? String(device_type).substring(0, 20) : null,
+      query_string: query_string ? String(query_string).substring(0, 500) : null,
+      session_id: session_id ? String(session_id).substring(0, 64) : null,
+      ip: ip ? String(ip).substring(0, 45) : null,
+      visited_at: new Date()
+    });
+    res.status(200).json({ code: '0000', message: 'Tracked' });
+  } catch (error) {
+    console.error('trackPageVisit:', error);
+    res.status(500).json({ message: 'Internal server error', code: 'SERVER_ERROR' });
+  }
+};
+
 /** GET /api/public/register/counties – list counties (no auth) */
 exports.getPublicRegisterCounties = async (req, res) => {
   try {
