@@ -160,7 +160,11 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
        port : 4000, //Dev
     //  port : 80,   // Production
       proxy: {
-              '/imagery': {
+        '/api': {
+          target: env.VITE_APP_HOST || 'http://localhost',
+          changeOrigin: true
+        },
+        '/imagery': {
           target: 'https://kesmis.go.ke',
           changeOrigin: true,
           secure: true,

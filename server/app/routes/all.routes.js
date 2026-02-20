@@ -83,6 +83,8 @@ module.exports = function (app) {
    */
   app.post('/api/v1/routes',  controller.GetRoutes)
 
+  app.get('/api/v1/page-visits/stats', [authJwt.verifyToken, hasPermission('logs:read')], controller.getPageVisitStats)
+
     /**
    * @swagger
    * /api/v1/data:

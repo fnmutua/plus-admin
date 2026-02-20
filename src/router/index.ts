@@ -1839,6 +1839,17 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         }
       },
       {
+        path: 'page-visits',
+        name: 'PageVisits',
+        component: () => import('@/views/settings/PageVisits.vue'),
+        meta: {
+          title: 'Page Visits',
+          icon: 'mdi:chart-line',
+          role: ['root_admin', 'super_admin'],
+          permissions: ['logs:read']
+        }
+      },
+      {
         path: 'common',
         component: Layout,
         redirect: '/data/settlement',

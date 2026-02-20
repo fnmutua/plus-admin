@@ -12123,6 +12123,50 @@ exports.trackPageVisit = async (req, res) => {
   }
 };
 
+/** GET /api/v1/page-visits/stats – aggregated page visit counts by path (auth required)
+ *  Query: period = total | daily | weekly | monthly | annual */
+exports.getPageVisitStats = async (req, res) => {
+  try {
+    const period = (req.query.period || 'total').toLowerCase();
+    let whereClause = '';
+    const replacements = {};
+    const now = new Date();
+    if (period === 'daily') {
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      whereClause = 'WHERE visited_at >= :start';
+      replacements.start = start;
+    } else if (period === 'weekly') {
+      const start = new Date(now);
+      start.setDate(start.getDate() - 7);
+      whereClause = 'WHERE visited_at >= :start';
+      replacements.start = start;
+    } else if (period === 'monthly') {
+      const start = new Date(now);
+      start.setMonth(start.getMonth() - 1);
+      whereClause = 'WHERE visited_at >= :start';
+      replacements.start = start;
+    } else if (period === 'annual') {
+      const start = new Date(now);
+      start.setFullYear(start.getFullYear() - 1);
+      whereClause = 'WHERE visited_at >= :start';
+      replacements.start = start;
+    }
+    const [rows] = await sequelize.query(
+      `SELECT path, COALESCE(MAX(page_name), path) AS page_name, COUNT(*)::int AS count
+       FROM page_visit
+       ${whereClause}
+       GROUP BY path
+       ORDER BY count DESC`,
+      { replacements }
+    );
+    const total = rows.reduce((sum, r) => sum + (r.count || 0), 0);
+    res.status(200).json({ data: rows, total, period, code: '0000' });
+  } catch (error) {
+    console.error('getPageVisitStats:', error);
+    res.status(500).json({ message: 'Internal server error', code: 'SERVER_ERROR' });
+  }
+};
+
 /** GET /api/public/register/counties – list counties (no auth) */
 exports.getPublicRegisterCounties = async (req, res) => {
   try {
