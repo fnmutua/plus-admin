@@ -783,19 +783,25 @@ async function showPopupForSettlement(id: number, lngLat: { lng: number; lat: nu
           </div>
         </div>`
       )
-      .addTo(map!)
-    currentPopup = popup
     popup.on('open', () => {
       const el = popup.getElement()
       const closeBtn = el?.querySelector('.register-popup-close')
       if (closeBtn) {
-        closeBtn.addEventListener('click', () => {
-          popup.remove()
-          currentPopup = null
-        })
+        closeBtn.addEventListener(
+          'click',
+          (e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            popup.remove()
+            currentPopup = null
+          },
+          { capture: true }
+        )
       }
     })
     popup.on('close', () => { currentPopup = null })
+    popup.addTo(map!)
+    currentPopup = popup
   } catch (err) {
     console.error('Popup error:', err)
   }
@@ -1106,6 +1112,10 @@ onUnmounted(() => {
 /* Map popup – card style and close button (Mapbox injects into map container) */
 :deep(.register-map-popup.mapboxgl-popup) {
   filter: drop-shadow(0 4px 20px rgba(0, 0, 0, 0.15));
+  pointer-events: none;
+}
+:deep(.register-map-popup.mapboxgl-popup .mapboxgl-popup-tip) {
+  pointer-events: none;
 }
 :deep(.register-map-popup .mapboxgl-popup-content) {
   padding: 0;
@@ -1117,6 +1127,7 @@ onUnmounted(() => {
   max-width: 320px;
   position: relative;
   z-index: 0;
+  pointer-events: auto;
 }
 :deep(.register-map-popup .mapboxgl-popup-close-button) {
   font-size: 26px;
@@ -1171,6 +1182,8 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   transition: background 0.2s;
+  pointer-events: auto;
+  z-index: 5;
 }
 :deep(.register-popup-close:hover) {
   background: rgba(0, 0, 0, 0.4);
