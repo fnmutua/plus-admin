@@ -2495,6 +2495,9 @@ module.exports = function (app) {
   app.get('/api/public/share/:token', controller.getPublicShare)
   app.get('/api/public/share/:token/download/:documentId', controller.downloadSharedFile)
 
+  // Public files (no auth) – like logo
+  app.get('/api/public/tool-a', controller.getPublicToolA)
+
   // Public settlement register (no auth) – landing page
   app.get('/api/public/register/counties', controller.getPublicRegisterCounties)
   app.get('/api/public/register/subcounties', controller.getPublicRegisterSubcounties)

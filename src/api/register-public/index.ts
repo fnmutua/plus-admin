@@ -35,6 +35,8 @@ export interface PublicRegisterSettlement {
   name: string
   population?: number | null
   settlement_type?: string | null
+  vulnerability_total_score?: number | null
+  vulnerability_rating?: string | null
   county?: { id: number; name: string } | null
   subcounty?: { id: number; name: string } | null
   ward?: { id: number; name: string } | null

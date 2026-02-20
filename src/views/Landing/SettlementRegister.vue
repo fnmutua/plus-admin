@@ -156,6 +156,10 @@
               Switch between Streets and Satellite using the map control.
             </li>
           </ul>
+          <h4><Icon icon="mdi:weather-tornado" class="register-help-heading-icon" /> Vulnerability</h4>
+          <p class="register-help-note">
+            Vulnerability scoring based on KISIP Tool A. Indicates a settlement's exposure to climate-related risks (e.g. floods, droughts) based on environmental and spatial factors. Ratings (LOW, MEDIUM, HIGH) help prioritise resilience planning. Learn more: <a :href="toolAUrl" target="_blank" rel="noopener noreferrer" class="register-help-register-link">KISIP Tool A</a>.
+          </p>
           <p class="register-help-register">
             For more detailed data and full access to the platform, please
             <RouterLink :to="{ name: 'Register' }" class="register-help-register-link" @click="helpDialogVisible = false">
@@ -182,8 +186,26 @@
                   class="register-table"
                   size="default"
                 >
-                  <el-table-column prop="name" label="Name" min-width="180" show-overflow-tooltip />
-                  <el-table-column prop="population" label="Population" width="120" align="right">
+                  <el-table-column prop="name" min-width="180" show-overflow-tooltip>
+                    <template #header>
+                      <el-popover placement="top" trigger="hover" :width="280" popper-class="register-help-popover">
+                        <template #reference>
+                          <span class="table-header-trigger">Name</span>
+                        </template>
+                        <div class="register-help-definition">Official or commonly used name of the settlement.</div>
+                      </el-popover>
+                    </template>
+                    <template #default="scope">{{ scope?.row?.name || '–' }}</template>
+                  </el-table-column>
+                  <el-table-column prop="population" width="120" align="right">
+                    <template #header>
+                      <el-popover placement="top" trigger="hover" :width="280" popper-class="register-help-popover">
+                        <template #reference>
+                          <span class="table-header-trigger">Population</span>
+                        </template>
+                        <div class="register-help-definition">Estimated number of residents in the settlement.</div>
+                      </el-popover>
+                    </template>
                     <template #default="scope">
                       {{ scope?.row?.population != null ? Number(scope.row.population).toLocaleString() : '–' }}
                     </template>
@@ -197,8 +219,35 @@
                   <el-table-column label="Ward" min-width="120">
                     <template #default="scope">{{ scope?.row?.ward?.name || '–' }}</template>
                   </el-table-column>
-                  <el-table-column prop="settlement_type" label="Type" min-width="120" show-overflow-tooltip>
+                  <el-table-column prop="settlement_type" min-width="120" show-overflow-tooltip>
+                    <template #header>
+                      <el-popover placement="top" trigger="hover" :width="320" popper-class="register-help-popover">
+                        <template #reference>
+                          <span class="table-header-trigger">Type</span>
+                        </template>
+                        <div class="register-help-definition">
+                          <strong>Slum:</strong> Densely populated settlements characterized by complete lack of secure tenure, overcrowding, substandard housing, inadequate infrastructure and services, high poverty levels, and exposure to environmental and social risks.<br /><br />
+                          <strong>Informal settlement:</strong> Residential areas developed outside approved planning and regulatory frameworks, typically with partially secure or insecure tenure, unapproved layouts, and limited access to basic services exhibiting slum-like conditions.
+                        </div>
+                      </el-popover>
+                    </template>
                     <template #default="scope">{{ scope?.row?.settlement_type || '–' }}</template>
+                  </el-table-column>
+                  <el-table-column width="130">
+                    <template #header>
+                      <el-popover placement="top" trigger="hover" :width="320" popper-class="register-help-popover">
+                        <template #reference>
+                          <span class="table-header-trigger">Vulnerability</span>
+                        </template>
+                        <div class="register-help-definition">Vulnerability scoring based on KISIP Tool A. A settlement's exposure to climate-related risks (e.g. floods, droughts) based on environmental and spatial factors such as soil type, proximity to rivers and flood plains, and land cover. Ratings (LOW, MEDIUM, HIGH) help prioritise resilience planning and adaptation. Learn more: <a :href="toolAUrl" target="_blank" rel="noopener noreferrer" class="register-help-link">KISIP Tool A</a>.</div>
+                      </el-popover>
+                    </template>
+                    <template #default="scope">
+                      <el-tag v-if="scope?.row?.vulnerability_rating" :type="vulnerabilityRatingTagType(scope.row.vulnerability_rating)" size="small">
+                        {{ scope.row.vulnerability_rating }}{{ scope?.row?.vulnerability_total_score != null ? ` (${scope.row.vulnerability_total_score})` : '' }}
+                      </el-tag>
+                      <span v-else>–</span>
+                    </template>
                   </el-table-column>
                   <el-table-column label="" width="120" align="center" fixed="right">
                     <template #default="scope">
@@ -253,6 +302,7 @@ import {
   ElOption,
   ElTable,
   ElTableColumn,
+  ElTag,
   ElPagination,
   ElTabs,
   ElTabPane,
@@ -274,6 +324,8 @@ import {
 } from '@/api/register-public'
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || ''
+
+const toolAUrl = (import.meta.env.VITE_APP_HOST || '') + '/api/public/tool-a'
 
 const mapContainerRef = ref<HTMLElement | null>(null)
 const activeRegisterTab = ref<'table' | 'map'>('table')
@@ -464,24 +516,27 @@ function updateBoundariesLayer() {
       type: 'geojson',
       data: fc
     })
+    // Insert boundaries BELOW clusters so clusters remain visible and don't clash
+    const beforeId = map.getLayer('clusters') ? 'clusters' : undefined
     map.addLayer({
       id: 'settlements-fill',
       type: 'fill',
       source: 'settlements-boundaries',
       paint: {
         'fill-color': '#00DC82',
-        'fill-opacity': 0.2
+        'fill-opacity': 0.12
       }
-    })
+    }, beforeId)
     map.addLayer({
       id: 'settlements-line',
       type: 'line',
       source: 'settlements-boundaries',
       paint: {
-        'line-color': '#00DC82',
-        'line-width': 1.5
+        'line-color': '#00a366',
+        'line-width': 1.2,
+        'line-opacity': 0.7
       }
-    })
+    }, beforeId)
     map.on('click', 'settlements-fill', (e: any) => onBoundaryClick(e))
     map.on('click', 'settlements-line', (e: any) => onBoundaryClick(e))
     map.on('mouseenter', 'settlements-fill', () => { map.getCanvas().style.cursor = 'pointer' })
@@ -699,9 +754,12 @@ async function showPopupForSettlement(id: number, lngLat: { lng: number; lat: nu
     const subName = s.subcounty?.name || '–'
     const wardName = s.ward?.name || '–'
     const settlementType = s.settlement_type || '–'
+    const vulnRating = s.vulnerability_rating || ''
+    const vulnScore = s.vulnerability_total_score != null ? String(s.vulnerability_total_score) : null
+    const vulnDisplay = vulnRating ? (vulnScore != null ? `${vulnRating} (${vulnScore})` : vulnRating) : '–'
     const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
     const popup = new mapboxgl.Popup({
-      closeButton: true,
+      closeButton: false,
       closeOnClick: false,
       className: isMobile ? 'register-map-popup register-map-popup--mobile' : 'register-map-popup',
       maxWidth: isMobile ? '260px' : '320px',
@@ -717,6 +775,7 @@ async function showPopupForSettlement(id: number, lngLat: { lng: number; lat: nu
           </header>
           <div class="register-popup-body">
             <div class="register-popup-row"><span class="register-popup-label">Type</span><span class="register-popup-value">${escapeHtml(settlementType)}</span></div>
+            <div class="register-popup-row"><span class="register-popup-label">Vulnerability</span><span class="register-popup-value">${escapeHtml(vulnDisplay)}</span></div>
             <div class="register-popup-row"><span class="register-popup-label">Est. Population</span><span class="register-popup-value">${pop}</span></div>
             <div class="register-popup-row"><span class="register-popup-label">County</span><span class="register-popup-value">${escapeHtml(countyName)}</span></div>
             <div class="register-popup-row"><span class="register-popup-label">Subcounty</span><span class="register-popup-value">${escapeHtml(subName)}</span></div>
@@ -947,6 +1006,14 @@ function initMap() {
   })
 }
 
+function vulnerabilityRatingTagType(rating: string | null | undefined): 'success' | 'warning' | 'danger' | 'info' {
+  const r = rating?.toUpperCase()
+  if (r === 'HIGH') return 'danger'
+  if (r === 'MEDIUM') return 'warning'
+  if (r === 'LOW') return 'success'
+  return 'info'
+}
+
 function escapeHtml(str: string) {
   const div = document.createElement('div')
   div.textContent = str
@@ -1028,6 +1095,13 @@ onUnmounted(() => {
 .definition-trigger:hover {
   color: #00b368;
 }
+.table-header-trigger {
+  cursor: help;
+  border-bottom: 1px dotted currentColor;
+}
+.table-header-trigger:hover {
+  color: #00b368;
+}
 
 /* Map popup – card style and close button (Mapbox injects into map container) */
 :deep(.register-map-popup.mapboxgl-popup) {
@@ -1048,17 +1122,19 @@ onUnmounted(() => {
   font-size: 26px;
   font-weight: 700;
   padding: 6px 12px;
-  color: var(--text-secondary, #909399);
+  color: #fff;
   right: 4px;
   top: 4px;
   z-index: 10;
   position: absolute;
   pointer-events: auto;
-  transition: color 0.2s;
+  transition: color 0.2s, background 0.2s;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
 }
 :deep(.register-map-popup .mapboxgl-popup-close-button:hover) {
-  color: var(--text-primary, #303133);
-  background: transparent;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.35);
 }
 :deep(.register-popup) {
   font-size: 14px;
@@ -1086,7 +1162,7 @@ onUnmounted(() => {
   padding: 0;
   border: none;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(0, 0, 0, 0.25);
   color: #fff;
   font-size: 22px;
   line-height: 1;
@@ -1097,7 +1173,7 @@ onUnmounted(() => {
   transition: background 0.2s;
 }
 :deep(.register-popup-close:hover) {
-  background: rgba(255, 255, 255, 0.4);
+  background: rgba(0, 0, 0, 0.4);
 }
 :deep(.register-popup-body) {
   padding: 12px 16px;
@@ -1163,6 +1239,9 @@ onUnmounted(() => {
   padding: 4px 8px;
   right: 2px;
   top: 2px;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
 }
 
 .register-tabs {
@@ -1292,6 +1371,12 @@ onUnmounted(() => {
   color: #00DC82;
   flex-shrink: 0;
   margin-top: 1px;
+}
+.register-help-note {
+  margin: 0 0 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--el-text-color-secondary, #606266);
+  line-height: 1.5;
 }
 .register-help-register {
   margin: 1rem 0 0;
@@ -1525,5 +1610,13 @@ onUnmounted(() => {
   line-height: 1.5;
   color: var(--el-text-color-primary, #303133);
   margin: 0;
+}
+.register-help-popover .register-help-link {
+  color: #00b368;
+  font-weight: 600;
+  text-decoration: none;
+}
+.register-help-popover .register-help-link:hover {
+  text-decoration: underline;
 }
 </style>

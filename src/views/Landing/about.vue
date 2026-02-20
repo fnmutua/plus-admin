@@ -66,6 +66,10 @@
                 </li>
                 <li>
                   <Icon icon="mdi:check-circle" class="list-icon" />
+                  <span>Climate risk assessment</span>
+                </li>
+                <li>
+                  <Icon icon="mdi:check-circle" class="list-icon" />
                   <span>Multi-level access control and user management</span>
                 </li>
               </ul>

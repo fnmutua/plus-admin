@@ -22,19 +22,13 @@
                   </li>
                   <li>
                     <Icon icon="mdi:check-circle" class="feature-icon" />
-                    <span>Electronic Grievance Redress Mechanism (e-GRM)</span>
+                    <span>Electronic Grievance Redress Mechanism (e-GRM) and project accidents and incidents reporting</span>
                   </li>
+                 
+               
                   <li>
                     <Icon icon="mdi:check-circle" class="feature-icon" />
-                    <span>Project accidents and incidents reporting</span>
-                  </li>
-                  <li>
-                    <Icon icon="mdi:check-circle" class="feature-icon" />
-                    <span>Project monitoring and reporting</span>
-                  </li>
-                  <li>
-                    <Icon icon="mdi:check-circle" class="feature-icon" />
-                    <span>Real-time data collection and analysis</span>
+                    <span>Climate risk assessment</span>
                   </li>
                 </ul>
                 
@@ -302,7 +296,7 @@
           <div class="section-header">
             <h2 class="section-title">System Capabilities</h2>
             <p class="section-subtitle">
-              Comprehensive tools for managing informal settlements, tracking projects, and processing grievances
+              Comprehensive tools for managing informal settlements, tracking projects, climate risk assessment, and processing grievances
             </p>
           </div>
           
@@ -522,7 +516,7 @@ import { useHead } from '@unhead/vue'
 useHead({
   title: 'KeSMIS | Kenya Slum Management Information System',
   meta: [
-    { name: 'description', content: 'Kenya Slum Management Information System (KeSMIS) - National geodatabase for slums and informal settlements across Kenya. Real-time data collection, storage, and visualization platform for urban planning and development.' },
+    { name: 'description', content: 'Kenya Slum Management Information System (KeSMIS) - National geodatabase for slums and informal settlements across Kenya. Real-time data collection, climate risk assessment, and visualization platform for urban planning and development.' },
   ]
 })
 
@@ -621,6 +615,12 @@ const features = [
     icon: 'mdi:cloud-sync',
     title: 'Data Collection & Synchronization',
     description: 'Mobile and web-based data collection tools with real-time synchronization capabilities for efficient field operations.'
+  },
+  {
+    id: 7,
+    icon: 'mdi:weather-tornado',
+    title: 'Climate Risk Assessment',
+    description: 'Tools for assessing and monitoring climate-related risks in informal settlements to support resilience planning and adaptation.'
   }
 ];
 

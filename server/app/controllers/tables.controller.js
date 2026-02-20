@@ -12167,7 +12167,7 @@ exports.getPublicRegisterSettlements = async (req, res) => {
 
     const { count, rows } = await db.models.settlement.findAndCountAll({
       where,
-      attributes: ['id', 'name', 'population', 'settlement_type'],
+      attributes: ['id', 'name', 'population', 'settlement_type', 'vulnerability_total_score', 'vulnerability_rating'],
       include: [
         { model: db.models.county, as: 'county', attributes: ['id', 'name'] },
         { model: db.models.subcounty, as: 'subcounty', attributes: ['id', 'name'] },
@@ -12293,6 +12293,13 @@ exports.getPublicRegisterSettlementMap = async (req, res) => {
   }
 };
 
+/** GET /api/public/tool-a – serve KISIP Tool A xlsm (no auth) */
+exports.getPublicToolA = (req, res) => {
+  const filePath = path.join(__dirname, '..', '..', '..', 'public', 'KISIP_TOOL_A.xlsm');
+  if (!fs.existsSync(filePath)) return res.status(404).send('File not found');
+  res.download(filePath, 'KISIP_TOOL_A.xlsm');
+};
+
 /** GET /api/public/register/settlements/:id – one settlement (no auth), approved only */
 exports.getPublicRegisterSettlement = async (req, res) => {
   try {
@@ -12302,7 +12309,7 @@ exports.getPublicRegisterSettlement = async (req, res) => {
     }
     const row = await db.models.settlement.findOne({
       where: { id, ...PUBLIC_SETTLEMENT_WHERE },
-      attributes: ['id', 'name', 'population', 'settlement_type'],
+      attributes: ['id', 'name', 'population', 'settlement_type', 'vulnerability_total_score', 'vulnerability_rating'],
       include: [
         { model: db.models.county, as: 'county', attributes: ['id', 'name'] },
         { model: db.models.subcounty, as: 'subcounty', attributes: ['id', 'name'] },
