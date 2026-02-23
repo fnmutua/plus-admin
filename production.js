@@ -49,6 +49,7 @@ console.log('ReadableStream defined:', !!globalThis.ReadableStream); // Debug lo
 
 const path = require('path');
 const fileUpload = require('express-fileupload');
+const auditContext = require('./server/app/middleware/auditContext')
 
 const uploadsDir = path.join(__dirname, '..', 'uploads'); // path to the uploads folder
 if (!fs.existsSync(uploadsDir)) {
@@ -72,6 +73,7 @@ dotenv.config();
 // middle ware
 app.use(bodyParser.json({ limit: '10gb' }));
 app.use(bodyParser.urlencoded({ limit: '10gb', extended: true }));
+app.use(auditContext)
 
 // simple route
 app.use(express.static(path.join(__dirname, '/dist-pro')));
@@ -271,6 +273,7 @@ require('./server/app/routes/videoStream.routes')(app)
 require('./server/app/routes/adminunits.routes')(app)
 require('./server/app/routes/settings.routes')(app)
 require('./server/app/routes/climate_assessment.routes')(app)
+require('./server/app/routes/audit.routes')(app)
 
 // set port, listen for requests
 

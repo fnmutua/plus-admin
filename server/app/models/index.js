@@ -31,9 +31,93 @@ db.userStatus = require('../models/user_status.js')(sequelize)
 
 // Video streaming models
 db.videoStream = require('../models/videoStream.js')(sequelize, Sequelize)
+db.auditLog = require('../models/audit_log.js')(sequelize, Sequelize)
 
 var initModels = require('../models/init-models.js')
 db.models = initModels(sequelize)
+
+function registerAuditHooks() {
+  const excludedModels = new Set(['audit_log', 'page_visit', 'user_roles'])
+  const modelEntries = Object.entries(db.models || {})
+
+  modelEntries.forEach(([modelName, model]) => {
+    if (!model || typeof model.addHook !== 'function') return
+    if (excludedModels.has(modelName)) return
+    if (model.__auditHooksRegistered) return
+    model.__auditHooksRegistered = true
+
+    model.addHook('afterCreate', async (instance) => {
+      const { logAuditForModelEvent } = require('../utils/auditTrail')
+      await logAuditForModelEvent({
+        modelName,
+        action: 'create',
+        instance,
+        after: instance && instance.dataValues ? instance.dataValues : null
+      })
+    })
+
+    model.addHook('afterUpdate', async (instance) => {
+      const { logAuditForModelEvent } = require('../utils/auditTrail')
+      const changedFields = typeof instance.changed === 'function' ? instance.changed() || [] : []
+      const before = {}
+      changedFields.forEach((field) => {
+        before[field] = instance._previousDataValues ? instance._previousDataValues[field] : undefined
+      })
+
+      const after = {}
+      changedFields.forEach((field) => {
+        after[field] = instance.dataValues ? instance.dataValues[field] : undefined
+      })
+
+      await logAuditForModelEvent({
+        modelName,
+        action: 'update',
+        instance,
+        before,
+        after
+      })
+    })
+
+    model.addHook('afterDestroy', async (instance) => {
+      const { logAuditForModelEvent } = require('../utils/auditTrail')
+      await logAuditForModelEvent({
+        modelName,
+        action: 'delete',
+        instance,
+        before: instance && instance.dataValues ? instance.dataValues : null
+      })
+    })
+
+    model.addHook('afterBulkUpdate', async (options) => {
+      const { logAuditForModelEvent } = require('../utils/auditTrail')
+      await logAuditForModelEvent({
+        modelName,
+        action: 'update',
+        instance: null,
+        metadata: {
+          bulk: true,
+          where: options && options.where ? options.where : null,
+          fields: options && options.fields ? options.fields : null
+        }
+      })
+    })
+
+    model.addHook('afterBulkDestroy', async (options) => {
+      const { logAuditForModelEvent } = require('../utils/auditTrail')
+      await logAuditForModelEvent({
+        modelName,
+        action: 'delete',
+        instance: null,
+        metadata: {
+          bulk: true,
+          where: options && options.where ? options.where : null
+        }
+      })
+    })
+  })
+}
+
+registerAuditHooks()
 
 db.role.belongsToMany(db.user, {
   through: 'user_roles',

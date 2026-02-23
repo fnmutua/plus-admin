@@ -110,12 +110,14 @@ async function sendNotificationSMS(sms_obj) {
   // Determine the level from the grievance data
   // If sms_obj has grievance data, use it; otherwise fetch it
   let level = 'county' // default
+  let grievanceExists = false
   if (sms_obj.grievance_id) {
     try {
       const grievance = await db.models.grievance.findByPk(sms_obj.grievance_id, {
         attributes: ['location_level', 'county_id', 'settlement_id']
       })
       if (grievance) {
+        grievanceExists = true
         level = getGrievanceLevel(grievance)
         console.log(`[SMS] Grievance ${sms_obj.grievance_id} level determined: ${level}`, {
           location_level: grievance.location_level,
@@ -146,7 +148,7 @@ async function sendNotificationSMS(sms_obj) {
   console.log(`[SMS] Grievance SMS status for ${level} level:`, { enabled: smsStatus.enabled, module: level === 'national' ? 'sms_grievance_national' : 'sms_grievance_county' })
   
   const notification ={}
-  notification.grievance_id = sms_obj.grievance_id
+  notification.grievance_id = grievanceExists ? sms_obj.grievance_id : null
   notification.recipient = sms_obj.phone
   notification.message =  sms_obj.grv_code + ": " + sms_obj.message
   notification.medium = 'SMS'
@@ -155,12 +157,27 @@ async function sendNotificationSMS(sms_obj) {
   notification.sender_id = sms_obj.sender_id
   notification.status = sms_obj.status
 
+  const persistNotification = async () => {
+    try {
+      await db.models.grievance_notification.create(notification)
+    } catch (err) {
+      // If grievance was deleted between lookup and insert, retry without grievance_id
+      const fkViolation = err && err.original && err.original.code === '23503'
+      if (fkViolation && notification.grievance_id) {
+        notification.grievance_id = null
+        await db.models.grievance_notification.create(notification)
+        return
+      }
+      throw err
+    }
+  }
+
   if (!smsStatus.enabled) {
     console.log('SMS sending is disabled for grievance module. Logging notification as disabled.')
     const disabledByUser = smsStatus.disabledBy
     const disabledByName = disabledByUser?.name || disabledByUser?.username || 'system administrator'
     notification.status = `Disabled. Message sending was disabled by ${disabledByName}`
-    await db.models.grievance_notification.create(notification)
+    await persistNotification()
     return
   }
 
@@ -187,19 +204,19 @@ async function sendNotificationSMS(sms_obj) {
 
       if( response.data.responses[0]['response-description'] == 'Success') {
         notification.status = 'Success'
-        db.models.grievance_notification.create(notification);
+        persistNotification().catch((error) => console.error('Failed to save grievance notification:', error))
       } else {
           //console.log("Response all:", response);
           notification.status = 'Fail. '+response.data.responses[0]['response-description']
 
-          db.models.grievance_notification.create(notification);
+          persistNotification().catch((error) => console.error('Failed to save grievance notification:', error))
 
       }
     
     })
     .catch((error) => {
       notification.status = 'Fail'
-      db.models.grievance_notification.create(notification);
+      persistNotification().catch((saveError) => console.error('Failed to save grievance notification:', saveError))
 
       console.error("Error:", error);
     });

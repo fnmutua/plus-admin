@@ -21,6 +21,7 @@ const path = require('path');
 const requestIp = require('request-ip');
 const axios = require('axios');
 const UserRoles = db.models.user_roles
+const { logAudit } = require('../utils/auditTrail')
 
  
 
@@ -150,6 +151,99 @@ async function sendNotification(phone_number, message) {
   } catch (error) {
     console.error(`[SMS] Error sending message to ${phone_number}:`, error.message || error);
     throw error; // Rethrow error for caller to handle
+  }
+}
+
+async function writeLegacyAndAuditLog(instlog, auditPayload = {}) {
+  await logAudit({
+    action: auditPayload.action || instlog.action || 'unknown',
+    actorType: auditPayload.actorType || 'user',
+    actorId: auditPayload.actorId != null ? String(auditPayload.actorId) : (instlog.userId != null ? String(instlog.userId) : null),
+    actorName: auditPayload.actorName || instlog.userName || null,
+    actorRole: auditPayload.actorRole || null,
+    entityType: auditPayload.entityType || instlog.table || 'auth',
+    entityId: auditPayload.entityId != null ? String(auditPayload.entityId) : null,
+    resource: auditPayload.resource || 'POST /api/auth/*',
+    outcome: auditPayload.outcome || (/fail/i.test(String(instlog.status || '')) ? 'failure' : 'success'),
+    statusCode: auditPayload.statusCode || null,
+    metadata: {
+      source: instlog.source || null,
+      legacyStatus: instlog.status || null,
+      ...(auditPayload.metadata || {})
+    }
+  })
+}
+
+function buildAffectedUserMetadata(userLike) {
+  if (!userLike) return null
+  return {
+    id: userLike.id != null ? String(userLike.id) : null,
+    username: userLike.username || null,
+    name: userLike.name || null,
+    email: userLike.email || null,
+    phone: userLike.phone || null,
+    isactive: userLike.isactive
+  }
+}
+
+async function getUserRoleSnapshot(userId) {
+  const assignments = await db.models.user_roles.findAll({
+    where: { userid: userId },
+    raw: true
+  })
+
+  const roleIds = Array.from(new Set(assignments.map((item) => item.roleid).filter((id) => id != null)))
+  const roleNameById = {}
+
+  if (roleIds.length > 0) {
+    const roles = await Role.findAll({
+      where: { id: { [Op.in]: roleIds } },
+      attributes: ['id', 'name'],
+      raw: true
+    })
+    roles.forEach((role) => {
+      roleNameById[role.id] = role.name
+    })
+  }
+
+  return assignments.map((item) => ({
+    roleid: item.roleid,
+    roleName: roleNameById[item.roleid] || null,
+    location_level: item.location_level || null,
+    location_id: item.location_id || null,
+    county_id: item.county_id || null,
+    settlement_id: item.settlement_id || null
+  }))
+}
+
+function diffRoleSnapshots(beforeRoles, afterRoles) {
+  const normalizeKey = (role) =>
+    [
+      role.roleid ?? '',
+      role.location_level ?? '',
+      role.location_id ?? '',
+      role.county_id ?? '',
+      role.settlement_id ?? ''
+    ].join('|')
+
+  const beforeMap = new Map((beforeRoles || []).map((role) => [normalizeKey(role), role]))
+  const afterMap = new Map((afterRoles || []).map((role) => [normalizeKey(role), role]))
+
+  const added = []
+  const removed = []
+
+  afterMap.forEach((role, key) => {
+    if (!beforeMap.has(key)) added.push(role)
+  })
+
+  beforeMap.forEach((role, key) => {
+    if (!afterMap.has(key)) removed.push(role)
+  })
+
+  return {
+    added,
+    removed,
+    changed: added.length > 0 || removed.length > 0
   }
 }
 
@@ -316,6 +410,8 @@ exports.updateUser = async (req, res) => {
       return res.status(404).send({ message: "User not found" });
     }
 
+    const beforeRoles = await getUserRoleSnapshot(user.id)
+
     // Prepare update data - only include fields that are explicitly provided
     // This prevents overwriting fields with undefined/null values
     const updateData = {};
@@ -381,11 +477,30 @@ exports.updateUser = async (req, res) => {
       where: { id: req.body.id },
       include: [{ model: db.models.user_roles }],
     });
+    const afterRoles = await getUserRoleSnapshot(user.id)
 
     // Generate a token
     const token = jwt.sign({ id: user.id }, config.secret, {
       expiresIn: 86400, // 24 hours
     });
+
+    await logAudit({
+      req,
+      action: 'update',
+      actorType: 'user',
+      actorId: req.userid != null ? String(req.userid) : null,
+      actorName: req.thisUser?.username || null,
+      entityType: 'user',
+      entityId: user.id != null ? String(user.id) : null,
+      outcome: 'success',
+      statusCode: 200,
+      changes: null,
+      metadata: {
+        updatedFields: Object.keys(updateData),
+        affectedUser: buildAffectedUserMetadata(user),
+        roleChanges: diffRoleSnapshots(beforeRoles, afterRoles)
+      }
+    })
 
     res.send({
       message: "User and roles updated successfully!",
@@ -419,6 +534,8 @@ exports.modelActivateUser = async (req, res) => {
     }
 
     console.log(`[User Activation] User found: ${user.name} (ID: ${user.id}), current isactive: ${user.isactive}, phone: ${user.phone || 'N/A'}`);
+
+    const previousIsActive = user.isactive;
 
     // Update the status field
     user.isactive = isactive;
@@ -477,6 +594,32 @@ exports.modelActivateUser = async (req, res) => {
     } else {
       console.warn(`No email address found for user ID ${user.id}`);
     }
+
+    await logAudit({
+      req,
+      action: 'status_change',
+      actorType: 'user',
+      actorId: req.userid != null ? String(req.userid) : null,
+      actorName: req.thisUser?.username || null,
+      entityType: 'user',
+      entityId: id != null ? String(id) : null,
+      outcome: 'success',
+      statusCode: 200,
+      changes: {
+        field: 'isactive',
+        before: previousIsActive,
+        after: isactive,
+        description: `User status changed to ${isactive ? 'active' : 'inactive'}`
+      },
+      metadata: {
+        affectedUser: buildAffectedUserMetadata(user),
+        activationChange: {
+          before: previousIsActive,
+          after: isactive,
+          event: isactive ? 'activation' : 'deactivation'
+        }
+      }
+    })
 
     res.status(200).send({
       message: 'User status updated successfully',
@@ -897,7 +1040,13 @@ exports.signin = async (req, res) => {
         instlog.userName = req.body.username
         instlog.status = 'Fail. User not found'
         console.log(instlog)
-        await db.models.logs.create(instlog);
+        await writeLegacyAndAuditLog(instlog, {
+          action: 'login',
+          actorType: 'anonymous',
+          entityType: 'auth',
+          outcome: 'failure',
+          statusCode: 404
+        });
         return res.status(404).send({ message: 'User Not found.' })
       }
       var passwordIsValid = bcrypt.compareSync(req.body.password, user.password)
@@ -907,7 +1056,13 @@ exports.signin = async (req, res) => {
         instlog.userName = req.body.username
         instlog.status = 'Fail.  Invalid Password'
         console.log(instlog)
-        await db.models.logs.create(instlog);
+        await writeLegacyAndAuditLog(instlog, {
+          action: 'login',
+          actorType: 'anonymous',
+          entityType: 'auth',
+          outcome: 'failure',
+          statusCode: 401
+        });
         return res.status(401).send({
           accessToken: null,
           message: 'Invalid Password! '
@@ -919,7 +1074,13 @@ exports.signin = async (req, res) => {
         instlog.userName = req.body.username
         instlog.status = 'Fail.  Inactive account'
         console.log(instlog)
-        await db.models.logs.create(instlog);
+        await writeLegacyAndAuditLog(instlog, {
+          action: 'login',
+          actorType: 'anonymous',
+          entityType: 'auth',
+          outcome: 'failure',
+          statusCode: 401
+        });
 
         return res.status(401).send({
           accessToken: null,
@@ -934,7 +1095,14 @@ exports.signin = async (req, res) => {
           console.log(instlog)
 
           // Log all successful logins (including user ID 1 for testing)
-          await db.models.logs.create(instlog);
+          await writeLegacyAndAuditLog(instlog, {
+            action: 'login',
+            actorId: user.id,
+            actorName: user.username,
+            entityType: 'auth',
+            outcome: 'success',
+            statusCode: 200
+          });
           
 
  
@@ -2034,7 +2202,13 @@ exports.signinViaApp = async (req, res) => {
         instlog.userName =user_phone
         instlog.status = 'Fail. User not found'
         console.log(instlog)
-        await db.models.logs.create(instlog);
+        await writeLegacyAndAuditLog(instlog, {
+          action: 'login',
+          actorType: 'anonymous',
+          entityType: 'auth',
+          outcome: 'failure',
+          statusCode: 404
+        });
         return res.status(404).send({ message: 'No account is associated with this number' })
       }
   
@@ -2043,7 +2217,13 @@ exports.signinViaApp = async (req, res) => {
         instlog.userName = user_phone
         instlog.status = 'Fail.  Inactive account'
         console.log(instlog)
-        await db.models.logs.create(instlog);
+        await writeLegacyAndAuditLog(instlog, {
+          action: 'login',
+          actorType: 'anonymous',
+          entityType: 'auth',
+          outcome: 'failure',
+          statusCode: 401
+        });
 
         return res.status(401).send({
           accessToken: null,
@@ -2173,7 +2353,14 @@ exports.verifyCode = async (req, res) => {
       loginTime: new Date()
     };
     
-    await db.models.logs.create(loginLog);
+    await writeLegacyAndAuditLog(loginLog, {
+      action: 'login',
+      actorId: user.id,
+      actorName: user.username,
+      entityType: 'auth',
+      outcome: 'success',
+      statusCode: 200
+    });
     console.log(`User ${user.username} (ID: ${user.id}) logged in via OTP`);
     
     const expiryDate = new Date();
@@ -2512,6 +2699,24 @@ exports.Logout = async (req, res) => {
     console.error('Error logging logout:', error);
     console.error('Error stack:', error.stack);
     // Don't fail the logout if logging fails
+  }
+
+  try {
+    await logAudit({
+      req,
+      action: 'logout',
+      actorType: req.body?.userId ? 'user' : 'anonymous',
+      actorId: req.body?.userId != null ? String(req.body.userId) : null,
+      actorName: req.thisUser?.username || null,
+      entityType: 'auth',
+      outcome: 'success',
+      statusCode: 200,
+      metadata: {
+        source: req.headers['x-forwarded-for']?.split(',')[0] || req.headers['x-real-ip'] || req.connection.remoteAddress || 'Unknown'
+      }
+    })
+  } catch (auditErr) {
+    console.error('Failed to write logout audit log:', auditErr.message || auditErr)
   }
 
   res.status(200).send({

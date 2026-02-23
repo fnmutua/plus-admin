@@ -1,335 +1,314 @@
-<!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
 // @ts-nocheck
-import { ContentWrap } from '@/components/ContentWrap'
-import { useI18n } from '@/hooks/web/useI18n'
-import { Table } from '@/components/Table'
-import { getSettlementListByCounty, searchByKeyWord } from '@/api/settlements'
-import { getCountyListApi } from '@/api/counties'
-import { ElButton, ElSelect, MessageParamsWithType } from 'element-plus'
-import { ElMessage,ElCard } from 'element-plus'
-import {
-  Position,
-  TopRight,
-  User,
-  Plus,Back,
-  Download,
-  Filter,
-  MessageBox,
-  Edit,
-  InfoFilled,
-  Delete
-} from '@element-plus/icons-vue'
-
-import { ref, reactive, onMounted, watch } from 'vue'
-import { ElPagination, ElTable, ElTableColumn, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElDatePicker, ElPopconfirm } from 'element-plus'
+import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import exportFromJSON from 'export-from-json'
-import { useAppStoreWithOut } from '@/store/modules/app'
-import { useCache } from '@/hooks/web/useCache'
-import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
-import { uuid } from 'vue-uuid'
-import type { FormInstance } from 'element-plus'
-import DownloadAll from '@/views/Components/DownloadAll.vue';
-import PermissionWrapper from '@/components/PermissionWrapper.vue';
-import { debounce } from 'lodash-es'
-import DownloadCustom from '@/views/Components/DownloadCustom.vue';
+import { Back } from '@element-plus/icons-vue'
+import {
+  ElCard,
+  ElButton,
+  ElInput,
+  ElSelect,
+  ElOption,
+  ElTable,
+  ElTableColumn,
+  ElPagination
+} from 'element-plus'
+import { getAuditLogs } from '@/api/audit'
 
-
-const { wsCache } = useCache()
-const appStore = useAppStoreWithOut()
-const userInfo = wsCache.get(appStore.getUserInfo)
-
-
-console.log("userInfo--->", userInfo)
-
- 
-
-
-
-
-
-const { push } = useRouter()
-const value1 = ref([])
-const value2 = ref([])
-var value3 = ref([])
-const indicatorsOptions = ref([])
-const categoryOptions = ref([])
-const categories = ref([])
-const page = ref(1)
-const pSize = ref(10)
-const selCounties = []
-const loading = ref(true)
-const pageSize = ref(10)
-const currentPage = ref(1)
-const total = ref(0)
-const downloadLoading = ref(false)
- 
-const showAdminButtons =  ref(appStore.getAdminButtons)
-const showEditButtons =  ref(appStore.getEditButtons)
-
-
-console.log("Show Buttons -->", showAdminButtons)
-
-
-
-let tableDataList = ref<UserType[]>([])
-//// ------------------parameters -----------------------////
-//const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
-var filters = []
-var filterValues = []
-var tblData = []
-const associated_Model = ''
-const associated_multiple_models = []
-const model = 'logs'
-//// ------------------parameters -----------------------////
-
-const { t } = useI18n()
-
-// DashboardCard/Feedback-style filter arrays
-var filters = []
-var filterValues = []
-
-const statusOptions = [
-  { value: '', label: 'All' },
-  { value: 'Successful', label: 'Success' },
-  { value: 'Fail', label: 'Fail' }
-]
-const selectedStatus = ref('')
-const searchKey = ref('')
-
-const handleStatusFilter = () => {
-  // Remove any existing status filter
-  const statusIndex = filters.indexOf('status')
-  if (statusIndex !== -1) {
-    filters.splice(statusIndex, 1)
-    filterValues.splice(statusIndex, 1)
-  }
-  // Add new status filter if not empty
-  if (selectedStatus.value) {
-    filters.push('status')
-    filterValues.push(selectedStatus.value)
-  }
-  currentPage.value = 1
-  getFilteredData(filters, filterValues)
-}
-
-const handleSearch = () => {
-  // Remove any existing userName filter
-  const searchIndex = filters.indexOf('userName')
-  if (searchIndex !== -1) {
-    filters.splice(searchIndex, 1)
-    filterValues.splice(searchIndex, 1)
-  }
-  if (searchKey.value) {
-    filters.push('userName')
-    filterValues.push(searchKey.value)
-  }
-  currentPage.value = 1
-  getFilteredData(filters, filterValues)
-}
-
-const handleClear = () => {
-  filters = []
-  filterValues = []
-  selectedStatus.value = ''
-  searchKey.value = ''
-  currentPage.value = 1
-  getFilteredData(filters, filterValues)
-}
-
-const getFilteredData = async (selFilters, selfilterValues) => {
-  const formData = {}
-  formData.limit = pageSize.value
-  formData.page = currentPage.value
-  formData.model = model
-  formData.searchKeyword = searchKey.value
-  formData.filters = selFilters
-  formData.filterValues = selfilterValues
-  formData.associated_multiple_models = []
-  const res = await getSettlementListByCounty(formData)
-  tableDataList.value = res.data
-  total.value = res.total
-  loading.value = false
-}
-
-onMounted(() => {
-  getFilteredData(filters, filterValues)
-})
-
-const onPageChange = (page) => {
-  currentPage.value = page
-  getFilteredData(filters, filterValues)
-}
-const onPageSizeChange = (size) => {
-  pageSize.value = size
-  getFilteredData(filters, filterValues)
-}
-
-watch(selectedStatus, handleStatusFilter)
-
-const getInterventionsAll = async () => {
-  getFilteredData(filters, filterValues)
-}
-
-const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
-  for (let key in obj) {
-    if (key != 'geom') {
-
-      if (typeof obj[key] !== 'object') {
-        res[extraKey + key] = obj[key];
-      } else {
-        flattenJSON(obj[key], res, `${extraKey}${key}.`);
-      };
-    };
-  }
-  return res;
-};
-
-
-const searchString = ref('')
-
-
-const getFilteredBySearchData = async (searchString) => {
-  const formData = {}
-  formData.limit = pageSize.value
-  formData.page = currentPage.value
-  formData.model = model
-  formData.searchField = 'userName'
-  formData.searchKeyword = searchString
-  formData.filters = filters
-  formData.filterValues = filterValues
-  formData.associated_multiple_models = []
-  const res = await searchByKeyWord(formData)
-  tableDataList.value = res.data
-  total.value = res.total
-  loading.value = false
-}
-
-
-
-const searchByName = async (filterString) => {
-  searchString.value = filterString
-  await getFilteredBySearchData(searchString.value)
-}
-
-
-
-
-
-getInterventionsAll()
-
-
-
-
-
-const tableRowClassName = (data) => {
-  if (data.row.status.includes("Fail")) {
-    console.log('Row Styling --------->', data.row.status)
-    return 'danger-row'
-  }
-  else if (data.row.status.includes("Succ")) {
-
-    return 'success-row'
-
-  } else {
-    return ''
-
-
-  }
-}
-
-// Add remoteMethod for live search
-const remoteMethod = async (keyword) => {
-  loading.value = true
-  // Remove any existing userName filter
-  const searchIndex = filters.indexOf('userName')
-  if (searchIndex !== -1) {
-    filters.splice(searchIndex, 1)
-    filterValues.splice(searchIndex, 1)
-  }
-  if (keyword) {
-    filters.push('userName')
-    filterValues.push(keyword)
-  }
-  currentPage.value = 1
-  await getFilteredData(filters, filterValues)
-  loading.value = false
-}
 const router = useRouter()
+const loading = ref(false)
+const rows = ref<any[]>([])
+const total = ref(0)
+const currentPage = ref(1)
+const pageSize = ref(25)
+let filterDebounceTimer: ReturnType<typeof setTimeout> | null = null
+let suppressLiveFilter = false
 
-const goBack = () => {
-  if (router) {
-    router.back()
-  } else {
-    console.warn('Router instance not available.')
+const actor = ref('')
+const entityType = ref('')
+const action = ref('')
+const outcome = ref('')
+const fromDate = ref('')
+const toDate = ref('')
+
+const outcomeOptions = [
+  { value: '', label: 'All outcomes' },
+  { value: 'success', label: 'Success' },
+  { value: 'failure', label: 'Failure' }
+]
+
+const actionOptions = [
+  { value: '', label: 'All actions' },
+  { value: 'create', label: 'Create' },
+  { value: 'update', label: 'Update' },
+  { value: 'delete', label: 'Delete' },
+  { value: 'login', label: 'Login' },
+  { value: 'logout', label: 'Logout' },
+  { value: 'status_change', label: 'Status change' }
+]
+
+const entityOptions = [
+  { value: '', label: 'All entities' },
+  { value: 'users', label: 'Users' },
+  { value: 'grievance', label: 'Grievance' },
+  { value: 'document', label: 'Document' },
+  { value: 'project', label: 'Project' },
+  { value: 'project_task', label: 'Project task' }
+]
+
+const fmt = (ts: string | Date) => {
+  if (!ts) return '—'
+  const d = typeof ts === 'string' ? new Date(ts) : ts
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleString()
+}
+
+const pretty = (obj: unknown) => {
+  if (!obj) return '—'
+  try {
+    return JSON.stringify(obj, null, 2)
+  } catch {
+    return String(obj)
   }
 }
 
+const normalizeRows = (list: any) => {
+  if (!Array.isArray(list)) return []
+  return list.map((r) => ({
+    ...r,
+    actorDisplay: r.actorName || r.actorId || 'anonymous',
+    outcomeDisplay: r.outcome || r.status || '—',
+    resourceDisplay: r.resource || r.source || '—',
+    changesDisplay: r.changes || r.metadata || null
+  }))
+}
 
+const fetchData = async () => {
+  loading.value = true
+  try {
+    const payload: Record<string, any> = {
+      page: currentPage.value,
+      limit: pageSize.value
+    }
+
+    if (actor.value.trim()) payload.actor = actor.value.trim()
+    if (entityType.value) payload.entityType = entityType.value
+    if (action.value) payload.action = action.value
+    if (outcome.value) payload.outcome = outcome.value
+    if (fromDate.value) payload.from = fromDate.value
+    if (toDate.value) payload.to = toDate.value
+
+    const res = await getAuditLogs(payload)
+    const rawRows = Array.isArray(res?.data)
+      ? res.data
+      : Array.isArray(res?.data?.data)
+        ? res.data.data
+        : Array.isArray(res?.results)
+          ? res.results
+          : []
+
+    rows.value = normalizeRows(rawRows)
+    total.value = Number(res?.total ?? res?.data?.total ?? rows.value.length ?? 0)
+  } catch (error) {
+    rows.value = []
+    total.value = 0
+    console.error('Failed to fetch audit logs:', error)
+  } finally {
+    loading.value = false
+  }
+}
+
+const triggerLiveFilterFetch = (debounceMs = 0) => {
+  if (suppressLiveFilter) return
+  currentPage.value = 1
+
+  if (filterDebounceTimer) {
+    clearTimeout(filterDebounceTimer)
+    filterDebounceTimer = null
+  }
+
+  if (debounceMs > 0) {
+    filterDebounceTimer = setTimeout(() => {
+      fetchData()
+    }, debounceMs)
+    return
+  }
+
+  fetchData()
+}
+
+const clearFilters = () => {
+  suppressLiveFilter = true
+  actor.value = ''
+  entityType.value = ''
+  action.value = ''
+  outcome.value = ''
+  fromDate.value = ''
+  toDate.value = ''
+  suppressLiveFilter = false
+
+  if (filterDebounceTimer) {
+    clearTimeout(filterDebounceTimer)
+    filterDebounceTimer = null
+  }
+
+  currentPage.value = 1
+  fetchData()
+}
+
+const onPageSizeChange = (size: number) => {
+  pageSize.value = size
+  currentPage.value = 1
+  fetchData()
+}
+
+const onPageChange = (page: number) => {
+  currentPage.value = page
+  fetchData()
+}
+
+const rowClass = (args?: { row?: any }) => {
+  const row = args && args.row ? args.row : null
+  const value = String((row && row.outcomeDisplay) || '').toLowerCase()
+  if (value.includes('failure') || value.includes('fail')) return 'danger-row'
+  if (value.includes('success')) return 'success-row'
+  return ''
+}
+
+const outcomeWithCode = (row: any) => {
+  const outcomeLabel = row?.outcomeDisplay ? String(row.outcomeDisplay) : '—'
+  const code = row?.statusCode
+  if (code == null || code === '') return outcomeLabel
+  return `${outcomeLabel} (${code})`
+}
+
+onMounted(fetchData)
+
+watch(actor, () => triggerLiveFilterFetch(350))
+watch([entityType, action, outcome, fromDate, toDate], () => triggerLiveFilterFetch())
 </script>
 
 <template>
   <el-card>
-    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; width: 100%;">
-      <div class="max-w-200px">
-          <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
-            Back
-          </el-button>
-        </div>
+    <div class="toolbar">
+      <el-button type="primary" plain :icon="Back" @click="router.back()">
+        Back
+      </el-button>
 
-      <!-- User Name Search Select with remote-method, full width between left and right -->
-      <el-select v-model="selectedStatus" placeholder="Filter by Status" style="width: 220px;">
-          <el-option v-for="item in statusOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-      <el-select
-        v-model="value1"
-        multiple
+      <el-input
+        v-model="actor"
+        placeholder="Search actor (name or id)"
         clearable
-        filterable
-        remote
-        :remote-method="searchByName"
-        reserve-keyword
-        placeholder="Search by User Name"
-        style="flex: 1; min-width: 200px; max-width: 1000px; margin-right: 10px;"
+        class="filter-input"
       />
-      <!-- Right side: status select and buttons -->
-      <div style="display: flex; align-items: center; gap: 10px;">
-      
-        <el-tooltip content="Clear" placement="top">
-          <el-button @click="handleClear" type="primary" :icon="Filter" />
-        </el-tooltip>
-        <PermissionWrapper :permissions="['logs:read']">
-          <DownloadCustom
-            :data="tableDataList" :model="model"
-            :associated_models="associated_multiple_models" />
-        </PermissionWrapper>
-      </div>
+
+      <el-select v-model="entityType" placeholder="Entity" clearable class="filter-select">
+        <el-option v-for="item in entityOptions" :key="item.value" :value="item.value" :label="item.label" />
+      </el-select>
+
+      <el-select v-model="action" placeholder="Action" clearable class="filter-select">
+        <el-option v-for="item in actionOptions" :key="item.value" :value="item.value" :label="item.label" />
+      </el-select>
+
+      <el-select v-model="outcome" placeholder="Outcome" clearable class="filter-select">
+        <el-option v-for="item in outcomeOptions" :key="item.value" :value="item.value" :label="item.label" />
+      </el-select>
+
+      <el-input v-model="fromDate" type="date" class="date-input" />
+      <el-input v-model="toDate" type="date" class="date-input" />
+
+      <el-button @click="clearFilters">Clear</el-button>
+      <el-button @click="fetchData" :loading="loading">Refresh</el-button>
     </div>
+
+ 
     <el-table
-      :data="tableDataList" :loading="loading" :pageSize="pageSize" :currentPage="currentPage" border
-      style="width: 100%" :row-class-name="tableRowClassName">
-      <el-table-column sortable label="S/No" prop="id" />
-      <el-table-column sortable label="Date" prop="date" />
-      <el-table-column sortable label="User" prop="userName" />
-      <el-table-column sortable label="Action" prop="action" />
-      <el-table-column sortable label="Status" prop="status" />
-      <el-table-column sortable label="Source" prop="source" />
+      :data="rows"
+      border
+      v-loading="loading"
+      style="width: 100%"
+      :row-class-name="rowClass"
+      empty-text="No audit logs found"
+    >
+      <el-table-column prop="id" label="ID" width="85" />
+      <el-table-column label="Time" width="185">
+        <template #default="scope">
+          {{ fmt(scope?.row?.timestamp || scope?.row?.date) }}
+        </template>
+      </el-table-column>
+      <el-table-column prop="action" label="Action" width="135" />
+      <el-table-column prop="actorDisplay" label="Actor" min-width="170" />
+      <el-table-column label="Entity" min-width="170">
+        <template #default="scope">
+          <span>{{ scope?.row?.entityType || '—' }}</span>
+          <span v-if="scope?.row?.entityId" class="muted"> #{{ scope?.row?.entityId }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column prop="resourceDisplay" label="Resource" min-width="230" show-overflow-tooltip />
+      <el-table-column label="Outcome / Code" width="150">
+        <template #default="scope">
+          {{ outcomeWithCode(scope?.row) }}
+        </template>
+      </el-table-column>
+      <el-table-column label="Changes" min-width="220" show-overflow-tooltip>
+        <template #default="scope">
+          {{ pretty(scope?.row?.changes) }}
+        </template>
+      </el-table-column>
     </el-table>
-    <ElPagination
-      layout="sizes,prev,pager,next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
-      :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true" @size-change="onPageSizeChange"
-      @current-change="onPageChange" class="mt-4" />
+
+    <el-pagination
+      class="mt-4"
+      layout="sizes, prev, pager, next, total"
+      v-model:current-page="currentPage"
+      v-model:page-size="pageSize"
+      :page-sizes="[10, 25, 50, 100, 200]"
+      :total="total"
+      :background="true"
+      @size-change="onPageSizeChange"
+      @current-change="onPageChange"
+    />
   </el-card>
 </template>
 
-<style>
-.el-table .danger-row {
-  --el-table-tr-bg-color: var(--el-color-danger-light-7);
+<style scoped>
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+  align-items: center;
 }
 
-.el-table .success-row {
-  --el-table-tr-bg-color: var(--el-color-success-light-7);
+.filter-input {
+  width: 240px;
+}
+
+.filter-select {
+  width: 160px;
+}
+
+.date-input {
+  width: 160px;
+}
+
+.muted {
+  color: #8a8f98;
+  margin-left: 4px;
+}
+
+.table-meta {
+  font-size: 12px;
+  color: #7a8088;
+  margin-bottom: 8px;
+}
+
+:deep(.danger-row) {
+  --el-table-tr-bg-color: var(--el-color-danger-light-9);
+}
+
+:deep(.success-row) {
+  --el-table-tr-bg-color: var(--el-color-success-light-9);
 }
 </style>
 

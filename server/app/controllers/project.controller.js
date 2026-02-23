@@ -4,6 +4,7 @@ const config = require('../config/db.config.js')
 const Sequelize = require('sequelize')
 
 const { authJwt } = require("../middleware");
+const { logAudit } = require('../utils/auditTrail')
 
 
 
@@ -199,9 +200,23 @@ async function logEvents(log_object) {
      instlog.status =log_object.status
      console.log(instlog)
  
-     //if(thisUser.id!=1){
-       await db.models.logs.create(instlog);
-    // }
+     // Legacy logs table writes are disabled; auditlogs is the source of truth.
+      await logAudit({
+        action: log_object.action || 'unknown',
+        actorType: 'user',
+        actorId: log_object.user_id != null ? String(log_object.user_id) : null,
+        actorName: log_object.user_name || null,
+        entityType: log_object.model || 'project_task',
+        entityId: log_object.entity_id != null ? String(log_object.entity_id) : null,
+        resource: log_object.resource || 'POST /api/v1/project/*',
+        outcome: /fail/i.test(String(log_object.status || '')) ? 'failure' : 'success',
+        statusCode: /fail/i.test(String(log_object.status || '')) ? 500 : 200,
+        metadata: {
+          source: log_object.remoteAddress || null,
+          legacyStatus: log_object.status || null
+        }
+      })
+   // }
  
 
 

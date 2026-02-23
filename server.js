@@ -16,6 +16,7 @@ var corsOptions = {
 };
 
 const path = require('path')
+const auditContext = require('./server/app/middleware/auditContext')
 //const fileUpload = require('express-fileupload')
 
 const uploadsDir = path.join(__dirname, '..', 'uploads'); // path to the uploads folder
@@ -81,6 +82,7 @@ app.use(cors(corsOptions))
 app.use(bodyParser.json({ limit: '200mb' }))
 // parse requests of content-type - application/x-www-form-urlencoded
 app.use(bodyParser.urlencoded({ limit: '200mb', extended: true }))
+app.use(auditContext)
 
 const db = require('./server/app/models')
 const Role = db.role
@@ -106,6 +108,7 @@ require('./server/app/routes/videoStream.routes')(app)
 require('./server/app/routes/adminunits.routes')(app)
 require('./server/app/routes/settings.routes')(app)
 require('./server/app/routes/climate_assessment.routes')(app)
+require('./server/app/routes/audit.routes')(app)
 
 // Static middleware should come AFTER API routes
 app.use(express.static(path.join(__dirname, '/dist-pro')))
