@@ -131,36 +131,12 @@ const totalRejected = ref(0)
 const totalNew = ref(0)
 const total = ref(0)
 
-// Segment badge counts (education facilities count)
+// We previously tracked segment counts for Approved/New/Rejected; now we use a single unified list,
+// but we keep these refs (and a simple activeSegment flag) for compatibility with existing logic.
 const badgeCountApproved = ref(0)
 const badgeCountNew = ref(0)
 const badgeCountRejected = ref(0)
-
 const activeSegment = ref('Approved')
-
-const options = ref([
-  {
-    label: 'Approved',
-    value: 'Approved',
-    icon: CircleCheck,
-    count: badgeCountApproved, // Show facilities count in badge
-    disabled:false,
-  },
-  {
-    label: 'New',
-    value: 'New',
-    icon: Message,
-    count: badgeCountNew, // Show facilities count in badge
-    disabled: false
-  },
-  {
-    label: 'Rejected',
-    value: 'Rejected',
-    icon: CircleClose,
-    count: badgeCountRejected, // Show facilities count in badge
-    disabled: false
-  },
-])
 
 
 
@@ -184,12 +160,16 @@ const currentPage = ref(1)
 
 const tableDataList = ref([])
 //// ------------------parameters -----------------------////
-//const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
-// var filters = []
-// var filterValues = []
-
-const filters = ref(['isApproved'])
-const filterValues = ref([['Approved']])  // make sure the inner array is array
+// Global search term and location filters for schools list
+const search_string = ref<string>('')
+const enableSubcounty = ref(false)
+const selectedCounty = ref<any[]>([])
+const selectedSubCounty = ref<any[]>([])
+const selectedWard = ref<any[]>([])
+// We now show a single unified list of settlements (no status segments)
+// Filters can still be applied for location, but not by isApproved here.
+const filters = ref<string[]>([])
+const filterValues = ref<any[][]>([])  // make sure the inner array is array
 
 const associated_Model = ''
 const associated_multiple_models = ['settlement', 'users', 'county', 'subcounty', 'ward']
@@ -554,158 +534,62 @@ const loadEducationFacilitiesForSettlement = async (settlementId: number) => {
   }
 }
 
-const getFilteredData = async (selFilters, selfilterValues) => {
+const getFilteredData = async (_selFilters?: any, _selfilterValues?: any) => {
   const formData: any = {}
   formData.limit = pSize.value
   formData.page = page.value
   formData.curUser = 1 // Id for logged in user
-  formData.model = model // Now using 'settlement'
-  //-Search field--------------------------------------------
+  formData.model = educationFacilityModel // Fetch schools directly
   formData.searchField = 'name'
-  formData.searchKeyword = ''
-  //--Single Filter -----------------------------------------
+  formData.searchKeyword = search_string.value || ''
 
-  formData.assocModel = associated_Model
+  const filtersArr: string[] = []
+  const filterValuesArr: any[] = []
 
-  // - multiple filters -------------------------------------
-  // FIRST: Apply location-based filtering based on user role (SERVER-SIDE FILTERING)
-  // This ensures the filter is applied before any other filters
-  let settlementFilters: string[] = []
-  let settlementFilterValues: any[] = []
-  
-  // Apply user location restriction FIRST (server-side filtering)
+  // User location restriction (always enforced)
   if (isCountyRestricted.value && userCountyId.value) {
-    // User is restricted to their county - ALWAYS apply this filter server-side
-    settlementFilters.push('county_id')
-    settlementFilterValues.push([userCountyId.value])
-    console.log('Applying server-side county restriction filter:', userCountyId.value)
+    filtersArr.push('county_id')
+    filterValuesArr.push([userCountyId.value])
   } else if (userSettlementId.value && !isSuperAdmin.value && !hasNationalAccess.value) {
-    // User is restricted to their settlement - ALWAYS apply this filter server-side
-    settlementFilters.push('settlement_id')
-    settlementFilterValues.push([userSettlementId.value])
-    console.log('Applying server-side settlement restriction filter:', userSettlementId.value)
-  }
-  
-  // THEN: Add other filters (excluding isApproved which is handled by nested_models)
-  selFilters.forEach((filter: string, index: number) => {
-    if (filter !== 'isApproved') {
-      // For county-restricted users, preserve the county_id restriction and don't override it
-      if (filter === 'county_id' && isCountyRestricted.value && userCountyId.value) {
-        // Ensure county restriction is maintained - don't override with manual selection
-        const countyIndex = settlementFilters.indexOf('county_id')
-        if (countyIndex !== -1) {
-          // County restriction already applied, ensure it uses the restricted county ID
-          settlementFilterValues[countyIndex] = [userCountyId.value]
-        }
-        // Skip adding this filter again as it's already handled by restriction
-        return
-      }
-      
-      // Check if filter already exists (to avoid duplicates)
-      const existingIndex = settlementFilters.indexOf(filter)
-      if (existingIndex === -1) {
-        settlementFilters.push(filter)
-        settlementFilterValues.push(selfilterValues[index])
-      } else {
-        // If filter exists, merge values (for multi-select filters)
-        const existingValues = settlementFilterValues[existingIndex]
-        const newValues = selfilterValues[index]
-        if (Array.isArray(existingValues) && Array.isArray(newValues)) {
-          settlementFilterValues[existingIndex] = [...new Set([...existingValues, ...newValues])]
-        } else {
-          settlementFilterValues[existingIndex] = newValues
-        }
-      }
-    }
-  })
-  
-  // Final check: Ensure county restriction is always present for county-restricted users
-  if (isCountyRestricted.value && userCountyId.value) {
-    const countyIndex = settlementFilters.indexOf('county_id')
-    if (countyIndex === -1) {
-      // Add county restriction if it's missing
-      settlementFilters.unshift('county_id')
-      settlementFilterValues.unshift([userCountyId.value])
-    } else {
-      // Ensure the value is correct
-      settlementFilterValues[countyIndex] = [userCountyId.value]
-    }
-  }
-  
-  // Set settlement-level filters (county, subcounty, ward, etc.) - SERVER-SIDE FILTERING
-  formData.filters = settlementFilters.length > 0 ? settlementFilters : []
-  formData.filterValues = settlementFilterValues.length > 0 ? settlementFilterValues : []
-  formData.associated_multiple_models = ['county', 'subcounty', 'ward']
-  
-  // Use nested_models to filter settlements that have education facilities with the specified approval status
-  // This ensures backend filtering - only settlements with matching education facilities are returned
-  const isApprovedIndex = selFilters.indexOf('isApproved')
-  if (isApprovedIndex !== -1 && selfilterValues[isApprovedIndex] && selfilterValues[isApprovedIndex].length > 0) {
-    formData.nested_models = [{
-      model: educationFacilityModel,
-      field: 'isApproved',
-      values: selfilterValues[isApprovedIndex],
-      requireMatch: true // Only return settlements that have education facilities matching the status
-    }]
+    filtersArr.push('settlement_id')
+    filterValuesArr.push([userSettlementId.value])
   }
 
+  // UI-selected location filters
+  if (selectedCounty.value && selectedCounty.value.length) {
+    filtersArr.push('county_id')
+    filterValuesArr.push(selectedCounty.value)
+  }
+  if (selectedSubCounty.value && selectedSubCounty.value.length) {
+    filtersArr.push('subcounty_id')
+    filterValuesArr.push(selectedSubCounty.value)
+  }
+  if (selectedWard.value && selectedWard.value.length) {
+    filtersArr.push('ward_id')
+    filterValuesArr.push(selectedWard.value)
+  }
 
+  // Approval status filter if present in filters.value
+  const isApprovedIndex = filters.value.indexOf('isApproved')
+  if (isApprovedIndex !== -1 && filterValues.value[isApprovedIndex]?.length) {
+    filtersArr.push('isApproved')
+    filterValuesArr.push(filterValues.value[isApprovedIndex])
+  }
+
+  formData.filters = filtersArr
+  formData.filterValues = filterValuesArr
+  formData.associated_multiple_models = ['settlement', 'county', 'subcounty', 'ward']
 
   const res = await getSettlementListByCounty(formData)
 
-  console.log('After Query - Settlements with Education Facilities (backend filtered):', res)
+  console.log('After Query - Education facilities (school-centric):', res)
 
-  // Backend should have already filtered to only settlements with education facilities
-  // Now load education facilities counts for display
-  if (res.data && res.data.length > 0) {
-    await Promise.all(res.data.map(async (settlement: any) => {
-      const facilities = await loadEducationFacilitiesForSettlement(settlement.id)
-      console.log(`Loaded ${facilities.length} facilities for settlement ${settlement.id} (${settlement.name})`)
-    }))
-    console.log('All facilities loaded. settlementEducationFacilities:', settlementEducationFacilities.value)
-  }
+  tableDataList.value = res.data || []
+  total.value = res.total || (tableDataList.value?.length || 0)
 
   // Sync pagination variables after fetching
   currentPage.value = page.value
   pageSize.value = pSize.value
-
-  console.log('activeSegment.value', activeSegment.value)
-  if (activeSegment.value == 'Approved') {
-    tableDataList.value = res.data || []
-    // Use res.total which is the total count of SETTLEMENTS with education facilities (for pagination)
-    total.value = res.total || 0
-    console.log('Setting total (settlements count) for Approved:', total.value)
-    removeReviewButton()
-    // Update summary status to keep segment counts in sync with county restrictions
-    await getSummaryStatus()
-
-  } else if (activeSegment.value == 'New') {
-    tableDataListNew.value = res.data || []
-    // Use res.total which is the total count of SETTLEMENTS with education facilities (for pagination)
-    totalNew.value = res.total || 0
-    console.log('Setting totalNew (settlements count) for New:', totalNew.value)
-
-    if (!action_buttons.value.includes('review')) {
-      action_buttons.value.push('review');
-    }
-    // Update summary status to keep segment counts in sync with county restrictions
-    await getSummaryStatus()
-
-  }
-  else if (activeSegment.value == 'Rejected') {
-    tableDataListRejected.value = res.data || []
-    // Use res.total which is the total count of SETTLEMENTS with education facilities (for pagination)
-    totalRejected.value = res.total || 0
-    console.log('Setting totalRejected (settlements count) for Rejected:', totalRejected.value)
-    removeReviewButton()
-    // Update summary status to keep segment counts in sync with county restrictions
-    await getSummaryStatus()
-
-  }
-
-
-
-
 }
 
 
@@ -1383,15 +1267,8 @@ const router = useRouter()
 const value4 = ref()
 const value5 = ref()
 const value6 = ref()
-const search_string = ref()
 
-const enableSubcounty = ref(false)
-const selectedCounty = ref()
-const selectedSubCounty = ref()
-
-const selectedWard = ref()
 const enableward = ref(false)
-
 const subcountiesOptions = ref([])
 
 
@@ -2265,9 +2142,8 @@ const editFacility = async (data: TableSlotDefault) => {
 }
 
 
-const filteredSegments = computed(() => {
-  return options.value.filter(option => !option.disabled);
-});
+// No segmented control anymore; keep this noop computed for backwards compatibility in template if needed.
+const filteredSegments = computed(() => []);
 
 
 
@@ -2363,27 +2239,36 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
 
 
 
-    <div class="custom-style">
-
+    <!-- Legacy segmented view (Approved/New/Rejected) is no longer needed for school-centric UI -->
+    <div v-if="false" class="custom-style">
       <el-segmented v-model="activeSegment" :options="filteredSegments" block :onChange="onSegmentClick">
         <template #default="{ item }">
           <div class="flex flex-col items-center gap-2 p-2">
             <el-icon size="18">
               <component :is="item.icon" />
             </el-icon>
-            <div>{{ item.label }} ({{ item.count }}) </div>
+            <div class="segment-label">
+              {{ item.label }} ({{ item.displayCount }})
+            </div>
           </div>
         </template>
       </el-segmented>
-
     </div>
 
-    <div v-if="activeSegment === 'Approved'">
+    <div v-if="false">
+      <div class="table-meta" v-if="tableDataList && tableDataList.length">
+        Showing {{ tableDataList.length }} of {{ total }} settlements with approved education facilities
+      </div>
       <el-table :data="tableDataList" style="width: 100%; margin-top: 10px;" border @expand-change="handleExpand">
         <el-table-column type="expand">
           <template #default="props">
             <div style="padding: 20px;">
               <h3>Education Facilities in {{ props.row.name }}</h3>
+              <p class="settlement-context">
+                {{ props.row.ward?.name || 'N/A' }} ward,
+                {{ props.row.subcounty?.name || 'N/A' }} subcounty,
+                {{ props.row.county?.name || 'N/A' }} County
+              </p>
               <div v-if="loadingFacilities[props.row.id]" style="text-align: center; padding: 20px;">
                 <el-icon class="is-loading"><Loading /></el-icon>
                 <span>Loading education facilities...</span>
@@ -2463,12 +2348,20 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
     </div>
 
 
-    <div v-if="activeSegment === 'New'">
+    <div v-if="false">
+      <div class="table-meta" v-if="tableDataListNew && tableDataListNew.length">
+        Showing {{ tableDataListNew.length }} of {{ totalNew }} settlements with new education facilities
+      </div>
       <el-table :data="tableDataListNew" style="width: 100%; margin-top: 10px;" border @expand-change="handleExpand">
         <el-table-column type="expand">
           <template #default="props">
             <div style="padding: 20px;">
               <h3>Education Facilities in {{ props.row.name }}</h3>
+              <p class="settlement-context">
+                {{ props.row.ward?.name || 'N/A' }} ward,
+                {{ props.row.subcounty?.name || 'N/A' }} subcounty,
+                {{ props.row.county?.name || 'N/A' }} County
+              </p>
               <div v-if="loadingFacilities[props.row.id]" style="text-align: center; padding: 20px;">
                 <el-icon class="is-loading"><Loading /></el-icon>
                 <span>Loading education facilities...</span>
@@ -2546,15 +2439,22 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
         class="mt-4" />
     </div>
 
-    <div v-if="activeSegment === 'Rejected'">
-
+    <div v-if="false">
+      <div class="table-meta" v-if="tableDataListRejected && tableDataListRejected.length">
+        Showing {{ tableDataListRejected.length }} of {{ totalRejected }} settlements with rejected education facilities
+      </div>
       <el-table
-:data="tableDataListRejected" style="width: 100%; margin-top: 10px;" border
+        :data="tableDataListRejected" style="width: 100%; margin-top: 10px;" border
         @expand-change="handleExpand">
         <el-table-column type="expand">
           <template #default="props">
             <div style="padding: 20px;">
               <h3>Education Facilities in {{ props.row.name }}</h3>
+              <p class="settlement-context">
+                {{ props.row.ward?.name || 'N/A' }} ward,
+                {{ props.row.subcounty?.name || 'N/A' }} subcounty,
+                {{ props.row.county?.name || 'N/A' }} County
+              </p>
               <div v-if="loadingFacilities[props.row.id]" style="text-align: center; padding: 20px;">
                 <el-icon class="is-loading"><Loading /></el-icon>
                 <span>Loading education facilities...</span>
@@ -2634,6 +2534,66 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
         class="mt-4" />
 
     </div>
+
+    <!-- Simple school-centric table -->
+    <div class="table-meta" v-if="tableDataList && tableDataList.length">
+      Showing {{ tableDataList.length }} schools (page) of {{ total }}
+    </div>
+
+    <el-table :data="tableDataList" style="width: 100%; margin-top: 10px;" border>
+      <el-table-column label="School Name" prop="name" sortable />
+      <el-table-column label="Registration No." prop="registration_number" />
+      <el-table-column label="Category" prop="education_category" />
+      <el-table-column label="Ownership" prop="ownership_type" />
+      <el-table-column label="Status" prop="isApproved">
+        <template #default="scope">
+          <el-tag
+            :type="scope.row.isApproved === 'Approved'
+              ? 'success'
+              : scope.row.isApproved === 'Rejected'
+                ? 'danger'
+                : 'warning'"
+          >
+            {{ scope.row.isApproved }}
+          </el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="Location" min-width="260">
+        <template #default="scope">
+          {{ scope.row.settlement?.name || 'N/A' }},
+          {{ scope.row.ward?.name || 'N/A' }} ward,
+          {{ scope.row.subcounty?.name || 'N/A' }} subcounty,
+          {{ scope.row.county?.name || 'N/A' }} County
+        </template>
+      </el-table-column>
+      <el-table-column label="Actions" width="250">
+        <template #default="{ row }">
+          <TableActions
+            :item="row"
+            :buttons="action_buttons"
+            @view-on-map="flyTo"
+            @add-facility="handleAddFacility"
+          />
+        </template>
+      </el-table-column>
+    </el-table>
+
+    <div v-if="!tableDataList || tableDataList.length === 0" class="no-data-message">
+      <el-empty description="No education facilities found" />
+    </div>
+
+    <ElPagination
+      v-if="tableDataList && tableDataList.length > 0"
+      layout="sizes, prev, pager, next, total"
+      v-model:currentPage="currentPage"
+      v-model:page-size="pageSize"
+      :page-sizes="[10, 25, 50, 100]"
+      :total="total"
+      :background="true"
+      @size-change="onPageSizeChange"
+      @current-change="onPageChange"
+      class="mt-4"
+    />
   </el-card>
 
 
@@ -3281,5 +3241,17 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
     overflow: visible;
     /* Allow the text to flow properly */
   }
+}
+
+.table-meta {
+  font-size: 13px;
+  color: #7a8088;
+  margin: 8px 0 4px;
+}
+
+.settlement-context {
+  font-size: 13px;
+  color: #606266;
+  margin: 4px 0 12px;
 }
 </style>
