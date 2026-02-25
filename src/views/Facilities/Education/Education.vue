@@ -877,7 +877,7 @@ const viewProfile = (data: TableSlotDefault) => {
 const activeTab = ref('list')
 
 
-// Open map drawer for settlement
+// Open map drawer for a school or settlement
 const flyTo = async (data: TableSlotDefault) => {
   try {
     mapDrawerSettlement.value = data
@@ -1605,7 +1605,9 @@ const handleAddFacility = (row: any) => {
 }
 
 // Initialize Google Maps in drawer
-const initializeMapDrawer = async (settlement: any) => {
+// Accepts either a settlement row or a school (education_facility) row.
+// If a school row is passed, we derive the settlementId from school.settlement_id.
+const initializeMapDrawer = async (item: any) => {
   if (!mapDrawerContainer.value) {
     await nextTick()
   }
@@ -1631,10 +1633,15 @@ const initializeMapDrawer = async (settlement: any) => {
       throw new Error('Google Maps API not loaded properly')
     }
 
+    // Determine settlement id:
+    // - If a school row is passed, use item.settlement_id
+    // - Otherwise, fall back to item.id (for direct settlement rows)
+    const settlementId = item?.settlement_id || item?.id
+
     // Get settlement geometry
     const geoForm: any = {
       model: 'settlement',
-      id: settlement.id
+      id: settlementId
     }
 
     const res = await getOneGeo(geoForm)
@@ -1716,7 +1723,7 @@ const initializeMapDrawer = async (settlement: any) => {
 
     // Wait for map to be ready before loading facilities
     const loadFacilitiesWhenReady = async () => {
-      await loadEducationFacilitiesOnMap(settlement.id)
+      await loadEducationFacilitiesOnMap(settlementId)
     }
 
     // Use idle event to ensure map is fully loaded
@@ -2256,9 +2263,9 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
     </div>
 
     <div v-if="false">
-      <div class="table-meta" v-if="tableDataList && tableDataList.length">
+      <!-- <div class="table-meta" v-if="tableDataList && tableDataList.length">
         Showing {{ tableDataList.length }} of {{ total }} settlements with approved education facilities
-      </div>
+      </div> -->
       <el-table :data="tableDataList" style="width: 100%; margin-top: 10px;" border @expand-change="handleExpand">
         <el-table-column type="expand">
           <template #default="props">
@@ -2536,9 +2543,9 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
     </div>
 
     <!-- Simple school-centric table -->
-    <div class="table-meta" v-if="tableDataList && tableDataList.length">
+    <!-- <div class="table-meta" v-if="tableDataList && tableDataList.length">
       Showing {{ tableDataList.length }} schools (page) of {{ total }}
-    </div>
+    </div> -->
 
     <el-table :data="tableDataList" style="width: 100%; margin-top: 10px;" border>
       <el-table-column label="School Name" prop="name" sortable />
