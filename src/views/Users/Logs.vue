@@ -47,13 +47,41 @@ const actionOptions = [
   { value: 'status_change', label: 'Status change' }
 ]
 
+// Entity filter options. These correspond to entityType values written by auditTrail:
+// - Model hooks use the Sequelize modelName (e.g. 'settlement', 'households', 'users', etc.)
+// - Custom audit writes may use more descriptive names (e.g. 'auth', 'project_task')
 const entityOptions = [
   { value: '', label: 'All entities' },
+  // Core admin & auth
   { value: 'users', label: 'Users' },
-  { value: 'grievance', label: 'Grievance' },
-  { value: 'document', label: 'Document' },
-  { value: 'project', label: 'Project' },
-  { value: 'project_task', label: 'Project task' }
+  { value: 'auth', label: 'Authentication' },
+  // Settlements & households
+  { value: 'settlement', label: 'Settlements' },
+  { value: 'households', label: 'Households' },
+  // Grievances & engagement
+  { value: 'grievance', label: 'Grievances' },
+  { value: 'community', label: 'Communities / Committees' },
+  // Projects & interventions
+  { value: 'project', label: 'Projects' },
+  { value: 'project_task', label: 'Project tasks' },
+  { value: 'intervention', label: 'Interventions' },
+  // Facilities & infrastructure
+  { value: 'education_facility', label: 'Education facilities' },
+  { value: 'health_facility', label: 'Health facilities' },
+  { value: 'water_point', label: 'Water points' },
+  { value: 'piped_water', label: 'Piped water' },
+  { value: 'sewer', label: 'Sewer' },
+  { value: 'road', label: 'Roads' },
+  // Documents & media
+  { value: 'document', label: 'Documents' },
+  { value: 'article', label: 'Articles / News' },
+  { value: 'media', label: 'Media' },
+  // Indicators & reports
+  { value: 'indicator', label: 'Indicators' },
+  { value: 'indicator_category_report', label: 'Indicator reports' },
+  // Fallback catch-all
+  { value: 'logs', label: 'Legacy logs' },
+  { value: 'unknown', label: 'Other / Unknown' }
 ]
 
 const fmt = (ts: string | Date) => {
