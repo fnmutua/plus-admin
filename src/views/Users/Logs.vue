@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // @ts-nocheck
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Back } from '@element-plus/icons-vue'
 import {
@@ -20,7 +20,7 @@ const loading = ref(false)
 const rows = ref<any[]>([])
 const total = ref(0)
 const currentPage = ref(1)
-const pageSize = ref(25)
+const pageSize = ref(10)
 let filterDebounceTimer: ReturnType<typeof setTimeout> | null = null
 let suppressLiveFilter = false
 
@@ -83,12 +83,20 @@ const normalizeRows = (list: any) => {
   }))
 }
 
+// Client-side pagination: slice the full rows array for the current page
+const paginatedRows = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  const end = start + pageSize.value
+  return rows.value.slice(start, end)
+})
+
 const fetchData = async () => {
   loading.value = true
   try {
     const payload: Record<string, any> = {
-      page: currentPage.value,
-      limit: pageSize.value
+      // Always fetch the first N results from backend and paginate on the client
+      page: 1,
+      limit: 200
     }
 
     if (actor.value.trim()) payload.actor = actor.value.trim()
@@ -98,17 +106,15 @@ const fetchData = async () => {
     if (fromDate.value) payload.from = fromDate.value
     if (toDate.value) payload.to = toDate.value
 
-    const res = await getAuditLogs(payload)
-    const rawRows = Array.isArray(res?.data)
-      ? res.data
-      : Array.isArray(res?.data?.data)
-        ? res.data.data
-        : Array.isArray(res?.results)
-          ? res.results
-          : []
+    // Axios wrapper returns the JSON body directly when code === '0000':
+    // { code, message, data, total, page, limit }
+    const res: any = await getAuditLogs(payload)
 
+    const rawRows = Array.isArray(res?.data) ? res.data : []
+
+    // Store all rows locally; pagination is handled on the client
     rows.value = normalizeRows(rawRows)
-    total.value = Number(res?.total ?? res?.data?.total ?? rows.value.length ?? 0)
+    total.value = rows.value.length
   } catch (error) {
     rows.value = []
     total.value = 0
@@ -223,7 +229,7 @@ watch([entityType, action, outcome, fromDate, toDate], () => triggerLiveFilterFe
 
  
     <el-table
-      :data="rows"
+      :data="paginatedRows"
       border
       v-loading="loading"
       style="width: 100%"
