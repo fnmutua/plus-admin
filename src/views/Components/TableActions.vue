@@ -1,7 +1,24 @@
 <template>
   <div>
     <el-dropdown trigger="click" placement="bottom-end">
-      <el-button type="primary" size="small" :icon="Setting" circle />
+      <!-- Desktop / tablet: circular settings button -->
+      <el-button
+        v-if="!isMobile"
+        type="primary"
+        size="small"
+        :icon="Setting"
+        circle
+      />
+      <!-- Mobile: icon-only button (no circle) -->
+      <el-button
+        v-else
+        link
+        size="small"
+      >
+        <el-icon>
+          <Setting />
+        </el-icon>
+      </el-button>
       <template #dropdown>
         <el-dropdown-menu>
           <!-- View Actions -->
@@ -148,7 +165,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, PropType } from 'vue';
+import { ref, PropType, computed } from 'vue';
 import { ElButton, ElIcon, ElDropdown, ElDropdownMenu, ElDropdownItem, ElDialog, ElAlert } from 'element-plus';
 import { Setting, Edit, TopRight, Position, Delete, View, Download, TakeawayBox, Location, Plus } from '@element-plus/icons-vue';
 
@@ -161,6 +178,9 @@ const props = defineProps({
 });
 
 const emit = defineEmits(["edit", "viewOnMap", "review", "preview", "delete", "download", "decommission", "addGeometry", "share", "merge", "updateLocation", "addFacility"]);
+
+// Simple mobile detection for per-row actions (non-reactive to resize, good enough)
+const isMobile = computed(() => window.innerWidth <= 768);
 
 // Confirmation dialog state for delete
 const deleteDialogVisible = ref(false);

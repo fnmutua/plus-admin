@@ -7,7 +7,7 @@ declare global {
   }
 }
 
-import { getSettlementListByCounty, DeleteRecord, updateOneRecord, getOneGeo, deleteDocument, getAllGeo, getfilteredGeo, CreateRecord } from '@/api/settlements'
+import { getSettlementListByCounty, DeleteRecord, updateOneRecord, getOneGeo, deleteDocument, getAllGeo, getfilteredGeo, CreateRecord, searchByKeyWord } from '@/api/settlements'
 import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
 import { getFile, getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
 import {
@@ -21,7 +21,7 @@ import { computed, ref, reactive, nextTick, defineAsyncComponent, type Ref } fro
 import xlsx from "json-as-xlsx"
 
 import {
-  Position, TopRight, User, Plus, Edit, Delete, View, Download, Filter, InfoFilled, Back, Search,
+  Position, TopRight, User, Plus, Edit, Delete, View, Download, Filter, InfoFilled, Back, Search, ArrowDown,
   MessageBox, Apple, Cherry, Grape, Orange, Pear, Watermelon, CircleClose, Message, CircleCheck, StarFilled, Loading, Check
 } from '@element-plus/icons-vue'
 
@@ -62,8 +62,8 @@ const userInfo = wsCache.get(appStore.getUserInfo)
 const showAdminButtons = ref(appStore.getAdminButtons)
 const showEditButtons = ref(appStore.getEditButtons)
 
-// For settlements, show 'viewOnMap' and 'addFacility' actions
-const action_buttons = ref<string[]>(['viewOnMap', 'addFacility']);
+// For settlements and schools, show core actions (no inline "Add Facility" here)
+const action_buttons = ref<string[]>(['viewOnMap', 'delete']);
 
 // Google Maps API Key
 const googleMapsApiKey = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
@@ -152,10 +152,10 @@ const countiesOptions = ref([])
 const settlementOptions = ref([])
 const settlements = ref([])
 const page = ref(1)
-const pSize = ref(6)
+const pSize = ref(10)
 const selCounties = []
 const loading = ref(true)
-const pageSize = ref(6)
+const pageSize = ref(10)
 const currentPage = ref(1)
 
 const tableDataList = ref([])
@@ -164,8 +164,7 @@ const tableDataList = ref([])
 const search_string = ref<string>('')
 const enableSubcounty = ref(false)
 const selectedCounty = ref<any[]>([])
-const selectedSubCounty = ref<any[]>([])
-const selectedWard = ref<any[]>([])
+const selectedSettlement = ref<any[]>([])
 // We now show a single unified list of settlements (no status segments)
 // Filters can still be applied for location, but not by isApproved here.
 const filters = ref<string[]>([])
@@ -309,71 +308,8 @@ const conditionFacilityOptions = [
   { label: 'Critical', value: 'Critical' }
 ]
 
-// Full legend items based on school categories
-const allLegendItems = ref([
-  {
-    label: "Pre-Primary / ECD",
-    color: "#a6cee3",
-    key: "pre_primary"
-  },
-  {
-    label: "Primary School",
-    color: '#1f78b4',
-    key: "primary"
-  },
-  {
-    label: "Secondary School",
-    color: '#b2df8a',
-    key: "secondary"
-  },
-  {
-    label: "Village Polytechnique",
-    color: '#33a02c',
-    key: "polytechnic"
-  },
-  {
-    label: "Adult Education",
-    color: '#fb9a99',
-    key: "adult_school"
-  },
-  {
-    label: "School for Disabled",
-    color: '#e31a1c',
-    key: "school_for_disabled"
-  },
-  {
-    label: "School for Deaf",
-    color: '#fdbf6f',
-    key: "school_for_deaf"
-  },
-  {
-    label: "School for Blind",
-    color: "#ff7f00",
-    key: "school_for_blind"
-  },
-  {
-    label: "Others/Unknown",
-    color: "#969696",
-    key: "other"
-  }
-])
-
 // Track which facility categories are present in the current map
 const presentFacilityCategories = reactive<string[]>([])
-
-// Computed property for dynamic legend - only show items that are present
-const legendItems = computed(() => {
-  if (presentFacilityCategories.length === 0) {
-    return []
-  }
-  
-  // Convert to Set for efficient lookup
-  const categoriesSet = new Set(presentFacilityCategories)
-  
-  return allLegendItems.value.filter(item => {
-    return categoriesSet.has(item.key)
-  })
-})
 //// ------------------parameters -----------------------////
 
 const currentRoute = useRoute(); // Access current route using useRoute
@@ -432,12 +368,14 @@ const handleClear = async () => {
   console.log('cleared....', filters.value, filterValues.value)
 
   value4.value = null
-  value5.value = null
-  value6.value = null
+  value7.value = null
+  search_string.value = ''
+  selectedCounty.value = []
+  selectedSettlement.value = []
 
   // Reset and sync pagination
   pSize.value = 5
-  pageSize.value = 5
+  pageSize.value = 10
   page.value = 1
   currentPage.value = 1
   // Retain only the first element in filters and filterValues
@@ -560,13 +498,9 @@ const getFilteredData = async (_selFilters?: any, _selfilterValues?: any) => {
     filtersArr.push('county_id')
     filterValuesArr.push(selectedCounty.value)
   }
-  if (selectedSubCounty.value && selectedSubCounty.value.length) {
-    filtersArr.push('subcounty_id')
-    filterValuesArr.push(selectedSubCounty.value)
-  }
-  if (selectedWard.value && selectedWard.value.length) {
-    filtersArr.push('ward_id')
-    filterValuesArr.push(selectedWard.value)
+  if (selectedSettlement.value && selectedSettlement.value.length) {
+    filtersArr.push('settlement_id')
+    filterValuesArr.push(selectedSettlement.value)
   }
 
   // Approval status filter if present in filters.value
@@ -712,6 +646,29 @@ const getModelOptions = async () => {
     settlements.value = ret
     makeSettlementOptions(settlements)
   })
+}
+
+// Rebuild settlementOptions based on selected county (for the top filter bar)
+const getSettlementNames = async () => {
+  // Ensure we have the base settlements list
+  if (!settlements.value || !settlements.value.length) {
+    await getModelOptions()
+  }
+
+  // If no county filter, show all settlements
+  let filteredList = settlements.value
+
+  if (selectedCounty.value && (Array.isArray(selectedCounty.value) ? selectedCounty.value.length : true)) {
+    const countyIds = Array.isArray(selectedCounty.value)
+      ? selectedCounty.value
+      : [selectedCounty.value]
+
+    filteredList = settlements.value.filter((s: any) => countyIds.includes(s.county_id))
+  }
+
+  // Wrap in a ref-like object to reuse makeSettlementOptions helper
+  const wrapped = { value: filteredList }
+  makeSettlementOptions(wrapped)
 }
 
 const open = (msg: MessageParamsWithType) => {
@@ -1037,12 +994,17 @@ const mapTabLegendItems = [
 
 
 const DeleteFacility = async (data: TableSlotDefault) => {
-  console.log('----->', data)
-  
+  console.log('DeleteFacility ----->', data)
+
   try {
-    let formData = {}
+    const formData: any = {}
     formData.id = data.id
-    formData.model = model
+
+    // Decide which model to delete from based on the row shape:
+    // - School rows have a registration_number / education_category and use educationFacilityModel
+    // - Fallback to settlement model for legacy settlement rows
+    const isSchoolRow = !!(data as any).registration_number || !!(data as any).education_category
+    formData.model = isSchoolRow ? educationFacilityModel : model
 
     // Delete the record from backend
     await DeleteRecord(formData)
@@ -1265,8 +1227,7 @@ const handleExpand = async (row: any) => {
 const router = useRouter()
 
 const value4 = ref()
-const value5 = ref()
-const value6 = ref()
+const value7 = ref()
 
 const enableward = ref(false)
 const subcountiesOptions = ref([])
@@ -1285,135 +1246,59 @@ const goBack = () => {
 
 }
 
-const getFilteredBySearchData = async (searchKey) => {
+// Search helper: simply re-run the main fetch with current search_string and filters
+const getFilteredBySearchData = async () => {
+  const query = search_string.value?.trim()
 
-  if (selectedCounty.value) {
-    var selectOption = 'county_id'
-    if (!filters.value.includes(selectOption)) {
-      filters.value.push(selectOption)
-    }
-    var index = filters.value.indexOf(selectOption) // 1
-
-    // clear previously selected
-    if (filterValues[index]) {
-      // filterValues[index].length = 0
-      filterValues.value.splice(index, 1)
-    }
-
-    if (!filterValues.value.includes(selectedCounty.value) && selectedCounty.value.length > 0) {
-      filterValues.value.splice(index, 0, selectedCounty.value) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
-    }
-
-    // expunge the filter if the filter values are null
-    if (selectedCounty.value.length === 0) {
-      filters.value.splice(index, 1)
-    }
-
+  // If search is cleared, just reload with normal filters
+  if (!query || query.length === 0) {
+    page.value = 1
+    await getFilteredData(filters.value, filterValues.value)
+    return
   }
 
-  // Filter by subcounty  
-  if (selectedSubCounty.value) {
-    var selectOption = 'subcounty_id'
-    if (!filters.value.includes(selectOption)) {
-      filters.value.push(selectOption)
-    }
-    var index = filters.value.indexOf(selectOption) // 1
+  searchLoading.value = true
 
-    // clear previously selected
-    if (filterValues[index]) {
-      // filterValues[index].length = 0
-      filterValues.value.splice(index, 1)
-    }
+  // Build a search payload similar to Sett.vue but for education facilities
+  const formData: any = {}
+  formData.limit = pSize.value
+  formData.page = page.value
+  formData.curUser = 1
+  formData.model = educationFacilityModel
+  formData.searchField = 'name'
+  formData.searchKeyword = query
+  formData.filters = filters.value || []
+  formData.filterValues = filterValues.value || []
+  formData.associated_multiple_models = ['settlement', 'county', 'subcounty', 'ward']
 
-    if (!filterValues.value.includes(selectedSubCounty.value) && selectedSubCounty.value.length > 0) {
-      filterValues.value.splice(index, 0, selectedSubCounty.value) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
-    }
-
-    // expunge the filter if the filter values are null
-    if (selectedSubCounty.value.length === 0) {
-      filters.value.splice(index, 1)
-    }
-
-    getFilteredData(filters.value, filterValues.value)
-
+  try {
+    const res: any = await searchByKeyWord(formData)
+    console.log('Education search result:', res)
+    tableDataList.value = res.data || []
+    const totalCount = res.total !== undefined
+      ? res.total
+      : (res.Total !== undefined ? res.Total : (res.data ? res.data.length : 0))
+    total.value = totalCount
+  } finally {
+    searchLoading.value = false
   }
-
-
 }
 
 
 
 
-const getSubCountyNames = async () => {
-  const res = await getListWithoutGeo({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'subcounty',
-      searchField: 'county_id',
-      searchKeyword: selectedCounty.value,
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received subcounties response:', response)
-    var ret = response.data
-    subcountiesOptions.value = []
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var subcountyOpt = {}
-      subcountyOpt.value = arrayItem.id
-      subcountyOpt.county_id = arrayItem.county_id
-      subcountyOpt.label = arrayItem.name
-      //  console.log(countyOpt)
-      subcountiesOptions.value.push(subcountyOpt)
-    })
-  })
-}
-
-const wardOptions = ref([])
-
-const getWardNames = async () => {
-  const res = await getListWithoutGeo({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'ward',
-      searchField: 'subcounty_id',
-      searchKeyword: selectedSubCounty.value,
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received wards response:', response)
-    var ret = response.data
-    wardOptions.value = []
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var opt = {}
-      opt.value = arrayItem.id
-      opt.subcounty_id = arrayItem.subcounty_id
-      opt.label = arrayItem.name
-      //  console.log(countyOpt)
-      wardOptions.value.push(opt)
-    })
-  })
-}
-
-
-
+// We no longer use subcounty/ward filters in this view; settlement filter replaces them.
 const filterByCounty = async (county_id: any) => {
 
   if (county_id) {
-    enableSubcounty.value = true   // allow selection of subcounty 
     selectedCounty.value = county_id
-    getSubCountyNames()
+    // Refresh settlements list based on selected county
+    await getSettlementNames()
   }
 
-  value5.value = null; // Clear the subcounty properly
-  value6.value = null; // Clear the ward properly
+  // Clear settlement selection when county changes
+  value7.value = null
+  selectedSettlement.value = []
 
   // Reset pagination when filters change
   page.value = 1
@@ -1460,58 +1345,11 @@ const filterByCounty = async (county_id: any) => {
 }
 
 
-const filterBySubCounty = async (subcounty_id: any) => {
+// Settlement-level filter (replaces subcounty/ward filters)
+const filterBySettlement = async (settlement_ids: any) => {
 
-  if (subcounty_id) {
-    enableSubcounty.value = true   // allow selection of subcounty 
-    selectedSubCounty.value = subcounty_id
-    getWardNames()
-  }
-
-  // value6.value = null   // clear the ward sr 
-
-  // Reset pagination when filters change
-  page.value = 1
-  currentPage.value = 1
-
-  if (search_string.value) {
-    getFilteredBySearchData(search_string.value)
-  }
-
-  else {
-    var selectOption = 'subcounty_id'
-    if (!filters.value.includes(selectOption)) {
-      filters.value.push(selectOption)
-    }
-    var index = filters.value.indexOf(selectOption) // 1
-
-    // clear previously selected
-    if (filterValues.value[index]) {
-      // filterValues[index].length = 0
-      filterValues.value.splice(index, 1)
-    }
-
-    if (!filterValues.value.includes(selectedSubCounty.value) && selectedSubCounty.value.length > 0) {
-      filterValues.value.splice(index, 0, selectedSubCounty.value) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
-    }
-
-    // expunge the filter if the filter values are null
-    if (selectedSubCounty.value.length === 0) {
-      filters.value.splice(index, 1)
-    }
-
-    getFilteredData(filters.value, filterValues.value)
-
-  }
-
-
-}
-
-const filterByWard = async (ward_id: any) => {
-
-  if (ward_id) {
-    selectedWard.value = ward_id
-
+  if (settlement_ids) {
+    selectedSettlement.value = settlement_ids
   }
 
   // Reset pagination when filters change
@@ -1520,35 +1358,29 @@ const filterByWard = async (ward_id: any) => {
 
   if (search_string.value) {
     getFilteredBySearchData(search_string.value)
-  }
-
-  else {
-    var selectOption = 'ward_id'
+  } else {
+    const selectOption = 'settlement_id'
     if (!filters.value.includes(selectOption)) {
       filters.value.push(selectOption)
     }
-    var index = filters.value.indexOf(selectOption) // 1
+    const index = filters.value.indexOf(selectOption)
 
     // clear previously selected
     if (filterValues.value[index]) {
-      // filterValues[index].length = 0
       filterValues.value.splice(index, 1)
     }
 
-    if (!filterValues.value.includes(selectedWard.value) && selectedWard.value.length > 0) {
-      filterValues.value.splice(index, 0, selectedWard.value) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+    if (!filterValues.value.includes(selectedSettlement.value) && selectedSettlement.value.length > 0) {
+      filterValues.value.splice(index, 0, selectedSettlement.value)
     }
 
     // expunge the filter if the filter values are null
-    if (selectedWard.value.length === 0) {
+    if (selectedSettlement.value.length === 0) {
       filters.value.splice(index, 1)
     }
 
     getFilteredData(filters.value, filterValues.value)
-
   }
-
-
 }
 
 
@@ -1563,13 +1395,8 @@ const searchByNewName = async () => {
   page.value = 1
   currentPage.value = 1
 
-  if (search_string.value) {
-
-
-    getFilteredBySearchData(search_string.value)
-
-  }
-
+  // Always re-query; getFilteredData uses search_string internally
+  await getFilteredBySearchData()
 }
 
 
@@ -1595,7 +1422,7 @@ const AddFacility = (data?: TableSlotDefault) => {
   }
   
   push({
-    name: 'AddEducationNew',
+    name: 'AddFacility',
     query: queryParams
   })
 }
@@ -1606,7 +1433,8 @@ const handleAddFacility = (row: any) => {
 
 // Initialize Google Maps in drawer
 // Accepts either a settlement row or a school (education_facility) row.
-// If a school row is passed, we derive the settlementId from school.settlement_id.
+// If a school row is passed, we derive the settlementId from school.settlement_id
+// and remember the current school id for special highlighting.
 const initializeMapDrawer = async (item: any) => {
   if (!mapDrawerContainer.value) {
     await nextTick()
@@ -1637,6 +1465,9 @@ const initializeMapDrawer = async (item: any) => {
     // - If a school row is passed, use item.settlement_id
     // - Otherwise, fall back to item.id (for direct settlement rows)
     const settlementId = item?.settlement_id || item?.id
+
+    // Track current school (if provided) so we can highlight it on the map
+    const currentSchoolId = item && item.registration_number ? item.id : null
 
     // Get settlement geometry
     const geoForm: any = {
@@ -1723,7 +1554,7 @@ const initializeMapDrawer = async (item: any) => {
 
     // Wait for map to be ready before loading facilities
     const loadFacilitiesWhenReady = async () => {
-      await loadEducationFacilitiesOnMap(settlementId)
+      await loadEducationFacilitiesOnMap(settlementId, currentSchoolId)
     }
 
     // Use idle event to ensure map is fully loaded
@@ -1739,7 +1570,8 @@ const initializeMapDrawer = async (item: any) => {
 }
 
 // Load education facilities on map
-const loadEducationFacilitiesOnMap = async (settlementId: number) => {
+// Optionally highlight a "current" school by id with a colored icon; others are gray
+const loadEducationFacilitiesOnMap = async (settlementId: number, currentSchoolId: number | null = null) => {
   try {
     // Clear existing markers and reset present categories
     educationFacilityMarkers.value.forEach(marker => marker.setMap(null))
@@ -1841,38 +1673,48 @@ const loadEducationFacilitiesOnMap = async (settlementId: number) => {
           presentFacilityCategories.push(category)
         }
         
-        // Get color based on category
-        const colorMap: Record<string, string> = {
-          'pre_primary': '#a6cee3',
-          'primary': '#1f78b4',
-          'secondary': '#b2df8a',
-          'polytechnic': '#33a02c',
-          'adult_school': '#fb9a99',
-          'school_for_disabled': '#e31a1c',
-          'school_for_deaf': '#fdbf6f',
-          'school_for_blind': '#ff7f00',
-          'other': '#969696'
-        }
-        
-        const color = colorMap[category] || colorMap['other']
-        
         try {
+          const isCurrentSchool = !!currentSchoolId && feature.properties?.id === currentSchoolId
+
+          // Use same school icon for all schools.
+          // Current school: full opacity; others: faded to appear "grayed out".
+          const icon = {
+            url: 'icons/school.png',
+            scaledSize: new window.google.maps.Size(30, 30),
+            anchor: new window.google.maps.Point(15, 15)
+          }
+
           const marker = new window.google.maps.Marker({
             position: { lat, lng },
             map: googleMap.value,
             title: feature.properties?.name || 'Education Facility',
-            icon: {
-              path: window.google.maps.SymbolPath.CIRCLE,
-              scale: 12,
-              fillColor: color,
-              fillOpacity: 0.9,
-              strokeColor: '#ffffff',
-              strokeWeight: 2,
-              strokeOpacity: 1
-            }
+            icon,
+            draggable: isCurrentSchool, // allow dragging only for the active school
+            opacity: isCurrentSchool ? 1 : 0.2,
+            zIndex: isCurrentSchool ? 600 : 500
           })
 
-          const categoryLabel = allLegendItems.value.find(item => item.key === category)?.label || category
+          // When user drags the current school marker, update its stored position in memory
+          if (isCurrentSchool) {
+            marker.addListener('dragend', (event: any) => {
+              const newPos = event.latLng?.toJSON?.() || { lat, lng }
+              const updatedProps = {
+                ...feature.properties,
+                latitude: newPos.lat,
+                longitude: newPos.lng,
+                geom: {
+                  type: 'Point',
+                  coordinates: [newPos.lng, newPos.lat]
+                }
+              }
+              facilityMarkerDataMap.value.set(marker, updatedProps)
+              console.log('Updated school marker position:', updatedProps)
+              // Immediately open edit form with updated geometry so user can save
+              openFacilityForm(updatedProps)
+            })
+          }
+
+          const categoryLabel = category
           const infoWindow = new window.google.maps.InfoWindow({
             content: `
               <div style="padding: 8px; min-width: 200px;">
@@ -1977,6 +1819,8 @@ const openFacilityForm = (facilityData: any) => {
   facilityForm.efforts_for_student_retention = facilityData.efforts_for_student_retention || ''
   facilityForm.additional_comments = facilityData.additional_comments || ''
   facilityForm.distance_in_meters = facilityData.distance_in_meters || null
+  // Geometry: use geom from facility data if present (including updated position from draggable marker)
+  facilityForm.geom = facilityData.geom || null
   
   facilityDrawerVisible.value = true
 }
@@ -2031,6 +1875,9 @@ const submitFacilityForm = async () => {
           const res = await updateOneRecord(formData)
           if (res.status === 'success') {
             ElMessage.success('Education facility updated successfully')
+            // After update, reset pagination so the updated record (usually sorted to top) is visible
+            page.value = 1
+            currentPage.value = 1
             // Reload facilities on map and in table
             if (mapDrawerSettlement.value) {
               await loadEducationFacilitiesOnMap(mapDrawerSettlement.value.id)
@@ -2045,6 +1892,9 @@ const submitFacilityForm = async () => {
           const res = await CreateRecord(formData)
           if (res.status === 'success') {
             ElMessage.success('Education facility created successfully')
+            // After create, reset pagination so the new record is visible
+            page.value = 1
+            currentPage.value = 1
             // Reload facilities on map and in table
             if (mapDrawerSettlement.value) {
               await loadEducationFacilitiesOnMap(mapDrawerSettlement.value.id)
@@ -2166,77 +2016,144 @@ const filteredSegments = computed(() => []);
     </div>
 
 
-    <el-row :gutter="10" style=" margin-bottom:10px;">
-      <el-col :xs="24" :sm="24" :md="2" :lg="2" class="max-w-200px">
-
-        <div class="max-w-200px">
-          <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
+    <el-row :gutter="10" style="margin-bottom: 10px;">
+      <el-col :xs="24" :sm="24" :md="4" :lg="2" class="max-w-200px">
+        <div class="max-w-200px" style="margin-bottom: 8px;">
+          <el-button
+            type="primary"
+            plain
+            :icon="Back"
+            @click="goBack"
+            style="margin-right: 10px; width: 100%;"
+          >
             Back
           </el-button>
         </div>
       </el-col>
 
-      <el-col :xs="24" :sm="24" :md="12" :lg="5">
+      <el-col :xs="24" :sm="24" :md="8" :lg="5" style="margin-bottom: 8px;">
         <el-select
-size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear" multiple clearable
-          filterable collapse-tags placeholder="By County" style=" margin-right: 5px;"
-          :disabled="isCountyRestricted">
-          <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-
-      </el-col>
-
-      <el-col :xs="24" :sm="24" :md="12" :lg="4">
-        <el-select
-:disabled="!enableSubcounty" size="default" v-model="value5" :onChange="filterBySubCounty" multiple
-          clearable filterable collapse-tags placeholder="By Subcounty" style=" margin-right: 5px;"
-          :empty-values="[null, undefined]">
-          <el-option v-for="item in subcountiesOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-      </el-col>
-
-      <el-col :xs="24" :sm="24" :md="12" :lg="4">
-        <el-select
-:disabled="!enableSubcounty" size="default" v-model="value6" :onChange="filterByWard" multiple
-          clearable filterable collapse-tags placeholder="By Ward" style=" margin-right: 5px;">
-          <el-option v-for="item in wardOptions" :key="item.value" :label="item.label" :value="item.value" />
+          size="default"
+          v-model="value4"
+          :onChange="filterByCounty"
+          :onClear="handleClear"
+          multiple
+          clearable
+          filterable
+          collapse-tags
+          placeholder="By County"
+          style="margin-right: 5px;"
+          :disabled="isCountyRestricted"
+        >
+          <el-option
+            v-for="item in countiesOptions"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
         </el-select>
       </el-col>
 
-      <el-col :xs="24" :sm="24" :md="12" :lg="5">
+      <!-- Settlement filter replaces subcounty/ward filters -->
+      <el-col :xs="24" :sm="24" :md="8" :lg="4" style="margin-bottom: 8px;">
+        <el-select
+          size="default"
+          v-model="value7"
+          :onChange="filterBySettlement"
+          :disabled="!selectedCounty || !selectedCounty.length"
+          multiple
+          clearable
+          filterable
+          collapse-tags
+          placeholder="By Settlement"
+          style="margin-right: 5px;"
+        >
+          <el-option
+            v-for="item in settlementOptions"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </el-col>
 
+      <el-col :xs="24" :sm="24" :md="8" :lg="5" style="margin-bottom: 8px;">
         <el-input
-v-model="search_string" clearable :onClear="handleClear"
-          placeholder="Search by name (or part of it).." @change="searchByNewName" class="input-with-select"
-          style=" margin-right: 5px;">
+          v-model="search_string"
+          clearable
+          @clear="handleClear"
+          placeholder="Search by name (or part of it).."
+          @change="searchByNewName"
+          class="input-with-select"
+          style="margin-right: 5px;"
+        >
           <template #append>
-            <el-button v-loading="searchLoading" :icon="Search" :onClick="searchByNewName" />
+            <el-button
+              v-loading="searchLoading"
+              :icon="Search"
+              @click="searchByNewName"
+            />
           </template>
         </el-input>
       </el-col>
 
 
 
-      <el-col :xs="24" :sm="24" :md="12" :lg="4">
+      <el-col :xs="24" :sm="24" :md="12" :lg="4" style="margin-bottom: 8px;">
+        <div
+          style="display: flex; align-items: center; gap: 10px; justify-content: flex-end; width: 100%;"
+        >
+          <!-- Desktop / tablet: show separate buttons -->
+          <template v-if="!isMobile">
+            <el-tooltip content="Add Facility" placement="top">
+              <PermissionWrapper :permissions="'education_facility:create'">
+                <el-button @click="AddFacility" type="primary" :icon="Plus" />
+              </PermissionWrapper>
+            </el-tooltip>
 
-        <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px;">
+            <el-tooltip content="Clear" placement="top">
+              <el-button @click="handleClear" type="primary" :icon="Filter" />
+            </el-tooltip>
 
-          <el-tooltip content="Add Facility" placement="top">
-            <PermissionWrapper :permissions="'education_facility:create'">
-              <el-button @click="AddFacility" type="primary" :icon="Plus" />
-            </PermissionWrapper>
-          </el-tooltip>
+            <DownloadCustom
+              v-if="showEditButtons"
+              :data="tableDataList"
+              :model="educationFacilityModel"
+              :associated_models="['settlement', 'county', 'subcounty', 'ward']"
+            />
+          </template>
 
-          <el-tooltip content="Clear" placement="top">
-            <el-button :onClick="handleClear" type="primary" :icon="Filter" />
-          </el-tooltip>
+          <!-- Mobile: collapse actions into dropdown + compact download button -->
+          <template v-else>
+            <el-dropdown trigger="click">
+              <el-button type="primary">
+                Actions
+                <el-icon style="margin-left: 4px;">
+                  <ArrowDown />
+                </el-icon>
+              </el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item @click="AddFacility">
+                    <el-icon><Plus /></el-icon>
+                    <span style="margin-left: 8px;">Add Facility</span>
+                  </el-dropdown-item>
+                  <el-dropdown-item @click="handleClear">
+                    <el-icon><Filter /></el-icon>
+                    <span style="margin-left: 8px;">Clear Filters</span>
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
 
-          <DownloadCustom
-v-if="showEditButtons" :data="tableDataList" :model="model"
-            :associated_models="associated_multiple_models" />
+            <DownloadCustom
+              v-if="showEditButtons"
+              :data="tableDataList"
+              :model="educationFacilityModel"
+              :associated_models="['settlement', 'county', 'subcounty', 'ward']"
+            />
+          </template>
         </div>
-
-
       </el-col>
 
 
@@ -2330,7 +2247,11 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
         <el-table-column label="Actions" width="250">
           <template #default="{ row }">
               <TableActions
-              :item="row" :buttons="action_buttons" @view-on-map="flyTo" @add-facility="handleAddFacility" />
+              :item="row"
+              :buttons="action_buttons"
+              @view-on-map="flyTo"
+              @delete="DeleteFacility"
+            />
           </template>
         </el-table-column>
 
@@ -2345,7 +2266,7 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
         layout="sizes, prev, pager, next, total" 
         v-model:currentPage="currentPage"
         v-model:page-size="pageSize" 
-        :page-sizes="[6, 20, 50, 200, 1000]" 
+        :page-sizes="[10, 25, 50, 100]" 
         :total="total" 
         :background="true"
         @size-change="onPageSizeChange" 
@@ -2423,7 +2344,11 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
         <el-table-column label="Actions" width="250">
           <template #default="{ row }">
               <TableActions
-              :item="row" :buttons="action_buttons" @view-on-map="flyTo" @add-facility="handleAddFacility" />
+              :item="row"
+              :buttons="action_buttons"
+              @view-on-map="flyTo"
+              @delete="DeleteFacility"
+            />
           </template>
         </el-table-column>
 
@@ -2516,7 +2441,10 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
         <el-table-column label="Actions" width="250">
           <template #default="{ row }">
               <TableActions
-              :item="row" :buttons="action_buttons" @view-on-map="flyTo" @add-facility="handleAddFacility" />
+              :item="row"
+              :buttons="action_buttons"
+              @view-on-map="flyTo"
+            />
           </template>
         </el-table-column>
 
@@ -2547,25 +2475,23 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
       Showing {{ tableDataList.length }} schools (page) of {{ total }}
     </div> -->
 
-    <el-table :data="tableDataList" style="width: 100%; margin-top: 10px;" border>
-      <el-table-column label="School Name" prop="name" sortable />
-      <el-table-column label="Registration No." prop="registration_number" />
-      <el-table-column label="Category" prop="education_category" />
-      <el-table-column label="Ownership" prop="ownership_type" />
-      <el-table-column label="Status" prop="isApproved">
-        <template #default="scope">
-          <el-tag
-            :type="scope.row.isApproved === 'Approved'
-              ? 'success'
-              : scope.row.isApproved === 'Rejected'
-                ? 'danger'
-                : 'warning'"
-          >
-            {{ scope.row.isApproved }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="Location" min-width="260">
+    <el-table
+      :data="tableDataList"
+      style="width: 100%; margin-top: 10px;"
+      border
+      :size="isMobile ? 'small' : 'default'"
+    >
+      <!-- Name -->
+      <el-table-column
+        label="School Name"
+        prop="name"
+        sortable
+        :min-width="isMobile ? 160 : 220"
+        show-overflow-tooltip
+      />
+
+      <!-- Location -->
+      <el-table-column :label="isMobile ? 'Location' : 'Location (Settlement / Ward / Subcounty / County)'" :min-width="isMobile ? 220 : 260">
         <template #default="scope">
           {{ scope.row.settlement?.name || 'N/A' }},
           {{ scope.row.ward?.name || 'N/A' }} ward,
@@ -2573,13 +2499,49 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
           {{ scope.row.county?.name || 'N/A' }} County
         </template>
       </el-table-column>
-      <el-table-column label="Actions" width="250">
+
+      <!-- Category -->
+      <el-table-column
+        label="Category"
+        prop="education_category"
+        :min-width="isMobile ? 110 : 140"
+        show-overflow-tooltip
+      />
+
+      <!-- Enrolment (total + teachers) -->
+      <el-table-column label="Enrolment" min-width="200">
+        <template #default="scope">
+          <div>
+            <div>
+              <strong>Total learners:</strong>
+              {{
+                (scope.row.enrolled_boys_count || 0) +
+                (scope.row.enrolled_girls_count || 0)
+              }}
+            </div>
+            <div style="margin-top: 2px;">
+              <strong>Teachers:</strong>
+              {{
+                (scope.row.male_teachers_count || 0) +
+                (scope.row.female_teachers_count || 0)
+              }}
+            </div>
+          </div>
+        </template>
+      </el-table-column>
+
+      <el-table-column
+        label="Actions"
+        :min-width="isMobile ? 72 : 200"
+        align="center"
+        fixed="right"
+      >
         <template #default="{ row }">
           <TableActions
             :item="row"
             :buttons="action_buttons"
             @view-on-map="flyTo"
-            @add-facility="handleAddFacility"
+            @delete="DeleteFacility"
           />
         </template>
       </el-table-column>
@@ -2728,18 +2690,17 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
     <div v-if="mapDrawerSettlement" class="map-container-wrapper">
       <div ref="mapDrawerContainer" class="map-container"></div>
       
-      <!-- Legend - Dynamically shows only facility categories present on map -->
-      <div v-if="legendItems && legendItems.length > 0" class="map-legend">
-        <h4 class="legend-title">Education Facility Categories</h4>
-        <template v-for="item in legendItems" :key="item.key">
-          <div class="legend-item">
-            <div 
-              class="legend-circle"
-              :style="{ backgroundColor: item.color }"
-            ></div>
-            <span class="legend-label">{{ item.label }}</span>
-          </div>
-        </template>
+      <!-- Legend -->
+      <div v-if="presentFacilityCategories.length > 0" class="map-legend">
+        <h4 class="legend-title">Map Legend</h4>
+        <div class="legend-item">
+          <img src="/icons/school.png" style="width:22px;height:22px;margin-right:10px;opacity:1;" />
+          <span class="legend-label">Selected school</span>
+        </div>
+        <div class="legend-item">
+          <img src="/icons/school.png" style="width:22px;height:22px;margin-right:10px;opacity:0.2;" />
+          <span class="legend-label">Other schools</span>
+        </div>
       </div>
     </div>
   </el-drawer>
