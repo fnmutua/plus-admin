@@ -157,8 +157,8 @@ const isCountyRestricted = computed(() => {
 // Google Maps API Key
 const googleMapsApiKey = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
 
-// For settlements, show 'viewOnMap' and 'addFacility' actions
-const action_buttons = ref<string[]>(['viewOnMap', 'addFacility']);
+// Row actions for roads
+const action_buttons = ref<string[]>(['viewOnMap', 'delete']);
 
 console.log('User location info:', {
   isSuperAdmin: isSuperAdmin.value,
@@ -2418,11 +2418,6 @@ const AddFacility = (data?: any) => {
   })
 }
 
-const handleAddFacility = (item: any) => {
-  AddFacility(item)
-}
-
-
 const editFacility = (data: TableSlotDefault) => {
   // Open drawer with road form for editing
   openRoadForm(data)
@@ -2667,7 +2662,7 @@ v-if="showEditButtons" :data="tableDataList" :model="roadFacilityModel"
         <el-table-column label="Actions" width="250">
           <template #default="{ row }">
               <TableActions
-              :item="row" :buttons="action_buttons" @view-on-map="flyTo" @add-facility="handleAddFacility" />
+              :item="row" :buttons="action_buttons" @view-on-map="flyTo" @delete="DeleteFacility" />
           </template>
         </el-table-column>
 
@@ -2759,7 +2754,7 @@ v-if="showEditButtons" :data="tableDataList" :model="roadFacilityModel"
         <el-table-column label="Actions" width="250">
           <template #default="{ row }">
               <TableActions
-              :item="row" :buttons="action_buttons" @view-on-map="flyTo" @add-facility="handleAddFacility" />
+              :item="row" :buttons="action_buttons" @view-on-map="flyTo" @delete="DeleteFacility" />
           </template>
         </el-table-column>
 
@@ -2851,7 +2846,7 @@ v-if="showEditButtons" :data="tableDataList" :model="roadFacilityModel"
         <el-table-column label="Actions" width="250">
           <template #default="{ row }">
               <TableActions
-              :item="row" :buttons="action_buttons" @view-on-map="flyTo" @add-facility="handleAddFacility" />
+              :item="row" :buttons="action_buttons" @view-on-map="flyTo" @delete="DeleteFacility" />
           </template>
         </el-table-column>
 
