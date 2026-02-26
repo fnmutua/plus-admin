@@ -9,42 +9,35 @@ declare global {
 
 import { getSettlementListByCounty, DeleteRecord, updateOneRecord, getOneGeo, deleteDocument, getAllGeo, getfilteredGeo, CreateRecord, searchByKeyWord } from '@/api/settlements'
 import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
-import { getFile, getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
+import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
 import {
-  ElButton, ElSelect, MessageParamsWithType, UploadProps, ElDescriptions, ElDescriptionsItem, ElCol, ElRow, ElCard,
-  ElOptionGroup, ElOption, FormInstance, ElMessage, ElCollapse, ElCollapseItem, ElInput, ElBadge, ElSegmented,
-  ElPagination, ElTooltip, ElTabPane, ElTabs, ElTable, ElTableColumn, ElDialog, ElUpload, ElIcon,
-  ElPopconfirm, ElDivider, ElDropdown, ElDropdownItem, ElDropdownMenu, ElForm, ElFormItem, ElEmpty, ElDrawer,
-  ElInputNumber, ElSteps, ElStep
-} from 'element-plus'
-import { computed, ref, reactive, nextTick, defineAsyncComponent, type Ref } from 'vue'
-import xlsx from "json-as-xlsx"
+  ElButton, ElSelect, MessageParamsWithType, ElDescriptions, ElDescriptionsItem, ElCol, ElRow, ElCard,
+  ElOption, FormInstance, ElMessage, ElInput, ElBadge, ElSegmented,
+  ElPagination, ElTooltip, ElTable, ElTableColumn, ElDialog, ElIcon,
+  ElDivider, ElDropdown, ElDropdownItem, ElDropdownMenu, ElForm, ElFormItem, ElEmpty, ElDrawer,
+  ElInputNumber} from 'element-plus'
+import { computed, ref, reactive, nextTick, defineAsyncComponent } from 'vue'
 
 import {
-  Position, TopRight, User, Plus, Edit, Delete, View, Download, Filter, InfoFilled, Back, Search, ArrowDown,
-  MessageBox, Apple, Cherry, Grape, Orange, Pear, Watermelon, CircleClose, Message, CircleCheck, StarFilled, Loading, Check
+  Plus, Edit, Delete, Filter, Back, Search, ArrowDown,
+  Loading, Check
 } from '@element-plus/icons-vue'
 
 
 
 import { useRouter, useRoute } from 'vue-router'
-import exportFromJSON from 'export-from-json'
   
 
 
 import { Loader } from '@googlemaps/js-api-loader'
-import bbox from '@turf/bbox'
 import * as turf from '@turf/turf'
-import { feature } from '@turf/turf'
 
-import { countyOptions, subcountyOptions, settlementOptionsV2, LevelOptions, ownsershipOptions, regOptions, HCFTypeOptions, SchoolLevelOptions } from './../common/index'
+import { countyOptions, subcountyOptions, settlementOptionsV2, LevelOptions, ownsershipOptions, HCFTypeOptions } from './../common/index'
 
 import UploadComponent from '@/views/Components/UploadComponent.vue';
  
 import TableActions from '@/views/Components/TableActions.vue';
 
-import ListDocuments from '@/views/Components/ListDocuments.vue';
-import DownloadAll from '@/views/Components/DownloadAll.vue';
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 
 
@@ -191,6 +184,12 @@ const settlementGeo = ref<any>(null)
 const educationFacilitiesGeo = ref<any>(null)
 // Store facility data with markers for editing
 const facilityMarkerDataMap = ref<Map<any, any>>(new Map())
+const mapDrawerActiveSchool = ref<any>(null)
+const mapDrawerActiveSchoolId = ref<number | null>(null)
+const activeSchoolHasGeometry = ref(false)
+const isPlacingSchoolMarker = ref(false)
+const mapPlacementMarker = ref<any>(null)
+const mapPlacementClickListener = ref<any>(null)
 
 // Facility form drawer state
 const facilityDrawerVisible = ref(false)
@@ -1467,7 +1466,11 @@ const initializeMapDrawer = async (item: any) => {
     const settlementId = item?.settlement_id || item?.id
 
     // Track current school (if provided) so we can highlight it on the map
-    const currentSchoolId = item && item.registration_number ? item.id : null
+    const currentSchoolId = item?.settlement_id ? item.id : null
+    mapDrawerActiveSchool.value = currentSchoolId ? item : null
+    mapDrawerActiveSchoolId.value = currentSchoolId ? Number(currentSchoolId) : null
+    activeSchoolHasGeometry.value = false
+    isPlacingSchoolMarker.value = false
 
     // Get settlement geometry
     const geoForm: any = {
@@ -1536,6 +1539,7 @@ const initializeMapDrawer = async (item: any) => {
             strokeWeight: 2,
             fillColor: '#FF0000',
             fillOpacity: 0, // Transparent fill
+            clickable: false, // Allow map click events for marker placement
             map: googleMap.value
           })
 
@@ -1644,6 +1648,7 @@ const loadEducationFacilitiesOnMap = async (settlementId: number, currentSchoolI
     
     educationFacilitiesGeo.value = geoJsonData
     const features = geoJsonData.features || []
+    const renderedSchoolIds = new Set<number | string>()
     
     if (features.length === 0) {
       ElMessage.info('No education facilities found with geometry for this settlement.')
@@ -1651,92 +1656,116 @@ const loadEducationFacilitiesOnMap = async (settlementId: number, currentSchoolI
       return
     }
     
-    // Process features and create markers
-    features.forEach((feature: any) => {
-      if (feature.geometry && feature.geometry.type === 'Point') {
-        const coords = feature.geometry.coordinates
-        if (!coords || coords.length < 2) {
-          return
-        }
-        
-        const [lng, lat] = coords
-        // Get category from properties - education facilities use 'category' or 'education_category'
-        let category = (feature.properties?.category || feature.properties?.education_category || 'other').toLowerCase().trim()
-        
-        // Normalize category values
-        if (!category || category === 'n/a' || category === 'na') {
-          category = 'other'
-        }
-        
-        // Track this facility category for dynamic legend
-        if (!presentFacilityCategories.includes(category)) {
-          presentFacilityCategories.push(category)
-        }
-        
-        try {
-          const isCurrentSchool = !!currentSchoolId && feature.properties?.id === currentSchoolId
+    const getPointCoords = (geometry: any): [number, number] | null => {
+      if (!geometry) return null
+      if (geometry.type === 'Point' && Array.isArray(geometry.coordinates) && geometry.coordinates.length >= 2) {
+        return [Number(geometry.coordinates[0]), Number(geometry.coordinates[1])]
+      }
+      if (geometry.type === 'MultiPoint' && Array.isArray(geometry.coordinates) && geometry.coordinates[0]?.length >= 2) {
+        return [Number(geometry.coordinates[0][0]), Number(geometry.coordinates[0][1])]
+      }
+      return null
+    }
 
-          // Use same school icon for all schools.
-          // Current school: full opacity; others: faded to appear "grayed out".
-          const icon = {
-            url: 'icons/school.png',
-            scaledSize: new window.google.maps.Size(30, 30),
-            anchor: new window.google.maps.Point(15, 15)
-          }
+    const addSchoolMarker = (lat: number, lng: number, props: any, category: string) => {
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return
+      try {
+        const isCurrentSchool = !!currentSchoolId && Number(props?.id) === Number(currentSchoolId)
+        if (isCurrentSchool) {
+          activeSchoolHasGeometry.value = true
+        }
 
-          const marker = new window.google.maps.Marker({
-            position: { lat, lng },
-            map: googleMap.value,
-            title: feature.properties?.name || 'Education Facility',
-            icon,
-            draggable: isCurrentSchool, // allow dragging only for the active school
-            opacity: isCurrentSchool ? 1 : 0.2,
-            zIndex: isCurrentSchool ? 600 : 500
-          })
+        const icon = {
+          url: 'icons/school.png',
+          scaledSize: new window.google.maps.Size(30, 30),
+          anchor: new window.google.maps.Point(15, 15)
+        }
 
-          // When user drags the current school marker, update its stored position in memory
-          if (isCurrentSchool) {
-            marker.addListener('dragend', (event: any) => {
-              const newPos = event.latLng?.toJSON?.() || { lat, lng }
-              const updatedProps = {
-                ...feature.properties,
-                latitude: newPos.lat,
-                longitude: newPos.lng,
-                geom: {
-                  type: 'Point',
-                  coordinates: [newPos.lng, newPos.lat]
-                }
+        const marker = new window.google.maps.Marker({
+          position: { lat, lng },
+          map: googleMap.value,
+          title: props?.name || 'Education Facility',
+          icon,
+          draggable: isCurrentSchool,
+          opacity: isCurrentSchool ? 1 : 0.2,
+          zIndex: isCurrentSchool ? 600 : 500
+        })
+
+        if (isCurrentSchool) {
+          marker.addListener('dragend', (event: any) => {
+            const newPos = event.latLng?.toJSON?.() || { lat, lng }
+            const updatedProps = {
+              ...props,
+              latitude: newPos.lat,
+              longitude: newPos.lng,
+              geom: {
+                type: 'Point',
+                coordinates: [newPos.lng, newPos.lat]
               }
-              facilityMarkerDataMap.value.set(marker, updatedProps)
-              console.log('Updated school marker position:', updatedProps)
-              // Immediately open edit form with updated geometry so user can save
-              openFacilityForm(updatedProps)
-            })
-          }
+            }
+            facilityMarkerDataMap.value.set(marker, updatedProps)
+            console.log('Updated school marker position:', updatedProps)
+            openFacilityForm(updatedProps)
+          })
+        }
 
-          const categoryLabel = category
-          const infoWindow = new window.google.maps.InfoWindow({
-            content: `
+        const categoryLabel = category
+        const infoWindow = new window.google.maps.InfoWindow({
+          content: `
               <div style="padding: 8px; min-width: 200px;">
-                <h3 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600;">${feature.properties?.name || 'Education Facility'}</h3>
+                <h3 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600;">${props?.name || 'Education Facility'}</h3>
                 <p style="margin: 0 0 5px 0; font-size: 12px;"><strong>Category:</strong> ${categoryLabel}</p>
-                ${feature.properties?.ownership_type ? `<p style="margin: 5px 0 0 0; font-size: 12px;"><strong>Ownership:</strong> ${feature.properties.ownership_type}</p>` : ''}
-                ${feature.properties?.registration_status ? `<p style="margin: 5px 0 0 0; font-size: 12px;"><strong>Status:</strong> ${feature.properties.registration_status}</p>` : ''}
+                ${props?.ownership_type ? `<p style="margin: 5px 0 0 0; font-size: 12px;"><strong>Ownership:</strong> ${props.ownership_type}</p>` : ''}
+                ${props?.registration_status ? `<p style="margin: 5px 0 0 0; font-size: 12px;"><strong>Status:</strong> ${props.registration_status}</p>` : ''}
               </div>
             `
-          })
+        })
 
-          facilityMarkerDataMap.value.set(marker, feature.properties)
-          
-          marker.addListener('click', () => {
-            openFacilityForm(feature.properties)
-          })
-
-          educationFacilityMarkers.value.push(marker)
-        } catch (markerError) {
-          console.error('Error creating marker:', markerError, feature)
-        }
+        facilityMarkerDataMap.value.set(marker, props)
+        marker.addListener('click', () => {
+          openFacilityForm(props)
+        })
+        educationFacilityMarkers.value.push(marker)
+      } catch (markerError) {
+        console.error('Error creating marker:', markerError, props)
       }
+    }
+
+    // Process features from geo endpoint
+    features.forEach((feature: any) => {
+      if (!feature.geometry) return
+      const coords = getPointCoords(feature.geometry)
+      if (!coords) return
+
+      const [lng, lat] = coords
+      let category = (feature.properties?.category || feature.properties?.education_category || 'other').toLowerCase().trim()
+      if (!category || category === 'n/a' || category === 'na') {
+        category = 'other'
+      }
+      if (!presentFacilityCategories.includes(category)) {
+        presentFacilityCategories.push(category)
+      }
+      if (feature.properties?.id !== undefined && feature.properties?.id !== null) {
+        renderedSchoolIds.add(feature.properties.id)
+      }
+      addSchoolMarker(lat, lng, feature.properties || {}, category)
+    })
+
+    // Fallback for facilities missing in geo endpoint response: read from facility.geom
+    facilities.forEach((facility: any) => {
+      if (renderedSchoolIds.has(facility?.id)) return
+      const coords = getPointCoords(facility?.geom)
+      if (!coords) return
+      const [lng, lat] = coords
+      let category = (facility?.category || facility?.education_category || 'other').toLowerCase().trim()
+      if (!category || category === 'n/a' || category === 'na') {
+        category = 'other'
+      }
+      if (!presentFacilityCategories.includes(category)) {
+        presentFacilityCategories.push(category)
+      }
+      addSchoolMarker(lat, lng, facility, category)
+      renderedSchoolIds.add(facility?.id)
     })
     
     if (educationFacilityMarkers.value.length === 0) {
@@ -1748,6 +1777,64 @@ const loadEducationFacilitiesOnMap = async (settlementId: number, currentSchoolI
     console.error("Error loading education facilities on map:", error)
     ElMessage.error("Failed to load education facilities on map: " + (error as Error).message)
   }
+}
+
+const clearMapPlacementListener = () => {
+  if (mapPlacementClickListener.value && window.google?.maps?.event) {
+    window.google.maps.event.removeListener(mapPlacementClickListener.value)
+  }
+  mapPlacementClickListener.value = null
+}
+
+const startPlacingSchoolMarker = () => {
+  if (!googleMap.value || !mapDrawerActiveSchool.value || !mapDrawerActiveSchoolId.value) {
+    ElMessage.warning('Select a school first before adding a marker')
+    return
+  }
+
+  clearMapPlacementListener()
+  isPlacingSchoolMarker.value = true
+  ElMessage.info('Click on the map to place the school marker')
+
+  mapPlacementClickListener.value = googleMap.value.addListener('click', (event: any) => {
+    const point = event?.latLng?.toJSON?.()
+    if (!point) return
+
+    const icon = {
+      url: 'icons/school.png',
+      scaledSize: new window.google.maps.Size(30, 30),
+      anchor: new window.google.maps.Point(15, 15)
+    }
+
+    if (mapPlacementMarker.value) {
+      mapPlacementMarker.value.setPosition(point)
+    } else {
+      mapPlacementMarker.value = new window.google.maps.Marker({
+        position: point,
+        map: googleMap.value,
+        title: mapDrawerActiveSchool.value?.name || 'Education Facility',
+        icon,
+        draggable: true,
+        opacity: 1,
+        zIndex: 700
+      })
+    }
+
+    const updatedProps = {
+      ...mapDrawerActiveSchool.value,
+      latitude: point.lat,
+      longitude: point.lng,
+      geom: {
+        type: 'Point',
+        coordinates: [point.lng, point.lat]
+      }
+    }
+
+    activeSchoolHasGeometry.value = true
+    isPlacingSchoolMarker.value = false
+    clearMapPlacementListener()
+    openFacilityForm(updatedProps)
+  })
 }
 
 // Open facility form drawer for editing
@@ -1940,6 +2027,15 @@ const closeFacilityDrawer = () => {
 const handleMapDrawerClose = () => {
   mapDrawerVisible.value = false
   facilityDrawerVisible.value = false
+  clearMapPlacementListener()
+  isPlacingSchoolMarker.value = false
+  activeSchoolHasGeometry.value = false
+  mapDrawerActiveSchool.value = null
+  mapDrawerActiveSchoolId.value = null
+  if (mapPlacementMarker.value) {
+    mapPlacementMarker.value.setMap(null)
+    mapPlacementMarker.value = null
+  }
   // Clean up markers
   educationFacilityMarkers.value.forEach(marker => marker.setMap(null))
   educationFacilityMarkers.value = []
@@ -2689,6 +2785,14 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
     
     <div v-if="mapDrawerSettlement" class="map-container-wrapper">
       <div ref="mapDrawerContainer" class="map-container"></div>
+      <div
+        v-if="mapDrawerActiveSchoolId && !activeSchoolHasGeometry"
+        class="map-action-button"
+      >
+        <el-button type="primary" @click="startPlacingSchoolMarker">
+          {{ isPlacingSchoolMarker ? 'Click map to place marker...' : 'Add Marker' }}
+        </el-button>
+      </div>
       
       <!-- Legend -->
       <div v-if="presentFacilityCategories.length > 0" class="map-legend">
@@ -2890,6 +2994,13 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
   height: 100%;
 }
 
+.map-action-button {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 1001;
+}
+
 .map-legend {
   position: absolute;
   bottom: 20px;
@@ -2961,6 +3072,11 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
     padding: 12px;
     max-height: 40vh;
     overflow-y: auto;
+  }
+
+  .map-action-button {
+    top: 10px;
+    right: 10px;
   }
 
   .legend-title {
