@@ -1,116 +1,55 @@
-<!-- eslint-disable prettier/prettier -->
+﻿<!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
 
-import { getSettlementListByCounty, getOneGeo, getfilteredGeo } from '@/api/settlements'
-import { DeleteRecord, updateOneRecord, deleteDocument } from '@/api/settlements'
+declare global {
+  interface Window {
+    google: any
+  }
+}
 
-import { getCountyListApi } from '@/api/counties'
-import {
-  ElButton, ElSelect, MessageParamsWithType, UploadProps, ElDescriptions, ElDescriptionsItem, ElCol, ElRow, ElCard,
-  ElOptionGroup, ElOption, FormInstance, ElDrawer, ElInputNumber
-} from 'element-plus'
-import { ElMessage, ElCollapse, ElCollapseItem, ElInput, ElBadge, ElSegmented } from 'element-plus'
-import { computed, onMounted, watch } from 'vue'
-import xlsx from "json-as-xlsx"
-import { getFile } from '@/api/summary'
-import {
-  searchByKeyWord
-} from '@/api/settlements'
-import { getListWithoutGeo } from '@/api/counties'
+import { getSettlementListByCounty, DeleteRecord, updateOneRecord, getOneGeo, deleteDocument, getAllGeo, getfilteredGeo, CreateRecord, searchByKeyWord } from '@/api/settlements'
+import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
 import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
-
-
+import {
+  ElButton, ElSelect, ElDescriptions, ElDescriptionsItem, ElCol, ElRow, ElCard,
+  ElOption, FormInstance, ElMessage, ElInput, 
+  ElPagination, ElTooltip, ElTable, ElTableColumn, ElDialog, ElIcon,
+  ElDivider, ElDropdown, ElDropdownItem, ElDropdownMenu, ElForm, ElFormItem, ElEmpty, ElDrawer,
+  ElInputNumber} from 'element-plus'
+import { computed, ref, reactive, nextTick, defineAsyncComponent } from 'vue'
 
 import {
-  Position,
-  TopRight,
-  User,
-  Plus,
-  Edit,
-  Delete,
-  View,
-  Download,
-  Filter,
-  InfoFilled, Back, Search,
-  MessageBox
+  Plus, Filter, Back, Search, ArrowDown,
+  Check
 } from '@element-plus/icons-vue'
-
-import {
-  Apple,
-  Cherry,
-  Grape,
-  Orange,
-  Pear,
-  Watermelon, CircleClose, Message, CircleCheck, Loading, Check
-} from '@element-plus/icons-vue'
-
-
-import { ref, reactive, nextTick } from 'vue'
-import {
-  ElPagination, ElTooltip, ElTabPane, ElTabs, ElTable, ElTableColumn, ElDialog, ElUpload, ElIcon,
-  ElPopconfirm, ElDivider, ElDropdown, ElDropdownItem, ElDropdownMenu, ElForm, ElFormItem, ElEmpty
-} from 'element-plus'
 
 import { useRouter, useRoute } from 'vue-router'
-import exportFromJSON from 'export-from-json'
 
-
-
-import { featureGroup } from 'leaflet'
-
-import { getAllGeo } from '@/api/settlements'
-
-import { StarFilled } from '@element-plus/icons-vue'
-//import { MapboxMap, MapboxNavigationControl, MapboxMarker, MapboxGeolocateControl, MapboxGeocoder } from '@studiometa/vue-mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
-
-
-
-import '@mapbox/mapbox-gl-geocoder/lib/mapbox-gl-geocoder.css';
+import { Loader } from '@googlemaps/js-api-loader'
 import * as turf from '@turf/turf'
-import { uuid } from 'vue-uuid'
 
-import FontawesomeMarker from "mapbox-gl-fontawesome-markers";
+import { subcountyOptions, settlementOptionsV2 } from './../common/index'
 
+import UploadComponent from '@/views/Components/UploadComponent.vue'
+import TableActions from '@/views/Components/TableActions.vue'
+import DownloadCustom from '@/views/Components/DownloadCustom.vue'
 
-import mapboxgl from "mapbox-gl";
-import 'mapbox-gl/dist/mapbox-gl.css'
-import { feature } from '@turf/turf'
-
-import { Icon } from '@iconify/vue';
-import * as Iconify from '@iconify/iconify';
-import IconifyIcon from '@iconify/vue';
-
-import { MapboxLayerSwitcherControl, MapboxLayerDefinition } from "mapbox-layer-switcher";
-
-import "mapbox-layer-switcher/styles.css";
-
-import { countyOptions, subcountyOptions, settlementOptionsV2, LevelOptions, ownsershipOptions, regOptions, HCFTypeOptions } from './../common/index'
-
-import UploadComponent from '@/views/Components/UploadComponent.vue';
-import { defineAsyncComponent } from 'vue';
-
-import TableActions from '@/views/Components/TableActions.vue';
-
-import ListDocuments from '@/views/Components/ListDocuments.vue';
-import DownloadAll from '@/views/Components/DownloadAll.vue';
-import DownloadCustom from '@/views/Components/DownloadCustom.vue';
-
-
-import { useAppStore } from '@/store/modules/app'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import PermissionWrapper from '@/components/PermissionWrapper.vue'
-
-
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
 
-
 const showAdminButtons = ref(appStore.getAdminButtons)
 const showEditButtons = ref(appStore.getEditButtons)
+
+// Actions for each row
+const action_buttons = ref<string[]>(['viewOnMap', 'delete'])
+
+// Google Maps API Key
+const googleMapsApiKey = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
 
 // User location-based filtering
 const isSuperAdmin = computed(() => {
@@ -145,13 +84,11 @@ const userSettlementId = computed(() => {
   return userSettlementRole.value?.user_roles?.settlement_id || null
 })
 
-// Check if user should be restricted to their county
 const isCountyRestricted = computed(() => {
   return !isSuperAdmin.value && !hasNationalAccess.value && !!userCountyId.value
 })
 
-// For settlements, show 'viewOnMap' and 'addFacility' actions
-const action_buttons = ref<string[]>(['viewOnMap', 'addFacility'])
+const isMobile = computed(() => appStore.getMobile)
 
 console.log('User location info:', {
   isSuperAdmin: isSuperAdmin.value,
@@ -161,295 +98,185 @@ console.log('User location info:', {
   isCountyRestricted: isCountyRestricted.value
 })
 
-
-
-console.log('action_buttons', action_buttons.value);
-
-
-
-
-
-
-
-console.log("userInfo--->", userInfo)
-console.log("showAdminButtons--->", showAdminButtons.value)
-
-
-
-const MapBoxToken =
-  'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg'
-mapboxgl.accessToken = MapBoxToken;
-
-const morefileList = ref<any[]>([])
-
-
-
-
 const tableDataListNew = ref([])
 const tableDataListRejected = ref([])
-// Pagination totals (settlements count)
 const totalRejected = ref(0)
 const totalNew = ref(0)
 const total = ref(0)
 
-// Segment badge counts (water facilities count)
 const badgeCountApproved = ref(0)
 const badgeCountNew = ref(0)
 const badgeCountRejected = ref(0)
-
 const activeSegment = ref('Approved')
 
-const options = ref([
-  {
-    label: 'Approved',
-    value: 'Approved',
-    icon: CircleCheck,
-    count: badgeCountApproved, // Show facilities count in badge
-    disabled: false,
-  },
-  {
-    label: 'New',
-    value: 'New',
-    icon: Message,
-    count: badgeCountNew, // Show facilities count in badge
-    disabled: !showAdminButtons.value
-  },
-  {
-    label: 'Rejected',
-    value: 'Rejected',
-    icon: CircleClose,
-    count: badgeCountRejected, // Show facilities count in badge
-    disabled: !showAdminButtons.value
-  },
-])
-
-
-
-
-
-const statuses = ref([])
-const getSummaryStatus = async () => {
-  // Get count of settlements that have water facilities with different approval statuses
-  const formData: Record<string, any> = {}
-  formData.model = waterFacilityModel
-  formData.summaryFunction = 'count'
-  formData.summaryField = 'isApproved'
-  formData.groupFields = ['isApproved']
-  
-  // Build filters array similar to getFilteredData to apply same filters
-  let summaryFilters: string[] = []
-  let summaryFilterValues: any[] = []
-  
-  // FIRST: Apply location-based filtering based on user role (SERVER-SIDE FILTERING)
-  if (isCountyRestricted.value && userCountyId.value) {
-    // User is restricted to their county - ALWAYS apply this filter server-side
-    summaryFilters.push('county_id')
-    summaryFilterValues.push([userCountyId.value])
-  } else if (userSettlementId.value && !isSuperAdmin.value && !hasNationalAccess.value) {
-    // User is restricted to their settlement - ALWAYS apply this filter server-side
-    summaryFilters.push('settlement_id')
-    summaryFilterValues.push([userSettlementId.value])
-  }
-  
-  // THEN: Add other filters from current filter selections (excluding isApproved)
-  filters.value.forEach((filter: string, index: number) => {
-    if (filter !== 'isApproved') {
-      // For county-restricted users, preserve the county_id restriction and don't override it
-      if (filter === 'county_id' && isCountyRestricted.value && userCountyId.value) {
-        // Ensure county restriction is maintained - don't override with manual selection
-        const countyIndex = summaryFilters.indexOf('county_id')
-        if (countyIndex !== -1) {
-          summaryFilterValues[countyIndex] = [userCountyId.value]
-        }
-        return
-      }
-      
-      // Check if filter already exists (to avoid duplicates)
-      const existingIndex = summaryFilters.indexOf(filter)
-      if (existingIndex === -1) {
-        summaryFilters.push(filter)
-        summaryFilterValues.push(filterValues.value[index])
-      } else {
-        // If filter exists, merge values (for multi-select filters)
-        const existingValues = summaryFilterValues[existingIndex]
-        const newValues = filterValues.value[index]
-        if (Array.isArray(existingValues) && Array.isArray(newValues)) {
-          summaryFilterValues[existingIndex] = [...new Set([...existingValues, ...newValues])]
-        } else {
-          summaryFilterValues[existingIndex] = newValues
-        }
-      }
-    }
-  })
-  
-  // Final check: Ensure county restriction is always present for county-restricted users
-  if (isCountyRestricted.value && userCountyId.value) {
-    const countyIndex = summaryFilters.indexOf('county_id')
-    if (countyIndex === -1) {
-      summaryFilters.unshift('county_id')
-      summaryFilterValues.unshift([userCountyId.value])
-    } else {
-      summaryFilterValues[countyIndex] = [userCountyId.value]
-    }
-  }
-  
-  // Apply filters to formData
-  if (summaryFilters.length > 0) {
-    formData.filters = summaryFilters
-    formData.filterValues = summaryFilterValues
-  }
-  
-  const response = await getSummarybyFieldFromMultipleIncludes(formData)
-  
-  // Initialize statuses object
-  statuses.value = {}
-  
-  // Process response.Total array to build status counts
-  if (response && response.Total && Array.isArray(response.Total)) {
-    response.Total.forEach((item: any) => {
-      if (item.isApproved && item.count !== undefined) {
-        statuses.value[item.isApproved] = parseInt(item.count, 10) || 0
-      }
-    })
-  }
-  
-  console.log('Facilities count by status (for badges):', statuses.value)
-  console.log('Response Total:', response?.Total)
-
-  // Set segment badge counts (water facilities count) - ensure they're numbers
-  badgeCountApproved.value = (statuses.value.Approved !== undefined && statuses.value.Approved !== null) ? Number(statuses.value.Approved) : 0
-  badgeCountNew.value = (statuses.value.Pending !== undefined && statuses.value.Pending !== null) ? Number(statuses.value.Pending) : 0
-  badgeCountRejected.value = (statuses.value.Rejected !== undefined && statuses.value.Rejected !== null) ? Number(statuses.value.Rejected) : 0
-  
-  console.log('Badge counts - Approved:', badgeCountApproved.value, 'New:', badgeCountNew.value, 'Rejected:', badgeCountRejected.value)
-  
-  // NOTE: Pagination totals (total.value, totalNew.value, totalRejected.value) are set in getFilteredData()
-  // and represent SETTLEMENTS count - these are NOT updated here
-  // Badge counts show facilities count, pagination uses settlements count
-}
-getSummaryStatus()
-
-
-// Map 
-const polygons = ref([]) as Ref<[number, number][][]>
-const shp = []
-const geoLoaded = ref(false)
-
-const markerLatlon = ref([])
-const markerProperties = ref([])
-
-const markers = ref()
-
 const { push } = useRouter()
-
-
 
 const countiesOptions = ref([])
 const settlementOptions = ref([])
 const settlements = ref([])
-const filteredSettlements = ref([])
 const page = ref(1)
-const pSize = ref(6)
+const pSize = ref(10)
 const selCounties = []
 const loading = ref(true)
-const pageSize = ref(6)
+const pageSize = ref(10)
 const currentPage = ref(1)
-const downloadLoading = ref(false)
-
 
 const tableDataList = ref([])
-//// ------------------parameters -----------------------////
-//const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
-// var filters = []
-// var filterValues = []
 
-const filters = ref(['isApproved'])
-const filterValues = ref([['Approved']])  // make sure the inner array is array
+// Global search and location filters
+const search_string = ref<string>('')
+const selectedCounty = ref<any[]>([])
+const selectedSettlement = ref<any[]>([])
 
+const filters = ref<string[]>([])
+const filterValues = ref<any[][]>([])
 
-var tblData = []
 const associated_Model = ''
 const associated_multiple_models = ['settlement', 'users', 'county', 'subcounty', 'ward']
 
 const model = 'settlement'
 const waterFacilityModel = 'water_point'
-const model_parent_key = 'settlement_id'
-//// ------------------parameters -----------------------////
 
-const currentRoute = useRoute(); // Access current route using useRoute
+// Store water points per settlement (used for map loading)
+const settlementHealthFacilities = ref<Record<number, any[]>>({})
+const loadingFacilities = ref<Record<number, boolean>>({})
+
+// Drawer state for map
+const mapDrawerVisible = ref(false)
+const mapDrawerSettlement = ref<any>(null)
+const mapDrawerContainer = ref<HTMLElement | null>(null)
+const googleMap = ref<any>(null)
+const settlementPolygon = ref<any>(null)
+const healthFacilityMarkers = ref<any[]>([])
+const settlementGeo = ref<any>(null)
+const healthFacilitiesGeo = ref<any>(null)
+const facilityMarkerDataMap = ref<Map<any, any>>(new Map())
+const mapDrawerActiveFacility = ref<any>(null)
+const mapDrawerActiveFacilityId = ref<number | null>(null)
+const activeFacilityHasGeometry = ref(false)
+const isPlacingFacilityMarker = ref(false)
+const mapPlacementMarker = ref<any>(null)
+const mapPlacementClickListener = ref<any>(null)
+
+// Facility form drawer state
+const facilityDrawerVisible = ref(false)
+const facilityFormRef = ref<FormInstance>()
+const editingFacilityId = ref<number | null>(null)
+const isEditMode = ref(false)
+
+// Water point form fields
+const facilityForm = reactive({
+  name: '',
+  settlement_id: '',
+  county_id: '',
+  subcounty_id: '',
+  ward_id: '',
+  type: '',
+  condition: '',
+  ownership_type: '',
+  owner: '',
+  catchment: '',
+  capacity: null,
+  depth: null,
+  price: null,
+  availability: '',
+  name_of_provider: '',
+  cost_of_20_litre_jerrican: null,
+  notes: '',
+  respondent_name: '',
+  respondent_phone: '',
+  geom: null
+})
+
+const facilityFormRules = reactive({
+  name: [{ required: true, message: 'Facility name is required', trigger: 'blur' }],
+  settlement_id: [{ required: true, message: 'Settlement is required', trigger: 'blur' }]
+})
+
+// Form option lists (water-specific)
+const waterPointTypeOptions = [
+  { label: 'Water Kiosk', value: 'kiosk' },
+  { label: 'Public Stand Pipe', value: 'public_stand' },
+  { label: 'Borehole', value: 'borehole' },
+  { label: 'Dug Well', value: 'well' },
+  { label: 'Water Tank', value: 'tank' }
+]
+
+const conditionOptions = [
+  { label: 'Functional', value: 'functional' },
+  { label: 'Functional but in need of maintenance', value: 'need_maintenance' },
+  { label: 'Not Functional', value: 'not_functional' }
+]
+
+const availabilityOptions = [
+  { label: 'Always available', value: 'always' },
+  { label: 'Intermittent', value: 'intermittent' },
+  { label: 'Rarely available', value: 'rarely' }
+]
+
+const catchmentOptions = [
+  { label: 'Within this settlement', value: 'within_settlement' },
+  { label: 'Outside this settlement', value: 'outside_settlement' },
+  { label: 'Within and Outside this settlement', value: 'within_and_outside_settlement' }
+]
+
+const ownershipOptions = [
+  { label: 'Public', value: 'Public' },
+  { label: 'Private', value: 'Private' },
+  { label: 'Communal', value: 'Community' },
+  { label: 'Mission', value: 'Mission' },
+  { label: 'Other', value: 'Other' }
+]
 
 
+// Track categories for map legend
+const presentFacilityCategories = reactive<string[]>([])
 
+const currentRoute = useRoute()
 
 const mapHeight = '450px'
 const countries = 'ke'
 const facilityGeo = ref([])
 
-
-
-//// ------------------Map -----------------------////
-
-
 const subcountyfilteredOptions = ref([])
 const settlementfilteredOptions = ref([])
 
-
-
 const handleSelectCounty = async (county_id: any) => {
-  console.log(county_id)
   showSubcountyOpts.value = true
-  var subset = [];
+  var subset = []
   for (let i = 0; i < subcountyOptions.value.length; i++) {
     if (subcountyOptions.value[i].county_id == county_id) {
-      subset.push(subcountyOptions.value[i]);
+      subset.push(subcountyOptions.value[i])
     }
   }
-  console.log(subset)
   subcountyfilteredOptions.value = subset
 
-  // filter settleemnts 
-  var subset_settlements = [];
+  var subset_settlements = []
   for (let i = 0; i < settlementOptionsV2.value.length; i++) {
     if (settlementOptionsV2.value[i].county_id == county_id) {
-      subset_settlements.push(settlementOptionsV2.value[i]);
+      subset_settlements.push(settlementOptionsV2.value[i])
     }
   }
-  console.log("Subset Setts", subset_settlements)
   settlementfilteredOptions.value = subset_settlements
-
-
-  // Get the select subcoites GEO
 }
 
-
-
-
-
-
-
-
 const handleClear = async () => {
-  console.log('cleared....', filters.value, filterValues.value)
-
   value4.value = null
-  value5.value = null
-  value6.value = null
+  value7.value = null
+  search_string.value = ''
+  selectedCounty.value = []
+  selectedSettlement.value = []
 
-  // Reset and sync pagination
-  pSize.value = 5
-  pageSize.value = 5
+  pSize.value = 10
+  pageSize.value = 10
   page.value = 1
   currentPage.value = 1
-  // Retain only the first element in filters and filterValues
-  filters.value = filters.value.slice(0, 1);
-  filterValues.value = filterValues.value.slice(0, 1);
+  filters.value = filters.value.slice(0, 1)
+  filterValues.value = filterValues.value.slice(0, 1)
   getFilteredData(filters.value, filterValues.value)
 }
 
-
-
 const onPageChange = async (selPage: any) => {
-  console.log('on change change: selected   ', selCounties)
   page.value = selPage
   currentPage.value = selPage
   getFilteredData(filters.value, filterValues.value)
@@ -458,7 +285,7 @@ const onPageChange = async (selPage: any) => {
 const onPageSizeChange = async (size: any) => {
   pSize.value = size
   pageSize.value = size
-  page.value = 1 // Reset to first page when page size changes
+  page.value = 1
   currentPage.value = 1
   getFilteredData(filters.value, filterValues.value)
 }
@@ -470,48 +297,69 @@ const getInterventionsAll = async () => {
 const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
   for (let key in obj) {
     if (key != 'geom') {
-
       if (typeof obj[key] !== 'object') {
-        res[extraKey + key] = obj[key];
+        res[extraKey + key] = obj[key]
       } else {
-        flattenJSON(obj[key], res, `${extraKey}${key}.`);
-      };
-    };
+        flattenJSON(obj[key], res, `${extraKey}${key}.`)
+      }
+    }
   }
-  return res;
-};
+  return res
+}
 
+// Normalize backend payload to a flat list of water points.
+// Some endpoints may return settlement rows with nested water_points.
+const normalizeWaterPointRows = (rows: any[] = []) => {
+  const normalized: any[] = []
 
-const removeReviewButton = () => {
-  const reviewIndex = action_buttons.value.indexOf('review');
-  if (reviewIndex !== -1) {
-    action_buttons.value.splice(reviewIndex, 1);
+  rows.forEach((row: any) => {
+    const nestedFacilities = row?.water_points
+    if (Array.isArray(nestedFacilities) && nestedFacilities.length > 0) {
+      nestedFacilities.forEach((facility: any) => {
+        normalized.push({
+          ...facility,
+          settlement_id: facility?.settlement_id || row?.id || null,
+          settlement: facility?.settlement || row?.settlement || { id: row?.id, name: row?.name },
+          county: facility?.county || row?.county,
+          subcounty: facility?.subcounty || row?.subcounty,
+          ward: facility?.ward || row?.ward
+        })
+      })
+      return
+    }
+
+    normalized.push(row)
+  })
+
+  return normalized.filter((row: any) => {
+    if (!row || typeof row !== 'object') return false
+    const hasSettlementLink = !!(row.settlement_id || row.settlement?.id)
+    const hasWaterHints = (
+      'type' in row ||
+      'condition' in row ||
+      'capacity' in row ||
+      'price' in row ||
+      'availability' in row ||
+      'cost_of_20_litre_jerrican' in row ||
+      'name_of_provider' in row
+    )
+    return hasSettlementLink || hasWaterHints
+  })
+}
+
+// Load water points for a settlement (for map)
+const loadWaterPointsForSettlement = async (settlementId: number) => {
+  if (settlementHealthFacilities.value[settlementId]) {
+    return settlementHealthFacilities.value[settlementId]
   }
-  console.log('action_buttons after removing review:', action_buttons.value);
-};
-
-// Store water facilities for each settlement
-const settlementWaterFacilities = ref<Record<number, any[]>>({})
-const loadingFacilities = ref<Record<number, boolean>>({})
-
-// Load water facilities for a specific settlement
-const loadWaterFacilitiesForSettlement = async (settlementId: number) => {
-  if (settlementWaterFacilities.value[settlementId]) {
-    return settlementWaterFacilities.value[settlementId]
-  }
-
   loadingFacilities.value[settlementId] = true
   try {
-    // Build filters array
     const facilityFilters: string[] = ['settlement_id']
     const facilityFilterValues: any[] = [[settlementId]]
-    
-    // Apply county restriction if user is county-restricted
     if (isCountyRestricted.value && userCountyId.value) {
       facilityFilters.push('county_id')
       facilityFilterValues.push([userCountyId.value])
     }
-    
     const formData = {
       limit: 1000,
       page: 1,
@@ -523,347 +371,189 @@ const loadWaterFacilitiesForSettlement = async (settlementId: number) => {
       filterValues: facilityFilterValues,
       associated_multiple_models: ['settlement', 'county', 'subcounty', 'ward', 'users']
     }
-
     const res = await getSettlementListByCounty(formData)
-    settlementWaterFacilities.value[settlementId] = res.data || []
-    return res.data || []
+    const facilities = normalizeWaterPointRows(res.data || [])
+    settlementHealthFacilities.value[settlementId] = facilities
+    return facilities
   } catch (error) {
-    console.error('Error loading water facilities:', error)
-    ElMessage.error('Failed to load water facilities')
+    console.error('Error loading water points:', error)
+    ElMessage.error('Failed to load water points')
     return []
   } finally {
     loadingFacilities.value[settlementId] = false
   }
 }
 
-
-
-const getFilteredData = async (selFilters, selfilterValues) => {
-  const formData = {}
+const getFilteredData = async (_selFilters?: any, _selfilterValues?: any) => {
+  const formData: any = {}
   formData.limit = pSize.value
   formData.page = page.value
-  formData.curUser = 1 // Id for logged in user
-  formData.model = model // Now using 'settlement'
-  //-Search field--------------------------------------------
+  formData.curUser = 1
+  formData.model = waterFacilityModel
   formData.searchField = 'name'
-  formData.searchKeyword = ''
-  //--Single Filter -----------------------------------------
+  formData.searchKeyword = search_string.value || ''
 
-  formData.assocModel = associated_Model
+  const filtersArr: string[] = []
+  const filterValuesArr: any[] = []
 
-  // - multiple filters -------------------------------------
-  // FIRST: Apply location-based filtering based on user role (SERVER-SIDE FILTERING)
-  // This ensures the filter is applied before any other filters
-  let settlementFilters: string[] = []
-  let settlementFilterValues: any[] = []
-  
-  // Apply user location restriction FIRST (server-side filtering)
   if (isCountyRestricted.value && userCountyId.value) {
-    // User is restricted to their county - ALWAYS apply this filter server-side
-    settlementFilters.push('county_id')
-    settlementFilterValues.push([userCountyId.value])
-    console.log('Applying server-side county restriction filter:', userCountyId.value)
+    filtersArr.push('county_id')
+    filterValuesArr.push([userCountyId.value])
   } else if (userSettlementId.value && !isSuperAdmin.value && !hasNationalAccess.value) {
-    // User is restricted to their settlement - ALWAYS apply this filter server-side
-    settlementFilters.push('settlement_id')
-    settlementFilterValues.push([userSettlementId.value])
-    console.log('Applying server-side settlement restriction filter:', userSettlementId.value)
+    filtersArr.push('settlement_id')
+    filterValuesArr.push([userSettlementId.value])
   }
-  
-  // THEN: Add other filters (excluding isApproved which is handled by nested_models)
-  selFilters.forEach((filter: string, index: number) => {
-    if (filter !== 'isApproved') {
-      // For county-restricted users, preserve the county_id restriction and don't override it
-      if (filter === 'county_id' && isCountyRestricted.value && userCountyId.value) {
-        // Ensure county restriction is maintained - don't override with manual selection
-        const countyIndex = settlementFilters.indexOf('county_id')
-        if (countyIndex !== -1) {
-          // County restriction already applied, ensure it uses the restricted county ID
-          settlementFilterValues[countyIndex] = [userCountyId.value]
-        }
-        // Skip adding this filter again as it's already handled by restriction
-        return
-      }
-      
-      // Check if filter already exists (to avoid duplicates)
-      const existingIndex = settlementFilters.indexOf(filter)
-      if (existingIndex === -1) {
-        settlementFilters.push(filter)
-        settlementFilterValues.push(selfilterValues[index])
-      } else {
-        // If filter exists, merge values (for multi-select filters)
-        const existingValues = settlementFilterValues[existingIndex]
-        const newValues = selfilterValues[index]
-        if (Array.isArray(existingValues) && Array.isArray(newValues)) {
-          settlementFilterValues[existingIndex] = [...new Set([...existingValues, ...newValues])]
-        } else {
-          settlementFilterValues[existingIndex] = newValues
-        }
-      }
-    }
-  })
-  
-  // Final check: Ensure county restriction is always present for county-restricted users
-  if (isCountyRestricted.value && userCountyId.value) {
-    const countyIndex = settlementFilters.indexOf('county_id')
-    if (countyIndex === -1) {
-      // Add county restriction if it's missing
-      settlementFilters.unshift('county_id')
-      settlementFilterValues.unshift([userCountyId.value])
-    } else {
-      // Ensure the value is correct
-      settlementFilterValues[countyIndex] = [userCountyId.value]
-    }
+
+  if (selectedCounty.value && selectedCounty.value.length) {
+    filtersArr.push('county_id')
+    filterValuesArr.push(selectedCounty.value)
   }
-  
-  // Set settlement-level filters (county, subcounty, ward, etc.) - SERVER-SIDE FILTERING
-  formData.filters = settlementFilters.length > 0 ? settlementFilters : []
-  formData.filterValues = settlementFilterValues.length > 0 ? settlementFilterValues : []
-  formData.associated_multiple_models = ['county', 'subcounty', 'ward']
-  
-  // Use nested_models to filter settlements that have water facilities with the specified approval status
-  // This ensures backend filtering - only settlements with matching water facilities are returned
-  const isApprovedIndex = selFilters.indexOf('isApproved')
-  if (isApprovedIndex !== -1 && selfilterValues[isApprovedIndex] && selfilterValues[isApprovedIndex].length > 0) {
-    formData.nested_models = [{
-      model: waterFacilityModel,
-      field: 'isApproved',
-      values: selfilterValues[isApprovedIndex],
-      requireMatch: true // Only return settlements that have water facilities matching the status
-    }]
+  if (selectedSettlement.value && selectedSettlement.value.length) {
+    filtersArr.push('settlement_id')
+    filterValuesArr.push(selectedSettlement.value)
   }
+
+  const isApprovedIndex = filters.value.indexOf('isApproved')
+  if (isApprovedIndex !== -1 && filterValues.value[isApprovedIndex]?.length) {
+    filtersArr.push('isApproved')
+    filterValuesArr.push(filterValues.value[isApprovedIndex])
+  }
+
+  formData.filters = filtersArr
+  formData.filterValues = filterValuesArr
+  formData.associated_multiple_models = ['settlement', 'county', 'subcounty', 'ward']
 
   const res = await getSettlementListByCounty(formData)
 
-  console.log('After Query - Settlements with Water Facilities (backend filtered):', res)
+  console.log('After Query - Water points:', res)
+  tableDataList.value = normalizeWaterPointRows(res.data || [])
+  const totalCount = (res as any)?.total !== undefined
+    ? (res as any).total
+    : ((res as any)?.Total !== undefined ? (res as any).Total : tableDataList.value.length)
+  total.value = totalCount
 
-  // Backend should have already filtered to only settlements with water facilities
-  // Now load water facilities counts for display
-  if (res.data && res.data.length > 0) {
-    await Promise.all(res.data.map(async (settlement: any) => {
-      const facilities = await loadWaterFacilitiesForSettlement(settlement.id)
-      console.log(`Loaded ${facilities.length} facilities for settlement ${settlement.id} (${settlement.name})`)
-    }))
-    console.log('All facilities loaded. settlementWaterFacilities:', settlementWaterFacilities.value)
-  }
-
-  // Sync pagination variables after fetching
   currentPage.value = page.value
   pageSize.value = pSize.value
-
-  console.log('activeSegment.value', activeSegment.value)
-  if (activeSegment.value == 'Approved') {
-    tableDataList.value = res.data || []
-    // Use res.total which is the total count of SETTLEMENTS with water facilities (for pagination)
-    total.value = res.total || 0
-    console.log('Setting total (settlements count) for Approved:', total.value)
-    removeReviewButton()
-    // Update summary status to keep segment counts in sync with county restrictions
-    await getSummaryStatus()
-
-  } else if (activeSegment.value == 'New' && showAdminButtons.value) {
-    tableDataListNew.value = res.data || []
-    // Use res.total which is the total count of SETTLEMENTS with water facilities (for pagination)
-    totalNew.value = res.total || 0
-    console.log('Setting totalNew (settlements count) for New:', totalNew.value)
-
-    if (!action_buttons.value.includes('review')) {
-      action_buttons.value.push('review');
-    }
-    // Update summary status to keep segment counts in sync with county restrictions
-    await getSummaryStatus()
-
-  }
-  else if (activeSegment.value == 'Rejected' && showAdminButtons.value) {
-    tableDataListRejected.value = res.data || []
-    // Use res.total which is the total count of SETTLEMENTS with water facilities (for pagination)
-    totalRejected.value = res.total || 0
-    console.log('Setting totalRejected (settlements count) for Rejected:', totalRejected.value)
-    removeReviewButton()
-    // Update summary status to keep segment counts in sync with county restrictions
-    await getSummaryStatus()
-
-  }
-
-
-
-
 }
 
+const statuses = ref([])
+const getSummaryStatus = async () => {
+  const formData: any = {}
+  formData.model = waterFacilityModel
+  formData.summaryFunction = 'count'
+  formData.summaryField = 'isApproved'
+  formData.groupFields = ['isApproved']
+
+  if (isCountyRestricted.value && userCountyId.value) {
+    formData.filters = ['county_id']
+    formData.filterValues = [[userCountyId.value]]
+  } else if (userSettlementId.value && !isSuperAdmin.value && !hasNationalAccess.value) {
+    formData.filters = ['settlement_id']
+    formData.filterValues = [[userSettlementId.value]]
+  }
+
+  const response = await getSummarybyFieldFromMultipleIncludes(formData)
+  statuses.value = response.Total.reduce((acc, item) => {
+    acc[item.isApproved] = parseInt(item.count, 10)
+    return acc
+  }, {})
+
+  badgeCountApproved.value = statuses.value.Approved !== undefined ? statuses.value.Approved : 0
+  badgeCountNew.value = statuses.value.Pending !== undefined ? statuses.value.Pending : 0
+  badgeCountRejected.value = statuses.value.Rejected !== undefined ? statuses.value.Rejected : 0
+}
+getSummaryStatus()
 
 const getCountyNames = async () => {
-  const res = await getListWithoutGeo({
+  await getListWithoutGeo({
     params: {
       pageIndex: 1,
       limit: 100,
-      curUser: 1, // Id for logged in user
+      curUser: 1,
       model: 'county',
       searchField: '',
       searchKeyword: '',
       sort: 'ASC'
     }
   }).then((response: { data: any }) => {
-    console.log('Received countiess:', response)
     var ret = response.data
-
     loading.value = false
-
     ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var countyOpt = {}
+      var countyOpt: any = {}
       countyOpt.value = arrayItem.id
       countyOpt.label = arrayItem.name
-      //  console.log(countyOpt)
-      countiesOptions.value.push(countyOpt)
-    })
-  })
-}
-
-
-getCountyNames()
-
-
-const getParentNames = async () => {
-  const res = await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: associated_multiple_models[0],
-      searchField: 'name',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received response:', response)
-    var ret = response.data
-
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var countyOpt = {}
-      countyOpt.value = arrayItem.id
-      countyOpt.label = arrayItem.name  
-      //  console.log(countyOpt)
       countiesOptions.value.push(countyOpt)
     })
   })
 }
 
 const getModelOptions = async () => {
-  const res = await getCountyListApi({
+  await getCountyListApi({
     params: {
       pageIndex: 1,
       limit: 100,
-      curUser: 1, // Id for logged in user
+      curUser: 1,
       model: model,
       searchField: 'name',
       searchKeyword: '',
       sort: 'ASC'
     }
   }).then((response: { data: any }) => {
-    console.log('Received response:', response)
     var ret = response.data
-
     loading.value = false
-    // pass result to the makeoptions
-
     settlements.value = ret
     makeSettlementOptions(settlements)
   })
 }
 
-const open = (msg: MessageParamsWithType) => {
-  ElMessage.error(msg)
+const getSettlementNames = async () => {
+  if (!settlements.value || !settlements.value.length) {
+    await getModelOptions()
+  }
+  let filteredList = settlements.value
+  if (selectedCounty.value && (Array.isArray(selectedCounty.value) ? selectedCounty.value.length : true)) {
+    const countyIds = Array.isArray(selectedCounty.value)
+      ? selectedCounty.value
+      : [selectedCounty.value]
+    filteredList = settlements.value.filter((s: any) => countyIds.includes(s.county_id))
+  }
+  const wrapped = { value: filteredList }
+  makeSettlementOptions(wrapped)
 }
 
 const makeSettlementOptions = (list) => {
-  console.log('making the options..............', list)
   settlementOptions.value = []
   list.value.forEach(function (arrayItem: { id: string; type: string }) {
-    var countyOpt = {}
+    var countyOpt: any = {}
     countyOpt.value = arrayItem.id
     countyOpt.label = arrayItem.name  
-    //  console.log(countyOpt)
     settlementOptions.value.push(countyOpt)
   })
 }
 
-
-
-
-
-
-
-
-
 const getGeo = async () => {
-
-  const formData = {}
+  const formData: any = {}
   formData.model = model
-
-
-  console.log(formData)
   const res = await getAllGeo(formData)
-
-
-
-  if (res.data[0].json_build_object) {
-
-
+  if (res.data[0]?.json_build_object) {
     facilityGeo.value = res.data[0].json_build_object
-    console.log('Geo Returns---', res.data[0].json_build_object.features[0].geometry.coordinates)
-    console.log("Facility Geo", facilityGeo)
-
-
-
-    //markerLatlon.value = res.data[0].json_build_object.features[0].geometry.coordinates
-    geoLoaded.value = true
-
-
-    for (let i in res.data[0].json_build_object.features) {
-
-      console.log(res.data[0].json_build_object.features[i].geometry.coordinates)
-      markerLatlon.value.push(res.data[0].json_build_object.features[i].geometry.coordinates)
-
-      var markProp = {}
-      markProp.name = res.data[0].json_build_object.features[i].properties.name
-      markerProperties.value.push(markProp)
-
-
-    }
-    console.log(markerProperties)
-
   }
-
-
-
 }
 
-
-//getParentNames()
 getCountyNames()
-
 getModelOptions()
-// Initialize user county filter after options are loaded
+
 const initializeUserCountyFilter = async () => {
   await nextTick()
   if (isCountyRestricted.value && userCountyId.value) {
-    // Pre-select user's county
     value4.value = [userCountyId.value]
-    // Trigger county filter to load subcounties
     await filterByCounty(userCountyId.value)
-    console.log('Initialized county filter for user:', userCountyId.value)
-    // Refresh summary status to get county-restricted totals
     await getSummaryStatus()
   } else if (userSettlementId.value && !isSuperAdmin.value && !hasNationalAccess.value) {
-    // User restricted to settlement - filter will be applied in getFilteredData
-    console.log('User restricted to settlement:', userSettlementId.value)
-    // Refresh summary status to get settlement-restricted totals
     await getSummaryStatus()
   }
 }
 
-// Initialize user county filter after a short delay to ensure options are loaded
 setTimeout(() => {
   initializeUserCountyFilter()
 }, 500)
@@ -871,329 +561,340 @@ setTimeout(() => {
 getInterventionsAll()
 getGeo()
 
-
-const loadMap = (mapCenter) => {
-
-  if (mapCenter.length === 0) {
-    var centerPosition = [37.137343, 1.137451]
-    var zoom = 6
-  } else {
-    var centerPosition = mapCenter
-    var zoom = 12
-  }
-  var nmap = new mapboxgl.Map({
-    container: "mapContainer",
-    style: "mapbox://styles/mapbox/streets-v12",
-    center: centerPosition, // starting position
-    zoom: zoom,
-
-  })
-
-
-
-  console.log("resizing....")
-
-  const nav = new mapboxgl.NavigationControl();
-  nmap.addControl(nav, "top-right");
-  nmap.on('load', () => {
-
-    nmap.resize()
-
-    nmap.addSource('hcf', {
-      type: 'geojson',
-      // Use a URL for the value for the `data` property.
-      data: facilityGeo.value,
-      // data: 'https://data.humdata.org/dataset/e66dbc70-17fe-4230-b9d6-855d192fc05c/resource/51939d78-35aa-4591-9831-11e61e555130/download/kenya.geojson'
-    });
-
-
-    nmap.addLayer({
-      'id': 'pontLayer',
-      "type": "circle",
-      'source': 'hcf',
-      'paint': {
-        'circle-radius': 8,
-        'circle-stroke-width': 2,
-        'circle-color': [
-          'case',
-          ['==', ['get', 'type'], 'borehole'],
-          '#a6cee3',
-          ['==', ['get', 'type'], 'public_stand'],
-          '#1f78b4',
-          ['==', ['get', 'type'], 'kiosk'],
-          '#b2df8a',
-          ['==', ['get', 'type'], 'well'],
-          '#33a02c',
-          ['==', ['get', 'type'], 'tank'],
-          '#ff7f00', 'gray'],
-        'circle-stroke-color': 'white'
-      }
-    });
-
-
-
-
-    nmap.addLayer({
-      id: 'Satellite',
-      source: { "type": "raster", "url": "mapbox://mapbox.satellite", "tileSize": 256 },
-      type: "raster"
-    }, 'pontLayer');
-
-    nmap.addLayer({
-      id: 'Streets',
-      source: { "type": "raster", "url": "mapbox://mapbox.streets", "tileSize": 256 },
-      type: "raster"
-    }, 'Satellite');
-
-    // switch it off until the user selects to
-    nmap.setLayoutProperty('Satellite', 'visibility', 'none')
-
-
-    const layers: MapboxLayerDefinition[] = [
-
-      {
-        id: "Satellite",
-        title: "Satellite",
-        visibility: 'none',
-        type: 'base'
-      },
-
-      {
-        id: "Streets",
-        title: "Streets",
-        visibility: 'none',
-        type: 'base'
-      },
-
-    ];
-    nmap.addControl(new MapboxLayerSwitcherControl(layers));
-
-
-
-
-    // Zoom to layers if not by clik on a list
-    if (mapCenter.length === 0) {
-      console.log(markerLatlon.value)
-      const bounds = new mapboxgl.LngLatBounds(
-        markerLatlon.value[0],
-        markerLatlon.value[0]
-      );
-      for (const coord of markerLatlon.value) {
-        bounds.extend(coord);
-      }
-
-      nmap.fitBounds(bounds, {
-        padding: 20
-      });
-    }
-
-
-    else {
-
-      const description = mapCenter[2]
-      const coordinates = [mapCenter[0], mapCenter[1]]
-      new mapboxgl.Popup({ offset: [0, -15] })
-        .setLngLat(coordinates)
-        .setHTML('<h3>' + description + '</h3>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
-        .addTo(nmap);
-    }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    nmap.on('click', 'pontLayer', (e) => {
-      console.log("Onclikc..........")
-      // Copy coordinates array.
-      const coordinates = e.features[0].geometry.coordinates.slice();
-      const description = e.features[0].properties.name;
-      const level = e.features[0].properties.level;
-
-      // Ensure that if the map is zoomed out such that multiple
-      // copies of the feature are visible, the popup appears
-      // over the copy being pointed to.
-      while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
-        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
-      }
-
-
-
-      new mapboxgl.Popup({ offset: [0, -15] })
-        .setLngLat(coordinates)
-        .setHTML('<h3>' + description + '</h3><p>' + level + '</p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
-        .addTo(nmap);
-
-
-    });
-
-    // Change the cursor to a pointer when the mouse is over the places layer.
-    nmap.on('mouseenter', 'pontLayer', () => {
-      nmap.getCanvas().style.cursor = 'pointer';
-    });
-
-    // Change it back to a pointer when it leaves.
-    nmap.on('mouseleave', 'pontLayer', () => {
-      nmap.getCanvas().style.cursor = '';
-    });
-
-
-
-
-
-  });
-
-
-}
-
-
-
-const onSegmentClick = async () => {
-  console.log(activeSegment.value);
-
-  if (activeSegment.value === "Approved") {
-
-    var selectOption = 'isApproved'
-    if (!filters.value.includes(selectOption)) {
-      filters.value.push(selectOption)
-    }
-
-    var index = filters.value.indexOf(selectOption) // 1
-
-    // clear previously selected
-    if (filterValues.value[index]) {
-      // filterValues[index].length = 0
-      filterValues.value.splice(index, 1)
-    }
-
-    if (!filterValues.value.includes('Approved')) {
-      filterValues.value.splice(index, 0, 'Approved') //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
-    }
-
-  }
-
-
-  if (activeSegment.value === "New") {
-
-    var selectOption = 'isApproved'
-    if (!filters.value.includes(selectOption)) {
-      filters.value.push(selectOption)
-    }
-
-    var index = filters.value.indexOf(selectOption) // 1
-
-    // clear previously selected
-    if (filterValues.value[index]) {
-      // filterValues[index].length = 0
-      filterValues.value.splice(index, 1)
-    }
-
-    if (!filterValues.value.includes('Pending')) {
-      filterValues.value.splice(index, 0, 'Pending') //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
-    }
-
-  }
-
-
-  if (activeSegment.value === "Rejected") {
-
-    var selectOption = 'isApproved'
-    if (!filters.value.includes(selectOption)) {
-      filters.value.push(selectOption)
-    }
-
-    var index = filters.value.indexOf(selectOption) // 1
-
-    // clear previously selected
-    if (filterValues.value[index]) {
-      // filterValues[index].length = 0
-      filterValues.value.splice(index, 1)
-    }
-
-    if (!filterValues.value.includes('Rejected')) {
-      filterValues.value.splice(index, 0, 'Rejected') //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
-    }
-
-  }
-
-  console.log('filterValues---filters.value->', filterValues.value, filters.value)
-
-  getFilteredData(filters.value, filterValues.value)
-
-};
-
-
-
-const viewProfile = (data: TableSlotDefault) => {
-  console.log('On Click.....', data.id)
-
+const viewProfile = (data) => {
   push({
-    path: '/facilities/health/details/:id',
-    name: 'HealthFacilityDetails',
+    path: '/facilities/water/details/:id',
+    name: 'WaterFacilityDetails',
     params: { data: data.id, id: data.id }
   })
 }
 
-const activeTab = ref('list')
-
-// Google Maps API Key
-const googleMapsApiKey = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
-
-// Drawer state for map
-const mapDrawerVisible = ref(false)
-const mapDrawerSettlement = ref<any>(null)
-const mapDrawerContainer = ref<HTMLElement | null>(null)
-const googleMap = ref<any>(null)
-const settlementPolygon = ref<any>(null)
-const facilityMarkers = ref<any[]>([])
-const settlementGeo = ref<any>(null)
-const facilitiesGeo = ref<any>(null)
-const facilityMarkerDataMap = ref<Map<any, any>>(new Map())
-
-declare global {
-  interface Window {
-    google: any
-  }
-}
-
-// Open map drawer for settlement
-const flyTo = async (data: TableSlotDefault) => {
+const flyTo = async (data) => {
   try {
     mapDrawerSettlement.value = data
     mapDrawerVisible.value = true
-    
     await nextTick()
     await initializeMapDrawer(data)
   } catch (error) {
-    console.error("Error opening map drawer:", error);
-    ElMessage.error("Failed to open map. Please try again.");
+    console.error("Error opening map drawer:", error)
+    ElMessage.error("Failed to open map. Please try again.")
   }
-};
+}
 
-// Initialize Google Maps in drawer
-const initializeMapDrawer = async (settlement: any) => {
+const dialogWidth = ref()
+const actionColumnWidth = ref()
+if (isMobile.value) {
+  dialogWidth.value = "90%"
+  actionColumnWidth.value = "75px"
+  } else {
+  dialogWidth.value = "25%"
+  actionColumnWidth.value = "160px"
+}
+
+const currentRow = ref()
+const addMoreDocuments = ref()
+
+const DocTypes = ref([])
+const getDocumentTypes = async () => {
+  await getCountyListApi({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1,
+      model: 'document_type',
+      searchField: 'name',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    var ret = response.data
+    const nestedData = ret.reduce((acc, cur) => {
+      const group = cur.group
+      if (!acc[group]) acc[group] = []
+      acc[group].push(cur)
+      return acc
+    }, {})
+    for (let property in nestedData) {
+      let opts = nestedData[property]
+      var doc: any = {}
+      doc.label = property
+      doc.options = []
+      opts.forEach(function (arrayItem) {
+        let opt: any = {}
+        opt.value = arrayItem.id
+        opt.label = arrayItem.type
+        doc.options.push(opt)
+      })
+      DocTypes.value.push(doc)
+    }
+  })
+}
+getDocumentTypes()
+
+const DeleteFacility = async (data) => {
+  try {
+    const formData: any = {}
+    formData.id = data.id
+    // Table rows in this module are water points; never fallback to settlement delete.
+    formData.model = waterFacilityModel
+
+    await DeleteRecord(formData)
+
+    if (data.documents && data.documents.length > 0) {
+      formData.filesToDelete = data.documents
+      await deleteDocument(formData)
+    }
+
+    await getFilteredData(filters.value, filterValues.value)
+    ElMessage.success('Record deleted successfully')
+  } catch (error) {
+    console.error('Error deleting record:', error)
+    ElMessage.error('Failed to delete record')
+  }
+}
+
+const formheader = ref('Edit Facility')
+const reviewWindowWidth = ref('50%')
+
+const ruleFormRef = ref<FormInstance>()
+const ruleForm = reactive({
+  id: '',
+  name: '',
+  settlement_id: '',
+  county_id: '',
+  subcounty_id: '',
+  facility_type: '',
+  reg_status: '',
+  level: '',
+  owner: '',
+  ownership_type: '',
+  capacity: '',
+  geom: null,
+})
+
+const showEditSaveButton = ref(false)
+const showAddSaveButton = ref(true)
+const AddDialogVisible = ref(false)
+
+const handleClose = () => {
+  showAddSaveButton.value = true
+  showEditSaveButton.value = false
+  ruleForm.name = null
+  ruleForm.county_id = null
+  formheader.value = 'Add Facility'
+  AddDialogVisible.value = false
+  showSubcountyOpts.value = false
+}
+
+const ShowReviewDialog = ref(false)
+const RejectDialog = ref(false)
+const facility_raw = ref({})
+
+const approve = async () => {
+  ruleForm.isApproved = 'Approved'
+  ruleForm.reviewerId = userInfo.id
+  ruleForm.model = waterFacilityModel
+  await updateOneRecord(ruleForm).then(() => {})
+  ShowReviewDialog.value = false
+  getFilteredData(filters.value, filterValues.value)
+}
+
+const reject = async () => {
+  RejectDialog.value = true
+}
+
+const rejectReason = ref('')
+const confirmReject = async () => {
+  ruleForm.reject_msg = rejectReason.value
+  ruleForm.isApproved = 'Rejected'
+  ruleForm.model = waterFacilityModel
+  ruleForm.reviewerId = userInfo.id
+  await updateOneRecord(ruleForm).then(() => {})
+  RejectDialog.value = false
+  ShowReviewDialog.value = false
+  getFilteredData(filters.value, filterValues.value)
+}
+
+const showSubcountyOpts = ref(false)
+
+const mfield = 'water_point_id'
+const ChildComponent = defineAsyncComponent(() => import('@/views/Components/UploadComponent.vue'))
+const dynamicComponent = ref()
+const componentProps = ref({
+  message: 'Hello from parent',
+  showDialog: addMoreDocuments,
+  data: currentRow.value,
+  umodel: model,
+  field: mfield
+})
+
+const rowData = ref()
+const documentComponent = defineAsyncComponent(() => import('@/views/Components/ListDocuments.vue'))
+const dynamicDocumentComponent = ref()
+const DocumentComponentProps = ref({
+  message: 'documents',
+  data: rowData.value,
+  docmodel: model,
+})
+
+const handleExpand = async (row: any) => {
+  await loadWaterPointsForSettlement(row.id)
+  dynamicDocumentComponent.value = null
+  rowData.value = row
+  DocumentComponentProps.value.data = row
+  setTimeout(() => {
+    dynamicDocumentComponent.value = documentComponent
+  }, 100)
+}
+
+const router = useRouter()
+
+const value4 = ref()
+const value7 = ref()
+
+const goBack = () => {
+  if (router) {
+    router.back()
+  }
+}
+
+// Search
+const searchLoading = ref(false)
+
+const getFilteredBySearchData = async () => {
+  const query = search_string.value?.trim()
+
+  if (!query || query.length === 0) {
+    page.value = 1
+    await getFilteredData(filters.value, filterValues.value)
+    return
+  }
+
+  searchLoading.value = true
+  const formData: any = {}
+  formData.limit = pSize.value
+  formData.page = page.value
+  formData.curUser = 1
+  formData.model = waterFacilityModel
+  formData.searchField = 'name'
+  formData.searchKeyword = query
+  formData.filters = filters.value || []
+  formData.filterValues = filterValues.value || []
+  formData.associated_multiple_models = ['settlement', 'county', 'subcounty', 'ward']
+
+  try {
+    const res: any = await searchByKeyWord(formData)
+    console.log('Water point search result:', res)
+    tableDataList.value = normalizeWaterPointRows(res.data || [])
+    const totalCount = res.total !== undefined
+      ? res.total
+      : (res.Total !== undefined ? res.Total : tableDataList.value.length)
+    total.value = totalCount
+  } finally {
+    searchLoading.value = false
+  }
+}
+
+const filterByCounty = async (county_id: any) => {
+  if (county_id) {
+    selectedCounty.value = county_id
+    await getSettlementNames()
+  }
+  value7.value = null
+  selectedSettlement.value = []
+  page.value = 1
+  currentPage.value = 1
+
+  if (search_string.value) {
+    getFilteredBySearchData()
+  } else {
+    var selectOption = 'county_id'
+    if (!filters.value.includes(selectOption)) {
+      filters.value.push(selectOption)
+    }
+    var index = filters.value.indexOf(selectOption)
+    if (filterValues.value[index]) {
+      filterValues.value.splice(index, 1)
+    }
+    if (!filterValues.value.includes(selectedCounty.value) && selectedCounty.value.length > 0) {
+      filterValues.value.splice(index, 0, selectedCounty.value)
+    }
+    if (selectedCounty.value.length === 0) {
+      filters.value.splice(index, 1)
+    }
+    getFilteredData(filters.value, filterValues.value)
+  }
+}
+
+const filterBySettlement = async (settlement_ids: any) => {
+  if (settlement_ids) {
+    selectedSettlement.value = settlement_ids
+  }
+  page.value = 1
+  currentPage.value = 1
+
+  if (search_string.value) {
+    getFilteredBySearchData()
+  } else {
+    const selectOption = 'settlement_id'
+    if (!filters.value.includes(selectOption)) {
+      filters.value.push(selectOption)
+    }
+    const index = filters.value.indexOf(selectOption)
+    if (filterValues.value[index]) {
+      filterValues.value.splice(index, 1)
+    }
+    if (!filterValues.value.includes(selectedSettlement.value) && selectedSettlement.value.length > 0) {
+      filterValues.value.splice(index, 0, selectedSettlement.value)
+    }
+    if (selectedSettlement.value.length === 0) {
+      filters.value.splice(index, 1)
+  }
+  getFilteredData(filters.value, filterValues.value)
+  }
+}
+
+const searchByNewName = async () => {
+  page.value = 1
+  currentPage.value = 1
+  await getFilteredBySearchData()
+}
+
+const AddFacility = (data?: any) => {
+  const queryParams: any = {}
+  if (data) {
+    queryParams.county_id = data.county_id || data.county?.id || ''
+    queryParams.settlement_id = data.id || ''
+  } else if (isCountyRestricted.value && userCountyId.value) {
+    queryParams.county_id = userCountyId.value
+  } else if (userSettlementId.value && !isSuperAdmin.value && !hasNationalAccess.value) {
+    queryParams.settlement_id = userSettlementId.value
+    if (userCountyId.value) {
+      queryParams.county_id = userCountyId.value
+    }
+  }
+  push({ name: 'AddFacility', query: queryParams })
+}
+
+// â”€â”€â”€ Map drawer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+const hasPointLikeGeometry = (geom: any) => {
+  if (!geom || typeof geom !== 'object') return false
+  if (geom.type === 'Point' && Array.isArray(geom.coordinates) && geom.coordinates.length >= 2) return true
+  if (geom.type === 'MultiPoint' && Array.isArray(geom.coordinates) && geom.coordinates[0]?.length >= 2) return true
+  return false
+}
+
+const initializeMapDrawer = async (item: any) => {
   if (!mapDrawerContainer.value) {
     await nextTick()
   }
-  
   if (!mapDrawerContainer.value) {
     ElMessage.error("Map container not found")
     return
   }
 
   try {
-    // Load Google Maps API
-    const { Loader } = await import('@googlemaps/js-api-loader')
-    
     const loader = new Loader({
       apiKey: googleMapsApiKey,
       version: 'weekly',
@@ -1208,29 +909,30 @@ const initializeMapDrawer = async (settlement: any) => {
       throw new Error('Google Maps API not loaded properly')
     }
 
-    // Get settlement geometry
-    const geoForm: any = {
-      model: 'settlement',
-      id: settlement.id
-    }
+    const settlementId = item?.settlement_id || item?.id
+    // If opened from a facility row, settlement_id is present.
+    const currentFacilityId = item?.settlement_id ? item.id : null
+    mapDrawerActiveFacility.value = currentFacilityId ? item : null
+    mapDrawerActiveFacilityId.value = currentFacilityId ? Number(currentFacilityId) : null
+    activeFacilityHasGeometry.value = hasPointLikeGeometry(item?.geom)
+    isPlacingFacilityMarker.value = false
 
+    const geoForm: any = { model: 'settlement', id: settlementId }
     const res = await getOneGeo(geoForm)
     const geoData = res?.data?.[0]?.json_build_object
-    const features = geoData?.features
+    const feats = geoData?.features
     
-    // Check if features is null or empty
-    if (!features || (Array.isArray(features) && features.length === 0)) {
+    if (!feats || (Array.isArray(feats) && feats.length === 0)) {
       ElMessage.warning("No boundary geometry found for this settlement. Showing map with facilities only.")
       settlementGeo.value = null
     } else {
       settlementGeo.value = geoData
     }
 
-    // Get center and bounds
     let center = { lat: 1.137451, lng: 37.137343 }
     let zoom = 8
 
-    if (settlementGeo.value && settlementGeo.value.features && settlementGeo.value.features.length > 0) {
+    if (settlementGeo.value?.features?.length > 0) {
       try {
         const bboxResult = turf.bbox(settlementGeo.value)
         center = {
@@ -1238,96 +940,48 @@ const initializeMapDrawer = async (settlement: any) => {
           lng: (bboxResult[0] + bboxResult[2]) / 2
         }
         zoom = 13
-      } catch (error) {
-        console.warn('Error calculating bbox, using default center:', error)
+      } catch (e) {
+        console.warn('Error calculating bbox, using default center:', e)
       }
     }
 
-    // Initialize map
     googleMap.value = new window.google.maps.Map(mapDrawerContainer.value, {
-      center: center,
-      zoom: zoom,
+      center, zoom,
       mapTypeId: window.google.maps.MapTypeId.ROADMAP,
       mapTypeControl: true,
       streetViewControl: true,
       fullscreenControl: true
     })
 
-    // Add settlement boundary only if features exist
-    if (settlementGeo.value && settlementGeo.value.features && settlementGeo.value.features.length > 0) {
-      const feature = settlementGeo.value.features[0]
-      if (feature && feature.geometry && (feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon')) {
+    if (settlementGeo.value?.features?.length > 0) {
+      const feat = settlementGeo.value.features[0]
+      if (feat?.geometry && (feat.geometry.type === 'Polygon' || feat.geometry.type === 'MultiPolygon')) {
         try {
-          const paths = feature.geometry.type === 'Polygon'
-            ? feature.geometry.coordinates[0].map((coord: number[]) => ({
-                lat: coord[1],
-                lng: coord[0]
-              }))
-            : feature.geometry.coordinates[0][0].map((coord: number[]) => ({
-                lat: coord[1],
-                lng: coord[0]
-              }))
+          const paths = feat.geometry.type === 'Polygon'
+            ? feat.geometry.coordinates[0].map((coord: number[]) => ({ lat: coord[1], lng: coord[0] }))
+            : feat.geometry.coordinates[0][0].map((coord: number[]) => ({ lat: coord[1], lng: coord[0] }))
 
           settlementPolygon.value = new window.google.maps.Polygon({
-            paths: paths,
-            strokeColor: '#FF0000',
-            strokeOpacity: 0.6,
-            strokeWeight: 2,
-            fillColor: '#FF0000',
-            fillOpacity: 0,
-            map: googleMap.value
+            paths, map: googleMap.value,
+            strokeColor: '#FF0000', strokeOpacity: 0.6, strokeWeight: 2,
+            fillColor: '#FF0000', fillOpacity: 0,
+            clickable: false
           })
 
-          // Fit bounds to settlement
           const pathBounds = new window.google.maps.LatLngBounds()
-          paths.forEach((path: any) => {
-            pathBounds.extend(path)
-          })
+          paths.forEach((p: any) => pathBounds.extend(p))
           googleMap.value.fitBounds(pathBounds)
-        } catch (error) {
-          console.error('Error drawing settlement boundary:', error)
-          ElMessage.warning('Could not draw settlement boundary, but map is still available')
+        } catch (e) {
+          console.error('Error drawing settlement boundary:', e)
         }
       }
     }
 
-    // Wait for map to be ready before loading facilities
     const loadFacilitiesWhenReady = async () => {
-      await loadFacilitiesOnMap(settlement.id)
+      await loadHealthFacilitiesOnMap(settlementId, currentFacilityId)
     }
-
-    // Use idle event to ensure map is fully loaded
     googleMap.value.addListener('idle', loadFacilitiesWhenReady)
-    
-    // Also try loading immediately in case map is already idle
     setTimeout(loadFacilitiesWhenReady, 500)
-
-    // Trigger map resize after drawer animation completes
-    setTimeout(() => {
-      if (googleMap.value) {
-        window.google.maps.event.trigger(googleMap.value, 'resize')
-        // Re-center and fit bounds after resize
-        if (settlementPolygon.value) {
-          const pathBounds = new window.google.maps.LatLngBounds()
-          const feature = settlementGeo.value.features[0]
-          if (feature && feature.geometry) {
-            const paths = feature.geometry.type === 'Polygon'
-              ? feature.geometry.coordinates[0].map((coord: number[]) => ({
-                  lat: coord[1],
-                  lng: coord[0]
-                }))
-              : feature.geometry.coordinates[0][0].map((coord: number[]) => ({
-                  lat: coord[1],
-                  lng: coord[0]
-                }))
-            paths.forEach((path: any) => {
-              pathBounds.extend(path)
-            })
-            googleMap.value.fitBounds(pathBounds)
-          }
-        }
-      }
-    }, 300)
 
   } catch (error) {
     console.error("Error initializing map:", error)
@@ -1335,21 +989,19 @@ const initializeMapDrawer = async (settlement: any) => {
   }
 }
 
-// Load facilities on map
-const loadFacilitiesOnMap = async (settlementId: number) => {
+const loadHealthFacilitiesOnMap = async (settlementId: number, currentFacilityId: number | null = null) => {
   try {
-    // Clear existing markers
-    facilityMarkers.value.forEach(marker => marker.setMap(null))
-    facilityMarkers.value = []
+    healthFacilityMarkers.value.forEach(marker => marker.setMap(null))
+    healthFacilityMarkers.value = []
+    presentFacilityCategories.length = 0
 
     if (!googleMap.value) {
       console.error('Google map not initialized')
       return
     }
 
-    console.log('Loading water point facilities for settlement:', settlementId)
+    const facilities = await loadWaterPointsForSettlement(settlementId)
 
-    // Get facilities GeoJSON
     const formData: any = {
       model: waterFacilityModel,
       columnFilterField: 'settlement_id',
@@ -1357,7 +1009,6 @@ const loadFacilitiesOnMap = async (settlementId: number) => {
       filtredGeoIds: [settlementId]
     }
     
-    // Apply county restriction if user is county-restricted
     if (isCountyRestricted.value && userCountyId.value) {
       formData.columnFilterField = 'county_id'
       formData.selectedParents = userCountyId.value
@@ -1365,1561 +1016,629 @@ const loadFacilitiesOnMap = async (settlementId: number) => {
     }
 
     const res = await getfilteredGeo(formData)
-    
-    console.log('Facilities Geo response:', res)
-    
-    // Handle different response structures
     let geoJsonData = null
     
     if (res && res.data) {
       if (Array.isArray(res.data) && res.data.length > 0) {
         const firstItem = res.data[0]
-        
         if (Array.isArray(firstItem) && firstItem.length > 0) {
-          if (firstItem[0] && firstItem[0].json_build_object) {
-            geoJsonData = firstItem[0].json_build_object
-          }
-        } else if (firstItem && firstItem.json_build_object) {
+          if (firstItem[0]?.json_build_object) geoJsonData = firstItem[0].json_build_object
+        } else if (firstItem?.json_build_object) {
           geoJsonData = firstItem.json_build_object
-        } else if (firstItem && firstItem.type === 'FeatureCollection') {
+        } else if (firstItem?.type === 'FeatureCollection') {
           geoJsonData = firstItem
         }
       }
-    } else if (Array.isArray(res) && res.length > 0) {
-      const firstItem = res[0]
-      if (Array.isArray(firstItem) && firstItem.length > 0 && firstItem[0].json_build_object) {
-        geoJsonData = firstItem[0].json_build_object
-      } else if (firstItem && firstItem.json_build_object) {
-        geoJsonData = firstItem.json_build_object
-      } else if (firstItem && firstItem.type === 'FeatureCollection') {
-        geoJsonData = firstItem
-      }
     }
-    
-    console.log('Extracted GeoJSON data:', geoJsonData)
-    
+
     if (!geoJsonData) {
-      console.log('No GeoJSON data found for facilities')
-      ElMessage.info('No facilities with geometry data found for this settlement.')
+      ElMessage.info('No water points with geometry data found for this settlement.')
       return
     }
     
     if (geoJsonData.features === null || (Array.isArray(geoJsonData.features) && geoJsonData.features.length === 0)) {
-      console.log('GeoJSON features is null or empty')
-      ElMessage.info('No facilities with geometry data found for this settlement.')
-      facilitiesGeo.value = null
+      ElMessage.info('No water points with geometry data found for this settlement.')
+      healthFacilitiesGeo.value = null
       return
     }
     
-    facilitiesGeo.value = geoJsonData
+    healthFacilitiesGeo.value = geoJsonData
     const features = geoJsonData.features || []
-    
-    console.log('Facilities features count:', features.length)
+    const renderedFacilityIds = new Set<number | string>()
     
     if (features.length === 0) {
-      ElMessage.info('No facilities found with geometry for this settlement.')
-      facilitiesGeo.value = null
+      ElMessage.info('No water points found with geometry for this settlement.')
       return
     }
     
-    // Process features and create markers (water points are Point geometry)
-    features.forEach((feature: any) => {
-      if (feature.geometry && (feature.geometry.type === 'Point' || feature.geometry.type === 'MultiPoint')) {
-        const coords = feature.geometry.coordinates
-        if (!coords || coords.length < 2) {
-          console.warn('Invalid coordinates:', coords)
-          return
+    const addFacilityMarker = (lat: number, lng: number, props: any, category: string) => {
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return
+      try {
+        const isCurrentFacility = !!currentFacilityId && Number(props?.id) === Number(currentFacilityId)
+        if (isCurrentFacility) {
+          activeFacilityHasGeometry.value = true
         }
-        
-        try {
-          const position = {
-            lat: coords[1],
-            lng: coords[0]
-          }
-          
-          const marker = new window.google.maps.Marker({
-            position: position,
-            map: googleMap.value,
-            title: feature.properties?.name || 'Water Point',
-            icon: {
-              path: window.google.maps.SymbolPath.CIRCLE,
-              scale: 8,
-              fillColor: '#0066ff',
-              fillOpacity: 1,
-              strokeColor: '#ffffff',
-              strokeWeight: 2
-            }
-          })
-          
-          // Store facility data with marker
-          facilityMarkerDataMap.value.set(marker, feature.properties)
-          
-          // Add click listener to open facility form drawer
-          marker.addListener('click', async () => {
-            const facilityProperties = feature.properties || {}
-            const facilityId = facilityProperties.id || facilityProperties.water_point_id
+        const icon = {
+          url: 'icons/water.png',
+          scaledSize: new window.google.maps.Size(30, 30),
+          anchor: new window.google.maps.Point(15, 15)
+        }
             
-            if (facilityId) {
-              // Fetch full facility data to ensure we have all fields
-              try {
-                const formData: any = {
-                  limit: 1,
-                  page: 1,
-                  curUser: 1,
-                  model: waterFacilityModel,
-                  searchField: 'id',
-                  searchKeyword: facilityId.toString(),
-                  filters: ['id'],
-                  filterValues: [[facilityId]],
-                  associated_multiple_models: ['settlement', 'county', 'subcounty', 'ward', 'users']
-                }
-                
-                const facilityRes = await getSettlementListByCounty(formData)
-                
-                if (facilityRes.data && facilityRes.data.length > 0) {
-                  // Ensure settlement_id is set from map drawer if missing
-                  const facilityData = facilityRes.data[0]
-                  if (!facilityData.settlement_id && mapDrawerSettlement.value?.id) {
-                    facilityData.settlement_id = mapDrawerSettlement.value.id
-                  }
-                  if (!facilityData.county_id && mapDrawerSettlement.value?.county_id) {
-                    facilityData.county_id = mapDrawerSettlement.value.county_id
-                  }
-                  if (!facilityData.subcounty_id && mapDrawerSettlement.value?.subcounty_id) {
-                    facilityData.subcounty_id = mapDrawerSettlement.value.subcounty_id
-                  }
-                  if (!facilityData.ward_id && mapDrawerSettlement.value?.ward_id) {
-                    facilityData.ward_id = mapDrawerSettlement.value.ward_id
-                  }
-                  
-                  // Open drawer with full facility data
-                  openWaterForm(facilityData)
-                } else {
-                  // Fallback: use properties if full data not available
-                  const fallbackData = {
-                    ...facilityProperties,
-                    settlement_id: facilityProperties.settlement_id || mapDrawerSettlement.value?.id || '',
-                    county_id: facilityProperties.county_id || mapDrawerSettlement.value?.county_id || '',
-                    subcounty_id: facilityProperties.subcounty_id || mapDrawerSettlement.value?.subcounty_id || '',
-                    ward_id: facilityProperties.ward_id || mapDrawerSettlement.value?.ward_id || ''
-                  }
-                  ElMessage.warning('Could not load full facility data. Using available information.')
-                  openWaterForm(fallbackData)
-                }
-              } catch (error) {
-                console.error('Error fetching facility data:', error)
-                // Fallback: use properties directly with settlement context
-                const fallbackData = {
-                  ...facilityProperties,
-                  settlement_id: facilityProperties.settlement_id || mapDrawerSettlement.value?.id || '',
-                  county_id: facilityProperties.county_id || mapDrawerSettlement.value?.county_id || '',
-                  subcounty_id: facilityProperties.subcounty_id || mapDrawerSettlement.value?.subcounty_id || '',
-                  ward_id: facilityProperties.ward_id || mapDrawerSettlement.value?.ward_id || ''
-                }
-                openWaterForm(fallbackData)
-              }
-            } else {
-              // No ID available, use properties directly with settlement context
-              const fallbackData = {
-                ...facilityProperties,
-                settlement_id: facilityProperties.settlement_id || mapDrawerSettlement.value?.id || '',
-                county_id: facilityProperties.county_id || mapDrawerSettlement.value?.county_id || '',
-                subcounty_id: facilityProperties.subcounty_id || mapDrawerSettlement.value?.subcounty_id || '',
-                ward_id: facilityProperties.ward_id || mapDrawerSettlement.value?.ward_id || ''
-              }
-              ElMessage.warning('Facility ID not found. Some fields may be missing.')
-              openWaterForm(fallbackData)
+            const marker = new window.google.maps.Marker({
+              position: { lat, lng },
+              map: googleMap.value,
+          title: props?.name || 'Water Point',
+          icon,
+          draggable: isCurrentFacility,
+          opacity: isCurrentFacility ? 1 : 0.25,
+          zIndex: isCurrentFacility ? 600 : 500
+        })
+
+        if (isCurrentFacility) {
+          marker.addListener('dragend', (event: any) => {
+            const newPos = event.latLng?.toJSON?.() || { lat, lng }
+            const updatedProps = {
+              ...props,
+              latitude: newPos.lat,
+              longitude: newPos.lng,
+              geom: { type: 'Point', coordinates: [newPos.lng, newPos.lat] }
             }
+            facilityMarkerDataMap.value.set(marker, updatedProps)
+            openFacilityForm(updatedProps)
           })
-          
-          facilityMarkers.value.push(marker)
-        } catch (error) {
-          console.error('Error creating marker:', error, feature)
         }
-      } else {
-        console.warn('Feature is not a Point:', feature.geometry?.type)
-      }
-    })
-    
-    console.log('Total markers created:', facilityMarkers.value.length)
-    
-    if (facilityMarkers.value.length === 0) {
-      ElMessage.info('No facilities with valid Point geometry found')
-    } else {
-      ElMessage.success(`Loaded ${facilityMarkers.value.length} facilities on map`)
-    }
-  } catch (error) {
-    console.error("Error loading facilities on map:", error)
-    ElMessage.error("Failed to load facilities on map: " + (error as Error).message)
-  }
-}
 
-// Watch for drawer visibility changes to trigger map resize
-watch(mapDrawerVisible, (newVal) => {
-  if (newVal && googleMap.value) {
-    // Wait for drawer animation to complete before resizing
-    setTimeout(() => {
-      if (googleMap.value) {
-        window.google.maps.event.trigger(googleMap.value, 'resize')
-        // Re-center map after resize
-        if (settlementPolygon.value && settlementGeo.value && settlementGeo.value.features && settlementGeo.value.features.length > 0) {
-          const feature = settlementGeo.value.features[0]
-          if (feature && feature.geometry) {
-            const pathBounds = new window.google.maps.LatLngBounds()
-            const paths = feature.geometry.type === 'Polygon'
-              ? feature.geometry.coordinates[0].map((coord: number[]) => ({
-                  lat: coord[1],
-                  lng: coord[0]
-                }))
-              : feature.geometry.coordinates[0][0].map((coord: number[]) => ({
-                  lat: coord[1],
-                  lng: coord[0]
-                }))
-            paths.forEach((path: any) => {
-              pathBounds.extend(path)
+            const infoWindow = new window.google.maps.InfoWindow({
+              content: `
+                <div style="padding: 8px; min-width: 200px;">
+                <h3 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600;">${props?.name || 'Water Point'}</h3>
+                <p style="margin: 0 0 5px 0; font-size: 12px;"><strong>Type:</strong> ${category}</p>
+                ${props?.ownership_type ? `<p style="margin: 5px 0 0 0; font-size: 12px;"><strong>Ownership:</strong> ${props.ownership_type}</p>` : ''}
+                </div>
+              `
             })
-            googleMap.value.fitBounds(pathBounds)
-          }
+
+        facilityMarkerDataMap.value.set(marker, props)
+            marker.addListener('click', () => {
+          openFacilityForm(props)
+            })
+            healthFacilityMarkers.value.push(marker)
+          } catch (markerError) {
+        console.error('Error creating marker:', markerError, props)
+      }
+    }
+
+    const getPointCoords = (geometry: any): [number, number] | null => {
+      if (!geometry) return null
+      if (geometry.type === 'Point' && Array.isArray(geometry.coordinates) && geometry.coordinates.length >= 2) {
+        return [Number(geometry.coordinates[0]), Number(geometry.coordinates[1])]
+      }
+      if (geometry.type === 'MultiPoint' && Array.isArray(geometry.coordinates) && geometry.coordinates[0]?.length >= 2) {
+        return [Number(geometry.coordinates[0][0]), Number(geometry.coordinates[0][1])]
+      }
+      return null
+    }
+
+    features.forEach((feature: any) => {
+      if (feature.geometry) {
+        const coords = getPointCoords(feature.geometry)
+        if (!coords) return
+        const [lng, lat] = coords
+        let category = (feature.properties?.type || feature.properties?.facility_type || 'other').toLowerCase().trim()
+        if (!category || category === 'n/a' || category === 'na') category = 'other'
+
+        if (!presentFacilityCategories.includes(category)) {
+          presentFacilityCategories.push(category)
         }
+        if (feature.properties?.id !== undefined && feature.properties?.id !== null) {
+          renderedFacilityIds.add(feature.properties.id)
+        }
+        addFacilityMarker(lat, lng, feature.properties || {}, category)
       }
-    }, 350)
-  }
-})
+    })
 
-// Close drawer handler
-const handleMapDrawerClose = () => {
-  mapDrawerVisible.value = false
-  // Clean up markers
-  facilityMarkers.value.forEach(marker => marker.setMap(null))
-  facilityMarkers.value = []
-  facilityMarkerDataMap.value.clear()
-  
-  if (settlementPolygon.value) {
-    settlementPolygon.value.setMap(null)
-    settlementPolygon.value = null
-  }
-  googleMap.value = null
-  mapDrawerSettlement.value = null
-}
-
-
-
-
-
-
-
-
-const isMobile = computed(() => appStore.getMobile)
-
-console.log('IsMobile', isMobile)
-
-const dialogWidth = ref()
-const actionColumnWidth = ref()
-
-if (isMobile.value) {
-  dialogWidth.value = "90%"
-  actionColumnWidth.value = "75px"
-} else {
-  dialogWidth.value = "25%"
-  actionColumnWidth.value = "160px"
-
-}
-
-
-
-
-
-
-const removeDocument = (data: TableSlotDefault) => {
-  console.log('----->', data)
-  let formData = {}
-  formData.id = data.id
-  formData.model = model
-  formData.filesToDelete = [data.name]
-  deleteDocument(formData)
-}
-
-const currentRow = ref()
-const addMoreDocuments = ref()
-const addMoreDocs = (data: TableSlotDefault) => {
-
-  currentRow.value = data
-
-  addMoreDocuments.value = true
-
-  console.log('currentRow', currentRow.value)
-
-}
-
-
-
-const DocTypes = ref([])
-const getDocumentTypes = async () => {
-  const res = await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'document_type',
-      searchField: 'name',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Document Typest:', response)
-    var ret = response.data
-
-
-    const nestedData = ret.reduce((acc, cur) => {
-      const group = cur.group;
-      if (!acc[group]) {
-        acc[group] = [];
+    // Fallback: if geo endpoint misses some facilities, use facility.geom directly.
+    facilities.forEach((facility: any) => {
+      if (renderedFacilityIds.has(facility?.id)) return
+      const coords = getPointCoords(facility?.geom)
+      if (!coords) return
+      const [lng, lat] = coords
+      let category = (facility?.type || facility?.facility_type || 'other').toLowerCase().trim()
+      if (!category || category === 'n/a' || category === 'na') category = 'other'
+      if (!presentFacilityCategories.includes(category)) {
+        presentFacilityCategories.push(category)
       }
-      acc[group].push(cur);
-      return acc;
-    }, {});
-
-    console.log(nestedData.Map)
-    for (let property in nestedData) {
-      let opts = nestedData[property];
-      var doc = {}
-      doc.label = property
-      doc.options = []
-
-      opts.forEach(function (arrayItem) {
-        let opt = {}
-        opt.value = arrayItem.id
-        opt.label = arrayItem.type
-        doc.options.push(opt)
-
-      })
-      DocTypes.value.push(doc)
-
+      addFacilityMarker(lat, lng, facility, category)
+      renderedFacilityIds.add(facility?.id)
+    })
+      
+      if (healthFacilityMarkers.value.length === 0) {
+        ElMessage.info('No water points with valid Point geometry found')
+      } else {
+        ElMessage.success(`Loaded ${healthFacilityMarkers.value.length} water points on map`)
     }
-    console.log(DocTypes)
-
-  })
-}
-getDocumentTypes()
-
-
-const legendItems = [
-  {
-    "label": "Borehole",
-    "color": "#a6cee3"
-  },
-  {
-    "label": "Public Stand",
-    "color": '#1f78b4'
-  },
-  {
-    "label": "Kiosk",
-    "color": '#b2df8a'
-  },
-  {
-    "label": "Well",
-    "color": '#33a02c'
-  },
-  {
-    "label": "Tank",
-    "color": '#e31a1c'
-  },
-
-  {
-    "label": "Others",
-    "color": "gray"
-  }
-
-
-
-
-
-]
-
-
-
-const DeleteFacility = async (data: TableSlotDefault) => {
-  console.log('-----> Deleting Facility:', data)
-  
-  try {
-    const formData: Record<string, any> = {
-      id: data.id,
-      model: model,
-    }
-
-    // Delete the record from backend
-    await DeleteRecord(formData)
-
-    // Delete documents if any
-    if (Array.isArray(data.documents) && data.documents.length > 0) {
-      formData.filesToDelete = data.documents
-      await deleteDocument(formData)
-    }
-
-    // Refresh the data after successful deletion
-    await getFilteredData(filters.value, filterValues.value)
-    
-    ElMessage.success('Record deleted successfully')
   } catch (error) {
-    console.error('Error deleting record:', error)
-    ElMessage.error('Failed to delete record')
+    console.error("Error loading water points on map:", error)
+    ElMessage.error("Failed to load water points on map: " + (error as Error).message)
   }
 }
 
-
-
-const handleDeleteConfirmation = (data) => {
-  console.log('--handleDeleteConfirmation--->', data)
-
-
-
-}
-const formheader = ref('Edit Facility')
-
-//*****************************Create**************************** */
-
-///----------------------------------------------------------------------------------
-const ruleFormRef = ref<FormInstance>()
-const ruleForm = reactive({
-  id: '',
-  name: '',
-  settlement_id: '',
-  county_id: '',
-  subcounty_id: '',
-  facility_type: '',
-  facility_number: '',
-  reg_status: '',
-  level: '',
-  owner: '',
-  ownership_type: '',
-  number_beds: '',
-  geom: null,
-})
-
-
-const showEditSaveButton = ref(false)
-const showAddSaveButton = ref(true)
-
-const AddDialogVisible = ref(false)
-
-
-
-
-
-const handleClose = () => {
-  console.log("Closing the dialoig")
-  showAddSaveButton.value = true
-  showEditSaveButton.value = false
-  ruleForm.name = null
-  ruleForm.county_id = null
-  ruleForm.population = null
-  ruleForm.area = null
-  ruleForm.description = null
-  formheader.value = 'Add Settlement'
-  AddDialogVisible.value = false
-  showSubcountyOpts.value = false
+const clearMapPlacementListener = () => {
+  if (mapPlacementClickListener.value && window.google?.maps?.event) {
+    window.google.maps.event.removeListener(mapPlacementClickListener.value)
+  }
+  mapPlacementClickListener.value = null
 }
 
-console.log('------> countyOptions', countyOptions)
-
-
-const editForm = async (formEl: FormInstance | undefined) => {
-  if (!formEl) return
-
-  ruleForm.model = model
-  await updateOneRecord(ruleForm).then(() => { })
-
-
-}
-
-const ShowReviewDialog = ref(false)
-const RejectDialog = ref(false)
-const facility_raw = ref({})
-
-
-const Review = (data: TableSlotDefault) => {
-  console.log('On Click.....', data.id)
-  ShowReviewDialog.value = true
-
-  // make the descriptions dataset 
-  facility_raw.value.name = data.name
-  facility_raw.value.reg_status = data.reg_status
-  facility_raw.value.ownership_type = data.ownership_type
-  facility_raw.value.owner = data.owner
-  facility_raw.value.user = data.user.name + ' | ' + data.user.email
-  facility_raw.value.date = data.createdAt
-
-  //
-
-  ruleForm.id = data.id
-  ruleForm.name = data.name
-  ruleForm.county_id = data.county_id
-  ruleForm.settlement_id = data.settlement_id
-  ruleForm.subcounty_id = data.subcounty_id
-  ruleForm.facility_type = data.facility_type
-  ruleForm.reg_status = data.reg_status
-  ruleForm.level = data.level
-  ruleForm.ownership_type = data.ownership_type
-  ruleForm.number_beds = data.number_beds
-  ruleForm.geom = data.geom
-
-
-  formHeader.value = "Review"
-
-}
-
-const approve = async () => {
-  console.log("Appprove")
-  ruleForm.isApproved = 'Approved'
-  ruleForm.reviewerId = userInfo.id
-
-  console.log(ruleForm)
-  ruleForm.model = model
-  console.log(ruleForm)
-  await updateOneRecord(ruleForm).then(() => { })
-  ShowReviewDialog.value = false
-  getFilteredData(filters.value, filterValues.value)
-}
-
-
-const reject = async () => {
-  RejectDialog.value = true
-}
-
-const rejectReason = ref('')
-const confirmReject = async () => {
-  console.log('Reject Msg', rejectReason.value)
-  ruleForm.reject_msg = rejectReason.value
-  ruleForm.isApproved = 'Rejected'
-
-  console.log(ruleForm)
-  ruleForm.model = model
-  ruleForm.reviewerId = userInfo.id
-  console.log(ruleForm)
-  await updateOneRecord(ruleForm).then(() => { })
-  RejectDialog.value = false
-  ShowReviewDialog.value = false
-
-  getFilteredData(filters.value, filterValues.value)
-
-}
-
-
-const showSubcountyOpts = ref(false)
-
-
-/// Uplaod docuemnts from a central component 
-const mfield = 'water_point_id'
-const ChildComponent = defineAsyncComponent(() => import('@/views/Components/UploadComponent.vue'));
-
-const dynamicComponent = ref();
-const componentProps = ref({
-  message: 'Hello from parent',
-  showDialog: addMoreDocuments,
-  data: currentRow.value,
-  umodel: model,
-  field: mfield
-});
-
-
-
-function toggleComponent(row) {
-  console.log('Compnnent data', row)
-  componentProps.value.data = row
-  dynamicComponent.value = null; // Unload the component
-  addMoreDocuments.value = true; // Set any additional props
-
-  setTimeout(() => {
-    dynamicComponent.value = ChildComponent; // Load the component
-  }, 100); // 0.1 seconds
-
-
-}
-
-
-
-// component for docuemnts 
-const rowData = ref()
-const documentComponent = defineAsyncComponent(() => import('@/views/Components/ListDocuments.vue'));
-const dynamicDocumentComponent = ref();
-const DocumentComponentProps = ref({
-  message: 'documents',
-  data: rowData.value,
-  docmodel: model,
-
-});
-
-
-const handleExpand = async (row: any) => {
-  // Load water facilities for this settlement
-  await loadWaterFacilitiesForSettlement(row.id)
-  
-  // Handle documents (existing functionality)
-  dynamicDocumentComponent.value = null; // Unload the component
-  rowData.value = row
-  DocumentComponentProps.value.data = row
-  setTimeout(() => {
-    dynamicDocumentComponent.value = documentComponent; // Load the component
-  }, 100); // 0.1 seconds
-}
-
-
-const router = useRouter()
-
-const value4 = ref()
-const value5 = ref()
-const value6 = ref()
-const search_string = ref()
-
-const enableSubcounty = ref(false)
-const selectedCounty = ref()
-const selectedSubCounty = ref()
-
-const selectedWard = ref()
-const enableward = ref(false)
-
-const subcountiesOptions = ref([])
-
-
-
-const goBack = () => {
-  // Add your logic to handle the back action
-  // For example, you can use Vue Router to navigate back
-  if (router) {
-    // Use router.back() to navigate back
-    router.back()
-  } else {
-    console.warn('Router instance not available.')
+const startPlacingFacilityMarker = () => {
+  if (!googleMap.value || !mapDrawerActiveFacility.value || !mapDrawerActiveFacilityId.value) {
+    ElMessage.warning('Select a facility first before adding a marker')
+    return
   }
 
-}
+  clearMapPlacementListener()
+  isPlacingFacilityMarker.value = true
+  ElMessage.info('Click on the map to place the facility marker')
 
-const getFilteredBySearchData = async (searchKey) => {
+  mapPlacementClickListener.value = googleMap.value.addListener('click', (event: any) => {
+    const point = event?.latLng?.toJSON?.()
+    if (!point) return
 
-  if (selectedCounty.value) {
-    var selectOption = 'county_id'
-    if (!filters.value.includes(selectOption)) {
-      filters.value.push(selectOption)
-    }
-    var index = filters.value.indexOf(selectOption) // 1
-
-    // clear previously selected
-    if (filterValues[index]) {
-      // filterValues[index].length = 0
-      filterValues.value.splice(index, 1)
+    const icon = {
+      url: 'icons/water.png',
+      scaledSize: new window.google.maps.Size(30, 30),
+      anchor: new window.google.maps.Point(15, 15)
     }
 
-    if (!filterValues.value.includes(selectedCounty.value) && selectedCounty.value.length > 0) {
-      filterValues.value.splice(index, 0, selectedCounty.value) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+    if (mapPlacementMarker.value) {
+      mapPlacementMarker.value.setPosition(point)
+    } else {
+      mapPlacementMarker.value = new window.google.maps.Marker({
+        position: point,
+        map: googleMap.value,
+        title: mapDrawerActiveFacility.value?.name || 'Water Point',
+        icon,
+        draggable: true,
+        opacity: 1,
+        zIndex: 700
+      })
     }
 
-    // expunge the filter if the filter values are null
-    if (selectedCounty.value.length === 0) {
-      filters.value.splice(index, 1)
+    const updatedProps = {
+      ...mapDrawerActiveFacility.value,
+      latitude: point.lat,
+      longitude: point.lng,
+      geom: {
+        type: 'Point',
+        coordinates: [point.lng, point.lat]
+      }
     }
 
-  }
-
-  // Filter by subcounty  
-  if (selectedSubCounty.value) {
-    var selectOption = 'subcounty_id'
-    if (!filters.value.includes(selectOption)) {
-      filters.value.push(selectOption)
-    }
-    var index = filters.value.indexOf(selectOption) // 1
-
-    // clear previously selected
-    if (filterValues[index]) {
-      // filterValues[index].length = 0
-      filterValues.value.splice(index, 1)
-    }
-
-    if (!filterValues.value.includes(selectedSubCounty.value) && selectedSubCounty.value.length > 0) {
-      filterValues.value.splice(index, 0, selectedSubCounty.value) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
-    }
-
-    // expunge the filter if the filter values are null
-    if (selectedSubCounty.value.length === 0) {
-      filters.value.splice(index, 1)
-    }
-
-  }
-
-
-
-  // Reset pagination when search is performed
-  page.value = 1
-  currentPage.value = 1
-  
-  searchLoading.value = true
-  const formData = {}
-  formData.limit = pSize.value
-  formData.page = page.value
-  formData.curUser = 1 // Id for logged in user
-  formData.model = model
-
-  //-Search field--------------------------------------------
-  formData.searchField = 'name'
-  formData.searchKeyword = searchKey
-  //--Single Filter -----------------------------------------
-
-  //formData.assocModel = associated_Model
-
-  // - multiple filters -------------------------------------
-  formData.filters = filters.value
-  formData.filterValues = filterValues.value
-  formData.associated_multiple_models = associated_multiple_models
-  formData.nested_models = []
-  //formData.cache_key = 'SeacrchByKey_' + search_string.value
-
-  //-------------------------
-
-
-  const res = await searchByKeyWord(formData)
-  searchLoading.value = false
-
-  // Sync pagination variables after fetching
-  currentPage.value = page.value
-  pageSize.value = pSize.value
-
-  console.log('activeSegment.value', activeSegment.value)
-  if (activeSegment.value == 'Approved') {
-    tableDataList.value = res.data
-
-  } else if (activeSegment.value == 'New') {
-    tableDataListNew.value = res.data
-
-  }
-  else {
-    tableDataListRejected.value = res.data
-
-  }
-
-
-
-
-  loading.value = false
-
-
-}
-
-
-
-
-const getSubCountyNames = async () => {
-  const res = await getListWithoutGeo({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'subcounty',
-      searchField: 'county_id',
-      searchKeyword: selectedCounty.value,
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received subcounties response:', response)
-    var ret = response.data
-    subcountiesOptions.value = []
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var subcountyOpt = {}
-      subcountyOpt.value = arrayItem.id
-      subcountyOpt.county_id = arrayItem.county_id
-      subcountyOpt.label = arrayItem.name
-      //  console.log(countyOpt)
-      subcountiesOptions.value.push(subcountyOpt)
-    })
+    activeFacilityHasGeometry.value = true
+    isPlacingFacilityMarker.value = false
+    clearMapPlacementListener()
+    openFacilityForm(updatedProps)
   })
 }
 
-const wardOptions = ref([])
+// â”€â”€â”€ Facility form â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-const getWardNames = async () => {
-  const res = await getListWithoutGeo({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'ward',
-      searchField: 'subcounty_id',
-      searchKeyword: selectedSubCounty.value,
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received wards response:', response)
-    var ret = response.data
-    wardOptions.value = []
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var opt = {}
-      opt.value = arrayItem.id
-      opt.subcounty_id = arrayItem.subcounty_id
-      opt.label = arrayItem.name
-      //  console.log(countyOpt)
-      wardOptions.value.push(opt)
-    })
-  })
-}
-
-
-
-const filterByCounty = async (county_id: any) => {
-
-  if (county_id) {
-    enableSubcounty.value = true   // allow selection of subcounty 
-    selectedCounty.value = county_id
-    getSubCountyNames()
-  }
-
-  value5.value = null; // Clear the subcounty properly
-  value6.value = null; // Clear the ward properly
-
-  // Reset pagination when filters change
-  page.value = 1
-  currentPage.value = 1
-
-  if (search_string.value) {
-    getFilteredBySearchData(search_string.value)
-  }
-
-  else {
-
-
-
-    var selectOption = 'county_id'
-    if (!filters.value.includes(selectOption)) {
-      filters.value.push(selectOption)
-    }
-    var index = filters.value.indexOf(selectOption) // 1
-
-    // clear previously selected
-    if (filterValues.value[index]) {
-      // filterValues[index].length = 0
-      filterValues.value.splice(index, 1)
-    }
-
-    if (!filterValues.value.includes(selectedCounty.value) && selectedCounty.value.length > 0) {
-      filterValues.value.splice(index, 0, selectedCounty.value) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
-    }
-
-    // expunge the filter if the filter values are null
-    if (selectedCounty.value.length === 0) {
-      filters.value.splice(index, 1)
-    }
-
-
-    console.log('----x----', filters.value, filterValues.value)
-
-
-    getFilteredData(filters.value, filterValues.value)
-
-  }
-
-
-}
-
-
-const filterBySubCounty = async (subcounty_id: any) => {
-
-  if (subcounty_id) {
-    enableSubcounty.value = true   // allow selection of subcounty 
-    selectedSubCounty.value = subcounty_id
-    getWardNames()
-  }
-
-  // value6.value = null   // clear the ward sr 
-
-  // Reset pagination when filters change
-  page.value = 1
-  currentPage.value = 1
-
-  if (search_string.value) {
-    getFilteredBySearchData(search_string.value)
-  }
-
-  else {
-    var selectOption = 'subcounty_id'
-    if (!filters.value.includes(selectOption)) {
-      filters.value.push(selectOption)
-    }
-    var index = filters.value.indexOf(selectOption) // 1
-
-    // clear previously selected
-    if (filterValues.value[index]) {
-      // filterValues[index].length = 0
-      filterValues.value.splice(index, 1)
-    }
-
-    if (!filterValues.value.includes(selectedSubCounty.value) && selectedSubCounty.value.length > 0) {
-      filterValues.value.splice(index, 0, selectedSubCounty.value) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
-    }
-
-    // expunge the filter if the filter values are null
-    if (selectedSubCounty.value.length === 0) {
-      filters.value.splice(index, 1)
-    }
-
-    getFilteredData(filters.value, filterValues.value)
-
-  }
-
-
-}
-
-const filterByWard = async (ward_id: any) => {
-
-  if (ward_id) {
-    selectedWard.value = ward_id
-
-  }
-
-  // Reset pagination when filters change
-  page.value = 1
-  currentPage.value = 1
-
-  if (search_string.value) {
-    getFilteredBySearchData(search_string.value)
-  }
-
-  else {
-    var selectOption = 'ward_id'
-    if (!filters.value.includes(selectOption)) {
-      filters.value.push(selectOption)
-    }
-    var index = filters.value.indexOf(selectOption) // 1
-
-    // clear previously selected
-    if (filterValues.value[index]) {
-      // filterValues[index].length = 0
-      filterValues.value.splice(index, 1)
-    }
-
-    if (!filterValues.value.includes(selectedWard.value) && selectedWard.value.length > 0) {
-      filterValues.value.splice(index, 0, selectedWard.value) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
-    }
-
-    // expunge the filter if the filter values are null
-    if (selectedWard.value.length === 0) {
-      filters.value.splice(index, 1)
-    }
-
-    getFilteredData(filters.value, filterValues.value)
-
-  }
-
-
-}
-
-
-const searchLoading = ref(false)
-const searchByNewName = async () => {
-
-  console.log('filterString', search_string.value)
-  //value3.value = filterString
-  //search_string.value = filterString
-
-  // Reset pagination when search changes
-  page.value = 1
-  currentPage.value = 1
-
-  if (search_string.value) {
-
-
-    getFilteredBySearchData(search_string.value)
-
-  }
-
-}
-
-
-
-const AddFacility = (data?: any) => {
-  const queryParams: any = {}
-  
-  if (data) {
-    // If settlement data is provided, use that county and settlement
-    queryParams.county_id = data.county_id || data.county?.id || ''
-    queryParams.settlement_id = data.id || ''
-  } else if (isCountyRestricted.value && userCountyId.value) {
-    // User is restricted to their county - pre-select it
-    queryParams.county_id = userCountyId.value
-    console.log('Pre-selecting user county for new facility:', userCountyId.value)
-  } else if (userSettlementId.value && !isSuperAdmin.value && !hasNationalAccess.value) {
-    // User is restricted to their settlement
-    queryParams.settlement_id = userSettlementId.value
-    // Also get county from settlement if possible
-    if (userCountyId.value) {
-      queryParams.county_id = userCountyId.value
-    }
-  }
-  
-  push({
-    name: 'AddWaterNew',
-    query: queryParams
-  })
-}
-
-const handleAddFacility = (item: any) => {
-  AddFacility(item)
-}
-
-
-// Water form drawer state
-const waterDrawerVisible = ref(false)
-const waterFormRef = ref<FormInstance>()
-const editingWaterId = ref<number | null>(null)
-const isEditMode = ref(false)
-
-// Water form data
-const waterForm = reactive({
-  name: '',
-  type: '',
-  capacity: '',
-  depth: null,
-  ownership_type: '',
-  owner: '',
-  catchment: '',
-  price: null,
-  condition: '',
-  availability: '',
-  name_of_provider: '',
-  cost_of_20_litre_jerrican: null,
-  settlement_id: '',
-  county_id: '',
-  subcounty_id: '',
-  ward_id: '',
-  geom: null
-})
-
-// Water point type options
-const waterPointTypeOptions = [
-  { value: 'kiosk', label: 'Water Kiosk' },
-  { value: 'public_tap', label: 'Public Tap' },
-  { value: 'borehole', label: 'Borehole' },
-  { value: 'spring', label: 'Spring' },
-  { value: 'well', label: 'Dug Well' }
-]
-
-// Condition options
-const conditionOptions = [
-  { value: 'Under construction ', label: 'Under construction ' },
-  { value: 'Broken/not in use', label: 'Broken/not in use' },
-  { value: 'Operational ', label: 'Operational ' },
-  { value: 'Decomissioned', label: 'Decomissioned' }
-]
-
-// Availability options
-const availabilityOptions = [
-  { value: 'Daily', label: 'Daily' },
-  { value: 'Twice_a_week', label: 'Twice a week' },
-  { value: 'Once_a_week', label: 'Once a week' },
-  { value: 'Rarely', label: 'Rarely' }
-]
-
-// Ownership options
-const ownershipOptions = [
-  { value: 'government', label: 'Government' },
-  { value: 'ngo', label: 'CBO/NGO' },
-  { value: 'individual', label: 'Individual' },
-  { value: 'community', label: 'Community' }
-]
-
-// Water form validation rules
-const waterFormRules = reactive({
-  name: [{ required: true, message: 'Water point name is required', trigger: 'blur' }],
-  settlement_id: [{ required: true, message: 'Settlement is required', trigger: 'blur' }]
-})
-
-// Open water form drawer for editing
-const openWaterForm = (facilityData: any) => {
+const openFacilityForm = (facilityData: any) => {
   isEditMode.value = true
-  editingWaterId.value = facilityData.id || null
+  editingFacilityId.value = facilityData.id || null
   
-  // Populate form with facility data
-  waterForm.name = facilityData.name || ''
-  waterForm.type = facilityData.type || ''
-  waterForm.capacity = facilityData.capacity || ''
-  waterForm.depth = facilityData.depth || null
-  waterForm.ownership_type = facilityData.ownership_type || ''
-  waterForm.owner = facilityData.owner || ''
-  waterForm.catchment = facilityData.catchment || ''
-  waterForm.price = facilityData.price || null
-  waterForm.condition = facilityData.condition || ''
-  waterForm.availability = facilityData.availability || ''
-  waterForm.name_of_provider = facilityData.name_of_provider || ''
-  waterForm.cost_of_20_litre_jerrican = facilityData.cost_of_20_litre_jerrican || null
-  waterForm.settlement_id = facilityData.settlement_id || ''
-  waterForm.county_id = facilityData.county_id || ''
-  waterForm.subcounty_id = facilityData.subcounty_id || ''
-  waterForm.ward_id = facilityData.ward_id || ''
-  waterForm.geom = facilityData.geom || null
+  facilityForm.name = facilityData.name || ''
+  facilityForm.settlement_id = facilityData.settlement_id || mapDrawerSettlement.value?.id || ''
+
+  if (isCountyRestricted.value && userCountyId.value) {
+    facilityForm.county_id = userCountyId.value
+  } else {
+  facilityForm.county_id = facilityData.county_id || mapDrawerSettlement.value?.county_id || ''
+  }
+
+  if (userSettlementId.value && !isSuperAdmin.value && !hasNationalAccess.value) {
+    facilityForm.settlement_id = userSettlementId.value
+    if (userCountyId.value) facilityForm.county_id = userCountyId.value
+  }
+
+  facilityForm.subcounty_id = facilityData.subcounty_id || mapDrawerSettlement.value?.subcounty_id || ''
+  facilityForm.ward_id = facilityData.ward_id || mapDrawerSettlement.value?.ward_id || ''
+  facilityForm.type = facilityData.type || ''
+  facilityForm.condition = facilityData.condition || ''
+  facilityForm.ownership_type = facilityData.ownership_type || ''
+  facilityForm.owner = facilityData.owner || ''
+  facilityForm.catchment = facilityData.catchment || ''
+  facilityForm.capacity = facilityData.capacity || null
+  facilityForm.depth = facilityData.depth || null
+  facilityForm.price = facilityData.price || null
+  facilityForm.availability = facilityData.availability || ''
+  facilityForm.name_of_provider = facilityData.name_of_provider || ''
+  facilityForm.cost_of_20_litre_jerrican = facilityData.cost_of_20_litre_jerrican || null
+  facilityForm.notes = facilityData.notes || ''
+  facilityForm.respondent_name = facilityData.respondent_name || ''
+  facilityForm.respondent_phone = facilityData.respondent_phone || ''
+  facilityForm.geom = facilityData.geom || null
   
-  waterDrawerVisible.value = true
+  facilityDrawerVisible.value = true
 }
 
-// Submit water form
-const submitWaterForm = async () => {
-  if (!waterFormRef.value) return
+const submitFacilityForm = async () => {
+  if (!facilityFormRef.value) return
   
-  await waterFormRef.value.validate(async (valid) => {
+  await facilityFormRef.value.validate(async (valid: boolean) => {
     if (valid) {
       try {
-        const formDataToSubmit = {
-          ...waterForm,
-          model: waterFacilityModel
+        const formData: any = { ...facilityForm, model: waterFacilityModel }
+
+        if (isCountyRestricted.value && userCountyId.value) {
+          if (formData.county_id && formData.county_id !== userCountyId.value) {
+            ElMessage.error('You can only create facilities in your assigned county')
+            return
+          }
+          formData.county_id = userCountyId.value
         }
-        
-        if (isEditMode.value && editingWaterId.value) {
-          // Update existing facility
-          formDataToSubmit.id = editingWaterId.value
-          
-          const res = await updateOneRecord(formDataToSubmit)
-          
-          if (res.code === '0000') {
+
+        if (userSettlementId.value && !isSuperAdmin.value && !hasNationalAccess.value) {
+          if (formData.settlement_id && formData.settlement_id !== userSettlementId.value) {
+            ElMessage.error('You can only create facilities in your assigned settlement')
+            return
+          }
+          formData.settlement_id = userSettlementId.value
+          if (userCountyId.value) formData.county_id = userCountyId.value
+        }
+
+        if (isEditMode.value && editingFacilityId.value) {
+          formData.id = editingFacilityId.value
+          const res = await updateOneRecord(formData)
+          if (res.status === 'success') {
             ElMessage.success('Water point updated successfully')
-            
-            // Refresh the data
-            await getFilteredData(filters.value, filterValues.value)
-            
-            // Reload facilities for the settlement if available
-            if (waterForm.settlement_id) {
-              await loadWaterFacilitiesForSettlement(waterForm.settlement_id)
+            page.value = 1
+            currentPage.value = 1
+            if (mapDrawerSettlement.value) {
+              await loadHealthFacilitiesOnMap(mapDrawerSettlement.value.id)
+              await loadWaterPointsForSettlement(mapDrawerSettlement.value.id)
             }
-            
-            waterDrawerVisible.value = false
+            await getFilteredData(filters.value, filterValues.value)
+            closeFacilityDrawer()
           } else {
             ElMessage.error('Failed to update water point')
           }
         } else {
-          ElMessage.error('Invalid edit mode')
+          const res = await CreateRecord(formData)
+          if (res.status === 'success') {
+            ElMessage.success('Water point created successfully')
+            page.value = 1
+            currentPage.value = 1
+            if (mapDrawerSettlement.value) {
+              await loadHealthFacilitiesOnMap(mapDrawerSettlement.value.id)
+              await loadWaterPointsForSettlement(mapDrawerSettlement.value.id)
+            }
+            await getFilteredData(filters.value, filterValues.value)
+            closeFacilityDrawer()
+          } else {
+            ElMessage.error('Failed to create water point')
+          }
         }
       } catch (error) {
-        console.error('Error saving water point:', error)
+        console.error('Error submitting facility form:', error)
         ElMessage.error('Failed to save water point')
       }
     }
   })
 }
 
-// Reset water form
-const resetWaterForm = () => {
+const resetFacilityForm = () => {
   isEditMode.value = false
-  editingWaterId.value = null
-  Object.keys(waterForm).forEach(key => {
-    if (typeof waterForm[key as keyof typeof waterForm] === 'string') {
-      waterForm[key as keyof typeof waterForm] = '' as any
-    } else if (typeof waterForm[key as keyof typeof waterForm] === 'number') {
-      waterForm[key as keyof typeof waterForm] = null as any
+  editingFacilityId.value = null
+  Object.keys(facilityForm).forEach(key => {
+    if (Array.isArray(facilityForm[key])) {
+      facilityForm[key] = []
+    } else if (typeof facilityForm[key] === 'number') {
+      facilityForm[key] = null
     } else {
-      waterForm[key as keyof typeof waterForm] = null as any
+      facilityForm[key] = ''
     }
   })
+  facilityForm.geom = null
 }
 
-// Close water drawer
-const closeWaterDrawer = () => {
-  waterDrawerVisible.value = false
-  resetWaterForm()
+const closeFacilityDrawer = () => {
+  facilityDrawerVisible.value = false
+  resetFacilityForm()
 }
 
-const editFacility = (data: TableSlotDefault) => {
-  // Open drawer with water form for editing
-  openWaterForm(data)
+const handleMapDrawerClose = () => {
+  mapDrawerVisible.value = false
+  facilityDrawerVisible.value = false
+  clearMapPlacementListener()
+  isPlacingFacilityMarker.value = false
+  activeFacilityHasGeometry.value = false
+  mapDrawerActiveFacility.value = null
+  mapDrawerActiveFacilityId.value = null
+  if (mapPlacementMarker.value) {
+    mapPlacementMarker.value.setMap(null)
+    mapPlacementMarker.value = null
+  }
+  healthFacilityMarkers.value.forEach(marker => marker.setMap(null))
+  healthFacilityMarkers.value = []
+  presentFacilityCategories.length = 0
+    settlementPolygon.value = null
+  googleMap.value = null
+  mapDrawerSettlement.value = null
+  settlementGeo.value = null
+  healthFacilitiesGeo.value = null
+  facilityMarkerDataMap.value.clear()
 }
 
+const editFacility = async (data: any) => {
+  try {
+    const facilityFilters: string[] = ['id']
+    const facilityFilterValues: any[] = [[data.id]]
+    if (isCountyRestricted.value && userCountyId.value) {
+      facilityFilters.push('county_id')
+      facilityFilterValues.push([userCountyId.value])
+    }
+    const formData = {
+      limit: 1,
+      page: 1,
+      curUser: 1,
+      model: waterFacilityModel,
+      searchField: 'id',
+      searchKeyword: data.id.toString(),
+      filters: facilityFilters,
+      filterValues: facilityFilterValues,
+      associated_multiple_models: ['settlement', 'county', 'subcounty', 'ward', 'users']
+    }
+    try {
+      const res = await getSettlementListByCounty(formData)
+      const facilityData = res?.data?.[0]
+      if (facilityData) {
+        openFacilityForm(facilityData)
+      } else {
+        openFacilityForm(data)
+      }
+    } catch (error) {
+      openFacilityForm(data)
+    }
+  } catch (error) {
+    console.error('Error opening facility form:', error)
+    ElMessage.error('Failed to open facility form')
+  }
+}
 
-
-const filteredSegments = computed(() => {
-  return options.value.filter(option => !option.disabled);
-});
-
-
-
-
+const filteredSegments = computed(() => [])
 
 </script>
 
 <template>
-
-
   <el-card>
-
     <div v-if="dynamicComponent">
       <upload-component :is="dynamicComponent" v-bind="componentProps" />
     </div>
 
-
-    <el-row :gutter="10" style=" margin-bottom:10px;">
-      <el-col :xs="24" :sm="24" :md="2" :lg="2" class="max-w-200px">
-
-        <div class="max-w-200px">
-          <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
+    <!-- Filter toolbar -->
+    <el-row :gutter="10" style="margin-bottom: 10px;">
+      <!-- Back -->
+      <el-col :xs="24" :sm="24" :md="4" :lg="2" class="max-w-200px">
+        <div style="margin-bottom: 8px;">
+          <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right:10px;width:100%;">
             Back
           </el-button>
         </div>
       </el-col>
 
-      <el-col :xs="24" :sm="24" :md="12" :lg="5">
+      <!-- County filter -->
+      <el-col :xs="24" :sm="24" :md="8" :lg="5" style="margin-bottom: 8px;">
         <el-select
-size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear" multiple clearable
-          filterable collapse-tags placeholder="By County" style=" margin-right: 5px;"
-          :disabled="isCountyRestricted">
+          size="default"
+          v-model="value4"
+          :onChange="filterByCounty"
+          :onClear="handleClear"
+          multiple clearable filterable collapse-tags
+          placeholder="By County"
+          style="margin-right:5px;"
+          :disabled="isCountyRestricted"
+        >
           <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
-
       </el-col>
 
-      <el-col :xs="24" :sm="24" :md="12" :lg="4">
+      <!-- Settlement filter -->
+      <el-col :xs="24" :sm="24" :md="8" :lg="4" style="margin-bottom: 8px;">
         <el-select
-:disabled="!enableSubcounty" size="default" v-model="value5" :onChange="filterBySubCounty" multiple
-          clearable filterable collapse-tags placeholder="By Subcounty" style=" margin-right: 5px;"
-          :empty-values="[null, undefined]">
-          <el-option v-for="item in subcountiesOptions" :key="item.value" :label="item.label" :value="item.value" />
+          size="default"
+          v-model="value7"
+          :onChange="filterBySettlement"
+          :disabled="!selectedCounty || !selectedCounty.length"
+          multiple clearable filterable collapse-tags
+          placeholder="By Settlement"
+          style="margin-right:5px;"
+        >
+          <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </el-col>
 
-      <el-col :xs="24" :sm="24" :md="12" :lg="4">
-        <el-select
-:disabled="!enableSubcounty" size="default" v-model="value6" :onChange="filterByWard" multiple
-          clearable filterable collapse-tags placeholder="By Ward" style=" margin-right: 5px;">
-          <el-option v-for="item in wardOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-      </el-col>
-
-      <el-col :xs="24" :sm="24" :md="12" :lg="5">
-
+      <!-- Search -->
+      <el-col :xs="24" :sm="24" :md="8" :lg="5" style="margin-bottom: 8px;">
         <el-input
-v-model="search_string" clearable :onClear="handleClear"
-          placeholder="Search by name (or part of it).." @change="searchByNewName" class="input-with-select"
-          style=" margin-right: 5px;">
+          v-model="search_string"
+          clearable
+          @clear="handleClear"
+          placeholder="Search by name..."
+          @change="searchByNewName"
+          class="input-with-select"
+          style="margin-right:5px;"
+        >
           <template #append>
-            <el-button v-loading="searchLoading" :icon="Search" :onClick="searchByNewName" />
+            <el-button v-loading="searchLoading" :icon="Search" @click="searchByNewName" />
           </template>
         </el-input>
       </el-col>
 
-
-
-      <el-col :xs="24" :sm="24" :md="12" :lg="4">
-
-        <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px;">
-
+      <!-- Action buttons -->
+      <el-col :xs="24" :sm="24" :md="12" :lg="4" style="margin-bottom: 8px;">
+        <div style="display:flex;align-items:center;gap:10px;justify-content:flex-end;width:100%;">
+          <!-- Desktop -->
+          <template v-if="!isMobile">
           <el-tooltip content="Add Facility" placement="top">
             <PermissionWrapper :permissions="'water_point:create'">
-              <el-button :onClick="AddFacility" type="primary" :icon="Plus" />
+                <el-button @click="AddFacility()" type="primary" :icon="Plus" />
             </PermissionWrapper>
           </el-tooltip>
-
           <el-tooltip content="Clear" placement="top">
-            <el-button :onClick="handleClear" type="primary" :icon="Filter" />
+              <el-button @click="handleClear" type="primary" :icon="Filter" />
           </el-tooltip>
-
           <DownloadCustom
-v-if="showEditButtons" :data="tableDataList" :model="model"
-            :associated_models="associated_multiple_models" />
-        </div>
+              v-if="showEditButtons"
+              :data="tableDataList"
+              :model="waterFacilityModel"
+              :associated_models="['settlement', 'county', 'subcounty', 'ward']"
+            />
+        </template>
 
-
+          <!-- Mobile -->
+          <template v-else>
+            <el-dropdown trigger="click">
+              <el-button type="primary">
+                Actions
+                <el-icon style="margin-left:4px;"><ArrowDown /></el-icon>
+              </el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item @click="AddFacility()">
+                    <el-icon><Plus /></el-icon>
+                    <span style="margin-left:8px;">Add Facility</span>
+                  </el-dropdown-item>
+                  <el-dropdown-item @click="handleClear">
+                    <el-icon><Filter /></el-icon>
+                    <span style="margin-left:8px;">Clear Filters</span>
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+                  </template>
+            </el-dropdown>
+            <DownloadCustom
+              v-if="showEditButtons"
+              :data="tableDataList"
+              :model="waterFacilityModel"
+              :associated_models="['settlement', 'county', 'subcounty', 'ward']"
+            />
+                  </template>
+              </div>
       </el-col>
-
-
-
     </el-row>
 
+    <!-- Main table -->
+    <el-table
+      :data="tableDataList"
+      style="width:100%;margin-top:10px;"
+      border
+      :size="isMobile ? 'small' : 'default'"
+    >
+      <!-- Name -->
+      <el-table-column
+        label="Facility Name"
+        prop="name"
+        sortable
+        :min-width="isMobile ? 160 : 220"
+        show-overflow-tooltip
+      />
 
+      <!-- Location -->
+      <el-table-column
+        :label="isMobile ? 'Location' : 'Location (Settlement / Ward / Subcounty / County)'"
+        :min-width="isMobile ? 220 : 260"
+      >
+                <template #default="scope">
+          {{ scope.row.settlement?.name || 'N/A' }},
+            {{ scope.row.ward?.name || 'N/A' }} ward,
+            {{ scope.row.subcounty?.name || 'N/A' }} subcounty,
+            {{ scope.row.county?.name || 'N/A' }} County
+        </template>
+      </el-table-column>
 
+      <!-- Type / Level -->
+      <el-table-column
+        label="Type"
+        prop="type"
+        :min-width="isMobile ? 110 : 140"
+        show-overflow-tooltip
+      />
 
-    <div class="custom-style">
-
-      <el-segmented v-model="activeSegment" :options="filteredSegments" block :onChange="onSegmentClick">
-        <template #default="{ item }">
-          <div class="flex flex-col items-center gap-2 p-2">
-            <el-icon size="18">
-              <component :is="item.icon" />
-            </el-icon>
-            <div>{{ item.label }} ({{ item.count }}) </div>
+      <!-- Water Metrics -->
+      <el-table-column label="Water Metrics" min-width="220">
+        <template #default="scope">
+          <div>
+            <div><strong>Capacity:</strong> {{ scope.row.capacity || 'N/A' }}</div>
+            <div style="margin-top:2px;"><strong>20L Price:</strong> {{ scope.row.cost_of_20_litre_jerrican || scope.row.price || 'N/A' }}</div>
+            <div style="margin-top:2px;"><strong>Availability:</strong> {{ scope.row.availability || 'N/A' }}</div>
           </div>
         </template>
-      </el-segmented>
+      </el-table-column>
 
-    </div>
-
-    <div v-if="activeSegment === 'Approved'">
-      <el-table :data="tableDataList" style="width: 100%; margin-top: 10px;" border @expand-change="handleExpand" row-key="id">
-        <el-table-column type="expand">
-          <template #default="props">
-            <div style="padding: 20px;">
-              <h3>Water Facilities in {{ props.row.name }}</h3>
-              <div v-if="loadingFacilities[props.row.id]" style="text-align: center; padding: 20px;">
-                <el-icon class="is-loading"><Loading /></el-icon>
-                <span>Loading water facilities...</span>
-              </div>
-              <el-table 
-                v-else
-                :data="settlementWaterFacilities[props.row.id] || []" 
-                style="width: 100%;" 
-                border
-                size="small"
-              >
-                <el-table-column label="Facility Name" prop="name">
-                  <template #default="scope">
-                    <el-button type="primary" link @click="openWaterForm(scope.row)">
-                      {{ scope.row.name || 'N/A' }}
-                    </el-button>
-                  </template>
-                </el-table-column>
-                <el-table-column label="Type" prop="facility_type" />
-                <el-table-column label="Status" prop="isApproved">
-                  <template #default="scope">
-                    <el-tag 
-                      :type="scope.row.isApproved === 'Approved' ? 'success' : scope.row.isApproved === 'Rejected' ? 'danger' : 'warning'"
-                    >
-                      {{ scope.row.isApproved }}
-                    </el-tag>
-                  </template>
-                </el-table-column>
-                <el-table-column label="Actions" width="200">
-                  <template #default="{ row }">
-                    <PermissionWrapper :permissions="['water_point:update', 'water_point:delete']">
-                      <el-button size="small" type="primary" :icon="Edit" @click="editFacility(row)" />
-                      <el-button size="small" type="danger" :icon="Delete" @click="DeleteFacility(row)" />
-                    </PermissionWrapper>
-                  </template>
-                </el-table-column>
-              </el-table>
-              <div v-if="!loadingFacilities[props.row.id] && (!settlementWaterFacilities[props.row.id] || settlementWaterFacilities[props.row.id].length === 0)" style="text-align: center; padding: 20px;">
-                <el-empty description="No water facilities found in this settlement" />
-              </div>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="Settlement Name" prop="name" sortable />
-        <el-table-column label="Location" sortable>
-          <template #default="scope">
-            <span>{{ scope.row.ward?.name || 'N/A' }} ward, {{ scope.row.subcounty?.name || 'N/A' }} subcounty, {{ scope.row.county?.name || 'N/A'
-              }} County</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="Water Facilities Count" sortable>
-          <template #default="scope">
-            <el-badge :value="settlementWaterFacilities[scope.row.id]?.length || 0" class="item" />
-          </template>
-        </el-table-column>
-
-        <el-table-column label="Actions" width="250">
-          <template #default="{ row }">
+      <!-- Actions -->
+      <el-table-column
+        label="Actions"
+        :min-width="isMobile ? 72 : 200"
+        align="center"
+        fixed="right"
+      >
+        <template #default="{ row }">
               <TableActions
-              :item="row" :buttons="action_buttons" @view-on-map="flyTo" @add-facility="handleAddFacility" />
-          </template>
-        </el-table-column>
+                :item="row"
+                :buttons="action_buttons"
+                @view-on-map="flyTo"
+                @delete="DeleteFacility"
+              />
+        </template>
+      </el-table-column>
+    </el-table>
 
-      </el-table>
-
-      <div v-if="!tableDataList || tableDataList.length === 0" class="no-data-message">
-        <el-empty description="No settlements with approved water facilities found" />
-      </div>
-
-      <ElPagination
-        v-if="tableDataList && tableDataList.length > 0"
-        layout="sizes, prev, pager, next, total" 
-        v-model:currentPage="currentPage"
-        v-model:page-size="pageSize" 
-        :page-sizes="[6, 20, 50, 200, 1000]" 
-        :total="total" 
-        :background="true"
-        @size-change="onPageSizeChange" 
-        @current-change="onPageChange" 
-        class="mt-4" />
-
+    <div v-if="!tableDataList || tableDataList.length === 0" class="no-data-message">
+      <el-empty description="No water points found" />
     </div>
 
-
-    <div v-if="activeSegment === 'New'">
-      <el-table :data="tableDataListNew" style="width: 100%; margin-top: 10px;" border @expand-change="handleExpand" row-key="id">
-        <el-table-column type="expand">
-          <template #default="props">
-            <div style="padding: 20px;">
-              <h3>Water Facilities in {{ props.row.name }}</h3>
-              <div v-if="loadingFacilities[props.row.id]" style="text-align: center; padding: 20px;">
-                <el-icon class="is-loading"><Loading /></el-icon>
-                <span>Loading water facilities...</span>
-              </div>
-              <el-table 
-                v-else
-                :data="settlementWaterFacilities[props.row.id] || []" 
-                style="width: 100%;" 
-                border
-                size="small"
-              >
-                <el-table-column label="Facility Name" prop="name">
-                  <template #default="scope">
-                    <el-button type="primary" link @click="openWaterForm(scope.row)">
-                      {{ scope.row.name || 'N/A' }}
-                    </el-button>
-                  </template>
-                </el-table-column>
-                <el-table-column label="Type" prop="facility_type" />
-                <el-table-column label="Status" prop="isApproved">
-                  <template #default="scope">
-                    <el-tag 
-                      :type="scope.row.isApproved === 'Approved' ? 'success' : scope.row.isApproved === 'Rejected' ? 'danger' : 'warning'"
-                    >
-                      {{ scope.row.isApproved }}
-                    </el-tag>
-                  </template>
-                </el-table-column>
-                <el-table-column label="Actions" width="200">
-                  <template #default="{ row }">
-                    <PermissionWrapper :permissions="['water_point:update', 'water_point:delete', 'water_point:review']">
-                      <el-button size="small" type="primary" :icon="Edit" @click="editFacility(row)" />
-                      <el-button size="small" type="danger" :icon="Delete" @click="DeleteFacility(row)" />
-                      <el-button size="small" type="warning" @click="Review(row)" />
-                    </PermissionWrapper>
-                  </template>
-                </el-table-column>
-              </el-table>
-              <div v-if="!loadingFacilities[props.row.id] && (!settlementWaterFacilities[props.row.id] || settlementWaterFacilities[props.row.id].length === 0)" style="text-align: center; padding: 20px;">
-                <el-empty description="No water facilities found in this settlement" />
-              </div>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="Settlement Name" prop="name" sortable />
-        <el-table-column label="Location" sortable>
-          <template #default="scope">
-            <span>{{ scope.row.ward?.name || 'N/A' }} ward, {{ scope.row.subcounty?.name || 'N/A' }} subcounty, {{ scope.row.county?.name || 'N/A'
-              }} County</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="Water Facilities Count" sortable>
-          <template #default="scope">
-            <el-badge :value="settlementWaterFacilities[scope.row.id]?.length || 0" class="item" />
-          </template>
-        </el-table-column>
-
-        <el-table-column label="Actions" width="250">
-          <template #default="{ row }">
-              <TableActions
-              :item="row" :buttons="action_buttons" @view-on-map="flyTo" @add-facility="handleAddFacility" />
-          </template>
-        </el-table-column>
-
-      </el-table>
-
-      <div v-if="!tableDataListNew || tableDataListNew.length === 0" class="no-data-message">
-        <el-empty description="No settlements with new water facilities found" />
-      </div>
-
-      <ElPagination
-        v-if="tableDataListNew && tableDataListNew.length > 0"
-        layout="sizes, prev, pager, next, total" 
-        v-model:currentPage="currentPage"
-        v-model:page-size="pageSize" 
-        :page-sizes="[5, 10, 20, 50, 100]" 
-        :total="totalNew" 
-        :background="true"
-        @size-change="onPageSizeChange" 
-        @current-change="onPageChange" 
-        class="mt-4" />
-    </div>
-
-    <div v-if="activeSegment === 'Rejected'">
-
-      <el-table
-        :data="tableDataListRejected" style="width: 100%; margin-top: 10px;" border
-        @expand-change="handleExpand" row-key="id">
-        <el-table-column type="expand">
-          <template #default="props">
-            <div style="padding: 20px;">
-              <h3>Water Facilities in {{ props.row.name }}</h3>
-              <div v-if="loadingFacilities[props.row.id]" style="text-align: center; padding: 20px;">
-                <el-icon class="is-loading"><Loading /></el-icon>
-                <span>Loading water facilities...</span>
-              </div>
-              <el-table 
-                v-else
-                :data="settlementWaterFacilities[props.row.id] || []" 
-                style="width: 100%;" 
-                border
-                size="small"
-              >
-                <el-table-column label="Facility Name" prop="name">
-                  <template #default="scope">
-                    <el-button type="primary" link @click="openWaterForm(scope.row)">
-                      {{ scope.row.name || 'N/A' }}
-                    </el-button>
-                  </template>
-                </el-table-column>
-                <el-table-column label="Type" prop="facility_type" />
-                <el-table-column label="Status" prop="isApproved">
-                  <template #default="scope">
-                    <el-tag 
-                      :type="scope.row.isApproved === 'Approved' ? 'success' : scope.row.isApproved === 'Rejected' ? 'danger' : 'warning'"
-                    >
-                      {{ scope.row.isApproved }}
-                    </el-tag>
-                  </template>
-                </el-table-column>
-                <el-table-column label="Actions" width="200">
-                  <template #default="{ row }">
-                    <PermissionWrapper :permissions="['water_point:update', 'water_point:delete']">
-                      <el-button size="small" type="primary" :icon="Edit" @click="editFacility(row)" />
-                      <el-button size="small" type="danger" :icon="Delete" @click="DeleteFacility(row)" />
-                    </PermissionWrapper>
-                  </template>
-                </el-table-column>
-              </el-table>
-              <div v-if="!loadingFacilities[props.row.id] && (!settlementWaterFacilities[props.row.id] || settlementWaterFacilities[props.row.id].length === 0)" style="text-align: center; padding: 20px;">
-                <el-empty description="No water facilities found in this settlement" />
-              </div>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="Settlement Name" prop="name" sortable />
-        <el-table-column label="Location" sortable>
-          <template #default="scope">
-            <span>{{ scope.row.ward?.name || 'N/A' }} ward, {{ scope.row.subcounty?.name || 'N/A' }} subcounty, {{ scope.row.county?.name || 'N/A'
-              }} County</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="Water Facilities Count" sortable>
-          <template #default="scope">
-            <el-badge :value="settlementWaterFacilities[scope.row.id]?.length || 0" class="item" />
-          </template>
-        </el-table-column>
-
-        <el-table-column label="Actions" width="250">
-          <template #default="{ row }">
-              <TableActions
-              :item="row" :buttons="action_buttons" @view-on-map="flyTo" @add-facility="handleAddFacility" />
-          </template>
-        </el-table-column>
-
-      </el-table>
-
-      <div v-if="!tableDataListRejected || tableDataListRejected.length === 0" class="no-data-message">
-        <el-empty description="No rejected water points found" />
-      </div>
-
-      <ElPagination
-        v-if="tableDataListRejected && tableDataListRejected.length > 0"
-        layout="sizes, prev, pager, next, total" 
-        v-model:currentPage="currentPage"
-        v-model:page-size="pageSize" 
-        :page-sizes="[5, 10, 20, 50, 100]" 
-        :total="totalRejected" 
-        :background="true"
-        @size-change="onPageSizeChange" 
-        @current-change="onPageChange" 
-        class="mt-4" />
-
-    </div>
+    <ElPagination
+      v-if="tableDataList && tableDataList.length > 0"
+      layout="sizes, prev, pager, next, total"
+      v-model:currentPage="currentPage"
+      v-model:page-size="pageSize"
+      :page-sizes="[10, 25, 50, 100]"
+      :total="total"
+      :background="true"
+      @size-change="onPageSizeChange"
+      @current-change="onPageChange"
+      class="mt-4"
+    />
+        </el-card>
 
 
-  </el-card>
+  <!-- Approve / Review dialogs (kept for admin use) -->
+  <el-dialog v-model="ShowReviewDialog" @close="handleClose" :title="formheader" :width="reviewWindowWidth" draggable>
+    <el-descriptions title="" direction="vertical" :column="2" size="small" border>
+      <el-descriptions-item label="Name">{{ facility_raw.name }}</el-descriptions-item>
+      <el-descriptions-item label="Status" :span="2">{{ facility_raw.reg_status }}</el-descriptions-item>
+      <el-descriptions-item label="Ownership">{{ facility_raw.ownership_type }}</el-descriptions-item>
+      <el-descriptions-item label="Owner">{{ facility_raw.owner }}</el-descriptions-item>
+      <el-descriptions-item label="Submitted By">{{ facility_raw.user }}</el-descriptions-item>
+      <el-descriptions-item label="Date">{{ facility_raw.date }}</el-descriptions-item>
+    </el-descriptions>
+    <template #footer>
+      <span class="dialog-footer">
+        <el-button type="success" @click="approve">Approve</el-button>
+        <el-button type="danger" @click="reject">Reject</el-button>
+      </span>
+    </template>
+  </el-dialog>
+
+  <el-dialog v-model="RejectDialog" title="Reason for rejection" width="20%">
+    <el-input v-model="rejectReason" placeholder="" />
+    <template #footer>
+      <span class="dialog-footer">
+        <el-button @click="RejectDialog = false">Cancel</el-button>
+        <el-button type="primary" @click="confirmReject">Confirm</el-button>
+      </span>
+    </template>
+  </el-dialog>
 
   <!-- Map Drawer -->
   <el-drawer
@@ -2939,335 +1658,214 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
     
     <div v-if="mapDrawerSettlement" class="map-container-wrapper">
       <div ref="mapDrawerContainer" class="map-container"></div>
+      <div
+        v-if="mapDrawerActiveFacilityId && !activeFacilityHasGeometry"
+        class="map-action-button"
+      >
+        <el-button type="primary" @click="startPlacingFacilityMarker">
+          {{ isPlacingFacilityMarker ? 'Click map to place marker...' : 'Add Marker' }}
+        </el-button>
+      </div>
+
+      <!-- Legend -->
+      <div v-if="presentFacilityCategories.length > 0" class="map-legend">
+        <h4 class="legend-title">Map Legend</h4>
+        <div class="legend-item">
+          <img src="/icons/water.png" style="width:22px;height:22px;margin-right:10px;opacity:1;" />
+          <span class="legend-label">Selected water point</span>
+        </div>
+        <div class="legend-item">
+          <img src="/icons/water.png" style="width:22px;height:22px;margin-right:10px;opacity:0.2;" />
+          <span class="legend-label">Other water points</span>
+        </div>
+      </div>
     </div>
   </el-drawer>
 
-  <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formheader" width="400px" draggable>
-    <el-row :gutter="10">
-
-      <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
-        <el-form ref="ruleFormRef" :rules="rules" :model="ruleForm" label-position="left">
-          <el-form-item label="Name" prop="name">
-            <el-input v-model="ruleForm.name" placeholder="Please input" />
-          </el-form-item>
-
-          <el-form-item label="Level" prop="level">
-            <el-select v-model="ruleForm.level" filterable placeholder="Level">
-              <el-option v-for="item in LevelOptions" :key="item.value" :label="item.label" :value="item.value" />
-            </el-select>
-          </el-form-item>
-
-          <el-form-item label="Type" prop="facility_type">
-            <el-select v-model="ruleForm.facility_type" filterable placeholder="Type">
-              <el-option v-for="item in HCFTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
-            </el-select>
-          </el-form-item>
-
-          <el-form-item label="Ownership" prop="ownership">
-            <el-select v-model="ruleForm.ownership_type" filterable placeholder="Ownership">
-              <el-option v-for="item in ownsershipOptions" :key="item.value" :label="item.label" :value="item.value" />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="County" prop="county_id">
-            <el-select v-model="ruleForm.county_id" filterable placeholder="County" :onChange="handleSelectCounty">
-              <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
-            </el-select>
-          </el-form-item>
-
-          <el-form-item v-if="showSubcountyOpts" label="Subcounty" prop="subcounty_id">
-            <el-select v-model="ruleForm.subcounty_id" filterable placeholder="Select subcounty">
-              <el-option
-v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
-                :value="item.value" />
-            </el-select>
-          </el-form-item>
-
-          <el-form-item label="Settlement" prop="settlement_id">
-            <el-select v-model="ruleForm.settlement_id" filterable placeholder="Settlement">
-              <el-option
-v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
-                :value="item.value" />
-            </el-select>
-          </el-form-item>
-
-
-        </el-form>
-      </el-col>
-
-    </el-row>
-
-    <template #footer>
-      <span class="dialog-footer space-between">
-        <el-row :gutter="10">
-
-          <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
-
-            <el-button @click="AddDialogVisible = false">Cancel</el-button>
-            <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
-
-
-          </el-col>
-
-
-        </el-row>
-      </span>
-    </template>
-
-
-  </el-dialog>
-
-
-
-  <el-dialog v-model="ShowReviewDialog" @close="handleClose" :title="formHeader" :width="reviewWindowWidth" draggable>
-    <el-descriptions title="" direction="vertical" :column="2" size="small" border>
-      <el-descriptions-item label="Name">{{ facility_raw.name }}</el-descriptions-item>
-      <el-descriptions-item label="Status" :span="2">{{ facility_raw.reg_status }}</el-descriptions-item>
-      <el-descriptions-item label="Type">{{ facility_raw.ownership_type }}</el-descriptions-item>
-      <el-descriptions-item label="owner"> {{ facility_raw.owner }} </el-descriptions-item>
-      <el-descriptions-item label="Submitted By"> {{ facility_raw.user }} </el-descriptions-item>
-      <el-descriptions-item label="Date"> {{ facility_raw.date }} </el-descriptions-item>
-
-    </el-descriptions>
-    <template #footer>
-      <span v-if="showAdminButtons" class="dialog-footer">
-        <el-button type="success" @click="approve">Approve</el-button>
-        <el-button type="danger" @click="reject">Reject</el-button>
-      </span>
-    </template>
-  </el-dialog>
-  <el-dialog v-model="RejectDialog" title="Reason for rejection" width="20%">
-    <el-input v-model="rejectReason" placeholder="" />
-    <template #footer>
-      <span class="dialog-footer">
-        <el-button @click="RejectDialog = false">Cancel</el-button>
-        <el-button type="primary" @click="confirmReject">
-          Confirm
-        </el-button>
-      </span>
-    </template>
-  </el-dialog>
-
-  <!-- Water Form Drawer for Editing -->
+  <!-- Facility Form Drawer -->
   <el-drawer
-    v-model="waterDrawerVisible"
+    v-model="facilityDrawerVisible"
     :title="isEditMode ? 'Edit Water Point' : 'Water Point Details'"
     direction="rtl"
     :size="isMobile ? '100%' : '600px'"
-    :before-close="closeWaterDrawer"
-    class="water-form-drawer"
+    :before-close="closeFacilityDrawer"
+    class="facility-form-drawer"
   >
     <el-form
-      ref="waterFormRef"
-      :model="waterForm"
-      :rules="waterFormRules"
-      :label-width="isMobile ? '0px' : '180px'"
+      ref="facilityFormRef"
+      :model="facilityForm"
+      :rules="facilityFormRules"
+      :label-width="isMobile ? '0px' : '200px'"
       :label-position="isMobile ? 'top' : 'left'"
-      class="water-form-mobile"
+      class="facility-form-mobile"
     >
       <el-divider content-position="left">Basic Information</el-divider>
 
-      <el-form-item label="Water Point Name" prop="name">
-        <el-input v-model="waterForm.name" placeholder="Enter water point name" />
+      <el-form-item label="Facility Name" prop="name">
+        <el-input v-model="facilityForm.name" placeholder="Enter facility name" />
       </el-form-item>
 
-      <el-form-item label="Type">
-        <el-select v-model="waterForm.type" placeholder="Select water point type" filterable style="width: 100%">
-          <el-option
-            v-for="item in waterPointTypeOptions"
-            :key="item.value"
-            :label="item.label"
-            :value="item.value"
-          />
+      <el-form-item label="Water Point Type">
+        <el-select v-model="facilityForm.type" placeholder="Select type" filterable style="width:100%">
+          <el-option v-for="item in waterPointTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </el-form-item>
 
-      <el-form-item label="Capacity">
-        <el-input v-model="waterForm.capacity" placeholder="Enter capacity" />
-      </el-form-item>
-
-      <el-form-item label="Depth (Meters)" v-if="waterForm.type === 'borehole' || waterForm.type === 'well'">
-        <el-input-number v-model="waterForm.depth" :min="0" :precision="2" style="width: 100%" />
+      <el-form-item label="Condition">
+        <el-select v-model="facilityForm.condition" placeholder="Select condition" filterable style="width:100%">
+          <el-option v-for="item in conditionOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
       </el-form-item>
 
       <el-form-item label="Ownership Type">
-        <el-select v-model="waterForm.ownership_type" placeholder="Select ownership type" filterable style="width: 100%">
-          <el-option
-            v-for="item in ownershipOptions"
-            :key="item.value"
-            :label="item.label"
-            :value="item.value"
-          />
+        <el-select v-model="facilityForm.ownership_type" placeholder="Select ownership" filterable style="width:100%">
+          <el-option v-for="item in ownershipOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </el-form-item>
 
       <el-form-item label="Owner">
-        <el-input v-model="waterForm.owner" placeholder="Enter owner" />
+        <el-input v-model="facilityForm.owner" placeholder="Enter owner name" />
       </el-form-item>
 
-      <el-form-item label="Catchment">
-        <el-input v-model="waterForm.catchment" placeholder="Enter catchment" />
+      <el-form-item label="Catchment Area">
+        <el-select v-model="facilityForm.catchment" placeholder="Select catchment" filterable style="width:100%">
+          <el-option v-for="item in catchmentOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </el-form-item>
+
+      <el-divider content-position="left">Capacity</el-divider>
+
+      <el-form-item label="Capacity">
+        <el-input-number v-model="facilityForm.capacity" :min="0" style="width:100%" />
+      </el-form-item>
+
+      <el-form-item label="Depth (m)">
+        <el-input-number v-model="facilityForm.depth" :min="0" style="width:100%" />
+      </el-form-item>
+
+      <el-divider content-position="left">Additional Information</el-divider>
+
+      <el-form-item label="20L Cost">
+        <el-input-number v-model="facilityForm.cost_of_20_litre_jerrican" :min="0" style="width:100%" />
       </el-form-item>
 
       <el-form-item label="Price">
-        <el-input-number v-model="waterForm.price" :min="0" style="width: 100%" />
-      </el-form-item>
-
-      <el-form-item label="Condition">
-        <el-select v-model="waterForm.condition" placeholder="Select condition" filterable style="width: 100%">
-          <el-option
-            v-for="item in conditionOptions"
-            :key="item.value"
-            :label="item.label"
-            :value="item.value"
-          />
-        </el-select>
+        <el-input-number v-model="facilityForm.price" :min="0" style="width:100%" />
       </el-form-item>
 
       <el-form-item label="Availability">
-        <el-select v-model="waterForm.availability" placeholder="Select availability" filterable style="width: 100%">
-          <el-option
-            v-for="item in availabilityOptions"
-            :key="item.value"
-            :label="item.label"
-            :value="item.value"
-          />
+        <el-select v-model="facilityForm.availability" placeholder="Select availability" filterable style="width:100%">
+          <el-option v-for="item in availabilityOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </el-form-item>
 
-      <el-form-item label="Name of Provider">
-        <el-input v-model="waterForm.name_of_provider" placeholder="Enter name of provider" />
+      <el-form-item label="Provider Name">
+        <el-input v-model="facilityForm.name_of_provider" placeholder="Enter provider name" />
       </el-form-item>
 
-      <el-form-item label="Cost of 20 Litre Jerrican">
-        <el-input-number v-model="waterForm.cost_of_20_litre_jerrican" :min="0" :precision="2" style="width: 100%" />
+      <el-form-item label="Respondent Name">
+        <el-input v-model="facilityForm.respondent_name" placeholder="Enter respondent name" />
+      </el-form-item>
+
+      <el-form-item label="Respondent Phone">
+        <el-input v-model="facilityForm.respondent_phone" placeholder="Enter respondent phone" />
+      </el-form-item>
+
+      <el-form-item label="Notes">
+        <el-input v-model="facilityForm.notes" type="textarea" :rows="3" placeholder="Enter notes" />
       </el-form-item>
     </el-form>
 
     <template #footer>
-      <div class="drawer-footer">
-        <el-button @click="closeWaterDrawer" class="footer-btn">Cancel</el-button>
-        <el-button type="primary" @click="submitWaterForm" :icon="Check" class="footer-btn">
+      <div class="drawer-footer-mobile">
+        <el-button @click="closeFacilityDrawer" class="footer-btn">Cancel</el-button>
+        <el-button type="primary" @click="submitFacilityForm" :icon="Check" class="footer-btn">
           {{ isEditMode ? 'Update Water Point' : 'Save Water Point' }}
         </el-button>
       </div>
     </template>
   </el-drawer>
-
 </template>
 
 <style scoped>
-.basemap {
+/* Mobile-optimized drawer styles */
+.drawer-header-mobile {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   width: 100%;
-  height: 65vh;
-  /* Set the height to 75% of the viewport height */
-}
-</style>
-
-
-
-<style>
-.el-table .warning-row {
-  --el-table-tr-bg-color: var(--el-color-warning-light-9);
+  padding: 0 8px;
 }
 
-.el-table .success-row {
-  --el-table-tr-bg-color: var(--el-color-success-light-9);
-}
-</style>
-
-
-
-
-
-<style>
-.el-row {
-  margin-bottom: 20px;
+.drawer-title {
+  font-size: 16px;
+  font-weight: 600;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-right: 12px;
 }
 
-.el-row:last-child {
-  margin-bottom: 0;
+.close-btn-mobile {
+  min-width: 60px;
+  padding: 8px 16px;
 }
 
-.el-col {
-  border-radius: 4px;
+.map-container-wrapper {
+  height: calc(100vh - 120px);
+  position: relative;
+  width: 100%;
 }
 
-.grid-content {
-  border-radius: 4px;
-  min-height: 36px;
+.map-container {
+  width: 100%;
+  height: 100%;
 }
 
+.map-action-button {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 1001;
+}
 
+.map-legend {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  background: white;
+  padding: 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+  z-index: 1000;
+  max-width: 280px;
+}
 
-.legend {
-  padding: 10px;
+.legend-title {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
 }
 
 .legend-item {
   display: flex;
   align-items: center;
-  margin-bottom: 5px;
-}
-
-.legend-color {
-  width: 20px;
-  height: 20px;
-  margin-right: 10px;
-}
-
-
-.circle-color {
-  height: 20px;
-  width: 20px;
-  margin-right: 10px;
-  border-radius: 50%;
-  display: inline-block;
-
+  margin-bottom: 10px;
 }
 
 .legend-label {
   font-size: 12px;
+  color: #333;
+  line-height: 1.4;
 }
 
-#layer-control {
-  position: absolute;
-  top: 20px;
-  left: 20px;
-  z-index: 1;
-  background-color: white;
-  padding: 10px;
-  border-radius: 5px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+.facility-form-mobile {
+  padding-bottom: 20px;
 }
 
-
-#floating-div {
-  position: absolute;
-  top: 200px;
-  left: 50px;
-  z-index: 1;
-  background-color: white;
-  padding: 5px;
-  border-radius: 5px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-}
-
-
-.item {
-  margin-top: 10px;
-  margin-right: 40px;
-}
-
-.water-form-drawer :deep(.el-drawer__body) {
-  padding: 20px;
-  overflow-y: auto;
-}
-
-.water-form-mobile {
-  padding: 0;
-}
-
-.drawer-footer {
+.drawer-footer-mobile {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
@@ -3279,84 +1877,6 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
   min-width: 100px;
 }
 
-@media (max-width: 768px) {
-  .water-form-drawer :deep(.el-drawer__body) {
-    padding: 15px;
-  }
-
-  .drawer-footer {
-    padding: 15px;
-    flex-direction: column;
-  }
-
-  .footer-btn {
-    width: 100%;
-  }
-}
-
-.map-container-wrapper {
-  position: relative;
-  width: 100%;
-  height: calc(100vh - 120px);
-}
-
-.map-container {
-  width: 100%;
-  height: 100%;
-  border-radius: 4px;
-}
-
-.map-drawer :deep(.el-drawer__body) {
-  padding: 0;
-}
-
-.drawer-header-mobile {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-}
-
-.drawer-title {
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.close-btn-mobile {
-  padding: 8px 16px;
-}
-
-@media (max-width: 768px) {
-  .map-container-wrapper {
-    height: calc(100vh - 100px);
-  }
-
-  .drawer-title {
-    font-size: 14px;
-  }
-
-  .close-btn-mobile {
-    padding: 6px 12px;
-    font-size: 13px;
-  }
-}
-</style>
-
-
-<style scoped>
-.custom-style .el-segmented {
-  --el-border-radius-base: 5px;
-}
-
-.segment-label {
-  white-space: nowrap;
-  /* Prevent text from wrapping */
-  overflow: hidden;
-  /* Hide overflowing text */
-  text-overflow: ellipsis;
-  /* Add ellipsis for truncated text */
-}
-
 .no-data-message {
   display: flex;
   justify-content: center;
@@ -3365,25 +1885,60 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
   margin: 20px 0;
 }
 
-@media (max-width: 600px) {
-  .custom-style .el-segmented {
-    font-size: 10px;
-    /* Adjust font size on mobile */
-    padding: 5px;
-    /* Adjust padding for smaller screens */
+/* Mobile-specific styles */
+@media (max-width: 768px) {
+  .map-container-wrapper {
+    height: calc(100vh - 100px);
   }
 
-  .segment-label {
-    font-size: 12px;
-    /* Smaller font size for labels */
-    text-align: center;
-    /* Center align text */
-    padding: 0 5px;
-    /* Add some padding for spacing */
-    white-space: normal;
-    /* Allow wrapping on smaller screens */
-    overflow: visible;
-    /* Allow the text to flow properly */
+  .map-legend {
+    bottom: 10px;
+    right: 10px;
+    left: 10px;
+    max-width: none;
+    padding: 12px;
+    max-height: 40vh;
+    overflow-y: auto;
   }
+
+  .map-action-button {
+    top: 10px;
+    right: 10px;
+  }
+
+  .drawer-title { font-size: 14px; }
+  .close-btn-mobile { padding: 6px 12px; font-size: 13px; }
+
+  .facility-form-mobile :deep(.el-form-item) { margin-bottom: 18px; }
+  .facility-form-mobile :deep(.el-form-item__label) { font-size: 13px; margin-bottom: 6px; padding-bottom: 0; }
+  .facility-form-mobile :deep(.el-input),
+  .facility-form-mobile :deep(.el-select),
+  .facility-form-mobile :deep(.el-input-number) { font-size: 16px; }
+  .facility-form-mobile :deep(.el-button) { width: 100%; margin-top: 10px; padding: 12px; font-size: 15px; }
+  .facility-form-mobile :deep(.el-divider) { margin: 20px 0; }
+  .facility-form-mobile :deep(.el-divider__text) { font-size: 14px; }
+
+  .drawer-footer-mobile { flex-direction: column; padding: 15px; gap: 10px; }
+  .footer-btn { width: 100%; margin: 0; }
+}
+
+/* Ensure drawers are scrollable on mobile */
+:deep(.el-drawer__body) {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Improve touch targets */
+@media (max-width: 768px) {
+  :deep(.el-button) { min-height: 44px; }
+  :deep(.el-select), :deep(.el-input) { min-height: 44px; }
+  :deep(.el-input__inner), :deep(.el-input__wrapper) { min-height: 44px; }
 }
 </style>
+
+<style>
+.el-table .warning-row { --el-table-tr-bg-color: var(--el-color-warning-light-9); }
+.el-table .success-row { --el-table-tr-bg-color: var(--el-color-success-light-9); }
+</style>
+ 
+

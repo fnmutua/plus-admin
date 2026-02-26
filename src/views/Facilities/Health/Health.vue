@@ -1,4 +1,4 @@
-<!-- eslint-disable prettier/prettier -->
+﻿<!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
 
 declare global {
@@ -53,19 +53,19 @@ const googleMapsApiKey = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
 
 // User location-based filtering
 const isSuperAdmin = computed(() => {
-  return userInfo?.roles?.some((role: any) =>
+  return userInfo?.roles?.some((role: any) => 
     role.name === 'super_admin' || role.name === 'root_admin'
   ) || false
 })
 
 const hasNationalAccess = computed(() => {
-  return userInfo?.roles?.some((role: any) =>
+  return userInfo?.roles?.some((role: any) => 
     role.user_roles?.location_level === 'national'
   ) || false
 })
 
 const userCountyRole = computed(() => {
-  return userInfo?.roles?.find((role: any) =>
+  return userInfo?.roles?.find((role: any) => 
     role.user_roles?.location_level === 'county'
   )
 })
@@ -75,7 +75,7 @@ const userCountyId = computed(() => {
 })
 
 const userSettlementRole = computed(() => {
-  return userInfo?.roles?.find((role: any) =>
+  return userInfo?.roles?.find((role: any) => 
     role.user_roles?.location_level === 'settlement'
   )
 })
@@ -151,6 +151,12 @@ const healthFacilityMarkers = ref<any[]>([])
 const settlementGeo = ref<any>(null)
 const healthFacilitiesGeo = ref<any>(null)
 const facilityMarkerDataMap = ref<Map<any, any>>(new Map())
+const mapDrawerActiveFacility = ref<any>(null)
+const mapDrawerActiveFacilityId = ref<number | null>(null)
+const activeFacilityHasGeometry = ref(false)
+const isPlacingFacilityMarker = ref(false)
+const mapPlacementMarker = ref<any>(null)
+const mapPlacementClickListener = ref<any>(null)
 
 // Facility form drawer state
 const facilityDrawerVisible = ref(false)
@@ -547,7 +553,7 @@ const makeSettlementOptions = (list) => {
   list.value.forEach(function (arrayItem: { id: string; type: string }) {
     var countyOpt: any = {}
     countyOpt.value = arrayItem.id
-    countyOpt.label = arrayItem.name
+    countyOpt.label = arrayItem.name  
     settlementOptions.value.push(countyOpt)
   })
 }
@@ -607,7 +613,7 @@ const actionColumnWidth = ref()
 if (isMobile.value) {
   dialogWidth.value = "90%"
   actionColumnWidth.value = "75px"
-} else {
+  } else {
   dialogWidth.value = "25%"
   actionColumnWidth.value = "160px"
 }
@@ -870,8 +876,8 @@ const filterBySettlement = async (settlement_ids: any) => {
     }
     if (selectedSettlement.value.length === 0) {
       filters.value.splice(index, 1)
-    }
-    getFilteredData(filters.value, filterValues.value)
+  }
+  getFilteredData(filters.value, filterValues.value)
   }
 }
 
@@ -897,7 +903,14 @@ const AddFacility = (data?: any) => {
   push({ name: 'AddFacility', query: queryParams })
 }
 
-// ─── Map drawer ───────────────────────────────────────────────────────────────
+// â”€â”€â”€ Map drawer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+const hasPointLikeGeometry = (geom: any) => {
+  if (!geom || typeof geom !== 'object') return false
+  if (geom.type === 'Point' && Array.isArray(geom.coordinates) && geom.coordinates.length >= 2) return true
+  if (geom.type === 'MultiPoint' && Array.isArray(geom.coordinates) && geom.coordinates[0]?.length >= 2) return true
+  return false
+}
 
 const initializeMapDrawer = async (item: any) => {
   if (!mapDrawerContainer.value) {
@@ -926,12 +939,16 @@ const initializeMapDrawer = async (item: any) => {
     const settlementId = item?.settlement_id || item?.id
     // If opened from a facility row, settlement_id is present.
     const currentFacilityId = item?.settlement_id ? item.id : null
+    mapDrawerActiveFacility.value = currentFacilityId ? item : null
+    mapDrawerActiveFacilityId.value = currentFacilityId ? Number(currentFacilityId) : null
+    activeFacilityHasGeometry.value = hasPointLikeGeometry(item?.geom)
+    isPlacingFacilityMarker.value = false
 
     const geoForm: any = { model: 'settlement', id: settlementId }
     const res = await getOneGeo(geoForm)
     const geoData = res?.data?.[0]?.json_build_object
     const feats = geoData?.features
-
+    
     if (!feats || (Array.isArray(feats) && feats.length === 0)) {
       ElMessage.warning("No boundary geometry found for this settlement. Showing map with facilities only.")
       settlementGeo.value = null
@@ -974,7 +991,8 @@ const initializeMapDrawer = async (item: any) => {
           settlementPolygon.value = new window.google.maps.Polygon({
             paths, map: googleMap.value,
             strokeColor: '#FF0000', strokeOpacity: 0.6, strokeWeight: 2,
-            fillColor: '#FF0000', fillOpacity: 0
+            fillColor: '#FF0000', fillOpacity: 0,
+            clickable: false
           })
 
           const pathBounds = new window.google.maps.LatLngBounds()
@@ -1017,7 +1035,7 @@ const loadHealthFacilitiesOnMap = async (settlementId: number, currentFacilityId
       selectedParents: settlementId,
       filtredGeoIds: [settlementId]
     }
-
+    
     if (isCountyRestricted.value && userCountyId.value) {
       formData.columnFilterField = 'county_id'
       formData.selectedParents = userCountyId.value
@@ -1026,7 +1044,7 @@ const loadHealthFacilitiesOnMap = async (settlementId: number, currentFacilityId
 
     const res = await getfilteredGeo(formData)
     let geoJsonData = null
-
+    
     if (res && res.data) {
       if (Array.isArray(res.data) && res.data.length > 0) {
         const firstItem = res.data[0]
@@ -1044,35 +1062,38 @@ const loadHealthFacilitiesOnMap = async (settlementId: number, currentFacilityId
       ElMessage.info('No health facilities with geometry data found for this settlement.')
       return
     }
-
+    
     if (geoJsonData.features === null || (Array.isArray(geoJsonData.features) && geoJsonData.features.length === 0)) {
       ElMessage.info('No health facilities with geometry data found for this settlement.')
       healthFacilitiesGeo.value = null
       return
     }
-
+    
     healthFacilitiesGeo.value = geoJsonData
     const features = geoJsonData.features || []
     const renderedFacilityIds = new Set<number | string>()
-
+    
     if (features.length === 0) {
       ElMessage.info('No health facilities found with geometry for this settlement.')
       return
     }
-
+    
     const addFacilityMarker = (lat: number, lng: number, props: any, category: string) => {
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) return
       try {
         const isCurrentFacility = !!currentFacilityId && Number(props?.id) === Number(currentFacilityId)
+        if (isCurrentFacility) {
+          activeFacilityHasGeometry.value = true
+        }
         const icon = {
           url: 'icons/ambulance.png',
           scaledSize: new window.google.maps.Size(30, 30),
           anchor: new window.google.maps.Point(15, 15)
         }
-
-        const marker = new window.google.maps.Marker({
-          position: { lat, lng },
-          map: googleMap.value,
+            
+            const marker = new window.google.maps.Marker({
+              position: { lat, lng },
+              map: googleMap.value,
           title: props?.name || 'Health Facility',
           icon,
           draggable: isCurrentFacility,
@@ -1094,22 +1115,22 @@ const loadHealthFacilitiesOnMap = async (settlementId: number, currentFacilityId
           })
         }
 
-        const infoWindow = new window.google.maps.InfoWindow({
-          content: `
-              <div style="padding: 8px; min-width: 200px;">
+            const infoWindow = new window.google.maps.InfoWindow({
+              content: `
+                <div style="padding: 8px; min-width: 200px;">
                 <h3 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600;">${props?.name || 'Health Facility'}</h3>
                 <p style="margin: 0 0 5px 0; font-size: 12px;"><strong>Type:</strong> ${category}</p>
                 ${props?.ownership_type ? `<p style="margin: 5px 0 0 0; font-size: 12px;"><strong>Ownership:</strong> ${props.ownership_type}</p>` : ''}
-              </div>
-            `
-        })
+                </div>
+              `
+            })
 
         facilityMarkerDataMap.value.set(marker, props)
-        marker.addListener('click', () => {
+            marker.addListener('click', () => {
           openFacilityForm(props)
-        })
-        healthFacilityMarkers.value.push(marker)
-      } catch (markerError) {
+            })
+            healthFacilityMarkers.value.push(marker)
+          } catch (markerError) {
         console.error('Error creating marker:', markerError, props)
       }
     }
@@ -1157,11 +1178,11 @@ const loadHealthFacilitiesOnMap = async (settlementId: number, currentFacilityId
       addFacilityMarker(lat, lng, facility, category)
       renderedFacilityIds.add(facility?.id)
     })
-
-    if (healthFacilityMarkers.value.length === 0) {
-      ElMessage.info('No health facilities with valid Point geometry found')
-    } else {
-      ElMessage.success(`Loaded ${healthFacilityMarkers.value.length} health facilities on map`)
+      
+      if (healthFacilityMarkers.value.length === 0) {
+        ElMessage.info('No health facilities with valid Point geometry found')
+      } else {
+        ElMessage.success(`Loaded ${healthFacilityMarkers.value.length} health facilities on map`)
     }
   } catch (error) {
     console.error("Error loading health facilities on map:", error)
@@ -1169,19 +1190,77 @@ const loadHealthFacilitiesOnMap = async (settlementId: number, currentFacilityId
   }
 }
 
-// ─── Facility form ────────────────────────────────────────────────────────────
+const clearMapPlacementListener = () => {
+  if (mapPlacementClickListener.value && window.google?.maps?.event) {
+    window.google.maps.event.removeListener(mapPlacementClickListener.value)
+  }
+  mapPlacementClickListener.value = null
+}
+
+const startPlacingFacilityMarker = () => {
+  if (!googleMap.value || !mapDrawerActiveFacility.value || !mapDrawerActiveFacilityId.value) {
+    ElMessage.warning('Select a facility first before adding a marker')
+    return
+  }
+
+  clearMapPlacementListener()
+  isPlacingFacilityMarker.value = true
+  ElMessage.info('Click on the map to place the facility marker')
+
+  mapPlacementClickListener.value = googleMap.value.addListener('click', (event: any) => {
+    const point = event?.latLng?.toJSON?.()
+    if (!point) return
+
+    const icon = {
+      url: 'icons/ambulance.png',
+      scaledSize: new window.google.maps.Size(30, 30),
+      anchor: new window.google.maps.Point(15, 15)
+    }
+
+    if (mapPlacementMarker.value) {
+      mapPlacementMarker.value.setPosition(point)
+    } else {
+      mapPlacementMarker.value = new window.google.maps.Marker({
+        position: point,
+        map: googleMap.value,
+        title: mapDrawerActiveFacility.value?.name || 'Health Facility',
+        icon,
+        draggable: true,
+        opacity: 1,
+        zIndex: 700
+      })
+    }
+
+    const updatedProps = {
+      ...mapDrawerActiveFacility.value,
+      latitude: point.lat,
+      longitude: point.lng,
+      geom: {
+        type: 'Point',
+        coordinates: [point.lng, point.lat]
+      }
+    }
+
+    activeFacilityHasGeometry.value = true
+    isPlacingFacilityMarker.value = false
+    clearMapPlacementListener()
+    openFacilityForm(updatedProps)
+  })
+}
+
+// â”€â”€â”€ Facility form â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const openFacilityForm = (facilityData: any) => {
   isEditMode.value = true
   editingFacilityId.value = facilityData.id || null
-
+  
   facilityForm.name = facilityData.name || ''
   facilityForm.settlement_id = facilityData.settlement_id || mapDrawerSettlement.value?.id || ''
 
   if (isCountyRestricted.value && userCountyId.value) {
     facilityForm.county_id = userCountyId.value
   } else {
-    facilityForm.county_id = facilityData.county_id || mapDrawerSettlement.value?.county_id || ''
+  facilityForm.county_id = facilityData.county_id || mapDrawerSettlement.value?.county_id || ''
   }
 
   if (userSettlementId.value && !isSuperAdmin.value && !hasNationalAccess.value) {
@@ -1216,13 +1295,13 @@ const openFacilityForm = (facilityData: any) => {
   facilityForm.respondent_name = facilityData.respondent_name || ''
   facilityForm.respondent_phone = facilityData.respondent_phone || ''
   facilityForm.geom = facilityData.geom || null
-
+  
   facilityDrawerVisible.value = true
 }
 
 const submitFacilityForm = async () => {
   if (!facilityFormRef.value) return
-
+  
   await facilityFormRef.value.validate(async (valid: boolean) => {
     if (valid) {
       try {
@@ -1312,10 +1391,19 @@ const closeFacilityDrawer = () => {
 const handleMapDrawerClose = () => {
   mapDrawerVisible.value = false
   facilityDrawerVisible.value = false
+  clearMapPlacementListener()
+  isPlacingFacilityMarker.value = false
+  activeFacilityHasGeometry.value = false
+  mapDrawerActiveFacility.value = null
+  mapDrawerActiveFacilityId.value = null
+  if (mapPlacementMarker.value) {
+    mapPlacementMarker.value.setMap(null)
+    mapPlacementMarker.value = null
+  }
   healthFacilityMarkers.value.forEach(marker => marker.setMap(null))
   healthFacilityMarkers.value = []
   presentFacilityCategories.length = 0
-  settlementPolygon.value = null
+    settlementPolygon.value = null
   googleMap.value = null
   mapDrawerSettlement.value = null
   settlementGeo.value = null
@@ -1433,21 +1521,21 @@ const filteredSegments = computed(() => [])
         <div style="display:flex;align-items:center;gap:10px;justify-content:flex-end;width:100%;">
           <!-- Desktop -->
           <template v-if="!isMobile">
-            <el-tooltip content="Add Facility" placement="top">
-              <PermissionWrapper :permissions="'health_facility:create'">
+          <el-tooltip content="Add Facility" placement="top">
+            <PermissionWrapper :permissions="'health_facility:create'">
                 <el-button @click="AddFacility()" type="primary" :icon="Plus" />
-              </PermissionWrapper>
-            </el-tooltip>
-            <el-tooltip content="Clear" placement="top">
+            </PermissionWrapper>
+          </el-tooltip>
+          <el-tooltip content="Clear" placement="top">
               <el-button @click="handleClear" type="primary" :icon="Filter" />
-            </el-tooltip>
-            <DownloadCustom
+          </el-tooltip>
+          <DownloadCustom
               v-if="showEditButtons"
               :data="tableDataList"
               :model="healthFacilityModel"
               :associated_models="['settlement', 'county', 'subcounty', 'ward']"
             />
-          </template>
+        </template>
 
           <!-- Mobile -->
           <template v-else>
@@ -1467,7 +1555,7 @@ const filteredSegments = computed(() => [])
                     <span style="margin-left:8px;">Clear Filters</span>
                   </el-dropdown-item>
                 </el-dropdown-menu>
-              </template>
+                  </template>
             </el-dropdown>
             <DownloadCustom
               v-if="showEditButtons"
@@ -1475,8 +1563,8 @@ const filteredSegments = computed(() => [])
               :model="healthFacilityModel"
               :associated_models="['settlement', 'county', 'subcounty', 'ward']"
             />
-          </template>
-        </div>
+                  </template>
+              </div>
       </el-col>
     </el-row>
 
@@ -1501,11 +1589,11 @@ const filteredSegments = computed(() => [])
         :label="isMobile ? 'Location' : 'Location (Settlement / Ward / Subcounty / County)'"
         :min-width="isMobile ? 220 : 260"
       >
-        <template #default="scope">
+                <template #default="scope">
           {{ scope.row.settlement?.name || 'N/A' }},
-          {{ scope.row.ward?.name || 'N/A' }} ward,
-          {{ scope.row.subcounty?.name || 'N/A' }} subcounty,
-          {{ scope.row.county?.name || 'N/A' }} County
+            {{ scope.row.ward?.name || 'N/A' }} ward,
+            {{ scope.row.subcounty?.name || 'N/A' }} subcounty,
+            {{ scope.row.county?.name || 'N/A' }} County
         </template>
       </el-table-column>
 
@@ -1521,9 +1609,9 @@ const filteredSegments = computed(() => [])
       <el-table-column label="Capacity / Staff" min-width="200">
         <template #default="scope">
           <div>
-            <div><strong>Beds:</strong> {{ scope.row.number_beds || '—' }}</div>
-            <div style="margin-top:2px;"><strong>Doctors:</strong> {{ scope.row.number_doctors || '—' }}</div>
-            <div style="margin-top:2px;"><strong>Nurses:</strong> {{ scope.row.number_nurses || '—' }}</div>
+            <div><strong>Beds:</strong> {{ scope.row.number_beds || 'N/A' }}</div>
+            <div style="margin-top:2px;"><strong>Doctors:</strong> {{ scope.row.number_doctors || 'N/A' }}</div>
+            <div style="margin-top:2px;"><strong>Nurses:</strong> {{ scope.row.number_nurses || 'N/A' }}</div>
           </div>
         </template>
       </el-table-column>
@@ -1536,12 +1624,12 @@ const filteredSegments = computed(() => [])
         fixed="right"
       >
         <template #default="{ row }">
-          <TableActions
-            :item="row"
-            :buttons="action_buttons"
-            @view-on-map="flyTo"
-            @delete="DeleteFacility"
-          />
+              <TableActions
+                :item="row"
+                :buttons="action_buttons"
+                @view-on-map="flyTo"
+                @delete="DeleteFacility"
+              />
         </template>
       </el-table-column>
     </el-table>
@@ -1562,7 +1650,7 @@ const filteredSegments = computed(() => [])
       @current-change="onPageChange"
       class="mt-4"
     />
-  </el-card>
+        </el-card>
 
 
   <!-- Approve / Review dialogs (kept for admin use) -->
@@ -1608,9 +1696,17 @@ const filteredSegments = computed(() => [])
         <el-button type="danger" size="default" @click="handleMapDrawerClose" class="close-btn-mobile">Close</el-button>
       </div>
     </template>
-
+    
     <div v-if="mapDrawerSettlement" class="map-container-wrapper">
       <div ref="mapDrawerContainer" class="map-container"></div>
+      <div
+        v-if="mapDrawerActiveFacilityId && !activeFacilityHasGeometry"
+        class="map-action-button"
+      >
+        <el-button type="primary" @click="startPlacingFacilityMarker">
+          {{ isPlacingFacilityMarker ? 'Click map to place marker...' : 'Add Marker' }}
+        </el-button>
+      </div>
 
       <!-- Legend -->
       <div v-if="presentFacilityCategories.length > 0" class="map-legend">
@@ -1802,6 +1898,13 @@ const filteredSegments = computed(() => [])
   height: 100%;
 }
 
+.map-action-button {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 1001;
+}
+
 .map-legend {
   position: absolute;
   bottom: 20px;
@@ -1873,6 +1976,11 @@ const filteredSegments = computed(() => [])
     overflow-y: auto;
   }
 
+  .map-action-button {
+    top: 10px;
+    right: 10px;
+  }
+
   .drawer-title { font-size: 14px; }
   .close-btn-mobile { padding: 6px 12px; font-size: 13px; }
 
@@ -1907,3 +2015,4 @@ const filteredSegments = computed(() => [])
 .el-table .warning-row { --el-table-tr-bg-color: var(--el-color-warning-light-9); }
 .el-table .success-row { --el-table-tr-bg-color: var(--el-color-success-light-9); }
 </style>
+ 
