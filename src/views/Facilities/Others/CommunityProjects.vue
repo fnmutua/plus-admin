@@ -191,9 +191,9 @@ const DeleteFacility = async (row: any) => {
   }
 }
 
-const getName = (row: any) => row?.name || row?.Place_name || row?.PL_Name || row?.PC_Name || row?.community_hall_name || row?.CH_Name || 'N/A'
-const getType = (row: any) => row?.type || row?.facility_type || row?.hazard_type || row?.PC_Type || row?.CH_Crime_Type || row?.use || row?.PL_Type_of_Supply || 'N/A'
-const getCondition = (row: any) => row?.condition || row?.Condition || row?.PC_Condition || row?.TC_Condition || row?.surface_condition || 'N/A'
+const getName = (row: any) => row?.name || row?.CP_Name || 'N/A'
+const getType = (row: any) => row?.CP_Type || row?.type || 'N/A'
+const getCondition = (row: any) => row?.CP_Condition || row?.condition || row?.Condition || 'N/A'
 
 const onCountyChange = async () => {
   selectedSettlement.value = []
@@ -393,8 +393,10 @@ const submitEditForm = async () => {
           settlement_id: editForm.settlement_id,
           county_id: editForm.county_id,
           subcounty_id: editForm.subcounty_id,
-          ward_id: editForm.ward_id,
-          geom: editForm.geom
+          ward_id: editForm.ward_id
+        }
+        if (editForm.geom) {
+          formData.geom = editForm.geom
         }
 
         if (isEditMode.value && editingId.value) {

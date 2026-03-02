@@ -869,7 +869,30 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             name: 'AddWaterNew',
             meta: { hidden: true, title: 'Add Water Point', noCache: true }
           },
-    
+          {
+            path: 'sewer',
+            component: () => import('@/views/Facilities/Sewer/Sewer.vue'),
+            name: 'Sewer',
+            meta: { icon: 'ph:toilet-fill', title: 'Sewer' }
+          },
+          {
+            path: 'sewer/add',
+            component: () => import('@/views/Facilities/Sewer/AddSewerNew.vue'),
+            name: 'AddSewer',
+            meta: { hidden: true, title: 'Add', noCache: true, icon: 'ant-design:plus-square-filled' }
+          },
+          {
+            path: 'sewer/map/:id',
+            component: () => import('@/views/Facilities/Sewer/SewerMap.vue'),
+            name: 'SewerMap',
+            meta: { hidden: true, props: true, title: 'Road Map', icon: 'ant-design:plus-square-filled' }
+          },
+          {
+            path: 'sewer/details/:id',
+            component: () => import('@/views/Facilities/Sewer/SewerFacilityDetails.vue'),
+            name: 'SewerFacilityDetails',
+            meta: { hidden: true, props: true, title: 'Sewer Profile' }
+          }
          ]
          
           },
@@ -908,42 +931,6 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         ]
       },
 
-       /// Sewer -----------------------
-                {
-                  path: 'sewer',
-                //  component: 'views/Facilities/Sewer/Sewer',
-                  component: () => import('@/views/Facilities/Sewer/Sewer.vue'),
-    
-                  name: 'Sewer',
-                  meta: {
-                    icon:'ph:toilet-fill',
-                    title: 'Sewer'
-                  }
-                },
-                {
-                  path: 'sewer/add',
-                  component: () => import('@/views/Facilities/Sewer/AddSewerNew.vue'),
-                  name: 'AddSewer',
-                  meta: { hidden: true, title: 'Add', noCache: true, icon: 'ant-design:plus-square-filled' }
-                },
-                {
-                  path: 'sewer/map/:id',
-                  component: () => import('@/views/Facilities/Sewer/SewerMap.vue'),
-                  name: 'SewerMap',
-                  meta: { hidden: true, props: true, title: 'Road Map', icon: 'ant-design:plus-square-filled' }
-                },
-                {
-                  path: 'sewer/details/:id',
-                //  component: 'views/Facilities/Sewer/SewerFacilityDetails',
-                  component: () => import('@/views/Facilities/Sewer/SewerFacilityDetails.vue'),
-    
-                  name: 'SewerFacilityDetails',
-                  meta: {
-                    hidden: true,
-                    props: true,
-                    title: 'Sewer Profile'
-                  }
-          },
         /// Others (Nested) -----------------------
       {
         path: 'others',
@@ -990,6 +977,12 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             component: () => import('@/views/Facilities/Others/CommunityProjects.vue'),
             name: 'OthersCommunityProjects',
             meta: { title: 'Community Projects', icon: 'mdi:account-group' }
+          },
+          {
+            path: 'mast',
+            component: () => import('@/views/Facilities/Others/Mast.vue'),
+            name: 'OthersMast',
+            meta: { title: 'Telecom Masts', icon: 'mdi:tower-fire' }
           }
         ]
       },

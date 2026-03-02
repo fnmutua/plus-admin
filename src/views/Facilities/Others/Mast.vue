@@ -1,6 +1,6 @@
 ﻿<script setup lang="ts">
 import { computed, nextTick, reactive, ref, watch } from 'vue'
-import { ElMessage, ElCard, ElTable, ElTableColumn, ElCol,ElInput,   ElPagination, ElEmpty, ElButton, ElRow, ElSelect, ElOption, ElDrawer, ElDialog, ElForm, ElFormItem, ElInputNumber, ElDivider, type FormInstance } from 'element-plus'
+import { ElMessage, ElCard, ElTable, ElTableColumn, ElCol, ElInput, ElPagination, ElEmpty, ElButton, ElRow, ElSelect, ElOption, ElDrawer, ElForm, ElFormItem, ElDivider, type FormInstance } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { getListWithoutGeo } from '@/api/counties'
 import { DeleteRecord, getSettlementListByCounty, getOneGeo, getfilteredGeo, searchByKeyWord, updateOneRecord } from '@/api/settlements'
@@ -11,9 +11,9 @@ import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import { Plus, Filter, Search, Back, Check } from '@element-plus/icons-vue'
 
-const pageTitle = 'Hazards'
-const facilityModel = 'hazard_zone'
-const createPermission = 'hazard_zone:create'
+const pageTitle = 'Telecom Mast'
+const facilityModel = 'mast'
+const createPermission = 'mast:create'
 
 const actionButtons = ref<string[]>(['viewOnMap', 'delete'])
 const tableDataList = ref<any[]>([])
@@ -37,8 +37,6 @@ const googleMap = ref<any>(null)
 const settlementPolygon = ref<any>(null)
 const overlays = ref<any[]>([])
 const selectedId = ref<number | string | null>(null)
-const viewFormVisible = ref(false)
-const viewFormData = ref<Record<string, any>>({})
 
 const { push } = useRouter()
 const { wsCache } = useCache()
@@ -191,9 +189,9 @@ const DeleteFacility = async (row: any) => {
   }
 }
 
-const getName = (row: any) => row?.name || row?.place_name || row?.Place_name || 'N/A'
-const getType = (row: any) => row?.hazard_type || row?.type || 'N/A'
-const getCondition = (row: any) => row?.nature || row?.condition || 'N/A'
+const getName = (row: any) => row?.name || row?.TC_Name || 'N/A'
+const getType = (row: any) => row?.TC_Type || row?.type || 'N/A'
+const getCondition = (row: any) => row?.TC_Condition || row?.condition || row?.Condition || 'N/A'
 
 const onCountyChange = async () => {
   selectedSettlement.value = []
@@ -210,11 +208,6 @@ const onSettlementChange = async () => {
 }
 
 const goBack = () => window.history.back()
-
-const openViewForm = (data: Record<string, any>) => {
-  viewFormData.value = data || {}
-  viewFormVisible.value = true
-}
 
 const getPointCoords = (geom: any): [number, number] | null => {
   if (!geom) return null
@@ -255,39 +248,61 @@ const initializeMapDrawer = async (facility: any) => {
       const paths = feature.geometry.type === 'Polygon'
         ? feature.geometry.coordinates[0].map((coord: number[]) => ({ lat: coord[1], lng: coord[0] }))
         : feature.geometry.coordinates[0][0].map((coord: number[]) => ({ lat: coord[1], lng: coord[0] }))
-      settlementPolygon.value = new window.google.maps.Polygon({ paths, strokeColor: '#FF0000', strokeOpacity: 0.6, strokeWeight: 2, fillOpacity: 0, map: googleMap.value })
+      settlementPolygon.value = new window.google.maps.Polygon({
+        paths,
+        strokeColor: '#FF0000',
+        strokeOpacity: 0.6,
+        strokeWeight: 2,
+        fillOpacity: 0,
+        map: googleMap.value
+      })
       const bounds = new window.google.maps.LatLngBounds()
       paths.forEach((p: any) => bounds.extend(p))
       googleMap.value.fitBounds(bounds)
     }
-  } catch {}
+  } catch (e) {
+    // continue without boundary
+  }
 
-  const geoFilterForm: any = { model: facilityModel, columnFilterField: 'settlement_id', selectedParents: settlementId, filtredGeoIds: [settlementId] }
-  const res: any = await getfilteredGeo(geoFilterForm as any)
+  let features: any[] = []
+  try {
+    const geoFilterForm: any = {
+      model: facilityModel,
+      columnFilterField: 'settlement_id',
+      selectedParents: settlementId,
+      filtredGeoIds: [settlementId]
+    }
+    const res: any = await getfilteredGeo(geoFilterForm as any)
+    const geoJsonData = res?.data?.[0]?.json_build_object || res?.data?.[0]?.[0]?.json_build_object || res?.[0]?.json_build_object
+    features = geoJsonData?.features || []
+  } catch (e) {
+    console.error('Failed to load mast geo data:', e)
+  }
+
   overlays.value.forEach((o: any) => o.setMap(null))
   overlays.value = []
-  const geoJsonData = res?.data?.[0]?.json_build_object || res?.data?.[0]?.[0]?.json_build_object || res?.[0]?.json_build_object
-  const features = geoJsonData?.features || []
 
   features.forEach((feature: any) => {
-    const geomType = feature?.geometry?.type
-    const featureId = feature?.properties?.id
-    const isCurrent = selectedId.value !== null && String(featureId) === String(selectedId.value)
-
-    if (['LineString', 'MultiLineString'].includes(geomType)) {
-      const coords = feature.geometry.coordinates
-      const path = geomType === 'LineString' ? coords.map((c: number[]) => ({ lat: c[1], lng: c[0] })) : (coords[0] || []).map((c: number[]) => ({ lat: c[1], lng: c[0] }))
-      const polyline = new window.google.maps.Polyline({ path, geodesic: true, strokeColor: isCurrent ? '#22c55e' : '#9ca3af', strokeOpacity: isCurrent ? 1 : 0.75, strokeWeight: isCurrent ? 6 : 4, map: googleMap.value })
-      polyline.addListener('click', () => openEditForm(feature?.properties || {}))
-      overlays.value.push(polyline)
-      return
-    }
-
     const point = getPointCoords(feature?.geometry)
     if (!point) return
     const [lng, lat] = point
-    const marker = new window.google.maps.Marker({ position: { lat, lng }, map: googleMap.value, title: feature?.properties?.name || feature?.properties?.Place_name || feature?.properties?.PL_Name || 'Other Facility', opacity: isCurrent ? 1 : 0.25, zIndex: isCurrent ? 700 : 500 })
-    marker.addListener('click', () => openEditForm(feature?.properties || {}))
+    const featureId = feature?.properties?.id
+    const isCurrent = selectedId.value !== null && String(featureId) === String(selectedId.value)
+    const marker = new window.google.maps.Marker({
+      position: { lat, lng },
+      map: googleMap.value,
+      title: feature?.properties?.TC_Name || feature?.properties?.name || 'Telecom Mast',
+      icon: {
+        url: 'icons/tower.png',
+        scaledSize: new window.google.maps.Size(30, 30),
+        anchor: new window.google.maps.Point(15, 15)
+      },
+      opacity: isCurrent ? 1 : 0.25,
+      zIndex: isCurrent ? 700 : 500
+    })
+    marker.addListener('click', () => {
+      openEditForm(feature?.properties || {})
+    })
     overlays.value.push(marker)
   })
 }
@@ -319,21 +334,17 @@ const editFormRef = ref<FormInstance>()
 const editingId = ref<number | null>(null)
 const isEditMode = ref(false)
 
-const frequencyOptions = [
-  { label: 'Always', value: 'Always' },
-  { label: 'Very Often', value: 'Very_Often' },
-  { label: 'Sometimes', value: 'Sometimes' },
-  { label: 'Rarely', value: 'Rarely' }
+const conditionOptions = [
+  { label: 'Good', value: 'Good' },
+  { label: 'Fair', value: 'Fair' },
+  { label: 'Poor', value: 'Poor' },
+  { label: 'Critical', value: 'Critical' }
 ]
 
 const editForm = reactive({
   name: '',
-  hazard_type: '',
-  nature: '',
-  number_of_affected_persons: undefined as number | undefined,
-  frequency_of_occurrence: '',
-  damage_cost: undefined as number | undefined,
-  comment: '',
+  tc_type: '',
+  tc_condition: '',
   settlement_id: '',
   county_id: '',
   subcounty_id: '',
@@ -349,13 +360,9 @@ const openEditForm = (facilityData: any) => {
   isEditMode.value = true
   editingId.value = facilityData.id || null
 
-  editForm.name = facilityData.name || facilityData.place_name || ''
-  editForm.hazard_type = facilityData.hazard_type || ''
-  editForm.nature = facilityData.nature || ''
-  editForm.number_of_affected_persons = facilityData.number_of_affected_persons ?? undefined
-  editForm.frequency_of_occurrence = facilityData.frequency_of_occurrence || ''
-  editForm.damage_cost = facilityData.damage_cost ?? undefined
-  editForm.comment = facilityData.comment || ''
+  editForm.name = facilityData.name || facilityData.TC_Name || ''
+  editForm.tc_type = facilityData.TC_Type || facilityData.tc_type || ''
+  editForm.tc_condition = facilityData.TC_Condition || facilityData.tc_condition || ''
   editForm.settlement_id = facilityData.settlement_id || ''
   editForm.county_id = facilityData.county_id || ''
   editForm.subcounty_id = facilityData.subcounty_id || ''
@@ -374,13 +381,9 @@ const submitEditForm = async () => {
         const formData: any = {
           model: facilityModel,
           name: editForm.name,
-          place_name: editForm.name,
-          hazard_type: editForm.hazard_type,
-          nature: editForm.nature,
-          number_of_affected_persons: editForm.number_of_affected_persons,
-          frequency_of_occurrence: editForm.frequency_of_occurrence,
-          damage_cost: editForm.damage_cost,
-          comment: editForm.comment,
+          TC_Name: editForm.name,
+          TC_Type: editForm.tc_type,
+          TC_Condition: editForm.tc_condition,
           settlement_id: editForm.settlement_id,
           county_id: editForm.county_id,
           subcounty_id: editForm.subcounty_id,
@@ -414,8 +417,6 @@ const resetEditForm = () => {
   Object.keys(editForm).forEach(key => {
     if (typeof editForm[key as keyof typeof editForm] === 'string') {
       (editForm as any)[key] = ''
-    } else if (typeof editForm[key as keyof typeof editForm] === 'number') {
-      (editForm as any)[key] = undefined
     } else {
       (editForm as any)[key] = undefined
     }
@@ -491,7 +492,7 @@ getFilteredData()
     </el-table>
 
     <div v-if="!tableDataList.length" class="no-data-message">
-      <el-empty :description="`No ${pageTitle.toLowerCase()} found`" />
+      <el-empty :description="`No ${pageTitle.toLowerCase()}s found`" />
     </div>
 
     <el-pagination
@@ -509,7 +510,7 @@ getFilteredData()
 
     <el-drawer
       v-model="mapDrawerVisible"
-      :title="`Settlement Map with ${pageTitle}`"
+      :title="`Settlement Map with ${pageTitle}s`"
       direction="rtl"
       :size="isMobile ? '100%' : '60%'"
       :before-close="handleMapDrawerClose"
@@ -517,7 +518,7 @@ getFilteredData()
     >
       <template #header>
         <div class="drawer-header-mobile">
-          <span class="drawer-title">{{ mapDrawerFacility?.name || getName(mapDrawerFacility || {}) }}</span>
+          <span class="drawer-title">{{ mapDrawerFacility?.TC_Name || mapDrawerFacility?.name || 'Telecom Mast Map' }}</span>
           <el-button type="danger" size="default" @click="handleMapDrawerClose" class="close-btn-mobile">Close</el-button>
         </div>
       </template>
@@ -525,12 +526,6 @@ getFilteredData()
         <div ref="mapDrawerContainer" class="map-container"></div>
       </div>
     </el-drawer>
-
-    <el-dialog v-model="viewFormVisible" :title="`${pageTitle} Details`" width="420px">
-      <div><strong>Name:</strong> {{ viewFormData.name || 'N/A' }}</div>
-      <div style="margin-top: 8px;"><strong>Type:</strong> {{ viewFormData.type || 'N/A' }}</div>
-      <div style="margin-top: 8px;"><strong>Condition:</strong> {{ viewFormData.condition || 'N/A' }}</div>
-    </el-dialog>
   </el-card>
 
   <!-- Edit Form Drawer -->
@@ -549,38 +544,25 @@ getFilteredData()
       :label-width="isMobile ? '0px' : '180px'"
       :label-position="isMobile ? 'top' : 'left'"
     >
-      <el-divider content-position="left">Hazard Information</el-divider>
+      <el-divider content-position="left">Mast Information</el-divider>
 
-      <el-form-item label="Place Name" prop="name">
-        <el-input v-model="editForm.name" placeholder="Enter place name" />
+      <el-form-item label="Name" prop="name">
+        <el-input v-model="editForm.name" placeholder="Enter mast name" />
       </el-form-item>
 
-      <el-form-item label="Hazard Type">
-        <el-input v-model="editForm.hazard_type" placeholder="Enter hazard type" />
+      <el-form-item label="Type">
+        <el-input v-model="editForm.tc_type" placeholder="Enter mast type" />
       </el-form-item>
 
-      <el-form-item label="Nature">
-        <el-input v-model="editForm.nature" placeholder="Enter nature of hazard" />
-      </el-form-item>
-
-      <el-divider content-position="left">Impact</el-divider>
-
-      <el-form-item label="Affected Persons">
-        <el-input-number v-model="editForm.number_of_affected_persons" :min="0" style="width: 100%" />
-      </el-form-item>
-
-      <el-form-item label="Frequency">
-        <el-select v-model="editForm.frequency_of_occurrence" placeholder="Select frequency" filterable style="width: 100%">
-          <el-option v-for="item in frequencyOptions" :key="item.value" :label="item.label" :value="item.value" />
+      <el-form-item label="Condition">
+        <el-select v-model="editForm.tc_condition" placeholder="Select condition" filterable style="width: 100%">
+          <el-option
+            v-for="item in conditionOptions"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
         </el-select>
-      </el-form-item>
-
-      <el-form-item label="Damage Cost">
-        <el-input-number v-model="editForm.damage_cost" :min="0" :precision="2" style="width: 100%" />
-      </el-form-item>
-
-      <el-form-item label="Comment">
-        <el-input v-model="editForm.comment" type="textarea" :rows="3" placeholder="Enter comments" />
       </el-form-item>
     </el-form>
 
