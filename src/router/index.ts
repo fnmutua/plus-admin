@@ -706,7 +706,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
     
             name: 'Road',
             meta: {
-              icon: 'icon-park-solid:map-road-two',
+              icon: 'hugeicons:road-wayside',
               title: 'Roads'
             }
           },
@@ -876,6 +876,26 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         
       
       
+       /// Lighting -----------------------
+      {
+        path: 'powerline',
+        component: () => import('@/views/Facilities/Lighting/Powerline.vue'),
+        name: 'Powerline',
+        meta: {
+          icon: 'mdi:transmission-tower',
+          title: 'Powerline'
+        }
+      },
+      {
+        path: 'highmast',
+        component: () => import('@/views/Facilities/Lighting/Highmast.vue'),
+        name: 'Highmast',
+        meta: {
+          icon: 'mdi:light-flood-down',
+          title: 'Highmast Lights'
+        }
+      },
+
        /// Sewer -----------------------
                 {
                   path: 'sewer',

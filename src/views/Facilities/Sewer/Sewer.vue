@@ -150,8 +150,8 @@ const isCountyRestricted = computed(() => {
   return !isSuperAdmin.value && !hasNationalAccess.value && !!userCountyId.value
 })
 
-// For settlements, show 'viewOnMap' and 'addFacility' actions
-const action_buttons = ref<string[]>(['viewOnMap', 'addFacility']);
+// Row actions for sewer facilities
+const action_buttons = ref<string[]>(['viewOnMap', 'delete']);
 
 console.log('User location info:', {
   isSuperAdmin: isSuperAdmin.value,
@@ -352,10 +352,10 @@ const settlementOptions = ref([])
 const settlements = ref([])
 const filteredSettlements = ref([])
 const page = ref(1)
-const pSize = ref(6)
+const pSize = ref(10)
 const selCounties = []
 const loading = ref(true)
-const pageSize = ref(6)
+const pageSize = ref(10)
 const currentPage = ref(1)
 const downloadLoading = ref(false)
 
@@ -368,6 +368,16 @@ const tableDataList = ref([])
 
 const filters = ref(['isApproved'])
 const filterValues = ref([['Approved']])  // make sure the inner array is array
+const search_string = ref('')
+const value4 = ref<any[]>([])
+const value5 = ref<any[]>([])
+const value6 = ref<any[]>([])
+const enableSubcounty = ref(false)
+const selectedCounty = ref<any[]>([])
+const selectedSubCounty = ref<any[]>([])
+const selectedWard = ref<any[]>([])
+const enableward = ref(false)
+const subcountiesOptions = ref([])
 
 
 var tblData = []
@@ -434,13 +444,13 @@ const handleSelectCounty = async (county_id: any) => {
 const handleClear = async () => {
   console.log('cleared....', filters.value, filterValues.value)
 
-  value4.value = null
-  value5.value = null
-  value6.value = null
+  value4.value = []
+  value5.value = []
+  value6.value = []
 
   // Reset and sync pagination
-  pSize.value = 5
-  pageSize.value = 5
+  pSize.value = 10
+  pageSize.value = 10
   page.value = 1
   currentPage.value = 1
   // Retain only the first element in filters and filterValues
@@ -542,162 +552,49 @@ const loadSewerFacilitiesForSettlement = async (settlementId: number) => {
 
 
 
-const getFilteredData = async (selFilters, selfilterValues) => {
-  const formData = {}
+const getFilteredData = async (_selFilters, _selfilterValues) => {
+  const formData: any = {}
   formData.limit = pSize.value
   formData.page = page.value
-  formData.curUser = 1 // Id for logged in user
-  formData.model = model // Now using 'settlement'
-  //-Search field--------------------------------------------
-  // Use county_id as search field for county-restricted users
-  if (isCountyRestricted.value && userCountyId.value) {
-    formData.searchField = 'county_id'
-    formData.searchKeyword = userCountyId.value.toString()
-  } else {
-    formData.searchField = 'name'
-    formData.searchKeyword = ''
-  }
-  //--Single Filter -----------------------------------------
+  formData.curUser = 1
+  formData.model = sewerFacilityModel
+  formData.searchField = 'name'
+  formData.searchKeyword = search_string.value || ''
 
-  formData.assocModel = associated_Model
+  const filtersArr: string[] = []
+  const filterValuesArr: any[] = []
 
-  // - multiple filters -------------------------------------
-  // FIRST: Apply location-based filtering based on user role (SERVER-SIDE FILTERING)
-  // This ensures the filter is applied before any other filters
-  let settlementFilters: string[] = []
-  let settlementFilterValues: any[] = []
-  
-  // Apply user location restriction FIRST (server-side filtering)
   if (isCountyRestricted.value && userCountyId.value) {
-    // User is restricted to their county - ALWAYS apply this filter server-side
-    settlementFilters.push('county_id')
-    settlementFilterValues.push([userCountyId.value])
-    console.log('Applying server-side county restriction filter:', userCountyId.value)
+    filtersArr.push('county_id')
+    filterValuesArr.push([userCountyId.value])
   } else if (userSettlementId.value && !isSuperAdmin.value && !hasNationalAccess.value) {
-    // User is restricted to their settlement - ALWAYS apply this filter server-side
-    settlementFilters.push('settlement_id')
-    settlementFilterValues.push([userSettlementId.value])
-    console.log('Applying server-side settlement restriction filter:', userSettlementId.value)
+    filtersArr.push('settlement_id')
+    filterValuesArr.push([userSettlementId.value])
   }
-  
-  // THEN: Add other filters (excluding isApproved which is handled by nested_models)
-  selFilters.forEach((filter: string, index: number) => {
-    if (filter !== 'isApproved') {
-      // For county-restricted users, preserve the county_id restriction and don't override it
-      if (filter === 'county_id' && isCountyRestricted.value && userCountyId.value) {
-        // Ensure county restriction is maintained - don't override with manual selection
-        const countyIndex = settlementFilters.indexOf('county_id')
-        if (countyIndex !== -1) {
-          // County restriction already applied, ensure it uses the restricted county ID
-          settlementFilterValues[countyIndex] = [userCountyId.value]
-        }
-        // Skip adding this filter again as it's already handled by restriction
-        return
-      }
-      
-      // Check if filter already exists (to avoid duplicates)
-      const existingIndex = settlementFilters.indexOf(filter)
-      if (existingIndex === -1) {
-        settlementFilters.push(filter)
-        settlementFilterValues.push(selfilterValues[index])
-      } else {
-        // If filter exists, merge values (for multi-select filters)
-        const existingValues = settlementFilterValues[existingIndex]
-        const newValues = selfilterValues[index]
-        if (Array.isArray(existingValues) && Array.isArray(newValues)) {
-          settlementFilterValues[existingIndex] = [...new Set([...existingValues, ...newValues])]
-        } else {
-          settlementFilterValues[existingIndex] = newValues
-        }
-      }
-    }
-  })
-  
-  // Final check: Ensure county restriction is always present for county-restricted users
-  if (isCountyRestricted.value && userCountyId.value) {
-    const countyIndex = settlementFilters.indexOf('county_id')
-    if (countyIndex === -1) {
-      // Add county restriction if it's missing
-      settlementFilters.unshift('county_id')
-      settlementFilterValues.unshift([userCountyId.value])
-    } else {
-      // Ensure the value is correct
-      settlementFilterValues[countyIndex] = [userCountyId.value]
-    }
+
+  if (selectedCounty.value?.length) {
+    filtersArr.push('county_id')
+    filterValuesArr.push(selectedCounty.value)
   }
-  
-  // Set settlement-level filters (county, subcounty, ward, etc.) - SERVER-SIDE FILTERING
-  formData.filters = settlementFilters.length > 0 ? settlementFilters : []
-  formData.filterValues = settlementFilterValues.length > 0 ? settlementFilterValues : []
-  formData.associated_multiple_models = ['county', 'subcounty', 'ward']
-  
-  // Use nested_models to filter settlements that have sewer facilities with the specified approval status
-  // This ensures backend filtering - only settlements with matching sewer facilities are returned
-  const isApprovedIndex = selFilters.indexOf('isApproved')
-  if (isApprovedIndex !== -1 && selfilterValues[isApprovedIndex] && selfilterValues[isApprovedIndex].length > 0) {
-    formData.nested_models = [{
-      model: sewerFacilityModel,
-      field: 'isApproved',
-      values: selfilterValues[isApprovedIndex],
-      requireMatch: true // Only return settlements that have sewer facilities matching the status
-    }]
+  if (selectedSubCounty.value?.length) {
+    filtersArr.push('subcounty_id')
+    filterValuesArr.push(selectedSubCounty.value)
   }
+  if (selectedWard.value?.length) {
+    filtersArr.push('ward_id')
+    filterValuesArr.push(selectedWard.value)
+  }
+
+  formData.filters = filtersArr
+  formData.filterValues = filterValuesArr
+  formData.associated_multiple_models = ['settlement', 'county', 'subcounty', 'ward']
 
   const res = await getSettlementListByCounty(formData)
-
-  console.log('After Query - Settlements with Sewer Facilities (backend filtered):', res)
-
-  // Backend should have already filtered to only settlements with sewer facilities
-  // Now load sewer facilities counts for display
-  if (res.data && res.data.length > 0) {
-    await Promise.all(res.data.map(async (settlement: any) => {
-      const facilities = await loadSewerFacilitiesForSettlement(settlement.id)
-      console.log(`Loaded ${facilities.length} facilities for settlement ${settlement.id} (${settlement.name})`)
-    }))
-    console.log('All facilities loaded. settlementSewerFacilities:', settlementSewerFacilities.value)
-  }
-
-  // Sync pagination variables after fetching
+  tableDataList.value = res.data || []
+  total.value = res.total || (tableDataList.value?.length || 0)
   currentPage.value = page.value
   pageSize.value = pSize.value
-
-  console.log('activeSegment.value', activeSegment.value)
-  if (activeSegment.value == 'Approved') {
-    tableDataList.value = res.data || []
-    // Use res.total which is the total count of SETTLEMENTS with sewer facilities (for pagination)
-    total.value = res.total || 0
-    console.log('Setting total (settlements count) for Approved:', total.value)
-    removeReviewButton()
-    // Update summary status to keep segment counts in sync with county restrictions
-    await getSummaryStatus()
-
-  } else if (activeSegment.value == 'New' && showAdminButtons.value) {
-    tableDataListNew.value = res.data || []
-    // Use res.total which is the total count of SETTLEMENTS with sewer facilities (for pagination)
-    totalNew.value = res.total || 0
-    console.log('Setting totalNew (settlements count) for New:', totalNew.value)
-
-    if (!action_buttons.value.includes('review')) {
-      action_buttons.value.push('review');
-    }
-    // Update summary status to keep segment counts in sync with county restrictions
-    await getSummaryStatus()
-
-  }
-  else if (activeSegment.value == 'Rejected' && showAdminButtons.value) {
-    tableDataListRejected.value = res.data || []
-    // Use res.total which is the total count of SETTLEMENTS with sewer facilities (for pagination)
-    totalRejected.value = res.total || 0
-    console.log('Setting totalRejected (settlements count) for Rejected:', totalRejected.value)
-    removeReviewButton()
-    // Update summary status to keep segment counts in sync with county restrictions
-    await getSummaryStatus()
-
-  }
-
-
-
-
+  loading.value = false
 }
 
 
@@ -1711,7 +1608,7 @@ const DeleteFacility = async (data: TableSlotDefault) => {
   try {
     const formData: Record<string, any> = {
       id: data.id,
-      model: model,
+      model: sewerFacilityModel,
     }
 
     // Delete the record from backend
@@ -1793,7 +1690,7 @@ console.log('------> countyOptions', countyOptions)
 const editForm = async (formEl: FormInstance | undefined) => {
   if (!formEl) return
 
-  ruleForm.model = model
+  ruleForm.model = sewerFacilityModel
   await updateOneRecord(ruleForm).then(() => { })
 
 
@@ -1841,7 +1738,7 @@ const approve = async () => {
   ruleForm.reviewerId = userInfo.id
 
   console.log(ruleForm)
-  ruleForm.model = model
+  ruleForm.model = sewerFacilityModel
   console.log(ruleForm)
   await updateOneRecord(ruleForm).then(() => { })
   ShowReviewDialog.value = false
@@ -1860,7 +1757,7 @@ const confirmReject = async () => {
   ruleForm.isApproved = 'Rejected'
 
   console.log(ruleForm)
-  ruleForm.model = model
+  ruleForm.model = sewerFacilityModel
   ruleForm.reviewerId = userInfo.id
   console.log(ruleForm)
   await updateOneRecord(ruleForm).then(() => { })
@@ -1884,7 +1781,7 @@ const componentProps = ref({
   message: 'Hello from parent',
   showDialog: addMoreDocuments,
   data: currentRow.value,
-  umodel: model,
+  umodel: sewerFacilityModel,
   field: mfield
 });
 
@@ -1912,7 +1809,7 @@ const dynamicDocumentComponent = ref();
 const DocumentComponentProps = ref({
   message: 'documents',
   data: rowData.value,
-  docmodel: model,
+  docmodel: sewerFacilityModel,
 
 });
 
@@ -1933,22 +1830,6 @@ const handleExpand = async (row: any) => {
 
 const router = useRouter()
 
-const value4 = ref()
-const value5 = ref()
-const value6 = ref()
-const search_string = ref()
-
-const enableSubcounty = ref(false)
-const selectedCounty = ref()
-const selectedSubCounty = ref()
-
-const selectedWard = ref()
-const enableward = ref(false)
-
-const subcountiesOptions = ref([])
-
-
-
 const goBack = () => {
   // Add your logic to handle the back action
   // For example, you can use Vue Router to navigate back
@@ -1962,62 +1843,51 @@ const goBack = () => {
 }
 
 const getFilteredBySearchData = async (searchKey) => {
-  // Reset pagination when search is performed
   page.value = 1
   currentPage.value = 1
+  searchLoading.value = true
 
-  if (selectedCounty.value) {
-    var selectOption = 'county_id'
-    if (!filters.value.includes(selectOption)) {
-      filters.value.push(selectOption)
-    }
-    var index = filters.value.indexOf(selectOption) // 1
+  const formData: any = {}
+  formData.limit = pSize.value
+  formData.page = page.value
+  formData.curUser = 1
+  formData.model = sewerFacilityModel
+  formData.searchField = 'name'
+  formData.searchKeyword = searchKey || ''
 
-    // clear previously selected
-    if (filterValues[index]) {
-      // filterValues[index].length = 0
-      filterValues.value.splice(index, 1)
-    }
-
-    if (!filterValues.value.includes(selectedCounty.value) && selectedCounty.value.length > 0) {
-      filterValues.value.splice(index, 0, selectedCounty.value) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
-    }
-
-    // expunge the filter if the filter values are null
-    if (selectedCounty.value.length === 0) {
-      filters.value.splice(index, 1)
-    }
-
+  const filtersArr: string[] = []
+  const filterValuesArr: any[] = []
+  if (isCountyRestricted.value && userCountyId.value) {
+    filtersArr.push('county_id')
+    filterValuesArr.push([userCountyId.value])
+  } else if (userSettlementId.value && !isSuperAdmin.value && !hasNationalAccess.value) {
+    filtersArr.push('settlement_id')
+    filterValuesArr.push([userSettlementId.value])
+  }
+  if (selectedCounty.value?.length) {
+    filtersArr.push('county_id')
+    filterValuesArr.push(selectedCounty.value)
+  }
+  if (selectedSubCounty.value?.length) {
+    filtersArr.push('subcounty_id')
+    filterValuesArr.push(selectedSubCounty.value)
+  }
+  if (selectedWard.value?.length) {
+    filtersArr.push('ward_id')
+    filterValuesArr.push(selectedWard.value)
   }
 
-  // Filter by subcounty  
-  if (selectedSubCounty.value) {
-    var selectOption = 'subcounty_id'
-    if (!filters.value.includes(selectOption)) {
-      filters.value.push(selectOption)
-    }
-    var index = filters.value.indexOf(selectOption) // 1
+  formData.filters = filtersArr
+  formData.filterValues = filterValuesArr
+  formData.associated_multiple_models = ['settlement', 'county', 'subcounty', 'ward']
 
-    // clear previously selected
-    if (filterValues[index]) {
-      // filterValues[index].length = 0
-      filterValues.value.splice(index, 1)
-    }
-
-    if (!filterValues.value.includes(selectedSubCounty.value) && selectedSubCounty.value.length > 0) {
-      filterValues.value.splice(index, 0, selectedSubCounty.value) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
-    }
-
-    // expunge the filter if the filter values are null
-    if (selectedSubCounty.value.length === 0) {
-      filters.value.splice(index, 1)
-    }
-
-    getFilteredData(filters.value, filterValues.value)
-
-  }
-
-
+  const res = await searchByKeyWord(formData)
+  searchLoading.value = false
+  tableDataList.value = res.data || []
+  total.value = res.total || (tableDataList.value?.length || 0)
+  currentPage.value = page.value
+  pageSize.value = pSize.value
+  loading.value = false
 }
 
 
@@ -2279,11 +2149,6 @@ const AddFacility = (data?: any) => {
   })
 }
 
-const handleAddFacility = (item: any) => {
-  AddFacility(item)
-}
-
-
 // Sewer form drawer state
 const sewerDrawerVisible = ref(false)
 const sewerFormRef = ref<FormInstance>()
@@ -2514,7 +2379,7 @@ v-model="search_string" clearable :onClear="handleClear"
           </el-tooltip>
 
           <DownloadCustom
-v-if="showEditButtons" :data="tableDataList" :model="model"
+v-if="showEditButtons" :data="tableDataList" :model="sewerFacilityModel"
             :associated_models="associated_multiple_models" />
         </div>
 
@@ -2528,7 +2393,56 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
 
 
 
-    <div class="custom-style">
+    <el-table
+      :data="tableDataList"
+      style="width: 100%; margin-top: 10px;"
+      border
+      :size="isMobile ? 'small' : 'default'"
+    >
+      <el-table-column label="Facility Name" prop="name" sortable :min-width="isMobile ? 160 : 220" show-overflow-tooltip />
+
+      <el-table-column :label="isMobile ? 'Location' : 'Location (Settlement / Ward / Subcounty / County)'" :min-width="isMobile ? 220 : 260">
+        <template #default="scope">
+          {{ scope.row.settlement?.name || 'N/A' }},
+          {{ scope.row.ward?.name || 'N/A' }} ward,
+          {{ scope.row.subcounty?.name || 'N/A' }} subcounty,
+          {{ scope.row.county?.name || 'N/A' }} County
+        </template>
+      </el-table-column>
+
+      <el-table-column label="Type" prop="pipe_type" :min-width="isMobile ? 110 : 140" show-overflow-tooltip />
+      <el-table-column label="Status" prop="isApproved" :min-width="isMobile ? 110 : 140" show-overflow-tooltip />
+
+      <el-table-column label="Actions" :min-width="isMobile ? 72 : 200" align="center" fixed="right">
+        <template #default="{ row }">
+          <TableActions
+            :item="row"
+            :buttons="action_buttons"
+            @view-on-map="flyTo"
+            @delete="DeleteFacility"
+          />
+        </template>
+      </el-table-column>
+    </el-table>
+
+    <div v-if="!tableDataList || tableDataList.length === 0" class="no-data-message">
+      <el-empty description="No sewer facilities found" />
+    </div>
+
+    <ElPagination
+      v-if="tableDataList && tableDataList.length > 0"
+      layout="sizes, prev, pager, next, total"
+      v-model:currentPage="currentPage"
+      v-model:page-size="pageSize"
+      :page-sizes="[10, 25, 50, 100]"
+      :total="total"
+      :background="true"
+      @size-change="onPageSizeChange"
+      @current-change="onPageChange"
+      class="mt-4"
+    />
+
+    <div v-if="false" class="custom-style">
 
       <el-segmented v-model="activeSegment" :options="filteredSegments" block :onChange="onSegmentClick">
         <template #default="{ item }">
@@ -2543,7 +2457,7 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
 
     </div>
 
-    <div v-if="activeSegment === 'Approved'">
+    <div v-if="false && activeSegment === 'Approved'">
       <el-table :data="tableDataList" style="width: 100%; margin-top: 10px;" border @expand-change="handleExpand" row-key="id">
         <el-table-column type="expand">
           <template #default="props">
@@ -2608,7 +2522,7 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
         <el-table-column label="Actions" width="250">
           <template #default="{ row }">
               <TableActions
-              :item="row" :buttons="action_buttons" @view-on-map="flyTo" @add-facility="handleAddFacility" />
+              :item="row" :buttons="action_buttons" @view-on-map="flyTo" @delete="DeleteFacility" />
           </template>
         </el-table-column>
 
@@ -2633,7 +2547,7 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
     </div>
 
 
-    <div v-if="activeSegment === 'New'">
+    <div v-if="false && activeSegment === 'New'">
       <el-table :data="tableDataListNew" style="width: 100%; margin-top: 10px;" border @expand-change="handleExpand" row-key="id">
         <el-table-column type="expand">
           <template #default="props">
@@ -2699,7 +2613,7 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
         <el-table-column label="Actions" width="250">
           <template #default="{ row }">
               <TableActions
-              :item="row" :buttons="action_buttons" @view-on-map="flyTo" @add-facility="handleAddFacility" />
+              :item="row" :buttons="action_buttons" @view-on-map="flyTo" @delete="DeleteFacility" />
           </template>
         </el-table-column>
 
@@ -2722,7 +2636,7 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
         class="mt-4" />
     </div>
 
-    <div v-if="activeSegment === 'Rejected'">
+    <div v-if="false && activeSegment === 'Rejected'">
 
       <el-table
         :data="tableDataListRejected" style="width: 100%; margin-top: 10px;" border
@@ -2790,7 +2704,7 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
         <el-table-column label="Actions" width="250">
           <template #default="{ row }">
               <TableActions
-              :item="row" :buttons="action_buttons" @view-on-map="flyTo" @add-facility="handleAddFacility" />
+              :item="row" :buttons="action_buttons" @view-on-map="flyTo" @delete="DeleteFacility" />
           </template>
         </el-table-column>
 
