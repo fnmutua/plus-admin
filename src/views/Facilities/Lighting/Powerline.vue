@@ -1,6 +1,6 @@
 ﻿<script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
-import { ElMessage, ElCard, ElTable, ElTableColumn, ElCol, ElPagination, ElEmpty, ElButton, ElRow, ElSelect, ElOption, ElDrawer, ElDialog } from 'element-plus'
+import { ElMessage, ElCard, ElTable, ElTableColumn, ElCol, ElPagination, ElEmpty, ElButton, ElRow, ElSelect, ElOption, ElDrawer } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { getListWithoutGeo } from '@/api/counties'
 import { DeleteRecord, getSettlementListByCounty, getOneGeo, getfilteredGeo, searchByKeyWord } from '@/api/settlements'
@@ -184,6 +184,19 @@ const DeleteFacility = async (row: any) => {
 }
 
 const goBack = () => window.history.back()
+
+const getPointCoords = (geom: any): [number, number] | null => {
+  if (!geom) return null
+  if (geom.type === 'Point' && Array.isArray(geom.coordinates) && geom.coordinates.length >= 2) {
+    return [Number(geom.coordinates[0]), Number(geom.coordinates[1])]
+  }
+  if (geom.type === 'MultiPoint' && Array.isArray(geom.coordinates) && geom.coordinates.length > 0) {
+    const first = geom.coordinates[0]
+    if (Array.isArray(first) && first.length >= 2) return [Number(first[0]), Number(first[1])]
+  }
+  return null
+}
+
 const onCountyChange = async () => {
   selectedSettlement.value = []
   page.value = 1
@@ -247,6 +260,8 @@ const initializeMapDrawer = async (facility: any) => {
   }
 
   await loadPowerlinesOnMap(settlementId)
+  await loadPowerlineAssetsOnMap(settlementId)
+  await loadRoadAssetsOnMap(settlementId)
 }
 
 const loadPowerlinesOnMap = async (settlementId: number) => {
@@ -283,10 +298,164 @@ const loadPowerlinesOnMap = async (settlementId: number) => {
   })
 }
 
+const assetMarkers = ref<any[]>([])
+
+const loadPowerlineAssetsOnMap = async (settlementId: number) => {
+  assetMarkers.value.forEach((m: any) => m.setMap(null))
+  assetMarkers.value = []
+
+  try {
+    const geoFilterForm: any = {
+      model: 'powerline_asset',
+      columnFilterField: 'settlement_id',
+      selectedParents: settlementId,
+      filtredGeoIds: [settlementId]
+    }
+    const res: any = await getfilteredGeo(geoFilterForm as any)
+    const geoJsonData = res?.data?.[0]?.json_build_object || res?.data?.[0]?.[0]?.json_build_object || res?.[0]?.json_build_object
+    const features = geoJsonData?.features || []
+
+    const assetColorMap: Record<string, string> = {
+      transformer: '#f59e0b',
+      pylon: '#6366f1',
+      substation: '#ef4444'
+    }
+
+    features.forEach((feature: any) => {
+      const point = getPointCoords(feature?.geometry)
+      if (!point) return
+      const [lng, lat] = point
+      const assetType = feature?.properties?.PA_Type || feature?.properties?.asset_type || ''
+      const markerColor = assetColorMap[assetType] || '#3b82f6'
+      const marker = new window.google.maps.Marker({
+        position: { lat, lng },
+        map: googleMap.value,
+        title: feature?.properties?.PA_Name || feature?.properties?.name || `Powerline Asset (${assetType})`,
+        icon: {
+          path: window.google.maps.SymbolPath.CIRCLE,
+          scale: 8,
+          fillColor: markerColor,
+          fillOpacity: 0.9,
+          strokeColor: '#ffffff',
+          strokeWeight: 2
+        },
+        zIndex: 600
+      })
+
+      marker.addListener('click', () => {
+        const props = feature?.properties || {}
+        const infoContent = `
+          <div style="padding:6px;min-width:180px">
+            <strong>${props.PA_Name || props.name || 'Asset'}</strong><br/>
+            <span>Type: ${props.PA_Type || props.asset_type || 'N/A'}</span><br/>
+            <span>Condition: ${props.PA_Condition || props.condition || 'N/A'}</span><br/>
+            <span>Rating: ${props.PA_Rating || 'N/A'}</span><br/>
+            <span>ID: ${props.PA_Identifier || props.identifier || 'N/A'}</span>
+          </div>
+        `
+        const infoWindow = new window.google.maps.InfoWindow({ content: infoContent })
+        infoWindow.open(googleMap.value, marker)
+      })
+
+      assetMarkers.value.push(marker)
+    })
+  } catch (e) {
+    console.error('Failed to load powerline assets:', e)
+  }
+}
+
+const roadAssetMarkers = ref<any[]>([])
+
+const loadRoadAssetsOnMap = async (settlementId: number) => {
+  roadAssetMarkers.value.forEach((m: any) => m.setMap(null))
+  roadAssetMarkers.value = []
+
+  try {
+    // Step 1: Get roads for this settlement to extract road IDs
+    const roadGeoForm: any = {
+      model: 'road',
+      columnFilterField: 'settlement_id',
+      selectedParents: settlementId,
+      filtredGeoIds: [settlementId]
+    }
+    const roadRes: any = await getfilteredGeo(roadGeoForm as any)
+    const roadGeoJson = roadRes?.data?.[0]?.json_build_object || roadRes?.data?.[0]?.[0]?.json_build_object || roadRes?.[0]?.json_build_object
+    const roadFeatures = roadGeoJson?.features || []
+    const roadIds = roadFeatures
+      .map((f: any) => f?.properties?.id || f?.properties?.road_id)
+      .filter((id: any) => id != null)
+
+    if (!roadIds.length) return
+
+    // Step 2: Get road assets filtered by those road IDs
+    const assetGeoForm: any = {
+      model: 'road_asset',
+      columnFilterField: 'road_id',
+      selectedParents: roadIds,
+      filtredGeoIds: roadIds
+    }
+    const res: any = await getfilteredGeo(assetGeoForm as any)
+    const geoJsonData = res?.data?.[0]?.json_build_object || res?.data?.[0]?.[0]?.json_build_object || res?.[0]?.json_build_object
+    const features = geoJsonData?.features || []
+
+    const roadAssetColorMap: Record<string, string> = {
+      Bridge: '#e31a1c',
+      Culvert: '#fb9a99',
+      Bus_Stop: '#ff7f00',
+      Boda_Shed: '#fdbf6f',
+      Streetlights: '#33a02c'
+    }
+
+    features.forEach((feature: any) => {
+      const point = getPointCoords(feature?.geometry)
+      if (!point) return
+      const [lng, lat] = point
+      const assetType = feature?.properties?.asset_type || ''
+      const markerColor = roadAssetColorMap[assetType] || '#8b5cf6'
+      const marker = new window.google.maps.Marker({
+        position: { lat, lng },
+        map: googleMap.value,
+        title: feature?.properties?.name || `Road Asset (${assetType})`,
+        icon: {
+          path: window.google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+          scale: 5,
+          fillColor: markerColor,
+          fillOpacity: 0.9,
+          strokeColor: '#ffffff',
+          strokeWeight: 2,
+          rotation: 0
+        },
+        zIndex: 550
+      })
+
+      marker.addListener('click', () => {
+        const props = feature?.properties || {}
+        const infoContent = `
+          <div style="padding:6px;min-width:180px">
+            <strong>${props.name || 'Road Asset'}</strong><br/>
+            <span>Type: ${props.asset_type || 'N/A'}</span><br/>
+            <span>Condition: ${props.asset_condition || props.condition || 'N/A'}</span>
+          </div>
+        `
+        const infoWindow = new window.google.maps.InfoWindow({ content: infoContent })
+        infoWindow.open(googleMap.value, marker)
+      })
+
+      roadAssetMarkers.value.push(marker)
+    })
+  } catch (e) {
+    console.error('Failed to load road assets:', e)
+  }
+}
+
 const handleMapDrawerClose = () => {
   mapDrawerVisible.value = false
   powerlineOverlays.value.forEach((o: any) => o.setMap(null))
   powerlineOverlays.value = []
+  assetMarkers.value.forEach((m: any) => m.setMap(null))
+  assetMarkers.value = []
+  roadAssetMarkers.value.forEach((m: any) => m.setMap(null))
+  roadAssetMarkers.value = []
   if (settlementPolygon.value) {
     settlementPolygon.value.setMap(null)
     settlementPolygon.value = null
