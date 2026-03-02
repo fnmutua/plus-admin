@@ -876,24 +876,36 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         
       
       
-       /// Lighting -----------------------
+       /// Lighting (Nested) -----------------------
       {
-        path: 'powerline',
-        component: () => import('@/views/Facilities/Lighting/Powerline.vue'),
-        name: 'Powerline',
+        path: 'lighting',
+        component: () => import('@/views/Facilities/Lighting/Lighting.vue'),
+        redirect: '/facilities/lighting/powerline',
+        name: 'Lighting',
         meta: {
-          icon: 'mdi:transmission-tower',
-          title: 'Powerline'
-        }
-      },
-      {
-        path: 'highmast',
-        component: () => import('@/views/Facilities/Lighting/Highmast.vue'),
-        name: 'Highmast',
-        meta: {
-          icon: 'mdi:light-flood-down',
-          title: 'Highmast Lights'
-        }
+          icon: 'mdi:lightbulb-on',
+          title: 'Lighting'
+        },
+        children: [
+          {
+            path: 'powerline',
+            component: () => import('@/views/Facilities/Lighting/Powerline.vue'),
+            name: 'LightingPowerline',
+            meta: { title: 'Powerline', icon: 'mdi:transmission-tower' }
+          },
+          {
+            path: 'highmast',
+            component: () => import('@/views/Facilities/Lighting/Highmast.vue'),
+            name: 'LightingHighmast',
+            meta: { title: 'Highmast Lights', icon: 'mdi:light-flood-down' }
+          },
+          {
+            path: 'streetlight',
+            component: () => import('@/views/Facilities/Lighting/Streetlight.vue'),
+            name: 'LightingStreetlight',
+            meta: { title: 'Streetlights', icon: 'mdi:lightbulb-outline' }
+          }
+        ]
       },
 
        /// Sewer -----------------------
@@ -947,37 +959,37 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             path: 'police',
             component: () => import('@/views/Facilities/Others/Police.vue'),
             name: 'OthersPolice',
-            meta: { title: 'Police' }
+            meta: { title: 'Police', icon: 'mdi:police-badge' }
           },
           {
             path: 'crime-hotspots',
             component: () => import('@/views/Facilities/Others/CrimeHotspots.vue'),
             name: 'OthersCrimeHotspots',
-            meta: { title: 'Crime Hotspots' }
+            meta: { title: 'Crime Hotspots', icon: 'mdi:alert-octagon' }
           },
           {
             path: 'hazards',
             component: () => import('@/views/Facilities/Others/Hazards.vue'),
             name: 'OthersHazards',
-            meta: { title: 'Hazards' }
+            meta: { title: 'Hazards', icon: 'mdi:hazard-lights' }
           },
           {
             path: 'railway',
             component: () => import('@/views/Facilities/Others/Railway.vue'),
             name: 'OthersRailway',
-            meta: { title: 'Railway' }
+            meta: { title: 'Railway', icon: 'mdi:train' }
           },
           {
             path: 'community-hall',
             component: () => import('@/views/Facilities/Others/CommunityHall.vue'),
             name: 'OthersCommunityHall',
-            meta: { title: 'Community Hall' }
+            meta: { title: 'Community Hall', icon: 'mdi:home-group' }
           },
           {
             path: 'community-projects',
             component: () => import('@/views/Facilities/Others/CommunityProjects.vue'),
             name: 'OthersCommunityProjects',
-            meta: { title: 'Community Projects' }
+            meta: { title: 'Community Projects', icon: 'mdi:account-group' }
           }
         ]
       },

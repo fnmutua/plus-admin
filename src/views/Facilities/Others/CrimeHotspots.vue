@@ -1,15 +1,15 @@
 ﻿<script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
-import { ElMessage, ElCard, ElTable, ElTableColumn, ElCol, ElPagination, ElEmpty, ElButton, ElRow, ElSelect, ElOption, ElDrawer, ElDialog } from 'element-plus'
+import { computed, nextTick, reactive, ref, watch } from 'vue'
+import { ElMessage, ElCard, ElTable, ElTableColumn, ElCol,ElInput,   ElPagination, ElEmpty, ElButton, ElRow, ElSelect, ElOption, ElDrawer, ElDialog, ElForm, ElFormItem, ElInputNumber, ElDivider, type FormInstance } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { getListWithoutGeo } from '@/api/counties'
-import { DeleteRecord, getSettlementListByCounty, getOneGeo, getfilteredGeo, searchByKeyWord } from '@/api/settlements'
+import { DeleteRecord, getSettlementListByCounty, getOneGeo, getfilteredGeo, searchByKeyWord, updateOneRecord } from '@/api/settlements'
 import TableActions from '@/views/Components/TableActions.vue'
 import DownloadCustom from '@/views/Components/DownloadCustom.vue'
 import PermissionWrapper from '@/components/PermissionWrapper.vue'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
-import { Plus, Filter, Search, Back } from '@element-plus/icons-vue'
+import { Plus, Filter, Search, Back, Check } from '@element-plus/icons-vue'
 
 const pageTitle = 'Crime Hotspots'
 const facilityModel = 'crime_hotspot'
@@ -278,7 +278,7 @@ const initializeMapDrawer = async (facility: any) => {
       const coords = feature.geometry.coordinates
       const path = geomType === 'LineString' ? coords.map((c: number[]) => ({ lat: c[1], lng: c[0] })) : (coords[0] || []).map((c: number[]) => ({ lat: c[1], lng: c[0] }))
       const polyline = new window.google.maps.Polyline({ path, geodesic: true, strokeColor: isCurrent ? '#22c55e' : '#9ca3af', strokeOpacity: isCurrent ? 1 : 0.75, strokeWeight: isCurrent ? 6 : 4, map: googleMap.value })
-      polyline.addListener('click', () => openViewForm({ name: feature?.properties?.name || feature?.properties?.Place_name || feature?.properties?.PL_Name || 'N/A', type: feature?.properties?.type || feature?.properties?.facility_type || feature?.properties?.hazard_type || feature?.properties?.PC_Type || feature?.properties?.CH_Crime_Type || feature?.properties?.use || feature?.properties?.PL_Type_of_Supply || 'N/A', condition: feature?.properties?.condition || feature?.properties?.Condition || feature?.properties?.PC_Condition || feature?.properties?.TC_Condition || feature?.properties?.surface_condition || 'N/A' }))
+      polyline.addListener('click', () => openEditForm(feature?.properties || {}))
       overlays.value.push(polyline)
       return
     }
@@ -287,7 +287,7 @@ const initializeMapDrawer = async (facility: any) => {
     if (!point) return
     const [lng, lat] = point
     const marker = new window.google.maps.Marker({ position: { lat, lng }, map: googleMap.value, title: feature?.properties?.name || feature?.properties?.Place_name || feature?.properties?.PL_Name || 'Other Facility', opacity: isCurrent ? 1 : 0.25, zIndex: isCurrent ? 700 : 500 })
-    marker.addListener('click', () => openViewForm({ name: feature?.properties?.name || feature?.properties?.Place_name || feature?.properties?.PL_Name || 'N/A', type: feature?.properties?.type || feature?.properties?.facility_type || feature?.properties?.hazard_type || feature?.properties?.PC_Type || feature?.properties?.CH_Crime_Type || feature?.properties?.use || feature?.properties?.PL_Type_of_Supply || 'N/A', condition: feature?.properties?.condition || feature?.properties?.Condition || feature?.properties?.PC_Condition || feature?.properties?.TC_Condition || feature?.properties?.surface_condition || 'N/A' }))
+    marker.addListener('click', () => openEditForm(feature?.properties || {}))
     overlays.value.push(marker)
   })
 }
@@ -312,6 +312,141 @@ watch(mapDrawerVisible, (v) => {
     }, 300)
   }
 })
+
+// ---- Edit Drawer State ----
+const editDrawerVisible = ref(false)
+const editFormRef = ref<FormInstance>()
+const editingId = ref<number | null>(null)
+const isEditMode = ref(false)
+
+const crimeTypeOptions = [
+  { label: 'Theft', value: 'theft' },
+  { label: 'Burglary', value: 'burglary' },
+  { label: 'Mugging', value: 'mugging' },
+  { label: 'Murder', value: 'murder' }
+]
+
+const frequencyOptions = [
+  { label: 'Always', value: 'Always' },
+  { label: 'Very Often', value: 'Very_Often' },
+  { label: 'Sometimes', value: 'Sometimes' },
+  { label: 'Rarely', value: 'Rarely' }
+]
+
+const crimeTargetOptions = [
+  { label: 'Men', value: 'men' },
+  { label: 'Women', value: 'women' },
+  { label: 'Youth', value: 'youth' },
+  { label: 'Children', value: 'children' }
+]
+
+const timeOfDayOptions = [
+  { label: 'Morning', value: 'morning' },
+  { label: 'During the Day', value: 'during_Day' },
+  { label: 'Evening/Afternoon', value: 'evening' },
+  { label: 'Late Night', value: 'late_night' }
+]
+
+const editForm = reactive({
+  name: '',
+  ch_crime_type: '',
+  ch_frequency: '',
+  ch_crime_target: '',
+  ch_offender_type: '',
+  ch_time_of_day: '',
+  ch_num_victims: undefined as number | undefined,
+  settlement_id: '',
+  county_id: '',
+  subcounty_id: '',
+  ward_id: '',
+  geom: null as any
+})
+
+const editFormRules = reactive({
+  name: [{ required: true, message: 'Name is required', trigger: 'blur' }]
+})
+
+const openEditForm = (facilityData: any) => {
+  isEditMode.value = true
+  editingId.value = facilityData.id || null
+
+  editForm.name = facilityData.name || facilityData.CH_Name || ''
+  editForm.ch_crime_type = facilityData.ch_crime_type || facilityData.CH_Crime_Type || ''
+  editForm.ch_frequency = facilityData.ch_frequency || facilityData.CH_Frequency || ''
+  editForm.ch_crime_target = facilityData.ch_crime_target || facilityData.CH_Crime_Target || ''
+  editForm.ch_offender_type = facilityData.ch_offender_type || facilityData.CH_Offender_Type || ''
+  editForm.ch_time_of_day = facilityData.ch_time_of_day || facilityData.CH_Time_of_Day || ''
+  editForm.ch_num_victims = facilityData.ch_num_victims ?? facilityData.CH_num_victims ?? undefined
+  editForm.settlement_id = facilityData.settlement_id || ''
+  editForm.county_id = facilityData.county_id || ''
+  editForm.subcounty_id = facilityData.subcounty_id || ''
+  editForm.ward_id = facilityData.ward_id || ''
+  editForm.geom = facilityData.geom || null
+
+  editDrawerVisible.value = true
+}
+
+const submitEditForm = async () => {
+  if (!editFormRef.value) return
+
+  await editFormRef.value.validate(async (valid) => {
+    if (valid) {
+      try {
+        const formData: any = {
+          model: facilityModel,
+          name: editForm.name,
+          CH_Name: editForm.name,
+          CH_Crime_Type: editForm.ch_crime_type,
+          CH_Frequency: editForm.ch_frequency,
+          CH_Crime_Target: editForm.ch_crime_target,
+          CH_Offender_Type: editForm.ch_offender_type,
+          CH_Time_of_Day: editForm.ch_time_of_day,
+          CH_num_victims: editForm.ch_num_victims,
+          settlement_id: editForm.settlement_id,
+          county_id: editForm.county_id,
+          subcounty_id: editForm.subcounty_id,
+          ward_id: editForm.ward_id,
+          geom: editForm.geom
+        }
+
+        if (isEditMode.value && editingId.value) {
+          formData.id = editingId.value
+          const res: any = await updateOneRecord(formData)
+
+          if (res && (res.code === '0000' || res.status === 'success')) {
+            ElMessage.success(`${pageTitle} updated successfully`)
+            await getFilteredData()
+            editDrawerVisible.value = false
+          } else {
+            ElMessage.error(`Failed to update ${pageTitle.toLowerCase()}`)
+          }
+        }
+      } catch (error) {
+        console.error('Error submitting form:', error)
+        ElMessage.error(`Failed to save ${pageTitle.toLowerCase()}`)
+      }
+    }
+  })
+}
+
+const resetEditForm = () => {
+  Object.keys(editForm).forEach(key => {
+    if (typeof editForm[key as keyof typeof editForm] === 'string') {
+      (editForm as any)[key] = ''
+    } else if (typeof editForm[key as keyof typeof editForm] === 'number') {
+      (editForm as any)[key] = undefined
+    } else {
+      (editForm as any)[key] = undefined
+    }
+  })
+  isEditMode.value = false
+  editingId.value = null
+}
+
+const closeEditDrawer = () => {
+  resetEditForm()
+  editDrawerVisible.value = false
+}
 
 getCountyNames()
 getSettlementNames()
@@ -416,6 +551,74 @@ getFilteredData()
       <div style="margin-top: 8px;"><strong>Condition:</strong> {{ viewFormData.condition || 'N/A' }}</div>
     </el-dialog>
   </el-card>
+
+  <!-- Edit Form Drawer -->
+  <el-drawer
+    v-model="editDrawerVisible"
+    :title="isEditMode ? `Edit ${pageTitle}` : `${pageTitle} Details`"
+    direction="rtl"
+    :size="isMobile ? '100%' : '600px'"
+    :before-close="closeEditDrawer"
+    class="edit-form-drawer"
+  >
+    <el-form
+      ref="editFormRef"
+      :model="editForm"
+      :rules="editFormRules"
+      :label-width="isMobile ? '0px' : '180px'"
+      :label-position="isMobile ? 'top' : 'left'"
+    >
+      <el-divider content-position="left">Hotspot Information</el-divider>
+
+      <el-form-item label="Area Name" prop="name">
+        <el-input v-model="editForm.name" placeholder="Enter area/spot name" />
+      </el-form-item>
+
+      <el-form-item label="Crime Type">
+        <el-select v-model="editForm.ch_crime_type" placeholder="Select crime type" filterable style="width: 100%">
+          <el-option v-for="item in crimeTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="Frequency">
+        <el-select v-model="editForm.ch_frequency" placeholder="Select frequency" filterable style="width: 100%">
+          <el-option v-for="item in frequencyOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </el-form-item>
+
+      <el-divider content-position="left">Victims & Offenders</el-divider>
+
+      <el-form-item label="Crime Target">
+        <el-select v-model="editForm.ch_crime_target" placeholder="Select target" filterable style="width: 100%">
+          <el-option v-for="item in crimeTargetOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="Offender Type">
+        <el-input v-model="editForm.ch_offender_type" placeholder="Enter offender type" />
+      </el-form-item>
+
+      <el-form-item label="Time of Day">
+        <el-select v-model="editForm.ch_time_of_day" placeholder="Select time" filterable style="width: 100%">
+          <el-option v-for="item in timeOfDayOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="Victims per Month">
+        <el-input-number v-model="editForm.ch_num_victims" :min="0" style="width: 100%" />
+      </el-form-item>
+
+    </el-form>
+
+    <template #footer>
+      <div class="drawer-footer">
+        <el-button @click="closeEditDrawer">Cancel</el-button>
+        <el-button type="primary" @click="submitEditForm" :icon="Check">
+          {{ isEditMode ? `Update ${pageTitle}` : `Save ${pageTitle}` }}
+        </el-button>
+      </div>
+    </template>
+  </el-drawer>
 </template>
 
 <style scoped>
@@ -426,4 +629,5 @@ getFilteredData()
 .drawer-header-mobile { display: flex; justify-content: space-between; align-items: center; width: 100%; }
 .drawer-title { font-size: 16px; font-weight: 600; }
 .close-btn-mobile { padding: 8px 16px; }
+.drawer-footer { display: flex; justify-content: flex-end; gap: 10px; }
 </style>

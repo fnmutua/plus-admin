@@ -482,7 +482,7 @@ const getFilteredData = async (_selFilters?: any, _selfilterValues?: any) => {
 
   const filtersArr: string[] = []
   const filterValuesArr: any[] = []
-
+  
   // User location restriction (always enforced)
   if (isCountyRestricted.value && userCountyId.value) {
     filtersArr.push('county_id')
@@ -491,7 +491,7 @@ const getFilteredData = async (_selFilters?: any, _selfilterValues?: any) => {
     filtersArr.push('settlement_id')
     filterValuesArr.push([userSettlementId.value])
   }
-
+  
   // UI-selected location filters
   if (selectedCounty.value && selectedCounty.value.length) {
     filtersArr.push('county_id')
@@ -994,7 +994,7 @@ const mapTabLegendItems = [
 
 const DeleteFacility = async (data: TableSlotDefault) => {
   console.log('DeleteFacility ----->', data)
-
+  
   try {
     const formData: any = {}
     formData.id = data.id
@@ -1681,9 +1681,9 @@ const loadEducationFacilitiesOnMap = async (settlementId: number, currentSchoolI
           anchor: new window.google.maps.Point(15, 15)
         }
 
-        const marker = new window.google.maps.Marker({
-          position: { lat, lng },
-          map: googleMap.value,
+          const marker = new window.google.maps.Marker({
+            position: { lat, lng },
+            map: googleMap.value,
           title: props?.name || 'Education Facility',
           icon,
           draggable: isCurrentSchool,
@@ -1710,8 +1710,8 @@ const loadEducationFacilitiesOnMap = async (settlementId: number, currentSchoolI
         }
 
         const categoryLabel = category
-        const infoWindow = new window.google.maps.InfoWindow({
-          content: `
+          const infoWindow = new window.google.maps.InfoWindow({
+            content: `
               <div style="padding: 8px; min-width: 200px;">
                 <h3 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600;">${props?.name || 'Education Facility'}</h3>
                 <p style="margin: 0 0 5px 0; font-size: 12px;"><strong>Category:</strong> ${categoryLabel}</p>
@@ -1719,14 +1719,14 @@ const loadEducationFacilitiesOnMap = async (settlementId: number, currentSchoolI
                 ${props?.registration_status ? `<p style="margin: 5px 0 0 0; font-size: 12px;"><strong>Status:</strong> ${props.registration_status}</p>` : ''}
               </div>
             `
-        })
+          })
 
         facilityMarkerDataMap.value.set(marker, props)
-        marker.addListener('click', () => {
+          marker.addListener('click', () => {
           openFacilityForm(props)
-        })
-        educationFacilityMarkers.value.push(marker)
-      } catch (markerError) {
+          })
+          educationFacilityMarkers.value.push(marker)
+        } catch (markerError) {
         console.error('Error creating marker:', markerError, props)
       }
     }
@@ -2201,17 +2201,17 @@ const filteredSegments = computed(() => []);
         >
           <!-- Desktop / tablet: show separate buttons -->
           <template v-if="!isMobile">
-            <el-tooltip content="Add Facility" placement="top">
-              <PermissionWrapper :permissions="'education_facility:create'">
-                <el-button @click="AddFacility" type="primary" :icon="Plus" />
-              </PermissionWrapper>
-            </el-tooltip>
+          <el-tooltip content="Add Facility" placement="top">
+            <PermissionWrapper :permissions="'education_facility:create'">
+              <el-button @click="AddFacility" type="primary" :icon="Plus" />
+            </PermissionWrapper>
+          </el-tooltip>
 
-            <el-tooltip content="Clear" placement="top">
+          <el-tooltip content="Clear" placement="top">
               <el-button @click="handleClear" type="primary" :icon="Filter" />
-            </el-tooltip>
+          </el-tooltip>
 
-            <DownloadCustom
+          <DownloadCustom
               v-if="showEditButtons"
               :data="tableDataList"
               :model="educationFacilityModel"
@@ -2472,7 +2472,7 @@ const filteredSegments = computed(() => []);
         Showing {{ tableDataListRejected.length }} of {{ totalRejected }} settlements with rejected education facilities
       </div>
       <el-table
-        :data="tableDataListRejected" style="width: 100%; margin-top: 10px;" border
+:data="tableDataListRejected" style="width: 100%; margin-top: 10px;" border
         @expand-change="handleExpand">
         <el-table-column type="expand">
           <template #default="props">
@@ -2797,10 +2797,10 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
       <!-- Legend -->
       <div v-if="presentFacilityCategories.length > 0" class="map-legend">
         <h4 class="legend-title">Map Legend</h4>
-        <div class="legend-item">
+          <div class="legend-item">
           <img src="/icons/school.png" style="width:22px;height:22px;margin-right:10px;opacity:1;" />
           <span class="legend-label">Selected school</span>
-        </div>
+          </div>
         <div class="legend-item">
           <img src="/icons/school.png" style="width:22px;height:22px;margin-right:10px;opacity:0.2;" />
           <span class="legend-label">Other schools</span>

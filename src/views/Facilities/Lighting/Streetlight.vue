@@ -1,6 +1,8 @@
 ﻿<script setup lang="ts">
 import { computed, nextTick, reactive, ref, watch } from 'vue'
-import { ElMessage, ElCard, ElTable, ElTableColumn, ElCol,ElInput,   ElPagination, ElEmpty, ElButton, ElRow, ElSelect, ElOption, ElDrawer, ElDialog, ElForm, ElFormItem, ElInputNumber, ElDivider, type FormInstance } from 'element-plus'
+
+import { ElMessage, ElCard, ElTable, ElTableColumn, ElCol, ElInput, ElPagination, ElEmpty, ElButton, ElRow, ElSelect, ElOption, ElDrawer, ElDialog, ElForm, ElFormItem, ElDivider, type FormInstance } from 'element-plus'
+
 import { useRouter } from 'vue-router'
 import { getListWithoutGeo } from '@/api/counties'
 import { DeleteRecord, getSettlementListByCounty, getOneGeo, getfilteredGeo, searchByKeyWord, updateOneRecord } from '@/api/settlements'
@@ -11,10 +13,7 @@ import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import { Plus, Filter, Search, Back, Check } from '@element-plus/icons-vue'
 
-const pageTitle = 'Hazards'
-const facilityModel = 'hazard_zone'
-const createPermission = 'hazard_zone:create'
-
+const streetlightModel = 'street_light'
 const actionButtons = ref<string[]>(['viewOnMap', 'delete'])
 const tableDataList = ref<any[]>([])
 const loading = ref(false)
@@ -35,8 +34,8 @@ const mapDrawerContainer = ref<HTMLElement | null>(null)
 const mapDrawerFacility = ref<any>(null)
 const googleMap = ref<any>(null)
 const settlementPolygon = ref<any>(null)
-const overlays = ref<any[]>([])
-const selectedId = ref<number | string | null>(null)
+const streetlightMarkers = ref<any[]>([])
+const selectedStreetlightId = ref<number | string | null>(null)
 const viewFormVisible = ref(false)
 const viewFormData = ref<Record<string, any>>({})
 
@@ -105,7 +104,7 @@ const getFilteredData = async () => {
     limit: pSize.value,
     page: page.value,
     curUser: 1,
-    model: facilityModel,
+    model: streetlightModel,
     searchField: 'name',
     searchKeyword: searchString.value || '',
     filters,
@@ -129,7 +128,7 @@ const getFilteredBySearchData = async () => {
     limit: pSize.value,
     page: page.value,
     curUser: 1,
-    model: facilityModel,
+    model: streetlightModel,
     searchField: 'name',
     searchKeyword: searchString.value || '',
     filters,
@@ -159,7 +158,6 @@ const onPageChange = async (selPage: number) => {
   currentPage.value = selPage
   await getFilteredData()
 }
-
 const onPageSizeChange = async (size: number) => {
   pSize.value = size
   pageSize.value = size
@@ -171,18 +169,16 @@ const onPageSizeChange = async (size: number) => {
 const AddFacility = () => {
   push({ name: 'AddFacility' })
 }
-
 const flyTo = async (row: any) => {
-  selectedId.value = row?.id ?? null
+  selectedStreetlightId.value = row?.id ?? null
   mapDrawerFacility.value = row
   mapDrawerVisible.value = true
   await nextTick()
   await initializeMapDrawer(row)
 }
-
 const DeleteFacility = async (row: any) => {
   try {
-    const formData: Record<string, any> = { id: row.id, model: facilityModel }
+    const formData: Record<string, any> = { id: row.id, model: streetlightModel }
     await DeleteRecord(formData as any)
     ElMessage.success('Record deleted successfully')
     await getFilteredData()
@@ -191,10 +187,7 @@ const DeleteFacility = async (row: any) => {
   }
 }
 
-const getName = (row: any) => row?.name || row?.Place_name || row?.PL_Name || row?.PC_Name || row?.community_hall_name || row?.CH_Name || 'N/A'
-const getType = (row: any) => row?.type || row?.facility_type || row?.hazard_type || row?.PC_Type || row?.CH_Crime_Type || row?.use || row?.PL_Type_of_Supply || 'N/A'
-const getCondition = (row: any) => row?.condition || row?.Condition || row?.PC_Condition || row?.TC_Condition || row?.surface_condition || 'N/A'
-
+const goBack = () => window.history.back()
 const onCountyChange = async () => {
   selectedSettlement.value = []
   page.value = 1
@@ -202,14 +195,11 @@ const onCountyChange = async () => {
   await getSettlementNames()
   await getFilteredData()
 }
-
 const onSettlementChange = async () => {
   page.value = 1
   currentPage.value = 1
   await getFilteredData()
 }
-
-const goBack = () => window.history.back()
 
 const openViewForm = (data: Record<string, any>) => {
   viewFormData.value = data || {}
@@ -235,7 +225,13 @@ const initializeMapDrawer = async (facility: any) => {
   if (!settlementId) return
 
   const { Loader } = await import('@googlemaps/js-api-loader')
-  const loader = new Loader({ apiKey: googleMapsApiKey, version: 'weekly', libraries: ['drawing', 'geometry', 'places'], region: 'KE', language: 'en' })
+  const loader = new Loader({
+    apiKey: googleMapsApiKey,
+    version: 'weekly',
+    libraries: ['drawing', 'geometry', 'places'],
+    region: 'KE',
+    language: 'en'
+  })
   await loader.load()
 
   googleMap.value = new window.google.maps.Map(mapDrawerContainer.value, {
@@ -255,54 +251,79 @@ const initializeMapDrawer = async (facility: any) => {
       const paths = feature.geometry.type === 'Polygon'
         ? feature.geometry.coordinates[0].map((coord: number[]) => ({ lat: coord[1], lng: coord[0] }))
         : feature.geometry.coordinates[0][0].map((coord: number[]) => ({ lat: coord[1], lng: coord[0] }))
-      settlementPolygon.value = new window.google.maps.Polygon({ paths, strokeColor: '#FF0000', strokeOpacity: 0.6, strokeWeight: 2, fillOpacity: 0, map: googleMap.value })
+      settlementPolygon.value = new window.google.maps.Polygon({
+        paths,
+        strokeColor: '#FF0000',
+        strokeOpacity: 0.6,
+        strokeWeight: 2,
+        fillOpacity: 0,
+        map: googleMap.value
+      })
       const bounds = new window.google.maps.LatLngBounds()
       paths.forEach((p: any) => bounds.extend(p))
       googleMap.value.fitBounds(bounds)
     }
-  } catch {}
+  } catch (e) {
+    // keep map usable if boundary fails
+  }
 
-  const geoFilterForm: any = { model: facilityModel, columnFilterField: 'settlement_id', selectedParents: settlementId, filtredGeoIds: [settlementId] }
-  const res: any = await getfilteredGeo(geoFilterForm as any)
-  overlays.value.forEach((o: any) => o.setMap(null))
-  overlays.value = []
-  const geoJsonData = res?.data?.[0]?.json_build_object || res?.data?.[0]?.[0]?.json_build_object || res?.[0]?.json_build_object
-  const features = geoJsonData?.features || []
+  await loadStreetlightsOnMap(settlementId)
+}
 
+const loadStreetlightsOnMap = async (settlementId: number) => {
+  streetlightMarkers.value.forEach((m: any) => m.setMap(null))
+  streetlightMarkers.value = []
+  const geoFilterForm: any = {
+    model: 'streetlight',
+    columnFilterField: 'settlement_id',
+    selectedParents: settlementId,
+    filtredGeoIds: [settlementId]
+  }
+  let features: any[] = []
+  try {
+    const res: any = await getfilteredGeo(geoFilterForm as any)
+    const geoJsonData = res?.data?.[0]?.json_build_object || res?.data?.[0]?.[0]?.json_build_object || res?.[0]?.json_build_object
+    features = geoJsonData?.features || []
+  } catch (e) {
+    console.error('Failed to load streetlight geo data:', e)
+    return
+  }
   features.forEach((feature: any) => {
-    const geomType = feature?.geometry?.type
-    const featureId = feature?.properties?.id
-    const isCurrent = selectedId.value !== null && String(featureId) === String(selectedId.value)
-
-    if (['LineString', 'MultiLineString'].includes(geomType)) {
-      const coords = feature.geometry.coordinates
-      const path = geomType === 'LineString' ? coords.map((c: number[]) => ({ lat: c[1], lng: c[0] })) : (coords[0] || []).map((c: number[]) => ({ lat: c[1], lng: c[0] }))
-      const polyline = new window.google.maps.Polyline({ path, geodesic: true, strokeColor: isCurrent ? '#22c55e' : '#9ca3af', strokeOpacity: isCurrent ? 1 : 0.75, strokeWeight: isCurrent ? 6 : 4, map: googleMap.value })
-      polyline.addListener('click', () => openEditForm(feature?.properties || {}))
-      overlays.value.push(polyline)
-      return
-    }
-
-    const point = getPointCoords(feature?.geometry)
-    if (!point) return
-    const [lng, lat] = point
-    const marker = new window.google.maps.Marker({ position: { lat, lng }, map: googleMap.value, title: feature?.properties?.name || feature?.properties?.Place_name || feature?.properties?.PL_Name || 'Other Facility', opacity: isCurrent ? 1 : 0.25, zIndex: isCurrent ? 700 : 500 })
-    marker.addListener('click', () => openEditForm(feature?.properties || {}))
-    overlays.value.push(marker)
+    const coords = getPointCoords(feature?.geometry)
+    if (!coords) return
+    const [lng, lat] = coords
+    const featureId = feature?.properties?.id ?? feature?.properties?.streetlight_id
+    const isCurrent = selectedStreetlightId.value !== null && String(featureId) === String(selectedStreetlightId.value)
+    const marker = new window.google.maps.Marker({
+      position: { lat, lng },
+      map: googleMap.value,
+      title: feature?.properties?.road_name || feature?.properties?.name || 'Streetlight',
+      icon: {
+        url: 'icons/lighthouse-2.png',
+        scaledSize: new window.google.maps.Size(30, 30),
+        anchor: new window.google.maps.Point(15, 15)
+      },
+      opacity: isCurrent ? 1 : 0.25,
+      zIndex: isCurrent ? 700 : 500
+    })
+    marker.addListener('click', () => {
+      openEditForm(feature?.properties || {})
+    })
+    streetlightMarkers.value.push(marker)
   })
 }
 
 const handleMapDrawerClose = () => {
   mapDrawerVisible.value = false
-  overlays.value.forEach((o: any) => o.setMap(null))
-  overlays.value = []
+  streetlightMarkers.value.forEach((m: any) => m.setMap(null))
+  streetlightMarkers.value = []
   if (settlementPolygon.value) {
     settlementPolygon.value.setMap(null)
     settlementPolygon.value = null
   }
   googleMap.value = null
   mapDrawerFacility.value = null
-  selectedId.value = null
+  selectedStreetlightId.value = null
 }
 
 watch(mapDrawerVisible, (v) => {
@@ -313,27 +334,24 @@ watch(mapDrawerVisible, (v) => {
   }
 })
 
-// ---- Edit Drawer State ----
+// --- Edit Drawer ---
 const editDrawerVisible = ref(false)
 const editFormRef = ref<FormInstance>()
 const editingId = ref<number | null>(null)
 const isEditMode = ref(false)
 
-const frequencyOptions = [
-  { label: 'Always', value: 'Always' },
-  { label: 'Very Often', value: 'Very_Often' },
-  { label: 'Sometimes', value: 'Sometimes' },
-  { label: 'Rarely', value: 'Rarely' }
+const conditionOptions = [
+  { label: 'Good', value: 'Good' },
+  { label: 'Fair', value: 'Fair' },
+  { label: 'Poor', value: 'Poor' },
+  { label: 'Critical', value: 'Critical' }
 ]
 
 const editForm = reactive({
   name: '',
-  hazard_type: '',
-  nature: '',
-  number_of_affected_persons: undefined as number | undefined,
-  frequency_of_occurrence: '',
-  damage_cost: undefined as number | undefined,
-  comment: '',
+  road_name: '',
+  type: '',
+  condition: '',
   settlement_id: '',
   county_id: '',
   subcounty_id: '',
@@ -342,20 +360,17 @@ const editForm = reactive({
 })
 
 const editFormRules = reactive({
-  name: [{ required: true, message: 'Name is required', trigger: 'blur' }]
+  road_name: [{ required: true, message: 'Road name is required', trigger: 'blur' }]
 })
 
 const openEditForm = (facilityData: any) => {
   isEditMode.value = true
   editingId.value = facilityData.id || null
 
-  editForm.name = facilityData.name || facilityData.place_name || ''
-  editForm.hazard_type = facilityData.hazard_type || ''
-  editForm.nature = facilityData.nature || ''
-  editForm.number_of_affected_persons = facilityData.number_of_affected_persons ?? undefined
-  editForm.frequency_of_occurrence = facilityData.frequency_of_occurrence || ''
-  editForm.damage_cost = facilityData.damage_cost ?? undefined
-  editForm.comment = facilityData.comment || ''
+  editForm.name = facilityData.name || facilityData.road_name || ''
+  editForm.road_name = facilityData.road_name || facilityData.name || ''
+  editForm.type = facilityData.type || ''
+  editForm.condition = facilityData.condition || facilityData.Condition || ''
   editForm.settlement_id = facilityData.settlement_id || ''
   editForm.county_id = facilityData.county_id || ''
   editForm.subcounty_id = facilityData.subcounty_id || ''
@@ -372,20 +387,18 @@ const submitEditForm = async () => {
     if (valid) {
       try {
         const formData: any = {
-          model: facilityModel,
-          name: editForm.name,
-          place_name: editForm.name,
-          hazard_type: editForm.hazard_type,
-          nature: editForm.nature,
-          number_of_affected_persons: editForm.number_of_affected_persons,
-          frequency_of_occurrence: editForm.frequency_of_occurrence,
-          damage_cost: editForm.damage_cost,
-          comment: editForm.comment,
+          model: streetlightModel,
+          name: editForm.road_name || editForm.name,
+          road_name: editForm.road_name,
+          type: editForm.type,
+          condition: editForm.condition,
           settlement_id: editForm.settlement_id,
           county_id: editForm.county_id,
           subcounty_id: editForm.subcounty_id,
-          ward_id: editForm.ward_id,
-          geom: editForm.geom
+          ward_id: editForm.ward_id
+        }
+        if (editForm.geom) {
+          formData.geom = editForm.geom
         }
 
         if (isEditMode.value && editingId.value) {
@@ -393,16 +406,16 @@ const submitEditForm = async () => {
           const res: any = await updateOneRecord(formData)
 
           if (res && (res.code === '0000' || res.status === 'success')) {
-            ElMessage.success(`${pageTitle} updated successfully`)
+            ElMessage.success('Streetlight updated successfully')
             await getFilteredData()
             editDrawerVisible.value = false
           } else {
-            ElMessage.error(`Failed to update ${pageTitle.toLowerCase()}`)
+            ElMessage.error('Failed to update streetlight')
           }
         }
       } catch (error) {
         console.error('Error submitting form:', error)
-        ElMessage.error(`Failed to save ${pageTitle.toLowerCase()}`)
+        ElMessage.error('Failed to save streetlight')
       }
     }
   })
@@ -412,8 +425,6 @@ const resetEditForm = () => {
   Object.keys(editForm).forEach(key => {
     if (typeof editForm[key as keyof typeof editForm] === 'string') {
       (editForm as any)[key] = ''
-    } else if (typeof editForm[key as keyof typeof editForm] === 'number') {
-      (editForm as any)[key] = undefined
     } else {
       (editForm as any)[key] = undefined
     }
@@ -457,29 +468,29 @@ getFilteredData()
       </el-col>
       <el-col :xs="24" :sm="24" :md="8" :lg="6">
         <div style="display: flex; align-items: center; gap: 10px;">
-          <PermissionWrapper :permissions="createPermission">
+          <PermissionWrapper :permissions="'street_light:create'">
             <el-button @click="AddFacility" type="primary" :icon="Plus" />
           </PermissionWrapper>
           <el-button @click="handleClear" type="primary" :icon="Filter" />
-          <DownloadCustom v-if="showEditButtons" :data="tableDataList" :model="facilityModel" :associated_models="['settlement', 'county', 'subcounty', 'ward']" />
+          <DownloadCustom v-if="showEditButtons" :data="tableDataList" :model="streetlightModel" :associated_models="['settlement', 'county', 'subcounty', 'ward']" />
         </div>
       </el-col>
     </el-row>
 
     <el-table v-loading="loading" :data="tableDataList" border :size="isMobile ? 'small' : 'default'" style="width: 100%;">
-      <el-table-column label="Name" min-width="180" show-overflow-tooltip>
-        <template #default="scope">{{ getName(scope?.row || {}) }}</template>
+      <el-table-column label="Road Name" min-width="180" show-overflow-tooltip>
+        <template #default="scope">{{ scope?.row?.road_name || scope?.row?.name || 'N/A' }}</template>
       </el-table-column>
       <el-table-column label="Location" min-width="260">
         <template #default="scope">
           {{ scope?.row?.settlement?.name || 'N/A' }}, {{ scope?.row?.ward?.name || 'N/A' }} ward, {{ scope?.row?.subcounty?.name || 'N/A' }} subcounty, {{ scope?.row?.county?.name || 'N/A' }} County
         </template>
       </el-table-column>
-      <el-table-column label="Type" min-width="160">
-        <template #default="scope">{{ getType(scope?.row || {}) }}</template>
+      <el-table-column label="Type" min-width="130">
+        <template #default="scope">{{ scope?.row?.type || 'N/A' }}</template>
       </el-table-column>
-      <el-table-column label="Condition" min-width="140">
-        <template #default="scope">{{ getCondition(scope?.row || {}) }}</template>
+      <el-table-column label="Condition" min-width="130">
+        <template #default="scope">{{ scope?.row?.condition || scope?.row?.Condition || 'N/A' }}</template>
       </el-table-column>
       <el-table-column label="Actions" :min-width="isMobile ? 72 : 160" align="center" fixed="right">
         <template #default="scope">
@@ -489,7 +500,7 @@ getFilteredData()
     </el-table>
 
     <div v-if="!tableDataList.length" class="no-data-message">
-      <el-empty :description="`No ${pageTitle.toLowerCase()} found`" />
+      <el-empty description="No streetlights found" />
     </div>
 
     <el-pagination
@@ -504,10 +515,9 @@ getFilteredData()
       @current-change="onPageChange"
       class="mt-4"
     />
-
     <el-drawer
       v-model="mapDrawerVisible"
-      :title="`Settlement Map with ${pageTitle}`"
+      title="Settlement Map with Streetlights"
       direction="rtl"
       :size="isMobile ? '100%' : '60%'"
       :before-close="handleMapDrawerClose"
@@ -515,7 +525,7 @@ getFilteredData()
     >
       <template #header>
         <div class="drawer-header-mobile">
-          <span class="drawer-title">{{ mapDrawerFacility?.name || getName(mapDrawerFacility || {}) }}</span>
+          <span class="drawer-title">{{ mapDrawerFacility?.road_name || mapDrawerFacility?.name || 'Streetlight Map' }}</span>
           <el-button type="danger" size="default" @click="handleMapDrawerClose" class="close-btn-mobile">Close</el-button>
         </div>
       </template>
@@ -523,9 +533,8 @@ getFilteredData()
         <div ref="mapDrawerContainer" class="map-container"></div>
       </div>
     </el-drawer>
-
-    <el-dialog v-model="viewFormVisible" :title="`${pageTitle} Details`" width="420px">
-      <div><strong>Name:</strong> {{ viewFormData.name || 'N/A' }}</div>
+    <el-dialog v-model="viewFormVisible" title="Streetlight Details" width="420px">
+      <div><strong>Road Name:</strong> {{ viewFormData.road_name || 'N/A' }}</div>
       <div style="margin-top: 8px;"><strong>Type:</strong> {{ viewFormData.type || 'N/A' }}</div>
       <div style="margin-top: 8px;"><strong>Condition:</strong> {{ viewFormData.condition || 'N/A' }}</div>
     </el-dialog>
@@ -534,7 +543,7 @@ getFilteredData()
   <!-- Edit Form Drawer -->
   <el-drawer
     v-model="editDrawerVisible"
-    :title="isEditMode ? `Edit ${pageTitle}` : `${pageTitle} Details`"
+    :title="isEditMode ? 'Edit Streetlight' : 'Streetlight Details'"
     direction="rtl"
     :size="isMobile ? '100%' : '600px'"
     :before-close="closeEditDrawer"
@@ -547,38 +556,25 @@ getFilteredData()
       :label-width="isMobile ? '0px' : '180px'"
       :label-position="isMobile ? 'top' : 'left'"
     >
-      <el-divider content-position="left">Hazard Information</el-divider>
+      <el-divider content-position="left">Streetlight Information</el-divider>
 
-      <el-form-item label="Place Name" prop="name">
-        <el-input v-model="editForm.name" placeholder="Enter place name" />
+      <el-form-item label="Road Name" prop="road_name">
+        <el-input v-model="editForm.road_name" placeholder="Enter road name" />
       </el-form-item>
 
-      <el-form-item label="Hazard Type">
-        <el-input v-model="editForm.hazard_type" placeholder="Enter hazard type" />
+      <el-form-item label="Type">
+        <el-input v-model="editForm.type" placeholder="Enter type" />
       </el-form-item>
 
-      <el-form-item label="Nature">
-        <el-input v-model="editForm.nature" placeholder="Enter nature of hazard" />
-      </el-form-item>
-
-      <el-divider content-position="left">Impact</el-divider>
-
-      <el-form-item label="Affected Persons">
-        <el-input-number v-model="editForm.number_of_affected_persons" :min="0" style="width: 100%" />
-      </el-form-item>
-
-      <el-form-item label="Frequency">
-        <el-select v-model="editForm.frequency_of_occurrence" placeholder="Select frequency" filterable style="width: 100%">
-          <el-option v-for="item in frequencyOptions" :key="item.value" :label="item.label" :value="item.value" />
+      <el-form-item label="Condition">
+        <el-select v-model="editForm.condition" placeholder="Select condition" filterable style="width: 100%">
+          <el-option
+            v-for="item in conditionOptions"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
         </el-select>
-      </el-form-item>
-
-      <el-form-item label="Damage Cost">
-        <el-input-number v-model="editForm.damage_cost" :min="0" :precision="2" style="width: 100%" />
-      </el-form-item>
-
-      <el-form-item label="Comment">
-        <el-input v-model="editForm.comment" type="textarea" :rows="3" placeholder="Enter comments" />
       </el-form-item>
     </el-form>
 
@@ -586,7 +582,7 @@ getFilteredData()
       <div class="drawer-footer">
         <el-button @click="closeEditDrawer">Cancel</el-button>
         <el-button type="primary" @click="submitEditForm" :icon="Check">
-          {{ isEditMode ? `Update ${pageTitle}` : `Save ${pageTitle}` }}
+          {{ isEditMode ? 'Update Streetlight' : 'Save Streetlight' }}
         </el-button>
       </div>
     </template>
@@ -594,12 +590,41 @@ getFilteredData()
 </template>
 
 <style scoped>
-.no-data-message { display: flex; justify-content: center; align-items: center; min-height: 180px; }
-.map-container-wrapper { position: relative; width: 100%; height: calc(100vh - 120px); }
-.map-container { width: 100%; height: 100%; border-radius: 4px; }
-.map-drawer :deep(.el-drawer__body) { padding: 0; }
-.drawer-header-mobile { display: flex; justify-content: space-between; align-items: center; width: 100%; }
-.drawer-title { font-size: 16px; font-weight: 600; }
-.close-btn-mobile { padding: 8px 16px; }
-.drawer-footer { display: flex; justify-content: flex-end; gap: 10px; }
+.no-data-message {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 180px;
+}
+.map-container-wrapper {
+  position: relative;
+  width: 100%;
+  height: calc(100vh - 120px);
+}
+.map-container {
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
+}
+.map-drawer :deep(.el-drawer__body) {
+  padding: 0;
+}
+.drawer-header-mobile {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+.drawer-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+.close-btn-mobile {
+  padding: 8px 16px;
+}
+.drawer-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
 </style>

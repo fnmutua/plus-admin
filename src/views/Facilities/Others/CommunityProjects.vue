@@ -1,15 +1,15 @@
 ﻿<script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
-import { ElMessage, ElCard, ElTable, ElTableColumn, ElCol, ElPagination, ElEmpty, ElButton, ElRow, ElSelect, ElOption, ElDrawer, ElDialog } from 'element-plus'
+import { computed, nextTick, reactive, ref, watch } from 'vue'
+import { ElMessage, ElCard, ElTable, ElTableColumn, ElCol,ElInput,   ElPagination, ElEmpty, ElButton, ElRow, ElSelect, ElOption, ElDrawer, ElDialog, ElForm, ElFormItem, ElInputNumber, ElDivider, type FormInstance } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { getListWithoutGeo } from '@/api/counties'
-import { DeleteRecord, getSettlementListByCounty, getOneGeo, getfilteredGeo, searchByKeyWord } from '@/api/settlements'
+import { DeleteRecord, getSettlementListByCounty, getOneGeo, getfilteredGeo, searchByKeyWord, updateOneRecord } from '@/api/settlements'
 import TableActions from '@/views/Components/TableActions.vue'
 import DownloadCustom from '@/views/Components/DownloadCustom.vue'
 import PermissionWrapper from '@/components/PermissionWrapper.vue'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
-import { Plus, Filter, Search, Back } from '@element-plus/icons-vue'
+import { Plus, Filter, Search, Back, Check } from '@element-plus/icons-vue'
 
 const pageTitle = 'Community Projects'
 const facilityModel = 'other_facility'
@@ -278,7 +278,7 @@ const initializeMapDrawer = async (facility: any) => {
       const coords = feature.geometry.coordinates
       const path = geomType === 'LineString' ? coords.map((c: number[]) => ({ lat: c[1], lng: c[0] })) : (coords[0] || []).map((c: number[]) => ({ lat: c[1], lng: c[0] }))
       const polyline = new window.google.maps.Polyline({ path, geodesic: true, strokeColor: isCurrent ? '#22c55e' : '#9ca3af', strokeOpacity: isCurrent ? 1 : 0.75, strokeWeight: isCurrent ? 6 : 4, map: googleMap.value })
-      polyline.addListener('click', () => openViewForm({ name: feature?.properties?.name || feature?.properties?.Place_name || feature?.properties?.PL_Name || 'N/A', type: feature?.properties?.type || feature?.properties?.facility_type || feature?.properties?.hazard_type || feature?.properties?.PC_Type || feature?.properties?.CH_Crime_Type || feature?.properties?.use || feature?.properties?.PL_Type_of_Supply || 'N/A', condition: feature?.properties?.condition || feature?.properties?.Condition || feature?.properties?.PC_Condition || feature?.properties?.TC_Condition || feature?.properties?.surface_condition || 'N/A' }))
+      polyline.addListener('click', () => openEditForm(feature?.properties || {}))
       overlays.value.push(polyline)
       return
     }
@@ -287,7 +287,7 @@ const initializeMapDrawer = async (facility: any) => {
     if (!point) return
     const [lng, lat] = point
     const marker = new window.google.maps.Marker({ position: { lat, lng }, map: googleMap.value, title: feature?.properties?.name || feature?.properties?.Place_name || feature?.properties?.PL_Name || 'Other Facility', opacity: isCurrent ? 1 : 0.25, zIndex: isCurrent ? 700 : 500 })
-    marker.addListener('click', () => openViewForm({ name: feature?.properties?.name || feature?.properties?.Place_name || feature?.properties?.PL_Name || 'N/A', type: feature?.properties?.type || feature?.properties?.facility_type || feature?.properties?.hazard_type || feature?.properties?.PC_Type || feature?.properties?.CH_Crime_Type || feature?.properties?.use || feature?.properties?.PL_Type_of_Supply || 'N/A', condition: feature?.properties?.condition || feature?.properties?.Condition || feature?.properties?.PC_Condition || feature?.properties?.TC_Condition || feature?.properties?.surface_condition || 'N/A' }))
+    marker.addListener('click', () => openEditForm(feature?.properties || {}))
     overlays.value.push(marker)
   })
 }
@@ -312,6 +312,129 @@ watch(mapDrawerVisible, (v) => {
     }, 300)
   }
 })
+
+// ---- Edit Drawer State ----
+const editDrawerVisible = ref(false)
+const editFormRef = ref<FormInstance>()
+const editingId = ref<number | null>(null)
+const isEditMode = ref(false)
+
+const conditionOptions = [
+  { label: 'Under construction', value: 'Under construction ' },
+  { label: 'Broken/not in use', value: 'Broken/not in use' },
+  { label: 'Operational', value: 'Operational ' },
+  { label: 'Decommissioned', value: 'Decomissioned' }
+]
+
+const ownershipOptions = [
+  { label: 'Government', value: 'government' },
+  { label: 'CBO/NGO', value: 'ngo' },
+  { label: 'Individual', value: 'individual' },
+  { label: 'Community', value: 'community' }
+]
+
+const editForm = reactive({
+  name: '',
+  type: '',
+  number_of_persons_served: undefined as number | undefined,
+  usage_fee: undefined as number | undefined,
+  condition: '',
+  number_staff: undefined as number | undefined,
+  ownership: '',
+  owner: '',
+  settlement_id: '',
+  county_id: '',
+  subcounty_id: '',
+  ward_id: '',
+  geom: null as any
+})
+
+const editFormRules = reactive({
+  name: [{ required: true, message: 'Name is required', trigger: 'blur' }]
+})
+
+const openEditForm = (facilityData: any) => {
+  isEditMode.value = true
+  editingId.value = facilityData.id || null
+
+  editForm.name = facilityData.name || facilityData.CP_Name || ''
+  editForm.type = facilityData.type || facilityData.CP_Type || ''
+  editForm.number_of_persons_served = facilityData.number_of_persons_served ?? facilityData.CP_Number_of_Persons_Served ?? undefined
+  editForm.usage_fee = facilityData.usage_fee ?? facilityData.CP_Usage_Fee ?? undefined
+  editForm.condition = facilityData.condition || facilityData.CP_Condition || ''
+  editForm.number_staff = facilityData.number_staff ?? facilityData.CP_Number_of_Staff ?? undefined
+  editForm.ownership = facilityData.ownership || facilityData.CP_Ownership || ''
+  editForm.owner = facilityData.owner || facilityData.CP_Owner || ''
+  editForm.settlement_id = facilityData.settlement_id || ''
+  editForm.county_id = facilityData.county_id || ''
+  editForm.subcounty_id = facilityData.subcounty_id || ''
+  editForm.ward_id = facilityData.ward_id || ''
+  editForm.geom = facilityData.geom || null
+
+  editDrawerVisible.value = true
+}
+
+const submitEditForm = async () => {
+  if (!editFormRef.value) return
+
+  await editFormRef.value.validate(async (valid) => {
+    if (valid) {
+      try {
+        const formData: any = {
+          model: facilityModel,
+          name: editForm.name,
+          type: editForm.type,
+          number_of_persons_served: editForm.number_of_persons_served,
+          usage_fee: editForm.usage_fee,
+          condition: editForm.condition,
+          number_staff: editForm.number_staff,
+          ownership: editForm.ownership,
+          owner: editForm.owner,
+          settlement_id: editForm.settlement_id,
+          county_id: editForm.county_id,
+          subcounty_id: editForm.subcounty_id,
+          ward_id: editForm.ward_id,
+          geom: editForm.geom
+        }
+
+        if (isEditMode.value && editingId.value) {
+          formData.id = editingId.value
+          const res: any = await updateOneRecord(formData)
+
+          if (res && (res.code === '0000' || res.status === 'success')) {
+            ElMessage.success(`${pageTitle} updated successfully`)
+            await getFilteredData()
+            editDrawerVisible.value = false
+          } else {
+            ElMessage.error(`Failed to update ${pageTitle.toLowerCase()}`)
+          }
+        }
+      } catch (error) {
+        console.error('Error submitting form:', error)
+        ElMessage.error(`Failed to save ${pageTitle.toLowerCase()}`)
+      }
+    }
+  })
+}
+
+const resetEditForm = () => {
+  Object.keys(editForm).forEach(key => {
+    if (typeof editForm[key as keyof typeof editForm] === 'string') {
+      (editForm as any)[key] = ''
+    } else if (typeof editForm[key as keyof typeof editForm] === 'number') {
+      (editForm as any)[key] = undefined
+    } else {
+      (editForm as any)[key] = undefined
+    }
+  })
+  isEditMode.value = false
+  editingId.value = null
+}
+
+const closeEditDrawer = () => {
+  resetEditForm()
+  editDrawerVisible.value = false
+}
 
 getCountyNames()
 getSettlementNames()
@@ -416,6 +539,75 @@ getFilteredData()
       <div style="margin-top: 8px;"><strong>Condition:</strong> {{ viewFormData.condition || 'N/A' }}</div>
     </el-dialog>
   </el-card>
+
+  <!-- Edit Form Drawer -->
+  <el-drawer
+    v-model="editDrawerVisible"
+    :title="isEditMode ? `Edit ${pageTitle}` : `${pageTitle} Details`"
+    direction="rtl"
+    :size="isMobile ? '100%' : '600px'"
+    :before-close="closeEditDrawer"
+    class="edit-form-drawer"
+  >
+    <el-form
+      ref="editFormRef"
+      :model="editForm"
+      :rules="editFormRules"
+      :label-width="isMobile ? '0px' : '180px'"
+      :label-position="isMobile ? 'top' : 'left'"
+    >
+      <el-divider content-position="left">Project Information</el-divider>
+
+      <el-form-item label="Name" prop="name">
+        <el-input v-model="editForm.name" placeholder="Enter project name" />
+      </el-form-item>
+
+      <el-form-item label="Type">
+        <el-input v-model="editForm.type" placeholder="Enter project type" />
+      </el-form-item>
+
+      <el-form-item label="Condition">
+        <el-select v-model="editForm.condition" placeholder="Select condition" filterable style="width: 100%">
+          <el-option v-for="item in conditionOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </el-form-item>
+
+      <el-divider content-position="left">Details</el-divider>
+
+      <el-form-item label="Persons Served">
+        <el-input-number v-model="editForm.number_of_persons_served" :min="0" style="width: 100%" />
+      </el-form-item>
+
+      <el-form-item label="Usage Fee">
+        <el-input-number v-model="editForm.usage_fee" :min="0" :precision="2" style="width: 100%" />
+      </el-form-item>
+
+      <el-form-item label="Number of Staff">
+        <el-input-number v-model="editForm.number_staff" :min="0" style="width: 100%" />
+      </el-form-item>
+
+      <el-divider content-position="left">Ownership</el-divider>
+
+      <el-form-item label="Ownership">
+        <el-select v-model="editForm.ownership" placeholder="Select ownership" filterable style="width: 100%">
+          <el-option v-for="item in ownershipOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="Owner/Operator">
+        <el-input v-model="editForm.owner" placeholder="Enter owner/operator" />
+      </el-form-item>
+    </el-form>
+
+    <template #footer>
+      <div class="drawer-footer">
+        <el-button @click="closeEditDrawer">Cancel</el-button>
+        <el-button type="primary" @click="submitEditForm" :icon="Check">
+          {{ isEditMode ? `Update ${pageTitle}` : `Save ${pageTitle}` }}
+        </el-button>
+      </div>
+    </template>
+  </el-drawer>
 </template>
 
 <style scoped>
@@ -426,4 +618,5 @@ getFilteredData()
 .drawer-header-mobile { display: flex; justify-content: space-between; align-items: center; width: 100%; }
 .drawer-title { font-size: 16px; font-weight: 600; }
 .close-btn-mobile { padding: 8px 16px; }
+.drawer-footer { display: flex; justify-content: flex-end; gap: 10px; }
 </style>

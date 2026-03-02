@@ -1,15 +1,15 @@
 ﻿<script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
-import { ElMessage, ElCard, ElTable, ElTableColumn, ElCol, ElPagination, ElEmpty, ElButton, ElRow, ElSelect, ElOption, ElDrawer, ElDialog } from 'element-plus'
+import { computed, nextTick, reactive, ref, watch } from 'vue'
+import { ElMessage, ElCard, ElTable, ElTableColumn, ElCol,ElInput,   ElPagination, ElEmpty, ElButton, ElRow, ElSelect, ElOption, ElDrawer, ElDialog, ElForm, ElFormItem, ElInputNumber, ElDivider, type FormInstance } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { getListWithoutGeo } from '@/api/counties'
-import { DeleteRecord, getSettlementListByCounty, getOneGeo, getfilteredGeo, searchByKeyWord } from '@/api/settlements'
+import { DeleteRecord, getSettlementListByCounty, getOneGeo, getfilteredGeo, searchByKeyWord, updateOneRecord } from '@/api/settlements'
 import TableActions from '@/views/Components/TableActions.vue'
 import DownloadCustom from '@/views/Components/DownloadCustom.vue'
 import PermissionWrapper from '@/components/PermissionWrapper.vue'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
-import { Plus, Filter, Search, Back } from '@element-plus/icons-vue'
+import { Plus, Filter, Search, Back, Check } from '@element-plus/icons-vue'
 
 const pageTitle = 'Police'
 const facilityModel = 'police_station'
@@ -323,11 +323,7 @@ const initializeMapDrawer = async (facility: any) => {
       zIndex: isCurrent ? 700 : 500
     })
     marker.addListener('click', () => {
-      openViewForm({
-        name: feature?.properties?.name || feature?.properties?.Place_name || feature?.properties?.PL_Name || 'N/A',
-        type: feature?.properties?.type || feature?.properties?.facility_type || feature?.properties?.hazard_type || feature?.properties?.PC_Type || feature?.properties?.CH_Crime_Type || feature?.properties?.use || feature?.properties?.PL_Type_of_Supply || 'N/A',
-        condition: feature?.properties?.condition || feature?.properties?.Condition || feature?.properties?.PC_Condition || feature?.properties?.TC_Condition || feature?.properties?.surface_condition || 'N/A'
-      })
+      openEditForm(feature?.properties || {})
     })
     overlays.value.push(marker)
   })
@@ -353,6 +349,120 @@ watch(mapDrawerVisible, (v) => {
     }, 300)
   }
 })
+
+// ---- Edit Drawer State ----
+const editDrawerVisible = ref(false)
+const editFormRef = ref<FormInstance>()
+const editingId = ref<number | null>(null)
+const isEditMode = ref(false)
+
+const stationTypeOptions = [
+  { label: 'Police Post', value: 'police_post' },
+  { label: 'Police Station', value: 'police_station' },
+  { label: 'Chiefs Camp', value: 'chief_camp' }
+]
+
+const conditionOptions = [
+  { label: 'Good', value: 'Good' },
+  { label: 'Fair', value: 'Fair' },
+  { label: 'Poor', value: 'Poor' },
+  { label: 'Critical', value: 'Critical' }
+]
+
+const editForm = reactive({
+  name: '',
+  pc_type: '',
+  pc_number_of_officers: undefined as number | undefined,
+  pc_number_of_vehicles: undefined as number | undefined,
+  pc_condition: '',
+  settlement_id: '',
+  county_id: '',
+  subcounty_id: '',
+  ward_id: '',
+  geom: null as any
+})
+
+const editFormRules = reactive({
+  name: [{ required: true, message: 'Name is required', trigger: 'blur' }]
+})
+
+const openEditForm = (facilityData: any) => {
+  isEditMode.value = true
+  editingId.value = facilityData.id || null
+
+  editForm.name = facilityData.name || facilityData.PC_Name || ''
+  editForm.pc_type = facilityData.pc_type || facilityData.PC_Type || ''
+  editForm.pc_number_of_officers = facilityData.pc_number_of_officers ?? facilityData.PC_Number_of_Officers ?? undefined
+  editForm.pc_number_of_vehicles = facilityData.pc_number_of_vehicles ?? facilityData.PC_Number_of_Vehicles ?? undefined
+  editForm.pc_condition = facilityData.pc_condition || facilityData.PC_Condition || ''
+  editForm.settlement_id = facilityData.settlement_id || ''
+  editForm.county_id = facilityData.county_id || ''
+  editForm.subcounty_id = facilityData.subcounty_id || ''
+  editForm.ward_id = facilityData.ward_id || ''
+  editForm.geom = facilityData.geom || null
+
+  editDrawerVisible.value = true
+}
+
+const submitEditForm = async () => {
+  if (!editFormRef.value) return
+
+  await editFormRef.value.validate(async (valid) => {
+    if (valid) {
+      try {
+        const formData: any = {
+          model: facilityModel,
+          name: editForm.name,
+          PC_Name: editForm.name,
+          PC_Type: editForm.pc_type,
+          PC_Number_of_Officers: editForm.pc_number_of_officers,
+          PC_Number_of_Vehicles: editForm.pc_number_of_vehicles,
+          PC_Condition: editForm.pc_condition,
+          settlement_id: editForm.settlement_id,
+          county_id: editForm.county_id,
+          subcounty_id: editForm.subcounty_id,
+          ward_id: editForm.ward_id,
+          geom: editForm.geom
+        }
+
+        if (isEditMode.value && editingId.value) {
+          formData.id = editingId.value
+          const res: any = await updateOneRecord(formData)
+
+          if (res && (res.code === '0000' || res.status === 'success')) {
+            ElMessage.success(`${pageTitle} updated successfully`)
+            await getFilteredData()
+            editDrawerVisible.value = false
+          } else {
+            ElMessage.error(`Failed to update ${pageTitle.toLowerCase()}`)
+          }
+        }
+      } catch (error) {
+        console.error('Error submitting form:', error)
+        ElMessage.error(`Failed to save ${pageTitle.toLowerCase()}`)
+      }
+    }
+  })
+}
+
+const resetEditForm = () => {
+  Object.keys(editForm).forEach(key => {
+    if (typeof editForm[key as keyof typeof editForm] === 'string') {
+      (editForm as any)[key] = ''
+    } else if (typeof editForm[key as keyof typeof editForm] === 'number') {
+      (editForm as any)[key] = undefined
+    } else {
+      (editForm as any)[key] = undefined
+    }
+  })
+  isEditMode.value = false
+  editingId.value = null
+}
+
+const closeEditDrawer = () => {
+  resetEditForm()
+  editDrawerVisible.value = false
+}
 
 getCountyNames()
 getSettlementNames()
@@ -457,6 +567,71 @@ getFilteredData()
       <div style="margin-top: 8px;"><strong>Condition:</strong> {{ viewFormData.condition || 'N/A' }}</div>
     </el-dialog>
   </el-card>
+
+  <!-- Edit Form Drawer -->
+  <el-drawer
+    v-model="editDrawerVisible"
+    :title="isEditMode ? `Edit ${pageTitle}` : `${pageTitle} Details`"
+    direction="rtl"
+    :size="isMobile ? '100%' : '600px'"
+    :before-close="closeEditDrawer"
+    class="edit-form-drawer"
+  >
+    <el-form
+      ref="editFormRef"
+      :model="editForm"
+      :rules="editFormRules"
+      :label-width="isMobile ? '0px' : '180px'"
+      :label-position="isMobile ? 'top' : 'left'"
+    >
+      <el-divider content-position="left">Station Information</el-divider>
+
+      <el-form-item label="Name" prop="name">
+        <el-input v-model="editForm.name" placeholder="Enter station name" />
+      </el-form-item>
+
+      <el-form-item label="Station Type">
+        <el-select v-model="editForm.pc_type" placeholder="Select station type" filterable style="width: 100%">
+          <el-option
+            v-for="item in stationTypeOptions"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="Facility Condition">
+        <el-select v-model="editForm.pc_condition" placeholder="Select condition" filterable style="width: 100%">
+          <el-option
+            v-for="item in conditionOptions"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </el-form-item>
+
+      <el-divider content-position="left">Resources</el-divider>
+
+      <el-form-item label="Number of Officers">
+        <el-input-number v-model="editForm.pc_number_of_officers" :min="0" style="width: 100%" />
+      </el-form-item>
+
+      <el-form-item label="Number of Vehicles">
+        <el-input-number v-model="editForm.pc_number_of_vehicles" :min="0" style="width: 100%" />
+      </el-form-item>
+    </el-form>
+
+    <template #footer>
+      <div class="drawer-footer">
+        <el-button @click="closeEditDrawer">Cancel</el-button>
+        <el-button type="primary" @click="submitEditForm" :icon="Check">
+          {{ isEditMode ? `Update ${pageTitle}` : `Save ${pageTitle}` }}
+        </el-button>
+      </div>
+    </template>
+  </el-drawer>
 </template>
 
 <style scoped>
@@ -467,4 +642,5 @@ getFilteredData()
 .drawer-header-mobile { display: flex; justify-content: space-between; align-items: center; width: 100%; }
 .drawer-title { font-size: 16px; font-weight: 600; }
 .close-btn-mobile { padding: 8px 16px; }
+.drawer-footer { display: flex; justify-content: flex-end; gap: 10px; }
 </style>
