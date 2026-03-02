@@ -932,55 +932,55 @@ export const adminRoutes: AppRouteRecordRaw[] = [
                     title: 'Sewer Profile'
                   }
           },
-        /// Other Facilities-----------------------
-       {
-        path: 'other',
-        // component: 'views/Facilities/Other/Other',
-         component: () => import('@/views/Facilities/Other/Other.vue'),
-    
-        name: 'OtherFacility',
+        /// Others (Nested) -----------------------
+      {
+        path: 'others',
+        component: () => import('@/views/Facilities/Others/Others.vue'),
+        redirect: '/facilities/others/police',
+        name: 'Others',
         meta: {
-          icon:'zondicons:location-park',
+          icon: 'zondicons:location-park',
           title: 'Others'
-        }
-      }, 
-      {
-        path: 'other/add',
-      //  component: 'views/Facilities/Other/AddOther',
-        component: () => import('@/views/Facilities/Other/AddX.vue'),
-        name: 'AddOtherX',
-        meta: { hidden: true, title: 'Add Facility', noCache: true }
+        },
+        children: [
+          {
+            path: 'police',
+            component: () => import('@/views/Facilities/Others/Police.vue'),
+            name: 'OthersPolice',
+            meta: { title: 'Police' }
           },
-      {
-        path: 'other/addNew',
-        component: () => import('@/views/Facilities/Other/AddOtherNew.vue'),
-        name: 'AddOtherNew',
-        meta: { hidden: true, title: 'Add Other Facility', noCache: true }
+          {
+            path: 'crime-hotspots',
+            component: () => import('@/views/Facilities/Others/CrimeHotspots.vue'),
+            name: 'OthersCrimeHotspots',
+            meta: { title: 'Crime Hotspots' }
+          },
+          {
+            path: 'hazards',
+            component: () => import('@/views/Facilities/Others/Hazards.vue'),
+            name: 'OthersHazards',
+            meta: { title: 'Hazards' }
+          },
+          {
+            path: 'railway',
+            component: () => import('@/views/Facilities/Others/Railway.vue'),
+            name: 'OthersRailway',
+            meta: { title: 'Railway' }
+          },
+          {
+            path: 'community-hall',
+            component: () => import('@/views/Facilities/Others/CommunityHall.vue'),
+            name: 'OthersCommunityHall',
+            meta: { title: 'Community Hall' }
+          },
+          {
+            path: 'community-projects',
+            component: () => import('@/views/Facilities/Others/CommunityProjects.vue'),
+            name: 'OthersCommunityProjects',
+            meta: { title: 'Community Projects' }
+          }
+        ]
       },
-          {
-            path: 'other/map/:id',
-          //  component: 'views/Facilities/Sewer/SewerMap',
-            component: () => import('@/views/Facilities/Other/OtherMap.vue'),
-            name: 'OtherMap',
-             meta: {
-              hidden: true,
-              props: true,
-              title: 'Road Map'
-            }
-          },
-    
-          {
-            path: 'other/details/:id',
-          //  component: 'views/Facilities/Sewer/SewerFacilityDetails',
-            component: () => import('@/views/Facilities/Other/OtherFacilityDetails.vue'),
-    
-            name: 'OtherFacilityDetails',
-            meta: {
-              hidden: true,
-              props: true,
-              title: 'Facility Profile'
-            }
-    },
       
         ]
       }, 
