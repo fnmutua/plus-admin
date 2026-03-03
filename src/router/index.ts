@@ -691,7 +691,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             meta: { icon: 'mdi:lightbulb-on', title: 'Lighting' },
             children: [
               { path: 'powerline', component: () => import('@/views/Facilities/Lighting/Powerline.vue'), name: 'LightingPowerline', meta: { title: 'Powerline', icon: 'mdi:transmission-tower' } },
-              { path: 'highmast', component: () => import('@/views/Facilities/Lighting/Highmast.vue'), name: 'LightingHighmast', meta: { title: 'Highmast Lights', icon: 'mdi:light-flood-down' } },
+              { path: 'highmast', component: () => import('@/views/Facilities/Lighting/Highmast.vue'), name: 'LightingHighmast', meta: { title: 'FloodLights', icon: 'mdi:light-flood-down' } },
               { path: 'streetlight', component: () => import('@/views/Facilities/Lighting/Streetlight.vue'), name: 'LightingStreetlight', meta: { title: 'Streetlights', icon: 'mdi:lightbulb-outline' } }
             ]
           }

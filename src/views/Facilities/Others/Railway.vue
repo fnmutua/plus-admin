@@ -562,12 +562,16 @@ getFilteredData()
         <div class="map-legend">
           <h4 class="legend-title">Map Legend</h4>
           <div class="legend-item">
-            <span class="legend-dot" style="background:#EA4335;opacity:1;"></span>
-            <span class="legend-label">Selected facility</span>
+            <div class="legend-line" style="background-color: #22c55e;"></div>
+            <span class="legend-label">Selected railway</span>
           </div>
           <div class="legend-item">
-            <span class="legend-dot" style="background:#EA4335;opacity:0.25;"></span>
-            <span class="legend-label">Other facilities</span>
+            <div class="legend-line" style="background-color: #9ca3af; opacity: 0.75;"></div>
+            <span class="legend-label">Other railways</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-dot" style="background:#EA4335;opacity:1;"></span>
+            <span class="legend-label">Railway point</span>
           </div>
           <div class="legend-item">
             <div class="legend-line legend-line-dashed" style="background-color: transparent; border-bottom: 3px dashed #FF0000;"></div>
