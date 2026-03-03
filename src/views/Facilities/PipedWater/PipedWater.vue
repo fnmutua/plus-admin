@@ -2551,6 +2551,18 @@ v-if="showEditButtons" :data="tableDataList" :model="pipedWaterFacilityModel"
     
     <div v-if="mapDrawerSettlement" class="map-container-wrapper">
       <div ref="mapDrawerContainer" class="map-container"></div>
+      <!-- Legend -->
+      <div class="map-legend">
+        <h4 class="legend-title">Map Legend</h4>
+        <div class="legend-item">
+          <div class="legend-line" style="background-color: #0066ff;"></div>
+          <span class="legend-label">Piped water line</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-line legend-line-dashed" style="background-color: transparent; border-bottom: 3px dashed #FF0000;"></div>
+          <span class="legend-label">Settlement boundary</span>
+        </div>
+      </div>
     </div>
   </el-drawer>
 
@@ -2898,6 +2910,49 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
   padding: 0;
 }
 
+.map-legend {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  background: white;
+  padding: 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+  z-index: 1000;
+  max-width: 280px;
+}
+
+.legend-title {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.legend-line {
+  width: 30px;
+  height: 4px;
+  margin-right: 12px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.legend-line-dashed {
+  height: 0;
+}
+
+.legend-label {
+  font-size: 12px;
+  color: #333;
+  line-height: 1.4;
+}
+
 .drawer-header-mobile {
   display: flex;
   justify-content: space-between;
@@ -2917,6 +2972,14 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
 @media (max-width: 768px) {
   .map-container-wrapper {
     height: calc(100vh - 100px);
+  }
+
+  .map-legend {
+    bottom: 10px;
+    right: 10px;
+    left: 10px;
+    max-width: none;
+    padding: 12px;
   }
 
   .drawer-title {

@@ -558,6 +558,22 @@ getFilteredData()
       </template>
       <div class="map-container-wrapper">
         <div ref="mapDrawerContainer" class="map-container"></div>
+        <!-- Legend -->
+        <div class="map-legend">
+          <h4 class="legend-title">Map Legend</h4>
+          <div class="legend-item">
+            <span class="legend-dot" style="background:#EA4335;opacity:1;"></span>
+            <span class="legend-label">Selected facility</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-dot" style="background:#EA4335;opacity:0.25;"></span>
+            <span class="legend-label">Other facilities</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-line legend-line-dashed" style="background-color: transparent; border-bottom: 3px dashed #FF0000;"></div>
+            <span class="legend-label">Settlement boundary</span>
+          </div>
+        </div>
       </div>
     </el-drawer>
 
@@ -661,6 +677,13 @@ getFilteredData()
 .map-container-wrapper { position: relative; width: 100%; height: calc(100vh - 120px); }
 .map-container { width: 100%; height: 100%; border-radius: 4px; }
 .map-drawer :deep(.el-drawer__body) { padding: 0; }
+.map-legend { position: absolute; bottom: 20px; right: 20px; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,0.2); z-index: 1000; max-width: 280px; }
+.legend-title { margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: #333; }
+.legend-item { display: flex; align-items: center; margin-bottom: 10px; }
+.legend-dot { width: 16px; height: 16px; border-radius: 50%; margin-right: 10px; flex-shrink: 0; }
+.legend-line { width: 30px; height: 4px; margin-right: 12px; border-radius: 2px; flex-shrink: 0; }
+.legend-line-dashed { height: 0; }
+.legend-label { font-size: 12px; color: #333; line-height: 1.4; }
 .drawer-header-mobile { display: flex; justify-content: space-between; align-items: center; width: 100%; }
 .drawer-title { font-size: 16px; font-weight: 600; }
 .close-btn-mobile { padding: 8px 16px; }

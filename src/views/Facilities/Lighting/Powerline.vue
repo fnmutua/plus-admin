@@ -261,7 +261,6 @@ const initializeMapDrawer = async (facility: any) => {
 
   await loadPowerlinesOnMap(settlementId)
   await loadPowerlineAssetsOnMap(settlementId)
-  await loadRoadAssetsOnMap(settlementId)
 }
 
 const loadPowerlinesOnMap = async (settlementId: number) => {
@@ -364,98 +363,12 @@ const loadPowerlineAssetsOnMap = async (settlementId: number) => {
   }
 }
 
-const roadAssetMarkers = ref<any[]>([])
-
-const loadRoadAssetsOnMap = async (settlementId: number) => {
-  roadAssetMarkers.value.forEach((m: any) => m.setMap(null))
-  roadAssetMarkers.value = []
-
-  try {
-    // Step 1: Get roads for this settlement to extract road IDs
-    const roadGeoForm: any = {
-      model: 'road',
-      columnFilterField: 'settlement_id',
-      selectedParents: settlementId,
-      filtredGeoIds: [settlementId]
-    }
-    const roadRes: any = await getfilteredGeo(roadGeoForm as any)
-    const roadGeoJson = roadRes?.data?.[0]?.json_build_object || roadRes?.data?.[0]?.[0]?.json_build_object || roadRes?.[0]?.json_build_object
-    const roadFeatures = roadGeoJson?.features || []
-    const roadIds = roadFeatures
-      .map((f: any) => f?.properties?.id || f?.properties?.road_id)
-      .filter((id: any) => id != null)
-
-    if (!roadIds.length) return
-
-    // Step 2: Get road assets filtered by those road IDs
-    const assetGeoForm: any = {
-      model: 'road_asset',
-      columnFilterField: 'road_id',
-      selectedParents: roadIds,
-      filtredGeoIds: roadIds
-    }
-    const res: any = await getfilteredGeo(assetGeoForm as any)
-    const geoJsonData = res?.data?.[0]?.json_build_object || res?.data?.[0]?.[0]?.json_build_object || res?.[0]?.json_build_object
-    const features = geoJsonData?.features || []
-
-    const roadAssetColorMap: Record<string, string> = {
-      Bridge: '#e31a1c',
-      Culvert: '#fb9a99',
-      Bus_Stop: '#ff7f00',
-      Boda_Shed: '#fdbf6f',
-      Streetlights: '#33a02c'
-    }
-
-    features.forEach((feature: any) => {
-      const point = getPointCoords(feature?.geometry)
-      if (!point) return
-      const [lng, lat] = point
-      const assetType = feature?.properties?.asset_type || ''
-      const markerColor = roadAssetColorMap[assetType] || '#8b5cf6'
-      const marker = new window.google.maps.Marker({
-        position: { lat, lng },
-        map: googleMap.value,
-        title: feature?.properties?.name || `Road Asset (${assetType})`,
-        icon: {
-          path: window.google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
-          scale: 5,
-          fillColor: markerColor,
-          fillOpacity: 0.9,
-          strokeColor: '#ffffff',
-          strokeWeight: 2,
-          rotation: 0
-        },
-        zIndex: 550
-      })
-
-      marker.addListener('click', () => {
-        const props = feature?.properties || {}
-        const infoContent = `
-          <div style="padding:6px;min-width:180px">
-            <strong>${props.name || 'Road Asset'}</strong><br/>
-            <span>Type: ${props.asset_type || 'N/A'}</span><br/>
-            <span>Condition: ${props.asset_condition || props.condition || 'N/A'}</span>
-          </div>
-        `
-        const infoWindow = new window.google.maps.InfoWindow({ content: infoContent })
-        infoWindow.open(googleMap.value, marker)
-      })
-
-      roadAssetMarkers.value.push(marker)
-    })
-  } catch (e) {
-    console.error('Failed to load road assets:', e)
-  }
-}
-
 const handleMapDrawerClose = () => {
   mapDrawerVisible.value = false
   powerlineOverlays.value.forEach((o: any) => o.setMap(null))
   powerlineOverlays.value = []
   assetMarkers.value.forEach((m: any) => m.setMap(null))
   assetMarkers.value = []
-  roadAssetMarkers.value.forEach((m: any) => m.setMap(null))
-  roadAssetMarkers.value = []
   if (settlementPolygon.value) {
     settlementPolygon.value.setMap(null)
     settlementPolygon.value = null
@@ -566,6 +479,37 @@ getFilteredData()
       </template>
       <div class="map-container-wrapper">
         <div ref="mapDrawerContainer" class="map-container"></div>
+        <!-- Legend -->
+        <div class="map-legend">
+          <h4 class="legend-title">Map Legend</h4>
+          <div class="legend-section">Powerlines</div>
+          <div class="legend-item">
+            <span class="legend-line" style="background:#22c55e;"></span>
+            <span class="legend-label">Selected powerline</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-line" style="background:#9ca3af;"></span>
+            <span class="legend-label">Other powerlines</span>
+          </div>
+          <div class="legend-section">Powerline Assets</div>
+          <div class="legend-item">
+            <span class="legend-dot" style="background:#f59e0b;"></span>
+            <span class="legend-label">Transformer</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-dot" style="background:#6366f1;"></span>
+            <span class="legend-label">Pylon</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-dot" style="background:#ef4444;"></span>
+            <span class="legend-label">Substation</span>
+          </div>
+          <div class="legend-section">Boundary</div>
+          <div class="legend-item">
+            <div class="legend-line legend-line-dashed" style="background-color: transparent; border-bottom: 3px dashed #FF0000;"></div>
+            <span class="legend-label">Settlement boundary</span>
+          </div>
+        </div>
       </div>
     </el-drawer>
   </el-card>
@@ -591,6 +535,16 @@ getFilteredData()
 .map-drawer :deep(.el-drawer__body) {
   padding: 0;
 }
+.map-legend { position: absolute; bottom: 20px; right: 20px; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,0.2); z-index: 1000; max-width: 280px; max-height: 60vh; overflow-y: auto; }
+.legend-title { margin: 0 0 10px 0; font-size: 14px; font-weight: 600; color: #333; }
+.legend-section { font-size: 11px; font-weight: 600; color: #666; text-transform: uppercase; margin: 10px 0 6px 0; border-top: 1px solid #eee; padding-top: 8px; }
+.legend-section:first-of-type { border-top: none; margin-top: 4px; padding-top: 0; }
+.legend-item { display: flex; align-items: center; margin-bottom: 6px; }
+.legend-dot { width: 14px; height: 14px; border-radius: 50%; margin-right: 10px; flex-shrink: 0; border: 2px solid #fff; box-shadow: 0 0 2px rgba(0,0,0,0.3); }
+.legend-line { width: 24px; height: 4px; border-radius: 2px; margin-right: 10px; flex-shrink: 0; }
+.legend-line-dashed { height: 0; }
+.legend-arrow { font-size: 14px; margin-right: 10px; flex-shrink: 0; width: 14px; text-align: center; }
+.legend-label { font-size: 12px; color: #333; line-height: 1.4; }
 .drawer-header-mobile {
   display: flex;
   justify-content: space-between;

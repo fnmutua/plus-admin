@@ -1678,6 +1678,10 @@ const filteredSegments = computed(() => [])
           <img src="/icons/water.png" style="width:22px;height:22px;margin-right:10px;opacity:0.2;" />
           <span class="legend-label">Other water points</span>
         </div>
+        <div class="legend-item">
+          <div class="legend-line legend-line-dashed" style="background-color: transparent; border-bottom: 3px dashed #FF0000;"></div>
+          <span class="legend-label">Settlement boundary</span>
+        </div>
       </div>
     </div>
   </el-drawer>
@@ -1853,6 +1857,18 @@ const filteredSegments = computed(() => [])
   display: flex;
   align-items: center;
   margin-bottom: 10px;
+}
+
+.legend-line {
+  width: 30px;
+  height: 4px;
+  margin-right: 12px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.legend-line-dashed {
+  height: 0;
 }
 
 .legend-label {

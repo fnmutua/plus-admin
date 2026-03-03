@@ -179,6 +179,7 @@ const selectedRoadId = ref<number | string | null>(null)
 const settlementGeo = ref<any>(null)
 const roadsGeo = ref<any>(null)
 const facilityMarkerDataMap = ref<Map<any, any>>(new Map())
+const roadAssetMarkers = ref<any[]>([])
 
 
 
@@ -1242,9 +1243,10 @@ const initializeMapDrawer = async (settlement: any) => {
       }
     }
 
-    // Wait for map to be ready before loading roads
+    // Wait for map to be ready before loading roads and road assets
     const loadRoadsWhenReady = async () => {
       await loadRoadsOnMap(settlementId)
+      await loadRoadAssetsOnMap(settlementId)
     }
 
     // Use idle event to ensure map is fully loaded
@@ -1519,6 +1521,90 @@ const loadRoadsOnMap = async (settlementId: number) => {
   }
 }
 
+const getPointCoords = (geometry: any): number[] | null => {
+  if (!geometry) return null
+  if (geometry.type === 'Point') return geometry.coordinates
+  if (geometry.type === 'MultiPoint') return geometry.coordinates?.[0] || null
+  if (geometry.type === 'LineString') return geometry.coordinates?.[0] || null
+  if (geometry.type === 'MultiLineString') return geometry.coordinates?.[0]?.[0] || null
+  if (geometry.type === 'Polygon') return geometry.coordinates?.[0]?.[0] || null
+  return null
+}
+
+const loadRoadAssetsOnMap = async (settlementId: number) => {
+  roadAssetMarkers.value.forEach((m: any) => m.setMap(null))
+  roadAssetMarkers.value = []
+
+  try {
+    // Get roads for this settlement to extract road IDs
+    const features = roadsGeo.value?.features || []
+    const roadIds = features
+      .map((f: any) => f?.properties?.id || f?.properties?.road_id)
+      .filter((id: any) => id != null)
+
+    if (!roadIds.length) return
+
+    // Get road assets filtered by those road IDs
+    const assetGeoForm: any = {
+      model: 'road_asset',
+      columnFilterField: 'road_id',
+      selectedParents: roadIds,
+      filtredGeoIds: roadIds
+    }
+    const res: any = await getfilteredGeo(assetGeoForm as any)
+    const geoJsonData = res?.data?.[0]?.json_build_object || res?.data?.[0]?.[0]?.json_build_object || res?.[0]?.json_build_object
+    const assetFeatures = geoJsonData?.features || []
+
+    const roadAssetColorMap: Record<string, string> = {
+      Bridge: '#e31a1c',
+      Culvert: '#fb9a99',
+      Bus_Stop: '#ff7f00',
+      Boda_Shed: '#fdbf6f',
+      Streetlights: '#33a02c'
+    }
+
+    assetFeatures.forEach((feature: any) => {
+      const point = getPointCoords(feature?.geometry)
+      if (!point) return
+      const [lng, lat] = point
+      const assetType = feature?.properties?.asset_type || ''
+      const markerColor = roadAssetColorMap[assetType] || '#8b5cf6'
+      const marker = new window.google.maps.Marker({
+        position: { lat, lng },
+        map: googleMap.value,
+        title: feature?.properties?.name || `Road Asset (${assetType})`,
+        icon: {
+          path: window.google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+          scale: 5,
+          fillColor: markerColor,
+          fillOpacity: 0.9,
+          strokeColor: '#ffffff',
+          strokeWeight: 2,
+          rotation: 0
+        },
+        zIndex: 550
+      })
+
+      marker.addListener('click', () => {
+        const props = feature?.properties || {}
+        const infoContent = `
+          <div style="padding:6px;min-width:180px">
+            <strong>${props.name || 'Road Asset'}</strong><br/>
+            <span>Type: ${props.asset_type || 'N/A'}</span><br/>
+            <span>Condition: ${props.asset_condition || props.condition || 'N/A'}</span>
+          </div>
+        `
+        const infoWindow = new window.google.maps.InfoWindow({ content: infoContent })
+        infoWindow.open(googleMap.value, marker)
+      })
+
+      roadAssetMarkers.value.push(marker)
+    })
+  } catch (e) {
+    console.error('Failed to load road assets:', e)
+  }
+}
+
 // Watch for drawer visibility changes to trigger map resize
 watch(mapDrawerVisible, (newVal) => {
   if (newVal && googleMap.value) {
@@ -1557,6 +1643,9 @@ const handleMapDrawerClose = () => {
   // Clean up polylines
   roadMarkers.value.forEach(polyline => polyline.setMap(null))
   roadMarkers.value = []
+  // Clean up road asset markers
+  roadAssetMarkers.value.forEach((m: any) => m.setMap(null))
+  roadAssetMarkers.value = []
   facilityMarkerDataMap.value.clear()
   
   if (settlementPolygon.value) {
@@ -2889,6 +2978,45 @@ v-if="showEditButtons" :data="tableDataList" :model="roadFacilityModel"
     
     <div v-if="mapDrawerSettlement" class="map-container-wrapper">
       <div ref="mapDrawerContainer" class="map-container"></div>
+      <!-- Legend -->
+      <div class="map-legend">
+        <h4 class="legend-title">Map Legend</h4>
+        <div class="legend-section">Roads</div>
+        <div class="legend-item">
+          <div class="legend-line" style="background-color: #22c55e;"></div>
+          <span class="legend-label">Selected road</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-line" style="background-color: #9ca3af; opacity: 0.7;"></div>
+          <span class="legend-label">Other roads</span>
+        </div>
+        <div class="legend-section">Road Assets</div>
+        <div class="legend-item">
+          <span class="legend-arrow" style="color:#e31a1c;">&#9654;</span>
+          <span class="legend-label">Bridge</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-arrow" style="color:#fb9a99;">&#9654;</span>
+          <span class="legend-label">Culvert</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-arrow" style="color:#ff7f00;">&#9654;</span>
+          <span class="legend-label">Bus Stop</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-arrow" style="color:#fdbf6f;">&#9654;</span>
+          <span class="legend-label">Boda Shed</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-arrow" style="color:#33a02c;">&#9654;</span>
+          <span class="legend-label">Streetlights</span>
+        </div>
+        <div class="legend-section">Boundary</div>
+        <div class="legend-item">
+          <div class="legend-line legend-line-dashed" style="background-color: transparent; border-bottom: 3px dashed #FF0000;"></div>
+          <span class="legend-label">Settlement boundary</span>
+        </div>
+      </div>
     </div>
   </el-drawer>
 
@@ -3297,6 +3425,66 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
   padding: 0;
 }
 
+.map-legend {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  background: white;
+  padding: 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+  z-index: 1000;
+  max-width: 280px;
+}
+
+.legend-title {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.legend-line {
+  width: 30px;
+  height: 4px;
+  margin-right: 12px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.legend-line-dashed {
+  height: 0;
+}
+
+.legend-label {
+  font-size: 12px;
+  color: #333;
+  line-height: 1.4;
+}
+
+.legend-section {
+  font-size: 11px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 8px 0 4px 0;
+  padding-bottom: 2px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.legend-arrow {
+  font-size: 14px;
+  margin-right: 10px;
+  line-height: 1;
+}
+
 .drawer-header-mobile {
   display: flex;
   justify-content: space-between;
@@ -3316,6 +3504,14 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
 @media (max-width: 768px) {
   .map-container-wrapper {
     height: calc(100vh - 100px);
+  }
+
+  .map-legend {
+    bottom: 10px;
+    right: 10px;
+    left: 10px;
+    max-width: none;
+    padding: 12px;
   }
 
   .drawer-title {
