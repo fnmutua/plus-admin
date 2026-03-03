@@ -582,356 +582,123 @@ export const adminRoutes: AppRouteRecordRaw[] = [
               title: 'All'
             }
           },
-          {
-            path: 'health',
-            //component: 'views/Facilities/Health/Health',
-            component: () => import('@/views/Facilities/Health/Health.vue'),
-    
-            name: 'Health',
-            meta: {
-              icon: 'uis:hospital-symbol',
-              title: 'Health'
-            }
-          },
-          {
-            path: 'health/add',
-         //   component: 'views/Facilities/Health/Add',
-            component: () => import('@/views/Facilities/Health/AddX.vue'),
-    
-            name: 'AddhealthX',
-            meta: { hidden: true, title: 'Add', noCache: true }
-          },
-          {
-            path: 'health/addNew',
-            component: () => import('@/views/Facilities/Health/AddHealthNew.vue'),
-            name: 'AddHealthNew',
-            meta: { hidden: true, title: 'Add Health Facility', noCache: true }
-          },
-          {
-            path: 'health/map/:id',
-          //  component: 'views/Facilities/Health/HealthMap',
-            component: () => import('@/views/Facilities/Health/HealthMap.vue'),
-    
-            name: 'HealthFacilityMap',
-            meta: {
-              hidden: true,
-              props: true,
-              title: 'Facility Map'
-            }
-          },
-          {
-            path: 'health/details/:id',
-          // component: 'views/Facilities/Health/HealthFacilityDetails',
-            component: () => import('@/views/Facilities/Health/HealthFacilityDetails.vue'),
-    
-            name: 'HealthFacilityDetails',
-            meta: {
-              hidden: true,
-              props: true,
-              title: 'Facility Profile'
-            }
-          },
-    
-          /// Schools -----------------------
-          {
-            path: 'edu',
-           // component: 'views/Facilities/Education/Education',
-            component: () => import('@/views/Facilities/Education/Education.vue'),
-    
-            name: 'Education',
-            meta: {
-              icon: 'material-symbols:school-rounded',
-              title: 'Education'
-            }
-          },
-          {
-            path: 'edu/add',
-            //component: 'views/Facilities/Education/Add',
-            component: () => import('@/views/Facilities/Education/Add.vue'),
-    
-            name: 'AddEducation',
-            meta: { hidden: true, title: 'Add', noCache: true }
-          },
-
-          {
-            path: 'edu/addX',
-            //component: 'views/Facilities/Education/Add',
-            component: () => import('@/views/Facilities/Education/AddX.vue'),
-    
-            name: 'AddEducationX',
-            meta: { hidden: true, title: 'Add', props:true,  noCache: true }
-          },
-
-          {
-            path: 'edu/addNew',
-            component: () => import('@/views/Facilities/Education/AddEducationNew.vue'),
-            name: 'AddEducationNew',
-            meta: { hidden: true, title: 'Add Education Facility', noCache: true }
-          },
-
-
-
-          {
-            path: 'edu/map/:id',
-            //component: 'views/Facilities/Education/SchoolMap',
-            component: () => import('@/views/Facilities/Education/SchoolMap.vue'),
-    
-            name: 'EducationFacilityMap',
-            meta: {
-              hidden: true,
-              props: true,
-              title: 'School Map'
-            }
-          },
-          {
-            path: 'edu/details/:id',
-            //component: 'views/Facilities/Education/EducationFacilityDetails',
-            component: () => import('@/views/Facilities/Education/EducationFacilityDetails.vue'),
-    
-            name: 'EducationFacilityDetails',
-            meta: {
-              hidden: true,
-              props: true,
-              title: 'School Profile'
-            }
-          },
-    
-    
-          /// Roads -----------------------
-    
-          {
-            path: 'road',
-          //  component: 'views/Facilities/Roads/Roads',
-            component: () => import('@/views/Facilities/Roads/Roads.vue'),
-    
-            name: 'Road',
-            meta: {
-              icon: 'hugeicons:road-wayside',
-              title: 'Roads'
-            }
-          },
-          {
-            path: 'road/add',
-            //component: 'views/Facilities/Roads/Add',
-            component: () => import('@/views/Facilities/Roads/AddRoadNew.vue'),
-            name: 'AddRoadX',
-            meta: { hidden: true, title: 'Add', noCache: true }
-          },
-     
-          {
-            path: 'road/details/:id',
-           // component: 'views/Facilities/Roads/RoadDetails',
-           component: () => import('@/views/Facilities/Roads/RoadFacilityDetails.vue'),
-            name: 'RoadsDetails',
-            meta: {
-              hidden: true,
-              props: true,
-              title: 'Road Profile'
-            }
-          },
-    
-          
-          {
-            path: 'road/map/:id',
-          //  component: 'views/Facilities/Water/WaterMap',
-            component: () => import('@/views/Facilities/Roads/RoadMap.vue'),
-            name: 'RoadMap',
-             meta: {
-              hidden: true,
-              props: true,
-              title: 'Road Map'
-            }
-          },
-    
-    
-       /// Roads Assets-----------------------
-       {
-        path: 'roadasset',
-       //  component: 'views/Facilities/Roads/Assets',
-         component: () => import('@/views/Facilities/Roads/Assets.vue'),
-    
-        name: 'RoadAsset',
-        meta: {
-          icon: 'game-icons:arch-bridge',
-          hidden: true, 
-          title: 'Road Structures'
-        }
-      },
+      /// Social Amenities -----------------------
       {
-        path: 'roadasset/add',
-       // component: 'views/Facilities/Roads/AddAsset',
-        component: () => import('@/views/Facilities/Roads/AddAssetX.vue'),
-        name: 'AddRoadStructure',
-     
-        meta: { hidden: true, title: 'Add', noCache: true }
-          },
-      
-         
-    
-    
-    
-    
-          /// Water -----------------------
-       {
-            path: 'water',
-         //component: 'views/Facilities/Water/Water',
-         component: () => import('@/views/Facilities/Water/Water.vue'),
-            name: 'Water',
-            meta: {
-              icon: 'ic:sharp-water-drop',
-              title: 'Water'
-         },
-                 
-            
-         children: [
-        {
-            path: 'wp',
-          //  component: 'views/Facilities/Water/Add',
-            component: () => import('@/views/Facilities/Water/Water.vue'),
-            name: 'WaterPoint',
-             meta: {
-               hidden: false,
-               icon: 'ic:sharp-water-drop',
-               title: 'Water Points', noCache: true
-             }
-           },
-           {
-            path: 'wp/add',
-            component: () => import('@/views/Facilities/Water/AddX.vue'),
-            name: 'AddWaterPoint',
-            meta: { hidden: true, title: 'Add', noCache: true, icon: 'ant-design:plus-square-filled' }
-           },
-    
-           {
-            path: 'pipedwater',
-         //component: 'views/Facilities/Water/Water',
-         component: () => import('@/views/Facilities/PipedWater/PipedWater.vue'),
-            name: 'PipedWater',
-            meta: {
-              icon: 'game-icons:tap',
-              title: 'Piped Water'
-            }
-          },
-          {
-            path: 'pipedwater/add',
-         //component: 'views/Facilities/Water/Water',
-         component: () => import('@/views/Facilities/PipedWater/AddPipedWaterNew.vue'),
-            name: 'PipedWaterAddX',
-            meta: {
-              icon: 'ic:sharp-water-drop',
-              title: 'Add Piped Water',
-              hidden:true
-            }
-          },
-    
-          {
-            path: 'pipedwater/details/:id',
-          //  component: 'views/Facilities/Sewer/SewerFacilityDetails',
-            component: () => import('@/views/Facilities/PipedWater/PipedWaterFacilityDetails.vue'),
-    
-            name: 'PipedWaterFacilityDetails',
-            meta: {
-              hidden: true,
-              props: true,
-              title: 'Scheme Profile'
-            }
-    },
-          {
-            path: 'water/map/:id',
-          //  component: 'views/Facilities/Water/WaterMap',
-            component: () => import('@/views/Facilities/Water/WaterMap.vue'),
-    
-            name: 'WaterMap',
-    
-            meta: {
-              hidden: true,
-              icon: 'ant-design:plus-square-filled',
-    
-              props: true,
-              title: 'Water Point Map'
-            }
-          },
-          {
-            path: 'water/details/:id',
-           // component: 'views/Facilities/Water/WaterFacilityDetails',
-            component: () => import('@/views/Facilities/Water/WaterFacilityDetails.vue'),
-    
-            name: 'WaterDetails',
-            meta: {
-              hidden: true,
-              props: true,
-              title: 'Water Point Profile'
-            }
-          },
-          {
-            path: 'water/addNew',
-            component: () => import('@/views/Facilities/Water/AddWaterNew.vue'),
-            name: 'AddWaterNew',
-            meta: { hidden: true, title: 'Add Water Point', noCache: true }
-          },
-          {
-            path: 'sewer',
-            component: () => import('@/views/Facilities/Sewer/Sewer.vue'),
-            name: 'Sewer',
-            meta: { icon: 'ph:toilet-fill', title: 'Sewer' }
-          },
-          {
-            path: 'sewer/add',
-            component: () => import('@/views/Facilities/Sewer/AddSewerNew.vue'),
-            name: 'AddSewer',
-            meta: { hidden: true, title: 'Add', noCache: true, icon: 'ant-design:plus-square-filled' }
-          },
-          {
-            path: 'sewer/map/:id',
-            component: () => import('@/views/Facilities/Sewer/SewerMap.vue'),
-            name: 'SewerMap',
-            meta: { hidden: true, props: true, title: 'Road Map', icon: 'ant-design:plus-square-filled' }
-          },
-          {
-            path: 'sewer/details/:id',
-            component: () => import('@/views/Facilities/Sewer/SewerFacilityDetails.vue'),
-            name: 'SewerFacilityDetails',
-            meta: { hidden: true, props: true, title: 'Sewer Profile' }
-          }
-         ]
-         
-          },
-        
-      
-      
-       /// Lighting (Nested) -----------------------
-      {
-        path: 'lighting',
-        component: () => import('@/views/Facilities/Lighting/Lighting.vue'),
-        redirect: '/facilities/lighting/powerline',
-        name: 'Lighting',
+        path: 'social-amenities',
+        component: () => import('@/views/Facilities/Social/SocialAmenities.vue'),
+        redirect: '/facilities/social-amenities/health',
+        name: 'SocialAmenities',
         meta: {
-          icon: 'mdi:lightbulb-on',
-          title: 'Lighting'
+          icon: 'mdi:account-group-outline',
+          title: 'Social Amenities'
         },
         children: [
           {
-            path: 'powerline',
-            component: () => import('@/views/Facilities/Lighting/Powerline.vue'),
-            name: 'LightingPowerline',
-            meta: { title: 'Powerline', icon: 'mdi:transmission-tower' }
+            path: 'health',
+            component: () => import('@/views/Facilities/Health/Health.vue'),
+            name: 'Health',
+            meta: { icon: 'uis:hospital-symbol', title: 'Health' }
           },
+          { path: 'health/add', component: () => import('@/views/Facilities/Health/AddX.vue'), name: 'AddhealthX', meta: { hidden: true, title: 'Add', noCache: true } },
+          { path: 'health/addNew', component: () => import('@/views/Facilities/Health/AddHealthNew.vue'), name: 'AddHealthNew', meta: { hidden: true, title: 'Add Health Facility', noCache: true } },
+          { path: 'health/map/:id', component: () => import('@/views/Facilities/Health/HealthMap.vue'), name: 'HealthFacilityMap', meta: { hidden: true, props: true, title: 'Facility Map' } },
+          { path: 'health/details/:id', component: () => import('@/views/Facilities/Health/HealthFacilityDetails.vue'), name: 'HealthFacilityDetails', meta: { hidden: true, props: true, title: 'Facility Profile' } },
+
+          /// Education -----------------------
           {
-            path: 'highmast',
-            component: () => import('@/views/Facilities/Lighting/Highmast.vue'),
-            name: 'LightingHighmast',
-            meta: { title: 'Highmast Lights', icon: 'mdi:light-flood-down' }
+            path: 'edu',
+            component: () => import('@/views/Facilities/Education/Education.vue'),
+            name: 'Education',
+            meta: { icon: 'material-symbols:school-rounded', title: 'Education' }
           },
+          { path: 'edu/add', component: () => import('@/views/Facilities/Education/Add.vue'), name: 'AddEducation', meta: { hidden: true, title: 'Add', noCache: true } },
+          { path: 'edu/addX', component: () => import('@/views/Facilities/Education/AddX.vue'), name: 'AddEducationX', meta: { hidden: true, title: 'Add', props: true, noCache: true } },
+          { path: 'edu/addNew', component: () => import('@/views/Facilities/Education/AddEducationNew.vue'), name: 'AddEducationNew', meta: { hidden: true, title: 'Add Education Facility', noCache: true } },
+          { path: 'edu/map/:id', component: () => import('@/views/Facilities/Education/SchoolMap.vue'), name: 'EducationFacilityMap', meta: { hidden: true, props: true, title: 'School Map' } },
+          { path: 'edu/details/:id', component: () => import('@/views/Facilities/Education/EducationFacilityDetails.vue'), name: 'EducationFacilityDetails', meta: { hidden: true, props: true, title: 'School Profile' } },
+
+          /// Community Hall -----------------------
           {
-            path: 'streetlight',
-            component: () => import('@/views/Facilities/Lighting/Streetlight.vue'),
-            name: 'LightingStreetlight',
-            meta: { title: 'Streetlights', icon: 'mdi:lightbulb-outline' }
+            path: 'community-hall',
+            component: () => import('@/views/Facilities/Others/CommunityHall.vue'),
+            name: 'SocialCommunityHall',
+            meta: { title: 'Hall', icon: 'mdi:home-group' }
+          },
+          /// Community Projects -----------------------
+          {
+            path: 'community-projects',
+            component: () => import('@/views/Facilities/Others/CommunityProjects.vue'),
+            name: 'SocialCommunityProjects',
+            meta: { title: 'Projects', icon: 'mdi:account-group' }
           }
         ]
       },
 
-        /// Others (Nested) -----------------------
+      /// Infrastructure -----------------------
+      {
+        path: 'infrastructure',
+        component: () => import('@/views/Facilities/Infrastructure/Infrastructure.vue'),
+        redirect: '/facilities/infrastructure/road',
+        name: 'Infrastructure',
+        meta: {
+          icon: 'mdi:domain',
+          title: 'Infrastructure'
+        },
+        children: [
+          /// Roads -----------------------
+          {
+            path: 'road',
+            component: () => import('@/views/Facilities/Roads/Roads.vue'),
+            name: 'Road',
+            meta: { icon: 'hugeicons:road-wayside', title: 'Roads' }
+          },
+          { path: 'road/add', component: () => import('@/views/Facilities/Roads/AddRoadNew.vue'), name: 'AddRoadX', meta: { hidden: true, title: 'Add', noCache: true } },
+          { path: 'road/details/:id', component: () => import('@/views/Facilities/Roads/RoadFacilityDetails.vue'), name: 'RoadsDetails', meta: { hidden: true, props: true, title: 'Road Profile' } },
+          { path: 'road/map/:id', component: () => import('@/views/Facilities/Roads/RoadMap.vue'), name: 'RoadMap', meta: { hidden: true, props: true, title: 'Road Map' } },
+
+          /// Road Assets -----------------------
+          { path: 'roadasset', component: () => import('@/views/Facilities/Roads/Assets.vue'), name: 'RoadAsset', meta: { icon: 'game-icons:arch-bridge', hidden: true, title: 'Road Structures' } },
+          { path: 'roadasset/add', component: () => import('@/views/Facilities/Roads/AddAssetX.vue'), name: 'AddRoadStructure', meta: { hidden: true, title: 'Add', noCache: true } },
+
+          /// Water -----------------------
+          {
+            path: 'water',
+            component: () => import('@/views/Facilities/Water/Water.vue'),
+            name: 'Water',
+            meta: { icon: 'ic:sharp-water-drop', title: 'Water' },
+            children: [
+              { path: 'wp', component: () => import('@/views/Facilities/Water/Water.vue'), name: 'WaterPoint', meta: { hidden: false, icon: 'ic:sharp-water-drop', title: 'Water Points', noCache: true } },
+              { path: 'wp/add', component: () => import('@/views/Facilities/Water/AddX.vue'), name: 'AddWaterPoint', meta: { hidden: true, title: 'Add', noCache: true, icon: 'ant-design:plus-square-filled' } },
+              { path: 'pipedwater', component: () => import('@/views/Facilities/PipedWater/PipedWater.vue'), name: 'PipedWater', meta: { icon: 'game-icons:tap', title: 'Piped Water' } },
+              { path: 'pipedwater/add', component: () => import('@/views/Facilities/PipedWater/AddPipedWaterNew.vue'), name: 'PipedWaterAddX', meta: { icon: 'ic:sharp-water-drop', title: 'Add Piped Water', hidden: true } },
+              { path: 'pipedwater/details/:id', component: () => import('@/views/Facilities/PipedWater/PipedWaterFacilityDetails.vue'), name: 'PipedWaterFacilityDetails', meta: { hidden: true, props: true, title: 'Scheme Profile' } },
+              { path: 'water/map/:id', component: () => import('@/views/Facilities/Water/WaterMap.vue'), name: 'WaterMap', meta: { hidden: true, icon: 'ant-design:plus-square-filled', props: true, title: 'Water Point Map' } },
+              { path: 'water/details/:id', component: () => import('@/views/Facilities/Water/WaterFacilityDetails.vue'), name: 'WaterDetails', meta: { hidden: true, props: true, title: 'Water Point Profile' } },
+              { path: 'water/addNew', component: () => import('@/views/Facilities/Water/AddWaterNew.vue'), name: 'AddWaterNew', meta: { hidden: true, title: 'Add Water Point', noCache: true } },
+              { path: 'sewer', component: () => import('@/views/Facilities/Sewer/Sewer.vue'), name: 'Sewer', meta: { icon: 'ph:toilet-fill', title: 'Sewer' } },
+              { path: 'sewer/add', component: () => import('@/views/Facilities/Sewer/AddSewerNew.vue'), name: 'AddSewer', meta: { hidden: true, title: 'Add', noCache: true, icon: 'ant-design:plus-square-filled' } },
+              { path: 'sewer/map/:id', component: () => import('@/views/Facilities/Sewer/SewerMap.vue'), name: 'SewerMap', meta: { hidden: true, props: true, title: 'Road Map', icon: 'ant-design:plus-square-filled' } },
+              { path: 'sewer/details/:id', component: () => import('@/views/Facilities/Sewer/SewerFacilityDetails.vue'), name: 'SewerFacilityDetails', meta: { hidden: true, props: true, title: 'Sewer Profile' } }
+            ]
+          },
+
+          /// Lighting -----------------------
+          {
+            path: 'lighting',
+            component: () => import('@/views/Facilities/Lighting/Lighting.vue'),
+            redirect: '/facilities/infrastructure/lighting/powerline',
+            name: 'Lighting',
+            meta: { icon: 'mdi:lightbulb-on', title: 'Lighting' },
+            children: [
+              { path: 'powerline', component: () => import('@/views/Facilities/Lighting/Powerline.vue'), name: 'LightingPowerline', meta: { title: 'Powerline', icon: 'mdi:transmission-tower' } },
+              { path: 'highmast', component: () => import('@/views/Facilities/Lighting/Highmast.vue'), name: 'LightingHighmast', meta: { title: 'Highmast Lights', icon: 'mdi:light-flood-down' } },
+              { path: 'streetlight', component: () => import('@/views/Facilities/Lighting/Streetlight.vue'), name: 'LightingStreetlight', meta: { title: 'Streetlights', icon: 'mdi:lightbulb-outline' } }
+            ]
+          }
+        ]
+      },
+
+      /// Others -----------------------
       {
         path: 'others',
         component: () => import('@/views/Facilities/Others/Others.vue'),
@@ -942,48 +709,11 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           title: 'Others'
         },
         children: [
-          {
-            path: 'police',
-            component: () => import('@/views/Facilities/Others/Police.vue'),
-            name: 'OthersPolice',
-            meta: { title: 'Police', icon: 'mdi:police-badge' }
-          },
-          {
-            path: 'crime-hotspots',
-            component: () => import('@/views/Facilities/Others/CrimeHotspots.vue'),
-            name: 'OthersCrimeHotspots',
-            meta: { title: 'Crime Hotspots', icon: 'mdi:alert-octagon' }
-          },
-          {
-            path: 'hazards',
-            component: () => import('@/views/Facilities/Others/Hazards.vue'),
-            name: 'OthersHazards',
-            meta: { title: 'Hazards', icon: 'mdi:hazard-lights' }
-          },
-          {
-            path: 'railway',
-            component: () => import('@/views/Facilities/Others/Railway.vue'),
-            name: 'OthersRailway',
-            meta: { title: 'Railway', icon: 'mdi:train' }
-          },
-          {
-            path: 'community-hall',
-            component: () => import('@/views/Facilities/Others/CommunityHall.vue'),
-            name: 'OthersCommunityHall',
-            meta: { title: 'Community Hall', icon: 'mdi:home-group' }
-          },
-          {
-            path: 'community-projects',
-            component: () => import('@/views/Facilities/Others/CommunityProjects.vue'),
-            name: 'OthersCommunityProjects',
-            meta: { title: 'Community Projects', icon: 'mdi:account-group' }
-          },
-          {
-            path: 'mast',
-            component: () => import('@/views/Facilities/Others/Mast.vue'),
-            name: 'OthersMast',
-            meta: { title: 'Telecom Masts', icon: 'mdi:tower-fire' }
-          }
+          { path: 'police', component: () => import('@/views/Facilities/Others/Police.vue'), name: 'OthersPolice', meta: { title: 'Police', icon: 'mdi:police-badge' } },
+          { path: 'crime-hotspots', component: () => import('@/views/Facilities/Others/CrimeHotspots.vue'), name: 'OthersCrimeHotspots', meta: { title: 'Crime', icon: 'mdi:alert-octagon' } },
+          { path: 'hazards', component: () => import('@/views/Facilities/Others/Hazards.vue'), name: 'OthersHazards', meta: { title: 'Hazards', icon: 'mdi:hazard-lights' } },
+          { path: 'railway', component: () => import('@/views/Facilities/Others/Railway.vue'), name: 'OthersRailway', meta: { title: 'Railway', icon: 'mdi:train' } },
+          { path: 'mast', component: () => import('@/views/Facilities/Others/Mast.vue'), name: 'OthersMast', meta: { title: 'Telecom', icon: 'mdi:tower-fire' } }
         ]
       },
       

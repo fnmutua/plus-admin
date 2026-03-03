@@ -106,7 +106,7 @@ const getFilteredData = async () => {
     page: page.value,
     curUser: 1,
     model: facilityModel,
-    searchField: 'name',
+    searchField: 'place_name',
     searchKeyword: searchString.value || '',
     filters,
     filterValues,
@@ -130,7 +130,7 @@ const getFilteredBySearchData = async () => {
     page: page.value,
     curUser: 1,
     model: facilityModel,
-    searchField: 'name',
+    searchField: 'place_name',
     searchKeyword: searchString.value || '',
     filters,
     filterValues,
@@ -286,8 +286,25 @@ const initializeMapDrawer = async (facility: any) => {
     const point = getPointCoords(feature?.geometry)
     if (!point) return
     const [lng, lat] = point
-    const marker = new window.google.maps.Marker({ position: { lat, lng }, map: googleMap.value, title: feature?.properties?.name || feature?.properties?.Place_name || feature?.properties?.PL_Name || 'Other Facility', opacity: isCurrent ? 1 : 0.25, zIndex: isCurrent ? 700 : 500 })
+    const marker = new window.google.maps.Marker({
+      position: { lat, lng },
+      map: googleMap.value,
+      draggable: true,
+      title: feature?.properties?.name || feature?.properties?.Place_name || feature?.properties?.PL_Name || 'Other Facility',
+      opacity: isCurrent ? 1 : 0.25,
+      zIndex: isCurrent ? 700 : 500
+    })
     marker.addListener('click', () => openEditForm(feature?.properties || {}))
+    marker.addListener('dragend', (dragEvent: any) => {
+      const newLat = dragEvent.latLng.lat()
+      const newLng = dragEvent.latLng.lng()
+      const updatedGeom = {
+        type: 'Point',
+        coordinates: [newLng, newLat],
+        crs: { type: 'name', properties: { name: 'EPSG:4326' } }
+      }
+      openEditForm({ ...(feature?.properties || {}), geom: updatedGeom })
+    })
     overlays.value.push(marker)
   })
 }
