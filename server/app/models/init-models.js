@@ -112,6 +112,8 @@ var _community_project= require('./community_project')
 var _mast= require('./mast')
 var _street_light= require('./street_light')
 var _dumping_site= require('./dumping_site')
+var _powerline_asset= require('./powerline_asset')
+var _railway_asset= require('./railway_asset')
 
 
 var _permission= require('./permission')
@@ -239,6 +241,8 @@ var community_project = _community_project(sequelize, DataTypes)
 var mast = _mast(sequelize, DataTypes)
 var street_light = _street_light(sequelize, DataTypes)
 var dumping_site = _dumping_site(sequelize, DataTypes)
+var powerline_asset = _powerline_asset(sequelize, DataTypes)
+var railway_asset = _railway_asset(sequelize, DataTypes)
 var permissions = _permission(sequelize, DataTypes)
 var role_permissions = _role_permissions(sequelize, DataTypes)
 var role = _role(sequelize, DataTypes)
@@ -248,7 +252,7 @@ var role = _role(sequelize, DataTypes)
   
   return {
     beneficiary,otp,hazard_zone,community_hall,community_project,mast,street_light,dumping_site,
-    powerline,railway,floodlight,crime_hotspot,floodlight,police_station,
+    powerline,powerline_asset,railway,railway_asset,floodlight,crime_hotspot,floodlight,police_station,
     beneficiary_parcel,
     county,
     facility_type,

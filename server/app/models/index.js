@@ -835,6 +835,41 @@ db.models.road.hasMany(db.models.road_asset, {
   foreignKey: 'road_id'
 })
 
+db.models.road_asset.belongsTo(db.models.settlement, {
+  foreignKey: 'settlement_id'
+})
+
+db.models.settlement.hasMany(db.models.road_asset, {
+  foreignKey: 'settlement_id'
+})
+
+
+/// Powerline Assets
+db.models.powerline_asset.belongsTo(db.models.settlement, {
+  foreignKey: 'settlement_id'
+})
+
+db.models.settlement.hasMany(db.models.powerline_asset, {
+  foreignKey: 'settlement_id'
+})
+
+
+/// Railway Assets
+db.models.railway_asset.belongsTo(db.models.railway, {
+  foreignKey: 'railway_id'
+})
+
+db.models.railway.hasMany(db.models.railway_asset, {
+  foreignKey: 'railway_id'
+})
+
+db.models.railway_asset.belongsTo(db.models.settlement, {
+  foreignKey: 'settlement_id'
+})
+
+db.models.settlement.hasMany(db.models.railway_asset, {
+  foreignKey: 'settlement_id'
+})
 
 
 /// Other Facilities  

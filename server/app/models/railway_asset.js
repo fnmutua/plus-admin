@@ -1,18 +1,19 @@
 const Sequelize = require('sequelize');
 module.exports = function(sequelize, DataTypes) {
-  return sequelize.define('road_asset', {
+  return sequelize.define('railway_asset', {
     id: {
       autoIncrement: true,
       type: DataTypes.INTEGER,
       allowNull: false,
       primaryKey: true
     },
-     road_id: {
+
+    railway_id: {
       type: DataTypes.INTEGER,
       allowNull: true
     },
 
-    road_name: {
+    railway_name: {
       type: DataTypes.STRING,
       allowNull: true
     },
@@ -21,7 +22,7 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.INTEGER,
       allowNull: true
     },
-  
+
     RA_Name: {
       type: DataTypes.STRING,
       allowNull: true
@@ -64,12 +65,12 @@ module.exports = function(sequelize, DataTypes) {
     },
   }, {
     sequelize,
-    tableName: 'road_asset',
+    tableName: 'railway_asset',
     schema: 'public',
     timestamps: true,
     indexes: [
       {
-        name: "road_asset_pkey",
+        name: "railway_asset_pkey",
         unique: true,
         fields: [
           { name: "id" },
