@@ -69,7 +69,7 @@ module.exports = function(sequelize, DataTypes) {
     },
 
     geom: {
-      type: DataTypes.GEOMETRY('MULTILINESTRING', 4326),
+      type: DataTypes.GEOMETRY('GEOMETRY', 4326),
       allowNull: true
     }
   }, {
