@@ -1536,20 +1536,12 @@ const loadRoadAssetsOnMap = async (settlementId: number) => {
   roadAssetMarkers.value = []
 
   try {
-    // Get roads for this settlement to extract road IDs
-    const features = roadsGeo.value?.features || []
-    const roadIds = features
-      .map((f: any) => f?.properties?.id || f?.properties?.road_id)
-      .filter((id: any) => id != null)
-
-    if (!roadIds.length) return
-
-    // Get road assets filtered by those road IDs
+    // Get road assets filtered by settlement ID
     const assetGeoForm: any = {
       model: 'road_asset',
-      columnFilterField: 'road_id',
-      selectedParents: roadIds,
-      filtredGeoIds: roadIds
+      columnFilterField: 'settlement_id',
+      selectedParents: [settlementId],
+      filtredGeoIds: [settlementId]
     }
     const res: any = await getfilteredGeo(assetGeoForm as any)
     const geoJsonData = res?.data?.[0]?.json_build_object || res?.data?.[0]?.[0]?.json_build_object || res?.[0]?.json_build_object

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {
-  ElRow, ElCol, ElCard, ElDivider, ElTabs, ElTabPane, ElSkeleton, ElCascader, ElCascaderPanel, 
-  ElCascaderPanelContext, ElSelect, ElOption,ElEmpty,ElCollapse,ElCollapseItem, ElIcon, ElDrawer, ElButton
+  ElRow, ElCol, ElCard, ElTabs, ElTabPane, ElSkeleton, 
+  ElSelect, ElOption,ElEmpty,ElIcon, ElDrawer, ElButton
 } from 'element-plus'
 import { Loading } from '@element-plus/icons-vue'
 
@@ -12,18 +12,17 @@ import { ref,computed, reactive, watch, onMounted, onBeforeUnmount } from 'vue'
 import { Icon } from '@iconify/vue';
 
 import {
-  pieOptions, simpleBarChart, multipleBarChart, stacklineOptions, mapChartOptions,pyramidOptions,
+  pieOptions, simpleBarChart, multipleBarChart, stacklineOptions, pyramidOptions,
   lineOptions, stackedbarOptions, barMaleFemaleOptions,stackedbarOptionsAbs
 } from './chart-types'
 import { registerMap, getMap } from 'echarts/core'
 import { getSettlementListByCounty } from '@/api/settlements'
-import { getCountFilter, getSumFilter } from '@/api/settlements'
 import { useI18n } from '@/hooks/web/useI18n'
 import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
-import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
+import { getListWithoutGeo } from '@/api/counties'
 import { getfilteredGeo } from '@/api/settlements'
 
-import { getSummarybyField, getSummaryGroupByMultipleFields, getSummarybyFieldNested } from '@/api/summary'
+import { getSummaryGroupByMultipleFields } from '@/api/summary'
 
 import * as turf from '@turf/turf'
 import { getAllGeo } from '@/api/settlements'
@@ -106,6 +105,7 @@ const selectedCounties = ref([])
 const selectedSubCounties = ref([])
 const selectedWards = ref([])
 const options = ref([])
+
 
 const props = {
   expandTrigger: 'hover' as const,
@@ -1349,6 +1349,12 @@ const getCharts = async (section_id) => {
 
     response.data.forEach(async (thisChart) => {
       console.log('This Chart:', thisChart)
+
+      const filterLabel = getActiveFilterLabel()
+      const subtitleText = filterLabel || 'National Statistics'
+      const sourceText = `| Source: National Geodatabase of Slums, ${new Date().getFullYear()}`
+      const subtitleWithSource = `${subtitleText}\n${sourceText}`
+
       // Set initial loading state for this chart
       setChartLoading(thisChart.id, 'Preparing chart...')
 
@@ -1371,11 +1377,6 @@ const getCharts = async (section_id) => {
       const isDonut = thisChart.type == '10'; // Custom flag you can define
        console.log('isDonut',isDonut)
 
-        const filterLabel = getActiveFilterLabel();
-        const titleText = filterLabel
-          ? `${thisChart.title} - ${filterLabel}`
-          : thisChart.title;
-
         const UpdatedPieOptionsMultiple = {
           ...pieOptions,
           chart: {
@@ -1384,7 +1385,11 @@ const getCharts = async (section_id) => {
           },
           title: {
             ...pieOptions.title,
-            text: titleText
+            text: thisChart.title
+          },
+          subtitle: {
+            ...pieOptions.subtitle,
+            text: subtitleWithSource
           },
           labels: cdata[0],
           series: cdata[1],
@@ -1449,6 +1454,10 @@ const getCharts = async (section_id) => {
                 ...simpleBarChart.title,
                 text: thisChart.title
               },
+              subtitle: {
+                ...simpleBarChart.subtitle,
+                text: subtitleWithSource
+              },
               xaxis: {
                 ...simpleBarChart.xaxis,
                 categories: cdata[0] // categories as received 
@@ -1508,6 +1517,10 @@ const getCharts = async (section_id) => {
               title: {
                 ...multipleBarChart.title,
                 text: thisChart.title
+              },
+              subtitle: {
+                ...multipleBarChart.subtitle,
+                text: subtitleWithSource
               },
               xAxis: {
                 ...multipleBarChart.xAxis,
@@ -1582,6 +1595,10 @@ const getCharts = async (section_id) => {
               title: {
                 ...stackedbarOptions.title,
                 text: thisChart.title
+              },
+              subtitle: {
+                ...stackedbarOptions.subtitle,
+                text: subtitleWithSource
               },
               xaxis: {
                 ...stackedbarOptions.xaxis,
@@ -1666,6 +1683,10 @@ const getCharts = async (section_id) => {
                 ...stackedbarOptionsAbs.title,
                 text: thisChart.title
               },
+              subtitle: {
+                ...stackedbarOptionsAbs.subtitle,
+                text: subtitleWithSource
+              },
               xaxis: {
                 ...stackedbarOptionsAbs.xaxis,
                 categories: cdata[0],  // categories as recieved 
@@ -1737,6 +1758,10 @@ const getCharts = async (section_id) => {
               title: {
                 ...lineOptions.title,
                 text: thisChart.title
+              },
+              subtitle: {
+                ...lineOptions.subtitle,
+                text: subtitleWithSource
               },
               xaxis: {
                 ...lineOptions.xaxis,
@@ -1818,6 +1843,10 @@ const getCharts = async (section_id) => {
               title: {
                 ...stacklineOptions.title,
                 text: thisChart.title
+              },
+              subtitle: {
+                ...stacklineOptions.subtitle,
+                text: subtitleWithSource
               },
               xAxis: {
                 ...stacklineOptions.xAxis,
@@ -1973,7 +2002,7 @@ const getCharts = async (section_id) => {
             const UpdatedMapOtions = {
               title: {
                 text: thisChart.title,
-                subtext: 'National Slum Database',
+                subtext: subtitleWithSource,
                 left: 'right'
               },
               tooltip: {
@@ -2013,6 +2042,18 @@ const getCharts = async (section_id) => {
                   saveAsImage: {}
                 }
               },
+              graphic: [
+                {
+                  type: 'text',
+                  left: 'center',
+                  bottom: 5,
+                  style: {
+                    text: `| Source: National Geodatabase of Slums, ${new Date().getFullYear()}`,
+                    fill: '#666',
+                    font: '12px sans-serif'
+                  }
+                }
+              ],
               series: [
                 {
                   name: thisChart.title,
@@ -2181,6 +2222,10 @@ const getCharts = async (section_id) => {
                           title: {
                             ...pyramidOptions.chartOptions.title,
                             text: thisChart.title      // replace "Mauritius population pyramid 2011"
+                          },
+                          subtitle: {
+                            ...(pyramidOptions.chartOptions.subtitle || {}),
+                            text: subtitleWithSource
                           }
                         }
                       };
@@ -2240,16 +2285,15 @@ const getCharts = async (section_id) => {
             var cdata = await getSummaryChart(thisChart)   // first array is the categories // second is the data
             console.log('PIEx', cdata[1])
 
-            const filterLabel = getActiveFilterLabel();
-            const titleText = filterLabel
-              ? `${thisChart.title} - ${filterLabel}`
-              : thisChart.title;
-
             const UpdatedPieOptionsMultiple = {
               ...pieOptions,
               title: {
                 ...pieOptions.title,
-                text: titleText
+                text: thisChart.title
+              },
+              subtitle: {
+                ...pieOptions.subtitle,
+                text: subtitleWithSource
               },
 
               series: {
@@ -2328,6 +2372,10 @@ const getCharts = async (section_id) => {
                 ...simpleBarChart.title,
                 text: thisChart.title
               },
+              subtitle: {
+                ...simpleBarChart.subtitle,
+                text: subtitleWithSource
+              },
               xaxis: {
                 ...simpleBarChart.xaxis,
                 categories: cdata[0] // categories as received 
@@ -2396,6 +2444,10 @@ const getCharts = async (section_id) => {
                 ...multipleBarChart.title,
                 text: thisChart.title
               },
+              subtitle: {
+                ...multipleBarChart.subtitle,
+                text: subtitleWithSource
+              },
               xAxis: {
                 ...multipleBarChart.xAxis,
                 categories: cdata[0]  // categories as recieved 
@@ -2462,6 +2514,10 @@ const getCharts = async (section_id) => {
               title: {
                 ...barMaleFemaleOptions.title,
                 text: thisChart.title
+              },
+              subtitle: {
+                ...barMaleFemaleOptions.subtitle,
+                text: subtitleWithSource
               },
               xAxis: {
                 ...barMaleFemaleOptions.xAxis,
@@ -2531,6 +2587,10 @@ const getCharts = async (section_id) => {
               title: {
                 ...lineOptions.title,
                 text: thisChart.title
+              },
+              subtitle: {
+                ...lineOptions.subtitle,
+                text: subtitleWithSource
               },
               xaxis: {
                 ...lineOptions.xaxis,
@@ -2608,6 +2668,10 @@ const getCharts = async (section_id) => {
               title: {
                 ...stacklineOptions.title,
                 text: thisChart.title
+              },
+              subtitle: {
+                ...stacklineOptions.subtitle,
+                text: subtitleWithSource
               },
               xAxis: {
                 ...stacklineOptions.xAxis,
@@ -2761,7 +2825,7 @@ const getCharts = async (section_id) => {
             const UpdatedMapOtions = {
               title: {
                 text: thisChart.title,
-                subtext: 'National Slum Database',
+                subtext: subtitleWithSource,
                 left: 'right'
               },
               tooltip: {
@@ -2801,6 +2865,18 @@ const getCharts = async (section_id) => {
                   saveAsImage: {}
                 }
               },
+              graphic: [
+                {
+                  type: 'text',
+                  left: 'center',
+                  bottom: 5,
+                  style: {
+                    text: `| Source: National Geodatabase of Slums, ${new Date().getFullYear()}`,
+                    fill: '#666',
+                    font: '12px sans-serif'
+                  }
+                }
+              ],
               series: [
                 {
                   name: thisChart.title,
@@ -2983,6 +3059,7 @@ const getSectionsData = async () => {
     async function processSectionsData() {
       const promises = res.data.map(async function (arrayItem) {
         let tab = {};
+        tab.id = arrayItem.id;
         tab.label = arrayItem.title;
         tab.name = arrayItem.title;
         tab.charts = await getCharts(arrayItem.id);
@@ -2990,10 +3067,10 @@ const getSectionsData = async () => {
       });
 
       tabs.value = await Promise.all(promises);
+      tabs.value.sort((a, b) => a.id - b.id);
       console.log('sections', tabs.value);
       activeTab.value = tabs.value[0] ? tabs.value[0].name : ''
       console.log('activeTab', activeTab.value);
-      tabs.value.sort((a, b) => a.id - b.id);
 
     }
 
@@ -3844,6 +3921,7 @@ onBeforeUnmount(() => {
 .chart-card:hover {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
+
 
 .tab-content-scrollable {
   max-height: calc(100vh - 300px);

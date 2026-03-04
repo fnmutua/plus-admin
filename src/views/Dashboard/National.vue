@@ -1,28 +1,24 @@
 <script setup lang="ts">
 import {
-  ElRow, ElCol, ElCard, ElEmpty, ElTabs, ElTabPane, ElSkeleton, ElCascader, ElCascaderPanel, ElCascaderPanelContext, ElSelect, ElOption, ElCollapse, ElCollapseItem, ElButton, ElDrawer
+  ElRow, ElCol, ElCard, ElEmpty, ElTabs, ElTabPane, ElSkeleton, ElSelect, ElOption, ElButton, ElDrawer
 } from 'element-plus'
-import { ref, reactive, watch, onBeforeMount, onMounted, onBeforeUnmount } from 'vue'
+import { ref, reactive, onBeforeMount, onMounted, onBeforeUnmount } from 'vue'
 import { Icon } from '@iconify/vue';
 import {
-  pieOptions,  multipleBarChart, stacklineOptions, mapChartOptions,treemapOptions,pyramidOptions,
-  lineOptions, stackedbarOptions, barMaleFemaleOptions, simpleBarChart,stackedbarOptionsAbs
+  pieOptions,  multipleBarChart, stacklineOptions, treemapOptions,pyramidOptions,
+  lineOptions, stackedbarOptions, simpleBarChart,stackedbarOptionsAbs
 } from './chart-types'
-import type { EChartsOption } from 'echarts'
 import { registerMap, getMap } from 'echarts/core'
 import { getSettlementListByCounty } from '@/api/settlements'
-import { getCountFilter, getSumFilter } from '@/api/settlements'
 import { useI18n } from '@/hooks/web/useI18n'
 import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
-import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
+import { getListWithoutGeo } from '@/api/counties'
 import { getfilteredGeo } from '@/api/settlements'
-import {  getSummaryGroupByMultipleFields, getSummarybyFieldNested } from '@/api/summary'
+import {  getSummaryGroupByMultipleFields } from '@/api/summary'
 import * as turf from '@turf/turf'
 import { getAllGeo } from '@/api/settlements'
 import { useRoute } from 'vue-router'
-import VueApexCharts from "vue3-apexcharts"
 import VChart, { THEME_KEY } from 'vue-echarts';
-import { provide } from 'vue';
 import { getRoutesList } from '@/api/settlements'
 import { inject } from 'vue'
 import { useRouter } from 'vue-router'
@@ -210,6 +206,7 @@ const selectedCounties = ref([])
 const selectedSubCounties = ref([])
 const selectedWards = ref([])
 const options = ref([])
+
 
 // Selected settlement for download
 const selectedSettlement = ref<{name: string, value: number, chartId: string} | null>(null)
@@ -1002,6 +999,13 @@ const getCharts = async (section_id) => {
     response.data.forEach(function async(thisChart) {
       console.log('This Chart:', thisChart)
       
+      // Build subtitle with filter label
+      const filterLabel = getActiveFilterLabel()
+      const subtitleText = filterLabel || 'National Statistics'
+      const sourceText = `| Source: National Geodatabase of Slums, ${new Date().getFullYear()}`
+      const subtitleWithSource = `${subtitleText}\n${sourceText}`
+
+
       // Set initial loading state for this chart
       setChartLoading(thisChart.id, 'Preparing chart...')
 
@@ -1031,6 +1035,10 @@ const getCharts = async (section_id) => {
           title: {
             ...pieOptions.title,
             text: thisChart.title
+          },
+          subtitle: {
+            ...pieOptions.subtitle,
+            text: subtitleWithSource
           },
           labels: cdata[0],
           series: cdata[1],
@@ -1098,6 +1106,10 @@ async function processTreemapChart() {
           ...treemapOptions.title,
           text: thisChart.title,
         },
+        subtitle: {
+          ...treemapOptions.subtitle,
+          text: subtitleWithSource,
+        },
         //series: [{ data: cdata[0].map((label, index) => ({ x: label, y: cdata[1][index] })) }], // Combine labels and series into treemap format
         series:cdata[1],
         plotOptions: {
@@ -1162,6 +1174,10 @@ async function processTreemapChart() {
                 ...simpleBarChart.title,
                 text: thisChart.title
               },
+              subtitle: {
+                ...simpleBarChart.subtitle,
+                text: subtitleWithSource
+              },
               xaxis: {
                 ...simpleBarChart.xaxis,
                 categories: cdata[0] // categories as received 
@@ -1221,6 +1237,10 @@ async function processTreemapChart() {
               title: {
                 ...multipleBarChart.title,
                 text: thisChart.title
+              },
+              subtitle: {
+                ...multipleBarChart.subtitle,
+                text: subtitleWithSource
               },
               xAxis: {
                 ...multipleBarChart.xAxis,
@@ -1294,6 +1314,10 @@ async function processTreemapChart() {
               title: {
                 ...stackedbarOptions.title,
                 text: thisChart.title
+              },
+              subtitle: {
+                ...stackedbarOptions.subtitle,
+                text: subtitleWithSource
               },
               xaxis: {
                 ...stackedbarOptions.xaxis,
@@ -1378,6 +1402,10 @@ async function processTreemapChart() {
                 ...stackedbarOptionsAbs.title,
                 text: thisChart.title
               },
+              subtitle: {
+                ...stackedbarOptionsAbs.subtitle,
+                text: subtitleWithSource
+              },
               xaxis: {
                 ...stackedbarOptionsAbs.xaxis,
                 categories: cdata[0],  // categories as recieved 
@@ -1446,6 +1474,10 @@ async function processTreemapChart() {
               title: {
                 ...lineOptions.title,
                 text: thisChart.title
+              },
+              subtitle: {
+                ...lineOptions.subtitle,
+                text: subtitleWithSource
               },
               xAxis: {
                 ...lineOptions.xAxis,
@@ -1521,6 +1553,10 @@ async function processTreemapChart() {
               title: {
                 ...stacklineOptions.title,
                 text: thisChart.title
+              },
+              subtitle: {
+                ...stacklineOptions.subtitle,
+                text: subtitleWithSource
               },
               xAxis: {
                 ...stacklineOptions.xAxis,
@@ -1676,9 +1712,21 @@ async function processTreemapChart() {
             const UpdatedMapOtions = {
               title: {
                 text: thisChart.title,
-                subtext: 'National Slum Database',
+                subtext: subtitleWithSource,
                 left: 'right'
               },
+              graphic: [
+                {
+                  type: 'text',
+                  left: 'center',
+                  bottom: 5,
+                  style: {
+                    text: `| Source: National Geodatabase of Slums, ${new Date().getFullYear()}`,
+                    fill: '#666',
+                    font: '12px sans-serif'
+                  }
+                }
+              ],
               tooltip: {
                 trigger: 'item',
                 showDelay: 0,
@@ -1912,8 +1960,12 @@ async function processTreemapChart() {
                           ...pyramidOptions.chartOptions,
                           title: {
                             ...pyramidOptions.chartOptions.title,
-                            text: thisChart.title      // replace "Mauritius population pyramid 2011"
-                          }
+                            text: thisChart.title
+                          },
+                          subtitle: {
+                            ...(pyramidOptions.chartOptions.subtitle || {}),
+                            text: subtitleWithSource
+                          },
                         }
                       };
 
@@ -2060,6 +2112,7 @@ const getSectionsData = async () => {
   async function processSectionsData() {
     const promises = res.data.map(async function (arrayItem) {
       let tab = {};
+      tab.id = arrayItem.id;
       tab.label = arrayItem.title;
       tab.name = arrayItem.title;
       tab.charts = await getCharts(arrayItem.id);
@@ -2067,11 +2120,10 @@ const getSectionsData = async () => {
     });
 
     tabs.value = await Promise.all(promises);
+    tabs.value.sort((a, b) => a.id - b.id);
     console.log('sections', tabs.value);
     activeTab.value = tabs.value[0] ? tabs.value[0].name : ''
     console.log('activeTab', activeTab.value);
-
-    tabs.value.sort((a, b) => a.id - b.id);
 
   }
 
@@ -2097,6 +2149,32 @@ const countyList = ref([])
 const subCountyList = ref([])
 const filteredSubCountyList = ref([])
 
+function getActiveFilterLabel() {
+  // No filter text for national level
+  if (filterLevel.value === 'national') {
+    return ''
+  }
+
+  // County level: list selected counties
+  if (filterLevel.value === 'county' && selectedCounties.value?.length) {
+    const labels = countyList.value
+      .filter((c: any) => selectedCounties.value.includes(c.value))
+      .map((c: any) => c.label)
+
+    return labels.length ? labels.join(', ') : ''
+  }
+
+  // Subcounty level: list selected subcounties
+  if (filterLevel.value === 'subcounty' && selectedSubCounties.value?.length) {
+    const labels = subCountyList.value
+      .filter((s: any) => selectedSubCounties.value.includes(s.value))
+      .map((s: any) => s.label)
+
+    return labels.length ? labels.join(', ') : ''
+  }
+
+  return ''
+}
 
 const getCountySubcountySep = async () => {
     // initialize every time its called
@@ -2920,7 +2998,6 @@ const downloadSettlementData = async () => {
   position: relative;
   width: 100%;
 }
-
 
 /* Dark mode styles */
 @media (prefers-color-scheme: dark) {
