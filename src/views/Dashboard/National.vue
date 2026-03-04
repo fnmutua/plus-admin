@@ -1101,6 +1101,14 @@ async function processTreemapChart() {
         chart: {
           ...treemapOptions.chart,
           type: 'treemap', // Ensure type is treemap
+          toolbar: {
+            ...(treemapOptions.chart?.toolbar || {}),
+            show: true,
+            export: {
+              scale: 3,
+              width: 1800
+            }
+          }
         },
         title: {
           ...treemapOptions.title,

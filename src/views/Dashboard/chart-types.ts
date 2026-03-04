@@ -183,6 +183,10 @@ export const simpleBarChart = {
     stackType: '100%',
     toolbar: {
       show: true,
+      export: {
+        scale: 3,
+        width: 1800
+      },
       tools: {
         download: true,
         selection: true,
@@ -258,6 +262,10 @@ export const stackedbarOptions = {
     stackType: '100%',
     toolbar: {
       show: true,
+      export: {
+        scale: 3,
+        width: 1800
+      },
       tools: {
         download: true,
         selection: true,
@@ -331,7 +339,11 @@ export const stackedbarOptionsAbs = {
     height: 350,
     stacked: true,
     toolbar: {
-      show: true
+      show: true,
+      export: {
+        scale: 3,
+        width: 1800
+      }
     },
     zoom: {
       enabled: true
@@ -398,7 +410,11 @@ export const multipleBarChart = {
     type: 'bar',
     height: 350,
     toolbar: {
-      show: true
+      show: true,
+      export: {
+        scale: 3,
+        width: 1800
+      }
     },
     zoom: {
       enabled: true
@@ -458,7 +474,12 @@ export const lineOptions = {
       autoScaleYaxis: true
     },
     toolbar: {
-      autoSelected: 'zoom'
+      show: true,
+      autoSelected: 'zoom',
+      export: {
+        scale: 3,
+        width: 1800
+      }
     }
   },
   dataLabels: {
@@ -493,7 +514,11 @@ export const pieDonutOptions = {
     height: 350,
     type: 'donut',
     toolbar: {
-      show: true
+      show: true,
+      export: {
+        scale: 3,
+        width: 1800
+      }
     },
     zoom: {
       enabled: true
@@ -548,6 +573,10 @@ export const pieOptions = {
     type: 'donut',
     toolbar: {
       show: true,
+      export: {
+        scale: 3,
+        width: 1800
+      },
       tools: {
         download: true,
         selection: true,
@@ -1114,7 +1143,12 @@ export const pyramidOptions  = {
         autoScaleYaxis: true
       },
       toolbar: {
-        autoSelected: 'zoom'
+        show: true,
+        autoSelected: 'zoom',
+        export: {
+          scale: 3,
+          width: 1800
+        }
       }
     },
      
