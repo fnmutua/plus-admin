@@ -277,6 +277,9 @@
                 </div>
                 <div v-else>
                   <div class="rec-download-section">
+                    <ElButton type="success" :icon="Download" @click="downloadAssessmentPdf">
+                      Download (PDF)
+                    </ElButton>
                     <ElButton type="primary" :icon="Download" @click="downloadRecommendationsExcel">
                       Download(Excel)
                     </ElButton>
@@ -593,6 +596,7 @@ import {
 } from 'element-plus'
 import { Back, Lightning, Location, TrendCharts, SetUp, WarningFilled, InfoFilled, Document, Loading, Download } from '@element-plus/icons-vue'
 import * as XLSX from 'xlsx'
+import jsPDF from 'jspdf'
 import {
   getQuestions,
   getAssessment,
@@ -953,33 +957,6 @@ const getCategoryRecommendations = (dim: string, catKey: string) => {
   return null
 }
 
-// Get dimension score
-const getDimensionScore = (dim: string): number | null => {
-  const a = assessment.value
-  if (!a) return null
-  const scoreKey = `${dim}_score` as keyof ClimateAssessment
-  const score = a[scoreKey]
-  if (score == null) return null
-  const n = typeof score === 'number' ? score : Number(score)
-  return Number.isNaN(n) ? null : n
-}
-
-// Get dimension score tag type
-const dimScoreTagType = (dim: string) => {
-  const score = getDimensionScore(dim)
-  if (score == null) return 'info'
-  const isAC = dim === 'adaptive_capacity'
-  if (isAC) {
-    if (score >= 2.33) return 'success'
-    if (score >= 1.67) return 'warning'
-    return 'danger'
-  } else {
-    if (score >= 2.33) return 'danger'
-    if (score >= 1.67) return 'warning'
-    return 'success'
-  }
-}
-
 // Get category rating tag type
 const getCategoryRatingTagType = (dim: string, catKey: string) => {
   const rating = getCategoryRating(dim, catKey)
@@ -1058,6 +1035,200 @@ const getRecommendationsTableData = (type: 'planning' | 'designs' | 'communityDe
   }
   
   return tableData
+}
+
+const downloadAssessmentPdf = () => {
+  if (!assessment.value) {
+    ElMessage.warning('Assessment not available')
+    return
+  }
+
+  const doc = new jsPDF()
+  const pageWidth = doc.internal.pageSize.getWidth()
+  const pageHeight = doc.internal.pageSize.getHeight()
+  const left = 14
+  const right = pageWidth - 14
+  const usableWidth = right - left
+  let y = 20
+
+  const ensurePage = (needed = 12) => {
+    if (y + needed > pageHeight - 24) {
+      doc.addPage()
+      y = 20
+    }
+  }
+
+  const sectionHeader = (title: string) => {
+    // Keep clear space from previous content to avoid visual overlap.
+    if (y > 20) y += 3
+    ensurePage(18)
+    doc.setFillColor(248, 249, 250)
+    doc.rect(left, y - 5, usableWidth, 10, 'F')
+    doc.setDrawColor(225, 229, 233)
+    doc.rect(left, y - 5, usableWidth, 10)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(12)
+    doc.setTextColor(44, 62, 80)
+    doc.text(title, left + 3, y)
+    y += 11
+  }
+
+  const keyValue = (label: string, value: string) => {
+    ensurePage(8)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(10)
+    doc.setTextColor(70, 70, 70)
+    doc.text(`${label}:`, left, y)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(20, 20, 20)
+    const wrapped = doc.splitTextToSize(value || '—', usableWidth - 44)
+    doc.text(wrapped, left + 44, y)
+    y += Math.max(6, wrapped.length * 5)
+  }
+
+  const scoreRow = (label: string, value: string, tone: [number, number, number]) => {
+    ensurePage(10)
+    doc.setFillColor(250, 250, 250)
+    doc.rect(left, y - 4, usableWidth, 8, 'F')
+    doc.setDrawColor(235, 235, 235)
+    doc.rect(left, y - 4, usableWidth, 8)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(10)
+    doc.setTextColor(44, 62, 80)
+    doc.text(label, left + 3, y + 1)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(tone[0], tone[1], tone[2])
+    doc.text(value || '—', right - 3, y + 1, { align: 'right' })
+    y += 9
+  }
+
+  const bullet = (text: string) => {
+    ensurePage(8)
+    const wrapped = doc.splitTextToSize(text, usableWidth - 8)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(10)
+    doc.setTextColor(30, 30, 30)
+    doc.text(`- ${wrapped[0]}`, left + 2, y)
+    for (let i = 1; i < wrapped.length; i++) {
+      y += 5
+      doc.text(`  ${wrapped[i]}`, left + 2, y)
+    }
+    y += 6
+  }
+
+  const categoryTitle = (text: string) => {
+    ensurePage(8)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(10)
+    doc.setTextColor(33, 37, 41)
+    doc.text(text, left + 1, y)
+    y += 6
+  }
+
+  const subCategoryTitle = (text: string) => {
+    ensurePage(7)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(9)
+    doc.setTextColor(73, 80, 87)
+    doc.text(text, left + 4, y)
+    y += 5
+  }
+
+  const score = assessment.value
+  // Header band (incident-style)
+  doc.setFillColor(64, 158, 255)
+  doc.rect(10, 10, pageWidth - 20, 20, 'F')
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(14)
+  doc.setTextColor(255, 255, 255)
+  doc.text('CLIMATE ASSESSMENT REPORT', pageWidth / 2, 18, { align: 'center' })
+  doc.setFontSize(9)
+  doc.text('KISIP Tool B: Risk & Vulnerability', pageWidth / 2, 24, { align: 'center' })
+  y = 38
+
+  sectionHeader('Context')
+  keyValue('County', countyName.value || '—')
+  keyValue('Settlement', settlementName.value || '—')
+  keyValue('Assessor', assessorName.value || '—')
+  keyValue('Assessment Date', score.assessed_at ? new Date(score.assessed_at).toLocaleDateString() : '—')
+  keyValue('Status', score.status || '—')
+
+  sectionHeader('Dimension Scores (1-3)')
+  scoreRow('Hazard', formatRatingValue(score.hazard_score), [231, 76, 60])
+  scoreRow('Exposure', formatRatingValue(score.exposure_score), [243, 156, 18])
+  scoreRow('Sensitivity', formatRatingValue(score.sensitivity_score), [52, 152, 219])
+  scoreRow('Adaptive Capacity', formatRatingValue(score.adaptive_capacity_score), [39, 174, 96])
+
+  sectionHeader('Overall Scores')
+  scoreRow(
+    'Vulnerability',
+    `${formatRatingValue(score.vulnerability_score)}${score.vulnerability_rating ? ` (${formatRatingLabel(score.vulnerability_rating)})` : ''}`,
+    [192, 57, 43]
+  )
+  scoreRow(
+    'Risk',
+    `${formatRatingValue(score.risk_score)}${score.risk_rating ? ` (${formatRatingLabel(score.risk_rating)})` : ''}`,
+    [142, 68, 173]
+  )
+
+  const recommendationSections: Array<{ title: string; key: 'planning' | 'designs' | 'communityDevelopmentPlans' }> = [
+    { title: 'Planning Recommendations', key: 'planning' },
+    { title: 'Design Recommendations', key: 'designs' },
+    { title: 'Community Development Plan Recommendations', key: 'communityDevelopmentPlans' }
+  ]
+
+  let hasRecommendations = false
+  recommendationSections.forEach((section) => {
+    const rows = getRecommendationsTableData(section.key).filter(
+      (row: any) => Array.isArray(row.recommendations) && row.recommendations.length > 0
+    )
+    if (rows.length === 0) return
+    hasRecommendations = true
+
+    sectionHeader(section.title)
+    let currentCategory = ''
+    let currentSubcategory = ''
+
+    rows.forEach((row: any) => {
+      if (row.category) {
+        currentCategory = row.category
+        currentSubcategory = ''
+        categoryTitle(currentCategory)
+      }
+
+      if (row.subcategory && row.subcategory !== currentSubcategory) {
+        currentSubcategory = row.subcategory
+        subCategoryTitle(currentSubcategory)
+      }
+
+      row.recommendations.forEach((rec: string) => bullet(rec))
+    })
+    // Add breathing room before next recommendation section header.
+    y += 2
+  })
+
+  if (!hasRecommendations) {
+    sectionHeader('Recommendations')
+    bullet('No recommendations available yet. Complete and save the assessment to generate recommendations.')
+  }
+
+  // Footer for all pages
+  const pages = doc.getNumberOfPages()
+  for (let i = 1; i <= pages; i++) {
+    doc.setPage(i)
+    doc.setDrawColor(220, 220, 220)
+    doc.line(10, pageHeight - 14, pageWidth - 10, pageHeight - 14)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8)
+    doc.setTextColor(100, 100, 100)
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 12, pageHeight - 9)
+    doc.text(`Page ${i} of ${pages}`, pageWidth - 12, pageHeight - 9, { align: 'right' })
+  }
+
+  const safeSettlement = (settlementName.value || 'Assessment').replace(/[\\/:*?"<>|]/g, '_')
+  const fileName = `Climate_Assessment_${safeSettlement}_${assessmentId.value || score.id || 'report'}.pdf`
+  doc.save(fileName)
+  ElMessage.success('Assessment PDF downloaded')
 }
 
 // Download recommendations as Excel file
@@ -1187,7 +1358,7 @@ const downloadRecommendationsExcel = () => {
     // Style headers (row 0) - make them bold
     const headerRow = 0
     const headerCells = ['A', 'B', 'C'] // Category, Subcategory, Recommendations
-    headerCells.forEach((col, idx) => {
+    headerCells.forEach((col) => {
       const cellAddress = `${col}${headerRow + 1}` // XLSX uses 1-based indexing
       if (!worksheet[cellAddress]) return
       if (!worksheet[cellAddress].s) worksheet[cellAddress].s = {}
