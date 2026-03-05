@@ -93,11 +93,19 @@ const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
 
 const countiesOptions = ref<Array<{value: string, label: string}>>([])
+const assignedCountyRoleIds = ref<Array<string | number>>([])
 const countySelectOptions = computed(() => {
-  if (isCountyStaff.value && selectedCounty.value) {
-    return countiesOptions.value.filter(option => option.value === selectedCounty.value)
+  if (isCountyStaff.value && assignedCountyRoleIds.value.length > 0) {
+    return countiesOptions.value.filter(option => assignedCountyRoleIds.value.includes(option.value))
   }
   return countiesOptions.value
+})
+const canShowCountyFilter = computed(() => {
+  return isNationalStaff.value || (isCountyStaff.value && assignedCountyRoleIds.value.length > 1)
+})
+const hasCountySelection = computed(() => {
+  if (Array.isArray(selectedCounty.value)) return selectedCounty.value.length > 0
+  return !!selectedCounty.value
 })
 const settlementOptions = ref<Array<{value: string, label: string, county_id?: string, subcounty_id?: string, ward_id?: string}>>([])
 const isFilteringSettlements = ref(false)
@@ -453,6 +461,11 @@ const getUserRoles = async () => {
   roles_filters = [];
   filters.value = [];
   filterValues.value = [];
+  filterFunction.value = [];
+  isNationalStaff.value = false;
+  isCountyStaff.value = false;
+  userCountyId.value = null;
+  assignedCountyRoleIds.value = [];
 
   const grmRole = userInfo.roles.map(role => {
     if (role.name === "grm" || role.name === "admin" || role.name === "root_admin"|| role.name === "super_admin" || role.name === "staff") {
@@ -467,12 +480,6 @@ const getUserRoles = async () => {
         fieldvalue = role.user_roles.county_id;
         isCountyStaff.value = true 
         userCountyId.value = role.user_roles.county_id
-        console.log ('isCountyStaff.value',isCountyStaff.value)
-        //CountyId.value =role.user_roles.county_id;
-        selectedCounty.value =role.user_roles.county_id;
-        console.log('selectedCounty.value',selectedCounty.value)
-          getSubCountyNames()
-        filterByCounty(selectedCounty.value)
 
       } else if (level === "settlement") {
         isNationalStaff.value = false;
@@ -506,14 +513,51 @@ const getUserRoles = async () => {
     console.log('Super admin or national user – no filters applied');
     roles_filters = [];
   } else if (grmRole.length > 0) {
-    const { field, fieldvalue } = grmRole[0];
-    roles_filters.push({ field, value: fieldvalue });
+    const roleFilterMap = new Map<string, any[]>();
+    grmRole.forEach((roleItem: any) => {
+      if (!roleItem?.field || roleItem.fieldvalue === null || roleItem.fieldvalue === undefined) return;
+      const values = Array.isArray(roleItem.fieldvalue) ? roleItem.fieldvalue : [roleItem.fieldvalue];
+      const existing = roleFilterMap.get(roleItem.field) || [];
+      roleFilterMap.set(roleItem.field, [...new Set([...existing, ...values])]);
+    });
+    roles_filters = Array.from(roleFilterMap.entries()).map(([field, value]) => ({ field, value }));
+  }
+
+  const countyRoleFilter = roles_filters.find(rf => rf.field === 'county_id');
+  if (countyRoleFilter) {
+    assignedCountyRoleIds.value = Array.isArray(countyRoleFilter.value)
+      ? [...new Set(countyRoleFilter.value)]
+      : [countyRoleFilter.value];
+    if (assignedCountyRoleIds.value.length > 0) {
+      userCountyId.value = assignedCountyRoleIds.value[0];
+      // For add-grievance flow, preselect first allowed county unless current selection is valid.
+      const normalizedSelected = Array.isArray(selectedCounty.value)
+        ? selectedCounty.value
+        : (selectedCounty.value ? [selectedCounty.value] : [])
+      const hasValidSelection = normalizedSelected.some((countyId) => assignedCountyRoleIds.value.includes(countyId))
+      if (!hasValidSelection) {
+        selectedCounty.value = [...assignedCountyRoleIds.value];
+      }
+      await getSubCountyNames()
+    }
   }
 
   // Populate filters and filterValues from roles_filters
   roles_filters.forEach(rf => {
-    filters.value.push(rf.field);
-    filterValues.value.push([rf.value]); // Wrap in array for uniformity
+    if (!rf.field) return;
+    const normalizedValue = Array.isArray(rf.value) ? rf.value : [rf.value]
+    const existingIndex = filters.value.indexOf(rf.field)
+    if (existingIndex === -1) {
+      filters.value.push(rf.field);
+      filterValues.value.push(normalizedValue); // normalize, avoid nested arrays
+      filterFunction.value.push('in');
+    } else {
+      const existingValues = Array.isArray(filterValues.value[existingIndex])
+        ? filterValues.value[existingIndex]
+        : [filterValues.value[existingIndex]]
+      filterValues.value[existingIndex] = [...new Set([...existingValues, ...normalizedValue])]
+      filterFunction.value[existingIndex] = filterFunction.value[existingIndex] || 'in'
+    }
   });
 
   // Always apply initial filter: status = 'sorting'
@@ -621,11 +665,11 @@ const getCounts = async () => {
 
     // Process current filters (excluding status filter for individual counts)
     for (let i = 0; i < filters.value.length; i++) {
-      const field = filters.value[i];
+      const field = String(filters.value[i] || '').trim();
       const value = filterValues.value[i];
 
       // Skip status filter when getting individual status counts
-      if (field === 'status') continue;
+      if (!field || field === 'status') continue;
 
       if (field && value !== undefined && value !== null) {
         // Ensure value is an array and not empty
@@ -636,11 +680,33 @@ const getCounts = async () => {
         } else {
           arrayValue = [value];
         }
+
+        // Keep totals consistent with list behavior for county-scoped multi-county users.
+        if (field === 'county_id' && isCountyStaff.value && assignedCountyRoleIds.value.length > 0) {
+          const selectedCountyValues = Array.isArray(selectedCounty.value)
+            ? selectedCounty.value
+            : (selectedCounty.value ? [selectedCounty.value] : [])
+          const allowedSelectedCounties = selectedCountyValues.filter((countyId) => assignedCountyRoleIds.value.includes(countyId))
+          arrayValue = allowedSelectedCounties.length > 0
+            ? allowedSelectedCounties
+            : [...assignedCountyRoleIds.value]
+        }
         
         filterField.push(field);
         filterValue.push(arrayValue);
         filterOperator.push('in');
       }
+    }
+
+    // Ensure county role scope is present even when county_id filter was absent in saved UI state.
+    if (
+      isCountyStaff.value &&
+      assignedCountyRoleIds.value.length > 0 &&
+      !filterField.includes('county_id')
+    ) {
+      filterField.push('county_id')
+      filterValue.push([...assignedCountyRoleIds.value])
+      filterOperator.push('in')
     }
 
     // Get counts for each specific status (exclude 'All' here and hidden statuses)
@@ -768,7 +834,13 @@ const loadFiltersFromLocalStorage = async () => {
       filters.value = parsed.filters || [];
       filterValues.value = parsed.filterValues || [[]];
       filterFunction.value = parsed.filterFunction || ['in'];
-      selectedCounty.value = parsed.selectedCounty || null;
+      if (Array.isArray(parsed.selectedCounty)) {
+        selectedCounty.value = parsed.selectedCounty
+      } else if (parsed.selectedCounty !== null && parsed.selectedCounty !== undefined && parsed.selectedCounty !== '') {
+        selectedCounty.value = [parsed.selectedCounty]
+      } else {
+        selectedCounty.value = []
+      }
       selectedSubCounty.value = parsed.selectedSubCounty || null;
       selectedWard.value = parsed.selectedWard || null;
       selectedCategories.value = parsed.selectedCategories || [];
@@ -813,7 +885,7 @@ const loadFiltersFromLocalStorage = async () => {
         }
 
       if(selectedSubCounty.value)  {
-                filterByCounty(selectedSubCounty.value)
+                filterBySubCounty(selectedSubCounty.value)
             }
 
       if(selectedConfirmationStatus.value)  {
@@ -957,12 +1029,17 @@ const handleClear = async () => {
     if (grmRole && grmRole.user_roles) {
       const level = grmRole.user_roles.location_level
       
-      if (level === "county" && grmRole.user_roles.county_id) {
-        roleBasedLocationFilters.push({
-          filter: "county_id",
-          value: [grmRole.user_roles.county_id],
-          function: "in"
-        })
+      if (level === "county") {
+        const countyIds = assignedCountyRoleIds.value.length > 0
+          ? assignedCountyRoleIds.value
+          : (grmRole.user_roles.county_id ? [grmRole.user_roles.county_id] : [])
+        if (countyIds.length > 0) {
+          roleBasedLocationFilters.push({
+            filter: "county_id",
+            value: countyIds,
+            function: "in"
+          })
+        }
       } else if (level === "settlement" && grmRole.user_roles.settlement_id) {
         roleBasedLocationFilters.push({
           filter: "settlement_id",
@@ -988,11 +1065,14 @@ const handleClear = async () => {
   value3.value = []
   pageSize.value = 5
   currentPage.value = 1
+  page.value = 1
  
   // Reset filter selections - use null for single selections, empty array for multiple
   // Preserve county selection if it's role-based
   if (!isCountyStaff.value) {
     selectedCounty.value = null
+  } else if (assignedCountyRoleIds.value.length > 0) {
+    selectedCounty.value = [...assignedCountyRoleIds.value]
   }
   selectedSubCounty.value = null
   selectedWard.value = null
@@ -1260,7 +1340,7 @@ const buildGrievanceRequestFormData = (
     filterValues: selFilterValues.map(value =>
       Array.isArray(value) ? [...value] : value
     ),
-    filterFunctions: [],
+    filterFunctions: [...filterFunction.value],
     associated_multiple_models: [...associated_multiple_models]
   }
 
@@ -1280,7 +1360,11 @@ const buildGrievanceRequestFormData = (
   const normalizedFunctions: string[] = []
 
   for (let i = 0; i < formData.filters.length; i++) {
+    const normalizedField = String(formData.filters[i] || '').trim()
+    if (!normalizedField) continue
+
     let value = formData.filterValues[i]
+    let operator = formData.filterFunctions[i] || 'in'
 
     if (!Array.isArray(value)) {
       value =
@@ -1289,18 +1373,88 @@ const buildGrievanceRequestFormData = (
           : [value]
     }
 
+    if (normalizedField === 'status') {
+      const pseudoStatuses = ['ReceivedAll', 'All']
+      const hasPseudoStatus = value.some((v: any) => pseudoStatuses.includes(String(v)))
+      if (hasPseudoStatus) {
+        // "ReceivedAll" means all except deleted.
+        value = ['Deleted']
+        operator = 'notIn'
+      } else {
+        value = value.filter((v: any) => !pseudoStatuses.includes(String(v)))
+      }
+    }
+
     if (!Array.isArray(value) || value.length === 0) {
       continue
     }
 
-    normalizedFilters.push(formData.filters[i])
+    normalizedFilters.push(normalizedField)
     normalizedValues.push(value)
-    normalizedFunctions.push(filterFunction.value[i] || 'in')
+    normalizedFunctions.push(operator)
   }
 
   formData.filters = normalizedFilters
   formData.filterValues = normalizedValues
   formData.filterFunctions = normalizedFunctions
+
+  // Enforce role/location filters in request payload (supports users scoped to multiple counties).
+  if (!isSuperAdmin.value && roles_filters.length > 0) {
+    roles_filters.forEach((rf) => {
+      const field = String(rf.field || '').trim()
+      if (!field || rf.value === null || rf.value === undefined) return
+
+      const roleValues = Array.isArray(rf.value) ? rf.value : [rf.value]
+      if (roleValues.length === 0) return
+
+      const existingIndex = formData.filters.indexOf(field)
+      if (existingIndex === -1) {
+        formData.filters.push(field)
+        formData.filterValues.push(roleValues)
+        formData.filterFunctions.push('in')
+      } else {
+        const existingValues = Array.isArray(formData.filterValues[existingIndex])
+          ? formData.filterValues[existingIndex]
+          : [formData.filterValues[existingIndex]]
+        formData.filterValues[existingIndex] = [...new Set([...existingValues, ...roleValues])]
+        formData.filterFunctions[existingIndex] = formData.filterFunctions[existingIndex] || 'in'
+      }
+    })
+  }
+
+  // County-scoped users with multiple assigned counties default to all assigned counties,
+  // but respect a selected subset when provided.
+  if (isCountyStaff.value && assignedCountyRoleIds.value.length > 0) {
+    const countyIndex = formData.filters.indexOf('county_id')
+    const selectedCountyValues = Array.isArray(selectedCounty.value)
+      ? selectedCounty.value
+      : (selectedCounty.value ? [selectedCounty.value] : [])
+    const allowedSelectedCounties = selectedCountyValues.filter((countyId) => assignedCountyRoleIds.value.includes(countyId))
+    const effectiveCountyValues = allowedSelectedCounties.length > 0
+      ? allowedSelectedCounties
+      : [...assignedCountyRoleIds.value]
+    if (countyIndex === -1) {
+      formData.filters.push('county_id')
+      formData.filterValues.push(effectiveCountyValues)
+      formData.filterFunctions.push('in')
+    } else {
+      formData.filterValues[countyIndex] = effectiveCountyValues
+      formData.filterFunctions[countyIndex] = 'in'
+    }
+  }
+
+  // "ReceivedAll" should always be "all non-deleted grievances".
+  if (activeSegment.value === 'ReceivedAll') {
+    const statusIndex = formData.filters.indexOf('status')
+    if (statusIndex === -1) {
+      formData.filters.push('status')
+      formData.filterValues.push(['Deleted'])
+      formData.filterFunctions.push('notIn')
+    } else {
+      formData.filterValues[statusIndex] = ['Deleted']
+      formData.filterFunctions[statusIndex] = 'notIn'
+    }
+  }
 
   // Don't exclude deleted when "All" is selected and user has permission
   const shouldExcludeDeleted =
@@ -1344,6 +1498,57 @@ const buildGrievanceRequestFormData = (
   return formData
 }
 
+const getGrievancesWithMultiCountyFallback = async (formData: any) => {
+  const countyFilterIndex = formData.filters.indexOf('county_id')
+  if (countyFilterIndex === -1) {
+    return getGrievances(formData)
+  }
+
+  const countyValues = Array.isArray(formData.filterValues[countyFilterIndex])
+    ? formData.filterValues[countyFilterIndex]
+    : [formData.filterValues[countyFilterIndex]]
+
+  if (countyValues.length <= 1) {
+    return getGrievances(formData)
+  }
+
+  // Backend list endpoint currently resolves only one county when "in" has multiple values.
+  // Query each county separately and merge for a correct multi-county list.
+  const countyRequests = countyValues.map((countyId: string | number) => {
+    const countyScopedFormData = {
+      ...formData,
+      limit: 10000,
+      page: 1,
+      filters: [...formData.filters],
+      filterValues: formData.filterValues.map((value: any) =>
+        Array.isArray(value) ? [...value] : value
+      ),
+      filterFunctions: [...(formData.filterFunctions || [])],
+      associated_multiple_models: [...(formData.associated_multiple_models || [])]
+    }
+    countyScopedFormData.filterValues[countyFilterIndex] = [countyId]
+    return getGrievances(countyScopedFormData)
+  })
+
+  const countyResponses = await Promise.all(countyRequests)
+  const mergedById = new Map<string | number, any>()
+  countyResponses.forEach((response: any) => {
+    const records = Array.isArray(response?.data) ? response.data : []
+    records.forEach((record: any) => {
+      if (!mergedById.has(record.id)) {
+        mergedById.set(record.id, record)
+      }
+    })
+  })
+
+  const mergedData = Array.from(mergedById.values())
+  return {
+    data: mergedData,
+    total: mergedData.length,
+    multiCountyMerged: true
+  }
+}
+
 const getFilteredData = async (selFilters: string[], selfilterValues: any[][]) => {
   loading.value = true
   const formData = buildGrievanceRequestFormData(selFilters, selfilterValues, {
@@ -1351,13 +1556,20 @@ const getFilteredData = async (selFilters: string[], selfilterValues: any[][]) =
   })
 
   try {
-    const res = await getGrievances(formData)
+    const res: any = await getGrievancesWithMultiCountyFallback(formData)
 
     console.log('After Querry', res)
     console.log('After Querry - selFilters', selFilters)
     console.log('After Querry - selfilterValues', selfilterValues)
 
-    tableDataList.value = res.data
+    if (res.multiCountyMerged) {
+      const startIndex = (page.value - 1) * pageSize.value
+      const endIndex = startIndex + pageSize.value
+      tableDataList.value = res.data.slice(startIndex, endIndex)
+      total.value = res.total
+    } else {
+      tableDataList.value = res.data
+    }
     availableFields.value = extractFields(tableDataList.value);
 
     await fetchSupportingStaffData()
@@ -1370,11 +1582,13 @@ const getFilteredData = async (selFilters: string[], selfilterValues: any[][]) =
     await getCounts()
     
     // Set pagination total from the active segment's count (which is calculated correctly)
-    const activeSegmentStatus = Statuses.value.find(s => s.value === activeSegment.value);
-    if (activeSegmentStatus) {
-      total.value = activeSegmentStatus.count;
-    } else {
-      total.value = res.total; // Fallback to query result if segment not found
+    if (!res.multiCountyMerged) {
+      const activeSegmentStatus = Statuses.value.find(s => s.value === activeSegment.value);
+      if (activeSegmentStatus) {
+        total.value = activeSegmentStatus.count;
+      } else {
+        total.value = res.total; // Fallback to query result if segment not found
+      }
     }
 
     console.log('segment', activeSegment.value)
@@ -2322,8 +2536,11 @@ watch(
   () => [isCountyStaff.value, selectedCounty.value],
   ([isCounty, county]) => {
     if (isCounty && county) {
-      grmForm.value.county_id = county
-      getSettlementByCounty(county)
+      const countyValue = Array.isArray(county) ? county[0] : county
+      if (countyValue) {
+        grmForm.value.county_id = countyValue
+        getSettlementByCounty(countyValue)
+      }
     }
   },
   { immediate: true }
@@ -2759,7 +2976,8 @@ const onSegmentClick = async (statusValue?: string) => {
   }
   console.log(activeSegment.value)
   tableDataList.value=[]
-  currentPage.value=1 // change pagination page to first every time
+  currentPage.value=1 // reset visible paginator page
+  page.value = 1 // reset actual query page used by API requests
   
   // Clear referred officer search when switching segments
   referredOfficerSearch.value = ''
@@ -2917,32 +3135,47 @@ const onSegmentClick = async (statusValue?: string) => {
 
  
 const getSubCountyNames = async () => {
-  const res = await getListWithoutGeo({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'subcounty',
-      searchField: 'county_id',
-      searchKeyword: selectedCounty.value,
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received subcounties response:', response)
-    var ret = response.data
-    subcountiesOptions.value = []
-    loading.value = false
+  const countyIds = Array.isArray(selectedCounty.value)
+    ? selectedCounty.value.filter((countyId) => countyId !== null && countyId !== undefined)
+    : (selectedCounty.value ? [selectedCounty.value] : [])
 
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var subcountyOpt = {}
-      subcountyOpt.value = arrayItem.id
-      subcountyOpt.county_id = arrayItem.county_id
-      subcountyOpt.label = arrayItem.name
-      //  console.log(countyOpt)
-      subcountiesOptions.value.push(subcountyOpt)
-    })
-    console.log('got subcountes')
+  if (countyIds.length === 0) {
+    subcountiesOptions.value = []
+    return
+  }
+
+  const responses = await Promise.all(
+    countyIds.map((countyId) =>
+      getListWithoutGeo({
+        params: {
+          pageIndex: 1,
+          limit: 100,
+          curUser: 1, // Id for logged in user
+          model: 'subcounty',
+          searchField: 'county_id',
+          searchKeyword: countyId,
+          sort: 'ASC'
+        }
+      })
+    )
+  )
+
+  const mergedSubcounties = responses.flatMap((response: any) => response?.data || [])
+  const uniqueSubcounties = Array.from(
+    new Map(mergedSubcounties.map((item: any) => [item.id, item])).values()
+  )
+
+  subcountiesOptions.value = []
+  loading.value = false
+
+  uniqueSubcounties.forEach(function (arrayItem: any) {
+    var subcountyOpt: any = {}
+    subcountyOpt.value = arrayItem.id
+    subcountyOpt.county_id = arrayItem.county_id
+    subcountyOpt.label = arrayItem.name
+    subcountiesOptions.value.push(subcountyOpt)
   })
+  console.log('got subcountes')
 }
 
  
@@ -2975,10 +3208,18 @@ const getWardNames = async () => {
 }
 
 const filterByCounty = async (county_id: any) => {
-  if (county_id) {
-    selectedCounty.value = county_id;
+  const countyIds = Array.isArray(county_id)
+    ? county_id.filter((countyValue) => countyValue !== null && countyValue !== undefined)
+    : (county_id ? [county_id] : [])
+
+  if (countyIds.length > 0) {
+    selectedCounty.value = countyIds;
     enableSubcounty.value = true; // allow selection of subcounty 
     getSubCountyNames();
+  } else {
+    selectedCounty.value = []
+    enableSubcounty.value = false
+    subcountiesOptions.value = []
   }
 
   value5.value = null; // clear the subcounty 
@@ -2987,7 +3228,7 @@ const filterByCounty = async (county_id: any) => {
   const selectOption = 'county_id';
   const index = filters.value.indexOf(selectOption);
 
-  if (selectedCounty.value) {
+  if (countyIds.length > 0) {
     // Ensure the filter key exists
     if (!filters.value.includes(selectOption)) {
       filters.value.push(selectOption);
@@ -2996,7 +3237,7 @@ const filterByCounty = async (county_id: any) => {
 
     // Update filter values - wrap single value in array for 'in' operator
     const filterIndex = filters.value.indexOf(selectOption);
-    filterValues.value[filterIndex] = [selectedCounty.value];
+    filterValues.value[filterIndex] = countyIds;
   } else {
     // Remove filter if no county selected
     if (index !== -1) {
@@ -3921,7 +4162,7 @@ const filterModalVisible = ref(false)
 // Computed properties for modal filters
 const hasActiveFilters = computed(() => {
   return selectedCategories.value.length > 0 || 
-         (isNationalGRM.value && selectedCounty.value) || 
+         (canShowCountyFilter.value && hasCountySelection.value) || 
          selectedSubCounty.value || 
          selectedWard.value || 
          referredOfficerSearch.value ||
@@ -3932,7 +4173,7 @@ const hasActiveFilters = computed(() => {
 const activeFilterCount = computed(() => {
   let count = 0
   if (selectedCategories.value.length > 0) count++
-  if (isNationalGRM.value && selectedCounty.value) count++
+  if (canShowCountyFilter.value && hasCountySelection.value) count++
   if (selectedSubCounty.value) count++
   if (selectedWard.value) count++
   if (referredOfficerSearch.value) count++
@@ -3942,9 +4183,16 @@ const activeFilterCount = computed(() => {
 })
 
 // Helper functions for getting labels
-const getCountyLabel = (countyValue: string) => {
-  const county = countiesOptions.value.find(c => c.value === countyValue)
-  return county ? county.label : countyValue
+const getCountyLabel = (countyValue: any) => {
+  const countyValues = Array.isArray(countyValue) ? countyValue : [countyValue]
+  const labels = countyValues
+    .map((value) => {
+      const county = countiesOptions.value.find(c => c.value === value)
+      return county ? county.label : value
+    })
+    .filter(Boolean)
+  if (labels.length <= 2) return labels.join(', ')
+  return `${labels.slice(0, 2).join(', ')} +${labels.length - 2}`
 }
 
 const getSubCountyLabel = (subCountyValue: string) => {
@@ -4179,7 +4427,7 @@ const clearCategoryFilter = () => {
 }
 
 const clearCountyFilter = () => {
-  selectedCounty.value = null
+  selectedCounty.value = []
   filterByCounty(null)
 }
 
@@ -4767,7 +5015,7 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
               Categories ({{ selectedCategories.length }})
             </el-tag>
             <el-tag 
-              v-if="selectedCounty && isNationalGRM" 
+              v-if="hasCountySelection && canShowCountyFilter" 
               size="small" 
               type="info" 
               closable 
@@ -5838,10 +6086,12 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
         </div>
 
         <!-- County Filter -->
-        <div class="filter-item" v-if="isNationalStaff">
+        <div class="filter-item" v-if="canShowCountyFilter">
           <label class="filter-label">County</label>
           <el-select
             v-model="selectedCounty"
+            multiple
+            collapse-tags
             clearable
             filterable
             placeholder="Select county"
@@ -5850,7 +6100,7 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
             @change="filterByCounty"
           >
             <el-option
-              v-for="item in countiesOptions"
+              v-for="item in countySelectOptions"
               :key="item.value"
               :label="item.label"
               :value="item.value"
@@ -5863,7 +6113,7 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
           <label class="filter-label">Subcounty</label>
           <el-select
             v-model="selectedSubCounty"
-            :disabled="!selectedCounty"
+            :disabled="!hasCountySelection"
             clearable
             filterable
             placeholder="Select subcounty"

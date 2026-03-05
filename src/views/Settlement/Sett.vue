@@ -83,9 +83,20 @@ const loadFiltersFromStorage = () => {
   if (savedFilters) {
     const filterState = JSON.parse(savedFilters)
 
-    // Always restore county from saved filters (role-based restrictions are already enforced in getUserRoles)
-    selectedCounty.value = filterState.selectedCounty || []
-    value4.value = filterState.value4 || []
+    // For county staff, enforce role-assigned counties (supports multi-county assignments).
+    // County selector is hidden for this role, so saved state should not override role access.
+    if (isCountyStaff.value && assignedCountyRoleIds.value.length > 0) {
+      const savedCountyIds = Array.isArray(filterState.selectedCounty)
+        ? filterState.selectedCounty
+        : (filterState.selectedCounty ? [filterState.selectedCounty] : [])
+      const validSavedCountyIds = savedCountyIds.filter((countyId) => assignedCountyRoleIds.value.includes(countyId))
+      const effectiveCountyIds = validSavedCountyIds.length > 0 ? validSavedCountyIds : assignedCountyRoleIds.value
+      selectedCounty.value = effectiveCountyIds
+      value4.value = effectiveCountyIds
+    } else {
+      selectedCounty.value = filterState.selectedCounty || []
+      value4.value = filterState.value4 || []
+    }
 
     selectedSubCounty.value = filterState.selectedSubCounty || []
     selectedWard.value = filterState.selectedWard || []
@@ -119,7 +130,11 @@ const isSuperAdmin = ref(
 );
 const isNationalStaff = ref(false)
 const isCountyStaff = ref(false)
+const assignedCountyRoleIds = ref<any[]>([])
 const thisHistory = ref()
+const shouldShowCountyFilter = computed(() => {
+  return isNationalStaff.value || isSuperAdmin.value || (isCountyStaff.value && assignedCountyRoleIds.value.length > 1)
+})
 
 // Check if user is a public user
 const isPublicUser = computed(() => {
@@ -132,6 +147,14 @@ const isCountyAdmin = computed(() => {
     (role.name === "admin" || role.name === "staff") && 
     role.user_roles?.location_level === "county"
   )
+})
+
+const availableCountyOptions = computed(() => {
+  if (isCountyStaff.value && assignedCountyRoleIds.value.length > 0) {
+    const allowedIds = new Set(assignedCountyRoleIds.value)
+    return countiesOptions.value.filter((county: any) => allowedIds.has(county.value))
+  }
+  return countiesOptions.value
 })
 
 const action_buttons = computed<string[]>(() => {
@@ -161,6 +184,10 @@ const getUserRoles = async () => {
   roles_filters = [];
   filters.value = [];
   filterValues.value = [];
+  isCountyStaff.value = false;
+  assignedCountyRoleIds.value = [];
+
+  const countyRoleIds: any[] = [];
 
   processedRoles = userInfo.roles.map(role => {
     let field = null;
@@ -172,10 +199,8 @@ const getUserRoles = async () => {
       field = "county_id";
       fieldvalue = role.user_roles.county_id;
       isCountyStaff.value = true;
-      // Set selectedCounty for county staff
       if (fieldvalue) {
-        selectedCounty.value = [fieldvalue];
-        getSubCountyNames();
+        countyRoleIds.push(fieldvalue);
       }
     } else if (level === "settlement") {
       isNationalStaff.value = false;
@@ -206,13 +231,37 @@ const getUserRoles = async () => {
     roles_filters = [];
     showAdminButtons.value = true
   } else {
+    const uniqueCountyRoleIds = [...new Set(countyRoleIds)];
+    if (isCountyStaff.value && uniqueCountyRoleIds.length > 0) {
+      assignedCountyRoleIds.value = uniqueCountyRoleIds;
+      selectedCounty.value = uniqueCountyRoleIds;
+      value4.value = uniqueCountyRoleIds;
+    }
+
     // For admin/staff/other roles, still apply location-based filters if they exist
     const applicableRoles = processedRoles.filter(role => role.model !== "national");
-    roles_filters = applicableRoles.map(role => ({
-      role: role.role,
-      field: role.field === 'settlement_id' ? 'id' : role.field,
-      value: role.fieldvalue
-    }));
+    const roleFilterMap = new Map<string, { role: string; field: string; value: any[] }>();
+    applicableRoles.forEach((role) => {
+      const normalizedField = role.field === 'settlement_id' ? 'id' : role.field;
+      if (!normalizedField) return;
+
+      const roleValue = Array.isArray(role.fieldvalue) ? role.fieldvalue : [role.fieldvalue];
+      const cleanedRoleValue = roleValue.filter((v) => v !== null && v !== undefined);
+      if (!cleanedRoleValue.length) return;
+
+      if (!roleFilterMap.has(normalizedField)) {
+        roleFilterMap.set(normalizedField, {
+          role: role.role,
+          field: normalizedField,
+          value: cleanedRoleValue
+        });
+      } else {
+        const existing = roleFilterMap.get(normalizedField)!;
+        existing.value = [...new Set([...existing.value, ...cleanedRoleValue])];
+        roleFilterMap.set(normalizedField, existing);
+      }
+    });
+    roles_filters = Array.from(roleFilterMap.values());
     
     // Set admin buttons based on role
     if (processedRoles.some(role => role.role === "admin")) {
@@ -246,20 +295,26 @@ const pushRoleFilters = () => {
   // Role filters take precedence and should always be applied for county/settlement level users
   roles_filters.forEach(rf => {
     if (rf.field && rf.value !== null && rf.value !== undefined) {
+      const roleValue = Array.isArray(rf.value) ? rf.value : [rf.value];
       // Check if this filter field is already in the filters array
       const existingIndex = filters.value.indexOf(rf.field);
       if (existingIndex === -1) {
         // Add new filter
         filters.value.push(rf.field);
-        filterValues.value.push(Array.isArray(rf.value) ? rf.value : [rf.value]);
+        filterValues.value.push(roleValue);
       } else {
         // Update existing filter value (role filters take precedence for county/settlement level users)
         // For county-level users, always use role filter value to ensure they only see their county
         if (rf.field === 'county_id' && isCountyStaff.value) {
-          filterValues.value[existingIndex] = Array.isArray(rf.value) ? rf.value : [rf.value];
+          const selectedCountyValues = Array.isArray(selectedCounty.value)
+            ? selectedCounty.value
+            : (selectedCounty.value !== null && selectedCounty.value !== undefined ? [selectedCounty.value] : []);
+          const validSelectedCounties = selectedCountyValues.filter((countyId) => roleValue.includes(countyId));
+          const effectiveCountyValues = validSelectedCounties.length > 0 ? validSelectedCounties : roleValue;
+          filterValues.value[existingIndex] = effectiveCountyValues;
         } else if (rf.field === 'id' && !isNationalStaff.value && !isSuperAdmin.value) {
           // For settlement-level users, always use role filter
-          filterValues.value[existingIndex] = Array.isArray(rf.value) ? rf.value : [rf.value];
+          filterValues.value[existingIndex] = roleValue;
         } else {
           // For other cases (non-county staff, non-settlement staff), preserve user selections
           // Only apply role filter if it's a different field or if user hasn't selected anything
@@ -271,10 +326,8 @@ const pushRoleFilters = () => {
           } else {
             // For other cases, use role filter value
             const existingValue = filterValues.value[existingIndex];
-            const roleValue = Array.isArray(rf.value) ? rf.value : [rf.value];
             if (Array.isArray(existingValue)) {
-              // Merge arrays, but role filter values take precedence
-              filterValues.value[existingIndex] = roleValue;
+              filterValues.value[existingIndex] = [...new Set([...existingValue, ...roleValue])];
             } else {
               filterValues.value[existingIndex] = roleValue;
             }
@@ -286,16 +339,27 @@ const pushRoleFilters = () => {
   
   // Final check: Ensure county filter is always present for county-level users
   if (isCountyStaff.value && roles_filters.some(rf => rf.field === 'county_id')) {
-    const countyFilter = roles_filters.find(rf => rf.field === 'county_id');
-    if (countyFilter && countyFilter.value !== null && countyFilter.value !== undefined) {
+    const countyRoleValues = roles_filters
+      .filter(rf => rf.field === 'county_id' && rf.value !== null && rf.value !== undefined)
+      .flatMap(rf => (Array.isArray(rf.value) ? rf.value : [rf.value]));
+    const uniqueCountyRoleValues = [...new Set(countyRoleValues)];
+    if (uniqueCountyRoleValues.length > 0) {
+      const selectedCountyValues = Array.isArray(selectedCounty.value)
+        ? selectedCounty.value
+        : (selectedCounty.value !== null && selectedCounty.value !== undefined ? [selectedCounty.value] : []);
+      const validSelectedCounties = selectedCountyValues.filter((countyId) => uniqueCountyRoleValues.includes(countyId));
+      const effectiveCountyValues = validSelectedCounties.length > 0 ? validSelectedCounties : uniqueCountyRoleValues;
+
+      selectedCounty.value = effectiveCountyValues;
+      value4.value = effectiveCountyValues;
+
       const countyIndex = filters.value.indexOf('county_id');
       if (countyIndex === -1) {
         // Add county filter if missing
         filters.value.push('county_id');
-        filterValues.value.push(Array.isArray(countyFilter.value) ? countyFilter.value : [countyFilter.value]);
+        filterValues.value.push(effectiveCountyValues);
       } else {
-        // Ensure county filter value is correct
-        filterValues.value[countyIndex] = Array.isArray(countyFilter.value) ? countyFilter.value : [countyFilter.value];
+        filterValues.value[countyIndex] = effectiveCountyValues;
       }
     }
   }
@@ -804,7 +868,12 @@ const handleClear = async () => {
   // Clear the underlying filter arrays
   filterValues.value = []
   filters.value = []
-  value4.value = []
+  if (isCountyStaff.value && assignedCountyRoleIds.value.length > 0) {
+    selectedCounty.value = assignedCountyRoleIds.value
+    value4.value = assignedCountyRoleIds.value
+  } else {
+    value4.value = []
+  }
   value5.value = []
   value6.value = []
   dateRange.value = []
@@ -1586,33 +1655,45 @@ const wardOptions = ref([])
 const subcountiesOptions = ref([])
 
 const getSubCountyNames = async () => {
-  // Handle array for selectedCounty (get first value if array)
-  const countyId = Array.isArray(selectedCounty.value) && selectedCounty.value.length > 0 
-    ? selectedCounty.value[0] 
-    : selectedCounty.value;
-  
-  const res = await getListWithoutGeo({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1,
-      model: 'subcounty',
-      searchField: 'county_id',
-      searchKeyword: countyId,
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    var ret = response.data
-    subcountiesOptions.value = []
-    loading.value = false
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var subcountyOpt = {}
-      subcountyOpt.value = arrayItem.id
-      subcountyOpt.county_id = arrayItem.county_id
-      subcountyOpt.label = arrayItem.name
-      subcountiesOptions.value.push(subcountyOpt)
-    })
-  })
+  const countyIds = Array.isArray(selectedCounty.value)
+    ? selectedCounty.value.filter((id) => id !== null && id !== undefined)
+    : (selectedCounty.value !== null && selectedCounty.value !== undefined ? [selectedCounty.value] : []);
+
+  if (countyIds.length === 0) {
+    subcountiesOptions.value = [];
+    return;
+  }
+
+  const responses = await Promise.all(
+    countyIds.map((countyId) =>
+      getListWithoutGeo({
+        params: {
+          pageIndex: 1,
+          limit: 100,
+          curUser: 1,
+          model: 'subcounty',
+          searchField: 'county_id',
+          searchKeyword: countyId,
+          sort: 'ASC'
+        }
+      })
+    )
+  );
+
+  const mergedSubcounties = responses.flatMap((response: any) => response?.data || []);
+  const uniqueSubcounties = Array.from(
+    new Map(mergedSubcounties.map((item: any) => [item.id, item])).values()
+  );
+
+  subcountiesOptions.value = [];
+  loading.value = false;
+  uniqueSubcounties.forEach((arrayItem: any) => {
+    var subcountyOpt: any = {};
+    subcountyOpt.value = arrayItem.id;
+    subcountyOpt.county_id = arrayItem.county_id;
+    subcountyOpt.label = arrayItem.name;
+    subcountiesOptions.value.push(subcountyOpt);
+  });
 }
 
 const getWardNames = async () => {
@@ -1643,12 +1724,22 @@ const filterByCounty = async (county_id: any) => {
   if (county_id && (Array.isArray(county_id) ? county_id.length > 0 : true)) {
     enableSubcounty.value = true
     // Ensure selectedCounty is always an array
-    selectedCounty.value = Array.isArray(county_id) ? county_id : [county_id]
-    value4.value = county_id
+    const countySelection = Array.isArray(county_id) ? county_id : [county_id]
+    if (isCountyStaff.value && assignedCountyRoleIds.value.length > 0) {
+      const filteredSelection = countySelection.filter((countyId) => assignedCountyRoleIds.value.includes(countyId))
+      selectedCounty.value = filteredSelection.length > 0 ? filteredSelection : assignedCountyRoleIds.value
+      value4.value = selectedCounty.value
+    } else {
+      selectedCounty.value = countySelection
+      value4.value = countySelection
+    }
     await getSubCountyNames()
   } else {
-    // Only clear if not county staff (county staff should keep their county)
-    if (!isCountyStaff.value) {
+    // County staff should keep assigned counties; others can clear.
+    if (isCountyStaff.value && assignedCountyRoleIds.value.length > 0) {
+      selectedCounty.value = assignedCountyRoleIds.value
+      value4.value = assignedCountyRoleIds.value
+    } else {
       selectedCounty.value = []
       value4.value = []
     }
@@ -4258,11 +4349,11 @@ duplicateRecords.value.forEach(county => {
         </div>
       </el-col>
 
-      <el-col :xs="24" :sm="24" :md="11" :lg="3" v-if="isNationalStaff || isSuperAdmin">
+      <el-col :xs="24" :sm="24" :md="11" :lg="3" v-if="shouldShowCountyFilter">
         <el-select
 size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear" multiple clearable
           filterable collapse-tags placeholder="By County" style="width: 100%; margin-right: 5px;">
-          <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
+          <el-option v-for="item in availableCountyOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </el-col>
 
@@ -4368,12 +4459,7 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
           </div>
         </template>
       </el-segmented>
-
     </div>
-
-
-
-
     <div v-if="activeSegment === 'Approved'">
       <el-alert
         type="info"
@@ -4450,12 +4536,9 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
                   style="position: absolute; left: 50%;  top: 50%;  transform: translateY(-50%); margin-right: 5px;"
                   @click="copyToClipboard(row.code)" />
               </el-tooltip>
-
             </div>
-
           </template>
         </el-table-column>
-
         <el-table-column label="Actions" :width="actionColumnWidth">
           <template #default="{ row }">
             <TableActions
@@ -4463,7 +4546,6 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
               @review="Review" @delete="handleDelete" @decommission="handleDecommission" @merge="handleMerge" @update-location="handleUpdateLocation" />
           </template>
         </el-table-column>
-
       </el-table>
       
       <!-- Merge button for selected settlements -->

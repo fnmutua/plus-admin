@@ -776,10 +776,14 @@ exports.getGrievances = async (req, res) => {
   const attributes = [...baseAttributes];
 
   // Role checks
-  const hasSuperAdminRole = currentUserRoles.some(role => ['super_admin', 'root_admin','admin','staff'].includes(role.name));
+  const hasSuperAdminRole = currentUserRoles.some(role => ['super_admin', 'root_admin'].includes(role.name));
   const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv' || role.name === 'admin' || role.name === 'staff');
   const hasNationalRole = currentUserRoles.some(role => role.user_roles.location_level === 'national');
-  const countyAdminRole = currentUserRoles.find(role => role.user_roles.location_level === 'county');
+  const countyRoleIds = [...new Set(
+    currentUserRoles
+      .filter(role => role.user_roles.location_level === 'county' && role.user_roles.county_id !== null && role.user_roles.county_id !== undefined)
+      .map(role => role.user_roles.county_id)
+  )];
   const settlementGCRRole = currentUserRoles.find(role => role.user_roles.location_level === 'settlement');
 
   // Decrypt name and national_id
@@ -824,17 +828,37 @@ exports.getGrievances = async (req, res) => {
     });
   }
 
-  // Role-based filtering if not super admin or national
-  if (!hasSuperAdminRole && !hasNationalRole && countyAdminRole) {
-    const countyId = countyAdminRole.user_roles.county_id;
-    findAndCountOptions.where.county_id = countyId;
-    console.log('Applying county filter from role:', countyId);
+  const normalizeToArray = (rawValue) => {
+    if (Array.isArray(rawValue)) return rawValue.filter(v => v !== null && v !== undefined && v !== '');
+    if (rawValue === null || rawValue === undefined || rawValue === '') return [];
+    return [rawValue];
+  };
+
+  // Role-based filtering if not super admin or national (supports users assigned to multiple counties)
+  if (!hasSuperAdminRole && !hasNationalRole && countyRoleIds.length > 0) {
+    findAndCountOptions.where.county_id = { [op.in]: countyRoleIds };
+    console.log('Applying county filters from role:', countyRoleIds);
   }
 
-  // Always apply selectedCounty if defined (override any other county filters)
+  // Apply selectedCounty if defined; keep it within role-assigned counties when applicable.
   if (selectedCounty && !settlementGCRRole) {
-    findAndCountOptions.where.county_id = selectedCounty;
-    console.log('Overriding with selectedCounty filter:', selectedCounty);
+    const selectedCountyValues = normalizeToArray(selectedCounty);
+    if (selectedCountyValues.length > 0) {
+      if (!hasSuperAdminRole && !hasNationalRole && countyRoleIds.length > 0) {
+        const allowedSelected = selectedCountyValues.filter(v => countyRoleIds.includes(v));
+        if (allowedSelected.length > 0) {
+          findAndCountOptions.where.county_id = { [op.in]: allowedSelected };
+          console.log('Applying selectedCounty within role scope:', allowedSelected);
+        } else {
+          // Keep role scope filter if selected county is outside allowed scope.
+          findAndCountOptions.where.county_id = { [op.in]: countyRoleIds };
+        }
+      } else {
+        findAndCountOptions.where.county_id =
+          selectedCountyValues.length > 1 ? { [op.in]: selectedCountyValues } : selectedCountyValues[0];
+        console.log('Applying selectedCounty filter:', selectedCountyValues);
+      }
+    }
   }
 
   // Search filter
@@ -844,6 +868,9 @@ exports.getGrievances = async (req, res) => {
 
   // Additional filters
   filters.forEach((filter, index) => {
+    const normalizedFilter = typeof filter === 'string' ? filter.trim() : filter;
+    if (!normalizedFilter) return;
+
     let value = filterValues[index];
     let functionType = filterFunctions[index] || 'eq';
 
@@ -880,10 +907,22 @@ exports.getGrievances = async (req, res) => {
       }
     }
 
+    // Backend guard: county-scoped users can only query their assigned counties, including multi-county users.
+    if (normalizedFilter === 'county_id' && !hasSuperAdminRole && !hasNationalRole && countyRoleIds.length > 0) {
+      const incomingCountyValues = normalizeToArray(value);
+      const allowedCountyValues =
+        incomingCountyValues.length > 0
+          ? incomingCountyValues.filter(v => countyRoleIds.includes(v))
+          : countyRoleIds;
+
+      value = allowedCountyValues.length > 0 ? allowedCountyValues : countyRoleIds;
+      functionType = 'in';
+    }
+
     // Handle nested field filters (e.g., $users.name$)
-    if (filter.includes('$') && filter.includes('.')) {
+    if (normalizedFilter.includes('$') && normalizedFilter.includes('.')) {
       // Extract the association name and field from the filter
-      const match = filter.match(/\$([^.]+)\.([^$]+)\$/);
+      const match = normalizedFilter.match(/\$([^.]+)\.([^$]+)\$/);
       if (match) {
         const [, associationName, fieldName] = match;
         
@@ -917,11 +956,11 @@ exports.getGrievances = async (req, res) => {
         }
         
         // Apply the filter using the nested field syntax
-        findAndCountOptions.where[filter] = { [operatorMap[functionType] || op.eq]: value };
+        findAndCountOptions.where[normalizedFilter] = { [operatorMap[functionType] || op.eq]: value };
       }
     } else {
       // Regular field filter
-      findAndCountOptions.where[filter] = { [operatorMap[functionType] || op.eq]: value };
+      findAndCountOptions.where[normalizedFilter] = { [operatorMap[functionType] || op.eq]: value };
     }
   });
 

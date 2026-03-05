@@ -11,6 +11,7 @@
               </ElButton>
             </PermissionWrapper>
             <ElSelect
+              v-if="canShowCountyFilter"
               v-model="filterCountyIds"
               placeholder="All counties"
               clearable
@@ -23,7 +24,7 @@
               @change="fetchAssessments"
             >
               <ElOption
-                v-for="c in countyOptions"
+                v-for="c in countyFilterOptions"
                 :key="c.id"
                 :label="c.name"
                 :value="c.id"
@@ -124,7 +125,7 @@
             @change="onLaunchCountyChange"
           >
             <ElOption
-              v-for="c in countyOptions"
+              v-for="c in countyFilterOptions"
               :key="c.id"
               :label="c.name"
               :value="c.id"
@@ -195,8 +196,9 @@ import { getSettlementListByCounty } from '@/api/settlements'
 const router = useRouter()
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
+const userInfo = wsCache.get(appStore.getUserInfo) || {}
 const userPermissions = computed(() => {
-  const info = wsCache.get(appStore.getUserInfo)
+  const info = userInfo
   return (info?.permissions ?? []) as string[]
 })
 const hasAllPermissions = computed(() =>
@@ -207,6 +209,35 @@ const downloadLoading = ref(false)
 const assessments = ref<ClimateAssessment[]>([])
 const countyOptions = ref<Array<{ id: number; name: string }>>([])
 const filterCountyIds = ref<number[]>([])
+
+const assignedCountyRoleIds = computed<number[]>(() => {
+  const roles = Array.isArray(userInfo?.roles) ? userInfo.roles : []
+  const countyIds = roles
+    .filter((role: any) => role?.user_roles?.location_level === 'county' && role?.user_roles?.county_id != null)
+    .map((role: any) => Number(role.user_roles.county_id))
+    .filter((id: number) => !Number.isNaN(id))
+  return [...new Set(countyIds)]
+})
+
+const hasNationalRole = computed<boolean>(() => {
+  const roles = Array.isArray(userInfo?.roles) ? userInfo.roles : []
+  return roles.some((role: any) => role?.user_roles?.location_level === 'national')
+})
+
+const isPrivilegedUser = computed<boolean>(() => {
+  const roles = Array.isArray(userInfo?.roles) ? userInfo.roles : []
+  return roles.some((role: any) => ['super_admin', 'root_admin'].includes(role?.name))
+})
+
+const isCountyStaff = computed<boolean>(() => !isPrivilegedUser.value && !hasNationalRole.value && assignedCountyRoleIds.value.length > 0)
+const canShowCountyFilter = computed<boolean>(() => !isCountyStaff.value || assignedCountyRoleIds.value.length > 1)
+const countyFilterOptions = computed<Array<{ id: number; name: string }>>(() => {
+  if (isCountyStaff.value) {
+    const allowed = new Set(assignedCountyRoleIds.value)
+    return countyOptions.value.filter((c) => allowed.has(Number(c.id)))
+  }
+  return countyOptions.value
+})
 
 // Dialog to pick settlement, then open ClimateAssessment.vue (same route as SettlementDetails)
 const launchDialogVisible = ref(false)
@@ -288,7 +319,14 @@ async function fetchAssessments() {
   loading.value = true
   try {
     const params: { county_id?: string } = {}
-    if (filterCountyIds.value?.length) params.county_id = filterCountyIds.value.join(',')
+    if (isCountyStaff.value) {
+      const requestedCountyIds = (filterCountyIds.value?.length ? filterCountyIds.value : assignedCountyRoleIds.value)
+        .filter((id) => assignedCountyRoleIds.value.includes(Number(id)))
+      const scopedCountyIds = requestedCountyIds.length ? requestedCountyIds : assignedCountyRoleIds.value
+      if (scopedCountyIds.length) params.county_id = scopedCountyIds.join(',')
+    } else if (filterCountyIds.value?.length) {
+      params.county_id = filterCountyIds.value.join(',')
+    }
     const res = await listAssessments(params)
     if (res?.code === '0000' && Array.isArray(res.data)) {
       assessments.value = res.data
@@ -358,6 +396,10 @@ function formatDate(val: string | null | undefined) {
 
 onMounted(() => {
   fetchCounties()
+  if (isCountyStaff.value) {
+    // Default county staff to all assigned counties; multi-county users can then select a subset.
+    filterCountyIds.value = [...assignedCountyRoleIds.value]
+  }
   fetchAssessments()
 })
 </script>
