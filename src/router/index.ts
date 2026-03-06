@@ -630,6 +630,13 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             component: () => import('@/views/Facilities/Others/CommunityProjects.vue'),
             name: 'SocialCommunityProjects',
             meta: { title: 'Projects', icon: 'mdi:account-group' }
+          },
+          /// Police -----------------------
+          {
+            path: 'police',
+            component: () => import('@/views/Facilities/Others/Police.vue'),
+            name: 'SocialPolice',
+            meta: { title: 'Police', icon: 'mdi:police-badge' }
           }
         ]
       },
@@ -694,6 +701,21 @@ export const adminRoutes: AppRouteRecordRaw[] = [
               { path: 'highmast', component: () => import('@/views/Facilities/Lighting/Highmast.vue'), name: 'LightingHighmast', meta: { title: 'FloodLights', icon: 'mdi:light-flood-down' } },
               { path: 'streetlight', component: () => import('@/views/Facilities/Lighting/Streetlight.vue'), name: 'LightingStreetlight', meta: { title: 'Streetlights', icon: 'mdi:lightbulb-outline' } }
             ]
+          },
+
+          /// Railway -----------------------
+          {
+            path: 'railway',
+            component: () => import('@/views/Facilities/Others/Railway.vue'),
+            name: 'InfrastructureRailway',
+            meta: { icon: 'mdi:train', title: 'Railway' }
+          },
+          /// Telecom -----------------------
+          {
+            path: 'mast',
+            component: () => import('@/views/Facilities/Others/Mast.vue'),
+            name: 'InfrastructureMast',
+            meta: { icon: 'mdi:tower-fire', title: 'Telecom' }
           }
         ]
       },
@@ -702,18 +724,15 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       {
         path: 'others',
         component: () => import('@/views/Facilities/Others/Others.vue'),
-        redirect: '/facilities/others/police',
+        redirect: '/facilities/others/crime-hotspots',
         name: 'Others',
         meta: {
           icon: 'zondicons:location-park',
           title: 'Others'
         },
         children: [
-          { path: 'police', component: () => import('@/views/Facilities/Others/Police.vue'), name: 'OthersPolice', meta: { title: 'Police', icon: 'mdi:police-badge' } },
           { path: 'crime-hotspots', component: () => import('@/views/Facilities/Others/CrimeHotspots.vue'), name: 'OthersCrimeHotspots', meta: { title: 'Crime', icon: 'mdi:alert-octagon' } },
-          { path: 'hazards', component: () => import('@/views/Facilities/Others/Hazards.vue'), name: 'OthersHazards', meta: { title: 'Hazards', icon: 'mdi:hazard-lights' } },
-          { path: 'railway', component: () => import('@/views/Facilities/Others/Railway.vue'), name: 'OthersRailway', meta: { title: 'Railway', icon: 'mdi:train' } },
-          { path: 'mast', component: () => import('@/views/Facilities/Others/Mast.vue'), name: 'OthersMast', meta: { title: 'Telecom', icon: 'mdi:tower-fire' } }
+          { path: 'hazards', component: () => import('@/views/Facilities/Others/Hazards.vue'), name: 'OthersHazards', meta: { title: 'Hazards', icon: 'mdi:hazard-lights' } }
         ]
       },
       

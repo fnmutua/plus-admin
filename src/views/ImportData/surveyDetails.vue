@@ -18,8 +18,9 @@ import '@mapbox/mapbox-gl-geocoder/lib/mapbox-gl-geocoder.css';
 import * as turf from '@turf/turf'
   
 import {
-  
-  getAllSubmissions
+  getAllSubmissions,
+  getSubmissionAttachments,
+  downloadSubmissionAttachments
 } from '@/api/collector'
 
 
@@ -2238,11 +2239,23 @@ watch(userLocation, (newLocation) => {
   }
 });
 
-// Add new function to handle attachment downloads
+// Download single attachment via backend (avoids CORS)
 const downloadAttachment = async (submissionId, attachmentName) => {
+  const token = localStorage.getItem('collectorToken');
+  if (!token) {
+    ElMessage.warning('Collector token required. Please log in to Collector.');
+    return;
+  }
   try {
-    const response = await fetch(`https://collector.kesmis.go.ke/v1/projects/${projectId}/forms/${formId}/submissions/${submissionId}/attachments/${attachmentName}`);
-    const blob = await response.blob();
+    const response = await downloadSubmissionAttachments({
+      project: projectId,
+      form: formId,
+      token,
+      submissionID: submissionId,
+      attachmentName,
+      responseType: 'blob'
+    });
+    const blob = response?.data instanceof Blob ? response.data : new Blob([response?.data ?? []]);
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -2257,26 +2270,72 @@ const downloadAttachment = async (submissionId, attachmentName) => {
   }
 };
 
+// Bulk download attachments for the currently listed (paginated) records
+const downloadingAttachments = ref(false);
+const downloadAttachmentsForList = async () => {
+  const start = (currentPage.value - 1) * pageSize.value;
+  const end = start + pageSize.value;
+  const submissionIds = features.value.slice(start, end).map((f) => {
+    const p = f.properties ?? f;
+    return p._uuid ?? p.__id;
+  }).filter(Boolean);
+  if (submissionIds.length === 0) {
+    ElMessage.warning('No records with submission IDs on this page');
+    return;
+  }
+  downloadingAttachments.value = true;
+  try {
+    let count = 0;
+    for (const submissionId of submissionIds) {
+      const list = await getAttachments(submissionId);
+      for (const att of list) {
+        if (att.exists && att.name) {
+          await downloadAttachment(submissionId, att.name);
+          count++;
+          await new Promise((r) => setTimeout(r, 400));
+        }
+      }
+    }
+    ElMessage.success(count ? `Started download of ${count} attachment(s)` : 'No attachments found for this page');
+  } catch (e) {
+    console.error('Error downloading attachments for list:', e);
+    ElMessage.error('Failed to download attachments');
+  } finally {
+    downloadingAttachments.value = false;
+  }
+};
+
  
 
 // Add loading state for attachments
 const loadingAttachments = ref({});
 
-// Modify getAttachments to handle loading state
+// Fetch attachments list via backend (avoids CORS)
 const getAttachments = async (submissionId) => {
   if (loadingAttachments.value[submissionId]) {
     return loadingAttachments.value[submissionId];
   }
-  
+  const token = localStorage.getItem('collectorToken');
   loadingAttachments.value[submissionId] = [];
+  if (!token) {
+    return [];
+  }
   try {
-    const response = await fetch(`https://collector.kesmis.go.ke/v1/projects/${projectId}/forms/${formId}/submissions/${submissionId}/attachments`);
-    const data = await response.json();
-   // const data = [{"name":"1746772406712.jpg","exists":true}]
-    loadingAttachments.value[submissionId] = data;
-    return data;
-  } catch (error) {
-    console.error('Error fetching attachments:', error);
+    const res = await getSubmissionAttachments({
+      project: projectId,
+      form: formId,
+      token,
+      submissionID: submissionId
+    });
+    const list = (res?.attachments && Array.isArray(res.attachments)) ? res.attachments : [];
+    loadingAttachments.value[submissionId] = list;
+    return list;
+  } catch (err: unknown) {
+    // 404 = no attachments, other errors = log and return []
+    const status = (err as { response?: { status?: number } })?.response?.status;
+    if (status !== 404) {
+      console.error('Error fetching attachments:', err);
+    }
     loadingAttachments.value[submissionId] = [];
     return [];
   }
@@ -2418,7 +2477,15 @@ v-for="(option, index) in uploadOptions"
                 </PermissionWrapper>
               </el-tooltip>
              <PermissionWrapper :permissions="'survey:export'">
-               <DownloadCustom :data="paginatedData" :all="tableData" style="margin-bottom: 10px; margin-right: 10px; width: 15%;"  /> 
+               <DownloadCustom :data="paginatedData" :all="tableData" style="margin-bottom: 10px; margin-right: 10px; width: 15%;"  />
+               <ElButton
+                 type="primary"
+                 :loading="downloadingAttachments"
+                 style="margin-bottom: 10px; margin-right: 10px;"
+                 @click="downloadAttachmentsForList"
+               >
+                 Download attachments
+               </ElButton>
              </PermissionWrapper>
 
 
