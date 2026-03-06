@@ -2477,7 +2477,7 @@ v-for="(option, index) in filterOptions"
 
               <el-select
 v-model="uploadModel" filterable multiple clearable placeholder="Import to"
-                  :collapse-tags="true" style="margin-bottom: 10px; margin-right: 10px; width: 15%;" 
+                  :collapse-tags="true" style="margin-bottom: 10px; margin-right: 14px; width: 15%;" 
                   class="select-properties">
                 <el-option
 v-for="(option, index) in uploadOptions" 
@@ -2488,15 +2488,15 @@ v-for="(option, index) in uploadOptions"
 
               <el-tooltip content="Add Project" placement="top">
                 <PermissionWrapper :permissions="'survey:import'">
-                  <el-button v-if="uploadModel" @click="getModeldefinition" type="success" :icon="Upload" />
+                  <el-button v-if="uploadModel" @click="getModeldefinition" type="success" :icon="Upload" style="margin-right: 14px;" />
                 </PermissionWrapper>
               </el-tooltip>
              <PermissionWrapper :permissions="'survey:export'">
-               <DownloadCustom :data="paginatedData" :all="tableData" style="margin-bottom: 10px; margin-right: 10px; width: 15%;"  />
+               <DownloadCustom :data="paginatedData" :all="tableData" style="margin-bottom: 10px; margin-right: 14px; width: 15%;"  />
                <ElButton
                  type="primary"
                  :loading="downloadingAttachments"
-                 style="margin-bottom: 10px; margin-right: 10px;"
+                 style="margin-bottom: 10px; margin-right: 14px; margin-left: 4px;"
                  @click="downloadAttachmentsForList"
                >
                  Download attachments

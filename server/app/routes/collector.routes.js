@@ -14,37 +14,38 @@ module.exports = function(app) {
   
  
 
-  app.get("/api/v1/collector/project", [authJwt.verifyToken, authJwt.isStaffOrAdmin],controller.modelGetProjects);
-  app.post("/api/v1/collector", [authJwt.verifyToken, authJwt.isStaffOrAdmin],controller.modelLoginCollector);
+  // Collector access is permission-based (so consultant etc. can use it)
+  app.get("/api/v1/collector/project", [authJwt.verifyToken, hasPermission('collector:read')], controller.modelGetProjects);
+  app.post("/api/v1/collector", [authJwt.verifyToken, hasPermission('collector:read')], controller.modelLoginCollector);
  
-  app.post("/api/v1/collector/project/data", [authJwt.verifyToken, authJwt.isStaffOrAdmin],controller.modelDataCollector);
-  app.post("/api/v1/collector/project/csv", [authJwt.verifyToken, authJwt.isStaffOrAdmin],controller.modelDataCollectorCSV);
-  app.post("/api/v1/collector/project/flat", controller.modelDataCollectorGetFlattened);
+  app.post("/api/v1/collector/project/data", [authJwt.verifyToken, hasPermission('collector:read')], controller.modelDataCollector);
+  app.post("/api/v1/collector/project/csv", [authJwt.verifyToken, hasPermission('collector:read')], controller.modelDataCollectorCSV);
+  app.post("/api/v1/collector/project/flat", [authJwt.verifyToken, hasPermission('collector:read')], controller.modelDataCollectorGetFlattened);
   
-  app.post("/api/v1/collector/project/submitter", [authJwt.verifyToken, authJwt.isStaffOrAdmin],controller.modelGetSubmitters);
-  app.post("/api/v1/collector/settlements", [authJwt.verifyToken], controller.modelGetSettlements);
+  app.post("/api/v1/collector/project/submitter", [authJwt.verifyToken, hasPermission('collector:read')], controller.modelGetSubmitters);
+  app.post("/api/v1/collector/settlements", [authJwt.verifyToken, hasPermission('collector:read')], controller.modelGetSettlements);
  
  
 
-  app.post("/api/v1/collector/project/geo",  controller.modelDataCollectorGetGeoJSON);
-  app.post("/api/v1/collector/project/media",  controller.modelDataCollectorCSVWithMedia);
+  app.post("/api/v1/collector/project/geo", [authJwt.verifyToken, hasPermission('collector:read')], controller.modelDataCollectorGetGeoJSON);
+  app.post("/api/v1/collector/project/media", [authJwt.verifyToken, hasPermission('collector:read')], controller.modelDataCollectorCSVWithMedia);
 
-  app.post("/api/v1/collector/submissions", [authJwt.verifyToken], controller.modelGetSubmissions);
-  app.post("/api/v1/collector/submissions/all",  controller.modelGetAllSubmissions);
-  app.post("/api/v1/collector/submissions/create", [authJwt.verifyToken], controller.modelCreateSubmission);
-  app.post("/api/v1/collector/submissions/delete",  controller.modelDeleteSubmission);
-  app.post("/api/v1/collector/submissions/edit",  controller.modelEditSubmission);
-  app.post("/api/v1/collector/submissions/xml",  controller.modelGetSubmissionXml);
-  app.post("/api/v1/collector/submissions/update",  controller.modelUpdateSubmissionXml);
-  app.post("/api/v1/collector/submissions/docs",  controller.getSubmissionAttachments);
-  app.post("/api/v1/collector/submissions/download",  controller.downloadSubmissionAttachment);
-  app.post("/api/v1/collector/submissions/attachments/zip",  controller.downloadSubmissionsAttachmentsZip);
-  app.post("/api/v1/collector/submissions/attachments/upload",  controller.uploadSubmissionAttachment);
+  app.post("/api/v1/collector/submissions", [authJwt.verifyToken, hasPermission('collector:read')], controller.modelGetSubmissions);
+  app.post("/api/v1/collector/submissions/all", [authJwt.verifyToken, hasPermission('collector:read')], controller.modelGetAllSubmissions);
+  app.post("/api/v1/collector/submissions/create", [authJwt.verifyToken, hasPermission('collector:submit')], controller.modelCreateSubmission);
+  app.post("/api/v1/collector/submissions/delete", [authJwt.verifyToken, hasPermission('collector:delete')], controller.modelDeleteSubmission);
+  app.post("/api/v1/collector/submissions/edit", [authJwt.verifyToken, hasPermission('collector:submit')], controller.modelEditSubmission);
+  app.post("/api/v1/collector/submissions/xml", [authJwt.verifyToken, hasPermission('collector:read')], controller.modelGetSubmissionXml);
+  app.post("/api/v1/collector/submissions/update", [authJwt.verifyToken, hasPermission('collector:submit')], controller.modelUpdateSubmissionXml);
+  app.post("/api/v1/collector/submissions/docs", [authJwt.verifyToken, hasPermission('collector:read')], controller.getSubmissionAttachments);
+  app.post("/api/v1/collector/submissions/download", [authJwt.verifyToken, hasPermission('collector:read')], controller.downloadSubmissionAttachment);
+  app.post("/api/v1/collector/submissions/attachments/zip", [authJwt.verifyToken, hasPermission('collector:read')], controller.downloadSubmissionsAttachmentsZip);
+  app.post("/api/v1/collector/submissions/attachments/upload", [authJwt.verifyToken, hasPermission('collector:submit')], controller.uploadSubmissionAttachment);
 
 
-    app.post("/api/v1/collector/submissions/csv",  controller.modelGetCsvSubmissions);
-    app.post("/api/v1/collector/submissions/geo",  controller.modelGetGeoJsonSubmissions);
-    app.post("/api/v1/collector/project/users",  controller.modelGetProjectUsers);
+    app.post("/api/v1/collector/submissions/csv", [authJwt.verifyToken, hasPermission('collector:read')], controller.modelGetCsvSubmissions);
+    app.post("/api/v1/collector/submissions/geo", [authJwt.verifyToken, hasPermission('collector:read')], controller.modelGetGeoJsonSubmissions);
+    app.post("/api/v1/collector/project/users", [authJwt.verifyToken, hasPermission('collector:read')], controller.modelGetProjectUsers);
 
   
 };

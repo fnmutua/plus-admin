@@ -299,7 +299,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       title: t('Data'),
       icon: 'mdi:map-legend',
       alwaysShow: true,
-      role: ['root_admin', 'admin', 'super_admin', 'monitoring'  ,'staff' ,'monitoring','grm'] ,
+      role: ['root_admin', 'admin', 'super_admin', 'monitoring'  ,'staff' ,'monitoring','grm','consultant'] ,
     },
     children: [
       {
@@ -324,7 +324,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
               title: 'Settlements',
               affix: true,
               icon:'material-symbols:format-list-bulleted-rounded',
-              role: ['root_admin', 'admin', 'super_admin', 'monitoring'  ,'staff' ,'monitoring','grm'] ,
+              role: ['root_admin', 'admin', 'super_admin', 'monitoring'  ,'staff' ,'monitoring','grm','consultant'] ,
 
             }
           },
@@ -335,7 +335,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             meta: {
               title: 'Assessments',
               icon: 'mdi:earth',
-              role: ['root_admin', 'super_admin', 'admin', 'staff', 'support', 'monitoring', 'grm'],
+              role: ['root_admin', 'super_admin', 'admin', 'staff', 'support', 'monitoring', 'grm','consultant'],
             }
           },
           {
@@ -742,12 +742,11 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         path: 'survey',
     //    component: 'views/ImportData/excel',
         component: () => import('@/views/ImportData/Surveys.vue'),
-
         name: 'Surveys',
         meta: {
           title: 'Surveys',
           icon: 'carbon:report',
-          role: ['root_admin','admin', 'super_admin', 'staff'] ,
+          role: ['root_admin','admin', 'super_admin', 'staff','consultant'] ,
           locationLevel:['national'],
 
         }
@@ -761,7 +760,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           hidden: true,
           title: 'Survey Details',
           icon:'ion:document-attach',
-          role: ['root_admin','admin', 'super_admin', 'staff'  ] ,
+          role: ['root_admin','admin', 'super_admin', 'staff' ,'consultant' ] ,
           locationLevel:['national' ],
           noCache: true
         }
