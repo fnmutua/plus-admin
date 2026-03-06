@@ -38,6 +38,7 @@ module.exports = function(app) {
   app.post("/api/v1/collector/submissions/update",  controller.modelUpdateSubmissionXml);
   app.post("/api/v1/collector/submissions/docs",  controller.getSubmissionAttachments);
   app.post("/api/v1/collector/submissions/download",  controller.downloadSubmissionAttachment);
+  app.post("/api/v1/collector/submissions/attachments/zip",  controller.downloadSubmissionsAttachmentsZip);
   app.post("/api/v1/collector/submissions/attachments/upload",  controller.uploadSubmissionAttachment);
 
 

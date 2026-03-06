@@ -20,7 +20,8 @@ import * as turf from '@turf/turf'
 import {
   getAllSubmissions,
   getSubmissionAttachments,
-  downloadSubmissionAttachments
+  downloadSubmissionAttachments,
+  downloadSubmissionsAttachmentsZip
 } from '@/api/collector'
 
 
@@ -2270,7 +2271,7 @@ const downloadAttachment = async (submissionId, attachmentName) => {
   }
 };
 
-// Bulk download attachments for the currently listed (paginated) records
+// Bulk download attachments for the currently listed (paginated) records as a single ZIP
 const downloadingAttachments = ref(false);
 const downloadAttachmentsForList = async () => {
   const start = (currentPage.value - 1) * pageSize.value;
@@ -2283,23 +2284,37 @@ const downloadAttachmentsForList = async () => {
     ElMessage.warning('No records with submission IDs on this page');
     return;
   }
+  const token = localStorage.getItem('collectorToken');
+  if (!token) {
+    ElMessage.warning('Collector token required. Please log in to Collector.');
+    return;
+  }
   downloadingAttachments.value = true;
   try {
-    let count = 0;
-    for (const submissionId of submissionIds) {
-      const list = await getAttachments(submissionId);
-      for (const att of list) {
-        if (att.exists && att.name) {
-          await downloadAttachment(submissionId, att.name);
-          count++;
-          await new Promise((r) => setTimeout(r, 400));
-        }
-      }
+    const response = await downloadSubmissionsAttachmentsZip({
+      project: projectId,
+      form: formId,
+      token,
+      submissionIds
+    });
+    const blob = response?.data instanceof Blob ? response.data : new Blob([response?.data ?? []]);
+    if (blob.size === 0) {
+      ElMessage.warning('No attachments found for this page');
+      return;
     }
-    ElMessage.success(count ? `Started download of ${count} attachment(s)` : 'No attachments found for this page');
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `attachments_${formId}_${Date.now()}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    ElMessage.success('Attachments downloaded as ZIP');
   } catch (e) {
-    console.error('Error downloading attachments for list:', e);
-    ElMessage.error('Failed to download attachments');
+    console.error('Error downloading attachments zip:', e);
+    const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
+    ElMessage.error(msg || 'Failed to download attachments');
   } finally {
     downloadingAttachments.value = false;
   }

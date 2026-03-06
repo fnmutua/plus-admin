@@ -192,6 +192,20 @@ export const downloadSubmissionAttachments = (data)  => {
  });
 };
 
+/** Download all attachments for the given submission IDs as a single ZIP (blob). */
+export const downloadSubmissionsAttachmentsZip = (data: {
+  project: string | number
+  form: string
+  token: string | null
+  submissionIds: string[]
+}) => {
+  return request.post({
+    url: prod + '/api/v1/collector/submissions/attachments/zip',
+    data,
+    responseType: 'blob'
+  });
+};
+
 export const getProjectUsers = (data)  => {
   return request.post({
    url: prod + '/api/v1/collector/project/users',

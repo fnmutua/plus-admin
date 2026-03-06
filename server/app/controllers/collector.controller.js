@@ -2086,6 +2086,92 @@ exports.downloadSubmissionAttachment = (req, res) => {
   });
 };
 
+/**
+ * Download all attachments for the given submission IDs as a single ZIP.
+ * POST body: { project, form, token, submissionIds: string[] }
+ */
+exports.downloadSubmissionsAttachmentsZip = async (req, res) => {
+  const JSZip = require('jszip');
+  const { project, form, token, submissionIds } = req.body;
+
+  if (!project || !form || !token || !Array.isArray(submissionIds) || submissionIds.length === 0) {
+    return res.status(400).send({
+      error: 'Missing or invalid: project, form, token, submissionIds (non-empty array)'
+    });
+  }
+
+  const baseUrl = 'https://collector.kesmis.go.ke/v1';
+  const authHeader = { Authorization: `Bearer ${token}` };
+
+  const requestGet = (url, binary = false) =>
+    new Promise((resolve, reject) => {
+      request(
+        { method: 'GET', url, headers: authHeader, encoding: binary ? null : 'utf8' },
+        (err, response, body) => {
+          if (err) return reject(err);
+          if (response.statusCode !== 200) return reject(new Error(`HTTP ${response.statusCode}`));
+          resolve(body);
+        }
+      );
+    });
+
+  try {
+    const zip = new JSZip();
+    let totalFiles = 0;
+
+    for (const submissionId of submissionIds) {
+      const listUrl = `${baseUrl}/projects/${project}/forms/${form}/submissions/${encodeURIComponent(submissionId)}/attachments`;
+      let list;
+      try {
+        const body = await requestGet(listUrl);
+        list = typeof body === 'string' ? JSON.parse(body) : body;
+      } catch (e) {
+        continue; // skip this submission if list fails
+      }
+      if (!Array.isArray(list)) continue;
+
+      const safeId = String(submissionId).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 80);
+      const folder = zip.folder(safeId) || zip;
+
+      for (const att of list) {
+        if (!att.exists || !att.name) continue;
+        try {
+          const fileUrl = `${baseUrl}/projects/${project}/forms/${form}/submissions/${encodeURIComponent(submissionId)}/attachments/${encodeURIComponent(att.name)}`;
+          const buf = await requestGet(fileUrl, true);
+          folder.file(att.name, Buffer.isBuffer(buf) ? buf : Buffer.from(buf || []));
+          totalFiles++;
+        } catch (e) {
+          // skip single file on error
+        }
+      }
+    }
+
+    if (totalFiles === 0) {
+      return res.status(404).send({
+        code: '4040',
+        message: 'No attachments found for the given submissions'
+      });
+    }
+
+    const zipBuffer = await zip.generateAsync({
+      type: 'nodebuffer',
+      compression: 'DEFLATE',
+      compressionOptions: { level: 6 }
+    });
+
+    const filename = `attachments_${form}_${Date.now()}.zip`;
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(zipBuffer);
+  } catch (err) {
+    console.error('Error building attachments zip:', err);
+    res.status(500).send({
+      error: 'Failed to build attachments zip',
+      message: err.message
+    });
+  }
+};
+
 exports.modelGetProjectUsers = (req, res) => {
   const { project_id, token } = req.body;
   const requestOptions = {
