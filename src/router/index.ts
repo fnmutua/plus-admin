@@ -46,6 +46,16 @@ export const constantRouterMap: AppRouteRecordRaw[] = [
     }
   },
   {
+    path: '/docs',
+    component: () => import('@/views/Landing/Docs.vue'),
+    name: 'DocsLanding',
+    meta: {
+      hidden: true,
+      title: 'Documentation',
+      noTagsView: true
+    }
+  },
+  {
     path: '/incidents',
     component: () => import('@/views/Landing/Incidents.vue'),
     name: 'IncidentsLanding',
@@ -2044,7 +2054,7 @@ router.beforeEach((to, from, next) => {
 
 export const resetRouter = (): void => {
   const resetWhiteNameList = ['Redirect', 'Login', 'Register', 'NoFind', 'Root', 'Reset', 'Logoff', 
-    'Privacy', 'Contact','Landing','FAQs','About','GRM','DeleteAccount']
+    'Privacy', 'Contact','Landing','FAQs','About','GRM','DeleteAccount','docs']
   router.getRoutes().forEach((route) => {
     const { name } = route
     if (name && !resetWhiteNameList.includes(name as string)) {

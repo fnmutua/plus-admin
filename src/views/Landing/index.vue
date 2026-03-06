@@ -488,6 +488,46 @@
         </div>
       </section>
 
+      <!-- Help Drawer -->
+      <el-drawer
+        v-model="helpPanelVisible"
+        title="Landing Page Help"
+        direction="rtl"
+        size="420px"
+      >
+        <div class="help-content">
+          <h3>Purpose</h3>
+          <p>
+            The landing page is the public entry point into the Kenya Slum Management Information System (KeSMIS).
+            From here you can learn what the system does, sign in, and access public services such as grievances,
+            incidents and the settlement register.
+          </p>
+
+          <h3>Main actions</h3>
+          <ul>
+            <li><strong>Sign in / Dashboard</strong>: Open the internal dashboards (or the login page if you are not signed in).</li>
+            <li><strong>File a Grievance</strong>: Open the public grievance form to register a complaint.</li>
+            <li><strong>Incident Report</strong>: Open the public incident reporting form.</li>
+          </ul>
+
+          <h3>Top navigation</h3>
+          <p>The top menu provides links to:</p>
+          <ul>
+            <li><strong>Dashboard</strong> – shortcut to the main system for authorized users.</li>
+            <li><strong>Grievances</strong> – information and entry point for filing a grievance.</li>
+            <li><strong>Incidents</strong> – information and entry point for incident reporting.</li>
+            <li><strong>Settlement Register</strong> – public register of informal settlements.</li>
+            <li><strong>FAQs, About, Contact, Privacy</strong> – supporting information pages.</li>
+          </ul>
+
+          <h3>Display mode</h3>
+          <p>
+            Use the day/dark mode switch to change how the system looks. Your preference is remembered
+            until you change it again.
+          </p>
+        </div>
+      </el-drawer>
+
 
     </div>
   </BaseLayout>
@@ -505,6 +545,7 @@ import {
   ElCard,
   ElCarousel,
   ElCarouselItem,
+  ElDrawer,
 } from 'element-plus';
 import BaseLayout from './BaseLayout.vue';
 import SettlementRegister from './SettlementRegister.vue';
@@ -525,6 +566,8 @@ const { wsCache } = useCache();
 const appStore = useAppStoreWithOut();
 
 const isLoggedIn = computed(() => !!wsCache.get(appStore.getUserInfo));
+
+const helpPanelVisible = ref(false);
 
 // Section refs for scroll navigation
 const featuresSection = ref<HTMLElement | null>(null);

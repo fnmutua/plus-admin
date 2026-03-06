@@ -131,6 +131,19 @@ export default defineComponent({
             />
           </div>
 
+          {/* Help / Documentation Icon */}
+          <div 
+            class="hover-tigger cursor-pointer flex items-center justify-center w-8 h-8 rounded-md hover:bg-[var(--el-fill-color-light)] transition-colors"
+            onClick={() => window.open('/#/docs', '_blank')}
+            title="Help & Documentation"
+          >
+            <Icon 
+              icon="mdi:help-circle-outline" 
+              width="18" 
+              color="var(--top-header-text-color)"
+            />
+          </div>
+
           <UserInfo class="hover-tigger"></UserInfo>
         </div>
 

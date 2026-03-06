@@ -33,6 +33,10 @@
                   <Icon icon="mdi:file-document-outline" />
                   <span>Grievances</span>
                 </div>
+                <div class="menu-item" @click="openDocs">
+                  <Icon icon="mdi:help-circle-outline" />
+                  <span>Help</span>
+                </div>
                 <div class="menu-item" @click="toggleDark">
                   <Icon :icon="isDark ? 'carbon:moon' : 'carbon:sun'" />
                   <span>{{ isDark ? 'Dark Mode' : 'Light Mode' }}</span>
@@ -62,6 +66,9 @@
                 <el-menu-item index="register" @click="scrollToSection('register')">Settlements</el-menu-item>
                 <el-menu-item index="how-it-works" @click="scrollToSection('how-it-works')">Access</el-menu-item>
                 <el-menu-item index="3" @click="handleSelect('3')">Grievances</el-menu-item>
+                <el-menu-item index="docs" @click="openDocs" class="docs-link">
+                  <Icon icon="mdi:help-circle-outline" inline style="margin-right:4px" />Help
+                </el-menu-item>
                 <el-menu-item index="7" @click="toggleDark" class="theme-toggle">
                   <Icon :icon="isDark ? 'carbon:moon' : 'carbon:sun'" inline />
                 </el-menu-item>
@@ -93,9 +100,13 @@
                   </ul>
                 </div>
                 <div class="footer-links-group">
-                   <ul>
+                  <ul>
                     <li><router-link to="/privacy">Privacy</router-link></li>
-                   </ul>
+                    <li>
+                      <!-- Open SPA docs route in a new tab using hash URL -->
+                      <a href="/#/docs" target="_blank" rel="noopener">Documentation</a>
+                    </li>
+                  </ul>
                 </div>
               </nav>
             </div>
@@ -360,6 +371,11 @@ const scrollToSection = async (sectionId: string) => {
   });
 };
 
+const openDocs = () => {
+  menuOpen.value = false
+  window.open('/#/docs', '_blank', 'noopener')
+}
+
 const handleSelect = (index: string) => {
   activeIndex.value = index;
   menuOpen.value = false; // Close mobile menu after selection
@@ -398,7 +414,6 @@ const handleSelect = (index: string) => {
       router.push('/faqs');
       break;
     case 'docs':
-      router.push('/docs');
       break;
     case 'get-started':
       if (isLoggedIn.value) {

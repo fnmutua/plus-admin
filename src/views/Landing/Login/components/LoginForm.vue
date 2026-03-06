@@ -123,6 +123,18 @@ const signIn = async () => {
           wsCache.set(appStore.getUserInfo, selUserDetails)
           const userDeatilsAfterLogin = wsCache.get(appStore.getUserInfo)
 
+          // Set admin flag in localStorage for cross-tab access (e.g. docs page)
+          const userRoles = Array.isArray(selUserDetails.roles) ? selUserDetails.roles : []
+          const roleNames = userRoles.map((r: any) => r?.name)
+          const hasAdminRole = roleNames.some((n: string) => ['root_admin', 'super_admin', 'admin'].includes(n))
+          console.log('[Login] Setting kesmis_is_admin flag. roleNames:', roleNames, 'hasAdminRole:', hasAdminRole)
+          try {
+            localStorage.setItem('kesmis_is_admin', hasAdminRole ? '1' : '0')
+            console.log('[Login] kesmis_is_admin saved:', localStorage.getItem('kesmis_is_admin'))
+          } catch (e) {
+            console.error('[Login] Failed to save kesmis_is_admin:', e)
+          }
+
           console.log("----userDeatilsAfterLogin----", userDeatilsAfterLogin)
 
           if (appStore.getDynamicRouter) {
@@ -251,6 +263,10 @@ const getRole = async (authenticatedUser: any, formData: UserType) => {
       default:
         break;
     }
+
+  // Expose admin flag to localStorage for cross-tab use (e.g. docs page)
+  const isAdminRole = ['root_admin', 'super_admin', 'admin'].includes(highestRole)
+  try { localStorage.setItem('kesmis_is_admin', isAdminRole ? '1' : '0') } catch {}
 
   // Assign the highest role and level to the formData
   formData.role = highestRole;

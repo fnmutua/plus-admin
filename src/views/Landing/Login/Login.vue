@@ -182,6 +182,11 @@ const getRole = async (authenticatedUser: any, formData: UserType) => {
   ;(formData as any).role = highestRole
   ;(formData as any).level = highestLevel
 
+  // Update admin flag after precise role determination
+  const isAdmin = ['root_admin', 'super_admin', 'admin'].includes(highestRole)
+  try { localStorage.setItem('kesmis_is_admin', isAdmin ? '1' : '0') } catch {}
+  console.log('[Login] kesmis_is_admin set to', isAdmin ? '1' : '0', 'for role', highestRole)
+
   let routers: RouteRecordRaw[] = []
   await permissionStore.generateRoutes((formData as any).role, (formData as any).level).catch(() => {})
   routers = [...new Set(permissionStore.getAddRouters.map(route => route as RouteRecordRaw))]
@@ -217,6 +222,11 @@ const signIn = async () => {
         if (selUserDetails) {
           wsCache.set(appStore.getUserInfo, selUserDetails)
           const userDeatilsAfterLogin = wsCache.get(appStore.getUserInfo)
+
+          // Set admin flag in localStorage for cross-tab access (e.g. docs page)
+          const userRoles = Array.isArray(selUserDetails.roles) ? selUserDetails.roles : []
+          const hasAdminRole = userRoles.some((r: any) => ['root_admin', 'super_admin', 'admin'].includes(r?.name))
+          try { localStorage.setItem('kesmis_is_admin', hasAdminRole ? '1' : '0') } catch {}
 
           if (appStore.getDynamicRouter) {
             getRole(userDeatilsAfterLogin, formData)
