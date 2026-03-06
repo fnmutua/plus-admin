@@ -39,6 +39,7 @@ module.exports = function(app) {
   app.post("/api/v1/collector/submissions/update", [authJwt.verifyToken, hasPermission('collector:submit')], controller.modelUpdateSubmissionXml);
   app.post("/api/v1/collector/submissions/docs", [authJwt.verifyToken, hasPermission('collector:read')], controller.getSubmissionAttachments);
   app.post("/api/v1/collector/submissions/download", [authJwt.verifyToken, hasPermission('collector:read')], controller.downloadSubmissionAttachment);
+  app.post("/api/v1/collector/submissions/attachments/count", [authJwt.verifyToken, hasPermission('collector:read')], controller.countSubmissionsAttachments);
   app.post("/api/v1/collector/submissions/attachments/zip", [authJwt.verifyToken, hasPermission('collector:read')], controller.downloadSubmissionsAttachmentsZip);
   app.post("/api/v1/collector/submissions/attachments/upload", [authJwt.verifyToken, hasPermission('collector:submit')], controller.uploadSubmissionAttachment);
 

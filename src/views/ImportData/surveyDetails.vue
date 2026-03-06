@@ -21,7 +21,8 @@ import {
   getAllSubmissions,
   getSubmissionAttachments,
   downloadSubmissionAttachments,
-  downloadSubmissionsAttachmentsZip
+  downloadSubmissionsAttachmentsZip,
+  countSubmissionsAttachments
 } from '@/api/collector'
 
 
@@ -2289,7 +2290,26 @@ const downloadAttachmentsForList = async () => {
     ElMessage.warning('Collector token required. Please log in to Collector.');
     return;
   }
+
+  // Show loading immediately (covers counting + download)
   downloadingAttachments.value = true;
+
+  // Ask backend for total attachment count for these submissions; backend will
+  // return 400 with a helpful message if over the limit (> 100)
+  try {
+    await countSubmissionsAttachments({
+      project: projectId,
+      form: formId,
+      token,
+      submissionIds
+    });
+  } catch (err) {
+    console.error('Error counting attachments:', err);
+    // Global axios error handler already showed the backend message
+    downloadingAttachments.value = false;
+    return;
+  }
+
   try {
     const response = await downloadSubmissionsAttachmentsZip({
       project: projectId,
@@ -2555,7 +2575,7 @@ v-for="(option, index) in uploadOptions"
             <!-- Pagination component -->
             <el-pagination
 layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-              v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100]" :total="totalItems" :background="true"
+              v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100, 500]" :total="totalItems" :background="true"
               @size-change="handlePageSizeChange" @current-change="handlePageChange" class="mt-4" />
           </div>
         </el-card>

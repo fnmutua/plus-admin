@@ -2140,6 +2140,14 @@ exports.downloadSubmissionsAttachmentsZip = async (req, res) => {
           const buf = await requestGet(fileUrl, true);
           folder.file(att.name, Buffer.isBuffer(buf) ? buf : Buffer.from(buf || []));
           totalFiles++;
+
+          // Hard limit to avoid generating extremely large ZIPs
+          if (totalFiles > 100) {
+            return res.status(400).send({
+              code: 'ATTACHMENT_LIMIT',
+              message: 'Too many attachments to download at once (more than 100). Please narrow your filters or download in smaller batches.'
+            });
+          }
         } catch (e) {
           // skip single file on error
         }
@@ -2167,6 +2175,76 @@ exports.downloadSubmissionsAttachmentsZip = async (req, res) => {
     console.error('Error building attachments zip:', err);
     res.status(500).send({
       error: 'Failed to build attachments zip',
+      message: err.message
+    });
+  }
+};
+
+/**
+ * Count attachments for the given submission IDs without downloading files.
+ * POST body: { project, form, token, submissionIds: string[] }
+ */
+exports.countSubmissionsAttachments = async (req, res) => {
+  const { project, form, token, submissionIds } = req.body;
+
+  if (!project || !form || !token || !Array.isArray(submissionIds) || submissionIds.length === 0) {
+    return res.status(400).send({
+      error: 'Missing or invalid: project, form, token, submissionIds (non-empty array)'
+    });
+  }
+
+  const baseUrl = 'https://collector.kesmis.go.ke/v1';
+  const authHeader = { Authorization: `Bearer ${token}` };
+
+  const requestGet = (url) =>
+    new Promise((resolve, reject) => {
+      request(
+        { method: 'GET', url, headers: authHeader, encoding: 'utf8' },
+        (err, response, body) => {
+          if (err) return reject(err);
+          if (response.statusCode !== 200) return reject(new Error(`HTTP ${response.statusCode}`));
+          resolve(body);
+        }
+      );
+    });
+
+  try {
+    const perSubmission = {};
+    let total = 0;
+
+    for (const submissionId of submissionIds) {
+      const listUrl = `${baseUrl}/projects/${project}/forms/${form}/submissions/${encodeURIComponent(submissionId)}/attachments`;
+      try {
+        const body = await requestGet(listUrl);
+        const list = typeof body === 'string' ? JSON.parse(body) : body;
+        const count = Array.isArray(list) ? list.length : 0;
+        perSubmission[submissionId] = count;
+        total += count;
+      } catch (e) {
+        // On error, treat as zero attachments for this submission
+        perSubmission[submissionId] = 0;
+      }
+    }
+
+    // If over limit, return an error status so the global axios error handler shows the message
+    if (total > 100) {
+      return res.status(400).send({
+        message: 'Too many attachments to download at once (more than 100). Please narrow your filters or use a smaller page size.',
+        total,
+        perSubmission
+      });
+    }
+
+    return res.status(200).send({
+      code: '0000',
+      message: 'Attachment counts retrieved successfully',
+      total,
+      perSubmission
+    });
+  } catch (err) {
+    console.error('Error counting attachments:', err);
+    return res.status(500).send({
+      error: 'Failed to count attachments',
       message: err.message
     });
   }

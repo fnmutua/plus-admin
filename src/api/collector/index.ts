@@ -192,6 +192,19 @@ export const downloadSubmissionAttachments = (data)  => {
  });
 };
 
+/** Get total attachment count for given submission IDs (no files downloaded). */
+export const countSubmissionsAttachments = (data: {
+  project: string | number
+  form: string
+  token: string | null
+  submissionIds: string[]
+}) => {
+  return request.post({
+    url: prod + '/api/v1/collector/submissions/attachments/count',
+    data
+  });
+};
+
 /** Download all attachments for the given submission IDs as a single ZIP (blob). */
 export const downloadSubmissionsAttachmentsZip = (data: {
   project: string | number
