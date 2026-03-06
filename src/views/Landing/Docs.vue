@@ -1022,7 +1022,7 @@ useHead({
 /* ---- Layout ---- */
 .docs-layout {
   display: flex;
-  height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
   background: #fff;
@@ -1246,7 +1246,7 @@ useHead({
   margin-left: 272px;
   padding: 48px 56px 80px;
   overflow-y: auto;
-  height: 100vh;
+  height: 100dvh;
 }
 
 .docs-breadcrumb {
@@ -1435,7 +1435,9 @@ useHead({
   .docs-main {
     margin-left: 0;
     padding: 68px 20px 60px;
-    height: 100vh;
+    height: calc(100dvh - 52px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .docs-page-title {
