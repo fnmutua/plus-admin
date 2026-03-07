@@ -19,6 +19,31 @@
           </button>
           <Transition name="collapse">
             <div v-show="expandedGroups.has(group.id)" class="nav-group-children">
+              <template v-if="group.subgroups">
+                <template v-for="sub in group.subgroups" :key="sub.id">
+                  <button
+                    class="nav-subgroup-toggle"
+                    :class="{ expanded: expandedGroups.has(sub.id), 'has-active': subgroupHasActive(sub) }"
+                    @click="toggleGroup(sub.id)"
+                  >
+                    <Icon v-if="sub.icon" :icon="sub.icon" class="nav-subgroup-icon" />
+                    <span class="nav-subgroup-label">{{ sub.label }}</span>
+                    <Icon icon="mdi:chevron-right" class="nav-chevron sub-chevron" />
+                  </button>
+                  <Transition name="collapse">
+                    <div v-show="expandedGroups.has(sub.id)" class="nav-subgroup-children">
+                      <button
+                        v-for="item in sub.children"
+                        :key="item.id"
+                        :class="['nav-item', 'nav-item-nested', { active: activeSection === item.id }]"
+                        @click="selectSection(item.id)"
+                      >
+                        {{ item.label }}
+                      </button>
+                    </div>
+                  </Transition>
+                </template>
+              </template>
               <button
                 v-for="item in group.children"
                 :key="item.id"
@@ -103,6 +128,22 @@ import settlementsMapImg from '@/assets/documentation/Settlements Map1.png'
 import settlementsMapFilterImg from '@/assets/documentation/Settlements Map-filter.png'
 import settlementsMapInteractImg from '@/assets/documentation/Settlements Map-interacting.png'
 import projectsMapImg from '@/assets/documentation/projects-map1.png'
+import settlementAdd1Img from '@/assets/documentation/settleemnt-add1.png'
+import settlementAdd2CountyImg from '@/assets/documentation/settleemnt-add2-select-county-ward.png'
+import settlementAdd2DrawImg from '@/assets/documentation/settleemnt-add2-draw-boundary.png'
+import settlementAdd3FillImg from '@/assets/documentation/settleemnt-add3-fill-details.png'
+import settlementAdd3SavedImg from '@/assets/documentation/settleemnt-add3-saved-new.png'
+import settlementApproveImg from '@/assets/documentation/settleemnt-add3-saved-approve.png'
+import settlementEditImg from '@/assets/documentation/settleemnt-edit1.png'
+import settlementDecommissionImg from '@/assets/documentation/settleemnt-decommison.png'
+import settlementMergeImg from '@/assets/documentation/settleemnt-merge.png'
+import settlementDeleteImg from '@/assets/documentation/settleemnt-delete.png'
+import settlementDownloadExcelImg from '@/assets/documentation/settleemnt-downlaod-excel.png'
+import settlementDownloadFieldsImg from '@/assets/documentation/settleemnt-downlaod-excel-select-fields.png'
+import settlementDownloadGeoImg from '@/assets/documentation/settleemnt-downlaod-geojson.png'
+import settlementListingImg from '@/assets/documentation/settleemnt-listing.png'
+import settlementSearchImg from '@/assets/documentation/settleemnt-search.png'
+import settlementFilterImg from '@/assets/documentation/settleemnt-filter.png'
 import settlementRegisterImg from '@/assets/documentation/settlement_register .png'
 import settlementRegisterMapImg from '@/assets/documentation/settlement_register map .png'
 import aboutKisipImg from '@/assets/documentation/about kisip.png'
@@ -116,12 +157,20 @@ interface NavPage {
   content: string
 }
 
+interface NavSubGroup {
+  id: string
+  label: string
+  icon?: string
+  children: NavPage[]
+}
+
 interface NavGroup {
   id: string
   label: string
   icon: string
   adminOnly?: boolean
   children: NavPage[]
+  subgroups?: NavSubGroup[]
 }
 
 const isAdmin = computed(() => {
@@ -674,22 +723,223 @@ const allNavGroups: NavGroup[] = [
     id: 'data',
     label: 'Data Management',
     icon: 'mdi:database-outline',
-    children: [
+    subgroups: [
       {
         id: 'data-settlements',
         label: 'Settlements',
-        content: `
-          <p>The <strong>Settlements</strong> module is the core data layer of KeSMIS. It stores the national geodatabase of informal settlements.</p>
-          <h2>Key features</h2>
-          <ul>
-            <li><strong>Settlement list</strong> &mdash; browse, search and filter all registered settlements</li>
-            <li><strong>Settlement details</strong> &mdash; view demographics, location, tenure status, and linked facilities</li>
-            <li><strong>Households</strong> &mdash; household-level data linked to individual settlements</li>
-            <li><strong>Parcels</strong> &mdash; GIS parcel data for mapped settlements</li>
-            <li><strong>Add / Edit</strong> &mdash; register new settlements or update existing records</li>
-          </ul>
-        `
-      },
+        icon: 'mdi:map-legend',
+        children: [
+          {
+            id: 'data-settlements-overview',
+            label: 'Overview',
+            content: `
+              <p>The <strong>Settlements</strong> module is the core data layer of KeSMIS. It stores the national geodatabase of informal settlements and provides tools for listing, creating, reviewing, editing, exporting and managing the lifecycle of settlement records.</p>
+              <h2>Key capabilities</h2>
+              <ul>
+                <li><strong>Settlement list</strong> &mdash; browse, search and filter all registered settlements across multiple status tabs</li>
+                <li><strong>Settlement details</strong> &mdash; view demographics, location map, housing, utilities, facilities, documents, households, vulnerability scores, projects and indicator reports</li>
+                <li><strong>Add / Edit</strong> &mdash; register new settlements using a map-first workflow with Google Maps, or update existing records</li>
+                <li><strong>Review workflow</strong> &mdash; new settlements are submitted as <em>Pending</em> and require administrator approval before appearing in the approved list</li>
+                <li><strong>Decommission &amp; Delete</strong> &mdash; super administrators can decommission, soft-delete, cascade-delete, or merge settlements</li>
+                <li><strong>Export</strong> &mdash; download settlement data as Excel or geospatial (GeoJSON) files</li>
+              </ul>
+            `
+          },
+          {
+            id: 'data-settlements-listing',
+            label: 'Listing, Search & Filters',
+            content: `
+              <p>The settlement list is the main view when you navigate to <strong>Data &rarr; Settlements</strong>. It displays settlements in a paginated table with multiple status tabs.</p>
+              <img src="${settlementListingImg}" alt="Settlement listing view" class="docs-screenshot" />
+              <h2>Status tabs</h2>
+              <p>Settlements are organised into the following tabs based on their lifecycle status:</p>
+              <table><thead><tr><th>Tab</th><th>Description</th><th>Who can see it</th></tr></thead><tbody>
+                <tr><td><strong>Approved</strong></td><td>Settlements that have been reviewed and approved. This is the default view.</td><td>All users</td></tr>
+                <tr><td><strong>New</strong></td><td>Pending settlements awaiting review and approval.</td><td>National staff, super admins, county admins</td></tr>
+                <tr><td><strong>Rejected</strong></td><td>Settlements that were reviewed and rejected.</td><td>National staff, super admins</td></tr>
+                <tr><td><strong>Duplicates</strong></td><td>Potential duplicate records detected by the system, grouped by county.</td><td>National staff, super admins</td></tr>
+                <tr><td><strong>Decommissioned</strong></td><td>Settlements that have been decommissioned (no longer active).</td><td>National staff, super admins, county admins</td></tr>
+                <tr><td><strong>Deleted</strong></td><td>Soft-deleted or merged settlements. Can be restored.</td><td>National staff, super admins, county admins</td></tr>
+              </tbody></table>
+
+              <h2>Table columns</h2>
+              <p>The main table displays the following columns:</p>
+              <ul>
+                <li><strong>Geom</strong> &mdash; geometry icon indicating whether the settlement has a mapped boundary; a badge appears if roads or facilities are linked</li>
+                <li><strong>ID</strong> &mdash; unique settlement ID; an attachment icon appears if documents exist</li>
+                <li><strong>Name</strong> &mdash; settlement name</li>
+                <li><strong>Location</strong> &mdash; ward, sub-county and county</li>
+                <li><strong>Type</strong> &mdash; Slum, Informal Settlement, or Project Location</li>
+                <li><strong>Population</strong> &mdash; estimated number of residents</li>
+                <li><strong>Area (HA)</strong> &mdash; area in hectares</li>
+                <li><strong>Created</strong> &mdash; date the record was last updated</li>
+                <li><strong>Code</strong> &mdash; unique code with a copy-to-clipboard button</li>
+                <li><strong>Actions</strong> &mdash; dropdown with row-level actions (View on Map, Edit, Delete, Review, Decommission, Merge, Update Location)</li>
+              </ul>
+              <p>All columns are sortable. Click a column header to sort ascending or descending.</p>
+
+              <h2>Search</h2>
+              <img src="${settlementSearchImg}" alt="Settlement search" class="docs-screenshot" />
+              <p>Type a settlement name into the <strong>search box</strong> at the top of the list and press Enter or click the search icon. The table updates to show matching results. Clear the search box to reset.</p>
+
+              <h2>Filters</h2>
+              <img src="${settlementFilterImg}" alt="Settlement filters" class="docs-screenshot" />
+              <p>Use the location filter dropdowns to narrow the list:</p>
+              <ul>
+                <li><strong>County</strong> &mdash; multi-select; choose one or more counties</li>
+                <li><strong>Sub-county</strong> &mdash; multi-select; options appear based on selected counties</li>
+                <li><strong>Ward</strong> &mdash; multi-select; options appear based on selected sub-counties</li>
+              </ul>
+              <p>A <strong>date filter</strong> (calendar icon) lets you filter by date range. Click <strong>Clear</strong> to reset all filters.</p>
+              <blockquote>Note &mdash; County-level users only see settlements in their assigned county. The county filter is pre-set and cannot be changed.</blockquote>
+
+              <h2>Pagination</h2>
+              <p>Results are paginated with configurable page sizes (5, 10, 15, 20, 50, 100). If the total number of settlements is 100 or fewer, an "All" option is also available. The total count is displayed next to the pagination controls.</p>
+            `
+          },
+          {
+            id: 'data-settlements-creating',
+            label: 'Adding a Settlement',
+            content: `
+              <p>To register a new settlement, click the <strong>Add Settlement</strong> button on the settlement list toolbar. This opens a map-first workflow powered by Google Maps.</p>
+              <img src="${settlementAdd1Img}" alt="Add Settlement button" class="docs-screenshot" />
+              <h2>Step 1 &mdash; Select location</h2>
+              <ol>
+                <li>Select the <strong>County</strong> from the dropdown</li>
+                <li>Select the <strong>Ward</strong> &mdash; wards are loaded based on the selected county</li>
+                <li>The map zooms to the selected ward and displays its boundary</li>
+              </ol>
+              <img src="${settlementAdd2CountyImg}" alt="Select county and ward" class="docs-screenshot" />
+
+              <h2>Step 2 &mdash; Draw the boundary</h2>
+              <p>Use the map tools to define the settlement's location:</p>
+              <ul>
+                <li><strong>Draw polygon</strong> &mdash; click points on the map to draw the settlement boundary. The polygon must be inside the ward boundary</li>
+                <li><strong>Place marker</strong> &mdash; drop a point marker if the exact boundary is not yet known</li>
+                <li><strong>Upload boundary file</strong> &mdash; import a GeoJSON, zipped Shapefile, KML or KMZ file</li>
+                <li><strong>Fly to coordinates</strong> &mdash; enter latitude/longitude to centre the map on a specific location</li>
+              </ul>
+              <p>Neighbouring settlements already registered in the same ward are shown as pink polygons with labels, so you can avoid overlaps.</p>
+              <p>The area in hectares is calculated automatically from the drawn polygon.</p>
+              <img src="${settlementAdd2DrawImg}" alt="Draw settlement boundary on map" class="docs-screenshot" />
+
+              <h2>Step 3 &mdash; Fill in the details</h2>
+              <p>After drawing the boundary, a side drawer opens with the following sections:</p>
+              <img src="${settlementAdd3FillImg}" alt="Fill in settlement details" class="docs-screenshot" />
+              <table><thead><tr><th>Section</th><th>Fields</th></tr></thead><tbody>
+                <tr><td><strong>Basic Information</strong></td><td>Name, settlement type (Slum / Informal Settlement / Project Location), area, population, description</td></tr>
+                <tr><td><strong>Location</strong></td><td>County, ward (pre-filled from Step 1), sub-county (auto-inferred)</td></tr>
+                <tr><td><strong>Parcel Information</strong></td><td>Parcel number, owner, owner type, RIM number, surveyed status, land status</td></tr>
+                <tr><td><strong>Physical Characteristics</strong></td><td>Population density, land use, proximity to river, wayleave, road reserve, structure types, development type, building materials, distances to town and trunk road, electricity and piped water availability</td></tr>
+                <tr><td><strong>Socio-Economic</strong></td><td>Encumbrance, number of households, average household size, median household income, plot ownership and tenancy ratios, average rent, environmental hazards, general location description</td></tr>
+                <tr><td><strong>Vulnerability Assessment</strong></td><td>Climate region, soil type, land cover, altitude range, proximity to river and flood plain. A vulnerability score and rating (LOW / MEDIUM / HIGH) are computed automatically</td></tr>
+              </tbody></table>
+
+              <h2>Required fields</h2>
+              <p>The following fields must be completed before submission: settlement name, county, ward, settlement type, climate region, soil type, land cover, altitude range, proximity to river, and proximity to flood plain. A boundary or marker must also be placed on the map.</p>
+
+              <h2>Duplicate check</h2>
+              <p>Before saving, the system checks for existing settlements with the same name in the same county. If a potential duplicate is found, a confirmation dialog appears. You can proceed or cancel.</p>
+
+              <h2>After submission</h2>
+              <ul>
+                <li>The settlement is saved with a status of <strong>Pending</strong> and assigned a unique code</li>
+                <li>It appears in the <strong>New</strong> tab of the settlement list</li>
+                <li>An administrator must <strong>review and approve</strong> the settlement before it moves to the Approved tab</li>
+              </ul>
+              <img src="${settlementAdd3SavedImg}" alt="Settlement saved as pending" class="docs-screenshot" />
+            `
+          },
+          {
+            id: 'data-settlements-management',
+            label: 'Management & Lifecycle',
+            content: `
+              <p>Settlements in KeSMIS follow a defined lifecycle from creation to approval, and can be decommissioned, merged, or deleted by authorised users.</p>
+              <h2>Review workflow</h2>
+              <p>When a new settlement is submitted, it enters a <strong>Pending</strong> state. Administrators can review it from the <strong>New</strong> tab:</p>
+              <ul>
+                <li><strong>Approve</strong> &mdash; moves the settlement to the Approved list, making it visible to all users and included in dashboards and reports</li>
+                <li><strong>Reject</strong> &mdash; moves the settlement to the Rejected list with a rejection message explaining why. Rejected settlements can be reviewed again</li>
+              </ul>
+              <img src="${settlementApproveImg}" alt="Review and approve settlement" class="docs-screenshot" />
+
+              <h2>Editing a settlement</h2>
+              <p>Click the <strong>Edit</strong> action from the row dropdown (or the Edit button on the settlement details page). This opens the same map-and-drawer form used during creation, pre-filled with existing data. You can update any field, redraw the boundary, or upload a new boundary file.</p>
+              <img src="${settlementEditImg}" alt="Edit settlement" class="docs-screenshot" />
+              <blockquote>Note &mdash; Edit access is controlled by permissions and location. National staff can edit any settlement. County staff can only edit settlements within their assigned county.</blockquote>
+
+              <h2>Settlement details page</h2>
+              <p>Clicking a settlement name opens its details page with the following tabs:</p>
+              <table><thead><tr><th>Tab</th><th>Contents</th></tr></thead><tbody>
+                <tr><td><strong>Profile</strong></td><td>Administrative location, settlement profile, housing details and utilities &mdash; displayed in collapsible sections</td></tr>
+                <tr><td><strong>Location</strong></td><td>Interactive map showing the settlement boundary, facilities and parcels</td></tr>
+                <tr><td><strong>Documents</strong></td><td>Photos in a grid view, plus other documents grouped by type (Plans, Reports, etc.). Upload and category editing available with permissions</td></tr>
+                <tr><td><strong>Projects</strong></td><td>Intervention projects linked to the settlement, with status indicators</td></tr>
+                <tr><td><strong>Households</strong></td><td>Household records with search, pagination and download. Requires household read permission</td></tr>
+                <tr><td><strong>Vulnerability</strong></td><td>GIS-based (Tool A) vulnerability scores and climate assessment (Tool B) hazard, exposure, sensitivity and adaptive capacity scores</td></tr>
+                <tr><td><strong>Indicators</strong></td><td>Indicator category reports with dates, amounts, cumulative values and attachments</td></tr>
+                <tr><td><strong>History</strong></td><td>Edit history log with timestamps. Administrators can revert specific changes</td></tr>
+                <tr><td><strong>Settings</strong></td><td>Delete settlement (non-county users with delete permission only)</td></tr>
+              </tbody></table>
+
+              <h2>Decommissioning</h2>
+              <p>Super administrators can decommission settlements that are no longer active (e.g. upgraded, relocated or absorbed into formal planning).</p>
+              <ul>
+                <li><strong>Single</strong> &mdash; select <em>Decommission</em> from the row actions dropdown. A dialog prompts for a reason</li>
+                <li><strong>Batch</strong> &mdash; select multiple settlements using the checkboxes, then click the <em>Decommission (N selected)</em> button. Enter a reason and confirm</li>
+              </ul>
+              <p>Decommissioned settlements move to the <strong>Decommissioned</strong> tab and are excluded from active counts and dashboards.</p>
+              <img src="${settlementDecommissionImg}" alt="Decommission settlement" class="docs-screenshot" />
+
+              <h2>Merging</h2>
+              <p>When two records refer to the same settlement, they can be merged:</p>
+              <ul>
+                <li>Select exactly <strong>two settlements</strong> using the checkboxes, then click <strong>Merge</strong></li>
+                <li>Choose which record to keep as the <strong>primary</strong></li>
+                <li>The secondary record is soft-deleted and linked to the primary via a "Merged Into" reference</li>
+              </ul>
+              <p>Duplicates detected by the system are grouped by county in the <strong>Duplicates</strong> tab, where the same merge flow is available.</p>
+              <img src="${settlementMergeImg}" alt="Merge settlements" class="docs-screenshot" />
+
+              <h2>Deleting</h2>
+              <ul>
+                <li><strong>Soft delete</strong> &mdash; removes the settlement from the active list but retains the record. Available via the row actions dropdown or the Settings tab on the details page</li>
+                <li><strong>Cascade delete</strong> &mdash; permanently removes the settlement and all related data (households, facilities, documents, etc.). Super administrators only; available as a batch action</li>
+              </ul>
+              <p>Soft-deleted and merged settlements appear in the <strong>Deleted</strong> tab and can be <strong>restored</strong> using the Restore button.</p>
+              <img src="${settlementDeleteImg}" alt="Delete settlement" class="docs-screenshot" />
+            `
+          },
+          {
+            id: 'data-settlements-export',
+            label: 'Export & Download',
+            content: `
+              <p>The settlement list provides two export options, both accessible from the toolbar buttons.</p>
+              <h2>Excel export</h2>
+              <img src="${settlementDownloadExcelImg}" alt="Excel download button" class="docs-screenshot" />
+              <ol>
+                <li>Click the <strong>Download</strong> button on the toolbar</li>
+                <li>A dialog opens where you can select which fields to include in the export</li>
+                <li>Click <strong>Download</strong> to generate an Excel (.xlsx) file</li>
+              </ol>
+              <img src="${settlementDownloadFieldsImg}" alt="Select fields for Excel export" class="docs-screenshot" />
+              <p>The export respects your current filters and search. If you have filtered by county or ward, only matching settlements will be included. Computed fields such as latitude and longitude (derived from geometry) are included when spatial data is available.</p>
+
+              <h2>Geospatial export (GeoJSON)</h2>
+              <img src="${settlementDownloadGeoImg}" alt="Geospatial data download" class="docs-screenshot" />
+              <ol>
+                <li>Click the <strong>Download Geospatial Data</strong> button (requires <code>settlement:downloadGeo</code> permission)</li>
+                <li>The system packages all matching settlements (up to 10,000) into a GeoJSON file inside a ZIP archive</li>
+                <li>A shareable link is created and automatically copied to your clipboard</li>
+                <li>A success dialog confirms the download is ready</li>
+              </ol>
+              <blockquote>Tip &mdash; Apply county or ward filters before exporting to limit the data to a specific area. This reduces file size and focuses the output on the region you need.</blockquote>
+            `
+          }
+        ]
+      }
+    ],
+    children: [
       {
         id: 'data-climate',
         label: 'Climate Assessments',
@@ -1016,7 +1266,18 @@ const navGroups = computed(() =>
   allNavGroups.filter(g => !g.adminOnly || isAdmin.value)
 )
 
-const allPages = computed(() => navGroups.value.flatMap(g => g.children))
+function getAllGroupPages(g: NavGroup): NavPage[] {
+  const pages: NavPage[] = []
+  if (g.subgroups) {
+    for (const sub of g.subgroups) {
+      pages.push(...sub.children)
+    }
+  }
+  pages.push(...g.children)
+  return pages
+}
+
+const allPages = computed(() => navGroups.value.flatMap(g => getAllGroupPages(g)))
 const currentPage = computed(() => allPages.value.find(p => p.id === activeSection.value) ?? allPages.value[0])
 const currentIndex = computed(() => allPages.value.findIndex(p => p.id === activeSection.value))
 const prevPage = computed(() => currentIndex.value > 0 ? allPages.value[currentIndex.value - 1] : null)
@@ -1025,13 +1286,21 @@ const nextPage = computed(() => currentIndex.value < allPages.value.length - 1 ?
 const activeGroupLabel = computed(() => {
   for (const g of navGroups.value) {
     if (g.children.some(c => c.id === activeSection.value)) return g.label
+    if (g.subgroups?.some(sub => sub.children.some(c => c.id === activeSection.value))) return g.label
   }
   return ''
 })
 
 function groupHasActive(groupId: string) {
   const group = navGroups.value.find(g => g.id === groupId)
-  return group?.children.some(c => c.id === activeSection.value) ?? false
+  if (!group) return false
+  if (group.children.some(c => c.id === activeSection.value)) return true
+  if (group.subgroups?.some(sub => sub.children.some(c => c.id === activeSection.value))) return true
+  return false
+}
+
+function subgroupHasActive(sub: NavSubGroup) {
+  return sub.children.some(c => c.id === activeSection.value)
 }
 
 function toggleGroup(id: string) {
@@ -1048,6 +1317,14 @@ function selectSection(id: string) {
     if (g.children.some(c => c.id === id)) {
       expandedGroups.value = new Set([...expandedGroups.value, g.id])
       break
+    }
+    if (g.subgroups) {
+      for (const sub of g.subgroups) {
+        if (sub.children.some(c => c.id === id)) {
+          expandedGroups.value = new Set([...expandedGroups.value, g.id, sub.id])
+          break
+        }
+      }
     }
   }
   mainRef.value?.scrollTo({ top: 0, behavior: 'smooth' })
@@ -1175,6 +1452,64 @@ useHead({
 /* Children items */
 .nav-group-children {
   overflow: hidden;
+}
+
+/* Subgroup toggle */
+.nav-subgroup-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 12px 6px 28px;
+  border: none;
+  background: transparent;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #6b7280;
+  text-align: left;
+  transition: background 0.15s, color 0.15s;
+  margin-top: 2px;
+}
+
+.nav-subgroup-toggle:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.nav-subgroup-toggle.has-active {
+  color: #4338ca;
+}
+
+.nav-subgroup-toggle.expanded .sub-chevron {
+  transform: rotate(90deg);
+}
+
+.nav-subgroup-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.nav-subgroup-label {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sub-chevron {
+  font-size: 12px;
+}
+
+.nav-subgroup-children {
+  overflow: hidden;
+}
+
+.nav-item-nested {
+  padding-left: 52px !important;
 }
 
 .nav-item {
