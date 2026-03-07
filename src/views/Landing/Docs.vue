@@ -142,10 +142,19 @@ import settlementDownloadExcelImg from '@/assets/documentation/settleemnt-downla
 import settlementDownloadFieldsImg from '@/assets/documentation/settleemnt-downlaod-excel-select-fields.png'
 import settlementDownloadGeoImg from '@/assets/documentation/settleemnt-downlaod-geojson.png'
 import settlementListingImg from '@/assets/documentation/settleemnt-listing.png'
+import settlementListingActionsImg from '@/assets/documentation/settleemnt-listing-actions.png'
+import settlementListingViewMapImg from '@/assets/documentation/settleemnt-listing-actions-viewonmap.png'
 import settlementSearchImg from '@/assets/documentation/settleemnt-search.png'
 import settlementFilterImg from '@/assets/documentation/settleemnt-filter.png'
 import settlementRegisterImg from '@/assets/documentation/settlement_register .png'
 import settlementRegisterMapImg from '@/assets/documentation/settlement_register map .png'
+import settlementDetailsProfileImg from '@/assets/documentation/settlement-details-profile.png'
+import settlementDetailsLocationImg from '@/assets/documentation/settlement-details-location.png'
+import settlementDetailsDocumentsImg from '@/assets/documentation/settlement-details-documents.png'
+import settlementDetailsProjectsImg from '@/assets/documentation/settlement-details-projects.png'
+import settlementDetailsHouseholdsImg from '@/assets/documentation/settlement-details-housholds.png'
+import settlementDetailsClimateImg from '@/assets/documentation/settlement-details-climate-risks.png'
+import settlementDetailsHistoryImg from '@/assets/documentation/settlement-details-history.png'
 import aboutKisipImg from '@/assets/documentation/about kisip.png'
 import modeSwitchImg from '@/assets/documentation/mode switch.png'
 import registerImg from '@/assets/documentation/regsiter.png'
@@ -807,7 +816,10 @@ const allNavGroups: NavGroup[] = [
                 <li><strong>Code</strong> &mdash; unique code with a copy-to-clipboard button</li>
                 <li><strong>Actions</strong> &mdash; dropdown with row-level actions (View on Map, Edit, Delete, Review, Decommission, Merge, Update Location)</li>
               </ul>
+              <img src="${settlementListingActionsImg}" alt="Settlement listing row actions" class="docs-screenshot" />
               <p>All columns are sortable. Click a column header to sort ascending or descending.</p>
+              <p>Selecting <strong>View on Map</strong> opens the settlement's boundary and linked layers on an interactive map:</p>
+              <img src="${settlementListingViewMapImg}" alt="Settlement View on Map" class="docs-screenshot" />
 
               <h2>Search</h2>
               <img src="${settlementSearchImg}" alt="Settlement search" class="docs-screenshot" />
@@ -879,6 +891,89 @@ const allNavGroups: NavGroup[] = [
                 <li>An administrator must <strong>review and approve</strong> the settlement before it moves to the Approved tab</li>
               </ul>
               <img src="${settlementAdd3SavedImg}" alt="Settlement saved as pending" class="docs-screenshot" />
+            `
+          },
+          {
+            id: 'data-settlements-details',
+            label: 'Settlement Details',
+            content: `
+              <p>Double-click any settlement in the listing table (or click the <strong>More</strong> action button) to open its <strong>Settlement Details</strong> page. This is a comprehensive profile view organised into tabbed sections.</p>
+
+              <h2>Page header</h2>
+              <p>The header displays the settlement name, sub-county and county (e.g. <em>"Kibera Settlement, Langata Subcounty, Nairobi County"</em>). Two action buttons are available for authorised users:</p>
+              <ul>
+                <li><strong>Edit</strong> &mdash; opens the settlement editing form to update any field</li>
+                <li><strong>Add Facility</strong> &mdash; navigates to the facility creation wizard, pre-linked to this settlement</li>
+              </ul>
+
+              <h2>Profile tab</h2>
+              <img class="docs-screenshot" src="${settlementDetailsProfileImg}" alt="Settlement Details — Profile tab" />
+              <p>The default tab displays the settlement's full attribute data in collapsible sections:</p>
+              <table><thead><tr><th>Section</th><th>Fields</th></tr></thead><tbody>
+                <tr><td><strong>Administrative Location</strong></td><td>County, Sub-county, Ward, General Location</td></tr>
+                <tr><td><strong>Profile</strong></td><td>Name, Type, Population, Area (Ha), Number of Households, Average Household Size, Land Status, Parcel Owner, Owner Type, Land Use, Development Type, Structure Types, Building Materials, Distance to Town, Distance to Trunk Road, Environmental Hazards</td></tr>
+                <tr><td><strong>Housing</strong></td><td>Number of Households, Average Household Size, Structure Types, Development Type, Building Materials, Average Rent, Plot Ownership Ratio, Plot Tenant Ratio</td></tr>
+                <tr><td><strong>Utilities</strong></td><td>Electricity Available, Piped Water Available, Median Household Income, On Wayleave, On Road Reserve</td></tr>
+              </tbody></table>
+              <p>Each section can be collapsed or expanded by clicking its header. A <strong>Download Facts</strong> button generates a PDF report of the settlement profile.</p>
+
+              <h2>Location tab</h2>
+              <img class="docs-screenshot" src="${settlementDetailsLocationImg}" alt="Settlement Details — Location tab" />
+              <p>Displays an interactive Mapbox map centred on the settlement. The map shows:</p>
+              <ul>
+                <li>The settlement boundary polygon</li>
+                <li>Overlaid layers for facilities, roads, parcels, structures, and other linked spatial data</li>
+                <li>Standard map controls (zoom, basemap switch between Streets and Satellite)</li>
+              </ul>
+
+              <h2>Documents tab</h2>
+              <img class="docs-screenshot" src="${settlementDetailsDocumentsImg}" alt="Settlement Details — Documents tab" />
+              <p>A document management area where files associated with the settlement are stored and organised. Features include:</p>
+              <ul>
+                <li><strong>Search</strong> &mdash; filter documents by name</li>
+                <li><strong>Upload</strong> &mdash; authorised users can upload new documents (photos, reports, PDFs, shapefiles, etc.)</li>
+                <li><strong>Photos section</strong> &mdash; a dedicated grid of photo thumbnails with click-to-preview</li>
+                <li><strong>Grouped documents</strong> &mdash; other files are grouped by category (e.g. Reports, Plans, Maps) in collapsible sections with name, format, size, upload date, and download/delete actions</li>
+              </ul>
+
+              <h2>Projects tab</h2>
+              <img class="docs-screenshot" src="${settlementDetailsProjectsImg}" alt="Settlement Details — Projects tab" />
+              <p>Lists all KISIP projects linked to this settlement in a table with columns for Project Code, Project Title, and Status. Click the action button to navigate to the full project details.</p>
+
+              <h2>Households tab</h2>
+              <img class="docs-screenshot" src="${settlementDetailsHouseholdsImg}" alt="Settlement Details — Households tab" />
+              <p>Displays households registered under this settlement (visible only to users with household access permissions). Features:</p>
+              <ul>
+                <li>Paginated table (5, 10, 20, 50, 100 per page)</li>
+                <li>Columns: Gender, Age, Household Size</li>
+                <li>Export to Excel via the download button</li>
+              </ul>
+
+              <h2>Vulnerability tab</h2>
+              <img class="docs-screenshot" src="${settlementDetailsClimateImg}" alt="Settlement Details — Vulnerability tab" />
+              <p>Shows vulnerability and climate risk assessment scores for the settlement, split into two assessment tools:</p>
+              <ul>
+                <li><strong>Tool A — GIS-based Vulnerability Assessment</strong> &mdash; displays attributes like Climate Region, Soil Type, Land Cover, Altitude Range, Proximity to River, and Proximity to Flood Plain, along with the computed vulnerability score and rating tag</li>
+                <li><strong>Tool B — Climate Risk &amp; Vulnerability Assessment</strong> &mdash; links to the KISIP Tool B questionnaire. If completed, shows four dimension score cards (Hazard, Exposure, Sensitivity, Adaptive Capacity) with colour-coded severity levels and an overall score</li>
+              </ul>
+              <p>A <strong>Score Interpretation</strong> drawer explains how scores map to Low, Medium, High, and Very High ratings.</p>
+
+              <h2>Indicators tab</h2>
+              <p>Tracks M&amp;E indicator reports filed against the settlement. The table shows:</p>
+              <ul>
+                <li>Indicator name and category</li>
+                <li>Date reported, Amount, Cumulative Amount</li>
+                <li>Status (Approved, Pending, Rejected &mdash; with tooltip showing rejection reason)</li>
+                <li>Attachment icon if supporting documents are linked</li>
+              </ul>
+              <p>Authorised users can click <strong>File Report</strong> to submit a new indicator report.</p>
+
+              <h2>History tab</h2>
+              <img class="docs-screenshot" src="${settlementDetailsHistoryImg}" alt="Settlement Details — History tab" />
+              <p>An audit trail of all edits made to the settlement record (visible to users with edit permission). Each row shows the date and the user who made the change. Expand a row to see a field-by-field comparison of <em>Before</em> and <em>After</em> values. A <strong>Revert</strong> button allows administrators to undo a specific edit.</p>
+
+              <h2>Settings tab</h2>
+              <p>Available only to super administrators and root administrators. Contains a <strong>Delete Settlement</strong> button with a confirmation prompt. Deleting a settlement soft-deletes it and moves it to the Deleted tab in the listing.</p>
             `
           },
           {
@@ -2295,10 +2390,23 @@ useHead({
 .docs-body :deep(img.docs-screenshot) {
   display: block;
   max-width: 100%;
-  border-radius: 8px;
-  border: 1px solid #e5e7eb;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-  margin: 20px 0;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.08),
+    0 1px 4px rgba(0, 0, 0, 0.04);
+  margin: 24px 0;
+  -webkit-mask-image: linear-gradient(to bottom, #000 85%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 85%, transparent 100%);
+  transition: box-shadow 0.25s ease, transform 0.25s ease;
+}
+.docs-body :deep(img.docs-screenshot:hover) {
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.12),
+    0 2px 8px rgba(0, 0, 0, 0.06);
+  transform: translateY(-2px);
+  -webkit-mask-image: none;
+  mask-image: none;
 }
 
 /* ---- Prev / Next ---- */
