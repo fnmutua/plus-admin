@@ -86,6 +86,20 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useHead } from '@unhead/vue'
 import { Icon } from '@iconify/vue'
+import landingPageImg from '@/assets/documentation/landing_page.png'
+import actionButtonsImg from '@/assets/documentation/action-buttons.png'
+import topNavigationImg from '@/assets/documentation/top_navigation.png'
+import fileGrievanceBtnImg from '@/assets/documentation/File a Grievance button.png'
+import grievanceFormImg from '@/assets/documentation/multi-step greivnace form.png'
+import incidentBtnImg from '@/assets/documentation/incident button.png'
+import incidentFormImg from '@/assets/documentation/incident form.png'
+import settlementRegisterImg from '@/assets/documentation/settlement_register .png'
+import settlementRegisterMapImg from '@/assets/documentation/settlement_register map .png'
+import aboutKisipImg from '@/assets/documentation/about kisip.png'
+import modeSwitchImg from '@/assets/documentation/mode switch.png'
+import registerImg from '@/assets/documentation/regsiter.png'
+import signinBtnImg from '@/assets/documentation/signin button.png'
+import loginImg from '@/assets/documentation/login.png'
 interface NavPage {
   id: string
   label: string
@@ -116,7 +130,7 @@ const mainRef = ref<HTMLElement | null>(null)
 const allNavGroups: NavGroup[] = [
   {
     id: 'landing',
-    label: 'Landing Page',
+    label: 'Home',
     icon: 'mdi:home-outline',
     children: [
       {
@@ -178,6 +192,7 @@ const allNavGroups: NavGroup[] = [
         label: 'Landing Page Overview',
         content: `
           <p>The landing page is the public entry point to KeSMIS. It is accessible to everyone &mdash; no login is required. The page is designed to introduce the system and give public users quick access to key services.</p>
+          <img src="${landingPageImg}" alt="KeSMIS Landing Page" class="docs-screenshot" />
           <h2>What can you do from the landing page?</h2>
           <p>Without signing in, any visitor can:</p>
           <ul>
@@ -207,6 +222,7 @@ const allNavGroups: NavGroup[] = [
         label: 'Hero Section & Buttons',
         content: `
           <p>The hero section sits at the very top of the landing page. On the left it displays the system name, a short description, and three feature highlights (geodatabase, e-GRM, climate risk). On the right it shows an animated preview of what the internal dashboard looks like &mdash; a rotating carousel of bar charts, pie charts, and a mini map.</p>
+          <img src="${actionButtonsImg}" alt="Hero section action buttons" class="docs-screenshot" />
           <h2>Action buttons</h2>
           <p>Below the description are four buttons. These are the primary entry points for any visitor:</p>
           <table><thead><tr><th>Button</th><th>What it does</th></tr></thead><tbody>
@@ -248,6 +264,7 @@ const allNavGroups: NavGroup[] = [
         label: 'Top Navigation',
         content: `
           <p>The top navigation bar is always visible at the top of the page. It provides quick links to all public sections without requiring authentication.</p>
+          <img src="${topNavigationImg}" alt="Top navigation bar" class="docs-screenshot" />
           <table><thead><tr><th>Link</th><th>Where it goes</th><th>Login required?</th></tr></thead><tbody>
             <tr><td><strong>Dashboard</strong></td><td>If logged in, opens the internal Status dashboard. If not, opens the login page.</td><td>Yes (redirects to login)</td></tr>
             <tr><td><strong>Grievances</strong></td><td>Scrolls to the Grievance Redress section of the landing page, with buttons to file a new grievance or check an existing one.</td><td>No</td></tr>
@@ -276,6 +293,7 @@ const allNavGroups: NavGroup[] = [
             <li>Confidential and secure grievance handling</li>
             <li>Timely response and resolution</li>
           </ul>
+          <img src="${fileGrievanceBtnImg}" alt="File a Grievance button on the landing page" class="docs-screenshot" />
           <h2>How to file a grievance</h2>
           <ol>
             <li>Click the <strong>File a Grievance</strong> button (either in the hero section or in the GRM section)</li>
@@ -285,6 +303,7 @@ const allNavGroups: NavGroup[] = [
             <li>Review your submission on the final step and click <strong>Submit</strong></li>
             <li>You will receive a <strong>tracking code</strong> &mdash; save it to check the status of your grievance later using the <strong>Check Status</strong> button</li>
           </ol>
+          <img src="${grievanceFormImg}" alt="Multi-step grievance submission form" class="docs-screenshot" />
           <h2>Checking grievance status</h2>
           <p>Click <strong>Check Status</strong> on the GRM section or navigate directly to the grievance status page. Enter your tracking code to view the current status, any updates from the GRC, and resolution details.</p>
           <blockquote>Note &mdash; You can also call the toll-free helpline <strong>0800 724 349</strong> during working hours to file a grievance by phone or enquire about an existing one.</blockquote>
@@ -295,6 +314,7 @@ const allNavGroups: NavGroup[] = [
         label: 'Reporting an Incident',
         content: `
           <p>The <strong>Incident Report</strong> button on the hero section opens the public incident reporting page. This allows anyone to report accidents, disasters, or safety events affecting informal settlements or KISIP project areas.</p>
+          <img src="${incidentBtnImg}" alt="Incident Report button on the landing page" class="docs-screenshot" />
           <h2>How to report an incident</h2>
           <ol>
             <li>Click the <strong>Incident Report</strong> button on the landing page hero section</li>
@@ -312,6 +332,7 @@ const allNavGroups: NavGroup[] = [
             <li>Complete the investigation details, narrative, and corrective actions sections</li>
             <li>Review and submit the report</li>
           </ol>
+          <img src="${incidentFormImg}" alt="Incident reporting form" class="docs-screenshot" />
           <h2>Incident types</h2>
           <p>Common incident categories include:</p>
           <ul>
@@ -329,6 +350,7 @@ const allNavGroups: NavGroup[] = [
         label: 'Settlement Register',
         content: `
           <p>The <strong>Settlement Register</strong> is an interactive public section embedded in the landing page. It provides access to the national database of slums and informal settlements without requiring a login.</p>
+          <img src="${settlementRegisterImg}" alt="Settlement Register list view" class="docs-screenshot" />
           <h2>Searching for settlements</h2>
           <ol>
             <li>Type a settlement name in the <strong>search box</strong> and click <strong>Search</strong> (or press Enter)</li>
@@ -347,6 +369,7 @@ const allNavGroups: NavGroup[] = [
           </ul>
           <p>Results are paginated. Use the pagination controls at the bottom to navigate between pages.</p>
           <h2>Map view</h2>
+          <img src="${settlementRegisterMapImg}" alt="Settlement Register map view" class="docs-screenshot" />
           <p>Switch to the <strong>Map</strong> tab to visualise settlements geographically:</p>
           <ul>
             <li>Select a county (or search by name) to load settlement markers on the map</li>
@@ -366,6 +389,7 @@ const allNavGroups: NavGroup[] = [
         label: 'About KISIP & Statistics',
         content: `
           <p>Below the hero section, the landing page presents background information about the <strong>Kenya Informal Settlements Improvement Project (KISIP)</strong>:</p>
+          <img src="${aboutKisipImg}" alt="About KISIP section" class="docs-screenshot" />
           <ul>
             <li>KeSMIS is implemented under KISIP, a government initiative to improve living conditions in informal settlements across Kenya</li>
             <li>The system supports evidence-based planning and decision-making for urban development interventions</li>
@@ -389,6 +413,7 @@ const allNavGroups: NavGroup[] = [
         label: 'Display Mode',
         content: `
           <p>KeSMIS supports <strong>light</strong> and <strong>dark</strong> themes. A toggle switch is available in the top navigation bar header.</p>
+          <img src="${modeSwitchImg}" alt="Day and dark mode toggle" class="docs-screenshot" />
           <ul>
             <li>Click the sun/moon icon to switch between day and dark modes</li>
             <li>Your preference is saved in the browser and persists across sessions until you change it</li>
@@ -402,6 +427,7 @@ const allNavGroups: NavGroup[] = [
         label: 'Creating an Account',
         content: `
           <p>Before you can access the internal KeSMIS dashboard you need a user account. You can register for one directly from the landing page.</p>
+          <img src="${registerImg}" alt="Registration form" class="docs-screenshot" />
           <h2>How to register</h2>
           <ol>
             <li>Click the <strong>Sign in</strong> button on the landing page hero section or top navigation bar</li>
@@ -436,6 +462,7 @@ const allNavGroups: NavGroup[] = [
         label: 'Signing In',
         content: `
           <p>Once you have an approved account, you can sign in to access the internal KeSMIS dashboard and all the modules available to your role.</p>
+          <img src="${signinBtnImg}" alt="Sign in button on the landing page" class="docs-screenshot" />
           <h2>How to sign in</h2>
           <ol>
             <li>Click the <strong>Sign in</strong> button on the hero section, or the <strong>Sign in</strong> link on the top navigation bar</li>
@@ -444,6 +471,7 @@ const allNavGroups: NavGroup[] = [
             <li>Click <strong>Sign in</strong> to authenticate</li>
             <li>On success you will be redirected to the <strong>Status Dashboard</strong></li>
           </ol>
+          <img src="${loginImg}" alt="Login page" class="docs-screenshot" />
           <h2>Forgot your password?</h2>
           <p>Click the <strong>Forgot password</strong> link on the login page. Enter your registered email address and a password reset link will be sent to you via email. Follow the link to set a new password.</p>
           <h2>After signing in</h2>
@@ -1354,6 +1382,15 @@ useHead({
   border-radius: 4px;
   font-size: 13px;
   color: #6366f1;
+}
+
+.docs-body :deep(img.docs-screenshot) {
+  display: block;
+  max-width: 100%;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  margin: 20px 0;
 }
 
 /* ---- Prev / Next ---- */
