@@ -93,6 +93,16 @@ import fileGrievanceBtnImg from '@/assets/documentation/File a Grievance button.
 import grievanceFormImg from '@/assets/documentation/multi-step greivnace form.png'
 import incidentBtnImg from '@/assets/documentation/incident button.png'
 import incidentFormImg from '@/assets/documentation/incident form.png'
+import homeDashboardImg from '@/assets/documentation/home-dashbaord.png'
+import statusDashboardImg from '@/assets/documentation/status-dashabord.png'
+import statusFilterBtnImg from '@/assets/documentation/status-dashabord-filter-button.png'
+import statusFilterResultsImg from '@/assets/documentation/status-dashabord-filter-results.png'
+import statusChartDownloadImg from '@/assets/documentation/status-dashabord-chart-download.png'
+import statusSectionsTabsImg from '@/assets/documentation/status-dashabord-sections-tabs.png'
+import settlementsMapImg from '@/assets/documentation/Settlements Map1.png'
+import settlementsMapFilterImg from '@/assets/documentation/Settlements Map-filter.png'
+import settlementsMapInteractImg from '@/assets/documentation/Settlements Map-interacting.png'
+import projectsMapImg from '@/assets/documentation/projects-map1.png'
 import settlementRegisterImg from '@/assets/documentation/settlement_register .png'
 import settlementRegisterMapImg from '@/assets/documentation/settlement_register map .png'
 import aboutKisipImg from '@/assets/documentation/about kisip.png'
@@ -503,6 +513,7 @@ const allNavGroups: NavGroup[] = [
             <tr><td><strong>Map</strong></td><td>Interactive Mapbox map of all informal settlements with clustering and filters.</td></tr>
             <tr><td><strong>Projects</strong></td><td>Map-based view of project locations with programme filters and a details drawer.</td></tr>
           </tbody></table>
+          <blockquote>Note &mdash; In addition to the default Status dashboard, administrators can configure <strong>custom dashboards</strong> for specific themes or use cases (e.g. a GRM-focused dashboard or a programme-specific view). These appear as additional entries under the Dashboards menu in the sidebar. Custom dashboards use the same cards, tabs and chart types as the Status dashboard but can be tailored to highlight different data sets and metrics.</blockquote>
         `
       },
       {
@@ -510,6 +521,7 @@ const allNavGroups: NavGroup[] = [
         label: 'Home',
         content: `
           <p>The <strong>Home</strong> dashboard is your personal workspace. It greets you with a time-based message (Good Morning / Afternoon / Evening) and shows a summary of your contributions.</p>
+          <img src="${homeDashboardImg}" alt="Home dashboard" class="docs-screenshot" />
           <h2>Summary cards</h2>
           <p>Three stat cards at the top display animated counters for:</p>
           <ul>
@@ -532,6 +544,7 @@ const allNavGroups: NavGroup[] = [
         label: 'Status (National Dashboard)',
         content: `
           <p>The <strong>Status</strong> page is the primary analytics dashboard. It presents a configurable set of summary cards, dynamic tabs and a wide variety of chart types &mdash; all driven by data from the database.</p>
+          <img src="${statusDashboardImg}" alt="Status dashboard overview" class="docs-screenshot" />
           <h2>Summary cards</h2>
           <p>At the top of the page, a row of <strong>stat cards</strong> displays key metrics such as:</p>
           <ul>
@@ -544,15 +557,18 @@ const allNavGroups: NavGroup[] = [
           <blockquote>Tip &mdash; Cards and their values are fully configurable by administrators under Settings &rarr; Dashboards &rarr; Cards.</blockquote>
 
           <h2>Filtering</h2>
+          <img src="${statusFilterBtnImg}" alt="Filter button on the Status dashboard" class="docs-screenshot" />
           <p>Click the <strong>filter icon</strong> (visible in the tags/header bar) to open a filter drawer on the right side. The drawer contains:</p>
           <ul>
             <li><strong>County</strong> &mdash; multi-select dropdown; choose one or more counties to filter all cards and charts</li>
             <li><strong>Constituency (Sub-county)</strong> &mdash; multi-select dropdown; options cascade from the selected counties</li>
           </ul>
           <p>Click <strong>Confirm</strong> to apply the filters. All stat cards and charts on the page will update to reflect only the selected areas. Click <strong>Cancel</strong> to close without applying.</p>
+          <img src="${statusFilterResultsImg}" alt="Filtered dashboard results" class="docs-screenshot" />
           <p>When filters are active, the chart subtitles update to show which county or sub-county is being viewed.</p>
 
           <h2>Sections (tabs)</h2>
+          <img src="${statusSectionsTabsImg}" alt="Dashboard sections and tabs" class="docs-screenshot" />
           <p>Below the cards, the dashboard is organised into <strong>dynamic tabs</strong> (sections). Each tab groups related charts together. Examples might include "Settlements Overview", "GRM Summary", "Infrastructure", etc.</p>
           <p>Tabs are configured by administrators under Settings &rarr; Dashboards &rarr; Tabs. Click a tab to switch between sections. Charts within each section are displayed in a two-column grid layout.</p>
 
@@ -573,6 +589,7 @@ const allNavGroups: NavGroup[] = [
           <p>Charts are configured under Settings &rarr; Dashboards &rarr; Charts, and assigned to sections.</p>
 
           <h2>Downloading and exporting</h2>
+          <img src="${statusChartDownloadImg}" alt="Chart download options" class="docs-screenshot" />
           <p>Several export options are available from the Status dashboard:</p>
           <ul>
             <li><strong>Map charts</strong> include an ECharts toolbox in the top-right corner of the chart with:
@@ -582,7 +599,6 @@ const allNavGroups: NavGroup[] = [
                 <li><strong>Save as Image</strong> &mdash; download the chart as a PNG image</li>
               </ul>
             </li>
-            <li><strong>Choropleth map</strong> &mdash; click on a county region to view settlement data for that county. A <em>Download Data</em> button appears, letting you download the underlying data as a JSON file with location, value, and timestamp.</li>
           </ul>
           <blockquote>Tip &mdash; Apply county/sub-county filters first, then use Save as Image to capture filtered snapshots for reports and presentations.</blockquote>
         `
@@ -592,6 +608,7 @@ const allNavGroups: NavGroup[] = [
         label: 'Settlements Map',
         content: `
           <p>The <strong>Map</strong> page shows a full-screen interactive Mapbox map of all informal settlements registered in KeSMIS.</p>
+          <img src="${settlementsMapImg}" alt="Settlements Map overview" class="docs-screenshot" />
           <h2>Map features</h2>
           <ul>
             <li><strong>Settlement markers</strong> &mdash; each settlement appears as a green circle on the map</li>
@@ -602,6 +619,7 @@ const allNavGroups: NavGroup[] = [
           </ul>
 
           <h2>Filtering</h2>
+          <img src="${settlementsMapFilterImg}" alt="Settlements Map filter panel" class="docs-screenshot" />
           <p>Click the <strong>filter icon</strong> in the top-right map controls to open a floating filter panel:</p>
           <ul>
             <li><strong>County</strong> &mdash; multi-select dropdown to show only settlements in specific counties</li>
@@ -611,6 +629,7 @@ const allNavGroups: NavGroup[] = [
           <p>On mobile devices, the filter panel slides in as a drawer with an overlay.</p>
 
           <h2>Interacting with the map</h2>
+          <img src="${settlementsMapInteractImg}" alt="Interacting with the Settlements Map" class="docs-screenshot" />
           <ul>
             <li><strong>Click a settlement point</strong> &mdash; a popup appears showing the settlement name, area and county</li>
             <li><strong>Click the popup</strong> &mdash; navigates to the detailed settlement map page</li>
@@ -627,6 +646,7 @@ const allNavGroups: NavGroup[] = [
         label: 'Projects Map',
         content: `
           <p>The <strong>Projects</strong> page shows a full-screen Mapbox map of all project locations. Unlike the settlements map, project points are <em>not</em> clustered &mdash; each project appears individually as a green marker.</p>
+          <img src="${projectsMapImg}" alt="Projects Map overview" class="docs-screenshot" />
           <h2>Filtering</h2>
           <p>Open the floating filter panel from the top-right to narrow the view:</p>
           <ul>
