@@ -160,6 +160,27 @@ import climateSensitivityImg from '@/assets/documentation/climate-questionaire-s
 import climateAdaptiveImg from '@/assets/documentation/climate-questionaire-adtapive-cpacity.png'
 import climateOverallRiskImg from '@/assets/documentation/climate-questionaire-overal-risk.png'
 import climateRecommendationsImg from '@/assets/documentation/climate-questionaire-recoemdnation.png'
+import facilitiesListingImg from '@/assets/documentation/facilities-listing.png'
+import facilitiesAdd1Img from '@/assets/documentation/facilities-add1.png'
+import facilitiesAddMarkerImg from '@/assets/documentation/facilities-add-marker.png'
+import facilitiesFillFormImg from '@/assets/documentation/facilities-fill-form.png'
+import facilitiesViewMapImg from '@/assets/documentation/facilities-view-map.png'
+import facilitiesViewMap2Img from '@/assets/documentation/facilities-view-map2.png'
+import facilitiesDeleteImg from '@/assets/documentation/facilities-delete.png'
+import householdsImg from '@/assets/documentation/households.png'
+import secListImg from '@/assets/documentation/SEC-list.png'
+import secAddImg from '@/assets/documentation/SEC-add.png'
+import grcListImg from '@/assets/documentation/GRC-list.png'
+import grcAddImg from '@/assets/documentation/GRC-add.png'
+import surveyListingImg from '@/assets/documentation/survey-listing.png'
+import importGis1Img from '@/assets/documentation/import-gis-1.png'
+import importGis2DestImg from '@/assets/documentation/import-gis-2-destination-table.png'
+import importGis2MatchImg from '@/assets/documentation/import-gis-2-matchfields.png'
+import importGis2ReviewImg from '@/assets/documentation/import-gis-2-review+import.png'
+import formDetail1Img from '@/assets/documentation/forn-detail-1.png'
+import formDetail2MapImg from '@/assets/documentation/forn-detail-2-map.png'
+import formDetail3ChartImg from '@/assets/documentation/forn-detail-3-chart.png'
+import formDetail4DownloadImg from '@/assets/documentation/forn-detail-4-downlaod-atatchment.png'
 interface NavPage {
   id: string
   label: string
@@ -211,7 +232,7 @@ const allNavGroups: NavGroup[] = [
           <ul>
             <li>Maintain a <strong>national geodatabase</strong> of all slums and informal settlements, including their locations, boundaries, demographics and linked infrastructure</li>
             <li>Support <strong>evidence-based planning</strong> and decision-making for urban development interventions by national and county governments</li>
-            <li>Enable the public to <strong>file grievances</strong> and <strong>report incidents</strong> related to KISIP / KENSUP projects through transparent, accessible channels</li>
+            <li>Enable the public to <strong>file grievances</strong> and <strong>report incidents</strong> related to KISIP projects through transparent, accessible channels</li>
             <li>Track <strong>project performance</strong> through a structured Monitoring &amp; Evaluation (M&amp;E) framework with indicators, activities and evaluation reports</li>
             <li>Conduct <strong>climate risk and vulnerability assessments</strong> for informal settlements to inform resilience planning</li>
           </ul>
@@ -252,7 +273,7 @@ const allNavGroups: NavGroup[] = [
           <blockquote>Note &mdash; SlumMapper connects directly to KeSMIS. Data collected in the field is synchronised straight into the system, where it can be viewed in table and map formats from the web dashboard.</blockquote>
 
           <h2>Technology</h2>
-          <p>KeSMIS is a web-based application accessible from any modern browser on desktop, tablet or mobile. The system supports light and dark display modes, is available 24/7, and integrates with ODK Central for mobile field data collection. SlumMapper extends this with native mobile apps for offline-capable field operations.</p>
+          <p>KeSMIS is a web-based application accessible from any modern browser on desktop, tablet or mobile. The system supports light and dark display modes, is available 24/7, and integrates with <a href="https://collector.kesmis.go.ke/#/" target="_blank">ODK Central</a> for mobile field data collection. SlumMapper extends this with native mobile apps for offline-capable field operations.</p>
         `
       },
       {
@@ -264,7 +285,7 @@ const allNavGroups: NavGroup[] = [
           <h2>What can you do from the landing page?</h2>
           <p>Without signing in, any visitor can:</p>
           <ul>
-            <li><strong>File a grievance</strong> related to KISIP / KENSUP projects through a guided multi-step form</li>
+            <li><strong>File a grievance</strong> related to KISIP projects through a guided multi-step form</li>
             <li><strong>Report an incident</strong> (accident, disaster, or safety event) affecting informal settlements or project sites</li>
             <li><strong>Browse the Settlement Register</strong> &mdash; search, filter and view a public database of all informal settlements in Kenya, with map visualisation</li>
             <li><strong>Check the status</strong> of a previously submitted grievance or incident using its tracking ID</li>
@@ -339,7 +360,7 @@ const allNavGroups: NavGroup[] = [
             <tr><td><strong>Incidents</strong></td><td>Opens the public incident reporting page with tabs for filing a new incident and looking up an existing one.</td><td>No</td></tr>
             <tr><td><strong>Settlement Register</strong></td><td>Scrolls down to the interactive settlement search and map section.</td><td>No</td></tr>
             <tr><td><strong>FAQs</strong></td><td>Opens the Frequently Asked Questions page covering common queries about the system and KISIP.</td><td>No</td></tr>
-            <tr><td><strong>About</strong></td><td>Opens the About page with background on KISIP, KENSUP, and the implementing agencies.</td><td>No</td></tr>
+            <tr><td><strong>About</strong></td><td>Opens the About page with background on KISIP and the implementing agencies.</td><td>No</td></tr>
             <tr><td><strong>Contact</strong></td><td>Opens a contact form and displays the team's contact details.</td><td>No</td></tr>
             <tr><td><strong>Privacy</strong></td><td>Opens the Privacy Policy page explaining data protection practices.</td><td>No</td></tr>
           </tbody></table>
@@ -732,6 +753,7 @@ const allNavGroups: NavGroup[] = [
     id: 'data',
     label: 'Data Management',
     icon: 'mdi:database-outline',
+    adminOnly: true,
     subgroups: [
       {
         id: 'data-settlements',
@@ -944,6 +966,45 @@ const allNavGroups: NavGroup[] = [
               </ol>
               <blockquote>Tip &mdash; Apply county or ward filters before exporting to limit the data to a specific area. This reduces file size and focuses the output on the region you need.</blockquote>
             `
+          },
+          {
+            id: 'data-settlements-households',
+            label: 'Households',
+            content: `
+              <p>The <strong>Households</strong> sub-module records individual household-level data within a settlement. It is accessible from the settlement's details page under the <strong>Households</strong> tab, or from <strong>Data &rarr; Settlements &rarr; Households</strong> in the sidebar.</p>
+
+              <h2>Data privacy</h2>
+              <p>KeSMIS <strong>does not store personally identifiable information (PII)</strong> such as names, phone numbers or national ID numbers. Household records contain only non-identifying attributes &mdash; settlement, county, household size and similar aggregate fields &mdash; ensuring compliance with data protection requirements.</p>
+
+              <img class="docs-screenshot" src="${householdsImg}" alt="Households listing" />
+              <h2>Listing</h2>
+              <p>The households listing displays a paginated table of all household records. The table columns are:</p>
+              <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+                <tr><td><strong>#</strong></td><td>Row index number</td></tr>
+                <tr><td><strong>Gender</strong></td><td>Gender of the household head</td></tr>
+                <tr><td><strong>Age</strong></td><td>Age bracket of the household head</td></tr>
+                <tr><td><strong>Household Size</strong></td><td>Total number of members in the household</td></tr>
+                <tr><td><strong>Settlement</strong></td><td>The settlement the household belongs to</td></tr>
+                <tr><td><strong>Actions</strong></td><td><strong>More Details</strong> &mdash; opens a side drawer with the full household record (personal identifiers are excluded)</td></tr>
+              </tbody></table>
+              <p>Page sizes of 5, 10, 20, 50 or 100 records are available.</p>
+
+              <h2>Filtering</h2>
+              <p>Use the filter controls above the table to narrow results:</p>
+              <ul>
+                <li><strong>County</strong> &mdash; multi-select dropdown to filter by one or more counties</li>
+                <li><strong>Settlement</strong> &mdash; multi-select dropdown (cascades from the selected county)</li>
+                <li><strong>Gender</strong> &mdash; filter by gender</li>
+                <li><strong>Clear</strong> &mdash; resets all filters and reloads the full list</li>
+              </ul>
+              <p>County-level users automatically see only households within their assigned county.</p>
+
+              <h2>Export to Excel</h2>
+              <p>Click the <strong>Download</strong> button in the toolbar to export the current household list to an Excel file. A field-selection dialog lets you choose which columns to include in the export. The exported file reflects any active filters, so you can narrow the data before downloading.</p>
+              <p>Since no personal information is stored, exported files are safe to share without additional redaction.</p>
+
+              <blockquote>Tip &mdash; Apply county and settlement filters before exporting to keep the file focused on the area you need.</blockquote>
+            `
           }
         ]
       },
@@ -1098,73 +1159,418 @@ const allNavGroups: NavGroup[] = [
         `
           }
         ]
-      }
-    ],
-    children: [
+      },
       {
         id: 'data-facilities',
         label: 'Facilities',
-        content: `
-          <p>Facilities are physical assets mapped within or near settlements. They are organised into three categories:</p>
-          <h2>Social Amenities</h2>
-          <ul>
-            <li>Health facilities</li>
-            <li>Education facilities (schools)</li>
-            <li>Community halls</li>
-            <li>Community projects</li>
-            <li>Police stations</li>
-          </ul>
-          <h2>Infrastructure</h2>
-          <ul>
-            <li>Roads &amp; road structures</li>
-            <li>Water (water points, piped water, sewer)</li>
-            <li>Lighting (powerlines, flood-lights, streetlights)</li>
-            <li>Railway</li>
-            <li>Telecom masts</li>
-          </ul>
-          <h2>Others</h2>
-          <ul>
-            <li>Crime hotspots</li>
-            <li>Hazard zones</li>
-          </ul>
-        `
+        icon: 'mdi:map-marker-multiple-outline',
+        children: [
+          {
+            id: 'data-facilities-overview',
+            label: 'Overview',
+            content: `
+              <p><strong>Facilities</strong> are physical assets and points of interest mapped within or near informal settlements. They help build a spatial picture of available services, infrastructure and risk areas in each settlement.</p>
+              <img class="docs-screenshot" src="${facilitiesListingImg}" alt="Facilities listing page" />
+              <p>Facilities are organised into three main categories:</p>
+
+              <h2>Social Amenities</h2>
+              <table><thead><tr><th>Facility type</th><th>What is recorded</th></tr></thead><tbody>
+                <tr><td><strong>Health facilities</strong></td><td>Name, level (dispensary / health centre / hospital), ownership, registration status, bed counts, staff numbers, services offered, common ailments, referral information</td></tr>
+                <tr><td><strong>Education facilities</strong></td><td>School name, education category (ECD / primary / secondary / tertiary), enrolment, number of teachers</td></tr>
+                <tr><td><strong>Community halls</strong></td><td>Name, location, condition</td></tr>
+                <tr><td><strong>Community projects</strong></td><td>Project name, type, status</td></tr>
+                <tr><td><strong>Police stations</strong></td><td>Station name, location</td></tr>
+              </tbody></table>
+
+              <h2>Infrastructure</h2>
+              <table><thead><tr><th>Facility type</th><th>What is recorded</th></tr></thead><tbody>
+                <tr><td><strong>Roads</strong></td><td>Road name, class, surface type, width, traffic volume, drainage condition; road assets (culverts, bridges, etc.)</td></tr>
+                <tr><td><strong>Water points</strong></td><td>Name, type, capacity, price per 20 L, availability</td></tr>
+                <tr><td><strong>Piped water</strong></td><td>Network name, material, diameter, condition (line geometry)</td></tr>
+                <tr><td><strong>Sewer</strong></td><td>Network name, material, diameter, condition (line geometry)</td></tr>
+                <tr><td><strong>Lighting</strong></td><td>Powerlines, flood-lights / highmasts, streetlights</td></tr>
+                <tr><td><strong>Railway</strong></td><td>Line name, location (line geometry)</td></tr>
+                <tr><td><strong>Telecom masts</strong></td><td>Mast name, operator, location</td></tr>
+              </tbody></table>
+
+              <h2>Others</h2>
+              <table><thead><tr><th>Facility type</th><th>What is recorded</th></tr></thead><tbody>
+                <tr><td><strong>Crime hotspots</strong></td><td>Location, description</td></tr>
+                <tr><td><strong>Hazard zones</strong></td><td>Location, hazard type</td></tr>
+                <tr><td><strong>Dumping sites</strong></td><td>Location, description</td></tr>
+              </tbody></table>
+
+              <h2>Listing pages</h2>
+              <p>Each facility type has its own listing page accessible from the sidebar under <strong>Data &rarr; Facilities &rarr; [Category] &rarr; [Type]</strong>. All listing pages share a common layout:</p>
+              <ul>
+                <li><strong>Filters</strong> &mdash; County and Settlement multi-select dropdowns to narrow results. County-level users see only their assigned county's data.</li>
+                <li><strong>Search</strong> &mdash; Free-text search by facility name</li>
+                <li><strong>Table</strong> &mdash; Columns vary by type but always include name, location hierarchy (settlement, ward, sub-county, county), and type-specific fields</li>
+                <li><strong>Pagination</strong> &mdash; Page sizes of 10, 25, 50 or 100 records</li>
+                <li><strong>Actions</strong> &mdash; View on Map, Edit (via map drawer) and Delete</li>
+              </ul>
+              <blockquote>Note &mdash; The data you see is filtered by your role. National-level users see all counties; county staff see only their assigned county and settlements.</blockquote>
+            `
+          },
+          {
+            id: 'data-facilities-adding',
+            label: 'Adding Facilities',
+            content: `
+              <p>Adding a new facility follows a <strong>map-first workflow</strong> &mdash; you first locate the settlement on the map, then place the facility marker (or draw a line), and finally fill in the details form.</p>
+
+              <h2>Step 1 &mdash; Select location</h2>
+              <ol>
+                <li>Navigate to the facility listing page and click the <strong>Add</strong> button (requires the relevant <code>create</code> permission, e.g. <code>health_facility:create</code>)</li>
+                <li>Select the <strong>County</strong> from the dropdown</li>
+                <li>Select the <strong>Settlement</strong> &mdash; only settlements with a mapped boundary polygon are listed</li>
+                <li>The map zooms to the settlement and displays its boundary in red</li>
+              </ol>
+              <img class="docs-screenshot" src="${facilitiesAdd1Img}" alt="Adding a facility — select county and settlement" />
+
+              <h2>Step 2 &mdash; Mark on map</h2>
+              <p>The method depends on the facility geometry:</p>
+              <table><thead><tr><th>Geometry</th><th>Facility types</th><th>How to place</th></tr></thead><tbody>
+                <tr><td><strong>Point</strong></td><td>Health, Education, Water Point, Police, Community Hall, Crime Hotspot, Dumping Site, Floodlight, Streetlight, Mast, Road Asset, Hazard Zone, Other</td><td>Click <strong>Add Marker</strong>, then click inside the settlement boundary. The marker is draggable &mdash; reposition it if needed.</td></tr>
+                <tr><td><strong>Line</strong></td><td>Road, Piped Water, Sewer, Railway, Powerline, Stream</td><td>Use the polyline drawing tool to trace the feature on the map.</td></tr>
+              </tbody></table>
+              <p>For point facilities, the system validates that the marker falls <strong>inside the settlement boundary</strong>. If it is placed outside, you will be prompted to reposition it.</p>
+              <img class="docs-screenshot" src="${facilitiesAddMarkerImg}" alt="Adding a facility — place marker on map" />
+
+              <h2>Step 3 &mdash; Fill details</h2>
+              <ol>
+                <li>After placing the geometry, a <strong>details form drawer</strong> opens on the right</li>
+                <li>Fill in the required fields &mdash; at minimum the <strong>name</strong> is required for all facility types</li>
+                <li>Type-specific fields are displayed depending on the facility (e.g. bed counts for health, enrolment for education, road class and surface for roads)</li>
+                <li>Click <strong>Save</strong> to create the facility record</li>
+              </ol>
+              <img class="docs-screenshot" src="${facilitiesFillFormImg}" alt="Adding a facility — fill in details form" />
+
+              <h2>Pre-filling from a settlement</h2>
+              <p>If you navigate to "Add Facility" from within a settlement's details page, the county and settlement are automatically pre-selected, saving you a step.</p>
+
+              <blockquote>Tip &mdash; Existing facilities of the same type are shown on the map as blue markers. This helps you avoid duplicates and see spatial context.</blockquote>
+            `
+          },
+          {
+            id: 'data-facilities-managing',
+            label: 'Managing Facilities',
+            content: `
+              <p>Once a facility has been created, you can view, edit and delete it from the listing page or the map view.</p>
+
+              <h2>Viewing on the map</h2>
+              <p>Click the <strong>View on Map</strong> action in the listing table. A map drawer opens showing:</p>
+              <ul>
+                <li>The <strong>settlement boundary</strong> as a red dashed polygon</li>
+                <li>The <strong>selected facility</strong> at full opacity with a distinct marker</li>
+                <li>Other facilities of the same type shown at reduced opacity</li>
+                <li>A legend distinguishing the selected facility, other facilities and the settlement boundary</li>
+              </ul>
+              <img class="docs-screenshot" src="${facilitiesViewMapImg}" alt="Viewing a facility on the map" />
+              <img class="docs-screenshot" src="${facilitiesViewMap2Img}" alt="Facility map — marker detail and edit drawer" />
+
+              <h2>Editing a facility</h2>
+              <ol>
+                <li>Click the facility's marker on the map (or click <strong>View on Map</strong> from the table)</li>
+                <li>The <strong>details form drawer</strong> opens with the current values pre-filled</li>
+                <li>Modify any fields as needed</li>
+                <li>Click <strong>Save</strong> to update the record</li>
+              </ol>
+              <p>The marker is also <strong>draggable</strong> &mdash; drag it to a new position to update the facility's coordinates.</p>
+
+              <h2>Facility details page</h2>
+              <p>Some facility types (Health, Education, Water, Roads, Piped Water, Sewer) have a dedicated <strong>details page</strong> that shows a read-only profile view with organised sections:</p>
+              <ul>
+                <li><strong>Profile</strong> &mdash; name, type/level, county, ownership, registration status</li>
+                <li><strong>Capacity &amp; Staffing</strong> &mdash; type-specific metrics (e.g. beds, doctors, enrolment, teachers)</li>
+                <li><strong>Location</strong> &mdash; county, sub-county, ward, settlement</li>
+              </ul>
+
+              <h2>Deleting a facility</h2>
+              <ol>
+                <li>Click the <strong>Delete</strong> action in the table row</li>
+                <li>A confirmation dialog appears</li>
+                <li>Confirm to permanently remove the facility and any linked documents</li>
+              </ol>
+              <img class="docs-screenshot" src="${facilitiesDeleteImg}" alt="Deleting a facility — confirmation dialog" />
+
+              <h2>Permissions</h2>
+              <p>Actions are permission-gated. The table below lists the key permissions by facility type:</p>
+              <table><thead><tr><th>Facility type</th><th>Create</th><th>Update</th><th>Delete</th></tr></thead><tbody>
+                <tr><td>Health</td><td><code>health_facility:create</code></td><td><code>health_facility:update</code></td><td><code>health_facility:delete</code></td></tr>
+                <tr><td>Education</td><td><code>education_facility:create</code></td><td><code>education_facility:update</code></td><td><code>education_facility:delete</code></td></tr>
+                <tr><td>Water Point</td><td><code>water_point:create</code></td><td><code>water_point:update</code></td><td><code>water_point:delete</code></td></tr>
+                <tr><td>Road</td><td><code>road:create</code></td><td><code>road:update</code></td><td><code>road:delete</code></td></tr>
+                <tr><td>Piped Water</td><td><code>piped_water:create</code></td><td><code>piped_water:update</code></td><td><code>piped_water:delete</code></td></tr>
+                <tr><td>Sewer</td><td><code>sewer:create</code></td><td><code>sewer:update</code></td><td><code>sewer:delete</code></td></tr>
+                <tr><td>Powerline</td><td><code>powerline:create</code></td><td><code>powerline:update</code></td><td><code>powerline:delete</code></td></tr>
+                <tr><td>Other</td><td><code>other_facility:create</code></td><td><code>other_facility:update</code></td><td><code>other_facility:delete</code></td></tr>
+              </tbody></table>
+              <blockquote>Tip &mdash; If you do not see the Add button or the Delete action, your role does not have the required permission. Contact your administrator to request access.</blockquote>
+            `
+          }
+        ]
       },
       {
         id: 'data-community',
         label: 'Community',
+        icon: 'mdi:account-group-outline',
+        children: [
+          {
+            id: 'data-community-sec',
+            label: 'SEC (Settlement Executive Committee)',
         content: `
-          <p>Community structures linked to settlements:</p>
-          <table><thead><tr><th>Committee</th><th>Role</th></tr></thead><tbody>
-            <tr><td><strong>SEC</strong></td><td>Settlement Executive Committee &mdash; community leadership body for the settlement.</td></tr>
-            <tr><td><strong>GRC</strong></td><td>Grievance Redress Committee &mdash; community-level body responsible for first-level grievance resolution.</td></tr>
+          <p>The <strong>Settlement Executive Committee (SEC)</strong> is the community leadership body elected in each informal settlement. SEC officials represent the settlement residents and play a key role in the upgrading process.</p>
+          <img class="docs-screenshot" src="${secListImg}" alt="SEC officials listing" />
+
+          <h2>Listing</h2>
+          <p>Navigate to <strong>Community &rarr; SEC</strong> to view all SEC officials. Data is fetched from the ODK Central collector and presented in a grouped table. Each row represents a settlement with its committee, and you can expand it to see individual officials.</p>
+          <p>The main table columns are:</p>
+          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>Settlement</strong></td><td>Name of the settlement</td></tr>
+            <tr><td><strong>County</strong></td><td>County the settlement belongs to</td></tr>
+            <tr><td><strong>Coordinator</strong></td><td>County KISIP coordinator name</td></tr>
+            <tr><td><strong>NPCT Rep</strong></td><td>NPCT representative name</td></tr>
+            <tr><td><strong>Date</strong></td><td>Date the SEC was formed</td></tr>
           </tbody></table>
+          <p>Expand a row to see the full SEC roster with columns: Name, National ID, Gender, Phone, Category, and SEC Position.</p>
+
+          <h2>Filtering &amp; Search</h2>
+          <ul>
+            <li><strong>County</strong> &mdash; dropdown to filter by county (county-level users see only their assigned county)</li>
+            <li><strong>Settlement</strong> &mdash; dropdown that cascades from the selected county</li>
+            <li><strong>Search</strong> &mdash; free-text search by name, national ID, phone, position or category</li>
+          </ul>
+
+          <h2>Adding SEC Officials</h2>
+          <p>Click <strong>Add SEC</strong> to open a drawer form. Fill in the settlement details and add officials with their name, national ID, phone, gender, category and SEC position (e.g. Chairperson, Secretary, Treasurer, Member). You can also add officials to an existing settlement by expanding the row and clicking <strong>Add SEC Official</strong>.</p>
+          <img class="docs-screenshot" src="${secAddImg}" alt="Adding SEC officials" />
+
+          <h2>Editing</h2>
+          <p>Within an expanded SEC roster, each official row has an <strong>Edit</strong> button. Editing opens a dialog to update the official's position and details.</p>
+
+          <h2>Export</h2>
+          <p>Click the <strong>Download</strong> button to export all SEC data to an Excel file. The export includes all officials across all settlements, reflecting any active filters.</p>
+
+          <blockquote>Note &mdash; SEC data is sourced from ODK Central submissions. Adding or editing records updates the underlying ODK submission directly.</blockquote>
         `
       },
+      {
+        id: 'data-community-grc',
+        label: 'GRC (Grievance Redress Committee)',
+        content: `
+          <p>The <strong>Grievance Redress Committee (GRC)</strong> is a community-level body responsible for first-level grievance resolution within each settlement. GRC members are drawn from the elected SEC and supplemented with additional community members.</p>
+          <img class="docs-screenshot" src="${grcListImg}" alt="GRC officials listing" />
+
+          <h2>Listing</h2>
+          <p>Navigate to <strong>Community &rarr; GRC</strong> to view all GRC officials. The table columns are:</p>
+          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>Name</strong></td><td>Official's name (sortable)</td></tr>
+            <tr><td><strong>Gender</strong></td><td>Gender of the official</td></tr>
+            <tr><td><strong>Category</strong></td><td>Category of the official (sortable)</td></tr>
+            <tr><td><strong>Position</strong></td><td>GRC position &mdash; Chairman, Secretary or Member (sortable)</td></tr>
+            <tr><td><strong>Phone</strong></td><td>Mobile phone number</td></tr>
+            <tr><td><strong>Date formed</strong></td><td>Date the GRC was constituted (sortable)</td></tr>
+            <tr><td><strong>Location</strong></td><td>Settlement and county</td></tr>
+          </tbody></table>
+          <h2>Provisioning GRC Accounts</h2>
+          <p>GRC secretaries need system accounts so they can log in to the <strong>Grievance Resolution Module</strong> and manage grievances assigned to their settlement. The listing table includes checkboxes to support batch account creation:</p>
+          <ol>
+            <li>Select one or more GRC officials using the row checkboxes &mdash; only officials who <strong>do not already have an account</strong> can be selected (existing accounts are greyed out)</li>
+            <li>Click the <strong>Generate Accounts</strong> button that appears below the table</li>
+            <li>The system creates a user account for each selected official using their mobile number as the username, assigns them the <strong>GRM</strong> role, and links them to their settlement</li>
+          </ol>
+          <p>Once provisioned, GRC secretaries can log in and access grievances filed against their settlement for first-level resolution.</p>
+
+          <h2>Filtering &amp; Search</h2>
+          <ul>
+            <li><strong>County</strong> &mdash; dropdown filter (county-level users see only their assigned county)</li>
+            <li><strong>Settlement</strong> &mdash; dropdown filter</li>
+            <li><strong>Position</strong> &mdash; dropdown filter (Chairman, Secretary, Member)</li>
+            <li><strong>Search</strong> &mdash; free-text search by name, national ID, phone, county, settlement or position</li>
+          </ul>
+
+          <h2>Adding a GRC</h2>
+          <img class="docs-screenshot" src="${grcAddImg}" alt="Adding a GRC" />
+          <p>Click the <strong>Add GRC</strong> button to open a creation drawer. The process involves:</p>
+          <ol>
+            <li>Select the <strong>County</strong> and <strong>Settlement</strong></li>
+            <li>Pick exactly <strong>2 SEC members</strong> (non-chairpersons) from the settlement's SEC roster to serve as GRC members</li>
+            <li>Add <strong>3 new community members</strong> with their name, national ID, phone, gender and GRC position</li>
+            <li>Fill in the certification details (returning officer, county KISIP coordinator, NPCT representative)</li>
+            <li>Click <strong>Submit</strong> to create the GRC record</li>
+          </ol>
+
+          <h2>Export</h2>
+          <p>The <strong>Download</strong> component in the toolbar exports the current GRC data to a file. You can export either the current page or all records.</p>
+
+          <blockquote>Note &mdash; GRC data is sourced from ODK Central submissions. County-level users automatically see only GRC officials for their assigned county.</blockquote>
+        `
+          }
+        ]
+      }
+      ,
       {
         id: 'data-surveys',
         label: 'Surveys',
-        content: `
-          <p>The <strong>Surveys</strong> module integrates with ODK Central (the data collector) to display field survey submissions.</p>
-          <h2>Features</h2>
+        icon: 'mdi:clipboard-text-outline',
+        children: [
+          {
+            id: 'data-surveys-listing',
+            label: 'Survey Projects',
+            content: `
+          <p>The <strong>Surveys</strong> module integrates with <a href="https://collector.kesmis.go.ke/#/" target="_blank"><strong>ODK Central</strong></a> (the field data collector) to display and manage survey submissions collected via mobile devices.</p>
+
+          <img class="docs-screenshot" src="${surveyListingImg}" alt="Survey Projects listing" />
+
+          <h2>Dashboard summary</h2>
+          <p>At the top of the page, five summary cards show real-time statistics pulled from the collector:</p>
+          <table><thead><tr><th>Card</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>Data Collection Projects</strong></td><td>Total number of ODK projects</td></tr>
+            <tr><td><strong>Data Collection Forms</strong></td><td>Total number of survey forms across all projects</td></tr>
+            <tr><td><strong>Total Submissions</strong></td><td>Combined submission count from all forms</td></tr>
+            <tr><td><strong>Latest Submission</strong></td><td>Relative time since the most recent submission (e.g. "3 days ago")</td></tr>
+            <tr><td><strong>Total Enumerators</strong></td><td>Number of field enumerators with a download button to export the enumerator list as CSV</td></tr>
+          </tbody></table>
+
+          <h2>Project listing</h2>
+          <p>Below the summary, a table lists all data collection projects. Each row represents a project and can be <strong>expanded</strong> to reveal its individual forms.</p>
+          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>#</strong></td><td>Row index</td></tr>
+            <tr><td><strong>Category</strong></td><td>Project category / description (sortable)</td></tr>
+            <tr><td><strong>Name</strong></td><td>Project name (sortable)</td></tr>
+            <tr><td><strong>#Forms</strong></td><td>Number of forms in the project (sortable)</td></tr>
+            <tr><td><strong>Latest Submission</strong></td><td>Time since the project's most recent submission (sortable)</td></tr>
+          </tbody></table>
+
+          <h2>Filtering &amp; Search</h2>
           <ul>
-            <li>View submission data in table and map formats</li>
-            <li>Download records as CSV / Excel</li>
-            <li>Download submission attachments (photos, documents) as a ZIP file</li>
-            <li>Paginate large datasets (up to 500 records per page)</li>
+            <li><strong>Category</strong> &mdash; multi-select dropdown to filter projects by category</li>
+            <li><strong>Search</strong> &mdash; free-text search by project name</li>
           </ul>
-          <blockquote>Note &mdash; Attachment downloads are limited to 100 files at a time. The system will warn you if the selection exceeds this limit.</blockquote>
+          <p>Pagination supports page sizes of 5, 10, 15, 20, 50 or 100.</p>
         `
       },
       {
-        id: 'data-import',
-        label: 'Import',
+        id: 'data-surveys-details',
+        label: 'Form Details',
         content: `
-          <p>Data can be imported into KeSMIS through several channels:</p>
+          <p>Expand a project row to see its forms, then <strong>double-click</strong> a form to open the <strong>Form Details</strong> page. This page has three tabs: <strong>Data</strong>, <strong>Map</strong> and <strong>Charts</strong>.</p>
+
+          <h2>Data tab</h2>
+          <img class="docs-screenshot" src="${formDetail1Img}" alt="Form Details — Data tab" />
+          <p>The Data tab presents all submissions for the selected form in a scrollable virtual table.</p>
           <ul>
-            <li><strong>GIS Import</strong> &mdash; upload shapefiles or GeoJSON to populate spatial layers</li>
-            <li><strong>Excel Import</strong> &mdash; bulk upload of settlement or household data via spreadsheets</li>
-            <li><strong>Integration</strong> &mdash; API-based integration with the ODK Collector for automated data flow</li>
+            <li><strong>Column selector</strong> &mdash; multi-select dropdown to choose which fields (properties) to display as columns. By default, the first 7 fields are shown.</li>
+            <li><strong>Filter By</strong> &mdash; select any visible field, then pick specific values to filter the table</li>
+            <li><strong>Pagination</strong> &mdash; page sizes of 5, 10, 15, 20, 50, 100 or 500 records</li>
+            <li><strong>Attachments column</strong> &mdash; displays the number of attachments (photos, files) associated with each submission</li>
           </ul>
+
+          <h2>Map tab</h2>
+          <img class="docs-screenshot" src="${formDetail2MapImg}" alt="Form Details — Map tab" />
+          <p>The Map tab renders all submissions with valid geometry (Point, LineString or Polygon) on a Google Map. Features include:</p>
+          <ul>
+            <li>Points as markers (clustered for large datasets), lines as polylines, polygons with red dashed outlines and vertex dots</li>
+            <li>Click any feature to open an <strong>InfoWindow</strong> popup showing all properties and attachment download links</li>
+            <li><strong>Locate Me</strong> button to centre the map on your current GPS position</li>
+          </ul>
+
+          <h2>Charts tab</h2>
+          <img class="docs-screenshot" src="${formDetail3ChartImg}" alt="Form Details — Charts tab" />
+          <p>The Charts tab lets you build quick visualisations from the survey data:</p>
+          <ol>
+            <li>Select one or more <strong>fields</strong> to analyse</li>
+            <li>Choose a <strong>chart type</strong> &mdash; Pie, Bar, Multiple Variable Bar, or Stacked Bar</li>
+            <li>Choose a <strong>computation method</strong> &mdash; Count or Proportion (%)</li>
+          </ol>
+          <p>Charts are rendered automatically and can be saved as images via the chart toolbar.</p>
+        `
+      },
+      {
+        id: 'data-surveys-download',
+        label: 'Downloading Data & Attachments',
+        content: `
+          <p>The Surveys module provides multiple ways to download data and attachments. All download actions require the <code>survey:export</code> permission.</p>
+
+          <img class="docs-screenshot" src="${formDetail4DownloadImg}" alt="Downloading data and attachments" />
+
+          <h2>Downloading survey data</h2>
+          <p>From the <strong>project listing</strong>, expand a project to see its forms. Each form row has two download buttons:</p>
+          <table><thead><tr><th>Button</th><th>Format</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>CSV</strong></td><td>Comma-separated values</td><td>Downloads all submissions for the form as a CSV file</td></tr>
+            <tr><td><strong>GeoJSON</strong></td><td>GeoJSON FeatureCollection</td><td>Downloads all submissions with geometry as a GeoJSON file (for use in GIS software)</td></tr>
+          </tbody></table>
+
+          <p>From the <strong>Form Details</strong> page (Data tab), an additional <strong>Download</strong> component lets you export the current table view with field selection.</p>
+
+          <h2>Downloading enumerators</h2>
+          <p>Click the download button on the <strong>Total Enumerators</strong> summary card to export a CSV listing all enumerators and their assigned projects.</p>
+
+          <h2>Downloading attachments</h2>
+          <p>Attachments are photos, documents or other files uploaded by field enumerators alongside their submissions.</p>
+          <ul>
+            <li><strong>Bulk download</strong> &mdash; click the <strong>Download attachments</strong> button in the Data tab toolbar to download a ZIP file containing attachments for all submissions on the current page</li>
+            <li><strong>From the map</strong> &mdash; click a feature, then use the download buttons in the InfoWindow popup</li>
+          </ul>
+          <blockquote>Note &mdash; Bulk attachment downloads are limited to <strong>100 files at a time</strong>. If the current page exceeds this limit, the system will display a warning. Reduce the page size or apply filters to stay within the limit.</blockquote>
+        `
+          }
+        ]
+      }
+    ],
+    children: [
+      {
+        id: 'data-import',
+        label: 'Import GIS Data',
+        content: `
+          <p>The <strong>Import GIS Data</strong> module allows administrators and authorised users to bulk-import geospatial datasets directly into KeSMIS. It uses a guided <strong>four-step wizard</strong> to upload a file, select the destination table, map source fields to database columns, and review before committing the import.</p>
+
+          <img class="docs-screenshot" src="${importGis1Img}" alt="Import GIS Data — Upload step" />
+
+          <h2>Supported file formats</h2>
+          <p>The importer accepts the following geospatial file types:</p>
+          <table><thead><tr><th>Format</th><th>Extension</th><th>Notes</th></tr></thead><tbody>
+            <tr><td>GeoJSON</td><td><code>.json</code>, <code>.geojson</code></td><td>Must be a valid FeatureCollection. CRS is assumed WGS 84 (EPSG:4326).</td></tr>
+            <tr><td>Shapefile (zipped)</td><td><code>.zip</code></td><td>The ZIP archive must contain the <code>.shp</code>, <code>.shx</code>, <code>.dbf</code> and optionally <code>.prj</code> files.</td></tr>
+            <tr><td>KML</td><td><code>.kml</code></td><td>Google Earth markup format.</td></tr>
+            <tr><td>KMZ</td><td><code>.kmz</code></td><td>Compressed KML archive.</td></tr>
+          </tbody></table>
+          <blockquote>All uploaded files are automatically validated. If the file contains no valid features or is malformed, an error message is displayed and the wizard does not advance.</blockquote>
+
+          <h2>Step 1 — Upload File</h2>
+          <p>Click the <strong>Upload File</strong> button and select a file from your computer (or drag-and-drop). Once the file is parsed successfully, a confirmation message shows the number of features found (e.g. <em>"Shapefile loaded successfully! 142 features found."</em>) and the wizard moves to Step 2.</p>
+
+          <h2>Step 2 — Select Destination Table</h2>
+          <img class="docs-screenshot" src="${importGis2DestImg}" alt="Import GIS Data — Select destination table" />
+          <p>Choose which KeSMIS entity the imported features should be stored as. The available destination tables are:</p>
+          <table><thead><tr><th>Category</th><th>Tables</th></tr></thead><tbody>
+            <tr><td><strong>Core</strong></td><td>Projects, Settlements, Parcels, Structures</td></tr>
+            <tr><td><strong>Infrastructure</strong></td><td>Roads, Road Assets, Sewer, Piped Water, Railway, Powerline, Streetlight, Floodlights</td></tr>
+            <tr><td><strong>Social Amenities</strong></td><td>Health Facility, School, Water Point, Police Station, Community Hall, Community Project</td></tr>
+            <tr><td><strong>Environment</strong></td><td>Hazard Zones, Crime Hotspots, Dumping, Telcom Mast</td></tr>
+          </tbody></table>
+          <p>After selecting a table, the system fetches the corresponding database field definitions from the server. If the source data contains a <code>pcode</code> property, the importer automatically resolves parent entities (county, sub-county, ward or settlement) so that imported features are correctly linked to the administrative hierarchy.</p>
+
+          <h2>Step 3 — Match Fields</h2>
+          <img class="docs-screenshot" src="${importGis2MatchImg}" alt="Import GIS Data — Match fields" />
+          <p>This step presents a two-column mapping table listing every property found in the source file alongside a dropdown of available database columns. The system uses <strong>fuzzy matching</strong> to suggest initial mappings automatically &mdash; for example, a source field named <code>settlement_name</code> will be matched to the database column <code>name</code>.</p>
+          <ul>
+            <li>Each database column can only be mapped once; already-mapped columns are greyed out in other dropdowns</li>
+            <li>Use the <strong>Search fields</strong> box at the top to quickly filter the list when working with many properties</li>
+            <li>Unmapped source fields (dropdown left blank) are excluded from the import</li>
+          </ul>
+
+          <h2>Step 4 — Review &amp; Import</h2>
+          <img class="docs-screenshot" src="${importGis2ReviewImg}" alt="Import GIS Data — Review and import" />
+          <p>Before committing, the wizard shows a JSON preview of the remapped data. You can preview <strong>1, 5 or 10</strong> sample records to verify the mappings are correct.</p>
+          <ul>
+            <li>Click <strong>Import</strong> to submit all features to the database</li>
+            <li>Click <strong>Back</strong> to return to the field-matching step and adjust mappings</li>
+            <li>Click <strong>Reset</strong> to discard everything and start over from Step 1</li>
+          </ul>
+          <p>On completion, a success notification displays the number of imported features. If some features fail validation (e.g. missing required fields), a detailed error log is shown listing each failed feature and the reason, while successfully validated features are still imported.</p>
+
+          <blockquote>Geometry coordinates with a Z (altitude) component are automatically stripped to 2D (X, Y) before storage, ensuring compatibility with the KeSMIS spatial database.</blockquote>
         `
       }
     ]
@@ -1230,7 +1636,7 @@ const allNavGroups: NavGroup[] = [
         id: 'grm-overview',
         label: 'Overview',
         content: `
-          <p>The <strong>Grievance Redress Mechanism</strong> allows the public to submit complaints and feedback related to KISIP and KENSUP programmes. Grievances are tracked through their full lifecycle from intake to resolution.</p>
+          <p>The <strong>Grievance Redress Mechanism</strong> allows the public to submit complaints and feedback related to KISIP programmes. Grievances are tracked through their full lifecycle from intake to resolution.</p>
         `
       },
       {
