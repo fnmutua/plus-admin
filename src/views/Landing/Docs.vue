@@ -151,6 +151,15 @@ import modeSwitchImg from '@/assets/documentation/mode switch.png'
 import registerImg from '@/assets/documentation/regsiter.png'
 import signinBtnImg from '@/assets/documentation/signin button.png'
 import loginImg from '@/assets/documentation/login.png'
+import climateOverviewImg from '@/assets/documentation/climate-0verview.png'
+import climateStartImg from '@/assets/documentation/climate-start.png'
+import climateInfoImg from '@/assets/documentation/climate-questionaire-info.png'
+import climateHazardsImg from '@/assets/documentation/climate-questionaire-hazards.png'
+import climateExposureImg from '@/assets/documentation/climate-questionaire-exposure.png'
+import climateSensitivityImg from '@/assets/documentation/climate-questionaire-sensitiivuty.png'
+import climateAdaptiveImg from '@/assets/documentation/climate-questionaire-adtapive-cpacity.png'
+import climateOverallRiskImg from '@/assets/documentation/climate-questionaire-overal-risk.png'
+import climateRecommendationsImg from '@/assets/documentation/climate-questionaire-recoemdnation.png'
 interface NavPage {
   id: string
   label: string
@@ -937,23 +946,161 @@ const allNavGroups: NavGroup[] = [
             `
           }
         ]
-      }
-    ],
-    children: [
+      },
       {
         id: 'data-climate',
         label: 'Climate Assessments',
-        content: `
-          <p>Climate Risk &amp; Vulnerability Assessments are linked to individual settlements. Each assessment is a structured questionnaire covering:</p>
-          <ul>
-            <li>Exposure to climate hazards (flooding, drought, landslides, etc.)</li>
-            <li>Sensitivity of the settlement and its population</li>
-            <li>Adaptive capacity and existing coping mechanisms</li>
-          </ul>
-          <p>Scores are computed automatically. Assessments can be marked as completed and their results feed into the national dashboard.</p>
-          <blockquote>Tip &mdash; The assessment list supports permission-based actions: Preview, Edit and Delete are shown only if the user has the corresponding <code>climate_assessment</code> permissions.</blockquote>
+        icon: 'mdi:earth',
+        children: [
+          {
+            id: 'data-climate-overview',
+            label: 'Assessment Overview',
+            content: `
+              <p>The <strong>Climate Risk &amp; Vulnerability Assessment</strong> module (also called <strong>KISIP Tool B</strong>) allows users to assess the climate-related risks and vulnerabilities of individual informal settlements using a structured questionnaire.</p>
+          <img class="docs-screenshot" src="${climateOverviewImg}" alt="Climate Assessment list" />
+          <h2>Assessment list</h2>
+          <p>Navigate to <strong>Data &rarr; Settlements &rarr; Assessments</strong> to view all assessments. The table shows:</p>
+          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>ID</strong></td><td>Unique assessment identifier</td></tr>
+            <tr><td><strong>Settlement</strong></td><td>The settlement being assessed</td></tr>
+            <tr><td><strong>County</strong></td><td>County the settlement belongs to</td></tr>
+            <tr><td><strong>Status</strong></td><td>Draft (grey) or Completed (green)</td></tr>
+            <tr><td><strong>Vulnerability</strong></td><td>Rating tag &mdash; LOW (green), MEDIUM (yellow), or HIGH (red) with the numeric score</td></tr>
+            <tr><td><strong>Risk</strong></td><td>Rating tag &mdash; LOW, MEDIUM or HIGH with the numeric score</td></tr>
+            <tr><td><strong>Assessed</strong></td><td>Date the assessment was last updated</td></tr>
+            <tr><td><strong>Assessor</strong></td><td>Name of the user who conducted the assessment</td></tr>
+            <tr><td><strong>Actions</strong></td><td>Preview (view/edit) and Delete</td></tr>
+          </tbody></table>
+
+          <h2>Filtering</h2>
+          <p>A <strong>county filter</strong> (multi-select) is available for national-level users. County staff see only assessments for their assigned county.</p>
+
+          <h2>Starting a new assessment</h2>
+          <ol>
+            <li>Click <strong>Start KISIP Tool B Questionnaire</strong> (requires <code>climate_assessment:create</code> permission)</li>
+            <li>A dialog appears &mdash; select the <strong>County</strong> and then the <strong>Settlement</strong></li>
+            <li>Click <strong>Start</strong> to open the questionnaire for that settlement</li>
+          </ol>
+          <img class="docs-screenshot" src="${climateStartImg}" alt="Starting a new climate assessment" />
+
+          <h2>Export</h2>
+          <p>Click the <strong>Download</strong> button to export the assessment list as an Excel file. A field selection dialog lets you choose which columns to include.</p>
+          <blockquote>Tip &mdash; Actions in the list are permission-based. Preview requires <code>climate_assessment:read</code> or <code>update</code>, Delete requires <code>climate_assessment:delete</code>.</blockquote>
         `
       },
+      {
+        id: 'data-climate-questionnaire',
+        label: 'The Questionnaire',
+        content: `
+          <p>Each climate assessment is a multi-tab questionnaire with four scored dimensions, an overall summary, recommendations, a map view, and a documentation section.</p>
+          <img class="docs-screenshot" src="${climateInfoImg}" alt="Climate assessment questionnaire — Instructions tab" />
+          <h2>Questionnaire tabs</h2>
+          <table><thead><tr><th>Tab</th><th>Purpose</th></tr></thead><tbody>
+            <tr><td><strong>Instructions</strong></td><td>Explains the methodology, scoring rules and how to interpret results</td></tr>
+            <tr><td><strong>Hazard</strong></td><td>Questions about current climate hazards affecting the settlement</td></tr>
+            <tr><td><strong>Exposure</strong></td><td>Questions about the settlement's exposure to those hazards</td></tr>
+            <tr><td><strong>Sensitivity</strong></td><td>Questions about how sensitive the settlement and its population are to climate impacts</td></tr>
+            <tr><td><strong>Adaptive Capacity</strong></td><td>Questions about the settlement's ability to cope with and adapt to climate change</td></tr>
+            <tr><td><strong>Overall Score</strong></td><td>Summary cards showing computed scores for each dimension, plus vulnerability and risk ratings</td></tr>
+            <tr><td><strong>Recommendations</strong></td><td>Auto-generated planning, design and community development recommendations based on scores</td></tr>
+            <tr><td><strong>Map</strong></td><td>Settlement map showing the assessment location point (if captured in the mobile app)</td></tr>
+            <tr><td><strong>Documentation</strong></td><td>Upload and list supporting documents linked to this assessment</td></tr>
+          </tbody></table>
+
+          <h2>Answering questions</h2>
+          <p>Each dimension (Hazard, Exposure, Sensitivity, Adaptive Capacity) contains multiple <strong>categories</strong>, and each category has several questions. For example, the <strong>Hazard</strong> dimension includes categories like Temperature, Intense Precipitation, Droughts, Flooding, Flash Floods, Storms, Pollution, and others.</p>
+          <p>Each question has a dropdown with options scored on a <strong>1&ndash;3 scale</strong>:</p>
+          <ul>
+            <li><strong>1 &mdash; Low</strong> &mdash; minimal severity or frequency</li>
+            <li><strong>2 &mdash; Medium</strong> &mdash; moderate</li>
+            <li><strong>3 &mdash; High</strong> &mdash; severe or frequent</li>
+          </ul>
+          <p>For <strong>Adaptive Capacity</strong>, the scoring is inverted: 3 = good capacity, 1 = poor capacity.</p>
+          <p>Categories are collapsible and show a progress counter (e.g. "3/5") indicating how many questions have been answered.</p>
+
+          <h3>Hazard tab</h3>
+          <p>Captures the types and severity of climate hazards affecting the settlement &mdash; temperature extremes, precipitation, droughts, flooding, storms, pollution and more.</p>
+          <img class="docs-screenshot" src="${climateHazardsImg}" alt="Climate questionnaire — Hazard tab" />
+
+          <h3>Exposure tab</h3>
+          <p>Assesses how exposed the settlement's population, livelihoods and infrastructure are to the identified hazards.</p>
+          <img class="docs-screenshot" src="${climateExposureImg}" alt="Climate questionnaire — Exposure tab" />
+
+          <h3>Sensitivity tab</h3>
+          <p>Evaluates how sensitive the settlement is to climate impacts based on socio-economic conditions, infrastructure quality and population characteristics.</p>
+          <img class="docs-screenshot" src="${climateSensitivityImg}" alt="Climate questionnaire — Sensitivity tab" />
+
+          <h3>Adaptive Capacity tab</h3>
+          <p>Measures the settlement's ability to cope with and adapt to climate change through institutional support, community resilience and available resources.</p>
+          <img class="docs-screenshot" src="${climateAdaptiveImg}" alt="Climate questionnaire — Adaptive Capacity tab" />
+
+          <h2>Exposure categories</h2>
+          <p>The Exposure dimension covers six broad areas:</p>
+          <ul>
+            <li><strong>Livelihoods</strong> &mdash; food security, agriculture, livestock, commerce, water for irrigation/domestic use, access to finance, disaster events</li>
+            <li><strong>Health &amp; Safety</strong> &mdash; disease, urban planning, waste management, health services</li>
+            <li><strong>Assets &amp; Utilities</strong> &mdash; housing, public facilities, drainage, sanitation, power, water, roads, communication</li>
+            <li><strong>Potable Water</strong> &mdash; access, scarcity and quality</li>
+            <li><strong>Ecosystem-Based Services (EBS)</strong> &mdash; soil, land cover, vegetation, wetlands, biodiversity, topography</li>
+            <li><strong>Institutions</strong> &mdash; early warning, awareness, planning engagement, disaster preparedness, recovery</li>
+          </ul>
+        `
+      },
+      {
+        id: 'data-climate-scoring',
+        label: 'Scoring & Results',
+        content: `
+          <p>Scores are computed automatically by the system each time you save. Click <strong>Save &amp; Compute Scores</strong> to trigger the calculation, or answers are auto-saved after a short delay.</p>
+          <h2>Dimension scores</h2>
+          <p>Each dimension score is the <strong>simple average</strong> of all answered questions in that dimension, producing a value between 1.00 and 3.00.</p>
+
+          <h2>Vulnerability score</h2>
+          <p>Vulnerability measures how exposed and sensitive the settlement is relative to its ability to cope:</p>
+          <p><strong>Vulnerability = Average(Sensitivity) &minus; Average(Adaptive Capacity)</strong></p>
+          <p>The result ranges from &minus;2 to +2. A negative score means adaptive capacity outweighs sensitivity (good). A positive score means the settlement is vulnerable.</p>
+          <table><thead><tr><th>Rating</th><th>Score range</th><th>Meaning</th></tr></thead><tbody>
+            <tr><td><strong>LOW</strong></td><td>&le; &minus;0.6</td><td>Adaptive capacity outweighs sensitivity</td></tr>
+            <tr><td><strong>MEDIUM</strong></td><td>&minus;0.6 to +0.6</td><td>Moderate vulnerability</td></tr>
+            <tr><td><strong>HIGH</strong></td><td>&ge; +0.6</td><td>Sensitivity significantly outweighs capacity</td></tr>
+          </tbody></table>
+
+          <h2>Risk score</h2>
+          <p>Risk combines hazard exposure with normalised vulnerability:</p>
+          <p><strong>Risk = Average(Hazard) + (Exposure &times; NormVuln) / 3</strong></p>
+          <table><thead><tr><th>Rating</th><th>Score range</th><th>Meaning</th></tr></thead><tbody>
+            <tr><td><strong>LOW</strong></td><td>&le; 2.17</td><td>Lower overall climate risk</td></tr>
+            <tr><td><strong>MEDIUM</strong></td><td>2.17 &ndash; 3.83</td><td>Moderate risk</td></tr>
+            <tr><td><strong>HIGH</strong></td><td>&ge; 3.83</td><td>High climate risk</td></tr>
+          </tbody></table>
+
+          <h2>Overall Score tab</h2>
+          <p>The Overall Score tab displays four colour-coded cards (one per dimension) showing the computed score. Below the cards, large tags display the <strong>Vulnerability</strong> and <strong>Risk</strong> ratings with their numeric scores. Colours follow the traffic-light pattern: green (LOW), yellow (MEDIUM), red (HIGH).</p>
+          <img class="docs-screenshot" src="${climateOverallRiskImg}" alt="Climate questionnaire — Overall Score tab" />
+
+          <h2>Recommendations</h2>
+          <p>Based on the category-level scores, the system auto-generates recommendations in three areas:</p>
+          <ul>
+            <li><strong>Planning</strong> &mdash; urban planning and spatial development recommendations</li>
+            <li><strong>Design</strong> &mdash; infrastructure and settlement design recommendations</li>
+            <li><strong>Community Development Plans</strong> &mdash; community-level resilience actions</li>
+          </ul>
+          <p>Each recommendation is linked to a specific category and its rating (LOW / MEDIUM / HIGH). Recommendations can be exported as <strong>PDF</strong> or <strong>Excel</strong>.</p>
+          <img class="docs-screenshot" src="${climateRecommendationsImg}" alt="Climate questionnaire — Recommendations tab" />
+
+          <h2>Draft vs Completed</h2>
+          <ul>
+            <li>New assessments start as <strong>Draft</strong> &mdash; you can save, edit and recompute scores as many times as needed</li>
+            <li>When satisfied, click <strong>Mark Completed</strong> to finalise the assessment</li>
+            <li>Completed assessments cannot be edited further</li>
+            <li>Completed results feed into the settlement's vulnerability profile and the national dashboard</li>
+          </ul>
+          <blockquote>Tip &mdash; Use the Map tab to verify the assessment location, and the Documentation tab to upload supporting evidence such as photos, reports or field notes.</blockquote>
+        `
+          }
+        ]
+      }
+    ],
+    children: [
       {
         id: 'data-facilities',
         label: 'Facilities',
