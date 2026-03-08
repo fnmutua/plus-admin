@@ -45,7 +45,7 @@
                     <strong>Note:</strong> Adaptive Capacity uses <em>inverted</em> polarity —
                     <strong>3 = Good</strong> capacity (positive), <strong>1 = Poor</strong> capacity. All other dimensions treat 3 as the most severe/exposed/sensitive.
                   </p>
-                </div>
+                      </div>
 
                 <!-- Dimensions -->
                 <div class="method-section">
@@ -56,7 +56,7 @@
                     <ElTableColumn prop="formula" label="Formula" />
                     <ElTableColumn prop="interpretation" label="Interpretation" />
                   </ElTable>
-                </div>
+                      </div>
 
                 <!-- Vulnerability -->
                 <div class="method-section">
@@ -66,7 +66,7 @@
                   </h4>
                   <div class="method-formula-box">
                     <code>Vulnerability = AVG(Sensitivity) − AVG(Adaptive Capacity)</code>
-                  </div>
+                      </div>
                   <p>Range: <strong>−2</strong> to <strong>+2</strong>. A negative value means adaptive capacity outweighs sensitivity (good). A positive value means the community is vulnerable.</p>
                   <ElTable :data="vulnThresholdData" border size="small" class="method-table">
                     <ElTableColumn prop="rating" label="Rating" width="120" align="center" />
@@ -77,7 +77,7 @@
                     <strong>Category-level vulnerability</strong> is also computed per sub-category:<br />
                     <code>Category Vulnerability = AVG(Sensitivity<sub>cat</sub>) − AVG(Adaptive Capacity<sub>cat</sub>)</code>
                   </p>
-                </div>
+                      </div>
 
                 <!-- Risk -->
                 <div class="method-section">
@@ -403,9 +403,9 @@
                             </template>
                           </ElTableColumn>
                         </ElTable>
-                      </div>
-                    </ElTabPane>
-                  </ElTabs>
+              </div>
+            </ElTabPane>
+          </ElTabs>
                 </div>
               </div>
             </ElTabPane>

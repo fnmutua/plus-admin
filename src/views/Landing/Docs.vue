@@ -186,6 +186,17 @@ import importGis1Img from '@/assets/documentation/import-gis-1.png'
 import importGis2DestImg from '@/assets/documentation/import-gis-2-destination-table.png'
 import importGis2MatchImg from '@/assets/documentation/import-gis-2-matchfields.png'
 import importGis2ReviewImg from '@/assets/documentation/import-gis-2-review+import.png'
+import meIndicatorListingImg from '@/assets/documentation/ME-indicator-listing.png'
+import meIndicatorAdd1Img from '@/assets/documentation/ME-indicator-add1.png'
+import meIndicatorAdd2Img from '@/assets/documentation/ME-indicator-add2.png'
+import meActivitiesListingImg from '@/assets/documentation/ME-actitities-listing.png'
+import meActivitiesAddImg from '@/assets/documentation/ME-actitities-add.png'
+import meActivitiesEditDeleteImg from '@/assets/documentation/ME-actitities-edit-delete.png'
+import meIndicatorConfigImg from '@/assets/documentation/ME-indicator-config.png'
+import meReportsImg from '@/assets/documentation/ME-reports.png'
+import meReportsAddImg from '@/assets/documentation/ME-reports-add.png'
+import meBeneficiariesListingImg from '@/assets/documentation/ME-benefciaries-listing.png'
+import meBeneficiariesAddImg from '@/assets/documentation/ME-benefciaries-add.png'
 import formDetail1Img from '@/assets/documentation/forn-detail-1.png'
 import formDetail2MapImg from '@/assets/documentation/forn-detail-2-map.png'
 import formDetail3ChartImg from '@/assets/documentation/forn-detail-3-chart.png'
@@ -1679,45 +1690,234 @@ const allNavGroups: NavGroup[] = [
         id: 'mne-overview',
         label: 'Overview',
         content: `
-          <p>The <strong>Monitoring &amp; Evaluation</strong> module tracks programme performance using structured indicators, activities, and evaluation reports.</p>
+          <p>The <strong>Monitoring &amp; Evaluation (M&amp;E)</strong> module tracks programme performance across KISIP using structured indicators, activities, and evaluation reports. It is accessible from the sidebar under <strong>M&amp;E</strong> and is available to users with <code>root_admin</code>, <code>super_admin</code>, <code>admin</code>, <code>monitoring</code>, or <code>staff</code> roles.</p>
+
+          <h2>Module structure</h2>
+          <p>The M&amp;E module is organised into four main areas:</p>
+          <table><thead><tr><th>Section</th><th>Purpose</th></tr></thead><tbody>
+            <tr><td><strong>Activities</strong></td><td>Define programme-level activities that indicators are tracked against</td></tr>
+            <tr><td><strong>Framework</strong></td><td>Configure the indicator hierarchy &mdash; indicators, configurations (dimensions), and categories</td></tr>
+            <tr><td><strong>Monitoring</strong></td><td>Submit and review indicator reports, track progress, and manage supporting documents</td></tr>
+            <tr><td><strong>Beneficiaries</strong></td><td>Track individuals and communities benefiting from programme interventions</td></tr>
+          </tbody></table>
+
+          <h2>How it works</h2>
+          <ol>
+            <li><strong>Define Activities</strong> &mdash; create the programme activities that form the top level of the results framework</li>
+            <li><strong>Create Indicators</strong> &mdash; define measurable indicators and link each to an activity</li>
+            <li><strong>Configure Dimensions</strong> &mdash; for each indicator, set up one or more configurations (dimensions) specifying the target, baseline, reporting frequency, and linked settlement or project</li>
+            <li><strong>Submit Reports</strong> &mdash; periodically report actual values against configured indicators, attach supporting documents, and track progress toward targets</li>
+            <li><strong>Evaluate</strong> &mdash; create formal evaluations (mid-term, end-term) that compile indicator data into structured assessment reports</li>
+          </ol>
+          <p>All M&amp;E data can be exported to Excel. Reports filed at the settlement level also appear on the settlement's <strong>Indicators tab</strong> in the Settlement Details page.</p>
         `
       },
       {
         id: 'mne-activities',
         label: 'Activities',
         content: `
-          <p>Activities track programme-level tasks and milestones. Each activity is linked to a programme and can have associated indicators and timelines.</p>
+          <p>Activities represent programme-level work streams (e.g. "Settlement Profiling", "Tenure Regularisation", "Infrastructure Development"). They form the top tier of the M&amp;E results framework and serve as the parent grouping for indicators.</p>
+
+          <h2>Activity listing</h2>
+          <img class="docs-screenshot" src="${meActivitiesListingImg}" alt="M&E Activities listing" />
+          <p>Navigate to <strong>M&amp;E &rarr; Activities</strong> to view the activity table. The listing displays:</p>
+          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>Id</strong></td><td>Auto-generated record identifier</td></tr>
+            <tr><td><strong>Short Title</strong></td><td>Abbreviated name used on SlumMapper mobile for brevity when reporting in the field</td></tr>
+            <tr><td><strong>Title</strong></td><td>Full descriptive name of the activity</td></tr>
+            <tr><td><strong>Code</strong></td><td>System-generated unique code</td></tr>
+            <tr><td><strong>Actions</strong></td><td>Edit and Delete (permission-gated)</td></tr>
+          </tbody></table>
+          <p>All columns are sortable. The table is paginated with page sizes of 5, 10, 20, 50, 200 or all records.</p>
+
+          <h2>Searching &amp; filtering</h2>
+          <p>Use the <strong>Search Activity</strong> multi-select dropdown to filter by one or more activities. Click the <strong>filter</strong> button to clear all filters and reset the view.</p>
+
+          <h2>Adding an activity</h2>
+          <img class="docs-screenshot" src="${meActivitiesAddImg}" alt="M&E Add Activity dialog" />
+          <p>Click the <strong>+</strong> button to open the Add Activity dialog. Fill in:</p>
+          <ul>
+            <li><strong>Title</strong> &mdash; full name of the activity (required, minimum 3 characters)</li>
+            <li><strong>Short Title</strong> &mdash; abbreviated name used on SlumMapper mobile for brevity when reporting in the field</li>
+          </ul>
+          <p>A unique code is auto-generated on submission. The new activity appears immediately in the listing.</p>
+
+          <h2>Editing &amp; deleting</h2>
+          <img class="docs-screenshot" src="${meActivitiesEditDeleteImg}" alt="M&E Activity edit and delete actions" />
+          <ul>
+            <li><strong>Edit</strong> &mdash; click the Edit action to open the dialog pre-filled with the current values. Modify and click <strong>Save</strong>. Requires <code>activity:update</code> permission.</li>
+            <li><strong>Delete</strong> &mdash; click the Delete action and confirm in the popup. Requires <code>activity:delete</code> permission.</li>
+          </ul>
+
+          <h2>Export</h2>
+          <p>Click the <strong>Download</strong> button to export the activity list as an Excel file containing Id, Title, and Code columns.</p>
         `
       },
       {
         id: 'mne-framework',
         label: 'Framework & Indicators',
         content: `
-          <p>The M&amp;E framework is built around a hierarchy of:</p>
+          <p>The <strong>Framework</strong> section under M&amp;E contains the building blocks that define what is measured and how. It is organised into sub-pages accessible from the sidebar: <strong>Indicators</strong>, <strong>Configuration</strong>, and <strong>Category</strong>.</p>
+
+          <h2>Indicators</h2>
+          <p>Navigate to <strong>M&amp;E &rarr; Framework &rarr; Indicators</strong> to manage the master list of measurable metrics. Each indicator defines <em>what</em> is being tracked.</p>
+          <img class="docs-screenshot" src="${meIndicatorListingImg}" alt="M&E Indicators listing" />
+
+          <h3>Listing</h3>
+          <p>The indicator table displays:</p>
+          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>Id</strong></td><td>Auto-generated record identifier</td></tr>
+            <tr><td><strong>Title</strong></td><td>Name of the indicator (e.g. "Settlements", "Households", "Roads"). The verb or dimension (e.g. "profiled", "mapped") is added later in Configuration.</td></tr>
+            <tr><td><strong>Activity</strong></td><td>The parent activity this indicator belongs to</td></tr>
+            <tr><td><strong>Type</strong></td><td>Output or Impact</td></tr>
+            <tr><td><strong>Actions</strong></td><td>Edit and Delete (permission-gated)</td></tr>
+          </tbody></table>
+          <p>All columns are sortable. Use the <strong>search bar</strong> to find indicators by name or the <strong>activity filter</strong> to show indicators for a specific activity. Click the filter button to clear all active filters.</p>
+
+          <h3>Adding an indicator</h3>
+          <img class="docs-screenshot" src="${meIndicatorAdd1Img}" alt="M&E Add Indicator — form step 1" />
+          <p>Click the <strong>+</strong> button to open the Add Indicator dialog. Fill in the following fields:</p>
+          <table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>Level</strong></td><td>Select <em>Activity</em> or <em>Project</em>. This determines whether the indicator is tracked at the activity or project level.</td></tr>
+            <tr><td><strong>Activity</strong></td><td>Appears when Level is "Activity". Select the parent activity from the dropdown. You can also create a new activity inline using the <strong>+</strong> button next to the dropdown.</td></tr>
+            <tr><td><strong>Title</strong></td><td>The base name of the indicator without the verb/dimension (e.g. "Settlements", "Households", "Roads"). The specific dimension (e.g. "profiled", "mapped", "constructed") is defined separately in Configuration. Required field.</td></tr>
+            <tr><td><strong>Type</strong></td><td>Select <em>Output</em> (direct deliverable) or <em>Impact</em> (outcome / longer-term effect)</td></tr>
+            <tr><td><strong>Measurement</strong></td><td>How the indicator is quantified: <em>Number</em>, <em>Percent</em>, or <em>Yes/No (true/false)</em></td></tr>
+            <tr><td><strong>Unit</strong></td><td>The unit of measurement: Kilometre (Km), Number (No.), Yes/No, Household (HH), or type a custom unit</td></tr>
+          </tbody></table>
+          <img class="docs-screenshot" src="${meIndicatorAdd2Img}" alt="M&E Add Indicator — form step 2" />
+          <p>A unique code (UUID) is auto-generated on submission. The new indicator appears immediately in the listing. A built-in <strong>Help</strong> tour is available to guide you through the form fields.</p>
+
+          <h3>Editing &amp; deleting indicators</h3>
           <ul>
-            <li><strong>Indicators</strong> &mdash; measurable metrics (e.g. "Number of settlements mapped")</li>
-            <li><strong>Configuration</strong> &mdash; target values, reporting periods, and data sources</li>
-            <li><strong>Categories</strong> &mdash; groupings of related indicators</li>
+            <li><strong>Edit</strong> &mdash; click the Edit action to reopen the form pre-filled with current values. Modify and click <strong>Save</strong>. Requires <code>indicator:update</code> permission.</li>
+            <li><strong>Delete</strong> &mdash; click the Delete action and confirm. Requires <code>indicator:delete</code> permission.</li>
           </ul>
+
+          <h3>Export</h3>
+          <p>Click the <strong>Download</strong> button to export the indicator list as an Excel file. A <strong>Download All</strong> option is also available to export the full dataset including associated records.</p>
+
+          <hr/>
+
+          <h2>Configuration (Dimensions)</h2>
+          <p>Navigate to <strong>M&amp;E &rarr; Framework &rarr; Configuration</strong> to set up indicator configurations. A configuration links an indicator to a specific context &mdash; defining <em>where</em>, <em>when</em>, and <em>how much</em>.</p>
+
+          <h3>Listing</h3>
+          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>Id</strong></td><td>Record identifier</td></tr>
+            <tr><td><strong>Activity</strong></td><td>Parent activity</td></tr>
+            <tr><td><strong>Indicator</strong></td><td>The indicator being configured</td></tr>
+            <tr><td><strong>Dimension</strong></td><td>Category title / dimension label for this configuration</td></tr>
+            <tr><td><strong>Actions</strong></td><td>Edit and Delete</td></tr>
+          </tbody></table>
+          <img class="docs-screenshot" src="${meIndicatorConfigImg}" alt="M&E Indicator Configuration listing" />
+
+          <h3>Creating a configuration</h3>
+          <p>Click <strong>+</strong> to open the dialog. The form fields are:</p>
+          <table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>Activity</strong></td><td>Select the parent activity</td></tr>
+            <tr><td><strong>Indicator</strong></td><td>Select the indicator (list filters based on the chosen activity)</td></tr>
+            <tr><td><strong>Category / Dimension</strong></td><td>Select or create the reporting dimension</td></tr>
+            <tr><td><strong>Indicator Level</strong></td><td>The scope level for this configuration</td></tr>
+            <tr><td><strong>Frequency</strong></td><td>How often reports are expected (e.g. monthly, quarterly, annually)</td></tr>
+            <tr><td><strong>Target</strong></td><td>The target value to achieve</td></tr>
+            <tr><td><strong>Baseline</strong></td><td>The starting value</td></tr>
+            <tr><td><strong>Project</strong></td><td>Optionally link to a specific KISIP project</td></tr>
+            <tr><td><strong>Location</strong></td><td>Optionally link to a specific settlement or project area</td></tr>
+          </tbody></table>
+          <p>A unique code is generated from the combination of indicator, activity, project, and category IDs. Configurations can also be <strong>bulk imported</strong> from Excel using the built-in import wizard (Upload File &rarr; Match Fields &rarr; Review &rarr; Import).</p>
+
+          <h3>Editing &amp; deleting configurations</h3>
+          <ul>
+            <li><strong>Edit</strong> &mdash; click the Edit action to modify the configuration. Requires <code>indicator_category:update</code> permission.</li>
+            <li><strong>Delete</strong> &mdash; click the Delete action and confirm. Requires <code>indicator_category:delete</code> permission.</li>
+          </ul>
+
+          <hr/>
+
+          <h2>Categories</h2>
+          <p>Categories group related indicators together for organised reporting and dashboard display. They are managed from <strong>M&amp;E &rarr; Framework &rarr; Category</strong>.</p>
         `
       },
       {
         id: 'mne-reports',
         label: 'Reports & Evaluations',
         content: `
-          <p>Under <strong>Monitoring</strong>, authorised users can:</p>
+          <p>The <strong>Monitoring</strong> section is where indicator data is actually reported and tracked. It contains three sub-pages: <strong>Reports (New)</strong>, <strong>Reports</strong> (past), and <strong>Evaluations</strong>.</p>
+
+          <h2>Submitting reports (New)</h2>
+          <p>Navigate to <strong>M&amp;E &rarr; Monitoring &rarr; Reports (New)</strong> to file indicator reports. The listing shows all indicator configurations with their current reporting status:</p>
+          <img class="docs-screenshot" src="${meReportsImg}" alt="M&E Reports (New) listing" />
+          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>Indicator</strong></td><td>Name of the indicator</td></tr>
+            <tr><td><strong>Category</strong></td><td>Dimension / category title</td></tr>
+            <tr><td><strong>Settlement</strong></td><td>The settlement or area the report covers</td></tr>
+            <tr><td><strong>Qty / Status</strong></td><td>The reported quantity or current status value</td></tr>
+            <tr><td><strong>Progress %</strong></td><td>Percentage progress toward the target</td></tr>
+            <tr><td><strong>Date</strong></td><td>Date of the report</td></tr>
+            <tr><td><strong>Status</strong></td><td>Approval status (Pending, Approved, Rejected)</td></tr>
+            <tr><td><strong>Documents</strong></td><td>Count of attached supporting documents, with a button to view them</td></tr>
+            <tr><td><strong>Actions</strong></td><td>Edit, Delete, and document management</td></tr>
+          </tbody></table>
+
+          <h3>Filing a report</h3>
+          <img class="docs-screenshot" src="${meReportsAddImg}" alt="M&E filing a report form" />
+          <p>Click the <strong>+</strong> button to open the <strong>Add Report</strong> dialog. Fill in the form in order (each dropdown filters the next):</p>
+          <table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>Project</strong></td><td>Select the KISIP project. Options are filterable.</td></tr>
+            <tr><td><strong>Activity</strong></td><td>Select the activity; the list is filtered by the selected project.</td></tr>
+            <tr><td><strong>Indicator</strong></td><td>Select the indicator configuration (indicator + dimension). The list is filtered by the selected activity. The chosen configuration determines the settlement/location for the report.</td></tr>
+            <tr><td><strong>Date</strong></td><td>Pick the reporting date.</td></tr>
+            <tr><td><strong>Quantity</strong></td><td>Enter the reported amount (number).</td></tr>
+            <tr><td><strong>Progress %</strong></td><td>Optional. Enter progress toward target (0–100).</td></tr>
+            <tr><td><strong>Comments</strong></td><td>Optional. Free-text comments.</td></tr>
+          </tbody></table>
+          <p>Click <strong>Submit</strong> to save. The report is created in <em>Pending</em> status for review. You can attach supporting documents (photos, PDFs, spreadsheets) to the report after submission via the Documents action in the listing. Once approved, reports linked to a settlement appear on that settlement's <strong>Indicators tab</strong> in Settlement Details.</p>
+
+          <h3>Filtering</h3>
+          <p>Filter reports by <strong>county</strong> (multi-select, available to national users), <strong>settlement</strong> (searchable), or <strong>indicator</strong>. County-level users automatically see only reports for their assigned county.</p>
+
+          <h2>Past reports</h2>
+          <p>Navigate to <strong>M&amp;E &rarr; Monitoring &rarr; Reports</strong> to view historical reports. This provides a read-only archive of all previously submitted and approved indicator reports with the same column structure. Use this view to track trends and cumulative progress over time.</p>
+
+          <h2>Evaluations</h2>
+          <p>Navigate to <strong>M&amp;E &rarr; Monitoring &rarr; Evaluations</strong> to manage formal programme evaluations (e.g. mid-term reviews, end-term assessments, annual reviews).</p>
           <ul>
-            <li>Submit new indicator reports with current values</li>
-            <li>View past reports and track indicator trends over time</li>
-            <li>Create and manage evaluations (mid-term, end-term, etc.)</li>
+            <li><strong>View evaluations</strong> &mdash; the listing shows all created evaluations with their title, type, date, and status</li>
+            <li><strong>Add evaluation</strong> &mdash; click <strong>Add Evaluation</strong> to create a new evaluation record, selecting the type and providing the assessment narrative</li>
           </ul>
+          <p>Evaluations compile indicator data into structured assessment documents that can be exported and shared with stakeholders.</p>
+
+          <h2>Export</h2>
+          <p>All report listings can be exported to Excel. Use the <strong>Download</strong> button in the toolbar. A custom field selector lets you choose which columns to include in the export.</p>
         `
       },
       {
         id: 'mne-beneficiaries',
         label: 'Beneficiaries',
         content: `
-          <p>The beneficiary module captures data about individuals and communities that benefit from programme interventions &mdash; e.g. infrastructure improvements, tenure regularisation, and community-based projects.</p>
+          <p>The <strong>Beneficiaries</strong> page tracks beneficiary counts per project and location for KISIP programme reporting. Records are stored at project–location level with target and actual numbers by gender.</p>
+
+          <h2>What is tracked</h2>
+          <p>Each beneficiary record links a <strong>project</strong> and a <strong>location</strong> (settlement) and stores:</p>
+          <ul>
+            <li><strong>Project</strong> &mdash; the KISIP project the beneficiaries are reported under</li>
+            <li><strong>Settlement (Location)</strong> &mdash; the project location or settlement where beneficiaries are counted</li>
+            <li><strong>Target (Female) / Target (Male)</strong> &mdash; planned number of female and male beneficiaries for that project–location</li>
+            <li><strong>Actual (Female) / Actual (Male)</strong> &mdash; reported number of female and male beneficiaries reached</li>
+            <li><strong>Comments</strong> &mdash; optional notes</li>
+          </ul>
+          <p>The listing table shows <strong>Project</strong>, <strong>Settlement</strong>, <strong>Female Beneficiaries</strong>, and <strong>Male Beneficiaries</strong> (actual counts). Rows can be expanded for more detail.</p>
+
+          <h2>Listing &amp; management</h2>
+          <img class="docs-screenshot" src="${meBeneficiariesListingImg}" alt="M&E Beneficiaries listing" />
+          <p>The beneficiary listing is a paginated table with search and filter capabilities. Authorised users can add, edit, and delete beneficiary records. The data can be exported to Excel for external reporting and analysis.</p>
+
+          <h3>Adding a beneficiary record</h3>
+          <img class="docs-screenshot" src="${meBeneficiariesAddImg}" alt="M&E Add Beneficiary dialog" />
+          <p>Click the <strong>+</strong> button to open the Add Beneficiary dialog. The form has three steps: <strong>Project Details</strong> (select Project and Location/settlement), <strong>Beneficiaries</strong> (enter Target and Actual counts for female and male, plus optional comments), and <strong>Submit</strong>. Location options are filtered by the selected project.</p>
+
+          <blockquote>Note &mdash; Beneficiary data is accessible only to national-level users with <code>root_admin</code>, <code>super_admin</code>, <code>admin</code>, <code>monitoring</code>, or <code>staff</code> roles.</blockquote>
         `
       }
     ]
