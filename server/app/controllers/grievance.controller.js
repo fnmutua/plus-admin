@@ -148,7 +148,7 @@ async function sendNotificationSMS(sms_obj) {
   console.log(`[SMS] Grievance SMS status for ${level} level:`, { enabled: smsStatus.enabled, module: level === 'national' ? 'sms_grievance_national' : 'sms_grievance_county' })
   
   const notification ={}
-  notification.grievance_id = grievanceExists ? sms_obj.grievance_id : null
+  notification.grievance_id = sms_obj.grievance_id
   notification.recipient = sms_obj.phone
   notification.message =  sms_obj.grv_code + ": " + sms_obj.message
   notification.medium = 'SMS'

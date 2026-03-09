@@ -118,6 +118,13 @@ import fileGrievanceBtnImg from '@/assets/documentation/File a Grievance button.
 import grievanceFormImg from '@/assets/documentation/multi-step greivnace form.png'
 import incidentBtnImg from '@/assets/documentation/incident button.png'
 import incidentFormImg from '@/assets/documentation/incident form.png'
+import incidentListingImg from '@/assets/documentation/incident-listing.png'
+import incidentSearchImg from '@/assets/documentation/incident-search.png'
+import incidentEditImg from '@/assets/documentation/incident-edit.png'
+import incidentManagementButtonsImg from '@/assets/documentation/incident-management-buttons.png'
+import incidentPdfImg from '@/assets/documentation/incident-pdf.png'
+import incidentAddImg from '@/assets/documentation/incident-add.png'
+import incidentAddButtonImg from '@/assets/documentation/incident-add-button.png'
 import homeDashboardImg from '@/assets/documentation/home-dashbaord.png'
 import statusDashboardImg from '@/assets/documentation/status-dashabord.png'
 import statusFilterBtnImg from '@/assets/documentation/status-dashabord-filter-button.png'
@@ -210,6 +217,12 @@ import grievanceAdd2Img from '@/assets/documentation/grievance-add2.png'
 import grievanceDetail1Img from '@/assets/documentation/grievance-detail1.png'
 import grievanceUpdateImg from '@/assets/documentation/grievance-update.png'
 import grievanceResolveFormImg from '@/assets/documentation/grievance-uresolve.png'
+import grievancePendingConfirmationImg from '@/assets/documentation/grievance-pendign-confrimation.png'
+import grievanceListDownloadImg from '@/assets/documentation/grievance-list-download.png'
+import grievanceSendReminderImg from '@/assets/documentation/grievance-send-reminder.png'
+import grievanceDetailsDocumentationImg from '@/assets/documentation/grievance-details-documentation.png'
+import grievanceDetailsHistoryImg from '@/assets/documentation/grievance-details-history.png'
+import grievanceDetailsNotificationsImg from '@/assets/documentation/grievance-details-notifications.png'
 interface NavPage {
   id: string
   label: string
@@ -2051,10 +2064,8 @@ const allNavGroups: NavGroup[] = [
           <p>On submission the system: creates the grievance in <em>Sorting</em> status, logs the intake action, uploads attached documents, and sends an <strong>SMS acknowledgement</strong> with the tracking code to the complainant&apos;s phone.</p>
 
           <h2>Downloading</h2>
+          <img src="${grievanceListDownloadImg}" alt="Grievance list download" class="docs-screenshot" />
           <p>Click the <strong>Download</strong> button to export the current view to Excel. A field selector lets you choose exactly which columns to include. The export respects all active filters and your role scope.</p>
-
-          <h2>Bulk import</h2>
-          <p>Click the <strong>Upload</strong> icon to open the CSV import dialog. Download the template, populate it with grievance records, then upload the completed file. The system validates each row and shows a results summary with success and failure counts.</p>
         `
       },
       {
@@ -2073,6 +2084,18 @@ const allNavGroups: NavGroup[] = [
             <tr><td><strong>Notifications</strong></td><td>Log of all SMS notifications sent to the complainant, with message content and delivery timestamps</td></tr>
             <tr><td><strong>Settings</strong></td><td>Field-level edit history &mdash; who changed what value and when, with a diff view and revert option for authorised users</td></tr>
           </tbody></table>
+
+          <h3>Supporting Documentation</h3>
+          <img src="${grievanceDetailsDocumentationImg}" alt="Grievance details — Supporting Documentation tab" class="docs-screenshot" />
+          <p>The <strong>Supporting Documentation</strong> tab lists every file attached to the grievance. Each entry shows the file name, type, upload date, and a download button. In addition to documents attached during submission or actioning, staff can upload further files at any time from this tab &mdash; click <strong>Upload Documents</strong>, select the document type (<em>Supporting Documentation</em>, <em>Acknowledgement</em>, <em>Resolution Document</em>, or <em>Other</em>), choose the file, and save. Allowed formats: images (jpg/png/gif/webp) and documents (pdf/doc/docx/xls/xlsx/ppt/pptx). Maximum file size 10 MB. Executable files are blocked.</p>
+
+          <h3>Action Logs</h3>
+          <img src="${grievanceDetailsHistoryImg}" alt="Grievance details — Action Logs tab" class="docs-screenshot" />
+          <p>The <strong>Action Logs</strong> tab provides a full chronological audit trail of everything that has happened to the grievance. Each entry records the acting officer, their role and level, the action taken, the date and time, and the narrative note they entered. Documents uploaded during an action (e.g. a resolution form) are also linked here.</p>
+
+          <h3>Notifications</h3>
+          <img src="${grievanceDetailsNotificationsImg}" alt="Grievance details — Notifications tab" class="docs-screenshot" />
+          <p>The <strong>Notifications</strong> tab logs every SMS sent to the complainant during the lifecycle of the grievance. Each entry shows the message content, the event that triggered it (e.g. intake acknowledgement, status update, resolution), and the delivery timestamp. This tab is useful for confirming that the complainant has been kept informed at each stage.</p>
 
           <h2>Action button</h2>
           <p>The primary <strong>action button</strong> in the top-right corner opens a slide-out drawer for updating the grievance status. Its label changes to reflect what action is most appropriate for the current status:</p>
@@ -2108,6 +2131,7 @@ const allNavGroups: NavGroup[] = [
           <p>On submission the system: updates the grievance status, logs the resolution action, uploads the resolution document, and sends an <strong>SMS notification</strong> to the complainant. If the resolving user is at <em>settlement</em> or <em>county</em> level, the SMS states the resolution is <em>subject to confirmation by the KISIP National Team</em>. If resolved at national level, the grievance is automatically closed.</p>
 
           <h2>National GRM confirmation</h2>
+          <img src="${grievancePendingConfirmationImg}" alt="Grievance awaiting confirmation" class="docs-screenshot" />
           <p>When a grievance is resolved at settlement or county level and has not yet been confirmed, national GRM users see a separate <strong>Confirm Resolution</strong> button. Clicking it opens a confirmation dialog where the officer enters confirmation notes and confirms the level. On confirmation, the system automatically <strong>closes</strong> the grievance and sends a final SMS to the complainant.</p>
 
           <h2>Escalation levels</h2>
@@ -2120,6 +2144,7 @@ const allNavGroups: NavGroup[] = [
           </tbody></table>
 
           <h2>Sending an overdue reminder</h2>
+          <img src="${grievanceSendReminderImg}" alt="Send overdue reminder" class="docs-screenshot" />
           <p>If a grievance has passed its stage deadline, staff can click the <strong>Send Overdue Reminder</strong> button to dispatch an SMS to the complainant acknowledging the delay and reassuring them the case is being actively handled.</p>
 
           <h2>Supporting Documentation tab</h2>
@@ -2133,7 +2158,28 @@ const allNavGroups: NavGroup[] = [
         id: 'grm-gbv',
         label: 'GBV Cases',
         content: `
-          <p><strong>Gender-Based Violence (GBV)</strong> cases follow a specialised workflow with stricter access controls. Only users with the <code>gbv</code> role can access these records to protect victim confidentiality.</p>
+          <p><strong>Gender-Based Violence (GBV)</strong> cases are grievances flagged as GBV at the point of submission. They follow the same status workflow as regular grievances but are subject to stricter access controls and data handling rules to protect victim confidentiality.</p>
+
+          <h2>Access control</h2>
+          <p>GBV cases are separated from the main grievance listing. Only users assigned the <code>gbv</code> role can view and action GBV records. Regular GRM officers, staff, and county admins do not see GBV cases in their listing. Super admins and root admins have full access.</p>
+          <blockquote>The <code>gbv</code> role is an additional permission granted on top of a user&apos;s existing role &mdash; it does not replace it. A county GRM officer must hold both the <code>grm</code> and <code>gbv</code> roles to handle GBV cases at county level.</blockquote>
+
+          <h2>Data redaction</h2>
+          <p>For all users except super admins and root admins, the complainant&apos;s <strong>name</strong>, <strong>national ID</strong>, and <strong>phone number</strong> are automatically redacted and displayed as <code>[REDACTED]</code> on GBV cases. This applies even to users with the <code>gbv</code> role. Only super admins can view the full decrypted PII of a GBV complainant.</p>
+
+          <h2>Flagging a case as GBV</h2>
+          <p>During grievance submission (Step 3 &mdash; Complaint Details), the intake officer can tick the <strong>GBV</strong> flag. Once saved, the case is routed into the GBV sub-listing and the flag cannot be removed without admin intervention. In the main grievance listing, GBV-flagged cases are hidden from non-GBV users entirely &mdash; they do not appear as redacted rows, they are not shown at all.</p>
+
+          <h2>Workflow</h2>
+          <p>GBV cases progress through the same statuses as standard grievances: <em>Sorting &rarr; Under Review &rarr; Investigation &rarr; Resolved &rarr; Closed</em>. The same action drawer, escalation rules, resolution wizard, and national confirmation step all apply. The only differences are who can see and act on the case.</p>
+
+          <h2>Confidentiality guidelines</h2>
+          <ul>
+            <li>Do not discuss case details outside secure channels</li>
+            <li>Do not share the tracking code with anyone other than the complainant</li>
+            <li>Upload resolution documents only through the Supporting Documentation tab &mdash; do not send via email or messaging apps</li>
+            <li>If a case needs to be referred externally, use the <em>External Referral</em> status and record the organisation name &mdash; do not include complainant PII in the referral notes</li>
+          </ul>
         `
       }
     ]
@@ -2145,10 +2191,106 @@ const allNavGroups: NavGroup[] = [
     children: [
       {
         id: 'incidents-overview',
-        label: 'Overview',
+        label: 'Listing & Overview',
         content: `
-          <p>The <strong>Incidents</strong> module captures reports of accidents, disasters or other events affecting informal settlements and project areas. Incidents can be filed publicly via the landing page or internally by staff.</p>
-          <p>Each incident record includes location, type, severity, affected population and follow-up actions.</p>
+          <p>The <strong>Incidents</strong> module captures reports of accidents, disasters, or safety events affecting informal settlements and KISIP project areas. Incidents can be filed publicly via the landing page (no login required) or internally by staff. Each incident is assigned a unique reference code in the format <strong>INC-YYYY-NNNN</strong>.</p>
+
+          <h2>Accessing the listing</h2>
+          <img src="${incidentListingImg}" alt="Incidents listing" class="docs-screenshot" />
+          <p>Navigate to <strong>Incidents</strong> in the main menu. The listing is a paginated table sorted newest first. Only authenticated users with the appropriate role can access the internal listing. The public can look up an individual incident by its reference code on the landing page without logging in.</p>
+
+          <h2>Columns</h2>
+          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>Code</strong></td><td>Unique reference (INC-YYYY-NNNN)</td></tr>
+            <tr><td><strong>Reported By</strong></td><td>Name of the person who filed the report</td></tr>
+            <tr><td><strong>County / Settlement</strong></td><td>Geographic location of the incident</td></tr>
+            <tr><td><strong>Incident Types</strong></td><td>One or more incident categories selected at submission</td></tr>
+            <tr><td><strong>Severity</strong></td><td>Severity level assigned to the incident</td></tr>
+            <tr><td><strong>Status</strong></td><td>Current workflow status (Open, In Progress, Closed, etc.)</td></tr>
+            <tr><td><strong>Date Occurred</strong></td><td>Date and time the incident took place</td></tr>
+          </tbody></table>
+
+          <h2>Search and filters</h2>
+          <img src="${incidentSearchImg}" alt="Incident search and filters" class="docs-screenshot" />
+          <p>Use the <strong>search bar</strong> to filter by keyword across the incident description, reference code, and location text. Use the <strong>County</strong> and <strong>Settlement</strong> filter dropdowns to narrow results by location. All filters can be combined.</p>
+
+          <h2>SMS notifications on submission</h2>
+          <p>When a new incident is submitted, the system automatically sends two sets of SMS notifications:</p>
+          <ul>
+            <li><strong>Reporter acknowledgement</strong> &mdash; an SMS is sent to the reporter&apos;s phone confirming receipt of the report, including the reference code and a public tracking link</li>
+            <li><strong>Safeguards team alert</strong> &mdash; all users with the safeguards role receive an SMS with the reference code, location, incident type, severity, and a direct link to the record</li>
+          </ul>
+        `
+      },
+      {
+        id: 'incidents-reporting',
+        label: 'Reporting an Incident',
+        content: `
+          <img src="${incidentAddButtonImg}" alt="Report Incident button" class="docs-screenshot" />
+          <p>Click the <strong>Report Incident</strong> button in the toolbar to open the reporting drawer. The form pre-populates the reporter name, phone, and role from your logged-in account. County-restricted users will have their county locked and can only select settlements within their assigned county.</p>
+          <img src="${incidentAddImg}" alt="Report incident form" class="docs-screenshot" />
+
+          <h2>Form steps</h2>
+          <p>The form is a seven-step wizard. Each step must pass validation before proceeding. Use the arrow buttons at the top of the drawer to move between steps.</p>
+          <table><thead><tr><th>Step</th><th>Fields</th><th>Required</th></tr></thead><tbody>
+            <tr><td><strong>1 &mdash; Incident Details</strong></td><td>Date occurred, time occurred, county, settlement, location text, reporter name, reporter role, reporter phone</td><td>All fields required</td></tr>
+            <tr><td><strong>2 &mdash; Worker Details</strong></td><td>Worker name, designation, site supervisor, department</td><td>All fields required</td></tr>
+            <tr><td><strong>3 &mdash; Categories</strong></td><td>Incident types (multi-select), mechanisms, indirect causes, activity leading to incident</td><td>At least one selection each</td></tr>
+            <tr><td><strong>4 &mdash; Causes</strong></td><td>Direct causes, root causes (multi-select checklists)</td><td>At least one selection each</td></tr>
+            <tr><td><strong>5 &mdash; Narrative</strong></td><td>Full description, consequences, immediate action taken, severity</td><td>All fields required</td></tr>
+            <tr><td><strong>6 &mdash; Actions</strong></td><td>Corrective actions to prevent recurrence &mdash; each entry requires: action description, responsible party, priority (High/Medium/Low), due date</td><td>At least one action required</td></tr>
+            <tr><td><strong>7 &mdash; Prepared By</strong></td><td>Preparer name and job title</td><td>Both required</td></tr>
+          </tbody></table>
+
+          <h2>After submission</h2>
+          <p>On submission the system assigns a unique <strong>INC-YYYY-NNNN</strong> reference code, sends an <strong>SMS acknowledgement</strong> to the reporter&apos;s phone with the code and a public tracking link, and notifies all <strong>safeguards team members</strong> via SMS with the reference code, location, type, severity, and a direct link to the record.</p>
+        `
+      },
+      {
+        id: 'incidents-management',
+        label: 'Management',
+        content: `
+          <img src="${incidentManagementButtonsImg}" alt="Incident management action buttons" class="docs-screenshot" />
+          <p>Each incident row in the listing has a set of action buttons. On mobile these collapse into a dropdown menu.</p>
+          <table><thead><tr><th>Button</th><th>Function</th></tr></thead><tbody>
+            <tr><td><strong>Edit</strong></td><td>Opens the multi-step edit drawer pre-filled with the incident&apos;s current data. All fields can be updated. Changes are tracked in the audit history.</td></tr>
+            <tr><td><strong>Change Status</strong></td><td>Opens a drawer to update the incident status. A mandatory <em>Action Taken</em> note must be provided. Optionally attach supporting documents to the status update.</td></tr>
+            <tr><td><strong>View History</strong></td><td>Opens a side panel showing the full audit trail — every create, edit, and status change — plus a Documents tab listing all attached files with download links.</td></tr>
+            <tr><td><strong>Generate PDF</strong></td><td>Generates and downloads a formatted PDF report of the incident including basic info, worker details, causes, narrative, corrective actions, attached documents list, and change history. A QR code linking to the public status page is embedded on the first page.</td></tr>
+            <tr><td><strong>Delete</strong></td><td>Permanently deletes the incident after confirmation. All associated documents (including files on disk) and history records are also removed. This action cannot be undone.</td></tr>
+          </tbody></table>
+
+          <h2>Incident record fields</h2>
+          <table><thead><tr><th>Section</th><th>Fields</th></tr></thead><tbody>
+            <tr><td><strong>Reporter</strong></td><td>Reported by, reporter role, reporter phone, date and time reported</td></tr>
+            <tr><td><strong>Location</strong></td><td>County, sub-county, ward, settlement, location text, site supervisor, department</td></tr>
+            <tr><td><strong>Worker</strong></td><td>Worker name, designation (relevant for project-site incidents)</td></tr>
+            <tr><td><strong>Incident</strong></td><td>Date and time occurred, incident types (multi-select), severity, description (full narrative)</td></tr>
+            <tr><td><strong>Causes</strong></td><td>Mechanisms, direct causes, indirect causes, activity leading to incident, root causes (all multi-select checklists)</td></tr>
+            <tr><td><strong>Consequences &amp; Response</strong></td><td>Consequences of the incident, immediate action taken</td></tr>
+            <tr><td><strong>Corrective Actions</strong></td><td>Structured list of actions to avoid recurrence &mdash; each action has a responsible party, priority level, and due date</td></tr>
+            <tr><td><strong>Prepared By</strong></td><td>Name, job title, and date of the person preparing the report</td></tr>
+          </tbody></table>
+
+          <h2>Updating an incident</h2>
+          <img src="${incidentEditImg}" alt="Incident edit form" class="docs-screenshot" />
+          <p>Authorised staff can edit any field on the incident record. All changes are tracked in the audit history. If the <strong>status</strong> is being changed, an <strong>Action Taken</strong> narrative is required before saving &mdash; this is enforced by the system and the update will be rejected without it.</p>
+
+          <h2>Status workflow</h2>
+          <p>Incidents progress through a status lifecycle. The current status is shown as a badge on the record and in the listing. Changing status opens a prompt for an action note that is logged to the incident history.</p>
+
+          <h2>Documents</h2>
+          <p>Supporting documents (photos, reports, forms) can be attached to an incident. Upload files from the documents section on the incident detail page. The system accepts all common image and document formats. Uploaded files are stored securely and can be downloaded or deleted by authorised users.</p>
+
+          <h2>Audit history</h2>
+          <p>Every create, update, status change, and deletion is recorded in the incident history. Each history entry captures the action type, the fields changed (with old and new values), the user who made the change, and the timestamp. The history is read-only and cannot be altered.</p>
+
+          <h2>PDF report</h2>
+          <img src="${incidentPdfImg}" alt="Incident PDF report" class="docs-screenshot" />
+          <p>A formatted PDF report can be generated from the incident detail page. It compiles the full incident record, attached documents list, and audit history into a printable document suitable for safeguards reporting and external submission.</p>
+
+          <h2>Deleting an incident</h2>
+          <p>Deleting an incident permanently removes the record along with all associated documents (including physical files on disk) and history entries. This action is irreversible. Only authorised admin users can delete incidents.</p>
         `
       }
     ]
