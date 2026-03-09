@@ -201,6 +201,15 @@ import formDetail1Img from '@/assets/documentation/forn-detail-1.png'
 import formDetail2MapImg from '@/assets/documentation/forn-detail-2-map.png'
 import formDetail3ChartImg from '@/assets/documentation/forn-detail-3-chart.png'
 import formDetail4DownloadImg from '@/assets/documentation/forn-detail-4-downlaod-atatchment.png'
+import grievanceListingImg from '@/assets/documentation/grievance-listing.png'
+import grievanceSearchImg from '@/assets/documentation/grievance-search.png'
+import grievanceFilter1Img from '@/assets/documentation/grievance-filter1.png'
+import grievanceFilter2Img from '@/assets/documentation/grievance-filter12.png'
+import grievanceAdd1Img from '@/assets/documentation/grievance-add1.png'
+import grievanceAdd2Img from '@/assets/documentation/grievance-add2.png'
+import grievanceDetail1Img from '@/assets/documentation/grievance-detail1.png'
+import grievanceUpdateImg from '@/assets/documentation/grievance-update.png'
+import grievanceResolveFormImg from '@/assets/documentation/grievance-uresolve.png'
 interface NavPage {
   id: string
   label: string
@@ -1931,20 +1940,193 @@ const allNavGroups: NavGroup[] = [
         id: 'grm-overview',
         label: 'Overview',
         content: `
-          <p>The <strong>Grievance Redress Mechanism</strong> allows the public to submit complaints and feedback related to KISIP programmes. Grievances are tracked through their full lifecycle from intake to resolution.</p>
+          <p>The <strong>Grievance Redress Mechanism (GRM)</strong> is KeSMIS's end-to-end complaint management system for KISIP programmes. Any member of the public can submit a grievance without logging in &mdash; by phone, online form, or toll-free helpline &mdash; and track its progress using a unique tracking code. Internally, authorised staff receive, review, assign, and resolve grievances through a structured workflow with full audit trail.</p>
+          <p>The GRM module is accessible from the sidebar under <strong>GRM</strong>. Access is available to users with <code>root_admin</code>, <code>super_admin</code>, <code>admin</code>, <code>grm</code>, or <code>staff</code> roles.</p>
+
+          <h2>Module structure</h2>
+          <table><thead><tr><th>Section</th><th>Purpose</th></tr></thead><tbody>
+            <tr><td><strong>Grievances</strong></td><td>Master list of all public complaints &mdash; view, filter, assign, update status, add notes and communication logs, and close cases</td></tr>
+            <tr><td><strong>GBV Cases</strong></td><td>Gender-Based Violence cases handled under a restricted, high-confidentiality sub-workflow accessible only to users with the <code>gbv</code> permission</td></tr>
+            <tr><td><strong>GRC</strong></td><td>Grievance Redress Committee &mdash; the body responsible for reviewing and resolving grievances; manage committee members here</td></tr>
+            <tr><td><strong>SEC</strong></td><td>Settlement Executive Committee &mdash; community-level committees linked to settlements; used for escalation and local resolution</td></tr>
+          </tbody></table>
+
+          <h2>Grievance lifecycle</h2>
+          <p>Every grievance passes through the following stages:</p>
+          <ol>
+            <li><strong>Submission</strong> &mdash; the complainant files a grievance via the public landing page form, the toll-free helpline (<strong>0800 724 349</strong>), or directly through a GRM officer on behalf of the complainant</li>
+            <li><strong>Intake &amp; Acknowledgement</strong> &mdash; a GRM officer reviews the new submission, confirms receipt, and issues a tracking code to the complainant</li>
+            <li><strong>Assignment</strong> &mdash; the grievance is assigned to a GRC member or relevant officer for investigation</li>
+            <li><strong>Review &amp; Investigation</strong> &mdash; the assigned officer investigates the complaint, may request additional information, and logs all communications internally</li>
+            <li><strong>Resolution</strong> &mdash; the grievance is marked resolved (or rejected with reasons), and the complainant is notified via SMS or phone</li>
+            <li><strong>Closure</strong> &mdash; the resolved case is closed and archived with a full audit trail of all actions taken</li>
+          </ol>
+          <img src="${fileGrievanceBtnImg}" alt="File a Grievance button on the landing page" class="docs-screenshot" />
+
+          <h2>Public submission</h2>
+          <p>The public grievance form is a four-step wizard accessible from the KeSMIS landing page without any login:</p>
+          <table><thead><tr><th>Step</th><th>Fields collected</th></tr></thead><tbody>
+            <tr><td><strong>1 &mdash; Personal Details</strong></td><td>Name (or &ldquo;Anonymous&rdquo;), gender, age bracket, national ID, phone, email</td></tr>
+            <tr><td><strong>2 &mdash; Grievance Details</strong></td><td>County, project phase (KISIP 1 / KISIP 2), settlement</td></tr>
+            <tr><td><strong>3 &mdash; Complaint Details</strong></td><td>Nature and detailed description of the complaint, supporting documents or photos</td></tr>
+            <tr><td><strong>4 &mdash; Review &amp; Submit</strong></td><td>Summary of all entries &mdash; review and confirm before submitting</td></tr>
+          </tbody></table>
+          <img src="${grievanceFormImg}" alt="Multi-step public grievance submission form" class="docs-screenshot" />
+          <p>After submission the complainant receives a <strong>unique tracking code</strong>. They can use the <strong>Check Status</strong> button on the landing page at any time to view the current status and any updates logged by the GRC.</p>
+
+          <h2>Who can access the GRM module?</h2>
+          <table><thead><tr><th>Role</th><th>Access level</th></tr></thead><tbody>
+            <tr><td><strong>General public</strong></td><td>Can submit grievances and check status &mdash; no login required</td></tr>
+            <tr><td><strong>GRM officer / Staff</strong></td><td>Can view, filter, assign, update and resolve all grievances; manage GRC and SEC records</td></tr>
+            <tr><td><strong>Admin / Super admin</strong></td><td>Full access including GBV cases, reporting, and configuration</td></tr>
+            <tr><td><strong>GBV role</strong></td><td>Additional access to restricted GBV case records</td></tr>
+          </tbody></table>
+
+          <blockquote>Tip &mdash; Complainants who prefer not to use the online form can call the toll-free helpline <strong>0800 724 349</strong> during working hours. A GRM officer will file the grievance on their behalf and provide the tracking code.</blockquote>
         `
       },
       {
         id: 'grm-grievances',
         label: 'Grievances',
         content: `
-          <p>Grievances submitted through the public form or by staff are listed here. Key actions include:</p>
+          <p>The <strong>Grievances</strong> page is the main working area for GRM officers and administrators. It lists every complaint received &mdash; from public online submissions, the toll-free helpline, and staff-entered records &mdash; and provides the tools to manage each one through its full lifecycle.</p>
+          <p>Navigate here via <strong>GRM &rarr; Grievances</strong> in the sidebar. County-level staff see only grievances from their assigned county; national staff and admins see all counties.</p>
+
+          <h2>Status tabs</h2>
+          <img src="${grievanceListingImg}" alt="Grievances listing page" class="docs-screenshot" />
+          <p>Clickable status cards at the top of the page each show a live count. Click a card to filter the table to that group:</p>
+          <table><thead><tr><th>Status</th><th>Meaning</th><th>Default deadline</th></tr></thead><tbody>
+            <tr><td><strong>Received (All)</strong></td><td>All non-deleted grievances &mdash; the default view on page load</td><td>&mdash;</td></tr>
+            <tr><td><strong>Sorting</strong></td><td>Received but not yet acted on; pending triage</td><td>7 days</td></tr>
+            <tr><td><strong>Under Review</strong></td><td>Actively being investigated; complainant has been notified</td><td>&mdash;</td></tr>
+            <tr><td><strong>Escalated</strong></td><td>Moved to a higher level (e.g., SEC &rarr; County GRM &rarr; NPCT)</td><td>14 days</td></tr>
+            <tr><td><strong>Referred</strong></td><td>Referred to a specific officer (CPCT/NPCT) or external entity</td><td>&mdash;</td></tr>
+            <tr><td><strong>External Referral</strong></td><td>Referred to an external agency outside KISIP for resolution</td><td>&mdash;</td></tr>
+            <tr><td><strong>In Court</strong></td><td>The case is pending court determination</td><td>&mdash;</td></tr>
+            <tr><td><strong>Resolved</strong></td><td>Corrective action has been recommended or implemented</td><td>21 days</td></tr>
+            <tr><td><strong>Closed</strong></td><td>Complainant has accepted the resolution; case archived</td><td>42 days</td></tr>
+            <tr><td><strong>Rejected</strong></td><td>Fake, test entry, or does not qualify</td><td>&mdash;</td></tr>
+            <tr><td><strong>Deleted</strong></td><td>Soft-deleted records; visible only to national staff with <code>grievance:viewDeleted</code> permission</td><td>&mdash;</td></tr>
+          </tbody></table>
+          <blockquote>Grievances approaching or past their stage deadline are colour-highlighted in the table as a prompt to act.</blockquote>
+
+          <h2>Table columns</h2>
+          <table><thead><tr><th>Column</th><th>Description</th><th>Shown when</th></tr></thead><tbody>
+            <tr><td><strong>ID</strong></td><td>System-generated unique identifier</td><td>Always</td></tr>
+            <tr><td><strong>Grievance</strong></td><td>Tracking code, complainant name, nature of complaint, and short description. GBV-flagged cases show a lock icon visible only to authorised users</td><td>Always</td></tr>
+            <tr><td><strong>Location</strong></td><td>County and settlement the grievance relates to</td><td>Always</td></tr>
+            <tr><td><strong>Deadline</strong></td><td>Calculated expiry date for the current status stage</td><td>Always</td></tr>
+            <tr><td><strong>Complainant / Reported By</strong></td><td>Complainant name and the staff member who filed the record</td><td>Sorting tab only</td></tr>
+            <tr><td><strong>Referred To</strong></td><td>Name and phone of the officer the case was referred to</td><td>Referred tab only</td></tr>
+            <tr><td><strong>Date Reported</strong></td><td>Date the grievance was originally filed</td><td>Always</td></tr>
+            <tr><td><strong>Date Resolved</strong></td><td>Date marked resolved</td><td>Resolved tab only</td></tr>
+            <tr><td><strong>Resolution</strong></td><td>Description of the corrective action taken</td><td>Resolved tab only</td></tr>
+            <tr><td><strong>Date Closed</strong></td><td>Date the case was formally closed</td><td>Closed tab only</td></tr>
+          </tbody></table>
+          <p>Click any row to open the full <strong>Grievance Details</strong> page. Double-clicking a row also navigates there.</p>
+
+          <h2>Searching &amp; filtering</h2>
+          <img src="${grievanceSearchImg}" alt="Grievance search bar" class="docs-screenshot" />
+          <p>Use the <strong>search bar</strong> at the top to find grievances by tracking code, description, or complainant name. The advanced <strong>Filter</strong> modal adds the following filters:</p>
+          <img src="${grievanceFilter1Img}" alt="Grievance filter modal" class="docs-screenshot" />
+          <img src="${grievanceFilter2Img}" alt="Grievance filter results" class="docs-screenshot" />
           <ul>
-            <li>Viewing open and referred grievances</li>
-            <li>Assigning grievances to GRC members</li>
-            <li>Updating status (acknowledged, under review, resolved, rejected)</li>
-            <li>Adding internal notes and communication logs</li>
+            <li><strong>Category</strong> &mdash; nature/type of complaint (e.g., land, infrastructure, financial)</li>
+            <li><strong>County</strong> &mdash; one or multiple counties (national staff); pre-scoped for county staff</li>
+            <li><strong>Sub-county</strong> &mdash; cascades from the selected county</li>
+            <li><strong>Ward</strong> &mdash; cascades from the selected sub-county</li>
+            <li><strong>Project Phase</strong> &mdash; KISIP 1 or KISIP 2</li>
           </ul>
+          <p>Active filters appear as removable chips above the table. Use <strong>Clear All</strong> to reset everything, or click individual chip &times; buttons to remove one filter at a time.</p>
+
+          <h2>Adding a grievance (staff)</h2>
+          <p>Click <strong>+ Add</strong> to file a grievance on behalf of a walk-in or phone-in complainant. The three-step internal form collects:</p>
+          <img src="${grievanceAdd1Img}" alt="Add grievance form step 1" class="docs-screenshot" />
+          <img src="${grievanceAdd2Img}" alt="Add grievance form step 2" class="docs-screenshot" />
+          <table><thead><tr><th>Step</th><th>Fields</th></tr></thead><tbody>
+            <tr><td><strong>1 &mdash; Personal Details</strong></td><td>Name (or &ldquo;Anonymous&rdquo;), gender, age bracket, national ID, phone, email</td></tr>
+            <tr><td><strong>2 &mdash; Grievance Details</strong></td><td>County, project phase (KISIP 1 / KISIP 2), settlement, date reported</td></tr>
+            <tr><td><strong>3 &mdash; Complaint Details</strong></td><td>Nature of complaint, detailed description, complainant&apos;s plea/request, GBV flag, witness name/phone/statement, supporting documents (PDF/JPG/PNG, max 10 MB each)</td></tr>
+          </tbody></table>
+          <p>On submission the system: creates the grievance in <em>Sorting</em> status, logs the intake action, uploads attached documents, and sends an <strong>SMS acknowledgement</strong> with the tracking code to the complainant&apos;s phone.</p>
+
+          <h2>Downloading</h2>
+          <p>Click the <strong>Download</strong> button to export the current view to Excel. A field selector lets you choose exactly which columns to include. The export respects all active filters and your role scope.</p>
+
+          <h2>Bulk import</h2>
+          <p>Click the <strong>Upload</strong> icon to open the CSV import dialog. Download the template, populate it with grievance records, then upload the completed file. The system validates each row and shows a results summary with success and failure counts.</p>
+        `
+      },
+      {
+        id: 'grm-details',
+        label: 'Grievance Details & Actioning',
+        content: `
+          <p>Clicking any row in the Grievances listing opens the <strong>Grievance Details</strong> page. This is where GRM officers read the full complaint record and take all workflow actions &mdash; sorting, reviewing, escalating, referring, resolving, and closing a grievance.</p>
+
+          <h2>Page overview</h2>
+          <img src="${grievanceDetail1Img}" alt="Grievance details page" class="docs-screenshot" />
+          <p>The top of the page displays a summary header showing the grievance <strong>tracking code</strong>, current <strong>status badge</strong>, <strong>current level</strong> (settlement / county / national), and an overdue warning if the current stage deadline has passed. The main content is organised into five tabs:</p>
+          <table><thead><tr><th>Tab</th><th>What it shows</th></tr></thead><tbody>
+            <tr><td><strong>Grievance Details</strong></td><td>Full record: tracking code, complainant name, phone, county, settlement, nature of complaint, GBV flag, description, complainant&apos;s plea, date reported, and resolution (once resolved)</td></tr>
+            <tr><td><strong>Supporting Documentation</strong></td><td>All files attached to the grievance &mdash; name, type, upload date, and download button. Staff can also upload additional documents here at any time</td></tr>
+            <tr><td><strong>Action Logs</strong></td><td>Chronological timeline of every action taken on the grievance &mdash; who did what, when, and what note they left. Includes any uploaded action documents</td></tr>
+            <tr><td><strong>Notifications</strong></td><td>Log of all SMS notifications sent to the complainant, with message content and delivery timestamps</td></tr>
+            <tr><td><strong>Settings</strong></td><td>Field-level edit history &mdash; who changed what value and when, with a diff view and revert option for authorised users</td></tr>
+          </tbody></table>
+
+          <h2>Action button</h2>
+          <p>The primary <strong>action button</strong> in the top-right corner opens a slide-out drawer for updating the grievance status. Its label changes to reflect what action is most appropriate for the current status:</p>
+          <table><thead><tr><th>Current status</th><th>Button label</th></tr></thead><tbody>
+            <tr><td>Sorting</td><td>Review and Sort</td></tr>
+            <tr><td>Under Review / Investigation / Escalated / Referred</td><td>Review Status</td></tr>
+            <tr><td>Resolved</td><td>Review / Close grievance</td></tr>
+            <tr><td>Closed / In Court</td><td>Button hidden &mdash; no further action required</td></tr>
+          </tbody></table>
+          <p>The button is also hidden for non-national users when a grievance has been <em>Resolved</em> at settlement or county level &mdash; at that point only the national GRM can act (to confirm or close).</p>
+          <blockquote>The action button is disabled if the logged-in user&apos;s role level does not match the grievance&apos;s current level. A settlement GRM officer cannot act on a grievance that has been escalated to county level.</blockquote>
+
+          <h2>Status update drawer</h2>
+          <img src="${grievanceUpdateImg}" alt="Grievance status update drawer" class="docs-screenshot" />
+          <p>The drawer always starts with a <strong>Update Grievance Status</strong> dropdown. The options available depend on the current status &mdash; only valid next-states are shown. After selecting a status, additional fields appear:</p>
+          <table><thead><tr><th>New status selected</th><th>Extra fields shown</th></tr></thead><tbody>
+            <tr><td><strong>Any status</strong></td><td>Action description (narrative text field explaining the action taken)</td></tr>
+            <tr><td><strong>Referred</strong></td><td>Select officer to refer to (filterable dropdown of settlement, county and national GRM officers). An <em>Add Officer</em> inline option lets you add a new officer by name and phone without leaving the drawer</td></tr>
+            <tr><td><strong>External Referral</strong></td><td>Name of the external organisation the case is being referred to</td></tr>
+            <tr><td><strong>Resolved</strong></td><td>A five-step sub-wizard (see below)</td></tr>
+          </tbody></table>
+
+          <h2>Resolving a grievance</h2>
+          <img src="${grievanceResolveFormImg}" alt="Grievance resolution wizard" class="docs-screenshot" />
+          <p>Marking a grievance <strong>Resolved</strong> opens a five-step wizard inside the drawer. All steps must be completed before the resolution can be submitted:</p>
+          <table><thead><tr><th>Step</th><th>Fields</th></tr></thead><tbody>
+            <tr><td><strong>1 &mdash; Basic Info</strong></td><td>Was the filer present (Yes/No), was field verification conducted (Yes/No), date of resolution</td></tr>
+            <tr><td><strong>2 &mdash; Investigation</strong></td><td>Findings of the field investigation (free text)</td></tr>
+            <tr><td><strong>3 &mdash; Agreement</strong></td><td>Was agreement reached (Yes/No). If <em>Yes</em>: agreement details. If <em>No</em>: points of disagreement</td></tr>
+            <tr><td><strong>4 &mdash; Documentation</strong></td><td>Download the <strong>Resolution Form Template</strong>, fill and sign it, then upload the signed form. At least one document is <strong>required</strong> before proceeding</td></tr>
+            <tr><td><strong>5 &mdash; Action Description</strong></td><td>Written summary of the resolution action taken</td></tr>
+          </tbody></table>
+          <p>On submission the system: updates the grievance status, logs the resolution action, uploads the resolution document, and sends an <strong>SMS notification</strong> to the complainant. If the resolving user is at <em>settlement</em> or <em>county</em> level, the SMS states the resolution is <em>subject to confirmation by the KISIP National Team</em>. If resolved at national level, the grievance is automatically closed.</p>
+
+          <h2>National GRM confirmation</h2>
+          <p>When a grievance is resolved at settlement or county level and has not yet been confirmed, national GRM users see a separate <strong>Confirm Resolution</strong> button. Clicking it opens a confirmation dialog where the officer enters confirmation notes and confirms the level. On confirmation, the system automatically <strong>closes</strong> the grievance and sends a final SMS to the complainant.</p>
+
+          <h2>Escalation levels</h2>
+          <p>When a grievance is escalated or returned, the system moves its <strong>current level</strong> accordingly, which determines which staff can act on it next:</p>
+          <table><thead><tr><th>Action</th><th>Performed by</th><th>Grievance moves to</th></tr></thead><tbody>
+            <tr><td>Escalate</td><td>Settlement GRM officer</td><td>County level</td></tr>
+            <tr><td>Escalate</td><td>County GRM officer</td><td>National level</td></tr>
+            <tr><td>Send Back (Returned)</td><td>National GRM officer</td><td>County level</td></tr>
+            <tr><td>Send Back (Returned)</td><td>County GRM officer</td><td>Settlement level</td></tr>
+          </tbody></table>
+
+          <h2>Sending an overdue reminder</h2>
+          <p>If a grievance has passed its stage deadline, staff can click the <strong>Send Overdue Reminder</strong> button to dispatch an SMS to the complainant acknowledging the delay and reassuring them the case is being actively handled.</p>
+
+          <h2>Supporting Documentation tab</h2>
+          <p>In addition to documents attached during submission or actioning, staff can upload further files at any time from this tab. Click <strong>Upload Documents</strong>, select the document type (Supporting Documentation, Acknowledgement, Resolution Document, or Other), choose the file, and save. Allowed formats: images (jpg/png/gif/webp) and documents (pdf/doc/docx/xls/xlsx/ppt/pptx). Maximum file size 10 MB. Executable files are blocked.</p>
+
+          <h2>Settings tab (edit history)</h2>
+          <p>The Settings tab shows a table of every field-level edit made to the grievance record, with columns for: changed field, before and after values, action type (Edit or Delete), date edited, and who made the change. Expand any row to see the full diff. Authorised users can click <strong>Revert</strong> on any edit entry to undo that specific change and restore the previous field value.</p>
         `
       },
       {
