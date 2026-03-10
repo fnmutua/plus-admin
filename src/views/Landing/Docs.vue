@@ -167,6 +167,8 @@ import modeSwitchImg from '@/assets/documentation/mode switch.png'
 import registerImg from '@/assets/documentation/regsiter.png'
 import signinBtnImg from '@/assets/documentation/signin button.png'
 import loginImg from '@/assets/documentation/login.png'
+import loginSignupImg from '@/assets/documentation/login - SIGNUP.png'
+import loginSuccessRedirectImg from '@/assets/documentation/login - success-redirect.png'
 import climateOverviewImg from '@/assets/documentation/climate-0verview.png'
 import climateStartImg from '@/assets/documentation/climate-start.png'
 import climateInfoImg from '@/assets/documentation/climate-questionaire-info.png'
@@ -558,31 +560,37 @@ const allNavGroups: NavGroup[] = [
         label: 'Creating an Account',
         content: `
           <p>Before you can access the internal KeSMIS dashboard you need a user account. You can register for one directly from the landing page.</p>
-          <img src="${registerImg}" alt="Registration form" class="docs-screenshot" />
-          <h2>How to register</h2>
+          <h2>How to create an account</h2>
           <ol>
-            <li>Click the <strong>Sign in</strong> button on the landing page hero section or top navigation bar</li>
-            <li>On the login page, click the <strong>Register</strong> link</li>
-            <li>Fill in the registration form with the following details:</li>
+            <li>Click the <strong>Sign in</strong> button on the landing page hero section or the top navigation bar</li>
           </ol>
+          <img src="${signinBtnImg}" alt="Sign in button on the landing page" class="docs-screenshot" />
+          <ol start="2">
+            <li>You will be taken to the <strong>login page</strong>. Instead of signing in, click the <strong>Sign Up</strong> (or <strong>Register</strong>) button/link on the login page</li>
+          </ol>
+          <img src="${loginSignupImg}" alt="Login page with Sign Up link" class="docs-screenshot" />
+          <ol start="3">
+            <li>You will be taken to the <strong>registration page</strong>. Fill in the form with the following details:</li>
+          </ol>
+          <img src="${registerImg}" alt="Registration form" class="docs-screenshot" />
           <table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
             <tr><td><strong>Full Name</strong></td><td>Your full name as it should appear in the system.</td></tr>
             <tr><td><strong>Username</strong></td><td>A unique username you will use alongside your email to identify your account.</td></tr>
             <tr><td><strong>Email</strong></td><td>A valid email address. This will be used for login and password recovery.</td></tr>
-            <tr><td><strong>Password</strong></td><td>A secure password for your account.</td></tr>
+            <tr><td><strong>Password</strong></td><td>Must be 8&ndash;20 characters and contain at least one uppercase letter, one lowercase letter, one digit, and one special character (e.g. <code>!</code> <code>@</code> <code>#</code> <code>$</code>).</td></tr>
             <tr><td><strong>Organisation</strong></td><td>The organisation you belong to (e.g. Kenya Red Cross Society, county government, etc.).</td></tr>
             <tr><td><strong>Phone</strong></td><td>Your phone number with country code. An international phone input is provided.</td></tr>
             <tr><td><strong>County</strong></td><td>Your county (shown for Kenyan phone numbers). Select "Not Applicable" if not county-based.</td></tr>
           </tbody></table>
-          <ol start="4">
-            <li>Check the <strong>terms and conditions</strong> checkbox</li>
+          <ol start="5">
+            <li>Check the <strong>I agree to the privacy policy</strong> checkbox</li>
             <li>Click <strong>Register</strong> to submit your application</li>
           </ol>
-          <h2>What happens after registration?</h2>
+          <h2>What happens after registration?</h2> 
           <ul>
             <li>Your registration is submitted for <strong>administrator review</strong></li>
             <li>An administrator will approve your account and assign you a <strong>role</strong> that determines which modules and data you can access</li>
-            <li>You will receive a notification once your account is activated</li>
+            <li>You will receive an sms and email notification once your account is activated</li>
             <li>After approval, you can sign in using your email and password</li>
           </ul>
           <blockquote>Note &mdash; Accounts may be deactivated by administrators if found to be in violation of usage policies or misuse of the system.</blockquote>
@@ -600,16 +608,17 @@ const allNavGroups: NavGroup[] = [
             <li>You will be taken to the <strong>login page</strong></li>
             <li>Enter your <strong>email address</strong> and <strong>password</strong></li>
             <li>Click <strong>Sign in</strong> to authenticate</li>
-            <li>On success you will be redirected to the <strong>Status Dashboard</strong></li>
+            <li>On success you will be redirected to your <strong>home dashboard</strong></li>
           </ol>
           <img src="${loginImg}" alt="Login page" class="docs-screenshot" />
+          <img src="${loginSuccessRedirectImg}" alt="Successful login redirect to dashboard" class="docs-screenshot" />
           <h2>Forgot your password?</h2>
           <p>Click the <strong>Forgot password</strong> link on the login page. Enter your registered email address and a password reset link will be sent to you via email. Follow the link to set a new password.</p>
           <h2>After signing in</h2>
           <p>Once authenticated:</p>
           <ul>
             <li>The landing page hero button changes from <strong>"Sign in"</strong> to <strong>"Dashboard"</strong></li>
-            <li>Clicking it takes you directly to the internal <strong>Status Dashboard</strong></li>
+            <li>Clicking it takes you directly to your <strong>home dashboard</strong></li>
             <li>The sidebar navigation appears with all modules available to your role</li>
             <li>You can access settlements, facilities, surveys, grievances, M&amp;E and all other modules based on your assigned permissions</li>
           </ul>
