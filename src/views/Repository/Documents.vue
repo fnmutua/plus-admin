@@ -311,12 +311,32 @@ const getProgrammeOptions = async () => {
 
 const projectOptions = ref([])
 const getProjectOptions = async () => {
+  const res = await getListWithoutGeo({
+    params: {
+      curUser: 1,
+      model: 'project',
+      searchField: 'title',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  })
+  projectOptions.value = res.data.map((item: any) => ({ value: item.id, label: item.title }))
 }
 
 
 
 const settlementOptions = ref([])
 const getSettlementOptions = async () => {
+  const res = await getListWithoutGeo({
+    params: {
+      curUser: 1,
+      model: 'settlement',
+      searchField: 'name',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  })
+  settlementOptions.value = res.data.map((item: any) => ({ value: item.id, label: item.name }))
 }
 
 

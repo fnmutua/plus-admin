@@ -192,6 +192,14 @@ import secAddImg from '@/assets/documentation/SEC-add.png'
 import grcListImg from '@/assets/documentation/GRC-list.png'
 import grcAddImg from '@/assets/documentation/GRC-add.png'
 import surveyListingImg from '@/assets/documentation/survey-listing.png'
+import repoListingImg from '@/assets/documentation/repository-listing.png'
+import repoFilterImg from '@/assets/documentation/repository-filter.png'
+import repoDownloadImg from '@/assets/documentation/repository-dwonload.png'
+import repoUpload1Img from '@/assets/documentation/repository-uplaod1.png'
+import repoUpload2Img from '@/assets/documentation/repository-uplaod2.png'
+import repoBulkUploadImg from '@/assets/documentation/repository-bulk-uplaod.png'
+import repoShare1Img from '@/assets/documentation/repository-share1.png'
+import repoSharesImg from '@/assets/documentation/repository-shares.png'
 import importGis1Img from '@/assets/documentation/import-gis-1.png'
 import importGis2DestImg from '@/assets/documentation/import-gis-2-destination-table.png'
 import importGis2MatchImg from '@/assets/documentation/import-gis-2-matchfields.png'
@@ -2315,12 +2323,73 @@ const allNavGroups: NavGroup[] = [
         id: 'repo-documents',
         label: 'Documents',
         content: `
-          <p>The document repository stores project-related files tagged by category and settlement. Users can:</p>
+          <p>The <strong>Documents</strong> page is the central library for all project-related files in KeSMIS. Documents are tagged to settlements, projects and categories, making them searchable and filterable across the entire repository. Navigate here via <strong>Repository &rarr; Documents</strong> in the sidebar.</p>
+
+          <h2>Listing</h2>
+          <img src="${repoListingImg}" alt="Document repository listing" class="docs-screenshot" />
+          <p>Documents are displayed in a paginated table with the following columns:</p>
+          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>ID</strong></td><td>System-generated identifier</td></tr>
+            <tr><td><strong>Name</strong></td><td>File name as stored in the system</td></tr>
+            <tr><td><strong>Type</strong></td><td>Document type category (e.g. Socio Economic Report, Survey Plans, Shapefile)</td></tr>
+            <tr><td><strong>Format</strong></td><td>File format (pdf, docx, png, etc.)</td></tr>
+            <tr><td><strong>Size (MB)</strong></td><td>File size in megabytes</td></tr>
+            <tr><td><strong>Settlement</strong></td><td>The settlement this document is tagged to</td></tr>
+            <tr><td><strong>Project</strong></td><td>The project this document is linked to</td></tr>
+            <tr><td><strong>Actions</strong></td><td>Download and Delete (admin only)</td></tr>
+          </tbody></table>
+          <p>The table is paginated with page sizes of 5, 10, 20, 50, 200 or all records.</p>
+
+          <h2>Filtering</h2>
+          <img src="${repoFilterImg}" alt="Document repository filters" class="docs-screenshot" />
+          <p>Three filter dropdowns sit above the table. Each supports multi-select and is clearable:</p>
           <ul>
-            <li>Browse and search documents</li>
-            <li>Upload new files with metadata</li>
-            <li>Share documents via secure links</li>
+            <li><strong>Filter by Type</strong> &mdash; grouped by the five document groups:
+              <table><thead><tr><th>Group</th><th>Categories</th></tr></thead><tbody>
+                <tr><td><strong>Report</strong></td><td>Socio Economic Report, Basemap Report, Stakeholder Analysis Report, Social Environmental Screening Report, Planning Report, Engineering Survey Report</td></tr>
+                <tr><td><strong>Maps</strong></td><td>Survey Plans, Registry Index Maps, Area List, Beacon Certificates</td></tr>
+                <tr><td><strong>Data</strong></td><td>Households, Shapefile, Satellite Imagery, Beneficiaries, Other</td></tr>
+                <tr><td><strong>Plan</strong></td><td>Local Physical Land Use Development Plan, Social Management Plan, Resettlement Action Plan, Community Development Plan</td></tr>
+                <tr><td><strong>Others</strong></td><td>Photo, Ownership Document, Registration Document</td></tr>
+              </tbody></table>
+            </li>
+            <li><strong>Filter by Settlement</strong> &mdash; show only documents tagged to a specific settlement</li>
+            <li><strong>Filter by Project</strong> &mdash; show only documents linked to a specific project</li>
           </ul>
+          <p>Click the <strong>Filter / Clear</strong> button to reset all filters and return to the full listing.</p>
+
+          <h2>Downloading a document</h2>
+          <img src="${repoDownloadImg}" alt="Downloading a document" class="docs-screenshot" />
+          <p>Click the <strong>Download</strong> action button on any row to download that file directly to your device. The file is streamed from the server and saved with its original filename.</p>
+          <p>To export the <em>listing</em> (metadata only, not the files themselves) as an Excel spreadsheet, click the <strong>Download</strong> toolbar button above the table. The export includes: S/No, Name, Size, Type, Report, Settlement, and Project columns for all currently filtered records.</p>
+
+          <h2>Uploading documents</h2>
+          <img src="${repoUpload1Img}" alt="Upload document form step 1" class="docs-screenshot" />
+          <img src="${repoUpload2Img}" alt="Upload document form step 2" class="docs-screenshot" />
+          <p>Click the <strong>+</strong> (Upload Documents) button to open the upload page. The upload form collects:</p>
+          <table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>Document name</strong></td><td>Display name for the file in the repository</td></tr>
+            <tr><td><strong>Document Parent</strong></td><td>The type of entity this document belongs to (e.g. Settlement, Project, Report)</td></tr>
+            <tr><td><strong>Parent Entity</strong></td><td>The specific settlement, project or report to tag this document to &mdash; searchable with remote lookup</td></tr>
+            <tr><td><strong>Document category</strong></td><td>The category that describes the document content</td></tr>
+            <tr><td><strong>File</strong></td><td>The file to upload. Supported formats: <code>.xls .xlsx .pdf .zip .doc .docx .png .jpg .jpeg .csv .json .geojson .ppt .pptx .rar .tif .tiff .txt .kml .kmz .dwg .dxf .dgn</code></td></tr>
+          </tbody></table>
+
+          <h2>Bulk import</h2>
+          <img src="${repoBulkUploadImg}" alt="Bulk document import wizard" class="docs-screenshot" />
+          <p>To upload multiple files at once, use the <strong>Bulk Import</strong> wizard (three steps):</p>
+          <ol>
+            <li><strong>Select files</strong> &mdash; choose up to 20 files in any supported format</li>
+            <li><strong>Select target model</strong> &mdash; choose the entity type to attach the documents to (e.g. Settlement, Project)</li>
+            <li><strong>Match fields</strong> &mdash; for each file, assign a <strong>Document Type</strong> and a <strong>Parent Entity</strong> from the searchable dropdown. Use the search bar to filter the file list if uploading many files at once</li>
+          </ol>
+
+          <h2>Sharing documents</h2>
+          <img src="${repoShare1Img}" alt="Share documents dialog" class="docs-screenshot" />
+          <p>Select one or more documents using the row checkboxes and click <strong>Share</strong>. Enter the recipient email addresses and an optional expiry date. The system generates a unique token URL that provides access to the selected documents without requiring a KeSMIS login. See <strong>Document Shares</strong> to manage all active share links.</p>
+
+          <h2>Deleting a document</h2>
+          <p>Click the <strong>Delete</strong> action on any row and confirm the prompt. Document deletion is restricted to admin users.</p>
         `
       },
       {
@@ -2334,7 +2403,27 @@ const allNavGroups: NavGroup[] = [
         id: 'repo-shares',
         label: 'Document Shares',
         content: `
-          <p>Manage shared document links. Each share generates a unique token URL that can be sent to external stakeholders without requiring a KeSMIS login.</p>
+          <img src="${repoSharesImg}" alt="Document shares listing" class="docs-screenshot" />
+          <p>The <strong>Document Shares</strong> page lists all secure share links that have been generated from the repository. Each link gives external stakeholders access to selected documents via a unique token URL, without requiring a KeSMIS account. Navigate here via <strong>Repository &rarr; Document Shares</strong>.</p>
+
+          <h2>Listing</h2>
+          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>#</strong></td><td>Row index</td></tr>
+            <tr><td><strong>Shared By</strong></td><td>The KeSMIS user who created the share link</td></tr>
+            <tr><td><strong>Documents</strong></td><td>Names of the files included in the share</td></tr>
+            <tr><td><strong>Recipients</strong></td><td>Email addresses the link was shared with</td></tr>
+            <tr><td><strong>Shared On</strong></td><td>Date and time the share was created</td></tr>
+            <tr><td><strong>Expires</strong></td><td>Expiry date of the link. Links past their expiry date are flagged as <em>expired</em>; links expiring within 24 hours are flagged as <em>expiring soon</em></td></tr>
+            <tr><td><strong>Actions</strong></td><td>Copy Link, Revoke, Unrevoke</td></tr>
+          </tbody></table>
+
+          <h2>Actions</h2>
+          <ul>
+            <li><strong>Copy Link</strong> &mdash; copies the full token URL to the clipboard so you can send it manually. Disabled for revoked shares</li>
+            <li><strong>Revoke</strong> &mdash; immediately deactivates the share link. Anyone with the URL will no longer be able to access the documents</li>
+            <li><strong>Unrevoke</strong> &mdash; re-activates a previously revoked link, making it accessible again</li>
+          </ul>
+          <blockquote>Tip &mdash; Always set an expiry date when creating share links for external reviewers. Use the Revoke action to instantly cut off access if a link is shared in error.</blockquote>
         `
       }
     ]

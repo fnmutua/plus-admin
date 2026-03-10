@@ -300,6 +300,10 @@ const categoryCounts = ref<CategoryCounts>({})
 const totalDocuments = ref(0)
 const selectedCategories = ref(new Set<string>())
 const selectedUploaders = ref(new Set<string>())
+const selectedSettlements = ref(new Set<number>())
+const selectedProjects = ref(new Set<number>())
+const settlementOptions = ref<{ value: number, label: string }[]>([])
+const projectOptions = ref<{ value: number, label: string }[]>([])
 const currentlyFiltered = ref(false)
 const selectedDocuments = ref<Set<number>>(new Set())
 // Share dialog state
@@ -409,6 +413,8 @@ const loadDocumentRepository = async (params: any = {}) => {
       searchTerm: searchTerm.value || undefined,
       categoryFilter: selectedCategories.value.size > 0 ? Array.from(selectedCategories.value) : undefined,
       uploaderFilter: selectedUploaders.value.size > 0 ? Array.from(selectedUploaders.value) : undefined,
+      settlementFilter: selectedSettlements.value.size > 0 ? Array.from(selectedSettlements.value) : undefined,
+      projectFilter: selectedProjects.value.size > 0 ? Array.from(selectedProjects.value) : undefined,
       dateFilter: dateRange.value ? {
         startDate: dateRange.value[0].toISOString(),
         endDate: dateRange.value[1].toISOString()
@@ -672,7 +678,7 @@ const applyFilters = async () => {
     });
   }
   currentPage.value = 1
-  currentlyFiltered.value = selectedCategories.value.size > 0 || selectedUploaders.value.size > 0 || !!dateRange.value || !!searchTerm.value
+  currentlyFiltered.value = selectedCategories.value.size > 0 || selectedUploaders.value.size > 0 || selectedSettlements.value.size > 0 || selectedProjects.value.size > 0 || !!dateRange.value || !!searchTerm.value
   await loadDocumentRepository()
   filterDrawer.value = false
 }
@@ -682,6 +688,8 @@ const clearFilters = async () => {
   searchTerm.value = ''
   selectedCategories.value = new Set<string>()
   selectedUploaders.value = new Set<string>()
+  selectedSettlements.value = new Set<number>()
+  selectedProjects.value = new Set<number>()
   clearDateFilter()
   currentPage.value = 1
   currentlyFiltered.value = false
@@ -1321,6 +1329,20 @@ const handleClose = () => {
   dialogVisible.value = false
 }
 
+const getSettlementOptions = async () => {
+  const res = await getListWithoutGeo({
+    params: { curUser: 1, model: 'settlement', searchField: 'name', searchKeyword: '', sort: 'ASC' }
+  })
+  settlementOptions.value = res.data.map((item: any) => ({ value: item.id, label: item.name }))
+}
+
+const getProjectOptions = async () => {
+  const res = await getListWithoutGeo({
+    params: { curUser: 1, model: 'project', searchField: 'title', searchKeyword: '', sort: 'ASC' }
+  })
+  projectOptions.value = res.data.map((item: any) => ({ value: item.id, label: item.title }))
+}
+
 const getDocumentTypes = async () => {
   try {
     const response = await getListWithoutGeo({
@@ -1693,6 +1715,8 @@ onMounted(async () => {
   await loadDocumentRepository()
   // Load documents based on current tab after loading
   await loadDocumentsByTab()
+  getSettlementOptions()
+  getProjectOptions()
   window.addEventListener('resize', handleResize) // Add event listener for resize
 })
 
@@ -2405,8 +2429,8 @@ const handleTabChange = async (tabName: string) => {
               <Icon icon="material-symbols:filter-list" width="16" />
               <span class="btn-text">Filters</span>
               <el-badge 
-                v-if="selectedCategories.size + selectedUploaders.size + (dateRange ? 1 : 0) > 0" 
-                :value="selectedCategories.size + selectedUploaders.size + (dateRange ? 1 : 0)" 
+                v-if="selectedCategories.size + selectedUploaders.size + selectedSettlements.size + selectedProjects.size + (dateRange ? 1 : 0) > 0"
+                :value="selectedCategories.size + selectedUploaders.size + selectedSettlements.size + selectedProjects.size + (dateRange ? 1 : 0)"
                 class="filter-badge"
               />
             </el-button>
@@ -2662,16 +2686,16 @@ const handleTabChange = async (tabName: string) => {
               @click="applyFilters" 
               type="primary" 
               size="small"
-              :disabled="selectedCategories.size === 0 && selectedUploaders.size === 0 && !dateRange"
+              :disabled="selectedCategories.size === 0 && selectedUploaders.size === 0 && selectedSettlements.size === 0 && selectedProjects.size === 0 && !dateRange"
             >
-              Apply Filters ({{ selectedCategories.size + selectedUploaders.size + (dateRange ? 1 : 0) }})
+              Apply Filters ({{ selectedCategories.size + selectedUploaders.size + selectedSettlements.size + selectedProjects.size + (dateRange ? 1 : 0) }})
             </el-button>
-            <el-button 
-              @click="() => { selectedCategories = new Set(); selectedUploaders = new Set(); clearDateFilter(); }" 
-              type="info" 
-              plain 
+            <el-button
+              @click="() => { selectedCategories = new Set(); selectedUploaders = new Set(); selectedSettlements = new Set(); selectedProjects = new Set(); clearDateFilter(); }"
+              type="info"
+              plain
               size="small"
-              :disabled="selectedCategories.size === 0 && selectedUploaders.size === 0 && !dateRange"
+              :disabled="selectedCategories.size === 0 && selectedUploaders.size === 0 && selectedSettlements.size === 0 && selectedProjects.size === 0 && !dateRange"
             >
               Clear Selection
             </el-button>
@@ -2841,6 +2865,61 @@ const handleTabChange = async (tabName: string) => {
               </div>
             </div>
           </el-tab-pane>
+
+          <!-- By Settlement Tab -->
+          <el-tab-pane label="By Settlement" name="settlement">
+            <div class="filter-drawer-content">
+              <div class="filter-group">
+                <div v-if="settlementOptions.length > 0" class="filter-checkboxes">
+                  <div
+                    v-for="option in settlementOptions"
+                    :key="option.value"
+                    class="filter-checkbox-item"
+                  >
+                    <el-checkbox
+                      :model-value="selectedSettlements.has(option.value)"
+                      @change="() => { const s = new Set(selectedSettlements); s.has(option.value) ? s.delete(option.value) : s.add(option.value); selectedSettlements = s; }"
+                      class="filter-checkbox"
+                    >
+                      <span class="checkbox-label">{{ option.label }}</span>
+                    </el-checkbox>
+                  </div>
+                </div>
+                <div v-else style="text-align: center; color: #909399; padding: 40px 20px;">
+                  <Icon icon="material-symbols:location-city" width="48" style="margin-bottom: 16px; opacity: 0.5;" />
+                  <p>No settlements available</p>
+                </div>
+              </div>
+            </div>
+          </el-tab-pane>
+
+          <!-- By Project Tab -->
+          <el-tab-pane label="By Project" name="project">
+            <div class="filter-drawer-content">
+              <div class="filter-group">
+                <div v-if="projectOptions.length > 0" class="filter-checkboxes">
+                  <div
+                    v-for="option in projectOptions"
+                    :key="option.value"
+                    class="filter-checkbox-item"
+                  >
+                    <el-checkbox
+                      :model-value="selectedProjects.has(option.value)"
+                      @change="() => { const s = new Set(selectedProjects); s.has(option.value) ? s.delete(option.value) : s.add(option.value); selectedProjects = s; }"
+                      class="filter-checkbox"
+                    >
+                      <span class="checkbox-label">{{ option.label }}</span>
+                    </el-checkbox>
+                  </div>
+                </div>
+                <div v-else style="text-align: center; color: #909399; padding: 40px 20px;">
+                  <Icon icon="material-symbols:folder-open" width="48" style="margin-bottom: 16px; opacity: 0.5;" />
+                  <p>No projects available</p>
+                </div>
+              </div>
+            </div>
+          </el-tab-pane>
+
         </el-tabs>
       </div>
     </el-drawer>

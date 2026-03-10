@@ -6899,7 +6899,9 @@ exports.getDocumentRepository = async (req, res) => {
       excludeFormats = [],
       includeFormats = null, // New parameter to include only specific formats (e.g., for photos)
       uploaderFilter = null,
-      dateFilter = null
+      dateFilter = null,
+      settlementFilter = null,
+      projectFilter = null
     } = req.body;
 
     console.log('getDocumentRepository - Request body:', req.body);
@@ -6939,8 +6941,9 @@ exports.getDocumentRepository = async (req, res) => {
     const baseQuery = {
       include: baseIncludes,
       attributes: [
-        'id', 'name', 'category', 'format', 'size', 'location', 
-        'protectedFile', 'createdBy', 'createdAt', 'updatedAt', 'downloadCount'
+        'id', 'name', 'category', 'format', 'size', 'location',
+        'protectedFile', 'createdBy', 'createdAt', 'updatedAt', 'downloadCount',
+        'settlement_id', 'project_id'
       ],
       order: [[sortBy, sortOrder]],
       limit: limit,
@@ -7013,6 +7016,32 @@ exports.getDocumentRepository = async (req, res) => {
         baseQuery.where = uploaderCondition;
       }
       console.log('getDocumentRepository - Applied uploader filter:', uploaderCondition);
+    }
+
+    // Add settlement filter — only documents directly tagged to one of the selected settlements
+    if (settlementFilter) {
+      const settlementCondition = Array.isArray(settlementFilter)
+        ? { settlement_id: { [Op.in]: settlementFilter } }
+        : { settlement_id: settlementFilter };
+      if (baseQuery.where) {
+        baseQuery.where = { [Op.and]: [baseQuery.where, settlementCondition] };
+      } else {
+        baseQuery.where = settlementCondition;
+      }
+      console.log('getDocumentRepository - Applied settlementFilter:', settlementFilter);
+    }
+
+    // Add project filter — only documents directly tagged to one of the selected projects
+    if (projectFilter) {
+      const projectCondition = Array.isArray(projectFilter)
+        ? { project_id: { [Op.in]: projectFilter } }
+        : { project_id: projectFilter };
+      if (baseQuery.where) {
+        baseQuery.where = { [Op.and]: [baseQuery.where, projectCondition] };
+      } else {
+        baseQuery.where = projectCondition;
+      }
+      console.log('getDocumentRepository - Applied projectFilter:', projectFilter);
     }
 
     // Add date filter
