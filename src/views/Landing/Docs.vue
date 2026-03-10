@@ -126,6 +126,7 @@ import incidentPdfImg from '@/assets/documentation/incident-pdf.png'
 import incidentAddImg from '@/assets/documentation/incident-add.png'
 import incidentAddButtonImg from '@/assets/documentation/incident-add-button.png'
 import homeDashboardImg from '@/assets/documentation/home-dashbaord.png'
+import mapChartImg from '@/assets/documentation/map-chart.png'
 import statusDashboardImg from '@/assets/documentation/status-dashabord.png'
 import statusFilterBtnImg from '@/assets/documentation/status-dashabord-filter-button.png'
 import statusFilterResultsImg from '@/assets/documentation/status-dashabord-filter-results.png'
@@ -723,6 +724,7 @@ const allNavGroups: NavGroup[] = [
           <p>Several export options are available from the Status dashboard:</p>
           <ul>
             <li><strong>Map charts</strong> include an ECharts toolbox in the top-right corner of the chart with:
+              <img src="${mapChartImg}" alt="Map chart with ECharts toolbox" class="docs-screenshot" />
               <ul>
                 <li><strong>Data View</strong> &mdash; see the raw data behind the chart in tabular form</li>
                 <li><strong>Restore</strong> &mdash; reset the chart to its default state after zooming or panning</li>
