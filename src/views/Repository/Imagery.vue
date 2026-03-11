@@ -1242,7 +1242,7 @@ const xdownloadImagery = (layerName) => {
           <el-input disabled v-model="form.geoserverUrl" />
         </el-form-item>
         <el-form-item label="Username">
-          <el-input disabled v-model="form.username" />
+          <el-input disabled v-model="form.username" type="password" />
         </el-form-item>
         <el-form-item label="Password">
           <el-input disabled v-model="form.password" type="password" />

@@ -234,6 +234,18 @@ import grievanceSendReminderImg from '@/assets/documentation/grievance-send-remi
 import grievanceDetailsDocumentationImg from '@/assets/documentation/grievance-details-documentation.png'
 import grievanceDetailsHistoryImg from '@/assets/documentation/grievance-details-history.png'
 import grievanceDetailsNotificationsImg from '@/assets/documentation/grievance-details-notifications.png'
+import imageryListingImg from '@/assets/documentation/imagery-listing.png'
+import videoListingImg from '@/assets/documentation/video-listing.png'
+import liveStreamImg from '@/assets/documentation/live-stream.png'
+import liveStreamWatchImg from '@/assets/documentation/live-stream-watch.png'
+import liveStreamMobile1Img from '@/assets/documentation/live-stream-mobile1.png'
+import liveStreamMobile2Img from '@/assets/documentation/live-stream-mobile2.png'
+import articlesListingImg from '@/assets/documentation/articles-listing.png'
+import articlesAddImg from '@/assets/documentation/articles-add.png'
+import imageryView1Img from '@/assets/documentation/imagery-view1.png'
+import imageryView2Img from '@/assets/documentation/imagery-view2.png'
+import imageryEditImg from '@/assets/documentation/imagery-edit.png'
+import imageryAddImg from '@/assets/documentation/imagerey-add.png'
 interface NavPage {
   id: string
   label: string
@@ -2393,13 +2405,6 @@ const allNavGroups: NavGroup[] = [
         `
       },
       {
-        id: 'repo-imagery',
-        label: 'Drone Imagery',
-        content: `
-          <p>High-resolution satellite and drone imagery for mapped settlements. Imagery layers can be overlaid on settlement maps.</p>
-        `
-      },
-      {
         id: 'repo-shares',
         label: 'Document Shares',
         content: `
@@ -2425,6 +2430,79 @@ const allNavGroups: NavGroup[] = [
           </ul>
           <blockquote>Tip &mdash; Always set an expiry date when creating share links for external reviewers. Use the Revoke action to instantly cut off access if a link is shared in error.</blockquote>
         `
+      },
+      {
+        id: 'repo-imagery',
+        label: 'Drone Imagery',
+        content: `
+          <p>The <strong>Drone Imagery</strong> module stores and serves high-resolution ECW raster layers (drone surveys, aerial photography, satellite imagery) published through GeoServer. Layers are spatially indexed so they can be filtered by county and previewed directly on an interactive map. Navigate here via <strong>Repository &rarr; Drone Imagery</strong>.</p>
+
+          <h2>Listing</h2>
+          <img src="${imageryListingImg}" alt="Imagery listing" class="docs-screenshot" />
+          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>Name</strong></td><td>Unique technical identifier for the layer as stored in GeoServer (e.g. <code>sample_imagery_1</code>)</td></tr>
+            <tr><td><strong>Title</strong></td><td>Human-readable display name for the layer</td></tr>
+            <tr><td><strong>CRS</strong></td><td>Coordinate Reference System of the layer, displayed as the full label (e.g. <em>Arc 1960 / UTM Zone 37S (EPSG:21037)</em>)</td></tr>
+            <tr><td><strong>Actions</strong></td><td>View, Edit, Download, Delete</td></tr>
+          </tbody></table>
+
+          <h2>Filtering by county</h2>
+          <p>Use the <strong>County</strong> dropdown in the toolbar to restrict the listing to layers whose bounding box spatially intersects with the selected county boundary. The toolbar also shows <em>"Showing X of Y imagery layers"</em> when a county filter is active.</p>
+          <ul>
+            <li>Users with a county-level role have their county pre-selected and the dropdown is disabled — they only ever see layers relevant to their county.</li>
+            <li>National and super-admin users can freely switch between counties or clear the filter to see all layers.</li>
+          </ul>
+
+          <h2>Selecting a layer</h2>
+          <p>Use the <strong>Imagery</strong> dropdown in the toolbar (or double-click any table row) to open the map preview drawer for that layer. The map auto-fits to the layer's extent.</p>
+
+          <h2>Viewing on the map</h2>
+          <img src="${imageryView1Img}" alt="Imagery map view 1" class="docs-screenshot" />
+          <img src="${imageryView2Img}" alt="Imagery map view 2" class="docs-screenshot" />
+          <p>Clicking <strong>View</strong> in the Actions column (or selecting a layer from the dropdown) opens a right-hand drawer containing a Mapbox map. The layer is served as a WMS tile overlay from the KeSMIS GeoServer workspace. Use the navigation controls in the top-right corner of the map to zoom and pan. The map automatically flies to the layer's bounding box on load.</p>
+
+          <h2>Uploading imagery</h2>
+          <img src="${imageryAddImg}" alt="Upload imagery dialog" class="docs-screenshot" />
+          <p>Click the <strong>+ Upload</strong> button (requires <em>geoserver:create</em> permission) to open the upload dialog. Only <strong>ECW</strong> files are accepted.</p>
+          <table><thead><tr><th>Field</th><th>Notes</th></tr></thead><tbody>
+            <tr><td><strong>Coordinate System</strong></td><td>Required. Select the CRS that matches the projection of your ECW file.</td></tr>
+            <tr><td><strong>Select Files</strong></td><td>Drag-and-drop or browse. Multiple ECW files may be selected for batch upload.</td></tr>
+          </tbody></table>
+          <p>Supported coordinate systems:</p>
+          <table><thead><tr><th>EPSG Code</th><th>Name</th></tr></thead><tbody>
+            <tr><td>EPSG:21036</td><td>Arc 1960 / UTM Zone 36S</td></tr>
+            <tr><td>EPSG:21096</td><td>Arc 1960 / UTM Zone 36N</td></tr>
+            <tr><td>EPSG:21037</td><td>Arc 1960 / UTM Zone 37S (default)</td></tr>
+            <tr><td>EPSG:21097</td><td>Arc 1960 / UTM Zone 37N</td></tr>
+            <tr><td>EPSG:32637</td><td>WGS 84 / UTM Zone 37N</td></tr>
+            <tr><td>EPSG:32636</td><td>WGS 84 / UTM Zone 36N</td></tr>
+            <tr><td>EPSG:32737</td><td>WGS 84 / UTM Zone 37S</td></tr>
+            <tr><td>EPSG:32736</td><td>WGS 84 / UTM Zone 36S</td></tr>
+            <tr><td>EPSG:4326</td><td>WGS 84 (geographic)</td></tr>
+            <tr><td>EPSG:3857</td><td>WGS 84 / Web Mercator</td></tr>
+          </tbody></table>
+          <p>After clicking <strong>Confirm</strong>, each selected file is published as a separate coverage store in the <em>kisip</em> GeoServer workspace. The layer name is derived from the filename (spaces replaced with underscores, extension removed).</p>
+
+          <h2>Editing a layer</h2>
+          <img src="${imageryEditImg}" alt="Edit imagery dialog" class="docs-screenshot" />
+          <p>Click <strong>Edit</strong> in the Actions column (requires <em>geoserver:update</em> permission) to update the layer's <strong>Name</strong> and <strong>Coordinate System</strong>. The workspace field is read-only. Changes are applied to the live GeoServer layer immediately.</p>
+
+          <h2>Downloading a layer</h2>
+          <p>Click <strong>Download</strong> in the Actions column (requires <em>geoserver:read</em> permission) to export the layer as a GeoTIFF file via WCS GetCoverage. The downloaded file is named <code>{layerName}.tif</code>.</p>
+          <blockquote>Note &mdash; Very large imagery layers may be too big to download directly. If this occurs, consult the System Administrator for an offline transfer.</blockquote>
+
+          <h2>Deleting a layer</h2>
+          <p>Click <strong>Delete</strong> in the Actions column (requires <em>geoserver:delete</em> permission) to permanently remove the layer from GeoServer. The layer is immediately removed from the listing and the imagery dropdown.</p>
+
+          <h2>Permissions summary</h2>
+          <table><thead><tr><th>Action</th><th>Required permission</th></tr></thead><tbody>
+            <tr><td>View layer on map</td><td>geoserver:read</td></tr>
+            <tr><td>Download layer</td><td>geoserver:read</td></tr>
+            <tr><td>Upload new layer</td><td>geoserver:create</td></tr>
+            <tr><td>Edit layer details</td><td>geoserver:update</td></tr>
+            <tr><td>Delete layer</td><td>geoserver:delete</td></tr>
+          </tbody></table>
+        `
       }
     ]
   },
@@ -2437,12 +2515,146 @@ const allNavGroups: NavGroup[] = [
         id: 'media-overview',
         label: 'Overview',
         content: `
-          <p>The Media module centralises multimedia content for the system:</p>
+          <p>The <strong>Media</strong> module centralises multimedia content related to programme activities. It is divided into three sections:</p>
           <table><thead><tr><th>Section</th><th>Description</th></tr></thead><tbody>
-            <tr><td><strong>Videos</strong></td><td>Uploaded videos related to programme activities and events.</td></tr>
-            <tr><td><strong>Live Streams</strong></td><td>Embedded live stream links for programme events.</td></tr>
-            <tr><td><strong>Articles</strong></td><td>News articles and press releases.</td></tr>
+            <tr><td><strong>Videos</strong></td><td>YouTube videos from the official KISIP channel, displayed in an embedded card grid.</td></tr>
+            <tr><td><strong>Live Streams</strong></td><td>Real-time WebRTC live streams initiated from field devices, viewable directly in the browser.</td></tr>
+            <tr><td><strong>Articles</strong></td><td>News articles, press releases and media coverage — each with a cover photo, description, external link and downloadable attachments.</td></tr>
           </tbody></table>
+          <h2>Permissions</h2>
+          <p>All authenticated users can view media content. Adding, editing and deleting articles requires administrator or editor access (<code>showAdminButtons</code> permission). Live stream viewing is available to all authenticated users.</p>
+        `
+      },
+      {
+        id: 'media-videos',
+        label: 'Videos',
+        content: `
+          <p>The <strong>Videos</strong> page displays YouTube videos published on the official KISIP YouTube channel, fetched automatically via the YouTube Data API v3.</p>
+
+          <h2>Video listing</h2>
+          <img src="${videoListingImg}" alt="Video listing" class="docs-screenshot" />
+          <p>Videos are displayed in a responsive card grid (3 columns on desktop, 2 on tablet, 1 on mobile). Each card shows:</p>
+          <ul>
+            <li>An embedded YouTube player (inline preview, 200 px height)</li>
+            <li>The publication date and time</li>
+            <li>A <strong>View Video</strong> button</li>
+          </ul>
+          <p>Up to 100 most-recent videos are loaded per page, ordered by upload date (newest first).</p>
+
+          <h2>Viewing a video</h2>
+          <p>Clicking <strong>View Video</strong> opens a fullscreen dialog (900 px wide) with an embedded YouTube player at full height (600 px) with autoplay enabled. Close the dialog with the <strong>Close</strong> button or by clicking outside the dialog.</p>
+
+          <h2>Technical notes</h2>
+          <ul>
+            <li>Videos are sourced from a fixed YouTube channel ID configured in the system.</li>
+            <li>The YouTube API key is stored in the <code>VITE_APP_YOUTUBE_API</code> environment variable. If the key is missing or quota is exceeded, the grid will be empty and an error will appear in the browser console.</li>
+            <li>No video files are stored on the KeSMIS server — all playback is handled by YouTube's embedded player.</li>
+          </ul>
+        `
+      },
+      {
+        id: 'media-live',
+        label: 'Live Streams',
+        content: `
+          <p>The <strong>Live Streams</strong> page allows users to watch real-time video streams initiated from field devices (phones or cameras) via WebRTC technology. Streams are coordinated through the KeSMIS signaling server.</p>
+
+          <h2>Stream listing</h2>
+          <img src="${liveStreamImg}" alt="Live streams listing" class="docs-screenshot" />
+
+          <h2>Mobile view</h2>
+          <img src="${liveStreamMobile1Img}" alt="Live streams on mobile" class="docs-screenshot" />
+          <img src="${liveStreamMobile2Img}" alt="Live stream player on mobile" class="docs-screenshot" />
+
+          <h2>Connection workflow</h2>
+          <ol>
+            <li>The page automatically attempts to connect to the signaling server on load.</li>
+            <li>The connection status indicator in the top-right of the page shows <strong>CONNECTED</strong> (green) or <strong>DISCONNECTED</strong> (red).</li>
+            <li>If auto-connect fails, click the <strong>Connect to Server</strong> button manually.</li>
+            <li>Once connected, the stream list is populated automatically.</li>
+            <li>The list refreshes every <strong>30 seconds</strong> while no stream is being watched.</li>
+          </ol>
+
+          <h2>Stream listing columns</h2>
+          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>Streamer</strong></td><td>Name of the user broadcasting the stream.</td></tr>
+            <tr><td><strong>Location</strong></td><td>Ward, Sub-county and County of the stream origin.</td></tr>
+            <tr><td><strong>Start Time</strong></td><td>How long ago the stream started (e.g. "5m ago", "2h 10m ago"). Streams older than 24 hours show the full date.</td></tr>
+            <tr><td><strong>Stream ID</strong></td><td>Truncated unique identifier for the stream (first 8 characters shown).</td></tr>
+            <tr><td><strong>Status</strong></td><td>Current stream state — <em>LIVE</em> (green) for active streams.</td></tr>
+            <tr><td><strong>Actions</strong></td><td>A <strong>Watch</strong> button, enabled only when connected to the server.</td></tr>
+          </tbody></table>
+
+          <h2>Watching a stream</h2>
+          <img src="${liveStreamWatchImg}" alt="Live stream watch view" class="docs-screenshot" />
+          <ol>
+            <li>Ensure the status shows <strong>CONNECTED</strong>.</li>
+            <li>Click <strong>Watch</strong> on any active stream row.</li>
+            <li>A video dialog opens with the stream title, streamer name, and a live video player.</li>
+            <li>The player uses WebRTC — click the video area if it does not start automatically (required by some browsers as a user-gesture).</li>
+            <li>Click <strong>Close</strong> or the dialog X button to stop watching and release the WebRTC connection.</li>
+          </ol>
+
+          <h2>Refreshing streams</h2>
+          <p>Click the <strong>Refresh Streams</strong> button at any time to manually fetch the latest stream list from the signaling server. Auto-refresh is paused while a stream is being watched to avoid interrupting playback.</p>
+
+          <h2>Technical notes</h2>
+          <ul>
+            <li>The signaling server is proxied through <code>/stream</code> on the KeSMIS nginx server.</li>
+            <li>WebRTC requires a modern browser with WebRTC support (Chrome, Firefox, Edge, Safari 15+).</li>
+            <li>Streams are broadcast from the SlumMapper mobile app or compatible devices.</li>
+            <li>If the signaling server is unreachable, the stream list will be empty and an error will be shown.</li>
+          </ul>
+        `
+      },
+      {
+        id: 'media-articles',
+        label: 'Articles',
+        content: `
+          <p>The <strong>Articles</strong> section manages news articles, press releases, blog posts and media coverage related to the KISIP programme. Each article has a cover photo, summary description, an external link and optional downloadable attachments (e.g. newspaper cuttings, PDFs).</p>
+
+          <h2>Article listing</h2>
+          <img src="${articlesListingImg}" alt="Articles listing" class="docs-screenshot" />
+          <p>Articles are displayed in a responsive card grid (3 columns on desktop, 2 on tablet, 1 on mobile). Each card shows:</p>
+          <ul>
+            <li><strong>Title</strong> (truncated to 1 line in the card header; hover to see the full title in a popover)</li>
+            <li><strong>Cover photo</strong> (150 px tall; fetched from the document store)</li>
+            <li><strong>Description</strong> (truncated to 3 lines)</li>
+            <li><strong>Read Full Story</strong> link — opens the external article URL in a new tab</li>
+            <li><strong>Attachments</strong> — a list of downloadable files attached to the article (e.g. scanned newspaper cuttings)</li>
+            <li><strong>Edit</strong> and <strong>Delete</strong> action buttons (admin only)</li>
+          </ul>
+
+          <h2>Searching articles</h2>
+          <p>Use the search bar at the top to filter articles by title keyword. Type part of a title and the list updates automatically. Click the <strong>Filter (Clear)</strong> button to reset the search and reload all articles.</p>
+
+          <h2>Adding an article</h2>
+          <img src="${articlesAddImg}" alt="Add article dialog" class="docs-screenshot" />
+          <p>Click the <strong>+</strong> button (admin only) to open the two-step Add Article dialog:</p>
+          <h3>Step 1 — Details</h3>
+          <table><thead><tr><th>Field</th><th>Required</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>Article Title</strong></td><td>Yes</td><td>Full title of the article or press release.</td></tr>
+            <tr><td><strong>Type</strong></td><td>Yes</td><td>Media type — <em>TV</em>, <em>Article</em>, <em>Blog</em>, or <em>Newspaper</em>.</td></tr>
+            <tr><td><strong>Link</strong></td><td>No</td><td>URL to the full article online (e.g. newspaper website, blog post).</td></tr>
+          </tbody></table>
+          <h3>Step 2 — Media</h3>
+          <table><thead><tr><th>Field</th><th>Required</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>Description</strong></td><td>Yes</td><td>Summary or body text for the article.</td></tr>
+            <tr><td><strong>Cover Photo</strong></td><td>Yes</td><td>A single image file used as the card thumbnail. Accepted formats: any image type (JPEG, PNG, etc.). Limited to 1 file.</td></tr>
+            <tr><td><strong>Other Documents</strong></td><td>No</td><td>Additional attachments such as newspaper cuttings, PDFs or supporting files. Multiple files allowed.</td></tr>
+          </tbody></table>
+          <p>Click <strong>Submit</strong> to save the article. The record is created first, then the cover photo and other documents are uploaded and linked automatically.</p>
+
+          <h2>Editing an article</h2>
+          <p>Click the <strong>Edit</strong> (pencil) button on any article card to open the same dialog pre-filled with the article's current data. Update the fields as needed and click <strong>Save</strong>. A new cover photo or additional attachments can be added; existing attachments can be removed individually using the delete icon next to each file in the upload list.</p>
+
+          <h2>Deleting an article</h2>
+          <p>Click the <strong>Delete</strong> (bin) button on any article card (admin only) to remove the article and all its associated files permanently.</p>
+
+          <h2>Downloading attachments</h2>
+          <p>In the <em>Attachments</em> section of each card, click the file name to download it directly. The file is streamed from the server and saved with its original filename.</p>
+
+          <h2>Guided tour</h2>
+          <p>Inside the Add/Edit dialog, click the <strong>Help</strong> (info) button in the footer to launch a step-by-step guided tour that explains each field.</p>
         `
       }
     ]

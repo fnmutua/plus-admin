@@ -12,6 +12,7 @@
                 <el-menu-item index="2">Dashboard</el-menu-item>
                 <el-menu-item index="3">GRM</el-menu-item>
                 <el-menu-item index="4">About</el-menu-item>
+                <el-menu-item index="5">Documentation</el-menu-item>
               </el-menu>
             </nav>
           </div>
@@ -61,6 +62,9 @@
         break;
       case '4':
         router.push('/about');
+        break;
+      case '5':
+        router.push('/docs');
         break;
       default:
         //ElMessage.warning('Page not found.');

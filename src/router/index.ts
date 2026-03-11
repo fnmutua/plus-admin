@@ -2024,8 +2024,31 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         }
       }, 
 
-   
- 
+
+
+    ]
+  },
+
+  {
+    path: '/documentation',
+    component: Layout,
+    name: 'DocumentationNav',
+    meta: {
+      title: 'Documentation',
+      icon: 'mdi:book-open-page-variant',
+      role: ['root_admin','admin', 'super_admin', 'staff','grm', 'gbv', 'monitoring','consultant','support'],
+    },
+    children: [
+      {
+        path: '',
+        component: { render: () => null },
+        name: 'Documentation',
+        meta: {
+          title: 'Documentation',
+          icon: 'mdi:book-open-page-variant',
+          role: ['root_admin','admin', 'super_admin', 'staff','grm', 'gbv', 'monitoring','consultant','support'],
+        }
+      }
     ]
   },
 
@@ -2047,6 +2070,10 @@ router.beforeEach((to, from, next) => {
   if (to.path === '/api-docs') {
     // Force a full page reload so the backend serves Swagger UI
     window.location.href = '/api-docs';
+  } else if (to.path === '/documentation') {
+    // Open documentation in a new tab and stay on current page
+    window.open('/#/docs', '_blank');
+    next(false);
   } else {
     next();
   }
