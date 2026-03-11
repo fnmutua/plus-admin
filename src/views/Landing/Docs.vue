@@ -19,6 +19,14 @@
           </button>
           <Transition name="collapse">
             <div v-show="expandedGroups.has(group.id)" class="nav-group-children">
+              <button
+                v-for="item in group.children"
+                :key="item.id"
+                :class="['nav-item', { active: activeSection === item.id }]"
+                @click="selectSection(item.id)"
+              >
+                {{ item.label }}
+              </button>
               <template v-if="group.subgroups">
                 <template v-for="sub in group.subgroups" :key="sub.id">
                   <button
@@ -44,14 +52,6 @@
                   </Transition>
                 </template>
               </template>
-              <button
-                v-for="item in group.children"
-                :key="item.id"
-                :class="['nav-item', { active: activeSection === item.id }]"
-                @click="selectSection(item.id)"
-              >
-                {{ item.label }}
-              </button>
             </div>
           </Transition>
         </template>
@@ -136,6 +136,14 @@ import settlementsMapImg from '@/assets/documentation/Settlements Map1.png'
 import settlementsMapFilterImg from '@/assets/documentation/Settlements Map-filter.png'
 import settlementsMapInteractImg from '@/assets/documentation/Settlements Map-interacting.png'
 import projectsMapImg from '@/assets/documentation/projects-map1.png'
+import projectsListingImg from '@/assets/documentation/projects-listing.png'
+import projectsAddFormImg from '@/assets/documentation/projects-add-from.png'
+import projectsDetailsInfoImg from '@/assets/documentation/projects-details-info.png'
+import projectsDetailsLocationImg from '@/assets/documentation/projects-details-lcoation.png'
+import projectsDetailsMapImg from '@/assets/documentation/projects-details-map.png'
+import projectsDetailsScopeImg from '@/assets/documentation/projects-details-scope.png'
+import projectsDetailsReportsImg from '@/assets/documentation/projects-details-repotrs.png'
+import projectsDetailsReportsAdd2Img from '@/assets/documentation/projects-details-repotrs-add2.png'
 import settlementAdd1Img from '@/assets/documentation/settleemnt-add1.png'
 import settlementAdd2CountyImg from '@/assets/documentation/settleemnt-add2-select-county-ward.png'
 import settlementAdd2DrawImg from '@/assets/documentation/settleemnt-add2-draw-boundary.png'
@@ -250,6 +258,25 @@ import imageryView1Img from '@/assets/documentation/imagery-view1.png'
 import imageryView2Img from '@/assets/documentation/imagery-view2.png'
 import imageryEditImg from '@/assets/documentation/imagery-edit.png'
 import imageryAddImg from '@/assets/documentation/imagerey-add.png'
+import smsSettings1Img from '@/assets/documentation/sms_settings.png'
+import smsSettings2Img from '@/assets/documentation/sms_settings2.png'
+import smsSettings3Img from '@/assets/documentation/sms_settings3.png'
+import climateScoreImg from '@/assets/documentation/climate-score.png'
+import climateWeightsImg from '@/assets/documentation/climate-weights.png'
+import programmesComponentsImg from '@/assets/documentation/programmes-components.png'
+import documentCategoriesImg from '@/assets/documentation/document-categories.png'
+import documentTypesImg from '@/assets/documentation/document-types.png'
+import dashboardsListImg from '@/assets/documentation/dashboards-list.png'
+import adminCountyListingImg from '@/assets/documentation/admin-county-listing.png'
+import adminCountyAddImg from '@/assets/documentation/admin-county-add.png'
+import adminCountyEditImg from '@/assets/documentation/admin-county-edit.png'
+import dashboardsCardsListImg from '@/assets/documentation/dashboards-cards-list.png'
+import dashboardsCardsAddEditButtonsImg from '@/assets/documentation/dashboards-cards-add-edit-buttons.png'
+import dashboardsCardsAddEditFormImg from '@/assets/documentation/dashboards-cards-add-edit-form.png'
+import dashboardsTabsListImg from '@/assets/documentation/dashboards-tabs-list.png'
+import dashboardsTabsFormImg from '@/assets/documentation/dashboards-tabs-form.png'
+import dashboardsChartsListingImg from '@/assets/documentation/dashboards-charts-listing.png'
+import dashboardsChartsFormImg from '@/assets/documentation/dashboards-charts-form.png'
 interface NavPage {
   id: string
   label: string
@@ -1573,6 +1600,223 @@ const allNavGroups: NavGroup[] = [
       }
       ,
       {
+        id: 'data-projects',
+        label: 'Projects',
+        icon: 'mdi:briefcase-outline',
+        children: [
+          {
+            id: 'data-projects-overview',
+            label: 'Overview',
+            content: `
+              <p>The <strong>Projects</strong> module is where all intervention projects are registered, tracked and managed across every programme component. Projects are the primary unit of work in KeSMIS — each one ties a physical intervention to a programme, a set of settlement locations, a contractor, a budget and a timeline.</p>
+
+              <h2>Key capabilities</h2>
+              <ul>
+                <li><strong>Project listing</strong> &mdash; browse and search all projects filtered by the active programme component</li>
+                <li><strong>Add / Edit</strong> &mdash; register new projects using a multi-step form covering identification, location, financials, contractor and schedule</li>
+                <li><strong>Locations</strong> &mdash; attach one or more settlement locations to a project; each location is spatially linked and can have its own geometry</li>
+                <li><strong>Activities</strong> &mdash; associate planned activities to projects from a pre-defined activity catalogue</li>
+                <li><strong>Settlement map</strong> &mdash; click any location in the listing to open a side drawer with the settlement's spatial layers</li>
+                <li><strong>Download</strong> &mdash; export the full project dataset including contractor details, admin hierarchy and coordinates to Excel</li>
+              </ul>
+
+              <h2>Access context</h2>
+              <p>Projects are always accessed <strong>within a programme component</strong>. Navigate to a programme via the sidebar (e.g. <em>Subprogrammes → KISIP2 → Institutional Capacity → CapacityX</em>) to reach the projects listing for that component. The page title and filters automatically reflect the active component.</p>
+              <p>Role-based visibility rules apply: county staff see only projects located in their assigned county; settlement staff see only projects in their assigned settlement; national staff and admins see all projects.</p>
+            `
+          },
+          {
+            id: 'data-projects-listing',
+            label: 'Listing, Search & Filters',
+            content: `
+              <p>The projects listing is a paginated table showing all projects belonging to the current programme component.</p>
+
+              <img class="docs-screenshot" src="${projectsListingImg}" alt="Projects listing" />
+
+              <h2>Table columns</h2>
+              <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+                <tr><td><strong>#</strong></td><td>Row index</td></tr>
+                <tr><td><strong>Project Title</strong></td><td>Project name. Hover to see a tooltip with status, start date and end date.</td></tr>
+                <tr><td><strong>Programme</strong></td><td>Acronym of the parent programme (e.g. KISIP2)</td></tr>
+                <tr><td><strong>Implementation</strong></td><td>The implementation phase or stream the project belongs to</td></tr>
+                <tr><td><strong>Locations</strong></td><td>Comma-separated list of settlement names. Click a settlement name to open a map drawer for that settlement.</td></tr>
+                <tr><td><strong>Action</strong></td><td><strong>More</strong> button — navigates to the full project details page</td></tr>
+              </tbody></table>
+
+              <h2>Search &amp; filters</h2>
+              <ul>
+                <li><strong>Search by Title</strong> &mdash; remote search field; type to filter projects by name</li>
+                <li><strong>By Programme</strong> &mdash; multi-select dropdown to filter by implementation stream</li>
+                <li><strong>Clear</strong> &mdash; resets all filters while preserving any role-based location restrictions</li>
+              </ul>
+
+              <h2>Actions toolbar</h2>
+              <ul>
+                <li><strong>Back</strong> &mdash; returns to the previous page</li>
+                <li><strong>Add Project</strong> (+ icon) &mdash; opens the project creation form (requires <code>project:create</code> permission)</li>
+                <li><strong>Download</strong> (green icon) &mdash; exports all current projects to Excel including contractor details, admin hierarchy (county → sub-county → ward → settlement) and centroid coordinates</li>
+              </ul>
+
+              <h2>Pagination</h2>
+              <p>Supports page sizes of 3, 5, 10, 20, 50 or 100 rows. On mobile, the default page size reduces to 3 rows.</p>
+            `
+          },
+          {
+            id: 'data-projects-add',
+            label: 'Adding & Editing a Project',
+            content: `
+              <img class="docs-screenshot" src="${projectsAddFormImg}" alt="Add / Edit project form" />
+              <p>Projects are created and edited using a <strong>multi-step wizard</strong>. Click the <strong>+</strong> button in the listing toolbar to open the form. To edit an existing project, click <strong>More</strong> on its row and use the edit option on the details page.</p>
+
+              <h2>Step-by-step walkthrough</h2>
+              <p>The wizard guides you through several steps — use the <strong>Next</strong> / <strong>Previous</strong> buttons to navigate, or click a step indicator directly to jump to it. The final step shows a <strong>Submit</strong> button.</p>
+
+              <h2>Step 1 — Project Identification</h2>
+              <table><thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr></thead><tbody>
+                <tr><td><strong>Title</strong></td><td>Text</td><td>Yes</td><td>Full project name</td></tr>
+                <tr><td><strong>Programme</strong></td><td>Dropdown</td><td>Yes</td><td>Select the parent programme</td></tr>
+                <tr><td><strong>Component</strong></td><td>Tree select</td><td>Yes</td><td>Select the programme component; pre-filled when opening from a component page</td></tr>
+                <tr><td><strong>Implementation</strong></td><td>Dropdown</td><td>No</td><td>Implementation phase or stream</td></tr>
+                <tr><td><strong>Description</strong></td><td>Textarea</td><td>No</td><td>Narrative description of the project</td></tr>
+              </tbody></table>
+
+              <h2>Step 2 — Location</h2>
+              <table><thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr></thead><tbody>
+                <tr><td><strong>County</strong></td><td>Dropdown</td><td>Yes</td><td>Administrative county</td></tr>
+                <tr><td><strong>Sub-county</strong></td><td>Dropdown</td><td>Yes</td><td>Filtered by selected county</td></tr>
+                <tr><td><strong>Ward</strong></td><td>Dropdown</td><td>Yes</td><td>Filtered by selected sub-county</td></tr>
+                <tr><td><strong>Settlement</strong></td><td>Dropdown</td><td>No</td><td>Filtered by selected ward; links the project to a specific settlement</td></tr>
+              </tbody></table>
+              <blockquote>Additional locations can be added after the project is saved using the <strong>Add Location</strong> dialog on the project details page. Each location can have its own geometry (polygon or point) uploaded as GeoJSON or a zipped shapefile.</blockquote>
+
+              <h2>Step 3 — Financial &amp; Schedule</h2>
+              <table><thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr></thead><tbody>
+                <tr><td><strong>Cost</strong></td><td>Money (KSh.)</td><td>No</td><td>Formatted with comma separators</td></tr>
+                <tr><td><strong>Start Date</strong></td><td>Date picker</td><td>No</td><td>Planned project start</td></tr>
+                <tr><td><strong>End Date</strong></td><td>Date picker</td><td>No</td><td>Planned project completion</td></tr>
+                <tr><td><strong>Status</strong></td><td>Dropdown</td><td>No</td><td>e.g. Planned, Ongoing, Completed</td></tr>
+              </tbody></table>
+
+              <h2>Step 4 — Contractor</h2>
+              <table><thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr></thead><tbody>
+                <tr><td><strong>Contractor Name</strong></td><td>Text</td><td>No</td><td>Name of the implementing contractor</td></tr>
+                <tr><td><strong>Contractor Phone</strong></td><td>Text</td><td>No</td><td>Contact number</td></tr>
+                <tr><td><strong>Contractor Address</strong></td><td>Text</td><td>No</td><td>Physical or postal address</td></tr>
+              </tbody></table>
+
+              <h2>Step 5 — Beneficiaries</h2>
+              <table><thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr></thead><tbody>
+                <tr><td><strong>Male Beneficiaries</strong></td><td>Number</td><td>No</td><td>Count of male direct beneficiaries</td></tr>
+                <tr><td><strong>Female Beneficiaries</strong></td><td>Number</td><td>No</td><td>Count of female direct beneficiaries</td></tr>
+              </tbody></table>
+
+              <blockquote>Tip &mdash; Use the <strong>Help</strong> button (info icon) on any step to launch the guided tour for that step.</blockquote>
+            `
+          },
+          {
+            id: 'data-projects-details',
+            label: 'Project Details & Tabs',
+            content: `
+              <p>Click <strong>More</strong> on any project row to open the <strong>Project Details</strong> page. The page is organised into tabs — each tab focuses on a different aspect of the project lifecycle.</p>
+
+              <img class="docs-screenshot" src="${projectsDetailsInfoImg}" alt="Project details — Project Details tab" />
+
+              <h2>Tab 1 — Project Details</h2>
+              <p>Displays a structured description card with all core project fields: title, programme, component, implementation, status, cost, start date, end date and description.</p>
+              <ul>
+                <li><strong>Edit Project</strong> — opens the multi-step form to update any field</li>
+                <li><strong>Delete Project</strong> — permanently removes the project (visible only to users with <code>project:delete</code> permission, national staff or super admins)</li>
+              </ul>
+
+              <h2>Tab 2 — Locations</h2>
+              <img class="docs-screenshot" src="${projectsDetailsLocationImg}" alt="Project details — Locations tab" />
+              <p>Lists all settlement locations linked to the project. Each row shows County, Sub-county, Ward and Settlement.</p>
+              <ul>
+                <li><strong>Add Location</strong> — remote-search settlements by name; each option shows the settlement alongside ward, sub-county and county. Select one or more and save.</li>
+                <li><strong>Edit Location</strong> — opens a map dialog to draw or upload a custom boundary (GeoJSON or zipped shapefile) for that specific location. Click Preview before saving.</li>
+                <li><strong>Delete</strong> — removes the location link (permission-controlled)</li>
+              </ul>
+              <blockquote>The Locations tab is hidden for projects with a <em>national</em> implementation scope.</blockquote>
+
+              <h2>Tab 3 — Map</h2>
+              <img class="docs-screenshot" src="${projectsDetailsMapImg}" alt="Project details — Map tab" />
+              <p>Renders all project location geometries on an interactive Mapbox map with Satellite and Streets base layers. Only visible when the project has at least one location with geometry and the scope is not national.</p>
+
+              <h2>Tab 4 — Scope</h2>
+              <img class="docs-screenshot" src="${projectsDetailsScopeImg}" alt="Project details — Scope tab" />
+              <p>A checklist of all activities from the activity catalogue. Check or uncheck activities to define which fall within this project's scope, then click <strong>Save Changes</strong> to persist the selection. The scope feeds into M&amp;E reporting — only activities checked here will be available as monitoring indicators for the project.</p>
+
+              <h2>Tab 5 — Monitoring</h2>
+              <img class="docs-screenshot" src="${projectsDetailsReportsImg}" alt="Project details — Monitoring tab" />
+              <p>Tracks indicator-level progress reports against the project's defined scope. Only visible when the project has at least one location. Each report is tied to an indicator from the M&amp;E framework established in the Scope tab.</p>
+              <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+                <tr><td><strong>Indicator</strong></td><td>Indicator name and category from the monitoring framework</td></tr>
+                <tr><td><strong>Date</strong></td><td>Reporting date</td></tr>
+                <tr><td><strong>Qty / Status</strong></td><td>Numeric quantity or Yes/No qualitative status depending on the indicator type</td></tr>
+                <tr><td><strong>Amount (cumulative)</strong></td><td>Running total across all reports for this indicator</td></tr>
+                <tr><td><strong>Status</strong></td><td>Approval status — hover a <em>Rejected</em> entry to see the rejection reason</td></tr>
+              </tbody></table>
+              <img class="docs-screenshot" src="${meReportsAddImg}" alt="Add monitoring report" />
+              <img class="docs-screenshot" src="${projectsDetailsReportsAdd2Img}" alt="Add monitoring report — step 2" />
+              <p>Click <strong>Add Report / Achievement</strong> to log a new monitoring entry against a specific indicator.</p>
+
+              <h2>Tab 6 — Documentation</h2>
+              <p>Lists all documents attached to the project — Name, Type, Upload date and Size (MB).</p>
+              <ul>
+                <li><strong>Download</strong> — fetches the file to your device</li>
+                <li><strong>Remove</strong> — deletes the document (permission-controlled)</li>
+                <li><strong>Upload</strong> button at the bottom — attaches new files to the project</li>
+              </ul>
+
+              <h2>Tab 7 — Team</h2>
+              <p>Lists project team members with Name, Phone, Email and Role. Click <strong>Add Team</strong> to register a new member. Remove via the <strong>Remove</strong> button (permission-controlled).</p>
+
+              <h2>Tab 8 — Clock-In/Out</h2>
+              <p>Records field attendance for team members at project sites. Each entry captures:</p>
+              <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+                <tr><td><strong>Name / Role</strong></td><td>Team member identity and site role</td></tr>
+                <tr><td><strong>Site</strong></td><td>Project location where the team member clocked in</td></tr>
+                <tr><td><strong>Map</strong></td><td>Opens a mini-map pinpointing the GPS coordinates of the clock-in event</td></tr>
+                <tr><td><strong>Clock In / Out Time</strong></td><td>Timestamps of arrival and departure</td></tr>
+                <tr><td><strong>Status</strong></td><td>Active (currently on site) or Completed</td></tr>
+                <tr><td><strong>Hours Worked</strong></td><td>Calculated duration between clock-in and clock-out</td></tr>
+                <tr><td><strong>Notes</strong></td><td>Notes recorded at clock-out</td></tr>
+              </tbody></table>
+              <p>Filter records by <strong>date range</strong> or <strong>month</strong> and export the full attendance log to Excel via the Download button.</p>
+
+              <h2>Tab 9 — Contractor</h2>
+              <p>Lists contractors assigned to the project — Name, Role and Phone. Click <strong>Add Contractor(s)</strong> to link a contractor. Remove via the delete button (permission-controlled).</p>
+            `
+          },
+          {
+            id: 'data-projects-download',
+            label: 'Downloading Project Data',
+            content: `
+              <p>Click the green <strong>Download</strong> button in the listing toolbar to export all currently visible projects to an <strong>Excel (.xlsx)</strong> file.</p>
+
+              <h2>Export columns</h2>
+              <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+                <tr><td><strong>Index</strong></td><td>Sequential row number</td></tr>
+                <tr><td><strong>Title</strong></td><td>Project name</td></tr>
+                <tr><td><strong>Contractor Name / Phone / Address</strong></td><td>Contractor contact details</td></tr>
+                <tr><td><strong>Status</strong></td><td>Current project status</td></tr>
+                <tr><td><strong>Cost</strong></td><td>Project budget in KSh.</td></tr>
+                <tr><td><strong>Start Date / End Date</strong></td><td>Formatted as YYYY-MM-DD</td></tr>
+                <tr><td><strong>County / Subcounty / Ward / Settlement</strong></td><td>Full admin hierarchy for each project location</td></tr>
+                <tr><td><strong>Latitude / Longitude</strong></td><td>Centroid of the location geometry (6 decimal places)</td></tr>
+                <tr><td><strong>Programme / Component</strong></td><td>Parent programme acronym and component title</td></tr>
+                <tr><td><strong>Male / Female Beneficiaries</strong></td><td>Beneficiary counts</td></tr>
+              </tbody></table>
+
+              <blockquote>Projects with multiple locations are expanded into multiple rows — one row per location — so that every spatial record is represented in the export.</blockquote>
+
+              <h2>File naming</h2>
+              <p>The file is named <code>Projects_[componentId]_[YYYY-MM-DD].xlsx</code> and downloaded directly to your browser's default download folder.</p>
+            `
+          }
+        ]
+      },
+      {
         id: 'data-surveys',
         label: 'Surveys',
         icon: 'mdi:clipboard-text-outline',
@@ -1691,49 +1935,47 @@ const allNavGroups: NavGroup[] = [
           <img class="docs-screenshot" src="${importGis1Img}" alt="Import GIS Data — Upload step" />
 
           <h2>Supported file formats</h2>
-          <p>The importer accepts the following geospatial file types:</p>
           <table><thead><tr><th>Format</th><th>Extension</th><th>Notes</th></tr></thead><tbody>
             <tr><td>GeoJSON</td><td><code>.json</code>, <code>.geojson</code></td><td>Must be a valid FeatureCollection. CRS is assumed WGS 84 (EPSG:4326).</td></tr>
-            <tr><td>Shapefile (zipped)</td><td><code>.zip</code></td><td>The ZIP archive must contain the <code>.shp</code>, <code>.shx</code>, <code>.dbf</code> and optionally <code>.prj</code> files.</td></tr>
+            <tr><td>Shapefile (zipped)</td><td><code>.zip</code></td><td>ZIP must contain <code>.shp</code>, <code>.shx</code>, <code>.dbf</code> and optionally <code>.prj</code>.</td></tr>
             <tr><td>KML</td><td><code>.kml</code></td><td>Google Earth markup format.</td></tr>
             <tr><td>KMZ</td><td><code>.kmz</code></td><td>Compressed KML archive.</td></tr>
           </tbody></table>
-          <blockquote>All uploaded files are automatically validated. If the file contains no valid features or is malformed, an error message is displayed and the wizard does not advance.</blockquote>
+          <blockquote>All uploaded files are automatically validated. If the file contains no valid features or is malformed, an error is shown and the wizard does not advance.</blockquote>
 
           <h2>Step 1 — Upload File</h2>
-          <p>Click the <strong>Upload File</strong> button and select a file from your computer (or drag-and-drop). Once the file is parsed successfully, a confirmation message shows the number of features found (e.g. <em>"Shapefile loaded successfully! 142 features found."</em>) and the wizard moves to Step 2.</p>
+          <p>Click <strong>Upload File</strong> and select a file (or drag-and-drop). Once parsed, a confirmation shows the number of features found and the wizard advances to Step 2.</p>
 
           <h2>Step 2 — Select Destination Table</h2>
           <img class="docs-screenshot" src="${importGis2DestImg}" alt="Import GIS Data — Select destination table" />
-          <p>Choose which KeSMIS entity the imported features should be stored as. The available destination tables are:</p>
+          <p>Choose which KeSMIS entity to store the imported features as:</p>
           <table><thead><tr><th>Category</th><th>Tables</th></tr></thead><tbody>
             <tr><td><strong>Core</strong></td><td>Projects, Settlements, Parcels, Structures</td></tr>
             <tr><td><strong>Infrastructure</strong></td><td>Roads, Road Assets, Sewer, Piped Water, Railway, Powerline, Streetlight, Floodlights</td></tr>
             <tr><td><strong>Social Amenities</strong></td><td>Health Facility, School, Water Point, Police Station, Community Hall, Community Project</td></tr>
             <tr><td><strong>Environment</strong></td><td>Hazard Zones, Crime Hotspots, Dumping, Telcom Mast</td></tr>
           </tbody></table>
-          <p>After selecting a table, the system fetches the corresponding database field definitions from the server. If the source data contains a <code>pcode</code> property, the importer automatically resolves parent entities (county, sub-county, ward or settlement) so that imported features are correctly linked to the administrative hierarchy.</p>
+          <p>If the source data contains a <code>pcode</code> property, the importer automatically resolves parent entities (county, sub-county, ward or settlement) so imported features are correctly linked to the admin hierarchy.</p>
 
           <h2>Step 3 — Match Fields</h2>
           <img class="docs-screenshot" src="${importGis2MatchImg}" alt="Import GIS Data — Match fields" />
-          <p>This step presents a two-column mapping table listing every property found in the source file alongside a dropdown of available database columns. The system uses <strong>fuzzy matching</strong> to suggest initial mappings automatically &mdash; for example, a source field named <code>settlement_name</code> will be matched to the database column <code>name</code>.</p>
+          <p>A two-column mapping table lists every source property alongside a dropdown of available database columns. <strong>Fuzzy matching</strong> pre-fills likely mappings automatically.</p>
           <ul>
-            <li>Each database column can only be mapped once; already-mapped columns are greyed out in other dropdowns</li>
-            <li>Use the <strong>Search fields</strong> box at the top to quickly filter the list when working with many properties</li>
-            <li>Unmapped source fields (dropdown left blank) are excluded from the import</li>
+            <li>Each database column can only be mapped once — already-mapped columns are greyed out</li>
+            <li>Use <strong>Search fields</strong> to filter the list when working with many properties</li>
+            <li>Unmapped source fields are excluded from the import</li>
           </ul>
 
           <h2>Step 4 — Review &amp; Import</h2>
           <img class="docs-screenshot" src="${importGis2ReviewImg}" alt="Import GIS Data — Review and import" />
-          <p>Before committing, the wizard shows a JSON preview of the remapped data. You can preview <strong>1, 5 or 10</strong> sample records to verify the mappings are correct.</p>
+          <p>A JSON preview shows 1, 5 or 10 sample records to verify mappings before committing.</p>
           <ul>
-            <li>Click <strong>Import</strong> to submit all features to the database</li>
-            <li>Click <strong>Back</strong> to return to the field-matching step and adjust mappings</li>
-            <li>Click <strong>Reset</strong> to discard everything and start over from Step 1</li>
+            <li><strong>Import</strong> — submits all features to the database</li>
+            <li><strong>Back</strong> — returns to field-matching to adjust mappings</li>
+            <li><strong>Reset</strong> — discards everything and restarts from Step 1</li>
           </ul>
-          <p>On completion, a success notification displays the number of imported features. If some features fail validation (e.g. missing required fields), a detailed error log is shown listing each failed feature and the reason, while successfully validated features are still imported.</p>
-
-          <blockquote>Geometry coordinates with a Z (altitude) component are automatically stripped to 2D (X, Y) before storage, ensuring compatibility with the KeSMIS spatial database.</blockquote>
+          <p>A success notification shows the number of imported features. Failed features are listed with reasons; successfully validated features are still imported.</p>
+          <blockquote>Geometry coordinates with a Z (altitude) component are automatically stripped to 2D before storage.</blockquote>
         `
       }
     ]
@@ -2826,12 +3068,15 @@ const allNavGroups: NavGroup[] = [
 
           <h2>Grievances tab</h2>
           <p>Enable or disable SMS notifications triggered by grievance workflow events (e.g. new grievance received, status update, resolution). Toggle the switch next to each event to turn it on or off.</p>
+          <img src="${smsSettings1Img}" alt="SMS Settings — Grievances tab" class="docs-screenshot" />
 
           <h2>Incidents tab</h2>
           <p>Enable or disable SMS alerts for incident reporting events. Each incident-related notification type can be toggled independently.</p>
+          <img src="${smsSettings2Img}" alt="SMS Settings — Incidents tab" class="docs-screenshot" />
 
           <h2>Other Settings tab</h2>
           <p>Additional SMS-related module toggles that do not fall under grievances or incidents. Use this tab to enable or disable miscellaneous notification types.</p>
+          <img src="${smsSettings3Img}" alt="SMS Settings — Other Settings tab" class="docs-screenshot" />
 
           <h2>Saving changes</h2>
           <p>After adjusting toggles across any tab, click <strong>Save All Changes</strong> to persist the configuration. Click <strong>Refresh</strong> to reload the current saved state and discard unsaved changes.</p>
@@ -2845,6 +3090,7 @@ const allNavGroups: NavGroup[] = [
 
           <h2>Score tab</h2>
           <p>Defines the vulnerability rating bands. Each row in the table represents a rating level with editable <strong>Min Score</strong> and <strong>Max Score</strong> fields. Boundaries are synchronised — the max of one band automatically becomes the min of the next to prevent gaps or overlaps.</p>
+          <img src="${climateScoreImg}" alt="Climate Settings — Score tab" class="docs-screenshot" />
 
           <h2>Matrix Weights tab</h2>
           <p>Sets the weighting scores for individual hazard and vulnerability attributes used in the climate questionnaire. Attributes are grouped into collapsible sections by type:</p>
@@ -2861,6 +3107,7 @@ const allNavGroups: NavGroup[] = [
             <li><strong>Flooding</strong></li>
           </ul>
           <p>Expand any section to adjust the weight values for that hazard. Higher weights increase the contribution of that factor to the overall vulnerability score.</p>
+          <img src="${climateWeightsImg}" alt="Climate Settings — Matrix Weights tab" class="docs-screenshot" />
 
           <h2>Saving changes</h2>
           <p>Click <strong>Save Changes</strong> to apply the updated matrix. Click <strong>Refresh</strong> to reload the last saved configuration.</p>
@@ -2880,9 +3127,9 @@ const allNavGroups: NavGroup[] = [
         content: `
           <p><strong>Configurations</strong> covers national-level administrative setup that underpins the entire system. These are typically configured once during system setup and updated infrequently.</p>
           <table><thead><tr><th>Section</th><th>Description</th></tr></thead><tbody>
-            <tr><td><strong>Common</strong></td><td>Shared lookup data — categories, evaluation types, contractors, document categories and types.</td></tr>
-            <tr><td><strong>Programme</strong></td><td>Programme structure — programmes, components, implementation phases, and project types.</td></tr>
-            <tr><td><strong>Dashboards</strong></td><td>Dynamic dashboard builder — configure cards, tabs, sections, and charts.</td></tr>
+            <tr><td><strong>Common</strong></td><td>Document classification — document categories and types.</td></tr>
+            <tr><td><strong>Programme</strong></td><td>Defines the intervention project route — programmes, components, and project types build the URL hierarchy used to navigate intervention projects.</td></tr>
+            <tr><td><strong>Dashboards</strong></td><td>Dynamic dashboard builder — manage dashboards and their nested cards, sections, and charts.</td></tr>
             <tr><td><strong>Admin Units</strong></td><td>Geographic hierarchy — counties, sub-counties, and wards.</td></tr>
           </tbody></table>
         `
@@ -2891,43 +3138,7 @@ const allNavGroups: NavGroup[] = [
         id: 'config-common',
         label: 'Common',
         content: `
-          <p>The <strong>Common</strong> section manages shared lookup data used across multiple modules. Changes here affect dropdowns and classifications throughout the system.</p>
-
-          <h2>Categories</h2>
-          <p>General-purpose classification categories referenced in data entry forms across various modules.</p>
-          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
-            <tr><td><strong>#</strong></td><td>Row index.</td></tr>
-            <tr><td><strong>Title</strong></td><td>Category name.</td></tr>
-            <tr><td><strong>Code</strong></td><td>Auto-generated UUID code.</td></tr>
-            <tr><td><strong>Actions</strong></td><td>Edit, Delete.</td></tr>
-          </tbody></table>
-          <p><strong>Add/Edit:</strong> Enter a <em>Title</em>. The code is generated automatically.</p>
-
-          <h2>Evaluation Types</h2>
-          <p>Types used to classify project and settlement evaluations.</p>
-          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
-            <tr><td><strong>#</strong></td><td>Row index.</td></tr>
-            <tr><td><strong>Type</strong></td><td>Evaluation type name.</td></tr>
-            <tr><td><strong>Actions</strong></td><td>Edit, Delete.</td></tr>
-          </tbody></table>
-          <p><strong>Add/Edit:</strong> Enter a <em>Title</em> for the evaluation type.</p>
-
-          <h2>Contractors</h2>
-          <p>Registered contractors available for assignment to projects.</p>
-          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
-            <tr><td><strong>#</strong></td><td>Row index.</td></tr>
-            <tr><td><strong>Contractor</strong></td><td>Company or individual name.</td></tr>
-            <tr><td><strong>Contract</strong></td><td>Contract reference number.</td></tr>
-            <tr><td><strong>Phone</strong></td><td>Contact phone number.</td></tr>
-            <tr><td><strong>Code</strong></td><td>Internal code.</td></tr>
-            <tr><td><strong>Actions</strong></td><td>Edit, Delete.</td></tr>
-          </tbody></table>
-          <p><strong>Add/Edit fields:</strong></p>
-          <table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
-            <tr><td><strong>Name</strong></td><td>Contractor name.</td></tr>
-            <tr><td><strong>Contract Number</strong></td><td>Reference number for the contract.</td></tr>
-            <tr><td><strong>Phone</strong></td><td>Contact phone number.</td></tr>
-          </tbody></table>
+          <p>The <strong>Common</strong> section manages document classification used across the document repository.</p>
 
           <h2>Document Categories</h2>
           <p>Top-level groupings for the document repository (e.g. Legal, Technical, Financial).</p>
@@ -2937,6 +3148,7 @@ const allNavGroups: NavGroup[] = [
             <tr><td><strong>Actions</strong></td><td>Edit, Delete.</td></tr>
           </tbody></table>
           <p><strong>Add/Edit:</strong> Enter a <em>Title</em> for the document category.</p>
+          <img src="${documentCategoriesImg}" alt="Document Categories configuration" class="docs-screenshot" />
 
           <h2>Document Types</h2>
           <p>Specific document types nested under a document category (e.g. "Survey Report" under "Technical").</p>
@@ -2951,162 +3163,92 @@ const allNavGroups: NavGroup[] = [
             <tr><td><strong>Category</strong></td><td>Select the parent document category from the dropdown.</td></tr>
             <tr><td><strong>Title</strong></td><td>Name of the document type.</td></tr>
           </tbody></table>
+          <img src="${documentTypesImg}" alt="Document Types configuration" class="docs-screenshot" />
         `
       },
       {
         id: 'config-programme',
         label: 'Programme',
         content: `
-          <p>The <strong>Programme</strong> section defines the structural hierarchy that organises KISIP interventions — from high-level programmes down to specific project types.</p>
+          <p>The <strong>Programme</strong> section is where the <strong>intervention project routes</strong> are defined. At login, the system dynamically builds the navigation tree by fetching Programmes and Components from the API and assembling them into a nested route hierarchy under <code>/subprogrammes</code>. The <strong>Acronym</strong> field on every record is lowercased and used directly as the URL path segment — it is the single most important field to get right.</p>
+
+          <h2>How the route is built</h2>
+          <p>The route generation works in two passes:</p>
+          <ol>
+            <li><strong>Programmes pass</strong> — all programme records are fetched and nested by their <em>Parent</em> relationship, building a tree. Each programme's acronym becomes its route segment.</li>
+            <li><strong>Components pass</strong> — all component records are fetched and matched to their parent programme via <code>programme_id</code>, then attached as children of that programme node. Each component's acronym becomes the next route segment and resolves to the <strong>Interventions</strong> listing view.</li>
+          </ol>
+          <p>The resulting URL pattern is:</p>
+          <blockquote><code>/subprogrammes/{programme-acronym}/[{sub-programme-acronym}/]{component-acronym}</code></blockquote>
+          <p>For example: a Programme <em>KISIP 2</em> (acronym <code>kisip2</code>), a child programme <em>Institutional Capacity</em> (acronym <code>institutionalcapacity</code>), and a Component <em>Capacity X</em> (acronym <code>capacityx</code>) produces:</p>
+          <blockquote><code>/subprogrammes/kisip2/institutionalcapacity/capacityx</code></blockquote>
+          <p><strong>Warning:</strong> Changing an acronym after routes are in use will break existing bookmarks and links. Set acronyms carefully before going live.</p>
+          <img src="${programmesComponentsImg}" alt="Programmes and Components configuration" class="docs-screenshot" />
 
           <h2>Programmes</h2>
-          <p>Top-level programme definitions. Programmes can be hierarchical (a programme may have a parent programme).</p>
+          <p>Top-level programme definitions. Programme nesting is <strong>unlimited</strong> — any programme can be set as a child of another via the <em>Parent</em> field, and that child can itself have children, and so on. Each level of nesting adds one more segment to the route URL.</p>
           <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
             <tr><td><strong>#</strong></td><td>Row index.</td></tr>
             <tr><td><strong>Title</strong></td><td>Programme name.</td></tr>
-            <tr><td><strong>Acronym</strong></td><td>Short code for the programme.</td></tr>
+            <tr><td><strong>Acronym</strong></td><td>Lowercased to form the URL path segment for this programme level.</td></tr>
             <tr><td><strong>Description</strong></td><td>Brief description.</td></tr>
             <tr><td><strong>Actions</strong></td><td>Edit, Delete.</td></tr>
           </tbody></table>
           <p><strong>Add/Edit fields:</strong></p>
           <table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
             <tr><td><strong>Title</strong></td><td>Programme name.</td></tr>
-            <tr><td><strong>Parent</strong></td><td>Optional parent programme for hierarchical nesting.</td></tr>
-            <tr><td><strong>Acronym</strong></td><td>Short identifier.</td></tr>
+            <tr><td><strong>Parent</strong></td><td>Optional parent programme — nests this programme one level deeper in the route tree.</td></tr>
+            <tr><td><strong>Acronym</strong></td><td>Becomes the route segment. Use short, URL-safe values with no spaces.</td></tr>
             <tr><td><strong>Description</strong></td><td>Summary of the programme's purpose.</td></tr>
-            <tr><td><strong>Icon</strong></td><td>Icon identifier for display in the UI.</td></tr>
+            <tr><td><strong>Icon</strong></td><td>Icon identifier for display in the navigation menu.</td></tr>
           </tbody></table>
 
           <h2>Components</h2>
-          <p>Sub-divisions of a programme linked to specific intervention domains.</p>
+          <p>Components are the <strong>leaf nodes</strong> of the route tree — they are the last segment in the URL and render the Interventions project listing. Each component is matched to its parent programme via <code>programme_id</code> and attached as a child route at login.</p>
           <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
             <tr><td><strong>ID</strong></td><td>Record ID.</td></tr>
             <tr><td><strong>Title</strong></td><td>Component name.</td></tr>
-            <tr><td><strong>Acronym</strong></td><td>Short code.</td></tr>
-            <tr><td><strong>Programme</strong></td><td>Parent programme.</td></tr>
+            <tr><td><strong>Acronym</strong></td><td>Lowercased to form the final URL segment for this component.</td></tr>
+            <tr><td><strong>Programme</strong></td><td>Parent programme this component belongs to.</td></tr>
             <tr><td><strong>Actions</strong></td><td>Edit, Delete.</td></tr>
           </tbody></table>
           <p><strong>Add/Edit fields:</strong></p>
           <table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
             <tr><td><strong>Title</strong></td><td>Component name.</td></tr>
-            <tr><td><strong>Acronym</strong></td><td>Short identifier.</td></tr>
+            <tr><td><strong>Acronym</strong></td><td>Becomes the route's final path segment. Must be unique within its programme.</td></tr>
             <tr><td><strong>Intervention Area</strong></td><td>Domain this component belongs to (dropdown).</td></tr>
-            <tr><td><strong>Programme</strong></td><td>Parent programme (dropdown).</td></tr>
+            <tr><td><strong>Programme</strong></td><td>Parent programme (dropdown) — determines where in the route tree this component is attached.</td></tr>
             <tr><td><strong>Icon</strong></td><td>Icon identifier.</td></tr>
           </tbody></table>
-
-          <h2>Implementation Phases</h2>
-          <p>Phases used to track the progress of projects over time (e.g. Planning, Design, Construction, Completion).</p>
-          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
-            <tr><td><strong>#</strong></td><td>Row index.</td></tr>
-            <tr><td><strong>Title</strong></td><td>Phase name.</td></tr>
-            <tr><td><strong>Acronym</strong></td><td>Short code.</td></tr>
-            <tr><td><strong>Description</strong></td><td>Phase description.</td></tr>
-            <tr><td><strong>Actions</strong></td><td>Edit, Delete.</td></tr>
-          </tbody></table>
-          <p><strong>Add/Edit fields:</strong> Acronym, Title, Description, Icon.</p>
-
-          <h2>Project Types</h2>
-          <p>Classification types for projects, linked to a component (e.g. Roads, Water, Sanitation).</p>
-          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
-            <tr><td><strong>#</strong></td><td>Row index.</td></tr>
-            <tr><td><strong>Title</strong></td><td>Project type name.</td></tr>
-            <tr><td><strong>Description</strong></td><td>Brief description.</td></tr>
-            <tr><td><strong>Actions</strong></td><td>Edit, Delete.</td></tr>
-          </tbody></table>
-          <p><strong>Add/Edit fields:</strong></p>
-          <table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
-            <tr><td><strong>Component</strong></td><td>Parent component this project type belongs to (dropdown).</td></tr>
-            <tr><td><strong>Title</strong></td><td>Project type name.</td></tr>
-            <tr><td><strong>Description</strong></td><td>Brief description of this project type.</td></tr>
-          </tbody></table>
-        `
-      },
-      {
-        id: 'config-dashboards',
-        label: 'Dashboards',
-        content: `
-          <p>The <strong>Dashboards</strong> configuration controls the dynamic dashboards displayed on the home screen. Dashboards are built from cards, sections, and charts configured here.</p>
-
-          <h2>Dashboards</h2>
-          <p>Each dashboard is a named container that groups cards, sections, and charts.</p>
-          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
-            <tr><td><strong>#</strong></td><td>Row index.</td></tr>
-            <tr><td><strong>Title</strong></td><td>Dashboard name.</td></tr>
-            <tr><td><strong>Description</strong></td><td>Purpose of the dashboard.</td></tr>
-            <tr><td><strong>Actions</strong></td><td>Edit, Delete.</td></tr>
-          </tbody></table>
-          <p><strong>Add/Edit fields:</strong></p>
-          <table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
-            <tr><td><strong>Title</strong></td><td>Dashboard name.</td></tr>
-            <tr><td><strong>Type</strong></td><td><em>Intervention</em> or <em>Status</em> — determines the data context of the dashboard.</td></tr>
-            <tr><td><strong>Main</strong></td><td>Toggle to mark this as the primary dashboard shown by default.</td></tr>
-            <tr><td><strong>Public</strong></td><td>If enabled, the dashboard is visible to all users regardless of role.</td></tr>
-            <tr><td><strong>Icon</strong></td><td>Icon identifier for the dashboard tab.</td></tr>
-            <tr><td><strong>Description</strong></td><td>Brief description of the dashboard's purpose.</td></tr>
-          </tbody></table>
-
-          <h2>Dashboard Cards</h2>
-          <p>Summary statistic tiles displayed at the top of a dashboard (e.g. total settlements, active projects).</p>
-          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
-            <tr><td><strong>ID</strong></td><td>Record ID.</td></tr>
-            <tr><td><strong>Dashboard</strong></td><td>Parent dashboard this card belongs to.</td></tr>
-            <tr><td><strong>Title</strong></td><td>Card label.</td></tr>
-            <tr><td><strong>Actions</strong></td><td>Edit, Delete.</td></tr>
-          </tbody></table>
-          <p><strong>Add/Edit fields:</strong> Dashboard (dropdown), Title.</p>
-
-          <h2>Dashboard Sections</h2>
-          <p>Tabbed panels that organise charts and content within a dashboard.</p>
-          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
-            <tr><td><strong>ID</strong></td><td>Record ID.</td></tr>
-            <tr><td><strong>Dashboard</strong></td><td>Parent dashboard.</td></tr>
-            <tr><td><strong>Title</strong></td><td>Section/tab label.</td></tr>
-            <tr><td><strong>Actions</strong></td><td>Edit, Delete.</td></tr>
-          </tbody></table>
-          <p><strong>Add/Edit fields:</strong> Dashboard (dropdown), Title.</p>
-
-          <h2>Dashboard Charts</h2>
-          <p>Data visualisations linked to system data sources, configured with a multi-step form.</p>
-          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
-            <tr><td><strong>ID</strong></td><td>Record ID.</td></tr>
-            <tr><td><strong>Chart Name</strong></td><td>Chart title.</td></tr>
-            <tr><td><strong>Description</strong></td><td>What the chart shows.</td></tr>
-            <tr><td><strong>Actions</strong></td><td>Edit, Delete, Duplicate.</td></tr>
-          </tbody></table>
-          <p><strong>Add/Edit — chart configuration steps:</strong></p>
-          <ul>
-            <li><strong>Chart Type</strong> — bar, line, pie, etc.</li>
-            <li><strong>Data Source</strong> — the model/table driving the chart data.</li>
-            <li><strong>X &amp; Y Axes</strong> — fields to use for each axis.</li>
-            <li><strong>Filters</strong> — optional data filters to scope the chart.</li>
-            <li><strong>Advanced Settings</strong> — aggregation, grouping, and display options.</li>
-            <li><strong>Color Configuration</strong> — colour picker for chart series.</li>
-          </ul>
-          <p>Use the <strong>Duplicate</strong> (copy) button to clone an existing chart as a starting point for a new one.</p>
         `
       },
       {
         id: 'config-admin-units',
         label: 'Admin Units',
         content: `
-          <p>The <strong>Admin Units</strong> section manages the three-level geographic hierarchy — Counties → Sub-counties → Wards — that underpins all location-based filtering, user assignment, and data scoping across the system.</p>
+          <p>The <strong>Admin Units</strong> section manages the three-level geographic hierarchy — Counties → Sub-counties → Wards — that underpins all location-based filtering, user assignment, and data scoping across the system. These boundaries are used for settlement registration, user assignment, and data filtering throughout the platform. Upload counties first, then sub-counties, then wards — each level depends on the one above being in place.</p>
 
           <h2>Counties</h2>
+          <img src="${adminCountyListingImg}" alt="Counties listing" class="docs-screenshot" />
           <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
             <tr><td><strong>#</strong></td><td>Row index.</td></tr>
             <tr><td><strong>Name</strong></td><td>County name.</td></tr>
             <tr><td><strong>Code</strong></td><td>Official county code.</td></tr>
-            <tr><td><strong>Area (km²)</strong></td><td>Calculated from uploaded geometry.</td></tr>
-            <tr><td><strong>Settlements</strong></td><td>Count of settlements registered in the county.</td></tr>
+            <tr><td><strong>Area (km²)</strong></td><td>Calculated automatically from the uploaded GeoJSON boundary.</td></tr>
+            <tr><td><strong>Settlements</strong></td><td>Live count of settlements registered within this county.</td></tr>
             <tr><td><strong>Actions</strong></td><td>Edit, Delete.</td></tr>
           </tbody></table>
-          <p><strong>Add/Edit fields:</strong></p>
-          <table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
-            <tr><td><strong>Name</strong></td><td>County name.</td></tr>
-            <tr><td><strong>Code</strong></td><td>Official county identifier.</td></tr>
-            <tr><td><strong>Geometry</strong></td><td>Upload a GeoJSON file defining the county boundary. The area is calculated automatically from the geometry.</td></tr>
+
+          <h2>Add / Edit a County</h2>
+          <img src="${adminCountyAddImg}" alt="Add county form" class="docs-screenshot" />
+          <img src="${adminCountyEditImg}" alt="Edit county form" class="docs-screenshot" />
+          <p>Click <strong>Add County</strong> or the edit icon on a row. All three fields are required.</p>
+          <table><thead><tr><th>Field</th><th>Required</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>Name</strong></td><td>Yes</td><td>Full official county name as it should appear across the system.</td></tr>
+            <tr><td><strong>Code</strong></td><td>Yes</td><td>Official numeric or alphanumeric county identifier (e.g. <em>047</em> for Nairobi). Used for data matching and exports.</td></tr>
+            <tr><td><strong>Geometry</strong></td><td>Yes</td><td>Upload a GeoJSON file containing the county boundary polygon. The system calculates the area (km²) automatically on save. Ensure the geometry is valid and uses WGS84 coordinates before uploading.</td></tr>
           </tbody></table>
+          <blockquote>Note — deleting a county will affect all sub-counties, wards, and settlements linked to it. Ensure any reassignment is done before deleting.</blockquote>
 
           <h2>Sub-counties</h2>
           <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
@@ -3114,17 +3256,20 @@ const allNavGroups: NavGroup[] = [
             <tr><td><strong>Name</strong></td><td>Sub-county name.</td></tr>
             <tr><td><strong>County</strong></td><td>Parent county.</td></tr>
             <tr><td><strong>Code</strong></td><td>Sub-county code.</td></tr>
-            <tr><td><strong>Area (km²)</strong></td><td>Calculated from geometry.</td></tr>
-            <tr><td><strong>Settlements</strong></td><td>Count of settlements in this sub-county.</td></tr>
+            <tr><td><strong>Area (km²)</strong></td><td>Calculated automatically from the uploaded GeoJSON boundary.</td></tr>
+            <tr><td><strong>Settlements</strong></td><td>Live count of settlements in this sub-county.</td></tr>
             <tr><td><strong>Actions</strong></td><td>Edit, Delete.</td></tr>
           </tbody></table>
-          <p><strong>Add/Edit fields:</strong></p>
-          <table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
-            <tr><td><strong>Name</strong></td><td>Sub-county name.</td></tr>
-            <tr><td><strong>Code</strong></td><td>Sub-county identifier.</td></tr>
-            <tr><td><strong>County</strong></td><td>Parent county (dropdown).</td></tr>
-            <tr><td><strong>Geometry</strong></td><td>GeoJSON file for the sub-county boundary.</td></tr>
+
+          <h2>Add / Edit a Sub-county</h2>
+          <p>Click <strong>Add Sub-county</strong> or the edit icon on a row. All fields are required. Counties must already exist before sub-counties can be created.</p>
+          <table><thead><tr><th>Field</th><th>Required</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>Name</strong></td><td>Yes</td><td>Full official sub-county name as it should appear across the system.</td></tr>
+            <tr><td><strong>Code</strong></td><td>Yes</td><td>Official sub-county identifier. Used for data matching and exports.</td></tr>
+            <tr><td><strong>County</strong></td><td>Yes</td><td>Parent county (dropdown). The sub-county will be scoped under the selected county for all filtering, reporting, and user assignment throughout the system.</td></tr>
+            <tr><td><strong>Geometry</strong></td><td>Yes</td><td>Upload a GeoJSON file containing the sub-county boundary polygon. Area is auto-calculated on save. Ensure the boundary falls within the parent county geometry and uses WGS84 coordinates.</td></tr>
           </tbody></table>
+          <blockquote>Note — deleting a sub-county will affect all wards and settlements linked to it. Reassign any dependent records before deleting.</blockquote>
 
           <h2>Wards</h2>
           <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
@@ -3133,20 +3278,175 @@ const allNavGroups: NavGroup[] = [
             <tr><td><strong>County</strong></td><td>Parent county.</td></tr>
             <tr><td><strong>Sub-county</strong></td><td>Parent sub-county.</td></tr>
             <tr><td><strong>Code</strong></td><td>Ward code.</td></tr>
-            <tr><td><strong>Area (km²)</strong></td><td>Calculated from geometry.</td></tr>
-            <tr><td><strong>Settlements</strong></td><td>Count of settlements in this ward.</td></tr>
+            <tr><td><strong>Area (km²)</strong></td><td>Calculated automatically from the uploaded GeoJSON boundary.</td></tr>
+            <tr><td><strong>Settlements</strong></td><td>Live count of settlements in this ward.</td></tr>
             <tr><td><strong>Actions</strong></td><td>Edit, Delete.</td></tr>
           </tbody></table>
-          <p><strong>Add/Edit fields:</strong></p>
-          <table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
-            <tr><td><strong>Name</strong></td><td>Ward name.</td></tr>
-            <tr><td><strong>Code</strong></td><td>Ward identifier.</td></tr>
-            <tr><td><strong>County</strong></td><td>Parent county (dropdown). Selecting a county loads the sub-county options.</td></tr>
-            <tr><td><strong>Sub-county</strong></td><td>Parent sub-county (dropdown, dependent on county selection).</td></tr>
-            <tr><td><strong>Geometry</strong></td><td>GeoJSON file for the ward boundary.</td></tr>
+
+          <h2>Add / Edit a Ward</h2>
+          <p>Click <strong>Add Ward</strong> or the edit icon on a row. All fields are required. Both the parent county and sub-county must already exist before a ward can be created.</p>
+          <table><thead><tr><th>Field</th><th>Required</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>Name</strong></td><td>Yes</td><td>Full official ward name as it should appear across the system.</td></tr>
+            <tr><td><strong>Code</strong></td><td>Yes</td><td>Official ward identifier. Used for data matching and exports.</td></tr>
+            <tr><td><strong>County</strong></td><td>Yes</td><td>Parent county (dropdown). Selecting a county immediately filters the Sub-county dropdown to only show sub-counties that belong to it — do not skip this step.</td></tr>
+            <tr><td><strong>Sub-county</strong></td><td>Yes</td><td>Parent sub-county (dropdown, dependent on the county selection above). The ward will be scoped under the selected sub-county for all filtering, reporting, and settlement registration.</td></tr>
+            <tr><td><strong>Geometry</strong></td><td>Yes</td><td>Upload a GeoJSON file containing the ward boundary polygon. Area is auto-calculated on save. Ensure the boundary falls within the parent sub-county geometry and uses WGS84 coordinates.</td></tr>
           </tbody></table>
+          <blockquote>Note — deleting a ward will affect settlements registered within it. Reassign any dependent records before deleting.</blockquote>
         `
       }
+    ],
+    subgroups: [
+      {
+        id: 'config-dashboards',
+        label: 'Dashboards',
+        icon: 'mdi:view-dashboard-outline',
+        children: [
+          {
+            id: 'config-dashboards-list',
+            label: 'Dashboards',
+            content: `
+              <p>The <strong>Dashboards</strong> configuration controls the dynamic dashboards displayed on the home screen. Each dashboard is a named container that groups cards, sections, and charts. Configure the dashboard list here, then use the nested sections to manage its cards, sections, and charts.</p>
+              <img src="${dashboardsListImg}" alt="Dashboards listing" class="docs-screenshot" />
+              <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+                <tr><td><strong>#</strong></td><td>Row index.</td></tr>
+                <tr><td><strong>Title</strong></td><td>Dashboard name.</td></tr>
+                <tr><td><strong>Description</strong></td><td>Purpose of the dashboard.</td></tr>
+                <tr><td><strong>Actions</strong></td><td>Edit, Delete.</td></tr>
+              </tbody></table>
+              <h2>Add / Edit a Dashboard</h2>
+              <p>Click <strong>Add Dashboard</strong> to create a new one, or the edit icon on any row to modify an existing dashboard. The form fields are:</p>
+              <table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
+                <tr><td><strong>Title</strong></td><td>The dashboard name as it appears on the navigation tab.</td></tr>
+                <tr><td><strong>Type</strong></td><td><em>Intervention</em> — scoped to programme/project data. <em>Status</em> — scoped to settlement and operational status data. This determines which data sources are available when building charts for this dashboard.</td></tr>
+                <tr><td><strong>Main</strong></td><td>Marks this dashboard as the default landing dashboard. Only one dashboard should have this enabled at a time.</td></tr>
+                <tr><td><strong>Public</strong></td><td>When enabled, the dashboard is visible to all logged-in users regardless of their role. When disabled, visibility is controlled by role permissions.</td></tr>
+                <tr><td><strong>Icon</strong></td><td>Iconify icon identifier for the dashboard tab (e.g. <code>mdi:chart-bar</code>).</td></tr>
+                <tr><td><strong>Description</strong></td><td>Internal notes describing the dashboard's purpose — not shown to end users.</td></tr>
+              </tbody></table>
+            `
+          },
+          {
+            id: 'config-dashboards-cards',
+            label: 'Cards',
+            content: `
+              <p><strong>Cards</strong> are the summary statistic tiles displayed in a row at the top of a dashboard. Each card surfaces a single key metric — such as total registered settlements, active projects, or households — giving users an at-a-glance overview before they drill into charts or tables. Cards are linked to a parent dashboard and their values are computed dynamically from live system data.</p>
+              <img src="${dashboardsCardsListImg}" alt="Dashboard Cards listing" class="docs-screenshot" />
+              <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+                <tr><td><strong>ID</strong></td><td>Record ID.</td></tr>
+                <tr><td><strong>Dashboard</strong></td><td>Parent dashboard this card belongs to.</td></tr>
+                <tr><td><strong>Title</strong></td><td>Card label shown on the dashboard.</td></tr>
+                <tr><td><strong>Actions</strong></td><td>Edit, Delete.</td></tr>
+              </tbody></table>
+              <h2>Add / Edit a Card</h2>
+              <p>Click <strong>Add Card</strong> or the edit icon on an existing row to open the card builder. The form is split into four steps.</p>
+              <img src="${dashboardsCardsAddEditButtonsImg}" alt="Dashboard Cards add/edit buttons" class="docs-screenshot" />
+              <img src="${dashboardsCardsAddEditFormImg}" alt="Dashboard Cards add/edit form" class="docs-screenshot" />
+
+              <h3>Step 1 — Details</h3>
+              <table><thead><tr><th>Field</th><th>Required</th><th>Description</th></tr></thead><tbody>
+                <tr><td><strong>Dashboard</strong></td><td>Yes</td><td>The parent dashboard this card will appear on.</td></tr>
+                <tr><td><strong>Title</strong></td><td>Yes (min 3 chars)</td><td>Label displayed on the card tile. Keep it short and descriptive — e.g. <em>Total Settlements</em>, <em>Active Projects</em>.</td></tr>
+                <tr><td><strong>Description</strong></td><td>Yes</td><td>Internal note describing what the card measures.</td></tr>
+              </tbody></table>
+
+              <h3>Step 2 — Icon</h3>
+              <table><thead><tr><th>Field</th><th>Required</th><th>Description</th></tr></thead><tbody>
+                <tr><td><strong>Icon</strong></td><td>Yes</td><td>Iconify icon identifier shown on the card tile (e.g. <code>mdi:home-city</code>). Browse available icons at <em>icon-sets.iconify.design</em>.</td></tr>
+                <tr><td><strong>Icon Color</strong></td><td>Yes</td><td>Colour applied to the icon. Use the colour picker or enter a hex value.</td></tr>
+              </tbody></table>
+
+              <h3>Step 3 — Computation</h3>
+              <p>Defines where the card's value comes from. The <strong>Category</strong> field controls which sub-fields appear.</p>
+              <table><thead><tr><th>Field</th><th>Required</th><th>Description</th></tr></thead><tbody>
+                <tr><td><strong>Category</strong></td><td>Yes</td><td><em>Status</em> — pulls data from a system entity (e.g. Settlements, Projects). <em>Indicator</em> — pulls data from M&amp;E indicator records.</td></tr>
+                <tr><td><strong>Entity</strong></td><td>Yes (Status only)</td><td>The system model to aggregate (e.g. Settlement, Project, Household). Determines which fields are available for aggregation.</td></tr>
+                <tr><td><strong>Aggregation Field</strong></td><td>Yes (Status only)</td><td>The specific field on the entity to aggregate (e.g. <em>id</em> for count, <em>area</em> for sum).</td></tr>
+                <tr><td><strong>Select Indicator</strong></td><td>Yes (Indicator only)</td><td>The indicator category whose reported values the card will display.</td></tr>
+                <tr><td><strong>Aggregation</strong></td><td>Yes</td><td>How to compute the value — <em>Count</em> (number of records), <em>Sum</em> (total of the field), or <em>Average</em> (mean of the field).</td></tr>
+              </tbody></table>
+
+              <h3>Step 4 — Computation Settings</h3>
+              <table><thead><tr><th>Field</th><th>Required</th><th>Description</th></tr></thead><tbody>
+                <tr><td><strong>Computation</strong></td><td>Yes</td><td><em>Absolute</em> — shows the raw computed value. <em>Proportion (%)</em> — expresses the value as a percentage of the total record count.</td></tr>
+                <tr><td><strong>Filter</strong></td><td>No</td><td>Toggle on to add one or more conditions that narrow the dataset before computing the card value.</td></tr>
+                <tr><td><strong>Filter rows</strong></td><td>No</td><td>Each filter row has three parts: <em>Field</em> (the entity field to filter on), <em>Operation</em> (All / Equal for text fields; All / Less Than / Less Than or Equal / Equal / Greater Than or Equal for numeric fields), and <em>Value</em> (one or more values to match). Multiple rows are combined with AND logic.</td></tr>
+              </tbody></table>
+              <blockquote>Tip — the order cards appear on the dashboard follows the order they were created. To reorder, delete and recreate them in the desired sequence.</blockquote>
+            `
+          },
+          {
+            id: 'config-dashboards-sections',
+            label: 'Sections',
+            content: `
+              <p><strong>Sections</strong> are the tabs displayed beneath the cards on a dashboard. Each section groups a set of charts and appears as a clickable tab label. Users switch between sections to view different chart groups without leaving the dashboard. Sections are linked to a parent dashboard and must be created before charts can be assigned to them.</p>
+              <img src="${dashboardsTabsListImg}" alt="Dashboard Sections listing" class="docs-screenshot" />
+              <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+                <tr><td><strong>ID</strong></td><td>Record ID.</td></tr>
+                <tr><td><strong>Dashboard</strong></td><td>Parent dashboard.</td></tr>
+                <tr><td><strong>Title</strong></td><td>Tab label shown to users.</td></tr>
+                <tr><td><strong>Actions</strong></td><td>Edit, Delete.</td></tr>
+              </tbody></table>
+              <h2>Add / Edit a Section</h2>
+              <p>Click <strong>Add Section</strong> to create a new tab, or the edit icon to rename an existing one. Sections must exist before charts can be assigned to them — always create your sections first when building a new dashboard.</p>
+              <img src="${dashboardsTabsFormImg}" alt="Dashboard Sections add/edit form" class="docs-screenshot" />
+              <table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
+                <tr><td><strong>Dashboard</strong></td><td>The parent dashboard this section belongs to. Sections are scoped to a single dashboard.</td></tr>
+                <tr><td><strong>Title</strong></td><td>The tab label shown to users on the dashboard (e.g. <em>Overview</em>, <em>Projects by County</em>, <em>Housing Trends</em>).</td></tr>
+              </tbody></table>
+              <blockquote>Tip — plan your section tabs before creating charts. Each chart is pinned to one section, so restructuring sections later requires reassigning charts.</blockquote>
+            `
+          },
+          {
+            id: 'config-dashboards-charts',
+            label: 'Charts',
+            content: `
+              <p><strong>Charts</strong> are the data visualisations that populate each dashboard section. They are driven by live system data and support multiple chart types. Each chart is assigned to a section and configured through a multi-step form that controls what data is shown, how it is grouped, and how it looks. Charts are the most powerful and flexible part of the dashboard builder — the same underlying data can be sliced in many ways by adjusting the source, axes, filters, and aggregation settings.</p>
+              <img src="${dashboardsChartsListingImg}" alt="Dashboard Charts listing" class="docs-screenshot" />
+              <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+                <tr><td><strong>ID</strong></td><td>Record ID.</td></tr>
+                <tr><td><strong>Chart Name</strong></td><td>Chart title displayed on the dashboard.</td></tr>
+                <tr><td><strong>Description</strong></td><td>What the chart shows.</td></tr>
+                <tr><td><strong>Actions</strong></td><td>Edit, Delete, Duplicate.</td></tr>
+              </tbody></table>
+              <h2>Add / Edit a Chart</h2>
+              <p>Click <strong>Add Chart</strong> or the edit icon on a row to open the multi-step chart builder. Work through each step in order — later steps depend on selections made in earlier ones.</p>
+              <img src="${dashboardsChartsFormImg}" alt="Dashboard Charts configuration form" class="docs-screenshot" />
+
+              <h3>Step 1 — Details</h3>
+              <table><thead><tr><th>Field</th><th>Required</th><th>Description</th></tr></thead><tbody>
+                <tr><td><strong>Dashboard</strong></td><td>Yes</td><td>The parent dashboard this chart belongs to. Determines which sections are available in the next field.</td></tr>
+                <tr><td><strong>Dashboard Section</strong></td><td>Yes</td><td>The tab/section within the dashboard where this chart will appear. Sections must be created first — see the Sections page.</td></tr>
+                <tr><td><strong>Title</strong></td><td>Yes (min 3 chars)</td><td>Chart heading displayed on the dashboard above the visualisation.</td></tr>
+                <tr><td><strong>Description</strong></td><td>Yes</td><td>Internal description of what the chart shows — not displayed to end users.</td></tr>
+              </tbody></table>
+
+              <h3>Step 2 — Chart Settings</h3>
+              <p>This step controls the data source, chart type, and aggregation. The <strong>Category</strong> field determines which sub-fields are shown.</p>
+              <table><thead><tr><th>Field</th><th>Required</th><th>Description</th></tr></thead><tbody>
+                <tr><td><strong>Category</strong></td><td>Yes</td><td><em>Status</em> — charts data from a system entity (Settlements, Projects, Households, etc.). <em>Intervention</em> — charts data from M&amp;E indicator records linked to programme activities.</td></tr>
+                <tr><td><strong>Entity</strong></td><td>Yes (Status only)</td><td>The system model to visualise. The selected entity determines which fields are available for the Field and Filter steps.</td></tr>
+                <tr><td><strong>Field</strong></td><td>Yes (Status only)</td><td>The entity field to aggregate or categorise on (e.g. <em>county</em>, <em>status</em>, <em>area</em>).</td></tr>
+                <tr><td><strong>Indicators</strong></td><td>Yes (Intervention only)</td><td>One or more M&amp;E indicators whose reported values will be visualised. Multi-select.</td></tr>
+                <tr><td><strong>Categorized by selected field</strong></td><td>No</td><td>When checked, the chart breaks down results by the chosen field rather than aggregating to a single value. Enables grouped/stacked views.</td></tr>
+                <tr><td><strong>Ignore records with missing data</strong></td><td>No (default: on)</td><td>Excludes records where the selected field has no value. Recommended to keep enabled to avoid skewing results.</td></tr>
+                <tr><td><strong>Chart Type</strong></td><td>Yes</td><td>Determines the visual representation. Available options: <em>Simple Bar</em>, <em>Multiple Bar</em>, <em>Stacked Bar (100%)</em>, <em>Stacked Bar (Absolute)</em>, <em>Line Chart</em>, <em>Pie</em>, <em>Donut</em>, <em>Map Chart</em>, <em>Population Pyramid</em>, <em>Word Map</em>. Available types may vary based on the selected entity.</td></tr>
+                <tr><td><strong>Aggregation</strong></td><td>Yes</td><td>How to compute the chart values — <em>Count</em> (number of records per category), <em>Sum</em> (total of the field per category), or <em>Average</em> (mean of the field per category).</td></tr>
+              </tbody></table>
+
+              <h3>Step 3 — Filters</h3>
+              <p>Optionally narrow the dataset before the chart is computed. Filters are only available when an Entity (Status category) has been selected.</p>
+              <table><thead><tr><th>Field</th><th>Required</th><th>Description</th></tr></thead><tbody>
+                <tr><td><strong>Filter toggle</strong></td><td>No</td><td>Switch on to reveal the filter table. Switch off to remove all filters and use the full dataset.</td></tr>
+                <tr><td><strong>Field</strong></td><td>—</td><td>The entity field to filter on. Selecting a field loads its available values.</td></tr>
+                <tr><td><strong>Operation</strong></td><td>—</td><td>For text fields: <em>All</em> or <em>Equal</em>. For numeric/date fields: <em>All</em>, <em>Less Than</em>, <em>Less Than or Equal</em>, <em>Equal</em>, <em>Greater Than or Equal</em>.</td></tr>
+                <tr><td><strong>Value</strong></td><td>—</td><td>One or more values to match. Supports multi-select and free-text entry. Multiple filter rows are combined with AND logic — all conditions must be met for a record to be included.</td></tr>
+              </tbody></table>
+              <blockquote>Tip — use the <strong>Duplicate</strong> button to clone an existing chart as a starting point. This is the fastest way to create multiple similar charts that share the same data source and type but differ in filters or field selection.</blockquote>
+            `
+          }
+        ]
+      },
     ]
   },
   {
@@ -3183,7 +3483,7 @@ function getAllGroupPages(g: NavGroup): NavPage[] {
       pages.push(...sub.children)
     }
   }
-  pages.push(...g.children)
+  if (g.children) pages.push(...g.children)
   return pages
 }
 
@@ -3204,7 +3504,7 @@ const activeGroupLabel = computed(() => {
 function groupHasActive(groupId: string) {
   const group = navGroups.value.find(g => g.id === groupId)
   if (!group) return false
-  if (group.children.some(c => c.id === activeSection.value)) return true
+  if (group.children?.some(c => c.id === activeSection.value)) return true
   if (group.subgroups?.some(sub => sub.children.some(c => c.id === activeSection.value))) return true
   return false
 }
