@@ -234,6 +234,10 @@ import grievanceSendReminderImg from '@/assets/documentation/grievance-send-remi
 import grievanceDetailsDocumentationImg from '@/assets/documentation/grievance-details-documentation.png'
 import grievanceDetailsHistoryImg from '@/assets/documentation/grievance-details-history.png'
 import grievanceDetailsNotificationsImg from '@/assets/documentation/grievance-details-notifications.png'
+import userListingImg from '@/assets/documentation/user-listing.png'
+import userActivationImg from '@/assets/documentation/user-activation.png'
+import userRolesImg from '@/assets/documentation/user-roles.png'
+import userResetPasswordImg from '@/assets/documentation/user-reset-password.png'
 import imageryListingImg from '@/assets/documentation/imagery-listing.png'
 import videoListingImg from '@/assets/documentation/video-listing.png'
 import liveStreamImg from '@/assets/documentation/live-stream.png'
@@ -2666,36 +2670,144 @@ const allNavGroups: NavGroup[] = [
     adminOnly: true,
     children: [
       {
-        id: 'users-overview',
-        label: 'User Management',
+        id: 'users-listing',
+        label: 'User Listing & Filtering',
         content: `
-          <p>User management is organised into views based on user type:</p>
-          <table><thead><tr><th>View</th><th>Description</th></tr></thead><tbody>
-            <tr><td><strong>All</strong></td><td>Full list of all system users.</td></tr>
-            <tr><td><strong>Admin</strong></td><td>Administrator accounts with elevated privileges.</td></tr>
-            <tr><td><strong>GRM</strong></td><td>Users assigned to grievance redress.</td></tr>
-            <tr><td><strong>Support</strong></td><td>Support and technical staff.</td></tr>
-            <tr><td><strong>New</strong></td><td>Recently registered accounts pending approval.</td></tr>
+          <p>The <strong>Users</strong> section lists all system users and provides filtering, search, and export tools. Users are organised into sub-views accessible from the top navigation: <em>All</em>, <em>Admin</em>, <em>GRM</em>, <em>Support</em>, and <em>New Accounts</em>.</p>
+          <img src="${userListingImg}" alt="User listing" class="docs-screenshot" />
+
+          <h2>Table columns</h2>
+          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>#</strong></td><td>Row number.</td></tr>
+            <tr><td><strong>Avatar</strong></td><td>User's profile photo.</td></tr>
+            <tr><td><strong>Name</strong></td><td>Full name of the user.</td></tr>
+            <tr><td><strong>Username</strong></td><td>Login username.</td></tr>
+            <tr><td><strong>Country</strong></td><td>Country of the user.</td></tr>
+            <tr><td><strong>Organization</strong></td><td>Organisation affiliation.</td></tr>
+            <tr><td><strong>County</strong></td><td>Assigned county.</td></tr>
+            <tr><td><strong>Operations</strong></td><td>Activate/deactivate switch and Edit button (permission-gated).</td></tr>
           </tbody></table>
+
+          <h2>Filtering</h2>
+          <p>Use the filter bar above the table to narrow results:</p>
+          <ul>
+            <li><strong>Filter by County</strong> — multi-select dropdown; choose one or more counties to show only users assigned to those counties.</li>
+            <li><strong>Search by name, username, email or phone</strong> — remote search field; type to filter results in real time.</li>
+            <li><strong>Clear filters</strong> (Filter icon button) — resets all active filters and reloads the full list.</li>
+          </ul>
+
+          <h2>Pagination</h2>
+          <p>Results are paginated. Use the page size selector (5 / 10 / 20 / 50 / 100 per page) and the page navigation at the bottom of the table. Page changes respect any active filters.</p>
+
+          <h2>Exporting users</h2>
+          <p>Click the <strong>Download</strong> (arrow) button in the toolbar to export the current user list to an Excel (.xlsx) file. The export includes: Name, Email, Username, Phone, and County columns. A second <strong>Download All</strong> button exports all records without pagination limits.</p>
+        `
+      },
+      {
+        id: 'users-activation',
+        label: 'Activation & Deactivation',
+        content: `
+          <p>User accounts can be enabled or disabled without being deleted. This controls whether a user can log in to KeSMIS.</p>
+          <img src="${userActivationImg}" alt="User activation toggle" class="docs-screenshot" />
+
+          <h2>Toggling a user's status</h2>
+          <ol>
+            <li>Locate the user in the table.</li>
+            <li>In the <strong>Operations</strong> column, click the <strong>toggle switch</strong> next to the user's row.</li>
+            <li>The switch turns <em>green</em> for active accounts and <em>grey</em> for inactive ones.</li>
+            <li>A loading spinner appears on the switch while the change is being saved.</li>
+            <li>A success or error message confirms the outcome.</li>
+          </ol>
+
+          <h2>Permission required</h2>
+          <p>Only users with the <code>user:activate</code> permission can toggle the status. Users without this permission see a disabled (read-only) switch. Attempting to toggle without permission will show an error message.</p>
+
+          <h2>On mobile</h2>
+          <p>On small screens the Operations column is replaced by a dropdown menu (chevron icon). Expand it to access the activate/deactivate switch and the Edit action.</p>
+
+          <h2>Effect of deactivation</h2>
+          <p>Deactivated users cannot log in. Their data and history remain intact. Reactivating the account restores full access based on their assigned role.</p>
         `
       },
       {
         id: 'users-roles',
-        label: 'Roles & Permissions',
+        label: 'Rights & Role Allocation',
         content: `
-          <p>KeSMIS uses a <strong>role-based access control</strong> model with granular permissions. Each role defines which modules and actions a user can access.</p>
-          <h2>Standard roles</h2>
+          <p>KeSMIS uses <strong>role-based access control (RBAC)</strong>. Each role carries a set of permissions that determine what a user can see and do across all modules. Roles are managed from the <strong>Roles</strong> page, accessible via the Users section sidebar.</p>
+          <img src="${userRolesImg}" alt="Roles and permissions" class="docs-screenshot" />
+
+          <h2>Allocating a role and location to a user</h2>
+          <p>Click the <strong>Edit</strong> (pencil) button on any user row to open the User Details dialog. This is where you assign both the user's <strong>role</strong> and their <strong>geographic scope</strong>. Each role assignment has three components: the role itself, the access level, and the specific location tied to that level.</p>
+
+          <h3>Dialog fields</h3>
+          <table><thead><tr><th>Field</th><th>Editable</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>Name</strong></td><td>Yes</td><td>Full display name of the user.</td></tr>
+            <tr><td><strong>Email</strong></td><td>No</td><td>Login email — read-only after registration.</td></tr>
+            <tr><td><strong>Username</strong></td><td>No</td><td>System username — read-only after registration.</td></tr>
+            <tr><td><strong>Phone</strong></td><td>Yes</td><td>Contact phone number.</td></tr>
+            <tr><td><strong>Role</strong></td><td>Yes</td><td>The system role to assign (e.g. Admin, Staff, GRM).</td></tr>
+            <tr><td><strong>Level</strong></td><td>Yes</td><td>The geographic scope of the role — National, County, or Settlement. Controls which data the user can access under that role.</td></tr>
+            <tr><td><strong>County</strong></td><td>Yes</td><td>Required for County and Settlement levels. Disabled when Level is set to National.</td></tr>
+            <tr><td><strong>Settlement</strong></td><td>Yes</td><td>Required for Settlement level only. Disabled until a County is selected and Level is set to Settlement. Type to search by name.</td></tr>
+          </tbody></table>
+
+          <h3>Access levels explained</h3>
+          <table><thead><tr><th>Level</th><th>Scope</th><th>County required</th><th>Settlement required</th></tr></thead><tbody>
+            <tr><td><strong>National</strong></td><td>User can access data across all counties and settlements.</td><td>No</td><td>No</td></tr>
+            <tr><td><strong>County</strong></td><td>User is restricted to data within the selected county.</td><td>Yes</td><td>No</td></tr>
+            <tr><td><strong>Settlement</strong></td><td>User is restricted to data within a specific settlement inside the selected county.</td><td>Yes</td><td>Yes</td></tr>
+          </tbody></table>
+
+          <h3>How to assign a role</h3>
+          <ol>
+            <li>Select the <strong>Role</strong> from the dropdown in the roles table row.</li>
+            <li>Select the <strong>Level</strong> — National, County, or Settlement.</li>
+            <li>If County or Settlement level, choose the <strong>County</strong> from the dropdown.</li>
+            <li>If Settlement level, type in the <strong>Settlement</strong> field to search and select the specific settlement.</li>
+            <li>Click <strong>Confirm</strong> to save. The user's access updates immediately on their next page load.</li>
+          </ol>
+
+          <p><em>Note: County-level administrators can only assign roles within their own county and cannot grant National-level access.</em></p>
+
+          <h2>Standard built-in roles</h2>
+          <table><thead><tr><th>Role</th><th>Typical access level</th></tr></thead><tbody>
+            <tr><td><strong>Admin</strong></td><td>Manage users, settlements, data, and most modules.</td></tr>
+            <tr><td><strong>Staff</strong></td><td>Data entry and read access across core modules.</td></tr>
+            <tr><td><strong>Monitoring</strong></td><td>M&amp;E-focused access — indicators, reports, beneficiaries.</td></tr>
+            <tr><td><strong>GRM</strong></td><td>Grievance intake, updates, resolution workflow.</td></tr>
+            <tr><td><strong>GBV</strong></td><td>Restricted access to GBV case records only.</td></tr>
+            <tr><td><strong>Consultant</strong></td><td>Read-only access across most modules.</td></tr>
+            <tr><td><strong>Support</strong></td><td>Technical support; limited admin tools.</td></tr>
+          </tbody></table>
+        `
+      },
+      {
+        id: 'users-reset-password',
+        label: 'Reset Password',
+        content: `
+          <p>Administrators can trigger a password reset for any user directly from the user listing. The reset sends instructions to the user's registered email or phone number.</p>
+          <img src="${userResetPasswordImg}" alt="Reset password" class="docs-screenshot" />
+
+          <h2>How to reset a user's password</h2>
+          <ol>
+            <li>Locate the user in any user listing view (All, Admin, GRM, Support, etc.).</li>
+            <li>In the <strong>Operations</strong> column, click the <strong>Reset Password</strong> button (key icon).</li>
+            <li>A loading spinner appears on the button while the request is being processed.</li>
+            <li>A success message confirms that reset instructions have been sent.</li>
+          </ol>
+
+          <h2>How the reset is delivered</h2>
           <ul>
-            <li><strong>Root Admin / Super Admin</strong> &mdash; full system access</li>
-            <li><strong>Admin</strong> &mdash; manage users, settlements and data</li>
-            <li><strong>Staff</strong> &mdash; data entry and viewing</li>
-            <li><strong>Monitoring</strong> &mdash; M&amp;E focused access</li>
-            <li><strong>GRM</strong> &mdash; grievance management</li>
-            <li><strong>GBV</strong> &mdash; restricted GBV case access</li>
-            <li><strong>Consultant</strong> &mdash; read-focused access for external consultants</li>
-            <li><strong>Support</strong> &mdash; technical support staff</li>
+            <li>If the user has an <strong>email</strong> address on file, reset instructions are sent to that email.</li>
+            <li>If no email is recorded but a <strong>phone number</strong> is available, the reset is sent via SMS.</li>
+            <li>The button is disabled if the user has neither an email nor a phone number on record.</li>
           </ul>
-          <p>Administrators can create custom roles and assign specific permissions per module (e.g. <code>climate_assessment:read</code>, <code>collector:read</code>).</p>
+
+          <h2>Permission required</h2>
+          <p>Only users with the <code>user:reset_password</code> permission can trigger a reset. The button is hidden or disabled for users without this permission.</p>
+
+          <h2>On mobile</h2>
+          <p>On small screens the reset option is listed inside the row's dropdown menu (chevron icon) alongside Edit and Activate actions.</p>
         `
       }
     ]
