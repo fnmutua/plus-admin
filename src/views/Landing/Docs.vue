@@ -2819,17 +2819,331 @@ const allNavGroups: NavGroup[] = [
     adminOnly: true,
     children: [
       {
-        id: 'settings-overview',
+        id: 'settings-sms',
+        label: 'SMS Settings',
+        content: `
+          <p>The <strong>SMS Settings</strong> section configures the modules and features that send SMS notifications — including grievance updates, OTP verification codes, and system alerts. It is organised into three tabs:</p>
+
+          <h2>Grievances tab</h2>
+          <p>Enable or disable SMS notifications triggered by grievance workflow events (e.g. new grievance received, status update, resolution). Toggle the switch next to each event to turn it on or off.</p>
+
+          <h2>Incidents tab</h2>
+          <p>Enable or disable SMS alerts for incident reporting events. Each incident-related notification type can be toggled independently.</p>
+
+          <h2>Other Settings tab</h2>
+          <p>Additional SMS-related module toggles that do not fall under grievances or incidents. Use this tab to enable or disable miscellaneous notification types.</p>
+
+          <h2>Saving changes</h2>
+          <p>After adjusting toggles across any tab, click <strong>Save All Changes</strong> to persist the configuration. Click <strong>Refresh</strong> to reload the current saved state and discard unsaved changes.</p>
+        `
+      },
+      {
+        id: 'settings-climate',
+        label: 'Climate Settings',
+        content: `
+          <p>The <strong>Climate Settings</strong> section controls the scoring matrix used by the Climate Risk Assessment module. It is split into two tabs:</p>
+
+          <h2>Score tab</h2>
+          <p>Defines the vulnerability rating bands. Each row in the table represents a rating level with editable <strong>Min Score</strong> and <strong>Max Score</strong> fields. Boundaries are synchronised — the max of one band automatically becomes the min of the next to prevent gaps or overlaps.</p>
+
+          <h2>Matrix Weights tab</h2>
+          <p>Sets the weighting scores for individual hazard and vulnerability attributes used in the climate questionnaire. Attributes are grouped into collapsible sections by type:</p>
+          <ul>
+            <li><strong>Temperature</strong></li>
+            <li><strong>Rainfall</strong></li>
+            <li><strong>Drought</strong></li>
+            <li><strong>Soil Erosion</strong></li>
+            <li><strong>Landslide</strong></li>
+            <li><strong>Food Insecurity</strong></li>
+            <li><strong>Pollution</strong></li>
+            <li><strong>Moisture Content</strong></li>
+            <li><strong>Flash Floods</strong></li>
+            <li><strong>Flooding</strong></li>
+          </ul>
+          <p>Expand any section to adjust the weight values for that hazard. Higher weights increase the contribution of that factor to the overall vulnerability score.</p>
+
+          <h2>Saving changes</h2>
+          <p>Click <strong>Save Changes</strong> to apply the updated matrix. Click <strong>Refresh</strong> to reload the last saved configuration.</p>
+        `
+      }
+    ]
+  },
+  {
+    id: 'configurations',
+    label: 'Configurations',
+    icon: 'mdi:tune-vertical',
+    adminOnly: true,
+    children: [
+      {
+        id: 'config-overview',
         label: 'Overview',
         content: `
-          <p>The <strong>Settings</strong> module allows administrators to configure system-wide parameters. It is divided into sub-sections:</p>
+          <p><strong>Configurations</strong> covers national-level administrative setup that underpins the entire system. These are typically configured once during system setup and updated infrequently.</p>
           <table><thead><tr><th>Section</th><th>Description</th></tr></thead><tbody>
-            <tr><td><strong>Common</strong></td><td>Categories, evaluation types, contractors, document categories/types.</td></tr>
-            <tr><td><strong>Programme</strong></td><td>Programmes, components, implementation phases, project types.</td></tr>
-            <tr><td><strong>Dashboards</strong></td><td>Dynamic dashboard configuration &mdash; cards, tabs, charts.</td></tr>
-            <tr><td><strong>Admin Units</strong></td><td>Counties, sub-counties and wards hierarchy.</td></tr>
-            <tr><td><strong>SMS Settings</strong></td><td>SMS gateway configuration for notifications.</td></tr>
-            <tr><td><strong>Climate Settings</strong></td><td>Vulnerability scoring parameters and thresholds.</td></tr>
+            <tr><td><strong>Common</strong></td><td>Shared lookup data — categories, evaluation types, contractors, document categories and types.</td></tr>
+            <tr><td><strong>Programme</strong></td><td>Programme structure — programmes, components, implementation phases, and project types.</td></tr>
+            <tr><td><strong>Dashboards</strong></td><td>Dynamic dashboard builder — configure cards, tabs, sections, and charts.</td></tr>
+            <tr><td><strong>Admin Units</strong></td><td>Geographic hierarchy — counties, sub-counties, and wards.</td></tr>
+          </tbody></table>
+        `
+      },
+      {
+        id: 'config-common',
+        label: 'Common',
+        content: `
+          <p>The <strong>Common</strong> section manages shared lookup data used across multiple modules. Changes here affect dropdowns and classifications throughout the system.</p>
+
+          <h2>Categories</h2>
+          <p>General-purpose classification categories referenced in data entry forms across various modules.</p>
+          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>#</strong></td><td>Row index.</td></tr>
+            <tr><td><strong>Title</strong></td><td>Category name.</td></tr>
+            <tr><td><strong>Code</strong></td><td>Auto-generated UUID code.</td></tr>
+            <tr><td><strong>Actions</strong></td><td>Edit, Delete.</td></tr>
+          </tbody></table>
+          <p><strong>Add/Edit:</strong> Enter a <em>Title</em>. The code is generated automatically.</p>
+
+          <h2>Evaluation Types</h2>
+          <p>Types used to classify project and settlement evaluations.</p>
+          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>#</strong></td><td>Row index.</td></tr>
+            <tr><td><strong>Type</strong></td><td>Evaluation type name.</td></tr>
+            <tr><td><strong>Actions</strong></td><td>Edit, Delete.</td></tr>
+          </tbody></table>
+          <p><strong>Add/Edit:</strong> Enter a <em>Title</em> for the evaluation type.</p>
+
+          <h2>Contractors</h2>
+          <p>Registered contractors available for assignment to projects.</p>
+          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>#</strong></td><td>Row index.</td></tr>
+            <tr><td><strong>Contractor</strong></td><td>Company or individual name.</td></tr>
+            <tr><td><strong>Contract</strong></td><td>Contract reference number.</td></tr>
+            <tr><td><strong>Phone</strong></td><td>Contact phone number.</td></tr>
+            <tr><td><strong>Code</strong></td><td>Internal code.</td></tr>
+            <tr><td><strong>Actions</strong></td><td>Edit, Delete.</td></tr>
+          </tbody></table>
+          <p><strong>Add/Edit fields:</strong></p>
+          <table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>Name</strong></td><td>Contractor name.</td></tr>
+            <tr><td><strong>Contract Number</strong></td><td>Reference number for the contract.</td></tr>
+            <tr><td><strong>Phone</strong></td><td>Contact phone number.</td></tr>
+          </tbody></table>
+
+          <h2>Document Categories</h2>
+          <p>Top-level groupings for the document repository (e.g. Legal, Technical, Financial).</p>
+          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>#</strong></td><td>Row index.</td></tr>
+            <tr><td><strong>Title</strong></td><td>Category name.</td></tr>
+            <tr><td><strong>Actions</strong></td><td>Edit, Delete.</td></tr>
+          </tbody></table>
+          <p><strong>Add/Edit:</strong> Enter a <em>Title</em> for the document category.</p>
+
+          <h2>Document Types</h2>
+          <p>Specific document types nested under a document category (e.g. "Survey Report" under "Technical").</p>
+          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>ID</strong></td><td>Record ID.</td></tr>
+            <tr><td><strong>Type</strong></td><td>Document type name.</td></tr>
+            <tr><td><strong>Group</strong></td><td>Parent document category.</td></tr>
+            <tr><td><strong>Actions</strong></td><td>Edit, Delete.</td></tr>
+          </tbody></table>
+          <p><strong>Add/Edit fields:</strong></p>
+          <table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>Category</strong></td><td>Select the parent document category from the dropdown.</td></tr>
+            <tr><td><strong>Title</strong></td><td>Name of the document type.</td></tr>
+          </tbody></table>
+        `
+      },
+      {
+        id: 'config-programme',
+        label: 'Programme',
+        content: `
+          <p>The <strong>Programme</strong> section defines the structural hierarchy that organises KISIP interventions — from high-level programmes down to specific project types.</p>
+
+          <h2>Programmes</h2>
+          <p>Top-level programme definitions. Programmes can be hierarchical (a programme may have a parent programme).</p>
+          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>#</strong></td><td>Row index.</td></tr>
+            <tr><td><strong>Title</strong></td><td>Programme name.</td></tr>
+            <tr><td><strong>Acronym</strong></td><td>Short code for the programme.</td></tr>
+            <tr><td><strong>Description</strong></td><td>Brief description.</td></tr>
+            <tr><td><strong>Actions</strong></td><td>Edit, Delete.</td></tr>
+          </tbody></table>
+          <p><strong>Add/Edit fields:</strong></p>
+          <table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>Title</strong></td><td>Programme name.</td></tr>
+            <tr><td><strong>Parent</strong></td><td>Optional parent programme for hierarchical nesting.</td></tr>
+            <tr><td><strong>Acronym</strong></td><td>Short identifier.</td></tr>
+            <tr><td><strong>Description</strong></td><td>Summary of the programme's purpose.</td></tr>
+            <tr><td><strong>Icon</strong></td><td>Icon identifier for display in the UI.</td></tr>
+          </tbody></table>
+
+          <h2>Components</h2>
+          <p>Sub-divisions of a programme linked to specific intervention domains.</p>
+          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>ID</strong></td><td>Record ID.</td></tr>
+            <tr><td><strong>Title</strong></td><td>Component name.</td></tr>
+            <tr><td><strong>Acronym</strong></td><td>Short code.</td></tr>
+            <tr><td><strong>Programme</strong></td><td>Parent programme.</td></tr>
+            <tr><td><strong>Actions</strong></td><td>Edit, Delete.</td></tr>
+          </tbody></table>
+          <p><strong>Add/Edit fields:</strong></p>
+          <table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>Title</strong></td><td>Component name.</td></tr>
+            <tr><td><strong>Acronym</strong></td><td>Short identifier.</td></tr>
+            <tr><td><strong>Intervention Area</strong></td><td>Domain this component belongs to (dropdown).</td></tr>
+            <tr><td><strong>Programme</strong></td><td>Parent programme (dropdown).</td></tr>
+            <tr><td><strong>Icon</strong></td><td>Icon identifier.</td></tr>
+          </tbody></table>
+
+          <h2>Implementation Phases</h2>
+          <p>Phases used to track the progress of projects over time (e.g. Planning, Design, Construction, Completion).</p>
+          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>#</strong></td><td>Row index.</td></tr>
+            <tr><td><strong>Title</strong></td><td>Phase name.</td></tr>
+            <tr><td><strong>Acronym</strong></td><td>Short code.</td></tr>
+            <tr><td><strong>Description</strong></td><td>Phase description.</td></tr>
+            <tr><td><strong>Actions</strong></td><td>Edit, Delete.</td></tr>
+          </tbody></table>
+          <p><strong>Add/Edit fields:</strong> Acronym, Title, Description, Icon.</p>
+
+          <h2>Project Types</h2>
+          <p>Classification types for projects, linked to a component (e.g. Roads, Water, Sanitation).</p>
+          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>#</strong></td><td>Row index.</td></tr>
+            <tr><td><strong>Title</strong></td><td>Project type name.</td></tr>
+            <tr><td><strong>Description</strong></td><td>Brief description.</td></tr>
+            <tr><td><strong>Actions</strong></td><td>Edit, Delete.</td></tr>
+          </tbody></table>
+          <p><strong>Add/Edit fields:</strong></p>
+          <table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>Component</strong></td><td>Parent component this project type belongs to (dropdown).</td></tr>
+            <tr><td><strong>Title</strong></td><td>Project type name.</td></tr>
+            <tr><td><strong>Description</strong></td><td>Brief description of this project type.</td></tr>
+          </tbody></table>
+        `
+      },
+      {
+        id: 'config-dashboards',
+        label: 'Dashboards',
+        content: `
+          <p>The <strong>Dashboards</strong> configuration controls the dynamic dashboards displayed on the home screen. Dashboards are built from cards, sections, and charts configured here.</p>
+
+          <h2>Dashboards</h2>
+          <p>Each dashboard is a named container that groups cards, sections, and charts.</p>
+          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>#</strong></td><td>Row index.</td></tr>
+            <tr><td><strong>Title</strong></td><td>Dashboard name.</td></tr>
+            <tr><td><strong>Description</strong></td><td>Purpose of the dashboard.</td></tr>
+            <tr><td><strong>Actions</strong></td><td>Edit, Delete.</td></tr>
+          </tbody></table>
+          <p><strong>Add/Edit fields:</strong></p>
+          <table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>Title</strong></td><td>Dashboard name.</td></tr>
+            <tr><td><strong>Type</strong></td><td><em>Intervention</em> or <em>Status</em> — determines the data context of the dashboard.</td></tr>
+            <tr><td><strong>Main</strong></td><td>Toggle to mark this as the primary dashboard shown by default.</td></tr>
+            <tr><td><strong>Public</strong></td><td>If enabled, the dashboard is visible to all users regardless of role.</td></tr>
+            <tr><td><strong>Icon</strong></td><td>Icon identifier for the dashboard tab.</td></tr>
+            <tr><td><strong>Description</strong></td><td>Brief description of the dashboard's purpose.</td></tr>
+          </tbody></table>
+
+          <h2>Dashboard Cards</h2>
+          <p>Summary statistic tiles displayed at the top of a dashboard (e.g. total settlements, active projects).</p>
+          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>ID</strong></td><td>Record ID.</td></tr>
+            <tr><td><strong>Dashboard</strong></td><td>Parent dashboard this card belongs to.</td></tr>
+            <tr><td><strong>Title</strong></td><td>Card label.</td></tr>
+            <tr><td><strong>Actions</strong></td><td>Edit, Delete.</td></tr>
+          </tbody></table>
+          <p><strong>Add/Edit fields:</strong> Dashboard (dropdown), Title.</p>
+
+          <h2>Dashboard Sections</h2>
+          <p>Tabbed panels that organise charts and content within a dashboard.</p>
+          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>ID</strong></td><td>Record ID.</td></tr>
+            <tr><td><strong>Dashboard</strong></td><td>Parent dashboard.</td></tr>
+            <tr><td><strong>Title</strong></td><td>Section/tab label.</td></tr>
+            <tr><td><strong>Actions</strong></td><td>Edit, Delete.</td></tr>
+          </tbody></table>
+          <p><strong>Add/Edit fields:</strong> Dashboard (dropdown), Title.</p>
+
+          <h2>Dashboard Charts</h2>
+          <p>Data visualisations linked to system data sources, configured with a multi-step form.</p>
+          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>ID</strong></td><td>Record ID.</td></tr>
+            <tr><td><strong>Chart Name</strong></td><td>Chart title.</td></tr>
+            <tr><td><strong>Description</strong></td><td>What the chart shows.</td></tr>
+            <tr><td><strong>Actions</strong></td><td>Edit, Delete, Duplicate.</td></tr>
+          </tbody></table>
+          <p><strong>Add/Edit — chart configuration steps:</strong></p>
+          <ul>
+            <li><strong>Chart Type</strong> — bar, line, pie, etc.</li>
+            <li><strong>Data Source</strong> — the model/table driving the chart data.</li>
+            <li><strong>X &amp; Y Axes</strong> — fields to use for each axis.</li>
+            <li><strong>Filters</strong> — optional data filters to scope the chart.</li>
+            <li><strong>Advanced Settings</strong> — aggregation, grouping, and display options.</li>
+            <li><strong>Color Configuration</strong> — colour picker for chart series.</li>
+          </ul>
+          <p>Use the <strong>Duplicate</strong> (copy) button to clone an existing chart as a starting point for a new one.</p>
+        `
+      },
+      {
+        id: 'config-admin-units',
+        label: 'Admin Units',
+        content: `
+          <p>The <strong>Admin Units</strong> section manages the three-level geographic hierarchy — Counties → Sub-counties → Wards — that underpins all location-based filtering, user assignment, and data scoping across the system.</p>
+
+          <h2>Counties</h2>
+          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>#</strong></td><td>Row index.</td></tr>
+            <tr><td><strong>Name</strong></td><td>County name.</td></tr>
+            <tr><td><strong>Code</strong></td><td>Official county code.</td></tr>
+            <tr><td><strong>Area (km²)</strong></td><td>Calculated from uploaded geometry.</td></tr>
+            <tr><td><strong>Settlements</strong></td><td>Count of settlements registered in the county.</td></tr>
+            <tr><td><strong>Actions</strong></td><td>Edit, Delete.</td></tr>
+          </tbody></table>
+          <p><strong>Add/Edit fields:</strong></p>
+          <table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>Name</strong></td><td>County name.</td></tr>
+            <tr><td><strong>Code</strong></td><td>Official county identifier.</td></tr>
+            <tr><td><strong>Geometry</strong></td><td>Upload a GeoJSON file defining the county boundary. The area is calculated automatically from the geometry.</td></tr>
+          </tbody></table>
+
+          <h2>Sub-counties</h2>
+          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>#</strong></td><td>Row index.</td></tr>
+            <tr><td><strong>Name</strong></td><td>Sub-county name.</td></tr>
+            <tr><td><strong>County</strong></td><td>Parent county.</td></tr>
+            <tr><td><strong>Code</strong></td><td>Sub-county code.</td></tr>
+            <tr><td><strong>Area (km²)</strong></td><td>Calculated from geometry.</td></tr>
+            <tr><td><strong>Settlements</strong></td><td>Count of settlements in this sub-county.</td></tr>
+            <tr><td><strong>Actions</strong></td><td>Edit, Delete.</td></tr>
+          </tbody></table>
+          <p><strong>Add/Edit fields:</strong></p>
+          <table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>Name</strong></td><td>Sub-county name.</td></tr>
+            <tr><td><strong>Code</strong></td><td>Sub-county identifier.</td></tr>
+            <tr><td><strong>County</strong></td><td>Parent county (dropdown).</td></tr>
+            <tr><td><strong>Geometry</strong></td><td>GeoJSON file for the sub-county boundary.</td></tr>
+          </tbody></table>
+
+          <h2>Wards</h2>
+          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>#</strong></td><td>Row index.</td></tr>
+            <tr><td><strong>Name</strong></td><td>Ward name.</td></tr>
+            <tr><td><strong>County</strong></td><td>Parent county.</td></tr>
+            <tr><td><strong>Sub-county</strong></td><td>Parent sub-county.</td></tr>
+            <tr><td><strong>Code</strong></td><td>Ward code.</td></tr>
+            <tr><td><strong>Area (km²)</strong></td><td>Calculated from geometry.</td></tr>
+            <tr><td><strong>Settlements</strong></td><td>Count of settlements in this ward.</td></tr>
+            <tr><td><strong>Actions</strong></td><td>Edit, Delete.</td></tr>
+          </tbody></table>
+          <p><strong>Add/Edit fields:</strong></p>
+          <table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>Name</strong></td><td>Ward name.</td></tr>
+            <tr><td><strong>Code</strong></td><td>Ward identifier.</td></tr>
+            <tr><td><strong>County</strong></td><td>Parent county (dropdown). Selecting a county loads the sub-county options.</td></tr>
+            <tr><td><strong>Sub-county</strong></td><td>Parent sub-county (dropdown, dependent on county selection).</td></tr>
+            <tr><td><strong>Geometry</strong></td><td>GeoJSON file for the ward boundary.</td></tr>
           </tbody></table>
         `
       }
