@@ -19,37 +19,41 @@
           </button>
           <Transition name="collapse">
             <div v-show="expandedGroups.has(group.id)" class="nav-group-children">
-              <button
-                v-for="item in group.children"
-                :key="item.id"
-                :class="['nav-item', { active: activeSection === item.id }]"
-                @click="selectSection(item.id)"
-              >
-                {{ item.label }}
-              </button>
+              <template v-for="item in group.children" :key="item.id">
+                <button
+                  v-if="canSee(item.roles)"
+                  :class="['nav-item', { active: activeSection === item.id }]"
+                  @click="selectSection(item.id)"
+                >
+                  {{ item.label }}
+                </button>
+              </template>
               <template v-if="group.subgroups">
                 <template v-for="sub in group.subgroups" :key="sub.id">
-                  <button
-                    class="nav-subgroup-toggle"
-                    :class="{ expanded: expandedGroups.has(sub.id), 'has-active': subgroupHasActive(sub) }"
-                    @click="toggleGroup(sub.id)"
-                  >
-                    <Icon v-if="sub.icon" :icon="sub.icon" class="nav-subgroup-icon" />
-                    <span class="nav-subgroup-label">{{ sub.label }}</span>
-                    <Icon icon="mdi:chevron-right" class="nav-chevron sub-chevron" />
-                  </button>
-                  <Transition name="collapse">
-                    <div v-show="expandedGroups.has(sub.id)" class="nav-subgroup-children">
-                      <button
-                        v-for="item in sub.children"
-                        :key="item.id"
-                        :class="['nav-item', 'nav-item-nested', { active: activeSection === item.id }]"
-                        @click="selectSection(item.id)"
-                      >
-                        {{ item.label }}
-                      </button>
-                    </div>
-                  </Transition>
+                  <template v-if="canSee(sub.roles)">
+                    <button
+                      class="nav-subgroup-toggle"
+                      :class="{ expanded: expandedGroups.has(sub.id), 'has-active': subgroupHasActive(sub) }"
+                      @click="toggleGroup(sub.id)"
+                    >
+                      <Icon v-if="sub.icon" :icon="sub.icon" class="nav-subgroup-icon" />
+                      <span class="nav-subgroup-label">{{ sub.label }}</span>
+                      <Icon icon="mdi:chevron-right" class="nav-chevron sub-chevron" />
+                    </button>
+                    <Transition name="collapse">
+                      <div v-show="expandedGroups.has(sub.id)" class="nav-subgroup-children">
+                        <template v-for="item in sub.children" :key="item.id">
+                          <button
+                            v-if="canSee(item.roles)"
+                            :class="['nav-item', 'nav-item-nested', { active: activeSection === item.id }]"
+                            @click="selectSection(item.id)"
+                          >
+                            {{ item.label }}
+                          </button>
+                        </template>
+                      </div>
+                    </Transition>
+                  </template>
                 </template>
               </template>
             </div>
@@ -111,6 +115,8 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useHead } from '@unhead/vue'
 import { Icon } from '@iconify/vue'
+import { useAppStoreWithOut } from '@/store/modules/app'
+import { useCache } from '@/hooks/web/useCache'
 import landingPageImg from '@/assets/documentation/landing_page.png'
 import actionButtonsImg from '@/assets/documentation/action-buttons.png'
 import topNavigationImg from '@/assets/documentation/top_navigation.png'
@@ -281,6 +287,7 @@ interface NavPage {
   id: string
   label: string
   content: string
+  roles?: string[]
 }
 
 interface NavSubGroup {
@@ -288,24 +295,40 @@ interface NavSubGroup {
   label: string
   icon?: string
   children: NavPage[]
+  roles?: string[]
 }
 
 interface NavGroup {
   id: string
   label: string
   icon: string
-  adminOnly?: boolean
+  roles?: string[]
   children: NavPage[]
   subgroups?: NavSubGroup[]
 }
 
-const isAdmin = computed(() => {
+const appStore = useAppStoreWithOut()
+const { wsCache } = useCache()
+
+// wsCache reads from sessionStorage which is not reactive — populate via onMounted so
+// navGroups re-computes after the user info is read.
+const userRoleNames = ref<string[]>([])
+
+function loadUserRoles() {
   try {
-    return localStorage.getItem('kesmis_is_admin') === '1'
+    const userInfo = wsCache.get(appStore.getUserInfo)
+    userRoleNames.value = userInfo?.roles?.map((r: any) => r.name) ?? []
   } catch {
-    return false
+    userRoleNames.value = []
   }
-})
+}
+
+// Returns true when the item has no role restriction, or the user holds at least one required role.
+// An empty userRoleNames means the user is not logged in — only unrestricted items are shown.
+function canSee(roles?: string[]): boolean {
+  if (!roles || roles.length === 0) return true
+  return roles.some(r => userRoleNames.value.includes(r))
+}
 
 const sidebarOpen = ref(false)
 const activeSection = ref('what-is-kesmis')
@@ -857,7 +880,7 @@ const allNavGroups: NavGroup[] = [
     id: 'data',
     label: 'Data Management',
     icon: 'mdi:database-outline',
-    adminOnly: true,
+    roles: ['root_admin', 'super_admin', 'admin', 'staff', 'monitoring', 'consultant', 'national_monitoring', 'county_admin'],
     subgroups: [
       {
         id: 'data-settlements',
@@ -1984,6 +2007,7 @@ const allNavGroups: NavGroup[] = [
     id: 'mne',
     label: 'M&E',
     icon: 'mdi:chart-bar',
+    roles: ['root_admin', 'super_admin', 'admin', 'staff', 'monitoring', 'grm', 'consultant', 'national_monitoring', 'county_admin'],
     children: [
       {
         id: 'mne-overview',
@@ -2225,6 +2249,7 @@ const allNavGroups: NavGroup[] = [
     id: 'grm',
     label: 'Grievance Redress (GRM)',
     icon: 'mdi:message-alert-outline',
+    roles: ['root_admin', 'super_admin', 'admin', 'staff', 'monitoring', 'grm', 'consultant', 'national_monitoring', 'county_admin'],
     children: [
       {
         id: 'grm-overview',
@@ -2465,6 +2490,7 @@ const allNavGroups: NavGroup[] = [
     id: 'incidents',
     label: 'Incidents',
     icon: 'mdi:alert-decagram-outline',
+    roles: ['root_admin', 'super_admin', 'admin', 'staff', 'monitoring', 'grm', 'consultant', 'national_monitoring', 'county_admin'],
     children: [
       {
         id: 'incidents-overview',
@@ -2576,6 +2602,7 @@ const allNavGroups: NavGroup[] = [
     id: 'repository',
     label: 'Repository',
     icon: 'mdi:folder-multiple-outline',
+    roles: ['root_admin', 'super_admin', 'admin', 'staff', 'monitoring', 'grm', 'consultant', 'national_monitoring', 'county_admin'],
     children: [
       {
         id: 'repo-documents',
@@ -2756,6 +2783,7 @@ const allNavGroups: NavGroup[] = [
     id: 'media',
     label: 'Media',
     icon: 'mdi:play-circle-outline',
+    roles: ['root_admin', 'super_admin', 'admin', 'staff', 'monitoring', 'grm', 'consultant', 'national_monitoring', 'county_admin'],
     children: [
       {
         id: 'media-overview',
@@ -2909,7 +2937,7 @@ const allNavGroups: NavGroup[] = [
     id: 'users',
     label: 'Users & Access',
     icon: 'mdi:shield-account-outline',
-    adminOnly: true,
+    roles: ['root_admin', 'super_admin', 'admin'],
     children: [
       {
         id: 'users-listing',
@@ -3058,7 +3086,7 @@ const allNavGroups: NavGroup[] = [
     id: 'settings',
     label: 'Settings',
     icon: 'mdi:cog-outline',
-    adminOnly: true,
+    roles: ['root_admin', 'super_admin', 'admin'],
     children: [
       {
         id: 'settings-sms',
@@ -3119,7 +3147,7 @@ const allNavGroups: NavGroup[] = [
     id: 'configurations',
     label: 'Configurations',
     icon: 'mdi:tune-vertical',
-    adminOnly: true,
+    roles: ['root_admin', 'super_admin', 'admin'],
     children: [
       {
         id: 'config-overview',
@@ -3448,42 +3476,22 @@ const allNavGroups: NavGroup[] = [
         ]
       },
     ]
-  },
-  {
-    id: 'admin',
-    label: 'Administration',
-    icon: 'mdi:shield-lock-outline',
-    adminOnly: true,
-    children: [
-      {
-        id: 'admin-overview',
-        label: 'Overview',
-        content: `
-          <p>The <strong>Admin</strong> section provides super-admin tools:</p>
-          <ul>
-            <li><strong>Roles</strong> &mdash; create and manage roles with granular permissions</li>
-            <li><strong>Feedback</strong> &mdash; view in-app user feedback submissions</li>
-            <li><strong>Logs</strong> &mdash; audit trail of system actions</li>
-            <li><strong>Page Visits</strong> &mdash; analytics on which pages are most visited</li>
-          </ul>
-        `
-      }
-    ]
   }
 ]
 
 const navGroups = computed(() =>
-  allNavGroups.filter(g => !g.adminOnly || isAdmin.value)
+  allNavGroups.filter(g => canSee(g.roles))
 )
 
 function getAllGroupPages(g: NavGroup): NavPage[] {
   const pages: NavPage[] = []
   if (g.subgroups) {
     for (const sub of g.subgroups) {
-      pages.push(...sub.children)
+      if (!canSee(sub.roles)) continue
+      pages.push(...sub.children.filter(p => canSee(p.roles)))
     }
   }
-  if (g.children) pages.push(...g.children)
+  if (g.children) pages.push(...g.children.filter(p => canSee(p.roles)))
   return pages
 }
 
@@ -3544,7 +3552,10 @@ const closeSidebarOnResize = () => {
   if (window.innerWidth > 768) sidebarOpen.value = false
 }
 
-onMounted(() => window.addEventListener('resize', closeSidebarOnResize))
+onMounted(() => {
+  loadUserRoles()
+  window.addEventListener('resize', closeSidebarOnResize)
+})
 onBeforeUnmount(() => window.removeEventListener('resize', closeSidebarOnResize))
 
 useHead({
