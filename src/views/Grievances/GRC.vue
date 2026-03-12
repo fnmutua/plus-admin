@@ -112,16 +112,7 @@ const loginUserToCollector = async () => {
 
   loading.value = true
   fetchingData.value = true
-  dataFetchStatus.value = 'Connecting to server and fetching all GRC data...'
-
-  // Show notification that data fetching has started
-  ElNotification({
-    title: 'Fetching Data',
-    message: 'We are fetching all GRC officials data. This may take a moment. You can continue using other features while data loads.',
-    type: 'info',
-    duration: 5000,
-    position: 'top-right'
-  })
+  dataFetchStatus.value = 'Connecting to Collector and loading GRC officials...'
 
   try {
     const response = await loginCollector(formData)
@@ -342,15 +333,6 @@ const getGRCData = async () => {
 
     // Update total items
     totalItems.value = grc_officials.value.length
-
-    // Show success notification
-    ElNotification({
-      title: 'Data Loaded Successfully',
-      message: `Successfully loaded ${grc_officials.value.length} GRC official records. You can now filter and search the data.`,
-      type: 'success',
-      duration: 5000,
-      position: 'top-right'
-    })
 
   } catch (error) {
     // Handle errors here

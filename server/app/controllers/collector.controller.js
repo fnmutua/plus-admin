@@ -824,15 +824,13 @@ exports.modelDataCollectorCSVWithMedia = (req, res) => {
 exports.modelGetSubmissions = async (req, res) => {
  
    // Extract request parameters from body
-   const { project, form, token, filters, filterValues, filterOperator, limit, page } = req.body;
+   const { project, form, token, filters, filterValues, filterOperator } = req.body;
   console.log('modelGetSubmissions - Request received:');
   console.log('  - Project:', project);
   console.log('  - Form:', form);
   console.log('  - Frontend filters:', filters);
   console.log('  - Frontend filterValues:', filterValues);
   console.log('  - Frontend filterOperator:', filterOperator);
-  console.log('  - Limit (page size):', limit);
-  console.log('  - Page:', page);
 
   // Build URL without OData filter - we'll filter on backend after fetching all data
   let url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}.svc/Submissions?%24expand=*`;
@@ -944,31 +942,17 @@ exports.modelGetSubmissions = async (req, res) => {
           console.log('modelGetSubmissions - Backend filtering applied:');
           console.log('  - Total submissions fetched:', mappedData.length);
           console.log('  - Filtered by county:', countyNameToFilter);
-          console.log('  - Filtered submissions count (before pagination):', filteredData.length);
+          console.log('  - Filtered submissions count:', filteredData.length);
         } else {
-          console.log('modelGetSubmissions - No county filter, total submissions (before pagination):', mappedData.length);
+          console.log('modelGetSubmissions - No county filter, returning all submissions:', mappedData.length);
         }
 
-        // Backend-side pagination: apply limit/page AFTER filtering
-        const pageSize = Number(limit) > 0 ? Number(limit) : 50;
-        const currentPage = Number(page) > 0 ? Number(page) : 1;
-        const totalCount = filteredData.length;
-        const startIndex = (currentPage - 1) * pageSize;
-        const endIndex = startIndex + pageSize;
-        const paginatedData = filteredData.slice(startIndex, endIndex);
-
-        console.log('modelGetSubmissions - Pagination applied:');
-        console.log('  - Page size:', pageSize);
-        console.log('  - Current page:', currentPage);
-        console.log('  - Total (before pagination):', totalCount);
-        console.log('  - Returning items:', paginatedData.length);
-
-        res.status(200).send({
-          data: paginatedData,
-          total: totalCount,
-          code: '0000',
-          token: token // Include the token in the response
-        });
+     
+          res.status(200).send({
+            data: filteredData,
+            code: '0000',
+            token: token // Include the token in the response
+          });
    
   
   

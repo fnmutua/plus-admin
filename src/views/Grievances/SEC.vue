@@ -31,9 +31,9 @@ const userInfo = wsCache.get(appStore.getUserInfo)
 
 
 const mobileBreakpoint = 768;
-const defaultPageSize = 5;
+const defaultPageSize = 10;
 const mobilePageSize = 5;
-const pageSize = ref(5);
+const pageSize = ref(10);
 const currentPage = ref(1);
 const width = ref(1080);
 
@@ -281,16 +281,7 @@ const loginUserToCollector = async () => {
 
   loading.value = true
   fetchingData.value = true
-  dataFetchStatus.value = 'Connecting to server and fetching SEC officials data...'
-
-  // Show notification that data fetching has started
-  ElNotification({
-    title: 'Fetching Data',
-    message: 'We are fetching SEC officials data (first page). This may take a moment. You can continue using other features while data loads.',
-    type: 'info',
-    duration: 5000,
-    position: 'top-right'
-  })
+  dataFetchStatus.value = 'Connecting to Collector and loading SEC officials...'
 
   try {
     const response = await loginCollector(formData);
@@ -428,9 +419,7 @@ const getSecData = async () => {
   const formData: any = {
     project: "1",
     form: "sec_officials",
-    token: localStorage.getItem('collectorToken'),
-    limit: pageSize.value,
-    page: currentPage.value
+    token: localStorage.getItem('collectorToken')
   };
 
   // Add county filtering if user is county level (following Sett.vue pattern)
@@ -493,15 +482,6 @@ const getSecData = async () => {
 
     // Update total items
     totalItems.value = sec_officials.value.length
-
-    // Show success notification
-    ElNotification({
-      title: 'Data Loaded Successfully',
-      message: `Successfully loaded ${sec_officials.value.length} SEC official records. You can now filter and search the data.`,
-      type: 'success',
-      duration: 5000,
-      position: 'top-right'
-    })
 
   } catch (error) {
     // Handle errors here
@@ -621,12 +601,6 @@ console.log("projects--->", projects.value)
 console.log("forms--->", forms.value)
 
 loginUserToCollector()
-
-
-totalItems.value = sec_officials.value.length
-
-
-console.log("totalItems.value--->", totalItems.value)
 
 const formatTitle = (attribute) => {
   // Replace underscores with spaces, capitalize first letter of each word
@@ -914,7 +888,6 @@ const search = ref('')
 // Filter data and reset pagination on search input change
 const filterTableData = () => {
   if (!search.value) {
-    // If search is cleared, reset the pagination and total to original data
     currentPage.value = 1;
     totalItems.value = sec_officials.value.length; // Reset total to initial value
   }
@@ -987,7 +960,6 @@ const filteredData = computed(() => {
 
 
 
-// Computed property for paginated data based on filtered results
 const paginatedData = computed(() => {
   const start = (currentPage.value - 1) * pageSize.value;
   const end = start + pageSize.value;
@@ -1069,7 +1041,23 @@ const SEC_options =  [
 <template>
   <el-card>
     <!-- Status Alert -->
- 
+    <el-alert
+      v-if="fetchingData && dataFetchStatus"
+      :title="dataFetchStatus"
+      type="info"
+      :closable="false"
+      show-icon
+      style="margin-bottom: 15px;"
+    >
+      <template #default>
+        <div>
+          <p>{{ dataFetchStatus }}</p>
+          <p style="font-size: 12px; margin-top: 5px; color: #909399;">
+            You can continue using filters and other features while the SEC list loads.
+          </p>
+        </div>
+      </template>
+    </el-alert>
 
     <div v-loading="loading" element-loading-text="Loading data...">
     <el-row
