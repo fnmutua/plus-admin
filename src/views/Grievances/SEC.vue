@@ -31,9 +31,9 @@ const userInfo = wsCache.get(appStore.getUserInfo)
 
 
 const mobileBreakpoint = 768;
-const defaultPageSize = 18;
+const defaultPageSize = 5;
 const mobilePageSize = 5;
-const pageSize = ref(18);
+const pageSize = ref(5);
 const currentPage = ref(1);
 const width = ref(1080);
 
@@ -281,12 +281,12 @@ const loginUserToCollector = async () => {
 
   loading.value = true
   fetchingData.value = true
-  dataFetchStatus.value = 'Connecting to server and fetching all SEC data...'
+  dataFetchStatus.value = 'Connecting to server and fetching SEC officials data...'
 
   // Show notification that data fetching has started
   ElNotification({
     title: 'Fetching Data',
-    message: 'We are fetching all SEC officials data. This may take a moment. You can continue using other features while data loads.',
+    message: 'We are fetching SEC officials data (first page). This may take a moment. You can continue using other features while data loads.',
     type: 'info',
     duration: 5000,
     position: 'top-right'
@@ -428,7 +428,9 @@ const getSecData = async () => {
   const formData: any = {
     project: "1",
     form: "sec_officials",
-    token: localStorage.getItem('collectorToken')
+    token: localStorage.getItem('collectorToken'),
+    limit: pageSize.value,
+    page: currentPage.value
   };
 
   // Add county filtering if user is county level (following Sett.vue pattern)
