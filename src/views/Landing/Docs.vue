@@ -112,8 +112,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useHead } from '@unhead/vue'
+import { useRoute } from 'vue-router'
 import { Icon } from '@iconify/vue'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
@@ -307,6 +308,7 @@ interface NavGroup {
   subgroups?: NavSubGroup[]
 }
 
+const route = useRoute()
 const appStore = useAppStoreWithOut()
 const { wsCache } = useCache()
 
@@ -3552,9 +3554,16 @@ const closeSidebarOnResize = () => {
   if (window.innerWidth > 768) sidebarOpen.value = false
 }
 
-onMounted(() => {
+onMounted(async () => {
   loadUserRoles()
   window.addEventListener('resize', closeSidebarOnResize)
+  // Deep-link support: /#/docs?section=grm-grievances
+  const target = route.query.section as string | undefined
+  if (target) {
+    // Wait one tick so navGroups (which depends on userRoleNames) has filtered correctly
+    await nextTick()
+    selectSection(target)
+  }
 })
 onBeforeUnmount(() => window.removeEventListener('resize', closeSidebarOnResize))
 
