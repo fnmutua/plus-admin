@@ -95,8 +95,8 @@ const isCountyRestricted = computed(() => {
   return !isSuperAdmin.value && !hasNationalAccess.value && !!userCountyId.value
 })
 
-// For settlements, show 'viewOnMap' and 'addFacility' actions
-const action_buttons = ref<string[]>(['viewOnMap', 'delete'])
+// For settlements, show 'viewProfile', 'viewOnMap' and 'delete' actions
+const action_buttons = ref<string[]>(['viewProfile', 'viewOnMap', 'delete'])
 
 console.log('action_buttons', action_buttons.value)
 console.log('User location info:', {
@@ -824,8 +824,7 @@ const viewProfile = (data: TableSlotDefault) => {
   console.log('On Click.....', data.id)
 
   push({
-    path: '/facilities/health/details/:id',
-    name: 'HealthFacilityDetails',
+    name: 'PipedWaterFacilityDetails',
     params: { data: data.id, id: data.id }
   })
 }
@@ -2220,6 +2219,7 @@ v-if="showEditButtons" :data="tableDataList" :model="pipedWaterFacilityModel"
           <TableActions
             :item="row"
             :buttons="action_buttons"
+            @view-profile="viewProfile"
             @view-on-map="flyTo"
             @delete="DeleteFacility"
           />

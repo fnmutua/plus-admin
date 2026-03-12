@@ -1,259 +1,324 @@
+<!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
-import { Descriptions } from '@/components/Descriptions'
-import { useI18n } from '@/hooks/web/useI18n'
-import { onMounted, ref, reactive, unref } from 'vue'
-import { Form } from '@/components/Form'
-import { ElFormItem, ElInput, ElButton } from 'element-plus'
-import { useValidator } from '@/hooks/web/useValidator'
-import { useForm } from '@/hooks/web/useForm'
-import { useRoute } from 'vue-router'
+// @ts-nocheck
+import { ref, reactive, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import {
-  getOneGeo,
-  getOneSettlement,
-  getSettlementListByCounty,
-  getfilteredGeo
-} from '@/api/settlements'
-
-// Locally
-import { VueCollapsiblePanelGroup, VueCollapsiblePanel } from '@dafcoe/vue-collapsible-panel'
-import '@dafcoe/vue-collapsible-panel/dist/vue-collapsible-panel.css'
-
-const { register, elFormRef } = useForm()
+  ElCard, ElTabs, ElTabPane, ElButton, ElDescriptions, ElDescriptionsItem,
+  ElTag, ElAlert, ElCollapseTransition
+} from 'element-plus'
+import { Back } from '@element-plus/icons-vue'
+import { Icon } from '@iconify/vue'
+import { GoogleMap, Polygon, Marker, InfoWindow } from 'vue3-google-map'
+import { useDesign } from '@/hooks/web/useDesign'
+import { getSettlementListByCounty, getOneGeo, getSettlementMapData } from '@/api/settlements'
 
 const route = useRoute()
-
-const { t } = useI18n()
-
-
-
-const schemaProfile = reactive<DescriptionsSchema[]>([
-  {
-    field: 'name',
-    label: t('Name')
-  },
-  {
-    field: 'level',
-    label: t('level')
-  },
-  {
-    field: 'county',
-    label: t('County')
-  },
-  {
-    field: 'status',
-    label: t('Status')
-  },
-
-  {
-    field: 'ownership',
-    label: t('Ownership')
-  },
-  {
-    field: 'owner',
-    label: t('Owner')
-  },
-])
-
-const schemaStaffing = reactive<DescriptionsSchema[]>([
-  {
-    field: 'numberDoctors',
-    label: t('Number of Doctors')
-  },
-
-  {
-    field: 'numberCos',
-    label: t('Number of Clinical Officers')
-  },
-
-  {
-    field: 'numberNurses',
-    label: t('Number of Nurses')
-  },
-
-  {
-    field: 'numberPharms',
-    label: t('Number of Pharmacists')
-  },
-
-
-])
-
-const schemaCapacity = reactive<DescriptionsSchema[]>([
-  {
-    field: 'patientsPerday',
-    label: t('Average Number of Patients Per day')
-  },
-  {
-    field: 'hasInpatient',
-    label: t('Has Inpatient Services')
-  },
-  {
-    field: 'numberOfBeds',
-    label: t('Number of Beds')
-  },
-
-  {
-    field: 'occupancyRate',
-    label: t('Occupancy Rate (%)')
-  },
-
-
-])
-
-
-
-
-
-
-
-
-const form = reactive({
-  name: '',
-  county: '',
-  population: '',
-  area_ha: '',
-  description: '',
-  type: '',
-  subcounty: ''
-})
-
-const page = ref(1)
-const pSize = ref(5)
-////Configurations //////////////
-
-//// ------------------parameters -----------------------////
-var filters = ['id']
+const router = useRouter()
 const id = route.params.id
-var intervenComponent = [id] // the Id of the settleemnt to filter with
-var filterValues = [intervenComponent]
 
-//const associated_Model = ''
-const associated_multiple_models = ['settlement']
-const model = 'health_facility'
-const nested_models = ['settlement', 'county'] // The mother, then followed by the child
+const GOOGLE_MAPS_API_KEY = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
+const { getPrefixCls } = useDesign()
+const prefixCls = getPrefixCls('descriptions')
 
-//// ------------------parameters -----------------------////
-
-let settlement = reactive({
-  count: 0,
-  name: 'unnwo',
-  flag: false
-})
-////////////
-
-const profile = reactive({
-  name: '',
-  county: '',
-  level: '',
-  status: '',
-  settlement: '',
-  ownership: '',
-  owner: ''
-})
-const staffing = reactive({
-  numberDoctors: '',
-  numberCos: '',
-  numberNurses: '',
-  numberPharms: '',
+// ── Collapsible sections (false = open) ───────────────────────────────────────
+const collapsed = reactive({
+  general: false,
+  land: false,
+  staffing: false,
+  capacity: false,
+  outreach: false,
+  contact: false
 })
 
-const capacity = reactive({
-  patientsPerday: '',
-  numberOfBeds: '',
-  hasInpatient: '',
-  occupancyRate: '',
-})
+// ── State ─────────────────────────────────────────────────────────────────────
+const loading = ref(true)
+const error = ref('')
+const activeTab = ref('profile')
 
+const d = ref<any>({})  // raw API record — all fields available in template
 
+// ── Map state ─────────────────────────────────────────────────────────────────
+const mapRef = ref()
+const mapLoading = ref(false)
+const mapCenter = ref({ lat: -1.286389, lng: 36.817223 })
+const facilityMarker = ref<any>(null)
+const showInfoWindow = ref(false)
+const settlementPolygons = ref<any[]>([])
+const mapDataLoaded = ref(false)
 
-
-
-
-
-const getFilteredData = async (selFilters, selfilterValues) => {
-  const formData = {}
-  formData.limit = pSize.value
-  formData.page = page.value
-  formData.curUser = 1 // Id for logged in user
-  formData.model = model
-  //-Search field--------------------------------------------
-  formData.searchField = 'name'
-  formData.searchKeyword = ''
-  //--Single Filter -----------------------------------------
-
-  //formData.assocModel = associated_Model
-
-  // - multiple filters -------------------------------------
-  formData.filters = selFilters
-  formData.filterValues = selfilterValues
-  formData.associated_multiple_models = associated_multiple_models
-  formData.nested_models = nested_models
-  //-------------------------
-  //console.log(formData)
-  const res = await getSettlementListByCounty(formData)
-
-  // set the settlement details ------------------------------------
-
-  console.log('After Querry', res)
-
-  // set the Facility profile  details ------------------------------------
-  profile.name = res.data[0].name
-  profile.county = res.data[0].settlement.county.name
-  profile.settlement = res.data[0].settlement.name
-  profile.level = res.data[0].level
-  profile.status = res.data[0].reg_status
-  profile.ownership = res.data[0].ownership_type
-  profile.owner = res.data[0].owner
-
-  // set the Facility staff  details ------------------------------------
-  staffing.numberDoctors = res.data[0].number_doctors
-  staffing.numberCos = res.data[0].number_clinical_officers
-  staffing.numberNurses = res.data[0].number_nurses
-  staffing.numberPharms = res.data[0].number_pharm
-
-
-  // set the Facility capacity  details ------------------------------------
-  capacity.patientsPerday = res.data[0].patients_per_day
-  capacity.numberOfBeds = res.data[0].number_beds
-  capacity.hasInpatient = res.data[0].inpatient
-  capacity.occupancyRate = res.data[0].occupancy
-
-
-
+// ── Profile loading ───────────────────────────────────────────────────────────
+const loadProfile = async () => {
+  loading.value = true
+  error.value = ''
+  try {
+    const res = await getSettlementListByCounty({
+      limit: 1, page: 1, curUser: 1,
+      model: 'health_facility',
+      searchField: 'name', searchKeyword: '',
+      filters: ['id'], filterValues: [[id]],
+      associated_multiple_models: ['settlement'],
+      nested_models: ['settlement', 'county']
+    })
+    d.value = res.data[0] || {}
+  } catch (e: any) {
+    error.value = e?.message || 'Failed to load facility profile'
+  } finally {
+    loading.value = false
+  }
 }
-onMounted(() => {
-  const id = route.params.id
-  const settData = route.params.data
-  // console.log('Settlement ID, Data:', id, settData)
-  //getThisSettlement()
 
-  getFilteredData(filters, filterValues)
-  console.log(settlement)
-})
+// ── Map loading ───────────────────────────────────────────────────────────────
+const loadMapData = async () => {
+  if (mapDataLoaded.value) return
+  mapLoading.value = true
+  try {
+    const geoRes = await getOneGeo({ model: 'health_facility', id })
+    const features = geoRes.data?.[0]?.json_build_object?.features
+    if (features?.length) {
+      const [lng, lat] = features[0].geometry.coordinates
+      facilityMarker.value = { position: { lat, lng }, title: d.value.name }
+      mapCenter.value = { lat, lng }
+    }
+
+    const settlementId = d.value.settlement_id || d.value.settlement?.id
+    if (settlementId) {
+      const mapData = await getSettlementMapData({ settlementId: String(settlementId) })
+      const settlementGeo = (mapData as any)?.data?.settlement
+      if (settlementGeo?.features?.length) {
+        settlementGeo.features.forEach((feature: any, fi: number) => {
+          let coords = feature.geometry.coordinates
+          if (feature.geometry.type === 'MultiPolygon') coords = coords.flat()
+          coords.forEach((ring: number[][], ri: number) => {
+            settlementPolygons.value.push({
+              id: `sett-${fi}-${ri}`,
+              paths: ring.map(([lng, lat]) => ({ lat, lng })),
+              strokeColor: '#1a73e8', strokeOpacity: 1, strokeWeight: 2,
+              fillColor: '#1a73e8', fillOpacity: 0.08
+            })
+          })
+        })
+        fitMapBounds()
+      }
+    }
+    mapDataLoaded.value = true
+  } catch (e) {
+    console.error('Map data error', e)
+  } finally {
+    mapLoading.value = false
+  }
+}
+
+const fitMapBounds = () => {
+  if (!mapRef.value?.map || !window.google?.maps) return
+  const bounds = new google.maps.LatLngBounds()
+  settlementPolygons.value.forEach(p => p.paths.forEach((pt: any) => bounds.extend(pt)))
+  if (facilityMarker.value) bounds.extend(facilityMarker.value.position)
+  mapRef.value.map.fitBounds(bounds, 40)
+}
+
+const onMapReady = () => { if (activeTab.value === 'map') fitMapBounds() }
+const onTabChange = (tab: string) => { if (tab === 'map') loadMapData() }
+
+const fmt = (val: any) => (val === null || val === undefined || val === '') ? '–' : val
+
+onMounted(loadProfile)
 </script>
 
 <template>
-  <Descriptions :title="t('Profile')" :message="t('Facility Profile')" :data="profile" :schema="schemaProfile" />
+  <div style="padding: 16px;">
+    <el-alert v-if="error" :title="error" type="error" :closable="false" show-icon style="margin-bottom: 16px;" />
 
-  <Form is-custom :model="form" @register="register">
-    <Descriptions
-:title="t('Staffing')" :message="t('Facility Staffing Levels')" :data="staffing"
-      :schema="schemaStaffing" />
-  </Form>
+    <el-card v-loading="loading">
+      <template #header>
+        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+          <el-button :icon="Back" size="small" @click="router.back()">Back</el-button>
+          <span style="font-size: 18px; font-weight: 600;">{{ d.name || 'Health Facility' }}</span>
+          <el-tag v-if="d.level" size="small" type="info">{{ d.level }}</el-tag>
+          <el-tag v-if="d.registration_status" size="small" :type="d.registration_status === 'Registered' ? 'success' : 'warning'">
+            {{ d.registration_status }}
+          </el-tag>
+          <el-tag v-if="d.isApproved" size="small" :type="d.isApproved === 'Approved' ? 'success' : d.isApproved === 'Rejected' ? 'danger' : ''">
+            {{ d.isApproved }}
+          </el-tag>
+        </div>
+      </template>
 
-  <Form is-custom :model="form" @register="register">
-    <Descriptions :title="t('Capacity')" :message="t('Facility Services')" :data="capacity" :schema="schemaCapacity" />
-  </Form>
+      <el-tabs v-model="activeTab" @tab-change="onTabChange">
+
+        <!-- ── Profile tab ──────────────────────────────────────────────────── -->
+        <el-tab-pane label="Profile" name="profile">
+
+          <!-- General -->
+          <div :class="prefixCls" style="margin-bottom: 2px;">
+            <div :class="`${prefixCls}-header`" style="height:50px;display:flex;justify-content:space-between;align-items:center;padding:0 12px;cursor:pointer;border-bottom:1px solid var(--el-border-color-lighter);"
+              @click="collapsed.general = !collapsed.general">
+              <span style="font-weight:600;">General</span>
+              <Icon :icon="collapsed.general ? 'ep:arrow-down' : 'ep:arrow-up'" />
+            </div>
+            <ElCollapseTransition>
+              <div v-show="!collapsed.general" style="padding: 12px;">
+                <el-descriptions :column="2" border>
+                  <el-descriptions-item label="Name">{{ fmt(d.name) }}</el-descriptions-item>
+                  <el-descriptions-item label="Facility Code">{{ fmt(d.code) }}</el-descriptions-item>
+                  <el-descriptions-item label="Facility Number">{{ fmt(d.facility_number) }}</el-descriptions-item>
+                  <el-descriptions-item label="Level">{{ fmt(d.level) }}</el-descriptions-item>
+                  <el-descriptions-item label="Registration Status">{{ fmt(d.registration_status) }}</el-descriptions-item>
+                  <el-descriptions-item label="Condition">{{ fmt(d.condition) }}</el-descriptions-item>
+                  <el-descriptions-item label="Ownership Type">{{ fmt(d.ownership_type) }}</el-descriptions-item>
+                  <el-descriptions-item label="Owner">{{ fmt(d.owner) }}</el-descriptions-item>
+                  <el-descriptions-item label="Settlement">{{ fmt(d.settlement?.name) }}</el-descriptions-item>
+                  <el-descriptions-item label="County">{{ fmt(d.settlement?.county?.name) }}</el-descriptions-item>
+                  <el-descriptions-item label="Distance to Settlement (m)">{{ fmt(d.distance_meters) }}</el-descriptions-item>
+                  <el-descriptions-item label="Approval Status">{{ fmt(d.isApproved) }}</el-descriptions-item>
+                </el-descriptions>
+              </div>
+            </ElCollapseTransition>
+          </div>
+
+          <!-- Land -->
+          <div :class="prefixCls" style="margin-bottom: 2px;">
+            <div :class="`${prefixCls}-header`" style="height:50px;display:flex;justify-content:space-between;align-items:center;padding:0 12px;cursor:pointer;border-bottom:1px solid var(--el-border-color-lighter);"
+              @click="collapsed.land = !collapsed.land">
+              <span style="font-weight:600;">Land</span>
+              <Icon :icon="collapsed.land ? 'ep:arrow-down' : 'ep:arrow-up'" />
+            </div>
+            <ElCollapseTransition>
+              <div v-show="!collapsed.land" style="padding: 12px;">
+                <el-descriptions :column="2" border>
+                  <el-descriptions-item label="Land Ownership">{{ fmt(d.land_ownership) }}</el-descriptions-item>
+                  <el-descriptions-item label="Land Title Available">{{ fmt(d.land_title_available) }}</el-descriptions-item>
+                  <el-descriptions-item label="Land Parcel Size (ha)">{{ fmt(d.land_parcel_size) }}</el-descriptions-item>
+                </el-descriptions>
+              </div>
+            </ElCollapseTransition>
+          </div>
+
+          <!-- Staffing -->
+          <div :class="prefixCls" style="margin-bottom: 2px;">
+            <div :class="`${prefixCls}-header`" style="height:50px;display:flex;justify-content:space-between;align-items:center;padding:0 12px;cursor:pointer;border-bottom:1px solid var(--el-border-color-lighter);"
+              @click="collapsed.staffing = !collapsed.staffing">
+              <span style="font-weight:600;">Staffing</span>
+              <Icon :icon="collapsed.staffing ? 'ep:arrow-down' : 'ep:arrow-up'" />
+            </div>
+            <ElCollapseTransition>
+              <div v-show="!collapsed.staffing" style="padding: 12px;">
+                <el-descriptions :column="2" border>
+                  <el-descriptions-item label="Doctors">{{ fmt(d.number_doctors) }}</el-descriptions-item>
+                  <el-descriptions-item label="Clinical Officers">{{ fmt(d.number_clinical_officers) }}</el-descriptions-item>
+                  <el-descriptions-item label="Nurses">{{ fmt(d.number_nurses) }}</el-descriptions-item>
+                  <el-descriptions-item label="Pharmacists">{{ fmt(d.number_pharmacists) }}</el-descriptions-item>
+                  <el-descriptions-item label="Midwives">{{ fmt(d.number_midwives) }}</el-descriptions-item>
+                  <el-descriptions-item label="Other Staff">{{ fmt(d.number_other_staff) }}</el-descriptions-item>
+                </el-descriptions>
+              </div>
+            </ElCollapseTransition>
+          </div>
+
+          <!-- Capacity & Services -->
+          <div :class="prefixCls" style="margin-bottom: 2px;">
+            <div :class="`${prefixCls}-header`" style="height:50px;display:flex;justify-content:space-between;align-items:center;padding:0 12px;cursor:pointer;border-bottom:1px solid var(--el-border-color-lighter);"
+              @click="collapsed.capacity = !collapsed.capacity">
+              <span style="font-weight:600;">Capacity &amp; Services</span>
+              <Icon :icon="collapsed.capacity ? 'ep:arrow-down' : 'ep:arrow-up'" />
+            </div>
+            <ElCollapseTransition>
+              <div v-show="!collapsed.capacity" style="padding: 12px;">
+                <el-descriptions :column="2" border>
+                  <el-descriptions-item label="Outpatient Visits / Day">{{ fmt(d.outpatient_visits_per_day) }}</el-descriptions-item>
+                  <el-descriptions-item label="Inpatients">{{ fmt(d.num_inpatient) }}</el-descriptions-item>
+                  <el-descriptions-item label="Maternity Deliveries / Day">{{ fmt(d.maternity_deliveries_per_day) }}</el-descriptions-item>
+                  <el-descriptions-item label="Antenatal Immunizations / Day">{{ fmt(d.antenatal_immunizations_per_day) }}</el-descriptions-item>
+                  <el-descriptions-item label="General Beds">{{ fmt(d.general_beds) }}</el-descriptions-item>
+                  <el-descriptions-item label="Maternity Beds">{{ fmt(d.maternity_beds) }}</el-descriptions-item>
+                  <el-descriptions-item label="Pediatric Beds">{{ fmt(d.pediatric_beds) }}</el-descriptions-item>
+                  <el-descriptions-item label="Total Beds">{{ fmt(d.total_beds) }}</el-descriptions-item>
+                  <el-descriptions-item label="Occupancy Rate (%)">{{ fmt(d.occupancy_rate) }}</el-descriptions-item>
+                  <el-descriptions-item label="Has Ambulance">{{ fmt(d.has_ambulance) }}</el-descriptions-item>
+                  <el-descriptions-item label="Services Offered" :span="2">{{ fmt(d.services_offered) }}</el-descriptions-item>
+                </el-descriptions>
+              </div>
+            </ElCollapseTransition>
+          </div>
+
+          <!-- Outreach & Challenges -->
+          <div :class="prefixCls" style="margin-bottom: 2px;">
+            <div :class="`${prefixCls}-header`" style="height:50px;display:flex;justify-content:space-between;align-items:center;padding:0 12px;cursor:pointer;border-bottom:1px solid var(--el-border-color-lighter);"
+              @click="collapsed.outreach = !collapsed.outreach">
+              <span style="font-weight:600;">Outreach &amp; Challenges</span>
+              <Icon :icon="collapsed.outreach ? 'ep:arrow-down' : 'ep:arrow-up'" />
+            </div>
+            <ElCollapseTransition>
+              <div v-show="!collapsed.outreach" style="padding: 12px;">
+                <el-descriptions :column="2" border>
+                  <el-descriptions-item label="Referral Destinations">{{ fmt(d.referral_destinations) }}</el-descriptions-item>
+                  <el-descriptions-item label="Referral Distance (km)">{{ fmt(d.referral_distance_km) }}</el-descriptions-item>
+                  <el-descriptions-item label="Referrals / Day">{{ fmt(d.referrals_per_day) }}</el-descriptions-item>
+                  <el-descriptions-item label="Source of Drugs">{{ fmt(d.source_of_drugs) }}</el-descriptions-item>
+                  <el-descriptions-item label="Common Ailments">{{ fmt(d.common_ailments) }}</el-descriptions-item>
+                  <el-descriptions-item label="Source of Patients">{{ fmt(d.source_of_patients) }}</el-descriptions-item>
+                  <el-descriptions-item label="Challenges" :span="2">{{ fmt(d.challenges) }}</el-descriptions-item>
+                </el-descriptions>
+              </div>
+            </ElCollapseTransition>
+          </div>
+
+          <!-- Contact -->
+          <div :class="prefixCls">
+            <div :class="`${prefixCls}-header`" style="height:50px;display:flex;justify-content:space-between;align-items:center;padding:0 12px;cursor:pointer;border-bottom:1px solid var(--el-border-color-lighter);"
+              @click="collapsed.contact = !collapsed.contact">
+              <span style="font-weight:600;">Contact</span>
+              <Icon :icon="collapsed.contact ? 'ep:arrow-down' : 'ep:arrow-up'" />
+            </div>
+            <ElCollapseTransition>
+              <div v-show="!collapsed.contact" style="padding: 12px;">
+                <el-descriptions :column="2" border>
+                  <el-descriptions-item label="Respondent Name">{{ fmt(d.respondent_name) }}</el-descriptions-item>
+                  <el-descriptions-item label="Respondent Phone">{{ fmt(d.respondent_phone) }}</el-descriptions-item>
+                </el-descriptions>
+              </div>
+            </ElCollapseTransition>
+          </div>
+
+        </el-tab-pane>
+
+        <!-- ── Location tab ─────────────────────────────────────────────────── -->
+        <el-tab-pane label="Location" name="map">
+          <div v-loading="mapLoading" style="height: 520px; width: 100%; border-radius: 6px; overflow: hidden;">
+            <GoogleMap
+              v-if="activeTab === 'map'"
+              ref="mapRef"
+              :api-key="GOOGLE_MAPS_API_KEY"
+              style="width: 100%; height: 100%;"
+              :center="mapCenter"
+              :zoom="15"
+              map-type-id="satellite"
+              :map-type-control="true"
+              :street-view-control="false"
+              @ready="onMapReady"
+            >
+              <Polygon v-for="poly in settlementPolygons" :key="poly.id" :options="poly" />
+              <Marker v-if="facilityMarker" :options="facilityMarker" @click="showInfoWindow = true">
+                <InfoWindow v-model="showInfoWindow">
+                  <div style="padding: 4px 8px; font-weight: 600;">{{ d.name }}</div>
+                  <div style="font-size: 12px; color: #666;">{{ d.settlement?.name }}, {{ d.settlement?.county?.name }}</div>
+                </InfoWindow>
+              </Marker>
+            </GoogleMap>
+          </div>
+          <div style="display:flex;gap:20px;margin-top:10px;font-size:13px;color:#606266;align-items:center;">
+            <span style="display:flex;align-items:center;gap:6px;">
+              <img src="https://maps.google.com/mapfiles/ms/icons/red-dot.png" style="height:18px;" />
+              {{ d.name }}
+            </span>
+            <span v-if="d.settlement?.name" style="display:flex;align-items:center;gap:6px;">
+              <span style="display:inline-block;width:16px;height:4px;background:#1a73e8;border-radius:2px;"></span>
+              {{ d.settlement.name }} boundary
+            </span>
+          </div>
+        </el-tab-pane>
+
+      </el-tabs>
+    </el-card>
+  </div>
 </template>
-
-<style lang="less" scoped>
-.is-required--item {
-  position: relative;
-
-  &::before {
-    margin-right: 4px;
-    color: var(--el-color-danger);
-    content: '*';
-  }
-}
-</style>

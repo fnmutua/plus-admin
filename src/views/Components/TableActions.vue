@@ -22,8 +22,15 @@
       <template #dropdown>
         <el-dropdown-menu>
           <!-- View Actions -->
-          <el-dropdown-item 
-            v-if="buttons.includes('viewOnMap')" 
+          <el-dropdown-item
+            v-if="buttons.includes('viewProfile')"
+            @click="onViewProfile(item)">
+            <el-icon><View /></el-icon>
+            <span style="margin-left: 8px;">View Profile</span>
+          </el-dropdown-item>
+
+          <el-dropdown-item
+            v-if="buttons.includes('viewOnMap')"
             @click="onViewOnMap(item)"
             divided>
             <el-icon><Position /></el-icon>
@@ -177,7 +184,7 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(["edit", "viewOnMap", "review", "preview", "delete", "download", "decommission", "addGeometry", "share", "merge", "updateLocation", "addFacility"]);
+const emit = defineEmits(["edit", "viewOnMap", "viewProfile", "review", "preview", "delete", "download", "decommission", "addGeometry", "share", "merge", "updateLocation", "addFacility"]);
 
 // Simple mobile detection for per-row actions (non-reactive to resize, good enough)
 const isMobile = computed(() => window.innerWidth <= 768);
@@ -185,6 +192,10 @@ const isMobile = computed(() => window.innerWidth <= 768);
 // Confirmation dialog state for delete
 const deleteDialogVisible = ref(false);
 const pendingAction = ref<{ type: string; item: any } | null>(null);
+
+const onViewProfile = (item) => {
+  emit("viewProfile", item);
+};
 
 const onEdit = (item) => {
   emit("edit", item);

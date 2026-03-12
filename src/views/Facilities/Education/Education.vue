@@ -56,7 +56,7 @@ const showAdminButtons = ref(appStore.getAdminButtons)
 const showEditButtons = ref(appStore.getEditButtons)
 
 // For settlements and schools, show core actions (no inline "Add Facility" here)
-const action_buttons = ref<string[]>(['viewOnMap', 'delete']);
+const action_buttons = ref<string[]>(['viewProfile', 'viewOnMap', 'delete']);
 
 // Google Maps API Key
 const googleMapsApiKey = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
@@ -820,14 +820,8 @@ const onSegmentClick = async () => {
 
 
 
-const viewProfile = (data: TableSlotDefault) => {
-  console.log('On Click.....', data.id)
-
-  push({
-    path: '/facilities/health/details/:id',
-    name: 'HealthFacilityDetails',
-    params: { data: data.id, id: data.id }
-  })
+const viewProfile = (data: any) => {
+  push({ name: 'EducationFacilityDetails', params: { id: data.id } })
 }
 
 const activeTab = ref('list')
@@ -2345,6 +2339,7 @@ const filteredSegments = computed(() => []);
               <TableActions
               :item="row"
               :buttons="action_buttons"
+              @view-profile="viewProfile"
               @view-on-map="flyTo"
               @delete="DeleteFacility"
             />
@@ -2442,6 +2437,7 @@ const filteredSegments = computed(() => []);
               <TableActions
               :item="row"
               :buttons="action_buttons"
+              @view-profile="viewProfile"
               @view-on-map="flyTo"
               @delete="DeleteFacility"
             />
@@ -2539,6 +2535,7 @@ const filteredSegments = computed(() => []);
               <TableActions
               :item="row"
               :buttons="action_buttons"
+              @view-profile="viewProfile"
               @view-on-map="flyTo"
             />
           </template>
@@ -2636,6 +2633,7 @@ const filteredSegments = computed(() => []);
           <TableActions
             :item="row"
             :buttons="action_buttons"
+            @view-profile="viewProfile"
             @view-on-map="flyTo"
             @delete="DeleteFacility"
           />

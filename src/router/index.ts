@@ -634,6 +634,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             name: 'SocialCommunityHall',
             meta: { title: 'Hall', icon: 'mdi:home-group' }
           },
+          { path: 'community-hall/details/:id', component: () => import('@/views/Facilities/Others/CommunityHallDetails.vue'), name: 'CommunityHallDetails', meta: { hidden: true, props: true, title: 'Community Hall Profile' } },
           /// Community Projects -----------------------
           {
             path: 'community-projects',
@@ -641,13 +642,15 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             name: 'SocialCommunityProjects',
             meta: { title: 'Projects', icon: 'mdi:account-group' }
           },
+          { path: 'community-projects/details/:id', component: () => import('@/views/Facilities/Others/CommunityProjectDetails.vue'), name: 'CommunityProjectDetails', meta: { hidden: true, props: true, title: 'Community Project Profile' } },
           /// Police -----------------------
           {
             path: 'police',
             component: () => import('@/views/Facilities/Others/Police.vue'),
             name: 'SocialPolice',
             meta: { title: 'Police', icon: 'mdi:police-badge' }
-          }
+          },
+          { path: 'police/details/:id', component: () => import('@/views/Facilities/Others/PoliceDetails.vue'), name: 'PoliceDetails', meta: { hidden: true, props: true, title: 'Police Station Profile' } }
         ]
       },
 
@@ -742,7 +745,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         },
         children: [
           { path: 'crime-hotspots', component: () => import('@/views/Facilities/Others/CrimeHotspots.vue'), name: 'OthersCrimeHotspots', meta: { title: 'Crime', icon: 'mdi:alert-octagon' } },
-          { path: 'hazards', component: () => import('@/views/Facilities/Others/Hazards.vue'), name: 'OthersHazards', meta: { title: 'Hazards', icon: 'mdi:hazard-lights' } }
+          { path: 'hazards', component: () => import('@/views/Facilities/Others/Hazards.vue'), name: 'OthersHazards', meta: { title: 'Hazards', icon: 'mdi:hazard-lights' } },
+          { path: 'other/details/:id', component: () => import('@/views/Facilities/Other/OtherFacilityDetails.vue'), name: 'OtherFacilityDetails', meta: { hidden: true, props: true, title: 'Facility Profile' } }
         ]
       },
       

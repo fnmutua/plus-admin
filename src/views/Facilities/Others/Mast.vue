@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { computed, nextTick, reactive, ref, watch } from 'vue'
 import { ElMessage, ElCard, ElTable, ElTableColumn, ElCol, ElInput, ElPagination, ElEmpty, ElButton, ElRow, ElSelect, ElOption, ElDrawer, ElForm, ElFormItem, ElDivider, type FormInstance } from 'element-plus'
 import { useRouter } from 'vue-router'
@@ -15,7 +15,7 @@ const pageTitle = 'Telecom Mast'
 const facilityModel = 'mast'
 const createPermission = 'mast:create'
 
-const actionButtons = ref<string[]>(['viewOnMap', 'delete'])
+const actionButtons = ref<string[]>(['viewProfile', 'viewOnMap', 'delete'])
 const tableDataList = ref<any[]>([])
 const loading = ref(false)
 const searchLoading = ref(false)
@@ -208,6 +208,14 @@ const onSettlementChange = async () => {
 }
 
 const goBack = () => window.history.back()
+
+const viewProfile = (row: any) => {
+  push({
+    name: 'OtherFacilityDetails',
+    params: { id: row.id },
+    query: { model: facilityModel, title: pageTitle }
+  })
+}
 
 const getPointCoords = (geom: any): [number, number] | null => {
   if (!geom) return null
@@ -497,7 +505,13 @@ getFilteredData()
       </el-table-column>
       <el-table-column label="Actions" :min-width="isMobile ? 72 : 160" align="center" fixed="right">
         <template #default="scope">
-          <TableActions :item="scope?.row || {}" :buttons="actionButtons" @view-on-map="flyTo" @delete="DeleteFacility" />
+          <TableActions
+            :item="scope?.row || {}"
+            :buttons="actionButtons"
+            @view-profile="viewProfile"
+            @view-on-map="flyTo"
+            @delete="DeleteFacility"
+          />
         </template>
       </el-table-column>
     </el-table>

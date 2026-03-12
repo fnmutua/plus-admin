@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
 import { ElMessage, ElCard, ElTable, ElTableColumn, ElCol, ElPagination, ElEmpty, ElButton, ElRow, ElSelect, ElOption, ElDrawer } from 'element-plus'
 import { useRouter } from 'vue-router'
@@ -12,7 +12,7 @@ import { useCache } from '@/hooks/web/useCache'
 import { Plus, Filter, Search, Back } from '@element-plus/icons-vue'
 
 const powerlineModel = 'powerline'
-const actionButtons = ref<string[]>(['viewOnMap', 'delete'])
+const actionButtons = ref<string[]>(['viewProfile', 'viewOnMap', 'delete'])
 const tableDataList = ref<any[]>([])
 const loading = ref(false)
 const searchLoading = ref(false)
@@ -164,6 +164,13 @@ const onPageSizeChange = async (size: number) => {
 
 const AddFacility = () => {
   push({ name: 'AddFacility' })
+}
+const viewProfile = (row: any) => {
+  push({
+    name: 'OtherFacilityDetails',
+    params: { id: row.id },
+    query: { model: powerlineModel, title: 'Powerline' }
+  })
 }
 const flyTo = async (row: any) => {
   selectedPowerlineId.value = row?.id ?? null
@@ -442,7 +449,13 @@ getFilteredData()
       </el-table-column>
       <el-table-column label="Actions" :min-width="isMobile ? 72 : 160" align="center" fixed="right">
         <template #default="scope">
-          <TableActions :item="scope?.row || {}" :buttons="actionButtons" @view-on-map="flyTo" @delete="DeleteFacility" />
+          <TableActions
+            :item="scope?.row || {}"
+            :buttons="actionButtons"
+            @view-profile="viewProfile"
+            @view-on-map="flyTo"
+            @delete="DeleteFacility"
+          />
         </template>
       </el-table-column>
     </el-table>

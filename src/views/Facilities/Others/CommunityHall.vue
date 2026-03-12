@@ -15,7 +15,7 @@ const pageTitle = 'Community Hall'
 const facilityModel = 'community_hall'
 const createPermission = 'community_hall:create'
 
-const actionButtons = ref<string[]>(['viewOnMap', 'delete'])
+const actionButtons = ref<string[]>(['viewProfile', 'viewOnMap', 'delete'])
 const tableDataList = ref<any[]>([])
 const loading = ref(false)
 const searchLoading = ref(false)
@@ -170,6 +170,10 @@ const onPageSizeChange = async (size: number) => {
 
 const AddFacility = () => {
   push({ name: 'AddFacility' })
+}
+
+const viewProfile = (row: any) => {
+  push({ name: 'CommunityHallDetails', params: { id: row.id } })
 }
 
 const flyTo = async (row: any) => {
@@ -507,7 +511,7 @@ getFilteredData()
       </el-table-column>
       <el-table-column label="Actions" :min-width="isMobile ? 72 : 160" align="center" fixed="right">
         <template #default="scope">
-          <TableActions :item="scope?.row || {}" :buttons="actionButtons" @view-on-map="flyTo" @delete="DeleteFacility" />
+          <TableActions :item="scope?.row || {}" :buttons="actionButtons" @view-profile="viewProfile" @view-on-map="flyTo" @delete="DeleteFacility" />
         </template>
       </el-table-column>
     </el-table>

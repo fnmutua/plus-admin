@@ -387,19 +387,29 @@ const isProcessingExisting = ref(false)
 
 const { t } = useI18n()
 
-// Resolve a document row's association as a display string
-const getAssociationDisplay = (row: any): string => {
-  if (row['settlement.name']) return row['settlement.name']
-  if (row['project.title']) return row['project.title']
-  if (row['health_facility.name']) return row['health_facility.name']
-  if (row['education_facility.name']) return row['education_facility.name']
-  if (row['road.name']) return row['road.name']
-  if (row['road_asset.name']) return row['road_asset.name']
-  if (row['water_point.name']) return row['water_point.name']
-  if (row['sewer.name']) return row['sewer.name']
-  if (row['other_facility.name']) return row['other_facility.name']
-  if (row['contractor.name'] || row['contractor.contract_number']) return row['contractor.name'] || row['contractor.contract_number']
-  return '—'
+// Resolve a document row's association as { label, route } or null
+const getAssociation = (row: any): { label: string; route: any } | null => {
+  if (row['settlement.name'])
+    return { label: row['settlement.name'], route: { name: 'SettlementDetails', params: { id: row['settlement.id'] } } }
+  if (row['project.title'])
+    return { label: row['project.title'], route: { name: 'ProjectDetails', params: { id: row['project.id'] } } }
+  if (row['health_facility.name'])
+    return { label: row['health_facility.name'], route: { name: 'HealthFacilityDetails', params: { id: row['health_facility.id'] } } }
+  if (row['education_facility.name'])
+    return { label: row['education_facility.name'], route: { name: 'EducationFacilityDetails', params: { id: row['education_facility.id'] } } }
+  if (row['road.name'])
+    return { label: row['road.name'], route: { name: 'RoadsDetails', params: { id: row['road.id'] } } }
+  if (row['road_asset.name'])
+    return { label: row['road_asset.name'], route: { name: 'RoadsDetails', params: { id: row['road_asset.id'] } } }
+  if (row['water_point.name'])
+    return { label: row['water_point.name'], route: { name: 'WaterDetails', params: { id: row['water_point.id'] } } }
+  if (row['sewer.name'])
+    return { label: row['sewer.name'], route: { name: 'SewerFacilityDetails', params: { id: row['sewer.id'] } } }
+  if (row['other_facility.name'])
+    return { label: row['other_facility.name'], route: { name: 'Others' } }
+  if (row['contractor.name'] || row['contractor.contract_number'])
+    return { label: row['contractor.name'] || row['contractor.contract_number'], route: { name: 'SettingsContractor' } }
+  return null
 }
 
 // Format functions
@@ -2579,7 +2589,15 @@ const handleTabChange = async (tabName: string) => {
                   </template>
                 </el-table-column>
                 <el-table-column label="Association" min-width="200" show-overflow-tooltip>
-                  <template #default="{ row }">{{ getAssociationDisplay(row) }}</template>
+                  <template #default="{ row }">
+                    <template v-if="getAssociation(row)">
+                      <a
+                        style="color: var(--el-color-primary); cursor: pointer; text-decoration: none;"
+                        @click.stop="router.push(getAssociation(row)!.route)"
+                      >{{ getAssociation(row)!.label }}</a>
+                    </template>
+                    <span v-else style="color: var(--el-text-color-secondary);">—</span>
+                  </template>
                 </el-table-column>
       <el-table-column prop="createdAt" label="Date" :formatter="formatEndDate" min-width="120" />
                  <el-table-column prop="user.name" label="User" min-width="100" show-overflow-tooltip />

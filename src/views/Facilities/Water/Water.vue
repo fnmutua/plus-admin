@@ -1,4 +1,4 @@
-﻿<!-- eslint-disable prettier/prettier -->
+<!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
 
 declare global {
@@ -46,7 +46,7 @@ const showAdminButtons = ref(appStore.getAdminButtons)
 const showEditButtons = ref(appStore.getEditButtons)
 
 // Actions for each row
-const action_buttons = ref<string[]>(['viewOnMap', 'delete'])
+const action_buttons = ref<string[]>(['viewProfile', 'viewOnMap', 'delete'])
 
 // Google Maps API Key
 const googleMapsApiKey = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
@@ -563,9 +563,8 @@ getGeo()
 
 const viewProfile = (data) => {
   push({
-    path: '/facilities/water/details/:id',
-    name: 'WaterFacilityDetails',
-    params: { data: data.id, id: data.id }
+    name: 'WaterDetails',
+    params: { id: data.id }
   })
 }
 
@@ -1586,6 +1585,7 @@ const filteredSegments = computed(() => [])
               <TableActions
                 :item="row"
                 :buttons="action_buttons"
+                @view-profile="viewProfile"
                 @view-on-map="flyTo"
                 @delete="DeleteFacility"
               />

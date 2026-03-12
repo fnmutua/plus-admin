@@ -151,7 +151,7 @@ const isCountyRestricted = computed(() => {
 })
 
 // Row actions for sewer facilities
-const action_buttons = ref<string[]>(['viewOnMap', 'delete']);
+const action_buttons = ref<string[]>(['viewProfile', 'viewOnMap', 'delete']);
 
 console.log('User location info:', {
   isSuperAdmin: isSuperAdmin.value,
@@ -1007,9 +1007,8 @@ const viewProfile = (data: TableSlotDefault) => {
   console.log('On Click.....', data.id)
 
   push({
-    path: '/facilities/health/details/:id',
-    name: 'HealthFacilityDetails',
-    params: { data: data.id, id: data.id }
+    name: 'SewerFacilityDetails',
+    params: { id: data.id }
   })
 }
 
@@ -2418,6 +2417,7 @@ v-if="showEditButtons" :data="tableDataList" :model="sewerFacilityModel"
           <TableActions
             :item="row"
             :buttons="action_buttons"
+            @view-profile="viewProfile"
             @view-on-map="flyTo"
             @delete="DeleteFacility"
           />

@@ -1,162 +1,291 @@
+<!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
-import { Descriptions } from '@/components/Descriptions'
-import { useI18n } from '@/hooks/web/useI18n'
-import { onMounted, ref, reactive, unref } from 'vue'
-import { Form } from '@/components/Form'
-import { ElFormItem, ElInput, ElButton } from 'element-plus'
-import { useValidator } from '@/hooks/web/useValidator'
-import { useForm } from '@/hooks/web/useForm'
-import { useRoute } from 'vue-router'
+// @ts-nocheck
+import { ref, computed, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import {
-  getOneGeo,
-  getOneSettlement,
-  getSettlementListByCounty,
-  getfilteredGeo
-} from '@/api/settlements'
-
-// Locally
-import { VueCollapsiblePanelGroup, VueCollapsiblePanel } from '@dafcoe/vue-collapsible-panel'
-import '@dafcoe/vue-collapsible-panel/dist/vue-collapsible-panel.css'
-
-const { register, elFormRef } = useForm()
+  ElCard,
+  ElTabs,
+  ElTabPane,
+  ElButton,
+  ElDescriptions,
+  ElDescriptionsItem,
+  ElAlert
+} from 'element-plus'
+import { Back } from '@element-plus/icons-vue'
+import { GoogleMap, Polygon, Marker, Polyline, InfoWindow } from 'vue3-google-map'
+import { getSettlementListByCounty, getOneGeo } from '@/api/settlements'
 
 const route = useRoute()
+const router = useRouter()
 
-const { t } = useI18n()
-
-
-
-const schemaProfile = reactive<DescriptionsSchema[]>([
-  {
-    field: 'name',
-    label: t('Name')
-  },
-  {
-    field: 'type',
-    label: t('Type')
-  },
-  {
-    field: 'settlement',
-    label: t('Settlement')
-  },
-  {
-    field: 'county',
-    label: t('County')
-  },
-  {
-    field: 'status',
-    label: t('Status')
-  },
-
-
-
-])
-
-
-
-
-const page = ref(1)
-const pSize = ref(5)
-////Configurations //////////////
-
-//// ------------------parameters -----------------------////
-var filters = ['id']
 const id = route.params.id
-var intervenComponent = [id] // the Id of the settleemnt to filter with
-var filterValues = [intervenComponent]
+const model = computed(() => route.query.model || 'other_facility')
+const pageTitle = computed(() => (route.query.title as string) || 'Facility Profile')
 
-//const associated_Model = ''
-const associated_multiple_models = ['settlement']
-const model = 'other_facility'
-const nested_models = ['settlement', 'county'] // The mother, then followed by the child
+const loading = ref(true)
+const error = ref('')
+const activeTab = ref('profile')
+const record = ref<any>({})
 
-//// ------------------parameters -----------------------////
+const GOOGLE_MAPS_API_KEY = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
 
-let settlement = reactive({
-  count: 0,
-  name: 'unnwo',
-  flag: false
-})
-////////////
+const mapRef = ref()
+const mapLoading = ref(false)
+const mapCenter = ref({ lat: -1.286389, lng: 36.817223 })
+const settlementPolygons = ref<any[]>([])
+const facilityMarker = ref<any | null>(null)
+const facilityLine = ref<any | null>(null)
+const showInfoWindow = ref(false)
+const mapDataLoaded = ref(false)
 
-const profile = reactive({
-  name: '',
-  county: '',
-  type: '',
-  status: '',
-  settlement: '',
-  ownership: '',
-  owner: ''
-})
+const fmt = (val: any) =>
+  val === null || val === undefined || val === '' ? '–' : val
 
-
-
-
-
-
-
-
-const getFilteredData = async (selFilters, selfilterValues) => {
-  const formData = {}
-  formData.limit = pSize.value
-  formData.page = page.value
-  formData.curUser = 1 // Id for logged in user
-  formData.model = model
-  //-Search field--------------------------------------------
-  formData.searchField = 'name'
-  formData.searchKeyword = ''
-  //--Single Filter -----------------------------------------
-
-  //formData.assocModel = associated_Model
-
-  // - multiple filters -------------------------------------
-  formData.filters = selFilters
-  formData.filterValues = selfilterValues
-  formData.associated_multiple_models = associated_multiple_models
-  formData.nested_models = nested_models
-  //-------------------------
-  //console.log(formData)
-  const res = await getSettlementListByCounty(formData)
-
-  // set the settlement details ------------------------------------
-
-  console.log('After Querry', res)
-
-  // set the Facility profile  details ------------------------------------
-  profile.name = res.data[0].name
-  profile.county = res.data[0].settlement.county.name
-  profile.settlement = res.data[0].settlement.name
-  profile.type = res.data[0].type
-  profile.status = res.data[0].reg_status
-  profile.ownership = res.data[0].ownership_type
-  profile.owner = res.data[0].owner
-
-
-  console.log('After profile', profile)
+const loadProfile = async () => {
+  loading.value = true
+  error.value = ''
+  try {
+    const res = await getSettlementListByCounty({
+      limit: 1,
+      page: 1,
+      curUser: 1,
+      model: model.value,
+      searchField: 'id',
+      searchKeyword: String(id),
+      filters: ['id'],
+      filterValues: [[id]],
+      associated_multiple_models: ['settlement', 'county', 'subcounty', 'ward']
+    })
+    record.value = res?.data?.[0] || {}
+  } catch (e: any) {
+    error.value = e?.message || 'Failed to load facility profile'
+  } finally {
+    loading.value = false
+  }
 }
-onMounted(() => {
-  const id = route.params.id
-  const settData = route.params.data
-  // console.log('Settlement ID, Data:', id, settData)
-  //getThisSettlement()
 
-  getFilteredData(filters, filterValues)
-  console.log(settlement)
-})
+const loadMapData = async () => {
+  if (mapDataLoaded.value) return
+  mapLoading.value = true
+  try {
+    facilityMarker.value = null
+    facilityLine.value = null
+    settlementPolygons.value = []
+
+    // Facility geometry
+    try {
+      const geoRes = await getOneGeo({ model: model.value, id })
+      const features = geoRes.data?.[0]?.json_build_object?.features
+      if (features?.length) {
+        const geom = features[0].geometry
+        let firstPt: any = null
+        const makePath = (coords: any[]) => coords.map(([lng, lat]: number[]) => ({ lat, lng }))
+
+        if (geom.type === 'Point') {
+          if (Array.isArray(geom.coordinates) && geom.coordinates.length >= 2) {
+            firstPt = geom.coordinates
+            facilityMarker.value = {
+              position: { lat: geom.coordinates[1], lng: geom.coordinates[0] },
+              title: record.value.name || 'Facility'
+            }
+          }
+        } else if (geom.type === 'MultiPoint') {
+          const first = geom.coordinates?.[0]
+          if (Array.isArray(first) && first.length >= 2) {
+            firstPt = first
+            facilityMarker.value = {
+              position: { lat: first[1], lng: first[0] },
+              title: record.value.name || 'Facility'
+            }
+          }
+        } else if (geom.type === 'LineString' || geom.type === 'MultiLineString') {
+          const coordsArr = geom.type === 'LineString' ? geom.coordinates : geom.coordinates?.[0]
+          if (Array.isArray(coordsArr) && coordsArr.length) {
+            facilityLine.value = {
+              path: makePath(coordsArr),
+              strokeColor: '#22c55e',
+              strokeOpacity: 0.9,
+              strokeWeight: 4
+            }
+            firstPt = coordsArr[0]
+          }
+        }
+
+        if (firstPt && Array.isArray(firstPt) && firstPt.length >= 2) {
+          mapCenter.value = { lat: firstPt[1], lng: firstPt[0] }
+        }
+      }
+    } catch (e) {
+      // keep map usable even if facility geometry fails
+      console.warn('Failed to load facility geometry', e)
+    }
+
+    // Settlement boundary
+    try {
+      const settlementId = record.value.settlement_id || record.value.settlement?.id
+      if (settlementId) {
+        const sRes = await getOneGeo({ model: 'settlement', id: settlementId })
+        const sGeo = sRes?.data?.[0]?.json_build_object
+        const feats = sGeo?.features
+        if (feats?.length) {
+          feats.forEach((f: any, fi: number) => {
+            let coords = f.geometry.coordinates
+            if (f.geometry.type === 'MultiPolygon') coords = coords.flat()
+            coords.forEach((ring: any, ri: number) => {
+              settlementPolygons.value.push({
+                id: `s-${fi}-${ri}`,
+                paths: ring.map(([lng, lat]: number[]) => ({ lat, lng })),
+                strokeColor: '#FF0000',
+                strokeOpacity: 0.6,
+                strokeWeight: 2,
+                fillColor: '#FF0000',
+                fillOpacity: 0
+              })
+            })
+          })
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to load settlement geometry', e)
+    }
+
+    // Fit bounds
+    if (mapRef.value?.map && window.google?.maps) {
+      const bounds = new google.maps.LatLngBounds()
+      settlementPolygons.value.forEach(p => p.paths.forEach((pt: any) => bounds.extend(pt)))
+      if (facilityLine.value) {
+        facilityLine.value.path.forEach((pt: any) => bounds.extend(pt))
+      }
+      if (facilityMarker.value) {
+        bounds.extend(facilityMarker.value.position)
+      }
+      if (!bounds.isEmpty()) {
+        mapRef.value.map.fitBounds(bounds, 40)
+      }
+    }
+
+    mapDataLoaded.value = true
+  } catch (e) {
+    console.error('Map error', e)
+  } finally {
+    mapLoading.value = false
+  }
+}
+
+const onTabChange = (tab: string) => {
+  if (tab === 'map') loadMapData()
+}
+
+const basicFields = [
+  { key: 'name', label: 'Name' },
+  { key: 'code', label: 'Code' },
+  { key: 'type', label: 'Type' },
+  { key: 'condition', label: 'Condition' },
+  { key: 'ownership_type', label: 'Ownership Type' },
+  { key: 'owner', label: 'Owner' }
+]
+
+const locationFields = [
+  { key: 'settlement.name', label: 'Settlement' },
+  { key: 'ward.name', label: 'Ward' },
+  { key: 'subcounty.name', label: 'Subcounty' },
+  { key: 'county.name', label: 'County' }
+]
+
+const getNested = (obj: any, path: string) =>
+  path.split('.').reduce((o, k) => (o && o[k] !== undefined ? o[k] : null), obj)
+
+onMounted(loadProfile)
 </script>
 
 <template>
-  <Descriptions :title="t('Profile')" :message="t('Facility Profile')" :data="profile" :schema="schemaProfile" />
+  <div style="padding: 16px;">
+    <el-alert
+      v-if="error"
+      :title="error"
+      type="error"
+      :closable="false"
+      show-icon
+      style="margin-bottom: 16px;"
+    />
+
+    <el-card v-loading="loading">
+      <template #header>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <el-button :icon="Back" size="small" @click="router.back()">Back</el-button>
+          <span style="font-size:18px;font-weight:600;">
+            {{ record.name || pageTitle }}
+          </span>
+        </div>
+      </template>
+
+      <el-tabs v-model="activeTab" @tab-change="onTabChange">
+        <el-tab-pane label="Profile" name="profile">
+          <el-descriptions :column="2" border>
+            <el-descriptions-item
+              v-for="field in basicFields"
+              :key="field.key"
+              :label="field.label"
+            >
+              {{ fmt(record[field.key]) }}
+            </el-descriptions-item>
+          </el-descriptions>
+
+          <el-descriptions :column="2" border style="margin-top:16px;">
+            <el-descriptions-item
+              v-for="field in locationFields"
+              :key="field.key"
+              :label="field.label"
+            >
+              {{ fmt(getNested(record, field.key)) }}
+            </el-descriptions-item>
+          </el-descriptions>
+        </el-tab-pane>
+
+        <el-tab-pane label="Location" name="map">
+          <div
+            v-loading="mapLoading"
+            style="height: 520px; width: 100%; border-radius: 6px; overflow: hidden;"
+          >
+            <GoogleMap
+              v-if="activeTab === 'map'"
+              ref="mapRef"
+              :api-key="GOOGLE_MAPS_API_KEY"
+              style="width: 100%; height: 100%;"
+              :center="mapCenter"
+              :zoom="15"
+              map-type-id="satellite"
+              :map-type-control="true"
+              :street-view-control="false"
+            >
+              <Polygon
+                v-for="poly in settlementPolygons"
+                :key="poly.id"
+                :options="poly"
+              />
+              <Polyline
+                v-if="facilityLine"
+                :options="facilityLine"
+              />
+              <Marker
+                v-if="facilityMarker"
+                :options="facilityMarker"
+                @click="showInfoWindow = true"
+              >
+                <InfoWindow v-model="showInfoWindow">
+                  <div style="padding:4px 8px;font-weight:600;">{{ record.name }}</div>
+                  <div style="font-size:12px;color:#666;">
+                    {{ fmt(getNested(record, 'settlement.name')) }}
+                  </div>
+                </InfoWindow>
+              </Marker>
+            </GoogleMap>
+          </div>
+        </el-tab-pane>
+      </el-tabs>
+    </el-card>
+  </div>
 </template>
 
-<style lang="less" scoped>
-.is-required--item {
-  position: relative;
-
-  &::before {
-    margin-right: 4px;
-    color: var(--el-color-danger);
-    content: '*';
-  }
-}
-</style>
+ 

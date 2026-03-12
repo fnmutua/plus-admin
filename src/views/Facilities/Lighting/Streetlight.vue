@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { computed, nextTick, reactive, ref, watch } from 'vue'
 
 import { ElMessage, ElCard, ElTable, ElTableColumn, ElCol, ElInput, ElPagination, ElEmpty, ElButton, ElRow, ElSelect, ElOption, ElDrawer, ElDialog, ElForm, ElFormItem, ElDivider, type FormInstance } from 'element-plus'
@@ -14,7 +14,7 @@ import { useCache } from '@/hooks/web/useCache'
 import { Plus, Filter, Search, Back, Check } from '@element-plus/icons-vue'
 
 const streetlightModel = 'street_light'
-const actionButtons = ref<string[]>(['viewOnMap', 'delete'])
+const actionButtons = ref<string[]>(['viewProfile', 'viewOnMap', 'delete'])
 const tableDataList = ref<any[]>([])
 const loading = ref(false)
 const searchLoading = ref(false)
@@ -168,6 +168,13 @@ const onPageSizeChange = async (size: number) => {
 
 const AddFacility = () => {
   push({ name: 'AddFacility' })
+}
+const viewProfile = (row: any) => {
+  push({
+    name: 'OtherFacilityDetails',
+    params: { id: row.id },
+    query: { model: streetlightModel, title: 'Streetlight' }
+  })
 }
 const flyTo = async (row: any) => {
   selectedStreetlightId.value = row?.id ?? null
@@ -494,7 +501,13 @@ getFilteredData()
       </el-table-column>
       <el-table-column label="Actions" :min-width="isMobile ? 72 : 160" align="center" fixed="right">
         <template #default="scope">
-          <TableActions :item="scope?.row || {}" :buttons="actionButtons" @view-on-map="flyTo" @delete="DeleteFacility" />
+          <TableActions
+            :item="scope?.row || {}"
+            :buttons="actionButtons"
+            @view-profile="viewProfile"
+            @view-on-map="flyTo"
+            @delete="DeleteFacility"
+          />
         </template>
       </el-table-column>
     </el-table>

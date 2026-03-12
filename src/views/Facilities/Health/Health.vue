@@ -46,7 +46,7 @@ const showAdminButtons = ref(appStore.getAdminButtons)
 const showEditButtons = ref(appStore.getEditButtons)
 
 // Actions for each row
-const action_buttons = ref<string[]>(['viewOnMap', 'delete'])
+const action_buttons = ref<string[]>(['viewProfile', 'viewOnMap', 'delete'])
 
 // Google Maps API Key
 const googleMapsApiKey = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
@@ -1627,6 +1627,7 @@ const filteredSegments = computed(() => [])
               <TableActions
                 :item="row"
                 :buttons="action_buttons"
+                @view-profile="viewProfile"
                 @view-on-map="flyTo"
                 @delete="DeleteFacility"
               />

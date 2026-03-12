@@ -1,4 +1,4 @@
-﻿<!-- eslint-disable prettier/prettier -->
+<!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
 
 import { getSettlementListByCounty,getOneGeo, getfilteredGeo, CreateRecord } from '@/api/settlements'
@@ -158,7 +158,7 @@ const isCountyRestricted = computed(() => {
 const googleMapsApiKey = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
 
 // Row actions for roads
-const action_buttons = ref<string[]>(['viewOnMap', 'delete']);
+const action_buttons = ref<string[]>(['viewProfile', 'viewOnMap', 'delete']);
 
 console.log('User location info:', {
   isSuperAdmin: isSuperAdmin.value,
@@ -1108,9 +1108,8 @@ const viewProfile = (data: TableSlotDefault) => {
   console.log('On Click.....', data.id)
 
   push({
-    path: '/facilities/health/details/:id',
-    name: 'RoadFacilityDetails',
-    params: { data: data.id, id: data.id }
+    name: 'RoadsDetails',
+    params: { id: data.id }
   })
 }
 
@@ -2639,6 +2638,7 @@ v-if="showEditButtons" :data="tableDataList" :model="roadFacilityModel"
           <TableActions
             :item="row"
             :buttons="action_buttons"
+            @view-profile="viewProfile"
             @view-on-map="flyTo"
             @delete="DeleteFacility"
           />

@@ -1102,8 +1102,7 @@ const viewProfile = (data: TableSlotDefault) => {
   console.log('On Click.....', data.id)
 
   push({
-    path: '/facilities/health/details/:id',
-    name: 'HealthFacilityDetails',
+    name: 'OtherFacilityDetails',
     params: { data: data.id, id: data.id }
   })
 }
