@@ -1038,18 +1038,19 @@ const goBack = () => {
 
 
 const category_options =  [
-  { "value": "structure_owner", "label": "Structure Owner" },
-  { "value": "tenant", "label": "Tenant" },
-  { "value": "youth", "label": "Youth" },
-  { "value": "plwd", "label": "PLWD" },
-  { "value": "ngo", "label": "NGO" },
-  { "value": "faith_based", "label": "Faith-Based" },
-  { "value": "widow", "label": "Widow" },
-  { "value": "minority_marginalized", "label": "Minority Marginalized" },
-  { "value": "chief", "label": "Chief" },
-  { "value": "Asst. chief", "label": "Assistant Chief" },
-  { "value": "Member of the County assembly", "label": "Member of the County Assembly" },
-  { "value": "ward_admin", "label": "Ward Admin" }
+  { value: 'structure_owner', label: 'Structure Owners' },
+  { value: 'tenant', label: 'Tenants' },
+  { value: 'youth', label: 'Youth' },
+  { value: 'plwd', label: 'People Living with Disabilities' },
+  { value: 'cbo', label: 'Community Based Organizations' },
+  { value: 'ngo', label: 'Non-Governmental Organizations' },
+  { value: 'faith_based', label: 'Faith Based Leaders' },
+  { value: 'widow', label: 'Widow' },
+  { value: 'minority_marginalized', label: 'Minority/Marginalized' },
+  { value: 'chief', label: 'Chief' },
+  { value: 'Asst. chief', label: 'Asst. chief' },
+  { value: 'ward_admin', label: 'Ward Administrator' },
+  { value: 'Member of the County assembly', label: 'Member of the County assembly' }
 ]
 
 const SEC_options =  [
