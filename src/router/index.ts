@@ -1929,6 +1929,17 @@ export const adminRoutes: AppRouteRecordRaw[] = [
               icon: 'mdi:map-marker-radius',
               role: ['root_admin', 'super_admin']
             }
+          },
+          {
+            path: 'locator',
+            component: () => import('@/views/settings/adminunits/AdminUnitLocator.vue'),
+            name: 'AdminUnitLocator',
+            meta: {
+              title: 'Map Locator',
+              hidden: false,
+              icon: 'mdi:map-search',
+              role: ['root_admin', 'super_admin']
+            }
           }
         ]
       },      

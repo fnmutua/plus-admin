@@ -50,5 +50,8 @@ module.exports = function (app) {
   app.get('/api/v1/adminunits/wards/:id', [authJwt.verifyToken, isAdminRole], controller.getWardById)
   app.post('/api/v1/adminunits/wards', [authJwt.verifyToken, isAdminRole], controller.createWard)
   app.put('/api/v1/adminunits/wards/:id', [authJwt.verifyToken, isAdminRole], controller.updateWard)
+
+  // Point-based locator endpoint for admin units
+  app.post('/api/v1/adminunits/locate', [authJwt.verifyToken, isAdminRole], controller.locateAdminUnitsByPoint)
 }
 

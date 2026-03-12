@@ -250,6 +250,71 @@ exports.getWardById = async (req, res) => {
 }
 
 /**
+ * Locate administrative units (county, subcounty, ward) by geographic point.
+ * Expects lat/lng in WGS84 (EPSG:4326).
+ */
+exports.locateAdminUnitsByPoint = async (req, res) => {
+  try {
+    const { lat, lng } = req.body
+
+    const latitude = parseFloat(lat)
+    const longitude = parseFloat(lng)
+
+    if (Number.isNaN(latitude) || Number.isNaN(longitude)) {
+      return res.status(400).send({
+        message: 'Invalid coordinates. Expected numeric lat and lng.',
+        code: 'BAD_REQUEST'
+      })
+    }
+
+    const query = `
+      SELECT 
+        c.id   AS county_id,
+        c.name AS county_name,
+        c.code AS county_code,
+        sc.id   AS subcounty_id,
+        sc.name AS subcounty_name,
+        sc.code AS subcounty_code,
+        w.id    AS ward_id,
+        w.name  AS ward_name,
+        w.code  AS ward_code
+      FROM ward w
+      LEFT JOIN subcounty sc ON sc.id = w.subcounty_id
+      LEFT JOIN county c ON c.id = w.county_id
+      WHERE ST_Contains(
+        w.geom,
+        ST_SetSRID(ST_Point(:lng, :lat), 4326)
+      )
+      LIMIT 1;
+    `
+
+    const results = await db.sequelize.query(query, {
+      type: db.sequelize.QueryTypes.SELECT,
+      replacements: { lat: latitude, lng: longitude }
+    })
+
+    if (!results || results.length === 0) {
+      return res.status(404).send({
+        message: 'No administrative unit found for this location',
+        code: 'NOT_FOUND',
+        data: null
+      })
+    }
+
+    res.status(200).send({
+      data: results[0],
+      code: '0000'
+    })
+  } catch (error) {
+    console.error('Error locating admin units by point:', error)
+    res.status(500).send({
+      message: 'Error locating admin units by point',
+      code: 'ERROR'
+    })
+  }
+}
+
+/**
  * Create new county
  */
 exports.createCounty = async (req, res) => {

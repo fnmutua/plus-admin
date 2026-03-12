@@ -87,3 +87,8 @@ export const updateWardApi = (id: number, data: Partial<Ward & { geom?: any }>):
   return request.put({ url: prod + `/api/v1/adminunits/wards/${id}`, data })
 }
 
+// Locate admin units (county, subcounty, ward) by point
+export const locateAdminUnitsByPointApi = (data: { lat: number; lng: number }): Promise<IResponse<any>> => {
+  return request.post({ url: prod + '/api/v1/adminunits/locate', data })
+}
+
