@@ -338,7 +338,7 @@ const customDateRange = ref<[Date, Date] | null>(null)
 
 // Mobile responsiveness
 const isMobile = computed(() => appStore.getMobile)
-const actionColumnWidth = ref(isMobile.value ? "150px" : "260px")
+const actionColumnWidth = ref(isMobile.value ? "100px" : "160px")
 
 // Responsive page size based on screen height
 const getResponsivePageSize = () => {
@@ -386,6 +386,21 @@ const expandedSources = ref(new Set<number>())
 const isProcessingExisting = ref(false)
 
 const { t } = useI18n()
+
+// Resolve a document row's association as a display string
+const getAssociationDisplay = (row: any): string => {
+  if (row['settlement.name']) return row['settlement.name']
+  if (row['project.title']) return row['project.title']
+  if (row['health_facility.name']) return row['health_facility.name']
+  if (row['education_facility.name']) return row['education_facility.name']
+  if (row['road.name']) return row['road.name']
+  if (row['road_asset.name']) return row['road_asset.name']
+  if (row['water_point.name']) return row['water_point.name']
+  if (row['sewer.name']) return row['sewer.name']
+  if (row['other_facility.name']) return row['other_facility.name']
+  if (row['contractor.name'] || row['contractor.contract_number']) return row['contractor.name'] || row['contractor.contract_number']
+  return '—'
+}
 
 // Format functions
 const formatEndDate = (data: any) => {
@@ -1003,6 +1018,7 @@ const hide_parent = ref(false)
 const disable_submit = ref(true)
 const parentTitle = ref("Parent (selected)")
 const parentLoading = ref(false)
+const currentAssociation = ref<{ typeLabel: string; recordName: string } | null>(null)
 
 const getparentOptions = async (keyword?: string) => {
   parentLoading.value = true
@@ -1113,6 +1129,10 @@ const handleSelectType = async (type: string) => {
   theParentModel.value = type
   console.log('Selected.....>', type)
 
+  // Reset state when type changes
+  hide_parent.value = false
+  documentForm.parent_id = null
+
   // Notify county-restricted users about filtering
   if (isCountyRestricted.value && type !== 'other_documents') {
     ElMessage.info('Only entities from your assigned county are available.')
@@ -1196,6 +1216,7 @@ const editDocument = async (data: Document) => {
   hide_parent.value = false
   disable_submit.value = true
   parentTitle.value = "Parent (selected)"
+  currentAssociation.value = null
 
   // Store original file name (with extension) for file renaming
   const originalFileName = (data as any).name || ''
@@ -1294,20 +1315,22 @@ const editDocument = async (data: Document) => {
   }
 
   // Use handleSelectType to set up the form properly (this sets theParentModel, document_field, parentTitle, etc.)
-  if (foundParentModel) {
+  if (foundParentModel && foundParentModel !== 'other_documents') {
     handleSelectType(foundParentModel)
-    // Wait for parent options to load if not other_documents (handleSelectType calls getparentOptions but doesn't await it)
-    if (foundParentModel !== 'other_documents') {
-      await getparentOptions()
+    await getparentOptions()
+    // Resolve current association display from loaded options — reliable regardless of API shape
+    const matchedOption = foundParentId ? parentOptions.value.find(opt => opt.value === foundParentId) : null
+    currentAssociation.value = {
+      typeLabel: parentTitle.value,
+      recordName: matchedOption?.label || (foundParentId ? `#${foundParentId}` : '')
     }
-    // Set parent_id after options are loaded
     if (foundParentId) {
       await nextTick()
       documentForm.parent_id = foundParentId
     }
   } else {
-    // No parent found, set to other_documents
-    handleSelectType('other_documents')
+    handleSelectType(foundParentModel || 'other_documents')
+    currentAssociation.value = null
   }
 
   // Enable submit button
@@ -1424,8 +1447,16 @@ const handleSubmitData = async () => {
       console.warn('Warning: Original file name not available - backend will use database name');
     }
     
+    // Clear all association fields first, then set only the active one
+    const allAssociationFields = [
+      'settlement_id', 'beneficiary_id', 'project_id', 'contractor_id',
+      'health_facility_id', 'education_facility_id', 'road_id', 'road_asset_id',
+      'water_point_id', 'sewer_id', 'other_facility_id', 'indicator_category_report'
+    ]
+    allAssociationFields.forEach(f => { (documentForm as any)[f] = null })
+
     // Set the parent_id based on the selected parent
-    if (documentForm.parent_id) {
+    if (documentForm.parent_id && document_field.value) {
       (documentForm as any)[document_field.value] = parseInt(documentForm.parent_id.toString());
     }
     
@@ -2547,7 +2578,9 @@ const handleTabChange = async (tabName: string) => {
                     </div>
                   </template>
                 </el-table-column>
-                <el-table-column prop="settlement.name" label="Settlement" min-width="120" show-overflow-tooltip />
+                <el-table-column label="Association" min-width="200" show-overflow-tooltip>
+                  <template #default="{ row }">{{ getAssociationDisplay(row) }}</template>
+                </el-table-column>
       <el-table-column prop="createdAt" label="Date" :formatter="formatEndDate" min-width="120" />
                  <el-table-column prop="user.name" label="User" min-width="100" show-overflow-tooltip />
                 <el-table-column prop="size" label="Size(Mb)" min-width="80" />
@@ -2938,70 +2971,102 @@ const handleTabChange = async (tabName: string) => {
       </template>
       
       <div style="padding: 24px;">
-        <el-form :model="documentForm" label-width="auto" style="max-width: 600px">
-          <el-form-item label="Document name">
-            <el-input v-model="documentForm.name" />
-          </el-form-item>
-          
-          <el-form-item label="Document Parent">
-            <el-select v-model="theParentModel" placeholder="Select Parent" @change="handleSelectType">
-              <el-option-group
-                v-for="group in uploadOptions"
-                :key="group.label"
-                :label="group.label"
-              >
-                <el-option
-                  v-for="item in group.options"
-                  :key="item.value"
-                  :label="item.label"
-                  :value="item.value"
+        <el-tabs>
+          <!-- Details tab -->
+          <el-tab-pane label="Details">
+            <el-form :model="documentForm" label-width="auto" style="max-width: 600px; margin-top: 16px;">
+              <el-form-item label="Document name">
+                <el-input v-model="documentForm.name" />
+              </el-form-item>
+
+              <el-form-item label="Document category">
+                <el-select v-model="documentForm.category" placeholder="Select document category">
+                  <el-option v-for="item in docCategories" :key="item.value" :label="item.label" :value="item.value" />
+                </el-select>
+              </el-form-item>
+
+              <el-form-item label="File format">
+                <el-input v-model="documentForm.format" disabled />
+              </el-form-item>
+
+              <el-form-item>
+                <el-button type="primary" @click="handleSubmitData" :disabled="disable_submit">Save Changes</el-button>
+                <el-button @click="dialogVisible = false">Cancel</el-button>
+              </el-form-item>
+            </el-form>
+          </el-tab-pane>
+
+          <!-- Association tab -->
+          <el-tab-pane label="Association">
+            <el-form :model="documentForm" label-width="auto" style="max-width: 600px; margin-top: 16px;">
+              <el-form-item>
+                <el-alert
+                  v-if="currentAssociation"
+                  :title="`Currently associated with: ${currentAssociation.typeLabel} — ${currentAssociation.recordName}`"
+                  type="info"
+                  :closable="false"
+                  show-icon
                 />
-              </el-option-group>
-            </el-select>
-          </el-form-item>
+                <el-alert
+                  v-else
+                  title="Not currently associated with any settlement, project or other record"
+                  type="warning"
+                  :closable="false"
+                  show-icon
+                />
+              </el-form-item>
+              <el-form-item label="Change to">
+                <el-select v-model="theParentModel" placeholder="Select association type" @change="handleSelectType" style="width: 100%;">
+                  <el-option-group
+                    v-for="group in uploadOptions"
+                    :key="group.label"
+                    :label="group.label"
+                  >
+                    <el-option
+                      v-for="item in group.options"
+                      :key="item.value"
+                      :label="item.label"
+                      :value="item.value"
+                    />
+                  </el-option-group>
+                </el-select>
+              </el-form-item>
 
-          <el-form-item v-if="!hide_parent" :label="parentTitle">
-            <el-select
-              clearable
-              v-model="documentForm.parent_id" 
-              placeholder="please select your parent"
-              :loading="parentLoading"
-              filterable
-              remote
-              reserve-keyword
-              :remote-method="remoteFetchParents"
-            >
-              <el-option
-                v-for="item in parentOptions"
-                :key="item.value"
-                :label="item.label"
-                :value="item.value"
-              >
-                <div style="display: flex; align-items: center;">
-                  <span style="flex: 1; text-align: left;">{{ item.label }}</span>
-                  <span v-if="item.county || item.subcounty || item.ward" style="flex: 2; color: var(--el-text-color-secondary); font-size: 13px; text-align: right;">
-                    {{ item.ward }}, {{ item.subcounty }}, {{ item.county }}
-                  </span>
-                </div>
-              </el-option>
-            </el-select>
-          </el-form-item>
+              <el-form-item v-if="!hide_parent" :label="parentTitle">
+                <el-select
+                  clearable
+                  v-model="documentForm.parent_id"
+                  placeholder="Search and select record"
+                  :loading="parentLoading"
+                  filterable
+                  remote
+                  reserve-keyword
+                  :remote-method="remoteFetchParents"
+                  style="width: 100%;"
+                >
+                  <el-option
+                    v-for="item in parentOptions"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  >
+                    <div style="display: flex; align-items: center;">
+                      <span style="flex: 1; text-align: left;">{{ item.label }}</span>
+                      <span v-if="item.county || item.subcounty || item.ward" style="flex: 2; color: var(--el-text-color-secondary); font-size: 13px; text-align: right;">
+                        {{ item.ward }}, {{ item.subcounty }}, {{ item.county }}
+                      </span>
+                    </div>
+                  </el-option>
+                </el-select>
+              </el-form-item>
 
-          <el-form-item label="Document category">
-            <el-select v-model="documentForm.category" placeholder="Select  document category">
-              <el-option v-for="item in docCategories" :key="item.value" :label="item.label" :value="item.value" />
-            </el-select>
-          </el-form-item>
-
-          <el-form-item label="File format">
-            <el-input v-model="documentForm.format" disabled />
-          </el-form-item>
-          
-          <el-form-item>
-            <el-button type="primary" @click="handleSubmitData" :disabled="disable_submit">Save Changes</el-button>
-            <el-button @click="dialogVisible = false">Cancel</el-button>
-          </el-form-item>
-        </el-form>
+              <el-form-item>
+                <el-button type="primary" @click="handleSubmitData" :disabled="disable_submit">Save Changes</el-button>
+                <el-button @click="dialogVisible = false">Cancel</el-button>
+              </el-form-item>
+            </el-form>
+          </el-tab-pane>
+        </el-tabs>
       </div>
     </el-drawer>
 

@@ -6925,6 +6925,7 @@ exports.getDocumentRepository = async (req, res) => {
         model: db.models.settlement,
         as: 'settlement',
         attributes: ['id', 'name'],
+        required: false,
         include: [{
           model: db.models.county,
           as: 'county',
@@ -6932,18 +6933,74 @@ exports.getDocumentRepository = async (req, res) => {
         }]
       },
       {
+        model: db.models.project,
+        as: 'project',
+        attributes: ['id', 'title'],
+        required: false
+      },
+      {
+        model: db.models.health_facility,
+        as: 'health_facility',
+        attributes: ['id', 'name'],
+        required: false
+      },
+      {
+        model: db.models.education_facility,
+        as: 'education_facility',
+        attributes: ['id', 'name'],
+        required: false
+      },
+      {
+        model: db.models.road,
+        as: 'road',
+        attributes: ['id', 'name'],
+        required: false
+      },
+      {
+        model: db.models.road_asset,
+        as: 'road_asset',
+        attributes: ['id', 'RA_Name'],
+        required: false
+      },
+      {
+        model: db.models.water_point,
+        as: 'water_point',
+        attributes: ['id', 'name'],
+        required: false
+      },
+      {
+        model: db.models.sewer,
+        as: 'sewer',
+        attributes: ['id', 'name'],
+        required: false
+      },
+      {
+        model: db.models.other_facility,
+        as: 'other_facility',
+        attributes: ['id', 'name'],
+        required: false
+      },
+      {
+        model: db.models.contractor,
+        as: 'contractor',
+        attributes: ['id', 'name', 'contract_number'],
+        required: false
+      },
+      {
         model: db.models.users,
         as: 'user',
         attributes: ['id', 'name']
       }
     ];
-    
+
     const baseQuery = {
       include: baseIncludes,
       attributes: [
         'id', 'name', 'category', 'format', 'size', 'location',
         'protectedFile', 'createdBy', 'createdAt', 'updatedAt', 'downloadCount',
-        'settlement_id', 'project_id'
+        'settlement_id', 'project_id', 'health_facility_id', 'education_facility_id',
+        'road_id', 'road_asset_id', 'water_point_id', 'sewer_id',
+        'other_facility_id', 'contractor_id'
       ],
       order: [[sortBy, sortOrder]],
       limit: limit,
@@ -7219,18 +7276,28 @@ exports.getDocumentRepository = async (req, res) => {
           {
             model: db.models.document_type,
             as: 'document_type',
-            attributes: ['type', 'group']
+            attributes: ['id', 'type', 'group']
           },
           {
             model: db.models.settlement,
             as: 'settlement',
             attributes: ['id', 'name'],
+            required: false,
             include: [{
               model: db.models.county,
               as: 'county',
               attributes: ['id', 'name']
             }]
           },
+          { model: db.models.project, as: 'project', attributes: ['id', 'title'], required: false },
+          { model: db.models.health_facility, as: 'health_facility', attributes: ['id', 'name'], required: false },
+          { model: db.models.education_facility, as: 'education_facility', attributes: ['id', 'name'], required: false },
+          { model: db.models.road, as: 'road', attributes: ['id', 'name'], required: false },
+          { model: db.models.road_asset, as: 'road_asset', attributes: ['id', 'RA_Name'], required: false },
+          { model: db.models.water_point, as: 'water_point', attributes: ['id', 'name'], required: false },
+          { model: db.models.sewer, as: 'sewer', attributes: ['id', 'name'], required: false },
+          { model: db.models.other_facility, as: 'other_facility', attributes: ['id', 'name'], required: false },
+          { model: db.models.contractor, as: 'contractor', attributes: ['id', 'name', 'contract_number'], required: false },
           {
             model: db.models.users,
             as: 'user',
@@ -7238,8 +7305,11 @@ exports.getDocumentRepository = async (req, res) => {
           }
         ],
         attributes: [
-          'id', 'name', 'category', 'format', 'size', 'location', 
-          'protectedFile', 'createdBy', 'createdAt', 'updatedAt'
+          'id', 'name', 'category', 'format', 'size', 'location',
+          'protectedFile', 'createdBy', 'createdAt', 'updatedAt',
+          'settlement_id', 'project_id', 'health_facility_id', 'education_facility_id',
+          'road_id', 'road_asset_id', 'water_point_id', 'sewer_id',
+          'other_facility_id', 'contractor_id'
         ],
         order: [[sortBy, sortOrder]],
         limit: limit,
@@ -7394,7 +7464,7 @@ exports.getDocumentRepository = async (req, res) => {
     // Process and format the response
     const processedDocuments = documentsResult.rows.map(doc => {
       const flatDoc = doc.get({ plain: true });
-      return {
+      const result = {
         id: flatDoc.id,
         name: flatDoc.name,
         category: flatDoc.category,
@@ -7408,14 +7478,85 @@ exports.getDocumentRepository = async (req, res) => {
         'document_type.id': flatDoc.document_type?.id,
         'document_type.type': flatDoc.document_type?.type,
         'document_type.group': flatDoc.document_type?.group,
-        'settlement.id': flatDoc.settlement?.id,
-        'settlement.name': flatDoc.settlement?.name,
-        'settlement.county.id': flatDoc.settlement?.county?.id,
-        'settlement.county.name': flatDoc.settlement?.county?.name,
         'user.id': flatDoc.user?.id,
         'user.name': flatDoc.user?.name,
         downloadCount: flatDoc.downloadCount || 0
       };
+
+      // Settlement
+      if (flatDoc.settlement_id) {
+        result.settlement_id = flatDoc.settlement_id;
+        result['settlement.id'] = flatDoc.settlement?.id;
+        result['settlement.name'] = flatDoc.settlement?.name;
+        result['settlement.county.id'] = flatDoc.settlement?.county?.id;
+        result['settlement.county.name'] = flatDoc.settlement?.county?.name;
+      }
+
+      // Project
+      if (flatDoc.project_id) {
+        result.project_id = flatDoc.project_id;
+        result['project.id'] = flatDoc.project?.id;
+        result['project.title'] = flatDoc.project?.title;
+      }
+
+      // Health facility
+      if (flatDoc.health_facility_id) {
+        result.health_facility_id = flatDoc.health_facility_id;
+        result['health_facility.id'] = flatDoc.health_facility?.id;
+        result['health_facility.name'] = flatDoc.health_facility?.name;
+      }
+
+      // Education facility
+      if (flatDoc.education_facility_id) {
+        result.education_facility_id = flatDoc.education_facility_id;
+        result['education_facility.id'] = flatDoc.education_facility?.id;
+        result['education_facility.name'] = flatDoc.education_facility?.name;
+      }
+
+      // Road
+      if (flatDoc.road_id) {
+        result.road_id = flatDoc.road_id;
+        result['road.id'] = flatDoc.road?.id;
+        result['road.name'] = flatDoc.road?.name;
+      }
+
+      // Road asset (uses RA_Name not name)
+      if (flatDoc.road_asset_id) {
+        result.road_asset_id = flatDoc.road_asset_id;
+        result['road_asset.id'] = flatDoc.road_asset?.id;
+        result['road_asset.name'] = flatDoc.road_asset?.RA_Name;
+      }
+
+      // Water point
+      if (flatDoc.water_point_id) {
+        result.water_point_id = flatDoc.water_point_id;
+        result['water_point.id'] = flatDoc.water_point?.id;
+        result['water_point.name'] = flatDoc.water_point?.name;
+      }
+
+      // Sewer
+      if (flatDoc.sewer_id) {
+        result.sewer_id = flatDoc.sewer_id;
+        result['sewer.id'] = flatDoc.sewer?.id;
+        result['sewer.name'] = flatDoc.sewer?.name;
+      }
+
+      // Other facility
+      if (flatDoc.other_facility_id) {
+        result.other_facility_id = flatDoc.other_facility_id;
+        result['other_facility.id'] = flatDoc.other_facility?.id;
+        result['other_facility.name'] = flatDoc.other_facility?.name;
+      }
+
+      // Contractor
+      if (flatDoc.contractor_id) {
+        result.contractor_id = flatDoc.contractor_id;
+        result['contractor.id'] = flatDoc.contractor?.id;
+        result['contractor.name'] = flatDoc.contractor?.name;
+        result['contractor.contract_number'] = flatDoc.contractor?.contract_number;
+      }
+
+      return result;
     });
 
     // Handle empty results gracefully

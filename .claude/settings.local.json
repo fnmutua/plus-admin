@@ -4,7 +4,8 @@
       "Bash(xargs grep:*)",
       "Bash(grep -r useRoute src/layout --include=*.vue --include=*.tsx --include=*.ts)",
       "Bash(grep -r route. src/layout --include=*.vue --include=*.tsx --include=*.ts)",
-      "Bash(grep -n \"id: ''admin\" \"c:/Users/USER/plus-admin/src/views/Landing/Docs.vue\")"
+      "Bash(grep -n \"id: ''admin\" \"c:/Users/USER/plus-admin/src/views/Landing/Docs.vue\")",
+      "Bash(grep -E \"\\\\.\\(js|ts\\)$\")"
     ]
   }
 }
