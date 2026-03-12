@@ -3,7 +3,7 @@
 import { ref } from 'vue'
 import { ElCard, ElRow, ElCol, ElInput, ElButton, ElDescriptions, ElDescriptionsItem, ElAlert, ElMessage } from 'element-plus'
 import { GoogleMap, Marker, InfoWindow } from 'vue3-google-map'
-import { Back, Location, Search } from '@element-plus/icons-vue'
+import { Back, Location, Search, DocumentCopy } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { locateAdminUnitsByPointApi } from '@/api/adminunits'
 
@@ -24,6 +24,45 @@ const adminInfo = ref<any | null>(null)
 
 const flyDialogCoords = ref('')
 const showInfoWindow = ref(false)
+
+const copyLocationToClipboard = async () => {
+  if (!clickMarker.value) {
+    ElMessage.warning('No location selected yet')
+    return
+  }
+
+  const lat = clickMarker.value.lat.toFixed(6)
+  const lng = clickMarker.value.lng.toFixed(6)
+
+  const countyLine = adminInfo.value?.county_name
+    ? `County: ${adminInfo.value.county_name} (ID: ${adminInfo.value.county_id ?? 'N/A'})`
+    : 'County: N/A'
+
+  const subcountyLine = adminInfo.value?.subcounty_name
+    ? `Subcounty: ${adminInfo.value.subcounty_name} (ID: ${adminInfo.value.subcounty_id ?? 'N/A'})`
+    : 'Subcounty: N/A'
+
+  const wardLine = adminInfo.value?.ward_name
+    ? `Ward: ${adminInfo.value.ward_name} (ID: ${adminInfo.value.ward_id ?? 'N/A'})`
+    : 'Ward: N/A'
+
+  const text = [
+    `Lat, Lng: ${lat}, ${lng}`,
+    countyLine,
+    subcountyLine,
+    wardLine,
+  ].join('\n')
+
+  try {
+    if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text)
+    }
+    ElMessage.success('Location & details copied')
+  } catch (e) {
+    console.error('Clipboard copy failed:', e)
+    ElMessage.error('Failed to copy location')
+  }
+}
 
 const goBack = () => {
   router.back()
@@ -71,33 +110,61 @@ const handleMapClick = (event: any) => {
   locateByPoint(lat, lng)
 }
 
-// Fly-to-coordinates helper (lat, lon)
+// Geocode a free-text place name using Google Geocoding API
+const geocodePlace = async (query: string) => {
+  try {
+    setStatus('Searching location...')
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(query)}&key=${GOOGLE_MAPS_API_KEY}`
+    const res = await fetch(url)
+    const data = await res.json()
+
+    if (data.status !== 'OK' || !data.results || !data.results.length) {
+      setStatus('Place not found. Try a different name or use coordinates.')
+      return
+    }
+
+    const loc = data.results[0].geometry.location
+    const lat = loc.lat
+    const lng = loc.lng
+
+    clickMarker.value = { lat, lng }
+    mapCenter.value = { lat, lng }
+    mapZoom.value = 11
+    showInfoWindow.value = true
+    locateByPoint(lat, lng)
+  } catch (error) {
+    console.error('Geocoding error:', error)
+    setStatus('Failed to search place. Check your connection or try coordinates.')
+  }
+}
+
+// Fly-to helper: accepts either "lat, lon" or a place name
 const flyToCoordinates = () => {
   const raw = (flyDialogCoords.value || '').trim()
   if (!raw) {
-    ElMessage.error('Enter coordinates as "lat, lon"')
+    ElMessage.error('Enter coordinates or a place name')
     return
   }
 
   const parts = raw.replace(/[\s;]+/g, ',').split(',').map(p => p.trim()).filter(Boolean)
-  if (parts.length < 2) {
-    ElMessage.error('Enter coordinates as "lat, lon" (e.g., -1.2921, 36.8219)')
-    return
+
+  // Try to interpret as numeric "lat, lon"
+  if (parts.length >= 2) {
+    const lat = parseFloat(parts[0])
+    const lng = parseFloat(parts[1])
+
+    if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
+      clickMarker.value = { lat, lng }
+      mapCenter.value = { lat, lng }
+      mapZoom.value = 11
+      showInfoWindow.value = true
+      locateByPoint(lat, lng)
+      return
+    }
   }
 
-  const lat = parseFloat(parts[0])
-  const lng = parseFloat(parts[1])
-
-  if (Number.isNaN(lat) || Number.isNaN(lng)) {
-    ElMessage.error('Invalid numbers. Use "lat, lon" (e.g., -1.2921, 36.8219)')
-    return
-  }
-
-  clickMarker.value = { lat, lng }
-  mapCenter.value = { lat, lng }
-  mapZoom.value = 11
-  showInfoWindow.value = true
-  locateByPoint(lat, lng)
+  // Fallback: treat input as place name and geocode via Google
+  geocodePlace(raw)
 }
 </script>
 
@@ -112,7 +179,7 @@ const flyToCoordinates = () => {
           <div>
             <h3 style="margin:0;">Admin Unit Locator</h3>
             <p style="margin:0;font-size:12px;color:#909399;">
-              Click on the map or enter coordinates to identify the county, subcounty and ward.
+              Click on the map or type a place name/coordinates to see the county, subcounty and ward for that location.
             </p>
           </div>
         </div>
@@ -127,6 +194,7 @@ const flyToCoordinates = () => {
             placeholder='Enter coordinates as "lat, lon" (e.g., -1.2921, 36.8219)'
             clearable
             style="flex: 1; width: 100%;"
+            @keyup.enter="flyToCoordinates"
           >
             <template #prefix>
               <el-icon><Location /></el-icon>
@@ -168,8 +236,19 @@ const flyToCoordinates = () => {
           >
             <Marker v-if="clickMarker" :options="{ position: clickMarker }">
               <InfoWindow v-model="showInfoWindow">
-                <div style="min-width:220px;">
-                  <div style="font-weight:600;margin-bottom:4px;">Clicked location</div>
+                <div style="min-width:240px;">
+                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+                    <span style="font-weight:600;">Clicked location</span>
+                    <el-button
+                      link
+                      type="primary"
+                      :icon="DocumentCopy"
+                      size="small"
+                      @click.stop="copyLocationToClipboard"
+                    >
+                      Copy
+                    </el-button>
+                  </div>
                   <div style="font-size:12px;color:#606266;margin-bottom:6px;">
                     Lat: {{ clickMarker.lat.toFixed(6) }}, Lng: {{ clickMarker.lng.toFixed(6) }}
                   </div>
