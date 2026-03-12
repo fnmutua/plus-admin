@@ -277,6 +277,7 @@ import dashboardsListImg from '@/assets/documentation/dashboards-list.png'
 import adminCountyListingImg from '@/assets/documentation/admin-county-listing.png'
 import adminCountyAddImg from '@/assets/documentation/admin-county-add.png'
 import adminCountyEditImg from '@/assets/documentation/admin-county-edit.png'
+import adminCountyLocatorImg from '@/assets/documentation/admin-county-lcoator.png'
 import dashboardsCardsListImg from '@/assets/documentation/dashboards-cards-list.png'
 import dashboardsCardsAddEditButtonsImg from '@/assets/documentation/dashboards-cards-add-edit-buttons.png'
 import dashboardsCardsAddEditFormImg from '@/assets/documentation/dashboards-cards-add-edit-form.png'
@@ -3323,6 +3324,16 @@ const allNavGroups: NavGroup[] = [
             <tr><td><strong>Geometry</strong></td><td>Yes</td><td>Upload a GeoJSON file containing the ward boundary polygon. Area is auto-calculated on save. Ensure the boundary falls within the parent sub-county geometry and uses WGS84 coordinates.</td></tr>
           </tbody></table>
           <blockquote>Note — deleting a ward will affect settlements registered within it. Reassign any dependent records before deleting.</blockquote>
+
+          <h2>Map Locator</h2>
+          <p>The <strong>Map Locator</strong> tool provides a quick way to look up the county, sub-county and ward for any point on the map. Open it from <strong>Settings → Admin Units → Map Locator</strong>.</p>
+          <img src="${adminCountyLocatorImg}" alt="Admin unit map locator" class="docs-screenshot" />
+          <ul>
+            <li><strong>Click on the map</strong> to drop a marker and automatically identify the county, sub-county and ward at that location.</li>
+            <li><strong>Search by place name or coordinates</strong> &mdash; type a place name (e.g. <em>“Kisumu CBD”</em>) or coordinates (<code>lat, lon</code>) and press <strong>Enter</strong> or click <strong>Locate</strong> to zoom to that point.</li>
+            <li><strong>Popup details</strong> &mdash; a small popup shows the clicked coordinates plus the county, sub-county and ward names and IDs.</li>
+            <li><strong>Copy helper</strong> &mdash; use the <em>Copy</em> button in the popup to copy the coordinates and admin-unit details for pasting into other workflows (e.g. SEC, GRC, settlement registration).</li>
+          </ul>
         `
       }
     ],
