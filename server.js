@@ -109,6 +109,7 @@ require('./server/app/routes/adminunits.routes')(app)
 require('./server/app/routes/settings.routes')(app)
 require('./server/app/routes/climate_assessment.routes')(app)
 require('./server/app/routes/audit.routes')(app)
+require('./server/app/routes/monitoring.routes')(app)
 
 // Static middleware should come AFTER API routes
 app.use(express.static(path.join(__dirname, '/dist-pro')))
