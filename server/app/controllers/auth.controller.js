@@ -670,74 +670,47 @@ exports.updateByUser = (req, res) => {
       })
     }
  
-    // The uploaded files can be accessed using `req.files`
-    console.log('profilePhoto:', req.files[0]);
-    
-    var profilePhoto = req.files[0]
-    var profilePhotoPath = profilePhoto?profilePhoto.path:''
+    const hasNewPhoto = req.files && req.files.length > 0;
+    const profilePhoto = hasNewPhoto ? req.files[0] : null;
+    const profilePhotoPath = profilePhoto ? profilePhoto.path : '';
 
     User.findAll({ where: { id: req.body.id } }).then((result) => {
       if (result && result.length > 0) {
         const user = result[0];
-    
-        // Check if a file was uploaded and update the profile photo path in the database
-        if (req.files) {
-          //const profilePhoto = req.files[0];
-         // const filePath = path.join('/data/uploads', req.files.profilePhoto[0].originalname);
-    
-        // Read the file data as a buffer
-            fs.readFile(profilePhotoPath, (err, data) => {
-              if (err) {
-                console.error('Error reading profile photo:', err);
-                // Handle the error
-                // return res.status(500).json({ error: 'Error reading profile photo' });
-              } else {
-                // Set the avatar_data field to the file data buffer only if reading is successful
-                user.photo = data;
-              }
-       
 
-            user.name = req.body.name;
-            user.email = req.body.email;
-            user.phone = req.body.phone;
+        user.name = req.body.name || user.name;
+        user.email = req.body.email != null ? req.body.email : user.email;
+        user.phone = req.body.phone != null ? req.body.phone : user.phone;
 
-            console.log('user', user)
-    
-            // Save the updated user record
-            user
-              .save()
+        if (hasNewPhoto && profilePhotoPath) {
+          fs.readFile(profilePhotoPath, (err, data) => {
+            if (err) {
+              console.error('Error reading profile photo:', err);
+            } else {
+              user.photo = data;
+            }
+            user.save()
               .then((updatedUser) => {
-                // Remove the temporary file (optional, you can skip this if you don't need to keep the file)
-                // fs.unlinkSync(profilePhoto.tempFilePath);
-    
-                // Send the response after successful update
-                res.send({
-                  message: 'User profile updated successfully!',
-                  code: '0000',
-                  user: updatedUser,
-                });
+                const payload = updatedUser.toJSON ? updatedUser.toJSON() : updatedUser;
+                payload.avatar = updatedUser.photo ? 'data:image/png;base64,' + updatedUser.photo.toString('base64') : (payload.avatar || null);
+                delete payload.photo;
+                res.send({ message: 'User profile updated successfully!', code: '0000', user: payload });
               })
               .catch((error) => {
                 console.error('Error saving user profile:', error);
-                // Handle the error
                 res.status(500).json({ error: 'Error saving user profile' });
               });
           });
         } else {
-          // If no file was uploaded, just save the user without changing the avatar_data
-          user
-            .save()
-            .then(() => {
-              // Send the response after successful update
-              res.send({
-                message: 'User profile updated successfully!',
-                code: '0000',
-                user: user,
-              });
+          user.save()
+            .then((updatedUser) => {
+              const payload = updatedUser.toJSON ? updatedUser.toJSON() : updatedUser;
+              payload.avatar = updatedUser.photo ? 'data:image/png;base64,' + updatedUser.photo.toString('base64') : (payload.avatar || null);
+              delete payload.photo;
+              res.send({ message: 'User profile updated successfully!', code: '0000', user: payload });
             })
             .catch((error) => {
               console.error('Error saving user profile:', error);
-              // Handle the error
               res.status(500).json({ error: 'Error saving user profile' });
             });
         }
