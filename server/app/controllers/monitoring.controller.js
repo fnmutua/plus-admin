@@ -6,13 +6,14 @@ const db = require('../models');
 const { Op } = require('sequelize');
 
 /**
- * GET /api/v1/monitoring/config?county_id=X
+ * POST /api/v1/monitoring/config
+ * Body: { county_id: number }
  * Returns locationOptions, projectOptions, componentOptions, activityOptions,
  * ProjectActivityOptions, and indicatorOptions for the given county.
  */
 exports.getMonitoringConfig = async (req, res) => {
   try {
-    const countyId = parseInt(req.query.county_id, 10) || 47;
+    const countyId = parseInt(req.body?.county_id ?? req.query?.county_id, 10) || 47;
     const { project_location, project, component, activity, project_activity, indicator_category, indicator, programme } = db.models;
 
     // Run independent queries in parallel

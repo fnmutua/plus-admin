@@ -4,11 +4,12 @@ const controller = require('../controllers/monitoring.controller');
 
 module.exports = function (app) {
   /**
-   * GET /api/v1/monitoring/config?county_id=X
+   * POST /api/v1/monitoring/config
+   * Body: { county_id: number }
    * Returns all M&E form options (locations, projects, activities, indicators) in one request.
    * Requires project_location:read (monitoring users have this).
    */
-  app.get(
+  app.post(
     '/api/v1/monitoring/config',
     [authJwt.verifyToken, hasPermission('project_location:read')],
     controller.getMonitoringConfig
