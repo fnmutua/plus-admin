@@ -55,14 +55,14 @@ exports.getMonitoringConfig = async (req, res) => {
           indicator_level: { [Op.ne]: 'project' }
         },
         include: [{ model: indicator, required: true, attributes: ['id', 'name'] }],
-        attributes: ['id', 'activity_id', 'category_title', 'indicator_id', 'indicator_level', 'baseline', 'target', 'project_id']
+        attributes: ['id', 'activity_id', 'category_title', 'indicator_id', 'indicator_level', 'indicator_name']
       }),
 
       // 5. Project-level indicator categories
       indicator_category.findAll({
         where: { indicator_level: 'project' },
         include: [{ model: indicator, required: true, attributes: ['id', 'name'] }],
-        attributes: ['id', 'activity_id', 'category_title', 'indicator_id', 'indicator_level', 'baseline', 'target', 'project_id']
+        attributes: ['id', 'activity_id', 'category_title', 'indicator_id', 'indicator_level', 'indicator_name']
       })
     ]);
 
