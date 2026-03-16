@@ -121,6 +121,7 @@ import { useCache } from '@/hooks/web/useCache'
 import landingPageImg from '@/assets/documentation/landing_page.png'
 import actionButtonsImg from '@/assets/documentation/action-buttons.png'
 import topNavigationImg from '@/assets/documentation/top_navigation.png'
+import accountSignupImg from '@/assets/documentation/account-signup.png'
 import fileGrievanceBtnImg from '@/assets/documentation/File a Grievance button.png'
 import grievanceFormImg from '@/assets/documentation/multi-step greivnace form.png'
 import incidentBtnImg from '@/assets/documentation/incident button.png'
@@ -441,6 +442,10 @@ const allNavGroups: NavGroup[] = [
               <td><strong>Sign in / Dashboard</strong></td>
               <td>If you are <em>not</em> logged in, this button takes you to the <strong>login page</strong> where you enter your email and password. If you are <em>already</em> logged in, the label changes to <strong>Dashboard</strong> and takes you straight to the internal Status dashboard.</td>
             </tr>
+          <tr>
+            <td><strong>Sign Up</strong></td>
+            <td>Opens the <strong>Sign Up / Get Started</strong> flow. This is a green success-outline button that only appears when you are <em>not</em> logged in. Clicking it takes you to the onboarding page where new users can request or set up access to KeSMIS (see screenshot below). Once you are logged in, this button is hidden.</td>
+          </tr>
             <tr>
               <td><strong>File a Grievance</strong></td>
               <td>Opens the public <strong>Grievance Form</strong> (no login needed). This is a multi-step wizard:<br/>
@@ -467,6 +472,7 @@ const allNavGroups: NavGroup[] = [
               <td>Opens a slide-out panel on the right explaining the purpose of the landing page, how to use the main action buttons, and what the top navigation links do.</td>
             </tr>
           </tbody></table>
+          <img src="${accountSignupImg}" alt="Account sign-up and onboarding button on the landing page" class="docs-screenshot" />
           <blockquote>Tip &mdash; You do not need an account to file a grievance or report an incident. These forms are intentionally public so that any affected person can submit directly.</blockquote>
         `
       },
@@ -637,17 +643,13 @@ const allNavGroups: NavGroup[] = [
         id: 'register',
         label: 'Creating an Account',
         content: `
-          <p>Before you can access the internal KeSMIS dashboard you need a user account. You can register for one directly from the landing page.</p>
+          <p>Before you can access the internal KeSMIS dashboard you need a user account. The easiest way to create one is from the landing page using the dedicated <strong>Sign Up</strong> button.</p>
           <h2>How to create an account</h2>
           <ol>
-            <li>Click the <strong>Sign in</strong> button on the landing page hero section or the top navigation bar</li>
+            <li>From the hero section, click the green <strong>Sign Up</strong> success-outline button. This only appears when you are <em>not</em> logged in.</li>
           </ol>
-          <img src="${signinBtnImg}" alt="Sign in button on the landing page" class="docs-screenshot" />
+          <img src="${accountSignupImg}" alt="Account sign-up and onboarding button on the landing page" class="docs-screenshot" />
           <ol start="2">
-            <li>You will be taken to the <strong>login page</strong>. Instead of signing in, click the <strong>Sign Up</strong> (or <strong>Register</strong>) button/link on the login page</li>
-          </ol>
-          <img src="${loginSignupImg}" alt="Login page with Sign Up link" class="docs-screenshot" />
-          <ol start="3">
             <li>You will be taken to the <strong>registration page</strong>. Fill in the form with the following details:</li>
           </ol>
           <img src="${registerImg}" alt="Registration form" class="docs-screenshot" />
@@ -671,6 +673,16 @@ const allNavGroups: NavGroup[] = [
             <li>You will receive an sms and email notification once your account is activated</li>
             <li>After approval, you can sign in using your email and password</li>
           </ul>
+          <h2>Alternative path via the login page</h2>
+          <p>You can also start from the <strong>Sign in</strong> button if you prefer:</p>
+          <ol>
+            <li>Click the <strong>Sign in</strong> button on the hero section or the top navigation bar to open the login page.</li>
+          </ol>
+          <img src="${signinBtnImg}" alt="Sign in button on the landing page" class="docs-screenshot" />
+          <ol start="2">
+            <li>On the <strong>login page</strong>, instead of signing in, click the <strong>Sign Up</strong> (or <strong>Register</strong>) link to open the same registration form.</li>
+          </ol>
+          <img src="${loginSignupImg}" alt="Login page with Sign Up link" class="docs-screenshot" />
           <blockquote>Note &mdash; Accounts may be deactivated by administrators if found to be in violation of usage policies or misuse of the system.</blockquote>
         `
       },

@@ -66,9 +66,10 @@
                 <el-menu-item index="register" @click="scrollToSection('register')">Settlements</el-menu-item>
                 <el-menu-item index="how-it-works" @click="scrollToSection('how-it-works')">Access</el-menu-item>
                 <el-menu-item index="3" @click="handleSelect('3')">Grievances</el-menu-item>
-                <el-menu-item index="docs" @click="openDocs" class="docs-link">
+                <el-menu-item index="docs" @click="openDocs">Help</el-menu-item>
+                <!-- <el-menu-item index="docs" @click="openDocs" class="docs-link">
                   <Icon icon="mdi:help-circle-outline" inline style="margin-right:4px" />Help
-                </el-menu-item>
+                </el-menu-item> -->
                 <el-menu-item index="7" @click="toggleDark" class="theme-toggle">
                   <Icon :icon="isDark ? 'carbon:moon' : 'carbon:sun'" inline />
                 </el-menu-item>

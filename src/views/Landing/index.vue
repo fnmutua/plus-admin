@@ -40,8 +40,18 @@
                         @click="navigateTo('get-started')"
                         class="cta-primary"
                       >
-                        {{ isLoggedIn ? 'Dashboard' : 'Sign in' }}
+                        {{ isLoggedIn ? 'Dashboard' : 'Sign In' }}
                       </el-button>
+                      <el-button
+                        v-if="!isLoggedIn"
+                        size="large"
+                        @click="navigateTo('signup')"
+                        class="cta-signup"
+                      >
+                        <Icon icon="mdi:account-plus-outline" class="button-icon" /> 
+                        Sign Up
+                      </el-button>
+
                       <el-button
                         size="large"
                         @click="navigateTo('grm')"
@@ -50,14 +60,14 @@
                         <Icon icon="uiw:message" class="button-icon" />
                         File a Grievance
                       </el-button>
-                      <el-button
+                      <!-- <el-button
                         size="large"
                         @click="navigateTo('incident')"
                         class="cta-secondary"
                       >
                         <Icon icon="mdi:alert-circle" class="button-icon" />
                         Incident Report
-                      </el-button>
+                      </el-button> -->
                     </div>
                   </div>
             </el-col>
@@ -440,13 +450,21 @@
                     <Icon icon="uiw:message" class="button-icon" />
                     File a Grievance
                   </el-button>
-                  <el-button
+                  <!-- <el-button
                     size="large"
                     @click="navigateTo('grm')"
                     class="cta-secondary"
                   >
                     <Icon icon="mdi:clipboard-text-search" class="button-icon" />
                     Check Status
+                  </el-button> -->
+                  <el-button
+                    size="large"
+                    @click="navigateTo('incident')"
+                    class="cta-secondary"
+                  >
+                    <Icon icon="mdi:alert-circle" class="button-icon" />
+                   File an Incident Report
                   </el-button>
                 </div>
               </div>
@@ -610,6 +628,11 @@ const navigateTo = (page: string) => {
     case 'faq':
       router.push('/faqs');
       break;
+    case 'signup':
+      router.push('/register');
+      break;
+
+      
     default:
       router.push('/');
       break;
@@ -1453,6 +1476,18 @@ AvgHHSize();
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+.grievance-hero-section .cta-signup {
+  border: 1px solid var(--el-color-success);
+  color: var(--el-color-success);
+  background: transparent;
+}
+
+.grievance-hero-section .cta-signup:hover {
+  border-color: var(--el-color-success-dark-2);
+  color: var(--el-color-success-dark-2);
+  background: var(--el-color-success-light-9);
 }
 
 .grievance-hero-section .cta-primary {
