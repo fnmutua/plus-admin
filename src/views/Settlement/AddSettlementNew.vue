@@ -3,6 +3,7 @@
 import { ref, reactive, nextTick, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 
+
 declare global {
   interface Window {
     google: any
@@ -29,6 +30,8 @@ import {
   ElCheckbox,
   ElCheckboxGroup,
   ElPopover,
+  ElCollapse,
+  ElCollapseItem,
   ElIcon
 } from 'element-plus'
 import { ArrowLeft, Check, Plus, Delete, UploadFilled, Back, Edit, QuestionFilled } from '@element-plus/icons-vue'
@@ -182,6 +185,79 @@ const settlementForm = reactive({
   vulnerability_total_score: null,
   vulnerability_rating: null
 })
+
+// Which section of the drawer form is expanded
+const activeFormSection = ref<'basic' | 'location' | 'parcel' | 'physical' | 'socio' | 'vulnerability'>('basic')
+
+type SectionKey = 'basic' | 'location' | 'parcel' | 'physical' | 'socio' | 'vulnerability'
+
+const sectionFields: Record<SectionKey, (keyof typeof settlementForm)[]> = {
+  basic: ['name', 'settlement_type', 'area', 'population', 'description'],
+  location: ['county_id', 'ward_id'],
+  parcel: ['parcel_no', 'parcel_owner', 'parcel_owner_type', 'rim_no', 'surveyed', 'land_status'],
+  physical: [
+    'pop_density',
+    'landuse',
+    'near_river',
+    'on_wayleave',
+    'on_road_reserve',
+    'structure_types',
+    'development',
+    'typical_building_materials',
+    'avg_dist_between',
+    'dist_town',
+    'dist_trunk',
+    'electricity_availability',
+    'piped_water_availability'
+  ],
+  socio: [
+    'encumbrance',
+    'num_households',
+    'avg_household_size',
+    'median_household_income',
+    'plot_ownership_ratio',
+    'plot_tenant_ratio',
+    'avg_rent',
+    'main_env_hazards',
+    'general_location'
+  ],
+  vulnerability: [
+    'climate_region',
+    'soil_type',
+    'land_cover',
+    'altitude_range',
+    'proximity_to_river',
+    'proximity_to_flood_plain',
+    'profiling_status',
+    'is_qualified',
+    'comments'
+  ]
+}
+
+const getSectionCompletion = (section: SectionKey): 'none' | 'partial' | 'full' => {
+  const fields = sectionFields[section]
+  const total = fields.length
+  if (!total) return 'none'
+  let filled = 0
+  fields.forEach((key) => {
+    const value = settlementForm[key]
+    if (Array.isArray(value)) {
+      if (value.length > 0) filled++
+    } else if (value !== null && value !== '' && value !== undefined) {
+      filled++
+    }
+  })
+  if (filled === 0) return 'none'
+  if (filled === total) return 'full'
+  return 'partial'
+}
+
+const getSectionStatusClass = (section: SectionKey) => {
+  const status = getSectionCompletion(section)
+  if (status === 'full') return 'section-header--full'
+  if (status === 'partial') return 'section-header--partial'
+  return 'section-header--none'
+}
 
 const formRules = reactive({
   name: [{ required: true, message: 'Settlement name is required', trigger: 'blur' }],
@@ -2270,39 +2346,53 @@ onMounted(async () => {
         label-width="180px"
         label-position="left"
       >
-        <el-divider content-position="left">Basic Information</el-divider>
+        <el-collapse v-model="activeFormSection" accordion>
+          <!-- 1. Basic Information -->
+          <el-collapse-item name="basic">
+            <template #title>
+              <div :class="['section-header', getSectionStatusClass('basic')]">
+                Basic Information
+              </div>
+            </template>
 
-        <el-form-item label="Settlement Name" prop="name">
-          <el-input v-model="settlementForm.name" placeholder="Enter settlement name" />
-        </el-form-item>
+            <el-form-item label="Settlement Name" prop="name">
+              <el-input v-model="settlementForm.name" placeholder="Enter settlement name" />
+            </el-form-item>
 
-        <el-form-item label="Settlement Type" prop="settlement_type">
-          <el-select v-model="settlementForm.settlement_type" placeholder="Select settlement type" filterable style="width: 100%">
-            <el-option
-              v-for="item in settlementTypeOptions"
-              :key="item.value"
-              :label="item.label"
-              :value="item.value"
-            />
-          </el-select>
-        </el-form-item>
+            <el-form-item label="Settlement Type" prop="settlement_type">
+              <el-select v-model="settlementForm.settlement_type" placeholder="Select settlement type" filterable style="width: 100%">
+                <el-option
+                  v-for="item in settlementTypeOptions"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                />
+              </el-select>
+            </el-form-item>
 
-        <el-form-item label="Area (Hectares)">
-          <el-input-number v-model="settlementForm.area" :min="0" :precision="4" style="width: 100%" :disabled="true" />
-          <div style="font-size: 12px; color: #909399; margin-top: 5px;">
-            Area is automatically calculated from the drawn boundary
-          </div>
-        </el-form-item>
+            <el-form-item label="Area (Hectares)">
+              <el-input-number v-model="settlementForm.area" :min="0" :precision="4" style="width: 100%" :disabled="true" />
+              <div style="font-size: 12px; color: #909399; margin-top: 5px;">
+                Area is automatically calculated from the drawn boundary
+              </div>
+            </el-form-item>
 
-        <el-form-item label="Population">
-          <el-input-number v-model="settlementForm.population" :min="0" style="width: 100%" />
-        </el-form-item>
+            <el-form-item label="Population">
+              <el-input-number v-model="settlementForm.population" :min="0" style="width: 100%" />
+            </el-form-item>
 
-        <el-form-item label="Description">
-          <el-input v-model="settlementForm.description" type="textarea" :rows="3" placeholder="Enter description" />
-        </el-form-item>
+            <el-form-item label="Description">
+              <el-input v-model="settlementForm.description" type="textarea" :rows="3" placeholder="Enter description" />
+            </el-form-item>
+          </el-collapse-item>
 
-        <el-divider content-position="left">Location</el-divider>
+          <!-- 2. Location -->
+          <el-collapse-item name="location">
+            <template #title>
+              <div :class="['section-header', getSectionStatusClass('location')]">
+                Location
+              </div>
+            </template>
 
         <el-form-item label="County" prop="county_id">
           <el-select
@@ -2351,8 +2441,15 @@ onMounted(async () => {
             Automatically determined from the selected ward
           </div>
         </el-form-item>
+          </el-collapse-item>
 
-        <el-divider content-position="left">Parcel Information</el-divider>
+          <!-- 3. Parcel Information -->
+          <el-collapse-item name="parcel">
+            <template #title>
+              <div :class="['section-header', getSectionStatusClass('parcel')]">
+                Parcel Information
+              </div>
+            </template>
 
         <el-form-item label="Parcel Number">
           <el-input v-model="settlementForm.parcel_no" placeholder="Enter parcel number" />
@@ -2414,8 +2511,15 @@ onMounted(async () => {
             </el-checkbox-group>
           </div>
         </el-form-item>
+          </el-collapse-item>
 
-        <el-divider content-position="left">Physical Characteristics</el-divider>
+          <!-- 4. Physical Characteristics -->
+          <el-collapse-item name="physical">
+            <template #title>
+              <div :class="['section-header', getSectionStatusClass('physical')]">
+                Physical Characteristics
+              </div>
+            </template>
 
         <el-form-item label="Population Density">
           <el-input-number v-model="settlementForm.pop_density" :min="0" style="width: 100%" />
@@ -2540,8 +2644,15 @@ onMounted(async () => {
             />
           </el-select>
         </el-form-item>
+          </el-collapse-item>
 
-        <el-divider content-position="left">Socio-Economic Information</el-divider>
+          <!-- 5. Socio-Economic Information -->
+          <el-collapse-item name="socio">
+            <template #title>
+              <div :class="['section-header', getSectionStatusClass('socio')]">
+                Socio-Economic Information
+              </div>
+            </template>
 
         <el-form-item label="Court Cases/Claims?">
           <el-select v-model="settlementForm.encumbrance" placeholder="Select" filterable style="width: 100%">
@@ -2585,6 +2696,15 @@ onMounted(async () => {
         <el-form-item label="General Location">
           <el-input v-model="settlementForm.general_location" placeholder="Enter general location" />
         </el-form-item>
+          </el-collapse-item>
+
+          <!-- 6. Vulnerability & Profiling -->
+          <el-collapse-item name="vulnerability">
+            <template #title>
+              <div :class="['section-header', getSectionStatusClass('vulnerability')]">
+                Vulnerability & Profiling
+              </div>
+            </template>
 
         <el-divider content-position="left">
           <span class="inline-flex items-center gap-1">
@@ -2711,6 +2831,9 @@ onMounted(async () => {
         <el-form-item label="Comments/Remarks">
           <el-input v-model="settlementForm.comments" type="textarea" :rows="3" placeholder="Enter comments" />
         </el-form-item>
+
+          </el-collapse-item>
+        </el-collapse>
       </el-form>
 
       <template #footer>
@@ -3001,6 +3124,28 @@ onMounted(async () => {
   gap: 10px;
   padding: 20px;
   border-top: 1px solid var(--el-border-color-lighter);
+}
+
+.section-header {
+  font-weight: 500;
+  font-size: 13px;
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.section-header--full {
+  color: #67c23a;
+}
+
+.section-header--partial {
+  color: #e6a23c;
+}
+
+.section-header--none {
+  color: #f56c6c;
 }
 
 /* Ensure drawer is visible on mobile */
