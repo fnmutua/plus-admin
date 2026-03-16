@@ -3915,8 +3915,15 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
           return res.status(400).json({ message: 'No valid filter fields provided', code: 'INVALID_FILTERS' });
         }
 
+        // Support both scalar equality and array "IN" semantics
         baseQuery.where = {
-          [Sequelize.Op.and]: validFilters.map(({ field, value }) => ({ [field]: value })),
+          [Sequelize.Op.and]: validFilters.map(({ field, value }) => {
+            if (Array.isArray(value)) {
+              // Treat an array of values as an IN clause
+              return { [field]: { [Sequelize.Op.in]: value } };
+            }
+            return { [field]: value };
+          }),
         };
       }
     }
@@ -12279,7 +12286,9 @@ exports.getOptimizedSettlements = async (req, res) => {
 
 const PUBLIC_SETTLEMENT_WHERE = {
   isApproved: 'Approved',
-  isActive: 'true'  // DB column is varchar, not boolean
+  isActive: 'true',  // DB column is varchar, not boolean
+  profiling_status: 'PROFILED',
+  is_qualified: true
 };
 
 /** POST /api/public/track-visit – record page visit (no auth) */

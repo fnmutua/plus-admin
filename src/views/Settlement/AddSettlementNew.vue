@@ -170,6 +170,8 @@ const settlementForm = reactive({
   avg_rent: null,
   main_env_hazards: null,
   general_location: null,
+  profiling_status: 'NOT_PROFILED',
+  is_qualified: null,
   comments: null,
   climate_region: null,
   soil_type: null,
@@ -1468,12 +1470,9 @@ const submitForm = async () => {
             // Mark that we're navigating from edit page
             sessionStorage.setItem('navigatingFromEdit', 'true')
             
-            // Navigate to settlement list page - preserve county filter via query
+            // Navigate back to settlement list; let the list screen decide filters
             router.push({
-              name: 'List',
-              query: {
-                county_id: settlementForm.county_id
-              }
+              name: 'List'
             })
           } else {
             ElMessage.error('Failed to update settlement')
@@ -2692,6 +2691,21 @@ onMounted(async () => {
             </div>
           </template>
           <span v-else style="font-size: 13px; color: #909399;">Fill all 6 attributes above to compute</span>
+        </el-form-item>
+
+        <el-form-item label="Profiling Status">
+          <el-select v-model="settlementForm.profiling_status" placeholder="Select profiling status">
+            <el-option label="Not Profiled" value="NOT_PROFILED" />
+            <el-option label="Partially Profiled" value="PARTIALLY_PROFILED" />
+            <el-option label="Profiled" value="PROFILED" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="Qualified (score ≥ threshold)">
+          <el-select v-model="settlementForm.is_qualified" placeholder="Select qualification status">
+            <el-option label="Yes" :value="true" />
+            <el-option label="No" :value="false" />
+          </el-select>
         </el-form-item>
 
         <el-form-item label="Comments/Remarks">

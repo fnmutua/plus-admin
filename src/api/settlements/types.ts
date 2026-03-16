@@ -1,12 +1,19 @@
 export type SettlementType = {
-forEach(arg0: (arrayItem: any) => void): unknown
-id(arg0: string, id: any): unknown
+  // Core identifiers / geometry
+  id?: number
   name: string
-  county_id: BigInteger
-  settlement_type: string
-  area: number
-  code: string
-  population: number
-  county: string
-  geom: string
+  county_id: number
+  settlement_type?: string
+  area?: number
+  code?: string
+  population?: number
+  county?: string
+  geom?: string
+
+  // Profiling / qualification
+  profiling_status?: 'NOT_PROFILED' | 'PARTIALLY_PROFILED' | 'PROFILED'
+  is_qualified?: boolean | null
+
+  // Generic indexer to allow filters and extra fields from backend
+  [key: string]: any
 }

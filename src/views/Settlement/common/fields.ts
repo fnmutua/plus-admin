@@ -93,6 +93,12 @@ const approvalStatusOptions = ref([
   { label: "Rejected", value: "Rejected" },
 ]);
 
+const profilingStatusOptions = ref([
+  { label: "Not Profiled", value: "NOT_PROFILED" },
+  { label: "Partially Profiled", value: "PARTIALLY_PROFILED" },
+  { label: "Profiled", value: "PROFILED" },
+]);
+
 const formFields: Field[][] = [
   // Step 1: Basic Information
   [
@@ -193,8 +199,26 @@ const formFields: Field[][] = [
     { id: "btn36", name: "avg_rent", label: "Average Rent", type: "number", multiselect: "false", adminUnit: false, options: [] },
     { id: "btn37", name: "main_env_hazards", label: "Main Environmental Hazards", type: "textarea", multiselect: "false", adminUnit: false, options: [] },
     { id: "btn38", name: "general_location", label: "General Location", type: "text", multiselect: "false", adminUnit: false, options: [] },
-     { id: "btn40", name: "description", label: "Description", type: "textarea", multiselect: "false", adminUnit: false, options: [] },
-    { id: "btn41", name: "comments", label: "Comments/Remarks", type: "textarea", multiselect: "false", adminUnit: false, options: [] },
+    {
+      id: "btn39",
+      name: "profiling_status",
+      label: "Profiling Status",
+      type: "select",
+      multiselect: "false",
+      adminUnit: false,
+      options: profilingStatusOptions.value,
+    },
+    {
+      id: "btn40",
+      name: "is_qualified",
+      label: "Qualified (score ≥ threshold)",
+      type: "select",
+      multiselect: "false",
+      adminUnit: false,
+      options: yes_no.value,
+    },
+    { id: "btn41", name: "description", label: "Description", type: "textarea", multiselect: "false", adminUnit: false, options: [] },
+    { id: "btn42", name: "comments", label: "Comments/Remarks", type: "textarea", multiselect: "false", adminUnit: false, options: [] },
   ],
   // Step 4: Geolocation
   [

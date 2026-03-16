@@ -263,6 +263,20 @@ module.exports = function (sequelize, DataTypes) {
         allowNull: true,
         comment: 'Computed rating: LOW, MEDIUM, HIGH',
       },
+
+      // Profiling / qualification status
+      profiling_status: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        defaultValue: 'NOT_PROFILED',
+        comment: 'Profiling status: NOT_PROFILED, PARTIALLY_PROFILED, PROFILED',
+      },
+      is_qualified: {
+        type: DataTypes.BOOLEAN,
+        allowNull: true,
+        defaultValue: true,
+        comment: 'Whether settlement meets slum/informal threshold when profiled',
+      },
   
     
     },

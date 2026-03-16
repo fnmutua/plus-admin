@@ -9,7 +9,7 @@ import {
   ElRadio, ElRadioGroup, ElAlert, ElDivider, ElDrawer,
 } from 'element-plus'
 import { ElMessage, ElSegmented, ElMessageBox } from 'element-plus'
-import { Position, Plus, Delete, Edit, Filter, InfoFilled, CopyDocument, Clock, Search, Setting, Back, Loading, CircleCheck, Message, CircleClose, Warning, View, RefreshLeft, Location } from '@element-plus/icons-vue'
+import { Position, Plus, Delete, Edit, Filter, InfoFilled,  CopyDocument, Clock, Search, Setting, Back, Loading, CircleCheck, Message, CircleClose, Warning, View, RefreshLeft, Location } from '@element-plus/icons-vue'
 import { ArrowLeft, ArrowRight, UploadFilled, Postcard, TopRight, Lock, Guide, TakeawayBox } from '@element-plus/icons-vue'
 import { ref, reactive, computed, nextTick, watch } from 'vue'
 import { ElPagination, ElTooltip, ElOption } from 'element-plus'
@@ -44,8 +44,9 @@ const MapBoxToken = 'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1
 mapboxgl.accessToken = MapBoxToken;
 
 // Filter variables
-const filters = ref([  'isActive'])
-const filterValues = ref([  ['Approved'], ['true']])
+// Default: show only profiled & qualified, active, approved settlements
+const filters = ref(['profiling_status', 'is_qualified', 'isApproved', 'isActive'])
+const filterValues = ref([['PROFILED'], [true], ['Approved'], ['true']])
 const selectedCounty = ref([])
 const selectedSubCounty = ref([])
 const selectedWard = ref([])
@@ -656,6 +657,19 @@ const getCounts = async () => {
     totalApproved.value = approvedMatch ? parseInt(approvedMatch.count, 10) : 0;
     totalRejected.value = rejectedMatch ? parseInt(rejectedMatch.count, 10) : 0;
     decommSettlementsCount.value = decommissionedMatch ? parseInt(decommissionedMatch.count, 10) : 0;
+
+    // Compute unprofiled count separately (NOT_PROFILED or PARTIALLY_PROFILED, same filters)
+    const unprofiledFormData: any = { ...formData }
+    unprofiledFormData.summaryField = 'profiling_status'
+    unprofiledFormData.groupFields = ['profiling_status']
+
+    const unprofiledResponse = await getSummarybyFieldFromMultipleIncludes(unprofiledFormData)
+    const unprofiledAmount = unprofiledResponse.Total || []
+    const unprofiledCount = unprofiledAmount
+      .filter((item: any) => ['NOT_PROFILED', 'PARTIALLY_PROFILED'].includes(item.profiling_status))
+      .reduce((sum: number, item: any) => sum + parseInt(item.count, 10), 0)
+
+    totalUnprofiled.value = unprofiledCount
   } catch (error) {
     console.error(error);
     return [];
@@ -752,12 +766,22 @@ onMounted(async () => {
 
 // When navigating back from AddSettlementNew or details, re-apply stored filters and reload data
 onActivated(async () => {
-  loadFiltersFromStorage()
+  // If we came back from an edit, clear stored filters and reload fresh
+  const fromEdit = sessionStorage.getItem('navigatingFromEdit') === 'true'
+  if (fromEdit) {
+    sessionStorage.removeItem('navigatingFromEdit')
+    await handleClear()
+    // Ensure we load the default segment with cleared filters
+    await getAllSetllementsInitially(activeSegment.value)
+    return
+  }
 
+  loadFiltersFromStorage()
+ 
   if (isCountyStaff.value && selectedCounty.value.length > 0) {
     value4.value = selectedCounty.value
   }
-
+ 
   await getCounts()
   getSettlmentHistory()
   await loadDataWithCurrentFilters()
@@ -776,6 +800,7 @@ const total = ref(0)
 const totalRejected = ref(0)
 const totalApproved = ref(0)
 const totalPending = ref(0)
+const totalUnprofiled = ref(0)
 const showEditSaveButton = ref(false)
 const showAddSaveButton = ref(true)
 const formheader = ref('Edit Settlement')
@@ -901,14 +926,17 @@ const onPageChange = async (selPage: any) => {
   page.value = selPage
   // Set status filters - role filters will be applied in getNewOrRejectedSettlements/getFilteredBySearchData
   if (activeSegment.value == 'Approved') {
-    filters.value = ['isApproved', 'isActive']
-    filterValues.value = [['Approved'], ['true']]
+    filters.value = ['profiling_status', 'is_qualified', 'isApproved', 'isActive']
+    filterValues.value = [['PROFILED'], [true], ['Approved'], ['true']]
   } else if (activeSegment.value == 'New') {
     filters.value = ['isApproved', 'isActive']
     filterValues.value = [['Pending'], ['true']]
   } else if (activeSegment.value == 'Rejected') {
     filters.value = ['isApproved', 'isActive']
     filterValues.value = [['Rejected'], ['true']]
+  } else if (activeSegment.value == 'Unprofiled') {
+    filters.value = ['profiling_status']
+    filterValues.value = [['NOT_PROFILED', 'PARTIALLY_PROFILED']]
   }
   saveFiltersToStorage();
   if (search_string.value) {
@@ -922,14 +950,17 @@ const onPageSizeChange = async (size: any) => {
   pageSize.value = size
   // Set status filters - role filters will be applied in getNewOrRejectedSettlements/getFilteredBySearchData
   if (activeSegment.value === 'Approved') {
-    filters.value = ['isApproved', 'isActive']
-    filterValues.value = [['Approved'], ['true']]
+    filters.value = ['profiling_status', 'is_qualified', 'isApproved', 'isActive']
+    filterValues.value = [['PROFILED'], [true], ['Approved'], ['true']]
   } else if (activeSegment.value === 'New') {
     filters.value = ['isApproved', 'isActive']
     filterValues.value = [['Pending'], ['true']]
   } else if (activeSegment.value === 'Rejected') {
     filters.value = ['isApproved', 'isActive']
     filterValues.value = [['Rejected'], ['true']]
+  } else if (activeSegment.value === 'Unprofiled') {
+    filters.value = ['profiling_status']
+    filterValues.value = [['NOT_PROFILED', 'PARTIALLY_PROFILED']]
   }
   saveFiltersToStorage();
   if (search_string.value) {
@@ -1041,7 +1072,11 @@ const getSettlementCount = async () => {
 const getNewOrRejectedSettlements = async (tab) => {
   loadingGetData.value = true
   // Set status filters first
-  if (tab === 'New') {
+  if (tab === 'Unprofiled') {
+    // Unprofiled tab: only NOT_PROFILED or PARTIALLY_PROFILED, no approval/active filter
+    filters.value = ['profiling_status']
+    filterValues.value = [['NOT_PROFILED', 'PARTIALLY_PROFILED']]
+  } else if (tab === 'New') {
     filters.value = ['isApproved', 'isActive']
     filterValues.value = [['Pending'], ['true']]
   } else if (tab === 'Rejected') {
@@ -1051,8 +1086,9 @@ const getNewOrRejectedSettlements = async (tab) => {
     filters.value = ['isApproved', 'isActive']
     filterValues.value = [['Decommissioned'], ['true']]
   } else {
-    filters.value = ['isApproved', 'isActive']
-    filterValues.value = [['Approved'], ['true']]
+    // Approved/Profiled tab: only show profiled & qualified, active, approved settlements
+    filters.value = ['profiling_status', 'is_qualified', 'isApproved', 'isActive']
+    filterValues.value = [['PROFILED'], [true], ['Approved'], ['true']]
   }
   
   // Apply role-based filters FIRST to ensure county/settlement restrictions are always present
@@ -1142,6 +1178,10 @@ const getNewOrRejectedSettlements = async (tab) => {
   } else if (tab == 'Decommissioned') {
     decommSettlements.value = res.data
     decommSettlementsCount.value = res.total
+  } else if (tab == 'Unprofiled') {
+    // Unprofiled tab uses shared tableDataList but its own total counter
+    tableDataList.value = res.data
+    totalUnprofiled.value = res.total
   } else {
     tableDataList.value = res.data
     totalApproved.value = res.total
@@ -3226,8 +3266,11 @@ const handleDownloadGeoData = async () => {
       filterValues.value = [['Decommissioned'], ['true'], ...filterValues.value.filter((_, i) => filters.value[i] !== 'isApproved' && filters.value[i] !== 'isActive')];
     } else {
       // Approved
-      filters.value = ['isApproved', 'isActive', ...filters.value.filter(f => f !== 'isApproved' && f !== 'isActive')];
-      filterValues.value = [['Approved'], ['true'], ...filterValues.value.filter((_, i) => filters.value[i] !== 'isApproved' && filters.value[i] !== 'isActive')];
+      filters.value = ['profiling_status', 'is_qualified', 'isApproved', 'isActive', ...filters.value.filter(f => f !== 'profiling_status' && f !== 'is_qualified' && f !== 'isApproved' && f !== 'isActive')];
+      filterValues.value = [['PROFILED'], [true], ['Approved'], ['true'], ...filterValues.value.filter((_, i) => {
+        const field = filters.value[i];
+        return field !== 'profiling_status' && field !== 'is_qualified' && field !== 'isApproved' && field !== 'isActive';
+      })];
     }
     
     // Apply role filters (this will update filters.value and filterValues.value)
@@ -3810,7 +3853,8 @@ const activeSegment = ref('Approved')
 
 const Statuses = computed(() => [
   {
-    label: 'Approved',
+    // Display as "Profiled" but keep internal value "Approved"
+    label: 'Profiled',
     value: 'Approved',
     icon: CircleCheck,
     count: totalApproved,
@@ -3830,6 +3874,13 @@ const Statuses = computed(() => [
     count: totalRejected,
     // Hide for county admin/staff, only show for national/super admin
     hidden: !(isNationalStaff.value || isSuperAdmin.value) || !showAdminButtons.value || isCountyAdmin.value
+  },
+  {
+    label: 'Unprofiled',
+    value: 'Unprofiled',
+    icon: Clock,
+    count: totalUnprofiled,
+    hidden: false,
   },
   {
     label: 'Duplicates',
@@ -3916,7 +3967,12 @@ const onSegmentClick = async () => {
   }
 
   const selected = statusMap[activeSegment.value]
-  if (selected) {
+
+  if (activeSegment.value === 'Unprofiled') {
+    // Show settlements that are NOT_PROFILED or PARTIALLY_PROFILED (regardless of approval)
+    filters.value = ['profiling_status']
+    filterValues.value = [['NOT_PROFILED', 'PARTIALLY_PROFILED']]
+  } else if (selected) {
     filters.value = ['isApproved', 'isActive']
     filterValues.value = [[selected], ['true']]
   }
@@ -4608,6 +4664,154 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
         </el-button>
       </div> -->
 
+    </div>
+
+
+    <div v-if="activeSegment === 'Unprofiled'">
+      <el-alert
+        type="warning"
+        :closable="false"
+        :show-icon="false"
+        style="margin-top: 8px; margin-bottom: 4px; padding: 6px 12px;">
+        <template #default>
+          <span style="font-size: 12px;">
+            These settlements are NOT_PROFILED or PARTIALLY_PROFILED and may have incomplete data. Use the actions to complete profiling or manage records.
+          </span>
+        </template>
+      </el-alert>
+      <el-table
+        table-layout="fixed"
+        :data="tableDataList"
+        :show-overflow-tooltip="true"
+        style="width: 100% ; margin-top: 10px;"
+        border
+        :row-class-name="tableRowClassName"
+        row-key="id"
+        @row-dblclick="handleRowDblClick"
+        @selection-change="handleSelectionChange">
+
+        <el-table-column type="selection" width="55" :selectable="(row) => canUserAccessSettlement(row, 'edit')" />
+
+        <el-table-column label="Id" width="80" prop="id" sortable>
+          <template #default="scope">
+            <div v-if="scope.row.documents?.length > 0" style="display: inline-flex; align-items: center;">
+              <span>{{ scope.row.id }}</span>
+              <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
+            </div>
+            <div v-else>
+              <span>{{ scope.row.id }}</span>
+            </div>
+          </template>
+        </el-table-column>
+
+        <el-table-column label="Name" prop="name" sortable>
+          <template #default="{ row }">
+            <span>{{ row.name }}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column label="Location" sortable width="400">
+          <template #default="scope">
+            <span>{{ scope.row.ward?.name }} ward, {{ scope.row.subcounty?.name }} subcounty, {{ scope.row.county?.name }}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column label="Type" prop="settlement_type" sortable width="150">
+          <template #default="{ row }">
+            {{ getSettlementTypeLabel(row.settlement_type) }}
+          </template>
+        </el-table-column>
+
+        <el-table-column label="Profiling Status" prop="profiling_status" sortable width="160" />
+
+        <el-table-column label="Population" prop="population" sortable />
+        <el-table-column label="Area(HA)" prop="area" sortable :formatter="row => Number(row.area).toFixed(2)" />
+        <el-table-column label="Created" prop="updatedAt" sortable :formatter="formatDate" />
+
+        <el-table-column label="Code" prop="code" sortable>
+          <template #default="{ row }">
+            <div style="position: relative;" @mouseenter="showCopyIcon(row)" @mouseleave="hideCopyIcon(row)">
+              <span>{{ row.code }}</span>
+              <el-tooltip class="item" effect="dark" content="Copy" placement="top">
+                <el-button
+                  v-show="isCopyIconVisible(row)"
+                  type="information"
+                  size="small"
+                  :icon="CopyDocument"
+                  circle
+                  plain
+                  style="position: absolute; top: 50%; right: 0; transform: translateY(-50%); margin-right: 5px;"
+                  @click="copyToClipboard(row.code)" />
+              </el-tooltip>
+            </div>
+          </template>
+        </el-table-column>
+
+        <el-table-column label="Actions" :width="actionColumnWidth">
+          <template #default="{ row }">
+            <TableActions
+              :item="row"
+              :buttons="getSettlementActionButtons(row)"
+              @view-on-map="handleViewOnMap"
+              @edit="handleEdit"
+              @review="Review"
+              @delete="handleDelete"
+              @decommission="handleDecommission"
+              @merge="handleMerge"
+              @update-location="handleUpdateLocation" />
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <!-- Merge button for selected unprofiled settlements -->
+      <div v-if="selectedSettlements.length >= 2" style="margin-top: 10px; margin-bottom: 10px;">
+        <el-button 
+          type="danger" plain
+          :icon="mergeLoading ? undefined : TakeawayBox"
+          :loading="mergeLoading"
+          :disabled="mergeLoading"
+          @click="handleMergeFromSelection">
+          Merge({{ selectedSettlements[0].name }} + {{ selectedSettlements[1].name }})
+        </el-button>
+        <el-button 
+          type="info" 
+          plain
+          :disabled="mergeLoading"
+          @click="selectedSettlements = []">
+          Clear Selection
+        </el-button>
+      </div>
+
+      <!-- Super admin batch actions for unprofiled settlements -->
+      <div v-if="isSuperAdmin && selectedSettlements.length >= 1" style="margin-top: 10px; margin-bottom: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
+        <el-button 
+          type="warning"
+          :icon="decommissionBatchLoading ? undefined : CircleClose"
+          :loading="decommissionBatchLoading"
+          :disabled="decommissionBatchLoading"
+          @click="handleBatchDecommission">
+          Decommission ({{ selectedSettlements.length }} selected)
+        </el-button>
+        <el-button 
+          type="danger"
+          :icon="deleteCascadeLoading ? undefined : Delete"
+          :loading="deleteCascadeLoading"
+          :disabled="deleteCascadeLoading"
+          @click="handleDeleteCascade">
+          Delete Cascade ({{ selectedSettlements.length }} selected)
+        </el-button>
+      </div>
+
+      <ElPagination
+        layout="sizes, prev, pager, next, total"
+        v-model:currentPage="page"
+        v-model:page-size="pageSize"
+        :page-sizes="getPageSizes(totalUnprofiled)"
+        :total="totalUnprofiled"
+        :background="true"
+        @size-change="onPageSizeChange"
+        @current-change="onPageChange"
+        class="mt-4" />
     </div>
 
 
