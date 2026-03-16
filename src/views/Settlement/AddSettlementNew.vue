@@ -804,7 +804,8 @@ const initializeMap = async () => {
           })
 
           ElMessage.success('Settlement boundary drawn successfully!')
-          
+          fetchClimateData(geom)
+
           // Exit drawing mode after completion
           drawingManager.value.setDrawingMode(null)
           isDrawingMode.value = false
@@ -1681,6 +1682,38 @@ const closeDrawer = () => {
   drawerVisible.value = false
 }
 
+// Auto-fill vulnerability fields from climate service using geometry centroid
+const fetchClimateData = async (geometry: any) => {
+  try {
+    const feature = { type: 'Feature', geometry }
+    const centroid = turf.centroid(feature)
+    const [lon, lat] = centroid.geometry.coordinates
+
+    const res = await fetch('https://kesmis.go.ke/climate/intersect', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lat, lon })
+    })
+    if (!res.ok) return
+
+    console.log(res)
+    const data = await res.json()
+    const mapped = data?.mapped
+    if (!mapped) return
+
+    if (mapped.soil_type)               settlementForm.soil_type = mapped.soil_type
+    if (mapped.climate_region)          settlementForm.climate_region = mapped.climate_region
+    if (mapped.land_cover)              settlementForm.land_cover = mapped.land_cover
+    if (mapped.altitude_range)          settlementForm.altitude_range = mapped.altitude_range
+    if (mapped.proximity_to_river)      settlementForm.proximity_to_river = mapped.proximity_to_river
+    if (mapped.proximity_to_flood_plain) settlementForm.proximity_to_flood_plain = mapped.proximity_to_flood_plain
+
+    ElMessage.success('Climate & vulnerability attributes auto-filled')
+  } catch (e) {
+    console.warn('Climate service unavailable:', e)
+  }
+}
+
 // Calculate area in hectares from GeoJSON geometry
 // turf.area() returns area in square meters (m²)
 // 1 hectare = 10,000 square meters
@@ -1916,7 +1949,8 @@ const readJsonFile = (event: any) => {
   
   settlementGeometry.value = geom
   settlementForm.geom = geom
-  
+  fetchClimateData(geom)
+
   // Calculate area
   try {
     const areaSquareMeters = turf.area(geom)
@@ -1978,13 +2012,14 @@ const readShapefile = async (file: File) => {
       
       settlementGeometry.value = geomX
       settlementForm.geom = geomX
-      
+      fetchClimateData(geomX)
+
       // Calculate area in hectares
       const areaHectares = calculateAreaInHectares(geomX)
       if (areaHectares !== null) {
         settlementForm.area = areaHectares
       }
-      
+
       // Update map
       if (map.value) {
         if (settlementPolygon.value) {
