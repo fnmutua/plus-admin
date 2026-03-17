@@ -34,7 +34,7 @@ import {
   ElCollapseItem,
   ElIcon
 } from 'element-plus'
-import { ArrowLeft, Check, Plus, Delete, UploadFilled, Back, Edit, QuestionFilled } from '@element-plus/icons-vue'
+import { ArrowLeft, Check, Plus, Delete, UploadFilled, Back, Edit,ArrowRight, QuestionFilled } from '@element-plus/icons-vue'
 import * as turf from '@turf/turf'
 import { getOneGeo, getSettlementListByCounty, getOneSettlement } from '@/api/settlements'
 import { getVulnerabilityMatrix, computeVulnerabilityScore } from '@/api/settings'
@@ -95,12 +95,13 @@ const filteredCountyOptions = computed(() => {
 })
 
 // Step management
-const currentStep = ref(0)
+const currentStep = ref(route.query.id ? 1 : 0)
 
 // Step 1: Location Selection - County and Ward
 const selectedCounty = ref<any>(null)
 const selectedWard = ref<any>(null)
 const filteredWards = ref<any[]>([])
+const wardsLoading = ref(false)
 const checkingGeometry = ref(false)
 
 // Step 2: Map
@@ -113,7 +114,7 @@ const settlementGeometry = ref<any>(null)
 const mapContainer = ref<HTMLDivElement | null>(null)
 const drawingManager = ref<any>(null)
 const drawnPolygons = ref<any[]>([])
-const isEditMode = ref(false)
+const isEditMode = ref(!!route.query.id)
 const editingSettlementId = ref<number | null>(null)
 const isDrawingMode = ref(false)
 const flyMarker = ref<any>(null)
@@ -174,7 +175,7 @@ const settlementForm = reactive({
   main_env_hazards: null,
   general_location: null,
   profiling_status: 'NOT_PROFILED',
-  is_qualified: null,
+  is_qualified: true,
   comments: null,
   climate_region: null,
   soil_type: null,
@@ -232,6 +233,15 @@ const sectionFields: Record<SectionKey, (keyof typeof settlementForm)[]> = {
     'is_qualified',
     'comments'
   ]
+}
+
+const sectionLabels: Record<SectionKey, string> = {
+  basic: 'Basic information',
+  location: 'Location',
+  parcel: 'Parcel information',
+  physical: 'Physical characteristics',
+  socio: 'Socio-economic profile',
+  vulnerability: 'Vulnerability & profiling'
 }
 
 const getSectionCompletion = (section: SectionKey): 'none' | 'partial' | 'full' => {
@@ -477,6 +487,7 @@ const handleCountyChange = async (countyId: any) => {
     return
   }
 
+  wardsLoading.value = true
   try {
     // Fetch wards for this county from API
     const res = await getListWithoutGeo({
@@ -505,6 +516,8 @@ const handleCountyChange = async (countyId: any) => {
   } catch (error) {
     console.error('Error fetching wards:', error)
     ElMessage.error('Failed to load wards for this county')
+  } finally {
+    wardsLoading.value = false
   }
 }
 
@@ -1491,6 +1504,29 @@ const submitForm = async () => {
         return
       }
 
+      // Warn if some sections are not fully filled in and let user confirm save
+      const allSections: SectionKey[] = ['basic', 'location', 'parcel', 'physical', 'socio', 'vulnerability']
+      const incompleteSections = allSections.filter((s) => getSectionCompletion(s) !== 'full')
+      console.log('Settlement save – section completion:', allSections.map(s => ({ section: s, status: getSectionCompletion(s) })))
+
+      if (incompleteSections.length > 0) {
+        const names = incompleteSections.map((s) => `• ${sectionLabels[s]}`).join('\n')
+        try {
+          await ElMessageBox.confirm(
+            `Some sections are not fully filled:\n\n${names}\n\nYou can still save now, or click Cancel to go back and complete more details.`,
+            'Incomplete sections',
+            {
+              confirmButtonText: 'Save anyway',
+              cancelButtonText: 'Cancel',
+              type: 'warning'
+            }
+          )
+        } catch {
+          // User cancelled save to complete more fields
+          return
+        }
+      }
+
       // Use settlementGeometry if form doesn't have it
       if (!settlementForm.geom && settlementGeometry.value) {
         settlementForm.geom = settlementGeometry.value
@@ -1571,12 +1607,9 @@ const submitForm = async () => {
               ElMessage.success('Settlement created successfully')
               clearFormAndGeometry()
               
-              // Redirect to settlement list after successful creation - preserve county filter via query
+              // Redirect to settlement list after successful creation; let the list screen decide filters
               router.push({
-                name: 'List',
-                query: {
-                  county_id: settlementForm.county_id
-                }
+                name: 'List'
               })
             } else {
               ElMessage.error('Failed to create settlement')
@@ -1603,12 +1636,9 @@ const submitForm = async () => {
                   ElMessage.success('Settlement created successfully')
                   clearFormAndGeometry()
                   
-                  // Redirect to settlement list after successful creation - preserve county filter via query
+                  // Redirect to settlement list after successful creation; let the list screen decide filters
                   router.push({
-                    name: 'List',
-                    query: {
-                      county_id: settlementForm.county_id
-                    }
+                    name: 'List'
                   })
                 }).catch((err) => {
                   console.error('Error creating record:', err)
@@ -1712,6 +1742,16 @@ const fetchClimateData = async (geometry: any) => {
   } catch (e) {
     console.warn('Climate service unavailable:', e)
   }
+}
+
+const onManualClimateFetch = async () => {
+  const geom = settlementForm.geom || settlementGeometry.value
+  if (!geom) {
+    ElMessage.error('Please draw or select settlement geometry before running climate auto-fill')
+    return
+  }
+
+  await fetchClimateData(geom)
 }
 
 // Calculate area in hectares from GeoJSON geometry
@@ -2132,7 +2172,6 @@ onMounted(async () => {
   const settlementId = route.query.id
   
   if (settlementId) {
-    isEditMode.value = true
     editingSettlementId.value = Number(settlementId)
     
     try {
@@ -2308,8 +2347,8 @@ onMounted(async () => {
         </div>
       </template>
 
-      <!-- Step 1: Location Selection - County and Ward -->
-      <div v-if="currentStep === 0" class="step-content">
+      <!-- Step 1: Location Selection - County and Ward (skip in edit mode) -->
+      <div v-if="currentStep === 0 && !isEditMode" class="step-content">
         <el-form label-width="150px" label-position="left">
           <el-row :gutter="20">
             <el-col :span="24" :md="12">
@@ -2357,6 +2396,38 @@ onMounted(async () => {
               </el-form-item>
             </el-col>
           </el-row>
+
+          <div
+            style="
+              font-size: 13px;
+              color: #606266;
+              margin-top: 16px;
+              padding: 12px 14px;
+              border: 1px dashed #dcdfe6;
+              border-radius: 6px;
+              background-color: #f9fafc;
+            "
+          >
+            <div style="font-weight: 500; margin-bottom: 6px;">How to Add a new settlement</div>
+            <ul style="padding-left: 0; margin: 0; list-style: none;">
+              <li style="display: flex; align-items: flex-start; gap: 6px; margin-bottom: 2px;">
+                <el-icon :size="14" style="margin-top: 2px; color: #67c23a;"><Check /></el-icon>
+                <span>Select the <strong>County</strong> where the settlement is located.</span>
+              </li>
+              <li style="display: flex; align-items: flex-start; gap: 6px; margin-bottom: 2px;">
+                <el-icon :size="14" style="margin-top: 2px; color: #67c23a;"><Check /></el-icon>
+                <span>Then select the <strong>Ward</strong>; this determines which ward boundary will load on the map.</span>
+              </li>
+              <li style="display: flex; align-items: flex-start; gap: 6px; margin-bottom: 2px;">
+                <el-icon :size="14" style="margin-top: 2px; color: #409eff;"><ArrowRight /></el-icon>
+                <span>After you pick a ward, the wizard will automatically move to the map step so you can draw or place the settlement inside the selected ward.</span>
+              </li>
+              <li style="display: flex; align-items: flex-start; gap: 6px;">
+                <el-icon :size="14" style="margin-top: 2px; color: #909399;"><Edit /></el-icon>
+                <span>After you finish drawing, the detailed settlement form will open in the side drawer.</span>
+              </li>
+            </ul>
+          </div>
         </el-form>
       </div>
 
@@ -2370,7 +2441,7 @@ onMounted(async () => {
     <el-drawer
       v-model="drawerVisible"
       :title="isEditMode ? 'Edit Settlement Details' : 'New Settlement Details'"
-      :size="isMobile ? '100%' : '600px'"
+      :size="isMobile ? '100%' : '720px'"
       direction="rtl"
       :before-close="closeDrawer"
     >
@@ -2432,10 +2503,10 @@ onMounted(async () => {
         <el-form-item label="County" prop="county_id">
           <el-select
             v-model="settlementForm.county_id"
-            placeholder="Select County"
+            :placeholder="(countyOptions && countyOptions.length) ? 'Select County' : 'Loading counties...'"
             filterable
             clearable
-            :disabled="isCountyRestricted"
+            :disabled="isCountyRestricted || !(countyOptions && countyOptions.length)"
             @change="handleDrawerCountyChange"
             style="width: 100%"
           >
@@ -2454,10 +2525,11 @@ onMounted(async () => {
         <el-form-item label="Ward" prop="ward_id">
           <el-select
             v-model="settlementForm.ward_id"
-            placeholder="Select Ward"
+            :placeholder="wardsLoading ? 'Loading wards...' : (!settlementForm.county_id ? 'Select county first' : 'Select Ward')"
             filterable
             clearable
-            :disabled="!settlementForm.county_id"
+            :disabled="!settlementForm.county_id || wardsLoading"
+            :loading="wardsLoading"
             @change="handleDrawerWardChange"
             style="width: 100%"
           >
@@ -2469,6 +2541,11 @@ onMounted(async () => {
             />
           </el-select>
         </el-form-item>
+
+        <div style="font-size: 13px; color: #606266; margin: 8px 0 16px;">
+          Select the <strong>County</strong> and <strong>Ward</strong> where the settlement is located.  
+          After choosing a ward, the system will load its boundary on the map in the next step so you can digitize or locate the settlement inside that ward.
+        </div>
 
         <el-form-item label="Subcounty">
           <el-input :model-value="subcountyDisplayName" disabled placeholder="Auto-inferred from ward" style="width: 100%" />
@@ -2747,9 +2824,27 @@ onMounted(async () => {
             <el-popover placement="right" :width="420" trigger="hover">
               <template #default>
                 <div class="vulnerability-help-popover">
-                  <p class="text-sm font-medium mb-2">Each attribute contributes to the vulnerability score (KISIP Tool A):</p>
+                  <p class="text-sm font-medium mb-2">Each attribute contributes to the vulnerability score (KISIP Tool A). Below are simple explanations for each region type:</p>
                   <ul class="text-xs space-y-2">
-                    <li><strong>Region</strong> — Köppen climate classification (e.g. Tropical, Arid, Temperate). Options: {{ (vulnerabilityOptions.climate_region || []).map(o => o.label).join(', ') || '—' }}</li>
+                    <li>
+                      <strong>Region</strong> — Köppen climate classification with simple descriptions:
+                      <ul class="mt-1 ml-4 list-disc space-y-1">
+                        <li><strong>Af</strong> – Tropical rainforest: hot and wet all year.</li>
+                        <li><strong>Am</strong> – Tropical monsoon: very wet season, short dry season.</li>
+                        <li><strong>Aw</strong> – Tropical savanna: hot with distinct wet and dry seasons.</li>
+                        <li><strong>BSh</strong> – Hot semi‑arid: very hot and quite dry.</li>
+                        <li><strong>BSk</strong> – Cold semi‑arid: dry with colder winters.</li>
+                        <li><strong>BWh</strong> – Hot desert: extremely hot and very dry.</li>
+                        <li><strong>Cfa</strong> – Humid subtropical: hot, humid summers and mild winters.</li>
+                        <li><strong>Cfb</strong> – Marine west coast: mild and wet most of the year.</li>
+                        <li><strong>Csb</strong> – Warm‑summer Mediterranean: warm, dry summers and mild, wetter winters.</li>
+                        <li><strong>Cwa</strong> – Monsoon‑influenced subtropical: hot, wet summers and cool, drier winters.</li>
+                        <li><strong>Cwb</strong> – Subtropical highland: cooler due to altitude with wet summers and dry winters.</li>
+                      </ul>
+                      <div class="mt-1">
+                        Options in the dropdown: {{ (vulnerabilityOptions.climate_region || []).map(o => o.label).join(', ') || '—' }}
+                      </div>
+                    </li>
                     <li><strong>Soil Type</strong> — Affects erosion and drainage. Options: {{ (vulnerabilityOptions.soil_type || []).map(o => o.label).join(', ') || '—' }}</li>
                     <li><strong>Land Cover</strong> — Surface type affecting runoff. Options: {{ (vulnerabilityOptions.land_cover || []).map(o => o.label).join(', ') || '—' }}</li>
                     <li><strong>Altitude Range (m)</strong> — Elevation bands. Options: {{ (vulnerabilityOptions.altitude_range || []).map(o => o.label).join(', ') || '—' }}</li>
@@ -2765,6 +2860,18 @@ onMounted(async () => {
             </el-popover>
           </span>
         </el-divider>
+
+        <div class="mb-3">
+          <el-button
+            type="success"
+            plain
+            size="small"
+            @click.stop="onManualClimateFetch"
+            :disabled="!settlementForm.geom && !settlementGeometry"
+          >
+            Click to Auto-fill vulnerability from climate data
+          </el-button>
+        </div>
 
         <el-form-item label="Region" prop="climate_region" required>
           <el-select v-model="settlementForm.climate_region" placeholder="Select region" filterable clearable style="width: 100%">
@@ -2856,7 +2963,7 @@ onMounted(async () => {
           </el-select>
         </el-form-item>
 
-        <el-form-item label="Qualified (score ≥ threshold)">
+        <el-form-item label="Qualified">
           <el-select v-model="settlementForm.is_qualified" placeholder="Select qualification status">
             <el-option label="Yes" :value="true" />
             <el-option label="No" :value="false" />
@@ -2866,8 +2973,7 @@ onMounted(async () => {
         <el-form-item label="Comments/Remarks">
           <el-input v-model="settlementForm.comments" type="textarea" :rows="3" placeholder="Enter comments" />
         </el-form-item>
-
-          </el-collapse-item>
+        </el-collapse-item>
         </el-collapse>
       </el-form>
 
