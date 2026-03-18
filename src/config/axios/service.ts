@@ -72,12 +72,12 @@ service.interceptors.response.use(
     } 
     else if (response.data.code === result_code) {
 
-      if ( response.data.message) {
+      if (response.data.message && !(response.config as any).silent) {
         ElMessage({
           message: response.data.message,
           type: 'success',
           duration:5000,
-        })    // felix - show message on success request 
+        })    // felix - show message on success request
 
       }
 

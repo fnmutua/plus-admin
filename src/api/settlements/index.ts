@@ -239,9 +239,9 @@ export const DeleteMultipleRecord = (data: SettlementType): Promise<IResponse<Se
   return request.post({ url: prod + '/api/v1/data/delete/many', data })
 }
 
-export const updateOneRecord = (data: SettlementType): Promise<IResponse<SettlementType>> => {
+export const updateOneRecord = (data: SettlementType, options?: { silent?: boolean }): Promise<IResponse<SettlementType>> => {
   console.log('....', data)
-  return request.post({ url: prod + '/api/v1/data/edit', data })
+  return request.post({ url: prod + '/api/v1/data/edit', data, ...(options?.silent ? { silent: true } : {}) })
 }
 
 

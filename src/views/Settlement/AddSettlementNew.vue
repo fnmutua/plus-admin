@@ -1713,8 +1713,12 @@ const closeDrawer = () => {
   drawerVisible.value = false
 }
 
+const populationLoading = ref(false)
+const climateLoading = ref(false)
+
 // Auto-fill population from building-based population estimation service
 const fetchPopulationEstimate = async (geometry: any) => {
+  populationLoading.value = true
   try {
     const feature = { type: 'Feature', geometry }
     const res = await fetch('https://kesmis.go.ke/estimate_population', {
@@ -1731,6 +1735,8 @@ const fetchPopulationEstimate = async (geometry: any) => {
     }
   } catch (e) {
     console.warn('Population estimation service unavailable:', e)
+  } finally {
+    populationLoading.value = false
   }
 }
 
@@ -1745,6 +1751,7 @@ const onManualPopulationFetch = async () => {
 
 // Auto-fill vulnerability fields from climate service using geometry centroid
 const fetchClimateData = async (geometry: any) => {
+  climateLoading.value = true
   try {
     const feature = { type: 'Feature', geometry }
     const centroid = turf.centroid(feature)
@@ -1772,6 +1779,8 @@ const fetchClimateData = async (geometry: any) => {
     ElMessage.success('Climate & vulnerability attributes auto-filled')
   } catch (e) {
     console.warn('Climate service unavailable:', e)
+  } finally {
+    climateLoading.value = false
   }
 }
 
@@ -2524,7 +2533,8 @@ onMounted(async () => {
                   plain
                   size="small"
                   @click.stop="onManualPopulationFetch"
-                  :disabled="!settlementForm.geom && !settlementGeometry"
+                  :loading="populationLoading"
+                  :disabled="(!settlementForm.geom && !settlementGeometry) || populationLoading"
                 >
                   Click to estimate population
                 </el-button>
@@ -2923,7 +2933,8 @@ onMounted(async () => {
             plain
             size="small"
             @click.stop="onManualClimateFetch"
-            :disabled="!settlementForm.geom && !settlementGeometry"
+            :loading="climateLoading"
+            :disabled="(!settlementForm.geom && !settlementGeometry) || climateLoading"
           >
             Click to Auto-fill vulnerability from climate data
           </el-button>

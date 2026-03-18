@@ -13,7 +13,7 @@ const token = ref(null)
 const { default_headers } = config
 
 const request = (option: any) => {
-  const { url, method, params, data, headersType, responseType, headers } = option
+  const { url, method, params, data, headersType, responseType, headers, silent } = option
 
   // get local storage variable for the logged in user, else pass empty token
   if (wsCache.storage.userInfo) {
@@ -43,7 +43,8 @@ const request = (option: any) => {
     params,
     data,
     responseType,
-    headers: finalHeaders
+    headers: finalHeaders,
+    ...(silent ? { silent: true } : {})
   })
 }
 

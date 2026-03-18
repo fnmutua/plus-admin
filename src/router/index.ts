@@ -1626,6 +1626,16 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         }
       },
       {
+        path: 'population-settings',
+        name: 'PopulationSettings',
+        component: () => import('@/views/settings/PopulationSettings.vue'),
+        meta: {
+          title: 'Population Settings',
+          icon: 'mdi:account-group',
+          role: ['root_admin', 'super_admin']
+        }
+      },
+      {
         path: 'page-visits',
         name: 'PageVisits',
         component: () => import('@/views/settings/PageVisits.vue'),
