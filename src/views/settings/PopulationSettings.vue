@@ -37,15 +37,26 @@
                   </div>
                 </div>
 
-                <ElButton
-                  type="primary"
-                  :loading="bulkRunning"
-                  :disabled="bulkRunning"
-                  @click="startBulkUpdate"
-                >
-                  {{ bulkRunning ? 'Updating...' : 'Start Bulk Update' }}
-                </ElButton>
-                <ElButton v-if="bulkRunning" type="danger" plain @click="bulkCancelled = true">Cancel</ElButton>
+                <div class="bulk-actions-row">
+                  <ElButton
+                    type="primary"
+                    :loading="bulkRunning"
+                    :disabled="bulkRunning"
+                    style="width: 50%"
+                    @click="startBulkUpdate"
+                  >
+                    {{ bulkRunning ? 'Updating...' : 'Start Bulk Update' }}
+                  </ElButton>
+                  <ElButton
+                    type="danger"
+                    plain
+                    :disabled="!bulkRunning"
+                    style="width: 50%"
+                    @click="bulkCancelled = true"
+                  >
+                    Cancel
+                  </ElButton>
+                </div>
               </div>
 
               <div v-if="bulkTotal > 0" class="bulk-progress">
@@ -58,6 +69,11 @@
                   <span v-if="!bulkRunning && bulkDone > 0" class="progress-done-label">Done</span>
                 </div>
                 <ElProgress :percentage="bulkPercent" :status="bulkProgressStatus" striped :striped-flow="bulkRunning" :duration="6" />
+                <div class="log-toolbar">
+                  <ElButton size="small" plain @click="copyLog" :disabled="bulkLog.length === 0">
+                    {{ copied ? '✓ Copied' : 'Copy to clipboard' }}
+                  </ElButton>
+                </div>
                 <div class="bulk-log" ref="bulkLogRef">
                   <div
                     v-for="(entry, i) in bulkLog"
@@ -183,7 +199,7 @@ const startBulkUpdate = async () => {
     for (const settlement of settlements) {
       if (bulkCancelled.value) break
 
-      const geom = settlement.geom
+      let geom = settlement.geom
       if (!geom) {
         bulkLog.value.push({ name: settlement.name || `ID ${settlement.id}`, status: 'skip', msg: 'No geometry' })
         bulkSkipped.value++
@@ -192,12 +208,26 @@ const startBulkUpdate = async () => {
         continue
       }
 
+      // geom may come back from the API as a JSON string — parse it
+      if (typeof geom === 'string') {
+        try { geom = JSON.parse(geom) } catch {
+          bulkLog.value.push({ name: settlement.name || `ID ${settlement.id}`, status: 'skip', msg: 'Invalid geometry' })
+          bulkSkipped.value++
+          bulkDone.value++
+          await scrollLog()
+          continue
+        }
+      }
+
       try {
-        const feature = { type: 'Feature', geometry: geom }
+        // Service accepts plain geometry, Feature, or FeatureCollection
+        const body = (geom.type === 'Feature' || geom.type === 'FeatureCollection')
+          ? geom
+          : { type: 'Feature', geometry: geom }
         const popRes = await fetch('https://kesmis.go.ke/estimate_population', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(feature)
+          body: JSON.stringify(body)
         })
 
         if (!popRes.ok) throw new Error(`HTTP ${popRes.status}`)
@@ -246,6 +276,16 @@ const startBulkUpdate = async () => {
 const scrollLog = async () => {
   await nextTick()
   if (bulkLogRef.value) bulkLogRef.value.scrollTop = bulkLogRef.value.scrollHeight
+}
+
+const copied = ref(false)
+const copyLog = async () => {
+  const text = bulkLog.value
+    .map(e => `${e.status === 'ok' ? '✓' : e.status === 'skip' ? '–' : '✗'} ${e.name}  ${e.msg}`)
+    .join('\n')
+  await navigator.clipboard.writeText(text)
+  copied.value = true
+  setTimeout(() => { copied.value = false }, 2000)
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -306,6 +346,12 @@ onMounted(() => {
   flex-wrap: wrap;
 }
 
+.bulk-actions-row {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+}
+
 .bulk-option-group {
   .option-label {
     margin: 0 0 8px 0;
@@ -337,8 +383,14 @@ onMounted(() => {
   }
 }
 
+.log-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
 .bulk-log {
-  margin-top: 14px;
+  margin-top: 6px;
   height: 140px;
   overflow-y: auto;
   border: 1px solid #e4e7ed;
