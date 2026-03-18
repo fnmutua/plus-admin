@@ -818,6 +818,7 @@ const initializeMap = async () => {
 
           ElMessage.success('Settlement boundary drawn successfully!')
           fetchClimateData(geom)
+          fetchPopulationEstimate(geom)
 
           // Exit drawing mode after completion
           drawingManager.value.setDrawingMode(null)
@@ -1712,6 +1713,36 @@ const closeDrawer = () => {
   drawerVisible.value = false
 }
 
+// Auto-fill population from building-based population estimation service
+const fetchPopulationEstimate = async (geometry: any) => {
+  try {
+    const feature = { type: 'Feature', geometry }
+    const res = await fetch('https://kesmis.go.ke/estimate_population', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(feature)
+    })
+    if (!res.ok) return
+
+    const data = await res.json()
+    if (data?.estimated_population != null) {
+      settlementForm.population = Math.round(data.estimated_population)
+      ElMessage.success(`Population estimated: ${Math.round(data.estimated_population).toLocaleString()} (${data.buildings} buildings × ${data.persons_per_building.toFixed(2)} persons/building)`)
+    }
+  } catch (e) {
+    console.warn('Population estimation service unavailable:', e)
+  }
+}
+
+const onManualPopulationFetch = async () => {
+  const geom = settlementForm.geom || settlementGeometry.value
+  if (!geom) {
+    ElMessage.error('Please draw or select settlement geometry before estimating population')
+    return
+  }
+  await fetchPopulationEstimate(geom)
+}
+
 // Auto-fill vulnerability fields from climate service using geometry centroid
 const fetchClimateData = async (geometry: any) => {
   try {
@@ -1990,6 +2021,7 @@ const readJsonFile = (event: any) => {
   settlementGeometry.value = geom
   settlementForm.geom = geom
   fetchClimateData(geom)
+  fetchPopulationEstimate(geom)
 
   // Calculate area
   try {
@@ -2053,6 +2085,7 @@ const readShapefile = async (file: File) => {
       settlementGeometry.value = geomX
       settlementForm.geom = geomX
       fetchClimateData(geomX)
+      fetchPopulationEstimate(geomX)
 
       // Calculate area in hectares
       const areaHectares = calculateAreaInHectares(geomX)
@@ -2485,6 +2518,33 @@ onMounted(async () => {
 
             <el-form-item label="Population">
               <el-input-number v-model="settlementForm.population" :min="0" style="width: 100%" />
+              <div class="mb-3" style="margin-top: 6px">
+                <el-button
+                  type="primary"
+                  plain
+                  size="small"
+                  @click.stop="onManualPopulationFetch"
+                  :disabled="!settlementForm.geom && !settlementGeometry"
+                >
+                  Click to estimate population
+                </el-button>
+                <el-popover placement="right" :width="360" trigger="hover">
+                  <template #default>
+                    <div class="vulnerability-help-popover">
+                      <p class="text-sm font-medium mb-2">Population is estimated from the drawn boundary using the Open Buildings dataset.</p>
+                      <ul class="text-xs space-y-2">
+                        <li><strong>Step 1 — Count buildings</strong> — All Open Buildings points that fall inside the settlement boundary are counted.</li>
+                        <li><strong>Step 2 — Apply persons-per-building factor</strong> — A county-level average derived from census data is applied: <em>population = buildings × persons per building</em>.</li>
+                        <li><strong>Step 3 — Round to nearest whole number</strong> — The result is rounded and filled into this field automatically.</li>
+                      </ul>
+                      <p class="text-xs mt-2 text-gray-500">The estimate is a guide. You can override it by typing a value directly. The service requires a drawn boundary to function.</p>
+                    </div>
+                  </template>
+                  <template #reference>
+                    <el-icon class="cursor-help text-gray-500" style="margin-left: 6px; vertical-align: middle;" :size="16"><QuestionFilled /></el-icon>
+                  </template>
+                </el-popover>
+              </div>
             </el-form-item>
 
             <el-form-item label="Description">
@@ -2542,10 +2602,6 @@ onMounted(async () => {
           </el-select>
         </el-form-item>
 
-        <div style="font-size: 13px; color: #606266; margin: 8px 0 16px;">
-          Select the <strong>County</strong> and <strong>Ward</strong> where the settlement is located.  
-          After choosing a ward, the system will load its boundary on the map in the next step so you can digitize or locate the settlement inside that ward.
-        </div>
 
         <el-form-item label="Subcounty">
           <el-input :model-value="subcountyDisplayName" disabled placeholder="Auto-inferred from ward" style="width: 100%" />

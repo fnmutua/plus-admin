@@ -104,7 +104,8 @@ exports.getMonitoringConfig = async (req, res) => {
     projectLocations.forEach((loc) => {
       if (!loc || !loc.id || !loc.location_name || !loc.project) return;
       const comp = componentMap.get(loc.project.component_id);
-      const componentName = comp ? comp.label : (loc.project.component?.title || 'Unknown Component');
+      // Prefer loaded component title (from project include), then componentMap, never show "Unknown Component" when we have data
+      const componentName = (loc.project.component?.title || (comp && comp.label)) || 'Unknown Component';
       const locationName = loc.location_name || 'Unknown Location';
       locationOptions.push({
         label: `${locationName} (${componentName})`,
