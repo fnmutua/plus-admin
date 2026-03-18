@@ -32,7 +32,7 @@
                     <p class="option-label">Scope</p>
                     <ElRadioGroup v-model="bulkScope">
                       <ElRadio label="missing">Without population only</ElRadio>
-                      <ElRadio label="all">All (overwrite existing)</ElRadio>
+                      <ElRadio label="all" :disabled="!isRootAdmin">All (overwrite existing)</ElRadio>
                     </ElRadioGroup>
                   </div>
                 </div>
@@ -123,8 +123,19 @@ import {
 } from 'element-plus'
 import { getSettlementListByCounty, updateOneRecord } from '@/api/settlements'
 import { getListWithoutGeo } from '@/api/counties'
+import { useAppStoreWithOut } from '@/store/modules/app'
+import { useCache } from '@/hooks/web/useCache'
 
 const activeTab = ref('bulk')
+
+// ── Auth ─────────────────────────────────────────────────────────────────────
+const { wsCache } = useCache()
+const appStore = useAppStoreWithOut()
+const userInfo = wsCache.get(appStore.getUserInfo)
+
+const isRootAdmin = computed(() =>
+  userInfo?.roles?.some((role: any) => role.name === 'root_admin') || false
+)
 
 // ── Counties ─────────────────────────────────────────────────────────────────
 
