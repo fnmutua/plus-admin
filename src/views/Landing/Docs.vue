@@ -929,9 +929,10 @@ const allNavGroups: NavGroup[] = [
               <h2>Status tabs</h2>
               <p>Settlements are organised into the following tabs based on their lifecycle status:</p>
               <table><thead><tr><th>Tab</th><th>Description</th><th>Who can see it</th></tr></thead><tbody>
-                <tr><td><strong>Approved</strong></td><td>Settlements that have been reviewed and approved. This is the default view.</td><td>All users</td></tr>
+                <tr><td><strong>Profiled</strong></td><td>Settlements that are profiled, qualified, approved and active. This is the default view.</td><td>All users</td></tr>
                 <tr><td><strong>New</strong></td><td>Pending settlements awaiting review and approval.</td><td>National staff, super admins, county admins</td></tr>
                 <tr><td><strong>Rejected</strong></td><td>Settlements that were reviewed and rejected.</td><td>National staff, super admins</td></tr>
+                <tr><td><strong>Unprofiled</strong></td><td>Settlements with a profiling status of <em>NOT_PROFILED</em> or <em>PARTIALLY_PROFILED</em>, regardless of approval status. Shows a badge with the count. Includes a <strong>Profiling Status</strong> column and an info banner reminding staff these records may have incomplete data.</td><td>All users</td></tr>
                 <tr><td><strong>Duplicates</strong></td><td>Potential duplicate records detected by the system, grouped by county.</td><td>National staff, super admins</td></tr>
                 <tr><td><strong>Decommissioned</strong></td><td>Settlements that have been decommissioned (no longer active).</td><td>National staff, super admins, county admins</td></tr>
                 <tr><td><strong>Deleted</strong></td><td>Soft-deleted or merged settlements. Can be restored.</td><td>National staff, super admins, county admins</td></tr>
@@ -1028,7 +1029,7 @@ const allNavGroups: NavGroup[] = [
               <ul>
                 <li>The settlement is saved with a status of <strong>Pending</strong> and assigned a unique code</li>
                 <li>It appears in the <strong>New</strong> tab of the settlement list</li>
-                <li>An administrator must <strong>review and approve</strong> the settlement before it moves to the Approved tab</li>
+                <li>An administrator must <strong>review and approve</strong> the settlement before it moves to the Profiled tab</li>
               </ul>
               <img src="${settlementAdd3SavedImg}" alt="Settlement saved as pending" class="docs-screenshot" />
             `
