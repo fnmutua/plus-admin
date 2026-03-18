@@ -2262,33 +2262,40 @@ onMounted(() => {
 
 const selectCounty = ref([])
 const selectSubCounty = ref([])
-const handleClear = async () => { 
-  selectSubCounty.value=null
-  selectCounty.value = null
-
+const handleClear = async () => {
+  selectSubCounty.value = []
+  selectCounty.value = []
+  filteredSubCountyList.value = [...subCountyList.value]
   getCards()
   getTabs()
 }
 
 
-const filterCounty = async (county_id) => {
-  //selectSubCounty.value=null
-  filteredSubCountyList.value = subCountyList.value.filter(option => county_id.includes(option.county_id));
-   console.log('xyz', filteredSubCountyList.value)
-
-selectedCounties.value = county_id;
- 
-console.log(selectedCounties.value);  // [1]
- if (selectedCounties.value.length == 0) {
-  filterLevel.value = 'national'
-} else {
-  filterLevel.value = 'county'
- 
+// Live cascade: filter subcounty list and clear stale selections as user picks counties
+const onCountySelectChange = (county_ids: any[]) => {
+  if (!county_ids || county_ids.length === 0) {
+    filteredSubCountyList.value = [...subCountyList.value]
+  } else {
+    filteredSubCountyList.value = subCountyList.value.filter(option => county_ids.includes(option.county_id))
+    // Remove any selected subcounties that no longer belong to chosen counties
+    const validIds = new Set(filteredSubCountyList.value.map((o: any) => o.value))
+    selectSubCounty.value = (selectSubCounty.value || []).filter((id: any) => validIds.has(id))
   }
+}
+
+const filterCounty = async (county_id) => {
+  filteredSubCountyList.value = county_id.length
+    ? subCountyList.value.filter(option => county_id.includes(option.county_id))
+    : [...subCountyList.value]
+
+  // Clear subcounty selections that don't belong to the new counties
+  const validIds = new Set(filteredSubCountyList.value.map((o: any) => o.value))
+  selectSubCounty.value = (selectSubCounty.value || []).filter((id: any) => validIds.has(id))
+
+  selectedCounties.value = county_id
+  filterLevel.value = selectedCounties.value.length === 0 ? 'national' : 'county'
   getCards()
   getTabs()
-console.log('filterLevel.value', selectedCounties.value)
-     
 }
 
 
@@ -2545,15 +2552,16 @@ const downloadSettlementData = async () => {
       <div class="filter-drawer-content">
         <div class="filter-group">
           <label class="filter-label">County</label>
-          <el-select 
+          <el-select
             class="filter-select"
-            v-model="selectCounty" 
-            multiple 
-            clearable 
-            filterable 
-            collapse-tags 
+            v-model="selectCounty"
+            multiple
+            clearable
+            filterable
+            collapse-tags
             placeholder="Select County"
-            size="default">
+            size="default"
+            @change="onCountySelectChange">
             <el-option v-for="item in countyList" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </div>

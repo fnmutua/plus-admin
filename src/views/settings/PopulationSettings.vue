@@ -123,6 +123,7 @@ import {
 } from 'element-plus'
 import { getSettlementListByCounty, updateOneRecord } from '@/api/settlements'
 import { getListWithoutGeo } from '@/api/counties'
+import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 
@@ -207,6 +208,31 @@ const startBulkUpdate = async () => {
       return
     }
 
+    // Build a cached per-ward avg household size using the same summary pattern as National.vue
+    const wardHhSizeMap = new Map<number, number | null>()
+    const getWardAvgHhSize = async (wardId: number): Promise<number | null> => {
+      if (wardHhSizeMap.has(wardId)) return wardHhSizeMap.get(wardId)!
+      try {
+        const res = await getSummarybyFieldFromMultipleIncludes({
+          model: 'households',
+          summaryField: 'households.hh_size',
+          summaryFunction: 'AVG',
+          assoc_models: [],
+          groupFields: [],
+          filterField: ['ward_id'],
+          filterValue: [[wardId]],
+          filterOperator: ['or']
+        })
+        const avg = res?.Total?.[0]?.AVG
+        const val = avg != null ? parseFloat(avg) : null
+        wardHhSizeMap.set(wardId, val)
+        return val
+      } catch {
+        wardHhSizeMap.set(wardId, null)
+        return null
+      }
+    }
+
     for (const settlement of settlements) {
       if (bulkCancelled.value) break
 
@@ -235,7 +261,12 @@ const startBulkUpdate = async () => {
         const body = (geom.type === 'Feature' || geom.type === 'FeatureCollection')
           ? geom
           : { type: 'Feature', geometry: geom }
-        const popRes = await fetch('https://kesmis.go.ke/estimate_population', {
+        const wardHhSize = settlement.ward_id ? await getWardAvgHhSize(settlement.ward_id) : null
+        const url = new URL('https://kesmis.go.ke/estimate_population')
+        if (wardHhSize != null) {
+          url.searchParams.set('persons_per_building', String(wardHhSize))
+        }
+        const popRes = await fetch(url.toString(), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body)
@@ -255,13 +286,13 @@ const startBulkUpdate = async () => {
         }
 
         const before = settlement.population || 0
-        const population = Math.round(data.estimated_population)
+        const population = Math.round(data.estimated_population / 100) * 100
         await updateOneRecord({ id: settlement.id, model: 'settlement', population } as any, { silent: true })
 
         bulkLog.value.push({
           name: settlement.name || `ID ${settlement.id}`,
           status: 'ok',
-          msg: `${before.toLocaleString()} → ${population.toLocaleString()} (${data.buildings} buildings × ${Number(data.persons_per_building).toFixed(2)} ppb)`
+          msg: `${before.toLocaleString()} → ${population.toLocaleString()} (${data.buildings} buildings × ${Number(data.persons_per_building).toFixed(2)} avg HH size)`
         })
       } catch (e: any) {
         bulkLog.value.push({ name: settlement.name || `ID ${settlement.id}`, status: 'error', msg: e?.message || 'Failed' })

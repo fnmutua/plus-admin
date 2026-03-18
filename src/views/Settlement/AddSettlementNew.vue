@@ -41,6 +41,7 @@ import { getVulnerabilityMatrix, computeVulnerabilityScore } from '@/api/setting
 import { CreateRecord, updateOneRecord, duplicatePreCheck } from '@/api/settlements'
 import { countyOptions, wardOptions, subcountyOptions } from './common/index'
 import { getListWithoutGeo } from '@/api/counties'
+import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import type { FormInstance } from 'element-plus'
@@ -102,6 +103,7 @@ const selectedCounty = ref<any>(null)
 const selectedWard = ref<any>(null)
 const filteredWards = ref<any[]>([])
 const wardsLoading = ref(false)
+const wardAvgHouseholdSize = ref<number | null>(null)
 const checkingGeometry = ref(false)
 
 // Step 2: Map
@@ -444,20 +446,24 @@ const handleDrawerCountyChange = async (countyId: any) => {
 }
 
 // Handle ward change in the drawer form (infers subcounty, doesn't navigate)
-const handleDrawerWardChange = (wardId: any) => {
+const handleDrawerWardChange = async (wardId: any) => {
   if (!wardId) {
     settlementForm.ward_id = ''
     settlementForm.subcounty_id = ''
+    wardAvgHouseholdSize.value = null
     return
   }
-  
+
   settlementForm.ward_id = wardId
   selectedWard.value = wardId
-  
+
   // Find the ward to get its subcounty_id
   const ward = filteredWards.value.find((w: any) => w.value === wardId) ||
                (wardOptions.value || []).find((w: any) => w.value === wardId)
-  
+
+  // Fetch ward-level avg household size from households data
+  wardAvgHouseholdSize.value = await fetchWardAvgHouseholdSize(wardId)
+
   if (ward && ward.subcounty_id) {
     settlementForm.subcounty_id = ward.subcounty_id
     console.log('Inferred subcounty_id from ward:', ward.subcounty_id)
@@ -507,7 +513,8 @@ const handleCountyChange = async (countyId: any) => {
       value: item.id,
       label: item.name,
       county_id: item.county_id,
-      subcounty_id: item.subcounty_id
+      subcounty_id: item.subcounty_id,
+      avg_household_size: item.avg_household_size ?? null
     }))
     
     if (filteredWards.value.length === 0) {
@@ -545,8 +552,10 @@ const handleWardChange = async (wardId: any) => {
       wardGeo.value = res.data[0].json_build_object
       
       // Update form with selected values
-      const ward = filteredWards.value.find((w: any) => w.value === wardId) || 
+      const ward = filteredWards.value.find((w: any) => w.value === wardId) ||
                    (wardOptions.value || []).find((w: any) => w.value === wardId)
+      // Fetch ward-level avg household size from households data
+      wardAvgHouseholdSize.value = await fetchWardAvgHouseholdSize(wardId)
       if (ward) {
         settlementForm.ward_id = wardId
         settlementForm.county_id = selectedCounty.value
@@ -1716,12 +1725,36 @@ const closeDrawer = () => {
 const populationLoading = ref(false)
 const climateLoading = ref(false)
 
+// Fetch average household size for a ward from the households dataset
+const fetchWardAvgHouseholdSize = async (wardId: any): Promise<number | null> => {
+  try {
+    const res = await getSummarybyFieldFromMultipleIncludes({
+      model: 'households',
+      summaryField: 'households.hh_size',
+      summaryFunction: 'AVG',
+      assoc_models: [],
+      groupFields: [],
+      filterField: ['ward_id'],
+      filterValue: [[wardId]],
+      filterOperator: ['or']
+    })
+    const avg = res?.Total?.[0]?.AVG
+    return avg != null ? parseFloat(avg) : null
+  } catch {
+    return null
+  }
+}
+
 // Auto-fill population from building-based population estimation service
 const fetchPopulationEstimate = async (geometry: any) => {
   populationLoading.value = true
   try {
-    const feature = { type: 'Feature', geometry }
-    const res = await fetch('https://kesmis.go.ke/estimate_population', {
+    const feature: any = { type: 'Feature', geometry }
+    const url = new URL('https://kesmis.go.ke/estimate_population')
+    if (wardAvgHouseholdSize.value != null) {
+      url.searchParams.set('persons_per_building', String(wardAvgHouseholdSize.value))
+    }
+    const res = await fetch(url.toString(), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(feature)
@@ -1730,8 +1763,13 @@ const fetchPopulationEstimate = async (geometry: any) => {
 
     const data = await res.json()
     if (data?.estimated_population != null) {
-      settlementForm.population = Math.round(data.estimated_population)
-      ElMessage.success(`Population estimated: ${Math.round(data.estimated_population).toLocaleString()} (${data.buildings} buildings × ${data.persons_per_building.toFixed(2)} persons/building)`)
+      const population = Math.round(data.estimated_population / 100) * 100
+      settlementForm.population = population
+      if (wardAvgHouseholdSize.value != null) {
+        settlementForm.avg_household_size = wardAvgHouseholdSize.value
+      }
+      const hhLabel = data.persons_per_building != null ? ` × ${data.persons_per_building.toFixed(2)} avg HH size` : ''
+      ElMessage.success(`Population estimated: ${population.toLocaleString()} (${data.buildings} buildings${hhLabel})`)
     }
   } catch (e) {
     console.warn('Population estimation service unavailable:', e)
@@ -1932,6 +1970,7 @@ const clearFormAndGeometry = () => {
   selectedWard.value = null
   wardOptions.value = []
   wardGeo.value = null
+  wardAvgHouseholdSize.value = null
   
   // Reset edit mode
   isEditMode.value = false
@@ -2294,7 +2333,7 @@ onMounted(async () => {
         }
       }
       
-      // Get ward geometry for context
+      // Get ward geometry for context and capture avg_household_size
       if (curData.ward_id) {
         const wardForm = {
           model: 'ward',
@@ -2304,6 +2343,8 @@ onMounted(async () => {
         if (wardRes.data[0]?.json_build_object?.features) {
           wardGeo.value = wardRes.data[0].json_build_object
         }
+        // Fetch ward-level avg household size from households data
+        wardAvgHouseholdSize.value = await fetchWardAvgHouseholdSize(curData.ward_id)
       }
       
       // Move directly to map step

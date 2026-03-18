@@ -6746,8 +6746,20 @@ async function deleteSettlementDataFromODK(settToUpdate) {
 
             },
               function (error, response, body) { 
-                console.log('Update ODK....... Successful')
-               console.log(response.body)
+                if (error) {
+                  console.error('Update ODK....... Failed', error.message || error);
+                  return;
+                }
+
+                const statusCode = response && response.statusCode;
+                if (statusCode && statusCode >= 200 && statusCode < 300) {
+                  console.log('Update ODK....... Successful');
+                } else {
+                  console.error('Update ODK....... Failed', statusCode, body);
+                }
+
+                // `request` passes response payload as `body` (3rd arg); `response.body` is often undefined.
+                if (body !== undefined) console.log(body);
               }
             )
           }
@@ -6860,8 +6872,20 @@ async function updateSettlementDataInODK(settToUpdate) {
 
             },
               function (error, response, body) { 
-                console.log('Update ODK....... Successful')
-               console.log(response.body)
+                if (error) {
+                  console.error('Update ODK....... Failed', error.message || error);
+                  return;
+                }
+
+                const statusCode = response && response.statusCode;
+                if (statusCode && statusCode >= 200 && statusCode < 300) {
+                  console.log('Update ODK....... Successful');
+                } else {
+                  console.error('Update ODK....... Failed', statusCode, body);
+                }
+
+                // `request` provides the payload in `body` (3rd arg); `response.body` is often undefined.
+                if (body !== undefined) console.log(body);
               }
             )
           }

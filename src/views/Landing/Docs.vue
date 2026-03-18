@@ -270,7 +270,9 @@ import smsSettings1Img from '@/assets/documentation/sms_settings.png'
 import smsSettings2Img from '@/assets/documentation/sms_settings2.png'
 import smsSettings3Img from '@/assets/documentation/sms_settings3.png'
 import climateScoreImg from '@/assets/documentation/climate-score.png'
+import climateToolAImg from '@/assets/documentation/climate-tool-A.png'
 import climateWeightsImg from '@/assets/documentation/climate-weights.png'
+import populationSettingsImg from '@/assets/documentation/population-settings.png'
 import programmesComponentsImg from '@/assets/documentation/programmes-components.png'
 import documentCategoriesImg from '@/assets/documentation/document-categories.png'
 import documentTypesImg from '@/assets/documentation/document-types.png'
@@ -371,7 +373,7 @@ const allNavGroups: NavGroup[] = [
             <tr><td><strong>Repository</strong></td><td>Document storage, drone imagery, and secure document sharing via token links.</td></tr>
             <tr><td><strong>Media</strong></td><td>Videos, live streams and articles related to programme activities.</td></tr>
             <tr><td><strong>Users &amp; Roles</strong></td><td>Role-based access control with granular permissions per module.</td></tr>
-            <tr><td><strong>Settings</strong></td><td>System configuration &mdash; admin units, programmes, dashboard builder, SMS, climate settings.</td></tr>
+            <tr><td><strong>Settings</strong></td><td>System configuration &mdash; admin units, programmes, dashboard builder, SMS, climate settings, and population estimation.</td></tr>
           </tbody></table>
           <h2>Who uses KeSMIS?</h2>
           <ul>
@@ -997,10 +999,15 @@ const allNavGroups: NavGroup[] = [
               </ul>
               <p>Neighbouring settlements already registered in the same ward are shown as pink polygons with labels, so you can avoid overlaps.</p>
               <p>The area in hectares is calculated automatically from the drawn polygon.</p>
+              <p>Once a polygon is drawn or a boundary is uploaded, two auto-fill services run automatically:</p>
+              <ul>
+                <li><strong>Population estimate</strong> &mdash; the boundary is sent to the building-based population service, which counts Open Buildings points inside the polygon and multiplies by the ward-level average household size (derived from household survey records for that ward). The result is rounded to the nearest 100 and pre-filled into the <em>Population</em> field. The ward average household size is also written into <em>Average Household Size</em>. You can re-run the estimate manually using the <strong>Click to estimate population</strong> button in the Basic Information section of the drawer.</li>
+                <li><strong>Climate auto-fill</strong> &mdash; the centroid of the boundary is sent to the KESMIS climate service, which returns the relevant geographic attributes (Climate Region, Soil Type, Land Cover, Altitude Range, Proximity to River, Proximity to Flood Plain). These are pre-filled into the Vulnerability Assessment section of the drawer. You can re-run this manually using the <strong>Click to Auto-fill vulnerability from climate data</strong> button at the top of the Vulnerability &amp; Profiling section.</li>
+              </ul>
               <img src="${settlementAdd2DrawImg}" alt="Draw settlement boundary on map" class="docs-screenshot" />
 
               <h2>Step 3 &mdash; Fill in the details</h2>
-              <p>After drawing the boundary, a side drawer opens with the following sections:</p>
+              <p>After drawing the boundary, a side drawer opens with the following sections. Population and vulnerability fields are pre-filled by the auto-fill services described above — review and adjust as needed before saving.</p>
               <img src="${settlementAdd3FillImg}" alt="Fill in settlement details" class="docs-screenshot" />
               <table><thead><tr><th>Section</th><th>Fields</th></tr></thead><tbody>
                 <tr><td><strong>Basic Information</strong></td><td>Name, settlement type (Slum / Informal Settlement / Project Location), area, population, description</td></tr>
@@ -3129,11 +3136,24 @@ const allNavGroups: NavGroup[] = [
         id: 'settings-climate',
         label: 'Climate Settings',
         content: `
-          <p>The <strong>Climate Settings</strong> section controls the scoring matrix used by the Climate Risk Assessment module. It is split into two tabs:</p>
+          <p>The <strong>Climate Settings</strong> section controls the scoring matrix used by the Climate Risk Assessment module and provides a bulk tool for auto-filling vulnerability attributes. It is split into three tabs:</p>
 
           <h2>Score tab</h2>
           <p>Defines the vulnerability rating bands. Each row in the table represents a rating level with editable <strong>Min Score</strong> and <strong>Max Score</strong> fields. Boundaries are synchronised — the max of one band automatically becomes the min of the next to prevent gaps or overlaps.</p>
           <img src="${climateScoreImg}" alt="Climate Settings — Score tab" class="docs-screenshot" />
+
+          <h2>Bulk Climate Update tab</h2>
+          <p>Fetches climate attributes from the KESMIS climate service for settlements in bulk. For each settlement the system sends its centroid coordinates to the service, which returns the relevant geographic attributes, then saves them back to the settlement record.</p>
+
+          <h2>Options</h2>
+          <table><thead><tr><th>Option</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>County</strong></td><td>Limit the run to a specific county, or leave blank for all counties.</td></tr>
+            <tr><td><strong>Scope — Without climate data only</strong></td><td>Only update settlements that are missing climate attributes (default). Safe to run without overwriting existing values.</td></tr>
+            <tr><td><strong>Scope — All (overwrite existing)</strong></td><td>Re-fetch and overwrite every settlement's climate attributes.</td></tr>
+            <tr><td><strong>Fields to update</strong></td><td>Select which attributes to fetch: Climate Region, Soil Type, Land Cover, Altitude Range, Proximity to River, Proximity to Flood Plain. At least one field must be selected.</td></tr>
+          </tbody></table>
+          <p>A progress bar and scrolling log appear once the run starts, showing ✓ updated, – skipped (no geometry), or ✗ error for each settlement. Click <strong>Cancel</strong> to stop after the current settlement completes.</p>
+          <img src="${climateToolAImg}" alt="Climate Settings — Bulk Climate Update tab" class="docs-screenshot" />
 
           <h2>Matrix Weights tab</h2>
           <p>Sets the weighting scores for individual hazard and vulnerability attributes used in the climate questionnaire. Attributes are grouped into collapsible sections by type:</p>
@@ -3154,6 +3174,47 @@ const allNavGroups: NavGroup[] = [
 
           <h2>Saving changes</h2>
           <p>Click <strong>Save Changes</strong> to apply the updated matrix. Click <strong>Refresh</strong> to reload the last saved configuration.</p>
+        `
+      },
+      {
+        id: 'settings-population',
+        label: 'Population Settings',
+        content: `
+          <p>The <strong>Population Settings</strong> section provides tools for estimating and updating settlement population figures using a building-based population service. It is organised into two tabs:</p>
+          <img src="${populationSettingsImg}" alt="Population Settings" class="docs-screenshot" />
+
+          <h2>Bulk Population Update tab</h2>
+          <p>Runs the population estimation service across multiple settlements in one operation. For each settlement, the system:</p>
+          <ol>
+            <li>Sends the settlement's boundary polygon to the estimation service</li>
+            <li>The service counts intersecting Open Buildings points within that boundary</li>
+            <li>Looks up the <strong>average household size</strong> for the settlement's ward from recorded household survey data</li>
+            <li>Passes that ward-level average as the <code>persons_per_building</code> factor to the service</li>
+            <li>Multiplies buildings × average household size to produce the estimated population, then <strong>rounds to the nearest 100</strong> (reflecting the secondary-source nature of the estimate)</li>
+            <li>Saves the rounded figure back to the settlement record</li>
+          </ol>
+
+          <h2>Options</h2>
+          <table><thead><tr><th>Option</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>County</strong></td><td>Limit the run to settlements in a specific county, or leave blank to process all counties.</td></tr>
+            <tr><td><strong>Scope — Without population only</strong></td><td>Only update settlements that currently have no population figure (default). Safe to run at any time without overwriting existing values.</td></tr>
+            <tr><td><strong>Scope — All (overwrite existing)</strong></td><td>Re-estimate and overwrite every settlement, including those that already have a population. Available to root admins only.</td></tr>
+          </tbody></table>
+
+          <h2>Progress log</h2>
+          <p>Once the run starts, a progress bar and scrolling log appear. Each settlement shows one of three outcomes:</p>
+          <table><thead><tr><th>Icon</th><th>Status</th><th>Meaning</th></tr></thead><tbody>
+            <tr><td><strong>✓</strong></td><td>Updated</td><td>Population estimated and saved. Log shows: <em>before → after (buildings × avg HH size)</em></td></tr>
+            <tr><td><strong>–</strong></td><td>Skipped</td><td>Settlement has no geometry, invalid geometry, or zero buildings detected — no change made</td></tr>
+            <tr><td><strong>✗</strong></td><td>Error</td><td>Service call or save failed — error message shown</td></tr>
+          </tbody></table>
+          <p>Use <strong>Copy to clipboard</strong> to export the full log. Click <strong>Cancel</strong> to stop the run after the current settlement completes.</p>
+
+          <h2>Ward average household size</h2>
+          <p>Rather than using a fixed national default, the service uses the <strong>ward-level average household size</strong> derived from household survey records (<code>AVG(hh_size)</code> filtered by <code>ward_id</code>). This means settlements in wards with more survey data get more accurate estimates. If no household data exists for a ward, the service falls back to its own county-level or global default.</p>
+
+          <h2>Persons per Building tab</h2>
+          <p>Reserved for configuring a manual override of the default persons-per-building factor used by the estimation service when no ward-level household data is available. Currently shows a <em>Coming soon</em> placeholder.</p>
         `
       }
     ]
