@@ -866,7 +866,9 @@ const getClickedSettlement = async (id: number) => {
       .addTo(map.value!)
 
     popup.getElement()?.addEventListener('click', () => {
-      push(`/settlement/map/${sett_id}`)
+      push(`/data/settlement/map/${sett_id}`)
+
+
     })
   } catch (error: any) {
     console.error('Error loading settlement:', error)

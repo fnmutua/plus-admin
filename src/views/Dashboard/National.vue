@@ -23,6 +23,7 @@ import { getRoutesList } from '@/api/settlements'
 import { inject } from 'vue'
 import { useRouter } from 'vue-router'
 import { Loading, Download } from '@element-plus/icons-vue'
+import { geoCache as _geoCache } from '@/utils/dashboardCache'
 
 const { push } = useRouter()
 
@@ -234,22 +235,32 @@ const fmap = ref(false)
 const getCountyGeo = async () => {
     try {
       geoLoading.value = true;
+
+      // Return cached county geo if already fetched this session
+      if (_geoCache.has('county')) {
+        countyGeo.value = _geoCache.get('county')
+        const bbox = turf.bbox(countyGeo.value)
+        const y_coord = (bbox[1] + bbox[3]) / 2
+        aspect.value = Math.cos(y_coord * Math.PI / 180)
+        registerMap('KE', countyGeo.value)
+        fmap.value = true
+        return
+      }
+
       const formData = {}
       formData.model = 'county'
       const res = await getAllGeo(formData)
       console.log('county geo', res.data[0].json_build_object)
       if (res.data[0].json_build_object.features) {
         countyGeo.value = res.data[0].json_build_object
-        //  console.log("County-geo", countyGeo.value)
+        _geoCache.set('county', countyGeo.value)
 
         var bbox = turf.bbox(countyGeo.value);
         const y_coord = (bbox[1] + bbox[3]) / 2;
         aspect.value = Math.cos(y_coord * Math.PI / 180);
-        //   console.log(aspect.value)
 
         registerMap('KE', res.data[0].json_build_object);
         console.log('✅ Map registered: KE', countyGeo.value.features?.length, 'features');
-        // Log feature property keys and names to help debug data linkage
         if (countyGeo.value.features?.length > 0) {
           const firstProps = countyGeo.value.features[0]?.properties;
           console.log('🗺️ GeoJSON property KEYS:', Object.keys(firstProps || {}));
@@ -271,6 +282,16 @@ const getCountyGeo = async () => {
 const getSubsetGeo = async (model, filterFields, filterValues) => {
   try {
     console.log('Get all parcels for this settlement - START', { model, filterFields, filterValues })
+
+    const geoCacheKey = `${model}:${filterFields.join(',')}:${JSON.stringify(filterValues)}`
+    if (_geoCache.has(geoCacheKey)) {
+      subCountyGeo.value = _geoCache.get(geoCacheKey)
+      const bbox = turf.bbox(subCountyGeo.value)
+      const y_coord = (bbox[1] + bbox[3]) / 2
+      aspect.value = Math.cos(y_coord * Math.PI / 180)
+      console.log('getSubsetGeo - served from cache')
+      return
+    }
 
     const formData = {}
     formData.model = model
@@ -310,6 +331,7 @@ const getSubsetGeo = async (model, filterFields, filterValues) => {
     var collection = turf.featureCollection(geoJSON.features);
     console.log('collection Geo:', collection)
     subCountyGeo.value = collection
+    _geoCache.set(geoCacheKey, collection)
     var bbox = turf.bbox(subCountyGeo.value);
     const y_coord = (bbox[1] + bbox[3]) / 2;
     aspect.value = Math.cos(y_coord * Math.PI / 180);

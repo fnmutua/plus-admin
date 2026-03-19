@@ -4,6 +4,7 @@ import {
   ElSelect, ElOption,ElEmpty,ElIcon, ElDrawer, ElButton
 } from 'element-plus'
 import { Loading } from '@element-plus/icons-vue'
+import { geoCache as _geoCache, indicatorConfigCache as _indicatorConfigCache } from '@/utils/dashboardCache'
 
 import { ref,computed, reactive, watch, onMounted, onBeforeUnmount } from 'vue'
 
@@ -126,21 +127,28 @@ const subCountyGeo = ref([])
 const aspect = ref()
 
 const getCountyGeo = async () => {
+  if (_geoCache.has('county')) {
+    countyGeo.value = _geoCache.get('county')
+    const bbox = turf.bbox(countyGeo.value)
+    const y_coord = (bbox[1] + bbox[3]) / 2
+    aspect.value = Math.cos(y_coord * Math.PI / 180)
+    registerMap('KE', countyGeo.value)
+    return
+  }
+
   const formData = {}
   formData.model = 'county'
   const res = await getAllGeo(formData)
   console.log('county geo', res.data[0].json_build_object)
   if (res.data[0].json_build_object.features) {
     countyGeo.value = res.data[0].json_build_object
-    //  console.log("County-geo", countyGeo.value)
+    _geoCache.set('county', countyGeo.value)
 
     var bbox = turf.bbox(countyGeo.value);
     const y_coord = (bbox[1] + bbox[3]) / 2;
     aspect.value = Math.cos(y_coord * Math.PI / 180);
-    //   console.log(aspect.value)
     registerMap('KE', countyGeo.value);
     console.log('✅ Map registered: KE', countyGeo.value.features?.length, 'features');
-    // Log feature property keys and names to help debug data linkage
     if (countyGeo.value.features?.length > 0) {
       const firstProps = countyGeo.value.features[0]?.properties;
       console.log('🗺️ GeoJSON property KEYS:', Object.keys(firstProps || {}));
@@ -148,17 +156,23 @@ const getCountyGeo = async () => {
       const allGeoNames = countyGeo.value.features.map((f: any) => f.properties?.name || f.properties?.NAME || f.properties?.Name || Object.values(f.properties || {})[0] || 'no name');
       console.log('🗺️ ALL geoJSON feature names:', allGeoNames);
     }
-
-
   }
-
-  // getSettlementCountByCounty() // This is only called the first time for the first graph
 }
 
 
 const getSubsetGeo = async (model, filterFields, filterValues) => {
   try {
     console.log('Get all parcels for this settlement - START', { model, filterFields, filterValues })
+
+    const geoCacheKey = `${model}:${filterFields.join(',')}:${JSON.stringify(filterValues)}`
+    if (_geoCache.has(geoCacheKey)) {
+      subCountyGeo.value = _geoCache.get(geoCacheKey)
+      const bbox = turf.bbox(subCountyGeo.value)
+      const y_coord = (bbox[1] + bbox[3]) / 2
+      aspect.value = Math.cos(y_coord * Math.PI / 180)
+      console.log('getSubsetGeo - served from cache')
+      return
+    }
 
     const formData = {}
     formData.model = model
@@ -198,6 +212,7 @@ const getSubsetGeo = async (model, filterFields, filterValues) => {
     var collection = turf.featureCollection(geoJSON.features);
     console.log('collection Geo:', collection)
     subCountyGeo.value = collection
+    _geoCache.set(geoCacheKey, collection)
     var bbox = turf.bbox(subCountyGeo.value);
     const y_coord = (bbox[1] + bbox[3]) / 2;
     aspect.value = Math.cos(y_coord * Math.PI / 180);
@@ -215,22 +230,21 @@ const getSubsetGeo = async (model, filterFields, filterValues) => {
 ////-----------------------------------------------------------------------------------
 
 const getIndicatorConfigurations = async (indicator_id) => {
-  const formData = {}
+  // Cache per indicator_id — configs don't change during a session
+  if (_indicatorConfigCache.has(indicator_id)) {
+    return _indicatorConfigCache.get(indicator_id)
+  }
 
+  const formData = {}
   formData.curUser = 1 // Id for logged in user
   formData.model = 'indicator_category'
-  //-Search field--------------------------------------------
   formData.searchField = ''
   formData.searchKeyword = ''
-  //--Single Filter -----------------------------------------
-
   formData.assocModel = ''
-
-  // - multiple filters -------------------------------------
   formData.filters = ['indicator_id']
   formData.filterValues = [[indicator_id]]
   formData.associated_multiple_models = []
-  //-------------------------
+
   const res = await getSettlementListByCounty(formData)
   console.log('indicator configs >>>>', res)
   let ind_config_arr = []
@@ -238,6 +252,7 @@ const getIndicatorConfigurations = async (indicator_id) => {
     ind_config_arr.push(arrayItem.id)
   })
 
+  _indicatorConfigCache.set(indicator_id, ind_config_arr)
   return ind_config_arr
 }
 

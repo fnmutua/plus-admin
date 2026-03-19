@@ -2,6 +2,19 @@ import request from '@/config/axios'
 
 const prod = import.meta.env.VITE_APP_HOST // remove the port for production
 
+// Simple hash for cache keys — deterministic string from any object
+function _hashData(obj: any): string {
+  const str = JSON.stringify(obj, Object.keys(obj).sort())
+  let h = 0
+  for (let i = 0; i < str.length; i++) {
+    h = Math.imul(31, h) + str.charCodeAt(i) | 0
+  }
+  return Math.abs(h).toString(36)
+}
+
+// In-flight deduplication: identical concurrent requests share one promise
+const _summaryInflight = new Map<string, Promise<any>>()
+
 
 
 export const getSummarybyField = (data: any): Promise<IResponse> => {
@@ -27,9 +40,20 @@ export const getSummarybyFieldFromInclude= (data: any): Promise<IResponse> => {
    return request.post({ url: prod + '/api/v1/summary/byfield/include', data })
 }
 
-export const getSummarybyFieldFromMultipleIncludes= (data: any): Promise<IResponse> => {
-  // console.log('filters....', data)
-   return request.post({ url: prod + '/api/v1/summary/byfield/multiple', data })
+export const getSummarybyFieldFromMultipleIncludes = (data: any): Promise<IResponse> => {
+  // Auto-inject cache_key so the backend Redis layer can cache repeat queries
+  const payload = { ...data, cache_key: data.cache_key || _hashData(data) }
+  const key = payload.cache_key
+
+  // Return existing in-flight promise for identical concurrent requests
+  if (_summaryInflight.has(key)) return _summaryInflight.get(key)!
+
+  const promise = request
+    .post({ url: prod + '/api/v1/summary/byfield/multiple', data: payload })
+    .finally(() => _summaryInflight.delete(key))
+
+  _summaryInflight.set(key, promise)
+  return promise
 }
 
 
