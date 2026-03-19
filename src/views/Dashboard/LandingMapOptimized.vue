@@ -62,7 +62,7 @@
 
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
-import { ref, watch, onMounted, computed, type Ref } from 'vue'
+import { ref, watch, onMounted, onUnmounted, computed, type Ref } from 'vue'
 import { ElButton, ElSelect, ElOption, ElMessage, ElCollapse, ElCollapseItem } from 'element-plus'
 import { Icon } from '@iconify/vue'
 import mapboxgl from "mapbox-gl"
@@ -148,25 +148,29 @@ const toggleFilters = () => {
   }
 }
 
-// Watch for window resize
+const outsideClickHandler = (e: MouseEvent) => {
+  if (isMobile.value && filtersVisible.value) {
+    const target = e.target as HTMLElement
+    const filtersPanel = document.querySelector('.floating-collapse')
+    const filterControl = document.querySelector('.filter-control')
+    if (filtersPanel && filterControl &&
+        !filtersPanel.contains(target) &&
+        !filterControl.contains(target)) {
+      filtersVisible.value = false
+    }
+  }
+}
+
 if (typeof window !== 'undefined') {
   window.addEventListener('resize', updateMobileState)
-  
-  // Close filters when clicking outside on mobile
-  document.addEventListener('click', (e) => {
-    if (isMobile.value && filtersVisible.value) {
-      const target = e.target as HTMLElement
-      const filtersPanel = document.querySelector('.floating-collapse')
-      const filterControl = document.querySelector('.filter-control')
-      
-      if (filtersPanel && filterControl && 
-          !filtersPanel.contains(target) && 
-          !filterControl.contains(target)) {
-        filtersVisible.value = false
-      }
-    }
-  })
+  document.addEventListener('click', outsideClickHandler)
 }
+
+onUnmounted(() => {
+  window.removeEventListener('resize', updateMobileState)
+  document.removeEventListener('click', outsideClickHandler)
+  map.value?.remove()
+})
 
 // Data state
 const county = ref<number[]>([])
@@ -596,13 +600,12 @@ const handleChangeCounty = debounce(async (countyIds: number | number[]) => {
         loadCountyGeometries(countyArray)
       ])
 
-      // Update layers
       await addSettlementLayers()
       if (countyGeos) {
         addCountyLayer(countyGeos)
       }
 
-      // Load subcounties for selected counties
+      // Subcounties are independent of layer rendering — run in parallel
       await loadSubcountiesForCounties(countyArray)
 
       mapLoading.value = false
@@ -641,15 +644,16 @@ const handleChangeSubcounty = debounce(async (subcountyIds: number | number[]) =
       subcountyIds: subcountyArray.length > 0 ? subcountyArray : undefined
     })
 
-    // Load subcounty geometries if subcounties are selected
     if (subcountyArray.length > 0) {
-      const subcountyGeos = await loadSubcountyGeometries(subcountyArray)
-      await addSettlementLayers()
+      // Geo fetch and layer update both depend only on loadSettlements — run in parallel
+      const [subcountyGeos] = await Promise.all([
+        loadSubcountyGeometries(subcountyArray),
+        addSettlementLayers()
+      ])
       if (subcountyGeos) {
         addSubcountyLayer(subcountyGeos)
       }
     } else {
-      // If no subcounty selected, reload with county filter and restore county layer
       await addSettlementLayers()
       if (county.value.length > 0) {
         const countyGeos = await loadCountyGeometries(county.value)
@@ -657,7 +661,6 @@ const handleChangeSubcounty = debounce(async (subcountyIds: number | number[]) =
           addCountyLayer(countyGeos)
         }
       } else if (countyGeo.value) {
-        // Restore full county layer if no county filter
         addCountyLayer(countyGeo.value)
       }
     }

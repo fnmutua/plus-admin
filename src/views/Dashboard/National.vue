@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {
-  ElRow, ElCol, ElCard, ElEmpty, ElTabs, ElTabPane, ElSkeleton, ElSelect, ElOption, ElButton, ElDrawer
+  ElRow, ElCol, ElCard, ElEmpty, ElTabs, ElTabPane, ElSkeleton, ElSkeletonItem, ElSelect, ElOption, ElButton, ElDrawer
 } from 'element-plus'
 import { ref, reactive, onBeforeMount, onMounted, onBeforeUnmount } from 'vue'
 import { Icon } from '@iconify/vue';
@@ -884,74 +884,36 @@ const getCardData = async () => {
 
   // cards.value = res.data
  
-  res.data.forEach(function async(arrayItem) {
-    console.log('getting teh card', arrayItem)
-    if (arrayItem.computation === 'proportion') {
-      console.log('Proportiongs......')
-     var cardSymbol='%'
-    } else {
-      var cardSymbol = ''
-       }
-
-    // Check if card already exists to prevent duplicates
+  // Phase 1: add all cards immediately with loading state (undefined value shows skeleton)
+  res.data.forEach((arrayItem) => {
+    const cardSymbol = arrayItem.computation === 'proportion' ? '%' : ''
     const existingCardIndex = cards.value.findIndex(c => c.id === arrayItem.id)
-    
     if (existingCardIndex === -1) {
-      // Initialize card with default value immediately
-      let card = { ...arrayItem }
-      card.value = undefined // Will be set when promise resolves
-      card.symbol = cardSymbol
-      
-      // Add card to array immediately so it shows up (with loading state)
+      const card = { ...arrayItem, value: undefined, symbol: cardSymbol }
       cards.value.push(card)
-      cards.value.sort((a, b) => a.id - b.id);
     } else {
-      // Card already exists, just update the symbol and reset value to undefined for reload
       cards.value[existingCardIndex].value = undefined
       cards.value[existingCardIndex].symbol = cardSymbol
     }
-
-    var result = getSummary(arrayItem)
-  //  var result = getSummary(arrayItem.card_model, arrayItem.card_model_field, arrayItem.aggregation)
-
-      result.then((crd) => {
-          // Check if this request is still the latest one before adding card
-          if (requestId !== currentCardRequestId) {
-            console.log('Request outdated, ignoring card result')
-            return
-          }
-
-          console.log('resultx',crd); // "Promise resolved!"
-
-          // Find the card in the array and update it
-          const cardIndex = cards.value.findIndex(c => c.id === arrayItem.id)
-          if (cardIndex !== -1) {
-            // Ensure value is set (0 is valid, null/undefined are not)
-            cards.value[cardIndex].value = (crd !== null && crd !== undefined) ? crd : 0
-            cards.value[cardIndex].symbol = cardSymbol
-            cards.value.sort((a, b) => a.id - b.id);
-          }
-
-          console.log('Sorted',  cards.value)
-
-
-        });
-
-  // result.then((crd) => {
-  //     console.log('resultx',crd); // "Promise resolved!"
-  //     let card = arrayItem
-  //     card.value = crd
-  //     card.symbol=cardSymbol
-  //     cards.value.push(card)
-  //   });
-
   })
+  cards.value.sort((a, b) => a.id - b.id)
 
-
-  console.log('After Querry', res)
-  if (requestId === currentCardRequestId) {
-    cards.value.sort((a, b) => a.id - b.id);
-  }
+  // Phase 2: fetch all summaries in parallel
+  await Promise.all(res.data.map(async (arrayItem) => {
+    const cardSymbol = arrayItem.computation === 'proportion' ? '%' : ''
+    try {
+      const crd = await getSummary(arrayItem)
+      if (requestId !== currentCardRequestId) return
+      const cardIndex = cards.value.findIndex(c => c.id === arrayItem.id)
+      if (cardIndex !== -1) {
+        cards.value[cardIndex].value = (crd !== null && crd !== undefined) ? crd : 0
+        cards.value[cardIndex].symbol = cardSymbol
+        cards.value.sort((a, b) => a.id - b.id)
+      }
+    } catch (e) {
+      console.error('Error fetching summary for card', arrayItem.id, e)
+    }
+  }))
 
 }
 
@@ -996,7 +958,8 @@ const getCharts = async (section_id) => {
     console.log('Getting the charts ', response.data)
 
 
-    response.data.forEach(function async(thisChart) {
+    const processPromises: Promise<void>[] = []
+    response.data.forEach(function(thisChart) {
       console.log('This Chart:', thisChart)
       
       // Build subtitle with filter label
@@ -2019,60 +1982,51 @@ async function processTreemapChart() {
       // Run the approriate funtion 
       if (thisChart.type == 1) {
         console.log('processSimpleBarChart')
-        processSimpleBarChart()
+        processPromises.push(processSimpleBarChart())
       }
 
       else if (thisChart.type == 2) {
-        processMultiBarChart();
+        processPromises.push(processMultiBarChart());
       }
 
       else if (thisChart.type == 3 || thisChart.type == 10) {
-        processPieChart();
-
+        processPromises.push(processPieChart());
       }
 
-    else if (thisChart.type == 11) {
-        processTreemapChart();
-
-      }
-      
-
-      else if (thisChart.type == 4  ) {
-        processStackedBarChart();
+      else if (thisChart.type == 11) {
+        processPromises.push(processTreemapChart());
       }
 
-      else if (thisChart.type == 9  ) {
-        processStackedBarChartAbs();
+      else if (thisChart.type == 4) {
+        processPromises.push(processStackedBarChart());
       }
 
-
-
+      else if (thisChart.type == 9) {
+        processPromises.push(processStackedBarChartAbs());
+      }
 
       else if (thisChart.type == 5) {
-        processLineChart();
+        processPromises.push(processLineChart());
       }
 
       else if (thisChart.type == 6) {
-        processStackLineChart();
+        processPromises.push(processStackLineChart());
       }
 
       else if (thisChart.type == 7) {
-        processMapChart();
+        processPromises.push(processMapChart());
       }
 
       else if (thisChart.type == 8) {
         console.log('calling processPyramid')
-        processPyramid();
+        processPromises.push(processPyramid());
       }
-
-  
 
     })
 
+    // Wait for all chart processes to complete before returning
+    await Promise.all(processPromises)
 
-
-    // console.log('charts  :', charts)
- //   return charts;
     return charts.sort((a, b) => a.id - b.id);
 
   } catch (error) {
@@ -2540,7 +2494,7 @@ const downloadSettlementData = async () => {
 </script>
 
 <template>
-  <div class="dashboard-container" v-loading="dashboardLoading" element-loading-text="Loading dashboard..." element-loading-spinner="el-icon-loading" element-loading-background="rgba(0, 0, 0, 0.8)">
+  <div class="dashboard-container" v-loading="dashboardLoading" element-loading-text="Loading dashboard..." element-loading-background="rgba(255, 255, 255, 0.75)">
     <!-- Filter Drawer -->
     <el-drawer
       v-model="filtersVisible"
@@ -2587,12 +2541,40 @@ const downloadSettlementData = async () => {
     </el-drawer>
 
     <el-row :gutter="16" class="cards-row">
-      <el-col v-if="cards.length === 0 && !cardLoading" :span="24">
-        <el-empty description="No cards available" />
-      </el-col>
+      <!-- Placeholder skeletons before any cards have loaded -->
+      <template v-if="cardLoading && cards.length === 0">
+        <el-col v-for="n in 4" :key="'card-ph-' + n" :xs="24" :sm="12" :md="8" :lg="6">
+          <div class="tabs-container">
+            <el-card shadow="hover" class="stat-card" :body-style="{ padding: '0' }">
+              <ElSkeleton animated :loading="true">
+                <template #template>
+                  <div class="card-skeleton-placeholder">
+                    <ElSkeletonItem variant="circle" style="width:40px;height:40px" />
+                    <div style="flex:1">
+                      <ElSkeletonItem variant="h3" style="width:60%" />
+                      <ElSkeletonItem variant="text" style="width:80%;margin-top:8px" />
+                    </div>
+                  </div>
+                </template>
+              </ElSkeleton>
+            </el-card>
+          </div>
+        </el-col>
+      </template>
       <el-col v-for="(card) in cards" :key="card.id" :span="24 / cards.length" :xs="24" :sm="12" :md="8" :lg="6">
-        <div class="tabs-container">
+        <div class="tabs-container card-fade-in">
           <ElSkeleton :loading="cardLoading || card.value === undefined || card.value === null" animated>
+            <template #template>
+              <el-card shadow="hover" class="stat-card" :body-style="{ padding: '0' }">
+                <div class="card-skeleton-placeholder">
+                  <ElSkeletonItem variant="circle" style="width:40px;height:40px" />
+                  <div style="flex:1">
+                    <ElSkeletonItem variant="h3" style="width:60%" />
+                    <ElSkeletonItem variant="text" style="width:80%;margin-top:8px" />
+                  </div>
+                </div>
+              </el-card>
+            </template>
             <el-card shadow="hover" class="stat-card" :body-style="{ padding: '0' }">
               <div class="card-content">
                 <div class="icon-container" :style="{ backgroundColor: card.iconColor + '15' }">
@@ -2611,7 +2593,30 @@ const downloadSettlementData = async () => {
       </el-col>
     </el-row>
     
-    <div class="tabs-container main-tabs">
+    <!-- Skeleton for entire sections+charts area while tabs haven't loaded yet -->
+    <div v-if="chartsLoading && tabs.length === 0" class="tabs-skeleton-container">
+      <div class="tabs-skeleton-header">
+        <ElSkeletonItem v-for="n in 3" :key="'tab-ph-'+n" variant="button" class="tab-label-skeleton" />
+      </div>
+      <el-row :gutter="20" style="margin-top:16px">
+        <el-col v-for="n in 4" :key="'tabs-chart-ph-'+n" :span="12" :md="12" :sm="24" :xs="24">
+          <div class="charts-container">
+            <el-card class="chart-card">
+              <ElSkeleton animated :loading="true">
+                <template #template>
+                  <div class="chart-skeleton-placeholder">
+                    <ElSkeletonItem variant="h3" style="width:45%;margin-bottom:16px" />
+                    <ElSkeletonItem variant="rect" style="width:100%;height:280px;border-radius:4px" />
+                  </div>
+                </template>
+              </ElSkeleton>
+            </el-card>
+          </div>
+        </el-col>
+      </el-row>
+    </div>
+
+    <div v-show="!chartsLoading || tabs.length > 0" class="tabs-container main-tabs">
       <el-tabs v-model="activeTab" class="dashboard-tabs" tab-position="top">
         <el-tab-pane v-for="(tab) in tabs" :name="tab.name" :key="tab.id" :label="tab.label">
           <div class="tab-content-scrollable">
@@ -2619,17 +2624,32 @@ const downloadSettlementData = async () => {
               <el-col v-if="(!tab.charts || tab.charts.length === 0) && !chartsLoading" :span="24">
                 <el-empty description="No charts available for this section" />
               </el-col>
+              <!-- Placeholder skeletons while charts are loading -->
+              <template v-if="chartsLoading && (!tab.charts || tab.charts.length === 0)">
+                <el-col v-for="n in 2" :key="'chart-ph-' + n" :span="12" :md="12" :sm="24" :xs="24">
+                  <div class="charts-container">
+                    <el-card class="chart-card">
+                      <ElSkeleton animated :loading="true">
+                        <template #template>
+                          <div class="chart-skeleton-placeholder">
+                            <ElSkeletonItem variant="h3" style="width:40%;margin-bottom:16px" />
+                            <ElSkeletonItem variant="rect" style="width:100%;height:280px;border-radius:4px" />
+                          </div>
+                        </template>
+                      </ElSkeleton>
+                    </el-card>
+                  </div>
+                </el-col>
+              </template>
               <template v-if="tab.charts && tab.charts.length > 0">
                 <el-col v-for="(chart) in tab.charts" :key="chart.id" :span="12" :xl="12" :lg="12" :md="12" :sm="24" :xs="24">
                   <div class="charts-container">
                     <el-card class="chart-card">
                       <ElSkeleton :loading="chartsLoading || isChartLoading(chart.id)" animated>
                         <template #template>
-                          <div class="chart-loading-container">
-                            <div class="chart-loading-spinner">
-                              <el-icon class="is-loading"><Loading /></el-icon>
-                            </div>
-                            <div class="chart-loading-text">{{ getChartLoadingMessage(chart.id) }}</div>
+                          <div class="chart-skeleton-placeholder">
+                            <ElSkeletonItem variant="h3" style="width:45%;margin-bottom:16px" />
+                            <ElSkeletonItem variant="rect" style="width:100%;height:280px;border-radius:4px" />
                           </div>
                         </template>
                         <template v-if="chart.chart">
@@ -2704,11 +2724,56 @@ const downloadSettlementData = async () => {
   </div>
 </template>
 
+
 <style scoped>
 .dashboard-container {
   padding: px;
   min-height: 100vh;
   position: relative;
+}
+
+.tabs-skeleton-container {
+  padding: 0 4px;
+}
+
+.tabs-skeleton-header {
+  display: flex;
+  gap: 8px;
+  border-bottom: 2px solid var(--el-border-color-light);
+  padding-bottom: 12px;
+  margin-bottom: 4px;
+}
+
+.tab-label-skeleton {
+  width: 100px !important;
+  height: 32px !important;
+  border-radius: 4px;
+}
+
+.card-skeleton-placeholder {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  min-height: 80px;
+}
+
+.chart-skeleton-placeholder {
+  padding: 16px;
+}
+
+.card-fade-in {
+  animation: fadeInUp 0.3s ease both;
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Smooth skeleton shimmer transition */
+:deep(.el-loading-mask) {
+  transition: opacity 0.3s ease;
 }
 
 .chart-loading-container {

@@ -131,7 +131,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, computed, type Ref } from 'vue'
+import { ref, watch, onMounted, onUnmounted, computed, type Ref } from 'vue'
 import { ElButton, ElSelect, ElOption, ElMessage, ElDrawer, ElDescriptions, ElDescriptionsItem, ElCollapse, ElCollapseItem } from 'element-plus'
 import { Icon } from '@iconify/vue'
 import mapboxgl from "mapbox-gl"
@@ -221,24 +221,29 @@ const toggleFilters = () => {
 }
 
 // Watch for window resize
+const outsideClickHandler = (e: MouseEvent) => {
+  if (isMobile.value && filtersVisible.value) {
+    const target = e.target as HTMLElement
+    const filtersPanel = document.querySelector('.floating-collapse')
+    const filterControl = document.querySelector('.filter-control')
+    if (filtersPanel && filterControl &&
+        !filtersPanel.contains(target) &&
+        !filterControl.contains(target)) {
+      filtersVisible.value = false
+    }
+  }
+}
+
 if (typeof window !== 'undefined') {
   window.addEventListener('resize', updateMobileState)
-  
-  // Close filters when clicking outside on mobile
-  document.addEventListener('click', (e) => {
-    if (isMobile.value && filtersVisible.value) {
-      const target = e.target as HTMLElement
-      const filtersPanel = document.querySelector('.floating-collapse')
-      const filterControl = document.querySelector('.filter-control')
-      
-      if (filtersPanel && filterControl && 
-          !filtersPanel.contains(target) && 
-          !filterControl.contains(target)) {
-        filtersVisible.value = false
-      }
-    }
-  })
+  document.addEventListener('click', outsideClickHandler)
 }
+
+onUnmounted(() => {
+  window.removeEventListener('resize', updateMobileState)
+  document.removeEventListener('click', outsideClickHandler)
+  map.value?.remove()
+})
 
 // Filter refs
 const county = ref<number[]>([])
@@ -679,7 +684,7 @@ const handleChangeCounty = debounce(async (countyIds: number | number[]) => {
         addCountyLayer(countyGeos)
       }
 
-      // Load subcounties for selected counties
+      // Load subcounties in parallel with nothing else blocking
       await loadSubcountiesForCounties(countyArray)
 
       mapLoading.value = false
@@ -758,19 +763,18 @@ const handleChangeImplementer = debounce(async (implementerIds: number | number[
     mapLoading.value = true
     mapLoadingText.value = 'Loading filtered project locations...'
 
-    await loadProjectLocations({ 
+    await loadProjectLocations({
       countyIds: county.value,
       subcountyIds: subcounty.value,
       implementerIds: implementerArray
     })
 
-    // Filter county options based on implementer's project locations
-    await filterCountyOptionsByImplementer()
-
-    // Load counties from filtered projects
-    await loadCountiesFromFilteredProjects()
-
-    await addProjectLayers()
+    // All three depend only on geojson.value being set — run in parallel
+    await Promise.all([
+      filterCountyOptionsByImplementer(),
+      loadCountiesFromFilteredProjects(),
+      addProjectLayers()
+    ])
 
     mapLoading.value = false
   } catch (error: any) {
@@ -897,13 +901,10 @@ const filterCountyOptionsByImplementer = async () => {
       return
     }
 
-    // Reload all counties first
-    await loadCounties()
-
-    // Filter to only show counties that have projects from this implementer
-    const allCountyOptions = [...countyOptions.value]
-    countyOptions.value = allCountyOptions.filter(option => 
-      countyIds.includes(option.value)
+    // Filter already-loaded county options — no extra API call needed
+    const countyIdSet2 = new Set(countyIds)
+    countyOptions.value = countyOptions.value.filter(option =>
+      countyIdSet2.has(option.value)
     )
   } catch (error: any) {
     console.error('Error filtering county options by implementer:', error)

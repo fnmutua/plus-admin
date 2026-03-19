@@ -117,6 +117,8 @@ const programmeComponentOptions = ref<RouteItem[]>([])
 const dynamicDashbaordOptions = ref<DashboardComponent[]>([])
 const components = ref<RouteComponent[]>([])
 const dashboardsLoaded = ref(false)
+const routesLoadedAt = ref(0)
+const ROUTES_TTL_MS = 5 * 60 * 1000 // 5 minutes
 
 // Load dashboards immediately and cache them
 const loadDashboardsImmediately = async () => {
@@ -531,17 +533,13 @@ const initializeRoutes = async () => {
       return;
     }
     
-    // Load dashboards first for immediate availability
+    // Load dashboards first, then programmes + components in parallel
     if (!dashboardsLoaded.value) {
       await loadDashboardsImmediately();
     }
-    
-    // Then load programmes
-    await loadProgrammeComponents();
-    
-    // Finally load components
-    await getComponents();
-    
+
+    await Promise.all([loadProgrammeComponents(), getComponents()]);
+
     console.log('All routes loaded successfully');
   } catch (error) {
     console.error('Error initializing routes:', error);
@@ -639,10 +637,18 @@ export const usePermissionStore = defineStore('permission', {
     async generateRoutes(type, locationLevel) {
       return new Promise<void>(async (resolve) => {
         // Initialize dynamic routes first if not already loaded
-        // This ensures dashboards, programmes, and components are loaded before filtering
-        if (!dashboardsLoaded.value || programmeComponentOptions.value.length === 0) {
+        const hasRoutes = dashboardsLoaded.value && programmeComponentOptions.value.length > 0
+        const age = Date.now() - routesLoadedAt.value
+
+        if (!hasRoutes) {
+          // First load — must await
           console.log('Initializing dynamic routes before generating filtered routes...');
           await initializeRoutes();
+          routesLoadedAt.value = Date.now()
+        } else if (age > ROUTES_TTL_MS) {
+          // Stale: serve cached routes now, revalidate in background
+          console.log('Routes stale, revalidating in background...');
+          initializeRoutes().then(() => { routesLoadedAt.value = Date.now() })
         }
         
         // Function to recursively filter routes and their children based on 'type' and 'locationLevel'
@@ -699,7 +705,9 @@ export const usePermissionStore = defineStore('permission', {
         programmeComponentOptions.value = [];
         components.value = [];
         dynamicDashbaordOptions.value = [];
+        routesLoadedAt.value = 0;
         await initializeRoutes();
+        routesLoadedAt.value = Date.now();
         console.log('Routes refreshed successfully');
       } catch (error) {
         console.error('Error refreshing routes:', error);
