@@ -71,6 +71,7 @@ const accessReasonOptions = [
 // vue-tel-input validation state
 const phoneIsValid = ref(false)
 const isKenya = ref(false)
+const phoneTouched = ref(false)
 
 // Fetch counties
 const getTableList = async () => {
@@ -240,8 +241,10 @@ function onPhoneValidate(payload: any) {
   formData.country_name = payload?.countryCode || ''
   formData.country = payload?.countryCode || ''
   isKenya.value = payload?.country === 'KE' || payload?.countryCode === 'KE'
-  
-  formRef.value?.validateField('phone')
+
+  if (phoneTouched.value) {
+    formRef.value?.validateField('phone')
+  }
 }
 
 // Handle country change event from vue-tel-input
@@ -401,6 +404,8 @@ const toPrivacy = () => {
                   v-bind="telProps"
                   @validate="onPhoneValidate"
                   @country-changed="onCountryChanged"
+                  @input="phoneTouched = true"
+                  @blur="phoneTouched = true"
                 />
               </el-form-item>
 
