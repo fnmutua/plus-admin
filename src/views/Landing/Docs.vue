@@ -394,7 +394,7 @@ const allNavGroups: NavGroup[] = [
             <li><strong>Photo capture</strong> &mdash; attach geotagged photos to submissions as evidence</li>
           </ul>
           <h3>Availability</h3>
-          <p>SlumMapper is available for download on <strong>Android</strong> (Google Play Store) and <strong>iOS</strong> (Apple App Store). To use the app you need an account and training on data collection procedures. Contact the KISIP team for access.</p>
+          <p>SlumMapper is available for download on <strong>Android</strong> &mdash; <a href="https://play.google.com/store/apps/details?id=co.ke.ags.slum.mapper&hl=en_US" target="_blank">download on Google Play</a> &mdash; and on <strong>iOS</strong> (Apple App Store). To use the app you need an account and training on data collection procedures. Contact the KISIP team for access.</p>
           <blockquote>Note &mdash; SlumMapper connects directly to KeSMIS. Data collected in the field is synchronised straight into the system, where it can be viewed in table and map formats from the web dashboard.</blockquote>
 
           <h2>Technology</h2>

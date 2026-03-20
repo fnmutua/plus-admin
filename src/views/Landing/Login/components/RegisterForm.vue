@@ -41,6 +41,7 @@ const formRef = ref<FormInstance>()
 const loading = ref(false)
 
 const countiesOptions = ref<CountyOption[]>([])
+const loadingCounties = ref(false)
 
 const formData = reactive<RegistrationFormData>({
   name: '',
@@ -76,7 +77,7 @@ const phoneTouched = ref(false)
 // Fetch counties
 const getTableList = async () => {
   try {
-    loading.value = true
+    loadingCounties.value = true
     const response = await getCountyAuth({ model: 'county' } as any)
     const cnty = (response as any).data ?? []
     countiesOptions.value = cnty.map((item: any) => ({
@@ -88,7 +89,7 @@ const getTableList = async () => {
   } catch (error) {
     console.error('Error fetching counties:', error)
   } finally {
-    loading.value = false
+    loadingCounties.value = false
   }
 }
 onMounted(getTableList)
@@ -421,6 +422,7 @@ const toPrivacy = () => {
                 <el-select
                   v-model="formData.county_id"
                   filterable
+                  :loading="loadingCounties"
                   placeholder="Select county"
                   class="auth-select"
                 >
@@ -459,6 +461,8 @@ const toPrivacy = () => {
                   v-model="formData.data_use_description"
                   type="textarea"
                   :rows="3"
+                  maxlength="300"
+                  show-word-limit
                   placeholder="Briefly describe how you intend to use the data (min. 50 characters)"
                   class="auth-input"
                 />

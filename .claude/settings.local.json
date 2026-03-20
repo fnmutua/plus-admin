@@ -9,7 +9,8 @@
       "Bash(grep -r \"AIza\\\\|GOOGLE_MAP\\\\|google.*key\\\\|api-key\" c:/Users/USER/plus-admin/src --include=*.vue --include=*.ts -l)",
       "Bash(python -c \":*)",
       "Bash(pip install:*)",
-      "Bash(find c:UsersUSERplus-admin -name *.py -o -name estimate_population*)"
+      "Bash(find c:UsersUSERplus-admin -name *.py -o -name estimate_population*)",
+      "WebSearch"
     ]
   }
 }
