@@ -167,7 +167,7 @@ const action_buttons = computed<string[]>(() => {
   } else {
     buttons = ['viewOnMap'];
   }
-  if (activeSegment.value === 'New' || activeSegment.value === 'Rejected') {
+  if (activeSegment.value === 'New' || activeSegment.value === 'Deleted') {
     buttons.push('review');
   }
   if (activeSegment.value === 'Approved' && isSuperAdmin.value) {
@@ -481,8 +481,8 @@ const getSettlementActionButtons = (settlement: any): string[] => {
     buttons.push('delete');
   }
 
-  // Add review button for New/Rejected segments if user has admin rights
-  if ((activeSegment.value === 'New' || activeSegment.value === 'Rejected') && showAdminButtons.value) {
+  // Add review button for New or rejected rows on the combined Deleted segment
+  if ((activeSegment.value === 'New' || (activeSegment.value === 'Deleted' && settlement._deletedTabSource === 'rejected')) && showAdminButtons.value) {
     buttons.push('review');
   }
 
@@ -680,7 +680,6 @@ const applyStatusFilters = () => {
   const statusMap: Record<string, string> = {
     Approved: 'Approved',
     New: 'Pending',
-    Rejected: 'Rejected',
     Decommissioned: 'Decommissioned',
   }
   const selected = statusMap[activeSegment.value]
@@ -728,7 +727,11 @@ const loadDataWithCurrentFilters = async () => {
   if (hasSavedSearch) {
     await searchByNewName(true)
   } else if (hasRestoredFilters) {
-    await getNewOrRejectedSettlements(activeSegment.value)
+    if (activeSegment.value === 'Deleted') {
+      await loadDeletedSegment()
+    } else {
+      await getNewOrRejectedSettlements(activeSegment.value)
+    }
   } else {
     await getAllSetllementsInitially(activeSegment.value)
   }
@@ -760,7 +763,7 @@ onMounted(async () => {
   }
 
   await getCounts()
-  getSettlmentHistory()
+  await refreshDeletedHistoryEntryCount()
   await loadDataWithCurrentFilters()
 })
 
@@ -783,7 +786,7 @@ onActivated(async () => {
   }
  
   await getCounts()
-  getSettlmentHistory()
+  await refreshDeletedHistoryEntryCount()
   await loadDataWithCurrentFilters()
 })
 
@@ -819,6 +822,9 @@ const duplicateRecords = ref<CountyDuplicate[]>([])
 const duplicateTotal = ref(0)
 const deletedSettlements = ref([])
 const deletedSettlementsCount = ref(0)
+const deletedHistoryEntryCount = ref(0)
+const deletedSegmentRowsRaw = ref<any[]>([])
+const reviewIsRejectedSettlement = ref(false)
 const handleDeletedPageChange = (p: number) => {
   deletedPage.value = p
 }
@@ -830,7 +836,6 @@ const decommSettlements = ref([])
 const decommSettlementsCount = ref(0)
 const tableDataList = ref([])
 const tableDataListNew = ref<UserType[]>([])
-const tableDataListRejected = ref<UserType[]>([])
 const associated_Model = ''
 const associated_multiple_models = ['county', 'subcounty', 'ward', 'users']
 const nested_models = ['document', 'document_type']
@@ -924,6 +929,9 @@ const addMoreDocuments = ref(false)
 
 const onPageChange = async (selPage: any) => {
   page.value = selPage
+  if (activeSegment.value === 'Deleted') {
+    return
+  }
   // Set status filters - role filters will be applied in getNewOrRejectedSettlements/getFilteredBySearchData
   if (activeSegment.value == 'Approved') {
     filters.value = ['profiling_status', 'is_qualified', 'isApproved', 'isActive']
@@ -931,9 +939,6 @@ const onPageChange = async (selPage: any) => {
   } else if (activeSegment.value == 'New') {
     filters.value = ['isApproved', 'isActive']
     filterValues.value = [['Pending'], ['true']]
-  } else if (activeSegment.value == 'Rejected') {
-    filters.value = ['isApproved', 'isActive']
-    filterValues.value = [['Rejected'], ['true']]
   } else if (activeSegment.value == 'Unprofiled') {
     filters.value = ['profiling_status']
     filterValues.value = [['NOT_PROFILED', 'PARTIALLY_PROFILED']]
@@ -948,6 +953,9 @@ const onPageChange = async (selPage: any) => {
 
 const onPageSizeChange = async (size: any) => {
   pageSize.value = size
+  if (activeSegment.value === 'Deleted') {
+    return
+  }
   // Set status filters - role filters will be applied in getNewOrRejectedSettlements/getFilteredBySearchData
   if (activeSegment.value === 'Approved') {
     filters.value = ['profiling_status', 'is_qualified', 'isApproved', 'isActive']
@@ -955,9 +963,6 @@ const onPageSizeChange = async (size: any) => {
   } else if (activeSegment.value === 'New') {
     filters.value = ['isApproved', 'isActive']
     filterValues.value = [['Pending'], ['true']]
-  } else if (activeSegment.value === 'Rejected') {
-    filters.value = ['isApproved', 'isActive']
-    filterValues.value = [['Rejected'], ['true']]
   } else if (activeSegment.value === 'Unprofiled') {
     filters.value = ['profiling_status']
     filterValues.value = [['NOT_PROFILED', 'PARTIALLY_PROFILED']]
@@ -971,7 +976,11 @@ const onPageSizeChange = async (size: any) => {
 }
 
 const getAllSetllementsInitially = async (tab) => {
-  await getNewOrRejectedSettlements(tab)
+  if (tab === 'Deleted') {
+    await loadDeletedSegment()
+  } else {
+    await getNewOrRejectedSettlements(tab)
+  }
   await getSettlementCount()
 }
 
@@ -1079,9 +1088,6 @@ const getNewOrRejectedSettlements = async (tab) => {
   } else if (tab === 'New') {
     filters.value = ['isApproved', 'isActive']
     filterValues.value = [['Pending'], ['true']]
-  } else if (tab === 'Rejected') {
-    filters.value = ['isApproved', 'isActive']
-    filterValues.value = [['Rejected'], ['true']]
   } else if (tab === 'Decommissioned') {
     filters.value = ['isApproved', 'isActive']
     filterValues.value = [['Decommissioned'], ['true']]
@@ -1172,9 +1178,6 @@ const getNewOrRejectedSettlements = async (tab) => {
   if (tab == 'New') {
     tableDataListNew.value = res.data
     totalPending.value = res.total
-  } else if (tab == 'Rejected') {
-    tableDataListRejected.value = res.data
-    totalRejected.value = res.total
   } else if (tab == 'Decommissioned') {
     decommSettlements.value = res.data
     decommSettlementsCount.value = res.total
@@ -1201,6 +1204,203 @@ const getNewOrRejectedSettlements = async (tab) => {
       }
     }
   }
+}
+
+async function fetchRejectedSettlementsForDeletedTab(): Promise<any[]> {
+  filters.value = ['isApproved', 'isActive']
+  filterValues.value = [['Rejected'], ['true']]
+  pushRoleFilters()
+  const countyFilterArray = Array.isArray(selectedCounty.value)
+    ? selectedCounty.value
+    : (selectedCounty.value !== null && selectedCounty.value !== undefined
+        ? [selectedCounty.value]
+        : [])
+  if (!isCountyStaff.value && countyFilterArray.length > 0) {
+    const selectOption = 'county_id'
+    if (!filters.value.includes(selectOption)) {
+      filters.value.push(selectOption)
+      filterValues.value.push(countyFilterArray)
+    } else {
+      const idx = filters.value.indexOf(selectOption)
+      filterValues.value[idx] = countyFilterArray
+    }
+  }
+  if (selectedSubCounty.value.length > 0) {
+    const selectOption = 'subcounty_id'
+    if (!filters.value.includes(selectOption)) {
+      filters.value.push(selectOption)
+      filterValues.value.push(selectedSubCounty.value)
+    } else {
+      const idx = filters.value.indexOf(selectOption)
+      filterValues.value[idx] = selectedSubCounty.value
+    }
+  }
+  if (selectedWard.value.length > 0) {
+    const selectOption = 'ward_id'
+    if (!filters.value.includes(selectOption)) {
+      filters.value.push(selectOption)
+      filterValues.value.push(selectedWard.value)
+    } else {
+      const idx = filters.value.indexOf(selectOption)
+      filterValues.value[idx] = selectedWard.value
+    }
+  }
+  pushRoleFilters()
+  const formData: any = {
+    returnAll: true,
+    page: 1,
+    limit: 50000,
+    curUser: 1,
+    model,
+    searchField: 'name',
+    searchKeyword: '',
+    assocModel: associated_Model,
+    filters: filters.value,
+    filterValues: filterValues.value,
+    associated_multiple_models,
+    nested_models,
+    dateRange: dateRange.value,
+    excludeGeom: true,
+  }
+  const res = await getSettlementListByCounty(formData)
+  return res.data || []
+}
+
+async function fetchDeletedHistoryBeforeObjects(): Promise<any[]> {
+  const historyModel = 'settlement_history'
+  const historyFilters: string[] = ['change_type', 'status']
+  const historyFilterValues: any[][] = [['Delete', 'Merge'], ['Open']]
+  if (roles_filters.length > 0) {
+    roles_filters.forEach(rf => {
+      if (rf.field && rf.value !== null && rf.value !== undefined) {
+        const existingIndex = historyFilters.indexOf(rf.field)
+        if (existingIndex === -1) {
+          historyFilters.push(rf.field)
+          historyFilterValues.push(Array.isArray(rf.value) ? rf.value : [rf.value])
+        } else {
+          historyFilterValues[existingIndex] = Array.isArray(rf.value) ? rf.value : [rf.value]
+        }
+      }
+    })
+  }
+  if (selectedCounty.value.length > 0) {
+    const countyIndex = historyFilters.indexOf('county_id')
+    if (countyIndex === -1) {
+      historyFilters.push('county_id')
+      historyFilterValues.push(selectedCounty.value)
+    } else {
+      historyFilterValues[countyIndex] = selectedCounty.value
+    }
+  }
+  if (selectedSubCounty.value.length > 0) {
+    const subcountyIndex = historyFilters.indexOf('subcounty_id')
+    if (subcountyIndex === -1) {
+      historyFilters.push('subcounty_id')
+      historyFilterValues.push(selectedSubCounty.value)
+    } else {
+      historyFilterValues[subcountyIndex] = selectedSubCounty.value
+    }
+  }
+  if (selectedWard.value.length > 0) {
+    const wardIndex = historyFilters.indexOf('ward_id')
+    if (wardIndex === -1) {
+      historyFilters.push('ward_id')
+      historyFilterValues.push(selectedWard.value)
+    } else {
+      historyFilterValues[wardIndex] = selectedWard.value
+    }
+  }
+  const formData: any = {
+    model: historyModel,
+    searchField: 'name',
+    excludeGeom: false,
+    associated_multiple_models: ['users'],
+    filters: historyFilters,
+    filterValues: historyFilterValues,
+    returnAll: true,
+  }
+  const res = await getSettlementListByCounty(formData)
+  let filteredData = res.data || []
+  if (roles_filters.length > 0 && !isSuperAdmin.value && !isNationalStaff.value) {
+    filteredData = filteredData.filter((item: any) => {
+      const beforeObject = item.changes?.before
+      if (!beforeObject) return false
+      return roles_filters.every(rf => {
+        if (!rf.field || rf.value === null || rf.value === undefined) return true
+        if (rf.field === 'county_id') {
+          return Array.isArray(rf.value)
+            ? rf.value.includes(beforeObject.county_id)
+            : beforeObject.county_id === rf.value
+        }
+        if (rf.field === 'id') {
+          return Array.isArray(rf.value)
+            ? rf.value.includes(beforeObject.id)
+            : beforeObject.id === rf.value
+        }
+        if (rf.field === 'location_id') {
+          return beforeObject.subcounty_id === rf.value || beforeObject.ward_id === rf.value
+        }
+        return true
+      })
+    })
+  }
+  const out: any[] = []
+  filteredData.forEach((item: any) => {
+    const beforeObject = item.changes?.before
+    if (beforeObject) {
+      const copy = { ...beforeObject }
+      copy.history_id = item.id
+      if (item.change_type === 'Merge') {
+        copy.merged_into = item.changes?.primary_record
+        copy.merge_type = 'Merge'
+        copy.primary_id = item.changes?.primary_id
+      }
+      out.push(copy)
+    }
+  })
+  return out
+}
+
+async function refreshDeletedHistoryEntryCount() {
+  const rows = await fetchDeletedHistoryBeforeObjects()
+  deletedHistoryEntryCount.value = rows.length
+}
+
+async function loadDeletedSegment() {
+  loadingGetData.value = true
+  try {
+    const [rejectedData, historyRows] = await Promise.all([
+      fetchRejectedSettlementsForDeletedTab(),
+      fetchDeletedHistoryBeforeObjects(),
+    ])
+    deletedHistoryEntryCount.value = historyRows.length
+    const taggedRejected = rejectedData.map((r: any) => ({ ...r, _deletedTabSource: 'rejected' }))
+    const taggedHistory = historyRows.map((r: any) => ({ ...r, _deletedTabSource: 'history' }))
+    const combined = [...taggedRejected, ...taggedHistory]
+    deletedSegmentRowsRaw.value = combined
+    deletedSettlements.value = combined
+    deletedSettlementsCount.value = combined.length
+    deletedPage.value = 1
+    await getCounts()
+  } finally {
+    loadingGetData.value = false
+  }
+}
+
+function applyDeletedSegmentClientSearch(searchKey: string) {
+  const q = (searchKey || '').trim().toLowerCase()
+  const raw = deletedSegmentRowsRaw.value
+  if (!q) {
+    deletedSettlements.value = [...raw]
+  } else {
+    deletedSettlements.value = raw.filter((r: any) => {
+      const name = (r.name || '').toLowerCase()
+      const code = (r.code || '').toString().toLowerCase()
+      return name.includes(q) || code.includes(q) || String(r.id).includes(q)
+    })
+  }
+  deletedSettlementsCount.value = deletedSettlements.value.length
+  deletedPage.value = 1
 }
 
 const getPotentialDuplicates = async () => {
@@ -1437,6 +1637,7 @@ const deletedPageData = computed(() => {
 })
 
 const Review = (data: TableSlotDefault) => {
+  reviewIsRejectedSettlement.value = data._deletedTabSource === 'rejected'
   ShowReviewDialog.value = true
   settlement_raw.value.name = data.name
   settlement_raw.value.area = data.area
@@ -1460,6 +1661,7 @@ const Review = (data: TableSlotDefault) => {
 }
 
 const DeleteReview = async (data: TableSlotDefault) => {
+  reviewIsRejectedSettlement.value = false
   ShowReviewDialog.value = true
   await getThisHistory(data.history_id)
   settlement_raw.value.name = data.name
@@ -1490,10 +1692,18 @@ const approve = async () => {
   ruleForm.model = 'settlement'
   await updateOneRecord(ruleForm).then(() => { })
   ShowReviewDialog.value = false
-  // Remove from New list if reviewing a 'New' settlement
   if (activeSegment.value === 'New') {
     const idx = tableDataListNew.value.findIndex(item => item.id === ruleForm.id)
     if (idx !== -1) tableDataListNew.value.splice(idx, 1)
+  } else if (activeSegment.value === 'Deleted' && reviewIsRejectedSettlement.value) {
+    deletedSettlements.value = deletedSettlements.value.filter(
+      (item: any) => item.id !== ruleForm.id || item._deletedTabSource !== 'rejected'
+    )
+    deletedSegmentRowsRaw.value = deletedSegmentRowsRaw.value.filter(
+      (item: any) => item.id !== ruleForm.id || item._deletedTabSource !== 'rejected'
+    )
+    deletedSettlementsCount.value = deletedSettlements.value.length
+    await getCounts()
   } else {
     getFilteredData(filters, filterValues)
   }
@@ -1512,10 +1722,11 @@ const confirmReject = async () => {
   await updateOneRecord(ruleForm).then(() => { })
   RejectDialog.value = false
   ShowReviewDialog.value = false
-  // Remove from New list if reviewing a 'New' settlement
   if (activeSegment.value === 'New') {
     const idx = tableDataListNew.value.findIndex(item => item.id === ruleForm.id)
     if (idx !== -1) tableDataListNew.value.splice(idx, 1)
+  } else if (activeSegment.value === 'Deleted' && reviewIsRejectedSettlement.value) {
+    await loadDeletedSegment()
   } else {
     getFilteredData(filters, filterValues)
   }
@@ -1557,6 +1768,16 @@ const handleViewOnMap = (data) => {
 const showPagination = ref(true)
 
 const getFilteredBySearchData = async (tab, searchKey) => {
+  if (tab === 'Deleted') {
+    searchLoading.value = true
+    loading.value = true
+    await loadDeletedSegment()
+    applyDeletedSegmentClientSearch(searchKey)
+    searchLoading.value = false
+    loading.value = false
+    return
+  }
+
   // Ensure segment status filters are set before searching
   applyStatusFilters()
 
@@ -1621,9 +1842,13 @@ const getFilteredBySearchData = async (tab, searchKey) => {
     decommSettlements.value = res.data
     decommSettlementsCount.value = totalCount
     total.value = totalCount
+  } else if (tab === 'Unprofiled') {
+    tableDataList.value = res.data
+    totalUnprofiled.value = totalCount
+    total.value = totalCount
   } else {
-    tableDataListRejected.value = res.data
-    totalRejected.value = totalCount
+    tableDataList.value = res.data
+    totalApproved.value = totalCount
     total.value = totalCount
   }
   loading.value = false
@@ -1796,6 +2021,8 @@ const filterByCounty = async (county_id: any) => {
 
   if (search_string.value) {
     await getFilteredBySearchData(activeSegment.value, search_string.value)
+  } else if (activeSegment.value === 'Deleted') {
+    await loadDeletedSegment()
   } else {
     await getNewOrRejectedSettlements(activeSegment.value)
   }
@@ -1820,6 +2047,8 @@ const filterBySubCounty = async (subcounty_id: any) => {
 
   if (search_string.value) {
     await getFilteredBySearchData(activeSegment.value, search_string.value)
+  } else if (activeSegment.value === 'Deleted') {
+    await loadDeletedSegment()
   } else {
     await getNewOrRejectedSettlements(activeSegment.value)
   }
@@ -1842,6 +2071,8 @@ const filterByWard = async (ward_id: any) => {
 
   if (search_string.value) {
     await getFilteredBySearchData(activeSegment.value, search_string.value)
+  } else if (activeSegment.value === 'Deleted') {
+    await loadDeletedSegment()
   } else {
     await getNewOrRejectedSettlements(activeSegment.value)
   }
@@ -1874,11 +2105,15 @@ const editForm = async (formEl: FormInstance | undefined) => {
         for (const key of updatedKeys) {
           tableDataListNew.value[index][key] = updatedObject[key];
         }
-      } else if (activeSegment.value === 'Rejected') {
-        const index = tableDataListRejected.value.findIndex(obj => obj.id === updatedObject.id);
-        const updatedKeys = Object.keys(updatedObject);
-        for (const key of updatedKeys) {
-          tableDataListRejected.value[index][key] = updatedObject[key];
+      } else if (activeSegment.value === 'Deleted') {
+        const index = deletedSettlements.value.findIndex(
+          (obj: any) => obj.id === updatedObject.id && obj._deletedTabSource === 'rejected'
+        )
+        if (index !== -1) {
+          const updatedKeys = Object.keys(updatedObject);
+          for (const key of updatedKeys) {
+            deletedSettlements.value[index][key] = updatedObject[key];
+          }
         }
       }
     } else {
@@ -2063,11 +2298,17 @@ const handleDelete = async (data: any) => {
         if (index !== -1) {
           tableDataListNew.value.splice(index, 1);
         }
-      } else if (activeSegment.value === 'Rejected') {
-        const index = tableDataListRejected.value.findIndex((item: any) => item.id === settlementId);
+      } else if (activeSegment.value === 'Deleted') {
+        const index = deletedSettlements.value.findIndex(
+          (item: any) => item.id === settlementId && item._deletedTabSource === 'rejected'
+        )
         if (index !== -1) {
-          tableDataListRejected.value.splice(index, 1);
+          deletedSettlements.value.splice(index, 1)
         }
+        deletedSegmentRowsRaw.value = deletedSegmentRowsRaw.value.filter(
+          (item: any) => !(item.id === settlementId && item._deletedTabSource === 'rejected')
+        )
+        deletedSettlementsCount.value = deletedSettlements.value.length
       } else if (activeSegment.value === 'Decommissioned') {
         const index = decommSettlements.value.findIndex((item: any) => item.id === settlementId);
         if (index !== -1) {
@@ -2078,9 +2319,11 @@ const handleDelete = async (data: any) => {
       // Refresh counts
       await getCounts();
 
-      // Refresh deleted settlements list if on Deleted tab
+      // Refresh combined Deleted tab / badge counts
       if (activeSegment.value === 'Deleted') {
-        await getSettlmentHistory();
+        await loadDeletedSegment()
+      } else {
+        await refreshDeletedHistoryEntryCount()
       }
     } else {
       const errorMessage = response?.message || 'Failed to delete settlement';
@@ -2198,8 +2441,14 @@ const handleDeleteCascade = async () => {
       tableDataList.value = tableDataList.value.filter((item: any) => !settlementIds.includes(item.id))
     } else if (activeSegment.value === 'New') {
       tableDataListNew.value = tableDataListNew.value.filter((item: any) => !settlementIds.includes(item.id))
-    } else if (activeSegment.value === 'Rejected') {
-      tableDataListRejected.value = tableDataListRejected.value.filter((item: any) => !settlementIds.includes(item.id))
+    } else if (activeSegment.value === 'Deleted') {
+      deletedSettlements.value = deletedSettlements.value.filter(
+        (item: any) => !settlementIds.includes(item.id) || item._deletedTabSource !== 'rejected'
+      )
+      deletedSegmentRowsRaw.value = deletedSegmentRowsRaw.value.filter(
+        (item: any) => !settlementIds.includes(item.id) || item._deletedTabSource !== 'rejected'
+      )
+      deletedSettlementsCount.value = deletedSettlements.value.length
     } else if (activeSegment.value === 'Decommissioned') {
       decommSettlements.value = decommSettlements.value.filter((item: any) => !settlementIds.includes(item.id))
     }
@@ -2213,9 +2462,10 @@ const handleDeleteCascade = async () => {
     // Refresh counts
     await getCounts()
 
-    // Refresh deleted settlements list if on Deleted tab
     if (activeSegment.value === 'Deleted') {
-      await getSettlmentHistory()
+      await loadDeletedSegment()
+    } else {
+      await refreshDeletedHistoryEntryCount()
     }
 
     // Show results
@@ -2559,8 +2809,8 @@ const saveLocationUpdate = async () => {
         updateSettlementInList(tableDataList.value)
       } else if (activeSegment.value === 'New') {
         updateSettlementInList(tableDataListNew.value)
-      } else if (activeSegment.value === 'Rejected') {
-        updateSettlementInList(tableDataListRejected.value)
+      } else if (activeSegment.value === 'Deleted') {
+        updateSettlementInList(deletedSettlements.value)
       } else if (activeSegment.value === 'Decommissioned') {
         updateSettlementInList(decommSettlements.value)
       }
@@ -2856,8 +3106,8 @@ const handleSelectionChange = (selection: any[]) => {
     selectedSettlements.value = selection
   } else if (activeSegment.value === 'New') {
     selectedSettlementsNew.value = selection
-  } else if (activeSegment.value === 'Rejected') {
-    selectedSettlementsRejected.value = selection
+  } else if (activeSegment.value === 'Deleted') {
+    selectedSettlementsRejected.value = selection.filter((r: any) => r._deletedTabSource === 'rejected')
   } else if (activeSegment.value === 'Decommissioned') {
     selectedSettlementsDecommissioned.value = selection
   }
@@ -2868,7 +3118,7 @@ const getSelectedSettlements = () => {
     return selectedSettlements.value
   } else if (activeSegment.value === 'New') {
     return selectedSettlementsNew.value
-  } else if (activeSegment.value === 'Rejected') {
+  } else if (activeSegment.value === 'Deleted') {
     return selectedSettlementsRejected.value
   } else if (activeSegment.value === 'Decommissioned') {
     return selectedSettlementsDecommissioned.value
@@ -2938,9 +3188,15 @@ const handleMergeFromSelection = async () => {
         showClose: true,
       })
 
-      // Refresh current segment data and counts
-      await getNewOrRejectedSettlements(activeSegment.value)
+      if (activeSegment.value === 'Deleted') {
+        await loadDeletedSegment()
+      } else {
+        await getNewOrRejectedSettlements(activeSegment.value)
+      }
       await getCounts()
+      if (activeSegment.value !== 'Deleted') {
+        await refreshDeletedHistoryEntryCount()
+      }
 
       // Clear selected settlements
       selectedSettlements.value = []
@@ -3064,14 +3320,13 @@ const confirmMerge = async () => {
       MergeDialog.value = false
       MergeConfirmDialog.value = false
       
-      // Refresh the current segment data
-      await getNewOrRejectedSettlements(activeSegment.value)
-      await getCounts()
-      
-      // Refresh deleted settlements list if on Deleted tab, or refresh it anyway to keep it updated
       if (activeSegment.value === 'Deleted') {
-        await getSettlmentHistory()
+        await loadDeletedSegment()
+      } else {
+        await getNewOrRejectedSettlements(activeSegment.value)
+        await refreshDeletedHistoryEntryCount()
       }
+      await getCounts()
       
       // Reset merge state
       currentSettlementForMerge.value = null
@@ -3169,9 +3424,12 @@ const confirmBatchDecommission = async () => {
       }
     }
 
-    // Update counts and refresh data
     await getCounts()
-    await getNewOrRejectedSettlements(activeSegment.value)
+    if (activeSegment.value === 'Deleted') {
+      await loadDeletedSegment()
+    } else {
+      await getNewOrRejectedSettlements(activeSegment.value)
+    }
 
     BatchDecommissionDialog.value = false
     batchDecommissionReason.value = ''
@@ -3258,7 +3516,7 @@ const handleDownloadGeoData = async () => {
     if (activeSegment.value === 'New') {
       filters.value = ['isApproved', 'isActive', ...filters.value.filter(f => f !== 'isApproved' && f !== 'isActive')];
       filterValues.value = [['Pending'], ['true'], ...filterValues.value.filter((_, i) => filters.value[i] !== 'isApproved' && filters.value[i] !== 'isActive')];
-    } else if (activeSegment.value === 'Rejected') {
+    } else if (activeSegment.value === 'Deleted') {
       filters.value = ['isApproved', 'isActive', ...filters.value.filter(f => f !== 'isApproved' && f !== 'isActive')];
       filterValues.value = [['Rejected'], ['true'], ...filterValues.value.filter((_, i) => filters.value[i] !== 'isApproved' && filters.value[i] !== 'isActive')];
     } else if (activeSegment.value === 'Decommissioned') {
@@ -3851,6 +4109,8 @@ const handleRowDblClick = (row) => {
 
 const activeSegment = ref('Approved')
 
+const deletedSegmentBadgeCount = computed(() => totalRejected.value + deletedHistoryEntryCount.value)
+
 const Statuses = computed(() => [
   {
     // Display as "Profiled" but keep internal value "Approved"
@@ -3866,14 +4126,6 @@ const Statuses = computed(() => [
     icon: Message,
     count: totalPending,
     hidden: !(isNationalStaff.value || isSuperAdmin.value || isCountyAdmin.value) || !showAdminButtons.value
-  },
-  {
-    label: 'Rejected',
-    value: 'Rejected',
-    icon: CircleClose,
-    count: totalRejected,
-    // Hide for county admin/staff, only show for national/super admin
-    hidden: !(isNationalStaff.value || isSuperAdmin.value) || !showAdminButtons.value || isCountyAdmin.value
   },
   {
     label: 'Unprofiled',
@@ -3900,8 +4152,8 @@ const Statuses = computed(() => [
   {
     label: 'Deleted',
     value: 'Deleted',
-    icon: Delete,
-    count: deletedSettlementsCount,
+    icon: CircleClose,
+    count: deletedSegmentBadgeCount,
     hidden: !(isNationalStaff.value || isSuperAdmin.value || isCountyAdmin.value)
   },
 ])
@@ -3962,7 +4214,6 @@ const onSegmentClick = async () => {
   const statusMap = {
     'Approved': 'Approved',
     'New': 'Pending',
-    'Rejected': 'Rejected',
     'Decommissioned': 'Decommissioned',
   }
 
@@ -3987,130 +4238,13 @@ const onSegmentClick = async () => {
     await getPotentialDuplicates()
   } else if (activeSegment.value === 'Deleted') {
     showPagination.value = false
-    await getSettlmentHistory()
+    await loadDeletedSegment()
   } else {
     showPagination.value = true
     await getNewOrRejectedSettlements(activeSegment.value)
   }
 }
 
-
-const getSettlmentHistory = async () => {
-  deletedSettlements.value = []
-  const model = 'settlement_history'
-  
-  // Build filters array with role-based filters
-  const historyFilters: string[] = ['change_type', 'status']
-  const historyFilterValues: any[][] = [['Delete', 'Merge'], ['Open']]
-  
-  // Apply role-based filters (county, settlement, location filters)
-  if (roles_filters.length > 0) {
-    roles_filters.forEach(rf => {
-      if (rf.field && rf.value !== null && rf.value !== undefined) {
-        // For history records, we need to filter by the original settlement's fields
-        // The history model might have settlement_id or we need to filter by changes.before fields
-        // Check if this filter field is already in the filters array
-        const existingIndex = historyFilters.indexOf(rf.field);
-        if (existingIndex === -1) {
-          // Add new filter - for history, we might need to use a different field name
-          // If it's county_id, settlement history might have it directly or in changes.before
-          historyFilters.push(rf.field);
-          historyFilterValues.push(Array.isArray(rf.value) ? rf.value : [rf.value]);
-        } else {
-          // Update existing filter value (role filters take precedence)
-          historyFilterValues[existingIndex] = Array.isArray(rf.value) ? rf.value : [rf.value];
-        }
-      }
-    });
-  }
-  
-  // Also apply user-selected location filters if they exist
-  if (selectedCounty.value.length > 0) {
-    const countyIndex = historyFilters.indexOf('county_id');
-    if (countyIndex === -1) {
-      historyFilters.push('county_id');
-      historyFilterValues.push(selectedCounty.value);
-    } else {
-      historyFilterValues[countyIndex] = selectedCounty.value;
-    }
-  }
-  
-  if (selectedSubCounty.value.length > 0) {
-    const subcountyIndex = historyFilters.indexOf('subcounty_id');
-    if (subcountyIndex === -1) {
-      historyFilters.push('subcounty_id');
-      historyFilterValues.push(selectedSubCounty.value);
-    } else {
-      historyFilterValues[subcountyIndex] = selectedSubCounty.value;
-    }
-  }
-  
-  if (selectedWard.value.length > 0) {
-    const wardIndex = historyFilters.indexOf('ward_id');
-    if (wardIndex === -1) {
-      historyFilters.push('ward_id');
-      historyFilterValues.push(selectedWard.value);
-    } else {
-      historyFilterValues[wardIndex] = selectedWard.value;
-    }
-  }
-  
-  // Fetch both Delete and Merge history records
-  const formData = {}
-  formData.model = model
-  formData.searchField = 'name'
-  formData.excludeGeom = false
-  formData.associated_multiple_models = ['users']
-  formData.filters = historyFilters
-  formData.filterValues = historyFilterValues
-  // Fetch all records to allow client-side pagination on the Deleted tab
-  formData.returnAll = true
-  const res = await getSettlementListByCounty(formData)
-  
-  // Additional client-side filtering by role if needed (for nested data in changes.before)
-  let filteredData = res.data;
-  if (roles_filters.length > 0 && !isSuperAdmin.value && !isNationalStaff.value) {
-    filteredData = res.data.filter((item: any) => {
-      const beforeObject = item.changes?.before;
-      if (!beforeObject) return false;
-      
-      // Check each role filter against the before object
-      return roles_filters.every(rf => {
-        if (!rf.field || rf.value === null || rf.value === undefined) return true;
-        
-        if (rf.field === 'county_id') {
-          return Array.isArray(rf.value) 
-            ? rf.value.includes(beforeObject.county_id)
-            : beforeObject.county_id === rf.value;
-        } else if (rf.field === 'id') {
-          // Settlement ID filter
-          return Array.isArray(rf.value)
-            ? rf.value.includes(beforeObject.id)
-            : beforeObject.id === rf.value;
-        } else if (rf.field === 'location_id') {
-          // Subcounty or ward level
-          return beforeObject.subcounty_id === rf.value || beforeObject.ward_id === rf.value;
-        }
-        return true;
-      });
-    });
-  }
-  
-  filteredData.forEach((item: any) => {
-    const beforeObject = item.changes?.before;
-    if (beforeObject) {
-      beforeObject.history_id = item.id;
-      // For merge records, add merge metadata
-      if (item.change_type === 'Merge') {
-        beforeObject.merged_into = item.changes?.primary_record;
-        beforeObject.merge_type = 'Merge';
-        beforeObject.primary_id = item.changes?.primary_id;
-      }
-      deletedSettlements.value.push(beforeObject);
-    }
-  });
-  deletedSettlementsCount.value = deletedSettlements.value.length;
-}
 
 const RevertEdits = async (data: TableSlotDefault) => {
   const formData = {
@@ -4133,19 +4267,15 @@ const RevertEdits = async (data: TableSlotDefault) => {
         showClose: true
       });
       
-      // Refresh the deleted settlements list
-      await getSettlmentHistory();
-      // Refresh counts
-      await getCounts();
+      await loadDeletedSegment()
+      await getCounts()
     }
   } else {
     const res = await revertHistory(formData);
     if (res.code === '0000') {
       ElMessage.success('Settlement restored successfully.');
-      // Refresh the deleted settlements list
-      await getSettlmentHistory();
-      // Refresh counts
-      await getCounts();
+      await loadDeletedSegment()
+      await getCounts()
     }
   }
 };
@@ -4160,9 +4290,16 @@ const handleDateChange = async () => {
   } else if (activeSegment.value === 'New') {
     filters.value = ['isApproved', 'isActive']
     filterValues.value = [['Pending'], ['true']]
-  } else if (activeSegment.value === 'Rejected') {
-    filters.value = ['isApproved', 'isActive']
-    filterValues.value = [['Rejected'], ['true']]
+  } else if (activeSegment.value === 'Deleted') {
+    saveFiltersToStorage()
+    DateDialogVisible.value = false
+    await getCounts()
+    if (search_string.value) {
+      await getFilteredBySearchData(activeSegment.value, search_string.value)
+    } else {
+      await loadDeletedSegment()
+    }
+    return
   }
 
   saveFiltersToStorage()
@@ -4326,7 +4463,7 @@ async function mergeGroupRecords(group) {
       }
       // Refresh deleted settlements list if on Deleted tab
       if (activeSegment.value === 'Deleted') {
-        await getSettlmentHistory()
+        await loadDeletedSegment()
       }
       // Refresh counts
       await getCounts()
@@ -4923,100 +5060,6 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
       </div> -->
     </div>
 
-    <div v-if="activeSegment === 'Rejected'">
-      <el-table
-        table-layout="fixed"
-        :data="tableDataListRejected" :show-overflow-tooltip="true" style="width: 100% ; margin-top: 10px;"
-        border :row-class-name="tableRowClassName" @expand-change="handleExpand" row-key="id"   :expand-row-keys="expandedRowKeys"
-        @selection-change="handleSelectionChange">
-        <el-table-column type="selection" width="55" :selectable="(row) => canUserAccessSettlement(row, 'edit')" />
-        <el-table-column label="Id" width="80" prop="id" sortable>
-          <template #default="scope">
-            <div v-if="scope.row.documents.length > 0" style="display: inline-flex; align-items: center;">
-              <span>{{ scope.row.id }}</span>
-              <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="Name" width="200" prop="name" sortable />
-
-        <el-table-column label="Location" sortable width="400">
-          <template #default="scope">
-            <span>{{ scope.row.ward.name }} ward, {{ scope.row.subcounty.name }} subcounty, {{ scope.row.county.name
-              }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="Type" prop="settlement_type" sortable width="150">
-          <template #default="{ row }">
-            {{ getSettlementTypeLabel(row.settlement_type) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="Population" prop="population" sortable />
-        <el-table-column label="Area(HA)" prop="area" sortable :formatter="row => Number(row.area).toFixed(2)" />
-        <el-table-column label="Created" prop="updatedAt" sortable :formatter="formatDate" />
-
-        <el-table-column label="Code" prop="code" sortable>
-          <template #default="{ row }">
-            <div style="position: relative;" @mouseenter="showCopyIcon(row)" @mouseleave="hideCopyIcon(row)">
-              <span>{{ row.code }}</span>
-              <el-tooltip class="item" effect="dark" content="Copy" placement="top">
-                <el-button
-v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" circle plain
-                  style="position: absolute; top: 50%; right: 0; transform: translateY(-50%); margin-right: 5px;"
-                  @click="copyToClipboard(row.code)" />
-              </el-tooltip>
-            </div>
-          </template>
-        </el-table-column>
-
-        <el-table-column label="Actions" :width="actionColumnWidth">
-          <template #default="{ row }">
-            <!-- Example 1: Only Edit and Delete buttons -->
-            <TableActions
-:item="row" :buttons="getSettlementActionButtons(row)" @edit="handleEdit" @review="Review"
-              @delete="handleDelete" @view-on-map="handleViewOnMap" @decommission="handleDecommission" @update-location="handleUpdateLocation" />
-
-          </template>
-        </el-table-column>
-
-      </el-table>
-
-
-      <ElPagination
-      layout="sizes, prev, pager, next, total" v-model:currentPage="page"
-      v-model:page-size="pageSize" :page-sizes="getPageSizes(totalRejected)" :total="totalRejected" :background="true"
-      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
-
-      <!-- Delete Cascade button for super admins -->
-      <div v-if="isSuperAdmin && selectedSettlementsRejected.length >= 1" style="margin-top: 10px; margin-bottom: 10px;">
-        <el-button 
-          type="danger"
-          :icon="deleteCascadeLoading ? undefined : Delete"
-          :loading="deleteCascadeLoading"
-          :disabled="deleteCascadeLoading"
-          @click="handleDeleteCascade">
-          Delete Cascade ({{ selectedSettlementsRejected.length }} selected)
-        </el-button>
-      </div>
-
-      <!-- Merge button for selected settlements (bottom) -->
-      <!-- <div v-if="selectedSettlementsRejected.length === 2" style="margin-top: 10px;">
-        <el-button 
-          type="primary" 
-          :icon="TakeawayBox"
-          @click="handleMergeFromSelection">
-          Merge Selected Settlements ({{ selectedSettlementsRejected[0].name }} + {{ selectedSettlementsRejected[1].name }})
-        </el-button>
-        <el-button 
-          type="info" 
-          plain
-          @click="selectedSettlementsRejected = []">
-          Clear Selection
-        </el-button>
-      </div> -->
-    </div>
-
-
     <div v-if="activeSegment === 'Decommissioned'">
         <el-alert
           type="info"
@@ -5125,13 +5168,51 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" ci
 
 
     <div v-if="activeSegment === 'Deleted'">
-      <el-table table-layout="fixed"  :data="deletedPageData" :show-overflow-tooltip="true" style="width: 100% ; margin-top: 10px;"  border  >
-        <el-table-column type="index" width="50" />
-        <el-table-column label="Name" width="200" prop="name" sortable />     
+      <el-table
+        table-layout="fixed"
+        :data="deletedPageData"
+        :show-overflow-tooltip="true"
+        style="width: 100%; margin-top: 10px;"
+        border
+        :row-class-name="tableRowClassName"
+        :row-key="(row) => row._deletedTabSource === 'rejected' ? 'r-' + row.id : 'h-' + row.history_id"
+        @selection-change="handleSelectionChange"
+      >
+        <el-table-column
+          type="selection"
+          width="55"
+          :selectable="(row) => row._deletedTabSource === 'rejected' && canUserAccessSettlement(row, 'delete')"
+        />
+        <el-table-column label="Id" width="80" prop="id" sortable>
+          <template #default="scope">
+            <div v-if="scope.row.documents && scope.row.documents.length > 0" style="display: inline-flex; align-items: center;">
+              <span>{{ scope.row.id }}</span>
+              <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
+            </div>
+            <span v-else>{{ scope.row.id }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="Name" width="200" prop="name" sortable />
         <el-table-column label="Status" width="120">
           <template #default="{ row }">
-            <el-tag v-if="row.merge_type === 'Merge'" type="warning" size="small">Merged</el-tag>
+            <el-tag v-if="row._deletedTabSource === 'rejected'" type="info" size="small">Rejected</el-tag>
+            <el-tag v-else-if="row.merge_type === 'Merge'" type="warning" size="small">Merged</el-tag>
             <el-tag v-else type="danger" size="small">Deleted</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="Location" sortable width="360">
+          <template #default="{ row }">
+            <span v-if="row.ward && row.subcounty && row.county">
+              {{ row.ward.name }} ward, {{ row.subcounty.name }} subcounty, {{ row.county.name }}
+            </span>
+            <span v-else style="font-size: 13px; color: #666;">
+              <span v-if="row.ward">{{ row.ward.name }} ward</span>
+              <span v-else-if="row.ward_id">Ward ID: {{ row.ward_id }}</span>
+              <span v-if="row.subcounty">{{ row.subcounty.name }} subcounty</span>
+              <span v-else-if="row.subcounty_id">Subcounty ID: {{ row.subcounty_id }}</span>
+              <span v-if="row.county">{{ row.county.name }}</span>
+              <span v-else-if="row.county_id">County ID: {{ row.county_id }}</span>
+            </span>
           </template>
         </el-table-column>
         <el-table-column label="Type" prop="settlement_type" sortable width="150">
@@ -5156,40 +5237,62 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" ci
               <span>{{ row.code }}</span>
               <el-tooltip class="item" effect="dark" content="Copy" placement="top">
                 <el-button
-v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" circle plain
+                  v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" circle plain
                   style="position: absolute; top: 50%; right: 0; transform: translateY(-50%); margin-right: 5px;"
                   @click="copyToClipboard(row.code)" />
               </el-tooltip>
             </div>
           </template>
         </el-table-column>
-
-        <el-table-column fixed="right" label="Operations" min-width="120">
-          <template  #default="{ row }">
-            <el-tooltip content="Review" placement="top">
-              <el-button
-type="primary" size="small" :icon="View" @click="DeleteReview(row)"
-                plain />
-            </el-tooltip> 
-            <el-tooltip content="Restore" placement="top">
-            <el-button type="warning"  size="small" :icon="RefreshLeft" @click="RevertEdits(row)" />
-          </el-tooltip> 
+        <el-table-column fixed="right" label="Actions" :min-width="actionColumnWidth">
+          <template #default="{ row }">
+            <template v-if="row._deletedTabSource === 'rejected'">
+              <TableActions
+                :item="row"
+                :buttons="getSettlementActionButtons(row)"
+                @edit="handleEdit"
+                @review="Review"
+                @delete="handleDelete"
+                @view-on-map="handleViewOnMap"
+                @decommission="handleDecommission"
+                @merge="handleMerge"
+                @update-location="handleUpdateLocation"
+              />
+            </template>
+            <template v-else>
+              <el-tooltip content="Review" placement="top">
+                <el-button type="primary" size="small" :icon="View" plain @click="DeleteReview(row)" />
+              </el-tooltip>
+              <el-tooltip content="Restore" placement="top">
+                <el-button type="warning" size="small" :icon="RefreshLeft" @click="RevertEdits(row)" />
+              </el-tooltip>
+            </template>
           </template>
-    </el-table-column>
-
+        </el-table-column>
       </el-table>
 
       <ElPagination
-        layout="sizes, prev, pager, next, total" 
+        layout="sizes, prev, pager, next, total"
         v-model:current-page="deletedPage"
-        v-model:page-size="deletedPageSize" 
-        :page-sizes="[5, 10, 15, 20, 50, 100, 1000, 2000]" 
-        :total="deletedSettlementsCount" 
+        v-model:page-size="deletedPageSize"
+        :page-sizes="[5, 10, 15, 20, 50, 100, 1000, 2000]"
+        :total="deletedSettlementsCount"
         :background="true"
         @size-change="(size) => { deletedPageSize = size; deletedPage = 1; }"
-        @current-change="(page) => { deletedPage = page; }" 
-        class="mt-4" />
+        @current-change="(page) => { deletedPage = page; }"
+        class="mt-4"
+      />
 
+      <div v-if="isSuperAdmin && selectedSettlementsRejected.length >= 1" style="margin-top: 10px; margin-bottom: 10px;">
+        <el-button
+          type="danger"
+          :icon="deleteCascadeLoading ? undefined : Delete"
+          :loading="deleteCascadeLoading"
+          :disabled="deleteCascadeLoading"
+          @click="handleDeleteCascade">
+          Delete Cascade ({{ selectedSettlementsRejected.length }} selected)
+        </el-button>
+      </div>
     </div>
 
  
@@ -5427,13 +5530,13 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
         <el-descriptions-item label="Submitted By"> {{ settlement_raw.user }} </el-descriptions-item>
         <el-descriptions-item label="Date"> {{ settlement_raw.date }} </el-descriptions-item>
 
-        <el-descriptions-item   v-if="activeSegment === 'Deleted'"  label="Deleted By"> {{ settlement_raw.user }} </el-descriptions-item>
-        <el-descriptions-item   v-if="activeSegment === 'Deleted'"  label="Date Deleted"> {{ settlement_raw.delete_date }} </el-descriptions-item>
+        <el-descriptions-item v-if="activeSegment === 'Deleted' && !reviewIsRejectedSettlement" label="Deleted By"> {{ settlement_raw.user }} </el-descriptions-item>
+        <el-descriptions-item v-if="activeSegment === 'Deleted' && !reviewIsRejectedSettlement" label="Date Deleted"> {{ settlement_raw.delete_date }} </el-descriptions-item>
  
 
       </el-descriptions>
       <template #footer>
-        <span v-if="showAdminButtons &&  activeSegment != 'Deleted'" class="dialog-footer">
+        <span v-if="showAdminButtons && (activeSegment != 'Deleted' || reviewIsRejectedSettlement)" class="dialog-footer">
           <el-button type="success" @click="approve">Approve</el-button>
           <el-button type="danger" @click="reject">Reject</el-button>
         </span>

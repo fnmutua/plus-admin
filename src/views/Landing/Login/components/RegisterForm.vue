@@ -30,6 +30,8 @@ interface RegistrationFormData {
   location_level?: string
   location_id?: string | number
   location_field?: string
+  access_reason?: string
+  data_use_description?: string
 }
 
 const { push } = useRouter()
@@ -51,8 +53,20 @@ const formData = reactive<RegistrationFormData>({
   phone_e164: '',
   country_name: '',
   country: '',
-  agree_terms: true
+  agree_terms: true,
+  access_reason: '',
+  data_use_description: ''
 })
+
+const accessReasonOptions = [
+  { value: 'research', label: 'Research' },
+  { value: 'journalism', label: 'Journalism' },
+  { value: 'ngo_cso', label: 'NGO / CSO Work' },
+  { value: 'academic', label: 'Academic Study' },
+  { value: 'government', label: 'Government / Public Sector' },
+  { value: 'personal', label: 'Personal Interest' },
+  { value: 'other', label: 'Other' }
+]
 
 // vue-tel-input validation state
 const phoneIsValid = ref(false)
@@ -160,6 +174,20 @@ const rules = {
       trigger: 'change'
     }
   ],
+  access_reason: [
+    { required: true, message: 'Please select a reason for access', trigger: 'change' }
+  ],
+  data_use_description: [
+    { required: true, message: 'Please describe your intended use of the data', trigger: 'blur' },
+    {
+      validator: (_: any, value: string, cb: any) => {
+        if (!value || value.trim().length < 50)
+          return cb(new Error('Please provide at least 50 characters describing your intended use'))
+        cb()
+      },
+      trigger: 'blur'
+    }
+  ],
   phone: [
     { required: true, message: 'Phone number is required', trigger: ['blur', 'change'] },
     {
@@ -175,7 +203,7 @@ const rules = {
         const cleanPhone = value.trim().replace(/\s/g, '')
         const phoneRegex = /^\+[1-9]\d{7,14}$/
         if (!phoneRegex.test(cleanPhone)) {
-          return cb(new Error('Enter a valid international phone number (e.g., +2547xxxxxxxx)'))
+          return cb(new Error('Enter a valid phone number (e.g., +2547xxxxxxxx)'))
         }
         
         cb()
@@ -352,7 +380,7 @@ const toPrivacy = () => {
                 />
               </el-form-item>
 
-              <el-form-item prop="organization_name" class="form-field-item form-field-full" label-position="top">
+              <el-form-item prop="organization_name" class="form-field-item" label-position="top">
                 <template #label>
                   <span class="form-label">Organization</span>
                 </template>
@@ -364,7 +392,7 @@ const toPrivacy = () => {
                 />
               </el-form-item>
 
-              <el-form-item prop="phone" class="form-field-item form-field-full" label-position="top">
+              <el-form-item prop="phone" class="form-field-item" label-position="top">
                 <template #label>
                   <span class="form-label">Phone</span>
                 </template>
@@ -398,6 +426,37 @@ const toPrivacy = () => {
                     :value="opt.value"
                   />
                 </el-select>
+              </el-form-item>
+
+              <el-form-item prop="access_reason" class="form-field-item" :class="{ 'form-field-full': !isKenya }" label-position="top">
+                <template #label>
+                  <span class="form-label">Reason for Access</span>
+                </template>
+                <el-select
+                  v-model="formData.access_reason"
+                  placeholder="Select reason"
+                  class="auth-select"
+                >
+                  <el-option
+                    v-for="opt in accessReasonOptions"
+                    :key="opt.value"
+                    :label="opt.label"
+                    :value="opt.value"
+                  />
+                </el-select>
+              </el-form-item>
+
+              <el-form-item prop="data_use_description" class="form-field-item form-field-full" label-position="top">
+                <template #label>
+                  <span class="form-label">Proposed Use of Data</span>
+                </template>
+                <el-input
+                  v-model="formData.data_use_description"
+                  type="textarea"
+                  :rows="3"
+                  placeholder="Briefly describe how you intend to use the data (min. 50 characters)"
+                  class="auth-input"
+                />
               </el-form-item>
 
               <el-form-item prop="agree_terms" class="form-field-item checkbox-item form-field-full">
@@ -678,6 +737,34 @@ const toPrivacy = () => {
   color: var(--text-primary);
   font-size: 0.875rem;
   line-height: 1.5;
+}
+
+/* Textarea styling */
+:deep(.el-textarea__inner) {
+  border-radius: 8px;
+  padding: 10px 14px;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  transition: all 0.15s ease;
+  box-shadow: none;
+  resize: vertical;
+}
+
+:deep(.el-textarea__inner:hover) {
+  border-color: var(--el-border-color-hover);
+}
+
+:deep(.el-textarea__inner:focus) {
+  border-color: #00DC82;
+  box-shadow: 0 0 0 3px rgba(0, 220, 130, 0.08);
+  outline: none;
+}
+
+.dark-mode :deep(.el-textarea__inner) {
+  background: transparent !important;
 }
 
 /* vue-tel-input styling */

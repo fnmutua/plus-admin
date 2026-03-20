@@ -663,16 +663,19 @@ const allNavGroups: NavGroup[] = [
             <tr><td><strong>Organisation</strong></td><td>The organisation you belong to (e.g. Kenya Red Cross Society, county government, etc.).</td></tr>
             <tr><td><strong>Phone</strong></td><td>Your phone number with country code. An international phone input is provided.</td></tr>
             <tr><td><strong>County</strong></td><td>Your county (shown for Kenyan phone numbers). Select "Not Applicable" if not county-based.</td></tr>
+            <tr><td><strong>Reason for Access</strong></td><td>Select the category that best describes why you need access to the data &mdash; Research, Journalism, NGO / CSO Work, Academic Study, Government / Public Sector, Personal Interest, or Other.</td></tr>
+            <tr><td><strong>Proposed Use of Data</strong></td><td>Describe in your own words how you intend to use the data (minimum 50 characters). This information is reviewed by an administrator before your account is activated.</td></tr>
           </tbody></table>
           <ol start="5">
             <li>Check the <strong>I agree to the privacy policy</strong> checkbox</li>
             <li>Click <strong>Register</strong> to submit your application</li>
           </ol>
-          <h2>What happens after registration?</h2> 
+          <h2>What happens after registration?</h2>
           <ul>
             <li>Your registration is submitted for <strong>administrator review</strong></li>
+            <li>The administrator will review your stated <strong>Reason for Access</strong> and <strong>Proposed Use of Data</strong> before making a decision</li>
             <li>An administrator will approve your account and assign you a <strong>role</strong> that determines which modules and data you can access</li>
-            <li>You will receive an sms and email notification once your account is activated</li>
+            <li>You will receive an SMS and email notification once your account is activated</li>
             <li>After approval, you can sign in using your email and password</li>
           </ul>
           <h2>Alternative path via the login page</h2>

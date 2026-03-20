@@ -138,6 +138,16 @@ const searchString = ref()
 
 
 //// ------------------parameters -----------------------////
+const accessReasonLabels: Record<string, string> = {
+  research: 'Research',
+  journalism: 'Journalism',
+  ngo_cso: 'NGO / CSO Work',
+  academic: 'Academic Study',
+  government: 'Government / Public Sector',
+  personal: 'Personal Interest',
+  other: 'Other'
+}
+
 const form = ref({
   id: '',
   name: '',
@@ -150,7 +160,9 @@ const form = ref({
   roles: [],
   avatar: '',
   username: null,
-  organization_name: ''
+  organization_name: '',
+  access_reason: '',
+  data_use_description: ''
 })
 
 
@@ -553,6 +565,8 @@ const EditUser = async (data: TableSlotDefault) => {
   form.value.avatar = data.row.avatar
   form.value.username = data.row.username
   form.value.organization_name = data.row.organization_name || ''
+  form.value.access_reason = data.row.access_reason || ''
+  form.value.data_use_description = data.row.data_use_description || ''
 
 
   // data.row.roles.forEach(async function (arrayItem) {
@@ -955,6 +969,11 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
       <el-table-column label="Country" prop="country_name" sortable />
       <el-table-column label="County" prop="county.name" sortable />
       <el-table-column label="Organization" prop="organization_name" sortable />
+      <el-table-column label="Reason for Access" prop="access_reason" sortable>
+        <template #default="scope">
+          {{ accessReasonLabels[scope.row.access_reason] || scope.row.access_reason || '—' }}
+        </template>
+      </el-table-column>
 
       <el-table-column fixed="right" :label="isMobile ? '' : 'Operations'" :width="actionColumnWidth">
         <template #default="scope">
@@ -1078,7 +1097,35 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
               </el-select>
             </el-form-item>
           </el-col>
+
         </el-row>
+
+        <template v-if="form.access_reason || form.data_use_description">
+          <el-divider content-position="left" style="margin: 16px 0 8px;">Data Access Request</el-divider>
+          <el-row :gutter="10">
+            <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12" v-if="form.access_reason">
+              <el-form-item label="Reason" :label-width="formLabelWidth">
+                <el-input
+                  :value="accessReasonLabels[form.access_reason] || form.access_reason"
+                  disabled
+                  autocomplete="off"
+                />
+              </el-form-item>
+            </el-col>
+
+            <el-col :span="24" v-if="form.data_use_description">
+              <el-form-item label="Proposed Use" :label-width="formLabelWidth">
+                <el-input
+                  v-model="form.data_use_description"
+                  type="textarea"
+                  :rows="3"
+                  disabled
+                  autocomplete="off"
+                />
+              </el-form-item>
+            </el-col>
+          </el-row>
+        </template>
 
         <!-- Table for roles management -->
         <div :style="{ overflowX: 'auto', width: '100%' }">
