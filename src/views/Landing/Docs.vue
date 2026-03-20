@@ -403,7 +403,7 @@ const allNavGroups: NavGroup[] = [
       },
       {
         id: 'overview',
-        label: 'Landing Page Overview',
+        label: 'Overview',
         content: `
           <p>The landing page is the public entry point to KeSMIS. It is accessible to everyone &mdash; no login is required. The page is designed to introduce the system and give public users quick access to key services.</p>
           <img src="${landingPageImg}" alt="KeSMIS Landing Page" class="docs-screenshot" />
@@ -433,7 +433,7 @@ const allNavGroups: NavGroup[] = [
       },
       {
         id: 'hero',
-        label: 'landing page & Buttons',
+        label: 'Landing',
         content: `
           <p>The landing page sits at the very top of the landing page. On the left it displays the system name, a short description, and three feature highlights (geodatabase, e-GRM, climate risk). On the right it shows an animated preview of what the internal dashboard looks like &mdash; a rotating carousel of bar charts, pie charts, and a mini map.</p>
           <img src="${actionButtonsImg}" alt="landing page action buttons" class="docs-screenshot" />
@@ -605,7 +605,7 @@ const allNavGroups: NavGroup[] = [
       },
       {
         id: 'about-kisip',
-        label: 'About KISIP & Statistics',
+        label: 'About KISIP',
         content: `
           <p>Below the landing page, the landing page presents background information about the <strong>Kenya Informal Settlements Improvement Project (KISIP)</strong>:</p>
           <img src="${aboutKisipImg}" alt="About KISIP section" class="docs-screenshot" />

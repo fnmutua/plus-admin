@@ -461,7 +461,7 @@ const toPrivacy = () => {
                   v-model="formData.data_use_description"
                   type="textarea"
                   :rows="3"
-                  maxlength="300"
+                  maxlength="150"
                   show-word-limit
                   placeholder="Briefly describe how you intend to use the data (min. 50 characters)"
                   class="auth-input"
