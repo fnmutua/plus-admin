@@ -420,7 +420,7 @@ const allNavGroups: NavGroup[] = [
           <h2>Page layout (top to bottom)</h2>
           <p>The landing page is organised into the following sections as you scroll down:</p>
           <ol>
-            <li><strong>Hero section</strong> &mdash; system title, description, feature highlights and primary action buttons</li>
+            <li><strong>landing page</strong> &mdash; system title, description, feature highlights and primary action buttons</li>
             <li><strong>System Capabilities</strong> &mdash; cards summarising the seven main capabilities (geodatabase, GIS, GRM, M&amp;E, access control, data collection, climate risk)</li>
             <li><strong>About KISIP</strong> &mdash; programme background with live statistics (settlements, population, projects, availability)</li>
             <li><strong>Settlement Register</strong> &mdash; interactive search table with map view</li>
@@ -433,10 +433,10 @@ const allNavGroups: NavGroup[] = [
       },
       {
         id: 'hero',
-        label: 'Hero Section & Buttons',
+        label: 'landing page & Buttons',
         content: `
-          <p>The hero section sits at the very top of the landing page. On the left it displays the system name, a short description, and three feature highlights (geodatabase, e-GRM, climate risk). On the right it shows an animated preview of what the internal dashboard looks like &mdash; a rotating carousel of bar charts, pie charts, and a mini map.</p>
-          <img src="${actionButtonsImg}" alt="Hero section action buttons" class="docs-screenshot" />
+          <p>The landing page sits at the very top of the landing page. On the left it displays the system name, a short description, and three feature highlights (geodatabase, e-GRM, climate risk). On the right it shows an animated preview of what the internal dashboard looks like &mdash; a rotating carousel of bar charts, pie charts, and a mini map.</p>
+          <img src="${actionButtonsImg}" alt="landing page action buttons" class="docs-screenshot" />
           <h2>Action buttons</h2>
           <p>Below the description are four buttons. These are the primary entry points for any visitor:</p>
           <table><thead><tr><th>Button</th><th>What it does</th></tr></thead><tbody>
@@ -515,7 +515,7 @@ const allNavGroups: NavGroup[] = [
           <img src="${fileGrievanceBtnImg}" alt="File a Grievance button on the landing page" class="docs-screenshot" />
           <h2>How to file a grievance</h2>
           <ol>
-            <li>Click the <strong>File a Grievance</strong> button (either in the hero section or in the GRM section)</li>
+            <li>Click the <strong>File a Grievance</strong> button (either in the landing page or in the GRM section)</li>
             <li>You will be taken to a multi-step form. Fill in your personal details &mdash; name (or "Anonymous" for anonymity), gender, age bracket, national ID, phone number, and email</li>
             <li>Select the <strong>county</strong> and <strong>project phase</strong> (KISIP 1 or KISIP 2), then choose the <strong>settlement</strong> related to your complaint</li>
             <li>Describe the <strong>nature and details</strong> of the complaint, and optionally attach supporting documents or photographs</li>
@@ -532,11 +532,11 @@ const allNavGroups: NavGroup[] = [
         id: 'incident-section',
         label: 'Reporting an Incident',
         content: `
-          <p>The <strong>Incident Report</strong> button on the hero section opens the public incident reporting page. This allows anyone to report accidents, disasters, or safety events affecting informal settlements or KISIP project areas.</p>
+          <p>The <strong>Incident Report</strong> button on the landing page opens the public incident reporting page. This allows anyone to report accidents, disasters, or safety events affecting informal settlements or KISIP project areas.</p>
           <img src="${incidentBtnImg}" alt="Incident Report button on the landing page" class="docs-screenshot" />
           <h2>How to report an incident</h2>
           <ol>
-            <li>Click the <strong>Incident Report</strong> button on the landing page hero section</li>
+            <li>Click the <strong>Incident Report</strong> button on the landing page landing page</li>
             <li>You will be taken to the incident form with two tabs: <strong>File an Incident</strong> (active by default) and a tab for looking up existing incidents</li>
             <li>Fill in the <strong>Incident Details</strong>:
               <ul>
@@ -607,7 +607,7 @@ const allNavGroups: NavGroup[] = [
         id: 'about-kisip',
         label: 'About KISIP & Statistics',
         content: `
-          <p>Below the hero section, the landing page presents background information about the <strong>Kenya Informal Settlements Improvement Project (KISIP)</strong>:</p>
+          <p>Below the landing page, the landing page presents background information about the <strong>Kenya Informal Settlements Improvement Project (KISIP)</strong>:</p>
           <img src="${aboutKisipImg}" alt="About KISIP section" class="docs-screenshot" />
           <ul>
             <li>KeSMIS is implemented under KISIP, a government initiative to improve living conditions in informal settlements across Kenya</li>
@@ -648,7 +648,7 @@ const allNavGroups: NavGroup[] = [
           <p>Before you can access the internal KeSMIS dashboard you need a user account. The easiest way to create one is from the landing page using the dedicated <strong>Sign Up</strong> button.</p>
           <h2>How to create an account</h2>
           <ol>
-            <li>From the hero section, click the green <strong>Sign Up</strong> success-outline button. This only appears when you are <em>not</em> logged in.</li>
+            <li>From the landing page, click the green <strong>Sign Up</strong> success-outline button. This only appears when you are <em>not</em> logged in.</li>
           </ol>
           <img src="${accountSignupImg}" alt="Account sign-up and onboarding button on the landing page" class="docs-screenshot" />
           <ol start="2">
@@ -681,7 +681,7 @@ const allNavGroups: NavGroup[] = [
           <h2>Alternative path via the login page</h2>
           <p>You can also start from the <strong>Sign in</strong> button if you prefer:</p>
           <ol>
-            <li>Click the <strong>Sign in</strong> button on the hero section or the top navigation bar to open the login page.</li>
+            <li>Click the <strong>Sign in</strong> button on the landing page or the top navigation bar to open the login page.</li>
           </ol>
           <img src="${signinBtnImg}" alt="Sign in button on the landing page" class="docs-screenshot" />
           <ol start="2">
@@ -699,7 +699,7 @@ const allNavGroups: NavGroup[] = [
           <img src="${signinBtnImg}" alt="Sign in button on the landing page" class="docs-screenshot" />
           <h2>How to sign in</h2>
           <ol>
-            <li>Click the <strong>Sign in</strong> button on the hero section, or the <strong>Sign in</strong> link on the top navigation bar</li>
+            <li>Click the <strong>Sign in</strong> button on the landing page, or the <strong>Sign in</strong> link on the top navigation bar</li>
             <li>You will be taken to the <strong>login page</strong></li>
             <li>Enter your <strong>email address</strong> and <strong>password</strong></li>
             <li>Click <strong>Sign in</strong> to authenticate</li>
@@ -712,7 +712,7 @@ const allNavGroups: NavGroup[] = [
           <h2>After signing in</h2>
           <p>Once authenticated:</p>
           <ul>
-            <li>The landing page hero button changes from <strong>"Sign in"</strong> to <strong>"Dashboard"</strong></li>
+            <li>The landing page button changes from <strong>"Sign in"</strong> to <strong>"Dashboard"</strong></li>
             <li>Clicking it takes you directly to your <strong>home dashboard</strong></li>
             <li>The sidebar navigation appears with all modules available to your role</li>
             <li>You can access settlements, facilities, surveys, grievances, M&amp;E and all other modules based on your assigned permissions</li>
