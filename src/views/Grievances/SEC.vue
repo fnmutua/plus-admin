@@ -1032,6 +1032,7 @@ const SEC_options =  [
 { "value": "secretary", "label": "Secretary" },
   { "value": "organizing_secretary", "label": "Organizing Secretary" },
   { "value": "vice_chairperson", "label": "Vice Chairperson" },
+  { "value": "Ex-official", "label": "Ex-official" },
   { "value": "member", "label": "Member" }
 ]
 
