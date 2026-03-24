@@ -1072,6 +1072,7 @@ const form = ref({
 
 const dialogFormVisible = ref(false)
 const isSubmittingSuccessfully = ref(false)
+const isResolutionSubmitting = ref(false)
 const showSupportingDocDialog = ref(false)
 const isSupportingDocUploading = ref(false)
 const supportingDocFileList = ref([])
@@ -1264,6 +1265,7 @@ const submitResolutionForm = async () => {
 
   formInstance.value.validate(async (valid: boolean) => {
     if (valid) {
+      isResolutionSubmitting.value = true
       try {
       form.value.grievance_id = Grievance.value.id
       form.value.action_type = form.value.new_status
@@ -1527,6 +1529,8 @@ const submitResolutionForm = async () => {
           message: extractApiErrorMessage(error, 'Failed to submit. Please try again.'),
           type: 'error'
         })
+      } finally {
+        isResolutionSubmitting.value = false
       }
     } else {
       console.log('is Not Valid')
@@ -2506,6 +2510,9 @@ const prevResolutionStep = () => {
 }
 
 const handleDrawerClose = (done) => {
+  if (isResolutionSubmitting.value) {
+    return
+  }
   // If submission was successful, close immediately without confirmation
   if (isSubmittingSuccessfully.value) {
     isSubmittingSuccessfully.value = false
@@ -3171,6 +3178,8 @@ width="340"
     :size="isMobile ? '100%' : '40%'"
     :with-header="false"
     :before-close="handleDrawerClose"
+    :close-on-click-modal="!isResolutionSubmitting"
+    :close-on-press-escape="!isResolutionSubmitting"
     class="grievance-drawer"
   >
     <!-- Custom Header -->
@@ -3186,15 +3195,16 @@ width="340"
       </div>
       <el-button 
         type="text" 
-        @click="dialogFormVisible = false"
+        @click="!isResolutionSubmitting && (dialogFormVisible = false)"
         class="close-button"
         :size="isMobile ? 'small' : 'default'"
+        :disabled="isResolutionSubmitting"
       >
         <Icon icon="mdi:close" :size="isMobile ? 18 : 20" />
       </el-button>
     </div>
 
-    <div class="drawer-content">
+    <div class="drawer-content" v-loading="isResolutionSubmitting" element-loading-text="Submitting update...">
       <el-form :model="form" label-width="auto" ref="dynamicFormRef" :rules="rules" class="grievance-form">
 
         <!-- Status Selection Section -->
@@ -3433,6 +3443,7 @@ width="340"
             <el-button 
               @click="dialogFormVisible = false"
               :size="isMobile ? 'small' : 'default'"
+              :disabled="isResolutionSubmitting"
             >
               Cancel
             </el-button>
@@ -3441,6 +3452,7 @@ width="340"
                 v-if="resolutionStep > 0" 
                 @click="prevResolutionStep"
                 :size="isMobile ? 'small' : 'default'"
+                :disabled="isResolutionSubmitting"
               >
                 Previous
               </el-button>
@@ -3449,6 +3461,7 @@ width="340"
                 type="primary" 
                 @click="nextResolutionStep"
                 :size="isMobile ? 'small' : 'default'"
+                :disabled="isResolutionSubmitting"
               >
                 Next
               </el-button>
@@ -3457,6 +3470,8 @@ width="340"
                 type="primary" 
                 @click="submitResolutionForm"
                 :size="isMobile ? 'small' : 'default'"
+                :loading="isResolutionSubmitting"
+                :disabled="isResolutionSubmitting"
               >
                 Submit
               </el-button>
@@ -3527,6 +3542,7 @@ width="340"
           @click="dialogFormVisible = false"
           :size="isMobile ? 'small' : 'default'"
           :class="{ 'mobile-button': isMobile }"
+          :disabled="isResolutionSubmitting"
         >
           Cancel
         </el-button>
@@ -3535,6 +3551,8 @@ width="340"
           @click="submitResolutionForm"
           :size="isMobile ? 'small' : 'default'"
           :class="{ 'mobile-button': isMobile }"
+          :loading="isResolutionSubmitting"
+          :disabled="isResolutionSubmitting"
         >
           Submit
         </el-button>
